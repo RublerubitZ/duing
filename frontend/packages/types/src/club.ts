@@ -47,8 +47,24 @@ export type ClubSummary = {
   activeRecruitment: ClubSummaryRecruitment | null;
 };
 
+export type ContactVisibility = 'PUBLIC' | 'LOGGED_IN_ONLY' | 'PRIVATE';
+
+export type FeeCycle = 'NONE' | 'ONE_TIME' | 'SEMESTER' | 'YEARLY' | 'MONTHLY';
+
+export const PROJECT_ICONS = [
+  'CODE', 'TROPHY', 'USERS', 'ROCKET', 'BOOK', 'CAMERA', 'PALETTE', 'MUSIC', 'MIC', 'GLOBE',
+  'HEART', 'LEAF', 'BRIEFCASE', 'LIGHTBULB', 'FLASK', 'GAMEPAD', 'DUMBBELL', 'GRADUATION',
+  'MONITOR', 'SPARKLES',
+] as const;
+export type ProjectIcon = (typeof PROJECT_ICONS)[number];
+
+export type ClubProject = { icon: ProjectIcon; title: string; subtitle: string | null };
+
+export type ClubSnsPlatform = 'INSTAGRAM' | 'FACEBOOK' | 'KAKAO' | 'OTHER';
+
 export type ClubSnsLink = {
-  platform: string;
+  platform: ClubSnsPlatform;
+  label: string | null;
   url: string;
 };
 
@@ -78,13 +94,15 @@ export type ClubDetail = ClubSummary & {
   foundedYear: number | null;
   cohortNumber: number | null;
   location: string | null;
-  contactEmail: string | null;
+  contactPhone: string | null;
+  contactVisibility: ContactVisibility;
   activityFrequency: number | null;
   activeDays: ClubDayOfWeek[];
-  membershipFee: string | null;
+  membershipFeeAmount: number | null;
+  feeCycle: FeeCycle;
   tagline: string | null;
   highlights: string[];
-  majorProjects: string | null;
+  projects: ClubProject[];
   /**
    * 상세 페이지 전용: 카드용 ClubSummaryRecruitment 보다 풍부한 필드를 노출.
    * field 명도 다르다 — 카드는 `recruitmentId`, 상세는 `id`. BE 응답 모양과 1:1 매칭이라 의도된 발산.
@@ -154,12 +172,8 @@ export type MyClubSummary = {
   joinedAt: string; // ISO datetime
 };
 
+// 리더 PATCH clubs/{id} — 잠금 필드(name/category/division/college)는 포함하지 않는다.
 export type UpdateClubPayload = {
-  name?: string;
-  category?: ClubCategory;
-  division?: string | null;
-  college?: College;
-  clearCollege?: boolean;
   clearLogoImage?: boolean;
   clearCoverImage?: boolean;
   description?: string | null;
@@ -171,13 +185,23 @@ export type UpdateClubPayload = {
   foundedYear?: number | null;
   cohortNumber?: number | null;
   location?: string | null;
-  contactEmail?: string | null;
+  contactVisibility?: ContactVisibility;
   activityFrequency?: number | null;
   activeDays?: ClubDayOfWeek[];
-  membershipFee?: string | null;
+  membershipFeeAmount?: number | null;
+  feeCycle?: FeeCycle;
   tagline?: string | null;
   highlights?: string[];
-  majorProjects?: string | null;
+  projects?: ClubProject[];
+};
+
+// 총동연 PATCH admin/clubs/{id} — 리더 payload + 잠금 필드까지 수정 가능.
+export type AdminUpdateClubPayload = UpdateClubPayload & {
+  name?: string;
+  category?: ClubCategory;
+  division?: string | null;
+  college?: College;
+  clearCollege?: boolean;
 };
 
 export type FilePurpose = 'LOGO' | 'COVER' | 'PHOTO' | 'NOTICE_COVER' | 'NOTICE_BODY' | 'PROMOTION_BANNER' | 'GLOBAL_EVENT_COVER' | 'PROMOTION_REQUEST_BANNER' | 'FEDERATION_INQUIRY';
@@ -205,4 +229,33 @@ export type PhotoOrderItem = {
 
 export type ReorderClubPhotosPayload = {
   items: PhotoOrderItem[];
+};
+
+export type ClubHeroActivity = {
+  id: number;
+  clubPhotoId: number;
+  storageKey: string;
+  caption: string | null;
+  width: number | null;
+  height: number | null;
+  title: string;
+  description: string;
+  displayOrder: number; // 1..6 슬롯 번호
+};
+
+export type CreateHeroActivityPayload = {
+  clubPhotoId: number;
+  title: string;
+  description: string;
+  displayOrder: number;
+};
+
+export type UpdateHeroActivityPayload = {
+  clubPhotoId?: number;
+  title?: string;
+  description?: string;
+};
+
+export type ReorderHeroActivitiesPayload = {
+  items: { heroActivityId: number; displayOrder: number }[];
 };

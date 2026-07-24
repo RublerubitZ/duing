@@ -1,36 +1,48 @@
 'use client';
 
-import { useState } from 'react';
-import type { ClubDetail, ClubDayOfWeek, College, UpdateClubPayload } from '@duing/types';
-import { updateClubSchema } from '@duing/schemas';
+import { useRef, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import type {
+  AdminUpdateClubPayload, ClubCategory, ClubDetail, ClubDayOfWeek, College,
+} from '@duing/types';
+import { updateClubSchema, adminUpdateClubSchema } from '@duing/schemas';
 import { TagsInput } from './TagsInput';
 import { SnsLinksRepeater } from './SnsLinksRepeater';
 import { FaqsRepeater } from './FaqsRepeater';
 import { HighlightsRepeater } from './HighlightsRepeater';
+import { ProjectsRepeater } from './ProjectsRepeater';
 import { ActiveDaysToggle } from './ActiveDaysToggle';
+import { SectionCard } from '@/app/manage/_components/SectionCard';
+import { LockedInput } from './LockedInput';
+import { ContactVisibilityField } from './ContactVisibilityField';
+import { FeeCycleSegment } from './FeeCycleSegment';
+import { ClubProfilePreview, type ClubPreviewData } from './ClubProfilePreview';
 import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
+import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
+import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { seedEditorHtml } from '../_lib/seedEditorHtml';
 
 type ClubUpdateMutation = {
-  mutateAsync: (payload: UpdateClubPayload) => Promise<ClubDetail>;
+  mutateAsync: (payload: AdminUpdateClubPayload) => Promise<ClubDetail>;
   isPending: boolean;
 };
 
 type ClubInfoFormProps = {
   detail: ClubDetail;
-  readOnly: boolean;
+  mode: 'leader' | 'officer' | 'admin';
   mutation: ClubUpdateMutation;
   onCancel?: () => void;
   onSaved?: () => void;
 };
 
 const CATEGORIES = ['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER'] as const;
-type CategoryLiteral = (typeof CATEGORIES)[number];
 
-const CATEGORY_LABELS: Record<CategoryLiteral, string> = {
+const CATEGORY_LABELS: Record<ClubCategory, string> = {
   ACADEMIC: '학술',
   CULTURE: '문화',
   ART: '예술',
@@ -41,8 +53,19 @@ const CATEGORY_LABELS: Record<CategoryLiteral, string> = {
   OTHER: '기타',
 };
 
-function isCategory(value: string): value is CategoryLiteral {
+const LOCKED_NOTICE =
+  '동아리명 · 카테고리 · 분과(또는 단과대학)는 총동연에서 관리하며 운영진은 수정할 수 없습니다.';
+
+// 소개글 글자 수 정책 — 텍스트(getText) 기준. HTML 백스톱은 zod(clubProfileBaseSchema.description).
+const DESCRIPTION_TEXT_LIMIT = 1500;
+
+function isCategory(value: string): value is ClubCategory {
   return (CATEGORIES as readonly string[]).includes(value);
+}
+
+function collegeLabel(code: College | null): string {
+  if (code === null) return '미지정';
+  return COLLEGE_OPTIONS.find((option) => option.code === code)?.label ?? '미지정';
 }
 
 const inputCls =
@@ -53,20 +76,46 @@ const selectCls =
 
 const labelCls = 'block text-[13px] font-medium text-[#4a5247]';
 
-const fieldCls = 'flex flex-col gap-1.5 mb-[18px]';
+const chevronStyle = {
+  backgroundImage:
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234a5247' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 12px center',
+  backgroundSize: '12px',
+  paddingRight: '36px',
+} as const;
 
-const groupCardCls =
-  'relative border border-[#d9d4c3] rounded-[10px] pt-[22px] px-[22px] pb-6 bg-white mt-2 mb-[22px] space-y-[18px]';
+/** 라벨 + 본문 로컬 헬퍼. htmlFor 를 주면 실제 input 과 연결되는 label 로 렌더한다. */
+function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={labelCls}>{label}</label>
+      ) : (
+        <span className={labelCls}>{label}</span>
+      )}
+      {children}
+    </div>
+  );
+}
 
-const groupLegendCls =
-  'absolute -top-[10px] left-4 bg-white px-2 text-[12px] font-semibold text-[#3e5b34] tracking-[0.02em]';
+export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: ClubInfoFormProps) {
+  const readOnly = mode === 'officer';
+  const adminMode = mode === 'admin';
 
-export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: ClubInfoFormProps) {
+  // 잠금 필드 — adminMode 에서만 편집. leader/officer 는 detail 값을 그대로 표시한다.
   const [name, setName] = useState(detail.name);
-  const [category, setCategory] = useState(detail.category);
+  const [category, setCategory] = useState<ClubCategory>(detail.category);
   const [division, setDivision] = useState(detail.division ?? '');
   const [college, setCollege] = useState<College | ''>(detail.college ?? '');
-  const [description, setDescription] = useState(detail.description ?? '');
+
+  // 편집 진입 시 레거시 plain 소개는 <p> 로 변환해 시드한다(개행 소실 방지). value 는 마운트 시 1회만 읽힌다.
+  const [seededDescription] = useState(() => seedEditorHtml(detail.description ?? ''));
+  const [description, setDescription] = useState(seededDescription);
+  const [descriptionTextLength, setDescriptionTextLength] = useState(0);
+  // dirty 판정은 에디터가 시드로부터 처음 직렬화한 HTML(onCreate) 을 기준으로 한다 —
+  // 에디터를 연 것만으로(변환·정규화 차이) 변경으로 오인해 저장되는 것을 막는다.
+  const descriptionBaselineRef = useRef<string | null>(null);
   const [logoUrl, setLogoUrl] = useState(detail.logoUrl ?? '');
   const [coverUrl, setCoverUrl] = useState(detail.coverUrl ?? '');
   const [tags, setTags] = useState(detail.tags);
@@ -79,92 +128,124 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
     detail.cohortNumber !== null ? String(detail.cohortNumber) : '',
   );
   const [location, setLocation] = useState(detail.location ?? '');
-  const [contactEmail, setContactEmail] = useState(detail.contactEmail ?? '');
   const [activityFrequency, setActivityFrequency] = useState<string>(
     detail.activityFrequency !== null ? String(detail.activityFrequency) : '',
   );
   const [activeDays, setActiveDays] = useState<ClubDayOfWeek[]>(detail.activeDays ?? []);
-  const [membershipFee, setMembershipFee] = useState(detail.membershipFee ?? '');
   const [tagline, setTagline] = useState(detail.tagline ?? '');
   const [highlights, setHighlights] = useState<string[]>(detail.highlights ?? []);
-  const [majorProjects, setMajorProjects] = useState(detail.majorProjects ?? '');
+  const [contactVisibility, setContactVisibility] = useState(detail.contactVisibility);
+  const [feeCycle, setFeeCycle] = useState(detail.feeCycle);
+  const [feeAmount, setFeeAmount] = useState(
+    detail.membershipFeeAmount !== null ? String(detail.membershipFeeAmount) : '',
+  );
+  const [projects, setProjects] = useState(detail.projects);
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
-  function buildPayload(): UpdateClubPayload {
-    const payload: UpdateClubPayload = {};
-    if (name !== detail.name) payload.name = name;
-    if (category !== detail.category) payload.category = category;
-    if (division !== (detail.division ?? '')) payload.division = division;
-    const previousCollege: College | '' = detail.college ?? '';
-    if (college !== previousCollege) {
-      if (college === '') {
-        payload.clearCollege = true;
-      } else {
-        payload.college = college;
-      }
+  const nextFeeAmount = feeCycle === 'NONE' ? null : feeAmount === '' ? null : Number(feeAmount);
+  const parsedFoundedYear = foundedYear.trim() === '' ? null : Number(foundedYear);
+  const parsedCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
+  const parsedActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
+  const parsedDivision = division.trim() === '' ? null : division;
+  const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
+
+  function handleDescriptionChange(html: string, textLength: number) {
+    // Tiptap 빈 문서는 getHTML()='<p></p>'(truthy)라 description||null·BE blankToNull 클리어를 우회한다.
+    // 텍스트가 없으면 '' 로 정규화해 "소개 전부 삭제 = 클리어"(''→null) 경로를 타게 한다.
+    const normalized = textLength === 0 ? '' : html;
+    if (descriptionBaselineRef.current === null) descriptionBaselineRef.current = normalized;
+    setDescription(normalized);
+    setDescriptionTextLength(textLength);
+  }
+
+  // §6.5 — 저장 상태(detail) 기준으로 판정하므로 입력 중에는 조건이 유지된다.
+  const showFeeMigrationNotice =
+    detail.feeCycle === 'NONE' && detail.membershipFeeAmount === null && feeCycle === 'NONE';
+
+  function buildPayload(): AdminUpdateClubPayload {
+    const payload: AdminUpdateClubPayload = {};
+
+    // 시드 변환본(에디터 첫 직렬화) 과 다를 때만 담는다 — 미터치 시 변환/정규화 차이로 오저장 방지.
+    if (descriptionBaselineRef.current !== null && description !== descriptionBaselineRef.current) {
+      payload.description = description;
     }
-    if (description !== (detail.description ?? '')) payload.description = description;
     if (logoUrl !== (detail.logoUrl ?? '')) {
-      if (logoUrl === '') {
-        payload.clearLogoImage = true;
-      } else {
-        payload.logoUrl = logoUrl;
-      }
+      if (logoUrl === '') payload.clearLogoImage = true;
+      else payload.logoUrl = logoUrl;
     }
     if (coverUrl !== (detail.coverUrl ?? '')) {
-      if (coverUrl === '') {
-        payload.clearCoverImage = true;
-      } else {
-        payload.coverUrl = coverUrl;
-      }
+      if (coverUrl === '') payload.clearCoverImage = true;
+      else payload.coverUrl = coverUrl;
     }
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags)) payload.tags = tags;
     if (JSON.stringify(snsLinks) !== JSON.stringify(detail.snsLinks)) payload.snsLinks = snsLinks;
     if (JSON.stringify(faqs) !== JSON.stringify(detail.faqs)) payload.faqs = faqs;
-    const newFoundedYear = foundedYear.trim() === '' ? null : Number(foundedYear);
-    if (newFoundedYear !== detail.foundedYear) payload.foundedYear = newFoundedYear;
-    const newCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
-    if (newCohortNumber !== detail.cohortNumber) payload.cohortNumber = newCohortNumber;
+    if (parsedFoundedYear !== detail.foundedYear) payload.foundedYear = parsedFoundedYear;
+    if (parsedCohortNumber !== detail.cohortNumber) payload.cohortNumber = parsedCohortNumber;
     if (location !== (detail.location ?? '')) payload.location = location;
-    if (contactEmail !== (detail.contactEmail ?? '')) payload.contactEmail = contactEmail;
-    const newActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
-    if (newActivityFrequency !== detail.activityFrequency) payload.activityFrequency = newActivityFrequency;
+    if (parsedActivityFrequency !== detail.activityFrequency) {
+      payload.activityFrequency = parsedActivityFrequency;
+    }
     if (JSON.stringify(activeDays) !== JSON.stringify(detail.activeDays)) payload.activeDays = activeDays;
-    if (membershipFee !== (detail.membershipFee ?? '')) payload.membershipFee = membershipFee;
     if (tagline !== (detail.tagline ?? '')) payload.tagline = tagline;
     if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) payload.highlights = highlights;
-    if (majorProjects !== (detail.majorProjects ?? '')) payload.majorProjects = majorProjects;
+    if (contactVisibility !== detail.contactVisibility) payload.contactVisibility = contactVisibility;
+    if (JSON.stringify(projects) !== JSON.stringify(detail.projects)) payload.projects = projects;
+
+    // 회비: 주기 또는 금액이 detail 과 다르면 항상 쌍으로 담는다 (§4.3).
+    if (feeCycle !== detail.feeCycle || nextFeeAmount !== detail.membershipFeeAmount) {
+      payload.feeCycle = feeCycle;
+      payload.membershipFeeAmount = nextFeeAmount;
+    }
+
+    // 잠금 필드 diff 는 adminMode 일 때만 — leader/officer 페이로드엔 절대 들어가지 않는다.
+    if (adminMode) {
+      if (name !== detail.name) payload.name = name;
+      if (category !== detail.category) payload.category = category;
+      // 비우기는 clear-intent 규약대로 '' 전송 — null 은 BE 부분수정에서 "미변경"이라 no-op 된다.
+      if (parsedDivision !== (detail.division ?? null)) payload.division = parsedDivision ?? '';
+      const nextCollege = college === '' ? null : college;
+      if (nextCollege !== (detail.college ?? null)) {
+        if (nextCollege === null) payload.clearCollege = true;
+        else payload.college = nextCollege;
+      }
+    }
+
     return payload;
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
-    const fullData = {
-      name,
-      category,
-      division: division || null,
+    // 소개 텍스트 1,500자 초과는 인라인 에러(descriptionOverLimit)로 이미 노출 중 — 저장만 차단한다.
+    if (descriptionOverLimit) return;
+
+    const baseData = {
       description: description || null,
       logoUrl: logoUrl || null,
       coverUrl: coverUrl || null,
       tags,
       snsLinks,
       faqs,
-      foundedYear: foundedYear.trim() === '' ? null : Number(foundedYear),
-      cohortNumber: cohortNumber.trim() === '' ? null : Number(cohortNumber),
+      foundedYear: parsedFoundedYear,
+      cohortNumber: parsedCohortNumber,
       location: location || null,
-      contactEmail: contactEmail || '',
-      activityFrequency: activityFrequency.trim() === '' ? null : Number(activityFrequency),
+      activityFrequency: parsedActivityFrequency,
       activeDays,
-      membershipFee: membershipFee || null,
       tagline: tagline || null,
       highlights,
-      majorProjects: majorProjects || null,
+      contactVisibility,
+      feeCycle,
+      // 유료 주기 + 빈 금액은 zod feePairRule 이 잡는다.
+      membershipFeeAmount: nextFeeAmount,
+      projects,
     };
-    const parsed = updateClubSchema.safeParse(fullData);
+    const parsed = adminMode
+      ? adminUpdateClubSchema.safeParse({ ...baseData, name, category, division: parsedDivision })
+      : updateClubSchema.safeParse(baseData);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
       return;
@@ -185,165 +266,174 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="px-12 py-9 pb-20">
-      <div className="max-w-[720px] mx-auto">
+  const preview: ClubPreviewData = {
+    name,
+    logoUrl,
+    coverUrl,
+    cohortNumber: parsedCohortNumber,
+    tagline,
+    tags,
+    foundedYear: parsedFoundedYear,
+    activityFrequency: parsedActivityFrequency,
+    activeDays,
+    location,
+    feeCycle,
+    membershipFeeAmount: nextFeeAmount,
+    highlights,
+  };
 
-        <header className="flex items-baseline gap-3 mb-7">
+  return (
+    <div className="mx-auto max-w-[1240px] px-6 py-9 xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
+      <form onSubmit={handleSubmit} className="min-w-0">
+        <header className="mb-6 flex items-baseline gap-3">
           <h1 className="text-[26px] font-bold tracking-tight text-[#2a2f27]">동아리 정보</h1>
           <span className="font-mono text-[11px] tracking-[0.14em] text-[#8a8f83] uppercase">
-            ADMIN · CLUB INFO
+            CLUB PROFILE
           </span>
         </header>
 
         {readOnly && (
-          <p className="mb-5 text-[12px] text-[#8a8f83]">
-            OFFICER 는 읽기만 가능합니다. 수정은 LEADER 만 할 수 있습니다.
+          <p className="mb-5 text-[13px] text-[#8a8f83]">
+            임원은 동아리 정보를 열람만 할 수 있어요. 수정은 회장(LEADER)만 가능합니다.
           </p>
         )}
 
-        {/* 기본 정보 */}
-        <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-0">
-          <div className={fieldCls}>
-            <label htmlFor="f-name" className={labelCls}>이름</label>
-            <input
-              id="f-name"
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className={inputCls}
-            />
-          </div>
-
-          <div className={fieldCls}>
-            <label htmlFor="f-cat" className={labelCls}>카테고리</label>
-            <select
-              id="f-cat"
-              value={category}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (isCategory(next)) setCategory(next);
-              }}
-              className={selectCls}
-              style={{
-                backgroundImage:
-                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234a5247' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                backgroundSize: '12px',
-                paddingRight: '36px',
-              }}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-              ))}
-            </select>
-          </div>
-
-          {detail.centralClub ? (
-            <div className={fieldCls}>
-              <label htmlFor="f-div" className={labelCls}>분과</label>
-              <select
-                id="f-div"
-                value={division}
-                onChange={(event) => setDivision(event.target.value)}
-                className={selectCls}
-                style={{
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px center',
-                  backgroundSize: '12px',
-                  paddingRight: '36px',
-                }}
-              >
-                <option value="">분과 선택</option>
-                {DIVISIONS.map((option) => (
-                  <option key={option} value={option}>{option}분과</option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className={fieldCls}>
-              <label htmlFor="f-college" className={labelCls}>단과대학</label>
-              <select
-                id="f-college"
-                value={college}
-                onChange={(event) => setCollege(event.target.value as College | '')}
-                className={selectCls}
-                style={{
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5247' d='M2 4l4 4 4-4'/%3E%3C/svg%3E\")",
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px center',
-                  backgroundSize: '12px',
-                  paddingRight: '36px',
-                }}
-              >
-                <option value="">단과대학 선택</option>
-                {COLLEGE_OPTIONS.map((option) => (
-                  <option key={option.code} value={option.code}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className={fieldCls}>
-            <p className={labelCls}>로고 이미지</p>
+        <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+          {/* ① 로고 · 커버 이미지 */}
+          <SectionCard
+            number={1}
+            title="로고 · 커버 이미지"
+            description="커버는 프로필 상단 배경, 로고는 카드 아바타로 노출돼요."
+          >
             {readOnly ? (
-              <ImageWithFallback
-                src={logoUrl}
-                alt="로고"
-                className="aspect-square rounded-xl overflow-hidden border border-line max-w-[240px]"
-                emptyMessage="로고 이미지가 없습니다"
-              />
-            ) : (
-              <div className="max-w-[240px]">
-                <ImageUploader
-                  value={logoUrl}
-                  onChange={setLogoUrl}
-                  purpose="LOGO"
-                  aspectRatio="1/1"
-                  placeholder="로고 이미지를 업로드하세요"
-                  altText="로고"
+              // 로고 1/3만 커버에 걸치는 히어로 프로필 규칙 — 편집·Preview 표면과 통일.
+              <div className="relative mb-20">
+                <ImageWithFallback
+                  src={coverUrl}
+                  alt="커버"
+                  className="aspect-[16/9] overflow-hidden rounded-xl border border-line"
+                  emptyMessage="커버 이미지가 없습니다"
                 />
+                <div className="absolute -bottom-14 left-5 w-[72px] overflow-hidden rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
+                  <ImageWithFallback
+                    src={logoUrl}
+                    alt="로고"
+                    className="aspect-square overflow-hidden rounded-[13px]"
+                    emptyMessage="로고"
+                  />
+                </div>
+              </div>
+            ) : (
+              // 로고 1/3만 커버에 걸치는 히어로 규칙 — 이미지 액션은 각 이미지 우측 상단 플로팅 버튼으로.
+              <div className="relative mb-20">
+                <ImageUploader
+                  variant="floating"
+                  value={coverUrl}
+                  onChange={setCoverUrl}
+                  purpose="COVER"
+                  aspectRatio="16/9"
+                  altText="커버"
+                  placeholder="커버 이미지를 업로드하세요 (권장 1200×675)"
+                />
+                {/* 칩 자체 overflow-hidden 은 플로팅 버튼·에러를 잘라 제거 — 클리핑은 내부 이미지 요소가 담당. */}
+                <div className="absolute -bottom-14 left-5 w-[72px] rounded-[16px] border-[3px] border-white bg-white shadow-lg sm:-bottom-16 sm:w-[96px]">
+                  <ImageUploader
+                    variant="floating"
+                    dense
+                    value={logoUrl}
+                    onChange={setLogoUrl}
+                    purpose="LOGO"
+                    aspectRatio="1/1"
+                    altText="로고"
+                    placeholder="로고"
+                    previewClassName="rounded-[13px]"
+                  />
+                </div>
               </div>
             )}
-          </div>
+          </SectionCard>
 
-          <div className={fieldCls}>
-            <p className={labelCls}>커버 이미지</p>
-            {readOnly ? (
-              <ImageWithFallback
-                src={coverUrl}
-                alt="커버"
-                className="aspect-[16/9] rounded-xl overflow-hidden border border-line"
-                emptyMessage="커버 이미지가 없습니다"
-              />
-            ) : (
-              <ImageUploader
-                value={coverUrl}
-                onChange={setCoverUrl}
-                purpose="COVER"
-                aspectRatio="16/9"
-                placeholder="커버 이미지를 업로드하세요"
-                altText="커버"
-              />
-            )}
-          </div>
-        </fieldset>
+          {/* ② 기본 정보 */}
+          <SectionCard number={2} title="기본 정보" description={adminMode ? undefined : LOCKED_NOTICE}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {adminMode ? (
+                <>
+                  <Field label="동아리명" htmlFor="f-name">
+                    <input
+                      id="f-name"
+                      type="text"
+                      value={name}
+                      maxLength={100}
+                      onChange={(event) => setName(event.target.value)}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field label="카테고리" htmlFor="f-cat">
+                    <select
+                      id="f-cat"
+                      value={category}
+                      onChange={(event) => {
+                        if (isCategory(event.target.value)) setCategory(event.target.value);
+                      }}
+                      className={selectCls}
+                      style={chevronStyle}
+                    >
+                      {CATEGORIES.map((code) => (
+                        <option key={code} value={code}>{CATEGORY_LABELS[code]}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {detail.centralClub ? (
+                    <Field label="분과" htmlFor="f-div">
+                      <select
+                        id="f-div"
+                        value={division}
+                        onChange={(event) => setDivision(event.target.value)}
+                        className={selectCls}
+                        style={chevronStyle}
+                      >
+                        <option value="">분과 선택</option>
+                        {DIVISIONS.map((option) => (
+                          <option key={option} value={option}>{option}분과</option>
+                        ))}
+                      </select>
+                    </Field>
+                  ) : (
+                    <Field label="단과대학" htmlFor="f-college">
+                      <select
+                        id="f-college"
+                        value={college}
+                        onChange={(event) =>
+                          setCollege(
+                            COLLEGE_OPTIONS.find((option) => option.code === event.target.value)?.code ?? '',
+                          )
+                        }
+                        className={selectCls}
+                        style={chevronStyle}
+                      >
+                        <option value="">단과대학 선택</option>
+                        {COLLEGE_OPTIONS.map((option) => (
+                          <option key={option.code} value={option.code}>{option.label}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Field label="동아리명"><LockedInput value={detail.name} /></Field>
+                  <Field label="카테고리"><LockedInput value={CATEGORY_LABELS[detail.category]} /></Field>
+                  {detail.centralClub ? (
+                    <Field label="분과"><LockedInput value={detail.division ?? '미지정'} /></Field>
+                  ) : (
+                    <Field label="단과대학"><LockedInput value={collegeLabel(detail.college)} /></Field>
+                  )}
+                </>
+              )}
+            </div>
 
-        {/* 상세 정보 그룹 카드 */}
-        <div
-          className={groupCardCls}
-          style={{ boxShadow: '0 1px 0 rgba(47,58,46,.04), 0 1px 2px rgba(47,58,46,.05)' }}
-        >
-          <span className={groupLegendCls}>상세 정보</span>
-
-          <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-[18px]">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <div className={fieldCls.replace('mb-[18px]', '')}>
-                <label htmlFor="f-year" className={labelCls}>창설년도</label>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="창설년도" htmlFor="f-year">
                 <input
                   id="f-year"
                   type="number"
@@ -354,9 +444,8 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                   placeholder="예: 2018"
                   className={inputCls}
                 />
-              </div>
-              <div className={fieldCls.replace('mb-[18px]', '')}>
-                <label htmlFor="f-gen" className={labelCls}>현재 기수</label>
+              </Field>
+              <Field label="현재 기수" htmlFor="f-gen">
                 <input
                   id="f-gen"
                   type="number"
@@ -366,73 +455,90 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                   placeholder="예: 10"
                   className={inputCls}
                 />
-              </div>
+              </Field>
             </div>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-loc" className={labelCls}>위치</label>
-              <input
-                id="f-loc"
-                type="text"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="예: 학생회관 405호"
-                className={inputCls}
-              />
+            <div className="mt-4">
+              <Field label="동아리방 위치" htmlFor="f-loc">
+                <input
+                  id="f-loc"
+                  type="text"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  placeholder="예: 학생회관 405호"
+                  className={inputCls}
+                />
+              </Field>
             </div>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-contact" className={labelCls}>연락처</label>
-              <input
-                id="f-contact"
-                type="text"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                placeholder="예: 010-0000-0000"
-                className={inputCls}
-              />
+            <div className="mt-4">
+              <Field label="대표 연락처">
+                <ContactVisibilityField
+                  phone={detail.contactPhone}
+                  value={contactVisibility}
+                  onChange={setContactVisibility}
+                  disabled={readOnly}
+                />
+              </Field>
             </div>
+          </SectionCard>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <span className={labelCls}>활동 요일 / 빈도</span>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
+          {/* ③ 활동 요일 · 빈도 · 회비 */}
+          <SectionCard number={3} title="활동 요일 · 빈도 · 회비">
+            <Field label="활동 요일 / 빈도">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
                 <ActiveDaysToggle value={activeDays} onChange={setActiveDays} disabled={readOnly} />
-                <span className="w-px h-5 bg-[#d9d4c3] mx-1" />
+                <span className="mx-1 h-5 w-px bg-[#d9d4c3]" />
                 <span className="text-[13px] text-[#4a5247]">주</span>
                 <input
                   type="number"
                   min={1}
+                  aria-label="주간 활동 횟수"
                   value={activityFrequency}
                   onChange={(event) => setActivityFrequency(event.target.value)}
-                  className="w-14 text-center border border-[#cfcab8] bg-white rounded-[8px] px-2 py-1.5 text-[13.5px] focus:outline-none focus:border-[#4a6b3f]"
+                  className="w-14 rounded-[8px] border border-[#cfcab8] bg-white px-2 py-1.5 text-center text-[13.5px] focus:border-[#4a6b3f] focus:outline-none"
                 />
                 <span className="text-[13px] text-[#4a5247]">회</span>
               </div>
+            </Field>
+
+            <div className="mt-4">
+              <Field label="회비">
+                {showFeeMigrationNotice && (
+                  <p className="mb-2 text-[12px] text-[#8a6d3b]">
+                    회비 정보가 새 형식으로 개편되었어요. 회비가 있다면 금액과 주기를, 없다면 &apos;회비 없음&apos;을 선택해 주세요.
+                  </p>
+                )}
+                <FeeCycleSegment
+                  value={feeCycle}
+                  onChange={(next) => {
+                    setFeeCycle(next);
+                    if (next === 'NONE') setFeeAmount('');
+                  }}
+                  disabled={readOnly}
+                />
+                {feeCycle !== 'NONE' && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      aria-label="회비 금액"
+                      value={feeAmount}
+                      onChange={(event) => setFeeAmount(event.target.value)}
+                      placeholder="30000"
+                      disabled={readOnly}
+                      className="w-[120px] rounded-[8px] border border-[#cfcab8] bg-white px-3 py-2 text-[14px] focus:border-[#4a6b3f] focus:outline-none"
+                    />
+                    <span className="text-[13px] text-[#4a5247]">원</span>
+                  </div>
+                )}
+              </Field>
             </div>
+          </SectionCard>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-fee" className={labelCls}>회비</label>
-              <input
-                id="f-fee"
-                type="text"
-                value={membershipFee}
-                onChange={(event) => setMembershipFee(event.target.value)}
-                placeholder="예: 학기당 30,000원"
-                className={inputCls}
-              />
-            </div>
-          </fieldset>
-        </div>
-
-        {/* 소개 콘텐츠 그룹 카드 */}
-        <div
-          className={groupCardCls}
-          style={{ boxShadow: '0 1px 0 rgba(47,58,46,.04), 0 1px 2px rgba(47,58,46,.05)' }}
-        >
-          <span className={groupLegendCls}>소개 콘텐츠</span>
-
-          <fieldset disabled={readOnly} className="border-0 p-0 m-0 space-y-[18px]">
-            <div className={fieldCls.replace('mb-[18px]', '')}>
+          {/* ④ 소개 */}
+          <SectionCard number={4} title="소개">
+            <div className="flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
                 <label htmlFor="f-tagline" className={labelCls}>한줄 소개</label>
                 <span
@@ -443,7 +549,6 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
                   {tagline.length}/20
                 </span>
               </div>
-              {/* 새 입력은 20자 제한 — 기존 60자 제한으로 저장된 값은 유효성(60자 백스톱)을 유지한다. */}
               <input
                 id="f-tagline"
                 type="text"
@@ -460,18 +565,14 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
               )}
             </div>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
+            <div className="mt-4 flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
                 <span className={labelCls}>
                   해시태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
                 </span>
                 <span
                   className={`text-[11.5px] font-medium ${
-                    tags.length > 5
-                      ? 'text-[#b04a2a]'
-                      : tags.length === 5
-                        ? 'text-[#3e5b34]'
-                        : 'text-[#8a8f83]'
+                    tags.length > 5 ? 'text-[#b04a2a]' : tags.length === 5 ? 'text-[#3e5b34]' : 'text-[#8a8f83]'
                   }`}
                 >
                   {tags.length}/5
@@ -488,83 +589,104 @@ export function ClubInfoForm({ detail, readOnly, mutation, onCancel, onSaved }: 
               )}
             </div>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-intro" className={labelCls}>동아리 소개</label>
-              <textarea
-                id="f-intro"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={4}
-                className={`${inputCls} resize-y leading-relaxed`}
-              />
+            <div className="mt-4 flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between">
+                <span className={labelCls}>동아리 소개</span>
+                {!readOnly && (
+                  <span
+                    className={`text-[11.5px] font-medium ${
+                      descriptionOverLimit ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                    }`}
+                  >
+                    {`${descriptionTextLength.toLocaleString()}/1,500 · 권장 300~800자`}
+                  </span>
+                )}
+              </div>
+              {readOnly ? (
+                seededDescription ? (
+                  <div
+                    className={`${PROSE_CLASS} rounded-xl border border-line bg-paper px-5 py-4`}
+                    // eslint-disable-next-line react/no-danger -- sanitizeNoticeHtml 로 정화한 HTML 만 주입
+                    dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(seededDescription) }}
+                  />
+                ) : (
+                  <p className="text-[13px] text-[#8a8f83]">등록된 소개가 없습니다.</p>
+                )
+              ) : (
+                <>
+                  <NoticeRichEditorLazy
+                    value={seededDescription}
+                    format="HTML"
+                    onChange={handleDescriptionChange}
+                    features={{ headings: false, image: false, code: false }}
+                  />
+                  {descriptionOverLimit && (
+                    <p className="mt-1 text-[12px] text-[#b04a2a]">
+                      소개글은 1,500자 이하로 줄여주세요.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
+          </SectionCard>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <span className={labelCls}>이런 사람이 좋아할 거예요</span>
-              <p className="text-[11.5px] text-[#8a8f83] -mt-0.5">최대 10개, 각 100자 이하.</p>
-              <HighlightsRepeater value={highlights} onChange={setHighlights} readOnly={readOnly} />
-            </div>
+          {/* ⑤ 이런 사람이 좋아할 거예요 */}
+          <SectionCard
+            number={5}
+            title="이런 사람이 좋아할 거예요"
+            description="지원 전 핏을 판단하도록 돕는 문구예요. 최대 7줄."
+          >
+            <HighlightsRepeater value={highlights} onChange={setHighlights} readOnly={readOnly} />
+          </SectionCard>
 
-            <div className={fieldCls.replace('mb-[18px]', '')}>
-              <label htmlFor="f-proj" className={labelCls}>주요 프로젝트</label>
-              <textarea
-                id="f-proj"
-                value={majorProjects}
-                onChange={(event) => setMajorProjects(event.target.value)}
-                rows={5}
-                placeholder="동아리에서 진행 중이거나 마친 프로젝트를 자유롭게 적어주세요."
-                className={`${inputCls} resize-y leading-relaxed`}
-              />
-            </div>
-          </fieldset>
-        </div>
+          {/* ⑥ 이런 활동을 해요 */}
+          <SectionCard
+            number={6}
+            title="이런 활동을 해요"
+            description="학생들이 동아리의 활동을 한눈에 이해할 수 있게 대표적인 활동을 등록해 주세요. 최대 6개."
+          >
+            <ProjectsRepeater value={projects} onChange={setProjects} readOnly={readOnly} />
+          </SectionCard>
 
-        {/* SNS 링크 */}
-        <div className={fieldCls}>
-          <span className={labelCls}>
-            SNS 링크 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 10개)</span>
-          </span>
-          <SnsLinksRepeater value={snsLinks} onChange={setSnsLinks} readOnly={readOnly} />
-        </div>
+          {/* ⑦ SNS · 외부 링크 */}
+          <SectionCard number={7} title="SNS · 외부 링크" description="Instagram · 카카오톡 · Facebook · 기타 링크를 최대 10개까지 등록해요.">
+            <SnsLinksRepeater value={snsLinks} onChange={setSnsLinks} readOnly={readOnly} />
+          </SectionCard>
 
-        {/* FAQ */}
-        <div className={fieldCls}>
-          <span className={labelCls}>
-            FAQ <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 20개)</span>
-          </span>
-          <FaqsRepeater value={faqs} onChange={setFaqs} readOnly={readOnly} />
-        </div>
+          {/* ⑧ FAQ */}
+          <SectionCard number={8} title="자주 묻는 질문" description="지원자 문의를 줄여줘요.">
+            <FaqsRepeater value={faqs} onChange={setFaqs} readOnly={readOnly} />
+          </SectionCard>
 
-        {/* 에러 / 저장 상태 */}
-        {error && <p className="mt-2 text-[13px] text-[#b35a3a]">{error}</p>}
-        {savedAt && !error && (
-          <p className="mt-2 text-[13px] text-[#3e5b34]">저장됨 ({savedAt.toLocaleTimeString()})</p>
-        )}
+          {error && <p className="mt-2 text-[13px] text-[#b35a3a]">{error}</p>}
+          {savedAt && !error && (
+            <p className="mt-2 text-[13px] text-[#3e5b34]">저장됨 ({savedAt.toLocaleTimeString()})</p>
+          )}
 
-        {/* 저장 버튼 */}
-        {!readOnly && (
-          <div className="mt-6 flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="btn btn-primary disabled:opacity-50"
-            >
-              {mutation.isPending && <ButtonSpinner />}저장
-            </button>
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={mutation.isPending}
-                className="rounded-[8px] border border-[#cfcab8] px-4 py-2 text-[14px] text-[#4a5247] hover:bg-[#f5f3ec] disabled:opacity-50"
-              >
-                취소
+          {!readOnly && (
+            <div className="mt-6 flex items-center gap-2">
+              <button type="submit" disabled={mutation.isPending} className="btn btn-primary disabled:opacity-50">
+                {mutation.isPending && <ButtonSpinner />}저장
               </button>
-            )}
-          </div>
-        )}
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  disabled={mutation.isPending}
+                  className="rounded-[8px] border border-[#cfcab8] px-4 py-2 text-[14px] text-[#4a5247] hover:bg-[#f5f3ec] disabled:opacity-50"
+                >
+                  취소
+                </button>
+              )}
+            </div>
+          )}
+        </fieldset>
+      </form>
 
-      </div>
-    </form>
+      {/* 우측 Sticky Preview — xl 미만 숨김 (§7) */}
+      <aside className="hidden xl:sticky xl:top-6 xl:block">
+        <ClubProfilePreview preview={preview} />
+      </aside>
+    </div>
   );
 }

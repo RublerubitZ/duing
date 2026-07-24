@@ -118,7 +118,7 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
           href: facilityBookingsPath,
           active: pathname.startsWith(facilityBookingsPath),
         },
-        { key: 'photos', label: '활동사진', icon: ImageIcon, href: photosPath, active: pathname.startsWith(photosPath) },
+        { key: 'photos', label: '활동 피드', icon: ImageIcon, href: photosPath, active: pathname.startsWith(photosPath) },
       ],
     },
     {

@@ -3,6 +3,7 @@ package com.duing.domain.club.photo.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.heroactivity.repository.ClubHeroActivityRepository;
 import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.exception.ClubPhotoException;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
@@ -29,6 +30,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubHeroActivityRepository clubHeroActivityRepository;
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
@@ -105,7 +107,13 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     @Transactional
     public void delete(Long clubId, Long requesterId, Long photoId) {
         clubAuthService.requireEditableClubManager(requesterId, clubId);
-        ClubPhoto photo = findPhotoInClub(photoId, clubId);
+        // 사진 행을 먼저 PESSIMISTIC_WRITE 로 잠근 뒤 참조 가드를 검사한다 — 대표 활동 등록/사진 교체와
+        // 같은 사진 행을 두고 직렬화해 "가드 통과 → 등록 커밋 → 참조되는 사진 삭제" TOCTOU 를 차단한다.
+        ClubPhoto photo = findPhotoInClubForUpdate(photoId, clubId);
+        // 대표 활동이 참조 중인 사진은 삭제할 수 없다 — 먼저 대표 활동에서 해제해야 한다.
+        if (clubHeroActivityRepository.existsByClubPhotoId(photoId)) {
+            throw new ClubPhotoException.ReferencedByHeroActivity();
+        }
         // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
         // 여기서는 DB 레코드만 soft-delete.
         clubPhotoRepository.delete(photo);
@@ -113,6 +121,16 @@ public class GeneralClubPhotoService implements ClubPhotoService {
 
     private ClubPhoto findPhotoInClub(Long photoId, Long clubId) {
         ClubPhoto photo = clubPhotoRepository.findById(photoId)
+                .orElseThrow(ClubPhotoException.NotFound::new);
+        if (!photo.getClub().getId().equals(clubId)) {
+            throw new ClubPhotoException.NotInClub();
+        }
+        return photo;
+    }
+
+    // 삭제 경합 방지용 잠금 조회 — findPhotoInClub 과 동일하지만 사진 행에 PESSIMISTIC_WRITE 를 건다.
+    private ClubPhoto findPhotoInClubForUpdate(Long photoId, Long clubId) {
+        ClubPhoto photo = clubPhotoRepository.findByIdForUpdate(photoId)
                 .orElseThrow(ClubPhotoException.NotFound::new);
         if (!photo.getClub().getId().equals(clubId)) {
             throw new ClubPhotoException.NotInClub();

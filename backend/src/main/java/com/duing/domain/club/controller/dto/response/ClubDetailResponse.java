@@ -2,8 +2,11 @@ package com.duing.domain.club.controller.dto.response;
 
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubFaq;
+import com.duing.domain.club.entity.ClubProject;
 import com.duing.domain.club.entity.ClubSnsLink;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.entity.ContactVisibility;
+import com.duing.domain.club.entity.FeeCycle;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.recruitment.service.dto.query.StudentRecruitmentProjection;
@@ -26,18 +29,20 @@ public record ClubDetailResponse(
         List<ClubFaq> faqs,
         Long leaderId,
         String leaderName,
+        String contactPhone,
+        ContactVisibility contactVisibility,
         ClubStatus status,
         List<ClubPhotoQuery> photos,
         Integer foundedYear,
         Integer cohortNumber,
         String location,
-        String contactEmail,
         Integer activityFrequency,
         Set<DayOfWeek> activeDays,
-        String membershipFee,
+        Integer membershipFeeAmount,
+        FeeCycle feeCycle,
         String tagline,
         List<String> highlights,
-        String majorProjects,
+        List<ClubProject> projects,
         StudentRecruitmentProjection activeRecruitment,
         boolean centralClub
 ) {
@@ -56,18 +61,20 @@ public record ClubDetailResponse(
                 detailQuery.faqs(),
                 detailQuery.leaderId(),
                 detailQuery.leaderName(),
+                detailQuery.contactPhone(),
+                detailQuery.contactVisibility(),
                 detailQuery.status(),
                 detailQuery.photos(),
                 detailQuery.foundedYear(),
                 detailQuery.cohortNumber(),
                 detailQuery.location(),
-                detailQuery.contactEmail(),
                 detailQuery.activityFrequency(),
                 detailQuery.activeDays(),
-                detailQuery.membershipFee(),
+                detailQuery.membershipFeeAmount(),
+                detailQuery.feeCycle(),
                 detailQuery.tagline(),
                 detailQuery.highlights(),
-                detailQuery.majorProjects(),
+                detailQuery.projects(),
                 detailQuery.activeRecruitment(),
                 detailQuery.centralClub()
         );

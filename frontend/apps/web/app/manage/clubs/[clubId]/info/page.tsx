@@ -33,7 +33,7 @@ export default function ClubInfoPage({
     return <p className="p-6 text-sm text-slate-500">동아리 정보를 불러올 수 없습니다.</p>;
   }
 
-  const readOnly = managedClub.myRole !== 'LEADER';
+  const mode = managedClub.myRole === 'LEADER' ? 'leader' : 'officer';
 
-  return <ClubInfoForm detail={detail} readOnly={readOnly} mutation={updateMutation} />;
+  return <ClubInfoForm detail={detail} mode={mode} mutation={updateMutation} />;
 }

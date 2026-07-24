@@ -50,6 +50,10 @@ vi.mock('@duing/hooks', () => ({
   }),
 }));
 
+vi.mock('@/app/_components/NoticeRichEditorLazy', () => ({
+  NoticeRichEditorLazy: (props: { value: string }) => <div data-testid="rich-editor">{props.value}</div>,
+}));
+
 import { ClubInfoForm } from '../../app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import type { ClubDetail } from '@duing/types';
 
@@ -74,13 +78,15 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     foundedYear: null,
     cohortNumber: null,
     location: null,
-    contactEmail: null,
+    contactPhone: null,
+    contactVisibility: 'PUBLIC',
     activityFrequency: null,
     activeDays: [],
-    membershipFee: null,
+    membershipFeeAmount: null,
+    feeCycle: 'NONE',
     tagline: null,
     highlights: [],
-    majorProjects: null,
+    projects: [],
     leaderName: '리더',
     status: 'CERTIFIED',
     centralClub: false,
@@ -95,7 +101,7 @@ describe('ClubInfoForm 의 이미지 입력', () => {
   });
 
   it('logoUrl 영역에 ImageUploader 가 purpose=LOGO + aspectRatio=1/1 로 렌더된다', () => {
-    render(<ClubInfoForm detail={makeDetail()} readOnly={false} mutation={mockMutation} />);
+    render(<ClubInfoForm detail={makeDetail()} mode="leader" mutation={mockMutation} />);
     expect(screen.getByTestId('logo-uploader')).toBeInTheDocument();
     const logoCall = mockImageUploaderCalls.find((c) => c.purpose === 'LOGO');
     expect(logoCall?.aspectRatio).toBe('1/1');
@@ -103,7 +109,7 @@ describe('ClubInfoForm 의 이미지 입력', () => {
   });
 
   it('coverUrl 영역에 ImageUploader 가 purpose=COVER + aspectRatio=16/9 로 렌더된다', () => {
-    render(<ClubInfoForm detail={makeDetail()} readOnly={false} mutation={mockMutation} />);
+    render(<ClubInfoForm detail={makeDetail()} mode="leader" mutation={mockMutation} />);
     expect(screen.getByTestId('cover-uploader')).toBeInTheDocument();
     const coverCall = mockImageUploaderCalls.find((c) => c.purpose === 'COVER');
     expect(coverCall?.aspectRatio).toBe('16/9');
@@ -112,7 +118,7 @@ describe('ClubInfoForm 의 이미지 입력', () => {
 
   it('기존 URL 입력 필드가 남아있지 않다', () => {
     const { container } = render(
-      <ClubInfoForm detail={makeDetail()} readOnly={false} mutation={mockMutation} />,
+      <ClubInfoForm detail={makeDetail()} mode="leader" mutation={mockMutation} />,
     );
     const urlInputs = container.querySelectorAll('input[type="url"]');
     urlInputs.forEach((node) => {
@@ -121,8 +127,8 @@ describe('ClubInfoForm 의 이미지 입력', () => {
     });
   });
 
-  it('readOnly=true 면 ImageUploader 대신 ImageWithFallback 으로 표시 전용 렌더된다', () => {
-    render(<ClubInfoForm detail={makeDetail()} readOnly={true} mutation={mockMutation} />);
+  it('officer 모드면 ImageUploader 대신 ImageWithFallback 으로 표시 전용 렌더된다', () => {
+    render(<ClubInfoForm detail={makeDetail()} mode="officer" mutation={mockMutation} />);
     expect(screen.queryByTestId('logo-uploader')).toBeNull();
     expect(screen.queryByTestId('cover-uploader')).toBeNull();
     const logoFallback = screen.getByTestId('fallback-로고');

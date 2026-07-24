@@ -11,6 +11,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -60,7 +61,7 @@ class ClubDetailActiveRecruitmentTest {
         Club club = saveActiveClub("무동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.activeRecruitment()).isNull();
     }
 
@@ -78,7 +79,7 @@ class ClubDetailActiveRecruitmentTest {
                 TargetRole.MEMBER, List.of(), null, null, false
         ));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.activeRecruitment()).isNotNull();
         assertThat(detail.activeRecruitment().id()).isEqualTo(recruitmentId);
         assertThat(detail.activeRecruitment().displayStatus()).isEqualTo(RecruitmentDisplayStatus.OPEN);
@@ -103,7 +104,7 @@ class ClubDetailActiveRecruitmentTest {
         applicationRepository.save(Application.submit(recruitment, applicant,
                 List.of(new ApplicationAnswer("q1", List.of("안녕")))));
 
-        ClubDetailQuery detail = clubService.getById(club.getId());
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
         assertThat(detail.activeRecruitment()).isNotNull();
         assertThat(detail.activeRecruitment().applicantCount()).isEqualTo(1);
     }

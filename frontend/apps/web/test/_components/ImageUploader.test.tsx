@@ -90,3 +90,45 @@ describe('ImageUploader', () => {
     expect(container.querySelector('.aspect-\\[16\\/9\\]')).toBeNull();
   });
 });
+
+describe('ImageUploader (floating variant)', () => {
+  beforeEach(() => {
+    mockMutateAsync.mockReset();
+    mockUseFileUploadMutation.mockReset();
+    setMutationState({});
+  });
+
+  it('교체 버튼 클릭 시 숨겨진 파일 선택 input 이 열린다', () => {
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
+    render(
+      <ImageUploader variant="floating" value="https://cdn.example.com/x.jpg" onChange={vi.fn()} purpose="COVER" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '이미지 교체' }));
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it('제거 버튼 클릭 시 onChange("") 가 호출된다', () => {
+    const onChange = vi.fn();
+    render(
+      <ImageUploader variant="floating" value="https://cdn.example.com/x.jpg" onChange={onChange} purpose="COVER" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '이미지 제거' }));
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
+  it('업로드 중이면 교체·제거 버튼이 모두 disabled 된다', () => {
+    setMutationState({ isPending: true });
+    render(
+      <ImageUploader variant="floating" value="https://cdn.example.com/x.jpg" onChange={vi.fn()} purpose="COVER" />,
+    );
+    expect(screen.getByRole('button', { name: '이미지 교체' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '이미지 제거' })).toBeDisabled();
+  });
+
+  it('value 가 없으면 제거 버튼을 노출하지 않는다', () => {
+    render(<ImageUploader variant="floating" value="" onChange={vi.fn()} purpose="LOGO" dense />);
+    expect(screen.getByRole('button', { name: '이미지 교체' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '이미지 제거' })).toBeNull();
+  });
+});

@@ -1,48 +1,14 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use } from 'react';
 import Link from 'next/link';
 import { useClubRecruitmentsQuery } from '@duing/hooks';
-import type { RecruitmentSummary } from '@duing/types';
-import { toRoute } from '../../../../_lib/route';
-import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../_lib/recruitmentDisplay';
+import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
-
-type TabKey = 'OPEN' | 'CLOSED';
-
-function RecruitmentCard({
-  recruitment,
-  clubId,
-}: {
-  recruitment: RecruitmentSummary;
-  clubId: number;
-}) {
-  const applicationModeLabel =
-    recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
-  const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
-  const active = recruitment.displayStatus === 'OPEN'
-    || recruitment.displayStatus === 'ALWAYS_OPEN';
-
-  return (
-    <li>
-      <Link
-        href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
-        className="block rounded-lg border border-slate-200 p-4 hover:border-slate-400 transition-colors"
-      >
-        <div className="flex items-baseline justify-between">
-          <span className="font-medium text-slate-900">{recruitment.title}</span>
-          <span className={active ? 'text-xs font-medium text-emerald-600' : 'text-xs text-slate-400'}>
-            {displayStatusLabel(recruitment.displayStatus)}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)} · {applicationModeLabel} ·{' '}
-          {targetRoleLabel} 모집 · 정원 {recruitment.capacity}
-        </p>
-      </Link>
-    </li>
-  );
-}
+import { RecruitmentKpiRow } from './_components/RecruitmentKpiRow';
+import { CurrentRecruitmentCard } from './_components/CurrentRecruitmentCard';
+import { RecruitmentEmptyState } from './_components/RecruitmentEmptyState';
+import { PastRecruitmentsTable } from './_components/PastRecruitmentsTable';
 
 export default function RecruitmentsPage({
   params,
@@ -52,78 +18,50 @@ export default function RecruitmentsPage({
   const { clubId: clubIdParam } = use(params);
   const clubId = Number(clubIdParam);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('OPEN');
-
   const { data: recruitments, isLoading } = useClubRecruitmentsQuery(
     isNaN(clubId) ? undefined : clubId,
   );
 
-  const openRecruitments = recruitments?.filter(
-    (recruitment) => recruitment.displayStatus !== 'CLOSED',
-  ) ?? [];
-  const closedRecruitments = recruitments?.filter(
-    (recruitment) => recruitment.displayStatus === 'CLOSED',
-  ) ?? [];
-
-  const displayedRecruitments =
-    activeTab === 'OPEN' ? openRecruitments : closedRecruitments;
+  // 활성(OPEN) 모집은 클럽당 최대 1건 — 백엔드 V38 부분 유니크 인덱스가 강제하므로 find 가 안전하다.
+  const activeRecruitment =
+    recruitments?.find((recruitment) => recruitment.displayStatus !== 'CLOSED') ?? null;
+  const pastRecruitments =
+    recruitments?.filter((recruitment) => recruitment.displayStatus === 'CLOSED') ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-4xl px-6 py-10">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold">모집 목록</h1>
-        <Link
-          href={toRoute(`/manage/clubs/${clubId}/recruitments/new`)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          신규 모집 작성
-        </Link>
+        <h1 className="text-xl font-bold text-ink-deep">모집 관리</h1>
+        {!isLoading && activeRecruitment === null && (
+          <Link href={toRoute(`/manage/clubs/${clubId}/recruitments/new`)} className="btn btn-primary">
+            <span className="mr-1 text-base leading-none">＋</span>새 모집 만들기
+          </Link>
+        )}
       </header>
 
-      {/* 탭 */}
-      <div className="mb-4 flex gap-1 border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => setActiveTab('OPEN')}
-          className={
-            activeTab === 'OPEN'
-              ? 'border-b-2 border-slate-900 px-4 py-2 text-sm font-medium text-slate-900'
-              : 'px-4 py-2 text-sm text-slate-500 hover:text-slate-700'
-          }
-        >
-          진행 중 ({openRecruitments.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('CLOSED')}
-          className={
-            activeTab === 'CLOSED'
-              ? 'border-b-2 border-slate-900 px-4 py-2 text-sm font-medium text-slate-900'
-              : 'px-4 py-2 text-sm text-slate-500 hover:text-slate-700'
-          }
-        >
-          마감 ({closedRecruitments.length})
-        </button>
-      </div>
+      {isLoading ? (
+        <LoadingGate label="모집 목록 불러오는 중" className="min-h-0 py-8" />
+      ) : (
+        <div className="space-y-8">
+          <section>
+            <h2 className="mb-2 text-sm font-bold tracking-wide text-ink-deep">현재 모집</h2>
+            {activeRecruitment ? (
+              <div className="space-y-3">
+                <RecruitmentKpiRow recruitment={activeRecruitment} />
+                <CurrentRecruitmentCard clubId={clubId} recruitment={activeRecruitment} />
+              </div>
+            ) : (
+              <RecruitmentEmptyState clubId={clubId} />
+            )}
+          </section>
 
-      {isLoading && <LoadingGate label="모집 목록 불러오는 중" className="min-h-0 py-8" />}
-
-      {!isLoading && displayedRecruitments.length === 0 && (
-        <p className="text-sm text-slate-500">
-          {activeTab === 'OPEN' ? '진행 중인 모집이 없습니다.' : '마감된 모집이 없습니다.'}
-        </p>
-      )}
-
-      {displayedRecruitments.length > 0 && (
-        <ul className="space-y-2">
-          {displayedRecruitments.map((recruitment) => (
-            <RecruitmentCard
-              key={recruitment.id}
-              recruitment={recruitment}
-              clubId={clubId}
-            />
-          ))}
-        </ul>
+          <section>
+            <h2 className="mb-2.5 text-sm font-bold tracking-wide text-ink-deep">
+              지난 모집 <span className="ml-1 font-medium text-charcoal-3">{pastRecruitments.length}</span>
+            </h2>
+            <PastRecruitmentsTable clubId={clubId} recruitments={pastRecruitments} />
+          </section>
+        </div>
       )}
     </div>
   );

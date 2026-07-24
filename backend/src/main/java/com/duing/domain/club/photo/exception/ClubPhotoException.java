@@ -27,4 +27,11 @@ public class ClubPhotoException extends ApplicationException {
                     HttpStatus.BAD_REQUEST);
         }
     }
+
+    public static final class ReferencedByHeroActivity extends ClubPhotoException {
+        public ReferencedByHeroActivity() {
+            super("대표 활동에 사용 중인 사진입니다. 대표 활동에서 먼저 해제해주세요.",
+                    HttpStatus.CONFLICT);
+        }
+    }
 }

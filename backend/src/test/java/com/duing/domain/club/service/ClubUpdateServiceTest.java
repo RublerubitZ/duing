@@ -50,7 +50,7 @@ class ClubUpdateServiceTest {
                 "두잉업데이트1-NEW", null, null, null, null, null,
                 List.of("코딩"), null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ));
 
@@ -71,7 +71,7 @@ class ClubUpdateServiceTest {
                 club.getId(), memberUser.getId(),
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ))).isInstanceOf(AccessDeniedException.class);
     }
@@ -86,7 +86,7 @@ class ClubUpdateServiceTest {
                 club.getId(), stranger.getId(),
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ))).isInstanceOf(ClubMemberException.NotAMember.class);
     }
@@ -103,7 +103,7 @@ class ClubUpdateServiceTest {
                 null, null, null, "보완된 설명", null, null,
                 null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ));
 
@@ -123,7 +123,7 @@ class ClubUpdateServiceTest {
                 null, null, null, "변경시도", null, null,
                 null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         )))
                 .isInstanceOf(ClubMemberException.NotActiveClub.class)
@@ -142,7 +142,7 @@ class ClubUpdateServiceTest {
                 club.getId(), leader.getId(),
                 other.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ))).isInstanceOf(ClubException.DuplicateClubNameException.class);
     }
@@ -158,7 +158,7 @@ class ClubUpdateServiceTest {
                 club.getId(), leader.getId(),
                 club.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 null, null, null, null
         ));
 

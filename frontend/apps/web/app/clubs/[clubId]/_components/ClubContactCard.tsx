@@ -1,54 +1,51 @@
-import type { ClubSnsLink } from '@duing/types';
+import type { ClubSnsLink, ContactVisibility } from '@duing/types';
+import { snsDisplayName } from '../../../_lib/snsPlatform';
 import { safeExternalHref } from '../../../_lib/route';
 
 type Props = {
   snsLinks: ClubSnsLink[];
   location: string | null;
-  contactEmail: string | null;
+  contactPhone: string | null;
+  contactVisibility: ContactVisibility;
 };
 
-export function ClubContactCard({ snsLinks, location, contactEmail }: Props) {
-  const hasAny = snsLinks.length > 0 || location !== null || contactEmail !== null;
+export function ClubContactCard({ snsLinks, location, contactPhone, contactVisibility }: Props) {
+  const contactLine =
+    contactPhone !== null
+      ? { text: contactPhone, href: `tel:${contactPhone.replaceAll('-', '')}` }
+      : contactVisibility === 'LOGGED_IN_ONLY'
+        ? { text: '로그인 후 확인 가능', href: null }
+        : contactVisibility === 'PRIVATE'
+          ? { text: '대표 연락처 비공개', href: null }
+          : null; // PUBLIC + 회장 미등록 → 숨김
+  const hasAny = snsLinks.length > 0 || location !== null || contactLine !== null;
   if (!hasAny) return null;
-  // 연락처는 자유 입력 — http(s) 값만 외부 링크로, 그 외(전화·카톡 텍스트 등)는 일반 텍스트로 표시.
-  const contactHref = contactEmail !== null ? safeExternalHref(contactEmail) : null;
   return (
     <div className="rounded-[18px] bg-sage-mist p-5">
       <div className="mb-3 text-xs font-bold tracking-wide06 text-ink-deep">CONTACT</div>
       <ul className="flex flex-col gap-2 text-[13.5px] text-charcoal">
         {location !== null && <li>📍 {location}</li>}
-        {contactEmail !== null && (
+        {contactLine !== null && (
           <li>
             📞{' '}
-            {contactHref ? (
-              <a
-                href={contactHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {contactEmail}
-              </a>
+            {contactLine.href ? (
+              <a href={contactLine.href} className="hover:underline">{contactLine.text}</a>
             ) : (
-              <span>{contactEmail}</span>
+              <span className="text-charcoal-3">{contactLine.text}</span>
             )}
           </li>
         )}
         {snsLinks.map((link) => {
           const safeUrl = safeExternalHref(link.url);
+          const displayName = snsDisplayName(link);
           return (
             <li key={link.url}>
               {safeUrl ? (
-                <a
-                  href={safeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {link.platform} · {link.url}
+                <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {displayName} · {link.url}
                 </a>
               ) : (
-                <span>{link.platform} · {link.url}</span>
+                <span>{displayName} · {link.url}</span>
               )}
             </li>
           );

@@ -2,7 +2,7 @@
 // 한국어 메시지는 백엔드와 동일하게 유지한다.
 
 import { z } from 'zod';
-import { BANKS } from '@duing/types';
+import { BANKS, PROJECT_ICONS } from '@duing/types';
 import type { GenerateBillsPayload } from '@duing/types';
 import { passwordSchema } from './password';
 
@@ -57,6 +57,12 @@ export const userNameSchema = z
     '사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.',
   );
 
+// 전공 학과 공용 규칙 — 가입·프로필 수정 동일 정책(필수·50자). BE SignupRequest/UpdateProfileRequest 와 동일.
+export const majorSchema = z
+  .string()
+  .min(1, '전공 학과는 필수 입력값입니다.')
+  .max(50, '전공 학과는 50자 이하여야 합니다.');
+
 export const signupSchema = z.object({
   studentId: z
     .string()
@@ -66,10 +72,7 @@ export const signupSchema = z.object({
   password: passwordSchema,
   grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
   college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
-  major: z
-    .string()
-    .min(1, '전공 학과는 필수 입력값입니다.')
-    .max(50, '전공 학과는 50자 이하여야 합니다.'),
+  major: majorSchema,
   verificationToken: z
     .string()
     .min(1, '휴대폰 인증을 완료해주세요.')
@@ -225,7 +228,11 @@ export const updateRecruitmentSchema = z
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    // 상시모집(endDate null) 공고는 endDate 를 보내지 않는다(생략=미변경). 기간 모집은 폼 native required 가 빈 값을 차단한다.
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
+      .optional(),
     capacity: z.number().int().min(1, '모집 정원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     // 수정에서는 applicationMode 를 받지 않는다. 자체 폼일 때만 호출부가 questionItems 를 채우므로
@@ -247,7 +254,7 @@ export const updateRecruitmentSchema = z
       .optional(),
     showApplicantCount: z.boolean().optional(),
   })
-  .refine((data) => data.endDate >= data.startDate, {
+  .refine((data) => data.endDate === undefined || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
     path: ['endDate'],
   })
@@ -264,25 +271,41 @@ export const updateRecruitmentSchema = z
 
 export type UpdateRecruitmentInput = z.infer<typeof updateRecruitmentSchema>;
 
-export const updateClubSchema = z.object({
-  name: z.string().min(1, '동아리 이름은 1~100자여야 합니다.')
-    .max(100, '동아리 이름은 1~100자여야 합니다.'),
-  category: z.enum(['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER']),
-  division: z.string().max(50, '분류는 50자 이하여야 합니다.').nullable(),
-  description: z.string().nullable(),
+// 회비는 (주기, 금액) 페어로만 의미가 성립한다 — NONE ⇔ 금액 null. 한쪽만 채워지는 조합을 거부한다.
+// feeCycle 미제공(부분 수정)이면 금액도 미제공/​null 이어야 한다.
+const feePairRule = {
+  check: (data: { feeCycle?: 'NONE' | 'ONE_TIME' | 'SEMESTER' | 'YEARLY' | 'MONTHLY'; membershipFeeAmount?: number | null }) =>
+    data.feeCycle === undefined
+      ? (data.membershipFeeAmount ?? null) === null
+      : (data.feeCycle === 'NONE') === ((data.membershipFeeAmount ?? null) === null),
+  options: { message: '회비는 납부 주기와 금액을 함께 확인해 주세요.', path: ['membershipFeeAmount'] },
+};
+
+export const clubProjectSchema = z.object({
+  icon: z.enum(PROJECT_ICONS),
+  title: z.string().trim().min(1, '프로젝트 제목은 1~30자여야 합니다.').max(30, '프로젝트 제목은 1~30자여야 합니다.'),
+  subtitle: z.string().max(40, '프로젝트 부제목은 40자 이하여야 합니다.').nullable(),
+});
+
+const clubSnsLinkSchema = z.object({
+  platform: z.enum(['INSTAGRAM', 'FACEBOOK', 'KAKAO', 'OTHER']),
+  label: z.string().max(20, '플랫폼명은 20자 이하여야 합니다.').nullable(),
+  url: z.string().min(1, 'SNS URL은 1~500자여야 합니다.').max(500, 'SNS URL은 1~500자여야 합니다.')
+    .regex(/^https?:\/\/.+/, 'SNS URL은 http(s):// 로 시작해야 합니다.'),
+}).refine((link) => link.platform !== 'OTHER' || (link.label !== null && link.label.trim().length > 0), {
+  message: '기타 플랫폼은 플랫폼명을 입력해 주세요.',
+  path: ['label'],
+});
+
+const clubProfileBaseSchema = z.object({
+  // 소개는 리치 에디터(Tiptap) HTML — 텍스트 1,500자 정책은 폼에서, 여기선 HTML 백스톱만 둔다.
+  description: z.string().max(10000, '소개글이 너무 깁니다. 1,500자 이하로 줄여주세요.').nullable(),
   logoUrl: z.string().max(500, '로고 URL은 500자 이하여야 합니다.').nullable(),
   coverUrl: z.string().max(500, '커버 URL은 500자 이하여야 합니다.').nullable(),
   tags: z.array(
     z.string().min(1, '각 태그는 1~20자여야 합니다.').max(20, '각 태그는 1~20자여야 합니다.'),
   ).max(20, '태그는 최대 20개까지 가능합니다.'),
-  snsLinks: z.array(
-    z.object({
-      platform: z.enum(['INSTAGRAM', 'FACEBOOK', 'X', 'YOUTUBE', 'KAKAO', 'WEB']),
-      url: z.string().min(1, 'SNS URL은 1~500자여야 합니다.')
-        .max(500, 'SNS URL은 1~500자여야 합니다.')
-        .regex(/^https?:\/\/.+/, 'SNS URL은 http(s):// 로 시작해야 합니다.'),
-    }),
-  ).max(10, 'SNS 링크는 최대 10개까지 가능합니다.'),
+  snsLinks: z.array(clubSnsLinkSchema).max(10, 'SNS 링크는 최대 10개까지 가능합니다.'),
   faqs: z.array(
     z.object({
       question: z.string().min(1, 'FAQ 질문은 1~200자여야 합니다.').max(200, 'FAQ 질문은 1~200자여야 합니다.'),
@@ -290,55 +313,34 @@ export const updateClubSchema = z.object({
       order: z.number().int().min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
     }),
   ).max(20, 'FAQ는 최대 20개까지 가능합니다.'),
-  foundedYear: z
-    .number()
-    .int()
-    .min(1900, '창설년도는 1900 이상이어야 합니다.')
-    .max(2100, '창설년도가 너무 큽니다.')
-    .nullable()
-    .optional(),
-  cohortNumber: z
-    .number()
-    .int()
-    .min(1, '기수는 1 이상이어야 합니다.')
-    .nullable()
-    .optional(),
-  location: z
-    .string()
-    .max(200, '위치는 200자 이하여야 합니다.')
-    .nullable()
-    .optional(),
-  // 이메일 전용에서 자유 입력(전화/카톡 오픈채팅/인스타 DM 등)으로 정책 변경 — 형식 검증 제거, 길이 제한만 유지.
-  contactEmail: z
-    .string()
-    .max(200, '연락처는 200자 이하여야 합니다.')
-    .nullable()
-    .or(z.literal(''))
-    .optional(),
-  activityFrequency: z
-    .number()
-    .int()
-    .min(1, '활동 빈도는 1 이상이어야 합니다.')
-    .nullable()
-    .optional(),
-  activeDays: z
-    .array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']))
-    .optional(),
-  membershipFee: z
-    .string()
-    .max(100, '회비 표기는 100자 이하여야 합니다.')
-    .nullable()
-    .optional(),
-  // 새 입력 UI 는 20자로 제한 — 기존 60자 제한 시절 저장된 값이 깨지지 않게 검증 백스톱은 60 유지.
+  foundedYear: z.number().int().min(1900, '창설년도는 1900 이상이어야 합니다.')
+    .max(2100, '창설년도가 너무 큽니다.').nullable().optional(),
+  cohortNumber: z.number().int().min(1, '기수는 1 이상이어야 합니다.').nullable().optional(),
+  location: z.string().max(200, '위치는 200자 이하여야 합니다.').nullable().optional(),
+  activityFrequency: z.number().int().min(1, '활동 빈도는 1 이상이어야 합니다.').nullable().optional(),
+  activeDays: z.array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])).optional(),
+  // 새 입력 UI 는 20자 제한 — 기존 60자 시절 저장 값이 깨지지 않게 백스톱 60 유지.
   tagline: z.string().max(60, '한줄 소개는 60자 이하여야 합니다.').nullable().optional(),
-  highlights: z
-    .array(z.string().min(1, '강조 항목은 비어 있을 수 없습니다.').max(100, '각 강조 항목은 100자 이하여야 합니다.'))
-    .max(10, '강조 항목은 최대 10개까지 가능합니다.')
-    .optional(),
-  majorProjects: z.string().nullable().optional(),
+  // FE 추가 제한은 7 — 기존 8~10개 데이터 저장이 깨지지 않게 백스톱 10 유지 (§4.4).
+  highlights: z.array(
+    z.string().min(1, '강조 항목은 비어 있을 수 없습니다.').max(100, '각 강조 항목은 100자 이하여야 합니다.'),
+  ).max(10, '강조 항목은 최대 10개까지 가능합니다.').optional(),
+  contactVisibility: z.enum(['PUBLIC', 'LOGGED_IN_ONLY', 'PRIVATE']).optional(),
+  feeCycle: z.enum(['NONE', 'ONE_TIME', 'SEMESTER', 'YEARLY', 'MONTHLY']).optional(),
+  membershipFeeAmount: z.number().int().min(1, '회비 금액은 1원 이상이어야 합니다.')
+    .max(10_000_000, '회비 금액이 너무 큽니다.').nullable().optional(),
+  projects: z.array(clubProjectSchema).max(6, '활동 소개는 최대 6개까지 등록할 수 있어요.').optional(),
 });
 
+export const updateClubSchema = clubProfileBaseSchema.refine(feePairRule.check, feePairRule.options);
 export type UpdateClubInput = z.infer<typeof updateClubSchema>;
+
+export const adminUpdateClubSchema = clubProfileBaseSchema.extend({
+  name: z.string().min(1, '동아리 이름은 1~100자여야 합니다.').max(100, '동아리 이름은 1~100자여야 합니다.'),
+  category: z.enum(['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER']),
+  division: z.string().max(50, '분류는 50자 이하여야 합니다.').nullable(),
+}).refine(feePairRule.check, feePairRule.options);
+export type AdminUpdateClubInput = z.infer<typeof adminUpdateClubSchema>;
 
 export const submitSuccessionRequestSchema = z.object({
   reason: z

@@ -7,15 +7,17 @@ type TagsInputProps = {
   onChange: (next: string[]) => void;
   readOnly?: boolean;
   maxTags?: number;
+  maxTagLength?: number;
 };
 
-export function TagsInput({ value, onChange, readOnly = false, maxTags = 5 }: TagsInputProps) {
+export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxTagLength = 5 }: TagsInputProps) {
   const [draft, setDraft] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
   function add(token: string) {
     const trimmed = token.trim();
     if (!trimmed) return;
+    if (trimmed.length > maxTagLength) return;
     if (value.includes(trimmed)) return;
     if (value.length >= maxTags) return;
     onChange([...value, trimmed]);
@@ -65,6 +67,7 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5 }: Ta
             if (isComposing) return;
             add(draft);
           }}
+          maxLength={maxTagLength}
           placeholder={value.length === 0 ? '엔터로 태그 추가' : ''}
           className="min-w-[8rem] flex-1 bg-transparent text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] outline-none"
         />

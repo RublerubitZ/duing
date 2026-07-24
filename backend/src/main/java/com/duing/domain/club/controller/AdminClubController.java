@@ -1,10 +1,10 @@
 package com.duing.domain.club.controller;
 
 import com.duing.domain.club.api.AdminClubApi;
+import com.duing.domain.club.controller.dto.request.AdminUpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
-import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -13,6 +13,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.ClubClosureService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -54,19 +55,24 @@ public class AdminClubController implements AdminClubApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(@PathVariable Long clubId) {
-        ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId));
+    public ResponseEntity<ApiResponse<ClubDetailResponse>> getAdminClub(
+            @PathVariable Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        ClubDetailResponse response = ClubDetailResponse.from(
+                clubService.getById(clubId, new ClubViewer(currentUser.id(), true)));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @Override
     public ResponseEntity<ApiResponse<ClubDetailResponse>> updateClub(
             @PathVariable Long clubId,
-            @Valid @RequestBody UpdateClubRequest updateClubRequest,
+            @Valid @RequestBody AdminUpdateClubRequest adminUpdateClubRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        clubService.updateAsAdmin(updateClubRequest.toCommand(clubId, currentUser.id()));
-        ClubDetailResponse response = ClubDetailResponse.from(clubService.getById(clubId));
+        clubService.updateAsAdmin(adminUpdateClubRequest.toCommand(clubId, currentUser.id()));
+        ClubDetailResponse response = ClubDetailResponse.from(
+                clubService.getById(clubId, new ClubViewer(currentUser.id(), true)));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

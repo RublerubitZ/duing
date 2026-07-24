@@ -62,7 +62,7 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("총동연 관리자는 자신이 멤버가 아닌 동아리의 기본 정보를 수정할 수 있고 변경된 상세가 반환된다")
+    @DisplayName("총동연 관리자는 자신이 멤버가 아닌 동아리의 이름·설명을 수정할 수 있고 변경된 상세가 반환된다")
     void adminUpdatesClubProfileSuccessfully() throws Exception {
         Club club = saveClubWithLeader("수정대상동아리", ClubStatus.ACTIVE);
 
@@ -70,12 +70,12 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                     .contentType(ContentType.JSON)
-                    .body(Map.of("name", "새이름동아리", "description", "관리자가 수정한 설명"))
+                    .body(Map.of("name", "관리자가바꾼이름", "description", "관리자가 수정한 설명"))
                 .when()
                     .patch("/api/v1/admin/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
-                    .body("data.name", equalTo("새이름동아리"))
+                    .body("data.name", equalTo("관리자가바꾼이름"))
                     .body("data.description", equalTo("관리자가 수정한 설명"));
     }
 
@@ -107,6 +107,42 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
                     .patch("/api/v1/admin/clubs/{clubId}", 999_999L)
                 .then()
                     .statusCode(HttpStatus.NOT_FOUND.value())
+                    .body("ok", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("총동연은 동아리명·카테고리·분과(잠금 필드)를 수정할 수 있다")
+    void adminUpdatesLockedFields() throws Exception {
+        Club club = saveClubWithLeader("잠금필드수정동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("name", "새이름", "category", "SPORTS", "division", "체육"))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.name", equalTo("새이름"))
+                    .body("data.category", equalTo("SPORTS"))
+                    .body("data.division", equalTo("체육"));
+    }
+
+    @Test
+    @DisplayName("총동연 수정 요청도 회비는 주기 없이 금액만 보내면 400 이 반환된다")
+    void adminFeePairValidated() throws Exception {
+        Club club = saveClubWithLeader("회비검증동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("membershipFeeAmount", 5000))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("ok", equalTo(false));
     }
 
@@ -143,6 +179,23 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.OK.value())
                     .body("data.description", equalTo("중단 상태에서도 수정"));
+    }
+
+    @Test
+    @DisplayName("동아리 이름을 공백 문자열로 수정하면 400 이 반환된다")
+    void blankNameRejected() throws Exception {
+        Club club = saveClubWithLeader("공백이름검증동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"name\":\"   \"}")
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("ok", equalTo(false));
     }
 
     @Test

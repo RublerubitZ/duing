@@ -3,39 +3,42 @@
 import type { ClubDetail, ClubPhoto, MyClubMembership } from '@duing/types';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatClubFee } from '../../../_lib/clubFee';
 import { activityScheduleLabel } from '../../_lib/activeDaysLabel';
 import { ClubDetailAbout } from './ClubDetailAbout';
 import { ClubDetailActivity } from './ClubDetailActivity';
+import { ClubDetailActivityIntro } from './ClubDetailActivityIntro';
+import { ClubDetailHeroActivities } from './ClubDetailHeroActivities';
 import { ClubDetailInfoList } from './ClubDetailInfoList';
 import { ClubDetailQna } from './ClubDetailQna';
-import { ClubDetailNotices } from './ClubDetailNotices';
-import { ClubDetailEvents } from './ClubDetailEvents';
+import { ClubDetailNews } from './ClubDetailNews';
 
-type TabKey = 'intro' | 'activity' | 'qna' | 'info' | 'notices' | 'events';
+type TabKey = 'intro' | 'activity' | 'qna' | 'info' | 'news';
 
 type Tab = { key: TabKey; label: string };
 
 type Props = {
   club: ClubDetail;
   photos: ClubPhoto[];
-  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 공지/일정 탭을 노출한다. */
+  /** 해당 동아리에 가입한 경우의 멤버십. 멤버에게만 소식 탭을 노출한다. */
   membership?: MyClubMembership | null;
 };
 
 export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasIntro = club.description !== null
     || club.highlights.length > 0
-    || club.majorProjects !== null;
+    || club.projects.length > 0;
   const hasActivity = activityScheduleLabel(club.activityFrequency, club.activeDays) !== null
     || photos.length > 0;
   const hasQna = club.faqs.length > 0;
   const hasInfo = club.foundedYear !== null
     || club.cohortNumber !== null
-    || club.membershipFee !== null
+    || formatClubFee(club.feeCycle, club.membershipFeeAmount) !== null
     || club.location !== null
-    || club.contactEmail !== null;
+    || club.contactPhone !== null
+    || club.contactVisibility !== 'PUBLIC';
 
-  // 가입한 멤버에게만 공지/일정 탭을 노출한다.
+  // 가입한 멤버에게만 소식(공지+일정) 탭을 노출한다.
   const isMember = membership != null;
 
   const tabs: Tab[] = [];
@@ -43,10 +46,7 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
   if (hasActivity) tabs.push({ key: 'activity', label: '활동' });
   if (hasQna) tabs.push({ key: 'qna', label: 'Q&A' });
   if (hasInfo) tabs.push({ key: 'info', label: '동아리 상세정보' });
-  if (isMember) {
-    tabs.push({ key: 'notices', label: '공지' });
-    tabs.push({ key: 'events', label: '일정' });
-  }
+  if (isMember) tabs.push({ key: 'news', label: '소식' });
 
   const firstTab = tabs[0];
   if (!firstTab) return null;
@@ -67,10 +67,11 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
 
       {hasIntro && (
         <TabsContent value="intro">
+          <ClubDetailHeroActivities clubId={club.id} />
+          <ClubDetailActivityIntro projects={club.projects} />
           <ClubDetailAbout
             description={club.description}
             highlights={club.highlights}
-            majorProjects={club.majorProjects}
           />
         </TabsContent>
       )}
@@ -90,14 +91,9 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
         </TabsContent>
       )}
       {isMember && (
-        <>
-          <TabsContent value="notices">
-            <ClubDetailNotices clubId={club.id} />
-          </TabsContent>
-          <TabsContent value="events">
-            <ClubDetailEvents clubId={club.id} />
-          </TabsContent>
-        </>
+        <TabsContent value="news">
+          <ClubDetailNews clubId={club.id} />
+        </TabsContent>
       )}
     </Tabs>
   );

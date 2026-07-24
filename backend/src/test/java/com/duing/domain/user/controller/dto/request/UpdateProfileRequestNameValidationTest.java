@@ -17,7 +17,7 @@ class UpdateProfileRequestNameValidationTest {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     private UpdateProfileRequest withName(String name) {
-        return new UpdateProfileRequest(name, Grade.FRESHMAN);
+        return new UpdateProfileRequest(name, Grade.FRESHMAN, null, null);
     }
 
     @ParameterizedTest

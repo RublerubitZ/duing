@@ -77,6 +77,7 @@ import type {
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
+  AdminUpdateClubPayload,
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
   CloseClubPayload,
@@ -110,6 +111,10 @@ import type {
   CreateClubPhotoPayload,
   UpdateClubPhotoPayload,
   ReorderClubPhotosPayload,
+  ClubHeroActivity,
+  CreateHeroActivityPayload,
+  UpdateHeroActivityPayload,
+  ReorderHeroActivitiesPayload,
   TransferLeaderResult,
   UpdateMemberRolePayload,
   FileUploadResult,
@@ -336,6 +341,18 @@ export type DuingApiClient = {
     updatePhoto(clubId: number, photoId: number, payload: UpdateClubPhotoPayload): Promise<void>;
     reorderPhotos(clubId: number, payload: ReorderClubPhotosPayload): Promise<ClubPhoto[]>;
     deletePhoto(clubId: number, photoId: number): Promise<void>;
+    heroActivities(clubId: number): Promise<ClubHeroActivity[]>;
+    createHeroActivity(clubId: number, payload: CreateHeroActivityPayload): Promise<ClubHeroActivity>;
+    updateHeroActivity(
+      clubId: number,
+      heroActivityId: number,
+      payload: UpdateHeroActivityPayload,
+    ): Promise<void>;
+    reorderHeroActivities(
+      clubId: number,
+      payload: ReorderHeroActivitiesPayload,
+    ): Promise<ClubHeroActivity[]>;
+    deleteHeroActivity(clubId: number, heroActivityId: number): Promise<void>;
     members(clubId: number): Promise<ClubMember[]>;
     membersExport(clubId: number, includePhone: boolean): Promise<ClubMemberExportRow[]>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
@@ -515,8 +532,8 @@ export type DuingApiClient = {
       detail(clubId: number): Promise<ClubDetail>;
       /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
       members(clubId: number): Promise<AdminClubMember[]>;
-      /** 총동연 전용 동아리 정보 수정. 리더 PATCH clubs/{id} 와 동일 payload, ADMIN 권한으로 접근. */
-      update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
+      /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
+      update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -1047,6 +1064,16 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<ClubPhoto[]>(http.put(`clubs/${clubId}/photos/order`, { json: payload })),
       deletePhoto: (clubId, photoId) =>
         jsonVoid(http.delete(`clubs/${clubId}/photos/${photoId}`)),
+      heroActivities: (clubId) =>
+        jsonOk<ClubHeroActivity[]>(http.get(`clubs/${clubId}/hero-activities`)),
+      createHeroActivity: (clubId, payload) =>
+        jsonOk<ClubHeroActivity>(http.post(`clubs/${clubId}/hero-activities`, { json: payload })),
+      updateHeroActivity: (clubId, heroActivityId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/hero-activities/${heroActivityId}`, { json: payload })),
+      reorderHeroActivities: (clubId, payload) =>
+        jsonOk<ClubHeroActivity[]>(http.put(`clubs/${clubId}/hero-activities/order`, { json: payload })),
+      deleteHeroActivity: (clubId, heroActivityId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/hero-activities/${heroActivityId}`)),
       members: (clubId) =>
         jsonOk<ClubMember[]>(http.get(`clubs/${clubId}/members`)),
       membersExport: (clubId, includePhone) =>

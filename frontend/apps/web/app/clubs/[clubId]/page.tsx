@@ -62,7 +62,8 @@ export default function ClubDetailPage({
             <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
           </div>
 
-          <div className="space-y-4">
+          {/* lg:self-start 는 필수 — grid 기본 stretch 가 sticky 를 무력화한다(self-start 로 컬럼을 콘텐츠 높이로). */}
+          <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
             <div className="hidden md:block">
               <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
@@ -70,7 +71,8 @@ export default function ClubDetailPage({
             <ClubContactCard
               snsLinks={club.snsLinks}
               location={club.location}
-              contactEmail={club.contactEmail}
+              contactPhone={club.contactPhone}
+              contactVisibility={club.contactVisibility}
             />
           </div>
         </div>

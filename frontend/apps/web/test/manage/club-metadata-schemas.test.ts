@@ -27,26 +27,6 @@ describe('updateClubSchema — 메타 필드 검증', () => {
     }
   });
 
-  it('contactEmail 은 이메일이 아닌 자유 입력(전화번호·오픈채팅 링크)도 허용한다', () => {
-    expect(updateClubSchema.safeParse({ ...validBase, contactEmail: '010-0000-0000' }).success).toBe(true);
-    expect(
-      updateClubSchema.safeParse({ ...validBase, contactEmail: 'https://open.kakao.com/o/abc123' }).success,
-    ).toBe(true);
-  });
-
-  it('contactEmail 이 200자를 초과하면 검증 실패한다', () => {
-    const result = updateClubSchema.safeParse({ ...validBase, contactEmail: 'a'.repeat(201) });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain('연락처');
-    }
-  });
-
-  it('contactEmail 빈 문자열은 허용된다', () => {
-    const result = updateClubSchema.safeParse({ ...validBase, contactEmail: '' });
-    expect(result.success).toBe(true);
-  });
-
   it('activityFrequency 가 0 이하이면 검증 실패한다', () => {
     const result = updateClubSchema.safeParse({ ...validBase, activityFrequency: 0 });
     expect(result.success).toBe(false);
@@ -61,10 +41,11 @@ describe('updateClubSchema — 메타 필드 검증', () => {
       foundedYear: 2018,
       cohortNumber: 10,
       location: '학생회관 405호',
-      contactEmail: 'club@daegu.ac.kr',
+      contactVisibility: 'PUBLIC',
       activityFrequency: 2,
       activeDays: ['WEDNESDAY', 'FRIDAY'],
-      membershipFee: '학기당 30,000원',
+      feeCycle: 'SEMESTER',
+      membershipFeeAmount: 30000,
     });
     expect(result.success).toBe(true);
   });

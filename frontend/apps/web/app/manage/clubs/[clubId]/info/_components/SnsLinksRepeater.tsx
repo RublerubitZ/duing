@@ -1,8 +1,9 @@
 'use client';
 
 import type { ClubSnsLink } from '@duing/types';
+import { SNS_PLATFORM_LABELS } from '@/app/_lib/snsPlatform';
 
-const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'X', 'YOUTUBE', 'KAKAO', 'WEB'] as const;
+const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'KAKAO', 'OTHER'] as const;
 type PlatformLiteral = (typeof PLATFORMS)[number];
 
 function isPlatform(value: string): value is PlatformLiteral {
@@ -34,7 +35,7 @@ export function SnsLinksRepeater({
 
   function add() {
     if (value.length >= maxLinks) return;
-    onChange([...value, { platform: 'INSTAGRAM', url: '' }]);
+    onChange([...value, { platform: 'INSTAGRAM', label: null, url: '' }]);
   }
 
   function remove(idx: number) {
@@ -49,7 +50,8 @@ export function SnsLinksRepeater({
             value={link.platform}
             onChange={(event) => {
               const next = event.target.value;
-              if (isPlatform(next)) update(idx, { platform: next });
+              if (!isPlatform(next)) return;
+              update(idx, { platform: next, label: next === 'OTHER' ? (link.label ?? '') : null });
             }}
             disabled={readOnly}
             className={rowSelectCls}
@@ -62,19 +64,32 @@ export function SnsLinksRepeater({
               paddingRight: '30px',
             }}
           >
-            {PLATFORMS.map((p) => (
-              <option key={p} value={p}>{p}</option>
+            {PLATFORMS.map((platform) => (
+              <option key={platform} value={platform}>{SNS_PLATFORM_LABELS[platform]}</option>
             ))}
           </select>
 
-          <input
-            type="url"
-            value={link.url}
-            onChange={(event) => update(idx, { url: event.target.value })}
-            placeholder="https://..."
-            disabled={readOnly}
-            className={rowInputCls}
-          />
+          <div className="min-w-0 space-y-1.5">
+            {link.platform === 'OTHER' && (
+              <input
+                type="text"
+                value={link.label ?? ''}
+                maxLength={20}
+                onChange={(event) => update(idx, { label: event.target.value })}
+                placeholder="플랫폼명 (예: GitHub)"
+                disabled={readOnly}
+                className={rowInputCls}
+              />
+            )}
+            <input
+              type="url"
+              value={link.url}
+              onChange={(event) => update(idx, { url: event.target.value })}
+              placeholder="https://..."
+              disabled={readOnly}
+              className={rowInputCls}
+            />
+          </div>
 
           {!readOnly && (
             <button type="button" onClick={() => remove(idx)} className={deleteBtnCls}>
