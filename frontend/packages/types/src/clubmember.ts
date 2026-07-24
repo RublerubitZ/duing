@@ -41,8 +41,8 @@ export type UpdateMemberRolePayload = {
 };
 
 // 회장 이양 응답. formerLeader/newLeader 는 ClubMember 를 재사용하지만, BE 가 이양 응답에는
-// 회비 상태를 계산하지 않고 feeStatus 를 항상 'NONE' 으로 채운다(generation 도 신뢰 불가).
-// ⚠️ 이 결과로 멤버 목록 캐시를 setQueryData 하지 말 것 — 회비/기수가 오염된다. invalidate 만 한다.
+// 회비 상태를 계산하지 않고 feeStatus 를 항상 'NONE' 으로 채운다(generation 은 실값).
+// ⚠️ 이 결과로 멤버 목록 캐시를 setQueryData 하지 말 것 — 회비 상태가 오염된다. invalidate 만 한다.
 export type TransferLeaderResult = {
   formerLeader: ClubMember;
   newLeader: ClubMember;
