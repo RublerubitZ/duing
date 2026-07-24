@@ -38,6 +38,10 @@ public class ClubMember extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ClubMemberRole role;
 
+    /** 회원 기수(선택 기능). 미사용 시 null 로 보존한다. */
+    @Column(name = "generation")
+    private Integer generation;
+
     @Builder(access = AccessLevel.PRIVATE)
     private ClubMember(Club club, User user, ClubMemberRole role) {
         this.club = club;
@@ -63,5 +67,10 @@ public class ClubMember extends BaseEntity {
 
     public void changeRole(ClubMemberRole newRole) {
         this.role = newRole;
+    }
+
+    /** null 을 넘기면 기수를 비운다(클리어). 값 검증(≥1)은 서비스 레이어에서 수행한다. */
+    public void changeGeneration(Integer newGeneration) {
+        this.generation = newGeneration;
     }
 }

@@ -134,6 +134,10 @@ public class Club extends BaseEntity {
     @Column(name = "central_club", nullable = false)
     private boolean centralClub;
 
+    /** 회원 기수 표시 여부. 순수 UI 표시 제어 설정으로 쓰기 게이트가 아니다. */
+    @Column(name = "use_generation", nullable = false)
+    private boolean useGeneration;
+
     @Column(name = "last_verified_year")
     private Integer lastVerifiedYear;
 
@@ -253,6 +257,10 @@ public class Club extends BaseEntity {
 
     public void changeCentralClub(boolean next) {
         this.centralClub = next;
+    }
+
+    public void changeUseGeneration(boolean next) {
+        this.useGeneration = next;
     }
 
     public void updateLastVerifiedYear(int year) {
