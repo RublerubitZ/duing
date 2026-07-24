@@ -103,6 +103,8 @@ export type ClubDetail = ClubSummary & {
   tagline: string | null;
   highlights: string[];
   projects: ClubProject[];
+  // 회원 기수 표시 여부(운영진 명단·공개 프로필의 기수 노출 제어).
+  useGeneration: boolean;
   /**
    * 상세 페이지 전용: 카드용 ClubSummaryRecruitment 보다 풍부한 필드를 노출.
    * field 명도 다르다 — 카드는 `recruitmentId`, 상세는 `id`. BE 응답 모양과 1:1 매칭이라 의도된 발산.
@@ -193,6 +195,8 @@ export type UpdateClubPayload = {
   tagline?: string | null;
   highlights?: string[];
   projects?: ClubProject[];
+  // 회원 기수 표시 여부(표시 제어 전용). 생략 시 미변경.
+  useGeneration?: boolean;
 };
 
 // 총동연 PATCH admin/clubs/{id} — 리더 payload + 잠금 필드까지 수정 가능.

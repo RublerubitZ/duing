@@ -169,6 +169,18 @@ export function useUpdateMemberRoleMutation(clubId: number) {
   });
 }
 
+export function useUpdateMemberGenerationMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, payload }: { memberId: number; payload: { generation: number | null } }) =>
+      client.clubs.updateMemberGeneration(clubId, memberId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
+    },
+  });
+}
+
 export function useRemoveMemberMutation(clubId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();

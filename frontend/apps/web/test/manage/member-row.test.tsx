@@ -36,6 +36,8 @@ const baseMember: ClubMember = {
   major: '컴퓨터정보공학',
   grade: 'SENIOR',
   phoneMasked: '010-****-5678',
+  generation: null,
+  feeStatus: 'NONE',
 };
 
 describe('MemberRow — 프로필 표시', () => {

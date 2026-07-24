@@ -356,6 +356,12 @@ export type DuingApiClient = {
     members(clubId: number): Promise<ClubMember[]>;
     membersExport(clubId: number, includePhone: boolean): Promise<ClubMemberExportRow[]>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
+    // generation=null 이면 기수를 비운다(클리어). LEADER 전용(OFFICER 403).
+    updateMemberGeneration(
+      clubId: number,
+      memberId: number,
+      payload: { generation: number | null },
+    ): Promise<void>;
     removeMember(clubId: number, memberId: number): Promise<void>;
     leaveClub(clubId: number): Promise<void>;
     transferLeader(clubId: number, memberId: number): Promise<TransferLeaderResult>;
@@ -1084,6 +1090,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       updateMemberRole: (clubId, memberId, payload) =>
         jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
+      updateMemberGeneration: (clubId, memberId, payload) =>
+        jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/generation`, { json: payload })),
       removeMember: (clubId, memberId) =>
         jsonVoid(http.delete(`clubs/${clubId}/members/${memberId}`)),
       leaveClub: (clubId) =>

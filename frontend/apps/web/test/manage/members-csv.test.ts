@@ -6,8 +6,8 @@ import {
 } from '../../app/manage/clubs/[clubId]/members/_lib/membersCsv';
 
 const rows: ClubMemberExportRow[] = [
-  { memberId: 1, name: '홍길동', studentId: '20240001', major: '컴퓨터정보공학부', phone: '010-1111-2222', role: 'LEADER', joinedAt: '2026-03-01T09:00:00' },
-  { memberId: 2, name: '김,따옴표"군', studentId: '20240002', major: '경영학과', phone: null, role: 'MEMBER', joinedAt: '2026-03-02T09:00:00' },
+  { memberId: 1, name: '홍길동', studentId: '20240001', major: '컴퓨터정보공학부', phone: '010-1111-2222', role: 'LEADER', joinedAt: '2026-03-01T09:00:00', generation: null, feeStatus: 'NONE' },
+  { memberId: 2, name: '김,따옴표"군', studentId: '20240002', major: '경영학과', phone: null, role: 'MEMBER', joinedAt: '2026-03-02T09:00:00', generation: null, feeStatus: 'NONE' },
 ];
 
 describe('buildMembersCsv', () => {
@@ -40,7 +40,7 @@ describe('buildMembersCsv', () => {
 
   it('수식으로 해석될 수 있는 값(= + - @ 시작)은 작은따옴표로 무력화한다', () => {
     const malicious: ClubMemberExportRow[] = [
-      { memberId: 9, name: '=1+2', studentId: '@cmd', major: '-test', phone: null, role: 'MEMBER', joinedAt: '2026-03-03T09:00:00' },
+      { memberId: 9, name: '=1+2', studentId: '@cmd', major: '-test', phone: null, role: 'MEMBER', joinedAt: '2026-03-03T09:00:00', generation: null, feeStatus: 'NONE' },
     ];
     const csv = buildMembersCsv(malicious, false);
     const line = csv.slice(1).split('\r\n')[1];

@@ -69,6 +69,7 @@ const clubDetail: ClubDetail = {
   tagline: null,
   highlights: [],
   projects: [{ icon: 'CODE', title: '해커톤', subtitle: '2박 3일 개발' }],
+  useGeneration: false,
   activeRecruitment: recruitment,
 };
 

@@ -17,7 +17,7 @@ vi.mock('@/app/_lib/downloadFile', () => ({
 import { MemberCsvDownloadPopover } from '../../app/manage/clubs/[clubId]/members/_components/MemberCsvDownloadPopover';
 
 const rows: ClubMemberExportRow[] = [
-  { memberId: 1, name: '홍길동', studentId: '20240001', major: '컴퓨터정보공학부', phone: null, role: 'LEADER', joinedAt: '2026-03-01T09:00:00' },
+  { memberId: 1, name: '홍길동', studentId: '20240001', major: '컴퓨터정보공학부', phone: null, role: 'LEADER', joinedAt: '2026-03-01T09:00:00', generation: null, feeStatus: 'NONE' },
 ];
 
 describe('MemberCsvDownloadPopover', () => {

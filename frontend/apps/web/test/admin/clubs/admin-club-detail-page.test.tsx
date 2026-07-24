@@ -42,6 +42,7 @@ const CLUB_DETAIL: ClubDetail = {
   feeCycle: 'NONE',
   highlights: [],
   projects: [],
+  useGeneration: false,
   activeRecruitment: null,
 };
 
