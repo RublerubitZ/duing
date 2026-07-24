@@ -293,7 +293,8 @@ public class Club extends BaseEntity {
             College college,                     // 21
             Boolean clearCollege,                // 22
             Boolean clearLogoImage,              // 23
-            Boolean clearCoverImage              // 24
+            Boolean clearCoverImage,             // 24
+            Boolean useGeneration                // 25
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -338,5 +339,6 @@ public class Club extends BaseEntity {
         } else if (payload.college() != null) {
             this.college = payload.college();
         }
+        if (payload.useGeneration() != null) this.useGeneration = payload.useGeneration();
     }
 }

@@ -52,7 +52,7 @@ class ClubNarrativeUpdateTest {
                 "코드를 두잉",                                           // tagline
                 List.of("개발 기초 다진 사람", "사이드 프로젝트 동료 필요한 사람"),  // highlights
                 null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
-                null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
+                null, null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage, useGeneration
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
@@ -75,7 +75,7 @@ class ClubNarrativeUpdateTest {
                 null,                                                  // tagline
                 List.of(),                                             // highlights
                 null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
-                null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage
+                null, null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage, useGeneration
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());

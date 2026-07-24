@@ -43,7 +43,8 @@ public record ClubDetailQuery(
         List<String> highlights,
         List<ClubProject> projects,
         StudentRecruitmentProjection activeRecruitment,
-        boolean centralClub
+        boolean centralClub,
+        boolean useGeneration
 ) {
     /**
      * leaderId / leaderName 은 ClubMember 테이블에서 role = LEADER 인 행을 조회해 주입한다.
@@ -87,7 +88,8 @@ public record ClubDetailQuery(
                 club.getHighlights(),
                 club.getProjects(),
                 activeRecruitment,
-                club.isCentralClub()
+                club.isCentralClub(),
+                club.isUseGeneration()
         );
     }
 }

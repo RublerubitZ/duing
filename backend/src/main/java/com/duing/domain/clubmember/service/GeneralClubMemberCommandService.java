@@ -8,6 +8,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.LeaveClubCommand;
 import com.duing.domain.clubmember.service.dto.command.RemoveMemberCommand;
 import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
+import com.duing.domain.clubmember.service.dto.command.UpdateMemberGenerationCommand;
 import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
@@ -52,6 +53,20 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
                 command.clubId(), target.getUser().getId(), command.requesterId(),
                 ClubMemberEventType.ROLE_CHANGED,
                 previousRole, command.role(), null);
+    }
+
+    @Override
+    @Transactional
+    public void updateGeneration(UpdateMemberGenerationCommand command) {
+        clubAuthService.requireLeader(command.requesterId(), command.clubId());
+
+        // use_generation 은 표시 제어 전용 — 저장 게이트가 아니므로 검사하지 않고 항상 저장한다.
+        if (command.generation() != null && command.generation() < 1) {
+            throw new ClubMemberException.InvalidGeneration();
+        }
+
+        ClubMember target = findMembershipInClub(command.memberId(), command.clubId());
+        target.changeGeneration(command.generation());
     }
 
     @Override

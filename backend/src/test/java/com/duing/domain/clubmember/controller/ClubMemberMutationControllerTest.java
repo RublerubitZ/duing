@@ -147,6 +147,137 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
                 .isEqualTo(ClubMemberRole.MEMBER);
     }
 
+    // ── 3.4b PATCH generation ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("LEADER 가 멤버 기수를 지정하면 204 를 반환하고 기수가 저장된다")
+    void patchGenerationAsLeader() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 9))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("generation 에 null 을 보내면 기존 기수가 비워진다")
+    void patchGenerationClearWithNull() {
+        jdbcTemplate.update("UPDATE club_member SET generation = 5 WHERE id = ?",
+                memberMembership.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"generation\":null}")
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("generation 에 0 을 보내면 400 과 안내 메시지를 반환한다")
+    void patchGenerationZeroRejected() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"generation\":0}")
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", equalTo("기수는 1 이상의 정수여야 합니다."));
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("generation 에 음수를 보내면 400 을 반환한다")
+    void patchGenerationNegativeRejected() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body("{\"generation\":-1}")
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("use_generation 이 꺼져 있어도 기수는 저장된다 — useGeneration 은 표시 제어 전용")
+    void patchGenerationSavedEvenWhenUseGenerationOff() {
+        // 셋업 동아리는 use_generation 기본값(false) — 저장 게이트가 아님을 검증한다.
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().isUseGeneration()).isFalse();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 3))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("다른 동아리 멤버의 기수를 이 동아리 경로로 변경하면 404 를 반환한다")
+    void patchGenerationOtherClubMemberNotFound() throws Exception {
+        Club otherClub = saveActiveClub("다른동아리");
+        User otherUser = saveUser("타클럽원");
+        ClubMember otherMembership =
+                clubMemberRepository.save(ClubMember.asMember(otherClub, otherUser));
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 2))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), otherMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("MEMBER 가 기수 변경을 시도하면 403 을 반환한다")
+    void patchGenerationAsMemberForbidden() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 2))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), officerMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
     // ── 3.5 DELETE member ────────────────────────────────────────────────
 
     @Test

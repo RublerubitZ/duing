@@ -87,6 +87,12 @@ public class ClubMemberException extends ApplicationException {
         }
     }
 
+    public static final class InvalidGeneration extends ClubMemberException {
+        public InvalidGeneration() {
+            super("기수는 1 이상의 정수여야 합니다.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static final class ConcurrentTransferDetected extends ClubMemberException {
         public ConcurrentTransferDetected() {
             super("동시 회장 인계가 감지되었습니다. 이미 회장이 변경된 상태입니다.",

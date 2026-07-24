@@ -120,7 +120,8 @@ public record AdminUpdateClubRequest(
                 activityFrequency, activeDays, tagline, highlights,
                 contactVisibility, feeCycle, membershipFeeAmount, projects,
                 college, clearCollege,
-                clearLogoImage, clearCoverImage
+                clearLogoImage, clearCoverImage,
+                null                                    // useGeneration — 리더 프로필 수정 전용
         );
     }
 }

@@ -16,7 +16,7 @@ class ClubProfileUpdateTest {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     @Test
@@ -61,19 +61,19 @@ class ClubProfileUpdateTest {
         assertThat(project.subtitle()).isNull();
     }
 
-    // ---- payload helpers: 아래 두 헬퍼는 emptyPayload() 와 동일한 24개 인자 순서에서
+    // ---- payload helpers: 아래 두 헬퍼는 emptyPayload() 와 동일한 25개 인자 순서에서
     //      해당 필드만 채운다. UpdatePayload record 정의(Step 4)의 컴포넌트 순서를 따를 것.
     private Club.UpdatePayload payloadWithFee(FeeCycle feeCycle, Integer amount) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                feeCycle, amount, null, null, null, null, null);
+                feeCycle, amount, null, null, null, null, null, null);
     }
 
     private Club.UpdatePayload payloadWithSns(List<ClubSnsLink> snsLinks) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, snsLinks, null,
                 null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 }
