@@ -96,6 +96,26 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
             """)
     List<FeeBillDueSoonRow> findDueSoonUnpaidBills(@Param("dueDates") Collection<LocalDate> dueDates);
 
+    // 동아리 회원별 "가장 최근 비-CANCELLED 청구"의 상태를 단일 쿼리로 뽑는다(멤버 목록·EXPORT 의 회비 상태 판정).
+    // 상관 서브쿼리 NOT EXISTS 로 같은 user 의 더 최신 청구가 없는 행만 남긴다 — 최신 기준은 created_at, 동률이면 id.
+    // @SQLRestriction(deleted_at IS NULL) 가 b·later 양쪽 JPQL 에 자동 적용돼 soft-delete 청구는 제외된다.
+    // 청구가 하나도 없는(또는 전부 CANCELLED 인) user 는 결과에서 빠져 호출부에서 NONE 으로 채운다.
+    @Query("""
+            SELECT new com.duing.domain.fee.repository.LatestBillStatusRow(b.userId, b.status)
+            FROM FeeBill b
+            WHERE b.clubId = :clubId
+              AND b.status <> com.duing.domain.fee.entity.FeeStatus.CANCELLED
+              AND NOT EXISTS (
+                SELECT 1 FROM FeeBill later
+                WHERE later.clubId = b.clubId
+                  AND later.userId = b.userId
+                  AND later.status <> com.duing.domain.fee.entity.FeeStatus.CANCELLED
+                  AND (later.createdAt > b.createdAt
+                       OR (later.createdAt = b.createdAt AND later.id > b.id))
+              )
+            """)
+    List<LatestBillStatusRow> findLatestNonCancelledBillStatusByClubId(@Param("clubId") Long clubId);
+
     // 연체 후보(마감 지난 미납·부분납부)를 FOR UPDATE 로 잠가 동시 납부 기록과 직렬화하고, 이번 실행의 전이 대상을 확정한다.
     @Query(value = """
             SELECT id, user_id, billing_period
