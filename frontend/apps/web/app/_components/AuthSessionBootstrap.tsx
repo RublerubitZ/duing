@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useApiClient } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import posthog from 'posthog-js';
 
 // 이 브라우저에서 세션이 살아 있던 적이 있는지 표시하는 로컬 플래그.
 // 인증 쿠키 3종은 모두 HttpOnly 라 JS 로는 로그인 여부를 알 수 없는데, 로그인한 적도 없는
@@ -45,9 +46,19 @@ export function AuthSessionBootstrap() {
   const status = useAuthStore((state) => state.status);
   const { addToast } = useToast();
 
+  const previousStatusRef = useRef(status);
+
   useEffect(() => {
     if (status === 'authenticated') markHadSession(true);
-    else if (status === 'unauthenticated') markHadSession(false);
+    else if (status === 'unauthenticated') {
+      markHadSession(false);
+      // 로그아웃·만료·전체 로그아웃·탈퇴 등 모든 세션 종료가 이 전이를 지난다 — 공용 단말에서
+      // 다음 사용자의 이벤트가 이전 distinct_id 에 붙지 않도록 여기서 한 번만 초기화한다.
+      // 익명 방문자의 401(idle→unauthenticated)은 제외 — 익명 id 까지 매 방문 갈아치우면
+      // 가입 전 행동과 가입 후 identify 의 연결이 끊긴다.
+      if (previousStatusRef.current === 'authenticated') posthog.reset();
+    }
+    previousStatusRef.current = status;
   }, [status]);
 
   useEffect(() => {
@@ -57,6 +68,7 @@ export function AuthSessionBootstrap() {
       .then((user) => {
         if (cancelled) return;
         setSession(user);
+        posthog.identify(String(user.id), { role: user.role, grade: user.grade, college: user.college });
       })
       .catch((sessionError: unknown) => {
         if (cancelled) return;

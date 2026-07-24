@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useCreateRecruitmentMutation, useRecruitmentDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
+import posthog from 'posthog-js';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import {
   RecruitmentForm,
@@ -51,6 +52,13 @@ export default function NewRecruitmentPage({
       interviewStartDate: values.interviewStartDate ?? undefined,
       interviewEndDate: values.interviewEndDate ?? undefined,
       showApplicantCount: values.showApplicantCount,
+    });
+    posthog.capture('recruitment_created', {
+      club_id: clubId,
+      recruitment_id: newRecruitmentId,
+      application_mode: values.applicationMode,
+      use_interview: values.useInterview,
+      cloned: Boolean(cloneFromParam),
     });
     router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${newRecruitmentId}`));
   }

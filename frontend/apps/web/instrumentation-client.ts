@@ -42,3 +42,27 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // App Router 네비게이션 계측 훅(추적 비활성 시 no-op).
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+
+// PostHog 클라이언트 초기화 — Sentry 아래 별도로 둔다.
+import posthog from 'posthog-js';
+
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+if (!posthogKey) {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.error(
+      'NEXT_PUBLIC_POSTHOG_KEY variable required by PostHog is missing or un-configured, ' +
+        'this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_KEY is configured',
+    );
+  }
+} else {
+  posthog.init(posthogKey, {
+    api_host: '/ingest',
+    ui_host: 'https://us.posthog.com',
+    defaults: '2026-01-30',
+    // 예외 모니터링은 Sentry 전담(소스맵 업로드까지 구축) — 중복 캡처와 예외 메시지 경유 PII 유입을 막는다.
+    capture_exceptions: false,
+    debug: process.env.NODE_ENV === 'development',
+  });
+}

@@ -11,6 +11,7 @@ import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
 import { SignupStepIndicator } from './SignupStepIndicator';
 import { SignupStepVerify } from './SignupStepVerify';
 import { SignupStepProfile } from './SignupStepProfile';
+import posthog from 'posthog-js';
 
 function IconChevronLeft() {
   return (
@@ -83,7 +84,9 @@ export function SignupFormPanel() {
       return;
     }
     try {
-      await signup.mutateAsync(parsed.data);
+      const signedUpUserId = await signup.mutateAsync(parsed.data);
+      posthog.identify(String(signedUpUserId));
+      posthog.capture('user_signed_up', { college: parsed.data.college, grade: parsed.data.grade });
       router.replace('/login?next=/me');
     } catch (signupError) {
       if (signupError instanceof ApiError && signupError.code === 'PHONE_NOT_VERIFIED') {

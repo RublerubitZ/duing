@@ -17,6 +17,7 @@ import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
 import { ApplyAnswersStep } from './ApplyAnswersStep';
 import { toRoute } from '../../../_lib/route';
+import posthog from 'posthog-js';
 
 type Props = {
   recruitment: RecruitmentDetail;
@@ -122,6 +123,11 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         answerItems: answers.map(({ questionId, values }) => ({ questionId, values })),
       };
       const applicationId = await submit.mutateAsync(payload);
+      posthog.capture('club_application_submitted', {
+        recruitment_id: recruitmentId,
+        club_name: recruitment.clubName,
+        application_id: applicationId,
+      });
       queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
