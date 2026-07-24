@@ -81,6 +81,15 @@ describe('filterMembers — 검색', () => {
     expect(names(run(members, { query: '5기' }))).toEqual(['홍길동']);
   });
 
+  it('기수 검색은 완전일치라 "1기" 가 11기/21기 회원에 오탐하지 않는다', () => {
+    const gens = [
+      member({ memberId: 1, name: '홍길동', generation: 1, studentId: '20260001' }),
+      member({ memberId: 2, name: '김철수', generation: 11, studentId: '20260011' }),
+      member({ memberId: 3, name: '이영희', generation: 21, studentId: '20260021' }),
+    ];
+    expect(names(run(gens, { query: '1기' }))).toEqual(['홍길동']);
+  });
+
   it('useGeneration=false 면 기수 "N기" 검색이 제외된다', () => {
     expect(run(members, { query: '5기', useGeneration: false })).toEqual([]);
   });

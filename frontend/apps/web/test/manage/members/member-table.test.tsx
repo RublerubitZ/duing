@@ -105,7 +105,7 @@ describe('MemberTable — 상세 열기', () => {
     const target = member({ memberId: 7, name: '이영희' });
     renderTable({ members: [target], onOpenDetail });
 
-    await userEvent.click(screen.getByRole('button', { name: '상세' }));
+    await userEvent.click(screen.getByRole('button', { name: '이영희 상세' }));
 
     expect(onOpenDetail).toHaveBeenCalledWith(target);
   });
@@ -115,5 +115,10 @@ describe('MemberTable — 빈 상태', () => {
   it('members 가 비면 안내 문구를 표시한다', () => {
     renderTable({ members: [] });
     expect(screen.getByText('조건에 맞는 회원이 없어요')).toBeInTheDocument();
+  });
+
+  it('검색어가 있으면 빈 상태 문구에 검색어를 포함한다', () => {
+    renderTable({ members: [], query: '홍길동' });
+    expect(screen.getByText("'홍길동' 조건에 맞는 회원이 없어요")).toBeInTheDocument();
   });
 });

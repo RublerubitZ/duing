@@ -14,6 +14,8 @@ type Props = {
   onToggleSelect: (memberId: number) => void;
   onToggleAll: () => void;
   onOpenDetail: (member: ClubMember) => void;
+  // 빈 상태 문구에 검색어를 반영하기 위한 현재 검색어(옵셔널 — 미전달 시 일반 문구).
+  query?: string;
 };
 
 const FEE_STATUS: Record<MemberFeeStatus, { label: string; className: string }> = {
@@ -52,6 +54,7 @@ export function MemberTable({
   onToggleSelect,
   onToggleAll,
   onOpenDetail,
+  query,
 }: Props) {
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -65,9 +68,12 @@ export function MemberTable({
   }, [someSelected, allSelected]);
 
   if (members.length === 0) {
+    const trimmedQuery = query?.trim();
     return (
       <div className="card px-6 py-12 text-center">
-        <p className="text-sm font-medium text-charcoal-2">조건에 맞는 회원이 없어요</p>
+        <p className="text-sm font-medium text-charcoal-2">
+          {trimmedQuery ? `'${trimmedQuery}' 조건에 맞는 회원이 없어요` : '조건에 맞는 회원이 없어요'}
+        </p>
         <p className="mt-1 text-xs text-charcoal-3">검색어나 필터를 바꿔 보세요.</p>
       </div>
     );
@@ -140,6 +146,7 @@ export function MemberTable({
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
+                      aria-label={`${member.name} 상세`}
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenDetail(member);

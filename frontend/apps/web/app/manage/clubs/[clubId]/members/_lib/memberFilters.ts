@@ -62,10 +62,9 @@ function matchesQuery(member: ClubMember, query: string, useGeneration: boolean)
   if (normalized === '') return true;
 
   const fields = [member.name, member.major, member.studentId, clubMemberRoleLabel(member.role)];
-  if (useGeneration && member.generation !== null) {
-    fields.push(`${member.generation}기`);
-  }
-  return fields.some((field) => field.toLowerCase().includes(normalized));
+  if (fields.some((field) => field.toLowerCase().includes(normalized))) return true;
+  // 기수는 완전일치로만 매칭한다("1기" 가 "11기"·"21기" 에 부분일치하는 오탐 방지).
+  return useGeneration && member.generation !== null && normalized === `${member.generation}기`;
 }
 
 // 검색어 + 역할(배타) + 보조 토글(AND) + 기수(AND, useGeneration 시)로 걸러진 배열을 반환하는 순수 함수.
