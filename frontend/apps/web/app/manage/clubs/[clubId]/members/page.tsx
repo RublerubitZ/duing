@@ -14,6 +14,7 @@ import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 
 export default function ClubMembersPage({
   params,
@@ -85,7 +86,7 @@ export default function ClubMembersPage({
       </header>
 
       <MemberSection
-        title="회장"
+        title={clubMemberRoleLabel('LEADER')}
         members={leaders}
         clubId={currentClubId}
         viewerRole={managedClub.myRole}
@@ -93,7 +94,7 @@ export default function ClubMembersPage({
         onTransferLeader={setTransferTarget}
       />
       <MemberSection
-        title="운영진"
+        title={clubMemberRoleLabel('OFFICER')}
         members={officers}
         clubId={currentClubId}
         viewerRole={managedClub.myRole}
@@ -101,7 +102,7 @@ export default function ClubMembersPage({
         onTransferLeader={setTransferTarget}
       />
       <MemberSection
-        title="일반 멤버"
+        title={clubMemberRoleLabel('MEMBER')}
         members={regulars}
         clubId={currentClubId}
         viewerRole={managedClub.myRole}

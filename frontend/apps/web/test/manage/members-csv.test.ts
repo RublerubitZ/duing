@@ -27,7 +27,7 @@ describe('buildMembersCsv', () => {
   it('콤마·따옴표가 포함된 값을 RFC4180 으로 이스케이프한다', () => {
     const csv = buildMembersCsv(rows, false);
     const line = csv.slice(1).split('\r\n')[2];
-    expect(line).toBe('"김,따옴표""군",20240002,경영학과,일반멤버,2026-03-02');
+    expect(line).toBe('"김,따옴표""군",20240002,경영학과,부원,2026-03-02');
   });
 
   it('전화번호 포함 시 학과 다음에 휴대전화 컬럼이 추가되고 null 은 빈 문자열로 출력한다', () => {
@@ -35,7 +35,7 @@ describe('buildMembersCsv', () => {
     const lines = csv.slice(1).split('\r\n');
     expect(lines[0]).toBe('이름,학번,학과,휴대전화,역할,가입일');
     expect(lines[1]).toBe('홍길동,20240001,컴퓨터정보공학부,010-1111-2222,회장,2026-03-01');
-    expect(lines[2]).toBe('"김,따옴표""군",20240002,경영학과,,일반멤버,2026-03-02');
+    expect(lines[2]).toBe('"김,따옴표""군",20240002,경영학과,,부원,2026-03-02');
   });
 
   it('수식으로 해석될 수 있는 값(= + - @ 시작)은 작은따옴표로 무력화한다', () => {
@@ -44,7 +44,7 @@ describe('buildMembersCsv', () => {
     ];
     const csv = buildMembersCsv(malicious, false);
     const line = csv.slice(1).split('\r\n')[1];
-    expect(line).toBe("'=1+2,'@cmd,'-test,일반멤버,2026-03-03");
+    expect(line).toBe("'=1+2,'@cmd,'-test,부원,2026-03-03");
   });
 });
 

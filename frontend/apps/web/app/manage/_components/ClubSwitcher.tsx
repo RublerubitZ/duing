@@ -4,6 +4,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import type { ManagedClub } from '@duing/types';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { cn } from '@/app/_lib/cn';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   DropdownMenu,
@@ -20,10 +21,6 @@ type ClubSwitcherProps = {
   /** 클럽 선택 직후 호출 — 모바일 드로어 닫기용. 드롭다운은 포털로 렌더되어 Sheet 의 anchor 클릭 감지가 닿지 않는다. */
   onNavigate?: () => void;
 };
-
-function roleLabel(myRole: ManagedClub['myRole']) {
-  return myRole === 'LEADER' ? '회장' : '운영진';
-}
 
 function recruitLabel(activeRecruitmentCount: number) {
   return activeRecruitmentCount > 0 ? '모집중' : '모집종료';
@@ -80,7 +77,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
             <span className="block truncate text-[15px] font-extrabold text-white">{currentClub.clubName}</span>
             <span className="mt-0.5 flex items-center gap-1.5">
               <span className="shrink-0 rounded-full bg-sage px-1.5 py-px text-[9.5px] font-extrabold text-ink-deep">
-                {roleLabel(currentClub.myRole)}
+                {clubMemberRoleLabel(currentClub.myRole)}
               </span>
               <span
                 className={cn(
@@ -124,7 +121,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-white">{club.clubName}</span>
                 <span className="block text-[11px] text-white/50">
-                  {roleLabel(club.myRole)} ·{' '}
+                  {clubMemberRoleLabel(club.myRole)} ·{' '}
                   <span className={club.activeRecruitmentCount > 0 ? 'text-sage-soft' : 'text-white/50'}>
                     {recruitLabel(club.activeRecruitmentCount)}
                   </span>
