@@ -4,17 +4,28 @@ import { use, useState } from 'react';
 import { notFound } from 'next/navigation';
 import type { ClubMember } from '@duing/types';
 import {
+  useClubDetailQuery,
   useClubMembersQuery,
   useManagedClubsQuery,
   useMeQuery,
   useTransferLeaderMutation,
 } from '@duing/hooks';
-import { MemberSection } from './_components/MemberSection';
+import { MemberKpis } from './_components/MemberKpis';
+import { MemberFilterChips } from './_components/MemberFilterChips';
+import { MemberTable } from './_components/MemberTable';
+import { MemberDetailPanel } from './_components/MemberDetailPanel';
+import { MemberBulkToolbar } from './_components/MemberBulkToolbar';
+import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
-import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
+import {
+  availableGenerations,
+  EMPTY_MEMBER_FILTERS,
+  filterMembers,
+  type MemberFilters,
+} from './_lib/memberFilters';
+import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
-import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 
 export default function ClubMembersPage({
   params,
@@ -30,13 +41,21 @@ export default function ClubMembersPage({
   const { data: members, isLoading: isMembersLoading } = useClubMembersQuery(
     isValidId ? currentClubId : undefined,
   );
+  const { data: clubDetail, isLoading: isDetailLoading } = useClubDetailQuery(
+    isValidId ? currentClubId : undefined,
+  );
   const transferLeader = useTransferLeaderMutation(currentClubId);
 
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [detailMember, setDetailMember] = useState<ClubMember | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState<ClubMember | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [successionOpen, setSuccessionOpen] = useState(false);
 
-  if (isMeLoading || isManagedLoading || isMembersLoading) {
+  if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
     return <LoadingGate label="멤버 목록 불러오는 중" />;
   }
 
@@ -45,9 +64,62 @@ export default function ClubMembersPage({
     notFound();
   }
 
-  const leaders = members?.filter((m) => m.role === 'LEADER') ?? [];
-  const officers = members?.filter((m) => m.role === 'OFFICER') ?? [];
-  const regulars = members?.filter((m) => m.role === 'MEMBER') ?? [];
+  const viewerRole = managedClub.myRole;
+  const isLeader = viewerRole === 'LEADER';
+  const useGeneration = clubDetail?.useGeneration ?? false;
+  const memberList = members ?? [];
+  const generations = availableGenerations(memberList);
+
+  const filtered = filterMembers(memberList, { query, filters, useGeneration });
+  const filteredIds = new Set(filtered.map((member) => member.memberId));
+
+  // 검색·필터가 바뀌면 화면에서 사라진 회원의 선택을 조용히 남기지 않도록 교집합으로 정리한다.
+  function pruneSelection(nextQuery: string, nextFilters: MemberFilters) {
+    const visible = new Set(
+      filterMembers(memberList, { query: nextQuery, filters: nextFilters, useGeneration }).map(
+        (member) => member.memberId,
+      ),
+    );
+    setSelectedIds((prev) => new Set([...prev].filter((id) => visible.has(id))));
+  }
+
+  function handleQueryChange(nextQuery: string) {
+    setQuery(nextQuery);
+    pruneSelection(nextQuery, filters);
+  }
+
+  function handleFiltersChange(nextFilters: MemberFilters) {
+    setFilters(nextFilters);
+    pruneSelection(query, nextFilters);
+  }
+
+  function toggleSelect(memberId: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      const everyVisibleSelected =
+        filtered.length > 0 && filtered.every((member) => prev.has(member.memberId));
+      const next = new Set(prev);
+      if (everyVisibleSelected) {
+        filtered.forEach((member) => next.delete(member.memberId));
+      } else {
+        filtered.forEach((member) => next.add(member.memberId));
+      }
+      return next;
+    });
+  }
+
+  function openDetail(member: ClubMember) {
+    setDetailMember(member);
+    setDetailOpen(true);
+  }
 
   async function doTransfer() {
     if (!transferTarget) return;
@@ -61,19 +133,24 @@ export default function ClubMembersPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-6 py-10">
+    <div className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', isLeader && 'pb-28')}>
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">멤버 관리</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            역할별 멤버를 확인하고, 회장은 역할 변경·강퇴·인계를 할 수 있습니다.
+          <h1 className="text-xl font-bold">회원 관리</h1>
+          <p className="mt-1 text-sm text-charcoal-3">
+            회원을 검색·필터하고, 회장은 역할 변경·탈퇴·회장 인계를 할 수 있습니다.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {managedClub.myRole === 'LEADER' && (
-            <MemberCsvDownloadPopover clubId={currentClubId} clubName={managedClub.clubName} />
+          {isLeader && (
+            <MemberCsvDownloadPopover
+              clubId={currentClubId}
+              clubName={managedClub.clubName}
+              memberIds={filteredIds}
+              useGeneration={useGeneration}
+            />
           )}
-          {managedClub.myRole === 'OFFICER' && (
+          {viewerRole === 'OFFICER' && (
             <button
               type="button"
               onClick={() => setSuccessionOpen(true)}
@@ -85,32 +162,67 @@ export default function ClubMembersPage({
         </div>
       </header>
 
-      <MemberSection
-        title={clubMemberRoleLabel('LEADER')}
-        members={leaders}
-        clubId={currentClubId}
-        viewerRole={managedClub.myRole}
-        viewerUserId={me.id}
-        onTransferLeader={setTransferTarget}
-      />
-      <MemberSection
-        title={clubMemberRoleLabel('OFFICER')}
-        members={officers}
-        clubId={currentClubId}
-        viewerRole={managedClub.myRole}
-        viewerUserId={me.id}
-        onTransferLeader={setTransferTarget}
-      />
-      <MemberSection
-        title={clubMemberRoleLabel('MEMBER')}
-        members={regulars}
-        clubId={currentClubId}
-        viewerRole={managedClub.myRole}
-        viewerUserId={me.id}
-        onTransferLeader={setTransferTarget}
-      />
+      <MemberKpis members={memberList} useGeneration={useGeneration} />
 
-      {transferError && <p className="text-sm text-rose-600">{transferError}</p>}
+      <div className="space-y-3">
+        <MemberFilterChips
+          query={query}
+          filters={filters}
+          onQueryChange={handleQueryChange}
+          onChange={handleFiltersChange}
+          useGeneration={useGeneration}
+          generations={generations}
+        />
+        <p className="text-sm font-medium text-charcoal-2">결과 {filtered.length}명</p>
+      </div>
+
+      <div
+        className={
+          detailOpen
+            ? 'gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start'
+            : undefined
+        }
+      >
+        <div className="min-w-0">
+          <MemberTable
+            members={filtered}
+            useGeneration={useGeneration}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleAll={toggleAll}
+            onOpenDetail={openDetail}
+            query={query}
+            selectable={isLeader}
+          />
+        </div>
+        <div className="lg:sticky lg:top-4">
+          <MemberDetailPanel
+            member={detailMember}
+            clubId={currentClubId}
+            useGeneration={useGeneration}
+            viewerRole={viewerRole}
+            viewerUserId={me.id}
+            open={detailOpen}
+            onClose={() => setDetailOpen(false)}
+            onTransferLeader={(target) => {
+              setDetailOpen(false);
+              setTransferTarget(target);
+            }}
+          />
+        </div>
+      </div>
+
+      {isLeader && (
+        <MemberBulkToolbar
+          clubId={currentClubId}
+          selectedIds={selectedIds}
+          members={filtered}
+          useGeneration={useGeneration}
+          onDone={() => setSelectedIds(new Set())}
+        />
+      )}
+
+      {transferError && <p className="text-sm text-coral">{transferError}</p>}
 
       {transferTarget && (
         <TransferLeaderDialog
@@ -118,7 +230,10 @@ export default function ClubMembersPage({
           clubName={managedClub.clubName}
           isPending={transferLeader.isPending}
           onConfirm={doTransfer}
-          onCancel={() => { setTransferTarget(null); setTransferError(null); }}
+          onCancel={() => {
+            setTransferTarget(null);
+            setTransferError(null);
+          }}
         />
       )}
 

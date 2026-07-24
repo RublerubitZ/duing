@@ -16,6 +16,8 @@ type Props = {
   onOpenDetail: (member: ClubMember) => void;
   // 빈 상태 문구에 검색어를 반영하기 위한 현재 검색어(옵셔널 — 미전달 시 일반 문구).
   query?: string;
+  // 선택(체크박스) 컬럼 노출 여부. 일괄 작업 권한이 없는 뷰어(OFFICER)에겐 false 로 숨긴다. 기본 true(비파괴).
+  selectable?: boolean;
 };
 
 const FEE_STATUS: Record<MemberFeeStatus, { label: string; className: string }> = {
@@ -55,6 +57,7 @@ export function MemberTable({
   onToggleAll,
   onOpenDetail,
   query,
+  selectable = true,
 }: Props) {
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -86,16 +89,18 @@ export function MemberTable({
         <table className="w-full text-sm">
           <thead className="bg-cream text-left">
             <tr>
-              <th className="w-10 px-4 py-3">
-                <input
-                  ref={headerCheckboxRef}
-                  type="checkbox"
-                  aria-label="전체 선택"
-                  checked={allSelected}
-                  onChange={onToggleAll}
-                  className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
-                />
-              </th>
+              {selectable && (
+                <th className="w-10 px-4 py-3">
+                  <input
+                    ref={headerCheckboxRef}
+                    type="checkbox"
+                    aria-label="전체 선택"
+                    checked={allSelected}
+                    onChange={onToggleAll}
+                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                  />
+                </th>
+              )}
               <th className="px-4 py-3 font-medium text-charcoal-2">회원</th>
               <th className="px-4 py-3 font-medium text-charcoal-2">역할</th>
               {useGeneration && <th className="px-4 py-3 font-medium text-charcoal-2">기수</th>}
@@ -113,15 +118,17 @@ export function MemberTable({
                   onClick={() => onOpenDetail(member)}
                   className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-cream/60')}
                 >
-                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      aria-label={`${member.name} 선택`}
-                      checked={isSelected}
-                      onChange={() => onToggleSelect(member.memberId)}
-                      className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
-                    />
-                  </td>
+                  {selectable && (
+                    <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`${member.name} 선택`}
+                        checked={isSelected}
+                        onChange={() => onToggleSelect(member.memberId)}
+                        className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <InitialAvatar name={member.name} />
@@ -177,14 +184,16 @@ export function MemberTable({
               )}
             >
               <div className="flex items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  aria-label={`${member.name} 선택`}
-                  checked={isSelected}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={() => onToggleSelect(member.memberId)}
-                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
-                />
+                {selectable && (
+                  <input
+                    type="checkbox"
+                    aria-label={`${member.name} 선택`}
+                    checked={isSelected}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={() => onToggleSelect(member.memberId)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                  />
+                )}
                 <InitialAvatar name={member.name} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">

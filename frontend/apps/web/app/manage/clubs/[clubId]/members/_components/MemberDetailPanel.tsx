@@ -343,7 +343,7 @@ function ManagementSection({
       await removeMember.mutateAsync(member.memberId);
       setShowRemoveDialog(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '강퇴 실패');
+      setError(err instanceof Error ? err.message : '탈퇴 처리 실패');
     }
   }
 
@@ -438,7 +438,7 @@ function ManagementSection({
               onClick={() => setShowRemoveDialog(true)}
               className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
             >
-              강퇴
+              탈퇴
             </button>
           </>
         )}

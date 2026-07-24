@@ -207,7 +207,7 @@ describe('MemberDetailPanel — 권한 게이트', () => {
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
     expect(screen.getByRole('button', { name: '임원으로 승급' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '회장 인계' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '강퇴' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '탈퇴' })).toBeInTheDocument();
     expect(screen.getByText('관리')).toBeInTheDocument();
   });
 
@@ -225,7 +225,8 @@ describe('MemberDetailPanel — 권한 게이트', () => {
       member: member({ userId: 100, role: 'OFFICER' }),
     });
     expect(screen.getByRole('button', { name: '탈퇴' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '강퇴' })).not.toBeInTheDocument();
+    // 회장 전용 관리 액션은 노출되지 않는다.
+    expect(screen.queryByRole('button', { name: '회장 인계' })).not.toBeInTheDocument();
   });
 
   it('LEADER 뷰어 본인(회장) 행은 탈퇴가 비활성', () => {
@@ -276,12 +277,12 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
     expect(capturedGenerationBody).toBeNull();
   });
 
-  it('강퇴는 확인 다이얼로그를 거쳐 DELETE 를 보낸다', async () => {
+  it('탈퇴는 확인 다이얼로그를 거쳐 DELETE 를 보낸다', async () => {
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
 
-    await userEvent.click(screen.getByRole('button', { name: '강퇴' }));
+    await userEvent.click(screen.getByRole('button', { name: '탈퇴' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: '강퇴' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '탈퇴' }));
 
     await waitFor(() => expect(removeCalled).toBe(true));
   });
