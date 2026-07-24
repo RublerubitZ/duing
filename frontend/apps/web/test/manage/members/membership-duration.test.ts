@@ -30,4 +30,18 @@ describe('formatMembershipDuration', () => {
   it('개월이 0인 정수 연차는 개월을 생략한다', () => {
     expect(formatMembershipDuration('2023-06-01', new Date('2026-06-01'))).toBe('3년');
   });
+
+  it('Z 인스턴트는 KST 달력 기준으로 계산한다 — KST 새벽 가입은 그 달로 친다', () => {
+    // 2026-06-30T16:00Z = KST 2026-07-01 01:00 → 7월 가입. UTC 프레임이면 6월이라 "1개월"로 어긋난다.
+    expect(formatMembershipDuration('2026-06-30T16:00:00Z', new Date('2026-07-20T00:00:00Z'))).toBe(
+      '이번 달 가입',
+    );
+  });
+
+  it('Z 인스턴트의 KST 월 경계가 개월 수에 반영된다', () => {
+    // 2026-05-31T16:00Z = KST 2026-06-01. 7/15 기준 → 1개월(UTC 프레임이면 5월→7월 2개월로 어긋남).
+    expect(formatMembershipDuration('2026-05-31T16:00:00Z', new Date('2026-07-15T00:00:00Z'))).toBe(
+      '1개월',
+    );
+  });
 });

@@ -205,7 +205,7 @@ describe('MemberDetailPanel — 연락처 복사', () => {
 describe('MemberDetailPanel — 권한 게이트', () => {
   it('LEADER 뷰어는 타인 MEMBER 행에서 관리 액션을 본다', () => {
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
-    expect(screen.getByRole('button', { name: 'OFFICER 로 승급' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '임원으로 승급' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '회장 인계' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강퇴' })).toBeInTheDocument();
     expect(screen.getByText('관리')).toBeInTheDocument();
@@ -214,7 +214,7 @@ describe('MemberDetailPanel — 권한 게이트', () => {
   it('OFFICER 뷰어는 타인 행에서 관리 섹션이 숨겨진다', () => {
     renderPanel({ viewerRole: 'OFFICER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
     expect(screen.queryByText('관리')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'OFFICER 로 승급' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '임원으로 승급' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '강퇴' })).not.toBeInTheDocument();
   });
 
@@ -243,7 +243,7 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
 
-    await userEvent.click(screen.getByRole('button', { name: 'OFFICER 로 승급' }));
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
 
     await waitFor(() => expect(capturedRoleBody).toEqual({ role: 'OFFICER' }));
   });

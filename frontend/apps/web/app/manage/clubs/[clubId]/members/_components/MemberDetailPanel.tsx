@@ -123,7 +123,7 @@ export function MemberDetailPanel({
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none p-0">
+      <DialogContent className="left-0 top-0 h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none p-0">
         <DialogTitle className="sr-only">{title}</DialogTitle>
         {body}
       </DialogContent>
@@ -324,7 +324,10 @@ function ManagementSection({
   const [error, setError] = useState<string | null>(null);
 
   async function changeRole(nextRole: 'OFFICER' | 'MEMBER') {
-    const verb = nextRole === 'OFFICER' ? 'OFFICER 로 승급' : 'MEMBER 로 강등';
+    const verb =
+      nextRole === 'OFFICER'
+        ? `${clubMemberRoleLabel('OFFICER')}으로 승급`
+        : `${clubMemberRoleLabel('MEMBER')}으로 강등`;
     if (!window.confirm(`${member.name} 님을 ${verb}할까요?`)) return;
     setError(null);
     try {
@@ -408,7 +411,7 @@ function ManagementSection({
             onClick={() => changeRole('MEMBER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
-            MEMBER 로 강등
+            {clubMemberRoleLabel('MEMBER')}으로 강등
           </button>
         )}
         {!isSelf && member.role === 'MEMBER' && (
@@ -417,7 +420,7 @@ function ManagementSection({
             onClick={() => changeRole('OFFICER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
-            OFFICER 로 승급
+            {clubMemberRoleLabel('OFFICER')}으로 승급
           </button>
         )}
 
