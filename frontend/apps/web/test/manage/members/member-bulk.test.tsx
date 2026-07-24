@@ -173,6 +173,25 @@ describe('MemberBulkToolbar — 회장(LEADER) 스킵', () => {
   });
 });
 
+describe('MemberBulkToolbar — 동일 역할 회원 제외(no-op 감사 방지)', () => {
+  it('이미 임원인 회원에게는 승급 PATCH 를 보내지 않고 요약에 제외를 표기한다', async () => {
+    const user = userEvent.setup();
+    const officer = member({ memberId: 4, name: '박임원', role: 'OFFICER' });
+    // 임원 1명 + 부원 1명 선택 → 승급.
+    renderToolbar({ members: [officer, M2], selectedIds: new Set([4, 2]) });
+
+    await user.click(screen.getByRole('button', { name: /임원 승급/ }));
+
+    await waitFor(() => expect(roleCalls.length).toBe(1));
+    // 이미 임원인 4번에게는 요청하지 않는다.
+    expect(roleCalls.map((call) => call.memberId)).toEqual([2]);
+
+    const status = await screen.findByRole('status');
+    expect(within(status).getByText(/1명 처리/)).toBeInTheDocument();
+    expect(within(status).getByText(/이미 임원 1명은 제외했어요/)).toBeInTheDocument();
+  });
+});
+
 describe('MemberBulkToolbar — 기수 변경 조건부 노출', () => {
   it('useGeneration=false 면 기수 변경 버튼이 없다', () => {
     renderToolbar({ useGeneration: false });

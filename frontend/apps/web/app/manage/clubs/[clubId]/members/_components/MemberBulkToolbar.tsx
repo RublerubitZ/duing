@@ -28,6 +28,9 @@ type BulkSummary = {
   failed: BulkMemberFailure[];
   // 승급/강등/탈퇴에서 제외된 회장 행(기존 단건 정책과 동일 — 요약에 표기).
   skippedLeaders: ClubMember[];
+  // 이미 목표 역할이라 제외된 회원 — no-op PATCH 가 ROLE_CHANGED 감사 이력을 오염시키므로 보내지 않는다.
+  skippedSameRole?: ClubMember[];
+  skippedSameRoleLabel?: string;
 };
 
 type MemberBulkToolbarProps = {
@@ -73,17 +76,26 @@ export function MemberBulkToolbar({
 
   async function runRoleChange(action: 'promote' | 'demote') {
     const { actionable, skippedLeaders } = partitionByLeader();
-    const label = action === 'promote' ? `${clubMemberRoleLabel('OFFICER')} 승급` : `${clubMemberRoleLabel('MEMBER')} 강등`;
     const nextRole = action === 'promote' ? 'OFFICER' : 'MEMBER';
+    const label = action === 'promote' ? `${clubMemberRoleLabel('OFFICER')} 승급` : `${clubMemberRoleLabel('MEMBER')} 강등`;
+    // 이미 목표 역할인 회원은 제외 — 동일 role PATCH 도 BE 가 ROLE_CHANGED 이력을 남겨 감사 로그를 오염시킨다.
+    const targets = actionable.filter((member) => member.role !== nextRole);
+    const skippedSameRole = actionable.filter((member) => member.role === nextRole);
     setRunning(action);
     const result = await runBulkMemberAction(
-      actionable.map((member) => member.memberId),
+      targets.map((member) => member.memberId),
       async (id) => {
         await updateRole.mutateAsync({ memberId: id, payload: { role: nextRole } });
       },
     );
     setRunning(null);
-    setSummary({ label, ...result, skippedLeaders });
+    setSummary({
+      label,
+      ...result,
+      skippedLeaders,
+      skippedSameRole,
+      skippedSameRoleLabel: clubMemberRoleLabel(nextRole),
+    });
     onDone();
   }
 
@@ -176,6 +188,11 @@ export function MemberBulkToolbar({
             {summary.skippedLeaders.length > 0 && (
               <p className="text-xs text-charcoal-2">
                 회장 {summary.skippedLeaders.map((member) => member.name).join(', ')} 님은 이 작업 대상이 아니라 제외했어요.
+              </p>
+            )}
+            {summary.skippedSameRole && summary.skippedSameRole.length > 0 && (
+              <p className="text-xs text-charcoal-2">
+                이미 {summary.skippedSameRoleLabel} {summary.skippedSameRole.length}명은 제외했어요.
               </p>
             )}
             {summary.failed.length > 0 && (
