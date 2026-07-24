@@ -49,8 +49,9 @@ export default function ClubMembersPage({
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(() => new Set());
-  const [detailMember, setDetailMember] = useState<ClubMember | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+  // 상세 패널은 id 만 들고 렌더 시 전체 목록에서 파생한다 — 뮤테이션 invalidate 후 최신값을 반영하고,
+  // 명단에서 사라지면(탈퇴 등 refetch) find 미스로 자동 닫힌다. 객체 스냅샷을 잡으면 스테일 데이터가 남는다.
+  const [detailMemberId, setDetailMemberId] = useState<number | null>(null);
   const [transferTarget, setTransferTarget] = useState<ClubMember | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [successionOpen, setSuccessionOpen] = useState(false);
@@ -72,6 +73,13 @@ export default function ClubMembersPage({
 
   const filtered = filterMembers(memberList, { query, filters, useGeneration });
   const filteredIds = new Set(filtered.map((member) => member.memberId));
+
+  // 필터와 무관하게 전체 목록에서 파생 — 필터로 가려져도 패널은 유지되고, 명단에서 빠지면 자동 닫힘.
+  const detailMember =
+    detailMemberId === null
+      ? null
+      : memberList.find((member) => member.memberId === detailMemberId) ?? null;
+  const detailOpen = detailMember !== null;
 
   // 검색·필터가 바뀌면 화면에서 사라진 회원의 선택을 조용히 남기지 않도록 교집합으로 정리한다.
   function pruneSelection(nextQuery: string, nextFilters: MemberFilters) {
@@ -117,8 +125,7 @@ export default function ClubMembersPage({
   }
 
   function openDetail(member: ClubMember) {
-    setDetailMember(member);
-    setDetailOpen(true);
+    setDetailMemberId(member.memberId);
   }
 
   async function doTransfer() {
@@ -133,7 +140,10 @@ export default function ClubMembersPage({
   }
 
   return (
-    <div className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', isLeader && 'pb-28')}>
+    <div
+      // isLeader 시 하단 여백: 선택하면 나타나는 fixed 벌크 툴바가 콘텐츠를 가리지 않도록 자리 확보(레이아웃 점프 회피).
+      className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', isLeader && 'pb-28')}
+    >
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">회원 관리</h1>
@@ -203,9 +213,9 @@ export default function ClubMembersPage({
             viewerRole={viewerRole}
             viewerUserId={me.id}
             open={detailOpen}
-            onClose={() => setDetailOpen(false)}
+            onClose={() => setDetailMemberId(null)}
             onTransferLeader={(target) => {
-              setDetailOpen(false);
+              setDetailMemberId(null);
               setTransferTarget(target);
             }}
           />

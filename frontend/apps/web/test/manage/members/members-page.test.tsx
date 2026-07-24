@@ -20,6 +20,8 @@ const CLUB_ID = 7;
 const VIEWER_ID = 999;
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
+const json = (data: unknown) => HttpResponse.json({ ok: true, message: null, data });
+
 function member(overrides: Partial<ClubMember> = {}): ClubMember {
   return {
     memberId: 1,
@@ -45,7 +47,10 @@ const membersFixture: ClubMember[] = [
 
 const server = setupServer();
 beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  vi.restoreAllMocks();
+});
 afterAll(() => server.close());
 
 // jsdom 은 matchMedia 가 없다 — MemberDetailPanel 의 usePanelMode 가 매 렌더 호출하므로
@@ -181,6 +186,48 @@ describe('ClubMembersPage — 권한 게이트', () => {
     expect(screen.queryByRole('checkbox', { name: '전체 선택' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClubMembersPage — 상세 패널 최신화', () => {
+  it('패널에서 역할 변경이 성공하면 패널 표시가 새 역할로 갱신된다', async () => {
+    let youngRole: ClubMemberRole = 'MEMBER';
+    const membersOf = () =>
+      membersFixture.map((member) =>
+        member.memberId === 3 ? { ...member, role: youngRole } : member,
+      );
+    server.use(
+      http.get('*/users/me', () => json({ id: VIEWER_ID, name: '관리자' })),
+      http.get('*/leader/clubs/me/managed', () =>
+        json([
+          {
+            clubId: CLUB_ID,
+            clubName: '두잉',
+            logoUrl: null,
+            myRole: 'LEADER',
+            centralClub: false,
+            activeRecruitmentCount: 0,
+          },
+        ]),
+      ),
+      http.get(`*/clubs/${CLUB_ID}`, () => json({ useGeneration: true })),
+      http.get(`*/clubs/${CLUB_ID}/members`, () => json(membersOf())),
+      http.patch(`*/clubs/${CLUB_ID}/members/3/role`, async ({ request }) => {
+        const body = (await request.json()) as { role: ClubMemberRole };
+        youngRole = body.role;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '이영희 상세' }));
+    // MEMBER 이영희 → 승급 버튼 노출
+    await userEvent.click(await screen.findByRole('button', { name: '임원으로 승급' }));
+
+    // refetch 후 패널이 OFFICER 로 파생 → 강등 버튼으로 바뀌고 승급 버튼은 사라진다(스테일 스냅샷 아님).
+    expect(await screen.findByRole('button', { name: '부원으로 강등' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '임원으로 승급' })).not.toBeInTheDocument();
   });
 });
 
