@@ -278,6 +278,21 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    @DisplayName("OFFICER 가 기수 변경을 시도하면 403 을 반환한다")
+    void patchGenerationAsOfficerForbidden() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 2))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
     // ── 3.5 DELETE member ────────────────────────────────────────────────
 
     @Test

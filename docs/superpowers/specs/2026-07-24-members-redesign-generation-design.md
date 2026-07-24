@@ -26,15 +26,17 @@
   `club_member.generation INTEGER NULL`. **DB CHECK 없음** — 서비스 레벨 검증만: **양의 정수(≥1)**, 구체적 최대값은 스펙으로 고정하지 않음.
   기존 데이터 무영향(NULL 유지)·V92 이미지와 롤백 호환.
 - **멤버 목록 응답 확장**(`ClubMemberQuery`): `generation`(nullable) + `feeStatus`(PAID/UNPAID/NONE).
-  회비 판정 = 해당 club 의 유저별 **가장 최근 FeeBill(created_at 기준)** 상태, 청구 없으면 NONE.
+  회비 판정 = 해당 club 의 유저별 **가장 최근 비-CANCELLED FeeBill(created_at, 동률 시 id)** 상태 —
+  PAID→PAID, 그 외→UNPAID, 비-CANCELLED 청구 없으면 NONE.
   **단일 쿼리**(서브쿼리/윈도우) — 멤버당 N+1 금지.
-- **기수 수정 API**: `PATCH /leader/clubs/{clubId}/members/{memberId}/generation`
+- **기수 수정 API**: `PATCH /clubs/{clubId}/members/{memberId}/generation`(role PATCH 형제와 동일 프리픽스)
   body `{ generation: number | null }` — null=클리어(명시적). 검증: 양의 정수(서비스 레벨). use_generation
   무관하게 **항상 저장** — useGeneration 은 데이터 저장 여부가 아니라 **UI 표시 여부만 제어**(FE: true 일 때만
   기수 컬럼·필터·입력·상세 노출, false 면 전부 숨김).
 - **설정**: `UpdateClubRequest`에 `useGeneration Boolean`(null=미변경 — clear-intent 규약) 추가,
   `ClubDetail` 응답에 `useGeneration` 노출(FE 회원·정보 페이지 공유, 민감정보 아님).
-- 권한: 기존 `requireEditableClubManager` 계열 재사용. 기존 API·Enum·권한 정책 무변경.
+- 권한: 기수 PATCH 는 role PATCH·강퇴와 동일한 `requireLeader`(LEADER 전용·ACTIVE 클럽 — 구현 시 확정),
+  목록 조회는 기존 LEADER/OFFICER 유지. 기존 API·Enum·권한 정책 무변경.
 
 ## PR-2: Frontend
 
