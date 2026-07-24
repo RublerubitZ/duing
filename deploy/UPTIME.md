@@ -54,7 +54,7 @@
    - 2번만 다운(1번 UP) → 앱/DB 쿼리 경로: backend 로그와 Sentry(backend 프로젝트) 확인, Supabase 대시보드 상태 확인.
    - 3번만 다운 → Vercel 상태(https://www.vercel-status.com) 및 배포 히스토리 확인, 필요 시 Vercel 대시보드에서 직전 배포로 Instant Rollback.
 3. **복구 시도(백엔드)**: `docker compose restart backend` → 헬스 재확인. 컨테이너 자체가 기동 불가면 직전 이미지로 롤백 — `deploy/README.md` 의 롤백 절차 참조(GitHub Actions Deploy Backend 워크플로의 직전 성공 커밋 re-run).
-4. **DB 의심 시**: Supabase 대시보드 → Database health. 복구 불가 수준이면 `deploy/README.md` 백업/복구 런북(R2 일일 백업, 04:15 KST) 절차로 이관.
+4. **DB 의심 시**: Supabase 대시보드 → Database health. 복구 불가 수준이면 [`BACKUP.md`](./BACKUP.md) 복원 절차로 이관(R2 일일 백업, 04:15 KST · RPO 24h/RTO 4h).
 5. **사후**: Sentry 이슈 링크와 함께 타임라인 기록(감지→분류→복구), 원인이 배포였다면 해당 커밋 명시.
 
 ## 미커버 (후속)
