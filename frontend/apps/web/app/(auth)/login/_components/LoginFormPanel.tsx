@@ -96,8 +96,8 @@ function LoginForm() {
       return;
     }
     try {
-      await login.mutateAsync({ ...parsed.data, rememberMe });
-      posthog.identify(studentId);
+      const loggedInUser = await login.mutateAsync({ ...parsed.data, rememberMe });
+      posthog.identify(String(loggedInUser.id));
       posthog.capture('user_logged_in', { remember_me: rememberMe });
       router.replace(next);
     } catch (loginError) {

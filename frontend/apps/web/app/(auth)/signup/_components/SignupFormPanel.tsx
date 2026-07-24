@@ -84,8 +84,8 @@ export function SignupFormPanel() {
       return;
     }
     try {
-      await signup.mutateAsync(parsed.data);
-      posthog.identify(parsed.data.studentId);
+      const signedUpUserId = await signup.mutateAsync(parsed.data);
+      posthog.identify(String(signedUpUserId));
       posthog.capture('user_signed_up', { college: parsed.data.college, grade: parsed.data.grade });
       router.replace('/login?next=/me');
     } catch (signupError) {

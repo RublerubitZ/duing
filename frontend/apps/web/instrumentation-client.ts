@@ -47,7 +47,6 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 import posthog from 'posthog-js';
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
 if (!posthogKey) {
   if (process.env.NODE_ENV !== 'production') {
@@ -62,7 +61,8 @@ if (!posthogKey) {
     api_host: '/ingest',
     ui_host: 'https://us.posthog.com',
     defaults: '2026-01-30',
-    capture_exceptions: true,
+    // 예외 모니터링은 Sentry 전담(소스맵 업로드까지 구축) — 중복 캡처와 예외 메시지 경유 PII 유입을 막는다.
+    capture_exceptions: false,
     debug: process.env.NODE_ENV === 'development',
   });
 }
