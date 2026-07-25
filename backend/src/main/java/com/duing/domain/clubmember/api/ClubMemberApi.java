@@ -59,7 +59,8 @@ public interface ClubMemberApi {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
                     description = "회장이 아니거나, 동아리가 ACTIVE 가 아님", content = @Content),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
-                    description = "해당 동아리에 없는 멤버 — 존재하지 않는 memberId 와 타 동아리 memberId 를 구분하지 않는다(존재 은닉)",
+                    description = "조회할 수 없는 멤버 — 존재하지 않는 memberId, 타 동아리 memberId, "
+                            + "탈퇴한 회원(User soft-delete 후 남은 멤버십 행)을 구분하지 않는다(존재 은닉)",
                     content = @Content)
     })
     @SecurityRequirement(name = "bearerAuth")

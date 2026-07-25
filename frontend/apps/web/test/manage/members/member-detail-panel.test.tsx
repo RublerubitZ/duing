@@ -231,6 +231,21 @@ describe('MemberDetailPanel — 연락처 표시', () => {
     expect(writeText).not.toHaveBeenCalledWith('010-****-5678');
   });
 
+  it('복사 성공 후에는 버튼의 접근가능 이름이 복사됨을 알린다 — 스크린리더가 결과를 놓치지 않는다', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+    await userEvent.click(await screen.findByRole('button', { name: '연락처 복사' }));
+
+    expect(await screen.findByRole('button', { name: '연락처 복사됨' })).toBeInTheDocument();
+  });
+
   it('조회에 실패하면 마스킹을 유지하고 복사 버튼도 내주지 않는다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>

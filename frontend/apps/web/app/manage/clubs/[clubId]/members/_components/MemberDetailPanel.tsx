@@ -290,6 +290,7 @@ function ContactValue({
 
   async function copy() {
     if (revealed === null) return;
+    setError(null);
     try {
       if (!navigator.clipboard) throw new Error('clipboard unavailable');
       await navigator.clipboard.writeText(revealed);
@@ -319,7 +320,8 @@ function ContactValue({
           <button
             type="button"
             onClick={copy}
-            aria-label="연락처 복사"
+            // 보이는 라벨이 복사 ↔ 복사됨 으로 바뀌므로 접근가능 이름도 같이 바꾼다 — 고정이면 스크린리더가 성공을 못 읽는다.
+            aria-label={copied ? '연락처 복사됨' : '연락처 복사'}
             className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink"
           >
             {copied ? '복사됨' : '복사'}
