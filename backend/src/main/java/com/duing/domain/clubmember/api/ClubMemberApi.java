@@ -1,5 +1,6 @@
 package com.duing.domain.clubmember.api;
 
+import com.duing.domain.clubmember.controller.dto.request.UpdateMemberGenerationRequest;
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
@@ -52,6 +53,17 @@ public interface ClubMemberApi {
             @PathVariable Long clubId,
             @PathVariable Long memberId,
             @Valid @RequestBody UpdateMemberRoleRequest updateMemberRoleRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "멤버 기수 변경 (LEADER)",
+            description = "generation 을 지정하거나 null 로 비운다. use_generation 표시 설정과 무관하게 저장된다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/clubs/{clubId}/members/{memberId}/generation")
+    ResponseEntity<Void> updateMemberGeneration(
+            @PathVariable Long clubId,
+            @PathVariable Long memberId,
+            @Valid @RequestBody UpdateMemberGenerationRequest updateMemberGenerationRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

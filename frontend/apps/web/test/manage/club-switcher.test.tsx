@@ -33,7 +33,7 @@ describe('ClubSwitcher', () => {
     render(<ClubSwitcher managedClubs={CLUBS} currentClubId={2} />);
 
     const trigger = screen.getByRole('button', { name: /동아리 전환/ });
-    expect(trigger).toHaveTextContent('운영진');
+    expect(trigger).toHaveTextContent('임원');
     expect(trigger).toHaveTextContent('모집종료');
   });
 
@@ -48,7 +48,7 @@ describe('ClubSwitcher', () => {
     expect(menuItems[0]).toHaveTextContent('AI 동아리');
     expect(menuItems[0]).toHaveTextContent('회장 · 모집중');
     expect(menuItems[1]).toHaveTextContent('컴공 동아리');
-    expect(menuItems[1]).toHaveTextContent('운영진 · 모집종료');
+    expect(menuItems[1]).toHaveTextContent('임원 · 모집종료');
     expect(within(menuItems[0]!).getByText('현재 선택됨')).toBeInTheDocument();
     expect(within(menuItems[1]!).queryByText('현재 선택됨')).not.toBeInTheDocument();
   });

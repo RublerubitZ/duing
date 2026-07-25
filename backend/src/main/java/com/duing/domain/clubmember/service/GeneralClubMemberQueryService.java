@@ -6,8 +6,13 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.query.AdminClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberExportQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
+import com.duing.domain.clubmember.service.dto.query.MemberFeeStatus;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
+import com.duing.domain.fee.repository.FeeBillRepository;
+import com.duing.domain.fee.repository.LatestBillStatusRow;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,12 +27,16 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final FeeBillRepository feeBillRepository;
 
     @Override
     public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
+        Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         return clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
-                .map(ClubMemberQuery::from)
+                .map(clubMember -> ClubMemberQuery.from(
+                        clubMember,
+                        feeStatusByUser.getOrDefault(clubMember.getUser().getId(), MemberFeeStatus.NONE)))
                 .toList();
     }
 
@@ -53,12 +62,24 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     @Override
     public List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone) {
         clubAuthService.requireLeader(requesterId, clubId);
+        Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         List<ClubMemberExportQuery> rows = clubMemberRepository
                 .findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
-                .map(clubMember -> ClubMemberExportQuery.from(clubMember, includePhone))
+                .map(clubMember -> ClubMemberExportQuery.from(
+                        clubMember,
+                        includePhone,
+                        feeStatusByUser.getOrDefault(clubMember.getUser().getId(), MemberFeeStatus.NONE)))
                 .toList();
         log.info("club member export: clubId={}, actorId={}, includePhone={}, count={}",
                 clubId, requesterId, includePhone, rows.size());
         return rows;
+    }
+
+    // 회원별 최신 비-CANCELLED 청구 상태를 단일 배치 쿼리로 읽어 userId→MemberFeeStatus 로 매핑한다(멤버당 추가 쿼리 없음).
+    private Map<Long, MemberFeeStatus> feeStatusByUser(Long clubId) {
+        return feeBillRepository.findLatestNonCancelledBillStatusByClubId(clubId).stream()
+                .collect(Collectors.toMap(
+                        LatestBillStatusRow::userId,
+                        row -> MemberFeeStatus.fromLatestBill(row.status())));
     }
 }

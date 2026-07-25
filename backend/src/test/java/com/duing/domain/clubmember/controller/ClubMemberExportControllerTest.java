@@ -95,7 +95,10 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
                     .body("ok", equalTo(true))
                     .body("data", hasSize(3))
                     .body("data.role", contains("LEADER", "OFFICER", "MEMBER"))
-                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"));
+                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"))
+                    // export 응답에도 회비 상태(청구 없음→NONE)와 기수(미설정→null)가 실린다.
+                    .body("data.feeStatus", everyItem(equalTo("NONE")))
+                    .body("data.generation", everyItem(nullValue()));
     }
 
     @Test

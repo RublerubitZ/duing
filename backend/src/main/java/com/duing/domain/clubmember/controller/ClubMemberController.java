@@ -1,6 +1,7 @@
 package com.duing.domain.clubmember.controller;
 
 import com.duing.domain.clubmember.api.ClubMemberApi;
+import com.duing.domain.clubmember.controller.dto.request.UpdateMemberGenerationRequest;
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
@@ -64,6 +65,18 @@ public class ClubMemberController implements ClubMemberApi {
     ) {
         clubMemberCommandService.updateRole(
                 updateMemberRoleRequest.toCommand(clubId, memberId, currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Void> updateMemberGeneration(
+            @PathVariable Long clubId,
+            @PathVariable Long memberId,
+            @Valid @RequestBody UpdateMemberGenerationRequest updateMemberGenerationRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        clubMemberCommandService.updateGeneration(
+                updateMemberGenerationRequest.toCommand(clubId, memberId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
 

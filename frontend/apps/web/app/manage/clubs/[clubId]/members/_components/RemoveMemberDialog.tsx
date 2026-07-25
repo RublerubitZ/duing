@@ -33,9 +33,9 @@ export function RemoveMemberDialog({ targetName, isPending, onConfirm, onCancel 
         }}
       >
         <DialogHeader>
-          <DialogTitle>멤버 강퇴</DialogTitle>
+          <DialogTitle>회원 탈퇴</DialogTitle>
           <DialogDescription>
-            <span className="font-medium text-charcoal-2">{targetName}</span> 님을 동아리에서 강퇴할까요? 되돌릴 수 없으며, 진행 중인 지원서는 그대로 유지됩니다.
+            <span className="font-medium text-charcoal-2">{targetName}</span> 님을 동아리에서 탈퇴 처리할까요? 되돌릴 수 없으며, 진행 중인 지원서는 그대로 유지됩니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -49,7 +49,7 @@ export function RemoveMemberDialog({ targetName, isPending, onConfirm, onCancel 
             disabled={isPending}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {isPending && <ButtonSpinner />}강퇴
+            {isPending && <ButtonSpinner />}탈퇴
           </button>
         </DialogFooter>
       </DialogContent>

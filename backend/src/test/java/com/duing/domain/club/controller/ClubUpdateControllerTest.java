@@ -389,6 +389,38 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("useGeneration 을 true 로 보내면 저장되고 동아리 상세 응답에 노출된다")
+    void useGenerationTrueSavedAndExposed() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("useGeneration", true))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.useGeneration", equalTo(true));
+
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().isUseGeneration()).isTrue();
+    }
+
+    @Test
+    @DisplayName("동아리 상세 응답은 useGeneration 을 기본값(false)으로 노출한다")
+    void useGenerationDefaultExposedFalse() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("location", "학생회관 202호"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.useGeneration", equalTo(false));
+    }
+
+    @Test
     @DisplayName("대표 연락처 공개 범위를 변경할 수 있다")
     void contactVisibilityUpdated() {
         RestAssured

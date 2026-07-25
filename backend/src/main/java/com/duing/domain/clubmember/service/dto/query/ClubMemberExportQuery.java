@@ -11,9 +11,11 @@ public record ClubMemberExportQuery(
         String major,
         String phone,
         ClubMemberRole role,
-        LocalDateTime joinedAt
+        LocalDateTime joinedAt,
+        Integer generation,
+        MemberFeeStatus feeStatus
 ) {
-    public static ClubMemberExportQuery from(ClubMember clubMember, boolean includePhone) {
+    public static ClubMemberExportQuery from(ClubMember clubMember, boolean includePhone, MemberFeeStatus feeStatus) {
         return new ClubMemberExportQuery(
                 clubMember.getId(),
                 clubMember.getUser().getName(),
@@ -21,7 +23,9 @@ public record ClubMemberExportQuery(
                 clubMember.getUser().getMajor(),
                 includePhone ? clubMember.getUser().getPhone() : null,
                 clubMember.getRole(),
-                clubMember.getCreatedAt()
+                clubMember.getCreatedAt(),
+                clubMember.getGeneration(),
+                feeStatus
         );
     }
 }

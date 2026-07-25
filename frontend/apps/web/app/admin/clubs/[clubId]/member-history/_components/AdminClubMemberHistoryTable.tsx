@@ -2,10 +2,8 @@
 
 import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminClubMemberHistoryRow } from '@duing/types';
-import {
-  CLUB_MEMBER_EVENT_TYPE_LABEL,
-  CLUB_MEMBER_ROLE_LABEL,
-} from '../../../../leader-succession/_lib/successionLabels';
+import { CLUB_MEMBER_EVENT_TYPE_LABEL } from '../../../../leader-succession/_lib/successionLabels';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 
 type Props = {
   items: AdminClubMemberHistoryRow[];
@@ -48,9 +46,9 @@ export function AdminClubMemberHistoryTable({ items }: Props) {
               <Td>
                 {row.fromRole || row.toRole ? (
                   <span>
-                    {row.fromRole ? CLUB_MEMBER_ROLE_LABEL[row.fromRole] : '—'}
+                    {row.fromRole ? clubMemberRoleLabel(row.fromRole) : '—'}
                     {' → '}
-                    {row.toRole ? CLUB_MEMBER_ROLE_LABEL[row.toRole] : '—'}
+                    {row.toRole ? clubMemberRoleLabel(row.toRole) : '—'}
                   </span>
                 ) : (
                   <span className="text-charcoal-3">—</span>

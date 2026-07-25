@@ -134,6 +134,10 @@ public class Club extends BaseEntity {
     @Column(name = "central_club", nullable = false)
     private boolean centralClub;
 
+    /** 회원 기수 표시 여부. 순수 UI 표시 제어 설정으로 쓰기 게이트가 아니다. */
+    @Column(name = "use_generation", nullable = false)
+    private boolean useGeneration;
+
     @Column(name = "last_verified_year")
     private Integer lastVerifiedYear;
 
@@ -255,6 +259,10 @@ public class Club extends BaseEntity {
         this.centralClub = next;
     }
 
+    public void changeUseGeneration(boolean next) {
+        this.useGeneration = next;
+    }
+
     public void updateLastVerifiedYear(int year) {
         if (this.lastVerifiedYear == null || year > this.lastVerifiedYear) {
             this.lastVerifiedYear = year;
@@ -285,7 +293,8 @@ public class Club extends BaseEntity {
             College college,                     // 21
             Boolean clearCollege,                // 22
             Boolean clearLogoImage,              // 23
-            Boolean clearCoverImage              // 24
+            Boolean clearCoverImage,             // 24
+            Boolean useGeneration                // 25
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -330,5 +339,6 @@ public class Club extends BaseEntity {
         } else if (payload.college() != null) {
             this.college = payload.college();
         }
+        if (payload.useGeneration() != null) this.useGeneration = payload.useGeneration();
     }
 }

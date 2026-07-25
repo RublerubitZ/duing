@@ -51,7 +51,7 @@ class ClubUpdateServiceTest {
                 List.of("코딩"), null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ));
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
@@ -72,7 +72,7 @@ class ClubUpdateServiceTest {
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ))).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -87,7 +87,7 @@ class ClubUpdateServiceTest {
                 "변경시도", null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ))).isInstanceOf(ClubMemberException.NotAMember.class);
     }
 
@@ -104,7 +104,7 @@ class ClubUpdateServiceTest {
                 null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ));
 
         assertThat(clubRepository.findById(club.getId()).orElseThrow().getDescription())
@@ -124,7 +124,7 @@ class ClubUpdateServiceTest {
                 null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         )))
                 .isInstanceOf(ClubMemberException.NotActiveClub.class)
                 .hasMessage("운영 종료된 동아리입니다.");
@@ -143,7 +143,7 @@ class ClubUpdateServiceTest {
                 other.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ))).isInstanceOf(ClubException.DuplicateClubNameException.class);
     }
 
@@ -159,11 +159,37 @@ class ClubUpdateServiceTest {
                 club.getName(), null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null
         ));
 
         assertThat(clubRepository.findById(club.getId()).orElseThrow().getName())
                 .isEqualTo(club.getName());
+    }
+
+    @Test
+    @DisplayName("useGeneration 을 true 로 갱신하면 반영되고, 이후 null 로 보내면 값이 유지된다")
+    void useGenerationTrueThenNullKeepsValue() throws Exception {
+        User leader = saveUser("기수리더");
+        Club club = saveActiveClub("두잉기수설정");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        clubService.update(new UpdateClubCommand(
+                club.getId(), leader.getId(),
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null, true
+        ));
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().isUseGeneration()).isTrue();
+
+        clubService.update(new UpdateClubCommand(
+                club.getId(), leader.getId(),
+                null, null, null, "설명만 변경", null, null, null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null, null
+        ));
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().isUseGeneration()).isTrue();
     }
 
     private User saveUser(String name) {

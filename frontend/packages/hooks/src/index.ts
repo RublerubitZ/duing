@@ -33,6 +33,7 @@ export {
   useClubMembersQuery,
   useClubMembersExportMutation,
   useUpdateMemberRoleMutation,
+  useUpdateMemberGenerationMutation,
   useRemoveMemberMutation,
   useLeaveClubMutation,
   useTransferLeaderMutation,
