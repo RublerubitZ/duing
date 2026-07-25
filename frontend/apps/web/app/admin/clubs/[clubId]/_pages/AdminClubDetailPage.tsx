@@ -101,7 +101,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
     memberPage * MEMBER_PAGE_SIZE + MEMBER_PAGE_SIZE,
   );
 
-  const hasNoLeader = !members.some((member) => member.role === 'LEADER');
+  const currentLeaderName = members.find((member) => member.role === 'LEADER')?.name ?? null;
 
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
@@ -263,8 +263,10 @@ export function AdminClubDetailPage({ clubId }: Props) {
               )}
             </section>
 
-            {/* 강제 회장 지정 카드 — 회원 로딩 완료 후 LEADER 없을 때만 (로딩 중 순간 노출 방지) */}
-            {membersQuery.isSuccess && hasNoLeader && <AdminAssignLeaderCard clubId={clubId} />}
+            {/* 강제 회장 지정·교체 카드 — 회원 로딩 완료 후에만 (현재 회장 이름을 확정한 뒤 노출) */}
+            {membersQuery.isSuccess && (
+              <AdminAssignLeaderCard clubId={clubId} currentLeaderName={currentLeaderName} />
+            )}
           </div>
         ))}
     </main>

@@ -79,12 +79,51 @@ class GeneralAdminLeaderAssignmentServiceConcurrencyTest extends IntegrationTest
         assertThat(leaderCount).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("회장이 있는 동아리에 두 어드민이 동시에 강제 교체해도 LEADER 는 한 명만 남는다")
+    void concurrentReplacementsResultInExactlyOneLeader() throws Exception {
+        User admin = userRepository.save(newUser(UserRole.ADMIN));
+        User currentLeader = userRepository.save(newUser(UserRole.STUDENT));
+        User candidateA = userRepository.save(newUser(UserRole.STUDENT));
+        User candidateB = userRepository.save(newUser(UserRole.STUDENT));
+        Club club = clubRepository.save(Club.create(
+                "C" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, null, "설명", null));
+        clubMemberRepository.save(ClubMember.asLeader(club, currentLeader));
+        clubMemberRepository.save(ClubMember.of(club, candidateA, ClubMemberRole.MEMBER));
+        clubMemberRepository.save(ClubMember.of(club, candidateB, ClubMemberRole.MEMBER));
+
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger rejections = new AtomicInteger();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        pool.submit(() -> attempt(start, successes, rejections, new AssignLeaderByAdminCommand(
+                club.getId(), candidateA.getId(), admin.getId(), "교체-A")));
+        pool.submit(() -> attempt(start, successes, rejections, new AssignLeaderByAdminCommand(
+                club.getId(), candidateB.getId(), admin.getId(), "교체-B")));
+        start.countDown();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS))
+                .as("동시성 테스트가 시간 내에 완료").isTrue();
+
+        assertThat(successes.get() + rejections.get()).isEqualTo(2);
+        assertThat(successes.get()).isGreaterThanOrEqualTo(1);
+
+        long leaderCount = clubMemberRepository
+                .findAllByClubIdOrderedByRoleAndJoinedAt(club.getId()).stream()
+                .filter(member -> member.getRole() == ClubMemberRole.LEADER)
+                .count();
+        assertThat(leaderCount).isEqualTo(1);
+    }
+
     private void attempt(CountDownLatch start, AtomicInteger successes, AtomicInteger rejections,
                          AssignLeaderByAdminCommand command) {
         try {
             start.await();
             service.assign(command);
             successes.incrementAndGet();
+        } catch (ClubMemberException.ConcurrentSuccessionUpdateException expected) {
+            rejections.incrementAndGet();
         } catch (ClubMemberException.AdminAssignLeaderAlreadyExists expected) {
             rejections.incrementAndGet();
         } catch (org.springframework.dao.DataIntegrityViolationException race) {

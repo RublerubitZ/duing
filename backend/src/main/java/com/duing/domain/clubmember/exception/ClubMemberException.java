@@ -146,8 +146,7 @@ public class ClubMemberException extends ApplicationException {
 
     public static class AdminAssignLeaderAlreadyExists extends ClubMemberException {
         public AdminAssignLeaderAlreadyExists() {
-            super("이미 LEADER 가 존재하는 동아리는 정상 인계 경로를 사용하세요.",
-                  HttpStatus.BAD_REQUEST);
+            super("이미 해당 회원이 회장입니다.", HttpStatus.BAD_REQUEST);
         }
     }
 

@@ -50,7 +50,7 @@ public interface AdminLeaderSuccessionApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "ADMIN 강제 LEADER 지정 (LEADER 부재 동아리 한정)")
+    @Operation(summary = "ADMIN 강제 LEADER 지정·교체 (기존 LEADER 는 MEMBER 로 강등)")
     @PostMapping("/admin/clubs/{clubId}/leader")
     ResponseEntity<ApiResponse<Void>> assignLeader(
             @PathVariable Long clubId,
