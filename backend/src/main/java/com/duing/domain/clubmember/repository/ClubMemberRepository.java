@@ -49,6 +49,20 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     List<ClubMember> findAllByClubIdOrderedByRoleAndJoinedAt(@Param("clubId") Long clubId);
 
     /**
+     * 원본 연락처 조회 전용 — clubId 스코프 검증과 User 로딩을 한 쿼리로 끝낸다.
+     * JOIN FETCH(INNER)라 탈퇴(User soft-delete)로 남은 비-LEADER 잔존 행은 결과에서 빠져 404 로 수렴한다.
+     * findById 로 읽으면 user 프록시 초기화가 실패해 500 이 되므로 이 경로를 반드시 쓴다.
+     * 타 동아리 memberId 도 조건 불일치로 빈 Optional 이 돼 미존재와 구분되지 않는다.
+     */
+    @Query("""
+            SELECT cm FROM ClubMember cm
+            JOIN FETCH cm.user
+            WHERE cm.club.id = :clubId AND cm.id = :memberId
+            """)
+    Optional<ClubMember> findByClubIdAndIdWithUser(@Param("clubId") Long clubId,
+                                                   @Param("memberId") Long memberId);
+
+    /**
      * 회장 인계 등 동시성이 중요한 변경에서 행 잠금 후 조회한다 (PESSIMISTIC_WRITE).
      * @SQLRestriction(deleted_at IS NULL) 가 JPQL 에 자동 적용된다.
      */

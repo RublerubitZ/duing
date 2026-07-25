@@ -87,12 +87,10 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     @Override
     public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
         clubAuthService.requireLeader(requesterId, clubId);
-        ClubMember target = clubMemberRepository.findById(memberId)
+        // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
+        // 셋 다 404 로 수렴해 존재 여부를 숨긴다.
+        ClubMember target = clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
                 .orElseThrow(ClubMemberException.NotFound::new);
-        // 다른 동아리의 멤버 id 로 남의 번호를 긁는 경로를 막는다. 미존재와 구분하지 않아 존재 여부를 숨긴다.
-        if (!target.getClub().getId().equals(clubId)) {
-            throw new ClubMemberException.NotFound();
-        }
         // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
         log.info("member phone view: clubId={}, actorUserId={}, targetMemberId={}, targetUserId={}, action=PHONE_VIEW",
                 clubId, requesterId, memberId, target.getUser().getId());

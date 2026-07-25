@@ -2,6 +2,8 @@ package com.duing.domain.clubmember.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.not;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -96,7 +98,9 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("원본 번호 응답은 캐시되지 않도록 no-store 를 지정한다")
     void responseIsNotCacheable() {
-        String cacheControl = RestAssured
+        // 정확 일치로 단언한다 — contains("no-store") 는 Spring Security 기본 헤더만으로도 통과해
+        // 컨트롤러의 .cacheControl(noStore()) 가 사라져도 GREEN 이 된다(회귀 가드 공허화).
+        RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when()
@@ -104,9 +108,7 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
                             club.getId(), memberMembership.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
-                    .extract().header(HttpHeaders.CACHE_CONTROL);
-
-        assertThat(cacheControl).contains("no-store");
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store");
     }
 
     @Test
@@ -232,6 +234,7 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
                         assertThat(message).contains("member phone view");
                         assertThat(message).contains("action=PHONE_VIEW");
                         assertThat(message).contains("actorUserId=" + leaderUser.getId());
+                        assertThat(message).contains("targetMemberId=" + memberMembership.getId());
                         assertThat(message).contains("targetUserId=" + memberUser.getId());
                         assertThat(message).doesNotContain(memberUser.getPhone());
                     });
@@ -243,15 +246,35 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("멤버 목록 응답에는 여전히 원본 번호가 없다 — 원본은 전용 API 로만 나간다")
     void listStillMasksPhone() {
-        RestAssured
+        // 필드명이 아니라 응답 본문 전체에 원본 번호가 없음을 단언한다 — 필드 리네임으로 공허해지지 않게.
+        String responseBody = RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when()
                     .get("/api/v1/clubs/{clubId}/members", club.getId())
                 .then()
                     .statusCode(HttpStatus.OK.value())
-                    .body("data.phoneMasked", org.hamcrest.Matchers.everyItem(
-                            org.hamcrest.Matchers.not(org.hamcrest.Matchers.equalTo(memberUser.getPhone()))));
+                    .body("data.phoneMasked", everyItem(not(equalTo(memberUser.getPhone()))))
+                    .extract().asString();
+
+        assertThat(responseBody).doesNotContain(memberUser.getPhone());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 멤버 id 로 조회하면 404 — 잔존 멤버 행이 500 으로 새지 않는다")
+    void withdrawnMemberIsNotFound() {
+        // 탈퇴는 User 만 soft-delete 하고 비-LEADER club_member 행은 남긴다(GeneralUserService.withdraw).
+        // 그 잔존 행을 findById 로 읽으면 user 프록시 초기화가 실패해 500 이 났다.
+        userRepository.delete(memberUser);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     private User saveUser(String name) {
