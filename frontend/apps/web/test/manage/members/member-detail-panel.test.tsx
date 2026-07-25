@@ -314,3 +314,57 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
     await waitFor(() => expect(leaveCalled).toBe(true));
   });
 });
+
+describe('MemberDetailPanel — 회원 전환 시 상태 격리', () => {
+  it('앞 회원의 실패 메시지가 다음 회원 화면에 남지 않는다', async () => {
+    server.use(
+      http.patch(
+        `http://localhost:8080/api/v1/clubs/${CLUB_ID}/members/${MEMBER_ID}/role`,
+        () => HttpResponse.json({ ok: false, message: '권한이 없습니다.', data: null }, { status: 403 }),
+      ),
+    );
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const first = member({ memberId: MEMBER_ID, name: '홍길동', role: 'MEMBER' });
+    const { rerender } = renderPanel({ member: first });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    expect(await screen.findByText('권한이 없습니다.')).toBeInTheDocument();
+
+    // 다른 회원으로 전환 — 앞 회원의 실패를 이 사람 것으로 오독하면 안 된다.
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ApiClientProvider client={apiClient}>
+          <MemberDetailPanel
+            member={member({ memberId: MEMBER_ID + 1, name: '김철수', role: 'MEMBER' })}
+            clubId={CLUB_ID}
+            useGeneration
+            viewerRole="LEADER"
+            viewerUserId={999}
+            open
+            onClose={() => {}}
+            onTransferLeader={() => {}}
+          />
+        </ApiClientProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText('김철수')).toBeInTheDocument();
+    expect(screen.queryByText('권한이 없습니다.')).not.toBeInTheDocument();
+  });
+});
+
+describe('MemberDetailPanel — 기수 비우기 활성 조건', () => {
+  it('입력칸을 손으로 지워도 비우기는 살아 있다(저장은 검증에 막히는 막다른 길 방지)', async () => {
+    renderPanel({ member: member({ generation: 3 }) });
+
+    fireEvent.change(screen.getByLabelText('기수 수정'), { target: { value: '' } });
+
+    expect(screen.getByRole('button', { name: '비우기' })).toBeEnabled();
+  });
+
+  it('저장된 기수가 없으면 비우기는 비활성이다', () => {
+    renderPanel({ member: member({ generation: null }) });
+
+    expect(screen.getByRole('button', { name: '비우기' })).toBeDisabled();
+  });
+});

@@ -89,12 +89,14 @@ export default function ClubMembersPage({
   // 검색 중 가려진 선택은 벌크 툴바가 filtered 와 교집합만 대상으로 삼아 실행되지 않는다.
   function handleFiltersChange(nextFilters: MemberFilters) {
     setFilters(nextFilters);
-    const visible = new Set(
-      filterMembers(memberList, { query, filters: nextFilters, useGeneration }).map(
+    // 검색어를 빼고 계산한다 — 검색어를 포함하면 칩 클릭 한 번에 "검색에 안 걸린 선택"까지 사라져
+    // 위 규칙(검색어는 선택을 건드리지 않는다)이 다른 입구로 깨진다.
+    const visibleByFilters = new Set(
+      filterMembers(memberList, { query: '', filters: nextFilters, useGeneration }).map(
         (member) => member.memberId,
       ),
     );
-    setSelectedIds((prev) => new Set([...prev].filter((id) => visible.has(id))));
+    setSelectedIds((prev) => new Set([...prev].filter((id) => visibleByFilters.has(id))));
   }
 
   function toggleSelect(memberId: number) {

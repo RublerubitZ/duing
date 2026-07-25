@@ -90,6 +90,9 @@ export function MemberDetailPanel({
 
   const body = (
     <PanelBody
+      // 회원이 바뀌면 본문을 새로 마운트한다 — 앞 회원의 실패 메시지·열린 다이얼로그가
+      // 다음 회원 화면에 남아 남의 실패를 이 사람 것으로 오독하게 만든다.
+      key={member.memberId}
       member={member}
       clubId={clubId}
       useGeneration={useGeneration}
@@ -522,7 +525,9 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
         <button
           type="button"
           onClick={clear}
-          disabled={updateGeneration.isPending || value.trim() === ''}
+          // 저장된 기수가 있을 때만 의미가 있다. 입력값으로 판단하면 "손으로 지워서 비우기" 시도가
+          // 비우기 비활성 + 저장은 "1 이상" 에러로 막다른 길이 된다.
+          disabled={updateGeneration.isPending || member.generation === null}
           className="rounded-md px-2.5 py-1.5 text-sm text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
         >
           비우기
