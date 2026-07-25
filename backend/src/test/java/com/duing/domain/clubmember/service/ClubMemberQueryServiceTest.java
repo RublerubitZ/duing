@@ -218,7 +218,7 @@ class ClubMemberQueryServiceTest {
         saveBill(clubId, paidMember.getId(), policyId, "2026-06", FeeStatus.PAID);
 
         Map<String, ClubMemberExportQuery> byName = clubMemberQueryService
-                .getMembersForExport(clubId, leader.getId(), false).stream()
+                .getMembersForExport(clubId, leader.getId(), false, null).stream()
                 .collect(Collectors.toMap(ClubMemberExportQuery::name, row -> row));
 
         assertThat(byName.get("export완납").generation()).isEqualTo(2);

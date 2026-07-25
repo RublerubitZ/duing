@@ -12,6 +12,7 @@ import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.LatestBillStatusRow;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,18 +61,24 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     }
 
     @Override
-    public List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone) {
+    public List<ClubMemberExportQuery> getMembersForExport(
+            Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
         clubAuthService.requireLeader(requesterId, clubId);
         Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
+        // 지정된 멤버만 내려보낸다 — 화면에 없는 회원의 전화번호가 브라우저로 나가지 않게 하고,
+        // 아래 감사 로그의 count 도 실제 내보낸 인원과 일치시킨다. 요청 크기는 URL 길이 제한이 막는다.
+        // 타 동아리 memberId 는 이 클럽 조회 결과에 없으므로 자연히 걸러진다.
+        Set<Long> targetMemberIds = memberIds == null ? Set.of() : Set.copyOf(memberIds);
         List<ClubMemberExportQuery> rows = clubMemberRepository
                 .findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
+                .filter(clubMember -> targetMemberIds.isEmpty() || targetMemberIds.contains(clubMember.getId()))
                 .map(clubMember -> ClubMemberExportQuery.from(
                         clubMember,
                         includePhone,
                         feeStatusByUser.getOrDefault(clubMember.getUser().getId(), MemberFeeStatus.NONE)))
                 .toList();
-        log.info("club member export: clubId={}, actorId={}, includePhone={}, count={}",
-                clubId, requesterId, includePhone, rows.size());
+        log.info("club member export: clubId={}, actorId={}, includePhone={}, scoped={}, count={}",
+                clubId, requesterId, includePhone, !targetMemberIds.isEmpty(), rows.size());
         return rows;
     }
 

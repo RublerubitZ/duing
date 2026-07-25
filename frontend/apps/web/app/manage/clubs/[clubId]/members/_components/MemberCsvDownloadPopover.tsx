@@ -10,7 +10,8 @@ import { buildMembersCsv, buildMembersCsvFilename } from '../_lib/membersCsv';
 type MemberCsvDownloadPopoverProps = {
   clubId: number;
   clubName: string;
-  // 현재 화면의 검색·필터 결과 memberId 집합. 서버는 전체 명단을 내려주므로 이 집합으로 걸러 내보낸다.
+  // 현재 화면의 검색·필터 결과 memberId 집합. 이 범위를 서버에 넘겨 그만큼만 받는다
+  // — 화면에 없는 회원의 전화번호가 브라우저로 오지 않고, 서버 감사 기록도 실제 내보낸 인원으로 남는다.
   memberIds: ReadonlySet<number>;
   useGeneration: boolean;
 };
@@ -29,9 +30,11 @@ export function MemberCsvDownloadPopover({
   async function handleDownload() {
     setError(null);
     try {
-      const rows = await exportMembers.mutateAsync(includePhone);
-      const filtered = rows.filter((row) => memberIds.has(row.memberId));
-      const csv = buildMembersCsv(filtered, includePhone, useGeneration);
+      const rows = await exportMembers.mutateAsync({
+        includePhone,
+        memberIds: [...memberIds],
+      });
+      const csv = buildMembersCsv(rows, includePhone, useGeneration);
       downloadTextFile(buildMembersCsvFilename(clubName, new Date()), csv);
       setOpen(false);
     } catch (downloadError) {

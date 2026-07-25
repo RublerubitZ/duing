@@ -36,12 +36,14 @@ public interface ClubMemberApi {
     );
 
     @Operation(summary = "멤버 명단 CSV용 export (LEADER)",
-            description = "회장 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트.")
+            description = "회장 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트. "
+                    + "memberIds 를 주면 그 멤버만 내려준다(화면 필터 결과 그대로 내보낼 때) — 생략하면 전체.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/clubs/{clubId}/members/export")
     ResponseEntity<ApiResponse<List<ClubMemberExportResponse>>> exportMembers(
             @PathVariable Long clubId,
             @RequestParam(defaultValue = "false") boolean includePhone,
+            @RequestParam(required = false) List<Long> memberIds,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 

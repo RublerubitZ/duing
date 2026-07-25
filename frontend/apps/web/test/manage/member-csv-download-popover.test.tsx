@@ -50,7 +50,7 @@ describe('MemberCsvDownloadPopover', () => {
     await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
-    expect(mutateAsync).toHaveBeenCalledWith(false);
+    expect(mutateAsync).toHaveBeenCalledWith({ includePhone: false, memberIds: [1, 2] });
     expect(downloadTextFile).toHaveBeenCalledTimes(1);
     const firstCall = downloadTextFile.mock.calls[0];
     expect(firstCall).toBeDefined();
@@ -60,7 +60,11 @@ describe('MemberCsvDownloadPopover', () => {
     expect(content).toContain('이름,학번,학과,역할,회비,가입일');
   });
 
-  it('현재 필터 결과의 memberId 만 CSV 로 내보낸다', async () => {
+  it('현재 필터 결과의 memberId 를 서버에 넘겨 그 범위만 받아 내보낸다', async () => {
+    // 서버가 memberIds 범위로 걸러 응답하는 동작을 흉내낸다 — 화면 밖 회원은 애초에 내려오지 않는다.
+    mutateAsync.mockImplementation(({ memberIds }: { memberIds?: number[] }) =>
+      Promise.resolve(rows.filter((row) => memberIds?.includes(row.memberId) ?? true)),
+    );
     const user = userEvent.setup();
     render(
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={new Set([1])} useGeneration={false} />,
@@ -69,6 +73,7 @@ describe('MemberCsvDownloadPopover', () => {
     await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
+    expect(mutateAsync).toHaveBeenCalledWith({ includePhone: false, memberIds: [1] });
     const [, content] = downloadTextFile.mock.calls[0] ?? [];
     expect(content).toContain('홍길동');
     expect(content).not.toContain('김철수');
@@ -97,7 +102,7 @@ describe('MemberCsvDownloadPopover', () => {
     await user.click(await screen.findByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: '다운로드' }));
 
-    expect(mutateAsync).toHaveBeenCalledWith(true);
+    expect(mutateAsync).toHaveBeenCalledWith({ includePhone: true, memberIds: [1, 2] });
     const firstCall = downloadTextFile.mock.calls[0];
     expect(firstCall).toBeDefined();
     const [, content] = firstCall ?? [];

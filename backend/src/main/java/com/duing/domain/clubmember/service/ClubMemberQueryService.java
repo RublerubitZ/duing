@@ -12,7 +12,9 @@ public interface ClubMemberQueryService {
 
     List<MyClubQuery> findMyClubs(Long userId);
 
-    List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone);
+    // memberIds 가 비어있지 않으면 그 멤버만 내보낸다(화면 필터 결과 범위). null·빈 목록이면 전체.
+    List<ClubMemberExportQuery> getMembersForExport(
+            Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds);
 
     /**
      * 총동연(ADMIN) 동아리원 명단 조회. 소속 여부와 무관하게 조회하며 인가는 컨트롤러의
