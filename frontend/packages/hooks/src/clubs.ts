@@ -226,7 +226,11 @@ export function useTransferLeaderMutation(clubId: number) {
 export function useClubMembersExportMutation(clubId: number) {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (includePhone: boolean): Promise<ClubMemberExportRow[]> =>
-      client.clubs.membersExport(clubId, includePhone),
+    // memberIds 를 넘기면 그 멤버만 받는다 — 화면에 없는 회원의 전화번호까지 내려받지 않는다.
+    mutationFn: (variables: {
+      includePhone: boolean;
+      memberIds?: number[];
+    }): Promise<ClubMemberExportRow[]> =>
+      client.clubs.membersExport(clubId, variables.includePhone, variables.memberIds),
   });
 }

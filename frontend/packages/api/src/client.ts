@@ -354,7 +354,12 @@ export type DuingApiClient = {
     ): Promise<ClubHeroActivity[]>;
     deleteHeroActivity(clubId: number, heroActivityId: number): Promise<void>;
     members(clubId: number): Promise<ClubMember[]>;
-    membersExport(clubId: number, includePhone: boolean): Promise<ClubMemberExportRow[]>;
+    // memberIds 를 주면 그 멤버만 내려온다(화면 필터 결과 범위) — 생략하면 전체.
+    membersExport(
+      clubId: number,
+      includePhone: boolean,
+      memberIds?: number[],
+    ): Promise<ClubMemberExportRow[]>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
     // generation=null 이면 기수를 비운다(클리어). LEADER 전용(OFFICER 403).
     updateMemberGeneration(
@@ -1082,12 +1087,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonVoid(http.delete(`clubs/${clubId}/hero-activities/${heroActivityId}`)),
       members: (clubId) =>
         jsonOk<ClubMember[]>(http.get(`clubs/${clubId}/members`)),
-      membersExport: (clubId, includePhone) =>
-        jsonOk<ClubMemberExportRow[]>(
-          http.get(`clubs/${clubId}/members/export`, {
-            searchParams: { includePhone: String(includePhone) },
-          }),
-        ),
+      membersExport: (clubId, includePhone, memberIds) => {
+        // memberIds 는 반복 파라미터(memberIds=1&memberIds=2)로 보낸다 — Spring List<Long> 바인딩 형식.
+        const searchParams = new URLSearchParams({ includePhone: String(includePhone) });
+        memberIds?.forEach((memberId) => searchParams.append('memberIds', String(memberId)));
+        return jsonOk<ClubMemberExportRow[]>(
+          http.get(`clubs/${clubId}/members/export`, { searchParams }),
+        );
+      },
       updateMemberRole: (clubId, memberId, payload) =>
         jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
       updateMemberGeneration: (clubId, memberId, payload) =>

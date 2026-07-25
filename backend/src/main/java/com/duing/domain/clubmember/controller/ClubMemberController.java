@@ -47,10 +47,11 @@ public class ClubMemberController implements ClubMemberApi {
     public ResponseEntity<ApiResponse<List<ClubMemberExportResponse>>> exportMembers(
             @PathVariable Long clubId,
             @RequestParam(defaultValue = "false") boolean includePhone,
+            @RequestParam(required = false) List<Long> memberIds,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         List<ClubMemberExportResponse> members = clubMemberQueryService
-                .getMembersForExport(clubId, currentUser.id(), includePhone).stream()
+                .getMembersForExport(clubId, currentUser.id(), includePhone, memberIds).stream()
                 .map(ClubMemberExportResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(members));
