@@ -5,6 +5,7 @@ import com.duing.domain.clubmember.controller.dto.request.UpdateMemberGeneration
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
+import com.duing.domain.clubmember.controller.dto.response.MemberPhoneResponse;
 import com.duing.domain.clubmember.controller.dto.response.TransferLeaderResponse;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
 import com.duing.domain.clubmember.service.ClubMemberQueryService;
@@ -16,6 +17,7 @@ import com.duing.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -55,6 +57,19 @@ public class ClubMemberController implements ClubMemberApi {
                 .map(ClubMemberExportResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(members));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<MemberPhoneResponse>> getMemberPhone(
+            @PathVariable Long clubId,
+            @PathVariable Long memberId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        String phone = clubMemberQueryService.getMemberPhone(clubId, memberId, currentUser.id());
+        // 개인정보 응답이 브라우저·중간 캐시에 남지 않게 한다(패널을 닫으면 사라지는 UX 와 정합).
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(MemberPhoneResponse.from(phone)));
     }
 
     @Override

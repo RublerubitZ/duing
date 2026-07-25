@@ -50,6 +50,7 @@ import type {
   ClubMember,
   AdminClubMember,
   ClubMemberExportRow,
+  ClubMemberPhone,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -360,6 +361,8 @@ export type DuingApiClient = {
       includePhone: boolean,
       memberIds?: number[],
     ): Promise<ClubMemberExportRow[]>;
+    // 원본 연락처. 회장 전용이며 호출 자체가 백엔드 감사 로그로 남는다 — 화면에 필요할 때만 부른다.
+    memberPhone(clubId: number, memberId: number): Promise<ClubMemberPhone>;
     updateMemberRole(clubId: number, memberId: number, payload: UpdateMemberRolePayload): Promise<void>;
     // generation=null 이면 기수를 비운다(클리어). LEADER 전용(OFFICER 403).
     updateMemberGeneration(
@@ -1095,6 +1098,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           http.get(`clubs/${clubId}/members/export`, { searchParams }),
         );
       },
+      memberPhone: (clubId, memberId) =>
+        jsonOk<ClubMemberPhone>(http.get(`clubs/${clubId}/members/${memberId}/phone`)),
       updateMemberRole: (clubId, memberId, payload) =>
         jsonVoid(http.patch(`clubs/${clubId}/members/${memberId}/role`, { json: payload })),
       updateMemberGeneration: (clubId, memberId, payload) =>

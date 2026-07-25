@@ -1,13 +1,14 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import type { ClubMember, ClubMemberRole, MemberFeeStatus } from '@duing/types';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 import {
   formatDateKst,
   useLeaveClubMutation,
+  useMemberPhoneMutation,
   useRemoveMemberMutation,
   useUpdateMemberGenerationMutation,
   useUpdateMemberRoleMutation,
@@ -185,7 +186,12 @@ function PanelBody({
       </header>
 
       <div className="space-y-6 px-5 py-5">
-        <BasicInfoSection member={member} useGeneration={useGeneration} />
+        <BasicInfoSection
+          member={member}
+          clubId={clubId}
+          useGeneration={useGeneration}
+          isLeaderViewer={isLeaderViewer}
+        />
         <OperationInfoSection member={member} clubId={clubId} />
         <ManagementSection
           member={member}
@@ -215,7 +221,17 @@ function SectionTitle({ children }: { children: ReactNode }) {
   return <h4 className="mb-1 text-xs font-semibold text-charcoal-2">{children}</h4>;
 }
 
-function BasicInfoSection({ member, useGeneration }: { member: ClubMember; useGeneration: boolean }) {
+function BasicInfoSection({
+  member,
+  clubId,
+  useGeneration,
+  isLeaderViewer,
+}: {
+  member: ClubMember;
+  clubId: number;
+  useGeneration: boolean;
+  isLeaderViewer: boolean;
+}) {
   return (
     <section>
       <SectionTitle>기본 정보</SectionTitle>
@@ -224,7 +240,7 @@ function BasicInfoSection({ member, useGeneration }: { member: ClubMember; useGe
         <Field label="학년">{GRADE_DISPLAY_NAME[member.grade]}</Field>
         <Field label="학번">{member.studentId || EMPTY}</Field>
         <Field label="연락처">
-          <ContactValue phoneMasked={member.phoneMasked} />
+          <ContactValue member={member} clubId={clubId} canReveal={isLeaderViewer} />
         </Field>
         <Field label="가입일">{formatDateKst(member.joinedAt)}</Field>
         <Field label="가입 기간">{formatMembershipDuration(member.joinedAt, new Date())}</Field>
@@ -234,13 +250,87 @@ function BasicInfoSection({ member, useGeneration }: { member: ClubMember; useGe
   );
 }
 
-// 복사 버튼은 두지 않는다 — 멤버 목록 응답은 마스킹된 번호(phoneMasked)만 내려주므로
-// 복사해도 전화를 걸 수 없는 값이 클립보드에 담긴다. "복사됨" 피드백이 성공을 알리면
-// 사용자는 붙여넣기 전까지 잘못된 값을 받았다는 사실을 모른다.
-// BE 가 리더에게 원본 번호를 제공하게 되면 그때 되살린다.
-function ContactValue({ phoneMasked }: { phoneMasked: string | null }) {
-  if (!phoneMasked) return <span className="text-charcoal-3">{EMPTY}</span>;
-  return <span className="font-mono">{phoneMasked}</span>;
+/**
+ * 기본은 마스킹. 회장이 [번호 보기]를 누른 경우에만 원본을 조회해 표시하고, 그때만 복사를 연다.
+ * 클립보드에 들어가는 값은 조회한 원본뿐이다 — 마스킹 문자열을 복사하는 경로는 만들지 않는다.
+ * 노출 상태는 이 컴포넌트 로컬이라 패널을 닫거나 다른 회원으로 넘어가면(PanelBody 재마운트) 사라진다.
+ */
+function ContactValue({
+  member,
+  clubId,
+  canReveal,
+}: {
+  member: ClubMember;
+  clubId: number;
+  canReveal: boolean;
+}) {
+  const revealPhone = useMemberPhoneMutation(clubId);
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyResetTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+    };
+  }, []);
+
+  if (!member.phoneMasked) return <span className="text-charcoal-3">{EMPTY}</span>;
+
+  async function reveal() {
+    setError(null);
+    try {
+      const result = await revealPhone.mutateAsync(member.memberId);
+      setRevealed(result.phone);
+    } catch (revealError) {
+      setError(revealError instanceof Error ? revealError.message : '연락처를 불러오지 못했어요');
+    }
+  }
+
+  async function copy() {
+    if (revealed === null) return;
+    setError(null);
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(revealed);
+      setCopied(true);
+      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError('복사에 실패했어요');
+    }
+  }
+
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <span className="inline-flex items-center gap-2">
+        <span className="font-mono">{revealed ?? member.phoneMasked}</span>
+        {revealed === null && canReveal && (
+          <button
+            type="button"
+            onClick={reveal}
+            disabled={revealPhone.isPending}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink disabled:opacity-60"
+          >
+            {revealPhone.isPending && <ButtonSpinner />}번호 보기
+          </button>
+        )}
+        {revealed !== null && (
+          <button
+            type="button"
+            onClick={copy}
+            // 보이는 라벨이 복사 ↔ 복사됨 으로 바뀌므로 접근가능 이름도 같이 바꾼다 — 고정이면 스크린리더가 성공을 못 읽는다.
+            aria-label={copied ? '연락처 복사됨' : '연락처 복사'}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink"
+          >
+            {copied ? '복사됨' : '복사'}
+          </button>
+        )}
+      </span>
+      {error && <span className="text-xs text-coral">{error}</span>}
+    </span>
+  );
 }
 
 function OperationInfoSection({ member, clubId }: { member: ClubMember; clubId: number }) {

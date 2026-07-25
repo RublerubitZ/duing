@@ -181,14 +181,181 @@ describe('MemberDetailPanel — 연락처 표시', () => {
     expect(screen.getByText('010-****-5678')).toBeInTheDocument();
   });
 
-  it('복사 버튼은 두지 않는다 — 마스킹 값이 복사돼 쓸 수 없는데 성공으로 표시된다', () => {
+  it('연락처가 없으면 "—" 이고 번호 보기 버튼도 없다', () => {
+    renderPanel({ member: member({ phoneMasked: null }) });
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
+  });
+
+  it('회장이 아니면 번호 보기 버튼이 없다', () => {
+    renderPanel({ viewerRole: 'OFFICER', member: member({ phoneMasked: '010-****-5678' }) });
+    expect(screen.queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
+  });
+
+  it('조회 전에는 복사 버튼이 없다 — 마스킹 값이 복사되는 경로를 만들지 않는다', () => {
     renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+    expect(screen.getByRole('button', { name: '번호 보기' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '연락처 복사' })).not.toBeInTheDocument();
   });
 
-  it('연락처가 없으면 "—"', () => {
-    renderPanel({ member: member({ phoneMasked: null }) });
-    expect(screen.getByText('—')).toBeInTheDocument();
+  it('번호 보기 성공 시 원본을 표시하고 번호 보기 버튼은 사라진다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument();
+    expect(screen.queryByText('010-****-5678')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '연락처 복사' })).toBeInTheDocument();
+  });
+
+  it('복사는 마스킹이 아니라 조회한 원본을 클립보드에 넣는다', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+    await userEvent.click(await screen.findByRole('button', { name: '연락처 복사' }));
+
+    expect(writeText).toHaveBeenCalledWith('010-1234-5678');
+    expect(writeText).not.toHaveBeenCalledWith('010-****-5678');
+  });
+
+  it('복사 성공 후에는 버튼의 접근가능 이름이 복사됨을 알린다 — 스크린리더가 결과를 놓치지 않는다', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+    await userEvent.click(await screen.findByRole('button', { name: '연락처 복사' }));
+
+    expect(await screen.findByRole('button', { name: '연락처 복사됨' })).toBeInTheDocument();
+  });
+
+  it('조회에 실패하면 마스킹을 유지하고 복사 버튼도 내주지 않는다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json(
+          { ok: false, message: '해당 동아리의 회장만 가능한 작업입니다.', data: null },
+          { status: 403 },
+        ),
+      ),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+
+    expect(await screen.findByText('해당 동아리의 회장만 가능한 작업입니다.')).toBeInTheDocument();
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '연락처 복사' })).not.toBeInTheDocument();
+  });
+
+  it('다른 회원으로 전환하면 노출이 초기화된다 — 앞 사람 번호가 남지 않는다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    const { rerender } = renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ApiClientProvider client={apiClient}>
+          <MemberDetailPanel
+            member={member({ memberId: MEMBER_ID + 1, name: '김철수', phoneMasked: '010-****-9999' })}
+            clubId={CLUB_ID}
+            useGeneration
+            viewerRole="LEADER"
+            viewerUserId={999}
+            open
+            onClose={() => {}}
+            onTransferLeader={() => {}}
+          />
+        </ApiClientProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText('010-****-9999')).toBeInTheDocument();
+    expect(screen.queryByText('010-1234-5678')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '번호 보기' })).toBeInTheDocument();
+  });
+
+  // 노출 상태를 88행 `if (!open || !member) return null` 가드 위(MemberDetailPanel 본체)에 두면
+  // 닫아도 컴포넌트 인스턴스가 살아 남아 A 의 번호가 B 화면에 뜬다 — 타 회원 개인정보 오표시.
+  it('닫았다가 다른 회원으로 다시 열어도 앞 사람 번호가 남지 않는다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, () =>
+        HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
+      ),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const panel = (props: Partial<Parameters<typeof MemberDetailPanel>[0]>) => (
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient}>
+          <MemberDetailPanel
+            member={member({ phoneMasked: '010-****-5678' })}
+            clubId={CLUB_ID}
+            useGeneration
+            viewerRole="LEADER"
+            viewerUserId={999}
+            open
+            onClose={() => {}}
+            onTransferLeader={() => {}}
+            {...props}
+          />
+        </ApiClientProvider>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(panel({}));
+
+    await userEvent.click(screen.getByRole('button', { name: '번호 보기' }));
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument();
+
+    rerender(panel({ open: false }));
+    rerender(
+      panel({
+        member: member({ memberId: MEMBER_ID + 1, name: '김철수', phoneMasked: '010-****-9999' }),
+      }),
+    );
+
+    expect(screen.getByText('010-****-9999')).toBeInTheDocument();
+    expect(screen.queryByText('010-1234-5678')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '번호 보기' })).toBeInTheDocument();
+  });
+
+  it('조회 중에는 번호 보기 버튼이 비활성이다 — 연타로 중복 조회·감사 로그가 생기지 않는다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/members/${MEMBER_ID}/phone`, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } });
+      }),
+    );
+    renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
+
+    const revealButton = screen.getByRole('button', { name: '번호 보기' });
+    await userEvent.click(revealButton);
+
+    expect(revealButton).toBeDisabled();
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument();
   });
 });
 

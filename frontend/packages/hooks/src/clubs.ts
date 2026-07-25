@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ClubMemberExportRow,
+  ClubMemberPhone,
   ClubSearchParams,
   CreateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -232,5 +233,18 @@ export function useClubMembersExportMutation(clubId: number) {
       memberIds?: number[];
     }): Promise<ClubMemberExportRow[]> =>
       client.clubs.membersExport(clubId, variables.includePhone, variables.memberIds),
+  });
+}
+
+/**
+ * 회원 원본 연락처 조회. 쿼리가 아니라 뮤테이션인 이유는 캐시를 남기지 않기 위해서다 —
+ * 캐시에 원본이 남으면 패널을 다시 열었을 때 감사 로그 없이 번호가 되살아나고,
+ * "패널을 닫으면 다시 마스킹" 정책이 무너진다.
+ */
+export function useMemberPhoneMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (memberId: number): Promise<ClubMemberPhone> =>
+      client.clubs.memberPhone(clubId, memberId),
   });
 }
