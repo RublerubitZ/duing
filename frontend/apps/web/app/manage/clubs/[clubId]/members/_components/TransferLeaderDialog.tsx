@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 
 type TransferLeaderDialogProps = {
   target: ClubMember;
@@ -58,10 +59,12 @@ export function TransferLeaderDialog({
           <>
             <div className="rounded-md border border-line bg-graysoft p-3">
               <p className="text-sm font-medium text-charcoal">{target.name}</p>
-              <p className="text-xs text-charcoal-3">학번 {target.studentId} · {target.role}</p>
+              <p className="text-xs text-charcoal-3">
+                학번 {target.studentId} · {clubMemberRoleLabel(target.role)}
+              </p>
             </div>
             <DialogDescription className="text-sm text-charcoal-2">
-              회장을 인계하면 본인은 OFFICER 가 됩니다. 되돌릴 수 없습니다.
+              회장을 인계하면 본인은 {clubMemberRoleLabel('OFFICER')}이 됩니다. 되돌릴 수 없습니다.
             </DialogDescription>
             <DialogFooter>
               <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">

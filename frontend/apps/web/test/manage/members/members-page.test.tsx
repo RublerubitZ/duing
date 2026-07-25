@@ -169,7 +169,8 @@ describe('ClubMembersPage — 상세 열기', () => {
     setupHandlers({ useGeneration: true });
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '이영희 상세' }));
+    // 상세 버튼은 데스크탑 표·모바일 카드에 하나씩(뷰포트별로 하나만 보인다) — 표 쪽을 누른다.
+    await userEvent.click((await screen.findAllByRole('button', { name: '이영희 상세' }))[0]!);
 
     expect(await screen.findByRole('complementary', { name: '이영희 상세' })).toBeInTheDocument();
     expect(screen.getByText('기본 정보')).toBeInTheDocument();
@@ -221,7 +222,8 @@ describe('ClubMembersPage — 상세 패널 최신화', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '이영희 상세' }));
+    // 상세 버튼은 데스크탑 표·모바일 카드에 하나씩(뷰포트별로 하나만 보인다) — 표 쪽을 누른다.
+    await userEvent.click((await screen.findAllByRole('button', { name: '이영희 상세' }))[0]!);
     // MEMBER 이영희 → 승급 버튼 노출
     await userEvent.click(await screen.findByRole('button', { name: '임원으로 승급' }));
 
@@ -247,5 +249,70 @@ describe('ClubMembersPage — 선택 정리', () => {
     await waitFor(() =>
       expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument(),
     );
+  });
+
+  it('검색어로 가려진 선택은 유지되고, 검색어를 지우면 다시 대상에 든다', async () => {
+    setupHandlers({ useGeneration: true, myRole: 'LEADER' });
+    renderPage();
+
+    const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
+    await userEvent.click(selectYoung!);
+    expect(await screen.findByText(/선택/)).toBeInTheDocument();
+
+    // 이영희가 검색 결과에서 빠지면 툴바 대상에서 빠질 뿐(선택 자체는 보존).
+    await userEvent.type(screen.getByRole('searchbox', { name: '회원 검색' }), '김철수');
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument(),
+    );
+
+    // 검색어를 지우면 선택이 그대로 살아 있어 툴바가 다시 열린다(타이핑에 선택이 소실되지 않는다).
+    await userEvent.clear(screen.getByRole('searchbox', { name: '회원 검색' }));
+    expect(await screen.findByRole('region', { name: '회원 일괄 작업' })).toBeInTheDocument();
+  });
+
+  it('선택한 기수의 회원이 모두 사라지면 기수 필터가 해제되어 목록이 다시 보인다', async () => {
+    // 이영희만 2기 — 기수를 3으로 바꾸면 2기 옵션 자체가 사라진다.
+    let youngGeneration: number | null = 2;
+    const membersOf = () =>
+      membersFixture.map((each) =>
+        each.memberId === 3 ? { ...each, generation: youngGeneration } : each,
+      );
+    server.use(
+      http.get('*/users/me', () => json({ id: VIEWER_ID, name: '관리자' })),
+      http.get('*/leader/clubs/me/managed', () =>
+        json([
+          {
+            clubId: CLUB_ID,
+            clubName: '두잉',
+            logoUrl: null,
+            myRole: 'LEADER',
+            centralClub: false,
+            activeRecruitmentCount: 0,
+          },
+        ]),
+      ),
+      http.get(`*/clubs/${CLUB_ID}`, () => json({ useGeneration: true })),
+      http.get(`*/clubs/${CLUB_ID}/members`, () => json(membersOf())),
+      http.patch(`*/clubs/${CLUB_ID}/members/3/generation`, async ({ request }) => {
+        const body = (await request.json()) as { generation: number | null };
+        youngGeneration = body.generation;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderPage();
+
+    // 2기(이영희 1명)로 좁힌 뒤, 상세 패널에서 이영희를 3기로 옮긴다.
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: '기수' }), '2');
+    await waitFor(() => expect(screen.getByText('결과 1명')).toBeInTheDocument());
+
+    await userEvent.click((await screen.findAllByRole('button', { name: '이영희 상세' }))[0]!);
+    const generationInput = await screen.findByRole('spinbutton', { name: '기수 수정' });
+    await userEvent.clear(generationInput);
+    await userEvent.type(generationInput, '3');
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    // 2기 옵션이 사라진 뒤에도 필터가 남으면 "결과 0명" 으로 굳는다 — 해제되어 전원이 다시 보여야 한다.
+    await waitFor(() => expect(screen.getByText('결과 3명')).toBeInTheDocument());
+    expect(screen.queryByText('조건에 맞는 회원이 없어요')).not.toBeInTheDocument();
   });
 });

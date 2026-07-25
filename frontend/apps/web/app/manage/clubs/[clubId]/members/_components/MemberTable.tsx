@@ -211,6 +211,19 @@ export function MemberTable({
                     <span className="ml-auto font-mono text-charcoal-3">
                       {formatDateKst(member.joinedAt)}
                     </span>
+                    {/* 카드 자체는 포인터 편의용 onClick 일 뿐이라, 키보드·스크린리더가 상세 패널에
+                        도달할 유일한 통로로 데스크탑 표와 동일한 상세 버튼을 둔다. */}
+                    <button
+                      type="button"
+                      aria-label={`${member.name} 상세`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenDetail(member);
+                      }}
+                      className="btn btn-ghost btn-sm -my-1"
+                    >
+                      상세
+                    </button>
                   </div>
                 </div>
               </div>

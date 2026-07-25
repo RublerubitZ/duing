@@ -105,8 +105,21 @@ describe('MemberTable — 상세 열기', () => {
     const target = member({ memberId: 7, name: '이영희' });
     renderTable({ members: [target], onOpenDetail });
 
-    await userEvent.click(screen.getByRole('button', { name: '이영희 상세' }));
+    // 데스크탑 표 · 모바일 카드가 함께 마운트되므로 상세 버튼은 회원당 2개(뷰포트별로 하나만 보인다).
+    await userEvent.click(screen.getAllByRole('button', { name: '이영희 상세' })[0]!);
 
+    expect(onOpenDetail).toHaveBeenCalledWith(target);
+  });
+
+  it('모바일 카드에도 상세 버튼이 있다 — 카드 onClick 만으로는 키보드가 상세 패널에 도달할 수 없다', async () => {
+    const onOpenDetail = vi.fn();
+    const target = member({ memberId: 7, name: '이영희' });
+    renderTable({ members: [target], onOpenDetail });
+
+    const detailButtons = screen.getAllByRole('button', { name: '이영희 상세' });
+    expect(detailButtons).toHaveLength(2);
+
+    await userEvent.click(detailButtons[1]!);
     expect(onOpenDetail).toHaveBeenCalledWith(target);
   });
 });

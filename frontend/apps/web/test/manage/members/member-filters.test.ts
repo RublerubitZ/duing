@@ -5,6 +5,7 @@ import {
   EMPTY_MEMBER_FILTERS,
   filterMembers,
   isRecentJoin,
+  normalizeMemberFilters,
   RECENT_JOIN_DAYS,
   type MemberFilters,
 } from '@/app/manage/clubs/[clubId]/members/_lib/memberFilters';
@@ -168,5 +169,31 @@ describe('filterMembers — 최근 가입 경계(RECENT_JOIN_DAYS)', () => {
     const old = member({ memberId: 2, name: '오래됨', joinedAt: kstDaysAgo(91) });
     const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, flags: ['RECENT'] };
     expect(names(run([recent, old], { filters }))).toEqual(['최근']);
+  });
+});
+
+describe('normalizeMemberFilters — 사라진 기수 필터 해제', () => {
+  it('선택한 기수가 목록에 없으면 기수 필터를 해제한다', () => {
+    const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, role: 'MEMBER', generation: 6 };
+    expect(normalizeMemberFilters(filters, [5, 4, 3])).toEqual({
+      ...filters,
+      generation: null,
+    });
+  });
+
+  it('선택한 기수가 남아 있으면 그대로 둔다(동일 참조)', () => {
+    const filters: MemberFilters = { ...EMPTY_MEMBER_FILTERS, generation: 5 };
+    expect(normalizeMemberFilters(filters, [5, 4])).toBe(filters);
+  });
+
+  it('기수 필터가 없으면 그대로 둔다', () => {
+    expect(normalizeMemberFilters(EMPTY_MEMBER_FILTERS, [])).toBe(EMPTY_MEMBER_FILTERS);
+  });
+
+  it('해제된 필터로 거르면 전체 회원이 다시 보인다', () => {
+    const members = [member({ memberId: 1, generation: 5 }), member({ memberId: 2, generation: 4 })];
+    const stale: MemberFilters = { ...EMPTY_MEMBER_FILTERS, generation: 6 };
+    const normalized = normalizeMemberFilters(stale, availableGenerations(members));
+    expect(run(members, { filters: normalized })).toHaveLength(2);
   });
 });

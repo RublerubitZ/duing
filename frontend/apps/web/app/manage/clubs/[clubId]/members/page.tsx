@@ -22,6 +22,7 @@ import {
   availableGenerations,
   EMPTY_MEMBER_FILTERS,
   filterMembers,
+  normalizeMemberFilters,
   type MemberFilters,
 } from './_lib/memberFilters';
 import { cn } from '@/app/_lib/cn';
@@ -70,8 +71,10 @@ export default function ClubMembersPage({
   const useGeneration = clubDetail?.useGeneration ?? false;
   const memberList = members ?? [];
   const generations = availableGenerations(memberList);
+  // 사라진 기수를 가리키는 필터는 렌더 시점에 무효화 — 상태를 되돌리지 않아도 화면과 목록이 어긋나지 않는다.
+  const effectiveFilters = normalizeMemberFilters(filters, generations);
 
-  const filtered = filterMembers(memberList, { query, filters, useGeneration });
+  const filtered = filterMembers(memberList, { query, filters: effectiveFilters, useGeneration });
   const filteredIds = new Set(filtered.map((member) => member.memberId));
 
   // 필터와 무관하게 전체 목록에서 파생 — 필터로 가려져도 패널은 유지되고, 명단에서 빠지면 자동 닫힘.
@@ -81,24 +84,17 @@ export default function ClubMembersPage({
       : memberList.find((member) => member.memberId === detailMemberId) ?? null;
   const detailOpen = detailMember !== null;
 
-  // 검색·필터가 바뀌면 화면에서 사라진 회원의 선택을 조용히 남기지 않도록 교집합으로 정리한다.
-  function pruneSelection(nextQuery: string, nextFilters: MemberFilters) {
+  // 필터(칩·기수)가 바뀌면 화면에서 사라진 회원의 선택을 조용히 남기지 않도록 교집합으로 정리한다.
+  // 검색어에는 적용하지 않는다 — 타이핑 한 글자에 선택이 영구 소실되고, 검색어를 지워도 복구되지 않는다.
+  // 검색 중 가려진 선택은 벌크 툴바가 filtered 와 교집합만 대상으로 삼아 실행되지 않는다.
+  function handleFiltersChange(nextFilters: MemberFilters) {
+    setFilters(nextFilters);
     const visible = new Set(
-      filterMembers(memberList, { query: nextQuery, filters: nextFilters, useGeneration }).map(
+      filterMembers(memberList, { query, filters: nextFilters, useGeneration }).map(
         (member) => member.memberId,
       ),
     );
     setSelectedIds((prev) => new Set([...prev].filter((id) => visible.has(id))));
-  }
-
-  function handleQueryChange(nextQuery: string) {
-    setQuery(nextQuery);
-    pruneSelection(nextQuery, filters);
-  }
-
-  function handleFiltersChange(nextFilters: MemberFilters) {
-    setFilters(nextFilters);
-    pruneSelection(query, nextFilters);
   }
 
   function toggleSelect(memberId: number) {
@@ -177,8 +173,8 @@ export default function ClubMembersPage({
       <div className="space-y-3">
         <MemberFilterChips
           query={query}
-          filters={filters}
-          onQueryChange={handleQueryChange}
+          filters={effectiveFilters}
+          onQueryChange={setQuery}
           onChange={handleFiltersChange}
           useGeneration={useGeneration}
           generations={generations}

@@ -56,6 +56,17 @@ export function availableGenerations(members: ClubMember[]): number[] {
   return [...generations].sort((a, b) => b - a);
 }
 
+// 선택된 기수가 더 이상 존재하지 않으면(마지막 해당 회원의 기수 변경·탈퇴) 기수 필터를 해제한다.
+// 드롭다운은 사라진 옵션을 못 그려 "기수 전체"로 보이는데 목록만 비는 불일치가 생기고,
+// 같은 값 재선택은 change 이벤트가 없어 사용자가 새로고침 말고는 풀 방법이 없다.
+export function normalizeMemberFilters(
+  filters: MemberFilters,
+  generations: number[],
+): MemberFilters {
+  if (filters.generation === null || generations.includes(filters.generation)) return filters;
+  return { ...filters, generation: null };
+}
+
 // 검색 대상: 이름·학과·학번·역할 라벨(회장/임원/부원). 기수 "N기" 매칭은 useGeneration=true 일 때만.
 function matchesQuery(member: ClubMember, query: string, useGeneration: boolean): boolean {
   const normalized = query.trim().toLowerCase();
