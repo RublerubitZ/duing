@@ -42,7 +42,7 @@ class GeneralAdminLeaderAssignmentServiceConcurrencyTest extends IntegrationTest
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("두 어드민이 동일 동아리에 동시에 강제 지정해도 LEADER 는 한 명만 생성되고 다른 요청은 예외로 거절된다")
+    @DisplayName("회장이 없는 동아리에 두 어드민이 동시에 강제 지정해도 LEADER 는 한 명만 남는다")
     void concurrentAssignmentsResultInExactlyOneLeader() throws Exception {
         User admin = userRepository.save(newUser(UserRole.ADMIN));
         User candidateA = userRepository.save(newUser(UserRole.STUDENT));
@@ -69,8 +69,12 @@ class GeneralAdminLeaderAssignmentServiceConcurrencyTest extends IntegrationTest
         boolean finished = pool.awaitTermination(15, TimeUnit.SECONDS);
         assertThat(finished).as("동시성 테스트가 시간 내에 완료").isTrue();
 
-        assertThat(successes.get()).isEqualTo(1);
-        assertThat(rejections.get()).isEqualTo(1);
+        // 두 요청이 모두 조회 단계를 통과하면 뒤늦은 쪽이 유니크 인덱스에 걸려 거절되고,
+        // 앞선 요청이 커밋된 뒤 조회한 경우에는 교체 경로를 타 정상 성공한다. 타이밍에 따라
+        // 성공 건수는 1~2 로 갈리므로 "모든 요청이 성공 또는 레이스 거절로 끝나고 회장은 한 명"만 단언한다.
+        assertThat(successes.get() + rejections.get())
+                .as("모든 요청이 성공 또는 레이스 거절로 종료").isEqualTo(2);
+        assertThat(successes.get()).isGreaterThanOrEqualTo(1);
 
         long leaderCount = clubMemberRepository
                 .findAllByClubIdOrderedByRoleAndJoinedAt(club.getId()).stream()
