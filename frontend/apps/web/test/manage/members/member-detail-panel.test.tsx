@@ -175,30 +175,20 @@ describe('MemberDetailPanel — 회비 3상태', () => {
   });
 });
 
-describe('MemberDetailPanel — 연락처 복사', () => {
-  it('복사 버튼 클릭 시 phoneMasked 를 clipboard 에 쓴다', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+describe('MemberDetailPanel — 연락처 표시', () => {
+  it('마스킹된 번호를 그대로 보여준다', () => {
     renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
-
-    await userEvent.click(screen.getByRole('button', { name: '연락처 복사' }));
-
-    expect(writeText).toHaveBeenCalledWith('010-****-5678');
-    expect(await screen.findByText('복사됨')).toBeInTheDocument();
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument();
   });
 
-  it('clipboard 미지원이면 에러 톤 피드백을 보인다', async () => {
-    Object.assign(navigator, { clipboard: undefined });
+  it('복사 버튼은 두지 않는다 — 마스킹 값이 복사돼 쓸 수 없는데 성공으로 표시된다', () => {
     renderPanel({ member: member({ phoneMasked: '010-****-5678' }) });
-
-    await userEvent.click(screen.getByRole('button', { name: '연락처 복사' }));
-
-    expect(await screen.findByText('복사 실패')).toBeInTheDocument();
-  });
-
-  it('연락처가 없으면 복사 버튼 대신 "—"', () => {
-    renderPanel({ member: member({ phoneMasked: null }) });
     expect(screen.queryByRole('button', { name: '연락처 복사' })).not.toBeInTheDocument();
+  });
+
+  it('연락처가 없으면 "—"', () => {
+    renderPanel({ member: member({ phoneMasked: null }) });
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });
 

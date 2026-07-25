@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { Check, Copy } from 'lucide-react';
 import type { ClubMember, ClubMemberRole, MemberFeeStatus } from '@duing/types';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 import {
@@ -235,41 +234,13 @@ function BasicInfoSection({ member, useGeneration }: { member: ClubMember; useGe
   );
 }
 
+// 복사 버튼은 두지 않는다 — 멤버 목록 응답은 마스킹된 번호(phoneMasked)만 내려주므로
+// 복사해도 전화를 걸 수 없는 값이 클립보드에 담긴다. "복사됨" 피드백이 성공을 알리면
+// 사용자는 붙여넣기 전까지 잘못된 값을 받았다는 사실을 모른다.
+// BE 가 리더에게 원본 번호를 제공하게 되면 그때 되살린다.
 function ContactValue({ phoneMasked }: { phoneMasked: string | null }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'error'>('idle');
-
   if (!phoneMasked) return <span className="text-charcoal-3">{EMPTY}</span>;
-
-  const copy = async () => {
-    try {
-      if (!navigator.clipboard) throw new Error('clipboard unavailable');
-      await navigator.clipboard.writeText(phoneMasked);
-      setState('copied');
-    } catch {
-      setState('error');
-    }
-    window.setTimeout(() => setState('idle'), 1500);
-  };
-
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className="font-mono">{phoneMasked}</span>
-      <button
-        type="button"
-        onClick={copy}
-        aria-label="연락처 복사"
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors',
-          state === 'error'
-            ? 'text-coral'
-            : 'text-charcoal-2 hover:bg-sage-tint hover:text-ink',
-        )}
-      >
-        {state === 'copied' ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
-        {state === 'copied' ? '복사됨' : state === 'error' ? '복사 실패' : '복사'}
-      </button>
-    </span>
-  );
+  return <span className="font-mono">{phoneMasked}</span>;
 }
 
 function OperationInfoSection({ member, clubId }: { member: ClubMember; clubId: number }) {
