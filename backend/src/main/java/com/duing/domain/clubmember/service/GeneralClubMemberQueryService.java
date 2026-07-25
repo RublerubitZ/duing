@@ -2,6 +2,8 @@ package com.duing.domain.clubmember.service;
 
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.query.AdminClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberExportQuery;
@@ -80,6 +82,21 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
         log.info("club member export: clubId={}, actorId={}, includePhone={}, scoped={}, count={}",
                 clubId, requesterId, includePhone, !targetMemberIds.isEmpty(), rows.size());
         return rows;
+    }
+
+    @Override
+    public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
+        clubAuthService.requireLeader(requesterId, clubId);
+        ClubMember target = clubMemberRepository.findById(memberId)
+                .orElseThrow(ClubMemberException.NotFound::new);
+        // 다른 동아리의 멤버 id 로 남의 번호를 긁는 경로를 막는다. 미존재와 구분하지 않아 존재 여부를 숨긴다.
+        if (!target.getClub().getId().equals(clubId)) {
+            throw new ClubMemberException.NotFound();
+        }
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
+        log.info("member phone view: clubId={}, actorUserId={}, targetMemberId={}, targetUserId={}, action=PHONE_VIEW",
+                clubId, requesterId, memberId, target.getUser().getId());
+        return target.getUser().getPhone();
     }
 
     // 회원별 최신 비-CANCELLED 청구 상태를 단일 배치 쿼리로 읽어 userId→MemberFeeStatus 로 매핑한다(멤버당 추가 쿼리 없음).

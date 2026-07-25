@@ -4,11 +4,14 @@ import com.duing.domain.clubmember.controller.dto.request.UpdateMemberGeneration
 import com.duing.domain.clubmember.controller.dto.request.UpdateMemberRoleRequest;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberExportResponse;
 import com.duing.domain.clubmember.controller.dto.response.ClubMemberResponse;
+import com.duing.domain.clubmember.controller.dto.response.MemberPhoneResponse;
 import com.duing.domain.clubmember.controller.dto.response.TransferLeaderResponse;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,6 +47,26 @@ public interface ClubMemberApi {
             @PathVariable Long clubId,
             @RequestParam(defaultValue = "false") boolean includePhone,
             @RequestParam(required = false) List<Long> memberIds,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "회원 원본 연락처 조회 (LEADER)",
+            description = "회장 전용. 마스킹되지 않은 원본 번호를 반환하며, 조회 사실(조회자·대상·시각)을 감사 로그로 남긴다. "
+                    + "응답은 캐시하지 않는다(no-store). 목록·export 는 계속 마스킹만 제공한다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "원본 연락처"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403",
+                    description = "회장이 아니거나, 동아리가 ACTIVE 가 아님", content = @Content),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+                    description = "해당 동아리에 없는 멤버 — 존재하지 않는 memberId 와 타 동아리 memberId 를 구분하지 않는다(존재 은닉)",
+                    content = @Content)
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/clubs/{clubId}/members/{memberId}/phone")
+    ResponseEntity<ApiResponse<MemberPhoneResponse>> getMemberPhone(
+            @PathVariable Long clubId,
+            @PathVariable Long memberId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
