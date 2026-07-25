@@ -59,3 +59,11 @@ export type ClubMemberExportRow = {
   generation: number | null;
   feeStatus: MemberFeeStatus;
 };
+
+/**
+ * 회장이 명시적으로 조회한 원본 연락처. 목록(ClubMember)은 phoneMasked 만 제공하며,
+ * 원본은 전용 API 응답으로만 존재한다.
+ */
+export type ClubMemberPhone = {
+  phone: string;
+};

@@ -32,6 +32,7 @@ export {
   useDeletePhotoMutation,
   useClubMembersQuery,
   useClubMembersExportMutation,
+  useMemberPhoneMutation,
   useUpdateMemberRoleMutation,
   useUpdateMemberGenerationMutation,
   useRemoveMemberMutation,
