@@ -21,6 +21,8 @@ const manualMatchMembers: ClubMember[] = [
     major: '컴퓨터공학',
     grade: 'FRESHMAN',
     phoneMasked: '010-****-5678',
+    generation: null,
+    feeStatus: 'NONE',
   },
   {
     memberId: 2,
@@ -32,6 +34,8 @@ const manualMatchMembers: ClubMember[] = [
     major: '시각디자인',
     grade: 'SOPHOMORE',
     phoneMasked: '010-****-1234',
+    generation: null,
+    feeStatus: 'NONE',
   },
 ];
 const mockFeeBillsByUserId = vi.fn<(userId?: number) => FeeBill[]>(() => []);

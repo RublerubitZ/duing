@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ClubMemberExportRow,
+  ClubMemberPhone,
   ClubSearchParams,
   CreateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -169,6 +170,18 @@ export function useUpdateMemberRoleMutation(clubId: number) {
   });
 }
 
+export function useUpdateMemberGenerationMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, payload }: { memberId: number; payload: { generation: number | null } }) =>
+      client.clubs.updateMemberGeneration(clubId, memberId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
+    },
+  });
+}
+
 export function useRemoveMemberMutation(clubId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -214,7 +227,24 @@ export function useTransferLeaderMutation(clubId: number) {
 export function useClubMembersExportMutation(clubId: number) {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (includePhone: boolean): Promise<ClubMemberExportRow[]> =>
-      client.clubs.membersExport(clubId, includePhone),
+    // memberIds 를 넘기면 그 멤버만 받는다 — 화면에 없는 회원의 전화번호까지 내려받지 않는다.
+    mutationFn: (variables: {
+      includePhone: boolean;
+      memberIds?: number[];
+    }): Promise<ClubMemberExportRow[]> =>
+      client.clubs.membersExport(clubId, variables.includePhone, variables.memberIds),
+  });
+}
+
+/**
+ * 회원 원본 연락처 조회. 쿼리가 아니라 뮤테이션인 이유는 캐시를 남기지 않기 위해서다 —
+ * 캐시에 원본이 남으면 패널을 다시 열었을 때 감사 로그 없이 번호가 되살아나고,
+ * "패널을 닫으면 다시 마스킹" 정책이 무너진다.
+ */
+export function useMemberPhoneMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (memberId: number): Promise<ClubMemberPhone> =>
+      client.clubs.memberPhone(clubId, memberId),
   });
 }

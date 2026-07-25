@@ -14,6 +14,7 @@ import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 import { STORED_RICH_HTML_LEADING } from '@/app/manage/clubs/[clubId]/info/_lib/seedEditorHtml';
 import { collegeDisplayName } from '@/app/_lib/college';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 import { useDebouncedValue } from '@/app/admin/_hooks/useDebouncedValue';
 import { ClubInfoForm } from '@/app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import { cn } from '../../../../_lib/cn';
@@ -55,12 +56,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   OTHER: '기타',
 };
 
-const ROLE_LABEL: Record<AdminClubMember['role'], string> = {
-  LEADER: '회장',
-  OFFICER: '임원',
-  MEMBER: '회원',
-};
-
 function MemberRow({ member }: { member: AdminClubMember }) {
   const affiliation = [collegeDisplayName(member.college), member.major]
     .filter(Boolean)
@@ -72,7 +67,7 @@ function MemberRow({ member }: { member: AdminClubMember }) {
         <span className="ml-2 text-xs text-slate-500">{member.studentId}</span>
         {affiliation && <p className="mt-0.5 truncate text-xs text-slate-500">{affiliation}</p>}
       </div>
-      <span className="shrink-0 text-xs text-slate-400">{ROLE_LABEL[member.role]}</span>
+      <span className="shrink-0 text-xs text-slate-400">{clubMemberRoleLabel(member.role)}</span>
     </div>
   );
 }

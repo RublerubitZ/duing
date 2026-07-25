@@ -56,6 +56,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     feeCycle: 'NONE',
     highlights: [],
     projects: [],
+    useGeneration: false,
     ...overrides,
   };
 }
@@ -171,6 +172,40 @@ describe('ClubInfoForm', () => {
     expect(screen.getByText('단과대학')).toBeInTheDocument();
     expect(screen.getByText('IT·공과대학')).toBeInTheDocument();
     expect(screen.queryByText('분과')).toBeNull();
+  });
+
+  it('회원 기수 관리 스위치를 켜면 페이로드에 useGeneration 이 담긴다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ useGeneration: false })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('switch', { name: '회원 기수 관리 사용' }));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ useGeneration: true });
+  });
+
+  it('기수 스위치를 건드리지 않으면 페이로드에 useGeneration 이 없다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />,
+    );
+    fireEvent.change(screen.getByLabelText('한줄 소개'), { target: { value: '새 소개' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(payload).not.toHaveProperty('useGeneration');
+  });
+
+  it('admin 모드에는 회원 기수 관리 스위치가 렌더되지 않는다', () => {
+    render(<ClubInfoForm detail={makeDetail()} mode="admin" mutation={makeMutation()} />);
+    expect(screen.queryByRole('switch', { name: '회원 기수 관리 사용' })).toBeNull();
   });
 });
 

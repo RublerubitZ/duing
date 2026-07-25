@@ -3,7 +3,9 @@ package com.duing.domain.clubmember.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -87,7 +89,10 @@ class ClubMemberControllerTest extends IntegrationTestBase {
                     .body("ok", equalTo(true))
                     .body("data", hasSize(3))
                     .body("data.role", contains("LEADER", "OFFICER", "MEMBER"))
-                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"));
+                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"))
+                    // 청구가 없으면 회비 상태는 NONE, 기수 미설정이면 generation 은 null 로 응답에 실린다.
+                    .body("data.feeStatus", everyItem(equalTo("NONE")))
+                    .body("data.generation", everyItem(nullValue()));
     }
 
     @Test

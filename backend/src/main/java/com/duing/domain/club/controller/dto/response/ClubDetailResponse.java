@@ -44,7 +44,8 @@ public record ClubDetailResponse(
         List<String> highlights,
         List<ClubProject> projects,
         StudentRecruitmentProjection activeRecruitment,
-        boolean centralClub
+        boolean centralClub,
+        boolean useGeneration
 ) {
     public static ClubDetailResponse from(ClubDetailQuery detailQuery) {
         return new ClubDetailResponse(
@@ -76,7 +77,8 @@ public record ClubDetailResponse(
                 detailQuery.highlights(),
                 detailQuery.projects(),
                 detailQuery.activeRecruitment(),
-                detailQuery.centralClub()
+                detailQuery.centralClub(),
+                detailQuery.useGeneration()
         );
     }
 }

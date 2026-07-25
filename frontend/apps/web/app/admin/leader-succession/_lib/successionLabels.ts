@@ -1,4 +1,3 @@
-import type { ClubMemberRole } from '@duing/types';
 import type { ClubMemberEventType, SuccessionStatus } from '@duing/types';
 
 export const SUCCESSION_STATUS_LABEL: Record<SuccessionStatus, string> = {
@@ -20,10 +19,4 @@ export const CLUB_MEMBER_EVENT_TYPE_LABEL: Record<ClubMemberEventType, string> =
   REMOVED: '강제 탈퇴',
   ADMIN_LEADER_ASSIGNED: '어드민 회장 지정',
   SUCCESSION_APPROVED: '승계 승인',
-};
-
-export const CLUB_MEMBER_ROLE_LABEL: Record<ClubMemberRole, string> = {
-  MEMBER: '일반 회원',
-  OFFICER: '임원',
-  LEADER: '회장',
 };

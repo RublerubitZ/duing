@@ -12,7 +12,15 @@ public interface ClubMemberQueryService {
 
     List<MyClubQuery> findMyClubs(Long userId);
 
-    List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone);
+    // memberIds 가 비어있지 않으면 그 멤버만 내보낸다(화면 필터 결과 범위). null·빈 목록이면 전체.
+    List<ClubMemberExportQuery> getMembersForExport(
+            Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds);
+
+    /**
+     * 회원의 원본 연락처를 반환한다. LEADER 전용이며 조회 사실을 구조화 로그로 남긴다.
+     * 목록·export 는 계속 마스킹만 제공하고, 원본은 이 경로로만 나간다.
+     */
+    String getMemberPhone(Long clubId, Long memberId, Long requesterId);
 
     /**
      * 총동연(ADMIN) 동아리원 명단 조회. 소속 여부와 무관하게 조회하며 인가는 컨트롤러의

@@ -84,6 +84,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     feeCycle: 'NONE',
     highlights: [],
     projects: [],
+    useGeneration: false,
     ...overrides,
   };
 }

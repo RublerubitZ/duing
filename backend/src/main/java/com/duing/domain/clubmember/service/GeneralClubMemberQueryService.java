@@ -2,12 +2,20 @@ package com.duing.domain.clubmember.service;
 
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.query.AdminClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberExportQuery;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
+import com.duing.domain.clubmember.service.dto.query.MemberFeeStatus;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
+import com.duing.domain.fee.repository.FeeBillRepository;
+import com.duing.domain.fee.repository.LatestBillStatusRow;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,12 +30,16 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final FeeBillRepository feeBillRepository;
 
     @Override
     public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
+        Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         return clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
-                .map(ClubMemberQuery::from)
+                .map(clubMember -> ClubMemberQuery.from(
+                        clubMember,
+                        feeStatusByUser.getOrDefault(clubMember.getUser().getId(), MemberFeeStatus.NONE)))
                 .toList();
     }
 
@@ -51,14 +63,45 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     }
 
     @Override
-    public List<ClubMemberExportQuery> getMembersForExport(Long clubId, Long requesterId, boolean includePhone) {
+    public List<ClubMemberExportQuery> getMembersForExport(
+            Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
         clubAuthService.requireLeader(requesterId, clubId);
+        Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
+        // 지정된 멤버만 내려보낸다 — 화면에 없는 회원의 전화번호가 브라우저로 나가지 않게 하고,
+        // 아래 감사 로그의 count 도 실제 내보낸 인원과 일치시킨다. 요청 크기는 URL 길이 제한이 막는다.
+        // 타 동아리 memberId 는 이 클럽 조회 결과에 없으므로 자연히 걸러진다.
+        Set<Long> targetMemberIds = memberIds == null ? Set.of() : Set.copyOf(memberIds);
         List<ClubMemberExportQuery> rows = clubMemberRepository
                 .findAllByClubIdOrderedByRoleAndJoinedAt(clubId).stream()
-                .map(clubMember -> ClubMemberExportQuery.from(clubMember, includePhone))
+                .filter(clubMember -> targetMemberIds.isEmpty() || targetMemberIds.contains(clubMember.getId()))
+                .map(clubMember -> ClubMemberExportQuery.from(
+                        clubMember,
+                        includePhone,
+                        feeStatusByUser.getOrDefault(clubMember.getUser().getId(), MemberFeeStatus.NONE)))
                 .toList();
-        log.info("club member export: clubId={}, actorId={}, includePhone={}, count={}",
-                clubId, requesterId, includePhone, rows.size());
+        log.info("club member export: clubId={}, actorId={}, includePhone={}, scoped={}, count={}",
+                clubId, requesterId, includePhone, !targetMemberIds.isEmpty(), rows.size());
         return rows;
+    }
+
+    @Override
+    public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
+        clubAuthService.requireLeader(requesterId, clubId);
+        // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
+        // 셋 다 404 로 수렴해 존재 여부를 숨긴다.
+        ClubMember target = clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
+                .orElseThrow(ClubMemberException.NotFound::new);
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
+        log.info("member phone view: clubId={}, actorUserId={}, targetMemberId={}, targetUserId={}, action=PHONE_VIEW",
+                clubId, requesterId, memberId, target.getUser().getId());
+        return target.getUser().getPhone();
+    }
+
+    // 회원별 최신 비-CANCELLED 청구 상태를 단일 배치 쿼리로 읽어 userId→MemberFeeStatus 로 매핑한다(멤버당 추가 쿼리 없음).
+    private Map<Long, MemberFeeStatus> feeStatusByUser(Long clubId) {
+        return feeBillRepository.findLatestNonCancelledBillStatusByClubId(clubId).stream()
+                .collect(Collectors.toMap(
+                        LatestBillStatusRow::userId,
+                        row -> MemberFeeStatus.fromLatestBill(row.status())));
     }
 }

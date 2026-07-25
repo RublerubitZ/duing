@@ -6,17 +6,12 @@ import Link from 'next/link';
 import type { ClubStatus, MyClubSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 
 import { LeaveClubDialog } from './LeaveClubDialog';
 import { SectionHeader } from './SectionHeader';
-
-const ROLE_LABEL: Record<MyClubSummary['myRole'], string> = {
-  LEADER: '동아리장',
-  OFFICER: '운영진',
-  MEMBER: '회원',
-};
 
 /**
  * 알려진 비 ACTIVE 상태 안내 문구. 백엔드(#591)가 마이페이지 목록을 ACTIVE 로 필터하고
@@ -59,7 +54,7 @@ export function SectionMyClubs({ myClubs }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {myClubs.map((club) => {
               const isManager = club.myRole === 'LEADER' || club.myRole === 'OFFICER';
-              const roleLabel = ROLE_LABEL[club.myRole];
+              const roleLabel = clubMemberRoleLabel(club.myRole);
               // BE(#591)가 status 를 내려주기 전(배포 전환기)이나 미지의 상태값에서는
               // 기존 동작(액션 노출)으로 폴백한다 — 비 ACTIVE 차단의 1차 방어선은 백엔드 필터다.
               const statusNotice = club.status === 'ACTIVE' ? null : STATUS_NOTICE[club.status];

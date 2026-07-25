@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -95,7 +96,10 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
                     .body("ok", equalTo(true))
                     .body("data", hasSize(3))
                     .body("data.role", contains("LEADER", "OFFICER", "MEMBER"))
-                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"));
+                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"))
+                    // export 응답에도 회비 상태(청구 없음→NONE)와 기수(미설정→null)가 실린다.
+                    .body("data.feeStatus", everyItem(equalTo("NONE")))
+                    .body("data.generation", everyItem(nullValue()));
     }
 
     @Test
@@ -159,6 +163,95 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
                     .get("/api/v1/clubs/{clubId}/members/export", club.getId())
                 .then()
                     .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("memberIds 를 주면 그 멤버만 내려온다 — 화면 필터 밖 회원의 전화번호는 응답에 없다")
+    void exportScopedToRequestedMembers() {
+        Long officerMemberId = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), officerUser.getId()).orElseThrow().getId();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .queryParam("includePhone", true)
+                    .queryParam("memberIds", officerMemberId)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/export", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasSize(1))
+                    .body("data[0].name", equalTo("운영진오피서"))
+                    .body("data[0].phone", equalTo(officerUser.getPhone()))
+                    // 화면에 없던 회원의 번호는 응답 어디에도 실리지 않는다.
+                    .body("data.phone", everyItem(not(equalTo(leaderUser.getPhone()))));
+    }
+
+    @Test
+    @DisplayName("memberIds 를 생략하면 기존대로 전체가 내려온다")
+    void exportWithoutMemberIdsReturnsAll() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/export", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasSize(3));
+    }
+
+    @Test
+    @DisplayName("다른 동아리의 memberId 는 무시된다 — 남의 명단이 새지 않는다")
+    void foreignMemberIdIsIgnored() throws Exception {
+        Club otherClub = saveActiveClub("타동아리export");
+        ClubMember foreignMember = clubMemberRepository.save(ClubMember.asLeader(otherClub, strangerUser));
+        Long leaderMemberId = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), leaderUser.getId()).orElseThrow().getId();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .queryParam("memberIds", leaderMemberId)
+                    .queryParam("memberIds", foreignMember.getId())
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/export", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasSize(1))
+                    .body("data[0].name", equalTo("운영진리더"));
+    }
+
+    @Test
+    @DisplayName("범위 export 의 감사 로그 건수는 실제 내보낸 인원과 일치한다")
+    void scopedExportLogsActualCount() {
+        Logger serviceLogger = (Logger) LoggerFactory.getLogger(GeneralClubMemberQueryService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        serviceLogger.addAppender(appender);
+        Long memberRowId = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), memberUser.getId()).orElseThrow().getId();
+
+        try {
+            RestAssured
+                    .given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                        .queryParam("includePhone", true)
+                        .queryParam("memberIds", memberRowId)
+                    .when()
+                        .get("/api/v1/clubs/{clubId}/members/export", club.getId())
+                    .then()
+                        .statusCode(HttpStatus.OK.value());
+
+            assertThat(appender.list)
+                    .anySatisfy(event -> {
+                        String message = event.getFormattedMessage();
+                        assertThat(message).contains("club member export");
+                        assertThat(message).contains("scoped=true");
+                        assertThat(message).contains("count=1");
+                    });
+        } finally {
+            serviceLogger.detachAppender(appender);
+        }
     }
 
     @Test

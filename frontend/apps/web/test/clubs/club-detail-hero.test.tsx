@@ -42,6 +42,7 @@ const baseClub: ClubDetail = {
   tagline: null,
   highlights: [],
   projects: [],
+  useGeneration: false,
   activeRecruitment: null,
 };
 

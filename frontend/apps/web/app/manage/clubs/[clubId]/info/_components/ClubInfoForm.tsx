@@ -140,6 +140,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     detail.membershipFeeAmount !== null ? String(detail.membershipFeeAmount) : '',
   );
   const [projects, setProjects] = useState(detail.projects);
+  const [useGeneration, setUseGeneration] = useState(detail.useGeneration);
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -193,6 +194,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) payload.highlights = highlights;
     if (contactVisibility !== detail.contactVisibility) payload.contactVisibility = contactVisibility;
     if (JSON.stringify(projects) !== JSON.stringify(detail.projects)) payload.projects = projects;
+    // 기수 표시 여부 — 리더 전용(§9). adminMode 는 스위치를 렌더하지 않으므로 여기서도 담기지 않는다.
+    if (useGeneration !== detail.useGeneration) payload.useGeneration = useGeneration;
 
     // 회비: 주기 또는 금액이 detail 과 다르면 항상 쌍으로 담는다 (§4.3).
     if (feeCycle !== detail.feeCycle || nextFeeAmount !== detail.membershipFeeAmount) {
@@ -657,6 +660,37 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
           <SectionCard number={8} title="자주 묻는 질문" description="지원자 문의를 줄여줘요.">
             <FaqsRepeater value={faqs} onChange={setFaqs} readOnly={readOnly} />
           </SectionCard>
+
+          {/* ⑨ 회원 기수 관리 — 리더 전용. adminMode 는 BE 가 useGeneration 을 null 처리(무시)하므로 렌더하지 않는다. */}
+          {!adminMode && (
+            <SectionCard
+              number={9}
+              title="회원 기수 관리"
+              description="회원별 기수를 관리해요. 끄면 기수 관련 화면이 숨겨지고, 기존 기수 데이터는 보존됩니다."
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={useGeneration}
+                  aria-label="회원 기수 관리 사용"
+                  onClick={() => setUseGeneration((prev) => !prev)}
+                  className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors disabled:cursor-default disabled:opacity-60 ${
+                    useGeneration ? 'bg-[#4a6b3f]' : 'bg-[#cfcab8]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-[3px] h-5 w-5 rounded-full bg-white shadow transition-[left] ${
+                      useGeneration ? 'left-[23px]' : 'left-[3px]'
+                    }`}
+                  />
+                </button>
+                <span className="text-[13.5px] font-medium text-[#4a5247]">
+                  {useGeneration ? '사용 중' : '사용 안 함'}
+                </span>
+              </div>
+            </SectionCard>
+          )}
 
           {error && <p className="mt-2 text-[13px] text-[#b35a3a]">{error}</p>}
           {savedAt && !error && (
