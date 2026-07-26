@@ -47,8 +47,6 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
     /** 상태 조회는 외부 BANK API 를 호출하지 않지만, 컨텍스트 구성을 위해 호출하지 않는 stub 을 둔다. */
     static class StubBankApiClient implements BankApiClient {
 
-
-
         @Override
         public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
             return List.of();

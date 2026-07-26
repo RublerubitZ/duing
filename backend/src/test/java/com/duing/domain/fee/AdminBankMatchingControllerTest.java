@@ -48,12 +48,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class AdminBankMatchingControllerTest extends IntegrationTestBase {
 
     /**
-     * 외부 BANK API 를 대체하는 stub. 자동매칭 허용/해제·현황 조회는 외부 호출이 전혀 없는 경로라
-     * 호출을 기록할 것이 없고, 실 HTTP 클라이언트가 테스트에서 뜨지 않도록 막는 역할만 한다.
+     * 외부 BANK API 를 대체하는 stub. 자동매칭 허용/해제·현황 조회는 외부 호출이 전혀 없는 경로이므로
+     * 호출이 기록되면 안 된다 — 각 테스트가 {@code calls} 가 비어 있음을 단언해 그것을 검사한다.
+     * 실 HTTP 클라이언트가 테스트에서 뜨지 않게 막는 역할도 겸한다.
      */
     static class StubBankApiClient implements BankApiClient {
 
-        // 호출되면 안 되는 경로임을 드러낸다 — 이 stub 이 불리면 테스트가 실패한다.
+        // 외부 호출이 일어났는지 단언하기 위한 기록. 이 테스트들에선 항상 비어 있어야 한다.
         final List<String> calls = new ArrayList<>();
 
         void reset() {

@@ -41,11 +41,6 @@ public class BankApiHttpClient implements BankApiClient {
 
     private static final DateTimeFormatter API_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    // 제한(429) 계열 에러코드 — 동일 계좌 쿨다운 / 조회 한도 / 요청 한도.
-    private static final String CODE_ACCOUNT_COOLDOWN = "ACCOUNT_COOLDOWN";
-    private static final String CODE_QUERY_QUOTA_EXCEEDED = "QUERY_QUOTA_EXCEEDED";
-    private static final String CODE_TOO_MANY_REQUESTS = "TOO_MANY_REQUESTS";
-
     private final RestClient bankApiRestClient;
     private final ObjectMapper objectMapper;
 
@@ -104,9 +99,7 @@ public class BankApiHttpClient implements BankApiClient {
         LocalDate date;
         LocalTime time;
         try {
-            // 거래일자는 은행에 따라 YYYY-MM-DD 또는 YYYY/MM/DD 로 온다(공식 문서). 슬래시를 하이픈으로
-            // 정규화해 두 형식을 모두 받는다 — 정규화 전에는 슬래시형 거래가 통째로 유실됐다.
-            date = LocalDate.parse(dateText.replace('/', '-'));
+            date = parseTransactionDate(dateText);
             String timeText = transaction.path("time").asText("");
             time = timeText.isBlank() ? LocalTime.MIDNIGHT : LocalTime.parse(timeText);
         } catch (DateTimeParseException malformed) {
@@ -125,6 +118,20 @@ public class BankApiHttpClient implements BankApiClient {
                 transaction.path("memo").asText(""),
                 writeRawJson(transaction)));
         return null;
+    }
+
+    /**
+     * 거래일자를 파싱한다. 제공사는 은행에 따라 {@code YYYY-MM-DD} 또는 {@code YYYY/MM/DD} 를 주므로
+     * 슬래시를 하이픈으로 정규화하고, 문서에 없지만 요청 형식과 같은 압축형({@code YYYYMMDD})도 받아 둔다.
+     * 형식 하나를 놓치면 그 은행 거래가 통째로 유실되는데(입금 누락) 형식 추가 비용은 한 줄이라 보수적으로 넓힌다.
+     */
+    private LocalDate parseTransactionDate(String dateText) {
+        String normalized = dateText.replace('/', '-');
+        try {
+            return LocalDate.parse(normalized);
+        } catch (DateTimeParseException notIsoDate) {
+            return LocalDate.parse(normalized, DateTimeFormatter.BASIC_ISO_DATE);
+        }
     }
 
     private enum SkipReason {
@@ -204,7 +211,8 @@ public class BankApiHttpClient implements BankApiClient {
      * "message":...,"retryAfterSec":540}} 로 error 가 문자열 코드이고 재시도 대기는 본문 최상위
      * {@code retryAfterSec} 에 온다. 과거 객체형({@code error:{code,message,retryAfter}})도 함께 받는다.
      *
-     * <p>대기 시간은 본문(retryAfterSec → error.retryAfter) 우선, 없으면 Retry-After 헤더로 보충한다.
+     * <p>대기 시간은 본문 우선(과거 형식 error.retryAfter → 현행 retryAfterSec 순으로 확인),
+     * 둘 다 없으면 Retry-After 헤더로 보충한다. 두 형식이 동시에 오는 응답은 문서상 없다.
      */
     private ApiError extractError(JsonNode response) {
         JsonNode errorNode = response.path("error");
@@ -244,10 +252,9 @@ public class BankApiHttpClient implements BankApiClient {
         String code = error.code();
         int status = error.status();
 
-        if (status == 429
-                || CODE_ACCOUNT_COOLDOWN.equals(code)
-                || CODE_QUERY_QUOTA_EXCEEDED.equals(code)
-                || CODE_TOO_MANY_REQUESTS.equals(code)) {
+        // 제한 3종(ACCOUNT_COOLDOWN·QUERY_QUOTA_EXCEEDED·TOO_MANY_REQUESTS)은 모두 429 로 오므로
+        // 상태만 보면 충분하다 — 코드 문자열까지 나열하면 도달 불가한 분기만 늘어난다.
+        if (status == 429) {
             log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);
             return new BankApiException.RateLimitExceededException(error.retryAfter());
         }

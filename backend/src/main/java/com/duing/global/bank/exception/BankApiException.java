@@ -40,10 +40,6 @@ public class BankApiException extends ApplicationException {
         /** 재시도까지 대기해야 할 시간(초). 응답에 정보가 없으면 null. */
         private final Integer retryAfterSeconds;
 
-        public RateLimitExceededException() {
-            this(null);
-        }
-
         public RateLimitExceededException(Integer retryAfterSeconds) {
             super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
             this.retryAfterSeconds = retryAfterSeconds;

@@ -32,7 +32,8 @@ public class FeeAccountException extends ApplicationException {
 
     /**
      * 자동매칭이 사용 가능한(active && api_registered, 지원 은행) 계좌를 수정·재등록하려 한 경우.
-     * 외부 BANK 에 등록된 번호와 DB 가 어긋나는 드리프트를 막기 위해 잠근다 — 변경하려면 자동매칭을 먼저 해제해야 한다.
+     * 활성 중 은행·계좌번호가 바뀌면 이미 적재된 거래({@code bank_transaction.bank_code})와 귀속이 어긋나므로
+     * 잠근다 — 변경하려면 자동매칭을 먼저 해제해야 한다. (외부 등록 개념이 사라진 뒤에도 이 가드는 유효하다.)
      */
     public static class BankMatchingActiveException extends FeeAccountException {
         private static final String MESSAGE =

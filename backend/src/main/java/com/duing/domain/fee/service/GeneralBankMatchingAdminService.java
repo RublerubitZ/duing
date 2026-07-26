@@ -50,20 +50,23 @@ public class GeneralBankMatchingAdminService implements BankMatchingAdminService
     public void setActive(Long clubId, boolean active) {
         FeeAccount account = feeAccountRepository.findByClubId(clubId)   // 적격성 ①: 계좌 존재
                 .orElseThrow(BankMatchingException.FeeAccountRequiredException::new);
-        if (!bankCodeMapper.isEligible(account.getBank())) {            // 적격성 ②: 은행(NH/KB/우리)
+        if (!bankCodeMapper.isEligible(account.getBank())) {            // 적격성 ②: 은행(NH/KB/우리/기업)
             throw new BankApiException.UnsupportedBankException();
+        }
+        if (!active) {
+            // 설정이 없으면 이미 해제 상태다 — 끄기 위해 행을 새로 만들지 않는다(쓰레기 행 방지).
+            bankMatchingSettingRepository.findByClubId(clubId).ifPresent(setting -> {
+                setting.deactivate();
+                log.info("bankAccountAudit event={} clubId={}",
+                        BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
+            });
+            return;
         }
         BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId)
                 .orElseGet(() -> bankMatchingSettingRepository.save(BankMatchingSetting.of(clubId)));
-        if (active) {
-            setting.activate();
-            log.info("bankAccountAudit event={} clubId={}",
-                    BankAccountAuditEvent.BANK_ACCOUNT_REGISTERED, clubId);
-        } else {
-            setting.deactivate();
-            log.info("bankAccountAudit event={} clubId={}",
-                    BankAccountAuditEvent.BANK_ACCOUNT_UNREGISTERED, clubId);
-        }
+        setting.activate();
+        log.info("bankAccountAudit event={} clubId={}",
+                BankAccountAuditEvent.BANK_ACCOUNT_REGISTERED, clubId);
     }
 
     @Override

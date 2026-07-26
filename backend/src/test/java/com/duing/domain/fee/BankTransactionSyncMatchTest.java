@@ -75,9 +75,6 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
             capturedLookup = null;
         }
 
-
-
-
         @Override
         public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
             this.capturedLookup = command;

@@ -65,21 +65,23 @@ class BankApiHttpClientTest {
     }
 
     @Test
-    @DisplayName("거래일자가 하이픈(YYYY-MM-DD)이든 슬래시(YYYY/MM/DD)든 모두 매핑된다")
-    void mapsBothDateFormats() {
-        // 제공사 문서: date 는 은행에 따라 YYYY-MM-DD 또는 YYYY/MM/DD 로 온다(신한 응답 예시가 슬래시형).
+    @DisplayName("거래일자가 하이픈·슬래시·압축형 중 무엇이든 모두 매핑된다")
+    void mapsAllDateFormats() {
+        // 제공사 문서: date 는 은행에 따라 YYYY-MM-DD 또는 YYYY/MM/DD 로 온다. 압축형(YYYYMMDD)은
+        // 문서에 없지만 요청 형식과 같아 방어적으로 받는다 — 형식 하나를 놓치면 입금이 통째로 유실된다.
         mockServer.expect(requestTo(BASE_URL + "/v1/transactions"))
                 .andRespond(withSuccess("""
                         {"success":true,"transactions":[
                           {"date":"2026-01-09","time":"09:15:00","amount":3000000,"balance":1284567,
                            "type":"deposit","counterparty":"홍길동","description":"FBS입금","branch":"국민 0068738"},
                           {"date":"2026/01/10","time":"14:30:25","amount":50000,"balance":1234567,
-                           "type":"withdrawal","counterparty":"스타벅스코리아","description":"스마트출금","branch":"강남"}
+                           "type":"withdrawal","counterparty":"스타벅스코리아","description":"스마트출금","branch":"강남"},
+                          {"date":"20260111","time":"08:00:00","amount":10000,"type":"deposit"}
                         ]}""", MediaType.APPLICATION_JSON));
 
         List<BankTransactionData> transactions = bankApiClient.getTransactions(lookupCommand());
 
-        assertThat(transactions).hasSize(2);
+        assertThat(transactions).hasSize(3);
         assertThat(transactions.get(0).transactionAt())
                 .isEqualTo(LocalDateTime.of(2026, 1, 9, 9, 15, 0));
         assertThat(transactions.get(0).isDeposit()).isTrue();
@@ -87,6 +89,8 @@ class BankApiHttpClientTest {
         assertThat(transactions.get(1).transactionAt())
                 .isEqualTo(LocalDateTime.of(2026, 1, 10, 14, 30, 25));
         assertThat(transactions.get(1).isDeposit()).isFalse();
+        assertThat(transactions.get(2).transactionAt())
+                .isEqualTo(LocalDateTime.of(2026, 1, 11, 8, 0, 0));
     }
 
     @Test
@@ -125,13 +129,40 @@ class BankApiHttpClientTest {
                 .andRespond(withSuccess("""
                         {"success":true,"transactions":[
                           {"date":"","time":"09:15:00","amount":1000,"type":"deposit"},
-                          {"date":"20260110","time":"09:15:00","amount":2000,"type":"deposit"},
+                          {"date":"10/01/2026","time":"09:15:00","amount":2000,"type":"deposit"},
                           {"date":"2026-01-11","time":"10:00:00","amount":3000,"type":"deposit"}
                         ]}""", MediaType.APPLICATION_JSON));
 
         List<BankTransactionData> transactions = bankApiClient.getTransactions(lookupCommand());
 
+        // 빈 날짜(MISSING_DATE)와 일-월-년 순서(UNPARSEABLE)만 빠지고 정상 1건이 남는다.
         assertThat(transactions).hasSize(1);
         assertThat(transactions.get(0).amount()).isEqualTo(3000L);
+    }
+
+    @Test
+    @DisplayName("success=false 에 분류되지 않은 에러코드가 오면 일반 호출 실패로 변환된다")
+    void mapsUnclassifiedErrorToCallFailure() {
+        mockServer.expect(requestTo(BASE_URL + "/v1/transactions"))
+                .andRespond(withSuccess("{\"success\":false,\"error\":\"SOMETHING_NEW\"}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> bankApiClient.getTransactions(lookupCommand()))
+                .isInstanceOf(BankApiException.BankApiCallFailedException.class);
+    }
+
+    @Test
+    @DisplayName("본문에 대기 시간이 없으면 Retry-After 헤더에서 보충한다")
+    void fallsBackToRetryAfterHeader() {
+        mockServer.expect(requestTo(BASE_URL + "/v1/transactions"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Retry-After", "120")
+                        .body("{\"success\":false,\"error\":\"TOO_MANY_REQUESTS\"}"));
+
+        assertThatThrownBy(() -> bankApiClient.getTransactions(lookupCommand()))
+                .asInstanceOf(throwable(BankApiException.RateLimitExceededException.class))
+                .extracting(BankApiException.RateLimitExceededException::getRetryAfterSeconds)
+                .isEqualTo(120);
     }
 }
