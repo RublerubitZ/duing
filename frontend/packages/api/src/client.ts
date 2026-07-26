@@ -666,7 +666,7 @@ export type DuingApiClient = {
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
-      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 전역 슬롯 현황(slots 는 BANK API 장애 시 null).
+      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 자동매칭 등록 동아리 수.
       overview(): Promise<BankMatchingOverview>;
       // PUT /admin/clubs/{clubId}/bank-matching — 동아리 자동매칭 허용/해제.
       setActive(clubId: number, active: boolean): Promise<void>;

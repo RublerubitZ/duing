@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface AdminBankMatchingApi {
 
     @Operation(summary = "동아리 BANK 자동매칭 허용/해제",
-            description = "외부 BANK API 등록/해제를 먼저 수행하고 성공 시에만 설정을 반영한다(원자성).")
+            description = "자동매칭을 사용할 동아리를 정하는 설정 변경이다. 제공사에 계좌 등록 절차가 없어 외부 부수효과는 없다.")
     @PutMapping("/admin/clubs/{clubId}/bank-matching")
     ResponseEntity<Void> updateBankMatching(
             @PathVariable Long clubId,
@@ -26,7 +26,7 @@ public interface AdminBankMatchingApi {
     );
 
     @Operation(summary = "BANK 자동매칭 현황 조회",
-            description = "회비 계좌가 등록된 동아리들의 적격·등록 상태와 인증 키 전역 슬롯 현황을 반환한다.")
+            description = "회비 계좌가 등록된 동아리들의 적격·등록 상태와 자동매칭이 켜진 동아리 수를 반환한다.")
     @GetMapping("/admin/clubs/bank-matching")
     ResponseEntity<ApiResponse<BankMatchingOverviewResponse>> getBankMatchingOverview();
 }

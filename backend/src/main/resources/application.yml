@@ -122,9 +122,10 @@ octomo:
   api-key: ${OCTOMO_API_KEY:}
   base-url: https://api.octoverse.kr
 
-# BANK API(bankapi.co.kr) 연동 — 회비 자동매칭(거래 조회/계좌 등록)용.
+# BANK API(bankapi.co.kr) 연동 — 회비 자동매칭의 거래내역 조회용(POST /v1/transactions).
+# 제공사에 계좌 등록 절차는 없다 — 키만 있으면 바로 조회하며, 자동매칭 허용 동아리는 DB 설정으로 관리한다.
 # 인증은 Bearer {api-key}:{secret-key} 헤더. 키는 환경변수로만 주입하고 yml/코드에 실키 금지.
-# 키 미설정(빈 값) 시 자동매칭 기능만 비동작하며 그 외 기동에는 영향이 없다.
+# 키 미설정(빈 값) 시 거래 동기화만 401 로 실패하며 그 외 기동에는 영향이 없다.
 bank-api:
   base-url: https://api.bankapi.co.kr
   api-key: ${BANK_API_KEY:}

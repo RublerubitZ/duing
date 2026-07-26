@@ -7,6 +7,4 @@ package com.duing.domain.fee.support;
 public enum BankAccountAuditEvent {
     BANK_ACCOUNT_REGISTERED,
     BANK_ACCOUNT_UNREGISTERED,
-    BANK_ACCOUNT_UNREGISTER_FAILED,
-    BANK_ACCOUNT_FORCE_DEACTIVATED,
 }

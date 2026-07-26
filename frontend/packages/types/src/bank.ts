@@ -71,18 +71,11 @@ export type BankMatchingClub = {
   registered: boolean;
 };
 
-// BankMatchingOverviewResponse.SlotStatus 미러. 인증 키 단위 전역 계좌 등록 슬롯 현황.
-export type BankMatchingSlots = {
-  registeredCount: number;
-  maxAccounts: number;
-  remaining: number;
-};
-
-// BankMatchingOverviewResponse 미러. 동아리별 상태 목록 + 전역 슬롯 현황.
-// slots 는 BANK API 일시 장애 시 null 일 수 있다(graceful degrade) — 이때도 clubs 는 정상 반환된다.
+// BankMatchingOverviewResponse 미러. 동아리별 상태 목록 + 자동매칭이 켜진 동아리 수.
+// 두 값 모두 백엔드가 DB 에서 산출하므로 항상 채워진다(외부 BANK API 장애와 무관).
 export type BankMatchingOverview = {
   clubs: BankMatchingClub[];
-  slots: BankMatchingSlots | null;
+  registeredCount: number;
 };
 
 // GET /leader/clubs/{clubId}/bank-matching 응답(BankMatchingStatusResponse 미러).

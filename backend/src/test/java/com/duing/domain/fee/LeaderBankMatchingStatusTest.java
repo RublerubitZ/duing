@@ -20,7 +20,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
-import com.duing.global.bank.dto.AccountSlotStatus;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
 import com.duing.global.crypto.FeeAccountCipher;
@@ -47,18 +46,6 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
 
     /** 상태 조회는 외부 BANK API 를 호출하지 않지만, 컨텍스트 구성을 위해 호출하지 않는 stub 을 둔다. */
     static class StubBankApiClient implements BankApiClient {
-        @Override
-        public void registerAccount(String bankCode, String accountNumber) {
-        }
-
-        @Override
-        public void deleteAccount(String bankCode, String accountNumber) {
-        }
-
-        @Override
-        public AccountSlotStatus getAccountStatus() {
-            return new AccountSlotStatus(0, 5, 5);
-        }
 
         @Override
         public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
