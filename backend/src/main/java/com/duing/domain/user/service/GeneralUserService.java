@@ -109,7 +109,8 @@ public class GeneralUserService implements UserService {
     @Transactional(noRollbackFor = {
             UserException.InvalidCredentialsException.class,
             UserException.AccountLockedException.class,
-            UserException.TooManyLoginAttemptsException.class
+            UserException.TooManyLoginAttemptsException.class,
+            UserException.AccountSuspendedException.class
     })
     public LoginResult login(LoginCommand loginCommand, LoginContext loginContext) {
         LocalDateTime now = LocalDateTime.now();
@@ -271,6 +272,9 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordCommand resetPasswordCommand, String clientIp, String userAgent) {
+        // 이용 정지 검사를 여기에 두지 않는 것은 의도다 — 비로그인 경로라 정지 여부를 확인해주는 순간
+        // 학번·번호를 아는 제3자가 재설정 시도만으로 계정 상태를 알아낸다(로그인이 비밀번호 검증 뒤에
+        // 검사하는 것과 같은 이유). 재설정에 성공해도 로그인 단계에서 막히므로 실익도 없다.
         LocalDateTime now = LocalDateTime.now(clock);
 
         // 잠금 순서는 세션 행 → 유저 행 — signup·changePhone 소비 경로와 같은 방향이라 순환 대기(데드락)가 없다.
