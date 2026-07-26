@@ -71,8 +71,22 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
     @Override
     @Transactional
     public void updateAdminNote(UpdateAdminNoteCommand updateAdminNoteCommand) {
-        User target = userRepository.findById(updateAdminNoteCommand.targetUserId())
+        // 메모 한 줄 바꾸는 데도 행을 잠근다 — 지우지 마라. User 에는 @Version 도 @DynamicUpdate 도 없어서
+        // 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 낸다. 잠금 없이 읽으면 그 사이 다른 트랜잭션이 커밋한
+        // status·token_version 까지 옛 스냅샷 값으로 되돌려 써, 계정 정지가 감사 로그만 남긴 채 사라진다.
+        // 비관적 잠금은 쓰기 경로가 전부 잡아야 성립하므로 이 경로만 빠져도 changeStatus 의 보호가 뚫린다.
+        User target = userRepository.findByIdForUpdate(updateAdminNoteCommand.targetUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+
+        // 내용이 그대로면 무동작 — changeStatus 의 동일 상태 재요청과 같은 정책이다. 저장 버튼 연타가
+        // 아무것도 고치지 않은 사람을 "최종 수정자" 로 만들고, 최신 20건만 보여주는 조치 이력에서
+        // 정지·해제를 밀어내는 것을 막는다.
+        // 메모 없음(null)과 빈 문자열은 컬럼 값으로는 다르지만 화면에서도 정책에서도 "메모 없음" 하나다 —
+        // 메모가 없던 회원에게 빈 문자열을 저장하는 것은 실질 변화가 아니므로 같은 값으로 본다.
+        String currentNote = target.getAdminNote() == null ? "" : target.getAdminNote();
+        if (currentNote.equals(updateAdminNoteCommand.note())) {
+            return;
+        }
         target.changeAdminNote(updateAdminNoteCommand.note());
 
         // reason 은 null 로 둔다 — 메모 본문을 감사 로그에 복제하면 내부 메모가 두 테이블에 살면서
@@ -80,6 +94,10 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
         adminUserActionLogRepository.save(AdminUserActionLog.of(
                 updateAdminNoteCommand.actorUserId(), target.getId(),
                 AdminUserAction.ADMIN_NOTE_UPDATED, null));
+
+        // 메모 본문은 절대 남기지 않는다 — 운영 로그는 접근 통제가 감사 테이블보다 느슨하다.
+        log.info("Admin note updated. actorId={}, targetUserId={}",
+                updateAdminNoteCommand.actorUserId(), target.getId());
     }
 
     private void assertSuspendable(User target, Long actorUserId) {

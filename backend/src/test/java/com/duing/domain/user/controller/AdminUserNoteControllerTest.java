@@ -98,8 +98,54 @@ class AdminUserNoteControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("메모가 1000자를 넘으면 400 을 반환한다")
-    void tooLongNoteRejected() {
+    @DisplayName("같은 내용의 메모를 다시 저장하면 아무 일도 일어나지 않아 감사 로그가 늘지 않는다")
+    void unchangedNoteIsNoOp() {
+        User target = saveUser("동일메모", UserRole.STUDENT);
+        saveNote(target, "변경 없는 메모");
+
+        saveNote(target, "변경 없는 메모");
+
+        // 최종 수정 시각·작업자는 이 로그에서 파생되므로, 로그가 늘지 않는다는 것은
+        // 아무것도 고치지 않은 사람이 "최종 수정자" 로 올라서지 않는다는 뜻이기도 하다.
+        assertThat(actionLogRepository.findAll())
+                .as("내용이 그대로면 감사 이력을 남기지 않아야 한다")
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("메모가 없던 회원에게 빈 문자열을 저장하면 실질 변화가 없어 감사 로그를 남기지 않는다")
+    void emptyNoteOnNeverNotedUserIsNoOp() {
+        User target = saveUser("메모없음", UserRole.STUDENT);
+
+        saveNote(target, "");
+
+        // 메모 없음(null)과 빈 문자열은 컬럼 값으로는 다르지만 화면에서도 정책에서도 "메모 없음" 하나다.
+        // 같은 값으로 보므로 저장도 로그도 일어나지 않고, 컬럼은 NULL 그대로 남는다.
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getAdminNote()).isNull();
+        assertThat(actionLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("메모를 null 로 보내면 400 을 반환한다 — 비우려면 빈 문자열을 보내야 한다")
+    void nullNoteRejected() {
+        User target = saveUser("메모널", UserRole.STUDENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType("application/json")
+                .body("""
+                        {"note":null}
+                        """)
+                .when().put("/api/v1/admin/users/{userId}/admin-note", target.getId())
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        // null 을 통과시키면 메모 컬럼이 조용히 NULL 로 덮이고 "비우기" 와 구분할 수 없게 된다.
+        assertThat(actionLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("메모는 1000자까지 저장되고 1001자부터 400 을 반환한다")
+    void noteLengthBoundary() {
         User target = saveUser("메모초과", UserRole.STUDENT);
 
         RestAssured.given()
@@ -108,6 +154,15 @@ class AdminUserNoteControllerTest extends IntegrationTestBase {
                 .body("{\"note\":\"%s\"}".formatted("가".repeat(1001)))
                 .when().put("/api/v1/admin/users/{userId}/admin-note", target.getId())
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        // 초과 쪽만 보면 상한을 999 로 조여도 1001 자는 여전히 400 이라 오프바이원이 드러나지 않는다.
+        // 경계값 자체가 통과하는지를 함께 고정해야 상한이 실제로 1000 임을 붙잡을 수 있다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType("application/json")
+                .body("{\"note\":\"%s\"}".formatted("가".repeat(1000)))
+                .when().put("/api/v1/admin/users/{userId}/admin-note", target.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     @Test

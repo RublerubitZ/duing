@@ -164,7 +164,10 @@ public class User extends BaseEntity {
         this.status = UserStatus.ACTIVE;
     }
 
-    /** 관리자 메모를 교체한다. 빈 문자열은 그대로 저장한다(= 메모 비우기, 그 자체가 감사 대상 행위). */
+    /**
+     * 관리자 메모를 교체한다. 빈 문자열은 그대로 저장한다(= 메모 비우기, 그 자체가 감사 대상 행위).
+     * 단 "내용이 같으면 아무것도 하지 않는다"는 판정은 호출 측(서비스)이 한다 — 여기까지 왔다면 실질 변경이다.
+     */
     public void changeAdminNote(String note) {
         this.adminNote = note;
     }

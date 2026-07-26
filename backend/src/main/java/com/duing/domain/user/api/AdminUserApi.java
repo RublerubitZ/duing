@@ -24,7 +24,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "사용자(총동연)", description = "총동연 전용 회원 관리 API — 검색·상세 조회·강제 로그아웃·계정 상태 변경")
+@Tag(name = "사용자(총동연)",
+        description = "총동연 전용 회원 관리 API — 검색·상세 조회·강제 로그아웃·계정 상태 변경·관리자 메모 저장")
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminUserApi {
 
@@ -78,7 +79,10 @@ public interface AdminUserApi {
     @Operation(summary = "관리자 메모 저장 (ADMIN)",
             description = "회원별 내부 메모를 저장한다. 사용자에게는 절대 노출되지 않는다. "
                     + "빈 문자열을 보내면 메모가 비워지며, 그 사실도 감사 로그에 기록된다. "
-                    + "감사 로그에는 메모 본문을 저장하지 않는다.")
+                    + "감사 로그에는 메모 본문을 저장하지 않는다. "
+                    + "현재 메모와 내용이 같으면 아무 동작도 하지 않고 204 를 반환한다(감사 로그도, 최종 수정 시각 갱신도 없다). "
+                    + "메모가 없던 회원에게 빈 문자열을 보내는 것도 내용이 같은 요청으로 본다. "
+                    + "null 은 허용하지 않는다 — 비우려면 빈 문자열을 보낸다.")
     @PutMapping("/admin/users/{userId}/admin-note")
     ResponseEntity<ApiResponse<Void>> updateAdminNote(
             @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
