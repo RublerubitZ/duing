@@ -32,6 +32,9 @@ import { UserStatusBadge } from './UserStatusBadge';
 // `[...str].length` 나 Intl.Segmenter 로 세면(코드포인트/서체소) 이모지가 섞인 메모에서 FE 는 통과시키고
 // 서버가 400 을 낸다. textarea 의 maxLength 와 `str.length` 가 정확히 그 단위다.
 const NOTE_MAX_LENGTH = 1000;
+// 글자 수를 상시 노출하면 한 줄짜리 메모에도 시선이 가는 잡음이 된다 — 상한이 실제로 걸리는
+// 구간에서만 띄워서, 저장이 막혔을 때 이유를 화면에서 바로 읽을 수 있게 한다.
+const NOTE_LENGTH_HINT_FROM = NOTE_MAX_LENGTH - 50;
 
 // 위험 작업 버튼은 레포 공통 파괴적 액션 스타일을 그대로 쓴다(삭제·강제 로그아웃 다이얼로그 전례).
 const DANGER_BUTTON_CLASS =
@@ -73,6 +76,10 @@ export function AdminUserDetailSheetContent({
   }, [detail.id]);
 
   const noteUpdatedAt = detail.adminNoteUpdatedAt ? formatDateTimeKst(detail.adminNoteUpdatedAt) : null;
+  // maxLength 는 타이핑·붙여넣기만 끊는다. 드래그-드롭 삽입이나 자동입력 확장으로 들어온 값은
+  // 그대로 통과하므로, 서버가 검증하는 값(보내는 값 = note)으로 한 번 더 막는다.
+  const isNoteOverLimit = note.length > NOTE_MAX_LENGTH;
+  const showNoteLength = note.length >= NOTE_LENGTH_HINT_FROM;
 
   return (
     <div className="flex h-full flex-col">
@@ -151,6 +158,8 @@ export function AdminUserDetailSheetContent({
           aria-label="관리자 메모"
           value={note}
           maxLength={NOTE_MAX_LENGTH}
+          // 상한에 걸려 저장이 막힌 사실은 스크린리더에도 닿아야 한다 — 라벨만으로는 전달되지 않는다.
+          aria-describedby="admin-note-length"
           onChange={(event) => setNote(event.target.value)}
           placeholder="이 회원에 대한 내부 메모를 남겨주세요"
           className="min-h-[84px] w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-2 focus-visible:border-ink focus-visible:outline-none"
@@ -162,14 +171,25 @@ export function AdminUserDetailSheetContent({
               ? `최종 수정 ${noteUpdatedAt} · ${detail.adminNoteUpdatedBy ?? '알 수 없음'}`
               : ''}
           </span>
-          <button
-            type="button"
-            onClick={() => onSaveNote(note)}
-            disabled={isSavingNote}
-            className="btn btn-sm btn-secondary shrink-0"
-          >
-            {isSavingNote && <ButtonSpinner />}메모 저장
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* 입력을 실제로 끊는 건 maxLength 이고 그건 원문 길이를 본다 — 카운터도 같은 값을 센다. */}
+            {showNoteLength && (
+              <span
+                id="admin-note-length"
+                className={`text-[11px] ${isNoteOverLimit ? 'text-coral' : 'text-charcoal-2'}`}
+              >
+                {note.length}/{NOTE_MAX_LENGTH}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onSaveNote(note)}
+              disabled={isSavingNote || isNoteOverLimit}
+              className="btn btn-sm btn-secondary"
+            >
+              {isSavingNote && <ButtonSpinner />}메모 저장
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-coral/30">

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -127,6 +127,31 @@ describe('회원 상세 Sheet', () => {
   it('메모 입력은 서버와 같은 단위(UTF-16 코드유닛)로 1000자에서 막는다', () => {
     render(<AdminUserDetailSheetContent {...props} />);
     expect(screen.getByLabelText('관리자 메모')).toHaveAttribute('maxlength', '1000');
+  });
+
+  it('상한을 넘는 메모가 들어오면 저장 버튼을 막는다 — maxLength 는 타이핑·붙여넣기만 끊는다', async () => {
+    const onSaveNote = vi.fn();
+    const user = userEvent.setup();
+    render(<AdminUserDetailSheetContent {...props} onSaveNote={onSaveNote} />);
+
+    // 드래그-드롭 삽입이나 자동입력 확장은 maxLength 를 통과한다. 그대로 보내면 서버가 400 을 낸다.
+    fireEvent.change(screen.getByLabelText('관리자 메모'), { target: { value: '기'.repeat(1001) } });
+
+    const saveButton = screen.getByRole('button', { name: '메모 저장' });
+    expect(saveButton).toBeDisabled();
+    await user.click(saveButton);
+    expect(onSaveNote).not.toHaveBeenCalled();
+  });
+
+  it('상한에 가까워지면 글자 수를 보여준다 — 왜 막혔는지 화면에서 읽을 수 있어야 한다', () => {
+    render(<AdminUserDetailSheetContent {...props} />);
+
+    // 여유가 넉넉한 구간에서는 카운터가 잡음이라 띄우지 않는다.
+    expect(screen.queryByText(/\/1000$/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('관리자 메모'), { target: { value: '기'.repeat(1001) } });
+
+    expect(screen.getByLabelText('관리자 메모')).toHaveAccessibleDescription('1001/1000');
   });
 
   it('메모를 고쳐 저장하면 입력값 그대로 콜백에 넘긴다', async () => {
