@@ -2,6 +2,8 @@ package com.duing.domain.user.service;
 
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.user.entity.AdminUserAction;
+import com.duing.domain.user.entity.AdminUserActionLog;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
@@ -10,6 +12,7 @@ import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
+import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
@@ -53,6 +56,7 @@ public class GeneralUserService implements UserService {
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
     private final AuthSessionService authSessionService;
     private final ClubMemberRepository clubMemberRepository;
+    private final AdminUserActionLogRepository adminUserActionLogRepository;
     private final PhoneVerificationSessionManager phoneVerificationSessionManager;
     private final Clock clock;
     private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
@@ -207,6 +211,9 @@ public class GeneralUserService implements UserService {
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.ADMIN_FORCE);
+        // reason 은 null 이다 — 강제 로그아웃은 사유를 받지 않는다(정지와 달리 입력 칸이 없다).
+        adminUserActionLogRepository.save(AdminUserActionLog.of(
+                forceLogoutCommand.actorUserId(), user.getId(), AdminUserAction.FORCE_LOGOUT, null));
         log.info("Admin force logout. actorId={}, targetUserId={}",
                 forceLogoutCommand.actorUserId(), forceLogoutCommand.targetUserId());
     }

@@ -1,11 +1,15 @@
 package com.duing.domain.user.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.user.entity.AdminUserAction;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
@@ -28,6 +32,7 @@ class AdminForceLogoutControllerTest extends IntegrationTestBase {
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
+    @Autowired AdminUserActionLogRepository actionLogRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -63,7 +68,29 @@ class AdminForceLogoutControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("ADMIN 이 자기 자신을 강제 로그아웃해도 204 가 반환되고 자신의 기존 토큰도 무효화된다")
+    @DisplayName("강제 로그아웃하면 작업자와 대상이 담긴 감사 로그가 1건 남는다")
+    void forceLogoutWritesAuditLog() {
+        User target = saveUser("감사대상", UserRole.STUDENT);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().post("/api/v1/admin/users/{userId}/force-logout", target.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 작업자와 대상은 서로 다른 회원이다 — 둘 다 Long 이라 자리가 뒤바뀌어도 컴파일은 통과하므로,
+        // 각 id 가 제 칸에 들어갔는지를 값으로 고정한다.
+        assertThat(actionLogRepository.findAll())
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.getAction()).isEqualTo(AdminUserAction.FORCE_LOGOUT);
+                    assertThat(log.getActorUserId()).isEqualTo(adminUser.getId());
+                    assertThat(log.getTargetUserId()).isEqualTo(target.getId());
+                    assertThat(log.getReason()).isNull();
+                });
+    }
+
+    @Test
+    @DisplayName("ADMIN 이 자기 자신을 강제 로그아웃해도 204 가 반환되고 자신의 기존 토큰도 무효화되며 작업자와 대상이 같은 id 로 기록된다")
     void adminCanForceLogoutSelf() {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -74,6 +101,14 @@ class AdminForceLogoutControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().post("/api/v1/auth/logout")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+
+        // 자기 자신 강제 로그아웃은 계정 정지와 달리 막지 않는다 — 감사 로그도 작업자·대상이 같은 id 로 남는다.
+        assertThat(actionLogRepository.findAll())
+                .singleElement()
+                .satisfies(log -> {
+                    assertThat(log.getActorUserId()).isEqualTo(adminUser.getId());
+                    assertThat(log.getTargetUserId()).isEqualTo(adminUser.getId());
+                });
     }
 
     @Test
