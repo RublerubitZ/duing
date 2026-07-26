@@ -103,6 +103,12 @@ describe('AdminClubDetailPage', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('회장이 있어도 강제 교체 카드가 현재 회장과 함께 노출된다', async () => {
+    renderPage();
+    expect(await screen.findByText(/회장 강제 교체 — 현재 회장 홍길동/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /강제 교체/ })).toBeInTheDocument();
+  });
+
   it('25명이면 페이지네이션이 나타나고 첫 페이지엔 20명만 보인다', async () => {
     renderPage();
     await screen.findByText('홍길동');

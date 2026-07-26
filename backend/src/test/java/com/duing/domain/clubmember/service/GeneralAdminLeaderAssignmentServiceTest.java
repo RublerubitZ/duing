@@ -80,8 +80,8 @@ class GeneralAdminLeaderAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("LEADER 가 이미 있는 동아리에 강제 지정하면 400")
-    void rejectsWhenLeaderExists() {
+    @DisplayName("LEADER 가 이미 있어도 강제 교체되어 기존 회장은 MEMBER 로 강등되고 history 2행이 기록된다")
+    void replacesExistingLeader() {
         User admin = saveUser(UserRole.ADMIN);
         User leader = saveUser(UserRole.STUDENT);
         User candidate = saveUser(UserRole.STUDENT);
@@ -89,8 +89,43 @@ class GeneralAdminLeaderAssignmentServiceTest {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         clubMemberRepository.save(ClubMember.of(club, candidate, ClubMemberRole.MEMBER));
 
+        service.assign(new AssignLeaderByAdminCommand(
+                club.getId(), candidate.getId(), admin.getId(), "회장 잠적"));
+
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), candidate.getId())
+                .orElseThrow().getRole()).isEqualTo(ClubMemberRole.LEADER);
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), leader.getId())
+                .orElseThrow().getRole()).isEqualTo(ClubMemberRole.MEMBER);
+
+        var rows = historyRepository.findByClubIdOrderByCreatedAtDesc(
+                club.getId(), PageRequest.of(0, 10)).getContent();
+        assertThat(rows).hasSize(2);
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.getEventType()).isEqualTo(ClubMemberEventType.ADMIN_LEADER_ASSIGNED);
+            assertThat(row.getActorUserId()).isEqualTo(admin.getId());
+        });
+        assertThat(rows).anySatisfy(row -> {
+            assertThat(row.getTargetUserId()).isEqualTo(leader.getId());
+            assertThat(row.getFromRole()).isEqualTo(ClubMemberRole.LEADER);
+            assertThat(row.getToRole()).isEqualTo(ClubMemberRole.MEMBER);
+        });
+        assertThat(rows).anySatisfy(row -> {
+            assertThat(row.getTargetUserId()).isEqualTo(candidate.getId());
+            assertThat(row.getFromRole()).isEqualTo(ClubMemberRole.MEMBER);
+            assertThat(row.getToRole()).isEqualTo(ClubMemberRole.LEADER);
+        });
+    }
+
+    @Test
+    @DisplayName("이미 회장인 회원을 다시 강제 지정하면 400")
+    void rejectsWhenCandidateIsAlreadyLeader() {
+        User admin = saveUser(UserRole.ADMIN);
+        User leader = saveUser(UserRole.STUDENT);
+        Club club = saveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
         assertThatThrownBy(() -> service.assign(new AssignLeaderByAdminCommand(
-                club.getId(), candidate.getId(), admin.getId(), "테스트")))
+                club.getId(), leader.getId(), admin.getId(), "테스트")))
                 .isInstanceOf(ClubMemberException.AdminAssignLeaderAlreadyExists.class);
     }
 
