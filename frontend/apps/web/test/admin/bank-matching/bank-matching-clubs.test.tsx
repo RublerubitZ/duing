@@ -2,19 +2,25 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { BankMatchingClub, BankMatchingOverview, BankMatchingSlots } from '@duing/types';
+import type { BankMatchingClub, BankMatchingOverview } from '@duing/types';
 
 const mockSetActive = vi.fn();
 
 // 조회 응답을 케이스별로 갈아끼우기 위한 훅. data/상태를 한 번에 돌려준다.
-const mockOverview = vi.fn<() => BankMatchingOverview>(() => ({ clubs: [], slots: null }));
+const mockOverview = vi.fn<() => BankMatchingOverview>(() => ({ clubs: [], registeredCount: 0 }));
+// 실패 케이스는 이 값을 채워 isError 분기를 태운다(null 이면 성공).
+const mockQueryError = vi.fn<() => unknown>(() => null);
 
 vi.mock('@duing/hooks', () => ({
-  useAdminBankMatchingQuery: () => ({
-    data: mockOverview(),
-    isLoading: false,
-    isError: false,
-  }),
+  useAdminBankMatchingQuery: () => {
+    const error = mockQueryError();
+    return {
+      data: error ? undefined : mockOverview(),
+      isLoading: false,
+      isError: error !== null,
+      error,
+    };
+  },
   useSetBankMatchingMutation: () => ({ mutate: mockSetActive, isPending: false, error: null }),
 }));
 
@@ -26,9 +32,11 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
 const { MockApiError } = vi.hoisted(() => {
   class MockApiError extends Error {
     status: number;
-    constructor(status: number, message = 'api error') {
+    code?: string;
+    constructor(status: number, message = 'api error', code?: string) {
       super(message);
       this.status = status;
+      this.code = code;
       this.name = 'ApiError';
     }
   }
@@ -52,41 +60,59 @@ function makeClub(overrides: Partial<BankMatchingClub> = {}): BankMatchingClub {
   };
 }
 
-const slots: BankMatchingSlots = { registeredCount: 1, maxAccounts: 5, remaining: 4 };
-
 describe('BankMatchingClubs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockOverview.mockReturnValue({ clubs: [], slots: null });
+    mockOverview.mockReturnValue({ clubs: [], registeredCount: 0 });
+    mockQueryError.mockReturnValue(null);
   });
 
-  it('슬롯 현황과 동아리 목록을 렌더링한다', () => {
+  it('등록 동아리 수와 동아리 목록을 렌더링한다', () => {
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 1, clubName: '코딩 동아리' })],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
-    expect(screen.getByText('등록 1 / 최대 5 · 남은 4')).toBeInTheDocument();
+    expect(screen.getByText('자동매칭 등록 1개 동아리')).toBeInTheDocument();
     expect(screen.getByText('코딩 동아리')).toBeInTheDocument();
   });
 
-  it('slots 가 null 이면 충돌 없이 일시 장애 안내를 노출하고 목록은 그대로 렌더링한다', () => {
+  // 조회가 성공하면 등록 현황은 언제나 채워진다 — 예전의 "일시적으로 불러올 수 없어요" 는
+  // 존재하지 않는 외부 슬롯 API 를 부르다 실패해서 생긴 상태였고, 이제는 그런 상태 자체가 없다.
+  it('등록 동아리가 없어도 0 으로 현황을 표시한다', () => {
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 1, clubName: '재즈 동아리' })],
-      slots: null,
+      registeredCount: 0,
     });
     render(<BankMatchingClubs />);
 
-    expect(screen.getByText('등록 현황을 일시적으로 불러올 수 없어요')).toBeInTheDocument();
+    expect(screen.getByText('자동매칭 등록 0개 동아리')).toBeInTheDocument();
+    expect(screen.queryByText(/일시적으로 불러올 수 없어요/)).not.toBeInTheDocument();
     expect(screen.getByText('재즈 동아리')).toBeInTheDocument();
+  });
+
+  it.each([
+    [new MockApiError(401, '인증이 필요합니다.'), '로그인이 만료되었어요. 다시 로그인한 뒤 시도해 주세요.'],
+    [new MockApiError(403, '권한이 없습니다.'), '총동연 계정으로만 볼 수 있는 화면이에요.'],
+    [new MockApiError(500, '서버 오류'), '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.'],
+    [new MockApiError(0, '인터넷 연결을 확인해주세요.', 'NETWORK'), '인터넷 연결을 확인해주세요.'],
+    [
+      new MockApiError(0, '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.', 'TIMEOUT'),
+      '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+    ],
+  ])('조회 실패 원인별로 다른 안내를 노출한다: %o', (error, expected) => {
+    mockQueryError.mockReturnValue(error);
+    render(<BankMatchingClubs />);
+
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 
   it('적격·미등록 동아리의 [등록]은 {clubId, active:true} 로 호출한다', async () => {
     const user = userEvent.setup();
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 7, eligible: true, registered: false })],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
@@ -101,7 +127,7 @@ describe('BankMatchingClubs', () => {
     const user = userEvent.setup();
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 9, registered: true })],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
@@ -122,7 +148,7 @@ describe('BankMatchingClubs', () => {
           registered: false,
         }),
       ],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
@@ -130,21 +156,21 @@ describe('BankMatchingClubs', () => {
     expect(screen.getByText(/회비 계좌 미등록/)).toBeInTheDocument();
   });
 
-  it('남은 슬롯이 0 이면 적격·미등록 동아리의 [등록]도 비활성이다', () => {
+  it('등록 동아리가 많아도 적격 동아리의 [등록]은 활성이다(외부 슬롯 한도 없음)', () => {
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 4, eligible: true, registered: false })],
-      slots: { registeredCount: 5, maxAccounts: 5, remaining: 0 },
+      registeredCount: 5,
     });
     render(<BankMatchingClubs />);
 
-    expect(screen.getByRole('button', { name: '등록' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '등록' })).toBeEnabled();
   });
 
-  it('등록 중 ApiError(한도 초과)가 발생하면 토스트로 메시지를 노출한다', async () => {
+  it('등록 중 ApiError 가 발생하면 토스트로 메시지를 노출한다', async () => {
     const user = userEvent.setup();
     mockOverview.mockReturnValue({
       clubs: [makeClub({ clubId: 5, eligible: true, registered: false })],
-      slots,
+      registeredCount: 1,
     });
     mockSetActive.mockImplementation(
       (_payload: unknown, options?: { onError?: (error: unknown) => void }) => {
@@ -169,7 +195,7 @@ describe('BankMatchingClubs', () => {
         makeClub({ clubId: 1, clubName: '코딩 동아리' }),
         makeClub({ clubId: 2, clubName: '재즈 동아리' }),
       ],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
@@ -191,7 +217,7 @@ describe('BankMatchingClubs', () => {
           registered: true,
         }),
       ],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 
@@ -211,7 +237,7 @@ describe('BankMatchingClubs', () => {
           registered: false,
         }),
       ],
-      slots,
+      registeredCount: 1,
     });
     render(<BankMatchingClubs />);
 

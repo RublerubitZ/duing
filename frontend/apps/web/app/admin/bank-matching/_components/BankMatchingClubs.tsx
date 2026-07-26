@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useAdminBankMatchingQuery, useSetBankMatchingMutation } from '@duing/hooks';
-import type { BankMatchingClub, BankMatchingSlots } from '@duing/types';
+import type { BankMatchingClub } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel } from '@/app/_lib/feeLabels';
@@ -17,12 +17,34 @@ function mutationErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+// 실패 원인을 구분해 안내한다 — 전부 "불러오지 못했어요" 로 뭉치면 로그인 만료인지 권한 문제인지
+// 서버 장애인지 운영자가 알 수 없어 대응이 늦어진다.
+function overviewErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return '목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+  }
+  // 네트워크·타임아웃은 api 계층이 이미 사용자 문구로 정규화해 둔다.
+  if (error.code === 'NETWORK' || error.code === 'TIMEOUT') {
+    return error.message;
+  }
+  if (error.status === 401) {
+    return '로그인이 만료되었어요. 다시 로그인한 뒤 시도해 주세요.';
+  }
+  if (error.status === 403) {
+    return '총동연 계정으로만 볼 수 있는 화면이에요.';
+  }
+  if (error.status >= 500) {
+    return '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
+  }
+  return error.message;
+}
+
 export function BankMatchingClubs() {
-  const { data, isLoading, isError } = useAdminBankMatchingQuery();
+  const { data, isLoading, isError, error } = useAdminBankMatchingQuery();
   const [search, setSearch] = useState('');
 
   const clubs = data?.clubs ?? [];
-  const slots = data?.slots ?? null;
+  const registeredCount = data?.registeredCount ?? 0;
 
   // 클럽 이름 클라이언트 필터. 공백/대소문자를 무시해 입력 부담을 줄인다.
   const filteredClubs = useMemo(() => {
@@ -33,7 +55,11 @@ export function BankMatchingClubs() {
 
   return (
     <div className="space-y-5">
-      <SlotStatusHeader slots={slots} isLoading={isLoading} isError={isError} />
+      <RegisteredCountHeader
+        registeredCount={registeredCount}
+        isLoading={isLoading}
+        isError={isError}
+      />
 
       <input
         type="search"
@@ -48,9 +74,7 @@ export function BankMatchingClubs() {
         <LoadingGate className="min-h-0 py-8" label="동아리 목록 불러오는 중" />
       ) : isError ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
-          <p className="text-sm text-charcoal-2">
-            동아리 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
-          </p>
+          <p className="text-sm text-charcoal-2">{overviewErrorMessage(error)}</p>
         </div>
       ) : clubs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-10 text-center">
@@ -63,7 +87,7 @@ export function BankMatchingClubs() {
       ) : (
         <ul className="space-y-2">
           {filteredClubs.map((club) => (
-            <BankMatchingClubRow key={club.clubId} club={club} slots={slots} />
+            <BankMatchingClubRow key={club.clubId} club={club} />
           ))}
         </ul>
       )}
@@ -71,52 +95,41 @@ export function BankMatchingClubs() {
   );
 }
 
-type SlotStatusHeaderProps = {
-  slots: BankMatchingSlots | null;
+type RegisteredCountHeaderProps = {
+  registeredCount: number;
   isLoading: boolean;
   isError: boolean;
 };
 
-function SlotStatusHeader({ slots, isLoading, isError }: SlotStatusHeaderProps) {
+function RegisteredCountHeader({
+  registeredCount,
+  isLoading,
+  isError,
+}: RegisteredCountHeaderProps) {
   if (isLoading || isError) {
     return null;
   }
 
-  // BANK API 일시 장애로 슬롯 현황만 비어 있을 수 있다(graceful degrade). 목록은 그대로 노출한다.
-  if (slots === null) {
-    return (
-      <div className="rounded-xl border border-dashed border-line bg-graysoft/40 px-4 py-3">
-        <p className="text-sm text-charcoal-2">등록 현황을 일시적으로 불러올 수 없어요</p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-xl border border-line bg-graysoft/40 px-4 py-3">
-      <p className="text-sm font-semibold text-ink">
-        등록 {slots.registeredCount} / 최대 {slots.maxAccounts} · 남은 {slots.remaining}
-      </p>
+      <p className="text-sm font-semibold text-ink">자동매칭 등록 {registeredCount}개 동아리</p>
     </div>
   );
 }
 
 type BankMatchingClubRowProps = {
   club: BankMatchingClub;
-  slots: BankMatchingSlots | null;
 };
 
-function BankMatchingClubRow({ club, slots }: BankMatchingClubRowProps) {
+function BankMatchingClubRow({ club }: BankMatchingClubRowProps) {
   const setBankMatching = useSetBankMatchingMutation();
   const { addToast } = useToast();
 
-  const slotsFull = slots !== null && slots.remaining <= 0;
-  // 등록 버튼은 적격하지 않거나 슬롯이 가득 찼을 때 비활성. 해제는 항상 허용한다.
-  const registerDisabled = !club.eligible || slotsFull;
-  const disabledHint = !club.eligible
+  // 등록 버튼은 적격하지 않을 때만 비활성. 해제는 항상 허용한다.
+  const registerDisabled = !club.eligible;
+  const disabledHint = registerDisabled
     ? club.ineligibleReason ?? '등록할 수 없는 동아리예요'
-    : slotsFull
-      ? '한도 초과'
-      : undefined;
+    : undefined;
 
   const setActive = (active: boolean) => {
     setBankMatching.mutate(
