@@ -19,7 +19,8 @@ public record AdminUserSearchResponse(
         College college,
         @Schema(description = "전공(자유 입력). 미입력이면 빈 문자열일 수 있다.", example = "컴퓨터공학")
         String major,
-        @Schema(description = "계정 상태(원값). 프론트는 값이 없으면 뱃지를 렌더하지 않는다.", example = "ACTIVE")
+        @Schema(description = "계정 상태(원값). ACTIVE 는 정상, SUSPENDED 는 로그인·API 접근이 차단된 이용 정지 상태다. 항상 값이 있다.",
+                example = "ACTIVE")
         UserStatus status
 ) {
     public static AdminUserSearchResponse from(UserSearchResultQuery searchResult) {
