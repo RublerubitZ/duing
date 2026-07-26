@@ -46,6 +46,17 @@ public record AdminUserDetailResponse(
     public record ActionItem(AdminUserAction action, String actorName, String reason, Instant at) {
     }
 
+    /**
+     * 한 응답 안에 두 벽시계 regime 이 섞여 있다 — 일부러 그렇다. 변환 존은 컬럼 타입이 아니라
+     * "그 필드를 기록한 코드"가 정하기 때문이다 (/TIMEZONE.md).
+     * <ul>
+     *   <li>phoneVerifiedAt 만 <b>seoul</b> — 가입·번호 변경 양쪽이 seoulClock 으로 KST 벽시계를 남긴다.</li>
+     *   <li>createdAt(BaseEntity 감사)·lastLoginAt(무클럭 now())·동아리 joinedAt(BaseEntity 감사)은 <b>system</b>.</li>
+     * </ul>
+     * 운영 JVM 은 UTC(Dockerfile TZ=UTC)라 phoneVerifiedAt 을 system 변환에 태우면 9시간 어긋난다.
+     * 로컬·CI 는 JVM 존이 KST 라 두 변환 결과가 우연히 같아 테스트로는 드러나지 않는다 —
+     * "일관성" 을 이유로 하나로 통일하지 말 것.
+     */
     public static AdminUserDetailResponse from(AdminUserDetailQuery detail) {
         return new AdminUserDetailResponse(
                 detail.id(),
@@ -57,7 +68,7 @@ public record AdminUserDetailResponse(
                 detail.role(),
                 detail.maskedPhone(),
                 detail.phoneVerified(),
-                TimeMapper.systemWallClockToInstant(detail.phoneVerifiedAt()),
+                TimeMapper.seoulWallClockToInstant(detail.phoneVerifiedAt()),
                 detail.status(),
                 TimeMapper.systemWallClockToInstant(detail.createdAt()),
                 TimeMapper.systemWallClockToInstant(detail.lastLoginAt()),

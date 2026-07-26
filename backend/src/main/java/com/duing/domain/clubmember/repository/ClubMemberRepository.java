@@ -106,13 +106,14 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     /**
      * 회원이 가입한 동아리 목록(총동연 회원 상세용). 기존 findClubIdsByUserId 는 id 만 반환해 재사용할 수 없다.
      * 가입일은 멤버십 행의 생성 시각이다.
+     * 같은 시각에 만들어진 멤버십의 순서가 흔들리지 않도록 id 를 타이브레이커로 둔다.
      */
     @Query("""
             SELECT new com.duing.domain.clubmember.service.dto.query.UserClubMembershipQuery(
                        cm.club.id, cm.club.name, cm.role, cm.createdAt)
             FROM ClubMember cm
             WHERE cm.user.id = :userId
-            ORDER BY cm.createdAt DESC
+            ORDER BY cm.createdAt DESC, cm.id DESC
             """)
     List<UserClubMembershipQuery> findClubMembershipsByUserId(@Param("userId") Long userId);
 

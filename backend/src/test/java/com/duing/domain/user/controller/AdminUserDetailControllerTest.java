@@ -148,6 +148,48 @@ class AdminUserDetailControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("조치 이력이 20건을 넘으면 가장 오래된 건이 잘리고 최신 20건만 최신순으로 반환된다")
+    void recentActionsCappedAtTwentyNewestFirst() {
+        User target = saveUser("오세린", UserRole.STUDENT);
+        for (int order = 1; order <= 21; order++) {
+            actionLogRepository.save(AdminUserActionLog.of(
+                    adminUser.getId(), target.getId(), AdminUserAction.FORCE_LOGOUT, "조치 " + order));
+        }
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/users/{userId}", target.getId())
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.recentActions.size()", Matchers.equalTo(20))
+                // 잘린 뒤에도 최신순이어야 한다 — 가장 오래된 "조치 1" 이 빠지고 21 → 2 가 남는다.
+                .body("data.recentActions[0].reason", Matchers.equalTo("조치 21"))
+                .body("data.recentActions[19].reason", Matchers.equalTo("조치 2"))
+                .body("data.recentActions.reason", Matchers.not(Matchers.hasItem("조치 1")));
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원을 조회하면 존재하지 않는 회원과 구분되지 않는 404 를 반환한다")
+    void withdrawnUserIsIndistinguishableFromUnknownUser() {
+        User withdrawn = saveUser("최윤서", UserRole.STUDENT);
+        userRepository.delete(withdrawn);
+
+        String unknownUserBody = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/users/{userId}", 999_999L)
+                .then().statusCode(HttpStatus.NOT_FOUND.value())
+                .extract().asString();
+
+        // 상태코드만 같고 본문이 다르면 탈퇴 여부가 새어나간다 — 본문까지 같아야 존재가 은닉된다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/users/{userId}", withdrawn.getId())
+                .then()
+                .statusCode(HttpStatus.NOT_FOUND.value())
+                .body(Matchers.equalTo(unknownUserBody));
+    }
+
+    @Test
     @DisplayName("STUDENT 가 회원 상세를 조회하면 403 을 반환한다")
     void studentGetsForbidden() {
         RestAssured.given()
