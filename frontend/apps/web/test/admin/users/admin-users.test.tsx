@@ -7,10 +7,15 @@ import type { AdminUserSearchResult, PageResponse } from '@duing/types';
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockSearch = vi.fn();
 const mockForceLogout = vi.fn();
+const mockUserDetail = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminUserSearchQuery: (...args: unknown[]) => mockSearch(...args),
   useAdminForceLogoutMutation: () => ({ mutate: mockForceLogout, isPending: false }),
+  // 상세 패널이 쓰는 훅들 — 이 화면 테스트는 패널이 "열렸는지"까지만 본다(본문은 상세 시트 테스트).
+  useAdminUserDetailQuery: (userId: number | undefined) => mockUserDetail(userId),
+  useAdminUserPhoneMutation: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false }),
+  useAdminUserNoteMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const mockAddToast = vi.fn();
@@ -78,6 +83,18 @@ describe('AdminUsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearch.mockReturnValue(searchIdle);
+    mockUserDetail.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+  });
+
+  it('행의 상세 버튼을 누르면 그 회원 id 로 상세 패널을 연다', async () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser({ id: 42, name: '정상세' })]));
+    render(<AdminUsersPage />);
+    const user = await searchFor('정');
+
+    await user.click(screen.getByRole('button', { name: '정상세 상세' }));
+
+    expect(mockUserDetail).toHaveBeenCalledWith(42);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('검색 결과의 이름·역할과 식별 메타(학번·학년·단과대·전공)를 렌더링한다', async () => {

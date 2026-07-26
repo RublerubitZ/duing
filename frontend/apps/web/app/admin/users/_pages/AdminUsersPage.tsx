@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useAdminForceLogoutMutation, useAdminUserSearchQuery } from '@duing/hooks';
-import type { AdminUserSearchResult, UserStatus } from '@duing/types';
+import type { AdminUserDetail, AdminUserSearchResult, UserStatus } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { Pagination } from '@/components/Pagination';
@@ -13,8 +13,15 @@ import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 import { AdminUsersTable } from '../_components/AdminUsersTable';
 import { AdminUserStatusFilter } from '../_components/AdminUserStatusFilter';
 import { AdminForceLogoutDialog } from '../_components/AdminForceLogoutDialog';
+import { AdminUserDetailSheet } from '../_components/AdminUserDetailSheet';
 
 const PAGE_SIZE = 20;
+
+/** 상세 패널이 올려보내는 조치 요청. 확인 다이얼로그는 Task 12 에서 이 상태를 읽는다. */
+type PendingUserAction = {
+  kind: 'SUSPEND' | 'UNSUSPEND' | 'FORCE_LOGOUT';
+  user: AdminUserDetail;
+};
 
 function forceLogoutErrorMessage(error: unknown): string {
   if (error instanceof ApiError || error instanceof Error) return error.message;
@@ -29,8 +36,9 @@ export function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [target, setTarget] = useState<AdminUserSearchResult | null>(null);
-  // Task 11 의 상세 시트가 읽는다 — 지금은 선택만 끌어올려 둔다.
-  const [, setDetailUserId] = useState<number | null>(null);
+  const [detailUserId, setDetailUserId] = useState<number | null>(null);
+  // Task 12 의 확인 다이얼로그가 읽는다 — 지금은 대상 선택만 끌어올려 둔다.
+  const [, setPendingAction] = useState<PendingUserAction | null>(null);
   const { addToast } = useToast();
 
   const debouncedQuery = useDebouncedValue(input.trim(), 300);
@@ -106,6 +114,16 @@ export function AdminUsersPage() {
           />
           <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="회원 목록 페이지" />
         </>
+      )}
+
+      {detailUserId !== null && (
+        <AdminUserDetailSheet
+          userId={detailUserId}
+          onClose={() => setDetailUserId(null)}
+          onSuspend={(user) => setPendingAction({ kind: 'SUSPEND', user })}
+          onUnsuspend={(user) => setPendingAction({ kind: 'UNSUSPEND', user })}
+          onForceLogout={(user) => setPendingAction({ kind: 'FORCE_LOGOUT', user })}
+        />
       )}
 
       {target && (
