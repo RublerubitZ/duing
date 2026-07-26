@@ -100,6 +100,22 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
                 updateAdminNoteCommand.actorUserId(), target.getId());
     }
 
+    @Override
+    @Transactional  // 클래스 기본이 readOnly 라 반드시 명시한다 — 빠뜨리면 감사 로그 INSERT 가 실 Postgres 에서 터진다
+    public String revealPhone(Long targetUserId, Long actorUserId) {
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+
+        adminUserActionLogRepository.save(AdminUserActionLog.of(
+                actorUserId, target.getId(), AdminUserAction.PHONE_VIEW, null));
+
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 로그에 남기지 않는다
+        // (회장 경로 GeneralClubMemberQueryService 와 같은 형식·같은 action 키워드).
+        log.info("member phone view: actorUserId={}, targetUserId={}, action=PHONE_VIEW",
+                actorUserId, target.getId());
+        return target.getPhone();
+    }
+
     private void assertSuspendable(User target, Long actorUserId) {
         if (target.getId().equals(actorUserId)) {
             throw new UserException.SelfSuspendNotAllowedException();

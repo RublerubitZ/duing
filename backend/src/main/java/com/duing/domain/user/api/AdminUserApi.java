@@ -3,6 +3,7 @@ package com.duing.domain.user.api;
 import com.duing.domain.user.controller.dto.request.ChangeUserStatusRequest;
 import com.duing.domain.user.controller.dto.request.UpdateAdminNoteRequest;
 import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
+import com.duing.domain.user.controller.dto.response.AdminUserPhoneResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
 import com.duing.global.auth.UserPrincipal;
@@ -87,6 +88,15 @@ public interface AdminUserApi {
     ResponseEntity<ApiResponse<Void>> updateAdminNote(
             @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
             @RequestBody @Valid UpdateAdminNoteRequest updateAdminNoteRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "원본 휴대폰 번호 조회 (ADMIN)",
+            description = "마스킹되지 않은 번호를 1건 반환한다. 열람 사실은 감사 로그에 기록되며, "
+                    + "응답은 캐시하지 않는다(no-store). 목록·상세는 계속 마스킹만 제공한다.")
+    @GetMapping("/admin/users/{userId}/phone")
+    ResponseEntity<ApiResponse<AdminUserPhoneResponse>> getUserPhone(
+            @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

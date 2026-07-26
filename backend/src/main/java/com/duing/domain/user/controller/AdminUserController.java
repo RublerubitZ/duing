@@ -4,6 +4,7 @@ import com.duing.domain.user.api.AdminUserApi;
 import com.duing.domain.user.controller.dto.request.ChangeUserStatusRequest;
 import com.duing.domain.user.controller.dto.request.UpdateAdminNoteRequest;
 import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
+import com.duing.domain.user.controller.dto.response.AdminUserPhoneResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.service.AdminUserCommandService;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -82,5 +84,17 @@ public class AdminUserController implements AdminUserApi {
         adminUserCommandService.updateAdminNote(
                 updateAdminNoteRequest.toCommand(userId, currentUser.id()));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminUserPhoneResponse>> getUserPhone(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        String phone = adminUserCommandService.revealPhone(userId, currentUser.id());
+        // 개인정보 응답이 브라우저·중간 캐시에 남지 않게 한다(회장 번호 조회와 동일한 정책).
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(AdminUserPhoneResponse.from(phone)));
     }
 }
