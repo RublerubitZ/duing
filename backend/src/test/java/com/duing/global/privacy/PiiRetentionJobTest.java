@@ -55,6 +55,9 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired Clock clock;
     @Autowired JdbcTemplate jdbcTemplate;
 
+    /** 관리자 메모는 자유서술 칸이라 실제로 이름·번호가 적힌다 — 익명화 여부를 이 값으로 판정한다. */
+    private static final String ADMIN_NOTE = "본인확인 완료 — 김도윤 010-1234-5678";
+
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
@@ -66,12 +69,15 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         job.run();
 
         Map<String, Object> row = jdbcTemplate.queryForMap(
-                "SELECT name, student_id, phone, password_hash, major, anonymized_at FROM users WHERE id = ?",
+                "SELECT name, student_id, phone, password_hash, major, admin_note, anonymized_at "
+                        + "FROM users WHERE id = ?",
                 user.getId());
         assertThat(row.get("name")).isEqualTo("탈퇴회원");
         assertThat(row.get("student_id")).isEqualTo("anon_" + user.getId());
         assertThat(row.get("phone")).isEqualTo("010-0000-0000");
         assertThat(row.get("password_hash")).isEqualTo("");
+        // 관리자 메모는 자유서술이라 이름·번호가 그대로 남을 수 있다 — 익명화 대상이다.
+        assertThat(row.get("admin_note")).isNull();
         assertThat(row.get("anonymized_at")).isNotNull();
     }
 
@@ -85,6 +91,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
         assertThat(userAnonymizedAt(user.getId())).isNull();
         assertThat(userName(user.getId())).isEqualTo("보관테스터");
+        assertThat(userAdminNote(user.getId())).isEqualTo(ADMIN_NOTE);
     }
 
     @Test
@@ -99,6 +106,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         java.sql.Timestamp secondAnonymizedAt = userAnonymizedAt(user.getId());
 
         assertThat(secondAnonymizedAt).isEqualTo(firstAnonymizedAt); // anonymized_at 가드로 이중 변형 없음
+        assertThat(userName(user.getId())).isEqualTo("탈퇴회원");
+        assertThat(userAdminNote(user.getId())).isNull();
     }
 
     @Test
@@ -233,6 +242,10 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         return jdbcTemplate.queryForObject("SELECT name FROM users WHERE id = ?", String.class, id);
     }
 
+    private String userAdminNote(Long id) {
+        return jdbcTemplate.queryForObject("SELECT admin_note FROM users WHERE id = ?", String.class, id);
+    }
+
     private java.sql.Timestamp userAnonymizedAt(Long id) {
         return jdbcTemplate.queryForObject(
                 "SELECT anonymized_at FROM users WHERE id = ?", java.sql.Timestamp.class, id);
@@ -240,11 +253,13 @@ class PiiRetentionJobTest extends IntegrationTestBase {
 
     private User saveUser() {
         long seq = sequence.incrementAndGet();
-        return userRepository.save(User.create(
+        User user = User.create(
                 String.format("%010d", seq % 10_000_000_000L),
                 "보관테스터", "hashed", UserRole.STUDENT,
                 Grade.JUNIOR, College.IT_ENGINEERING, "컴퓨터정보공학부",
-                "010-" + String.format("%04d", seq % 10000) + "-0000", LocalDateTime.now()));
+                "010-" + String.format("%04d", seq % 10000) + "-0000", LocalDateTime.now());
+        user.changeAdminNote(ADMIN_NOTE);
+        return userRepository.save(user);
     }
 
     private Club saveActiveClub(String name) throws Exception {

@@ -60,6 +60,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 보관기간(cutoff)을 넘겨 soft-delete 된 사용자의 PII 컬럼을 비식별화한다(이미 익명화된 행은 제외 — 멱등).
      * student_id 는 partial unique 보존을 위해 id 파생값으로, phone 은 CHECK 제약을 만족하는
      * placeholder('010-0000-0000')로 둔다.
+     * 관리자 메모(admin_note)는 자유서술이라 이름·번호·학번이 그대로 담길 수 있어 NULL 로 비운다.
      * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery.
      */
     @Modifying(clearAutomatically = true)
@@ -70,6 +71,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                 password_hash = '',
                 major = '',
                 phone = '010-0000-0000',
+                admin_note = NULL,
                 anonymized_at = NOW()
             WHERE deleted_at < :cutoff AND anonymized_at IS NULL
             """, nativeQuery = true)
