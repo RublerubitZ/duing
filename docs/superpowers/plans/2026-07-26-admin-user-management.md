@@ -2256,6 +2256,7 @@ public record AdminUserPhoneResponse(
 
 ```java
     @Override
+    @Transactional  // 클래스 기본이 readOnly 라 반드시 명시한다 — 빠뜨리면 감사 로그 INSERT 가 실 Postgres 에서 터진다
     public String revealPhone(Long targetUserId, Long actorUserId) {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(UserException.UserNotFoundException::new);
