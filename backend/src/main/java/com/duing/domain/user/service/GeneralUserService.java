@@ -6,6 +6,7 @@ import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
@@ -32,7 +33,9 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -338,13 +341,27 @@ public class GeneralUserService implements UserService {
     private static final Set<String> ALLOWED_ADMIN_USER_SORT =
             Set.of("studentId", "name", "createdAt");
 
+    private static final Sort DEFAULT_ADMIN_USER_SORT =
+            Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
     @Override
-    public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {
-        if (!StringUtils.hasText(query)) {
-            throw new UserException.InvalidSearchQueryException();
-        }
+    public Page<UserSearchResultQuery> searchForAdmin(String queryOrNull, UserStatus statusOrNull,
+                                                      Pageable pageable) {
         SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_ADMIN_USER_SORT);
-        return userRepository.searchForAdmin(query.trim(), pageable)
+        // 검색어는 선택이다 — 상태 필터만으로 목록을 훑는 경로(정지 회원 찾기)가 필요하다.
+        String normalizedQuery = StringUtils.hasText(queryOrNull) ? queryOrNull.trim() : null;
+        return userRepository.searchForAdmin(normalizedQuery, statusOrNull, withStableSort(pageable))
                 .map(UserSearchResultQuery::from);
+    }
+
+    /**
+     * 정렬이 지정되지 않으면 최근 가입순, 지정됐으면 그 뒤에 id DESC 를 덧붙인다.
+     * tie-breaker 가 없으면 같은 createdAt 을 가진 행들의 순서가 매 쿼리마다 달라져 페이징이 새거나 겹친다.
+     */
+    private Pageable withStableSort(Pageable pageable) {
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort().and(Sort.by(Sort.Order.desc("id")))
+                : DEFAULT_ADMIN_USER_SORT;
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
     }
 }
