@@ -2,7 +2,9 @@ import type { UserStatus } from '@duing/types';
 
 const STATUS_STYLE: Record<UserStatus, { label: string; className: string }> = {
   ACTIVE: { label: '정상', className: 'bg-sage/10 text-ink' },
-  SUSPENDED: { label: '이용 정지', className: 'bg-coral/10 text-coral' },
+  // 정지는 globals.css 의 pill-coral(#fce2d9 배경 / #9a3f23 글자, 대비 5.47:1)을 그대로 쓴다.
+  // text-coral on bg-coral/10 은 2.8:1 이라 11.5px 텍스트가 WCAG AA(4.5:1)에 미달한다.
+  SUSPENDED: { label: '이용 정지', className: 'pill-coral' },
 };
 
 /**

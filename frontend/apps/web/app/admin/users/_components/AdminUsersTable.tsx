@@ -36,8 +36,12 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
           {items.map((user) => (
             <tr
               key={user.id}
-              className={`border-t border-line hover:bg-graysoft/50 ${
-                user.status === 'SUSPENDED' ? 'bg-coral/[0.04]' : ''
+              // 정지 행은 hover 도 코랄로 받는다 — 공통 hover:bg-graysoft/50 을 그대로 두면
+              // 특이성이 높은 hover 규칙이 이겨 마우스를 올린 동안 구분 강조가 사라진다.
+              className={`border-t border-line ${
+                user.status === 'SUSPENDED'
+                  ? 'bg-coral/[0.04] hover:bg-coral/[0.08]'
+                  : 'hover:bg-graysoft/50'
               }`}
             >
               <Td>
@@ -50,9 +54,11 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
               </Td>
               <Td>
                 <div className="flex gap-1">
+                  {/* 행마다 같은 글자만 읽히면 어느 회원의 버튼인지 알 수 없어 접근명에 이름을 붙인다. */}
                   <button
                     type="button"
                     onClick={() => onOpenDetail(user)}
+                    aria-label={`${user.name} 상세`}
                     className="rounded-md px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors hover:bg-graysoft"
                   >
                     상세
@@ -60,6 +66,7 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
                   <button
                     type="button"
                     onClick={() => onForceLogout(user)}
+                    aria-label={`${user.name} 강제 로그아웃`}
                     className="rounded-md px-2.5 py-1 text-[12px] font-semibold text-coral transition-colors hover:bg-coral/5"
                   >
                     강제 로그아웃

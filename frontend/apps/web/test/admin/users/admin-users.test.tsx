@@ -106,7 +106,7 @@ describe('AdminUsersPage', () => {
     render(<AdminUsersPage />);
     const user = await searchFor('박');
 
-    await user.click(screen.getByRole('button', { name: '강제 로그아웃' }));
+    await user.click(screen.getByRole('button', { name: '박강퇴 강제 로그아웃' }));
 
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: '강제 로그아웃' }));
@@ -123,7 +123,7 @@ describe('AdminUsersPage', () => {
     render(<AdminUsersPage />);
     const user = await searchFor('최');
 
-    await user.click(screen.getByRole('button', { name: '강제 로그아웃' }));
+    await user.click(screen.getByRole('button', { name: '최취소 강제 로그아웃' }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
 
@@ -163,6 +163,25 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '이용 정지' }));
     expect(mockSearch).toHaveBeenLastCalledWith(
       { q: '', status: 'SUSPENDED', page: 0, size: 20 },
+      { allowEmptyQuery: true },
+    );
+  });
+
+  it('검색어를 바꾸면 해당 검색어로 조회하고 페이지를 처음으로 되돌린다', async () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
+    render(<AdminUsersPage />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    expect(mockSearch).toHaveBeenLastCalledWith(
+      { q: '', status: undefined, page: 1, size: 20 },
+      { allowEmptyQuery: true },
+    );
+
+    // 검색어를 친 뒤에도 3페이지를 그대로 물고 가면 대개 빈 목록이 나온다.
+    await user.type(screen.getByLabelText('회원 검색'), '김');
+    expect(mockSearch).toHaveBeenLastCalledWith(
+      { q: '김', status: undefined, page: 0, size: 20 },
       { allowEmptyQuery: true },
     );
   });
