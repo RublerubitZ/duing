@@ -35,6 +35,17 @@ export type AdminClubSearchParams = {
   sort?: string;
 };
 
+/** 계정 상태. SUSPENDED 는 로그인·API 접근이 차단된 이용 정지이며 탈퇴와 별개다. */
+export type UserStatus = 'ACTIVE' | 'SUSPENDED';
+
+/** 회원 상세의 조치 이력 종류. 백엔드 AdminUserAction 과 1:1. */
+export type AdminUserActionType =
+  | 'ACCOUNT_SUSPENDED'
+  | 'ACCOUNT_UNSUSPENDED'
+  | 'FORCE_LOGOUT'
+  | 'ADMIN_NOTE_UPDATED'
+  | 'PHONE_VIEW';
+
 /**
  * GET /admin/users 응답 행. 비밀번호 해시·전화번호 등 민감 필드는 의도적으로 빠져있다.
  *
@@ -49,14 +60,63 @@ export type AdminUserSearchResult = {
   grade: Grade;
   college: College;
   major: string;
+  /** 배포 전환기의 구 백엔드 응답에는 없을 수 있다 — 없으면 화면이 뱃지를 렌더하지 않는다. */
+  status?: UserStatus;
 };
 
 export type AdminUserSearchParams = {
-  q: string;
+  /** 선택 — 생략하면 전체를 대상으로 한다(정지 회원만 훑는 경로). */
+  q?: string;
+  status?: UserStatus;
   page?: number;
   size?: number;
   sort?: string;
 };
+
+export type AdminUserClub = {
+  clubId: number;
+  clubName: string;
+  role: ClubMemberRole;
+  joinedAt: string;
+};
+
+export type AdminUserActionLogEntry = {
+  action: AdminUserActionType;
+  actorName: string | null;
+  reason: string | null;
+  at: string;
+};
+
+/** GET /admin/users/{userId} 응답. 시각은 전부 ISO 8601 절대시각(백엔드가 존 변환을 끝냈다). */
+export type AdminUserDetail = {
+  id: number;
+  name: string;
+  studentId: string;
+  grade: Grade;
+  college: College;
+  major: string;
+  role: UserRole;
+  maskedPhone: string;
+  phoneVerified: boolean;
+  phoneVerifiedAt: string | null;
+  status: UserStatus;
+  createdAt: string;
+  /** null 이면 "기록 없음" — 기존 회원은 백필하지 않았다. */
+  lastLoginAt: string | null;
+  adminNote: string | null;
+  adminNoteUpdatedAt: string | null;
+  adminNoteUpdatedBy: string | null;
+  clubs: AdminUserClub[];
+  /** 개인정보 열람(PHONE_VIEW)은 서버가 제외하고 내려준다. */
+  recentActions: AdminUserActionLogEntry[];
+};
+
+export type AdminUserPhone = { phone: string };
+
+export type ChangeUserStatusPayload = { status: UserStatus; reason: string };
+
+/** 비우려면 빈 문자열을 보낸다 — 백엔드가 null 을 거부한다. */
+export type UpdateAdminNotePayload = { note: string };
 
 export type ReportTargetType = 'CLUB' | 'RECRUITMENT';
 export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
