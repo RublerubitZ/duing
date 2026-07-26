@@ -1,5 +1,6 @@
 package com.duing.domain.user.api;
 
+import com.duing.domain.user.controller.dto.request.ChangeUserStatusRequest;
 import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
@@ -10,12 +11,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "사용자(총동연)", description = "총동연 전용 사용자 검색 API")
@@ -53,6 +57,18 @@ public interface AdminUserApi {
     ResponseEntity<ApiResponse<Void>> forceLogout(
             @Parameter(description = "강제 로그아웃 대상 사용자 ID", required = true)
             @PathVariable Long userId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "계정 상태 변경 (ADMIN)",
+            description = "ACTIVE ↔ SUSPENDED. 정지 시 대상의 모든 세션을 폐기하고 token_version 을 올려 "
+                    + "발급된 액세스 토큰을 즉시 무효화한다. 사유는 정지·해제 모두 필수이며 감사 로그에 기록된다. "
+                    + "현재 상태와 같으면 아무 동작도 하지 않고 204 를 반환한다(감사 로그도 남기지 않는다). "
+                    + "자기 자신과 다른 ADMIN 계정은 정지할 수 없다.")
+    @PatchMapping("/admin/users/{userId}/status")
+    ResponseEntity<ApiResponse<Void>> changeUserStatus(
+            @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
+            @RequestBody @Valid ChangeUserStatusRequest changeUserStatusRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }
