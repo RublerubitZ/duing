@@ -120,8 +120,9 @@ export function useAdminUserStatusMutation() {
   return useMutation({
     mutationFn: ({ userId, ...payload }: { userId: number } & ChangeUserStatusPayload) =>
       client.admin.users.changeStatus(userId, payload),
-    onSuccess: (_result, variables) => {
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersDetail(variables.userId) });
+    onSuccess: () => {
+      // usersAll(['admin','users'])은 usersDetail(['admin','users','detail',id])의 접두사라 상세까지 함께 덮는다.
+      // 둘을 나란히 호출하면 cancelRefetch 기본값 때문에 상세의 첫 재조회가 취소되고 다시 나가 요청이 두 번이 된다.
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersAll });
     },
   });

@@ -3390,11 +3390,16 @@ export function AdminUserDetailSheet({ userId, onClose, onSuspend, onUnsuspend, 
   const revealPhone = useAdminUserPhoneMutation();
   const saveNote = useAdminUserNoteMutation();
 
-  // 원본 번호는 컴포넌트 로컬 상태에만 둔다 — 패널을 닫으면 함께 사라진다(React Query 캐시에 남기지 않는다).
+  // 원본 번호는 컴포넌트 로컬 상태에만 둔다 — 쿼리 캐시에는 안 남지만 뮤테이션 캐시에는 gcTime 동안
+  // 남으므로, 로컬 state 를 비우는 것만으로는 부족하다. reset() 을 함께 불러야 `revealPhone.data` 로
+  // 감사 로그 없이 번호가 다시 보이는 경로가 닫힌다.
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
 
   useEffect(() => {
     setRevealedPhone(null);
+    revealPhone.reset();
+    // revealPhone 은 매 렌더 새 객체라 의존성에 넣으면 매 렌더 초기화된다 — 대상이 바뀔 때만 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const detail = detailQuery.data;

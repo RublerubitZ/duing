@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { shouldRunAdminUserSearch } from '@duing/hooks';
+import { shouldRunAdminUserSearch } from '../src/admin';
 
 describe('회원 검색 실행 게이트', () => {
   it('검색어가 있으면 실행한다', () => {
