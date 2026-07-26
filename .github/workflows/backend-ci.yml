@@ -6,8 +6,10 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+  # base 브랜치를 가리지 않는다 — 스택 PR(앞 PR 을 base 로 삼는 후속 PR)에서도 검사가 돌아야 한다.
+  # branches 필터를 두면 base 가 develop 이 아닌 중간 PR 들이 검사 없이 리뷰된다.
+  # 중복 실행 걱정은 없다: push 트리거는 여전히 main·develop 으로 제한된다.
   pull_request:
-    branches: [main, develop]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
