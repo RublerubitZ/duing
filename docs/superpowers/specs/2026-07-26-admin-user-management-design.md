@@ -46,6 +46,8 @@
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
 
 -- 마지막 로그인. 기존 회원은 백필하지 않는다(90일치 auth_event 외에 소스가 없음) — NULL = "기록 없음".
+-- 타입은 naive TIMESTAMP 유지 — users 의 다른 시각 컬럼(terms_agreed_at·locked_until·phone_verified_at)과
+-- 같은 규약이어야 하고, users 테이블 전체가 TIMEZONE.md 2단계에서 함께 timestamptz 로 전환된다 (결정 D-13).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
 
 -- 관리자 내부 메모. 사용자에게 절대 노출되지 않는다(ADMIN 전용 응답에만 포함).
@@ -53,20 +55,24 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_note TEXT;
 
 -- 관리자 조치 감사 로그. append-only, 보존기간 없음(auth_event 와 달리 cleanup 잡 대상이 아니다).
 -- 개인정보(번호·이름)와 메모 본문은 저장하지 않는다 — 사실 관계만 남기고 값은 users 조인으로 해석한다.
+-- updated_at·deleted_at 을 두지 않는다: 수정·삭제가 없는 테이블에 그 컬럼이 있으면 거짓 신호가 된다
+-- (phone_verification_events 전례). created_at 만 TIMESTAMPTZ — 신규 테이블이라 2단계 전환 대상이 아니다.
 CREATE TABLE admin_user_action_log (
     id             BIGSERIAL PRIMARY KEY,
     actor_user_id  BIGINT      NOT NULL REFERENCES users (id),
     target_user_id BIGINT      NOT NULL REFERENCES users (id),
     action         VARCHAR(40) NOT NULL,
     reason         VARCHAR(500),
-    created_at     TIMESTAMP   NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMP   NOT NULL DEFAULT NOW(),
-    deleted_at     TIMESTAMP
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_user_id, id DESC);
 ```
 
 `status`에 `DEFAULT 'ACTIVE'`를 두는 이유: 롤백 안전성. 이 컬럼을 모르는 이전 버전 애플리케이션이 붙어도 INSERT가 깨지지 않는다(V90 `restore_rollback_safe_defaults` 전례).
+
+`action`에 CHECK 제약을 걸지 않는다. 이 레포의 모든 enum 컬럼(`auth_event.event_type`, `auth_session.platform`, `revoke_reason`)이 제약 없이 `@Enumerated(EnumType.STRING)`으로만 보장한다. PostgreSQL은 CHECK 수정이 DROP+ADD라 액션이 늘 때마다 마이그레이션이 붙는데(PR-4에서 추가 예상), 막아주는 건 앱이 잘못된 문자열을 넣는 경우뿐이고 그건 `@Enumerated`가 구조적으로 막는다 (결정 D-14).
+
+**`TIMEZONE.md`에 이 테이블을 등록한다** — `created_at`이 이미 `timestamptz`이고 `Instant`로 저장·응답되므로 2단계 백필 대상에서 제외해야 한다.
 
 ### 엔티티
 
@@ -77,10 +83,12 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
   - `void suspend()` / `void unsuspend()` — 상태 전환만. 세션 폐기는 서비스가 조율한다
   - `void changeAdminNote(String note)` — 빈 문자열은 그대로 저장(= 메모 비우기)
   - `recordSuccessfulLogin(LocalDateTime now)` — 기존 시그니처에 `now`를 받아 `lastLoginAt`을 함께 갱신
-- `AdminUserActionLog` (`domain/user/entity`) — `BaseEntity` 상속, append-only(수정 메서드 없음). `AuthEvent`와 동일한 형태를 따른다
-- `AdminUserAction { ACCOUNT_SUSPENDED, ACCOUNT_UNSUSPENDED, FORCE_LOGOUT, ADMIN_NOTE_UPDATED, PHONE_REVEALED }`
+- `AdminUserActionLog` (`domain/user/entity`) — **`BaseEntity`를 상속하지 않는다.** `@Id` + `@GeneratedValue` + `@CreatedDate private Instant createdAt` + `@EntityListeners(AuditingEntityListener.class)`를 직접 선언한다(`PhoneVerificationEvent` 전례). append-only이므로 수정 메서드를 두지 않는다
+- `AdminUserAction { ACCOUNT_SUSPENDED, ACCOUNT_UNSUSPENDED, FORCE_LOGOUT, ADMIN_NOTE_UPDATED, PHONE_VIEW }`
 
-`AdminUserActionLog`는 `deleted_at`을 갖지만 항상 NULL이다(`BaseEntity` 일관성). `@SQLDelete`/`@SQLRestriction`을 붙이지 않는다.
+`createdAt`을 `Instant`로 두면 `TIMEZONE.md`의 절대 규칙("신규 API는 Event Time을 `Instant`로 응답한다")을 **변환 없이** 만족한다 — 이 필드만은 `TimeMapper`를 거치지 않는다.
+
+`PHONE_VIEW`는 기존 회장 번호 조회의 서버 로그(`action=PHONE_VIEW`)와 같은 이름이다. 두 경로를 하나의 키워드로 검색할 수 있게 용어를 통일한다 (결정 D-12).
 
 **작업자 이름은 스냅샷하지 않는다.** `actor_user_id`만 저장하고 표시할 때 `users` 조인으로 해석한다. 이름도 개인정보이므로 감사 테이블에 복제하지 않는다는 원칙과 일치한다. 관리자 계정이 탈퇴·익명화되면 익명화된 이름이 그대로 보인다(의도됨).
 
@@ -105,6 +113,11 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
    refresh rotation 경로는 정지 시 `revokeAll`이 세션을 죽여 `session.isUsable`에서 이미 막히므로 별도 처리하지 않는다.
 
 `AccountSuspendedException` — `HttpStatus.FORBIDDEN` + code `ACCOUNT_SUSPENDED`(`PasswordResetNotAllowedException` 전례). 메시지: `정지된 계정입니다. 총동아리연합회로 문의해 주세요.`
+
+#### 비밀번호 변경·재설정 정책
+
+- **비밀번호 변경**(`changePassword`)은 로그인 상태 전용이다. 정지되면 `JwtAuthenticationFilter`가 401을 내므로 **자동으로 막힌다** — 별도 처리를 넣지 않는다.
+- **비밀번호 재설정**(MO 인증 기반 비로그인 경로)은 **차단하지 않는다.** 여기서 정지를 검사하면 인증 전 단계에서 계정 상태가 노출되어 D-11과 정면으로 모순된다 — 학번과 번호를 아는 제3자가 재설정 시도만으로 정지 여부를 알아내게 된다. 재설정에 성공해도 로그인 단계에서 전용 메시지로 안내되므로 사용자는 상황을 알게 되고, SMS 남용은 기존 rate limit(번호+IP 5/hr)이 이미 막는다. 재설정 성공 시 도는 `bumpTokenVersion` + `revokeAll`도 정지 계정엔 이미 세션이 없어 무해하다 (결정 D-15).
 
 ### 목록 조회 개선
 
@@ -165,7 +178,7 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
 
 - **soft-deleted(탈퇴) 회원은 404** — `@SQLRestriction`으로 조회되지 않는다.
 - `clubs` — `ClubMemberRepository`에 사용자 스코프 프로젝션 쿼리를 추가한다(기존 `findClubIdsByUserId`는 id만 반환). 폐쇄된 동아리는 `@SQLRestriction`으로 자동 제외. 가입 동아리 수는 배열 길이로 충분하므로 별도 필드를 두지 않는다.
-- `recentActions` — **`PHONE_REVEALED`는 제외**하고 최근 20건. 개인정보 열람은 감사 대상이지 운영 조치가 아니며, 섞으면 정지·해제 같은 실제 조치가 열람 기록에 묻힌다(결정 D-5). 페이지네이션은 두지 않는다.
+- `recentActions` — **`PHONE_VIEW`는 제외**하고 `WHERE target_user_id = ? AND action <> 'PHONE_VIEW' ORDER BY id DESC LIMIT 20`. 개인정보 열람은 감사 대상이지 운영 조치가 아니며, 섞으면 정지·해제 같은 실제 조치가 열람 기록에 묻힌다(결정 D-5). append-only라 `id`가 단조 증가하므로 `created_at`이 아니라 `id`로 정렬한다. 페이지네이션은 두지 않는다.
 - `adminNoteUpdatedAt/By` — 최신 `ADMIN_NOTE_UPDATED` 1행에서 파생한다. **`users`에 컬럼을 추가하지 않는다** — 같은 사실을 두 곳에 저장하면 한쪽만 갱신되는 순간 어긋난다(결정 D-9).
 - `recentActions`와 `adminNoteUpdatedBy`가 모두 작업자 이름을 필요로 하므로 actor 이름 해석 경로는 하나로 공유한다.
 
@@ -226,7 +239,7 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
 
 ### PR-2 테스트
 
-- 상세 조회: 가입 동아리·역할·가입일 반영, 탈퇴 회원 404, `recentActions`에 `PHONE_REVEALED` 미포함, `adminNoteUpdatedAt/By`가 최신 메모 로그에서 파생
+- 상세 조회: 가입 동아리·역할·가입일 반영, 탈퇴 회원 404, `recentActions`에 `PHONE_VIEW` 미포함, `adminNoteUpdatedAt/By`가 최신 메모 로그에서 파생
 - 상태 변경: 정지 시 세션 전부 폐기 + `token_version` 증가 + 로그 1건, 동일 상태 재요청 시 로그 미생성, 사유 누락 400, 자기 자신·ADMIN 대상 400
 - 메모: 1000자 초과 400, 빈 문자열 저장 시 로그 기록, 사용자 대면 응답에 `adminNote` 미포함
 - 번호 조회: **실제 Postgres에서 200 + 로그 1건**(readOnly 함정 회귀), `Cache-Control: no-store` 헤더
@@ -317,13 +330,17 @@ PR-4 범위:
 | D-2 | SUPER_ADMIN 보호 정책 제외 | `UserRole`은 STUDENT/ADMIN 2단계. ADMIN 정지 금지가 이미 전원을 덮음 |
 | D-3 | `users.last_login_at` 컬럼 신설, 백필 없음 | `auth_event` 90일·`auth_session.last_used_at`은 rotation 갱신이라 둘 다 부정확. 로그인당 UPDATE 1회 비용은 이 서비스 볼륨에서 무의미 |
 | D-4 | 감사 로그는 `auth_event` 재사용 대신 신규 테이블 | auth_event는 90일 purge + actor 컬럼 없음 + 메모 수정은 인증 이벤트가 아님 |
-| D-5 | `PHONE_REVEALED`는 기록하되 운영 타임라인에서 제외 | 열람은 감사 대상이지 운영 조치가 아님. 섞으면 실제 조치가 묻힘 |
+| D-5 | `PHONE_VIEW`는 기록하되 운영 타임라인에서 제외 | 열람은 감사 대상이지 운영 조치가 아님. 섞으면 실제 조치가 묻힘 |
 | D-6 | 동일 상태 PATCH는 무동작 204 | 버튼 연타가 감사 이력을 오염시키는 것을 방지 |
 | D-7 | 목록에 휴대폰 비노출 | 목록이 가장 많이 노출되는 화면. 이름·학번·학과로 식별 충분 |
 | D-8 | 리디자인·KPI를 PR-4로 분리 | 목업 컴포넌트 6개가 레포에 없음 → PR-3이 디자인 시스템 도입까지 떠안게 됨 |
 | D-9 | 메모 수정 메타데이터는 감사 로그에서 파생 | 컬럼 신설은 같은 사실의 이중 저장 → 불일치 위험 |
 | D-10 | 캐시 방지는 `no-store` 단독 | `Pragma`는 응답 헤더로 미정의, `Expires`는 무시됨. 실질 리스크는 RQ 캐시이며 `useMutation`으로 해결 |
 | D-11 | 정지 확인은 비밀번호 검증 **뒤** | 앞에 두면 학번만 아는 제3자에게 계정 상태가 노출됨 |
+| D-12 | 열람 액션명은 `PHONE_VIEW` | 기존 회장 경로 서버 로그와 같은 이름 → 두 경로를 한 키워드로 검색 |
+| D-13 | 감사 로그만 `timestamptz`+`Instant`, `users.last_login_at`은 naive 유지 | 새 테이블은 자유롭게 정하되, 기존 테이블의 새 컬럼은 그 테이블의 2단계 전환 계획을 따른다. `users`에만 timestamptz를 섞으면 `LocalDateTime` 저장이 JDBC 세션 존으로 캐스팅돼 prod(UTC)는 맞고 로컬(KST)은 −9h가 되는 환경별 오작동이 생긴다(TIMEZONE.md §42) |
+| D-14 | `action`에 CHECK 제약 없음 | 레포의 모든 enum 컬럼이 제약 없이 `@Enumerated`로만 보장. CHECK 수정은 DROP+ADD라 액션 추가마다 마이그레이션이 붙는다 |
+| D-15 | 정지 계정의 비밀번호 재설정은 차단하지 않음 | 인증 전 단계에서 계정 상태를 노출하지 않는다(D-11과 같은 논리). 재설정해도 로그인은 여전히 막힌다 |
 
 ---
 
@@ -357,4 +374,4 @@ PR-4 범위:
 5. **`adminNote` 유출** — `User` 엔티티에 필드가 생기므로 사용자 대면 응답에 새어나가지 않는지 회귀 테스트로 고정
 6. **FE `status` fail-open** — "알려진 값일 때만 뱃지 표시". `status !== 'ACTIVE'`로 분기하면 전환기에 전원이 정지로 보인다
 7. **정지 확인 순서** — 비밀번호 검증 뒤(D-11)
-8. **타임스탬프 변환** — `lastLoginAt` / `createdAt` / 감사 이력 `at`을 응답에서 절대시각으로 변환할 때는 `ZoneId.systemDefault()`를 쓴다. `seoulClock`을 쓰면 prod JVM이 UTC라 +9시간 어긋난다(기존 감사 타임스탬프 규약과 동일). `last_login_at` 자체는 기존 `login()`의 `now`를 그대로 재사용해 `created_at`(JPA auditing)과 같은 기준을 유지한다
+8. **타임스탬프 변환** — `lastLoginAt`·`createdAt`(users 계열, naive `timestamp`)은 응답에서 `TimeMapper.systemWallClockToInstant`로 변환한다. `seoulClock`을 쓰면 prod JVM이 UTC라 +9시간 어긋난다. `last_login_at` 저장값은 기존 `login()`의 `now`를 그대로 재사용해 `created_at`(JPA auditing)과 같은 기준을 유지한다. **반면 감사 이력의 `at`은 이미 `Instant`이므로 변환하지 않고 그대로 내보낸다** — 여기에 `TimeMapper`를 태우면 이중 변환이 된다
