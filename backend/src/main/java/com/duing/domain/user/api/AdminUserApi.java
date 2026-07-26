@@ -1,5 +1,6 @@
 package com.duing.domain.user.api;
 
+import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
 import com.duing.global.auth.UserPrincipal;
@@ -32,6 +33,16 @@ public interface AdminUserApi {
             @Parameter(description = "계정 상태 필터. 생략하면 전체", example = "SUSPENDED")
             @RequestParam(required = false) UserStatus status,
             @Parameter(hidden = true) Pageable pageable
+    );
+
+    @Operation(summary = "회원 상세 조회 (ADMIN)",
+            description = "기본 정보·가입 정보·휴대폰 인증 여부·가입 동아리·관리자 메모·최근 조치 이력을 한 번에 반환한다. "
+                    + "휴대폰은 마스킹된 값만 담기며 원본은 별도 엔드포인트에서 감사 로그와 함께 조회한다. "
+                    + "탈퇴한 회원은 404.")
+    @GetMapping("/admin/users/{userId}")
+    ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(
+            @Parameter(description = "조회 대상 사용자 ID", required = true)
+            @PathVariable Long userId
     );
 
     @Operation(summary = "사용자 강제 로그아웃 (ADMIN)",

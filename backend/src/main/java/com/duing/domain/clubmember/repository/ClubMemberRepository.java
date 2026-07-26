@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.repository;
 
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.service.dto.query.UserClubMembershipQuery;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
@@ -101,6 +102,19 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
               AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
     List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 회원이 가입한 동아리 목록(총동연 회원 상세용). 기존 findClubIdsByUserId 는 id 만 반환해 재사용할 수 없다.
+     * 가입일은 멤버십 행의 생성 시각이다.
+     */
+    @Query("""
+            SELECT new com.duing.domain.clubmember.service.dto.query.UserClubMembershipQuery(
+                       cm.club.id, cm.club.name, cm.role, cm.createdAt)
+            FROM ClubMember cm
+            WHERE cm.user.id = :userId
+            ORDER BY cm.createdAt DESC
+            """)
+    List<UserClubMembershipQuery> findClubMembershipsByUserId(@Param("userId") Long userId);
 
     @Query("SELECT DISTINCT cm.user.id FROM ClubMember cm WHERE cm.club.id IN :clubIds")
     List<Long> findUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);

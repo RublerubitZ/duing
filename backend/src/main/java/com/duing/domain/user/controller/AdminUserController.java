@@ -1,8 +1,10 @@
 package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.AdminUserApi;
+import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
+import com.duing.domain.user.service.AdminUserQueryService;
 import com.duing.domain.user.service.UserService;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
 import com.duing.global.auth.UserPrincipal;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController implements AdminUserApi {
 
     private final UserService userService;
+    private final AdminUserQueryService adminUserQueryService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminUserSearchResponse>>> searchUsers(
@@ -36,6 +39,12 @@ public class AdminUserController implements AdminUserApi {
         Page<AdminUserSearchResponse> page = userService.searchForAdmin(q, status, pageable)
                 .map(AdminUserSearchResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(@PathVariable Long userId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(AdminUserDetailResponse.from(adminUserQueryService.getDetail(userId))));
     }
 
     @Override
