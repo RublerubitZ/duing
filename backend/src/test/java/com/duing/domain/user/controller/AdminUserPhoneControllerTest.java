@@ -2,6 +2,9 @@ package com.duing.domain.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.user.entity.AdminUserAction;
@@ -11,6 +14,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.GeneralAdminUserCommandService;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import java.time.LocalDateTime;
@@ -19,6 +23,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -55,12 +60,15 @@ class AdminUserPhoneControllerTest extends IntegrationTestBase {
     void revealPhoneWritesAuditLog() {
         User target = saveUser("번호대상", UserRole.STUDENT);
 
+        // 캐시 헤더는 부분 일치가 아니라 값 전체로 본다 — Spring Security 가 인증 응답에 기본으로 붙이는
+        // no-cache, no-store, max-age=0, must-revalidate 에도 no-store 가 들어 있어서, 부분 일치로 두면
+        // 컨트롤러가 캐시 금지를 지정하지 않아도 초록불이 뜬다. 지키려는 것은 컨트롤러의 지정이다.
         String phone = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get("/api/v1/admin/users/{userId}/phone", target.getId())
                 .then()
                 .statusCode(HttpStatus.OK.value())
-                .header(HttpHeaders.CACHE_CONTROL, Matchers.containsString("no-store"))
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .extract().path("data.phone");
 
         assertThat(phone).isEqualTo(target.getPhone()).doesNotContain("*");
@@ -89,6 +97,36 @@ class AdminUserPhoneControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get("/api/v1/admin/users/{userId}", target.getId())
                 .then().body("data.recentActions.size()", Matchers.equalTo(0));
+    }
+
+    @Test
+    @DisplayName("원본 조회 시 누가·누구를 봤는지 구조화 로그로 남긴다 (번호 값은 로그에 없다)")
+    void phoneViewWritesStructuredLog() {
+        User target = saveUser("로그검증", UserRole.STUDENT);
+        Logger serviceLogger = (Logger) LoggerFactory.getLogger(GeneralAdminUserCommandService.class);
+        ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
+        logAppender.start();
+        serviceLogger.addAppender(logAppender);
+
+        try {
+            RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .when().get("/api/v1/admin/users/{userId}/phone", target.getId())
+                    .then().statusCode(HttpStatus.OK.value());
+
+            // 운영 로그는 감사 테이블보다 접근 통제가 느슨하다 — 열람 사실은 남기되 번호 값은 남기지 않는다.
+            assertThat(logAppender.list)
+                    .anySatisfy(loggingEvent -> {
+                        String message = loggingEvent.getFormattedMessage();
+                        assertThat(message).contains("member phone view");
+                        assertThat(message).contains("action=PHONE_VIEW");
+                        assertThat(message).contains("actorUserId=" + adminUser.getId());
+                        assertThat(message).contains("targetUserId=" + target.getId());
+                        assertThat(message).doesNotContain(target.getPhone());
+                    });
+        } finally {
+            serviceLogger.detachAppender(logAppender);
+        }
     }
 
     @Test

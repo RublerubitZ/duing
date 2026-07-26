@@ -103,6 +103,9 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
     @Override
     @Transactional  // 클래스 기본이 readOnly 라 반드시 명시한다 — 빠뜨리면 감사 로그 INSERT 가 실 Postgres 에서 터진다
     public String revealPhone(Long targetUserId, Long actorUserId) {
+        // 이 클래스에서 유일하게 행을 잠그지 않고 User 를 읽는 자리다 — 누락이 아니다. 번호를 읽어 내보낼
+        // 뿐 User 의 어떤 필드도 고치지 않아, 커밋 시 되돌려 쓸 더티 스냅샷 자체가 생기지 않는다.
+        // 이 트랜잭션이 쓰는 것은 별도 테이블에 새로 넣는 감사 로그 한 줄뿐이라 User 행 잠금과 무관하다.
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(UserException.UserNotFoundException::new);
 
