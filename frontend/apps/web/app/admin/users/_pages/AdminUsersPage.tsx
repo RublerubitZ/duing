@@ -4,13 +4,14 @@ import { useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useAdminForceLogoutMutation, useAdminUserSearchQuery } from '@duing/hooks';
-import type { AdminUserSearchResult } from '@duing/types';
+import type { AdminUserSearchResult, UserStatus } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 import { AdminUsersTable } from '../_components/AdminUsersTable';
+import { AdminUserStatusFilter } from '../_components/AdminUserStatusFilter';
 import { AdminForceLogoutDialog } from '../_components/AdminForceLogoutDialog';
 
 const PAGE_SIZE = 20;
@@ -25,14 +26,21 @@ const inputCls =
 
 export function AdminUsersPage() {
   const [input, setInput] = useState('');
+  const [statusFilter, setStatusFilter] = useState<UserStatus | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [target, setTarget] = useState<AdminUserSearchResult | null>(null);
+  // Task 11 의 상세 시트가 읽는다 — 지금은 선택만 끌어올려 둔다.
+  const [, setDetailUserId] = useState<number | null>(null);
   const { addToast } = useToast();
 
   const debouncedQuery = useDebouncedValue(input.trim(), 300);
-  const hasQuery = debouncedQuery.length > 0;
 
-  const searchQuery = useAdminUserSearchQuery({ q: debouncedQuery, page, size: PAGE_SIZE });
+  // 검색어 없이도 최근 가입순 목록을 보여준다. 이 게이트는 이 화면에서만 연다 —
+  // 같은 훅을 쓰는 동아리장 검색 콤보박스가 열리자마자 전체 회원을 쏟아내면 안 된다.
+  const searchQuery = useAdminUserSearchQuery(
+    { q: debouncedQuery, status: statusFilter, page, size: PAGE_SIZE },
+    { allowEmptyQuery: true },
+  );
   const forceLogout = useAdminForceLogoutMutation();
 
   const items = searchQuery.data?.content ?? [];
@@ -59,11 +67,11 @@ export function AdminUsersPage() {
       <header className="mb-6">
         <h1 className="text-[22px] font-bold text-ink">회원 관리</h1>
         <p className="mt-1 text-[13.5px] text-charcoal-2">
-          학번 또는 이름으로 회원을 검색하고 강제 로그아웃 등 계정 조치를 처리합니다.
+          학번 또는 이름으로 회원을 찾고, 계정 상태 변경·강제 로그아웃 등 운영 조치를 처리합니다.
         </p>
       </header>
 
-      <div className="mb-5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="search"
           aria-label="회원 검색"
@@ -72,26 +80,31 @@ export function AdminUsersPage() {
           placeholder="학번 또는 이름으로 검색"
           className={inputCls}
         />
+        <AdminUserStatusFilter
+          value={statusFilter}
+          onChange={(next) => {
+            setStatusFilter(next);
+            setPage(0);
+          }}
+        />
       </div>
 
-      {!hasQuery && (
-        <p className="py-12 text-center text-charcoal-3 text-[13px]">
-          학번 또는 이름으로 회원을 검색하세요.
-        </p>
+      {searchQuery.isLoading && (
+        <ListRowsSkeleton rows={5} rowClassName="h-12 rounded-md" label="회원 조회 중" />
       )}
 
-      {hasQuery && searchQuery.isLoading && (
-        <ListRowsSkeleton rows={5} rowClassName="h-12 rounded-md" label="회원 검색 중" />
-      )}
-
-      {hasQuery && searchQuery.isError && (
+      {searchQuery.isError && (
         <p className="py-12 text-center text-coral text-[13px]">회원을 불러오지 못했습니다.</p>
       )}
 
-      {hasQuery && searchQuery.isSuccess && (
+      {searchQuery.isSuccess && (
         <>
-          <AdminUsersTable items={items} onForceLogout={setTarget} />
-          <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="회원 검색 페이지" />
+          <AdminUsersTable
+            items={items}
+            onOpenDetail={(user) => setDetailUserId(user.id)}
+            onForceLogout={setTarget}
+          />
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="회원 목록 페이지" />
         </>
       )}
 

@@ -53,14 +53,14 @@ function makeUser(overrides: Partial<AdminUserSearchResult> = {}): AdminUserSear
   };
 }
 
-function searchSuccess(rows: AdminUserSearchResult[]) {
+function searchSuccess(rows: AdminUserSearchResult[], totalPages = Math.max(1, Math.ceil(rows.length / 20))) {
   const page: PageResponse<AdminUserSearchResult> = {
     content: rows,
     page: 0,
     size: 20,
     totalElements: rows.length,
-    totalPages: Math.max(1, Math.ceil(rows.length / 20)),
-    hasNext: false,
+    totalPages,
+    hasNext: totalPages > 1,
   };
   return { data: page, isLoading: false, isSuccess: true, isError: false };
 }
@@ -135,6 +135,35 @@ describe('AdminUsersPage', () => {
     render(<AdminUsersPage />);
     await searchFor('없는사람');
 
-    expect(screen.getByText('검색 결과가 없습니다')).toBeInTheDocument();
+    expect(screen.getByText('조회 결과가 없습니다')).toBeInTheDocument();
+  });
+
+  it('검색어 없이 들어와도 목록을 조회한다 — 정지 회원을 다시 찾을 경로가 여기뿐이다', () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser({ name: '무검색' })]));
+    render(<AdminUsersPage />);
+
+    expect(mockSearch).toHaveBeenLastCalledWith(
+      { q: '', status: undefined, page: 0, size: 20 },
+      { allowEmptyQuery: true },
+    );
+    expect(screen.getByText('무검색')).toBeInTheDocument();
+  });
+
+  it('상태 필터를 고르면 해당 상태로 조회하고 페이지를 처음으로 되돌린다', async () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
+    render(<AdminUsersPage />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    expect(mockSearch).toHaveBeenLastCalledWith(
+      { q: '', status: undefined, page: 1, size: 20 },
+      { allowEmptyQuery: true },
+    );
+
+    await user.click(screen.getByRole('button', { name: '이용 정지' }));
+    expect(mockSearch).toHaveBeenLastCalledWith(
+      { q: '', status: 'SUSPENDED', page: 0, size: 20 },
+      { allowEmptyQuery: true },
+    );
   });
 });
