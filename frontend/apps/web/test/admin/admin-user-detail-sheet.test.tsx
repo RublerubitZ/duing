@@ -70,7 +70,6 @@ const detail: AdminUserDetail = {
 const noop = vi.fn();
 const props = {
   detail,
-  onClose: noop,
   onSuspend: noop,
   onUnsuspend: noop,
   onForceLogout: noop,
@@ -103,15 +102,26 @@ describe('회원 상세 Sheet', () => {
     expect(screen.getByText('인증 완료')).toBeInTheDocument();
   });
 
-  it('가입 동아리를 역할과 함께 보여준다', () => {
+  it('가입 동아리 역할은 원문 enum 이 아니라 한글 라벨로 보여준다', () => {
     render(<AdminUserDetailSheetContent {...props} />);
     expect(screen.getByText('두잉코드')).toBeInTheDocument();
-    expect(screen.getByText('LEADER')).toBeInTheDocument();
+    expect(screen.getByText('회장')).toBeInTheDocument();
+    expect(screen.queryByText('LEADER')).not.toBeInTheDocument();
   });
 
   it('메모 최종 수정 작업자를 표시한다', () => {
     render(<AdminUserDetailSheetContent {...props} />);
     expect(screen.getByText(/최종 수정/)).toHaveTextContent('김운영');
+  });
+
+  it('메모 작업자가 탈퇴해 이름만 null 이면 조치 이력과 같은 문구로 대체한다', () => {
+    render(
+      <AdminUserDetailSheetContent {...props} detail={{ ...detail, adminNoteUpdatedBy: null }} />,
+    );
+
+    const lastUpdatedLine = screen.getByText(/최종 수정/);
+    expect(lastUpdatedLine).toHaveTextContent('알 수 없음');
+    expect(lastUpdatedLine).not.toHaveTextContent('null');
   });
 
   it('메모 입력은 서버와 같은 단위(UTF-16 코드유닛)로 1000자에서 막는다', () => {
@@ -130,6 +140,41 @@ describe('회원 상세 Sheet', () => {
     await user.click(screen.getByRole('button', { name: '메모 저장' }));
 
     expect(onSaveNote).toHaveBeenCalledWith('본인 확인 통화 완료');
+  });
+
+  it('저장 중 계속 타이핑하면 재조회가 착지해도 입력이 유지된다', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<AdminUserDetailSheetContent {...props} isSavingNote />);
+
+    const noteInput = screen.getByLabelText('관리자 메모');
+    await user.clear(noteInput);
+    await user.type(noteInput, '본인 확인 통화 완료');
+
+    // 저장 성공 → 상세 무효화 → 저장 시점 값으로 재조회가 착지한 상황.
+    // 서버 값을 다시 시드하면 그 사이 친 뒷부분이 경고 없이 사라진다.
+    rerender(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, adminNote: '본인 확인 통화' }}
+        isSavingNote={false}
+      />,
+    );
+
+    expect(noteInput).toHaveValue('본인 확인 통화 완료');
+  });
+
+  it('다른 회원으로 패널이 바뀌면 그 회원 메모로 다시 시드한다', () => {
+    const { rerender } = render(<AdminUserDetailSheetContent {...props} />);
+    expect(screen.getByLabelText('관리자 메모')).toHaveValue('신고 누적으로 정지');
+
+    rerender(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, id: 15, name: '한서연', adminNote: '본인 확인 완료' }}
+      />,
+    );
+
+    expect(screen.getByLabelText('관리자 메모')).toHaveValue('본인 확인 완료');
   });
 
   it('조치 이력을 사유와 함께 보여준다 — 사유가 어디에도 안 보이면 필수로 받는 의미가 없다', () => {

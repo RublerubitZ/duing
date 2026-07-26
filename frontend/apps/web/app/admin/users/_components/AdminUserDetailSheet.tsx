@@ -14,6 +14,7 @@ import { formatDateKst, formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminUserDetail } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import {
@@ -46,7 +47,6 @@ type ContentProps = {
   onSuspend: () => void;
   onUnsuspend: () => void;
   onForceLogout: () => void;
-  onClose: () => void;
 };
 
 export function AdminUserDetailSheetContent({
@@ -63,9 +63,14 @@ export function AdminUserDetailSheetContent({
   const [note, setNote] = useState(detail.adminNote ?? '');
 
   // 다른 회원으로 패널이 바뀌면 메모 입력값을 그 회원 것으로 다시 시드한다.
+  // detail.adminNote 는 의존성에서 뺀다 — 넣으면 저장 후 재조회(상태 변경 뮤테이션이 목록 접두사를
+  // 무효화해 상세까지 덮는 경로 포함)가 착지하는 순간 그 사이 타이핑한 내용을 경고 없이 되돌린다.
+  // 대신 서버가 값을 정규화해도 입력창은 사용자가 친 그대로 남는다 — 표시가 한 박자 어긋나는 쪽이
+  // 입력이 조용히 사라지는 것보다 낫다고 판단했다.
   useEffect(() => {
     setNote(detail.adminNote ?? '');
-  }, [detail.id, detail.adminNote]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail.id]);
 
   const noteUpdatedAt = detail.adminNoteUpdatedAt ? formatDateTimeKst(detail.adminNoteUpdatedAt) : null;
 
@@ -126,12 +131,13 @@ export function AdminUserDetailSheetContent({
                     <span className="block truncate text-[13.5px] font-bold text-ink">
                       {club.clubName}
                     </span>
-                    <span className="block text-[11.5px] text-charcoal-3">
+                    {/* hover 배경(graysoft)에서 charcoal-3 은 4.01:1 로 AA 에 못 미친다. */}
+                    <span className="block text-[11.5px] text-charcoal-2">
                       가입 {formatDateKst(club.joinedAt)}
                     </span>
                   </span>
                   <span className="rounded-full bg-graysoft px-2 py-0.5 text-[11px] font-semibold text-charcoal-2">
-                    {club.role}
+                    {clubMemberRoleLabel(club.role)}
                   </span>
                 </Link>
               </li>
@@ -140,17 +146,21 @@ export function AdminUserDetailSheetContent({
         )}
 
         <SectionLabel className="mt-6">관리자 메모 · 사용자 비공개</SectionLabel>
+        {/* placeholder 는 크림 배경 위 charcoal-3 이 4.24:1 로 AA 미달이라 charcoal-2 를 쓴다. */}
         <textarea
           aria-label="관리자 메모"
           value={note}
           maxLength={NOTE_MAX_LENGTH}
           onChange={(event) => setNote(event.target.value)}
           placeholder="이 회원에 대한 내부 메모를 남겨주세요"
-          className="min-h-[84px] w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
+          className="min-h-[84px] w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-2 focus-visible:border-ink focus-visible:outline-none"
         />
         <div className="mt-1.5 flex items-center justify-between gap-2">
+          {/* 작업자가 탈퇴하면 백엔드가 수정 시각만 남기고 이름을 null 로 내린다 — 조치 이력과 같은 문구로 받는다. */}
           <span className="text-[11px] text-charcoal-2">
-            {noteUpdatedAt ? `최종 수정 ${noteUpdatedAt} · ${detail.adminNoteUpdatedBy}` : ''}
+            {noteUpdatedAt
+              ? `최종 수정 ${noteUpdatedAt} · ${detail.adminNoteUpdatedBy ?? '알 수 없음'}`
+              : ''}
           </span>
           <button
             type="button"
@@ -340,7 +350,6 @@ export function AdminUserDetailSheet({
             onSuspend={() => onSuspend(detail)}
             onUnsuspend={() => onUnsuspend(detail)}
             onForceLogout={() => onForceLogout(detail)}
-            onClose={onClose}
           />
         )}
       </SheetContent>

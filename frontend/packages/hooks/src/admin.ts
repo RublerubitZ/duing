@@ -149,6 +149,9 @@ export function useAdminUserPhoneMutation() {
   const client = useApiClient();
   return useMutation({
     mutationFn: (userId: number) => client.admin.users.phone(userId),
+    // 이 훅만 gcTime 을 0 으로 둔다 — 결과가 원본 개인정보라 기본값(5분)이면 화면이 읽지 않아도
+    // 뮤테이션 캐시에 그만큼 상주한다. 옵저버가 떨어지는 즉시 버려 필요 이상으로 들고 있지 않는다.
+    gcTime: 0,
   });
 }
 
