@@ -18,6 +18,7 @@
 - 백엔드 빌드/테스트는 `backend/`에서, 프론트는 `frontend/`에서 실행한다(cwd 명시). 출력에서 `BUILD SUCCESSFUL`을 눈으로 확인한다 — `| tail` 은 exit code를 가린다.
 - 모든 DTO는 Java `record`. Service는 `{Domain}Service` 인터페이스 + `General{Domain}Service` 구현체. Controller는 반드시 `api/` 인터페이스를 implements.
 - Flyway 기존 마이그레이션 파일 수정 금지 — 새 파일 추가만.
+- **새로 만드는 테이블에는 반드시 `ALTER TABLE <name> ENABLE ROW LEVEL SECURITY;` 를 넣는다.** `RowLevelSecurityMigrationTest` 가 public 스키마 전 테이블을 검사하므로 누락하면 전체 빌드가 실패한다.
 - 프론트: `any`/`as` 금지, 타입 선언은 `type`, 서버 상태는 TanStack Query.
 - 사용자 대면 메시지는 전부 한글.
 - 정지 사유 최대 200자 / 관리자 메모 최대 1000자 — 서버·클라이언트 양쪽 검증.
@@ -106,6 +107,10 @@ CREATE TABLE admin_user_action_log (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_user_id, id DESC);
+
+-- 신규 테이블은 RLS 를 반드시 켠다 — RowLevelSecurityMigrationTest 가 public 스키마의 모든 테이블을
+-- 검사하므로, 누락하면 이 마이그레이션과 무관해 보이는 테스트가 BUILD FAILED 로 터진다(V92 에서 실제로 겪었다).
+ALTER TABLE admin_user_action_log ENABLE ROW LEVEL SECURITY;
 ```
 
 - [ ] **Step 2: enum 2개 생성**
