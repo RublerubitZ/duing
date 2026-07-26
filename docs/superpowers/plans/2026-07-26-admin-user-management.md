@@ -3154,6 +3154,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ADMIN_USER_ACTION_LABEL } from '../_lib/userActionLabels';
 import { UserStatusBadge } from './UserStatusBadge';
 
+// 서버 검증은 Bean Validation 의 @Size 라 UTF-16 코드유닛으로 센다. 클라이언트도 같은 단위여야 한다 —
+// `[...str].length` 나 Intl.Segmenter 로 세면(코드포인트/서체소) 이모지가 섞인 메모에서 FE 는 통과시키고
+// 서버가 400 을 낸다. textarea 의 maxLength 와 `str.length` 가 정확히 그 단위다.
 const NOTE_MAX_LENGTH = 1000;
 
 /** 절대시각(ISO)을 한국 표기로. 값이 없으면 호출 측이 "기록 없음" 등 자체 문구를 쓴다. */
