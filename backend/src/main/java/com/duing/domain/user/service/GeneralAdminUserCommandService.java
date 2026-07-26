@@ -10,6 +10,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangeUserStatusCommand;
+import com.duing.domain.user.service.dto.command.UpdateAdminNoteCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -65,6 +66,20 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
 
         log.info("Admin account status change. actorId={}, targetUserId={}, action={}",
                 changeStatusCommand.actorUserId(), target.getId(), action);
+    }
+
+    @Override
+    @Transactional
+    public void updateAdminNote(UpdateAdminNoteCommand updateAdminNoteCommand) {
+        User target = userRepository.findById(updateAdminNoteCommand.targetUserId())
+                .orElseThrow(UserException.UserNotFoundException::new);
+        target.changeAdminNote(updateAdminNoteCommand.note());
+
+        // reason 은 null 로 둔다 — 메모 본문을 감사 로그에 복제하면 내부 메모가 두 테이블에 살면서
+        // 보존·삭제 정책이 둘로 갈린다. 남기는 것은 "누가 언제 메모를 바꿨다"는 사실뿐이다.
+        adminUserActionLogRepository.save(AdminUserActionLog.of(
+                updateAdminNoteCommand.actorUserId(), target.getId(),
+                AdminUserAction.ADMIN_NOTE_UPDATED, null));
     }
 
     private void assertSuspendable(User target, Long actorUserId) {

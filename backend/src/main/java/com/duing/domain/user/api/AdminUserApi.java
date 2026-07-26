@@ -1,6 +1,7 @@
 package com.duing.domain.user.api;
 
 import com.duing.domain.user.controller.dto.request.ChangeUserStatusRequest;
+import com.duing.domain.user.controller.dto.request.UpdateAdminNoteRequest;
 import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -70,6 +72,17 @@ public interface AdminUserApi {
     ResponseEntity<ApiResponse<Void>> changeUserStatus(
             @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
             @RequestBody @Valid ChangeUserStatusRequest changeUserStatusRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "관리자 메모 저장 (ADMIN)",
+            description = "회원별 내부 메모를 저장한다. 사용자에게는 절대 노출되지 않는다. "
+                    + "빈 문자열을 보내면 메모가 비워지며, 그 사실도 감사 로그에 기록된다. "
+                    + "감사 로그에는 메모 본문을 저장하지 않는다.")
+    @PutMapping("/admin/users/{userId}/admin-note")
+    ResponseEntity<ApiResponse<Void>> updateAdminNote(
+            @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,
+            @RequestBody @Valid UpdateAdminNoteRequest updateAdminNoteRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

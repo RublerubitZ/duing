@@ -2,6 +2,7 @@ package com.duing.domain.user.controller;
 
 import com.duing.domain.user.api.AdminUserApi;
 import com.duing.domain.user.controller.dto.request.ChangeUserStatusRequest;
+import com.duing.domain.user.controller.dto.request.UpdateAdminNoteRequest;
 import com.duing.domain.user.controller.dto.response.AdminUserDetailResponse;
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
 import com.duing.domain.user.entity.UserStatus;
@@ -69,6 +70,17 @@ public class AdminUserController implements AdminUserApi {
     ) {
         adminUserCommandService.changeStatus(
                 changeUserStatusRequest.toCommand(userId, currentUser.id()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> updateAdminNote(
+            @PathVariable Long userId,
+            @RequestBody @Valid UpdateAdminNoteRequest updateAdminNoteRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        adminUserCommandService.updateAdminNote(
+                updateAdminNoteRequest.toCommand(userId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
 }
