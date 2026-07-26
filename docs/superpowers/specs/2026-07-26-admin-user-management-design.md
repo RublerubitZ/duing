@@ -374,4 +374,9 @@ PR-4 범위:
 5. **`adminNote` 유출** — `User` 엔티티에 필드가 생기므로 사용자 대면 응답에 새어나가지 않는지 회귀 테스트로 고정
 6. **FE `status` fail-open** — "알려진 값일 때만 뱃지 표시". `status !== 'ACTIVE'`로 분기하면 전환기에 전원이 정지로 보인다
 7. **정지 확인 순서** — 비밀번호 검증 뒤(D-11)
-8. **타임스탬프 변환** — `lastLoginAt`·`createdAt`(users 계열, naive `timestamp`)은 응답에서 `TimeMapper.systemWallClockToInstant`로 변환한다. `seoulClock`을 쓰면 prod JVM이 UTC라 +9시간 어긋난다. `last_login_at` 저장값은 기존 `login()`의 `now`를 그대로 재사용해 `created_at`(JPA auditing)과 같은 기준을 유지한다. **반면 감사 이력의 `at`은 이미 `Instant`이므로 변환하지 않고 그대로 내보낸다** — 여기에 `TimeMapper`를 태우면 이중 변환이 된다
+8. **타임스탬프 변환 — 한 응답 안에 regime 이 세 갈래다.** 컬럼 타입이 아니라 **그 필드를 기록한 코드**가 regime 을 결정한다(`TIMEZONE.md`가 SoT).
+   - **system regime**(무클럭 `LocalDateTime.now()` 저장 / JPA auditing): `createdAt`(가입일), `lastLoginAt`, 동아리 `joinedAt` → `TimeMapper.systemWallClockToInstant`. `last_login_at` 저장값은 기존 `login()`의 `now`를 그대로 재사용해 `created_at`과 같은 기준을 유지한다
+   - **seoul regime**(`LocalDateTime.now(seoulClock)` 저장): **`phoneVerifiedAt`** → `TimeMapper.seoulWallClockToInstant`. 가입(`markPhoneVerified`)·번호 변경(`changePhone`) 두 writer 가 모두 seoulClock 을 쓴다. systemDefault 를 태우면 **prod(JVM=UTC)에서 +9시간** 어긋나는데, 로컬·CI 는 JVM 이 KST 라 두 변환 결과가 같아 **테스트로 절대 드러나지 않는다**
+   - **변환 불요**: 감사 이력의 `at` 은 이미 `Instant`(timestamptz) — `TimeMapper` 를 태우면 이중 변환이다
+
+   새 시각 필드를 응답에 노출할 때는 **writer 를 먼저 찾아 regime 을 확인하고 `TIMEZONE.md` 대응표에 행을 추가한다.** 그 표는 2단계 백필 명세를 겸하므로, 누락되면 `phone_verified_at` 의 `AT TIME ZONE 'Asia/Seoul'` 보정이 마이그레이션에서 빠진다.

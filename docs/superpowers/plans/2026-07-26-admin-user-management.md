@@ -1417,7 +1417,9 @@ public record AdminUserDetailResponse(
                 detail.role(),
                 detail.maskedPhone(),
                 detail.phoneVerified(),
-                TimeMapper.systemWallClockToInstant(detail.phoneVerifiedAt()),
+                // ⚠️ phone_verified_at 만 seoul regime 이다 — 두 writer(가입·번호 변경)가 seoulClock 으로 쓴다.
+                // 같은 응답의 createdAt·lastLoginAt·joinedAt 은 system regime 이라 변환기가 다르다.
+                TimeMapper.seoulWallClockToInstant(detail.phoneVerifiedAt()),
                 detail.status(),
                 TimeMapper.systemWallClockToInstant(detail.createdAt()),
                 TimeMapper.systemWallClockToInstant(detail.lastLoginAt()),
