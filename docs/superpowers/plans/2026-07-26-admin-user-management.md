@@ -1417,7 +1417,9 @@ public record AdminUserDetailResponse(
                 detail.role(),
                 detail.maskedPhone(),
                 detail.phoneVerified(),
-                TimeMapper.systemWallClockToInstant(detail.phoneVerifiedAt()),
+                // ⚠️ phone_verified_at 만 seoul regime 이다 — 두 writer(가입·번호 변경)가 seoulClock 으로 쓴다.
+                // 같은 응답의 createdAt·lastLoginAt·joinedAt 은 system regime 이라 변환기가 다르다.
+                TimeMapper.seoulWallClockToInstant(detail.phoneVerifiedAt()),
                 detail.status(),
                 TimeMapper.systemWallClockToInstant(detail.createdAt()),
                 TimeMapper.systemWallClockToInstant(detail.lastLoginAt()),
@@ -2254,6 +2256,7 @@ public record AdminUserPhoneResponse(
 
 ```java
     @Override
+    @Transactional  // 클래스 기본이 readOnly 라 반드시 명시한다 — 빠뜨리면 감사 로그 INSERT 가 실 Postgres 에서 터진다
     public String revealPhone(Long targetUserId, Long actorUserId) {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(UserException.UserNotFoundException::new);
@@ -3151,6 +3154,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ADMIN_USER_ACTION_LABEL } from '../_lib/userActionLabels';
 import { UserStatusBadge } from './UserStatusBadge';
 
+// 서버 검증은 Bean Validation 의 @Size 라 UTF-16 코드유닛으로 센다. 클라이언트도 같은 단위여야 한다 —
+// `[...str].length` 나 Intl.Segmenter 로 세면(코드포인트/서체소) 이모지가 섞인 메모에서 FE 는 통과시키고
+// 서버가 400 을 낸다. textarea 의 maxLength 와 `str.length` 가 정확히 그 단위다.
 const NOTE_MAX_LENGTH = 1000;
 
 /** 절대시각(ISO)을 한국 표기로. 값이 없으면 호출 측이 "기록 없음" 등 자체 문구를 쓴다. */

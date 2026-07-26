@@ -187,7 +187,14 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
 요청: `{ "status": "SUSPENDED", "reason": "커뮤니티 신고 3건 누적" }`
 응답: **204 No Content**
 
-- `reason` — `@NotBlank`, `@Size(max = 200)`. **정지·해제 모두 필수.** "왜 풀었는지"가 나중에 더 문제가 된다.
+- `reason` — `@NotBlank`, `@Size(max = 200)`. **정지·해제 모두 필수.** "왜 풀었는지"가 나중에 더 문제가 된다. `@NotBlank`는 ASCII 공백만 거르므로 전각 공백(U+3000)까지 막는 유니코드 인식 검증을 함께 건다.
+
+> **운영 원칙 — `reason`에 불필요한 개인정보를 쓰지 않는다.**
+> `admin_user_action_log`는 보존기간이 없는 영구 테이블이고(결정 D-17), 탈퇴 회원 개인정보 파기 잡의 대상도 아니다. `users.admin_note`가 익명화 대상인 것과 대조적이다. 따라서 `reason`에는 **판단 근거만** 적고 회원의 이름·연락처·학번·제3자 정보는 쓰지 않는다. 대상 회원은 `target_user_id`로 이미 식별되므로 사유에 다시 적을 이유가 없다.
+> - 좋은 예: `커뮤니티 신고 3건 누적`, `본인 소명 수용`, `중복 계정 확인`
+> - 나쁜 예: `010-1234-5678 로 확인함`, `김OO 학생이 신고`, `2021118033 과 동일인`
+>
+> 이 원칙은 화면 안내 문구로도 노출하지 않고 운영 가이드로만 둔다 — 입력 폼에 "개인정보를 쓰지 마세요"를 띄우면 오히려 무엇을 쓸 수 있는지 혼란스러워진다.
 - **동일 상태면 무동작**: 행잠금 후 현재 상태와 같으면 아무것도 하지 않고 204. 버튼 연타가 감사 이력을 오염시키는 것을 막는다.
 - **정지 집행** (`forceLogout`과 동일한 순서):
   ```java
@@ -220,6 +227,9 @@ CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_u
 - 사용자 대면 응답(`UserResponse` 등)에 `adminNote`가 절대 포함되지 않아야 한다. 회귀 테스트로 고정한다.
 - **빈 문자열 저장(메모 삭제)도 `ADMIN_NOTE_UPDATED`로 기록한다.** "누가 메모를 지웠는지"가 오히려 더 중요한 이력이다.
 - 감사 로그에 **메모 본문을 넣지 않는다**(`reason`은 null). 넣으면 내부 메모가 감사 테이블에 복제돼 보존·삭제 정책이 둘로 갈린다.
+- **값 비교에서 `null`과 빈 문자열은 같은 값으로 본다.** 둘 다 "메모 없음"이고, 구분하면 메모 칸을 열었다가 그냥 저장하는 것만으로 최종 수정자가 바뀐다. 반대로 **내용이 있던 메모를 빈 문자열로 지우는 것은 실제 변화이므로 그대로 기록된다** — 위의 "메모 삭제도 감사 대상"은 지울 메모가 있을 때의 규정이고, 그 근거("누가 지웠는지")도 그때만 성립한다.
+- **내용이 현재 값과 같으면 무동작 204다** (결정 D-16). `users.admin_note`를 갱신하지 않고, `ADMIN_NOTE_UPDATED` 감사 로그도 남기지 않으며, 따라서 `adminNoteUpdatedAt`·`adminNoteUpdatedBy`도 그대로 유지된다. 두 가지 이유가 있다 — (a) 아무것도 고치지 않은 사람이 "최종 수정자"로 찍히는 것은 부정확하고, (b) 상세 패널의 조치 이력은 최신 20건만 보여주는데 메모 저장은 정지·해제보다 훨씬 잦아서, 저장 20번이면 정지 이력이 화면에서 밀려난다. `PATCH .../status`의 동일 상태 무동작(D-6)과 같은 원칙이다.
+- **행잠금이 필요하다.** `User`에는 `@Version`도 `@DynamicUpdate`도 없어 Hibernate가 더티 플러시에서 **모든 컬럼**을 쓴다. 잠금 없이 읽으면 메모 저장이 그 사이 커밋된 계정 정지(`status`·`token_version`)를 옛 스냅샷 값으로 되돌리고, 감사 로그에는 정지 기록만 남아 **이력이 거짓이 된다.** 비관적 잠금은 모든 쓰기 경로가 잡아야 성립한다.
 
 ### `GET /api/v1/admin/users/{userId}/phone` — 원본 번호 조회
 
@@ -341,6 +351,8 @@ PR-4 범위:
 | D-13 | 감사 로그만 `timestamptz`+`Instant`, `users.last_login_at`은 naive 유지 | 새 테이블은 자유롭게 정하되, 기존 테이블의 새 컬럼은 그 테이블의 2단계 전환 계획을 따른다. `users`에만 timestamptz를 섞으면 `LocalDateTime` 저장이 JDBC 세션 존으로 캐스팅돼 prod(UTC)는 맞고 로컬(KST)은 −9h가 되는 환경별 오작동이 생긴다(TIMEZONE.md §42) |
 | D-14 | `action`에 CHECK 제약 없음 | 레포의 모든 enum 컬럼이 제약 없이 `@Enumerated`로만 보장. CHECK 수정은 DROP+ADD라 액션 추가마다 마이그레이션이 붙는다 |
 | D-15 | 정지 계정의 비밀번호 재설정은 차단하지 않음 | 인증 전 단계에서 계정 상태를 노출하지 않는다(D-11과 같은 논리). 재설정해도 로그인은 여전히 막힌다 |
+| D-16 | 메모 내용이 그대로면 무동작 204 (저장·로그·최종 수정 정보 모두 불변) | 안 고친 사람이 최종 수정자로 찍히는 것은 부정확하고, 잦은 메모 저장이 20칸짜리 조치 이력에서 정지·해제를 밀어낸다. D-6과 같은 원칙 |
+| D-17 | 감사 로그 `reason`은 영구 보존 — 파기 대상으로 만들지 않음 | 조치 근거가 사라지면 감사 로그의 존재 이유가 없어진다. 대신 `reason`에 개인정보를 쓰지 않는 운영 원칙으로 유입 자체를 막는다 |
 
 ---
 
@@ -374,4 +386,9 @@ PR-4 범위:
 5. **`adminNote` 유출** — `User` 엔티티에 필드가 생기므로 사용자 대면 응답에 새어나가지 않는지 회귀 테스트로 고정
 6. **FE `status` fail-open** — "알려진 값일 때만 뱃지 표시". `status !== 'ACTIVE'`로 분기하면 전환기에 전원이 정지로 보인다
 7. **정지 확인 순서** — 비밀번호 검증 뒤(D-11)
-8. **타임스탬프 변환** — `lastLoginAt`·`createdAt`(users 계열, naive `timestamp`)은 응답에서 `TimeMapper.systemWallClockToInstant`로 변환한다. `seoulClock`을 쓰면 prod JVM이 UTC라 +9시간 어긋난다. `last_login_at` 저장값은 기존 `login()`의 `now`를 그대로 재사용해 `created_at`(JPA auditing)과 같은 기준을 유지한다. **반면 감사 이력의 `at`은 이미 `Instant`이므로 변환하지 않고 그대로 내보낸다** — 여기에 `TimeMapper`를 태우면 이중 변환이 된다
+8. **타임스탬프 변환 — 한 응답 안에 regime 이 세 갈래다.** 컬럼 타입이 아니라 **그 필드를 기록한 코드**가 regime 을 결정한다(`TIMEZONE.md`가 SoT).
+   - **system regime**(무클럭 `LocalDateTime.now()` 저장 / JPA auditing): `createdAt`(가입일), `lastLoginAt`, 동아리 `joinedAt` → `TimeMapper.systemWallClockToInstant`. `last_login_at` 저장값은 기존 `login()`의 `now`를 그대로 재사용해 `created_at`과 같은 기준을 유지한다
+   - **seoul regime**(`LocalDateTime.now(seoulClock)` 저장): **`phoneVerifiedAt`** → `TimeMapper.seoulWallClockToInstant`. 가입(`markPhoneVerified`)·번호 변경(`changePhone`) 두 writer 가 모두 seoulClock 을 쓴다. systemDefault 를 태우면 **prod(JVM=UTC)에서 +9시간** 어긋나는데, 로컬·CI 는 JVM 이 KST 라 두 변환 결과가 같아 **테스트로 절대 드러나지 않는다**
+   - **변환 불요**: 감사 이력의 `at` 은 이미 `Instant`(timestamptz) — `TimeMapper` 를 태우면 이중 변환이다
+
+   새 시각 필드를 응답에 노출할 때는 **writer 를 먼저 찾아 regime 을 확인하고 `TIMEZONE.md` 대응표에 행을 추가한다.** 그 표는 2단계 백필 명세를 겸하므로, 누락되면 `phone_verified_at` 의 `AT TIME ZONE 'Asia/Seoul'` 보정이 마이그레이션에서 빠진다.

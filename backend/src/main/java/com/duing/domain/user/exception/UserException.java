@@ -114,6 +114,26 @@ public class UserException extends ApplicationException {
         }
     }
 
+    /** 관리자가 자기 계정을 정지하는 것을 막는다 — 자기 자신을 잠그는 사고 방지. */
+    public static class SelfSuspendNotAllowedException extends UserException {
+
+        private static final String MESSAGE = "자기 자신의 계정은 정지할 수 없습니다.";
+
+        public SelfSuspendNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST, "SELF_SUSPEND_NOT_ALLOWED");
+        }
+    }
+
+    /** ADMIN 계정은 정지 대상이 아니다 — 관리자 전원이 잠기는 상황을 구조적으로 배제한다. */
+    public static class AdminSuspendNotAllowedException extends UserException {
+
+        private static final String MESSAGE = "관리자 계정은 정지할 수 없습니다.";
+
+        public AdminSuspendNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST, "ADMIN_SUSPEND_NOT_ALLOWED");
+        }
+    }
+
     public static class ReservedNameException extends UserException {
         private static final String MESSAGE = "사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.";
 
