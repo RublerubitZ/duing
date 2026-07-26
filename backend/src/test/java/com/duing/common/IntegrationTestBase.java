@@ -74,6 +74,7 @@ public abstract class IntegrationTestBase {
                 "leader_succession_request, " +
                 "promotion, " +
                 "promotion_request, " +
+                "admin_user_action_log, " +
                 "auth_refresh_token, " +
                 "auth_session, " +
                 "auth_event, " +

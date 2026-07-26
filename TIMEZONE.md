@@ -111,5 +111,6 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
    - seoul(naive) → `timestamptz`: `AT TIME ZONE 'Asia/Seoul'` 백필
    - seoul(이미 timestamptz, +9h 왜곡) → `- interval '9 hours'` 보정
    - schedule 필드는 naive 유지(또는 date+time 분리) — 마이그레이션 대상 아님
+   - **제외 대상**: `admin_user_action_log.created_at` — 신규 테이블이라 처음부터 `timestamptz` + 엔티티 `Instant`. 백필·변환 대상이 아니다.
 2. BaseEntity·seoul 저장 코드의 Instant 전환 + TimeMapper 제거를 같은 릴리스에서.
 3. 백업 리허설 필수. 앱 릴리스와 마이그레이션 릴리스 분리 원칙(자동 롤백 호환성) 준수.

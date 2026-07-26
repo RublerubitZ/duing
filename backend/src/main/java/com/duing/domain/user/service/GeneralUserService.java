@@ -140,7 +140,7 @@ public class GeneralUserService implements UserService {
             throw new UserException.InvalidCredentialsException();
         }
 
-        user.recordSuccessfulLogin();
+        user.recordSuccessfulLogin(now);
         // 세션 발급은 이 트랜잭션의 user 행잠금 안 — LRU 상한 계산의 동시성 보호 전제 (spec §13)
         IssuedSession issuedSession = authSessionService.issue(new IssueSessionCommand(
                 user.getId(), loginContext.platform(), loginContext.deviceLabel(),
