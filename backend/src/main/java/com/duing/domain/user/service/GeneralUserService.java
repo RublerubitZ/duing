@@ -140,6 +140,12 @@ public class GeneralUserService implements UserService {
             throw new UserException.InvalidCredentialsException();
         }
 
+        // 정지 검사는 반드시 비밀번호 검증 뒤에 둔다 — 앞에 두면 학번만 아는 제3자가 로그인 시도만으로
+        // "이 계정은 정지 상태"를 알아낼 수 있다(계정 열거 + 상태 노출).
+        if (!user.isActive()) {
+            throw new UserException.AccountSuspendedException();
+        }
+
         user.recordSuccessfulLogin(now);
         // 세션 발급은 이 트랜잭션의 user 행잠금 안 — LRU 상한 계산의 동시성 보호 전제 (spec §13)
         IssuedSession issuedSession = authSessionService.issue(new IssueSessionCommand(

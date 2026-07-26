@@ -63,6 +63,16 @@ public class UserException extends ApplicationException {
         }
     }
 
+    /** 관리자가 이용 정지한 계정. 잠금(AccountLocked, 자동 해제)과 달리 관리자 해제 전까지 풀리지 않는다. */
+    public static class AccountSuspendedException extends UserException {
+
+        private static final String MESSAGE = "정지된 계정입니다. 총동아리연합회로 문의해 주세요.";
+
+        public AccountSuspendedException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED");
+        }
+    }
+
     public static class TooManyLoginAttemptsException extends UserException {
         private static final String MESSAGE = "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.";
 
