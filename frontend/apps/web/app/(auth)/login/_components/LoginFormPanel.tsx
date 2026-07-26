@@ -12,6 +12,30 @@ import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import posthog from 'posthog-js';
 
+const CREDENTIAL_ERROR_MESSAGE = '학번 또는 비밀번호가 올바르지 않습니다.';
+const SERVER_ERROR_MESSAGE = '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+
+/**
+ * 로그인 실패를 사용자 문구로 옮긴다.
+ *
+ * 서버 문구를 쓸 수 없는 경우만 좁게 나열하고, 나머지는 서버가 준 사유를 그대로 보여준다.
+ * 반대로(알려진 몇 가지만 서버 문구를 쓰고 나머지는 자격증명 실패로 단정) 짜면 백엔드가 로그인
+ * 실패 사유를 늘릴 때마다 조용히 오안내가 된다 — 타임아웃과 계정 정지에서 이미 두 번 그렇게 샜다.
+ */
+function loginErrorMessage(loginError: unknown): string {
+  // ApiError 가 아니면 서버가 준 문구 자체가 없다.
+  if (!(loginError instanceof ApiError)) return CREDENTIAL_ERROR_MESSAGE;
+  // 타임아웃·오프라인은 이미 사용자 문구로 정규화돼 있다 — 비밀번호를 의심하게 두지 않는다.
+  if (loginError.code === 'TIMEOUT' || loginError.code === 'NETWORK') return loginError.message;
+  // 5xx 본문은 사용자 대면 문구가 아니다. 전역 폴백(global-error.tsx)과 같은 결로 안내한다.
+  if (loginError.status >= 500) return SERVER_ERROR_MESSAGE;
+  // 400 은 필드명이 섞인 검증 문구라 그대로 노출하지 않는다. 자격증명 문구는 프론트가 소유해
+  // 서버 표현이 바뀌어도 로그인 화면의 가장 흔한 안내가 흔들리지 않게 한다.
+  if (loginError.status === 400 || loginError.status === 401) return CREDENTIAL_ERROR_MESSAGE;
+  // 나머지 4xx(403 이용 정지, 429 계정 잠금·과요청)는 서버가 사유별 한국어 안내를 준다.
+  return loginError.message || CREDENTIAL_ERROR_MESSAGE;
+}
+
 function IconStudentId() {
   // 학번 입력 — 학생증(사진 + 텍스트 줄) 아이콘으로 신분/학번 맥락을 드러낸다.
   return (
@@ -101,16 +125,7 @@ function LoginForm() {
       posthog.capture('user_logged_in', { remember_me: rememberMe });
       router.replace(next);
     } catch (loginError) {
-      // 타임아웃·오프라인은 자격증명 문제가 아니다 — 정규화된 안내(요청 시간 초과/연결 확인)를 그대로 보여줘
-      // 사용자가 비밀번호를 의심하지 않게 한다. (재현 실험에서 확인된 오안내 수정)
-      if (loginError instanceof ApiError && (loginError.code === 'TIMEOUT' || loginError.code === 'NETWORK')) {
-        setError(loginError.message);
-      } else if (loginError instanceof ApiError && (loginError.status === 429 || loginError.status >= 500)) {
-        // 서버 장애·과요청은 자격증명 문제가 아니다 — 전역 폴백(global-error.tsx)과 같은 결의 안내.
-        setError('일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
-      } else {
-        setError('학번 또는 비밀번호가 올바르지 않습니다.');
-      }
+      setError(loginErrorMessage(loginError));
     }
   }
 
