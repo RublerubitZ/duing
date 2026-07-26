@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "사용자(총동연)", description = "총동연 전용 사용자 검색 API")
+@Tag(name = "사용자(총동연)", description = "총동연 전용 회원 관리 API — 검색·상세 조회·강제 로그아웃·계정 상태 변경")
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminUserApi {
 
@@ -64,7 +64,8 @@ public interface AdminUserApi {
             description = "ACTIVE ↔ SUSPENDED. 정지 시 대상의 모든 세션을 폐기하고 token_version 을 올려 "
                     + "발급된 액세스 토큰을 즉시 무효화한다. 사유는 정지·해제 모두 필수이며 감사 로그에 기록된다. "
                     + "현재 상태와 같으면 아무 동작도 하지 않고 204 를 반환한다(감사 로그도 남기지 않는다). "
-                    + "자기 자신과 다른 ADMIN 계정은 정지할 수 없다.")
+                    + "자기 자신과 다른 ADMIN 계정은 정지할 수 없다 — 보호 정책은 무동작 판정보다 먼저 걸리므로 "
+                    + "이미 정지된 ADMIN 계정에 정지를 다시 요청하면 204 가 아니라 400 이다.")
     @PatchMapping("/admin/users/{userId}/status")
     ResponseEntity<ApiResponse<Void>> changeUserStatus(
             @Parameter(description = "대상 사용자 ID", required = true) @PathVariable Long userId,

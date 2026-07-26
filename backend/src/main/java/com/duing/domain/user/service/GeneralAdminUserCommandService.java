@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+// 쓰기 전용 서비스지만 클래스 기본은 레포 관례대로 readOnly 다 — 여기에는 조회 형태로 보이면서
+// 감사 로그를 남기는(=쓰기) 메서드가 앞으로 붙는다. 트랜잭션 성격을 메서드마다 적어야 그 자리에서 드러난다.
+@Transactional(readOnly = true)
 @Slf4j
 public class GeneralAdminUserCommandService implements AdminUserCommandService {
 
@@ -26,6 +28,7 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
     private final AuthSessionService authSessionService;
 
     @Override
+    @Transactional
     public void changeStatus(ChangeUserStatusCommand changeStatusCommand) {
         // 강제 로그아웃과 같은 순서 — token_version lost update 를 막기 위해 행을 잠그고 조회한다.
         User target = userRepository.findByIdForUpdate(changeStatusCommand.targetUserId())
@@ -40,19 +43,23 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
             return;
         }
 
-        if (changeStatusCommand.status() == UserStatus.SUSPENDED) {
-            target.suspend();
-            // 정지는 즉시 집행이다 — 발급된 토큰을 무효화하고 모든 세션을 폐기한다.
-            target.bumpTokenVersion();
-            authSessionService.revokeAll(target.getId(), SessionRevokeReason.ADMIN_FORCE);
-        } else {
-            // 해제는 상태만 되돌린다 — token_version 은 되돌릴 수 없고, 재로그인하면 그만이다.
-            target.unsuspend();
-        }
+        // default 없는 switch 식 — UserStatus 에 상태가 추가되면 컴파일이 깨져 여기를 반드시 다시 보게 한다.
+        // (if/else 였다면 새 상태가 조용히 "해제" 로 처리됐다.)
+        AdminUserAction action = switch (changeStatusCommand.status()) {
+            case SUSPENDED -> {
+                target.suspend();
+                // 정지는 즉시 집행이다 — 발급된 토큰을 무효화하고 모든 세션을 폐기한다.
+                target.bumpTokenVersion();
+                authSessionService.revokeAll(target.getId(), SessionRevokeReason.ADMIN_FORCE);
+                yield AdminUserAction.ACCOUNT_SUSPENDED;
+            }
+            case ACTIVE -> {
+                // 해제는 상태만 되돌린다 — token_version 은 되돌릴 수 없고, 재로그인하면 그만이다.
+                target.unsuspend();
+                yield AdminUserAction.ACCOUNT_UNSUSPENDED;
+            }
+        };
 
-        AdminUserAction action = changeStatusCommand.status() == UserStatus.SUSPENDED
-                ? AdminUserAction.ACCOUNT_SUSPENDED
-                : AdminUserAction.ACCOUNT_UNSUSPENDED;
         adminUserActionLogRepository.save(AdminUserActionLog.of(
                 changeStatusCommand.actorUserId(), target.getId(), action, changeStatusCommand.reason()));
 

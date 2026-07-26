@@ -41,6 +41,9 @@ import org.springframework.http.HttpStatus;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AdminUserStatusControllerTest extends IntegrationTestBase {
 
+    /** 전각 공백(U+3000). @NotBlank 의 trim() 도 String.trim() 도 공백으로 보지 않는 문자다. */
+    private static final String IDEOGRAPHIC_SPACE = Character.toString(0x3000);
+
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
@@ -61,17 +64,16 @@ class AdminUserStatusControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("계정을 정지하면 204 가 반환되고 대상의 기존 토큰이 무효화되며 감사 로그가 1건 남는다")
-    void suspendRevokesTokenAndWritesLog() {
+    @DisplayName("계정을 정지하면 204 가 반환되고 정지된 계정의 보호 API 접근이 401 로 막히며 앞뒤 공백을 뗀 사유가 감사 로그에 1건 남는다")
+    void suspendBlocksAccessAndWritesTrimmedLog() {
         User target = saveUser("정지대상", UserRole.STUDENT);
         String targetToken = tokenFor(target);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .contentType("application/json")
-                .body("""
-                        {"status":"SUSPENDED","reason":"커뮤니티 신고 3건 누적"}
-                        """)
+                .body("{\"status\":\"SUSPENDED\",\"reason\":\"  커뮤니티 신고 3건 누적%s\"}"
+                        .formatted(IDEOGRAPHIC_SPACE))
                 .when().patch("/api/v1/admin/users/{userId}/status", target.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
@@ -83,10 +85,16 @@ class AdminUserStatusControllerTest extends IntegrationTestBase {
         List<AdminUserActionLog> logs = actionLogRepository.findAll();
         assertThat(logs).hasSize(1);
         assertThat(logs.get(0).getAction()).isEqualTo(AdminUserAction.ACCOUNT_SUSPENDED);
+        // 요청은 앞에 ASCII 공백 2개, 뒤에 전각 공백 1개를 달고 왔다 — 저장 시 strip() 으로 둘 다 떨어져야 한다.
         assertThat(logs.get(0).getReason()).isEqualTo("커뮤니티 신고 3건 누적");
         assertThat(logs.get(0).getActorUserId()).isEqualTo(adminUser.getId());
     }
 
+    /**
+     * 위 테스트와 겹쳐 보이지만 지울 수 없다. 인증 필터는 token_version 일치와 계정 활성 여부를 함께 보므로
+     * 상태 전환만으로도 401 이 나온다 — bumpTokenVersion() 과 revokeAll() 을 둘 다 지워도 위 테스트는 통과한다.
+     * 정지의 즉시 집행을 실제로 고정하는 것은 이 테스트뿐이다.
+     */
     @Test
     @DisplayName("정지는 즉시 집행된다 — token_version 이 올라가고 기존 리프레시 토큰의 갱신도 401 로 막힌다")
     void suspendBumpsTokenVersionAndRevokesRefreshSession() {
@@ -210,6 +218,23 @@ class AdminUserStatusControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("사유를 전각 공백만으로 채워도 400 을 반환한다")
+    void ideographicSpaceOnlyReasonRejected() {
+        User target = saveUser("전각공백사유", UserRole.STUDENT);
+
+        // @NotBlank 는 U+0020 이하만 공백으로 보기 때문에 이 요청을 그냥 통과시킨다.
+        // 책임 추적용 사유가 전각 공백 한 글자로 무력화되지 않도록 유니코드 공백까지 걸러야 한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType("application/json")
+                .body("{\"status\":\"SUSPENDED\",\"reason\":\"%s\"}".formatted(IDEOGRAPHIC_SPACE.repeat(3)))
+                .when().patch("/api/v1/admin/users/{userId}/status", target.getId())
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        assertThat(actionLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
     @DisplayName("사유가 200자를 넘으면 400 을 반환한다")
     void tooLongReasonRejected() {
         User target = saveUser("사유초과", UserRole.STUDENT);
@@ -249,6 +274,27 @@ class AdminUserStatusControllerTest extends IntegrationTestBase {
                         {"status":"SUSPENDED","reason":"권한 회수"}
                         """)
                 .when().patch("/api/v1/admin/users/{userId}/status", otherAdmin.getId())
+                .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", Matchers.equalTo("ADMIN_SUSPEND_NOT_ALLOWED"));
+    }
+
+    @Test
+    @DisplayName("이미 정지된 ADMIN 계정에 정지를 다시 요청하면 무동작(204)이 아니라 보호 정책 위반(400)이다")
+    void suspendedAdminSuspendStillRejected() {
+        User suspendedAdmin = saveUser("정지된관리자", UserRole.ADMIN);
+        suspendedAdmin.suspend();
+        userRepository.saveAndFlush(suspendedAdmin);
+
+        // 보호 정책 검증이 동일 상태 조기 반환보다 먼저 와야 한다 — 순서가 뒤집히면 여기서 204 가 나오고,
+        // "ADMIN 은 정지 대상이 아니다" 라는 응답이 계정 상태에 따라 달라진다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType("application/json")
+                .body("""
+                        {"status":"SUSPENDED","reason":"권한 회수"}
+                        """)
+                .when().patch("/api/v1/admin/users/{userId}/status", suspendedAdmin.getId())
                 .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", Matchers.equalTo("ADMIN_SUSPEND_NOT_ALLOWED"));
