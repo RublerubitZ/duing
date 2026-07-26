@@ -47,14 +47,6 @@ public class UserException extends ApplicationException {
         }
     }
 
-    public static class InvalidSearchQueryException extends UserException {
-        private static final String MESSAGE = "검색어를 입력해주세요.";
-
-        public InvalidSearchQueryException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
-        }
-    }
-
     public static class AccountLockedException extends UserException {
         private static final String MESSAGE = "로그인 시도가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.";
 
