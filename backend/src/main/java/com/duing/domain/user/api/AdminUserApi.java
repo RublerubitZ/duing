@@ -1,6 +1,7 @@
 package com.duing.domain.user.api;
 
 import com.duing.domain.user.controller.dto.response.AdminUserSearchResponse;
+import com.duing.domain.user.entity.UserStatus;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -21,11 +22,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AdminUserApi {
 
     @Operation(summary = "사용자 검색 (ADMIN)",
-            description = "동아리 등록 시 leader 후보를 학번/이름으로 검색한다. studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치.")
+            description = "회원 관리 목록과 동아리장 후보 검색이 함께 쓴다. q 는 선택 — 생략하면 전체를 대상으로 하고, "
+                    + "studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치. "
+                    + "status 를 생략하면 상태를 가리지 않는다(= 전체). 기본 정렬은 최근 가입순.")
     @GetMapping("/admin/users")
     ResponseEntity<ApiResponse<PageResponse<AdminUserSearchResponse>>> searchUsers(
-            @Parameter(description = "검색어 (학번 prefix 또는 이름 부분 일치)", required = true)
-            @RequestParam String q,
+            @Parameter(description = "검색어 (학번 prefix 또는 이름 부분 일치). 생략 가능")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "계정 상태 필터. 생략하면 전체", example = "SUSPENDED")
+            @RequestParam(required = false) UserStatus status,
             @Parameter(hidden = true) Pageable pageable
     );
 

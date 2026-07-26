@@ -66,6 +66,19 @@ public class User extends BaseEntity {
     @Column(name = "token_version", nullable = false)
     private int tokenVersion;
 
+    /** 계정 상태. 정지(SUSPENDED)면 로그인·JWT 인증이 모두 차단된다. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    /** 마지막 로그인 성공 시각. 기존 회원은 백필하지 않았으므로 null 은 "기록 없음"이다. */
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    /** 관리자 내부 메모 — 사용자에게 절대 노출하지 않는다(ADMIN 전용 응답에만 포함). */
+    @Column(name = "admin_note", columnDefinition = "TEXT")
+    private String adminNote;
+
     @Builder(access = AccessLevel.PRIVATE)
     private User(
             String studentId,
@@ -130,10 +143,30 @@ public class User extends BaseEntity {
         }
     }
 
-    /** 로그인 성공 시 실패 카운터와 잠금 상태를 초기화한다. */
-    public void recordSuccessfulLogin() {
+    /** 로그인 성공 시 실패 카운터·잠금을 초기화하고 마지막 로그인 시각을 남긴다. */
+    public void recordSuccessfulLogin(LocalDateTime now) {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
+        this.lastLoginAt = now;
+    }
+
+    public boolean isActive() {
+        return this.status == UserStatus.ACTIVE;
+    }
+
+    /** 계정을 이용 정지 상태로 만든다. 세션 폐기·토큰 무효화는 호출 측(서비스)이 함께 조율한다. */
+    public void suspend() {
+        this.status = UserStatus.SUSPENDED;
+    }
+
+    /** 이용 정지를 해제한다. token_version 은 되돌리지 않는다 — 재로그인하면 그만이다. */
+    public void unsuspend() {
+        this.status = UserStatus.ACTIVE;
+    }
+
+    /** 관리자 메모를 교체한다. 빈 문자열은 그대로 저장한다(= 메모 비우기, 그 자체가 감사 대상 행위). */
+    public void changeAdminNote(String note) {
+        this.adminNote = note;
     }
 
     /** 토큰 버전을 올려 기존에 발급된 모든 액세스 토큰을 무효화한다(로그아웃·강제 폐기). */

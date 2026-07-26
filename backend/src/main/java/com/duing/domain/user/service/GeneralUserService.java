@@ -6,6 +6,7 @@ import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
@@ -32,7 +33,9 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -109,7 +112,8 @@ public class GeneralUserService implements UserService {
     @Transactional(noRollbackFor = {
             UserException.InvalidCredentialsException.class,
             UserException.AccountLockedException.class,
-            UserException.TooManyLoginAttemptsException.class
+            UserException.TooManyLoginAttemptsException.class,
+            UserException.AccountSuspendedException.class
     })
     public LoginResult login(LoginCommand loginCommand, LoginContext loginContext) {
         LocalDateTime now = LocalDateTime.now();
@@ -140,7 +144,13 @@ public class GeneralUserService implements UserService {
             throw new UserException.InvalidCredentialsException();
         }
 
-        user.recordSuccessfulLogin();
+        // 정지 검사는 반드시 비밀번호 검증 뒤에 둔다 — 앞에 두면 학번만 아는 제3자가 로그인 시도만으로
+        // "이 계정은 정지 상태"를 알아낼 수 있다(계정 열거 + 상태 노출).
+        if (!user.isActive()) {
+            throw new UserException.AccountSuspendedException();
+        }
+
+        user.recordSuccessfulLogin(now);
         // 세션 발급은 이 트랜잭션의 user 행잠금 안 — LRU 상한 계산의 동시성 보호 전제 (spec §13)
         IssuedSession issuedSession = authSessionService.issue(new IssueSessionCommand(
                 user.getId(), loginContext.platform(), loginContext.deviceLabel(),
@@ -265,6 +275,9 @@ public class GeneralUserService implements UserService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordCommand resetPasswordCommand, String clientIp, String userAgent) {
+        // 이용 정지 검사를 여기에 두지 않는 것은 의도다 — 비로그인 경로라 정지 여부를 확인해주는 순간
+        // 학번·번호를 아는 제3자가 재설정 시도만으로 계정 상태를 알아낸다(로그인이 비밀번호 검증 뒤에
+        // 검사하는 것과 같은 이유). 재설정에 성공해도 로그인 단계에서 막히므로 실익도 없다.
         LocalDateTime now = LocalDateTime.now(clock);
 
         // 잠금 순서는 세션 행 → 유저 행 — signup·changePhone 소비 경로와 같은 방향이라 순환 대기(데드락)가 없다.
@@ -328,13 +341,27 @@ public class GeneralUserService implements UserService {
     private static final Set<String> ALLOWED_ADMIN_USER_SORT =
             Set.of("studentId", "name", "createdAt");
 
+    private static final Sort DEFAULT_ADMIN_USER_SORT =
+            Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
     @Override
-    public Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable) {
-        if (!StringUtils.hasText(query)) {
-            throw new UserException.InvalidSearchQueryException();
-        }
+    public Page<UserSearchResultQuery> searchForAdmin(String queryOrNull, UserStatus statusOrNull,
+                                                      Pageable pageable) {
         SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_ADMIN_USER_SORT);
-        return userRepository.searchForAdmin(query.trim(), pageable)
+        // 검색어는 선택이다 — 상태 필터만으로 목록을 훑는 경로(정지 회원 찾기)가 필요하다.
+        String normalizedQuery = StringUtils.hasText(queryOrNull) ? queryOrNull.trim() : null;
+        return userRepository.searchForAdmin(normalizedQuery, statusOrNull, withStableSort(pageable))
                 .map(UserSearchResultQuery::from);
+    }
+
+    /**
+     * 정렬이 지정되지 않으면 최근 가입순, 지정됐으면 그 뒤에 id DESC 를 덧붙인다.
+     * tie-breaker 가 없으면 같은 createdAt 을 가진 행들의 순서가 매 쿼리마다 달라져 페이징이 새거나 겹친다.
+     */
+    private Pageable withStableSort(Pageable pageable) {
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort().and(Sort.by(Sort.Order.desc("id")))
+                : DEFAULT_ADMIN_USER_SORT;
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
     }
 }
