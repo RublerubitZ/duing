@@ -84,15 +84,23 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             id="status-reason"
             value={reason}
             maxLength={REASON_MAX_LENGTH}
+            // 글자 수 제한과 사유가 남는 곳은 입력란에 포커스했을 때 함께 읽혀야 한다 — 라벨만으로는
+            // 스크린리더에 "정지 사유, 편집 여러 줄"까지만 전달된다.
+            aria-describedby="status-reason-hint"
             onChange={(event) => setReason(event.target.value)}
             placeholder="예) 커뮤니티 신고 3건 누적"
             className="min-h-[72px] w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
           />
-          <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-charcoal-3">
+          <div
+            id="status-reason-hint"
+            className="mt-1 flex items-center justify-between gap-2 text-[11px] text-charcoal-3"
+          >
             {/* 사유는 관리자 메모가 아니라 감사 로그로 간다 — 둘은 별개의 저장소다. */}
             <span>입력한 사유는 감사 로그에 기록됩니다.</span>
+            {/* 입력을 실제로 끊는 건 maxLength 이고 그건 원문 길이를 본다. 공백을 걷어낸 길이를 보여주면
+                앞뒤 공백이 섞였을 때 카운터는 여유가 남았는데 타이핑만 막히는 상태가 된다. */}
             <span>
-              {trimmedReason.length}/{REASON_MAX_LENGTH}
+              {reason.length}/{REASON_MAX_LENGTH}
             </span>
           </div>
         </div>
@@ -104,7 +112,11 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
           <button
             type="button"
             onClick={() => onConfirm(trimmedReason)}
-            disabled={isPending || trimmedReason.length === 0}
+            // maxLength 는 타이핑·붙여넣기만 끊는다. 드래그-드롭 삽입이나 자동입력 확장으로 값이 들어오면
+            // 그대로 통과하므로, 서버가 실제로 검증하는 값(보내는 값 = trimmedReason)으로 한 번 더 막는다.
+            disabled={
+              isPending || trimmedReason.length === 0 || trimmedReason.length > REASON_MAX_LENGTH
+            }
             className={`btn btn-sm text-paper transition-colors disabled:opacity-50 ${
               isSuspending ? 'bg-coral hover:bg-[#c2603f]' : 'bg-ink hover:bg-ink/90'
             }`}

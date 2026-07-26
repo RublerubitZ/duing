@@ -68,6 +68,35 @@ describe('계정 상태 변경 확인 다이얼로그', () => {
     expect(screen.getByLabelText('정지 사유')).toHaveAttribute('maxlength', '200');
   });
 
+  it('글자 수 제한과 감사 로그 안내를 입력란 설명으로 연결한다 — 라벨만으로는 안 읽힌다', () => {
+    render(<AdminUserStatusDialog {...props} />);
+
+    const reasonInput = screen.getByLabelText('정지 사유');
+    expect(reasonInput).toHaveAccessibleDescription(/감사 로그에 기록됩니다/);
+    expect(reasonInput).toHaveAccessibleDescription(/0\/200/);
+  });
+
+  it('글자 수는 입력이 실제로 끊기는 단위(원문 길이)로 센다', () => {
+    render(<AdminUserStatusDialog {...props} />);
+
+    // 앞 공백 2개 + 본문 3자 = 원문 5자. 공백을 걷어낸 길이를 세면 카운터엔 여유가 남았는데
+    // maxLength 는 원문으로 끊어서, 사용자는 왜 더 못 치는지 알 수 없게 된다.
+    fireEvent.change(screen.getByLabelText('정지 사유'), { target: { value: '  신고건' } });
+
+    expect(screen.getByText('5/200')).toBeInTheDocument();
+  });
+
+  it('상한을 넘는 사유가 들어오면 확인 버튼을 막는다 — maxLength 는 타이핑·붙여넣기만 끊는다', () => {
+    const onConfirm = vi.fn();
+    render(<AdminUserStatusDialog {...props} onConfirm={onConfirm} />);
+
+    // 드래그-드롭 삽입이나 자동입력 확장은 maxLength 를 통과한다. 그대로 보내면 서버가 400 을 낸다.
+    fireEvent.change(screen.getByLabelText('정지 사유'), { target: { value: '신'.repeat(201) } });
+
+    expect(screen.getByRole('button', { name: '계정 정지' })).toBeDisabled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it('대상이 동아리 회장이면 경고를 표시하되 정지를 막지는 않는다', () => {
     render(<AdminUserStatusDialog {...props} />);
     expect(screen.getByText(/두잉코드 동아리의 회장/)).toBeInTheDocument();
