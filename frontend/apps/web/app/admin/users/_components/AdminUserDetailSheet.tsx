@@ -159,7 +159,8 @@ export function AdminUserDetailSheetContent({
           value={note}
           maxLength={NOTE_MAX_LENGTH}
           // 상한에 걸려 저장이 막힌 사실은 스크린리더에도 닿아야 한다 — 라벨만으로는 전달되지 않는다.
-          aria-describedby="admin-note-length"
+          // 카운터가 없는 동안에는 참조를 걸지 않는다 — 없는 id 를 가리키면 접근성 검사가 위반으로 잡는다.
+          aria-describedby={showNoteLength ? 'admin-note-length' : undefined}
           onChange={(event) => setNote(event.target.value)}
           placeholder="이 회원에 대한 내부 메모를 남겨주세요"
           className="min-h-[84px] w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-2 focus-visible:border-ink focus-visible:outline-none"
