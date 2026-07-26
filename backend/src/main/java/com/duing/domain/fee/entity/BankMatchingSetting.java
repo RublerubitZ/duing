@@ -25,6 +25,8 @@ public class BankMatchingSetting extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    // ponytail: 외부 계좌 등록 개념이 사라져 active 와 항상 같은 값이다. 컬럼 drop 은 마이그레이션이
+    // 필요하고 기존 행(active=api_registered=true)도 그대로 유효해 급하지 않다 — 정리 시 V+1 로 drop.
     @Column(name = "api_registered", nullable = false)
     private boolean apiRegistered;
 
@@ -43,13 +45,13 @@ public class BankMatchingSetting extends BaseEntity {
                 .build();
     }
 
-    /** BANK API 등록을 완료하고 자동매칭을 켠다. */
+    /** 자동매칭을 켠다. */
     public void activate() {
         this.active = true;
         this.apiRegistered = true;
     }
 
-    /** 자동매칭과 API 등록을 모두 해제한다. */
+    /** 자동매칭을 끈다. */
     public void deactivate() {
         this.active = false;
         this.apiRegistered = false;

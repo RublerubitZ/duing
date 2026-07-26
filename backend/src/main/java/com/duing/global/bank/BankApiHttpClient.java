@@ -1,6 +1,5 @@
 package com.duing.global.bank;
 
-import com.duing.global.bank.dto.AccountSlotStatus;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
 import com.duing.global.bank.exception.BankApiException;
@@ -20,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -43,64 +41,13 @@ public class BankApiHttpClient implements BankApiClient {
 
     private static final DateTimeFormatter API_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private static final String CODE_ACCOUNT_ALREADY_REGISTERED = "ACCOUNT_ALREADY_REGISTERED";
-    private static final String CODE_ACCOUNT_LIMIT_EXCEEDED = "ACCOUNT_LIMIT_EXCEEDED";
-    private static final String CODE_ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
-    private static final String CODE_ACCOUNT_NOT_REGISTERED = "ACCOUNT_NOT_REGISTERED";
-    private static final String CODE_RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED";
+    // 제한(429) 계열 에러코드 — 동일 계좌 쿨다운 / 조회 한도 / 요청 한도.
+    private static final String CODE_ACCOUNT_COOLDOWN = "ACCOUNT_COOLDOWN";
+    private static final String CODE_QUERY_QUOTA_EXCEEDED = "QUERY_QUOTA_EXCEEDED";
+    private static final String CODE_TOO_MANY_REQUESTS = "TOO_MANY_REQUESTS";
 
     private final RestClient bankApiRestClient;
     private final ObjectMapper objectMapper;
-
-    @Override
-    public void registerAccount(String bankCode, String accountNumber) {
-        JsonNode response = post("/v1/accounts", Map.of(
-                "bankCode", bankCode,
-                "accountNumber", accountNumber));
-        if (isSuccess(response)) {
-            return;
-        }
-        ApiError error = extractError(response);
-        // 재등록은 실패가 아니다 — 이미 등록된 계좌는 멱등 성공으로 처리한다.
-        if (CODE_ACCOUNT_ALREADY_REGISTERED.equals(error.code())) {
-            return;
-        }
-        if (CODE_ACCOUNT_LIMIT_EXCEEDED.equals(error.code())) {
-            throw new BankApiException.AccountLimitExceededException();
-        }
-        throw toException(error, "계좌등록");
-    }
-
-    @Override
-    public void deleteAccount(String bankCode, String accountNumber) {
-        JsonNode response = delete("/v1/accounts", Map.of(
-                "bankCode", bankCode,
-                "accountNumber", accountNumber));
-        if (isSuccess(response)) {
-            return;
-        }
-        ApiError error = extractError(response);
-        // 미등록 계좌 삭제는 멱등 성공으로 처리한다(이미 등록 해제된 상태).
-        // 같은 "미등록" 의미를 ACCOUNT_NOT_FOUND·ACCOUNT_NOT_REGISTERED 두 코드로 응답할 수 있어 둘 다 멱등 처리한다.
-        if (CODE_ACCOUNT_NOT_FOUND.equals(error.code())
-                || CODE_ACCOUNT_NOT_REGISTERED.equals(error.code())) {
-            return;
-        }
-        throw toException(error, "계좌삭제");
-    }
-
-    @Override
-    public AccountSlotStatus getAccountStatus() {
-        JsonNode response = get("/v1/accounts");
-        if (!isSuccess(response)) {
-            throw toException(extractError(response), "계좌현황조회");
-        }
-        JsonNode data = response.path("data");
-        return new AccountSlotStatus(
-                data.path("registeredCount").asInt(),
-                data.path("maxAccounts").asInt(),
-                data.path("remaining").asInt());
-    }
 
     @Override
     public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
@@ -157,7 +104,9 @@ public class BankApiHttpClient implements BankApiClient {
         LocalDate date;
         LocalTime time;
         try {
-            date = LocalDate.parse(dateText);
+            // 거래일자는 은행에 따라 YYYY-MM-DD 또는 YYYY/MM/DD 로 온다(공식 문서). 슬래시를 하이픈으로
+            // 정규화해 두 형식을 모두 받는다 — 정규화 전에는 슬래시형 거래가 통째로 유실됐다.
+            date = LocalDate.parse(dateText.replace('/', '-'));
             String timeText = transaction.path("time").asText("");
             time = timeText.isBlank() ? LocalTime.MIDNIGHT : LocalTime.parse(timeText);
         } catch (DateTimeParseException malformed) {
@@ -198,20 +147,6 @@ public class BankApiHttpClient implements BankApiClient {
                 .uri(path)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
-                .exchange((request, clientResponse) -> readBody(clientResponse)));
-    }
-
-    private JsonNode delete(String path, Map<String, ?> body) {
-        return exchange("DELETE", () -> bankApiRestClient.method(HttpMethod.DELETE)
-                .uri(path)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .exchange((request, clientResponse) -> readBody(clientResponse)));
-    }
-
-    private JsonNode get(String path) {
-        return exchange("GET", () -> bankApiRestClient.get()
-                .uri(path)
                 .exchange((request, clientResponse) -> readBody(clientResponse)));
     }
 
@@ -265,12 +200,11 @@ public class BankApiHttpClient implements BankApiClient {
     }
 
     /**
-     * 두 가지 에러 형식을 모두 파싱한다.
-     * <ul>
-     *   <li>{@code {"error":"ACCOUNT_NOT_REGISTERED"}} — error 가 문자열이면 그대로 코드</li>
-     *   <li>{@code {"error":{"code":"RATE_LIMIT_EXCEEDED","message":...,"retryAfter":45}}} — 객체면 분해</li>
-     * </ul>
-     * retryAfter 는 바디(error.retryAfter) 우선, 없으면 Retry-After 헤더에서 보충한다.
+     * 에러 형식을 파싱한다. 현재 제공사 형식은 {@code {"success":false,"error":"ACCOUNT_COOLDOWN",
+     * "message":...,"retryAfterSec":540}} 로 error 가 문자열 코드이고 재시도 대기는 본문 최상위
+     * {@code retryAfterSec} 에 온다. 과거 객체형({@code error:{code,message,retryAfter}})도 함께 받는다.
+     *
+     * <p>대기 시간은 본문(retryAfterSec → error.retryAfter) 우선, 없으면 Retry-After 헤더로 보충한다.
      */
     private ApiError extractError(JsonNode response) {
         JsonNode errorNode = response.path("error");
@@ -286,6 +220,10 @@ public class BankApiHttpClient implements BankApiClient {
             if (errorNode.hasNonNull("retryAfter")) {
                 retryAfter = errorNode.path("retryAfter").asInt();
             }
+        }
+        // 현행 형식: 본문 최상위 retryAfterSec.
+        if (retryAfter == null && response.hasNonNull("retryAfterSec")) {
+            retryAfter = response.path("retryAfterSec").asInt();
         }
         if (retryAfter == null && response.hasNonNull("__retryAfterHeader")) {
             try {
@@ -306,21 +244,16 @@ public class BankApiHttpClient implements BankApiClient {
         String code = error.code();
         int status = error.status();
 
-        if (CODE_RATE_LIMIT_EXCEEDED.equals(code) || status == 429) {
+        if (status == 429
+                || CODE_ACCOUNT_COOLDOWN.equals(code)
+                || CODE_QUERY_QUOTA_EXCEEDED.equals(code)
+                || CODE_TOO_MANY_REQUESTS.equals(code)) {
             log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);
             return new BankApiException.RateLimitExceededException(error.retryAfter());
         }
         if (status == 401 || status == 403) {
             log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);
             return new BankApiException.AuthFailedException();
-        }
-        if (CODE_ACCOUNT_NOT_FOUND.equals(code) || CODE_ACCOUNT_NOT_REGISTERED.equals(code)) {
-            log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);
-            return new BankApiException.AccountNotRegisteredException();
-        }
-        if (CODE_ACCOUNT_LIMIT_EXCEEDED.equals(code)) {
-            log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);
-            return new BankApiException.AccountLimitExceededException();
         }
         // 분류되지 않은 에러코드·5xx·400 등은 일반 실패로 처리한다(message 는 민감 가능 → 로깅 금지).
         log.warn("BANK API {} 실패: status={}, code={}", operation, status, code);

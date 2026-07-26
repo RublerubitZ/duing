@@ -19,10 +19,8 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
-import com.duing.global.bank.dto.AccountSlotStatus;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
-import com.duing.global.bank.exception.BankApiException;
 import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -50,55 +48,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class AdminBankMatchingControllerTest extends IntegrationTestBase {
 
     /**
-     * 외부 BANK API 를 대체하는 제어 가능한 stub. 테스트마다 동작(등록 성공 / 한도 초과 throw / 슬롯 현황)을
-     * 조정할 수 있고, 호출 인자와 호출 순서를 기록해 원자성(외부 호출이 DB 변이보다 먼저인지)을 검증한다.
+     * 외부 BANK API 를 대체하는 stub. 자동매칭 허용/해제·현황 조회는 외부 호출이 전혀 없는 경로라
+     * 호출을 기록할 것이 없고, 실 HTTP 클라이언트가 테스트에서 뜨지 않도록 막는 역할만 한다.
      */
     static class StubBankApiClient implements BankApiClient {
 
-        // 호출 순서를 기록한다 — "registerAccount" 가 setActive 의 DB 변이보다 먼저 일어났는지 증명용.
+        // 호출되면 안 되는 경로임을 드러낸다 — 이 stub 이 불리면 테스트가 실패한다.
         final List<String> calls = new ArrayList<>();
-        final List<String> registeredBankCodes = new ArrayList<>();
-        final List<String> registeredAccountNumbers = new ArrayList<>();
-
-        // register 가 던질 예외를 주입하면 등록 실패를 시뮬레이션한다(null 이면 성공).
-        volatile RuntimeException registerFailure;
-        volatile AccountSlotStatus slotStatus = new AccountSlotStatus(0, 5, 5);
-        // getAccountStatus 가 던질 예외를 주입하면 BANK API 슬롯 조회 장애를 시뮬레이션한다(null 이면 정상).
-        volatile RuntimeException accountStatusFailure;
 
         void reset() {
             calls.clear();
-            registeredBankCodes.clear();
-            registeredAccountNumbers.clear();
-            registerFailure = null;
-            slotStatus = new AccountSlotStatus(0, 5, 5);
-            accountStatusFailure = null;
-        }
-
-        @Override
-        public void registerAccount(String bankCode, String accountNumber) {
-            calls.add("registerAccount");
-            registeredBankCodes.add(bankCode);
-            registeredAccountNumbers.add(accountNumber);
-            if (registerFailure != null) {
-                throw registerFailure;
-            }
-        }
-
-        @Override
-        public void deleteAccount(String bankCode, String accountNumber) {
-            calls.add("deleteAccount");
-            registeredBankCodes.add(bankCode);
-            registeredAccountNumbers.add(accountNumber);
-        }
-
-        @Override
-        public AccountSlotStatus getAccountStatus() {
-            calls.add("getAccountStatus");
-            if (accountStatusFailure != null) {
-                throw accountStatusFailure;
-            }
-            return slotStatus;
         }
 
         @Override
@@ -184,75 +143,43 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("적격 동아리 자동매칭을 활성화하면 복호화된 계좌번호로 registerAccount 가 호출되고 설정이 active=api_registered=true 가 된다")
-    void activateEligibleClubRegistersAndPersists() {
+    @DisplayName("적격 동아리 자동매칭을 활성화하면 설정이 active=api_registered=true 가 된다")
+    void activateEligibleClubPersists() {
         Long clubId = saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
 
         putBankMatchingAs(adminToken, clubId, true, HttpStatus.NO_CONTENT.value());
 
-        // 외부 등록이 호출되고 올바른 은행 코드로 전달됐다.
-        assertThat(stubBankApiClient.calls).contains("registerAccount");
-        assertThat(stubBankApiClient.registeredBankCodes).containsExactly("NH");
-        // 복호화된 평문 계좌번호가 그대로 외부 등록에 전달됐다 — 복호화 + 전달 경로를 증명한다.
-        assertThat(stubBankApiClient.registeredAccountNumbers).containsExactly("352-1234-5678-90");
-
-        // 외부 등록 성공 후에야 DB 설정이 사용 가능 상태로 반영됐다.
         Map<String, Object> setting = jdbcTemplate.queryForMap(
                 "SELECT active, api_registered FROM bank_matching_setting WHERE club_id = ?", clubId);
         assertThat(setting.get("active")).isEqualTo(true);
         assertThat(setting.get("api_registered")).isEqualTo(true);
+        // 제공사에 계좌 등록 개념이 없으므로 허용 처리에 외부 호출이 끼어들지 않는다.
+        assertThat(stubBankApiClient.calls).isEmpty();
     }
 
     @Test
-    @DisplayName("BANK API 등록이 한도 초과로 실패하면 400 을 반환하고 설정은 변경되지 않으며, registerAccount 가 DB 변이보다 먼저 호출된다(원자성)")
-    void registerFailureLeavesDbUnchanged() {
-        Long clubId = saveClubWithAccount("한도초과동아리", Bank.KB, "111-222-333");
-        // stub 이 등록 시 한도 초과 예외를 던지도록 설정한다.
-        stubBankApiClient.registerFailure = new BankApiException.AccountLimitExceededException();
-
-        putBankMatchingAs(adminToken, clubId, true, HttpStatus.BAD_REQUEST.value());
-
-        // 외부 호출은 시도됐다(원자성: 외부 등록이 선행).
-        assertThat(stubBankApiClient.calls).contains("registerAccount");
-
-        // 등록 실패 후 DB 설정은 미변경 — 트랜잭션 롤백으로 행이 없거나(null), 있더라도 active=false 다.
-        // activate() 는 registerAccount 성공 이후에만 도달하므로 active·api_registered 둘 다 true 가 될 수 없다(원자성).
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT active, api_registered FROM bank_matching_setting WHERE club_id = ? AND deleted_at IS NULL",
-                clubId);
-        if (!rows.isEmpty()) {
-            assertThat(rows.get(0).get("active"))
-                    .as("등록 실패 시 active 는 true 로 바뀌지 않아야 한다(원자성)").isEqualTo(false);
-            assertThat(rows.get(0).get("api_registered"))
-                    .as("등록 실패 시 api_registered 도 true 로 바뀌지 않아야 한다(부분 변이 금지)").isEqualTo(false);
-        }
-    }
-
-    @Test
-    @DisplayName("회비 계좌가 없는 동아리의 자동매칭을 활성화하면 409 를 반환한다")
+    @DisplayName("회비 계좌가 없는 동아리의 자동매칭을 활성화하면 409 를 반환하고 설정이 생기지 않는다")
     void activateWithoutFeeAccountConflict() {
         Club club = clubRepository.save(ClubFixture.academic("계좌없는동아리"));
 
         putBankMatchingAs(adminToken, club.getId(), true, HttpStatus.CONFLICT.value());
 
-        // 계좌가 없으면 외부 등록을 시도하지 않는다.
-        assertThat(stubBankApiClient.calls).doesNotContain("registerAccount");
+        assertThat(readSettingActive(club.getId())).isNull();
     }
 
     @Test
-    @DisplayName("지원하지 않는 은행(신한) 계좌 동아리의 자동매칭을 활성화하면 400 을 반환한다")
+    @DisplayName("지원하지 않는 은행(신한) 계좌 동아리의 자동매칭을 활성화하면 400 을 반환하고 설정이 생기지 않는다")
     void activateUnsupportedBankBadRequest() {
         Long clubId = saveClubWithAccount("신한동아리", Bank.SHINHAN, "100-200-300");
 
         putBankMatchingAs(adminToken, clubId, true, HttpStatus.BAD_REQUEST.value());
 
-        // 미지원 은행이면 외부 등록을 시도하지 않는다.
-        assertThat(stubBankApiClient.calls).doesNotContain("registerAccount");
+        assertThat(readSettingActive(clubId)).isNull();
     }
 
     @Test
-    @DisplayName("활성화된 동아리의 자동매칭을 비활성화하면 deleteAccount 가 호출되고 설정이 active=false 가 된다")
-    void deactivateCallsDeleteAndPersists() {
+    @DisplayName("활성화된 동아리의 자동매칭을 비활성화하면 설정이 active=false 가 된다")
+    void deactivatePersists() {
         Long clubId = saveClubWithAccount("우리동아리", Bank.WOORI, "1002-345-678901");
 
         // 먼저 활성화한다.
@@ -262,7 +189,6 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
         // 비활성화한다.
         putBankMatchingAs(adminToken, clubId, false, HttpStatus.NO_CONTENT.value());
 
-        assertThat(stubBankApiClient.calls).contains("deleteAccount");
         assertThat(readSettingActive(clubId)).isFalse();
         Boolean apiRegistered = jdbcTemplate.queryForObject(
                 "SELECT api_registered FROM bank_matching_setting WHERE club_id = ?", Boolean.class, clubId);
@@ -276,45 +202,41 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
 
         putBankMatchingAs(studentToken, clubId, true, HttpStatus.FORBIDDEN.value());
 
-        // 권한 차단으로 외부 호출에 도달하지 않는다.
-        assertThat(stubBankApiClient.calls).doesNotContain("registerAccount");
+        assertThat(readSettingActive(clubId)).isNull();
     }
 
     @Test
-    @DisplayName("ADMIN 이 자동매칭 현황을 조회하면 동아리별 적격·등록 상태와 슬롯 현황이 반환된다")
-    void overviewReturnsClubsAndSlots() {
+    @DisplayName("ADMIN 이 자동매칭 현황을 조회하면 동아리별 적격·등록 상태와 등록 동아리 수가 반환된다")
+    void overviewReturnsClubsAndRegisteredCount() {
         Long eligibleClubId = saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
         saveClubWithAccount("미지원동아리", Bank.SHINHAN, "100-200-300");
         putBankMatchingAs(adminToken, eligibleClubId, true, HttpStatus.NO_CONTENT.value());
-        stubBankApiClient.slotStatus = new AccountSlotStatus(1, 5, 4);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get("/api/v1/admin/clubs/bank-matching")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.clubs.size()", equalTo(2))
-                .body("data.slots.registeredCount", equalTo(1))
-                .body("data.slots.maxAccounts", equalTo(5))
-                .body("data.slots.remaining", equalTo(4))
+                .body("data.registeredCount", equalTo(1))
                 .body("data.clubs.find { it.clubName == '미지원동아리' }.bank", equalTo("SHINHAN"));
     }
 
     @Test
-    @DisplayName("BANK API 슬롯 조회가 장애로 실패해도 현황 조회는 동아리 목록을 반환하고 슬롯만 비운다")
-    void overviewDegradesWhenBankApiDown() {
+    @DisplayName("현황 조회는 외부 BANK API 를 호출하지 않고 등록 수를 채운다(슬롯 조회 404 회귀 방지)")
+    void overviewNeedsNoExternalCall() {
         saveClubWithAccount("적격동아리", Bank.NH, "352-1234-5678-90");
         saveClubWithAccount("미지원동아리", Bank.SHINHAN, "100-200-300");
-        // BANK API 슬롯 조회가 일시 장애로 예외를 던지도록 설정한다.
-        stubBankApiClient.accountStatusFailure = new BankApiException.BankApiCallFailedException();
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get("/api/v1/admin/clubs/bank-matching")
                 .then().statusCode(HttpStatus.OK.value())
-                // 외부 호출이 필요 없는 동아리 목록은 그대로 반환된다.
                 .body("data.clubs.size()", equalTo(2))
-                // 슬롯 현황만 비워진다(graceful degrade) — 502 로 페이지 전체가 죽지 않는다.
-                .body("data.slots", nullValue());
+                // 등록 수는 항상 채워진다 — 예전처럼 외부 장애로 비는(null) 경우가 없다.
+                .body("data.registeredCount", equalTo(0));
+
+        // 존재하지 않는 /v1/accounts 를 부르던 경로가 완전히 사라졌다.
+        assertThat(stubBankApiClient.calls).isEmpty();
     }
 
     @Test

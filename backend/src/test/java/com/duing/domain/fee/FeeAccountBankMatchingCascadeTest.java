@@ -14,7 +14,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
-import com.duing.global.bank.dto.AccountSlotStatus;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
 import com.duing.global.crypto.FeeAccountCipher;
@@ -42,36 +41,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
 
-    /** 외부 BANK API 대체 stub. deleteAccount 실패를 주입해 never-block 정책을 검증한다. */
+    /** 외부 BANK API 대체 stub. 계좌 삭제 연쇄는 외부 호출이 없는 경로라 호출 여부만 기록한다. */
     static class StubBankApiClient implements BankApiClient {
         final List<String> calls = new ArrayList<>();
-        volatile RuntimeException deleteFailure; // null 이면 성공
 
         void reset() {
             calls.clear();
-            deleteFailure = null;
-        }
-
-        @Override
-        public void registerAccount(String bankCode, String accountNumber) {
-            calls.add("registerAccount");
-        }
-
-        @Override
-        public void deleteAccount(String bankCode, String accountNumber) {
-            calls.add("deleteAccount");
-            if (deleteFailure != null) {
-                throw deleteFailure;
-            }
-        }
-
-        @Override
-        public AccountSlotStatus getAccountStatus() {
-            return new AccountSlotStatus(0, 5, 5);
         }
 
         @Override
         public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
+            calls.add("getTransactions");
             return List.of();
         }
     }
@@ -196,7 +176,7 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("자동매칭 활성 계좌를 운영진이 삭제하면 외부 deleteAccount 가 호출되고 설정이 비활성화되며 계좌가 soft delete 된다")
+    @DisplayName("자동매칭 활성 계좌를 운영진이 삭제하면 설정이 비활성화되고 계좌가 soft delete 된다")
     void deleteActiveAccountCascades() {
         leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
         adminSetActive(true);
@@ -205,41 +185,27 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
 
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
-        assertThat(stubBankApiClient.calls).containsExactly("deleteAccount");
         assertThat(readSettingActive()).isFalse();
         assertThat(feeAccountExists()).isFalse();
+        // 정리할 외부 등록이 없으므로 삭제 연쇄는 외부 호출 없이 끝난다.
+        assertThat(stubBankApiClient.calls).isEmpty();
     }
 
     @Test
-    @DisplayName("외부 deleteAccount 가 실패해도 계좌 삭제는 성공하고 설정이 강제 비활성화된다(never-block)")
-    void deleteNeverBlockedByExternalFailure() {
-        leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
-        adminSetActive(true);
-        stubBankApiClient.deleteFailure = new RuntimeException("BANK API down");
-        stubBankApiClient.calls.clear();
-
-        leaderDelete(HttpStatus.NO_CONTENT.value());
-
-        assertThat(stubBankApiClient.calls).containsExactly("deleteAccount");
-        assertThat(readSettingActive()).isFalse();
-        assertThat(feeAccountExists()).isFalse();
-    }
-
-    @Test
-    @DisplayName("자동매칭 설정이 없는 계좌 삭제는 외부 호출 없이 soft delete 된다")
-    void deleteWithoutSettingSkipsExternal() {
+    @DisplayName("자동매칭 설정이 없는 계좌도 정상적으로 soft delete 된다")
+    void deleteWithoutSettingSucceeds() {
         leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
         stubBankApiClient.calls.clear();
 
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
-        assertThat(stubBankApiClient.calls).doesNotContain("deleteAccount");
         assertThat(feeAccountExists()).isFalse();
+        assertThat(stubBankApiClient.calls).isEmpty();
     }
 
     @Test
-    @DisplayName("계좌 복호화가 실패해도(키 회전·암호문 손상) 삭제는 성공하고 설정이 강제 비활성화된다(never-block)")
-    void deleteNeverBlockedByDecryptFailure() {
+    @DisplayName("계좌 복호화가 실패해도(키 회전·암호문 손상) 삭제는 성공하고 설정이 비활성화된다")
+    void deleteNotBlockedByDecryptFailure() {
         leaderUpsert("NH", "352-1234-5678-90", "총무", HttpStatus.OK.value());
         adminSetActive(true);
         assertThat(readSettingActive()).isTrue();
@@ -252,9 +218,7 @@ class FeeAccountBankMatchingCascadeTest extends IntegrationTestBase {
 
         leaderDelete(HttpStatus.NO_CONTENT.value());
 
-        // 복호화가 외부 호출보다 먼저 실패하므로 deleteAccount 는 호출되지 못하지만,
-        // 삭제는 성공하고 설정은 강제 비활성화된다(never-block).
-        assertThat(stubBankApiClient.calls).doesNotContain("deleteAccount");
+        // 삭제 경로는 계좌번호를 복호화하지 않으므로 손상된 암호문도 삭제를 막지 못한다.
         assertThat(readSettingActive()).isFalse();
         assertThat(feeAccountExists()).isFalse();
     }
