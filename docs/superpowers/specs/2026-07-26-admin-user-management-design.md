@@ -1,0 +1,360 @@
+# 총동연 콘솔 — 회원 관리 운영 기능 (상세·계정 정지·관리자 메모·감사 로그)
+
+- 날짜: 2026-07-26
+- 대상: 총동연(ADMIN) 콘솔의 회원 관리 화면 `/admin/users`
+- 분리: PR-1(BE 인프라) → PR-2(BE 기능 API) → PR-3(FE 기능) → PR-4(FE 리디자인·KPI, 후속)
+
+---
+
+## 배경 / 현재 상태
+
+`/admin/users`는 지금 **검색 + 강제 로그아웃**만 가능한 조회 화면이다. 회원 한 명에 대해 운영자가 판단할 근거(가입 정보, 소속 동아리, 과거 조치 이력)가 없고, 문제 계정을 막을 수단도 없다.
+
+### 현재 코드
+
+- 화면: `frontend/apps/web/app/admin/users/_pages/AdminUsersPage.tsx` (108줄) — 검색 입력 + `AdminUsersTable` + `AdminForceLogoutDialog`
+- API: `AdminUserController` — `GET /admin/users?q=`(검색), `POST /admin/users/{userId}/force-logout`
+- 강제 로그아웃: `GeneralUserService.forceLogout` — 행잠금 → `bumpTokenVersion()` → `authSessionService.revokeAll(ADMIN_FORCE)`. 감사는 `log.info` 한 줄뿐(DB 기록 없음)
+
+### 코드 실사에서 확인된 제약
+
+1. **이메일은 이 플랫폼에 없다.** `V81__drop_users_email_and_email_verifications.sql`에서 컬럼·테이블 모두 드롭됐다. 로그인은 학번+비밀번호, 본인확인은 MO 휴대폰 인증(`users.phone_verified_at`)이다. → 원 요구사항의 "학교 이메일", "이메일 인증 여부"는 **휴대폰 번호 / 휴대폰 인증 여부**로 대체한다.
+2. **프로필 이미지도 없다.** `User`에 이미지 필드가 없다. → 이름 첫 글자 이니셜 Avatar를 쓴다.
+3. **권한은 2단계뿐이다.** `UserRole { STUDENT, ADMIN }` — SUPER_ADMIN은 존재하지 않는다.
+4. **범용 감사 테이블이 없다.** `auth_event`가 있으나 (a) 90일 후 물리 삭제(`AuthSessionCleanupJob`), (b) 작업자(actor) 컬럼 없음, (c) 메모 수정은 인증 이벤트가 아니다. → 재사용하지 않는다.
+5. **"마지막 로그인"을 담는 durable한 소스가 없다.** `auth_event`(LOGIN)는 90일 보존, `auth_session.last_used_at`은 rotation마다 갱신되어 실제로는 "마지막 토큰 갱신 시각"이다.
+6. **회원 검색은 검색어가 필수다.** `GeneralUserService.searchForAdmin`이 빈 `q`에 `InvalidSearchQueryException`(400)을 던진다. 정지시킨 회원을 다시 찾을 경로가 없다.
+7. **검색 JPQL에 `ORDER BY`가 없다.** `UserRepository.searchForAdmin` — 지금은 검색 결과가 적어 드러나지 않지만, `q`를 optional로 열면 페이지 간 행 중복·누락이 발생한다.
+8. **회장 번호 조회는 재사용 불가.** `GET /clubs/{clubId}/members/{memberId}/phone`은 첫 줄이 `clubAuthService.requireLeader(requesterId, clubId)`이고 `clubId`+`memberId`(ClubMember PK) 스코프다. ADMIN 회원 관리 화면에는 둘 다 없고 대상이 무소속이면 경로 자체가 없다. → **엔드포인트는 새로 만들되 정책은 그대로 따른다**(마스킹·no-store·PHONE_VIEW 로그·`useMutation`).
+
+---
+
+## 목표
+
+회원 관리 화면을 조회 전용에서 **플랫폼 운영 화면**으로 바꾼다. 운영자가 한 회원에 대해 판단하고(상세), 조치하고(정지/해제/강제 로그아웃), 맥락을 남기고(메모), 그 조치가 추적 가능(감사 로그)하게 한다.
+
+회원 정보 **직접 수정은 하지 않는다**. 조회 중심 + 운영 조치만 제공한다.
+
+---
+
+## PR-1 (백엔드) — 스키마 · 상태 차단 · 목록 필터
+
+### V94 마이그레이션
+
+```sql
+-- 계정 상태: ACTIVE(정상) / SUSPENDED(이용 정지). 정지는 로그인·API 접근 차단이며 탈퇴(soft delete)와 별개다.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+-- 마지막 로그인. 기존 회원은 백필하지 않는다(90일치 auth_event 외에 소스가 없음) — NULL = "기록 없음".
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
+
+-- 관리자 내부 메모. 사용자에게 절대 노출되지 않는다(ADMIN 전용 응답에만 포함).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_note TEXT;
+
+-- 관리자 조치 감사 로그. append-only, 보존기간 없음(auth_event 와 달리 cleanup 잡 대상이 아니다).
+-- 개인정보(번호·이름)와 메모 본문은 저장하지 않는다 — 사실 관계만 남기고 값은 users 조인으로 해석한다.
+CREATE TABLE admin_user_action_log (
+    id             BIGSERIAL PRIMARY KEY,
+    actor_user_id  BIGINT      NOT NULL REFERENCES users (id),
+    target_user_id BIGINT      NOT NULL REFERENCES users (id),
+    action         VARCHAR(40) NOT NULL,
+    reason         VARCHAR(500),
+    created_at     TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMP   NOT NULL DEFAULT NOW(),
+    deleted_at     TIMESTAMP
+);
+CREATE INDEX idx_admin_user_action_log_target ON admin_user_action_log (target_user_id, id DESC);
+```
+
+`status`에 `DEFAULT 'ACTIVE'`를 두는 이유: 롤백 안전성. 이 컬럼을 모르는 이전 버전 애플리케이션이 붙어도 INSERT가 깨지지 않는다(V90 `restore_rollback_safe_defaults` 전례).
+
+### 엔티티
+
+- `UserStatus { ACTIVE, SUSPENDED }` (`domain/user/entity`)
+- `User`에 필드 추가: `status`(`@Enumerated(STRING)`, NOT NULL), `lastLoginAt`, `adminNote`
+- `User` 메서드 추가:
+  - `boolean isActive()` — `status == ACTIVE`
+  - `void suspend()` / `void unsuspend()` — 상태 전환만. 세션 폐기는 서비스가 조율한다
+  - `void changeAdminNote(String note)` — 빈 문자열은 그대로 저장(= 메모 비우기)
+  - `recordSuccessfulLogin(LocalDateTime now)` — 기존 시그니처에 `now`를 받아 `lastLoginAt`을 함께 갱신
+- `AdminUserActionLog` (`domain/user/entity`) — `BaseEntity` 상속, append-only(수정 메서드 없음). `AuthEvent`와 동일한 형태를 따른다
+- `AdminUserAction { ACCOUNT_SUSPENDED, ACCOUNT_UNSUSPENDED, FORCE_LOGOUT, ADMIN_NOTE_UPDATED, PHONE_REVEALED }`
+
+`AdminUserActionLog`는 `deleted_at`을 갖지만 항상 NULL이다(`BaseEntity` 일관성). `@SQLDelete`/`@SQLRestriction`을 붙이지 않는다.
+
+**작업자 이름은 스냅샷하지 않는다.** `actor_user_id`만 저장하고 표시할 때 `users` 조인으로 해석한다. 이름도 개인정보이므로 감사 테이블에 복제하지 않는다는 원칙과 일치한다. 관리자 계정이 탈퇴·익명화되면 익명화된 이름이 그대로 보인다(의도됨).
+
+### 정지 계정 차단
+
+두 지점에서 막는다.
+
+1. **로그인** — `GeneralUserService.login`, **비밀번호 검증을 통과한 직후**에 확인한다.
+   ```java
+   if (!passwordEncoder.matches(...)) { ...기존 실패 처리... }
+   if (!user.isActive()) {
+       throw new UserException.AccountSuspendedException();
+   }
+   user.recordSuccessfulLogin(now);
+   ```
+   비밀번호 검증 **뒤**에 두는 것이 중요하다. 앞에 두면 학번만 아는 제3자에게 "이 계정은 정지 상태"라는 정보가 새어나간다(계정 열거 + 상태 노출).
+
+2. **`JwtAuthenticationFilter`** — 이미 User를 로드하므로 `token_version` 비교 옆에 한 조건을 더한다.
+   ```java
+   .filter(user -> user.getTokenVersion() == claims.tokenVersion() && user.isActive())
+   ```
+   refresh rotation 경로는 정지 시 `revokeAll`이 세션을 죽여 `session.isUsable`에서 이미 막히므로 별도 처리하지 않는다.
+
+`AccountSuspendedException` — `HttpStatus.FORBIDDEN` + code `ACCOUNT_SUSPENDED`(`PasswordResetNotAllowedException` 전례). 메시지: `정지된 계정입니다. 총동아리연합회로 문의해 주세요.`
+
+### 목록 조회 개선
+
+`GET /api/v1/admin/users`
+
+| 파라미터 | 변경 |
+|---|---|
+| `q` | **필수 → 선택**. 비어 있으면 전체 대상 |
+| `status` | **신규**. `ACTIVE` / `SUSPENDED`. **생략 = 전체(ALL)** — `ALL` 이라는 값을 따로 두지 않는다 |
+
+- `InvalidSearchQueryException`(빈 q 400)을 제거한다.
+- JPQL에 조건과 정렬을 넣는다. 기본 정렬 **`createdAt DESC, id DESC`** — `id`를 tie-breaker로 둬야 같은 초에 가입한 행들의 페이지 경계가 안정적이다. 정렬 화이트리스트(`studentId`/`name`/`createdAt`)는 유지하고, 명시적 sort가 오면 그 뒤에 `id DESC`를 덧붙인다.
+- 응답 `AdminUserSearchResponse`에 `status` 추가. **휴대폰은 목록에 넣지 않는다**(개인정보 노출 표면 최소화 — 결정 D-7).
+
+### PR-1 테스트
+
+- 정지 계정 로그인 → 403 + `ACCOUNT_SUSPENDED`
+- 정지 계정의 기존 액세스 토큰으로 보호 API 호출 → 401
+- 해제 후 로그인 → 200
+- 로그인 성공 시 `last_login_at` 갱신
+- 빈 `q` + `status=SUSPENDED` → 정지 회원만, `q` 없이 전체 조회 시 `createdAt DESC, id DESC` 정렬
+- 정렬 화이트리스트 밖 필드 요청 → 400 (기존 동작 유지)
+
+---
+
+## PR-2 (백엔드) — 상세 · 상태 변경 · 메모 · 번호 조회
+
+모든 엔드포인트는 `AdminUserController`(클래스 레벨 `@PreAuthorize("hasRole('ADMIN')")`)에 추가한다. `api/AdminUserApi.java`에 Swagger 인터페이스를 먼저 정의한다.
+
+### `GET /api/v1/admin/users/{userId}` — 회원 상세
+
+```jsonc
+{
+  "id": 12,
+  "name": "정우진",
+  "studentId": "2023118902",
+  "grade": "SOPHOMORE",
+  "college": "IT_ENGINEERING",
+  "major": "전자공학과",
+  "role": "STUDENT",
+  "maskedPhone": "010-****-9983",     // PhoneMasker.mask() — 원본은 별도 엔드포인트
+  "phoneVerified": true,               // phoneVerifiedAt != null
+  "phoneVerifiedAt": "2024-03-04T...",
+  "status": "SUSPENDED",
+  "createdAt": "2024-03-04T...",       // 가입일
+  "lastLoginAt": null,                 // null = "기록 없음"
+  "adminNote": "커뮤니티 신고 3건 누적으로 정지.",
+  "adminNoteUpdatedAt": "2026-07-24T14:02:00",  // 최신 ADMIN_NOTE_UPDATED 로그에서 파생
+  "adminNoteUpdatedBy": "김운영",                // 〃 (actor 이름). 기록 없으면 둘 다 null
+  "clubs": [
+    { "clubId": 3, "clubName": "두잉코드", "role": "LEADER", "joinedAt": "2023-03-02T..." }
+  ],
+  "recentActions": [
+    { "action": "ACCOUNT_SUSPENDED", "actorName": "김운영", "reason": "신고 누적", "at": "2026-07-25T..." }
+  ]
+}
+```
+
+- **soft-deleted(탈퇴) 회원은 404** — `@SQLRestriction`으로 조회되지 않는다.
+- `clubs` — `ClubMemberRepository`에 사용자 스코프 프로젝션 쿼리를 추가한다(기존 `findClubIdsByUserId`는 id만 반환). 폐쇄된 동아리는 `@SQLRestriction`으로 자동 제외. 가입 동아리 수는 배열 길이로 충분하므로 별도 필드를 두지 않는다.
+- `recentActions` — **`PHONE_REVEALED`는 제외**하고 최근 20건. 개인정보 열람은 감사 대상이지 운영 조치가 아니며, 섞으면 정지·해제 같은 실제 조치가 열람 기록에 묻힌다(결정 D-5). 페이지네이션은 두지 않는다.
+- `adminNoteUpdatedAt/By` — 최신 `ADMIN_NOTE_UPDATED` 1행에서 파생한다. **`users`에 컬럼을 추가하지 않는다** — 같은 사실을 두 곳에 저장하면 한쪽만 갱신되는 순간 어긋난다(결정 D-9).
+- `recentActions`와 `adminNoteUpdatedBy`가 모두 작업자 이름을 필요로 하므로 actor 이름 해석 경로는 하나로 공유한다.
+
+### `PATCH /api/v1/admin/users/{userId}/status` — 계정 상태 변경
+
+요청: `{ "status": "SUSPENDED", "reason": "커뮤니티 신고 3건 누적" }`
+응답: **204 No Content**
+
+- `reason` — `@NotBlank`, `@Size(max = 200)`. **정지·해제 모두 필수.** "왜 풀었는지"가 나중에 더 문제가 된다.
+- **동일 상태면 무동작**: 행잠금 후 현재 상태와 같으면 아무것도 하지 않고 204. 버튼 연타가 감사 이력을 오염시키는 것을 막는다.
+- **정지 집행** (`forceLogout`과 동일한 순서):
+  ```java
+  User target = userRepository.findByIdForUpdate(userId)   // token_version lost update 방지
+          .orElseThrow(UserException.UserNotFoundException::new);
+  // ...보호 정책 검증, 동일 상태 조기 반환...
+  target.suspend();
+  target.bumpTokenVersion();
+  authSessionService.revokeAll(target.getId(), SessionRevokeReason.ADMIN_FORCE);
+  actionLogRepository.save(AdminUserActionLog.of(actorId, userId, ACCOUNT_SUSPENDED, reason));
+  ```
+- **해제**는 상태 전환 + 로그만. 토큰 버전을 되돌리지 않는다(되돌릴 수 없고, 재로그인하면 그만이다).
+
+#### 관리자 보호 정책
+
+| 규칙 | 응답 |
+|---|---|
+| 자기 자신 정지 금지 | 400 `SELF_SUSPEND_NOT_ALLOWED` |
+| 다른 ADMIN 계정 정지 금지 | 400 `ADMIN_SUSPEND_NOT_ALLOWED` |
+
+`UserRole`이 2단계뿐이라 "마지막 SUPER_ADMIN 보호"는 적용 대상이 없다. ADMIN 계정 자체를 아무도 정지시킬 수 없으므로 전원 잠금 위험이 구조적으로 존재하지 않는다.
+
+**강제 로그아웃에는 이 제약을 걸지 않는다.** 계정이 잠기지 않고 재로그인하면 복구되므로 자기 자신·다른 ADMIN 모두 허용한다(현행 동작 유지).
+
+### `PUT /api/v1/admin/users/{userId}/admin-note` — 관리자 메모 저장
+
+요청: `{ "note": "..." }` — `@Size(max = 1000)`, `null` 불가(비우려면 빈 문자열)
+응답: **204 No Content**
+
+- 사용자 대면 응답(`UserResponse` 등)에 `adminNote`가 절대 포함되지 않아야 한다. 회귀 테스트로 고정한다.
+- **빈 문자열 저장(메모 삭제)도 `ADMIN_NOTE_UPDATED`로 기록한다.** "누가 메모를 지웠는지"가 오히려 더 중요한 이력이다.
+- 감사 로그에 **메모 본문을 넣지 않는다**(`reason`은 null). 넣으면 내부 메모가 감사 테이블에 복제돼 보존·삭제 정책이 둘로 갈린다.
+
+### `GET /api/v1/admin/users/{userId}/phone` — 원본 번호 조회
+
+응답: `{ "phone": "010-2210-9983" }` + `Cache-Control: no-store`
+
+기존 회장 번호 조회(`ClubMemberController.getMemberPhone`)와 **동일한 개인정보 조회 정책**을 따른다. `Pragma`/`Expires`는 추가하지 않는다 — `Pragma`는 RFC 7234에서 요청 헤더로만 정의돼 응답에서 의미가 없고, `Expires`는 `Cache-Control`이 있으면 무시된다. 기존 엔드포인트와 다르게 만들 실익 없이 "왜 여기만 다른가"라는 유지보수 비용만 생긴다(결정 D-10).
+
+**⚠️ 이 메서드는 조회가 아니라 쓰기다.** 감사 로그를 INSERT하므로 클래스 레벨 `@Transactional(readOnly = true)`에 걸리면 H2에서는 통과하고 실제 Postgres에서 500이 난다(이 레포에 전례가 있다). 반드시 쓰기 트랜잭션으로 명시 분리하고, TestContainers(Postgres) 통합 테스트로 콜드 경로를 검증한다.
+
+**감사 기록과 번호 반환은 같은 트랜잭션에 묶는다.** 기록이 실패했는데 번호가 나가면 "감사 없는 개인정보 열람"이 된다.
+
+기존 서버 로그 형식(`log.info("... action=PHONE_VIEW")`)도 함께 유지한다 — 번호 값은 절대 로그에 남기지 않는다.
+
+### `POST /api/v1/admin/users/{userId}/force-logout` — 기존, 감사 로그만 추가
+
+동작 변경 없음. `AdminUserActionLog(FORCE_LOGOUT, reason=null)` 기록을 추가한다.
+
+### PR-2 테스트
+
+- 상세 조회: 가입 동아리·역할·가입일 반영, 탈퇴 회원 404, `recentActions`에 `PHONE_REVEALED` 미포함, `adminNoteUpdatedAt/By`가 최신 메모 로그에서 파생
+- 상태 변경: 정지 시 세션 전부 폐기 + `token_version` 증가 + 로그 1건, 동일 상태 재요청 시 로그 미생성, 사유 누락 400, 자기 자신·ADMIN 대상 400
+- 메모: 1000자 초과 400, 빈 문자열 저장 시 로그 기록, 사용자 대면 응답에 `adminNote` 미포함
+- 번호 조회: **실제 Postgres에서 200 + 로그 1건**(readOnly 함정 회귀), `Cache-Control: no-store` 헤더
+- 강제 로그아웃: 로그 1건 추가 기록(기존 동작 회귀 없음)
+
+---
+
+## PR-3 (프론트) — 기능 구현
+
+**기존 레포 스타일을 그대로 쓴다.** 목업의 비주얼 적용은 PR-4다(결정 D-8).
+
+### 패키지 레이어
+
+1. `packages/types` — `AdminUserDetail`, `AdminUserClub`, `AdminUserActionLogEntry`, `UserStatus`, `AdminUserSearchParams`에 `status` 추가 (백엔드 enum `AdminUserAction`과 이름이 겹치지 않게 로그 항목 타입은 `...LogEntry`로 둔다)
+2. `packages/api/src/client.ts` — `admin.users.detail / updateStatus / saveNote / phone`
+3. `packages/hooks/src/admin.ts` — `useAdminUserDetailQuery`, `useAdminUserStatusMutation`, `useAdminUserNoteMutation`, `useAdminUserPhoneMutation`
+
+#### 검색 훅의 `enabled` 게이트
+
+`useAdminUserSearchQuery`에 `enabled: trimmedQuery.length > 0`가 걸려 있다(`packages/hooks/src/admin.ts:77`). 검색어 없이 목록을 보려면 풀어야 하는데, **같은 훅을 동아리장 검색 콤보박스(`LeaderSearchCombobox`)도 쓴다** — 그냥 풀면 콤보박스가 열리자마자 전체 회원을 드롭다운에 쏟아붓는다.
+
+→ 훅에 명시적 opt-in을 추가한다.
+```ts
+useAdminUserSearchQuery(params, options?: { allowEmptyQuery?: boolean })
+// enabled: options?.allowEmptyQuery === true || trimmedQuery.length > 0
+```
+회원 관리 페이지만 `allowEmptyQuery: true`를 넘긴다. 콤보박스는 손대지 않는다. 훅을 쪼개지 않고, 상태 파라미터로 간접 추론하지도 않는다(의도가 코드에 드러나게).
+
+#### 원본 번호는 `useMutation`
+
+서버가 `no-store`를 보내도 FE가 `useQuery`로 받으면 원본 번호가 React Query 캐시에 `gcTime` 동안 남고 패널을 닫아도 살아 있다. 기존 `useMemberPhoneMutation`(`packages/hooks/src/clubs.ts:244`)이 `useMutation`인 것과 같은 이유다. **`useMutation`으로 받고, Sheet를 닫으면 컴포넌트 로컬 상태와 함께 사라진다.**
+
+### 화면
+
+**목록** (`AdminUsersPage` / `AdminUsersTable`)
+- 상태 필터(전체 / 정상 / 이용 정지) + 검색어. 검색어 없이도 목록이 보인다
+- 행: 이름 · 학번 · 학과 · 가입 동아리 수 · 상태 뱃지 · [상세] [강제 로그아웃]
+- 상태 뱃지는 **값이 없으면 렌더하지 않는다** — 배포 전환기에 구 백엔드 응답(`status` 없음)이 와도 화면이 깨지지 않게(FE fail-open 가드 관례)
+- 정지 회원 행은 배경으로 구분
+
+**상세 Sheet** (`ui/sheet.tsx` 재사용)
+- 헤더: 이니셜 Avatar + 이름 + 상태 뱃지
+- 계정(조회 전용): 마스킹 번호 + [번호 확인] · 학번 · 학과 · 가입일 · 마지막 로그인(없으면 "기록 없음") · 휴대폰 인증 여부 · 계정 상태
+- 가입 동아리: 동아리명 · 역할 뱃지 · 가입일, 클릭 시 `/admin/clubs/{clubId}`로 이동
+- 관리자 메모: `textarea`(1000자) + [메모 저장], 하단에 "최종 수정 {adminNoteUpdatedAt} · {adminNoteUpdatedBy}"
+- Danger Zone: 강제 로그아웃 / 계정 정지(또는 해제)
+- 최근 운영 기록: 조치 · 사유 · 작업자 · 시각 (최근 20건)
+
+**확인 Dialog** (`ui/dialog.tsx` 재사용)
+- 정지/해제: **사유 입력 textarea(200자, 필수)**. 빈 값이면 확인 버튼 비활성
+- 안내 문구: "정지 사유와 함께 감사 로그에 기록됩니다" — 목업의 "정지 사유는 관리자 메모에 기록돼요"는 설계와 반대이므로 쓰지 않는다
+- 대상이 어느 동아리의 LEADER면 경고를 표시한다: *"이 회원은 ○○ 동아리의 회장입니다. 계정을 정지하면 해당 동아리 운영에 영향이 있을 수 있습니다."* — 경고만 하고 차단하지 않는다(회장 교체는 별도 기능이 있다)
+- 강제 로그아웃: 기존 `AdminForceLogoutDialog` 유지
+
+### 캐시 무효화
+
+상태 변경·메모 저장 성공 시 해당 회원 상세와 목록 쿼리를 함께 무효화한다(요구사항 "목록 즉시 갱신"). 기존 `useAdminForceLogoutMutation`은 목록을 무효화하지 않는데(세션 상태를 목록이 담지 않으므로), 이제 감사 이력이 상세에 표시되므로 **상세는 무효화**한다.
+
+### PR-3 테스트
+
+- 상태 필터 전환 시 검색어 없이도 조회가 나간다
+- 사유가 비면 정지 버튼이 비활성
+- LEADER인 회원 정지 시 경고 문구 노출
+- 마지막 로그인 null → "기록 없음"
+- `status` 없는 응답에서 뱃지 미렌더(전환기 가드)
+- 번호 확인 후 Sheet를 닫았다 다시 열면 마스킹 상태로 복귀
+
+---
+
+## PR-4 (프론트, 후속) — 리디자인 · KPI
+
+이번 스코프에 넣지 않는다. 근거는 **목업이 쓰는 `CAdmin` / `CKpis` / `CToolbar` / `CTable` / `CTag` / `CPaging` 6개가 모두 레포에 없기 때문**이다. 실재하는 것은 `ConsoleCard`(facility-bookings 내부에 지역화), `Pagination`, `ui/sheet.tsx`, `ui/dialog.tsx`, `ui/tabs.tsx` 정도이고 요약 카드도 공용이 아니라 기능별로 따로 있다(`BookingSummaryCards`, `SubmissionSummaryCards`, `FeeSummaryCards`).
+
+PR-3에서 목업을 그대로 구현하면 "회원 관리 기능"이 아니라 **"관리자 콘솔 디자인 시스템 신규 도입 + 회원 관리 기능"** 두 개가 된다. 게다가 그 디자인 시스템을 화면 하나의 요구만 보고 만들게 되는데, 관리자 콘솔에는 이미 페이지가 열 개 넘게 있다.
+
+PR-4 범위:
+- 목업 비주얼 적용 + 공용 콘솔 컴포넌트 추출
+- **KPI/집계 API** — 전체 회원 / 이용 정지 / 신규 가입(7일) / 오늘 활성(24h). `last_login_at`이 어느 정도 쌓인 뒤에 도입해야 "활성" 숫자가 의미를 갖는다. 배포 직후 도입하면 실제의 극히 일부만 잡히고, 관리자가 매일 보는 숫자가 거짓이면 화면 전체의 신뢰가 깎인다
+- **운영 기록 접기** — "최근 3건 + 더 보기". Sheet에서 무한히 자라는 건 운영 기록 하나뿐이므로(계정 정보 7필드 고정, 가입 동아리 현실적으로 1~3개, Danger Zone 버튼 2개 고정) 원인 하나만 겨냥한다. 탭 분리는 그래도 길 때 그다음 수단으로 둔다 — 탭을 넣으면 나머지 세 섹션이 이득 없이 클릭 뒤로 숨고, 특히 Danger Zone이 숨으면 "정지된 회원인데 해제 버튼이 어디 있지"를 매번 찾게 된다. `ui/tabs.tsx`가 이미 있어 그때의 비용도 낮다
+
+---
+
+## 결정 기록
+
+| # | 결정 | 근거 |
+|---|---|---|
+| D-1 | 이메일 관련 항목 전부 제거, 휴대폰으로 대체 | V81에서 email 컬럼·테이블 드롭됨. 로그인=학번, 본인확인=MO 인증 |
+| D-2 | SUPER_ADMIN 보호 정책 제외 | `UserRole`은 STUDENT/ADMIN 2단계. ADMIN 정지 금지가 이미 전원을 덮음 |
+| D-3 | `users.last_login_at` 컬럼 신설, 백필 없음 | `auth_event` 90일·`auth_session.last_used_at`은 rotation 갱신이라 둘 다 부정확. 로그인당 UPDATE 1회 비용은 이 서비스 볼륨에서 무의미 |
+| D-4 | 감사 로그는 `auth_event` 재사용 대신 신규 테이블 | auth_event는 90일 purge + actor 컬럼 없음 + 메모 수정은 인증 이벤트가 아님 |
+| D-5 | `PHONE_REVEALED`는 기록하되 운영 타임라인에서 제외 | 열람은 감사 대상이지 운영 조치가 아님. 섞으면 실제 조치가 묻힘 |
+| D-6 | 동일 상태 PATCH는 무동작 204 | 버튼 연타가 감사 이력을 오염시키는 것을 방지 |
+| D-7 | 목록에 휴대폰 비노출 | 목록이 가장 많이 노출되는 화면. 이름·학번·학과로 식별 충분 |
+| D-8 | 리디자인·KPI를 PR-4로 분리 | 목업 컴포넌트 6개가 레포에 없음 → PR-3이 디자인 시스템 도입까지 떠안게 됨 |
+| D-9 | 메모 수정 메타데이터는 감사 로그에서 파생 | 컬럼 신설은 같은 사실의 이중 저장 → 불일치 위험 |
+| D-10 | 캐시 방지는 `no-store` 단독 | `Pragma`는 응답 헤더로 미정의, `Expires`는 무시됨. 실질 리스크는 RQ 캐시이며 `useMutation`으로 해결 |
+| D-11 | 정지 확인은 비밀번호 검증 **뒤** | 앞에 두면 학번만 아는 제3자에게 계정 상태가 노출됨 |
+
+---
+
+## Out of Scope
+
+이번 4개 PR에서 **구현하지 않는다.**
+
+- 관리자 권한 부여/회수 (STUDENT ↔ ADMIN 전환)
+- 회원 정보 직접 수정 (이름·학과·학년·휴대폰)
+- 비밀번호 변경·초기화
+- 다른 사용자로 로그인(Impersonate)
+- 휴대폰 번호로 회원 검색 — 개인정보 검색 축이 하나 더 생기고(하이픈 정규화, 부분 일치 허용 범위, 그 자체가 감사 대상) 별도 판단이 필요하다
+- 학과·단과대 필터 — `major`는 자유 입력 문자열이라 선택지를 만들 수 없다. `college`(enum) 필터는 가능하지만 이번 합의 범위 밖
+- 감사 로그 전용 조회 화면 / 기간·종류 필터 / CSV 내보내기 — 회원 상세의 최근 20건만 제공
+- 감사 로그 보존기간 정책·purge 잡 — 영구 보존으로 둔다
+- 정지 회원을 다른 화면(동아리 멤버 명단, 지원자 목록 등)에서 구분 표시
+- 정지에 따른 부수 처리 — 진행 중인 지원서·시설 예약·회장직은 그대로 유지된다
+- 정지 예약/자동 해제(기간제 정지)
+- KPI·집계 API → PR-4
+- 목업 디자인 시스템(`CAdmin` 등) 도입 → PR-4
+- Sheet 탭 분리 → PR-4에서 "운영 기록 접기"를 먼저 시도한 뒤 판단
+
+---
+
+## 주요 함정 (구현 시 확인)
+
+1. **`GET .../phone`의 readOnly 트랜잭션** — 조회처럼 생겼지만 INSERT를 한다. 클래스 레벨 `readOnly=true`에 걸리면 H2 통과·실 Postgres 500. TestContainers 통합 테스트 필수
+2. **무검색 목록의 정렬** — `ORDER BY` 없이 페이징하면 Postgres가 순서를 보장하지 않아 페이지 간 행 중복·누락. `createdAt DESC, id DESC` 고정
+3. **검색 훅 `enabled` 게이트** — 그냥 풀면 동아리장 검색 콤보박스가 전체 회원을 드롭다운에 쏟아붓는다. `allowEmptyQuery` opt-in으로만 연다
+4. **`token_version` lost update** — 상태 변경도 기존 `forceLogout`/`changePassword`와 동일하게 `findByIdForUpdate` 행잠금 안에서 수행
+5. **`adminNote` 유출** — `User` 엔티티에 필드가 생기므로 사용자 대면 응답에 새어나가지 않는지 회귀 테스트로 고정
+6. **FE `status` fail-open** — "알려진 값일 때만 뱃지 표시". `status !== 'ACTIVE'`로 분기하면 전환기에 전원이 정지로 보인다
+7. **정지 확인 순서** — 비밀번호 검증 뒤(D-11)
+8. **타임스탬프 변환** — `lastLoginAt` / `createdAt` / 감사 이력 `at`을 응답에서 절대시각으로 변환할 때는 `ZoneId.systemDefault()`를 쓴다. `seoulClock`을 쓰면 prod JVM이 UTC라 +9시간 어긋난다(기존 감사 타임스탬프 규약과 동일). `last_login_at` 자체는 기존 `login()`의 `now`를 그대로 재사용해 `created_at`(JPA auditing)과 같은 기준을 유지한다
