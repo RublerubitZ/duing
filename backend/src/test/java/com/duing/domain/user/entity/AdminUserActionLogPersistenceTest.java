@@ -1,6 +1,7 @@
 package com.duing.domain.user.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -44,7 +45,9 @@ class AdminUserActionLogPersistenceTest extends IntegrationTestBase {
                 .isBetween(beforeSave.minusSeconds(1), afterSave.plusSeconds(1));
 
         // 영속성 컨텍스트가 아니라 DB 에 실제로 들어갔는지 확인한다(Postgres timestamptz 는 마이크로초 정밀도).
+        // 절사가 아니라 근사 비교인 이유: JDBC 드라이버가 나노초를 마이크로초로 '반올림'해 저장하므로,
+        // 나노초 시계를 쓰는 리눅스 CI 에서는 truncatedTo 비교가 절반 확률로 어긋난다(macOS 는 마이크로초 정렬이라 안 드러난다).
         AdminUserActionLog reloadedLog = adminUserActionLogRepository.findById(savedLog.getId()).orElseThrow();
-        assertThat(reloadedLog.getCreatedAt()).isEqualTo(savedLog.getCreatedAt().truncatedTo(ChronoUnit.MICROS));
+        assertThat(reloadedLog.getCreatedAt()).isCloseTo(savedLog.getCreatedAt(), within(1, ChronoUnit.MICROS));
     }
 }
