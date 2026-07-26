@@ -74,7 +74,7 @@
   - `User#recordSuccessfulLogin(LocalDateTime now): void` — **기존 무인자 시그니처를 대체한다**
   - `AdminUserAction { ACCOUNT_SUSPENDED, ACCOUNT_UNSUSPENDED, FORCE_LOGOUT, ADMIN_NOTE_UPDATED, PHONE_VIEW }`
   - `AdminUserActionLog.of(Long actorUserId, Long targetUserId, AdminUserAction action, String reason): AdminUserActionLog`
-  - `AdminUserActionLogRepository#save`, `#findRecentByTargetUserId(Long targetUserId, AdminUserAction excluded, Pageable pageable): List<AdminUserActionLog>`, `#findLatestByTargetUserIdAndAction(Long targetUserId, AdminUserAction action): Optional<AdminUserActionLog>`
+  - `AdminUserActionLogRepository#save`, `#findRecentByTargetUserId(Long targetUserId, AdminUserAction excluded, Pageable pageable): List<AdminUserActionLog>`, `#findTopByTargetUserIdAndActionOrderByIdDesc(Long targetUserId, AdminUserAction action): Optional<AdminUserActionLog>` (파생 쿼리)
 
 - [ ] **Step 1: 마이그레이션 파일 작성**
 
