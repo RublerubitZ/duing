@@ -3,7 +3,11 @@
 import { useState } from 'react';
 
 import { ApiError } from '@duing/api';
-import { useAdminForceLogoutMutation, useAdminUserSearchQuery } from '@duing/hooks';
+import {
+  useAdminForceLogoutMutation,
+  useAdminUserSearchQuery,
+  useAdminUserStatusMutation,
+} from '@duing/hooks';
 import type { AdminUserDetail, AdminUserSearchResult, UserStatus } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -14,18 +18,25 @@ import { AdminUsersTable } from '../_components/AdminUsersTable';
 import { AdminUserStatusFilter } from '../_components/AdminUserStatusFilter';
 import { AdminForceLogoutDialog } from '../_components/AdminForceLogoutDialog';
 import { AdminUserDetailSheet } from '../_components/AdminUserDetailSheet';
+import { AdminUserStatusDialog } from '../_components/AdminUserStatusDialog';
 
 const PAGE_SIZE = 20;
 
-/** 상세 패널이 올려보내는 조치 요청. 확인 다이얼로그는 Task 12 에서 이 상태를 읽는다. */
-type PendingUserAction = {
-  kind: 'SUSPEND' | 'UNSUSPEND' | 'FORCE_LOGOUT';
-  user: AdminUserDetail;
+/** 상세 패널이 올려보낸 정지·해제 요청. 확인 다이얼로그가 이 상태를 읽는다. */
+type StatusTarget = {
+  detail: AdminUserDetail;
+  nextStatus: UserStatus;
 };
 
 function forceLogoutErrorMessage(error: unknown): string {
   if (error instanceof ApiError || error instanceof Error) return error.message;
   return '강제 로그아웃에 실패했어요. 잠시 후 다시 시도해주세요.';
+}
+
+// 자기 자신·다른 ADMIN 정지는 서버가 400 으로 막는다. 그 메시지가 이미 사용자 대면 문구라 그대로 보여준다.
+function statusErrorMessage(error: unknown): string {
+  if (error instanceof ApiError || error instanceof Error) return error.message;
+  return '계정 상태 변경에 실패했어요. 잠시 후 다시 시도해주세요.';
 }
 
 const inputCls =
@@ -37,8 +48,7 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(0);
   const [target, setTarget] = useState<AdminUserSearchResult | null>(null);
   const [detailUserId, setDetailUserId] = useState<number | null>(null);
-  // Task 12 의 확인 다이얼로그가 읽는다 — 지금은 대상 선택만 끌어올려 둔다.
-  const [, setPendingAction] = useState<PendingUserAction | null>(null);
+  const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const { addToast } = useToast();
 
   const debouncedQuery = useDebouncedValue(input.trim(), 300);
@@ -50,6 +60,7 @@ export function AdminUsersPage() {
     { allowEmptyQuery: true },
   );
   const forceLogout = useAdminForceLogoutMutation();
+  const changeStatus = useAdminUserStatusMutation();
 
   const items = searchQuery.data?.content ?? [];
   const totalPages = searchQuery.data?.totalPages ?? 0;
@@ -68,6 +79,25 @@ export function AdminUsersPage() {
       },
       onError: (error) => addToast(forceLogoutErrorMessage(error), { variant: 'error' }),
     });
+  };
+
+  const handleStatusConfirm = (reason: string) => {
+    if (!statusTarget) return;
+    changeStatus.mutate(
+      { userId: statusTarget.detail.id, status: statusTarget.nextStatus, reason },
+      {
+        onSuccess: () => {
+          addToast(
+            statusTarget.nextStatus === 'SUSPENDED'
+              ? '계정을 정지했어요. 대상 회원의 모든 기기가 로그아웃됩니다.'
+              : '계정 정지를 해제했어요. 다시 로그인할 수 있습니다.',
+          );
+          setStatusTarget(null);
+        },
+        // 실패해도 다이얼로그를 닫지 않는다 — 사유를 다시 치게 만들지 않고 그 자리에서 재시도할 수 있다.
+        onError: (error) => addToast(statusErrorMessage(error), { variant: 'error' }),
+      },
+    );
   };
 
   return (
@@ -120,9 +150,10 @@ export function AdminUsersPage() {
         <AdminUserDetailSheet
           userId={detailUserId}
           onClose={() => setDetailUserId(null)}
-          onSuspend={(user) => setPendingAction({ kind: 'SUSPEND', user })}
-          onUnsuspend={(user) => setPendingAction({ kind: 'UNSUSPEND', user })}
-          onForceLogout={(user) => setPendingAction({ kind: 'FORCE_LOGOUT', user })}
+          onSuspend={(user) => setStatusTarget({ detail: user, nextStatus: 'SUSPENDED' })}
+          onUnsuspend={(user) => setStatusTarget({ detail: user, nextStatus: 'ACTIVE' })}
+          // 상세의 강제 로그아웃은 목록 행과 같은 다이얼로그로 보낸다 — 확인 절차가 두 벌일 이유가 없다.
+          onForceLogout={(user) => setTarget(user)}
         />
       )}
 
@@ -132,6 +163,16 @@ export function AdminUsersPage() {
           isPending={forceLogout.isPending}
           onConfirm={handleConfirm}
           onCancel={() => setTarget(null)}
+        />
+      )}
+
+      {statusTarget && (
+        <AdminUserStatusDialog
+          detail={statusTarget.detail}
+          nextStatus={statusTarget.nextStatus}
+          isPending={changeStatus.isPending}
+          onConfirm={handleStatusConfirm}
+          onCancel={() => setStatusTarget(null)}
         />
       )}
     </main>

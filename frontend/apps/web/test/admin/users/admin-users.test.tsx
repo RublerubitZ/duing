@@ -2,16 +2,18 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { AdminUserSearchResult, PageResponse } from '@duing/types';
+import type { AdminUserDetail, AdminUserSearchResult, PageResponse } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockSearch = vi.fn();
 const mockForceLogout = vi.fn();
 const mockUserDetail = vi.fn();
+const mockChangeStatus = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminUserSearchQuery: (...args: unknown[]) => mockSearch(...args),
   useAdminForceLogoutMutation: () => ({ mutate: mockForceLogout, isPending: false }),
+  useAdminUserStatusMutation: () => ({ mutate: mockChangeStatus, isPending: false }),
   // 상세 패널이 쓰는 훅들 — 이 화면 테스트는 패널이 "열렸는지"까지만 본다(본문은 상세 시트 테스트).
   useAdminUserDetailQuery: (userId: number | undefined) => mockUserDetail(userId),
   useAdminUserPhoneMutation: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false }),
@@ -71,6 +73,41 @@ function searchSuccess(rows: AdminUserSearchResult[], totalPages = Math.max(1, M
 }
 
 const searchIdle = { data: undefined, isLoading: false, isSuccess: false, isError: false };
+
+function makeDetail(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {
+  return {
+    id: 42,
+    name: '정상세',
+    studentId: '2023118902',
+    grade: 'SOPHOMORE',
+    college: 'IT_ENGINEERING',
+    major: '전자공학과',
+    role: 'STUDENT',
+    maskedPhone: '010-****-9983',
+    phoneVerified: true,
+    phoneVerifiedAt: null,
+    status: 'ACTIVE',
+    createdAt: '2024-03-04T01:00:00Z',
+    lastLoginAt: null,
+    adminNote: null,
+    adminNoteUpdatedAt: null,
+    adminNoteUpdatedBy: null,
+    clubs: [],
+    recentActions: [],
+    ...overrides,
+  };
+}
+
+/** 목록에서 상세 패널을 연 상태까지 진행한다 — 위험 작업 버튼은 상세에만 있다. */
+async function openDetailSheet(detail: AdminUserDetail) {
+  mockSearch.mockReturnValue(searchSuccess([makeUser({ id: detail.id, name: detail.name })]));
+  mockUserDetail.mockReturnValue({ data: detail, isLoading: false, isError: false });
+  render(<AdminUsersPage />);
+
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: `${detail.name} 상세` }));
+  return user;
+}
 
 async function searchFor(keyword: string) {
   const user = userEvent.setup();
@@ -182,6 +219,81 @@ describe('AdminUsersPage', () => {
       { q: '', status: 'SUSPENDED', page: 0, size: 20 },
       { allowEmptyQuery: true },
     );
+  });
+
+  // 상세의 위험 작업 버튼이 소비처 없이 무동작으로 남는 회귀가 두 번 있었다 — 여기서 끝까지 이어졌는지 본다.
+  it('상세에서 계정 정지를 확정하면 대상 id·사유와 함께 상태를 바꾸고 정지 토스트를 띄운다', async () => {
+    mockChangeStatus.mockImplementation(
+      (_variables: unknown, options?: { onSuccess?: () => void }) => options?.onSuccess?.(),
+    );
+    const user = await openDetailSheet(makeDetail({ status: 'ACTIVE' }));
+
+    await user.click(screen.getByRole('button', { name: '계정 정지' }));
+
+    const dialog = screen.getByRole('dialog', { name: '계정을 정지할까요?' });
+    await user.type(within(dialog).getByLabelText('정지 사유'), '신고 3건 누적');
+    await user.click(within(dialog).getByRole('button', { name: '계정 정지' }));
+
+    expect(mockChangeStatus.mock.calls[0]?.[0]).toEqual({
+      userId: 42,
+      status: 'SUSPENDED',
+      reason: '신고 3건 누적',
+    });
+    expect(mockAddToast).toHaveBeenCalledWith(
+      '계정을 정지했어요. 대상 회원의 모든 기기가 로그아웃됩니다.',
+    );
+  });
+
+  it('상세에서 정지를 해제하면 ACTIVE 로 바꾸고 해제 토스트를 띄운다', async () => {
+    mockChangeStatus.mockImplementation(
+      (_variables: unknown, options?: { onSuccess?: () => void }) => options?.onSuccess?.(),
+    );
+    const user = await openDetailSheet(makeDetail({ id: 55, name: '한해제', status: 'SUSPENDED' }));
+
+    await user.click(screen.getByRole('button', { name: '정지 해제' }));
+
+    const dialog = screen.getByRole('dialog', { name: '정지를 해제할까요?' });
+    await user.type(within(dialog).getByLabelText('정지 해제 사유'), '본인 확인 완료');
+    await user.click(within(dialog).getByRole('button', { name: '정지 해제' }));
+
+    expect(mockChangeStatus.mock.calls[0]?.[0]).toEqual({
+      userId: 55,
+      status: 'ACTIVE',
+      reason: '본인 확인 완료',
+    });
+    expect(mockAddToast).toHaveBeenCalledWith('계정 정지를 해제했어요. 다시 로그인할 수 있습니다.');
+  });
+
+  it('상태 변경이 실패하면 서버 문구를 그대로 보여주고 다이얼로그를 닫지 않는다', async () => {
+    mockChangeStatus.mockImplementation(
+      (_variables: unknown, options?: { onError?: (error: unknown) => void }) =>
+        options?.onError?.(new MockApiError(400, '관리자 계정은 정지할 수 없습니다.')),
+    );
+    const user = await openDetailSheet(makeDetail({ status: 'ACTIVE' }));
+
+    await user.click(screen.getByRole('button', { name: '계정 정지' }));
+    const dialog = screen.getByRole('dialog', { name: '계정을 정지할까요?' });
+    await user.type(within(dialog).getByLabelText('정지 사유'), '오조작');
+    await user.click(within(dialog).getByRole('button', { name: '계정 정지' }));
+
+    expect(mockAddToast).toHaveBeenCalledWith('관리자 계정은 정지할 수 없습니다.', {
+      variant: 'error',
+    });
+    expect(screen.getByRole('dialog', { name: '계정을 정지할까요?' })).toBeInTheDocument();
+  });
+
+  it('상세의 강제 로그아웃도 목록과 같은 확인 다이얼로그로 이어진다', async () => {
+    mockForceLogout.mockImplementation(
+      (_userId: number, options?: { onSuccess?: () => void }) => options?.onSuccess?.(),
+    );
+    const user = await openDetailSheet(makeDetail({ id: 61, name: '오강퇴' }));
+
+    await user.click(screen.getByRole('button', { name: '로그아웃' }));
+
+    const dialog = screen.getByRole('dialog', { name: '강제 로그아웃' });
+    await user.click(within(dialog).getByRole('button', { name: '강제 로그아웃' }));
+
+    expect(mockForceLogout.mock.calls[0]?.[0]).toBe(61);
   });
 
   it('검색어를 바꾸면 해당 검색어로 조회하고 페이지를 처음으로 되돌린다', async () => {
