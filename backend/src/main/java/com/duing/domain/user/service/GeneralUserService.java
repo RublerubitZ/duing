@@ -222,7 +222,10 @@ public class GeneralUserService implements UserService {
     @Transactional
     public void updateProfile(UpdateProfileCommand updateProfileCommand) {
         reservedNamePolicy.validate(updateProfileCommand.name());
-        User user = userRepository.findById(updateProfileCommand.userId())
+        // 행잠금 — User 에는 @Version 도 @DynamicUpdate 도 없어 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 낸다.
+        // 잠그지 않고 읽으면 읽은 뒤 커밋된 계정 조치(status·token_version)까지 옛 스냅샷 값으로 되돌려 써,
+        // 계정은 멀쩡히 살아 있는데 감사 로그에는 "정지했다"만 남는다(관리자 메모 저장 경로와 동일한 결함).
+        User user = userRepository.findByIdForUpdate(updateProfileCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),
                 updateProfileCommand.college(), updateProfileCommand.major());
