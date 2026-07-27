@@ -7,8 +7,8 @@ import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@du
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
-import { ConsoleCard } from '../_components/ConsoleCard';
-import { EmptyState } from '../_components/EmptyState';
+import { ConsoleCard } from '../../_components/ConsoleCard';
+import { EmptyState } from '../../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
 import { currentMonthRange } from '../_lib/submissionPeriod';
 import {

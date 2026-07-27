@@ -68,8 +68,11 @@ const detail: AdminUserDetail = {
 };
 
 const noop = vi.fn();
+// 기본 시나리오는 "다른 학생 회원을 보는 관리자" — 대상(id 12)과 다른 id 를 둬야 자기 자신 가드가 켜지지 않는다.
+const CURRENT_ADMIN_ID = 99;
 const props = {
   detail,
+  currentUserId: CURRENT_ADMIN_ID,
   onSuspend: noop,
   onUnsuspend: noop,
   onForceLogout: noop,
@@ -228,6 +231,47 @@ describe('회원 상세 Sheet', () => {
     expect(screen.queryByRole('button', { name: '정지 해제' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '계정 정지' }));
     expect(onSuspend).toHaveBeenCalled();
+  });
+
+  // 서버가 400 으로 막는 두 경우를 화면에서 미리 거른다 — 사유를 다 입력하고 확인까지 누른 뒤에야
+  // 거절당하는 헛수고를 없앤다. 서버 검증은 그대로 두고 화면은 한 겹 앞에서 거를 뿐이다.
+  it('관리자 계정에는 정지 버튼을 잠그고 사유를 화면에 보여준다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE', role: 'ADMIN' }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '계정 정지' })).toBeDisabled();
+    // 잠긴 버튼은 포커스를 못 받아 툴팁이 닿지 않는다 — 사유가 화면 텍스트로 있어야 한다.
+    expect(screen.getByText('관리자 계정은 정지할 수 없습니다.')).toBeInTheDocument();
+  });
+
+  it('자기 자신의 계정에는 정지 버튼을 잠그고 사유를 화면에 보여준다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE' }}
+        currentUserId={detail.id}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '계정 정지' })).toBeDisabled();
+    expect(screen.getByText('자기 자신의 계정은 정지할 수 없습니다.')).toBeInTheDocument();
+  });
+
+  // 강제 로그아웃에는 이 제약이 없다 — 계정이 잠기지 않고 재로그인하면 복구되므로 본인·다른 관리자 모두 허용이 의도다.
+  it('관리자 계정이어도 강제 로그아웃은 막지 않는다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE', role: 'ADMIN' }}
+        currentUserId={detail.id}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '로그아웃' })).toBeEnabled();
   });
 });
 

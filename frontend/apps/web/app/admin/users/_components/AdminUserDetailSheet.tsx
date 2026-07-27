@@ -11,6 +11,7 @@ import {
 // 시각 표시는 레포 공용 KST 포매터를 쓴다 — 백엔드가 절대시각(…Z)으로 내려주므로 존 보정은 하지 않고
 // 표시만 Asia/Seoul 로 고정한다. toLocaleString 은 실행 환경 타임존을 타서 화면·테스트가 흔들린다.
 import { formatDateKst, formatDateTimeKst } from '@duing/hooks/datetime';
+import { useAuthStore } from '@duing/stores';
 import type { AdminUserDetail } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -36,12 +37,28 @@ const NOTE_MAX_LENGTH = 1000;
 // 구간에서만 띄워서, 저장이 막혔을 때 이유를 화면에서 바로 읽을 수 있게 한다.
 const NOTE_LENGTH_HINT_FROM = NOTE_MAX_LENGTH - 50;
 
-// 위험 작업 버튼은 레포 공통 파괴적 액션 스타일을 그대로 쓴다(삭제·강제 로그아웃 다이얼로그 전례).
-const DANGER_BUTTON_CLASS =
-  'btn btn-sm shrink-0 bg-coral text-paper transition-colors hover:bg-[#c2603f]';
+// 위험 작업 버튼은 공용 파괴적 액션 변형(.btn-danger)을 쓴다 — 색을 화면에서 직접 칠하지 않는다.
+const DANGER_BUTTON_CLASS = 'btn btn-sm btn-danger shrink-0';
+
+/**
+ * 정지를 막아야 하는 대상이면 그 사유를, 아니면 null 을 돌려준다.
+ * 서버도 같은 두 조건을 400 으로 막는다 — 화면은 사유를 다 입력한 뒤에야 거절당하는 헛수고를 없앨 뿐이고
+ * 실제 방어선은 서버다. 강제 로그아웃에는 이 제약이 없다(계정이 잠기지 않고 재로그인하면 복구된다).
+ */
+function suspendBlockedReason(detail: AdminUserDetail, currentUserId: number | null): string | null {
+  if (currentUserId !== null && detail.id === currentUserId) {
+    return '자기 자신의 계정은 정지할 수 없습니다.';
+  }
+  if (detail.role === 'ADMIN') {
+    return '관리자 계정은 정지할 수 없습니다.';
+  }
+  return null;
+}
 
 type ContentProps = {
   detail: AdminUserDetail;
+  /** 자기 자신 정지를 미리 거르기 위한 현재 관리자 id. 세션이 아직 안 실렸으면 null(서버가 막는다). */
+  currentUserId: number | null;
   revealedPhone: string | null;
   isRevealingPhone: boolean;
   isSavingNote: boolean;
@@ -54,6 +71,7 @@ type ContentProps = {
 
 export function AdminUserDetailSheetContent({
   detail,
+  currentUserId,
   revealedPhone,
   isRevealingPhone,
   isSavingNote,
@@ -212,6 +230,7 @@ export function AdminUserDetailSheetContent({
                 description="세션을 종료하고 로그인·API 접근을 차단합니다."
                 actionLabel="계정 정지"
                 onAction={onSuspend}
+                disabledReason={suspendBlockedReason(detail, currentUserId)}
               />
             ) : (
               <DangerRow
@@ -276,18 +295,30 @@ const DangerRow = ({
   description,
   actionLabel,
   onAction,
+  disabledReason = null,
 }: {
   title: string;
   description: string;
   actionLabel: string;
   onAction: () => void;
+  /** 값이 있으면 버튼을 잠그고 그 사유를 설명 대신 보여준다. */
+  disabledReason?: string | null;
 }) => (
   <div className="flex items-center gap-3">
     <div className="flex-1">
       <p className="text-[13px] font-bold text-ink">{title}</p>
-      <p className="mt-0.5 text-[11.5px] text-charcoal-2">{description}</p>
+      {/* 사유는 title 툴팁이 아니라 화면 텍스트로 둔다 — 잠긴 버튼은 포커스를 받지 못해
+          툴팁이 키보드·스크린리더에 닿지 않는다. 잠근 이유는 잠근 사실만큼 중요하다. */}
+      <p className={`mt-0.5 text-[11.5px] ${disabledReason ? 'text-danger' : 'text-charcoal-2'}`}>
+        {disabledReason ?? description}
+      </p>
     </div>
-    <button type="button" onClick={onAction} className={DANGER_BUTTON_CLASS}>
+    <button
+      type="button"
+      onClick={onAction}
+      disabled={disabledReason !== null}
+      className={DANGER_BUTTON_CLASS}
+    >
       {actionLabel}
     </button>
   </div>
@@ -309,6 +340,7 @@ export function AdminUserDetailSheet({
   onForceLogout,
 }: Props) {
   const { addToast } = useToast();
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const detailQuery = useAdminUserDetailQuery(userId);
   const revealPhone = useAdminUserPhoneMutation();
   const saveNote = useAdminUserNoteMutation();
@@ -350,6 +382,7 @@ export function AdminUserDetailSheet({
         {detail && (
           <AdminUserDetailSheetContent
             detail={detail}
+            currentUserId={currentUserId}
             revealedPhone={revealedPhone}
             isRevealingPhone={revealPhone.isPending}
             isSavingNote={saveNote.isPending}

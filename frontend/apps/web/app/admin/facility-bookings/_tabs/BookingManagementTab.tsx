@@ -12,8 +12,8 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
-import { ConsoleCard } from '../_components/ConsoleCard';
-import { EmptyState } from '../_components/EmptyState';
+import { ConsoleCard } from '../../_components/ConsoleCard';
+import { EmptyState } from '../../_components/EmptyState';
 import { conflictCardCount } from '../_lib/adminBookingDisplay';
 
 const PAGE_SIZE = 20;

@@ -174,6 +174,19 @@ body {
   .btn-ghost {
     @apply bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal;
   }
+  /* 파괴적 액션(정지·삭제·강제 로그아웃) 공통 변형 — 화면마다 코랄을 직접 칠하지 않고 이 하나만 쓴다.
+     danger 토큰은 흰 글자 대비 AA 를 통과하는 값이다(tailwind.config.ts 주석 참조). */
+  .btn-danger {
+    @apply bg-danger text-paper hover:bg-danger-hover;
+  }
+  .btn-danger:disabled:hover {
+    @apply bg-danger;
+  }
+  /* 파괴적 액션의 약한 형태 — 목록 행처럼 솔리드 버튼이 과한 자리. 흰 배경 위 글자도 AA 를 지켜야 하므로
+     text-coral(3.02:1)이 아니라 같은 danger 토큰을 쓴다. */
+  .btn-danger-quiet {
+    @apply bg-transparent text-danger hover:bg-danger/10;
+  }
   .btn-big {
     @apply px-7 py-4 text-base rounded-lg;
   }

@@ -67,7 +67,8 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
                     type="button"
                     onClick={() => onForceLogout(user)}
                     aria-label={`${user.name} 강제 로그아웃`}
-                    className="rounded-md px-2.5 py-1 text-[12px] font-semibold text-coral transition-colors hover:bg-coral/5"
+                    // 흰 배경 위 text-coral 은 3.02:1 로 AA 미달 — 파괴적 액션 공용 변형(danger 토큰)을 쓴다.
+                    className="btn-danger-quiet rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors"
                   >
                     강제 로그아웃
                   </button>
