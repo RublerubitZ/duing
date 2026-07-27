@@ -6,6 +6,26 @@ import type { AdminUserDetail, AdminUserSearchResult, PageResponse } from '@duin
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockSearch = vi.fn();
+
+/** 목록 조회 한 페이지 크기. KPI 카드가 같은 훅을 size 1 로 부르므로 두 호출을 가르는 기준이기도 하다. */
+const LIST_PAGE_SIZE = 20;
+
+/**
+ * 목록 조회 중 마지막 호출의 인자를 돌려준다.
+ *
+ * <p>KPI 카드가 같은 훅을 건수 조회용(size 1)으로 두 번 더 부르기 때문에 "마지막 호출"이 곧
+ * 목록 조회는 아니다. 페이지 크기로 목록 호출만 걸러야 "필터를 바꾸면 페이지가 0 으로 돌아간다" 같은
+ * 단언이 KPI 호출에 가려지지 않는다.
+ */
+function lastListCallArgs(): unknown[] | undefined {
+  const listCalls = mockSearch.mock.calls.filter((callArgs) => {
+    const params = callArgs[0];
+    return typeof params === 'object' && params !== null && 'size' in params
+      ? params.size === LIST_PAGE_SIZE
+      : false;
+  });
+  return listCalls.at(-1);
+}
 const mockForceLogout = vi.fn();
 const mockUserDetail = vi.fn();
 const mockChangeStatus = vi.fn();
@@ -192,14 +212,36 @@ describe('AdminUsersPage', () => {
     expect(screen.getByText('조회 결과가 없습니다')).toBeInTheDocument();
   });
 
+  // KPI 는 집계 API 가 없어 목록 조회의 전체 건수로 낸다 — 전체와 정지를 각각 한 번씩 센다.
+  // 없는 지표(오늘 활성·최근 7일 신규)는 빈 카드로 자리를 잡지 않는다. 0 인지 데이터가 없는지
+  // 화면에서 구분되지 않기 때문이다.
+  it('KPI 는 전체와 이용 정지 두 건수만 각각 세어 보여준다', () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser()]));
+    render(<AdminUsersPage />);
+
+    // "이용 정지"는 상태 필터 칩에도 있으므로 KPI 목록 안으로 좁혀서 본다.
+    const kpis = within(screen.getByRole('list', { name: '회원 현황 요약' }));
+    expect(kpis.getByText('전체 회원')).toBeInTheDocument();
+    expect(kpis.getByText('이용 정지')).toBeInTheDocument();
+    expect(kpis.queryByText('오늘 활성')).not.toBeInTheDocument();
+    expect(kpis.queryByText('신규 가입')).not.toBeInTheDocument();
+
+    // 건수만 필요하므로 행은 최소로 받는다 — 목록 조회(size 20)와 캐시 키가 갈린다.
+    expect(mockSearch).toHaveBeenCalledWith({ page: 0, size: 1 }, { allowEmptyQuery: true });
+    expect(mockSearch).toHaveBeenCalledWith(
+      { page: 0, size: 1, status: 'SUSPENDED' },
+      { allowEmptyQuery: true },
+    );
+  });
+
   it('검색어 없이 들어와도 목록을 조회한다 — 정지 회원을 다시 찾을 경로가 여기뿐이다', () => {
     mockSearch.mockReturnValue(searchSuccess([makeUser({ name: '무검색' })]));
     render(<AdminUsersPage />);
 
-    expect(mockSearch).toHaveBeenLastCalledWith(
+    expect(lastListCallArgs()).toEqual([
       { q: '', status: undefined, page: 0, size: 20 },
       { allowEmptyQuery: true },
-    );
+    ]);
     expect(screen.getByText('무검색')).toBeInTheDocument();
   });
 
@@ -209,16 +251,16 @@ describe('AdminUsersPage', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '다음' }));
-    expect(mockSearch).toHaveBeenLastCalledWith(
+    expect(lastListCallArgs()).toEqual([
       { q: '', status: undefined, page: 1, size: 20 },
       { allowEmptyQuery: true },
-    );
+    ]);
 
     await user.click(screen.getByRole('button', { name: '이용 정지' }));
-    expect(mockSearch).toHaveBeenLastCalledWith(
+    expect(lastListCallArgs()).toEqual([
       { q: '', status: 'SUSPENDED', page: 0, size: 20 },
       { allowEmptyQuery: true },
-    );
+    ]);
   });
 
   // 상세의 위험 작업 버튼이 소비처 없이 무동작으로 남는 회귀가 두 번 있었다 — 여기서 끝까지 이어졌는지 본다.
@@ -302,16 +344,16 @@ describe('AdminUsersPage', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '다음' }));
-    expect(mockSearch).toHaveBeenLastCalledWith(
+    expect(lastListCallArgs()).toEqual([
       { q: '', status: undefined, page: 1, size: 20 },
       { allowEmptyQuery: true },
-    );
+    ]);
 
     // 검색어를 친 뒤에도 3페이지를 그대로 물고 가면 대개 빈 목록이 나온다.
     await user.type(screen.getByLabelText('회원 검색'), '김');
-    expect(mockSearch).toHaveBeenLastCalledWith(
+    expect(lastListCallArgs()).toEqual([
       { q: '김', status: undefined, page: 0, size: 20 },
       { allowEmptyQuery: true },
-    );
+    ]);
   });
 });

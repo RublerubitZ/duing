@@ -37,6 +37,9 @@ const NOTE_MAX_LENGTH = 1000;
 // 구간에서만 띄워서, 저장이 막혔을 때 이유를 화면에서 바로 읽을 수 있게 한다.
 const NOTE_LENGTH_HINT_FROM = NOTE_MAX_LENGTH - 50;
 
+// 접힌 상태에서 보여줄 운영 기록 건수. 서버가 최근 20건을 함께 내려주므로 펼치는 데 추가 조회가 없다.
+const COLLAPSED_ACTION_COUNT = 3;
+
 // 위험 작업 버튼은 공용 파괴적 액션 변형(.btn-danger)을 쓴다 — 색을 화면에서 직접 칠하지 않는다.
 const DANGER_BUTTON_CLASS = 'btn btn-sm btn-danger shrink-0';
 
@@ -82,6 +85,7 @@ export function AdminUserDetailSheetContent({
   onForceLogout,
 }: ContentProps) {
   const [note, setNote] = useState(detail.adminNote ?? '');
+  const [showAllActions, setShowAllActions] = useState(false);
 
   // 다른 회원으로 패널이 바뀌면 메모 입력값을 그 회원 것으로 다시 시드한다.
   // detail.adminNote 는 의존성에서 뺀다 — 넣으면 저장 후 재조회(상태 변경 뮤테이션이 목록 접두사를
@@ -90,6 +94,9 @@ export function AdminUserDetailSheetContent({
   // 입력이 조용히 사라지는 것보다 낫다고 판단했다.
   useEffect(() => {
     setNote(detail.adminNote ?? '');
+    // 다른 회원으로 바뀌면 펼침도 접는다 — 앞 회원에서 펼친 상태가 따라오면 이 회원의 기록이
+    // 몇 건인지 오해하게 된다.
+    setShowAllActions(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail.id]);
 
@@ -98,6 +105,11 @@ export function AdminUserDetailSheetContent({
   // 그대로 통과하므로, 서버가 검증하는 값(보내는 값 = note)으로 한 번 더 막는다.
   const isNoteOverLimit = note.length > NOTE_MAX_LENGTH;
   const showNoteLength = note.length >= NOTE_LENGTH_HINT_FROM;
+
+  const visibleActions = showAllActions
+    ? detail.recentActions
+    : detail.recentActions.slice(0, COLLAPSED_ACTION_COUNT);
+  const hasMoreActions = !showAllActions && detail.recentActions.length > COLLAPSED_ACTION_COUNT;
 
   return (
     <div className="flex h-full flex-col">
@@ -248,7 +260,7 @@ export function AdminUserDetailSheetContent({
           <p className="text-[12.5px] text-charcoal-3">기록이 없습니다</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {detail.recentActions.map((entry, index) => (
+            {visibleActions.map((entry, index) => (
               <li key={`${entry.at}-${index}`} className="border-l-2 border-line pl-3">
                 <p className="text-[12.5px] font-semibold text-ink">
                   {ADMIN_USER_ACTION_LABEL[entry.action] ?? entry.action}
@@ -261,6 +273,17 @@ export function AdminUserDetailSheetContent({
               </li>
             ))}
           </ul>
+        )}
+        {/* 서버가 이미 최근 20건을 함께 내려주므로 펼치는 데 추가 조회가 없다.
+            기본 3건으로 접는 이유는 아래 접힌 내용이 아니라 위쪽 위험 작업·메모를 가리지 않기 위해서다. */}
+        {hasMoreActions && (
+          <button
+            type="button"
+            onClick={() => setShowAllActions(true)}
+            className="btn btn-sm btn-secondary mt-3 w-full"
+          >
+            전체 기록 보기 · {detail.recentActions.length}건
+          </button>
         )}
       </div>
     </div>

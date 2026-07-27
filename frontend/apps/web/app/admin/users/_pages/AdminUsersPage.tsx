@@ -14,6 +14,7 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
+import { AdminUserKpis } from '../_components/AdminUserKpis';
 import { AdminUsersTable } from '../_components/AdminUsersTable';
 import { AdminUserStatusFilter } from '../_components/AdminUserStatusFilter';
 import { AdminForceLogoutDialog } from '../_components/AdminForceLogoutDialog';
@@ -108,6 +109,8 @@ export function AdminUsersPage() {
           학번 또는 이름으로 회원을 찾고, 계정 상태 변경·강제 로그아웃 등 운영 조치를 처리합니다.
         </p>
       </header>
+
+      <AdminUserKpis />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
