@@ -208,7 +208,7 @@ export function AdminUserDetailSheetContent({
             {showNoteLength && (
               <span
                 id="admin-note-length"
-                className={`text-[11px] ${isNoteOverLimit ? 'text-coral' : 'text-charcoal-2'}`}
+                className={`text-[11px] ${isNoteOverLimit ? 'text-danger' : 'text-charcoal-2'}`}
               >
                 {note.length}/{NOTE_MAX_LENGTH}
               </span>
@@ -292,6 +292,9 @@ export function AdminUserDetailSheetContent({
                 description="다시 정상적으로 로그인할 수 있게 합니다."
                 actionLabel="정지 해제"
                 onAction={onUnsuspend}
+                // 해제는 되돌리는 쪽이라 파괴적 강조를 쓰지 않는다 — 확인 다이얼로그와 같은 기준이다.
+                // 트리거와 확정 버튼의 색이 어긋나면 무엇을 하는 버튼인지 색으로 읽히지 않는다.
+                destructive={false}
               />
             )}
           </div>
@@ -330,6 +333,7 @@ const DangerRow = ({
   actionLabel,
   onAction,
   disabledReason = null,
+  destructive = true,
 }: {
   title: string;
   description: string;
@@ -337,6 +341,8 @@ const DangerRow = ({
   onAction: () => void;
   /** 값이 있으면 버튼을 잠그고 그 사유를 설명 대신 보여준다. */
   disabledReason?: string | null;
+  /** 되돌리는 조치(정지 해제)는 false — 위험 작업 영역 안이어도 파괴적 강조를 쓰지 않는다. */
+  destructive?: boolean;
 }) => (
   <div className="flex items-center gap-3">
     <div className="flex-1">
@@ -351,7 +357,7 @@ const DangerRow = ({
       type="button"
       onClick={onAction}
       disabled={disabledReason !== null}
-      className={DANGER_BUTTON_CLASS}
+      className={destructive ? DANGER_BUTTON_CLASS : 'btn btn-sm btn-secondary shrink-0'}
     >
       {actionLabel}
     </button>

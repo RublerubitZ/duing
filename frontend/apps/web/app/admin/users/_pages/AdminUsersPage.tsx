@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import {
@@ -88,6 +88,16 @@ export function AdminUsersPage() {
     // 검색어를 바꾸면 첫 페이지로 돌아간다 — 3페이지를 물고 가면 대개 빈 목록이 나온다.
     if (page !== 0) syncQuery(statusFilter, 0);
   };
+
+  // 목록이 줄어 지금 페이지가 사라지면 첫 페이지로 되돌린다. 페이지가 컴포넌트 상태일 때는 새로고침이
+  // 탈출구였지만 주소에 남게 되면서 새로고침으로도 안 풀린다 — 마지막 회원을 정지시켜 그 페이지가
+  // 통째로 사라지면 빈 화면에 갇힌다(페이지 이동 버튼은 총 페이지가 1이면 렌더되지 않는다).
+  useEffect(() => {
+    if (!searchQuery.isSuccess) return;
+    if (totalPages > 0 && page > totalPages - 1) syncQuery(statusFilter, 0);
+    // syncQuery 는 매 렌더 새 함수라 의존성에 넣으면 매 렌더 실행된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery.isSuccess, totalPages, page, statusFilter]);
 
   const handleConfirm = () => {
     if (!target) return;

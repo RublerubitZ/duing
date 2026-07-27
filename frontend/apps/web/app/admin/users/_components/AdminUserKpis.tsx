@@ -24,11 +24,17 @@ export function AdminUserKpis() {
   return (
     // 상태 필터 칩과 같은 낱말("이용 정지")을 쓰므로 목록에 이름을 붙여 둘을 구분한다.
     <ul aria-label="회원 현황 요약" className="mb-5 grid grid-cols-2 gap-3">
-      <KpiCard label="전체 회원" sub="재학생 계정" value={totalQuery.data?.totalElements} />
+      <KpiCard
+        label="전체 회원"
+        sub="재학생 계정"
+        value={totalQuery.data?.totalElements}
+        failed={totalQuery.isError}
+      />
       <KpiCard
         label="이용 정지"
         sub="제재 상태"
         value={suspendedQuery.data?.totalElements}
+        failed={suspendedQuery.isError}
         // 정지 회원이 있을 때만 시선을 끈다 — 0 건에 경고색을 칠하면 경고가 배경이 된다.
         warn={(suspendedQuery.data?.totalElements ?? 0) > 0}
       />
@@ -41,17 +47,25 @@ function KpiCard({
   sub,
   value,
   warn = false,
+  failed = false,
 }: {
   label: string;
   sub: string;
   /** 아직 도착하지 않았으면 undefined — 0 과 구분해서 자리만 지킨다. */
   value: number | undefined;
   warn?: boolean;
+  /** 조회가 실패했으면 자리표시자를 계속 돌리지 않는다 — 영원히 로딩 중인 화면이 된다. */
+  failed?: boolean;
 }) {
   return (
     <li className="rounded-[14px] border border-line bg-paper px-4 py-3.5">
       <p className="text-xs font-semibold text-charcoal-3">{label}</p>
-      {value === undefined ? (
+      {failed ? (
+        // 못 가져온 것과 0 은 다르다 — 0 으로 적으면 "정지 회원이 없다"는 거짓을 말하게 된다.
+        <p className="mt-1 text-[22px] font-bold text-charcoal-3" title="불러오지 못했어요">
+          —
+        </p>
+      ) : value === undefined ? (
         // 숫자가 들어올 자리를 같은 높이로 잡아 둔다 — 도착하는 순간 카드가 튀지 않는다.
         <span
           aria-hidden

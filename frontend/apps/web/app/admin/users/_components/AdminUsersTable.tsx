@@ -2,6 +2,7 @@
 
 import type { AdminUserSearchResult, UserRole } from '@duing/types';
 
+import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
 import { MemberIdentity } from '../../_components/MemberIdentity';
 import { UserStatusBadge } from './UserStatusBadge';
@@ -19,12 +20,19 @@ type Props = {
 
 export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
   if (items.length === 0) {
+    // 카드로 감싸는 것이 장식이 아니다 — 콘솔 배경이 크림이라 맨몸으로 두면 안내 문구가
+    // 4.24:1 로 AA 에 미달한다(같은 이유로 상세 패널의 placeholder 도 charcoal-2 를 쓴다).
+    // 흰 배경 위에서는 4.70:1 로 통과한다. 오류 상태도 같은 이유로 카드 안에 있다.
     return (
-      <EmptyState
-        icon="🔎"
-        title="조회 결과가 없습니다"
-        body={'검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'}
-      />
+      <ConsoleCard>
+        <EmptyState
+          icon="🔎"
+          title="조회 결과가 없습니다"
+          body={
+            '검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'
+          }
+        />
+      </ConsoleCard>
     );
   }
 
