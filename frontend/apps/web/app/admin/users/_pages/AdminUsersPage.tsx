@@ -173,19 +173,21 @@ export function AdminUsersPage() {
       )}
 
       {searchQuery.isSuccess && (
-        <>
-          <AdminUsersTable
-            items={items}
-            onOpenDetail={(user) => setDetailUserId(user.id)}
-            onForceLogout={setTarget}
-          />
+        // 목업처럼 표와 페이지 이동을 한 카드가 감싼다 — 페이지 이동은 이 목록에 딸린 것이지
+        // 화면 전체에 딸린 것이 아니다.
+        <ConsoleCard>
+          <AdminUsersTable items={items} onOpenDetail={(user) => setDetailUserId(user.id)} />
           <Pagination
             page={page}
             totalPages={totalPages}
             onChange={(nextPage) => syncQuery(statusFilter, nextPage)}
             ariaLabel="회원 목록 페이지"
+            // "1–20 / 42건" 범위 표기 — 목업의 페이지 표시와 같은 정보다.
+            totalElements={searchQuery.data?.totalElements}
+            pageSize={PAGE_SIZE}
+            className="border-t border-line py-3"
           />
-        </>
+        </ConsoleCard>
       )}
 
       {detailUserId !== null && (

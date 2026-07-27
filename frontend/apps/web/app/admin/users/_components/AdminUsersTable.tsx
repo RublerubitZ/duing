@@ -1,10 +1,14 @@
 'use client';
 
-import type { AdminUserSearchResult, UserRole } from '@duing/types';
+import {
+  COLLEGE_DISPLAY_NAME,
+  GRADE_DISPLAY_NAME,
+  isCollege,
+  type AdminUserSearchResult,
+  type UserRole,
+} from '@duing/types';
 
-import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
-import { MemberIdentity } from '../../_components/MemberIdentity';
 import { UserStatusBadge } from './UserStatusBadge';
 
 const USER_ROLE_LABEL: Record<UserRole, string> = {
@@ -15,36 +19,53 @@ const USER_ROLE_LABEL: Record<UserRole, string> = {
 type Props = {
   items: AdminUserSearchResult[];
   onOpenDetail: (user: AdminUserSearchResult) => void;
-  onForceLogout: (user: AdminUserSearchResult) => void;
 };
 
-export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
+/**
+ * 회원 목록 표.
+ *
+ * <p>목록은 조회와 진입만 맡는다 — 운영 조치(강제 로그아웃·정지)는 전부 상세 패널에서 한다.
+ * 행마다 파괴적 버튼을 두면 목록을 훑는 동안 잘못 누르기 쉽고, 대상이 맞는지 확인할 정보가
+ * 행에는 없다. 조치 전에 상세를 거치게 하는 것이 그 확인을 강제한다.
+ *
+ * <p>한 줄에 몰아넣던 식별 정보(학번·학년·단과대·전공)를 열로 나눈다. 운영자는 세로로 훑으며
+ * 비교하므로, 같은 종류가 같은 자리에 있어야 눈이 덜 움직인다.
+ * 휴대폰·가입 동아리 수·마지막 로그인은 목록 응답에 없어 열로 만들 수 없다(상세에만 있다).
+ */
+export function AdminUsersTable({ items, onOpenDetail }: Props) {
   if (items.length === 0) {
-    // 카드로 감싸는 것이 장식이 아니다 — 콘솔 배경이 크림이라 맨몸으로 두면 안내 문구가
-    // 4.24:1 로 AA 에 미달한다(같은 이유로 상세 패널의 placeholder 도 charcoal-2 를 쓴다).
-    // 흰 배경 위에서는 4.70:1 로 통과한다. 오류 상태도 같은 이유로 카드 안에 있다.
     return (
-      <ConsoleCard>
-        <EmptyState
-          icon="🔎"
-          title="조회 결과가 없습니다"
-          body={
-            '검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'
-          }
-        />
-      </ConsoleCard>
+      <EmptyState
+        icon="🔎"
+        title="조회 결과가 없습니다"
+        body={
+          '검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'
+        }
+      />
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-line">
-      <table className="w-full text-[13px]">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-[13px]">
+        {/* 짧은 값이 든 열은 폭을 고정한다 — 자동 배분에 맡기면 마지막 열이 넓어져 버튼이
+            상태 값에서 멀리 떨어지고, 시선이 행을 가로질러야 한다. */}
+        <colgroup>
+          <col />
+          <col />
+          <col className="w-[84px]" />
+          <col className="w-[84px]" />
+          <col className="w-[104px]" />
+          <col className="w-[92px]" />
+        </colgroup>
         <thead className="bg-graysoft text-charcoal-2">
           <tr>
             <Th>회원</Th>
+            <Th>학과</Th>
+            <Th>학년</Th>
             <Th>역할</Th>
             <Th>상태</Th>
-            <Th>조치</Th>
+            <Th align="right">관리</Th>
           </tr>
         </thead>
         <tbody>
@@ -69,36 +90,45 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
                   >
                     {user.name.slice(0, 1)}
                   </span>
-                  <MemberIdentity user={user} />
+                  <div className="min-w-0 leading-tight">
+                    <div className="truncate text-[13.5px] font-semibold text-charcoal">
+                      {user.name}
+                    </div>
+                    <div className="mt-0.5 font-mono text-[11.5px] text-charcoal-3">
+                      {user.studentId}
+                    </div>
+                  </div>
                 </div>
+              </Td>
+              {/* break-keep — 좁은 폭에서 어절 단위로만 접어 '컴퓨터/공학' 처럼 낱말이 잘리지 않게 한다. */}
+              <Td>
+                <div className="min-w-0 break-keep leading-tight">
+                  <div className="text-[12.5px] text-charcoal-2">{collegeLabel(user)}</div>
+                  {user.major?.trim() && (
+                    <div className="mt-0.5 text-[11.5px] text-charcoal-3">{user.major.trim()}</div>
+                  )}
+                </div>
+              </Td>
+              <Td>
+                <span className="whitespace-nowrap text-[12.5px] text-charcoal-2">
+                  {gradeLabel(user)}
+                </span>
               </Td>
               {/* 배포 전환기의 미지 role 값도 빈 셀 대신 원문으로 노출한다(fail-open) */}
               <Td>{USER_ROLE_LABEL[user.role] ?? user.role}</Td>
               <Td>
                 <UserStatusBadge status={user.status} />
               </Td>
-              <Td>
-                <div className="flex gap-1">
-                  {/* 행마다 같은 글자만 읽히면 어느 회원의 버튼인지 알 수 없어 접근명에 이름을 붙인다. */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenDetail(user)}
-                    aria-label={`${user.name} 상세`}
-                    // 행의 주된 행동이라 솔리드로 둔다 — 옆의 강제 로그아웃(약한 파괴적)과 위계를 나눈다.
-                    className="rounded-md bg-ink-deep px-3 py-1.5 text-[12px] font-semibold text-paper transition-colors hover:bg-ink"
-                  >
-                    상세
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onForceLogout(user)}
-                    aria-label={`${user.name} 강제 로그아웃`}
-                    // 흰 배경 위 text-coral 은 3.02:1 로 AA 미달 — 파괴적 액션 공용 변형(danger 토큰)을 쓴다.
-                    className="btn-danger-quiet rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors"
-                  >
-                    강제 로그아웃
-                  </button>
-                </div>
+              <Td align="right">
+                {/* 행마다 같은 글자만 읽히면 어느 회원의 버튼인지 알 수 없어 접근명에 이름을 붙인다. */}
+                <button
+                  type="button"
+                  onClick={() => onOpenDetail(user)}
+                  aria-label={`${user.name} 상세`}
+                  className="rounded-md bg-ink-deep px-3 py-1.5 text-[12px] font-semibold text-paper transition-colors hover:bg-ink"
+                >
+                  상세
+                </button>
               </Td>
             </tr>
           ))}
@@ -108,9 +138,20 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
   );
 }
 
-const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+/** 배포 전환기(구 백엔드 응답)에는 값이 없을 수 있어 알려진 코드일 때만 라벨링한다. */
+function collegeLabel(user: AdminUserSearchResult): string {
+  return isCollege(user.college) ? COLLEGE_DISPLAY_NAME[user.college] : '—';
+}
+
+function gradeLabel(user: AdminUserSearchResult): string {
+  return user.grade ? GRADE_DISPLAY_NAME[user.grade] : '—';
+}
+
+const Th = ({ children, align }: { children: React.ReactNode; align?: 'right' }) => (
+  <th className={`px-3 py-2 font-semibold ${align === 'right' ? 'text-right' : 'text-left'}`}>
+    {children}
+  </th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, align }: { children: React.ReactNode; align?: 'right' }) => (
+  <td className={`px-3 py-2 align-middle ${align === 'right' ? 'text-right' : ''}`}>{children}</td>
 );

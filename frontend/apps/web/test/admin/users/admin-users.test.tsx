@@ -167,7 +167,7 @@ describe('AdminUsersPage', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('검색 결과의 이름·역할과 식별 메타(학번·학년·단과대·전공)를 렌더링한다', async () => {
+  it('검색 결과의 이름·역할과 식별 정보(학번·학과·학년)를 각 열에 렌더링한다', async () => {
     mockSearch.mockReturnValue(
       searchSuccess([
         makeUser({ id: 1, studentId: '20250001', name: '김두잉', role: 'STUDENT' }),
@@ -178,8 +178,11 @@ describe('AdminUsersPage', () => {
     await searchFor('20');
 
     expect(screen.getByText('김두잉')).toBeInTheDocument();
-    // 학번·학년·단과대·전공은 이름 아래 한 줄 메타로 합쳐진다.
-    expect(screen.getByText('20250001 · 1학년 · 간호대학 · 간호학')).toBeInTheDocument();
+    // 학번·학과·학년은 각각의 열로 나뉜다 — 세로로 훑으며 비교하는 화면이라 같은 종류가 같은 자리에 있어야 한다.
+    expect(screen.getByText('20250001')).toBeInTheDocument();
+    expect(screen.getAllByText('간호대학').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('간호학').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1학년').length).toBeGreaterThan(0);
     expect(screen.getByText('학생')).toBeInTheDocument();
     expect(screen.getByText('이관리')).toBeInTheDocument();
     expect(screen.getByText('관리자')).toBeInTheDocument();
@@ -189,13 +192,13 @@ describe('AdminUsersPage', () => {
     mockForceLogout.mockImplementation(
       (_userId: number, options?: { onSuccess?: () => void }) => options?.onSuccess?.(),
     );
-    mockSearch.mockReturnValue(searchSuccess([makeUser({ id: 77, name: '박강퇴' })]));
-    render(<AdminUsersPage />);
-    const user = await searchFor('박');
+    // 운영 조치는 상세 패널에서만 시작된다 — 목록에는 진입 버튼뿐이다.
+    const user = await openDetailSheet(makeDetail({ id: 77, name: '박강퇴' }));
 
-    await user.click(screen.getByRole('button', { name: '박강퇴 강제 로그아웃' }));
+    const sheet = screen.getByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: '로그아웃' }));
 
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('dialog', { name: '강제 로그아웃' });
     await user.click(within(dialog).getByRole('button', { name: '강제 로그아웃' }));
 
     await waitFor(() => expect(mockForceLogout).toHaveBeenCalled());
@@ -206,12 +209,10 @@ describe('AdminUsersPage', () => {
   });
 
   it('다이얼로그를 취소하면 mutate 를 호출하지 않는다', async () => {
-    mockSearch.mockReturnValue(searchSuccess([makeUser({ id: 88, name: '최취소' })]));
-    render(<AdminUsersPage />);
-    const user = await searchFor('최');
+    const user = await openDetailSheet(makeDetail({ id: 88, name: '최취소' }));
 
-    await user.click(screen.getByRole('button', { name: '최취소 강제 로그아웃' }));
-    const dialog = screen.getByRole('dialog');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }));
+    const dialog = screen.getByRole('dialog', { name: '강제 로그아웃' });
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
 
     expect(mockForceLogout).not.toHaveBeenCalled();
