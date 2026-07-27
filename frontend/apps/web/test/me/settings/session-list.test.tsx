@@ -160,4 +160,60 @@ describe('SessionListCard', () => {
 
     expect(await screen.findByText('기타')).toBeInTheDocument();
   });
+
+  // 세션 폐기 실패는 사유마다 사용자가 해야 할 일이 다르다 — 이미 만료된 세션이면 목록을 새로고침하면
+  // 되고, 권한 문제면 재시도해도 계속 실패한다. 일반 문구로 덮으면 그 구분이 사라진다.
+  it('기기 로그아웃이 실패하면 서버가 준 사유를 그대로 보여준다', async () => {
+    stubSessions(SESSIONS);
+    server.use(
+      http.delete(`${BASE}/users/me/sessions/2`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '이미 만료된 세션입니다.' },
+          { status: 404 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }));
+
+    expect(await screen.findByText('이미 만료된 세션입니다.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('기기를 로그아웃하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('전체 로그아웃이 실패하면 서버가 준 사유를 그대로 보여준다', async () => {
+    stubSessions(SESSIONS);
+    server.use(
+      http.delete(`${BASE}/users/me/sessions`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+          { status: 429 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: /모든 기기에서 로그아웃/ }));
+
+    expect(
+      await screen.findByText('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'),
+    ).toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  // 서버 응답이 아닌 실패(네트워크 끊김 등)에는 보여줄 서버 문구가 없다 — 그때만 기본 안내로 떨어진다.
+  it('서버 응답이 아닌 실패에는 기본 안내로 떨어진다', async () => {
+    stubSessions(SESSIONS);
+    server.use(http.delete(`${BASE}/users/me/sessions/2`, () => HttpResponse.error()));
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }));
+
+    expect(await screen.findByText(/로그아웃하지 못했어요|인터넷 연결을 확인해주세요/)).toBeInTheDocument();
+  });
 });
