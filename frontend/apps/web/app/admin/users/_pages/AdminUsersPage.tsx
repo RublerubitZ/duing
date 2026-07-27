@@ -131,11 +131,18 @@ export function AdminUsersPage() {
 
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
-      <header className="mb-6">
-        <h1 className="text-[22px] font-bold text-ink">회원 관리</h1>
-        <p className="mt-1 text-[13.5px] text-charcoal-2">
-          학번 또는 이름으로 회원을 찾고, 계정 상태 변경·강제 로그아웃 등 운영 조치를 처리합니다.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold text-ink">회원 관리</h1>
+          <p className="mt-1 text-[13.5px] text-charcoal-2">
+            학번 또는 이름으로 회원을 찾고, 계정 상태 변경·강제 로그아웃 등 운영 조치를 처리합니다.
+          </p>
+        </div>
+        {/* 이 화면이 조회 중심이라는 것을 먼저 알린다 — 회원 정보를 고치러 온 사람이 헤매지 않게. */}
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-[10px] border border-line bg-paper px-3 py-2 text-[12px] text-charcoal-2">
+          <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-ink" />
+          ADMIN 전용 · 조회 중심
+        </span>
       </header>
 
       <AdminUserKpis />

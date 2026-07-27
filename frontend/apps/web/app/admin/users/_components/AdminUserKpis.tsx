@@ -23,7 +23,9 @@ export function AdminUserKpis() {
 
   return (
     // 상태 필터 칩과 같은 낱말("이용 정지")을 쓰므로 목록에 이름을 붙여 둘을 구분한다.
-    <ul aria-label="회원 현황 요약" className="mb-5 grid grid-cols-2 gap-3">
+    // 넓은 화면에서 4칸 격자를 쓰는 것은 빈 카드를 만들려는 게 아니라 카드 폭을 잡기 위해서다 —
+    // 2칸 격자로 두면 카드 하나가 화면 절반을 차지해 숫자 하나에 빈 여백이 붙는다.
+    <ul aria-label="회원 현황 요약" className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
       <KpiCard
         label="전체 회원"
         sub="재학생 계정"

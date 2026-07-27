@@ -64,7 +64,7 @@ describe('회원 목록 표', () => {
     expect(screen.getAllByText('상세')).toHaveLength(2);
   });
 
-  it('정지 회원 행은 마우스를 올려도 코랄 강조를 유지한다', () => {
+  it('정지 회원 행은 마우스를 올려도 danger 강조를 유지한다', () => {
     render(
       <AdminUsersTable
         items={[{ ...baseUser, status: 'SUSPENDED' }]}
@@ -74,9 +74,10 @@ describe('회원 목록 표', () => {
     );
 
     const suspendedRow = screen.getByRole('row', { name: /김도윤/ });
-    expect(suspendedRow.className).toContain('bg-coral/[0.04]');
+    // 틴트도 danger 토큰이다 — 정지 뱃지·버튼과 같은 계열이어야 한 화면으로 읽힌다.
+    expect(suspendedRow.className).toContain('bg-danger/[0.04]');
     // 공통 hover:bg-graysoft 가 남으면 특이성으로 이겨 hover 중에만 강조가 사라진다.
-    expect(suspendedRow.className).toContain('hover:bg-coral/[0.08]');
+    expect(suspendedRow.className).toContain('hover:bg-danger/[0.08]');
     expect(suspendedRow.className).not.toContain('hover:bg-graysoft');
   });
 

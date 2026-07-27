@@ -15,6 +15,7 @@ import { useAuthStore } from '@duing/stores';
 import type { AdminUserDetail } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { ArrowRight, Info } from '@/components/duing/Icon';
 import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ButtonSpinner } from '@/components/loading/Spinner';
@@ -114,8 +115,11 @@ export function AdminUserDetailSheetContent({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-line pb-4 pr-8">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-sage/15 text-[18px] font-bold text-ink">
+      <div className="flex items-center gap-3.5 border-b border-line pb-4 pr-8">
+        <div
+          aria-hidden
+          className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full bg-sage/15 text-[20px] font-bold text-ink"
+        >
           {detail.name.slice(0, 1)}
         </div>
         <div className="min-w-0">
@@ -165,6 +169,13 @@ export function AdminUserDetailSheetContent({
                   href={`/admin/clubs/${club.clubId}`}
                   className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition-colors hover:bg-graysoft"
                 >
+                  {/* 동아리 이니셜 블록 — 이름 바로 옆이라 읽어주면 중복이 된다. */}
+                  <span
+                    aria-hidden
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-ink-deep font-mono text-[13px] font-bold text-paper"
+                  >
+                    {club.clubName.slice(0, 1)}
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-bold text-ink">
                       {club.clubName}
@@ -177,6 +188,8 @@ export function AdminUserDetailSheetContent({
                   <span className="rounded-full bg-graysoft px-2 py-0.5 text-[11px] font-semibold text-charcoal-2">
                     {clubMemberRoleLabel(club.role)}
                   </span>
+                  {/* 이동 가능하다는 신호 — 링크 전체가 클릭 대상이라 화살표는 장식이다. */}
+                  <ArrowRight aria-hidden size={15} className="shrink-0 text-charcoal-3" />
                 </Link>
               </li>
             ))}
@@ -235,7 +248,8 @@ export function AdminUserDetailSheetContent({
               <li key={`${entry.at}-${index}`} className="flex gap-3">
                 <div aria-hidden className="flex flex-col items-center">
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" />
-                  {index < visibleActions.length - 1 && <span className="w-px flex-1 bg-line" />}
+                  {/* 1px 은 이 배경색(line)에서 거의 보이지 않아 점만 떠 있는 것처럼 읽힌다. */}
+                  {index < visibleActions.length - 1 && <span className="w-0.5 flex-1 bg-line" />}
                 </div>
                 <div className={index < visibleActions.length - 1 ? 'pb-3' : ''}>
                   <p className="text-[12.5px] font-semibold text-ink">
@@ -268,7 +282,8 @@ export function AdminUserDetailSheetContent({
         {/* 위험 작업은 패널 맨 아래에 둔다 — 정보를 읽는 흐름 중간에 파괴적 버튼이 끼면 스크롤하다
             잘못 누르기 쉽고, 조치는 정보를 다 확인한 뒤에 하는 일이라 순서도 그쪽이 맞다. */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-danger/25">
-          <p className="pill-coral border-b border-danger/20 px-4 py-2.5 text-[12.5px] font-bold">
+          <p className="pill-coral flex items-center gap-1.5 border-b border-danger/20 px-4 py-2.5 text-[12.5px] font-bold">
+            <Info aria-hidden size={15} />
             위험 작업
           </p>
           <div className="flex flex-col gap-3 bg-danger/[0.04] p-4">

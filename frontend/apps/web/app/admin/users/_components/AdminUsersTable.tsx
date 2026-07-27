@@ -51,16 +51,26 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
           {items.map((user) => (
             <tr
               key={user.id}
-              // 정지 행은 hover 도 코랄로 받는다 — 공통 hover:bg-graysoft/50 을 그대로 두면
+              // 정지 행은 hover 도 같은 계열로 받는다 — 공통 hover:bg-graysoft/50 을 그대로 두면
               // 특이성이 높은 hover 규칙이 이겨 마우스를 올린 동안 구분 강조가 사라진다.
+              // 틴트도 danger 토큰을 쓴다 — 정지 뱃지·버튼과 같은 계열이어야 한 화면으로 읽힌다.
               className={`border-t border-line ${
                 user.status === 'SUSPENDED'
-                  ? 'bg-coral/[0.04] hover:bg-coral/[0.08]'
+                  ? 'bg-danger/[0.04] hover:bg-danger/[0.08]'
                   : 'hover:bg-graysoft/50'
               }`}
             >
               <Td>
-                <MemberIdentity user={user} />
+                <div className="flex items-center gap-2.5">
+                  {/* 이니셜 원형 — aria-hidden 이다. 이름 바로 옆이라 읽어주면 "김 김두잉"이 된다. */}
+                  <span
+                    aria-hidden
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sage/15 text-[13px] font-bold text-ink"
+                  >
+                    {user.name.slice(0, 1)}
+                  </span>
+                  <MemberIdentity user={user} />
+                </div>
               </Td>
               {/* 배포 전환기의 미지 role 값도 빈 셀 대신 원문으로 노출한다(fail-open) */}
               <Td>{USER_ROLE_LABEL[user.role] ?? user.role}</Td>
@@ -74,7 +84,8 @@ export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
                     type="button"
                     onClick={() => onOpenDetail(user)}
                     aria-label={`${user.name} 상세`}
-                    className="rounded-md px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors hover:bg-graysoft"
+                    // 행의 주된 행동이라 솔리드로 둔다 — 옆의 강제 로그아웃(약한 파괴적)과 위계를 나눈다.
+                    className="rounded-md bg-ink-deep px-3 py-1.5 text-[12px] font-semibold text-paper transition-colors hover:bg-ink"
                   >
                     상세
                   </button>

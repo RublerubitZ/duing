@@ -54,6 +54,15 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
           if (isPending) event.preventDefault();
         }}
       >
+        {/* 아이콘 뱃지 — 제목을 읽기 전에 무슨 성격의 확인인지 먼저 알린다(장식이라 aria-hidden). */}
+        <div
+          aria-hidden
+          className={`grid h-11 w-11 place-items-center rounded-[13px] text-[20px] ${
+            isSuspending ? 'pill-coral' : 'bg-sage/15'
+          }`}
+        >
+          {isSuspending ? '⛔' : '↩️'}
+        </div>
         <DialogHeader>
           <DialogTitle>{isSuspending ? '계정을 정지할까요?' : '정지를 해제할까요?'}</DialogTitle>
           <DialogDescription>
