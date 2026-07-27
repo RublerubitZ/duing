@@ -74,6 +74,7 @@ export default function ClubDetailPage({
               <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
             </div>
             <ClubContactCard
+              clubName={club.name}
               snsLinks={club.snsLinks}
               location={club.location}
               contactPhone={club.contactPhone}

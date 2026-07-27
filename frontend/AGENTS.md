@@ -16,6 +16,7 @@ RN 호환을 위해 비즈니스 로직은 `packages/*` 로 분리되어 있으�
 | 서버 상태 | TanStack Query 5 |
 | 클라이언트 상태 | Zustand 5 |
 | 스타일 | Tailwind CSS (shadcn-ui 도입 예정) |
+| 아이콘 | lucide-react (UI) + react-icons (브랜드 로고) |
 | HTTP | ky |
 | 폼 / 검증 | React Hook Form + Zod |
 | 테스트 | Vitest + Playwright (도입 예정) |
@@ -227,6 +228,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 - `'use client'` 는 파일 최상단, import 위
 - 타입 선언은 `type` (`interface` 금지, 라이브러리 augmentation 예외)
 - Conventional Commits: `<type>(<scope>): <description>` (commitlint 도입 시 강제)
+
+### 아이콘
+- 일반 UI 아이콘(Phone·MapPinned·Calendar·Search·User·Link 등)은 `lucide-react`
+- 브랜드 로고(Instagram·GitHub·Discord·YouTube·X 등)는 `react-icons` — lucide v1 이 브랜드 아이콘을 전부 제거했다
+- 브랜드 아이콘은 개별 컴포넌트를 직접 import 하지 말고 `app/_components/BrandIcon` 을 쓴다. 브랜드 추가는 `SNS_BRANDS` 에 한 줄 넣으면 `BRAND_HOSTS`·`BRAND_PRESENTATIONS`·`BRAND_ICONS` 세 Record 가 컴파일 에러로 빠진 곳을 알려준다
+- CONTACT 카드 등 링크 표시 문구는 컴포넌트에 하드코딩하지 말고 `BRAND_PRESENTATIONS` 에서만 고친다. 단 `OTHER` 는 저장 시 플랫폼명이 강제라 라벨은 운영진 입력이 우선이고, Record 의 라벨은 폴백이다
+- 브랜드는 저장된 플랫폼이 아니라 URL 호스트로 판정한다 — URL 을 감춘 화면에서 플랫폼 값만 믿으면 엉뚱한 주소에 브랜드 신원을 빌려준다
+- import 는 반드시 서브패스(`react-icons/fa6`)로 — Next 기본 `optimizePackageImports` 가 서브패스만 트리셰이킹한다
 
 ### 날짜/시간 표시 (상세: [/TIMEZONE.md](../TIMEZONE.md))
 - 시각 표시는 `@duing/hooks` 공통 유틸만: `formatDateTimeKst`/`formatDateKst`/`formatTimeKst`/`formatRelativeTime` (+ 특수 포맷 `kstDateTimeFormatter`, KST 날짜 연산 `kstDateString`/`isTodayKst`/`daysUntilKst`)
