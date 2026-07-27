@@ -131,7 +131,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
         title={collapsed ? '로그아웃' : undefined}
         className={cn(
           actionClass,
-          'w-full text-left hover:bg-coral/10 hover:text-coral disabled:opacity-60',
+          'w-full text-left hover:bg-danger/10 hover:text-danger disabled:opacity-60',
         )}
       >
         <LogOut size={19} className="shrink-0" />

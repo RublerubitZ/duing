@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -68,8 +68,11 @@ const detail: AdminUserDetail = {
 };
 
 const noop = vi.fn();
+// 기본 시나리오는 "다른 학생 회원을 보는 관리자" — 대상(id 12)과 다른 id 를 둬야 자기 자신 가드가 켜지지 않는다.
+const CURRENT_ADMIN_ID = 99;
 const props = {
   detail,
+  currentUserId: CURRENT_ADMIN_ID,
   onSuspend: noop,
   onUnsuspend: noop,
   onForceLogout: noop,
@@ -229,6 +232,75 @@ describe('회원 상세 Sheet', () => {
     await user.click(screen.getByRole('button', { name: '계정 정지' }));
     expect(onSuspend).toHaveBeenCalled();
   });
+
+  // 서버가 400 으로 막는 두 경우를 화면에서 미리 거른다 — 사유를 다 입력하고 확인까지 누른 뒤에야
+  // 거절당하는 헛수고를 없앤다. 서버 검증은 그대로 두고 화면은 한 겹 앞에서 거를 뿐이다.
+  it('관리자 계정에는 정지 버튼을 잠그고 사유를 화면에 보여준다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE', role: 'ADMIN' }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '계정 정지' })).toBeDisabled();
+    // 잠긴 버튼은 포커스를 못 받아 툴팁이 닿지 않는다 — 사유가 화면 텍스트로 있어야 한다.
+    expect(screen.getByText('관리자 계정은 정지할 수 없습니다.')).toBeInTheDocument();
+  });
+
+  it('자기 자신의 계정에는 정지 버튼을 잠그고 사유를 화면에 보여준다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE' }}
+        currentUserId={detail.id}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '계정 정지' })).toBeDisabled();
+    expect(screen.getByText('자기 자신의 계정은 정지할 수 없습니다.')).toBeInTheDocument();
+  });
+
+  // 운영 기록은 기본 3건만 보여준다 — 서버가 최근 20건을 함께 내려주므로 펼치는 데 추가 조회가 없다.
+  it('운영 기록이 3건을 넘으면 3건만 보여주고 나머지는 펼쳐서 본다', async () => {
+    const user = userEvent.setup();
+    const manyActions = Array.from({ length: 5 }, (_, index) => ({
+      action: 'ACCOUNT_SUSPENDED' as const,
+      actorName: `운영자${index}`,
+      reason: `사유 ${index}`,
+      at: '2026-07-25T05:00:00Z',
+    }));
+    render(
+      <AdminUserDetailSheetContent {...props} detail={{ ...detail, recentActions: manyActions }} />,
+    );
+
+    expect(screen.getByText('사유 0')).toBeInTheDocument();
+    expect(screen.getByText('사유 2')).toBeInTheDocument();
+    expect(screen.queryByText('사유 3')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /전체 기록 보기/ }));
+
+    expect(screen.getByText('사유 4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /전체 기록 보기/ })).not.toBeInTheDocument();
+  });
+
+  it('운영 기록이 3건 이하이면 펼치기 버튼을 두지 않는다', () => {
+    render(<AdminUserDetailSheetContent {...props} />);
+    expect(screen.queryByRole('button', { name: /전체 기록 보기/ })).not.toBeInTheDocument();
+  });
+
+  // 강제 로그아웃에는 이 제약이 없다 — 계정이 잠기지 않고 재로그인하면 복구되므로 본인·다른 관리자 모두 허용이 의도다.
+  it('관리자 계정이어도 강제 로그아웃은 막지 않는다', () => {
+    render(
+      <AdminUserDetailSheetContent
+        {...props}
+        detail={{ ...detail, status: 'ACTIVE', role: 'ADMIN' }}
+        currentUserId={detail.id}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '로그아웃' })).toBeEnabled();
+  });
 });
 
 describe('회원 상세 Sheet 컨테이너', () => {
@@ -277,10 +349,22 @@ describe('회원 상세 Sheet 컨테이너', () => {
     expect(noteMutate.mock.calls[0]?.[0]).toEqual({ userId: 12, note: '신고 누적으로 정지' });
   });
 
-  it('상세 조회에 실패하면 안내 문구를 보여준다', () => {
-    detailQueryResult.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+  // 조회 실패는 안내로 끝내지 않는다 — 사용자가 할 수 있는 일(다시 시도)이 있고,
+  // 화면 전환 없이 그 자리에서 바뀌는 변화라 alert 로 알려야 한다.
+  it('상세 조회에 실패하면 사유와 함께 다시 시도할 수 있게 한다', async () => {
+    const refetch = vi.fn();
+    detailQueryResult.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
     render(<AdminUserDetailSheet userId={12} {...callbacks} />);
 
-    expect(screen.getByText('회원 정보를 불러오지 못했습니다.')).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByText('회원 정보를 불러오지 못했어요.')).toBeInTheDocument();
+
+    await userEvent.setup().click(within(alert).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

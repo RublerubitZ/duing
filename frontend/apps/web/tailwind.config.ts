@@ -37,6 +37,12 @@ const config: Config = {
         paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
         warm: '#E8B968',
         coral: '#D97757',
+        // 파괴적 액션(정지·삭제·강제 로그아웃) 전용 토큰. coral 은 브랜드 액센트라 장식·틴트로도 쓰여
+        // 값을 내리면 화면 전체가 탁해진다 — 흰 글자를 얹는 자리만 따로 뗀다.
+        // 대비(흰 글자 기준): DEFAULT 5.45:1, hover 6.75:1 로 둘 다 WCAG AA(4.5:1) 통과.
+        // 기존 coral 은 3.12:1, coral hover(#C2603F)는 4.17:1 로 미달이었다.
+        // hover 값은 새로 만든 색이 아니라 .pill-coral 글자색으로 이미 쓰이던 검증된 값이다.
+        danger: { DEFAULT: '#B04A28', hover: '#9A3F23' },
         berry: '#B65672',
         sky: {
           DEFAULT: '#6A95B8',
