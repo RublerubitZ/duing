@@ -15,7 +15,8 @@ type Props = {
 
 export function AdminUserStatusFilter({ value, onChange }: Props) {
   return (
-    <div className="flex gap-1.5" role="group" aria-label="계정 상태 필터">
+    // 태블릿 폭에서 검색 입력과 한 줄에 놓이므로 칩이 넘치면 줄바꿈한다(가로 스크롤 대신).
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="계정 상태 필터">
       {OPTIONS.map((option) => {
         const selected = option.value === value;
         return (

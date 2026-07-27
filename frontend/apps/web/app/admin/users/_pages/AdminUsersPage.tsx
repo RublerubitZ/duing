@@ -10,11 +10,18 @@ import {
 } from '@duing/hooks';
 import type { AdminUserDetail, AdminUserSearchResult, UserStatus } from '@duing/types';
 
+import { useSearchParams } from 'next/navigation';
+
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { toRoute } from '@/app/_lib/route';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
+import { ConsoleCard } from '../../_components/ConsoleCard';
+import { ErrorState } from '../../_components/ErrorState';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 import { AdminUserKpis } from '../_components/AdminUserKpis';
+import { buildUsersQuery, parsePageParam, parseStatusParam } from '../_lib/usersQuerySync';
 import { AdminUsersTable } from '../_components/AdminUsersTable';
 import { AdminUserStatusFilter } from '../_components/AdminUserStatusFilter';
 import { AdminForceLogoutDialog } from '../_components/AdminForceLogoutDialog';
@@ -44,9 +51,12 @@ const inputCls =
   'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminUsersPage() {
+  // 검색어만 컴포넌트 상태다 — 이름·학번이 주소에 실리면 방문 기록·referrer·페이지뷰 이벤트로 새어나간다.
   const [input, setInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState<UserStatus | undefined>(undefined);
-  const [page, setPage] = useState(0);
+  const router = useGuardedRouter();
+  const searchParams = useSearchParams();
+  const statusFilter = parseStatusParam(searchParams.get('status'));
+  const page = parsePageParam(searchParams.get('page'));
   const [target, setTarget] = useState<AdminUserSearchResult | null>(null);
   const [detailUserId, setDetailUserId] = useState<number | null>(null);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
@@ -66,9 +76,17 @@ export function AdminUsersPage() {
   const items = searchQuery.data?.content ?? [];
   const totalPages = searchQuery.data?.totalPages ?? 0;
 
+  /** 필터·페이지만 주소에 반영한다. replace 라 필터를 바꿀 때마다 뒤로가기 기록이 쌓이지 않는다. */
+  const syncQuery = (nextStatus: UserStatus | undefined, nextPage: number) => {
+    router.replace(toRoute(`/admin/users${buildUsersQuery(nextStatus, nextPage)}`), {
+      scroll: false,
+    });
+  };
+
   const handleInputChange = (value: string) => {
     setInput(value);
-    setPage(0);
+    // 검색어를 바꾸면 첫 페이지로 돌아간다 — 3페이지를 물고 가면 대개 빈 목록이 나온다.
+    if (page !== 0) syncQuery(statusFilter, 0);
   };
 
   const handleConfirm = () => {
@@ -121,13 +139,7 @@ export function AdminUsersPage() {
           placeholder="학번 또는 이름으로 검색"
           className={inputCls}
         />
-        <AdminUserStatusFilter
-          value={statusFilter}
-          onChange={(next) => {
-            setStatusFilter(next);
-            setPage(0);
-          }}
-        />
+        <AdminUserStatusFilter value={statusFilter} onChange={(next) => syncQuery(next, 0)} />
       </div>
 
       {searchQuery.isLoading && (
@@ -135,7 +147,12 @@ export function AdminUsersPage() {
       )}
 
       {searchQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">회원을 불러오지 못했습니다.</p>
+        <ConsoleCard>
+          <ErrorState
+            message="회원을 불러오지 못했어요."
+            onRetry={() => void searchQuery.refetch()}
+          />
+        </ConsoleCard>
       )}
 
       {searchQuery.isSuccess && (
@@ -145,7 +162,12 @@ export function AdminUsersPage() {
             onOpenDetail={(user) => setDetailUserId(user.id)}
             onForceLogout={setTarget}
           />
-          <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="회원 목록 페이지" />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={(nextPage) => syncQuery(statusFilter, nextPage)}
+            ariaLabel="회원 목록 페이지"
+          />
         </>
       )}
 

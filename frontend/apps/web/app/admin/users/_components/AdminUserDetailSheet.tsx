@@ -26,6 +26,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 
+import { ErrorState } from '../../_components/ErrorState';
 import { ADMIN_USER_ACTION_LABEL } from '../_lib/userActionLabels';
 import { UserStatusBadge } from './UserStatusBadge';
 
@@ -223,13 +224,54 @@ export function AdminUserDetailSheetContent({
           </div>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-coral/30">
-          {/* pill-coral(#fce2d9 배경 / #9a3f23 글자)은 레포에서 대비를 맞춰 둔 코랄 조합이다.
-              옅은 배경 위 text-coral 은 3.1:1 이라 작은 글자에서 WCAG AA 에 못 미친다. */}
-          <p className="pill-coral border-b border-coral/20 px-4 py-2.5 text-[12.5px] font-bold">
+        <SectionLabel className="mt-6">최근 운영 기록</SectionLabel>
+        {detail.recentActions.length === 0 ? (
+          <p className="text-[12.5px] text-charcoal-3">기록이 없습니다</p>
+        ) : (
+          <ul className="flex flex-col">
+            {visibleActions.map((entry, index) => (
+              // 점과 이어지는 선으로 사건의 순서를 드러낸다 — 왼쪽 테두리 한 줄로는 항목 사이 경계가
+              // 흐려 어디까지가 한 조치인지 읽기 어렵다.
+              <li key={`${entry.at}-${index}`} className="flex gap-3">
+                <div aria-hidden className="flex flex-col items-center">
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" />
+                  {index < visibleActions.length - 1 && <span className="w-px flex-1 bg-line" />}
+                </div>
+                <div className={index < visibleActions.length - 1 ? 'pb-3' : ''}>
+                  <p className="text-[12.5px] font-semibold text-ink">
+                    {ADMIN_USER_ACTION_LABEL[entry.action] ?? entry.action}
+                  </p>
+                  {/* 사유를 필수로 받으면서 어디에도 보여주지 않으면 받는 의미가 없다. */}
+                  {entry.reason && (
+                    <p className="mt-0.5 text-[12px] text-charcoal-2">{entry.reason}</p>
+                  )}
+                  <p className="mt-0.5 text-[11px] text-charcoal-3">
+                    {entry.actorName ?? '알 수 없음'} · {formatDateTimeKst(entry.at)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {/* 서버가 이미 최근 20건을 함께 내려주므로 펼치는 데 추가 조회가 없다.
+            기본 3건으로 접는 이유는 아래 접힌 내용이 아니라 위쪽 위험 작업·메모를 가리지 않기 위해서다. */}
+        {hasMoreActions && (
+          <button
+            type="button"
+            onClick={() => setShowAllActions(true)}
+            className="btn btn-sm btn-secondary mt-3 w-full"
+          >
+            전체 기록 보기 · {detail.recentActions.length}건
+          </button>
+        )}
+
+        {/* 위험 작업은 패널 맨 아래에 둔다 — 정보를 읽는 흐름 중간에 파괴적 버튼이 끼면 스크롤하다
+            잘못 누르기 쉽고, 조치는 정보를 다 확인한 뒤에 하는 일이라 순서도 그쪽이 맞다. */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-danger/25">
+          <p className="pill-coral border-b border-danger/20 px-4 py-2.5 text-[12.5px] font-bold">
             위험 작업
           </p>
-          <div className="flex flex-col gap-3 bg-coral/[0.04] p-4">
+          <div className="flex flex-col gap-3 bg-danger/[0.04] p-4">
             <DangerRow
               title="강제 로그아웃"
               description="모든 활성 세션을 즉시 종료합니다. 계정 상태는 유지됩니다."
@@ -254,37 +296,6 @@ export function AdminUserDetailSheetContent({
             )}
           </div>
         </div>
-
-        <SectionLabel className="mt-6">최근 운영 기록</SectionLabel>
-        {detail.recentActions.length === 0 ? (
-          <p className="text-[12.5px] text-charcoal-3">기록이 없습니다</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {visibleActions.map((entry, index) => (
-              <li key={`${entry.at}-${index}`} className="border-l-2 border-line pl-3">
-                <p className="text-[12.5px] font-semibold text-ink">
-                  {ADMIN_USER_ACTION_LABEL[entry.action] ?? entry.action}
-                </p>
-                {/* 사유를 필수로 받으면서 어디에도 보여주지 않으면 받는 의미가 없다. */}
-                {entry.reason && <p className="mt-0.5 text-[12px] text-charcoal-2">{entry.reason}</p>}
-                <p className="mt-0.5 text-[11px] text-charcoal-3">
-                  {entry.actorName ?? '알 수 없음'} · {formatDateTimeKst(entry.at)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {/* 서버가 이미 최근 20건을 함께 내려주므로 펼치는 데 추가 조회가 없다.
-            기본 3건으로 접는 이유는 아래 접힌 내용이 아니라 위쪽 위험 작업·메모를 가리지 않기 위해서다. */}
-        {hasMoreActions && (
-          <button
-            type="button"
-            onClick={() => setShowAllActions(true)}
-            className="btn btn-sm btn-secondary mt-3 w-full"
-          >
-            전체 기록 보기 · {detail.recentActions.length}건
-          </button>
-        )}
       </div>
     </div>
   );
@@ -400,7 +411,10 @@ export function AdminUserDetailSheet({
           <ListRowsSkeleton rows={6} rowClassName="h-12 rounded-md" label="회원 상세 불러오는 중" />
         )}
         {detailQuery.isError && (
-          <p className="py-12 text-center text-[13px] text-coral">회원 정보를 불러오지 못했습니다.</p>
+          <ErrorState
+            message="회원 정보를 불러오지 못했어요."
+            onRetry={() => void detailQuery.refetch()}
+          />
         )}
         {detail && (
           <AdminUserDetailSheetContent

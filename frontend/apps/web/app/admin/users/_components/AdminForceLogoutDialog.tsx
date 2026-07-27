@@ -55,7 +55,7 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger"
           >
             {isPending && <ButtonSpinner />}강제 로그아웃
           </button>

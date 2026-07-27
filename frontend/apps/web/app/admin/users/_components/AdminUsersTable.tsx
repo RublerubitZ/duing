@@ -2,6 +2,7 @@
 
 import type { AdminUserSearchResult, UserRole } from '@duing/types';
 
+import { EmptyState } from '../../_components/EmptyState';
 import { MemberIdentity } from '../../_components/MemberIdentity';
 import { UserStatusBadge } from './UserStatusBadge';
 
@@ -18,7 +19,13 @@ type Props = {
 
 export function AdminUsersTable({ items, onOpenDetail, onForceLogout }: Props) {
   if (items.length === 0) {
-    return <p className="py-12 text-center text-charcoal-3 text-[13px]">조회 결과가 없습니다</p>;
+    return (
+      <EmptyState
+        icon="🔎"
+        title="조회 결과가 없습니다"
+        body={'검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'}
+      />
+    );
   }
 
   return (

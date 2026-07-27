@@ -117,9 +117,9 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             disabled={
               isPending || trimmedReason.length === 0 || trimmedReason.length > REASON_MAX_LENGTH
             }
-            className={`btn btn-sm text-paper transition-colors disabled:opacity-50 ${
-              isSuspending ? 'bg-coral hover:bg-[#c2603f]' : 'bg-ink hover:bg-ink/90'
-            }`}
+            // 정지는 파괴적 액션이라 danger 변형, 해제는 되돌리는 쪽이라 기본 강조를 쓴다 —
+            // 두 확인 버튼이 같은 빨강이면 무엇을 확정하는지가 색으로 구분되지 않는다.
+            className={`btn btn-sm ${isSuspending ? 'btn-danger' : 'btn-primary'}`}
           >
             {isPending && <ButtonSpinner />}
             {confirmLabel}

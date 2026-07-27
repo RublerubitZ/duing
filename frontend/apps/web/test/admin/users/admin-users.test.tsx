@@ -26,6 +26,16 @@ function lastListCallArgs(): unknown[] | undefined {
   });
   return listCalls.at(-1);
 }
+// 상태 필터·페이지는 URL 로 오간다(검색어는 의도적으로 URL 에 싣지 않는다) — 주소를 갈아끼우는
+// 대신 여기서 현재 질의 문자열을 붙들고, replace 호출을 기록해 어떤 주소로 바꾸려 했는지 본다.
+// (admin-bookings-page.test 의 next/navigation 모킹 패턴)
+const mockReplace = vi.fn();
+let mockQueryString = '';
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(mockQueryString),
+}));
+
 const mockForceLogout = vi.fn();
 const mockUserDetail = vi.fn();
 const mockChangeStatus = vi.fn();
@@ -41,8 +51,10 @@ vi.mock('@duing/hooks', () => ({
 }));
 
 const mockAddToast = vi.fn();
+// useGuardedRouter 가 ToastProvider 컨텍스트를 물어 useOptionalToast 까지 스텁한다.
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
+  useOptionalToast: () => vi.fn(),
 }));
 
 // 디바운스는 타이밍 의존을 없애기 위해 항등 함수로 대체한다.
@@ -139,6 +151,7 @@ async function searchFor(keyword: string) {
 describe('AdminUsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockQueryString = '';
     mockSearch.mockReturnValue(searchIdle);
     mockUserDetail.mockReturnValue({ data: undefined, isLoading: true, isError: false });
   });
@@ -245,20 +258,29 @@ describe('AdminUsersPage', () => {
     expect(screen.getByText('무검색')).toBeInTheDocument();
   });
 
-  it('상태 필터를 고르면 해당 상태로 조회하고 페이지를 처음으로 되돌린다', async () => {
+  // 상태·페이지는 주소가 들고 있으므로, 조작의 결과는 조회 인자가 아니라 어느 주소로 옮겨가는지로 드러난다.
+  it('상태 필터와 페이지 이동을 주소에 반영한다 — 필터를 바꾸면 첫 페이지로 돌아간다', async () => {
     mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
     render(<AdminUsersPage />);
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '다음' }));
-    expect(lastListCallArgs()).toEqual([
-      { q: '', status: undefined, page: 1, size: 20 },
-      { allowEmptyQuery: true },
-    ]);
+    expect(mockReplace).toHaveBeenLastCalledWith('/admin/users?page=2', { scroll: false });
 
     await user.click(screen.getByRole('button', { name: '이용 정지' }));
+    // page 가 빠져 있는 것이 곧 "첫 페이지로 되돌렸다" 다 — 기본값은 주소에 남기지 않는다.
+    expect(mockReplace).toHaveBeenLastCalledWith('/admin/users?status=SUSPENDED', {
+      scroll: false,
+    });
+  });
+
+  it('주소에 실린 상태·페이지를 그대로 읽어 조회한다 — 새로고침·뒤로가기로 되돌아온다', () => {
+    mockQueryString = 'status=SUSPENDED&page=3';
+    mockSearch.mockReturnValue(searchSuccess([makeUser()], 5));
+    render(<AdminUsersPage />);
+
     expect(lastListCallArgs()).toEqual([
-      { q: '', status: 'SUSPENDED', page: 0, size: 20 },
+      { q: '', status: 'SUSPENDED', page: 2, size: 20 },
       { allowEmptyQuery: true },
     ]);
   });
@@ -339,21 +361,33 @@ describe('AdminUsersPage', () => {
   });
 
   it('검색어를 바꾸면 해당 검색어로 조회하고 페이지를 처음으로 되돌린다', async () => {
+    // 2페이지에서 시작한다 — 검색어를 친 뒤에도 그 페이지를 물고 가면 대개 빈 목록이 나온다.
+    mockQueryString = 'page=2';
     mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
     render(<AdminUsersPage />);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: '다음' }));
-    expect(lastListCallArgs()).toEqual([
-      { q: '', status: undefined, page: 1, size: 20 },
-      { allowEmptyQuery: true },
-    ]);
-
-    // 검색어를 친 뒤에도 3페이지를 그대로 물고 가면 대개 빈 목록이 나온다.
     await user.type(screen.getByLabelText('회원 검색'), '김');
+
     expect(lastListCallArgs()).toEqual([
-      { q: '김', status: undefined, page: 0, size: 20 },
+      { q: '김', status: undefined, page: 1, size: 20 },
       { allowEmptyQuery: true },
     ]);
+    // 페이지 되돌리기는 주소로 나간다 — page 가 빠진 주소가 곧 첫 페이지다.
+    expect(mockReplace).toHaveBeenLastCalledWith('/admin/users', { scroll: false });
+  });
+
+  // 검색어가 주소에 실리면 방문 기록·referrer·페이지뷰 이벤트로 이름·학번이 새어나간다.
+  it('검색어는 주소에 싣지 않는다', async () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser()]));
+    render(<AdminUsersPage />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText('회원 검색'), '김두잉');
+
+    for (const call of mockReplace.mock.calls) {
+      expect(String(call[0])).not.toContain('김두잉');
+      expect(String(call[0])).not.toContain('q=');
+    }
   });
 });

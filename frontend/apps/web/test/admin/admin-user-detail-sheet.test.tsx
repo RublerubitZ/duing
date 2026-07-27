@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -349,10 +349,22 @@ describe('회원 상세 Sheet 컨테이너', () => {
     expect(noteMutate.mock.calls[0]?.[0]).toEqual({ userId: 12, note: '신고 누적으로 정지' });
   });
 
-  it('상세 조회에 실패하면 안내 문구를 보여준다', () => {
-    detailQueryResult.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+  // 조회 실패는 안내로 끝내지 않는다 — 사용자가 할 수 있는 일(다시 시도)이 있고,
+  // 화면 전환 없이 그 자리에서 바뀌는 변화라 alert 로 알려야 한다.
+  it('상세 조회에 실패하면 사유와 함께 다시 시도할 수 있게 한다', async () => {
+    const refetch = vi.fn();
+    detailQueryResult.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
     render(<AdminUserDetailSheet userId={12} {...callbacks} />);
 
-    expect(screen.getByText('회원 정보를 불러오지 못했습니다.')).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByText('회원 정보를 불러오지 못했어요.')).toBeInTheDocument();
+
+    await userEvent.setup().click(within(alert).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalled();
   });
 });
