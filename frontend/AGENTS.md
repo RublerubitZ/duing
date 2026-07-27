@@ -232,8 +232,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 ### 아이콘
 - 일반 UI 아이콘(Phone·MapPinned·Calendar·Search·User·Link 등)은 `lucide-react`
 - 브랜드 로고(Instagram·GitHub·Discord·YouTube·X 등)는 `react-icons` — lucide v1 이 브랜드 아이콘을 전부 제거했다
-- 브랜드 아이콘은 개별 컴포넌트를 직접 import 하지 말고 `app/_components/BrandIcon` 을 쓴다. 브랜드 추가는 `app/_lib/snsPlatform.ts` 의 `SnsBrand`·`BRAND_HOSTS`(URL 호스트 인식)·`BRAND_PRESENTATIONS`(라벨/값 문구) + `BrandIcon.tsx` 의 `BRAND_ICONS` 네 곳
-- CONTACT 카드 등 링크 표시 문구는 컴포넌트에 하드코딩하지 말고 `BRAND_PRESENTATIONS` 에서만 고친다
+- 브랜드 아이콘은 개별 컴포넌트를 직접 import 하지 말고 `app/_components/BrandIcon` 을 쓴다. 브랜드 추가는 `SNS_BRANDS` 에 한 줄 넣으면 `BRAND_HOSTS`·`BRAND_PRESENTATIONS`·`BRAND_ICONS` 세 Record 가 컴파일 에러로 빠진 곳을 알려준다
+- CONTACT 카드 등 링크 표시 문구는 컴포넌트에 하드코딩하지 말고 `BRAND_PRESENTATIONS` 에서만 고친다. 단 `OTHER` 는 저장 시 플랫폼명이 강제라 라벨은 운영진 입력이 우선이고, Record 의 라벨은 폴백이다
+- 브랜드는 저장된 플랫폼이 아니라 URL 호스트로 판정한다 — URL 을 감춘 화면에서 플랫폼 값만 믿으면 엉뚱한 주소에 브랜드 신원을 빌려준다
 - import 는 반드시 서브패스(`react-icons/fa6`)로 — Next 기본 `optimizePackageImports` 가 서브패스만 트리셰이킹한다
 
 ### 날짜/시간 표시 (상세: [/TIMEZONE.md](../TIMEZONE.md))
