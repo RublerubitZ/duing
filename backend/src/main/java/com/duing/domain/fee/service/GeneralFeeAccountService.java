@@ -35,7 +35,8 @@ public class GeneralFeeAccountService implements FeeAccountService {
     public Long upsert(UpsertFeeAccountCommand command) {
         clubAuthService.requireManager(command.actorId(), command.clubId());
         // 자동매칭이 사용 가능한(계좌 존재 + 사용 가능 설정 + 지원 은행) 동안에는 계좌를 잠근다 —
-        // 외부에 등록된 번호와 DB 가 어긋나는 드리프트를 막는다. 변경하려면 자동매칭을 먼저 해제해야 한다.
+        // 활성 중 은행·번호가 바뀌면 이미 적재된 거래(bank_transaction.bank_code)와 귀속이 어긋난다.
+        // 변경하려면 자동매칭을 먼저 해제해야 한다.
         // 계좌가 없는 최초 등록은 isActiveUsable=false 라 정상 통과한다.
         if (bankMatchingAdminService.isActiveUsable(command.clubId())) {
             throw new FeeAccountException.BankMatchingActiveException();
@@ -72,8 +73,8 @@ public class GeneralFeeAccountService implements FeeAccountService {
     public void delete(Long clubId, Long actorId) {
         clubAuthService.requireManager(actorId, clubId);
         FeeAccount account = loadByClubId(clubId);
-        // 삭제는 외부/암호 실패로 막지 않는다. 외부 BANK 등록은 best-effort 로 정리하고 설정을 강제 비활성화한다.
-        // (soft delete 전에 호출해야 account 암호문이 살아 있어 외부 해제에 쓸 수 있다.)
+        // 계좌가 사라진 동아리는 거래를 조회할 수 없으므로 자동매칭 설정을 함께 끈다.
+        // 정리할 외부 등록이 없어 이 호출은 외부 장애로 실패하지 않는다(순서 무관하지만 의도를 드러내려 삭제 앞에 둔다).
         bankMatchingAdminService.unregisterForAccountRemoval(clubId);
         feeAccountRepository.delete(account); // @SQLDelete soft delete
     }

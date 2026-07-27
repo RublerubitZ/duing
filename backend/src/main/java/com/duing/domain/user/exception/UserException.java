@@ -47,19 +47,21 @@ public class UserException extends ApplicationException {
         }
     }
 
-    public static class InvalidSearchQueryException extends UserException {
-        private static final String MESSAGE = "검색어를 입력해주세요.";
-
-        public InvalidSearchQueryException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
-        }
-    }
-
     public static class AccountLockedException extends UserException {
         private static final String MESSAGE = "로그인 시도가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.";
 
         public AccountLockedException() {
             super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
+
+    /** 관리자가 이용 정지한 계정. 잠금(AccountLocked, 자동 해제)과 달리 관리자 해제 전까지 풀리지 않는다. */
+    public static class AccountSuspendedException extends UserException {
+
+        private static final String MESSAGE = "정지된 계정입니다. 총동아리연합회로 문의해 주세요.";
+
+        public AccountSuspendedException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED");
         }
     }
 
@@ -101,6 +103,26 @@ public class UserException extends ApplicationException {
 
         public SessionNotFoundException() {
             super(MESSAGE, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    /** 관리자가 자기 계정을 정지하는 것을 막는다 — 자기 자신을 잠그는 사고 방지. */
+    public static class SelfSuspendNotAllowedException extends UserException {
+
+        private static final String MESSAGE = "자기 자신의 계정은 정지할 수 없습니다.";
+
+        public SelfSuspendNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST, "SELF_SUSPEND_NOT_ALLOWED");
+        }
+    }
+
+    /** ADMIN 계정은 정지 대상이 아니다 — 관리자 전원이 잠기는 상황을 구조적으로 배제한다. */
+    public static class AdminSuspendNotAllowedException extends UserException {
+
+        private static final String MESSAGE = "관리자 계정은 정지할 수 없습니다.";
+
+        public AdminSuspendNotAllowedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST, "ADMIN_SUSPEND_NOT_ALLOWED");
         }
     }
 

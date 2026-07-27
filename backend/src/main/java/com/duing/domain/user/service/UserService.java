@@ -1,5 +1,6 @@
 package com.duing.domain.user.service;
 
+import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
 import com.duing.domain.user.service.dto.command.ForceLogoutCommand;
@@ -49,5 +50,5 @@ public interface UserService {
 
     UserQuery getById(Long userId);
 
-    Page<UserSearchResultQuery> searchForAdmin(String query, Pageable pageable);
+    Page<UserSearchResultQuery> searchForAdmin(String queryOrNull, UserStatus statusOrNull, Pageable pageable);
 }

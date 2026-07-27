@@ -1,5 +1,6 @@
 'use client';
 
+import { ApiError } from '@duing/api';
 import {
   formatDateTimeKst,
   useLogoutAllMutation,
@@ -11,6 +12,17 @@ import type { MySession, SessionPlatform } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
+
+/**
+ * 세션 폐기 실패를 사용자 문구로 옮긴다.
+ *
+ * 세션 폐기는 실패 사유마다 사용자가 할 일이 다르다 — 이미 만료된 세션이면 목록을 새로고침하면 되고,
+ * 권한 문제면 재시도해도 계속 실패한다. 그래서 서버가 준 사유를 그대로 보여주고, 서버 응답 자체가
+ * 아닌 실패(네트워크 끊김 등)에만 기본 안내로 떨어진다. 레포 다수 화면이 쓰는 형태와 같다.
+ */
+function sessionErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : `${fallback} 잠시 후 다시 시도해 주세요.`;
+}
 
 const PLATFORM_LABEL: Record<SessionPlatform, string> = {
   WEB: '웹',
@@ -72,16 +84,18 @@ export function SessionListCard() {
   const handleRevoke = (sessionId: number) => {
     revokeMutation.mutate(sessionId, {
       onSuccess: () => addToast('해당 기기에서 로그아웃했어요.'),
-      onError: () =>
-        addToast('기기를 로그아웃하지 못했어요. 잠시 후 다시 시도해 주세요.', { variant: 'error' }),
+      onError: (revokeError) =>
+        addToast(sessionErrorMessage(revokeError, '기기를 로그아웃하지 못했어요.'), {
+          variant: 'error',
+        }),
     });
   };
 
   const handleLogoutAll = () => {
     logoutAllMutation.mutate(undefined, {
       onSuccess: () => router.replace('/'),
-      onError: () =>
-        addToast('로그아웃하지 못했어요. 잠시 후 다시 시도해 주세요.', { variant: 'error' }),
+      onError: (logoutError) =>
+        addToast(sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'), { variant: 'error' }),
     });
   };
 

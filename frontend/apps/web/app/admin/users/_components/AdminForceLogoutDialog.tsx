@@ -33,6 +33,10 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
           if (isPending) event.preventDefault();
         }}
       >
+        {/* 정지 다이얼로그와 같은 자리·같은 크기의 아이콘 뱃지 — 계정 상태는 유지되므로 파괴적 배색을 쓰지 않는다. */}
+        <div aria-hidden className="grid h-11 w-11 place-items-center rounded-[13px] bg-sage/15 text-[20px]">
+          🔒
+        </div>
         <DialogHeader>
           <DialogTitle>강제 로그아웃</DialogTitle>
           <DialogDescription>
@@ -41,7 +45,9 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
           </DialogDescription>
         </DialogHeader>
 
-        <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+        {/* 상세 Sheet 에서 정지 다이얼로그와 나란히 열리므로 경고 배색을 pill-coral(#fce2d9 배경 /
+            #9a3f23 글자, 5.47:1)로 통일한다. bg-coral/5 위 text-coral 은 2.97:1 로 AA 에 못 미쳤다. */}
+        <p className="pill-coral rounded-md px-3 py-2 text-sm">
           이 회원의 모든 기기에서 로그아웃되며, 다시 로그인할 때까지 접근이 차단됩니다.
         </p>
 
@@ -53,7 +59,7 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger"
           >
             {isPending && <ButtonSpinner />}강제 로그아웃
           </button>

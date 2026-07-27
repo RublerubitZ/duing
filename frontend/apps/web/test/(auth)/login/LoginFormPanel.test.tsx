@@ -168,4 +168,86 @@ describe('LoginFormPanel', () => {
     expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
     expect(replaceSpy).not.toHaveBeenCalled();
   });
+
+  // 정지된 계정은 비밀번호가 맞아도 로그인이 막힌다. 이때 자격증명 문구를 보여주면 사용자가 맞는
+  // 비밀번호를 계속 의심하며 재시도하고, 문의할 곳도 알지 못한다.
+  it('정지된 계정이면 자격증명 문구 대신 정지 안내와 문의처를 보여준다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '정지된 계정입니다. 총동아리연합회로 문의해 주세요.',
+            code: 'ACCOUNT_SUSPENDED',
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'correctpassword');
+    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+
+    expect(
+      await screen.findByText('정지된 계정입니다. 총동아리연합회로 문의해 주세요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  // 연속 실패로 계정이 잠긴 것도 자격증명 문제가 아니다 — 얼마나 기다려야 하는지가 안내의 핵심인데
+  // 일반 장애 문구로 덮으면 그 정보가 사라진다.
+  it('연속 실패로 계정이 잠기면 서버가 준 잠금 안내를 그대로 보여준다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '로그인 시도가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.',
+          },
+          { status: 429 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'wrongpassword');
+    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+
+    expect(
+      await screen.findByText(
+        '로그인 시도가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
+  });
+
+  // 검증 오류(400)는 필드명이 섞인 서버 문구라 그대로 노출하면 안 된다. 프론트 zod 가 먼저 막으므로
+  // 여기까지 오는 것은 입력 형식 문제이고, 사용자에게는 입력을 다시 보라는 안내가 맞다.
+  it('서버 검증 오류는 필드명이 섞인 원문 대신 입력 확인 문구로 대체한다', async () => {
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: 'studentId: 학번은 8자리 숫자여야 합니다.' },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'somepassword');
+    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+
+    expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
+    expect(screen.queryByText(/studentId:/)).not.toBeInTheDocument();
+  });
 });

@@ -12,8 +12,9 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
 import { AdminBookingQueueTable } from '../_components/AdminBookingQueueTable';
 import { BookingSummaryCards, type AdminQueueTab } from '../_components/BookingSummaryCards';
-import { ConsoleCard } from '../_components/ConsoleCard';
-import { EmptyState } from '../_components/EmptyState';
+import { ConsoleCard } from '../../_components/ConsoleCard';
+import { EmptyState } from '../../_components/EmptyState';
+import { ErrorState } from '../../_components/ErrorState';
 import { conflictCardCount } from '../_lib/adminBookingDisplay';
 
 const PAGE_SIZE = 20;
@@ -131,12 +132,11 @@ export function BookingManagementTab() {
         <BookingSummaryCards counts={summaryQuery.data} activeTab={activeTab} onSelectTab={selectTab} />
       )}
       {summaryQuery.isError && (
-        <div role="alert" className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal-2">
-          <span>대시보드 수치를 불러오지 못했어요.</span>
-          <button type="button" className="btn btn-ghost btn-sm ml-2" onClick={() => void summaryQuery.refetch()}>
-            다시 시도
-          </button>
-        </div>
+        <ErrorState
+          variant="inline"
+          message="대시보드 수치를 불러오지 못했어요."
+          onRetry={() => void summaryQuery.refetch()}
+        />
       )}
 
       {/* 목업 CCard — 툴바·테이블·페이지네이션을 한 카드가 감싼다. */}

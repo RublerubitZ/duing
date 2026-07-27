@@ -9,7 +9,7 @@ import { useSubmissionBatchDetailQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
-import { ConsoleCard } from '../../../../_components/ConsoleCard';
+import { ConsoleCard } from '../../../../../_components/ConsoleCard';
 import { CopyField } from '../../../_components/CopyField';
 import { ClubRosterAccordion } from '../../../_components/ClubRosterAccordion';
 import { HWP_FIELDS, groupByFacility, toFormBlock, toTabLine } from '../../../_lib/hwpFields';

@@ -55,7 +55,7 @@ class UserLoginLockoutTest {
         }
         assertThat(user.isLocked(NOW)).isTrue();
 
-        user.recordSuccessfulLogin();
+        user.recordSuccessfulLogin(NOW);
 
         assertThat(user.isLocked(NOW)).isFalse();
         assertThat(user.getFailedLoginAttempts()).isZero();

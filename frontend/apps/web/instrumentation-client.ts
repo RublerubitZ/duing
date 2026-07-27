@@ -63,6 +63,12 @@ if (!posthogKey) {
     defaults: '2026-01-30',
     // 예외 모니터링은 Sentry 전담(소스맵 업로드까지 구축) — 중복 캡처와 예외 메시지 경유 PII 유입을 막는다.
     capture_exceptions: false,
+    // 세션 리코딩 금지 — 위 Sentry 세션 리플레이와 같은 이유다. 입력 필드만 가려지고 화면에 렌더된
+    // 텍스트(조회된 원본 전화번호·지원자 연락처·이름/학번/학과)는 그대로 녹화돼, 조회마다 감사 기록을
+    // 남기도록 만든 통제를 통째로 우회한다.
+    // 이 플래그는 대시보드 토글과 AND 로 묶인다(SDK: server_side_enabled && !disable_session_recording).
+    // 원격으로 켜도 배포된 코드가 이 값을 들고 있는 한 레코더 스크립트조차 내려받지 않는다.
+    disable_session_recording: true,
     debug: process.env.NODE_ENV === 'development',
   });
 }

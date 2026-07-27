@@ -30,6 +30,10 @@ import type {
   SubmitSuccessionRequestPayload,
   AdminUserSearchParams,
   AdminUserSearchResult,
+  AdminUserDetail,
+  AdminUserPhone,
+  ChangeUserStatusPayload,
+  UpdateAdminNotePayload,
   AdminReportSearchParams,
   AdminReportSummary,
   AdminReportDetail,
@@ -551,6 +555,11 @@ export type DuingApiClient = {
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
+      detail(userId: number): Promise<AdminUserDetail>;
+      changeStatus(userId: number, payload: ChangeUserStatusPayload): Promise<void>;
+      updateNote(userId: number, payload: UpdateAdminNotePayload): Promise<void>;
+      /** 원본 휴대폰 번호. 서버가 no-store 를 보내며 열람 사실이 감사 로그에 남는다. */
+      phone(userId: number): Promise<AdminUserPhone>;
       forceLogout(userId: number): Promise<void>;
     };
     notices: {
@@ -666,7 +675,7 @@ export type DuingApiClient = {
     };
     // === BANK 자동매칭 관리 (Sprint 3) ===
     bankMatching: {
-      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 전역 슬롯 현황(slots 는 BANK API 장애 시 null).
+      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 자동매칭 등록 동아리 수.
       overview(): Promise<BankMatchingOverview>;
       // PUT /admin/clubs/{clubId}/bank-matching — 동아리 자동매칭 허용/해제.
       setActive(clubId: number, active: boolean): Promise<void>;
@@ -1421,6 +1430,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
               timeout: REQUEST_TIMEOUT_MS.search,
             }),
           ),
+        detail: (userId) => jsonOk<AdminUserDetail>(http.get(`admin/users/${userId}`)),
+        changeStatus: (userId, payload) =>
+          jsonVoid(http.patch(`admin/users/${userId}/status`, { json: payload })),
+        updateNote: (userId, payload) =>
+          jsonVoid(http.put(`admin/users/${userId}/admin-note`, { json: payload })),
+        phone: (userId) => jsonOk<AdminUserPhone>(http.get(`admin/users/${userId}/phone`)),
         forceLogout: (userId) => jsonVoid(http.post(`admin/users/${userId}/force-logout`)),
       },
       notices: {

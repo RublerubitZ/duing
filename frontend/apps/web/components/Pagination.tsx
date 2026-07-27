@@ -8,9 +8,19 @@ type Props = {
   /** 둘 다 지정하면 좌측에 "1–20 / 42건" 범위를 표기한다. 총계가 부정확한 병합 목록 등에선 생략. */
   totalElements?: number;
   pageSize?: number;
+  /** 기본 여백(mt-8)은 목록 아래에 독립적으로 놓일 때 기준이다 — 카드 안에 들어갈 땐 호출부가 조정한다. */
+  className?: string;
 };
 
-export function Pagination({ page, totalPages, onChange, ariaLabel = '페이지', totalElements, pageSize }: Props) {
+export function Pagination({
+  page,
+  totalPages,
+  onChange,
+  ariaLabel = '페이지',
+  totalElements,
+  pageSize,
+  className = 'mt-8',
+}: Props) {
   if (totalPages <= 1) return null;
 
   const windowSize = 5;
@@ -22,7 +32,7 @@ export function Pagination({ page, totalPages, onChange, ariaLabel = '페이지'
   const showRange = totalElements !== undefined && pageSize !== undefined && totalElements > 0;
 
   return (
-    <nav aria-label={ariaLabel} className="flex items-center justify-center gap-1.5 mt-8">
+    <nav aria-label={ariaLabel} className={`flex items-center justify-center gap-1.5 ${className}`}>
       {showRange && (
         <span className="mr-1.5 text-xs tabular-nums text-charcoal-3">
           {page * pageSize + 1}–{Math.min(totalElements, (page + 1) * pageSize)} / {totalElements}건

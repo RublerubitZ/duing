@@ -27,26 +27,18 @@ public class BankApiException extends ApplicationException {
         }
     }
 
-    /** 거래 조회/삭제 대상 계좌가 BANK API 에 등록되어 있지 않은 경우. */
-    public static class AccountNotRegisteredException extends BankApiException {
-        private static final String MESSAGE = "BANK API 에 등록된 계좌가 아닙니다.";
-
-        public AccountNotRegisteredException() {
-            super(MESSAGE, HttpStatus.CONFLICT);
-        }
-    }
-
-    /** BANK API 호출 한도(rate limit) 초과. 재시도 권장 시각(초)을 함께 담는다. */
+    /**
+     * BANK API 호출 한도(rate limit) 초과. 재시도 권장 대기(초)를 함께 담는다.
+     * 제한은 계좌 단위 쿨다운(같은 계좌 5분 1회)·키/IP 단위 조회·요청 한도 세 가지다.
+     */
     @Getter
     public static class RateLimitExceededException extends BankApiException {
         private static final String MESSAGE = "BANK API 호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.";
 
+        // ponytail: 대기 초는 응답에서 파싱해 두지만 아직 사용자 문구로 노출하지 않는다.
+        // "N분 후 다시 시도" 안내가 필요해지면 GlobalExceptionHandler 에서 이 값을 실어 보낸다.
         /** 재시도까지 대기해야 할 시간(초). 응답에 정보가 없으면 null. */
         private final Integer retryAfterSeconds;
-
-        public RateLimitExceededException() {
-            this(null);
-        }
 
         public RateLimitExceededException(Integer retryAfterSeconds) {
             super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
@@ -54,18 +46,9 @@ public class BankApiException extends ApplicationException {
         }
     }
 
-    /** BANK API 계좌 등록 한도를 초과한 경우. */
-    public static class AccountLimitExceededException extends BankApiException {
-        private static final String MESSAGE = "BANK API 계좌 등록 한도(5)를 초과했습니다.";
-
-        public AccountLimitExceededException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    /** 자동매칭을 지원하지 않는 은행(농협·KB국민·우리 외)을 요청한 경우. */
+    /** 자동매칭을 지원하지 않는 은행(농협·KB국민·우리·기업 외)을 요청한 경우. */
     public static class UnsupportedBankException extends BankApiException {
-        private static final String MESSAGE = "농협·KB국민·우리은행만 자동매칭을 지원합니다.";
+        private static final String MESSAGE = "농협·KB국민·우리·기업은행만 자동매칭을 지원합니다.";
 
         public UnsupportedBankException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
