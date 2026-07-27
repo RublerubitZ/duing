@@ -1,53 +1,111 @@
+import type { ReactNode } from 'react';
+import { MapPinned, Phone } from 'lucide-react';
+
 import type { ClubSnsLink, ContactVisibility } from '@duing/types';
-import { snsDisplayName } from '../../../_lib/snsPlatform';
+import { BrandIcon } from '../../../_components/BrandIcon';
+import { snsBrand, snsPresentation } from '../../../_lib/snsPlatform';
 import { safeExternalHref } from '../../../_lib/route';
 
 type Props = {
+  clubName: string;
   snsLinks: ClubSnsLink[];
   location: string | null;
   contactPhone: string | null;
   contactVisibility: ContactVisibility;
 };
 
-export function ClubContactCard({ snsLinks, location, contactPhone, contactVisibility }: Props) {
+const ICON_CLASS = 'h-4 w-4';
+
+// 링크 행은 전체가 하나의 클릭 영역 — 아이콘·값이 같이 진해지고 focus 링도 행 단위로 잡힌다.
+const ROW_LINK_CLASS =
+  'group -mx-1.5 flex items-start gap-2.5 rounded-[10px] px-1.5 py-1 transition-colors hover:bg-white/50 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
+
+// 링크 값은 본문(charcoal)과 달리 브랜드 그린 + medium — 눌리는 것임을 hover 전에도 알 수 있게.
+const LINK_VALUE_CLASS = 'font-medium text-ink transition-colors group-hover:text-ink-deep group-hover:underline';
+
+type RowProps = {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  /** 없으면 클릭 불가한 정보 행으로 렌더한다. */
+  href?: string;
+  external?: boolean;
+  /** 링크에 감춘 원본 URL — 데스크탑 hover 로 확인용. */
+  title?: string;
+};
+
+/** 아이콘 + (라벨 / 값) 2단 행. 아이콘은 첫 줄(라벨)에 맞춰 정렬한다. */
+function ContactRow({ icon, label, value, href, external = false, title }: RowProps) {
+  const body = (
+    <>
+      <span className="mt-0.5 shrink-0 text-ink transition-colors group-hover:text-ink-deep">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-[12px] leading-tight text-charcoal-3">{label}</span>
+        <span className={`mt-0.5 block truncate text-[13.5px] leading-snug ${href !== undefined ? LINK_VALUE_CLASS : ''}`}>
+          {value}
+        </span>
+      </span>
+    </>
+  );
+  if (href === undefined) return <li className="flex items-start gap-2.5">{body}</li>;
+  return (
+    <li>
+      <a
+        href={href}
+        title={title}
+        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        className={ROW_LINK_CLASS}
+      >
+        {body}
+      </a>
+    </li>
+  );
+}
+
+export function ClubContactCard({ clubName, snsLinks, location, contactPhone, contactVisibility }: Props) {
   const contactLine =
     contactPhone !== null
       ? { text: contactPhone, href: `tel:${contactPhone.replaceAll('-', '')}` }
       : contactVisibility === 'LOGGED_IN_ONLY'
-        ? { text: '로그인 후 확인 가능', href: null }
+        ? { text: '로그인 후 확인 가능', href: undefined }
         : contactVisibility === 'PRIVATE'
-          ? { text: '대표 연락처 비공개', href: null }
+          ? { text: '대표 연락처 비공개', href: undefined }
           : null; // PUBLIC + 회장 미등록 → 숨김
   const hasAny = snsLinks.length > 0 || location !== null || contactLine !== null;
   if (!hasAny) return null;
   return (
     <div className="rounded-[18px] bg-sage-mist p-5">
       <div className="mb-3 text-xs font-bold tracking-wide06 text-ink-deep">CONTACT</div>
-      <ul className="flex flex-col gap-2 text-[13.5px] text-charcoal">
-        {location !== null && <li>📍 {location}</li>}
+      <ul className="flex flex-col gap-2.5 text-charcoal">
+        {location !== null && (
+          <ContactRow icon={<MapPinned aria-hidden className={ICON_CLASS} />} label="동아리방 위치" value={location} />
+        )}
         {contactLine !== null && (
-          <li>
-            📞{' '}
-            {contactLine.href ? (
-              <a href={contactLine.href} className="hover:underline">{contactLine.text}</a>
-            ) : (
-              <span className="text-charcoal-3">{contactLine.text}</span>
-            )}
-          </li>
+          <ContactRow
+            icon={<Phone aria-hidden className={ICON_CLASS} />}
+            label="대표 연락처"
+            value={
+              contactLine.href !== undefined
+                ? contactLine.text
+                : <span className="text-charcoal-3">{contactLine.text}</span>
+            }
+            href={contactLine.href}
+          />
         )}
         {snsLinks.map((link) => {
           const safeUrl = safeExternalHref(link.url);
-          const displayName = snsDisplayName(link);
+          const { label, value } = snsPresentation(link, clubName);
           return (
-            <li key={link.url}>
-              {safeUrl ? (
-                <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  {displayName} · {link.url}
-                </a>
-              ) : (
-                <span>{displayName} · {link.url}</span>
-              )}
-            </li>
+            <ContactRow
+              key={link.url}
+              icon={<BrandIcon brand={snsBrand(link)} className={ICON_CLASS} />}
+              label={label}
+              value={value}
+              href={safeUrl ?? undefined}
+              external
+              title={safeUrl !== null ? link.url : undefined}
+            />
           );
         })}
       </ul>

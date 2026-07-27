@@ -16,6 +16,7 @@ RN 호환을 위해 비즈니스 로직은 `packages/*` 로 분리되어 있으�
 | 서버 상태 | TanStack Query 5 |
 | 클라이언트 상태 | Zustand 5 |
 | 스타일 | Tailwind CSS (shadcn-ui 도입 예정) |
+| 아이콘 | lucide-react (UI) + react-icons (브랜드 로고) |
 | HTTP | ky |
 | 폼 / 검증 | React Hook Form + Zod |
 | 테스트 | Vitest + Playwright (도입 예정) |
@@ -227,6 +228,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 - `'use client'` 는 파일 최상단, import 위
 - 타입 선언은 `type` (`interface` 금지, 라이브러리 augmentation 예외)
 - Conventional Commits: `<type>(<scope>): <description>` (commitlint 도입 시 강제)
+
+### 아이콘
+- 일반 UI 아이콘(Phone·MapPinned·Calendar·Search·User·Link 등)은 `lucide-react`
+- 브랜드 로고(Instagram·GitHub·Discord·YouTube·X 등)는 `react-icons` — lucide v1 이 브랜드 아이콘을 전부 제거했다
+- 브랜드 아이콘은 개별 컴포넌트를 직접 import 하지 말고 `app/_components/BrandIcon` 을 쓴다. 브랜드 추가는 `app/_lib/snsPlatform.ts` 의 `SnsBrand`·`BRAND_HOSTS`(URL 호스트 인식)·`BRAND_PRESENTATIONS`(라벨/값 문구) + `BrandIcon.tsx` 의 `BRAND_ICONS` 네 곳
+- CONTACT 카드 등 링크 표시 문구는 컴포넌트에 하드코딩하지 말고 `BRAND_PRESENTATIONS` 에서만 고친다
+- import 는 반드시 서브패스(`react-icons/fa6`)로 — Next 기본 `optimizePackageImports` 가 서브패스만 트리셰이킹한다
 
 ### 날짜/시간 표시 (상세: [/TIMEZONE.md](../TIMEZONE.md))
 - 시각 표시는 `@duing/hooks` 공통 유틸만: `formatDateTimeKst`/`formatDateKst`/`formatTimeKst`/`formatRelativeTime` (+ 특수 포맷 `kstDateTimeFormatter`, KST 날짜 연산 `kstDateString`/`isTodayKst`/`daysUntilKst`)
