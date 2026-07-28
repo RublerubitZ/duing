@@ -63,29 +63,10 @@ export async function HomeHero() {
             캠퍼스의
             <br />
             모든{' '}
-            <span className="relative inline-block pb-[22px]">
-              <span className="relative inline-block">
-                <span className="text-ink-deep">두</span>
-                <span className="text-ink">잉</span>
-                <SparkleFull
-                  size={48}
-                  color="#9DB6A0"
-                  className="absolute -right-11 -top-2.5"
-                />
-              </span>
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -bottom-1 left-1 right-1 flex justify-between font-mono text-[11px] font-bold tracking-[0.16em] text-charcoal-3"
-              >
-                <span className="inline-flex flex-col items-center gap-[3px]">
-                  <span className="h-px w-3.5 bg-charcoal-3 opacity-50" />
-                  DU
-                </span>
-                <span className="inline-flex flex-col items-center gap-[3px]">
-                  <span className="h-px w-3.5 bg-charcoal-3 opacity-50" />
-                  ING
-                </span>
-              </span>
+            <span className="relative inline-block">
+              <span className="text-ink-deep">두</span>
+              <span className="text-ink">잉</span>
+              <SparkleFull size={48} color="#9DB6A0" className="absolute -right-11 -top-2.5" />
             </span>
             .
           </h1>
