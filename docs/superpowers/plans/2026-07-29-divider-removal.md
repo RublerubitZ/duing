@@ -108,7 +108,7 @@ Expected: 출력 없음
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/home/home-hero.test.tsx
+cd frontend && pnpm --filter @duing/web exec vitest run test/home/home-hero.test.tsx
 ```
 Expected: PASS (기존 테스트에 `DU` / `ING` 단언이 없어 수정 불필요)
 
@@ -200,7 +200,7 @@ L245 (`- \`border-2 border-black\`, 하드 드롭섀도…`) **바로 위에** �
 
 Run:
 ```bash
-cd frontend && pnpm typecheck && pnpm vitest run
+cd frontend && pnpm typecheck && pnpm test
 ```
 Expected: typecheck PASS, 테스트 전부 PASS (이 시점엔 `club-detail-about.test.tsx` 도 아직 통과 — Task 4 에서 다룬다)
 
@@ -286,7 +286,7 @@ Expected: `InfoTabs.tsx:40` 의 활성 표시 `border-b-[2.5px]` 1건과 `Catego
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/home apps/web/test/notices
+cd frontend && pnpm --filter @duing/web exec vitest run test/home test/sections test/notices
 ```
 Expected: PASS
 
@@ -356,7 +356,7 @@ after:
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/clubs/club-detail-about.test.tsx
+cd frontend && pnpm --filter @duing/web exec vitest run test/clubs/club-detail-about.test.tsx
 ```
 Expected: FAIL — 첫 테스트가 `expect(element).not.toHaveClass('border-t')` 에서 실패한다 (아직 `border-t` 가 붙어 있음)
 
@@ -384,7 +384,7 @@ Expected: FAIL — 첫 테스트가 `expect(element).not.toHaveClass('border-t')
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/clubs/club-detail-about.test.tsx
+cd frontend && pnpm --filter @duing/web exec vitest run test/clubs/club-detail-about.test.tsx
 ```
 Expected: PASS
 
@@ -419,7 +419,7 @@ Expected: 아래 유지 대상만 출력된다 — `ClubExplorePage.tsx` 550(활
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/clubs
+cd frontend && pnpm --filter @duing/web exec vitest run test/clubs
 ```
 Expected: PASS
 
@@ -521,7 +521,7 @@ Expected: 아래 유지 대상만 출력된다 — `notices/_components/RelatedN
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/notices apps/web/test/facilities apps/web/test/calendar
+cd frontend && pnpm --filter @duing/web exec vitest run test/notices test/faq test/facilities test/sections
 ```
 Expected: PASS
 
@@ -577,7 +577,7 @@ Expected: 활성 표시 `border-b-[2.5px]`(`MyPageTabs` 32, `MyPageStickyNav` 43
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/me
+cd frontend && pnpm --filter @duing/web exec vitest run test/me
 ```
 Expected: PASS
 
@@ -645,7 +645,7 @@ Expected: 유지 대상만 출력 — `ClubFeesPage.tsx` 60(활성 표시), `Mem
 
 Run:
 ```bash
-cd frontend && pnpm vitest run apps/web/test/manage
+cd frontend && pnpm --filter @duing/web exec vitest run test/manage
 ```
 Expected: PASS
 
@@ -757,7 +757,7 @@ Expected: 유지 대상만 출력 — 각 `Admin*Table.tsx` 의 `<tr>`/`thead` �
 
 Run:
 ```bash
-cd frontend && pnpm lint && pnpm vitest run apps/web/test/admin
+cd frontend && pnpm lint && pnpm --filter @duing/web exec vitest run test/admin
 ```
 Expected: 둘 다 PASS
 
@@ -783,7 +783,7 @@ git commit -m "refactor(frontend): 총동연 콘솔의 패널 내부 구분선�
 
 Run:
 ```bash
-cd frontend && pnpm lint && pnpm typecheck && pnpm vitest run && pnpm build
+cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 Expected: 4개 전부 성공. `pnpm build` 는 출력에서 `Compiled successfully` 를 눈으로 확인한다 (`| tail` 로 파이프하면 exit code 가 가려지므로 쓰지 않는다).
 
