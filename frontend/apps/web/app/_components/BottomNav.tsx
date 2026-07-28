@@ -9,22 +9,31 @@
 
 // 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
 // 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
-import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  PiBuilding, PiBuildingFill,
+  PiCalendarBlank, PiCalendarBlankFill,
+  PiCompass, PiCompassFill,
+  PiHouse, PiHouseFill,
+  PiInfo, PiInfoFill,
+} from 'react-icons/pi';
 
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
-import { Calendar, Compass, Home, Info } from '@/components/duing/Icon';
 
+// 아이콘은 이 탭바에서만 Phosphor(react-icons/pi) 를 쓴다 — 비활성 Regular / 활성 Fill 이
+// 같은 디자인 패밀리로 짝지어 제공되는 세트라 활성 표현에 억지 fill 이 필요 없다.
+// lucide 는 아웃라인 전용이라 fill 을 씌우면 내부 디테일이 뭉개진다(다른 화면의 커스텀 아이콘은 그대로 유지).
+// Phosphor 는 stroke 가 아니라 패스로 아웃라인을 그리므로 strokeWidth 는 의미가 없다.
 const TABS = [
-  { label: '홈', href: '/', Icon: Home },
-  { label: '탐색', href: '/clubs', Icon: Compass },
-  // 시설 예약 화면(FacilityContextBar)이 시설 폴백 아이콘으로 쓰는 lucide Building2 와 맞춘다.
-  { label: '시설', href: '/facilities', Icon: Building2 },
-  { label: '캘린더', href: '/calendar', Icon: Calendar },
-  { label: '정보', href: DEFAULT_INFO_PATH, Icon: Info },
+  { label: '홈', href: '/', Icon: PiHouse, ActiveIcon: PiHouseFill },
+  { label: '탐색', href: '/clubs', Icon: PiCompass, ActiveIcon: PiCompassFill },
+  // 2동짜리 PiBuildings 는 22px 에서 창문이 잘게 부서져 1동짜리를 골랐다.
+  { label: '시설', href: '/facilities', Icon: PiBuilding, ActiveIcon: PiBuildingFill },
+  { label: '캘린더', href: '/calendar', Icon: PiCalendarBlank, ActiveIcon: PiCalendarBlankFill },
+  { label: '정보', href: DEFAULT_INFO_PATH, Icon: PiInfo, ActiveIcon: PiInfoFill },
 ] as const;
 
 // 현재 경로가 어느 탭에 속하는지 — 홈은 정확히, 정보는 섹션 매칭, 나머지는 prefix(상세/하위 포함). 탭 밖이면 null.
@@ -76,8 +85,9 @@ export function BottomNav() {
               <span className="invisible">홈</span>
             </span>
           )}
-          {TABS.map(({ label, href, Icon }) => {
+          {TABS.map(({ label, href, Icon, ActiveIcon }) => {
             const on = activeHref === href;
+            const TabIcon = on ? ActiveIcon : Icon;
             // 정보 탭만 마지막 방문 허브 경로로 이동한다(다른 탭은 고정 href).
             const linkHref = href === DEFAULT_INFO_PATH ? lastInfoPath : href;
             return (
@@ -91,16 +101,9 @@ export function BottomNav() {
                     on ? 'font-extrabold text-ink-deep' : 'font-semibold text-charcoal-3',
                   )}
                 >
-                  {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다.
-                      활성은 저알파 currentColor 로 내부를 채운다 — filled 변형을 따로 그리지 않고
-                      기존 아웃라인 패스만으로 실루엣이 차오르는 느낌을 낸다. */}
+                  {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다. */}
                   <span className="grid h-8 w-12 place-items-center">
-                    <Icon
-                      size={22}
-                      strokeWidth={on ? 2.2 : 1.8}
-                      fill={on ? 'currentColor' : 'none'}
-                      fillOpacity={on ? 0.16 : undefined}
-                    />
+                    <TabIcon size={22} aria-hidden />
                   </span>
                   {label}
                 </Link>
