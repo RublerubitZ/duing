@@ -3,7 +3,7 @@ import type { College } from './user';
 
 export type ClubCategory =
   | 'ACADEMIC'
-  | 'CULTURE'
+  | 'CREATION'
   | 'ART'
   | 'SPORTS'
   | 'VOLUNTEER'

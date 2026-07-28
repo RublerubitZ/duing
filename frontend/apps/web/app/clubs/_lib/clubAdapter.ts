@@ -4,8 +4,8 @@ import { type Club, type ClubCat, type ClubScope } from './clubs';
 
 const CATEGORY_TO_CAT: Record<ClubCategory, ClubCat> = {
   ACADEMIC: '학술',
-  CULTURE: '문화',
-  ART: '문화',
+  CREATION: '창작',
+  ART: '예술',
   SPORTS: '운동',
   VOLUNTEER: '봉사',
   RELIGION: '친목',

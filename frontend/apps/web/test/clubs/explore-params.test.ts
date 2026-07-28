@@ -40,6 +40,24 @@ describe('exploreParams — RecruitmentFilter 라운드 트립', () => {
   });
 });
 
+describe('exploreParams — category 라운드 트립', () => {
+  it("category='CREATION' 은 URL 직렬화 후 다시 같은 값으로 파싱된다", () => {
+    const query = serializeExploreParams({ ...DEFAULT_EXPLORE_PARAMS, category: 'CREATION' });
+    const parsed = parseExploreParams(new URLSearchParams(query));
+    expect(parsed.category).toBe('CREATION');
+  });
+
+  it("이전 URL 의 category='CULTURE'(문화) 는 'CREATION'(창작) 으로 마이그레이션된다", () => {
+    const parsed = parseExploreParams(new URLSearchParams('category=CULTURE'));
+    expect(parsed.category).toBe('CREATION');
+  });
+
+  it('알 수 없는 category 값은 무시되어 null 로 파싱된다', () => {
+    const parsed = parseExploreParams(new URLSearchParams('category=BANANA'));
+    expect(parsed.category).toBeNull();
+  });
+});
+
 describe('exploreParams — activeDays 라운드 트립 및 정규화', () => {
   it('activeDays 값들이 URL 직렬화 후 같은 값으로 파싱된다', () => {
     const query = serializeExploreParams({

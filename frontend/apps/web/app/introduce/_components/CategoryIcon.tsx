@@ -19,7 +19,7 @@ const CATEGORY_ICON: Record<PromoClub['cat'], LucideIcon> = {
   음악: Music,
   공연: Mic,
   봉사: HeartHandshake,
-  문화: Clapperboard,
+  창작: Clapperboard,
   IT: Code,
   창업: Rocket,
   친목: Coffee,

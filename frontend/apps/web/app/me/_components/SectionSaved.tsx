@@ -10,7 +10,7 @@ import { SectionHeader } from './SectionHeader';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   ACADEMIC: '📚',
-  CULTURE: '🎨',
+  CREATION: '🎨',
   ART: '🎭',
   SPORTS: '⚽',
   VOLUNTEER: '🤝',

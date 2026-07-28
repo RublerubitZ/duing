@@ -4,9 +4,9 @@ import { clubCategoryLabel } from '../../app/clubs/[clubId]/_lib/clubCategoryLab
 describe('clubCategoryLabel', () => {
   it.each([
     ['ACADEMIC', '학술'],
-    ['CULTURE', '문화'],
+    ['CREATION', '창작'],
     ['ART', '예술'],
-    ['SPORTS', '체육'],
+    ['SPORTS', '운동'],
     ['VOLUNTEER', '봉사'],
     ['RELIGION', '종교'],
     ['HOBBY', '취미'],
