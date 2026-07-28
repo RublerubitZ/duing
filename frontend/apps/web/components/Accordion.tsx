@@ -57,7 +57,7 @@ function AccordionRow({ item, index, defaultOpen }: { item: AccordionItemData; i
         }`}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-dashed border-line pb-5 pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
+          <div className="pb-5 pt-3.5 text-[14px] leading-[1.65] text-charcoal-2">
             {item.answer}
           </div>
         </div>

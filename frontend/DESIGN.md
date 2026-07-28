@@ -3,7 +3,7 @@
 
 **Theme:** light (라이트 고정 — `color-scheme: light`, 다크모드 없음)
 
-Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 딥 포레스트 그린 잉크(#1F4A36)가 모든 구조적 무게를 담당하는 에디토리얼 스크랩북이다. 헤딩과 프라이머리 버튼은 잉크가, 장식은 세이지(#9DB6A0)가 맡는다 — Sparkle 스티커, 형광펜 밑줄, 라이브 도트가 전부 세이지다. 깊이는 두꺼운 테두리가 아니라 1px 웜그레이 헤어라인(#E5E2DA)과 잉크색 틴트 소프트 섀도, 그리고 인라인 rotate 로 기울인 카드 콜라주가 만든다. 타이포는 이중 인격 — GmarketSans 가 84px 초대형 헤드라인에서 포스터처럼 외치고, Pretendard 가 본문을 조용히 받치며, JetBrains Mono 마이크로 라벨(`DU + ING`, `01 / 04`)이 사전(辭典) 같은 격식을 더한다. 무드는 절제된 playful — 이모지는 그래픽 레이어에만, 느낌표는 페이지당 1회, 장난기는 `두잉/ing` 워드플레이로만 표현한다.
+Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 딥 포레스트 그린 잉크(#1F4A36)가 모든 구조적 무게를 담당하는 에디토리얼 스크랩북이다. 헤딩과 프라이머리 버튼은 잉크가, 장식은 세이지(#9DB6A0)가 맡는다 — Sparkle 스티커, 형광펜 밑줄, 라이브 도트가 전부 세이지다. 깊이는 두꺼운 테두리가 아니라 1px 웜그레이 헤어라인(#E5E2DA)이 그리는 컴포넌트 윤곽과 잉크색 틴트 소프트 섀도, 그리고 인라인 rotate 로 기울인 카드 콜라주가 만든다. 헤어라인은 카드·버튼·인풋의 경계와 표의 행을 그릴 때만 쓴다 — 섹션과 섹션 사이는 여백이 가른다. 타이포는 이중 인격 — GmarketSans 가 84px 초대형 헤드라인에서 포스터처럼 외치고, Pretendard 가 본문을 조용히 받치며, JetBrains Mono 마이크로 라벨(`DU + ING`, `01 / 04`)이 사전(辭典) 같은 격식을 더한다. 무드는 절제된 playful — 이모지는 그래픽 레이어에만, 느낌표는 페이지당 1회, 장난기는 `두잉/ing` 워드플레이로만 표현한다.
 
 > 토큰 원본: `apps/web/tailwind.config.ts` + `apps/web/app/globals.css`
 > 모든 토큰은 **`.duing` 스코프 안에서만 적용**된다 — 페이지 루트에 `className="duing min-h-screen bg-cream"` 래퍼 필수.
@@ -132,7 +132,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Default Card (`.card` 확장형)
 **Role:** 동아리·콘텐츠 카드의 표준형.
 
-`group relative flex flex-col gap-3 overflow-hidden rounded-lg border border-line bg-paper p-4 transition hover:shadow-2` — hover 는 섀도만, transform 없음. 썸네일은 `grid h-[156px] place-items-center rounded-md` + 카테고리색 틴트 그라디언트. 카드 푸터는 **점선 구분선** `border-t border-dashed border-line pt-3` 가 시그니처. 로고 없으면 카테고리색 이니셜 글자(`text-[44px] font-bold`)로 대체.
+`group relative flex flex-col gap-3 overflow-hidden rounded-lg border border-line bg-paper p-4 transition hover:shadow-2` — hover 는 섀도만, transform 없음. 썸네일은 `grid h-[156px] place-items-center rounded-md` + 카테고리색 틴트 그라디언트. 카드 푸터는 구분선 없이 `pt-3` 여백으로만 띄운다. 로고 없으면 카테고리색 이니셜 글자(`text-[44px] font-bold`)로 대체.
 
 ### Lift Card (카테고리 타일)
 **Role:** 더 적극적인 인터랙션이 필요한 탐색 타일 — 페이지당 한 종류만.
@@ -157,7 +157,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
 
-`relative z-50 border-b border-line bg-cream/90 backdrop-blur` — 반투명 크림 + 블러 + 하단 헤어라인. 내부 `max-w-layout mx-auto flex items-center gap-12 px-10 py-3`. 링크 `text-[13.5px] font-semibold`, 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-0.5 rounded-full bg-ink`. 드롭다운: `w-[280px] rounded-[16px] border border-line bg-paper` + `var(--shadow-3)`, 항목 hover `bg-sage-tint`.
+`relative z-50 bg-cream/90 backdrop-blur` — 반투명 크림 + 블러. 하단 구분선 없음 — 본문과는 여백으로 나뉜다. 내부 `max-w-layout mx-auto flex items-center gap-12 px-10 py-3`. 링크 `text-[13.5px] font-semibold`, 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-0.5 rounded-full bg-ink`. 드롭다운: `w-[280px] rounded-[16px] border border-line bg-paper` + `var(--shadow-3)`, 항목 hover `bg-sage-tint`.
 
 ### Carousel Pager
 **Role:** 배너 캐러셀 인디케이터.
@@ -242,6 +242,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 - 기존 컴포넌트 클래스(`.btn` `.pill` `.card`)와 `@/components/duing/*`(Icon, Sparkle)를 재사용
 
 ### Don't
+- 섹션과 섹션 사이에 가로 구분선을 긋지 않는다 — 헤더↔본문, 히어로↔콘텐츠, 필터↔목록, 카드 안 블록 사이는 전부 여백이 가른다. 가로선은 표의 행, 목록의 행, 모달·시트의 고정 chrome, 컴포넌트 외곽선에만 쓴다
 - `border-2 border-black`, 하드 드롭섀도, 임의 `shadow-[...]` — 네오브루탈 문법 금지. 테두리는 항상 1px `border-line`
 - sage 를 텍스트 컬러로 쓰지 않는다 — 장식 전용이다
 - 버튼에 transform hover·그림자 변화를 주지 않는다 — 버튼 hover 는 색상 전환만
@@ -290,7 +291,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 **Example Component Prompts**
 
 1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 아이브로우 `font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em]` 으로 `APPLICATION · 지원 현황`, 그 아래 h2(자동으로 GmarketSans ink-deep bold). 우측에 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` 링크 `전체 보기` + ArrowRight.
-2. **표준 카드**: `rounded-lg border border-line bg-paper p-4 transition hover:shadow-2`. 상단 썸네일 `grid h-[156px] place-items-center rounded-md` + `linear-gradient(135deg, #1F4A3622, #1F4A3611)`. 제목 h3 17px, 설명 `text-[12.5px] text-charcoal-3`, 푸터 `border-t border-dashed border-line pt-3` 양끝 정렬.
+2. **표준 카드**: `rounded-lg border border-line bg-paper p-4 transition hover:shadow-2`. 상단 썸네일 `grid h-[156px] place-items-center rounded-md` + `linear-gradient(135deg, #1F4A3622, #1F4A3611)`. 제목 h3 17px, 설명 `text-[12.5px] text-charcoal-3`, 푸터 `pt-3` 양끝 정렬(구분선 없음).
 3. **상태 배지**: `.pill` + `h-1.5 w-1.5 rounded-full bg-sage` 도트 + `모집중`. 강조형은 `rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-bold text-paper`.
 4. **CTA 패널**: `rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]`, 좌측 h2 `text-4xl` + 서브 `지원자 관리 · 공지 발송 · 회비 정산까지.` 스타일 나열, 우측 `btn btn-primary btn-big` + ArrowRight. SparkleFull 48px sage 절대배치 1~2개.
 5. **빈 상태**: 데이터 없으면 섹션 `return null`. 필드 레벨은 `bg-graysoft text-charcoal-3 text-[13px]` 에 `소개 준비중` 같은 명사형 한 줄 — 사과·느낌표 없이.
