@@ -158,7 +158,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const openApp = openId ? apps.find(app => app.id === openId) ?? null : null;
 
   return (
-    <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
+    // min-h-dvh — 안드로이드 크롬에서 100vh 는 주소창이 접힌 큰 뷰포트라 문서가 화면보다 길어진다.
+    <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
       <ApplyStatusHero />
       <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />

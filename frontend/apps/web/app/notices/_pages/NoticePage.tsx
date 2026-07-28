@@ -254,7 +254,11 @@ export function NoticePage() {
   ];
 
   return (
-    <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
+    // min-h-dvh(100dvh) — 100vh 는 안드로이드 크롬에서 "주소창이 접힌" 큰 뷰포트를 가리켜,
+    // 주소창이 보이는 진입 시점에 문서가 화면보다 길어지고 fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
+    // 에뮬레이터·devtools 기기 모드는 주소창이 동적으로 접히지 않아 재현되지 않는다.
+    // 정보 섹션의 나머지 세 페이지(/faq·/terms·/introduce)와 동일한 표기.
+    <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
       <InfoTabs />
 
