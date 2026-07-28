@@ -247,7 +247,23 @@ git commit -m "refactor(frontend): 섹션 구분선 금지 규칙을 디자인 �
 | `app/_components/sections/HomeFaqAccordion.tsx` | 63 | `border-t border-dashed border-line ` |
 | `app/_components/sections/FeaturedClubs.tsx` | 110 | `border-t border-dashed border-line ` |
 
-- [ ] **Step 2: `Categories.tsx:119` — 클래스와 죽은 인라인 스타일 함께 정리**
+- [ ] **Step 2: `InfoTabs.tsx` — `-mb-px` 와 짝을 이루던 보정과 낡은 주석 정리**
+
+40행의 `-mb-px` 를 지우면 29~30행의 짝 보정이 고아가 된다.
+
+before:
+```tsx
+      {/* overflow 래퍼의 pb-px: 활성 탭 언더라인(-mb-px)이 세로로 잘리는 것을 방지(ClubDetailTabs 함정) */}
+      <div className="max-w-layout mx-auto overflow-x-auto px-4 pb-px sm:px-6 md:overflow-visible md:px-10 md:pb-0">
+```
+after:
+```tsx
+      <div className="max-w-layout mx-auto overflow-x-auto px-4 sm:px-6 md:overflow-visible md:px-10">
+```
+
+`pb-px` / `md:pb-0` 는 `-mb-px` 가 `overflow-x-auto` 에 세로로 잘리는 걸 막던 1px 보정이라 함께 지운다. 주석도 존재하지 않는 `-mb-px` 를 설명하게 되므로 지운다. `max-w-layout mx-auto`, 좌우 패딩, `overflow-x-auto` / `md:overflow-visible`(가로 스크롤 동작)은 **유지한다.**
+
+- [ ] **Step 3: `Categories.tsx:119` — 클래스와 죽은 인라인 스타일 함께 정리**
 
 before:
 ```tsx
@@ -266,7 +282,7 @@ after:
 
 `borderColor` 는 `border-b` 가 사라지면 아무 데도 적용되지 않는 죽은 값이라 함께 지운다. `height` 와 `background` 는 레이아웃·배경이라 **유지한다.**
 
-- [ ] **Step 3: 잔여 grep 가드**
+- [ ] **Step 4: 잔여 grep 가드**
 
 Run:
 ```bash
@@ -282,7 +298,7 @@ cd frontend && grep -rnE "border-(t|b)[-\"' []" \
 ```
 Expected: `InfoTabs.tsx:40` 의 활성 표시 `border-b-[2.5px]` 1건과 `Categories.tsx` 의 hover 밑줄 `border-b border-transparent`(grep 에서 제외됨) 외에는 출력 없음
 
-- [ ] **Step 4: 테스트 실행**
+- [ ] **Step 5: 테스트 실행**
 
 Run:
 ```bash
@@ -290,7 +306,7 @@ cd frontend && pnpm --filter @duing/web exec vitest run test/home test/sections 
 ```
 Expected: PASS
 
-- [ ] **Step 5: 커밋**
+- [ ] **Step 6: 커밋**
 
 ```bash
 git add frontend/apps/web/app/_components
