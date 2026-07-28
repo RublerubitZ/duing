@@ -339,7 +339,7 @@ export type UpdateClubInput = z.infer<typeof updateClubSchema>;
 
 export const adminUpdateClubSchema = clubProfileBaseSchema.extend({
   name: z.string().min(1, '동아리 이름은 1~100자여야 합니다.').max(100, '동아리 이름은 1~100자여야 합니다.'),
-  category: z.enum(['ACADEMIC', 'CULTURE', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER']),
+  category: z.enum(['ACADEMIC', 'CREATION', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER']),
   division: z.string().max(50, '분류는 50자 이하여야 합니다.').nullable(),
 }).refine(feePairRule.check, feePairRule.options);
 export type AdminUpdateClubInput = z.infer<typeof adminUpdateClubSchema>;

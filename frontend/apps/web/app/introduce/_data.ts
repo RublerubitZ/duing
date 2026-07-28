@@ -7,7 +7,7 @@
 export type PromoClub = {
   id: string;
   name: string;
-  cat: '학술' | '운동' | '음악' | '공연' | '봉사' | '문화' | 'IT' | '창업' | '친목';
+  cat: '학술' | '운동' | '음악' | '공연' | '봉사' | '창작' | 'IT' | '창업' | '친목';
   members: number;
   /** 카테고리 틴트용 액센트 hex (DESIGN.md 토큰값) */
   accent: string;
@@ -18,7 +18,7 @@ export const promoClubs: ReadonlyArray<PromoClub> = [
   { id: 'stat', name: 'STAT 통계학회', cat: '학술', members: 48, accent: '#2E6149' },
   { id: 'trem', name: '트레몰로', cat: '음악', members: 32, accent: '#B65672' },
   { id: 'rebd', name: '리바운드', cat: '운동', members: 56, accent: '#E8B968' },
-  { id: 'cine', name: '씨네두잉', cat: '문화', members: 40, accent: '#6A95B8' },
+  { id: 'cine', name: '씨네두잉', cat: '창작', members: 40, accent: '#6A95B8' },
   { id: 'tog', name: '함께해요', cat: '봉사', members: 38, accent: '#D97757' },
   { id: 'pix', name: '픽셀팩토리', cat: 'IT', members: 31, accent: '#1F4A36' },
   { id: 'book', name: '북클럽 두잉', cat: '학술', members: 22, accent: '#2E6149' },

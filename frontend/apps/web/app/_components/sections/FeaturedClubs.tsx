@@ -7,7 +7,7 @@ import { fetchPopularClubs } from '@/app/_lib/home-data';
 
 const CATEGORY_LABEL: Record<ClubSummary['category'], string> = {
   ACADEMIC: '학술',
-  CULTURE: '문화',
+  CREATION: '창작',
   ART: '예술',
   SPORTS: '운동',
   VOLUNTEER: '봉사',
@@ -18,7 +18,7 @@ const CATEGORY_LABEL: Record<ClubSummary['category'], string> = {
 
 const CATEGORY_COLOR: Record<ClubSummary['category'], string> = {
   ACADEMIC: '#1F4A36',
-  CULTURE: '#6b7e3e',
+  CREATION: '#6b7e3e',
   ART: '#7d4f87',
   SPORTS: '#c47a3b',
   VOLUNTEER: '#b88b3b',

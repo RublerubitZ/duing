@@ -18,7 +18,7 @@ import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategorie
 // 모바일 4×2 아이콘 타일용 — 카테고리별 lucide 아이콘.
 const CATEGORY_ICON: Record<ClubCategory, LucideIcon> = {
   ACADEMIC: GraduationCap,
-  CULTURE: Drama,
+  CREATION: Drama,
   ART: Palette,
   SPORTS: Dumbbell,
   VOLUNTEER: HeartHandshake,

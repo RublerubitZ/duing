@@ -16,7 +16,7 @@ const make = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary =
   recruitmentTitle: '봄 신입 모집',
   clubId: 10,
   clubName: '두잉 댄스',
-  category: 'CULTURE',
+  category: 'CREATION',
   logoUrl: null,
   status: 'ACCEPTED',
   interview: null,

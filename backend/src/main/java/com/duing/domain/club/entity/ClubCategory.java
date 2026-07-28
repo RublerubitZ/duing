@@ -2,7 +2,7 @@ package com.duing.domain.club.entity;
 
 public enum ClubCategory {
     ACADEMIC,
-    CULTURE,
+    CREATION,
     ART,
     SPORTS,
     VOLUNTEER,
