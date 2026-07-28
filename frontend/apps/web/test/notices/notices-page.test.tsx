@@ -142,4 +142,15 @@ describe('NoticesPage', () => {
 
     expect(screen.getByText(/알고리즘 동아리/)).toBeInTheDocument();
   });
+
+  // 100vh 로 되돌리면 안드로이드 크롬에서 문서가 화면보다 길어져 fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
+  it('페이지 루트 높이는 100vh 가 아닌 100dvh 를 쓴다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    const { container } = render(<NoticesPage />);
+    const root = container.firstElementChild as HTMLElement;
+
+    expect(root).toHaveClass('min-h-dvh');
+    expect(root.getAttribute('style') ?? '').not.toContain('100vh');
+  });
 });
