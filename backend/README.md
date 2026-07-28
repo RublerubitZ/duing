@@ -126,9 +126,10 @@ src/main/resources/
 
 - 기본 브랜치: `develop` (모든 작업이 여기로 머지)
 - 통합 브랜치: `main` (배포 시점에만 develop → main 머지)
-- 작업 브랜치: `{type}/{이슈번호}-{설명}` (예: `feat/12-application-submit`)
+- 작업 브랜치: `{type}/{설명}` (예: `feat/application-submit`). 이슈가 있으면 `{type}/{이슈번호}-{설명}`
 - **API 1개 = 브랜치 1개 = PR 1개** 원칙
-- 커밋 메시지: 한국어, `[#이슈번호] 작업 내용` 형식
+- 커밋 메시지: Conventional Commits + 한국어 (예: `feat(backend): 지원서 제출 API 구현`)
+- PR 제목도 같은 형식 — `develop` 은 squash 머지라 PR 제목이 develop 커밋 메시지가 된다
 - PR 본문: 🚀 작업 내용 / 🤔 고민했던 내용 / 💬 리뷰 중점사항
 
 ---
