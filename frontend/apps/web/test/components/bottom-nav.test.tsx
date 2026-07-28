@@ -117,4 +117,24 @@ describe('BottomNav', () => {
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/faq');
   });
+
+  // 같은 탭이 활성/비활성에서 서로 다른 아이콘(아웃라인 ↔ 채움)을 그려야 한다.
+  // 한쪽 변형만 쓰도록 되돌리면 두 마크업이 같아져 실패한다.
+  it('활성 탭은 채움 아이콘을, 비활성 탭은 아웃라인 아이콘을 그린다', () => {
+    const homeIconMarkup = () =>
+      screen.getByRole('link', { name: '홈' }).querySelector('svg')?.innerHTML;
+
+    mockUsePathname.mockReturnValue('/clubs');
+    const { unmount } = render(<BottomNav />);
+    const outlineHome = homeIconMarkup();
+    unmount();
+
+    mockUsePathname.mockReturnValue('/');
+    render(<BottomNav />);
+    const filledHome = homeIconMarkup();
+
+    expect(outlineHome).toBeTruthy();
+    expect(filledHome).toBeTruthy();
+    expect(filledHome).not.toBe(outlineHome);
+  });
 });
