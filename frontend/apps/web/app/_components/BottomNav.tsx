@@ -12,28 +12,28 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  PiBuilding, PiBuildingFill,
-  PiCalendarBlank, PiCalendarBlankFill,
-  PiCompass, PiCompassFill,
-  PiHouse, PiHouseFill,
-  PiInfo, PiInfoFill,
-} from 'react-icons/pi';
+  HiBuildingStorefront, HiCalendarDays, HiHome, HiInformationCircle, HiMap,
+  HiOutlineBuildingStorefront, HiOutlineCalendarDays, HiOutlineHome,
+  HiOutlineInformationCircle, HiOutlineMap,
+} from 'react-icons/hi2';
 
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 
-// 아이콘은 이 탭바에서만 Phosphor(react-icons/pi) 를 쓴다 — 비활성 Regular / 활성 Fill 이
-// 같은 디자인 패밀리로 짝지어 제공되는 세트라 활성 표현에 억지 fill 이 필요 없다.
-// lucide 는 아웃라인 전용이라 fill 을 씌우면 내부 디테일이 뭉개진다(다른 화면의 커스텀 아이콘은 그대로 유지).
-// Phosphor 는 stroke 가 아니라 패스로 아웃라인을 그리므로 strokeWidth 는 의미가 없다.
+// 아이콘은 이 탭바에서만 Heroicons v2(react-icons/hi2) 를 쓴다 — Outline/Solid 가 같은
+// 디자인 패밀리로 짝지어 제공돼 활성 표현에 억지 fill 이 필요 없다.
+// 획 끝이 둥글고 얇아(1.5) 모바일 탭바에서 가볍게 읽힌다. 각진 lucide, 도형감이 강한
+// Phosphor 를 모두 비교한 뒤 고른 결과다. 다른 화면의 커스텀 아이콘은 그대로 둔다.
+//
+// 탐색은 나침반 대신 지도다(Heroicons 에 나침반이 없다). 시설은 각진 오피스 대신 차양이 둥근
+// 상점 모양을, 캘린더는 빈 사각형 대신 날짜 칸이 찍혀 채움이 또렷한 쪽을 골랐다.
 const TABS = [
-  { label: '홈', href: '/', Icon: PiHouse, ActiveIcon: PiHouseFill },
-  { label: '탐색', href: '/clubs', Icon: PiCompass, ActiveIcon: PiCompassFill },
-  // 2동짜리 PiBuildings 는 22px 에서 창문이 잘게 부서져 1동짜리를 골랐다.
-  { label: '시설', href: '/facilities', Icon: PiBuilding, ActiveIcon: PiBuildingFill },
-  { label: '캘린더', href: '/calendar', Icon: PiCalendarBlank, ActiveIcon: PiCalendarBlankFill },
-  { label: '정보', href: DEFAULT_INFO_PATH, Icon: PiInfo, ActiveIcon: PiInfoFill },
+  { label: '홈', href: '/', Icon: HiOutlineHome, ActiveIcon: HiHome },
+  { label: '탐색', href: '/clubs', Icon: HiOutlineMap, ActiveIcon: HiMap },
+  { label: '시설', href: '/facilities', Icon: HiOutlineBuildingStorefront, ActiveIcon: HiBuildingStorefront },
+  { label: '캘린더', href: '/calendar', Icon: HiOutlineCalendarDays, ActiveIcon: HiCalendarDays },
+  { label: '정보', href: DEFAULT_INFO_PATH, Icon: HiOutlineInformationCircle, ActiveIcon: HiInformationCircle },
 ] as const;
 
 // 현재 경로가 어느 탭에 속하는지 — 홈은 정확히, 정보는 섹션 매칭, 나머지는 prefix(상세/하위 포함). 탭 밖이면 null.
@@ -98,12 +98,14 @@ export function BottomNav() {
                   className={cn(
                     'relative flex h-14 flex-col items-center justify-center gap-1 text-[10px] leading-none motion-safe:transition-colors',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink',
-                    on ? 'font-extrabold text-ink-deep' : 'font-semibold text-charcoal-3',
+                    // 활성 신호가 채움 아이콘·색·스포트라이트로 이미 셋이라 라벨은 bold 까지만 올린다.
+                    on ? 'font-bold text-ink-deep' : 'font-semibold text-charcoal-3',
                   )}
                 >
-                  {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다. */}
+                  {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다.
+                      24px — Heroicons 의 24 그리드와 1:1 이라 1.5 획이 반픽셀로 흐려지지 않는다. */}
                   <span className="grid h-8 w-12 place-items-center">
-                    <TabIcon size={22} aria-hidden />
+                    <TabIcon size={24} aria-hidden />
                   </span>
                   {label}
                 </Link>
