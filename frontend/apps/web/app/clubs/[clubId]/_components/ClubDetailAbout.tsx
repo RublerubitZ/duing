@@ -74,7 +74,7 @@ function AboutDescription({ description }: { description: string }) {
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="mt-5 border-t border-line pt-5">
+            <div className="mt-5 pt-5">
               {isHtml ? (
                 <RichHtml html={rest} />
               ) : (
@@ -119,7 +119,7 @@ export function ClubDetailAbout({ description, highlights }: Props) {
         {description !== null && <AboutDescription description={description} />}
 
         {highlights.length > 0 && (
-          <div className={cn(description !== null && 'mt-5 border-t border-line pt-5')}>
+          <div className={cn(description !== null && 'mt-5 pt-5')}>
             <p className="mb-3 text-[15px] font-semibold text-ink-deep">이런 분께 추천해요</p>
             <ul className="space-y-2">
               {highlights.map((keyword, index) => (

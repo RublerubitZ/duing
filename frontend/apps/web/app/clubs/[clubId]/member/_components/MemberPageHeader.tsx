@@ -25,7 +25,7 @@ export function MemberPageHeader({ clubId, clubName }: Props) {
           ← 동아리 소개 보기
         </Link>
       </div>
-      <nav className="flex gap-2 border-b border-line">
+      <nav className="flex gap-2">
         {tabs.map((tab) => {
           const active = pathname?.startsWith(tab.href);
           return (

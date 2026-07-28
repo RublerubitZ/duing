@@ -97,16 +97,17 @@ describe('ClubDetailAbout', () => {
     expect(firstItem).not.toHaveClass('rounded-full'); // 칩 아님
   });
 
-  it('본문·highlights 가 모두 있으면 추천 영역 앞에 구분선을 둔다', () => {
+  it('본문·highlights 가 모두 있으면 추천 영역 앞에 여백을 둔다', () => {
     render(<ClubDetailAbout description="본문" highlights={['성장하고 싶은 사람']} />);
     const subtitle = screen.getByText('이런 분께 추천해요');
-    expect(subtitle.parentElement).toHaveClass('border-t');
+    expect(subtitle.parentElement).toHaveClass('mt-5');
+    expect(subtitle.parentElement).not.toHaveClass('border-t');
   });
 
-  it('본문 없이 highlights 만 있으면 구분선 없이 추천 영역만 렌더한다', () => {
+  it('본문 없이 highlights 만 있으면 여백 없이 추천 영역만 렌더한다', () => {
     render(<ClubDetailAbout description={null} highlights={['성장하고 싶은 사람']} />);
     const subtitle = screen.getByText('이런 분께 추천해요');
-    expect(subtitle.parentElement).not.toHaveClass('border-t');
+    expect(subtitle.parentElement).not.toHaveClass('mt-5');
     expect(screen.getByText('성장하고 싶은 사람')).toBeInTheDocument();
   });
 

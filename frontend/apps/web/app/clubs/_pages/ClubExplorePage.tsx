@@ -185,7 +185,7 @@ export function ClubExplorePage() {
     <div>
       {/* ─── 데스크탑 (md+) — 기존 카드형 레이아웃(원본 유지) ─── */}
       <div className="hidden md:block">
-      <section className="border-b border-line bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
+      <section className="bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
         <div className="max-w-layout mx-auto">
           <div className="flex items-end justify-between mb-7">
             <div>
@@ -520,7 +520,7 @@ export function ClubExplorePage() {
 
       {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
       <div className="md:hidden">
-        <section className="border-b border-line bg-cream px-4 pt-8 pb-4">
+        <section className="bg-cream px-4 pt-8 pb-4">
           <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
           <form
@@ -538,7 +538,7 @@ export function ClubExplorePage() {
           </form>
         </section>
 
-        <nav className="flex gap-5 overflow-x-auto border-b border-line bg-cream px-4">
+        <nav className="flex gap-5 overflow-x-auto bg-cream px-4">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
@@ -547,7 +547,7 @@ export function ClubExplorePage() {
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
                 className={cn(
-                  '-mb-px shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
+                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
                   on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
                 )}
               >
