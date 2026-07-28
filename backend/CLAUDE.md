@@ -83,8 +83,10 @@
 
 ## Git / PR 규칙
 
-- 브랜치명: `{type}/{이슈번호}-{설명}` (예: `feat/5-club-list-api`)
-- 커밋 메시지: 한국어, `[#이슈번호] 작업 내용` 형식 (예: `[#5] 동아리 목록 조회 API 구현`)
+- 브랜치명: `{type}/{설명}` (예: `feat/club-list-api`). 이슈가 있으면 `{type}/{이슈번호}-{설명}`
+- 커밋 메시지: Conventional Commits + 한국어 (예: `feat(backend): 동아리 목록 조회 API 구현`)
+- PR 제목도 같은 형식 — squash 머지라 PR 제목이 develop 커밋 메시지가 된다
+- 상세 규칙은 [루트 `CLAUDE.md`](../CLAUDE.md#git--pr) 참조
 - PR 템플릿: 🚀 작업 내용 / 🤔 고민했던 내용 / 💬 리뷰 중점사항
 - PR 본문은 클래스명·메서드명 나열 금지 — 작업 내용 중심의 자연스러운 글로 작성한다
 
@@ -97,12 +99,12 @@ PR 크기를 관리하기 위해 **API 1개 = 브랜치 1개 = PR 1개** 원칙�
 
 ```
 develop
-  └─ feat/5-club-list-api          # 동아리 목록/검색/필터
-  └─ feat/6-club-detail-api        # 동아리 상세 조회
-  └─ feat/7-recruitment-create     # 모집 공고 생성
-  └─ feat/8-recruitment-calendar   # 모집 달력 조회
-  └─ feat/9-application-submit     # 지원서 제출
-  └─ feat/10-application-manage    # 지원자 관리 (동아리장)
+  └─ feat/club-list-api            # 동아리 목록/검색/필터
+  └─ feat/club-detail-api          # 동아리 상세 조회
+  └─ feat/recruitment-create       # 모집 공고 생성
+  └─ feat/recruitment-calendar     # 모집 달력 조회
+  └─ feat/application-submit       # 지원서 제출
+  └─ feat/application-manage       # 지원자 관리 (동아리장)
 ```
 
 ---

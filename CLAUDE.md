@@ -35,8 +35,13 @@ duing/
 - **시크릿/환경변수 하드코딩 절대 금지** — `.env*` 또는 CI Secret 으로만 주입
 
 ### Git / PR
-- 브랜치명: `{type}/{이슈번호}-{설명}` (예: `feat/12-club-list-ui`)
-- 커밋 메시지: 한국어, `[#이슈번호] 작업 내용` 형식
+- 브랜치명: `{type}/{설명}` (예: `feat/club-list-ui`). 이슈가 있으면 `{type}/{이슈번호}-{설명}`
+- 커밋 메시지: **Conventional Commits + 한국어** — `{type}({scope}): 작업 내용`
+  - 예: `feat(frontend): 동아리 목록 필터 추가`, `fix(backend): 중복 지원 검증 누락 수정`
+  - type: `feat` `fix` `refactor` `docs` `test` `chore` `ci` `perf`
+  - scope: `frontend` `backend` `web` `deploy` `spec` `ci` 등 — 여러 파트에 걸치면 생략 (`refactor: …`)
+  - `[#이슈번호] 작업 내용` 형식은 쓰지 않는다
+- **PR 제목도 커밋과 같은 형식으로 쓴다** — `develop` 은 squash 머지라 PR 제목이 그대로 develop 커밋 메시지가 된다
 - PR 본문: 🚀 작업 내용 / 🤔 고민했던 내용 / 💬 리뷰 중점사항 — 파일·클래스명 나열 금지, 자연스러운 문장으로
 - **1개 단위 = 1 브랜치 = 1 PR** 원칙 (백엔드: API 단위 / 프론트: 페이지 단위)
 - 모든 작업 브랜치는 `develop` 에서 분기, `develop` 으로 PR
