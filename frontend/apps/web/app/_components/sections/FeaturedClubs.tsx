@@ -107,7 +107,7 @@ function FeaturedCard({ club }: { club: ClubSummary }) {
         </p>
       </div>
       {endDate && (
-        <div className="mt-1 flex items-center justify-between border-t border-dashed border-line pt-3 text-[12.5px] text-charcoal-2">
+        <div className="mt-1 flex items-center justify-between pt-3 text-[12.5px] text-charcoal-2">
           <span>모집 중</span>
           <span className="font-bold text-ink">~ {endDate}</span>
         </div>

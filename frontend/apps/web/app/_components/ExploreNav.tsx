@@ -56,7 +56,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
     <header
       className={cn(
         floating ? 'absolute inset-x-0 top-0' : 'relative',
-        'z-50 bg-cream/90 backdrop-blur border-b border-line',
+        'z-50 bg-cream/90 backdrop-blur',
         isDetailFocus && 'hidden md:block',
       )}
     >

@@ -24,10 +24,9 @@ export function InfoTabs() {
   return (
     <nav
       aria-label="정보"
-      className="sticky top-0 z-40 border-b border-line bg-cream/95 backdrop-blur md:static"
+      className="sticky top-0 z-40 bg-cream/95 backdrop-blur md:static"
     >
-      {/* overflow 래퍼의 pb-px: 활성 탭 언더라인(-mb-px)이 세로로 잘리는 것을 방지(ClubDetailTabs 함정) */}
-      <div className="max-w-layout mx-auto overflow-x-auto px-4 pb-px sm:px-6 md:overflow-visible md:px-10 md:pb-0">
+      <div className="max-w-layout mx-auto overflow-x-auto px-4 sm:px-6 md:overflow-visible md:px-10">
         <ul className="flex w-max min-w-full gap-6 md:gap-8">
           {INFO_MENU_ITEMS.map((item) => {
             const on = pathname === item.href;
@@ -37,7 +36,7 @@ export function InfoTabs() {
                   href={item.href}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
-                    '-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-[2.5px] text-[14px] font-semibold transition-colors',
+                    'inline-flex min-h-[44px] items-center whitespace-nowrap border-b-[2.5px] text-[14px] font-semibold transition-colors',
                     on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3 hover:text-ink',
                   )}
                 >

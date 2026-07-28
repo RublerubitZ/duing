@@ -8,7 +8,7 @@ import { Search } from '@/components/duing/Icon';
  */
 export function HomeMobileSearchBar() {
   return (
-    <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur md:hidden">
+    <div className="sticky top-0 z-40 bg-cream/95 px-4 py-2.5 backdrop-blur md:hidden">
       <form
         action="/clubs"
         method="get"
