@@ -868,6 +868,98 @@ git commit -m "refactor(frontend): 보더 클래스가 아닌 가로 구분선 3
 
 ---
 
+### Task 11: 사각지대 정리 — 인라인 `style` 로 그린 가로선
+
+**실행 순서: Task 10 다음, Task 9 앞.**
+
+**Files:**
+- Modify: `frontend/apps/web/app/calendar/_pages/CalendarPage.tsx`
+- Modify: `frontend/apps/web/app/notices/_pages/NoticePage.tsx`
+- Modify: `frontend/apps/web/app/me/applications/_components/ApplySummaryCard.tsx`
+- Modify: `frontend/apps/web/app/me/_components/MyPageStickyNav.tsx`
+
+**Interfaces:**
+- Consumes: 없음
+- Produces: 없음
+
+**배경:** 이 저장소에는 Tailwind 클래스가 아니라 인라인 `style={{ borderBottom: '1px solid var(--gray-line)' }}` 로 그린 가로선이 17곳 있다. 클래스 grep 으로는 하나도 안 잡힌다. Task 6 구현자가 발견했고, 전수 분류 결과 **7곳이 제거 대상**이고 나머지 10곳은 표·목록의 행 구분선이거나 모달 푸터라 유지 대상이다.
+
+`globals.css` 는 확인 결과 구분선 규칙이 없다(패딩·레이아웃 오버라이드만). `::after` / `::before` 헤어라인도 없다.
+
+- [ ] **Step 1: `CalendarPage.tsx` — 3곳 제거**
+
+각 객체 리터럴에서 해당 속성 한 줄만 지운다. 같은 객체의 다른 속성(패딩·배경·레이아웃)은 전부 유지한다.
+
+| 위치 | 지울 속성 | 정체 |
+|---|---|---|
+| `<section className="cal-section cal-header" …>` | `borderBottom: '1px solid var(--gray-line)'` | 페이지 헤더↔본문 |
+| 다크 상세 카드 안, `marginTop: 14, paddingTop: 12` 과 같은 객체 | `borderTop: '1px dashed rgba(255,255,255,0.18)'` | 카드 내부 섹션선 |
+| 이벤트 카드 `{/* Footer */}` 블록, `paddingTop: 12` 과 같은 객체 | `borderTop: '1px dashed var(--gray-line)'` | 카드 푸터 점선 |
+
+**같은 파일에서 유지할 것 3곳** — 요일 헤더 행의 `borderBottom`(표 헤더), 월 그리드의 `borderTop: rowIdx > 0 ? … : 'none'`(표 행), 일정 목록의 `borderBottom: i < dayEvents.length - 1 ? … : 'none'`(목록 행). 전부 조건부이거나 그리드 안이라 구분된다.
+
+- [ ] **Step 2: `NoticePage.tsx` — 2곳 제거**
+
+사이드바 `<aside>` 안의 두 곳이다.
+
+| 위치 | 지울 속성 | 함께 유지할 것 |
+|---|---|---|
+| `{isClubSource ? '내 동아리' : '캠퍼스 소식'}` 라벨 박스 | `borderBottom: '1px solid var(--gray-line)'` | `marginBottom: 10` (여백) |
+| `{/* 총동연 FAQ 진입점 … */}` 블록 | `borderTop: '1px solid var(--gray-line)'` | `marginTop: 14, paddingTop: 14` (여백) |
+
+FAQ 진입점 위 주석이 `공지 카테고리와 별개 섹션(구분선 뒤)` 이라고 쓰여 있다. 선이 사라지므로 `(구분선 뒤)` 를 `(여백으로 구분)` 으로 고친다.
+
+**같은 파일에서 유지할 것 2곳** — 데스크탑 표의 `{/* Header row … */}` 하단선(표 헤더)과 `borderBottom: i < restItems.length - 1 ? … : 'none'`(표 행).
+
+- [ ] **Step 3: `ApplySummaryCard.tsx` — 다크 카드 내부 구분선 제거**
+
+`borderTop: '1px solid rgba(255,255,255,0.14)'` 를 지운다. 다크 카드의 헤더와 통계 영역을 가르는 선이다. 같은 객체의 패딩·레이아웃 속성은 유지한다.
+
+- [ ] **Step 4: `MyPageStickyNav.tsx` — box-shadow 로 그린 탭 받침선 제거**
+
+before:
+```tsx
+      style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream), 0 1px 0 var(--gray-line)' }}
+```
+after:
+```tsx
+      style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream)' }}
+```
+
+`0 1px 0 var(--gray-line)` 는 그림자가 아니라 **Task 6 이 클래스에서 지운 탭 레일 받침선을 box-shadow 로 한 번 더 그린 것**이다. 그래서 "그림자 변경 금지" 제약의 예외다. 앞의 `0 -16px 0 var(--cream)` 는 sticky 진입 시 위쪽을 크림색으로 덮는 마스킹이라 **유지한다.**
+
+- [ ] **Step 5: 잔여 grep 가드**
+
+Run:
+```bash
+cd frontend && grep -rn --include='*.tsx' "borderTop\|borderBottom" apps | grep -v node_modules | grep -v '/test/'
+```
+Expected: 10건만 남는다 — `CalendarPage.tsx` 3건(요일 헤더·그리드 행·일정 행), `NoticePage.tsx` 2건(표 헤더·표 행), `NoticeRow.tsx` 1건(목록 행), `ApplyDetailModal.tsx` 3건(정의 목록 행 2 + 모달 푸터 1), `SectionActivity.tsx` 1건(타임라인 행). 전부 유지 대상이다.
+
+```bash
+cd frontend && grep -rn --include='*.tsx' "boxShadow" apps | grep -v node_modules | grep -v '/test/' | grep -E "0 1px 0|0 -1px 0|inset 0 1px|inset 0 -1px"
+```
+Expected: 출력 없음
+
+- [ ] **Step 6: 테스트 실행**
+
+Run:
+```bash
+cd frontend && pnpm --filter @duing/web exec vitest run test/notices test/me
+```
+Expected: PASS
+
+- [ ] **Step 7: 커밋**
+
+```bash
+git add frontend/apps/web/app/calendar frontend/apps/web/app/notices/_pages/NoticePage.tsx \
+        frontend/apps/web/app/me/applications/_components/ApplySummaryCard.tsx \
+        frontend/apps/web/app/me/_components/MyPageStickyNav.tsx
+git commit -m "refactor(frontend): 인라인 스타일로 그린 섹션 구분선을 여백으로 바꾼다"
+```
+
+---
+
 ### Task 9: 통합 검증 + 실브라우저 QA + 여백 보정
 
 **Files:**
@@ -905,6 +997,16 @@ cd frontend && grep -rn --include='*.tsx' "h-px\|h-\[1px\]" apps | grep -v node_
 Expected: 아래 5건만 — 전부 유지 대상이다.
 `Flow.tsx`(스텝 연결선), `PanelStepIndicator.tsx`(스텝 사이 3px 연결선), `WeekTimetable.tsx` 2건(rowSpan 높이 확보용 레이아웃 해킹 + 그 설명 주석), `components/ui/dropdown-menu.tsx`(메뉴 항목 구분자 = 목록 행선 준용).
 `ApplyForm.tsx` · `AdminNavContent.tsx` · `ManageNav.tsx` 가 출력되면 Task 10 이 누락된 것이다.
+
+- [ ] **Step 2-3: 인라인 스타일 가로선 잔여 확인**
+
+```bash
+cd frontend && grep -rn --include='*.tsx' "borderTop\|borderBottom" apps | grep -v node_modules | grep -v '/test/' | wc -l
+cd frontend && grep -rn --include='*.tsx' "boxShadow" apps | grep -v node_modules | grep -v '/test/' | grep -cE "0 1px 0|0 -1px 0|inset 0 1px|inset 0 -1px"
+```
+Expected: 첫 명령 `10`(전부 표·목록 행선과 모달 푸터 = 유지 대상), 둘째 명령 `0`. 숫자가 크면 Task 11 이 누락된 것이다.
+
+`globals.css` 는 확인 완료 — 구분선 규칙도 `::after` / `::before` 헤어라인도 없다. `<hr>` 은 저장소 전체에 0건.
 
 - [ ] **Step 3: 개발 서버 기동**
 
