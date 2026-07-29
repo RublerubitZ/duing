@@ -53,7 +53,7 @@ export function FaqFeedback({ faqId }: Props) {
   };
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-dashed border-line pt-4">
+    <div className="mt-4 flex flex-wrap items-center gap-3 pt-4">
       <span className="text-[13px] font-semibold text-charcoal-2">이 답변이 도움이 되었나요?</span>
       <div className="flex items-center gap-2">
         <button

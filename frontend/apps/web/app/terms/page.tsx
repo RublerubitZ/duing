@@ -48,7 +48,7 @@ export default function TermsPage() {
 
         {/* ───────────────── 제1부 이용약관 ───────────────── */}
         <section id="terms" className="mt-12 scroll-mt-20">
-          <h2 className="border-b border-line pb-3 text-xl font-bold text-ink-deep">제1부 · 이용약관</h2>
+          <h2 className="pb-3 text-xl font-bold text-ink-deep">제1부 · 이용약관</h2>
 
           <Article title="제1조 (목적)">
             본 약관은 {OPERATOR}(이하 “운영팀”)이 제공하는 두잉(Duing) 서비스(이하 “서비스”)의 이용과 관련하여 운영팀과
@@ -146,7 +146,7 @@ export default function TermsPage() {
 
         {/* ───────────────── 제2부 개인정보 처리방침 ───────────────── */}
         <section id="privacy" className="mt-14 scroll-mt-20">
-          <h2 className="border-b border-line pb-3 text-xl font-bold text-ink-deep">제2부 · 개인정보 처리방침</h2>
+          <h2 className="pb-3 text-xl font-bold text-ink-deep">제2부 · 개인정보 처리방침</h2>
           <p className="mt-4 text-[13.5px] leading-relaxed text-charcoal-2">
             {OPERATOR}(이하 “운영팀”)은 「개인정보 보호법」 등 관련 법령을 준수하며, 정보주체의 개인정보를 보호하기 위해
             다음과 같이 개인정보 처리방침을 수립·공개합니다. 두잉은 대구대학교 학생들이 운영하는 서비스입니다.

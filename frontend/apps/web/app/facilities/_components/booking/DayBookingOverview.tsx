@@ -48,7 +48,7 @@ export function DayBookingOverview({ day }: Props) {
         </ul>
       )}
       {available.length > 0 && (
-        <ul className={`mt-2 flex flex-col gap-1.5 ${usage.length > 0 ? 'border-t border-dashed border-line pt-2' : ''}`}>
+        <ul className={`mt-2 flex flex-col gap-1.5 ${usage.length > 0 ? 'pt-2' : ''}`}>
           {available.map((run) => (
             <li key={run.start} className="flex items-center gap-2">
               <span className="w-[82px] font-mono text-xs text-charcoal-3">{rangeLabel(run)}</span>
@@ -61,7 +61,7 @@ export function DayBookingOverview({ day }: Props) {
         </ul>
       )}
       <div
-        className={`mt-2 space-y-1.5 ${usage.length > 0 || available.length > 0 ? 'border-t border-dashed border-line pt-2' : ''}`}
+        className={`mt-2 space-y-1.5 ${usage.length > 0 || available.length > 0 ? 'pt-2' : ''}`}
       >
         {periodDistribution(day.slots).map((period) => (
           <div key={period.key} className="flex items-center gap-2 text-[11px]">
