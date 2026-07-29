@@ -786,6 +786,88 @@ git commit -m "refactor(frontend): 총동연 콘솔의 패널 내부 구분선�
 
 ---
 
+### Task 10: 사각지대 정리 — 보더 클래스가 아닌 가로선
+
+**실행 순서: Task 8 다음, Task 9 앞.** (번호는 뒤지만 통합 검증보다 먼저 끝나야 한다.)
+
+**Files:**
+- Modify: `frontend/apps/web/app/apply/[recruitmentId]/_components/ApplyForm.tsx`
+- Modify: `frontend/apps/web/app/admin/_components/AdminNavContent.tsx`
+- Modify: `frontend/apps/web/app/manage/_components/ManageNav.tsx`
+
+**Interfaces:**
+- Consumes: 없음
+- Produces: 없음
+
+**배경:** 최초 전수 조사가 `border-t` / `border-b` 만 훑어서, `h-px` + 배경색으로 그린 가로선 3곳을 통째로 놓쳤다. Task 4 리뷰가 `border-y` 누락을 잡아내면서 함께 드러났다. 셋 다 명백한 섹션 구분선이고, 그중 하나는 코드에 `{/* 구분선 */}` 이라고 주석까지 달려 있다.
+
+- [ ] **Step 1: `ApplyForm.tsx` — 헤더↔본문 그라디언트 구분선 제거, 여백은 헤더로 옮긴다**
+
+`</header>` 바로 아래의 구분선 블록을 통째로 지운다.
+
+before:
+```tsx
+        {/* 구분선 */}
+        <div
+          className="mb-8 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, #d9d4c3 20%, #d9d4c3 80%, transparent)' }}
+        />
+```
+after: (블록 전체 삭제)
+
+이 `<div>` 가 들고 있던 `mb-8`(32px)이 헤더와 본문 사이 간격의 실체였다. 그냥 지우면 간격이 무너지므로, **같은 `mb-8` 을 바로 위 `<header>` 의 className 끝에 옮겨 붙여 32px 간격을 유지한다.** `<header>` 에 이미 `mb-*` 가 있으면 옮기지 말고 기존 값을 그대로 두되, 그 사실을 보고서에 적어라 — 요청서가 "구분선 대신 여백으로 구분을 유지하라"고 명시했으므로 간격 소실은 허용되지 않는다.
+
+- [ ] **Step 2: `AdminNavContent.tsx` — 접힌 사이드바의 그룹 구분선 제거**
+
+before:
+```tsx
+              // 접힌 폭에는 그룹 라벨이 들어가지 않아 구분선으로 대체한다(첫 그룹 위는 비운다).
+              groupIndex > 0 && <div aria-hidden className="mx-2 my-2 h-px bg-line" />
+```
+after:
+```tsx
+              // 접힌 폭에는 그룹 라벨이 들어가지 않아 여백으로 그룹을 가른다(첫 그룹 위는 비운다).
+              groupIndex > 0 && <div aria-hidden className="my-2" />
+```
+
+선만 없애고 `my-2` 여백은 남긴다 — 접힌 상태에선 라벨이 없어 이 간격이 유일한 그룹 신호이기 때문이다. `mx-2` 는 선의 좌우 인셋이었으므로 선과 함께 사라진다. `groupIndex > 0` 조건과 `aria-hidden` 은 유지한다.
+
+- [ ] **Step 3: `ManageNav.tsx` — 같은 패턴(다크 사이드바)**
+
+before:
+```tsx
+              groupIndex > 0 && <div aria-hidden className="mx-2 my-2 h-px bg-white/10" />
+```
+after:
+```tsx
+              groupIndex > 0 && <div aria-hidden className="my-2" />
+```
+
+- [ ] **Step 4: 잔여 grep 가드**
+
+Run:
+```bash
+cd frontend && grep -rn --include='*.tsx' "h-px\|h-\[1px\]" apps | grep -v node_modules | grep -v '/test/'
+```
+Expected: `Flow.tsx` · `PanelStepIndicator.tsx` · `WeekTimetable.tsx` 2건 · `components/ui/dropdown-menu.tsx` 만 남는다(전부 유지 대상). `ApplyForm` / `AdminNavContent` / `ManageNav` 는 출력되지 않아야 한다.
+
+- [ ] **Step 5: 테스트 실행**
+
+Run:
+```bash
+cd frontend && pnpm --filter @duing/web exec vitest run test/admin test/manage test/clubs
+```
+Expected: PASS
+
+- [ ] **Step 6: 커밋**
+
+```bash
+git add frontend/apps/web/app/apply frontend/apps/web/app/admin/_components/AdminNavContent.tsx frontend/apps/web/app/manage/_components/ManageNav.tsx
+git commit -m "refactor(frontend): 보더 클래스가 아닌 가로 구분선 3곳을 여백으로 바꾼다"
+```
+
+---
+
 ### Task 9: 통합 검증 + 실브라우저 QA + 여백 보정
 
 **Files:**
@@ -807,11 +889,22 @@ Expected: 4개 전부 성공. `pnpm build` 는 출력에서 `Compiled successful
 
 Run:
 ```bash
-cd frontend && grep -rnE "border-(t|b)[-\"' []" --include='*.tsx' --include='*.ts' apps packages \
+cd frontend && grep -rnE "border-(t|b|y)[-\"' []" --include='*.tsx' --include='*.ts' apps packages \
   | grep -v node_modules | grep -v '/test/' \
   | grep -vE "border-(transparent|box|blue|black|bottom)" | wc -l
 ```
 Expected: `69` (158 − 89). 숫자가 다르면 스펙의 "유지 대상" 목록과 대조해 어디가 어긋났는지 찾는다.
+
+`border-y` 를 패턴에 넣은 이유: 최초 조사가 `border-(t|b)` 만 봐서 `border-y` 를 통째로 놓쳤다(Task 4 리뷰에서 발각). Task 10 이 그 잔재를 정리하므로 여기서는 0 이어야 한다.
+
+- [ ] **Step 2-2: 보더 클래스가 아닌 가로선 잔여 확인**
+
+```bash
+cd frontend && grep -rn --include='*.tsx' "h-px\|h-\[1px\]" apps | grep -v node_modules | grep -v '/test/'
+```
+Expected: 아래 5건만 — 전부 유지 대상이다.
+`Flow.tsx`(스텝 연결선), `PanelStepIndicator.tsx`(스텝 사이 3px 연결선), `WeekTimetable.tsx` 2건(rowSpan 높이 확보용 레이아웃 해킹 + 그 설명 주석), `components/ui/dropdown-menu.tsx`(메뉴 항목 구분자 = 목록 행선 준용).
+`ApplyForm.tsx` · `AdminNavContent.tsx` · `ManageNav.tsx` 가 출력되면 Task 10 이 누락된 것이다.
 
 - [ ] **Step 3: 개발 서버 기동**
 
