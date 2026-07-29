@@ -96,13 +96,12 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
       'flex',
       'flex-col',
       'gap-3',
-      'border-y',
-      'border-line',
       'py-5',
       'md:grid',
       'md:grid-cols-3',
       'md:gap-0',
     );
+    expect(root).not.toHaveClass('border-y');
   });
 
   it('활동·창설년도·회비 3개 셀을 회귀 없이 렌더한다', () => {
