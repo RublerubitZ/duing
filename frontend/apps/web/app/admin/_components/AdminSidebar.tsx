@@ -119,7 +119,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   );
 
   return (
-    <div className="shrink-0 border-t border-line px-3 pb-4 pt-3">
+    <div className="shrink-0 px-3 pb-4 pt-3">
       <Link href="/" title={collapsed ? '홈으로' : undefined} className={actionClass}>
         <Home size={19} className="shrink-0" />
         {collapsed ? <span className="sr-only">홈으로</span> : <span>홈으로</span>}

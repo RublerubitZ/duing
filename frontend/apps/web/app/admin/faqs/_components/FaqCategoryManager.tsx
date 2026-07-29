@@ -120,7 +120,7 @@ export function FaqCategoryManager() {
       </button>
 
       {expanded && (
-        <div className="space-y-3 border-t border-line px-4 py-4">
+        <div className="space-y-3 px-4 py-4">
           {categoriesQuery.isLoading && (
             <LoadingGate className="min-h-0 py-4" label="카테고리 목록 불러오는 중" />
           )}
@@ -187,7 +187,7 @@ export function FaqCategoryManager() {
 
           {errorMessage && <p className="text-[12.5px] text-coral">{errorMessage}</p>}
 
-          <div className="flex gap-2 border-t border-line pt-3">
+          <div className="flex gap-2 pt-3">
             <input
               type="text"
               value={newName}

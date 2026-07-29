@@ -76,7 +76,7 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
               </button>
             </div>
             {expanded && (
-              <ul className="border-t border-line/60">
+              <ul>
                 {group.bookings.map((booking) => {
                   const visual = submissionBlockVisual(booking);
                   return (

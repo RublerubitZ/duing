@@ -263,7 +263,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
       )}
 
       {totalPages > 1 && (
-        <div className="border-t border-line px-[18px] pb-4">
+        <div className="px-[18px] pb-4">
           <Pagination
             page={page}
             totalPages={totalPages}

@@ -110,7 +110,7 @@ export function AdminReportDetailPage({ reportId }: Props) {
         </div>
 
         {(report.handledBy || report.actionNote) && (
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] border-t border-line pt-5">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] pt-5">
             {report.handledBy && (
               <Row label="처리자">
                 {report.handledBy.name} (ID: {report.handledBy.id})

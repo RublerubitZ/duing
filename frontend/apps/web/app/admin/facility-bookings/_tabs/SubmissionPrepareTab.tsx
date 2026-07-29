@@ -210,7 +210,7 @@ export function SubmissionPrepareTab() {
       {/* 목업 CCard — 선택 툴바(A) + 필터 행(B) + 시설별 그룹(B)을 한 카드가 감싼다. */}
       <ConsoleCard>
         {/* selection toolbar(목업 A) — Primary 는 '제출 목록 만들기' 하나, 나머지는 ghost. */}
-        <div className="flex flex-wrap items-center gap-2.5 border-b border-line px-[18px] py-3">
+        <div className="flex flex-wrap items-center gap-2.5 px-[18px] py-3">
           <p className="flex items-center gap-2 text-[13px] font-bold tabular-nums text-ink-deep">
             <span
               aria-hidden
@@ -263,7 +263,7 @@ export function SubmissionPrepareTab() {
         </div>
 
         {/* 필터 행(목업 B) — 조회 기간·동아리 검색·제출 상태. */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
+        <div className="flex flex-wrap items-center gap-2 px-[18px] py-3">
           <input
             type="date" aria-label="시작일" value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
@@ -324,14 +324,11 @@ export function SubmissionPrepareTab() {
             )}
             {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
               <ul>
-                {sections.map((section, sectionIndex) => {
+                {sections.map((section) => {
                   const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
                   const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
                   return (
-                    <li
-                      key={section.facilityId}
-                      className={sectionIndex < sections.length - 1 ? 'border-b-8 border-graysoft' : ''}
-                    >
+                    <li key={section.facilityId}>
                       {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 배치=시설 단위 제약의 시각화. */}
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
                         <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>

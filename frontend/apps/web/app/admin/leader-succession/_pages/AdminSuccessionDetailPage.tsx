@@ -108,7 +108,7 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
         </div>
 
         {(succession.handledBy || succession.actionNote) && (
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] border-t border-line pt-5">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] pt-5">
             {succession.handledBy && (
               <Row label="처리자">
                 {succession.handledBy.name} (ID: {succession.handledBy.id})

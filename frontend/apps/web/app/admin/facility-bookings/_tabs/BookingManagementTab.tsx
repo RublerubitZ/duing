@@ -141,7 +141,7 @@ export function BookingManagementTab() {
 
       {/* 목업 CCard — 툴바·테이블·페이지네이션을 한 카드가 감싼다. */}
       <ConsoleCard>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
+        <div className="flex flex-wrap items-center gap-2 px-[18px] py-3">
           <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="큐 필터">
             {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => {
               const chipCount = chipCountOf(tab);
@@ -234,7 +234,7 @@ export function BookingManagementTab() {
         )}
 
         {totalPages > 1 && (
-          <div className="border-t border-line px-[18px] pb-4">
+          <div className="px-[18px] pb-4">
             <Pagination
               page={page}
               totalPages={totalPages}

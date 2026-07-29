@@ -63,7 +63,7 @@ export function ClubRosterAccordion({ clubId, clubName }: { clubId: number; club
       </button>
 
       {open && (
-        <div id={panelId} className="border-t border-line px-4 py-3">
+        <div id={panelId} className="px-4 py-3">
           {membersQuery.isLoading && <TextLinesSkeleton lines={3} label="동아리원 불러오는 중" />}
 
           {membersQuery.isError && (

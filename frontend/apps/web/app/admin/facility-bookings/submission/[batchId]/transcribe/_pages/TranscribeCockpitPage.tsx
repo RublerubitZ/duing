@@ -100,7 +100,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
         <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
           {/* 좌: 현재 건 — HWP 양식 순서 세로 1열 */}
           <ConsoleCard>
-            <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+            <div className="flex items-center gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[11.5px] font-bold text-charcoal-3">
                   {group.facilityName} · {cursor + 1} / {group.items.length}건
@@ -152,7 +152,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 border-t border-line px-5 py-3.5">
+            <div className="flex items-center gap-2.5 px-5 py-3.5">
               <button
                 type="button"
                 onClick={() => setCursor((c) => Math.max(0, c - 1))}
@@ -187,7 +187,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
 
           {/* 우: 시설 선택 + 현재 시설 건 리스트 + 진행률 */}
           <ConsoleCard>
-            <div className="border-b border-line p-3">
+            <div className="p-3">
               <p className="mb-2 px-1 text-[11.5px] font-bold tracking-wide04 text-charcoal-3">시설 선택</p>
               <div className="flex flex-col gap-1">
                 {groups.map((grp, index) => {
