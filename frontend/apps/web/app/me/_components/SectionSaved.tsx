@@ -93,7 +93,7 @@ export function SectionSaved({ favorites }: Props) {
                   </div>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-line">
+                  <div className="flex items-center justify-between text-[11px] pt-2">
                     <span className="pill text-[10px]">{clubCategoryLabel(club.category)}</span>
                     <span
                       className={cn(

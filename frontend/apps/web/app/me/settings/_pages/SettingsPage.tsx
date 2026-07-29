@@ -51,7 +51,7 @@ function SettingsCard({ title, hint, children, danger = false, id }: SettingsCar
   return (
     <section id={id} className="bg-paper rounded-lg border border-line mb-4 overflow-hidden scroll-mt-24">
       <div
-        className="px-7 py-5 border-b border-line"
+        className="px-7 py-5"
         style={danger ? { background: 'rgba(217,119,87,0.05)' } : undefined}
       >
         <h3 className="text-[17px] font-body font-bold text-ink-deep">{title}</h3>
@@ -77,7 +77,7 @@ function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
 
   return (
-    <nav className="border-b border-line px-4 sm:px-6 md:px-10 pt-4">
+    <nav className="px-4 sm:px-6 md:px-10 pt-4">
       <div className="max-w-layout mx-auto flex gap-6 flex-wrap items-center">
         <Link
           href="/me"
@@ -97,7 +97,7 @@ function SettingsPageTabs() {
                   .getElementById(TAB_TARGET_IDS[tab])
                   ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className={`py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150 -mb-px ${
+              className={`py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150 ${
                 isActive
                   ? 'text-ink border-b-[2.5px] border-ink'
                   : 'text-charcoal-3 border-b-[2.5px] border-transparent hover:text-charcoal'
