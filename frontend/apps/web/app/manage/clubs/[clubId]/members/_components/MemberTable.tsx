@@ -205,7 +205,7 @@ export function MemberTable({
                   <p className="mt-0.5 text-xs text-charcoal-3">
                     {member.major} · {GRADE_DISPLAY_NAME[member.grade]}
                   </p>
-                  <div className="mt-2 flex items-center gap-2 border-t border-line pt-2 text-xs text-charcoal-2">
+                  <div className="mt-2 flex items-center gap-2 pt-2 text-xs text-charcoal-2">
                     {useGeneration && <span>{generationLabel(member)}</span>}
                     <FeeBadge status={member.feeStatus} />
                     <span className="ml-auto font-mono text-charcoal-3">

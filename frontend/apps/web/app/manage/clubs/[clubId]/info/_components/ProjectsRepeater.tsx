@@ -72,7 +72,7 @@ function SortableProjectRow({
         )}
       </div>
       {editing && !readOnly && (
-        <div className="space-y-3 border-t border-[#f0ede3] px-3 py-3">
+        <div className="space-y-3 px-3 py-3">
           <ProjectIconPicker value={project.icon} onChange={(icon) => onPatch({ icon })} />
           <input
             type="text"

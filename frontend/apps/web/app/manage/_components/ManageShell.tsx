@@ -119,7 +119,7 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
   return (
     <div
       className={cn(
-        'mt-1 flex shrink-0 items-center gap-2.5 border-t border-white/10 py-3',
+        'mt-1 flex shrink-0 items-center gap-2.5 py-3',
         collapsed ? 'justify-center px-3' : 'px-4',
       )}
     >

@@ -91,7 +91,7 @@ export function Step1Candidates({
 
     return (
       <div key={groupLabel} className="space-y-2">
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+        <div className="flex items-center gap-2 pb-1">
           <input
             type="checkbox"
             id={`group-all-${groupLabel}`}
@@ -201,7 +201,7 @@ export function Step1Candidates({
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+      <div className="flex items-center justify-between pt-4">
         <span className="text-sm text-slate-600">
           {selectedMap.size > 0 ? (
             <>
