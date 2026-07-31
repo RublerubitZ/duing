@@ -84,10 +84,14 @@ export function ClubExploreSkeleton() {
 
       {/* 모바일 (<md) */}
       <div className="md:hidden">
-        <section className="bg-cream px-4 pt-8 pb-4 space-y-4">
+        {/* 본문(ClubExplorePage)이 제목 블록과 sticky 검색 바를 분리해 두었다.
+            여기서도 같은 구조여야 로딩이 끝나는 순간 검색창이 튀지 않는다. */}
+        <section className="bg-cream px-4 pt-8 pb-4">
           <SkeletonBar className="h-6 w-24" />
-          <div className="h-12 w-full rounded-[14px] bg-graysoft" />
         </section>
+        <div className="border-b border-line bg-cream px-4 py-2.5">
+          <div className="h-12 w-full rounded-[14px] bg-graysoft" />
+        </div>
         <div className="px-4 pb-8 pt-4">
           <ClubListSkeletonItems variant="list" />
         </div>
