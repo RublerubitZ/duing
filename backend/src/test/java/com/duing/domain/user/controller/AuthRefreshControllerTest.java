@@ -7,10 +7,12 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.user.entity.AuthEventType;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.repository.AuthEventRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.LoginAttemptRateLimiter;
 import com.duing.global.auth.WebAuthCookieService;
@@ -30,6 +32,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Import(TestcontainersConfiguration.class)
@@ -38,11 +41,17 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
 
     private static final String RAW_PASSWORD = "Abcd1234!";
     private static final String ALLOWED_ORIGIN = "http://localhost:3000";
+    // 재사용 제시 요청에만 실어 보내는 식별용 User-Agent — 감사 이벤트에 이 값이 남아야
+    // 컨트롤러가 제시자 정보를 rotate 로 실제 배선했음이 증명된다(rotate(.., null, null) 회귀 가드).
+    private static final String MOBILE_REUSE_PROBE_USER_AGENT = "ReuseProbe/1.0 (mobile-controller-wiring)";
+    private static final String WEB_REUSE_PROBE_USER_AGENT = "ReuseProbe/1.0 (web-controller-wiring)";
 
     @LocalServerPort int port;
     @Autowired UserRepository userRepository;
+    @Autowired AuthEventRepository authEventRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired LoginAttemptRateLimiter loginAttemptRateLimiter;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -196,6 +205,82 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/refresh")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("code", equalTo("AUTH_SESSION_EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("회전이 끝난 refresh 쿠키를 grace 창 밖에서 다시 제시하면 재사용 401 코드와 함께 인증 쿠키 3종이 즉시 만료되고 제시자 정보가 감사에 남는다")
+    void webRefreshWithReusedCookieReturnsReuseCodeAndExpiresAllAuthCookies() {
+        User user = saveUser();
+        String rotatedRefreshCookie =
+                webLogin(user, true).getCookie(WebAuthCookieService.REFRESH_COOKIE_NAME);
+        given().cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, rotatedRefreshCookie)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        ageRotatedTokensPastReuseGrace(user);
+
+        Response reuseResponse = given()
+                .cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, rotatedRefreshCookie)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .header(HttpHeaders.USER_AGENT, WEB_REUSE_PROBE_USER_AGENT)
+                .when().post("/api/v1/auth/web/refresh");
+
+        assertThat(reuseResponse.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(reuseResponse.jsonPath().getString("code")).isEqualTo("REFRESH_TOKEN_REUSED");
+        assertExpiresAllAuthCookies(reuseResponse);
+        assertReuseAuditRecordsPresenter(user, WEB_REUSE_PROBE_USER_AGENT);
+    }
+
+    @Test
+    @DisplayName("회전이 끝난 리프레시 토큰을 grace 창 밖에서 다시 제시한 모바일 refresh 는 재사용 401 코드를 반환하고 제시자 정보가 감사에 남는다")
+    void mobileRefreshWithReusedTokenReturnsReuseCode() {
+        User user = saveUser();
+        String rotatedRefreshToken = given().contentType(ContentType.JSON)
+                .body(Map.of("studentId", user.getStudentId(), "password", RAW_PASSWORD))
+                .when().post("/api/v1/auth/login")
+                .then().statusCode(HttpStatus.OK.value())
+                .extract().path("data.refreshToken");
+        given().contentType(ContentType.JSON)
+                .body(Map.of("refreshToken", rotatedRefreshToken))
+                .when().post("/api/v1/auth/refresh")
+                .then().statusCode(HttpStatus.OK.value());
+        ageRotatedTokensPastReuseGrace(user);
+
+        given().contentType(ContentType.JSON)
+                .header(HttpHeaders.USER_AGENT, MOBILE_REUSE_PROBE_USER_AGENT)
+                .body(Map.of("refreshToken", rotatedRefreshToken))
+                .when().post("/api/v1/auth/refresh")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("REFRESH_TOKEN_REUSED"));
+
+        assertReuseAuditRecordsPresenter(user, MOBILE_REUSE_PROBE_USER_AGENT);
+    }
+
+    /**
+     * 컨트롤러가 제시자의 ip·User-Agent 를 rotate 로 넘겼는지 감사 이벤트에서 되짚는다 —
+     * 배선이 rotate(token, null, null) 로 되돌아가면 여기서 깨진다.
+     */
+    private void assertReuseAuditRecordsPresenter(User user, String presentedUserAgent) {
+        assertThat(authEventRepository.findByUserIdOrderByIdAsc(user.getId()))
+                .filteredOn(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED)
+                .singleElement()
+                .satisfies(authEvent -> {
+                    assertThat(authEvent.getUserAgent())
+                            .as("감사에 남는 User-Agent 는 토큰을 제시한 쪽의 헤더여야 한다")
+                            .isEqualTo(presentedUserAgent);
+                    assertThat(authEvent.getIpAddress())
+                            .as("컨트롤러가 getRemoteAddr() 를 전달해야 한다")
+                            .isNotNull();
+                });
+    }
+
+    /** 회전된 구토큰의 rotated_at 을 grace(기본 30초) 바깥으로 밀어, 다음 제시가 재사용 탐지로 떨어지게 한다. */
+    private void ageRotatedTokensPastReuseGrace(User user) {
+        jdbcTemplate.update(
+                "UPDATE auth_refresh_token SET rotated_at = rotated_at - INTERVAL '31 seconds' "
+                        + "WHERE status = 'ROTATED' AND session_id IN "
+                        + "(SELECT id FROM auth_session WHERE user_id = ?)",
+                user.getId());
     }
 
     private void assertExpiresAllAuthCookies(Response response) {

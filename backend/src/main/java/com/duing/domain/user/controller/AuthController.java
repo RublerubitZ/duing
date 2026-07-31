@@ -129,8 +129,12 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<ApiResponse<RefreshResponse>> refresh(
-            @Valid @RequestBody RefreshRequest refreshRequest) {
-        RotationResult rotationResult = authSessionService.rotate(refreshRequest.refreshToken());
+            @Valid @RequestBody RefreshRequest refreshRequest,
+            HttpServletRequest httpServletRequest) {
+        String clientIp = httpServletRequest.getRemoteAddr();
+        String userAgent = httpServletRequest.getHeader("User-Agent");
+        RotationResult rotationResult =
+                authSessionService.rotate(refreshRequest.refreshToken(), clientIp, userAgent);
         return ResponseEntity.ok(ApiResponse.success(RefreshResponse.from(rotationResult)));
     }
 
@@ -143,7 +147,10 @@ public class AuthController implements AuthApi {
             if (rawRefreshToken == null) {
                 throw new AuthSessionException.SessionExpiredException();
             }
-            RotationResult rotationResult = authSessionService.rotate(rawRefreshToken);
+            String clientIp = httpServletRequest.getRemoteAddr();
+            String userAgent = httpServletRequest.getHeader("User-Agent");
+            RotationResult rotationResult =
+                    authSessionService.rotate(rawRefreshToken, clientIp, userAgent);
             webAuthCookieService.issue(
                     httpServletRequest,
                     httpServletResponse,
@@ -152,12 +159,13 @@ public class AuthController implements AuthApi {
                     rotationResult.role(),
                     rotationResult.rememberMe());
             return ResponseEntity.noContent().build();
-        } catch (AuthSessionException.SessionExpiredException sessionExpiredException) {
-            // 세션 만료 확정(rotate 의 모든 401 경로는 복구 불가) 시 쿠키 3종을 함께 지운다 —
-            // auth_hint 가 세션보다 오래 살아남으면 FE 미들웨어가 로그인 페이지를 /me 로 되돌려
-            // 재로그인 자체가 불가능해진다. Bearer(모바일) refresh 는 이 메서드를 타지 않는다.
+        } catch (AuthSessionException authSessionException) {
+            // rotate 의 모든 401 경로(만료·폐기·재사용 탐지)는 복구 불가 세션 종료라, 사유를 가리지 않고
+            // 부모 타입으로 받아 쿠키 3종을 함께 지운다 — auth_hint 가 세션보다 오래 살아남으면 FE
+            // 미들웨어가 로그인 페이지를 /me 로 되돌려 재로그인 자체가 불가능해진다.
+            // Bearer(모바일) refresh 는 이 메서드를 타지 않는다.
             webAuthCookieService.clear(httpServletResponse);
-            throw sessionExpiredException;
+            throw authSessionException;
         }
     }
 
