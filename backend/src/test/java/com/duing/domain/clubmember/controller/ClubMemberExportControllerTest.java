@@ -130,15 +130,18 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진이 export 를 호출하면 403 을 받는다 — 명단 다운로드는 회장 전용")
-    void officerIsForbidden() {
+    @DisplayName("운영진이 export 를 호출해도 200 과 멤버 목록을 반환한다")
+    void officerExportsOrderedList() {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
                 .when()
                     .get("/api/v1/clubs/{clubId}/members/export", club.getId())
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.OK.value())
+                    .body("ok", equalTo(true))
+                    .body("data", hasSize(3))
+                    .body("data.name", contains("운영진리더", "운영진오피서", "일반회원"));
     }
 
     @Test

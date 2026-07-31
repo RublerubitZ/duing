@@ -112,8 +112,8 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진은 원본 번호를 조회할 수 없다 — 연락처 원본은 회장 전용")
-    void officerIsForbidden() {
+    @DisplayName("운영진도 마스킹되지 않은 원본 번호를 조회할 수 있다")
+    void officerGetsRawPhone() {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
@@ -121,7 +121,9 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
                     .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
                             club.getId(), memberMembership.getId())
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.OK.value())
+                    .body("ok", equalTo(true))
+                    .body("data.phone", equalTo(memberUser.getPhone()));
     }
 
     @Test

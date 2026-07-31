@@ -187,9 +187,9 @@ describe('MemberDetailPanel — 연락처 표시', () => {
     expect(screen.queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
   });
 
-  it('회장이 아니면 번호 보기 버튼이 없다', () => {
+  it('OFFICER 뷰어에게도 번호 보기 버튼이 노출된다 — 연락처 원본은 운영진 공통 권한', () => {
     renderPanel({ viewerRole: 'OFFICER', member: member({ phoneMasked: '010-****-5678' }) });
-    expect(screen.queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '번호 보기' })).toBeInTheDocument();
   });
 
   it('조회 전에는 복사 버튼이 없다 — 마스킹 값이 복사되는 경로를 만들지 않는다', () => {

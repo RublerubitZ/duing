@@ -65,7 +65,7 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     @Override
     public List<ClubMemberExportQuery> getMembersForExport(
             Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
-        clubAuthService.requireLeader(requesterId, clubId);
+        clubAuthService.requireManager(requesterId, clubId);
         Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         // 지정된 멤버만 내려보낸다 — 화면에 없는 회원의 전화번호가 브라우저로 나가지 않게 하고,
         // 아래 감사 로그의 count 도 실제 내보낸 인원과 일치시킨다. 요청 크기는 URL 길이 제한이 막는다.
@@ -86,7 +86,7 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
 
     @Override
     public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
-        clubAuthService.requireLeader(requesterId, clubId);
+        clubAuthService.requireManager(requesterId, clubId);
         // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
         // 셋 다 404 로 수렴해 존재 여부를 숨긴다.
         ClubMember target = clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
