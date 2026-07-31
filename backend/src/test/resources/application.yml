@@ -1,3 +1,10 @@
+server:
+  tomcat:
+    # main 의 application.yml 과 동일한 값 — 서블릿 멀티파트 한도 초과 413 응답이 커넥션 절단 없이
+    # 클라이언트에 도달하려면 Tomcat 이 잔여 본문을 흘려보낼 수 있어야 한다(기본 2MB 로는 유실).
+    # FileApiTest 의 한도 초과 케이스가 이 값에 의존한다.
+    max-swallow-size: 11MB
+
 spring:
   config:
     # 운영용 .env 자동 import 비활성화 — 테스트 격리.
