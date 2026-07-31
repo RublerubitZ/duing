@@ -48,23 +48,9 @@ public class ClubAuthService {
     }
 
     /**
-     * 프로필 보완 게이트 — 리더 역할 검증 후 D6 매트릭스를 적용한다:
-     * PENDING_APPROVAL·REJECTED(재심사 보완)·ACTIVE 허용, INACTIVE(운영 종료)만 차단.
-     * 동아리 정보 수정 등 "운영 행위"가 아닌 프로필 보완 경로 전용.
-     */
-    public ClubMember requireEditableClubLeader(Long userId, Long clubId) {
-        ClubMember clubMember = findMembershipOrThrow(userId, clubId);
-        if (clubMember.getRole() != ClubMemberRole.LEADER) {
-            throw new AccessDeniedException("해당 동아리의 회장만 가능한 작업입니다.");
-        }
-        requireEditableClub(clubId);
-        return clubMember;
-    }
-
-    /**
      * 프로필 보완 게이트 — 운영진 역할 검증 후 D6 매트릭스를 적용한다:
      * PENDING_APPROVAL·REJECTED(재심사 보완)·ACTIVE 허용, INACTIVE(운영 종료)만 차단.
-     * 동아리 사진 관리 등 "운영 행위"가 아닌 프로필 보완 경로 전용.
+     * 동아리 정보 수정·사진 관리 등 "운영 행위"가 아닌 프로필 보완 경로 전용.
      */
     public ClubMember requireEditableClubManager(Long userId, Long clubId) {
         ClubMember clubMember = findMembershipOrThrow(userId, clubId);

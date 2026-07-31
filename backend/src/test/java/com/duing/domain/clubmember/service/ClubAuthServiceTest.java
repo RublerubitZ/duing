@@ -141,29 +141,6 @@ class ClubAuthServiceTest {
     }
 
     @Test
-    @DisplayName("프로필 보완 게이트는 승인대기·거절·운영중 리더의 접근을 허용한다")
-    void editableLeaderAllowsPendingRejectedActive() {
-        ClubMember leaderMember = memberWithRole(ClubMemberRole.LEADER);
-        when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(leaderMember));
-        for (ClubStatus allowedStatus : List.of(
-                ClubStatus.PENDING_APPROVAL, ClubStatus.REJECTED, ClubStatus.ACTIVE)) {
-            stubClubStatus(allowedStatus);
-            assertThat(service.requireEditableClubLeader(10L, 1L).getRole())
-                    .isEqualTo(ClubMemberRole.LEADER);
-        }
-    }
-
-    @Test
-    @DisplayName("프로필 보완 게이트도 운영 종료(INACTIVE) 동아리 리더는 차단한다")
-    void editableLeaderBlocksInactive() {
-        ClubMember leaderMember = memberWithRole(ClubMemberRole.LEADER);
-        when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(leaderMember));
-        stubClubStatus(ClubStatus.INACTIVE);
-        assertThatThrownBy(() -> service.requireEditableClubLeader(10L, 1L))
-                .isInstanceOf(ClubMemberException.NotActiveClub.class);
-    }
-
-    @Test
     @DisplayName("프로필 보완 게이트는 승인대기·거절·운영중 운영진의 접근을 허용한다")
     void editableManagerAllowsPendingRejectedActive() {
         ClubMember officerMember = memberWithRole(ClubMemberRole.OFFICER);
