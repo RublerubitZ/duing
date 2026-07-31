@@ -33,7 +33,6 @@ export default function ClubInfoPage({
     return <p className="p-6 text-sm text-slate-500">동아리 정보를 불러올 수 없습니다.</p>;
   }
 
-  const mode = managedClub.myRole === 'LEADER' ? 'leader' : 'officer';
-
-  return <ClubInfoForm detail={detail} mode={mode} mutation={updateMutation} />;
+  // 동아리 정보 수정은 운영진(LEADER/OFFICER) 공통 권한 — 역할별 읽기 전용 분기를 두지 않는다.
+  return <ClubInfoForm detail={detail} mode="leader" mutation={updateMutation} />;
 }
