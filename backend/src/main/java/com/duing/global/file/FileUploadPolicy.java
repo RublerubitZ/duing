@@ -53,6 +53,19 @@ public final class FileUploadPolicy {
         return null;
     }
 
+    /**
+     * 업로드 거부 사유 로그에 남길 클라이언트 Content-Type 을 정제한다. 사용자 제어 값이므로
+     * 개행·제어문자로 로그 라인을 위조하는 로그 인젝션을 막기 위해 MIME 문법에 쓰이는 문자만
+     * 남기고(나머지는 "_" 치환) 64자로 자른다. 거부 로그에는 파일명·파일 내용을 남기지 않는다.
+     */
+    public static String sanitizeContentTypeForLog(String claimedContentType) {
+        if (claimedContentType == null || claimedContentType.isBlank()) {
+            return "none";
+        }
+        String sanitized = claimedContentType.replaceAll("[^A-Za-z0-9/.+\\-]", "_");
+        return sanitized.length() > 64 ? sanitized.substring(0, 64) : sanitized;
+    }
+
     private static boolean matches(byte[] data, int... signature) {
         if (data.length < signature.length) {
             return false;
