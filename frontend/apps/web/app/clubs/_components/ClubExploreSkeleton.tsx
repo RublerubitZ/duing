@@ -84,10 +84,16 @@ export function ClubExploreSkeleton() {
 
       {/* 모바일 (<md) */}
       <div className="md:hidden">
-        <section className="bg-cream px-4 pt-8 pb-4 space-y-4">
-          <SkeletonBar className="h-6 w-24" />
-          <div className="h-12 w-full rounded-[14px] bg-graysoft" />
+        {/* 본문(ClubExplorePage)이 제목 블록과 sticky 검색 바를 분리해 두었다.
+            구조뿐 아니라 높이도 본문 실측에 맞춰야 로딩이 끝나는 순간 검색창이 튀지 않는다 —
+            제목 섹션 내부 50.2px(아이브로우 16.5 + mt-1 4 + h1 29.7), 검색 폼 46px. */}
+        <section className="bg-cream px-4 pt-8 pb-4">
+          <SkeletonBar className="h-4 w-16" />
+          <SkeletonBar className="mt-1.5 h-7 w-32" />
         </section>
+        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur">
+          <div className="h-[46px] w-full rounded-[14px] bg-graysoft" />
+        </div>
         <div className="px-4 pb-8 pt-4">
           <ClubListSkeletonItems variant="list" />
         </div>

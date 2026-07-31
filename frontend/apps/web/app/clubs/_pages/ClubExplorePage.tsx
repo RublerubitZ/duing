@@ -523,9 +523,16 @@ export function ClubExplorePage() {
         <section className="bg-cream px-4 pt-8 pb-4">
           <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
+        </section>
+
+        {/* 검색은 목록을 훑는 내내 닿을 수 있어야 해 상단에 고정한다(홈의 검색 바와 동일한 래퍼).
+            sticky 라 자기 자리를 차지하므로 아래 콘텐츠에 별도 패딩 보정이 필요 없고,
+            스크롤포트 기준이라 노치와도 겹치지 않는다. 하단 헤어라인은 반투명 배경이
+            페이지와 거의 같은 색이라 카드가 바 뒤로 지날 때의 유일한 경계다. */}
+        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur">
           <form
             onSubmit={handleSearchSubmit}
-            className="mt-4 flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
+            className="flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
           >
             <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
             <input
@@ -536,9 +543,13 @@ export function ClubExplorePage() {
               style={{ fontFamily: 'inherit' }}
             />
           </form>
-        </section>
+        </div>
 
-        <nav className="flex gap-5 overflow-x-auto bg-cream px-4">
+        {/* overscroll-x-contain: 카테고리가 짧아 레일이 금세 스크롤 끝에 닿는데(390px 폭에서 20px 안팎,
+            좁을수록 늘어남), 문서에 가로 스크롤이 없어 그 오버스크롤이 상위로 전파된다. iOS 에서는
+            viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있어 레일 안에서 끊는다.
+            세로축은 auto 로 둔다 — 레일 위에서 시작한 세로 드래그는 페이지가 받아야 한다. */}
+        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
