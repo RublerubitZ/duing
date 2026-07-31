@@ -138,7 +138,7 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
         <div key={group.label ?? 'top'} className="mb-1.5">
           {group.label &&
             (collapsed ? (
-              groupIndex > 0 && <div aria-hidden className="mx-2 my-2 h-px bg-white/10" />
+              groupIndex > 0 && <div aria-hidden className="my-2" />
             ) : (
               <p className="px-3 pb-1 pt-2.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/35">
                 {group.label}
