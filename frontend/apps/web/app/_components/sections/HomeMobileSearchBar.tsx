@@ -8,7 +8,9 @@ import { Search } from '@/components/duing/Icon';
  */
 export function HomeMobileSearchBar() {
   return (
-    <div className="sticky top-0 z-40 bg-cream/95 px-4 py-2.5 backdrop-blur md:hidden">
+    // sticky 라 본문이 바 뒤로 지나가 가를 여백이 없고, bg-cream/95 가 페이지 배경과 거의 같은
+    // 색이라 하단 헤어라인이 유일한 경계다(하단 탭바의 상단선과 같은 이유로 남긴다).
+    <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur md:hidden">
       <form
         action="/clubs"
         method="get"
