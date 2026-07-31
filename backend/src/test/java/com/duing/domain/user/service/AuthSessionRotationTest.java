@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.user.entity.AuthEvent;
 import com.duing.domain.user.entity.AuthEventType;
 import com.duing.domain.user.entity.RefreshTokenStatus;
 import com.duing.domain.user.entity.SessionPlatform;
@@ -30,6 +31,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest
 class AuthSessionRotationTest extends IntegrationTestBase {
 
+    // 세션 발급 당시 값("127.0.0.1"/"Mozilla/5.0")과 겹치지 않게 두어, 감사 이벤트에 기록되는 것이
+    // 토큰을 제시한 쪽의 정보임을 구분할 수 있게 한다.
+    private static final String PRESENTER_IP = "198.51.100.7";
+    private static final String PRESENTER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) ReuseProbe/1.0";
+
     @Autowired AuthSessionService authSessionService;
     @Autowired AuthSessionRepository authSessionRepository;
     @Autowired AuthRefreshTokenRepository authRefreshTokenRepository;
@@ -53,7 +59,8 @@ class AuthSessionRotationTest extends IntegrationTestBase {
                 issuedSession.sessionId());
         var expiresBefore = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow().getExpiresAt();
 
-        RotationResult rotationResult = authSessionService.rotate(issuedSession.refreshToken());
+        RotationResult rotationResult = authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT);
 
         assertThat(rotationResult.refreshToken()).isNotEqualTo(issuedSession.refreshToken());
         assertThat(rotationResult.rememberMe()).isTrue();
@@ -70,7 +77,8 @@ class AuthSessionRotationTest extends IntegrationTestBase {
     @Test
     @DisplayName("존재하지 않는 리프레시 토큰은 세션 만료 401로 거부된다")
     void unknownTokenIsRejected() {
-        assertThatThrownBy(() -> authSessionService.rotate("never-issued-token"))
+        assertThatThrownBy(() -> authSessionService.rotate(
+                "never-issued-token", PRESENTER_IP, PRESENTER_USER_AGENT))
                 .isInstanceOf(AuthSessionException.SessionExpiredException.class);
     }
 
@@ -82,7 +90,8 @@ class AuthSessionRotationTest extends IntegrationTestBase {
         jdbcTemplate.update("UPDATE auth_session SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = ?",
                 issuedSession.sessionId());
 
-        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
                 .isInstanceOf(AuthSessionException.SessionExpiredException.class);
     }
 
@@ -95,7 +104,8 @@ class AuthSessionRotationTest extends IntegrationTestBase {
                 "UPDATE auth_session SET revoked_at = NOW(), revoke_reason = 'LOGOUT' WHERE id = ?",
                 issuedSession.sessionId());
 
-        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
                 .isInstanceOf(AuthSessionException.SessionExpiredException.class);
 
         // 조기 401(세션 폐기 확인)이 detectReuse 를 앞질러, 시드한 LOGOUT reason 이 덮이지 않는다
@@ -104,7 +114,7 @@ class AuthSessionRotationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("폐기된 토큰 재사용 탐지의 세션 폐기와 감사 기록은 401 이후에도 영속된다")
+    @DisplayName("폐기된 토큰 재사용은 재사용 탐지 401로 거부되고 세션 폐기·감사 기록은 401 이후에도 영속된다")
     void reuseDetectionPersistsRevocationDespiteThrow() {
         Long userId = userRepository.save(UserFixture.unique()).getId();
         IssuedSession issuedSession = issueFor(userId, false);
@@ -112,8 +122,9 @@ class AuthSessionRotationTest extends IntegrationTestBase {
         jdbcTemplate.update("UPDATE auth_refresh_token SET status = 'REVOKED' WHERE session_id = ?",
                 issuedSession.sessionId());
 
-        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
-                .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
+                .isInstanceOf(AuthSessionException.RefreshTokenReusedException.class);
 
         var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
         assertThat(session.getRevokedAt()).isNotNull();
@@ -121,7 +132,32 @@ class AuthSessionRotationTest extends IntegrationTestBase {
         assertThat(authRefreshTokenRepository.findBySessionIdOrderByIdAsc(issuedSession.sessionId()))
                 .allMatch(token -> token.getStatus() == RefreshTokenStatus.REVOKED);
         assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
-                .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED);
+                .filteredOn(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED)
+                .singleElement()
+                .extracting(AuthEvent::getIpAddress, AuthEvent::getUserAgent)
+                .containsExactly(PRESENTER_IP, PRESENTER_USER_AGENT);
+    }
+
+    @Test
+    @DisplayName("재사용 탐지로 폐기된 세션에 같은 토큰을 다시 제시하면 재사용이 아니라 세션 만료로 거부되고 감사 이벤트는 늘지 않는다")
+    void secondPresentationAfterDetectionIsSessionExpired() {
+        Long userId = userRepository.save(UserFixture.unique()).getId();
+        IssuedSession issuedSession = issueFor(userId, false);
+        jdbcTemplate.update("UPDATE auth_refresh_token SET status = 'REVOKED' WHERE session_id = ?",
+                issuedSession.sessionId());
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
+                .isInstanceOf(AuthSessionException.RefreshTokenReusedException.class);
+
+        // 최초 탐지가 세션을 폐기했으므로, 재제시는 세션 사용 가능 검사에서 먼저 걸린다
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
+                .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+
+        assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
+                .filteredOn(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED)
+                .as("재사용 탐지 이벤트는 패밀리당 최초 1회만 남는다")
+                .hasSize(1);
     }
 
     @Test
@@ -129,10 +165,12 @@ class AuthSessionRotationTest extends IntegrationTestBase {
     void reuseWithinGraceKeepsSessionWithLatestWins() {
         Long userId = userRepository.save(UserFixture.unique()).getId();
         IssuedSession issuedSession = issueFor(userId, false);
-        RotationResult firstRotation = authSessionService.rotate(issuedSession.refreshToken());
+        RotationResult firstRotation = authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT);
 
         // grace(기본 30초) 안 — 방금 ROTATED 된 구토큰을 다시 제시(다른 탭 시나리오)
-        RotationResult graceRotation = authSessionService.rotate(issuedSession.refreshToken());
+        RotationResult graceRotation = authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT);
 
         assertThat(graceRotation.refreshToken())
                 .isNotEqualTo(firstRotation.refreshToken())
@@ -147,25 +185,29 @@ class AuthSessionRotationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("grace 창을 지난 구토큰 재사용은 Replay 로 간주되어 세션 전체가 폐기되고 감사 이벤트가 남는다")
+    @DisplayName("grace 창을 지난 구토큰 재사용은 Replay 로 간주되어 재사용 탐지 401과 함께 세션 전체가 폐기되고 제시자 정보가 감사에 남는다")
     void reuseAfterGraceRevokesWholeSession() {
         Long userId = userRepository.save(UserFixture.unique()).getId();
         IssuedSession issuedSession = issueFor(userId, false);
-        authSessionService.rotate(issuedSession.refreshToken());
+        authSessionService.rotate(issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT);
         // grace(30초) 바깥으로 — rotated_at 을 상대시간으로 과거 이동
         jdbcTemplate.update(
                 "UPDATE auth_refresh_token SET rotated_at = rotated_at - INTERVAL '31 seconds' "
                         + "WHERE session_id = ? AND status = 'ROTATED'",
                 issuedSession.sessionId());
 
-        assertThatThrownBy(() -> authSessionService.rotate(issuedSession.refreshToken()))
-                .isInstanceOf(AuthSessionException.SessionExpiredException.class);
+        assertThatThrownBy(() -> authSessionService.rotate(
+                issuedSession.refreshToken(), PRESENTER_IP, PRESENTER_USER_AGENT))
+                .isInstanceOf(AuthSessionException.RefreshTokenReusedException.class);
 
         var session = authSessionRepository.findById(issuedSession.sessionId()).orElseThrow();
         assertThat(session.getRevokeReason()).isEqualTo(SessionRevokeReason.REUSE_DETECTED);
         assertThat(authRefreshTokenRepository.findBySessionIdOrderByIdAsc(issuedSession.sessionId()))
                 .allMatch(token -> token.getStatus() == RefreshTokenStatus.REVOKED);
         assertThat(authEventRepository.findByUserIdOrderByIdAsc(userId))
-                .anyMatch(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED);
+                .filteredOn(authEvent -> authEvent.getEventType() == AuthEventType.REUSE_DETECTED)
+                .singleElement()
+                .extracting(AuthEvent::getIpAddress, AuthEvent::getUserAgent)
+                .containsExactly(PRESENTER_IP, PRESENTER_USER_AGENT);
     }
 }

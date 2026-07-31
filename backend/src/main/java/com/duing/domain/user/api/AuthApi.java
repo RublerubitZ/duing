@@ -81,18 +81,24 @@ public interface AuthApi {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "갱신 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
-                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED)")
+                    description = "만료·폐기 리프레시 토큰(AUTH_SESSION_EXPIRED) 또는 재사용 탐지"
+                            + "(REFRESH_TOKEN_REUSED). REFRESH_TOKEN_REUSED 는 패밀리당 최초 탐지 1회이며, "
+                            + "탐지로 세션이 폐기된 뒤의 재제시는 AUTH_SESSION_EXPIRED 로 응답한다.")
     })
     @PostMapping("/auth/refresh")
-    ResponseEntity<ApiResponse<RefreshResponse>> refresh(@Valid @RequestBody RefreshRequest refreshRequest);
+    ResponseEntity<ApiResponse<RefreshResponse>> refresh(
+            @Valid @RequestBody RefreshRequest refreshRequest,
+            HttpServletRequest httpServletRequest);
 
     @Operation(summary = "토큰 갱신(웹)",
             description = "refresh Cookie 를 회전시켜 인증 Cookie 3종을 재발급한다. rememberMe 지속성 모드를 유지한다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "갱신 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
-                    description = "만료·폐기·재사용 리프레시 토큰(AUTH_SESSION_EXPIRED) — "
-                            + "인증 Cookie 3종을 즉시 만료시킨다")
+                    description = "만료·폐기 리프레시 토큰(AUTH_SESSION_EXPIRED) 또는 재사용 탐지"
+                            + "(REFRESH_TOKEN_REUSED) — 두 경우 모두 인증 Cookie 3종을 즉시 만료시킨다. "
+                            + "REFRESH_TOKEN_REUSED 는 패밀리당 최초 탐지 1회이며, 탐지로 세션이 폐기된 뒤의 "
+                            + "재제시는 AUTH_SESSION_EXPIRED 로 응답한다.")
     })
     @PostMapping("/auth/web/refresh")
     ResponseEntity<Void> webRefresh(
