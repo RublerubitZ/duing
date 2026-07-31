@@ -33,7 +33,7 @@ export function NoticeMetaCard({ category, createdAt, expiresAt, tags, linkUrl }
         ))}
       </dl>
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-4 pt-4 border-t border-dashed border-line">
+        <div className="flex flex-wrap gap-1.5 mt-4 pt-4">
           {tags.map((tag) => (
             <span key={tag} className="px-2 py-1 rounded-full bg-sage-mist text-ink text-[11.5px] font-semibold">#{tag}</span>
           ))}

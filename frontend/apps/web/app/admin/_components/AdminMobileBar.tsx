@@ -23,7 +23,7 @@ export function AdminMobileBar() {
 
   return (
     <>
-      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-paper px-4 py-2.5">
+      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-paper px-4 py-2.5">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}

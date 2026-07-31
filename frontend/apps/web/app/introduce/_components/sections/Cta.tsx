@@ -5,7 +5,7 @@ import { Reveal } from '../motion/Reveal';
 
 export function Cta() {
   return (
-    <section className="border-t border-line px-4 py-20 sm:px-6 md:px-10 md:py-28">
+    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <Reveal scale={0.96} y={28} className="mx-auto max-w-[960px]">
         <div className="relative overflow-hidden rounded-xl bg-sage-mist px-7 py-14 text-center md:px-14 md:py-20">
           <SparkleFull size={44} className="absolute left-8 top-8 opacity-60" aria-hidden />

@@ -98,7 +98,7 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
   const detailQuery = useGlobalEventDetailQuery(eventId);
 
   if (detailQuery.isLoading) {
-    return <TextLinesSkeleton lines={3} label="상세 정보 불러오는 중" className="border-t border-line pt-4" />;
+    return <TextLinesSkeleton lines={3} label="상세 정보 불러오는 중" className="pt-4" />;
   }
   if (detailQuery.isError || !detailQuery.data) {
     return <p className="text-[13px] text-coral">상세 정보를 불러오지 못했습니다.</p>;
@@ -106,7 +106,7 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
   const detail = detailQuery.data;
   const safeLink = safeExternalHref(detail.linkUrl);
   return (
-    <div className="space-y-3 border-t border-line pt-4">
+    <div className="space-y-3 pt-4">
       {detail.coverImageUrl && (
         <ImageWithFallback
           src={detail.coverImageUrl}

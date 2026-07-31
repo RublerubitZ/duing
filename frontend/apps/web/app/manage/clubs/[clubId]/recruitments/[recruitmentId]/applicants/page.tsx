@@ -307,7 +307,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       )}
 
       {/* PII 고지 */}
-      <footer className="mt-10 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
+      <footer className="mt-10 pt-4 text-center text-xs text-slate-400">
         본 정보는 합격 결정 외 용도로 사용하지 않습니다
       </footer>
     </div>

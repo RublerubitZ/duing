@@ -17,7 +17,7 @@ type Props = {
 
 export function MyPageTabs({ sections, active, onSelect }: Props) {
   return (
-    <div data-mypage-tabs className="sticky top-0 z-[5] bg-cream border-b border-line px-4 sm:px-6 md:px-10">
+    <div data-mypage-tabs className="sticky top-0 z-[5] bg-cream px-4 sm:px-6 md:px-10">
       <div className="max-w-layout mx-auto flex gap-6 flex-wrap">
         {sections.map((section) => {
           const isActive = section.id === active;
@@ -27,7 +27,7 @@ export function MyPageTabs({ sections, active, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(section.id)}
               className={cn(
-                'flex items-center gap-2 py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150 -mb-px',
+                'flex items-center gap-2 py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150',
                 isActive
                   ? 'text-ink border-b-[2.5px] border-ink'
                   : 'text-charcoal-3 border-b-[2.5px] border-transparent hover:text-charcoal',

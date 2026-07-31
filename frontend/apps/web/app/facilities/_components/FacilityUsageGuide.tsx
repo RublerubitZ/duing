@@ -45,7 +45,7 @@ export function FacilityUsageGuide() {
           </h2>
         </summary>
 
-        <div className="border-t border-line px-4 pb-6 pt-4 text-[13.5px] leading-[1.7] text-charcoal-2 sm:px-5">
+        <div className="px-4 pb-6 pt-4 text-[13.5px] leading-[1.7] text-charcoal-2 sm:px-5">
           <p>
             대구대학교 학생회관(웅지관, 진로취업관)의 동아리 공용시설(세미나실, 공동연습실,
             강당)은 동아리 및 학생자치기구를 위한 시설입니다.

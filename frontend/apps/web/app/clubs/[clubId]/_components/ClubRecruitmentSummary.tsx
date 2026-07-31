@@ -76,7 +76,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
       </dl>
 
       {ratio !== null && (
-        <div className="mt-3.5 border-t border-ink/10 pt-3">
+        <div className="mt-3.5 pt-3">
           <div className="mb-1.5 flex items-center justify-between text-[11px] text-ink-deep">
             <span>현재 지원자</span>
             <span className="font-bold">

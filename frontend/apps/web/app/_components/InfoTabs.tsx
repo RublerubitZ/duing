@@ -21,12 +21,15 @@ export function InfoTabs() {
     rememberInfoPath(pathname);
   }, [pathname]);
 
+  // 하단 헤어라인은 모바일에서만 둔다 — 여기서는 sticky 라 본문이 바 뒤로 지나가 가를 여백이 없고,
+  // bg-cream/95 가 페이지 배경과 거의 같은 색이라 선이 유일한 경계다. md 이상은 md:static 이라
+  // 겹침이 없고, 그때의 받침선은 순수 섹션 구분선이므로 두지 않는다.
   return (
     <nav
       aria-label="정보"
-      className="sticky top-0 z-40 border-b border-line bg-cream/95 backdrop-blur md:static"
+      className="sticky top-0 z-40 max-md:border-b max-md:border-line bg-cream/95 backdrop-blur md:static"
     >
-      {/* overflow 래퍼의 pb-px: 활성 탭 언더라인(-mb-px)이 세로로 잘리는 것을 방지(ClubDetailTabs 함정) */}
+      {/* overflow 래퍼의 pb-px: 활성 탭 언더라인(max-md:-mb-px)이 세로로 잘리는 것을 방지 */}
       <div className="max-w-layout mx-auto overflow-x-auto px-4 pb-px sm:px-6 md:overflow-visible md:px-10 md:pb-0">
         <ul className="flex w-max min-w-full gap-6 md:gap-8">
           {INFO_MENU_ITEMS.map((item) => {
@@ -37,7 +40,7 @@ export function InfoTabs() {
                   href={item.href}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
-                    '-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-[2.5px] text-[14px] font-semibold transition-colors',
+                    'max-md:-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-[2.5px] text-[14px] font-semibold transition-colors',
                     on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3 hover:text-ink',
                   )}
                 >

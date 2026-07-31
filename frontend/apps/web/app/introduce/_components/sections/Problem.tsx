@@ -24,7 +24,7 @@ const PAIN_POINTS: ReadonlyArray<PainPoint> = [
 
 export function Problem() {
   return (
-    <section className="border-t border-line px-4 py-20 sm:px-6 md:px-10 md:py-28">
+    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-layout">
         <FadeIn>
           <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">

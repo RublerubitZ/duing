@@ -116,8 +116,8 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
       }}
     >
       <div
-        className="relative overflow-hidden border-b"
-        style={{ height: 170, borderColor: '#e6e1d2', background: category.fallbackBg }}
+        className="relative overflow-hidden"
+        style={{ height: 170, background: category.fallbackBg }}
       >
         <Image
           src={category.imageSrc}

@@ -178,7 +178,7 @@ export function AdminUsersPage() {
             // "1–20 / 42건" 범위 표기 — 목업의 페이지 표시와 같은 정보다.
             totalElements={searchQuery.data?.totalElements}
             pageSize={PAGE_SIZE}
-            className="border-t border-line py-3"
+            className="py-3"
           />
         </ConsoleCard>
       )}

@@ -32,7 +32,7 @@ const FAQ_ITEMS: ReadonlyArray<AccordionItemData> = [
 
 export function Faq() {
   return (
-    <section id="faq" className="border-t border-line px-4 py-20 sm:px-6 md:px-10 md:py-28">
+    <section id="faq" className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-[880px]">
         <FadeIn>
           <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">

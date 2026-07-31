@@ -20,7 +20,7 @@ const NEW_WAY: ReadonlyArray<string> = [
 
 export function BeforeAfter() {
   return (
-    <section className="border-t border-line px-4 py-20 sm:px-6 md:px-10 md:py-28">
+    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-layout">
         <FadeIn>
           <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
@@ -82,7 +82,7 @@ export function BeforeAfter() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-5 border-t border-dashed border-line pt-4 text-[13.5px] text-charcoal-3">
+              <p className="mt-5 pt-4 text-[13.5px] text-charcoal-3">
                 한 화면에서, 한 번의 로그인으로.
               </p>
             </div>

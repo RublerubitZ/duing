@@ -29,7 +29,7 @@ export function NoticeArticleHeader({
   const expired = expiresAt !== null && parseKstInstant(expiresAt).getTime() < Date.now();
 
   return (
-    <header className="pt-4 pb-6 border-b border-line md:pt-7">
+    <header className="pt-4 pb-6 md:pt-7">
       {/* 브레드크럼·목록으로 — 데스크탑 전용. 모바일은 상단 액션바의 뒤로가기로 이동한다. */}
       <div className="hidden items-center justify-between mb-5 md:flex">
         <nav className="flex items-center gap-1.5 text-[13px] text-charcoal-3 whitespace-nowrap" aria-label="위치">
