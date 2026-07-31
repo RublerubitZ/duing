@@ -150,14 +150,13 @@ export default function ClubMembersPage({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {isLeader && (
-            <MemberCsvDownloadPopover
-              clubId={currentClubId}
-              clubName={managedClub.clubName}
-              memberIds={filteredIds}
-              useGeneration={useGeneration}
-            />
-          )}
+          {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 이 페이지는 managedClub 이 없으면 notFound 다. */}
+          <MemberCsvDownloadPopover
+            clubId={currentClubId}
+            clubName={managedClub.clubName}
+            memberIds={filteredIds}
+            useGeneration={useGeneration}
+          />
           {viewerRole === 'OFFICER' && (
             <button
               type="button"

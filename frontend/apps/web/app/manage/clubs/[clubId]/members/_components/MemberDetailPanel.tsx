@@ -186,12 +186,7 @@ function PanelBody({
       </header>
 
       <div className="space-y-6 px-5 py-5">
-        <BasicInfoSection
-          member={member}
-          clubId={clubId}
-          useGeneration={useGeneration}
-          isLeaderViewer={isLeaderViewer}
-        />
+        <BasicInfoSection member={member} clubId={clubId} useGeneration={useGeneration} />
         <OperationInfoSection member={member} clubId={clubId} />
         <ManagementSection
           member={member}
@@ -225,12 +220,10 @@ function BasicInfoSection({
   member,
   clubId,
   useGeneration,
-  isLeaderViewer,
 }: {
   member: ClubMember;
   clubId: number;
   useGeneration: boolean;
-  isLeaderViewer: boolean;
 }) {
   return (
     <section>
@@ -240,7 +233,7 @@ function BasicInfoSection({
         <Field label="학년">{GRADE_DISPLAY_NAME[member.grade]}</Field>
         <Field label="학번">{member.studentId || EMPTY}</Field>
         <Field label="연락처">
-          <ContactValue member={member} clubId={clubId} canReveal={isLeaderViewer} />
+          <ContactValue member={member} clubId={clubId} />
         </Field>
         <Field label="가입일">{formatDateKst(member.joinedAt)}</Field>
         <Field label="가입 기간">{formatMembershipDuration(member.joinedAt, new Date())}</Field>
@@ -251,19 +244,11 @@ function BasicInfoSection({
 }
 
 /**
- * 기본은 마스킹. 회장이 [번호 보기]를 누른 경우에만 원본을 조회해 표시하고, 그때만 복사를 연다.
+ * 기본은 마스킹. 운영진이 [번호 보기]를 누른 경우에만 원본을 조회해 표시하고, 그때만 복사를 연다.
  * 클립보드에 들어가는 값은 조회한 원본뿐이다 — 마스킹 문자열을 복사하는 경로는 만들지 않는다.
  * 노출 상태는 이 컴포넌트 로컬이라 패널을 닫거나 다른 회원으로 넘어가면(PanelBody 재마운트) 사라진다.
  */
-function ContactValue({
-  member,
-  clubId,
-  canReveal,
-}: {
-  member: ClubMember;
-  clubId: number;
-  canReveal: boolean;
-}) {
+function ContactValue({ member, clubId }: { member: ClubMember; clubId: number }) {
   const revealPhone = useMemberPhoneMutation(clubId);
   const [revealed, setRevealed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -306,7 +291,7 @@ function ContactValue({
     <span className="inline-flex flex-col items-end gap-1">
       <span className="inline-flex items-center gap-2">
         <span className="font-mono">{revealed ?? member.phoneMasked}</span>
-        {revealed === null && canReveal && (
+        {revealed === null && (
           <button
             type="button"
             onClick={reveal}

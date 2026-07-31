@@ -187,6 +187,8 @@ describe('ClubMembersPage — 권한 게이트', () => {
     expect(screen.queryByRole('checkbox', { name: '전체 선택' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
+    // 역할 변경·강퇴만 회장 전용이다 — 명단 다운로드는 OFFICER 에게도 열려 있다.
+    expect(screen.getByRole('button', { name: '멤버 명단 다운로드' })).toBeInTheDocument();
   });
 });
 
