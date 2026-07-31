@@ -1,6 +1,9 @@
 <!--
-PR 제목 형식: [#이슈번호] 작업 내용  (예: [#5] 동아리 목록 조회 API 구현)
-브랜치: feat/{이슈번호}-{설명} (예: feat/5-club-list-api)
+PR 제목 형식: {type}({scope}): 작업 내용   (예: feat(backend): 동아리 목록 조회 API 구현)
+  develop 은 squash 머지라 이 제목이 그대로 develop 커밋 메시지가 된다. 프리픽스를 빠뜨리지 말 것.
+  type: feat / fix / refactor / docs / test / chore / ci / perf
+  scope: frontend / backend / web / deploy / spec / ci … — 여러 파트에 걸치면 생략 (refactor: …)
+브랜치: {type}/{설명} (예: feat/club-list-api). 이슈가 있으면 {type}/{이슈번호}-{설명}
 -->
 
 ## 🚀 작업 내용

@@ -184,6 +184,7 @@ ALTER TABLE auth_event         ENABLE ROW LEVEL SECURITY;
 | `POST /api/v1/admin/users/{userId}/force-logout` | ADMIN | (기존) | 기존 범프에 **전 세션 폐기 추가** | 3 |
 
 - Refresh 실패는 이유 불문 **401 + code `AUTH_SESSION_EXPIRED`** 하나로 통일한다(재사용 탐지 여부를 외부에 구분해 주지 않는다 — 상세는 auth_event·Sentry로). 5xx는 세션 종료가 아니다(§17, §19.3).
+  - **(supersede, 2026-07-31)** 위 "이유 불문 하나로 통일" 중 **재사용 탐지 경로만** [2026-07-31-refresh-reuse-response-audit-design.md](./2026-07-31-refresh-reuse-response-audit-design.md) 로 분리되어 **401 + code `REFRESH_TOKEN_REUSED`** 를 반환한다(패밀리당 최초 탐지 1회). 그 외 실패는 위 서술대로 `AUTH_SESSION_EXPIRED` 유지.
 - 모바일 로그인 응답의 `refreshToken` 추가는 가산적이라 기존 클라이언트와 호환된다.
 - 웹 로그인 요청 예시 (`rememberMe` 생략 시 `false`):
 

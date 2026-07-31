@@ -88,10 +88,13 @@ public class GeneralAuthSessionService implements AuthSessionService {
 
     // 재사용 탐지(detectReuse)의 세션 폐기·전 토큰 REVOKED·감사 기록은 401 응답과 함께 반드시
     // 커밋되어야 한다 — 기본 롤백이면 탈취 대응(패밀리 폐기·감사)이 증발해 세션이 살아남는다.
+    // 두 401 예외는 상속이 아닌 형제 관계라, 한쪽만 적으면 다른 쪽이 롤백된다 — 반드시 둘 다 나열한다.
     // 나머지 SessionExpiredException 경로는 throw 전 쓰기가 없어 커밋되어도 부작용이 없다.
     @Override
-    @Transactional(noRollbackFor = AuthSessionException.SessionExpiredException.class)
-    public RotationResult rotate(String rawRefreshToken) {
+    @Transactional(noRollbackFor = {
+            AuthSessionException.SessionExpiredException.class,
+            AuthSessionException.RefreshTokenReusedException.class})
+    public RotationResult rotate(String rawRefreshToken, String clientIp, String userAgent) {
         LocalDateTime now = LocalDateTime.now(clock);
         String tokenHash = refreshTokenGenerator.hash(rawRefreshToken);
         // 세션 행만 FOR UPDATE 로 잠그므로, 잠금 전 스칼라로 세션 id 만 먼저 얻는다.
@@ -120,10 +123,10 @@ public class GeneralAuthSessionService implements AuthSessionService {
                             .findBySessionIdAndStatus(session.getId(), RefreshTokenStatus.ACTIVE)
                             .ifPresent(AuthRefreshToken::markRevoked);
                 } else {
-                    detectReuse(session, presentedToken, now);
+                    detectReuse(session, presentedToken, now, clientIp, userAgent);
                 }
             }
-            case REVOKED -> detectReuse(session, presentedToken, now);
+            case REVOKED -> detectReuse(session, presentedToken, now, clientIp, userAgent);
         }
 
         // Hibernate flush 는 INSERT 를 UPDATE 보다 먼저 실행한다 — 상태 전이를 먼저 flush 하지 않으면
@@ -222,16 +225,18 @@ public class GeneralAuthSessionService implements AuthSessionService {
     }
 
     /** 폐기 토큰 재사용 = Replay/탈취 — 해당 세션(패밀리)만 폐기하고 감사·모니터링에 남긴다 (spec §5.4). */
-    private void detectReuse(AuthSession session, AuthRefreshToken presentedToken, LocalDateTime now) {
+    private void detectReuse(AuthSession session, AuthRefreshToken presentedToken, LocalDateTime now,
+                             String clientIp, String userAgent) {
         session.revoke(now, SessionRevokeReason.REUSE_DETECTED);
         authRefreshTokenRepository.revokeBySessionIds(
                 List.of(session.getId()), RefreshTokenStatus.REVOKED);
+        // 탈취 추적의 핵심 단서라 제시자의 ip·userAgent 를 함께 남긴다 — 세션 발급 당시 값이 아니다.
         authEventRepository.save(AuthEvent.of(session.getUserId(), session.getId(),
-                AuthEventType.REUSE_DETECTED, "tokenId=" + presentedToken.getId(), null, null));
+                AuthEventType.REUSE_DETECTED, "tokenId=" + presentedToken.getId(), clientIp, userAgent));
         // ERROR 레벨은 logback-Sentry 연동으로 이벤트 전송된다 — 보안 모니터링 (spec §18.2)
         log.error("리프레시 토큰 재사용 탐지 — 세션 폐기. userId={}, sessionId={}",
                 session.getUserId(), session.getId());
-        throw new AuthSessionException.SessionExpiredException();
+        throw new AuthSessionException.RefreshTokenReusedException();
     }
 
     /** 상한 초과분 LRU 폐기 — 엔티티 revoke 를 먼저 모아서 하고, 토큰 벌크 폐기는 한 번에 실행한다. */

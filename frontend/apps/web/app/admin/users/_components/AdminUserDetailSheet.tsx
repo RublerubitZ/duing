@@ -282,7 +282,7 @@ export function AdminUserDetailSheetContent({
         {/* 위험 작업은 패널 맨 아래에 둔다 — 정보를 읽는 흐름 중간에 파괴적 버튼이 끼면 스크롤하다
             잘못 누르기 쉽고, 조치는 정보를 다 확인한 뒤에 하는 일이라 순서도 그쪽이 맞다. */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-danger/25">
-          <p className="pill-coral flex items-center gap-1.5 border-b border-danger/20 px-4 py-2.5 text-[12.5px] font-bold">
+          <p className="pill-coral flex items-center gap-1.5 px-4 py-2.5 text-[12.5px] font-bold">
             <Info aria-hidden size={15} />
             위험 작업
           </p>

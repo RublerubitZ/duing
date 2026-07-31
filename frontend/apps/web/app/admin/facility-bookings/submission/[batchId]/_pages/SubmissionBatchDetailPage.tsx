@@ -251,7 +251,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                         <span className="font-medium text-ink-deep">{clubLabel}</span>
                         <span className="text-xs text-charcoal-3">{group.bookings.length}건</span>
                       </div>
-                      <ul className="border-t border-line/60">
+                      <ul>
                         {group.bookings.map((booking) => (
                           <li key={booking.bookingId} className="border-b border-line/40 last:border-b-0">
                             {/* 읽기 전용 — 체크박스 없이 행 전체 클릭으로 상세 Sheet 를 연다. */}

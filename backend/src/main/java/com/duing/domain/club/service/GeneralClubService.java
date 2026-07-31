@@ -178,7 +178,7 @@ public class GeneralClubService implements ClubService {
     @Transactional
     public void update(UpdateClubCommand updateClubCommand) {
         // 프로필 보완 게이트(D6) — 재심사 보완(PENDING_APPROVAL·REJECTED)을 허용해야 하므로 운영 행위 게이트를 쓰지 않는다.
-        clubAuthService.requireEditableClubLeader(updateClubCommand.requesterId(), updateClubCommand.clubId());
+        clubAuthService.requireEditableClubManager(updateClubCommand.requesterId(), updateClubCommand.clubId());
         applyProfileUpdate(updateClubCommand);
     }
 

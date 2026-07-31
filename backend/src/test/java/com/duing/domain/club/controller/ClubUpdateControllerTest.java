@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.College;
@@ -47,10 +48,12 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     private User leaderUser;
+    private User officerUser;
     private User memberUser;
     private User strangerUser;
     private Club club;
     private String leaderToken;
+    private String officerToken;
     private String memberToken;
     private String strangerToken;
 
@@ -58,13 +61,16 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     void setUp() throws Exception {
         RestAssured.port = port;
         leaderUser = saveUser("리더");
+        officerUser = saveUser("임원");
         memberUser = saveUser("일반");
         strangerUser = saveUser("외부인");
         club = saveActiveClub("두잉PATCH");
         clubMemberRepository.save(ClubMember.asLeader(club, leaderUser));
+        clubMemberRepository.save(ClubMember.of(club, officerUser, ClubMemberRole.OFFICER));
         clubMemberRepository.save(ClubMember.asMember(club, memberUser));
 
         leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
+        officerToken = jwtTokenProvider.createToken(officerUser.getId(), officerUser.getRole().name());
         memberToken = jwtTokenProvider.createToken(memberUser.getId(), memberUser.getRole().name());
         strangerToken = jwtTokenProvider.createToken(strangerUser.getId(), strangerUser.getRole().name());
     }
@@ -87,6 +93,26 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
 
         Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
         assertThat(reloaded.getDescription()).isEqualTo("수정된 설명");
+    }
+
+    @Test
+    @DisplayName("OFFICER 가 호출해도 200 과 변경된 동아리 상세를 반환한다")
+    void officerUpdatesSuccessfully() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("description", "임원이 고친 설명", "location", "학생회관 303호"))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("ok", equalTo(true))
+                    .body("data.description", equalTo("임원이 고친 설명"))
+                    .body("data.location", equalTo("학생회관 303호"));
+
+        Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
+        assertThat(reloaded.getDescription()).isEqualTo("임원이 고친 설명");
     }
 
     @Test

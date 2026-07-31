@@ -17,9 +17,10 @@ public interface AuthSessionService {
 
     /**
      * Refresh Rotation (spec §11) — 검증→구토큰 폐기→새 쌍 발급→sliding 을 세션 행잠금 안에서
-     * 원자 처리한다. 실패는 사유 불문 SessionExpiredException(401).
+     * 원자 처리한다. 재사용 탐지는 RefreshTokenReusedException(401), 그 외 실패는 사유 불문
+     * SessionExpiredException(401). clientIp·userAgent 는 재사용 탐지 감사 이벤트에 기록된다.
      */
-    RotationResult rotate(String rawRefreshToken);
+    RotationResult rotate(String rawRefreshToken, String clientIp, String userAgent);
 
     /**
      * 현재 기기 로그아웃 — refresh 토큰(우선) 또는 access 의 sid 로 세션을 특정해 폐기한다.

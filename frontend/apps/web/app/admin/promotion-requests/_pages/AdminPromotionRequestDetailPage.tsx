@@ -170,7 +170,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
 
         {/* 처리 이력 */}
         {(request.handledBy || request.actionNote) && (
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] border-t border-line pt-5">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-[13.5px] pt-5">
             {request.handledBy && (
               <Row label="처리자">
                 {request.handledBy.name}

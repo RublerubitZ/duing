@@ -9,22 +9,36 @@
 
 // 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
 // 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
-import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Building2 } from 'lucide-react';
+import {
+  HiCalendar, HiInformationCircle, HiMap,
+  HiOutlineCalendar, HiOutlineInformationCircle, HiOutlineMap,
+} from 'react-icons/hi2';
 
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
-import { Calendar, Compass, Home, Info } from '@/components/duing/Icon';
 
+import { BuildingFilled, HomeFilled, HomeOutline } from './BottomNavIcons';
+
+// 이 탭바는 Heroicons v2(react-icons/hi2) 를 기준 언어로 쓴다 — 획이 얇고(1.5) 끝이 둥글어
+// 모바일에서 가볍게 읽히고, Outline/Solid 가 짝으로 제공돼 활성 표현에 억지 fill 이 필요 없다.
+// 각진 lucide, 도형감이 강한 Phosphor 를 모두 비교한 뒤 고른 결과다.
+// 교체 범위는 이 탭바뿐 — 다른 화면의 커스텀 아이콘은 그대로 둔다.
+//
+// 탐색은 나침반 대신 지도다(Heroicons 에 나침반이 없다).
+// 시설 아웃라인만 lucide Building2 를 유지한다 — 이 크기에서 가장 또렷하다. 기본 획이 2 라
+// 나머지와 맞추려 아래에서 1.5 를 넘긴다.
+// 캘린더는 날짜 칸이 없는 기본형이다. 칸이 있는 변형은 24px 에서 잘게 부서진다.
+// 홈 한 쌍과 시설 채움만 Heroicons 에 마땅한 짝이 없어 직접 그렸다(BottomNavIcons).
 const TABS = [
-  { label: '홈', href: '/', Icon: Home },
-  { label: '탐색', href: '/clubs', Icon: Compass },
-  // 시설 예약 화면(FacilityContextBar)이 시설 폴백 아이콘으로 쓰는 lucide Building2 와 맞춘다.
-  { label: '시설', href: '/facilities', Icon: Building2 },
-  { label: '캘린더', href: '/calendar', Icon: Calendar },
-  { label: '정보', href: DEFAULT_INFO_PATH, Icon: Info },
+  { label: '홈', href: '/', Icon: HomeOutline, ActiveIcon: HomeFilled },
+  { label: '탐색', href: '/clubs', Icon: HiOutlineMap, ActiveIcon: HiMap },
+  { label: '시설', href: '/facilities', Icon: Building2, ActiveIcon: BuildingFilled },
+  { label: '캘린더', href: '/calendar', Icon: HiOutlineCalendar, ActiveIcon: HiCalendar },
+  { label: '정보', href: DEFAULT_INFO_PATH, Icon: HiOutlineInformationCircle, ActiveIcon: HiInformationCircle },
 ] as const;
 
 // 현재 경로가 어느 탭에 속하는지 — 홈은 정확히, 정보는 섹션 매칭, 나머지는 prefix(상세/하위 포함). 탭 밖이면 null.
@@ -76,8 +90,9 @@ export function BottomNav() {
               <span className="invisible">홈</span>
             </span>
           )}
-          {TABS.map(({ label, href, Icon }) => {
+          {TABS.map(({ label, href, Icon, ActiveIcon }) => {
             const on = activeHref === href;
+            const TabIcon = on ? ActiveIcon : Icon;
             // 정보 탭만 마지막 방문 허브 경로로 이동한다(다른 탭은 고정 href).
             const linkHref = href === DEFAULT_INFO_PATH ? lastInfoPath : href;
             return (
@@ -88,19 +103,17 @@ export function BottomNav() {
                   className={cn(
                     'relative flex h-14 flex-col items-center justify-center gap-1 text-[10px] leading-none motion-safe:transition-colors',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink',
-                    on ? 'font-extrabold text-ink-deep' : 'font-semibold text-charcoal-3',
+                    // 활성 신호가 채움 아이콘·색·스포트라이트로 이미 셋이라 라벨은 bold 까지만 올린다.
+                    on ? 'font-bold text-ink-deep' : 'font-semibold text-charcoal-3',
                   )}
                 >
                   {/* 스포트라이트 pill 과 같은 h-8 행을 차지해 정렬을 맞춘다.
-                      활성은 저알파 currentColor 로 내부를 채운다 — filled 변형을 따로 그리지 않고
-                      기존 아웃라인 패스만으로 실루엣이 차오르는 느낌을 낸다. */}
+                      24px — Heroicons 의 24 그리드와 1:1 이라 1.5 획이 반픽셀로 흐려지지 않는다. */}
                   <span className="grid h-8 w-12 place-items-center">
-                    <Icon
-                      size={22}
-                      strokeWidth={on ? 2.2 : 1.8}
-                      fill={on ? 'currentColor' : 'none'}
-                      fillOpacity={on ? 0.16 : undefined}
-                    />
+                    {/* strokeWidth 는 비활성(아웃라인)에만 넘긴다. 기본 획이 2 인 lucide 시설
+                        아이콘을 나머지(1.5)와 맞추기 위한 것인데, 채움 변형에 넘기면 stroke 가
+                        새로 생기면서 지도 접힘·날짜 칸·i 자 같은 내부 구멍이 메워진다. */}
+                    <TabIcon size={24} aria-hidden {...(on ? {} : { strokeWidth: 1.5 })} />
                   </span>
                   {label}
                 </Link>

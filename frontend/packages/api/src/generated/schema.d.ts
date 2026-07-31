@@ -4088,7 +4088,7 @@ export interface components {
         CreateClubRequest: {
             name: string;
             /** @enum {string} */
-            category: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             description?: string;
             logoUrl?: string;
@@ -4221,7 +4221,7 @@ export interface components {
         UpdateClubRequest: {
             name?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             description?: string;
             logoUrl?: string;
@@ -4259,7 +4259,7 @@ export interface components {
             id?: number;
             name?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
@@ -4512,7 +4512,7 @@ export interface components {
             clubId?: number;
             clubName?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             logoUrl?: string;
             /** @enum {string} */
             status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
@@ -4969,7 +4969,7 @@ export interface components {
             name?: string;
             logoUrl?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             /** Format: date-time */
             favoritedAt?: string;
@@ -5835,7 +5835,7 @@ export interface components {
             id?: number;
             name?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
@@ -6799,7 +6799,7 @@ export interface components {
             id?: number;
             name?: string;
             /** @enum {string} */
-            category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             division?: string;
             /** @enum {string} */
             college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
@@ -9131,7 +9131,7 @@ export interface operations {
                 /** @description 상태 필터 (미지정 시 전체) */
                 status?: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
                 /** @description 카테고리 필터 */
-                category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+                category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
                 /** @description 분류 필터 */
                 division?: string;
                 /** @description 이름/설명 키워드 */
@@ -11710,7 +11710,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 카테고리 필터 */
-                category?: "ACADEMIC" | "CULTURE" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+                category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
                 /** @description 분류 필터 */
                 division?: string;
                 /** @description 이름/설명 키워드 */

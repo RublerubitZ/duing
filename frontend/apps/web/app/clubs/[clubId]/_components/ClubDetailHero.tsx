@@ -31,7 +31,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
     <>
       {/* ===================== 데스크탑/태블릿 히어로 (md+) ===================== */}
       <div className="hidden md:block">
-        <div className="border-b border-line bg-cream">
+        <div className="bg-cream">
           <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-4 text-[12.5px] text-charcoal-3">
             동아리 탐색 / <span>{categoryLabel}</span> /{' '}
             <span className="font-semibold text-ink">{club.name}</span>

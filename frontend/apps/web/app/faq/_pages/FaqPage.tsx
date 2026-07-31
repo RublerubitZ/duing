@@ -88,7 +88,7 @@ function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-dashed border-line pb-5 pt-3.5">
+          <div className="pb-5 pt-3.5">
             <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
               {faq.answer}
             </p>

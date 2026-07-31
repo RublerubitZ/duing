@@ -101,7 +101,7 @@ export function SessionListCard() {
 
   return (
     <section className="bg-paper rounded-lg border border-line mb-4 overflow-hidden">
-      <div className="px-7 py-5 border-b border-line">
+      <div className="px-7 py-5">
         <h3 className="text-[17px] font-body font-bold text-ink-deep">로그인된 기기</h3>
         <p className="text-[12.5px] text-charcoal-3 mt-1">
           이 계정으로 로그인된 세션 목록이에요. 낯선 기기가 있다면 로그아웃하세요.

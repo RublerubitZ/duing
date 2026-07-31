@@ -330,7 +330,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
         )}
 
         {inquiry.status === 'CLOSED' && inquiry.closedReason && (
-          <div className="border-t border-line pt-5">
+          <div className="pt-5">
             <dt className="text-[12px] font-semibold text-charcoal-2 mb-1">종료 사유</dt>
             <dd className="text-[13.5px] text-ink">{inquiry.closedReason}</dd>
           </div>

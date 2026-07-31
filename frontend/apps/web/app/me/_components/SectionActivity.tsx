@@ -56,7 +56,7 @@ export function SectionActivity({ stats, timeline }: Props) {
 
         {/* Timeline */}
         <div className="bg-paper border border-line rounded-[20px] p-1">
-          <div className="px-[22px] py-4 border-b border-line flex items-center justify-between">
+          <div className="px-[22px] py-4 flex items-center justify-between">
             <div className="text-[14px] font-bold text-ink-deep">최근 참여 기록</div>
             <button type="button" className="btn btn-ghost btn-sm py-1 px-2.5">
               전체 보기

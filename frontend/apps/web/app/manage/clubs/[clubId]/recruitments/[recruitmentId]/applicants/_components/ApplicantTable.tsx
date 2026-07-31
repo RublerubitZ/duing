@@ -204,7 +204,7 @@ export function ApplicantTable({
                   <div className="text-[12px] text-slate-500">
                     학번 {applicant.studentId} · {GRADE_DISPLAY_NAME[applicant.grade]}
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[11.5px] text-slate-500">
+                  <div className="mt-2 flex items-center justify-between gap-2 pt-2 text-[11.5px] text-slate-500">
                     <span>지원 {formatDateKst(applicant.submittedAt)}</span>
                     <MyScoreBadge score={applicant.myScore} />
                   </div>

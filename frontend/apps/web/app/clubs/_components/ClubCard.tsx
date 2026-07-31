@@ -150,7 +150,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
         </div>
       </div>
 
-      <div className="mt-auto pt-3 border-t border-dashed border-line flex items-center justify-between gap-2">
+      <div className="mt-auto pt-3 flex items-center justify-between gap-2">
         <span
           className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
         >

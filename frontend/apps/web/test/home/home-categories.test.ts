@@ -4,7 +4,7 @@ import type { ClubCategory } from '@duing/types';
 import { HOME_CATEGORIES } from '../../app/_lib/homeCategories';
 
 const ALL_CATEGORIES: ClubCategory[] = [
-  'ACADEMIC', 'CULTURE', 'ART', 'SPORTS',
+  'ACADEMIC', 'CREATION', 'ART', 'SPORTS',
   'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER',
 ];
 
@@ -18,9 +18,9 @@ describe('HOME_CATEGORIES', () => {
     expect(values).toEqual([...ALL_CATEGORIES].sort());
   });
 
-  it('한글 라벨이 학술/문화/예술/운동/봉사/종교/취미/기타 와 일치한다', () => {
+  it('한글 라벨이 학술/창작/예술/운동/봉사/종교/취미/기타 와 일치한다', () => {
     const labels = HOME_CATEGORIES.map((c) => c.label);
-    expect(labels).toEqual(['학술', '문화', '예술', '운동', '봉사', '종교', '취미', '기타']);
+    expect(labels).toEqual(['학술', '창작', '예술', '운동', '봉사', '종교', '취미', '기타']);
   });
 
   it('각 카테고리는 imageSrc · accent · index 메타를 가진다', () => {

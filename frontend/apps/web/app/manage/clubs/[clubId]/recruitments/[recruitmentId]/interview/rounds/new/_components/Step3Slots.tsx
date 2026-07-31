@@ -96,7 +96,7 @@ export function Step3Slots({ roundId, onNext }: Props) {
         </div>
       )}
 
-      <div className="flex justify-end border-t border-slate-200 pt-4">
+      <div className="flex justify-end pt-4">
         <button
           type="button"
           onClick={onNext}

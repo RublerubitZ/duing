@@ -14,7 +14,8 @@ public class FileException extends ApplicationException {
         private static final String MESSAGE =
                 "이미지 크기는 " + (FileUploadPolicy.MAX_BYTES / (1024 * 1024)) + "MB 이하여야 합니다.";
         public UploadSizeExceededException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
+            // 서블릿 한도 초과(GlobalExceptionHandler)가 이미 413 이므로, 정책 한도 초과도 413 으로 맞춘다.
+            super(MESSAGE, HttpStatus.PAYLOAD_TOO_LARGE);
         }
     }
 

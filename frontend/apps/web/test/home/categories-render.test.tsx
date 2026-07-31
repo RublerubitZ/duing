@@ -18,7 +18,7 @@ describe('Categories', () => {
     render(<Categories />);
 
     // 모바일 아이콘 타일 + 데스크탑 이미지 카드 이중 렌더 — 각 라벨이 두 번 등장한다.
-    for (const label of ['학술', '문화', '예술', '운동', '봉사', '종교', '취미', '기타']) {
+    for (const label of ['학술', '창작', '예술', '운동', '봉사', '종교', '취미', '기타']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });
@@ -28,7 +28,7 @@ describe('Categories', () => {
 
     const expectedHrefs = [
       '/clubs?category=ACADEMIC',
-      '/clubs?category=CULTURE',
+      '/clubs?category=CREATION',
       '/clubs?category=ART',
       '/clubs?category=SPORTS',
       '/clubs?category=VOLUNTEER',

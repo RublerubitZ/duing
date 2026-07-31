@@ -16,7 +16,7 @@ import { DIVISIONS } from '../../../../clubs/_lib/clubs';
 
 const CATEGORIES: ReadonlyArray<ClubCategory> = [
   'ACADEMIC',
-  'CULTURE',
+  'CREATION',
   'ART',
   'SPORTS',
   'VOLUNTEER',
@@ -27,9 +27,9 @@ const CATEGORIES: ReadonlyArray<ClubCategory> = [
 
 const CATEGORY_LABEL: Record<ClubCategory, string> = {
   ACADEMIC: '학술',
-  CULTURE: '문화',
+  CREATION: '창작',
   ART: '예술',
-  SPORTS: '체육',
+  SPORTS: '운동',
   VOLUNTEER: '봉사',
   RELIGION: '종교',
   HOBBY: '취미',

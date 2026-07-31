@@ -66,6 +66,22 @@ class FileApiTest extends IntegrationTestBase {
         return bytes;
     }
 
+    // 유효한 PNG 매직 바이트(89 50 4E 47 0D 0A 1A 0A)로 시작하는 더미 이미지.
+    private byte[] pngBytesOfSize(int size) {
+        byte[] bytes = new byte[size];
+        byte[] signature = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        System.arraycopy(signature, 0, bytes, 0, signature.length);
+        return bytes;
+    }
+
+    // 유효한 WEBP 컨테이너 시그니처("RIFF" + 크기 4바이트 + "WEBP")로 시작하는 더미 이미지.
+    private byte[] webpBytesOfSize(int size) {
+        byte[] bytes = new byte[size];
+        byte[] signature = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
+        System.arraycopy(signature, 0, bytes, 0, signature.length);
+        return bytes;
+    }
+
     @Test
     @DisplayName("정상 JPG 가 5MB 미만이면 201 과 URL 을 반환한다")
     void uploadsValidJpeg() {
@@ -97,7 +113,7 @@ class FileApiTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("5MB + 1 byte 를 넘으면 400 과 한국어 메시지를 반환한다")
+    @DisplayName("5MB + 1 byte 를 넘으면 413 과 한국어 메시지를 반환한다")
     void rejectsOversizedFile() {
         RestAssured
                 .given()
@@ -107,7 +123,7 @@ class FileApiTest extends IntegrationTestBase {
                 .when()
                     .post("/api/v1/files")
                 .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value())
                     .body("message", org.hamcrest.Matchers.containsString("5MB"));
     }
 
@@ -203,5 +219,85 @@ class FileApiTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
+    }
+
+    @Test
+    @DisplayName("매직 바이트가 유효한 PNG 를 업로드하면 201 과 png 확장자 URL 을 반환한다")
+    void uploadsValidPng() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "sample.png", pngBytesOfSize(1024), "image/png")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.CREATED.value())
+                    .body("data.url", org.hamcrest.Matchers.endsWith(".png"));
+    }
+
+    @Test
+    @DisplayName("매직 바이트가 유효한 WEBP 를 업로드하면 201 과 webp 확장자 URL 을 반환한다")
+    void uploadsValidWebp() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "sample.webp", webpBytesOfSize(1024), "image/webp")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.CREATED.value())
+                    .body("data.url", org.hamcrest.Matchers.endsWith(".webp"));
+    }
+
+    @Test
+    @DisplayName("스크립트가 담긴 SVG 는 Content-Type 이 image/svg+xml 이어도 400 으로 거부된다")
+    void rejectsSvgUpload() {
+        byte[] svgBytes =
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "evil.svg", svgBytes, "image/svg+xml")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
+    }
+
+    @Test
+    @DisplayName("확장자와 Content-Type 을 함께 이미지로 위조한 HTML 파일도 매직 바이트 검증으로 400 거부된다")
+    void rejectsHtmlDisguisedAsJpeg() {
+        byte[] htmlBytes = "<html><script>alert(1)</script></html>".getBytes();
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "photo.jpg", htmlBytes, "image/jpeg")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.containsString("지원하지 않는"));
+    }
+
+    @Test
+    @DisplayName("서블릿 멀티파트 한도를 넘는 파일은 컨트롤러에 닿기 전 413 으로 거부된다")
+    void rejectsBeyondServletMultipartLimit() {
+        // 멀티파트 파서는 본문을 읽기 전에 Content-Length 를 한도와 먼저 대조해 거부하므로 컨트롤러까지
+        // 오지 않고 GlobalExceptionHandler 가 413 으로 변환한다. 한도는 운영 10MB / 테스트 프로파일 6MB 라
+        // 이 크기는 양쪽 모두를 넘는다.
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "huge.jpg", jpegBytesOfSize(10 * 1024 * 1024 + 1), "image/jpeg")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value());
     }
 }

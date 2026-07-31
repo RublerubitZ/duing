@@ -46,7 +46,7 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
         </p>
       </header>
 
-      <div role="tablist" aria-label="회비 관리 탭" className="flex gap-1 border-b border-line">
+      <div role="tablist" aria-label="회비 관리 탭" className="flex gap-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -57,7 +57,7 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
             aria-controls={`fee-panel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              '-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+              'border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
               activeTab === tab.id
                 ? 'border-ink text-ink'
                 : 'border-transparent text-charcoal-3 hover:text-charcoal-2',

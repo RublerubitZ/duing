@@ -195,7 +195,7 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
       </div>
 
       {hasCandidates ? (
-        <ul className="mt-3 space-y-2 border-t border-line pt-3">
+        <ul className="mt-3 space-y-2 pt-3">
           {transaction.candidates.map((candidate) => (
             <li
               key={candidate.feeBillId}
@@ -221,7 +221,7 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
           ))}
         </ul>
       ) : (
-        <p className="mt-3 border-t border-line pt-3 text-xs text-charcoal-3">
+        <p className="mt-3 pt-3 text-xs text-charcoal-3">
           일치하는 청구가 없습니다
         </p>
       )}

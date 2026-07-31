@@ -48,7 +48,7 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
         <h1 className="mt-1 font-display text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
       </header>
 
-      <div className="mt-5 flex gap-1 border-b border-line" role="tablist" aria-label="예약 상태 필터">
+      <div className="mt-5 flex gap-1" role="tablist" aria-label="예약 상태 필터">
         {MANAGE_TAB_KEYS.map((tabKey) => {
           const isActive = activeTab === tabKey;
           const count = tabKey === 'ACTIVE' ? grouped.active.length : grouped.past.length;

@@ -27,9 +27,9 @@ import { ApplyDetailModal } from '../_components/ApplyDetailModal';
 
 const CATEGORY_LABELS: Record<ClubCategory, string> = {
   ACADEMIC:  '학술',
-  CULTURE:   '문화',
+  CREATION:  '창작',
   ART:       '예술',
-  SPORTS:    '체육',
+  SPORTS:    '운동',
   VOLUNTEER: '봉사',
   RELIGION:  '종교',
   HOBBY:     '취미',
@@ -158,7 +158,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const openApp = openId ? apps.find(app => app.id === openId) ?? null : null;
 
   return (
-    <div className="duing" style={{ background: 'var(--cream)', minHeight: '100vh' }}>
+    // min-h-dvh — 안드로이드 크롬에서 100vh 는 주소창이 접힌 큰 뷰포트라 문서가 화면보다 길어진다.
+    <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
       <ApplyStatusHero />
       <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />

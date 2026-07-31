@@ -1,3 +1,11 @@
+server:
+  tomcat:
+    # 서블릿 멀티파트 한도(아래 max-file-size 10MB) 초과 시 Tomcat 은 본문을 읽기 전에 413 을
+    # 만들지만, 남은 요청 본문을 다 흘려보내야 응답이 클라이언트에 도달한다. 기본 max-swallow-size
+    # (2MB) 로는 커넥션을 끊어버려 413 대신 네트워크 오류로 보인다. 엣지 캡(deploy/Caddyfile 의
+    # request_body max_size 11MB)이 스왈로 상한을 잡아주므로 그 값에 맞춘다 — 두 값은 함께 움직여야 한다.
+    max-swallow-size: 11MB
+
 spring:
   config:
     # backend/.env 파일을 Spring property source 로 자동 로드 (없으면 무시).
@@ -17,7 +25,7 @@ spring:
     multipart:
       # 이미지 업로드 정책 한도는 FileUploadPolicy.MAX_BYTES (5MB). 서블릿 한도는
       # 그보다 큰 값을 두어 5MB 초과 파일도 우리 검증(FileController.validate)이 먼저
-      # 받아 한국어 400 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
+      # 받아 한국어 413 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
       max-file-size: 10MB
       max-request-size: 10MB
   jpa:

@@ -50,7 +50,7 @@ export function FaqSearchMissPanel() {
       </button>
 
       {expanded && (
-        <div className="border-t border-line px-4 py-4">
+        <div className="px-4 py-4">
           {searchMissesQuery.isLoading && (
             <LoadingGate className="min-h-0 py-4" label="무결과 검색어 불러오는 중" />
           )}

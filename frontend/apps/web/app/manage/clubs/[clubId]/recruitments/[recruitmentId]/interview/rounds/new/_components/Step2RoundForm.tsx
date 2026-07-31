@@ -184,7 +184,7 @@ export function Step2RoundForm({
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+        <div className="flex items-center justify-between pt-4">
           <div />
           <button
             type="submit"

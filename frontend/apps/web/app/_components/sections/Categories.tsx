@@ -18,7 +18,7 @@ import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategorie
 // 모바일 4×2 아이콘 타일용 — 카테고리별 lucide 아이콘.
 const CATEGORY_ICON: Record<ClubCategory, LucideIcon> = {
   ACADEMIC: GraduationCap,
-  CULTURE: Drama,
+  CREATION: Drama,
   ART: Palette,
   SPORTS: Dumbbell,
   VOLUNTEER: HeartHandshake,
@@ -116,8 +116,8 @@ function CategoryTile({ category }: { category: HomeCategoryMeta }) {
       }}
     >
       <div
-        className="relative overflow-hidden border-b"
-        style={{ height: 170, borderColor: '#e6e1d2', background: category.fallbackBg }}
+        className="relative overflow-hidden"
+        style={{ height: 170, background: category.fallbackBg }}
       >
         <Image
           src={category.imageSrc}

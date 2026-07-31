@@ -180,12 +180,6 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           )}
         </header>
 
-        {/* 구분선 */}
-        <div
-          className="mb-8 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, #d9d4c3 20%, #d9d4c3 80%, transparent)' }}
-        />
-
         {/* 마감 알림 */}
         {isClosedByDraft && (
           <div className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">

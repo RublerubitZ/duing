@@ -39,7 +39,6 @@ export function ApplySummaryCard({ counts }: Props) {
         display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
         gap: 0,
         paddingTop: 10,
-        borderTop: '1px solid rgba(255,255,255,0.14)',
       }}>
         {[
           { label: '진행 중', value: progress },

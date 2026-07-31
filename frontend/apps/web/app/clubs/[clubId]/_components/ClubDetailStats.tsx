@@ -25,7 +25,7 @@ export function ClubDetailStats({ club }: Props) {
   if (cells.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3 border-y border-line py-5 md:grid md:grid-cols-3 md:gap-0">
+    <div className="flex flex-col gap-3 py-5 md:grid md:grid-cols-3 md:gap-0">
       {cells.map((cell) => (
         <div key={cell.label} className="flex items-baseline md:block">
           <div className="w-16 shrink-0 text-xs tracking-wide04 text-charcoal-3 md:mb-1.5 md:w-auto">

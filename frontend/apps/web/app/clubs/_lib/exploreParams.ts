@@ -35,7 +35,7 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
 
 export const CATEGORY_OPTIONS: ReadonlyArray<{ value: ClubCategory; label: string }> = [
   { value: 'ACADEMIC',  label: '학술' },
-  { value: 'CULTURE',   label: '문화' },
+  { value: 'CREATION',  label: '창작' },
   { value: 'ART',       label: '예술' },
   { value: 'SPORTS',    label: '운동' },
   { value: 'VOLUNTEER', label: '봉사' },
@@ -107,7 +107,8 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
 
   const rawCategory = search.get('category');
   const category: ClubCategory | null =
-    rawCategory !== null && isCategory(rawCategory) ? rawCategory : null;
+    rawCategory === 'CULTURE' ? 'CREATION'                          // 이전 URL 호환 (문화 → 창작)
+      : rawCategory !== null && isCategory(rawCategory) ? rawCategory : null;
 
   const activeDays = search.getAll('activeDays').filter(isClubDayOfWeek);
 

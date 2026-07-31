@@ -5,6 +5,7 @@ import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.StoredFile;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,8 +26,10 @@ public class StubFileStorageService implements FileStorageService {
 
     @Override
     public String upload(MultipartFile file, String directory, String contentType) {
-        String name = file == null ? "null" : file.getOriginalFilename();
-        return PREFIX + directory + "/" + name;
+        // 실구현(Local/S3)과 동형으로 UUID + 서버 부여 확장자를 쓴다. 클라이언트 파일명을 그대로
+        // 돌려주면 "저장 파일명은 서버가 정한다"는 계약을 검증하는 테스트가 항진명제가 된다.
+        String extension = FileUploadPolicy.EXTENSION_BY_MIME.getOrDefault(contentType, "bin");
+        return PREFIX + directory + "/" + UUID.randomUUID() + "." + extension;
     }
 
     @Override

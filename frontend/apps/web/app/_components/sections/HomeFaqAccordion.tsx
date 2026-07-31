@@ -60,7 +60,7 @@ function HomeFaqAccordionRow({ faq }: { faq: FederationFaqItem }) {
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-dashed border-line pb-4 pt-3">
+          <div className="pb-4 pt-3">
             <p className="line-clamp-3 text-[13.5px] leading-[1.6] text-charcoal-2">{faq.answer}</p>
             <Link
               href={toRoute(`/faq?item=${faq.id}`)}
