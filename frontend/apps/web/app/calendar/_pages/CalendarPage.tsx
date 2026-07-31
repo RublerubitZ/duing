@@ -305,7 +305,7 @@ export function CalendarPage() {
       )}
 
       {/* ===== Header ===== */}
-      <section className="cal-section cal-header" style={{ padding: '48px 40px 28px', borderBottom: '1px solid var(--gray-line)' }}>
+      <section className="cal-section cal-header" style={{ padding: '48px 40px 28px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
@@ -647,7 +647,6 @@ export function CalendarPage() {
                 </div>
                 <div style={{
                   marginTop: 14, paddingTop: 12,
-                  borderTop: '1px dashed rgba(255,255,255,0.18)',
                   display: 'flex', justifyContent: 'space-between',
                   fontSize: 12, color: 'rgba(255,255,255,0.6)',
                 }}>
@@ -811,7 +810,6 @@ export function CalendarPage() {
                   {/* Footer */}
                   <div style={{
                     paddingTop: 12,
-                    borderTop: '1px dashed var(--gray-line)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     fontSize: 12, color: 'var(--charcoal-3)',
                   }}>

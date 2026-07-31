@@ -18,7 +18,7 @@ export function MyPageStickyNav({ sections, active, onSelect }: Props) {
   return (
     <div
       className="sticky z-20 bg-cream px-4 sm:px-6 md:px-10"
-      style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream), 0 1px 0 var(--gray-line)' }}
+      style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream)' }}
     >
       {/* breadcrumb row */}
       <div className="max-w-layout mx-auto flex items-center gap-2.5 pt-7 pb-2.5 text-[11.5px] leading-4 font-semibold text-charcoal-3 whitespace-nowrap">

@@ -278,7 +278,6 @@ export function NoticePage() {
             padding: '4px 12px 14px',
             fontSize: 14, fontWeight: 700, color: 'var(--ink-deep)',
             letterSpacing: '-0.01em',
-            borderBottom: '1px solid var(--gray-line)',
             marginBottom: 10,
           }}>
             {isClubSource ? '내 동아리' : '캠퍼스 소식'}
@@ -302,8 +301,8 @@ export function NoticePage() {
             </div>
           )}
 
-          {/* 총동연 FAQ 진입점 — 공지 카테고리와 별개 섹션(구분선 뒤), 세그먼트와 무관하게 항상 노출 */}
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--gray-line)' }}>
+          {/* 총동연 FAQ 진입점 — 공지 카테고리와 별개 섹션(여백으로 구분), 세그먼트와 무관하게 항상 노출 */}
+          <div style={{ marginTop: 14, paddingTop: 14 }}>
             <SideLinkItem icon={<ArrowRight />} label="자주 묻는 질문" href="/faq" />
           </div>
         </aside>
