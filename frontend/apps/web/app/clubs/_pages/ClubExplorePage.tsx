@@ -545,8 +545,9 @@ export function ClubExplorePage() {
           </form>
         </div>
 
-        {/* overscroll-x-contain: 레일은 18px 만에 끝에 닿는데, 그 오버스크롤이 상위로 전파되면
-            iOS 에서 viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있다.
+        {/* overscroll-x-contain: 카테고리가 짧아 레일이 금세 스크롤 끝에 닿는데(390px 폭에서 20px 안팎,
+            좁을수록 늘어남), 문서에 가로 스크롤이 없어 그 오버스크롤이 상위로 전파된다. iOS 에서는
+            viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있어 레일 안에서 끊는다.
             세로축은 auto 로 둔다 — 레일 위에서 시작한 세로 드래그는 페이지가 받아야 한다. */}
         <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
