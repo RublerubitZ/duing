@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@duing/hooks', () => ({
@@ -68,5 +68,79 @@ describe('NoticeRichEditor features 구성', () => {
     );
     await waitFor(() => expect(screen.getByLabelText('굵게')).toBeInTheDocument());
     expect(screen.queryByText(/본문에 인라인 삽입/)).toBeNull();
+  });
+});
+
+// window.prompt 는 임베디드 브라우저에서 미지원(throw) — 링크 입력은 인라인 UI 여야 한다.
+describe('NoticeRichEditor 링크 인라인 입력', () => {
+  const selectAll = (container: HTMLElement) => {
+    const proseMirror = container.querySelector('.ProseMirror');
+    if (!proseMirror) throw new Error('ProseMirror 미렌더');
+    fireEvent.keyDown(proseMirror, { key: 'a', ctrlKey: true });
+  };
+
+  it('링크 버튼 클릭 시 prompt 없이 인라인 URL 입력이 열리고, 다시 누르면 닫힌다', async () => {
+    const promptSpy = vi.fn();
+    vi.stubGlobal('prompt', promptSpy);
+    render(<NoticeRichEditor value="<p>본문</p>" format="HTML" onChange={() => {}} />);
+    await waitFor(() => expect(screen.getByLabelText('링크')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('링크'));
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('링크 URL')).toHaveValue('https://');
+    fireEvent.click(screen.getByLabelText('링크'));
+    expect(screen.queryByLabelText('링크 URL')).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('선택 영역에 URL 적용 시 본문에 링크가 생기고 입력이 닫힌다', async () => {
+    const handleChange = vi.fn();
+    const { container } = render(<NoticeRichEditor value="<p>클릭</p>" format="HTML" onChange={handleChange} />);
+    await waitFor(() => expect(screen.getByLabelText('링크')).toBeInTheDocument());
+    selectAll(container);
+    fireEvent.click(screen.getByLabelText('링크'));
+    fireEvent.change(screen.getByLabelText('링크 URL'), { target: { value: 'https://duings.com' } });
+    fireEvent.click(screen.getByText('적용'));
+    const lastHtml = handleChange.mock.calls.at(-1)?.[0];
+    expect(lastHtml).toContain('href="https://duings.com"');
+    expect(screen.queryByLabelText('링크 URL')).toBeNull();
+  });
+
+  it('기존 링크 선택 시 현재 href 가 시드되고, 제거를 누르면 링크가 사라진다', async () => {
+    const handleChange = vi.fn();
+    const { container } = render(
+      <NoticeRichEditor value='<p><a href="https://old.example">기존</a></p>' format="HTML" onChange={handleChange} />,
+    );
+    await waitFor(() => expect(screen.getByLabelText('링크')).toBeInTheDocument());
+    selectAll(container);
+    fireEvent.click(screen.getByLabelText('링크'));
+    expect(screen.getByLabelText('링크 URL')).toHaveValue('https://old.example');
+    fireEvent.click(screen.getByText('제거'));
+    const lastHtml = handleChange.mock.calls.at(-1)?.[0];
+    expect(lastHtml).not.toContain('href=');
+    expect(screen.queryByLabelText('링크 URL')).toBeNull();
+  });
+
+  it('Escape 로 닫으면 본문은 그대로고, document 로 전파되지 않는다(모달 소비처 보호)', async () => {
+    const handleChange = vi.fn();
+    render(<NoticeRichEditor value="<p>본문</p>" format="HTML" onChange={handleChange} />);
+    await waitFor(() => expect(screen.getByLabelText('링크')).toBeInTheDocument());
+    const callsBefore = handleChange.mock.calls.length;
+    fireEvent.click(screen.getByLabelText('링크'));
+    const documentKeydownSpy = vi.fn();
+    document.addEventListener('keydown', documentKeydownSpy);
+    fireEvent.keyDown(screen.getByLabelText('링크 URL'), { key: 'Escape' });
+    document.removeEventListener('keydown', documentKeydownSpy);
+    expect(documentKeydownSpy).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('링크 URL')).toBeNull();
+    expect(handleChange.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('한글 IME 조합 확정 Enter(keyCode 229)는 적용을 트리거하지 않는다', async () => {
+    render(<NoticeRichEditor value="<p>본문</p>" format="HTML" onChange={() => {}} />);
+    await waitFor(() => expect(screen.getByLabelText('링크')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('링크'));
+    fireEvent.keyDown(screen.getByLabelText('링크 URL'), { key: 'Enter', keyCode: 229 });
+    // 조합 확정 Enter 는 무시 — 입력 행이 그대로 열려 있어야 한다.
+    expect(screen.getByLabelText('링크 URL')).toBeInTheDocument();
   });
 });
