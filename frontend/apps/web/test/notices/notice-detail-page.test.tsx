@@ -2,10 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { NoticeDetail, NoticeContentFormat } from '@duing/types';
 
-vi.mock('../../app/_components/ExploreNav', () => ({
-  ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
-}));
-
+// ExploreNav 는 notices/layout.tsx 소유라 상세 페이지 렌더에 포함되지 않는다(스텁 불필요).
 vi.mock('../../app/notices/_components/NoticeContent', () => ({
   NoticeContent: ({ content }: { content: string }) => <div data-testid="notice-content">{content}</div>,
 }));
