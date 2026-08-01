@@ -21,7 +21,7 @@ export async function HomeHero() {
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-4 sm:pb-8 sm:pt-8">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"

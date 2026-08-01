@@ -44,13 +44,13 @@
 
 :root {
   color-scheme: light;
-  /* GNB ↓ 첫 콘텐츠 공통 상단 여백 토큰 — tailwind `pt-page-top` 이 소비 (모바일 24px / md+ 32px) */
-  --page-top: 1.5rem;
+  /* GNB ↓ 첫 콘텐츠 공통 상단 여백 토큰 — tailwind `pt-page-top` 이 소비 (모바일 16px / md+ 24px) */
+  --page-top: 1rem;
 }
 
 @media (min-width: 768px) {
   :root {
-    --page-top: 2rem;
+    --page-top: 1.5rem;
   }
 }
 
