@@ -139,7 +139,7 @@ describe('NoticesPage', () => {
     expect(screen.getByText(/알고리즘 동아리/)).toBeInTheDocument();
   });
 
-  // 크림 캔버스(min-h-dvh)는 notices/layout.tsx 가 소유한다 — 로딩 경계 밖에서 유지되도록
+  // 크림 캔버스(min-h-lvh)는 notices/layout.tsx 가 소유한다 — 로딩 경계 밖에서 유지되도록
   // (레이아웃 쪽 단언은 test/info/info-section-layouts.test.tsx). 여기서는 페이지가 100vh 를
   // 되살리지 않는지만 지킨다 — 100vh 는 안드로이드 크롬에서 문서를 화면보다 길게 만들어
   // fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.

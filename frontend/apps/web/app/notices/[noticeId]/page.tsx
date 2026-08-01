@@ -39,7 +39,7 @@ export default function NoticeDetailPage() {
     }
   }, [detailQuery.error, router]);
 
-  // 세 분기 모두 크림 캔버스(duing min-h-dvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
+  // 세 분기 모두 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
   // — 로딩 경계 밖에서 유지되도록. ExploreNav 는 상세 경로에서 스스로 모바일 숨김을 판단한다(pathname 기반).
   // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky 면 라우터 자동 스크롤 기준에서 제외된다.
   if (detailQuery.isLoading) {

@@ -43,10 +43,13 @@ describe('정보 섹션 세그먼트 레이아웃', () => {
     const canvas = container.firstElementChild;
 
     expect(canvas).not.toBeNull();
-    expect(canvas).toHaveClass('duing', 'min-h-dvh', 'bg-cream');
-    // 100vh 는 안드로이드 크롬에서 "주소창이 접힌" 큰 뷰포트를 가리켜 문서가 화면보다 길어진다.
-    expect(canvas?.className ?? '').not.toMatch(/\b(h-screen|min-h-screen)\b/);
-    expect(canvas?.getAttribute('style') ?? '').not.toContain('100vh');
+    expect(canvas).toHaveClass('duing', 'min-h-lvh', 'bg-cream');
+    // dvh 로 되돌리면 콘텐츠가 한 화면인 허브(공지)의 스크롤 여유가 탭바 스페이서 56px 뿐이라
+    // 안드로이드 크롬 주소창·chin 접힘 유지 임계에 못 미쳐, 정보 탭에서만 하단 탭바의
+    // 높이·safe-area 가 달라 보이는 증상이 되살아난다(notices/layout.tsx 참조).
+    expect(canvas?.className ?? '').not.toMatch(/\b(min-h-dvh|h-screen|min-h-screen)\b/);
+    // 인라인 style 우회도 막는다 — #783 이전 버그가 정확히 인라인 100vh 였다(100lvh 는 허용).
+    expect(canvas?.getAttribute('style') ?? '').not.toMatch(/100(d|s)?vh/);
   });
 
   it.each(layoutCases)('$name 레이아웃이 상단 GNB 를 캔버스 안에 렌더한다', ({ Layout }) => {

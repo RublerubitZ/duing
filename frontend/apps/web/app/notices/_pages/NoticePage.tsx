@@ -253,7 +253,7 @@ export function NoticePage() {
   ];
 
   return (
-    // 크림 캔버스(duing min-h-dvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
+    // 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
     // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(InfoTabs)면 라우터 자동 스크롤 기준에서 제외된다.
     <div>
       <InfoTabs />
