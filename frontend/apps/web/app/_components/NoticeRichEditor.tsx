@@ -76,6 +76,8 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [linkEditorOpen, setLinkEditorOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -145,16 +147,31 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const setLink = () => {
+  // window.prompt 는 임베디드 브라우저(Electron/webview 등)에서 미지원으로 throw 하므로 인라인 입력으로 받는다.
+  const toggleLinkEditor = () => {
+    if (linkEditorOpen) {
+      setLinkEditorOpen(false);
+      return;
+    }
     const linkAttrs = editor.getAttributes('link');
-    const previous = typeof linkAttrs.href === 'string' ? linkAttrs.href : undefined;
-    const url = window.prompt('링크 URL', previous ?? 'https://');
-    if (url === null) return;
+    const previous = typeof linkAttrs.href === 'string' ? linkAttrs.href : '';
+    setLinkUrl(previous || 'https://');
+    setLinkEditorOpen(true);
+  };
+
+  const applyLink = () => {
+    setLinkEditorOpen(false);
+    const url = linkUrl.trim();
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
       return;
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
+  const removeLink = () => {
+    setLinkEditorOpen(false);
+    editor.chain().focus().extendMarkRange('link').unsetLink().run();
   };
 
   return (
@@ -174,7 +191,7 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
         <ToolbarButton title="번호 목록" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={16} /></ToolbarButton>
         <ToolbarButton title="인용" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={16} /></ToolbarButton>
         <ToolbarDivider />
-        <ToolbarButton title="링크" active={editor.isActive('link')} onClick={setLink}><Link2 size={16} /></ToolbarButton>
+        <ToolbarButton title="링크" active={editor.isActive('link') || linkEditorOpen} onClick={toggleLinkEditor}><Link2 size={16} /></ToolbarButton>
         {imageEnabled && (
           <ToolbarButton title="이미지" disabled={uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}><ImageIcon size={16} /></ToolbarButton>
         )}
@@ -182,6 +199,35 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
         <ToolbarButton title="실행 취소" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={16} /></ToolbarButton>
         <ToolbarButton title="다시 실행" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={16} /></ToolbarButton>
       </div>
+      {linkEditorOpen && (
+        <div className="flex items-center gap-1.5 border-b border-line bg-cream/40 px-2 py-1.5">
+          <input
+            value={linkUrl}
+            onChange={(changeEvent) => setLinkUrl(changeEvent.target.value)}
+            onKeyDown={(keyEvent) => {
+              // 한글 IME 조합 확정 Enter(keyCode 229)에 커밋하면 미완성 URL 이 적용된다.
+              if (keyEvent.nativeEvent.isComposing || keyEvent.keyCode === 229) return;
+              if (keyEvent.key === 'Enter') { keyEvent.preventDefault(); applyLink(); }
+              if (keyEvent.key === 'Escape') {
+                keyEvent.preventDefault();
+                // 모달 소비처의 document Escape 리스너까지 전파되면 작성 중인 초안째 닫힌다.
+                keyEvent.stopPropagation();
+                setLinkEditorOpen(false);
+              }
+            }}
+            autoFocus
+            type="text"
+            inputMode="url"
+            aria-label="링크 URL"
+            placeholder="https://"
+            className="h-8 min-w-0 flex-1 rounded-md border border-line bg-paper px-2.5 text-[13px] text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none"
+          />
+          <button type="button" onClick={applyLink} className="h-8 shrink-0 rounded-md bg-ink px-3 text-[12.5px] font-medium text-paper transition hover:opacity-90">적용</button>
+          {editor.isActive('link') && (
+            <button type="button" onClick={removeLink} className="h-8 shrink-0 rounded-md px-2.5 text-[12.5px] text-charcoal-2 transition hover:bg-sage-tint hover:text-ink">제거</button>
+          )}
+        </div>
+      )}
       <EditorContent
         editor={editor}
         className="notice-editor px-5 py-4 min-h-[320px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[280px] [&_.ProseMirror]:text-[15.5px] [&_.ProseMirror]:leading-[1.8] [&_.ProseMirror]:text-charcoal [&_.ProseMirror_p]:my-2.5 [&_.ProseMirror_h2]:text-[21px] [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:text-ink-deep [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:pl-3 [&_.ProseMirror_h2]:border-l-[3px] [&_.ProseMirror_h2]:border-sage [&_.ProseMirror_h3]:text-[17px] [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:text-ink-deep [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-1.5 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-line [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-charcoal-2 [&_.ProseMirror_a]:text-ink [&_.ProseMirror_a]:underline [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:h-auto [&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:my-3"
