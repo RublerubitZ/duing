@@ -5,6 +5,7 @@ import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.controller.dto.response.ClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
@@ -23,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -57,9 +57,9 @@ public class ClubController implements ClubApi {
         boolean favoriteOnly = Boolean.TRUE.equals(favorite);
         if (favoriteOnly && currentUser == null) {
             // 찜 필터의 기준은 "요청 사용자의 찜" — 비로그인은 기준이 없다. 빈 목록으로 얼버무리면
-            // "찜 0건(200)"과 구분이 안 되므로 401 로 구분한다. 기존 핸들러(handleAuthentication)가
-            // AuthenticationException 계열을 401 로 변환한다 — 새 에러코드는 만들지 않는다.
-            throw new InsufficientAuthenticationException("찜한 동아리 필터는 로그인이 필요합니다.");
+            // "찜 0건(200)"과 구분이 안 되므로 401 로 구분한다. handleApplicationException 이
+            // 401 + 예외 메시지를 그대로 응답에 싣는다 — 새 에러코드(code)는 만들지 않는다.
+            throw new ClubException.FavoriteFilterLoginRequiredException();
         }
         Long favoriteUserId = favoriteOnly ? currentUser.id() : null;
         Set<DayOfWeek> activeDaysSet = activeDays == null ? null : Set.copyOf(activeDays);

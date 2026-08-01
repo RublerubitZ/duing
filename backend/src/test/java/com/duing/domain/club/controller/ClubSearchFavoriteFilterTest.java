@@ -55,7 +55,8 @@ class ClubSearchFavoriteFilterTest extends IntegrationTestBase {
         RestAssured.given()
                 .when().get("/api/v1/clubs?favorite=true")
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value())
-                .body("ok", equalTo(false));
+                .body("ok", equalTo(false))
+                .body("message", equalTo("찜한 동아리 필터는 로그인이 필요합니다."));
     }
 
     @Test
