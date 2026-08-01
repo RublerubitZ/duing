@@ -1,0 +1,81 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import type { ReactElement, ReactNode } from 'react';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+// ExploreNav 는 usePathname·인증 스토어·알림 훅 체인을 물고 있어, 레이아웃 골격 검증과 무관한
+// 부분만 스텁으로 대체한다(test/components/explore-nav.test.tsx 와 동일한 모킹 세트).
+vi.mock('next/navigation', () => ({ usePathname: () => '/notices' }));
+vi.mock('../../app/_components/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
+vi.mock('../../app/_components/NotificationBell', () => ({
+  NotificationBell: () => <button type="button">알림</button>,
+}));
+vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () => <span>인증</span> }));
+
+import FaqLayout from '@/app/faq/layout';
+import IntroduceLayout from '@/app/introduce/layout';
+import NoticesLayout from '@/app/notices/layout';
+import TermsLayout from '@/app/terms/layout';
+
+// 정보 섹션 4개 라우트의 크림 캔버스·GNB 는 페이지가 아니라 세그먼트 레이아웃이 소유한다 —
+// 페이지 안에 있으면 RSC 재페치 중 로딩 폴백이 둘을 통째로 걷어가 문서 높이가 뷰포트 아래로 붕괴하고,
+// 안드로이드 크롬 주소창이 펴지며 fixed 하단 탭바가 흔들린다.
+type LayoutCase = {
+  name: string;
+  Layout: (props: { children: ReactNode }) => ReactElement;
+};
+
+const layoutCases: ReadonlyArray<LayoutCase> = [
+  { name: 'notices', Layout: NoticesLayout },
+  { name: 'faq', Layout: FaqLayout },
+  { name: 'terms', Layout: TermsLayout },
+  { name: 'introduce', Layout: IntroduceLayout },
+];
+
+describe('정보 섹션 세그먼트 레이아웃', () => {
+  it.each(layoutCases)('$name 레이아웃이 크림 캔버스를 소유한다', ({ Layout }) => {
+    const { container } = render(
+      <Layout>
+        <p>본문</p>
+      </Layout>,
+    );
+    const canvas = container.firstElementChild;
+
+    expect(canvas).not.toBeNull();
+    expect(canvas).toHaveClass('duing', 'min-h-dvh', 'bg-cream');
+    // 100vh 는 안드로이드 크롬에서 "주소창이 접힌" 큰 뷰포트를 가리켜 문서가 화면보다 길어진다.
+    expect(canvas?.className ?? '').not.toMatch(/\b(h-screen|min-h-screen)\b/);
+    expect(canvas?.getAttribute('style') ?? '').not.toContain('100vh');
+  });
+
+  it.each(layoutCases)('$name 레이아웃이 상단 GNB 를 캔버스 안에 렌더한다', ({ Layout }) => {
+    render(
+      <Layout>
+        <p>본문</p>
+      </Layout>,
+    );
+
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+  });
+
+  it('introduce 레이아웃은 등장 모션의 가로 스크롤을 클립한다', () => {
+    const { container } = render(
+      <IntroduceLayout>
+        <p>본문</p>
+      </IntroduceLayout>,
+    );
+
+    expect(container.firstElementChild).toHaveClass('overflow-x-clip');
+  });
+
+  // 세그먼트 loading.tsx 가 사라지면 로딩 폴백이 루트 loading.tsx 로 올라가 레이아웃 바깥에서 걸린다
+  // — 캔버스·GNB 가 통째로 교체되어 이 PR 이 막은 하단 탭바 흔들림이 조용히 되살아난다. 존재 자체가 가드.
+  it.each(['notices', 'faq', 'terms', 'introduce'])(
+    '%s 세그먼트에 loading.tsx 가 있다',
+    (segment) => {
+      expect(existsSync(path.resolve(__dirname, '../../app', segment, 'loading.tsx'))).toBe(true);
+    },
+  );
+});

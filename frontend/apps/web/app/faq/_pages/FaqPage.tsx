@@ -15,7 +15,6 @@ import type { FederationFaqItem } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
-import { ExploreNav } from '../../_components/ExploreNav';
 import { InfoTabs } from '../../_components/InfoTabs';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
@@ -149,8 +148,9 @@ export function FaqPage() {
   };
 
   return (
-    <div className="duing min-h-dvh bg-cream">
-      <ExploreNav slimOnMobile />
+    // 크림 캔버스(duing min-h-dvh bg-cream)와 ExploreNav 는 faq/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
+    // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(InfoTabs)면 라우터 자동 스크롤 기준에서 제외된다.
+    <div>
       <InfoTabs />
 
       <div className="max-w-layout mx-auto px-4 pb-20 pt-8 sm:px-6 md:px-10">

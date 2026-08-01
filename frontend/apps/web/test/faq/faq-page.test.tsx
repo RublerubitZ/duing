@@ -3,12 +3,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { FederationFaqItem } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
-// ExploreNav/HomeFooter 는 인증 스토어·알림 훅 체인을 물고 있어 FAQ 본문과 무관한 복잡도를
-// 늘리므로 단순 스텁으로 대체한다(notices-page.test.tsx 의 ExploreNav 스텁 패턴과 동일).
-vi.mock('../../app/_components/ExploreNav', () => ({
-  ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
-}));
-
+// HomeFooter 는 인증 스토어·알림 훅 체인을 물고 있어 FAQ 본문과 무관한 복잡도를 늘리므로
+// 단순 스텁으로 대체한다. ExploreNav 는 faq/layout.tsx 소유라 페이지 렌더에 포함되지 않는다.
 vi.mock('../../app/_components/InfoTabs', () => ({
   InfoTabs: () => <nav aria-label="정보" />,
 }));

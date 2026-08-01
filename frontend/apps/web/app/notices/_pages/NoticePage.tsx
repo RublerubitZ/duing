@@ -8,7 +8,6 @@ import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks
 import { useAuthStore } from '@duing/stores';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
-import { ExploreNav } from '../../_components/ExploreNav';
 import { InfoTabs } from '../../_components/InfoTabs';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
@@ -254,12 +253,9 @@ export function NoticePage() {
   ];
 
   return (
-    // min-h-dvh(100dvh) — 100vh 는 안드로이드 크롬에서 "주소창이 접힌" 큰 뷰포트를 가리켜,
-    // 주소창이 보이는 진입 시점에 문서가 화면보다 길어지고 fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
-    // 에뮬레이터·devtools 기기 모드는 주소창이 동적으로 접히지 않아 재현되지 않는다.
-    // 정보 섹션의 나머지 세 페이지(/faq·/terms·/introduce)와 동일한 표기.
-    <div className="duing min-h-dvh bg-cream">
-      <ExploreNav slimOnMobile />
+    // 크림 캔버스(duing min-h-dvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
+    // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(InfoTabs)면 라우터 자동 스크롤 기준에서 제외된다.
+    <div>
       <InfoTabs />
 
       <div

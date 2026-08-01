@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
-import { ExploreNav } from '../../_components/ExploreNav';
 import { NoticeDetailTopBar } from '../_components/NoticeDetailTopBar';
 import { NoticeArticleHeader } from '../_components/NoticeArticleHeader';
 import { NoticePosterHero } from '../_components/NoticePosterHero';
@@ -40,10 +39,12 @@ export default function NoticeDetailPage() {
     }
   }, [detailQuery.error, router]);
 
+  // 세 분기 모두 크림 캔버스(duing min-h-dvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
+  // — 로딩 경계 밖에서 유지되도록. ExploreNav 는 상세 경로에서 스스로 모바일 숨김을 판단한다(pathname 기반).
+  // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky 면 라우터 자동 스크롤 기준에서 제외된다.
   if (detailQuery.isLoading) {
     return (
-      <div className="duing min-h-dvh bg-cream">
-        <ExploreNav slimOnMobile />
+      <div>
         <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <TextLinesSkeleton lines={6} label="공지 불러오는 중" />
@@ -54,8 +55,7 @@ export default function NoticeDetailPage() {
 
   if (detailQuery.isError || !notice) {
     return (
-      <div className="duing min-h-dvh bg-cream">
-        <ExploreNav slimOnMobile />
+      <div>
         <NoticeDetailTopBar />
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <p className="text-coral text-[13px]">공지를 불러오지 못했습니다.</p>
@@ -67,8 +67,7 @@ export default function NoticeDetailPage() {
   const expiredAndPast = notice.expiresAt !== null && new Date(notice.expiresAt) <= new Date();
 
   return (
-    <div className="duing min-h-dvh bg-cream">
-      <ExploreNav slimOnMobile />
+    <div>
       <NoticeDetailTopBar />
       <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
         <NoticeArticleHeader
