@@ -62,6 +62,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 centralClubEq(condition.centralClub()),
                 collegeEq(condition.college()),
                 activeDaysOverlap(condition.effectiveActiveDays()),
+                favoritedBy(condition.favoriteUserId()),
         };
 
         List<Club> content = queryFactory
@@ -254,6 +255,21 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression collegeEq(College value) {
         return value == null ? null : club.college.eq(value);
+    }
+
+    /**
+     * 요청 사용자가 찜한 동아리만 통과시키는 exists 서브쿼리. null 이면 필터 미적용.
+     * ClubFavorite 의 @SQLRestriction(deleted_at IS NULL) 이 서브쿼리에도 적용되어
+     * 해제(soft-delete)된 찜은 자동 제외된다 — 별도 deletedAt 조건을 중복으로 두지 않는다.
+     */
+    private BooleanExpression favoritedBy(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return JPAExpressions.selectOne()
+                .from(clubFavorite)
+                .where(clubFavorite.club.eq(club), clubFavorite.user.id.eq(userId))
+                .exists();
     }
 
     private OrderSpecifier<?>[] applySort(ClubSortOption sortOption) {

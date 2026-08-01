@@ -32,7 +32,7 @@ class ClubSearchStatusFilterTest {
         saveClubWithStatus("활성동아리테스트", ClubStatus.ACTIVE);
 
         var page = clubRepository.findByCondition(
-                new ClubSearchCondition(null, null, "동아리테스트", null, null, null, null, null, null, null),
+                new ClubSearchCondition(null, null, "동아리테스트", null, null, null, null, null, null, null, null),
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())

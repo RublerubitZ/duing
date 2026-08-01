@@ -16,7 +16,9 @@ public record ClubSearchCondition(
         Boolean centralClub,
         College college,
         Set<DayOfWeek> activeDays,
-        ClubSortOption sortOption
+        ClubSortOption sortOption,
+        /** 이 사용자가 찜한 동아리만 통과. null = 필터 미적용. */
+        Long favoriteUserId
 ) {
     public boolean hasTags() {
         return tags != null && !tags.isEmpty();

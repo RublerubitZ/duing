@@ -45,6 +45,9 @@ public interface ClubApi {
             @Parameter(description = "활동요일 다중 (OR 매칭). 선택 요일 중 하나라도 포함하면 매칭. 미지정/전체 선택 시 필터 미적용.")
             @RequestParam(required = false) List<DayOfWeek> activeDays,
             @Parameter(description = "정렬 옵션 (DEADLINE_SOON / RECENT / ALPHABETICAL / POPULAR). 미지정 시 RECENT. POPULAR 는 활성 모집 지원자수 → 즐겨찾기수 → 활성 모집 시작일.") @RequestParam(required = false) ClubSortOption sort,
+            @Parameter(description = "true=요청 사용자가 찜한 동아리만. 로그인 필요 — 미인증 요청은 401. false/미지정=필터 미적용.")
+            @RequestParam(required = false) Boolean favorite,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
             @Parameter(hidden = true) Pageable pageable
     );
 

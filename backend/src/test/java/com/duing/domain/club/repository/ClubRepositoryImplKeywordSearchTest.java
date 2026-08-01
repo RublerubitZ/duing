@@ -102,7 +102,7 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
     private org.assertj.core.api.AbstractListAssert<?, java.util.List<? extends Long>, Long,
             org.assertj.core.api.ObjectAssert<Long>> assertSearch(String keyword) {
         ClubSearchCondition condition = new ClubSearchCondition(
-                null, null, keyword, null, null, null, null, null, null, ClubSortOption.ALPHABETICAL);
+                null, null, keyword, null, null, null, null, null, null, ClubSortOption.ALPHABETICAL, null);
         Page<Club> result = clubRepository.findByCondition(condition, PageRequest.of(0, 50));
         return assertThat(result.getContent()).extracting(Club::getId);
     }
