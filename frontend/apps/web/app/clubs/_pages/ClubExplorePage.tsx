@@ -185,7 +185,7 @@ export function ClubExplorePage() {
     <div>
       {/* ─── 데스크탑 (md+) — 기존 카드형 레이아웃(원본 유지) ─── */}
       <div className="hidden md:block">
-      <section className="bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
+      <section className="bg-cream px-4 sm:px-6 md:px-10 pt-page-top pb-7">
         <div className="max-w-layout mx-auto">
           <div className="flex items-end justify-between mb-7">
             <div>
@@ -520,7 +520,7 @@ export function ClubExplorePage() {
 
       {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
       <div className="md:hidden">
-        <section className="bg-cream px-4 pt-8 pb-4">
+        <section className="bg-cream px-4 pt-page-top pb-4">
           <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
         </section>

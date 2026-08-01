@@ -23,7 +23,7 @@ export default function TermsPage() {
       <ExploreNav slimOnMobile />
       <InfoTabs />
 
-      <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
+      <main className="mx-auto max-w-3xl px-5 pt-page-top pb-10 sm:pb-14">
         <h1 className="text-2xl font-bold text-ink-deep sm:text-3xl">이용약관 · 개인정보 처리방침</h1>
         <p className="mt-2 text-[13px] text-charcoal-3">시행일 · 최종 개정일: {EFFECTIVE_DATE}</p>
 

@@ -44,6 +44,14 @@
 
 :root {
   color-scheme: light;
+  /* GNB ↓ 첫 콘텐츠 공통 상단 여백 토큰 — tailwind `pt-page-top` 이 소비 (모바일 24px / md+ 32px) */
+  --page-top: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-top: 2rem;
+  }
 }
 
 body {
@@ -316,7 +324,7 @@ body {
       padding-right: 16px !important;
     }
     .cal-header {
-      padding-top: 28px !important;
+      /* padding-top 은 인라인 var(--page-top) 이 뷰포트별로 해소하므로 여기서 덮지 않는다 */
       padding-bottom: 16px !important;
     }
     .cal-header-row {

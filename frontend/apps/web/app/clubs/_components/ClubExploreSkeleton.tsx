@@ -68,7 +68,7 @@ export function ClubExploreSkeleton() {
     <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
       {/* 데스크탑 (md+) */}
       <div className="hidden md:block">
-        <section className="bg-cream px-4 sm:px-6 md:px-10 pt-11 pb-7">
+        <section className="bg-cream px-4 sm:px-6 md:px-10 pt-page-top pb-7">
           <div className="max-w-layout mx-auto space-y-4">
             <SkeletonBar className="h-8 w-72" />
             <div className="h-12 w-[360px] rounded-[14px] bg-graysoft" />
@@ -87,7 +87,7 @@ export function ClubExploreSkeleton() {
         {/* 본문(ClubExplorePage)이 제목 블록과 sticky 검색 바를 분리해 두었다.
             구조뿐 아니라 높이도 본문 실측에 맞춰야 로딩이 끝나는 순간 검색창이 튀지 않는다 —
             제목 섹션 내부 50.2px(아이브로우 16.5 + mt-1 4 + h1 29.7), 검색 폼 46px. */}
-        <section className="bg-cream px-4 pt-8 pb-4">
+        <section className="bg-cream px-4 pt-page-top pb-4">
           <SkeletonBar className="h-4 w-16" />
           <SkeletonBar className="mt-1.5 h-7 w-32" />
         </section>
