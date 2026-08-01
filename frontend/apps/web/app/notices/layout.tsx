@@ -10,11 +10,14 @@ import { ExploreNav } from '../_components/ExploreNav';
 // 하단 탭바 스페이서 56px 뿐이라, 안드로이드 크롬이 주소창·chin 을 접은 채 유지하는
 // 임계(뷰포트+브라우저 컨트롤 높이)에 못 미친다 → 정보 탭 진입마다 컨트롤이 강제로 펴지며
 // env(safe-area-inset-bottom)·뷰포트가 바뀌어 하단 탭바의 높이·배경 띠가 다른 탭과 달라 보인다.
-// lvh 는 문서를 항상 그 임계 위로 띄워 다른 탭(콘텐츠가 lvh 를 넘는)과 동일 기하로 만든다.
+// max-md:+3.5rem — lvh 플로어만으로는 접힌 상태 여유가 스페이서 56px 뿐이라 실기기에서
+// 진입 직후 컨트롤이 펴진 채 시작했다(플로어가 실제 바인딩되는 페이지는 정보 섹션에서 공지뿐).
+// 탭바 높이(3.5rem)만큼 더해 여유를 112px 로 — 실기기 정상 판정을 받은 시설 탭(110px)과 동일 밴드.
+// 데스크탑(md+)은 스페이서도 탭바도 없으므로 lvh 그대로 둬 불필요한 스크롤바를 만들지 않는다.
 // InfoTabs 는 공지 상세 미노출 정책이라 레이아웃이 아닌 각 허브 페이지가 렌더한다.
 export default function NoticesLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="duing min-h-lvh bg-cream">
+    <div className="duing min-h-lvh max-md:min-h-[calc(100lvh+3.5rem)] bg-cream">
       <ExploreNav slimOnMobile />
       {children}
     </div>

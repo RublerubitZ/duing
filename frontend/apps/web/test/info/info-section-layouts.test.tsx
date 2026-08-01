@@ -43,7 +43,14 @@ describe('정보 섹션 세그먼트 레이아웃', () => {
     const canvas = container.firstElementChild;
 
     expect(canvas).not.toBeNull();
-    expect(canvas).toHaveClass('duing', 'min-h-lvh', 'bg-cream');
+    // 모바일은 lvh+탭바 높이(3.5rem) 플로어 — 접힌 상태 스크롤 여유 112px(시설 탭과 동일 밴드).
+    // lvh 단독이면 여유가 스페이서 56px 뿐이라 실기기 공지 진입 직후 브라우저 컨트롤이 펴진 채 시작한다.
+    expect(canvas).toHaveClass(
+      'duing',
+      'min-h-lvh',
+      'max-md:min-h-[calc(100lvh+3.5rem)]',
+      'bg-cream',
+    );
     // dvh 로 되돌리면 콘텐츠가 한 화면인 허브(공지)의 스크롤 여유가 탭바 스페이서 56px 뿐이라
     // 안드로이드 크롬 주소창·chin 접힘 유지 임계에 못 미쳐, 정보 탭에서만 하단 탭바의
     // 높이·safe-area 가 달라 보이는 증상이 되살아난다(notices/layout.tsx 참조).
