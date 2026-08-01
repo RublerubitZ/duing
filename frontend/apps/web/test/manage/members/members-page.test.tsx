@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -178,8 +178,39 @@ describe('ClubMembersPage — 상세 열기', () => {
 });
 
 describe('ClubMembersPage — 권한 게이트', () => {
-  it('OFFICER 뷰어에겐 선택 체크박스와 일괄 툴바가 없다', async () => {
+  it('OFFICER 뷰어는 기수 사용 시 선택할 수 있고 벌크 툴바엔 기수 변경만 노출된다', async () => {
     setupHandlers({ useGeneration: true, myRole: 'OFFICER' });
+    renderPage();
+
+    const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
+    await userEvent.click(selectYoung!);
+
+    const toolbar = await screen.findByRole('region', { name: '회원 일괄 작업' });
+    expect(within(toolbar).getByRole('button', { name: /기수 변경/ })).toBeInTheDocument();
+    // 승급·강등·탈퇴는 회장 전용 — OFFICER 툴바에는 없다.
+    expect(within(toolbar).queryByRole('button', { name: /임원 승급/ })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole('button', { name: /부원 강등/ })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole('button', { name: '탈퇴' })).not.toBeInTheDocument();
+    // 명단 다운로드는 기존대로 운영진 공통.
+    expect(screen.getByRole('button', { name: '멤버 명단 다운로드' })).toBeInTheDocument();
+  });
+
+  it('LEADER 뷰어는 기수 미사용이어도 선택·벌크 툴바(승급·강등·탈퇴)를 유지한다', async () => {
+    setupHandlers({ useGeneration: false, myRole: 'LEADER' });
+    renderPage();
+
+    const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
+    await userEvent.click(selectYoung!);
+
+    const toolbar = await screen.findByRole('region', { name: '회원 일괄 작업' });
+    expect(within(toolbar).getByRole('button', { name: /임원 승급/ })).toBeInTheDocument();
+    expect(within(toolbar).getByRole('button', { name: /부원 강등/ })).toBeInTheDocument();
+    expect(within(toolbar).getByRole('button', { name: '탈퇴' })).toBeInTheDocument();
+    expect(within(toolbar).queryByRole('button', { name: /기수 변경/ })).not.toBeInTheDocument();
+  });
+
+  it('OFFICER 뷰어 + 기수 미사용이면 선택 체크박스와 일괄 툴바가 없다 — 실행 가능한 벌크 액션이 없다', async () => {
+    setupHandlers({ useGeneration: false, myRole: 'OFFICER' });
     renderPage();
 
     // 로드 완료 대기(회원 이름은 표·카드로 2회 등장).
@@ -187,8 +218,6 @@ describe('ClubMembersPage — 권한 게이트', () => {
     expect(screen.queryByRole('checkbox', { name: '전체 선택' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
-    // 역할 변경·강퇴만 회장 전용이다 — 명단 다운로드는 OFFICER 에게도 열려 있다.
-    expect(screen.getByRole('button', { name: '멤버 명단 다운로드' })).toBeInTheDocument();
   });
 });
 

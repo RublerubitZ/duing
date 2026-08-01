@@ -58,7 +58,9 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     @Override
     @Transactional
     public void updateGeneration(UpdateMemberGenerationCommand command) {
-        clubAuthService.requireLeader(command.requesterId(), command.clubId());
+        // 기수는 권한과 무관한 표시용 메타라 운영진(LEADER/OFFICER) 공통. 역할 변경·강퇴와 달리
+        // 회장 행 대상 제한(CannotModifyLeader)을 두지 않는 것도 의도된 정책이다.
+        clubAuthService.requireManager(command.requesterId(), command.clubId());
 
         // use_generation 은 표시 제어 전용 — 저장 게이트가 아니므로 검사하지 않고 항상 저장한다.
         if (command.generation() != null && command.generation() < 1) {

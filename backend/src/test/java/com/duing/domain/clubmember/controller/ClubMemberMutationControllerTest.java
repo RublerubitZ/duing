@@ -264,6 +264,28 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영 중단된 동아리에서는 운영진도 기수를 변경할 수 없다")
+    void inactiveClubCannotChangeGeneration() {
+        // requireManager 도 운영 행위 게이트(ACTIVE)를 내장한다 — 커스텀 체크로 리팩터링돼 게이트가 빠지면 잡는다.
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 2))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.FORBIDDEN.value())
+                    .body("message", equalTo("운영 종료된 동아리입니다."));
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isNull();
+    }
+
+    @Test
     @DisplayName("MEMBER 가 기수 변경을 시도하면 403 을 반환한다")
     void patchGenerationAsMemberForbidden() {
         RestAssured
@@ -279,8 +301,8 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("OFFICER 가 기수 변경을 시도하면 403 을 반환한다")
-    void patchGenerationAsOfficerForbidden() {
+    @DisplayName("OFFICER 가 멤버 기수를 지정하면 204 를 반환하고 기수가 저장된다")
+    void patchGenerationAsOfficer() {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
@@ -290,7 +312,31 @@ class ClubMemberMutationControllerTest extends IntegrationTestBase {
                     .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
                             club.getId(), memberMembership.getId())
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.findById(memberMembership.getId()).orElseThrow().getGeneration())
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("OFFICER 가 회장 행의 기수도 변경할 수 있다 — 기수는 표시용 메타라 대상 제한이 없다")
+    void patchGenerationAsOfficerOnLeaderRow() {
+        ClubMember leaderMembership = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), leaderUser.getId()).orElseThrow();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("generation", 1))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}/members/{memberId}/generation",
+                            club.getId(), leaderMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.findById(leaderMembership.getId()).orElseThrow().getGeneration())
+                .isEqualTo(1);
     }
 
     // ── 3.5 DELETE member ────────────────────────────────────────────────

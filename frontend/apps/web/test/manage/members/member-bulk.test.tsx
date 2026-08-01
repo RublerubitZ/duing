@@ -147,6 +147,7 @@ function renderToolbar(props: Partial<Parameters<typeof MemberBulkToolbar>[0]> =
         members={[LEADER, M2, M3]}
         selectedIds={new Set([1, 2, 3])}
         useGeneration
+        viewerRole="LEADER"
         onDone={onDone}
         {...props}
       />,
@@ -189,6 +190,31 @@ describe('MemberBulkToolbar — 동일 역할 회원 제외(no-op 감사 방지)
     const status = await screen.findByRole('status');
     expect(within(status).getByText(/1명 처리/)).toBeInTheDocument();
     expect(within(status).getByText(/이미 임원 1명은 제외했어요/)).toBeInTheDocument();
+  });
+});
+
+describe('MemberBulkToolbar — OFFICER 뷰어', () => {
+  it('기수 변경만 노출되고 승급·강등·탈퇴 버튼이 없다', () => {
+    renderToolbar({ viewerRole: 'OFFICER' });
+
+    expect(screen.getByRole('button', { name: /기수 변경/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /임원 승급/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /부원 강등/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '탈퇴' })).not.toBeInTheDocument();
+  });
+
+  it('기수 일괄 변경은 회장 행을 포함해 선택 전원에게 실행된다', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ viewerRole: 'OFFICER' });
+
+    await user.click(screen.getByRole('button', { name: /기수 변경/ }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('기수'), '7');
+    await user.click(within(dialog).getByRole('button', { name: '변경' }));
+
+    await waitFor(() => expect(generationCalls.length).toBe(3));
+    expect(generationCalls.map((call) => call.memberId).sort()).toEqual([1, 2, 3]);
+    expect(generationCalls.every((call) => call.generation === 7)).toBe(true);
   });
 });
 

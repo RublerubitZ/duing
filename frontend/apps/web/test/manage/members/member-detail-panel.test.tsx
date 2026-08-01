@@ -368,19 +368,31 @@ describe('MemberDetailPanel — 권한 게이트', () => {
     expect(screen.getByText('관리')).toBeInTheDocument();
   });
 
-  it('OFFICER 뷰어는 타인 행에서 관리 섹션이 숨겨진다', () => {
+  it('OFFICER 뷰어는 타인 행에서 기수 수정만 보이고 회장 전용 액션은 없다', () => {
     renderPanel({ viewerRole: 'OFFICER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
-    expect(screen.queryByText('관리')).not.toBeInTheDocument();
+    expect(screen.getByText('기수 수정')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '임원으로 승급' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '강퇴' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '회장 인계' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '탈퇴' })).not.toBeInTheDocument();
   });
 
-  it('OFFICER 뷰어는 본인 행에서 탈퇴만 노출한다', () => {
+  it('OFFICER 뷰어 + useGeneration=false 면 타인 행에서 관리 섹션 자체가 없다', () => {
+    renderPanel({
+      viewerRole: 'OFFICER',
+      viewerUserId: 999,
+      useGeneration: false,
+      member: member({ role: 'MEMBER' }),
+    });
+    expect(screen.queryByText('관리')).not.toBeInTheDocument();
+  });
+
+  it('OFFICER 뷰어는 본인 행에서 기수 수정과 탈퇴를 본다', () => {
     renderPanel({
       viewerRole: 'OFFICER',
       viewerUserId: 100,
       member: member({ userId: 100, role: 'OFFICER' }),
     });
+    expect(screen.getByText('기수 수정')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '탈퇴' })).toBeInTheDocument();
     // 회장 전용 관리 액션은 노출되지 않는다.
     expect(screen.queryByRole('button', { name: '회장 인계' })).not.toBeInTheDocument();
@@ -411,6 +423,15 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
 
     const input = screen.getByLabelText('기수 수정');
     fireEvent.change(input, { target: { value: '12' } });
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(capturedGenerationBody).toEqual({ generation: 12 }));
+  });
+
+  it('OFFICER 뷰어의 기수 저장도 generation PATCH 를 보낸다 — 기수 수정은 운영진 공통', async () => {
+    renderPanel({ viewerRole: 'OFFICER', viewerUserId: 999, member: member({ generation: 3 }) });
+
+    fireEvent.change(screen.getByLabelText('기수 수정'), { target: { value: '12' } });
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     await waitFor(() => expect(capturedGenerationBody).toEqual({ generation: 12 }));
