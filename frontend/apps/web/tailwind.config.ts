@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       spacing: {
-        // GNB ↓ 첫 콘텐츠 공통 상단 여백 — 값은 globals.css :root --page-top (모바일 16px / md+ 24px)
+        // GNB ↓ 첫 콘텐츠 공통 상단 여백 — 값은 globals.css :root --page-top (모바일 12px / md+ 24px)
         'page-top': 'var(--page-top)',
       },
       colors: {
