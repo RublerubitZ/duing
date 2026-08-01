@@ -2,7 +2,6 @@
 
 import { Link } from 'next-view-transitions';
 
-import { SparkleFull } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
@@ -109,7 +108,6 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           aria-label={`${club.name} 로고`}
         >
           <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
-          <SparkleFull size={12} color="#9DB6A0" className="absolute -top-1 -right-1" />
         </div>
 
         {/* 계층 2 — 소속은 우측 상단 속성 자리(이름과 경쟁 금지), 하트는 그 옆 코너 액션. */}
