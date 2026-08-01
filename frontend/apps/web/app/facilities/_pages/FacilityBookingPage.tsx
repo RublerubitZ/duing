@@ -398,7 +398,7 @@ export function FacilityBookingPage() {
   const showSidebar = calendarView === 'week' && panel !== null;
 
   return (
-    <main className="mx-auto max-w-layout px-4 pb-16 pt-8 sm:px-6 md:px-10">
+    <main className="mx-auto max-w-layout px-4 pb-16 pt-page-top sm:px-6 md:px-10">
       {usageQuery.isLoading && <BookingHomeSkeleton />}
       {usageQuery.isError && (
         <p role="alert" className="text-sm text-charcoal-2">시설 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>

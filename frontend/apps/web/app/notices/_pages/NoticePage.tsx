@@ -263,7 +263,7 @@ export function NoticePage() {
       <InfoTabs />
 
       <div
-        className="mx-auto grid grid-cols-1 items-start gap-7 px-4 pb-20 pt-8 md:grid-cols-[220px_1fr] md:gap-10 md:px-10"
+        className="mx-auto grid grid-cols-1 items-start gap-7 px-4 pb-20 pt-page-top md:grid-cols-[220px_1fr] md:gap-10 md:px-10"
         style={{ maxWidth: 1280 }}
       >
         {/* ===== Left sidebar (데스크탑 전용 — 모바일은 태그 칩이 카테고리 필터 제공) ===== */}

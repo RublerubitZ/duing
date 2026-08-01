@@ -153,7 +153,7 @@ export function FaqPage() {
       <ExploreNav slimOnMobile />
       <InfoTabs />
 
-      <div className="max-w-layout mx-auto px-4 pb-20 pt-8 sm:px-6 md:px-10">
+      <div className="max-w-layout mx-auto px-4 pb-20 pt-page-top sm:px-6 md:px-10">
         <div className="mb-7">
           <h1 className="text-[32px] md:text-[40px]">자주 묻는 질문</h1>
           <p className="mt-2 text-[14px] text-charcoal-2 md:text-[15px]">

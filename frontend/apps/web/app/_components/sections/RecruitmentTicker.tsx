@@ -40,7 +40,7 @@ export async function RecruitmentTicker() {
   const durationSeconds = Math.max(12, Math.round(items.length * 2.6));
 
   return (
-    <section className="relative mt-8 overflow-hidden bg-ink-deep py-5 text-white sm:mt-16">
+    <section className="relative mt-7 overflow-hidden bg-ink-deep py-5 text-white sm:mt-14">
       <div className="max-w-layout mx-auto flex items-center gap-6 px-4 sm:px-6 md:px-10">
         <div
           className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold tracking-wide04 text-sage"
