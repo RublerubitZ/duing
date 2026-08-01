@@ -69,6 +69,9 @@ export default function ClubMembersPage({
   const viewerRole = managedClub.myRole;
   const isLeader = viewerRole === 'LEADER';
   const useGeneration = clubDetail?.useGeneration ?? false;
+  // 선택·벌크 툴바: 회장은 전체 액션, 임원(OFFICER)은 기수 일괄 변경만 —
+  // 기수를 안 쓰는 동아리의 임원에겐 실행 가능한 벌크 액션이 없어 선택 UI 자체를 닫는다.
+  const bulkEnabled = isLeader || useGeneration;
   const memberList = members ?? [];
   const generations = availableGenerations(memberList);
   // 사라진 기수를 가리키는 필터는 렌더 시점에 무효화 — 상태를 되돌리지 않아도 화면과 목록이 어긋나지 않는다.
@@ -139,14 +142,16 @@ export default function ClubMembersPage({
 
   return (
     <div
-      // isLeader 시 하단 여백: 선택하면 나타나는 fixed 벌크 툴바가 콘텐츠를 가리지 않도록 자리 확보(레이아웃 점프 회피).
-      className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', isLeader && 'pb-28')}
+      // 벌크 툴바 사용 가능 시 하단 여백: 선택하면 나타나는 fixed 툴바가 콘텐츠를 가리지 않도록 자리 확보(레이아웃 점프 회피).
+      className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', bulkEnabled && 'pb-28')}
     >
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">회원 관리</h1>
           <p className="mt-1 text-sm text-charcoal-3">
-            회원을 검색·필터하고, 회장은 역할 변경·탈퇴·회장 인계를 할 수 있습니다.
+            {useGeneration
+              ? '회원을 검색·필터하고 기수를 정리할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'
+              : '회원을 검색·필터할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -199,7 +204,7 @@ export default function ClubMembersPage({
             onToggleAll={toggleAll}
             onOpenDetail={openDetail}
             query={query}
-            selectable={isLeader}
+            selectable={bulkEnabled}
           />
         </div>
         <div className="lg:sticky lg:top-4">
@@ -219,12 +224,13 @@ export default function ClubMembersPage({
         </div>
       </div>
 
-      {isLeader && (
+      {bulkEnabled && (
         <MemberBulkToolbar
           clubId={currentClubId}
           selectedIds={selectedIds}
           members={filtered}
           useGeneration={useGeneration}
+          viewerRole={viewerRole}
           onDone={() => setSelectedIds(new Set())}
         />
       )}

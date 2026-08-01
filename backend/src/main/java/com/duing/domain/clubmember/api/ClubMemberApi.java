@@ -82,8 +82,9 @@ public interface ClubMemberApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "멤버 기수 변경 (LEADER)",
-            description = "generation 을 지정하거나 null 로 비운다. use_generation 표시 설정과 무관하게 저장된다.")
+    @Operation(summary = "멤버 기수 변경 (LEADER/OFFICER)",
+            description = "운영진(LEADER/OFFICER) 전용. generation 을 지정하거나 null 로 비운다. "
+                    + "use_generation 표시 설정과 무관하게 저장되며, 회장 행도 대상 제한 없이 변경할 수 있다.")
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/clubs/{clubId}/members/{memberId}/generation")
     ResponseEntity<Void> updateMemberGeneration(
