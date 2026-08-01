@@ -128,7 +128,7 @@ class ClubSearchPopularSortTest {
 
         ClubSearchCondition condition = new ClubSearchCondition(
                 null, null, "popAvail", null, null,
-                RecruitmentStatusFilter.AVAILABLE, null, null, null, ClubSortOption.POPULAR);
+                RecruitmentStatusFilter.AVAILABLE, null, null, null, ClubSortOption.POPULAR, null);
 
         List<Club> page = clubRepository.findByCondition(condition, PageRequest.of(0, 50)).getContent();
 
@@ -189,7 +189,7 @@ class ClubSearchPopularSortTest {
 
     private ClubSearchCondition conditionPopular(String keyword) {
         return new ClubSearchCondition(
-                null, null, keyword, null, null, null, null, null, null, ClubSortOption.POPULAR);
+                null, null, keyword, null, null, null, null, null, null, ClubSortOption.POPULAR, null);
     }
 
     private Club saveActiveClub(String name) throws Exception {
