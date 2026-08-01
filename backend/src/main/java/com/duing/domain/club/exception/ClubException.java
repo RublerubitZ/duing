@@ -38,6 +38,15 @@ public class ClubException extends ApplicationException {
         }
     }
 
+    /** 찜 필터는 "요청 사용자의 찜"이 기준 — 비로그인은 기준 자체가 없어 빈 목록(200)이 아니라 401 로 구분한다. */
+    public static class FavoriteFilterLoginRequiredException extends ClubException {
+        private static final String MESSAGE = "찜한 동아리 필터는 로그인이 필요합니다.";
+
+        public FavoriteFilterLoginRequiredException() {
+            super(MESSAGE, HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     public static class ClubNotClosableException extends ClubException {
         public ClubNotClosableException(String currentStatus) {
             super("운영 중단(INACTIVE) 또는 거절(REJECTED) 상태의 동아리만 폐쇄할 수 있습니다. 현재 상태: " + currentStatus,

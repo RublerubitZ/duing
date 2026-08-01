@@ -3,11 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NoticeCardItem } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
-// ExploreNav 는 usePathname 을 사용하므로 간단히 교체
-vi.mock('../../app/_components/ExploreNav', () => ({
-  ExploreNav: () => <nav aria-label="탐색 네비게이션" />,
-}));
-
+// ExploreNav 는 notices/layout.tsx 소유라 페이지 렌더에 포함되지 않는다(스텁 불필요).
 vi.mock('../../app/_components/InfoTabs', () => ({
   InfoTabs: () => <nav aria-label="정보" />,
 }));
@@ -143,14 +139,19 @@ describe('NoticesPage', () => {
     expect(screen.getByText(/알고리즘 동아리/)).toBeInTheDocument();
   });
 
-  // 100vh 로 되돌리면 안드로이드 크롬에서 문서가 화면보다 길어져 fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
-  it('페이지 루트 높이는 100vh 가 아닌 100dvh 를 쓴다', () => {
+  // 크림 캔버스(min-h-lvh)는 notices/layout.tsx 가 소유한다 — 로딩 경계 밖에서 유지되도록
+  // (레이아웃 쪽 단언은 test/info/info-section-layouts.test.tsx). 여기서는 페이지가 100vh 를
+  // 되살리지 않는지만 지킨다 — 100vh 는 안드로이드 크롬에서 문서를 화면보다 길게 만들어
+  // fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
+  it('페이지 루트는 100vh 높이를 쓰지 않는다', () => {
     mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
 
     const { container } = render(<NoticesPage />);
-    const root = container.firstElementChild as HTMLElement;
+    const root = container.firstElementChild;
 
-    expect(root).toHaveClass('min-h-dvh');
-    expect(root.getAttribute('style') ?? '').not.toContain('100vh');
+    expect(root).not.toBeNull();
+    // h-screen·min-h-screen 은 Tailwind 에서 100vh 로 컴파일된다 — 재도입의 현실적 벡터.
+    expect(root?.className ?? '').not.toMatch(/\b(h-screen|min-h-screen)\b/);
+    expect(root?.getAttribute('style') ?? '').not.toContain('100vh');
   });
 });

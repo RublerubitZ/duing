@@ -353,7 +353,8 @@ type ManagementSectionProps = {
   onTransferLeader: (target: ClubMember) => void;
 };
 
-// 관리 액션은 LEADER 전용(BE 가 OFFICER 403). OFFICER 뷰어에겐 본인 탈퇴만 노출한다.
+// 역할 변경·강퇴·회장 인계는 LEADER 전용(BE 가 OFFICER 403). 기수 수정은 운영진(LEADER/OFFICER) 공통 —
+// OFFICER 뷰어에겐 기수 수정과 본인 탈퇴만 노출한다.
 function ManagementSection({
   member,
   clubId,
@@ -406,33 +407,37 @@ function ManagementSection({
     }
   }
 
-  // OFFICER 뷰어: 본인 탈퇴만. 타인은 읽기 전용(관리 섹션 숨김).
+  // OFFICER 뷰어: 기수 수정(운영진 공통) + 본인 탈퇴만. 그 외 관리 액션은 숨김.
   if (!isLeaderViewer) {
-    if (viewerRole === 'OFFICER' && isSelf) {
-      return (
-        <section>
-          <SectionTitle>관리</SectionTitle>
-          <button
-            type="button"
-            onClick={() => setShowLeaveConfirm(true)}
-            className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
-          >
-            탈퇴
-          </button>
-          {error && <p className="mt-2 text-xs text-coral">{error}</p>}
-          <ConfirmDialog
-            open={showLeaveConfirm}
-            title="동아리를 탈퇴할까요?"
-            description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
-            confirmLabel="탈퇴"
-            isPending={leaveClub.isPending}
-            onConfirm={confirmLeave}
-            onCancel={() => setShowLeaveConfirm(false)}
-          />
-        </section>
-      );
-    }
-    return null;
+    if (viewerRole !== 'OFFICER') return null;
+    if (!useGeneration && !isSelf) return null;
+    return (
+      <section>
+        <SectionTitle>관리</SectionTitle>
+        {useGeneration && <GenerationEditor member={member} clubId={clubId} />}
+        {isSelf && (
+          <div className={cn(useGeneration && 'mt-3')}>
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(true)}
+              className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+            >
+              탈퇴
+            </button>
+            {error && <p className="mt-2 text-xs text-coral">{error}</p>}
+            <ConfirmDialog
+              open={showLeaveConfirm}
+              title="동아리를 탈퇴할까요?"
+              description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
+              confirmLabel="탈퇴"
+              isPending={leaveClub.isPending}
+              onConfirm={confirmLeave}
+              onCancel={() => setShowLeaveConfirm(false)}
+            />
+          </div>
+        )}
+      </section>
+    );
   }
 
   return (

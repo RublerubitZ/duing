@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 
-import { ExploreNav } from '@/app/_components/ExploreNav';
 import { InfoTabs } from '@/app/_components/InfoTabs';
 import { HomeFooter } from '@/app/_components/HomeFooter';
 
@@ -19,11 +18,12 @@ const RETENTION_PERIOD = '탈퇴 후 45일';
 
 export default function TermsPage() {
   return (
-    <div className="duing min-h-dvh bg-cream">
-      <ExploreNav slimOnMobile />
+    // 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 terms/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
+    // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(InfoTabs)면 라우터 자동 스크롤 기준에서 제외된다.
+    <div>
       <InfoTabs />
 
-      <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
+      <main className="mx-auto max-w-3xl px-5 pt-page-top pb-10 sm:pb-14">
         <h1 className="text-2xl font-bold text-ink-deep sm:text-3xl">이용약관 · 개인정보 처리방침</h1>
         <p className="mt-2 text-[13px] text-charcoal-3">시행일 · 최종 개정일: {EFFECTIVE_DATE}</p>
 

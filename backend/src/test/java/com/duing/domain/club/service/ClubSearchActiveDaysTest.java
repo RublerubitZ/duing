@@ -34,7 +34,7 @@ class ClubSearchActiveDaysTest {
 
         var page = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "테스트", null, null, null, null, null,
-                        Set.of(DayOfWeek.MONDAY), null),
+                        Set.of(DayOfWeek.MONDAY), null, null),
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
@@ -53,7 +53,7 @@ class ClubSearchActiveDaysTest {
 
         var page = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "ORTEST", null, null, null, null, null,
-                        Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY), null),
+                        Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY), null, null),
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
@@ -74,7 +74,7 @@ class ClubSearchActiveDaysTest {
 
         var filtered = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "NULLTEST", null, null, null, null, null,
-                        Set.of(DayOfWeek.MONDAY), null),
+                        Set.of(DayOfWeek.MONDAY), null, null),
                 PageRequest.of(0, 50));
 
         assertThat(filtered.getContent())
@@ -84,7 +84,7 @@ class ClubSearchActiveDaysTest {
 
         var unfiltered = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "NULLTEST", null, null, null, null, null,
-                        null, null),
+                        null, null, null),
                 PageRequest.of(0, 50));
 
         assertThat(unfiltered.getContent())
@@ -100,7 +100,7 @@ class ClubSearchActiveDaysTest {
 
         var page = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "EMPTYTEST", null, null, null, null, null,
-                        Set.of(DayOfWeek.MONDAY), null),
+                        Set.of(DayOfWeek.MONDAY), null, null),
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
@@ -121,7 +121,7 @@ class ClubSearchActiveDaysTest {
 
         var page = clubRepository.findByCondition(
                 new ClubSearchCondition(null, null, "SEVENTEST", null, null, null, null, null,
-                        allSeven, null),
+                        allSeven, null, null),
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())

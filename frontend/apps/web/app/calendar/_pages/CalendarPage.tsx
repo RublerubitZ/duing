@@ -305,7 +305,7 @@ export function CalendarPage() {
       )}
 
       {/* ===== Header ===== */}
-      <section className="cal-section cal-header" style={{ padding: '48px 40px 28px' }}>
+      <section className="cal-section cal-header" style={{ padding: 'var(--page-top) 40px 28px' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>

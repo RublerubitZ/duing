@@ -68,7 +68,7 @@ export function Hero() {
   return (
     <section className="bg-grid relative overflow-hidden">
       <HeroBackdrop />
-      <div className="relative z-10 mx-auto grid max-w-layout items-center gap-10 px-4 pb-16 pt-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-14 md:px-10 md:pb-24 md:pt-16">
+      <div className="relative z-10 mx-auto grid max-w-layout items-center gap-10 px-4 pb-16 pt-6 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:gap-14 md:px-10 md:pb-24 md:pt-8">
         {/* ── 텍스트 (은은한 패럴랙스) ── */}
         <HeroParallax y={[0, -16]} scale={[1, 1]}>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink">

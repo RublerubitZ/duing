@@ -1,6 +1,6 @@
 import type { ClubSummaryRecruitment } from '@duing/types';
 
-export const DIVISIONS = ['문화예술', '사회', '전시창작', '종교', '학술'] as const;
+export const DIVISIONS = ['문화예술', '사회', '스포츠레저', '전시창작', '종교', '학술'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
 export type ClubScope = '중앙' | '학과';

@@ -122,6 +122,7 @@ export type ClubSearchParams = {
   centralClub?: boolean;
   college?: College;
   activeDays?: ClubDayOfWeek[];
+  favorite?: boolean;
   page?: number;
   size?: number;
   sort?: string;

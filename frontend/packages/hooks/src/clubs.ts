@@ -32,13 +32,14 @@ export function useMyClubsQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useClubListQuery(params: ClubSearchParams = {}) {
+export function useClubListQuery(params: ClubSearchParams = {}, options?: { enabled?: boolean }) {
   const client = useApiClient();
   return useQuery({
     queryKey: clubQueryKeys.list(params),
     queryFn: () => client.clubs.list(params),
     // 필터·페이지 변경 시 스켈레톤으로 리셋하지 않고 이전 목록을 유지한 채 갱신한다.
     placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
   });
 }
 

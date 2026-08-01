@@ -5,6 +5,7 @@ import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.controller.dto.response.ClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
@@ -49,12 +50,22 @@ public class ClubController implements ClubApi {
             @RequestParam(required = false) College college,
             @RequestParam(required = false) List<DayOfWeek> activeDays,
             @RequestParam(required = false) ClubSortOption sort,
+            @RequestParam(required = false) Boolean favorite,
+            @AuthenticationPrincipal UserPrincipal currentUser,
             Pageable pageable
     ) {
+        boolean favoriteOnly = Boolean.TRUE.equals(favorite);
+        if (favoriteOnly && currentUser == null) {
+            // 찜 필터의 기준은 "요청 사용자의 찜" — 비로그인은 기준이 없다. 빈 목록으로 얼버무리면
+            // "찜 0건(200)"과 구분이 안 되므로 401 로 구분한다. handleApplicationException 이
+            // 401 + 예외 메시지를 그대로 응답에 싣는다 — 새 에러코드(code)는 만들지 않는다.
+            throw new ClubException.FavoriteFilterLoginRequiredException();
+        }
+        Long favoriteUserId = favoriteOnly ? currentUser.id() : null;
         Set<DayOfWeek> activeDaysSet = activeDays == null ? null : Set.copyOf(activeDays);
         ClubSearchCondition condition = new ClubSearchCondition(
                 category, division, keyword, tags, recruiting, recruitmentStatus,
-                centralClub, college, activeDaysSet, sort);
+                centralClub, college, activeDaysSet, sort, favoriteUserId);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));

@@ -9,7 +9,7 @@ export async function HomeQnaSection() {
   if (faqs.length === 0) return null; // BE 폴백·데이터 없음 → 섹션 미렌더(RecruitmentTicker 동일 패턴)
 
   return (
-    <section className="px-4 sm:px-6 md:px-10 py-8 sm:py-16">
+    <section className="px-4 sm:px-6 md:px-10 py-6 sm:py-12">
       <div className="max-w-layout mx-auto">
         <div className="mb-9">
           <h2 className="text-[26px] sm:text-[36px] md:text-[44px]">자주 묻는 질문</h2>
