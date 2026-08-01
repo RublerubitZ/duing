@@ -141,6 +141,7 @@ export function ClubExplorePage() {
     return status === 'OPEN' || status === 'ALWAYS_OPEN';
   }).length;
   const activeFilterCount =
+    (params.favorite ? 1 : 0) +
     (params.recruitment !== 'all' ? 1 : 0) +
     (params.scope !== '전체' ? 1 : 0) +
     (params.division !== '전체' ? 1 : 0) +
@@ -150,7 +151,9 @@ export function ClubExplorePage() {
       activeFilterCount(모바일 배지)와 다른 이유: ① keyword·category 를 배지는 안 세지만
       칩으로는 그린다 ② 분과 칩은 중앙 스코프에서만 그려지므로 scope 조건이 겸한다(별도
       division 조건을 두면 수동 URL ?division=… 에서 칩 없는 "필터:" 고아 행이 생긴다)
-      ③ 요일은 전체 선택 시 칩을 안 그린다. */
+      ③ 요일은 전체 선택 시 칩을 안 그린다 ④ 찜은 배지엔 세지만(모바일에선 바텀시트 안에만
+      있어 배지가 유일한 상태 표시) 칩으로는 안 그린다 — 데스크탑은 찜 토글 칩이 상시
+      노출되어 그 자체가 상태 표시다. */
   const hasActiveFilterChips =
     params.scope !== '전체' ||
     params.keyword !== '' ||
@@ -630,7 +633,6 @@ export function ClubExplorePage() {
             지금 <span className="font-bold text-ink">{recruitingCount}곳</span> 모집 중
           </div>
           <div className="flex items-center gap-2">
-            <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
@@ -743,6 +745,10 @@ export function ClubExplorePage() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-5">
+            <MFilterGroup title="찜">
+              <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
+            </MFilterGroup>
+
             <MFilterGroup title="모집 상태">
               {(['available', 'upcoming', 'closed'] as const).map((value) => (
                 <FilterChip
