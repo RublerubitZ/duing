@@ -29,7 +29,7 @@ const CATEGORY_ICON: Record<ClubCategory, LucideIcon> = {
 
 export function Categories() {
   return (
-    <section className="px-4 sm:px-6 md:px-10 pb-8 pt-10 sm:pb-10 sm:pt-24">
+    <section className="px-4 sm:px-6 md:px-10 pb-6 pt-8 sm:pb-8 sm:pt-20">
       <div className="max-w-layout mx-auto">
         <div className="mb-6 flex flex-col items-start gap-2 sm:mb-9 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
           <div>
