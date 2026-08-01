@@ -17,6 +17,8 @@ export type ExploreParams = {
   category: ClubCategory | null;
   activeDays: ClubDayOfWeek[];
   sort: SortKey;
+  /** 찜한 동아리만 — 로그인 필요. 비로그인 딥링크는 페이지에서 쿼리를 게이트한다. */
+  favorite: boolean;
   /** 1-based 페이지 — URL 표기와 일치. API 호출 시 -1. */
   page: number;
 };
@@ -30,6 +32,7 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   category: null,
   activeDays: [],
   sort: 'RECENT',
+  favorite: false,
   page: 1,
 };
 
@@ -112,10 +115,14 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
 
   const activeDays = search.getAll('activeDays').filter(isClubDayOfWeek);
 
+  const favorite = search.get('favorite') === 'true';
+
   const rawPage = Number(search.get('page'));
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
 
-  return { scope, division, keyword, recruitment, college, category, activeDays, sort, page };
+  return {
+    scope, division, keyword, recruitment, college, category, activeDays, sort, favorite, page,
+  };
 }
 
 export function serializeExploreParams(params: ExploreParams): string {
@@ -128,6 +135,7 @@ export function serializeExploreParams(params: ExploreParams): string {
   if (params.category) next.set('category', params.category);
   params.activeDays.forEach((day) => next.append('activeDays', day));
   if (params.sort !== 'RECENT') next.set('sort', params.sort);
+  if (params.favorite) next.set('favorite', 'true');
   if (params.page > 1) next.set('page', String(params.page));
   return next.toString();
 }
@@ -162,7 +170,25 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
     category: params.category ?? undefined,
     activeDays,
     sort: params.sort,
+    favorite: params.favorite || undefined,
     page: Math.max(0, params.page - 1),
     size: pageSize,
   };
+}
+
+/**
+ * favorite·page·sort 를 제외한 나머지 필터 중 하나라도 기본값이 아니면 true.
+ * 찜 필터 빈 결과가 "찜이 없어서"인지 "조합 조건이 걸러서"인지 빈 상태 문구를 가른다.
+ * 요일 전체(7개) 선택은 toApiParams 와 동일하게 필터 미적용으로 본다.
+ */
+export function hasNonFavoriteFilters(params: ExploreParams): boolean {
+  return (
+    params.scope !== '전체' ||
+    params.division !== '전체' ||
+    params.keyword !== '' ||
+    params.recruitment !== 'all' ||
+    params.college !== null ||
+    params.category !== null ||
+    (params.activeDays.length > 0 && params.activeDays.length < DAY_OF_WEEK.length)
+  );
 }

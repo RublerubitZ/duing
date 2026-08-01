@@ -2,6 +2,7 @@ import type { FavoriteIds } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
+import { clubQueryKeys } from './clubQueryKeys';
 import { favoriteQueryKeys } from './favoriteQueryKeys';
 
 type FavoriteToggleContext = {
@@ -67,6 +68,9 @@ export function useFavoriteToggleMutation() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.ids() });
       queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.all });
+      // 동아리 목록은 찜에 의존한다(찜 필터 결과·POPULAR 정렬 tier) — 토글 후 재검증해
+      // 총 개수·페이지 구성을 서버와 동기화한다. 활성 쿼리만 즉시 refetch 되므로 비용은 국소적.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
     },
   });
 }

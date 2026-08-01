@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
@@ -24,6 +25,7 @@ import {
   DEFAULT_EXPLORE_PARAMS,
   RECRUITMENT_LABEL,
   categoryLabel,
+  hasNonFavoriteFilters,
   parseExploreParams,
   serializeExploreParams,
   toApiParams,
@@ -72,6 +74,11 @@ const Icon = {
       <line x1="10" y1="17" x2="14" y2="17" />
     </svg>
   ),
+  heart: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  ),
 };
 
 export function ClubExplorePage() {
@@ -96,17 +103,36 @@ export function ClubExplorePage() {
     [params, router],
   );
 
-  const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE));
+  const authStatus = useAuthStore((state) => state.status);
+  /** 찜 필터 + 비인증(idle 포함) — 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
+      플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
+  const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
+  const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
+    enabled: !requiresLoginForFavorite,
+  });
   const favoriteIdsQuery = useFavoriteIdsQuery();
   const favoriteToggle = useFavoriteToggleMutation();
-  const authStatus = useAuthStore((state) => state.status);
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
-  const visibleClubs = useMemo(
-    () => (clubListQuery.data?.content ?? []).map(summaryToClub),
-    [clubListQuery.data],
-  );
+  const visibleClubs = useMemo(() => {
+    const clubs = (clubListQuery.data?.content ?? []).map(summaryToClub);
+    // 찜 필터 중엔 낙관적 ids 캐시와 교차해 찜 해제 카드를 재요청 없이 즉시 제거한다.
+    // ids 미로딩(undefined) 동안은 교차하지 않는다 — 빈 Set 교차는 전체를 지워 화면이 번쩍인다.
+    if (!params.favorite || favoriteIdsQuery.data === undefined) return clubs;
+    return clubs.filter((clubItem) => likedIds.has(clubItem.id));
+  }, [clubListQuery.data, params.favorite, favoriteIdsQuery.data, likedIds]);
+
+  // 마지막 페이지에서 찜 해제 등으로 총 페이지가 줄면 범위 밖 page 를 마지막 유효 페이지로 보정한다.
+  // placeholder(이전 필터의 stale totalPages)로는 보정하지 않는다. totalPages 0(결과 없음)은
+  // 빈 상태 렌더에 맡긴다.
+  useEffect(() => {
+    if (!clubListQuery.data || clubListQuery.isPlaceholderData) return;
+    const knownTotalPages = clubListQuery.data.totalPages;
+    if (knownTotalPages > 0 && params.page > knownTotalPages) {
+      updateParams({ page: knownTotalPages });
+    }
+  }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
@@ -115,6 +141,7 @@ export function ClubExplorePage() {
     return status === 'OPEN' || status === 'ALWAYS_OPEN';
   }).length;
   const activeFilterCount =
+    (params.favorite ? 1 : 0) +
     (params.recruitment !== 'all' ? 1 : 0) +
     (params.scope !== '전체' ? 1 : 0) +
     (params.division !== '전체' ? 1 : 0) +
@@ -124,7 +151,9 @@ export function ClubExplorePage() {
       activeFilterCount(모바일 배지)와 다른 이유: ① keyword·category 를 배지는 안 세지만
       칩으로는 그린다 ② 분과 칩은 중앙 스코프에서만 그려지므로 scope 조건이 겸한다(별도
       division 조건을 두면 수동 URL ?division=… 에서 칩 없는 "필터:" 고아 행이 생긴다)
-      ③ 요일은 전체 선택 시 칩을 안 그린다. */
+      ③ 요일은 전체 선택 시 칩을 안 그린다 ④ 찜은 배지엔 세지만(모바일에선 바텀시트 안에만
+      있어 배지가 유일한 상태 표시) 칩으로는 안 그린다 — 데스크탑은 찜 토글 칩이 상시
+      노출되어 그 자체가 상태 표시다. */
   const hasActiveFilterChips =
     params.scope !== '전체' ||
     params.keyword !== '' ||
@@ -140,6 +169,20 @@ export function ClubExplorePage() {
       return;
     }
     favoriteToggle.mutate({ clubId, isFavorited: likedIds.has(clubId) });
+  };
+
+  /** 로그인 후 찜 필터가 켜진 채 돌아오도록 next 에 favorite=true 를 얹는다. */
+  const favoriteLoginHref = useMemo(() => {
+    const query = serializeExploreParams({ ...params, favorite: true });
+    return toRoute(`/login?next=${encodeURIComponent(`/clubs?${query}`)}`);
+  }, [params]);
+
+  const handleFavoriteFilterToggle = () => {
+    if (!params.favorite && authStatus !== 'authenticated') {
+      router.push(favoriteLoginHref);
+      return;
+    }
+    updateParams({ favorite: !params.favorite, page: 1 });
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
@@ -389,6 +432,7 @@ export function ClubExplorePage() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
                 <select
                   value={params.sort}
                   onChange={(event) =>
@@ -463,55 +507,71 @@ export function ClubExplorePage() {
               </div>
             )}
 
-            {clubListQuery.isLoading && (
-              <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
-                <ClubListSkeletonItems variant="grid" />
-              </div>
-            )}
-            {clubListQuery.error && (
-              <p className="text-sm text-coral">
-                {clubListQuery.error instanceof Error
-                  ? clubListQuery.error.message
-                  : '오류가 발생했습니다.'}
-              </p>
-            )}
-            {clubListQuery.data && visibleClubs.length === 0 && (
-              <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
-            )}
-
-            {visibleClubs.length > 0 && (
-              /* auto-fill+minmax — 카드 최소 210px 를 보장하고(1280 레이아웃 4열 유지) 컨테이너 폭에 따라 4→3→2→1열로
-                 열 수만 줄인다(카드 축소 금지). 사이드바가 있어 뷰포트 브레이크포인트 대신
-                 컨테이너 폭 기준이 정확하다. auto-fit 이 아닌 auto-fill: 결과가 적을 때도
-                 카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
-              <div
-                // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
-                aria-busy={clubListQuery.isPlaceholderData}
-                className={cn(
-                  'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]',
-                  clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+            {requiresLoginForFavorite ? (
+              authStatus === 'idle' ? (
+                <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                  <ClubListSkeletonItems variant="grid" />
+                </div>
+              ) : (
+                <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
+              )
+            ) : (
+              <>
+                {clubListQuery.isLoading && (
+                  <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                    <ClubListSkeletonItems variant="grid" />
+                  </div>
                 )}
-              >
-                {visibleClubs.map((club) => (
-                  <ClubCard
-                    key={club.id}
-                    club={club}
-                    liked={likedIds.has(club.id)}
-                    isLikeBusy={
-                      favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
-                    }
-                    onLikeToggle={handleToggleLike}
-                  />
-                ))}
-              </div>
-            )}
+                {clubListQuery.error && (
+                  <p className="text-sm text-coral">
+                    {clubListQuery.error instanceof Error
+                      ? clubListQuery.error.message
+                      : '오류가 발생했습니다.'}
+                  </p>
+                )}
+                {clubListQuery.data && visibleClubs.length === 0 && (
+                  params.favorite && !hasNonFavoriteFilters(params) ? (
+                    <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                  ) : (
+                    <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
+                  )
+                )}
 
-            {totalPages > 1 && (
-              <Pagination
-                page={params.page}
-                totalPages={totalPages}
-                onPage={(page) => updateParams({ page })}
-              />
+                {visibleClubs.length > 0 && (
+                  /* auto-fill+minmax — 카드 최소 210px 를 보장하고(1280 레이아웃 4열 유지) 컨테이너 폭에 따라 4→3→2→1열로
+                     열 수만 줄인다(카드 축소 금지). 사이드바가 있어 뷰포트 브레이크포인트 대신
+                     컨테이너 폭 기준이 정확하다. auto-fit 이 아닌 auto-fill: 결과가 적을 때도
+                     카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
+                  <div
+                    // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
+                    aria-busy={clubListQuery.isPlaceholderData}
+                    className={cn(
+                      'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]',
+                      clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                    )}
+                  >
+                    {visibleClubs.map((club) => (
+                      <ClubCard
+                        key={club.id}
+                        club={club}
+                        liked={likedIds.has(club.id)}
+                        isLikeBusy={
+                          favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                        }
+                        onLikeToggle={handleToggleLike}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {totalPages > 1 && (
+                  <Pagination
+                    page={params.page}
+                    totalPages={totalPages}
+                    onPage={(page) => updateParams({ page })}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
@@ -602,45 +662,61 @@ export function ClubExplorePage() {
         </div>
 
         <div className="px-4 pb-8">
-          {clubListQuery.isLoading && (
-            <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
-              <ClubListSkeletonItems variant="list" />
-            </div>
-          )}
-          {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
-          {clubListQuery.data && visibleClubs.length === 0 && (
-            <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
-          )}
-          {visibleClubs.length > 0 && (
-            <div
-              aria-busy={clubListQuery.isPlaceholderData}
-              className={cn(
-                'flex flex-col gap-3',
-                clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+          {requiresLoginForFavorite ? (
+            authStatus === 'idle' ? (
+              <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                <ClubListSkeletonItems variant="list" />
+              </div>
+            ) : (
+              <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
+            )
+          ) : (
+            <>
+              {clubListQuery.isLoading && (
+                <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
+                  <ClubListSkeletonItems variant="list" />
+                </div>
               )}
-            >
-              {visibleClubs.map((club, index) => (
-                <ClubListItem
-                  key={club.id}
-                  club={club}
-                  recommended={index === 0 && params.page === 1}
-                  liked={likedIds.has(club.id)}
-                  isLikeBusy={
-                    favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
-                  }
-                  onLikeToggle={handleToggleLike}
-                />
-              ))}
-            </div>
-          )}
-          {totalPages > 1 && (
-            <div className="mt-5">
-              <Pagination
-                page={params.page}
-                totalPages={totalPages}
-                onPage={(page) => updateParams({ page })}
-              />
-            </div>
+              {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
+              {clubListQuery.data && visibleClubs.length === 0 && (
+                params.favorite && !hasNonFavoriteFilters(params) ? (
+                  <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                ) : (
+                  <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
+                )
+              )}
+              {visibleClubs.length > 0 && (
+                <div
+                  aria-busy={clubListQuery.isPlaceholderData}
+                  className={cn(
+                    'flex flex-col gap-3',
+                    clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                  )}
+                >
+                  {visibleClubs.map((club, index) => (
+                    <ClubListItem
+                      key={club.id}
+                      club={club}
+                      recommended={index === 0 && params.page === 1}
+                      liked={likedIds.has(club.id)}
+                      isLikeBusy={
+                        favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                      }
+                      onLikeToggle={handleToggleLike}
+                    />
+                  ))}
+                </div>
+              )}
+              {totalPages > 1 && (
+                <div className="mt-5">
+                  <Pagination
+                    page={params.page}
+                    totalPages={totalPages}
+                    onPage={(page) => updateParams({ page })}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -669,6 +745,10 @@ export function ClubExplorePage() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-5">
+            <MFilterGroup title="찜">
+              <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
+            </MFilterGroup>
+
             <MFilterGroup title="모집 상태">
               {(['available', 'upcoming', 'closed'] as const).map((value) => (
                 <FilterChip
@@ -773,6 +853,46 @@ function MFilterGroup({ title, children }: { title: string; children: React.Reac
     <div className="border-b border-line py-[18px]">
       <div className="mb-3 text-[13px] font-bold text-ink-deep">{title}</div>
       <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function FavoriteFilterChip({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
+      )}
+    >
+      <Icon.heart className={cn('h-3.5 w-3.5', on && 'text-coral')} />
+      찜한 동아리
+    </button>
+  );
+}
+
+function FavoriteLoginPrompt({ loginHref }: { loginHref: ReturnType<typeof toRoute> }) {
+  return (
+    <div className="py-24 text-center">
+      <p className="text-[14px] font-semibold text-charcoal-2">찜한 동아리를 보려면 로그인해 주세요.</p>
+      <Link href={loginHref} className="btn btn-primary btn-sm mt-4 inline-flex">
+        로그인하기
+      </Link>
+    </div>
+  );
+}
+
+function FavoriteEmptyState({ onBrowse }: { onBrowse: () => void }) {
+  return (
+    <div className="py-24 text-center">
+      <p className="text-[14px] font-semibold text-charcoal-2">아직 찜한 동아리가 없어요.</p>
+      <p className="mt-1.5 text-[13px] text-charcoal-3">관심 있는 동아리를 찜하고 쉽게 다시 찾아보세요.</p>
+      <button type="button" onClick={onBrowse} className="btn btn-secondary btn-sm mt-4">
+        동아리 둘러보기
+      </button>
     </div>
   );
 }
