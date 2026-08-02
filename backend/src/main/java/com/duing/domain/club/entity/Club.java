@@ -124,6 +124,10 @@ public class Club extends BaseEntity {
     @Column(name = "fee_cycle", nullable = false, length = 20)
     private FeeCycle feeCycle = FeeCycle.NONE;
 
+    /** 회비 안내문 — 분야별/신규·기존 차등 등 자유 텍스트. 대표 회비(feeCycle/금액)와 독립. */
+    @Column(name = "fee_note", length = 300)
+    private String feeNote;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "projects", columnDefinition = "jsonb", nullable = false)
     private List<ClubProject> projects = new ArrayList<>();
@@ -294,7 +298,8 @@ public class Club extends BaseEntity {
             Boolean clearCollege,                // 22
             Boolean clearLogoImage,              // 23
             Boolean clearCoverImage,             // 24
-            Boolean useGeneration                // 25
+            Boolean useGeneration,               // 25
+            String feeNote                       // 26
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -340,5 +345,6 @@ public class Club extends BaseEntity {
             this.college = payload.college();
         }
         if (payload.useGeneration() != null) this.useGeneration = payload.useGeneration();
+        if (payload.feeNote() != null) this.feeNote = blankToNull(payload.feeNote());
     }
 }
