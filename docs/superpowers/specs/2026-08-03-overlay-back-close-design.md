@@ -96,9 +96,9 @@ let skipBudget = MAX_SKIPS;         // 10
    isSelf 면 selfTraversals-- , 아니면 skipBudget 리셋   // 사용자 조작이면 예산 회복
 3. 착지 판정
    - 토큰 일치 + 스택에 있는 ID  → 그 위의 오버레이들이 victim, landedIsDead = false
-   - 토큰 일치 + 스택에 없는 ID  → victim = 스택 전체, landedIsDead = true
+   - 토큰 일치 + 스택에 없는 ID  → **victim 없음(판정 보류)**, landedIsDead = true
    - 마커 없음(일반 페이지 엔트리) → victim = 스택 전체, landedIsDead = false
-   - 토큰 불일치(이전 문서 잔존) → victim = 스택 전체, landedIsDead = true
+   - 토큰 불일치(이전 문서 잔존) → **victim 없음(판정 보류)**, landedIsDead = true
 4. victim 을 스택에서 즉시 splice   // 재진입 popstate 가 같은 대상을 다시 집지 못하게
 5. queueMicrotask(() => victim 을 LIFO 순으로 close())
 6. landedIsDead && skipBudget > 0 이면
@@ -106,6 +106,12 @@ let skipBudget = MAX_SKIPS;         // 10
 ```
 
 "마커 없음 → 전부 닫기"가 뒤로가기 **길게 눌러 여러 칸 점프**하는 경우까지 자동으로 커버한다.
+
+**죽은 엔트리에 착지하면 아무것도 닫지 않는다(판정 보류).** 그 엔트리 *아래*에 있던 오버레이는
+여전히 열려 있어야 하는데, 어느 것이 그런지는 한 칸 더 내려간 다음 위치에서만 알 수 있기 때문이다.
+여기서 스택 전체를 닫으면 3중 중첩(a·b·c 중 b 만 코드로 닫은 상태)에서 뒤로가기 1회가 c 와 a 를
+한꺼번에 닫는다 — 적대적 리뷰에서 실제로 검출된 결함이다. 단 스킵 예산이 바닥나 더 내려갈 수 없을
+때는 안전망으로 전부 닫는다(오버레이가 열린 채 히스토리 보호가 없는 상태를 남기지 않기 위해).
 
 **재진입 방어는 게이트가 아니라 순서로 한다.** "처리 중 popstate 무시" 플래그를 두면 자동 스킵의
 연쇄(back → popstate → 재평가 → 필요시 또 back)가 끊겨 죽은 엔트리가 2개 이상일 때 동작하지 않는다.
@@ -181,6 +187,7 @@ function Dialog({ open, onOpenChange, ...props }: React.ComponentProps<typeof Di
 | 중첩 2개 + 뒤로 | 최상단만 닫힘 → 다시 뒤로 → 아래 것 닫힘 → 다시 뒤로 → 페이지 이동 |
 | 버튼/ESC/오버레이 탭으로 닫기 | 엔트리 회수(`history.back()`) → 뒤로가기 1회로 페이지 이동 |
 | 중간 오버레이만 코드로 닫기 | 히스토리 무변경 → 그 엔트리는 죽은 엔트리 → 나중에 자동 스킵 |
+| 3중 중첩에서 중간만 코드로 닫기 | 뒤로가기 1회 = 최상단만 닫힘. 죽은 엔트리를 지나며 판정을 보류하므로 아래 오버레이는 유지 |
 | 시트 연 채 링크 이동 | 잔존 엔트리 발생 → 뒤로 시 착지 후 자동 스킵 → 이전 페이지로 정상 이동 |
 | 닫기 거부(전송 중) | `onClose()` 무시됨 → 엔트리 재push, 시트 유지 |
 | 뒤로 길게 눌러 여러 칸 점프 | 마커 없는 엔트리 착지 → 열린 오버레이 전부 닫힘 |
