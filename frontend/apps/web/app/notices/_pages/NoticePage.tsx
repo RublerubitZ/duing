@@ -375,13 +375,17 @@ export function NoticePage() {
                 padding: '0 4px 0 14px',
                 height: 40,
               }}>
+                {/* minWidth 0 — flex 아이템 input 은 min-width:auto(고유 최소폭)라, 시스템 큰 글꼴
+                    (모바일 전역 16px 강제 × 기기 글자 확대)에서 줄어들지 못하고 검색 버튼을 pill 밖
+                    화면 오른쪽으로 밀어내 가로 overflow 를 만든다(실기기 스크린샷으로 확인).
+                    FAQ·탐색 검색 input 의 min-w-0 와 같은 처치. */}
                 <input
                   value={keywordInput}
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="제목 또는 내용을 검색하세요"
                   style={{
-                    flex: 1, border: 'none', outline: 'none',
+                    flex: 1, minWidth: 0, border: 'none', outline: 'none',
                     fontSize: 13, background: 'transparent', fontFamily: 'inherit',
                     color: 'var(--charcoal)',
                   }}

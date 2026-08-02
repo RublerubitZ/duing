@@ -150,6 +150,17 @@ describe('NoticesPage', () => {
   // (레이아웃 쪽 단언은 test/info/info-section-layouts.test.tsx). 여기서는 페이지가 100vh 를
   // 되살리지 않는지만 지킨다 — 100vh 는 안드로이드 크롬에서 문서를 화면보다 길게 만들어
   // fixed 하단 탭바가 주소창 개폐를 따라 흔들린다.
+  // 검색 input 은 flex 아이템이라 min-width:auto(고유 최소폭)면 시스템 큰 글꼴 기기에서
+  // 줄어들지 못해 검색 버튼을 화면 밖으로 밀어낸다(가로 overflow·탭바 유동, 실기기 확인).
+  it('검색 input 은 min-width 0 으로 고유 최소폭을 끈다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+
+    const searchInput = screen.getByPlaceholderText('제목 또는 내용을 검색하세요');
+    expect(searchInput.style.minWidth).toBe('0px');
+  });
+
   it('페이지 루트는 100vh 높이를 쓰지 않는다', () => {
     mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
 
