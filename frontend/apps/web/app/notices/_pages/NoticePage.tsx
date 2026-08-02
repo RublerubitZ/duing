@@ -573,12 +573,11 @@ export function NoticePage() {
                 </h2>
               </div>
 
-              {/* Table */}
-              <div style={{
-                background: 'var(--paper)',
-                border: '1px solid var(--gray-line)',
-                borderRadius: 14, overflow: 'hidden',
-              }}>
+              {/* Table — 통짜 paper 시트는 데스크탑 전용. 모바일은 크림 위 행 리스트로 둔다:
+                  짧은 진입 뷰포트에서 흰 라운드 시트의 상단 엣지가 하단 탭바 바로 위에 정지하면
+                  반투명 탭바와 병합돼 "두 겹 탭바"처럼 보인다(실기기 스크린샷으로 확인된 착시).
+                  크림 위 텍스트 행은 어느 높이에 걸쳐도 다른 탭 진입 화면과 같은 구도로 읽힌다. */}
+              <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
                 {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
                 <div className="hidden md:grid" style={{
                   gridTemplateColumns: '56px 56px 72px 1fr 110px',
@@ -601,7 +600,7 @@ export function NoticePage() {
                     href={toRoute(`/notices/${n.id}`)}
                     className="notice-row"
                     style={{
-                      padding: '13px 22px',
+                      // 패딩은 .notice-row(globals.css)가 소유 — 모바일(시트 없음)은 좌우 0, md+ 는 시트 내부 22px.
                       borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
                       fontSize: 13.5, cursor: 'pointer',
                       color: 'var(--charcoal)', textDecoration: 'none',
