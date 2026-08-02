@@ -125,6 +125,20 @@ class WebAuthCookieServiceTest {
     }
 
     @Test
+    @DisplayName("access 단독 삭제는 access Cookie 하나만 과거 만료로 내리고 refresh·hint는 건드리지 않는다")
+    void clearAccessRemovesOnlyAccessCookie() {
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        ArgumentCaptor<String> cookieHeaderCaptor = ArgumentCaptor.forClass(String.class);
+        cookieService.clearAccess(response);
+
+        verify(response, times(1)).addHeader(eq(HttpHeaders.SET_COOKIE), cookieHeaderCaptor.capture());
+        assertThat(cookieHeaderCaptor.getValue())
+                .startsWith("__Host-duing_access_token=")
+                .contains("Path=/", "Max-Age=0", "Secure", "HttpOnly", "SameSite=Lax")
+                .doesNotContain("Domain=");
+    }
+
+    @Test
     @DisplayName("localhost HTTP 환경에서도 Secure 웹 인증 Cookie 발급을 허용한다")
     void allowsSecureCookiesOnHttpLocalhostOnly() {
         MockHttpServletRequest localhost = new MockHttpServletRequest();

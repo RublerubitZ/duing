@@ -68,6 +68,16 @@ public class WebAuthCookieService {
         add(response, hintCookie("", 0));
     }
 
+    /**
+     * 무효 access Cookie만 정리한다 — 401 EntryPoint 전용.
+     * refresh·hint 는 세션 지평선(30일)을 따르므로 access 만료 401에서 지우면 안 된다:
+     * 3종 일괄 삭제는 갱신 수단(refresh Cookie)까지 지워 만료 후 첫 401이 곧 강제 로그아웃이 됐다.
+     * 두 Cookie 의 삭제는 세션 종료 경로(web refresh 실패·로그아웃·자격 변경)가 전담한다.
+     */
+    public void clearAccess(HttpServletResponse response) {
+        add(response, accessCookie("", 0));
+    }
+
     private ResponseCookie accessCookie(String value, long maxAgeSeconds) {
         return baseCookie(ACCESS_COOKIE_NAME, value, "/", maxAgeSeconds).build();
     }
