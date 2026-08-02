@@ -118,3 +118,38 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
     expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
   });
 });
+
+describe('ClubDetailStats — 회비 안내문', () => {
+  const FEE_NOTE = '선수 : 학기당 30,000원\n매니저 : 학기당 15,000원';
+
+  it('안내문이 있으면 회비 셀에 2줄 클램프 보조 텍스트로 표시한다', () => {
+    render(<ClubDetailStats club={{ ...worstCaseClub, feeNote: FEE_NOTE }} />);
+
+    const note = screen.getByText(/매니저 : 학기당 15,000원/);
+    expect(note).toHaveClass('line-clamp-2', 'whitespace-pre-wrap', 'break-words');
+    // 대표 금액의 굵은 타이포를 상속하지 않는다
+    expect(note).toHaveClass('font-normal', 'text-charcoal-3');
+    expect(note).not.toHaveClass('font-bold');
+    // 대표 금액은 그대로 유지
+    expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+  });
+
+  it('안내문이 없으면 보조 텍스트를 렌더하지 않는다', () => {
+    const { container } = render(<ClubDetailStats club={worstCaseClub} />);
+
+    expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+    expect(container.querySelector('.line-clamp-2')).toBeNull();
+  });
+
+  it('대표 금액 없이 안내문만 있으면 통계 카드에 회비 셀을 만들지 않는다', () => {
+    render(
+      <ClubDetailStats
+        club={{ ...worstCaseClub, feeCycle: 'NONE', membershipFeeAmount: null, feeNote: FEE_NOTE }}
+      />,
+    );
+
+    expect(screen.queryByText('회비')).not.toBeInTheDocument();
+    expect(screen.queryByText(/매니저 : 학기당 15,000원/)).not.toBeInTheDocument();
+    expect(screen.getByText('창설년도')).toBeInTheDocument();
+  });
+});
