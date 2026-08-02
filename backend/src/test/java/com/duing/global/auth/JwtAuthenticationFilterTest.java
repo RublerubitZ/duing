@@ -11,11 +11,13 @@ import com.duing.domain.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
@@ -73,11 +75,10 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("Cookie 인증 요청이 401이면 웹 인증 Cookie를 모두 삭제한다")
-    void unauthorizedCookieRequestClearsWebAuthCookies() throws Exception {
-        WebAuthCookieService cookieService = mock(WebAuthCookieService.class);
+    @DisplayName("Cookie 인증 요청이 401이면 access Cookie만 삭제하고 refresh·hint Cookie는 남긴다")
+    void unauthorizedCookieRequestClearsOnlyAccessCookie() throws Exception {
         JwtAuthenticationEntryPoint entryPoint =
-                new JwtAuthenticationEntryPoint(cookieService, new ObjectMapper());
+                new JwtAuthenticationEntryPoint(realCookieService(), new ObjectMapper());
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(AuthTransport.REQUEST_ATTRIBUTE, AuthTransport.COOKIE);
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -87,7 +88,11 @@ class JwtAuthenticationFilterTest {
                 response,
                 new AuthenticationCredentialsNotFoundException("missing"));
 
-        verify(cookieService).clear(response);
+        List<String> cookies = response.getHeaders(HttpHeaders.SET_COOKIE);
+        assertThat(cookies).hasSize(1);
+        assertThat(cookies.get(0))
+                .startsWith(WebAuthCookieService.ACCESS_COOKIE_NAME + "=")
+                .contains("Max-Age=0");
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentType()).startsWith("application/json");
         assertThat(response.getContentAsString()).contains(JwtAuthenticationEntryPoint.UNAUTHENTICATED_MESSAGE);
@@ -96,9 +101,8 @@ class JwtAuthenticationFilterTest {
     @Test
     @DisplayName("Bearer 인증 요청이 401이어도 웹 인증 Cookie를 변경하지 않는다")
     void unauthorizedBearerRequestDoesNotClearWebAuthCookies() throws Exception {
-        WebAuthCookieService cookieService = mock(WebAuthCookieService.class);
         JwtAuthenticationEntryPoint entryPoint =
-                new JwtAuthenticationEntryPoint(cookieService, new ObjectMapper());
+                new JwtAuthenticationEntryPoint(realCookieService(), new ObjectMapper());
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(AuthTransport.REQUEST_ATTRIBUTE, AuthTransport.BEARER);
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -108,8 +112,17 @@ class JwtAuthenticationFilterTest {
                 response,
                 new AuthenticationCredentialsNotFoundException("missing"));
 
-        verify(cookieService, never()).clear(any());
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
         assertThat(response.getStatus()).isEqualTo(401);
+    }
+
+    private WebAuthCookieService realCookieService() {
+        AuthHintTokenProvider authHintTokenProvider = new AuthHintTokenProvider(
+                "hint-secret-that-is-at-least-thirty-two-bytes",
+                "jwt-secret-that-is-at-least-thirty-two-bytes",
+                30);
+        return new WebAuthCookieService(
+                authHintTokenProvider, jwtTokenProvider, ".duings.com", 30, new MockEnvironment());
     }
 
     private MockHttpServletRequest requestWithKnownToken(String token) {

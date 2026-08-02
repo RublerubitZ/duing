@@ -270,12 +270,14 @@ body {
     }
   }
 
-  /* /notices 목록 NoticeRow — 데스크탑 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일) */
+  /* /notices 목록 NoticeRow — 데스크탑 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일).
+     모바일은 통짜 paper 시트 없이 크림 위 행 리스트(NoticePage Table 주석 참조)라 좌우 패딩 0. */
   .notice-row {
     display: grid;
     align-items: center;
     column-gap: 12px;
     row-gap: 3px;
+    padding: 13px 0;
     grid-template-columns: 40px auto 1fr;
     grid-template-areas:
       'img title title'
@@ -303,6 +305,7 @@ body {
     .notice-row {
       column-gap: 14px;
       row-gap: 0;
+      padding: 13px 22px;
       grid-template-columns: 56px 56px 72px 1fr 110px;
       grid-template-areas: 'no img cat title date';
     }

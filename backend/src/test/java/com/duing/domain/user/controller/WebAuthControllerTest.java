@@ -168,6 +168,41 @@ class WebAuthControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("만료된 access Cookie의 401은 refresh Cookie를 지우지 않아 이어지는 세션 갱신이 성공한다")
+    void expiredAccessCookie401KeepsRefreshCookieSoRenewalSucceeds() {
+        User user = saveUser(UserRole.STUDENT);
+        Response login = given().contentType(ContentType.JSON)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .body(Map.of("studentId", user.getStudentId(), "password", RAW_PASSWORD))
+                .when().post("/api/v1/auth/web/login");
+        String refreshToken = login.getCookie(WebAuthCookieService.REFRESH_COOKIE_NAME);
+        String expiredToken = JWT.create()
+                .withSubject(String.valueOf(user.getId()))
+                .withClaim("role", user.getRole().name())
+                .withClaim("tokenVersion", user.getTokenVersion())
+                .withIssuedAt(new Date(System.currentTimeMillis() - 120_000))
+                .withExpiresAt(new Date(System.currentTimeMillis() - 60_000))
+                .sign(Algorithm.HMAC256(jwtSecret));
+
+        Response unauthorized = given()
+                .cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, expiredToken)
+                .when().get("/api/v1/users/me");
+
+        assertThat(unauthorized.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        List<String> cookies = setCookieHeaders(unauthorized);
+        assertThat(cookies).hasSize(1);
+        assertThat(cookieHeader(cookies, WebAuthCookieService.ACCESS_COOKIE_NAME)).contains("Max-Age=0");
+
+        Response renewed = given()
+                .cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, refreshToken)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh");
+
+        assertThat(renewed.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
+        assertIssuedCookies(renewed);
+    }
+
+    @Test
     @DisplayName("Cookie가 없는 웹 로그아웃도 204와 두 삭제 Cookie를 반환한다")
     void webLogoutWithoutCookieIsIdempotentAndClearsCookies() {
         Response response = given()

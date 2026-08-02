@@ -82,6 +82,13 @@ describe('NoticesPage', () => {
 
     expect(screen.getByText('첫 번째 공지')).toBeInTheDocument();
     expect(screen.getByText('두 번째 공지')).toBeInTheDocument();
+
+    // 목록 시트(paper/보더/라운드)는 md 전용 — 모바일에서 통짜 흰 시트가 되면 짧은 진입 뷰포트에서
+    // 상단 엣지가 하단 탭바 위에 걸쳐 "두 겹 탭바" 착시를 만든다(실기기 확인). 무접두 페인트 금지.
+    const tableWrapper = document.querySelector('.md\\:bg-paper');
+    expect(tableWrapper).not.toBeNull();
+    expect(tableWrapper).toHaveClass('md:rounded-[14px]', 'md:border', 'md:border-line');
+    expect(tableWrapper?.getAttribute('style') ?? '').toBe('');
   });
 
   it('카테고리 버튼 클릭 시 category=FESTIVAL, page=0 으로 훅이 호출된다', () => {

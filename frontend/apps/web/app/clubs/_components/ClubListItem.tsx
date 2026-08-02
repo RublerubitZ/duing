@@ -8,7 +8,7 @@ import { Link } from 'next-view-transitions';
 import { daysUntilKst } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
-import { Sparkle, SparkleFull } from '../../_components/Sparkle';
+import { Sparkle } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
@@ -106,7 +106,6 @@ export function ClubListItem({
         aria-label={`${club.name} 로고`}
       >
         <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
-        <SparkleFull size={11} color="rgba(255,255,255,0.9)" className="absolute -right-[3px] -top-[3px]" />
       </div>
 
       <div className="min-w-0 flex-1">
