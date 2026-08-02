@@ -153,13 +153,12 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
         <div className="px-4 pb-1">
           {/* 로고 · 동아리명 한 행 — 이름이 행 폭을 다 쓰도록 신고하기는 아래 메타 행으로 내렸다. */}
-          {/* 겹침 마진은 행이 아니라 로고에만 — 행이 커버 아래에서 시작하므로 이름이
-              몇 줄로 접히든 아래로만 자라고 커버 배너를 침범하지 않는다. */}
           <div className="flex items-center gap-3">
             <div
               // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
+              // 겹침 마진과 self-start 를 행이 아닌 로고에 두는 게 핵심 — 행은 커버 아래에서
+              // 시작해 이름이 몇 줄이든 아래로만 자라고, 로고 걸침 폭은 줄 수와 무관하게 일정하다.
               className={cn(
-                // self-start: 이름이 여러 줄이어도 로고가 아래로 밀리지 않아 커버 걸침 폭이 일정하다.
                 'relative grid h-20 w-20 shrink-0 self-start place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
                 club.coverUrl ? '-mt-6' : 'mt-1',
               )}
