@@ -322,6 +322,62 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("회비 안내문 150자는 저장되고 상세 응답에 포함된다")
+    void feeNoteAtLimitIsSaved() {
+        String maxLengthNote = "가".repeat(150);
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("feeNote", maxLengthNote))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.feeNote", equalTo(maxLengthNote));
+
+        Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
+        assertThat(reloaded.getFeeNote()).isEqualTo(maxLengthNote);
+    }
+
+    @Test
+    @DisplayName("회비 안내문이 151자면 400 을 반환한다")
+    void feeNoteOverLimitReturns400() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("feeNote", "가".repeat(151)))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("회비 안내문에 빈 문자열을 보내면 저장된 안내문이 비워진다")
+    void emptyFeeNoteClearsStoredValue() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeNote", "선수 : 학기당 30,000원"))
+                .when().patch("/api/v1/clubs/{clubId}", club.getId())
+                .then().statusCode(HttpStatus.OK.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("feeNote", ""))
+                .when().patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.feeNote", nullValue());
+
+        Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
+        assertThat(reloaded.getFeeNote()).isNull();
+    }
+
+    @Test
     @DisplayName("허용 목록에 없는 프로젝트 아이콘은 400 이다")
     void invalidProjectIconRejected() {
         RestAssured

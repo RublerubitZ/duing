@@ -147,6 +147,23 @@ class AdminClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("총동연이 회비 안내문을 수정하면 상세 응답에 반영된다")
+    void adminUpdatesFeeNote() throws Exception {
+        Club club = saveClubWithLeader("회비안내문동아리", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("feeNote", "신규회원: 20,000원 / 기존회원: 15,000원"))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.feeNote", equalTo("신규회원: 20,000원 / 기존회원: 15,000원"));
+    }
+
+    @Test
     @DisplayName("다른 동아리와 중복되는 이름으로 수정하면 409 가 반환된다")
     void updatingToDuplicateNameReturnsConflict() throws Exception {
         Club existing = saveClubWithLeader("이미있는동아리", ClubStatus.ACTIVE);

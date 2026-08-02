@@ -16,7 +16,7 @@ class ClubProfileUpdateTest {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -42,6 +42,21 @@ class ClubProfileUpdateTest {
     }
 
     @Test
+    @DisplayName("회비 안내문은 납부 주기와 독립적으로 저장되고, null 은 미변경, 빈 문자열은 null 로 클리어된다")
+    void feeNoteIndependentAndBlankCleared() {
+        Club club = createClub();
+        club.update(payloadWithFeeNote("선수 : 학기당 30,000원\n매니저 : 학기당 15,000원"));
+        assertThat(club.getFeeNote()).isEqualTo("선수 : 학기당 30,000원\n매니저 : 학기당 15,000원");
+        assertThat(club.getFeeCycle()).isEqualTo(FeeCycle.NONE); // 주기는 건드리지 않는다
+
+        club.update(payloadWithFeeNote(null)); // null = 미변경
+        assertThat(club.getFeeNote()).isEqualTo("선수 : 학기당 30,000원\n매니저 : 학기당 15,000원");
+
+        club.update(payloadWithFeeNote("")); // "" = 클리어
+        assertThat(club.getFeeNote()).isNull();
+    }
+
+    @Test
     @DisplayName("OTHER 가 아닌 SNS 플랫폼의 label 은 저장 시 null 로 정규화된다")
     void snsLabelNormalized() {
         Club club = createClub();
@@ -61,19 +76,26 @@ class ClubProfileUpdateTest {
         assertThat(project.subtitle()).isNull();
     }
 
-    // ---- payload helpers: 아래 두 헬퍼는 emptyPayload() 와 동일한 25개 인자 순서에서
-    //      해당 필드만 채운다. UpdatePayload record 정의(Step 4)의 컴포넌트 순서를 따를 것.
+    // ---- payload helpers: 아래 헬퍼들은 emptyPayload() 와 동일한 26개 인자 순서에서
+    //      해당 필드만 채운다. UpdatePayload record 정의의 컴포넌트 순서를 따를 것.
     private Club.UpdatePayload payloadWithFee(FeeCycle feeCycle, Integer amount) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                feeCycle, amount, null, null, null, null, null, null);
+                feeCycle, amount, null, null, null, null, null, null, null);
     }
 
     private Club.UpdatePayload payloadWithSns(List<ClubSnsLink> snsLinks) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, snsLinks, null,
                 null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
+    }
+
+    private Club.UpdatePayload payloadWithFeeNote(String feeNote) {
+        return new Club.UpdatePayload(
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, feeNote);
     }
 }

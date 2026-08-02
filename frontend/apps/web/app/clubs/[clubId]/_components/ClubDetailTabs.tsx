@@ -34,6 +34,7 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
   const hasInfo = club.foundedYear !== null
     || club.cohortNumber !== null
     || formatClubFee(club.feeCycle, club.membershipFeeAmount) !== null
+    || club.feeNote !== null
     || club.location !== null
     || club.contactPhone !== null
     || club.contactVisibility !== 'PUBLIC';

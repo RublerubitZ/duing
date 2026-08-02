@@ -4,7 +4,7 @@ import { formatClubFee } from '../../../_lib/clubFee';
 
 type Props = { club: ClubDetail };
 
-type Row = { label: string; value: string };
+type Row = { label: string; value: string | null; note?: string | null };
 
 export function ClubDetailInfoList({ club }: Props) {
   const rows: Row[] = [];
@@ -12,7 +12,10 @@ export function ClubDetailInfoList({ club }: Props) {
   if (club.foundedYear !== null) rows.push({ label: '창설년도', value: `${club.foundedYear}년` });
   if (club.cohortNumber !== null) rows.push({ label: '현재 기수', value: `${club.cohortNumber}기` });
   const feeText = formatClubFee(club.feeCycle, club.membershipFeeAmount);
-  if (feeText !== null) rows.push({ label: '회비', value: feeText });
+  // 대표 금액이 없어도 안내문이 있으면 회비 항목을 노출한다 (스펙 결정 사항)
+  if (feeText !== null || club.feeNote !== null) {
+    rows.push({ label: '회비', value: feeText, note: club.feeNote });
+  }
   if (club.location !== null) rows.push({ label: '위치', value: club.location });
   // 대표 연락처 — 정책 상태를 명시적으로 안내 (§8). PUBLIC+null(회장 미등록)은 숨김(fail-safe).
   if (club.contactPhone !== null) {
@@ -30,7 +33,16 @@ export function ClubDetailInfoList({ club }: Props) {
       {rows.map((row) => (
         <div key={row.label} className="contents">
           <dt className="text-charcoal-3">{row.label}</dt>
-          <dd className="text-charcoal">{row.value}</dd>
+          <dd className="text-charcoal">
+            {row.value}
+            {row.note != null && (
+              <p
+                className={`${row.value !== null ? 'mt-1 ' : ''}whitespace-pre-wrap break-words text-[13px] leading-relaxed text-charcoal-3`}
+              >
+                {row.note}
+              </p>
+            )}
+          </dd>
         </div>
       ))}
     </dl>

@@ -192,7 +192,7 @@ class ClubDetailContactVisibilityTest extends IntegrationTestBase {
                 null, null, null, null, null, null, null, null, null,   // A(1~9)
                 null, null, null, null, null, null, null,               // B(10~16)
                 visibility, null, null, null,                           // C(17~20) contactVisibility 만 채움
-                null, null, null, null, null));                         // D(21~25) college~useGeneration
+                null, null, null, null, null, null));                   // D(21~26) college~feeNote
         clubRepository.saveAndFlush(loaded);
     }
 

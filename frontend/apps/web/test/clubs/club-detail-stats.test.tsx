@@ -31,6 +31,7 @@ const baseClub: ClubDetail = {
   activeDays: [],
   membershipFeeAmount: null,
   feeCycle: 'NONE',
+  feeNote: null,
   tagline: null,
   highlights: [],
   projects: [],
@@ -88,15 +89,16 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
     expect(value).toHaveClass('font-display', 'font-bold', 'text-ink-deep');
   });
 
-  it('컨테이너는 모바일 세로 리스트(gap-3), md 이상에서 gap 없는 3열 그리드로 복원한다', () => {
+  it('컨테이너는 모바일 세로 리스트(gap-2·py-3), md 이상에서 gap 없는 3열 그리드 + py-5 로 복원한다', () => {
     const { container } = render(<ClubDetailStats club={worstCaseClub} />);
 
     const root = container.firstChild;
     expect(root).toHaveClass(
       'flex',
       'flex-col',
-      'gap-3',
-      'py-5',
+      'gap-2',
+      'py-3',
+      'md:py-5',
       'md:grid',
       'md:grid-cols-3',
       'md:gap-0',
@@ -115,5 +117,44 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
 
     expect(screen.getByText('회비')).toBeInTheDocument();
     expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+  });
+});
+
+describe('ClubDetailStats — 회비 안내문', () => {
+  const FEE_NOTE = '선수 : 학기당 30,000원\n매니저 : 학기당 15,000원';
+
+  it('안내문이 있으면 회비 셀에 말줄임 부호 없이 2줄에서 잘리는 보조 텍스트로 표시한다', () => {
+    render(<ClubDetailStats club={{ ...worstCaseClub, feeNote: FEE_NOTE }} />);
+
+    const note = screen.getByText(/매니저 : 학기당 15,000원/);
+    // 말줄임 부호(…)를 붙이는 line-clamp 대신 높이 클리핑으로 2줄을 만든다
+    expect(note).toHaveClass('max-h-[2lh]', 'overflow-hidden');
+    expect(note.className).not.toMatch(/line-clamp/);
+    expect(note).toHaveClass('whitespace-pre-wrap', 'break-words');
+    // 대표 금액의 굵은 타이포를 상속하지 않는다
+    expect(note).toHaveClass('font-normal', 'text-charcoal-3');
+    expect(note).not.toHaveClass('font-bold');
+    // 대표 금액은 그대로 유지
+    expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+  });
+
+  it('안내문이 없으면 보조 텍스트를 렌더하지 않는다', () => {
+    const { container } = render(<ClubDetailStats club={worstCaseClub} />);
+
+    expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+    // 보조 텍스트는 이 컴포넌트의 유일한 <p>
+    expect(container.querySelector('p')).toBeNull();
+  });
+
+  it('대표 금액 없이 안내문만 있으면 통계 카드에 회비 셀을 만들지 않는다', () => {
+    render(
+      <ClubDetailStats
+        club={{ ...worstCaseClub, feeCycle: 'NONE', membershipFeeAmount: null, feeNote: FEE_NOTE }}
+      />,
+    );
+
+    expect(screen.queryByText('회비')).not.toBeInTheDocument();
+    expect(screen.queryByText(/매니저 : 학기당 15,000원/)).not.toBeInTheDocument();
+    expect(screen.getByText('창설년도')).toBeInTheDocument();
   });
 });

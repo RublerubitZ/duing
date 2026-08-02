@@ -139,6 +139,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const [feeAmount, setFeeAmount] = useState(
     detail.membershipFeeAmount !== null ? String(detail.membershipFeeAmount) : '',
   );
+  const [feeNote, setFeeNote] = useState(detail.feeNote ?? '');
   const [projects, setProjects] = useState(detail.projects);
   const [useGeneration, setUseGeneration] = useState(detail.useGeneration);
 
@@ -203,6 +204,9 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       payload.membershipFeeAmount = nextFeeAmount;
     }
 
+    // 회비 안내문은 주기/금액 쌍과 독립 — 비우기는 '' 전송(BE blankToNull) (§clear-intent)
+    if (feeNote !== (detail.feeNote ?? '')) payload.feeNote = feeNote;
+
     // 잠금 필드 diff 는 adminMode 일 때만 — leader/officer 페이로드엔 절대 들어가지 않는다.
     if (adminMode) {
       if (name !== detail.name) payload.name = name;
@@ -244,6 +248,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       feeCycle,
       // 유료 주기 + 빈 금액은 zod feePairRule 이 잡는다.
       membershipFeeAmount: nextFeeAmount,
+      feeNote: feeNote || null,
       projects,
     };
     const parsed = adminMode
@@ -282,6 +287,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     location,
     feeCycle,
     membershipFeeAmount: nextFeeAmount,
+    feeNote,
     highlights,
   };
 
@@ -535,6 +541,25 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     <span className="text-[13px] text-[#4a5247]">원</span>
                   </div>
                 )}
+                {/* 회비 안내문 — 주기가 '회비 없음'이어도 항상 입력 가능(분야별·신규/기존 차등 안내). */}
+                <div className="mt-3 flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between">
+                    <label htmlFor="f-fee-note" className={labelCls}>회비 안내 (선택)</label>
+                    <span className="text-[11.5px] font-medium text-[#8a8f83]">{feeNote.length}/150</span>
+                  </div>
+                  <textarea
+                    id="f-fee-note"
+                    value={feeNote}
+                    maxLength={150}
+                    rows={4}
+                    onChange={(event) => setFeeNote(event.target.value)}
+                    placeholder={'선수 : 학기당 30,000원\n매니저 : 학기당 15,000원\n\n신규 회원은 첫 학기만 5,000원이 추가됩니다.'}
+                    className="w-full resize-none rounded-[8px] border border-[#cfcab8] bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-[#4a6b3f] focus:outline-none"
+                  />
+                  <p className="text-[12px] text-[#8a8f83]">
+                    모집 분야별 또는 신규/기존 회원 등 회비가 다른 경우 자유롭게 안내해 주세요.
+                  </p>
+                </div>
               </Field>
             </div>
           </SectionCard>

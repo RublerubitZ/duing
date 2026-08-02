@@ -54,6 +54,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     activeDays: [],
     membershipFeeAmount: null,
     feeCycle: 'NONE',
+    feeNote: null,
     highlights: [],
     projects: [],
     useGeneration: false,
@@ -201,6 +202,54 @@ describe('ClubInfoForm', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
     expect(payload).not.toHaveProperty('useGeneration');
+  });
+
+  it('회비 안내를 입력하면 페이로드에 feeNote 로 담긴다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />,
+    );
+    fireEvent.change(screen.getByLabelText('회비 안내 (선택)'), {
+      target: { value: '선수 : 학기당 30,000원' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ feeNote: '선수 : 학기당 30,000원' });
+  });
+
+  it('저장된 회비 안내를 지우면 빈 문자열이 전송된다(클리어 규약)', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ feeNote: '기존 안내' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('회비 안내 (선택)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ feeNote: '' });
+  });
+
+  it('회비 안내를 건드리지 않으면 페이로드에 feeNote 가 담기지 않는다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ feeNote: '기존 안내' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('한줄 소개'), { target: { value: '새 소개' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(payload).toHaveProperty('tagline', '새 소개');
+    expect(payload).not.toHaveProperty('feeNote');
   });
 
   it('admin 모드에는 회원 기수 관리 스위치가 렌더되지 않는다', () => {
