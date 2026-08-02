@@ -161,6 +161,53 @@ describe('useBackDismiss', () => {
     expect(window.history.state).toEqual({ marker: 'page' });
   });
 
+  it('3중 중첩에서 중간을 코드로 닫아도 뒤로가기 1회는 최상단만 닫는다', async () => {
+    function Triple() {
+      const [lowerOpen, setLowerOpen] = useState(true);
+      const [middleOpen, setMiddleOpen] = useState(true);
+      const [upperOpen, setUpperOpen] = useState(true);
+      useBackDismiss(lowerOpen, () => {
+        closeSpy('lower');
+        setLowerOpen(false);
+      });
+      useBackDismiss(middleOpen, () => {
+        closeSpy('middle');
+        setMiddleOpen(false);
+      });
+      useBackDismiss(upperOpen, () => {
+        closeSpy('upper');
+        setUpperOpen(false);
+      });
+      return (
+        <>
+          <button type="button" onClick={() => setMiddleOpen(false)}>
+            중간 닫기
+          </button>
+          <span data-testid="open">{[lowerOpen && 'lower', upperOpen && 'upper'].filter(Boolean).join(',')}</span>
+        </>
+      );
+    }
+
+    const { getByRole, getByTestId } = render(<Triple />);
+    // 중간만 코드로 닫는다 — 히스토리에 주인 없는 엔트리가 남는다.
+    await act(async () => {
+      getByRole('button').click();
+    });
+    await settle();
+
+    await pressBack();
+
+    // 최상단만 닫히고, 죽은 엔트리 아래의 오버레이는 살아 있어야 한다.
+    expect(closeSpy.mock.calls.flat()).toEqual(['upper']);
+    expect(getByTestId('open').textContent).toBe('lower');
+    // 남아 있는 오버레이의 엔트리 위에 앉아 있어야 다음 뒤로가기가 그 오버레이 몫이 된다.
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+
+    await pressBack();
+    expect(closeSpy.mock.calls.flat()).toEqual(['upper', 'lower']);
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
   it('이전 문서 토큰이 붙은 엔트리는 죽은 엔트리로 보고 건너뛴다', async () => {
     render(<Overlay name="a" />);
     // 오버레이 엔트리 아래에 이전 문서의 잔존 엔트리가 있는 상황을 만든다.

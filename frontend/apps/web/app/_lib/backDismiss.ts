@@ -64,9 +64,19 @@ function handlePopState() {
   // 마커는 있는데 주인이 없다 = 코드로 닫힌 중간 오버레이의 잔해거나 이전 문서의 엔트리.
   const landedOnDeadEntry = id !== null && !landedOnLiveEntry;
 
+  const canSkip = landedOnDeadEntry && skipBudget > 0;
+
   // 먼저 스택에서 제거한다 — 재진입 popstate 가 같은 오버레이를 두 번 집지 못하게 하는 장치는
   // 게이트 플래그가 아니라 이 순서다(게이트를 두면 아래 자동 스킵 연쇄가 끊긴다).
-  const dismissed = landedOnLiveEntry ? stack.splice(landedIndex + 1) : stack.splice(0);
+  //
+  // 주인 없는 엔트리에 착지했으면 아무것도 닫지 않는다 — 그 엔트리 **아래**에 있던 오버레이는
+  // 여전히 열려 있어야 하고, 어느 것이 그런지는 한 칸 더 내려간 다음 위치에서만 알 수 있다.
+  // (스킵 예산이 바닥나 더 내려갈 수 없을 때만 안전망으로 전부 닫는다.)
+  const dismissed = landedOnLiveEntry
+    ? stack.splice(landedIndex + 1)
+    : canSkip
+      ? []
+      : stack.splice(0);
 
   if (dismissed.length > 0) {
     queueMicrotask(() => {
@@ -75,7 +85,7 @@ function handlePopState() {
     });
   }
 
-  if (landedOnDeadEntry && skipBudget > 0) {
+  if (canSkip) {
     skipBudget -= 1;
     queueMicrotask(() => {
       selfTraversals += 1;
