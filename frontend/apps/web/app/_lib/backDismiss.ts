@@ -32,6 +32,12 @@ let nextOverlayId = 1;
 let selfTraversals = 0;
 let skipBudget = MAX_SKIPS;
 let installed = false;
+// 지금 앉아 있는 엔트리의 오버레이 ID(우리 것이 아니면 null) — 앞으로 가기 판별에 쓴다.
+// ID 는 단조 증가라 "착지 ID > 직전 ID" 면 위로 올라간 것, 즉 forward 다.
+let currentMarkerId: number | null = null;
+// 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
+let currentHref: string | null = null;
+let nativeReplaceState: History['replaceState'] | null = null;
 
 function readMarker(state: unknown): { token: string | null; id: number | null } {
   if (typeof state !== 'object' || state === null) return { token: null, id: null };
@@ -54,8 +60,10 @@ function handlePopState() {
   // 판정은 동기로 끝낸다 — 마이크로태스크 안에서 history.state 를 다시 읽으면 뒤로가기 연타 시
   // 이미 다음 popstate 의 값이라 엉뚱한 대상을 집는다.
   const { token, id } = readMarker(window.history.state);
+  const leftHref = currentHref;
 
-  if (selfTraversals > 0) selfTraversals -= 1;
+  const isSelfTraversal = selfTraversals > 0;
+  if (isSelfTraversal) selfTraversals -= 1;
   else skipBudget = MAX_SKIPS; // 사용자 조작이면 예산 회복
 
   const landedIndex =
@@ -63,8 +71,10 @@ function handlePopState() {
   const landedOnLiveEntry = landedIndex !== -1;
   // 마커는 있는데 주인이 없다 = 코드로 닫힌 중간 오버레이의 잔해거나 이전 문서의 엔트리.
   const landedOnDeadEntry = id !== null && !landedOnLiveEntry;
+  // 앞으로 가기로 죽은 엔트리에 올라온 경우까지 건너뛰면 그 위 엔트리에 영원히 도달할 수 없다.
+  const wentForward = id !== null && currentMarkerId !== null && id > currentMarkerId;
 
-  const canSkip = landedOnDeadEntry && skipBudget > 0;
+  const canSkip = landedOnDeadEntry && !wentForward && skipBudget > 0;
 
   // 먼저 스택에서 제거한다 — 재진입 popstate 가 같은 오버레이를 두 번 집지 못하게 하는 장치는
   // 게이트 플래그가 아니라 이 순서다(게이트를 두면 아래 자동 스킵 연쇄가 끊긴다).
@@ -92,10 +102,34 @@ function handlePopState() {
       window.history.back();
     });
   }
+
+  currentMarkerId = token === DOCUMENT_TOKEN ? id : null;
+  currentHref = window.location.href;
+
+  // 우리 엔트리를 떠났는데 그 사이 URL 이 바뀌어 있었다면(시트 안에서 router.replace 로 필터·쿼리를
+  // 갱신한 경우) 그 URL 을 착지한 엔트리에 다시 얹는다. 그러지 않으면 "시트만 닫았을 뿐인데 필터가
+  // 초기화되는" 되감기가 생긴다. 소비처가 replace 를 쓴 것은 "뒤로가기 단계로 만들지 말라"는 뜻이다.
+  const overlayTraversal = dismissed.length > 0 || isSelfTraversal;
+  if (overlayTraversal && leftHref !== null && leftHref !== window.location.href) {
+    queueMicrotask(() => {
+      // __NA 를 넣지 않는다 — Next 패치가 내부 필드를 복사하면서 라우터의 canonicalUrl 까지
+      // 새 URL 로 동기화하게 두어야 useSearchParams 와 주소창이 어긋나지 않는다.
+      window.history.replaceState({}, '', leftHref);
+      currentHref = window.location.href;
+    });
+  }
 }
 
-function install() {
+/**
+ * popstate 리스너 설치 + 이전 문서가 남긴 마커 제거. providers 에서 문서 로드 시점에 1회 호출한다.
+ *
+ * <p>오버레이를 열 때(lazy) 설치하면, 새 문서로 진입해 오버레이를 한 번도 열지 않은 사용자는
+ * 이전 문서가 남긴 엔트리를 만나도 스킵하지 못한다(뒤로가기 1회 소모). 로드 시점 설치가 그 틈을 막는다.
+ * SSR 안전 — window 가 없으면 아무것도 하지 않는다.
+ */
+export function installBackDismiss() {
   if (installed) return;
+  if (typeof window === 'undefined') return;
   installed = true;
 
   // 이전 문서가 남긴 마커가 현재 엔트리에 붙어 있으면 마커 두 개만 지운다. 자동 히스토리 이동은
@@ -109,6 +143,31 @@ function install() {
       '',
     );
   }
+
+  currentMarkerId = null;
+  currentHref = window.location.href;
+
+  // Next 의 HistoryUpdater 는 navigate/refresh/서버액션/server-patch 경로에서 커스텀 history state 를
+  // 보존하지 않는다(preserveCustomHistoryState=false → state 를 {__NA, tree} 로 통째 교체).
+  // 오버레이가 열린 채 router.replace 나 refresh 가 한 번이라도 일어나면 우리 마커가 증발하고,
+  // 그러면 엔트리를 회수할 수도 죽은 엔트리로 인식할 수도 없어 죽은 뒤로가기가 계속 쌓인다.
+  // 우리 엔트리 위에서 일어나는 replace 에 한해 마커를 다시 얹는다.
+  nativeReplaceState = window.history.replaceState.bind(window.history);
+  window.history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+    const topEntry = stack.at(-1);
+    const { token, id } = readMarker(window.history.state);
+    if (topEntry !== undefined && token === DOCUMENT_TOKEN && id === topEntry.id) {
+      const base = typeof data === 'object' && data !== null ? data : {};
+      nativeReplaceState?.(
+        { ...base, __overlayToken: DOCUMENT_TOKEN, __overlayId: topEntry.id },
+        unused,
+        url,
+      );
+      currentHref = window.location.href;
+      return;
+    }
+    nativeReplaceState?.(data, unused, url);
+  };
 
   // 리스너는 문서 수명 동안 1개만 유지한다. 스택이 빌 때마다 해제하면 코드 닫기가 예약한 back() 의
   // popstate 를 놓쳐 자기 유발 traversal 회계가 어긋난다. installed 플래그로 중복 등록은 없다.
@@ -131,10 +190,14 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
 
   // popstate 가 엔트리를 소비한 뒤 소비처가 닫기를 거부하면(전송 중 가드 등) 다시 push 하기 위한 트리거.
   const [consumedGeneration, setConsumedGeneration] = useState(0);
+  // onClose 가 열린 뒤에 뒤늦게 붙는 소비처를 위해 존재 여부를 의존성에 넣는다 — ref 만 보면
+  // 그런 소비처에서 엔트리가 영영 등록되지 않아 뒤로가기가 페이지를 이탈시킨다.
+  const canDismiss = Boolean(onClose);
 
   useEffect(() => {
-    if (!open || !onCloseRef.current) return;
-    install();
+    if (!open || !canDismiss) return;
+    // providers 에서 이미 설치됐지만, 단위 테스트처럼 providers 없이 훅만 쓰는 경로를 위한 폴백이다.
+    installBackDismiss();
 
     const entry: OverlayEntry = {
       id: nextOverlayId,
@@ -149,6 +212,8 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
       withMarker({ __overlayToken: DOCUMENT_TOKEN, __overlayId: entry.id }),
       '',
     );
+    currentMarkerId = entry.id;
+    currentHref = window.location.href;
 
     return () => {
       const index = stack.indexOf(entry);
@@ -170,5 +235,5 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
         window.history.back();
       });
     };
-  }, [open, consumedGeneration]);
+  }, [open, canDismiss, consumedGeneration]);
 }

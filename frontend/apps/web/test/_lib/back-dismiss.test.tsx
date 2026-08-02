@@ -61,7 +61,10 @@ function Overlay({ name, refuseClose = false }: OverlayProps) {
 describe('useBackDismiss', () => {
   beforeEach(() => {
     closeSpy.mockClear();
-    window.history.replaceState({ marker: 'page' }, '');
+    // 이전 페이지 센티넬을 아래에 깐다 — 없으면 히스토리를 한 칸 더 먹는 버그(예: back() 이중 호출)가
+    // 같은 값의 엔트리에 흡수돼 단언을 통과해 버린다.
+    window.history.replaceState({ marker: 'prev' }, '');
+    window.history.pushState({ marker: 'page' }, '');
   });
 
   afterEach(async () => {
@@ -129,6 +132,16 @@ describe('useBackDismiss', () => {
 
     // 우리 엔트리가 회수돼 페이지 엔트리 위에 앉아 있다.
     expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 회수가 과했는지 센티넬로 확인한다 — 뒤로 1회에 정확히 이전 페이지여야 한다.
+    // 한계: jsdom 은 동기 back() 2회를 1칸으로 합쳐 처리하므로(실측), "회수를 2번 하는" 결함은
+    // 여기서 잡히지 않는다. 그 축은 실브라우저 QA(닫기 직후 페이지가 유지되는지)가 담당한다.
+    const poppedAgain = nextPopState();
+    await act(async () => {
+      window.history.back();
+      await poppedAgain;
+    });
+    expect(window.history.state).toEqual({ marker: 'prev' });
   });
 
   it('중간 오버레이를 코드로 닫아도 죽은 뒤로가기가 생기지 않는다', async () => {
@@ -208,12 +221,20 @@ describe('useBackDismiss', () => {
     expect(window.history.state).toEqual({ marker: 'page' });
   });
 
-  it('이전 문서 토큰이 붙은 엔트리는 죽은 엔트리로 보고 건너뛴다', async () => {
+  it('이전 문서 토큰이 붙은 엔트리는 ID 가 겹쳐도 죽은 엔트리로 본다', async () => {
+    // 다음에 발급될 오버레이 ID 를 알아내려고 한 번 열었다 닫는다.
+    const probe = render(<Overlay name="probe" />);
+    const probeId: number = window.history.state.__overlayId;
+    probe.unmount();
+    await settle();
+
+    // 이전 문서가 남긴 엔트리 — 토큰만 다르고 ID 는 바로 다음 오버레이와 정확히 겹친다.
+    // 토큰 대조가 없으면 이 엔트리를 살아 있는 오버레이로 오판해 뒤로가기가 아무 일도 하지 않는다.
+    window.history.pushState({ __overlayToken: 'stale-doc', __overlayId: probeId + 1 }, '');
+    closeSpy.mockClear();
+
     render(<Overlay name="a" />);
-    // 오버레이 엔트리 아래에 이전 문서의 잔존 엔트리가 있는 상황을 만든다.
-    const overlayState: unknown = window.history.state;
-    window.history.replaceState({ __overlayToken: 'stale-doc', __overlayId: 99 }, '');
-    window.history.pushState(overlayState, '');
+    expect(window.history.state.__overlayId).toBe(probeId + 1);
 
     await pressBack();
 
@@ -251,6 +272,107 @@ describe('useBackDismiss', () => {
     // 15개를 다 건너뛰지는 못했으므로 여전히 잔존 엔트리 위에 있다.
     expect(window.history.state.__overlayToken).toBe('stale-doc');
     backSpy.mockRestore();
+  });
+
+  it('Next 가 replace 로 state 를 갈아치워도 엔트리를 회수한다', async () => {
+    function CodeClosed() {
+      const [open, setOpen] = useState(true);
+      useBackDismiss(open, () => setOpen(false));
+      return open ? (
+        <button type="button" onClick={() => setOpen(false)}>
+          닫기
+        </button>
+      ) : null;
+    }
+
+    const { getByRole } = render(<CodeClosed />);
+    // Next 의 HistoryUpdater 재현 — navigate/refresh/서버액션 경로는 커스텀 state 를 보존하지 않는다.
+    window.history.replaceState({ __NA: true, tree: ['fake'] }, '');
+    // 우리 마커가 다시 얹혀 있어야 한다.
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+
+    const popped = nextPopState();
+    await act(async () => {
+      getByRole('button').click();
+      await popped;
+    });
+    await settle();
+
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('시트 안에서 URL 이 바뀌었으면 닫을 때 그 URL 을 유지한다', async () => {
+    function UrlSyncingSheet() {
+      const [open, setOpen] = useState(true);
+      useBackDismiss(open, () => setOpen(false));
+      return open ? (
+        <>
+          <button type="button" onClick={() => window.history.replaceState({}, '', '/clubs?cat=A')}>
+            필터
+          </button>
+          <button type="button" onClick={() => setOpen(false)}>
+            닫기
+          </button>
+        </>
+      ) : null;
+    }
+
+    const { getByText } = render(<UrlSyncingSheet />);
+    await act(async () => {
+      getByText('필터').click();
+    });
+    expect(window.location.search).toBe('?cat=A');
+
+    const popped = nextPopState();
+    await act(async () => {
+      getByText('닫기').click();
+      await popped;
+    });
+    await settle();
+
+    // 시트만 닫혔을 뿐인데 필터가 초기화되면 안 된다.
+    expect(window.location.search).toBe('?cat=A');
+    expect(window.history.state.__overlayId).toBeUndefined();
+  });
+
+  it('앞으로 가기로 죽은 엔트리에 올라오면 되돌려 보내지 않는다', async () => {
+    const { unmount } = render(<Overlay name="a" />);
+    // 시트를 연 채 언마운트 — 주인 없는 엔트리가 남는다(페이지 이동 상황과 동일).
+    unmount();
+    await settle();
+    // 그 위에 다음 페이지 엔트리를 쌓는다.
+    window.history.pushState({ marker: 'next-page' }, '');
+
+    const backPopped = nextPopState();
+    await act(async () => {
+      window.history.back();
+      await backPopped;
+    });
+    await settle();
+
+    const forwardPopped = nextPopState();
+    await act(async () => {
+      window.history.forward();
+      await forwardPopped;
+    });
+    await settle();
+
+    // 앞으로 가기가 자동 스킵에 되감기면 다음 페이지에 영원히 도달할 수 없다.
+    expect(window.history.state).toEqual({ marker: 'next-page' });
+  });
+
+  it('onClose 가 열린 뒤에 붙어도 엔트리를 등록한다', async () => {
+    function LateClose({ ready }: { ready: boolean }) {
+      useBackDismiss(true, ready ? () => closeSpy('late') : null);
+      return <div data-testid="late" />;
+    }
+
+    const { rerender } = render(<LateClose ready={false} />);
+    rerender(<LateClose ready />);
+
+    await pressBack();
+
+    expect(closeSpy).toHaveBeenCalledWith('late');
   });
 
   it('오버레이를 여러 번 열고 닫아도 popstate 리스너는 추가로 등록되지 않는다', async () => {
