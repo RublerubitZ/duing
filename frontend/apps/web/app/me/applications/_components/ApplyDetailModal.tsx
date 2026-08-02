@@ -10,6 +10,7 @@ import { ApiError } from '@duing/api';
 import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hooks';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
@@ -101,6 +102,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
   useEffect(() => {
     setConfirmingWithdraw(false);
   }, [app?.id]);
+
+  useBackDismiss(app !== null, onClose);
 
   if (!app) return null;
 

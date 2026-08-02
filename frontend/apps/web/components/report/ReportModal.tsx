@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useSubmitReportMutation } from '@duing/hooks';
 import type { ReportTargetType } from '@duing/types';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
@@ -37,6 +38,7 @@ const REASON_OPTIONS: { value: ReasonCode; label: string }[] = [
 ];
 
 export function ReportModal({ targetType, targetId, targetLabel, onClose }: Props) {
+  useBackDismiss(true, onClose);
   const overlayRef = useRef<HTMLDivElement>(null);
   const submitReport = useSubmitReportMutation();
 

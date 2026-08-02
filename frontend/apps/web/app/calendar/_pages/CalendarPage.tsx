@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDaysIso, useCalendarMonthQuery, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
@@ -167,6 +168,9 @@ export function CalendarPage() {
   const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
+
+  // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
+  useBackDismiss(detailOpen, () => setDetailOpen(false));
 
   const calendarCardRef = useRef<HTMLDivElement>(null);
   // ResizeObserver 첫 콜백 전에는 null — 그 동안에는 minHeight fallback 으로 첫 프레임 깜빡임 방지.

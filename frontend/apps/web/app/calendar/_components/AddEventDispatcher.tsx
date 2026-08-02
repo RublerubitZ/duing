@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import type { ManagedClub } from '@duing/types';
@@ -19,6 +20,7 @@ export function AddEventDispatcher({ open, onClose }: Props) {
   const isAuthenticated = !!meQuery.data;
   const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
+  useBackDismiss(open, onClose);
 
   if (!open) return null;
 

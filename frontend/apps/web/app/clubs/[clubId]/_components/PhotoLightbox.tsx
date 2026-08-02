@@ -9,6 +9,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { ArrowLeft, ArrowRight, X } from '@/components/duing/Icon';
 
 export type LightboxSlide = {
@@ -32,6 +33,7 @@ const SWIPE_NAV_THRESHOLD = 60;
 const SWIPE_CLOSE_THRESHOLD = 120;
 
 export function PhotoLightbox({ slides, initialIndex, open, onClose }: Props) {
+  useBackDismiss(open, onClose);
   const count = slides.length;
   const [current, setCurrent] = useState(initialIndex);
   // 전역 MotionConfig 가 transform 모션은 줄여주지만, 여기서 추가한 페이드/탄성도 함께 끈다.
