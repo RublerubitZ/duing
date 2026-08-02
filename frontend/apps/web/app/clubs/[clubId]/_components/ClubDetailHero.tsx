@@ -185,17 +185,19 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             )}
           </div>
 
-          {club.centralClub && (
-            <div className="mt-2.5">
-              <span className="pill pill-solid text-[11px]">🏛️ 중앙동아리</span>
-            </div>
-          )}
-
-          {(club.foundedYear !== null || club.cohortNumber !== null) && (
-            <div className="mt-2 text-[12px] text-charcoal-3">
-              {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-              {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-              {club.cohortNumber !== null && `${club.cohortNumber}기`}
+          {/* 중앙동아리 pill(좌) · 창설년도/기수(우) 한 행 — 같은 계층의 메타 정보로 묶는다. */}
+          {(club.centralClub || club.foundedYear !== null || club.cohortNumber !== null) && (
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+              {club.centralClub && (
+                <span className="pill pill-solid text-[11px]">🏛️ 중앙동아리</span>
+              )}
+              {(club.foundedYear !== null || club.cohortNumber !== null) && (
+                <div className="min-w-0 text-[12px] text-charcoal-3">
+                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                </div>
+              )}
             </div>
           )}
 
