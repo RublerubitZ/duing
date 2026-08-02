@@ -122,11 +122,14 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
 describe('ClubDetailStats — 회비 안내문', () => {
   const FEE_NOTE = '선수 : 학기당 30,000원\n매니저 : 학기당 15,000원';
 
-  it('안내문이 있으면 회비 셀에 2줄 클램프 보조 텍스트로 표시한다', () => {
+  it('안내문이 있으면 회비 셀에 말줄임 부호 없이 2줄에서 잘리는 보조 텍스트로 표시한다', () => {
     render(<ClubDetailStats club={{ ...worstCaseClub, feeNote: FEE_NOTE }} />);
 
     const note = screen.getByText(/매니저 : 학기당 15,000원/);
-    expect(note).toHaveClass('line-clamp-2', 'whitespace-pre-wrap', 'break-words');
+    // 말줄임 부호(…)를 붙이는 line-clamp 대신 높이 클리핑으로 2줄을 만든다
+    expect(note).toHaveClass('max-h-[2lh]', 'overflow-hidden');
+    expect(note.className).not.toMatch(/line-clamp/);
+    expect(note).toHaveClass('whitespace-pre-wrap', 'break-words');
     // 대표 금액의 굵은 타이포를 상속하지 않는다
     expect(note).toHaveClass('font-normal', 'text-charcoal-3');
     expect(note).not.toHaveClass('font-bold');
@@ -138,7 +141,8 @@ describe('ClubDetailStats — 회비 안내문', () => {
     const { container } = render(<ClubDetailStats club={worstCaseClub} />);
 
     expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
-    expect(container.querySelector('.line-clamp-2')).toBeNull();
+    // 보조 텍스트는 이 컴포넌트의 유일한 <p>
+    expect(container.querySelector('p')).toBeNull();
   });
 
   it('대표 금액 없이 안내문만 있으면 통계 카드에 회비 셀을 만들지 않는다', () => {

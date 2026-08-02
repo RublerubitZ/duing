@@ -35,8 +35,10 @@ export function ClubDetailStats({ club }: Props) {
             <div className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug text-ink-deep break-keep [overflow-wrap:anywhere] md:text-[22px] md:leading-normal">
               {cell.value}
             </div>
+            {/* max-h-[2lh]+overflow-hidden: line-clamp가 붙이는 말줄임 부호(…) 없이 2줄에서 자른다.
+                lh 미지원 브라우저는 max-height 를 무시 → 전문 노출(레이아웃 깨짐 없는 저하). */}
             {cell.note != null && (
-              <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-[12px] font-normal leading-relaxed text-charcoal-3">
+              <p className="mt-1 max-h-[2lh] overflow-hidden whitespace-pre-wrap break-words text-[12px] font-normal leading-relaxed text-charcoal-3">
                 {cell.note}
               </p>
             )}
