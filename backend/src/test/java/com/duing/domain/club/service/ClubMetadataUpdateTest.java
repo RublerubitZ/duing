@@ -58,7 +58,7 @@ class ClubMetadataUpdateTest {
                 days,                                                  // activeDays
                 null, null,                                            // tagline, highlights
                 null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
-                null, null, null, null, null                                 // college, clearCollege, clearLogoImage, clearCoverImage, useGeneration
+                null, null, null, null, null, null                           // college~useGeneration, feeNote
         ));
 
         ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());

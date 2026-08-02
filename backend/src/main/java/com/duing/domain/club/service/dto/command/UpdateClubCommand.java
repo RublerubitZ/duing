@@ -40,7 +40,8 @@ public record UpdateClubCommand(
         Boolean clearCollege,
         Boolean clearLogoImage,
         Boolean clearCoverImage,
-        Boolean useGeneration
+        Boolean useGeneration,
+        String feeNote
 ) {
     public Club.UpdatePayload toPayload() {
         return new Club.UpdatePayload(
@@ -48,7 +49,8 @@ public record UpdateClubCommand(
                 tags(), snsLinks(), faqs(), foundedYear(), cohortNumber(), location(),
                 activityFrequency(), activeDays(), tagline(), highlights(),
                 contactVisibility(), feeCycle(), membershipFeeAmount(), projects(),
-                college(), clearCollege(), clearLogoImage(), clearCoverImage(), useGeneration()
+                college(), clearCollege(), clearLogoImage(), clearCoverImage(), useGeneration(),
+                feeNote()
         );
     }
 }

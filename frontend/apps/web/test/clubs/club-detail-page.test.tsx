@@ -66,6 +66,7 @@ const clubDetail: ClubDetail = {
   activeDays: [],
   membershipFeeAmount: null,
   feeCycle: 'NONE',
+  feeNote: null,
   tagline: null,
   highlights: [],
   projects: [{ icon: 'CODE', title: '해커톤', subtitle: '2박 3일 개발' }],

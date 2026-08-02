@@ -89,6 +89,9 @@ public record AdminUpdateClubRequest(
         @Max(value = 10_000_000, message = "회비 금액이 너무 큽니다.")
         Integer membershipFeeAmount,
 
+        @Size(max = 150, message = "회비 안내는 150자 이하여야 합니다.")
+        String feeNote,
+
         @Size(max = 6, message = "주요 프로젝트는 최대 6개까지 가능합니다.")
         List<@NotNull(message = "프로젝트 항목은 비어 있을 수 없습니다.") @Valid ClubProject> projects,
 
@@ -121,7 +124,8 @@ public record AdminUpdateClubRequest(
                 contactVisibility, feeCycle, membershipFeeAmount, projects,
                 college, clearCollege,
                 clearLogoImage, clearCoverImage,
-                null                                    // useGeneration — 리더 프로필 수정 전용
+                null,                                   // useGeneration — 리더 프로필 수정 전용
+                feeNote
         );
     }
 }

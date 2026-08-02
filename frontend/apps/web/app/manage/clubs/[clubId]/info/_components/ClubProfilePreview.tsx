@@ -15,6 +15,7 @@ export type ClubPreviewData = {
   location: string;
   feeCycle: FeeCycle;
   membershipFeeAmount: number | null;
+  feeNote: string;
   highlights: string[];
 };
 
@@ -33,7 +34,9 @@ export function ClubProfilePreview({ preview }: { preview: ClubPreviewData }) {
   if (preview.foundedYear !== null) metaItems.push(['창설', `${preview.foundedYear}년`]);
   if (activityText !== null) metaItems.push(['활동', activityText]);
   if (preview.location !== '') metaItems.push(['위치', preview.location]);
-  if (feeText !== null) metaItems.push(['회비', feeText]); // NONE 은 학생 페이지와 동일하게 숨김 (§7)
+  // 대표 금액이 있으면 그대로, 없어도 안내문이 있으면 안내문으로 회비 셀 노출(한 줄 truncate) — 상세 페이지 노출 규칙과 동일 조건
+  if (feeText !== null) metaItems.push(['회비', feeText]);
+  else if (preview.feeNote !== '') metaItems.push(['회비', preview.feeNote]);
 
   return (
     <div>

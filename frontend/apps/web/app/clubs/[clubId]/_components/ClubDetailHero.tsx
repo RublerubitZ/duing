@@ -27,6 +27,12 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
   const [reportOpen, setReportOpen] = useState(false);
 
+  // 모바일 이름 뒤 중앙동아리 아이콘용 — 마지막 글자와 아이콘을 한 덩어리로 묶어야
+  // 이름이 여러 줄로 접힐 때 아이콘만 다음 줄에 남는 것을 막을 수 있다.
+  const nameChars = Array.from(club.name);
+  const nameHead = nameChars.slice(0, -1).join('');
+  const nameTail = nameChars.at(-1) ?? '';
+
   return (
     <>
       {/* ===================== 데스크탑/태블릿 히어로 (md+) ===================== */}
@@ -146,48 +152,68 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         </div>
 
         <div className="px-4 pb-1">
-          <div
-            className={cn(
+          {/* 로고 · 동아리명 한 행 — 이름이 행 폭을 다 쓰도록 신고하기는 아래 메타 행으로 내렸다. */}
+          <div className="flex items-center gap-3">
+            <div
               // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
-              'relative inline-grid h-20 w-20 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
-              club.coverUrl ? '-mt-6' : 'mt-1',
-            )}
-            style={{
-              // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
-              background: club.logoUrl
-                ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
-                : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
-              // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
-              viewTransitionName: `club-logo-${club.id}`,
-            }}
-          >
-            <ClubLogo logoUrl={club.logoUrl}>
-              <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
-            </ClubLogo>
+              // 겹침 마진과 self-start 를 행이 아닌 로고에 두는 게 핵심 — 행은 커버 아래에서
+              // 시작해 이름이 몇 줄이든 아래로만 자라고, 로고 걸침 폭은 줄 수와 무관하게 일정하다.
+              className={cn(
+                'relative grid h-20 w-20 shrink-0 self-start place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
+                club.coverUrl ? '-mt-6' : 'mt-1',
+              )}
+              style={{
+                // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
+                background: club.logoUrl
+                  ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
+                  : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
+                viewTransitionName: `club-logo-${club.id}`,
+              }}
+            >
+              <ClubLogo logoUrl={club.logoUrl}>
+                <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
+              </ClubLogo>
+            </div>
+            {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은
+                글자 단위로 쪼개 잘림을 막는다. 글꼴 확대(OS 접근성 설정) 상태까지 방어. */}
+            <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]">
+              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
+              {club.centralClub ? (
+                <>
+                  {nameHead}
+                  <span className="whitespace-nowrap">
+                    {nameTail}
+                    <VerifiedIcon />
+                    <span className="sr-only"> 중앙동아리</span>
+                  </span>
+                </>
+              ) : (
+                club.name
+              )}
+            </h1>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {club.centralClub && (
-              <span className="pill pill-solid text-[11px]">🏛️ 중앙동아리</span>
-            )}
-            <span className="pill text-[11px]">
-              {categoryLabel}
-              {club.division ? ` · ${club.division}` : ''}
-            </span>
-            {recruitmentDisplayStatus && (
-              <span className="pill pill-solid text-[11px]">
-                {displayStatusLabel(recruitmentDisplayStatus)}
-              </span>
-            )}
-          </div>
-
-          <h1 className="mt-2.5 text-[28px] leading-[1.15] tracking-tightx">{club.name}</h1>
-
-          {(club.foundedYear !== null || club.cohortNumber !== null) && (
-            <div className="mt-1.5 text-[12px] text-charcoal-3">
-              {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-              {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-              {club.cohortNumber !== null && `${club.cohortNumber}기`}
+          {/* 창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다. */}
+          {(club.foundedYear !== null || club.cohortNumber !== null || isAuthenticated) && (
+            <div className="mt-2.5 flex items-center gap-3">
+              {(club.foundedYear !== null || club.cohortNumber !== null) && (
+                <div className="min-w-0 text-[12px] text-charcoal-3">
+                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                </div>
+              )}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                >
+                  <FlagIcon />
+                  신고하기
+                </button>
+              )}
             </div>
           )}
 
@@ -201,17 +227,6 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               ))}
             </div>
           )}
-
-          {isAuthenticated && (
-            <button
-              type="button"
-              onClick={() => setReportOpen(true)}
-              className="mt-3 flex items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
-            >
-              <FlagIcon />
-              신고하기
-            </button>
-          )}
         </div>
       </div>
 
@@ -224,6 +239,26 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         />
       )}
     </>
+  );
+}
+
+/** 중앙동아리 표시 아이콘 — 이름 톤에 묻히도록 muted 색·소형(옆 텍스트 대비 튀지 않게). */
+function VerifiedIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      className="ml-1.5 inline-block h-[17px] w-[17px] align-[-1.5px] text-charcoal-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="m8 12.2 2.7 2.7L16 9.6" />
+    </svg>
   );
 }
 

@@ -127,7 +127,8 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
             club.update(new UpdatePayload(
                     null, null, null, null, null, null,
                     tags,
-                    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                    null));
         }
         return clubRepository.save(club);
     }

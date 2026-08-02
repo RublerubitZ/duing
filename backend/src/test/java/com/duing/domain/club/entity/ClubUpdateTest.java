@@ -26,7 +26,7 @@ class ClubUpdateTest {
                 List.of(new ClubFaq("Q1", "A1", 0)),
                 null, null, null, null, null, null, null,   // B
                 null, null, null, null,                     // C
-                null, null, null, null, null                      // D
+                null, null, null, null, null, null                // D
         ));
 
         assertThat(club.getName()).isEqualTo("두잉 NEW");
@@ -50,7 +50,7 @@ class ClubUpdateTest {
                 List.of("코딩", "스터디", "코딩"), null, null,
                 null, null, null, null, null, null, null,   // B
                 null, null, null, null,                     // C
-                null, null, null, null, null));                   // D
+                null, null, null, null, null, null));             // D
 
         assertThat(club.getTags()).containsExactly("코딩", "스터디");
     }
@@ -64,7 +64,7 @@ class ClubUpdateTest {
                 null, null, null, null, null, null, null, null, null,   // A
                 null, null, null, null, null, null, null,               // B
                 null, null, null, null,                                 // C
-                null, null, null, null, null));                               // D
+                null, null, null, null, null, null));                         // D
 
         assertThat(club.getName()).isEqualTo("두잉");
         assertThat(club.getCategory()).isEqualTo(ClubCategory.ACADEMIC);
@@ -81,14 +81,14 @@ class ClubUpdateTest {
                 null, null, null, null, null, "https://cover", null, null, null,   // A
                 null, null, null, null, null, null, null,                          // B
                 null, null, null, null,                                            // C
-                null, null, null, null, null));                                          // D
+                null, null, null, null, null, null));                                    // D
         assertThat(club.getCoverUrl()).isEqualTo("https://cover");
 
         club.update(new Club.UpdatePayload(
                 null, null, null, null, "https://new-logo", "https://new-cover", null, null, null,   // A
                 null, null, null, null, null, null, null,                                            // B
                 null, null, null, null,                                                              // C
-                null, null, true, true, null));                                                            // D (clearLogoImage/clearCoverImage)
+                null, null, true, true, null, null));                                                      // D (clearLogoImage/clearCoverImage)
 
         assertThat(club.getLogoUrl()).isNull();
         assertThat(club.getCoverUrl()).isNull();
@@ -103,7 +103,7 @@ class ClubUpdateTest {
                 null, null, null, "", null, null, null, null, null,   // A: description=""
                 null, null, "", null, null, null, null,               // B: location=""
                 null, null, null, null,                               // C
-                null, null, null, null, null));                             // D
+                null, null, null, null, null, null));                       // D
 
         assertThat(club.getDescription()).isNull();
         assertThat(club.getLocation()).isNull();
