@@ -147,9 +147,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
         <div className="px-4 pb-1">
           {/* 로고 · 동아리명 한 행 — 이름이 행 폭을 다 쓰도록 신고하기는 아래 메타 행으로 내렸다. */}
-          <div
-            className={cn('flex items-center gap-3', club.coverUrl ? '-mt-6' : 'mt-1')}
-          >
+          <div className={cn('flex items-center gap-3', club.coverUrl ? '-mt-6' : 'mt-1')}>
             <div
               // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
               className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg"
@@ -172,7 +170,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               {club.centralClub && (
                 <>
                   <VerifiedIcon />
-                  <span className="sr-only">중앙동아리</span>
+                  <span className="sr-only"> 중앙동아리</span>
                 </>
               )}
             </h1>
