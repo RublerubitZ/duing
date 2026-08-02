@@ -75,7 +75,7 @@ public record UpdateClubRequest(
         @Max(value = 10_000_000, message = "회비 금액이 너무 큽니다.")
         Integer membershipFeeAmount,
 
-        @Size(max = 300, message = "회비 안내는 300자 이하여야 합니다.")
+        @Size(max = 150, message = "회비 안내는 150자 이하여야 합니다.")
         String feeNote,
 
         @Size(max = 6, message = "주요 프로젝트는 최대 6개까지 가능합니다.")

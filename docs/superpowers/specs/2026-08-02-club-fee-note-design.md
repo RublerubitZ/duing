@@ -18,27 +18,27 @@
 
 ## 백엔드
 
-- **마이그레이션 V96**: `ALTER TABLE club ADD COLUMN fee_note VARCHAR(300);` (nullable, 기본 NULL)
+- **마이그레이션 V96**: `ALTER TABLE club ADD COLUMN fee_note VARCHAR(150);` (nullable, 기본 NULL)
   + `COMMENT ON COLUMN club.fee_note IS '회비 안내문';`
-- **Club 엔티티**: `@Column(name = "fee_note", length = 300) private String feeNote;`
+- **Club 엔티티**: `@Column(name = "fee_note", length = 150) private String feeNote;`
   - `UpdatePayload`(positional record)에 필드 추가 — 요청→커맨드→페이로드→엔티티 4계층 순서 동기화 주의
   - `update()`: `if (payload.feeNote() != null) this.feeNote = blankToNull(payload.feeNote());`
     — 기존 텍스트 필드(clear-intent 규약: `""` 전송 = 비우기)와 동일 패턴. pair-atomic 블록에 넣지 않는다.
 - **요청 DTO**: `UpdateClubRequest` + `AdminUpdateClubRequest` 양쪽에
-  `@Size(max = 300, message = "회비 안내는 300자 이하여야 합니다.") String feeNote` + `toCommand()` 스레딩.
+  `@Size(max = 150, message = "회비 안내는 150자 이하여야 합니다.") String feeNote` + `toCommand()` 스레딩.
   기존 `@AssertTrue isFeePairConsistent()`는 건드리지 않는다.
 - **응답**: `ClubDetailQuery` → `ClubDetailResponse`에 `feeNote` 추가 (admin 상세는 동일 DTO 재사용이라 자동 커버)
-- **테스트**: 경계값 300자 성공·301자 검증 실패 / feeNote 갱신 반영 / `""` 전송 시 null 클리어 / 상세 응답 포함
+- **테스트**: 경계값 150자 성공·151자 검증 실패 / feeNote 갱신 반영 / `""` 전송 시 null 클리어 / 상세 응답 포함
 
 ## 프론트엔드
 
 - **타입** (`packages/types/src/club.ts`): `ClubDetail.feeNote: string | null`, `UpdateClubPayload.feeNote?: string`
-- **스키마** (`packages/schemas`): `clubProfileBaseSchema`에 `feeNote: 300자 max` 추가
+- **스키마** (`packages/schemas`): `clubProfileBaseSchema`에 `feeNote: 150자 max` 추가
   (updateClubSchema/adminUpdateClubSchema 자동 상속, `feePairRule` 무관)
 - **관리 폼** (`ClubInfoForm.tsx` 섹션 3 "활동 요일 · 빈도 · 회비"):
-  - 기존 회비 입력 아래에 라벨 **"회비 안내 (선택)"** + 글자수 카운터 `{n}/300`
+  - 기존 회비 입력 아래에 라벨 **"회비 안내 (선택)"** + 글자수 카운터 `{n}/150`
     (HeroActivityEditor의 라벨+카운터 한 줄 idiom 재사용)
-  - `<textarea rows={4} maxLength={300}>`, placeholder:
+  - `<textarea rows={4} maxLength={150}>`, placeholder:
     ```
     선수 : 학기당 30,000원
     매니저 : 학기당 15,000원

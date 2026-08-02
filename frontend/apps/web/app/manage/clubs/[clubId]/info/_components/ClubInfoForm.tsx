@@ -545,12 +545,12 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 <div className="mt-3 flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-between">
                     <label htmlFor="f-fee-note" className={labelCls}>회비 안내 (선택)</label>
-                    <span className="text-[11.5px] font-medium text-[#8a8f83]">{feeNote.length}/300</span>
+                    <span className="text-[11.5px] font-medium text-[#8a8f83]">{feeNote.length}/150</span>
                   </div>
                   <textarea
                     id="f-fee-note"
                     value={feeNote}
-                    maxLength={300}
+                    maxLength={150}
                     rows={4}
                     onChange={(event) => setFeeNote(event.target.value)}
                     placeholder={'선수 : 학기당 30,000원\n매니저 : 학기당 15,000원\n\n신규 회원은 첫 학기만 5,000원이 추가됩니다.'}

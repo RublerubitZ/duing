@@ -125,7 +125,7 @@ public class Club extends BaseEntity {
     private FeeCycle feeCycle = FeeCycle.NONE;
 
     /** 회비 안내문 — 분야별/신규·기존 차등 등 자유 텍스트. 대표 회비(feeCycle/금액)와 독립. */
-    @Column(name = "fee_note", length = 300)
+    @Column(name = "fee_note", length = 150)
     private String feeNote;
 
     @JdbcTypeCode(SqlTypes.JSON)

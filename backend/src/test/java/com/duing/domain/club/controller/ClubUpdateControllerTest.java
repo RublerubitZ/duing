@@ -322,9 +322,9 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("회비 안내문 300자는 저장되고 상세 응답에 포함된다")
+    @DisplayName("회비 안내문 150자는 저장되고 상세 응답에 포함된다")
     void feeNoteAtLimitIsSaved() {
-        String maxLengthNote = "가".repeat(300);
+        String maxLengthNote = "가".repeat(150);
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -341,13 +341,13 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("회비 안내문이 301자면 400 을 반환한다")
+    @DisplayName("회비 안내문이 151자면 400 을 반환한다")
     void feeNoteOverLimitReturns400() {
         RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                     .contentType(ContentType.JSON)
-                    .body(Map.of("feeNote", "가".repeat(301)))
+                    .body(Map.of("feeNote", "가".repeat(151)))
                 .when()
                     .patch("/api/v1/clubs/{clubId}", club.getId())
                 .then()

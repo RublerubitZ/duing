@@ -330,7 +330,7 @@ const clubProfileBaseSchema = z.object({
   membershipFeeAmount: z.number().int().min(1, '회비 금액은 1원 이상이어야 합니다.')
     .max(10_000_000, '회비 금액이 너무 큽니다.').nullable().optional(),
   // 회비 안내문 — 대표 회비(주기/금액)와 독립, feePairRule 무관.
-  feeNote: z.string().max(300, '회비 안내는 300자 이하여야 합니다.').nullable().optional(),
+  feeNote: z.string().max(150, '회비 안내는 150자 이하여야 합니다.').nullable().optional(),
   projects: z.array(clubProjectSchema).max(6, '활동 소개는 최대 6개까지 등록할 수 있어요.').optional(),
   // 회원 기수 표시 여부(표시 제어 전용). 생략 시 미변경.
   useGeneration: z.boolean().optional(),
