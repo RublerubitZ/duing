@@ -100,6 +100,7 @@ export type ClubDetail = ClubSummary & {
   activeDays: ClubDayOfWeek[];
   membershipFeeAmount: number | null;
   feeCycle: FeeCycle;
+  feeNote: string | null;
   tagline: string | null;
   highlights: string[];
   projects: ClubProject[];
@@ -193,6 +194,7 @@ export type UpdateClubPayload = {
   activeDays?: ClubDayOfWeek[];
   membershipFeeAmount?: number | null;
   feeCycle?: FeeCycle;
+  feeNote?: string | null;
   tagline?: string | null;
   highlights?: string[];
   projects?: ClubProject[];

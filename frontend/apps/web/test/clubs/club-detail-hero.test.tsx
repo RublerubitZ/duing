@@ -39,6 +39,7 @@ const baseClub: ClubDetail = {
   activeDays: [],
   membershipFeeAmount: null,
   feeCycle: 'NONE',
+  feeNote: null,
   tagline: null,
   highlights: [],
   projects: [],

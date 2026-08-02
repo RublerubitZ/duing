@@ -82,6 +82,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     activeDays: [],
     membershipFeeAmount: null,
     feeCycle: 'NONE',
+    feeNote: null,
     highlights: [],
     projects: [],
     useGeneration: false,
