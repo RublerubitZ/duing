@@ -170,7 +170,16 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
                 </ClubLogo>
               </div>
-              <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">{club.name}</h1>
+              <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">
+                {club.name}
+                {/* 중앙동아리는 칩 대신 이름 뒤 은은한 아이콘으로만 표시 — 없으면 학과/일반. */}
+                {club.centralClub && (
+                  <>
+                    <LandmarkIcon />
+                    <span className="sr-only">중앙동아리</span>
+                  </>
+                )}
+              </h1>
             </div>
 
             {isAuthenticated && (
@@ -185,19 +194,11 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             )}
           </div>
 
-          {/* 중앙동아리 pill(좌) · 창설년도/기수(우) 한 행 — 같은 계층의 메타 정보로 묶는다. */}
-          {(club.centralClub || club.foundedYear !== null || club.cohortNumber !== null) && (
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-              {club.centralClub && (
-                <span className="pill pill-solid text-[11px]">🏛️ 중앙동아리</span>
-              )}
-              {(club.foundedYear !== null || club.cohortNumber !== null) && (
-                <div className="min-w-0 text-[12px] text-charcoal-3">
-                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
-                </div>
-              )}
+          {(club.foundedYear !== null || club.cohortNumber !== null) && (
+            <div className="mt-2.5 text-[12px] text-charcoal-3">
+              {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+              {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+              {club.cohortNumber !== null && `${club.cohortNumber}기`}
             </div>
           )}
 
@@ -223,6 +224,30 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         />
       )}
     </>
+  );
+}
+
+/** 중앙동아리 표시 아이콘 — 이름 톤에 묻히도록 muted 색·소형(옆 텍스트 대비 튀지 않게). */
+function LandmarkIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      className="ml-1.5 inline-block h-[17px] w-[17px] align-[-1.5px] text-charcoal-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="3" x2="21" y1="22" y2="22" />
+      <line x1="6" x2="6" y1="18" y2="11" />
+      <line x1="10" x2="10" y1="18" y2="11" />
+      <line x1="14" x2="14" y1="18" y2="11" />
+      <line x1="18" x2="18" y1="18" y2="11" />
+      <polygon points="12 2 20 7 4 7" />
+    </svg>
   );
 }
 
