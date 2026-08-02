@@ -146,59 +146,58 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         </div>
 
         <div className="px-4 pb-1">
-          {/* 로고 · 동아리명 · 신고하기 한 행 — 첫 화면에서 동아리명이 최우선으로 읽히게. */}
+          {/* 로고 · 동아리명 한 행 — 이름이 행 폭을 다 쓰도록 신고하기는 아래 메타 행으로 내렸다. */}
           <div
-            className={cn(
-              'flex items-center justify-between gap-3',
-              club.coverUrl ? '-mt-6' : 'mt-1',
-            )}
+            className={cn('flex items-center gap-3', club.coverUrl ? '-mt-6' : 'mt-1')}
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <div
-                // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
-                className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg"
-                style={{
-                  // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
-                  background: club.logoUrl
-                    ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
-                    : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
-                  // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
-                  viewTransitionName: `club-logo-${club.id}`,
-                }}
-              >
-                <ClubLogo logoUrl={club.logoUrl}>
-                  <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
-                </ClubLogo>
-              </div>
-              <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">
-                {club.name}
-                {/* 중앙동아리는 칩 대신 이름 뒤 은은한 아이콘으로만 표시 — 없으면 학과/일반. */}
-                {club.centralClub && (
-                  <>
-                    <LandmarkIcon />
-                    <span className="sr-only">중앙동아리</span>
-                  </>
-                )}
-              </h1>
+            <div
+              // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
+              className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg"
+              style={{
+                // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
+                background: club.logoUrl
+                  ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
+                  : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
+                viewTransitionName: `club-logo-${club.id}`,
+              }}
+            >
+              <ClubLogo logoUrl={club.logoUrl}>
+                <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
+              </ClubLogo>
             </div>
-
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => setReportOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
-              >
-                <FlagIcon />
-                신고하기
-              </button>
-            )}
+            <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">
+              {club.name}
+              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
+              {club.centralClub && (
+                <>
+                  <VerifiedIcon />
+                  <span className="sr-only">중앙동아리</span>
+                </>
+              )}
+            </h1>
           </div>
 
-          {(club.foundedYear !== null || club.cohortNumber !== null) && (
-            <div className="mt-2.5 text-[12px] text-charcoal-3">
-              {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-              {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-              {club.cohortNumber !== null && `${club.cohortNumber}기`}
+          {/* 창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다. */}
+          {(club.foundedYear !== null || club.cohortNumber !== null || isAuthenticated) && (
+            <div className="mt-2.5 flex items-center gap-3">
+              {(club.foundedYear !== null || club.cohortNumber !== null) && (
+                <div className="min-w-0 text-[12px] text-charcoal-3">
+                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
+                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
+                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                </div>
+              )}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                >
+                  <FlagIcon />
+                  신고하기
+                </button>
+              )}
             </div>
           )}
 
@@ -228,7 +227,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 }
 
 /** 중앙동아리 표시 아이콘 — 이름 톤에 묻히도록 muted 색·소형(옆 텍스트 대비 튀지 않게). */
-function LandmarkIcon() {
+function VerifiedIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -241,12 +240,8 @@ function LandmarkIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <line x1="3" x2="21" y1="22" y2="22" />
-      <line x1="6" x2="6" y1="18" y2="11" />
-      <line x1="10" x2="10" y1="18" y2="11" />
-      <line x1="14" x2="14" y1="18" y2="11" />
-      <line x1="18" x2="18" y1="18" y2="11" />
-      <polygon points="12 2 20 7 4 7" />
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="m8 12.2 2.7 2.7L16 9.6" />
     </svg>
   );
 }
