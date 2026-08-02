@@ -22,17 +22,27 @@ iOS Safari 엣지 스와이프, 브라우저 뒤로가기)를 하면 **시트는
 - `history.back()` 호출은 **두 지점으로 제한**(최상단 오버레이 코드 닫기 / 죽은 엔트리 자동 스킵)
 - **문서 로드 시점에는 `history.back()` 을 호출하지 않는다** — 잔존 마커는 `replaceState` 로 제거만 하고
   자동 히스토리 이동은 하지 않는다
+- `pushState`·`replaceState` 모두 **기존 `history.state` 를 펼쳐 보존**하고 오버레이 마커만 덮어쓴다.
+  state 를 통째로 갈아치우지 않는다
 - popstate 에서 **동기로 상태 변경을 하지 않는다** — 판정만 동기, 실행은 `queueMicrotask`
 - 재진입 방어는 **게이트 플래그가 아니라 선(先) splice + 자기 유발 traversal 카운터**
 - 알려진 "죽은 뒤로가기" 2건(중간 오버레이 코드 닫기 / 시트 연 채 링크 이동)은 **출시 전 해결**
 
-## 왜 pushState 인가 (Next 15.5 실동작 확인)
+## 왜 pushState 인가 (Next 15.5.18 실동작 확인)
 
-`next/dist/client/components/app-router.js` 확인 결과:
+아래는 **설치된 Next 15.5.18 의 `next/dist/client/components/app-router.js` 를 직접 읽고 확인한 동작**이다.
+Next 내부 구현이라 마이너 업그레이드에서 바뀔 수 있는 **버전 의존 사실**로 취급하고, 코드에도 같은
+경고를 주석으로 남긴다. Next 업그레이드 시 이 절의 전제를 재확인한다.
 
 - Next 는 `window.history.pushState` 를 패치한다. **url 인자 없이** 호출하면
-  `copyNextJsInternalHistoryState()` 가 `__NA` 와 내부 트리만 우리 state 에 복사하고,
-  `applyUrlFromHistoryPushReplace()` 는 건너뛴다 → **라우터 dispatch·리렌더·RSC 요청 0**.
+  `applyUrlFromHistoryPushReplace()` 를 건너뛴다 → **라우터 dispatch·리렌더·RSC 요청 0**.
+- 패치는 `data.__NA` 또는 `data._N` 이 있으면 **조기 반환**해 원본 `pushState` 를 그대로 부른다.
+  우리는 기존 `history.state` 를 펼쳐 `__NA` 와 내부 트리를 직접 들고 가므로 이 분기를 타고,
+  "Next 가 내부 필드를 복사해 준다"는 동작에 **의존하지 않는다**. 남는 의존은 "url 인자를 넘기지 않으면
+  URL 이 바뀌지 않는다"는 브라우저 명세뿐이다.
+- 반대로 state 를 `{}` 로 갈아치우면 패치가 바뀌었을 때 `__NA` 가 유실되고, 그 엔트리로 되돌아올 때
+  Next 의 popstate 핸들러가 **`location.reload()`** 를 호출한다(패치 코드에 실재하는 분기).
+  그래서 push·replace 양쪽 모두 기존 state 보존이 필수다.
 - 우리 엔트리는 **URL 이 아래 페이지 엔트리와 동일**하다. 따라서 판정이 어긋나 back 이 한 번
   더 일어나도 **화면 이동은 발생하지 않는다** (최악이 "아무 일도 안 일어남").
 - popstate 로 우리 엔트리에 되돌아오면 Next 는 `__NA` 를 보고 same-URL traverse 로 처리하고,
@@ -48,13 +58,16 @@ iOS Safari 엣지 스와이프, 브라우저 뒤로가기)를 하면 **시트는
 ### 히스토리 마커
 
 ```ts
-history.pushState({ __overlayToken: DOCUMENT_TOKEN, __overlayId: id }, '');
+history.pushState({ ...history.state, __overlayToken: DOCUMENT_TOKEN, __overlayId: id }, '');
 ```
 
 - `DOCUMENT_TOKEN` — 문서 로드 시 1회 생성하는 랜덤 문자열. **새로고침 이전 문서가 남긴 엔트리와의
   ID 충돌을 차단**한다(토큰 불일치 = 남의 엔트리 = 죽은 엔트리).
 - `__overlayId` — 문서 내 단조 증가 정수.
 - `url` 인자는 넘기지 않는다(위 항목 참조).
+- **기존 `history.state` 를 펼쳐 보존**하고 마커 두 개만 덮어쓴다. 로드 시 잔존 마커 제거도 동일하게
+  `replaceState({ ...history.state, __overlayToken: undefined, __overlayId: undefined }, '')` 로
+  **마커만 지운다**.
 
 ### 모듈 상태
 
@@ -64,6 +77,10 @@ const stack: OverlayEntry[] = [];   // 열린 순서
 let selfTraversals = 0;             // 우리가 유발한 traversal 잔여 수
 let skipBudget = MAX_SKIPS;         // 10
 ```
+
+`MAX_SKIPS = 10` 은 **무한 루프 방어용 안전장치**다. 정상 경로에서 연속으로 쌓이는 죽은 엔트리는
+한두 개 수준이라 이 값에 도달하지 않는다. 도달했다면 판정 로직이나 히스토리 상태가 이미 어긋난
+상황이므로, 더 이상 스킵하지 않고 브라우저 기본 동작에 맡기는 것이 안전하다.
 
 리스너는 **첫 사용 시 1회 등록하고 문서 수명 동안 유지**한다. 스택이 빌 때마다 해제하면
 "코드 닫기로 예약한 `history.back()` 이 아직 소화되지 않은 상태"에서 리스너가 사라져
@@ -169,7 +186,7 @@ function Dialog({ open, onOpenChange, ...props }: React.ComponentProps<typeof Di
 | 뒤로 길게 눌러 여러 칸 점프 | 마커 없는 엔트리 착지 → 열린 오버레이 전부 닫힘 |
 | Forward | 죽은 엔트리로 되돌아가더라도 URL 동일 → 화면 변화 없음 |
 | 새로고침 / 딥링크 | URL 무변경 설계라 영향 없음 |
-| StrictMode(dev) 이중 effect | 가드가 ID 를 대조하므로 여분 push 만 발생하고 상태는 수렴 |
+| StrictMode(dev) 이중 effect | 개발 모드의 effect 이중 실행에도 **최종 상태가 정상적으로 수렴**하도록 구현한다(ID 대조 가드). 전이 과정에서 여분 엔트리가 잠시 생길 수 있으나 URL 이 동일해 화면 영향은 없다 |
 
 ### 수용하는 한계 2건
 
