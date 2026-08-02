@@ -57,8 +57,8 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
       : null;
 
   return (
-    <section className="rounded-2xl bg-sage-mist p-4" aria-label="모집 정보">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="rounded-2xl bg-sage-mist px-4 py-3" aria-label="모집 정보">
+      <div className="mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[13px] font-bold text-ink-deep">
           <Sparkle size={13} color="#1F4A36" />
           {header}
@@ -66,7 +66,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
         {end && <span className="font-mono text-[12.5px] font-bold text-ink">{end}</span>}
       </div>
 
-      <dl className="grid grid-cols-[44px_1fr] gap-y-1.5 text-[12.5px]">
+      <dl className="grid grid-cols-[44px_1fr] gap-y-1 text-[12.5px]">
         {rows.map((row) => (
           <div key={row.label} className="contents">
             <dt className="text-charcoal-3">{row.label}</dt>
@@ -76,8 +76,8 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
       </dl>
 
       {ratio !== null && (
-        <div className="mt-3.5 pt-3">
-          <div className="mb-1.5 flex items-center justify-between text-[11px] text-ink-deep">
+        <div className="mt-2.5">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-ink-deep">
             <span>현재 지원자</span>
             <span className="font-bold">
               {applied} / {recruitment.capacity}명

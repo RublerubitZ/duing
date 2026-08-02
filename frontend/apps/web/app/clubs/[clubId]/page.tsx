@@ -57,11 +57,11 @@ export default function ClubDetailPage({
       <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
         <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
           <div>
-            <div className="mb-8">
+            <div className="mb-6 md:mb-8">
               <ClubDetailStats club={club} />
             </div>
             {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
-            <div className="mb-6 md:hidden">
+            <div className="mb-4 md:hidden">
               <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
             </div>
             <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />

@@ -89,15 +89,16 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
     expect(value).toHaveClass('font-display', 'font-bold', 'text-ink-deep');
   });
 
-  it('컨테이너는 모바일 세로 리스트(gap-3), md 이상에서 gap 없는 3열 그리드로 복원한다', () => {
+  it('컨테이너는 모바일 세로 리스트(gap-2·py-3), md 이상에서 gap 없는 3열 그리드 + py-5 로 복원한다', () => {
     const { container } = render(<ClubDetailStats club={worstCaseClub} />);
 
     const root = container.firstChild;
     expect(root).toHaveClass(
       'flex',
       'flex-col',
-      'gap-3',
-      'py-5',
+      'gap-2',
+      'py-3',
+      'md:py-5',
       'md:grid',
       'md:grid-cols-3',
       'md:gap-0',
