@@ -27,6 +27,15 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
   const [reportOpen, setReportOpen] = useState(false);
 
+  // 모바일 이름 뒤 중앙동아리 아이콘용 — 마지막 글자와 아이콘을 한 덩어리로 묶어야
+  // 이름이 여러 줄로 접힐 때 아이콘만 다음 줄에 남는 것을 막을 수 있다.
+  const nameChars = Array.from(club.name);
+  const nameHead = nameChars.slice(0, -1).join('');
+  const nameTail = nameChars.at(-1) ?? '';
+  // 긴 이름은 한 단계 작게 — 좁은 화면(320px)에서도 두 줄에 묶여 로고 높이를 넘지 않는다.
+  // 세 줄이 되면 행이 위로 자라 이름 첫 줄이 커버 배너와 겹친다.
+  const mobileNameSize = nameChars.length > 12 ? 'text-[22px]' : 'text-[28px]';
+
   return (
     <>
       {/* ===================== 데스크탑/태블릿 히어로 (md+) ===================== */}
@@ -164,14 +173,26 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
               </ClubLogo>
             </div>
-            <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">
-              {club.name}
+            {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은
+                글자 단위로 쪼개 잘림을 막는다. 글꼴 확대(OS 접근성 설정) 상태까지 방어. */}
+            <h1
+              className={cn(
+                'min-w-0 leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]',
+                mobileNameSize,
+              )}
+            >
               {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
-              {club.centralClub && (
+              {club.centralClub ? (
                 <>
-                  <VerifiedIcon />
-                  <span className="sr-only"> 중앙동아리</span>
+                  {nameHead}
+                  <span className="whitespace-nowrap">
+                    {nameTail}
+                    <VerifiedIcon />
+                    <span className="sr-only"> 중앙동아리</span>
+                  </span>
                 </>
+              ) : (
+                club.name
               )}
             </h1>
           </div>
