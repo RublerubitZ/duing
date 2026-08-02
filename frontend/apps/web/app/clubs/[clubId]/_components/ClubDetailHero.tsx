@@ -32,9 +32,6 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const nameChars = Array.from(club.name);
   const nameHead = nameChars.slice(0, -1).join('');
   const nameTail = nameChars.at(-1) ?? '';
-  // 긴 이름은 한 단계 작게 — 좁은 화면(320px)에서도 두 줄에 묶여 로고 높이를 넘지 않는다.
-  // 세 줄이 되면 행이 위로 자라 이름 첫 줄이 커버 배너와 겹친다.
-  const mobileNameSize = nameChars.length > 12 ? 'text-[22px]' : 'text-[28px]';
 
   return (
     <>
@@ -156,10 +153,16 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
         <div className="px-4 pb-1">
           {/* 로고 · 동아리명 한 행 — 이름이 행 폭을 다 쓰도록 신고하기는 아래 메타 행으로 내렸다. */}
-          <div className={cn('flex items-center gap-3', club.coverUrl ? '-mt-6' : 'mt-1')}>
+          {/* 겹침 마진은 행이 아니라 로고에만 — 행이 커버 아래에서 시작하므로 이름이
+              몇 줄로 접히든 아래로만 자라고 커버 배너를 침범하지 않는다. */}
+          <div className="flex items-center gap-3">
             <div
               // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
-              className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg"
+              className={cn(
+                // self-start: 이름이 여러 줄이어도 로고가 아래로 밀리지 않아 커버 걸침 폭이 일정하다.
+                'relative grid h-20 w-20 shrink-0 self-start place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
+                club.coverUrl ? '-mt-6' : 'mt-1',
+              )}
               style={{
                 // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
                 background: club.logoUrl
@@ -175,12 +178,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             </div>
             {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은
                 글자 단위로 쪼개 잘림을 막는다. 글꼴 확대(OS 접근성 설정) 상태까지 방어. */}
-            <h1
-              className={cn(
-                'min-w-0 leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]',
-                mobileNameSize,
-              )}
-            >
+            <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]">
               {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
               {club.centralClub ? (
                 <>
