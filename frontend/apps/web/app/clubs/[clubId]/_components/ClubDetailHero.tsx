@@ -146,45 +146,53 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         </div>
 
         <div className="px-4 pb-1">
+          {/* 로고 · 동아리명 · 신고하기 한 행 — 첫 화면에서 동아리명이 최우선으로 읽히게. */}
           <div
             className={cn(
-              // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
-              'relative inline-grid h-20 w-20 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
+              'flex items-center justify-between gap-3',
               club.coverUrl ? '-mt-6' : 'mt-1',
             )}
-            style={{
-              // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
-              background: club.logoUrl
-                ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
-                : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
-              // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
-              viewTransitionName: `club-logo-${club.id}`,
-            }}
           >
-            <ClubLogo logoUrl={club.logoUrl}>
-              <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
-            </ClubLogo>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                // 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·Preview와 통일).
+                className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg"
+                style={{
+                  // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
+                  background: club.logoUrl
+                    ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
+                    : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                  // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
+                  viewTransitionName: `club-logo-${club.id}`,
+                }}
+              >
+                <ClubLogo logoUrl={club.logoUrl}>
+                  <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
+                </ClubLogo>
+              </div>
+              <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx">{club.name}</h1>
+            </div>
+
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => setReportOpen(true)}
+                className="flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+              >
+                <FlagIcon />
+                신고하기
+              </button>
+            )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {club.centralClub && (
+          {club.centralClub && (
+            <div className="mt-2.5">
               <span className="pill pill-solid text-[11px]">🏛️ 중앙동아리</span>
-            )}
-            <span className="pill text-[11px]">
-              {categoryLabel}
-              {club.division ? ` · ${club.division}` : ''}
-            </span>
-            {recruitmentDisplayStatus && (
-              <span className="pill pill-solid text-[11px]">
-                {displayStatusLabel(recruitmentDisplayStatus)}
-              </span>
-            )}
-          </div>
-
-          <h1 className="mt-2.5 text-[28px] leading-[1.15] tracking-tightx">{club.name}</h1>
+            </div>
+          )}
 
           {(club.foundedYear !== null || club.cohortNumber !== null) && (
-            <div className="mt-1.5 text-[12px] text-charcoal-3">
+            <div className="mt-2 text-[12px] text-charcoal-3">
               {club.foundedYear !== null && `${club.foundedYear}년 창설`}
               {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
               {club.cohortNumber !== null && `${club.cohortNumber}기`}
@@ -200,17 +208,6 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 </span>
               ))}
             </div>
-          )}
-
-          {isAuthenticated && (
-            <button
-              type="button"
-              onClick={() => setReportOpen(true)}
-              className="mt-3 flex items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
-            >
-              <FlagIcon />
-              신고하기
-            </button>
           )}
         </div>
       </div>
