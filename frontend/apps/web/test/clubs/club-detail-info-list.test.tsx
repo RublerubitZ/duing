@@ -73,6 +73,34 @@ describe('ClubDetailInfoList — 회비', () => {
     expect(screen.queryByText('회비')).not.toBeInTheDocument();
     expect(screen.getByText('창설년도')).toBeInTheDocument();
   });
+
+  it('회비 안내가 있으면 대표 회비 아래에 줄바꿈·긴 문자열 줄바꿈이 유지된 안내문을 표시한다', () => {
+    render(
+      <ClubDetailInfoList
+        club={{
+          ...baseClub,
+          feeCycle: 'SEMESTER',
+          membershipFeeAmount: 30000,
+          feeNote: '선수 : 학기당 30,000원\n매니저 : 학기당 15,000원',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('학기당 30,000원')).toBeInTheDocument();
+    const note = screen.getByText(/매니저 : 학기당 15,000원/);
+    expect(note).toHaveClass('whitespace-pre-wrap', 'break-words');
+  });
+
+  it('회비 NONE 이어도 안내문이 있으면 회비 항목에 안내문만 표시한다', () => {
+    render(
+      <ClubDetailInfoList
+        club={{ ...baseClub, feeNote: '신규회원: 20,000원 / 기존회원: 15,000원' }}
+      />,
+    );
+
+    expect(screen.getByText('회비')).toBeInTheDocument();
+    expect(screen.getByText(/신규회원: 20,000원/)).toBeInTheDocument();
+  });
 });
 
 describe('ClubDetailInfoList — 대표 연락처 정책', () => {

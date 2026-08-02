@@ -153,6 +153,11 @@ describe('ClubDetailTabs', () => {
     expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
   });
 
+  it('다른 상세정보가 없어도 회비 안내문이 있으면 동아리 상세정보 탭이 노출된다', () => {
+    render(<ClubDetailTabs club={{ ...baseClub, feeNote: '신규회원 안내' }} photos={[]} />);
+    expect(screen.getByRole('tab', { name: '동아리 상세정보' })).toBeInTheDocument();
+  });
+
   it('membership 이 없으면 소식 탭을 노출하지 않는다', () => {
     render(<ClubDetailTabs club={{ ...baseClub, description: '본문' }} photos={[]} />);
     expect(screen.getByRole('tab', { name: '소개' })).toBeInTheDocument();
