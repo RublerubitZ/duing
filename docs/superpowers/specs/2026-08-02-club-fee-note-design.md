@@ -19,6 +19,7 @@
 ## 백엔드
 
 - **마이그레이션 V96**: `ALTER TABLE club ADD COLUMN fee_note VARCHAR(300);` (nullable, 기본 NULL)
+  + `COMMENT ON COLUMN club.fee_note IS '회비 안내문';`
 - **Club 엔티티**: `@Column(name = "fee_note", length = 300) private String feeNote;`
   - `UpdatePayload`(positional record)에 필드 추가 — 요청→커맨드→페이로드→엔티티 4계층 순서 동기화 주의
   - `update()`: `if (payload.feeNote() != null) this.feeNote = blankToNull(payload.feeNote());`
@@ -27,7 +28,7 @@
   `@Size(max = 300, message = "회비 안내는 300자 이하여야 합니다.") String feeNote` + `toCommand()` 스레딩.
   기존 `@AssertTrue isFeePairConsistent()`는 건드리지 않는다.
 - **응답**: `ClubDetailQuery` → `ClubDetailResponse`에 `feeNote` 추가 (admin 상세는 동일 DTO 재사용이라 자동 커버)
-- **테스트**: 301자 요청 검증 실패 / feeNote 갱신 반영 / `""` 전송 시 null 클리어 / 상세 응답 포함
+- **테스트**: 경계값 300자 성공·301자 검증 실패 / feeNote 갱신 반영 / `""` 전송 시 null 클리어 / 상세 응답 포함
 
 ## 프론트엔드
 
@@ -49,8 +50,9 @@
   - feeCycle과 무관하게 항상 활성 (NONE이어도 입력 가능)
 - **상세 페이지** (`/clubs/[id]`):
   - `ClubDetailInfoList`: 회비 행 노출 조건을 `formatClubFee(...) != null || feeNote 존재`로 확장.
-    대표 금액(있으면) 아래에 feeNote를 **보조 텍스트 크기 + `whitespace-pre-wrap`** 으로 표시
-    (줄바꿈 유지, 파싱/마크다운 없음). 대표 금액이 없으면 안내문만 표시.
+    대표 금액(있으면) 아래에 feeNote를 **보조 텍스트 크기 + `whitespace-pre-wrap` + `break-words`** 로 표시
+    (줄바꿈 유지, 공백 없는 긴 문자열도 행 안에서 줄바꿈, 파싱/마크다운 없음).
+    대표 금액이 없으면 **빈 공간(placeholder 줄) 없이 안내문만** 표시.
   - `ClubProfilePreview`(관리 미리보기): 동일 규칙 반영
   - `ClubDetailStats`(통계 카드): 변경 없음 — 대표 금액만 유지
   - `ClubDetailTabs`의 회비 관련 노출 게이트가 있으면 동일 조건으로 확장
