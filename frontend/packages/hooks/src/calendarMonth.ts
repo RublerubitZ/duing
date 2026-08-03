@@ -11,8 +11,8 @@ import type {
 import { useApiClient } from './api-context';
 import { clubEventKeys } from './clubEventQueryKeys';
 import { useMyClubsQuery } from './clubs';
-import { useGlobalEventListQuery } from './globalEvents';
-import { useRecruitmentCalendarQuery } from './recruitments';
+import { globalEventKeys } from './globalEventQueryKeys';
+import { recruitmentQueryKeys } from './recruitmentQueryKeys';
 
 export type CalendarMonthOptions = {
   from: string;
@@ -53,41 +53,115 @@ export function addDaysIso(iso: string, days: number): string {
   return base.toISOString().slice(0, 10);
 }
 
-export function useCalendarMonthQuery(
-  yearMonth: string,
-  options: CalendarMonthOptions,
+/** "YYYY-MM" → 그 달의 1일·말일. UTC 파싱이라 타임존 영향 없음. */
+export function monthBounds(yearMonth: string): { from: string; to: string } {
+  const first = new Date(`${yearMonth}-01T00:00:00Z`);
+  const lastDay = new Date(
+    Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  return { from: `${yearMonth}-01`, to: `${yearMonth}-${String(lastDay).padStart(2, '0')}` };
+}
+
+/**
+ * [fromIso, toIso] 구간이 걸치는 "YYYY-MM" 목록.
+ *
+ * <p>30일 창은 최대 **3개** 달에 걸친다 — 2월이 28·29일이라 1월 말에는 2월이 통째로 들어간다
+ * (2027-01-31 + 30일 = 2027-03-02). "이번 달 + 다음 달" 고정은 그 구간에서 누락을 만든다.
+ */
+export function monthsInRange(fromIso: string, toIso: string): string[] {
+  const lastMonth = toIso.slice(0, 7);
+  const months: string[] = [];
+  let cursor = `${fromIso.slice(0, 7)}-01`;
+  // 창 길이가 30일이라 실제로는 3회 이하지만, 잘못된 입력에서 무한 루프가 나지 않도록 상한을 둔다.
+  for (let guard = 0; guard < 24; guard += 1) {
+    const month = cursor.slice(0, 7);
+    months.push(month);
+    if (month >= lastMonth) break;
+    const next = new Date(`${cursor}T00:00:00Z`);
+    // day 를 1 로 함께 지정 — 31일에서 setUTCMonth 만 쓰면 다음 달을 건너뛴다.
+    next.setUTCMonth(next.getUTCMonth() + 1, 1);
+    cursor = next.toISOString().slice(0, 10);
+  }
+  return months;
+}
+
+export type CalendarMappers = CalendarMonthOptions['mappers'];
+
+/**
+ * 여러 달을 한 번에 조회해 CalEvent 로 병합한다.
+ *
+ * <p>월 개수가 가변이라 훅을 반복 호출할 수 없으므로(Hooks 규칙) 목록을 인자로 받아 내부에서
+ * useQueries 로 처리한다. 쿼리 키는 월 단위로 유지해 캘린더 그리드 조회와 캐시가 겹치게 한다.
+ *
+ * <p>반환은 **월별 결과가 아니라 병합된 평탄 배열**이다. 병합에 들어가는 것(mapper 적용, 다일 행사
+ * fan-out, 달 경계 중복 제거)은 "월 단위로 쪼개 조회했다"는 전송 사정이지 도메인 규칙이 아니다.
+ * 창·필터·정렬·limit 같은 도메인 규칙은 소비처가 갖는다(apps/web 의 buildUpcoming).
+ * 정렬은 보장하지 않는다.
+ */
+export function useCalendarMonthsQuery(
+  yearMonths: string[],
+  options: { isAuthenticated: boolean; mappers: CalendarMappers },
 ): CalendarMonthResult {
   const client = useApiClient();
-  const { from, to, isAuthenticated, mappers } = options;
+  const { isAuthenticated, mappers } = options;
 
-  const globalEvents = useGlobalEventListQuery({ from, to });
-  const recruitments = useRecruitmentCalendarQuery(yearMonth);
+  const monthsKey = yearMonths.join(',');
+  const ranges = useMemo(
+    () => monthsKey.split(',').map((yearMonth) => ({ yearMonth, ...monthBounds(yearMonth) })),
+    [monthsKey],
+  );
+
   const myClubsQuery = useMyClubsQuery({ enabled: isAuthenticated });
-
   const myClubs = isAuthenticated ? (myClubsQuery.data ?? []) : [];
+
+  const globalEventQueries = useQueries({
+    queries: ranges.map((range) => ({
+      queryKey: globalEventKeys.publicList({ from: range.from, to: range.to }),
+      queryFn: () => client.globalEvents.list({ from: range.from, to: range.to }),
+      staleTime: 30 * 1000,
+    })),
+  });
+
+  const recruitmentQueries = useQueries({
+    queries: ranges.map((range) => ({
+      queryKey: recruitmentQueryKeys.calendar(range.yearMonth),
+      queryFn: () => client.recruitments.calendar(range.yearMonth),
+    })),
+  });
 
   // queryFn 안에서 club 을 클로저로 캡처 → data 는 CalEvent[].
   // 이 패턴으로 index 정렬 의존성 제거 + myClubs 순서가 바뀌어도 안전.
   const clubEventQueries = useQueries({
-    queries: myClubs.map((club) => ({
-      queryKey: clubEventKeys.list(club.clubId, { from, to }),
-      queryFn: async (): Promise<CalEvent[]> => {
-        const items = await client.clubEvents.list(club.clubId, { from, to });
-        return items.map((item) => mappers.toClubEvent(item, club));
-      },
-      staleTime: 30 * 1000,
-      enabled: isAuthenticated,
-    })),
+    queries: myClubs.flatMap((club) =>
+      ranges.map((range) => ({
+        queryKey: clubEventKeys.list(club.clubId, { from: range.from, to: range.to }),
+        queryFn: async (): Promise<CalEvent[]> => {
+          const items = await client.clubEvents.list(club.clubId, {
+            from: range.from,
+            to: range.to,
+          });
+          return items.map((item) => mappers.toClubEvent(item, club));
+        },
+        staleTime: 30 * 1000,
+        enabled: isAuthenticated,
+      })),
+    ),
   });
+
+  // useQueries 반환 배열은 매 렌더 새 참조라 배열 자체를 의존성으로 두면 병합이 매번 다시 돈다.
+  // 실제로 결과가 바뀐 시점(dataUpdatedAt)만 신호로 삼는다.
+  const dataSignature = [...globalEventQueries, ...recruitmentQueries, ...clubEventQueries]
+    .map((query) => query.dataUpdatedAt)
+    .join('|');
 
   const events = useMemo<CalEvent[]>(() => {
     const merged: CalEvent[] = [];
-    if (globalEvents.data) {
+    for (const query of globalEventQueries) {
+      if (!query.data) continue;
       // 다일 GlobalEvent (예: 박람회 6/9~6/15) 는 시작일~종료일 사이 모든 셀에 노출되어야 한다.
       // mapper 는 단일 CalEvent 를 반환하므로 여기서 day 단위로 fan-out.
       // span 은 첫 날에만 set — 그리드가 multi-day pill 을 그릴 때 활용 (선택 사항).
-      // CalendarPage 의 그리드는 event.date 키로 lookup 하므로 각 셀에 매핑되어야 함.
-      for (const item of globalEvents.data) {
+      for (const item of query.data) {
         const baseEvent = mappers.toGlobal(item);
         const totalSpan = baseEvent.span ?? 1;
         for (let dayOffset = 0; dayOffset < totalSpan; dayOffset++) {
@@ -100,8 +174,9 @@ export function useCalendarMonthQuery(
         }
       }
     }
-    if (recruitments.data) {
-      for (const item of recruitments.data) {
+    for (const query of recruitmentQueries) {
+      if (!query.data) continue;
+      for (const item of query.data) {
         const mapped = mappers.toRecruitment(item);
         if (mapped) merged.push(mapped);
       }
@@ -109,18 +184,22 @@ export function useCalendarMonthQuery(
     for (const query of clubEventQueries) {
       if (query.data) merged.push(...query.data);
     }
-    return merged;
-  }, [globalEvents.data, recruitments.data, clubEventQueries, mappers]);
+    // 달 경계를 걸친 다일 행사는 두 달의 응답에 모두 담겨 같은 id 가 중복될 수 있다.
+    const byId = new Map<string, CalEvent>();
+    for (const event of merged) byId.set(event.id, event);
+    return Array.from(byId.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 쿼리 배열 대신 내용 시그니처로 비교한다.
+  }, [dataSignature, mappers]);
 
   const isLoading =
-    globalEvents.isLoading
-    || recruitments.isLoading
+    globalEventQueries.some((query) => query.isLoading)
+    || recruitmentQueries.some((query) => query.isLoading)
     || (isAuthenticated && myClubsQuery.isLoading)
     || clubEventQueries.some((query) => query.isLoading);
 
   const isError =
-    globalEvents.isError
-    || recruitments.isError
+    globalEventQueries.some((query) => query.isError)
+    || recruitmentQueries.some((query) => query.isError)
     || (isAuthenticated && myClubsQuery.isError)
     || clubEventQueries.some((query) => query.isError);
 
@@ -129,11 +208,28 @@ export function useCalendarMonthQuery(
     isLoading,
     isError,
     perDomain: {
-      globalEventsError: globalEvents.isError,
-      recruitmentsError: recruitments.isError,
+      globalEventsError: globalEventQueries.some((query) => query.isError),
+      recruitmentsError: recruitmentQueries.some((query) => query.isError),
       clubEventsError:
         clubEventQueries.some((query) => query.isError)
         || (isAuthenticated && myClubsQuery.isError),
     },
   };
+}
+
+/**
+ * 단일 달 조회 — 기존 호출처(캘린더 그리드) 호환용 래퍼.
+ *
+ * <p>options.from/to 는 monthBounds(yearMonth) 와 같은 값이라 내부에서 다시 유도한다
+ * (쿼리 키가 달라지지 않는다).
+ */
+export function useCalendarMonthQuery(
+  yearMonth: string,
+  options: CalendarMonthOptions,
+): CalendarMonthResult {
+  const yearMonths = useMemo(() => [yearMonth], [yearMonth]);
+  return useCalendarMonthsQuery(yearMonths, {
+    isAuthenticated: options.isAuthenticated,
+    mappers: options.mappers,
+  });
 }
