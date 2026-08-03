@@ -8,12 +8,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import type { ReactNode } from 'react';
+
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   open: boolean;
   title: string;
-  description?: string;
+  /**
+   * 서식이 필요한 안내(대상 이름 강조 등)를 위해 ReactNode 를 받는다. 문자열도 그대로 통과한다.
+   * <p> 안에 렌더되므로 인라인 요소만 넣는다 — div 등 블록 요소는 하이드레이션 경고가 된다.
+   */
+  description?: ReactNode;
   confirmLabel?: string;
   isPending?: boolean;
   /**

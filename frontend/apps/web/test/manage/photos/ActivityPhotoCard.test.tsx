@@ -140,17 +140,34 @@ describe('ActivityPhotoCard', () => {
     await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(13));
   });
 
-  it('대표 활동 참조(409) 삭제 실패 시 에러 메시지를 인라인 표시한다', async () => {
+  it('대표 활동 참조(409) 삭제 실패 시 모달을 유지하고 모달 안에서 안내한다', async () => {
     mockDeleteMutateAsync.mockRejectedValueOnce(
       new Error('대표 활동에 사용 중인 사진입니다. 대표 활동에서 먼저 해제해주세요.'),
     );
     renderCard({});
     fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
     fireEvent.click(screen.getByRole('button', { name: '삭제' }));
-    expect(
-      await screen.findByText(/대표 활동에 사용 중인 사진입니다/),
-    ).toBeInTheDocument();
-    // "닫고 표시" 결정 고정 — ConfirmDialog 는 닫힌다.
-    expect(screen.queryByText('이 사진을 삭제할까요?')).not.toBeInTheDocument();
+
+    // 공통 규칙(B안) — 실패해도 닫지 않고 모달 안에서 알린다.
+    const dialog = await screen.findByRole('dialog');
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent(/대표 활동에 사용 중인 사진입니다/);
+    // 카드 영역에 그리면 오버레이·aria-hidden 뒤에 갇힌다 — 접근 가능한 위치인지 확인한다.
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByText('이 사진을 삭제할까요?')).toBeInTheDocument();
+  });
+
+  it('삭제 실패 후 취소하면 오류가 초기화된다', async () => {
+    mockDeleteMutateAsync.mockRejectedValueOnce(new Error('삭제에 실패했습니다.'));
+    renderCard({});
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }));
+
+    const reopened = await screen.findByRole('dialog');
+    expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument();
   });
 });

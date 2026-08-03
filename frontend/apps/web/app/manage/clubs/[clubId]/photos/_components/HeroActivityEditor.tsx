@@ -51,7 +51,7 @@ export function HeroActivityEditor({
   const [title, setTitle] = useState(hero?.title ?? '');
   const [description, setDescription] = useState(hero?.description ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
-  // 삭제(비우기) 실패 전용 채널 — 모달을 닫고 에디터 인라인에 표시(ActivityPhotoCard.runDelete 패턴).
+  // 삭제(비우기) 실패 전용 채널 — 확인 모달 안에서 표시한다(공통 규칙). 편집 폼 오류와 섞이지 않게 분리.
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -128,8 +128,8 @@ export function HeroActivityEditor({
       setConfirmOpen(false);
       onSaved?.();
     } catch (error) {
-      // 실패는 다이얼로그를 닫고 인라인 표시(모달 뒤 가림·unhandled rejection 방지).
-      setConfirmOpen(false);
+      // 실패는 모달을 열어둔 채 모달 안에서 안내한다 (공통 규칙).
+      // 편집 영역에 그리면 모달 오버레이와 aria-hidden 뒤에 갇힌다.
       setDeleteError(error instanceof Error ? error.message : '삭제에 실패했습니다.');
     }
   }
@@ -138,7 +138,8 @@ export function HeroActivityEditor({
     (createMutation.isError && createMutation.error instanceof Error && createMutation.error.message) ||
     (updateMutation.isError && updateMutation.error instanceof Error && updateMutation.error.message) ||
     null;
-  const displayError = validationError ?? deleteError ?? mutationError;
+  // deleteError 는 확인 모달 안에서 보여주므로 편집 영역 표시에서는 제외한다.
+  const displayError = validationError ?? mutationError;
 
   return (
     <div className="space-y-2.5">
@@ -239,8 +240,12 @@ export function HeroActivityEditor({
           description="사진과 문구가 삭제됩니다. 다른 활동의 순서는 자동으로 당겨지지 않아요."
           confirmLabel="비우기"
           isPending={deleteMutation.isPending}
+          errorMessage={deleteError}
           onConfirm={handleDelete}
-          onCancel={() => setConfirmOpen(false)}
+          onCancel={() => {
+            setConfirmOpen(false);
+            setDeleteError(null);
+          }}
         />
       )}
     </div>

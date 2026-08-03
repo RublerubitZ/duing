@@ -22,7 +22,6 @@ import { X } from '@/components/duing/Icon';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { RemoveMemberDialog } from './RemoveMemberDialog';
 import { formatMembershipDuration } from '../_lib/membershipDuration';
 
 type MemberDetailPanelProps = {
@@ -525,8 +524,16 @@ function ManagementSection({
       </div>
 
       {showRemoveDialog && (
-        <RemoveMemberDialog
-          targetName={member.name}
+        <ConfirmDialog
+          open
+          title="회원 탈퇴"
+          description={
+            <>
+              <span className="font-medium text-charcoal-2">{member.name}</span> 님을 동아리에서
+              탈퇴 처리할까요? 되돌릴 수 없으며, 진행 중인 지원서는 그대로 유지됩니다.
+            </>
+          }
+          confirmLabel="탈퇴"
           isPending={removeMember.isPending}
           errorMessage={dialogError}
           onConfirm={doRemove}

@@ -19,6 +19,7 @@ export function ClubNoticeList({ clubId }: Props) {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [editing, setEditing] = useState<NoticeCardItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<NoticeCardItem | null>(null);
   // 목록 카드에는 content 가 없으므로, 수정 시 상세를 시드해야 본문 재입력 없이 편집할 수 있다.
   const { data: editingDetail } = useClubNoticeDetailQuery(clubId, editing?.id ?? null);
@@ -35,7 +36,13 @@ export function ClubNoticeList({ clubId }: Props) {
 
   const confirmDelete = () => {
     if (!deleting) return;
-    removeMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+    setDeleteError(null);
+    removeMutation.mutate(deleting.id, {
+      onSuccess: () => setDeleting(null),
+      // 실패해도 닫지 않는다 — 오류를 모달 안에서 보여주고 같은 자리에서 재시도하게 한다(공통 규칙).
+      onError: (error) =>
+        setDeleteError(error instanceof Error ? error.message : '공지 삭제에 실패했습니다.'),
+    });
   };
 
   return (
@@ -128,8 +135,12 @@ export function ClubNoticeList({ clubId }: Props) {
         title="공지를 삭제할까요?"
         description={deleting ? `"${deleting.title}" 공지가 더 이상 노출되지 않습니다.` : undefined}
         isPending={removeMutation.isPending}
+        errorMessage={deleteError}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          setDeleting(null);
+          setDeleteError(null);
+        }}
       />
     </section>
   );

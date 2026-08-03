@@ -47,6 +47,8 @@ export function AdminFaqListPage() {
   const [page, setPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; question: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // 삭제는 확인 모달 흐름이라 오류를 모달 안에서 보여준다(공통 규칙). 나머지 액션은 기존대로 목록 위.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const filtersActive = publishedFilter !== 'ALL' || categoryId !== 'ALL' || keyword !== '';
 
@@ -303,12 +305,17 @@ export function AdminFaqListPage() {
         title="FAQ를 삭제할까요?"
         description={deleteTarget ? `"${deleteTarget.question}" 항목이 더 이상 노출되지 않습니다.` : undefined}
         isPending={deleteMutation.isPending}
-        onCancel={() => setDeleteTarget(null)}
+        errorMessage={deleteError}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
         onConfirm={() => {
           if (!deleteTarget) return;
+          setDeleteError(null);
           deleteMutation.mutate(deleteTarget.id, {
             onSuccess: () => setDeleteTarget(null),
-            onError: (error) => setActionError(extractErrorMessage(error) ?? '삭제에 실패했습니다.'),
+            onError: (error) => setDeleteError(extractErrorMessage(error) ?? '삭제에 실패했습니다.'),
           });
         }}
       />

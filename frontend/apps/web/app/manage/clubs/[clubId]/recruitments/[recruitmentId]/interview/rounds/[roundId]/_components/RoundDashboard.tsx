@@ -19,7 +19,7 @@ import { toRoute } from '@/app/_lib/route';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { AutoAssignDialog } from './AutoAssignDialog';
 import { ConfirmRoundDialog } from './ConfirmRoundDialog';
 import { MemberAssignModal } from './MemberAssignModal';
@@ -52,18 +52,26 @@ type ExcludeDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
   isPending: boolean;
+  errorMessage: string | null;
 };
 
-function ExcludeDialog({ memberName, onConfirm, onCancel, isPending }: ExcludeDialogProps) {
+function ExcludeDialog({
+  memberName,
+  onConfirm,
+  onCancel,
+  isPending,
+  errorMessage,
+}: ExcludeDialogProps) {
   return (
     <ConfirmDialog
+      open
       title={`${memberName} 제외`}
       description="제외된 멤버는 대기열로 복귀합니다. 계속하시겠습니까?"
       confirmLabel="확인"
       onConfirm={onConfirm}
       onCancel={onCancel}
       isPending={isPending}
-      destructive
+      errorMessage={errorMessage}
     />
   );
 }
@@ -85,6 +93,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   // 모달 내부 에러 — 전역 피드백으로 빠지지 않게 모달별 로컬 상태로 유지
   const [confirmDialogError, setConfirmDialogError] = useState<string | null>(null);
   const [extendDeadlineError, setExtendDeadlineError] = useState<string | null>(null);
+  // 라운드 취소·멤버 제외 확인 모달의 실패 — 전역 피드백에 넣으면 모달 스크림·aria-hidden 뒤에 갇힌다.
+  const [confirmActionError, setConfirmActionError] = useState<string | null>(null);
 
   // 인라인 피드백
   const [feedbackMessage, setFeedbackMessage] = useState<FeedbackMessage | null>(null);
@@ -232,6 +242,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   };
 
   const handleCancel = () => {
+    setConfirmActionError(null);
     cancelMutation.mutate(undefined, {
       onSuccess: () => {
         setShowCancelDialog(false);
@@ -242,13 +253,15 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           cancelError instanceof ApiError
             ? cancelError.message
             : '라운드 취소 중 오류가 발생했습니다.';
-        setFeedbackMessage({ kind: 'error', text: message });
+        // 실패해도 모달을 닫지 않고 모달 안에서 안내한다(공통 규칙).
+        setConfirmActionError(message);
       },
     });
   };
 
   const handleExcludeConfirm = () => {
     if (!excludeTarget) return;
+    setConfirmActionError(null);
     excludeMutation.mutate(excludeTarget.memberId, {
       onSuccess: () => {
         setExcludeTarget(null);
@@ -262,7 +275,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           excludeError instanceof ApiError
             ? excludeError.message
             : '제외 처리 중 오류가 발생했습니다.';
-        setFeedbackMessage({ kind: 'error', text: message });
+        setConfirmActionError(message);
       },
     });
   };
@@ -431,13 +444,17 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
       {showCancelDialog && (
         <ConfirmDialog
+          open
           title="라운드 취소"
           description="라운드를 취소하면 멤버는 대기열로 복귀합니다. 계속하시겠습니까?"
           confirmLabel="확인"
           onConfirm={handleCancel}
-          onCancel={() => setShowCancelDialog(false)}
+          onCancel={() => {
+            setShowCancelDialog(false);
+            setConfirmActionError(null);
+          }}
           isPending={cancelMutation.isPending}
-          destructive
+          errorMessage={confirmActionError}
         />
       )}
 
@@ -458,8 +475,12 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         <ExcludeDialog
           memberName={excludeTarget.userName}
           onConfirm={handleExcludeConfirm}
-          onCancel={() => setExcludeTarget(null)}
+          onCancel={() => {
+            setExcludeTarget(null);
+            setConfirmActionError(null);
+          }}
           isPending={excludeMutation.isPending}
+          errorMessage={confirmActionError}
         />
       )}
 

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -304,5 +305,64 @@ describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', ()
     await waitFor(() => {
       expect(screen.getByText('면접 대상 선정 전')).toBeInTheDocument();
     });
+  });
+});
+
+// 수제 오버레이였던 마감 확인을 공용 ConfirmDialog 로 교체한 변경을 고정한다.
+// 교체로 포커스 트랩·ESC·오류 표시가 생겼고, 실패해도 모달을 닫지 않는 공통 규칙을 따른다.
+describe('RecruitmentDetailPage — 마감 확인 모달', () => {
+  it('마감 실패 시 모달을 유지하고 모달 안에서 안내한다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      EMPTY_ROUNDS_HANDLER,
+      http.patch(`*/leader/recruitments/${RECRUITMENT_ID}/close`, () =>
+        HttpResponse.json(
+          { ok: false, message: '이미 마감된 모집입니다.', data: null },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '마감' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('이미 마감된 모집입니다.');
+    // 페이지 본문에 그리면 오버레이·aria-hidden 뒤에 갇힌다 — 접근 가능한 위치인지 확인한다.
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('마감을 취소하면 요청이 나가지 않고 다시 열어도 이전 오류가 남지 않는다', async () => {
+    let closeCalls = 0;
+    server.use(
+      mockRecruitmentDetail(false),
+      EMPTY_ROUNDS_HANDLER,
+      http.patch(`*/leader/recruitments/${RECRUITMENT_ID}/close`, () => {
+        closeCalls += 1;
+        return HttpResponse.json(
+          { ok: false, message: '이미 마감된 모집입니다.', data: null },
+          { status: 409 },
+        );
+      }),
+    );
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '마감' }));
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '마감' }));
+    const reopened = await screen.findByRole('dialog');
+    expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument();
+    expect(closeCalls).toBe(1);
   });
 });
