@@ -11,9 +11,10 @@ import {
   toCalEvent_global,
   toCalEvent_recruitment,
 } from '../_lib/calendarMappers';
+import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
 import { monthRange } from '../_lib/monthRange';
 
-import type { AccentKey, AccentStyle, CalEvent, EventKind } from '../_types';
+import type { CalEvent, EventKind } from '../_types';
 
 type MonthCell = {
   iso: string;
@@ -25,29 +26,6 @@ type MonthCell = {
 /* ------------------------------------------------------------------ */
 /* Accent / label                                                       */
 /* ------------------------------------------------------------------ */
-
-const ACCENT: Record<AccentKey, AccentStyle> = {
-  ink:    { dot: 'var(--ink)',      bg: 'var(--sage-mist)', fg: 'var(--ink-deep)' },
-  coral:  { dot: '#D97757',         bg: '#FCE2D9',          fg: '#9A3F23'         },
-  warm:   { dot: '#E8B968',         bg: '#FBEFD7',          fg: '#8E6620'         },
-  berry:  { dot: '#B65672',         bg: '#F6DCE3',          fg: '#7E2A45'         },
-  sage:   { dot: 'var(--sage)',     bg: 'var(--sage-tint)', fg: 'var(--ink-deep)' },
-  sky:    { dot: '#6A95B8',         bg: '#DDE8F1',          fg: '#2F557A'         },
-};
-
-const KIND_LABEL: Record<EventKind, string> = {
-  system:   '행사·일정',
-  deadline: '모집 마감',
-  event:    '동아리 일정',
-};
-
-const KIND_ORDER: EventKind[] = ['system', 'deadline', 'event'];
-
-const KIND_ACCENT: Record<EventKind, AccentKey> = {
-  system:   'warm',
-  deadline: 'coral',
-  event:    'sage',
-};
 
 const KR_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
