@@ -1,10 +1,13 @@
 'use client';
 
 import { ArrowRight } from '@/components/duing/Icon';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 export function RegisterClubButton() {
+  const { addToast } = useToast();
+
   const handleClick = () => {
-    alert('동아리 등록 신청은 운영자에게 문의해주세요.');
+    addToast('동아리 등록 신청은 운영자에게 문의해주세요.');
   };
 
   return (

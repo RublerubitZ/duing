@@ -10,6 +10,7 @@ import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 import { SlotPatternForm } from '@/components/interview/SlotPatternForm';
 import type { RoundSlotEntry } from '@/components/interview/_utils/generateSlotsFromPattern';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 // Step3: 슬롯 등록
 // SlotPatternForm(패턴 입력) → useCreateRoundSlotsMutation → detailQuery.data.slots 표시.
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function Step3Slots({ roundId, onNext }: Props) {
+  const { addToast } = useToast();
   const detailQuery = useInterviewRoundDetailQuery(roundId, { enabled: true });
   const createSlotsMutation = useCreateRoundSlotsMutation(roundId);
   const deleteSlotMutation = useDeleteRoundSlotMutation(roundId);
@@ -35,13 +37,13 @@ export function Step3Slots({ roundId, onNext }: Props) {
     try {
       await deleteSlotMutation.mutateAsync(slotId);
     } catch (error) {
-      // 409 (참조 있음) 등 서버 에러 — noisy 처리 (alert 수준이 아닌 인라인 표시는 더 복잡해 일단 alert).
+      // 409 (참조 있음) 등 서버 에러 — 인라인 표시는 더 복잡해 토스트로 알린다.
       // 실제 wizard 에서는 발송 전 단계라 409 가 거의 발생하지 않음.
       const message =
         error instanceof ApiError
           ? error.message
           : '슬롯 삭제 중 오류가 발생했습니다.';
-      alert(message);
+      addToast(message, { variant: 'error' });
     }
   };
 

@@ -17,6 +17,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 type PromotionRequestModalProps = {
   clubId: number;
@@ -28,6 +29,7 @@ const inputCls =
   'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
 export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRequestModalProps) {
+  const { addToast } = useToast();
   const submitPromotion = useSubmitPromotionRequestMutation(clubId);
 
   const {
@@ -60,7 +62,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
       {
         onSuccess: () => {
           onClose();
-          alert('홍보 요청이 접수되었습니다. 총동연 검토 후 처리됩니다.');
+          addToast('홍보 요청이 접수되었습니다. 총동연 검토 후 처리됩니다.');
         },
       },
     );

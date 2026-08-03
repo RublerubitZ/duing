@@ -410,12 +410,23 @@ describe('MemberDetailPanel — 권한 게이트', () => {
 
 describe('MemberDetailPanel — 관리 액션 배선', () => {
   it('역할 승급은 role PATCH 를 보낸다', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
 
     await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    // 네이티브 confirm 대신 확인 모달 — 확인 버튼을 눌러야 실제 요청이 나간다.
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
 
     await waitFor(() => expect(capturedRoleBody).toEqual({ role: 'OFFICER' }));
+  });
+
+  it('역할 변경 확인을 취소하면 role PATCH 가 나가지 않는다', async () => {
+    renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(capturedRoleBody).toBeNull();
   });
 
   it('기수 저장은 generation PATCH 를 정수로 보낸다', async () => {
@@ -501,12 +512,14 @@ describe('MemberDetailPanel — 회원 전환 시 상태 격리', () => {
         () => HttpResponse.json({ ok: false, message: '권한이 없습니다.', data: null }, { status: 403 }),
       ),
     );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const first = member({ memberId: MEMBER_ID, name: '홍길동', role: 'MEMBER' });
     const { rerender } = renderPanel({ member: first });
 
     await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
     expect(await screen.findByText('권한이 없습니다.')).toBeInTheDocument();
+    // 확인 모달이 닫혀야 오류 문구가 스크림·aria-hidden 뒤에 갇히지 않는다.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     // 다른 회원으로 전환 — 앞 회원의 실패를 이 사람 것으로 오독하면 안 된다.
     rerender(
