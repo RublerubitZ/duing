@@ -60,13 +60,18 @@ export function useFavoriteToggleMutation() {
     },
 
     onError: (_error, _variables, context) => {
-      if (context?.previousIds !== undefined) {
+      // 세션 종료가 확정되면 만료 핸들러가 이미 캐시 전체를 비웠다(공용 단말 정보 노출 방지).
+      // 종료 통지는 이 401 이 표면화되기 전에 동기적으로 스토어를 내리므로, 그 뒤에 이전 값을
+      // 복원하면 방금 비운 캐시에 이전 사용자의 찜 목록이 되살아난다.
+      const sessionEnded = useAuthStore.getState().status === 'unauthenticated';
+      if (!sessionEnded && context?.previousIds !== undefined) {
         queryClient.setQueryData(favoriteQueryKeys.ids(), context.previousIds);
         return;
       }
-      // 낙관적 갱신 시점에 캐시가 비어 있었다면(세션 확인 중 클릭 등) 되돌릴 이전 값이 없다.
-      // 그냥 두면 실패한 토글이 만들어 낸 목록이 남아 비로그인 화면에 채워진 하트로 보인다.
-      // 이 쿼리는 미인증이면 enabled:false 라 invalidate 로 지워지지 않으므로 엔트리를 제거한다.
+      // 되돌릴 이전 값이 없거나(세션 확인 중 클릭 등) 세션이 끝난 경우 — 그냥 두면 실패한
+      // 토글이 만들어 낸 목록(또는 복원된 이전 사용자 목록)이 비로그인 화면에 채워진 하트로
+      // 보인다. 이 쿼리는 미인증이면 enabled:false 라 invalidate 로 지워지지 않으므로
+      // 엔트리를 제거한다.
       queryClient.removeQueries({ queryKey: favoriteQueryKeys.ids() });
     },
 

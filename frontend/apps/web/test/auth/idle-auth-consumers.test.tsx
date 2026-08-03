@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
-import { createApiClient } from '@duing/api';
+import { createApiClient, registerUnauthorizedHandler } from '@duing/api';
 import { ApiClientProvider, favoriteQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { StudentRecruitmentProjection } from '@duing/types';
@@ -45,6 +45,10 @@ beforeAll(() => {
 });
 afterEach(() => {
   server.resetHandlers();
+  // 등록 → null 순서로 사이드 채널을 비운다 — expiredSession 헬퍼가 만든 종료 통지가
+  // 핸들러 미등록 상태에서 보류로 남으면, 이후 등록하는 테스트에 유령 만료가 재생된다.
+  registerUnauthorizedHandler(() => {});
+  registerUnauthorizedHandler(null);
   mockRouterPush.mockReset();
   requestedPaths.length = 0;
   window.history.replaceState(null, '', '/');
@@ -238,6 +242,35 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     );
 
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
+  });
+
+  // 세션 종료가 확정되면 만료 핸들러가 캐시 전체를 비운다(공용 단말 정보 노출 방지). 그 직후
+  // 표면화되는 401 의 낙관적 롤백이 이전 값을 복원하면, 방금 비운 캐시에 이전 사용자의 찜
+  // 목록이 되살아난다 — 미인증이면 비활성 쿼리라 invalidate 로도 지워지지 않는다.
+  it('세션 종료가 확정된 뒤의 롤백은 이전 사용자의 찜 목록을 복원하지 않는다', async () => {
+    setAuthStatus('authenticated');
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [3] }, message: null }),
+      ),
+      ...expiredSession('/me/favorites/7'),
+    );
+    // SessionExpiryHandler 의 계약을 재현한다 — 종료 확정은 동기 setState 가 먼저, 이어서
+    // 이전 사용자 데이터 클리어. 원 401 은 이 처리가 끝난 뒤에 호출자 onError 로 표면화된다.
+    registerUnauthorizedHandler(() => {
+      useAuthStore.setState({ status: 'unauthenticated', user: null });
+      latestQueryClient.clear();
+    });
+
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    // 기존 찜 목록이 로드된 뒤에 눌러야 되돌릴 이전 값(previousIds)이 생긴다.
+    await waitFor(() =>
+      expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [3] }),
+    );
     await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
