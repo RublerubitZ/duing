@@ -105,8 +105,11 @@ export function ClubExplorePage() {
   );
 
   const authStatus = useAuthStore((state) => state.status);
-  /** 찜 필터 + 비인증(idle 포함) — 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
-      플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
+  /** 찜 필터 + 비인증(idle 포함) — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
+      플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리).
+      단 사용자가 직접 누른 찜 토글은 예외다 — idle 은 "미인증" 이 아니라 "아직 모름" 이라,
+      확인 전에 차단하면 로그인한 사용자의 클릭이 로그인 화면으로 튕긴다. 클릭당 1회로 한정되고
+      refresh 는 조율기가 사이클당 1회로 합치므로 위 방어의 취지(요청 폭주 차단)는 유지된다. */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
   const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
@@ -164,7 +167,9 @@ export function ClubExplorePage() {
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
-    const loginPath = toRoute(`/login?next=${encodeURIComponent('/clubs')}`);
+    // 현재 탐색 상태(필터·페이지·검색어)가 쿼리스트링에 있으므로 그대로 next 에 실어 복귀시킨다.
+    const currentUrl = window.location.pathname + window.location.search;
+    const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
     if (authStatus === 'unauthenticated') {
       router.push(loginPath);
       return;
@@ -176,7 +181,9 @@ export function ClubExplorePage() {
         onError: (toggleError) => {
           if (toggleError instanceof ApiError && toggleError.status === 401) {
             router.push(loginPath);
+            return;
           }
+          console.error('찜 토글 실패:', toggleError);
         },
       },
     );

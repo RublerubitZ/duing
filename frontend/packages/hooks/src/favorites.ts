@@ -62,7 +62,12 @@ export function useFavoriteToggleMutation() {
     onError: (_error, _variables, context) => {
       if (context?.previousIds !== undefined) {
         queryClient.setQueryData(favoriteQueryKeys.ids(), context.previousIds);
+        return;
       }
+      // 낙관적 갱신 시점에 캐시가 비어 있었다면(세션 확인 중 클릭 등) 되돌릴 이전 값이 없다.
+      // 그냥 두면 실패한 토글이 만들어 낸 목록이 남아 비로그인 화면에 채워진 하트로 보인다.
+      // 이 쿼리는 미인증이면 enabled:false 라 invalidate 로 지워지지 않으므로 엔트리를 제거한다.
+      queryClient.removeQueries({ queryKey: favoriteQueryKeys.ids() });
     },
 
     onSettled: () => {

@@ -22,7 +22,9 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
   function handleClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    const loginPath = toRoute(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+    // 쿼리스트링까지 담아야 필터·페이지가 걸린 목록에서 눌러도 그 자리로 돌아온다.
+    const currentUrl = window.location.pathname + window.location.search;
+    const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
     if (status === 'unauthenticated') {
       router.push(loginPath);
       return;

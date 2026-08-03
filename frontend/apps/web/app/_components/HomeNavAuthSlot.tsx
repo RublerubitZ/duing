@@ -2,16 +2,17 @@
 
 import Link from 'next/link';
 
-import { useAuthStore } from '@duing/stores';
-
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import { UserMenu } from '@/components/UserMenu';
 
 export function HomeNavAuthSlot() {
-  const status = useAuthStore((state) => state.status);
+  // 확인이 끝나지 않는 장애에서도 로그인 진입점이 사라지지 않도록 상한을 둔 status 를 쓴다.
+  const status = useBoundedAuthStatus();
 
   // 세션 확인 중(idle)에는 로그인 여부를 단정하지 않는다 — 이미 로그인한 사용자에게 로그인 버튼을
   // 먼저 보여주면 "로그아웃됐다"로 읽힌다(MeAuthGuard 와 같은 규약). 자리는 비우지 않고 실제 버튼과
-  // 같은 클래스의 자리표시로 채워, 확정 시 헤더가 흔들리지 않게 한다(크기를 상수로 재지 않는 이유).
+  // 같은 클래스의 자리표시로 채운다. 크기를 상수로 재지 않으므로 idle→미인증 전환에서는 시프트가
+  // 없고, idle→로그인 확정에서는 UserMenu 폭이 달라 한 번 바뀐다(확정 전에는 알 수 없는 값이다).
   if (status === 'idle') {
     return (
       <div
