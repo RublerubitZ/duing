@@ -151,7 +151,7 @@
 | GET | `/api/v1/clubs/{clubId}/join-requests?status=` | 가입 요청 목록 (이름·학번·학과·요청일·코드·기수) |
 | GET | `/api/v1/clubs/{clubId}/join-requests/{joinRequestId}` | 상세 (**전화번호는 상세에서만** — 기존 지원자 상세와 동일 전례) |
 | PATCH | `/api/v1/clubs/{clubId}/join-requests/{joinRequestId}` | 승인/거절 단건. 200 + `result`(APPROVED/REJECTED/AUTO_REJECTED) — 자동 거절 결과 전달 위해 204 규약 예외 |
-| POST | `/api/v1/clubs/{clubId}/join-requests/bulk-approve` | 일괄 승인 — 건별 결과(성공 수·실패 목록+사유) 반환. 200 |
+| PATCH | `/api/v1/clubs/{clubId}/join-requests/bulk-approve` | 일괄 승인 — 건별 결과(성공 수·실패 목록+사유) 반환. 200 (`PATCH /leader/applications/bulk-status` 선례) |
 
 ### 학생
 
