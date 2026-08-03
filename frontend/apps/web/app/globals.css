@@ -338,9 +338,20 @@ body {
     .cal-h1 {
       font-size: 30px !important;
     }
+    /* 모바일은 지표 카드를 걷어내고 달력이 첫 화면에 바로 보이게 한다(스크롤 없이 이번 달 확인). */
     .cal-stats {
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 10px !important;
+      display: none !important;
+    }
+    /* 상세 시트가 열리면 인라인 스타일이 데스크탑 사이드 패널용 컴팩트 값으로 바뀌어 요일·날짜가
+       미세하게 흔들린다. 모바일은 사이드 패널이 아니라 바텀시트라 달력이 좁아질 이유가 없다.
+       요일은 열 중앙에 고정한다(패딩 비대칭으로 생기던 좌우 쏠림 제거). */
+    .cal-weekhead {
+      padding: 10px 0 !important;
+      font-size: 11.5px !important;
+      text-align: center !important;
+    }
+    .cal-daynum {
+      font-size: 13px !important;
     }
     .cal-monthnav-hint {
       display: none !important;

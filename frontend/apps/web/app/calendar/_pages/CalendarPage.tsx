@@ -478,7 +478,7 @@ export function CalendarPage() {
                 background: 'var(--cream-2)',
               }}>
                 {['일', '월', '화', '수', '목', '금', '토'].map((label, i) => (
-                  <div key={label} style={{
+                  <div key={label} className="cal-weekhead" style={{
                     padding: detailOpen ? '10px 10px' : '12px 16px',
                     fontSize: detailOpen ? 11.5 : 12, fontWeight: 700, letterSpacing: '0.06em',
                     color: i === 0 ? '#9A3F23' : i === 6 ? '#2F557A' : 'var(--charcoal-2)',
@@ -515,7 +515,7 @@ export function CalendarPage() {
                     }}>
                       {/* Day number */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{
+                        <span className="cal-daynum" style={{
                           display: 'inline-grid', placeItems: 'center',
                           minWidth: 26, height: 26,
                           padding: isToday ? '0 8px' : 0,
