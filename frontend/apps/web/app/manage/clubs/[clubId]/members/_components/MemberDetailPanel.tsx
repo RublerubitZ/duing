@@ -374,7 +374,9 @@ function ManagementSection({
   // 역할 변경 확인 대상. 네이티브 confirm 은 임베디드 브라우저에서 막히거나 throw 해
   // 확인 없이 통과하거나 뒤 코드가 죽는다 — 파일의 다른 확인 흐름과 같은 모달로 통일한다.
   const [pendingRole, setPendingRole] = useState<'OFFICER' | 'MEMBER' | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // 이 섹션의 오류 생산자는 전부 확인 모달 흐름이라, 오류도 열려 있는 모달 안에서 보여준다.
+  // 본문에 그리면 모달이 열려 있는 동안 오버레이·aria-hidden 뒤에 갇힌다.
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
   function roleChangeVerb(nextRole: 'OFFICER' | 'MEMBER') {
     return nextRole === 'OFFICER'
@@ -384,35 +386,33 @@ function ManagementSection({
 
   async function confirmRoleChange() {
     if (pendingRole === null) return;
-    setError(null);
+    setDialogError(null);
     try {
       await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: pendingRole } });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '역할 변경 실패');
-    } finally {
-      // 실패해도 반드시 닫는다 — 확인 모달은 오류를 표시할 자리가 없고, 열린 채로 두면 오류 문구가
-      // 스크림 뒤 aria-hidden 영역에 갇혀 사용자에게 도달하지 않는다.
       setPendingRole(null);
+    } catch (err) {
+      // 실패하면 닫지 않는다 — 맥락을 유지해 같은 자리에서 재시도할 수 있게 한다.
+      setDialogError(err instanceof Error ? err.message : '역할 변경 실패');
     }
   }
 
   async function doRemove() {
-    setError(null);
+    setDialogError(null);
     try {
       await removeMember.mutateAsync(member.memberId);
       setShowRemoveDialog(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '탈퇴 처리 실패');
+      setDialogError(err instanceof Error ? err.message : '탈퇴 처리 실패');
     }
   }
 
   async function confirmLeave() {
-    setError(null);
+    setDialogError(null);
     try {
       await leaveClub.mutateAsync();
       setShowLeaveConfirm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '탈퇴 실패');
+      setDialogError(err instanceof Error ? err.message : '탈퇴 실패');
     }
   }
 
@@ -433,15 +433,18 @@ function ManagementSection({
             >
               탈퇴
             </button>
-            {error && <p className="mt-2 text-xs text-coral">{error}</p>}
             <ConfirmDialog
               open={showLeaveConfirm}
               title="동아리를 탈퇴할까요?"
               description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
               confirmLabel="탈퇴"
               isPending={leaveClub.isPending}
+              errorMessage={dialogError}
               onConfirm={confirmLeave}
-              onCancel={() => setShowLeaveConfirm(false)}
+              onCancel={() => {
+                setShowLeaveConfirm(false);
+                setDialogError(null);
+              }}
             />
           </div>
         )}
@@ -492,8 +495,12 @@ function ManagementSection({
             title={`${member.name} 님을 ${roleChangeVerb(pendingRole)}할까요?`}
             confirmLabel={pendingRole === 'OFFICER' ? '승급' : '강등'}
             isPending={updateRole.isPending}
+            errorMessage={dialogError}
             onConfirm={confirmRoleChange}
-            onCancel={() => setPendingRole(null)}
+            onCancel={() => {
+              setPendingRole(null);
+              setDialogError(null);
+            }}
           />
         )}
 
@@ -517,14 +524,16 @@ function ManagementSection({
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs text-coral">{error}</p>}
-
       {showRemoveDialog && (
         <RemoveMemberDialog
           targetName={member.name}
           isPending={removeMember.isPending}
+          errorMessage={dialogError}
           onConfirm={doRemove}
-          onCancel={() => setShowRemoveDialog(false)}
+          onCancel={() => {
+            setShowRemoveDialog(false);
+            setDialogError(null);
+          }}
         />
       )}
     </section>

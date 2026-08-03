@@ -13,11 +13,19 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 type RemoveMemberDialogProps = {
   targetName: string;
   isPending: boolean;
+  /** 실패 안내. ConfirmDialog 와 같은 규칙 — 실패해도 닫지 말고 이 값을 채운다. */
+  errorMessage?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 };
 
-export function RemoveMemberDialog({ targetName, isPending, onConfirm, onCancel }: RemoveMemberDialogProps) {
+export function RemoveMemberDialog({
+  targetName,
+  isPending,
+  errorMessage = null,
+  onConfirm,
+  onCancel,
+}: RemoveMemberDialogProps) {
   return (
     <Dialog
       open
@@ -38,6 +46,12 @@ export function RemoveMemberDialog({ targetName, isPending, onConfirm, onCancel 
             <span className="font-medium text-charcoal-2">{targetName}</span> 님을 동아리에서 탈퇴 처리할까요? 되돌릴 수 없으며, 진행 중인 지원서는 그대로 유지됩니다.
           </DialogDescription>
         </DialogHeader>
+
+        {errorMessage && (
+          <p role="alert" className="text-sm text-coral">
+            {errorMessage}
+          </p>
+        )}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
