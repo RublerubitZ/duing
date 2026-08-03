@@ -10,6 +10,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
 import com.duing.domain.user.entity.UserRole;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -84,8 +85,26 @@ public class ClubAuthService {
      * 시설 예약 신청(create)이 역할 판정을 정책 계층에서 하기 위해 사용한다.
      */
     public ClubMember resolveMembership(Long userId, Long clubId) {
-        return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
+        return findMembership(userId, clubId)
                 .orElseThrow(ClubMemberException.NotAMember::new);
+    }
+
+    /**
+     * 멤버십 판정 — 비멤버는 예외가 아닌 빈 결과다("이 동아리의 멤버인가"를 묻는 조회 API 가 그 답을
+     * 정상 응답으로 돌려주기 위함). 단 멤버인데 동아리가 비 ACTIVE 면 실제 접근 거부이므로 상태별
+     * 안내와 함께 차단한다 (스펙 Part B).
+     *
+     * <p>상태 검사를 멤버십 확인 <b>뒤</b>에 두는 순서는 비멤버에게 동아리 상태가 새지 않게 하는
+     * 불변식이므로(ClubAuthServiceTest 의 "상태 정보 유출 방지" 참고) 호출처가 조립하게 두지 않고
+     * 이 메서드 안에 가둔다.
+     *
+     * <p>반환 엔티티는 이 트랜잭션이 끝나면 detached 다(open-in-view: false) — 호출처는 기본 컬럼만
+     * 읽어야 하며 연관 필드(club·user)를 역참조하면 LazyInitializationException 이 된다.
+     */
+    public Optional<ClubMember> findAccessibleMembership(Long userId, Long clubId) {
+        Optional<ClubMember> membership = findMembership(userId, clubId);
+        membership.ifPresent(member -> requireActiveClub(clubId));
+        return membership;
     }
 
     /** 운영 행위 기본 게이트 내장 — OFFICER 역할 검증 후 비 ACTIVE 동아리는 차단한다 (스펙 Part C · D5). */
@@ -112,12 +131,19 @@ public class ClubAuthService {
         }
     }
 
+    private Optional<ClubMember> findMembership(Long userId, Long clubId) {
+        return clubMemberRepository.findByClubIdAndUserId(clubId, userId);
+    }
+
     private ClubMember findMembershipOrThrow(Long userId, Long clubId) {
-        return clubMemberRepository.findByClubIdAndUserId(clubId, userId)
+        return findMembership(userId, clubId)
                 .orElseThrow(ClubMemberException.NotAMember::new);
     }
 
-    /** 운영 행위 공통 게이트 — 비 ACTIVE 동아리에서는 운영 행위를 차단한다 (스펙 Part C · D5). */
+    /**
+     * 운영 행위 공통 게이트 — 비 ACTIVE 동아리에서는 운영 행위를 차단한다 (스펙 Part C · D5).
+     * 상태별 안내 메시지를 그대로 노출하므로 멤버십 검증 없이 단독 호출하면 안 된다 — private 유지.
+     */
     private void requireActiveClub(Long clubId) {
         ClubStatus clubStatus = resolveClubStatusOrThrow(clubId);
         if (clubStatus != ClubStatus.ACTIVE) {
