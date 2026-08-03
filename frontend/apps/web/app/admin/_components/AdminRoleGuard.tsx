@@ -1,8 +1,8 @@
 'use client';
 
 import { useMeQuery } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
 
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 /**
@@ -11,7 +11,8 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
  * 클라이언트에서 `useMeQuery` 의 실제 role 값을 한 번 더 확인한다.
  */
 export function AdminRoleGuard({ children }: { children: React.ReactNode }) {
-  const authStatus = useAuthStore((state) => state.status);
+  // 확인이 끝나지 않는 장애에서 영영 "확인 중" 에 머물지 않도록 상한을 둔 status 를 쓴다.
+  const authStatus = useBoundedAuthStatus();
   const meQuery = useMeQuery();
 
   // 세션 확인 중(idle)에는 권한을 판정하지 않는다. useMeQuery 는 status 가 확정될 때까지

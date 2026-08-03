@@ -15,6 +15,7 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { AdminRoleGuard } from '@/app/admin/_components/AdminRoleGuard';
 import { FavoriteToggleButton } from '@/app/_components/FavoriteToggleButton';
 import { HomeNavAuthSlot } from '@/app/_components/HomeNavAuthSlot';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import { useClubApply } from '@/app/clubs/[clubId]/_lib/useClubApply';
 
 /**
@@ -46,6 +47,7 @@ afterEach(() => {
   server.resetHandlers();
   mockRouterPush.mockReset();
   requestedPaths.length = 0;
+  window.history.replaceState(null, '', '/');
   act(() => useAuthStore.setState({ status: 'idle', user: null }));
 });
 afterAll(() => {
@@ -53,12 +55,10 @@ afterAll(() => {
   server.close();
 });
 
-let latestQueryClient: QueryClient;
+/** 렌더 본문에서 만들면 재렌더 때 조용히 교체돼 캐시 단언이 공허하게 참이 된다 — 밖에서 만든다. */
+let latestQueryClient = new QueryClient();
 
 function Wrapper({ children }: { children: ReactNode }) {
-  latestQueryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
   return (
     <QueryClientProvider client={latestQueryClient}>
       <ApiClientProvider client={apiClient}>
@@ -68,7 +68,12 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-const renderWithProviders = (ui: ReactNode) => render(<Wrapper>{ui}</Wrapper>);
+function renderWithProviders(ui: ReactNode) {
+  latestQueryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<Wrapper>{ui}</Wrapper>);
+}
 const setAuthStatus = (status: 'idle' | 'authenticated' | 'unauthenticated') =>
   act(() => useAuthStore.setState({ status, user: null }));
 
@@ -107,9 +112,43 @@ describe('HomeNavAuthSlot — 세션 확인 중에는 로그아웃 UI 를 보이
       renderWithProviders(<HomeNavAuthSlot />);
       expect(screen.getByRole('status', { name: '로그인 상태 확인 중' })).toBeInTheDocument();
 
-      act(() => vi.advanceTimersByTime(10_000));
+      act(() => vi.advanceTimersByTime(30_000));
 
       expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// BookingForm·AdminRoleGuard·탐색 찜 필터도 같은 훅을 쓴다 — 상한 동작은 여기서 한 번만 고정한다.
+describe('useBoundedAuthStatus — 확인 대기 상한', () => {
+  it('상한 전에는 idle 을 유지하고, 넘기면 미인증으로 연다', () => {
+    vi.useFakeTimers();
+    try {
+      setAuthStatus('idle');
+      const { result } = renderHook(() => useBoundedAuthStatus());
+
+      act(() => vi.advanceTimersByTime(29_000));
+      expect(result.current).toBe('idle');
+
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(result.current).toBe('unauthenticated');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('상한을 넘긴 뒤라도 확인이 늦게 성공하면 즉시 정정된다', () => {
+    vi.useFakeTimers();
+    try {
+      setAuthStatus('idle');
+      const { result } = renderHook(() => useBoundedAuthStatus());
+      act(() => vi.advanceTimersByTime(30_000));
+      expect(result.current).toBe('unauthenticated');
+
+      setAuthStatus('authenticated');
+      expect(result.current).toBe('authenticated');
     } finally {
       vi.useRealTimers();
     }
@@ -143,33 +182,65 @@ describe('AdminRoleGuard — 세션 확인 중에는 권한을 판정하지 않�
   });
 });
 
-describe('FavoriteToggleButton — 세션 확인 중 클릭은 로그인으로 튕기지 않는다', () => {
-  it('idle 이면 로그인으로 보내지 않고 찜 요청을 보낸다', async () => {
+describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 없다', () => {
+  // 찜 목록은 인증 확정 후에만 조회된다. 확인 중에는 찜한 동아리도 빈 하트로 보이므로,
+  // 그대로 누르면 해제가 아니라 추가가 나가 409 로 조용히 실패한다.
+  it('idle 이면 하트가 비활성이고 요청도 나가지 않는다', async () => {
     setAuthStatus('idle');
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+
+    const heart = screen.getByRole('button', { name: '찜 추가' });
+    expect(heart).toBeDisabled();
+    await userEvent.click(heart);
+
+    expect(requestedPaths).toHaveLength(0);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('확인이 끝나면 하트가 활성화된다', () => {
+    setAuthStatus('idle');
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    expect(screen.getByRole('button', { name: '찜 추가' })).toBeDisabled();
+
+    setAuthStatus('authenticated');
+    expect(screen.getByRole('button', { name: '찜 추가' })).toBeEnabled();
+  });
+
+  it('확인 후 access 가 만료돼 401 이 오면 로그인으로 보내고 찜 캐시를 남기지 않는다', async () => {
+    setAuthStatus('authenticated');
+    window.history.replaceState(null, '', '/clubs?favorite=true&page=2');
     server.use(
-      http.post(`${BASE}/me/favorites/7`, () =>
-        HttpResponse.json({ ok: true, data: 7, message: null }),
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [] }, message: null }),
       ),
+      ...expiredSession('/me/favorites/7'),
     );
 
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
     await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
 
-    await waitFor(() => expect(requestedPaths).toContain('/api/v1/me/favorites/7'));
-    expect(mockRouterPush).not.toHaveBeenCalled();
+    // 복귀 주소에 쿼리스트링까지 실려야 필터·페이지가 걸린 목록으로 되돌아온다.
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fclubs%3Ffavorite%3Dtrue%26page%3D2'),
+    );
+    expect(requestedPaths).toContain('/api/v1/me/favorites/7');
+    // 이전 값이 있으면 그 값으로 되돌린다(하트가 채워진 채 남지 않는다).
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [] });
   });
 
-  it('idle 클릭이 401 로 돌아오면 요청을 보낸 뒤 로그인으로 보내고, 찜 캐시를 남기지 않는다', async () => {
-    setAuthStatus('idle');
-    server.use(...expiredSession('/me/favorites/7'));
+  // 찜 목록 조회가 아직 안 끝난 사이 누르면 되돌릴 이전 값이 없다. 낙관적 갱신이 만든 목록을
+  // 그대로 두면 비로그인 화면에 채워진 하트로 남는다 — 비활성 쿼리라 무효화로도 지워지지 않는다.
+  it('찜 목록이 로드되기 전 클릭이 실패하면 낙관적 갱신을 캐시에 남기지 않는다', async () => {
+    setAuthStatus('authenticated');
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () => new Promise(() => {})),
+      ...expiredSession('/me/favorites/7'),
+    );
 
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
     await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2F'));
-    // 즉시 튕긴 게 아니라 실제로 물어본 뒤 판단했는지 — 이게 없으면 수정 전 코드도 통과한다.
-    expect(requestedPaths).toContain('/api/v1/me/favorites/7');
-    // 실패한 낙관적 갱신이 캐시에 남으면 비로그인 화면에 채워진 하트로 보인다.
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
   });
 

@@ -2,36 +2,41 @@
 
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ApiError } from '@duing/api';
-import { useAuthStore } from '@duing/stores';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import posthog from 'posthog-js';
 
 type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
 
 export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) {
   const router = useGuardedRouter();
-  const status = useAuthStore((state) => state.status);
+  const status = useBoundedAuthStatus();
   const favoriteIdsQuery = useFavoriteIdsQuery();
   const toggleMutation = useFavoriteToggleMutation();
 
   const isFavorited = favoriteIdsQuery.data?.includes(clubId) ?? false;
+  // 찜 목록은 인증 확정 후에만 조회되므로 확인 중에는 "찜 안 함" 으로 보인다. 그 상태로 누르면
+  // 해제 대신 추가가 나가 이미 찜한 동아리는 409 로 조용히 실패한다 — 방향을 모르는 동안에는
+  // 아예 못 누르게 막는다. 클릭 자체를 여는 지원하기와 달리, 찜은 동작 방향이 로드된 상태에
+  // 달려 있어 "일단 요청" 이 정답이 되지 못한다.
+  const isAuthPending = status === 'idle';
 
   function handleClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
     // 쿼리스트링까지 담아야 필터·페이지가 걸린 목록에서 눌러도 그 자리로 돌아온다.
+    if (isAuthPending) return;
     const currentUrl = window.location.pathname + window.location.search;
     const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
     if (status === 'unauthenticated') {
       router.push(loginPath);
       return;
     }
-    // 세션 확인 중(idle)이면 미인증으로 단정하지 않고 그대로 요청한다 — 만료된 access 는 API
-    // 레이어가 갱신하고, 정말 미인증이면 401 로 돌아온다. 확인 전에 로그인으로 튕기면 로그인한
-    // 사용자가 하드 로드 직후 누른 찜이 매번 로그인 화면으로 이어진다.
+    // 확인이 끝난 뒤에도 access 가 만료됐을 수 있다 — 그건 API 레이어가 갱신하고, 정말 미인증이면
+    // 401 로 돌아오므로 그때 로그인으로 보낸다.
     toggleMutation.mutate(
       { clubId, isFavorited },
       {
@@ -62,7 +67,7 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
         dimensionClass,
         className,
       )}
-      disabled={toggleMutation.isPending}
+      disabled={toggleMutation.isPending || isAuthPending}
     >
       <HeartIcon filled={isFavorited} />
     </button>

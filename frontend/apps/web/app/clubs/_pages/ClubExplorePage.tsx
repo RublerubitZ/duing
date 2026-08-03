@@ -7,7 +7,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -104,13 +104,16 @@ export function ClubExplorePage() {
     [params, router],
   );
 
-  const authStatus = useAuthStore((state) => state.status);
+  // 확인이 끝나지 않는 장애에서 찜 필터 화면이 영영 스켈레톤에 갇히지 않도록 상한을 둔 status 를 쓴다
+  // (그 화면의 로그인 유도가 유일한 복구 수단이다).
+  const authStatus = useBoundedAuthStatus();
   /** 찜 필터 + 비인증(idle 포함) — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
-      플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리).
-      단 사용자가 직접 누른 찜 토글은 예외다 — idle 은 "미인증" 이 아니라 "아직 모름" 이라,
-      확인 전에 차단하면 로그인한 사용자의 클릭이 로그인 화면으로 튕긴다. 클릭당 1회로 한정되고
-      refresh 는 조율기가 사이클당 1회로 합치므로 위 방어의 취지(요청 폭주 차단)는 유지된다. */
+      플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
+  /** 찜 목록은 인증 확정 후에만 조회된다 — 확인 중에는 모든 카드가 "찜 안 함" 으로 보여, 누르면
+      해제 대신 추가가 나가고 이미 찜한 동아리는 409 로 조용히 실패한다. 방향을 모르는 동안은
+      하트를 비활성으로 두어 잘못된 방향으로 나가지 않게 한다. */
+  const isAuthPending = authStatus === 'idle';
   const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
@@ -576,7 +579,8 @@ export function ClubExplorePage() {
                         club={club}
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
-                          favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                          isAuthPending ||
+                          (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                         }
                         onLikeToggle={handleToggleLike}
                       />
@@ -720,7 +724,8 @@ export function ClubExplorePage() {
                       recommended={index === 0 && params.page === 1}
                       liked={likedIds.has(club.id)}
                       isLikeBusy={
-                        favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                        isAuthPending ||
+                        (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                       }
                       onLikeToggle={handleToggleLike}
                     />
