@@ -419,6 +419,16 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
     await waitFor(() => expect(capturedRoleBody).toEqual({ role: 'OFFICER' }));
   });
 
+  it('역할 변경 확인을 취소하면 role PATCH 가 나가지 않는다', async () => {
+    renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(capturedRoleBody).toBeNull();
+  });
+
   it('기수 저장은 generation PATCH 를 정수로 보낸다', async () => {
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ generation: 3 }) });
 
@@ -508,6 +518,8 @@ describe('MemberDetailPanel — 회원 전환 시 상태 격리', () => {
     await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
     await userEvent.click(await screen.findByRole('button', { name: '승급' }));
     expect(await screen.findByText('권한이 없습니다.')).toBeInTheDocument();
+    // 확인 모달이 닫혀야 오류 문구가 스크림·aria-hidden 뒤에 갇히지 않는다.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     // 다른 회원으로 전환 — 앞 회원의 실패를 이 사람 것으로 오독하면 안 된다.
     rerender(

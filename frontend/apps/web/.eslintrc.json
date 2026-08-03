@@ -16,6 +16,15 @@
         "message": "임베디드 브라우저에서 throw 됩니다. 인라인 입력 UI 로 대체하세요."
       }
     ],
+    "no-restricted-properties": [
+      "error",
+      { "object": "window", "property": "alert", "message": "ToastProvider 의 useToast 를 사용하세요." },
+      { "object": "window", "property": "confirm", "message": "@/app/_components/ConfirmDialog 를 사용하세요." },
+      { "object": "window", "property": "prompt", "message": "인라인 입력 UI 로 대체하세요." },
+      { "object": "globalThis", "property": "alert", "message": "ToastProvider 의 useToast 를 사용하세요." },
+      { "object": "globalThis", "property": "confirm", "message": "@/app/_components/ConfirmDialog 를 사용하세요." },
+      { "object": "globalThis", "property": "prompt", "message": "인라인 입력 UI 로 대체하세요." }
+    ],
     "no-restricted-imports": [
       "error",
       {

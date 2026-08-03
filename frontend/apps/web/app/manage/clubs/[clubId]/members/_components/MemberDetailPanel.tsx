@@ -387,9 +387,12 @@ function ManagementSection({
     setError(null);
     try {
       await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: pendingRole } });
-      setPendingRole(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '역할 변경 실패');
+    } finally {
+      // 실패해도 반드시 닫는다 — 확인 모달은 오류를 표시할 자리가 없고, 열린 채로 두면 오류 문구가
+      // 스크림 뒤 aria-hidden 영역에 갇혀 사용자에게 도달하지 않는다.
+      setPendingRole(null);
     }
   }
 
