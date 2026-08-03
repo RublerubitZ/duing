@@ -51,7 +51,7 @@ export function HeroActivityEditor({
   const [title, setTitle] = useState(hero?.title ?? '');
   const [description, setDescription] = useState(hero?.description ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
-  // 삭제(비우기) 실패 전용 채널 — 모달을 닫고 에디터 인라인에 표시(ActivityPhotoCard.runDelete 패턴).
+  // 삭제(비우기) 실패 전용 채널 — 확인 모달 안에서 표시한다(공통 규칙). 편집 폼 오류와 섞이지 않게 분리.
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 

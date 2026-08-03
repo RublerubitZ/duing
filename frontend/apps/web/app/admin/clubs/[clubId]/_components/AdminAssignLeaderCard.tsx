@@ -40,6 +40,7 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
 
   function handleConfirm() {
     if (selectedUser === null) return;
+    setConfirmError(null);
 
     mutation.mutate(
       { clubId, payload: { newLeaderUserId: selectedUser.id, reason: reason.trim() } },

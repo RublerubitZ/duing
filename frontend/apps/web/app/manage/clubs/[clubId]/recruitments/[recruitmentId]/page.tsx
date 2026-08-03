@@ -32,7 +32,6 @@ export default function RecruitmentDetailPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // 삭제 확인은 ConfirmDialog(Radix) 라 Dialog 래퍼가 이미 커버한다 — 마감 확인만 수제 오버레이다.
 
   const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,

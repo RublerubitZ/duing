@@ -312,6 +312,7 @@ export function AdminFaqListPage() {
         }}
         onConfirm={() => {
           if (!deleteTarget) return;
+          setDeleteError(null);
           deleteMutation.mutate(deleteTarget.id, {
             onSuccess: () => setDeleteTarget(null),
             onError: (error) => setDeleteError(extractErrorMessage(error) ?? '삭제에 실패했습니다.'),

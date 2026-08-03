@@ -62,7 +62,7 @@ export function ActivityPhotoCard({
 
   const [captionOpen, setCaptionOpen] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(photo.caption ?? '');
-  // 캡션 에러는 다이얼로그 내부 채널 — 카드의 삭제(409) 안내와 분리(편집 열기가 삭제 안내를 지우지 않게).
+  // 캡션 에러는 캡션 다이얼로그 전용 채널 — 삭제 확인 모달의 오류와 섞이지 않게 분리.
   const [captionError, setCaptionError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
