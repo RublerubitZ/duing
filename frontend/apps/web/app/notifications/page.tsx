@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import {
   daysUntilKst,
   useNotificationListQuery,
@@ -18,6 +19,11 @@ import { NotificationItem } from '../_components/NotificationItem';
 
 export default function NotificationsPage() {
   const authStatus = useAuthStore((state) => state.status);
+  // 화면 판단(대기 렌더·로그인 이동)에는 상한을 둔 status 를 쓴다 — 갱신이 만료 외의 사유로
+  // 실패하면 확인이 끝나지 않아 idle 이 영구히 남고, 그러면 "로그인 확인 중" 스피너에서
+  // 나올 방법이 없다(안내도 이동도 unauthenticated 에만 걸려 있다). 쿼리 enabled 는 원본
+  // status 를 그대로 쓴다 — 상한은 fail-open 이라 확정 신호가 아니다(BookingForm 과 동형).
+  const boundedAuthStatus = useBoundedAuthStatus();
   const router = useGuardedRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const listQuery = useNotificationListQuery(unreadOnly, authStatus === 'authenticated');
@@ -26,10 +32,10 @@ export default function NotificationsPage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (authStatus === 'unauthenticated') {
+    if (boundedAuthStatus === 'unauthenticated') {
       router.replace('/login?next=/notifications');
     }
-  }, [authStatus, router]);
+  }, [boundedAuthStatus, router]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -43,7 +49,7 @@ export default function NotificationsPage() {
     return () => observer.disconnect();
   }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
 
-  if (authStatus !== 'authenticated') {
+  if (boundedAuthStatus !== 'authenticated') {
     return <LoadingGate label="로그인 확인 중" />;
   }
 
