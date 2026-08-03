@@ -327,6 +327,7 @@ export function CalendarPage() {
             {canAddEvent && (
               <button
                 type="button"
+                className="cal-add-btn"
                 onClick={() => setAddModalOpen(true)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,

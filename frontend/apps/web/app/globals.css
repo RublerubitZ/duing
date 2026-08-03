@@ -330,10 +330,24 @@ body {
       /* padding-top 은 인라인 var(--page-top) 이 뷰포트별로 해소하므로 여기서 덮지 않는다 */
       padding-bottom: 16px !important;
     }
+    /* 제목과 '내 일정 추가' 를 한 줄에 두고, 버튼은 제목 마지막 줄('한눈에')에 맞춰 우측 하단 정렬. */
     .cal-header-row {
-      flex-direction: column !important;
-      align-items: flex-start !important;
-      gap: 16px !important;
+      flex-direction: row !important;
+      align-items: flex-end !important;
+      justify-content: space-between !important;
+      gap: 12px !important;
+    }
+    /* 좁은 화면에서 제목이 버튼을 밀어내지 않도록 버튼을 줄이고 줄바꿈을 막는다. */
+    .cal-add-btn {
+      padding: 10px 14px !important;
+      font-size: 12.5px !important;
+      gap: 6px !important;
+      box-shadow: none !important;
+      white-space: nowrap !important;
+    }
+    .cal-add-btn svg {
+      width: 14px !important;
+      height: 14px !important;
     }
     .cal-h1 {
       font-size: 30px !important;
