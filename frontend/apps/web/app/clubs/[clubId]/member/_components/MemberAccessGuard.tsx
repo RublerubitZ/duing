@@ -24,13 +24,17 @@ function resolveDenialMessage(
   isLoading: boolean,
   error: unknown,
 ): string | null {
-  if (isLoading || membership) return null;
+  if (isLoading) return null;
+  // 거부 응답을 캐시된 멤버십보다 먼저 판정한다 — React Query 는 재조회가 실패해도 마지막 성공
+  // data 를 남기므로, membership 을 먼저 보면 동아리가 폐쇄된 뒤에도 멤버 화면이 계속 렌더된다.
+  if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+    return error.status === 403 && error.message !== httpFallbackMessage(403)
+      ? error.message
+      : DEFAULT_DENIAL_MESSAGE;
+  }
   if (membership === null) return DEFAULT_DENIAL_MESSAGE;
   // 네트워크 오류·5xx 는 거부가 아니다 — 리다이렉트 없이 재시도 여지를 남긴다.
-  if (!(error instanceof ApiError) || (error.status !== 403 && error.status !== 404)) return null;
-  return error.status === 403 && error.message !== httpFallbackMessage(403)
-    ? error.message
-    : DEFAULT_DENIAL_MESSAGE;
+  return null;
 }
 
 export function MemberAccessGuard({ clubId, children }: Props) {
@@ -41,14 +45,21 @@ export function MemberAccessGuard({ clubId, children }: Props) {
 
   useEffect(() => {
     if (!denialMessage) return;
-    alert(`${denialMessage} 동아리 소개 페이지로 이동합니다.`);
+    // 이동을 먼저 건다 — 임베디드 브라우저에서 alert 이 막히거나 throw 하면 뒤 문장이 실행되지 않아,
+    // 이 가드가 고치려는 "안내도 이동도 없는 빈 화면"이 그대로 재현된다.
     router.replace(`/clubs/${clubId}`);
+    alert(`${denialMessage} 동아리 소개 페이지로 이동합니다.`);
   }, [denialMessage, router, clubId]);
 
   if (isLoading) {
     return <LoadingGate label="권한 확인 중" />;
   }
-  if (!membership) return null;
+  // 리다이렉트가 커밋되기 전 한 프레임 — 회원 전용 콘텐츠를 스치듯 노출하지 않도록 비운다.
+  if (denialMessage) return null;
+  // 거부가 아닌 실패(네트워크·5xx). 빈 화면으로 두면 거부와 구분되지 않으므로 상태를 알린다.
+  if (!membership) {
+    return <p className="p-6 text-sm text-coral">권한 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>;
+  }
 
   return <MembershipProvider membership={membership}>{children}</MembershipProvider>;
 }

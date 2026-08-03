@@ -21,7 +21,8 @@ export function useClubMembershipQuery(clubId: number | null) {
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => {
       if (isNonRetryableError(error)) return false;
-      // 접근 거부(403) 또는 클럽 없음(404) 은 재시도하지 않고 가드가 즉시 redirect 한다.
+      // 접근 거부(403)는 재시도해도 결과가 같고 가드가 즉시 redirect 한다. 404 는 이 엔드포인트가
+      // 내지 않지만(없는 동아리도 200 + null) 다른 거부 응답이 생겨도 되풀이하지 않도록 함께 둔다.
       // 정규화된 ApiError.status 로 판별한다 — 예전 error.response.status 는 정규화 후 존재하지 않아
       // 이 분기가 사문화돼 있었다(잠복 버그).
       if (error instanceof ApiError && (error.status === 404 || error.status === 403)) return false;

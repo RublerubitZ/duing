@@ -5,7 +5,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import type { MyClubMembership } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubMembershipKeys } from '@duing/hooks';
 
 const replaceMock = vi.fn();
 
@@ -118,12 +118,61 @@ describe('MemberAccessGuard', () => {
     );
   });
 
-  it('서버 오류(500)는 접근 거부가 아니므로 리다이렉트하지 않는다', async () => {
+  it('서버 오류(500)는 거부가 아니므로 리다이렉트 대신 실패 안내를 보여준다', async () => {
     seedMembership(() => new HttpResponse(null, { status: 500 }));
 
     renderGuard();
 
-    await waitFor(() => expect(alertSpy).not.toHaveBeenCalled());
+    // 쿼리가 정착(재시도 소진)할 때까지 기다린 뒤 단언한다 — 훅이 자체 retry 옵션을 갖고 있어
+    // QueryClient 의 retry:false 가 덮이지 않으므로, 기다리지 않으면 첫 응답 전에 통과해버린다.
+    expect(await screen.findByText(/권한 정보를 불러오지 못했습니다/, {}, { timeout: 5000 }))
+      .toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
+  });
+
+  it('판정 전에는 회원 전용 콘텐츠 대신 권한 확인 상태를 보여준다', async () => {
+    seedMembership(() => HttpResponse.json({ ok: true, message: null, data: membership }));
+
+    renderGuard();
+
+    // 로딩 라벨은 텍스트가 아니라 aria-label 이다(레포 로딩 UI 컨벤션 — 텍스트 로딩 금지).
+    expect(screen.getByRole('status', { name: '권한 확인 중' })).toBeInTheDocument();
+    expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
+    // 이후 정상 진입까지 확인해 로딩이 영구 상태로 남지 않는 것도 함께 고정한다.
+    expect(await screen.findByText('회원 전용 콘텐츠')).toBeInTheDocument();
+  });
+
+  it('캐시된 멤버십이 남아 있어도 재조회가 403 이면 회원 화면을 유지하지 않는다', async () => {
+    // React Query 는 재조회 실패 시 마지막 성공 data 를 남긴다. 멤버로 진입한 뒤 동아리가 폐쇄되면
+    // 그 캐시 때문에 멤버 화면이 계속 렌더되던 경로를 고정한다.
+    seedMembership(() =>
+      HttpResponse.json(
+        { ok: false, message: '운영 종료된 동아리입니다.', data: null },
+        { status: 403 },
+      ),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    // updatedAt 을 과거로 박아 staleTime(5분)을 넘긴 상태로 만든다 → 마운트 시 재조회.
+    queryClient.setQueryData(clubMembershipKeys.byClub(CLUB_ID), membership, { updatedAt: 1 });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient}>
+          <MemberAccessGuard clubId={CLUB_ID}>
+            <p>회원 전용 콘텐츠</p>
+          </MemberAccessGuard>
+        </ApiClientProvider>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
+    expect(alertSpy).toHaveBeenCalledWith(
+      '운영 종료된 동아리입니다. 동아리 소개 페이지로 이동합니다.',
+    );
+    expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
   });
 });
