@@ -266,6 +266,9 @@ export function MemberBulkToolbar({
         )}
       </div>
 
+      {/* 공통 규칙(실패 시 모달 유지 + 모달 안 오류)의 의도적 예외.
+          일괄 처리는 단일 요청 실패가 아니라 부분 성공 결과(성공 N·실패 M·제외 목록)를 돌려주므로,
+          모달을 닫고 목록 위 결과 패널에서 알린다. 단일 오류 문구로는 이 구조를 담을 수 없다. */}
       <ConfirmDialog
         open={showRemoveConfirm}
         title="선택한 회원을 탈퇴 처리할까요?"

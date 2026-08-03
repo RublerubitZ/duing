@@ -9,14 +9,12 @@ import {
   useRecruitmentStatsSummaryQuery,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
-import { ButtonSpinner } from '@/components/loading/Spinner';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 
 export default function RecruitmentDetailPage({
@@ -35,7 +33,6 @@ export default function RecruitmentDetailPage({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // 삭제 확인은 ConfirmDialog(Radix) 라 Dialog 래퍼가 이미 커버한다 — 마감 확인만 수제 오버레이다.
-  useBackDismiss(showCloseConfirm, () => setShowCloseConfirm(false));
 
   const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
@@ -80,7 +77,6 @@ export default function RecruitmentDetailPage({
       setShowDeleteConfirm(false);
       router.push(toRoute(`/manage/clubs/${clubId}/recruitments`));
     } catch (err) {
-      setShowDeleteConfirm(false);
       setDeleteError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     }
   }
@@ -270,47 +266,28 @@ export default function RecruitmentDetailPage({
           </button>
         )}
 
-        {deleteError && <p className="w-full text-sm text-rose-600">{deleteError}</p>}
       </div>
 
-      {/* 마감 확인 모달 */}
-      {showCloseConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">모집을 마감할까요?</h2>
-            <p className="mb-6 text-sm text-slate-500">
-              마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다.
-            </p>
-            {closeError && <p className="mb-4 text-sm text-rose-600">{closeError}</p>}
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCloseConfirm(false);
-                  setCloseError(null);
-                }}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={closeRecruitment.isPending}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-              >
-                {closeRecruitment.isPending && <ButtonSpinner />}마감 확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showCloseConfirm}
+        title="모집을 마감할까요?"
+        description="마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다."
+        confirmLabel="마감"
+        isPending={closeRecruitment.isPending}
+        errorMessage={closeError}
+        onConfirm={handleClose}
+        onCancel={() => {
+          setShowCloseConfirm(false);
+          setCloseError(null);
+        }}
+      />
 
       <ConfirmDialog
         open={showDeleteConfirm}
         title="모집 공고를 삭제할까요?"
         description="지원자가 없는 공고만 삭제할 수 있으며, 삭제하면 되돌릴 수 없습니다."
         isPending={deleteRecruitment.isPending}
+        errorMessage={deleteError}
         onConfirm={handleDelete}
         onCancel={() => {
           setShowDeleteConfirm(false);

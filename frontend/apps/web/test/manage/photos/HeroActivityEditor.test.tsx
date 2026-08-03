@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 
 describe('HeroActivityEditor', () => {
-  it('I-2: 비우기 삭제 실패 시 ConfirmDialog 를 닫고 에러를 인라인 표시한다', async () => {
+  it('I-2: 비우기 삭제 실패 시 ConfirmDialog 를 유지하고 모달 안에서 안내한다', async () => {
     mockDeleteMutateAsync.mockRejectedValueOnce(new Error('삭제 서버 오류'));
     render(
       <HeroActivityEditor
@@ -55,9 +55,11 @@ describe('HeroActivityEditor', () => {
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: '비우기' }));
 
-    // 에러는 에디터 본문에 인라인 표시되고, ConfirmDialog 는 닫힌다.
-    expect(await screen.findByText('삭제 서버 오류')).toBeInTheDocument();
-    expect(screen.queryByText('이 대표 활동을 비울까요?')).not.toBeInTheDocument();
+    // 공통 규칙(B안) — 에디터 본문에 그리면 오버레이·aria-hidden 뒤에 갇힌다.
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('삭제 서버 오류');
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('I-5: 수정 경로에서 제목을 비우고 저장하면 검증 에러를 내고 PATCH 하지 않는다', async () => {

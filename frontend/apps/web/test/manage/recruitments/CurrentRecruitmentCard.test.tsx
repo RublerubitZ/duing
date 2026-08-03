@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import type { RecruitmentSummary } from '@duing/types';
 
@@ -98,15 +98,19 @@ describe('CurrentRecruitmentCard', () => {
     await waitFor(() => expect(mockCloseMutateAsync).toHaveBeenCalled());
   });
 
-  it('마감 실패 시 다이얼로그를 닫고 에러 메시지를 카드에 렌더한다', async () => {
+  it('마감 실패 시 다이얼로그를 유지하고 모달 안에서 안내한다', async () => {
     mockCloseMutateAsync.mockRejectedValue(new Error('이미 마감된 모집입니다.'));
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
     fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
     fireEvent.click(screen.getByRole('button', { name: '마감' }));
 
-    await waitFor(() => expect(screen.getByText('이미 마감된 모집입니다.')).toBeInTheDocument());
-    expect(screen.queryByText('모집을 마감할까요?')).not.toBeInTheDocument();
+    // 공통 규칙(B안) — 카드에 그리면 오버레이·aria-hidden 뒤에 갇힌다.
+    const dialog = await screen.findByRole('dialog');
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('이미 마감된 모집입니다.');
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByText('모집을 마감할까요?')).toBeInTheDocument();
   });
 });
 

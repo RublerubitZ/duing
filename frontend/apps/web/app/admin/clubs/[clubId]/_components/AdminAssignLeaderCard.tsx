@@ -20,8 +20,9 @@ const REASON_MAX = 1000;
 export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
   const [selectedUser, setSelectedUser] = useState<AdminUserSearchResult | null>(null);
   const [reason, setReason] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // 확인 모달 흐름의 실패는 모달 안에서 안내한다(공통 규칙).
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const mutation = useAssignAdminLeaderMutation();
 
@@ -32,7 +33,6 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setFormError(null);
     if (selectedUser === null) return;
     if (isReasonBlank) return;
     setConfirming(true);
@@ -54,8 +54,7 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
             mutationError instanceof ApiError
               ? mutationError.message
               : `${actionLabel}에 실패했습니다.`;
-          setFormError(message);
-          setConfirming(false);
+          setConfirmError(message);
         },
       },
     );
@@ -98,12 +97,6 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
           </p>
         </div>
 
-        {formError && (
-          <p className="rounded-md bg-white border border-rose-200 px-3 py-2 text-sm text-rose-700">
-            {formError}
-          </p>
-        )}
-
         <div className="flex justify-end">
           <button
             type="submit"
@@ -126,8 +119,12 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
         }
         confirmLabel={actionLabel}
         isPending={mutation.isPending}
+        errorMessage={confirmError}
         onConfirm={handleConfirm}
-        onCancel={() => setConfirming(false)}
+        onCancel={() => {
+          setConfirming(false);
+          setConfirmError(null);
+        }}
       />
     </section>
   );

@@ -8,12 +8,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import type { ReactNode } from 'react';
+
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type Props = {
   open: boolean;
   title: string;
-  description?: string;
+  /** 서식이 필요한 안내(대상 이름 강조 등)를 위해 ReactNode 를 받는다. 문자열도 그대로 통과한다. */
+  description?: ReactNode;
   confirmLabel?: string;
   isPending?: boolean;
   /**
