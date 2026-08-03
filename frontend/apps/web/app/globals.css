@@ -321,6 +321,12 @@ body {
   .cal-sheet-handle {
     display: none;
   }
+  /* Upcoming 타임라인은 모바일 전용 — 데스크탑에서는 카드 그리드가 대신한다.
+     둘 다 렌더하고 CSS 로 전환한다(JS 분기는 SSR 첫 프레임 깜빡임·하이드레이션 불일치를 만든다).
+     주의: 감춰진 쪽도 React 렌더와 effect 는 돈다 — 행에 옵서버·이미지가 붙는 날이 오면 재검토할 것. */
+  .cal-upcoming-timeline {
+    display: none;
+  }
   @media (max-width: 767px) {
     .cal-section {
       padding-left: 16px !important;
@@ -375,8 +381,105 @@ body {
       line-height: 0 !important;
       overflow: hidden !important;
     }
+    /* 카드 6장이 세로로 1,580px 을 차지해 훑어보기가 스크롤 노동이 된다 — 행(68px)으로 접는다. */
     .cal-upcoming {
-      grid-template-columns: 1fr !important;
+      display: none !important;
+    }
+    .cal-upcoming-timeline {
+      display: block !important;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid var(--gray-line);
+    }
+    .cal-upcoming-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 68px;
+      padding: 12px 4px;
+      border: none;
+      border-bottom: 1px solid var(--gray-line);
+      background: transparent;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .cal-upcoming-row:active {
+      background: var(--cream-2);
+    }
+    /* 키보드 포커스 — :active 배경만으로는 보이지 않는다. 레포 관례(ring-ink)에 맞춘다. */
+    .cal-upcoming-row:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: -2px;
+    }
+    .cal-upcoming-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 48px;
+      flex-shrink: 0;
+    }
+    .cal-upcoming-date {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .cal-upcoming-weekday {
+      font-size: 11px;
+      color: var(--charcoal-3);
+    }
+    .cal-upcoming-marker {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      width: 6px;
+      align-self: stretch;
+      flex-shrink: 0;
+    }
+    .cal-upcoming-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      margin-top: 7px;
+    }
+    .cal-upcoming-line {
+      position: absolute;
+      top: 17px;
+      bottom: -12px;
+      width: 1px;
+      background: var(--gray-line);
+    }
+    .cal-upcoming-body {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+    .cal-upcoming-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink-deep);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cal-upcoming-place {
+      font-size: 12px;
+      color: var(--charcoal-3);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cal-upcoming-dday {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--charcoal-2);
+      flex-shrink: 0;
     }
     .cal-sheet-handle {
       display: block;

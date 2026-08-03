@@ -15,13 +15,13 @@ import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
 import { Icon } from '../_components/CalendarIcons';
 import { UpcomingCards } from '../_components/UpcomingCards';
+import { UpcomingTimeline } from '../_components/UpcomingTimeline';
 import {
   toCalEvent_clubEvent,
   toCalEvent_global,
   toCalEvent_recruitment,
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
-import { monthRange } from '../_lib/monthRange';
 import { buildUpcoming, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
 
 import type { CalEvent, EventKind } from '../_types';
@@ -114,7 +114,6 @@ export function CalendarPage() {
   }, []);
 
   const yearMonth = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-  const { from, to } = useMemo(() => monthRange(yearMonth), [yearMonth]);
 
   const meQuery = useMeQuery();
   const isAuthenticated = !!meQuery.data;
@@ -135,8 +134,6 @@ export function CalendarPage() {
   );
 
   const calendar = useCalendarMonthQuery(yearMonth, {
-    from,
-    to,
     isAuthenticated,
     mappers: calendarMappers,
   });
@@ -675,7 +672,12 @@ export function CalendarPage() {
               </p>
             )
           ) : (
-            <UpcomingCards events={upcoming} todayIso={todayIso} />
+            <>
+              {/* 데스크탑 카드와 모바일 타임라인을 함께 렌더하고 CSS 로 전환한다.
+                  JS 미디어쿼리 분기는 SSR 에서 첫 프레임 깜빡임·하이드레이션 불일치를 만든다. */}
+              <UpcomingCards events={upcoming} todayIso={todayIso} />
+              <UpcomingTimeline events={upcoming} todayIso={todayIso} onSelect={handleEventClick} />
+            </>
           )}
         </div>
       </section>
