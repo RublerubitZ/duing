@@ -44,6 +44,23 @@ Next 내부 구현이라 마이너 업그레이드에서 바뀔 수 있는 **버
   Next 의 popstate 핸들러가 **`location.reload()`** 를 호출한다(패치 코드에 실재하는 분기).
   그래서 push·replace 양쪽 모두 기존 state 보존이 필수다.
 
+### ⚠️ next-view-transitions 와의 충돌 (실브라우저에서 검출)
+
+`next-view-transitions` 는 **popstate 마다 view transition 을 시작**하고, 그 DOM 업데이트 프라미스를
+`useEffect(..., [hash, pathname])` 에서만 resolve 한다(라이브러리 소스 확인). 우리 오버레이 엔트리는
+**URL 이 같아서** 그 effect 가 재실행되지 않는다 → 전환이 끝나지 않는다 → 화면이 옛 스냅샷에 묶였다가
+브라우저가 4초 뒤 **`TimeoutError: Transition was aborted because of timeout in DOM update`** 로
+중단시킨다. 실측: 뒤로가기로 시트를 닫은 뒤 7초가 지나도 `finished` 가 resolve 되지 않았다.
+
+대응: `backNavigationViewTransition.ts` 의 `startViewTransition` 래퍼에서, **오버레이만 닫는(=pathname·
+hash 불변) popstate 에는 전환을 시작하지 않고** 콜백만 실행한 뒤 즉시 완료된 스텁을 돌려준다.
+같은 페이지 안의 레이어 닫기에는 페이지 전환 애니메이션 자체가 필요 없다. 판정 신호는
+`backDismiss.isOverlayOnlyTraversal()` — popstate 핸들러에서 동기로 켜고 같은 태스크가 끝나면 끈다
+(리스너 등록 순서상 우리 핸들러가 라이브러리보다 먼저 실행된다).
+
+같은 이유로 **URL 되돌리기도 같은 페이지일 때만** 적용한다. 여러 칸을 건너뛰어 실제로 다른 페이지로
+간 이동에서 복원하면 착지한 페이지의 엔트리 URL 을 시트가 있던 페이지 주소로 덮어쓴다(회귀 테스트로 고정).
+
 ### ⚠️ Next 가 우리 마커를 지우는 경로 (적대적 리뷰에서 검출)
 
 패치된 `pushState` 와 달리, **`HistoryUpdater`(app-router.js 89~115행)의 `replaceState` 는 커스텀
