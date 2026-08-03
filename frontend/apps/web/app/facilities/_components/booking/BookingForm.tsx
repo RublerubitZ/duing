@@ -53,6 +53,12 @@ export function BookingForm({
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // 세션 확인 중(idle)에는 로그인 안내를 띄우지 않는다 — 확정 전에 안내하면 로그인한 운영진이
+  // 하드 로드 직후 "로그인 후 이용할 수 있어요" 를 먼저 보게 된다.
+  if (authStatus === 'idle') {
+    return <TextLinesSkeleton lines={3} label="로그인 확인 중" />;
+  }
+
   if (authStatus !== 'authenticated') {
     // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
     const loginHref: `/${string}` =

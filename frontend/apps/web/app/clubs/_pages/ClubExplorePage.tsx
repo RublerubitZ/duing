@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
+import { ApiError } from '@duing/api';
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { ClubDayOfWeek } from '@duing/types';
@@ -163,12 +164,22 @@ export function ClubExplorePage() {
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
-    if (authStatus !== 'authenticated') {
-      const next = encodeURIComponent('/clubs');
-      router.push(toRoute(`/login?next=${next}`));
+    const loginPath = toRoute(`/login?next=${encodeURIComponent('/clubs')}`);
+    if (authStatus === 'unauthenticated') {
+      router.push(loginPath);
       return;
     }
-    favoriteToggle.mutate({ clubId, isFavorited: likedIds.has(clubId) });
+    // 세션 확인 중(idle)이면 미인증으로 단정하지 않고 요청한다 — 401 로 돌아왔을 때 로그인으로 보낸다.
+    favoriteToggle.mutate(
+      { clubId, isFavorited: likedIds.has(clubId) },
+      {
+        onError: (toggleError) => {
+          if (toggleError instanceof ApiError && toggleError.status === 401) {
+            router.push(loginPath);
+          }
+        },
+      },
+    );
   };
 
   /** 로그인 후 찜 필터가 켜진 채 돌아오도록 next 에 favorite=true 를 얹는다. */
@@ -178,7 +189,9 @@ export function ClubExplorePage() {
   }, [params]);
 
   const handleFavoriteFilterToggle = () => {
-    if (!params.favorite && authStatus !== 'authenticated') {
+    // 확인 중(idle)에는 로그인으로 보내지 않고 필터만 켠다 — 렌더 쪽이 이미 idle 을 스켈레톤으로
+    // 처리하므로, 확정된 뒤 목록(로그인)이나 로그인 안내(미인증)로 자연스럽게 이어진다.
+    if (!params.favorite && authStatus === 'unauthenticated') {
       router.push(favoriteLoginHref);
       return;
     }

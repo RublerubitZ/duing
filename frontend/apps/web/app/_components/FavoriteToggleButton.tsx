@@ -1,10 +1,12 @@
 'use client';
 
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { ApiError } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import posthog from 'posthog-js';
 
 type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
@@ -20,11 +22,14 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
   function handleClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    if (status !== 'authenticated') {
-      const next = encodeURIComponent(window.location.pathname);
-      router.push(`/login?next=${next}`);
+    const loginPath = toRoute(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+    if (status === 'unauthenticated') {
+      router.push(loginPath);
       return;
     }
+    // 세션 확인 중(idle)이면 미인증으로 단정하지 않고 그대로 요청한다 — 만료된 access 는 API
+    // 레이어가 갱신하고, 정말 미인증이면 401 로 돌아온다. 확인 전에 로그인으로 튕기면 로그인한
+    // 사용자가 하드 로드 직후 누른 찜이 매번 로그인 화면으로 이어진다.
     toggleMutation.mutate(
       { clubId, isFavorited },
       {
@@ -32,6 +37,10 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
           posthog.capture(isFavorited ? 'club_unfavorited' : 'club_favorited', { club_id: clubId });
         },
         onError: (error) => {
+          if (error instanceof ApiError && error.status === 401) {
+            router.push(loginPath);
+            return;
+          }
           console.error('찜 토글 실패:', error);
         },
       },

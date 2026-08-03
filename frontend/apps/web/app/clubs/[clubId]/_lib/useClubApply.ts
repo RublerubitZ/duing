@@ -35,15 +35,23 @@ export function useClubApply(recruitment: StudentRecruitmentProjection | undefin
       return;
     }
     const applyPath: `/${string}` = `/apply/${recruitment.id}`;
-    if (authStatus !== 'authenticated') {
-      router.push(toRoute(`/login?next=${encodeURIComponent(applyPath)}`));
+    const loginPath = toRoute(`/login?next=${encodeURIComponent(applyPath)}`);
+    if (authStatus === 'unauthenticated') {
+      router.push(loginPath);
       return;
     }
     try {
       // 지원서 작성 전에 제출과 동일한 정책으로 차단 사유를 미리 알려준다.
+      // 세션 확인 중(idle)이어도 미인증으로 단정하지 않고 그대로 물어본다 — 만료된 access 는
+      // API 레이어가 갱신해 주고, 정말 미인증이면 401 로 답이 온다. 확인 전에 로그인 화면으로
+      // 보내면 로그인한 사용자가 하드 로드 직후 지원을 시도할 때마다 튕긴다.
       await eligibilityCheck.mutateAsync(recruitment.id);
       router.push(toRoute(applyPath));
     } catch (checkError) {
+      if (checkError instanceof ApiError && checkError.status === 401) {
+        router.push(loginPath);
+        return;
+      }
       const message =
         checkError instanceof ApiError
           ? checkError.message
