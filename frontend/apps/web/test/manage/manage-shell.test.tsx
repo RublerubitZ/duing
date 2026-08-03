@@ -91,4 +91,16 @@ describe('ManageShell — 접기·푸터', () => {
     expect(logoutSpy).toHaveBeenCalledTimes(1);
     expect(replaceSpy).toHaveBeenCalledWith('/');
   });
+
+  // ManageGuard 자체 단위 테스트와 별개로, ManageShell 이 currentClubId 를 가드에 실제로 넘기는지
+  // 확인한다 — 이 배선이 빠지면 URL 의 clubId 만 바꿔 남의 콘솔이 열리는 회귀가 그대로 돌아온다.
+  it('운영 권한이 없는 clubId 로 들어오면 본문·사이드바 대신 403 안내만 렌더한다', () => {
+    render(<ManageShell currentClubId={25}>본문</ManageShell>);
+
+    expect(screen.queryByText('본문')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '대시보드' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '이 동아리의 운영 권한이 없습니다.' }),
+    ).toBeInTheDocument();
+  });
 });

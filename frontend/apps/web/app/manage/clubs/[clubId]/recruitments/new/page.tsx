@@ -31,9 +31,13 @@ export default function NewRecruitmentPage({
   // 추후 백엔드 Clone API 가 생기면 이 fetch 만 바꾸면 된다 — RecruitmentForm 은 cloneSeed(RecruitmentDetail)만 받는다.
   const cloneFromId = cloneFromParam !== undefined ? Number(cloneFromParam) : undefined;
   const isValidCloneFromId = cloneFromId !== undefined && !isNaN(cloneFromId);
-  const { data: cloneSource, isLoading: isCloneSourceLoading } = useRecruitmentDetailQuery(
+  const { data: cloneSourceCandidate, isLoading: isCloneSourceLoading } = useRecruitmentDetailQuery(
     isValidCloneFromId ? cloneFromId : undefined,
   );
+  // 모집 상세는 공개 API 라 ?cloneFrom= 에 남의 동아리 모집 id 를 넣어도 조회된다. 이 동아리 소속이
+  // 아니면 복제 씨앗으로 쓰지 않는다(복제 진입이 아닌 일반 신규 작성으로 떨어진다).
+  const cloneSource =
+    cloneSourceCandidate?.clubId === clubId ? cloneSourceCandidate : undefined;
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 

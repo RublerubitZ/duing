@@ -183,7 +183,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
   const currentClubName = managedClubs?.find((club) => club.clubId === currentClubId)?.clubName;
 
   return (
-    <ManageGuard managedClubs={managedClubs} isLoading={isLoading}>
+    <ManageGuard managedClubs={managedClubs} currentClubId={currentClubId} isLoading={isLoading}>
       <div className="duing flex min-h-dvh bg-cream">
         {/* 데스크탑 플로팅 카드 사이드바 (모바일은 드로어로 대체) */}
         <aside

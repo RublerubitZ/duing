@@ -1,5 +1,6 @@
 package com.duing.domain.notice;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.domain.club.entity.Club;
@@ -71,8 +72,8 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("OFFICERS_ALL 공지에 일반 STUDENT 가 직접 진입하면 403 을 받는다")
-    void studentForbiddenOnOfficersOnlyDetail() {
+    @DisplayName("OFFICERS_ALL 공지에 일반 STUDENT 가 직접 진입하면 미존재와 같은 404 를 받는다")
+    void studentGetsNotFoundOnOfficersOnlyDetail() {
         Long noticeId = seedOfficersAllNotice();
 
         RestAssured.given()
@@ -80,7 +81,45 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
             .when()
                 .get("/api/v1/notices/" + noticeId)
             .then()
-                .statusCode(HttpStatus.FORBIDDEN.value());
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("비공개 공지와 미존재 공지의 응답이 동일해 id 를 훑어 존재를 알아낼 수 없다")
+    void hiddenAndMissingNoticesAreIndistinguishable() {
+        Long hiddenNoticeId = seedOfficersAllNotice();
+
+        // 비로그인 — 공개 GET 이므로 열거 시도의 실제 공격 표면이다.
+        String hiddenBody = RestAssured.given()
+            .when()
+                .get("/api/v1/notices/" + hiddenNoticeId)
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value())
+                .extract().asString();
+
+        String missingBody = RestAssured.given()
+            .when()
+                .get("/api/v1/notices/" + (hiddenNoticeId + 9_999))
+            .then()
+                .statusCode(HttpStatus.NOT_FOUND.value())
+                .extract().asString();
+
+        // 상태코드뿐 아니라 본문(메시지)까지 같아야 오라클이 남지 않는다.
+        assertThat(hiddenBody).isEqualTo(missingBody);
+    }
+
+    @Test
+    @DisplayName("관리자는 비공개 공지 상세를 그대로 열람할 수 있다 — 404 통일이 관리자 열람을 막지 않는다")
+    void adminStillReadsHiddenNoticeDetail() {
+        Long noticeId = seedOfficersAllNotice();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .get("/api/v1/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.id", equalTo(noticeId.intValue()));
     }
 
     @Test
