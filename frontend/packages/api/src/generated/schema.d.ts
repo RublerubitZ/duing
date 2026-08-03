@@ -3163,7 +3163,7 @@ export interface paths {
         };
         /**
          * 내 동아리 멤버십 조회
-         * @description 본 사용자가 해당 동아리의 활성 멤버인지 판정하고, 역할·가입일·도메인별 권한 매트릭스를 반환한다.
+         * @description 본 사용자가 해당 동아리의 활성 멤버인지 판정하고, 역할·가입일·도메인별 권한 매트릭스를 반환한다. 멤버가 아닌 것은 거부가 아니라 조회 결과 없음이므로 200 + data:null 로 응답한다 (존재하지 않는 동아리도 동일 — 존재 은닉).
          */
         get: operations["getMyMembership"];
         put?: never;
@@ -4956,8 +4956,8 @@ export interface components {
             projects?: components["schemas"]["ClubProject"][];
             clearLogoImage?: boolean;
             clearCoverImage?: boolean;
-            feePairConsistent?: boolean;
             nameBlankSafe?: boolean;
+            feePairConsistent?: boolean;
         };
         UpdateClubStatusRequest: {
             /** @enum {string} */
@@ -12694,7 +12694,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description 멤버십. 멤버가 아니면 data 가 null */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12702,6 +12702,13 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseMyClubMembershipResponse"];
                 };
+            };
+            /** @description 동아리가 ACTIVE 가 아님 — 멤버 내부 영역 접근 차단(스펙 Part B). message 에 상태별 안내가 담기며 클라이언트가 그대로 노출한다 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
