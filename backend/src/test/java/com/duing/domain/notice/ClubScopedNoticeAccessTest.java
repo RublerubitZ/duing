@@ -93,12 +93,14 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("B동아리 회원이 A동아리 CLUB_SCOPED 공지 상세를 호출하면 403 을 반환한다")
+    // 공개 경로(GET /notices/{id})는 비로그인도 호출할 수 있어, 볼 수 없는 공지를 403 으로 답하면
+    // id 를 훑는 것만으로 비공개 공지의 존재가 드러난다. 미존재와 동일한 404 로 수렴시킨다.
+    @DisplayName("B동아리 회원이 A동아리 CLUB_SCOPED 공지 상세를 호출하면 미존재와 같은 404 를 반환한다")
     void crossClubBlocked() {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + clubBMemberToken)
                 .when().get("/api/v1/notices/" + noticeOfClubA)
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test
@@ -126,14 +128,14 @@ class ClubScopedNoticeAccessTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영 중단된 동아리의 내부 공지 상세는 공용 경로로도 조회할 수 없다")
-    void inactiveClubScopedNoticeDetailForbiddenViaPublicPath() {
+    @DisplayName("운영 중단된 동아리의 내부 공지 상세는 공용 경로로도 조회할 수 없다 (미존재와 같은 404)")
+    void inactiveClubScopedNoticeDetailHiddenViaPublicPath() {
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubAId);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + clubAMemberToken)
                 .when().get("/api/v1/notices/" + noticeOfClubA)
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     private void seedPublicNoticeAsAdmin(String title) {
