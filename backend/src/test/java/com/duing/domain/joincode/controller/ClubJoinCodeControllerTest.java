@@ -12,7 +12,6 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
-import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
@@ -104,8 +103,10 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
         String expiresAt = created.jsonPath().getString("data.expiresAt");
         assertThat(expiresAt).as("Event Time 은 오프셋 있는 절대시각(…Z) 으로 직렬화된다").endsWith("Z");
+        // 양방향 오차 단언 — 한쪽만 보면 타임존 regime 착오(seoul 을 system 으로 변환 시 −9h)가 통과한다.
         assertThat(Duration.between(beforeCreate.plus(Duration.ofDays(30)), Instant.parse(expiresAt)))
-                .as("만료는 생성 시점 + 30일").isLessThan(Duration.ofMinutes(5));
+                .as("만료는 생성 시점 + 30일 (KST 벽시계 → 절대시각 변환 정합)")
+                .isBetween(Duration.ofMinutes(-5), Duration.ofMinutes(5));
     }
 
     @Test
