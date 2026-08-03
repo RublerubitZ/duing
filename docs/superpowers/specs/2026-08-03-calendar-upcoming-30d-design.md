@@ -64,6 +64,21 @@ export function useCalendarMonthsQuery(
 export function useCalendarMonthQuery(yearMonth: string, options: CalendarMonthOptions): CalendarMonthResult;
 ```
 
+**반환 정책 — 병합된 평탄 배열을 돌려준다(월별 결과를 노출하지 않는다).**
+
+| 항목 | 정책 |
+| --- | --- |
+| `events` | 모든 달을 합친 **평탄한 `CalEvent[]`**. mapper 적용·다일 행사 fan-out 까지 끝난 상태 |
+| 중복 | 달 경계를 걸친 다일 행사는 두 달 응답에 모두 담기므로 **`id` 기준으로 접는다** |
+| 정렬 | 보장하지 않는다 — 정렬은 소비처(`buildUpcoming`)의 몫 |
+| `isLoading`/`isError` | 모든 월·도메인 쿼리의 **OR 집계** |
+| 월별 결과 | **노출하지 않는다** |
+
+경계를 이렇게 잡은 이유: 병합에 들어가는 것(mapper 적용, fan-out, 달 경계 중복)은 전부 **"월 단위로 쪼개
+조회했다"는 전송 사정**이지 도메인 규칙이 아니다. mapper 를 소유한 것도 훅이다. 반대로 창·필터·원본 단위
+접기·정렬·limit 은 도메인 규칙이라 `buildUpcoming` 이 갖는다. 기존 `CalendarMonthResult` 계약을 유지해
+그리드 호출처가 무수정으로 남는 이점도 있다.
+
 - 내부의 전역 행사·동아리 일정·모집 마감 조회를 모두 `useQueries` 로 옮겨 월 개수 가변을 허용한다.
 - 전역 행사·동아리 일정은 이미 `{ from, to }` 를 받으므로 **월 목록의 첫 날 ~ 마지막 날**을 한 번에 조회해도 되지만,
   **쿼리 키를 월 단위로 유지**해야 그리드와 캐시가 겹친다(아래 참조). 월별로 나눠 조회한다.
@@ -87,6 +102,16 @@ events(월 목록 병합)
 ```
 
 `addDaysIso` 는 `@duing/hooks` 에 이미 있다(UTC 자정 파싱이라 월·연 경계 안전).
+
+**로딩 중 빈 상태 금지.** 창이 1~3개 달에 걸치므로 늦게 도착하는 달이 있고, 그동안 목록이 잠깐 0건이 된다.
+빈 상태 문구는 **`isLoading === false` 일 때만** 노출한다. 로딩 중에는 문구 없이 자리를 비워 둔다
+(이 섹션은 페이지 하단이라 스켈레톤까지 둘 필요는 없다).
+
+**필터 인자는 `Set<EventKind>` 로 받는다(predicate 아님).** 호출부의 `activeKinds` 상태가 그 자체로
+`Set` 이라 변환이 없고, 토글할 때만 참조가 바뀌어 `useMemo` 의존성이 안정적이다. `(kind) => boolean`
+predicate 는 인라인 화살표가 매 렌더 새 참조라 메모이제이션을 조용히 깨뜨린다.
+확장이 필요해지는 조건(권한·숨김·즐겨찾기)은 kind 가 아니라 **이벤트 단위**라 어차피
+`(event: CalEvent) => boolean` 이어야 하며, 그때 인자를 하나 더 받는 3줄 변경으로 처리한다.
 
 ## 모듈 경계
 
@@ -143,6 +168,18 @@ export function toUpcomingView(event: CalEvent, todayIso: string): UpcomingView;
   (칩은 레일 도트 색이 대신하고, 시각은 상세 모달에서 확인 — 마감은 대부분 23:59 라 목록 정보량이 낮다)
 
 높이 추정: 6건 × 68px + 헤더 ≈ **450px** (현재 1,580px 대비 약 1/3.5).
+
+### 접근성
+
+- **행은 `<div role="button">` 이 아니라 네이티브 `<button type="button">`** 이다. Enter/Space 활성화,
+  포커스 순서, 스크린리더 역할이 전부 브라우저 기본 동작으로 따라온다 — 직접 키 핸들러를 달지 않는다.
+- **`aria-label` 로 읽기 순서를 정리한다.** 시각 배치(날짜·요일·제목·장소·D-Day)를 그대로 읽으면 파편적이라,
+  한 문장으로 합성한다: `8월 31일 월요일, FLYING 모집 마감, D-28`.
+  `aria-label` 은 내부 텍스트를 **대체**하므로 장소·기간까지 포함해 정보가 빠지지 않게 한다.
+- **`:focus-visible` 스타일 필수** — 현재 `:active` 배경만으로는 키보드 포커스가 보이지 않는다.
+  레포 관례(`focus-visible:ring-2 ring-ink`)에 맞춰 `outline: 2px solid var(--ink)` 로 준다.
+- 목록은 `<ul>/<li>` 로 감싸 "목록, 항목 6개" 가 읽히게 한다. 레일의 도트·연결선은 장식이므로 `aria-hidden`.
+- 데스크탑에서는 이 목록이 `display: none` 이라 접근성 트리에서도 빠진다(중복 낭독 없음).
 
 ## 반응형 렌더링 — 양쪽 렌더 + CSS 숨김
 
