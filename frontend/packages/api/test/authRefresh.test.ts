@@ -28,6 +28,10 @@ const memoryStorage: Storage = {
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
+  // 소비되지 않은 보류 통지가 다음 테스트의 등록 시점에 흘러들지 않도록 여기서 비운다
+  // (보류는 핸들러가 등록되는 순간 소비된다).
+  registerUnauthorizedHandler(() => {});
+  registerUnauthorizedHandler(null);
   unauthorizedHandler.mockClear();
 });
 afterAll(() => server.close());
@@ -67,15 +71,23 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(unauthorizedHandler).not.toHaveBeenCalled();
   });
 
-  it('refresh 가 401 이면 세션 종료를 알린다', async () => {
+  // 아래 두 테스트(진짜 만료 · 일시 장애)는 호출자가 받는 예외가 완전히 같다 —
+  // 백엔드가 인증 401 에 code 를 붙이지 않아 status·code·message 가 구분되지 않는다.
+  // 즉 "세션이 끝났는가" 의 유일한 판정 근거는 사이드 채널(unauthorizedHandler) 발화 여부다.
+  // 두 단언이 같은 모양인 것은 중복이 아니라 이 계약 자체다.
+  it('refresh 가 401 이면(진짜 만료) 사이드 채널로 세션 종료를 알린다 — 예외는 원 401 그대로', async () => {
     server.use(
       http.get(`${BASE_URL}/users/me`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 })),
       http.post(`${BASE_URL}/auth/web/refresh`, () =>
         HttpResponse.json({ ok: false, data: null, message: '만료', code: 'AUTH_SESSION_EXPIRED' }, { status: 401 })),
     );
 
-    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    await expect(cookieClient().users.me()).rejects.toMatchObject({
+      status: 401,
+      code: undefined,
+      message: '인증이 필요합니다.',
+    });
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
   });
 
@@ -91,11 +103,28 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
   });
 
-  it('refresh 가 5xx 면 세션을 끝내지 않고 원 401 을 그대로 표면화한다', async () => {
+  it('refresh 가 5xx 면(일시 장애) 사이드 채널이 침묵한다 — 예외는 만료와 똑같은 원 401', async () => {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 503 })),
+    );
+
+    // 위 401 테스트와 글자 그대로 같은 단언 — 반환 채널로는 두 경우를 가를 수 없다.
+    await expect(cookieClient().users.me()).rejects.toMatchObject({
+      status: 401,
+      code: undefined,
+      message: '인증이 필요합니다.',
+    });
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('refresh 가 403 이면 세션을 끝내지 않는다', async () => {
     server.use(
       http.get(`${BASE_URL}/users/me`, () =>
         HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
-      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 503 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '권한 없음' }, { status: 403 })),
     );
 
     await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
@@ -265,5 +294,59 @@ describe('쿠키 모드 401 자동 갱신', () => {
 
     expect(results.every((result) => result.status === 'rejected')).toBe(true);
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1); // notify 는 single-flight 실행기에서 1회
+  });
+});
+
+describe('세션 종료 사이드 채널', () => {
+  function givenExpiredSession() {
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+    );
+  }
+
+  // 콜드 부팅에서는 첫 요청이 핸들러 등록보다 먼저 끝날 수 있다. 그때 통지를 버리면
+  // 확정된 만료가 어디에도 남지 않아, 이후 화면이 만료를 모른 채 동작한다.
+  it('핸들러 등록 전에 확정된 종료도 등록 시점에 1회 전달된다', async () => {
+    registerUnauthorizedHandler(null);
+    givenExpiredSession();
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+
+    const lateHandler = vi.fn();
+    registerUnauthorizedHandler(lateHandler);
+    expect(lateHandler).toHaveBeenCalledTimes(1);
+
+    // 보류는 전달과 함께 소비된다 — 다음 등록에 같은 통지가 되풀이되지 않는다.
+    const laterHandler = vi.fn();
+    registerUnauthorizedHandler(laterHandler);
+    expect(laterHandler).not.toHaveBeenCalled();
+  });
+
+  it('등록된 핸들러가 있으면 즉시 전달하고 보류를 남기지 않는다', async () => {
+    givenExpiredSession();
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
+
+    const nextHandler = vi.fn();
+    registerUnauthorizedHandler(nextHandler);
+    expect(nextHandler).not.toHaveBeenCalled();
+  });
+
+  // 호출자(부트스트랩)는 catch 시점의 스토어 상태로 종료 여부를 읽는다. 통지가 예외보다
+  // 늦게 도착하면 확정된 만료가 일시 장애로 오판된다 — 순서가 계약이다.
+  it('세션 종료 통지는 예외 표면화보다 먼저 도착한다', async () => {
+    const events: string[] = [];
+    registerUnauthorizedHandler(() => events.push('notify'));
+    givenExpiredSession();
+
+    await cookieClient()
+      .users.me()
+      .catch(() => events.push('reject'));
+
+    expect(events).toEqual(['notify', 'reject']);
   });
 });

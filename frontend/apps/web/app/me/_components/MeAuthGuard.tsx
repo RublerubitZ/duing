@@ -4,16 +4,17 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { useAuthStore } from '@duing/stores';
-
 import { toRoute } from '@/app/_lib/route';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 
 // 미들웨어는 auth_hint(라우팅 힌트)만 보고 /me 를 통과시키므로, 힌트가 실제 세션보다
 // 오래 살아남으면 미인증 상태로도 여기까지 도달한다. 만료가 확정된(unauthenticated)
 // 경우에만 로그인 유도를 렌더한다 — idle(부트스트랩 진행 중)까지 가리면 매 하드 로드마다
 // 로그인 화면이 플래시되므로 idle 은 기존 흐름 그대로 children 을 렌더한다.
+// 상한을 둔 status 를 쓴다 — 갱신이 만료 외의 사유로 실패하면 확인이 끝나지 않아 idle 이
+// 영구히 남는데, 그때 이 가드가 보호 화면을 계속 렌더하면 모든 요청이 401 인 껍데기에 갇힌다.
 export function MeAuthGuard({ children }: { children: ReactNode }) {
-  const status = useAuthStore((state) => state.status);
+  const status = useBoundedAuthStatus();
   const pathname = usePathname();
 
   if (status !== 'unauthenticated') return <>{children}</>;
