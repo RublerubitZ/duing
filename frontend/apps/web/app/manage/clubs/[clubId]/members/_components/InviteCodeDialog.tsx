@@ -122,7 +122,9 @@ function CreateCodeForm({ clubId, useGeneration }: { clubId: number; useGenerati
           disabled={createJoinCode.isPending}
           className={fieldCls}
         />
-        <p className="mt-1 text-xs text-charcoal-3">이 인원만큼 승인되면 코드는 더 이상 쓸 수 없습니다.</p>
+        <p className="mt-1 text-xs text-charcoal-3">
+          이 인원만큼 신청이 들어오면 코드는 더 이상 쓸 수 없어요. 거절하면 자리가 다시 열려요.
+        </p>
       </div>
 
       <div>

@@ -101,6 +101,8 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
 
     expect(await screen.findByText('가입 요청 대기 중')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '가입 요청' })).not.toBeInTheDocument();
+    // 대기 화면에서 할 수 있는 일이 없으므로 나갈 길을 반드시 준다.
+    expect(screen.getByRole('link', { name: '홈으로 돌아가기' })).toHaveAttribute('href', '/');
   });
 
   it('거절 이력이 있어도 다시 가입 요청할 수 있다', async () => {

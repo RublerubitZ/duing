@@ -115,6 +115,10 @@ export function JoinCodeLanding({ code }: { code: string }) {
         <p className="mt-2 text-sm text-charcoal-2">
           동아리 운영진이 확인하면 회원으로 등록돼요.
         </p>
+        {/* 대기 화면은 더 할 일이 없는 종결 화면이라 링크가 없으면 학생이 여기서 갇힌다. */}
+        <Link href={toRoute('/')} className="btn btn-secondary mt-5 w-full">
+          홈으로 돌아가기
+        </Link>
       </LandingShell>
     );
   }
