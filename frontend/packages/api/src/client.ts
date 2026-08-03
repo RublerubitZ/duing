@@ -56,6 +56,7 @@ import type {
   ClubMemberExportRow,
   ClubMemberPhone,
   JoinCodeSummary,
+  JoinCodeCheck,
   CreateJoinCodePayload,
   JoinRequestStatus,
   JoinRequestSummary,
@@ -431,6 +432,11 @@ export type DuingApiClient = {
       clubId: number,
       payload: BulkApproveJoinRequestsPayload,
     ): Promise<BulkApproveResult>;
+    // 학생용 코드 확인 — 비로그인도 호출할 수 있는 공개 조회다. 없는 코드는 404 로 떨어진다.
+    check(code: string): Promise<JoinCodeCheck>;
+    // 학생용 가입 요청 — 인증 필수(401). 사용 불가·이미 가입·대기 중은 모두 409 이고
+    // 사유는 서버 message 로만 구분되므로 호출부가 그 문구를 그대로 보여준다.
+    createRequest(code: string): Promise<void>;
   };
   files: {
     upload(file: File, purpose: FilePurpose): Promise<FileUploadResult>;
@@ -1212,6 +1218,9 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<BulkApproveResult>(
           http.patch(`clubs/${clubId}/join-requests/bulk-approve`, { json: payload }),
         ),
+      check: (code) => jsonOk<JoinCodeCheck>(http.get(`join-codes/${encodeURIComponent(code)}`)),
+      createRequest: (code) =>
+        jsonVoid(http.post(`join-codes/${encodeURIComponent(code)}/requests`)),
     },
     files: {
       upload: (file, purpose) => {

@@ -231,6 +231,32 @@ describe('LoginFormPanel', () => {
 
   // 검증 오류(400)는 필드명이 섞인 서버 문구라 그대로 노출하면 안 된다. 프론트 zod 가 먼저 막으므로
   // 여기까지 오는 것은 입력 형식 문제이고, 사용자에게는 입력을 다시 보라는 안내가 맞다.
+  // 초대 링크(/join/{code})로 들어온 신입생은 계정이 없어 회원가입으로 빠진다 — 그 링크가 복귀 경로를
+  // 떨어뜨리면 가입을 마쳐도 원래 목적지로 돌아올 방법이 없다.
+  it('next 가 있으면 회원가입 링크에도 같은 복귀 경로를 이어 넘긴다', () => {
+    mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234' });
+    renderLoginForm();
+
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute(
+      'href',
+      `/signup?next=${encodeURIComponent('/join/ABCD1234')}`,
+    );
+  });
+
+  it('next 가 없으면 회원가입 링크는 그대로 둔다', () => {
+    renderLoginForm();
+
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup');
+  });
+
+  // next 는 조작 가능한 값이라 로그인 복귀와 같은 검증을 회원가입 링크에도 태워야 한다.
+  it('오프-오리진으로 해석되는 next 는 회원가입 링크로도 전파하지 않는다', () => {
+    mockSearchParams = new URLSearchParams({ next: '//evil.example.com' });
+    renderLoginForm();
+
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup');
+  });
+
   it('서버 검증 오류는 필드명이 섞인 원문 대신 입력 확인 문구로 대체한다', async () => {
     server.use(
       http.post(`${BASE}/auth/web/login`, () =>

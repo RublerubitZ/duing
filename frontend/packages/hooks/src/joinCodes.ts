@@ -115,6 +115,32 @@ export function useDecideJoinRequestMutation(clubId: number) {
   });
 }
 
+/**
+ * 학생용 코드 확인(`/join/{code}`). 비로그인도 호출하는 공개 조회다.
+ * 없는 코드의 404 는 화면이 "유효하지 않은 코드"로 읽는 정상 결과라 에러 상태로 그대로 노출한다.
+ */
+export function useJoinCodeCheckQuery(code: string) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: clubQueryKeys.joinCodeCheck(code),
+    queryFn: () => client.joinCodes.check(code),
+    // 404 는 재시도해도 결과가 같다 — 전역 정책(1회 재시도)을 여기서만 끈다.
+    retry: false,
+  });
+}
+
+/** 학생용 가입 요청 생성. 성공하면 확인 결과가 PENDING 으로 바뀌므로 같은 코드의 확인을 무효화한다. */
+export function useCreateJoinRequestMutation(code: string) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.joinCodes.createRequest(code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCodeCheck(code) });
+    },
+  });
+}
+
 /** 일괄 승인. 건별 트랜잭션이라 일부 실패가 정상 결과이며 실패 사유는 응답으로만 알 수 있다. */
 export function useBulkApproveJoinRequestsMutation(clubId: number) {
   const client = useApiClient();

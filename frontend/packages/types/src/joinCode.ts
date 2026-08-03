@@ -27,6 +27,22 @@ export type CreateJoinCodePayload = {
 
 export type JoinRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+/**
+ * 학생의 코드 확인 화면(`/join/{code}`) 응답.
+ *
+ * ⚠️ `alreadyMember`·`myRequestStatus` 는 비로그인이면 둘 다 null 이다 — "이력 없음"이 아니라
+ * "판정 불가(로그인 유도)"라는 뜻이다. `usable` 이 false 인 사유(만료·폐기·소진·모집 마감·비 ACTIVE
+ * 동아리)는 구분해 내려오지 않으므로 화면도 단일 문구로만 안내한다.
+ */
+export type JoinCodeCheck = {
+  clubId: number;
+  clubName: string;
+  generation: number | null;
+  usable: boolean;
+  alreadyMember: boolean | null;
+  myRequestStatus: JoinRequestStatus | null;
+};
+
 // 목록에는 전화번호가 없다 — 개인정보는 상세 조회에서만 내려온다(BE 계약).
 export type JoinRequestSummary = {
   joinRequestId: number;
