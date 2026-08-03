@@ -371,17 +371,23 @@ function ManagementSection({
 
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  // 역할 변경 확인 대상. 네이티브 confirm 은 임베디드 브라우저에서 막히거나 throw 해
+  // 확인 없이 통과하거나 뒤 코드가 죽는다 — 파일의 다른 확인 흐름과 같은 모달로 통일한다.
+  const [pendingRole, setPendingRole] = useState<'OFFICER' | 'MEMBER' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function changeRole(nextRole: 'OFFICER' | 'MEMBER') {
-    const verb =
-      nextRole === 'OFFICER'
-        ? `${clubMemberRoleLabel('OFFICER')}으로 승급`
-        : `${clubMemberRoleLabel('MEMBER')}으로 강등`;
-    if (!window.confirm(`${member.name} 님을 ${verb}할까요?`)) return;
+  function roleChangeVerb(nextRole: 'OFFICER' | 'MEMBER') {
+    return nextRole === 'OFFICER'
+      ? `${clubMemberRoleLabel('OFFICER')}으로 승급`
+      : `${clubMemberRoleLabel('MEMBER')}으로 강등`;
+  }
+
+  async function confirmRoleChange() {
+    if (pendingRole === null) return;
     setError(null);
     try {
-      await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: nextRole } });
+      await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: pendingRole } });
+      setPendingRole(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '역할 변경 실패');
     }
@@ -462,7 +468,7 @@ function ManagementSection({
         {!isSelf && member.role === 'OFFICER' && (
           <button
             type="button"
-            onClick={() => changeRole('MEMBER')}
+            onClick={() => setPendingRole('MEMBER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
             {clubMemberRoleLabel('MEMBER')}으로 강등
@@ -471,11 +477,21 @@ function ManagementSection({
         {!isSelf && member.role === 'MEMBER' && (
           <button
             type="button"
-            onClick={() => changeRole('OFFICER')}
+            onClick={() => setPendingRole('OFFICER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
             {clubMemberRoleLabel('OFFICER')}으로 승급
           </button>
+        )}
+        {pendingRole !== null && (
+          <ConfirmDialog
+            open
+            title={`${member.name} 님을 ${roleChangeVerb(pendingRole)}할까요?`}
+            confirmLabel={pendingRole === 'OFFICER' ? '승급' : '강등'}
+            isPending={updateRole.isPending}
+            onConfirm={confirmRoleChange}
+            onCancel={() => setPendingRole(null)}
+          />
         )}
 
         {!isSelf && !isLeaderRow && (

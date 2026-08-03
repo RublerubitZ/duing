@@ -250,13 +250,13 @@ describe('ClubMembersPage — 상세 패널 최신화', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPage();
 
     // 상세 버튼은 데스크탑 표·모바일 카드에 하나씩(뷰포트별로 하나만 보인다) — 표 쪽을 누른다.
     await userEvent.click((await screen.findAllByRole('button', { name: '이영희 상세' }))[0]!);
     // MEMBER 이영희 → 승급 버튼 노출
     await userEvent.click(await screen.findByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
 
     // refetch 후 패널이 OFFICER 로 파생 → 강등 버튼으로 바뀌고 승급 버튼은 사라진다(스테일 스냅샷 아님).
     expect(await screen.findByRole('button', { name: '부원으로 강등' })).toBeInTheDocument();

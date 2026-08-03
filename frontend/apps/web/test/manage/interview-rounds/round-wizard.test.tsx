@@ -8,6 +8,7 @@ import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { RoundWizard } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/rounds/new/_components/RoundWizard';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 // MSW 기반 통합 테스트 — wizard 4단계 흐름 + DRAFT 이어하기/폐기.
 // TanStack Query 자체를 mock 하지 않고 네트워크 레벨에서 mocking 한다.
@@ -137,7 +138,9 @@ function renderWizard() {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>{children}</ToastProvider>
+        </QueryClientProvider>
       </ApiClientProvider>
     );
   }

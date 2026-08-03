@@ -1,6 +1,21 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "alert",
+        "message": "임베디드 브라우저에서 억제되거나 throw 됩니다. ToastProvider 의 useToast 를 사용하세요."
+      },
+      {
+        "name": "confirm",
+        "message": "임베디드 브라우저에서 억제되거나 throw 됩니다. @/app/_components/ConfirmDialog 를 사용하세요."
+      },
+      {
+        "name": "prompt",
+        "message": "임베디드 브라우저에서 throw 됩니다. 인라인 입력 UI 로 대체하세요."
+      }
+    ],
     "no-restricted-imports": [
       "error",
       {

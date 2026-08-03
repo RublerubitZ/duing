@@ -38,6 +38,7 @@ vi.mock('@duing/hooks', () => ({
 }));
 
 import { PromotionRequestModal } from '../../app/manage/clubs/[clubId]/_components/PromotionRequestModal';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 describe('PromotionRequestModal 의 배너 이미지 입력', () => {
   beforeEach(() => {
@@ -46,7 +47,11 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
   });
 
   it('배너 이미지 영역에 ImageUploader 가 purpose=PROMOTION_REQUEST_BANNER + aspectRatio=16/9 로 렌더된다', () => {
-    render(<PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />);
+    render(
+      <ToastProvider>
+        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+      </ToastProvider>,
+    );
     expect(screen.getByTestId('banner-uploader')).toBeInTheDocument();
     const lastCall = mockImageUploaderCalls.at(-1);
     expect(lastCall?.purpose).toBe('PROMOTION_REQUEST_BANNER');
@@ -56,7 +61,9 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
 
   it('promo-banner-url id 의 URL input 이 더 이상 존재하지 않는다', () => {
     const { container } = render(
-      <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />,
+      <ToastProvider>
+        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+      </ToastProvider>,
     );
     expect(container.querySelector('#promo-banner-url')).toBeNull();
   });

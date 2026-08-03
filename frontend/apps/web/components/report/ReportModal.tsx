@@ -9,6 +9,7 @@ import type { ReportTargetType } from '@duing/types';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 type Props = {
   targetType: ReportTargetType;
@@ -38,6 +39,7 @@ const REASON_OPTIONS: { value: ReasonCode; label: string }[] = [
 ];
 
 export function ReportModal({ targetType, targetId, targetLabel, onClose }: Props) {
+  const { addToast } = useToast();
   useBackDismiss(true, onClose);
   const overlayRef = useRef<HTMLDivElement>(null);
   const submitReport = useSubmitReportMutation();
@@ -72,7 +74,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
       {
         onSuccess: () => {
           onClose();
-          alert('신고가 접수되었습니다. 검토 후 처리해 드리겠습니다.');
+          addToast('신고가 접수되었습니다. 검토 후 처리해 드리겠습니다.');
         },
       },
     );
