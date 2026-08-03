@@ -6,29 +6,29 @@ import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import posthog from 'posthog-js';
 
 type Props = { clubId: number; size?: 'sm' | 'md'; className?: string };
 
 export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) {
   const router = useGuardedRouter();
-  const status = useBoundedAuthStatus();
+  const status = useSeededAuthStatus();
   const favoriteIdsQuery = useFavoriteIdsQuery();
   const toggleMutation = useFavoriteToggleMutation();
 
   const isFavorited = favoriteIdsQuery.data?.includes(clubId) ?? false;
-  // 찜 목록은 인증 확정 후에만 조회되므로 확인 중에는 "찜 안 함" 으로 보인다. 그 상태로 누르면
-  // 해제 대신 추가가 나가 이미 찜한 동아리는 409 로 조용히 실패한다 — 방향을 모르는 동안에는
-  // 아예 못 누르게 막는다. 클릭 자체를 여는 지원하기와 달리, 찜은 동작 방향이 로드된 상태에
-  // 달려 있어 "일단 요청" 이 정답이 되지 못한다.
-  const isAuthPending = status === 'idle';
+  // 찜 방향은 로드된 목록에 달려 있다 — 시드로 화면은 열되, ids 가 오기 전에는 찜한 동아리도
+  // "찜 안 함" 으로 보여 누르면 해제 대신 추가가 나가고 409 로 조용히 실패한다. 방향을 모르는
+  // 동안은 누르지 못하게 막는다(§8.1 되돌릴 수 없는 동작). 미인증이면 클릭이 로그인 이동이라
+  // 방향과 무관하다 — 클릭 자체를 여는 지원하기와 달리 찜만 이 제약을 받는다.
+  const isDirectionUnknown = status === 'authenticated' && favoriteIdsQuery.data === undefined;
 
   function handleClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
+    if (isDirectionUnknown) return;
     // 쿼리스트링까지 담아야 필터·페이지가 걸린 목록에서 눌러도 그 자리로 돌아온다.
-    if (isAuthPending) return;
     const currentUrl = window.location.pathname + window.location.search;
     const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
     if (status === 'unauthenticated') {
@@ -67,7 +67,7 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
         dimensionClass,
         className,
       )}
-      disabled={toggleMutation.isPending || isAuthPending}
+      disabled={toggleMutation.isPending || isDirectionUnknown}
     >
       <HeartIcon filled={isFavorited} />
     </button>

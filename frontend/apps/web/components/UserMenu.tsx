@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
-import { useAuthStore } from '@duing/stores';
 import { useLogout, useMeQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   DropdownMenu,
@@ -20,8 +20,12 @@ const MENU_ITEMS = [
   { label: '설정', href: '/me/settings' },
 ] as const;
 
-export function UserMenu() {
-  const status = useAuthStore((state) => state.status);
+export function UserMenu({
+  initialAuthenticated = null,
+}: {
+  initialAuthenticated?: boolean | null;
+} = {}) {
+  const status = useSeededAuthStatus(initialAuthenticated);
   const meQuery = useMeQuery();
   const logout = useLogout();
   const router = useGuardedRouter();
@@ -29,6 +33,7 @@ export function UserMenu() {
 
   if (status !== 'authenticated') return null;
 
+  // 시드 직후에는 프로필이 아직 없다 — '회원' 폴백이 SSR·시드 구간을 그대로 받는다(기존 폴백 재사용).
   const userName = meQuery.data?.name ?? '회원';
   const initial = userName.slice(-2).charAt(0);
   const isAdmin = meQuery.data?.role === 'ADMIN';

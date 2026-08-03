@@ -59,14 +59,15 @@ function trackFavoritesRequests() {
 
 describe('favorites 쿼리 인증 가드', () => {
   beforeEach(() => {
-    useAuthStore.setState({ status: 'idle', user: null });
+    useAuthStore.setState(useAuthStore.getInitialState(), true);
   });
 
-  it.each(['unauthenticated', 'idle'] as const)(
-    '비로그인(%s)이면 favorites API를 호출하지 않는다',
-    async (status) => {
+  // 게이트는 status 하나로만 갈린다 — 시드(isVerified:false)든 서버 확정(true)이든 동일하게 판정한다.
+  it.each([false, true])(
+    '미인증(isVerified=%s)이면 favorites API를 호출하지 않는다',
+    async (isVerified) => {
       const calls = trackFavoritesRequests();
-      useAuthStore.setState({ status, user: null });
+      useAuthStore.setState({ status: 'unauthenticated', isVerified, user: null });
 
       const queryClient = newQueryClient();
       const { result } = renderHook(
@@ -85,9 +86,28 @@ describe('favorites 쿼리 인증 가드', () => {
     },
   );
 
+  it('시드된 authenticated(미검증)이면 확인을 기다리지 않고 favorites API를 호출한다', async () => {
+    const calls = trackFavoritesRequests();
+    useAuthStore.setState({ status: 'authenticated', isVerified: false, user: null });
+
+    const queryClient = newQueryClient();
+    const { result } = renderHook(
+      () => ({ ids: useFavoriteIdsQuery(), list: useFavoriteListQuery() }),
+      { wrapper: makeWrapper(queryClient) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.ids.isSuccess).toBe(true);
+      expect(result.current.list.isSuccess).toBe(true);
+    });
+
+    expect(calls.ids).toBe(true);
+    expect(calls.list).toBe(true);
+  });
+
   it('로그인(authenticated)이면 favorites API를 호출한다', async () => {
     const calls = trackFavoritesRequests();
-    useAuthStore.setState({ status: 'authenticated', user: null });
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
 
     const queryClient = newQueryClient();
     const { result } = renderHook(

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@duing/stores';
+import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import type {
   ChangePasswordPayload,
   ChangePhonePayload,
@@ -51,21 +51,21 @@ export function useLogout() {
 
 export function useMeQuery() {
   const client = useApiClient();
-  const status = useAuthStore((s) => s.status);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   return useQuery<User>({
     queryKey: userQueryKeys.me(),
     queryFn: () => client.users.me(),
-    enabled: status === 'authenticated',
+    enabled: isAuthenticated,
   });
 }
 
 export function useMySessionsQuery() {
   const client = useApiClient();
-  const status = useAuthStore((s) => s.status);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   return useQuery<MySession[]>({
     queryKey: userQueryKeys.sessions(),
     queryFn: () => client.users.sessions(),
-    enabled: status === 'authenticated',
+    enabled: isAuthenticated,
   });
 }
 

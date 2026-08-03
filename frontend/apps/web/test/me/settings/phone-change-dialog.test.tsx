@@ -59,7 +59,7 @@ afterEach(() => {
   server.resetHandlers();
   memoryStore.clear();
   mockRouterReplace.mockReset();
-  useAuthStore.setState({ status: 'idle', user: null });
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
   vi.useRealTimers();
 });
 afterAll(() => server.close());

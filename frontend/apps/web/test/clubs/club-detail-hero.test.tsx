@@ -4,10 +4,18 @@ import type { ClubDetail } from '@duing/types';
 import { ClubDetailHero } from '../../app/clubs/[clubId]/_components/ClubDetailHero';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }));
-vi.mock('@duing/stores', () => ({
-  useAuthStore: (selector: (state: { status: string }) => unknown) =>
-    selector({ status: 'unauthenticated' }),
-}));
+// 찜 버튼은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
+// 흉내 내면 subscribe/getState 가 없어 렌더가 터진다.
+vi.mock('@duing/stores', () => {
+  const state = { status: 'unauthenticated' };
+  return {
+    useAuthStore: Object.assign((selector: (s: typeof state) => unknown) => selector(state), {
+      subscribe: () => () => {},
+      getState: () => state,
+      getInitialState: () => state,
+    }),
+  };
+});
 vi.mock('@duing/hooks', () => ({
   useFavoriteIdsQuery: () => ({ data: [] }),
   useFavoriteToggleMutation: () => ({ mutate: vi.fn(), isPending: false }),

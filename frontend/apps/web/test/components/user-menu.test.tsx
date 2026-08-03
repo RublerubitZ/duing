@@ -1,14 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+import { useAuthStore, type AuthStatus } from '@duing/stores';
 import type { UserRole } from '@duing/types';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
-const mockUseAuthStore = vi.fn();
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 const mockRefresh = vi.fn();
-const mockMeData = vi.fn<() => { name: string; role?: UserRole }>(() => ({ name: '홍길동' }));
+const mockMeData = vi.fn<() => { name: string; role?: UserRole } | undefined>(() => ({
+  name: '홍길동',
+}));
 
 vi.mock('next/link', () => ({
   default: ({
@@ -25,9 +27,8 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('@duing/stores', () => ({
-  useAuthStore: (selector: (state: { status: string }) => unknown) => mockUseAuthStore(selector),
-}));
+// 스토어는 모킹하지 않는다 — 메뉴는 useSeededAuthStatus(useSyncExternalStore)로 상태를 읽으므로
+// 셀렉터 한 번 호출로 대체되는 가짜 스토어로는 구독 계약이 재현되지 않는다.
 vi.mock('@duing/hooks', () => ({
   useMeQuery: () => ({ data: mockMeData() }),
   useLogout: () => mockLogout,
@@ -38,14 +39,13 @@ vi.mock('next/navigation', () => ({
 
 import { UserMenu } from '../../components/UserMenu';
 
-function setStatus(status: string) {
-  mockUseAuthStore.mockImplementation((selector: (state: { status: string }) => unknown) =>
-    selector({ status }),
-  );
+function setStatus(status: AuthStatus) {
+  act(() => useAuthStore.setState({ status }));
 }
 
 describe('UserMenu', () => {
   beforeEach(() => {
+    useAuthStore.setState(useAuthStore.getInitialState(), true);
     mockLogout.mockReset().mockResolvedValue(undefined);
     mockRefresh.mockClear();
     mockMeData.mockReturnValue({ name: '홍길동' });
@@ -69,6 +69,15 @@ describe('UserMenu', () => {
     setStatus('authenticated');
     renderMenu();
     expect(screen.getByRole('button', { name: /홍길동님/ })).toBeInTheDocument();
+  });
+
+  // 시드 구간의 계약 — 서버 힌트·로컬 이력으로 authenticated 를 세운 직후에는 프로필이 아직 없다.
+  // 그때 메뉴를 감추면 로그인한 사용자가 첫 화면에서 자기 진입점을 잃는다.
+  it('인증 상태에서 프로필이 아직 안 왔으면 회원 폴백으로 트리거를 렌더한다', () => {
+    setStatus('authenticated');
+    mockMeData.mockReturnValue(undefined);
+    renderMenu();
+    expect(screen.getByRole('button', { name: /회원님/ })).toBeInTheDocument();
   });
 
   it('메뉴를 열면 항목이 menuitem 으로 노출되고 로그아웃 시 logout + router.refresh 가 호출된다', async () => {

@@ -9,6 +9,7 @@ import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
+import { seedAuthFromLocalHistory, startBootSessionRestore } from './_lib/authBoot';
 import { installBackDismiss } from './_lib/backDismiss';
 import { installBackNavigationViewTransitionGuard } from './_lib/backNavigationViewTransition';
 import { clearLegacyWebAuthArtifacts } from './_lib/legacy-auth-cleanup';
@@ -39,6 +40,11 @@ const apiClient = createApiClient({
   baseUrl: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV),
   authTransport: 'cookie',
 });
+
+// 부팅 시드(§9.2)를 먼저 세우고 복원 요청(§4 레버 1)을 하이드레이션 전에 출발시킨다.
+// 시드가 먼저여야 게이트 달린 쿼리들이 첫 마운트부터 열린다.
+seedAuthFromLocalHistory();
+startBootSessionRestore(apiClient);
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
