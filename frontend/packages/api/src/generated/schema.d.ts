@@ -125,6 +125,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clubs/{clubId}/hero-activities/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 대표 활동 일괄 정렬 (LEADER/OFFICER)
+         * @description 전체 대표 활동의 새 슬롯을 한번에 보낸다. 페이로드 집합이 현재 대표 활동 집합과 일치해야 한다.
+         */
+        put: operations["reorderHeroActivities"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications/{applicationId}/interview-availability": {
         parameters: {
             query?: never;
@@ -138,6 +158,26 @@ export interface paths {
          * @description 슬롯 선택(slotIds) 또는 '가능한 시간 없음'(noAvailableSlot + alternativeText) 중 하나로 응답한다 — 둘은 동시에 보낼 수 없다. 전체 교체 방식이라 재응답하면 이전 선택이 사라지며, 응답 수집 중(마감 전) 라운드에서만 가능하다. 마감 후·배정 단계 진입 후에는 409, 응답할 라운드가 없으면 404.
          */
         put: operations["respondAvailability"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/admin-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 관리자 메모 저장 (ADMIN)
+         * @description 회원별 내부 메모를 저장한다. 사용자에게는 절대 노출되지 않는다. 빈 문자열을 보내면 메모가 비워지며, 그 사실도 감사 로그에 기록된다. 감사 로그에는 메모 본문을 저장하지 않는다. 현재 메모와 내용이 같으면 아무 동작도 하지 않고 204 를 반환한다(감사 로그도, 최종 수정 시각 갱신도 없다). 메모가 없던 회원에게 빈 문자열을 보내는 것도 내용이 같은 요청으로 본다. null 은 허용하지 않는다 — 비우려면 빈 문자열을 보낸다.
+         */
+        put: operations["updateAdminNote"];
         post?: never;
         delete?: never;
         options?: never;
@@ -175,7 +215,7 @@ export interface paths {
         get?: never;
         /**
          * 동아리 BANK 자동매칭 허용/해제
-         * @description 외부 BANK API 등록/해제를 먼저 수행하고 성공 시에만 설정을 반영한다(원자성).
+         * @description 자동매칭을 사용할 동아리를 정하는 설정 변경이다. 제공사에 계좌 등록 절차가 없어 외부 부수효과는 없다.
          */
         put: operations["updateBankMatching"];
         post?: never;
@@ -713,26 +753,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/clubs/{clubId}/recertification-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 재인증 제출 (LEADER)
-         * @description 본인이 LEADER 인 중앙동아리에 한해 OPEN 라운드에 재인증 의사를 제출한다.
-         */
-        post: operations["createRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/clubs/{clubId}/promotion-requests": {
         parameters: {
             query?: never;
@@ -746,7 +766,7 @@ export interface paths {
          * 홍보 요청 제출 (LEADER/OFFICER)
          * @description 본인이 운영진(LEADER/OFFICER)인 동아리에 한해 ADMIN 에게 홍보 요청을 제출한다.
          */
-        post: operations["createRequest_1"];
+        post: operations["createRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -828,7 +848,31 @@ export interface paths {
          * 승계 요청 제출 (OFFICER)
          * @description 본인이 OFFICER 인 동아리의 LEADER 가 잠수 상태일 때 승계 의사를 제출한다.
          */
-        post: operations["createRequest_2"];
+        post: operations["createRequest_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/hero-activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 대표 활동 목록 (공개)
+         * @description displayOrder 오름차순. 운영 중(ACTIVE) 동아리만 조회할 수 있으며, 그 외 상태는 404 를 반환한다.
+         */
+        get: operations["listHeroActivities"];
+        put?: never;
+        /**
+         * 대표 활동 등록 (LEADER/OFFICER)
+         * @description 운영진이 활동사진을 지정해 제목·설명·슬롯(1~6)과 함께 대표 활동을 등록한다.
+         */
+        post: operations["createHeroActivity"];
         delete?: never;
         options?: never;
         head?: never;
@@ -850,7 +894,7 @@ export interface paths {
         put?: never;
         /**
          * 대관 신청 생성
-         * @description 운영진 전용. PENDING 겹침은 허용되며 overlappingPendingCount 로 경고 표시용 개수를 내린다.
+         * @description 운영진 전용. PENDING 겹침은 허용되며 overlappingPendingCount 로 경고 표시용 개수를 내린다. 중앙동아리의 회장/운영진만 신청 가능. 신청 마감은 사용일 전날 12:00(KST) — 마감 후 400(FACILITY_BOOKING_DEADLINE_PASSED), 일반동아리 403(FACILITY_BOOKING_CENTRAL_CLUB_ONLY), 일반회원 403(FACILITY_BOOKING_PERMISSION_DENIED).
          */
         post: operations["create_3"];
         delete?: never;
@@ -897,6 +941,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/web/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 토큰 갱신(웹)
+         * @description refresh Cookie 를 회전시켜 인증 Cookie 3종을 재발급한다. rememberMe 지속성 모드를 유지한다.
+         */
+        post: operations["webRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/web/logout": {
         parameters: {
             query?: never;
@@ -908,7 +972,7 @@ export interface paths {
         put?: never;
         /**
          * 웹 로그아웃
-         * @description 식별 가능한 사용자 토큰을 무효화하고 웹 인증 Cookie를 삭제한다.
+         * @description 현재 기기의 세션·리프레시 토큰을 폐기하고 웹 인증 Cookie 3종을 삭제한다.
          */
         post: operations["webLogout"];
         delete?: never;
@@ -951,6 +1015,26 @@ export interface paths {
          * @description 학번(8자리)/이름/비밀번호와 MO 인증 토큰(verificationToken)으로 STUDENT 계정을 생성한다. 전화번호는 인증 세션에서 확정된 값이 저장되며, 사용된 세션은 즉시 소비(삭제)된다.
          */
         post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 토큰 갱신(모바일)
+         * @description 리프레시 토큰을 회전시켜 새 access·refresh 쌍을 발급한다. 기존 리프레시 토큰은 즉시 폐기되며, 폐기된 토큰의 재사용은 세션 폐기로 이어진다.
+         */
+        post: operations["refresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1048,7 +1132,7 @@ export interface paths {
         put?: never;
         /**
          * 로그아웃
-         * @description 현재 사용자의 token_version 을 증가시켜 기존에 발급된 모든 액세스 토큰을 무효화한다.
+         * @description access 토큰의 sid 로 현재 기기의 세션과 리프레시 토큰을 폐기한다. 세션을 특정할 수 없는 구 토큰은 token_version 을 올려 전 기기에서 로그아웃된다(전환기 폴백).
          */
         post: operations["logout"];
         delete?: never;
@@ -1088,27 +1172,9 @@ export interface paths {
         put?: never;
         /**
          * 사용자 강제 로그아웃 (ADMIN)
-         * @description 대상 사용자의 token_version 을 올려 발급된 모든 액세스 토큰을 즉시 무효화한다. 토큰 탈취·기기 분실 대응용. 대상이 재로그인하기 전까지 모든 보호 API 에서 401 을 받는다.
+         * @description 대상 사용자의 token_version 을 올려 발급된 모든 액세스 토큰을 즉시 무효화하고, 대상 사용자의 모든 세션·리프레시 토큰도 함께 폐기한다. 토큰 탈취·기기 분실 대응용. 대상이 재로그인하기 전까지 모든 보호 API 에서 401 을 받는다.
          */
         post: operations["forceLogout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/recertification-rounds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 라운드 목록 */
-        get: operations["listRounds"];
-        put?: never;
-        /** 라운드 열기 */
-        post: operations["openRound"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1337,6 +1403,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/facility-bookings/submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 제출 이력
+         * @description 취소된 Batch 포함 최신순 페이지네이션. status 필터는 파생 상태(REVIEWING=진행 중, COMPLETED=완료, CANCELLED=취소, ARCHIVED=완료+취소 이력) 기준.
+         */
+        get: operations["getBatches"];
+        put?: never;
+        /**
+         * 제출 Batch 생성
+         * @description all-or-nothing — 미APPROVED·기제출 예약이 섞이면 409 로 전체 거부.
+         */
+        post: operations["create_6"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/submission/{batchId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 학교 제출 완료 처리
+         * @description 담당자가 실제 학교 제출을 마친 뒤 호출(§4.3). APPROVED 예약만 CONFIRMED 로 전이하고 상태가 변한 예약은 제외 목록으로 반환한다. 기취소·기완료 409.
+         */
+        post: operations["complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/clubs": {
         parameters: {
             query?: never;
@@ -1370,7 +1480,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** ADMIN 강제 LEADER 지정 (LEADER 부재 동아리 한정) */
+        /** ADMIN 강제 LEADER 지정·교체 (기존 LEADER 는 MEMBER 로 강등) */
         post: operations["assignLeader"];
         delete?: never;
         options?: never;
@@ -1407,7 +1517,7 @@ export interface paths {
         };
         /**
          * 내 정보 조회
-         * @description 현재 인증된 사용자의 정보를 반환한다.
+         * @description 현재 인증된 사용자의 정보(이름·학년·단과대학·전공 등)를 반환한다.
          */
         get: operations["getMe"];
         put?: never;
@@ -1421,7 +1531,7 @@ export interface paths {
         head?: never;
         /**
          * 프로필 수정
-         * @description 이름·학년을 수정한다. 학년은 생략 시 기존 값을 유지한다. 학번·전화번호는 이 API로 변경할 수 없다(번호 변경은 재인증 필요).
+         * @description 이름·학년·단과대학·전공을 수정한다. 학년·단과대학·전공은 생략 시 기존 값을 유지한다. 학번·전화번호는 이 API로 변경할 수 없다(번호 변경은 재인증 필요).
          */
         patch: operations["updateProfile"];
         trace?: never;
@@ -1757,7 +1867,7 @@ export interface paths {
         };
         /**
          * 동아리 상세 조회
-         * @description 운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다.
+         * @description 운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다. 대표 연락처(contactPhone)는 공개 범위(contactVisibility)에 따라 노출되며, 비로그인 요청도 허용한다.
          */
         get: operations["getClub"];
         put?: never;
@@ -1766,8 +1876,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * 동아리 정보 수정 (LEADER)
-         * @description 본인이 LEADER 인 동아리의 기본 정보를 부분 수정한다. null/미포함 필드는 변경되지 않는다.
+         * 동아리 정보 수정 (LEADER/OFFICER)
+         * @description 본인이 운영진(LEADER/OFFICER)인 동아리의 프로필을 부분 수정한다. null/미포함 필드는 변경되지 않는다. 동아리명·카테고리·분과·단과대학은 총동연 전용(PATCH /admin/clubs/{clubId}) — 이 요청으로는 수정할 수 없다.
          */
         patch: operations["updateClub"];
         trace?: never;
@@ -1829,6 +1939,50 @@ export interface paths {
         patch: operations["updateMemberRole"];
         trace?: never;
     };
+    "/api/v1/clubs/{clubId}/members/{memberId}/generation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 멤버 기수 변경 (LEADER/OFFICER)
+         * @description 운영진(LEADER/OFFICER) 전용. generation 을 지정하거나 null 로 비운다. use_generation 표시 설정과 무관하게 저장되며, 회장 행도 대상 제한 없이 변경할 수 있다.
+         */
+        patch: operations["updateMemberGeneration"];
+        trace?: never;
+    };
+    "/api/v1/clubs/{clubId}/hero-activities/{heroActivityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 대표 활동 삭제 (LEADER/OFFICER)
+         * @description 슬롯을 당기지 않고 빈 슬롯으로 유지한다.
+         */
+        delete: operations["deleteHeroActivity"];
+        options?: never;
+        head?: never;
+        /**
+         * 대표 활동 수정 (LEADER/OFFICER)
+         * @description 사진·제목·설명을 부분 수정한다. 미지정 필드는 변경하지 않는다.
+         */
+        patch: operations["updateHeroActivity"];
+        trace?: never;
+    };
     "/api/v1/clubs/{clubId}/events/{eventId}": {
         parameters: {
             query?: never;
@@ -1848,6 +2002,26 @@ export interface paths {
         patch: operations["update_3"];
         trace?: never;
     };
+    "/api/v1/admin/users/{userId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 계정 상태 변경 (ADMIN)
+         * @description ACTIVE ↔ SUSPENDED. 정지 시 대상의 모든 세션을 폐기하고 token_version 을 올려 발급된 액세스 토큰을 즉시 무효화한다. 사유는 정지·해제 모두 필수이며 감사 로그에 기록된다. 현재 상태와 같으면 아무 동작도 하지 않고 204 를 반환한다(감사 로그도 남기지 않는다). 자기 자신과 다른 ADMIN 계정은 정지할 수 없다 — 보호 정책은 무동작 판정보다 먼저 걸리므로 이미 정지된 ADMIN 계정에 정지를 다시 요청하면 204 가 아니라 400 이다.
+         */
+        patch: operations["changeUserStatus"];
+        trace?: never;
+    };
     "/api/v1/admin/reports/{reportId}": {
         parameters: {
             query?: never;
@@ -1864,41 +2038,6 @@ export interface paths {
         head?: never;
         /** 신고 처리 */
         patch: operations["processReport"];
-        trace?: never;
-    };
-    "/api/v1/admin/recertification-rounds/{roundId}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 라운드 닫기 */
-        patch: operations["closeRound"];
-        trace?: never;
-    };
-    "/api/v1/admin/recertification-requests/{requestId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 재인증 제출 상세 */
-        get: operations["getRequest"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 재인증 처리 */
-        patch: operations["processRequest"];
         trace?: never;
     };
     "/api/v1/admin/promotions/{promotionId}": {
@@ -1931,14 +2070,14 @@ export interface paths {
             cookie?: never;
         };
         /** 홍보 요청 상세 */
-        get: operations["getRequest_1"];
+        get: operations["getRequest"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** 홍보 요청 처리 */
-        patch: operations["processRequest_1"];
+        patch: operations["processRequest"];
         trace?: never;
     };
     "/api/v1/admin/notices/{noticeId}": {
@@ -1968,14 +2107,14 @@ export interface paths {
             cookie?: never;
         };
         /** 승계 요청 상세 */
-        get: operations["getRequest_2"];
+        get: operations["getRequest_1"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         /** 승계 요청 처리 */
-        patch: operations["processRequest_2"];
+        patch: operations["processRequest_1"];
         trace?: never;
     };
     "/api/v1/admin/global-events/{eventId}": {
@@ -2056,6 +2195,30 @@ export interface paths {
         patch: operations["updateCategory"];
         trace?: never;
     };
+    "/api/v1/admin/clubs/{clubId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 동아리 단건 조회 (ADMIN)
+         * @description 상태 무관 동아리 상세 조회. 공개 GET /clubs/{clubId} 와 응답 형태가 동일하지만, ADMIN 권한 가드 하에 PENDING_APPROVAL/REJECTED/INACTIVE 동아리도 조회 가능하다. 총동연 조회이므로 대표 연락처(contactPhone)는 공개 범위와 무관하게 항상 노출된다.
+         */
+        get: operations["getAdminClub"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 동아리 정보 수정 (ADMIN)
+         * @description 총동연이 임의 동아리의 프로필을 부분 수정한다. 리더 요청과 달리 동아리명·카테고리·분과·단과대학(잠금 필드)까지 수정할 수 있다. null/미포함 필드는 변경되지 않고, 조회 가능한 모든 상태의 동아리를 수정할 수 있다.
+         */
+        patch: operations["updateClub_1"];
+        trace?: never;
+    };
     "/api/v1/admin/clubs/{clubId}/status": {
         parameters: {
             query?: never;
@@ -2094,6 +2257,30 @@ export interface paths {
          * @description ADMIN 이 동아리의 중앙동아리 여부를 변경한다.
          */
         patch: operations["updateClubCentralClub"];
+        trace?: never;
+    };
+    "/api/v1/users/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 내 세션 목록
+         * @description 로그인된 기기(활성 세션) 목록을 최근 사용 순으로 반환한다. 요청에 사용된 세션은 current 로 표시된다.
+         */
+        get: operations["listMySessions"];
+        put?: never;
+        post?: never;
+        /**
+         * 전체 로그아웃
+         * @description 모든 세션·리프레시 토큰을 폐기하고 token_version 을 올려 전 기기의 access 토큰을 즉시 무효화한다. 웹(쿠키) 인증이면 인증 Cookie 를 삭제한다.
+         */
+        delete: operations["logoutAllSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/users/me/applications": {
@@ -2967,26 +3154,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/clubs/{clubId}/recertification-context": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 재인증 신청 컨텍스트 조회 (LEADER)
-         * @description 현재 OPEN 라운드·중앙동아리 여부·이미 제출한 PENDING 신청을 한 번에 반환한다.
-         */
-        get: operations["getContext"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/clubs/{clubId}/membership": {
         parameters: {
             query?: never;
@@ -3027,6 +3194,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clubs/{clubId}/members/{memberId}/phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회원 원본 연락처 조회 (LEADER/OFFICER)
+         * @description 운영진(LEADER/OFFICER) 전용. 마스킹되지 않은 원본 번호를 반환하며, 조회 사실(조회자·대상·시각)을 감사 로그로 남긴다. 응답은 캐시하지 않는다(no-store). 목록·export 는 계속 마스킹만 제공한다.
+         */
+        get: operations["getMemberPhone"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clubs/{clubId}/members/export": {
         parameters: {
             query?: never;
@@ -3035,8 +3222,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 멤버 명단 CSV용 export (LEADER)
-         * @description 회장 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트.
+         * 멤버 명단 CSV용 export (LEADER/OFFICER)
+         * @description 운영진(LEADER/OFFICER) 전용. includePhone=true 면 전화번호 포함(기본 false). CSV 생성은 프론트. memberIds 를 주면 그 멤버만 내려준다(화면 필터 결과 그대로 내보낼 때) — 생략하면 전체.
          */
         get: operations["exportMembers"];
         put?: never;
@@ -3116,9 +3303,49 @@ export interface paths {
         };
         /**
          * 사용자 검색 (ADMIN)
-         * @description 동아리 등록 시 leader 후보를 학번/이름으로 검색한다. studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치.
+         * @description 회원 관리 목록과 동아리장 후보 검색이 함께 쓴다. q 는 선택 — 생략하면 전체를 대상으로 하고, studentId 는 prefix 일치, name 은 contains(case-insensitive) 일치. status 를 생략하면 상태를 가리지 않는다(= 전체). 기본 정렬은 최근 가입순.
          */
         get: operations["searchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 회원 상세 조회 (ADMIN)
+         * @description 기본 정보·가입 정보·휴대폰 인증 여부·가입 동아리·관리자 메모·최근 조치 이력을 한 번에 반환한다. 휴대폰은 마스킹된 값만 담기며 원본은 별도 엔드포인트에서 감사 로그와 함께 조회한다. 탈퇴한 회원은 404.
+         */
+        get: operations["getUserDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 원본 휴대폰 번호 조회 (ADMIN)
+         * @description 마스킹되지 않은 번호를 1건 반환한다. 열람 사실은 감사 로그에 기록되며, 응답은 캐시하지 않는다(no-store). 목록·상세는 계속 마스킹만 제공한다.
+         */
+        get: operations["getUserPhone"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3144,14 +3371,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/recertification-requests": {
+    "/api/v1/admin/promotion-requests": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 재인증 제출 목록 */
+        /** 홍보 요청 목록 */
         get: operations["listRequests"];
         put?: never;
         post?: never;
@@ -3161,15 +3388,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/promotion-requests": {
+    "/api/v1/admin/pending-counts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 홍보 요청 목록 */
-        get: operations["listRequests_1"];
+        /**
+         * 미처리 건수 조회
+         * @description 관리자 콘솔 사이드바 뱃지용 도메인별 미처리 건수와 총합
+         */
+        get: operations["getPendingCounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3186,7 +3416,7 @@ export interface paths {
             cookie?: never;
         };
         /** 승계 요청 목록 */
-        get: operations["listRequests_2"];
+        get: operations["listRequests_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3332,7 +3562,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/clubs/{clubId}": {
+    "/api/v1/admin/facility-bookings/submission/{batchId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3340,10 +3570,74 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 동아리 단건 조회 (ADMIN)
-         * @description 상태 무관 동아리 상세 조회. 공개 GET /clubs/{clubId} 와 응답 형태가 동일하지만, ADMIN 권한 가드 하에 PENDING_APPROVAL/REJECTED/INACTIVE 동아리도 조회 가능하다.
+         * Batch 상세
+         * @description 취소된 Batch 도 조회 가능. 조회 감사(VIEWED)를 남긴다.
          */
-        get: operations["getAdminClub"];
+        get: operations["getDetail_5"];
+        put?: never;
+        post?: never;
+        /**
+         * 제출 취소
+         * @description cancelled 상태 전환(완전 삭제 없음). 기취소 409.
+         */
+        delete: operations["cancel_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/submission/{batchId}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * CSV 다운로드
+         * @description UTF-8 BOM Excel 호환. 취소된 Batch 도 이력 확인용 재다운로드 허용.
+         */
+        get: operations["downloadCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/facility-bookings/submission/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 제출 대상 조회
+         * @description 기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 31일.
+         */
+        get: operations["getCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/clubs/{clubId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 동아리원 명단 조회(ADMIN)
+         * @description 학교 제출 문서용 명단. 이름·학번·전공·단과대를 함께 내려준다. LEADER→OFFICER→MEMBER 순, 그룹 내 가입일 오름차순. 동아리 소속 여부와 무관하게 조회 가능.
+         */
+        get: operations["getClubMembers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3369,23 +3663,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/clubs/recertification-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 중앙동아리 재인증 상태 조회 (EXPIRED 포함) */
-        get: operations["listClubStatuses"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/clubs/bank-matching": {
         parameters: {
             query?: never;
@@ -3395,12 +3672,32 @@ export interface paths {
         };
         /**
          * BANK 자동매칭 현황 조회
-         * @description 회비 계좌가 등록된 동아리들의 적격·등록 상태와 인증 키 전역 슬롯 현황을 반환한다.
+         * @description 회비 계좌가 등록된 동아리들의 적격·등록 상태와 자동매칭이 켜진 동아리 수를 반환한다.
          */
         get: operations["getBankMatchingOverview"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 세션 개별 로그아웃
+         * @description 지정한 세션과 그 리프레시 토큰을 폐기한다. 본인 세션이 아니거나 없으면 404. 현재 세션을 지정하면 로그아웃과 동일하며, 웹(쿠키) 인증이면 인증 Cookie 를 삭제한다.
+         */
+        delete: operations["revokeMySession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3417,7 +3714,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** 회비 청구 취소 (LEADER/OFFICER) */
-        delete: operations["cancel_2"];
+        delete: operations["cancel_3"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3524,10 +3821,49 @@ export interface components {
             /** Format: int32 */
             displayOrder?: number;
         };
+        HeroOrderItem: {
+            /** Format: int64 */
+            heroActivityId: number;
+            /** Format: int32 */
+            displayOrder?: number;
+        };
+        ReorderHeroActivitiesRequest: {
+            items: components["schemas"]["HeroOrderItem"][];
+        };
+        ApiResponseListHeroActivityResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["HeroActivityResponse"][];
+            message?: string;
+            code?: string;
+        };
+        HeroActivityResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            clubPhotoId?: number;
+            storageKey?: string;
+            caption?: string;
+            /** Format: int32 */
+            width?: number;
+            /** Format: int32 */
+            height?: number;
+            title?: string;
+            description?: string;
+            /** Format: int32 */
+            displayOrder?: number;
+        };
         RespondInterviewAvailabilityRequest: {
             slotIds?: number[];
             noAvailableSlot?: boolean;
             alternativeText?: string;
+        };
+        /** @description 관리자 메모 저장 요청 */
+        UpdateAdminNoteRequest: {
+            /**
+             * @description 메모 본문. 비우려면 빈 문자열을 보낸다(null 불가).
+             * @example 테스트 계정
+             */
+            note: string;
         };
         ReorderFederationFaqsRequest: {
             orderedIds: number[];
@@ -3784,13 +4120,6 @@ export interface components {
             helpful: boolean;
             sessionKey?: string;
         };
-        CreateRecertificationRequestRequest: {
-            contactEmail: string;
-            contactPhone: string;
-            /** Format: int32 */
-            operatingYear?: number;
-            notes?: string;
-        };
         CreatePromotionRequestRequest: {
             title: string;
             description: string;
@@ -3841,6 +4170,10 @@ export interface components {
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             phoneMasked?: string;
+            /** Format: int32 */
+            generation?: number;
+            /** @enum {string} */
+            feeStatus?: "PAID" | "UNPAID" | "NONE";
         };
         TransferLeaderResponse: {
             formerLeader?: components["schemas"]["ClubMemberResponse"];
@@ -3848,6 +4181,20 @@ export interface components {
         };
         CreateLeaderSuccessionRequestRequest: {
             reason: string;
+        };
+        CreateHeroActivityRequest: {
+            /** Format: int64 */
+            clubPhotoId: number;
+            title: string;
+            description: string;
+            /** Format: int32 */
+            displayOrder?: number;
+        };
+        ApiResponseHeroActivityResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["HeroActivityResponse"];
+            message?: string;
+            code?: string;
         };
         CreateFacilityBookingRequest: {
             /** Format: int64 */
@@ -3858,7 +4205,7 @@ export interface components {
             endTime: components["schemas"]["LocalTime"];
             purpose: string;
             /** Format: int32 */
-            attendeeCount?: number;
+            attendeeCount: number;
             contactPhone: string;
         };
         LocalTime: {
@@ -3897,6 +4244,9 @@ export interface components {
         LoginRequest: {
             studentId: string;
             password: string;
+            deviceLabel?: string;
+            platform?: string;
+            rememberMe?: boolean;
         };
         ApiResponseWebLoginResponse: {
             ok?: boolean;
@@ -3914,6 +4264,9 @@ export interface components {
             role?: "STUDENT" | "ADMIN";
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            major?: string;
         };
         WebLoginResponse: {
             user?: components["schemas"]["UserResponse"];
@@ -3930,6 +4283,20 @@ export interface components {
             verificationToken: string;
             termsOfServiceAgreed: boolean;
             privacyPolicyAgreed: boolean;
+        };
+        RefreshRequest: {
+            refreshToken: string;
+        };
+        ApiResponseRefreshResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["RefreshResponse"];
+            message?: string;
+            code?: string;
+        };
+        RefreshResponse: {
+            accessToken?: string;
+            tokenType?: string;
+            refreshToken?: string;
         };
         IssuePhoneVerificationRequest: {
             phone: string;
@@ -3983,12 +4350,8 @@ export interface components {
         LoginResponse: {
             accessToken?: string;
             tokenType?: string;
+            refreshToken?: string;
             user?: components["schemas"]["UserResponse"];
-        };
-        CreateRecertificationRoundRequest: {
-            /** Format: int32 */
-            year?: number;
-            label: string;
         };
         CreatePromotionRequest: {
             /** Format: int64 */
@@ -4014,10 +4377,10 @@ export interface components {
             imageAltText?: string;
             /** Format: int64 */
             noticeId?: number;
-            singleLinkTarget?: boolean;
-            scheduleRangeValid?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
+            scheduleRangeValid?: boolean;
+            singleLinkTarget?: boolean;
         };
         CreateNoticeRequest: {
             title: string;
@@ -4085,6 +4448,46 @@ export interface components {
         CancelFacilityBookingRequest: {
             reason: string;
         };
+        CreateSubmissionBatchRequest: {
+            bookingIds: number[];
+            memo?: string;
+        };
+        ApiResponseCreateSubmissionBatchResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["CreateSubmissionBatchResponse"];
+            message?: string;
+            code?: string;
+        };
+        CreateSubmissionBatchResponse: {
+            /** Format: int64 */
+            batchId?: number;
+            submissionNo?: string;
+            csvFileName?: string;
+        };
+        ApiResponseCompleteSubmissionBatchResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["CompleteSubmissionBatchResponse"];
+            message?: string;
+            code?: string;
+        };
+        CompleteSubmissionBatchResponse: {
+            /** Format: int32 */
+            totalCount?: number;
+            /** Format: int32 */
+            confirmedCount?: number;
+            /** Format: int32 */
+            skippedCount?: number;
+            /** Format: date-time */
+            completedAt?: string;
+            skippedBookings?: components["schemas"]["SkippedBookingResponse"][];
+        };
+        SkippedBookingResponse: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            reason?: string;
+        };
         CreateClubRequest: {
             name: string;
             /** @enum {string} */
@@ -4110,6 +4513,10 @@ export interface components {
             name: string;
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            major?: string;
+            majorPresentWhenProvided?: boolean;
         };
         ChangePhoneRequest: {
             currentPassword: string;
@@ -4214,15 +4621,18 @@ export interface components {
             /** Format: int32 */
             order?: number;
         };
+        ClubProject: {
+            /** @enum {string} */
+            icon: "CODE" | "TROPHY" | "USERS" | "ROCKET" | "BOOK" | "CAMERA" | "PALETTE" | "MUSIC" | "MIC" | "GLOBE" | "HEART" | "LEAF" | "BRIEFCASE" | "LIGHTBULB" | "FLASK" | "GAMEPAD" | "DUMBBELL" | "GRADUATION" | "MONITOR" | "SPARKLES";
+            title: string;
+            subtitle?: string;
+        };
         ClubSnsLink: {
             platform: string;
+            label?: string;
             url: string;
         };
         UpdateClubRequest: {
-            name?: string;
-            /** @enum {string} */
-            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
-            division?: string;
             description?: string;
             logoUrl?: string;
             coverUrl?: string;
@@ -4234,19 +4644,23 @@ export interface components {
             /** Format: int32 */
             cohortNumber?: number;
             location?: string;
-            contactEmail?: string;
             /** Format: int32 */
             activityFrequency?: number;
             activeDays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
-            membershipFee?: string;
             tagline?: string;
             highlights?: string[];
-            majorProjects?: string;
             /** @enum {string} */
-            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
-            clearCollege?: boolean;
+            contactVisibility?: "PUBLIC" | "LOGGED_IN_ONLY" | "PRIVATE";
+            /** @enum {string} */
+            feeCycle?: "NONE" | "ONE_TIME" | "SEMESTER" | "YEARLY" | "MONTHLY";
+            /** Format: int32 */
+            membershipFeeAmount?: number;
+            feeNote?: string;
+            projects?: components["schemas"]["ClubProject"][];
             clearLogoImage?: boolean;
             clearCoverImage?: boolean;
+            useGeneration?: boolean;
+            feePairConsistent?: boolean;
         };
         ApiResponseClubDetailResponse: {
             ok?: boolean;
@@ -4272,6 +4686,9 @@ export interface components {
             /** Format: int64 */
             leaderId?: number;
             leaderName?: string;
+            contactPhone?: string;
+            /** @enum {string} */
+            contactVisibility?: "PUBLIC" | "LOGGED_IN_ONLY" | "PRIVATE";
             /** @enum {string} */
             status?: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
             photos?: components["schemas"]["ClubPhotoQuery"][];
@@ -4280,16 +4697,20 @@ export interface components {
             /** Format: int32 */
             cohortNumber?: number;
             location?: string;
-            contactEmail?: string;
             /** Format: int32 */
             activityFrequency?: number;
             activeDays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
-            membershipFee?: string;
+            /** Format: int32 */
+            membershipFeeAmount?: number;
+            /** @enum {string} */
+            feeCycle?: "NONE" | "ONE_TIME" | "SEMESTER" | "YEARLY" | "MONTHLY";
+            feeNote?: string;
             tagline?: string;
             highlights?: string[];
-            majorProjects?: string;
+            projects?: components["schemas"]["ClubProject"][];
             activeRecruitment?: components["schemas"]["StudentRecruitmentProjection"];
             centralClub?: boolean;
+            useGeneration?: boolean;
         };
         ClubPhotoQuery: {
             /** Format: int64 */
@@ -4345,6 +4766,16 @@ export interface components {
             /** @enum {string} */
             role: "MEMBER" | "OFFICER" | "LEADER";
         };
+        UpdateMemberGenerationRequest: {
+            /** Format: int32 */
+            generation?: number;
+        };
+        UpdateHeroActivityRequest: {
+            /** Format: int64 */
+            clubPhotoId?: number;
+            title?: string;
+            description?: string;
+        };
         UpdateClubEventRequest: {
             title?: string;
             description?: string;
@@ -4354,14 +4785,23 @@ export interface components {
             endAt?: string;
             location?: string;
         };
+        /** @description 계정 상태 변경 요청 */
+        ChangeUserStatusRequest: {
+            /**
+             * @description 변경할 상태
+             * @example SUSPENDED
+             * @enum {string}
+             */
+            status: "ACTIVE" | "SUSPENDED";
+            /**
+             * @description 정지·해제 사유(감사 로그에 기록된다)
+             * @example 커뮤니티 신고 3건 누적
+             */
+            reason: string;
+        };
         ProcessReportRequest: {
             /** @enum {string} */
             status: "PENDING" | "RESOLVED" | "DISMISSED";
-            actionNote?: string;
-        };
-        ProcessRecertificationRequest: {
-            /** @enum {string} */
-            status: "PENDING" | "APPROVED" | "REJECTED";
             actionNote?: string;
         };
         UpdatePromotionRequest: {
@@ -4399,10 +4839,10 @@ export interface components {
             /** Format: int64 */
             noticeId?: number;
             clearNoticeId?: boolean;
-            singleLinkTarget?: boolean;
-            scheduleRangeValid?: boolean;
             imageAltTextRequiredForFullBleed?: boolean;
             bannerImageRequiredForFullBleed?: boolean;
+            scheduleRangeValid?: boolean;
+            singleLinkTarget?: boolean;
         };
         ProcessPromotionRequestRequest: {
             /** @enum {string} */
@@ -4482,6 +4922,43 @@ export interface components {
             /** Format: int32 */
             sortOrder?: number;
         };
+        AdminUpdateClubRequest: {
+            name?: string;
+            /** @enum {string} */
+            category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
+            division?: string;
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            clearCollege?: boolean;
+            description?: string;
+            logoUrl?: string;
+            coverUrl?: string;
+            tags?: string[];
+            snsLinks?: components["schemas"]["ClubSnsLink"][];
+            faqs?: components["schemas"]["ClubFaq"][];
+            /** Format: int32 */
+            foundedYear?: number;
+            /** Format: int32 */
+            cohortNumber?: number;
+            location?: string;
+            /** Format: int32 */
+            activityFrequency?: number;
+            activeDays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
+            tagline?: string;
+            highlights?: string[];
+            /** @enum {string} */
+            contactVisibility?: "PUBLIC" | "LOGGED_IN_ONLY" | "PRIVATE";
+            /** @enum {string} */
+            feeCycle?: "NONE" | "ONE_TIME" | "SEMESTER" | "YEARLY" | "MONTHLY";
+            /** Format: int32 */
+            membershipFeeAmount?: number;
+            feeNote?: string;
+            projects?: components["schemas"]["ClubProject"][];
+            clearLogoImage?: boolean;
+            clearCoverImage?: boolean;
+            feePairConsistent?: boolean;
+            nameBlankSafe?: boolean;
+        };
         UpdateClubStatusRequest: {
             /** @enum {string} */
             status: "PENDING_APPROVAL" | "ACTIVE" | "INACTIVE" | "REJECTED";
@@ -4495,6 +4972,21 @@ export interface components {
             data?: components["schemas"]["UserResponse"];
             message?: string;
             code?: string;
+        };
+        ApiResponseListMySessionResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["MySessionResponse"][];
+            message?: string;
+            code?: string;
+        };
+        MySessionResponse: {
+            /** Format: int64 */
+            sessionId?: number;
+            platform?: string;
+            deviceLabel?: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            current?: boolean;
         };
         ApiResponseListApplicationSummaryResponse: {
             ok?: boolean;
@@ -5469,6 +5961,7 @@ export interface components {
             logoUrl?: string;
             /** @enum {string} */
             myRole?: "MEMBER" | "OFFICER" | "LEADER";
+            centralClub?: boolean;
             /** Format: int64 */
             activeRecruitmentCount?: number;
         };
@@ -5859,36 +6352,6 @@ export interface components {
             totalPages?: number;
             hasNext?: boolean;
         };
-        ApiResponseRecertificationContextResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["RecertificationContextResponse"];
-            message?: string;
-            code?: string;
-        };
-        OpenRoundView: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int32 */
-            year?: number;
-            label?: string;
-        };
-        PendingRequestView: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int32 */
-            operatingYear?: number;
-            contactEmail?: string;
-            contactPhone?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        RecertificationContextResponse: {
-            centralClub?: boolean;
-            /** Format: int32 */
-            lastVerifiedYear?: number;
-            openRound?: components["schemas"]["OpenRoundView"];
-            pendingRequest?: components["schemas"]["PendingRequestView"];
-        };
         ApiResponseClubNoticeDetailResponse: {
             ok?: boolean;
             data?: components["schemas"]["ClubNoticeDetailResponse"];
@@ -5939,6 +6402,15 @@ export interface components {
             message?: string;
             code?: string;
         };
+        ApiResponseMemberPhoneResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["MemberPhoneResponse"];
+            message?: string;
+            code?: string;
+        };
+        MemberPhoneResponse: {
+            phone?: string;
+        };
         ApiResponseListClubMemberExportResponse: {
             ok?: boolean;
             data?: components["schemas"]["ClubMemberExportResponse"][];
@@ -5956,6 +6428,10 @@ export interface components {
             role?: "MEMBER" | "OFFICER" | "LEADER";
             /** Format: date-time */
             joinedAt?: string;
+            /** Format: int32 */
+            generation?: number;
+            /** @enum {string} */
+            feeStatus?: "PAID" | "UNPAID" | "NONE";
         };
         ApiResponseListFacilityBookingSummaryResponse: {
             ok?: boolean;
@@ -6090,6 +6566,7 @@ export interface components {
             endTime?: string;
             selected?: boolean;
         };
+        /** @description 관리자 회원 검색 결과 행 */
         AdminUserSearchResponse: {
             /** Format: int64 */
             id?: number;
@@ -6097,6 +6574,29 @@ export interface components {
             name?: string;
             /** @enum {string} */
             role?: "STUDENT" | "ADMIN";
+            /**
+             * @description 학년(원값). 한글 라벨은 프론트가 붙인다.
+             * @example JUNIOR
+             * @enum {string}
+             */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /**
+             * @description 단과대(원값). 한글 라벨은 프론트가 붙인다.
+             * @example IT_ENGINEERING
+             * @enum {string}
+             */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            /**
+             * @description 전공(자유 입력). 미입력이면 빈 문자열일 수 있다.
+             * @example 컴퓨터공학
+             */
+            major?: string;
+            /**
+             * @description 계정 상태(원값). ACTIVE 는 정상, SUSPENDED 는 로그인·API 접근이 차단된 이용 정지 상태다. 항상 값이 있다.
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status?: "ACTIVE" | "SUSPENDED";
         };
         ApiResponsePageResponseAdminUserSearchResponse: {
             ok?: boolean;
@@ -6115,6 +6615,91 @@ export interface components {
             /** Format: int32 */
             totalPages?: number;
             hasNext?: boolean;
+        };
+        /** @description 관리자 조치 이력 한 건 */
+        ActionItem: {
+            /** @enum {string} */
+            action?: "ACCOUNT_SUSPENDED" | "ACCOUNT_UNSUSPENDED" | "FORCE_LOGOUT" | "ADMIN_NOTE_UPDATED" | "PHONE_VIEW";
+            actorName?: string;
+            reason?: string;
+            /** Format: date-time */
+            at?: string;
+        };
+        /** @description 총동연 회원 상세 (ADMIN 전용) */
+        AdminUserDetailResponse: {
+            /** Format: int64 */
+            id?: number;
+            name?: string;
+            studentId?: string;
+            /** @enum {string} */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /** @enum {string} */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            major?: string;
+            /** @enum {string} */
+            role?: "STUDENT" | "ADMIN";
+            /**
+             * @description 마스킹된 휴대폰. 원본은 /admin/users/{userId}/phone 으로 별도 조회한다.
+             * @example 010-****-9983
+             */
+            maskedPhone?: string;
+            /** @description MO 휴대폰 인증 완료 여부 */
+            phoneVerified?: boolean;
+            /** Format: date-time */
+            phoneVerifiedAt?: string;
+            /** @enum {string} */
+            status?: "ACTIVE" | "SUSPENDED";
+            /**
+             * Format: date-time
+             * @description 가입일
+             */
+            createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 마지막 로그인. null 이면 기록 없음(백필하지 않았다).
+             */
+            lastLoginAt?: string;
+            adminNote?: string;
+            /**
+             * Format: date-time
+             * @description 메모 최종 수정 시각. 저장 이력이 없으면 null
+             */
+            adminNoteUpdatedAt?: string;
+            /** @description 메모 최종 수정 작업자 이름. 저장 이력이 없으면 null */
+            adminNoteUpdatedBy?: string;
+            clubs?: components["schemas"]["ClubItem"][];
+            /** @description 최근 관리자 조치 이력(개인정보 열람 제외, 최신순 최대 20건) */
+            recentActions?: components["schemas"]["ActionItem"][];
+        };
+        ApiResponseAdminUserDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminUserDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        /** @description 가입 동아리 한 건 */
+        ClubItem: {
+            /** Format: int64 */
+            clubId?: number;
+            clubName?: string;
+            /** @enum {string} */
+            role?: "MEMBER" | "OFFICER" | "LEADER";
+            /** Format: date-time */
+            joinedAt?: string;
+        };
+        /** @description 원본 휴대폰 번호 (ADMIN 전용, 캐시 금지) */
+        AdminUserPhoneResponse: {
+            /**
+             * @description 마스킹되지 않은 원본 번호
+             * @example 010-2210-9983
+             */
+            phone?: string;
+        };
+        ApiResponseAdminUserPhoneResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminUserPhoneResponse"];
+            message?: string;
+            code?: string;
         };
         ApiResponsePageResponseReportSummaryResponse: {
             ok?: boolean;
@@ -6180,123 +6765,6 @@ export interface components {
             /** Format: int64 */
             id?: number;
             name?: string;
-        };
-        ApiResponsePageResponseRecertificationRoundResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["PageResponseRecertificationRoundResponse"];
-            message?: string;
-            code?: string;
-        };
-        PageResponseRecertificationRoundResponse: {
-            content?: components["schemas"]["RecertificationRoundResponse"][];
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            hasNext?: boolean;
-        };
-        RecertificationRoundResponse: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int32 */
-            year?: number;
-            label?: string;
-            /** @enum {string} */
-            status?: "OPEN" | "CLOSED";
-            openedBy?: components["schemas"]["UserRef"];
-            /** Format: date-time */
-            openedAt?: string;
-            closedBy?: components["schemas"]["UserRef"];
-            /** Format: date-time */
-            closedAt?: string;
-        };
-        ApiResponsePageResponseRecertificationRequestSummaryResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["PageResponseRecertificationRequestSummaryResponse"];
-            message?: string;
-            code?: string;
-        };
-        PageResponseRecertificationRequestSummaryResponse: {
-            content?: components["schemas"]["RecertificationRequestSummaryResponse"][];
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            hasNext?: boolean;
-        };
-        RecertificationRequestSummaryResponse: {
-            /** Format: int64 */
-            id?: number;
-            round?: components["schemas"]["RoundRef"];
-            club?: components["schemas"]["ClubRef"];
-            leader?: components["schemas"]["UserRef"];
-            /** @enum {string} */
-            status?: "PENDING" | "APPROVED" | "REJECTED";
-            /** Format: int32 */
-            operatingYear?: number;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        RoundRef: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int32 */
-            year?: number;
-            label?: string;
-            /** @enum {string} */
-            status?: "OPEN" | "CLOSED";
-        };
-        ApiResponseRecertificationRequestDetailResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["RecertificationRequestDetailResponse"];
-            message?: string;
-            code?: string;
-        };
-        ClubMemberHistoryResponse: {
-            /** Format: int64 */
-            id?: number;
-            /** @enum {string} */
-            eventType?: "ROLE_CHANGED" | "LEADER_TRANSFERRED" | "LEFT" | "REMOVED" | "ADMIN_LEADER_ASSIGNED" | "SUCCESSION_APPROVED";
-            target?: components["schemas"]["UserRef"];
-            actor?: components["schemas"]["UserRef"];
-            /** @enum {string} */
-            fromRole?: "MEMBER" | "OFFICER" | "LEADER";
-            /** @enum {string} */
-            toRole?: "MEMBER" | "OFFICER" | "LEADER";
-            reason?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        RecertificationRequestDetailResponse: {
-            /** Format: int64 */
-            id?: number;
-            round?: components["schemas"]["RoundRef"];
-            club?: components["schemas"]["ClubRef"];
-            currentLeader?: components["schemas"]["UserRef"];
-            officers?: components["schemas"]["UserRef"][];
-            submittedLeader?: components["schemas"]["UserRef"];
-            contactEmail?: string;
-            contactPhone?: string;
-            /** Format: int32 */
-            operatingYear?: number;
-            notes?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "APPROVED" | "REJECTED";
-            actionNote?: string;
-            handledBy?: components["schemas"]["UserRef"];
-            /** Format: date-time */
-            handledAt?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            recentMemberHistory?: components["schemas"]["ClubMemberHistoryResponse"][];
         };
         AdminPromotionResponse: {
             /** Format: int64 */
@@ -6406,6 +6874,57 @@ export interface components {
             handledAt?: string;
             /** Format: date-time */
             createdAt?: string;
+        };
+        /** @description 총동연 관리자 콘솔 미처리 건수 */
+        AdminPendingCountsResponse: {
+            /**
+             * Format: int64
+             * @description 승인 대기 동아리 수
+             * @example 12
+             */
+            clubApproval?: number;
+            /**
+             * Format: int64
+             * @description 조치가 필요한 시설 예약 수(승인 대기 + 충돌)
+             * @example 3
+             */
+            facilityBooking?: number;
+            /**
+             * Format: int64
+             * @description 답변이 나가지 않은 1:1 문의 수(접수 + 처리 중)
+             * @example 7
+             */
+            inquiryUnanswered?: number;
+            /**
+             * Format: int64
+             * @description 검토 대기 홍보 요청 수
+             * @example 2
+             */
+            promotionRequest?: number;
+            /**
+             * Format: int64
+             * @description 미처리 신고 수
+             * @example 5
+             */
+            reportUnresolved?: number;
+            /**
+             * Format: int64
+             * @description 대기 중인 회장 승계 요청 수
+             * @example 1
+             */
+            leaderSuccession?: number;
+            /**
+             * Format: int64
+             * @description 위 항목의 총합
+             * @example 30
+             */
+            totalPendingCount?: number;
+        };
+        ApiResponseAdminPendingCountsResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminPendingCountsResponse"];
+            message?: string;
+            code?: string;
         };
         AdminNoticeSummaryResponse: {
             /** Format: int64 */
@@ -6701,6 +7220,8 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
             purpose?: string;
+            /** Format: int32 */
+            attendeeCount?: number;
             contactPhone?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -6787,12 +7308,118 @@ export interface components {
             conflictSuspectedCount?: number;
             /** Format: int64 */
             confirmedThisMonthCount?: number;
+            /** Format: date-time */
+            crawledAt?: string;
         };
         ApiResponseAdminFacilityBookingCountsResponse: {
             ok?: boolean;
             data?: components["schemas"]["AdminFacilityBookingCountsResponse"];
             message?: string;
             code?: string;
+        };
+        ApiResponsePageResponseSubmissionBatchSummaryResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["PageResponseSubmissionBatchSummaryResponse"];
+            message?: string;
+            code?: string;
+        };
+        PageResponseSubmissionBatchSummaryResponse: {
+            content?: components["schemas"]["SubmissionBatchSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            hasNext?: boolean;
+        };
+        SubmissionBatchSummaryResponse: {
+            /** Format: int64 */
+            batchId?: number;
+            submissionNo?: string;
+            /** Format: int64 */
+            facilityId?: number;
+            facilityName?: string;
+            /** Format: int64 */
+            bookingCount?: number;
+            /** Format: date-time */
+            submittedAt?: string;
+            submittedByName?: string;
+            memo?: string;
+            cancelled?: boolean;
+            /** Format: date-time */
+            cancelledAt?: string;
+            completed?: boolean;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        ApiResponseSubmissionBatchDetailResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["SubmissionBatchDetailResponse"];
+            message?: string;
+            code?: string;
+        };
+        Booking: {
+            /** Format: int64 */
+            bookingId?: number;
+            /** Format: int64 */
+            facilityId?: number;
+            facilityName?: string;
+            /** Format: int64 */
+            clubId?: number;
+            clubName?: string;
+            applicantName?: string;
+            contactPhone?: string;
+            /** Format: date */
+            reservationDate?: string;
+            startTime?: components["schemas"]["LocalTime"];
+            endTime?: components["schemas"]["LocalTime"];
+            purpose?: string;
+            /** Format: int32 */
+            attendeeCount?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CONFLICT" | "CANCELLED";
+            submitted?: boolean;
+            selectable?: boolean;
+            submissionNo?: string;
+            decidedByName?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+        };
+        SubmissionAuditResponse: {
+            action?: string;
+            adminName?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            ipAddress?: string;
+            detail?: string;
+        };
+        SubmissionBatchDetailResponse: {
+            batch?: components["schemas"]["SubmissionBatchSummaryResponse"];
+            bookings?: components["schemas"]["Booking"][];
+            audits?: components["schemas"]["SubmissionAuditResponse"][];
+        };
+        ApiResponseSubmissionCandidatesResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["SubmissionCandidatesResponse"];
+            message?: string;
+            code?: string;
+        };
+        SubmissionCandidatesResponse: {
+            summary?: components["schemas"]["Summary"];
+            bookings?: components["schemas"]["Booking"][];
+        };
+        Summary: {
+            /** Format: int64 */
+            approvedCount?: number;
+            /** Format: int64 */
+            awaitingCount?: number;
+            /** Format: int64 */
+            submittedCount?: number;
+            /** Format: int64 */
+            confirmedCount?: number;
         };
         AdminClubSummaryResponse: {
             /** Format: int64 */
@@ -6835,41 +7462,61 @@ export interface components {
             totalPages?: number;
             hasNext?: boolean;
         };
+        /** @description 총동연 동아리원 명단 행(학교 제출용) */
+        AdminClubMemberResponse: {
+            /** Format: int64 */
+            memberId?: number;
+            name?: string;
+            studentId?: string;
+            /**
+             * @description 전공(자유 입력). 미설정이면 빈 문자열일 수 있다.
+             * @example 컴퓨터공학
+             */
+            major?: string;
+            /**
+             * @description 단과대(원값). 한글 라벨은 프론트가 붙인다.
+             * @example IT_ENGINEERING
+             * @enum {string}
+             */
+            college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
+            /**
+             * @description 학년(원값). 한글 라벨은 프론트가 붙인다.
+             * @example JUNIOR
+             * @enum {string}
+             */
+            grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
+            /** @enum {string} */
+            role?: "MEMBER" | "OFFICER" | "LEADER";
+        };
+        ApiResponseListAdminClubMemberResponse: {
+            ok?: boolean;
+            data?: components["schemas"]["AdminClubMemberResponse"][];
+            message?: string;
+            code?: string;
+        };
         ApiResponsePageResponseClubMemberHistoryResponse: {
             ok?: boolean;
             data?: components["schemas"]["PageResponseClubMemberHistoryResponse"];
             message?: string;
             code?: string;
         };
+        ClubMemberHistoryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** @enum {string} */
+            eventType?: "ROLE_CHANGED" | "LEADER_TRANSFERRED" | "LEFT" | "REMOVED" | "ADMIN_LEADER_ASSIGNED" | "SUCCESSION_APPROVED";
+            target?: components["schemas"]["UserRef"];
+            actor?: components["schemas"]["UserRef"];
+            /** @enum {string} */
+            fromRole?: "MEMBER" | "OFFICER" | "LEADER";
+            /** @enum {string} */
+            toRole?: "MEMBER" | "OFFICER" | "LEADER";
+            reason?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         PageResponseClubMemberHistoryResponse: {
             content?: components["schemas"]["ClubMemberHistoryResponse"][];
-            /** Format: int32 */
-            page?: number;
-            /** Format: int32 */
-            size?: number;
-            /** Format: int64 */
-            totalElements?: number;
-            /** Format: int32 */
-            totalPages?: number;
-            hasNext?: boolean;
-        };
-        ApiResponsePageResponseCentralClubRecertificationStatusResponse: {
-            ok?: boolean;
-            data?: components["schemas"]["PageResponseCentralClubRecertificationStatusResponse"];
-            message?: string;
-            code?: string;
-        };
-        CentralClubRecertificationStatusResponse: {
-            /** Format: int64 */
-            clubId?: number;
-            clubName?: string;
-            centralClub?: boolean;
-            /** Format: int32 */
-            lastVerifiedYear?: number;
-            expired?: boolean;
-        };
-        PageResponseCentralClubRecertificationStatusResponse: {
-            content?: components["schemas"]["CentralClubRecertificationStatusResponse"][];
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -6900,15 +7547,8 @@ export interface components {
         };
         BankMatchingOverviewResponse: {
             clubs?: components["schemas"]["BankMatchingClubResponse"][];
-            slots?: components["schemas"]["SlotStatus"];
-        };
-        SlotStatus: {
             /** Format: int32 */
             registeredCount?: number;
-            /** Format: int32 */
-            maxAccounts?: number;
-            /** Format: int32 */
-            remaining?: number;
         };
     };
     responses: never;
@@ -7179,6 +7819,32 @@ export interface operations {
             };
         };
     };
+    reorderHeroActivities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderHeroActivitiesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListHeroActivityResponse"];
+                };
+            };
+        };
+    };
     respondAvailability: {
         parameters: {
             query?: never;
@@ -7191,6 +7857,33 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RespondInterviewAvailabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    updateAdminNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 대상 사용자 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminNoteRequest"];
             };
         };
         responses: {
@@ -8048,32 +8741,6 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateRecertificationRequestRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseLong"];
-                };
-            };
-        };
-    };
-    createRequest_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                clubId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
                 "application/json": components["schemas"]["CreatePromotionRequestRequest"];
             };
         };
@@ -8208,7 +8875,7 @@ export interface operations {
             };
         };
     };
-    createRequest_2: {
+    createRequest_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -8230,6 +8897,54 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    listHeroActivities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListHeroActivityResponse"];
+                };
+            };
+        };
+    };
+    createHeroActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHeroActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseHeroActivityResponse"];
                 };
             };
         };
@@ -8358,6 +9073,31 @@ export interface operations {
             };
         };
     };
+    webRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 갱신 성공 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 만료·폐기 리프레시 토큰(AUTH_SESSION_EXPIRED) 또는 재사용 탐지(REFRESH_TOKEN_REUSED) — 두 경우 모두 인증 Cookie 3종을 즉시 만료시킨다. REFRESH_TOKEN_REUSED 는 패밀리당 최초 탐지 1회이며, 탐지로 세션이 폐기된 뒤의 재제시는 AUTH_SESSION_EXPIRED 로 응답한다. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     webLogout: {
         parameters: {
             query?: never;
@@ -8438,6 +9178,39 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLong"];
+                };
+            };
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description 갱신 성공 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRefreshResponse"];
+                };
+            };
+            /** @description 만료·폐기 리프레시 토큰(AUTH_SESSION_EXPIRED) 또는 재사용 탐지(REFRESH_TOKEN_REUSED). REFRESH_TOKEN_REUSED 는 패밀리당 최초 탐지 1회이며, 탐지로 세션이 폐기된 뒤의 재제시는 AUTH_SESSION_EXPIRED 로 응답한다. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRefreshResponse"];
                 };
             };
         };
@@ -8680,52 +9453,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    listRounds: {
-        parameters: {
-            query?: {
-                status?: "OPEN" | "CLOSED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePageResponseRecertificationRoundResponse"];
-                };
-            };
-        };
-    };
-    openRound: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRecertificationRoundRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseLong"];
                 };
             };
         };
@@ -9121,6 +9848,77 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getBatches: {
+        parameters: {
+            query?: {
+                /** @description 시설 필터 */
+                facilityId?: number;
+                /** @description 파생 상태 필터(생략 시 전체) */
+                status?: "REVIEWING" | "COMPLETED" | "CANCELLED" | "ARCHIVED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseSubmissionBatchSummaryResponse"];
+                };
+            };
+        };
+    };
+    create_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubmissionBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCreateSubmissionBatchResponse"];
+                };
+            };
+        };
+    };
+    complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCompleteSubmissionBatchResponse"];
                 };
             };
         };
@@ -9991,6 +10789,77 @@ export interface operations {
             };
         };
     };
+    updateMemberGeneration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMemberGenerationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteHeroActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                heroActivityId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateHeroActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                heroActivityId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHeroActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getDetail_1: {
         parameters: {
             query?: never;
@@ -10064,6 +10933,33 @@ export interface operations {
             };
         };
     };
+    changeUserStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 대상 사용자 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeUserStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
     getReport: {
         parameters: {
             query?: never;
@@ -10098,76 +10994,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProcessReportRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    closeRound: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                roundId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    getRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                requestId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseRecertificationRequestDetailResponse"];
-                };
-            };
-        };
-    };
-    processRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                requestId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProcessRecertificationRequest"];
             };
         };
         responses: {
@@ -10252,7 +11078,7 @@ export interface operations {
             };
         };
     };
-    getRequest_1: {
+    getRequest: {
         parameters: {
             query?: never;
             header?: never;
@@ -10274,7 +11100,7 @@ export interface operations {
             };
         };
     };
-    processRequest_1: {
+    processRequest: {
         parameters: {
             query?: never;
             header?: never;
@@ -10370,7 +11196,7 @@ export interface operations {
             };
         };
     };
-    getRequest_2: {
+    getRequest_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -10392,7 +11218,7 @@ export interface operations {
             };
         };
     };
-    processRequest_2: {
+    processRequest_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -10612,6 +11438,54 @@ export interface operations {
             };
         };
     };
+    getAdminClub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseClubDetailResponse"];
+                };
+            };
+        };
+    };
+    updateClub_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateClubRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseClubDetailResponse"];
+                };
+            };
+        };
+    };
     updateClubStatus: {
         parameters: {
             query?: never;
@@ -10661,6 +11535,44 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
+            };
+        };
+    };
+    listMySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMySessionResponse"];
+                };
+            };
+        };
+    };
+    logoutAllSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -11729,6 +12641,8 @@ export interface operations {
                 activeDays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
                 /** @description 정렬 옵션 (DEADLINE_SOON / RECENT / ALPHABETICAL / POPULAR). 미지정 시 RECENT. POPULAR 는 활성 모집 지원자수 → 즐겨찾기수 → 활성 모집 시작일. */
                 sort?: "DEADLINE_SOON" | "RECENT" | "ALPHABETICAL" | "POPULAR";
+                /** @description true=요청 사용자가 찜한 동아리만. 로그인 필요 — 미인증 요청은 401. false/미지정=필터 미적용. */
+                favorite?: boolean;
             };
             header?: never;
             path?: never;
@@ -11765,28 +12679,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListRecruitmentSummaryResponse"];
-                };
-            };
-        };
-    };
-    getContext: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                clubId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseRecertificationContextResponse"];
                 };
             };
         };
@@ -11835,10 +12727,48 @@ export interface operations {
             };
         };
     };
+    getMemberPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clubId: number;
+                memberId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 원본 연락처 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberPhoneResponse"];
+                };
+            };
+            /** @description 운영진이 아니거나, 동아리가 ACTIVE 가 아님 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 조회할 수 없는 멤버 — 존재하지 않는 memberId, 타 동아리 memberId, 탈퇴한 회원(User soft-delete 후 남은 멤버십 행)을 구분하지 않는다(존재 은닉) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     exportMembers: {
         parameters: {
             query?: {
                 includePhone?: boolean;
+                memberIds?: number[];
             };
             header?: never;
             path: {
@@ -11928,9 +12858,14 @@ export interface operations {
     };
     searchUsers: {
         parameters: {
-            query: {
-                /** @description 검색어 (학번 prefix 또는 이름 부분 일치) */
-                q: string;
+            query?: {
+                /** @description 검색어 (학번 prefix 또는 이름 부분 일치). 생략 가능 */
+                q?: string;
+                /**
+                 * @description 계정 상태 필터. 생략하면 전체
+                 * @example SUSPENDED
+                 */
+                status?: "ACTIVE" | "SUSPENDED";
             };
             header?: never;
             path?: never;
@@ -11945,6 +12880,52 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageResponseAdminUserSearchResponse"];
+                };
+            };
+        };
+    };
+    getUserDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조회 대상 사용자 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminUserDetailResponse"];
+                };
+            };
+        };
+    };
+    getUserPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 대상 사용자 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminUserPhoneResponse"];
                 };
             };
         };
@@ -11975,29 +12956,6 @@ export interface operations {
     listRequests: {
         parameters: {
             query?: {
-                roundId?: number;
-                status?: "PENDING" | "APPROVED" | "REJECTED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePageResponseRecertificationRequestSummaryResponse"];
-                };
-            };
-        };
-    };
-    listRequests_1: {
-        parameters: {
-            query?: {
                 status?: "PENDING" | "ACCEPTED" | "REJECTED";
                 clubId?: number;
             };
@@ -12018,7 +12976,27 @@ export interface operations {
             };
         };
     };
-    listRequests_2: {
+    getPendingCounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminPendingCountsResponse"];
+                };
+            };
+        };
+    };
+    listRequests_1: {
         parameters: {
             query?: {
                 status?: "PENDING" | "APPROVED" | "REJECTED";
@@ -12195,7 +13173,100 @@ export interface operations {
             };
         };
     };
-    getAdminClub: {
+    getDetail_5: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSubmissionBatchDetailResponse"];
+                };
+            };
+        };
+    };
+    cancel_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    downloadCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    getCandidates: {
+        parameters: {
+            query: {
+                /** @description 시설(생략 시 전 시설) */
+                facilityId?: number;
+                startDate: string;
+                endDate: string;
+                /** @description 동아리 필터 */
+                clubId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSubmissionCandidatesResponse"];
+                };
+            };
+        };
+    };
+    getClubMembers: {
         parameters: {
             query?: never;
             header?: never;
@@ -12212,7 +13283,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseClubDetailResponse"];
+                    "*/*": components["schemas"]["ApiResponseListAdminClubMemberResponse"];
                 };
             };
         };
@@ -12239,28 +13310,6 @@ export interface operations {
             };
         };
     };
-    listClubStatuses: {
-        parameters: {
-            query: {
-                operatingYear: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponsePageResponseCentralClubRecertificationStatusResponse"];
-                };
-            };
-        };
-    };
     getBankMatchingOverview: {
         parameters: {
             query?: never;
@@ -12281,7 +13330,34 @@ export interface operations {
             };
         };
     };
-    cancel_2: {
+    revokeMySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 폐기됨 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 본인 활성 세션이 아님 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancel_3: {
         parameters: {
             query?: never;
             header?: never;
