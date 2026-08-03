@@ -2,30 +2,64 @@
 
 import { useEffect } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { ApiError, httpFallbackMessage } from '@duing/api';
 import { useClubMembershipQuery } from '@duing/hooks';
+import type { MyClubMembership } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MembershipProvider } from './MembershipContext';
 
 type Props = { clubId: number; children: React.ReactNode };
 
+const DEFAULT_DENIAL_MESSAGE = '회원 전용 페이지입니다.';
+
+/**
+ * 접근 거부면 사용자 안내 문구를, 통과 가능하거나 아직 판정 전이면 null 을 반환한다.
+ *
+ * 비멤버는 200 + null 로 도착하고(정상 응답), 남는 403 은 실제 거부 사유(예: 운영 종료된 동아리)다.
+ * 서버가 내려준 사유가 있으면 그대로 노출하고, 없을 때만 기본 문구로 폴백한다 —
+ * 본문 파싱 실패 시 ApiError.message 는 합성 폴백("요청 실패 (403)")이라 사용자에게 보여선 안 된다.
+ */
+function resolveDenialMessage(
+  membership: MyClubMembership | null | undefined,
+  isLoading: boolean,
+  error: unknown,
+): string | null {
+  if (isLoading) return null;
+  // 거부 응답을 캐시된 멤버십보다 먼저 판정한다 — React Query 는 재조회가 실패해도 마지막 성공
+  // data 를 남기므로, membership 을 먼저 보면 동아리가 폐쇄된 뒤에도 멤버 화면이 계속 렌더된다.
+  if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+    return error.status === 403 && error.message !== httpFallbackMessage(403)
+      ? error.message
+      : DEFAULT_DENIAL_MESSAGE;
+  }
+  if (membership === null) return DEFAULT_DENIAL_MESSAGE;
+  // 네트워크 오류·5xx 는 거부가 아니다 — 리다이렉트 없이 재시도 여지를 남긴다.
+  return null;
+}
+
 export function MemberAccessGuard({ clubId, children }: Props) {
   const router = useGuardedRouter();
-  const { data, isLoading, isError, error } = useClubMembershipQuery(clubId);
+  const { data: membership, isLoading, error } = useClubMembershipQuery(clubId);
+
+  const denialMessage = resolveDenialMessage(membership, isLoading, error);
 
   useEffect(() => {
-    if (!isError) return;
-    const status = (error as { response?: { status?: number } })?.response?.status;
-    // 비-멤버(403) 또는 클럽 없음(404) 모두 공개 페이지로 redirect
-    if (status === 404 || status === 403) {
-      alert('회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.');
-      router.replace(`/clubs/${clubId}`);
-    }
-  }, [isError, error, router, clubId]);
+    if (!denialMessage) return;
+    // 이동을 먼저 건다 — 임베디드 브라우저에서 alert 이 막히거나 throw 하면 뒤 문장이 실행되지 않아,
+    // 이 가드가 고치려는 "안내도 이동도 없는 빈 화면"이 그대로 재현된다.
+    router.replace(`/clubs/${clubId}`);
+    alert(`${denialMessage} 동아리 소개 페이지로 이동합니다.`);
+  }, [denialMessage, router, clubId]);
 
   if (isLoading) {
     return <LoadingGate label="권한 확인 중" />;
   }
-  if (!data) return null;
+  // 리다이렉트가 커밋되기 전 한 프레임 — 회원 전용 콘텐츠를 스치듯 노출하지 않도록 비운다.
+  if (denialMessage) return null;
+  // 거부가 아닌 실패(네트워크·5xx). 빈 화면으로 두면 거부와 구분되지 않으므로 상태를 알린다.
+  if (!membership) {
+    return <p className="p-6 text-sm text-coral">권한 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>;
+  }
 
-  return <MembershipProvider membership={data}>{children}</MembershipProvider>;
+  return <MembershipProvider membership={membership}>{children}</MembershipProvider>;
 }
