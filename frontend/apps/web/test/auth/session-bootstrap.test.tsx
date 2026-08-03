@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import posthog from 'posthog-js';
 
-import { createApiClient } from '@duing/api';
+import { createApiClient, registerUnauthorizedHandler } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
@@ -34,14 +34,42 @@ const TEST_USER: User = {
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
+  refreshCallCount = 0;
   useAuthStore.setState({ status: 'idle', user: null });
   window.localStorage.clear();
+  // 이 파일은 종료 핸들러를 등록하지 않는다 — 사이드 채널에 쌓인 보류 통지를 비워
+  // 다음 테스트가 남의 세션 종료를 물려받지 않게 한다(보류는 등록 시점에 소비된다).
+  registerUnauthorizedHandler(() => {});
+  registerUnauthorizedHandler(null);
 });
 afterAll(() => server.close());
 
 // 알림은 "이 브라우저에서 세션이 살아 있던 적이 있는" 사용자에게만 뜬다.
 function givenPreviousSession() {
   window.localStorage.setItem('duing:had-session', '1');
+}
+
+// 갱신까지 401 — 세션이 실제로 끝난 상황. 종료 판정은 SessionExpiryHandler 의 몫이라
+// 이 컴포넌트만 렌더한 구성에서는 사이드 채널을 받는 쪽이 없다.
+let refreshCallCount = 0;
+
+function givenExpiredSession() {
+  server.use(
+    http.get(`${BASE}/users/me`, () =>
+      HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+    ),
+    http.post(`${BASE}/auth/web/refresh`, () => {
+      refreshCallCount += 1;
+      return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+    }),
+  );
+}
+
+// 스토어 전이만 단언하는 테스트는 401→갱신 체인이 아직 도는 중에 끝날 수 있다. 그 상태로
+// afterEach 의 resetHandlers 를 지나면 뒤늦은 refresh 가 onUnhandledRequest:'error' 에 걸리고,
+// 보류 플래그 쓰기가 정리 뒤에 떨어진다. 체인이 닫힌 걸 보고 끝낸다.
+async function waitForRefreshSettled() {
+  await waitFor(() => expect(refreshCallCount).toBe(1));
 }
 
 function renderBootstrap() {
@@ -68,17 +96,18 @@ describe('AuthSessionBootstrap', () => {
     expect(useAuthStore.getState().user).toEqual(TEST_USER);
   });
 
-  it('/users/me 401 시 미인증 상태로 전환한다', async () => {
-    server.use(
-      http.get(`${BASE}/users/me`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
-      ),
-    );
+  // 이 PR 의 핵심 계약 변경. 401 봉투는 진짜 만료와 일시 장애가 완전히 같아서, 이 컴포넌트가
+  // 자체 판정하면 갱신 실패의 절반(403·5xx·타임아웃·오프라인)을 로그아웃으로 오판한다.
+  // 종료는 사이드 채널을 받는 SessionExpiryHandler 만 확정한다.
+  it('/users/me 401 이 와도 스스로 세션을 끝내지 않는다', async () => {
+    givenExpiredSession();
+    givenPreviousSession();
 
     renderBootstrap();
 
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
-    expect(useAuthStore.getState().user).toBeNull();
+    // 알림이 뜰 만큼 catch 가 돌았는데도 상태는 그대로다 — 확정은 다른 단위의 책임이다.
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
   });
 
   it.each([500, 503])('/users/me %i 오류를 인증 만료로 오판하지 않는다', async (status) => {
@@ -114,38 +143,32 @@ describe('AuthSessionBootstrap', () => {
     expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
   });
 
-  it('401 이후에는 세션 이력이 지워져 다음 실패를 알리지 않는다', async () => {
+  // 세션 이력은 종료 전이에서 지워진다 — 종료를 확정하는 쪽(SessionExpiryHandler)과 맞물린
+  // 결과는 통합 테스트(session-judgment)가 검증한다.
+  it('세션 종료 전이에서 이력을 지운다', async () => {
     givenPreviousSession();
-    server.use(
-      http.get(`${BASE}/users/me`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
-      ),
-    );
+    givenExpiredSession();
 
     renderBootstrap();
+    act(() => useAuthStore.setState({ status: 'unauthenticated', user: null }));
 
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
-    expect(window.localStorage.getItem('duing:had-session')).toBeNull();
+    await waitFor(() => expect(window.localStorage.getItem('duing:had-session')).toBeNull());
+    await waitForRefreshSettled();
   });
 
   // 로그인 뮤테이션은 이 컴포넌트를 거치지 않고 스토어에 직접 세션을 세운다. 그 경로에서 이력이
   // 남지 않으면, 방금 로그인한 사용자가 새로고침 중 일시 오류를 만났을 때 알림도 재시도 버튼도
   // 받지 못하고 조용히 멈춘다.
   it('부트스트랩 밖에서 세션이 서도 이력을 남긴다', async () => {
-    server.use(
-      http.get(`${BASE}/users/me`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
-      ),
-    );
+    givenExpiredSession();
 
     renderBootstrap();
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
-
     act(() => useAuthStore.getState().setSession(TEST_USER));
 
     await waitFor(() =>
       expect(window.localStorage.getItem('duing:had-session')).toBe('1'),
     );
+    await waitForRefreshSettled();
   });
 
   it('로그아웃으로 세션이 지워지면 이력도 지운다', async () => {
@@ -188,17 +211,14 @@ describe('AuthSessionBootstrap', () => {
     resetSpy.mockRestore();
   });
 
-  it('익명 방문자의 401 에서는 익명 distinct_id 를 갈아치우지 않는다', async () => {
+  it('익명 방문자의 종료 전이(idle→unauthenticated)에서는 익명 distinct_id 를 갈아치우지 않는다', async () => {
     const resetSpy = vi.spyOn(posthog, 'reset').mockImplementation(() => {});
-    server.use(
-      http.get(`${BASE}/users/me`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
-      ),
-    );
+    givenExpiredSession();
 
     renderBootstrap();
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+    act(() => useAuthStore.setState({ status: 'unauthenticated', user: null }));
 
+    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
     expect(resetSpy).not.toHaveBeenCalled();
     resetSpy.mockRestore();
   });

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { ApiError } from '@duing/api';
 import { useApiClient } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
@@ -42,7 +41,6 @@ export function AuthSessionBootstrap() {
   const [attempt, setAttempt] = useState(0);
   const client = useApiClient();
   const setSession = useAuthStore((state) => state.setSession);
-  const clearSession = useAuthStore((state) => state.clearSession);
   const status = useAuthStore((state) => state.status);
   const { addToast } = useToast();
 
@@ -70,12 +68,16 @@ export function AuthSessionBootstrap() {
         setSession(user);
         posthog.identify(String(user.id), { role: user.role, grade: user.grade, college: user.college });
       })
-      .catch((sessionError: unknown) => {
+      .catch(() => {
         if (cancelled) return;
-        if (sessionError instanceof ApiError && sessionError.status === 401) {
-          void clearSession();
-          return;
-        }
+        // 401 을 세션 종료로 해석하지 않는다. 진짜 만료와 일시 장애(갱신이 403·5xx·타임아웃·
+        // 오프라인으로 실패)의 예외 객체가 완전히 동일해, 반환 채널만으로는 구분할 근거가 없다.
+        // 종료 판정은 SessionExpiryHandler 한 곳에 있고, 확정됐다면 그쪽이 이 catch 보다 먼저
+        // (동기 setState 로) 스토어를 내려둔다 — 여기서는 그 결과만 읽는다.
+        // TODO(후속): 다른 탭이 10초 내 갱신해 'skipped' 로 재시도된 요청이 다시 401 이면
+        // 사이드 채널이 울리지 않아, 서버측 세션 폐기가 일시 장애로 오분류된다.
+        // 스킵 캐시를 무시하고 갱신을 한 번 강제하는 packages/api 변경이 필요하다.
+        if (useAuthStore.getState().status === 'unauthenticated') return;
         if (!hadSession()) return;
         // durationMs 0 — 자동으로 사라지지 않는다. 복구 수단(다시 시도)이 붙은 알림이라
         // 사용자가 처리하거나 닫을 때까지 남는다.
@@ -91,7 +93,7 @@ export function AuthSessionBootstrap() {
     return () => {
       cancelled = true;
     };
-  }, [attempt, client, setSession, clearSession, addToast]);
+  }, [attempt, client, setSession, addToast]);
 
   return null;
 }

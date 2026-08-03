@@ -33,6 +33,9 @@ setStorage({
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
+  // 등록 → null 순서로 비운다 — 소비되지 않은 보류 통지가 다음 테스트의 마운트 시점에
+  // 흘러들면 아무도 발생시키지 않은 세션 종료가 재생된다.
+  registerUnauthorizedHandler(() => {});
   registerUnauthorizedHandler(null);
   pushSpy.mockReset();
   useAuthStore.setState({ status: 'idle', user: null });
@@ -110,6 +113,9 @@ describe('SessionExpiryHandler', () => {
   });
 
   it('동시다발 401 에도 중복 토스트·이동이 발생하지 않는다', () => {
+    // 토스트 개수는 ToastProvider 의 같은 문구 필터에도 1이 나온다 — 중복 가드가 실제로
+    // 받는 부수효과(이동·캐시 비움)의 횟수를 함께 단언해야 회귀를 잡는다.
+    const clearSpy = vi.spyOn(queryClient, 'clear');
     useAuthStore.setState({ status: 'authenticated' });
 
     act(() => {
@@ -119,7 +125,9 @@ describe('SessionExpiryHandler', () => {
     });
 
     expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(screen.getAllByText(/세션이 만료/)).toHaveLength(1);
+    clearSpy.mockRestore();
   });
 
   it('이미 미인증 상태면 아무 동작도 하지 않는다', () => {
@@ -130,6 +138,37 @@ describe('SessionExpiryHandler', () => {
     expect(pushSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
     expect(webLogoutSpy).not.toHaveBeenCalled();
+  });
+
+  // 부팅 중(idle)에 확정된 만료도 상태에는 기록해야 한다 — 버리면 그 사실이 어디에도 남지 않아
+  // 이후 화면이 만료를 모른 채 동작한다.
+  it('부팅 중(idle)에 도착한 종료도 미인증으로 확정한다', () => {
+    useAuthStore.setState({ status: 'idle' });
+
+    act(() => notifyUnauthorized());
+
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+
+  // 익명 방문자는 페이지 로드마다 이 통지를 만든다(익명 방문 → /users/me 401 → 쿠키 없는
+  // refresh 401). 부수효과를 게이트 없이 열면 공개 트래픽 전체에 로그아웃 요청과 캐시 비움이 샌다.
+  it('부팅 중(idle)에는 안내·이동·서버 로그아웃·캐시 비움을 하지 않는다', async () => {
+    const clearSpy = vi.spyOn(queryClient, 'clear');
+    useAuthStore.setState({ status: 'idle' });
+    queryClient.setQueryData(['clubs', 'list'], [{ id: 1 }]);
+
+    act(() => notifyUnauthorized());
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(['clubs', 'list'])).toEqual([{ id: 1 }]);
+    // 서버 로그아웃은 비동기라 "아직 안 왔을 뿐" 과 구분되도록 한 틱 흘려보낸 뒤 단언한다.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(webLogoutSpy).not.toHaveBeenCalled();
+    clearSpy.mockRestore();
   });
 
   // HttpOnly 쿠키(auth_hint 포함)는 JS 로 지울 수 없다 — 서버 로그아웃이 유일한 정리 경로다.
