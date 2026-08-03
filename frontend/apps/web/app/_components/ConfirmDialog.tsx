@@ -63,7 +63,7 @@ export function ConfirmDialog({
             스크린리더에도 닿지 않는다. role="alert" 이 나중에 나타나는 이 문구를 즉시 읽게 한다.
             errorMessage 를 넘기지 않으면 이 노드 자체가 없어 기존 소비처 DOM 은 그대로다. */}
         {errorMessage && (
-          <p role="alert" className="text-sm text-coral">
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
             {errorMessage}
           </p>
         )}
