@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { isOverlayOnlyTraversal, useBackDismiss } from '@/app/_lib/backDismiss';
 
 // jsdom 의 traversal 은 태스크 큐에 실린다(실측 ~3ms · 매크로태스크 2틱). 고정 지연 대신
 // popstate 발화 자체를 기다려야 안정적이다.
@@ -63,8 +63,9 @@ describe('useBackDismiss', () => {
     closeSpy.mockClear();
     // 이전 페이지 센티넬을 아래에 깐다 — 없으면 히스토리를 한 칸 더 먹는 버그(예: back() 이중 호출)가
     // 같은 값의 엔트리에 흡수돼 단언을 통과해 버린다.
-    window.history.replaceState({ marker: 'prev' }, '');
-    window.history.pushState({ marker: 'page' }, '');
+    // URL 도 매번 같은 기준선으로 되돌린다(경로를 바꾸는 테스트가 뒤 테스트에 새지 않게).
+    window.history.replaceState({ marker: 'prev' }, '', '/test-page');
+    window.history.pushState({ marker: 'page' }, '', '/test-page');
   });
 
   afterEach(async () => {
@@ -307,7 +308,11 @@ describe('useBackDismiss', () => {
       useBackDismiss(open, () => setOpen(false));
       return open ? (
         <>
-          <button type="button" onClick={() => window.history.replaceState({}, '', '/clubs?cat=A')}>
+          <button
+            type="button"
+            // 실제 소비처(router.replace)와 같은 모양 — 경로는 그대로 두고 쿼리만 바꾼다.
+            onClick={() => window.history.replaceState({}, '', `${window.location.pathname}?cat=A`)}
+          >
             필터
           </button>
           <button type="button" onClick={() => setOpen(false)}>
@@ -373,6 +378,47 @@ describe('useBackDismiss', () => {
     await pressBack();
 
     expect(closeSpy).toHaveBeenCalledWith('late');
+  });
+
+  // next-view-transitions 는 popstate 마다 전환을 시작하고 pathname/hash 변경 effect 에서만 끝낸다.
+  // URL 이 그대로인 오버레이 닫기에서 전환이 시작되면 끝나지 않아 화면이 스냅샷에 묶이고 4초 뒤
+  // TimeoutError 로 중단된다(실브라우저 실측). 그래서 이 경우에만 전환을 억제한다.
+  it('오버레이만 닫는 뒤로가기는 페이지 전환 억제 신호를 켠다', async () => {
+    render(<Overlay name="a" />);
+    const observed: boolean[] = [];
+    // 모듈 리스너보다 나중에 등록되므로 모듈이 판정을 마친 뒤에 실행된다.
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
+    await pressBack();
+    window.removeEventListener('popstate', probe);
+
+    expect(observed).toEqual([true]);
+    // 같은 태스크가 끝나면 해제돼 이후 내비게이션에 영향을 주지 않는다.
+    expect(isOverlayOnlyTraversal()).toBe(false);
+  });
+
+  it('오버레이를 닫으면서 페이지도 바뀌는 이동은 전환을 억제하지 않는다', async () => {
+    // 이전 페이지(다른 경로) → 현재 페이지 → 오버레이 순으로 쌓고, 두 칸을 한 번에 되돌아간다.
+    window.history.replaceState({ marker: 'prev-page' }, '', '/prev-page');
+    window.history.pushState({ marker: 'page' }, '', '/current-page');
+    render(<Overlay name="a" />);
+
+    const observed: boolean[] = [];
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
+
+    const popped = nextPopState();
+    await act(async () => {
+      window.history.go(-2);
+      await popped;
+    });
+    await settle();
+    window.removeEventListener('popstate', probe);
+
+    // 오버레이는 닫히지만 페이지가 실제로 바뀌었으므로 전환은 정상적으로 돌아야 한다.
+    expect(closeSpy).toHaveBeenCalledWith('a');
+    expect(window.location.pathname).toBe('/prev-page');
+    expect(observed[0]).toBe(false);
   });
 
   it('오버레이를 여러 번 열고 닫아도 popstate 리스너는 추가로 등록되지 않는다', async () => {

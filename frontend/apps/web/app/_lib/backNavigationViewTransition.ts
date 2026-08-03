@@ -3,6 +3,8 @@
 // 무조건 실행하는 웹 크로스페이드가 겹치면 이중 전환으로 보인다(라이브러리에 비활성 옵션 없음).
 // 마커가 있는 동안 시작된 전환은 globals.css 규칙으로 애니메이션 없이 즉시 완료된다.
 
+import { isOverlayOnlyTraversal } from './backDismiss';
+
 const BACK_NAVIGATION_ATTRIBUTE = 'data-back-navigation';
 // popstate 후 전환이 시작되지 않는 예외 상황(해시 전용 이동 등)에서도 마커가 남지 않게 하는 안전장치.
 const FAILSAFE_CLEAR_MS = 2000;
@@ -51,6 +53,27 @@ export function installBackNavigationViewTransitionGuard() {
   // startViewTransition 을 감싸 관찰한다(인자·반환값 그대로 — 동작 변경 없음).
   const originalStartViewTransition = document.startViewTransition.bind(document);
   document.startViewTransition = (callback) => {
+    // 오버레이만 닫는 뒤로가기(URL 동일)에는 전환을 시작하지 않는다.
+    // next-view-transitions 는 popstate 마다 전환을 시작하지만 DOM 업데이트 프라미스를
+    // pathname/hash 변경 effect 에서만 resolve 하므로, 같은 URL 이면 전환이 끝나지 않는다.
+    // 그 결과 화면이 옛 스냅샷에 묶였다가 4초 뒤 TimeoutError(Transition was aborted…)로 중단된다.
+    if (isOverlayOnlyTraversal()) {
+      // 콜백은 그대로 실행해 라이브러리의 "전환 시작됨" 대기를 풀어 준다. 콜백이 돌려주는
+      // 프라미스(라이브러리가 pathname 변경 때 resolve)는 기다리지 않는다 — 그게 멈춤의 원인이다.
+      const update = typeof callback === 'function' ? callback : callback?.update;
+      void Promise.resolve(update?.()).catch(() => undefined);
+      const settled = Promise.resolve();
+      return {
+        ready: settled,
+        finished: settled,
+        updateCallbackDone: settled,
+        // 전역 ViewTransitionTypeSet 생성자에 기대지 않는다(런타임 존재 보장 없음).
+        // 표준 Set 이 같은 형태를 만족하고, 소비처도 이 스텁의 types 를 읽지 않는다.
+        types: new Set<string>(),
+        skipTransition: () => undefined,
+      };
+    }
+
     const transition = originalStartViewTransition(callback);
     if (document.documentElement.hasAttribute(BACK_NAVIGATION_ATTRIBUTE)) {
       // 전환이 마커를 인수 — failsafe 를 취소해 느린 라우트 커밋(>2s)에서도 조기 해제를 막고,

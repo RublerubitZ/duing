@@ -38,6 +38,21 @@ let currentMarkerId: number | null = null;
 // 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
 let currentHref: string | null = null;
 let nativeReplaceState: History['replaceState'] | null = null;
+// 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. View Transition 억제에 쓴다.
+let overlayOnlyTraversal = false;
+
+/**
+ * 지금 처리 중인 popstate 가 오버레이만 닫는(=페이지가 바뀌지 않는) 이동인지 알려준다.
+ *
+ * <p>next-view-transitions 는 popstate 마다 전환을 시작하는데, 그 DOM 업데이트 프라미스를
+ * `useEffect(..., [hash, pathname])` 에서만 resolve 한다. 우리 오버레이 엔트리는 URL 이 같아서
+ * 그 effect 가 재실행되지 않고, 전환이 끝나지 않아 화면이 옛 스냅샷에 묶였다가 브라우저가
+ * "Transition was aborted because of timeout in DOM update" 로 중단시킨다.
+ * 같은 페이지 안의 레이어 닫기에는 페이지 전환이 필요 없으므로 아예 시작하지 않게 한다.
+ */
+export function isOverlayOnlyTraversal(): boolean {
+  return overlayOnlyTraversal;
+}
 
 function readMarker(state: unknown): { token: string | null; id: number | null } {
   if (typeof state !== 'object' || state === null) return { token: null, id: null };
@@ -47,6 +62,15 @@ function readMarker(state: unknown): { token: string | null; id: number | null }
     token: typeof rawToken === 'string' ? rawToken : null,
     id: typeof rawId === 'number' ? rawId : null,
   };
+}
+
+// 떠나온 URL 과 지금 URL 이 같은 페이지인지(쿼리 변화는 같은 페이지로 본다 — 시트 안 필터 동기화).
+function isSamePageAs(previousHref: string | null): boolean {
+  if (previousHref === null) return true;
+  const previous = new URL(previousHref, window.location.href);
+  return (
+    previous.pathname === window.location.pathname && previous.hash === window.location.hash
+  );
 }
 
 // 기존 history.state 를 보존한 채 오버레이 마커만 얹는다(__NA·Next 내부 트리 유실 방지).
@@ -88,6 +112,18 @@ function handlePopState() {
       ? []
       : stack.splice(0);
 
+  // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면, 뒤이어 실행될
+  // next-view-transitions 의 popstate 핸들러가 전환을 시작하지 못하게 막는다(끝나지 않는 전환 방지).
+  // 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가 제때 보인다. 같은 태스크가 끝나면 해제한다.
+  const overlayTraversal = dismissed.length > 0 || isSelfTraversal || canSkip;
+  const stayedOnSamePage = isSamePageAs(leftHref);
+  overlayOnlyTraversal = overlayTraversal && stayedOnSamePage;
+  if (overlayOnlyTraversal) {
+    window.setTimeout(() => {
+      overlayOnlyTraversal = false;
+    }, 0);
+  }
+
   if (dismissed.length > 0) {
     queueMicrotask(() => {
       // 최상단부터 닫는다(LIFO).
@@ -109,8 +145,14 @@ function handlePopState() {
   // 우리 엔트리를 떠났는데 그 사이 URL 이 바뀌어 있었다면(시트 안에서 router.replace 로 필터·쿼리를
   // 갱신한 경우) 그 URL 을 착지한 엔트리에 다시 얹는다. 그러지 않으면 "시트만 닫았을 뿐인데 필터가
   // 초기화되는" 되감기가 생긴다. 소비처가 replace 를 쓴 것은 "뒤로가기 단계로 만들지 말라"는 뜻이다.
-  const overlayTraversal = dismissed.length > 0 || isSelfTraversal;
-  if (overlayTraversal && leftHref !== null && leftHref !== window.location.href) {
+  // 같은 페이지 안(쿼리만 다름)일 때만 되돌린다 — 여러 칸을 건너뛰어 실제로 다른 페이지로 간
+  // 이동에서 복원하면, 착지한 페이지의 엔트리 URL 을 시트가 있던 페이지 주소로 덮어쓴다.
+  if (
+    overlayTraversal &&
+    stayedOnSamePage &&
+    leftHref !== null &&
+    leftHref !== window.location.href
+  ) {
     queueMicrotask(() => {
       // __NA 를 넣지 않는다 — Next 패치가 내부 필드를 복사하면서 라우터의 canonicalUrl 까지
       // 새 URL 로 동기화하게 두어야 useSearchParams 와 주소창이 어긋나지 않는다.
