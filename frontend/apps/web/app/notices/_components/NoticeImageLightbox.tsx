@@ -8,6 +8,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import { useRef } from 'react';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { X } from '@/components/duing/Icon';
 
 export type NoticeImage = { src: string; alt?: string };
@@ -36,6 +37,8 @@ export function NoticeImageLightbox({ image, onClose }: Props) {
   const backdropPointerDown = useRef(false);
 
   const open = image !== null;
+
+  useBackDismiss(open, onClose);
 
   function handleDragEnd(_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
     if (info.offset.y >= SWIPE_CLOSE_THRESHOLD || info.velocity.y >= SWIPE_CLOSE_VELOCITY) {

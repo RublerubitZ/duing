@@ -9,6 +9,7 @@ import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
+import { installBackDismiss } from './_lib/backDismiss';
 import { installBackNavigationViewTransitionGuard } from './_lib/backNavigationViewTransition';
 import { clearLegacyWebAuthArtifacts } from './_lib/legacy-auth-cleanup';
 import { ToastProvider } from './_components/toast/ToastProvider';
@@ -30,6 +31,9 @@ if (typeof navigator !== 'undefined' && 'locks' in navigator) {
 }
 // 뒤로가기(popstate) View Transition 이중 재생 방지 — 함수 내부에서 window 가드하므로 SSR 안전.
 installBackNavigationViewTransitionGuard();
+// 오버레이 뒤로가기 닫기 — 리스너 설치와 이전 문서 잔존 마커 제거를 로드 시점에 끝낸다.
+// 오버레이를 여는 순간까지 미루면, 새 문서에서 잔존 엔트리를 만났을 때 스킵하지 못한다. SSR 안전.
+installBackDismiss();
 
 const apiClient = createApiClient({
   baseUrl: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL, process.env.NODE_ENV),

@@ -9,6 +9,7 @@ import {
   useRecruitmentStatsSummaryQuery,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
@@ -32,6 +33,9 @@ export default function RecruitmentDetailPage({
   const [closeError, setCloseError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // 삭제 확인은 ConfirmDialog(Radix) 라 Dialog 래퍼가 이미 커버한다 — 마감 확인만 수제 오버레이다.
+  useBackDismiss(showCloseConfirm, () => setShowCloseConfirm(false));
 
   const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
