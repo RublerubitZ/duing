@@ -15,8 +15,6 @@ import { globalEventKeys } from './globalEventQueryKeys';
 import { recruitmentQueryKeys } from './recruitmentQueryKeys';
 
 export type CalendarMonthOptions = {
-  from: string;
-  to: string;
   /**
    * 비로그인 시 false 로 호출 — myClubs / clubEvents skip.
    * 401 을 isError 로 잡지 않게 하기 위함.
@@ -107,7 +105,11 @@ export function useCalendarMonthsQuery(
 
   const monthsKey = yearMonths.join(',');
   const ranges = useMemo(
-    () => monthsKey.split(',').map((yearMonth) => ({ yearMonth, ...monthBounds(yearMonth) })),
+    // 빈 배열이면 ''.split(',') 가 [''] 이 되어 Invalid Date 로 만든 엉터리 범위를 요청하게 된다.
+    () =>
+      monthsKey === ''
+        ? []
+        : monthsKey.split(',').map((yearMonth) => ({ yearMonth, ...monthBounds(yearMonth) })),
     [monthsKey],
   );
 
@@ -126,6 +128,9 @@ export function useCalendarMonthsQuery(
     queries: ranges.map((range) => ({
       queryKey: recruitmentQueryKeys.calendar(range.yearMonth),
       queryFn: () => client.recruitments.calendar(range.yearMonth),
+      // 관측자가 그리드·Upcoming 둘 이상이 되면서 staleTime 0 은 마운트마다 재요청이 된다.
+      // 다른 두 도메인과 같은 30초로 맞춘다(모집 마감일은 초 단위로 바뀌지 않는다).
+      staleTime: 30 * 1000,
     })),
   });
 
@@ -149,29 +154,42 @@ export function useCalendarMonthsQuery(
   });
 
   // useQueries 반환 배열은 매 렌더 새 참조라 배열 자체를 의존성으로 두면 병합이 매번 다시 돈다.
-  // 실제로 결과가 바뀐 시점(dataUpdatedAt)만 신호로 삼는다.
-  const dataSignature = [...globalEventQueries, ...recruitmentQueries, ...clubEventQueries]
-    .map((query) => query.dataUpdatedAt)
-    .join('|');
+  // 실제로 결과가 바뀐 시점(dataUpdatedAt)만 신호로 삼되, **무엇을 조회 중인지도 함께** 담는다 —
+  // 여러 달을 병렬로 받으면 캐시 타임스탬프가 같은 ms 로 겹칠 수 있고, 그때 월 목록이 빠져 있으면
+  // 달을 바꿔도 시그니처가 동일해 이전 달 결과가 그대로 남는다.
+  const dataSignature = [
+    monthsKey,
+    myClubs.map((club) => club.clubId).join(','),
+    ...[...globalEventQueries, ...recruitmentQueries, ...clubEventQueries].map(
+      (query) => query.dataUpdatedAt,
+    ),
+  ].join('|');
 
   const events = useMemo<CalEvent[]>(() => {
     const merged: CalEvent[] = [];
+    // 달 경계를 걸친 다일 행사는 두 달 응답에 모두 담긴다. **fan-out 전에** 원본 단위로 먼저 접는다 —
+    // 펼친 뒤에 접으면 두 응답의 기간이 다를 때(그 사이 관리자가 수정) 옛 버전이 만든 뒤쪽 날짜가
+    // 유령으로 남아 같은 셀에 행사가 두 번 그려진다.
+    const globalBaseEvents = new Map<string, CalEvent>();
     for (const query of globalEventQueries) {
       if (!query.data) continue;
-      // 다일 GlobalEvent (예: 박람회 6/9~6/15) 는 시작일~종료일 사이 모든 셀에 노출되어야 한다.
-      // mapper 는 단일 CalEvent 를 반환하므로 여기서 day 단위로 fan-out.
-      // span 은 첫 날에만 set — 그리드가 multi-day pill 을 그릴 때 활용 (선택 사항).
       for (const item of query.data) {
         const baseEvent = mappers.toGlobal(item);
-        const totalSpan = baseEvent.span ?? 1;
-        for (let dayOffset = 0; dayOffset < totalSpan; dayOffset++) {
-          merged.push({
-            ...baseEvent,
-            id: `${baseEvent.id}-d${dayOffset}`,
-            date: addDaysIso(baseEvent.date, dayOffset),
-            span: dayOffset === 0 ? totalSpan : undefined,
-          });
-        }
+        globalBaseEvents.set(baseEvent.id, baseEvent);
+      }
+    }
+    // 다일 GlobalEvent (예: 박람회 6/9~6/15) 는 시작일~종료일 사이 모든 셀에 노출되어야 한다.
+    // mapper 는 단일 CalEvent 를 반환하므로 여기서 day 단위로 fan-out.
+    // span 은 첫 날에만 set — 그리드가 multi-day pill 을 그릴 때 활용 (선택 사항).
+    for (const baseEvent of globalBaseEvents.values()) {
+      const totalSpan = baseEvent.span ?? 1;
+      for (let dayOffset = 0; dayOffset < totalSpan; dayOffset++) {
+        merged.push({
+          ...baseEvent,
+          id: `${baseEvent.id}-d${dayOffset}`,
+          date: addDaysIso(baseEvent.date, dayOffset),
+          span: dayOffset === 0 ? totalSpan : undefined,
+        });
       }
     }
     for (const query of recruitmentQueries) {
