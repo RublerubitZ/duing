@@ -3,6 +3,7 @@ package com.duing.domain.joincode.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
@@ -12,12 +13,15 @@ import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.dto.command.CreateJoinRequestCommand;
 import com.duing.domain.joincode.service.dto.query.JoinCodeCheckQuery;
+import com.duing.domain.joincode.service.dto.query.JoinRequestDetailQuery;
+import com.duing.domain.joincode.service.dto.query.JoinRequestSummaryQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +39,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private final ClubJoinCodeRepository clubJoinCodeRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     private final ClubMemberRepository clubMemberRepository;
+    private final ClubAuthService clubAuthService;
     private final UserRepository userRepository;
     private final JoinCodeRateLimiter joinCodeRateLimiter;
     private final Clock clock;
@@ -92,6 +97,23 @@ public class GeneralJoinRequestService implements JoinRequestService {
             }
             throw new JoinRequestException.DuplicatePendingRequestException();
         }
+    }
+
+    @Override
+    public List<JoinRequestSummaryQuery> getRequests(Long clubId, Long requesterId, JoinRequestStatus status) {
+        clubAuthService.requireManager(requesterId, clubId);
+        return clubJoinRequestRepository.findAllByClubIdAndStatusOrderByIdDesc(clubId, status).stream()
+                .map(JoinRequestSummaryQuery::from)
+                .toList();
+    }
+
+    @Override
+    public JoinRequestDetailQuery getRequest(Long clubId, Long joinRequestId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        // clubId 를 조건에 포함해 타 동아리 요청은 조회 자체가 되지 않게 한다(IDOR 차단, 불일치는 404).
+        return JoinRequestDetailQuery.from(clubJoinRequestRepository
+                .findByIdAndClubId(joinRequestId, clubId)
+                .orElseThrow(JoinRequestException.JoinRequestNotFoundException::new));
     }
 
     /**
