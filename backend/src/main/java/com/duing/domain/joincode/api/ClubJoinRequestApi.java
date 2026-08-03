@@ -20,7 +20,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -66,9 +65,10 @@ public interface ClubJoinRequestApi {
 
     @Operation(summary = "가입 요청 일괄 승인 (LEADER/OFFICER)",
             description = "건별 트랜잭션으로 승인해 한 건이 실패해도 나머지는 그대로 커밋된다. "
+                    + "건별 처리 결과(승인 건수·실패 사유)를 반환해야 하므로 PATCH 204 규약 대신 200 + body 로 응답한다. "
                     + "실패 사유(잔여 인원 부족·이미 처리됨·자동 거절 등)는 failures 배열에 담겨 돌아온다.")
     @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/clubs/{clubId}/join-requests/bulk-approve")
+    @PatchMapping("/clubs/{clubId}/join-requests/bulk-approve")
     ResponseEntity<ApiResponse<BulkApproveJoinRequestsResponse>> bulkApproveJoinRequests(
             @PathVariable Long clubId,
             @Valid @RequestBody BulkApproveJoinRequestsRequest bulkApproveJoinRequestsRequest,

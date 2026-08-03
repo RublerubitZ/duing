@@ -389,7 +389,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         RestAssured.given()
                     .contentType(ContentType.JSON)
                     .body(Map.of("joinRequestIds", List.of(pending.getId())))
-                .when().post("/api/v1/clubs/{clubId}/join-requests/bulk-approve", club.getId())
+                .when().patch("/api/v1/clubs/{clubId}/join-requests/bulk-approve", club.getId())
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
 
         decide(memberToken, club.getId(), pending.getId(), "APPROVED")
@@ -449,7 +449,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                     .contentType(ContentType.JSON)
                     .body(Map.of("joinRequestIds", joinRequestIds))
                 .when()
-                    .post("/api/v1/clubs/{clubId}/join-requests/bulk-approve", targetClubId);
+                    .patch("/api/v1/clubs/{clubId}/join-requests/bulk-approve", targetClubId);
     }
 
     private ClubJoinRequest savePendingRequest(User student) {
