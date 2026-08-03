@@ -445,10 +445,12 @@ body {
       border-radius: 999px;
       margin-top: 7px;
     }
+    /* 도트 아래에서 다음 행 도트까지 잇는다 — 행 패딩(12px)과 다음 도트의 margin-top(7px)을
+       건너뛰어야 행마다 끊긴 대시처럼 보이지 않는다. */
     .cal-upcoming-line {
       position: absolute;
       top: 17px;
-      bottom: -12px;
+      bottom: -32px;
       width: 1px;
       background: var(--gray-line);
     }

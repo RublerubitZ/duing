@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalEvent, EventKind } from '@duing/types';
 
-import { buildUpcoming } from '@/app/calendar/_lib/upcoming';
+import { buildUpcoming, resolveUpcomingEmptyState } from '@/app/calendar/_lib/upcoming';
 import { toUpcomingView } from '@/app/calendar/_lib/upcomingView';
 
 const ALL_KINDS = new Set<EventKind>(['system', 'deadline', 'event']);
@@ -107,6 +107,23 @@ describe('toUpcomingView', () => {
     expect(view.placeLabel).toBe('지원폼 · FLYING');
   });
 
+  it('장소가 비어 있으면 구분점이 앞에 남지 않는다', () => {
+    const view = toUpcomingView(makeEvent({ date: '2026-08-31', place: '', club: 'FLYING' }), today);
+    expect(view.placeLabel).toBe('FLYING');
+  });
+
+  it('장소·동아리가 모두 없으면 빈 문자열이다', () => {
+    const view = toUpcomingView(makeEvent({ date: '2026-08-31', place: '', club: null }), today);
+    expect(view.placeLabel).toBe('');
+  });
+
+  it('월·일을 숫자로도 제공한다 — 소비처가 라벨을 되파싱하지 않게', () => {
+    const view = toUpcomingView(makeEvent({ date: '2026-08-04' }), today);
+    expect(view.monthNumber).toBe(8);
+    expect(view.dayNumber).toBe(4);
+    expect(view.dateLabel).toBe('08.04');
+  });
+
   it('동아리가 없으면 장소만 남긴다', () => {
     const view = toUpcomingView(makeEvent({ date: '2026-08-31', place: '학생회관', club: null }), today);
     expect(view.placeLabel).toBe('학생회관');
@@ -123,5 +140,32 @@ describe('toUpcomingView', () => {
     const view = toUpcomingView(makeEvent({ date: '2026-08-31', kind: 'deadline', time: '23:59' }), today);
     expect(view.kindLabel).toBe('모집 마감');
     expect(view.timeLabel).toBe('23:59');
+  });
+});
+
+describe('resolveUpcomingEmptyState', () => {
+  it('목록이 있으면 문구를 띄우지 않는다', () => {
+    expect(
+      resolveUpcomingEmptyState({ visibleCount: 3, unfilteredCount: 3, isLoading: false }),
+    ).toBe('hidden');
+  });
+
+  it('로딩 중에는 문구를 띄우지 않는다 — 늦게 도착하는 달이 있다', () => {
+    expect(
+      resolveUpcomingEmptyState({ visibleCount: 0, unfilteredCount: 0, isLoading: true }),
+    ).toBe('hidden');
+  });
+
+  it('필터를 켜면 나올 게 있을 때만 필터 안내를 한다', () => {
+    expect(
+      resolveUpcomingEmptyState({ visibleCount: 0, unfilteredCount: 2, isLoading: false }),
+    ).toBe('filtered-out');
+  });
+
+  it('필터를 모두 켜도 0건이면 일정이 없다고 안내한다', () => {
+    // 칩이 일부 꺼져 있어도 원래 0건이면 "필터를 켜면 볼 수 있어요" 는 거짓말이다.
+    expect(
+      resolveUpcomingEmptyState({ visibleCount: 0, unfilteredCount: 0, isLoading: false }),
+    ).toBe('no-events');
   });
 });

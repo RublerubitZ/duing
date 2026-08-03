@@ -6,6 +6,10 @@ import { ACCENT, KIND_LABEL } from './calendarDisplay';
 export type UpcomingView = {
   /** '08.31' */
   dateLabel: string;
+  /** 8 — 소비처가 dateLabel 을 되파싱하지 않도록 숫자를 직접 준다. */
+  monthNumber: number;
+  /** 31 */
+  dayNumber: number;
   /** '월' */
   weekdayLabel: string;
   /** 'D-DAY' | 'D-28' */
@@ -43,12 +47,17 @@ export function toUpcomingView(event: CalEvent, todayIso: string): UpcomingView 
   );
   const span = event.span ?? 1;
 
+  const [, monthPart = '0', dayPart = '0'] = event.date.split('-');
+
   return {
-    dateLabel: event.date.slice(5).replace('-', '.'),
+    dateLabel: `${monthPart}.${dayPart}`,
+    monthNumber: Number(monthPart),
+    dayNumber: Number(dayPart),
     weekdayLabel: WEEKDAY_KR[eventDate.getDay()] ?? '',
     dday: daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`,
     title: event.title,
-    placeLabel: event.club ? `${event.place} · ${event.club}` : event.place,
+    // 장소가 비어 있는 일정이 있어 결합 전에 걸러낸다(안 그러면 ' · 동아리' 처럼 구분점이 앞에 남는다).
+    placeLabel: [event.place, event.club].filter(Boolean).join(' · '),
     periodLabel:
       span >= 2 ? `${shortDate(event.date)} ~ ${shortDate(addDaysIso(event.date, span - 1))}` : null,
     kindLabel: KIND_LABEL[event.kind],

@@ -22,7 +22,7 @@ import {
   toCalEvent_recruitment,
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
-import { buildUpcoming, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
+import { buildUpcoming, resolveUpcomingEmptyState, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
 
 import type { CalEvent, EventKind } from '../_types';
 
@@ -36,6 +36,9 @@ type MonthCell = {
 /* ------------------------------------------------------------------ */
 /* Accent / label                                                       */
 /* ------------------------------------------------------------------ */
+
+// 필터 원인 판정용 — 매 렌더 새 Set 을 만들면 useMemo 가 무의미해진다.
+const ALL_KINDS = new Set(KIND_ORDER);
 
 const KR_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
@@ -175,10 +178,19 @@ export function CalendarPage() {
     () => buildUpcoming(upcomingCalendar.events, todayIso, activeKinds),
     [upcomingCalendar.events, todayIso, activeKinds],
   );
-  // 필터를 모두 끈 경우와 진짜 일정이 없는 경우를 구분해 문구를 다르게 안내한다.
-  const upcomingEmptyByFilter = upcoming.length === 0 && activeKinds.size < KIND_ORDER.length;
-  // 창이 여러 달에 걸쳐 늦게 도착하는 달이 있다 — 로딩 중 0건에 "일정이 없어요" 를 띄우면 안 된다.
-  const showUpcomingEmpty = upcoming.length === 0 && !upcomingCalendar.isLoading;
+  // 필터가 원인인지 판정하려면 "모두 켠 결과" 와 비교해야 한다 — 칩이 일부 꺼졌다는 사실만으로는
+  // 원래 0건인 경우까지 "필터를 켜면 볼 수 있어요" 라는 거짓 안내를 하게 된다.
+  const upcomingUnfiltered = useMemo(
+    () => buildUpcoming(upcomingCalendar.events, todayIso, ALL_KINDS),
+    [upcomingCalendar.events, todayIso],
+  );
+  const upcomingEmptyState = resolveUpcomingEmptyState({
+    visibleCount: upcoming.length,
+    unfilteredCount: upcomingUnfiltered.length,
+    // 동아리 일정 쿼리는 인증이 확정된 뒤에야 시작한다 — meQuery 로딩을 빼면 로그인 사용자에게
+    // "일정이 없어요" 가 잠깐 떴다가 목록으로 바뀐다.
+    isLoading: upcomingCalendar.isLoading || meQuery.isLoading,
+  });
 
   const handlePrevMonth = () => {
     if (viewMonth === 0) {
@@ -224,7 +236,7 @@ export function CalendarPage() {
       )}
 
       {/* ===== 부분 도메인 에러 배너 ===== */}
-      {calendar.isError && (
+      {(calendar.isError || upcomingCalendar.isError) && (
         <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
           일부 일정을 불러오지 못했습니다.
         </div>
@@ -664,9 +676,9 @@ export function CalendarPage() {
           </div>
 
           {upcoming.length === 0 ? (
-            showUpcomingEmpty && (
+            upcomingEmptyState !== 'hidden' && (
               <p style={{ padding: '28px 4px', fontSize: 14, color: 'var(--charcoal-3)' }}>
-                {upcomingEmptyByFilter
+                {upcomingEmptyState === 'filtered-out'
                   ? '필터를 켜면 다가오는 일정을 볼 수 있어요'
                   : '앞으로 한 달간 예정된 일정이 없어요'}
               </p>

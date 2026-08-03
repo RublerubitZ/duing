@@ -37,9 +37,13 @@ describe('UpcomingTimeline', () => {
 
   it('행에 합성된 접근성 이름이 붙는다', () => {
     render(<UpcomingTimeline events={[event]} todayIso="2026-08-03" onSelect={() => undefined} />);
-    // 날짜·요일·제목·장소·D-Day 가 한 문장으로 읽혀야 한다('08.31' 을 그대로 읽히면 "공팔월" 이 된다).
+    // 화면에서 덜어낸 종류(모집 마감)까지 포함해 한 문장으로 읽혀야 한다 —
+    // 시각 사용자용 축약이 스크린리더 사용자에게 정보 소실이 되면 안 된다.
+    // ('08.31' 을 그대로 읽히면 "공팔월" 이 되므로 숫자로 되돌린다.)
     expect(
-      screen.getByRole('button', { name: '8월 31일 월요일, FLYING 모집 마감, 지원폼 · FLYING, D-28' }),
+      screen.getByRole('button', {
+        name: '8월 31일 월요일, 모집 마감, FLYING 모집 마감, 지원폼 · FLYING, D-28',
+      }),
     ).toBeInTheDocument();
   });
 
@@ -56,9 +60,21 @@ describe('UpcomingTimeline', () => {
     expect(screen.queryByText('모집 마감')).toBeNull();
   });
 
-  it('다일 이벤트는 장소 대신 기간을 보여준다', () => {
+  it('다일 이벤트는 화면에 기간을 보여주되, 접근성 이름에는 장소도 함께 담는다', () => {
     const multiDay: CalEvent = { ...event, date: '2026-08-10', span: 3, title: '동아리 박람회' };
     render(<UpcomingTimeline events={[multiDay]} todayIso="2026-08-03" onSelect={() => undefined} />);
+
     expect(screen.getByText('8/10 ~ 8/12')).toBeInTheDocument();
+    const label = screen.getByRole('button').getAttribute('aria-label') ?? '';
+    expect(label).toContain('8/10 ~ 8/12');
+    expect(label).toContain('지원폼 · FLYING');
+  });
+
+  it('장소가 비어 있어도 접근성 이름에 빈 조각이 끼지 않는다', () => {
+    const noPlace: CalEvent = { ...event, place: '', club: null, title: '개강총회' };
+    render(<UpcomingTimeline events={[noPlace]} todayIso="2026-08-03" onSelect={() => undefined} />);
+    expect(screen.getByRole('button').getAttribute('aria-label')).toBe(
+      '8월 31일 월요일, 모집 마감, 개강총회, D-28',
+    );
   });
 });

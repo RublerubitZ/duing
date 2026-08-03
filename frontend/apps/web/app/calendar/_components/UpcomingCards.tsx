@@ -17,7 +17,6 @@ export function UpcomingCards({ events, todayIso }: Props) {
     <div className="cal-upcoming" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
       {events.map((event) => {
         const view = toUpcomingView(event, todayIso);
-        const [monthPart = '', dayPart = ''] = view.dateLabel.split('.');
         return (
           <article key={event.id} style={{
             background: 'var(--paper)', border: '1px solid var(--gray-line)',
@@ -33,9 +32,9 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{Number(monthPart)}월</div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{view.monthNumber}월</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
-                  {Number(dayPart)}
+                  {view.dayNumber}
                 </div>
                 <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.75, marginTop: 2 }}>{view.weekdayLabel}요일</div>
               </div>
