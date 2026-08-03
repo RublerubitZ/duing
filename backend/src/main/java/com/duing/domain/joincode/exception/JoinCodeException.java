@@ -28,6 +28,15 @@ public class JoinCodeException extends ApplicationException {
         }
     }
 
+    /** 승인 시점 잔여 인원 소진 — 코드 행 잠금 하의 원자 차감이 실패한 경우다(스펙 4.3). */
+    public static final class InsufficientRemainingUsesException extends JoinCodeException {
+        private static final String MESSAGE = "잔여 사용 가능 인원이 부족합니다.";
+
+        public InsufficientRemainingUsesException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     public static final class ExternalRecruitmentRequiredException extends JoinCodeException {
         private static final String MESSAGE = "진행 중인 외부 폼 모집이 있을 때만 가입 코드를 생성할 수 있습니다.";
 
