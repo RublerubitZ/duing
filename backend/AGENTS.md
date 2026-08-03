@@ -249,6 +249,9 @@ throw new ClubException.ClubNotFoundException();
 
 ### 6. 전역 응답 / 인증
 
+> 조회 API 에서 "없음"을 `200 + null` · `404` · `403` 중 무엇으로 표현할지는
+> [Nullable API 계약 가이드](../docs/superpowers/specs/2026-08-03-nullable-api-contract-design.md) 를 따른다.
+
 ```java
 // 성공 응답
 return ResponseEntity.ok(ApiResponse.success(result));
