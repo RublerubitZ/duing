@@ -13,6 +13,7 @@ import type { CreateFacilityBookingResult } from '@duing/types';
 import { formatPhone } from '@/app/_components/PhoneInput';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { isApplicationDeadlinePassed, rangeLabel } from '../../_lib/bookingCalendar';
@@ -37,6 +38,7 @@ export function BookingForm({
   facilityId, facilityName, date, range, hasPendingHold, onSubmitted, onBack,
 }: Props) {
   const authStatus = useAuthStore((state) => state.status);
+  const boundedAuthStatus = useBoundedAuthStatus();
   const authUser = useAuthStore((state) => state.user);
   const managedClubsQuery = useManagedClubsQuery({ enabled: authStatus === 'authenticated' });
   const presetsQuery = usePurposePresetsQuery();
@@ -52,6 +54,13 @@ export function BookingForm({
   const [contactPhone, setContactPhone] = useState(() => formatPhone(authUser?.phone ?? ''));
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // 세션 확인 중(idle)에는 로그인 안내를 띄우지 않는다 — 확정 전에 안내하면 로그인한 운영진이
+  // 하드 로드 직후 "로그인 후 이용할 수 있어요" 를 먼저 보게 된다. 상한을 둔 status 를 쓰므로
+  // 확인이 끝나지 않는 장애에서도 이 화면이 로그인 안내로 열려 진입점이 남는다.
+  if (boundedAuthStatus === 'idle') {
+    return <TextLinesSkeleton lines={3} label="로그인 확인 중" />;
+  }
 
   if (authStatus !== 'authenticated') {
     // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
