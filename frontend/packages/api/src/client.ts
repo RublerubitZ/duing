@@ -55,6 +55,15 @@ import type {
   AdminClubMember,
   ClubMemberExportRow,
   ClubMemberPhone,
+  JoinCodeSummary,
+  CreateJoinCodePayload,
+  JoinRequestStatus,
+  JoinRequestSummary,
+  JoinRequestDetail,
+  DecideJoinRequestPayload,
+  JoinRequestDecisionResponse,
+  BulkApproveJoinRequestsPayload,
+  BulkApproveResult,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -402,6 +411,26 @@ export type DuingApiClient = {
     managedByMe(): Promise<ManagedClub[]>;
     // 동아리원 회비 입금 계좌 조회. 미등록 시 404 — 호출부(훅)가 ApiError 로 빈 상태를 판별한다.
     feeAccount(clubId: number): Promise<FeeAccount>;
+  };
+  joinCodes: {
+    createForClub(clubId: number, payload: CreateJoinCodePayload): Promise<JoinCodeSummary>;
+    // 활성 코드가 없으면 200 + data:null 이 정상 응답이라 null 을 그대로 돌려준다.
+    // 만료된 코드도 폐기 전이면 활성으로 내려온다 — 사용 가능 판정은 호출부 몫이다.
+    getActiveForClub(clubId: number): Promise<JoinCodeSummary | null>;
+    revokeForClub(clubId: number, joinCodeId: number): Promise<void>;
+    listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
+    // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
+    getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
+    // 승인 요청이라도 이미 가입된 회원이면 AUTO_REJECTED 로 돌아오므로 204 가 아닌 본문을 읽는다.
+    decideRequest(
+      clubId: number,
+      joinRequestId: number,
+      payload: DecideJoinRequestPayload,
+    ): Promise<JoinRequestDecisionResponse>;
+    bulkApproveRequests(
+      clubId: number,
+      payload: BulkApproveJoinRequestsPayload,
+    ): Promise<BulkApproveResult>;
   };
   files: {
     upload(file: File, purpose: FilePurpose): Promise<FileUploadResult>;
@@ -1161,6 +1190,28 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<ManagedClub[]>(http.get('leader/clubs/me/managed')),
       feeAccount: (clubId) =>
         jsonOk<FeeAccount>(http.get(`clubs/${clubId}/fee-account`)),
+    },
+    joinCodes: {
+      createForClub: (clubId, payload) =>
+        jsonOk<JoinCodeSummary>(http.post(`clubs/${clubId}/join-codes`, { json: payload })),
+      getActiveForClub: (clubId) =>
+        jsonOkNullable<JoinCodeSummary>(http.get(`clubs/${clubId}/join-codes/active`)),
+      revokeForClub: (clubId, joinCodeId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/join-codes/${joinCodeId}`)),
+      listRequests: (clubId, status) =>
+        jsonOk<JoinRequestSummary[]>(
+          http.get(`clubs/${clubId}/join-requests`, { searchParams: { status } }),
+        ),
+      getRequestDetail: (clubId, joinRequestId) =>
+        jsonOk<JoinRequestDetail>(http.get(`clubs/${clubId}/join-requests/${joinRequestId}`)),
+      decideRequest: (clubId, joinRequestId, payload) =>
+        jsonOk<JoinRequestDecisionResponse>(
+          http.patch(`clubs/${clubId}/join-requests/${joinRequestId}`, { json: payload }),
+        ),
+      bulkApproveRequests: (clubId, payload) =>
+        jsonOk<BulkApproveResult>(
+          http.patch(`clubs/${clubId}/join-requests/bulk-approve`, { json: payload }),
+        ),
     },
     files: {
       upload: (file, purpose) => {

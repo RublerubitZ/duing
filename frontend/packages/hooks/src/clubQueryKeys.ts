@@ -1,4 +1,4 @@
-import type { ClubSearchParams } from '@duing/types';
+import type { ClubSearchParams, JoinRequestStatus } from '@duing/types';
 
 export const clubQueryKeys = {
   all: ['clubs'] as const,
@@ -8,5 +8,12 @@ export const clubQueryKeys = {
   heroActivities: (clubId: number) => [...clubQueryKeys.all, clubId, 'hero-activities'] as const,
   recruitments: (clubId: number) => [...clubQueryKeys.all, clubId, 'recruitments'] as const,
   members: (clubId: number) => [...clubQueryKeys.all, clubId, 'members'] as const,
+  joinCode: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-code'] as const,
+  // 상태별 목록·상세를 한 번에 무효화하기 위한 공통 프리픽스 — 처리 한 건이 여러 탭의 목록을 동시에 바꾼다.
+  joinRequestsAll: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-requests'] as const,
+  joinRequests: (clubId: number, status: JoinRequestStatus) =>
+    [...clubQueryKeys.joinRequestsAll(clubId), status] as const,
+  joinRequestDetail: (clubId: number, joinRequestId: number) =>
+    [...clubQueryKeys.joinRequestsAll(clubId), 'detail', joinRequestId] as const,
   managed: () => [...clubQueryKeys.all, 'managed'] as const,
 };
