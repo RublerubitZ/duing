@@ -16,6 +16,12 @@ type Props = {
   description?: string;
   confirmLabel?: string;
   isPending?: boolean;
+  /**
+   * 확인 액션이 실패했을 때의 안내. 넘기면 모달을 닫지 말고 이 값을 채운다 — 소비처가 오류를
+   * 화면 본문에 그리면 모달이 열려 있는 동안 오버레이·aria-hidden 뒤에 갇힌다.
+   * 취소·재시도 시 소비처가 직접 비운다(상태 소유자가 소비처이므로 별도 리셋 콜백은 두지 않는다).
+   */
+  errorMessage?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -30,6 +36,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = '삭제',
   isPending = false,
+  errorMessage = null,
   onConfirm,
   onCancel,
 }: Props) {
@@ -51,6 +58,15 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+
+        {/* 실패는 모달 안에 남긴다 — 바깥에 그리면 오버레이와 aria-hidden 뒤에 갇혀 눈에도
+            스크린리더에도 닿지 않는다. role="alert" 이 나중에 나타나는 이 문구를 즉시 읽게 한다.
+            errorMessage 를 넘기지 않으면 이 노드 자체가 없어 기존 소비처 DOM 은 그대로다. */}
+        {errorMessage && (
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+            {errorMessage}
+          </p>
+        )}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
