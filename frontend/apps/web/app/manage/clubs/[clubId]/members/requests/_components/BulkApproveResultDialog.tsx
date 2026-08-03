@@ -1,6 +1,6 @@
 'use client';
 
-import type { BulkApproveResult, JoinRequestSummary } from '@duing/types';
+import type { BulkApproveResult } from '@duing/types';
 
 import {
   Dialog,
@@ -14,7 +14,8 @@ import {
 type BulkApproveResultDialogProps = {
   result: BulkApproveResult;
   // 실패 사유를 누구 것인지 알아볼 수 있게 이름을 붙인다 — 응답은 id 만 준다.
-  requests: JoinRequestSummary[];
+  // 제출 시점 스냅샷이라 갱신으로 목록에서 빠진 요청도 이름이 남는다.
+  names: ReadonlyMap<number, string>;
   onClose: () => void;
 };
 
@@ -24,16 +25,9 @@ type BulkApproveResultDialogProps = {
  */
 export function BulkApproveResultDialog({
   result,
-  requests,
+  names,
   onClose,
 }: BulkApproveResultDialogProps) {
-  function nameOf(joinRequestId: number): string {
-    return (
-      requests.find((each) => each.joinRequestId === joinRequestId)?.userName ??
-      `요청 ${joinRequestId}`
-    );
-  }
-
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-md">
@@ -50,7 +44,9 @@ export function BulkApproveResultDialog({
               key={failure.joinRequestId}
               className="rounded-md border border-line bg-graysoft/40 px-3 py-2"
             >
-              <p className="text-sm font-medium text-charcoal">{nameOf(failure.joinRequestId)}</p>
+              <p className="text-sm font-medium text-charcoal">
+                {names.get(failure.joinRequestId) ?? `요청 ${failure.joinRequestId}`}
+              </p>
               <p className="text-xs text-coral">{failure.reason}</p>
             </li>
           ))}

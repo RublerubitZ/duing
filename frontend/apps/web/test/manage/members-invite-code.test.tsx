@@ -110,6 +110,41 @@ describe('회원 초대 다이얼로그 — 코드 생성', () => {
     );
   });
 
+  it('생성에 성공하면 활성 코드가 도착하기 전까지 버튼이 다시 열리지 않는다', async () => {
+    let releaseRefetch = () => {};
+    let activeCalls = 0;
+    let postCalls = 0;
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-codes/active`, async () => {
+        activeCalls += 1;
+        // 생성 후 재조회를 붙잡아 "코드는 만들어졌는데 화면은 아직 폼" 인 창을 재현한다.
+        if (activeCalls > 1) {
+          await new Promise<void>((resolve) => {
+            releaseRefetch = resolve;
+          });
+          return json(joinCode());
+        }
+        return json(null);
+      }),
+      http.post(`*/clubs/${CLUB_ID}/join-codes`, () => {
+        postCalls += 1;
+        return HttpResponse.json({ ok: true, message: null, data: joinCode() }, { status: 201 });
+      }),
+    );
+    renderDialog();
+
+    await userEvent.type(await screen.findByRole('spinbutton', { name: '최대 사용 인원' }), '30');
+    const createButton = screen.getByRole('button', { name: '코드 만들기' });
+    await userEvent.click(createButton);
+
+    await waitFor(() => expect(createButton).toBeDisabled());
+    await userEvent.click(createButton);
+    expect(postCalls).toBe(1);
+
+    releaseRefetch();
+    expect(await screen.findByText('ABCD1234')).toBeInTheDocument();
+  });
+
   it('인원이 비어 있으면 생성하지 않고 입력을 안내한다', async () => {
     const postCalls: string[] = [];
     server.use(

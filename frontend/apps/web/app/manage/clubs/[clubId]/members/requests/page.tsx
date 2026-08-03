@@ -40,7 +40,11 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
   const [status, setStatus] = useState<JoinRequestStatus>('PENDING');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [bulkResult, setBulkResult] = useState<BulkApproveResult | null>(null);
+  // 결과와 이름 스냅샷을 한 덩어리로 든다 — 따로 두면 한쪽만 갱신돼 사유와 이름이 어긋난다.
+  const [bulkResult, setBulkResult] = useState<{
+    result: BulkApproveResult;
+    names: ReadonlyMap<number, string>;
+  } | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
   const requestsQuery = useJoinRequestsQuery(clubId, status);
@@ -87,6 +91,13 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
   async function approveSelected() {
     if (visibleSelectedIds.length === 0) return;
     setBulkError(null);
+    // 승인 직후 목록이 갱신되면 실패한 요청(자동 거절·기처리)이 목록에서 빠져 이름을 못 찾는다.
+    // 결과 다이얼로그에 쓸 이름은 제출 시점에 떠 둔다.
+    const namesAtSubmit = new Map(
+      requests
+        .filter((each) => selectedIds.has(each.joinRequestId))
+        .map((each) => [each.joinRequestId, each.userName]),
+    );
     try {
       const result = await bulkApprove.mutateAsync({ joinRequestIds: visibleSelectedIds });
       setSelectedIds(new Set());
@@ -96,7 +107,7 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
         addToast(`${result.approvedCount}건을 승인했습니다.`);
         return;
       }
-      setBulkResult(result);
+      setBulkResult({ result, names: namesAtSubmit });
     } catch (bulkFailure) {
       setBulkError(extractErrorMessage(bulkFailure) ?? '일괄 승인에 실패했어요.');
     }
@@ -218,8 +229,8 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
 
       {bulkResult !== null && (
         <BulkApproveResultDialog
-          result={bulkResult}
-          requests={requests}
+          result={bulkResult.result}
+          names={bulkResult.names}
           onClose={() => setBulkResult(null)}
         />
       )}

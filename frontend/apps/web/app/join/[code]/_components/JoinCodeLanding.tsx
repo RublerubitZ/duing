@@ -74,7 +74,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
         <LandingShell>
           <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
           <p className="mt-2 text-sm text-charcoal-2">
-            동아리에 코드가 아직 유효한지 확인해 주세요.
+            코드가 아직 유효한지 동아리에 확인해 주세요.
           </p>
         </LandingShell>
       );
@@ -127,7 +127,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
     return (
       <LandingShell>
         <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
-        <p className="mt-2 text-sm text-charcoal-2">동아리에 코드가 아직 유효한지 확인해 주세요.</p>
+        <p className="mt-2 text-sm text-charcoal-2">코드가 아직 유효한지 동아리에 확인해 주세요.</p>
       </LandingShell>
     );
   }

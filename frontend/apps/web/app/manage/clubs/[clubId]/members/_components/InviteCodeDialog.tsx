@@ -172,13 +172,15 @@ function CreateCodeForm({ clubId, useGeneration }: { clubId: number; useGenerati
         </p>
       )}
 
+      {/* 성공 후에도 활성 코드 재조회가 도착할 때까지는 폼이 그대로라, 재활성화하면 두 번째 클릭이
+          방금 만든 코드를 폐기하고 새로 만든다(BE 원자 재생성). 성공하면 다시 열지 않는다. */}
       <button
         type="button"
         onClick={submit}
-        disabled={createJoinCode.isPending}
+        disabled={createJoinCode.isPending || createJoinCode.isSuccess}
         className="btn btn-primary btn-sm w-full"
       >
-        {createJoinCode.isPending && <ButtonSpinner />}코드 만들기
+        {(createJoinCode.isPending || createJoinCode.isSuccess) && <ButtonSpinner />}코드 만들기
       </button>
     </div>
   );
@@ -295,15 +297,11 @@ function ActiveCodeCard({
   );
 }
 
+// 배색은 globals.css 의 pill 계열을 그대로 쓴다(pill 기본 = sage-mist/ink, pill-coral = 대비 맞춘 코랄).
+// 작은 배지라 여백만 줄인다 — AdminBookingQueueTable 배지와 같은 조합.
 function Badge({ tone, children }: { tone: 'warn' | 'muted'; children: ReactNode }) {
   return (
-    <span
-      className={
-        tone === 'warn'
-          ? 'rounded-full bg-[#fce2d9] px-2 py-0.5 text-xs font-medium text-[#9a3f23]'
-          : 'rounded-full bg-sage-mist px-2 py-0.5 text-xs font-medium text-ink'
-      }
-    >
+    <span className={tone === 'warn' ? 'pill pill-coral !px-2 !py-0.5' : 'pill !px-2 !py-0.5'}>
       {children}
     </span>
   );

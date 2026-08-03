@@ -199,6 +199,33 @@ describe('가입 요청 페이지 — 일괄 승인', () => {
     expect(bulkBody).toEqual({ joinRequestIds: [1, 2] });
   });
 
+  it('승인 후 목록이 갱신돼 실패 건이 빠져도 결과에는 제출 시점 이름이 남는다', async () => {
+    let remaining = pendingFixture;
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(remaining)),
+      http.patch(`*/clubs/${CLUB_ID}/join-requests/bulk-approve`, () => {
+        // 자동 거절·기처리로 실패한 건도 대기 목록에서는 함께 빠진다.
+        remaining = [];
+        return json({
+          approvedCount: 1,
+          failures: [{ joinRequestId: 2, reason: '이미 처리된 요청입니다.' }],
+        });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: '홍길동 선택' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: '김철수 선택' }));
+    await userEvent.click(screen.getByRole('button', { name: '선택 2건 일괄 승인' }));
+
+    const resultDialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(screen.getByText('대기 중인 가입 요청이 없어요')).toBeInTheDocument(),
+    );
+    expect(within(resultDialog).getByText('김철수')).toBeInTheDocument();
+    expect(within(resultDialog).queryByText('요청 2')).not.toBeInTheDocument();
+  });
+
   it('전부 성공하면 결과 다이얼로그 없이 토스트로 끝낸다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),

@@ -129,13 +129,16 @@ export function useJoinCodeCheckQuery(code: string) {
   });
 }
 
-/** 학생용 가입 요청 생성. 성공하면 확인 결과가 PENDING 으로 바뀌므로 같은 코드의 확인을 무효화한다. */
+/**
+ * 학생용 가입 요청 생성. 성공하면 확인 결과가 PENDING 으로 바뀌므로 같은 코드의 확인을 무효화한다.
+ * 실패(409: 다른 탭에서 이미 요청·방금 소진)도 화면이 서버 상태보다 뒤처졌다는 신호라 같이 무효화한다.
+ */
 export function useCreateJoinRequestMutation(code: string) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => client.joinCodes.createRequest(code),
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCodeCheck(code) });
     },
   });
