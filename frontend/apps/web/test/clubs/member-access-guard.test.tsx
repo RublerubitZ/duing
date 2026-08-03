@@ -7,6 +7,8 @@ import type { MyClubMembership } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, clubMembershipKeys } from '@duing/hooks';
 
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+
 const replaceMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
@@ -38,15 +40,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-let alertSpy: ReturnType<typeof vi.spyOn>;
-
 beforeEach(() => {
   replaceMock.mockClear();
-  alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-});
-
-afterEach(() => {
-  alertSpy.mockRestore();
 });
 
 function seedMembership(response: () => Response) {
@@ -60,9 +55,11 @@ function renderGuard() {
   return render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
-        <MemberAccessGuard clubId={CLUB_ID}>
-          <p>회원 전용 콘텐츠</p>
-        </MemberAccessGuard>
+        <ToastProvider>
+          <MemberAccessGuard clubId={CLUB_ID}>
+            <p>회원 전용 콘텐츠</p>
+          </MemberAccessGuard>
+        </ToastProvider>
       </ApiClientProvider>
     </QueryClientProvider>,
   );
@@ -76,7 +73,7 @@ describe('MemberAccessGuard', () => {
 
     expect(await screen.findByText('회원 전용 콘텐츠')).toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('비멤버(200 + data:null)는 안내 후 동아리 소개 페이지로 이동한다', async () => {
@@ -85,7 +82,7 @@ describe('MemberAccessGuard', () => {
     renderGuard();
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
-    expect(alertSpy).toHaveBeenCalledWith(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       '회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.',
     );
     expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
@@ -102,7 +99,7 @@ describe('MemberAccessGuard', () => {
     renderGuard();
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
-    expect(alertSpy).toHaveBeenCalledWith(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       '운영 종료된 동아리입니다. 동아리 소개 페이지로 이동합니다.',
     );
   });
@@ -113,7 +110,7 @@ describe('MemberAccessGuard', () => {
     renderGuard();
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
-    expect(alertSpy).toHaveBeenCalledWith(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       '회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.',
     );
   });
@@ -128,7 +125,7 @@ describe('MemberAccessGuard', () => {
     expect(await screen.findByText(/권한 정보를 불러오지 못했습니다/, {}, { timeout: 5000 }))
       .toBeInTheDocument();
     expect(replaceMock).not.toHaveBeenCalled();
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
   });
 
@@ -162,15 +159,17 @@ describe('MemberAccessGuard', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <ApiClientProvider client={apiClient}>
-          <MemberAccessGuard clubId={CLUB_ID}>
-            <p>회원 전용 콘텐츠</p>
-          </MemberAccessGuard>
+          <ToastProvider>
+            <MemberAccessGuard clubId={CLUB_ID}>
+              <p>회원 전용 콘텐츠</p>
+            </MemberAccessGuard>
+          </ToastProvider>
         </ApiClientProvider>
       </QueryClientProvider>,
     );
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
-    expect(alertSpy).toHaveBeenCalledWith(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       '운영 종료된 동아리입니다. 동아리 소개 페이지로 이동합니다.',
     );
     expect(screen.queryByText('회원 전용 콘텐츠')).not.toBeInTheDocument();
