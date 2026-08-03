@@ -264,7 +264,6 @@ export default function RecruitmentDetailPage({
             삭제
           </button>
         )}
-
       </div>
 
       <ConfirmDialog

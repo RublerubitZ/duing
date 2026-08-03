@@ -313,7 +313,11 @@ export function MemberBulkToolbar({
             />
             <span className="text-sm text-charcoal-2">기</span>
           </div>
-          {generationError && <p className="text-xs text-rose-600">{generationError}</p>}
+          {generationError && (
+            <p role="alert" className="text-xs text-rose-600">
+              {generationError}
+            </p>
+          )}
 
           <DialogFooter>
             <button
