@@ -1,11 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDaysIso, useCalendarMonthQuery, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
+import {
+  addDaysIso,
+  monthsInRange,
+  useCalendarMonthQuery,
+  useCalendarMonthsQuery,
+  useManagedClubsQuery,
+  useMeQuery,
+} from '@duing/hooks';
 
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
+import { Icon } from '../_components/CalendarIcons';
+import { UpcomingCards } from '../_components/UpcomingCards';
 import {
   toCalEvent_clubEvent,
   toCalEvent_global,
@@ -13,6 +22,7 @@ import {
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
 import { monthRange } from '../_lib/monthRange';
+import { buildUpcoming, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
 
 import type { CalEvent, EventKind } from '../_types';
 
@@ -67,66 +77,6 @@ const buildMonth = (year: number, monthIndex: number): MonthCell[] => {
     cells.push({ iso: fmt(year2, month, day), d: day, inMonth, dow: i % 7 });
   }
   return cells;
-};
-
-/**
- * 다일 이벤트 기간 표기 — "6/5 ~ 6/10".
- * Upcoming 카드의 다일 이벤트(`span >= 2`)에서만 사용.
- */
-const formatPeriod = (startIso: string, span: number): string => {
-  const endIso = addDaysIso(startIso, span - 1);
-  const shortDate = (iso: string): string => {
-    const parts = iso.split('-').map(Number);
-    return `${parts[1] ?? 0}/${parts[2] ?? 0}`;
-  };
-  return `${shortDate(startIso)} ~ ${shortDate(endIso)}`;
-};
-
-/* ------------------------------------------------------------------ */
-/* Icons                                                                */
-/* ------------------------------------------------------------------ */
-
-function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
-    </svg>
-  );
-}
-
-function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </svg>
-  );
-}
-
-function IconPin(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function IconPlus(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-const Icon = {
-  arrowLeft: IconArrowLeft,
-  arrowRight: IconArrowRight,
-  pin: IconPin,
-  plus: IconPlus,
 };
 
 /* ------------------------------------------------------------------ */
@@ -213,24 +163,25 @@ export function CalendarPage() {
     (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
   );
 
-  // Upcoming 은 fan-out 된 day entry 가 아닌 "원본 이벤트 단위" 로 표시해야 함.
-  // GlobalEvent 의 다일 fan-out (id: g-1-d0, g-1-d1, ...) 이 6 번 노출되는 걸 막기 위해
-  // sourceType+sourceId 기준 dedupe + 가장 빠른 날짜 (= startAt) entry 선택.
-  // 첫 날 entry 는 span 도 set 되어 있어 카드에서 기간 표시에 활용 가능.
-  const upcoming = useMemo(() => {
-    const originals = new Map<string, CalEvent>();
-    for (const event of filteredEvents) {
-      if (event.date < todayIso) continue;
-      const key = `${event.sourceType}-${event.sourceId}`;
-      const existing = originals.get(key);
-      if (!existing || event.date < existing.date) {
-        originals.set(key, event);
-      }
-    }
-    return Array.from(originals.values())
-      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-      .slice(0, 6);
-  }, [filteredEvents, todayIso]);
+  // Upcoming 은 보고 있는 달과 무관하게 "오늘부터 30일" 을 본다(달을 넘겨도 목록이 그대로다).
+  // 창이 걸치는 달은 1~3개 — 2월이 짧아 1월 말에는 3월까지 들어간다. 쿼리 키가 월 단위라
+  // 이번 달을 보고 있는 동안 겹치는 달은 캐시 히트로 추가 요청이 없다.
+  const upcomingMonths = useMemo(
+    () => monthsInRange(todayIso, addDaysIso(todayIso, UPCOMING_WINDOW_DAYS)),
+    [todayIso],
+  );
+  const upcomingCalendar = useCalendarMonthsQuery(upcomingMonths, {
+    isAuthenticated,
+    mappers: calendarMappers,
+  });
+  const upcoming = useMemo(
+    () => buildUpcoming(upcomingCalendar.events, todayIso, activeKinds),
+    [upcomingCalendar.events, todayIso, activeKinds],
+  );
+  // 필터를 모두 끈 경우와 진짜 일정이 없는 경우를 구분해 문구를 다르게 안내한다.
+  const upcomingEmptyByFilter = upcoming.length === 0 && activeKinds.size < KIND_ORDER.length;
+  // 창이 여러 달에 걸쳐 늦게 도착하는 달이 있다 — 로딩 중 0건에 "일정이 없어요" 를 띄우면 안 된다.
+  const showUpcomingEmpty = upcoming.length === 0 && !upcomingCalendar.isLoading;
 
   const handlePrevMonth = () => {
     if (viewMonth === 0) {
@@ -710,99 +661,22 @@ export function CalendarPage() {
                 UPCOMING · 다가오는 일정
               </div>
               <h2 style={{ fontSize: 28, lineHeight: 1.1 }}>
-                이번 주, 놓치면 아쉬워요
+                앞으로 한 달, 놓치면 아쉬워요
               </h2>
             </div>
           </div>
 
-          <div className="cal-upcoming" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-            {upcoming.map((event) => {
-              const accent = ACCENT[event.accent];
-              const dleft = (() => {
-                const evParts = event.date.split('-').map(Number);
-                const todayParts = todayIso.split('-').map(Number);
-                const year = evParts[0] ?? 0, month = evParts[1] ?? 1, day = evParts[2] ?? 1;
-                const todayYear = todayParts[0] ?? 0, todayMonth = todayParts[1] ?? 1, todayDay = todayParts[2] ?? 1;
-                const diff = Math.round((new Date(year, month - 1, day).getTime() - new Date(todayYear, todayMonth - 1, todayDay).getTime()) / 86400000);
-                return diff === 0 ? 'D-DAY' : `D-${diff}`;
-              })();
-              return (
-                <article key={event.id} style={{
-                  background: 'var(--paper)', border: '1px solid var(--gray-line)',
-                  borderRadius: 20, padding: '20px 22px',
-                  position: 'relative', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column', gap: 14,
-                }}>
-                  {/* Top: date block + Dday */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                    <div style={{
-                      width: 64, height: 70, borderRadius: 14,
-                      background: accent.bg, color: accent.fg,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{parseInt(event.date.split('-')[1] ?? '0', 10)}월</div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
-                        {parseInt(event.date.slice(8), 10)}
-                      </div>
-                      <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.75, marginTop: 2 }}>{dayOfWeekKR(event.date)}요일</div>
-                    </div>
-                    <span style={{
-                      padding: '5px 10px', borderRadius: 999,
-                      background: dleft === 'D-DAY' ? 'var(--ink)' : 'var(--gray-soft)',
-                      color: dleft === 'D-DAY' ? '#fff' : 'var(--charcoal-2)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
-                    }}>{dleft}</span>
-                  </div>
-
-                  {/* Body */}
-                  <div>
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '2px 8px', borderRadius: 999,
-                      background: accent.bg, color: accent.fg,
-                      fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
-                      marginBottom: 8,
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: 999, background: accent.dot }} />
-                      {KIND_LABEL[event.kind]}
-                    </div>
-                    <h3 style={{ fontSize: 17, fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--ink-deep)', lineHeight: 1.3, marginBottom: 6 }}>
-                      {event.title}
-                    </h3>
-                    {event.span !== undefined && event.span > 1 && (
-                      <p style={{
-                        fontSize: 12, color: 'var(--charcoal-3)',
-                        fontFamily: 'var(--font-mono)', marginBottom: 6,
-                      }}>
-                        {formatPeriod(event.date, event.span)}
-                      </p>
-                    )}
-                    <p style={{ fontSize: 12.5, color: 'var(--charcoal-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Icon.pin style={{ width: 12, height: 12 }} /> {event.place}
-                      {event.club && <><span style={{ margin: '0 4px' }}>·</span><span>{event.club}</span></>}
-                    </p>
-                  </div>
-
-                  {/* Footer */}
-                  <div style={{
-                    paddingTop: 12,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    fontSize: 12, color: 'var(--charcoal-3)',
-                  }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{event.time}</span>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      color: 'var(--ink)', fontWeight: 700,
-                    }}>
-                      자세히 <Icon.arrowRight style={{ width: 12, height: 12 }} />
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          {upcoming.length === 0 ? (
+            showUpcomingEmpty && (
+              <p style={{ padding: '28px 4px', fontSize: 14, color: 'var(--charcoal-3)' }}>
+                {upcomingEmptyByFilter
+                  ? '필터를 켜면 다가오는 일정을 볼 수 있어요'
+                  : '앞으로 한 달간 예정된 일정이 없어요'}
+              </p>
+            )
+          ) : (
+            <UpcomingCards events={upcoming} todayIso={todayIso} />
+          )}
         </div>
       </section>
 
