@@ -39,7 +39,6 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
       await closeRecruitment.mutateAsync();
       setShowCloseConfirm(false);
     } catch (closeFailure) {
-      setShowCloseConfirm(false);
       setCloseError(closeFailure instanceof Error ? closeFailure.message : '마감 처리에 실패했습니다.');
     }
   }
@@ -98,14 +97,13 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
         </span>
       </div>
 
-      {closeError && <p className="mt-3 text-sm text-coral">{closeError}</p>}
-
       <ConfirmDialog
         open={showCloseConfirm}
         title="모집을 마감할까요?"
         description="마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다."
         confirmLabel="마감"
         isPending={closeRecruitment.isPending}
+        errorMessage={closeError}
         onConfirm={handleClose}
         onCancel={() => {
           setShowCloseConfirm(false);

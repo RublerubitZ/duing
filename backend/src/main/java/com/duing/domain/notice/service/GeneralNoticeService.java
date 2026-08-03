@@ -124,13 +124,18 @@ public class GeneralNoticeService implements NoticeService {
 
     @Override
     public Notice getVisible(Long noticeId, ViewerScope viewer) {
-        Notice found = noticeRepository.findById(noticeId)
-                .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        // 관리자는 가시성 조건과 무관하게 모든 공지를 열람한다.
+        if (viewer.isAdmin()) {
+            return noticeRepository.findById(noticeId)
+                    .orElseThrow(NoticeException.NoticeNotFoundException::new);
+        }
+        // 그 외에는 "없는 공지"와 "볼 수 없는 공지"를 구분해 주지 않고 둘 다 404 로 수렴시킨다.
+        // 이 메서드의 공개 호출처(GET /notices/{noticeId})는 비로그인도 호출할 수 있어, 404/403 이
+        // 갈리면 id 를 훑는 것만으로 비공개 공지의 존재·개수·id 범위를 알아낼 수 있다.
+        // (같은 이유로 이미 열거 방지를 적용한 전례: GeneralFederationInquiryService 첨부 다운로드,
+        //  GeneralApplicationService 의 일괄 상태 변경 실패 사유 통일)
         return noticeRepository.findVisibleById(noticeId, viewer)
-                .orElseGet(() -> {
-                    if (viewer.isAdmin()) return found;
-                    throw new NoticeException.NoticeAccessDeniedException();
-                });
+                .orElseThrow(NoticeException.NoticeNotFoundException::new);
     }
 
     @Override

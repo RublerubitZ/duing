@@ -14,6 +14,7 @@ import type { BankTransaction, MatchCandidate } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 
@@ -258,6 +259,7 @@ function IgnoreTransactionConfirm({
   mutation,
   onClose,
 }: IgnoreTransactionConfirmProps) {
+  useBackDismiss(true, onClose);
   const { addToast } = useToast();
 
   const confirmIgnore = () => {
@@ -318,6 +320,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
   const unmatchTransaction = useUnmatchTransactionMutation(clubId);
   const { addToast } = useToast();
   const [isUnmatchOpen, setUnmatchOpen] = useState(false);
+  useBackDismiss(isUnmatchOpen, () => setUnmatchOpen(false));
 
   const hasCounterparty = Boolean(transaction.counterparty);
   const isMismatch = hasNameMismatch(transaction.counterparty, transaction.matchedMemberName);

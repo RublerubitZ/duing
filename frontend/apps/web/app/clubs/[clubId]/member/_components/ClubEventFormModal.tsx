@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createClubEventSchema } from '@duing/schemas';
 import type { CreateClubEventInput } from '@duing/schemas';
 import { useCreateClubEventMutation, useUpdateClubEventMutation } from '@duing/hooks';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
@@ -20,6 +21,7 @@ type Props =
     });
 
 export function ClubEventFormModal(props: Props) {
+  useBackDismiss(true, props.onClose);
   const overlayRef = useRef<HTMLDivElement>(null);
   const createMutation = useCreateClubEventMutation(props.clubId);
   const updateMutation = useUpdateClubEventMutation(props.clubId);

@@ -16,13 +16,13 @@ const CLUB_ID = 1;
 const SOURCE_ID = 9;
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-function sourceRecruitmentHandler() {
+function sourceRecruitmentHandler(ownerClubId: number = CLUB_ID) {
   return http.get(`*/recruitments/${SOURCE_ID}`, () =>
     HttpResponse.json({
       ok: true,
       message: null,
       data: {
-        id: SOURCE_ID, clubId: CLUB_ID, clubName: '두잉', title: '9기 신입 모집',
+        id: SOURCE_ID, clubId: ownerClubId, clubName: '두잉', title: '9기 신입 모집',
         startDate: '2025-09-10', endDate: '2025-09-24', capacity: 18,
         status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
         applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER',
@@ -92,5 +92,15 @@ describe('NewRecruitmentPage — 양식 복제', () => {
       'href',
       '/manage/clubs/1/recruitments/9',
     );
+  });
+
+  it('cloneFrom 이 타 동아리 모집이면 시드하지 않고 빈 신규 작성 폼으로 떨어진다', async () => {
+    server.use(sourceRecruitmentHandler(999));
+    renderPage({ cloneFrom: String(SOURCE_ID) });
+
+    expect(await screen.findByText('신규 모집 작성')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+    expect(screen.queryByText(/원본 모집은 변경되지 않으며/)).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('지원 동기를 알려주세요')).not.toBeInTheDocument();
   });
 });

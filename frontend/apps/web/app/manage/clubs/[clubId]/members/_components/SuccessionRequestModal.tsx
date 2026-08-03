@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 
 type Props = {
   clubId: number;
@@ -24,6 +25,7 @@ type Props = {
 };
 
 export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
+  const { addToast } = useToast();
   const submitSuccession = useSubmitSuccessionRequestMutation(clubId);
 
   const {
@@ -41,7 +43,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
     submitSuccession.mutate(formData, {
       onSuccess: () => {
         onClose();
-        alert('승계 요청이 접수되었습니다. 총동연 검토 후 처리됩니다.');
+        addToast('승계 요청이 접수되었습니다. 총동연 검토 후 처리됩니다.');
       },
     });
   };

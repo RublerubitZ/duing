@@ -15,6 +15,7 @@ import { feeAccountSchema } from '@duing/schemas';
 import type { FeeAccountInput } from '@duing/schemas';
 import { BANKS } from '@duing/types';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { bankLabel } from '@/app/_lib/feeLabels';
@@ -232,6 +233,7 @@ function DeleteFeeAccountConfirm({
   onClose,
   onDeleted,
 }: DeleteFeeAccountConfirmProps) {
+  useBackDismiss(true, onClose);
   const deleteAccount = useDeleteFeeAccountMutation(clubId);
   const { addToast } = useToast();
 

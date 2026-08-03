@@ -22,7 +22,6 @@ import { X } from '@/components/duing/Icon';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { RemoveMemberDialog } from './RemoveMemberDialog';
 import { formatMembershipDuration } from '../_lib/membershipDuration';
 
 type MemberDetailPanelProps = {
@@ -371,39 +370,48 @@ function ManagementSection({
 
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 역할 변경 확인 대상. 네이티브 confirm 은 임베디드 브라우저에서 막히거나 throw 해
+  // 확인 없이 통과하거나 뒤 코드가 죽는다 — 파일의 다른 확인 흐름과 같은 모달로 통일한다.
+  const [pendingRole, setPendingRole] = useState<'OFFICER' | 'MEMBER' | null>(null);
+  // 이 섹션의 오류 생산자는 전부 확인 모달 흐름이라, 오류도 열려 있는 모달 안에서 보여준다.
+  // 본문에 그리면 모달이 열려 있는 동안 오버레이·aria-hidden 뒤에 갇힌다.
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
-  async function changeRole(nextRole: 'OFFICER' | 'MEMBER') {
-    const verb =
-      nextRole === 'OFFICER'
-        ? `${clubMemberRoleLabel('OFFICER')}으로 승급`
-        : `${clubMemberRoleLabel('MEMBER')}으로 강등`;
-    if (!window.confirm(`${member.name} 님을 ${verb}할까요?`)) return;
-    setError(null);
+  function roleChangeVerb(nextRole: 'OFFICER' | 'MEMBER') {
+    return nextRole === 'OFFICER'
+      ? `${clubMemberRoleLabel('OFFICER')}으로 승급`
+      : `${clubMemberRoleLabel('MEMBER')}으로 강등`;
+  }
+
+  async function confirmRoleChange() {
+    if (pendingRole === null) return;
+    setDialogError(null);
     try {
-      await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: nextRole } });
+      await updateRole.mutateAsync({ memberId: member.memberId, payload: { role: pendingRole } });
+      setPendingRole(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '역할 변경 실패');
+      // 실패하면 닫지 않는다 — 맥락을 유지해 같은 자리에서 재시도할 수 있게 한다.
+      setDialogError(err instanceof Error ? err.message : '역할 변경 실패');
     }
   }
 
   async function doRemove() {
-    setError(null);
+    setDialogError(null);
     try {
       await removeMember.mutateAsync(member.memberId);
       setShowRemoveDialog(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '탈퇴 처리 실패');
+      setDialogError(err instanceof Error ? err.message : '탈퇴 처리 실패');
     }
   }
 
   async function confirmLeave() {
-    setError(null);
+    setDialogError(null);
     try {
       await leaveClub.mutateAsync();
       setShowLeaveConfirm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '탈퇴 실패');
+      setDialogError(err instanceof Error ? err.message : '탈퇴 실패');
     }
   }
 
@@ -424,15 +432,18 @@ function ManagementSection({
             >
               탈퇴
             </button>
-            {error && <p className="mt-2 text-xs text-coral">{error}</p>}
             <ConfirmDialog
               open={showLeaveConfirm}
               title="동아리를 탈퇴할까요?"
               description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
               confirmLabel="탈퇴"
               isPending={leaveClub.isPending}
+              errorMessage={dialogError}
               onConfirm={confirmLeave}
-              onCancel={() => setShowLeaveConfirm(false)}
+              onCancel={() => {
+                setShowLeaveConfirm(false);
+                setDialogError(null);
+              }}
             />
           </div>
         )}
@@ -462,7 +473,7 @@ function ManagementSection({
         {!isSelf && member.role === 'OFFICER' && (
           <button
             type="button"
-            onClick={() => changeRole('MEMBER')}
+            onClick={() => setPendingRole('MEMBER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
             {clubMemberRoleLabel('MEMBER')}으로 강등
@@ -471,11 +482,25 @@ function ManagementSection({
         {!isSelf && member.role === 'MEMBER' && (
           <button
             type="button"
-            onClick={() => changeRole('OFFICER')}
+            onClick={() => setPendingRole('OFFICER')}
             className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
           >
             {clubMemberRoleLabel('OFFICER')}으로 승급
           </button>
+        )}
+        {pendingRole !== null && (
+          <ConfirmDialog
+            open
+            title={`${member.name} 님을 ${roleChangeVerb(pendingRole)}할까요?`}
+            confirmLabel={pendingRole === 'OFFICER' ? '승급' : '강등'}
+            isPending={updateRole.isPending}
+            errorMessage={dialogError}
+            onConfirm={confirmRoleChange}
+            onCancel={() => {
+              setPendingRole(null);
+              setDialogError(null);
+            }}
+          />
         )}
 
         {!isSelf && !isLeaderRow && (
@@ -498,14 +523,24 @@ function ManagementSection({
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs text-coral">{error}</p>}
-
       {showRemoveDialog && (
-        <RemoveMemberDialog
-          targetName={member.name}
+        <ConfirmDialog
+          open
+          title="회원 탈퇴"
+          description={
+            <>
+              <span className="font-medium text-charcoal-2">{member.name}</span> 님을 동아리에서
+              탈퇴 처리할까요? 되돌릴 수 없으며, 진행 중인 지원서는 그대로 유지됩니다.
+            </>
+          }
+          confirmLabel="탈퇴"
           isPending={removeMember.isPending}
+          errorMessage={dialogError}
           onConfirm={doRemove}
-          onCancel={() => setShowRemoveDialog(false)}
+          onCancel={() => {
+            setShowRemoveDialog(false);
+            setDialogError(null);
+          }}
         />
       )}
     </section>

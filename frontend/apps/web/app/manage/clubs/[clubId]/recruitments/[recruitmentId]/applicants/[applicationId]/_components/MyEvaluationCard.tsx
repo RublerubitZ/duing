@@ -18,6 +18,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
   const [score, setScore] = useState<number>(myEvaluation?.score ?? 3);
   const [memo, setMemo] = useState(myEvaluation?.memo ?? '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const upsertMutation = useUpsertMyApplicationEvaluationMutation();
   const deleteMutation = useDeleteMyApplicationEvaluationMutation();
@@ -31,11 +32,17 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
   };
 
   const confirmDelete = async () => {
-    await deleteMutation.mutateAsync(applicationId);
-    setShowDeleteConfirm(false);
-    setScore(3);
-    setMemo('');
-    setIsEditing(true);
+    setDeleteError(null);
+    try {
+      await deleteMutation.mutateAsync(applicationId);
+      setShowDeleteConfirm(false);
+      setScore(3);
+      setMemo('');
+      setIsEditing(true);
+    } catch (error) {
+      // 실패해도 닫지 않고 모달 안에서 안내한다(공통 규칙). 잡지 않으면 unhandled rejection 이 된다.
+      setDeleteError(error instanceof Error ? error.message : '평가 삭제에 실패했습니다.');
+    }
   };
 
   if (!isEditing && myEvaluation) {
@@ -70,8 +77,12 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
           title="내 평가를 삭제할까요?"
           description="삭제하면 작성한 점수와 메모가 사라집니다."
           isPending={deleteMutation.isPending}
+          errorMessage={deleteError}
           onConfirm={confirmDelete}
-          onCancel={() => setShowDeleteConfirm(false)}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setDeleteError(null);
+          }}
         />
       </section>
     );

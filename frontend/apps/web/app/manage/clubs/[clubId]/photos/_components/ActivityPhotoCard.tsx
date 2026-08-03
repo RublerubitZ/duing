@@ -37,7 +37,7 @@ type Props = {
 
 /**
  * 전체 활동 사진 카드. 정사각 이미지 + hover(모바일 상시) 오버레이 액션(대표로 지정·캡션·삭제) +
- * ⠿ 드래그 핸들(listeners 는 핸들에만). 캡션=소형 Dialog, 삭제=ConfirmDialog(참조 중 409 인라인).
+ * ⠿ 드래그 핸들(listeners 는 핸들에만). 캡션=소형 Dialog, 삭제=ConfirmDialog(실패는 모달 안에서 안내).
  */
 export function ActivityPhotoCard({
   clubId,
@@ -62,7 +62,7 @@ export function ActivityPhotoCard({
 
   const [captionOpen, setCaptionOpen] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(photo.caption ?? '');
-  // 캡션 에러는 다이얼로그 내부 채널 — 카드의 삭제(409) 안내와 분리(편집 열기가 삭제 안내를 지우지 않게).
+  // 캡션 에러는 캡션 다이얼로그 전용 채널 — 삭제 확인 모달의 오류와 섞이지 않게 분리.
   const [captionError, setCaptionError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -100,8 +100,8 @@ export function ActivityPhotoCard({
       await deletePhoto.mutateAsync(photo.id);
       setConfirmOpen(false);
     } catch (err) {
-      // 참조 중(409) 등 실패는 다이얼로그를 닫고 카드에 인라인으로 안내(모달 뒤 가림 방지).
-      setConfirmOpen(false);
+      // 참조 중(409) 등 실패는 모달을 열어둔 채 모달 안에서 안내한다 (공통 규칙).
+      // 카드에 그리면 모달 오버레이와 aria-hidden 뒤에 갇혀 사용자에게 닿지 않는다.
       setDeleteError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     }
   }
@@ -177,8 +177,6 @@ export function ActivityPhotoCard({
         </button>
       </div>
 
-      {deleteError && <p className="mt-1 text-[11.5px] leading-snug text-coral">{deleteError}</p>}
-
       <Dialog
         open={captionOpen}
         onOpenChange={(next) => {
@@ -228,8 +226,12 @@ export function ActivityPhotoCard({
         title="이 사진을 삭제할까요?"
         description="삭제한 사진은 복구할 수 없습니다."
         isPending={deletePhoto.isPending}
+        errorMessage={deleteError}
         onConfirm={runDelete}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setDeleteError(null);
+        }}
       />
     </div>
   );

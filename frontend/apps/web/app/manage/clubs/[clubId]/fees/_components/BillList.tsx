@@ -10,6 +10,7 @@ import {
 } from '@duing/hooks';
 import type { BillSearchParams, ClubMember, FeeBill, FeeStatus } from '@duing/types';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
@@ -401,6 +402,7 @@ type CancelBillConfirmProps = {
 };
 
 function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConfirmProps) {
+  useBackDismiss(true, onClose);
   const cancelBill = useCancelBillMutation(clubId);
   const { addToast } = useToast();
 

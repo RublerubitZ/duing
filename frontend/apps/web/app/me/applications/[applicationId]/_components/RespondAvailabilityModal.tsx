@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@duing/api';
 import { useRespondAvailabilityMutation } from '@duing/hooks';
 import type { ApplicantInterviewSelectableSlot } from '@duing/types';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { SlotPickerByDateGroup } from '@/components/interview/SlotPickerByDateGroup';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
@@ -43,6 +44,8 @@ export function RespondAvailabilityModal({
 
   const respondMutation = useRespondAvailabilityMutation(applicationId);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useBackDismiss(isOpen, onClose);
 
   // 모달이 열릴 때마다 상태 초기화.
   useEffect(() => {

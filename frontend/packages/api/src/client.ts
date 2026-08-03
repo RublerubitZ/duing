@@ -237,6 +237,13 @@ export class ApiError extends Error {
 export const TIMEOUT_ERROR_MESSAGE = '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
 export const NETWORK_ERROR_MESSAGE = '인터넷 연결을 확인해주세요.';
 
+/**
+ * 서버가 ApiResponse 본문을 주지 못했을 때(프록시 HTML 응답·본문 파싱 실패) 합성하는 폴백 문구.
+ * 항상 truthy 라 `error.message ?? 기본문구` 로는 걸러지지 않으므로, 서버가 내려준 사용자 대면 사유와
+ * 이 합성 문구를 구분해야 하는 호출처(MemberAccessGuard 등)가 비교에 쓴다.
+ */
+export const httpFallbackMessage = (status: number) => `요청 실패 (${status})`;
+
 export async function toApiError(error: unknown): Promise<never> {
   // connectivity fail-fast 등 이미 정규화된 에러는 그대로 통과시킨다.
   if (error instanceof ApiError) {
@@ -247,7 +254,7 @@ export async function toApiError(error: unknown): Promise<never> {
     throw new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT');
   }
   if (error instanceof HTTPError) {
-    let message = `요청 실패 (${error.response.status})`;
+    let message = httpFallbackMessage(error.response.status);
     let payload: unknown;
     let code: string | undefined;
     try {
@@ -278,6 +285,20 @@ function unwrap<T>(response: ApiResponse<T>): T {
     throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
   }
   return response.data;
+}
+
+/**
+ * `data: null` 을 오류가 아닌 유효한 결과로 취급하는 조회 전용 언래퍼.
+ * unwrap 은 null 을 빈 응답(ApiError)으로 던지므로, "없음도 정상 응답"이 계약인 엔드포인트
+ * (예: 비멤버일 때 200 + null 인 멤버십 조회)만 이쪽을 쓴다.
+ */
+function unwrapNullable<T>(response: ApiResponse<T | null>): T | null {
+  // 봉투 자체가 없는 경우(본문이 통째로 빈 응답)는 서버가 명시적으로 내린 data: null 과 다르다 —
+  // unwrap 과 동일하게 오류로 처리한다.
+  if (!response || !response.ok) {
+    throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
+  }
+  return response.data ?? null;
 }
 
 // 본문 소비 타임아웃(ms). ky 의 timeout 은 응답 헤더 도착까지만 계측하므로,
@@ -516,7 +537,8 @@ export type DuingApiClient = {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
   };
   clubMembership: {
-    get(clubId: number): Promise<MyClubMembership>;
+    /** 해당 동아리의 멤버가 아니면 null (200 + data:null). 접근 거부(비 ACTIVE 동아리 등)만 ApiError. */
+    get(clubId: number): Promise<MyClubMembership | null>;
   };
   clubNotices: {
     listForClub(
@@ -948,6 +970,20 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     }
   }
 
+  // 200 + data:null 이 정상 결과인 조회 전용 — jsonOk 는 null 을 오류로 바꾼다.
+  async function jsonOkNullable<T>(promise: ResponsePromise): Promise<T | null> {
+    try {
+      const res = await promise;
+      const body = (await readBodyWithTimeout(
+        res.json(),
+        JSON_BODY_READ_TIMEOUT_MS,
+      )) as ApiResponse<T | null>;
+      return unwrapNullable(body);
+    } catch (error) {
+      return toApiError(error);
+    }
+  }
+
   async function jsonVoid(promise: ResponsePromise): Promise<void> {
     try {
       await promise;
@@ -1364,7 +1400,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     },
     clubMembership: {
       get: (clubId) =>
-        jsonOk<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
+        jsonOkNullable<MyClubMembership>(http.get(`clubs/${clubId}/membership`)),
     },
     clubNotices: {
       listForClub: (clubId, params) =>

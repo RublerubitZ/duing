@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
+import { KIND_LABEL } from '../_lib/calendarDisplay';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { safeExternalHref, toRoute } from '../../_lib/route';
 
@@ -11,12 +13,6 @@ type Props = {
   event: CalEvent;
   open: boolean;
   onClose: () => void;
-};
-
-const KIND_LABEL: Record<CalEvent['kind'], string> = {
-  system: '행사·일정',
-  deadline: '모집 마감',
-  event: '동아리 일정',
 };
 
 const sourcePath: Record<EventSource, (event: CalEvent) => `/${string}` | null> = {
@@ -29,6 +25,8 @@ const sourcePath: Record<EventSource, (event: CalEvent) => `/${string}` | null> 
 };
 
 export function EventDetailModal({ event, open, onClose }: Props) {
+  useBackDismiss(open, onClose);
+
   if (!open) return null;
 
   const rawPath = sourcePath[event.sourceType](event);

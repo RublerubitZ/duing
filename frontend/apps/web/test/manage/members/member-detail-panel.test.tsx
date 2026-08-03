@@ -410,12 +410,84 @@ describe('MemberDetailPanel — 권한 게이트', () => {
 
 describe('MemberDetailPanel — 관리 액션 배선', () => {
   it('역할 승급은 role PATCH 를 보낸다', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
 
     await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    // 네이티브 confirm 대신 확인 모달 — 확인 버튼을 눌러야 실제 요청이 나간다.
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
 
     await waitFor(() => expect(capturedRoleBody).toEqual({ role: 'OFFICER' }));
+  });
+
+  it('역할 변경이 실패하면 모달이 열린 채로 오류를 모달 안에 보여주고 재시도할 수 있다', async () => {
+    let attempts = 0;
+    server.use(
+      http.patch(
+        `http://localhost:8080/api/v1/clubs/${CLUB_ID}/members/${MEMBER_ID}/role`,
+        async ({ request }) => {
+          attempts += 1;
+          if (attempts === 1) {
+            return HttpResponse.json(
+              { ok: false, message: '권한이 없습니다.', data: null },
+              { status: 403 },
+            );
+          }
+          capturedRoleBody = (await request.json()) as { role: string };
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+    renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
+
+    // 모달이 유지되고, 오류가 모달 서브트리 안에 있다.
+    const dialog = await screen.findByRole('dialog');
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent('권한이 없습니다.');
+    // 접근성 트리에서 실제로 도달 가능한지 — 조상에 aria-hidden 이 걸려 있으면 스크린리더가 못 읽는다.
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull();
+    // 대비 증거 — 모달이 열려 있는 동안 바깥 본문은 접근성 트리에서 숨겨진다.
+    // 오류를 모달 밖에 그리면 정확히 이 안에 갇힌다(이 규칙이 존재하는 이유).
+    expect(
+      screen.getByRole('heading', { name: '관리', hidden: true }).closest('[aria-hidden="true"]'),
+    ).not.toBeNull();
+
+    // 같은 자리에서 재시도 — 버튼이 다시 눌리고 이번엔 성공한다.
+    await userEvent.click(within(dialog).getByRole('button', { name: '승급' }));
+    await waitFor(() => expect(capturedRoleBody).toEqual({ role: 'OFFICER' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('실패 후 취소하면 오류가 초기화되어 다시 열어도 남지 않는다', async () => {
+    server.use(
+      http.patch(
+        `http://localhost:8080/api/v1/clubs/${CLUB_ID}/members/${MEMBER_ID}/role`,
+        () => HttpResponse.json({ ok: false, message: '권한이 없습니다.', data: null }, { status: 403 }),
+      ),
+    );
+    renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('권한이 없습니다.');
+
+    await userEvent.click(screen.getByRole('button', { name: '취소' }));
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+
+    const reopened = await screen.findByRole('dialog');
+    expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('역할 변경 확인을 취소하면 role PATCH 가 나가지 않는다', async () => {
+    renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ role: 'MEMBER' }) });
+
+    await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
+    await userEvent.click(await screen.findByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(capturedRoleBody).toBeNull();
   });
 
   it('기수 저장은 generation PATCH 를 정수로 보낸다', async () => {
@@ -501,12 +573,14 @@ describe('MemberDetailPanel — 회원 전환 시 상태 격리', () => {
         () => HttpResponse.json({ ok: false, message: '권한이 없습니다.', data: null }, { status: 403 }),
       ),
     );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const first = member({ memberId: MEMBER_ID, name: '홍길동', role: 'MEMBER' });
     const { rerender } = renderPanel({ member: first });
 
     await userEvent.click(screen.getByRole('button', { name: '임원으로 승급' }));
-    expect(await screen.findByText('권한이 없습니다.')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: '승급' }));
+    // 실패해도 모달은 열린 채로 두고, 오류는 모달 안에서 보여준다.
+    const failedDialog = await screen.findByRole('dialog');
+    expect(within(failedDialog).getByRole('alert')).toHaveTextContent('권한이 없습니다.');
 
     // 다른 회원으로 전환 — 앞 회원의 실패를 이 사람 것으로 오독하면 안 된다.
     rerender(

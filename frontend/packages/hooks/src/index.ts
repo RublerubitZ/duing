@@ -213,7 +213,13 @@ export {
   useAdminGlobalEventDeleteMutation,
 } from './globalEvents';
 export { globalEventKeys } from './globalEventQueryKeys';
-export { useCalendarMonthQuery, addDaysIso } from './calendarMonth';
+export {
+  useCalendarMonthQuery,
+  useCalendarMonthsQuery,
+  addDaysIso,
+  monthBounds,
+  monthsInRange,
+} from './calendarMonth';
 export type { CalendarMonthOptions, CalendarMonthResult } from './calendarMonth';
 export {
   useInterviewRoundCandidatesQuery,

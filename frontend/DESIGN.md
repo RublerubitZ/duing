@@ -438,7 +438,11 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 
 **Bottom Sheet 규격:** `fixed inset-x-0 bottom-0` + `rounded-t-xl` + `max-h-[90dvh] overflow-y-auto` + `pb-[env(safe-area-inset-bottom)]`. 상단 sticky 헤더(타이틀+닫기) + 하단 sticky 액션, 그래버(`h-1 w-9 rounded-full bg-line`) 선택. **닫힘 가드:** 비동기 저장/파괴 진행 중 스크림·드래그·Esc 닫힘 차단(기존 Dialog 비동기 패턴 동일). **키보드:** 입력 포커스 시 내부 스크롤로 가림 방지, 하단 액션 sticky 유지.
 
-**현 모달 매핑(예):** AlertDialog 유지(폭 가드만) = `AdminClubDeleteDialog`·`RemoveMemberDialog`·각 처리 거절 등 확인형 · Sheet 전환 후보 = 모집 마감(`RecruitmentDetailPage`)·일괄 처리(`BulkConfirmDialog`/`BulkPromoteDialog`)·지원서 미리보기·면접 슬롯 배정(`MemberAssignModal`).
+**현 모달 매핑(예):** AlertDialog 유지(폭 가드만) = 공용 `ConfirmDialog`(파괴 확인 전반 — 강퇴·탈퇴·역할 변경·삭제·모집 마감이 모두 이걸 쓴다)·`AdminClubDeleteDialog` 등 관리자 개별 확인형 · Sheet 전환 후보 = 일괄 처리(`BulkConfirmDialog`/`BulkPromoteDialog`)·지원서 미리보기·면접 슬롯 배정(`MemberAssignModal`).
+
+**확인 모달 실패 정책:** 공용 `ConfirmDialog` 는 실패해도 모달을 닫지 않고 `errorMessage` 로 모달 **안에서** 안내한다. 화면 본문에 그리면 스크림·`aria-hidden` 뒤에 갇힌다. 새 확인 모달을 만들지 말고 공용 `ConfirmDialog` 를 쓴다. (근거: 이슈 #826)
+
+**아직 이 규칙 밖인 것(후속):** 관리자 개별 다이얼로그(`AdminClubDeleteDialog` 등) — 자체 `errorMessage` 는 있으나 `role="alert"` 없음 · 슬롯 배정(`MemberAssignModal`) — 실패가 페이지 본문 피드백으로 빠짐 · 일괄 처리 — 부분 성공 결과라 **의도적 예외** · 시설 예약 폼 — 닫고 토스트(토스트는 스크림 위라 도달 가능).
 
 **토큰:** 스크림 `bg-ink/35`, 패널 `bg-card`(시트 `rounded-t-xl` / 중앙 `rounded-lg`)·`shadow-3` — **두잉 토큰 고정, stone 금지.** **금지:** 중앙 Dialog 안 긴 세로 스크롤(상하 잘림) · 키보드가 액션 가리는 배치 · 파괴 액션을 스크림/Esc 로 실행.
 

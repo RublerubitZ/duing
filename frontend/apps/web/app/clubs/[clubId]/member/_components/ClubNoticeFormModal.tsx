@@ -9,6 +9,7 @@ import type { NoticeContentFormat, UpdateClubNoticePayload } from '@duing/types'
 import { useCreateClubNoticeMutation, useUpdateClubNoticeMutation } from '@duing/hooks';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
@@ -24,6 +25,7 @@ type Props =
     });
 
 export function ClubNoticeFormModal(props: Props) {
+  useBackDismiss(true, props.onClose);
   const overlayRef = useRef<HTMLDivElement>(null);
   const createMutation = useCreateClubNoticeMutation(props.clubId);
   const updateMutation = useUpdateClubNoticeMutation(props.clubId);

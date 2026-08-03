@@ -7,10 +7,20 @@
 import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { X } from '@/components/duing/Icon';
 
-const Sheet = SheetPrimitive.Root;
+// 열려 있는 동안 뒤로가기(안드로이드 버튼·제스처, iOS 엣지 스와이프, 브라우저 뒤로가기)를 흡수해
+// 페이지 이동 대신 이 시트만 닫는다. 호출처는 기존과 동일한 props 를 쓴다.
+function Sheet({
+  open,
+  onOpenChange,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>) {
+  useBackDismiss(open === true, onOpenChange ? () => onOpenChange(false) : null);
+  return <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
+}
 const SheetTrigger = SheetPrimitive.Trigger;
 const SheetClose = SheetPrimitive.Close;
 const SheetPortal = SheetPrimitive.Portal;

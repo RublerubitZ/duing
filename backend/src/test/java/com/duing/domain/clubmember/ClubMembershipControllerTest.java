@@ -1,6 +1,8 @@
 package com.duing.domain.clubmember;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -144,15 +146,48 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("비-멤버가 호출하면 403 을 반환한다")
+    @DisplayName("비-멤버가 호출하면 200 과 함께 빈 멤버십(data:null)이 반환된다")
     void nonMember() {
-        // NotAMember 예외는 HttpStatus.FORBIDDEN(403) 으로 매핑된다 (ClubMemberException.NotAMember 참고)
+        // 멤버가 아닌 것은 접근 거부가 아니라 조회 결과 없음이다 — 403 은 실제 거부(비 ACTIVE 동아리)에만 쓴다.
         User outsider = saveUser();
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider))
                 .when().get("/api/v1/clubs/" + clubId + "/membership")
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.OK.value())
+                .body("ok", equalTo(true))
+                // hasKey 까지 단언해야 "data:null" 계약이 고정된다 — nullValue 만으로는 키 자체가
+                // 빠진 응답(직렬화 설정이 바뀌어 NON_NULL 이 전역 적용되는 경우)도 통과한다.
+                .body("$", hasKey("data"))
+                .body("data", nullValue());
+    }
+
+    @Test
+    @DisplayName("비-멤버는 동아리가 운영 종료 상태여도 403 이 아닌 200 + data:null 을 받는다")
+    void nonMemberOfInactiveClub() {
+        // 판정 순서(멤버십 확인 → 상태 검사) 고정. 순서가 뒤집히면 비멤버가 동아리 상태별 안내 문구를
+        // 403 으로 받아, 소속된 적 없는 동아리의 운영 상태가 새어나간다.
+        User outsider = saveUser();
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider))
+                .when().get("/api/v1/clubs/" + clubId + "/membership")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", nullValue());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 동아리를 조회해도 비-멤버와 같은 200 + data:null 이 반환된다")
+    void unknownClub() {
+        // 존재 은닉 — 비멤버와 응답이 갈리면 동아리 id 존재 여부를 훑어볼 수 있는 오라클이 된다.
+        User outsider = saveUser();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(outsider))
+                .when().get("/api/v1/clubs/" + (clubId + 999_999) + "/membership")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", nullValue());
     }
 
     @Test

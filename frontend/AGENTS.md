@@ -211,6 +211,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 - HTTP 호출은 **`packages/api/` 의 `DuingApiClient` 만 사용** — `ky`/`fetch` 직접 호출 금지
 - API 메서드명은 동사 시작 (`list`, `detail`, `create`, `submit`, `updateStatus`)
 - 백엔드 변경 흐름: ① `packages/types/` 갱신(또는 `pnpm gen:api`) → ② `packages/api/src/client.ts` 메서드 추가/수정 → ③ `packages/hooks/` 훅 갱신
+- 응답 언래퍼는 기본 `jsonOk`. `jsonOkNullable` 은 **서버가 `data:null` 을 Swagger 로 약속한 엔드포인트에만** —
+  기준은 [Nullable API 계약 가이드](../docs/superpowers/specs/2026-08-03-nullable-api-contract-design.md)
 
 ---
 

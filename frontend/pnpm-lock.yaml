@@ -89,15 +89,15 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dompurify:
+        specifier: ^3.4.10
+        version: 3.4.10
       framer-motion:
         specifier: ^12.40.0
         version: 12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       import-in-the-middle:
         specifier: ^3.0.2
         version: 3.0.2
-      isomorphic-dompurify:
-        specifier: ^3.16.0
-        version: 3.16.0
       ky:
         specifier: ^1.7.2
         version: 1.14.3
@@ -3321,10 +3321,6 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
-
-  isomorphic-dompurify@3.16.0:
-    resolution: {integrity: sha512-KzTJsMuVPqPwBOD0F6jKXoV/+v8CSx0rxVp+/67KV6Xbw++0zD/avT3bZsgwR0M5QRMiOE+QqQtoZLEJYy1C4Q==}
-    engines: {node: ^20.19.0 || ^22.13.0 || >=24.0.0}
 
   iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
@@ -8085,14 +8081,6 @@ snapshots:
   isarray@2.0.5: {}
 
   isexe@2.0.0: {}
-
-  isomorphic-dompurify@3.16.0:
-    dependencies:
-      dompurify: 3.4.10
-      jsdom: 29.1.1
-    transitivePeerDependencies:
-      - '@noble/hashes'
-      - canvas
 
   iterator.prototype@1.1.5:
     dependencies:

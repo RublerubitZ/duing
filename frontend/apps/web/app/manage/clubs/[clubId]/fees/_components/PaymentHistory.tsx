@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { formatDateKst, useBillPaymentsQuery, useVoidPaymentMutation } from '@duing/hooks';
 import type { FeeBill, Payment } from '@duing/types';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
@@ -135,6 +136,7 @@ type VoidPaymentConfirmProps = {
 };
 
 function VoidPaymentConfirm({ clubId, billId, payment, onClose }: VoidPaymentConfirmProps) {
+  useBackDismiss(true, onClose);
   const voidPayment = useVoidPaymentMutation(clubId, billId);
   const { addToast } = useToast();
   const [reason, setReason] = useState('');

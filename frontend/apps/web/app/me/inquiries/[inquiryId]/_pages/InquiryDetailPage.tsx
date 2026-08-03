@@ -134,7 +134,6 @@ export function InquiryDetailPage({ inquiryId }: Props) {
       addToast('문의가 삭제되었어요');
       router.replace('/me/inquiries');
     } catch (deleteMutationError) {
-      setIsConfirmOpen(false);
       setDeleteError(
         deleteMutationError instanceof ApiError
           ? deleteMutationError.message
@@ -327,12 +326,6 @@ export function InquiryDetailPage({ inquiryId }: Props) {
           </section>
         )}
 
-        {deleteError && (
-          <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
-            {deleteError}
-          </p>
-        )}
-
         {/* 액션 */}
         {!isEditing && (
           <div className="flex items-center justify-end gap-3">
@@ -357,8 +350,12 @@ export function InquiryDetailPage({ inquiryId }: Props) {
         title="문의를 삭제할까요?"
         description="받은 답변도 함께 볼 수 없게 되며 복구할 수 없습니다."
         isPending={deleteMutation.isPending}
+        errorMessage={deleteError}
         onConfirm={handleDelete}
-        onCancel={() => setIsConfirmOpen(false)}
+        onCancel={() => {
+          setIsConfirmOpen(false);
+          setDeleteError(null);
+        }}
       />
     </main>
   );

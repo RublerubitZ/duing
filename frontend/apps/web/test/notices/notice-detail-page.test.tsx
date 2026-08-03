@@ -134,4 +134,18 @@ describe('NoticeDetailPage (재설계)', () => {
       expect(mockRouterReplace).toHaveBeenCalledWith('/notices');
     });
   });
+
+  // 서버가 "볼 수 없는 공지"를 미존재와 같은 404 로 답하도록 바뀌었다(열거 방지) — 그래도 사용자는
+  // 에러 화면이 아니라 목록으로 돌아가야 한다.
+  it('404 에러여도 router.replace("/notices") 가 호출된다', async () => {
+    mockRouterReplace.mockReset();
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: false, isSuccess: false, isError: true, error: { status: 404 } });
+
+    render(<NoticeDetailPage />);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/notices');
+    });
+  });
 });

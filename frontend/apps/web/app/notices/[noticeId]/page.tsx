@@ -33,8 +33,11 @@ export default function NoticeDetailPage() {
   const detailQuery = useNoticeDetailQuery(noticeId);
   const notice = detailQuery.data;
 
+  // 볼 수 없는 공지는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 404·403 을 같은 "목록으로
+  // 돌려보내기"로 처리한다. 403 은 서버 배포 전 잔존 응답과 향후 다른 거부 경로를 위해 남긴다.
   useEffect(() => {
-    if (getStatus(detailQuery.error) === 403) {
+    const status = getStatus(detailQuery.error);
+    if (status === 403 || status === 404) {
       router.replace('/notices');
     }
   }, [detailQuery.error, router]);

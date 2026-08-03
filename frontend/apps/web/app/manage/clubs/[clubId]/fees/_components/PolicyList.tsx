@@ -10,6 +10,7 @@ import {
 } from '@duing/hooks';
 import type { FeePolicy } from '@duing/types';
 
+import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
@@ -181,6 +182,7 @@ type DeletePolicyConfirmProps = {
 };
 
 function DeletePolicyConfirm({ clubId, policy, onClose }: DeletePolicyConfirmProps) {
+  useBackDismiss(true, onClose);
   const deletePolicy = useDeleteFeePolicyMutation(clubId);
   const { addToast } = useToast();
 
