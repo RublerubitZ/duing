@@ -5,6 +5,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ApiError, httpFallbackMessage } from '@duing/api';
 import { useClubMembershipQuery } from '@duing/hooks';
 import type { MyClubMembership } from '@duing/types';
+import { useOptionalToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MembershipProvider } from './MembershipContext';
 
@@ -39,17 +40,19 @@ function resolveDenialMessage(
 
 export function MemberAccessGuard({ clubId, children }: Props) {
   const router = useGuardedRouter();
+  // 안내는 부가 피드백이고 본질은 리다이렉트다 — Provider 가 없어도 가드가 죽지 않도록 optional 접근자를 쓴다.
+  const addToast = useOptionalToast();
   const { data: membership, isLoading, error } = useClubMembershipQuery(clubId);
 
   const denialMessage = resolveDenialMessage(membership, isLoading, error);
 
   useEffect(() => {
     if (!denialMessage) return;
-    // 이동을 먼저 건다 — 임베디드 브라우저에서 alert 이 막히거나 throw 하면 뒤 문장이 실행되지 않아,
-    // 이 가드가 고치려는 "안내도 이동도 없는 빈 화면"이 그대로 재현된다.
+    // ToastProvider 는 라우트 트리보다 위에 있어 이 컴포넌트가 언마운트돼도 안내가 살아남는다.
+    // alert 과 달리 스레드를 막지 않고, 임베디드 브라우저에서 억제·throw 될 위험도 없다.
+    addToast?.(`${denialMessage} 동아리 소개 페이지로 이동합니다.`, { variant: 'error' });
     router.replace(`/clubs/${clubId}`);
-    alert(`${denialMessage} 동아리 소개 페이지로 이동합니다.`);
-  }, [denialMessage, router, clubId]);
+  }, [denialMessage, addToast, router, clubId]);
 
   if (isLoading) {
     return <LoadingGate label="권한 확인 중" />;
