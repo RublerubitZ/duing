@@ -43,10 +43,11 @@ public class ClubMember extends BaseEntity {
     private Integer generation;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private ClubMember(Club club, User user, ClubMemberRole role) {
+    private ClubMember(Club club, User user, ClubMemberRole role, Integer generation) {
         this.club = club;
         this.user = user;
         this.role = role;
+        this.generation = generation;
     }
 
     public static ClubMember asLeader(Club club, User user) {
@@ -58,7 +59,12 @@ public class ClubMember extends BaseEntity {
     }
 
     public static ClubMember of(Club club, User user, ClubMemberRole role) {
-        return ClubMember.builder().club(club).user(user).role(role).build();
+        return of(club, user, role, null);
+    }
+
+    /** 기수를 함께 지정해 생성한다. generation 이 null 이면 미설정(기수 없음) 으로 저장된다. */
+    public static ClubMember of(Club club, User user, ClubMemberRole role, Integer generation) {
+        return ClubMember.builder().club(club).user(user).role(role).generation(generation).build();
     }
 
     public boolean canManageClub() {

@@ -13,6 +13,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
@@ -112,6 +113,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 userRepository,
                 clubMemberRepository,
                 mock(ClubAuthService.class),
+                mock(ClubMemberEnrollmentService.class),
                 mock(ApplicationDraftService.class),
                 mock(ApplicationStatusHistoryRepository.class),
                 mock(ApplicationEvaluationRepository.class),
