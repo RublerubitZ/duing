@@ -15,7 +15,6 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
-import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.exception.JoinRequestException;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
@@ -58,34 +57,7 @@ class JoinRequestApproveConcurrencyTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("잔여 1명인 코드에 두 요청이 동시에 승인되어도 초과 사용이 발생하지 않는다")
-    void concurrentApproveNeverExceedsMaxUses() throws Exception {
-        Club club = saveActiveClub();
-        User leader = saveLeaderOf(club);
-        ClubJoinCode joinCode = saveJoinCode(club, 1);
-        User firstStudent = saveUser();
-        User secondStudent = saveUser();
-        ClubJoinRequest firstRequest = savePendingRequest(club, firstStudent, joinCode);
-        ClubJoinRequest secondRequest = savePendingRequest(club, secondStudent, joinCode);
-
-        List<Throwable> failures = runConcurrently(
-                () -> tryDecide(club.getId(), firstRequest.getId(), leader.getId(), JoinRequestStatus.APPROVED),
-                () -> tryDecide(club.getId(), secondRequest.getId(), leader.getId(), JoinRequestStatus.APPROVED));
-
-        assertThat(failures).as("잔여 1명이므로 정확히 한 건만 승인된다").hasSize(1);
-        assertThat(failures.get(0))
-                .isInstanceOf(JoinCodeException.InsufficientRemainingUsesException.class);
-        assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount())
-                .as("최대 사용 인원을 넘겨 차감되지 않는다").isEqualTo(1);
-        assertThat(clubMemberRepository.findAllByClubIdOrderedByRoleAndJoinedAt(club.getId()))
-                .as("회장 1명 + 승인된 신규 회원 1명").hasSize(2);
-        assertThat(List.of(reloadStatus(firstRequest), reloadStatus(secondRequest)))
-                .as("한 건만 승인되고 다른 한 건은 재시도할 수 있도록 대기 상태로 남는다")
-                .containsExactlyInAnyOrder(JoinRequestStatus.APPROVED, JoinRequestStatus.PENDING);
-    }
-
-    @Test
-    @DisplayName("두 운영진이 같은 요청을 동시에 처리해도 차감과 상태 전이는 한 번만 반영된다")
+    @DisplayName("두 운영진이 같은 요청을 동시에 처리해도 환급과 상태 전이는 한 번만 반영된다")
     void concurrentDecideOnSameRequestAppliesOnce() throws Exception {
         Club club = saveActiveClub();
         User leader = saveLeaderOf(club);
@@ -108,7 +80,8 @@ class JoinRequestApproveConcurrencyTest extends IntegrationTestBase {
         assertThat(finalStatus).isIn(JoinRequestStatus.APPROVED, JoinRequestStatus.REJECTED);
         boolean approved = finalStatus == JoinRequestStatus.APPROVED;
         assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount())
-                .as("차감은 승인이 이긴 경우에만 1회").isEqualTo(approved ? 1 : 0);
+                .as("승인이 이기면 신청 때 확보한 자리가 유지되고, 거절이 이기면 1회만 환급된다")
+                .isEqualTo(approved ? 1 : 0);
         assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), student.getId()).isPresent())
                 .as("회원 생성도 승인이 이긴 경우에만").isEqualTo(approved);
     }
@@ -145,7 +118,11 @@ class JoinRequestApproveConcurrencyTest extends IntegrationTestBase {
         return clubJoinRequestRepository.findById(joinRequest.getId()).orElseThrow().getStatus();
     }
 
+    /** 신청 시점에 자리를 확보하는 실제 흐름(스펙 4.2)과 같은 상태로 대기 요청을 시드한다. */
     private ClubJoinRequest savePendingRequest(Club club, User student, ClubJoinCode joinCode) {
+        ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
+        stored.tryConsume();
+        clubJoinCodeRepository.save(stored);
         return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, student, joinCode));
     }
 

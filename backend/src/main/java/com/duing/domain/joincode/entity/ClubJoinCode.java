@@ -117,12 +117,24 @@ public class ClubJoinCode extends BaseEntity {
                 && recruitment.getStatus() == RecruitmentStatus.OPEN;
     }
 
-    /** 잠금 하에서 호출한다(findWithLockById). 잔여가 없으면 false. */
+    /** 잠금 하에서 호출한다(findWithLockByCode). 잔여가 없으면 false. */
     public boolean tryConsume() {
         if (isExhausted()) {
             return false;
         }
         this.usedCount++;
         return true;
+    }
+
+    /**
+     * 거절로 비워진 자리를 되돌린다(스펙 4.3 환급). 잠금 하에서 호출한다(findWithLockById).
+     *
+     * <p>0 하한을 두어 이미 환급된 요청이 다시 거절 경로를 타더라도 used_count 가 음수로
+     * 내려가지 않게 한다(DB CHECK used_count >= 0 위반 방지).
+     */
+    public void releaseUse() {
+        if (usedCount > 0) {
+            this.usedCount--;
+        }
     }
 }
