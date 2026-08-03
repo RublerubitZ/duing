@@ -2,10 +2,12 @@
 
 import { use, useState } from 'react';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import type { ClubMember } from '@duing/types';
 import {
   useClubDetailQuery,
   useClubMembersQuery,
+  useJoinRequestsQuery,
   useManagedClubsQuery,
   useMeQuery,
   useTransferLeaderMutation,
@@ -18,6 +20,7 @@ import { MemberBulkToolbar } from './_components/MemberBulkToolbar';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
+import { InviteCodeDialog } from './_components/InviteCodeDialog';
 import {
   availableGenerations,
   EMPTY_MEMBER_FILTERS,
@@ -26,6 +29,7 @@ import {
   type MemberFilters,
 } from './_lib/memberFilters';
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 export default function ClubMembersPage({
@@ -46,6 +50,11 @@ export default function ClubMembersPage({
     isValidId ? currentClubId : undefined,
   );
   const transferLeader = useTransferLeaderMutation(currentClubId);
+  // 헤더 배지용 대기 건수. 실패해도 배지만 빠지고 화면은 그대로다(로딩 게이트에 넣지 않는다).
+  const { data: pendingJoinRequests } = useJoinRequestsQuery(
+    isValidId ? currentClubId : undefined,
+    'PENDING',
+  );
 
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
@@ -56,6 +65,7 @@ export default function ClubMembersPage({
   const [transferTarget, setTransferTarget] = useState<ClubMember | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [successionOpen, setSuccessionOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
     return <LoadingGate label="멤버 목록 불러오는 중" />;
@@ -73,6 +83,7 @@ export default function ClubMembersPage({
   // 기수를 안 쓰는 동아리의 임원에겐 실행 가능한 벌크 액션이 없어 선택 UI 자체를 닫는다.
   const bulkEnabled = isLeader || useGeneration;
   const memberList = members ?? [];
+  const pendingCount = pendingJoinRequests?.length ?? 0;
   const generations = availableGenerations(memberList);
   // 사라진 기수를 가리키는 필터는 렌더 시점에 무효화 — 상태를 되돌리지 않아도 화면과 목록이 어긋나지 않는다.
   const effectiveFilters = normalizeMemberFilters(filters, generations);
@@ -154,7 +165,26 @@ export default function ClubMembersPage({
               : '회원을 검색·필터할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* 초대 코드 관리·가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다. */}
+          <button
+            type="button"
+            onClick={() => setInviteOpen(true)}
+            className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+          >
+            회원 초대
+          </button>
+          <Link
+            href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+          >
+            가입 요청
+            {pendingCount > 0 && (
+              <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+                {pendingCount}
+              </span>
+            )}
+          </Link>
           {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 이 페이지는 managedClub 이 없으면 notFound 다. */}
           <MemberCsvDownloadPopover
             clubId={currentClubId}
@@ -247,6 +277,14 @@ export default function ClubMembersPage({
             setTransferTarget(null);
             setTransferError(null);
           }}
+        />
+      )}
+
+      {inviteOpen && (
+        <InviteCodeDialog
+          clubId={currentClubId}
+          useGeneration={useGeneration}
+          onClose={() => setInviteOpen(false)}
         />
       )}
 
