@@ -6,6 +6,8 @@ import { useUpdateApplicationStatusMutation } from '@duing/hooks';
 import type { ApplicationStatus, UpdateApplicationStatusPayload } from '@duing/types';
 import { allowedTransitionsFrom } from '../../_components/applicationStatusTransitions';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
+import { useToast } from '@/app/_components/toast/ToastProvider';
+import { CLOSED_STATUS_CHANGE_NOTICE, toWriteFailureMessage } from './closedRecruitment';
 import { StatusConfirmDialog } from './StatusConfirmDialog';
 
 type Props = {
@@ -13,6 +15,8 @@ type Props = {
   recruitmentId: number;
   currentStatus: ApplicationStatus;
   useInterview: boolean;
+  /** 마감(raw CLOSED) 모집이면 조회 전용 — 전이 버튼 대신 안내만 남긴다 (스펙 §6). */
+  readOnly?: boolean;
 };
 
 type FinalStatus = 'ACCEPTED' | 'REJECTED';
@@ -35,27 +39,42 @@ export function StatusActionBar({
   recruitmentId,
   currentStatus,
   useInterview,
+  readOnly = false,
 }: Props) {
   const updateStatus = useUpdateApplicationStatusMutation(recruitmentId);
+  const { addToast } = useToast();
   const [pendingFinalStatus, setPendingFinalStatus] = useState<FinalStatus | null>(null);
 
   const transitions = allowedTransitionsFrom(currentStatus, useInterview);
 
+  // 실패는 반드시 안내한다 — 이전에는 조용히 실패해 사용자가 반영 여부를 알 수 없었다.
+  function requestStatusChange(
+    targetStatus: UpdateApplicationStatusPayload['status'],
+    onSettled?: () => void,
+  ) {
+    updateStatus.mutate(
+      { applicationId, payload: { status: targetStatus } satisfies UpdateApplicationStatusPayload },
+      {
+        onError: (error) =>
+          addToast(toWriteFailureMessage(error, '상태 변경에 실패했습니다.'), {
+            variant: 'error',
+          }),
+        onSettled,
+      },
+    );
+  }
+
   function confirmFinalStatus() {
     if (pendingFinalStatus === null) return;
-    updateStatus.mutate(
-      {
-        applicationId,
-        payload: { status: pendingFinalStatus } satisfies UpdateApplicationStatusPayload,
-      },
-      { onSettled: () => setPendingFinalStatus(null) },
-    );
+    requestStatusChange(pendingFinalStatus, () => setPendingFinalStatus(null));
   }
 
   return (
     <section className="rounded border border-neutral-200 bg-white p-4">
       <h2 className="mb-3 text-base font-semibold text-slate-900">상태 변경</h2>
-      {transitions.length === 0 ? (
+      {readOnly ? (
+        <p className="text-sm text-slate-500">{CLOSED_STATUS_CHANGE_NOTICE}</p>
+      ) : transitions.length === 0 ? (
         <p className="text-sm text-slate-400">더 이상 변경 가능한 상태가 없습니다.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -66,10 +85,7 @@ export function StatusActionBar({
               onClick={() =>
                 isFinalStatus(target)
                   ? setPendingFinalStatus(target)
-                  : updateStatus.mutate({
-                      applicationId,
-                      payload: { status: target } satisfies UpdateApplicationStatusPayload,
-                    })
+                  : requestStatusChange(target)
               }
               disabled={updateStatus.isPending}
               className="rounded border border-neutral-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-neutral-50 disabled:opacity-50"

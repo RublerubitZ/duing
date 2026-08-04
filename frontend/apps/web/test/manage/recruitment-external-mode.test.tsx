@@ -200,6 +200,7 @@ const externalCloneSeed: RecruitmentDetail = {
   externalFormUrl: 'https://forms.gle/aBcD1234',
   useInterview: true,
   targetRole: 'MEMBER',
+  closedAt: null,
   content: '레거시 안내문',
   questions: ['레거시 질문'],
   questionItems: [{ id: 'q1', text: '레거시 질문', type: 'TEXT', required: true, choices: [] }],

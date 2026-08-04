@@ -127,6 +127,7 @@ function makeRecruitment({
     externalFormUrl: null,
     useInterview,
     targetRole: 'MEMBER',
+    closedAt: null,
     content,
     // 구 BE 호환 필드 — 신 BE 는 questionItems 와 함께 텍스트 목록도 그대로 내려준다.
     questions: questionItems.map((question) => question.text),

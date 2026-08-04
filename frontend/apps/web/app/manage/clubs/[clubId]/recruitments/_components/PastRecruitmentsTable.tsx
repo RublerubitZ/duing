@@ -11,14 +11,19 @@ import {
   RECRUITMENT_DISPLAY_STATUS_LABEL,
 } from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentFlowLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
+import {
+  recruitmentClosedLabel,
+  sortPastRecruitments,
+} from '@/app/manage/clubs/[clubId]/_lib/sortPastRecruitments';
 
 type Props = {
   clubId: number;
   recruitments: RecruitmentSummary[];
 };
 
-export function PastRecruitmentsTable({ clubId, recruitments }: Props) {
+export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitments }: Props) {
   const client = useApiClient();
+  const recruitments = sortPastRecruitments(unsortedRecruitments);
   // 행별 지원/합격 집계 — 단일 소비처라 라우트 로컬 fan-out(대시보드 useApplicantSummary와 동일 패턴,
   // statsQueryKeys.summary 공유로 대시보드·상세·통계와 캐시 일치). 지난 모집은 클럽당 연 1~2건 수준.
   const summariesById = useQueries({
@@ -81,6 +86,9 @@ export function PastRecruitmentsTable({ clubId, recruitments }: Props) {
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-charcoal-2">
                   {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
+                  {recruitmentClosedLabel(recruitment) !== null && (
+                    <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
+                  )}
                 </td>
                 <td className="px-4 py-3 font-mono text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
                 <td className="px-4 py-3">
@@ -92,6 +100,16 @@ export function PastRecruitmentsTable({ clubId, recruitments }: Props) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
+                    {recruitment.applicationMode === 'SELF' && (
+                      <Link
+                        href={toRoute(
+                          `/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`,
+                        )}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        지원자
+                      </Link>
+                    )}
                     <Link
                       href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
                       className="btn btn-secondary btn-sm"
@@ -130,13 +148,22 @@ export function PastRecruitmentsTable({ clubId, recruitments }: Props) {
               </span>
             </div>
             <div className="mt-1 text-xs text-charcoal-3">
-              {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)} · 전형{' '}
+              {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
+              {recruitmentClosedLabel(recruitment) !== null && ` · ${recruitmentClosedLabel(recruitment)}`} · 전형{' '}
               {recruitmentFlowLabel(recruitment.useInterview)}
             </div>
             <div className="mt-1 font-mono text-sm text-charcoal">
               지원 {appliedAcceptedLabel(recruitment.id)}
             </div>
             <div className="mt-3 flex gap-2">
+              {recruitment.applicationMode === 'SELF' && (
+                <Link
+                  href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`)}
+                  className="btn btn-secondary btn-sm flex-1"
+                >
+                  지원자
+                </Link>
+              )}
               <Link
                 href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
                 className="btn btn-secondary btn-sm flex-1"
