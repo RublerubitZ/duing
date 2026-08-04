@@ -1,23 +1,29 @@
 package com.duing.domain.recruitment.api;
 
+import com.duing.domain.recruitment.controller.dto.request.ForceCloseRecruitmentRequest;
 import com.duing.domain.recruitment.controller.dto.response.AdminRecruitmentDetailResponse;
 import com.duing.domain.recruitment.controller.dto.response.AdminRecruitmentSummaryResponse;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
+import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "모집(총동연)",
-        description = "총동연 전용 모집 관리 API — 전 동아리 모집 검색·상세 조회")
+        description = "총동연 전용 모집 관리 API — 전 동아리 모집 검색·상세 조회·강제 마감")
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminRecruitmentApi {
 
@@ -51,5 +57,18 @@ public interface AdminRecruitmentApi {
     ResponseEntity<ApiResponse<AdminRecruitmentDetailResponse>> getRecruitmentDetail(
             @Parameter(description = "조회 대상 모집 ID", required = true)
             @PathVariable Long recruitmentId
+    );
+
+    @Operation(summary = "모집 강제 마감 (ADMIN)",
+            description = "진행 중인 모집을 총동연 권한으로 마감한다. 운영진 수동 마감과 같은 전이를 타므로 "
+                    + "종료 시각이 함께 남고, 외부 폼 모집의 가입 링크는 그 시각을 기준으로 남은 기간 동안 계속 쓸 수 있다. "
+                    + "사유는 선택 입력(최대 500자)이며 감사 기록에만 남는다. "
+                    + "이미 마감된 모집은 409, 미존재·삭제 모집은 404.")
+    @PatchMapping("/admin/recruitments/{recruitmentId}/close")
+    ResponseEntity<ApiResponse<Void>> forceCloseRecruitment(
+            @Parameter(description = "마감할 모집 ID", required = true)
+            @PathVariable Long recruitmentId,
+            @Valid @RequestBody ForceCloseRecruitmentRequest forceCloseRecruitmentRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

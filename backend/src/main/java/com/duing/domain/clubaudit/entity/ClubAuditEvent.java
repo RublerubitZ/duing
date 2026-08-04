@@ -47,15 +47,26 @@ public class ClubAuditEvent extends BaseEntity {
     @Column(name = "join_request_id")
     private Long joinRequestId;
 
+    /** 열람 대상 지원서(V103) — 총동연 지원서 상세 열람에서만 채워진다. */
+    @Column(name = "application_id")
+    private Long applicationId;
+
+    /** 조치 사유(V103) — 총동연 강제 마감에서만 채워지며, 공백뿐이면 저장하지 않는다. */
+    @Column(name = "reason", length = 500)
+    private String reason;
+
     @Builder(access = AccessLevel.PRIVATE)
     private ClubAuditEvent(Long clubId, ClubAuditEventType eventType, Long actorUserId,
-                           Long recruitmentId, Long joinCodeId, Long joinRequestId) {
+                           Long recruitmentId, Long joinCodeId, Long joinRequestId,
+                           Long applicationId, String reason) {
         this.clubId = clubId;
         this.eventType = eventType;
         this.actorUserId = actorUserId;
         this.recruitmentId = recruitmentId;
         this.joinCodeId = joinCodeId;
         this.joinRequestId = joinRequestId;
+        this.applicationId = applicationId;
+        this.reason = reason;
     }
 
     /** 가입 링크 생성·재생성·폐기 이벤트. */
@@ -81,6 +92,30 @@ public class ClubAuditEvent extends BaseEntity {
                 .recruitmentId(recruitmentId)
                 .joinCodeId(joinCodeId)
                 .joinRequestId(joinRequestId)
+                .build();
+    }
+
+    /** 총동연이 모집을 강제 마감한 이벤트 — 사유는 선택 입력이라 비어 있을 수 있다. */
+    public static ClubAuditEvent adminForceClose(Long clubId, Long recruitmentId,
+                                                 Long actorUserId, String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.RECRUITMENT_FORCE_CLOSED)
+                .actorUserId(actorUserId)
+                .recruitmentId(recruitmentId)
+                .reason(reason)
+                .build();
+    }
+
+    /** 총동연이 지원서 상세를 열람한 이벤트 — 개인정보 열람 이력이라 열람마다 한 건씩 남는다. */
+    public static ClubAuditEvent adminApplicationView(Long clubId, Long recruitmentId,
+                                                      Long applicationId, Long actorUserId) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.APPLICATION_VIEWED)
+                .actorUserId(actorUserId)
+                .recruitmentId(recruitmentId)
+                .applicationId(applicationId)
                 .build();
     }
 }

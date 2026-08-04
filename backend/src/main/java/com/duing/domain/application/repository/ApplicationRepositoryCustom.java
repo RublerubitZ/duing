@@ -26,5 +26,13 @@ public interface ApplicationRepositoryCustom {
      */
     ApplicantNeighborsQuery findNeighbors(Long recruitmentId, Long applicationId, ApplicantSearchCondition condition);
 
+    /**
+     * 총동연 지원자 목록 조회. {@link #searchApplicants} 와 같은 조건 빌더를 쓰되 평가·면접을 조인하지 않는다
+     * — 관리자 화면은 점수·면접 일정을 보지 않으므로 그만큼 가벼운 쿼리로 끝낸다.
+     * {@code oldestFirst} 가 참이면 먼저 제출한 순, 거짓이면 운영진 목록과 같은 최근 제출 순이다.
+     */
+    List<Application> searchApplicantsForAdmin(Long recruitmentId, ApplicantSearchCondition condition,
+                                               boolean oldestFirst);
+
     record ApplicantWithScore(Application application, LocalDateTime interviewStartAt, Integer myScore) {}
 }
