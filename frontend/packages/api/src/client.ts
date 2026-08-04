@@ -414,11 +414,24 @@ export type DuingApiClient = {
     feeAccount(clubId: number): Promise<FeeAccount>;
   };
   joinCodes: {
-    createForClub(clubId: number, payload: CreateJoinCodePayload): Promise<JoinCodeSummary>;
+    // 코드는 모집에 귀속된다 — 같은 동아리라도 모집마다 활성 코드가 따로 있다(스펙 v2 §4.3).
+    // 기존 활성 코드가 있으면 폐기 후 새로 만드는 원자 재생성이고, 자체 폼 모집이면 409 다.
+    createForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+      payload: CreateJoinCodePayload,
+    ): Promise<JoinCodeSummary>;
     // 활성 코드가 없으면 200 + data:null 이 정상 응답이라 null 을 그대로 돌려준다.
     // 만료된 코드도 폐기 전이면 활성으로 내려온다 — 사용 가능 판정은 호출부 몫이다.
-    getActiveForClub(clubId: number): Promise<JoinCodeSummary | null>;
-    revokeForClub(clubId: number, joinCodeId: number): Promise<void>;
+    getActiveForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+    ): Promise<JoinCodeSummary | null>;
+    revokeForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+      joinCodeId: number,
+    ): Promise<void>;
     listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
     // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
     getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
@@ -1198,12 +1211,18 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<FeeAccount>(http.get(`clubs/${clubId}/fee-account`)),
     },
     joinCodes: {
-      createForClub: (clubId, payload) =>
-        jsonOk<JoinCodeSummary>(http.post(`clubs/${clubId}/join-codes`, { json: payload })),
-      getActiveForClub: (clubId) =>
-        jsonOkNullable<JoinCodeSummary>(http.get(`clubs/${clubId}/join-codes/active`)),
-      revokeForClub: (clubId, joinCodeId) =>
-        jsonVoid(http.delete(`clubs/${clubId}/join-codes/${joinCodeId}`)),
+      createForRecruitment: (clubId, recruitmentId, payload) =>
+        jsonOk<JoinCodeSummary>(
+          http.post(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes`, { json: payload }),
+        ),
+      getActiveForRecruitment: (clubId, recruitmentId) =>
+        jsonOkNullable<JoinCodeSummary>(
+          http.get(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes/active`),
+        ),
+      revokeForRecruitment: (clubId, recruitmentId, joinCodeId) =>
+        jsonVoid(
+          http.delete(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes/${joinCodeId}`),
+        ),
       listRequests: (clubId, status) =>
         jsonOk<JoinRequestSummary[]>(
           http.get(`clubs/${clubId}/join-requests`, { searchParams: { status } }),

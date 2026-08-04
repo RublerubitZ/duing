@@ -8,7 +8,11 @@ export const clubQueryKeys = {
   heroActivities: (clubId: number) => [...clubQueryKeys.all, clubId, 'hero-activities'] as const,
   recruitments: (clubId: number) => [...clubQueryKeys.all, clubId, 'recruitments'] as const,
   members: (clubId: number) => [...clubQueryKeys.all, clubId, 'members'] as const,
-  joinCode: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-code'] as const,
+  // 코드는 모집에 귀속된다 — 요청 콘솔(클럽 단위)은 어느 모집의 코드가 바뀌는지 모르므로
+  // 프리픽스로 한 번에 무효화하고, 조회는 모집까지 포함한 키를 쓴다.
+  joinCodesAll: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-code'] as const,
+  joinCode: (clubId: number, recruitmentId: number) =>
+    [...clubQueryKeys.joinCodesAll(clubId), recruitmentId] as const,
   // 상태별 목록·상세를 한 번에 무효화하기 위한 공통 프리픽스 — 처리 한 건이 여러 탭의 목록을 동시에 바꾼다.
   joinRequestsAll: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-requests'] as const,
   joinRequests: (clubId: number, status: JoinRequestStatus) =>

@@ -1,54 +1,81 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import {
   formatDateKst,
   parseKstInstant,
   useActiveJoinCodeQuery,
+  useClubDetailQuery,
   useCreateJoinCodeMutation,
+  useJoinRequestsQuery,
   useRevokeJoinCodeMutation,
 } from '@duing/hooks';
 import type { JoinCodeSummary } from '@duing/types';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { toRoute } from '@/app/_lib/route';
+import { MemberEnrollmentStepsCard } from '../../_components/MemberEnrollmentStepsCard';
 
-type InviteCodeDialogProps = {
+/**
+ * 외부 폼(EXTERNAL) 모집의 회원 등록 영역 (스펙 §5). 코드는 모집에 귀속되므로 클럽 단위였던
+ * 회원 초대 다이얼로그의 코드 관리 UI 가 이 자리로 옮겨왔다. 모집 상태(OPEN/CLOSED)는 발급
+ * 조건이 아니므로(§4.2) 상태와 무관하게 항상 렌더한다 — 자체 폼 모집에서는 호출부가 감춘다.
+ */
+type MemberEnrollmentSectionProps = {
   clubId: number;
-  // 기수를 쓰지 않는 동아리에는 기수 입력을 감춘다 — 코드에 붙는 기수 스냅샷도 의미가 없다.
-  useGeneration: boolean;
-  onClose: () => void;
+  recruitmentId: number;
 };
 
 const EXPIRY_OPTIONS = [7, 30, 90] as const;
 const DEFAULT_EXPIRY_DAYS = 30;
 
+// 스펙 §8·§9 문안 — 차감 정책 안내는 코드 유무와 무관하게, 유출 경고는 복사 버튼 옆에 붙인다.
+const DEDUCTION_NOTICE =
+  '가입 요청이 생성되는 즉시 사용 가능 인원이 차감됩니다. 운영진이 가입 요청을 거절하면 자동으로 ' +
+  '사용 가능 인원이 복구됩니다. 링크가 외부에 유출될 경우 승인 여부와 관계없이 가입 요청이 생성된 ' +
+  '횟수만큼 사용 가능 인원이 일시적으로 감소할 수 있습니다.';
+
+const LEAK_WARNING =
+  '⚠️ 가입 코드는 합격자에게만 공유해주세요. 링크가 외부에 유출되면 제3자가 가입 요청을 생성할 수 ' +
+  '있으며, 가입 요청이 생성될 때마다 사용 가능 인원이 일시적으로 차감됩니다. 잘못 생성된 가입 요청은 ' +
+  '운영진이 거절하면 자동으로 복구됩니다.';
+
 const fieldCls =
   'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
-export function InviteCodeDialog({ clubId, useGeneration, onClose }: InviteCodeDialogProps) {
-  const activeCodeQuery = useActiveJoinCodeQuery(clubId);
+export function MemberEnrollmentSection({ clubId, recruitmentId }: MemberEnrollmentSectionProps) {
+  const activeCodeQuery = useActiveJoinCodeQuery(clubId, recruitmentId);
+  // 기수를 쓰지 않는 동아리에는 기수 입력을 감춘다 — 코드에 붙는 기수 스냅샷도 의미가 없다.
+  const { data: clubDetail } = useClubDetailQuery(clubId);
+  const useGeneration = clubDetail?.useGeneration ?? false;
+  // 대기 건수 배지. 실패해도 배지만 빠지고 화면은 그대로다(로딩 게이트에 넣지 않는다).
+  const { data: pendingJoinRequests } = useJoinRequestsQuery(clubId, 'PENDING');
+  const pendingCount = pendingJoinRequests?.length ?? 0;
 
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>회원 초대</DialogTitle>
-          <DialogDescription>
-            외부 폼으로 뽑은 합격자에게 가입 코드를 전달하면, 학생이 직접 가입 요청을 보낼 수 있습니다.
-          </DialogDescription>
-        </DialogHeader>
+    <section
+      aria-labelledby="member-enrollment-heading"
+      className="mt-8 rounded-lg border border-line bg-paper p-5"
+    >
+      <h2 id="member-enrollment-heading" className="text-base font-bold text-ink-deep">
+        회원 등록
+      </h2>
+      <p className="mt-1 text-sm text-charcoal-3">
+        외부 폼으로 뽑은 합격자에게 가입 코드를 전달하면, 학생이 직접 가입 요청을 보낼 수 있어요.
+      </p>
 
-        {activeCodeQuery.isLoading && <LoadingGate label="가입 코드 불러오는 중" className="min-h-0 py-10" />}
+      <div className="mt-4">
+        <MemberEnrollmentStepsCard />
+      </div>
+
+      <div className="mt-4">
+        {activeCodeQuery.isLoading && (
+          <LoadingGate label="가입 코드 불러오는 중" className="min-h-0 py-10" />
+        )}
         {activeCodeQuery.isError && (
           <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
             {extractErrorMessage(activeCodeQuery.error) ?? '가입 코드를 불러오지 못했어요.'}
@@ -56,24 +83,51 @@ export function InviteCodeDialog({ clubId, useGeneration, onClose }: InviteCodeD
         )}
         {activeCodeQuery.isSuccess &&
           (activeCodeQuery.data === null ? (
-            <CreateCodeForm clubId={clubId} useGeneration={useGeneration} />
+            <CreateCodeForm
+              clubId={clubId}
+              recruitmentId={recruitmentId}
+              useGeneration={useGeneration}
+            />
           ) : (
             <ActiveCodeCard
               // 재생성으로 코드가 바뀌면 카드를 새로 마운트한다 — 안 그러면 재생성 폼 상태가 남아
               // 새 코드가 이미 발급됐는데도 폼이 계속 보인다.
               key={activeCodeQuery.data.joinCodeId}
               clubId={clubId}
+              recruitmentId={recruitmentId}
               joinCode={activeCodeQuery.data}
               useGeneration={useGeneration}
             />
           ))}
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-3">{DEDUCTION_NOTICE}</p>
+
+      <Link
+        href={toRoute(`/manage/clubs/${clubId}/members/requests`)}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+      >
+        가입 요청 관리
+        {pendingCount > 0 && (
+          <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+            {pendingCount}
+          </span>
+        )}
+      </Link>
+    </section>
   );
 }
 
-function CreateCodeForm({ clubId, useGeneration }: { clubId: number; useGeneration: boolean }) {
-  const createJoinCode = useCreateJoinCodeMutation(clubId);
+function CreateCodeForm({
+  clubId,
+  recruitmentId,
+  useGeneration,
+}: {
+  clubId: number;
+  recruitmentId: number;
+  useGeneration: boolean;
+}) {
+  const createJoinCode = useCreateJoinCodeMutation(clubId, recruitmentId);
   const [maxUses, setMaxUses] = useState('');
   const [expiresInDays, setExpiresInDays] = useState(String(DEFAULT_EXPIRY_DAYS));
   const [generation, setGeneration] = useState('');
@@ -99,7 +153,7 @@ function CreateCodeForm({ clubId, useGeneration }: { clubId: number; useGenerati
         ...(trimmedGeneration === '' ? {} : { generation: Number(trimmedGeneration) }),
       });
     } catch (createFailure) {
-      // 409 는 두 종류(외부 폼 모집 없음 / 동시 재생성)라 문구를 프론트에서 짜지 않고 서버 메시지를 그대로 쓴다.
+      // 409 는 두 종류(자체 폼 모집 / 동시 재생성)라 문구를 프론트에서 짜지 않고 서버 메시지를 그대로 쓴다.
       setError(extractErrorMessage(createFailure) ?? '가입 코드를 만들지 못했어요.');
     }
   }
@@ -188,14 +242,16 @@ function CreateCodeForm({ clubId, useGeneration }: { clubId: number; useGenerati
 
 function ActiveCodeCard({
   clubId,
+  recruitmentId,
   joinCode,
   useGeneration,
 }: {
   clubId: number;
+  recruitmentId: number;
   joinCode: JoinCodeSummary;
   useGeneration: boolean;
 }) {
-  const revokeJoinCode = useRevokeJoinCodeMutation(clubId);
+  const revokeJoinCode = useRevokeJoinCodeMutation(clubId, recruitmentId);
   const [confirming, setConfirming] = useState<'revoke' | 'regenerate' | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   // 재생성은 "확인 → 생성 폼" 2단계다. 새 코드 생성이 곧 기존 코드 폐기(BE 원자 재생성)이므로
@@ -217,7 +273,9 @@ function ActiveCodeCard({
   }
 
   if (regenerating) {
-    return <CreateCodeForm clubId={clubId} useGeneration={useGeneration} />;
+    return (
+      <CreateCodeForm clubId={clubId} recruitmentId={recruitmentId} useGeneration={useGeneration} />
+    );
   }
 
   return (
@@ -231,9 +289,13 @@ function ActiveCodeCard({
           </div>
         </div>
 
+        {/* 유출 경고는 복사 버튼 바로 아래에 둔다 (스펙 §9) — 공유 직전에 읽히는 자리다. */}
+        <p className="mt-3 rounded-md bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral">
+          {LEAK_WARNING}
+        </p>
+
         <div className="mt-3 flex flex-wrap gap-1.5">
           {isExpired && <Badge tone="warn">만료됨</Badge>}
-          {!joinCode.recruitmentOpen && <Badge tone="warn">모집 마감으로 사용 불가</Badge>}
           {joinCode.generation !== null && <Badge tone="muted">{joinCode.generation}기</Badge>}
         </div>
 
@@ -298,7 +360,6 @@ function ActiveCodeCard({
 }
 
 // 배색은 globals.css 의 pill 계열을 그대로 쓴다(pill 기본 = sage-mist/ink, pill-coral = 대비 맞춘 코랄).
-// 작은 배지라 여백만 줄인다 — AdminBookingQueueTable 배지와 같은 조합.
 function Badge({ tone, children }: { tone: 'warn' | 'muted'; children: ReactNode }) {
   return (
     <span className={tone === 'warn' ? 'pill pill-coral !px-2 !py-0.5' : 'pill !px-2 !py-0.5'}>

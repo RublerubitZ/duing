@@ -20,7 +20,7 @@ import { MemberBulkToolbar } from './_components/MemberBulkToolbar';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
-import { InviteCodeDialog } from './_components/InviteCodeDialog';
+import { MemberInviteGuideDialog } from './_components/MemberInviteGuideDialog';
 import {
   availableGenerations,
   EMPTY_MEMBER_FILTERS,
@@ -166,7 +166,8 @@ export default function ClubMembersPage({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {/* 초대 코드 관리·가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다. */}
+          {/* 회원 초대 안내·가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다.
+              가입 코드는 모집에 귀속돼 실제 발급·관리는 모집 관리 화면에서 한다(스펙 §5). */}
           <button
             type="button"
             onClick={() => setInviteOpen(true)}
@@ -281,11 +282,7 @@ export default function ClubMembersPage({
       )}
 
       {inviteOpen && (
-        <InviteCodeDialog
-          clubId={currentClubId}
-          useGeneration={useGeneration}
-          onClose={() => setInviteOpen(false)}
-        />
+        <MemberInviteGuideDialog clubId={currentClubId} onClose={() => setInviteOpen(false)} />
       )}
 
       {successionOpen && (

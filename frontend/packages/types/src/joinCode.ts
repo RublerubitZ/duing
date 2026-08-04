@@ -2,10 +2,10 @@
 import type { IsoInstantString } from './datetime';
 
 /**
- * 운영 콘솔의 활성 가입 코드.
+ * 운영 콘솔의 활성 가입 코드. 코드는 모집(recruitment)에 귀속되며 모집당 활성 코드는 1개다.
  *
  * ⚠️ 활성(active) 이 곧 사용 가능(usable)은 아니다 — 조회는 만료된 코드도 그대로 내려준다.
- * 사용 가능 여부는 화면이 `expiresAt` 경과와 `recruitmentOpen` 으로 각각 판정한다.
+ * 모집 상태는 사용 가능 여부를 좌우하지 않으므로(스펙 v2 §4.2) 화면은 `expiresAt` 경과만 본다.
  */
 export type JoinCodeSummary = {
   joinCodeId: number;
@@ -15,8 +15,6 @@ export type JoinCodeSummary = {
   maxUses: number;
   usedCount: number;
   expiresAt: IsoInstantString;
-  // 귀속 모집이 마감되면 false — 코드가 파생적으로 사용 불가가 된 상태를 뜻한다.
-  recruitmentOpen: boolean;
 };
 
 export type CreateJoinCodePayload = {

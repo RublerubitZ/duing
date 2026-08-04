@@ -383,3 +383,33 @@ describe('ClubMembersPage — 필터 칩 변경과 검색어의 분리', () => {
     expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
   });
 });
+
+// 가입 코드 관리는 모집 관리 화면으로 옮겼다(스펙 §5) — 회원 초대 진입점 구조는 남기고
+// 코드 생성 대신 모집 관리로 안내한다. 가입 요청 진입은 클럽 단위라 여기 그대로 있다.
+describe('ClubMembersPage — 회원 초대 진입점', () => {
+  it('회원 초대는 코드 생성 대신 모집 관리로 안내하고 이동 링크를 준다', async () => {
+    setupHandlers({ useGeneration: true });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '회원 초대' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('외부 폼 모집의 회원 등록은 모집 관리에서 진행합니다.');
+    expect(within(dialog).getByRole('link', { name: /모집 관리/ })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/recruitments`,
+    );
+    // 코드 생성 입력은 이 화면에서 사라졌다.
+    expect(within(dialog).queryByRole('spinbutton', { name: '최대 사용 인원' })).not.toBeInTheDocument();
+  });
+
+  it('가입 요청 관리 진입 링크는 그대로 유지한다', async () => {
+    setupHandlers({ useGeneration: true });
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: /가입 요청/ })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/members/requests`,
+    );
+  });
+});

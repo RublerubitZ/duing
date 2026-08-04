@@ -9,41 +9,49 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 
 /**
- * 활성 가입 코드 조회. 활성 코드가 없으면 200 + data:null 이므로 `data === null` 이 "코드 없음"이고
+ * 모집의 활성 가입 코드 조회. 활성 코드가 없으면 200 + data:null 이므로 `data === null` 이 "코드 없음"이고
  * 오류가 아니다. 만료된 코드도 폐기 전이면 내려오므로 사용 가능 여부는 화면이 판정한다.
  */
-export function useActiveJoinCodeQuery(clubId: number | undefined) {
+export function useActiveJoinCodeQuery(
+  clubId: number | undefined,
+  recruitmentId: number | undefined,
+) {
   const client = useApiClient();
+  const enabled = clubId !== undefined && recruitmentId !== undefined;
   return useQuery({
-    queryKey: clubId !== undefined ? clubQueryKeys.joinCode(clubId) : ['clubs', undefined, 'join-code'],
+    queryKey: enabled
+      ? clubQueryKeys.joinCode(clubId, recruitmentId)
+      : ['clubs', clubId, 'join-code', recruitmentId],
     queryFn: () => {
-      if (clubId === undefined) {
-        throw new Error('clubId is required');
+      if (clubId === undefined || recruitmentId === undefined) {
+        throw new Error('clubId and recruitmentId are required');
       }
-      return client.joinCodes.getActiveForClub(clubId);
+      return client.joinCodes.getActiveForRecruitment(clubId, recruitmentId);
     },
-    enabled: clubId !== undefined,
+    enabled,
   });
 }
 
-export function useCreateJoinCodeMutation(clubId: number) {
+export function useCreateJoinCodeMutation(clubId: number, recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateJoinCodePayload) => client.joinCodes.createForClub(clubId, payload),
+    mutationFn: (payload: CreateJoinCodePayload) =>
+      client.joinCodes.createForRecruitment(clubId, recruitmentId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
     },
   });
 }
 
-export function useRevokeJoinCodeMutation(clubId: number) {
+export function useRevokeJoinCodeMutation(clubId: number, recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (joinCodeId: number) => client.joinCodes.revokeForClub(clubId, joinCodeId),
+    mutationFn: (joinCodeId: number) =>
+      client.joinCodes.revokeForRecruitment(clubId, recruitmentId, joinCodeId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId) });
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
     },
   });
 }
@@ -87,13 +95,14 @@ export function useJoinRequestDetailQuery(
 }
 
 // 처리 한 건이 요청 목록·회원 명단·코드 사용량(usedCount)을 함께 바꾸므로 셋 다 무효화한다.
+// 요청 콘솔은 클럽 단위라 어느 모집의 코드였는지 모른다 — 코드는 클럽 프리픽스로 통째 무효화한다.
 function invalidateAfterDecision(
   queryClient: ReturnType<typeof useQueryClient>,
   clubId: number,
 ) {
   queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinRequestsAll(clubId) });
   queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
-  queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId) });
+  queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCodesAll(clubId) });
 }
 
 /**
