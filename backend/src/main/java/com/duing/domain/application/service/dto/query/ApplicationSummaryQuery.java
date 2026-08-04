@@ -3,12 +3,19 @@ package com.duing.domain.application.service.dto.query;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import java.time.LocalDateTime;
 
 public record ApplicationSummaryQuery(
         Long id,
         Long recruitmentId,
         String recruitmentTitle,
+        /**
+         * 모집 마감 여부 — 지원 상태와 직교한 축이다. 마감된 모집의 미결 지원은 결과가 나오지 않은
+         * 채로 종료된 것이므로, 지원자 화면이 이를 "심사 중"으로 오인하지 않으려면 반드시 필요하다.
+         * 목록 쿼리가 recruitment 를 JOIN FETCH 하므로 추가 조회 없이 읽는다.
+         */
+        RecruitmentStatus recruitmentStatus,
         Long clubId,
         String clubName,
         ClubCategory category,
@@ -35,6 +42,7 @@ public record ApplicationSummaryQuery(
                 application.getId(),
                 application.getRecruitment().getId(),
                 application.getRecruitment().getTitle(),
+                application.getRecruitment().getStatus(),
                 application.getRecruitment().getClub().getId(),
                 application.getRecruitment().getClub().getName(),
                 application.getRecruitment().getClub().getCategory(),

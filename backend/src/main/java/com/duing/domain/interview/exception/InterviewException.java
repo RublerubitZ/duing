@@ -10,6 +10,11 @@ public class InterviewException extends ApplicationException {
         super(message, status);
     }
 
+    /** 프론트가 분기할 machine-readable code 를 함께 싣는 경우에 사용한다. */
+    protected InterviewException(String message, HttpStatus status, String code) {
+        super(message, status, code);
+    }
+
     // ── 404 Not Found ─────────────────────────────────────────────────────────
 
     public static final class RoundNotFound extends InterviewException {
@@ -49,6 +54,19 @@ public class InterviewException extends ApplicationException {
     public static final class InvalidRoundUpdate extends InterviewException {
         private static final String MESSAGE = "수정할 내용이 유효하지 않습니다.";
         public InvalidRoundUpdate() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
+    }
+
+    /**
+     * 마감된 모집의 면접은 아카이브라 지원자가 가능 시간을 새로 제출할 수 없다.
+     * 철회 차단({@code ApplicationDomainException.CannotWithdrawClosedRecruitmentException})과 같은 원인이므로
+     * code 를 공유해 프론트가 한 분기로 처리하고, 문구만 지원자 대면으로 맞춘다.
+     */
+    public static final class ClosedRecruitmentAvailabilityException extends InterviewException {
+        private static final String MESSAGE = "마감된 모집이라 면접 가능 시간을 제출할 수 없어요.";
+
+        public ClosedRecruitmentAvailabilityException() {
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
+        }
     }
 
     public static final class InterviewNotUsed extends InterviewException {

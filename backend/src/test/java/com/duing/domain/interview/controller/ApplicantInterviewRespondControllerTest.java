@@ -170,6 +170,29 @@ class ApplicantInterviewRespondControllerTest extends InterviewControllerTestSup
     }
 
     @Test
+    @DisplayName("모집이 마감되면 가능 시간 제출이 거부된다 — 철회 차단과 같은 RECRUITMENT_CLOSED 계약")
+    void respondingToClosedRecruitmentIsRejected() {
+        InterviewRound round = saveCollectingRound(LocalDateTime.now().plusDays(3));
+        Application application = saveInterviewPendingApplication(recruitment, "마감후응답자");
+        saveMember(round, application, RoundMemberStatus.INVITED, null);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00");
+        // 라운드는 여전히 COLLECTING 이고 마감 시각도 미래다 — 거부 사유가 모집 마감뿐임을 고정한다.
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(recruitment);
+
+        givenApplicant(application)
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotIds", List.of(slot.getId())))
+                .when().put(RESPOND_PATH, application.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"));
+
+        assertThat(interviewAvailabilityRepository
+                .findByRoundIdAndApplicationId(round.getId(), application.getId()))
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("배정 검토(ASSIGNING)로 넘어간 라운드에는 응답할 수 없다")
     void respondingToAssigningRoundIsRejected() {
         InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(

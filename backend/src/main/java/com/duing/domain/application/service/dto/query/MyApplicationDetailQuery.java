@@ -5,6 +5,7 @@ import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,11 @@ public record MyApplicationDetailQuery(
         Long id,
         Long recruitmentId,
         String recruitmentTitle,
+        /**
+         * 모집 마감 여부 — 지원 상태와 직교한 축이다. 마감 후에는 면접 안내·철회처럼
+         * 더 이상 성립하지 않는 UI 를 지원자 화면이 스스로 접을 수 있어야 한다.
+         */
+        RecruitmentStatus recruitmentStatus,
         Long clubId,
         String clubName,
         List<String> questions,
@@ -67,6 +73,7 @@ public record MyApplicationDetailQuery(
                 application.getId(),
                 recruitment.getId(),
                 recruitment.getTitle(),
+                recruitment.getStatus(),
                 club.getId(),
                 club.getName(),
                 questions,

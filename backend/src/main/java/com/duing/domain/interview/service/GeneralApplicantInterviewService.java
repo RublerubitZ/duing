@@ -20,6 +20,7 @@ import com.duing.domain.interview.service.dto.command.RespondInterviewAvailabili
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewPhase;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewView;
 import com.duing.domain.interview.service.dto.query.VisibleMembership;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -116,6 +117,12 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
         }
         if (!application.getRecruitment().isUseInterview()) {
             throw new InterviewException.InterviewNotUsed();
+        }
+        // 마감된 모집은 아카이브 — 지원자 쓰기도 철회와 동일하게 막는다. 마감 후에는 라운드 진행 자체가
+        // 불가능하므로(라운드 생성 차단) 여기서 받은 가능 시간은 어디에도 쓰이지 않는다.
+        // 위 findWithRecruitmentAndClubById 로 이미 로드된 모집이라 추가 조회는 없다.
+        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+            throw new InterviewException.ClosedRecruitmentAvailabilityException();
         }
 
         // §16-7: 동시 합불 처리·동시 자기 응답을 application 행에서 직렬화한다.
