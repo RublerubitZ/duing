@@ -40,6 +40,11 @@ let currentHref: string | null = null;
 let nativeReplaceState: History['replaceState'] | null = null;
 // 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. View Transition 억제에 쓴다.
 let overlayOnlyTraversal = false;
+// 닫힘과 동시에 앞으로 내비게이션(Link 클릭·router.push)이 일어나는 닫힘이면, 최상단 엔트리 회수 back()
+// 을 1회 건너뛴다. 내비게이션은 우리 엔트리 위에 새 엔트리를 쌓는데, 그 커밋이 Next 트랜지션이라
+// 지연되어 회수 back() 이 먼저 나가면 아직 커밋 안 된 이동을 되돌려 삼킨다(모바일 콘솔·알림 시트에서
+// 메뉴가 안 눌리던 원인). 건너뛴 엔트리는 죽은 엔트리로 남아 이후 뒤로가기에서 자동 스킵된다.
+let suppressNextReclaim = false;
 
 /**
  * 지금 처리 중인 popstate 가 오버레이만 닫는(=페이지가 바뀌지 않는) 이동인지 알려준다.
@@ -52,6 +57,24 @@ let overlayOnlyTraversal = false;
  */
 export function isOverlayOnlyTraversal(): boolean {
   return overlayOnlyTraversal;
+}
+
+/**
+ * 오버레이를 "닫으면서 곧바로 앞으로 이동"하는 소비처(모바일 콘솔 메뉴 링크·알림 항목 탭 등)가
+ * 닫기 직전에 호출한다. 다음 최상단 오버레이 닫힘 1회는 회수 back() 을 건너뛰어, 진행 중인
+ * 내비게이션을 back() 이 되돌려 삼키는 것을 막는다. 건너뛴 엔트리는 자동 스킵되므로 히스토리도 안전하다.
+ *
+ * <p>열린 오버레이가 없으면 아무것도 하지 않는다 — 데스크탑 사이드바처럼 오버레이 밖 경로와 코드를
+ * 공유하는 소비처가 무조건 호출해도, 소비될 닫힘이 없는 플래그가 잔존해 나중의 무관한 닫힘을
+ * 오염시키지 않게 하기 위해서다.
+ *
+ * <p>오프라인이면 아무것도 하지 않는다 — 소비처의 이동은 전부 useGuardedRouter/OfflineNavigationGuard
+ * 가 거부하므로 실제 이동이 없고, skip 을 걸면 사용자가 앉을 죽은 엔트리만 남긴다(뒤로가기 1회 낭비).
+ */
+export function skipNextOverlayReclaim(): void {
+  if (stack.length === 0) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  suppressNextReclaim = true;
 }
 
 function readMarker(state: unknown): { token: string | null; id: number | null } {
@@ -258,13 +281,19 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
     currentHref = window.location.href;
 
     return () => {
+      // skip 플래그는 닫힘이 popstate 에 선점당한 경우(index === -1)에도 반드시 소진한다 — 여기서
+      // 살아남으면 시간이 한참 지난 무관한 닫힘의 회수를 억제하는 원격 오염이 된다.
+      const reclaimSuppressed = suppressNextReclaim;
+      suppressNextReclaim = false;
       const index = stack.indexOf(entry);
       if (index === -1) return; // popstate 가 이미 소비했다 — 히스토리도 이미 정리됐다.
       const wasTop = index === stack.length - 1;
       stack.splice(index, 1);
+      // 이 닫힘이 내비게이션과 겹친다고 소비처가 표시했으면, 회수 back() 을 건너뛰고 죽은 엔트리로 남긴다
+      // (내비게이션이 우리 엔트리 위에 쌓는 새 엔트리를 back() 이 되돌려 이동을 삼키는 것을 막는다).
       // 중간 오버레이는 히스토리를 건드리지 않는다 — 그 엔트리는 죽은 엔트리로 남아 나중에 자동 스킵된다.
       // 이것이 back() 호출을 줄이면서 "죽은 뒤로가기 1회"를 없애는 핵심이다.
-      if (!wasTop) return;
+      if (!wasTop || reclaimSuppressed) return;
 
       queueMicrotask(() => {
         const { token, id } = readMarker(window.history.state);
