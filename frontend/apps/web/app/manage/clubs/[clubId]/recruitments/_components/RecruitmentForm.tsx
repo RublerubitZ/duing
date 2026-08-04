@@ -13,6 +13,7 @@ import { FormSegment, FormSwitch, SettingRow } from './form-controls';
 import { RecruitmentPreview } from './RecruitmentPreview';
 import type { RecruitmentPreviewData } from './RecruitmentPreview';
 import { ExternalModeConfirmDialog } from './ExternalModeConfirmDialog';
+import { RecruitmentCloseConfirmDialog } from './RecruitmentCloseConfirmDialog';
 import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 
@@ -28,6 +29,12 @@ type CreateMode = {
   cloneSeed?: RecruitmentDetail;
   // 페이지가 결정: 모집 시작 | 복제하여 모집 시작
   submitLabel: string;
+  /**
+   * 이번 등록으로 백엔드가 자동 마감할 기존 OPEN 모집의 제목(판정은 페이지 책임).
+   * 값이 있으면 제출 직전에 확인 다이얼로그를 띄운다. undefined 는 "마감될 모집 없음" 과
+   * "판정 불가(목록 미로딩·실패)" 를 함께 뜻하며, 둘 다 확인 없이 그대로 제출한다(fail-open).
+   */
+  closingRecruitmentTitle?: string;
   onSubmit: (values: CreateFormValues) => Promise<void>;
   isPending: boolean;
 };
@@ -82,6 +89,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const isEditMode = props.mode === 'edit';
   const initialData = isEditMode ? props.initialValues : null;
   const cloneSeed = !isEditMode ? (props.cloneSeed ?? null) : null;
+  // props 는 유니온이라 클로저 안에서 mode 좁히기가 유지되지 않는다 — const 로 한 번 꺼내둔다.
+  const createSubmit = props.mode === 'create' ? props.onSubmit : null;
+  const closingRecruitmentTitle = props.mode === 'create' ? props.closingRecruitmentTitle : undefined;
   // 기간 필드를 제외한 값들의 단일 시드 소스 — edit 모드면 상세, create+복제 모드면 원본 모집.
   const seed = initialData ?? cloneSeed;
 
@@ -143,6 +153,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
+  // 검증까지 끝났지만 "기존 모집 마감" 확인을 기다리는 create payload. null 이면 확인 대기 없음.
+  const [pendingCreateValues, setPendingCreateValues] = useState<CreateFormValues | null>(null);
 
   const isSelfForm = isEditMode ? initialData?.applicationMode === 'SELF' : applicationMode === 'SELF';
 
@@ -239,25 +251,44 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       setValidationError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');
       return;
     }
+    const createValues: CreateFormValues = {
+      title: parsed.data.title,
+      content: content,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+      capacity: parsed.data.capacity,
+      applicationMode: parsed.data.applicationMode,
+      externalFormUrl: parsed.data.externalFormUrl ?? '',
+      useInterview: parsed.data.useInterview,
+      targetRole: parsed.data.targetRole,
+      questionItems: parsed.data.questionItems ?? [],
+      interviewStartDate: parsed.data.interviewStartDate ?? null,
+      interviewEndDate: parsed.data.interviewEndDate ?? null,
+      showApplicantCount: parsed.data.showApplicantCount ?? false,
+    };
+    // 이 등록이 기존 모집을 마감시키면(페이지 판정) 되돌릴 수 없으므로 제출 전에 한 번 묻는다.
+    if (closingRecruitmentTitle !== undefined) {
+      setPendingCreateValues(createValues);
+      return;
+    }
+    await submitCreateValues(createValues);
+  }
+
+  /** create 제출 본체 — 확인 다이얼로그를 거치든 아니든 이 한 곳으로 모인다. */
+  async function submitCreateValues(values: CreateFormValues) {
+    if (createSubmit === null) return;
     try {
-      await props.onSubmit({
-        title: parsed.data.title,
-        content: content,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-        capacity: parsed.data.capacity,
-        applicationMode: parsed.data.applicationMode,
-        externalFormUrl: parsed.data.externalFormUrl ?? '',
-        useInterview: parsed.data.useInterview,
-        targetRole: parsed.data.targetRole,
-        questionItems: parsed.data.questionItems ?? [],
-        interviewStartDate: parsed.data.interviewStartDate ?? null,
-        interviewEndDate: parsed.data.interviewEndDate ?? null,
-        showApplicantCount: parsed.data.showApplicantCount ?? false,
-      });
+      await createSubmit(values);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
     }
+  }
+
+  async function confirmCloseAndCreate() {
+    if (pendingCreateValues === null) return;
+    await submitCreateValues(pendingCreateValues);
+    // 성공하면 페이지가 이동하고, 실패하면 폼의 에러 배너를 가리지 않도록 닫는다.
+    setPendingCreateValues(null);
   }
 
   const previewData: RecruitmentPreviewData = {
@@ -574,6 +605,17 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         onCancel={() => setIsExternalConfirmOpen(false)}
         onConfirm={confirmExternalMode}
       />
+
+      {pendingCreateValues !== null && closingRecruitmentTitle !== undefined && (
+        <RecruitmentCloseConfirmDialog
+          recruitmentTitle={closingRecruitmentTitle}
+          isPending={props.isPending}
+          onConfirm={() => {
+            void confirmCloseAndCreate();
+          }}
+          onCancel={() => setPendingCreateValues(null)}
+        />
+      )}
     </div>
   );
 }
