@@ -11,7 +11,6 @@ import com.duing.domain.interview.entity.RoundStatus;
  */
 public enum ApplicantInterviewPhase {
     NOT_APPLICABLE,
-    DOCUMENT_REVIEW,
     WAITING_ROUND,
     WAITING_NEXT_ROUND,
     AVAILABILITY_REQUESTED,
@@ -23,32 +22,28 @@ public enum ApplicantInterviewPhase {
 
     /**
      * 평가 순서 (스펙 §9.3):
-     * 0) 평가~면접 구간 밖(SUBMITTED/ACCEPTED/REJECTED)은 visible 여부와 무관하게 NOT_APPLICABLE.
+     * 0) 면접 구간(INTERVIEW_PENDING) 밖은 visible 여부와 무관하게 NOT_APPLICABLE.
      * 1) visible 멤버십(DRAFT 제외 — §5.4 isVisibleToApplicant) 유무 — 호출자가 쿼리로 판정해
      *    visibleRoundStatus/memberStatus 를 null 또는 non-null 로 전달한다.
-     * 2) visible 없음 → application 상태 분기. 참여 이력(CANCELLED 라운드 또는 EXCLUDED 멤버십)이
-     *    있으면 "다음 회차 안내 대기" — DRAFT 멤버십만 있는 경우는 이력이 아니다.
+     * 2) visible 없음 → 참여 이력(CANCELLED 라운드 또는 EXCLUDED 멤버십)이 있으면 "다음 회차 안내 대기",
+     *    없으면 "회차 안내 대기" — DRAFT 멤버십만 있는 경우는 이력이 아니다.
      * 3) visible 있음 → 표 순서대로: INVITED 의 마감 전/후 → RESPONDED → NO_AVAILABLE_SLOT(라운드
      *    단계 무관) → ASSIGNING → SCHEDULED+ASSIGNED. 도달 불가 조합은 중립값 SCHEDULING.
-     * 평가~면접 구간 밖(SUBMITTED/ACCEPTED/REJECTED)은 NOT_APPLICABLE — application 결과 뷰가 담당.
+     * 면접 구간 밖(SUBMITTED/ON_HOLD/ACCEPTED/REJECTED)은 NOT_APPLICABLE — application 결과 뷰가 담당.
      */
     public static ApplicantInterviewPhase derive(ApplicationStatus applicationStatus,
                                                  RoundStatus visibleRoundStatus,
                                                  RoundMemberStatus memberStatus,
                                                  boolean hasConcludedMembership,
                                                  boolean deadlinePassed) {
-        // 평가~면접 구간 밖 상태가 최우선이다 (스펙 §9.3 평가 순서 0) — 합불 처리 후 visible 멤버십이
+        // 면접 구간 밖 상태가 최우선이다 (스펙 §9.3 평가 순서 0) — 합불 처리 후 visible 멤버십이
         // 잔존해도 AVAILABILITY_* 류가 노출되면 안 된다 (예: COLLECTING 중 REJECTED 처리된 지원자).
-        if (applicationStatus != ApplicationStatus.UNDER_REVIEW
-                && applicationStatus != ApplicationStatus.INTERVIEW_PENDING) {
+        // SUBMITTED·ON_HOLD 도 면접 구간 밖이다 — 운영진의 미결정 상태는 application 결과 뷰가 담당한다.
+        if (applicationStatus != ApplicationStatus.INTERVIEW_PENDING) {
             return NOT_APPLICABLE;
         }
         if (visibleRoundStatus == null) {
-            return switch (applicationStatus) {
-                case UNDER_REVIEW -> DOCUMENT_REVIEW;
-                case INTERVIEW_PENDING -> hasConcludedMembership ? WAITING_NEXT_ROUND : WAITING_ROUND;
-                default -> NOT_APPLICABLE;
-            };
+            return hasConcludedMembership ? WAITING_NEXT_ROUND : WAITING_ROUND;
         }
         if (memberStatus == RoundMemberStatus.INVITED && visibleRoundStatus == RoundStatus.COLLECTING) {
             return deadlinePassed ? AVAILABILITY_CLOSED : AVAILABILITY_REQUESTED;

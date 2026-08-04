@@ -62,15 +62,14 @@ class ApplicantInterviewControllerTest extends InterviewControllerTestSupport {
     }
 
     @Test
-    @DisplayName("서류 검토 중인 지원자는 DOCUMENT_REVIEW 단계를 받는다")
-    void underReviewSeesDocumentReview() {
-        // DOCUMENT_REVIEW 파생은 UNDER_REVIEW 에만 남아 있는 죽은 경로 — 전이로는 도달할 수 없어 직접 세팅한다.
-        Application application = saveApplicationWithStatus(recruitment, "서류중", ApplicationStatus.UNDER_REVIEW);
+    @DisplayName("보류 중인 지원자는 면접 구간 밖이므로 NOT_APPLICABLE 단계를 받는다")
+    void onHoldSeesNotApplicable() {
+        Application application = saveOnHoldApplication(recruitment, "보류중");
 
         givenApplicant(application)
                 .when().get(INTERVIEW_PATH, application.getId())
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.phase", equalTo("DOCUMENT_REVIEW"))
+                .body("data.phase", equalTo("NOT_APPLICABLE"))
                 .body("data.slots", nullValue())
                 .body("data.scheduledInterview", nullValue());
     }

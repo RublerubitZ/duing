@@ -49,7 +49,7 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 생성 (wizard)",
             description = "면접 대상 선정과 라운드 생성을 한 트랜잭션으로 처리한다 — wizard Step2 완료 시점의 첫 persist. "
-                    + "허용 지원 상태: UNDER_REVIEW(선정 — INTERVIEW_PENDING 으로 전이·이력 기록), INTERVIEW_PENDING(대기열 재수용 — 유지). "
+                    + "허용 지원 상태: SUBMITTED·ON_HOLD(선정 — INTERVIEW_PENDING 으로 전이·이력 기록), INTERVIEW_PENDING(대기열 재수용 — 유지). "
                     + "그 외 상태가 섞이면 400 이고 전체가 롤백된다. "
                     + "이미 진행 중 라운드에 소속된 지원자가 있으면 409. 모집당 준비 중(DRAFT) 라운드는 1개 — 이미 있으면 409. "
                     + "availabilityDeadline 은 DRAFT 동안 생략 가능하며 발송 시점에 필수가 된다. 지정 시 현재 이후여야 한다."

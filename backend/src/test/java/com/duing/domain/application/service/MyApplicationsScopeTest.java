@@ -58,14 +58,7 @@ class MyApplicationsScopeTest {
         User applicant = saveStudent("지원자ACTIVE");
         // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용되므로,
         // 지원 status 별 픽스처를 동아리별로 분리한다.
-        // UNDER_REVIEW 는 새 전이표에서 도달 불가한 죽은 상태라 픽스처에서 제외한다.
-        List<ApplicationStatus> reachableStatuses = List.of(
-                ApplicationStatus.SUBMITTED,
-                ApplicationStatus.ON_HOLD,
-                ApplicationStatus.INTERVIEW_PENDING,
-                ApplicationStatus.ACCEPTED,
-                ApplicationStatus.REJECTED);
-        for (ApplicationStatus status : reachableStatuses) {
+        for (ApplicationStatus status : ApplicationStatus.values()) {
             Club club = saveClub("ACTIVE동아리-" + status);
             Recruitment recruitment = saveRecruitment(club, "ACTIVE모집-" + status);
             saveApplication(recruitment, applicant, status);

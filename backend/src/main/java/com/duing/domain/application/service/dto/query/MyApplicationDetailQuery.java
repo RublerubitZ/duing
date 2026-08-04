@@ -23,7 +23,8 @@ public record MyApplicationDetailQuery(
         AssignedInterviewQuery interview,
         LocalDateTime submittedAt,
         int interviewAvailabilityCount,
-        LocalDateTime availabilityDeadline
+        LocalDateTime availabilityDeadline,
+        boolean useInterview
 ) {
     /**
      * 면접 진행 필드(가능시간 제출 수 / 배정 면접 / 마감 시각)를 기본값으로 채워 반환한다.
@@ -74,7 +75,9 @@ public record MyApplicationDetailQuery(
                 interview,
                 application.getCreatedAt(),
                 interviewAvailabilityCount,
-                availabilityDeadline
+                availabilityDeadline,
+                // 지원자 stepper 가 면접 단계를 그릴지 판단하는 유일한 근거 — 모집 설정에서 그대로 전달한다.
+                recruitment.isUseInterview()
         );
     }
 }

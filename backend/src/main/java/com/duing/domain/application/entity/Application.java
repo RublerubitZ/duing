@@ -106,8 +106,7 @@ public class Application extends BaseEntity {
                             ? to == ApplicationStatus.INTERVIEW_PENDING
                             : to == ApplicationStatus.ACCEPTED);
             case INTERVIEW_PENDING -> to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
-            // UNDER_REVIEW 는 V97 치환 후 존재하지 않는 죽은 상태 — 상수와 함께 후속 작업에서 제거한다.
-            case UNDER_REVIEW, ACCEPTED, REJECTED -> false;
+            case ACCEPTED, REJECTED -> false;
         };
     }
 

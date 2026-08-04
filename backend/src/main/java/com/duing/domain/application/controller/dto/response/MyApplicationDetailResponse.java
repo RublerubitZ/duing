@@ -19,7 +19,8 @@ public record MyApplicationDetailResponse(
         AssignedInterview interview,
         Instant submittedAt,
         int interviewAvailabilityCount,
-        LocalDateTime availabilityDeadline
+        LocalDateTime availabilityDeadline,
+        boolean useInterview
 ) {
 
     /**
@@ -53,7 +54,8 @@ public record MyApplicationDetailResponse(
                 interview,
                 TimeMapper.systemWallClockToInstant(detailQuery.submittedAt()),
                 detailQuery.interviewAvailabilityCount(),
-                detailQuery.availabilityDeadline()
+                detailQuery.availabilityDeadline(),
+                detailQuery.useInterview()
         );
     }
 }

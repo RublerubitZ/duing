@@ -97,20 +97,20 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
         Recruitment recruitment = saveOpenRecruitment(club, "상태필터모집");
 
         User applicantSubmitted = saveUser("제출자", UserRole.STUDENT, College.EDUCATION, "교육학");
-        User applicantUnderReview = saveUser("검토중자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        User applicantOnHold = saveUser("보류자", UserRole.STUDENT, College.EDUCATION, "교육학");
         User applicantAccepted = saveUser("합격자", UserRole.STUDENT, College.EDUCATION, "교육학");
 
         saveApplicationWithStatus(recruitment, applicantSubmitted, ApplicationStatus.SUBMITTED);
-        saveApplicationWithStatus(recruitment, applicantUnderReview, ApplicationStatus.UNDER_REVIEW);
+        saveApplicationWithStatus(recruitment, applicantOnHold, ApplicationStatus.ON_HOLD);
         saveApplicationWithStatus(recruitment, applicantAccepted, ApplicationStatus.ACCEPTED);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                .queryParam("status", "UNDER_REVIEW")
+                .queryParam("status", "ON_HOLD")
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
                 .then().statusCode(200)
                 .body("data.size()", is(1))
-                .body("data[0].status", equalTo("UNDER_REVIEW"));
+                .body("data[0].status", equalTo("ON_HOLD"));
     }
 
     @Test
@@ -352,8 +352,8 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 saveUser("제출자", UserRole.STUDENT, College.EDUCATION, "교육학"),
                 ApplicationStatus.SUBMITTED).getId();
         saveApplicationWithStatus(recruitment,
-                saveUser("검토자", UserRole.STUDENT, College.EDUCATION, "교육학"),
-                ApplicationStatus.UNDER_REVIEW);
+                saveUser("보류자", UserRole.STUDENT, College.EDUCATION, "교육학"),
+                ApplicationStatus.ON_HOLD);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)

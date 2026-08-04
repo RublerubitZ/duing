@@ -45,7 +45,7 @@ public interface ApplicationApi {
     );
 
     @Operation(summary = "내 지원 목록 조회",
-            description = "본인이 제출한 지원을 최신순으로 반환한다. scope 로 상태 그룹 필터링: all(기본·전체) / active(SUBMITTED·UNDER_REVIEW·INTERVIEW_PENDING) / archived(ACCEPTED·REJECTED).")
+            description = "본인이 제출한 지원을 최신순으로 반환한다. scope 로 상태 그룹 필터링: all(기본·전체) / active(SUBMITTED·ON_HOLD·INTERVIEW_PENDING) / archived(ACCEPTED·REJECTED).")
     @GetMapping("/users/me/applications")
     ResponseEntity<ApiResponse<List<ApplicationSummaryResponse>>> getMyApplications(
             @RequestParam(name = "scope", defaultValue = "ALL") ApplicationScope scope,

@@ -40,7 +40,7 @@ public interface LeaderApplicationApi {
     @GetMapping("/leader/recruitments/{recruitmentId}/applications")
     ResponseEntity<ApiResponse<List<ApplicantResponse>>> getApplicants(
             @PathVariable Long recruitmentId,
-            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | ON_HOLD | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "ON_HOLD")
             @RequestParam(required = false) ApplicationStatus status,
             @Parameter(description = "단과대 필터", example = "ENGINEERING")
             @RequestParam(required = false) College college,
@@ -87,7 +87,7 @@ public interface LeaderApplicationApi {
     ResponseEntity<ApiResponse<ApplicantNeighborsResponse>> getApplicantNeighbors(
             @PathVariable Long recruitmentId,
             @PathVariable Long applicationId,
-            @Parameter(description = "지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "UNDER_REVIEW")
+            @Parameter(description = "지원 상태 필터 (SUBMITTED | ON_HOLD | INTERVIEW_PENDING | ACCEPTED | REJECTED)", example = "ON_HOLD")
             @RequestParam(required = false) ApplicationStatus status,
             @Parameter(description = "단과대 필터", example = "ENGINEERING")
             @RequestParam(required = false) College college,

@@ -18,7 +18,7 @@ public interface InterviewRoundService {
     List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId, boolean includeUndecided);
 
     /**
-     * wizard Step2 의 첫 persist — 면접 대상 선정(UNDER_REVIEW→INTERVIEW_PENDING 전이)과
+     * wizard Step2 의 첫 persist — 면접 대상 선정(SUBMITTED·ON_HOLD→INTERVIEW_PENDING 전이)과
      * 라운드(DRAFT)·멤버 생성을 한 트랜잭션으로 처리한다 (스펙 §9.1 API 2·§10.3).
      */
     Long createRound(CreateInterviewRoundCommand createCommand);

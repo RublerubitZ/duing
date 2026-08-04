@@ -98,19 +98,14 @@ class ApplicationStatusTransitionTest {
     }
 
     @Test
-    @DisplayName("서류심사(UNDER_REVIEW) 는 어떤 상태로도 나갈 수 없고 어떤 상태에서도 들어올 수 없다")
-    void underReviewIsADeadStatus() {
-        for (ApplicationStatus otherStatus : ApplicationStatus.values()) {
-            for (boolean useInterview : new boolean[]{false, true}) {
-                Application leaving = applicationWithStatus(ApplicationStatus.UNDER_REVIEW);
-                assertThatThrownBy(() -> leaving.transitionTo(otherStatus, useInterview))
-                        .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
-
-                Application entering = applicationWithStatus(otherStatus);
-                assertThatThrownBy(() -> entering.transitionTo(ApplicationStatus.UNDER_REVIEW, useInterview))
-                        .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
-            }
-        }
+    @DisplayName("지원 상태는 제출됨·보류·면접대상·합격·불합격 다섯 가지뿐이다")
+    void statusSetHasNoDeadValues() {
+        assertThat(ApplicationStatus.values()).containsExactly(
+                ApplicationStatus.SUBMITTED,
+                ApplicationStatus.ON_HOLD,
+                ApplicationStatus.INTERVIEW_PENDING,
+                ApplicationStatus.ACCEPTED,
+                ApplicationStatus.REJECTED);
     }
 
     private Application applicationWithStatus(ApplicationStatus status) {
@@ -134,8 +129,7 @@ class ApplicationStatusTransitionTest {
                 LocalDateTime.now());
         Application application = Application.submit(recruitment, applicant, List.of());
         if (status != ApplicationStatus.SUBMITTED) {
-            // 전이 규칙 자체가 검증 대상이므로 시작 상태는 전이를 우회해 세팅한다
-            // (UNDER_REVIEW 는 새 전이표로는 도달할 수 없는 죽은 상태라 리플렉션 외 방법이 없다).
+            // 전이 규칙 자체가 검증 대상이므로 시작 상태는 전이를 우회해 세팅한다.
             ReflectionTestUtils.setField(application, "status", status);
         }
         return application;
