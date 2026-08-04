@@ -1,5 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.FeeAccount;
 import com.duing.domain.fee.exception.FeeAccountException;
@@ -7,6 +11,7 @@ import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.command.UpsertFeeAccountCommand;
 import com.duing.domain.fee.service.dto.query.FeeAccountQuery;
 import com.duing.global.crypto.FeeAccountCipher;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +34,7 @@ public class GeneralFeeAccountService implements FeeAccountService {
     private final ClubAuthService clubAuthService;
     private final FeeAccountCipher feeAccountCipher;
     private final BankMatchingAdminService bankMatchingAdminService;
+    private final ClubAuditEventRepository clubAuditEventRepository;
 
     @Override
     @Transactional
@@ -44,7 +50,9 @@ public class GeneralFeeAccountService implements FeeAccountService {
         // 평문 계좌번호는 저장 직전에 암호화한다 — 영속 계층에는 암호문만 들어간다.
         // clubId 를 AAD 로 바인딩해 다른 동아리 행에 끼워 넣어도 복호화되지 않게 한다.
         String encryptedAccountNumber = feeAccountCipher.encrypt(command.accountNumber(), command.clubId());
-        return feeAccountRepository.findByClubId(command.clubId())
+        // 등록/변경 구분은 upsert 분기(람다) 밖에서 선판정한다 — 분기 안에서는 한 줄로 기록할 지점이 없다.
+        boolean existing = feeAccountRepository.existsByClubId(command.clubId());
+        Long accountId = feeAccountRepository.findByClubId(command.clubId())
                 .map(existingAccount -> {
                     existingAccount.update(command.bank(), encryptedAccountNumber, command.accountHolder());
                     return existingAccount.getId();
@@ -54,6 +62,12 @@ public class GeneralFeeAccountService implements FeeAccountService {
                             command.clubId(), command.bank(), encryptedAccountNumber, command.accountHolder());
                     return feeAccountRepository.save(account).getId();
                 });
+        // 계좌번호·예금주는 detail 에도 절대 싣지 않는다(스펙 §9) — 은행 코드만 남긴다.
+        clubAuditEventRepository.save(ClubAuditEvent.feeAccount(
+                existing ? ClubAuditEventType.FEE_ACCOUNT_UPDATED : ClubAuditEventType.FEE_ACCOUNT_REGISTERED,
+                command.clubId(), command.actorId(),
+                AuditDetailJson.of(Map.of("bank", command.bank().name()))));
+        return accountId;
     }
 
     @Override
@@ -77,6 +91,8 @@ public class GeneralFeeAccountService implements FeeAccountService {
         // 정리할 외부 등록이 없어 이 호출은 외부 장애로 실패하지 않는다(순서 무관하지만 의도를 드러내려 삭제 앞에 둔다).
         bankMatchingAdminService.unregisterForAccountRemoval(clubId);
         feeAccountRepository.delete(account); // @SQLDelete soft delete
+        clubAuditEventRepository.save(ClubAuditEvent.feeAccount(
+                ClubAuditEventType.FEE_ACCOUNT_DELETED, clubId, actorId, null));
     }
 
     private FeeAccount loadByClubId(Long clubId) {

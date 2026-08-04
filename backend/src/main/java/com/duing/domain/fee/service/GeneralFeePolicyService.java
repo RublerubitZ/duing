@@ -1,5 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeePolicy;
@@ -10,7 +14,9 @@ import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.service.dto.command.CreateFeePolicyCommand;
 import com.duing.domain.fee.service.dto.command.UpdateFeePolicyCommand;
 import com.duing.domain.fee.service.dto.query.FeePolicyQuery;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +29,7 @@ public class GeneralFeePolicyService implements FeePolicyService {
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillRepository feeBillRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubAuditEventRepository clubAuditEventRepository;
 
     @Override
     @Transactional
@@ -34,7 +41,15 @@ public class GeneralFeePolicyService implements FeePolicyService {
             validateAutoIssue(command.billingType(), command.targetType(), command.issueDay(), command.dueDay());
             policy.applyAutoIssue(true, command.issueDay(), command.dueDay());
         }
-        return feePolicyRepository.save(policy).getId();
+        FeePolicy savedPolicy = feePolicyRepository.save(policy);
+        // 감사 기록은 변이와 같은 트랜잭션 — 기록이 실패하면 변이째 롤백된다(스펙 §4).
+        clubAuditEventRepository.save(ClubAuditEvent.feePolicy(
+                ClubAuditEventType.FEE_POLICY_CREATED, command.clubId(), savedPolicy.getId(),
+                command.actorId(), AuditDetailJson.of(Map.of(
+                        "amount", savedPolicy.getAmount(),
+                        "billingType", savedPolicy.getBillingType().name(),
+                        "targetType", savedPolicy.getTargetType().name()))));
+        return savedPolicy.getId();
     }
 
     @Override
@@ -50,6 +65,9 @@ public class GeneralFeePolicyService implements FeePolicyService {
         if (changesBillingType && feeBillRepository.existsByFeePolicyId(command.policyId())) {
             throw new FeePolicyException.FeePolicyBillingTypeImmutableException();
         }
+        // 변경 적용 전 스냅샷 — 감사 detail 의 old 값. amount 는 NOT NULL 이라 언박싱이 안전하다.
+        long oldAmount = policy.getAmount();
+        boolean wasActive = policy.isActive();
         policy.update(command.name(), command.amount(), command.billingType(), command.active());
         // autoIssue 미전송(null)은 기존 자동발행 설정 유지. 명시 true/false 일 때만 반영한다.
         if (command.autoIssue() != null) {
@@ -65,6 +83,17 @@ public class GeneralFeePolicyService implements FeePolicyService {
             // DB CHECK(ck_fee_policy_auto_issue) 가 잡기 전에 의미 있는 400 으로 막는다.
             throw new FeePolicyException.AutoIssueNotMonthlyException();
         }
+        // 실제로 달라진 필드만 old/new 로 남긴다(동일값 PATCH 는 빈 detail).
+        Map<String, Object> auditDetail = new LinkedHashMap<>();
+        if (oldAmount != policy.getAmount()) {
+            auditDetail.put("amount", Map.of("old", oldAmount, "new", policy.getAmount()));
+        }
+        if (wasActive != policy.isActive()) {
+            auditDetail.put("active", Map.of("old", wasActive, "new", policy.isActive()));
+        }
+        clubAuditEventRepository.save(ClubAuditEvent.feePolicy(
+                ClubAuditEventType.FEE_POLICY_UPDATED, command.clubId(), policy.getId(),
+                command.actorId(), AuditDetailJson.of(auditDetail)));
     }
 
     // 생성·수정 공유 검증: 자동발행은 ALL_MEMBERS + MONTHLY 한정, 발행일·마감일 1~28, 마감일 >= 발행일.
@@ -93,6 +122,8 @@ public class GeneralFeePolicyService implements FeePolicyService {
             throw new FeePolicyException.FeePolicyDeleteForbiddenException();
         }
         feePolicyRepository.delete(policy); // @SQLDelete soft delete
+        clubAuditEventRepository.save(ClubAuditEvent.feePolicy(
+                ClubAuditEventType.FEE_POLICY_DELETED, clubId, policyId, actorId, null));
     }
 
     @Override
