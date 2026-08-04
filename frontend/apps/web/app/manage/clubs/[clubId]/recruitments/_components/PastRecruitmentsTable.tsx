@@ -12,8 +12,7 @@ import {
 } from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentFlowLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import {
-  recruitmentClosedDateKst,
-  recruitmentClosedSortKey,
+  recruitmentClosedLabel,
   sortPastRecruitments,
 } from '@/app/manage/clubs/[clubId]/_lib/sortPastRecruitments';
 
@@ -21,12 +20,6 @@ type Props = {
   clubId: number;
   recruitments: RecruitmentSummary[];
 };
-
-/** 실제로 마감된 건만 종료 시점을 표기한다 — 마감일이 지났을 뿐인 심사 중 모집에 마감일을 붙이지 않는다. */
-function closedDateLabel(recruitment: RecruitmentSummary): string | null {
-  if (recruitmentClosedDateKst(recruitment.closedAt) === null) return null;
-  return `마감 ${recruitmentClosedSortKey(recruitment)}`;
-}
 
 export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitments }: Props) {
   const client = useApiClient();
@@ -93,8 +86,8 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-charcoal-2">
                   {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
-                  {closedDateLabel(recruitment) !== null && (
-                    <div className="mt-0.5 text-charcoal-3">{closedDateLabel(recruitment)}</div>
+                  {recruitmentClosedLabel(recruitment) !== null && (
+                    <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
                   )}
                 </td>
                 <td className="px-4 py-3 font-mono text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
@@ -156,7 +149,7 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
             </div>
             <div className="mt-1 text-xs text-charcoal-3">
               {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
-              {closedDateLabel(recruitment) !== null && ` · ${closedDateLabel(recruitment)}`} · 전형{' '}
+              {recruitmentClosedLabel(recruitment) !== null && ` · ${recruitmentClosedLabel(recruitment)}`} · 전형{' '}
               {recruitmentFlowLabel(recruitment.useInterview)}
             </div>
             <div className="mt-1 font-mono text-sm text-charcoal">

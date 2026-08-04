@@ -28,6 +28,16 @@ export function recruitmentClosedSortKey(recruitment: RecruitmentSummary): strin
   return closedDate ?? recruitment.startDate;
 }
 
+/**
+ * 아카이브 표기용 마감일 라벨. 실제로 마감된 건만 종료 시점을 표기한다 —
+ * 마감일이 지났을 뿐인 심사 중 모집에 마감일을 붙이지 않는다. 표기 문구는 아카이브 표면
+ * (모집 관리 표·지원현황 진입)이 공유하므로 여기서 한 번만 정의한다.
+ */
+export function recruitmentClosedLabel(recruitment: RecruitmentSummary): string | null {
+  if (recruitmentClosedDateKst(recruitment.closedAt) === null) return null;
+  return `마감 ${recruitmentClosedSortKey(recruitment)}`;
+}
+
 /** 지난 모집을 종료 시점 내림차순(최신 우선)으로. 원본은 그대로 두고 사본을 정렬한다. */
 export function sortPastRecruitments(recruitments: RecruitmentSummary[]): RecruitmentSummary[] {
   return [...recruitments].sort((left, right) => {
