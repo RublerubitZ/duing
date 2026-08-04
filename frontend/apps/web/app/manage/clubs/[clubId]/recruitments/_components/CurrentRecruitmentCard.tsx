@@ -28,7 +28,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
 
-  const closeRecruitment = useCloseRecruitmentMutation(recruitment.id);
+  const closeRecruitment = useCloseRecruitmentMutation(recruitment.id, clubId);
 
   const now = new Date();
   const isExternal = recruitment.applicationMode === 'EXTERNAL';

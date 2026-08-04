@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
 import { clubQueryKeys } from '../src/clubQueryKeys';
+import { useCloseRecruitmentMutation } from '../src/recruitments';
 import {
   useActiveJoinCodeQuery,
   useBulkApproveJoinRequestsMutation,
@@ -73,6 +74,7 @@ const server = setupServer(
     HttpResponse.json({ ok: true, message: null, data: activeJoinCode }),
   ),
   http.delete('*/clubs/10/recruitments/55/join-codes/7', () => new HttpResponse(null, { status: 204 })),
+  http.patch('*/leader/recruitments/55/close', () => new HttpResponse(null, { status: 204 })),
   http.get('*/clubs/10/join-requests', ({ request }) => {
     lastRequestsQuery = new URL(request.url).searchParams.get('status');
     return HttpResponse.json({ ok: true, message: null, data: [pendingRequest] });
@@ -176,6 +178,25 @@ describe('가입 링크 훅', () => {
 
     expect(lastCreateBody).toEqual({ maxUses: 30, joinWindowDays: 14, generation: 12 });
     expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
+  });
+
+  // 마감하면 가입 가능 기간이 "종료 후 N일" 텍스트에서 실제 만료 일시로 바뀐다 — 링크 응답이
+  // 달라지므로 마감 뮤테이션이 해당 모집의 링크 캐시까지 무효화해야 상태 카드가 바로 따라온다.
+  it('모집 마감 성공 시 그 모집의 가입 링크 키도 무효화한다', async () => {
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 56), activeJoinCode);
+
+    const { result } = renderHook(() => useCloseRecruitmentMutation(55, 10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
+    // 같은 동아리의 다른 모집 링크까지 건드리지 않는다.
+    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 56))?.isInvalidated).toBe(false);
   });
 
   it('링크 폐기 성공 시 가입 링크 키를 무효화한다', async () => {

@@ -38,7 +38,7 @@ export default function RecruitmentDetailPage({
   const { data: recruitment, isLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const closeRecruitment = useCloseRecruitmentMutation(recruitmentId);
+  const closeRecruitment = useCloseRecruitmentMutation(recruitmentId, clubId);
   const deleteRecruitment = useDeleteRecruitmentMutation(clubId, recruitmentId);
   // 통계 페이지 진입 전 핵심 지표(지원자·합격·합격률)를 상세에서 미리 보여주기 위한 1회 호출.
   // 통계 페이지와 동일 훅·쿼리키를 공유하므로 통계로 이동 시 캐시가 재사용된다.
