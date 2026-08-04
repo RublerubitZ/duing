@@ -42,6 +42,9 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   }
 
   const useInterview = recruitment?.useInterview ?? false;
+  // 마감(raw CLOSED) 모집은 조회 전용 (스펙 §6). status 를 아직 못 받았으면 차단하지 않는다(fail-open) —
+  // 그 창에서 실행된 쓰기는 BE 409(RECRUITMENT_CLOSED)가 막고, 화면은 실패 토스트로 안내한다.
+  const isReadOnly = recruitment?.status === 'CLOSED';
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
@@ -64,6 +67,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             applicationId={applicationId}
             myEvaluation={detail.myEvaluation}
             otherEvaluations={detail.otherEvaluations}
+            readOnly={isReadOnly}
           />
           {useInterview && (
             <ApplicantInterviewScheduleCard
@@ -80,6 +84,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             recruitmentId={recruitmentId}
             currentStatus={detail.status}
             useInterview={useInterview}
+            readOnly={isReadOnly}
           />
         </div>
       </div>

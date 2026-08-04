@@ -18,6 +18,7 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -209,7 +210,7 @@ class ClubSearchRecruitmentStatusTest extends IntegrationTestBase {
 
     private Recruitment saveClosedRecruitment(Club club, LocalDate startDate, LocalDate endDate) {
         Recruitment created = Recruitment.create(club, "모집-" + sequence.getAndIncrement(), null, startDate, endDate, 10);
-        created.close();
+        created.close(LocalDateTime.now());
         return recruitmentRepository.save(created);
     }
 }

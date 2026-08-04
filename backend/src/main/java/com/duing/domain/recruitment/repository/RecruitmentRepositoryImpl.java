@@ -1,12 +1,19 @@
 package com.duing.domain.recruitment.repository;
 
+import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
+import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
+import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -153,5 +160,61 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
             ));
         }
         return picked;
+    }
+
+    /**
+     * 동아리는 join 만 하고 이름을 스칼라로 뽑는다 — 지원자 집계(groupBy)와 fetch join 은 함께 쓸 수 없다.
+     * 지원서는 leftJoin 이라 지원자가 없는 모집도 0 으로 남는다.
+     */
+    @Override
+    public List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition) {
+        List<Tuple> rows = queryFactory
+                .select(recruitment, club.name, application.count())
+                .from(recruitment)
+                .join(recruitment.club, club)
+                .leftJoin(application)
+                    .on(application.recruitment.eq(recruitment)
+                            .and(application.deletedAt.isNull()))
+                .where(
+                        keywordMatches(searchCondition.q()),
+                        statusEq(searchCondition.status()),
+                        modeEq(searchCondition.mode())
+                )
+                .groupBy(recruitment.id, club.name)
+                .orderBy(orderSpecifiers(searchCondition.sort()))
+                .fetch();
+
+        return rows.stream()
+                .map(row -> new AdminRecruitmentRow(
+                        row.get(recruitment),
+                        row.get(club.name),
+                        row.get(application.count())))
+                .toList();
+    }
+
+    private OrderSpecifier<?>[] orderSpecifiers(AdminRecruitmentSort sort) {
+        // 동점·동일 마감일은 최신순으로 갈라 목록 순서가 요청마다 흔들리지 않게 한다.
+        return switch (sort) {
+            case LATEST -> new OrderSpecifier<?>[]{recruitment.createdAt.desc()};
+            case APPLICANTS -> new OrderSpecifier<?>[]{
+                    application.count().desc(), recruitment.createdAt.desc()};
+            case DEADLINE -> new OrderSpecifier<?>[]{
+                    recruitment.endDate.asc().nullsLast(), recruitment.createdAt.desc()};
+        };
+    }
+
+    private BooleanExpression keywordMatches(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return club.name.containsIgnoreCase(keyword).or(recruitment.title.containsIgnoreCase(keyword));
+    }
+
+    private BooleanExpression statusEq(RecruitmentStatus status) {
+        return status == null ? null : recruitment.status.eq(status);
+    }
+
+    private BooleanExpression modeEq(ApplicationMode mode) {
+        return mode == null ? null : recruitment.applicationMode.eq(mode);
     }
 }

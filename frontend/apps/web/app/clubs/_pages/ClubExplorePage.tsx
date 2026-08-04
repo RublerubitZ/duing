@@ -7,7 +7,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -104,21 +104,21 @@ export function ClubExplorePage() {
     [params, router],
   );
 
-  // 확인이 끝나지 않는 장애에서 찜 필터 화면이 영영 스켈레톤에 갇히지 않도록 상한을 둔 status 를 쓴다
-  // (그 화면의 로그인 유도가 유일한 복구 수단이다).
-  const authStatus = useBoundedAuthStatus();
-  /** 찜 필터 + 비인증(idle 포함) — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
+  const authStatus = useSeededAuthStatus();
+  /** 찜 필터 + 미인증 — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
       플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
-  /** 찜 목록은 인증 확정 후에만 조회된다 — 확인 중에는 모든 카드가 "찜 안 함" 으로 보여, 누르면
-      해제 대신 추가가 나가고 이미 찜한 동아리는 409 로 조용히 실패한다. 방향을 모르는 동안은
-      하트를 비활성으로 두어 잘못된 방향으로 나가지 않게 한다. */
-  const isAuthPending = authStatus === 'idle';
   const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
   const favoriteIdsQuery = useFavoriteIdsQuery();
   const favoriteToggle = useFavoriteToggleMutation();
+  /** 시드는 "로그인했다"까지만 말해 준다 — 무엇을 찜했는지는 목록이 와야 안다. 목록 전에는 모든
+      카드가 "찜 안 함" 으로 보여, 누르면 해제 대신 추가가 나가고 이미 찜한 동아리는 409 로 조용히
+      실패한다. 방향을 모르는 동안만 하트를 비활성으로 둔다(§8.1 되돌릴 수 없는 동작).
+      미인증은 목록이 아예 없고 클릭이 로그인 이동이라 이 제약을 받지 않는다. */
+  const isFavoriteDirectionUnknown =
+    authStatus === 'authenticated' && favoriteIdsQuery.data === undefined;
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
@@ -170,6 +170,9 @@ export function ClubExplorePage() {
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
+    // 하트 비활성(disabled)과 같은 조건을 핸들러에도 둔다 — 마크업이 바뀌어도 방향을 모르는
+    // 동안에는 토글이 나가지 않는다(FavoriteToggleButton 과 동형).
+    if (isFavoriteDirectionUnknown) return;
     // 현재 탐색 상태(필터·페이지·검색어)가 쿼리스트링에 있으므로 그대로 next 에 실어 복귀시킨다.
     const currentUrl = window.location.pathname + window.location.search;
     const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
@@ -177,7 +180,9 @@ export function ClubExplorePage() {
       router.push(loginPath);
       return;
     }
-    // 세션 확인 중(idle)이면 미인증으로 단정하지 않고 요청한다 — 401 로 돌아왔을 때 로그인으로 보낸다.
+    // 시드된 인증은 아직 서버로 확인되지 않았지만 그대로 요청한다 — 만료된 access 는 API 계층이
+    // 갱신하고, 정말 미인증이면 401 로 돌아와 그때 로그인으로 보낸다. 방향이 확정되기 전에는
+    // 하트가 비활성이라 여기 도달하지 않는다.
     favoriteToggle.mutate(
       { clubId, isFavorited: likedIds.has(clubId) },
       {
@@ -199,8 +204,7 @@ export function ClubExplorePage() {
   }, [params]);
 
   const handleFavoriteFilterToggle = () => {
-    // 확인 중(idle)에는 로그인으로 보내지 않고 필터만 켠다 — 렌더 쪽이 이미 idle 을 스켈레톤으로
-    // 처리하므로, 확정된 뒤 목록(로그인)이나 로그인 안내(미인증)로 자연스럽게 이어진다.
+    // 미인증에서 찜 필터를 켜는 것은 곧 로그인이 필요하다는 뜻이라 바로 로그인으로 보낸다.
     if (!params.favorite && authStatus === 'unauthenticated') {
       router.push(favoriteLoginHref);
       return;
@@ -531,13 +535,7 @@ export function ClubExplorePage() {
             )}
 
             {requiresLoginForFavorite ? (
-              authStatus === 'idle' ? (
-                <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
-                  <ClubListSkeletonItems variant="grid" />
-                </div>
-              ) : (
-                <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
-              )
+              <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
             ) : (
               <>
                 {clubListQuery.isLoading && (
@@ -579,7 +577,7 @@ export function ClubExplorePage() {
                         club={club}
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
-                          isAuthPending ||
+                          isFavoriteDirectionUnknown ||
                           (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                         }
                         onLikeToggle={handleToggleLike}
@@ -687,13 +685,7 @@ export function ClubExplorePage() {
 
         <div className="px-4 pb-8">
           {requiresLoginForFavorite ? (
-            authStatus === 'idle' ? (
-              <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
-                <ClubListSkeletonItems variant="list" />
-              </div>
-            ) : (
-              <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
-            )
+            <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
           ) : (
             <>
               {clubListQuery.isLoading && (
@@ -724,7 +716,7 @@ export function ClubExplorePage() {
                       recommended={index === 0 && params.page === 1}
                       liked={likedIds.has(club.id)}
                       isLikeBusy={
-                        isAuthPending ||
+                        isFavoriteDirectionUnknown ||
                         (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                       }
                       onLikeToggle={handleToggleLike}

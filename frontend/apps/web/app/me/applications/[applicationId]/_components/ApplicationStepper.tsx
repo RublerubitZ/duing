@@ -1,29 +1,28 @@
 import type { MyApplicationDetail, ApplicantInterviewPhase } from '@duing/types';
 
+import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
+
 import { getInterviewPhaseGuide } from '../_utils/interviewPhaseGuide';
 
-// 지원자 my-page 면접 funnel stepper (재배선 — applicantPhase 기반, §9.3).
+// 지원자 my-page 진행 stepper (applicantPhase 기반, §9.3).
 //
-// 5단계 메인 진행 막대:
-//   0. 지원 완료           — index 0
-//   1. 서류 검토 중        — index 1
-//   2. 면접 대상           — index 2
-//   3. 면접 일정 배정 완료 — index 3
-//   4. 최종 합격 / 최종 불합격 — index 4
+// 서류검토 단계는 제거하고, 면접 단계는 면접 모집(useInterview=true)에서만 표시한다 (스펙 §5-5).
+//   면접 모집   : 지원 완료(0) → 면접 대상(1) → 면접 일정 배정 완료(2) → 최종 결과(3)
+//   비면접 모집 : 지원 완료(0) → 최종 결과(1)
 //
-// 활성 단계 결정 (핵심 결정 2):
-//   phase != null && phase != 'NOT_APPLICABLE' → guide.stepIndex 우선
-//     DOCUMENT_REVIEW → 1
-//     WAITING_*/AVAILABILITY_*/RESPONDED/NO_SLOT_REPORTED/SCHEDULING → 2
-//     SCHEDULED → 3
-//   NOT_APPLICABLE 또는 phase=null(로딩 중) → status fallback
-//     SUBMITTED → 0 / UNDER_REVIEW → 1 / INTERVIEW_PENDING → 2 / ACCEPTED·REJECTED → 4
+// 활성 단계 결정:
+//   면접 모집 + phase != null && phase != 'NOT_APPLICABLE' → guide.stepIndex 우선
+//     WAITING_*/AVAILABILITY_*/RESPONDED/NO_SLOT_REPORTED/SCHEDULING → 1
+//     SCHEDULED → 2
+//   그 외(비면접 모집 · NOT_APPLICABLE · phase=null 로딩 중) → status fallback
+//     SUBMITTED·ON_HOLD → 0 (보류는 지원자에게 심사 중과 동일) /
+//     INTERVIEW_PENDING → 면접 대상 / ACCEPTED·REJECTED → 마지막
 //
 // 안내 문구: guide.description 을 role=status 영역에 표시.
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline'
+  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline' | 'useInterview'
 >;
 
 type Props = {
@@ -34,7 +33,6 @@ type Props = {
 
 type StepKey =
   | 'submitted'
-  | 'under-review'
   | 'interview-pending'
   | 'interview-assigned'
   | 'finalized';
@@ -44,27 +42,38 @@ type StepDef = {
   defaultLabel: string;
 };
 
-const STEPS: readonly StepDef[] = [
+// 단계 이름 중 상태와 1:1 로 대응하는 것은 지원자 라벨 SoT 를 소비한다 (스펙 §5-4).
+// 'submitted'·'interview-assigned'·'finalized' 는 상태가 아니라 진행 마디라 자체 문구를 쓴다.
+const STEPS_WITH_INTERVIEW: readonly StepDef[] = [
   { key: 'submitted', defaultLabel: '지원 완료' },
-  { key: 'under-review', defaultLabel: '서류 검토 중' },
-  { key: 'interview-pending', defaultLabel: '면접 대상' },
+  { key: 'interview-pending', defaultLabel: APPLICATION_STATUS_APPLICANT_LABEL.INTERVIEW_PENDING },
   { key: 'interview-assigned', defaultLabel: '면접 일정 배정 완료' },
   { key: 'finalized', defaultLabel: '최종 결과' },
 ];
 
-function resolveActiveStepIndexFromStatus(
-  detail: StepperDetail,
-): number {
+const STEPS_WITHOUT_INTERVIEW: readonly StepDef[] = [
+  { key: 'submitted', defaultLabel: '지원 완료' },
+  { key: 'finalized', defaultLabel: '최종 결과' },
+];
+
+// 면접 모집 STEPS 에서 '면접 대상' 의 index — guide.stepIndex 1 과 동일하다.
+const INTERVIEW_PENDING_STEP_INDEX = 1;
+
+function resolveSteps(useInterview: boolean): readonly StepDef[] {
+  return useInterview ? STEPS_WITH_INTERVIEW : STEPS_WITHOUT_INTERVIEW;
+}
+
+function resolveActiveStepIndexFromStatus(detail: StepperDetail): number {
   switch (detail.status) {
     case 'SUBMITTED':
+    case 'ON_HOLD':
       return 0;
-    case 'UNDER_REVIEW':
-      return 1;
     case 'INTERVIEW_PENDING':
-      return 2;
+      // 비면접 모집엔 면접 단계가 없어 지원 완료에 머문다 (정상 흐름에선 발생하지 않는 조합).
+      return detail.useInterview ? INTERVIEW_PENDING_STEP_INDEX : 0;
     case 'ACCEPTED':
     case 'REJECTED':
-      return 4;
+      return resolveSteps(detail.useInterview).length - 1;
     default: {
       const _exhaustive: never = detail.status;
       void _exhaustive;
@@ -77,10 +86,11 @@ function resolveActiveStepIndex(
   phase: ApplicantInterviewPhase | null,
   detail: StepperDetail,
 ): number {
-  if (phase !== null && phase !== 'NOT_APPLICABLE') {
+  // 비면접 모집엔 면접 단계가 없으므로 phase 로 활성 단계를 정하지 않는다.
+  if (detail.useInterview && phase !== null && phase !== 'NOT_APPLICABLE') {
     const guide = getInterviewPhaseGuide(phase);
     if (guide !== null) {
-      // guide.stepIndex: 1=서류 검토 중, 2=면접 대상, 3=면접 일정 배정 완료
+      // guide.stepIndex: 1=면접 대상, 2=면접 일정 배정 완료
       return guide.stepIndex;
     }
   }
@@ -90,18 +100,20 @@ function resolveActiveStepIndex(
 
 function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
   if (step.key !== 'finalized') return step.defaultLabel;
-  if (detail.status === 'ACCEPTED') return '최종 합격';
-  if (detail.status === 'REJECTED') return '최종 불합격';
+  if (detail.status === 'ACCEPTED' || detail.status === 'REJECTED') {
+    return APPLICATION_STATUS_APPLICANT_LABEL[detail.status];
+  }
   return step.defaultLabel;
 }
 
 export function ApplicationStepper({ detail, phase }: Props) {
+  const steps = resolveSteps(detail.useInterview);
   const activeIndex = resolveActiveStepIndex(phase, detail);
   const isFinalReject = detail.status === 'REJECTED';
 
-  // guide 안내 문구 — phase 가 있으면 guide.description 사용, 없으면 없음.
+  // guide 안내 문구 — 면접 모집에서 phase 가 있으면 guide.description 사용, 없으면 없음.
   const guideDescription: string | null =
-    phase !== null && phase !== 'NOT_APPLICABLE'
+    detail.useInterview && phase !== null && phase !== 'NOT_APPLICABLE'
       ? (getInterviewPhaseGuide(phase)?.description ?? null)
       : null;
 
@@ -131,7 +143,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
       <ol
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${STEPS.length}, 1fr)`,
+          gridTemplateColumns: `repeat(${steps.length}, 1fr)`,
           gap: 4,
           margin: 0,
           padding: 0,
@@ -139,7 +151,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
           position: 'relative',
         }}
       >
-        {STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const isActive = index === activeIndex;
           const isPast = index < activeIndex;
           const isReachedFinal = step.key === 'finalized' && isActive && isFinalReject;

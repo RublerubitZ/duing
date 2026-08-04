@@ -40,6 +40,8 @@ vi.mock('@duing/hooks', () => ({
   useManagedClubsQuery: () => ({ data: CLUBS, isLoading: false }),
   useMeQuery: () => ({ data: ME }),
   useLogout: () => logoutSpy,
+  // 사이드바가 선택된 모집의 지원 방식을 보고 지원자·통계를 감춘다 — 이 화면은 모집 컨텍스트가 없다.
+  useRecruitmentDetailQuery: () => ({ data: undefined }),
 }));
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';

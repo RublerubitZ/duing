@@ -9,6 +9,11 @@ public class ApplicationDomainException extends ApplicationException {
         super(message, status);
     }
 
+    /** 프론트가 분기할 machine-readable code 를 함께 싣는 경우에 사용한다. */
+    protected ApplicationDomainException(String message, HttpStatus status, String code) {
+        super(message, status, code);
+    }
+
     public static class ApplicationNotFoundException extends ApplicationDomainException {
         private static final String MESSAGE = "지원 내역을 찾을 수 없습니다.";
 
@@ -129,8 +134,20 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
+    /**
+     * 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다.
+     * 모집 마감은 지원자에게도 공개된 사실이므로 사유를 그대로 안내하되, 내부 심사 상태(보류 등)는 노출하지 않는다.
+     */
+    public static class CannotWithdrawClosedRecruitmentException extends ApplicationDomainException {
+        private static final String MESSAGE = "마감된 모집의 지원은 철회할 수 없어요.";
+
+        public CannotWithdrawClosedRecruitmentException() {
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
+        }
+    }
+
     public static class CannotWithdrawApplicationException extends ApplicationDomainException {
-        private static final String MESSAGE = "제출 직후에만 철회할 수 있어요. 검토가 시작된 지원은 철회할 수 없습니다.";
+        private static final String MESSAGE = "심사 중에만 철회할 수 있어요. 면접 대상 선정이나 합불 처리 이후에는 철회할 수 없습니다.";
 
         public CannotWithdrawApplicationException() {
             super(MESSAGE, HttpStatus.CONFLICT);

@@ -12,7 +12,10 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -22,6 +25,7 @@ import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +48,9 @@ class RecruitmentCreateGuardsTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(ClubJoinCodeRepository.class),
+            mock(ClubJoinRequestRepository.class),
+            mock(ClubAuditEventRepository.class),
             clubRepository,
             clubAuthService,
             eventPublisher,
@@ -88,7 +95,7 @@ class RecruitmentCreateGuardsTest {
 
         recruitmentService.create(buildCommand());
 
-        verify(expiredOpen).close();
+        verify(expiredOpen).close(any(LocalDateTime.class));
         verify(recruitmentRepository, atLeastOnce()).flush();
     }
 
@@ -161,12 +168,13 @@ class RecruitmentCreateGuardsTest {
                 CLUB_ID,
                 LEADER_ID,
                 "테스트 모집",
-                "내용",
+                // EXTERNAL 은 안내문(content)을 실을 수 없고 URL 도 허용 플랫폼이어야 한다 (스펙 §2·§3).
+                null,
                 LocalDate.now(),
                 LocalDate.now().plusDays(7),
                 10,
                 ApplicationMode.EXTERNAL,
-                "https://example.com/form",
+                "https://forms.gle/aBcD1234",
                 false,
                 TargetRole.MEMBER,
                 List.of(),

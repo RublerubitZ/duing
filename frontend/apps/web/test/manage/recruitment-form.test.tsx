@@ -34,10 +34,12 @@ describe('RecruitmentForm — 4섹션 구조', () => {
     expect(screen.getByLabelText('면접 시작일')).toBeInTheDocument();
   });
 
-  it('외부 폼 선택 시 지원서 질문 섹션이 안내 배너로 대체된다', () => {
+  // 전환 다이얼로그·전용 화면의 상세 동작은 recruitment-external-mode.test.tsx 가 다룬다.
+  it('외부 폼으로 전환하면 지원서 질문 섹션이 사라진다', () => {
     render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
     fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
-    expect(screen.getByText(/외부 폼 사용 중/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
+    expect(screen.queryByRole('heading', { level: 3, name: '지원서 질문' })).not.toBeInTheDocument();
     expect(screen.queryByText('+ 질문 추가')).not.toBeInTheDocument();
   });
 });
@@ -70,8 +72,9 @@ describe('RecruitmentForm — 상시모집 토글', () => {
 
     // 외부 폼은 지원 질문을 요구하지 않으므로 상시모집 단독 검증에 적합하다.
     fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
-    fireEvent.change(screen.getByPlaceholderText('https://forms.google.com/...'), {
-      target: { value: 'https://forms.example.com/x' },
+    fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
+    fireEvent.change(screen.getByPlaceholderText('https://docs.google.com/forms/...'), {
+      target: { value: 'https://forms.gle/aBcD1234' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
@@ -96,6 +99,7 @@ const baseRecruitmentDetail: RecruitmentDetail = {
   externalFormUrl: null,
   useInterview: false,
   targetRole: 'MEMBER',
+  closedAt: null,
   content: null,
   questions: [],
   interviewStartDate: null,
@@ -402,13 +406,14 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 });
 
 describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
+  // 외부 폼 원본의 복제 시드(내부 전용 값 제거)는 recruitment-external-mode.test.tsx 가 다룬다.
   const seed: RecruitmentDetail = {
     ...baseRecruitmentDetail,
     title: '9기 신입 모집',
     content: '기존 안내문',
     capacity: 18,
-    applicationMode: 'EXTERNAL',
-    externalFormUrl: 'https://forms.example.com/legacy',
+    applicationMode: 'SELF',
+    externalFormUrl: null,
     useInterview: true,
     targetRole: 'OFFICER',
     showApplicantCount: true,
@@ -416,12 +421,12 @@ describe('RecruitmentForm — cloneSeed(양식 복제)', () => {
     endDate: '2025-09-24',
   };
 
-  it('제목·정원·지원 방식 등은 시드되지만 시작일/종료일은 비워둔다', () => {
+  it('제목·정원·모집 대상 등은 시드되지만 시작일/종료일은 비워둔다', () => {
     render(<RecruitmentForm mode="create" submitLabel="모집 시작" cloneSeed={seed} onSubmit={vi.fn()} isPending={false} />);
 
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('9기 신입 모집');
     expect(screen.getByDisplayValue('18')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: '외부 폼' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: '면접 진행' })).toBeChecked();
     expect(screen.getByRole('radio', { name: '운영진' })).toBeChecked();
     expect((screen.getByLabelText(/^시작일/) as HTMLInputElement).value).toBe('');
     expect((screen.getByLabelText(/^종료일/) as HTMLInputElement).value).toBe('');

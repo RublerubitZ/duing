@@ -13,7 +13,7 @@ import { ApplicantSummaryCard } from '@/app/manage/_components/dashboard/Applica
 const emptyTotals: ApplicantStatusTotals = {
   total: 0,
   submitted: 0,
-  underReview: 0,
+  onHold: 0,
   interviewPending: 0,
   accepted: 0,
   rejected: 0,
@@ -31,7 +31,7 @@ describe('ApplicantSummaryCard', () => {
     const totals: ApplicantStatusTotals = {
       total: 20,
       submitted: 5,
-      underReview: 6,
+      onHold: 6,
       interviewPending: 4,
       accepted: 3,
       rejected: 2,
@@ -40,7 +40,7 @@ describe('ApplicantSummaryCard', () => {
     mockUseApplicantSummary.mockReturnValue({ totals, isLoading: false, isError: false });
     render(<ApplicantSummaryCard clubId={1} />);
     expect(screen.getByText('접수')).toBeInTheDocument();
-    expect(screen.getByText('검토중')).toBeInTheDocument();
+    expect(screen.getByText('보류')).toBeInTheDocument();
     expect(screen.getByText('면접대기')).toBeInTheDocument();
     expect(screen.getByText('합격')).toBeInTheDocument();
     expect(screen.getByText('불합격')).toBeInTheDocument();

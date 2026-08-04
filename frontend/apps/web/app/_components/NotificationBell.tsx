@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useUnreadCountQuery } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { NotificationSheet } from './NotificationSheet';
 
 // 모바일·태블릿 Link / 데스크탑 button 두 트리거가 공유하는 원형 히트 영역 스타일.
@@ -11,8 +11,12 @@ import { NotificationSheet } from './NotificationSheet';
 const bellButtonClass =
   'relative h-10 w-10 items-center justify-center rounded-full hover:bg-graysoft';
 
-export function NotificationBell() {
-  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
+export function NotificationBell({
+  initialAuthenticated = null,
+}: {
+  initialAuthenticated?: boolean | null;
+} = {}) {
+  const isAuthenticated = useSeededAuthStatus(initialAuthenticated) === 'authenticated';
   const [open, setOpen] = useState(false);
   const unreadCountQuery = useUnreadCountQuery(isAuthenticated);
 

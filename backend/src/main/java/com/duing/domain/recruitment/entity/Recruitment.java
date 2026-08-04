@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -53,6 +54,10 @@ public class Recruitment extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private RecruitmentStatus status;
+
+    /** 실제 종료 시각(V101). CLOSED 인데 비어 있으면 가입 링크는 사용 불가로 본다(fail-closed). */
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "application_mode", nullable = false, length = 20)
@@ -219,10 +224,18 @@ public class Recruitment extends BaseEntity {
         }
     }
 
-    public void close() {
+    /**
+     * 모집을 마감하고 실제 종료 시각을 스탬프한다.
+     *
+     * <p>{@code closedAt} 은 가입 링크의 사용 가능 기간 기준점이므로(스펙 v2 4.3) 종료 전이 경로마다
+     * 반드시 남겨야 한다 — 벌크 마감({@code closeAllOpenByClubId})도 같은 값을 함께 UPDATE 한다.
+     * seoulClock 벽시계(KST)로 기록하고 응답 경계에서 절대시각으로 변환한다(TIMEZONE.md).
+     */
+    public void close(LocalDateTime closedAt) {
         if (this.status == RecruitmentStatus.CLOSED) {
             throw new RecruitmentException.RecruitmentAlreadyClosedException();
         }
         this.status = RecruitmentStatus.CLOSED;
+        this.closedAt = closedAt;
     }
 }

@@ -1,6 +1,5 @@
 package com.duing.domain.application.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -8,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.mockito.ArgumentCaptor;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -18,10 +16,10 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
@@ -47,6 +45,7 @@ class ApplicationStatusServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
+    private final ClubMemberEnrollmentService clubMemberEnrollmentService = mock(ClubMemberEnrollmentService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
@@ -63,6 +62,7 @@ class ApplicationStatusServiceTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
+            clubMemberEnrollmentService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,
@@ -77,7 +77,7 @@ class ApplicationStatusServiceTest {
     // 공통 픽스처 빌더
     // ────────────────────────────────────────────────────────────
 
-    private Application stubUnderReviewApplication(Long clubId, Long applicantId, TargetRole targetRole) {
+    private Application stubApplication(Long clubId, Long applicantId, TargetRole targetRole) {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(clubId);
 
@@ -97,24 +97,24 @@ class ApplicationStatusServiceTest {
     }
 
     // ────────────────────────────────────────────────────────────
-    // 1. 상태 전이 스모크 (SUBMITTED → UNDER_REVIEW)
+    // 1. 상태 전이 스모크 (SUBMITTED → ON_HOLD)
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("운영진이 SUBMITTED 지원서를 UNDER_REVIEW 로 변경하면 정상 처리된다")
-    void submittedToUnderReviewSucceeds() {
+    @DisplayName("운영진이 SUBMITTED 지원서를 ON_HOLD 로 변경하면 정상 처리된다")
+    void submittedToOnHoldSucceeds() {
         Long applicationId = 1L;
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.UNDER_REVIEW));
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ON_HOLD));
 
-        verify(application).transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        verify(application).transitionTo(ApplicationStatus.ON_HOLD, false);
         verify(clubAuthService).requireManager(managerId, clubId);
     }
 
@@ -129,7 +129,7 @@ class ApplicationStatusServiceTest {
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
 
         // transitionTo 가 ACCEPTED→ACCEPTED 를 차단함 (도메인 계층 책임)
         doThrow(new ApplicationDomainException.InvalidStatusTransitionException())
@@ -141,93 +141,80 @@ class ApplicationStatusServiceTest {
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED)))
                 .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
 
-        // 상태 전이가 차단되므로 userRepository 조회 및 ClubMember 행 조작은 발생하지 않아야 한다
+        // 상태 전이가 차단되므로 userRepository 조회 및 회원 등록 위임은 발생하지 않아야 한다
         verify(userRepository, never()).findById(any());
-        verify(clubMemberRepository, never()).findByClubIdAndUserId(any(), any());
-        verify(clubMemberRepository, never()).save(any());
+        verify(clubMemberEnrollmentService, never()).enroll(any(), any(), any(), any());
     }
 
     // ────────────────────────────────────────────────────────────
-    // 3. OFFICER 모집 합격 시 기존 멤버십 없는 사용자 → role=OFFICER 로 신규 생성
+    // 3~4. 합격 시 모집의 targetRole 이 그대로 회원 등록에 위임된다
+    //      (신규 생성 / 승급 / 강등 금지 자체는 ClubMemberEnrollmentServiceTest 가 실 DB 로 검증한다)
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("OFFICER 모집 합격자에게 기존 멤버십이 없으면 role=OFFICER 로 ClubMember 가 새로 생성된다")
-    void officerRecruitmentAcceptedCreatesOfficerMembership() {
+    @DisplayName("OFFICER 모집 합격자는 OFFICER 역할로 동아리 회원 등록에 위임된다")
+    void officerRecruitmentAcceptedDelegatesOfficerEnrollment() {
         Long applicationId = 3L;
         Long managerId = 10L;
         Long clubId = 5L;
         Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
+        Application application = stubApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
-        when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
-                .thenReturn(Optional.empty());
 
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED));
 
-        ArgumentCaptor<ClubMember> captor = ArgumentCaptor.forClass(ClubMember.class);
-        verify(clubMemberRepository).save(captor.capture());
-        assertThat(captor.getValue().getRole()).isEqualTo(ClubMemberRole.OFFICER);
+        // 지원 승인 경로는 기수를 부여하지 않으므로 generation 은 null 로 전달되어야 한다.
+        verify(clubMemberEnrollmentService).enroll(
+                application.getRecruitment().getClub(),
+                application.getUser(),
+                ClubMemberRole.OFFICER,
+                null);
     }
 
-    // ────────────────────────────────────────────────────────────
-    // 4. OFFICER 모집 합격 시 기존 MEMBER → OFFICER 승급
-    // ────────────────────────────────────────────────────────────
-
     @Test
-    @DisplayName("OFFICER 모집 합격자가 이미 MEMBER 이면 같은 행의 role 이 OFFICER 로 변경되고 새 행은 생성되지 않는다")
-    void officerRecruitmentAcceptedUpgradesMemberToOfficer() {
+    @DisplayName("MEMBER 모집 합격자는 MEMBER 역할로 동아리 회원 등록에 위임된다")
+    void memberRecruitmentAcceptedDelegatesMemberEnrollment() {
         Long applicationId = 4L;
         Long managerId = 10L;
         Long clubId = 5L;
         Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
+        Application application = stubApplication(clubId, applicantId, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
-
-        ClubMember existingMembership = mock(ClubMember.class);
-        when(existingMembership.getRole()).thenReturn(ClubMemberRole.MEMBER);
-        when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
-                .thenReturn(Optional.of(existingMembership));
 
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED));
 
-        verify(existingMembership).changeRole(ClubMemberRole.OFFICER);
-        verify(clubMemberRepository, never()).save(any());
+        verify(clubMemberEnrollmentService).enroll(
+                application.getRecruitment().getClub(),
+                application.getUser(),
+                ClubMemberRole.MEMBER,
+                null);
     }
 
     // ────────────────────────────────────────────────────────────
-    // 5. MEMBER 모집 합격 시 기존 OFFICER 강등 금지
+    // 5. 합격이 아닌 전이에서는 회원 등록 위임이 일어나지 않는다
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("MEMBER 모집 합격자가 이미 OFFICER 이면 강등하지 않고 역할을 그대로 유지한다")
-    void memberRecruitmentAcceptedDoesNotDemoteOfficer() {
+    @DisplayName("합격이 아닌 상태로 변경하면 동아리 회원 등록이 호출되지 않는다")
+    void nonAcceptedTransitionDoesNotEnrollMember() {
         Long applicationId = 5L;
         Long managerId = 10L;
         Long clubId = 5L;
-        Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
-        ClubMember existingMembership = mock(ClubMember.class);
-        when(existingMembership.getRole()).thenReturn(ClubMemberRole.OFFICER);
-        when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
-                .thenReturn(Optional.of(existingMembership));
-
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED));
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.REJECTED));
 
-        // changeRole 이 호출되어서는 안 된다 (강등 금지)
-        verify(existingMembership, never()).changeRole(any());
-        verify(clubMemberRepository, never()).save(any());
+        verify(clubMemberEnrollmentService, never()).enroll(any(), any(), any(), any());
     }
 
     // ────────────────────────────────────────────────────────────
@@ -241,14 +228,14 @@ class ApplicationStatusServiceTest {
         Long nonManagerUserId = 99L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManager(nonManagerUserId, clubId);
 
         assertThatThrownBy(() -> applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.UNDER_REVIEW)))
+                new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.ON_HOLD)))
                 .isInstanceOf(AccessDeniedException.class);
 
         // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
@@ -267,7 +254,7 @@ class ApplicationStatusServiceTest {
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 

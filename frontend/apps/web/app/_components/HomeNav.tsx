@@ -14,9 +14,13 @@ const activeLink = 'relative py-1 text-ink-deep';
 // 네비 링크를 md 미만에서 숨긴다. 현재 모든 호출부가 이 옵션을 켜며, 모바일 내비게이션은
 // 하단 탭바(BottomNav)·유저 메뉴 드롭다운·푸터가 대신한다. 끄면(false, 기본값) md 미만에서도
 // 상단 네비 링크가 그대로 노출된다.
-type Props = { slimOnMobile?: boolean };
+//
+// initialAuthenticated: 서버가 auth_hint 로 판정한 초기 인증 상태(A′). (home) 레이아웃만 내려주고,
+// 쿠키를 읽지 않는 다른 호출부는 null 로 둬 라우트가 동적으로 바뀌지 않게 한다 — null 이면
+// 소비자는 스토어 초기값을 서버 스냅샷으로 쓴다.
+type Props = { slimOnMobile?: boolean; initialAuthenticated?: boolean | null };
 
-export function HomeNav({ slimOnMobile = false }: Props) {
+export function HomeNav({ slimOnMobile = false, initialAuthenticated = null }: Props) {
   return (
     <header className="relative z-50 bg-cream/90 backdrop-blur">
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
@@ -58,8 +62,8 @@ export function HomeNav({ slimOnMobile = false }: Props) {
           </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">
-          <NotificationBell />
-          <HomeNavAuthSlot />
+          <NotificationBell initialAuthenticated={initialAuthenticated} />
+          <HomeNavAuthSlot initialAuthenticated={initialAuthenticated} />
         </div>
       </nav>
     </header>

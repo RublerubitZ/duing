@@ -10,7 +10,7 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
 
   const statCards: Array<{ label: string; value: number }> = [
     { label: '접수', value: totals.submitted },
-    { label: '검토중', value: totals.underReview },
+    { label: '보류', value: totals.onHold },
     { label: '면접대기', value: totals.interviewPending },
     { label: '합격', value: totals.accepted },
     { label: '불합격', value: totals.rejected },

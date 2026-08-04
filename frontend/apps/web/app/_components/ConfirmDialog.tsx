@@ -28,6 +28,13 @@ type Props = {
    * 취소·재시도 시 소비처가 직접 비운다(상태 소유자가 소비처이므로 별도 리셋 콜백은 두지 않는다).
    */
   errorMessage?: string | null;
+  /**
+   * 확인 전에 한 단계를 더 요구하는 파괴적 액션용 슬롯(예: 문구 타이핑 확인). 설명 아래·푸터 위에 그린다.
+   * 넘기지 않으면 이 노드 자체가 없어 기존 소비처 DOM 은 그대로다.
+   */
+  children?: ReactNode;
+  /** 추가 단계를 아직 통과하지 못한 상태 — 확인 버튼만 잠근다(취소는 열어둔다). */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -43,6 +50,8 @@ export function ConfirmDialog({
   confirmLabel = '삭제',
   isPending = false,
   errorMessage = null,
+  children,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: Props) {
@@ -74,6 +83,8 @@ export function ConfirmDialog({
           </p>
         )}
 
+        {children}
+
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
             취소
@@ -81,7 +92,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
             className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}

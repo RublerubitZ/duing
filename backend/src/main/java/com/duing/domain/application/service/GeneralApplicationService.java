@@ -20,13 +20,13 @@ import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatu
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSchedule;
@@ -44,6 +44,7 @@ import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -82,8 +83,6 @@ public class GeneralApplicationService implements ApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(GeneralApplicationService.class);
 
-    // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
-    private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
     // V6 partial unique 인덱스. (recruitment_id, user_id) WHERE deleted_at IS NULL.
     private static final String APPLICATION_UNIQUE_CONSTRAINT = "uk_application_recruitment_user_active";
     // PostgreSQL unique_violation.
@@ -97,6 +96,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubMemberEnrollmentService clubMemberEnrollmentService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
@@ -260,8 +260,15 @@ public class GeneralApplicationService implements ApplicationService {
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
-        // 운영진이 검토를 시작하기 전(SUBMITTED)에만 학생이 스스로 철회할 수 있다.
-        if (application.getStatus() != ApplicationStatus.SUBMITTED) {
+        // 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다. 상태 가드보다 앞에 두어
+        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (recruitment lazy SELECT 1회 추가 — 무해).
+        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+            throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
+        }
+        // 운영진이 아직 결정을 내리지 않은 동안(SUBMITTED·ON_HOLD)에만 학생이 스스로 철회할 수 있다.
+        // ON_HOLD 는 지원자에게 SUBMITTED 와 구분되지 않는 상태이므로(스펙 §1-1) 철회 가능 여부도 같아야 한다.
+        if (application.getStatus() != ApplicationStatus.SUBMITTED
+                && application.getStatus() != ApplicationStatus.ON_HOLD) {
             throw new ApplicationDomainException.CannotWithdrawApplicationException();
         }
         // 소프트 삭제(@SQLDelete). 부분 유니크 인덱스(WHERE deleted_at IS NULL) 덕에 같은 공고 재지원이 가능하다.
@@ -349,6 +356,11 @@ public class GeneralApplicationService implements ApplicationService {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
+        // 마감된 모집은 아카이브 — 조회만 허용한다. 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고,
+        // 실패 사유는 failures[] 로 전파된다. 판정은 raw status 기준 — 마감일이 지나도 수동 마감 전이면 심사 진행 중이다.
+        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
+        }
 
         ApplicationStatus previousStatus = application.getStatus();
         application.transitionTo(
@@ -361,35 +373,15 @@ public class GeneralApplicationService implements ApplicationService {
                 ApplicationStatusHistory.record(application, previousStatus, updateApplicationStatusCommand.status(), changedBy)
         );
 
-        // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록.
-        // - 기존 멤버십이 없으면 신규 생성.
-        // - 기존 멤버십이 있으면 역할을 비교해 상위 역할로만 승급 (강등 금지, 멱등성 보장).
-        // 동시 ACCEPTED 처리 시 race condition 은
-        // club_member (club_id, user_id) WHERE deleted_at IS NULL partial unique 인덱스(V7)로
-        // DB 레벨에서 차단된다. flush 로 트랜잭션 안에서 충돌을 트리거하고,
-        // 23505 + uk_club_member_club_user_active 만 idempotent 처리, 나머지는 전파한다.
+        // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록한다.
+        // upgrade-or-insert 와 동시 등록 경합 처리는 ClubMemberEnrollmentService 가 단독으로 책임진다.
+        // 지원 승인 경로는 기수를 부여하지 않으므로 generation 은 null 로 넘긴다.
         if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED) {
-            Club club = application.getRecruitment().getClub();
-            User applicant = application.getUser();
-            ClubMemberRole grantedRole = application.getRecruitment().getTargetRole().toClubMemberRole();
-            clubMemberRepository.findByClubIdAndUserId(club.getId(), applicant.getId())
-                    .ifPresentOrElse(
-                            existingMembership -> {
-                                if (shouldUpgrade(existingMembership.getRole(), grantedRole)) {
-                                    existingMembership.changeRole(grantedRole);
-                                }
-                            },
-                            () -> {
-                                try {
-                                    clubMemberRepository.save(ClubMember.of(club, applicant, grantedRole));
-                                    clubMemberRepository.flush();
-                                } catch (DataIntegrityViolationException racedInsertion) {
-                                    if (!isClubMemberDuplicateMembership(racedInsertion)) {
-                                        throw racedInsertion;
-                                    }
-                                    // 다른 트랜잭션이 먼저 (club, user) 멤버십을 등록한 경우로 간주, idempotent 처리.
-                                }
-                            });
+            clubMemberEnrollmentService.enroll(
+                    application.getRecruitment().getClub(),
+                    application.getUser(),
+                    application.getRecruitment().getTargetRole().toClubMemberRole(),
+                    null);
         }
 
         // Optimistic Lock 충돌은 커밋 시 발생해 GlobalExceptionHandler 의 fallthrough 로 빠진다.
@@ -459,18 +451,12 @@ public class GeneralApplicationService implements ApplicationService {
         }
         List<ApplicationStatus> activeStatuses = List.of(
                 ApplicationStatus.SUBMITTED,
-                ApplicationStatus.UNDER_REVIEW,
+                ApplicationStatus.ON_HOLD,
                 ApplicationStatus.INTERVIEW_PENDING);
         List<Application> applications =
                 applicationRepository.findByRecruitmentIdInAndStatusIn(recruitmentIds, activeStatuses);
         for (Application application : applications) {
-            boolean useInterview = application.getRecruitment().isUseInterview();
-            // SUBMITTED 는 REJECTED 로 직접 전이가 불가(FSM: SUBMITTED→UNDER_REVIEW 만 허용)하므로
-            // 폐쇄 일괄 거절에서는 UNDER_REVIEW 를 거쳐 REJECTED 로 종료한다.
-            if (application.getStatus() == ApplicationStatus.SUBMITTED) {
-                application.transitionTo(ApplicationStatus.UNDER_REVIEW, useInterview);
-            }
-            application.transitionTo(ApplicationStatus.REJECTED, useInterview);
+            application.transitionTo(ApplicationStatus.REJECTED, application.getRecruitment().isUseInterview());
         }
     }
 
@@ -512,31 +498,6 @@ public class GeneralApplicationService implements ApplicationService {
                             alternativeText);
                 })
                 .orElse(null);
-    }
-
-    /**
-     * 현재 역할보다 부여할 역할이 상위일 때만 true 를 반환한다.
-     * 역할 서열: MEMBER(0) < OFFICER(1) < LEADER(2).
-     * LEADER 는 이 경로에서 부여되지 않으며, 강등은 절대 허용하지 않는다.
-     */
-    private boolean shouldUpgrade(ClubMemberRole currentRole, ClubMemberRole grantedRole) {
-        return grantedRole.ordinal() > currentRole.ordinal();
-    }
-
-    /**
-     * 동시 ACCEPTED 처리로 인한 club_member 중복 삽입 only true.
-     * 향후 club_member 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
-     */
-    private static boolean isClubMemberDuplicateMembership(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(CLUB_MEMBER_UNIQUE_CONSTRAINT);
     }
 
     /**

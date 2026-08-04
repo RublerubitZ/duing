@@ -36,6 +36,24 @@ describe('SectionApply — active 상태만 렌더', () => {
     expect(screen.queryByText('합격동아리')).not.toBeInTheDocument();
   });
 
+  it('SUBMITTED 와 ON_HOLD 는 지원자에게 동일하게 심사 중으로 보인다', () => {
+    const submitted = render(<SectionApply applications={[base]} />);
+    const submittedCard = submitted.container.querySelector('[data-section="apply"]');
+    const submittedText = submittedCard?.textContent ?? '';
+    submitted.unmount();
+
+    const onHold = render(
+      <SectionApply applications={[{ ...base, status: 'ON_HOLD' }]} />,
+    );
+    const onHoldText =
+      onHold.container.querySelector('[data-section="apply"]')?.textContent ?? '';
+
+    expect(onHoldText).toBe(submittedText);
+    expect(onHoldText).toContain('동아리에서 심사 중입니다');
+    // 서류검토 단계는 제거됐다 (스펙 §5-5).
+    expect(onHoldText).not.toContain('검토');
+  });
+
   it('빈 배열이면 안내 문구가 노출된다', () => {
     render(<SectionApply applications={[]} />);
     expect(screen.getByText(/진행 중인 지원이 없어요/)).toBeInTheDocument();

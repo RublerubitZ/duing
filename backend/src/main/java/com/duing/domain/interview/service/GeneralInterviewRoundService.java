@@ -31,6 +31,7 @@ import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
 import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -76,7 +77,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
-                                                        boolean includeUnderReview) {
+                                                        boolean includeUndecided) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
@@ -85,7 +86,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             throw new InterviewException.InterviewNotUsed();
         }
 
-        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUnderReview).stream()
+        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUndecided).stream()
                 .map(RoundCandidateQuery::from)
                 .toList();
     }
@@ -93,9 +94,18 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public Long createRound(CreateInterviewRoundCommand createCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(createCommand.recruitmentId())
+        // 행 잠금 — 모집 마감(close)과 직렬화한다 (아카이브 스펙 §9 후속). 아래 CLOSED 가드는 잠금을
+        // 획득한 뒤 판정하므로, 마감이 먼저 커밋되면 이 트랜잭션은 대기 후 CLOSED 를 읽고 409 로 떨어진다.
+        // 잠금 순서는 모집 → 지원서(아래 findAllByIdInForUpdate) 단방향이고 close 는 지원서를 잠그지
+        // 않으므로 두 경로 사이에 사이클이 없다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(createCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
+        // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라
+        // 마감일이 지나도 수동 마감 전(심사 진행 중)인 모집에서는 라운드 생성이 그대로 열려 있다.
+        if (recruitment.getStatus() == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
+        }
 
         User changedBy = userRepository.findById(createCommand.currentUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
@@ -131,7 +141,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 throw new InterviewException.CandidateNotInRecruitment();
             }
             ApplicationStatus candidateStatus = application.getStatus();
-            if (candidateStatus != ApplicationStatus.UNDER_REVIEW
+            if (candidateStatus != ApplicationStatus.SUBMITTED
+                    && candidateStatus != ApplicationStatus.ON_HOLD
                     && candidateStatus != ApplicationStatus.INTERVIEW_PENDING) {
                 throw new InterviewException.CandidateNotEligible();
             }
@@ -161,10 +172,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
         for (Application application : applications) {
             // 대기열(INTERVIEW_PENDING) 재수용은 상태 변화가 없으므로 전이·이력을 만들지 않는다.
-            if (application.getStatus() == ApplicationStatus.UNDER_REVIEW) {
+            ApplicationStatus statusBeforePromotion = application.getStatus();
+            if (statusBeforePromotion != ApplicationStatus.INTERVIEW_PENDING) {
                 application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
                 applicationStatusHistoryRepository.save(ApplicationStatusHistory.record(
-                        application, ApplicationStatus.UNDER_REVIEW,
+                        application, statusBeforePromotion,
                         ApplicationStatus.INTERVIEW_PENDING, changedBy));
             }
         }

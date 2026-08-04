@@ -8,7 +8,7 @@ import type {
   UpdateApplicationStatusPayload,
   UpsertApplicationEvaluationPayload,
 } from '@duing/types';
-import { useAuthStore } from '@duing/stores';
+import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
 import { applicationQueryKeys } from './applicationQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
@@ -66,17 +66,17 @@ export function useWithdrawApplicationMutation() {
 
 export function useMyApplicationsQuery(scope: ApplicationScope = 'ALL') {
   const client = useApiClient();
-  const status = useAuthStore((s) => s.status);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   return useQuery({
     queryKey: applicationQueryKeys.myList(scope),
     queryFn: () => client.users.myApplications(scope),
-    enabled: status === 'authenticated',
+    enabled: isAuthenticated,
   });
 }
 
 export function useMyApplicationDetailQuery(applicationId: number | undefined) {
   const client = useApiClient();
-  const status = useAuthStore((s) => s.status);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   return useQuery({
     queryKey:
       applicationId !== undefined
@@ -88,7 +88,7 @@ export function useMyApplicationDetailQuery(applicationId: number | undefined) {
       }
       return client.applications.myDetail(applicationId);
     },
-    enabled: status === 'authenticated' && applicationId !== undefined,
+    enabled: isAuthenticated && applicationId !== undefined,
   });
 }
 

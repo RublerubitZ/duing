@@ -5,7 +5,7 @@ import type { SVGProps } from 'react';
 import Link from 'next/link';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
+import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { InfoTabs } from '../../_components/InfoTabs';
@@ -200,7 +200,7 @@ type SidebarItem = {
 };
 
 export function NoticePage() {
-  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   // 출처 세그먼트 — 학교 공지(관리자) / 내 동아리(가입 동아리 작성). 로그인 사용자만 '내 동아리' 선택 가능.
   const [source, setSource] = useState<NoticeSource>('SCHOOL');
   const [category, setCategory] = useState<NoticeCategory | 'ALL'>('ALL');

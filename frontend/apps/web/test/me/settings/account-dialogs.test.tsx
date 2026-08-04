@@ -43,7 +43,7 @@ afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
   memoryStore.clear();
-  useAuthStore.setState({ status: 'idle', user: null });
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
 });
 afterAll(() => server.close());
 

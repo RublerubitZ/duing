@@ -92,6 +92,9 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
                 recruitmentRepository.findById(closedRecruitment.getId()).orElseThrow().getStatus());
         Assertions.assertEquals(ApplicationStatus.SUBMITTED,
                 applicationRepository.findById(application.getId()).orElseThrow().getStatus());
+        Assertions.assertNotNull(
+                recruitmentRepository.findById(openRecruitment.getId()).orElseThrow().getClosedAt(),
+                "벌크 마감도 실제 종료 시각을 남긴다 — 가입 링크 기간 판정의 기준점");
     }
 
     @Test
@@ -131,8 +134,8 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
 
         String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
         String createRecruitmentBody = """
-                {"title":"중단후모집","content":"내용","startDate":"%s","endDate":"%s",
-                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://example.com/form"}
+                {"title":"중단후모집","startDate":"%s","endDate":"%s",
+                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://forms.gle/aBcD1234"}
                 """.formatted(LocalDate.now(), LocalDate.now().plusDays(7));
 
         // 벌크 마감(Task 1) 이후에도 생성·교체 경로로 새 OPEN 모집을 만들 수 있으면
@@ -185,8 +188,8 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
         long clubId = club.getId();
         String leaderToken = jwtTokenProvider.createToken(leaderUser.getId(), leaderUser.getRole().name());
         String createRecruitmentBody = """
-                {"title":"경합모집","content":"내용","startDate":"%s","endDate":"%s",
-                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://example.com/form"}
+                {"title":"경합모집","startDate":"%s","endDate":"%s",
+                 "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://forms.gle/aBcD1234"}
                 """.formatted(LocalDate.now(), LocalDate.now().plusDays(7));
 
         // 트랜잭션 밖에서 실제 HTTP 요청 2개를 동시에 출발시켜, 모집 생성이 운영 중단 전환과 같은
@@ -283,7 +286,7 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
     private Recruitment saveClosedRecruitment(Club club, String title) {
         Recruitment created = Recruitment.create(club, title, "내용",
                 LocalDate.now().minusDays(30), LocalDate.now().minusDays(10), 5);
-        created.close();
+        created.close(LocalDateTime.now());
         return recruitmentRepository.save(created);
     }
 }

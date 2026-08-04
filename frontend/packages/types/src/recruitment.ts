@@ -1,3 +1,5 @@
+import type { ApplicationStatus } from './application';
+
 export type RecruitmentStatus = 'OPEN' | 'CLOSED';
 export type ApplicationMode = 'SELF' | 'EXTERNAL';
 export type TargetRole = 'MEMBER' | 'OFFICER';
@@ -18,6 +20,9 @@ export type RecruitmentSummary = {
   externalFormUrl: string | null;
   useInterview: boolean;
   targetRole: TargetRole;
+  // 마감이 실제로 일어난 시각 (Instant ISO-8601 `…Z`). 마감 전이거나 종료 시각이 없는 레거시 마감 건은 null.
+  // KST 날짜부가 필요하면 반드시 KST 변환 경유 — slice(0, 10) 은 UTC 날짜라 자정 부근 하루 어긋난다.
+  closedAt: string | null;
 };
 
 export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
@@ -99,6 +104,99 @@ export type CreateRecruitmentPayload = {
   interviewStartDate?: string | null;
   interviewEndDate?: string | null;
   showApplicantCount?: boolean;
+};
+
+/** 총동연 모집 콘솔 정렬. 서버가 정렬 규칙을 정하며 클라이언트는 키만 고른다. */
+export type AdminRecruitmentSort = 'LATEST' | 'APPLICANTS' | 'DEADLINE';
+
+export type AdminRecruitmentSearchParams = {
+  q?: string;
+  status?: RecruitmentStatus;
+  mode?: ApplicationMode;
+  sort?: AdminRecruitmentSort;
+};
+
+export type AdminRecruitmentSummary = {
+  recruitmentId: number;
+  clubId: number;
+  clubName: string;
+  title: string;
+  applicationMode: ApplicationMode;
+  status: RecruitmentStatus;
+  /** 외부 폼 모집은 두잉에 지원 데이터가 없어 0 이 아니라 null(해당 없음)이다. */
+  applicantCount: number | null;
+  startDate: string; // ISO yyyy-MM-dd
+  endDate: string | null; // null = 상시모집
+  updatedAt: string;
+};
+
+/** 외부 폼 모집의 가입 코드·요청 현황. 전부 서버 계산값이라 화면은 표시만 한다. */
+export type AdminJoinLinkStatus = {
+  linkStatus: 'ACTIVE' | 'EXPIRED' | 'EXHAUSTED';
+  generation: number | null;
+  maxUses: number;
+  usedCount: number;
+  totalRequestCount: number;
+  pendingCount: number;
+  enrolledCount: number;
+  joinWindowDays: number;
+  joinExpiresAt: string | null;
+};
+
+export type AdminRecruitmentDetail = AdminRecruitmentSummary & {
+  externalFormUrl: string | null;
+  /** 외부 폼 모집이라도 활성 코드가 없으면 null — 화면은 "코드 없음"으로 읽는다. */
+  joinLink: AdminJoinLinkStatus | null;
+};
+
+export type ForceCloseRecruitmentPayload = { reason?: string };
+
+/** 총동연 지원자 목록 정렬 — 제출 시각 기준 최신순/오래된순 둘뿐이다. */
+export type AdminApplicantSort = 'LATEST' | 'OLDEST';
+
+export type AdminApplicantSearchParams = {
+  q?: string;
+  status?: ApplicationStatus;
+  sort?: AdminApplicantSort;
+};
+
+/** 총동연 지원자 목록 행 — 감독에 필요한 신원 항목만 담고 학년·답변·평가는 없다. */
+export type AdminApplicant = {
+  applicationId: number;
+  userName: string;
+  studentId: string;
+  college: string;
+  major: string;
+  status: ApplicationStatus;
+  submittedAt: string;
+};
+
+export type AdminApplicantList = {
+  /** 검색·필터와 무관한 모집 전체 지원자 수 — 표의 행 수와 다를 수 있다. */
+  total: number;
+  /** 건수가 0 인 상태는 키 자체가 없다 — 화면은 없는 키를 0 으로 읽는다. */
+  statusCounts: Partial<Record<ApplicationStatus, number>>;
+  applicants: AdminApplicant[];
+};
+
+/** 총동연 지원서 상세 — 읽기 전용이라 평가·면접·연락처는 응답에 없다. */
+export type AdminApplicationDetail = {
+  applicationId: number;
+  recruitmentId: number;
+  recruitmentTitle: string;
+  clubId: number;
+  clubName: string;
+  applicant: { name: string; studentId: string; college: string; major: string };
+  status: ApplicationStatus;
+  submittedAt: string;
+  /** 최초 제출 항목은 previousStatus 가 null. 처리자 이름은 동아리 내부 정보라 담기지 않는다. */
+  statusHistory: {
+    previousStatus: ApplicationStatus | null;
+    newStatus: ApplicationStatus;
+    changedAt: string;
+  }[];
+  /** 미답변 질문의 answer 는 빈 문자열이다. */
+  answers: { question: string; answer: string }[];
 };
 
 export type UpdateRecruitmentPayload = {

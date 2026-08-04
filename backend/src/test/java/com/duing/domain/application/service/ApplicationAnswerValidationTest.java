@@ -23,6 +23,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
@@ -68,6 +69,7 @@ class ApplicationAnswerValidationTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
+    private final ClubMemberEnrollmentService clubMemberEnrollmentService = mock(ClubMemberEnrollmentService.class);
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository =
             mock(ApplicationStatusHistoryRepository.class);
@@ -88,6 +90,7 @@ class ApplicationAnswerValidationTest {
             userRepository,
             clubMemberRepository,
             clubAuthService,
+            clubMemberEnrollmentService,
             applicationDraftService,
             applicationStatusHistoryRepository,
             applicationEvaluationRepository,

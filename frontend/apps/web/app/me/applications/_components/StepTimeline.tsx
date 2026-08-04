@@ -83,7 +83,7 @@ export function StepNode({ step, showDate = false, dim = false }: StepNodeProps)
 }
 
 /* ============================================================
-   StepTimeline — 4단계 타임라인 (수평)
+   StepTimeline — 단계 타임라인 (수평) — 칸 수는 steps 길이를 따른다
    ============================================================ */
 type StepTimelineProps = {
   steps: Step[];

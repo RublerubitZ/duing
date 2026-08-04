@@ -5,7 +5,7 @@ import type { ApplicationStatusHistoryItem } from '@duing/types';
 
 const historyFixture: ApplicationStatusHistoryItem[] = [
   {
-    previousStatus: 'UNDER_REVIEW',
+    previousStatus: 'ON_HOLD',
     newStatus: 'INTERVIEW_PENDING',
     changedById: 1,
     changedByName: '김민지',
@@ -13,7 +13,7 @@ const historyFixture: ApplicationStatusHistoryItem[] = [
   },
   {
     previousStatus: 'SUBMITTED',
-    newStatus: 'UNDER_REVIEW',
+    newStatus: 'ON_HOLD',
     changedById: 2,
     changedByName: '박지호',
     changedAt: '2026-06-03T10:11:00',
@@ -61,6 +61,25 @@ describe('StatusTimeline', () => {
       />,
     );
     expect(screen.getByText('면접 대상')).toBeInTheDocument();
-    expect(screen.getByText(/서류 검토 중/)).toBeInTheDocument();
+    expect(screen.getByText(/보류/)).toBeInTheDocument();
+  });
+
+  it('이전 상태와 새 상태가 같은 이력(V99 치환 잔재)은 렌더되지 않는다', () => {
+    const selfTransition: ApplicationStatusHistoryItem[] = [
+      {
+        previousStatus: 'ON_HOLD',
+        newStatus: 'ON_HOLD',
+        changedById: 9,
+        changedByName: '마이그레이션',
+        changedAt: '2026-06-04T00:00:00',
+      },
+    ];
+    render(
+      <StatusTimeline history={selfTransition} submittedAt="2026-06-01T09:05:00" />,
+    );
+
+    expect(screen.queryByText(/마이그레이션/)).not.toBeInTheDocument();
+    // SUBMITTED 시작점만 남는다
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 });

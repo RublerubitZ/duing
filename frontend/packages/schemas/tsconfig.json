@@ -1,6 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // URL(WHATWG) 타입을 쓰기 위한 lib — 다른 공유 패키지(api·hooks·storage)와 같은 설정이다.
+    // DOM 전용 API(window·document) 사용 금지는 그대로다.
+    "lib": ["ES2022", "DOM"],
     "noEmit": true
   },
   "include": ["src/**/*", "test/**/*"]

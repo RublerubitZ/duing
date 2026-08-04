@@ -16,11 +16,26 @@ describe('ApplicantsFilterBar', () => {
     const onChange = vi.fn();
     render(<ApplicantsFilterBar filters={{}} onChange={onChange} useInterview />);
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '상태' }), 'UNDER_REVIEW');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '상태' }), 'ON_HOLD');
 
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'UNDER_REVIEW' }),
+      expect.objectContaining({ status: 'ON_HOLD' }),
     );
+  });
+
+  it('"보류" 옵션은 useInterview 와 무관하게 노출되고 "서류 검토 중" 옵션은 없다', () => {
+    const { rerender } = render(
+      <ApplicantsFilterBar filters={{}} onChange={() => {}} useInterview />,
+    );
+    expect(screen.getByRole('option', { name: '보류' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: '서류 검토 중' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <ApplicantsFilterBar filters={{}} onChange={() => {}} useInterview={false} />,
+    );
+    expect(screen.getByRole('option', { name: '보류' })).toBeInTheDocument();
   });
 
   it('useInterview=false 면 INTERVIEW_PENDING 옵션이 없다', () => {
@@ -41,7 +56,7 @@ describe('ApplicantsFilterBar', () => {
     const onChange = vi.fn();
     render(
       <ApplicantsFilterBar
-        filters={{ status: 'UNDER_REVIEW' }}
+        filters={{ status: 'ON_HOLD' }}
         onChange={onChange}
         useInterview
       />,

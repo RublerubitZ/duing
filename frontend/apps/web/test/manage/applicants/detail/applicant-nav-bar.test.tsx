@@ -40,7 +40,7 @@ describe('ApplicantNavBar', () => {
         recruitmentId={1}
         applicationId={3}
         filters={{}}
-        currentStatus="UNDER_REVIEW"
+        currentStatus="ON_HOLD"
       />,
     );
     expect(screen.getByRole('button', { name: '‹ 이전' })).not.toBeDisabled();
@@ -54,12 +54,12 @@ describe('ApplicantNavBar', () => {
         clubId={1}
         recruitmentId={2}
         applicationId={3}
-        filters={{ status: 'UNDER_REVIEW', q: '홍길동' }}
-        currentStatus="UNDER_REVIEW"
+        filters={{ status: 'ON_HOLD', q: '홍길동' }}
+        currentStatus="ON_HOLD"
       />,
     );
     const listLink = screen.getByRole('link', { name: '← 목록' });
-    expect(listLink).toHaveAttribute('href', expect.stringContaining('status=UNDER_REVIEW'));
+    expect(listLink).toHaveAttribute('href', expect.stringContaining('status=ON_HOLD'));
     expect(listLink).toHaveAttribute('href', expect.stringContaining('q='));
   });
 

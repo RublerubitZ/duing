@@ -13,6 +13,7 @@ import {
 import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
+import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
@@ -39,7 +40,8 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
 function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | null): AppStatus {
   switch (status) {
     case 'SUBMITTED':         return 'applied';
-    case 'UNDER_REVIEW':      return 'doc-review';
+    // 보류는 지원자에게 심사 중과 동일하다 — 별도 시각 구분을 두지 않는다 (스펙 §1-1).
+    case 'ON_HOLD':           return 'applied';
     case 'INTERVIEW_PENDING': return interview ? 'interview-scheduled' : 'interview-pending';
     case 'ACCEPTED':          return 'passed';
     case 'REJECTED':          return 'failed';
@@ -48,19 +50,20 @@ function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | n
 
 function deriveSteps(status: ApplicationStatus): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
-  const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue, StepStateValue]> = {
-    SUBMITTED:         ['done', 'pending', 'pending', 'pending'],
-    UNDER_REVIEW:      ['done', 'current', 'pending', 'pending'],
-    INTERVIEW_PENDING: ['done', 'done',    'current', 'pending'],
-    ACCEPTED:          ['done', 'done',    'done',    'done'   ],
-    REJECTED:          ['done', 'done',    'done',    'done'   ],
+  const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue]> = {
+    SUBMITTED:         ['current', 'pending', 'pending'],
+    ON_HOLD:           ['current', 'pending', 'pending'], // 지원자에게 심사 중과 동일
+    INTERVIEW_PENDING: ['done',    'current', 'pending'],
+    ACCEPTED:          ['done',    'done',    'done'   ],
+    REJECTED:          ['done',    'done',    'done'   ],
   };
-  const [docReceived, docReview, interview, finalResult] = stateMap[status];
+  const [screening, interview, finalResult] = stateMap[status];
+  // 단계 이름은 상태 라벨이 아니라 진행 마디다 — SectionApply(['심사','면접'])·
+  // ApplicationStepper('최종 결과') 와 같은 용어를 쓴다. 서류 단계는 제거됐다 (스펙 §5-5).
   return [
-    { label: '서류접수',    date: '-', state: docReceived  },
-    { label: '서류심사',    date: '-', state: docReview    },
-    { label: '면접/인터뷰', date: '-', state: interview    },
-    { label: '최종발표',    date: '-', state: finalResult  },
+    { label: '심사',      date: '-', state: screening   },
+    { label: '면접',      date: '-', state: interview   },
+    { label: '최종 결과', date: '-', state: finalResult },
   ];
 }
 
@@ -72,7 +75,7 @@ function deriveRight(status: ApplicationStatus, interview: AssignedInterview | n
     return { eyebrow: '면접일', value: dateStr, sub };
   }
   if (status === 'ACCEPTED') {
-    return { eyebrow: '합격', value: '최종 합격' };
+    return { eyebrow: '결과', value: APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED };
   }
   return null;
 }

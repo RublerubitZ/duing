@@ -23,13 +23,13 @@ function recruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary
     startDate: '2026-06-01', endDate: '2026-06-30', capacity: 20,
     status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
     applicationMode: 'SELF', externalFormUrl: null, useInterview: true,
-    targetRole: 'MEMBER', ...over,
+    targetRole: 'MEMBER', closedAt: null, ...over,
   };
 }
 
 function stats(over: Partial<StatsSummary> = {}): StatsSummary {
   return {
-    total: 0, submitted: 0, underReview: 0, interviewPending: 0,
+    total: 0, submitted: 0, onHold: 0, interviewPending: 0,
     accepted: 0, rejected: 0, capacity: 20, ratio: 0, ...over,
   };
 }
@@ -47,15 +47,24 @@ function dashboardInput(over: Partial<RecruitmentDashboardInput> = {}): Recruitm
 }
 
 describe('buildActionItems', () => {
-  it('검토 대기 지원자(submitted+underReview>0)를 만든다', () => {
+  it('검토 대기 지원자(submitted+onHold>0)를 만든다', () => {
     const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ stats: stats({ submitted: 2, underReview: 3 }) }),
+      dashboardInput({ stats: stats({ submitted: 2, onHold: 3 }) }),
     ];
     const items = buildActionItems(input, NOW);
     const review = items.find((i) => i.type === 'APPLICANTS_AWAITING_REVIEW');
     expect(review).toBeDefined();
     expect(review?.count).toBe(5);
     expect(review?.recruitmentId).toBe(1);
+  });
+
+  it('보류(onHold)만 있어도 검토 대기 지원자를 만든다', () => {
+    const input: RecruitmentDashboardInput[] = [
+      dashboardInput({ stats: stats({ submitted: 0, onHold: 4 }) }),
+    ];
+    const items = buildActionItems(input, NOW);
+    const review = items.find((i) => i.type === 'APPLICANTS_AWAITING_REVIEW');
+    expect(review?.count).toBe(4);
   });
 
   it('ASSIGNING 라운드 → 미확정 면접 라운드', () => {
@@ -260,12 +269,13 @@ describe('sortActionItems', () => {
 describe('aggregateApplicantTotals', () => {
   it('여러 모집 통계를 합산한다(undefined 무시)', () => {
     const totals = aggregateApplicantTotals([
-      stats({ total: 5, submitted: 2, accepted: 1, capacity: 20 }),
+      stats({ total: 5, submitted: 2, onHold: 1, accepted: 1, capacity: 20 }),
       undefined,
-      stats({ total: 3, submitted: 1, interviewPending: 2, capacity: 10 }),
+      stats({ total: 3, submitted: 1, onHold: 2, interviewPending: 2, capacity: 10 }),
     ]);
     expect(totals.total).toBe(8);
     expect(totals.submitted).toBe(3);
+    expect(totals.onHold).toBe(3);
     expect(totals.interviewPending).toBe(2);
     expect(totals.capacity).toBe(30);
   });

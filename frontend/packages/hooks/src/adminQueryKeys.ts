@@ -1,6 +1,8 @@
 import type {
+  AdminApplicantSearchParams,
   AdminClubMemberHistoryParams,
   AdminClubSearchParams,
+  AdminRecruitmentSearchParams,
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
@@ -32,6 +34,16 @@ export const adminQueryKeys = {
     [...adminQueryKeys.reportsAll, 'list', params] as const,
   reportsDetail: (reportId: number) =>
     [...adminQueryKeys.reportsAll, 'detail', reportId] as const,
+  recruitmentsAll: ['admin', 'recruitments'] as const,
+  recruitmentsList: (params: AdminRecruitmentSearchParams) =>
+    [...adminQueryKeys.recruitmentsAll, 'list', params] as const,
+  recruitmentsDetail: (recruitmentId: number) =>
+    [...adminQueryKeys.recruitmentsAll, 'detail', recruitmentId] as const,
+  recruitmentsApplications: (recruitmentId: number, params: AdminApplicantSearchParams) =>
+    [...adminQueryKeys.recruitmentsAll, 'applications', recruitmentId, params] as const,
+  // 지원서 상세도 모집 접두사 아래에 둔다 — 강제 마감 뒤 한 번의 무효화로 함께 되살아난다.
+  applicationsDetail: (applicationId: number) =>
+    [...adminQueryKeys.recruitmentsAll, 'application-detail', applicationId] as const,
   leaderSuccessionAll: ['admin', 'leader-succession'] as const,
   leaderSuccessionList: (params: AdminSuccessionSearchParams) =>
     [...adminQueryKeys.leaderSuccessionAll, 'list', params] as const,

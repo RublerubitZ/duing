@@ -39,6 +39,13 @@ import type {
   AdminReportDetail,
   ProcessReportPayload,
   SubmitReportPayload,
+  AdminRecruitmentSearchParams,
+  AdminRecruitmentSummary,
+  AdminRecruitmentDetail,
+  ForceCloseRecruitmentPayload,
+  AdminApplicantSearchParams,
+  AdminApplicantList,
+  AdminApplicationDetail,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -55,6 +62,16 @@ import type {
   AdminClubMember,
   ClubMemberExportRow,
   ClubMemberPhone,
+  JoinCodeSummary,
+  JoinCodeCheck,
+  CreateJoinCodePayload,
+  JoinRequestStatus,
+  JoinRequestSummary,
+  JoinRequestDetail,
+  DecideJoinRequestPayload,
+  JoinRequestDecisionResponse,
+  BulkApproveJoinRequestsPayload,
+  BulkApproveResult,
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
@@ -403,6 +420,46 @@ export type DuingApiClient = {
     // 동아리원 회비 입금 계좌 조회. 미등록 시 404 — 호출부(훅)가 ApiError 로 빈 상태를 판별한다.
     feeAccount(clubId: number): Promise<FeeAccount>;
   };
+  joinCodes: {
+    // 코드는 모집에 귀속된다 — 같은 동아리라도 모집마다 활성 코드가 따로 있다(스펙 v2 §4.3).
+    // 기존 활성 코드가 있으면 폐기 후 새로 만드는 원자 재생성이고, 자체 폼 모집이거나
+    // 모집이 실질 진행 중이 아니면 409 다(스펙 v2 §4.2).
+    createForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+      payload: CreateJoinCodePayload,
+    ): Promise<JoinCodeSummary>;
+    // 활성 코드가 없으면 200 + data:null 이 정상 응답이라 null 을 그대로 돌려준다.
+    // 만료된 코드도 폐기 전이면 활성으로 내려온다 — 사용 가능 판정은 호출부 몫이다.
+    // 상태 카드용 누적/대기 수치(totalRequestCount·pendingCount)도 이 응답에 함께 담긴다.
+    getActiveForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+    ): Promise<JoinCodeSummary | null>;
+    revokeForRecruitment(
+      clubId: number,
+      recruitmentId: number,
+      joinCodeId: number,
+    ): Promise<void>;
+    listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
+    // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
+    getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
+    // 승인 요청이라도 이미 가입된 회원이면 AUTO_REJECTED 로 돌아오므로 204 가 아닌 본문을 읽는다.
+    decideRequest(
+      clubId: number,
+      joinRequestId: number,
+      payload: DecideJoinRequestPayload,
+    ): Promise<JoinRequestDecisionResponse>;
+    bulkApproveRequests(
+      clubId: number,
+      payload: BulkApproveJoinRequestsPayload,
+    ): Promise<BulkApproveResult>;
+    // 학생용 코드 확인 — 비로그인도 호출할 수 있는 공개 조회다. 없는 코드는 404 로 떨어진다.
+    check(code: string): Promise<JoinCodeCheck>;
+    // 학생용 가입 요청 — 인증 필수(401). 사용 불가·이미 가입·대기 중은 모두 409 이고
+    // 사유는 서버 message 로만 구분되므로 호출부가 그 문구를 그대로 보여준다.
+    createRequest(code: string): Promise<void>;
+  };
   files: {
     upload(file: File, purpose: FilePurpose): Promise<FileUploadResult>;
   };
@@ -644,6 +701,20 @@ export type DuingApiClient = {
       get(reportId: number): Promise<AdminReportDetail>;
       process(reportId: number, payload: ProcessReportPayload): Promise<void>;
     };
+    recruitments: {
+      /** 전 동아리 모집. 페이지네이션 없이 조건에 맞는 목록을 한 번에 준다. */
+      list(params: AdminRecruitmentSearchParams): Promise<AdminRecruitmentSummary[]>;
+      detail(recruitmentId: number): Promise<AdminRecruitmentDetail>;
+      /** 이미 마감된 모집이면 409. */
+      forceClose(recruitmentId: number, payload: ForceCloseRecruitmentPayload): Promise<void>;
+      /** 자체 지원 모집의 지원자 목록. total·statusCounts 는 검색·필터와 무관한 모집 전체 기준이다. */
+      applications(
+        recruitmentId: number,
+        params: AdminApplicantSearchParams,
+      ): Promise<AdminApplicantList>;
+      /** 지원서 열람(읽기 전용) — 경로는 모집이 아니라 지원서 단건이다. */
+      applicationDetail(applicationId: number): Promise<AdminApplicationDetail>;
+    };
     leaderSuccession: {
       list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
       get(requestId: number): Promise<AdminSuccessionDetail>;
@@ -706,7 +777,7 @@ export type DuingApiClient = {
   interviewRounds: {
     // === 면접 라운드 후보 조회 (BE#2) ===
     // GET /leader/recruitments/{recruitmentId}/interview-round-candidates
-    candidates(recruitmentId: number, includeUnderReview: boolean): Promise<InterviewRoundCandidate[]>;
+    candidates(recruitmentId: number, includeUndecided: boolean): Promise<InterviewRoundCandidate[]>;
     // === 면접 라운드 목록 (BE#6) ===
     // GET /leader/recruitments/{recruitmentId}/interview-rounds
     list(recruitmentId: number): Promise<InterviewRoundSummary[]>;
@@ -1162,6 +1233,37 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
       feeAccount: (clubId) =>
         jsonOk<FeeAccount>(http.get(`clubs/${clubId}/fee-account`)),
     },
+    joinCodes: {
+      createForRecruitment: (clubId, recruitmentId, payload) =>
+        jsonOk<JoinCodeSummary>(
+          http.post(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes`, { json: payload }),
+        ),
+      getActiveForRecruitment: (clubId, recruitmentId) =>
+        jsonOkNullable<JoinCodeSummary>(
+          http.get(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes/active`),
+        ),
+      revokeForRecruitment: (clubId, recruitmentId, joinCodeId) =>
+        jsonVoid(
+          http.delete(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes/${joinCodeId}`),
+        ),
+      listRequests: (clubId, status) =>
+        jsonOk<JoinRequestSummary[]>(
+          http.get(`clubs/${clubId}/join-requests`, { searchParams: { status } }),
+        ),
+      getRequestDetail: (clubId, joinRequestId) =>
+        jsonOk<JoinRequestDetail>(http.get(`clubs/${clubId}/join-requests/${joinRequestId}`)),
+      decideRequest: (clubId, joinRequestId, payload) =>
+        jsonOk<JoinRequestDecisionResponse>(
+          http.patch(`clubs/${clubId}/join-requests/${joinRequestId}`, { json: payload }),
+        ),
+      bulkApproveRequests: (clubId, payload) =>
+        jsonOk<BulkApproveResult>(
+          http.patch(`clubs/${clubId}/join-requests/bulk-approve`, { json: payload }),
+        ),
+      check: (code) => jsonOk<JoinCodeCheck>(http.get(`join-codes/${encodeURIComponent(code)}`)),
+      createRequest: (code) =>
+        jsonVoid(http.post(`join-codes/${encodeURIComponent(code)}/requests`)),
+    },
     files: {
       upload: (file, purpose) => {
         const body = new FormData();
@@ -1570,6 +1672,27 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         process: (reportId, payload) =>
           jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
       },
+      recruitments: {
+        list: (params) =>
+          jsonOk<AdminRecruitmentSummary[]>(
+            http.get('admin/recruitments', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
+          ),
+        detail: (recruitmentId) =>
+          jsonOk<AdminRecruitmentDetail>(http.get(`admin/recruitments/${recruitmentId}`)),
+        forceClose: (recruitmentId, payload) =>
+          jsonVoid(http.patch(`admin/recruitments/${recruitmentId}/close`, { json: payload })),
+        applications: (recruitmentId, params) =>
+          jsonOk<AdminApplicantList>(
+            http.get(`admin/recruitments/${recruitmentId}/applications`, {
+              searchParams: cleanParams(params),
+            }),
+          ),
+        applicationDetail: (applicationId) =>
+          jsonOk<AdminApplicationDetail>(http.get(`admin/applications/${applicationId}`)),
+      },
       leaderSuccession: {
         list: (params) =>
           jsonOk<PageResponse<AdminSuccessionSummary>>(
@@ -1765,10 +1888,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<Receipt>(http.get(`my/fees/${billId}/receipt`)),
     },
     interviewRounds: {
-      candidates: (recruitmentId, includeUnderReview) =>
+      candidates: (recruitmentId, includeUndecided) =>
         jsonOk<InterviewRoundCandidate[]>(
           http.get(`leader/recruitments/${recruitmentId}/interview-round-candidates`, {
-            searchParams: { includeUnderReview },
+            searchParams: { includeUndecided },
           }),
         ),
       list: (recruitmentId) =>

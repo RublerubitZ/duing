@@ -1,6 +1,7 @@
 package com.duing.domain.interview.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -15,10 +16,15 @@ import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,7 +32,9 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +44,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 // wizard Step2 의 첫 persist — 면접 대상 선정 + 라운드(DRAFT) + 멤버 생성이 한 트랜잭션으로
 // 처리되는지, placement 불변식과 DRAFT 1개 제약이 강제되는지 검증한다 (스펙 §9.1 API 2·§7·§16).
 @Import(TestcontainersConfiguration.class)
@@ -48,6 +58,8 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     private int port;
 
     @Autowired private ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    @Autowired private RecruitmentService recruitmentService;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private User leader;
     private String leaderToken;
@@ -64,10 +76,10 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     }
 
     @Test
-    @DisplayName("서류 검토 중 지원자와 대기열 지원자를 함께 선정하면 라운드가 DRAFT 로 생성되고 전이·이력·멤버가 한 번에 처리된다")
+    @DisplayName("지원 완료·보류 지원자와 대기열 지원자를 함께 선정하면 라운드가 DRAFT 로 생성되고 전이·이력·멤버가 한 번에 처리된다")
     void createRoundSelectsCandidatesAtomically() {
-        Application reviewing1 = saveUnderReviewApplication(recruitment, "서류1");
-        Application reviewing2 = saveUnderReviewApplication(recruitment, "서류2");
+        Application submitted = saveSubmittedApplication(recruitment, "지원완료");
+        Application onHold = saveOnHoldApplication(recruitment, "보류");
         Application queued = saveInterviewPendingApplication(recruitment, "대기열");
         long queuedHistoryBefore = applicationStatusHistoryRepository
                 .findByApplicationIdOrderByCreatedAtDesc(queued.getId()).size();
@@ -79,7 +91,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                         "title", "1차 면접",
                         "availabilityDeadline", LocalDateTime.now().plusDays(7).toString(),
                         "location", "본관 201호",
-                        "applicationIds", List.of(reviewing1.getId(), reviewing2.getId(), queued.getId())))
+                        "applicationIds", List.of(submitted.getId(), onHold.getId(), queued.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CREATED.value())
                 .body("data.roundId", notNullValue())
@@ -96,17 +108,25 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
         assertThat(members).hasSize(3);
         assertThat(members).allMatch(member -> member.getStatus() == RoundMemberStatus.INVITED);
 
-        // UNDER_REVIEW 후보는 INTERVIEW_PENDING 으로 전이 + 이력 기록
-        assertThat(applicationRepository.findById(reviewing1.getId()).orElseThrow().getStatus())
+        // 미결정(SUBMITTED·ON_HOLD) 후보는 INTERVIEW_PENDING 으로 전이 + 이력 기록
+        assertThat(applicationRepository.findById(submitted.getId()).orElseThrow().getStatus())
                 .isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
         assertThat(applicationStatusHistoryRepository
-                .findByApplicationIdOrderByCreatedAtDesc(reviewing1.getId()))
-                .isNotEmpty();
-        assertThat(applicationRepository.findById(reviewing2.getId()).orElseThrow().getStatus())
+                .findByApplicationIdOrderByCreatedAtDesc(submitted.getId()))
+                .singleElement()
+                .satisfies(historyRow -> {
+                    assertThat(historyRow.getPreviousStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+                    assertThat(historyRow.getNewStatus()).isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
+                });
+        assertThat(applicationRepository.findById(onHold.getId()).orElseThrow().getStatus())
                 .isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
         assertThat(applicationStatusHistoryRepository
-                .findByApplicationIdOrderByCreatedAtDesc(reviewing2.getId()))
-                .isNotEmpty();
+                .findByApplicationIdOrderByCreatedAtDesc(onHold.getId()))
+                .singleElement()
+                .satisfies(historyRow -> {
+                    assertThat(historyRow.getPreviousStatus()).isEqualTo(ApplicationStatus.ON_HOLD);
+                    assertThat(historyRow.getNewStatus()).isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
+                });
         // 대기열 후보는 상태 유지 + 이력 추가 없음
         assertThat(applicationRepository.findById(queued.getId()).orElseThrow().getStatus())
                 .isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
@@ -118,12 +138,12 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     @Test
     @DisplayName("availabilityDeadline 없이도 라운드를 만들 수 있다 — 마감은 발송 전까지만 정하면 된다")
     void deadlineIsOptionalInDraft() {
-        Application reviewing = saveUnderReviewApplication(recruitment, "마감없음");
+        Application candidate = saveOnHoldApplication(recruitment, "마감없음");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
-                .body(Map.of("title", "1차 면접", "applicationIds", List.of(reviewing.getId())))
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CREATED.value());
     }
@@ -131,7 +151,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     @Test
     @DisplayName("availabilityDeadline 이 현재 이전이면 라운드를 만들 수 없다")
     void pastDeadlineIsRejected() {
-        Application reviewing = saveUnderReviewApplication(recruitment, "과거마감");
+        Application candidate = saveOnHoldApplication(recruitment, "과거마감");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -139,28 +159,28 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .body(Map.of(
                         "title", "1차 면접",
                         "availabilityDeadline", LocalDateTime.now().minusHours(1).toString(),
-                        "applicationIds", List.of(reviewing.getId())))
+                        "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
-    @DisplayName("선정 불가 상태(SUBMITTED) 지원자가 섞이면 전체가 거부되고 아무것도 변하지 않는다")
+    @DisplayName("선정 불가 상태(REJECTED) 지원자가 섞이면 전체가 거부되고 아무것도 변하지 않는다")
     void ineligibleStatusRejectsWholeRequestAtomically() {
-        Application reviewing = saveUnderReviewApplication(recruitment, "정상후보");
-        Application submitted = saveSubmittedApplication(recruitment, "미열람");
+        Application onHold = saveOnHoldApplication(recruitment, "정상후보");
+        Application rejected = saveApplicationWithStatus(recruitment, "불합격", ApplicationStatus.REJECTED);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", "1차 면접",
-                        "applicationIds", List.of(reviewing.getId(), submitted.getId())))
+                        "applicationIds", List.of(onHold.getId(), rejected.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
 
         // 원자성: 정상 후보도 전이되지 않았고 라운드도 생성되지 않았다
-        assertThat(applicationRepository.findById(reviewing.getId()).orElseThrow().getStatus())
-                .isEqualTo(ApplicationStatus.UNDER_REVIEW);
+        assertThat(applicationRepository.findById(onHold.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
         assertThat(interviewRoundRepository.findAll().stream()
                 .filter(round -> round.getRecruitmentId().equals(recruitment.getId())))
                 .isEmpty();
@@ -188,7 +208,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
         User applicant = saveUser("타지원자");
         Application otherApplication = applicationRepository.save(
                 Application.submit(otherRecruitment, applicant, List.of()));
-        otherApplication.transitionTo(ApplicationStatus.UNDER_REVIEW, true);
+        otherApplication.transitionTo(ApplicationStatus.ON_HOLD, true);
         applicationRepository.save(otherApplication);
 
         RestAssured.given()
@@ -207,7 +227,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 recruitment.getId(), LocalDateTime.now().plusDays(3), null, RoundStatus.COLLECTING));
         interviewRoundMemberRepository.save(
                 InterviewRoundMember.invite(collectingRound.getId(), placed.getId()));
-        Application fresh = saveUnderReviewApplication(recruitment, "신규후보");
+        Application fresh = saveOnHoldApplication(recruitment, "신규후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -219,7 +239,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
 
         // 원자성: 신규 후보도 전이되지 않았다
         assertThat(applicationRepository.findById(fresh.getId()).orElseThrow().getStatus())
-                .isEqualTo(ApplicationStatus.UNDER_REVIEW);
+                .isEqualTo(ApplicationStatus.ON_HOLD);
     }
 
     @Test
@@ -227,12 +247,12 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     void secondDraftRoundIsRejected() {
         interviewRoundRepository.save(
                 InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
-        Application reviewing = saveUnderReviewApplication(recruitment, "후보");
+        Application candidate = saveOnHoldApplication(recruitment, "후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
-                .body(Map.of("title", "2차 면접", "applicationIds", List.of(reviewing.getId())))
+                .body(Map.of("title", "2차 면접", "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value());
     }
@@ -262,13 +282,13 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     @Test
     @DisplayName("중복으로 선택된 지원자는 한 번만 멤버로 등록된다")
     void duplicateApplicationIdsAreDeduplicated() {
-        Application reviewing = saveUnderReviewApplication(recruitment, "중복선택");
+        Application candidate = saveOnHoldApplication(recruitment, "중복선택");
 
         Integer roundId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", "1차 면접",
-                        "applicationIds", List.of(reviewing.getId(), reviewing.getId())))
+                        "applicationIds", List.of(candidate.getId(), candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().path("data.roundId");
@@ -284,12 +304,12 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     void nonManagerCannotCreateRound() {
         User outsider = saveUser("외부인");
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
-        Application reviewing = saveUnderReviewApplication(recruitment, "후보");
+        Application candidate = saveOnHoldApplication(recruitment, "후보");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .contentType(ContentType.JSON)
-                .body(Map.of("title", "1차 면접", "applicationIds", List.of(reviewing.getId())))
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
@@ -324,11 +344,56 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     }
 
     @Test
+    @DisplayName("마감된 모집에는 면접 라운드를 새로 만들 수 없고 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksRoundCreation() {
+        Application candidate = saveOnHoldApplication(recruitment, "마감후보");
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                .when().post(CREATE_PATH, recruitment.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+
+        // 라운드도 상태 전이도 일어나지 않았다.
+        assertThat(interviewRoundRepository.findAll().stream()
+                .filter(round -> round.getRecruitmentId().equals(recruitment.getId())))
+                .isEmpty();
+        assertThat(applicationRepository.findById(candidate.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    @Test
+    @DisplayName("마감일이 지났어도 마감 처리 전 모집이면 면접 라운드를 계속 만들 수 있다")
+    void expiredButOpenRecruitmentStillAllowsRoundCreation() {
+        Club underReviewClub = saveActiveClub("심사중라운드동아리");
+        clubMemberRepository.save(ClubMember.asLeader(underReviewClub, leader));
+        LocalDate today = LocalDate.now();
+        Recruitment underReviewRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                underReviewClub, "심사중모집-" + sequence.incrementAndGet(), null,
+                today.minusDays(10), today.minusDays(3), 10,
+                ApplicationMode.SELF, null, true, TargetRole.MEMBER,
+                today.plusDays(3), today.plusDays(10), false));
+        Application candidate = saveOnHoldApplication(underReviewRecruitment, "심사중후보");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                .when().post(CREATE_PATH, underReviewRecruitment.getId())
+                .then().statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
     @DisplayName("같은 모집에 동시에 라운드 생성을 요청하면 정확히 하나만 성공한다")
     void concurrentCreationAllowsExactlyOne() throws Exception {
-        Application reviewing = saveUnderReviewApplication(recruitment, "동시성후보");
+        Application candidate = saveOnHoldApplication(recruitment, "동시성후보");
         Map<String, Object> requestBody = Map.of(
-                "title", "1차 면접", "applicationIds", List.of(reviewing.getId()));
+                "title", "1차 면접", "applicationIds", List.of(candidate.getId()));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
@@ -371,9 +436,70 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .filter(round -> round.getRecruitmentId().equals(recruitment.getId()))
                 .count();
         long memberCount = interviewRoundMemberRepository.findAll().stream()
-                .filter(member -> member.getApplicationId().equals(reviewing.getId()))
+                .filter(member -> member.getApplicationId().equals(candidate.getId()))
                 .count();
         assertThat(roundCount).isEqualTo(1);
         assertThat(memberCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("마감이 진행 중인 모집에 라운드 생성을 요청하면 마감이 끝날 때까지 대기했다가 마감 코드와 함께 409 로 거절되고 라운드는 남지 않는다")
+    void roundCreationWaitsForCloseAndIsRejectedAfterwards() throws Exception {
+        Application candidate = saveOnHoldApplication(recruitment, "마감경합후보");
+        TransactionTemplate closeTransaction = new TransactionTemplate(transactionManager);
+        CountDownLatch closeHoldsRowLock = new CountDownLatch(1);
+        CountDownLatch closeMayCommit = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            // 마감을 커밋 직전에 붙잡아, close() 가 잡은 모집 행 잠금을 계속 쥔 상태로 만든다.
+            Future<?> closing = executor.submit(() -> closeTransaction.executeWithoutResult(transaction -> {
+                recruitmentService.close(recruitment.getId(), leader.getId());
+                recruitmentRepository.flush();
+                closeHoldsRowLock.countDown();
+                awaitQuietly(closeMayCommit);
+            }));
+            assertThat(closeHoldsRowLock.await(10, TimeUnit.SECONDS))
+                    .as("마감 트랜잭션이 모집 행 잠금을 획득").isTrue();
+
+            Future<Response> creating = executor.submit(() -> RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                    .when().post(CREATE_PATH, recruitment.getId()));
+
+            // 잠금이 없으면 라운드 생성이 마감 커밋 전의 OPEN 을 읽고 그대로 201 로 끝난다.
+            assertThatThrownBy(() -> creating.get(1, TimeUnit.SECONDS))
+                    .as("라운드 생성이 마감의 모집 행 잠금에서 대기")
+                    .isInstanceOf(TimeoutException.class);
+
+            closeMayCommit.countDown();
+            closing.get(30, TimeUnit.SECONDS);
+
+            Response creationResponse = creating.get(30, TimeUnit.SECONDS);
+            assertThat(creationResponse.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+            assertThat(creationResponse.jsonPath().getString("code")).isEqualTo("RECRUITMENT_CLOSED");
+        } finally {
+            closeMayCommit.countDown();
+            executor.shutdownNow();
+        }
+
+        // 마감이 확정됐고, 거절된 생성은 라운드도 상태 전이도 남기지 않았다.
+        assertThat(recruitmentRepository.findById(recruitment.getId()).orElseThrow().getStatus())
+                .isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(interviewRoundRepository.findAll().stream()
+                .filter(round -> round.getRecruitmentId().equals(recruitment.getId())))
+                .isEmpty();
+        assertThat(applicationRepository.findById(candidate.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await(20, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
     }
 }

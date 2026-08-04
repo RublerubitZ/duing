@@ -22,17 +22,30 @@ const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 // ── MSW 픽스처 ──────────────────────────────────────────────────────────────
 
-/** 서류 검토 중 후보 1건 */
-const CANDIDATE_UNDER_REVIEW = {
+/** 미결정 — SUBMITTED 후보 1건 */
+const CANDIDATE_SUBMITTED = {
   applicationId: 1,
   userId: 101,
-  userName: '김서류',
+  userName: '김지원',
   studentId: '20220001',
   college: 'ENGINEERING',
   major: '컴퓨터공학과',
   grade: 'SOPHOMORE',
-  status: 'UNDER_REVIEW',
+  status: 'SUBMITTED',
   submittedAt: '2026-06-01T10:00:00',
+};
+
+/** 미결정 — ON_HOLD 후보 1건 (SUBMITTED 와 같은 그룹에 묶여야 한다) */
+const CANDIDATE_ON_HOLD = {
+  applicationId: 3,
+  userId: 103,
+  userName: '박보류',
+  studentId: '20220003',
+  college: 'ENGINEERING',
+  major: '전자공학과',
+  grade: 'SENIOR',
+  status: 'ON_HOLD',
+  submittedAt: '2026-06-01T10:30:00',
 };
 
 /** 면접 대기 후보 1건 */
@@ -81,7 +94,7 @@ const ROUND_DETAIL_NO_SLOTS = {
     {
       memberId: 1,
       applicationId: 1,
-      userName: '김서류',
+      userName: '김지원',
       studentId: '20220001',
       status: 'INVITED',
       unresponded: true,
@@ -109,10 +122,10 @@ const ROUND_DETAIL_WITH_SLOTS = {
 };
 
 // 공통 핸들러 헬퍼
-function handleCandidates(includeUnderReview: boolean) {
+function handleCandidates(includeUndecided: boolean) {
   const candidates =
-    includeUnderReview
-      ? [CANDIDATE_UNDER_REVIEW, CANDIDATE_INTERVIEW_PENDING]
+    includeUndecided
+      ? [CANDIDATE_SUBMITTED, CANDIDATE_ON_HOLD, CANDIDATE_INTERVIEW_PENDING]
       : [CANDIDATE_INTERVIEW_PENDING];
   return HttpResponse.json({ ok: true, data: candidates, message: null });
 }
@@ -155,11 +168,11 @@ function renderWizard() {
 // ── 테스트 9건 ───────────────────────────────────────────────────────────────
 
 describe('RoundWizard — 면접 라운드 생성 wizard', () => {
-  it('1. 후보 목록이 서류 검토 중과 면접 대기 그룹으로 나뉘어 보인다', async () => {
+  it('1. 후보 목록이 미결정과 면접 대기 그룹으로 나뉘어 보인다', async () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -169,22 +182,24 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     await waitFor(() => {
       // 그룹 헤더 (h3)
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
       expect(screen.getByText('면접 대기', { selector: 'h3' })).toBeInTheDocument();
     });
 
-    // 상태 뱃지 확인
-    expect(screen.getAllByText('서류 검토 중').length).toBeGreaterThanOrEqual(1);
+    // 미결정 그룹은 SUBMITTED·ON_HOLD 를 함께 담는다 (상태 뱃지는 운영진 라벨)
+    expect(screen.getByText('지원 완료')).toBeInTheDocument();
+    expect(screen.getByText('보류')).toBeInTheDocument();
     expect(screen.getByText('면접 대상')).toBeInTheDocument();
+    expect(screen.getByText('(2명)')).toBeInTheDocument();
   });
 
-  it('2. 서류 검토 중 포함 토글을 끄면 대기열만 다시 조회한다', async () => {
+  it('2. 미결정 포함 토글을 끄면 대기열만 다시 조회한다', async () => {
     let capturedInclude: string | null = null;
 
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        capturedInclude = url.searchParams.get('includeUnderReview');
+        capturedInclude = url.searchParams.get('includeUndecided');
         const include = capturedInclude === 'true';
         return handleCandidates(include);
       }),
@@ -195,20 +210,20 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // 초기 로드 완료 대기 (그룹 헤더 h3 기준)
     await waitFor(() => {
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 토글 끄기
-    const toggle = screen.getByRole('checkbox', { name: /서류 검토 중 포함/ });
+    const toggle = screen.getByRole('checkbox', { name: /미결정 포함/ });
     await userEvent.click(toggle);
 
     await waitFor(() => {
       expect(capturedInclude).toBe('false');
     });
 
-    // 서류 검토 중 그룹 헤더(h3)가 사라져야 함
+    // 미결정 그룹 헤더(h3)가 사라져야 함
     await waitFor(() => {
-      expect(screen.queryByText('서류 검토 중', { selector: 'h3' })).not.toBeInTheDocument();
+      expect(screen.queryByText('미결정(지원·보류)', { selector: 'h3' })).not.toBeInTheDocument();
     });
   });
 
@@ -216,7 +231,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -225,7 +240,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     await waitFor(() => {
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 선택 0 → [다음] disabled
@@ -233,20 +248,20 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     expect(nextButton).toBeDisabled();
 
     // 후보 1명 선택 → enabled + 카운터
-    const checkbox = screen.getByRole('checkbox', { name: /김서류 선택/ });
+    const checkbox = screen.getByRole('checkbox', { name: /김지원 선택/ });
     await userEvent.click(checkbox);
 
     expect(nextButton).not.toBeDisabled();
     expect(screen.getByText(/1명 선택/)).toBeInTheDocument();
   });
 
-  it('4. 라운드 생성 시 선택한 지원자와 입력값이 그대로 전송되고 서류 검토 중 전환 경고가 보인다', async () => {
+  it('4. 라운드 생성 시 선택한 지원자와 입력값이 그대로 전송되고 미결정 전환 경고가 보인다', async () => {
     let capturedBody: unknown = null;
 
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -266,19 +281,19 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     await waitFor(() => {
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
-    // UNDER_REVIEW 후보 선택
-    const checkbox = screen.getByRole('checkbox', { name: /김서류 선택/ });
+    // 미결정 후보 선택
+    const checkbox = screen.getByRole('checkbox', { name: /김지원 선택/ });
     await userEvent.click(checkbox);
 
     // 다음 단계(Step2)로 이동
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
 
-    // Step2: UNDER_REVIEW 전환 경고 문구
+    // Step2: 미결정 전환 경고 문구
     await waitFor(() => {
-      expect(screen.getByText(/서류 검토 중 지원자 1명은 생성 즉시 면접 대상/)).toBeInTheDocument();
+      expect(screen.getByText(/미결정 지원자 1명이 면접 대상으로 전환됩니다/)).toBeInTheDocument();
     });
 
     // 제목 입력 및 마감일 입력
@@ -303,7 +318,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -327,8 +342,8 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 후보 선택 → Step2 → 라운드 생성 → Step3
-    await waitFor(() => screen.getByText('서류 검토 중', { selector: 'h3' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: /김서류 선택/ }));
+    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
     await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');
@@ -361,7 +376,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -376,8 +391,8 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 2 → 3 → 4
-    await waitFor(() => screen.getByText('서류 검토 중', { selector: 'h3' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: /김서류 선택/ }));
+    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
     await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');
@@ -398,7 +413,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -420,8 +435,8 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 2 → 3 → 4
-    await waitFor(() => screen.getByText('서류 검토 중', { selector: 'h3' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: /김서류 선택/ }));
+    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
     await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');
@@ -484,7 +499,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
     );
@@ -503,17 +518,17 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // Step1 노출 (그룹 헤더 h3 기준)
     await waitFor(() => {
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
   });
 
-  it('10. 토글을 꺼도 이미 선택한 서류 검토 중 후보는 선택 상태로 유지되고 경고 인원에 포함된다', async () => {
+  it('10. 토글을 꺼도 이미 선택한 미결정 후보는 선택 상태로 유지되고 경고 인원에 포함된다', async () => {
     let capturedBody: unknown = null;
 
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -528,18 +543,18 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     renderWizard();
 
-    // includeUnderReview=true 상태에서 UNDER_REVIEW 후보(김서류) 선택
+    // includeUndecided=true 상태에서 미결정 후보(김지원) 선택
     await waitFor(() => {
-      expect(screen.getByText('서류 검토 중', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByRole('checkbox', { name: /김서류 선택/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
 
-    // 토글 off — 서류 검토 중 목록이 화면에서 사라짐
-    const toggle = screen.getByRole('checkbox', { name: /서류 검토 중 포함/ });
+    // 토글 off — 미결정 목록이 화면에서 사라짐
+    const toggle = screen.getByRole('checkbox', { name: /미결정 포함/ });
     await userEvent.click(toggle);
 
     await waitFor(() => {
-      expect(screen.queryByText('서류 검토 중', { selector: 'h3' })).not.toBeInTheDocument();
+      expect(screen.queryByText('미결정(지원·보류)', { selector: 'h3' })).not.toBeInTheDocument();
     });
 
     // INTERVIEW_PENDING 후보(이면접) 추가 선택
@@ -551,11 +566,11 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     // 카운터: 총 2명 선택
     expect(screen.getByText(/2명 선택/)).toBeInTheDocument();
 
-    // 다음으로 이동 → Step2 에서 UNDER_REVIEW 전환 경고 "1명" 표시
+    // 다음으로 이동 → Step2 에서 미결정 전환 경고 "1명" 표시
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/서류 검토 중 지원자 1명은 생성 즉시 면접 대상/)).toBeInTheDocument();
+      expect(screen.getByText(/미결정 지원자 1명이 면접 대상으로 전환됩니다/)).toBeInTheDocument();
     });
 
     // 제출하면 두 후보 모두 전송
@@ -574,7 +589,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
-        const include = url.searchParams.get('includeUnderReview') === 'true';
+        const include = url.searchParams.get('includeUndecided') === 'true';
         return handleCandidates(include);
       }),
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
@@ -589,8 +604,8 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 후보 선택 → Step2 → 라운드 생성 → Step3
-    await waitFor(() => screen.getByText('서류 검토 중', { selector: 'h3' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: /김서류 선택/ }));
+    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
     await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');

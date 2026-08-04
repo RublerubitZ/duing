@@ -134,12 +134,12 @@ describe('ApplicantInterviewScheduleCard — 라운드 null', () => {
     expect(link).toHaveAttribute('href', '/manage/clubs/1/recruitments/2/interview');
   });
 
-  it('UNDER_REVIEW → 선정 전 안내 문구가 노출된다', () => {
+  it('SUBMITTED → 선정 전 안내 문구가 노출된다', () => {
     render(
       <ApplicantInterviewScheduleCard
         {...defaultProps}
         interviewRound={null}
-        applicationStatus="UNDER_REVIEW"
+        applicationStatus="SUBMITTED"
       />,
     );
 
@@ -148,14 +148,18 @@ describe('ApplicantInterviewScheduleCard — 라운드 null', () => {
     ).toBeInTheDocument();
   });
 
-  it('PromoteToInterviewPendingDialog 가 렌더되지 않는다', () => {
+  it('ON_HOLD → 선정 전 안내 문구가 노출되고 PromoteToInterviewPendingDialog 는 렌더되지 않는다', () => {
     render(
       <ApplicantInterviewScheduleCard
         {...defaultProps}
         interviewRound={null}
-        applicationStatus="UNDER_REVIEW"
+        applicationStatus="ON_HOLD"
       />,
     );
+
+    expect(
+      screen.getByText(/면접 대상 선정 전 — 면접 관리의 라운드 만들기에서 선정합니다/),
+    ).toBeInTheDocument();
 
     // promote dialog 는 철거됐으므로 관련 텍스트가 없어야 한다
     expect(screen.queryByText(/이 지원자는 아직 면접 대상이 아닙니다/)).not.toBeInTheDocument();

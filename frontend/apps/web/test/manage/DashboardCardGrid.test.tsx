@@ -20,7 +20,7 @@ vi.mock('@duing/hooks', () => ({
     totals: {
       total: 0,
       submitted: 0,
-      underReview: 0,
+      onHold: 0,
       interviewPending: 0,
       accepted: 0,
       rejected: 0,

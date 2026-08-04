@@ -1,19 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { MyApplicationDetail } from '@duing/types';
-import type { ApplicantInterviewPhase } from '@duing/types';
 import { ApplicationStepper } from '@/app/me/applications/[applicationId]/_components/ApplicationStepper';
 
 // phase 기반 재배선 — applicantPhase 가 stepper 활성 단계·문구를 결정한다.
-// 핵심 결정 2:
-//   NOT_APPLICABLE → status fallback (SUBMITTED→0 / ACCEPTED·REJECTED→4)
-//   DOCUMENT_REVIEW → 1
-//   WAITING_*/AVAILABILITY_*/RESPONDED/NO_SLOT_REPORTED/SCHEDULING → 2
-//   SCHEDULED → 3
+// 서류검토 단계 제거 + 면접 단계는 면접 모집에서만 (스펙 §5-5):
+//   면접 모집   : 지원 완료(0) → 면접 대상(1) → 면접 일정 배정 완료(2) → 최종 결과(3)
+//   비면접 모집 : 지원 완료(0) → 최종 결과(1)
+//   WAITING_*/AVAILABILITY_*/RESPONDED/NO_SLOT_REPORTED/SCHEDULING → 1 / SCHEDULED → 2
+//   NOT_APPLICABLE·null → status fallback (SUBMITTED·ON_HOLD→0 / ACCEPTED·REJECTED→마지막)
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline'
+  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline' | 'useInterview'
 >;
 
 function makeDetail(overrides: Partial<StepperDetail> = {}): StepperDetail {
@@ -22,23 +21,60 @@ function makeDetail(overrides: Partial<StepperDetail> = {}): StepperDetail {
     interviewAvailabilityCount: 0,
     interview: null,
     availabilityDeadline: null,
+    useInterview: true,
     ...overrides,
   };
 }
 
 describe('ApplicationStepper (phase 기반)', () => {
-  it('phase=DOCUMENT_REVIEW 이면 1단계(서류 검토 중)가 활성이다', () => {
+  it('면접 모집 스테퍼에는 서류검토 단계가 없다', () => {
+    render(<ApplicationStepper detail={makeDetail()} phase={null} />);
+    expect(screen.queryByText('서류 검토 중')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+  });
+
+  it('비면접 모집 스테퍼에는 면접 단계가 없다 — 지원 완료·최종 결과 2단계', () => {
     render(
       <ApplicationStepper
-        detail={makeDetail({ status: 'UNDER_REVIEW' })}
-        phase={'DOCUMENT_REVIEW'}
+        detail={makeDetail({ useInterview: false })}
+        phase={'NOT_APPLICABLE'}
+      />,
+    );
+    const stepLabels = screen.getAllByRole('listitem').map((item) => item.textContent);
+    expect(stepLabels).toEqual(['지원 완료', '최종 결과']);
+    expect(screen.queryByText('면접 대상')).not.toBeInTheDocument();
+    expect(screen.queryByText('면접 일정 배정 완료')).not.toBeInTheDocument();
+  });
+
+  it('비면접 모집 + status=ACCEPTED 는 마지막 단계(최종 합격)가 활성이다', () => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ useInterview: false, status: 'ACCEPTED' })}
+        phase={'NOT_APPLICABLE'}
       />,
     );
     const activeStep = screen.getByRole('listitem', { current: 'step' });
-    expect(activeStep).toHaveTextContent('서류 검토 중');
+    expect(activeStep).toHaveTextContent('최종 합격');
   });
 
-  it('phase=AVAILABILITY_REQUESTED 이면 2단계(면접 대상)가 활성이고 안내 문구가 보인다', () => {
+  it('SUBMITTED 와 ON_HOLD 는 지원자에게 동일하게 지원 완료(0단계)로 보인다', () => {
+    const submitted = render(
+      <ApplicationStepper detail={makeDetail({ status: 'SUBMITTED' })} phase={null} />,
+    );
+    const submittedSteps = screen.getAllByRole('listitem').map((item) => item.textContent);
+    const submittedActive = screen.getByRole('listitem', { current: 'step' }).textContent;
+    submitted.unmount();
+
+    render(<ApplicationStepper detail={makeDetail({ status: 'ON_HOLD' })} phase={null} />);
+    const onHoldSteps = screen.getAllByRole('listitem').map((item) => item.textContent);
+    const onHoldActive = screen.getByRole('listitem', { current: 'step' }).textContent;
+
+    expect(onHoldSteps).toEqual(submittedSteps);
+    expect(onHoldActive).toBe(submittedActive);
+    expect(onHoldActive).toBe('지원 완료');
+  });
+
+  it('phase=AVAILABILITY_REQUESTED 이면 면접 대상 단계가 활성이고 안내 문구가 보인다', () => {
     render(
       <ApplicationStepper
         detail={makeDetail({ status: 'INTERVIEW_PENDING' })}
@@ -52,7 +88,7 @@ describe('ApplicationStepper (phase 기반)', () => {
     expect(screen.getByRole('status').textContent).toContain('가능 시간');
   });
 
-  it('phase=SCHEDULED 이면 3단계(면접 일정 배정 완료)가 활성이다', () => {
+  it('phase=SCHEDULED 이면 면접 일정 배정 완료 단계가 활성이다', () => {
     render(
       <ApplicationStepper
         detail={makeDetail({ status: 'INTERVIEW_PENDING' })}
@@ -63,7 +99,7 @@ describe('ApplicationStepper (phase 기반)', () => {
     expect(activeStep).toHaveTextContent('면접 일정 배정 완료');
   });
 
-  it('phase=NOT_APPLICABLE + status=ACCEPTED → 4단계 최종 합격', () => {
+  it('phase=NOT_APPLICABLE + status=ACCEPTED → 마지막 단계 최종 합격', () => {
     render(
       <ApplicationStepper
         detail={makeDetail({ status: 'ACCEPTED' })}

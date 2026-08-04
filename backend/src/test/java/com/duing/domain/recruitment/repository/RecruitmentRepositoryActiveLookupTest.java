@@ -11,6 +11,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,7 +35,7 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
     void activeRecruitmentTakesPrecedenceOverClosedHistory() throws Exception {
         Club clubA = saveActiveClub("lookupA");
         Recruitment closed = saveRecruitment(clubA, LocalDate.now().minusDays(30), LocalDate.now().minusDays(10));
-        closed.close();
+        closed.close(LocalDateTime.now());
         recruitmentRepository.save(closed);
         Recruitment active = saveRecruitment(clubA, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7));
 
@@ -49,10 +50,10 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
     void mostRecentlyClosedRecruitmentReturnedWhenNoActive() throws Exception {
         Club clubB = saveActiveClub("lookupB");
         Recruitment older = saveRecruitment(clubB, LocalDate.now().minusDays(60), LocalDate.now().minusDays(40));
-        older.close();
+        older.close(LocalDateTime.now());
         recruitmentRepository.save(older);
         Recruitment newer = saveRecruitment(clubB, LocalDate.now().minusDays(30), LocalDate.now().minusDays(5));
-        newer.close();
+        newer.close(LocalDateTime.now());
         recruitmentRepository.save(newer);
 
         Map<Long, ClubActiveRecruitmentRow> result = recruitmentRepository.findRepresentativeByClubIds(

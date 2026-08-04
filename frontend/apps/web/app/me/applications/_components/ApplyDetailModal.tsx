@@ -108,7 +108,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
   if (!app) return null;
 
   const phase = interviewView?.phase ?? null;
-  // 제출 직후(SUBMITTED)에만 본인이 철회할 수 있다.
+  // 심사 중(SUBMITTED·ON_HOLD)에서 본인이 철회할 수 있다 — BE 가드와 동형.
+  // 보류는 지원자에게 SUBMITTED 와 동일하게 동작해야 하므로 버튼 노출도 같다 (스펙 §1-1).
   const canWithdraw = app.status === 'applied';
   const withdrawApplicationId = Number(app.id);
 
@@ -252,7 +253,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
           </div>
         </div>
 
-        {/* 푸터 — 제출 직후 지원은 본인이 철회할 수 있다. */}
+        {/* 푸터 — 심사 중 지원은 본인이 철회할 수 있다. */}
         {canWithdraw && (
           <div style={{
             borderTop: '1px solid var(--gray-line)',

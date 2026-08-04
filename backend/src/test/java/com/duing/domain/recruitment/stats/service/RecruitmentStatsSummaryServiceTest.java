@@ -57,10 +57,10 @@ class RecruitmentStatsSummaryServiceTest {
     }
 
     private Map<ApplicationStatus, Long> buildStatusMap(
-            long submitted, long underReview, long interviewPending, long accepted, long rejected) {
+            long submitted, long onHold, long interviewPending, long accepted, long rejected) {
         Map<ApplicationStatus, Long> statusCountMap = new EnumMap<>(ApplicationStatus.class);
         if (submitted > 0) statusCountMap.put(ApplicationStatus.SUBMITTED, submitted);
-        if (underReview > 0) statusCountMap.put(ApplicationStatus.UNDER_REVIEW, underReview);
+        if (onHold > 0) statusCountMap.put(ApplicationStatus.ON_HOLD, onHold);
         if (interviewPending > 0) statusCountMap.put(ApplicationStatus.INTERVIEW_PENDING, interviewPending);
         if (accepted > 0) statusCountMap.put(ApplicationStatus.ACCEPTED, accepted);
         if (rejected > 0) statusCountMap.put(ApplicationStatus.REJECTED, rejected);
@@ -68,7 +68,7 @@ class RecruitmentStatsSummaryServiceTest {
     }
 
     @Test
-    @DisplayName("상태별 분포가 정확히 매핑된다 — SUBMITTED=3, UNDER_REVIEW=2, INTERVIEW_PENDING=1, ACCEPTED=1, REJECTED=1 이면 total=8")
+    @DisplayName("상태별 분포가 정확히 매핑된다 — SUBMITTED=3, ON_HOLD=2, INTERVIEW_PENDING=1, ACCEPTED=1, REJECTED=1 이면 total=8")
     void statusDistributionIsMappedCorrectly() {
         Long recruitmentId = 1L;
         Long clubId = 10L;
@@ -82,10 +82,29 @@ class RecruitmentStatsSummaryServiceTest {
 
         assertThat(summary.total()).isEqualTo(8);
         assertThat(summary.submitted()).isEqualTo(3);
-        assertThat(summary.underReview()).isEqualTo(2);
+        assertThat(summary.onHold()).isEqualTo(2);
         assertThat(summary.interviewPending()).isEqualTo(1);
         assertThat(summary.accepted()).isEqualTo(1);
         assertThat(summary.rejected()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("통계 요약의 전체 인원은 지원·보류·면접 대상·합격·불합격 상태 수의 합과 항상 같다")
+    void summaryTotalEqualsSumOfAllStatusCounts() {
+        Long recruitmentId = 7L;
+        Long clubId = 10L;
+        Long currentUserId = 100L;
+
+        mockRecruitmentWithCapacity(recruitmentId, clubId, 10);
+        Map<ApplicationStatus, Long> statusCountMap = buildStatusMap(2, 1, 1, 1, 1);
+        when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId)).thenReturn(statusCountMap);
+
+        StatsSummaryQuery summary = recruitmentStatsService.getSummary(recruitmentId, currentUserId);
+
+        assertThat(summary.total()).isEqualTo(6);
+        assertThat(summary.total()).isEqualTo(
+                summary.submitted() + summary.onHold() + summary.interviewPending()
+                        + summary.accepted() + summary.rejected());
     }
 
     @Test
@@ -103,7 +122,7 @@ class RecruitmentStatsSummaryServiceTest {
 
         assertThat(summary.total()).isEqualTo(0);
         assertThat(summary.submitted()).isEqualTo(0);
-        assertThat(summary.underReview()).isEqualTo(0);
+        assertThat(summary.onHold()).isEqualTo(0);
         assertThat(summary.interviewPending()).isEqualTo(0);
         assertThat(summary.accepted()).isEqualTo(0);
         assertThat(summary.rejected()).isEqualTo(0);

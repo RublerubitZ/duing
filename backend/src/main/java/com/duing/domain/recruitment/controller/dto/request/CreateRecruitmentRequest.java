@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,8 +38,10 @@ public record CreateRecruitmentRequest(
 
         ApplicationMode applicationMode,
 
+        // 스킴·도메인 검증은 Command 의 화이트리스트(ExternalFormUrlValidator)로 옮겼다 — 구 @Pattern 은
+        // http 와 임의 도메인을 모두 통과시켰고, EXTERNAL 이 아닐 때만 빈 값을 허용해야 한다는 조건도
+        // 필드 단위 제약으로는 표현할 수 없다. 여기 남은 길이 상한은 컬럼 길이 방어다.
         @Size(max = 500, message = "외부 폼 URL 은 500자 이하여야 합니다.")
-        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
         String externalFormUrl,
 
         Boolean useInterview,

@@ -19,7 +19,7 @@ export function SummaryCards({ statsSummary }: SummaryCardsProps) {
 
   const cards: CardDefinition[] = [
     { label: '전체', value: statsSummary.total },
-    { label: '검토중', value: statsSummary.underReview },
+    { label: '보류', value: statsSummary.onHold },
     { label: '면접대기', value: statsSummary.interviewPending },
     { label: '합격', value: statsSummary.accepted, subLabel: acceptanceRatio },
     { label: '불합격', value: statsSummary.rejected },

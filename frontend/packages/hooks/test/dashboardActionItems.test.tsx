@@ -27,7 +27,7 @@ const server = setupServer(
     ] }),
   ),
   http.get('*/leader/recruitments/1/stats/summary', () =>
-    HttpResponse.json({ ok: true, message: null, data: { total: 9, submitted: 2, underReview: 3, interviewPending: 0, accepted: 0, rejected: 0, capacity: 20, ratio: 0 } }),
+    HttpResponse.json({ ok: true, message: null, data: { total: 9, submitted: 2, onHold: 3, interviewPending: 0, accepted: 0, rejected: 0, capacity: 20, ratio: 0 } }),
   ),
   http.get('*/leader/recruitments/1/interview-rounds', () =>
     HttpResponse.json({ ok: true, message: null, data: [
@@ -77,7 +77,7 @@ describe('useClubActionItems', () => {
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
-      // 통계 기반 검토 대기(submitted 2 + underReview 3 = 5)만 1건
+      // 통계 기반 검토 대기(submitted 2 + onHold 3 = 5)만 1건
       expect(result.current.totalCount).toBe(1);
     });
     expect(result.current.preview[0]?.type).toBe('APPLICANTS_AWAITING_REVIEW');

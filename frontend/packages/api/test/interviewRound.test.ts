@@ -13,7 +13,7 @@ afterAll(() => server.close());
 const client = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 describe('interviewRounds.candidates', () => {
-  it('includeUnderReview 파라미터를 포함한 정확한 URL 로 GET 한다', async () => {
+  it('includeUndecided 파라미터를 포함한 정확한 URL 로 GET 한다', async () => {
     let capturedUrl: string | null = null;
     server.use(
       http.get('*/leader/recruitments/10/interview-round-candidates', ({ request }) => {
@@ -29,7 +29,7 @@ describe('interviewRounds.candidates', () => {
               college: 'IT_ENGINEERING',
               major: '컴퓨터공학과',
               grade: 'SOPHOMORE',
-              status: 'UNDER_REVIEW',
+              status: 'ON_HOLD',
               submittedAt: '2026-06-01T10:00:00',
             },
           ],
@@ -40,11 +40,11 @@ describe('interviewRounds.candidates', () => {
 
     const candidates = await client.interviewRounds.candidates(10, true);
 
-    expect(capturedUrl).toContain('includeUnderReview=true');
+    expect(capturedUrl).toContain('includeUndecided=true');
     expect(candidates).toHaveLength(1);
     const firstCandidate = candidates[0];
     expect(firstCandidate?.userName).toBe('홍길동');
-    expect(firstCandidate?.status).toBe('UNDER_REVIEW');
+    expect(firstCandidate?.status).toBe('ON_HOLD');
   });
 });
 

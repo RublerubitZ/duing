@@ -8,7 +8,7 @@ import {
 import type { InterviewRoundCandidate } from '@duing/types';
 import { WizardStepper } from './WizardStepper';
 import { DraftResumeDialog } from './DraftResumeDialog';
-import { Step1Candidates } from './Step1Candidates';
+import { Step1Candidates, isUndecidedCandidate } from './Step1Candidates';
 import { Step2RoundForm } from './Step2RoundForm';
 import { Step3Slots } from './Step3Slots';
 import { Step4Review } from './Step4Review';
@@ -19,7 +19,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 // 상태 설계 (스펙 §10.3):
 //   step 1~4 — useState<1|2|3|4>
 //   selectedMap — Map<applicationId, InterviewRoundCandidate> (RoundWizard 보유)
-//     토글 off 시에도 이미 선택된 UNDER_REVIEW 후보가 맵에서 유지됨
+//     토글 off 시에도 이미 선택된 미결정 후보가 맵에서 유지됨
 //   roundId — Step2 persist 성공 후 설정 (이어하기 경로도 동일)
 //   roundsQuery — DRAFT 감지 (status==='DRAFT')
 //
@@ -91,9 +91,9 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
     setStep(4);
   };
 
-  // UNDER_REVIEW 선택 수 — 맵에서 직접 계산 (토글과 무관)
-  const underReviewSelectedCount = Array.from(selectedMap.values()).filter(
-    (candidate) => candidate.status === 'UNDER_REVIEW',
+  // 미결정(SUBMITTED·ON_HOLD) 선택 수 — 맵에서 직접 계산 (토글과 무관)
+  const undecidedSelectedCount = Array.from(selectedMap.values()).filter(
+    isUndecidedCandidate,
   ).length;
 
   // selectedApplicationIds — Step2 에 전달할 id 배열
@@ -139,7 +139,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
             recruitmentId={recruitmentId}
             roundId={roundId}
             selectedApplicationIds={selectedApplicationIds}
-            underReviewSelectedCount={underReviewSelectedCount}
+            undecidedSelectedCount={undecidedSelectedCount}
             onRoundCreated={handleRoundCreated}
             onNext={handleStep2Next}
           />

@@ -70,16 +70,16 @@ class ApplicationStatusConcurrencyTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "동시처리모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
-        Application underReview = saveApplicationWithStatus(
-                recruitment, ApplicationStatus.UNDER_REVIEW, applicant);
+        Application submitted = saveApplicationWithStatus(
+                recruitment, ApplicationStatus.SUBMITTED, applicant);
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         Callable<Throwable> acceptTask = () -> tryUpdate(
                 new UpdateApplicationStatusCommand(
-                        underReview.getId(), leaderA.getId(), ApplicationStatus.ACCEPTED));
+                        submitted.getId(), leaderA.getId(), ApplicationStatus.ACCEPTED));
         Callable<Throwable> rejectTask = () -> tryUpdate(
                 new UpdateApplicationStatusCommand(
-                        underReview.getId(), leaderB.getId(), ApplicationStatus.REJECTED));
+                        submitted.getId(), leaderB.getId(), ApplicationStatus.REJECTED));
 
         List<Future<Throwable>> outcomes = pool.invokeAll(List.of(acceptTask, rejectTask));
         pool.shutdown();
@@ -92,7 +92,7 @@ class ApplicationStatusConcurrencyTest extends IntegrationTestBase {
         assertThat(successes).as("정확히 한 건만 성공").isEqualTo(1);
 
         // 핵심 contract: 사용자가 보고한 불일치 — REJECTED + ClubMember 존재 — 가 절대 발생하지 않는다.
-        Application reloaded = applicationRepository.findById(underReview.getId()).orElseThrow();
+        Application reloaded = applicationRepository.findById(submitted.getId()).orElseThrow();
         boolean memberExists = clubMemberRepository.existsByClubIdAndUserId(club.getId(), applicant.getId());
 
         if (reloaded.getStatus() == ApplicationStatus.ACCEPTED) {

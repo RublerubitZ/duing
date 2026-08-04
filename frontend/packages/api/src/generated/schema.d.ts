@@ -324,7 +324,7 @@ export interface paths {
         put?: never;
         /**
          * 면접 라운드 생성 (wizard)
-         * @description 면접 대상 선정과 라운드 생성을 한 트랜잭션으로 처리한다 — wizard Step2 완료 시점의 첫 persist. 허용 지원 상태: UNDER_REVIEW(선정 — INTERVIEW_PENDING 으로 전이·이력 기록), INTERVIEW_PENDING(대기열 재수용 — 유지). 그 외 상태가 섞이면 400 이고 전체가 롤백된다. 이미 진행 중 라운드에 소속된 지원자가 있으면 409. 모집당 준비 중(DRAFT) 라운드는 1개 — 이미 있으면 409. availabilityDeadline 은 DRAFT 동안 생략 가능하며 발송 시점에 필수가 된다. 지정 시 현재 이후여야 한다.
+         * @description 면접 대상 선정과 라운드 생성을 한 트랜잭션으로 처리한다 — wizard Step2 완료 시점의 첫 persist. 허용 지원 상태: SUBMITTED·ON_HOLD(선정 — INTERVIEW_PENDING 으로 전이·이력 기록), INTERVIEW_PENDING(대기열 재수용 — 유지). 그 외 상태가 섞이면 400 이고 전체가 롤백된다. 이미 진행 중 라운드에 소속된 지원자가 있으면 409. 모집당 준비 중(DRAFT) 라운드는 1개 — 이미 있으면 409. availabilityDeadline 은 DRAFT 동안 생략 가능하며 발송 시점에 필수가 된다. 지정 시 현재 이후여야 한다.
          */
         post: operations["createRound"];
         delete?: never;
@@ -2292,7 +2292,7 @@ export interface paths {
         };
         /**
          * 내 지원 목록 조회
-         * @description 본인이 제출한 지원을 최신순으로 반환한다. scope 로 상태 그룹 필터링: all(기본·전체) / active(SUBMITTED·UNDER_REVIEW·INTERVIEW_PENDING) / archived(ACCEPTED·REJECTED).
+         * @description 본인이 제출한 지원을 최신순으로 반환한다. scope 로 상태 그룹 필터링: all(기본·전체) / active(SUBMITTED·ON_HOLD·INTERVIEW_PENDING) / archived(ACCEPTED·REJECTED).
          */
         get: operations["getMyApplications"];
         put?: never;
@@ -2319,7 +2319,7 @@ export interface paths {
         post?: never;
         /**
          * 지원 철회
-         * @description 본인의 SUBMITTED 상태 지원을 철회한다. 검토가 시작된 지원은 철회할 수 없다.
+         * @description 본인의 미결정 상태(SUBMITTED·ON_HOLD) 지원을 철회한다. 면접 대상 선정·합불 처리 이후에는 철회할 수 없다.
          */
         delete: operations["withdraw_1"];
         options?: never;
@@ -2621,7 +2621,7 @@ export interface paths {
         };
         /**
          * 모집 통계 요약 조회
-         * @description 모집 공고의 지원 현황을 상태별로 집계하여 반환합니다. 전체/제출됨/검토중/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다.
+         * @description 모집 공고의 지원 현황을 상태별로 집계하여 반환합니다. 전체/제출됨/보류/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다. total 은 나머지 상태 수의 합과 항상 일치합니다.
          */
         get: operations["getSummary"];
         put?: never;
@@ -2641,7 +2641,7 @@ export interface paths {
         };
         /**
          * 모집 단계별 Funnel 조회
-         * @description 제출 → 서류 통과 → 면접 진입 → 합격의 4단계 카운트를 반환합니다. useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 3단계 funnel 로 표시할 수 있습니다.
+         * @description 제출 → 면접 진입 → 합격의 3단계 카운트를 반환합니다. useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 2단계 funnel 로 표시할 수 있습니다.
          */
         get: operations["getFunnel"];
         put?: never;
@@ -2681,7 +2681,7 @@ export interface paths {
         };
         /**
          * 면접 라운드 후보 조회
-         * @description 라운드 생성 wizard Step1 과 상시모집 대기열이 사용하는 후보 목록. 기본 후보군 = 면접 대기열 (INTERVIEW_PENDING 이면서 진행 중인 라운드에 소속되지 않은 지원자 — 취소된 라운드·제외된 멤버는 대기열로 복귀). includeUnderReview=true 시 서류 검토 중(UNDER_REVIEW) 지원자도 포함한다 — 정기모집 wizard 의 기본 진입값. 상시모집 대기열 카운트는 파라미터 없이 호출해 큐만 집계한다. 면접을 사용하지 않는 모집이면 400.
+         * @description 라운드 생성 wizard Step1 과 상시모집 대기열이 사용하는 후보 목록. 기본 후보군 = 면접 대기열 (INTERVIEW_PENDING 이면서 진행 중인 라운드에 소속되지 않은 지원자 — 취소된 라운드·제외된 멤버는 대기열로 복귀). includeUndecided=true 면 미결정 상태(SUBMITTED·ON_HOLD) 후보도 포함하고, false 면 INTERVIEW_PENDING 만 반환한다 — true 가 정기모집 wizard 의 기본 진입값. 상시모집 대기열 카운트는 파라미터 없이 호출해 큐만 집계한다. 면접을 사용하지 않는 모집이면 400.
          */
         get: operations["getRoundCandidates"];
         put?: never;
@@ -4587,12 +4587,12 @@ export interface components {
         };
         UpdateApplicationStatusRequest: {
             /** @enum {string} */
-            status: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
         };
         BulkUpdateApplicationStatusRequest: {
             applicationIds: number[];
             /** @enum {string} */
-            status: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
         };
         ApiResponseBulkUpdateApplicationStatusResponse: {
             ok?: boolean;
@@ -4956,8 +4956,8 @@ export interface components {
             projects?: components["schemas"]["ClubProject"][];
             clearLogoImage?: boolean;
             clearCoverImage?: boolean;
-            nameBlankSafe?: boolean;
             feePairConsistent?: boolean;
+            nameBlankSafe?: boolean;
         };
         UpdateClubStatusRequest: {
             /** @enum {string} */
@@ -5007,7 +5007,7 @@ export interface components {
             category?: "ACADEMIC" | "CREATION" | "ART" | "SPORTS" | "VOLUNTEER" | "RELIGION" | "HOBBY" | "OTHER";
             logoUrl?: string;
             /** @enum {string} */
-            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
@@ -5037,7 +5037,7 @@ export interface components {
             questions?: string[];
             answers?: string[];
             /** @enum {string} */
-            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
@@ -5045,6 +5045,7 @@ export interface components {
             interviewAvailabilityCount?: number;
             /** Format: date-time */
             availabilityDeadline?: string;
+            useInterview?: boolean;
         };
         ApiResponseListRecruitmentSummaryResponse: {
             ok?: boolean;
@@ -5076,6 +5077,12 @@ export interface components {
             useInterview?: boolean;
             /** @enum {string} */
             targetRole?: "MEMBER" | "OFFICER";
+            /**
+             * Format: date-time
+             * @description 수동·자동 마감이 실제로 일어난 시각. 마감 전이거나 종료 시각이 기록되지 않은 레거시 마감 건은 null 이다.
+             * @example 2026-08-04T03:00:00Z
+             */
+            closedAt?: string;
         };
         ApiResponseRecruitmentDetailResponse: {
             ok?: boolean;
@@ -5521,7 +5528,7 @@ export interface components {
             /** Format: int64 */
             submitted?: number;
             /** Format: int64 */
-            underReview?: number;
+            onHold?: number;
             /** Format: int64 */
             interviewPending?: number;
             /** Format: int64 */
@@ -5542,8 +5549,6 @@ export interface components {
         StatsFunnelResponse: {
             /** Format: int64 */
             submitted?: number;
-            /** Format: int64 */
-            documentPassed?: number;
             /** Format: int64 */
             interviewEntered?: number;
             /** Format: int64 */
@@ -5600,7 +5605,7 @@ export interface components {
             /** @enum {string} */
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             /** @enum {string} */
-            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             /** Format: date-time */
             submittedAt?: string;
         };
@@ -5624,7 +5629,7 @@ export interface components {
             grade?: "FRESHMAN" | "SOPHOMORE" | "JUNIOR" | "SENIOR" | "ON_LEAVE" | "GRADUATED";
             answers?: string[];
             /** @enum {string} */
-            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             /** Format: date-time */
             submittedAt?: string;
             /** Format: date-time */
@@ -5983,7 +5988,7 @@ export interface components {
             applicant?: components["schemas"]["ApplicantInfo"];
             answers?: components["schemas"]["QuestionAnswer"][];
             /** @enum {string} */
-            status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             interview?: components["schemas"]["AssignedInterview"];
             /** Format: date-time */
             submittedAt?: string;
@@ -6043,9 +6048,9 @@ export interface components {
         };
         StatusHistoryItem: {
             /** @enum {string} */
-            previousStatus?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            previousStatus?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             /** @enum {string} */
-            newStatus?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+            newStatus?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
             /** Format: int64 */
             changedById?: number;
             changedByName?: string;
@@ -6543,7 +6548,7 @@ export interface components {
         };
         ApplicantInterviewResponse: {
             /** @enum {string} */
-            phase?: "NOT_APPLICABLE" | "DOCUMENT_REVIEW" | "WAITING_ROUND" | "WAITING_NEXT_ROUND" | "AVAILABILITY_REQUESTED" | "AVAILABILITY_CLOSED" | "RESPONDED" | "NO_SLOT_REPORTED" | "SCHEDULING" | "SCHEDULED";
+            phase?: "NOT_APPLICABLE" | "WAITING_ROUND" | "WAITING_NEXT_ROUND" | "AVAILABILITY_REQUESTED" | "AVAILABILITY_CLOSED" | "RESPONDED" | "NO_SLOT_REPORTED" | "SCHEDULING" | "SCHEDULED";
             /** Format: date-time */
             availabilityDeadline?: string;
             slots?: components["schemas"]["SelectableSlot"][];
@@ -12041,10 +12046,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description 서류 검토 중(UNDER_REVIEW) 지원자 포함 여부
+                 * @description 미결정 상태(SUBMITTED·ON_HOLD) 지원자 포함 여부
                  * @example true
                  */
-                includeUnderReview?: boolean;
+                includeUndecided?: boolean;
             };
             header?: never;
             path: {
@@ -12069,10 +12074,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description 지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)
-                 * @example UNDER_REVIEW
+                 * @description 지원 상태 필터 (SUBMITTED | ON_HOLD | INTERVIEW_PENDING | ACCEPTED | REJECTED)
+                 * @example ON_HOLD
                  */
-                status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+                status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
                 /**
                  * @description 단과대 필터
                  * @example ENGINEERING
@@ -12117,10 +12122,10 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description 지원 상태 필터 (SUBMITTED | UNDER_REVIEW | INTERVIEW_PENDING | ACCEPTED | REJECTED)
-                 * @example UNDER_REVIEW
+                 * @description 지원 상태 필터 (SUBMITTED | ON_HOLD | INTERVIEW_PENDING | ACCEPTED | REJECTED)
+                 * @example ON_HOLD
                  */
-                status?: "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
+                status?: "SUBMITTED" | "ON_HOLD" | "INTERVIEW_PENDING" | "ACCEPTED" | "REJECTED";
                 /**
                  * @description 단과대 필터
                  * @example ENGINEERING

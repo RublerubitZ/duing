@@ -338,7 +338,7 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
         Recruitment recruitment = Recruitment.create(
                 club, "마감 모집", "내용",
                 LocalDate.now(), LocalDate.now().plusDays(14), 10);
-        recruitment.close();
+        recruitment.close(LocalDateTime.now());
         return recruitmentRepository.save(recruitment);
     }
 

@@ -39,7 +39,7 @@ const COLLECTING_ROUND = {
   respondedMemberCount: 2,
 };
 
-/** 대기열 후보 — includeUnderReview=false 기본 */
+/** 대기열 후보 — includeUndecided=false 기본 */
 const CANDIDATE_A = {
   applicationId: 101,
   userId: 1,
@@ -48,7 +48,7 @@ const CANDIDATE_A = {
   college: 'ENGINEERING',
   major: '컴퓨터공학',
   grade: 'THIRD',
-  status: 'PENDING',
+  status: 'INTERVIEW_PENDING',
   submittedAt: '2026-06-01T10:00:00',
 };
 
@@ -60,7 +60,7 @@ const CANDIDATE_B = {
   college: 'ENGINEERING',
   major: '소프트웨어공학',
   grade: 'SECOND',
-  status: 'PENDING',
+  status: 'INTERVIEW_PENDING',
   submittedAt: '2026-06-02T10:00:00',
 };
 
@@ -212,8 +212,8 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
     });
   });
 
-  it('대기열 섹션은 includeUnderReview=false 로 요청한다', async () => {
-    let capturedIncludeUnderReview: string | null = null;
+  it('대기열 섹션은 includeUndecided=false 로 요청한다', async () => {
+    let capturedIncludeUndecided: string | null = null;
 
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
@@ -223,7 +223,7 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
         `*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`,
         ({ request }) => {
           const url = new URL(request.url);
-          capturedIncludeUnderReview = url.searchParams.get('includeUnderReview');
+          capturedIncludeUndecided = url.searchParams.get('includeUndecided');
           return HttpResponse.json({ ok: true, data: [], message: null });
         },
       ),
@@ -232,7 +232,7 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
     renderLanding();
 
     await waitFor(() => {
-      expect(capturedIncludeUnderReview).toBe('false');
+      expect(capturedIncludeUndecided).toBe('false');
     });
   });
 });

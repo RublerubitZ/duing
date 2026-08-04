@@ -180,7 +180,7 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant, List.of()));
         // INTERVIEW_PENDING 가드를 통과/실패시키기 위해 Application.status 를 직접 주입.
-        // transitionTo 는 SUBMITTED → UNDER_REVIEW → INTERVIEW_PENDING 등 다단계라 fixture 에서는 reflection 사용.
+        // transitionTo 는 모집의 면접 사용 여부에 따라 허용 경로가 갈리므로 fixture 에서는 reflection 사용.
         forceApplicationStatus(application, applicationStatus);
 
         // composite FK (round_id, application_id) → interview_round_member — schedule 보다 먼저 저장한다.

@@ -159,6 +159,13 @@ export {
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {
+  useAdminRecruitmentsQuery,
+  useAdminRecruitmentDetailQuery,
+  useAdminApplicantsQuery,
+  useAdminApplicationDetailQuery,
+  useForceCloseRecruitmentMutation,
+} from './adminRecruitments';
+export {
   useSubmitReportMutation,
   useAdminReportListQuery,
   useAdminReportDetailQuery,
@@ -185,6 +192,17 @@ export {
   useUpdatePromotionMutation,
   useDeletePromotionMutation,
 } from './promotions';
+export {
+  useActiveJoinCodeQuery,
+  useCreateJoinCodeMutation,
+  useRevokeJoinCodeMutation,
+  useJoinRequestsQuery,
+  useJoinRequestDetailQuery,
+  useDecideJoinRequestMutation,
+  useBulkApproveJoinRequestsMutation,
+  useJoinCodeCheckQuery,
+  useCreateJoinRequestMutation,
+} from './joinCodes';
 export { useClubMembershipQuery } from './clubMembership';
 export {
   useClubNoticeListQuery,

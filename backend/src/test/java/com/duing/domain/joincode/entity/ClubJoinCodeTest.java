@@ -1,0 +1,143 @@
+package com.duing.domain.joincode.entity;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.entity.TargetRole;
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class ClubJoinCodeTest {
+
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 3, 10, 0);
+    private static final Long ISSUER_ID = 7L;
+    private static final int DEFAULT_WINDOW_DAYS = 7;
+
+    @Test
+    @DisplayName("폐기·소진 중 하나라도 해당하면 모집이 진행 중이어도 사용할 수 없는 코드다")
+    void unusableWhenRevokedOrExhausted() {
+        assertThat(issue(openRecruitment(), 5, DEFAULT_WINDOW_DAYS).isUsable(NOW))
+                .as("미폐기·미소진 + 모집 진행 중이면 사용 가능").isTrue();
+
+        ClubJoinCode revoked = issue(openRecruitment(), 5, DEFAULT_WINDOW_DAYS);
+        revoked.revoke(NOW, ISSUER_ID);
+        assertThat(revoked.isUsable(NOW)).as("폐기된 코드").isFalse();
+        assertThat(revoked.isRevoked()).isTrue();
+
+        ClubJoinCode exhausted = issue(openRecruitment(), 1, DEFAULT_WINDOW_DAYS);
+        exhausted.tryConsume();
+        assertThat(exhausted.isUsable(NOW)).as("사용 인원이 소진된 코드").isFalse();
+    }
+
+    @Test
+    @DisplayName("모집 종료 후에는 종료 시각으로부터 프리셋 기간 안에서만 쓸 수 있다")
+    void joinWindowStartsFromActualCloseTime() {
+        Recruitment recruitment = openRecruitment();
+        ClubJoinCode joinCode = issue(recruitment, 5, DEFAULT_WINDOW_DAYS);
+        recruitment.close(NOW);
+
+        assertThat(joinCode.isUsable(NOW.plusDays(7)))
+                .as("종료 후 7일째 정각까지는 유효 — 경계는 포함").isTrue();
+        assertThat(joinCode.isUsable(NOW.plusDays(7).plusSeconds(1)))
+                .as("프리셋을 1초라도 넘기면 사용 불가").isFalse();
+        assertThat(joinCode.getJoinExpiresAt())
+                .as("기한은 설정 마감일이 아니라 실제 종료 시각 기준이다").isEqualTo(NOW.plusDays(7));
+    }
+
+    @Test
+    @DisplayName("가입 가능 기간을 모집 종료일까지로 잡으면 종료 즉시 사용할 수 없다")
+    void zeroJoinWindowEndsAtClose() {
+        Recruitment recruitment = openRecruitment();
+        ClubJoinCode joinCode = issue(recruitment, 5, 0);
+
+        assertThat(joinCode.isUsable(NOW)).as("종료 전에는 사용 가능").isTrue();
+
+        recruitment.close(NOW);
+        assertThat(joinCode.isUsable(NOW.plusSeconds(1))).as("종료 직후부터 사용 불가").isFalse();
+    }
+
+    @Test
+    @DisplayName("모집이 진행 중이면 마감일이 없는 상시모집에서도 코드를 계속 쓸 수 있다")
+    void alwaysOpenRecruitmentKeepsCodeUsable() {
+        ClubJoinCode joinCode = issue(alwaysOpenRecruitment(), 5, DEFAULT_WINDOW_DAYS);
+
+        assertThat(joinCode.isUsable(NOW.plusYears(1)))
+                .as("종료 시점이 없으므로 OPEN 동안은 기간 제한이 없다").isTrue();
+        assertThat(joinCode.getJoinExpiresAt()).as("진행 중에는 기한이 정해지지 않는다").isNull();
+    }
+
+    @Test
+    @DisplayName("종료 시각이 기록되지 않은 마감 모집의 코드는 사용할 수 없다")
+    void closedWithoutStampIsUnusable() throws Exception {
+        Recruitment recruitment = openRecruitment();
+        ClubJoinCode joinCode = issue(recruitment, 5, DEFAULT_WINDOW_DAYS);
+        forceClosedWithoutStamp(recruitment);
+
+        assertThat(joinCode.isUsable(NOW))
+                .as("기준점이 없으면 기간을 계산할 수 없다 — 무기한 사용 대신 막는다(fail-closed)").isFalse();
+        assertThat(joinCode.getJoinExpiresAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("잔여 인원이 남아 있을 때만 사용 인원 차감에 성공한다")
+    void tryConsumeRespectsMaxUses() {
+        ClubJoinCode joinCode = issue(openRecruitment(), 1, DEFAULT_WINDOW_DAYS);
+
+        assertThat(joinCode.tryConsume()).as("잔여 1명 — 첫 차감 성공").isTrue();
+        assertThat(joinCode.getUsedCount()).isEqualTo(1);
+        assertThat(joinCode.tryConsume()).as("잔여 0명 — 둘째 차감 실패").isFalse();
+        assertThat(joinCode.getUsedCount()).as("실패한 차감은 사용 인원을 늘리지 않는다").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("거절로 환급하면 사용 인원이 되돌아가고 0 아래로는 내려가지 않는다")
+    void releaseUseNeverGoesBelowZero() {
+        ClubJoinCode joinCode = issue(openRecruitment(), 2, DEFAULT_WINDOW_DAYS);
+        joinCode.tryConsume();
+
+        joinCode.releaseUse();
+        assertThat(joinCode.getUsedCount()).as("환급으로 자리가 다시 열린다").isZero();
+        assertThat(joinCode.isUsable(NOW)).as("소진됐던 코드도 환급 후 다시 쓸 수 있다").isTrue();
+
+        joinCode.releaseUse();
+        assertThat(joinCode.getUsedCount()).as("이미 0 이면 더 내려가지 않는다").isZero();
+    }
+
+    private ClubJoinCode issue(Recruitment recruitment, int maxUses, int joinWindowDays) {
+        return ClubJoinCode.issue(club(), recruitment, "AB12CD", 3, maxUses, joinWindowDays, ISSUER_ID);
+    }
+
+    private Club club() {
+        return Club.create("두잉가입코드", ClubCategory.ACADEMIC, "분과", "설명", null);
+    }
+
+    private Recruitment openRecruitment() {
+        return recruitment(LocalDate.of(2026, 8, 31));
+    }
+
+    /** 상시모집 — 마감일이 없어 종료 시점도 없다. */
+    private Recruitment alwaysOpenRecruitment() {
+        return recruitment(null);
+    }
+
+    private Recruitment recruitment(LocalDate endDate) {
+        return Recruitment.createWithOptions(club(), "외부 폼 모집", "내용",
+                LocalDate.of(2026, 8, 1), endDate, 10,
+                ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
+                TargetRole.MEMBER, null, null, false);
+    }
+
+    /** 스탬프 이전에 마감된 레거시 행을 재현한다 — 도메인 경로로는 만들 수 없는 상태다. */
+    private void forceClosedWithoutStamp(Recruitment recruitment) throws Exception {
+        Field statusField = Recruitment.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(recruitment, RecruitmentStatus.CLOSED);
+    }
+}

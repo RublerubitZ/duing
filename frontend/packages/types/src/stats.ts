@@ -1,7 +1,7 @@
 export type StatsSummary = {
   total: number;
   submitted: number;
-  underReview: number;
+  onHold: number;
   interviewPending: number;
   accepted: number;
   rejected: number;
@@ -16,7 +16,6 @@ export type StatsDailyPoint = {
 
 export type StatsFunnel = {
   submitted: number;
-  documentPassed: number;
   interviewEntered: number | null;
   accepted: number;
 };

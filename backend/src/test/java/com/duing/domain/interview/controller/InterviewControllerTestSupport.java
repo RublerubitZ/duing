@@ -92,14 +92,14 @@ public abstract class InterviewControllerTestSupport extends IntegrationTestBase
         return applicationRepository.save(Application.submit(recruitment, applicant, List.of()));
     }
 
-    protected Application saveUnderReviewApplication(Recruitment recruitment, String applicantSuffix) {
+    protected Application saveOnHoldApplication(Recruitment recruitment, String applicantSuffix) {
         Application application = saveSubmittedApplication(recruitment, applicantSuffix);
-        application.transitionTo(ApplicationStatus.UNDER_REVIEW, true);
+        application.transitionTo(ApplicationStatus.ON_HOLD, true);
         return applicationRepository.save(application);
     }
 
     protected Application saveInterviewPendingApplication(Recruitment recruitment, String applicantSuffix) {
-        Application application = saveUnderReviewApplication(recruitment, applicantSuffix);
+        Application application = saveSubmittedApplication(recruitment, applicantSuffix);
         application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
         return applicationRepository.save(application);
     }

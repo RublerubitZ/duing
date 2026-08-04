@@ -93,12 +93,14 @@ class LinkUrlSchemeValidationTest {
     }
 
     @Test
-    @DisplayName("CreateRecruitmentRequest: externalFormUrl 의 javascript: 스킴은 거부, http(s)/빈값/null 은 허용된다")
-    void recruitmentExternalFormUrlScheme() {
-        assertThat(hasViolationOn(validator.validate(recruitmentCreate(JAVASCRIPT_URL)), "externalFormUrl")).isTrue();
+    @DisplayName("CreateRecruitmentRequest: externalFormUrl 은 길이 상한만 필드 제약으로 남고 스킴·도메인은 통과시킨다")
+    void recruitmentExternalFormUrlHasNoFieldLevelSchemeConstraint() {
+        // 스킴·도메인 검증은 화이트리스트(ExternalFormUrlValidator)로 이동했다 — 필드 제약으로는
+        // "EXTERNAL 일 때만 필수" 조건을 표현할 수 없기 때문이다. 실제 거부는
+        // ExternalFormUrlValidatorTest 와 ExternalRecruitmentConstraintsIntegrationTest 가 잠근다.
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate(JAVASCRIPT_URL)), "externalFormUrl")).isFalse();
         assertThat(hasViolationOn(validator.validate(recruitmentCreate("https://forms.gle/abc")), "externalFormUrl")).isFalse();
-        assertThat(hasViolationOn(validator.validate(recruitmentCreate("")), "externalFormUrl")).isFalse();
-        assertThat(hasViolationOn(validator.validate(recruitmentCreate(null)), "externalFormUrl")).isFalse();
+        assertThat(hasViolationOn(validator.validate(recruitmentCreate("가".repeat(501))), "externalFormUrl")).isTrue();
     }
 
     @Test
