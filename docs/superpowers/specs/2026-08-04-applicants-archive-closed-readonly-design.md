@@ -96,8 +96,8 @@
 - **종료 시점 키 (lazy-close 스큐 대응 — 문서 리뷰 반영)**: `closedAt` 은 실제 종료가 아니라 스탬프 시점이다 — 마감일이 지난 raw-OPEN 모집이 수개월 뒤 신규 모집 등록 시점에 lazy 마감되면 스탬프가 실제 종료보다 늦다. 따라서 정렬·표기의 종료 시점 키는:
   - 기간 모집: **`min(closedAt 의 날짜부, endDate)`** — 조기 마감이면 closedAt, lazy-close 스큐면 endDate 가 잡힌다. closedAt null(레거시)이면 endDate.
   - 상시모집(endDate null): closedAt (수동 마감이 곧 실제 종료). closedAt 도 null 인 레거시 상시는 startDate 폴백.
-  - 비교는 날짜 문자열 부등호(closedAt 은 앞 10자 사용) — `new Date()` 파싱 금지.
-- 직렬화 주의: `closedAt` 은 seoulClock KST 벽시계 `LocalDateTime` — **오프셋 없는 문자열**이다. FE 표기는 문자열 포맷 기반으로 하고(비KST 환경 `new Date()` 파싱 오차 방지), 향후 타임존 정규화(…Z) 2단계와의 정합은 그 트랙에서 일괄 처리.
+  - 비교는 KST 기준 날짜 문자열 부등호 — closedAt 의 날짜부는 **KST 변환 후** 추출한다 (아래 직렬화 참조).
+- **직렬화 (Task 2 구현 확정 — 스펙 초안 정정)**: `closedAt` 응답은 **Instant(`…Z`, ISO-8601 UTC)** 다 — TIMEZONE.md 의 "신규 API 는 Event Time 을 오프셋 없는 문자열로 반환 금지" 절대 규칙과 `JoinCodeResponse.joinExpiresAt` 전례(Query=LocalDateTime → Response=Instant, `seoulWallClockToInstant`)를 따른다. FE 는 **문자열 `slice(0,10)` 금지** — UTC 날짜를 잘라 KST 자정 부근(00:00~09:00)에 하루 어긋난다. 기존 KST datetime 유틸(`@duing/hooks/datetime` 의 parseKstInstant/formatDateKst 계열)로 KST 날짜를 추출해 endDate(KST date)와 비교·표기한다. TIMEZONE.md regime 대응표 갱신 포함.
 - 마감일 표기: 위 종료 시점 키를 날짜로 표기(시각 불요). 키가 startDate 폴백인 레거시 상시는 기존 표기 유지.
 - 참고: `RecruitmentSummaryResponse` 는 공개 캘린더 응답과 공유되어 closedAt 이 캘린더에도 노출된다 — 마감은 공개 정보라 무해(의도 명시).
 

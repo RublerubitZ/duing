@@ -121,9 +121,12 @@ if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
 
 ```ts
 // 종료 시점 키 (스펙 §5): closedAt 은 스탬프 시점이라 lazy-close 스큐가 있다 —
-// 기간 모집은 min(closedAt 날짜부, endDate), 상시모집은 closedAt, 레거시는 startDate.
+// 기간 모집은 min(closedAt 의 KST 날짜, endDate), 상시모집은 closedAt, 레거시는 startDate.
+// closedAt 은 Instant(…Z) — slice(0,10) 은 UTC 날짜라 KST 자정 부근 하루 오차. KST 유틸로 변환.
 export function recruitmentClosedSortKey(recruitment: RecruitmentSummary): string {
-  const closedDate = recruitment.closedAt?.slice(0, 10) ?? null; // KST 벽시계 문자열 — Date 파싱 금지
+  const closedDate = recruitment.closedAt !== null
+    ? toKstDateString(recruitment.closedAt) // @duing/hooks/datetime 의 KST 유틸 기반 'YYYY-MM-DD' (기존 formatDateKst 계열 재사용·필요 시 래퍼)
+    : null;
   if (recruitment.endDate !== null) {
     if (closedDate !== null && closedDate < recruitment.endDate) return closedDate; // 조기 마감
     return recruitment.endDate;
@@ -196,7 +199,8 @@ const hasExternalOpenOnly = (recruitmentList ?? []).some(
 **Files:**
 - Modify: `applicants/page.tsx` — CLOSED 배너("마감된 모집 — 조회 전용입니다.")·체크박스 숨김(→ BulkActionBar 자연 미노출)
 - Modify: `applicants/[applicationId]/_components/ApplicantDetailPage.tsx`·`StatusActionBar.tsx` — CLOSED 면 StatusActionBar 대신 읽기 전용 안내("마감된 모집은 상태를 변경할 수 없습니다"), `EvaluationPanel` 입력 비활성+동일 안내, **`MyEvaluationCard` 평가 삭제 버튼 숨김** (스펙 §1-3 차단 표 — BE 가드 ③ 대응 표면)
-- Modify: `StatusActionBar.tsx` — 단건 상태 변경 mutation `onError` 토스트: code `RECRUITMENT_CLOSED` 면 "마감된 모집은 조회만 가능합니다", 그 외 실패도 일반 실패 토스트 (조용한 실패 기존 결함 해소). packages/api 에러 정규화가 `code` 를 노출하는지 확인, 없으면 노출 추가(FE 내부 변경만)
+- Modify: `StatusActionBar.tsx` — 단건 상태 변경 mutation `onError` 토스트: code `RECRUITMENT_CLOSED` 면 "마감된 모집은 조회만 가능합니다", 그 외 실패도 일반 실패 토스트 (조용한 실패 기존 결함 해소). `ApiError` 는 이미 code 를 노출함(client.ts:238 — 문서 리뷰 확인)
+- Modify: `EvaluationPanel` 계열 평가 저장·삭제 mutation — **RECRUITMENT_CLOSED 409 시 동일 토스트 + 입력값 보존 확인** (lazy-close 리뷰 프리즈 대응 — Task 1 적대적 리뷰 반영. 폼 상태가 mutation 실패로 초기화되지 않음을 테스트로 고정)
 - Test: applicants 관련 기존 테스트 + 신규 (읽기 전용 게이트·fail-open·토스트)
 
 **Interfaces:**
