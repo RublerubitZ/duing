@@ -46,10 +46,12 @@ export function FeeDashboardStrip({ period }: { period: AdminFeePeriodParams }) 
           // 미수금이 있을 때만 시선을 끈다 — 0 원에 경고색을 칠하면 경고가 배경이 된다.
           warn={(dashboard?.totalOutstanding ?? 0) > 0}
         />
-        <Kpi label="수납률" value={dashboard && `${dashboard.collectionRate}%`} />
+        {/* 수납률·진행중 의견은 필드 부재까지 막는다 — `dashboard &&` 는 객체 부재만 막는다.
+            의견 집계는 PR-3 에서 붙은 필드라, BE 가 아직 안 올라간 창구간에는 키 자체가 없다. */}
+        <Kpi label="수납률" value={dashboard && `${dashboard.collectionRate ?? 0}%`} />
         <Kpi
           label="진행중 의견"
-          value={dashboard && `${dashboard.openOpinionCount.toLocaleString('ko-KR')}건`}
+          value={dashboard && `${(dashboard.openOpinionCount ?? 0).toLocaleString('ko-KR')}건`}
           warn={(dashboard?.openOpinionCount ?? 0) > 0}
         />
       </ul>

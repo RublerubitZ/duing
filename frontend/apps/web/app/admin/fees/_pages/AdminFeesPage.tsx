@@ -18,6 +18,7 @@ import { FeeClubsTable } from '../_components/FeeClubsTable';
 import { FeeDashboardStrip } from '../_components/FeeDashboardStrip';
 import { FeePeriodSelect } from '../_components/FeePeriodSelect';
 import {
+  DEFAULT_FEE_CLUB_SORT,
   buildFeesQuery,
   readFeesQuery,
   resolvePeriodParams,
@@ -173,7 +174,7 @@ export function AdminFeesPage() {
 /** select 는 문자열만 돌려주므로 알려진 정렬 키인지 확인하고 좁힌다(`as` 단언 금지). */
 function toSort(value: string): AdminFeeClubSort {
   const matched = SORT_OPTIONS.find((option) => option.value === value);
-  return matched ? matched.value : 'OUTSTANDING';
+  return matched ? matched.value : DEFAULT_FEE_CLUB_SORT;
 }
 
 function FilterChips<T extends string>({

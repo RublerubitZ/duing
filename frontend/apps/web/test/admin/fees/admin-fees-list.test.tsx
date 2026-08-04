@@ -133,7 +133,22 @@ describe('관리자 회비 감사 목록', () => {
     await user.type(screen.getByLabelText('동아리 검색'), '두잉코드');
 
     expect(mockClubsQuery).toHaveBeenLastCalledWith(expect.objectContaining({ q: '두잉코드' }));
+    // 검색만으로는 주소를 건드리지 않는다.
     expect(mockReplace).not.toHaveBeenCalled();
+
+    // 검색어를 문 채 주소가 실제로 갱신되는 경로까지 확인한다 — replace 가 아예 안 일어나는 상태만
+    // 단언하면 "검색어가 주소에 실리지 않는다"는 약속을 사실상 검사하지 않는 셈이다.
+    await user.selectOptions(screen.getByLabelText('기간'), 'LAST_30D');
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.not.stringContaining('두잉코드'),
+      expect.anything(),
+    );
+    // 질의 문자열은 퍼센트 인코딩돼 실리므로 인코딩된 형태도 함께 막는다.
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.not.stringContaining(encodeURIComponent('두잉코드')),
+      expect.anything(),
+    );
   });
 
   it('기간 프리셋을 바꾸면 목록과 대시보드가 같은 from/to 로 다시 조회된다', async () => {
@@ -176,6 +191,26 @@ describe('관리자 회비 감사 목록', () => {
     // 0 으로 적으면 "미수금 0 원"과 구분되지 않는다.
     expect(within(row).queryByText('0')).toBeNull();
     expect(within(row).getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  // PR-3 배포 전 응답에는 의견 집계 키 자체가 없다 — 그때 "undefined%"를 찍거나 터지면 안 된다.
+  it('대시보드 응답에 의견·수납률 필드가 없어도 0 으로 채워 보여준다', () => {
+    const legacy: Record<string, unknown> = { ...makeDashboard() };
+    delete legacy.openOpinionCount;
+    delete legacy.collectionRate;
+    mockDashboardQuery.mockReturnValue({
+      data: legacy,
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdminFeesPage />);
+
+    const summary = screen.getByRole('list', { name: '회비 전체 현황' });
+    expect(within(summary).getByText('0%')).toBeInTheDocument();
+    expect(within(summary).getByText('0건')).toBeInTheDocument();
   });
 
   it('조회에 실패하면 다시 시도할 수 있게 안내한다', async () => {

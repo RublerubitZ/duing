@@ -124,18 +124,22 @@ const CLUB_SORTS: readonly AdminFeeClubSort[] = [
   'RECENT_PAYMENT',
   'NAME',
 ];
-const DEFAULT_SORT: AdminFeeClubSort = 'OUTSTANDING';
+export const DEFAULT_FEE_CLUB_SORT: AdminFeeClubSort = 'OUTSTANDING';
 
 /** 주소창은 사람이 읽고 고치는 자리라 페이지를 1부터 센다. 내부 페이지 번호는 0부터다. */
 const FIRST_PAGE_IN_URL = 1;
 
-export function readFeesQuery(params: ParamReader): FeesQueryState {
+/** fallback 은 주소에 기간이 없을 때 쓸 기본 프리셋 — 목록은 전체, 상세는 최근 30일이 기본이다. */
+export function readFeesQuery(
+  params: ParamReader,
+  fallback: FeePeriodPreset = 'ALL',
+): FeesQueryState {
   const rawUsage = params.get('usage');
   const rawSort = params.get('sort');
   return {
-    period: readPeriodValue(params),
+    period: readPeriodValue(params, fallback),
     usage: USAGE_FILTERS.find((candidate) => candidate === rawUsage),
-    sort: CLUB_SORTS.find((candidate) => candidate === rawSort) ?? DEFAULT_SORT,
+    sort: CLUB_SORTS.find((candidate) => candidate === rawSort) ?? DEFAULT_FEE_CLUB_SORT,
     page: readPage(params.get('page')),
   };
 }
@@ -151,7 +155,7 @@ export function buildFeesQuery(state: FeesQueryState): string {
   const params = new URLSearchParams();
   writePeriodParams(params, state.period);
   if (state.usage !== undefined) params.set('usage', state.usage);
-  if (state.sort !== DEFAULT_SORT) params.set('sort', state.sort);
+  if (state.sort !== DEFAULT_FEE_CLUB_SORT) params.set('sort', state.sort);
   if (state.page > 0) params.set('page', String(state.page + FIRST_PAGE_IN_URL));
   const query = params.toString();
   return query.length > 0 ? `?${query}` : '';
