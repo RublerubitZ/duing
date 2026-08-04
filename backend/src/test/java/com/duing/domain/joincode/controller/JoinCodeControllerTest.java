@@ -124,7 +124,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     void expiredRevokedExhaustedCodeIsUnusable() {
         ClubJoinCode expired = saveJoinCode("EXPIRE", 12, 30, LocalDateTime.now().minusMinutes(1));
         assertUnusableAndRequestRejected("EXPIRE");
-        // 동아리당 활성 코드는 1개(uk_club_join_code_active_per_club) — 다음 코드 전에 폐기한다.
+        // 모집당 활성 코드는 1개(uk_club_join_code_active_per_recruitment) — 다음 코드 전에 폐기한다.
         revoke(expired);
 
         ClubJoinCode revoked = saveJoinCode("REVOKE", 12, 30, LocalDateTime.now().plusDays(30));
@@ -231,16 +231,20 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("귀속 모집이 마감되면 코드는 사용 불가가 되고 신규 가입 요청도 거절된다")
-    void closedRecruitmentMakesCodeUnusable() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
-        checkCode(null, "AB12CD").then().body("data.usable", equalTo(true));
+    @DisplayName("귀속 모집이 마감돼도 코드는 그대로 사용 가능하고 가입 요청도 접수된다")
+    void closedRecruitmentKeepsCodeUsable() {
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
 
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
         stored.close();
         recruitmentRepository.save(stored);
 
-        assertUnusableAndRequestRejected("AB12CD");
+        // 합격자 등록은 모집 마감 뒤에 이어지는 절차다 — 마감을 사용 불가로 읽으면 등록 경로가 끊긴다.
+        checkCode(null, "AB12CD").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.usable", equalTo(true));
+        createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
+        assertThat(usedCountOf(joinCode)).as("마감 후 접수된 요청도 자리를 확보한다").isEqualTo(1);
     }
 
     @Test

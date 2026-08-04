@@ -21,31 +21,35 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface ClubJoinCodeApi {
 
     @Operation(summary = "가입 코드 생성 (LEADER/OFFICER)",
-            description = "진행 중(OPEN)인 외부 폼(EXTERNAL) 모집이 있을 때만 생성할 수 있으며 그 모집에 귀속된다"
-                    + "(복수면 최신 1건). 기존 활성 코드가 있으면 자동 폐기되는 재생성이다. 조건 미충족 시 409.")
+            description = "외부 폼(EXTERNAL) 모집에서만 생성할 수 있으며 그 모집에 귀속된다. 모집당 활성 코드는 1개로,"
+                    + " 기존 활성 코드가 있으면 자동 폐기되는 재생성이다. 자체 폼 모집이면 409,"
+                    + " 모집이 해당 동아리 소속이 아니면 404.")
     @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/clubs/{clubId}/join-codes")
+    @PostMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes")
     ResponseEntity<ApiResponse<JoinCodeResponse>> createJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @Valid @RequestBody CreateJoinCodeRequest createJoinCodeRequest,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
     @Operation(summary = "활성 가입 코드 조회 (LEADER/OFFICER)",
-            description = "폐기되지 않은 코드 1건을 반환한다. 활성 코드가 없으면 200 + data null.")
+            description = "해당 모집의 폐기되지 않은 코드 1건을 반환한다. 활성 코드가 없으면 200 + data null.")
     @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/clubs/{clubId}/join-codes/active")
+    @GetMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/active")
     ResponseEntity<ApiResponse<JoinCodeResponse>> getActiveJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
     @Operation(summary = "가입 코드 폐기 (LEADER/OFFICER)",
             description = "이미 폐기된 코드를 다시 폐기해도 성공하며 최초 폐기 시각은 보존된다(멱등).")
     @SecurityRequirement(name = "bearerAuth")
-    @DeleteMapping("/clubs/{clubId}/join-codes/{joinCodeId}")
+    @DeleteMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/{joinCodeId}")
     ResponseEntity<Void> revokeJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @PathVariable Long joinCodeId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );

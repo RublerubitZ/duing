@@ -80,6 +80,18 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /**
+     * 가입 코드로 접수된 미처리 요청이 남은 모집은 삭제할 수 없다 (스펙 v2 4.2).
+     * 학생이 이미 코드 자리를 차감한 채 응답을 기다리는 상태라, 삭제하면 응답 경로가 사라진다.
+     */
+    public static class PendingJoinRequestsExistException extends RecruitmentException {
+        private static final String MESSAGE = "처리되지 않은 가입 요청이 있습니다. 먼저 승인하거나 거절해주세요.";
+
+        public PendingJoinRequestsExistException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     public static class OpenRecruitmentNotDeletableException extends RecruitmentException {
         private static final String MESSAGE = "진행 중인 모집 공고는 마감한 뒤에 삭제할 수 있습니다.";
 

@@ -8,7 +8,7 @@ public interface JoinCodeService {
 
     JoinCodeQuery create(CreateJoinCodeCommand createCommand);
 
-    Optional<JoinCodeQuery> findActive(Long clubId, Long requesterId);
+    Optional<JoinCodeQuery> findActive(Long clubId, Long recruitmentId, Long requesterId);
 
-    void revoke(Long clubId, Long joinCodeId, Long requesterId);
+    void revoke(Long clubId, Long recruitmentId, Long joinCodeId, Long requesterId);
 }

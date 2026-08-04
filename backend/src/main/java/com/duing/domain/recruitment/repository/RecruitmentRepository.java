@@ -1,13 +1,13 @@
 package com.duing.domain.recruitment.repository;
 
-import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,11 +15,23 @@ import org.springframework.data.repository.query.Param;
 public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>, RecruitmentRepositoryCustom {
 
     /**
-     * 가입 코드가 귀속될 외부 폼 모집을 찾는다 (스펙 4.1 — OPEN + EXTERNAL, 복수면 최신 1건).
-     * @SQLRestriction 이 적용되는 JPQL 파생 쿼리라 soft-delete 된 모집은 자동으로 제외된다.
+     * 모집 스코프 경로(가입 코드 등)의 clubId↔recruitmentId 소속 대조용 조회 — 타 동아리 모집은
+     * 조회되지 않아야 존재 여부 열거를 막을 수 있다(불일치 404).
+     * {@code @SQLRestriction} 이 적용되는 JPQL 파생 쿼리라 soft-delete 된 모집은 자동으로 제외된다.
      */
-    Optional<Recruitment> findTopByClubIdAndStatusAndApplicationModeOrderByIdDesc(
-            Long clubId, RecruitmentStatus status, ApplicationMode applicationMode);
+    Optional<Recruitment> findByIdAndClubId(Long recruitmentId, Long clubId);
+
+    /**
+     * 모집 행을 배타 잠금으로 읽는다 — 삭제와 "모집에 딸린 가입 코드 발급"을 직렬화한다.
+     *
+     * <p>가입 코드 생성이 모집 상태를 더 이상 보지 않게 되면서(스펙 v2 4.2) 삭제(CLOSED 전용)와
+     * 발급이 같은 모집에서 동시에 일어날 수 있다. 잠그지 않으면 "삭제가 활성 코드 0건을 확인한 직후
+     * 발급된 코드"가 삭제된 모집에 매달린 채 살아남아, 학생이 계속 유입되는 고아 코드가 된다.
+     * 두 경로 모두 모집 → 코드 순으로만 잠그므로 잠금 순서 사이클이 없다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT recruitment FROM Recruitment recruitment WHERE recruitment.id = :recruitmentId")
+    Optional<Recruitment> findByIdForUpdate(@Param("recruitmentId") Long recruitmentId);
 
     /**
      * 제출이 읽는 질문 정의를 고정한다. 질문 변경(FOR UPDATE)과 상호 배타이고,

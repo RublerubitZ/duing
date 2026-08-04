@@ -46,6 +46,8 @@ import org.springframework.http.HttpStatus;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
+    private static final Map<String, Object> VALID_BODY = Map.of("maxUses", 10, "expiresInDays", 30);
+
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
@@ -59,6 +61,7 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
     private Club club;
     private Club otherClub;
+    private Recruitment externalRecruitment;
     private String leaderToken;
     private String memberToken;
     private String otherClubLeaderToken;
@@ -80,26 +83,34 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
         leaderToken = tokenOf(leaderUser);
         memberToken = tokenOf(memberUser);
         otherClubLeaderToken = tokenOf(otherClubLeaderUser);
+
+        externalRecruitment = saveRecruitment(club, ApplicationMode.EXTERNAL);
     }
 
     @Test
-    @DisplayName("진행 중인 외부 폼 모집이 있으면 운영진이 6자 가입 코드를 만들고 만료 시각을 절대시각으로 받는다")
+    @DisplayName("외부 폼 모집에서 운영진이 6자 가입 코드를 만들고 만료 시각을 절대시각으로 받는다")
     void leaderCreatesJoinCodeReturns201() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
         Instant beforeCreate = Instant.now();
 
-        Response created = createJoinCode(leaderToken, Map.of(
+        Response created = createJoinCode(leaderToken, externalRecruitment, Map.of(
                 "maxUses", 30, "expiresInDays", 30, "generation", 12));
 
         created.then()
                 .statusCode(HttpStatus.CREATED.value())
                 .body("data.maxUses", equalTo(30))
                 .body("data.usedCount", equalTo(0))
-                .body("data.generation", equalTo(12))
-                .body("data.recruitmentOpen", equalTo(true));
+                .body("data.generation", equalTo(12));
 
         String code = created.jsonPath().getString("data.code");
         assertThat(code).as("Crockford Base32 6자").hasSize(6).matches("[0-9A-HJKMNP-TV-Z]{6}");
+
+        ClubJoinCode stored = clubJoinCodeRepository.findById(
+                created.jsonPath().getLong("data.joinCodeId")).orElseThrow();
+        assertThat(stored.getRecruitment().getId()).as("코드는 경로의 모집에 귀속된다")
+                .isEqualTo(externalRecruitment.getId());
+        assertThat(stored.getClub().getId())
+                .as("비정규화된 club_id 도 함께 채워진다 — 가입 요청 콘솔이 동아리 단위로 조회한다")
+                .isEqualTo(club.getId());
 
         String expiresAt = created.jsonPath().getString("data.expiresAt");
         assertThat(expiresAt).as("Event Time 은 오프셋 있는 절대시각(…Z) 으로 직렬화된다").endsWith("Z");
@@ -110,112 +121,145 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("자체 폼 모집만 있거나 외부 폼 모집이 마감됐으면 가입 코드를 만들 수 없다")
-    void createRequiresOpenExternalRecruitment() {
-        Map<String, Object> validBody = Map.of("maxUses", 10, "expiresInDays", 30);
+    @DisplayName("가입 코드는 외부 폼 모집에서만 만들 수 있고 모집 진행 여부는 따지지 않는다")
+    void createIsAllowedOnlyForExternalRecruitmentRegardlessOfStatus() {
+        // 동아리당 OPEN 모집은 1건뿐이라(uk_recruitment_club_active) 시드 모집을 먼저 마감한다.
+        closeRecruitment(externalRecruitment);
+        Recruitment selfRecruitment = saveRecruitment(club, ApplicationMode.SELF);
 
-        // 모집 자체가 없음
-        createJoinCode(leaderToken, validBody).then().statusCode(HttpStatus.CONFLICT.value());
+        createJoinCode(leaderToken, selfRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo("외부 폼 모집에서만 가입 코드를 사용할 수 있습니다."));
 
-        // 자체 폼(SELF) OPEN 모집만 존재
-        Recruitment selfRecruitment = saveRecruitment(club, ApplicationMode.SELF, false);
-        createJoinCode(leaderToken, validBody).then().statusCode(HttpStatus.CONFLICT.value());
-
-        // 외부 폼이지만 마감(CLOSED) — 동아리당 OPEN 모집은 1건뿐이라(uk_recruitment_club_active)
-        // 다음 모집을 만들기 전에 앞의 OPEN 모집을 마감한다.
         closeRecruitment(selfRecruitment);
-        saveRecruitment(club, ApplicationMode.EXTERNAL, true);
-        createJoinCode(leaderToken, validBody).then().statusCode(HttpStatus.CONFLICT.value());
+        createJoinCode(leaderToken, selfRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CONFLICT.value());
 
-        // 외부 폼 + OPEN 이 생기면 비로소 생성된다
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        createJoinCode(leaderToken, validBody).then().statusCode(HttpStatus.CREATED.value());
+        Recruitment openExternalRecruitment = saveRecruitment(club, ApplicationMode.EXTERNAL);
+        createJoinCode(leaderToken, openExternalRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        closeRecruitment(openExternalRecruitment);
+        createJoinCode(leaderToken, openExternalRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test
-    @DisplayName("코드를 재생성하면 이전 코드는 폐기되고 활성 코드는 새 코드 하나만 남는다")
+    @DisplayName("다른 동아리의 모집 id 를 자기 동아리 경로에 끼워 넣으면 존재를 알리지 않고 404 를 반환한다")
+    void recruitmentOfAnotherClubReturns404() {
+        Recruitment otherClubRecruitment = saveRecruitment(otherClub, ApplicationMode.EXTERNAL);
+
+        createJoinCode(leaderToken, otherClubRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+        getActiveJoinCode(leaderToken, otherClubRecruitment)
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+        revokeJoinCode(leaderToken, club.getId(), otherClubRecruitment.getId(), 1L)
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("같은 동아리의 외부 폼 모집이 여럿이면 모집마다 활성 코드를 하나씩 가질 수 있다")
+    void eachRecruitmentKeepsItsOwnActiveCode() {
+        closeRecruitment(externalRecruitment);
+        Recruitment secondRecruitment = saveRecruitment(club, ApplicationMode.EXTERNAL);
+
+        String firstCode = createJoinCode(leaderToken, externalRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getString("data.code");
+        String secondCode = createJoinCode(leaderToken, secondRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getString("data.code");
+
+        assertThat(secondCode).as("모집마다 서로 다른 코드").isNotEqualTo(firstCode);
+        getActiveJoinCode(leaderToken, externalRecruitment).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.code", equalTo(firstCode));
+        getActiveJoinCode(leaderToken, secondRecruitment).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.code", equalTo(secondCode));
+    }
+
+    @Test
+    @DisplayName("같은 모집에서 코드를 재생성하면 이전 코드는 폐기되고 활성 코드는 새 코드 하나만 남는다")
     void recreateRevokesPreviousCode() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        String firstCode = createJoinCode(leaderToken, Map.of("maxUses", 10, "expiresInDays", 30))
+        String firstCode = createJoinCode(leaderToken, externalRecruitment, VALID_BODY)
                 .jsonPath().getString("data.code");
 
-        String secondCode = createJoinCode(leaderToken, Map.of(
+        String secondCode = createJoinCode(leaderToken, externalRecruitment, Map.of(
                         "maxUses", 20, "expiresInDays", 7, "generation", 13))
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getString("data.code");
 
         assertThat(secondCode).isNotEqualTo(firstCode);
-        getActiveJoinCode(leaderToken).then()
+        getActiveJoinCode(leaderToken, externalRecruitment).then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.code", equalTo(secondCode))
                 .body("data.generation", equalTo(13));
-        assertThat(clubJoinCodeRepository.findByClubIdAndRevokedAtIsNull(club.getId()))
-                .as("활성 코드는 정확히 1개").isPresent()
+        assertThat(clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(externalRecruitment.getId()))
+                .as("모집의 활성 코드는 정확히 1개").isPresent()
                 .get().extracting(ClubJoinCode::getCode).isEqualTo(secondCode);
     }
 
     @Test
     @DisplayName("만료 기간이 7·30·90일이 아니거나 최대 사용 인원이 범위를 벗어나면 생성 요청이 거절된다")
     void invalidCreateInputReturns400() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-
-        createJoinCode(leaderToken, Map.of("maxUses", 10, "expiresInDays", 15))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "expiresInDays", 15))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, Map.of("maxUses", 501, "expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 501, "expiresInDays", 30))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, Map.of("maxUses", 0, "expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 0, "expiresInDays", 30))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, Map.of("expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("expiresInDays", 30))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
     @Test
     @DisplayName("일반 회원과 타 동아리 운영진은 가입 코드를 만들 수 없다")
     void nonManagerCreateReturns403() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        Map<String, Object> validBody = Map.of("maxUses", 10, "expiresInDays", 30);
-
-        createJoinCode(memberToken, validBody).then().statusCode(HttpStatus.FORBIDDEN.value());
-        createJoinCode(otherClubLeaderToken, validBody).then().statusCode(HttpStatus.FORBIDDEN.value());
+        createJoinCode(memberToken, externalRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+        createJoinCode(otherClubLeaderToken, externalRecruitment, VALID_BODY)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
 
     @Test
     @DisplayName("비로그인 상태에서는 가입 코드 생성·조회·폐기가 모두 401 로 막힌다")
     void anonymousAccessReturns401() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        Long joinCodeId = createJoinCode(leaderToken, Map.of("maxUses", 10, "expiresInDays", 30))
+        Long joinCodeId = createJoinCode(leaderToken, externalRecruitment, VALID_BODY)
                 .jsonPath().getLong("data.joinCodeId");
+        Long recruitmentId = externalRecruitment.getId();
 
-        RestAssured.given().contentType(ContentType.JSON)
-                    .body(Map.of("maxUses", 10, "expiresInDays", 30))
-                .when().post("/api/v1/clubs/{clubId}/join-codes", club.getId())
+        RestAssured.given().contentType(ContentType.JSON).body(VALID_BODY)
+                .when().post("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes",
+                        club.getId(), recruitmentId)
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
 
         RestAssured.given()
-                .when().get("/api/v1/clubs/{clubId}/join-codes/active", club.getId())
+                .when().get("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/active",
+                        club.getId(), recruitmentId)
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
 
         RestAssured.given()
-                .when().delete("/api/v1/clubs/{clubId}/join-codes/{joinCodeId}", club.getId(), joinCodeId)
+                .when().delete("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/{joinCodeId}",
+                        club.getId(), recruitmentId, joinCodeId)
                 .then().statusCode(HttpStatus.UNAUTHORIZED.value());
     }
 
     @Test
     @DisplayName("활성 코드가 없거나 폐기된 뒤에는 활성 코드 조회가 빈 결과를 반환한다")
     void activeJoinCodeIsNullWhenAbsentOrRevoked() {
-        getActiveJoinCode(leaderToken).then()
+        getActiveJoinCode(leaderToken, externalRecruitment).then()
                 .statusCode(HttpStatus.OK.value())
                 .body("ok", equalTo(true))
                 .body("data", nullValue());
 
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        Long joinCodeId = createJoinCode(leaderToken, Map.of("maxUses", 10, "expiresInDays", 30))
+        Long joinCodeId = createJoinCode(leaderToken, externalRecruitment, VALID_BODY)
                 .jsonPath().getLong("data.joinCodeId");
 
-        revokeJoinCode(leaderToken, club.getId(), joinCodeId)
+        revokeJoinCode(leaderToken, club.getId(), externalRecruitment.getId(), joinCodeId)
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        getActiveJoinCode(leaderToken).then()
+        getActiveJoinCode(leaderToken, externalRecruitment).then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data", nullValue());
     }
@@ -223,16 +267,15 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("이미 폐기된 코드를 다시 폐기해도 성공하고 최초 폐기 시각은 바뀌지 않는다")
     void revokeIsIdempotent() {
-        saveRecruitment(club, ApplicationMode.EXTERNAL, false);
-        Long joinCodeId = createJoinCode(leaderToken, Map.of("maxUses", 10, "expiresInDays", 30))
+        Long joinCodeId = createJoinCode(leaderToken, externalRecruitment, VALID_BODY)
                 .jsonPath().getLong("data.joinCodeId");
 
-        revokeJoinCode(leaderToken, club.getId(), joinCodeId)
+        revokeJoinCode(leaderToken, club.getId(), externalRecruitment.getId(), joinCodeId)
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
         LocalDateTime firstRevokedAt = clubJoinCodeRepository.findById(joinCodeId)
                 .orElseThrow().getRevokedAt();
 
-        revokeJoinCode(leaderToken, club.getId(), joinCodeId)
+        revokeJoinCode(leaderToken, club.getId(), externalRecruitment.getId(), joinCodeId)
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
         assertThat(clubJoinCodeRepository.findById(joinCodeId).orElseThrow().getRevokedAt())
@@ -240,49 +283,47 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("다른 동아리의 코드를 자기 동아리 경로로 폐기하려 하면 존재를 알리지 않고 404 를 반환한다")
-    void revokeOtherClubCodeReturns404() {
-        saveRecruitment(otherClub, ApplicationMode.EXTERNAL, false);
-        Long otherClubJoinCodeId = RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherClubLeaderToken)
-                    .contentType(ContentType.JSON)
-                    .body(Map.of("maxUses", 10, "expiresInDays", 30))
-                .when()
-                    .post("/api/v1/clubs/{clubId}/join-codes", otherClub.getId())
+    @DisplayName("다른 모집의 코드를 자기 모집 경로로 폐기하려 하면 존재를 알리지 않고 404 를 반환한다")
+    void revokeCodeOfAnotherRecruitmentReturns404() {
+        closeRecruitment(externalRecruitment);
+        Recruitment secondRecruitment = saveRecruitment(club, ApplicationMode.EXTERNAL);
+        Long otherRecruitmentJoinCodeId = createJoinCode(leaderToken, secondRecruitment, VALID_BODY)
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getLong("data.joinCodeId");
 
-        revokeJoinCode(leaderToken, club.getId(), otherClubJoinCodeId)
+        revokeJoinCode(leaderToken, club.getId(), externalRecruitment.getId(), otherRecruitmentJoinCodeId)
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
-        assertThat(clubJoinCodeRepository.findById(otherClubJoinCodeId).orElseThrow().getRevokedAt())
-                .as("타 동아리 코드는 폐기되지 않는다").isNull();
+        assertThat(clubJoinCodeRepository.findById(otherRecruitmentJoinCodeId).orElseThrow().getRevokedAt())
+                .as("다른 모집의 코드는 폐기되지 않는다").isNull();
     }
 
-    private Response createJoinCode(String token, Map<String, Object> body) {
+    private Response createJoinCode(String token, Recruitment targetRecruitment, Map<String, Object> body) {
         return RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .contentType(ContentType.JSON)
                     .body(body)
                 .when()
-                    .post("/api/v1/clubs/{clubId}/join-codes", club.getId());
+                    .post("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes",
+                            club.getId(), targetRecruitment.getId());
     }
 
-    private Response getActiveJoinCode(String token) {
+    private Response getActiveJoinCode(String token, Recruitment targetRecruitment) {
         return RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when()
-                    .get("/api/v1/clubs/{clubId}/join-codes/active", club.getId());
+                    .get("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/active",
+                            club.getId(), targetRecruitment.getId());
     }
 
-    private Response revokeJoinCode(String token, Long targetClubId, Long joinCodeId) {
+    private Response revokeJoinCode(String token, Long targetClubId, Long targetRecruitmentId, Long joinCodeId) {
         return RestAssured
                 .given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when()
-                    .delete("/api/v1/clubs/{clubId}/join-codes/{joinCodeId}", targetClubId, joinCodeId);
+                    .delete("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/{joinCodeId}",
+                            targetClubId, targetRecruitmentId, joinCodeId);
     }
 
     private String tokenOf(User user) {
@@ -303,17 +344,13 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     }
 
     /** 모집 기간은 하드코딩 절대일자 없이 오늘 기준 상대일로 만든다(시한폭탄 테스트 방지). */
-    private Recruitment saveRecruitment(Club targetClub, ApplicationMode applicationMode, boolean closed) {
-        Recruitment recruitment = Recruitment.createWithOptions(targetClub,
+    private Recruitment saveRecruitment(Club targetClub, ApplicationMode applicationMode) {
+        return recruitmentRepository.save(Recruitment.createWithOptions(targetClub,
                 "모집-" + sequence.getAndIncrement(), "내용",
                 LocalDate.now().minusDays(1), LocalDate.now().plusDays(14), 10,
                 applicationMode,
                 applicationMode == ApplicationMode.EXTERNAL ? "https://forms.example.com/duing" : null,
-                false, TargetRole.MEMBER, null, null, false);
-        if (closed) {
-            recruitment.close();
-        }
-        return recruitmentRepository.save(recruitment);
+                false, TargetRole.MEMBER, null, null, false));
     }
 
     private void closeRecruitment(Recruitment recruitment) {

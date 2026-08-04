@@ -13,6 +13,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.QuestionType;
@@ -51,6 +53,8 @@ class RecruitmentQuestionItemsUpdateTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(ClubJoinCodeRepository.class),
+            mock(ClubJoinRequestRepository.class),
             clubRepository,
             clubAuthService,
             eventPublisher,
