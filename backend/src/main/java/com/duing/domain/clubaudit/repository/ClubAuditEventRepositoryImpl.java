@@ -4,12 +4,15 @@ import static com.duing.domain.clubaudit.entity.QClubAuditEvent.clubAuditEvent;
 
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -86,6 +89,28 @@ public class ClubAuditEventRepositoryImpl implements ClubAuditEventRepositoryCus
                 .mapToLong(Long::longValue)
                 .max()
                 .orElse(0L);
+    }
+
+    @Override
+    public Map<ClubAuditEventType, Long> countEventsByTypeSince(Collection<ClubAuditEventType> types,
+                                                                LocalDateTime since) {
+        // 대상 종류가 하나도 없으면 셀 것도 없다 — 빈 IN 절 쿼리를 DB 로 내보내지 않는다.
+        if (types == null || types.isEmpty()) {
+            return Map.of();
+        }
+        // 전 동아리 집계라 clubId 조건이 없다 — 대시보드는 "오늘 플랫폼 전체에 무슨 일이 있었나"를 본다.
+        List<Tuple> countsByType = queryFactory
+                .select(clubAuditEvent.eventType, clubAuditEvent.count())
+                .from(clubAuditEvent)
+                .where(clubAuditEvent.eventType.in(types),
+                        since == null ? null : clubAuditEvent.createdAt.goe(since))
+                .groupBy(clubAuditEvent.eventType)
+                .fetch();
+
+        // GROUP BY 결과 그대로 담는다 — 0 건인 종류는 키를 만들지 않는다(스펙 §7.2).
+        return countsByType.stream().collect(Collectors.toMap(
+                row -> row.get(clubAuditEvent.eventType),
+                row -> row.get(clubAuditEvent.count())));
     }
 
     private static boolean isEmptyScope(Long clubId, Collection<ClubAuditEventType> types) {

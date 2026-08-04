@@ -1,8 +1,11 @@
 package com.duing.domain.fee.api;
 
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.fee.controller.dto.request.CreateFeeAuditCommentRequest;
+import com.duing.domain.fee.controller.dto.request.UpdateFeeAuditCommentRequest;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAnomalyReportResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAuditCommentResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
@@ -10,6 +13,7 @@ import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeDashboardResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePaymentRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePolicyResponse;
+import com.duing.domain.fee.entity.FeeAuditCommentKind;
 import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
@@ -22,19 +26,24 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "회비 감사(총동연)",
         description = "총동연 전용 회비 감사 콘솔 API — 전 동아리 회비 현황·전체 KPI·동아리별 상세 지표. "
-                + "감사자는 열람만 한다 — 이 API 로 회비 데이터를 바꿀 수 있는 경로는 없다.")
+                + "감사자는 회비 데이터를 바꾸지 않는다 — 쓰기 경로는 총동연 자신의 감사 의견·메모뿐이다.")
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFeeAuditApi {
 
@@ -199,5 +208,54 @@ public interface AdminFeeAuditApi {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @Parameter(description = "평가 종료일 (KST, 당일 포함). 생략하면 오늘", example = "2026-08-04")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    );
+
+    @Operation(summary = "회비 감사 의견·메모 목록 (ADMIN)",
+            description = "동아리에 남긴 감사 의견과 운영 메모를 최신순으로 반환한다. kind 를 생략하면 둘 다 실린다. "
+                    + "총동연 내부 기록이라 동아리 측에는 어떤 화면으로도 나가지 않는다. "
+                    + "메모는 상태가 없어 status 가 항상 비어 있고, 작성자가 탈퇴하면 이름만 비워진다. "
+                    + "삭제한 의견은 목록에서 사라진다. 미존재·삭제 동아리는 404.")
+    @GetMapping("/admin/fees/{clubId}/audit-comments")
+    ResponseEntity<ApiResponse<List<AdminFeeAuditCommentResponse>>> getFeeAuditComments(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "종류 필터. AUDIT_OPINION=감사 의견, OPERATION_MEMO=운영 메모. 생략하면 전체",
+                    example = "AUDIT_OPINION")
+            @RequestParam(required = false) FeeAuditCommentKind kind
+    );
+
+    @Operation(summary = "회비 감사 의견·메모 작성 (ADMIN)",
+            description = "감사 의견이나 운영 메모를 남긴다. 의견은 status 를 생략하면 OPEN 으로 시작하고, "
+                    + "운영 메모는 상태를 가질 수 없어 status 를 함께 보내면 400 이다. 내용은 1~2000자다.")
+    @PostMapping("/admin/fees/{clubId}/audit-comments")
+    ResponseEntity<ApiResponse<Long>> createFeeAuditComment(
+            @Parameter(description = "대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Valid @RequestBody CreateFeeAuditCommentRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "회비 감사 의견·메모 수정 (ADMIN)",
+            description = "내용과 상태를 부분 수정한다 — 보내지 않은 값은 그대로 둔다. "
+                    + "상태 전이에는 제약이 없어 완료한 의견을 다시 열 수 있고, 운영 메모에 status 를 보내면 400 이다. "
+                    + "다른 동아리의 의견 ID 로는 접근할 수 없다(404).")
+    @PatchMapping("/admin/fees/{clubId}/audit-comments/{commentId}")
+    ResponseEntity<ApiResponse<Void>> updateFeeAuditComment(
+            @Parameter(description = "대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "수정할 의견·메모 ID", required = true)
+            @PathVariable Long commentId,
+            @Valid @RequestBody UpdateFeeAuditCommentRequest request
+    );
+
+    @Operation(summary = "회비 감사 의견·메모 삭제 (ADMIN)",
+            description = "의견이나 메모를 삭제한다 — 목록에서 사라지며 되돌릴 수 없다. "
+                    + "다른 동아리의 의견 ID 로는 접근할 수 없다(404).")
+    @DeleteMapping("/admin/fees/{clubId}/audit-comments/{commentId}")
+    ResponseEntity<ApiResponse<Void>> deleteFeeAuditComment(
+            @Parameter(description = "대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "삭제할 의견·메모 ID", required = true)
+            @PathVariable Long commentId
     );
 }

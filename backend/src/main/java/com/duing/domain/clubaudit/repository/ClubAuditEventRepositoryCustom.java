@@ -4,6 +4,7 @@ import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -37,4 +38,13 @@ public interface ClubAuditEventRepositoryCustom {
      */
     long findMaxEventCountByActorSince(Long clubId, Collection<ClubAuditEventType> types,
                                        LocalDateTime since);
+
+    /**
+     * {@code since} 이후 이벤트를 종류별로 센다 — 대시보드 최근 변경 요약(스펙 §7.2)이 첫 사용처라
+     * 동아리를 가리지 않는 전역 집계다(clubId 조건 없음). 0 건인 종류는 키 자체가 없다.
+     *
+     * <p>{@code since} 의 존 규칙은 {@link #countEventsSince} 와 같다.
+     */
+    Map<ClubAuditEventType, Long> countEventsByTypeSince(Collection<ClubAuditEventType> types,
+                                                         LocalDateTime since);
 }

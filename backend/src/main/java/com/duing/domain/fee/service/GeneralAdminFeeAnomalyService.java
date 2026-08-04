@@ -76,9 +76,7 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
      * 감사자가 화면을 오래 들여다보기만 해도 "대량 변경"으로 잡히므로 뺀다.
      */
     private static final Set<ClubAuditEventType> FEE_MUTATION_TYPES = Arrays.stream(ClubAuditEventType.values())
-            .filter(eventType -> eventType.name().startsWith("FEE_"))
-            .filter(eventType -> eventType != ClubAuditEventType.FEE_ADMIN_DETAIL_VIEWED
-                    && eventType != ClubAuditEventType.FEE_ADMIN_CSV_DOWNLOADED)
+            .filter(ClubAuditEventType::isFeeMutation)
             .collect(Collectors.toUnmodifiableSet());
 
     /** FA-05 대상 — 되돌리기·수정 성격의 변경 3종(스펙 §5.1). 발행·납부 기록 같은 정상 운영은 세지 않는다. */

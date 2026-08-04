@@ -2,8 +2,11 @@ package com.duing.domain.fee.controller;
 
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.api.AdminFeeAuditApi;
+import com.duing.domain.fee.controller.dto.request.CreateFeeAuditCommentRequest;
+import com.duing.domain.fee.controller.dto.request.UpdateFeeAuditCommentRequest;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAnomalyReportResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAuditCommentResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
@@ -11,8 +14,10 @@ import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeDashboardResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePaymentRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePolicyResponse;
+import com.duing.domain.fee.entity.FeeAuditCommentKind;
 import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.AdminFeeAnomalyService;
+import com.duing.domain.fee.service.AdminFeeAuditCommentService;
 import com.duing.domain.fee.service.AdminFeeAuditQueryService;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
@@ -22,16 +27,19 @@ import com.duing.domain.fee.service.dto.query.AdminFeeUsageFilter;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +52,7 @@ public class AdminFeeAuditController implements AdminFeeAuditApi {
 
     private final AdminFeeAuditQueryService adminFeeAuditQueryService;
     private final AdminFeeAnomalyService adminFeeAnomalyService;
+    private final AdminFeeAuditCommentService adminFeeAuditCommentService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminFeeClubSummaryResponse>>> searchFeeClubs(
@@ -153,5 +162,46 @@ public class AdminFeeAuditController implements AdminFeeAuditApi {
     ) {
         return ResponseEntity.ok(ApiResponse.success(AdminFeeAnomalyReportResponse.from(
                 adminFeeAnomalyService.evaluate(clubId, from, to))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<AdminFeeAuditCommentResponse>>> getFeeAuditComments(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) FeeAuditCommentKind kind
+    ) {
+        List<AdminFeeAuditCommentResponse> comments = adminFeeAuditCommentService.getComments(clubId, kind)
+                .stream()
+                .map(AdminFeeAuditCommentResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(comments));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Long>> createFeeAuditComment(
+            @PathVariable Long clubId,
+            @Valid @RequestBody CreateFeeAuditCommentRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        Long commentId = adminFeeAuditCommentService.create(request.toCommand(clubId, currentUser.id()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(commentId));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> updateFeeAuditComment(
+            @PathVariable Long clubId,
+            @PathVariable Long commentId,
+            @Valid @RequestBody UpdateFeeAuditCommentRequest request
+    ) {
+        adminFeeAuditCommentService.update(request.toCommand(clubId, commentId));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> deleteFeeAuditComment(
+            @PathVariable Long clubId,
+            @PathVariable Long commentId
+    ) {
+        adminFeeAuditCommentService.delete(clubId, commentId);
+        return ResponseEntity.noContent().build();
     }
 }

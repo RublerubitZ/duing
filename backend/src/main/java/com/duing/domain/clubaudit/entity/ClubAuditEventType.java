@@ -48,5 +48,16 @@ public enum ClubAuditEventType {
     /** 총동연이 회비 감사 상세에 진입했다 — 열람 감사(상세 진입 1회 = 1건, 스펙 §15 결정 5). */
     FEE_ADMIN_DETAIL_VIEWED,
     /** 총동연이 회비 CSV 를 내려받았다(P2 예정 — CHECK 재작성을 아끼려 미리 등록). */
-    FEE_ADMIN_CSV_DOWNLOADED
+    FEE_ADMIN_CSV_DOWNLOADED;
+
+    /**
+     * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.
+     * 이상징후 버스트 판정(FA-06)과 대시보드 최근 변경 요약(스펙 §7.2)이 같은 기준을 써야 해서
+     * 판정을 값 자체가 갖는다(양쪽에 집합을 복사하면 열람 종류가 늘 때 한쪽만 새 값을 세게 된다).
+     */
+    public boolean isFeeMutation() {
+        return name().startsWith("FEE_")
+                && this != FEE_ADMIN_DETAIL_VIEWED
+                && this != FEE_ADMIN_CSV_DOWNLOADED;
+    }
 }

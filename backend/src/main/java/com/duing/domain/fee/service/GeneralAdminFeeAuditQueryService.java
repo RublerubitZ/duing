@@ -8,7 +8,10 @@ import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.fee.entity.BankMatchingSetting;
 import com.duing.domain.fee.entity.FeeAccount;
+import com.duing.domain.fee.entity.FeeAuditCommentKind;
+import com.duing.domain.fee.entity.FeeAuditCommentStatus;
 import com.duing.domain.fee.entity.PaymentStatus;
+import com.duing.domain.fee.repository.AdminFeeAuditCommentRepository;
 import com.duing.domain.fee.repository.AdminFeeAuditQueryRepository;
 import com.duing.domain.fee.repository.AdminFeeBillAggregate;
 import com.duing.domain.fee.repository.AdminFeeClubBasics;
@@ -72,11 +75,20 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
             .filter(eventType -> eventType.name().startsWith("FEE_"))
             .collect(Collectors.toUnmodifiableSet());
 
+    /**
+     * 대시보드 최근 변경 요약이 세는 이벤트 — 총동연 열람 2종은 아무것도 바꾸지 않아 뺀다.
+     * 판정 기준은 이상징후(FA-06)와 같은 {@code isFeeMutation} 하나를 쓴다.
+     */
+    private static final Set<ClubAuditEventType> FEE_MUTATION_TYPES = FEE_EVENT_TYPES.stream()
+            .filter(ClubAuditEventType::isFeeMutation)
+            .collect(Collectors.toUnmodifiableSet());
+
     private final AdminFeeAuditQueryRepository adminFeeAuditQueryRepository;
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
     private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
+    private final AdminFeeAuditCommentRepository adminFeeAuditCommentRepository;
     private final FeeAccountRepository feeAccountRepository;
     private final AccountNumberMasker accountNumberMasker;
     private final FeeAccountCipher feeAccountCipher;
@@ -107,7 +119,27 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
                 totalBilled,
                 totalPaid,
                 totalBilled - totalPaid,
-                collectionRate(totalBilled, totalPaid));
+                collectionRate(totalBilled, totalPaid),
+                adminFeeAuditCommentRepository.countByStatus(FeeAuditCommentStatus.OPEN),
+                recentActivity());
+    }
+
+    /**
+     * 오늘의 변경 요약(스펙 §7.2) — 기준선은 전역 기간 필터와 무관하게 KST 오늘 00:00 이다.
+     * 경계는 created_at 과 같은 JVM 존 벽시계여야 해 {@code AdminFeePeriod} 의 환산을 그대로 쓴다
+     * (KST 벽시계를 그대로 넘기면 prod(JVM=UTC)에서 창이 9시간 어긋난다).
+     */
+    private AdminFeeDashboardQuery.RecentActivity recentActivity() {
+        LocalDate today = LocalDate.now(clock);
+        LocalDateTime since = AdminFeePeriod.of(today, today).createdFrom();
+        Map<String, Long> eventCounts = clubAuditEventRepository
+                .countEventsByTypeSince(FEE_MUTATION_TYPES, since).entrySet().stream()
+                .collect(Collectors.toMap(countByType -> countByType.getKey().name(), Map.Entry::getValue));
+        return new AdminFeeDashboardQuery.RecentActivity(
+                since,
+                eventCounts,
+                adminFeeAuditCommentRepository.countByKindAndCreatedAtGreaterThanEqual(
+                        FeeAuditCommentKind.AUDIT_OPINION, since));
     }
 
     /**
