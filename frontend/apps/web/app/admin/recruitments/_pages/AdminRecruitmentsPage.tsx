@@ -26,7 +26,7 @@ const MODE_OPTIONS: { label: string; value?: ApplicationMode }[] = [
 ];
 
 const SORT_OPTIONS: { label: string; value: AdminRecruitmentSort }[] = [
-  { label: '최근 수정순', value: 'LATEST' },
+  { label: '최신순', value: 'LATEST' },
   { label: '지원자 많은순', value: 'APPLICANTS' },
   { label: '마감 임박순', value: 'DEADLINE' },
 ];

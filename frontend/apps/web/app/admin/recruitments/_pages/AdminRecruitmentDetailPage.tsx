@@ -31,7 +31,8 @@ type Props = {
 // 상태를 다시 읽어야 한다는 안내를 준다.
 function forceCloseErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) return '이미 마감된 모집입니다.';
-  if (error instanceof Error) return error.message;
+  // ApiError 만 서버가 준 한글 사유를 담는다 — 네트워크/런타임 Error 의 영문 메시지는 폴백으로 가린다.
+  if (error instanceof ApiError) return error.message;
   return '모집 마감에 실패했어요. 잠시 후 다시 시도해주세요.';
 }
 
