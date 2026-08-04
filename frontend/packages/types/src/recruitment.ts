@@ -20,6 +20,9 @@ export type RecruitmentSummary = {
   externalFormUrl: string | null;
   useInterview: boolean;
   targetRole: TargetRole;
+  // 마감이 실제로 일어난 시각 (Instant ISO-8601 `…Z`). 마감 전이거나 종료 시각이 없는 레거시 마감 건은 null.
+  // KST 날짜부가 필요하면 반드시 KST 변환 경유 — slice(0, 10) 은 UTC 날짜라 자정 부근 하루 어긋난다.
+  closedAt: string | null;
 };
 
 export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';

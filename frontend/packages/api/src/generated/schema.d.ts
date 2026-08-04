@@ -5077,6 +5077,12 @@ export interface components {
             useInterview?: boolean;
             /** @enum {string} */
             targetRole?: "MEMBER" | "OFFICER";
+            /**
+             * Format: date-time
+             * @description 수동·자동 마감이 실제로 일어난 시각. 마감 전이거나 종료 시각이 기록되지 않은 레거시 마감 건은 null 이다.
+             * @example 2026-08-04T03:00:00Z
+             */
+            closedAt?: string;
         };
         ApiResponseRecruitmentDetailResponse: {
             ok?: boolean;
