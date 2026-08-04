@@ -182,10 +182,14 @@ export default function ApplicantsPage({ params }: PageParams) {
           ← 모집 상세로 돌아가기
         </Link>
         {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
-            드롭다운은 목록을 못 받으면 스스로 숨으므로(fail-open) 헤더 골격은 그대로 유지된다. */}
+            드롭다운이 걷히는 경우(외부 폼·목록 조회 실패)에도 제목은 폴백으로 남는다. */}
         <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="text-xl font-bold text-slate-900">지원자 관리</h1>
-          <RecruitmentSwitcher clubId={clubId} currentRecruitmentId={recruitmentId} />
+          <RecruitmentSwitcher
+            clubId={clubId}
+            currentRecruitmentId={recruitmentId}
+            fallbackTitle={recruitment.title}
+          />
         </div>
       </div>
 

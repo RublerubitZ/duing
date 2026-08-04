@@ -93,6 +93,8 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
+const FALLBACK_TITLE = '상세로 받은 모집 제목';
+
 function renderSwitcher(currentRecruitmentId: number) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -100,7 +102,11 @@ function renderSwitcher(currentRecruitmentId: number) {
   return render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
-        <RecruitmentSwitcher clubId={CLUB_ID} currentRecruitmentId={currentRecruitmentId} />
+        <RecruitmentSwitcher
+          clubId={CLUB_ID}
+          currentRecruitmentId={currentRecruitmentId}
+          fallbackTitle={FALLBACK_TITLE}
+        />
       </QueryClientProvider>
     </ApiClientProvider>,
   );
@@ -200,16 +206,21 @@ describe('RecruitmentSwitcher — 현재 모집 표시·이동', () => {
   });
 });
 
-describe('RecruitmentSwitcher — 목록을 못 받으면 숨김', () => {
-  it('모집 목록 로딩 중에는 트리거를 띄우지 않는다', async () => {
+// 전환 목록에서 현재 모집을 못 찾으면 드롭다운만 걷고, 헤더에서 모집 식별이 사라지지 않도록
+// 제목은 상세에서 받은 값으로 남긴다(외부 폼 모집 직접 접근이 상시 이 경로).
+describe('RecruitmentSwitcher — 목록을 못 받으면 드롭다운을 걷고 제목만 남긴다', () => {
+  it('모집 목록 로딩 중에는 트리거 없이 제목만 보이다가, 목록이 오면 트리거로 바뀐다', async () => {
     server.use(recruitmentListHandler(MIXED_ROWS));
     renderSwitcher(12);
 
     expect(screen.queryByRole('button', { name: /모집 전환/ })).not.toBeInTheDocument();
+    expect(screen.getByText(FALLBACK_TITLE)).toBeInTheDocument();
+
     expect(await openSwitcher()).toBeInTheDocument();
+    expect(screen.queryByText(FALLBACK_TITLE)).not.toBeInTheDocument();
   });
 
-  it('모집 목록 조회가 실패하면 스위처를 통째로 숨긴다', async () => {
+  it('모집 목록 조회가 실패해도 제목은 헤더에 남는다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/recruitments`, () => {
         requestCount += 1;
@@ -220,21 +231,24 @@ describe('RecruitmentSwitcher — 목록을 못 받으면 숨김', () => {
 
     await waitFor(() => expect(requestCount).toBe(1));
     expect(screen.queryByRole('button', { name: /모집 전환/ })).not.toBeInTheDocument();
+    expect(screen.getByText(FALLBACK_TITLE)).toBeInTheDocument();
   });
 
-  it('현재 모집이 목록에 없으면(캐시 미스 등) 제목 없는 트리거 대신 숨긴다', async () => {
+  it('현재 모집이 목록에 없으면(캐시 미스 등) 제목 없는 트리거 대신 제목 텍스트를 보인다', async () => {
     server.use(recruitmentListHandler([recruitmentRow({ id: 11, title: '상시 모집' })]));
     renderSwitcher(12);
 
     await waitFor(() => expect(requestCount).toBe(1));
     expect(screen.queryByRole('button', { name: /모집 전환/ })).not.toBeInTheDocument();
+    expect(screen.getByText(FALLBACK_TITLE)).toBeInTheDocument();
   });
 
-  it('현재 모집이 외부 폼이면 전환 대상이 아니므로 숨긴다', async () => {
+  it('현재 모집이 외부 폼이면 전환 대상이 아니라 드롭다운은 없지만 제목은 남는다', async () => {
     server.use(recruitmentListHandler(MIXED_ROWS));
     renderSwitcher(5);
 
     await waitFor(() => expect(requestCount).toBe(1));
     expect(screen.queryByRole('button', { name: /모집 전환/ })).not.toBeInTheDocument();
+    expect(screen.getByText(FALLBACK_TITLE)).toBeInTheDocument();
   });
 });
