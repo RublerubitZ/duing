@@ -51,6 +51,7 @@ function recruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary
     externalFormUrl: null,
     useInterview: true,
     targetRole: 'MEMBER',
+    closedAt: null,
     ...over,
   };
 }

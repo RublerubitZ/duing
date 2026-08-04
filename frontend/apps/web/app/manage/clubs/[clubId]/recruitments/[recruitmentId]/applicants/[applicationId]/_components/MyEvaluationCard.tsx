@@ -7,13 +7,17 @@ import {
 } from '@duing/hooks';
 import type { ApplicationEvaluation } from '@duing/types';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { useToast } from '@/app/_components/toast/ToastProvider';
+import { CLOSED_EVALUATION_NOTICE, toWriteFailureMessage } from './closedRecruitment';
 
 type Props = {
   applicationId: number;
   myEvaluation: ApplicationEvaluation | null;
+  /** 마감(raw CLOSED) 모집이면 조회 전용 — 입력·저장을 막고 수정·삭제 버튼은 감춘다 (스펙 §1-3·§6). */
+  readOnly?: boolean;
 };
 
-export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
+export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false }: Props) {
   const [isEditing, setIsEditing] = useState(myEvaluation === null);
   const [score, setScore] = useState<number>(myEvaluation?.score ?? 3);
   const [memo, setMemo] = useState(myEvaluation?.memo ?? '');
@@ -22,13 +26,20 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
 
   const upsertMutation = useUpsertMyApplicationEvaluationMutation();
   const deleteMutation = useDeleteMyApplicationEvaluationMutation();
+  const { addToast } = useToast();
 
   const handleSave = async () => {
-    await upsertMutation.mutateAsync({
-      applicationId,
-      payload: { score, memo: memo.trim() || null },
-    });
-    setIsEditing(false);
+    try {
+      await upsertMutation.mutateAsync({
+        applicationId,
+        payload: { score, memo: memo.trim() || null },
+      });
+      setIsEditing(false);
+    } catch (error) {
+      // 실패하면 편집 상태와 입력값을 그대로 둔다 — 화면이 열린 뒤 모집이 마감된 창(lazy-close)에서
+      // 작성 중이던 평가가 사라지지 않게 한다. 잡지 않으면 unhandled rejection 이 된다.
+      addToast(toWriteFailureMessage(error, '평가 저장에 실패했습니다.'), { variant: 'error' });
+    }
   };
 
   const confirmDelete = async () => {
@@ -41,7 +52,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
       setIsEditing(true);
     } catch (error) {
       // 실패해도 닫지 않고 모달 안에서 안내한다(공통 규칙). 잡지 않으면 unhandled rejection 이 된다.
-      setDeleteError(error instanceof Error ? error.message : '평가 삭제에 실패했습니다.');
+      setDeleteError(toWriteFailureMessage(error, '평가 삭제에 실패했습니다.'));
     }
   };
 
@@ -53,20 +64,25 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
           <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700">
             {myEvaluation.score} / 5
           </span>
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="ml-auto text-xs text-blue-600 hover:underline"
-          >
-            수정
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-xs text-rose-600 hover:underline"
-          >
-            삭제
-          </button>
+          {/* 읽기 전용이면 폼이 전부 비활성이라 수정 버튼은 죽은 어포던스 — 삭제와 함께 감춘다. */}
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="ml-auto text-xs text-blue-600 hover:underline"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-xs text-rose-600 hover:underline"
+              >
+                삭제
+              </button>
+            </>
+          )}
         </div>
         {myEvaluation.memo && (
           <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{myEvaluation.memo}</p>
@@ -91,6 +107,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
   return (
     <section className="rounded border border-blue-200 bg-blue-50 p-4">
       <h3 className="mb-3 text-sm font-semibold text-slate-900">내 평가</h3>
+      {readOnly && <p className="mb-3 text-sm text-slate-500">{CLOSED_EVALUATION_NOTICE}</p>}
       <fieldset className="border-0 p-0">
         <legend className="sr-only">점수</legend>
         <div className="flex items-center gap-3">
@@ -102,6 +119,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
                 name={`score-${applicationId}`}
                 value={n}
                 checked={score === n}
+                disabled={readOnly}
                 onChange={() => setScore(n)}
               />
               {n}
@@ -113,7 +131,8 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
         value={memo}
         onChange={(event) => setMemo(event.target.value)}
         placeholder="강점, 약점, 협업 경험, 추가 검증 필요 사항 등"
-        className="mt-2 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+        disabled={readOnly}
+        className="mt-2 w-full rounded border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100 disabled:text-neutral-500"
         rows={4}
         maxLength={2000}
       />
@@ -124,7 +143,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation }: Props) {
         <button
           type="button"
           onClick={handleSave}
-          disabled={upsertMutation.isPending}
+          disabled={upsertMutation.isPending || readOnly}
           className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
         >
           저장

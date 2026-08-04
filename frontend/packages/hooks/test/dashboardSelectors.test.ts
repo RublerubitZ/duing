@@ -23,7 +23,7 @@ function recruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary
     startDate: '2026-06-01', endDate: '2026-06-30', capacity: 20,
     status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
     applicationMode: 'SELF', externalFormUrl: null, useInterview: true,
-    targetRole: 'MEMBER', ...over,
+    targetRole: 'MEMBER', closedAt: null, ...over,
   };
 }
 

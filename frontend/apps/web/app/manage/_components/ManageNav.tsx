@@ -71,10 +71,14 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
   );
   const isExternalRecruitment = activeRecruitment?.applicationMode === 'EXTERNAL';
 
-  const applicantsPath =
-    activeRecruitmentId && !isExternalRecruitment
+  // 지원자는 모집 컨텍스트가 없어도 클럽 단위 진입 라우트로 열어둔다(아카이브 스펙 §3) —
+  // 진입 페이지가 진행 중 모집으로 자동 이동하거나 마감 아카이브를 보여준다.
+  // 외부 폼 모집을 보는 중일 때만 예외적으로 비활성 안내를 유지한다(지원자 관리 자체가 없음).
+  const applicantsPath = isExternalRecruitment
+    ? null
+    : activeRecruitmentId
       ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/applicants`)
-      : null;
+      : toRoute(`/manage/clubs/${currentClubId}/applicants`);
   const statsPath =
     activeRecruitmentId && !isExternalRecruitment
       ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/stats`)

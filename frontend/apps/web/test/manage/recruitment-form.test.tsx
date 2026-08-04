@@ -99,6 +99,7 @@ const baseRecruitmentDetail: RecruitmentDetail = {
   externalFormUrl: null,
   useInterview: false,
   targetRole: 'MEMBER',
+  closedAt: null,
   content: null,
   questions: [],
   interviewStartDate: null,

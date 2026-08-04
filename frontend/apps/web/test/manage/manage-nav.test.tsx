@@ -18,6 +18,7 @@ import { ManageNav } from '@/app/manage/_components/ManageNav';
 // 사이드바의 "지원자"·"통계"는 본래 항상 비활성 placeholder 였다.
 // 모집 하위 페이지를 보는 중일 때만 해당 모집 컨텍스트로 가는 활성 링크가 되도록 개선했다.
 // 외부 폼 모집은 지원서·통계를 쓰지 않으므로 다시 비활성 안내로 돌아간다(스펙 §5.1).
+// 지원자는 여기서 한 걸음 더 나가 모집 미선택 시 클럽 단위 진입 라우트로 열어둔다(아카이브 스펙 §3).
 
 const CLUB_ID = 1;
 const RECRUITMENT_ID = 10;
@@ -27,21 +28,35 @@ describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
     mockRecruitmentDetail.mockReturnValue({ data: undefined });
   });
 
-  it('모집 목록 화면에서는 지원자·통계가 비활성 안내(링크 아님)로 표시된다', () => {
+  it('모집 목록 화면에서는 지원자가 클럽 진입 라우트로, 통계만 비활성 안내로 표시된다', () => {
     mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/recruitments`);
     render(<ManageNav currentClubId={CLUB_ID} />);
 
-    expect(screen.queryByRole('link', { name: '지원자' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '지원자' })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/applicants`,
+    );
     expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
-    expect(screen.getAllByText('모집을 먼저 선택하세요')).toHaveLength(2);
+    expect(screen.getAllByText('모집을 먼저 선택하세요')).toHaveLength(1);
   });
 
   it('신규 작성(/recruitments/new)은 모집 컨텍스트로 보지 않는다', () => {
     mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/recruitments/new`);
     render(<ManageNav currentClubId={CLUB_ID} />);
 
-    expect(screen.queryByRole('link', { name: '지원자' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '지원자' })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/applicants`,
+    );
     expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
+  });
+
+  it('클럽 단위 진입 라우트에서도 지원자 메뉴가 활성으로 표시된다', () => {
+    mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/applicants`);
+    render(<ManageNav currentClubId={CLUB_ID} />);
+
+    expect(screen.getByRole('link', { name: '지원자' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '모집 관리' })).not.toHaveAttribute('aria-current');
   });
 
   it('특정 모집을 보는 중이면 지원자·통계가 해당 모집으로 가는 활성 링크가 된다', () => {

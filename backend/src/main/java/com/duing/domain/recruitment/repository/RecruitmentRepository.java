@@ -28,6 +28,10 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
      * 발급이 같은 모집에서 동시에 일어날 수 있다. 잠그지 않으면 "삭제가 활성 코드 0건을 확인한 직후
      * 발급된 코드"가 삭제된 모집에 매달린 채 살아남아, 학생이 계속 유입되는 고아 코드가 된다.
      * 두 경로 모두 모집 → 코드 순으로만 잠그므로 잠금 순서 사이클이 없다.
+     *
+     * <p>마감(close)과 면접 라운드 생성(createRound)도 같은 잠금을 쓴다 — 라운드 생성이 OPEN 을 확인한
+     * 뒤 마감이 커밋되면 마감된 모집에 라운드가 잔존하기 때문이다(아카이브 스펙 §9). 소비 경로가 잠그는
+     * 순서는 모집 → 지원서 / 모집 → 가입 코드로 모두 모집이 먼저라 사이클이 없다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT recruitment FROM Recruitment recruitment WHERE recruitment.id = :recruitmentId")

@@ -1,6 +1,7 @@
 package com.duing.domain.interview.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -17,10 +18,13 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,7 +32,9 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +44,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 // wizard Step2 의 첫 persist — 면접 대상 선정 + 라운드(DRAFT) + 멤버 생성이 한 트랜잭션으로
 // 처리되는지, placement 불변식과 DRAFT 1개 제약이 강제되는지 검증한다 (스펙 §9.1 API 2·§7·§16).
 @Import(TestcontainersConfiguration.class)
@@ -50,6 +58,8 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     private int port;
 
     @Autowired private ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    @Autowired private RecruitmentService recruitmentService;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private User leader;
     private String leaderToken;
@@ -430,5 +440,66 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .count();
         assertThat(roundCount).isEqualTo(1);
         assertThat(memberCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("마감이 진행 중인 모집에 라운드 생성을 요청하면 마감이 끝날 때까지 대기했다가 마감 코드와 함께 409 로 거절되고 라운드는 남지 않는다")
+    void roundCreationWaitsForCloseAndIsRejectedAfterwards() throws Exception {
+        Application candidate = saveOnHoldApplication(recruitment, "마감경합후보");
+        TransactionTemplate closeTransaction = new TransactionTemplate(transactionManager);
+        CountDownLatch closeHoldsRowLock = new CountDownLatch(1);
+        CountDownLatch closeMayCommit = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            // 마감을 커밋 직전에 붙잡아, close() 가 잡은 모집 행 잠금을 계속 쥔 상태로 만든다.
+            Future<?> closing = executor.submit(() -> closeTransaction.executeWithoutResult(transaction -> {
+                recruitmentService.close(recruitment.getId(), leader.getId());
+                recruitmentRepository.flush();
+                closeHoldsRowLock.countDown();
+                awaitQuietly(closeMayCommit);
+            }));
+            assertThat(closeHoldsRowLock.await(10, TimeUnit.SECONDS))
+                    .as("마감 트랜잭션이 모집 행 잠금을 획득").isTrue();
+
+            Future<Response> creating = executor.submit(() -> RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                    .when().post(CREATE_PATH, recruitment.getId()));
+
+            // 잠금이 없으면 라운드 생성이 마감 커밋 전의 OPEN 을 읽고 그대로 201 로 끝난다.
+            assertThatThrownBy(() -> creating.get(1, TimeUnit.SECONDS))
+                    .as("라운드 생성이 마감의 모집 행 잠금에서 대기")
+                    .isInstanceOf(TimeoutException.class);
+
+            closeMayCommit.countDown();
+            closing.get(30, TimeUnit.SECONDS);
+
+            Response creationResponse = creating.get(30, TimeUnit.SECONDS);
+            assertThat(creationResponse.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
+            assertThat(creationResponse.jsonPath().getString("code")).isEqualTo("RECRUITMENT_CLOSED");
+        } finally {
+            closeMayCommit.countDown();
+            executor.shutdownNow();
+        }
+
+        // 마감이 확정됐고, 거절된 생성은 라운드도 상태 전이도 남기지 않았다.
+        assertThat(recruitmentRepository.findById(recruitment.getId()).orElseThrow().getStatus())
+                .isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(interviewRoundRepository.findAll().stream()
+                .filter(round -> round.getRecruitmentId().equals(recruitment.getId())))
+                .isEmpty();
+        assertThat(applicationRepository.findById(candidate.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await(20, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
     }
 }
