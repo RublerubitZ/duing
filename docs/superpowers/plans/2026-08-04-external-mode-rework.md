@@ -71,6 +71,26 @@
 
 **Steps:** 테스트 먼저 → 구현 → 전체 web 테스트·typecheck·lint·build → 커밋 1개.
 
+## Task 5: `feat(backend): 가입 코드 OPEN 정책·감사 주체 기록` (브랜치 feat/join-code-open-policy, Task 4 위 스택)
+
+**Files/Requirements (스펙 §3.1 감사·§4.2 최종):**
+- 생성 조건을 `EXTERNAL && OPEN` 으로 — CLOSED 는 409 신규 문구 "모집이 진행 중일 때만 가입 코드를 만들 수 있습니다."(MESSAGE 상수), INTERNAL 문구 기존 유지
+- `ClubJoinCode.isUsable` 에 **귀속 모집 OPEN 조건 복원**(v1 메커니즘 — 파생 판정, 주석 갱신). 학생 check/createRequest 는 엔티티 판정으로 자동 반영 확인. **기존 PENDING 승인/거절은 모집 종료 후에도 가능**(승인 경로는 isUsable 미사용 — 확인만)
+- Create: `V100__join_code_audit_columns.sql` — `created_by BIGINT REFERENCES users(id)`·`revoked_by BIGINT REFERENCES users(id)` (기존 행은 null 허용 — dev 정리 전제라 백필 불요, 주석). 번호는 작성 시점 재확인
+- 서비스: create 시 created_by=requester 기록, revoke 시 revoked_by=requester, 모집 삭제의 자동 폐기 벌크 UPDATE 에 revoked_by=삭제 수행자 전달
+- 발급↔삭제 모집 잠금 직렬화는 유지(정책상 상호 배타 복원돼도 심층 방어)
+- Test: 조건 표 4케이스(EXTERNAL+OPEN 201 / EXTERNAL+CLOSED 409 / INTERNAL 2건 409) / 파생 사용(코드 발급 후 모집 CLOSED → check usable=false·신규 요청 409·**기존 PENDING 승인 성공**) / 모집 기간 재개 시 재사용 가능 / audit 컬럼 기록 3경로(생성·수동 폐기·삭제 자동 폐기) 단언 / 기존 스위트 초록
+
+## Task 6: `feat(frontend): 모집 카드 액션 분기·코드 관리 동선 단축` (브랜치 feat/external-mode-card-actions, Task 5 위 스택)
+
+**Files/Requirements (스펙 §5·§5.1·§7·§7.1):**
+- 모집 관리 목록 카드 액션 분기: INTERNAL [지원자 관리][통계] 기존 유지 / EXTERNAL **[가입 코드][가입 요청 관리(대기 배지)]** — 지원자·통계 버튼 제거
+- 카드 [가입 코드] → 다이얼로그로 코드 관리 전체(생성·활성 카드·재생성·폐기) — 상세의 `MemberEnrollmentSection` 컴포넌트 재사용(중복 금지)
+- EXTERNAL 상세의 [지원자 관리]·[통계] 링크 제거, 상세 회원 등록 영역: **CLOSED 시 생성 폼 대신** "모집이 진행 중일 때만 가입 코드를 만들 수 있습니다." 안내(기존 코드 카드는 사용 불가 상태로 유지·요청 관리 링크 유지)
+- §7 절차 카드 순서 갱신: `외부 모집 진행 → 합격자 선정 → 가입 코드 생성·공유 → 학생 가입 요청 → 운영진 승인 → 회원 등록 → 모집 종료` (전환 다이얼로그 내 플로우 포함)
+- §7.1 운영 정책 안내 5종을 코드 생성 화면(다이얼로그·상세 영역 공통)에 추가 — 스펙 자구 그대로
+- Test: 카드 분기 2모드 / 다이얼로그 열림·코드 생성 / 상세 CLOSED 안내 / 절차 카드 순서 문구 / §7.1 문안 / INTERNAL 회귀
+
 ## QA (컨트롤러 수행)
 
 실브라우저 전체 왕복: EXTERNAL 모집 작성(다이얼로그 확인·전용 화면·URL 검증) → OPEN 상태 안내 확인 → 마감 → 회원 등록 영역에서 코드 생성(경고 카드 확인) → 학생 가입 요청(차감) → 승인 → 회원 등록. INTERNAL 모집 화면에 코드 UI 부재 확인.
