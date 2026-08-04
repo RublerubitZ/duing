@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { ApiError } from '@duing/api';
 import { useCreateJoinRequestMutation, useJoinCodeCheckQuery } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
+import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
@@ -39,7 +39,7 @@ function ClubHeading({ clubName, generation }: { clubName: string; generation: n
 }
 
 export function JoinCodeLanding({ code }: { code: string }) {
-  const isAuthenticated = useAuthStore((state) => state.status === 'authenticated');
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const { addToast } = useToast();
   const check = useJoinCodeCheckQuery(code);
   const createJoinRequest = useCreateJoinRequestMutation(code);

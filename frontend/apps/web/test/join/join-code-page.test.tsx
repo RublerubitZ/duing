@@ -37,7 +37,7 @@ beforeAll(() => server.listen());
 afterEach(() => {
   server.resetHandlers();
   mockAddToast.mockClear();
-  useAuthStore.setState({ status: 'idle', user: null });
+  useAuthStore.setState({ status: 'unauthenticated', user: null });
 });
 afterAll(() => server.close());
 
