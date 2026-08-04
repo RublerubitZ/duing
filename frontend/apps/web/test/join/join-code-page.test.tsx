@@ -74,7 +74,7 @@ function signIn() {
   });
 }
 
-describe('가입 코드 랜딩 — 상태 분기', () => {
+describe('가입 링크 랜딩 — 상태 분기', () => {
   it('이미 가입한 동아리면 안내와 동아리 페이지 링크를 보여준다', async () => {
     signIn();
     server.use(
@@ -89,20 +89,38 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
       'href',
       '/clubs/7',
     );
-    expect(screen.queryByRole('button', { name: '가입 요청' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '동아리 가입하기' })).not.toBeInTheDocument();
   });
 
-  it('대기 중인 요청이 있으면 가입 요청 대기 중으로 안내한다', async () => {
+  // 승인 게이트가 남아 있으므로 "등록되었습니다" 같은 즉시 등록 표현을 쓰면 안 된다(스펙 §6).
+  it('대기 중인 요청이 있으면 신청 완료로 안내하고 즉시 등록 표현을 쓰지 않는다', async () => {
     signIn();
     server.use(
       http.get(`*/join-codes/${CODE}`, () => json(check({ myRequestStatus: 'PENDING' }))),
     );
     renderPage();
 
-    expect(await screen.findByText('가입 요청 대기 중')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '가입 요청' })).not.toBeInTheDocument();
+    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(
+      screen.getByText('운영진 확인 후 두잉 개발동아리 동아리 회원으로 등록됩니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/회원으로 등록되었습니다/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '동아리 가입하기' })).not.toBeInTheDocument();
     // 대기 화면에서 할 수 있는 일이 없으므로 나갈 길을 반드시 준다.
     expect(screen.getByRole('link', { name: '홈으로 돌아가기' })).toHaveAttribute('href', '/');
+  });
+
+  it('가입 가능한 링크면 합격 축하와 소요 시간을 안내한다', async () => {
+    signIn();
+    server.use(http.get(`*/join-codes/${CODE}`, () => json(check())));
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        /🎉 축하합니다! 두잉 개발동아리 최종 합격을 축하드립니다\. 가입은 약 30초 정도 소요됩니다\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
   });
 
   it('거절 이력이 있어도 다시 가입 요청할 수 있다', async () => {
@@ -112,7 +130,7 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     );
     renderPage();
 
-    expect(await screen.findByRole('button', { name: '가입 요청' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
   });
 
   // 탈퇴한 회원은 alreadyMember=false 인데 과거 승인 이력이 남는다 — 이걸 종결 화면으로 취급하면
@@ -126,7 +144,7 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     );
     renderPage();
 
-    expect(await screen.findByRole('button', { name: '가입 요청' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
     expect(screen.queryByText('이미 가입된 동아리입니다')).not.toBeInTheDocument();
   });
 
@@ -138,7 +156,7 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     );
     renderPage();
 
-    const loginLink = await screen.findByRole('link', { name: '로그인하고 가입 요청' });
+    const loginLink = await screen.findByRole('link', { name: '로그인하고 가입하기' });
     expect(loginLink).toHaveAttribute('href', `/login?next=${encodeURIComponent(`/join/${CODE}`)}`);
     expect(screen.getByText('두잉 개발동아리')).toBeInTheDocument();
   });
@@ -151,7 +169,8 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     );
     renderPage();
 
-    expect(await screen.findByText('유효하지 않은 가입 코드입니다')).toBeInTheDocument();
+    expect(await screen.findByText('유효하지 않은 가입 링크입니다')).toBeInTheDocument();
+    expect(screen.getByText('링크가 아직 유효한지 동아리에 확인해 주세요.')).toBeInTheDocument();
   });
 
   it('사용할 수 없는 코드도 같은 문구로 안내한다', async () => {
@@ -159,8 +178,8 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     server.use(http.get(`*/join-codes/${CODE}`, () => json(check({ usable: false }))));
     renderPage();
 
-    expect(await screen.findByText('유효하지 않은 가입 코드입니다')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '가입 요청' })).not.toBeInTheDocument();
+    expect(await screen.findByText('유효하지 않은 가입 링크입니다')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '동아리 가입하기' })).not.toBeInTheDocument();
   });
 
   // 코드가 만료된 뒤 링크를 다시 연 회원에게 코드 문구만 보여주면 정작 알아야 할 자기 상태를
@@ -173,12 +192,12 @@ describe('가입 코드 랜딩 — 상태 분기', () => {
     renderPage();
 
     expect(await screen.findByText('이미 가입된 동아리입니다')).toBeInTheDocument();
-    expect(screen.queryByText('유효하지 않은 가입 코드입니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('유효하지 않은 가입 링크입니다')).not.toBeInTheDocument();
   });
 });
 
-describe('가입 코드 랜딩 — 가입 요청', () => {
-  it('요청에 성공하면 토스트를 띄우고 대기 중 화면으로 바뀐다', async () => {
+describe('가입 링크 랜딩 — 가입 신청', () => {
+  it('신청에 성공하면 토스트를 띄우고 신청 완료 화면으로 바뀐다', async () => {
     signIn();
     let requested = false;
     server.use(
@@ -192,10 +211,10 @@ describe('가입 코드 랜딩 — 가입 요청', () => {
     );
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '가입 요청' }));
+    await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
 
-    expect(await screen.findByText('가입 요청 대기 중')).toBeInTheDocument();
-    expect(mockAddToast).toHaveBeenCalledWith('가입 요청을 보냈어요. 승인되면 알려드릴게요.');
+    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(mockAddToast).toHaveBeenCalledWith('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
   });
 
   it('요청이 409로 거절되면 서버가 준 사유를 그대로 토스트로 보여준다', async () => {
@@ -211,7 +230,7 @@ describe('가입 코드 랜딩 — 가입 요청', () => {
     );
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '가입 요청' }));
+    await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
 
     await waitFor(() =>
       expect(mockAddToast).toHaveBeenCalledWith('이미 대기 중인 가입 요청이 있습니다.', {

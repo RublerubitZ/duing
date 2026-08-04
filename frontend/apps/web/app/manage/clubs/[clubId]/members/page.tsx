@@ -20,7 +20,6 @@ import { MemberBulkToolbar } from './_components/MemberBulkToolbar';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
-import { MemberInviteGuideDialog } from './_components/MemberInviteGuideDialog';
 import {
   availableGenerations,
   EMPTY_MEMBER_FILTERS,
@@ -65,7 +64,6 @@ export default function ClubMembersPage({
   const [transferTarget, setTransferTarget] = useState<ClubMember | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [successionOpen, setSuccessionOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
     return <LoadingGate label="멤버 목록 불러오는 중" />;
@@ -166,15 +164,8 @@ export default function ClubMembersPage({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {/* 회원 초대 안내·가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다.
-              가입 코드는 모집에 귀속돼 실제 발급·관리는 모집 관리 화면에서 한다(스펙 §5). */}
-          <button
-            type="button"
-            onClick={() => setInviteOpen(true)}
-            className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
-          >
-            회원 초대
-          </button>
+          {/* 가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다. 회원 초대(가입 링크) 진입점은
+              모집 관리 카드의 링크 다이얼로그로 완결돼 여기서는 제거했다(스펙 §5.1). */}
           <Link
             href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
@@ -279,10 +270,6 @@ export default function ClubMembersPage({
             setTransferError(null);
           }}
         />
-      )}
-
-      {inviteOpen && (
-        <MemberInviteGuideDialog clubId={currentClubId} onClose={() => setInviteOpen(false)} />
       )}
 
       {successionOpen && (

@@ -1,11 +1,13 @@
-// 가입 코드 / 가입 요청 — BE domain/joincode 응답 계약과 1:1.
+// 가입 링크(코드) / 가입 요청 — BE domain/joincode 응답 계약과 1:1.
+// 내부 식별자·API 경로는 join-code 그대로이고, 사용자 대면 문구만 "가입 링크"로 통일했다.
 import type { IsoInstantString } from './datetime';
 
 /**
- * 운영 콘솔의 활성 가입 코드. 코드는 모집(recruitment)에 귀속되며 모집당 활성 코드는 1개다.
+ * 운영 콘솔의 활성 가입 링크. 링크는 모집(recruitment)에 귀속되며 모집당 활성 링크는 1개다.
  *
- * ⚠️ 활성(active) 이 곧 사용 가능(usable)은 아니다 — 조회는 만료된 코드도 그대로 내려준다.
- * 모집 상태는 사용 가능 여부를 좌우하지 않으므로(스펙 v2 §4.2) 화면은 `expiresAt` 경과만 본다.
+ * ⚠️ 활성(active) 이 곧 사용 가능(usable)은 아니다 — 조회는 만료된 링크도 그대로 내려준다.
+ * 절대 만료일은 없다(스펙 v2 §4.3): 가입 가능 기간은 모집 종료 시각 기준 프리셋이라
+ * 모집이 진행 중이면 `joinExpiresAt` 이 null 이고, 종료된 뒤에만 실제 만료 시각이 생긴다.
  */
 export type JoinCodeSummary = {
   joinCodeId: number;
@@ -14,12 +16,19 @@ export type JoinCodeSummary = {
   generation: number | null;
   maxUses: number;
   usedCount: number;
-  expiresAt: IsoInstantString;
+  // 모집 종료 기준 가입 가능 기간 프리셋(0=종료일까지 / 7 / 14).
+  joinWindowDays: number;
+  // 모집이 실제로 종료된 뒤에만 값이 생긴다 — 진행 중이면 null(만료 없음).
+  joinExpiresAt: IsoInstantString | null;
+  // 상태 카드(스펙 v2 §7.2) 수치 — 전 상태 누적 가입 신청 수와 승인 대기 수. 프론트 합산 금지.
+  totalRequestCount: number;
+  pendingCount: number;
 };
 
 export type CreateJoinCodePayload = {
   maxUses: number;
-  expiresInDays: number;
+  // 0/7/14 만 허용 — 그 외 값은 BE 400.
+  joinWindowDays: number;
   generation?: number;
 };
 

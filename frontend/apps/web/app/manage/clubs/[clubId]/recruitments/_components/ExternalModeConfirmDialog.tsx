@@ -17,7 +17,7 @@ const EXTERNAL_MODE_NOTICES = [
   '안내문을 사용할 수 없어요.',
   '면접 단계를 사용할 수 없어요.',
   '지원자 수 공개를 사용할 수 없어요.',
-  '합격자는 가입 코드로 등록해요 — 운영진 승인으로 확정돼요.',
+  '합격자는 가입 링크로 등록해요 — 운영진 승인으로 확정돼요.',
 ];
 
 type Props = {
@@ -45,7 +45,7 @@ export function ExternalModeConfirmDialog({ open, onCancel, onConfirm }: Props) 
         <DialogHeader>
           <DialogTitle>외부 폼 모집으로 전환할까요?</DialogTitle>
           <DialogDescription>
-            구글 폼·네이버 폼으로 지원을 받고, 합격자는 가입 코드로 등록하는 모집 방식이에요.
+            구글 폼·네이버 폼으로 지원을 받고, 합격자는 가입 링크로 등록하는 모집 방식이에요.
           </DialogDescription>
         </DialogHeader>
 

@@ -126,7 +126,7 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
         </Link>
         <h1 className="mt-2 text-xl font-bold">가입 요청</h1>
         <p className="mt-1 text-sm text-charcoal-3">
-          가입 코드로 접수된 요청을 확인하고 승인·거절합니다. 승인하면 바로 동아리 회원이 됩니다.
+          가입 링크로 접수된 요청을 확인하고 승인·거절합니다. 승인하면 바로 동아리 회원이 됩니다.
         </p>
       </header>
 

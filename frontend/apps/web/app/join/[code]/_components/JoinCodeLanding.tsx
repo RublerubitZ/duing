@@ -13,8 +13,8 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 만료·폐기·소진·모집 마감·비 ACTIVE 동아리를 사유별로 구분하지 않는다 — BE 도 usable 하나로만
-// 내려주고(스펙 6), 사유를 노출하면 코드 대입 시도자에게 동아리 상태를 알려주는 셈이 된다.
-const INVALID_CODE_TITLE = '유효하지 않은 가입 코드입니다';
+// 내려주고(스펙 §6), 사유를 노출하면 코드 대입 시도자에게 동아리 상태를 알려주는 셈이 된다.
+const INVALID_CODE_TITLE = '유효하지 않은 가입 링크입니다';
 
 function LandingShell({ children }: { children: ReactNode }) {
   return (
@@ -29,7 +29,7 @@ function LandingShell({ children }: { children: ReactNode }) {
 function ClubHeading({ clubName, generation }: { clubName: string; generation: number | null }) {
   return (
     <>
-      <p className="text-sm text-charcoal-3">동아리 가입 초대</p>
+      <p className="text-sm text-charcoal-3">동아리 가입</p>
       <h1 className="mt-1 text-xl font-bold text-ink-deep">{clubName}</h1>
       {generation !== null && (
         <p className="mt-1 text-sm text-charcoal-2">{generation}기로 가입해요</p>
@@ -47,7 +47,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
   async function requestJoin() {
     try {
       await createJoinRequest.mutateAsync();
-      addToast('가입 요청을 보냈어요. 승인되면 알려드릴게요.');
+      addToast('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
     } catch (requestError) {
       // 409 사유(사용 불가 코드·이미 가입·대기 중 요청)는 서버 문구로만 구분된다 — 그대로 보여준다.
       addToast(
@@ -62,7 +62,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
   if (check.isPending) {
     return (
       <LandingShell>
-        <LoadingGate label="가입 코드 확인 중" className="min-h-[8rem]" />
+        <LoadingGate label="가입 링크 확인 중" className="min-h-[8rem]" />
       </LandingShell>
     );
   }
@@ -74,14 +74,14 @@ export function JoinCodeLanding({ code }: { code: string }) {
         <LandingShell>
           <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
           <p className="mt-2 text-sm text-charcoal-2">
-            코드가 아직 유효한지 동아리에 확인해 주세요.
+            링크가 아직 유효한지 동아리에 확인해 주세요.
           </p>
         </LandingShell>
       );
     }
     return (
       <LandingShell>
-        <h1 className="text-lg font-bold text-ink-deep">가입 코드를 확인하지 못했어요</h1>
+        <h1 className="text-lg font-bold text-ink-deep">가입 링크를 확인하지 못했어요</h1>
         <p className="mt-2 text-sm text-charcoal-2">잠시 후 다시 시도해주세요.</p>
         <button type="button" onClick={() => void check.refetch()} className="btn btn-secondary mt-5 w-full">
           다시 시도
@@ -111,9 +111,10 @@ export function JoinCodeLanding({ code }: { code: string }) {
     return (
       <LandingShell>
         <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
-        <p className="mt-4 text-sm font-semibold text-ink">가입 요청 대기 중</p>
+        {/* 승인 게이트가 남아 있으므로 "등록되었습니다" 같은 즉시 등록 표현을 쓰지 않는다(스펙 §6). */}
+        <p className="mt-4 text-sm font-semibold text-ink">🎉 가입 신청이 완료되었습니다.</p>
         <p className="mt-2 text-sm text-charcoal-2">
-          동아리 운영진이 확인하면 회원으로 등록돼요.
+          운영진 확인 후 {joinCode.clubName} 동아리 회원으로 등록됩니다.
         </p>
         {/* 대기 화면은 더 할 일이 없는 종결 화면이라 링크가 없으면 학생이 여기서 갇힌다. */}
         <Link href={toRoute('/')} className="btn btn-secondary mt-5 w-full">
@@ -127,7 +128,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
     return (
       <LandingShell>
         <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
-        <p className="mt-2 text-sm text-charcoal-2">코드가 아직 유효한지 동아리에 확인해 주세요.</p>
+        <p className="mt-2 text-sm text-charcoal-2">링크가 아직 유효한지 동아리에 확인해 주세요.</p>
       </LandingShell>
     );
   }
@@ -137,8 +138,10 @@ export function JoinCodeLanding({ code }: { code: string }) {
   return (
     <LandingShell>
       <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
-      <p className="mt-4 text-sm text-charcoal-2">
-        가입 요청을 보내면 동아리 운영진 승인 후 회원으로 등록돼요.
+      {/* 합격 통보 뒤에 열리는 화면이라 "회원가입"이 아니라 축하 → 가입 톤이다(스펙 §6). */}
+      <p className="mt-4 text-sm leading-relaxed text-charcoal-2">
+        🎉 축하합니다! {joinCode.clubName} 최종 합격을 축하드립니다. 가입은 약 30초 정도 소요됩니다.
+        가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.
       </p>
       {isAuthenticated ? (
         <button
@@ -148,14 +151,14 @@ export function JoinCodeLanding({ code }: { code: string }) {
           className="btn btn-primary mt-5 w-full"
         >
           {createJoinRequest.isPending && <ButtonSpinner />}
-          가입 요청
+          동아리 가입하기
         </button>
       ) : (
         <Link
           href={toRoute(`/login?next=${encodeURIComponent(`/join/${code}`)}`)}
           className="btn btn-primary mt-5 w-full"
         >
-          로그인하고 가입 요청
+          로그인하고 가입하기
         </Link>
       )}
     </LandingShell>

@@ -9,8 +9,9 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 
 /**
- * 모집의 활성 가입 코드 조회. 활성 코드가 없으면 200 + data:null 이므로 `data === null` 이 "코드 없음"이고
- * 오류가 아니다. 만료된 코드도 폐기 전이면 내려오므로 사용 가능 여부는 화면이 판정한다.
+ * 모집의 활성 가입 링크 조회. 활성 링크가 없으면 200 + data:null 이므로 `data === null` 이 "링크 없음"이고
+ * 오류가 아니다. 만료된 링크도 폐기 전이면 내려오므로 사용 가능 여부는 화면이 판정한다
+ * (모집 진행 중이면 `joinExpiresAt` 이 null — 만료 판정 자체가 없다).
  */
 export function useActiveJoinCodeQuery(
   clubId: number | undefined,
