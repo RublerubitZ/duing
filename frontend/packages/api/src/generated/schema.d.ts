@@ -2319,7 +2319,7 @@ export interface paths {
         post?: never;
         /**
          * 지원 철회
-         * @description 본인의 SUBMITTED 상태 지원을 철회한다. 검토가 시작된 지원은 철회할 수 없다.
+         * @description 본인의 미결정 상태(SUBMITTED·ON_HOLD) 지원을 철회한다. 면접 대상 선정·합불 처리 이후에는 철회할 수 없다.
          */
         delete: operations["withdraw_1"];
         options?: never;
@@ -4956,8 +4956,8 @@ export interface components {
             projects?: components["schemas"]["ClubProject"][];
             clearLogoImage?: boolean;
             clearCoverImage?: boolean;
-            nameBlankSafe?: boolean;
             feePairConsistent?: boolean;
+            nameBlankSafe?: boolean;
         };
         UpdateClubStatusRequest: {
             /** @enum {string} */
