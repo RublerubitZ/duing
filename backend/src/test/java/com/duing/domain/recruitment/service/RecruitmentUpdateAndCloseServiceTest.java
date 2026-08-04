@@ -185,6 +185,118 @@ class RecruitmentUpdateAndCloseServiceTest {
     }
 
     @Test
+    @DisplayName("종료일을 오늘보다 과거로 변경하려 하면 400 예외가 발생하고 원래 값이 유지된다")
+    void rejectsChangingEndDateToPast() {
+        Recruitment recruitment = openSelfRecruitment();
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        LocalDate originalEndDate = recruitment.getEndDate();
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                null,
+                null,
+                null,
+                LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> recruitmentService.update(updateCommand))
+                .isInstanceOf(RecruitmentException.PastEndDateException.class);
+        assertThat(recruitment.getEndDate()).isEqualTo(originalEndDate);
+    }
+
+    @Test
+    @DisplayName("CLOSED 공고에 과거 종료일 변경을 보내도 마감 409 판정이 우선한다")
+    void closedGuardTakesPrecedenceOverPastEndDate() {
+        Recruitment recruitment = closedRecruitment();
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                null,
+                null,
+                null,
+                LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(2),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> recruitmentService.update(updateCommand))
+                .isInstanceOf(RecruitmentException.RecruitmentAlreadyClosedException.class);
+    }
+
+    @Test
+    @DisplayName("상시모집 공고에 과거 종료일을 보내면 기간모집 전환 금지 안내가 우선한다")
+    void alwaysOpenConversionTakesPrecedenceOverPastEndDate() {
+        Recruitment recruitment = openSelfRecruitment();
+        setField(recruitment, "endDate", null);
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                null,
+                null,
+                null,
+                LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(2),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> recruitmentService.update(updateCommand))
+                .isInstanceOf(RecruitmentException.AlwaysOpenConversionNotAllowedException.class);
+    }
+
+    @Test
+    @DisplayName("만료-OPEN 공고 편집에서 기존 과거 종료일을 그대로 재전송하면 다른 필드 수정이 허용된다")
+    void allowsResendingExistingPastEndDateWhileEditingOtherFields() {
+        Recruitment recruitment = openSelfRecruitment();
+        LocalDate kstToday = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        setField(recruitment, "startDate", kstToday.minusDays(10));
+        setField(recruitment, "endDate", kstToday.minusDays(3));
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                "심사 중 제목 수정",
+                null,
+                null,
+                kstToday.minusDays(3),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        recruitmentService.update(updateCommand);
+
+        assertThat(recruitment.getTitle()).isEqualTo("심사 중 제목 수정");
+        assertThat(recruitment.getEndDate()).isEqualTo(kstToday.minusDays(3));
+    }
+
+    @Test
     @DisplayName("외부 폼 모집 공고에 질문 목록을 전달하면 400 예외가 발생한다")
     void updateExternalRecruitmentWithQuestionsThrowsInvalidMode() {
         Recruitment recruitment = openExternalRecruitment();
@@ -360,6 +472,9 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("endDate 만 수정 시 기존 startDate 와 비교해 endDate 가 이전이면 400 예외가 발생한다")
     void updateWithInvalidEndDateThrowsInvalidPeriod() {
         Recruitment recruitment = openSelfRecruitment();
+        // 기간 역전만 검증하도록 미래로 픽스처링 — 과거 endDate 는 PastEndDateException 가드가 먼저 잡는다.
+        setField(recruitment, "startDate", LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(5));
+        setField(recruitment, "endDate", LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(14));
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
@@ -368,7 +483,7 @@ class RecruitmentUpdateAndCloseServiceTest {
                 null,
                 null,
                 null,
-                LocalDate.now().minusDays(1),
+                LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(2),
                 null,
                 null,
                 null,

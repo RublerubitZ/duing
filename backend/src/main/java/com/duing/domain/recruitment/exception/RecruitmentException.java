@@ -31,6 +31,19 @@ public class RecruitmentException extends ApplicationException {
     }
 
     /**
+     * 종료일이 이미 지난 공고는 생성(또는 변경) 즉시 만료-OPEN — 한 번도 학생에게
+     * 열리지 않은 "마감 공고"가 되므로 차단한다. 수정은 종료일을 과거로 바꾸는 경우만
+     * 해당하고, 만료-OPEN 공고의 다른 필드 편집(기존 과거 종료일 재전송)은 허용한다.
+     */
+    public static class PastEndDateException extends RecruitmentException {
+        private static final String MESSAGE = "모집 종료일은 오늘 이후여야 합니다.";
+
+        public PastEndDateException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
      * 마감된 공고를 수정하거나 다시 마감하려는 경우. 원인이 "마감된 모집에 쓰기"로
      * {@link ClosedRecruitmentReadOnlyException} 과 같으므로 code 를 공유해,
      * 프론트가 마감 관련 실패를 단일 분기로 처리할 수 있게 한다.

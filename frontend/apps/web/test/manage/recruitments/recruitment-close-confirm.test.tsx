@@ -89,13 +89,22 @@ function renderPage(seededRecruitments?: RecruitmentSummary[]) {
   );
 }
 
+/** 로컬 타임존 기준 오늘±N일(YYYY-MM-DD) — 고정 날짜는 생성 스키마의 "종료일은 오늘 이후" 규칙에 만료된다. */
+function localIsoDate(daysFromToday: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromToday);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** 자체 폼 create 모드의 필수 입력을 모두 채운다. */
 function fillCreateForm() {
   fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
     target: { value: '10기 신입 모집' },
   });
-  fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
-  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: '2026-05-31' } });
+  fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: localIsoDate(1) } });
+  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: localIsoDate(30) } });
   fireEvent.click(screen.getByRole('button', { name: '+ 질문 추가' }));
   fireEvent.change(screen.getByPlaceholderText('질문 1을 입력하세요'), {
     target: { value: '지원 동기를 알려주세요' },

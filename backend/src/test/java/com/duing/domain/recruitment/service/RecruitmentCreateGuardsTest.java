@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -153,6 +154,47 @@ class RecruitmentCreateGuardsTest {
                 .isSameAs(otherUniqueViolation);
     }
 
+    @Test
+    @DisplayName("종료일이 오늘보다 과거인 모집을 생성하려 하면 400 예외가 발생한다")
+    void rejectsPastEndDateOnCreate() {
+        stubClubAndAuth();
+
+        assertThatThrownBy(() -> recruitmentService.create(
+                buildCommand(kstToday().minusDays(3), kstToday().minusDays(1))))
+                .isInstanceOf(RecruitmentException.PastEndDateException.class);
+    }
+
+    @Test
+    @DisplayName("종료일이 과거인 생성 요청은 만료-OPEN 전임 모집을 자동 마감하기 전에 거부된다")
+    void rejectsPastEndDateBeforeAutoClosingPredecessor() {
+        stubClubAndAuth();
+        Recruitment expiredOpen = mock(Recruitment.class);
+        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.of(expiredOpen));
+
+        assertThatThrownBy(() -> recruitmentService.create(
+                buildCommand(kstToday().minusDays(3), kstToday().minusDays(1))))
+                .isInstanceOf(RecruitmentException.PastEndDateException.class);
+
+        verify(expiredOpen, never()).close(any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("종료일이 오늘인 모집은 오늘 하루 지원을 받을 수 있으므로 생성된다")
+    void allowsEndDateOfToday() {
+        stubClubAndAuth();
+        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.empty());
+        Recruitment savedRecruitment = mock(Recruitment.class);
+        when(savedRecruitment.getId()).thenReturn(999L);
+        when(recruitmentRepository.save(any(Recruitment.class))).thenReturn(savedRecruitment);
+
+        recruitmentService.create(buildCommand(kstToday().minusDays(3), kstToday()));
+    }
+
+    /** 서비스 clock 과 같은 KST 기준 오늘 — 무존 LocalDate.now() 는 UTC CI 러너에서 경계일이 하루 어긋난다. */
+    private LocalDate kstToday() {
+        return LocalDate.now(ZoneId.of("Asia/Seoul"));
+    }
+
     private void stubClubAndAuth() {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(CLUB_ID);
@@ -164,14 +206,18 @@ class RecruitmentCreateGuardsTest {
     }
 
     private CreateRecruitmentCommand buildCommand() {
+        return buildCommand(LocalDate.now(), LocalDate.now().plusDays(7));
+    }
+
+    private CreateRecruitmentCommand buildCommand(LocalDate startDate, LocalDate endDate) {
         return new CreateRecruitmentCommand(
                 CLUB_ID,
                 LEADER_ID,
                 "테스트 모집",
                 // EXTERNAL 은 안내문(content)을 실을 수 없고 URL 도 허용 플랫폼이어야 한다 (스펙 §2·§3).
                 null,
-                LocalDate.now(),
-                LocalDate.now().plusDays(7),
+                startDate,
+                endDate,
                 10,
                 ApplicationMode.EXTERNAL,
                 "https://forms.gle/aBcD1234",
