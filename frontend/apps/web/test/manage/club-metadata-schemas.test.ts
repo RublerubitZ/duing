@@ -58,7 +58,7 @@ describe('createRecruitmentSchema — 면접 일정 검증', () => {
     endDate: '2026-05-31',
     capacity: 10,
     applicationMode: 'EXTERNAL' as const,
-    externalFormUrl: 'https://example.com/form',
+    externalFormUrl: 'https://forms.gle/aBcD1234',
     useInterview: false,
   };
 

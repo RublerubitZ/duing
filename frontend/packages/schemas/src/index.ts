@@ -152,6 +152,47 @@ export const questionItemSchema = z
 
 export type QuestionItemInput = z.infer<typeof questionItemSchema>;
 
+// 외부 폼 URL 허용 플랫폼 (스펙 §3). BE ExternalFormUrlValidator.ALLOWED_HOSTS 와 같은 목록이어야 한다 —
+// 양쪽 테스트가 이 리터럴을 그대로 단언하므로 한쪽만 플랫폼을 늘리면 반대쪽 테스트가 깨져 드리프트를 알린다
+// (회원 이름 금칙어 목록 전례). 플랫폼 추가는 여기 한 줄 + BE 한 줄로 끝난다.
+export const ALLOWED_EXTERNAL_FORM_HOSTS: readonly { host: string; requiredPathPrefix: string }[] = [
+  { host: 'forms.gle', requiredPathPrefix: '' },
+  { host: 'docs.google.com', requiredPathPrefix: '/forms' },
+  { host: 'form.naver.com', requiredPathPrefix: '' },
+];
+
+export const EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE =
+  '외부 폼 URL 은 구글 폼(https://forms.gle/…, https://docs.google.com/forms/…) 또는 ' +
+  '네이버 폼(https://form.naver.com/…) 주소만 사용할 수 있습니다. ' +
+  '단축 URL 이 아닌 원본 주소를 입력해주세요.';
+
+/**
+ * 외부 폼 URL 화이트리스트 검증 — 호스트 정확 일치 + https 만 (BE ExternalFormUrlValidator 와 동일 판정).
+ * 부분 문자열·endsWith 로 판정하면 docs.google.com.evil.com 이 통과하므로 파싱한 hostname 을 그대로 비교한다.
+ */
+export function isAllowedExternalFormUrl(rawUrl: string): boolean {
+  // WHATWG URL 파서는 공백을 퍼센트 인코딩해 통과시키지만 BE(java.net.URI)는 파싱 단계에서 거부한다 —
+  // 붙여넣기 사고를 FE 에서 같은 결론으로 막아야 사용자가 저장 후에야 400 을 보지 않는다.
+  if (/\s/.test(rawUrl)) return false;
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  if (parsedUrl.protocol !== 'https:') return false;
+  // userinfo 트릭 — 사람 눈에는 docs.google.com 이지만 실제 호스트는 evil.com 이다.
+  if (parsedUrl.username !== '' || parsedUrl.password !== '') return false;
+
+  return ALLOWED_EXTERNAL_FORM_HOSTS.some(
+    (allowedHost) =>
+      allowedHost.host === parsedUrl.hostname &&
+      parsedUrl.pathname.startsWith(allowedHost.requiredPathPrefix),
+  );
+}
+
 export const createRecruitmentSchema = z
   .object({
     title: z
@@ -195,6 +236,18 @@ export const createRecruitmentSchema = z
       (typeof data.externalFormUrl === 'string' && data.externalFormUrl.trim().length > 0),
     {
       message: '외부 폼 URL은 필수 입력값입니다.',
+      path: ['externalFormUrl'],
+    },
+  )
+  // 미입력은 바로 위 refine 이 이미 안내한다 — 여기서는 값이 있을 때의 허용 플랫폼만 본다.
+  .refine(
+    (data) =>
+      data.applicationMode !== 'EXTERNAL' ||
+      data.externalFormUrl === undefined ||
+      data.externalFormUrl.trim().length === 0 ||
+      isAllowedExternalFormUrl(data.externalFormUrl),
+    {
+      message: EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE,
       path: ['externalFormUrl'],
     },
   )
