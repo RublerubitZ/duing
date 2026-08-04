@@ -31,6 +31,7 @@ import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
 import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -96,6 +97,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         Recruitment recruitment = recruitmentRepository.findById(createCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
+        // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라
+        // 마감일이 지나도 수동 마감 전(심사 진행 중)인 모집에서는 라운드 생성이 그대로 열려 있다.
+        if (recruitment.getStatus() == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
+        }
 
         User changedBy = userRepository.findById(createCommand.currentUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);

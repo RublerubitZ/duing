@@ -244,6 +244,46 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 .isEqualTo("해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.");
     }
 
+    @Test
+    @DisplayName("마감된 모집의 지원서가 섞이면 그 건만 마감 사유로 failures 에 담기고 진행 중 모집 건은 정상 처리된다")
+    void closedRecruitmentRowsGoToFailures() throws Exception {
+        User leader = saveUser("마감벌크리더", UserRole.STUDENT);
+        Club club = saveActiveClub("마감벌크동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        // 동아리당 활성(OPEN) 모집은 1건만 허용(V38)이라 마감 처리 후에 다음 모집을 만든다.
+        Recruitment closedRecruitment = recruitmentRepository.save(
+                Recruitment.create(club, "마감모집", null,
+                        LocalDate.now().minusDays(10), LocalDate.now().minusDays(3), 10));
+        Application applicationInClosedRecruitment =
+                saveApplicationWithStatus(closedRecruitment, ApplicationStatus.SUBMITTED, "마감지원자");
+        closedRecruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(closedRecruitment);
+
+        Recruitment openRecruitment = recruitmentRepository.save(
+                Recruitment.create(club, "진행모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+        Application applicationInOpenRecruitment =
+                saveApplicationWithStatus(openRecruitment, ApplicationStatus.SUBMITTED, "진행지원자");
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(applicationInClosedRecruitment.getId(), applicationInOpenRecruitment.getId()),
+                        leader.getId(),
+                        ApplicationStatus.ON_HOLD));
+
+        assertThat(result.updated()).isEqualTo(1);
+        assertThat(result.failures()).hasSize(1);
+        assertThat(result.failures().get(0).applicationId())
+                .isEqualTo(applicationInClosedRecruitment.getId());
+        // 권한이 확인된 운영진에게는 마감 사유를 그대로 알려준다 (일반 메시지로 가리지 않는다).
+        assertThat(result.failures().get(0).reason()).isEqualTo("마감된 모집은 조회만 가능합니다.");
+        assertThat(applicationRepository.findById(applicationInClosedRecruitment.getId())
+                .orElseThrow().getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(applicationRepository.findById(applicationInOpenRecruitment.getId())
+                .orElseThrow().getStatus()).isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
     private User saveUser(String name, UserRole role) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(

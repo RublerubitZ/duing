@@ -44,6 +44,7 @@ import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -259,6 +260,11 @@ public class GeneralApplicationService implements ApplicationService {
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
+        // 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다. 상태 가드보다 앞에 두어
+        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (recruitment lazy SELECT 1회 추가 — 무해).
+        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+            throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
+        }
         // 운영진이 아직 결정을 내리지 않은 동안(SUBMITTED·ON_HOLD)에만 학생이 스스로 철회할 수 있다.
         // ON_HOLD 는 지원자에게 SUBMITTED 와 구분되지 않는 상태이므로(스펙 §1-1) 철회 가능 여부도 같아야 한다.
         if (application.getStatus() != ApplicationStatus.SUBMITTED
@@ -350,6 +356,11 @@ public class GeneralApplicationService implements ApplicationService {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
+        // 마감된 모집은 아카이브 — 조회만 허용한다. 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고,
+        // 실패 사유는 failures[] 로 전파된다. 판정은 raw status 기준 — 마감일이 지나도 수동 마감 전이면 심사 진행 중이다.
+        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
+        }
 
         ApplicationStatus previousStatus = application.getStatus();
         application.transitionTo(

@@ -15,7 +15,9 @@ import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -329,6 +331,51 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .body(Map.of("title", "1차 면접", "applicationIds", List.of(1L)))
                 .when().post(CREATE_PATH, 999_999L)
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("마감된 모집에는 면접 라운드를 새로 만들 수 없고 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksRoundCreation() {
+        Application candidate = saveOnHoldApplication(recruitment, "마감후보");
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                .when().post(CREATE_PATH, recruitment.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+
+        // 라운드도 상태 전이도 일어나지 않았다.
+        assertThat(interviewRoundRepository.findAll().stream()
+                .filter(round -> round.getRecruitmentId().equals(recruitment.getId())))
+                .isEmpty();
+        assertThat(applicationRepository.findById(candidate.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    @Test
+    @DisplayName("마감일이 지났어도 마감 처리 전 모집이면 면접 라운드를 계속 만들 수 있다")
+    void expiredButOpenRecruitmentStillAllowsRoundCreation() {
+        Club underReviewClub = saveActiveClub("심사중라운드동아리");
+        clubMemberRepository.save(ClubMember.asLeader(underReviewClub, leader));
+        LocalDate today = LocalDate.now();
+        Recruitment underReviewRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                underReviewClub, "심사중모집-" + sequence.incrementAndGet(), null,
+                today.minusDays(10), today.minusDays(3), 10,
+                ApplicationMode.SELF, null, true, TargetRole.MEMBER,
+                today.plusDays(3), today.plusDays(10), false));
+        Application candidate = saveOnHoldApplication(underReviewRecruitment, "심사중후보");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
+                .when().post(CREATE_PATH, underReviewRecruitment.getId())
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test

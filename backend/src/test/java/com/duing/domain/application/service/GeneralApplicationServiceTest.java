@@ -16,6 +16,9 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.application.service.dto.command.BulkUpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
+import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
+import com.duing.domain.application.service.dto.query.ApplicantQuery;
+import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -25,7 +28,10 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.stats.service.RecruitmentStatsService;
+import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -65,6 +71,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired RecruitmentStatsService recruitmentStatsService;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired DataSource dataSource;
     @MockitoSpyBean ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
@@ -79,13 +86,32 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     private Recruitment activeRecruitment;
 
     private void setupClubAndLeader(String clubName) throws Exception {
+        setupClubAndLeader(clubName, "테스트 모집",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(7));
+    }
+
+    /**
+     * 마감일이 이미 지났지만 아직 수동 마감 전(raw status = OPEN)인 심사 진행 중 모집.
+     * 읽기 전용 판정은 raw status 기준이므로 이 모집은 전 기능이 유지돼야 한다.
+     */
+    private void setupClubAndLeaderWithExpiredPeriod(String clubName) throws Exception {
+        setupClubAndLeader(clubName, "심사 중 모집",
+                LocalDate.now().minusDays(10), LocalDate.now().minusDays(3));
+    }
+
+    private void setupClubAndLeader(String clubName, String recruitmentTitle,
+                                    LocalDate startDate, LocalDate endDate) throws Exception {
         User leader = saveUser("리더", UserRole.STUDENT);
         leaderId = leader.getId();
         Club club = saveActiveClub(clubName);
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         activeRecruitment = recruitmentRepository.save(
-                Recruitment.create(club, "테스트 모집", null,
-                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+                Recruitment.create(club, recruitmentTitle, null, startDate, endDate, 10));
+    }
+
+    private void closeActiveRecruitment() {
+        activeRecruitment.close(LocalDateTime.now());
+        activeRecruitment = recruitmentRepository.save(activeRecruitment);
     }
 
     private Long createSubmittedApplication() throws Exception {
@@ -377,6 +403,86 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
                     assertThat(historyRow.previousStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
                     assertThat(historyRow.newStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
                 });
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 8. 마감(CLOSED) 모집 읽기 전용 — 상태 변경·철회 차단, 조회·통계 유지
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("마감된 모집의 지원서는 상태를 변경할 수 없고 마감 안내와 함께 거절된다")
+    void closedRecruitmentRejectsStatusUpdate() throws Exception {
+        setupClubAndLeader("마감-상태변경동아리");
+        Long applicationId = createSubmittedApplication();
+        closeActiveRecruitment();
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD)))
+                .isInstanceOf(RecruitmentException.ClosedRecruitmentReadOnlyException.class);
+        assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("마감된 모집의 지원은 지원자가 철회할 수 없고 지원 데이터가 그대로 보존된다")
+    void closedRecruitmentRejectsWithdraw() throws Exception {
+        setupClubAndLeader("마감-철회동아리");
+        User applicant = saveUser("마감철회지원자", UserRole.STUDENT);
+        Long applicationId = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of())).getId();
+        closeActiveRecruitment();
+
+        assertThatThrownBy(() -> applicationService.withdraw(applicationId, applicant.getId()))
+                .isInstanceOf(ApplicationDomainException.CannotWithdrawClosedRecruitmentException.class);
+        assertThat(applicationRepository.findById(applicationId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("마감일이 지났어도 마감 처리 전 모집이면 지원 상태를 계속 변경할 수 있다")
+    void expiredButOpenRecruitmentStillAllowsStatusUpdate() throws Exception {
+        setupClubAndLeaderWithExpiredPeriod("심사중-상태변경동아리");
+        Long applicationId = createSubmittedApplication();
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD));
+
+        assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    @Test
+    @DisplayName("마감일이 지났어도 마감 처리 전 모집이면 지원자가 철회할 수 있다")
+    void expiredButOpenRecruitmentStillAllowsWithdraw() throws Exception {
+        setupClubAndLeaderWithExpiredPeriod("심사중-철회동아리");
+        User applicant = saveUser("심사중철회지원자", UserRole.STUDENT);
+        Long applicationId = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of())).getId();
+
+        applicationService.withdraw(applicationId, applicant.getId());
+
+        assertThat(applicationRepository.findById(applicationId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서도 지원자 목록·상세·이웃·통계 조회는 그대로 동작한다")
+    void closedRecruitmentStillAllowsApplicantReads() throws Exception {
+        setupClubAndLeader("마감-조회동아리");
+        Long applicationId = createSubmittedApplication();
+        closeActiveRecruitment();
+
+        ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
+        List<ApplicantQuery> applicants =
+                applicationService.getApplicants(activeRecruitment.getId(), leaderId, noFilter);
+        assertThat(applicants).hasSize(1);
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(applicationId, leaderId);
+        assertThat(detail.status()).isEqualTo(ApplicationStatus.SUBMITTED);
+
+        ApplicantNeighborsQuery neighbors = applicationService.getNeighbors(
+                activeRecruitment.getId(), applicationId, leaderId, noFilter);
+        assertThat(neighbors).isNotNull();
+
+        StatsSummaryQuery summary = recruitmentStatsService.getSummary(activeRecruitment.getId(), leaderId);
+        assertThat(summary.total()).isEqualTo(1);
+        assertThat(summary.submitted()).isEqualTo(1);
     }
 
     private ApplicationStatus statusOf(Long applicationId) {
