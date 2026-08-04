@@ -76,7 +76,7 @@ v1(가입 코드 1차 릴리스, #848~#854) 대비 변경: 코드 귀속을 Club
 - 재생성(폐기+신규)·인원 1~500·기수 지정·`used_count`(신청 시 차감·거절 환급) 정책은 v1 유지.
   절대 만료(7/30/90일)는 **가입 가능 기간 프리셋(§4.3)으로 대체** — `expires_at` 대신
   `join_window_days`(0/7/14) 저장, `recruitment.closed_at` 기준 파생 판정
-- **감사(Audit) 추적 — 이벤트 단위(최종)**: 신규 테이블 `join_link_audit_event`(RLS 필수) 에
+- **감사(Audit) 추적 — 이벤트 단위(최종)**: 신규 테이블 `club_audit_event`(RLS 필수 — 동아리 단위 운영 감사로 범용화, 이번엔 가입 링크 6종만 기록·향후 이벤트 타입 확장) 에
   6종 이벤트를 트랜잭션 내 기록 — `JOIN_LINK_CREATED / JOIN_LINK_REGENERATED / JOIN_LINK_REVOKED /
   JOIN_REQUEST_CREATED / JOIN_REQUEST_APPROVED / JOIN_REQUEST_REJECTED`
   (컬럼: recruitment_id·club_id·join_code_id·join_request_id nullable·event_type·actor_user_id·created_at).
@@ -202,7 +202,7 @@ EXTERNAL 모집 화면(작성 §1.2·관리 §5)에 절차 카드를 항상 표�
 
 가입 링크 화면 상단에 상시 표시: 링크 상태(🟢 활성/만료/폐기) · 가입 가능 기간
 (OPEN: "모집 종료 후 N일" 텍스트 / CLOSED: 실제 만료 일시 "YYYY-MM-DD HH:mm까지") ·
-**현재 가입 신청 수(누적 요청)** · **승인 대기 수(PENDING)**. 카운트는 BE 활성 링크 응답에 포함
+**누적 가입 신청 수** · **승인 대기 수(PENDING)**. 카운트는 BE 활성 링크 응답에 포함
 (FE 클라이언트 합산 금지 — 단일 출처).
 
 ## 8. 차감 정책 안내 + 유출 경고
