@@ -45,12 +45,13 @@ public enum AdminRecruitmentSort { LATEST, APPLICANTS, DEADLINE }
 
 public record AdminRecruitmentSearchCondition(String q, RecruitmentStatus status,
         ApplicationMode mode, AdminRecruitmentSort sort) {}
+// sort 생략(null) 시 LATEST — 컨트롤러에서 @RequestParam(defaultValue = "LATEST") 로 고정
 
 // repository — count 는 EXTERNAL 포함 전 모집에 대해 leftJoin groupBy 로 산출, 응답 매핑에서 EXTERNAL 은 null 처리
 public interface RecruitmentRepositoryCustom {
     List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition condition); // 기존 메서드에 추가
 }
-public record AdminRecruitmentRow(Recruitment recruitment, long applicantCount) {}
+public record AdminRecruitmentRow(Recruitment recruitment, String clubName, long applicantCount) {}
 
 public record AdminRecruitmentSummaryResponse(
         Long recruitmentId, Long clubId, String clubName, String title,
@@ -62,30 +63,30 @@ public record AdminJoinLinkStatusResponse(
         String linkStatus,            // "ACTIVE" | "EXPIRED" | "EXHAUSTED" — 활성 코드 없으면 응답 자체가 null
         Integer generation, int maxUses, int usedCount,
         long totalRequestCount, long pendingCount,
-        long enrolledCount,           // 서버 계산: usedCount - pendingCount (차감·환급 불변식)
+        long enrolledCount,           // 서버 계산: usedCount - pendingCount (차감·환급 불변식).
+                                      // 활성 코드 기준 누적 승인 수 — 재생성 시 리셋·탈퇴 미반영(스펙 5.3 각주)
         int joinWindowDays, Instant joinExpiresAt) {}   // code 6자리 값은 절대 미포함
 
 public record AdminRecruitmentDetailResponse(
         Long recruitmentId, Long clubId, String clubName, String title,
         ApplicationMode applicationMode, RecruitmentStatus status,
-        Long applicantCount, LocalDate startDate, LocalDate endDate,
-        Instant closedAt, Instant updatedAt,
+        Long applicantCount, LocalDate startDate, LocalDate endDate, Instant updatedAt,
         String externalFormUrl,                       // SELF 면 null
-        AdminJoinLinkStatusResponse joinLink) {}      // SELF·활성 코드 없음이면 null
+        AdminJoinLinkStatusResponse joinLink) {}      // SELF·활성 코드 없음이면 null (없음="코드 없음" 표시)
 ```
 
 **Requirements:**
 - 컨트롤러/API 분리·어노테이션 배치는 `AdminUserApi`/`AdminUserController` 패턴 그대로 (`@Tag`, `@SecurityRequirement(name = "BearerAuth")`, 컨트롤러에 `@PreAuthorize("hasRole('ADMIN')")`).
-- `searchForAdmin` QueryDSL: `select(recruitment, application.count())` + `join(recruitment.club, club).fetchJoin()` + `leftJoin(application).on(application.recruitment.eq(recruitment).and(application.deletedAt.isNull()))` + `groupBy(recruitment.id, club.id)`.
+- `searchForAdmin` QueryDSL: `select(recruitment, club.name, application.count())` + `join(recruitment.club, club)`(**fetchJoin 금지** — groupBy 병용은 레포 무전례·Hibernate 검증 리스크, clubName 은 스칼라로 뽑는다) + `leftJoin(application).on(application.recruitment.eq(recruitment).and(application.deletedAt.isNull()))` + `groupBy(recruitment.id, club.name)`.
   - `q`: `club.name` 또는 `recruitment.title` containsIgnoreCase OR (null-safe BooleanExpression — `ApplicantSearchCondition` 전례).
   - `status`/`mode`: eq 필터(널이면 미적용). 삭제 모집은 `@SQLRestriction` 암묵 제외.
   - 정렬: LATEST=`recruitment.createdAt.desc()` / APPLICANTS=`application.count().desc()` 후 createdAt desc / DEADLINE=`recruitment.endDate.asc().nullsLast()` 후 createdAt desc.
-- 상세의 joinLink 조립(EXTERNAL만): `clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(recruitmentId)` + `clubJoinRequestRepository.countByJoinCodeId(...)` / `countByJoinCodeIdAndStatus(..., PENDING)` — `GeneralJoinCodeService.findActive:100-109`와 동일 조립이되 **requireManager 없이**. linkStatus 판정: 소진(`usedCount >= maxUses`) → EXHAUSTED, `getJoinExpiresAt() != null && now 이후` → EXPIRED, 그 외 ACTIVE. (revoked 는 활성 조회에서 이미 제외.)
+- 상세의 joinLink 조립(EXTERNAL만): `clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(recruitmentId)` 후 **`JoinCodeQuery.from(joinCode, countByJoinCodeId(...), countByJoinCodeIdAndStatus(..., PENDING))` 정적 팩토리를 그대로 호출**하고 admin 응답으로 매핑(requireManager 없이 — 인라인 재조립 금지, `GeneralJoinCodeService.findActive:100-109` 참조). linkStatus 판정은 `isUsable` 의미와 정렬: 소진(`usedCount >= maxUses`) → EXHAUSTED / 모집 OPEN → ACTIVE / CLOSED면 `getJoinExpiresAt()`이 null(closedAt 스탬프 없음 — fail-closed)이거나 경과 → EXPIRED, 기한 이내 → ACTIVE. (revoked 는 활성 조회에서 이미 제외 → 응답 null = "코드 없음".)
 - 404: `RecruitmentException.RecruitmentNotFoundException` 재사용.
 - 페이지네이션 없음(스펙 2.1).
 
 **Steps:**
-- [ ] RestAssured 실패 테스트 먼저: ADMIN 목록 200(전 동아리 노출·EXTERNAL applicantCount null·삭제 모집 제외), q/status/mode 필터, 3종 정렬(DEADLINE은 상시모집 맨 뒤 단언), 상세 SELF(joinLink null)/EXTERNAL(활성 코드 → linkStatus·enrolledCount·**code 필드 부재** 단언), 404, STUDENT·운영진(LEADER) 403, 미인증 401. 시드는 `UserFixture.admin()`/`unique()` + `jwtTokenProvider.createToken(id, role)` (AdminUrlLayerAuthorizationAcceptanceTest 패턴), 날짜는 `LocalDate.now()` 상대값.
+- [ ] RestAssured 실패 테스트 먼저: ADMIN 목록 200(전 동아리 노출·EXTERNAL applicantCount null·삭제 모집 제외), q/status/mode 필터, 3종 정렬(DEADLINE은 상시모집 맨 뒤 단언), 상세 SELF(joinLink null)/EXTERNAL(활성 코드 → linkStatus·enrolledCount·**code 필드 부재** 단언), 404, 일반 STUDENT 403·클럽 LEADER 멤버십 보유 STUDENT 403(전역 role 은 STUDENT/ADMIN 2종 — 운영진도 STUDENT 토큰), 미인증 401. 시드는 `UserFixture.admin()`/`unique()` + `jwtTokenProvider.createToken(id, role)` (AdminUrlLayerAuthorizationAcceptanceTest 패턴), 날짜는 `LocalDate.now()` 상대값.
 - [ ] `cd backend && ./gradlew test --tests '*AdminRecruitmentQuery*'` — 컴파일 실패/FAIL 확인
 - [ ] 구현: repository → service → response 매핑(`TimeMapper.seoulWallClockToInstant`) → controller/api
 - [ ] `cd backend && ./gradlew test` — BUILD SUCCESSFUL (전체 초록 = leader 경로 회귀 0 증명)
@@ -138,11 +139,13 @@ public void forceClose(Long recruitmentId, Long adminUserId, String reason) {
             .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
     recruitment.close(LocalDateTime.now(clock));   // 중복 마감 409 는 close() 내부에서 발생·전파
     clubAuditEventRepository.save(ClubAuditEvent.adminForceClose(
-            recruitment.getClub().getId(), recruitmentId, adminUserId, blankToNull(reason)));
+            recruitment.getClub().getId(), recruitmentId, adminUserId, normalizeReason(reason)));
 }
+// normalizeReason: (reason == null || reason.isBlank()) ? null : reason.trim()
+// — 공용 유틸 없음(Club.blankToNull 은 private), 이 서비스의 private static 헬퍼로 둔다
 
 // GET /api/v1/admin/recruitments/{recruitmentId}/applications?q=&status=&sort=LATEST
-public enum AdminApplicantSort { LATEST, OLDEST }
+public enum AdminApplicantSort { LATEST, OLDEST }   // 생략 시 LATEST — @RequestParam(defaultValue = "LATEST")
 // repository — 기존 private 조건 빌더 재사용, 평가·면접 조인 없음(admin 은 myScore/interview 불필요)
 List<Application> searchApplicantsForAdmin(Long recruitmentId, ApplicantSearchCondition condition, boolean oldestFirst);
 
@@ -170,7 +173,7 @@ public record AdminApplicationDetailResponse(
 - 404: `ApplicationDomainException` 계열 기존 not-found 재사용.
 
 **Steps:**
-- [ ] 실패 테스트 먼저 — 강제 마감: OPEN→204+`closedAt` not null 단언 / 중복 마감 409 / reason 포함 `RECRUITMENT_FORCE_CLOSED` 이벤트 1건(reason·actor·recruitmentId) / **EXTERNAL 마감 후 활성 링크 `isUsable(now)` true 유지**(joinWindow 내) / 권한 4종. 지원자: 필터·검색·정렬 asc/desc·statusCounts·EXTERNAL 빈 200 / 상세: 응답 필드(phone 부재 단언)·`APPLICATION_VIEWED` 이벤트(applicationId)·목록 조회 시 이벤트 0건 / 권한 4종. 상태 시드는 FSM 이후에도 살아남는 값만(SUBMITTED/ACCEPTED/REJECTED).
+- [ ] 실패 테스트 먼저 — 강제 마감: OPEN→204+`closedAt` not null 단언 / 중복 마감 409 / reason 포함 `RECRUITMENT_FORCE_CLOSED` 이벤트 1건(reason·actor·recruitmentId) / **EXTERNAL 마감 후 활성 링크 `isUsable(now)` true 유지**(joinWindow 내) / 권한 4종(ADMIN 200·일반 STUDENT 403·클럽 LEADER 멤버십 STUDENT 403·미인증 401). 지원자: 필터·검색·정렬 asc/desc·statusCounts·EXTERNAL 빈 200 / 상세: 응답 필드(phone 부재 단언)·`APPLICATION_VIEWED` 이벤트(applicationId)·목록 조회 시 이벤트 0건 / 권한 4종(동일 구성). 상태 시드는 FSM 이후에도 살아남는 값만(SUBMITTED/ACCEPTED/REJECTED).
 - [ ] `./gradlew test --tests '*AdminRecruitmentForceClose*' --tests '*AdminApplicationController*'` — FAIL 확인
 - [ ] V104 마이그레이션 + 엔티티 확장 + 서비스/컨트롤러 구현
 - [ ] `cd backend && ./gradlew test` — BUILD SUCCESSFUL (RowLevelSecurityMigrationTest 포함 전체 초록)
@@ -211,7 +214,7 @@ export type AdminJoinLinkStatus = {
   joinWindowDays: number; joinExpiresAt: string | null;
 };
 export type AdminRecruitmentDetail = AdminRecruitmentSummary & {
-  closedAt: string | null; externalFormUrl: string | null; joinLink: AdminJoinLinkStatus | null;
+  externalFormUrl: string | null; joinLink: AdminJoinLinkStatus | null;
 };
 export type ForceCloseRecruitmentPayload = { reason?: string };
 
@@ -228,7 +231,7 @@ recruitments: {
 
 **Requirements:**
 - 훅: `useAdminRecruitmentsQuery(params)` / `useAdminRecruitmentDetailQuery(recruitmentId)` / `useForceCloseRecruitmentMutation()`(onSuccess → `invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll })`) — `admin.ts`의 useQuery/useMutation 패턴 그대로.
-- adminSections 엔트리: `{ href: '/admin/recruitments', title: '모집 관리', description: '전 동아리 모집 현황·강제 마감·지원자 열람', group: '동아리', icon: Megaphone }` (pendingCountKey 없음).
+- adminSections 엔트리: `{ href: '/admin/recruitments', title: '모집 관리', description: '전 동아리 모집 현황·강제 마감·지원자 열람', group: '동아리', icon: ClipboardList }` (pendingCountKey 없음 — `Megaphone` 은 '홍보 관리' 부모가 이미 사용 중이라 회피).
 - 목록 페이지: `AdminUsersPage` 골격 재사용 — 검색 input(state, `useDebouncedValue(input.trim(), 300)`, URL 미노출), 필터 칩(status/mode)·정렬 select는 로컬 state. 테이블 컬럼: 동아리명/제목/방식/상태/지원자 수(null → "—")/기간(endDate null → "상시")/마지막 수정일. 행 클릭 → `/admin/recruitments/[id]` 이동.
 - **운영 개입 배지**: `status === 'OPEN' && endDate !== null && endDate < 오늘` → "운영 개입 필요" 배지(주의 색). FE 파생 계산 전용 — 강제 마감 가능 여부는 `status === 'OPEN'`만 본다.
 - 방식 라벨(`_lib/recruitmentLabels.ts`): SELF → "자체 지원", EXTERNAL → `externalFormPlatformLabel(externalFormUrl) ?? '외부 폼'` (`@/app/manage/clubs/[clubId]/recruitments/_lib/externalFormPlatform` import 재사용).
@@ -241,8 +244,8 @@ recruitments: {
   - 409(ApiError.status === 409) → errorMessage "이미 마감된 모집입니다." / 성공 → 토스트 "모집을 마감했습니다." + target null.
 
 **Steps:**
-- [ ] 실패 테스트 먼저(vi.mock `@duing/hooks`·`next/navigation`·토스트·`useDebouncedValue` 항등 — admin-users.test.tsx 상단 관례 복사): 목록 렌더·EXTERNAL "—"·개입 배지 조건(기간 경과 OPEN만)·방식 라벨 / 상세 EXTERNAL 패널(안내 문구·카드 4칸·**지원자 테이블 부재 단언**)·CLOSED면 마감 버튼 부재 / 다이얼로그(방식별 문구·사유 카운터·409 에러 표시·성공 콜백)
-- [ ] `cd frontend && pnpm test --filter web -- admin/recruitments` — FAIL 확인
+- [ ] 실패 테스트 먼저(vi.mock `@duing/hooks`·`next/navigation`·토스트·`useDebouncedValue` 항등 — admin-users.test.tsx 상단 관례 복사): 목록 렌더·EXTERNAL "—"·개입 배지 조건(기간 경과 OPEN만)·방식 라벨 / 상세 EXTERNAL 패널(안내 문구·카드 4칸·**joinLink null → "코드 없음" 분기**·**지원자 테이블 부재 단언**)·CLOSED면 마감 버튼 부재 / 다이얼로그(방식별 문구·사유 카운터·409 에러 표시·성공 콜백)
+- [ ] `cd frontend && pnpm --filter @duing/web test -- --run admin/recruitments` — FAIL 확인 (`--filter`는 pnpm 전역 플래그·패키지명은 `@duing/web`·`--run` 없으면 watch 행)
 - [ ] types → client(두 곳) → keys/hooks/barrel → adminSections → 페이지·컴포넌트 구현
 - [ ] `cd frontend && pnpm test && pnpm lint && pnpm typecheck` — 전체 통과 확인
 - [ ] 커밋: `feat(frontend): 관리자 모집 콘솔 — 전 동아리 목록·상세·강제 마감·외부 모집 안내`
@@ -253,6 +256,7 @@ recruitments: {
 
 **Files:**
 - Modify: `frontend/packages/types/src/recruitment.ts` — 지원자 타입 추가
+- Modify: `frontend/packages/types/src/application.ts` — **`APPLICATION_STATUSES`에 `export` 추가(1줄)** — 현재 모듈-프라이빗 const 라 미노출, 이 줄 없이는 Task 4 지시대로 import 불가
 - Modify: `frontend/packages/api/src/client.ts` — `admin.recruitments.applications`/`applicationDetail` 선언+구현
 - Modify: `frontend/packages/hooks/src/adminQueryKeys.ts` + `adminRecruitments.ts` + `index.ts`
 - Create: `frontend/apps/web/app/admin/recruitments/[recruitmentId]/_components/AdminSelfRecruitmentPanel.tsx`, `AdminApplicantsTable.tsx`, `AdminApplicationSheet.tsx`
@@ -285,14 +289,14 @@ export type AdminApplicationDetail = {
 ```
 
 **Requirements:**
-- 훅: `useAdminApplicantsQuery(recruitmentId, params)` / `useAdminApplicationDetailQuery(applicationId | undefined)` — nullable id 는 sentinel key+`enabled` 패턴(`useAdminUserDetailQuery` 전례). queryKey: `recruitmentsApplications(recruitmentId, params)` / `applicationsDetail(applicationId)`.
+- 훅: `useAdminApplicantsQuery(recruitmentId, params)` / `useAdminApplicationDetailQuery(applicationId | undefined)` — nullable id 는 sentinel(`?? -1`)+`enabled` 패턴(`packages/hooks/src/reports.ts:21` 전례). queryKey: `recruitmentsApplications(recruitmentId, params)` / `applicationsDetail(applicationId)`.
 - `AdminSelfRecruitmentPanel`: 상단 요약 카드(총 지원자 `total` + 상태별 카운트 — `APPLICATION_STATUSES` 순회 × `APPLICATION_STATUS_LABEL` 공용 상수, 카운트 없으면 0 표시) → 검색 input(디바운스 300, URL 미노출) + 상태 필터 칩(전체 + enum 순회) + 정렬 select(최신순/오래된순) → `AdminApplicantsTable`(이름/학번/학부·학과/상태 뱃지/지원일 — **체크박스·일괄 처리 없음, 읽기 전용**) → 행 클릭 시 `AdminApplicationSheet` 조건부 마운트. 지원자 0명+필터 없음 → `EmptyState`.
-- `AdminApplicationSheet`(`AdminUserDetailSheet` 패턴 — `Sheet open` + `onOpenChange`→`onClose`, 데이터 래퍼와 presentational `AdminApplicationSheetContent` 분리 export): 프로필(이름·학번·학부·학과·지원일) / 상태+이력 타임라인(라벨은 공용 상수) / 질문·답변 목록(답변 빈 문자열 → "미작성" 회색 표기). 수정 액션 일절 없음.
+- `AdminApplicationSheet`(`AdminUserDetailSheet` 패턴 — `Sheet open` + `onOpenChange`→`onClose`, 데이터 래퍼와 presentational `AdminApplicationSheetContent` 분리 export): 헤더에 `clubName · recruitmentTitle` 컨텍스트 표기 / 프로필(이름·학번·학부·학과·지원일) / 상태+이력 타임라인(라벨은 공용 상수) / 질문·답변 목록(답변 빈 문자열 → "미작성" 회색 표기). 수정 액션 일절 없음.
 - 상태 라벨·enum 은 전부 `@duing/types`의 `APPLICATION_STATUSES`/`isApplicationStatus` + `@/app/_constants/application-status`의 `APPLICATION_STATUS_LABEL` 재사용 — FSM(#864) 변경 자동 흡수, 이 PR 에 상태 리터럴 하드코딩 금지.
 
 **Steps:**
-- [ ] 실패 테스트 먼저: 요약 카드(서버 값 그대로 렌더·0 폴백) / 필터·정렬 파라미터 전달(mock 호출 인자 단언) / 테이블 읽기 전용(체크박스 부재) / 시트(프로필·답변·이력 렌더, "미작성" 폴백, onClose) — 시트 테스트는 Content 직접 렌더(전례)
-- [ ] `cd frontend && pnpm test --filter web -- admin/recruitments` — FAIL 확인
+- [ ] 실패 테스트 먼저: 요약 카드(서버 값 그대로 렌더·0 폴백) / 필터·정렬 파라미터 전달(mock 호출 인자 단언) / 테이블 읽기 전용(체크박스 부재) / 시트(헤더 컨텍스트·프로필·답변·이력 렌더, "미작성" 폴백, onClose) — 시트 테스트는 Content 직접 렌더(전례)
+- [ ] `cd frontend && pnpm --filter @duing/web test -- --run admin/recruitments` — FAIL 확인
 - [ ] types → client → keys/hooks → 컴포넌트 → 상세 페이지 분기 장착
 - [ ] `cd frontend && pnpm test && pnpm lint && pnpm typecheck` — 전체 통과
 - [ ] 커밋: `feat(frontend): 관리자 지원자 목록·지원서 열람 — 상태 요약·검색 필터·읽기 전용 시트`

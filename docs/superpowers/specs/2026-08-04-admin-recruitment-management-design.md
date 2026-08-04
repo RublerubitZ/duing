@@ -5,8 +5,11 @@
 외부(EXTERNAL) 모집의 가입 링크 현황 조회, 그리고 모든 관리자 행위의 감사 기록을 제공한다.
 
 **SoT**: develop `1ccc983e` 이후 — 외부 폼 v2(#865~#873) 반영 완료 상태.
-**착수 전제**: 지원 FSM 단순화(#863/#864) 머지 후 분기한다 — V103 선점, `ApplicationStatus`
-enum·stats DTO 변경을 rebase 없이 흡수하기 위함. 신규 마이그레이션은 **V104부터**.
+**착수 전제**: BE-1·FE-1은 FSM 단순화(#863/#864)와 도메인·파일이 겹치지 않아 즉시 착수한다.
+BE-2의 마이그레이션 번호는 **머지 직전 develop 재확인** — FSM(V103)이 먼저 머지되면 V104,
+우리가 먼저면 V103으로 리네임하고 FSM이 V104를 쓴다(Flyway out-of-order 금지).
+이 문서의 "V104"는 이 규칙의 대표 표기다. 지원 상태를 만지는 코드·테스트는 FSM 전후 모두
+생존하는 값(SUBMITTED/ACCEPTED/REJECTED)과 enum-agnostic 구조(Map 카운트·공용 라벨)만 쓴다.
 
 ---
 
@@ -31,8 +34,8 @@ enum·stats DTO 변경을 rebase 없이 흡수하기 위함. 신규 마이그레
 
 ### 2.1 `GET /admin/recruitments` — 모집 목록
 - 파라미터: `q`(동아리명·제목 부분일치 OR, ignoreCase), `status`(OPEN/CLOSED, 저장 상태),
-  `mode`(SELF/EXTERNAL), `sort`(`latest`=createdAt desc 기본 / `applicants`=지원자 수 desc /
-  `deadline`=endDate asc **NULLS LAST**·상시모집 맨 뒤)
+  `mode`(SELF/EXTERNAL), `sort`(`LATEST`=createdAt desc / `APPLICANTS`=지원자 수 desc /
+  `DEADLINE`=endDate asc **NULLS LAST**·상시모집 맨 뒤 — 생략 시 `LATEST`, 대문자 enum 바인딩)
 - 응답 항목: recruitmentId, clubId, clubName, title, applicationMode, status,
   applicantCount(**SELF만 count 쿼리, EXTERNAL은 null → FE "—"**), startDate, endDate, updatedAt
 - QueryDSL — `RecruitmentRepositoryCustom` 확장. soft delete는 `@SQLRestriction` 암묵 적용.
@@ -55,16 +58,18 @@ enum·stats DTO 변경을 rebase 없이 흡수하기 위함. 신규 마이그레
 - 운영진 수동 마감과 동시 경합: 둘 다 `close()` 경유라 최종 상태 동일, 한쪽 409 — 추가 잠금 불요.
 
 ### 2.4 `GET /admin/recruitments/{recruitmentId}/applications` — 지원자 목록 (SELF)
-- 파라미터: `q`(이름·학번), `status`(실제 `ApplicationStatus` enum 값만), `sort`(`latest` 기본/`oldest`)
-- 응답: `{ summary: { total, 상태별 카운트… }, applicants: [...] }`
-  - summary는 기존 stats groupBy 쿼리(`RecruitmentStatsRepositoryImpl`) 재사용 — 별도 통계 API 없음
+- 파라미터: `q`(이름·학번), `status`(실제 `ApplicationStatus` enum 값만), `sort`(`LATEST` 기본/`OLDEST`)
+- 응답: `{ total, statusCounts: { 상태 → 건수 }, applicants: [...] }` — 상태별 카운트는 고정 필드가
+  아니라 맵(enum-agnostic, FSM 변경 자동 흡수)
+  - statusCounts는 기존 stats groupBy 쿼리(`RecruitmentStatsRepositoryImpl.findSummaryByRecruitmentId`)
+    재사용 — 별도 통계 API 없음
   - applicants 항목: applicationId, userName, studentId, college, major, status, submittedAt
     (운영진 응답의 grade·answers 미리보기·myScore는 미노출)
 - **EXTERNAL 모집이면 빈 목록 200** (지원 데이터가 없다는 사실 그대로 — 에러 아님, 테스트로 정책 고정).
   단 이는 API 계층 정책이다 — **프론트는 EXTERNAL에서 이 API를 호출하지 않으며, 빈 테이블·"지원자 0명"을
   렌더링하지 않는다.** EXTERNAL 상세의 기본 UX는 정책 안내 패널(5.3)이다.
-- 정렬 파라미터는 `ApplicationRepositoryImpl.searchApplicants`에 방향 인자 추가
-  (운영진 경로 기본값 createdAt desc 유지 — 기존 호출부 무변).
+- 정렬은 admin 전용 `searchApplicantsForAdmin`(평가·면접 조인 없는 lean 쿼리, 기존 private 조건
+  빌더 재사용) 신설로 구현 — 기존 `searchApplicants`·`findNeighbors`는 무변경(운영진 경로 회귀 0).
 
 ### 2.5 `GET /admin/applications/{applicationId}` — 지원서 상세 (읽기 전용)
 - 응답: applicant(name·studentId·college·major — **phone 제외**), submittedAt, status,
@@ -108,9 +113,10 @@ ALTER TABLE club_audit_event ADD COLUMN reason VARCHAR(500);
   컨트롤러 `@PreAuthorize("hasRole('ADMIN')")` + FE `middleware.ts`(auth_hint) + `AdminRoleGuard`(fail-closed).
 - 서비스 계층 별도 role 검사는 두지 않는다 — 기존 admin 컨트롤러 15개 선례와 일관,
   두 계층의 독립성은 `AdminUrlLayerAuthorizationAcceptanceTest` 패턴으로 회귀 잠금.
-- IDOR: admin은 전 동아리 접근이 정당하므로 소유권 대조가 아니라 **역할 경계**가 방어선 —
-  STUDENT·동아리 운영진(LEADER/OFFICER) 토큰으로 신규 5개 엔드포인트 전부 403,
-  미인증 401을 엔드포인트별 테스트로 고정.
+- IDOR: admin은 전 동아리 접근이 정당하므로 소유권 대조가 아니라 **역할 경계**가 방어선.
+  전역 role은 `UserRole { STUDENT, ADMIN }` 2종뿐이라 동아리 운영진(LEADER/OFFICER)도 토큰상
+  STUDENT다 — 케이스는 "일반 STUDENT 403"과 "클럽 LEADER 멤버십 보유 STUDENT 403"(운영진이
+  admin API에 못 들어옴을 증명) + 미인증 401을 신규 5개 엔드포인트별 테스트로 고정.
 - 지원서 상세는 읽기 전용 — 상태 변경·수정 API를 만들지 않는다.
 
 ## 5. 프론트엔드
@@ -141,10 +147,13 @@ ALTER TABLE club_audit_event ADD COLUMN reason VARCHAR(500);
 - 정책 안내 패널: "외부 모집은 두잉에서 지원서를 관리하지 않습니다. 회원 등록은 가입 코드 → 가입 요청 →
   운영진 승인 절차로 진행됩니다." + 외부 폼 URL(플랫폼 라벨 + 링크)
 - 요약 카드(읽기 전용, 2.2의 JoinCodeQuery 필드 파생):
-  가입 코드 상태(활성/폐기/만료/소진·없음) · 가입 요청 수(totalRequestCount) · 승인 대기(pendingCount) ·
+  가입 코드 상태(활성/만료/소진/없음 — **폐기된 코드는 활성 조회에서 제외되므로 "없음"으로 표시**) ·
+  가입 요청 수(totalRequestCount) · 승인 대기(pendingCount) ·
   회원 등록 수(`enrolledCount` — **서버 계산값**). 등록 수는 admin 상세 응답 조립 시 서버가 계산해 내려준다
   (현 구현은 차감·환급 불변식상 `usedCount − pendingCount`와 동치이나, 계산식은 서버 소관 —
   **프론트는 서버 값을 표시만 하고 새 비즈니스 계산 로직을 만들지 않는다**).
+  각주: 이 수치는 **활성 코드 기준 누적 승인 수**다 — 코드 재생성 시 새 코드 기준으로 리셋되고
+  (구 코드 등록분 미포함), 승인 후 탈퇴·제명은 반영하지 않는다. 카드 라벨은 이 의미로 읽는다.
 - 코드 6자리 값은 admin 화면에 노출하지 않는다(유출 리스크·불필요).
 
 Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼재를 금지한다.
@@ -171,11 +180,13 @@ Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼�
 - 목록: 검색·필터·정렬(NULLS LAST 포함)·삭제 모집 제외
 - 날짜는 상대값 사용(하드코딩 미래 절대날짜 금지 — CI 시한폭탄 방지)
 
-**프론트** (`apps/web/test/admin/recruitments/` — vitest + RTL + msw):
+**프론트** (`apps/web/test/admin/recruitments/` — vitest + RTL, `vi.mock('@duing/hooks')` 모듈 모킹이
+admin 테스트 관례·msw 미사용):
 - 방식별 UI 분기(SELF 테이블 / EXTERNAL 안내 패널 — 지원자 테이블 부재 단언)
 - 요약 카드 표시(서버 값 그대로 렌더 — FE 계산 없음, 코드 없음 상태 분기)
 - 강제 마감 다이얼로그(사유 입력·EXTERNAL 안내 문구·409 처리) / 운영 개입 배지 조건
-- AdminRoleGuard 차단(비 ADMIN)
+- 권한 차단은 페이지별 테스트를 두지 않는다 — 신규 라우트가 `app/admin/` 하위인 것으로
+  `admin/layout.tsx`의 `AdminRoleGuard`+`middleware.ts` 공통 가드가 적용(기존 테스트가 커버)
 
 ## 7. PR 분할·순서
 
