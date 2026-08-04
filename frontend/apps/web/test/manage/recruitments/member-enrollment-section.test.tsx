@@ -362,6 +362,26 @@ describe('모집 상세 — 가입 링크 생성', () => {
     await waitFor(() => expect(created).toEqual({ maxUses: 30, joinWindowDays: 14, generation: 12 }));
   });
 
+  // 0 은 falsy 라 기본값·미전송으로 뭉개지기 쉬운 프리셋이다 — 그대로 실려 가는지 따로 고정한다.
+  it('모집 종료일까지를 고르면 joinWindowDays 0 을 그대로 보낸다', async () => {
+    let created: unknown = null;
+    setupExternal({ useGeneration: false });
+    server.use(
+      http.post(`*/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/join-codes`, async ({ request }) => {
+        created = await request.json();
+        return HttpResponse.json({ ok: true, message: null, data: joinCode() }, { status: 201 });
+      }),
+    );
+
+    renderPage();
+
+    await userEvent.type(await screen.findByRole('spinbutton', { name: '최대 사용 인원' }), '20');
+    await userEvent.click(screen.getByRole('radio', { name: '모집 종료일까지' }));
+    await userEvent.click(screen.getByRole('button', { name: '가입 링크 만들기' }));
+
+    await waitFor(() => expect(created).toEqual({ maxUses: 20, joinWindowDays: 0 }));
+  });
+
   it('인원이 비어 있으면 요청하지 않고 입력을 안내한다', async () => {
     setupExternal();
 

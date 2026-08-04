@@ -170,6 +170,7 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
     renderPage();
 
     expect(await screen.findByText('유효하지 않은 가입 링크입니다')).toBeInTheDocument();
+    expect(screen.getByText('링크가 아직 유효한지 동아리에 확인해 주세요.')).toBeInTheDocument();
   });
 
   it('사용할 수 없는 코드도 같은 문구로 안내한다', async () => {
