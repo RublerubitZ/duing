@@ -23,6 +23,7 @@ import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
+import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
@@ -170,9 +171,12 @@ export default function ApplicantsPage({ params }: PageParams) {
         >
           ← 모집 상세로 돌아가기
         </Link>
-        <h1 className="text-xl font-bold text-slate-900">
-          {recruitment.title} — 지원자 관리
-        </h1>
+        {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
+            드롭다운은 목록을 못 받으면 스스로 숨으므로(fail-open) 헤더 골격은 그대로 유지된다. */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-xl font-bold text-slate-900">지원자 관리</h1>
+          <RecruitmentSwitcher clubId={clubId} currentRecruitmentId={recruitmentId} />
+        </div>
       </div>
 
       {/* 외부 폼 안내 — 지원서를 두잉에서 받지 않으므로 목록 대신 안내와 되돌아갈 길만 준다(§5.1) */}
