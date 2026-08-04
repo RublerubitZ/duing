@@ -60,7 +60,9 @@ enum·stats DTO 변경을 rebase 없이 흡수하기 위함. 신규 마이그레
   - summary는 기존 stats groupBy 쿼리(`RecruitmentStatsRepositoryImpl`) 재사용 — 별도 통계 API 없음
   - applicants 항목: applicationId, userName, studentId, college, major, status, submittedAt
     (운영진 응답의 grade·answers 미리보기·myScore는 미노출)
-- **EXTERNAL 모집이면 빈 목록 200** (지원 데이터가 없다는 사실 그대로 — 에러 아님, 테스트로 정책 고정)
+- **EXTERNAL 모집이면 빈 목록 200** (지원 데이터가 없다는 사실 그대로 — 에러 아님, 테스트로 정책 고정).
+  단 이는 API 계층 정책이다 — **프론트는 EXTERNAL에서 이 API를 호출하지 않으며, 빈 테이블·"지원자 0명"을
+  렌더링하지 않는다.** EXTERNAL 상세의 기본 UX는 정책 안내 패널(5.3)이다.
 - 정렬 파라미터는 `ApplicationRepositoryImpl.searchApplicants`에 방향 인자 추가
   (운영진 경로 기본값 createdAt desc 유지 — 기존 호출부 무변).
 
@@ -140,7 +142,9 @@ ALTER TABLE club_audit_event ADD COLUMN reason VARCHAR(500);
   운영진 승인 절차로 진행됩니다." + 외부 폼 URL(플랫폼 라벨 + 링크)
 - 요약 카드(읽기 전용, 2.2의 JoinCodeQuery 필드 파생):
   가입 코드 상태(활성/폐기/만료/소진·없음) · 가입 요청 수(totalRequestCount) · 승인 대기(pendingCount) ·
-  **회원 등록 수 = usedCount − pendingCount** (신청 시 차감·거절 시 환급 불변식의 파생값 — 신규 집계 없음)
+  회원 등록 수(`enrolledCount` — **서버 계산값**). 등록 수는 admin 상세 응답 조립 시 서버가 계산해 내려준다
+  (현 구현은 차감·환급 불변식상 `usedCount − pendingCount`와 동치이나, 계산식은 서버 소관 —
+  **프론트는 서버 값을 표시만 하고 새 비즈니스 계산 로직을 만들지 않는다**).
 - 코드 6자리 값은 admin 화면에 노출하지 않는다(유출 리스크·불필요).
 
 Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼재를 금지한다.
@@ -148,8 +152,10 @@ Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼�
 ### 5.4 강제 마감 다이얼로그
 - 공용 ConfirmDialog가 아닌 전용 다이얼로그(`AdminForceCloseDialog` — 기존 `Admin*ProcessDialog` 패턴):
   경고 문구 + 사유 입력(선택, 500자) + 취소/마감.
-- **EXTERNAL이면 파생 효과 안내 추가**: "마감하면 새 가입 링크 발급이 불가하며, 기존 링크는 모집 종료 후
-  N일까지만 유효합니다." (N = joinWindowDays)
+- **영향 안내는 모집 방식별로 분기**:
+  - SELF: "마감하면 더 이상 신규 지원이 불가능합니다."
+  - EXTERNAL: "새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 모집 종료 후 N일까지만
+    사용할 수 있습니다." (N = joinWindowDays)
 - 성공 시 관련 쿼리 invalidate + 토스트, 409는 "이미 마감된 모집입니다" 안내 후 재조회.
 
 ## 6. 테스트
@@ -159,14 +165,15 @@ Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼�
 - 강제 마감: OPEN→CLOSED 204 + `closedAt` 스탬프 검증 / 중복 마감 409 / 감사 이벤트
   (RECRUITMENT_FORCE_CLOSED, actor·reason) 1건 검증 / EXTERNAL 모집 마감 후 기존 링크
   `isUsable` 유지(joinWindow 내) 확인
-- 조회 정책: SELF 목록·상세·summary / EXTERNAL 지원자 목록 빈 200 / EXTERNAL 상세에 JoinCodeQuery 동봉
+- 조회 정책: SELF 목록·상세·summary / EXTERNAL 지원자 목록 빈 200 / EXTERNAL 상세에 링크 현황 동봉
+  (code 값 제외·`enrolledCount` 서버 계산 검증 포함)
 - 열람 감사: 상세 조회 시 APPLICATION_VIEWED(applicationId 포함) 기록, 목록 조회는 미기록
 - 목록: 검색·필터·정렬(NULLS LAST 포함)·삭제 모집 제외
 - 날짜는 상대값 사용(하드코딩 미래 절대날짜 금지 — CI 시한폭탄 방지)
 
 **프론트** (`apps/web/test/admin/recruitments/` — vitest + RTL + msw):
 - 방식별 UI 분기(SELF 테이블 / EXTERNAL 안내 패널 — 지원자 테이블 부재 단언)
-- 요약 카드 파생값(등록 수 = usedCount − pendingCount, 코드 없음 상태)
+- 요약 카드 표시(서버 값 그대로 렌더 — FE 계산 없음, 코드 없음 상태 분기)
 - 강제 마감 다이얼로그(사유 입력·EXTERNAL 안내 문구·409 처리) / 운영 개입 배지 조건
 - AdminRoleGuard 차단(비 ADMIN)
 
@@ -187,5 +194,7 @@ Application 기반 UI와 Join 기반 UI를 컴포넌트 단위로 분리해 혼�
 - Join Request 계열 admin 감사 이벤트 — 테이블 구조는 이미 수용(3절), 기능 추가 시 이벤트만 등록
 - 운영진(/manage) 가입 코드 화면 개편 — v2에서 이미 모집 상세로 이전 완료, 추가 변경 없음
 - admin 목록 페이지네이션, funnel/daily 수준 admin 통계
+- **목록 행 Quick Action(P2)** — 상세 진입 없이 행에서 바로 강제 마감·상세 이동. 초기 구현 제외,
+  후속 기능으로 분리(다이얼로그·invalidate 로직은 5.4를 그대로 재사용 가능한 구조로 둔다)
 - "가입코드 생성 필요" 배지 — 발급은 진행 중 모집만 가능(#871)이라 성립하지 않음
 - `club_audit_event` 조회 타임라인 UI(운영진·admin 공통) — 데이터만 쌓는다(V102 방침)
