@@ -43,6 +43,9 @@ import type {
   AdminRecruitmentSummary,
   AdminRecruitmentDetail,
   ForceCloseRecruitmentPayload,
+  AdminApplicantSearchParams,
+  AdminApplicantList,
+  AdminApplicationDetail,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -704,6 +707,13 @@ export type DuingApiClient = {
       detail(recruitmentId: number): Promise<AdminRecruitmentDetail>;
       /** 이미 마감된 모집이면 409. */
       forceClose(recruitmentId: number, payload: ForceCloseRecruitmentPayload): Promise<void>;
+      /** 자체 지원 모집의 지원자 목록. total·statusCounts 는 검색·필터와 무관한 모집 전체 기준이다. */
+      applications(
+        recruitmentId: number,
+        params: AdminApplicantSearchParams,
+      ): Promise<AdminApplicantList>;
+      /** 지원서 열람(읽기 전용) — 경로는 모집이 아니라 지원서 단건이다. */
+      applicationDetail(applicationId: number): Promise<AdminApplicationDetail>;
     };
     leaderSuccession: {
       list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
@@ -1674,6 +1684,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           jsonOk<AdminRecruitmentDetail>(http.get(`admin/recruitments/${recruitmentId}`)),
         forceClose: (recruitmentId, payload) =>
           jsonVoid(http.patch(`admin/recruitments/${recruitmentId}/close`, { json: payload })),
+        applications: (recruitmentId, params) =>
+          jsonOk<AdminApplicantList>(
+            http.get(`admin/recruitments/${recruitmentId}/applications`, {
+              searchParams: cleanParams(params),
+            }),
+          ),
+        applicationDetail: (applicationId) =>
+          jsonOk<AdminApplicationDetail>(http.get(`admin/applications/${applicationId}`)),
       },
       leaderSuccession: {
         list: (params) =>

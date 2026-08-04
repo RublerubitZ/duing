@@ -17,6 +17,7 @@ import { ConsoleCard } from '../../_components/ConsoleCard';
 import { ErrorState } from '../../_components/ErrorState';
 import { AdminExternalRecruitmentPanel } from '../_components/AdminExternalRecruitmentPanel';
 import { AdminForceCloseDialog } from '../_components/AdminForceCloseDialog';
+import { AdminSelfRecruitmentPanel } from '../_components/AdminSelfRecruitmentPanel';
 import {
   RECRUITMENT_STATUS_BADGE_CLASS,
   RECRUITMENT_STATUS_LABEL,
@@ -133,8 +134,10 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
             )}
           </ConsoleCard>
 
-          {recruitment.applicationMode === 'EXTERNAL' && (
+          {recruitment.applicationMode === 'EXTERNAL' ? (
             <AdminExternalRecruitmentPanel recruitment={recruitment} />
+          ) : (
+            <AdminSelfRecruitmentPanel recruitmentId={recruitment.recruitmentId} />
           )}
 
           {isCloseDialogOpen && (

@@ -1,3 +1,5 @@
+import type { ApplicationStatus } from './application';
+
 export type RecruitmentStatus = 'OPEN' | 'CLOSED';
 export type ApplicationMode = 'SELF' | 'EXTERNAL';
 export type TargetRole = 'MEMBER' | 'OFFICER';
@@ -145,6 +147,54 @@ export type AdminRecruitmentDetail = AdminRecruitmentSummary & {
 };
 
 export type ForceCloseRecruitmentPayload = { reason?: string };
+
+/** 총동연 지원자 목록 정렬 — 제출 시각 기준 최신순/오래된순 둘뿐이다. */
+export type AdminApplicantSort = 'LATEST' | 'OLDEST';
+
+export type AdminApplicantSearchParams = {
+  q?: string;
+  status?: ApplicationStatus;
+  sort?: AdminApplicantSort;
+};
+
+/** 총동연 지원자 목록 행 — 감독에 필요한 신원 항목만 담고 학년·답변·평가는 없다. */
+export type AdminApplicant = {
+  applicationId: number;
+  userName: string;
+  studentId: string;
+  college: string;
+  major: string;
+  status: ApplicationStatus;
+  submittedAt: string;
+};
+
+export type AdminApplicantList = {
+  /** 검색·필터와 무관한 모집 전체 지원자 수 — 표의 행 수와 다를 수 있다. */
+  total: number;
+  /** 건수가 0 인 상태는 키 자체가 없다 — 화면은 없는 키를 0 으로 읽는다. */
+  statusCounts: Partial<Record<ApplicationStatus, number>>;
+  applicants: AdminApplicant[];
+};
+
+/** 총동연 지원서 상세 — 읽기 전용이라 평가·면접·연락처는 응답에 없다. */
+export type AdminApplicationDetail = {
+  applicationId: number;
+  recruitmentId: number;
+  recruitmentTitle: string;
+  clubId: number;
+  clubName: string;
+  applicant: { name: string; studentId: string; college: string; major: string };
+  status: ApplicationStatus;
+  submittedAt: string;
+  /** 최초 제출 항목은 previousStatus 가 null. 처리자 이름은 동아리 내부 정보라 담기지 않는다. */
+  statusHistory: {
+    previousStatus: ApplicationStatus | null;
+    newStatus: ApplicationStatus;
+    changedAt: string;
+  }[];
+  /** 미답변 질문의 answer 는 빈 문자열이다. */
+  answers: { question: string; answer: string }[];
+};
 
 export type UpdateRecruitmentPayload = {
   title?: string;

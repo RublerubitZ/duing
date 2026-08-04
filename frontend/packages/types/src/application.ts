@@ -13,7 +13,7 @@ export type ApplicationStatus =
   | 'ACCEPTED'
   | 'REJECTED';
 
-const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
+export const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
   'SUBMITTED',
   'ON_HOLD',
   'INTERVIEW_PENDING',

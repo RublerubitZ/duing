@@ -161,6 +161,8 @@ export { adminQueryKeys } from './adminQueryKeys';
 export {
   useAdminRecruitmentsQuery,
   useAdminRecruitmentDetailQuery,
+  useAdminApplicantsQuery,
+  useAdminApplicationDetailQuery,
   useForceCloseRecruitmentMutation,
 } from './adminRecruitments';
 export {
