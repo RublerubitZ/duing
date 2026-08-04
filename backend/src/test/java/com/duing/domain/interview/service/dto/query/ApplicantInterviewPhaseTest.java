@@ -13,14 +13,6 @@ import org.junit.jupiter.api.Test;
 class ApplicantInterviewPhaseTest {
 
     @Test
-    @DisplayName("서류 검토 중인 지원자는 DOCUMENT_REVIEW 로 파생된다")
-    void underReviewDerivesDocumentReview() {
-        assertThat(ApplicantInterviewPhase.derive(
-                ApplicationStatus.UNDER_REVIEW, null, null, false, false))
-                .isEqualTo(ApplicantInterviewPhase.DOCUMENT_REVIEW);
-    }
-
-    @Test
     @DisplayName("면접 대상이지만 라운드 참여 이력이 없으면 WAITING_ROUND 로 파생된다")
     void pendingWithoutHistoryDerivesWaitingRound() {
         assertThat(ApplicantInterviewPhase.derive(
@@ -37,10 +29,13 @@ class ApplicantInterviewPhaseTest {
     }
 
     @Test
-    @DisplayName("평가 구간 밖 상태(제출됨·합격·불합격)는 NOT_APPLICABLE 로 파생된다")
+    @DisplayName("면접 구간 밖 상태(제출됨·보류·합격·불합격)는 NOT_APPLICABLE 로 파생된다")
     void outOfScopeStatusesDeriveNotApplicable() {
         assertThat(ApplicantInterviewPhase.derive(
                 ApplicationStatus.SUBMITTED, null, null, false, false))
+                .isEqualTo(ApplicantInterviewPhase.NOT_APPLICABLE);
+        assertThat(ApplicantInterviewPhase.derive(
+                ApplicationStatus.ON_HOLD, null, null, false, false))
                 .isEqualTo(ApplicantInterviewPhase.NOT_APPLICABLE);
         assertThat(ApplicantInterviewPhase.derive(
                 ApplicationStatus.ACCEPTED, null, null, false, false))

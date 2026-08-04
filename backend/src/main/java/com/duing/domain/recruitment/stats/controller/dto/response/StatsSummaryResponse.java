@@ -5,7 +5,7 @@ import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 public record StatsSummaryResponse(
         long total,
         long submitted,
-        long underReview,
+        long onHold,
         long interviewPending,
         long accepted,
         long rejected,
@@ -17,7 +17,7 @@ public record StatsSummaryResponse(
         return new StatsSummaryResponse(
                 statsSummaryQuery.total(),
                 statsSummaryQuery.submitted(),
-                statsSummaryQuery.underReview(),
+                statsSummaryQuery.onHold(),
                 statsSummaryQuery.interviewPending(),
                 statsSummaryQuery.accepted(),
                 statsSummaryQuery.rejected(),

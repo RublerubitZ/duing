@@ -40,12 +40,12 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId);
 
         long submitted = statusCountMap.getOrDefault(ApplicationStatus.SUBMITTED, 0L);
-        long underReview = statusCountMap.getOrDefault(ApplicationStatus.UNDER_REVIEW, 0L);
+        long onHold = statusCountMap.getOrDefault(ApplicationStatus.ON_HOLD, 0L);
         long interviewPending = statusCountMap.getOrDefault(ApplicationStatus.INTERVIEW_PENDING, 0L);
         long accepted = statusCountMap.getOrDefault(ApplicationStatus.ACCEPTED, 0L);
         long rejected = statusCountMap.getOrDefault(ApplicationStatus.REJECTED, 0L);
 
-        return StatsSummaryQuery.of(submitted, underReview, interviewPending, accepted, rejected, recruitment.getCapacity());
+        return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity());
     }
 
     @Override

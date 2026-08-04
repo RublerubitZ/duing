@@ -192,7 +192,7 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 availabilityDeadline 과 interview 가 모두 null 이다")
+    @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 useInterview 가 false 이고 마감·배정 정보가 모두 null 이다")
     void useInterviewFalseReturnsNullDeadline() {
         User applicant = saveUser("일반지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
@@ -206,13 +206,14 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
+                .body("data.useInterview", is(false))
                 .body("data.interviewAvailabilityCount", is(0))
                 .body("data.interview", nullValue())
                 .body("data.availabilityDeadline", nullValue());
     }
 
     @Test
-    @DisplayName("면접 사용 모집이지만 라운드가 아직 없으면 availabilityDeadline 은 null 이다")
+    @DisplayName("면접 사용 모집이지만 라운드가 아직 없으면 useInterview 는 true 이고 availabilityDeadline 만 null 이다")
     void useInterviewWithoutRoundReturnsNullDeadline() {
         User applicant = saveUser("설정전지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
@@ -225,6 +226,7 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
                 .when().get("/api/v1/users/me/applications/{id}", application.getId())
                 .then().statusCode(HttpStatus.OK.value())
+                .body("data.useInterview", is(true))
                 .body("data.availabilityDeadline", nullValue());
     }
 

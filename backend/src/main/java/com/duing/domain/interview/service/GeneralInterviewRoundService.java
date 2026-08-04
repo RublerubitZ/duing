@@ -76,7 +76,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
-                                                        boolean includeUnderReview) {
+                                                        boolean includeUndecided) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
@@ -85,7 +85,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             throw new InterviewException.InterviewNotUsed();
         }
 
-        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUnderReview).stream()
+        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUndecided).stream()
                 .map(RoundCandidateQuery::from)
                 .toList();
     }
@@ -131,7 +131,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 throw new InterviewException.CandidateNotInRecruitment();
             }
             ApplicationStatus candidateStatus = application.getStatus();
-            if (candidateStatus != ApplicationStatus.UNDER_REVIEW
+            if (candidateStatus != ApplicationStatus.SUBMITTED
+                    && candidateStatus != ApplicationStatus.ON_HOLD
                     && candidateStatus != ApplicationStatus.INTERVIEW_PENDING) {
                 throw new InterviewException.CandidateNotEligible();
             }
@@ -161,10 +162,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
         for (Application application : applications) {
             // 대기열(INTERVIEW_PENDING) 재수용은 상태 변화가 없으므로 전이·이력을 만들지 않는다.
-            if (application.getStatus() == ApplicationStatus.UNDER_REVIEW) {
+            ApplicationStatus statusBeforePromotion = application.getStatus();
+            if (statusBeforePromotion != ApplicationStatus.INTERVIEW_PENDING) {
                 application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
                 applicationStatusHistoryRepository.save(ApplicationStatusHistory.record(
-                        application, ApplicationStatus.UNDER_REVIEW,
+                        application, statusBeforePromotion,
                         ApplicationStatus.INTERVIEW_PENDING, changedBy));
             }
         }

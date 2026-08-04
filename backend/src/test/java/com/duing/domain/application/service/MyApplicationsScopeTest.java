@@ -53,7 +53,7 @@ class MyApplicationsScopeTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("scope=ACTIVE 는 SUBMITTED/UNDER_REVIEW/INTERVIEW_PENDING 만 반환한다")
+    @DisplayName("scope=ACTIVE 는 SUBMITTED/ON_HOLD/INTERVIEW_PENDING 만 반환한다")
     void activeScopeReturnsOnlyActiveStatuses() throws Exception {
         User applicant = saveStudent("지원자ACTIVE");
         // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용되므로,
@@ -71,7 +71,7 @@ class MyApplicationsScopeTest {
         assertThat(result).extracting(ApplicationSummaryQuery::status)
                 .containsExactlyInAnyOrder(
                         ApplicationStatus.SUBMITTED,
-                        ApplicationStatus.UNDER_REVIEW,
+                        ApplicationStatus.ON_HOLD,
                         ApplicationStatus.INTERVIEW_PENDING
                 );
     }

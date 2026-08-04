@@ -36,12 +36,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.context.annotation.Import;
 
@@ -61,6 +65,8 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired DataSource dataSource;
     @MockitoSpyBean ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -88,20 +94,26 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
         return applicationRepository.save(application).getId();
     }
 
+    /** 도메인 전이 경로만으로 목표 상태까지 도달시킨다 (면접 사용 여부는 activeRecruitment 설정을 따른다). */
     private Long createApplicationWithStatus(ApplicationStatus targetStatus) {
         User applicant = saveUser("지원자", UserRole.STUDENT);
-        Application application = Application.submit(activeRecruitment, applicant, List.of());
-        applicationRepository.save(application);
-
-        // 도메인 전이 경로로 목표 상태까지 도달: SUBMITTED → UNDER_REVIEW → (ACCEPTED | REJECTED)
-        // useInterview=false 기준 (setupClubAndLeader 의 Recruitment.create 기본값)
-        if (targetStatus == ApplicationStatus.UNDER_REVIEW
-                || targetStatus == ApplicationStatus.ACCEPTED
-                || targetStatus == ApplicationStatus.REJECTED) {
-            application.transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        Application application = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of()));
+        if (targetStatus == ApplicationStatus.SUBMITTED) {
+            return application.getId();
         }
-        if (targetStatus == ApplicationStatus.ACCEPTED || targetStatus == ApplicationStatus.REJECTED) {
-            application.transitionTo(targetStatus, false);
+
+        boolean useInterview = activeRecruitment.isUseInterview();
+        if (targetStatus == ApplicationStatus.ON_HOLD) {
+            application.transitionTo(ApplicationStatus.ON_HOLD, useInterview);
+        } else if (useInterview && targetStatus != ApplicationStatus.REJECTED) {
+            // 면접 모집의 합격은 반드시 면접 대상(INTERVIEW_PENDING) 을 경유한다.
+            application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
+            if (targetStatus != ApplicationStatus.INTERVIEW_PENDING) {
+                application.transitionTo(targetStatus, true);
+            }
+        } else {
+            application.transitionTo(targetStatus, useInterview);
         }
 
         return applicationRepository.save(application).getId();
@@ -141,13 +153,13 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
         Long applicationId = createSubmittedApplication();
 
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.UNDER_REVIEW));
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD));
 
         List<ApplicationStatusHistory> rows =
                 applicationStatusHistoryRepository.findByApplicationIdOrderByCreatedAtDesc(applicationId);
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).getPreviousStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
-        assertThat(rows.get(0).getNewStatus()).isEqualTo(ApplicationStatus.UNDER_REVIEW);
+        assertThat(rows.get(0).getNewStatus()).isEqualTo(ApplicationStatus.ON_HOLD);
         assertThat(rows.get(0).getChangedBy().getId()).isEqualTo(leaderId);
     }
 
@@ -160,12 +172,12 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     void bulkPartialSuccessOnlyRecordsSuccessfulRows() throws Exception {
         setupClubAndLeader("history-벌크동아리");
         Long successId = createSubmittedApplication();
-        // ACCEPTED 는 terminal 상태 — UNDER_REVIEW 로의 전이 불가
+        // ACCEPTED 는 terminal 상태 — ON_HOLD 로의 전이 불가
         Long failId = createApplicationWithStatus(ApplicationStatus.ACCEPTED);
 
         applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(successId, failId), leaderId, ApplicationStatus.UNDER_REVIEW));
+                        List.of(successId, failId), leaderId, ApplicationStatus.ON_HOLD));
 
         assertThat(applicationStatusHistoryRepository
                 .findByApplicationIdOrderByCreatedAtDesc(successId)).hasSize(1);
@@ -180,7 +192,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     @Test
     @DisplayName("상세 응답의 statusHistory 가 newest-first 로 정렬된다")
     void statusHistoryIsNewestFirstInDetail() throws Exception {
-        // 면접 사용 모집으로 SUBMITTED → UNDER_REVIEW → INTERVIEW_PENDING 경로 확인
+        // 면접 사용 모집으로 SUBMITTED → ON_HOLD → INTERVIEW_PENDING 경로 확인
         User leader = saveUser("정렬리더", UserRole.STUDENT);
         leaderId = leader.getId();
         Club club = saveActiveClub("history-정렬동아리");
@@ -193,7 +205,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
         Long applicationId = createSubmittedApplication();
 
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.UNDER_REVIEW));
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD));
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.INTERVIEW_PENDING));
 
@@ -201,7 +213,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
 
         assertThat(detail.statusHistory()).hasSize(2);
         assertThat(detail.statusHistory().get(0).newStatus()).isEqualTo(ApplicationStatus.INTERVIEW_PENDING);
-        assertThat(detail.statusHistory().get(1).newStatus()).isEqualTo(ApplicationStatus.UNDER_REVIEW);
+        assertThat(detail.statusHistory().get(1).newStatus()).isEqualTo(ApplicationStatus.ON_HOLD);
     }
 
     // ────────────────────────────────────────────────────────────
@@ -219,7 +231,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
 
         assertThatThrownBy(() ->
                 applicationService.updateStatus(
-                        new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.UNDER_REVIEW)))
+                        new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD)))
                 .isInstanceOf(RuntimeException.class);
 
         Application reloaded = applicationRepository.findById(applicationId).orElseThrow();
@@ -227,7 +239,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     }
 
     // ────────────────────────────────────────────────────────────
-    // 5. 지원 철회 (SUBMITTED 소프트 삭제)
+    // 5. 지원 철회 (미결정 상태 소프트 삭제)
     // ────────────────────────────────────────────────────────────
 
     @Test
@@ -248,18 +260,34 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
                 .isFalse();
     }
 
-    @ParameterizedTest
-    @EnumSource(value = ApplicationStatus.class, names = {"UNDER_REVIEW", "ACCEPTED", "REJECTED"})
-    @DisplayName("검토가 시작된(SUBMITTED 가 아닌) 지원은 철회할 수 없다")
-    void cannotWithdrawNonSubmittedApplication(ApplicationStatus status) throws Exception {
-        setupClubAndLeader("철회-비제출동아리");
-        User applicant = saveUser("비제출지원자", UserRole.STUDENT);
+    @Test
+    @DisplayName("운영진이 보류해 둔 지원도 지원자가 철회하면 목록에서 빠지고 같은 공고에 재지원할 수 있다")
+    void withdrawOnHoldApplicationFreesSlot() throws Exception {
+        setupClubAndLeader("철회-보류동아리");
+        User applicant = saveUser("보류지원자", UserRole.STUDENT);
         Application application = applicationRepository.save(
                 Application.submit(activeRecruitment, applicant, List.of()));
-        application.transitionTo(ApplicationStatus.UNDER_REVIEW, false);
-        if (status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED) {
-            application.transitionTo(status, false);
-        }
+        application.transitionTo(ApplicationStatus.ON_HOLD, false);
+        Long applicationId = applicationRepository.save(application).getId();
+
+        applicationService.withdraw(applicationId, applicant.getId());
+
+        assertThat(applicationRepository.findById(applicationId)).isEmpty();
+        assertThat(applicationRepository
+                .existsByRecruitmentIdAndUserId(activeRecruitment.getId(), applicant.getId()))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ApplicationStatus.class, names = {"INTERVIEW_PENDING", "ACCEPTED", "REJECTED"})
+    @DisplayName("면접 대상으로 선정됐거나 합불이 정해진 지원은 철회할 수 없다")
+    void cannotWithdrawDecidedApplication(ApplicationStatus status) throws Exception {
+        setupClubAndLeader("철회-결정동아리");
+        User applicant = saveUser("결정지원자", UserRole.STUDENT);
+        Application application = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of()));
+        // SUBMITTED → INTERVIEW_PENDING 은 면접 모집에서만 열리는 전이라 그 경우에만 useInterview 를 켠다.
+        application.transitionTo(status, status == ApplicationStatus.INTERVIEW_PENDING);
         applicationRepository.save(application);
 
         assertThatThrownBy(() -> applicationService.withdraw(application.getId(), applicant.getId()))
@@ -287,5 +315,71 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
 
         assertThatThrownBy(() -> applicationService.withdraw(999_999L, applicant.getId()))
                 .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 6. 동아리 폐쇄 일괄 거절 — 진행 중 상태는 중간 단계 없이 REJECTED 로 종료
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("동아리 폐쇄 시 지원·보류·면접 대상 지원서가 중간 단계 없이 곧바로 불합격으로 종료된다")
+    void clubClosureRejectsActiveApplicationsDirectly() throws Exception {
+        User leader = saveUser("폐쇄리더", UserRole.STUDENT);
+        leaderId = leader.getId();
+        Club club = saveActiveClub("폐쇄-일괄거절동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        activeRecruitment = recruitmentRepository.save(
+                Recruitment.createWithOptions(club, "폐쇄대상모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10,
+                        ApplicationMode.SELF, null, true, TargetRole.MEMBER, null, null, false));
+
+        Long submittedId = createApplicationWithStatus(ApplicationStatus.SUBMITTED);
+        Long onHoldId = createApplicationWithStatus(ApplicationStatus.ON_HOLD);
+        Long interviewPendingId = createApplicationWithStatus(ApplicationStatus.INTERVIEW_PENDING);
+        Long acceptedId = createApplicationWithStatus(ApplicationStatus.ACCEPTED);
+
+        applicationService.rejectActiveOnClubClosure(List.of(activeRecruitment.getId()));
+
+        assertThat(statusOf(submittedId)).isEqualTo(ApplicationStatus.REJECTED);
+        assertThat(statusOf(onHoldId)).isEqualTo(ApplicationStatus.REJECTED);
+        assertThat(statusOf(interviewPendingId)).isEqualTo(ApplicationStatus.REJECTED);
+        // 이미 종료된 지원은 일괄 거절 대상이 아니다.
+        assertThat(statusOf(acceptedId)).isEqualTo(ApplicationStatus.ACCEPTED);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 7. V103 마이그레이션 — 서류심사 잔존 값 치환 후에도 이력 포함 상세 조회가 정상
+    // ────────────────────────────────────────────────────────────
+
+    // 이 테스트의 'UNDER_REVIEW' 문자열 리터럴은 레거시 데이터 시드용이며 enum 참조가 아니다 — UNDER_REVIEW grep 검증의 명시 예외.
+    @Test
+    @DisplayName("서류심사 값이 남아 있어도 V103 치환 후에는 이력을 포함한 지원자 상세 조회가 정상 동작한다")
+    void migrationReplacesLeftoverUnderReviewValues() throws Exception {
+        setupClubAndLeader("마이그레이션-치환동아리");
+        Long applicationId = createSubmittedApplication();
+        // 테스트 컨테이너에는 이미 V103 이 적용된 뒤라, 레거시 데이터는 enum 을 우회해 직접 심는다.
+        jdbcTemplate.update("UPDATE application SET status = 'UNDER_REVIEW' WHERE id = ?", applicationId);
+        jdbcTemplate.update("INSERT INTO application_status_history "
+                        + "(application_id, previous_status, new_status, changed_by) "
+                        + "VALUES (?, 'SUBMITTED', 'UNDER_REVIEW', ?)",
+                applicationId, leaderId);
+
+        // 마이그레이션 파일 원본을 그대로 다시 실행해 치환 SQL 자체를 검증한다.
+        new ResourceDatabasePopulator(
+                new ClassPathResource("db/migration/V103__replace_under_review_with_submitted.sql"))
+                .execute(dataSource);
+
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(applicationId, leaderId);
+        assertThat(detail.status()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(detail.statusHistory())
+                .isNotEmpty()
+                .allSatisfy(historyRow -> {
+                    assertThat(historyRow.previousStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+                    assertThat(historyRow.newStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+                });
+    }
+
+    private ApplicationStatus statusOf(Long applicationId) {
+        return applicationRepository.findById(applicationId).orElseThrow().getStatus();
     }
 }

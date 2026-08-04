@@ -130,7 +130,7 @@ public class ApplicationDomainException extends ApplicationException {
     }
 
     public static class CannotWithdrawApplicationException extends ApplicationDomainException {
-        private static final String MESSAGE = "제출 직후에만 철회할 수 있어요. 검토가 시작된 지원은 철회할 수 없습니다.";
+        private static final String MESSAGE = "심사 중에만 철회할 수 있어요. 면접 대상 선정이나 합불 처리 이후에는 철회할 수 없습니다.";
 
         public CannotWithdrawApplicationException() {
             super(MESSAGE, HttpStatus.CONFLICT);

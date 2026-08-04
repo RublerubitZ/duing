@@ -175,7 +175,7 @@ class MyApplicationsQueryTest {
         Application application = mock(Application.class);
         when(application.getId()).thenReturn(20L);
         when(application.getRecruitment()).thenReturn(recruitment);
-        when(application.getStatus()).thenReturn(ApplicationStatus.UNDER_REVIEW);
+        when(application.getStatus()).thenReturn(ApplicationStatus.ON_HOLD);
         when(application.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 5, 10, 14, 0));
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))

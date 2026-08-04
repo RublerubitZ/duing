@@ -87,7 +87,7 @@ class RecruitmentStatsRepositoryTest {
     }
 
     @Test
-    @DisplayName("상태별 GROUP BY 가 정확히 매핑된다 — SUBMITTED=3, UNDER_REVIEW=2, ACCEPTED=1 이면 각 키·값이 일치한다")
+    @DisplayName("상태별 GROUP BY 가 정확히 매핑된다 — SUBMITTED=3, ON_HOLD=2, ACCEPTED=1 이면 각 키·값이 일치한다")
     void statusGroupByMapsCorrectly() throws Exception {
         Club club = saveActiveClub();
         Recruitment recruitment = saveRecruitment(club);
@@ -96,7 +96,7 @@ class RecruitmentStatsRepositoryTest {
             saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.SUBMITTED);
         }
         for (int i = 0; i < 2; i++) {
-            saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.UNDER_REVIEW);
+            saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.ON_HOLD);
         }
         saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.ACCEPTED);
 
@@ -105,7 +105,7 @@ class RecruitmentStatsRepositoryTest {
         Map<ApplicationStatus, Long> result = statsRepository.findSummaryByRecruitmentId(recruitment.getId());
 
         assertThat(result.get(ApplicationStatus.SUBMITTED)).isEqualTo(3L);
-        assertThat(result.get(ApplicationStatus.UNDER_REVIEW)).isEqualTo(2L);
+        assertThat(result.get(ApplicationStatus.ON_HOLD)).isEqualTo(2L);
         assertThat(result.get(ApplicationStatus.ACCEPTED)).isEqualTo(1L);
     }
 
