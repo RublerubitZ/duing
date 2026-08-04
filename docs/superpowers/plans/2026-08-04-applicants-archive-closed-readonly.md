@@ -25,20 +25,20 @@
 
 ---
 
-### Task 1: BE 읽기 전용 가드 4곳 + 409 계약
+### Task 1: BE 읽기 전용 가드 5곳 + 409 계약
 
 **Files:**
-- Modify: `backend/src/main/java/com/duing/domain/recruitment/exception/RecruitmentException.java` (신규 inner 예외; 베이스에 `(message, status, code)` 패스스루 ctor 가 없으면 추가)
-- Modify: `backend/src/main/java/com/duing/domain/application/exception/ApplicationDomainException.java` (신규 inner 예외 — 기존 code 사용 전례가 있으면 그 패턴)
-- Modify: `backend/src/main/java/com/duing/domain/application/service/GeneralApplicationService.java` — `updateStatus`(requireManager 직후)·`withdraw`(기존 상태 가드 앞)
-- Modify: `backend/src/main/java/com/duing/domain/applicationEvaluation/service/GeneralApplicationEvaluationService.java` — upsert 의 application→recruitment 로드 직후
-- Modify: `backend/src/main/java/com/duing/domain/interview/service/GeneralInterviewRoundService.java` — `createRound` 의 recruitment 검증 지점
-- Test: `application/service/GeneralApplicationServiceTest`·`ApplicationBulkStatusServiceTest`·`applicationEvaluation` 테스트·`interview/controller/LeaderInterviewRoundCreateControllerTest`
+- Modify: `backend/src/main/java/com/duing/domain/recruitment/exception/RecruitmentException.java` — 신규 inner 예외 + **베이스에 `(message, HttpStatus, String)` 패스스루 ctor 추가** (현재 2-arg 만 — RecruitmentException.java:8-10)
+- Modify: `backend/src/main/java/com/duing/domain/application/exception/ApplicationDomainException.java` — 신규 inner 예외 + **동일하게 3-arg 패스스루 ctor 추가** (현재 2-arg 만 — ApplicationDomainException.java:8-10, 문서 리뷰 확인)
+- Modify: `backend/src/main/java/com/duing/domain/application/service/GeneralApplicationService.java` — `updateStatus`(requireManager 직후, :349-352 부근)·`withdraw`(기존 상태 가드 앞, :264-267 부근 — recruitment lazy 로드 1회 발생·무해)
+- Modify: `backend/src/main/java/com/duing/domain/applicationEvaluation/service/GeneralApplicationEvaluationService.java` — **upsert(:29-33 부근)와 `deleteMine`(:48-55 부근) 두 곳** (deleteMine 은 문서 리뷰가 발견한 UI 도달 가능 파괴적 쓰기 — 스펙 §1-3 차단 표 편입)
+- Modify: `backend/src/main/java/com/duing/domain/interview/service/GeneralInterviewRoundService.java` — `createRound` 의 recruitment 검증 지점(:95-98 부근)
+- Test: `application/service/GeneralApplicationServiceTest`·`ApplicationBulkStatusServiceTest`·`LeaderApplicationEvaluationControllerTest`(upsert·deleteMine 양쪽)·`interview/controller/LeaderInterviewRoundCreateControllerTest`
 
 **Interfaces:**
 - Produces: 409 + code `RECRUITMENT_CLOSED` 계약 (Task 6 의 FE 토스트 분기가 소비), 예외 2종.
 
-- [ ] **Step 1: 실패 테스트 작성** — 가드 4곳 각각: CLOSED 모집에서 409 (+ 응답 code `RECRUITMENT_CLOSED` — 컨트롤러 경유 테스트 최소 1건에서 body 단언), OPEN(마감일 경과 포함 — endDate 를 과거 상대 날짜로) 정상 동작, CLOSED 에서 조회·통계 정상. 벌크는 CLOSED 모집 건이 `failures[]` 로 떨어지는 부분 실패 케이스.
+- [ ] **Step 1: 실패 테스트 작성** — 가드 5곳 각각: CLOSED 모집에서 409 (+ 응답 code `RECRUITMENT_CLOSED` — 컨트롤러 경유 테스트 최소 1건에서 body 단언), OPEN(마감일 경과 포함 — endDate 를 과거 상대 날짜로) 정상 동작, CLOSED 에서 조회·통계 정상. 벌크는 CLOSED 모집 건이 `failures[]` 로 떨어지는 부분 실패 케이스.
 
 ```java
 @Test
@@ -69,23 +69,24 @@ public static class CannotWithdrawClosedRecruitmentException extends Application
 }
 ```
 
-- [ ] **Step 4: 가드 4곳 삽입** — 전부 recruitment 를 이미 로드한 지점의 1분기(신규 쿼리 금지):
+- [ ] **Step 4: 가드 5곳 삽입**:
 
 ```java
 // ① updateStatus — clubAuthService.requireManager(...) 직후
 // ② evaluation upsert — application→recruitment 로드 직후 (운영진 권한 확인 뒤)
-// ③ createRound — recruitment 존재·소속 검증 지점
+// ③ evaluation deleteMine — 동일 지점
+// ④ createRound — recruitment 존재·소속 검증 지점
 if (recruitment.getStatus() == RecruitmentStatus.CLOSED) {
     throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
 }
 
-// ④ withdraw — 기존 상태(SUBMITTED·ON_HOLD) 가드보다 앞 (마감이 상태보다 우선 안내)
+// ⑤ withdraw — 기존 상태(SUBMITTED·ON_HOLD) 가드보다 앞 (마감이 상태보다 우선 안내, lazy SELECT 1회 무해)
 if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
     throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
 }
 ```
 
-- [ ] **Step 5: 쓰기 경로 전수 확인 (스펙 §4 의무)** — leader/지원자 API 중 지원서·평가·면접 라운드 생성에 도달하는 쓰기 엔드포인트를 grep 으로 전수 나열하고, 위 4곳 밖의 경로(면접 라운드 내부 쓰기 등)는 Out of Scope 임을 리포트에 기록. `updateStatus` 벌크 경유 자동 커버 확인.
+- [ ] **Step 5: 쓰기 경로 전수 확인 (스펙 §4 의무)** — leader/지원자 API 중 지원서·평가·면접 라운드 생성에 도달하는 쓰기 엔드포인트를 grep 으로 전수 나열하고, 위 5곳 밖의 경로 중 **스펙이 Out of Scope 로 명명한 것**(면접 라운드 내부 쓰기, 지원자 면접 가능시간 제출 `PUT /applications/{id}/interview-availability`)을 리포트에 대조 기록. 명명되지 않은 신규 경로가 나오면 BLOCKED 로 보고. `updateStatus` 벌크 경유 자동 커버 확인.
 - [ ] **Step 6: `cd backend && ./gradlew test` 전체 그린 확인**
 - [ ] **Step 7: Commit** — `feat(backend): 마감 모집 읽기 전용 가드 — 상태 변경·평가·라운드 생성·철회 차단`
 
@@ -109,23 +110,34 @@ if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
 **Files:**
 - Modify: `frontend/packages/types/src/recruitment.ts` — `RecruitmentSummary` 에 `closedAt: string | null` 추가
 - Modify: `frontend/packages/api/src/generated/schema.d.ts` — BE 로컬 기동 가능하면 `pnpm gen:api`, 불가하면 closedAt 1필드 수동 동기화 + 커밋 본문에 재생성 필요 명시 (전례 준수)
-- Create: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/_utils/sortPastRecruitments.ts`
+- Create: `frontend/apps/web/app/manage/clubs/[clubId]/_lib/sortPastRecruitments.ts` (3개 라우트 소비 — 라우트 상위 승격, 문서 리뷰 반영)
 - Modify: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/_components/PastRecruitmentsTable.tsx` — "지원자" 링크 추가(자체 폼 행만)·정렬 적용·마감일 표기(closedAt 있으면 KST 시각, 없으면 기존 표기)
 - Test: 정렬 유틸 단위 테스트, `apps/web/test/manage/recruitments/PastRecruitmentsTable.test.tsx`
 
 **Interfaces:**
 - Produces: `sortPastRecruitments(recruitments: RecruitmentSummary[]): RecruitmentSummary[]` — Task 4·5 가 소비.
 
-- [ ] **Step 1: 정렬 유틸 실패 테스트** — closedAt ↓ 우선, null 은 endDate ↓ 폴백, 상시모집(endDate null)은 startDate ↓ 폴백, 원본 불변(사본 정렬)
+- [ ] **Step 1: 정렬 유틸 실패 테스트** — 스펙 §5 종료 시점 키: 기간 모집 `min(closedAt 날짜부, endDate)` (lazy-close 스큐·조기 마감 양방향 케이스), 상시모집 closedAt, 레거시(둘 다 null) startDate 폴백, 원본 불변(사본 정렬)
 
 ```ts
+// 종료 시점 키 (스펙 §5): closedAt 은 스탬프 시점이라 lazy-close 스큐가 있다 —
+// 기간 모집은 min(closedAt 날짜부, endDate), 상시모집은 closedAt, 레거시는 startDate.
+export function recruitmentClosedSortKey(recruitment: RecruitmentSummary): string {
+  const closedDate = recruitment.closedAt?.slice(0, 10) ?? null; // KST 벽시계 문자열 — Date 파싱 금지
+  if (recruitment.endDate !== null) {
+    if (closedDate !== null && closedDate < recruitment.endDate) return closedDate; // 조기 마감
+    return recruitment.endDate;
+  }
+  return closedDate ?? recruitment.startDate;
+}
+
 export function sortPastRecruitments(recruitments: RecruitmentSummary[]): RecruitmentSummary[] {
-  // closedAt(ISO datetime) 과 endDate/startDate(date) 의 사전순 비교는 정렬 목적에 충분하다
-  const sortKey = (recruitment: RecruitmentSummary): string =>
-    recruitment.closedAt ?? recruitment.endDate ?? recruitment.startDate;
-  return [...recruitments].sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
+  return [...recruitments].sort((a, b) =>
+    recruitmentClosedSortKey(a) < recruitmentClosedSortKey(b) ? 1 : -1,
+  );
 }
 ```
+(마감일 표기도 같은 키를 날짜로 표기 — `recruitmentClosedSortKey` 재사용, 시각 불요.)
 
 - [ ] **Step 2: 타입·schema·표 구현 → 영역 테스트 그린** (`pnpm vitest run apps/web/test/manage/recruitments/`)
 - [ ] **Step 3: Commit** — `feat(frontend): 지난 모집 정렬·지원자 링크 — 마감 시각 기반 아카이브 순서`
@@ -134,13 +146,13 @@ export function sortPastRecruitments(recruitments: RecruitmentSummary[]): Recrui
 
 **Files:**
 - Create: `frontend/apps/web/app/manage/clubs/[clubId]/applicants/page.tsx`
-- Modify: `frontend/apps/web/app/manage/_components/ManageNav.tsx` — '지원자' 메뉴: 모집 컨텍스트 있으면 현행 유지, 없으면 비활성 대신 진입 라우트 링크 (EXTERNAL 힌트 분기 유지)
+- Modify: `frontend/apps/web/app/manage/_components/ManageNav.tsx` — '지원자' 메뉴: 모집 컨텍스트 있으면 현행 유지, 없으면 비활성 대신 진입 라우트 링크 (EXTERNAL 힌트 분기 유지). **active 판정도 갱신** — 현재 모집 스코프 경로 기준(:84 부근)이라 진입 라우트(`…/clubs/{clubId}/applicants`)에서도 '지원자' 가 active 로 표시되게 경로 매칭 확장 (문서 리뷰 반영)
 - Test: `apps/web/test/manage/applicants-entry/` 신규 + ManageNav 테스트 갱신
 
 **Interfaces:**
 - Consumes: `useClubRecruitmentsQuery`, `sortPastRecruitments`(Task 3).
 
-- [ ] **Step 1: 실패 테스트** — ① OPEN·SELF 존재 → 최신 모집 지원현황으로 replace ② 진행 중 없음 → Empty State("현재 진행 중인 모집이 없습니다" + CTA "새 모집 등록" → `…/recruitments/new`) + 지난 모집 목록(정렬·지원자 링크) ③ OPEN 이 EXTERNAL 뿐 → 전용 문구 + CTA "모집 관리로 이동" → `…/recruitments` ④ 로딩 중 LoadingGate
+- [ ] **Step 1: 실패 테스트** — ① OPEN·SELF 존재 → 최신 모집 지원현황으로 replace ② 진행 중 없음 → Empty State("현재 진행 중인 모집이 없습니다" + CTA "새 모집 등록" → `…/recruitments/new`) + 지난 모집 목록(정렬·지원자 링크) ③ OPEN 이 EXTERNAL 뿐 → 전용 문구 + CTA "모집 관리로 이동" → `…/recruitments` ④ 로딩 중 LoadingGate ⑤ **쿼리 에러 → 에러 안내+재시도 렌더** (일반 Empty State 로 떨어뜨리지 않음 — 스펙 §2-4)
 - [ ] **Step 2: 구현** — client component:
 
 ```tsx
@@ -183,7 +195,7 @@ const hasExternalOpenOnly = (recruitmentList ?? []).some(
 
 **Files:**
 - Modify: `applicants/page.tsx` — CLOSED 배너("마감된 모집 — 조회 전용입니다.")·체크박스 숨김(→ BulkActionBar 자연 미노출)
-- Modify: `applicants/[applicationId]/_components/ApplicantDetailPage.tsx`·`StatusActionBar.tsx` — CLOSED 면 StatusActionBar 대신 읽기 전용 안내("마감된 모집은 상태를 변경할 수 없습니다"), `EvaluationPanel` 입력 비활성+동일 안내
+- Modify: `applicants/[applicationId]/_components/ApplicantDetailPage.tsx`·`StatusActionBar.tsx` — CLOSED 면 StatusActionBar 대신 읽기 전용 안내("마감된 모집은 상태를 변경할 수 없습니다"), `EvaluationPanel` 입력 비활성+동일 안내, **`MyEvaluationCard` 평가 삭제 버튼 숨김** (스펙 §1-3 차단 표 — BE 가드 ③ 대응 표면)
 - Modify: `StatusActionBar.tsx` — 단건 상태 변경 mutation `onError` 토스트: code `RECRUITMENT_CLOSED` 면 "마감된 모집은 조회만 가능합니다", 그 외 실패도 일반 실패 토스트 (조용한 실패 기존 결함 해소). packages/api 에러 정규화가 `code` 를 노출하는지 확인, 없으면 노출 추가(FE 내부 변경만)
 - Test: applicants 관련 기존 테스트 + 신규 (읽기 전용 게이트·fail-open·토스트)
 
@@ -199,9 +211,9 @@ const hasExternalOpenOnly = (recruitmentList ?? []).some(
 
 ## 최종 검증 체크리스트 (PR 전, 오케스트레이터)
 
-- [ ] 스펙 §1-3 차단 표 4행 전부에 BE 테스트 존재, 조회 경로 무가드 확인
+- [ ] 스펙 §1-3 차단 표 5행 전부에 BE 테스트 존재, 조회 경로 무가드 확인
 - [ ] 409 code `RECRUITMENT_CLOSED` 가 BE 응답·FE 분기 양쪽에서 동일 문자열
 - [ ] fail-open 동작이 스펙 §6 확정 문구와 일치 (로딩 = 노출 유지, 확인 즉시 적용)
-- [ ] CTA 분기 2종(§2)·외부 폼 제외가 진입·드롭다운·지난 모집 표 3곳 일관
+- [ ] CTA 분기 2종(§2)·외부 폼 제외, 그리고 **표면별 "지난 모집" 기준이 스펙 §3 명시와 일치** (표=displayStatus·심사 중 행 링크는 전 기능 / 진입·스위처=raw CLOSED)
 - [ ] 실브라우저 QA 1회 (진입 자동 이동·전환·CLOSED 표면·철회 차단) — 기존 QA 셋업 재사용
 - [ ] PR 본문: 쓰기 경로 전수 grep 결과·Out of Scope(§9) 명시
