@@ -31,6 +31,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -61,6 +62,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -300,7 +303,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .body("data.result", equalTo("APPROVED"));
 
         // 가입 가능 기간까지 지난 상태로 마감한다 — 자동 만료는 신규 요청만 막고 처리는 계속 가능해야 한다.
-        closeRecruitment(LocalDateTime.now().minusDays(30));
+        closeRecruitment(LocalDateTime.now(clock).minusDays(30));
         decide(leaderToken, club.getId(), requestApprovedAfterClose.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
@@ -477,7 +480,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
     private ClubJoinRequest saveRejectedRequest(User student) {
         ClubJoinRequest pending = savePendingRequest(student);
-        pending.reject(leaderUser, LocalDateTime.now());
+        pending.reject(leaderUser, LocalDateTime.now(clock));
         return clubJoinRequestRepository.save(pending);
     }
 
@@ -488,7 +491,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
     private void revokeCurrentJoinCode() {
         ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
-        stored.revoke(LocalDateTime.now(), null);
+        stored.revoke(LocalDateTime.now(clock), null);
         clubJoinCodeRepository.save(stored);
     }
 

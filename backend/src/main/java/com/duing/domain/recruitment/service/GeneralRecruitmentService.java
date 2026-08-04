@@ -371,9 +371,12 @@ public class GeneralRecruitmentService implements RecruitmentService {
     public List<Long> closeAllOnClubClosure(Long clubId) {
         List<Recruitment> recruitments =
                 recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
+        // 한 번의 폐쇄로 닫히는 모집들은 같은 종료 시각을 갖는다 — 루프마다 시계를 읽으면 가입 링크의
+        // 기간 기준점이 모집마다 미세하게 어긋난다.
+        LocalDateTime closedAt = LocalDateTime.now(clock);
         for (Recruitment recruitment : recruitments) {
             if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
-                recruitment.close(LocalDateTime.now(clock));
+                recruitment.close(closedAt);
             }
         }
         return recruitments.stream().map(Recruitment::getId).toList();

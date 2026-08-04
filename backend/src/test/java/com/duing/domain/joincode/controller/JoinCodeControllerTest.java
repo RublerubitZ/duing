@@ -33,6 +33,7 @@ import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -63,6 +64,8 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired JoinRequestService joinRequestService;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -235,7 +238,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         // 6일 전 종료 + 프리셋 7일 → 아직 창 안. 합격자 등록은 종료 직후에 이어지는 절차다.
-        closeRecruitment(LocalDateTime.now().minusDays(6));
+        closeRecruitment(LocalDateTime.now(clock).minusDays(6));
 
         checkCode(null, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
@@ -250,7 +253,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         // 8일 전 종료 + 프리셋 7일 → 창 밖. 마감 경로마다 폐기 훅을 심지 않고 판정으로 파생시킨다.
-        closeRecruitment(LocalDateTime.now().minusDays(8));
+        closeRecruitment(LocalDateTime.now(clock).minusDays(8));
 
         assertUnusableAndRequestRejected("AB12CD");
         assertThat(clubJoinRequestRepository.count())
@@ -262,7 +265,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     void zeroJoinWindowCodeEndsAtClose() {
         saveJoinCode("AB12CD", 12, 30, 0);
 
-        closeRecruitment(LocalDateTime.now().minusMinutes(1));
+        closeRecruitment(LocalDateTime.now(clock).minusMinutes(1));
 
         assertUnusableAndRequestRejected("AB12CD");
     }
@@ -330,7 +333,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     private void revoke(ClubJoinCode joinCode) {
-        joinCode.revoke(LocalDateTime.now(), null);
+        joinCode.revoke(LocalDateTime.now(clock), null);
         clubJoinCodeRepository.save(joinCode);
     }
 

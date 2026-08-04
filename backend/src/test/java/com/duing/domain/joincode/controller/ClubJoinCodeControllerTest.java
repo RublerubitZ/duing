@@ -26,6 +26,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +57,8 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -415,7 +418,7 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
     private void closeRecruitment(Recruitment recruitment) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close(LocalDateTime.now());
+        stored.close(LocalDateTime.now(clock));
         recruitmentRepository.save(stored);
     }
 }

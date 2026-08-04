@@ -23,7 +23,9 @@ public record CreateJoinCodeCommand(
     private static final Set<Integer> ALLOWED_JOIN_WINDOW_DAYS = Set.of(0, 7, 14);
 
     public CreateJoinCodeCommand {
-        if (!ALLOWED_JOIN_WINDOW_DAYS.contains(joinWindowDays)) {
+        // null 을 Set.contains 에 그대로 넘기면 NPE(500) 가 되므로 먼저 걸러 400 으로 흡수한다 —
+        // 요청 경계가 기본값을 채우지만 다른 호출자(내부 오케스트레이션)까지 그 전제에 기대지 않는다.
+        if (joinWindowDays == null || !ALLOWED_JOIN_WINDOW_DAYS.contains(joinWindowDays)) {
             throw new JoinCodeException.InvalidJoinWindowDaysException();
         }
     }

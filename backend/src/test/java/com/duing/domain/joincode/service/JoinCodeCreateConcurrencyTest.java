@@ -23,6 +23,7 @@ import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,6 +52,8 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired JdbcTemplate jdbcTemplate;
+    /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -152,7 +155,7 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
 
     private void closeRecruitment(Recruitment recruitment) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close(LocalDateTime.now());
+        stored.close(LocalDateTime.now(clock));
         recruitmentRepository.save(stored);
     }
 
