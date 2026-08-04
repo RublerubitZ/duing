@@ -3,6 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // 미들웨어(Edge 런타임)는 next/server 외 어떤 모듈도 import 하지 않는다.
 // Vercel 의 Edge 번들러가 이 모노레포에서 미들웨어의 import(워크스페이스 패키지·경로 별칭 모두)를
 // 인라인하지 못하고 unsupported module 로 거부하므로, auth_hint 검증 로직을 파일 안에 직접 둔다.
+// 반대 방향(앱 코드가 이 파일을 import)도 금지다 — `export const config`(matcher)가 페이지 설정으로
+// 오인돼 "Invalid page configuration" 경고가 난다. 앱 쪽은 app/_lib/auth-hint.ts 의 쌍둥이 구현을
+// 쓰고, 두 구현의 드리프트는 test/auth/middleware-auth-hint.test.ts 의 교차 테스트가 잡는다.
 
 const AUTH_HINT_COOKIE_NAME = 'auth_hint';
 

@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { verifyAuthHint as verifyAuthHintForApp } from '../../app/_lib/auth-hint';
 import { config, middleware, verifyAuthHint } from '../../middleware';
 
 const AUTH_HINT_SECRET = 'test-auth-hint-secret-at-least-32-bytes';
@@ -78,6 +79,40 @@ describe('verifyAuthHint', () => {
     ],
   ])('%s auth_hint를 거부한다', async (_caseName, createToken) => {
     await expect(verifyAuthHint(createToken(), AUTH_HINT_SECRET, NOW_SECONDS)).resolves.toBeNull();
+  });
+});
+
+// 미들웨어(Edge 자기완결)와 앱(RSC 레이아웃)이 같은 검증을 따로 들고 있다 — 한쪽만 고치면
+// 라우팅 가드와 SSR 헤더 판정이 갈라지므로, 전 케이스에서 두 구현의 결과 일치를 강제한다.
+describe('verifyAuthHint 이중 구현 드리프트 가드', () => {
+  it.each([
+    ['유효한 STUDENT', () => createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60 })],
+    ['유효한 ADMIN', () => createAuthHint({ typ: 'AUTH_HINT', role: 'ADMIN', exp: NOW_SECONDS + 60 })],
+    [
+      '위조된 signature',
+      () =>
+        createAuthHint(
+          { typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60 },
+          'wrong-secret-at-least-32-bytes',
+        ),
+    ],
+    ['다른 typ', () => createAuthHint({ typ: 'ACCESS', role: 'STUDENT', exp: NOW_SECONDS + 60 })],
+    ['알 수 없는 role', () => createAuthHint({ typ: 'AUTH_HINT', role: 'MANAGER', exp: NOW_SECONDS + 60 })],
+    ['만료된 exp', () => createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS })],
+    [
+      '추가 claims',
+      () =>
+        createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60, unexpected: 'value' }),
+    ],
+    ['segment 수 이상', () => 'a.b'],
+    ['비어 있는 토큰', () => ''],
+  ])('%s 토큰에서 두 구현의 결과가 일치한다', async (_caseName, createToken) => {
+    const token = createToken();
+
+    const middlewareResult = await verifyAuthHint(token, AUTH_HINT_SECRET, NOW_SECONDS);
+    const appResult = await verifyAuthHintForApp(token, AUTH_HINT_SECRET, NOW_SECONDS);
+
+    expect(appResult).toEqual(middlewareResult);
   });
 });
 
