@@ -202,6 +202,37 @@ class RecruitmentUpdateAndCloseServiceTest {
     }
 
     @Test
+    @DisplayName("수정으로는 applicationMode 와 externalFormUrl 을 바꿀 수 없다 — 화이트리스트는 생성 시 한 번만 검증하면 충분하다")
+    void updateCannotChangeApplicationModeOrExternalFormUrl() {
+        Recruitment recruitment = openExternalRecruitment();
+        setField(recruitment, "externalFormUrl", "https://forms.gle/aBcD1234");
+        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+
+        // 수정 명령에는 applicationMode·externalFormUrl 필드 자체가 없어 어떤 값도 실어 보낼 수 없다.
+        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
+                RECRUITMENT_ID,
+                MANAGER_USER_ID,
+                "수정된 제목",
+                null,
+                null,
+                null,
+                20,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        recruitmentService.update(updateCommand);
+
+        assertThat(recruitment.getApplicationMode()).isEqualTo(ApplicationMode.EXTERNAL);
+        assertThat(recruitment.getExternalFormUrl()).isEqualTo("https://forms.gle/aBcD1234");
+        assertThat(recruitment.getTitle()).isEqualTo("수정된 제목");
+    }
+
+    @Test
     @DisplayName("이미 지원자가 있는 모집 공고에서 질문을 변경하려 하면 409 예외가 발생하고 질문은 그대로 유지된다")
     void updateQuestionsWithExistingApplicationsThrowsConflict() {
         Recruitment recruitment = openSelfRecruitmentWithForm(List.of("기존 질문1", "기존 질문2"));

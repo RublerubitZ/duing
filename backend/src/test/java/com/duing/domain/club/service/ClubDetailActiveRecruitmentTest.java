@@ -75,7 +75,7 @@ class ClubDetailActiveRecruitmentTest {
         Long recruitmentId = recruitmentService.create(new CreateRecruitmentCommand(
                 club.getId(), leader.getId(), "공개모집", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
-                ApplicationMode.EXTERNAL, "https://example.com/form", false,
+                ApplicationMode.EXTERNAL, "https://forms.gle/aBcD1234", false,
                 TargetRole.MEMBER, List.of(), null, null, false
         ));
 
