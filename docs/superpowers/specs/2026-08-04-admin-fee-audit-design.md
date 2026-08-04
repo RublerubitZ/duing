@@ -483,13 +483,14 @@ domain/fee/
 ```json
 {
   "registered": true,
-  "bank": "KB", "bankName": "KB국민은행",
+  "bank": "KB",
   "maskedAccountNumber": "****7890",
   "accountHolder": "멋쟁이사자처럼 회장 김대표",
   "bankMatchingActive": true
 }
 ```
 
+- 은행 한글 표시명은 FE 라벨 맵 소유(`Bank` enum은 코드만) — `bankName` 필드 없음.
 - `AccountNumberMasker` 재사용 — 복호화 실패 시 `maskedAccountNumber: null` (graceful degrade, `GeneralBankMatchingAdminService` 선례).
 - 미등록 시 `registered: false` + 나머지 null.
 - BANK 매칭 허용 토글은 기존 `/admin/bank-matching` 화면 링크로 안내.

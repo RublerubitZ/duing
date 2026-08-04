@@ -8,6 +8,7 @@ import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -83,6 +84,7 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
     @Autowired FeeAccountRepository feeAccountRepository;
     @Autowired BankTransactionRepository bankTransactionRepository;
     @Autowired BankMatchingSettingRepository bankMatchingSettingRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired FeeAccountCipher feeAccountCipher;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -321,6 +323,23 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
         assertThat(response.getBoolean("data.find { it.name == '지난 학기 정책' }.active")).isFalse();
         assertThat(response.getLong("data.find { it.name == '지난 학기 정책' }.billCount")).isZero();
         assertThat(response.getDouble("data.find { it.name == '지난 학기 정책' }.paymentRate")).isZero();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 동아리의 하위 탭은 빈 결과가 아니라 404 이고 열람 감사도 남지 않는다")
+    void missingClubSubResourceReturnsNotFound() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(BILLS_PATH, 999_999L)
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+
+        // 계좌는 미등록 동아리와 응답이 같아 보일 수 있어(registered=false) 별도로 확인한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(ACCOUNT_PATH, 999_999L)
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+
+        assertThat(clubAuditEventRepository.findAll()).isEmpty();
     }
 
     private JsonPath searchBills(String... queryParams) {

@@ -128,6 +128,7 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
 
     @Override
     public List<AdminFeePolicyRow> getPolicies(Long clubId, AdminFeePeriod period) {
+        requireExistingClub(clubId);
         return adminFeeAuditQueryRepository.findPoliciesForAdmin(clubId, period);
     }
 
@@ -135,6 +136,7 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
     @Override
     public Page<AdminFeeBillRow> searchBills(Long clubId, AdminFeeBillFilter filter, String q,
                                              AdminFeePeriod period, AdminFeeBillSort sort, Pageable pageable) {
+        requireExistingClub(clubId);
         return adminFeeAuditQueryRepository.searchBillsForAdmin(
                 clubId, filter, q, period, LocalDate.now(clock), sort, pageable);
     }
@@ -142,12 +144,14 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
     @Override
     public Page<AdminFeePaymentRow> searchPayments(Long clubId, PaymentStatus status, AdminFeePeriod period,
                                                    Pageable pageable) {
+        requireExistingClub(clubId);
         return adminFeeAuditQueryRepository.searchPaymentsForAdmin(clubId, status, period, pageable);
     }
 
     /** 계좌는 열람 전용이다 — 평문 계좌번호는 응답에 실리지 않고 마스킹 값만 나간다(스펙 §7.7). */
     @Override
     public AdminFeeAccountQuery getAccount(Long clubId) {
+        requireExistingClub(clubId);
         return feeAccountRepository.findByClubId(clubId)
                 .map(account -> new AdminFeeAccountQuery(
                         true,
@@ -173,6 +177,16 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
             log.warn("회비 감사 계좌 복호화 실패 — 해당 값 마스킹 생략: clubId={}",
                     account.getClubId(), decryptFailure);
             return null;
+        }
+    }
+
+    /**
+     * 하위 탭 4종 공통 가드 — 없는(또는 삭제된) 동아리는 빈 결과가 아니라 404 다(스펙 §7.11).
+     * 상세 KPI 는 Club 엔티티 자체가 필요해 findById 로 조회하지만, 여기서는 존재 여부만 보면 된다.
+     */
+    private void requireExistingClub(Long clubId) {
+        if (!clubRepository.existsById(clubId)) {
+            throw new ClubException.ClubNotFoundException();
         }
     }
 

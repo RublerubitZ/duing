@@ -9,12 +9,11 @@ import com.duing.domain.fee.service.dto.query.AdminFeeAccountQuery;
  *
  * <p>미등록 동아리는 {@code registered=false} 에 나머지가 전부 null 이다.
  *
- * <p>{@code bankName} 은 은행 코드 문자열이다 — 한글 표시명은 {@link Bank} 규약대로 프론트엔드가 보유한다.
+ * <p>은행 한글 표시명은 {@link Bank} 규약대로 프론트엔드 라벨 맵이 보유한다 — 서버는 코드만 내려준다.
  */
 public record AdminFeeAccountResponse(
         boolean registered,
         Bank bank,
-        String bankName,
         String maskedAccountNumber,
         String accountHolder,
         boolean bankMatchingActive
@@ -23,7 +22,6 @@ public record AdminFeeAccountResponse(
         return new AdminFeeAccountResponse(
                 accountQuery.registered(),
                 accountQuery.bank(),
-                accountQuery.bank() == null ? null : accountQuery.bank().name(),
                 accountQuery.maskedAccountNumber(),
                 accountQuery.accountHolder(),
                 accountQuery.bankMatchingActive());
