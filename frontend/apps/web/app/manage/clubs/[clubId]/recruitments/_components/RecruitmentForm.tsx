@@ -492,7 +492,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           <SectionCard
             number={3}
             title="회원 등록 절차"
-            description="외부 폼 모집은 지원서를 두잉에서 받지 않고, 합격자를 가입 코드로 등록해요."
+            description="외부 폼 모집은 지원서를 두잉에서 받지 않고, 합격자를 가입 링크로 등록해요."
           >
             <MemberEnrollmentStepsCard />
           </SectionCard>

@@ -13,6 +13,7 @@ import {
   RECRUITMENT_DISPLAY_STATUS_LABEL,
 } from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
+import { ExternalRecruitmentActions } from './ExternalRecruitmentActions';
 
 type Props = {
   clubId: number;
@@ -30,6 +31,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
   const closeRecruitment = useCloseRecruitmentMutation(recruitment.id);
 
   const now = new Date();
+  const isExternal = recruitment.applicationMode === 'EXTERNAL';
   const stageLabels = recruitmentStageLabels(recruitment.useInterview);
   const recruitmentBasePath: `/${string}` = `/manage/clubs/${clubId}/recruitments/${recruitment.id}`;
 
@@ -72,17 +74,24 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        <Link href={toRoute(`${recruitmentBasePath}/applicants`)} className="btn btn-primary btn-sm">
-          지원자 관리
-        </Link>
-        {recruitment.useInterview && (
-          <Link href={toRoute(`${recruitmentBasePath}/interview`)} className="btn btn-secondary btn-sm">
-            면접 관리
-          </Link>
+        {/* 외부 폼 모집은 지원서·통계를 쓰지 않는다 — 액션을 가입 링크·가입 요청으로 바꾼다(§5.1). */}
+        {isExternal ? (
+          <ExternalRecruitmentActions clubId={clubId} recruitment={recruitment} />
+        ) : (
+          <>
+            <Link href={toRoute(`${recruitmentBasePath}/applicants`)} className="btn btn-primary btn-sm">
+              지원자 관리
+            </Link>
+            {recruitment.useInterview && (
+              <Link href={toRoute(`${recruitmentBasePath}/interview`)} className="btn btn-secondary btn-sm">
+                면접 관리
+              </Link>
+            )}
+            <Link href={toRoute(`${recruitmentBasePath}/stats`)} className="btn btn-secondary btn-sm">
+              통계
+            </Link>
+          </>
         )}
-        <Link href={toRoute(`${recruitmentBasePath}/stats`)} className="btn btn-secondary btn-sm">
-          통계
-        </Link>
         <span className="ml-auto flex items-center gap-3 text-sm">
           <Link href={toRoute(`${recruitmentBasePath}/edit`)} className="text-charcoal-3 hover:text-charcoal hover:underline">
             모집글 편집

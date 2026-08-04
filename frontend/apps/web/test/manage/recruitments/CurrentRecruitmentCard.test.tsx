@@ -8,13 +8,29 @@ vi.mock('next/link', () => ({
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockCloseMutateAsync = vi.fn();
+const mockPendingJoinRequests = vi.fn(() => ({ data: [] as unknown[] }));
 vi.mock('@duing/hooks', async (importOriginal) => {
   const actualHooks = await importOriginal<typeof import('@duing/hooks')>();
   return {
     ...actualHooks,
     useCloseRecruitmentMutation: () => ({ mutateAsync: mockCloseMutateAsync, isPending: false }),
+    useJoinRequestsQuery: () => mockPendingJoinRequests(),
   };
 });
+
+// 링크 관리 패널 자체는 회원 등록 영역 테스트가 담당한다 — 여기서는 카드가 그 패널을 어떤 조건으로
+// 띄우는지(다이얼로그·canCreate)만 본다.
+vi.mock('@/app/manage/clubs/[clubId]/recruitments/_components/MemberEnrollmentSection', () => ({
+  MemberEnrollmentPanel: ({
+    recruitmentId,
+    clubName,
+    canCreate,
+  }: {
+    recruitmentId: number;
+    clubName: string;
+    canCreate: boolean;
+  }) => <div data-testid="join-link-panel">{`${recruitmentId}/${clubName}/${String(canCreate)}`}</div>,
+}));
 
 import { CurrentRecruitmentCard } from '@/app/manage/clubs/[clubId]/recruitments/_components/CurrentRecruitmentCard';
 import { RecruitmentEmptyState } from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentEmptyState';
@@ -111,6 +127,61 @@ describe('CurrentRecruitmentCard', () => {
     expect(alert).toHaveTextContent('이미 마감된 모집입니다.');
     expect(alert.closest('[aria-hidden="true"]')).toBeNull();
     expect(screen.getByText('모집을 마감할까요?')).toBeInTheDocument();
+  });
+});
+
+// 외부 폼 모집은 지원서·통계를 쓰지 않는다 — 카드 액션 자체가 가입 링크 중심으로 갈린다(스펙 §5.1).
+describe('CurrentRecruitmentCard — 외부 폼 모집 액션', () => {
+  const externalRecruitment = () =>
+    recruitment({ applicationMode: 'EXTERNAL', useInterview: false, externalFormUrl: 'https://forms.gle/abc' });
+
+  it('지원자 관리·통계 대신 가입 링크와 가입 요청 관리를 보여준다', () => {
+    render(<CurrentRecruitmentCard clubId={1} recruitment={externalRecruitment()} />);
+
+    expect(screen.getByRole('button', { name: '가입 링크' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /가입 요청 관리/ })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/members/requests',
+    );
+    expect(screen.queryByRole('link', { name: '지원자 관리' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
+  });
+
+  it('대기 중인 가입 요청 수를 배지로 보여준다', () => {
+    mockPendingJoinRequests.mockReturnValueOnce({ data: [{}, {}, {}] });
+
+    render(<CurrentRecruitmentCard clubId={1} recruitment={externalRecruitment()} />);
+
+    expect(within(screen.getByRole('link', { name: /가입 요청 관리/ })).getByText('3')).toBeInTheDocument();
+  });
+
+  it('가입 링크를 누르면 상세로 가지 않고 링크 관리 다이얼로그가 열린다', () => {
+    render(<CurrentRecruitmentCard clubId={1} recruitment={externalRecruitment()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '가입 링크' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByTestId('join-link-panel')).toHaveTextContent('42/두잉/true');
+  });
+
+  it('마감된 모집(실질 종료)이면 패널에 생성 불가로 전달한다', () => {
+    render(
+      <CurrentRecruitmentCard
+        clubId={1}
+        recruitment={{ ...externalRecruitment(), effectivelyOpen: false }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '가입 링크' }));
+
+    expect(screen.getByTestId('join-link-panel')).toHaveTextContent('42/두잉/false');
+  });
+
+  it('자체 폼 모집에는 가입 링크 액션을 두지 않는다', () => {
+    render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
+
+    expect(screen.queryByRole('button', { name: '가입 링크' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /가입 요청 관리/ })).not.toBeInTheDocument();
   });
 });
 

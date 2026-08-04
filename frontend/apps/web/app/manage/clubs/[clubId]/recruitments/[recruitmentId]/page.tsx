@@ -14,7 +14,7 @@ import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
-import { MemberEnrollmentSection } from './_components/MemberEnrollmentSection';
+import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -227,26 +227,31 @@ export default function RecruitmentDetailPage({
         </div>
       )}
 
-      {/* 액션 버튼 — 지원자 관리가 1차 액션(운영진이 가장 자주 확인), 나머지는 보조 액션 */}
+      {/* 액션 버튼 — 지원자 관리가 1차 액션(운영진이 가장 자주 확인), 나머지는 보조 액션.
+          외부 폼 모집은 지원서·통계를 쓰지 않으므로 두 진입점을 아예 두지 않는다(§5.1). */}
       <div className="flex flex-wrap gap-3">
-        <Link
-          href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants`)}
-          className={primaryActionClass}
-        >
-          지원자 관리
-          {applicantTotal !== null && (
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
-              {applicantTotal}
-              <span className="sr-only">명</span>
-            </span>
-          )}
-        </Link>
-        <Link
-          href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
-          className={secondaryActionClass}
-        >
-          통계
-        </Link>
+        {!isExternal && (
+          <>
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants`)}
+              className={primaryActionClass}
+            >
+              지원자 관리
+              {applicantTotal !== null && (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                  {applicantTotal}
+                  <span className="sr-only">명</span>
+                </span>
+              )}
+            </Link>
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/stats`)}
+              className={secondaryActionClass}
+            >
+              통계
+            </Link>
+          </>
+        )}
         {recruitment.useInterview && (
           <Link
             href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
@@ -285,8 +290,16 @@ export default function RecruitmentDetailPage({
         )}
       </div>
 
-      {/* 외부 폼 모집은 지원자 화면 대신 여기서 회원을 등록한다 — 모집 상태와 무관하게 노출한다(§4.2·§5). */}
-      {isExternal && <MemberEnrollmentSection clubId={clubId} recruitmentId={recruitmentId} />}
+      {/* 외부 폼 모집은 지원자 화면 대신 여기서 회원을 등록한다 — 모집 상태와 무관하게 노출하되,
+          링크 생성은 실질 진행 중일 때만 열어 종료 후 409 를 UX 에서 차단한다(§4.2·§5). */}
+      {isExternal && (
+        <MemberEnrollmentSection
+          clubId={clubId}
+          recruitmentId={recruitmentId}
+          clubName={recruitment.clubName}
+          canCreate={recruitment.effectivelyOpen}
+        />
+      )}
 
       <ConfirmDialog
         open={showCloseConfirm}

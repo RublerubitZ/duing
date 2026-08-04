@@ -58,7 +58,7 @@ describe('RecruitmentForm — 외부 폼 전환 확인 다이얼로그', () => {
     expect(dialog).toHaveTextContent('안내문');
     expect(dialog).toHaveTextContent('면접');
     expect(dialog).toHaveTextContent('지원자 수 공개');
-    expect(dialog).toHaveTextContent('가입 코드');
+    expect(dialog).toHaveTextContent('가입 링크');
     // §7 절차 플로우
     expect(dialog).toHaveTextContent('합격자 선정');
     expect(dialog).toHaveTextContent('운영진 승인');
@@ -151,7 +151,7 @@ describe('RecruitmentForm — 외부 폼 전용 화면', () => {
     expect(screen.queryByRole('switch', { name: '지원자 수 공개' })).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(EXTERNAL_URL_PLACEHOLDER)).toBeInTheDocument();
     expect(screen.getByText(/forms\.gle/)).toBeInTheDocument();
-    expect(screen.getByText('가입 코드 생성')).toBeInTheDocument();
+    expect(screen.getByText('가입 링크 생성·공유')).toBeInTheDocument();
   });
 
   it('자체 폼으로 되돌리면 숨겼던 섹션이 모두 돌아온다', () => {
