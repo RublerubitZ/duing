@@ -3,7 +3,11 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useCreateRecruitmentMutation, useRecruitmentDetailQuery } from '@duing/hooks';
+import {
+  useClubRecruitmentsQuery,
+  useCreateRecruitmentMutation,
+  useRecruitmentDetailQuery,
+} from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import posthog from 'posthog-js';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -38,6 +42,18 @@ export default function NewRecruitmentPage({
   // 아니면 복제 씨앗으로 쓰지 않는다(복제 진입이 아닌 일반 신규 작성으로 떨어진다).
   const cloneSource =
     cloneSourceCandidate?.clubId === clubId ? cloneSourceCandidate : undefined;
+
+  // 새 모집 등록은 마감일이 지난 채 OPEN 으로 남아 있는 기존 모집을 백엔드가 자동 마감한 뒤 진행된다
+  // (GeneralRecruitmentService.create — 아직 진행 중인 모집이면 마감이 아니라 409 로 거부된다).
+  // 마감되면 그 모집의 지원현황이 조회 전용으로 굳으므로(아카이브 스펙 §9) 제출 전에 고지한다.
+  // 판정은 displayStatus 로 한다 — 백엔드가 같은 today 기준으로 계산해 내려준 값이라
+  // status=OPEN & displayStatus=CLOSED 가 곧 "마감일이 지난 OPEN" 이고, FE 날짜 연산이 필요 없다.
+  // 활성 모집은 동아리당 1건뿐이라(V38 부분 유니크 인덱스) 자동 마감 대상도 최대 1건이다.
+  // 목록을 못 받았으면(로딩·실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
+  const { data: clubRecruitments } = useClubRecruitmentsQuery(isNaN(clubId) ? undefined : clubId);
+  const closingRecruitment = clubRecruitments?.find(
+    (recruitment) => recruitment.status === 'OPEN' && recruitment.displayStatus === 'CLOSED',
+  );
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 
@@ -109,6 +125,7 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
+        closingRecruitmentTitle={closingRecruitment?.title}
         submitLabel={submitLabel}
         onSubmit={handleSubmit}
         isPending={createRecruitment.isPending}
