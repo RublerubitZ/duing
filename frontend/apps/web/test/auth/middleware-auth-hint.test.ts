@@ -12,7 +12,7 @@ const NOW_SECONDS = 2_000_000_000;
 type AuthHintPayload = {
   typ: string;
   role: string;
-  exp: number;
+  exp?: number;
   unexpected?: string;
 };
 
@@ -104,7 +104,20 @@ describe('verifyAuthHint 이중 구현 드리프트 가드', () => {
       () =>
         createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60, unexpected: 'value' }),
     ],
-    ['segment 수 이상', () => 'a.b'],
+    ['segment 부족', () => 'a.b'],
+    [
+      'segment 초과',
+      () => `${createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60 })}.extra`,
+    ],
+    [
+      'alg 변조(none)',
+      () =>
+        createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT', exp: NOW_SECONDS + 60 }, AUTH_HINT_SECRET, {
+          alg: 'none',
+          typ: 'JWT',
+        }),
+    ],
+    ['결측 claims(exp 없음)', () => createAuthHint({ typ: 'AUTH_HINT', role: 'STUDENT' })],
     ['비어 있는 토큰', () => ''],
   ])('%s 토큰에서 두 구현의 결과가 일치한다', async (_caseName, createToken) => {
     const token = createToken();
