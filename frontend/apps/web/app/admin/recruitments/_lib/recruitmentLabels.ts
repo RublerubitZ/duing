@@ -1,7 +1,9 @@
+import { COLLEGE_DISPLAY_NAME, isCollege } from '@duing/types';
 import type {
   AdminJoinLinkStatus,
   AdminRecruitmentSummary,
   ApplicationMode,
+  ApplicationStatus,
   RecruitmentStatus,
 } from '@duing/types';
 
@@ -23,6 +25,28 @@ export const JOIN_LINK_STATUS_LABEL: Record<AdminJoinLinkStatus['linkStatus'], s
   EXPIRED: '만료',
   EXHAUSTED: '소진',
 };
+
+/**
+ * 지원 상태 뱃지 색. 라벨은 공용 상수(APPLICATION_STATUS_LABEL)를 쓰고 여기서는 색만 정한다.
+ * Record 라 상태 집합이 바뀌면 타입 검사에서 곧바로 걸린다 — 조용히 색이 빠지지 않는다.
+ */
+export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
+  SUBMITTED: 'bg-graysoft text-charcoal-2',
+  // 보류 색은 운영진 콘솔(manage ApplicantTable) 과 맞춘다 — 같은 상태가 화면마다 다른 색이면 안 된다.
+  ON_HOLD: 'bg-amber-100 text-amber-700',
+  INTERVIEW_PENDING: 'bg-sage/10 text-ink',
+  ACCEPTED: 'bg-sage/20 text-ink-deep',
+  REJECTED: 'bg-danger/10 text-danger',
+};
+
+/**
+ * 단과대·학과 한 줄 표기. 단과대는 서버 enum 이라 표시명으로 옮기되, 아직 모르는 값이 오면
+ * 빈칸으로 지우지 않고 원문을 그대로 보여준다(회원 관리 화면과 같은 fail-open 규칙).
+ */
+export function collegeMajorLabel(college: string, major: string): string {
+  const collegeLabel = isCollege(college) ? COLLEGE_DISPLAY_NAME[college] : college;
+  return [collegeLabel, major].filter(Boolean).join(' · ') || '—';
+}
 
 /**
  * 지원 방식 표기. 외부 폼은 플랫폼을 알 수 있으면 그 이름으로 부른다 — 운영자가 어디로 지원이

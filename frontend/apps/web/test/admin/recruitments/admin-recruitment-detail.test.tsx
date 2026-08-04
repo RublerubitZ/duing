@@ -7,10 +7,13 @@ import type { AdminJoinLinkStatus, AdminRecruitmentDetail } from '@duing/types';
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockDetailQuery = vi.fn();
 const mockForceClose = vi.fn();
+// 자체 지원 모집이면 지원자 패널이 함께 붙는다 — 패널이 쓰는 훅까지 대체해야 상세 화면이 렌더된다.
+const mockApplicantsQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminRecruitmentDetailQuery: (...args: unknown[]) => mockDetailQuery(...args),
   useForceCloseRecruitmentMutation: () => ({ mutate: mockForceClose, isPending: false }),
+  useAdminApplicantsQuery: (...args: unknown[]) => mockApplicantsQuery(...args),
 }));
 
 vi.mock('next/link', () => ({
@@ -94,6 +97,13 @@ function externalDetail(overrides: Partial<AdminRecruitmentDetail> = {}): AdminR
 beforeEach(() => {
   vi.clearAllMocks();
   mockDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
+  mockApplicantsQuery.mockReturnValue({
+    data: { total: 0, statusCounts: {}, applicants: [] },
+    isLoading: false,
+    isSuccess: true,
+    isError: false,
+    refetch: vi.fn(),
+  });
 });
 
 describe('관리자 모집 상세', () => {
@@ -113,10 +123,11 @@ describe('관리자 모집 상세', () => {
     expect(screen.queryByRole('button', { name: '강제 마감' })).toBeNull();
   });
 
-  it('자체 지원 모집에는 외부 모집 안내를 띄우지 않는다', () => {
+  it('자체 지원 모집에는 외부 모집 안내 대신 지원자 패널을 붙인다', () => {
     render(<AdminRecruitmentDetailPage recruitmentId={5} />);
 
     expect(screen.queryByText(/외부 모집은 두잉에서 지원서를 관리하지 않습니다/)).toBeNull();
+    expect(mockApplicantsQuery).toHaveBeenCalledWith(5, expect.anything());
   });
 
   describe('외부 폼 모집', () => {

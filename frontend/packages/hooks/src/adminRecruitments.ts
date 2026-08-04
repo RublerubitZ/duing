@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminRecruitmentSearchParams, ForceCloseRecruitmentPayload } from '@duing/types';
+import type {
+  AdminApplicantSearchParams,
+  AdminRecruitmentSearchParams,
+  ForceCloseRecruitmentPayload,
+} from '@duing/types';
 
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
@@ -17,6 +21,32 @@ export function useAdminRecruitmentDetailQuery(recruitmentId: number) {
   return useQuery({
     queryKey: adminQueryKeys.recruitmentsDetail(recruitmentId),
     queryFn: () => client.admin.recruitments.detail(recruitmentId),
+  });
+}
+
+export function useAdminApplicantsQuery(
+  recruitmentId: number,
+  params: AdminApplicantSearchParams,
+) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.recruitmentsApplications(recruitmentId, params),
+    queryFn: () => client.admin.recruitments.applications(recruitmentId, params),
+  });
+}
+
+/** 시트가 닫혀 있으면 대상이 없다 — 키 자리는 sentinel 로 채우고 조회 자체를 끈다. */
+export function useAdminApplicationDetailQuery(applicationId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.applicationsDetail(applicationId ?? -1),
+    queryFn: () => {
+      if (applicationId === undefined) {
+        throw new Error('applicationId is undefined but query is enabled');
+      }
+      return client.admin.recruitments.applicationDetail(applicationId);
+    },
+    enabled: applicationId !== undefined,
   });
 }
 
