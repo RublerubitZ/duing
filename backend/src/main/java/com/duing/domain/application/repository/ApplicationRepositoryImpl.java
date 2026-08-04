@@ -120,6 +120,25 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
         return new ApplicantNeighborsQuery(prevId, nextId);
     }
 
+    @Override
+    public List<Application> searchApplicantsForAdmin(Long recruitmentId, ApplicantSearchCondition condition,
+                                                      boolean oldestFirst) {
+        return queryFactory
+                .select(application)
+                .from(application)
+                .join(application.user, user).fetchJoin()
+                .where(
+                        application.recruitment.id.eq(recruitmentId),
+                        statusEq(condition.status()),
+                        collegeEq(condition.college()),
+                        searchKeyword(condition.q()),
+                        submittedAfter(condition.submittedFrom()),
+                        submittedBefore(condition.submittedTo())
+                )
+                .orderBy(oldestFirst ? application.createdAt.asc() : application.createdAt.desc())
+                .fetch();
+    }
+
     private BooleanExpression statusEq(ApplicationStatus status) {
         return status == null ? null : application.status.eq(status);
     }

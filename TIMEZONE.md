@@ -52,6 +52,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | ApplicantDetailResponse.submittedAt (+ ApplicantResponse/ApplicationSummaryResponse/MyApplicationDetailResponse) | applications.created_at | system | BaseEntity @CreatedDate |
 | ApplicantDetailResponse.StatusHistoryItem.changedAt | application_status_histories.created_at | system | BaseEntity |
 | ApplicantDetailResponse.ApplicationEvaluationItem.createdAt/updatedAt | application_evaluations.* | system | BaseEntity |
+| AdminApplicantResponse.submittedAt · AdminApplicationDetailResponse.submittedAt | applications.created_at | system | 위 ApplicantDetailResponse.submittedAt 과 같은 컬럼·같은 변환(총동연 지원자 조회) |
+| AdminApplicationDetailResponse.AdminStatusHistoryItem.changedAt | application_status_histories.created_at | system | 위 StatusHistoryItem.changedAt 과 같은 컬럼·같은 변환 |
 | DraftResponse.updatedAt | application_drafts.updated_at | system | ApplicationDraft.java:52,59 무클럭 now() |
 | AdminClubSummaryResponse.statusChangedAt | clubs.status_changed_at | system | Club.java:225 무클럭 now() |
 | Recertification{Context,RequestDetail,RequestSummary}Response.createdAt | recertification_requests.created_at | system | BaseEntity |
