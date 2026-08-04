@@ -63,6 +63,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | FavoriteClubResponse.favoritedAt | club_favorites.created_at | system | ClubFavorite.java:52 무클럭 now() |
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | JoinCodeResponse.expiresAt | club_join_code.expires_at | **seoul** | GeneralJoinCodeService.java:51 now(clock) 파생 (생성 시점 + 7/30/90일) |
+| JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
+| JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService 승인/거절 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
 | NotificationResponse.createdAt/readAt | notifications.* / notice_broadcasts.created_at | system | Notification.java:70,80·NoticeBroadcast.java:54 무클럭 now() |
 | Promotion 계열.createdAt/updatedAt/handledAt | promotions·promotion_requests.* | system | BaseEntity / PromotionRequest.java:76 무클럭 now() (startAt/endAt은 Schedule 유지) |

@@ -27,6 +27,18 @@ public class JoinRequestException extends ApplicationException {
         }
     }
 
+    /**
+     * 같은 요청에 대한 동시 처리를 낙관적 잠금(@Version)이 잡아낸 경우 — 상태 검사(TOCTOU)를 통과한
+     * 뒤 다른 운영진이 먼저 커밋했음을 뜻한다.
+     */
+    public static final class ConcurrentDecisionException extends JoinRequestException {
+        private static final String MESSAGE = "동시에 처리된 요청입니다. 새로고침 후 다시 확인해 주세요.";
+
+        public ConcurrentDecisionException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     public static final class AlreadyMemberException extends JoinRequestException {
         private static final String MESSAGE = "이미 가입된 동아리입니다.";
 

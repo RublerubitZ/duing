@@ -560,7 +560,7 @@ git commit -m "feat(backend): 가입 코드 확인·가입 요청 생성 API —
 ### Task 8: 승인/거절 단건 + 일괄 승인
 
 **Files:**
-- Modify: `ClubJoinRequestApi.java`/`ClubJoinRequestController.java` (PATCH 단건, POST bulk-approve)
+- Modify: `ClubJoinRequestApi.java`/`ClubJoinRequestController.java` (PATCH 단건, PATCH bulk-approve)
 - Create: `backend/src/main/java/com/duing/domain/joincode/controller/dto/request/DecideJoinRequestRequest.java`, `BulkApproveJoinRequestsRequest.java`
 - Create: `backend/src/main/java/com/duing/domain/joincode/controller/dto/response/JoinRequestDecisionResponse.java`, `BulkApproveJoinRequestsResponse.java`
 - Modify: `GeneralJoinRequestService.java`, `JoinRequestService.java`
@@ -568,7 +568,7 @@ git commit -m "feat(backend): 가입 코드 확인·가입 요청 생성 API —
 
 **Interfaces:**
 - Consumes: `ClubMemberEnrollmentService.enroll(club, user, MEMBER, generationSnapshot)` (PR-1), `ClubJoinCodeRepository.findWithLockById`, `ClubJoinCode.tryConsume()`
-- Produces: `PATCH /api/v1/clubs/{clubId}/join-requests/{joinRequestId}` body `{"status": "APPROVED"|"REJECTED"}` → **200** `{"result": "APPROVED"|"REJECTED"|"AUTO_REJECTED"}` (자동 거절 결과를 전달해야 하므로 204 규약 대신 200+body — Api `@Operation` 에 사유 명시), `POST /api/v1/clubs/{clubId}/join-requests/bulk-approve` body `{"joinRequestIds": [..]}` → 200 `{"approvedCount": n, "failures": [{"joinRequestId": id, "reason": "…"}]}`
+- Produces: `PATCH /api/v1/clubs/{clubId}/join-requests/{joinRequestId}` body `{"status": "APPROVED"|"REJECTED"}` → **200** `{"result": "APPROVED"|"REJECTED"|"AUTO_REJECTED"}` (자동 거절 결과를 전달해야 하므로 204 규약 대신 200+body — Api `@Operation` 에 사유 명시), `PATCH /api/v1/clubs/{clubId}/join-requests/bulk-approve` body `{"joinRequestIds": [..]}` → 200 `{"approvedCount": n, "failures": [{"joinRequestId": id, "reason": "…"}]}` (`PATCH /leader/applications/bulk-status` 선례 정합)
 - 예외: `JoinRequestException.AlreadyProcessedException`(409, "이미 처리된 요청입니다."), `JoinCodeException.InsufficientRemainingUsesException`(409, "잔여 사용 가능 인원이 부족합니다."), `JoinRequestException.ConcurrentDecisionException`(409, "동시에 처리된 요청입니다. 새로고침 후 다시 확인해 주세요.")
 
 - [ ] **Step 1: 실패 테스트 작성** — 승인 200 APPROVED + ClubMember 생성(generation 스냅샷 반영) + used_count 증가 / 거절 200 REJECTED + 멤버 미생성·미차감 / 승인 전 다른 경로로 멤버가 된 요청 승인 → 200 AUTO_REJECTED + reject_reason="이미 가입된 회원" + 미차감 / 잔여 0 승인 → 409 / 이미 처리된 요청 → 409 / 코드 폐기 후에도 PENDING 승인 성공 / **귀속 모집 마감 후에도 PENDING 승인 성공**(스펙 4.1 — 승인은 코드 사용 가능 여부와 무관) / 탈퇴자 요청 승인 → 새 멤버십 행 / bulk: 3건 중 잔여 1 → approvedCount 1 + failures 2(사유 포함) / bulk 에 타 동아리 요청 ID 섞임 → 해당 건만 일반 실패 메시지(열거 차단)

@@ -5,6 +5,8 @@ import com.duing.domain.joincode.entity.JoinRequestStatus;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest, Long> {
 
@@ -17,6 +19,15 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
     /** 학생의 코드 확인 화면이 보여줄 "내 최근 요청 상태" — 재요청 이력이 쌓이므로 최신 1건만 본다. */
     Optional<ClubJoinRequest> findTopByClubIdAndUserIdOrderByIdDesc(Long clubId, Long userId);
 
-    /** 운영진 가입 요청 목록(상태별). */
-    List<ClubJoinRequest> findAllByClubIdAndStatusOrderByIdDesc(Long clubId, JoinRequestStatus status);
+    /**
+     * 운영진 가입 요청 목록(상태별, 최신순). 목록 항목이 학생 정보와 코드 문자열을 함께 보여주므로
+     * LAZY 연관 두 개를 fetch join 해 N+1 을 없앤다.
+     */
+    @Query("SELECT joinRequest FROM ClubJoinRequest joinRequest "
+            + "JOIN FETCH joinRequest.user "
+            + "JOIN FETCH joinRequest.joinCode "
+            + "WHERE joinRequest.club.id = :clubId AND joinRequest.status = :status "
+            + "ORDER BY joinRequest.id DESC")
+    List<ClubJoinRequest> findAllByClubIdAndStatusOrderByIdDesc(@Param("clubId") Long clubId,
+                                                               @Param("status") JoinRequestStatus status);
 }
