@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminApplicantSearchParams,
   AdminRecruitmentSearchParams,
@@ -32,6 +32,9 @@ export function useAdminApplicantsQuery(
   return useQuery({
     queryKey: adminQueryKeys.recruitmentsApplications(recruitmentId, params),
     queryFn: () => client.admin.recruitments.applications(recruitmentId, params),
+    // 검색어·필터·정렬이 바뀔 때마다 로딩으로 리셋되면 타이핑 중인 입력창까지 언마운트돼 포커스를 잃는다.
+    // 이전 목록을 유지한 채 갱신하고, 갱신 중이라는 신호는 화면에서 딤으로 준다.
+    placeholderData: keepPreviousData,
   });
 }
 

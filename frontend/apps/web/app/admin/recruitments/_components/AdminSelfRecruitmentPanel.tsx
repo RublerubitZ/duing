@@ -155,11 +155,21 @@ export function AdminSelfRecruitmentPanel({ recruitmentId }: { recruitmentId: nu
             </div>
           </ConsoleCard>
 
+          {/* keepPreviousData 전환 중(검색어·필터·정렬 변경)에는 이전 목록이 그대로 남는다 —
+              딤으로 "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. 툴바는 딤에서 제외한다:
+              타이핑 중인 입력창까지 흐려지면 갱신 중이 아니라 잠긴 것처럼 읽힌다. */}
           <ConsoleCard className="mt-4">
-            <AdminApplicantsTable
-              items={applicantList.applicants}
-              onOpenApplication={setOpenApplicationId}
-            />
+            <div
+              aria-busy={applicantsQuery.isPlaceholderData}
+              className={
+                applicantsQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined
+              }
+            >
+              <AdminApplicantsTable
+                items={applicantList.applicants}
+                onOpenApplication={setOpenApplicationId}
+              />
+            </div>
           </ConsoleCard>
         </>
       )}

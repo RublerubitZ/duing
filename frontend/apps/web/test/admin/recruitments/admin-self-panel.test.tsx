@@ -189,6 +189,23 @@ describe('관리자 자체 지원 모집 패널', () => {
     expect(screen.getByLabelText('지원자 검색')).toBeInTheDocument();
   });
 
+  it('결과를 갱신하는 동안에도 검색 도구는 그대로 두고 표만 갱신 중으로 표시한다', () => {
+    // keepPreviousData 전환 — 이전 목록이 남은 채 새 조건으로 갱신되는 상태.
+    mockApplicantsQuery.mockReturnValue({
+      ...listSuccess(makeList()),
+      isFetching: true,
+      isPlaceholderData: true,
+    });
+
+    render(<AdminSelfRecruitmentPanel recruitmentId={RECRUITMENT_ID} />);
+
+    // 입력창이 언마운트되면 타이핑 중 포커스를 잃는다 — 툴바는 갱신을 가로질러 유지돼야 한다.
+    expect(screen.getByLabelText('지원자 검색')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '합격' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /정우진/ })).toBeInTheDocument();
+    expect(screen.getByRole('table').closest('[aria-busy="true"]')).not.toBeNull();
+  });
+
   it('행을 누르기 전에는 지원서를 조회하지 않는다', () => {
     render(<AdminSelfRecruitmentPanel recruitmentId={RECRUITMENT_ID} />);
 
