@@ -47,11 +47,11 @@ public class ClubAuditEvent extends BaseEntity {
     @Column(name = "join_request_id")
     private Long joinRequestId;
 
-    /** 열람 대상 지원서(V103) — 총동연 지원서 상세 열람에서만 채워진다. */
+    /** 열람 대상 지원서(V104) — 총동연 지원서 상세 열람에서만 채워진다. */
     @Column(name = "application_id")
     private Long applicationId;
 
-    /** 조치 사유(V103) — 총동연 강제 마감에서만 채워지며, 공백뿐이면 저장하지 않는다. */
+    /** 조치 사유(V104) — 총동연 강제 마감에서만 채워지며, 공백뿐이면 저장하지 않는다. */
     @Column(name = "reason", length = 500)
     private String reason;
 

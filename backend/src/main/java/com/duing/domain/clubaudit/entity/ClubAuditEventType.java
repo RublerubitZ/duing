@@ -4,7 +4,7 @@ package com.duing.domain.clubaudit.entity;
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
  * <p>가입 링크 6종과 총동연 조치 2종이 있다. 값을 추가할 때는 {@code club_audit_event.event_type} 의
- * CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V103).
+ * CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104).
  */
 public enum ClubAuditEventType {
 
