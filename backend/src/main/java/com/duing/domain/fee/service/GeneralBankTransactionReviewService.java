@@ -1,5 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.FeeBill;
@@ -39,6 +43,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     private final FeeBillRepository feeBillRepository;
     private final PaymentRepository paymentRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final BankMatchingAdminService bankMatchingAdminService;
     private final MatchedPaymentService matchedPaymentService;
     private final FeeBillStatusCalculator statusCalculator;
@@ -115,6 +120,9 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
 
         log.info("bank transaction approved: actorId={}, clubId={}, txId={}, feeBillId={}",
                 actorId, clubId, txId, feeBillId);
+        // 납부 기록 감사(FEE_PAYMENT_RECORDED)는 createMatchedPayment 가 남긴다 — 여기서는 수기 매칭 행위만 남긴다.
+        clubAuditEventRepository.save(ClubAuditEvent.feeTransaction(
+                ClubAuditEventType.FEE_TX_MANUAL_MATCHED, clubId, txId, feeBillId, actorId));
     }
 
     @Override
@@ -130,6 +138,9 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         transaction.ignore();
 
         log.info("bank transaction ignored: actorId={}, clubId={}, txId={}", actorId, clubId, txId);
+        // 무시는 대상 청구가 없다(feeBillId=null). 이미 무시된 거래는 위에서 409 로 빠져 중복 기록되지 않는다.
+        clubAuditEventRepository.save(ClubAuditEvent.feeTransaction(
+                ClubAuditEventType.FEE_TX_IGNORED, clubId, txId, null, actorId));
     }
 
     @Override
@@ -159,6 +170,15 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), activePaid);
         bill.updateStatus(newStatus);
         transaction.resetToPending();
+
+        // 매칭취소는 납부 정정을 엔티티에서 직접 호출해 GeneralPaymentService 계측을 타지 않으므로,
+        // 거래 매칭취소와 납부 정정 두 건을 여기서 함께 남긴다(스펙 §4). 동시 정정으로 이미 VOIDED 인
+        // 경우는 위 재조회에서 예외로 빠지므로 이 지점에는 실제 전이가 일어난 호출만 도달한다.
+        clubAuditEventRepository.save(ClubAuditEvent.feeTransaction(
+                ClubAuditEventType.FEE_TX_UNMATCHED, clubId, txId, bill.getId(), actorId));
+        clubAuditEventRepository.save(ClubAuditEvent.feePayment(
+                ClubAuditEventType.FEE_PAYMENT_VOIDED, clubId, bill.getId(), payment.getId(),
+                txId, actorId, UNMATCH_REASON, AuditDetailJson.of(Map.of("amount", payment.getAmount()))));
 
         log.info("bank transaction unmatched: actorId={}, clubId={}, txId={}, billId={}, paymentId={}, newStatus={}",
                 actorId, clubId, txId, bill.getId(), payment.getId(), newStatus);

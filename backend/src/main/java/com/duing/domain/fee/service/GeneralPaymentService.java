@@ -1,5 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeeStatus;
@@ -17,6 +21,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,6 +39,7 @@ public class GeneralPaymentService implements PaymentService {
     private final FeeBillRepository feeBillRepository;
     private final PaymentRepository paymentRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final FeeBillStatusCalculator statusCalculator;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
@@ -70,6 +76,15 @@ public class GeneralPaymentService implements PaymentService {
 
         log.info("payment recorded: actorId={}, clubId={}, billId={}, paymentId={}, amount={}, newStatus={}",
                 command.actorId(), command.clubId(), command.billId(), payment.getId(), command.amount(), newStatus);
+        // 수기 기록이라 연결된 입금 거래가 없다(bankTransactionId=null, autoMatched=false).
+        // payment 는 IDENTITY 생성이라 save 시점에 INSERT 가 나가므로 감사 행의 payment_id FK 가 성립한다.
+        clubAuditEventRepository.save(ClubAuditEvent.feePayment(
+                ClubAuditEventType.FEE_PAYMENT_RECORDED, command.clubId(), bill.getId(),
+                payment.getId(), null, command.actorId(), null,
+                AuditDetailJson.of(Map.of(
+                        "amount", command.amount(),
+                        "method", command.method().name(),
+                        "autoMatched", false))));
         return payment.getId();
     }
 
@@ -83,6 +98,8 @@ public class GeneralPaymentService implements PaymentService {
         Payment payment = paymentRepository.findByIdAndFeeBillId(command.paymentId(), command.billId())
                 .orElseThrow(PaymentException.PaymentNotFoundException::new);
 
+        // 감사는 실제 VOID 전이가 일어났을 때만 남긴다 — 멱등 재호출로 정정 이력이 부풀지 않게 호출 전 상태를 캡처한다.
+        boolean wasActive = payment.isActive();
         payment.voidPayment(command.actorId(), command.reason(), LocalDateTime.now(clock)); // 이미 VOIDED 면 멱등 no-op
         long activePaid = paymentRepository.sumActiveByFeeBillId(command.billId());
         // CANCELLED 청구는 updateStatus 가 멱등 no-op 이라 정정으로 되살아나지 않는다.
@@ -90,6 +107,19 @@ public class GeneralPaymentService implements PaymentService {
 
         log.info("payment voided: actorId={}, clubId={}, billId={}, paymentId={}, activePaid={}",
                 command.actorId(), command.clubId(), command.billId(), command.paymentId(), activePaid);
+        if (wasActive) {
+            // 매칭 납부를 수기로 정정하는 경우도 있어 연결된 거래 id 를 그대로 함께 남긴다(수기 납부면 null).
+            clubAuditEventRepository.save(ClubAuditEvent.feePayment(
+                    ClubAuditEventType.FEE_PAYMENT_VOIDED, command.clubId(), bill.getId(),
+                    payment.getId(), payment.getBankTransactionId(), command.actorId(),
+                    normalizeReason(command.reason()),
+                    AuditDetailJson.of(Map.of("amount", payment.getAmount()))));
+        }
+    }
+
+    /** 공백뿐인 사유는 "미입력"과 같으므로 NULL 로 수렴시킨다(총동연 강제 마감 감사와 동일 규칙). */
+    private static String normalizeReason(String reason) {
+        return reason == null || reason.isBlank() ? null : reason.trim();
     }
 
     @Override
