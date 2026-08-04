@@ -94,7 +94,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public Long createRound(CreateInterviewRoundCommand createCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(createCommand.recruitmentId())
+        // 행 잠금 — 모집 마감(close)과 직렬화한다 (아카이브 스펙 §9 후속). 아래 CLOSED 가드는 잠금을
+        // 획득한 뒤 판정하므로, 마감이 먼저 커밋되면 이 트랜잭션은 대기 후 CLOSED 를 읽고 409 로 떨어진다.
+        // 잠금 순서는 모집 → 지원서(아래 findAllByIdInForUpdate) 단방향이고 close 는 지원서를 잠그지
+        // 않으므로 두 경로 사이에 사이클이 없다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(createCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
         // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라

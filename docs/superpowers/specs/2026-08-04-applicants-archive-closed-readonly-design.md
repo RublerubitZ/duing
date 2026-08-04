@@ -128,7 +128,7 @@
 
 - 마감 시점 진행 중 면접 라운드의 정리 정책 (강제 취소 vs 방치 — 현재 방치)
 - 면접 라운드 내부 쓰기(배정·제외·확정)와 **지원자 면접 가능시간 제출(`PUT /applications/{id}/interview-availability`)**의 CLOSED 가드 필요성 — 라운드 진행 흐름과 함께 일괄 검토
-- `createRound` 의 recruitment 행잠금 (마감과 라운드 생성의 직렬화 — §4 수용된 race 참조)
+- ~~`createRound` 의 recruitment 행잠금 (마감과 라운드 생성의 직렬화 — §4 수용된 race 참조)~~ → **완료** — `createRound`·`close()` 양쪽의 모집 조회를 `findByIdForUpdate` 로 교체해 직렬화했다. 두 경로 모두 모집 행을 먼저 잠그고, 이후 잠금은 `createRound` 의 지원서(`findAllByIdInForUpdate`) 한 방향뿐이라(close 는 지원서를 잠그지 않는다) 사이클이 없다. 마감이 먼저 커밋되면 라운드 생성은 잠금 해제 후 CLOSED 를 읽고 409(`RECRUITMENT_CLOSED`)로 떨어진다. §4 의 나머지 가드 4곳은 "마감 직전 합법 수행과 동치"라 무잠금 수용을 유지한다.
 - lazy-close 리뷰 프리즈 UX — 새 모집 등록이 기존 만료-OPEN 모집을 자동 마감해, 진행 중이던 심사 액션이 일괄 409 로 전환되는 커플링. 모집 등록 확인 UI 에서의 고지 검토
 - 아카이브 지원자 CSV/증적 내보내기
 - 통계 화면 모집 전환 드롭다운 확장

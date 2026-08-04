@@ -292,7 +292,11 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public void close(Long recruitmentId, Long currentUserId) {
-        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+        // 행 잠금 — 면접 라운드 생성(createRound)과 직렬화한다 (아카이브 스펙 §9 후속). 잠그지 않으면
+        // "라운드 생성이 OPEN 을 확인 → 마감 커밋 → 라운드 INSERT" 순서가 성립해 마감된 모집에 라운드가
+        // 잔존한다. 잠금 대상·순서는 delete() 와 같은 모집 행 하나이고, 이 트랜잭션은 이후 다른 행을
+        // 배타 잠금하지 않으므로(권한 확인은 잠금 없는 조회) 사이클이 생기지 않는다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
