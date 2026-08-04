@@ -23,6 +23,7 @@
 - **ON_HOLD(보류)는 운영진의 내부 관리용 상태이며 최종 결과가 아니다.** 회의 결과 대기·추가 확인 필요·내부 검토 중 등 "아직 결정하지 않음"을 표현한다.
 - 지원자에게는 별도 상태로 노출하지 않는다 — 지원자 화면에서 SUBMITTED 와 동일하게 **"심사 중"** 으로 표시 (§6-4).
 - `isTerminal()` = false → `isActive()` = true. 따라서 내 지원 목록의 ACTIVE/ARCHIVED scope(`ApplicationScope`)는 수정 없이 자동 대응.
+- 철회 등 지원자 행위도 SUBMITTED 와 동일하게 동작한다 (ON_HOLD 철회 허용 — 사용자 확정).
 - 코드 이름은 `PENDING` 이 아닌 `ON_HOLD` — 기존 `INTERVIEW_PENDING` 과의 혼동 방지 (사용자 확정).
 
 ### 1-2. 전이표 (useInterview 조건 명시 — FE/BE 동형 구현의 단일 기준)

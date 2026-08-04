@@ -239,7 +239,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     }
 
     // ────────────────────────────────────────────────────────────
-    // 5. 지원 철회 (SUBMITTED 소프트 삭제)
+    // 5. 지원 철회 (미결정 상태 소프트 삭제)
     // ────────────────────────────────────────────────────────────
 
     @Test
@@ -260,15 +260,34 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
                 .isFalse();
     }
 
-    @ParameterizedTest
-    @EnumSource(value = ApplicationStatus.class, names = {"ON_HOLD", "ACCEPTED", "REJECTED"})
-    @DisplayName("처리가 시작된(SUBMITTED 가 아닌) 지원은 철회할 수 없다")
-    void cannotWithdrawNonSubmittedApplication(ApplicationStatus status) throws Exception {
-        setupClubAndLeader("철회-비제출동아리");
-        User applicant = saveUser("비제출지원자", UserRole.STUDENT);
+    @Test
+    @DisplayName("운영진이 보류해 둔 지원도 지원자가 철회하면 목록에서 빠지고 같은 공고에 재지원할 수 있다")
+    void withdrawOnHoldApplicationFreesSlot() throws Exception {
+        setupClubAndLeader("철회-보류동아리");
+        User applicant = saveUser("보류지원자", UserRole.STUDENT);
         Application application = applicationRepository.save(
                 Application.submit(activeRecruitment, applicant, List.of()));
-        application.transitionTo(status, false);
+        application.transitionTo(ApplicationStatus.ON_HOLD, false);
+        Long applicationId = applicationRepository.save(application).getId();
+
+        applicationService.withdraw(applicationId, applicant.getId());
+
+        assertThat(applicationRepository.findById(applicationId)).isEmpty();
+        assertThat(applicationRepository
+                .existsByRecruitmentIdAndUserId(activeRecruitment.getId(), applicant.getId()))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ApplicationStatus.class, names = {"INTERVIEW_PENDING", "ACCEPTED", "REJECTED"})
+    @DisplayName("면접 대상으로 선정됐거나 합불이 정해진 지원은 철회할 수 없다")
+    void cannotWithdrawDecidedApplication(ApplicationStatus status) throws Exception {
+        setupClubAndLeader("철회-결정동아리");
+        User applicant = saveUser("결정지원자", UserRole.STUDENT);
+        Application application = applicationRepository.save(
+                Application.submit(activeRecruitment, applicant, List.of()));
+        // SUBMITTED → INTERVIEW_PENDING 은 면접 모집에서만 열리는 전이라 그 경우에만 useInterview 를 켠다.
+        application.transitionTo(status, status == ApplicationStatus.INTERVIEW_PENDING);
         applicationRepository.save(application);
 
         assertThatThrownBy(() -> applicationService.withdraw(application.getId(), applicant.getId()))

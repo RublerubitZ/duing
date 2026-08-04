@@ -260,8 +260,10 @@ public class GeneralApplicationService implements ApplicationService {
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
-        // 운영진이 검토를 시작하기 전(SUBMITTED)에만 학생이 스스로 철회할 수 있다.
-        if (application.getStatus() != ApplicationStatus.SUBMITTED) {
+        // 운영진이 아직 결정을 내리지 않은 동안(SUBMITTED·ON_HOLD)에만 학생이 스스로 철회할 수 있다.
+        // ON_HOLD 는 지원자에게 SUBMITTED 와 구분되지 않는 상태이므로(스펙 §1-1) 철회 가능 여부도 같아야 한다.
+        if (application.getStatus() != ApplicationStatus.SUBMITTED
+                && application.getStatus() != ApplicationStatus.ON_HOLD) {
             throw new ApplicationDomainException.CannotWithdrawApplicationException();
         }
         // 소프트 삭제(@SQLDelete). 부분 유니크 인덱스(WHERE deleted_at IS NULL) 덕에 같은 공고 재지원이 가능하다.
