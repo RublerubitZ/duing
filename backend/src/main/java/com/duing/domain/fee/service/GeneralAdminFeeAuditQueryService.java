@@ -4,6 +4,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.fee.entity.BankMatchingSetting;
 import com.duing.domain.fee.entity.FeeAccount;
@@ -15,6 +16,7 @@ import com.duing.domain.fee.repository.AdminFeePaymentAggregate;
 import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.query.AdminFeeAccountQuery;
+import com.duing.domain.fee.service.dto.query.AdminFeeAuditLogRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
@@ -28,15 +30,21 @@ import com.duing.domain.fee.service.dto.query.AdminFeePeriod;
 import com.duing.domain.fee.service.dto.query.AdminFeePolicyRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeUsageFilter;
 import com.duing.domain.fee.support.AccountNumberMasker;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.crypto.FeeAccountCipher;
 import java.text.Collator;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -56,8 +64,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryService {
 
+    /**
+     * 이 콘솔이 싣는 이벤트 종류 — 회비 감사라 FEE_* 만 대상이고 가입 링크·모집 이벤트는 남의 도메인이다(스펙 §7.8).
+     * 접두사로 뽑으므로 새 FEE_ 값이 늘어도 여기를 고칠 필요가 없다.
+     */
+    private static final Set<ClubAuditEventType> FEE_EVENT_TYPES = Arrays.stream(ClubAuditEventType.values())
+            .filter(eventType -> eventType.name().startsWith("FEE_"))
+            .collect(Collectors.toUnmodifiableSet());
+
     private final AdminFeeAuditQueryRepository adminFeeAuditQueryRepository;
     private final ClubRepository clubRepository;
+    private final UserRepository userRepository;
     private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final FeeAccountRepository feeAccountRepository;
@@ -162,6 +179,51 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
                                 .map(BankMatchingSetting::isUsable)
                                 .orElse(false)))
                 .orElseGet(AdminFeeAccountQuery::notRegistered);
+    }
+
+    /**
+     * 회비 변경 이력(스펙 §7.8) — 조회 전용이라 열람 감사를 남기지 않는다(상세 진입에서 이미 1건 남았다).
+     * 응답 순서는 리포지토리가 최신순으로 고정한다.
+     */
+    @Override
+    public Page<AdminFeeAuditLogRow> getAuditLogs(Long clubId, List<ClubAuditEventType> types,
+                                                  AdminFeePeriod period, Pageable pageable) {
+        requireExistingClub(clubId);
+        Page<ClubAuditEvent> events = clubAuditEventRepository.searchFeeEvents(
+                clubId, feeTypesOf(types), period.createdFrom(), period.createdTo(), pageable);
+        Map<Long, String> actorNames = actorNamesOf(events.getContent());
+        return events.map(event -> toLogRow(event, actorNames));
+    }
+
+    /** 요청 종류와 회비 이벤트의 교집합. 생략하면 전체이고, 회비 밖 종류는 400 이 아니라 조용히 빠진다(스펙 §7.8). */
+    private static Collection<ClubAuditEventType> feeTypesOf(List<ClubAuditEventType> requestedTypes) {
+        if (requestedTypes == null || requestedTypes.isEmpty()) {
+            return FEE_EVENT_TYPES;
+        }
+        return requestedTypes.stream().filter(FEE_EVENT_TYPES::contains).distinct().toList();
+    }
+
+    /** actor 이름은 한 번에 모아 해석한다 — 행마다 조회하면 페이지 크기만큼 쿼리가 늘어난다(N+1). */
+    private Map<Long, String> actorNamesOf(List<ClubAuditEvent> events) {
+        return userRepository.findAllById(
+                        events.stream().map(ClubAuditEvent::getActorUserId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getName, (first, second) -> first));
+    }
+
+    /** 탈퇴(soft delete) 회원이 actor 면 이름을 찾을 수 없다 — 행은 감사 이력이라 남기고 이름만 비운다. */
+    private static AdminFeeAuditLogRow toLogRow(ClubAuditEvent event, Map<Long, String> actorNames) {
+        return new AdminFeeAuditLogRow(
+                event.getId(),
+                event.getEventType(),
+                event.getActorUserId(),
+                actorNames.get(event.getActorUserId()),
+                event.getCreatedAt(),
+                event.getReason(),
+                event.getFeePolicyId(),
+                event.getFeeBillId(),
+                event.getPaymentId(),
+                event.getBankTransactionId(),
+                event.getDetail());
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.duing.domain.fee.api;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
@@ -156,5 +158,26 @@ public interface AdminFeeAuditApi {
     ResponseEntity<ApiResponse<AdminFeeAccountResponse>> getFeeAccount(
             @Parameter(description = "조회 대상 동아리 ID", required = true)
             @PathVariable Long clubId
+    );
+
+    @Operation(summary = "회비 감사 로그 (ADMIN)",
+            description = "동아리의 회비 변경 이력을 최신순으로 반환한다. 정책·청구·납부·거래 매칭·계좌 변경과 "
+                    + "총동연 열람 이력이 대상이며, 회비와 무관한 이벤트(가입 링크 등)는 실리지 않는다 — "
+                    + "types 에 회비 밖 종류를 섞어 보내도 400 이 아니라 그 값만 무시된다. "
+                    + "기간은 이벤트 발생 시각 기준이고, actorName 은 탈퇴한 회원이면 비어 나온다. "
+                    + "detail 은 변경 전/후 스냅샷 원본(JSON)이라 이벤트 종류마다 키가 다르고 없을 수도 있다. "
+                    + "감사 로그는 계측 배포 시점 이후의 변경만 기록된다 — 그 이전 이력은 존재하지 않는다.")
+    @GetMapping("/admin/fees/{clubId}/audit-logs")
+    ResponseEntity<ApiResponse<PageResponse<AdminFeeAuditLogResponse>>> searchFeeAuditLogs(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "이벤트 종류 필터 (복수 지정 가능). 생략하면 회비 이벤트 전체",
+                    example = "FEE_PAYMENT_VOIDED")
+            @RequestParam(required = false) List<ClubAuditEventType> types,
+            @Parameter(description = "조회 시작일 (KST, 포함). 생략하면 전체 기간", example = "2026-03-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "조회 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @Parameter(hidden = true) Pageable pageable
     );
 }

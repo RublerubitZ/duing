@@ -1,7 +1,9 @@
 package com.duing.domain.fee.controller;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.api.AdminFeeAuditApi;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
@@ -123,5 +125,19 @@ public class AdminFeeAuditController implements AdminFeeAuditApi {
     public ResponseEntity<ApiResponse<AdminFeeAccountResponse>> getFeeAccount(@PathVariable Long clubId) {
         return ResponseEntity.ok(ApiResponse.success(
                 AdminFeeAccountResponse.from(adminFeeAuditQueryService.getAccount(clubId))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PageResponse<AdminFeeAuditLogResponse>>> searchFeeAuditLogs(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) List<ClubAuditEventType> types,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Pageable pageable
+    ) {
+        Page<AdminFeeAuditLogResponse> page = adminFeeAuditQueryService
+                .getAuditLogs(clubId, types, AdminFeePeriod.of(from, to), pageable)
+                .map(AdminFeeAuditLogResponse::from);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 }

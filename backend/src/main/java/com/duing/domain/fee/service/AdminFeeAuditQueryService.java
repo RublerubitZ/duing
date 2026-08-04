@@ -1,7 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.dto.query.AdminFeeAccountQuery;
+import com.duing.domain.fee.service.dto.query.AdminFeeAuditLogRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
@@ -17,7 +19,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-/** 총동연 회비 감사 콘솔 조회(스펙 §7.1~§7.7). */
+/** 총동연 회비 감사 콘솔 조회(스펙 §7.1~§7.8). */
 public interface AdminFeeAuditQueryService {
 
     Page<AdminFeeClubRow> searchClubs(String q, AdminFeeUsageFilter usage, AdminFeePeriod period,
@@ -36,4 +38,8 @@ public interface AdminFeeAuditQueryService {
                                             Pageable pageable);
 
     AdminFeeAccountQuery getAccount(Long clubId);
+
+    /** types 는 회비 이벤트와의 교집합만 쓰인다 — 회비 외 종류가 섞여 와도 거부하지 않고 무시한다. */
+    Page<AdminFeeAuditLogRow> getAuditLogs(Long clubId, List<ClubAuditEventType> types,
+                                           AdminFeePeriod period, Pageable pageable);
 }
