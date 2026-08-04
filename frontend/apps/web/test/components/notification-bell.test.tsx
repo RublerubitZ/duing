@@ -1,7 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const mockUseAuthStore = vi.fn();
+import { useAuthStore, type AuthStatus } from '@duing/stores';
+
 const mockUnreadCount = vi.fn<() => { data?: { count: number } }>(() => ({ data: { count: 3 } }));
 
 vi.mock('next/link', () => ({
@@ -19,9 +20,8 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('@duing/stores', () => ({
-  useAuthStore: (selector: (state: { status: string }) => unknown) => mockUseAuthStore(selector),
-}));
+// 스토어는 모킹하지 않는다 — 벨은 useSeededAuthStatus(useSyncExternalStore)로 상태를 읽으므로
+// 셀렉터 한 번 호출로 대체되는 가짜 스토어로는 구독 계약이 재현되지 않는다.
 vi.mock('@duing/hooks', () => ({
   useUnreadCountQuery: () => mockUnreadCount(),
 }));
@@ -33,14 +33,13 @@ vi.mock('../../app/_components/NotificationSheet', () => ({
 
 import { NotificationBell } from '../../app/_components/NotificationBell';
 
-function setStatus(status: string) {
-  mockUseAuthStore.mockImplementation((selector: (state: { status: string }) => unknown) =>
-    selector({ status }),
-  );
+function setStatus(status: AuthStatus) {
+  act(() => useAuthStore.setState({ status }));
 }
 
 describe('NotificationBell — 태블릿·모바일/데스크탑 분기', () => {
   beforeEach(() => {
+    useAuthStore.setState(useAuthStore.getInitialState(), true);
     mockUnreadCount.mockReturnValue({ data: { count: 3 } });
   });
 

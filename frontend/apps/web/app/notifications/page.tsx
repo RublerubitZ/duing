@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import {
   daysUntilKst,
   useNotificationListQuery,
@@ -11,19 +12,17 @@ import {
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
-import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { Spinner } from '@/components/loading/Spinner';
-import { toLinkRoute } from '../_lib/route';
+import { toLinkRoute, toRoute } from '../_lib/route';
 import { NotificationItem } from '../_components/NotificationItem';
 
 export default function NotificationsPage() {
-  const authStatus = useAuthStore((state) => state.status);
-  // 화면 판단(대기 렌더·로그인 이동)에는 상한을 둔 status 를 쓴다 — 갱신이 만료 외의 사유로
-  // 실패하면 확인이 끝나지 않아 idle 이 영구히 남고, 그러면 "로그인 확인 중" 스피너에서
-  // 나올 방법이 없다(안내도 이동도 unauthenticated 에만 걸려 있다). 쿼리 enabled 는 원본
-  // status 를 그대로 쓴다 — 상한은 fail-open 이라 확정 신호가 아니다(BookingForm 과 동형).
-  const boundedAuthStatus = useBoundedAuthStatus();
+  const authStatus = useSeededAuthStatus();
+  // 이동은 되돌릴 수 없는 부수효과라 확정 신호로만 건다(화면 분기는 아래 status 가 그대로 한다).
+  const isSessionEndConfirmed = useAuthStore(
+    (state) => state.isVerified && state.status === 'unauthenticated',
+  );
   const router = useGuardedRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const listQuery = useNotificationListQuery(unreadOnly, authStatus === 'authenticated');
@@ -32,10 +31,14 @@ export default function NotificationsPage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (boundedAuthStatus === 'unauthenticated') {
+    // 종료가 확정된 사용자만 자동으로 보낸다. 시드된 미인증만으로 보내면, 로컬 이력이 지워졌을
+    // 뿐 세션은 살아 있는 사용자가 로그인 화면에 방치된다(로그인 페이지에는 되돌려 보내는 장치가
+    // 없다) — 그 사이 화면은 아래 로그인 안내를 그리고, 부트스트랩이 세션을 복원하면 목록으로
+    // 전환된다.
+    if (isSessionEndConfirmed) {
       router.replace('/login?next=/notifications');
     }
-  }, [boundedAuthStatus, router]);
+  }, [isSessionEndConfirmed, router]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -49,8 +52,19 @@ export default function NotificationsPage() {
     return () => observer.disconnect();
   }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
 
-  if (boundedAuthStatus !== 'authenticated') {
-    return <LoadingGate label="로그인 확인 중" />;
+  // 확인이 끝나지 않았어도 로그인 진입점을 준다 — 갱신이 401 이 아닌 이유(5xx·타임아웃·오프라인)로
+  // 실패하면 확정 신호가 영영 서지 않아, 대기 화면만 두면 익명 방문자가 무한 스피너에 갇힌다.
+  if (authStatus !== 'authenticated') {
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-10">
+        <div className="space-y-3 text-sm text-charcoal-2">
+          <p>알림은 로그인 후 확인할 수 있어요.</p>
+          <Link href={toRoute('/login?next=/notifications')} className="btn btn-primary inline-flex">
+            로그인하기
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   const allNotifications = listQuery.data?.pages.flatMap((page) => page.content) ?? [];

@@ -5,19 +5,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { toRoute } from '@/app/_lib/route';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useHydrated } from '@/app/_lib/useHydrated';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 
-// 미들웨어는 auth_hint(라우팅 힌트)만 보고 /me 를 통과시키므로, 힌트가 실제 세션보다
-// 오래 살아남으면 미인증 상태로도 여기까지 도달한다. 만료가 확정된(unauthenticated)
-// 경우에만 로그인 유도를 렌더한다 — idle(부트스트랩 진행 중)까지 가리면 매 하드 로드마다
-// 로그인 화면이 플래시되므로 idle 은 기존 흐름 그대로 children 을 렌더한다.
-// 상한을 둔 status 를 쓴다 — 갱신이 만료 외의 사유로 실패하면 확인이 끝나지 않아 idle 이
-// 영구히 남는데, 그때 이 가드가 보호 화면을 계속 렌더하면 모든 요청이 401 인 껍데기에 갇힌다.
+// 미들웨어는 auth_hint(라우팅 힌트)만 보고 /me 를 통과시키므로, 힌트가 실제 세션보다 오래
+// 살아남으면 미인증 상태로도 여기까지 도달한다. 시드 모델에서 status 는 항상 현재 최선의
+// 판단이다 — 로컬 이력이 있으면 authenticated 로 시드돼 보호 화면이 즉시 열리고, 시드가
+// 틀렸다면 만료 핸들러의 확정이 이 가드를 로그인 유도로 되돌린다. 의도적 로그아웃의 일시
+// 노출은 기존처럼 delayed-show 가 가린다.
+// /me 는 A′(SSR 시드) 라우트가 아니라 SSR/프리렌더 프레임이 스토어 초기값(unauthenticated)으로
+// 그려진다 — 그 프레임까지 로그인 유도로 가리면 로그인한 사용자가 하드 로드마다 유도 화면을
+// 스친다(delayed-show 는 0.15s 만 가린다). 미하이드레이션 프레임은 판정을 미루고 children 을 그린다.
 export function MeAuthGuard({ children }: { children: ReactNode }) {
-  const status = useBoundedAuthStatus();
+  const hydrated = useHydrated();
+  const status = useSeededAuthStatus();
   const pathname = usePathname();
 
-  if (status !== 'unauthenticated') return <>{children}</>;
+  if (!hydrated || status !== 'unauthenticated') return <>{children}</>;
 
   // 의도적 로그아웃·탈퇴·비밀번호 변경도 clearSession 으로 이 분기를 스치고 지나간다(이동
   // 커밋 전까지 잠깐). delayed-show 로 빠른 이동에서는 아예 보이지 않게 하고, 문구도 세션

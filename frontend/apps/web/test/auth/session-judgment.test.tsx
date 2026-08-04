@@ -66,7 +66,9 @@ afterEach(() => {
   registerUnauthorizedHandler(() => {});
   registerUnauthorizedHandler(null);
   pushSpy.mockReset();
-  useAuthStore.setState({ status: 'idle', user: null });
+  // 시드 전 초기 상태로 되돌린다(replace) — 앞선 테스트의 isVerified 가 남으면 다음 테스트가
+  // 확정된 종료를 물려받아 중복 가드에 걸린다.
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
   window.localStorage.clear();
   window.history.replaceState({}, '', '/');
 });
@@ -119,7 +121,8 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
   it('쓰던 중 세션이 끊기면 미인증 확정·만료 안내·로그인 이동·캐시 비움·서버 로그아웃까지 수행한다', async () => {
     window.history.replaceState({}, '', '/clubs?tab=mine');
     givenPreviousSession();
-    useAuthStore.setState({ status: 'authenticated', user: TEST_USER });
+    // 서버로 확인된 세션 — 만료 처리(안내·이동·서버 로그아웃)가 열리는 유일한 상태다.
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: TEST_USER });
     givenExpiredSession();
     queryClient.setQueryData(['clubs', 'list'], [{ id: 1 }]);
 
@@ -134,14 +137,15 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
     await waitFor(() => expect(window.localStorage.getItem('duing:had-session')).toBeNull());
   });
 
-  it('부팅 중(idle) 도착한 종료는 상태만 확정하고 안내·이동·로그아웃·캐시 비움을 하지 않는다', async () => {
+  it('시드 전 초기 상태에 도착한 종료는 상태만 확정하고 안내·이동·로그아웃·캐시 비움을 하지 않는다', async () => {
     const clearSpy = vi.spyOn(queryClient, 'clear');
     givenExpiredSession();
     queryClient.setQueryData(['clubs', 'list'], [{ id: 1 }]);
 
     renderAuthRuntime();
 
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+    // 초기 상태의 status 는 이미 unauthenticated 다 — 확정이 일어났다는 신호는 isVerified 뿐이다.
+    await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
     expect(screen.queryByText(EXPIRY_TOAST)).not.toBeInTheDocument();
     expect(screen.queryByText(UNAVAILABLE_TOAST)).not.toBeInTheDocument();
     expect(pushSpy).not.toHaveBeenCalled();
@@ -158,7 +162,7 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
 
     renderAuthRuntime();
 
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+    await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
     expect(resetSpy).not.toHaveBeenCalled();
     resetSpy.mockRestore();
   });
@@ -175,7 +179,12 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
 
       expect(await screen.findByText(UNAVAILABLE_TOAST)).toBeInTheDocument();
       expect(await screen.findByRole('button', { name: '다시 시도' })).toBeVisible();
-      expect(useAuthStore.getState()).toMatchObject({ status: 'idle', user: null });
+      // 세션을 끝내지 않았다 = 확정(isVerified) 이 서지 않은 시드 전 초기 상태 그대로다.
+      expect(useAuthStore.getState()).toMatchObject({
+        status: 'unauthenticated',
+        isVerified: false,
+        user: null,
+      });
       expect(screen.queryByText(EXPIRY_TOAST)).not.toBeInTheDocument();
       expect(pushSpy).not.toHaveBeenCalled();
       expect(logoutCallCount).toBe(0);
@@ -187,7 +196,7 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
     // 핸들러의 중복 가드를 지워도 토스트는 1개로 보인다. 가드가 실제로 받는 부수효과
     // (이동·서버 로그아웃·캐시 비움)의 횟수를 함께 단언한다.
     const clearSpy = vi.spyOn(queryClient, 'clear');
-    useAuthStore.setState({ status: 'authenticated', user: TEST_USER });
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: TEST_USER });
     server.use(
       http.get(`${BASE}/users/me`, () =>
         HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
@@ -227,7 +236,7 @@ describe('세션 종료 판정 (부트스트랩 + 만료 핸들러)', () => {
 
     renderAuthRuntime();
 
-    await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
+    await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
     // catch 가 확실히 지나가도록 마이크로태스크를 한 번 더 흘린다.
     await act(async () => {
       await Promise.resolve();

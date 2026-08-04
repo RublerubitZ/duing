@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -277,7 +277,8 @@ afterAll(() => server.close());
 beforeEach(() => {
   // Date 만 고정(타이머 실제 유지) — 매 테스트 스코프 설치로 하단 이월 블록 pinSeoulNoon 과 정합.
   vi.useFakeTimers({ toFake: ['Date'], now: FIXED_NOW });
-  useAuthStore.setState({ status: 'idle', user: null });
+  // 기본은 부팅 초기값(시드 없는 미인증) — 로그인이 필요한 시나리오만 각자 authenticated 로 올린다.
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
   // 랜딩 = 첫 시설 캘린더(자동 선택). 대부분의 시나리오는 캘린더(슬롯/폼) 플로우를 검증하므로
   // 딥링크 facilityId=1 로 선택 시설을 커뮤니티룸으로 고정한다. 홈 카드 그리드가 필요한 시나리오는
   // 캘린더에서 '전체 보기'를 눌러 진입한다(자동 첫 시설 선택을 명시적으로 끔).
@@ -593,18 +594,46 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
   });
 
-  // idle 은 "미인증" 이 아니라 "세션 확인 중" 이다. 하드 로드 직후 access 쿠키 만료로 세션 복원에
-  // 수 초가 걸리는데, 그때 로그인 안내를 띄우면 로그인한 운영진이 예약을 못 하는 것으로 읽는다.
-  it('시나리오 10-1: 세션 확인 중에는 로그인 안내 대신 확인 중 표시가 나온다', async () => {
-    useAuthStore.setState({ status: 'idle', user: null });
+  // 시드된 인증은 프로필(/users/me)보다 먼저 도착한다 — 폼은 그 시드로 즉시 열리고, 뒤늦게 온
+  // 프로필의 번호가 아직 손대지 않은 연락처를 채운다(마운트 시점 초기값만으로는 프리필이 유실된다).
+  it('시나리오 10-1: 시드된 인증이면 폼이 즉시 열리고 늦게 온 프로필 번호가 빈 연락처를 채운다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: null });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
 
-    expect(await screen.findByRole('status', { name: '로그인 확인 중' })).toBeInTheDocument();
+    // 로그인 안내도, 확인 중 자리표시도 없이 곧장 폼이다.
+    await screen.findByText('밴드부');
     expect(screen.queryByRole('link', { name: '로그인하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '로그인 확인 중' })).not.toBeInTheDocument();
+    const contactInput = screen.getByRole('textbox', { name: '대표 연락처' });
+    expect(contactInput).toHaveValue('');
+
+    await act(async () => {
+      useAuthStore.setState({ user: AUTH_USER, isVerified: true });
+    });
+    expect(screen.getByRole('textbox', { name: '대표 연락처' })).toHaveValue('010-1234-5678');
+  });
+
+  it('시나리오 10-2: 사용자가 연락처를 입력한 뒤에 온 프로필은 입력값을 덮지 않는다', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: null });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    await screen.findByText('밴드부');
+
+    fireEvent.change(screen.getByRole('textbox', { name: '대표 연락처' }), {
+      target: { value: '01099998888' },
+    });
+    await act(async () => {
+      useAuthStore.setState({ user: AUTH_USER, isVerified: true });
+    });
+
+    expect(screen.getByRole('textbox', { name: '대표 연락처' })).toHaveValue('010-9999-8888');
   });
 
   it('시나리오 11: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 전체 보기로 연 홈에서 관리 목록 칩이 뜬다', async () => {

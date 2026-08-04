@@ -13,7 +13,8 @@ import type { CreateFacilityBookingResult } from '@duing/types';
 import { formatPhone } from '@/app/_components/PhoneInput';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useHydrated } from '@/app/_lib/useHydrated';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { isApplicationDeadlinePassed, rangeLabel } from '../../_lib/bookingCalendar';
@@ -37,9 +38,9 @@ type Props = {
 export function BookingForm({
   facilityId, facilityName, date, range, hasPendingHold, onSubmitted, onBack,
 }: Props) {
-  const authStatus = useAuthStore((state) => state.status);
-  const boundedAuthStatus = useBoundedAuthStatus();
+  const authStatus = useSeededAuthStatus();
   const authUser = useAuthStore((state) => state.user);
+  const hydrated = useHydrated();
   const managedClubsQuery = useManagedClubsQuery({ enabled: authStatus === 'authenticated' });
   const presetsQuery = usePurposePresetsQuery();
   const createMutation = useCreateFacilityBookingMutation();
@@ -51,14 +52,18 @@ export function BookingForm({
   const [attendeeCount, setAttendeeCount] = useState('');
   // 로그인 프로필(/users/me)에 휴대폰 번호가 있으면 프리필(편집 가능). 없으면 빈 값 시작(§2.1).
   // 프리필 값도 표준 표기(010-1234-5678)로 맞춰 입력 중 포맷과 일관되게 한다.
-  const [contactPhone, setContactPhone] = useState(() => formatPhone(authUser?.phone ?? ''));
+  // 시드 부팅에서는 프로필이 이 폼보다 늦게 도착한다 — 마운트 시점 초기값만 잡으면 프리필이
+  // 유실되므로, 사용자가 아직 손대지 않은 동안(null)은 프로필을 그대로 비춘다. 한 번 입력하면
+  // (빈 문자열로 지운 경우 포함) 그 값이 이긴다.
+  const [contactPhoneInput, setContactPhoneInput] = useState<string | null>(null);
+  const contactPhone = contactPhoneInput ?? formatPhone(authUser?.phone ?? '');
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 세션 확인 중(idle)에는 로그인 안내를 띄우지 않는다 — 확정 전에 안내하면 로그인한 운영진이
-  // 하드 로드 직후 "로그인 후 이용할 수 있어요" 를 먼저 보게 된다. 상한을 둔 status 를 쓰므로
-  // 확인이 끝나지 않는 장애에서도 이 화면이 로그인 안내로 열려 진입점이 남는다.
-  if (boundedAuthStatus === 'idle') {
+  // /facilities 는 A′ 라우트가 아니라 SSR/프리렌더 프레임이 스토어 초기값(미인증)으로 그려진다 —
+  // 그 프레임에 로그인 안내를 실으면 로그인한 운영진에게 플래시로 보인다. 하이드레이션 전에는
+  // 판정하지 않고 대기 표시만 둔다(상태 분기가 아니라 프레임 정합 — §8.1 과 무관).
+  if (!hydrated) {
     return <TextLinesSkeleton lines={3} label="로그인 확인 중" />;
   }
 
@@ -289,7 +294,7 @@ export function BookingForm({
           value={contactPhone}
           onChange={(event) => {
             // 숫자만 받아 010-1234-5678 로 자동 포맷(하이픈 자동, 11자리 초과 차단). MO 인증과 동일 유틸.
-            setContactPhone(formatPhone(event.target.value));
+            setContactPhoneInput(formatPhone(event.target.value));
             if (contactError) setContactError(null);
           }}
           aria-label="대표 연락처"

@@ -9,7 +9,9 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 
 // useMeQuery 는 인증 상태에서만 실행된다 — 로그인 상태로 고정한다.
-vi.mock('@duing/stores', () => ({
+// selectIsAuthenticated 등 나머지 export 는 실제 모듈을 그대로 쓴다(술어 계약이 어긋나지 않게).
+vi.mock('@duing/stores', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/stores')>()),
   useAuthStore: (selector: (state: { status: string }) => unknown) =>
     selector({ status: 'authenticated' }),
 }));

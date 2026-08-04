@@ -7,23 +7,26 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
 import { createApiClient, registerUnauthorizedHandler } from '@duing/api';
-import { ApiClientProvider, favoriteQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, favoriteQueryKeys, useFavoriteToggleMutation } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
+import type { AuthStatus } from '@duing/stores';
 import type { StudentRecruitmentProjection } from '@duing/types';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { AdminRoleGuard } from '@/app/admin/_components/AdminRoleGuard';
 import { FavoriteToggleButton } from '@/app/_components/FavoriteToggleButton';
 import { HomeNavAuthSlot } from '@/app/_components/HomeNavAuthSlot';
-import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import { useClubApply } from '@/app/clubs/[clubId]/_lib/useClubApply';
 
 /**
- * status 'idle' 은 "세션 확인 중" 이지 "미인증" 이 아니다.
- * idle 을 미인증처럼 다루면 이미 로그인한 사용자가 하드 로드 직후 로그아웃 화면을 보거나
- * 로그인 페이지로 튕긴다(2026-08-03 재현). 소비자별로 그 규약을 고정한다.
+ * status 는 "모른다"를 표현하지 않는다 — 부팅 시드든 서버 확정이든 언제나 현재 최선의 판단이고,
+ * 화면은 첫 렌더부터 그 값으로 그린다(§8.1). 대기 자리표시가 되살아나면 하드 로드마다
+ * 로그아웃 화면·깜빡임이 다시 보인다(2026-08-03 재현). 소비자별로 그 규약을 고정한다.
  *
- * 스토어는 모킹하지 않고 실제 zustand 를 쓴다 — 이 PR 이 고치는 대상이 idle→확정 "전이" 라,
+ * 예외는 "되돌릴 수 없는 동작" 축이다 — 찜 토글의 방향처럼 시드로 알 수 없는 값에 걸린 동작은
+ * 그 값이 도착할 때까지 막는다. 화면을 여는 것과 동작을 허용하는 것은 다른 판단이다.
+ *
+ * 스토어는 모킹하지 않고 실제 zustand 를 쓴다 — 검증 대상이 시드→확정 "전이" 라,
  * 정적 스냅샷만 검증하는 모킹으로는 회귀를 못 잡는다.
  */
 const mockRouterPush = vi.fn();
@@ -52,7 +55,8 @@ afterEach(() => {
   mockRouterPush.mockReset();
   requestedPaths.length = 0;
   window.history.replaceState(null, '', '/');
-  act(() => useAuthStore.setState({ status: 'idle', user: null }));
+  // 부분 setState 로 되돌리면 isVerified 같은 필드가 테스트 간에 새어 나간다 — 초기값 전체로 교체.
+  act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 });
 afterAll(() => {
   server.events.removeListener('request:start', trackRequest);
@@ -78,7 +82,7 @@ function renderWithProviders(ui: ReactNode) {
   });
   return render(<Wrapper>{ui}</Wrapper>);
 }
-const setAuthStatus = (status: 'idle' | 'authenticated' | 'unauthenticated') =>
+const setAuthStatus = (status: AuthStatus) =>
   act(() => useAuthStore.setState({ status, user: null }));
 
 /** 세션 만료가 확정되는 응답 한 쌍 — 원 401 과, 갱신 시도까지 실패시키는 refresh 401. */
@@ -91,90 +95,107 @@ function expiredSession(path: string) {
   ];
 }
 
-describe('HomeNavAuthSlot — 세션 확인 중에는 로그아웃 UI 를 보이지 않는다', () => {
-  it('idle 이면 로그인·가입하기 대신 같은 자리의 확인 중 표시를 렌더하고, 확정되면 전환한다', () => {
-    setAuthStatus('idle');
+// 시드 모델에는 "확인 중" 이라는 대기 상태가 없다 — status 는 언제나 현재 최선의 판단이고
+// 첫 렌더부터 그 값으로 그린다. 자리표시가 다시 생기면 metric 2(레이아웃 시프트·깜빡임)가
+// 되살아나므로, DOM 에 존재하지 않음까지 단언한다.
+describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', () => {
+  it('미인증 시드면 즉시 로그인·가입하기이고 확인 중 자리표시는 아예 없다(metric 2)', () => {
+    setAuthStatus('unauthenticated');
     renderWithProviders(<HomeNavAuthSlot />);
 
-    expect(screen.queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '가입하기' })).not.toBeInTheDocument();
-    expect(screen.getByRole('status', { name: '로그인 상태 확인 중' })).toBeInTheDocument();
-
-    // 확인이 끝나면(미인증 확정) 같은 자리에 실제 버튼이 들어온다.
-    setAuthStatus('unauthenticated');
     expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '가입하기' })).toBeInTheDocument();
-    expect(screen.queryByRole('status', { name: '로그인 상태 확인 중' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  // 부트스트랩은 401 이 아닌 실패(5xx·오프라인·CORS)에서 status 를 idle 로 남긴다.
-  // 그때 자리표시만 계속 보이면 로그인 진입점이 사라져 사용자가 복구할 방법이 없어진다.
-  it('확인이 끝나지 않아도 상한을 넘기면 로그인 진입점을 되살린다', () => {
-    vi.useFakeTimers();
-    try {
-      setAuthStatus('idle');
-      renderWithProviders(<HomeNavAuthSlot />);
-      expect(screen.getByRole('status', { name: '로그인 상태 확인 중' })).toBeInTheDocument();
+  it('인증 시드면 즉시 유저 메뉴이고 로그인 진입점은 나오지 않는다(metric 1)', async () => {
+    // 시드 직후에는 프로필이 아직 없다 — 이름은 '회원' 폴백으로 채워진다.
+    server.use(http.get(`${BASE}/users/me`, () => new Promise(() => {})));
+    setAuthStatus('authenticated');
+    renderWithProviders(<HomeNavAuthSlot initialAuthenticated />);
 
-      act(() => vi.advanceTimersByTime(30_000));
-
-      expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(await screen.findByRole('button', { name: /회원님/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
 
-// BookingForm·AdminRoleGuard·탐색 찜 필터도 같은 훅을 쓴다 — 상한 동작은 여기서 한 번만 고정한다.
-describe('useBoundedAuthStatus — 확인 대기 상한', () => {
-  it('상한 전에는 idle 을 유지하고, 넘기면 미인증으로 연다', () => {
-    vi.useFakeTimers();
-    try {
-      setAuthStatus('idle');
-      const { result } = renderHook(() => useBoundedAuthStatus());
-
-      act(() => vi.advanceTimersByTime(29_000));
-      expect(result.current).toBe('idle');
-
-      act(() => vi.advanceTimersByTime(1_000));
-      expect(result.current).toBe('unauthenticated');
-    } finally {
-      vi.useRealTimers();
-    }
+// role 은 시드에 실리지 않는다(§9.3) — 판정은 늘 서버 프로필이고, 프로필이 오기 전까지가
+// "확인 중" 이다. 그 사이 거부 문구를 먼저 띄우면 총동연 계정 하드 로드마다 그걸 본다(metric 4).
+describe('AdminRoleGuard — 프로필이 도착하기 전에는 권한을 판정하지 않는다', () => {
+  const adminDenied = '총동연(관리자) 권한이 필요합니다.';
+  const meUser = (role: 'ADMIN' | 'STUDENT') => ({
+    id: 1,
+    studentId: '20200001',
+    name: '홍길동',
+    phone: '01000000000',
+    grade: 'THIRD',
+    role,
   });
 
-  it('상한을 넘긴 뒤라도 확인이 늦게 성공하면 즉시 정정된다', () => {
-    vi.useFakeTimers();
-    try {
-      setAuthStatus('idle');
-      const { result } = renderHook(() => useBoundedAuthStatus());
-      act(() => vi.advanceTimersByTime(30_000));
-      expect(result.current).toBe('unauthenticated');
-
-      setAuthStatus('authenticated');
-      expect(result.current).toBe('authenticated');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});
-
-describe('AdminRoleGuard — 세션 확인 중에는 권한을 판정하지 않는다', () => {
-  // useMeQuery 는 status 확정 전까지 enabled:false 라 isLoading 이 false 로 내려온다.
-  // 그 값만 믿으면 로그인한 관리자가 콘솔을 열 때마다 권한 거부 문구를 먼저 본다.
-  it('idle 이면 권한 거부 문구 대신 확인 중을 렌더한다', () => {
-    setAuthStatus('idle');
+  it('시드된 인증에서 프로필이 아직 없으면 거부 문구 없이 확인 중을 렌더한다(metric 4)', async () => {
+    server.use(http.get(`${BASE}/users/me`, () => new Promise(() => {})));
+    setAuthStatus('authenticated');
     renderWithProviders(
       <AdminRoleGuard>
         <p>관리자 콘텐츠</p>
       </AdminRoleGuard>,
     );
 
-    expect(screen.queryByText('총동연(관리자) 권한이 필요합니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText(adminDenied)).not.toBeInTheDocument();
     expect(screen.getByRole('status', { name: '권한 확인 중' })).toBeInTheDocument();
+    // 프로필 요청이 실제로 나가는지까지 본다 — 안 나가면 "확인 중" 이 영구 대기가 된다.
+    await waitFor(() => expect(requestedPaths).toContain('/api/v1/users/me'));
   });
 
-  it('미인증이 확정되면 권한 거부 문구를 렌더한다', () => {
+  it('프로필이 ADMIN 이면 콘텐츠를 렌더한다', async () => {
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: true, data: meUser('ADMIN'), message: null }),
+      ),
+    );
+    setAuthStatus('authenticated');
+    renderWithProviders(
+      <AdminRoleGuard>
+        <p>관리자 콘텐츠</p>
+      </AdminRoleGuard>,
+    );
+
+    expect(await screen.findByText('관리자 콘텐츠')).toBeInTheDocument();
+  });
+
+  it('프로필 role 이 ADMIN 이 아니면 권한 거부 문구를 렌더한다', async () => {
+    server.use(
+      http.get(`${BASE}/users/me`, () =>
+        HttpResponse.json({ ok: true, data: meUser('STUDENT'), message: null }),
+      ),
+    );
+    setAuthStatus('authenticated');
+    renderWithProviders(
+      <AdminRoleGuard>
+        <p>관리자 콘텐츠</p>
+      </AdminRoleGuard>,
+    );
+
+    expect(await screen.findByText(adminDenied)).toBeInTheDocument();
+    expect(screen.queryByText('관리자 콘텐츠')).not.toBeInTheDocument();
+  });
+
+  // 조회 실패는 "권한 미확인" 이다 — 관리자 콘솔은 fail-closed 라 확인 중에 머물지 않고 거부한다.
+  it('프로필 조회가 실패하면 확인 중에 머물지 않고 거부한다', async () => {
+    server.use(http.get(`${BASE}/users/me`, () => new HttpResponse(null, { status: 500 })));
+    setAuthStatus('authenticated');
+    renderWithProviders(
+      <AdminRoleGuard>
+        <p>관리자 콘텐츠</p>
+      </AdminRoleGuard>,
+    );
+
+    expect(await screen.findByText(adminDenied)).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '권한 확인 중' })).not.toBeInTheDocument();
+  });
+
+  it('미인증이면 프로필 요청 없이 권한 거부 문구를 렌더한다', () => {
     setAuthStatus('unauthenticated');
     renderWithProviders(
       <AdminRoleGuard>
@@ -182,32 +203,55 @@ describe('AdminRoleGuard — 세션 확인 중에는 권한을 판정하지 않�
       </AdminRoleGuard>,
     );
 
-    expect(screen.getByText('총동연(관리자) 권한이 필요합니다.')).toBeInTheDocument();
+    expect(screen.getByText(adminDenied)).toBeInTheDocument();
+    expect(requestedPaths).toHaveLength(0);
   });
 });
 
 describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 없다', () => {
-  // 찜 목록은 인증 확정 후에만 조회된다. 확인 중에는 찜한 동아리도 빈 하트로 보이므로,
-  // 그대로 누르면 해제가 아니라 추가가 나가 409 로 조용히 실패한다.
-  it('idle 이면 하트가 비활성이고 요청도 나가지 않는다', async () => {
-    setAuthStatus('idle');
+  // 시드는 "로그인했다"까지만 말해 준다 — 무엇을 찜했는지는 목록이 와야 안다. 목록이 오기 전에는
+  // 찜한 동아리도 빈 하트로 보이므로, 그대로 누르면 해제가 아니라 추가가 나가 409 로 조용히
+  // 실패한다. 화면은 시드로 열되 방향이 걸린 동작만 막는다(§8.1 되돌릴 수 없는 동작).
+  it('시드된 인증에서 찜 목록이 오기 전에는 하트가 비활성이고 토글이 나가지 않는다', async () => {
+    server.use(http.get(`${BASE}/me/favorites/ids`, () => new Promise(() => {})));
+    setAuthStatus('authenticated');
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
 
     const heart = screen.getByRole('button', { name: '찜 추가' });
     expect(heart).toBeDisabled();
     await userEvent.click(heart);
 
-    expect(requestedPaths).toHaveLength(0);
+    expect(requestedPaths).not.toContain('/api/v1/me/favorites/7');
     expect(mockRouterPush).not.toHaveBeenCalled();
+    // 낙관적 갱신조차 만들지 않는다 — 되돌릴 이전 값이 없어 실패 시 채워진 하트가 남는다.
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
   });
 
-  it('확인이 끝나면 하트가 활성화된다', () => {
-    setAuthStatus('idle');
-    renderWithProviders(<FavoriteToggleButton clubId={7} />);
-    expect(screen.getByRole('button', { name: '찜 추가' })).toBeDisabled();
-
+  it('찜 목록이 도착하면 활성화되고 이미 찜한 동아리는 해제 방향으로 나간다', async () => {
+    const toggleMethods: string[] = [];
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [7] }, message: null }),
+      ),
+      http.delete(`${BASE}/me/favorites/7`, () => {
+        toggleMethods.push('DELETE');
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.post(`${BASE}/me/favorites/7`, () => {
+        toggleMethods.push('POST');
+        return HttpResponse.json({ ok: true, data: 1, message: null });
+      }),
+    );
     setAuthStatus('authenticated');
-    expect(screen.getByRole('button', { name: '찜 추가' })).toBeEnabled();
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+
+    // 목록이 도착해야 "찜 해제"(=이미 찜함)로 바뀌고 그때 눌 수 있다.
+    const heart = await screen.findByRole('button', { name: '찜 해제' });
+    expect(heart).toBeEnabled();
+    await userEvent.click(heart);
+
+    // 방향 정확성 — 추가(POST)가 아니라 해제(DELETE) 로 나가야 한다.
+    await waitFor(() => expect(toggleMethods).toEqual(['DELETE']));
   });
 
   it('확인 후 access 가 만료돼 401 이 오면 로그인으로 보내고 찜 캐시를 남기지 않는다', async () => {
@@ -232,19 +276,22 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [] });
   });
 
-  // 찜 목록 조회가 아직 안 끝난 사이 누르면 되돌릴 이전 값이 없다. 낙관적 갱신이 만든 목록을
-  // 그대로 두면 비로그인 화면에 채워진 하트로 남는다 — 비활성 쿼리라 무효화로도 지워지지 않는다.
-  it('찜 목록이 로드되기 전 클릭이 실패하면 낙관적 갱신을 캐시에 남기지 않는다', async () => {
+  // 되돌릴 이전 값이 없는 실패의 캐시 계약. 낙관적 갱신이 만든 목록을 그대로 두면 비로그인
+  // 화면에 채워진 하트로 남는다(비활성 쿼리라 무효화로도 지워지지 않는다).
+  // 하트가 방향 미확정이면 비활성이라 UI 로는 이 경로에 닿지 못한다 — 그래도 뮤테이션의 보장은
+  // 남겨 둔다. 게이트가 무너지면 되살아나는 사고라 훅 계약 수준에서 고정한다.
+  it('이전 값 없이 실패한 토글은 낙관적 갱신을 캐시에 남기지 않는다', async () => {
     setAuthStatus('authenticated');
-    server.use(
-      http.get(`${BASE}/me/favorites/ids`, () => new Promise(() => {})),
-      ...expiredSession('/me/favorites/7'),
-    );
+    server.use(...expiredSession('/me/favorites/7'));
 
-    renderWithProviders(<FavoriteToggleButton clubId={7} />);
-    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+    latestQueryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const { result } = renderHook(() => useFavoriteToggleMutation(), { wrapper: Wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ clubId: 7, isFavorited: false }).catch(() => {});
+    });
 
-    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
   });
 
@@ -262,7 +309,9 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     // SessionExpiryHandler 의 계약을 재현한다 — 종료 확정은 동기 setState 가 먼저, 이어서
     // 이전 사용자 데이터 클리어. 원 401 은 이 처리가 끝난 뒤에 호출자 onError 로 표면화된다.
     registerUnauthorizedHandler(() => {
-      useAuthStore.setState({ status: 'unauthenticated', user: null });
+      // isVerified 까지 올리는 것이 실제 핸들러의 계약이다 — 종료 "확정"의 표식이라,
+      // 이게 빠지면 시드된 미인증과 구분되지 않는다.
+      useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
       latestQueryClient.clear();
     });
 
@@ -277,17 +326,21 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
   });
 
-  it('미인증이 확정되면 요청 없이 즉시 로그인으로 보낸다', async () => {
+  // 미인증에서는 클릭이 "로그인으로 이동" 이라 방향과 무관하다 — 목록이 없다고 막으면
+  // 로그인 진입점이 사라진다.
+  it('미인증이면 목록 없이도 눌러지고 요청 없이 즉시 로그인으로 보낸다', async () => {
     setAuthStatus('unauthenticated');
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
-    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+    const heart = screen.getByRole('button', { name: '찜 추가' });
+    expect(heart).toBeEnabled();
+    await userEvent.click(heart);
 
     expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2F');
     expect(requestedPaths).toHaveLength(0);
   });
 });
 
-describe('useClubApply — 세션 확인 중 지원 클릭은 로그인으로 튕기지 않는다', () => {
+describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 튕기지 않는다', () => {
   const recruitment: StudentRecruitmentProjection = {
     id: 3,
     title: '모집',
@@ -304,8 +357,10 @@ describe('useClubApply — 세션 확인 중 지원 클릭은 로그인으로 �
     applicantCount: null,
   };
 
-  it('idle 이면 지원 자격 확인을 거쳐 지원 페이지로 이동한다', async () => {
-    setAuthStatus('idle');
+  // 시드된 인증은 아직 서버로 확인되지 않았다 — 그래도 미인증으로 단정하지 않고 그대로 물어본다.
+  // 만료된 access 는 API 계층이 갱신하고, 정말 미인증이면 401 로 답이 온다.
+  it('시드된 인증이면 지원 자격 확인을 거쳐 지원 페이지로 이동한다', async () => {
+    setAuthStatus('authenticated');
     server.use(
       http.get(`${BASE}/recruitments/3/applications/eligibility`, () =>
         HttpResponse.json({ ok: true, data: null, message: null }),
@@ -319,8 +374,8 @@ describe('useClubApply — 세션 확인 중 지원 클릭은 로그인으로 �
     expect(mockRouterPush).toHaveBeenCalledWith('/apply/3');
   });
 
-  it('idle 클릭이 401 로 돌아오면 요청을 보낸 뒤 로그인으로 보낸다', async () => {
-    setAuthStatus('idle');
+  it('시드된 인증의 클릭이 401 로 돌아오면 요청을 보낸 뒤 로그인으로 보낸다', async () => {
+    setAuthStatus('authenticated');
     server.use(...expiredSession('/recruitments/3/applications/eligibility'));
 
     const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });

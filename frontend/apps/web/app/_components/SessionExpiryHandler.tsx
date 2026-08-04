@@ -24,21 +24,22 @@ export function SessionExpiryHandler() {
 
   useEffect(() => {
     registerUnauthorizedHandler(() => {
-      const { status, clearSession } = useAuthStore.getState();
-      // 이미 종료가 확정됐으면 중복 통지다. 동시다발 401 의 중복 토스트/이동을 막기 위해
-      // 상태를 동기적으로 먼저 내려, 이후 호출은 이 가드에서 걸러지게 한다.
-      if (status === 'unauthenticated') return;
-      // "이 브라우저에서 세션이 살아 있었는가" — 안내·이동·서버 정리의 게이트다.
-      // 부팅 중(idle)에는 익명 방문자의 모든 페이지 로드가 이 통지를 만든다
-      // (익명 방문 → /users/me 401 → 쿠키 없는 refresh 401). 게이트 없이 부수효과를 열면
-      // 공개 트래픽 전체에 로그아웃 요청과 캐시 비움이 새어 나간다.
-      // 지금은 인메모리 직전 상태로 판정하지만 술어의 의미는 위 문장이며, 신뢰할 수 있는
-      // 신호가 생기면 구현만 교체한다.
-      const hadLiveSession = status === 'authenticated';
+      const { status, isVerified, clearSession } = useAuthStore.getState();
+      // 이미 종료가 확정(검증된 미인증)됐으면 중복 통지다. 동시다발 401 의 중복 토스트/이동을
+      // 막기 위해 상태를 동기적으로 먼저 내려, 이후 호출은 이 가드에서 걸러지게 한다.
+      // 미검증 미인증(시드 전 초기 상태)은 확정이 아니라 "아직 모른다" 라 여기서 걸리지 않는다.
+      if (status === 'unauthenticated' && isVerified) return;
+      // "이 브라우저에서 세션이 살아 있었는가" — 안내·이동·서버 정리의 게이트다(§9.1).
+      // 이제 신뢰할 수 있는 신호(서버로 확인된 세션인가)로만 판정한다. 시드된 authenticated 는
+      // 로컬 이력·서버 힌트의 추정일 뿐이라, 여기서 부수효과를 열면 스텔·위조 신호 하나가
+      // 로그인한 적 없는 방문자를 로그인 페이지로 튕겨낸다. 익명 방문자는 페이지 로드마다
+      // 이 통지를 만든다(익명 방문 → /users/me 401 → 쿠키 없는 refresh 401).
+      const hadLiveSession = isVerified && status === 'authenticated';
       // 종료 확정은 동기 setState 로 먼저 기록한다 — clearSession() 은 async 라 이 통지를
       // 유발한 요청의 catch 보다 늦게 반영될 수 있고, 그러면 호출자가 확정된 만료를
       // 일시 장애로 오판한다. 둘을 합치는 정리가 들어오면 이 계약이 조용히 깨진다.
-      useAuthStore.setState({ status: 'unauthenticated' });
+      // isVerified 를 함께 올리는 것도 계약이다 — 빼면 뒤늦은 시드가 확정된 종료를 덮는다.
+      useAuthStore.setState({ status: 'unauthenticated', isVerified: true });
       // catch 필수 — 이 정리는 익명 방문자의 페이지 로드에서도 돈다. clearSession() 은
       // 저장소 접근(clearToken)을 await 하는데 그 경로엔 가드가 없어(token.ts:18),
       // 사파리 프라이빗처럼 저장소를 못 쓰는 환경이면 공개 트래픽마다 unhandled rejection 이 된다.
