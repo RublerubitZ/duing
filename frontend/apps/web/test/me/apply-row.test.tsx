@@ -15,13 +15,12 @@ const app: App = {
   files: [],
   memo: '',
   steps: [
-    { label: '서류접수', date: '06.10', state: 'done' },
-    { label: '서류심사', date: '06.14', state: 'current' },
+    { label: '서류접수·심사', date: '06.10', state: 'current' },
     { label: '면접/인터뷰', date: '06.20', state: 'pending' },
     { label: '최종발표', date: '06.25', state: 'pending' },
   ],
-  status: 'doc-review',
-  right: { eyebrow: '서류 결과', value: '06.14', sub: '발표 예정' },
+  status: 'applied',
+  right: { eyebrow: '심사 결과', value: '06.14', sub: '발표 예정' },
   logo: { kind: 'wordmark', text: '두', bg: '#1F4A36', fg: '#fff' },
 };
 
@@ -35,6 +34,12 @@ describe('ApplyRow — 반응형 카드 reflow 구조', () => {
     for (const area of ['.ar-logo', '.ar-info', '.ar-timeline', '.ar-status']) {
       expect(row?.querySelector(area)).not.toBeNull();
     }
+  });
+
+  it('타임라인은 전달된 단계 수만 렌더한다 — 4칸 패딩으로 최종발표가 중복되지 않는다', () => {
+    render(<ApplyRow app={app} isActive={false} onOpen={vi.fn()} />);
+    expect(screen.getAllByText('최종발표')).toHaveLength(1);
+    expect(screen.queryByText('서류심사')).not.toBeInTheDocument();
   });
 
   it('화살표는 모바일에서 숨긴다(hidden, md:grid)', () => {

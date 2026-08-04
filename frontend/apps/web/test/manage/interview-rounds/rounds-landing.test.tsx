@@ -48,7 +48,7 @@ const CANDIDATE_A = {
   college: 'ENGINEERING',
   major: '컴퓨터공학',
   grade: 'THIRD',
-  status: 'PENDING',
+  status: 'INTERVIEW_PENDING',
   submittedAt: '2026-06-01T10:00:00',
 };
 
@@ -60,7 +60,7 @@ const CANDIDATE_B = {
   college: 'ENGINEERING',
   major: '소프트웨어공학',
   grade: 'SECOND',
-  status: 'PENDING',
+  status: 'INTERVIEW_PENDING',
   submittedAt: '2026-06-02T10:00:00',
 };
 

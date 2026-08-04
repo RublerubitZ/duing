@@ -62,6 +62,8 @@ export type MyApplicationDetail = {
   // availabilityDeadline=null 로 응답한다.
   interviewAvailabilityCount: number;
   availabilityDeadline: string | null;
+  // 면접 사용 모집 여부 — 지원 진행 단계에 면접 단계를 표시할지 결정한다.
+  useInterview: boolean;
 };
 
 export type Applicant = {

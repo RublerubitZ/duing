@@ -1,21 +1,11 @@
-/* a-apply-status-parts.jsx → TypeScript 변환: ApplyRow + padToFour */
+/* a-apply-status-parts.jsx → TypeScript 변환: ApplyRow */
 
 import { CAT_LABEL_COLOR } from '../_constants/data';
 import { ClubLogo } from './ClubLogo';
 import { StepTimeline } from './StepTimeline';
 import { StatusBadge } from './StatusBadge';
 import type React from 'react';
-import type { App, Step } from '../_constants/data';
-
-/* 단계가 1개뿐인 카드(취소된 지원 등)도 4-칸 그리드로 보이게 패딩 */
-export const padToFour = (steps: Step[]): Step[] => {
-  const labels = ['서류접수', '서류심사', '면접/인터뷰', '최종발표'];
-  const out = [...steps];
-  while (out.length < 4) {
-    out.push({ label: labels[out.length] ?? '', date: '-', state: 'pending' });
-  }
-  return out;
-};
+import type { App } from '../_constants/data';
 
 type Props = {
   app: App;
@@ -85,7 +75,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
 
       {/* 3. 타임라인 */}
       <div className="ar-timeline" style={{ padding: '0 2px' }}>
-        <StepTimeline steps={app.steps.length === 4 ? app.steps : padToFour(app.steps)} />
+        <StepTimeline steps={app.steps} />
       </div>
 
       {/* 4. 상태 + 부가 정보 */}

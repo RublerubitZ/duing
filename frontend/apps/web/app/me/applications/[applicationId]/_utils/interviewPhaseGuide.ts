@@ -3,8 +3,9 @@
 // 한 곳에만 남긴다 (서버 409 가 최종 가드).
 import type { ApplicantInterviewPhase } from '@duing/types';
 
+// stepIndex 는 면접 모집 스테퍼 index 와 1:1 이다 — 1=면접 대상, 2=면접 일정 배정 완료.
 export type InterviewPhaseGuide = {
-  stepIndex: 1 | 2 | 3;
+  stepIndex: 1 | 2;
   title: string;
   description: string;
 };
@@ -13,58 +14,52 @@ export function getInterviewPhaseGuide(
   phase: ApplicantInterviewPhase,
 ): InterviewPhaseGuide | null {
   switch (phase) {
-    case 'DOCUMENT_REVIEW':
-      return {
-        stepIndex: 1,
-        title: '서류 검토 중',
-        description: '운영진이 서류를 검토하고 있습니다.',
-      };
     case 'WAITING_ROUND':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '면접 회차 대기',
         description: '운영진이 면접 회차를 준비 중입니다.',
       };
     case 'WAITING_NEXT_ROUND':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '다음 회차 대기',
         description: '다음 면접 회차 안내를 기다리고 있습니다.',
       };
     case 'AVAILABILITY_REQUESTED':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '가능 시간 선택',
         description: '면접 가능 시간을 선택해 주세요.',
       };
     case 'AVAILABILITY_CLOSED':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '제출 마감',
         description:
           '가능 시간 제출이 마감되었습니다. 운영진과 별도 연락이 있을 수 있습니다.',
       };
     case 'RESPONDED':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '응답 완료',
         description: '가능 시간을 제출했습니다. 운영진이 일정을 배정 중입니다.',
       };
     case 'NO_SLOT_REPORTED':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '조율 요청됨',
         description: '가능한 시간이 없다고 응답했습니다. 운영진이 별도로 조율합니다.',
       };
     case 'SCHEDULING':
       return {
-        stepIndex: 2,
+        stepIndex: 1,
         title: '배정 검토 중',
         description: '운영진이 면접 일정을 조율하고 있습니다.',
       };
     case 'SCHEDULED':
       return {
-        stepIndex: 3,
+        stepIndex: 2,
         title: '일정 확정',
         description: '면접 일정이 확정되었습니다.',
       };

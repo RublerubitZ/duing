@@ -51,8 +51,8 @@ describe('ApplyDetailModal — 지원 철회', () => {
     expect(screen.getByRole('button', { name: '지원 철회' })).toBeInTheDocument();
   });
 
-  it('검토가 시작된 지원에는 "지원 철회" 버튼을 노출하지 않는다', () => {
-    renderModal('doc-review');
+  it('면접 대상으로 전이된 지원에는 "지원 철회" 버튼을 노출하지 않는다', () => {
+    renderModal('interview-pending');
     expect(screen.queryByRole('button', { name: '지원 철회' })).not.toBeInTheDocument();
   });
 

@@ -8,19 +8,22 @@ import { ArrowRight } from '@/components/duing/Icon';
 
 import { SectionHeader } from './SectionHeader';
 
-type ActiveApplicationStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'INTERVIEW_PENDING';
+type ActiveApplicationStatus = 'SUBMITTED' | 'ON_HOLD' | 'INTERVIEW_PENDING';
 
-const STEPS = ['서류', '검토', '면접'] as const;
+// 서류검토 단계 제거 (스펙 §5-5). 목록 응답에는 useInterview 가 없어 미니 진행바는
+// 항상 2단으로 근사하고, 면접 단계 조건부 표시는 상세 스테퍼가 담당한다.
+const STEPS = ['심사', '면접'] as const;
 
 const STATUS_STEP: Record<ActiveApplicationStatus, number> = {
   SUBMITTED: 1,
-  UNDER_REVIEW: 2,
-  INTERVIEW_PENDING: 3,
+  // 보류는 지원자에게 심사 중과 동일하게 보인다 (스펙 §1-1).
+  ON_HOLD: 1,
+  INTERVIEW_PENDING: 2,
 };
 
 const ACTION_LABEL: Record<ActiveApplicationStatus, string> = {
   SUBMITTED: '지원서 보기',
-  UNDER_REVIEW: '지원서 보기',
+  ON_HOLD: '지원서 보기',
   INTERVIEW_PENDING: '면접 일정 보기',
 };
 
@@ -43,8 +46,8 @@ const statusNote = (app: ApplicationSummary): string => {
       ? `면접: ${at} — ${app.interview.location}`
       : `면접: ${at}`;
   }
-  if (app.status === 'UNDER_REVIEW') return '동아리에서 검토 중입니다';
-  return '지원서 작성 완료';
+  // SUBMITTED·ON_HOLD 는 지원자에게 구분되지 않는다 — 동일한 심사 중 문구 (스펙 §1-1).
+  return '동아리에서 심사 중입니다';
 };
 
 type Props = {
