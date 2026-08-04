@@ -6,6 +6,8 @@
 --     롤백 전에 역치환 UPDATE(ON_HOLD → 'SUBMITTED') 를 application·application_status_history 양쪽에 선행.
 -- (b) 롤백 창에서 구 코드가 새 UNDER_REVIEW 행을 만들 수 있고 재배포 시 이 파일은 다시 실행되지 않는다 →
 --     재배포 전에 아래 UPDATE 3문을 수동으로 재실행(멱등). 방치하면 상수 제거 후 로드 시 500 이 고착된다.
+-- (c) 배포 직후에도 application.status 와 application_status_history 의 previous_status·new_status 양 컬럼에
+--     UNDER_REVIEW 잔존 행이 0 인지 재확인한다. 한 건이라도 발견되면 아래 UPDATE 3문을 수동 재실행(멱등).
 UPDATE application SET status = 'SUBMITTED' WHERE status = 'UNDER_REVIEW';
 UPDATE application_status_history SET previous_status = 'SUBMITTED' WHERE previous_status = 'UNDER_REVIEW';
 UPDATE application_status_history SET new_status = 'SUBMITTED' WHERE new_status = 'UNDER_REVIEW';
