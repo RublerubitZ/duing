@@ -1,6 +1,7 @@
 package com.duing.domain.joincode.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -11,6 +12,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
@@ -61,6 +65,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired JoinRequestService joinRequestService;
     @Autowired JwtTokenProvider jwtTokenProvider;
@@ -175,6 +180,12 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         assertThat(clubJoinRequestRepository.count()).as("중복 요청은 행을 만들지 않는다").isEqualTo(1);
         assertThat(usedCountOf(joinCode))
                 .as("자리는 신청 시점에 한 번만 확보된다 — 거절된 중복 요청은 차감하지 않는다").isEqualTo(1);
+        assertThat(clubAuditEventRepository.findAll())
+                .as("접수된 요청만 감사 이벤트로 남고, 주체는 운영진이 아니라 신청한 학생이다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId,
+                        ClubAuditEvent::getActorUserId, ClubAuditEvent::getJoinCodeId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_CREATED, stored.getId(),
+                        student.getId(), joinCode.getId()));
     }
 
     @Test

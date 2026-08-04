@@ -1,6 +1,7 @@
 package com.duing.domain.joincode.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -11,10 +12,15 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -31,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +47,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
@@ -56,6 +64,8 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
+    @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
@@ -201,12 +211,26 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
         String firstCode = firstCreated.jsonPath().getString("data.code");
         Long firstJoinCodeId = firstCreated.jsonPath().getLong("data.joinCodeId");
 
-        String secondCode = createJoinCode(leaderToken, externalRecruitment, Map.of(
+        Response secondCreated = createJoinCode(leaderToken, externalRecruitment, Map.of(
                         "maxUses", 20, "joinWindowDays", 7, "generation", 13))
                 .then().statusCode(HttpStatus.CREATED.value())
-                .extract().jsonPath().getString("data.code");
+                .extract().response();
+        String secondCode = secondCreated.jsonPath().getString("data.code");
 
         assertThat(secondCode).isNotEqualTo(firstCode);
+        assertThat(auditEvents())
+                .as("재생성 트랜잭션은 구 링크 폐기와 신규 링크 재생성을 각각 남긴다 — 최초 생성과 구분된다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinCodeId,
+                        ClubAuditEvent::getActorUserId)
+                .containsExactly(
+                        tuple(ClubAuditEventType.JOIN_LINK_CREATED, firstJoinCodeId, leaderUser.getId()),
+                        tuple(ClubAuditEventType.JOIN_LINK_REVOKED, firstJoinCodeId, leaderUser.getId()),
+                        tuple(ClubAuditEventType.JOIN_LINK_REGENERATED,
+                                secondCreated.jsonPath().getLong("data.joinCodeId"), leaderUser.getId()));
+        assertThat(auditEvents().getFirst())
+                .as("이벤트는 동아리·모집 단위 조회가 가능하도록 두 id 를 함께 남긴다")
+                .extracting(ClubAuditEvent::getClubId, ClubAuditEvent::getRecruitmentId)
+                .containsExactly(club.getId(), externalRecruitment.getId());
         getActiveJoinCode(leaderToken, externalRecruitment).then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.code", equalTo(secondCode))
@@ -343,6 +367,36 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
         assertThat(clubJoinCodeRepository.findById(joinCodeId).orElseThrow().getRevokedAt())
                 .as("멱등 폐기는 감사 시각을 덮어쓰지 않는다").isEqualTo(firstRevokedAt);
+        assertThat(auditEvents()).extracting(ClubAuditEvent::getEventType)
+                .as("아무것도 바뀌지 않은 멱등 호출은 감사 이벤트를 남기지 않는다")
+                .containsExactly(ClubAuditEventType.JOIN_LINK_CREATED, ClubAuditEventType.JOIN_LINK_REVOKED);
+    }
+
+    @Test
+    @DisplayName("활성 링크 조회는 그 링크로 접수된 누적 가입 신청 수와 승인 대기 수를 함께 내려준다")
+    void activeJoinCodeCarriesRequestCounts() {
+        Response created = createJoinCode(leaderToken, externalRecruitment, VALID_BODY);
+        created.then()
+                .body("data.totalRequestCount", equalTo(0))
+                .body("data.pendingCount", equalTo(0));
+        ClubJoinCode joinCode = clubJoinCodeRepository
+                .findById(created.jsonPath().getLong("data.joinCodeId")).orElseThrow();
+
+        User reapplyingStudent = saveUser();
+        ClubJoinRequest rejected = savePendingRequest(joinCode, reapplyingStudent);
+        rejected.reject(leaderUser, LocalDateTime.now(clock));
+        clubJoinRequestRepository.save(rejected);
+        // 거절당한 학생의 재요청 — 누적은 늘어나고 대기만 다시 1건이 된다.
+        savePendingRequest(joinCode, reapplyingStudent);
+        ClubJoinRequest approved = savePendingRequest(joinCode, saveUser());
+        approved.approve(leaderUser, LocalDateTime.now(clock));
+        clubJoinRequestRepository.save(approved);
+        savePendingRequest(joinCode, saveUser());
+
+        getActiveJoinCode(leaderToken, externalRecruitment).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.totalRequestCount", equalTo(4))
+                .body("data.pendingCount", equalTo(2));
     }
 
     @Test
@@ -387,6 +441,19 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
                 .when()
                     .delete("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/{joinCodeId}",
                             targetClubId, targetRecruitmentId, joinCodeId);
+    }
+
+    /** 감사 이벤트는 기록 순서가 곧 이야기라 id 오름차순으로 본다(재생성 = 폐기 → 재생성). */
+    private List<ClubAuditEvent> auditEvents() {
+        return clubAuditEventRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    /** 실제 학생 플로우와 같이 코드 자리를 하나 확보한 대기 요청을 만든다. */
+    private ClubJoinRequest savePendingRequest(ClubJoinCode joinCode, User student) {
+        ClubJoinCode storedCode = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
+        storedCode.tryConsume();
+        clubJoinCodeRepository.save(storedCode);
+        return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, student, storedCode));
     }
 
     private String tokenOf(User user) {

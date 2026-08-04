@@ -1,6 +1,7 @@
 package com.duing.domain.joincode.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -12,6 +13,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -46,6 +50,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
@@ -61,6 +66,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
@@ -227,6 +233,13 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         detail.then()
                 .body("data.status", equalTo("APPROVED"))
                 .body("data.rejectReason", nullValue());
+        assertThat(auditEvents())
+                .as("승인은 처리한 운영진을 주체로 감사 이벤트에 남는다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId,
+                        ClubAuditEvent::getActorUserId, ClubAuditEvent::getRecruitmentId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_APPROVED, pending.getId(),
+                        leaderUser.getId(), recruitment.getId()));
+
         String reviewedAt = detail.jsonPath().getString("data.reviewedAt");
         assertThat(reviewedAt).as("처리 시각은 오프셋 있는 절대시각(…Z)").endsWith("Z");
         assertThat(Duration.between(Instant.parse(reviewedAt), beforeDecision))
@@ -254,6 +267,12 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         getRequestDetail(leaderToken, club.getId(), pending.getId()).then()
                 .body("data.status", equalTo("REJECTED"))
                 .body("data.rejectReason", nullValue());
+        assertThat(auditEvents())
+                .as("거절도 처리한 운영진을 주체로 감사 이벤트에 남는다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId,
+                        ClubAuditEvent::getActorUserId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId(),
+                        leaderUser.getId()));
     }
 
     @Test
@@ -271,6 +290,10 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .body("data.status", equalTo("REJECTED"))
                 .body("data.rejectReason", equalTo("이미 가입된 회원"));
         assertThat(usedCountOfCurrentCode()).as("자동 거절도 자리를 환급한다").isZero();
+        assertThat(auditEvents())
+                .as("자동 거절도 수동 거절과 같은 거절 이벤트로 남는다 — 사유는 요청 행이 갖고 있다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId()));
     }
 
     @Test
@@ -423,6 +446,11 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
         assertThat(clubJoinRequestRepository.findById(pending.getId()).orElseThrow().getStatus())
                 .isEqualTo(JoinRequestStatus.PENDING);
+    }
+
+    /** 감사 이벤트는 기록 순서가 곧 이야기라 id 오름차순으로 본다. */
+    private List<ClubAuditEvent> auditEvents() {
+        return clubAuditEventRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
     }
 
     private Response listRequests(String token, String status) {

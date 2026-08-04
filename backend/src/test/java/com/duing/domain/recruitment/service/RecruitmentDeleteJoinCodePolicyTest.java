@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -10,6 +11,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
@@ -50,6 +54,7 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired UserRepository userRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -81,6 +86,12 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
                 .as("고아 코드로 학생이 유입되지 않도록 삭제 트랜잭션이 코드를 폐기한다").isNotNull();
         assertThat(revoked.getRevokedById())
                 .as("자동 폐기의 주체는 모집을 삭제한 운영진이다").isEqualTo(leader.getId());
+        assertThat(clubAuditEventRepository.findAll())
+                .as("삭제에 딸린 자동 폐기도 어떤 링크가 왜 죽었는지 감사 이벤트로 남는다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinCodeId,
+                        ClubAuditEvent::getRecruitmentId, ClubAuditEvent::getActorUserId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_LINK_REVOKED, joinCode.getId(),
+                        recruitment.getId(), leader.getId()));
     }
 
     @Test
@@ -98,6 +109,8 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
                 .as("학생의 응답 대기 상태도 그대로다").isEqualTo(JoinRequestStatus.PENDING);
         assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getRevokedAt())
                 .as("409 로 트랜잭션이 롤백되므로 코드 폐기도 되돌아간다").isNull();
+        assertThat(clubAuditEventRepository.findAll())
+                .as("일어나지 않은 폐기는 감사 이벤트도 남기지 않는다").isEmpty();
     }
 
     @Test

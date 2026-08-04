@@ -22,6 +22,15 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
             + "AND joinRequest.status = com.duing.domain.joincode.entity.JoinRequestStatus.PENDING")
     boolean existsPendingByRecruitmentId(@Param("recruitmentId") Long recruitmentId);
 
+    /**
+     * 가입 링크 상태 카드의 "누적 가입 신청"(스펙 v2 7.2) — 거절 후 재요청도 별개 행이라 함께 센다.
+     * 카운트는 링크 응답에 실어 한 곳에서만 계산한다(화면 합산 금지).
+     */
+    long countByJoinCodeId(Long joinCodeId);
+
+    /** 상태 카드의 "승인 대기" — 위 누적과 같은 링크 기준이라 두 수치의 출처가 어긋나지 않는다. */
+    long countByJoinCodeIdAndStatus(Long joinCodeId, JoinRequestStatus status);
+
     /** 운영진 상세 조회 — 타 동아리 요청은 조회되지 않아야 하므로 clubId 를 조건에 포함한다. */
     Optional<ClubJoinRequest> findByIdAndClubId(Long joinRequestId, Long clubId);
 
