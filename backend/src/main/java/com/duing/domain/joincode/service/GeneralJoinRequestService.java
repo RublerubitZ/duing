@@ -104,7 +104,10 @@ public class GeneralJoinRequestService implements JoinRequestService {
     @Transactional
     public void createRequest(CreateJoinRequestCommand createCommand) {
         joinCodeRateLimiter.assertAndRecordRequestCreation(createCommand.clientIp(), LocalDateTime.now(clock));
-        ClubJoinCode joinCode = clubJoinCodeRepository.findByCode(normalizeCode(createCommand.rawCode()))
+        // 사용 인원은 신청 시점에 차감하므로(스펙 4.2) 유효성 판정부터 잠금 하에서 읽는다 —
+        // 잠그지 않고 먼저 읽으면 뒤늦은 잠금이 낡은 usedCount 를 그대로 두어 초과 접수가 난다.
+        ClubJoinCode joinCode = clubJoinCodeRepository
+                .findWithLockByCode(normalizeCode(createCommand.rawCode()))
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         if (!isUsable(joinCode)) {
             throw new JoinRequestException.UnusableJoinCodeException();
@@ -119,11 +122,17 @@ public class GeneralJoinRequestService implements JoinRequestService {
         }
         User requester = userRepository.findById(createCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+        // 잠금 하의 원자 차감으로 자리를 확보한다. 위 isUsable 이 소진도 함께 보므로 실패는 사실상
+        // 도달하지 않지만, 차감의 최종 방어선으로 남겨 둔다 — 학생에게는 사유를 구분하지 않는다(스펙 6).
+        if (!joinCode.tryConsume()) {
+            throw new JoinRequestException.UnusableJoinCodeException();
+        }
         try {
             clubJoinRequestRepository.save(ClubJoinRequest.pending(joinCode.getClub(), requester, joinCode));
             clubJoinRequestRepository.flush();
         } catch (DataIntegrityViolationException racedDuplicate) {
             // 동시 중복 요청: uk_club_join_request_pending 충돌만 409 로 변환한다.
+            // 트랜잭션이 롤백되므로 위 차감도 함께 되돌아간다(자리가 새지 않는다).
             if (!isDuplicatePendingRequest(racedDuplicate)) {
                 throw racedDuplicate;
             }
@@ -181,6 +190,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
         return switch (decidedStatus) {
             case REJECTED -> {
                 joinRequest.reject(reviewer, now);
+                releaseReservedUse(joinRequest);
                 yield JoinRequestDecisionResult.REJECTED;
             }
             case APPROVED -> approveOrAutoReject(joinRequest, reviewer, now);
@@ -192,25 +202,30 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     private JoinRequestDecisionResult approveOrAutoReject(ClubJoinRequest joinRequest, User reviewer,
                                                           LocalDateTime now) {
-        // 승인 시점에 이미 다른 경로로 활성 회원이 됐다면 인원 차감 없이 자동 거절한다
+        // 승인 시점에 이미 다른 경로로 활성 회원이 됐다면 자동 거절하고 확보해 둔 자리를 환급한다
         // (PENDING 방치 금지, 스펙 4.3). 예외가 아닌 정상 리턴이어야 상태 전이가 커밋된다.
         if (clubMemberRepository.findByClubIdAndUserId(
                 joinRequest.getClub().getId(), joinRequest.getUser().getId()).isPresent()) {
             joinRequest.rejectAutomatically(reviewer, now);
+            releaseReservedUse(joinRequest);
             return JoinRequestDecisionResult.AUTO_REJECTED;
         }
-        // 코드 행 잠금 하에 원자 차감 — 동시 승인의 초과 사용을 막는다. 만료·폐기·모집 마감 코드도
+        // 자리는 요청 생성 시점에 이미 확보됐으므로 승인은 차감하지 않는다. 만료·폐기·모집 마감 코드도
         // 승인은 허용한다(요청 생성 시점에 이미 코드 검증을 통과했으므로, 스펙 4.3).
-        ClubJoinCode joinCode = clubJoinCodeRepository
-                .findWithLockById(joinRequest.getJoinCode().getId())
-                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
-        if (!joinCode.tryConsume()) {
-            throw new JoinCodeException.InsufficientRemainingUsesException();
-        }
         clubMemberEnrollmentService.enroll(joinRequest.getClub(), joinRequest.getUser(),
                 ClubMemberRole.MEMBER, joinRequest.getGeneration());
         joinRequest.approve(reviewer, now);
         return JoinRequestDecisionResult.APPROVED;
+    }
+
+    /**
+     * 거절(수동·자동)로 비워진 자리를 코드에 되돌린다(스펙 4.3). 거절이 자리를 영구 소모하면
+     * 합격자가 못 들어오므로 환급은 필수다. 동시 환급이 어긋나지 않도록 코드 행을 잠그고 감소시킨다.
+     */
+    private void releaseReservedUse(ClubJoinRequest joinRequest) {
+        clubJoinCodeRepository.findWithLockById(joinRequest.getJoinCode().getId())
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new)
+                .releaseUse();
     }
 
     @Override
@@ -240,8 +255,9 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 }
                 approvedCount++;
             } catch (ApplicationException domainFailure) {
-                // 미존재/타 동아리 요청은 열거 방지를 위해 일반 메시지로 합치고, 그 외(잔여 부족·이미 처리 등
-                // 이미 권한이 확인된 운영진에게 정당한 정보)는 구체 메시지를 그대로 노출한다.
+                // 미존재/타 동아리 요청은 열거 방지를 위해 일반 메시지로 합치고, 그 외(이미 처리·동시 처리
+                // 충돌 등 이미 권한이 확인된 운영진에게 정당한 정보)는 구체 메시지를 그대로 노출한다.
+                // 승인은 차감하지 않으므로 "잔여 인원 부족" 실패는 이 단계에 존재하지 않는다(스펙 4.4).
                 String reason = isExistenceOrAuthorizationFailure(domainFailure)
                         ? BULK_ITEM_GENERIC_FAILURE
                         : domainFailure.getMessage();

@@ -11,6 +11,7 @@ import {
   useActiveJoinCodeQuery,
   useBulkApproveJoinRequestsMutation,
   useCreateJoinCodeMutation,
+  useCreateJoinRequestMutation,
   useDecideJoinRequestMutation,
   useJoinRequestDetailQuery,
   useJoinRequestsQuery,
@@ -252,5 +253,30 @@ describe('가입 요청 훅', () => {
       queryClient.getQueryState(clubQueryKeys.joinRequests(10, 'PENDING'))?.isInvalidated,
     ).toBe(true);
     expect(queryClient.getQueryState(clubQueryKeys.members(10))?.isInvalidated).toBe(true);
+  });
+
+  it('학생 가입 요청이 409 로 실패해도 코드 확인을 무효화한다', async () => {
+    server.use(
+      http.post('*/join-codes/ABCD1234/requests', () =>
+        HttpResponse.json(
+          { ok: false, message: '이미 대기 중인 요청이 있습니다.', data: null },
+          { status: 409 },
+        ),
+      ),
+    );
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(clubQueryKeys.joinCodeCheck('ABCD1234'), { usable: true });
+
+    const { result } = renderHook(() => useCreateJoinRequestMutation('ABCD1234'), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => {
+      await result.current.mutateAsync().catch(() => undefined);
+    });
+
+    expect(result.current.isError).toBe(true);
+    expect(
+      queryClient.getQueryState(clubQueryKeys.joinCodeCheck('ABCD1234'))?.isInvalidated,
+    ).toBe(true);
   });
 });

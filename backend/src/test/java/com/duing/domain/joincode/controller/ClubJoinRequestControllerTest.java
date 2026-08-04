@@ -202,8 +202,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("승인하면 기수 스냅샷이 반영된 회원이 생성되고 코드 사용 인원이 한 명 차감된다")
-    void approveCreatesMemberAndConsumesOneUse() {
+    @DisplayName("승인하면 기수 스냅샷이 반영된 회원이 생성되고 신청 때 확보한 인원은 그대로 유지된다")
+    void approveCreatesMemberWithoutConsumingAgain() {
         User student = saveUser();
         ClubJoinRequest pending = savePendingRequest(student);
         Instant beforeDecision = Instant.now();
@@ -217,7 +217,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         assertThat(created.getRole()).isEqualTo(ClubMemberRole.MEMBER);
         assertThat(created.getGeneration())
                 .as("승인은 요청 생성 시점의 기수 스냅샷을 따른다").isEqualTo(joinCode.getGeneration());
-        assertThat(usedCountOfCurrentCode()).as("승인 시점에만 사용 인원이 차감된다").isEqualTo(1);
+        assertThat(usedCountOfCurrentCode())
+                .as("승인은 신청 때 확보한 자리를 쓸 뿐 추가로 차감하지 않는다").isEqualTo(1);
 
         Response detail = getRequestDetail(leaderToken, club.getId(), pending.getId());
         detail.then()
@@ -231,10 +232,11 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("거절하면 회원이 생성되지 않고 코드 사용 인원도 차감되지 않는다")
-    void rejectLeavesMembershipAndCodeUntouched() {
+    @DisplayName("거절하면 회원이 생성되지 않고 신청 때 확보했던 인원이 환급된다")
+    void rejectRefundsReservedUse() {
         User student = saveUser();
         ClubJoinRequest pending = savePendingRequest(student);
+        assertThat(usedCountOfCurrentCode()).as("신청 시점에 자리가 확보돼 있다").isEqualTo(1);
 
         decide(leaderToken, club.getId(), pending.getId(), "REJECTED").then()
                 .statusCode(HttpStatus.OK.value())
@@ -242,15 +244,18 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
         assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), student.getId()))
                 .as("거절은 회원을 만들지 않는다").isEmpty();
-        assertThat(usedCountOfCurrentCode()).as("거절은 인원을 차감하지 않는다").isZero();
+        // 불변식: used_count == 대기 + 승인 요청 수. 거절이 자리를 영구 소모하면 합격자가 못 들어온다.
+        assertThat(usedCountOfCurrentCode())
+                .as("거절은 자리를 환급한다").isEqualTo(pendingOrApprovedRequestCount());
+        assertThat(usedCountOfCurrentCode()).isZero();
         getRequestDetail(leaderToken, club.getId(), pending.getId()).then()
                 .body("data.status", equalTo("REJECTED"))
                 .body("data.rejectReason", nullValue());
     }
 
     @Test
-    @DisplayName("승인 시점에 이미 다른 경로로 가입된 회원이면 인원 차감 없이 자동 거절된다")
-    void approveOnExistingMemberAutoRejectsWithoutConsuming() {
+    @DisplayName("승인 시점에 이미 다른 경로로 가입된 회원이면 자동 거절되고 확보했던 인원이 환급된다")
+    void approveOnExistingMemberAutoRejectsAndRefunds() {
         User student = saveUser();
         clubMemberRepository.save(ClubMember.asMember(club, student));
         ClubJoinRequest pending = savePendingRequest(student);
@@ -262,30 +267,23 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         getRequestDetail(leaderToken, club.getId(), pending.getId()).then()
                 .body("data.status", equalTo("REJECTED"))
                 .body("data.rejectReason", equalTo("이미 가입된 회원"));
-        assertThat(usedCountOfCurrentCode()).as("자동 거절은 인원을 차감하지 않는다").isZero();
+        assertThat(usedCountOfCurrentCode()).as("자동 거절도 자리를 환급한다").isZero();
     }
 
     @Test
-    @DisplayName("잔여 인원이 소진되면 승인이 거부되고 이미 처리된 요청은 다시 처리되지 않는다")
-    void exhaustedCodeAndProcessedRequestReturn409() {
-        replaceJoinCodeWithMaxUses(1);
-        User firstStudent = saveUser();
-        User secondStudent = saveUser();
-        ClubJoinRequest firstRequest = savePendingRequest(firstStudent);
-        ClubJoinRequest secondRequest = savePendingRequest(secondStudent);
+    @DisplayName("이미 처리된 요청을 다시 처리하려 하면 409 로 막히고 인원도 그대로다")
+    void processedRequestReturns409() {
+        User student = saveUser();
+        ClubJoinRequest processedRequest = savePendingRequest(student);
 
-        decide(leaderToken, club.getId(), firstRequest.getId(), "APPROVED").then()
+        decide(leaderToken, club.getId(), processedRequest.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value());
-
-        decide(leaderToken, club.getId(), secondRequest.getId(), "APPROVED").then()
-                .statusCode(HttpStatus.CONFLICT.value());
-        decide(leaderToken, club.getId(), firstRequest.getId(), "REJECTED").then()
+        decide(leaderToken, club.getId(), processedRequest.getId(), "REJECTED").then()
                 .statusCode(HttpStatus.CONFLICT.value());
 
-        assertThat(usedCountOfCurrentCode()).as("최대 인원을 넘겨 차감되지 않는다").isEqualTo(1);
-        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), secondStudent.getId()))
-                .as("소진 후 승인은 회원을 만들지 않는다").isEmpty();
-        assertThat(clubJoinRequestRepository.findById(firstRequest.getId()).orElseThrow().getStatus())
+        assertThat(usedCountOfCurrentCode())
+                .as("실패한 재처리는 환급을 일으키지 않는다").isEqualTo(1);
+        assertThat(clubJoinRequestRepository.findById(processedRequest.getId()).orElseThrow().getStatus())
                 .as("이미 처리된 요청의 상태는 덮어써지지 않는다").isEqualTo(JoinRequestStatus.APPROVED);
     }
 
@@ -305,7 +303,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
 
-        assertThat(usedCountOfCurrentCode()).isEqualTo(2);
+        assertThat(usedCountOfCurrentCode())
+                .as("두 건 모두 신청 때 확보한 자리를 그대로 쓴다").isEqualTo(2);
     }
 
     @Test
@@ -327,29 +326,29 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("일괄 승인은 잔여 인원만큼만 승인하고 나머지는 사유와 함께 실패로 돌려준다")
+    @DisplayName("일괄 승인은 처리 가능한 요청만 승인하고 나머지는 사유와 함께 실패로 돌려준다")
     void bulkApproveReportsPerRequestFailures() {
-        replaceJoinCodeWithMaxUses(1);
         User existingMemberStudent = saveUser();
         clubMemberRepository.save(ClubMember.asMember(club, existingMemberStudent));
 
         ClubJoinRequest approvable = savePendingRequest(saveUser());
         ClubJoinRequest autoRejected = savePendingRequest(existingMemberStudent);
-        ClubJoinRequest exhausted = savePendingRequest(saveUser());
+        ClubJoinRequest alreadyProcessed = saveRejectedRequest(saveUser());
 
         Response response = bulkApprove(leaderToken, club.getId(),
-                List.of(approvable.getId(), autoRejected.getId(), exhausted.getId()));
+                List.of(approvable.getId(), autoRejected.getId(), alreadyProcessed.getId()));
 
         response.then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.approvedCount", equalTo(1))
                 .body("data.failures", hasSize(2));
         assertThat(response.jsonPath().getList("data.failures.joinRequestId", Long.class))
-                .containsExactly(autoRejected.getId(), exhausted.getId());
+                .containsExactly(autoRejected.getId(), alreadyProcessed.getId());
         assertThat(response.jsonPath().getList("data.failures.reason", String.class))
                 .containsExactly("이미 가입된 회원이라 자동 거절 처리되었습니다.",
-                        "잔여 사용 가능 인원이 부족합니다.");
-        assertThat(usedCountOfCurrentCode()).isEqualTo(1);
+                        "이미 처리된 가입 요청입니다.");
+        // 시드 3건이 자리 3개를 확보했고, 자동 거절만 환급된다(사전 거절 건은 서비스를 거치지 않아 그대로).
+        assertThat(usedCountOfCurrentCode()).as("승인은 차감하지 않고 자동 거절만 환급한다").isEqualTo(2);
         assertThat(clubJoinRequestRepository.findById(autoRejected.getId()).orElseThrow().getStatus())
                 .as("자동 거절은 PENDING 으로 방치되지 않는다").isEqualTo(JoinRequestStatus.REJECTED);
     }
@@ -452,7 +451,14 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                     .patch("/api/v1/clubs/{clubId}/join-requests/bulk-approve", targetClubId);
     }
 
+    /**
+     * 대기 요청은 실제 흐름과 같은 상태로 만든다 — 신청 시점에 코드 자리 하나를 확보하므로
+     * (스펙 4.2) 시드도 함께 차감해야 승인·거절의 유지·환급을 그대로 검증할 수 있다.
+     */
     private ClubJoinRequest savePendingRequest(User student) {
+        ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
+        stored.tryConsume();
+        clubJoinCodeRepository.save(stored);
         return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, student, joinCode));
     }
 
@@ -475,12 +481,6 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 LocalDateTime.now().plusDays(30)));
     }
 
-    /** 동아리당 활성 코드는 1개(partial unique)이므로 기존 코드를 폐기한 뒤 새 코드를 발급한다. */
-    private void replaceJoinCodeWithMaxUses(int maxUses) {
-        revokeCurrentJoinCode();
-        joinCode = saveJoinCode(club, recruitment, maxUses);
-    }
-
     private void revokeCurrentJoinCode() {
         ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
         stored.revoke(LocalDateTime.now());
@@ -495,6 +495,14 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
     private int usedCountOfCurrentCode() {
         return clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount();
+    }
+
+    /** used_count 불변식(= 대기 + 승인 요청 수)의 우변. */
+    private int pendingOrApprovedRequestCount() {
+        return clubJoinRequestRepository
+                .findAllByClubIdAndStatusOrderByIdDesc(club.getId(), JoinRequestStatus.PENDING).size()
+                + clubJoinRequestRepository
+                .findAllByClubIdAndStatusOrderByIdDesc(club.getId(), JoinRequestStatus.APPROVED).size();
     }
 
     /** 코드 문자열은 전역 unique 이므로 테스트마다 겹치지 않게 시퀀스로 만든다. */

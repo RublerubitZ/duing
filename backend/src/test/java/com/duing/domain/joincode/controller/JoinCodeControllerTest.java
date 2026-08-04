@@ -19,6 +19,8 @@ import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeRateLimiter;
+import com.duing.domain.joincode.service.JoinRequestService;
+import com.duing.domain.joincode.service.dto.command.DecideJoinRequestCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -56,6 +58,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
     @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
+    @Autowired JoinRequestService joinRequestService;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -132,6 +135,9 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         exhausted.tryConsume();
         clubJoinCodeRepository.save(exhausted);
         assertUnusableAndRequestRejected("USEDUP");
+
+        assertThat(clubJoinRequestRepository.count())
+                .as("사용 불가 코드로는 요청 행이 만들어지지 않는다").isZero();
     }
 
     @Test
@@ -165,8 +171,22 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         assertThat(stored.getStatus()).isEqualTo(JoinRequestStatus.PENDING);
         assertThat(stored.getGeneration()).as("코드의 기수가 스냅샷된다").isEqualTo(12);
         assertThat(clubJoinRequestRepository.count()).as("중복 요청은 행을 만들지 않는다").isEqualTo(1);
-        assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount())
-                .as("요청 생성만으로는 사용 인원이 차감되지 않는다").isZero();
+        assertThat(usedCountOf(joinCode))
+                .as("자리는 신청 시점에 한 번만 확보된다 — 거절된 중복 요청은 차감하지 않는다").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("잔여 인원이 소진되면 다음 학생의 가입 요청은 거절되고 요청 행도 남지 않는다")
+    void requestOnExhaustedCodeIsRejected() {
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, LocalDateTime.now().plusDays(30));
+        User laterStudent = saveUser();
+
+        createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
+        createRequest(tokenOf(laterStudent), "AB12CD").then().statusCode(HttpStatus.CONFLICT.value());
+
+        assertThat(clubJoinRequestRepository.count()).as("소진된 코드로는 요청 행이 생기지 않는다").isEqualTo(1);
+        assertThat(usedCountOf(joinCode)).as("최대 인원을 넘겨 차감되지 않는다").isEqualTo(1);
+        checkCode(null, "AB12CD").then().body("data.usable", equalTo(false));
     }
 
     @Test
@@ -181,18 +201,22 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("거절된 뒤에는 같은 코드로 다시 가입 요청을 만들 수 있다")
+    @DisplayName("거절로 자리가 환급되면 잔여 1명짜리 코드로도 같은 학생이 다시 요청할 수 있다")
     void rejectedRequesterCanRequestAgain() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, LocalDateTime.now().plusDays(30));
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
 
         ClubJoinRequest pending = clubJoinRequestRepository
                 .findTopByClubIdAndUserIdOrderByIdDesc(club.getId(), student.getId()).orElseThrow();
-        pending.reject(existingMember, LocalDateTime.now());
-        clubJoinRequestRepository.save(pending);
+        joinRequestService.decide(new DecideJoinRequestCommand(
+                club.getId(), pending.getId(), leader.getId(), JoinRequestStatus.REJECTED));
+        assertThat(usedCountOf(joinCode)).as("거절이 확보했던 자리를 환급한다").isZero();
 
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
         assertThat(clubJoinRequestRepository.count()).as("거절 이력 + 신규 요청").isEqualTo(2);
+        assertThat(usedCountOf(joinCode)).as("재요청이 환급된 자리를 다시 확보한다").isEqualTo(1);
     }
 
     @Test
@@ -251,6 +275,10 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     private void revoke(ClubJoinCode joinCode) {
         joinCode.revoke(LocalDateTime.now());
         clubJoinCodeRepository.save(joinCode);
+    }
+
+    private int usedCountOf(ClubJoinCode joinCode) {
+        return clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount();
     }
 
     private ClubJoinCode saveJoinCode(String code, Integer generation, int maxUses, LocalDateTime expiresAt) {

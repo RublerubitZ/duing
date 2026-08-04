@@ -88,8 +88,43 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
                         + "WHERE club_id = ? AND user_id = ? AND status = 'PENDING' AND deleted_at IS NULL",
                 Integer.class, club.getId(), student.getId());
         assertThat(pendingCount).as("대기 중인 요청은 정확히 1개").isEqualTo(1);
-        assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount())
-                .as("요청 생성만으로는 사용 인원이 차감되지 않는다").isZero();
+        assertThat(usedCountOf(joinCode))
+                .as("접수된 요청 1건만큼만 자리를 확보한다").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("잔여 1명인 코드에 서로 다른 두 학생이 동시에 신청하면 한 명만 접수된다")
+    void concurrentCreateNeverExceedsMaxUses() throws Exception {
+        User firstStudent = userRepository.save(UserFixture.unique());
+        User secondStudent = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
+                club, saveOpenExternalRecruitment(club), "EF34GH", 12, 1,
+                LocalDateTime.now().plusDays(30)));
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<Future<Throwable>> outcomes = pool.invokeAll(List.of(
+                () -> tryCreate(joinCode.getCode(), firstStudent.getId()),
+                () -> tryCreate(joinCode.getCode(), secondStudent.getId())));
+        pool.shutdown();
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS))
+                .as("동시 신청 테스트가 시간 내에 완료").isTrue();
+
+        List<Throwable> failures = outcomes.stream().map(this::quietGet).filter(Objects::nonNull).toList();
+
+        assertThat(failures).as("잔여 1명이므로 정확히 한 명만 접수된다").hasSize(1);
+        assertThat(failures.get(0))
+                .as("소진은 학생에게 사유를 구분하지 않는 409 로만 표면화된다")
+                .isInstanceOf(JoinRequestException.UnusableJoinCodeException.class);
+        assertThat(usedCountOf(joinCode)).as("최대 사용 인원을 넘겨 차감되지 않는다").isEqualTo(1);
+        Integer requestCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_join_request WHERE club_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId());
+        assertThat(requestCount).as("접수된 요청도 1건").isEqualTo(1);
+    }
+
+    private int usedCountOf(ClubJoinCode joinCode) {
+        return clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount();
     }
 
     private Throwable tryCreate(String code, Long userId) {

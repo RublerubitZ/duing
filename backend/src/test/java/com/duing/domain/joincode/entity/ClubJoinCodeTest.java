@@ -51,6 +51,20 @@ class ClubJoinCodeTest {
         assertThat(joinCode.getUsedCount()).as("실패한 차감은 사용 인원을 늘리지 않는다").isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("거절로 환급하면 사용 인원이 되돌아가고 0 아래로는 내려가지 않는다")
+    void releaseUseNeverGoesBelowZero() {
+        ClubJoinCode joinCode = issue(openRecruitment(), 2, NOW.plusDays(30));
+        joinCode.tryConsume();
+
+        joinCode.releaseUse();
+        assertThat(joinCode.getUsedCount()).as("환급으로 자리가 다시 열린다").isZero();
+        assertThat(joinCode.isUsable(NOW)).as("소진됐던 코드도 환급 후 다시 쓸 수 있다").isTrue();
+
+        joinCode.releaseUse();
+        assertThat(joinCode.getUsedCount()).as("이미 0 이면 더 내려가지 않는다").isZero();
+    }
+
     private ClubJoinCode issue(Recruitment recruitment, int maxUses, LocalDateTime expiresAt) {
         return ClubJoinCode.issue(club(), recruitment, "AB12CD", 3, maxUses, expiresAt);
     }

@@ -74,7 +74,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
         <LandingShell>
           <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
           <p className="mt-2 text-sm text-charcoal-2">
-            동아리에 코드가 아직 유효한지 확인해 주세요.
+            코드가 아직 유효한지 동아리에 확인해 주세요.
           </p>
         </LandingShell>
       );
@@ -115,6 +115,10 @@ export function JoinCodeLanding({ code }: { code: string }) {
         <p className="mt-2 text-sm text-charcoal-2">
           동아리 운영진이 확인하면 회원으로 등록돼요.
         </p>
+        {/* 대기 화면은 더 할 일이 없는 종결 화면이라 링크가 없으면 학생이 여기서 갇힌다. */}
+        <Link href={toRoute('/')} className="btn btn-secondary mt-5 w-full">
+          홈으로 돌아가기
+        </Link>
       </LandingShell>
     );
   }
@@ -123,7 +127,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
     return (
       <LandingShell>
         <h1 className="text-lg font-bold text-ink-deep">{INVALID_CODE_TITLE}</h1>
-        <p className="mt-2 text-sm text-charcoal-2">동아리에 코드가 아직 유효한지 확인해 주세요.</p>
+        <p className="mt-2 text-sm text-charcoal-2">코드가 아직 유효한지 동아리에 확인해 주세요.</p>
       </LandingShell>
     );
   }
