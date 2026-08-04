@@ -35,8 +35,12 @@ public class GeneralJoinCodeService implements JoinCodeService {
     @Transactional
     public JoinCodeQuery create(CreateJoinCodeCommand createCommand) {
         clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
-        Recruitment recruitment =
-                getOwnedRecruitment(createCommand.clubId(), createCommand.recruitmentId());
+        // 모집 행을 잠근 뒤 발급한다 — 모집 삭제와 직렬화해, 삭제가 "활성 코드 0건"을 확인한 직후
+        // 발급된 코드가 삭제된 모집에 매달린 채 살아남는 것을 막는다. 삭제가 먼저 커밋됐다면
+        // soft-delete 된 모집은 조회되지 않아 404 가 된다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(createCommand.recruitmentId())
+                .filter(locked -> locked.getClub().getId().equals(createCommand.clubId()))
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         // 외부 폼 모집 한정(스펙 v2 4.2). 모집 상태(OPEN/CLOSED)는 보지 않는다 —
         // 회원 등록의 최종 게이트는 운영진 승인이고, 코드는 만료·인원·폐기로 통제한다.

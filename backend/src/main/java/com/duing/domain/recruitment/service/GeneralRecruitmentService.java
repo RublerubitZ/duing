@@ -299,7 +299,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public void delete(Long recruitmentId, Long currentUserId) {
-        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+        // 행 잠금 — 가입 코드 발급(모집 상태를 보지 않는다)과 직렬화해, 아래 "활성 코드 폐기" 이후에
+        // 새 코드가 끼어들어 삭제된 모집의 고아 코드로 남는 경쟁을 차단한다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();

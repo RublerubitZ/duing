@@ -404,7 +404,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("마감되고 지원자가 없는 모집 공고는 운영진이 삭제할 수 있다")
     void managerCanDeleteClosedRecruitmentWithoutApplications() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(0L);
 
         recruitmentService.delete(RECRUITMENT_ID, MANAGER_USER_ID);
@@ -416,7 +416,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("진행 중(OPEN)인 모집 공고를 삭제하려 하면 409 예외가 발생하고 삭제되지 않는다")
     void deleteOpenRecruitmentThrowsConflict() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         assertThatThrownBy(() -> recruitmentService.delete(RECRUITMENT_ID, MANAGER_USER_ID))
                 .isInstanceOf(RecruitmentException.OpenRecruitmentNotDeletableException.class);
@@ -427,7 +427,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("마감됐어도 지원자가 있는 모집 공고를 삭제하려 하면 409 예외가 발생하고 삭제되지 않는다")
     void deleteClosedRecruitmentWithApplicationsThrowsConflict() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(3L);
 
         assertThatThrownBy(() -> recruitmentService.delete(RECRUITMENT_ID, MANAGER_USER_ID))
@@ -439,7 +439,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("동아리 운영진이 아닌 일반 회원이 삭제를 시도하면 403 예외가 발생하고 삭제되지 않는다")
     void memberCannotDeleteRecruitment() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManager(MEMBER_USER_ID, CLUB_ID);
 
