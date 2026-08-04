@@ -11,6 +11,7 @@ export * from './notice';
 export * from './notification';
 export * from './admin';
 export * from './clubMembership';
+export * from './joinCode';
 export * from './clubNotice';
 export * from './clubEvent';
 export * from './globalEvent';
