@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.repository;
 
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
+import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -41,4 +43,12 @@ public interface RecruitmentRepositoryCustom {
      * @return key=clubId, value=대표 모집 row. 모집이 한 건도 없는 club id 는 키가 없다.
      */
     Map<Long, ClubActiveRecruitmentRow> findRepresentativeByClubIds(List<Long> clubIds, LocalDate today);
+
+    /**
+     * 총동연(ADMIN) 모집 콘솔의 전 동아리 모집 검색. 페이지네이션은 두지 않는다(스펙 2.1).
+     *
+     * <p>지원자 수는 외부 폼 모집까지 포함해 한 번에 집계하고(실제 값은 0), 화면에 비울지 여부는
+     * 응답 매핑이 결정한다. 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
+     */
+    List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition);
 }
