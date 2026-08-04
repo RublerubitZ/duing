@@ -12,7 +12,9 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
+import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
+import { MemberEnrollmentSection } from './_components/MemberEnrollmentSection';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -49,8 +51,12 @@ export default function RecruitmentDetailPage({
   }
 
   const isClosed = recruitment.displayStatus === 'CLOSED';
-  const applicationModeLabel =
-    recruitment.applicationMode === 'EXTERNAL' ? '외부 폼' : '자체 폼';
+  const isExternal = recruitment.applicationMode === 'EXTERNAL';
+  const applicationModeLabel = isExternal ? '외부 폼' : '자체 폼';
+  // 배지의 플랫폼명은 저장된 URL 호스트로 판별한다 — 화이트리스트 밖 레거시 URL 이면 생략한다.
+  const externalFormPlatform = isExternal
+    ? externalFormPlatformLabel(recruitment.externalFormUrl)
+    : null;
   const targetRoleLabel = recruitment.targetRole === 'OFFICER' ? '운영진' : '부원';
 
   // 외부 폼 모집은 questionItems 가 빈 배열로 내려온다 — 두 목록 모두 비어 있으면 섹션 자체를 감춘다.
@@ -110,6 +116,19 @@ export default function RecruitmentDetailPage({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{recruitment.title}</h1>
+          {/* 외부 폼 모집은 지원서·면접 없이 코드로 회원을 등록한다 — 화면 첫 줄에서 모드를 알린다(§5). */}
+          {isExternal && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                외부 폼 모집
+              </span>
+              {externalFormPlatform && (
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                  {externalFormPlatform}
+                </span>
+              )}
+            </div>
+          )}
           <p className="mt-1 text-sm text-slate-500">
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
@@ -265,6 +284,9 @@ export default function RecruitmentDetailPage({
           </button>
         )}
       </div>
+
+      {/* 외부 폼 모집은 지원자 화면 대신 여기서 회원을 등록한다 — 모집 상태와 무관하게 노출한다(§4.2·§5). */}
+      {isExternal && <MemberEnrollmentSection clubId={clubId} recruitmentId={recruitmentId} />}
 
       <ConfirmDialog
         open={showCloseConfirm}

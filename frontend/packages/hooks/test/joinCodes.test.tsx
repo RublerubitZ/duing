@@ -43,7 +43,6 @@ const activeJoinCode = {
   maxUses: 30,
   usedCount: 4,
   expiresAt: '2026-09-01T14:59:59Z',
-  recruitmentOpen: true,
 };
 
 const pendingRequest = {
@@ -63,14 +62,14 @@ let lastDecideBody: unknown = null;
 let lastBulkBody: unknown = null;
 
 const server = setupServer(
-  http.post('*/clubs/10/join-codes', async ({ request }) => {
+  http.post('*/clubs/10/recruitments/55/join-codes', async ({ request }) => {
     lastCreateBody = await request.json();
     return HttpResponse.json({ ok: true, message: null, data: activeJoinCode }, { status: 201 });
   }),
-  http.get('*/clubs/10/join-codes/active', () =>
+  http.get('*/clubs/10/recruitments/55/join-codes/active', () =>
     HttpResponse.json({ ok: true, message: null, data: activeJoinCode }),
   ),
-  http.delete('*/clubs/10/join-codes/7', () => new HttpResponse(null, { status: 204 })),
+  http.delete('*/clubs/10/recruitments/55/join-codes/7', () => new HttpResponse(null, { status: 204 })),
   http.get('*/clubs/10/join-requests', ({ request }) => {
     lastRequestsQuery = new URL(request.url).searchParams.get('status');
     return HttpResponse.json({ ok: true, message: null, data: [pendingRequest] });
@@ -109,7 +108,7 @@ afterAll(() => server.close());
 describe('가입 코드 훅', () => {
   it('활성 코드를 조회한다', async () => {
     const queryClient = newQueryClient();
-    const { result } = renderHook(() => useActiveJoinCodeQuery(10), {
+    const { result } = renderHook(() => useActiveJoinCodeQuery(10, 55), {
       wrapper: makeWrapper(queryClient),
     });
 
@@ -119,12 +118,12 @@ describe('가입 코드 훅', () => {
 
   it('활성 코드가 없으면 200 + data null 을 null 로 돌려준다(오류 아님)', async () => {
     server.use(
-      http.get('*/clubs/10/join-codes/active', () =>
+      http.get('*/clubs/10/recruitments/55/join-codes/active', () =>
         HttpResponse.json({ ok: true, message: null, data: null }),
       ),
     );
     const queryClient = newQueryClient();
-    const { result } = renderHook(() => useActiveJoinCodeQuery(10), {
+    const { result } = renderHook(() => useActiveJoinCodeQuery(10, 55), {
       wrapper: makeWrapper(queryClient),
     });
 
@@ -132,9 +131,29 @@ describe('가입 코드 훅', () => {
     expect(result.current.data).toBeNull();
   });
 
+  it('recruitmentId 가 없으면 조회하지 않는다', () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useActiveJoinCodeQuery(10, undefined), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('같은 동아리라도 모집이 다르면 캐시를 공유하지 않는다', async () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useActiveJoinCodeQuery(10, 55), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryData(clubQueryKeys.joinCode(10, 55))).toEqual(activeJoinCode);
+    expect(queryClient.getQueryData(clubQueryKeys.joinCode(10, 56))).toBeUndefined();
+  });
+
   it('clubId 가 없으면 조회하지 않는다', () => {
     const queryClient = newQueryClient();
-    const { result } = renderHook(() => useActiveJoinCodeQuery(undefined), {
+    const { result } = renderHook(() => useActiveJoinCodeQuery(undefined, 55), {
       wrapper: makeWrapper(queryClient),
     });
 
@@ -143,9 +162,9 @@ describe('가입 코드 훅', () => {
 
   it('코드 생성 성공 시 가입 코드 키를 무효화한다', async () => {
     const queryClient = newQueryClient();
-    queryClient.setQueryData(clubQueryKeys.joinCode(10), null);
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), null);
 
-    const { result } = renderHook(() => useCreateJoinCodeMutation(10), {
+    const { result } = renderHook(() => useCreateJoinCodeMutation(10, 55), {
       wrapper: makeWrapper(queryClient),
     });
     await act(async () => {
@@ -153,21 +172,21 @@ describe('가입 코드 훅', () => {
     });
 
     expect(lastCreateBody).toEqual({ maxUses: 30, expiresInDays: 30, generation: 12 });
-    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
   });
 
   it('코드 폐기 성공 시 가입 코드 키를 무효화한다', async () => {
     const queryClient = newQueryClient();
-    queryClient.setQueryData(clubQueryKeys.joinCode(10), activeJoinCode);
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
 
-    const { result } = renderHook(() => useRevokeJoinCodeMutation(10), {
+    const { result } = renderHook(() => useRevokeJoinCodeMutation(10, 55), {
       wrapper: makeWrapper(queryClient),
     });
     await act(async () => {
       await result.current.mutateAsync(7);
     });
 
-    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
   });
 });
 
@@ -209,7 +228,7 @@ describe('가입 요청 훅', () => {
     const queryClient = newQueryClient();
     queryClient.setQueryData(clubQueryKeys.joinRequests(10, 'PENDING'), [pendingRequest]);
     queryClient.setQueryData(clubQueryKeys.members(10), []);
-    queryClient.setQueryData(clubQueryKeys.joinCode(10), activeJoinCode);
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
 
     const { result } = renderHook(() => useDecideJoinRequestMutation(10), {
       wrapper: makeWrapper(queryClient),
@@ -229,14 +248,14 @@ describe('가입 요청 훅', () => {
       queryClient.getQueryState(clubQueryKeys.joinRequests(10, 'PENDING'))?.isInvalidated,
     ).toBe(true);
     expect(queryClient.getQueryState(clubQueryKeys.members(10))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
   });
 
   it('일괄 승인은 승인 수와 실패 사유를 반환하고 관련 키를 무효화한다', async () => {
     const queryClient = newQueryClient();
     queryClient.setQueryData(clubQueryKeys.joinRequests(10, 'PENDING'), [pendingRequest]);
     queryClient.setQueryData(clubQueryKeys.members(10), []);
-    queryClient.setQueryData(clubQueryKeys.joinCode(10), activeJoinCode);
+    queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
 
     const { result } = renderHook(() => useBulkApproveJoinRequestsMutation(10), {
       wrapper: makeWrapper(queryClient),
