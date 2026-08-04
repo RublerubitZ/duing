@@ -85,6 +85,9 @@ export default function ApplicantsPage({ params }: PageParams) {
   const [bulkError, setBulkError] = useState<string | null>(null);
 
   const useInterview = recruitment?.useInterview ?? true;
+  // 마감(raw CLOSED) 모집은 조회 전용 (스펙 §6). displayStatus 가 아니라 raw status 라,
+  // 마감일이 지났어도 수동 마감 전이면 심사 중이므로 전 기능이 유지된다.
+  const isReadOnly = recruitment?.status === 'CLOSED';
 
   function handleBulkConfirm() {
     if (!pendingBulkTarget || selectedIds.length === 0) {
@@ -178,6 +181,16 @@ export default function ApplicantsPage({ params }: PageParams) {
           <RecruitmentSwitcher clubId={clubId} currentRecruitmentId={recruitmentId} />
         </div>
       </div>
+
+      {/* 마감 아카이브 배너 — 조회는 그대로 두고 쓰기 액션만 사라진다는 것을 먼저 알린다 */}
+      {isReadOnly && (
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+        >
+          마감된 모집 — 조회 전용입니다.
+        </div>
+      )}
 
       {/* 외부 폼 안내 — 지원서를 두잉에서 받지 않으므로 목록 대신 안내와 되돌아갈 길만 준다(§5.1) */}
       {recruitment.applicationMode === 'EXTERNAL' && (
@@ -284,6 +297,7 @@ export default function ApplicantsPage({ params }: PageParams) {
               useInterview={useInterview}
               clubId={clubId}
               recruitmentId={recruitmentId}
+              readOnly={isReadOnly}
             />
           )}
         </>
