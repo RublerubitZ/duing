@@ -13,6 +13,7 @@ import {
 import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
+import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
@@ -57,10 +58,12 @@ function deriveSteps(status: ApplicationStatus): Step[] {
     REJECTED:          ['done',    'done',    'done'   ],
   };
   const [screening, interview, finalResult] = stateMap[status];
+  // 단계 이름은 상태 라벨이 아니라 진행 마디다 — SectionApply(['심사','면접'])·
+  // ApplicationStepper('최종 결과') 와 같은 용어를 쓴다. 서류 단계는 제거됐다 (스펙 §5-5).
   return [
-    { label: '서류접수·심사', date: '-', state: screening   },
-    { label: '면접/인터뷰',   date: '-', state: interview   },
-    { label: '최종발표',      date: '-', state: finalResult },
+    { label: '심사',      date: '-', state: screening   },
+    { label: '면접',      date: '-', state: interview   },
+    { label: '최종 결과', date: '-', state: finalResult },
   ];
 }
 
@@ -72,7 +75,7 @@ function deriveRight(status: ApplicationStatus, interview: AssignedInterview | n
     return { eyebrow: '면접일', value: dateStr, sub };
   }
   if (status === 'ACCEPTED') {
-    return { eyebrow: '합격', value: '최종 합격' };
+    return { eyebrow: '결과', value: APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED };
   }
   return null;
 }

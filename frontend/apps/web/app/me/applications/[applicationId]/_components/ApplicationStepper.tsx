@@ -1,5 +1,7 @@
 import type { MyApplicationDetail, ApplicantInterviewPhase } from '@duing/types';
 
+import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
+
 import { getInterviewPhaseGuide } from '../_utils/interviewPhaseGuide';
 
 // 지원자 my-page 진행 stepper (applicantPhase 기반, §9.3).
@@ -40,9 +42,11 @@ type StepDef = {
   defaultLabel: string;
 };
 
+// 단계 이름 중 상태와 1:1 로 대응하는 것은 지원자 라벨 SoT 를 소비한다 (스펙 §5-4).
+// 'submitted'·'interview-assigned'·'finalized' 는 상태가 아니라 진행 마디라 자체 문구를 쓴다.
 const STEPS_WITH_INTERVIEW: readonly StepDef[] = [
   { key: 'submitted', defaultLabel: '지원 완료' },
-  { key: 'interview-pending', defaultLabel: '면접 대상' },
+  { key: 'interview-pending', defaultLabel: APPLICATION_STATUS_APPLICANT_LABEL.INTERVIEW_PENDING },
   { key: 'interview-assigned', defaultLabel: '면접 일정 배정 완료' },
   { key: 'finalized', defaultLabel: '최종 결과' },
 ];
@@ -96,8 +100,9 @@ function resolveActiveStepIndex(
 
 function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
   if (step.key !== 'finalized') return step.defaultLabel;
-  if (detail.status === 'ACCEPTED') return '최종 합격';
-  if (detail.status === 'REJECTED') return '최종 불합격';
+  if (detail.status === 'ACCEPTED' || detail.status === 'REJECTED') {
+    return APPLICATION_STATUS_APPLICANT_LABEL[detail.status];
+  }
   return step.defaultLabel;
 }
 
