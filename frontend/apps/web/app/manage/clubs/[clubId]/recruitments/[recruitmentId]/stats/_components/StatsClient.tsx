@@ -50,6 +50,30 @@ export function StatsClient({ params }: StatsClientProps) {
 
   const recruitmentTitle = recruitment?.title ?? '모집';
   const isHeaderLoading = isRecruitmentLoading && !recruitment;
+  const detailPath = toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`);
+
+  // 외부 폼 모집은 지원서를 두잉에서 받지 않아 통계가 전부 0 이다 — 빈 차트 대신 안내를 보여준다(§5.1).
+  // 모드를 아직 모르는 동안에는 기존 화면을 유지한다(fail-open — 알려진 EXTERNAL 만 가로챈다).
+  if (recruitment?.applicationMode === 'EXTERNAL') {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <div className="mb-8 flex flex-col gap-1">
+          <Link href={detailPath} className="text-sm text-slate-500 hover:text-slate-700">
+            ← 모집 상세로 돌아가기
+          </Link>
+          <h1 className="text-xl font-bold text-slate-900">{`통계 — ${recruitmentTitle}`}</h1>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
+          <p className="text-sm text-slate-600">
+            외부 폼 모집은 지원서를 두잉에서 받지 않아 통계를 제공하지 않아요.
+          </p>
+          <Link href={detailPath} className="mt-3 inline-block text-sm text-sky-600 hover:underline">
+            모집 상세로 이동 →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
