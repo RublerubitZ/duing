@@ -113,14 +113,15 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
 
         // SUBMITTED: REJECTED 로 직행 가능
-        Application transitionable = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
+        Application transitionableApplication =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
         // ACCEPTED / REJECTED: terminal — 어떤 전이도 불가
         Application accepted = saveApplicationWithStatus(recruitment, ApplicationStatus.ACCEPTED, "이미합격자");
         Application rejected = saveApplicationWithStatus(recruitment, ApplicationStatus.REJECTED, "이미불합격자");
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(transitionable.getId(), accepted.getId(), rejected.getId()),
+                        List.of(transitionableApplication.getId(), accepted.getId(), rejected.getId()),
                         leader.getId(),
                         ApplicationStatus.REJECTED));
 
@@ -141,12 +142,13 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 Recruitment.create(club, "미존재모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
 
-        Application ok = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
+        Application transitionableApplication =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
         long missingId = -42L;
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(ok.getId(), missingId),
+                        List.of(transitionableApplication.getId(), missingId),
                         leader.getId(),
                         ApplicationStatus.REJECTED));
 
