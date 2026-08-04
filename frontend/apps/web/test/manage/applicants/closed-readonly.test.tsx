@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -147,13 +148,14 @@ function renderWithProviders(children: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
-  return render(
+  render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>{children}</ToastProvider>
       </QueryClientProvider>
     </ApiClientProvider>,
   );
+  return queryClient;
 }
 
 describe('지원현황 목록 — 마감 모집 읽기 전용', () => {
@@ -177,6 +179,30 @@ describe('지원현황 목록 — 마감 모집 읽기 전용', () => {
     expect(await screen.findAllByText('홍길동')).not.toHaveLength(0);
     expect(screen.queryByText('마감된 모집 — 조회 전용입니다.')).not.toBeInTheDocument();
     expect(screen.getAllByRole('checkbox', { name: '홍길동 선택' })).not.toHaveLength(0);
+  });
+
+  // 화면을 열어 둔 채 모집이 마감되는 창(다른 운영진의 신규 모집 등록에 의한 lazy-close 등).
+  // 체크박스만 사라지고 선택이 남으면 일괄 처리 바를 해제할 수단이 없어진다.
+  it('선택해 둔 상태에서 모집이 마감으로 갱신되면 일괄 처리 바가 사라진다', async () => {
+    server.use(recruitmentHandler('OPEN'), applicantsHandler);
+
+    const queryClient = renderWithProviders(<ApplicantsPage params={taggedParams()} />);
+
+    // 표(데스크탑)와 카드(모바일) 두 벌이 함께 렌더되므로 앞의 하나만 누른다.
+    const [desktopCheckbox] = await screen.findAllByRole('checkbox', { name: '홍길동 선택' });
+    if (desktopCheckbox === undefined) throw new Error('선택 체크박스가 렌더되지 않았다');
+    await userEvent.click(desktopCheckbox);
+    expect(screen.getByRole('region', { name: '일괄 처리 액션' })).toBeInTheDocument();
+
+    server.use(recruitmentHandler('CLOSED'));
+    await act(async () => {
+      await queryClient.invalidateQueries();
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: '일괄 처리 액션' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('마감된 모집 — 조회 전용입니다.')).toBeInTheDocument();
   });
 });
 

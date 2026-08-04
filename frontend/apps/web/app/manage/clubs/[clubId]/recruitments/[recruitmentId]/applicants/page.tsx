@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
@@ -88,6 +88,13 @@ export default function ApplicantsPage({ params }: PageParams) {
   // 마감(raw CLOSED) 모집은 조회 전용 (스펙 §6). displayStatus 가 아니라 raw status 라,
   // 마감일이 지났어도 수동 마감 전이면 심사 중이므로 전 기능이 유지된다.
   const isReadOnly = recruitment?.status === 'CLOSED';
+
+  // 화면을 열어 둔 채로 모집이 마감되는 창(다른 운영진의 신규 모집 등록에 의한 lazy-close 등)에서는
+  // 체크박스만 사라지고 이미 선택해 둔 건은 남아, 해제할 수단 없이 일괄 처리 바가 계속 떠 있게 된다.
+  // 선택을 비우면 바·하단 여백·확인 모달의 선택 건수가 한 번에 정리된다.
+  useEffect(() => {
+    if (isReadOnly) setSelectedIds([]);
+  }, [isReadOnly]);
 
   function handleBulkConfirm() {
     if (!pendingBulkTarget || selectedIds.length === 0) {
