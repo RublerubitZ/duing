@@ -30,11 +30,16 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /**
+     * 마감된 공고를 수정하거나 다시 마감하려는 경우. 원인이 "마감된 모집에 쓰기"로
+     * {@link ClosedRecruitmentReadOnlyException} 과 같으므로 code 를 공유해,
+     * 프론트가 마감 관련 실패를 단일 분기로 처리할 수 있게 한다.
+     */
     public static class RecruitmentAlreadyClosedException extends RecruitmentException {
         private static final String MESSAGE = "이미 마감된 모집 공고입니다.";
 
         public RecruitmentAlreadyClosedException() {
-            super(MESSAGE, HttpStatus.CONFLICT);
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
         }
     }
 

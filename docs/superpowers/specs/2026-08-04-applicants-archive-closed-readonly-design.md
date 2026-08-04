@@ -87,6 +87,8 @@
 
 조회(지원자 목록·상세·이웃·통계 summary/daily/funnel)는 CLOSED 에서도 현행 그대로 — 가드 추가 금지.
 
+**동시성 주의 (수용된 race)**: `close()` 와 가드 5곳 모두 무잠금이라, 마감과 동시에 진행된 쓰기가 통과할 수 있는 ms 단위 창이 있다. 그 결과 상태는 "마감 직전에 합법적으로 수행된 액션"과 구분 불가하므로 수용한다 (철회·라운드 생성 포함). 벌크는 건별로 fresh 읽기를 하므로 마감 확정 이후 건은 정상적으로 409 로 떨어진다. 다만 `createRound` 만은 창을 통과하면 마감 모집에 라운드가 잔존하므로(취소로 정리는 가능) recruitment 행잠금 도입을 §9 후속으로 검토한다.
+
 ## 5. closedAt 노출·아카이브 정렬
 
 - **Modify:** `RecruitmentSummaryQuery`/`RecruitmentSummaryResponse` — `closedAt`(nullable, ISO datetime) **마지막 필드로 추가만** (positional record — 기존 순서 불변). FE `packages/types` 동기 + `pnpm gen:api` 재생성.
@@ -126,5 +128,7 @@
 
 - 마감 시점 진행 중 면접 라운드의 정리 정책 (강제 취소 vs 방치 — 현재 방치)
 - 면접 라운드 내부 쓰기(배정·제외·확정)와 **지원자 면접 가능시간 제출(`PUT /applications/{id}/interview-availability`)**의 CLOSED 가드 필요성 — 라운드 진행 흐름과 함께 일괄 검토
+- `createRound` 의 recruitment 행잠금 (마감과 라운드 생성의 직렬화 — §4 수용된 race 참조)
+- lazy-close 리뷰 프리즈 UX — 새 모집 등록이 기존 만료-OPEN 모집을 자동 마감해, 진행 중이던 심사 액션이 일괄 409 로 전환되는 커플링. 모집 등록 확인 UI 에서의 고지 검토
 - 아카이브 지원자 CSV/증적 내보내기
 - 통계 화면 모집 전환 드롭다운 확장
