@@ -35,11 +35,11 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
     @Override
     public ResponseEntity<ApiResponse<List<RoundCandidateResponse>>> getRoundCandidates(
             @PathVariable Long recruitmentId,
-            @RequestParam(required = false, defaultValue = "false") boolean includeUnderReview,
+            @RequestParam(required = false, defaultValue = "false") boolean includeUndecided,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         List<RoundCandidateResponse> candidates = interviewRoundService
-                .getRoundCandidates(recruitmentId, currentUser.id(), includeUnderReview).stream()
+                .getRoundCandidates(recruitmentId, currentUser.id(), includeUndecided).stream()
                 .map(RoundCandidateResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(candidates));

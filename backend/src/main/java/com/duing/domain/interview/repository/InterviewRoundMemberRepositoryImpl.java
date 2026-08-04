@@ -27,13 +27,13 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<Application> findRoundCandidates(Long recruitmentId, boolean includeUnderReview) {
+    public List<Application> findRoundCandidates(Long recruitmentId, boolean includeUndecided) {
         return queryFactory
                 .selectFrom(application)
                 .join(application.user).fetchJoin()
                 .where(
                         application.recruitment.id.eq(recruitmentId),
-                        candidateStatuses(includeUnderReview),
+                        candidateStatuses(includeUndecided),
                         hasNoPlacementActiveMembership()
                 )
                 .orderBy(application.createdAt.desc())
@@ -55,8 +55,8 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                 .fetch();
     }
 
-    private BooleanExpression candidateStatuses(boolean includeUnderReview) {
-        if (includeUnderReview) {
+    private BooleanExpression candidateStatuses(boolean includeUndecided) {
+        if (includeUndecided) {
             return application.status.in(
                     ApplicationStatus.INTERVIEW_PENDING, ApplicationStatus.SUBMITTED, ApplicationStatus.ON_HOLD);
         }

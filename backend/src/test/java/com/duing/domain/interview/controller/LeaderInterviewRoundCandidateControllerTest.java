@@ -78,7 +78,7 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                .queryParam("includeUnderReview", true)
+                .queryParam("includeUndecided", true)
                 .when().get(CANDIDATES_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(3))
@@ -94,7 +94,7 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                .queryParam("includeUnderReview", true)
+                .queryParam("includeUndecided", true)
                 .when().get(CANDIDATES_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(0));

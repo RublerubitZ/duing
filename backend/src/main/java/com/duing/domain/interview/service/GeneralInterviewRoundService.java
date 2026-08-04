@@ -76,7 +76,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     public List<RoundCandidateQuery> getRoundCandidates(Long recruitmentId, Long currentUserId,
-                                                        boolean includeUnderReview) {
+                                                        boolean includeUndecided) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
@@ -85,7 +85,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             throw new InterviewException.InterviewNotUsed();
         }
 
-        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUnderReview).stream()
+        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUndecided).stream()
                 .map(RoundCandidateQuery::from)
                 .toList();
     }
