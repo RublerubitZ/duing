@@ -15,6 +15,7 @@ import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
+import { CloseRecruitmentConfirmDescription } from '../_components/CloseRecruitmentConfirmDescription';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -304,7 +305,12 @@ export default function RecruitmentDetailPage({
       <ConfirmDialog
         open={showCloseConfirm}
         title="모집을 마감할까요?"
-        description="마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다."
+        description={
+          <CloseRecruitmentConfirmDescription
+            applicationMode={recruitment.applicationMode}
+            statsSummary={statsSummary}
+          />
+        }
         confirmLabel="마감"
         isPending={closeRecruitment.isPending}
         errorMessage={closeError}

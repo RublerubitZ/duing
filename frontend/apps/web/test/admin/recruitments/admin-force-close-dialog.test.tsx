@@ -50,7 +50,11 @@ describe('모집 강제 마감 다이얼로그', () => {
   it('자체 지원 모집에는 신규 지원이 막힌다는 영향을 안내한다', () => {
     render(<AdminForceCloseDialog {...props} />);
 
-    expect(screen.getByText('마감하면 더 이상 신규 지원이 불가능합니다.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '마감하면 더 이상 신규 지원이 불가능하고, 아직 심사가 끝나지 않은 지원서는 처리할 수 없게 됩니다(지원현황 조회 전용 전환).',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('외부 폼 모집에는 가입 링크가 언제까지 살아 있는지 알린다', () => {

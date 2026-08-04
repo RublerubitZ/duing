@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { RecruitmentSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
@@ -9,12 +9,14 @@ vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockCloseMutateAsync = vi.fn();
 const mockPendingJoinRequests = vi.fn(() => ({ data: [] as unknown[] }));
+const mockStatsSummary = vi.fn(() => ({ data: undefined as unknown }));
 vi.mock('@duing/hooks', async (importOriginal) => {
   const actualHooks = await importOriginal<typeof import('@duing/hooks')>();
   return {
     ...actualHooks,
     useCloseRecruitmentMutation: () => ({ mutateAsync: mockCloseMutateAsync, isPending: false }),
     useJoinRequestsQuery: () => mockPendingJoinRequests(),
+    useRecruitmentStatsSummaryQuery: () => mockStatsSummary(),
   };
 });
 
@@ -57,6 +59,11 @@ function recruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary
 }
 
 describe('CurrentRecruitmentCard', () => {
+  // 통계 mock 을 영구 오버라이드하는 테스트가 있어, 단언 실패 시에도 다음 테스트로 새지 않게 항상 원복한다.
+  afterEach(() => {
+    mockStatsSummary.mockReturnValue({ data: undefined });
+  });
+
   it('제목은 상세 페이지 링크이고, 뱃지·기간·전형 단계를 렌더한다', () => {
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
@@ -113,6 +120,28 @@ describe('CurrentRecruitmentCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '마감' }));
     await waitFor(() => expect(mockCloseMutateAsync).toHaveBeenCalled());
+  });
+
+  it('마감 확인 다이얼로그는 미결 지원서가 있으면 건수와 조회 전용 전환을 경고한다', () => {
+    // Once 가 아닌 영구 오버라이드 — 다이얼로그 열림 재렌더에서도 같은 요약이 와야 한다. 원복은 afterEach.
+    mockStatsSummary.mockReturnValue({
+      data: {
+        total: 5,
+        submitted: 2,
+        onHold: 1,
+        interviewPending: 0,
+        accepted: 2,
+        rejected: 0,
+        capacity: 10,
+        ratio: 0.4,
+      },
+    });
+    render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
+
+    expect(screen.getByText('3건')).toBeInTheDocument();
+    expect(screen.getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
   });
 
   it('마감 실패 시 다이얼로그를 유지하고 모달 안에서 안내한다', async () => {

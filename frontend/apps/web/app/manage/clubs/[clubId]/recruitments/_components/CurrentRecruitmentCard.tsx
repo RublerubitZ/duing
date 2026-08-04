@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { RecruitmentSummary } from '@duing/types';
-import { useCloseRecruitmentMutation } from '@duing/hooks';
+import { useCloseRecruitmentMutation, useRecruitmentStatsSummaryQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
@@ -14,6 +14,7 @@ import {
 } from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import { ExternalRecruitmentActions } from './ExternalRecruitmentActions';
+import { CloseRecruitmentConfirmDescription } from './CloseRecruitmentConfirmDescription';
 
 type Props = {
   clubId: number;
@@ -32,6 +33,11 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
 
   const now = new Date();
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
+  // 마감 확인 다이얼로그의 미결 지원서 경고용 — 외부 폼은 지원 데이터가 없어 조회하지 않는다.
+  // KPI Row·통계 페이지와 같은 훅·쿼리키라 대부분 캐시 재사용이다.
+  const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
+    isExternal ? undefined : recruitment.id,
+  );
   const stageLabels = recruitmentStageLabels(recruitment.useInterview);
   const recruitmentBasePath: `/${string}` = `/manage/clubs/${clubId}/recruitments/${recruitment.id}`;
 
@@ -109,7 +115,12 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
       <ConfirmDialog
         open={showCloseConfirm}
         title="모집을 마감할까요?"
-        description="마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다."
+        description={
+          <CloseRecruitmentConfirmDescription
+            applicationMode={recruitment.applicationMode}
+            statsSummary={statsSummary}
+          />
+        }
         confirmLabel="마감"
         isPending={closeRecruitment.isPending}
         errorMessage={closeError}

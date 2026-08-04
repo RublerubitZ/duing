@@ -311,6 +311,22 @@ describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', ()
 // 수제 오버레이였던 마감 확인을 공용 ConfirmDialog 로 교체한 변경을 고정한다.
 // 교체로 포커스 트랩·ESC·오류 표시가 생겼고, 실패해도 모달을 닫지 않는 공통 규칙을 따른다.
 describe('RecruitmentDetailPage — 마감 확인 모달', () => {
+  it('미결 지원서가 있으면 건수와 조회 전용 전환을 경고한다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      EMPTY_ROUNDS_HANDLER,
+      statsSummaryHandler({ total: 6, submitted: 2, onHold: 1, interviewPending: 1, accepted: 2 }),
+    );
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(await within(dialog).findByText('4건')).toBeInTheDocument();
+    expect(within(dialog).getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
+  });
+
   it('마감 실패 시 모달을 유지하고 모달 안에서 안내한다', async () => {
     server.use(
       mockRecruitmentDetail(false),
