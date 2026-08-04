@@ -7,7 +7,7 @@ import type { ApplicationStatus, UpdateApplicationStatusPayload } from '@duing/t
 import { allowedTransitionsFrom } from '../../_components/applicationStatusTransitions';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { CLOSED_READ_ONLY_NOTICE, toWriteFailureMessage } from './closedRecruitment';
+import { CLOSED_STATUS_CHANGE_NOTICE, toWriteFailureMessage } from './closedRecruitment';
 import { StatusConfirmDialog } from './StatusConfirmDialog';
 
 type Props = {
@@ -73,7 +73,7 @@ export function StatusActionBar({
     <section className="rounded border border-neutral-200 bg-white p-4">
       <h2 className="mb-3 text-base font-semibold text-slate-900">상태 변경</h2>
       {readOnly ? (
-        <p className="text-sm text-slate-500">{CLOSED_READ_ONLY_NOTICE}</p>
+        <p className="text-sm text-slate-500">{CLOSED_STATUS_CHANGE_NOTICE}</p>
       ) : transitions.length === 0 ? (
         <p className="text-sm text-slate-400">더 이상 변경 가능한 상태가 없습니다.</p>
       ) : (

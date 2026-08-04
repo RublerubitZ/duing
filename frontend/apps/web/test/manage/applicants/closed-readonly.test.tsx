@@ -7,7 +7,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { RecruitmentStatus } from '@duing/types';
+import type { ApplicationStatus, RecruitmentStatus } from '@duing/types';
 
 // 스펙 §6 — 마감(raw CLOSED) 모집은 조회 전용 아카이브다.
 // 게이트는 raw status 단일식이라 "마감일은 지났지만 수동 마감 전(OPEN)" 모집은 심사 중이므로 전 기능을 유지하고,
@@ -31,7 +31,7 @@ const APPLICATION_ID = 100;
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 const json = (data: unknown) => HttpResponse.json({ ok: true, message: null, data });
 
-function recruitmentHandler(status: RecruitmentStatus) {
+function recruitmentHandler(status: RecruitmentStatus, useInterview = false) {
   return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
     json({
       id: RECRUITMENT_ID,
@@ -47,7 +47,7 @@ function recruitmentHandler(status: RecruitmentStatus) {
       effectivelyOpen: false,
       applicationMode: 'SELF',
       externalFormUrl: null,
-      useInterview: false,
+      useInterview,
       targetRole: 'MEMBER',
       closedAt: status === 'CLOSED' ? '2026-03-16T09:00:00Z' : null,
       content: null,
@@ -90,7 +90,10 @@ const neighborsHandler = http.get(
   () => json({ prevApplicationId: null, nextApplicationId: null }),
 );
 
-function applicantDetailHandler(hasMyEvaluation: boolean) {
+function applicantDetailHandler(
+  hasMyEvaluation: boolean,
+  applicationStatus: ApplicationStatus = 'SUBMITTED',
+) {
   return http.get(`*/leader/applications/${APPLICATION_ID}`, () =>
     json({
       applicationId: APPLICATION_ID,
@@ -108,7 +111,7 @@ function applicantDetailHandler(hasMyEvaluation: boolean) {
         phone: '010-1234-5678',
       },
       answers: [{ question: '지원 동기', answer: '열심히 하겠습니다' }],
-      status: 'SUBMITTED',
+      status: applicationStatus,
       interview: null,
       submittedAt: '2026-03-10T10:00:00',
       myEvaluation: hasMyEvaluation
@@ -247,5 +250,27 @@ describe('지원자 상세 — 마감 모집 읽기 전용', () => {
     expect(
       screen.queryByText('마감된 모집은 상태를 변경할 수 없습니다'),
     ).not.toBeInTheDocument();
+  });
+
+  // 면접 관리로 가는 링크는 조회 성격이라 마감 후에도 남는다 (스펙 §6).
+  it('raw CLOSED 여도 면접 카드의 [면접 관리] 링크는 유지된다', async () => {
+    server.use(
+      recruitmentHandler('CLOSED', true),
+      applicantDetailHandler(true, 'INTERVIEW_PENDING'),
+      neighborsHandler,
+    );
+
+    renderWithProviders(
+      <ApplicantDetailPage
+        clubId={CLUB_ID}
+        recruitmentId={RECRUITMENT_ID}
+        applicationId={APPLICATION_ID}
+      />,
+    );
+
+    expect(await screen.findByRole('link', { name: '면접 관리' })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview`,
+    );
   });
 });

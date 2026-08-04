@@ -117,18 +117,27 @@ describe('MyEvaluationCard', () => {
   });
 
   // 마감 모집 읽기 전용 (스펙 §1-3 차단 표 · §6)
-  it('readOnly 면 평가 삭제 버튼이 사라진다', () => {
+  it('readOnly 면 평가 수정·삭제 버튼이 사라진다', () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} readOnly />);
 
+    // 수정은 전부 비활성인 폼으로만 이어지는 죽은 어포던스라 삭제와 함께 감춘다.
+    expect(screen.queryByRole('button', { name: '수정' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
+    // 조회는 그대로 — 점수와 메모는 계속 보인다.
+    expect(screen.getByText('4 / 5')).toBeInTheDocument();
+    expect(screen.getByText('기존 메모')).toBeInTheDocument();
   });
 
-  it('readOnly 면 입력과 저장이 비활성되고 안내가 뜬다', () => {
+  it('readOnly 면 입력과 저장이 비활성되고 평가 맥락 안내가 뜬다', () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} readOnly />);
 
     expect(screen.getByPlaceholderText(/강점, 약점/)).toBeDisabled();
     expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
-    expect(screen.getByText('마감된 모집은 상태를 변경할 수 없습니다')).toBeInTheDocument();
+    // 상태 변경 문구 재사용이 아니라 평가 맥락 문구여야 한다.
+    expect(screen.getByText('마감된 모집은 평가를 작성·수정할 수 없습니다')).toBeInTheDocument();
+    expect(
+      screen.queryByText('마감된 모집은 상태를 변경할 수 없습니다'),
+    ).not.toBeInTheDocument();
   });
 
   // lazy-close 프리즈 — 화면이 OPEN 으로 열린 뒤 모집이 마감되면 저장만 409 로 떨어진다.
@@ -145,5 +154,22 @@ describe('MyEvaluationCard', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집은 조회만 가능합니다');
     expect(screen.getByPlaceholderText(/강점, 약점/)).toHaveValue('작성 중이던 메모');
+  });
+
+  // 삭제도 같은 창에서 409 로 떨어진다 — 확인 모달은 닫지 않고 그 안에서 마감 사유를 안내한다.
+  it('삭제가 RECRUITMENT_CLOSED 로 실패하면 확인 모달 안에 마감 안내가 뜬다', async () => {
+    mockDelete.mockRejectedValue(
+      new ApiError(409, '마감된 모집은 조회만 가능합니다.', undefined, 'RECRUITMENT_CLOSED'),
+    );
+    wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '삭제' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+
+    expect(
+      await within(dialog).findByText('마감된 모집은 조회만 가능합니다'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

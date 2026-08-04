@@ -1,9 +1,11 @@
 import { ApiError } from '@duing/api';
 
 /**
- * 마감(raw CLOSED) 모집 읽기 전용 안내 — 상태 변경 바·평가 카드가 공유한다 (스펙 §6).
+ * 마감(raw CLOSED) 모집 읽기 전용 안내 (스펙 §6).
+ * 막히는 행위가 표면마다 달라 맥락별로 나눈다 — 평가 폼에 상태 변경 문구가 뜨면 안내가 어긋난다.
  */
-export const CLOSED_READ_ONLY_NOTICE = '마감된 모집은 상태를 변경할 수 없습니다';
+export const CLOSED_STATUS_CHANGE_NOTICE = '마감된 모집은 상태를 변경할 수 없습니다';
+export const CLOSED_EVALUATION_NOTICE = '마감된 모집은 평가를 작성·수정할 수 없습니다';
 
 /**
  * BE 가 마감 모집 쓰기를 거절할 때의 안내 (스펙 §4 — 409 + code `RECRUITMENT_CLOSED`).
