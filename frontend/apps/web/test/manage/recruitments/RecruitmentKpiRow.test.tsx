@@ -37,7 +37,7 @@ function statsSummary(over: Partial<StatsSummary> = {}): StatsSummary {
   return {
     total: 0,
     submitted: 0,
-    underReview: 0,
+    onHold: 0,
     interviewPending: 0,
     accepted: 0,
     rejected: 0,
@@ -48,9 +48,9 @@ function statsSummary(over: Partial<StatsSummary> = {}): StatsSummary {
 }
 
 describe('RecruitmentKpiRow', () => {
-  it('4개 타일에 summary 버킷 값(지원자·검토 대기·면접 대기·합격)을 표시한다', () => {
+  it('4개 타일에 summary 버킷 값을 표시하고 검토 대기는 submitted+onHold 합이다', () => {
     mockSummary.mockReturnValue({
-      data: statsSummary({ total: 34, underReview: 12, interviewPending: 8, accepted: 2 }),
+      data: statsSummary({ total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
       isLoading: false,
     });
     render(<RecruitmentKpiRow recruitment={recruitment()} />);
@@ -68,7 +68,7 @@ describe('RecruitmentKpiRow', () => {
 
   it('면접을 진행하지 않는 모집은 데이터가 있어도 면접 대기를 —로 표시한다', () => {
     mockSummary.mockReturnValue({
-      data: statsSummary({ total: 5, underReview: 1, interviewPending: 8, accepted: 0 }),
+      data: statsSummary({ total: 5, submitted: 0, onHold: 1, interviewPending: 8, accepted: 0 }),
       isLoading: false,
     });
     render(<RecruitmentKpiRow recruitment={recruitment({ useInterview: false })} />);

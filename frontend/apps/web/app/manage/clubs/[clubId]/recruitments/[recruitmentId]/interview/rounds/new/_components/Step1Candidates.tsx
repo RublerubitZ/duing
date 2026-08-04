@@ -9,12 +9,12 @@ import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // Step1: 면접 라운드 대상 후보 선정 (ephemeral — 서버에 저장하지 않음).
-// 서류 검토 중(UNDER_REVIEW) / 면접 대기(INTERVIEW_PENDING) 그룹 헤더로 분리.
-// 기본 includeUnderReview=true (정기 wizard 진입 §10.3).
+// 미결정(SUBMITTED·ON_HOLD) / 면접 대기(INTERVIEW_PENDING) 그룹 헤더로 분리.
+// 기본 includeUndecided=true (정기 wizard 진입 §10.3).
 //
 // 선택 상태는 RoundWizard 가 Map<number, InterviewRoundCandidate> 로 보유.
-// 토글로 화면에서 필터링돼도 이미 선택된 UNDER_REVIEW 후보는 맵에서 유지된다.
-// 토글 off 상태에서도 UNDER_REVIEW 선택 항목을 하단에 칩으로 표시하고 개별 해제 가능.
+// 토글로 화면에서 필터링돼도 이미 선택된 미결정 후보는 맵에서 유지된다.
+// 토글 off 상태에서도 미결정 선택 항목을 하단에 칩으로 표시하고 개별 해제 가능.
 
 // ApplicantTable 의 STATUS_BADGE_CLASS 와 색 동기 — ON_HOLD 는 amber, INTERVIEW_PENDING 은 purple.
 const STATUS_BADGE_CLASS: Record<string, string> = {
@@ -22,6 +22,11 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   ON_HOLD: 'bg-amber-100 text-amber-700',
   INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
 };
+
+/** 미결정 = 아직 면접 대상/최종 결정 전인 지원 (SUBMITTED·ON_HOLD) — RoundWizard 도 사용. */
+export function isUndecidedCandidate(candidate: InterviewRoundCandidate): boolean {
+  return candidate.status === 'SUBMITTED' || candidate.status === 'ON_HOLD';
+}
 
 type Props = {
   recruitmentId: number;
@@ -37,14 +42,12 @@ export function Step1Candidates({
   onSelectionMapChange,
   onNext,
 }: Props) {
-  const [includeUnderReview, setIncludeUnderReview] = useState(true);
-  const candidatesQuery = useInterviewRoundCandidatesQuery(recruitmentId, includeUnderReview);
+  const [includeUndecided, setIncludeUndecided] = useState(true);
+  const candidatesQuery = useInterviewRoundCandidatesQuery(recruitmentId, includeUndecided);
 
   const candidates = candidatesQuery.data ?? [];
 
-  const underReviewCandidates = candidates.filter(
-    (candidate) => candidate.status === 'UNDER_REVIEW',
-  );
+  const undecidedCandidates = candidates.filter(isUndecidedCandidate);
   const interviewPendingCandidates = candidates.filter(
     (candidate) => candidate.status === 'INTERVIEW_PENDING',
   );
@@ -73,10 +76,10 @@ export function Step1Candidates({
     onSelectionMapChange(next);
   };
 
-  // 현재 화면에 없는 선택된 UNDER_REVIEW 후보 (토글 off 시 보존 안내용)
+  // 현재 화면에 없는 선택된 미결정 후보 (토글 off 시 보존 안내용)
   const visibleIds = new Set(candidates.map((candidate) => candidate.applicationId));
-  const hiddenSelectedUnderReview = Array.from(selectedMap.values()).filter(
-    (candidate) => candidate.status === 'UNDER_REVIEW' && !visibleIds.has(candidate.applicationId),
+  const hiddenSelectedUndecided = Array.from(selectedMap.values()).filter(
+    (candidate) => isUndecidedCandidate(candidate) && !visibleIds.has(candidate.applicationId),
   );
 
   const canProceed = selectedMap.size > 0;
@@ -161,12 +164,12 @@ export function Step1Candidates({
         <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
           <input
             type="checkbox"
-            aria-label="서류 검토 중 포함"
-            checked={includeUnderReview}
-            onChange={(event) => setIncludeUnderReview(event.target.checked)}
+            aria-label="미결정 포함"
+            checked={includeUndecided}
+            onChange={(event) => setIncludeUndecided(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300"
           />
-          서류 검토 중 포함
+          미결정 포함
         </label>
       </div>
 
@@ -174,19 +177,19 @@ export function Step1Candidates({
         <p className="text-sm text-slate-500">후보가 없습니다.</p>
       ) : (
         <div className="space-y-4">
-          {renderGroup('서류 검토 중', underReviewCandidates)}
+          {renderGroup('미결정(지원·보류)', undecidedCandidates)}
           {renderGroup('면접 대기', interviewPendingCandidates)}
         </div>
       )}
 
-      {/* 토글 off 상태에서 화면에 안 보이지만 이미 선택된 UNDER_REVIEW 후보 안내 */}
-      {hiddenSelectedUnderReview.length > 0 && (
+      {/* 토글 off 상태에서 화면에 안 보이지만 이미 선택된 미결정 후보 안내 */}
+      {hiddenSelectedUndecided.length > 0 && (
         <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
           <p className="text-xs text-amber-700">
-            화면에 표시되지 않지만 선택된 서류 검토 중 후보 {hiddenSelectedUnderReview.length}명:
+            화면에 표시되지 않지만 선택된 미결정 후보 {hiddenSelectedUndecided.length}명:
           </p>
           <ul className="flex flex-wrap gap-1">
-            {hiddenSelectedUnderReview.map((candidate) => (
+            {hiddenSelectedUndecided.map((candidate) => (
               <li key={candidate.applicationId}>
                 <button
                   type="button"
@@ -208,9 +211,9 @@ export function Step1Candidates({
           {selectedMap.size > 0 ? (
             <>
               {selectedMap.size}명 선택
-              {hiddenSelectedUnderReview.length > 0 && (
+              {hiddenSelectedUndecided.length > 0 && (
                 <span className="ml-1 text-amber-600">
-                  (서류 검토 중 {hiddenSelectedUnderReview.length}명 포함)
+                  (미결정 {hiddenSelectedUndecided.length}명 포함)
                 </span>
               )}
             </>

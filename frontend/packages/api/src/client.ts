@@ -756,7 +756,7 @@ export type DuingApiClient = {
   interviewRounds: {
     // === 면접 라운드 후보 조회 (BE#2) ===
     // GET /leader/recruitments/{recruitmentId}/interview-round-candidates
-    candidates(recruitmentId: number, includeUnderReview: boolean): Promise<InterviewRoundCandidate[]>;
+    candidates(recruitmentId: number, includeUndecided: boolean): Promise<InterviewRoundCandidate[]>;
     // === 면접 라운드 목록 (BE#6) ===
     // GET /leader/recruitments/{recruitmentId}/interview-rounds
     list(recruitmentId: number): Promise<InterviewRoundSummary[]>;
@@ -1846,10 +1846,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<Receipt>(http.get(`my/fees/${billId}/receipt`)),
     },
     interviewRounds: {
-      candidates: (recruitmentId, includeUnderReview) =>
+      candidates: (recruitmentId, includeUndecided) =>
         jsonOk<InterviewRoundCandidate[]>(
           http.get(`leader/recruitments/${recruitmentId}/interview-round-candidates`, {
-            searchParams: { includeUnderReview },
+            searchParams: { includeUndecided },
           }),
         ),
       list: (recruitmentId) =>

@@ -25,15 +25,15 @@ function recruitmentRow(id: number, displayStatus: string) {
 }
 function statsBody(over: Record<string, number>) {
   return { ok: true, message: null,
-    data: { total: 0, submitted: 0, underReview: 0, interviewPending: 0, accepted: 0, rejected: 0, capacity: 10, ratio: 0, ...over } };
+    data: { total: 0, submitted: 0, onHold: 0, interviewPending: 0, accepted: 0, rejected: 0, capacity: 10, ratio: 0, ...over } };
 }
 
 const server = setupServer(
   http.get('*/clubs/10/recruitments', () =>
     HttpResponse.json({ ok: true, message: null, data: [recruitmentRow(1, 'OPEN'), recruitmentRow(2, 'OPEN')] }),
   ),
-  http.get('*/leader/recruitments/1/stats/summary', () => HttpResponse.json(statsBody({ total: 5, submitted: 2, accepted: 1 }))),
-  http.get('*/leader/recruitments/2/stats/summary', () => HttpResponse.json(statsBody({ total: 3, submitted: 1, interviewPending: 2 }))),
+  http.get('*/leader/recruitments/1/stats/summary', () => HttpResponse.json(statsBody({ total: 5, submitted: 2, onHold: 1, accepted: 1 }))),
+  http.get('*/leader/recruitments/2/stats/summary', () => HttpResponse.json(statsBody({ total: 3, submitted: 1, onHold: 2, interviewPending: 2 }))),
 );
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
@@ -45,6 +45,7 @@ describe('useApplicantSummary', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totals.total).toBe(8);
     expect(result.current.totals.submitted).toBe(3);
+    expect(result.current.totals.onHold).toBe(3);
     expect(result.current.totals.interviewPending).toBe(2);
   });
 

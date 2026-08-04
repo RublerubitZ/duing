@@ -24,7 +24,7 @@ function summaryResponse(overrides: Partial<{ total: number; accepted: number }>
     data: {
       total: 0,
       submitted: 0,
-      underReview: 0,
+      onHold: 0,
       interviewPending: 0,
       accepted: 0,
       rejected: 0,
