@@ -1,7 +1,6 @@
 package com.duing.domain.application.controller;
 
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -94,18 +93,20 @@ class MyApplicationRecruitmentStatusContractTest extends IntegrationTestBase {
     @DisplayName("내 지원 목록에도 모집별 마감 여부가 함께 내려와 진행 중과 종료를 구분할 수 있다")
     void listExposesRecruitmentStatusPerApplication() {
         User applicant = saveUser("목록지원자");
-        Club club = saveActiveClub("목록동아리");
-        Recruitment openRecruitment = saveRecruitment(club, "진행중모집");
+        Recruitment openRecruitment = saveRecruitment(saveActiveClub("목록동아리"), "진행중모집");
         Recruitment closedRecruitment = saveRecruitment(saveActiveClub("목록동아리2"), "마감모집");
         applicationRepository.save(Application.submit(openRecruitment, applicant, List.of()));
         applicationRepository.save(Application.submit(closedRecruitment, applicant, List.of()));
         closeRecruitment(closedRecruitment);
 
+        // 두 값이 있기만 한 단언은 지원↔모집 짝이 뒤바뀌어도 통과한다 — 모집별로 못박는다.
         givenApplicant(applicant)
                 .when().get("/api/v1/users/me/applications")
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.recruitmentStatus", hasItem("OPEN"))
-                .body("data.recruitmentStatus", hasItem("CLOSED"));
+                .body("data.find { it.recruitmentId == %d }.recruitmentStatus".formatted(openRecruitment.getId()),
+                        equalTo("OPEN"))
+                .body("data.find { it.recruitmentId == %d }.recruitmentStatus".formatted(closedRecruitment.getId()),
+                        equalTo("CLOSED"));
     }
 
     private io.restassured.specification.RequestSpecification givenApplicant(User applicant) {

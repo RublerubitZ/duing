@@ -56,19 +56,6 @@ public class InterviewException extends ApplicationException {
         public InvalidRoundUpdate() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
-    /**
-     * 마감된 모집의 면접은 아카이브라 지원자가 가능 시간을 새로 제출할 수 없다.
-     * 철회 차단({@code ApplicationDomainException.CannotWithdrawClosedRecruitmentException})과 같은 원인이므로
-     * code 를 공유해 프론트가 한 분기로 처리하고, 문구만 지원자 대면으로 맞춘다.
-     */
-    public static final class ClosedRecruitmentAvailabilityException extends InterviewException {
-        private static final String MESSAGE = "마감된 모집이라 면접 가능 시간을 제출할 수 없어요.";
-
-        public ClosedRecruitmentAvailabilityException() {
-            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
-        }
-    }
-
     public static final class InterviewNotUsed extends InterviewException {
         private static final String MESSAGE = "면접을 사용하지 않는 모집입니다.";
         public InterviewNotUsed() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
@@ -119,6 +106,18 @@ public class InterviewException extends ApplicationException {
     public static final class AvailabilityPeriodClosed extends InterviewException {
         private static final String MESSAGE = "면접 가능 시간 응답 기간이 아닙니다.";
         public AvailabilityPeriodClosed() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
+    /**
+     * 마감된 모집의 면접은 아카이브라 지원자가 가능 시간을 새로 제출할 수 없다.
+     * 운영진 쓰기 차단({@code RecruitmentException.ClosedRecruitmentReadOnlyException})·철회 차단
+     * ({@code ApplicationDomainException.CannotWithdrawClosedRecruitmentException})과 같은 원인이므로
+     * code 를 공유해 프론트가 한 분기로 처리하고, 문구만 지원자 대면으로 맞춘다.
+     * (지원 제출 경로만 400·code 없음으로 남아 있다 — 계약 통일은 별도 과제.)
+     */
+    public static final class RecruitmentClosed extends InterviewException {
+        private static final String MESSAGE = "마감된 모집이라 면접 가능 시간을 제출할 수 없어요.";
+        public RecruitmentClosed() { super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED"); }
     }
 
     public static final class ApplicationAlreadyDecided extends InterviewException {

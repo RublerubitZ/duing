@@ -121,8 +121,14 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
         // 마감된 모집은 아카이브 — 지원자 쓰기도 철회와 동일하게 막는다. 마감 후에는 라운드 진행 자체가
         // 불가능하므로(라운드 생성 차단) 여기서 받은 가능 시간은 어디에도 쓰이지 않는다.
         // 위 findWithRecruitmentAndClubById 로 이미 로드된 모집이라 추가 조회는 없다.
+        //
+        // 모집 행을 잠그지 않으므로 "OPEN 확인 → 마감 커밋 → 여기서 INSERT" 창이 남는다(#883 이 라운드
+        // 생성에서 닫은 것과 같은 모양). 잠그지 않는 이유는 오염 범위가 다르기 때문이다 — 라운드는 마감된
+        // 모집에 운영 객체를 만들지만, 여기서 새는 것은 아무 라운드도 진행되지 않는 모집의 availability 행
+        // 하나뿐이라 학생·운영진 어느 화면에도 나타나지 않는다. 마감 후 라운드 쓰기 전반을 함께 잠그는
+        // 후속 작업에서 이 경로도 같은 정책으로 묶는다.
         if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
-            throw new InterviewException.ClosedRecruitmentAvailabilityException();
+            throw new InterviewException.RecruitmentClosed();
         }
 
         // §16-7: 동시 합불 처리·동시 자기 응답을 application 행에서 직렬화한다.
