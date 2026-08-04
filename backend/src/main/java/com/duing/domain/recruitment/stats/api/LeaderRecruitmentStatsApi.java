@@ -21,7 +21,8 @@ public interface LeaderRecruitmentStatsApi {
     @Operation(
             summary = "모집 통계 요약 조회",
             description = "모집 공고의 지원 현황을 상태별로 집계하여 반환합니다. "
-                    + "전체/제출됨/검토중/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다."
+                    + "전체/제출됨/보류/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다. "
+                    + "total 은 나머지 상태 수의 합과 항상 일치합니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/summary")
     ResponseEntity<ApiResponse<StatsSummaryResponse>> getSummary(
@@ -42,8 +43,8 @@ public interface LeaderRecruitmentStatsApi {
 
     @Operation(
             summary = "모집 단계별 Funnel 조회",
-            description = "제출 → 서류 통과 → 면접 진입 → 합격의 4단계 카운트를 반환합니다. "
-                    + "useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 3단계 funnel 로 표시할 수 있습니다."
+            description = "제출 → 면접 진입 → 합격의 3단계 카운트를 반환합니다. "
+                    + "useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 2단계 funnel 로 표시할 수 있습니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/funnel")
     ResponseEntity<ApiResponse<StatsFunnelResponse>> getFunnel(

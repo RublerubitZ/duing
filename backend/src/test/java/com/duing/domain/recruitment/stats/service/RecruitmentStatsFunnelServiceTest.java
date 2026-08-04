@@ -57,10 +57,10 @@ class RecruitmentStatsFunnelServiceTest {
     }
 
     private Map<ApplicationStatus, Long> buildStatusMap(
-            long submitted, long underReview, long interviewPending, long accepted, long rejected) {
+            long submitted, long onHold, long interviewPending, long accepted, long rejected) {
         Map<ApplicationStatus, Long> applicationStatusCounts = new EnumMap<>(ApplicationStatus.class);
         if (submitted > 0) applicationStatusCounts.put(ApplicationStatus.SUBMITTED, submitted);
-        if (underReview > 0) applicationStatusCounts.put(ApplicationStatus.UNDER_REVIEW, underReview);
+        if (onHold > 0) applicationStatusCounts.put(ApplicationStatus.ON_HOLD, onHold);
         if (interviewPending > 0) applicationStatusCounts.put(ApplicationStatus.INTERVIEW_PENDING, interviewPending);
         if (accepted > 0) applicationStatusCounts.put(ApplicationStatus.ACCEPTED, accepted);
         if (rejected > 0) applicationStatusCounts.put(ApplicationStatus.REJECTED, rejected);
@@ -68,41 +68,39 @@ class RecruitmentStatsFunnelServiceTest {
     }
 
     @Test
-    @DisplayName("useInterview=true 인 모집에서 상태 분포가 있을 때 4단계 카운트가 정확하게 계산된다")
-    void useInterviewTrueRecruitmentReturns4StageFunnelCorrectly() {
+    @DisplayName("useInterview=true 인 모집에서 상태 분포가 있을 때 3단계 카운트가 정확하게 계산된다")
+    void useInterviewTrueRecruitmentReturns3StageFunnelCorrectly() {
         Long recruitmentId = 1L;
         Long clubId = 10L;
         Long currentUserId = 100L;
 
         mockRecruitment(recruitmentId, clubId, true);
-        // submitted=5, underReview=3, interviewPending=2, accepted=1, rejected=1
+        // submitted=5, onHold=3, interviewPending=2, accepted=1, rejected=1
         Map<ApplicationStatus, Long> applicationStatusCounts = buildStatusMap(5, 3, 2, 1, 1);
         when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId)).thenReturn(applicationStatusCounts);
 
         StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUserId);
 
         assertThat(statsFunnelQuery.submitted()).isEqualTo(12L);           // 5+3+2+1+1
-        assertThat(statsFunnelQuery.documentPassed()).isEqualTo(7L);       // 12-5
         assertThat(statsFunnelQuery.interviewEntered()).isEqualTo(4L);     // 2+1+1
         assertThat(statsFunnelQuery.accepted()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("useInterview=false 인 모집의 funnel 은 interviewEntered 가 null 이고 나머지 3단계 카운트는 정확하다")
+    @DisplayName("useInterview=false 인 모집의 funnel 은 interviewEntered 가 null 이고 나머지 2단계 카운트는 정확하다")
     void useInterviewFalseRecruitmentReturnsNullForInterviewEntered() {
         Long recruitmentId = 2L;
         Long clubId = 10L;
         Long currentUserId = 100L;
 
         mockRecruitment(recruitmentId, clubId, false);
-        // submitted=4, underReview=2, accepted=2, rejected=1 (면접 없으므로 interviewPending=0)
+        // submitted=4, onHold=2, accepted=2, rejected=1 (면접 없으므로 interviewPending=0)
         Map<ApplicationStatus, Long> applicationStatusCounts = buildStatusMap(4, 2, 0, 2, 1);
         when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId)).thenReturn(applicationStatusCounts);
 
         StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUserId);
 
         assertThat(statsFunnelQuery.submitted()).isEqualTo(9L);            // 4+2+0+2+1
-        assertThat(statsFunnelQuery.documentPassed()).isEqualTo(5L);       // 9-4
         assertThat(statsFunnelQuery.interviewEntered()).isNull();
         assertThat(statsFunnelQuery.accepted()).isEqualTo(2L);
     }
@@ -128,19 +126,17 @@ class RecruitmentStatsFunnelServiceTest {
         StatsFunnelQuery funnelWithoutInterview = recruitmentStatsService.getFunnel(recruitmentIdWithoutInterview, currentUserId);
 
         assertThat(funnelWithInterview.submitted()).isEqualTo(0L);
-        assertThat(funnelWithInterview.documentPassed()).isEqualTo(0L);
         assertThat(funnelWithInterview.interviewEntered()).isEqualTo(0L);
         assertThat(funnelWithInterview.accepted()).isEqualTo(0L);
 
         assertThat(funnelWithoutInterview.submitted()).isEqualTo(0L);
-        assertThat(funnelWithoutInterview.documentPassed()).isEqualTo(0L);
         assertThat(funnelWithoutInterview.interviewEntered()).isNull();
         assertThat(funnelWithoutInterview.accepted()).isEqualTo(0L);
     }
 
     @Test
-    @DisplayName("SUBMITTED 가 5건이고 나머지 상태가 0건이면 submitted=5, documentPassed=0, accepted=0 이다")
-    void onlySubmittedApplicationsShowsZeroDocumentPassedAndZeroAccepted() {
+    @DisplayName("SUBMITTED 가 5건이고 나머지 상태가 0건이면 submitted=5, interviewEntered=0, accepted=0 이다")
+    void onlySubmittedApplicationsShowsZeroInterviewEnteredAndZeroAccepted() {
         Long recruitmentId = 5L;
         Long clubId = 10L;
         Long currentUserId = 100L;
@@ -153,7 +149,6 @@ class RecruitmentStatsFunnelServiceTest {
         StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUserId);
 
         assertThat(statsFunnelQuery.submitted()).isEqualTo(5L);
-        assertThat(statsFunnelQuery.documentPassed()).isEqualTo(0L);
         assertThat(statsFunnelQuery.interviewEntered()).isEqualTo(0L);
         assertThat(statsFunnelQuery.accepted()).isEqualTo(0L);
     }

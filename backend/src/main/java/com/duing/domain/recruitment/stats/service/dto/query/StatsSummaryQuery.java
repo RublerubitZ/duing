@@ -3,7 +3,7 @@ package com.duing.domain.recruitment.stats.service.dto.query;
 public record StatsSummaryQuery(
         long total,
         long submitted,
-        long underReview,
+        long onHold,
         long interviewPending,
         long accepted,
         long rejected,
@@ -13,14 +13,14 @@ public record StatsSummaryQuery(
 
     public static StatsSummaryQuery of(
             long submitted,
-            long underReview,
+            long onHold,
             long interviewPending,
             long accepted,
             long rejected,
             int capacity
     ) {
-        long total = submitted + underReview + interviewPending + accepted + rejected;
+        long total = submitted + onHold + interviewPending + accepted + rejected;
         double ratio = capacity == 0 ? 0.0 : (double) accepted / capacity;
-        return new StatsSummaryQuery(total, submitted, underReview, interviewPending, accepted, rejected, capacity, ratio);
+        return new StatsSummaryQuery(total, submitted, onHold, interviewPending, accepted, rejected, capacity, ratio);
     }
 }
