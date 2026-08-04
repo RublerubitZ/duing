@@ -15,6 +15,7 @@ const mockPoliciesQuery = vi.fn();
 const mockBillsQuery = vi.fn();
 const mockPaymentsQuery = vi.fn();
 const mockAccountQuery = vi.fn();
+const mockAuditLogsQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminFeeClubDetailQuery: (...args: unknown[]) => mockDetailQuery(...args),
@@ -22,6 +23,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminFeeBillsQuery: (...args: unknown[]) => mockBillsQuery(...args),
   useAdminFeePaymentsQuery: (...args: unknown[]) => mockPaymentsQuery(...args),
   useAdminFeeAccountQuery: (...args: unknown[]) => mockAccountQuery(...args),
+  useAdminFeeAuditLogsQuery: (...args: unknown[]) => mockAuditLogsQuery(...args),
 }));
 
 // 기간·탭은 주소가 진실이라, replace 가 쓴 질의 문자열을 다음 렌더의 useSearchParams 가 되읽도록 잇는다
@@ -161,6 +163,7 @@ beforeEach(() => {
   mockBillsQuery.mockReturnValue(pageSuccess([makeBill()]));
   mockPaymentsQuery.mockReturnValue(pageSuccess([makePayment()]));
   mockAccountQuery.mockReturnValue(success(makeAccount()));
+  mockAuditLogsQuery.mockReturnValue(pageSuccess([]));
 });
 
 describe('관리자 회비 감사 상세', () => {
@@ -171,7 +174,7 @@ describe('관리자 회비 감사 상세', () => {
     expect(mockDetailQuery).toHaveBeenCalledTimes(1);
     expect(mockDetailQuery).toHaveBeenCalledWith(CLUB_ID, DEFAULT_PERIOD);
 
-    for (const tabLabel of ['정책', '청구', '납부', '계좌', '개요']) {
+    for (const tabLabel of ['정책', '청구', '납부', '계좌', '감사 로그', '개요']) {
       await user.click(screen.getByRole('tab', { name: tabLabel }));
       mockDetailQuery.mockClear();
       rerender(<AdminFeeClubDetailPage clubId={CLUB_ID} />);

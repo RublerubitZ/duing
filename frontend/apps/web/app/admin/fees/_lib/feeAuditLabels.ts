@@ -48,6 +48,58 @@ export function feeEventTypeLabel(eventType: string): string {
   return FEE_EVENT_TYPE_LABEL[eventType] ?? eventType;
 }
 
+const isNumber = (candidate: unknown): candidate is number => typeof candidate === 'number';
+const isBoolean = (candidate: unknown): candidate is boolean => typeof candidate === 'boolean';
+const isString = (candidate: unknown): candidate is string => typeof candidate === 'string';
+
+/**
+ * 변경 전/후 쌍(`{old, new}`) 판별. 값 타입은 키마다 달라(금액=숫자, 활성=불리언) 판별자를 받는다 —
+ * 한쪽만 기대한 타입이면 쌍으로 치지 않는다(반쪽 문장 "금액 10,000 → undefined" 를 만들지 않기 위해).
+ */
+function isOldNew<T>(
+  value: unknown,
+  isMember: (candidate: unknown) => candidate is T,
+): value is { old: T; new: T } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'old' in value &&
+    'new' in value &&
+    isMember(value.old) &&
+    isMember(value.new)
+  );
+}
+
+/**
+ * 감사 로그의 detail JSON 을 한국어 한 줄로 옮긴다.
+ *
+ * <p>아는 키만 읽고 나머지는 조용히 건너뛴다 — 서버는 이벤트 종류마다 다른 키를 싣고 앞으로 더 늘리므로,
+ * 모르는 것을 만났다고 줄 전체가 깨지거나 `[object Object]` 가 새어나오면 안 된다(feeEventTypeLabel 과 같은 규칙).
+ * 읽을 것이 하나도 없으면 빈 문자열이고, 그때 화면은 요약 줄 자체를 그린다.
+ */
+export function formatAuditDetail(detail: Record<string, unknown> | null): string {
+  if (detail === null) return '';
+
+  const { amount, active, issuedCount, billingPeriod, autoMatched, statusBefore, bank } = detail;
+  const parts: string[] = [];
+
+  // 금액은 단일 값(청구 취소·납부 기록)일 수도, 변경 전/후 쌍(정책 수정)일 수도 있다.
+  if (isNumber(amount)) parts.push(`금액 ${formatFeeAmount(amount)}원`);
+  else if (isOldNew(amount, isNumber)) {
+    parts.push(`금액 ${formatFeeAmount(amount.old)} → ${formatFeeAmount(amount.new)}`);
+  }
+
+  if (isOldNew(active, isBoolean)) parts.push(active.new ? '활성화' : '비활성화');
+  if (isNumber(issuedCount)) parts.push(`${issuedCount}건 발행`);
+  if (isString(billingPeriod)) parts.push(`회차 ${billingPeriod}`);
+  // false 는 적지 않는다 — "자동매칭 아님"은 수동·수기 매칭 라벨이 이미 말하고 있다.
+  if (autoMatched === true) parts.push('BANK 자동매칭');
+  if (isString(statusBefore)) parts.push(`이전 상태 ${statusBefore}`);
+  if (isString(bank)) parts.push(`은행 ${bank}`);
+
+  return parts.join(' · ');
+}
+
 export const FEE_SEVERITY_LABEL: Record<FeeAnomalySeverity, string> = {
   INFO: '참고',
   WARNING: '주의',
