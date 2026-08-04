@@ -1,0 +1,341 @@
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+
+import { createApiClient, registerUnauthorizedHandler } from '@duing/api';
+import { ApiClientProvider, favoriteQueryKeys } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
+import type { StudentRecruitmentProjection } from '@duing/types';
+
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { AdminRoleGuard } from '@/app/admin/_components/AdminRoleGuard';
+import { FavoriteToggleButton } from '@/app/_components/FavoriteToggleButton';
+import { HomeNavAuthSlot } from '@/app/_components/HomeNavAuthSlot';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
+import { useClubApply } from '@/app/clubs/[clubId]/_lib/useClubApply';
+
+/**
+ * status 'idle' 은 "세션 확인 중" 이지 "미인증" 이 아니다.
+ * idle 을 미인증처럼 다루면 이미 로그인한 사용자가 하드 로드 직후 로그아웃 화면을 보거나
+ * 로그인 페이지로 튕긴다(2026-08-03 재현). 소비자별로 그 규약을 고정한다.
+ *
+ * 스토어는 모킹하지 않고 실제 zustand 를 쓴다 — 이 PR 이 고치는 대상이 idle→확정 "전이" 라,
+ * 정적 스냅샷만 검증하는 모킹으로는 회귀를 못 잡는다.
+ */
+const mockRouterPush = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockRouterPush }) }));
+
+const BASE = 'http://localhost:8080/api/v1';
+const server = setupServer();
+const apiClient = createApiClient({ baseUrl: BASE, authTransport: 'cookie' });
+
+/** 이 스위트에서 나간 API 요청 경로 — "요청 없이 튕겼는지" 를 단언으로 확인한다. */
+const requestedPaths: string[] = [];
+const trackRequest = ({ request }: { request: Request }) => {
+  requestedPaths.push(new URL(request.url).pathname);
+};
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  server.events.on('request:start', trackRequest);
+});
+afterEach(() => {
+  server.resetHandlers();
+  // 등록 → null 순서로 사이드 채널을 비운다 — expiredSession 헬퍼가 만든 종료 통지가
+  // 핸들러 미등록 상태에서 보류로 남으면, 이후 등록하는 테스트에 유령 만료가 재생된다.
+  registerUnauthorizedHandler(() => {});
+  registerUnauthorizedHandler(null);
+  mockRouterPush.mockReset();
+  requestedPaths.length = 0;
+  window.history.replaceState(null, '', '/');
+  act(() => useAuthStore.setState({ status: 'idle', user: null }));
+});
+afterAll(() => {
+  server.events.removeListener('request:start', trackRequest);
+  server.close();
+});
+
+/** 렌더 본문에서 만들면 재렌더 때 조용히 교체돼 캐시 단언이 공허하게 참이 된다 — 밖에서 만든다. */
+let latestQueryClient = new QueryClient();
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return (
+    <QueryClientProvider client={latestQueryClient}>
+      <ApiClientProvider client={apiClient}>
+        <ToastProvider>{children}</ToastProvider>
+      </ApiClientProvider>
+    </QueryClientProvider>
+  );
+}
+
+function renderWithProviders(ui: ReactNode) {
+  latestQueryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<Wrapper>{ui}</Wrapper>);
+}
+const setAuthStatus = (status: 'idle' | 'authenticated' | 'unauthenticated') =>
+  act(() => useAuthStore.setState({ status, user: null }));
+
+/** 세션 만료가 확정되는 응답 한 쌍 — 원 401 과, 갱신 시도까지 실패시키는 refresh 401. */
+function expiredSession(path: string) {
+  return [
+    http.all(`${BASE}${path}`, () =>
+      HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 }),
+    ),
+    http.post(`${BASE}/auth/web/refresh`, () => new HttpResponse(null, { status: 401 })),
+  ];
+}
+
+describe('HomeNavAuthSlot — 세션 확인 중에는 로그아웃 UI 를 보이지 않는다', () => {
+  it('idle 이면 로그인·가입하기 대신 같은 자리의 확인 중 표시를 렌더하고, 확정되면 전환한다', () => {
+    setAuthStatus('idle');
+    renderWithProviders(<HomeNavAuthSlot />);
+
+    expect(screen.queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '가입하기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '로그인 상태 확인 중' })).toBeInTheDocument();
+
+    // 확인이 끝나면(미인증 확정) 같은 자리에 실제 버튼이 들어온다.
+    setAuthStatus('unauthenticated');
+    expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '가입하기' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '로그인 상태 확인 중' })).not.toBeInTheDocument();
+  });
+
+  // 부트스트랩은 401 이 아닌 실패(5xx·오프라인·CORS)에서 status 를 idle 로 남긴다.
+  // 그때 자리표시만 계속 보이면 로그인 진입점이 사라져 사용자가 복구할 방법이 없어진다.
+  it('확인이 끝나지 않아도 상한을 넘기면 로그인 진입점을 되살린다', () => {
+    vi.useFakeTimers();
+    try {
+      setAuthStatus('idle');
+      renderWithProviders(<HomeNavAuthSlot />);
+      expect(screen.getByRole('status', { name: '로그인 상태 확인 중' })).toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(30_000));
+
+      expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// BookingForm·AdminRoleGuard·탐색 찜 필터도 같은 훅을 쓴다 — 상한 동작은 여기서 한 번만 고정한다.
+describe('useBoundedAuthStatus — 확인 대기 상한', () => {
+  it('상한 전에는 idle 을 유지하고, 넘기면 미인증으로 연다', () => {
+    vi.useFakeTimers();
+    try {
+      setAuthStatus('idle');
+      const { result } = renderHook(() => useBoundedAuthStatus());
+
+      act(() => vi.advanceTimersByTime(29_000));
+      expect(result.current).toBe('idle');
+
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(result.current).toBe('unauthenticated');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('상한을 넘긴 뒤라도 확인이 늦게 성공하면 즉시 정정된다', () => {
+    vi.useFakeTimers();
+    try {
+      setAuthStatus('idle');
+      const { result } = renderHook(() => useBoundedAuthStatus());
+      act(() => vi.advanceTimersByTime(30_000));
+      expect(result.current).toBe('unauthenticated');
+
+      setAuthStatus('authenticated');
+      expect(result.current).toBe('authenticated');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('AdminRoleGuard — 세션 확인 중에는 권한을 판정하지 않는다', () => {
+  // useMeQuery 는 status 확정 전까지 enabled:false 라 isLoading 이 false 로 내려온다.
+  // 그 값만 믿으면 로그인한 관리자가 콘솔을 열 때마다 권한 거부 문구를 먼저 본다.
+  it('idle 이면 권한 거부 문구 대신 확인 중을 렌더한다', () => {
+    setAuthStatus('idle');
+    renderWithProviders(
+      <AdminRoleGuard>
+        <p>관리자 콘텐츠</p>
+      </AdminRoleGuard>,
+    );
+
+    expect(screen.queryByText('총동연(관리자) 권한이 필요합니다.')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '권한 확인 중' })).toBeInTheDocument();
+  });
+
+  it('미인증이 확정되면 권한 거부 문구를 렌더한다', () => {
+    setAuthStatus('unauthenticated');
+    renderWithProviders(
+      <AdminRoleGuard>
+        <p>관리자 콘텐츠</p>
+      </AdminRoleGuard>,
+    );
+
+    expect(screen.getByText('총동연(관리자) 권한이 필요합니다.')).toBeInTheDocument();
+  });
+});
+
+describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 없다', () => {
+  // 찜 목록은 인증 확정 후에만 조회된다. 확인 중에는 찜한 동아리도 빈 하트로 보이므로,
+  // 그대로 누르면 해제가 아니라 추가가 나가 409 로 조용히 실패한다.
+  it('idle 이면 하트가 비활성이고 요청도 나가지 않는다', async () => {
+    setAuthStatus('idle');
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+
+    const heart = screen.getByRole('button', { name: '찜 추가' });
+    expect(heart).toBeDisabled();
+    await userEvent.click(heart);
+
+    expect(requestedPaths).toHaveLength(0);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('확인이 끝나면 하트가 활성화된다', () => {
+    setAuthStatus('idle');
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    expect(screen.getByRole('button', { name: '찜 추가' })).toBeDisabled();
+
+    setAuthStatus('authenticated');
+    expect(screen.getByRole('button', { name: '찜 추가' })).toBeEnabled();
+  });
+
+  it('확인 후 access 가 만료돼 401 이 오면 로그인으로 보내고 찜 캐시를 남기지 않는다', async () => {
+    setAuthStatus('authenticated');
+    window.history.replaceState(null, '', '/clubs?favorite=true&page=2');
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [] }, message: null }),
+      ),
+      ...expiredSession('/me/favorites/7'),
+    );
+
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+
+    // 복귀 주소에 쿼리스트링까지 실려야 필터·페이지가 걸린 목록으로 되돌아온다.
+    await waitFor(() =>
+      expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fclubs%3Ffavorite%3Dtrue%26page%3D2'),
+    );
+    expect(requestedPaths).toContain('/api/v1/me/favorites/7');
+    // 이전 값이 있으면 그 값으로 되돌린다(하트가 채워진 채 남지 않는다).
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [] });
+  });
+
+  // 찜 목록 조회가 아직 안 끝난 사이 누르면 되돌릴 이전 값이 없다. 낙관적 갱신이 만든 목록을
+  // 그대로 두면 비로그인 화면에 채워진 하트로 남는다 — 비활성 쿼리라 무효화로도 지워지지 않는다.
+  it('찜 목록이 로드되기 전 클릭이 실패하면 낙관적 갱신을 캐시에 남기지 않는다', async () => {
+    setAuthStatus('authenticated');
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () => new Promise(() => {})),
+      ...expiredSession('/me/favorites/7'),
+    );
+
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
+  });
+
+  // 세션 종료가 확정되면 만료 핸들러가 캐시 전체를 비운다(공용 단말 정보 노출 방지). 그 직후
+  // 표면화되는 401 의 낙관적 롤백이 이전 값을 복원하면, 방금 비운 캐시에 이전 사용자의 찜
+  // 목록이 되살아난다 — 미인증이면 비활성 쿼리라 invalidate 로도 지워지지 않는다.
+  it('세션 종료가 확정된 뒤의 롤백은 이전 사용자의 찜 목록을 복원하지 않는다', async () => {
+    setAuthStatus('authenticated');
+    server.use(
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [3] }, message: null }),
+      ),
+      ...expiredSession('/me/favorites/7'),
+    );
+    // SessionExpiryHandler 의 계약을 재현한다 — 종료 확정은 동기 setState 가 먼저, 이어서
+    // 이전 사용자 데이터 클리어. 원 401 은 이 처리가 끝난 뒤에 호출자 onError 로 표면화된다.
+    registerUnauthorizedHandler(() => {
+      useAuthStore.setState({ status: 'unauthenticated', user: null });
+      latestQueryClient.clear();
+    });
+
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    // 기존 찜 목록이 로드된 뒤에 눌러야 되돌릴 이전 값(previousIds)이 생긴다.
+    await waitFor(() =>
+      expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [3] }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
+  });
+
+  it('미인증이 확정되면 요청 없이 즉시 로그인으로 보낸다', async () => {
+    setAuthStatus('unauthenticated');
+    renderWithProviders(<FavoriteToggleButton clubId={7} />);
+    await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2F');
+    expect(requestedPaths).toHaveLength(0);
+  });
+});
+
+describe('useClubApply — 세션 확인 중 지원 클릭은 로그인으로 튕기지 않는다', () => {
+  const recruitment: StudentRecruitmentProjection = {
+    id: 3,
+    title: '모집',
+    startDate: '2026-01-01',
+    endDate: '2099-12-31',
+    displayStatus: 'OPEN',
+    capacity: 20,
+    useInterview: false,
+    targetRole: 'MEMBER',
+    applicationMode: 'SELF',
+    externalFormUrl: null,
+    interviewStartDate: null,
+    interviewEndDate: null,
+    applicantCount: null,
+  };
+
+  it('idle 이면 지원 자격 확인을 거쳐 지원 페이지로 이동한다', async () => {
+    setAuthStatus('idle');
+    server.use(
+      http.get(`${BASE}/recruitments/3/applications/eligibility`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+    );
+
+    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    await act(() => result.current.handleApply());
+
+    expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
+    expect(mockRouterPush).toHaveBeenCalledWith('/apply/3');
+  });
+
+  it('idle 클릭이 401 로 돌아오면 요청을 보낸 뒤 로그인으로 보낸다', async () => {
+    setAuthStatus('idle');
+    server.use(...expiredSession('/recruitments/3/applications/eligibility'));
+
+    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    await act(() => result.current.handleApply());
+
+    expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
+    expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fapply%2F3');
+  });
+
+  it('미인증이 확정되면 자격 확인 없이 즉시 로그인으로 보낸다', async () => {
+    setAuthStatus('unauthenticated');
+    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    await act(() => result.current.handleApply());
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fapply%2F3');
+    expect(requestedPaths).toHaveLength(0);
+  });
+});

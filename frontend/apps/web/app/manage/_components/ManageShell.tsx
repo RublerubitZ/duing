@@ -7,6 +7,7 @@ import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { BrandMark } from '@/components/duing/BrandMark';
@@ -39,7 +40,7 @@ function ManageSidebarContent({
   currentClubId: number | null;
   collapsed: boolean;
   onToggleCollapse?: () => void;
-  onNavigate?: () => void;
+  onNavigate?: (navigated: boolean) => void;
 }) {
   return (
     <>
@@ -106,6 +107,10 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
     setLoggingOut(true);
     try {
       await logout();
+      // 드로어 안에서 로그아웃하면 replace 이동과 시트 언마운트 닫힘이 겹친다 — 회수 back() 이
+      // 이동을 되돌려 콘솔로 튕기지 않게 건너뛴다(실측 재현). 데스크탑 aside 경로는 열린 오버레이가
+      // 없어 이 호출이 무시된다.
+      skipNextOverlayReclaim();
       router.replace('/');
     } catch {
       addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {
@@ -252,6 +257,11 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             className="contents"
             onClick={(event) => {
               if (event.target instanceof HTMLElement && event.target.closest('a')) {
+                // 링크 이동과 겹치는 닫힘 — 뒤로가기 흡수 엔트리 회수를 건너뛰어 이동이 삼켜지지 않게 한다.
+                // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
+                if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                  skipNextOverlayReclaim();
+                }
                 setDrawerOpen(false);
               }
             }}
@@ -260,7 +270,12 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
               managedClubs={managedClubs}
               currentClubId={currentClubId}
               collapsed={false}
-              onNavigate={() => setDrawerOpen(false)}
+              onNavigate={(navigated) => {
+                // 클럽 전환(router.push)과 겹치는 닫힘만 회수를 건너뛴다 — 현재 동아리를 다시 고른
+                // 닫힘은 이동이 없으므로 평소처럼 엔트리를 회수해야 히스토리가 깨끗하다.
+                if (navigated) skipNextOverlayReclaim();
+                setDrawerOpen(false);
+              }}
             />
           </div>
         </SheetContent>

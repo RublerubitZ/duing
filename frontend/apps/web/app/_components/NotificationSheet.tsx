@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import {
@@ -58,8 +59,10 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
 
   const handleItemClick = (notification: Notification) => {
     readMutation.mutate({ source: notification.source, id: notification.id });
-    onOpenChange(false);
     const destination = toLinkRoute(notification.linkUrl);
+    // 시트 닫기와 겹치는 이동 — 뒤로가기 흡수 엔트리 회수가 router.push 를 되돌려 삼키지 않게 한다.
+    if (destination) skipNextOverlayReclaim();
+    onOpenChange(false);
     if (destination) router.push(destination);
   };
 
@@ -131,7 +134,14 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
         <div className="shrink-0 border-t border-line px-5 py-3">
           <Link
             href="/notifications"
-            onClick={() => onOpenChange(false)}
+            onClick={(event) => {
+              // 이동과 겹치는 닫힘 — 회수 back() 이 이동을 되돌리지 않게 건너뛴다.
+              // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
+              if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                skipNextOverlayReclaim();
+              }
+              onOpenChange(false);
+            }}
             className="block rounded-lg py-2 text-center text-sm font-medium text-ink hover:bg-graysoft"
           >
             전체 알림 보기

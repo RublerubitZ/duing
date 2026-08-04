@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
+import { ApiError } from '@duing/api';
 import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
+import { useBoundedAuthStatus } from '@/app/_lib/useBoundedAuthStatus';
 import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
@@ -103,10 +104,16 @@ export function ClubExplorePage() {
     [params, router],
   );
 
-  const authStatus = useAuthStore((state) => state.status);
-  /** 찜 필터 + 비인증(idle 포함) — 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
+  // 확인이 끝나지 않는 장애에서 찜 필터 화면이 영영 스켈레톤에 갇히지 않도록 상한을 둔 status 를 쓴다
+  // (그 화면의 로그인 유도가 유일한 복구 수단이다).
+  const authStatus = useBoundedAuthStatus();
+  /** 찜 필터 + 비인증(idle 포함) — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
       플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
+  /** 찜 목록은 인증 확정 후에만 조회된다 — 확인 중에는 모든 카드가 "찜 안 함" 으로 보여, 누르면
+      해제 대신 추가가 나가고 이미 찜한 동아리는 409 로 조용히 실패한다. 방향을 모르는 동안은
+      하트를 비활성으로 두어 잘못된 방향으로 나가지 않게 한다. */
+  const isAuthPending = authStatus === 'idle';
   const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
@@ -163,12 +170,26 @@ export function ClubExplorePage() {
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = (clubId: number) => {
-    if (authStatus !== 'authenticated') {
-      const next = encodeURIComponent('/clubs');
-      router.push(toRoute(`/login?next=${next}`));
+    // 현재 탐색 상태(필터·페이지·검색어)가 쿼리스트링에 있으므로 그대로 next 에 실어 복귀시킨다.
+    const currentUrl = window.location.pathname + window.location.search;
+    const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
+    if (authStatus === 'unauthenticated') {
+      router.push(loginPath);
       return;
     }
-    favoriteToggle.mutate({ clubId, isFavorited: likedIds.has(clubId) });
+    // 세션 확인 중(idle)이면 미인증으로 단정하지 않고 요청한다 — 401 로 돌아왔을 때 로그인으로 보낸다.
+    favoriteToggle.mutate(
+      { clubId, isFavorited: likedIds.has(clubId) },
+      {
+        onError: (toggleError) => {
+          if (toggleError instanceof ApiError && toggleError.status === 401) {
+            router.push(loginPath);
+            return;
+          }
+          console.error('찜 토글 실패:', toggleError);
+        },
+      },
+    );
   };
 
   /** 로그인 후 찜 필터가 켜진 채 돌아오도록 next 에 favorite=true 를 얹는다. */
@@ -178,7 +199,9 @@ export function ClubExplorePage() {
   }, [params]);
 
   const handleFavoriteFilterToggle = () => {
-    if (!params.favorite && authStatus !== 'authenticated') {
+    // 확인 중(idle)에는 로그인으로 보내지 않고 필터만 켠다 — 렌더 쪽이 이미 idle 을 스켈레톤으로
+    // 처리하므로, 확정된 뒤 목록(로그인)이나 로그인 안내(미인증)로 자연스럽게 이어진다.
+    if (!params.favorite && authStatus === 'unauthenticated') {
       router.push(favoriteLoginHref);
       return;
     }
@@ -556,7 +579,8 @@ export function ClubExplorePage() {
                         club={club}
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
-                          favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                          isAuthPending ||
+                          (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                         }
                         onLikeToggle={handleToggleLike}
                       />
@@ -700,7 +724,8 @@ export function ClubExplorePage() {
                       recommended={index === 0 && params.page === 1}
                       liked={likedIds.has(club.id)}
                       isLikeBusy={
-                        favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id
+                        isAuthPending ||
+                        (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
                       }
                       onLikeToggle={handleToggleLike}
                     />

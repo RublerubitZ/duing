@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ADMIN_SECTIONS } from '../_lib/adminSections';
 import { AdminNavContent, resolveActiveSectionHref } from './AdminNavContent';
@@ -63,6 +64,11 @@ export function AdminMobileBar() {
           <div
             onClick={(event) => {
               if (event.target instanceof HTMLElement && event.target.closest('a')) {
+                // 링크 이동과 겹치는 닫힘 — 뒤로가기 흡수 엔트리 회수를 건너뛰어 이동이 삼켜지지 않게 한다.
+                // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
+                if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                  skipNextOverlayReclaim();
+                }
                 setDrawerOpen(false);
               }
             }}

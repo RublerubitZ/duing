@@ -593,6 +593,20 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
   });
 
+  // idle 은 "미인증" 이 아니라 "세션 확인 중" 이다. 하드 로드 직후 access 쿠키 만료로 세션 복원에
+  // 수 초가 걸리는데, 그때 로그인 안내를 띄우면 로그인한 운영진이 예약을 못 하는 것으로 읽는다.
+  it('시나리오 10-1: 세션 확인 중에는 로그인 안내 대신 확인 중 표시가 나온다', async () => {
+    useAuthStore.setState({ status: 'idle', user: null });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+
+    expect(await screen.findByRole('status', { name: '로그인 확인 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '로그인하기' })).not.toBeInTheDocument();
+  });
+
   it('시나리오 11: 로그인 운영진(동아리 1개)에 진행 중 신청이 있으면 전체 보기로 연 홈에서 관리 목록 칩이 뜬다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     server.use(http.get('*/clubs/7/facility-bookings', () => ok([PENDING_BOOKING])));

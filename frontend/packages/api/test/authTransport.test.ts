@@ -45,6 +45,9 @@ const memoryStorage: Storage = {
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
+  // 등록 → null 순서 — 소비되지 않은 보류 통지가 다음 테스트의 등록 시점에 흘러들면
+  // 아무도 발생시키지 않은 세션 종료가 재생된다(보류는 등록되는 순간 소비된다).
+  registerUnauthorizedHandler(() => {});
   registerUnauthorizedHandler(null);
 });
 afterAll(() => server.close());
