@@ -3,7 +3,7 @@
 import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
 
 // Spec P0-4 — INTERVIEW_PENDING 으로의 전이는 "면접 대상으로 선정" 액션으로 분리.
-// 그 외 UNDER_REVIEW / ACCEPTED / REJECTED 전이는 기존 onBulkAction 콜백 그대로.
+// 그 외 ON_HOLD / ACCEPTED / REJECTED 전이는 기존 onBulkAction 콜백 그대로.
 type GenericBulkTarget = Exclude<
   BulkUpdateApplicationStatusPayload['status'],
   'INTERVIEW_PENDING'
@@ -37,13 +37,6 @@ export function BulkActionBar({
         </div>
         {/* 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 기존 한 줄 flex */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-          <button
-            type="button"
-            onClick={() => onBulkAction('UNDER_REVIEW')}
-            className="rounded-md border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
-          >
-            서류 검토 중
-          </button>
           {useInterview && (
             <button
               type="button"
@@ -55,11 +48,19 @@ export function BulkActionBar({
           )}
           <button
             type="button"
+            onClick={() => onBulkAction('ON_HOLD')}
+            className="rounded-md border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
+          >
+            보류
+          </button>
+          <button
+            type="button"
             onClick={() => onBulkAction('REJECTED')}
             className="rounded-md border border-rose-200 px-3 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 sm:py-1.5 sm:text-xs"
           >
             일괄 불합격
           </button>
+          {/* 일괄 합격은 면접 모집에서도 유지 — INTERVIEW_PENDING 선택분 처리 (스펙 §5-2) */}
           <button
             type="button"
             onClick={() => onBulkAction('ACCEPTED')}

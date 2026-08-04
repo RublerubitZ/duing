@@ -14,7 +14,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 //
 // 생성 모드 (roundId === null):
 //   - title(필수), availabilityDeadline(필수), location(선택) 입력
-//   - underReviewSelectedCount > 0 이면 전환 경고 표시 (§10.3)
+//   - undecidedSelectedCount > 0 이면 전환 경고 표시 (§10.3)
 //   - useCreateInterviewRoundMutation → setRoundId → Step3
 //
 // 이어하기 모드 (roundId !== null):
@@ -25,8 +25,8 @@ type Props = {
   recruitmentId: number;
   roundId: number | null;
   selectedApplicationIds: number[];
-  /** Step1 에서 선택된 UNDER_REVIEW 상태 후보 수 (생성 모드에서 전환 경고 표시용) */
-  underReviewSelectedCount: number;
+  /** Step1 에서 선택된 미결정(SUBMITTED·ON_HOLD) 후보 수 (생성 모드에서 전환 경고 표시용) */
+  undecidedSelectedCount: number;
   onRoundCreated: (roundId: number) => void;
   onNext: () => void;
 };
@@ -35,7 +35,7 @@ export function Step2RoundForm({
   recruitmentId,
   roundId,
   selectedApplicationIds,
-  underReviewSelectedCount,
+  undecidedSelectedCount,
   onRoundCreated,
   onNext,
 }: Props) {
@@ -123,10 +123,9 @@ export function Step2RoundForm({
         </div>
       )}
 
-      {!isResumeMode && underReviewSelectedCount > 0 && (
+      {!isResumeMode && undecidedSelectedCount > 0 && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          서류 검토 중 지원자 {underReviewSelectedCount}명은 생성 즉시 면접 대상(INTERVIEW_PENDING)으로
-          전환됩니다.
+          미결정 지원자 {undecidedSelectedCount}명이 면접 대상으로 전환됩니다.
         </div>
       )}
 

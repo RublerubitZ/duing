@@ -17,7 +17,7 @@ const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 function summaryHandler(
   recruitmentId: number,
-  overrides: Partial<{ total: number; underReview: number; interviewPending: number; accepted: number }> = {},
+  overrides: Partial<{ total: number; submitted: number; onHold: number; interviewPending: number; accepted: number }> = {},
 ) {
   return http.get(`*/leader/recruitments/${recruitmentId}/stats/summary`, () =>
     HttpResponse.json({
@@ -25,8 +25,8 @@ function summaryHandler(
       message: null,
       data: {
         total: overrides.total ?? 0,
-        submitted: overrides.total ?? 0,
-        underReview: overrides.underReview ?? 0,
+        submitted: overrides.submitted ?? 0,
+        onHold: overrides.onHold ?? 0,
         interviewPending: overrides.interviewPending ?? 0,
         accepted: overrides.accepted ?? 0,
         rejected: 0,
@@ -103,7 +103,7 @@ describe('RecruitmentsPage', () => {
           applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER',
         },
       ]),
-      summaryHandler(10, { total: 34, underReview: 12, interviewPending: 8, accepted: 2 }),
+      summaryHandler(10, { total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
     );
     renderPage();
 

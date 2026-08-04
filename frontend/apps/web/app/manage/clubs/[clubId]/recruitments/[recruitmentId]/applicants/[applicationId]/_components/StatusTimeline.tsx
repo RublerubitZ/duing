@@ -14,27 +14,30 @@ export function StatusTimeline({ history, submittedAt }: Props) {
     <section className="rounded border border-neutral-200 bg-white p-4">
       <h2 className="mb-3 text-base font-semibold text-slate-900">상태 변경 이력</h2>
       <ol className="flex flex-col gap-3">
-        {history.map((item) => (
-          <li key={`${item.changedAt}-${item.changedById}`} className="flex items-start gap-3">
-            <span
-              className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-blue-500"
-              aria-hidden
-            />
-            <div className="flex-1">
-              <p className="text-sm text-slate-900">
-                <strong>{APPLICATION_STATUS_LABEL[item.newStatus]}</strong>
-                <span className="text-neutral-500">
-                  {' '}
-                  ← {APPLICATION_STATUS_LABEL[item.previousStatus]}
-                </span>
-              </p>
-              <p className="text-xs text-neutral-500">
-                {item.changedByName} ·{' '}
-                {formatDateTimeKst(item.changedAt)}
-              </p>
-            </div>
-          </li>
-        ))}
+        {history
+          // V99 치환 잔재(previousStatus === newStatus)는 숨긴다 — DB 는 감사 목적으로 보존
+          .filter((item) => item.previousStatus !== item.newStatus)
+          .map((item) => (
+            <li key={`${item.changedAt}-${item.changedById}`} className="flex items-start gap-3">
+              <span
+                className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-blue-500"
+                aria-hidden
+              />
+              <div className="flex-1">
+                <p className="text-sm text-slate-900">
+                  <strong>{APPLICATION_STATUS_LABEL[item.newStatus]}</strong>
+                  <span className="text-neutral-500">
+                    {' '}
+                    ← {APPLICATION_STATUS_LABEL[item.previousStatus]}
+                  </span>
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {item.changedByName} ·{' '}
+                  {formatDateTimeKst(item.changedAt)}
+                </p>
+              </div>
+            </li>
+          ))}
 
         {/* SUBMITTED 시작점 — history 유무와 관계없이 항상 표시 */}
         <li className="flex items-start gap-3">

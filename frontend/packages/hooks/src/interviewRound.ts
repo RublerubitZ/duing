@@ -16,16 +16,16 @@ import { interviewRoundKeys } from './interviewRoundQueryKeys';
 
 /**
  * 면접 라운드 후보 목록 조회 (BE#2)
- * includeUnderReview 가 쿼리키에 포함되어 토글 시 별도 캐시 엔트리로 관리된다.
+ * includeUndecided 가 쿼리키에 포함되어 토글 시 별도 캐시 엔트리로 관리된다.
  */
 export function useInterviewRoundCandidatesQuery(
   recruitmentId: number,
-  includeUnderReview: boolean,
+  includeUndecided: boolean,
 ) {
   const client = useApiClient();
   return useQuery({
-    queryKey: [...interviewRoundKeys.candidates(recruitmentId), includeUnderReview] as const,
-    queryFn: () => client.interviewRounds.candidates(recruitmentId, includeUnderReview),
+    queryKey: [...interviewRoundKeys.candidates(recruitmentId), includeUndecided] as const,
+    queryFn: () => client.interviewRounds.candidates(recruitmentId, includeUndecided),
   });
 }
 

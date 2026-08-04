@@ -22,16 +22,15 @@ type FunnelStage = {
   color: string;
 };
 
-const STAGE_COLORS: [string, string, string, string] = ['#475569', '#0f766e', '#0369a1', '#16a34a'];
+const STAGE_COLORS: [string, string, string] = ['#475569', '#0369a1', '#16a34a'];
 
 export function FunnelChart({ funnelData }: FunnelChartProps) {
   const allStages: FunnelStage[] = [
     { name: '제출', value: funnelData.submitted, color: STAGE_COLORS[0] },
-    { name: '서류 통과', value: funnelData.documentPassed, color: STAGE_COLORS[1] },
     ...(funnelData.interviewEntered !== null
-      ? [{ name: '면접 진입', value: funnelData.interviewEntered, color: STAGE_COLORS[2] }]
+      ? [{ name: '면접 진입', value: funnelData.interviewEntered, color: STAGE_COLORS[1] }]
       : []),
-    { name: '합격', value: funnelData.accepted, color: STAGE_COLORS[3] },
+    { name: '합격', value: funnelData.accepted, color: STAGE_COLORS[2] },
   ];
 
   const maxValue = Math.max(...allStages.map((stage) => stage.value), 1);
@@ -39,7 +38,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
   return (
     <div className="space-y-2">
       {funnelData.interviewEntered === null && (
-        <p className="text-xs text-slate-400">면접 없는 모집 — 3단계 표시</p>
+        <p className="text-xs text-slate-400">면접 없는 모집 — 2단계 표시</p>
       )}
       <ResponsiveContainer width="100%" height={200}>
         <BarChart

@@ -40,7 +40,8 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview }: Props) 
         >
           <option value="">전체</option>
           <option value="SUBMITTED">{APPLICATION_STATUS_LABEL.SUBMITTED}</option>
-          <option value="UNDER_REVIEW">{APPLICATION_STATUS_LABEL.UNDER_REVIEW}</option>
+          {/* 보류는 운영진 내부 관리 상태 — 면접 사용 여부와 무관하게 항상 노출 (스펙 §5-1) */}
+          <option value="ON_HOLD">{APPLICATION_STATUS_LABEL.ON_HOLD}</option>
           {useInterview && (
             <option value="INTERVIEW_PENDING">
               {APPLICATION_STATUS_LABEL.INTERVIEW_PENDING}

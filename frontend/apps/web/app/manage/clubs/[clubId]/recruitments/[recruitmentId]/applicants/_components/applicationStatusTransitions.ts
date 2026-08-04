@@ -5,19 +5,23 @@ type NextStatus = Exclude<ApplicationStatus, 'SUBMITTED'>;
 
 /**
  * 각 상태에서 허용된 다음 상태 배열.
- * 백엔드 도메인 머신과 동일한 규칙으로 정의한다.
+ * 백엔드 Application.isAllowedTransition 과 완전 동형으로 정의한다.
  *
  * useInterview: 해당 모집에 면접 단계가 있는지 여부.
- *   - true → UNDER_REVIEW 에서 INTERVIEW_PENDING 으로만 전이 가능
- *   - false → UNDER_REVIEW 에서 바로 ACCEPTED / REJECTED 가능
+ *   - true → SUBMITTED / ON_HOLD 에서 INTERVIEW_PENDING 으로만 합격 경로가 열린다
+ *   - false → SUBMITTED / ON_HOLD 에서 바로 ACCEPTED 가능 (면접 단계 없음)
+ *
+ * ON_HOLD 는 운영진 내부 관리 상태로, 지원자에게는 SUBMITTED 와 동일하게 노출된다.
  */
 export function getStatusTransitions(
   currentStatus: ApplicationStatus,
   useInterview: boolean,
 ): NextStatus[] {
   const TRANSITIONS: Record<ApplicationStatus, NextStatus[]> = {
-    SUBMITTED: ['UNDER_REVIEW'],
-    UNDER_REVIEW: useInterview
+    SUBMITTED: useInterview
+      ? ['INTERVIEW_PENDING', 'ON_HOLD', 'REJECTED']
+      : ['ACCEPTED', 'ON_HOLD', 'REJECTED'],
+    ON_HOLD: useInterview
       ? ['INTERVIEW_PENDING', 'REJECTED']
       : ['ACCEPTED', 'REJECTED'],
     INTERVIEW_PENDING: ['ACCEPTED', 'REJECTED'],

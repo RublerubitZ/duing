@@ -39,7 +39,8 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
 function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | null): AppStatus {
   switch (status) {
     case 'SUBMITTED':         return 'applied';
-    case 'UNDER_REVIEW':      return 'doc-review';
+    // 보류는 지원자에게 심사 중과 동일하다 — 별도 시각 구분을 두지 않는다 (스펙 §1-1).
+    case 'ON_HOLD':           return 'applied';
     case 'INTERVIEW_PENDING': return interview ? 'interview-scheduled' : 'interview-pending';
     case 'ACCEPTED':          return 'passed';
     case 'REJECTED':          return 'failed';
@@ -48,19 +49,18 @@ function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | n
 
 function deriveSteps(status: ApplicationStatus): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
-  const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue, StepStateValue]> = {
-    SUBMITTED:         ['done', 'pending', 'pending', 'pending'],
-    UNDER_REVIEW:      ['done', 'current', 'pending', 'pending'],
-    INTERVIEW_PENDING: ['done', 'done',    'current', 'pending'],
-    ACCEPTED:          ['done', 'done',    'done',    'done'   ],
-    REJECTED:          ['done', 'done',    'done',    'done'   ],
+  const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue]> = {
+    SUBMITTED:         ['current', 'pending', 'pending'],
+    ON_HOLD:           ['current', 'pending', 'pending'], // 지원자에게 심사 중과 동일
+    INTERVIEW_PENDING: ['done',    'current', 'pending'],
+    ACCEPTED:          ['done',    'done',    'done'   ],
+    REJECTED:          ['done',    'done',    'done'   ],
   };
-  const [docReceived, docReview, interview, finalResult] = stateMap[status];
+  const [screening, interview, finalResult] = stateMap[status];
   return [
-    { label: '서류접수',    date: '-', state: docReceived  },
-    { label: '서류심사',    date: '-', state: docReview    },
-    { label: '면접/인터뷰', date: '-', state: interview    },
-    { label: '최종발표',    date: '-', state: finalResult  },
+    { label: '서류접수·심사', date: '-', state: screening   },
+    { label: '면접/인터뷰',   date: '-', state: interview   },
+    { label: '최종발표',      date: '-', state: finalResult },
   ];
 }
 

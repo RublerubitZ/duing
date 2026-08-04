@@ -100,9 +100,9 @@ type CandidateQueueSectionProps = {
   recruitmentId: number;
 };
 
-/** 대기열 섹션 — includeUnderReview=false (§10.3 기본값). 상시 노출. */
+/** 대기열 섹션 — includeUndecided=false (§10.3 기본값). 상시 노출. */
 function CandidateQueueSection({ clubId, recruitmentId }: CandidateQueueSectionProps) {
-  // §10.3: 대기열 진입 기본값 false — 심사 중 지원자 제외
+  // §10.3: 대기열 진입 기본값 false — 미결정 지원자 제외
   const candidatesQuery = useInterviewRoundCandidatesQuery(recruitmentId, false);
 
   if (candidatesQuery.isLoading) {

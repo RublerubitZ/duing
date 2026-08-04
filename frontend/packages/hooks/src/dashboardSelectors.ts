@@ -38,7 +38,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 검토 대기 지원자
     if (stats) {
-      const awaiting = stats.submitted + stats.underReview;
+      const awaiting = stats.submitted + stats.onHold;
       if (awaiting > 0) {
         items.push({ type: 'APPLICANTS_AWAITING_REVIEW', ...base, count: awaiting });
       }
@@ -102,13 +102,13 @@ export function sortActionItems(items: ActionItem[]): ActionItem[] {
 
 export function aggregateApplicantTotals(statsList: Array<StatsSummary | undefined>): ApplicantStatusTotals {
   const totals: ApplicantStatusTotals = {
-    total: 0, submitted: 0, underReview: 0, interviewPending: 0, accepted: 0, rejected: 0, capacity: 0,
+    total: 0, submitted: 0, onHold: 0, interviewPending: 0, accepted: 0, rejected: 0, capacity: 0,
   };
   for (const statsEntry of statsList) {
     if (!statsEntry) continue;
     totals.total += statsEntry.total;
     totals.submitted += statsEntry.submitted;
-    totals.underReview += statsEntry.underReview;
+    totals.onHold += statsEntry.onHold;
     totals.interviewPending += statsEntry.interviewPending;
     totals.accepted += statsEntry.accepted;
     totals.rejected += statsEntry.rejected;

@@ -36,7 +36,6 @@ export type AppRight = {
 };
 
 export type AppStatus =
-  | 'doc-review'
   | 'interview-scheduled'
   | 'interview-pending'
   | 'passed'
@@ -80,7 +79,6 @@ export type Counts = Record<string, number>;
    STATUS_META
    ============================================================ */
 export const STATUS_META: Record<string, StatusMetaEntry> = {
-  'doc-review':          { label: '서류심사 중', pill: 'warm',  textColor: '#8E6620', bg: '#FBEFD7' },
   'interview-scheduled': { label: '면접 예정',   pill: 'coral', textColor: '#9A3F23', bg: '#FCE2D9' },
   'interview-pending':   { label: '면접/인터뷰', pill: 'sky',   textColor: '#2F557A', bg: '#DDE8F1' },
   'passed':              { label: '최종 합격',   pill: 'sage',  textColor: '#1F4A36', bg: '#D5E5D7' },
@@ -92,7 +90,6 @@ export const STATUS_META: Record<string, StatusMetaEntry> = {
 
 /* status → filter key 매핑 */
 export const STATUS_TO_FILTER: Record<string, FilterKey | undefined> = {
-  'doc-review':          'doc',
   'interview-scheduled': 'intv',
   'interview-pending':   'intv',
   'passed':              'pass',

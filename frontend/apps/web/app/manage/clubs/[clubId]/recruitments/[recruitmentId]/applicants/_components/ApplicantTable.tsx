@@ -10,7 +10,7 @@ import { toRoute } from '../../../../../../../_lib/route';
 
 const STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
   SUBMITTED: 'bg-sky-100 text-sky-700',
-  UNDER_REVIEW: 'bg-amber-100 text-amber-700',
+  ON_HOLD: 'bg-amber-100 text-amber-700',
   INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
   ACCEPTED: 'bg-emerald-100 text-emerald-700',
   REJECTED: 'bg-rose-100 text-rose-700',
