@@ -3,7 +3,16 @@
  * 같은 이벤트가 화면마다 다른 낱말로 보이면 감사 기록을 대조할 수 없다.
  */
 
-import type { AdminFeeMatchType, FeeAnomalySeverity, FeeAuditCommentStatus } from '@duing/types';
+import type {
+  AdminFeeMatchType,
+  FeeAnomalySeverity,
+  FeeAuditCommentStatus,
+  FeeStatus,
+  FeeTargetType,
+  PaymentStatus,
+} from '@duing/types';
+
+import { feeStatusLabel } from '@/app/_lib/feeLabels';
 
 const AMOUNT_FORMATTER = new Intl.NumberFormat('ko-KR');
 
@@ -68,3 +77,40 @@ export const FEE_MATCH_TYPE_LABEL: Record<AdminFeeMatchType, string> = {
   MANUAL: '수동',
   DIRECT: '수기',
 };
+
+/** 정책 대상. 운영진 화면은 '전체 회원'/'특정 회원'으로 풀어 쓰지만 감사 표는 열 폭이 좁아 한 낱말로 줄인다. */
+export const FEE_TARGET_TYPE_LABEL: Record<FeeTargetType, string> = {
+  ALL_MEMBERS: '전체',
+  SELECTED_MEMBERS: '선택',
+};
+
+/** 납부 상태. VOIDED 는 "삭제"가 아니라 기록을 남긴 채 무효화한 것이라 '정정됨'으로 적는다. */
+export const FEE_PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  ACTIVE: '유효',
+  VOIDED: '정정됨',
+};
+
+/** 청구 상태 배지 색. 심각도 배지와 같은 이유로 pill-* 를 쓴다(11.5px 글자 대비 확보). */
+const FEE_BILL_STATUS_BADGE_CLASS: Record<FeeStatus, string> = {
+  PENDING: 'pill-warm',
+  PAID: 'bg-sage-mist text-ink',
+  PARTIAL_PAID: 'pill-sky',
+  OVERDUE: 'pill-coral',
+  CANCELLED: 'bg-graysoft text-charcoal-2',
+};
+
+/**
+ * 청구 한 행의 상태 배지. `overdue` 는 마감일 파생이라 연체 전이 배치가 늦어 status 가 PENDING·PARTIAL_PAID 인
+ * 청구도 true 로 온다 — 그때는 저장된 status 보다 연체를 앞세운다(스펙 §7.5).
+ *
+ * <p>완납·취소에는 적용하지 않는다. 서버는 그 둘에 overdue 를 세우지 않지만, 세워 오더라도
+ * "납부완료인데 연체" 같은 모순 배지를 만드는 대신 저장된 상태를 그대로 믿는다.
+ */
+export function feeBillStatusBadge(
+  status: FeeStatus,
+  overdue: boolean,
+): { label: string; className: string } {
+  const effective: FeeStatus =
+    overdue && status !== 'PAID' && status !== 'CANCELLED' ? 'OVERDUE' : status;
+  return { label: feeStatusLabel(effective), className: FEE_BILL_STATUS_BADGE_CLASS[effective] };
+}

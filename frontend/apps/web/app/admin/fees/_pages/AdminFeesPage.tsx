@@ -16,6 +16,7 @@ import { ErrorState } from '../../_components/ErrorState';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 import { FeeClubsTable } from '../_components/FeeClubsTable';
 import { FeeDashboardStrip } from '../_components/FeeDashboardStrip';
+import { FeeFilterChips } from '../_components/FeeFilterChips';
 import { FeePeriodSelect } from '../_components/FeePeriodSelect';
 import {
   DEFAULT_FEE_CLUB_SORT,
@@ -129,7 +130,7 @@ export function AdminFeesPage() {
           </label>
         </div>
 
-        <FilterChips
+        <FeeFilterChips
           ariaLabel="회비 사용 여부 필터"
           options={USAGE_OPTIONS}
           value={query.usage}
@@ -175,39 +176,4 @@ export function AdminFeesPage() {
 function toSort(value: string): AdminFeeClubSort {
   const matched = SORT_OPTIONS.find((option) => option.value === value);
   return matched ? matched.value : DEFAULT_FEE_CLUB_SORT;
-}
-
-function FilterChips<T extends string>({
-  ariaLabel,
-  options,
-  value,
-  onChange,
-}: {
-  ariaLabel: string;
-  options: { label: string; value?: T }[];
-  value?: T;
-  onChange: (next?: T) => void;
-}) {
-  return (
-    <div className="flex shrink-0 flex-wrap gap-1.5" role="group" aria-label={ariaLabel}>
-      {options.map((option) => {
-        const selected = option.value === value;
-        return (
-          <button
-            key={option.label}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option.value)}
-            className={`rounded-full border px-3 py-1 text-[12.5px] font-semibold transition-colors ${
-              selected
-                ? 'border-ink bg-ink text-paper'
-                : 'border-line bg-paper text-charcoal-2 hover:bg-graysoft'
-            }`}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
 }
