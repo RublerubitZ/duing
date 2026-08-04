@@ -2,7 +2,6 @@ package com.duing.domain.joincode.entity;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,10 +18,10 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 /**
- * 외부 폼(EXTERNAL) 모집 합격자 등록용 가입 코드 (V97).
+ * 외부 폼(EXTERNAL) 모집 합격자 등록용 가입 코드 (V97, 귀속 전환 V99).
  *
- * <p>동아리당 활성 코드는 1개이며, 부분 유니크 인덱스
- * {@code (club_id) WHERE revoked_at IS NULL AND deleted_at IS NULL} 가 이를 DB 레벨에서 보장한다.
+ * <p>모집당 활성 코드는 1개이며, 부분 유니크 인덱스
+ * {@code (recruitment_id) WHERE revoked_at IS NULL AND deleted_at IS NULL} 가 이를 DB 레벨에서 보장한다.
  * 폐기(revoked_at)·만료 행도 감사 이력으로 보존하므로 코드 행은 실제로 soft-delete 하지 않는다 —
  * code 전역 unique 와 중복 검사(existsByCode)가 이 전제에 의존한다.
  *
@@ -41,7 +40,7 @@ public class ClubJoinCode extends BaseEntity {
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
 
-    /** 코드가 귀속된 외부 폼(EXTERNAL) 모집. 이 모집이 마감되면 코드는 파생적으로 사용 불가가 된다. */
+    /** 코드가 귀속된 외부 폼(EXTERNAL) 모집. 활성 코드 1개 제약의 단위이며 코드의 소유 주체다. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recruitment_id", nullable = false)
     private Recruitment recruitment;
@@ -62,7 +61,7 @@ public class ClubJoinCode extends BaseEntity {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
-    /** 운영진 수동 폐기 시각. 모집 마감은 여기에 기록하지 않는다(파생 판정). */
+    /** 폐기 시각 — 운영진 수동 폐기와 귀속 모집 삭제(스펙 v2 4.2) 두 경로가 기록한다. */
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
@@ -107,14 +106,14 @@ public class ClubJoinCode extends BaseEntity {
     }
 
     /**
-     * 신규 가입 요청을 받을 수 있는 코드인지 판정한다.
+     * 신규 가입 요청을 받을 수 있는 코드인지 판정한다 — 미폐기·미만료·미소진.
      *
-     * <p>모집 마감(CLOSED)은 파생적으로 사용 불가 — 마감 경로(수동·자동)마다 폐기 훅을 심지 않는다(스펙 4.1).
-     * recruitment 는 LAZY 이므로 트랜잭션 안에서 호출해야 한다.
+     * <p>귀속 모집의 상태는 보지 않는다(스펙 v2 4.2): 합격자 등록은 모집이 마감된 뒤에 이어지는
+     * 절차이므로, 마감을 사용 불가로 읽으면 정상 등록 경로가 끊긴다. 최종 등록 게이트는 운영진 승인이고
+     * 모집이 삭제되는 경우에는 삭제 트랜잭션이 코드를 명시적으로 폐기한다.
      */
     public boolean isUsable(LocalDateTime now) {
-        return !isRevoked() && !isExpired(now) && !isExhausted()
-                && recruitment.getStatus() == RecruitmentStatus.OPEN;
+        return !isRevoked() && !isExpired(now) && !isExhausted();
     }
 
     /** 잠금 하에서 호출한다(findWithLockByCode). 잔여가 없으면 false. */

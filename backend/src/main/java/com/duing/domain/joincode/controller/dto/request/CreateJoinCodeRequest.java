@@ -15,7 +15,7 @@ public record CreateJoinCodeRequest(
         @Min(value = 1, message = "기수는 1 이상이어야 합니다.")
         Integer generation
 ) {
-    public CreateJoinCodeCommand toCommand(Long clubId, Long requesterId) {
-        return new CreateJoinCodeCommand(clubId, requesterId, maxUses, expiresInDays, generation);
+    public CreateJoinCodeCommand toCommand(Long clubId, Long recruitmentId, Long requesterId) {
+        return new CreateJoinCodeCommand(clubId, recruitmentId, requesterId, maxUses, expiresInDays, generation);
     }
 }

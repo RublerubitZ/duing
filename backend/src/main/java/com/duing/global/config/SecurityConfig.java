@@ -105,7 +105,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/clubs/*/facility-bookings/**").authenticated()
                         // 가입 코드·가입 요청 — 운영진 전용 데이터(가입 요청 상세는 전화번호 포함)이므로
                         // GET 도 인증 필수. 아래 clubs GET permitAll 보다 먼저 매칭돼야 가드가 적용된다.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/join-codes/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/recruitments/*/join-codes/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/join-requests/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.

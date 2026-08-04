@@ -9,6 +9,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
@@ -93,6 +95,8 @@ class RecruitmentDisplayStatusKstBoundaryTest {
         return new GeneralRecruitmentService(
                 recruitmentRepository,
                 mock(ApplicationRepository.class),
+                mock(ClubJoinCodeRepository.class),
+                mock(ClubJoinRequestRepository.class),
                 clubRepository,
                 mock(ClubAuthService.class),
                 mock(ApplicationEventPublisher.class),

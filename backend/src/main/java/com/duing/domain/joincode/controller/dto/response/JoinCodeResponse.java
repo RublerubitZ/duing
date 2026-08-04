@@ -5,10 +5,10 @@ import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
 /**
- * 운영 콘솔의 활성 가입 코드 카드 응답.
+ * 모집 관리 화면의 활성 가입 코드 카드 응답.
  *
- * <p>{@code recruitmentOpen} 은 귀속 모집이 마감돼 코드가 파생적으로 사용 불가가 된 상태를
- * 콘솔이 "모집 마감으로 사용 불가"로 표시하기 위한 신호다.
+ * <p>코드는 모집에 귀속되고 모집 상태는 사용 가능 여부를 좌우하지 않으므로(스펙 v2 4.2)
+ * 모집 상태 신호는 내려보내지 않는다 — 화면은 모집 상세가 이미 아는 상태를 그대로 쓴다.
  * {@code expiresAt} 은 seoulClock 벽시계로 기록되므로 KST 기준으로 절대시각 변환한다(TIMEZONE.md).
  */
 public record JoinCodeResponse(
@@ -17,8 +17,7 @@ public record JoinCodeResponse(
         Integer generation,
         int maxUses,
         int usedCount,
-        Instant expiresAt,
-        boolean recruitmentOpen
+        Instant expiresAt
 ) {
     public static JoinCodeResponse from(JoinCodeQuery joinCodeQuery) {
         return new JoinCodeResponse(
@@ -27,8 +26,7 @@ public record JoinCodeResponse(
                 joinCodeQuery.generation(),
                 joinCodeQuery.maxUses(),
                 joinCodeQuery.usedCount(),
-                TimeMapper.seoulWallClockToInstant(joinCodeQuery.expiresAt()),
-                joinCodeQuery.recruitmentOpen()
+                TimeMapper.seoulWallClockToInstant(joinCodeQuery.expiresAt())
         );
     }
 }

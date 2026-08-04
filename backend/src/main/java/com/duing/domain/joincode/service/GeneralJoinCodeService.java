@@ -1,8 +1,5 @@
 package com.duing.domain.joincode.service;
 
-import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.exception.ClubException;
-import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.exception.JoinCodeException;
@@ -11,7 +8,7 @@ import com.duing.domain.joincode.service.dto.command.CreateJoinCodeCommand;
 import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -29,7 +26,6 @@ public class GeneralJoinCodeService implements JoinCodeService {
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 5;
 
     private final ClubJoinCodeRepository clubJoinCodeRepository;
-    private final ClubRepository clubRepository;
     private final RecruitmentRepository recruitmentRepository;
     private final ClubAuthService clubAuthService;
     private final JoinCodeGenerator joinCodeGenerator;
@@ -39,20 +35,20 @@ public class GeneralJoinCodeService implements JoinCodeService {
     @Transactional
     public JoinCodeQuery create(CreateJoinCodeCommand createCommand) {
         clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
-        Club club = clubRepository.findById(createCommand.clubId())
-                .orElseThrow(ClubException.ClubNotFoundException::new);
+        Recruitment recruitment =
+                getOwnedRecruitment(createCommand.clubId(), createCommand.recruitmentId());
 
-        // 외부 폼 모집 한정(스펙 4.1): OPEN + EXTERNAL 모집이 있을 때만 생성, 복수면 최신 1건에 귀속
-        Recruitment openExternalRecruitment = recruitmentRepository
-                .findTopByClubIdAndStatusAndApplicationModeOrderByIdDesc(
-                        createCommand.clubId(), RecruitmentStatus.OPEN, ApplicationMode.EXTERNAL)
-                .orElseThrow(JoinCodeException.ExternalRecruitmentRequiredException::new);
+        // 외부 폼 모집 한정(스펙 v2 4.2). 모집 상태(OPEN/CLOSED)는 보지 않는다 —
+        // 회원 등록의 최종 게이트는 운영진 승인이고, 코드는 만료·인원·폐기로 통제한다.
+        if (recruitment.getApplicationMode() != ApplicationMode.EXTERNAL) {
+            throw new JoinCodeException.ExternalRecruitmentRequiredException();
+        }
 
         LocalDateTime now = LocalDateTime.now(clock);
 
         // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
-        // 신규 INSERT 가 uk_club_join_code_active_per_club 에 걸린다.
-        clubJoinCodeRepository.findByClubIdAndRevokedAtIsNull(createCommand.clubId())
+        // 신규 INSERT 가 uk_club_join_code_active_per_recruitment 에 걸린다.
+        clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(createCommand.recruitmentId())
                 .ifPresent(activeCode -> {
                     activeCode.revoke(now);
                     clubJoinCodeRepository.flush();
@@ -60,7 +56,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
 
         try {
             ClubJoinCode issued = clubJoinCodeRepository.save(ClubJoinCode.issue(
-                    club, openExternalRecruitment, generateUniqueCode(), createCommand.generation(),
+                    recruitment.getClub(), recruitment, generateUniqueCode(), createCommand.generation(),
                     createCommand.maxUses(), now.plusDays(createCommand.expiresInDays())));
             clubJoinCodeRepository.flush();
             return JoinCodeQuery.from(issued);
@@ -71,20 +67,22 @@ public class GeneralJoinCodeService implements JoinCodeService {
     }
 
     @Override
-    public Optional<JoinCodeQuery> findActive(Long clubId, Long requesterId) {
+    public Optional<JoinCodeQuery> findActive(Long clubId, Long recruitmentId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
-        return clubJoinCodeRepository.findByClubIdAndRevokedAtIsNull(clubId)
+        getOwnedRecruitment(clubId, recruitmentId);
+        return clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(recruitmentId)
                 .map(JoinCodeQuery::from);
     }
 
     @Override
     @Transactional
-    public void revoke(Long clubId, Long joinCodeId, Long requesterId) {
+    public void revoke(Long clubId, Long recruitmentId, Long joinCodeId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
+        getOwnedRecruitment(clubId, recruitmentId);
         ClubJoinCode joinCode = clubJoinCodeRepository.findById(joinCodeId)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
-        // 타 동아리 코드는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
-        if (!joinCode.getClub().getId().equals(clubId)) {
+        // 다른 모집(=다른 동아리 포함)의 코드는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
+        if (!joinCode.getRecruitment().getId().equals(recruitmentId)) {
             throw new JoinCodeException.JoinCodeNotFoundException();
         }
         if (joinCode.isRevoked()) {
@@ -92,6 +90,16 @@ public class GeneralJoinCodeService implements JoinCodeService {
             return;
         }
         joinCode.revoke(LocalDateTime.now(clock));
+    }
+
+    /**
+     * 경로의 clubId 와 recruitmentId 소속을 대조한다 — 타 동아리 모집은 존재를 알리지 않고 404 로 막는다
+     * (스펙 v2 4.3). 운영진 권한은 clubId 기준으로 이미 확인됐으므로, 이 대조가 없으면 자기 동아리
+     * 경로에 남의 모집 id 를 끼워 넣는 IDOR 이 열린다.
+     */
+    private Recruitment getOwnedRecruitment(Long clubId, Long recruitmentId) {
+        return recruitmentRepository.findByIdAndClubId(recruitmentId, clubId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
     }
 
     /** 코드 행은 soft-delete 하지 않으므로 폐기·만료 코드까지 포함해 전역 중복을 피한다. */

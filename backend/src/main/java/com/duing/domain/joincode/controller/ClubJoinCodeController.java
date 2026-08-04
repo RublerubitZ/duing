@@ -26,33 +26,37 @@ public class ClubJoinCodeController implements ClubJoinCodeApi {
     @Override
     public ResponseEntity<ApiResponse<JoinCodeResponse>> createJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @Valid @RequestBody CreateJoinCodeRequest createJoinCodeRequest,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         JoinCodeResponse created = JoinCodeResponse.from(joinCodeService.create(
-                createJoinCodeRequest.toCommand(clubId, currentUser.id())));
+                createJoinCodeRequest.toCommand(clubId, recruitmentId, currentUser.id())));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(created));
     }
 
     @Override
     public ResponseEntity<ApiResponse<JoinCodeResponse>> getActiveJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         // 활성 코드가 없으면 data null — FE jsonOkNullable 규약과 정합.
-        JoinCodeResponse activeJoinCode = joinCodeService.findActive(clubId, currentUser.id())
-                .map(JoinCodeResponse::from)
-                .orElse(null);
+        JoinCodeResponse activeJoinCode =
+                joinCodeService.findActive(clubId, recruitmentId, currentUser.id())
+                        .map(JoinCodeResponse::from)
+                        .orElse(null);
         return ResponseEntity.ok(ApiResponse.success(activeJoinCode));
     }
 
     @Override
     public ResponseEntity<Void> revokeJoinCode(
             @PathVariable Long clubId,
+            @PathVariable Long recruitmentId,
             @PathVariable Long joinCodeId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        joinCodeService.revoke(clubId, joinCodeId, currentUser.id());
+        joinCodeService.revoke(clubId, recruitmentId, joinCodeId, currentUser.id());
         return ResponseEntity.noContent().build();
     }
 }

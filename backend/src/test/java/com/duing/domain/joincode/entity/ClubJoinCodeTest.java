@@ -17,10 +17,10 @@ class ClubJoinCodeTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 3, 10, 0);
 
     @Test
-    @DisplayName("만료·폐기·소진·모집 마감 중 하나라도 해당하면 사용할 수 없는 코드다")
-    void unusableWhenExpiredRevokedExhaustedOrRecruitmentClosed() {
+    @DisplayName("만료·폐기·소진 중 하나라도 해당하면 사용할 수 없는 코드다")
+    void unusableWhenExpiredRevokedOrExhausted() {
         assertThat(issue(openRecruitment(), 5, NOW.plusDays(30)).isUsable(NOW))
-                .as("미폐기·미만료·미소진·모집 OPEN 이면 사용 가능").isTrue();
+                .as("미폐기·미만료·미소진이면 사용 가능").isTrue();
 
         assertThat(issue(openRecruitment(), 5, NOW.minusSeconds(1)).isUsable(NOW))
                 .as("만료된 코드").isFalse();
@@ -33,11 +33,17 @@ class ClubJoinCodeTest {
         ClubJoinCode exhausted = issue(openRecruitment(), 1, NOW.plusDays(30));
         exhausted.tryConsume();
         assertThat(exhausted.isUsable(NOW)).as("사용 인원이 소진된 코드").isFalse();
+    }
 
+    @Test
+    @DisplayName("귀속 모집이 마감돼도 코드 자체는 계속 사용할 수 있다")
+    void closedRecruitmentKeepsCodeUsable() {
         Recruitment closedRecruitment = openRecruitment();
         closedRecruitment.close();
+
         assertThat(issue(closedRecruitment, 5, NOW.plusDays(30)).isUsable(NOW))
-                .as("귀속 모집이 마감된 코드").isFalse();
+                .as("합격자 등록은 모집 마감 뒤에 이어지는 절차다 — 마감을 사용 불가로 읽으면 등록 경로가 끊긴다")
+                .isTrue();
     }
 
     @Test

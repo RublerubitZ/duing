@@ -1,8 +1,6 @@
 package com.duing.domain.recruitment.repository;
 
-import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,11 +13,11 @@ import org.springframework.data.repository.query.Param;
 public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>, RecruitmentRepositoryCustom {
 
     /**
-     * 가입 코드가 귀속될 외부 폼 모집을 찾는다 (스펙 4.1 — OPEN + EXTERNAL, 복수면 최신 1건).
-     * @SQLRestriction 이 적용되는 JPQL 파생 쿼리라 soft-delete 된 모집은 자동으로 제외된다.
+     * 모집 스코프 경로(가입 코드 등)의 clubId↔recruitmentId 소속 대조용 조회 — 타 동아리 모집은
+     * 조회되지 않아야 존재 여부 열거를 막을 수 있다(불일치 404).
+     * {@code @SQLRestriction} 이 적용되는 JPQL 파생 쿼리라 soft-delete 된 모집은 자동으로 제외된다.
      */
-    Optional<Recruitment> findTopByClubIdAndStatusAndApplicationModeOrderByIdDesc(
-            Long clubId, RecruitmentStatus status, ApplicationMode applicationMode);
+    Optional<Recruitment> findByIdAndClubId(Long recruitmentId, Long clubId);
 
     /**
      * 제출이 읽는 질문 정의를 고정한다. 질문 변경(FOR UPDATE)과 상호 배타이고,

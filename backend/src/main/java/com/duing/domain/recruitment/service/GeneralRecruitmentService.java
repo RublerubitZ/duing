@@ -6,6 +6,8 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.QuestionChoice;
@@ -50,6 +52,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
+    // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 코드·요청 상태를 함께 판정한다.
+    private final ClubJoinCodeRepository clubJoinCodeRepository;
+    private final ClubJoinRequestRepository clubJoinRequestRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ApplicationEventPublisher eventPublisher;
@@ -311,6 +316,20 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 잘못/중복 생성한 빈 공고만 삭제 대상이다.
         if (applicationRepository.countByRecruitmentId(recruitmentId) > 0) {
             throw new RecruitmentException.ApplicationsExistException();
+        }
+
+        // 가입 코드는 모집의 부속물이므로 삭제 트랜잭션에서 함께 폐기한다(스펙 v2 4.2) — 고아 코드로
+        // 학생이 계속 유입되는 것을 막는다. revoked_at 은 코드 도메인 규약대로 seoulClock 벽시계로 쓴다.
+        // 폐기 UPDATE 가 코드 행을 잠그는 덕에(신청 생성은 같은 행을 FOR UPDATE 로 읽는다) 아래 대기 요청
+        // 확인이 동시 신청을 놓치지 않는다 — 순서를 뒤집으면 확인 직후 접수된 요청이 삭제된 모집에 매달린다.
+        clubJoinCodeRepository.revokeActiveByRecruitmentId(recruitmentId, LocalDateTime.now(clock));
+
+        // 대기 중인 가입 요청은 학생이 코드 자리를 차감한 채 응답을 기다리는 상태다 — 삭제로 응답 경로를
+        // 없애지 않는다(먼저 승인·거절). 예외로 트랜잭션이 롤백되므로 위 폐기도 함께 되돌아간다.
+        // 처리 완료(APPROVED/REJECTED) 이력만 남았다면 삭제를 허용한다 — 코드·요청 행은 물리 삭제하지
+        // 않으므로 감사 이력은 그대로 보존되고, 요청 콘솔은 동아리 단위 조회라 열람도 유지된다.
+        if (clubJoinRequestRepository.existsPendingByRecruitmentId(recruitmentId)) {
+            throw new RecruitmentException.PendingJoinRequestsExistException();
         }
 
         // @SQLDelete 로 soft-delete 된다. RecruitmentForm 은 cascade 로 함께 정리된다.

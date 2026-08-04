@@ -10,6 +10,7 @@ import java.util.Set;
  */
 public record CreateJoinCodeCommand(
         Long clubId,
+        Long recruitmentId,
         Long requesterId,
         Integer maxUses,
         Integer expiresInDays,

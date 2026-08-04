@@ -13,6 +13,15 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
     /** 요청 생성 전 중복 차단. 동시 유입은 uk_club_join_request_pending 이 백스톱이다. */
     boolean existsByClubIdAndUserIdAndStatus(Long clubId, Long userId, JoinRequestStatus status);
 
+    /**
+     * 모집 삭제 가드(스펙 v2 4.2) — 그 모집의 코드로 접수돼 아직 처리되지 않은 요청이 있는지 본다.
+     * 요청은 코드를 거쳐 모집에 연결되므로 조인으로 거슬러 올라간다.
+     */
+    @Query("SELECT COUNT(joinRequest) > 0 FROM ClubJoinRequest joinRequest "
+            + "WHERE joinRequest.joinCode.recruitment.id = :recruitmentId "
+            + "AND joinRequest.status = com.duing.domain.joincode.entity.JoinRequestStatus.PENDING")
+    boolean existsPendingByRecruitmentId(@Param("recruitmentId") Long recruitmentId);
+
     /** 운영진 상세 조회 — 타 동아리 요청은 조회되지 않아야 하므로 clubId 를 조건에 포함한다. */
     Optional<ClubJoinRequest> findByIdAndClubId(Long joinRequestId, Long clubId);
 
