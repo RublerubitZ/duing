@@ -10,10 +10,19 @@ import {
   useMyApplicationsQuery,
   useMyApplicationDetailQuery,
 } from '@duing/hooks';
-import type { ApplicationSummary, ApplicationStatus, AssignedInterview, ClubCategory } from '@duing/types';
+import type {
+  ApplicationSummary,
+  ApplicationStatus,
+  AssignedInterview,
+  ClubCategory,
+  RecruitmentStatus,
+} from '@duing/types';
 
 import { ExploreNav } from '@/app/_components/ExploreNav';
-import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
+import {
+  APPLICATION_STATUS_APPLICANT_LABEL,
+  isClosedWithoutResult,
+} from '@/app/_constants/application-status';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
@@ -37,7 +46,13 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
   OTHER:     '기타',
 };
 
-function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | null): AppStatus {
+export function toAppStatus(
+  status: ApplicationStatus,
+  interview: AssignedInterview | null,
+  recruitmentStatus: RecruitmentStatus | undefined,
+): AppStatus {
+  // 모집이 마감됐는데 결과가 없으면 진행 표기(심사 중·면접)는 전부 거짓이다 — 상태 파생 전에 가른다.
+  if (isClosedWithoutResult(status, recruitmentStatus)) return 'closed-unresolved';
   switch (status) {
     case 'SUBMITTED':         return 'applied';
     // 보류는 지원자에게 심사 중과 동일하다 — 별도 시각 구분을 두지 않는다 (스펙 §1-1).
@@ -48,8 +63,19 @@ function toAppStatus(status: ApplicationStatus, interview: AssignedInterview | n
   }
 }
 
-function deriveSteps(status: ApplicationStatus): Step[] {
+function deriveSteps(
+  status: ApplicationStatus,
+  recruitmentStatus: RecruitmentStatus | undefined,
+): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
+  // 결과 없이 종료된 지원은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
+  if (isClosedWithoutResult(status, recruitmentStatus)) {
+    return [
+      { label: '심사',      date: '-', state: 'done'    },
+      { label: '면접',      date: '-', state: 'pending' },
+      { label: '최종 결과', date: '-', state: 'pending' },
+    ];
+  }
   const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue]> = {
     SUBMITTED:         ['current', 'pending', 'pending'],
     ON_HOLD:           ['current', 'pending', 'pending'], // 지원자에게 심사 중과 동일
@@ -67,7 +93,13 @@ function deriveSteps(status: ApplicationStatus): Step[] {
   ];
 }
 
-function deriveRight(status: ApplicationStatus, interview: AssignedInterview | null) {
+function deriveRight(
+  status: ApplicationStatus,
+  interview: AssignedInterview | null,
+  recruitmentStatus: RecruitmentStatus | undefined,
+) {
+  // 마감된 모집의 면접 일정은 이미 지났거나 열리지 않는다 — 다가올 일정처럼 보이면 안 된다.
+  if (isClosedWithoutResult(status, recruitmentStatus)) return null;
   if (status === 'INTERVIEW_PENDING' && interview) {
     const dateStr = formatDateKst(interview.startAt);
     const timeStr = formatTimeKst(interview.startAt);
@@ -107,9 +139,9 @@ function toApp(summary: ApplicationSummary): App {
     department: '-',
     files: [],
     memo: '',
-    steps: deriveSteps(summary.status),
-    status: toAppStatus(summary.status, summary.interview),
-    right: deriveRight(summary.status, summary.interview),
+    steps: deriveSteps(summary.status, summary.recruitmentStatus),
+    status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus),
+    right: deriveRight(summary.status, summary.interview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),
   };
 }

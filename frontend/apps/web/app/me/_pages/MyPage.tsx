@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   useFavoriteListQuery,
@@ -11,6 +11,8 @@ import {
 } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
+
+import { partitionApplications } from '../_lib/partitionApplications';
 
 import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
@@ -41,15 +43,19 @@ export function MyPage() {
 
   /* ── Data ── */
   const meQuery = useMeQuery();
-  const applicationsQuery = useMyApplicationsQuery('ACTIVE');
-  const archivedApplicationsQuery = useMyApplicationsQuery('ARCHIVED');
+  // 진행 중/지난 지원 판정에는 지원 상태와 모집 마감 두 축이 함께 필요하다. 서버 scope 는 지원 상태만
+  // 보므로 한쪽만 좁히면 어느 배열에도 안 담기는 지원이 생긴다 — 전체를 한 번 받아 여기서 나눈다.
+  const applicationsQuery = useMyApplicationsQuery();
   const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const myInquiriesQuery = useMyFederationInquiriesQuery({ page: 0, size: 3 });
 
   const user = meQuery.data;
-  const applications = applicationsQuery.data ?? [];
-  const archivedApplications = archivedApplicationsQuery.data ?? [];
+  // 결과 없이 종료된 지원(마감 + 미결)은 더 이상 진행 중이 아니므로 지난 지원으로 내린다.
+  const { inProgress: applications, archived: archivedApplications } = useMemo(
+    () => partitionApplications(applicationsQuery.data ?? []),
+    [applicationsQuery.data],
+  );
   const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
   const myInquiries = myInquiriesQuery.data?.content ?? [];

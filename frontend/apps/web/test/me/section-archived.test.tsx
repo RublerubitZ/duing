@@ -14,6 +14,7 @@ const make = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary =
   id: 1,
   recruitmentId: 100,
   recruitmentTitle: '봄 신입 모집',
+  recruitmentStatus: 'CLOSED',
   clubId: 10,
   clubName: '두잉 댄스',
   category: 'CREATION',
@@ -38,6 +39,26 @@ describe('SectionArchived', () => {
     expect(screen.getByText(/📝\s*불합격/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /불합격동/ });
     expect(link).toHaveAttribute('href', '/me/applications/7');
+  });
+
+  it('모집이 마감됐지만 결과가 없는 지원도 "결과 미발표" pill 로 렌더된다 — 진행 중에서도 빠지므로 여기서 걸러내면 사라진다', () => {
+    render(
+      <SectionArchived
+        applications={[make({ id: 9, status: 'SUBMITTED', recruitmentStatus: 'CLOSED', clubName: '종료동' })]}
+      />,
+    );
+    expect(screen.getByText(/결과 미발표/)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /종료동/ });
+    expect(link).toHaveAttribute('href', '/me/applications/9');
+  });
+
+  it('면접 대상인 채로 모집이 마감된 지원도 렌더된다', () => {
+    render(
+      <SectionArchived
+        applications={[make({ id: 11, status: 'INTERVIEW_PENDING', recruitmentStatus: 'CLOSED', clubName: '면접중단동' })]}
+      />,
+    );
+    expect(screen.getByText('면접중단동')).toBeInTheDocument();
   });
 
   it('빈 배열이면 안내 문구와 동아리 탐색 링크가 노출된다', () => {

@@ -1,5 +1,7 @@
 /* a-apply-status-parts.jsx → TypeScript 변환: ApplySummaryCard */
 
+import { APPLICATION_CLOSED_WITHOUT_RESULT_LABEL } from '@/app/_constants/application-status';
+
 import { SparkleFull } from './Shared';
 import type { Counts } from '../_constants/data';
 
@@ -8,9 +10,10 @@ type Props = {
 };
 
 export function ApplySummaryCard({ counts }: Props) {
-  const progress = (counts.doc ?? 0) + (counts.intv ?? 0) + (counts.final ?? 0);
+  const progress = (counts.doc ?? 0) + (counts.intv ?? 0);
   const done = (counts.pass ?? 0) + (counts.fail ?? 0);
-  const cancel = counts.cancel ?? 0;
+  // 모집이 끝났는데 결과가 없는 지원 — 진행 중도 완료도 아니라 별도 칸으로 센다.
+  const closedWithoutResult = counts.closed ?? 0;
   const total = counts.all ?? 0;
   return (
     <div style={{
@@ -43,7 +46,7 @@ export function ApplySummaryCard({ counts }: Props) {
         {[
           { label: '진행 중', value: progress },
           { label: '완료',   value: done },
-          { label: '취소',   value: cancel },
+          { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL, value: closedWithoutResult },
         ].map((summaryItem, i) => (
           <div key={i} style={{
             textAlign: 'center',
