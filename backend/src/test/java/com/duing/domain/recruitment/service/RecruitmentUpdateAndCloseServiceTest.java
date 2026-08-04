@@ -386,7 +386,8 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("모집 공고 마감 호출 시 상태가 CLOSED 로 전환된다")
     void closeRecruitmentChangesStatusToClosed() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        // 마감은 라운드 생성과 직렬화하기 위해 모집 행을 잠그고 읽는다 (delete 와 동일 경로).
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         recruitmentService.close(RECRUITMENT_ID, MANAGER_USER_ID);
 
@@ -399,7 +400,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("이미 마감된 모집 공고에 마감 재호출 시 409 예외가 발생한다")
     void closeAlreadyClosedRecruitmentThrowsConflict() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         assertThatThrownBy(() -> recruitmentService.close(RECRUITMENT_ID, MANAGER_USER_ID))
                 .isInstanceOf(RecruitmentException.RecruitmentAlreadyClosedException.class);

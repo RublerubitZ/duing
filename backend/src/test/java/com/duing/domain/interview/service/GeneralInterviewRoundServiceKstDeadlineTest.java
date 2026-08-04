@@ -48,7 +48,8 @@ class GeneralInterviewRoundServiceKstDeadlineTest {
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getClub()).thenReturn(mock(Club.class));
         when(recruitment.isUseInterview()).thenReturn(true);
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        // 라운드 생성은 마감과 직렬화하기 위해 모집 행을 잠그고 읽는다.
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
 
         // 마감 검증 이전(라운드 생성 초입)까지만 도달하므로 이후 협력자는 사용되지 않는다.
