@@ -101,6 +101,20 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("이미 마감된 모집을 다시 마감하면 409 와 마감 코드로 거절된다")
+    void closingAlreadyClosedRecruitmentReturnsClosedCode() {
+        closeRecruitment(targetLeaderToken, targetRecruitmentId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 마감 모집 쓰기 실패는 읽기 전용 가드(RECRUITMENT_CLOSED)와 같은 코드로 나가야
+        // 프론트가 마감 관련 실패를 단일 분기로 처리할 수 있다.
+        closeRecruitment(targetLeaderToken, targetRecruitmentId)
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("message", equalTo("이미 마감된 모집 공고입니다."));
+    }
+
+    @Test
     @DisplayName("타 동아리 회장이 URL 의 recruitmentId 만 바꿔 남의 모집을 수정하면 403 이다")
     void otherClubLeaderCannotUpdateRecruitment() {
         updateRecruitment(otherLeaderToken, targetRecruitmentId)
@@ -198,6 +212,13 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
                     .body("{\"title\": \"수정된 제목\"}")
                 .when()
                     .patch("/api/v1/leader/recruitments/{recruitmentId}", recruitmentId);
+    }
+
+    private io.restassured.response.Response closeRecruitment(String token, Long recruitmentId) {
+        return RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when()
+                    .patch("/api/v1/leader/recruitments/{recruitmentId}/close", recruitmentId);
     }
 
     private Long createRecruitment(String token, Long clubId) {

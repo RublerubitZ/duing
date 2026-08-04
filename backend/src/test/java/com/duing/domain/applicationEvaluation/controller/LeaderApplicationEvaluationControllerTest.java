@@ -1,6 +1,7 @@
 package com.duing.domain.applicationEvaluation.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -403,8 +404,89 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // 마감(CLOSED) 모집 읽기 전용 — 평가 저장·삭제 차단
+    // ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("마감된 모집의 지원서에는 평가를 저장할 수 없고 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksEvaluationUpsert() {
+        Long applicationId = createApplicationInClosedRecruitment();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("score", 4, "memo", "마감 후 평가"))
+                .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(409)
+                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+
+        assertThat(evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, leaderId))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서는 내 평가를 삭제할 수 없고 기존 평가와 조회는 그대로 유지된다")
+    void closedRecruitmentBlocksEvaluationDelete() {
+        Long applicationId = createApplicationForApplicant(sharedClub);
+        evaluationRepository.save(ApplicationEvaluation.create(
+                applicationRepository.findById(applicationId).orElseThrow(),
+                leader,
+                4, "마감 전 평가"));
+        closeRecruitmentOf(sharedClub);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(409)
+                .body("code", equalTo("RECRUITMENT_CLOSED"));
+
+        // 파괴적 쓰기가 차단됐고, 아카이브 조회는 그대로 동작한다.
+        ApplicantDetailQuery detail = applicationService.getApplicantDetail(applicationId, leaderId);
+        assertThat(detail.myEvaluation()).isNotNull();
+        assertThat(detail.myEvaluation().score()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("마감일이 지났어도 마감 처리 전 모집이면 평가를 계속 저장할 수 있다")
+    void expiredButOpenRecruitmentStillAllowsEvaluation() {
+        Club underReviewClub = saveActiveClub("심사중평가동아리");
+        clubMemberRepository.save(ClubMember.asLeader(underReviewClub, leader));
+        LocalDate today = LocalDate.now();
+        Recruitment underReviewRecruitment = recruitmentRepository.save(Recruitment.create(
+                underReviewClub, "심사중모집-" + sequence.incrementAndGet(), null,
+                today.minusDays(10), today.minusDays(3), 10));
+        Long applicationId = applicationRepository.save(
+                Application.submit(underReviewRecruitment, applicantUser, List.of())).getId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("score", 5, "memo", "심사 중 평가"))
+                .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
+                .then().statusCode(204);
+
+        assertThat(evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, leaderId))
+                .isPresent();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // 픽스처 헬퍼
     // ─────────────────────────────────────────────────────────────
+
+    private Long createApplicationInClosedRecruitment() {
+        Long applicationId = createApplicationForApplicant(sharedClub);
+        closeRecruitmentOf(sharedClub);
+        return applicationId;
+    }
+
+    private void closeRecruitmentOf(Club club) {
+        Recruitment recruitment = recruitmentRepository.findAll().stream()
+                .filter(each -> each.getClub().getId().equals(club.getId()))
+                .findFirst().orElseThrow();
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+    }
 
     private User saveUser(String name, UserRole role, College college, String major) {
         long unique = sequence.incrementAndGet();

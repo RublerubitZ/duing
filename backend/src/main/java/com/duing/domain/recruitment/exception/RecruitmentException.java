@@ -9,6 +9,11 @@ public class RecruitmentException extends ApplicationException {
         super(message, status);
     }
 
+    /** 프론트가 분기할 machine-readable code 를 함께 싣는 경우에 사용한다. */
+    protected RecruitmentException(String message, HttpStatus status, String code) {
+        super(message, status, code);
+    }
+
     public static class RecruitmentNotFoundException extends RecruitmentException {
         private static final String MESSAGE = "모집 공고를 찾을 수 없습니다.";
 
@@ -25,11 +30,16 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /**
+     * 마감된 공고를 수정하거나 다시 마감하려는 경우. 원인이 "마감된 모집에 쓰기"로
+     * {@link ClosedRecruitmentReadOnlyException} 과 같으므로 code 를 공유해,
+     * 프론트가 마감 관련 실패를 단일 분기로 처리할 수 있게 한다.
+     */
     public static class RecruitmentAlreadyClosedException extends RecruitmentException {
         private static final String MESSAGE = "이미 마감된 모집 공고입니다.";
 
         public RecruitmentAlreadyClosedException() {
-            super(MESSAGE, HttpStatus.CONFLICT);
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
         }
     }
 
@@ -97,6 +107,20 @@ public class RecruitmentException extends ApplicationException {
 
         public OpenRecruitmentNotDeletableException() {
             super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    /**
+     * 마감(CLOSED)된 모집은 아카이브 — 지원 상태 변경·평가 저장/삭제·면접 라운드 생성 등
+     * 운영진의 모든 쓰기를 막고 조회만 허용한다. 지원자용 철회 차단
+     * ({@code ApplicationDomainException.CannotWithdrawClosedRecruitmentException}) 과 같은 원인이므로
+     * code 를 공유해 프론트가 한 분기로 처리한다.
+     */
+    public static class ClosedRecruitmentReadOnlyException extends RecruitmentException {
+        private static final String MESSAGE = "마감된 모집은 조회만 가능합니다.";
+
+        public ClosedRecruitmentReadOnlyException() {
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
         }
     }
 

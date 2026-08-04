@@ -6,6 +6,7 @@ import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record RecruitmentSummaryQuery(
         Long id,
@@ -21,7 +22,8 @@ public record RecruitmentSummaryQuery(
         ApplicationMode applicationMode,
         String externalFormUrl,
         boolean useInterview,
-        TargetRole targetRole
+        TargetRole targetRole,
+        LocalDateTime closedAt
 ) {
     public static RecruitmentSummaryQuery from(Recruitment recruitment, LocalDate today) {
         return new RecruitmentSummaryQuery(
@@ -42,7 +44,8 @@ public record RecruitmentSummaryQuery(
                 recruitment.getApplicationMode(),
                 recruitment.getExternalFormUrl(),
                 recruitment.isUseInterview(),
-                recruitment.getTargetRole()
+                recruitment.getTargetRole(),
+                recruitment.getClosedAt()
         );
     }
 }
