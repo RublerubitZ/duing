@@ -280,6 +280,7 @@ Set-Cookie: auth_hint=...; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSit
 - **refresh만이 아니라 3종 전부** 세션 쿠키로 내리는 이유: refresh만 내리면 브라우저 재시작 후에도 ① access 쿠키 잔여 수명(≤30분) 동안 API 인증이 살아있고 ② hint(30일)가 미들웨어를 통과시켜 "종료 시 로그아웃" 약속이 깨진다(공용 PC 시나리오). 토큰의 **서버측 만료 정책은 양쪽 동일**하다 — access JWT `exp` 30분, 세션 `expires_at` 30일은 쿠키 지속성과 무관하게 서버가 강제한다.
 - **rotation 재발급도 같은 모드를 유지한다** — 세션 행의 `remember_me`를 읽어 Persistent/Session 을 결정한다. 이 컬럼이 없으면 첫 갱신(≤30분) 때 세션 쿠키가 Persistent 로 승격돼 옵션이 무력화된다.
 - **DB는 rememberMe 와 무관하게 동일 정책**이다 — `expires_at`=30일 sliding, cleanup 잡 그대로. `rememberMe=false` 사용자가 브라우저를 닫으면 쿠키가 사라져 refresh 토큰을 다시 제시할 수 없을 뿐이고, DB에 남은 세션 행은 만료 후 cleanup 잡(§18.1)이 정리한다. 남아 있는 동안 세션 목록(PR-3)에 보이는 것은 정상이며 개별 폐기도 가능하다.
+- **브라우저 세션 복원 한계(known limitation)** — "종료 시 로그아웃"은 브라우저가 세션 쿠키를 지워주는 것에 의존하는 **best-effort 약속**이다. Chromium 계열은 "중단한 위치에서 계속(Continue where you left off)" ON·크래시 복구 시 세션 쿠키를 의도적으로 복원하므로([won't fix](https://issues.chromium.org/issues/40210371)), 복원된 refresh 쿠키(서버 세션 30일 유효) + 401→web refresh 자동 갱신 체인으로 완전 종료 후에도 로그인이 유지될 수 있다. 이는 서버·앱 버그가 아니라 브라우저 특성이며(2026-08 조사로 확정, 네이버·구글류 동일 패턴), 공용 PC 보호를 강하게 보장해야 한다면 유일한 서버측 수단은 `rememberMe=false` 세션의 서버 TTL 분리(짧은 sliding/절대 만료)다 — 재로그인 UX 비용이 있어 필요가 관측될 때 별도 판단한다(P2).
 
 - `duings.com`→`api.duings.com`은 same-site라 SameSite=Lax에서 fetch(credentials include)에 쿠키가 실린다(기존 access 쿠키와 동일 전제).
 - `AuthHintTokenProvider`의 "hint 수명=jwt.expiry-ms(1시간) 고정" 검증은 제거하고 hint 수명을 refresh TTL 설정에 정렬한다.
@@ -399,4 +400,4 @@ Set-Cookie: auth_hint=...; Domain=.duings.com; Path=/; Secure; HttpOnly; SameSit
 - 멀티탭 동시 만료 상황에서 로그아웃 오탐이 발생하지 않는다(동시성 테스트로 증명).
 - 기기별 로그아웃·전체 로그아웃·비밀번호 변경 폐기가 명세대로 동작하고, tokenVersion 긴급 차단 경로가 살아있다.
 - 웹·모바일이 같은 서비스 계층과 정책을 공유하며 transport만 다르다.
-- `rememberMe` 미체크(기본) 로그인은 브라우저 완전 종료 후 재방문 시 로그아웃 상태이고, 체크 로그인은 30일 유지된다 — 쿠키 지속성 외 서버 정책은 양쪽 동일하다.
+- `rememberMe` 미체크(기본) 로그인은 브라우저 완전 종료 후 재방문 시 로그아웃 상태이고(단, 브라우저 세션 복원 환경에서는 유지될 수 있다 — §10.1 한계 참조), 체크 로그인은 30일 유지된다 — 쿠키 지속성 외 서버 정책은 양쪽 동일하다.
