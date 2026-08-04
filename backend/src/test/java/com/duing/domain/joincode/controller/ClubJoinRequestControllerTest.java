@@ -31,6 +31,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -61,6 +62,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -288,23 +291,29 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("코드가 폐기되거나 귀속 모집이 마감된 뒤에도 이미 접수된 요청은 승인할 수 있다")
-    void approveWorksAfterCodeRevokedOrRecruitmentClosed() {
+    @DisplayName("코드가 폐기되거나 가입 가능 기간이 지난 뒤에도 이미 접수된 요청은 승인·거절할 수 있다")
+    void decideWorksAfterCodeRevokedOrRecruitmentClosed() {
         ClubJoinRequest requestApprovedAfterRevoke = savePendingRequest(saveUser());
         ClubJoinRequest requestApprovedAfterClose = savePendingRequest(saveUser());
+        ClubJoinRequest requestRejectedAfterClose = savePendingRequest(saveUser());
 
         revokeCurrentJoinCode();
         decide(leaderToken, club.getId(), requestApprovedAfterRevoke.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
 
-        closeRecruitment();
+        // 가입 가능 기간까지 지난 상태로 마감한다 — 자동 만료는 신규 요청만 막고 처리는 계속 가능해야 한다.
+        closeRecruitment(LocalDateTime.now(clock).minusDays(30));
         decide(leaderToken, club.getId(), requestApprovedAfterClose.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
+        // 마감 뒤에도 거절 경로가 살아 있어야 한다 — 막히면 대기 요청이 영원히 남아 모집 삭제까지 막힌다.
+        decide(leaderToken, club.getId(), requestRejectedAfterClose.getId(), "REJECTED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.result", equalTo("REJECTED"));
 
         assertThat(usedCountOfCurrentCode())
-                .as("두 건 모두 신청 때 확보한 자리를 그대로 쓴다").isEqualTo(2);
+                .as("승인 2건은 신청 때 확보한 자리를 그대로 쓰고 거절 1건만 환급된다").isEqualTo(2);
     }
 
     @Test
@@ -471,25 +480,24 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
     private ClubJoinRequest saveRejectedRequest(User student) {
         ClubJoinRequest pending = savePendingRequest(student);
-        pending.reject(leaderUser, LocalDateTime.now());
+        pending.reject(leaderUser, LocalDateTime.now(clock));
         return clubJoinRequestRepository.save(pending);
     }
 
     private ClubJoinCode saveJoinCode(Club targetClub, Recruitment targetRecruitment, int maxUses) {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(
-                targetClub, targetRecruitment, randomCode(), 12, maxUses,
-                LocalDateTime.now().plusDays(30)));
+                targetClub, targetRecruitment, randomCode(), 12, maxUses, 7, null));
     }
 
     private void revokeCurrentJoinCode() {
         ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
-        stored.revoke(LocalDateTime.now());
+        stored.revoke(LocalDateTime.now(clock), null);
         clubJoinCodeRepository.save(stored);
     }
 
-    private void closeRecruitment() {
+    private void closeRecruitment(LocalDateTime closedAt) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
+        stored.close(closedAt);
         recruitmentRepository.save(stored);
     }
 

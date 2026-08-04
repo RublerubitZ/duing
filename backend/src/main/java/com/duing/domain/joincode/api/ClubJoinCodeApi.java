@@ -20,10 +20,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Tag(name = "가입 코드", description = "외부 폼 모집 합격자 등록용 가입 코드 (운영진 전용)")
 public interface ClubJoinCodeApi {
 
-    @Operation(summary = "가입 코드 생성 (LEADER/OFFICER)",
-            description = "외부 폼(EXTERNAL) 모집에서만 생성할 수 있으며 그 모집에 귀속된다. 모집당 활성 코드는 1개로,"
-                    + " 기존 활성 코드가 있으면 자동 폐기되는 재생성이다. 자체 폼 모집이면 409,"
-                    + " 모집이 해당 동아리 소속이 아니면 404.")
+    @Operation(summary = "가입 링크 생성 (LEADER/OFFICER)",
+            description = "진행 중인 외부 폼(EXTERNAL) 모집에서만 생성할 수 있으며 그 모집에 귀속된다. 모집당 활성 링크는"
+                    + " 1개로, 기존 활성 링크가 있으면 자동 폐기되는 재생성이다(재생성도 같은 조건). 자체 폼 모집이거나"
+                    + " 모집이 진행 중이 아니면 409, 모집이 해당 동아리 소속이 아니면 404."
+                    + " joinWindowDays 는 모집 종료 기준 가입 가능 기간 프리셋(0/7/14, 미지정 시 7)이며 그 외 값은 400.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes")
     ResponseEntity<ApiResponse<JoinCodeResponse>> createJoinCode(

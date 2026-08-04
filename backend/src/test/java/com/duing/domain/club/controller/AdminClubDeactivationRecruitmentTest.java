@@ -92,6 +92,9 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
                 recruitmentRepository.findById(closedRecruitment.getId()).orElseThrow().getStatus());
         Assertions.assertEquals(ApplicationStatus.SUBMITTED,
                 applicationRepository.findById(application.getId()).orElseThrow().getStatus());
+        Assertions.assertNotNull(
+                recruitmentRepository.findById(openRecruitment.getId()).orElseThrow().getClosedAt(),
+                "벌크 마감도 실제 종료 시각을 남긴다 — 가입 링크 기간 판정의 기준점");
     }
 
     @Test
@@ -283,7 +286,7 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
     private Recruitment saveClosedRecruitment(Club club, String title) {
         Recruitment created = Recruitment.create(club, title, "내용",
                 LocalDate.now().minusDays(30), LocalDate.now().minusDays(10), 5);
-        created.close();
+        created.close(LocalDateTime.now());
         return recruitmentRepository.save(created);
     }
 }

@@ -66,7 +66,7 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         recruitment = saveClosedExternalRecruitment();
         joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
-                club, recruitment, "AB12CD", 12, 30, LocalDateTime.now().plusDays(30)));
+                club, recruitment, "AB12CD", 12, 30, 7, leader.getId()));
     }
 
     @Test
@@ -76,8 +76,11 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
 
         assertThat(recruitmentRepository.findById(recruitment.getId()))
                 .as("모집은 soft-delete 되어 조회되지 않는다").isEmpty();
-        assertThat(clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getRevokedAt())
+        ClubJoinCode revoked = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
+        assertThat(revoked.getRevokedAt())
                 .as("고아 코드로 학생이 유입되지 않도록 삭제 트랜잭션이 코드를 폐기한다").isNotNull();
+        assertThat(revoked.getRevokedById())
+                .as("자동 폐기의 주체는 모집을 삭제한 운영진이다").isEqualTo(leader.getId());
     }
 
     @Test
@@ -143,7 +146,7 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
                 LocalDate.now().minusDays(14), LocalDate.now().minusDays(1), 10,
                 ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
                 TargetRole.MEMBER, null, null, false);
-        created.close();
+        created.close(LocalDateTime.now());
         return recruitmentRepository.save(created);
     }
 }

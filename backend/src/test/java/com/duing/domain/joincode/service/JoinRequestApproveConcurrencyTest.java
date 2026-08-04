@@ -27,7 +27,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -128,8 +127,7 @@ class JoinRequestApproveConcurrencyTest extends IntegrationTestBase {
 
     private ClubJoinCode saveJoinCode(Club club, int maxUses) {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(
-                club, saveOpenExternalRecruitment(club), codeOf(sequence.getAndIncrement()), 12, maxUses,
-                LocalDateTime.now().plusDays(30)));
+                club, saveOpenExternalRecruitment(club), codeOf(sequence.getAndIncrement()), 12, maxUses, 7, null));
     }
 
     /** code 는 전역 unique 이므로 시퀀스로 겹치지 않는 6자를 만든다. */

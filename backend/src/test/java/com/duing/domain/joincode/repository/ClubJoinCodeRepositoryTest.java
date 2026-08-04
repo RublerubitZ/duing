@@ -12,7 +12,6 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +59,8 @@ class ClubJoinCodeRepositoryTest {
                 "외부 폼 모집", "내용", LocalDate.now().minusDays(1), LocalDate.now().plusDays(14), 10,
                 ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
                 TargetRole.MEMBER, null, null, false));
-        return ClubJoinCode.issue(club, recruitment, "AB12CD", 1, 30,
-                LocalDateTime.now().plusDays(30));
+        // code 는 전역 unique 이고 이 테스트는 다른 클래스가 남긴 행과 같은 DB 를 쓰므로 고정 코드를 쓰지 않는다.
+        String uniqueCode = String.format("%06d", sequence.getAndIncrement() % 1_000_000);
+        return ClubJoinCode.issue(club, recruitment, uniqueCode, 1, 30, 7, null);
     }
 }

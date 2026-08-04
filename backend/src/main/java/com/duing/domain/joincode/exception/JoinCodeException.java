@@ -30,17 +30,30 @@ public class JoinCodeException extends ApplicationException {
 
     /** 자체 폼(SELF) 모집에는 가입 코드 개념이 없다 — 지원서·합격 처리가 두잉 안에서 끝난다. */
     public static final class ExternalRecruitmentRequiredException extends JoinCodeException {
-        private static final String MESSAGE = "외부 폼 모집에서만 가입 코드를 사용할 수 있습니다.";
+        private static final String MESSAGE = "외부 폼 모집에서만 가입 링크를 사용할 수 있습니다.";
 
         public ExternalRecruitmentRequiredException() {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
 
-    public static final class InvalidExpiresInDaysException extends JoinCodeException {
-        private static final String MESSAGE = "만료 기간은 7일, 30일, 90일 중 하나여야 합니다.";
+    /**
+     * 진행 중(OPEN) 모집에서만 발급한다(스펙 v2 4.2) — "모집 생성 → 즉시 마감 → 코드만 발급" 식의
+     * 정책 우회를 막는다. 외부 폼 모집의 회원 등록은 모집 기간 안에서 이뤄진다.
+     */
+    public static final class OpenRecruitmentRequiredException extends JoinCodeException {
+        private static final String MESSAGE = "모집이 진행 중일 때만 가입 링크를 만들 수 있습니다.";
 
-        public InvalidExpiresInDaysException() {
+        public OpenRecruitmentRequiredException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
+    public static final class InvalidJoinWindowDaysException extends JoinCodeException {
+        private static final String MESSAGE =
+                "가입 가능 기간은 모집 종료일까지, 종료 후 7일, 종료 후 14일 중 하나여야 합니다.";
+
+        public InvalidJoinWindowDaysException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }

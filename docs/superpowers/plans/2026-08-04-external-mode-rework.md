@@ -71,6 +71,34 @@
 
 **Steps:** 테스트 먼저 → 구현 → 전체 web 테스트·typecheck·lint·build → 커밋 1개.
 
+## Task 5: `feat(backend): 가입 코드 OPEN 정책·감사 주체 기록` (브랜치 feat/join-code-open-policy, Task 4 위 스택)
+
+**Files/Requirements (스펙 §3.1 감사·§4.2 최종):**
+- 생성 조건을 `EXTERNAL && OPEN` 으로 — CLOSED 는 409 신규 문구 "모집이 진행 중일 때만 가입 코드를 만들 수 있습니다."(MESSAGE 상수), INTERNAL 문구 기존 유지
+- `ClubJoinCode.isUsable` 에 **귀속 모집 OPEN 조건 복원**(v1 메커니즘 — 파생 판정, 주석 갱신). 학생 check/createRequest 는 엔티티 판정으로 자동 반영 확인. **기존 PENDING 승인/거절은 모집 종료 후에도 가능**(승인 경로는 isUsable 미사용 — 확인만)
+- Create: `V100__join_code_audit_columns.sql` — `created_by BIGINT REFERENCES users(id)`·`revoked_by BIGINT REFERENCES users(id)` (기존 행은 null 허용 — dev 정리 전제라 백필 불요, 주석). 번호는 작성 시점 재확인
+- 서비스: create 시 created_by=requester 기록, revoke 시 revoked_by=requester, 모집 삭제의 자동 폐기 벌크 UPDATE 에 revoked_by=삭제 수행자 전달
+- 발급↔삭제 모집 잠금 직렬화는 유지(정책상 상호 배타 복원돼도 심층 방어)
+- Test: 조건 표 4케이스(EXTERNAL+OPEN 201 / EXTERNAL+CLOSED 409 / INTERNAL 2건 409) / 파생 사용(코드 발급 후 모집 CLOSED → check usable=false·신규 요청 409·**기존 PENDING 승인 성공**) / 모집 기간 재개 시 재사용 가능 / audit 컬럼 기록 3경로(생성·수동 폐기·삭제 자동 폐기) 단언 / 기존 스위트 초록
+
+## Task 7: `feat(backend): 가입 링크 감사 이벤트·상태 카운트` (브랜치 feat/club-audit-events, Task 5 위 스택)
+
+**Files/Requirements (스펙 §3.1 최종·§7.2):**
+- Create: 마이그레이션(번호 재확인) — `club_audit_event` 테이블(club_id NOT NULL + recruitment_id·join_code_id·join_request_id nullable 참조)(recruitment_id·club_id·join_code_id null·join_request_id null·event_type VARCHAR(30) CHECK 6종·actor_user_id·created_at, **RLS 필수**, 조회 인덱스 (recruitment_id, created_at)) + IntegrationTestBase TRUNCATE 추가
+- 이벤트 기록 6지점(각 트랜잭션 내): 링크 생성 CREATED / 재생성 트랜잭션 = 구 링크 REVOKED + 신규 REGENERATED / 수동·삭제 자동 폐기 REVOKED / 학생 요청 JOIN_REQUEST_CREATED(actor=학생) / 승인 APPROVED·거절(수동·자동) REJECTED(actor=운영진)
+- 활성 링크 조회 응답에 **totalRequestCount(누적)·pendingCount** 포함 (JoinRequest 를 join_code 기준 집계 — 스펙 §7.2 Status Card 용, 응답 shape 보고서에 명시)
+- Test: 이벤트 6종 기록 단언(재생성=REVOKED+REGENERATED 쌍) / 카운트 정확성(요청·거절·승인 혼합 시나리오) / 전체 스위트 초록
+
+## Task 6: `feat(frontend): 모집 카드 액션 분기·가입 링크 UX 최종` (브랜치 feat/external-mode-card-actions, **Task 7 위 스택**)
+
+**Files/Requirements (스펙 §5·§5.1·§7·§7.1):**
+- 모집 관리 목록 카드 액션 분기: INTERNAL [지원자 관리][통계] 기존 유지 / EXTERNAL **[가입 코드][가입 요청 관리(대기 배지)]** — 지원자·통계 버튼 제거
+- 카드 [가입 코드] → 다이얼로그로 코드 관리 전체(생성·활성 카드·재생성·폐기) — 상세의 `MemberEnrollmentSection` 컴포넌트 재사용(중복 금지)
+- EXTERNAL 상세의 [지원자 관리]·[통계] 링크 제거, 상세 회원 등록 영역: **CLOSED 시 생성 폼 대신** "모집이 진행 중일 때만 가입 코드를 만들 수 있습니다." 안내(기존 코드 카드는 사용 불가 상태로 유지·요청 관리 링크 유지)
+- 스펙 §4.3(프리셋 라디오 3택·만료 표시: OPEN="모집 종료 후 N일까지" 텍스트/CLOSED=구체 일시)·§4.3.1(종료 후 폐기 = 경고 문안+**타이핑 2단계 확인** 모달 내 인라인 입력, OPEN 중 폐기 = 기존 단일 확인)·§6(학생 합격 축하 진입 "약 30초"+신청 완료 문구 — 즉시 등록 표현 금지)·§7 절차 카드·**§7.1 정책 안내 4줄 카드(구 5줄 대체)**·**§7.2 Status Card**(상태·기간·누적 가입 신청·승인 대기 — Task 7 응답 카운트 소비)·합격 안내 문구 복사 템플릿 — 문안 전부 스펙 자구
+- 사용자 대면 "가입 코드" → **"가입 링크"** 잔여 문구 일괄 통일(학생 랜딩·요청 콘솔·members 안내 포함), CLOSED 시 생성 폼 미노출(Task 5 인계 — 409 노출 방지)
+- Test: 카드 분기 2모드 / 다이얼로그·프리셋 / Status Card 수치 / 정책 카드 4줄 / 종료 후 폐기 타이핑 게이트(불일치 시 비활성) / 학생 진입·완료 문구 / 절차 카드 순서 / INTERNAL 회귀
+
 ## QA (컨트롤러 수행)
 
 실브라우저 전체 왕복: EXTERNAL 모집 작성(다이얼로그 확인·전용 화면·URL 검증) → OPEN 상태 안내 확인 → 마감 → 회원 등록 영역에서 코드 생성(경고 카드 확인) → 학생 가입 요청(차감) → 승인 → 회원 등록. INTERNAL 모집 화면에 코드 UI 부재 확인.

@@ -11,6 +11,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -35,17 +36,24 @@ public class GeneralJoinCodeService implements JoinCodeService {
     @Transactional
     public JoinCodeQuery create(CreateJoinCodeCommand createCommand) {
         clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
-        // 모집 행을 잠근 뒤 발급한다 — 모집 삭제와 직렬화해, 삭제가 "활성 코드 0건"을 확인한 직후
-        // 발급된 코드가 삭제된 모집에 매달린 채 살아남는 것을 막는다. 삭제가 먼저 커밋됐다면
-        // soft-delete 된 모집은 조회되지 않아 404 가 된다.
+        // 모집 행을 잠근 뒤 발급한다 — 발급(OPEN 전제)과 삭제(CLOSED 전제)는 정책상 상호 배타지만,
+        // 마감·삭제와의 경쟁으로 삭제된 모집에 코드가 매달리는 것을 막는 심층 방어로 잠금을 유지한다.
+        // 삭제가 먼저 커밋됐다면 soft-delete 된 모집은 조회되지 않아 404 가 된다.
         Recruitment recruitment = recruitmentRepository.findByIdForUpdate(createCommand.recruitmentId())
                 .filter(locked -> locked.getClub().getId().equals(createCommand.clubId()))
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
-        // 외부 폼 모집 한정(스펙 v2 4.2). 모집 상태(OPEN/CLOSED)는 보지 않는다 —
-        // 회원 등록의 최종 게이트는 운영진 승인이고, 코드는 만료·인원·폐기로 통제한다.
+        // 외부 폼 모집 + 진행 중 한정(스펙 v2 4.2). 마감된 모집에서도 발급할 수 있으면
+        // "모집 생성 → 즉시 마감 → 링크만 발급"으로 모집 절차를 건너뛸 수 있다. 최초 생성·재생성이
+        // 같은 경로라 재생성도 함께 막힌다.
         if (recruitment.getApplicationMode() != ApplicationMode.EXTERNAL) {
             throw new JoinCodeException.ExternalRecruitmentRequiredException();
+        }
+        // 지원서 제출과 같은 기준(isEffectivelyOpen)을 쓴다 — 마감일이 지났는데 마감 처리만 안 된
+        // 모집에서 새 링크가 발급되는 비대칭을 없앤다. 이미 발급된 링크의 사용 판정은 status 기준이라
+        // 이 경우에도 계속 유효하다(의도된 비대칭 — 상시 운영과 실질이 같다).
+        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
+            throw new JoinCodeException.OpenRecruitmentRequiredException();
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
@@ -54,14 +62,15 @@ public class GeneralJoinCodeService implements JoinCodeService {
         // 신규 INSERT 가 uk_club_join_code_active_per_recruitment 에 걸린다.
         clubJoinCodeRepository.findByRecruitmentIdAndRevokedAtIsNull(createCommand.recruitmentId())
                 .ifPresent(activeCode -> {
-                    activeCode.revoke(now);
+                    activeCode.revoke(now, createCommand.requesterId());
                     clubJoinCodeRepository.flush();
                 });
 
         try {
             ClubJoinCode issued = clubJoinCodeRepository.save(ClubJoinCode.issue(
                     recruitment.getClub(), recruitment, generateUniqueCode(), createCommand.generation(),
-                    createCommand.maxUses(), now.plusDays(createCommand.expiresInDays())));
+                    createCommand.maxUses(), createCommand.joinWindowDays(),
+                    createCommand.requesterId()));
             clubJoinCodeRepository.flush();
             return JoinCodeQuery.from(issued);
         } catch (DataIntegrityViolationException concurrentIssue) {
@@ -93,7 +102,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
             // 멱등 — 최초 폐기 시각(감사 이력)을 덮어쓰지 않는다.
             return;
         }
-        joinCode.revoke(LocalDateTime.now(clock));
+        joinCode.revoke(LocalDateTime.now(clock), requesterId);
     }
 
     /**
