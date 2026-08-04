@@ -90,12 +90,12 @@ v1(가입 코드 1차 릴리스, #848~#854) 대비 변경: 코드 귀속을 Club
 **최초 생성·재생성 모두** `applicationMode == EXTERNAL` **AND** **실질 진행 중(`isEffectivelyOpen` — status OPEN 이고 endDate 미경과)** 일 때만 가능(지원서 제출과 동일 기준 — endDate 경과+미마감 모집 발급 차단).
 CLOSED 이후에는 생성·재생성 불가("모집 생성 → 즉시 종료 → 링크만 발급" 우회 원천 차단).
 
-| mode | status | 생성/재생성 |
+| mode | 상태 | 생성/재생성 |
 |---|---|---|
-| INTERNAL | OPEN | ❌ 409 ("외부 폼 모집에서만 가입 링크를 사용할 수 있습니다.") |
-| INTERNAL | CLOSED | ❌ 409 (동일) |
-| EXTERNAL | OPEN | ✅ |
-| EXTERNAL | CLOSED | ❌ 409 ("모집이 진행 중일 때만 가입 링크를 만들 수 있습니다.") |
+| INTERNAL | (무관) | ❌ 409 ("외부 폼 모집에서만 가입 링크를 사용할 수 있습니다.") |
+| EXTERNAL | OPEN·endDate 미경과 (실질 진행 중) | ✅ |
+| EXTERNAL | OPEN·endDate 경과 (방치) | ❌ 409 ("모집이 진행 중일 때만 가입 링크를 만들 수 있습니다.") |
+| EXTERNAL | CLOSED | ❌ 409 (동일) |
 
 ### 4.3 가입 가능 기간 (기존 절대 만료 7/30/90 을 완전 대체)
 
