@@ -114,6 +114,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments/*/applications/eligibility").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/notices", "/api/v1/notices/**").permitAll()
+                        // 학생 코드 확인 — 비로그인도 동아리명을 확인할 수 있어야 한다(스펙 4.5, rate limit 으로 완화).
+                        // GET 단건 경로만 연다: 가입 요청 생성(POST /join-codes/*/requests)은 인증 필수로 남는다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/join-codes/*").permitAll()
                         // 총동연 FAQ 공개 GET — 정확 경로만 허용. "/api/v1/federation/**" 와일드카드 금지:
                         // 같은 프리픽스의 비밀문의(/federation/inquiries/**)가 URL 레이어 방어를 잃는다.
                         // (스펙 2026-07-04-federation-qna-design §5, 회귀 잠금: FederationFaqPublicAcceptanceTest)
