@@ -96,6 +96,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | FederationFaqSearchMissResponse.lastSearchedAt | federation_faq_search_miss.last_searched_at (timestamptz) | system | DB NOW() 저장 — JDBC가 JVM 존 벽시계로 읽으므로 system 변환이 원 instant 복원 |
 | BankTransactionResponse.transactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | BankApiHttpClient.java:167 — BANK API를 KST 벽시계로 파싱 |
 | PaymentResponse.paidAt · ReceiptResponse.PaymentLine.paidAt | payment.paid_at (timestamptz) | **seoul** | GeneralPaymentService.java:60 atStartOfDay(SEOUL) / GeneralMatchedPaymentService.java:67 (KST) |
+| AdminFeeClubSummaryResponse.lastPaidAt | payment.paid_at (timestamptz) | **seoul** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 변환(총동연 회비 감사 목록) |
+| AdminFeeClubSummaryResponse.lastTransactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | 위 BankTransactionResponse.transactionAt 과 같은 컬럼·같은 변환 |
 | ReceiptResponse.issuedAt | (저장 없음 — 발급 시점) | Instant 직접 | GeneralReceiptService.java:74 `Instant.now(clock)` 로 전환 |
 | RoundCandidateResponse.submittedAt | application.created_at | system | BaseEntity 감사 |
 | interview availabilityDeadline·slot startTime/endTime, 예약·청구 일정(LocalDate/LocalTime) 전부 | - | 유지 | Schedule — 변경 없음 |
