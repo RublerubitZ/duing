@@ -49,10 +49,11 @@ public class JoinCodeException extends ApplicationException {
         }
     }
 
-    public static final class InvalidExpiresInDaysException extends JoinCodeException {
-        private static final String MESSAGE = "만료 기간은 7일, 30일, 90일 중 하나여야 합니다.";
+    public static final class InvalidJoinWindowDaysException extends JoinCodeException {
+        private static final String MESSAGE =
+                "가입 가능 기간은 모집 종료일까지, 종료 후 7일, 종료 후 14일 중 하나여야 합니다.";
 
-        public InvalidExpiresInDaysException() {
+        public InvalidJoinWindowDaysException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }

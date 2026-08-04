@@ -288,7 +288,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("코드가 폐기되거나 귀속 모집이 마감된 뒤에도 이미 접수된 요청은 승인·거절할 수 있다")
+    @DisplayName("코드가 폐기되거나 가입 가능 기간이 지난 뒤에도 이미 접수된 요청은 승인·거절할 수 있다")
     void decideWorksAfterCodeRevokedOrRecruitmentClosed() {
         ClubJoinRequest requestApprovedAfterRevoke = savePendingRequest(saveUser());
         ClubJoinRequest requestApprovedAfterClose = savePendingRequest(saveUser());
@@ -299,7 +299,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
 
-        closeRecruitment();
+        // 가입 가능 기간까지 지난 상태로 마감한다 — 자동 만료는 신규 요청만 막고 처리는 계속 가능해야 한다.
+        closeRecruitment(LocalDateTime.now().minusDays(30));
         decide(leaderToken, club.getId(), requestApprovedAfterClose.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
@@ -482,8 +483,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
 
     private ClubJoinCode saveJoinCode(Club targetClub, Recruitment targetRecruitment, int maxUses) {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(
-                targetClub, targetRecruitment, randomCode(), 12, maxUses,
-                LocalDateTime.now().plusDays(30), null));
+                targetClub, targetRecruitment, randomCode(), 12, maxUses, 7, null));
     }
 
     private void revokeCurrentJoinCode() {
@@ -492,9 +492,9 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         clubJoinCodeRepository.save(stored);
     }
 
-    private void closeRecruitment() {
+    private void closeRecruitment(LocalDateTime closedAt) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
+        stored.close(closedAt);
         recruitmentRepository.save(stored);
     }
 

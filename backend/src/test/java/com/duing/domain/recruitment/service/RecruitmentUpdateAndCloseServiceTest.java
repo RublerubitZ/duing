@@ -388,6 +388,8 @@ class RecruitmentUpdateAndCloseServiceTest {
         recruitmentService.close(RECRUITMENT_ID, MANAGER_USER_ID);
 
         assertThat(recruitment.getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(recruitment.getClosedAt())
+                .as("실제 종료 시각을 남긴다 — 가입 링크의 사용 가능 기간 기준점이다").isNotNull();
     }
 
     @Test

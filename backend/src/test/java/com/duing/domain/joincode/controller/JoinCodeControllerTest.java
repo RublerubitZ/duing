@@ -23,6 +23,7 @@ import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.joincode.service.dto.command.DecideJoinRequestCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -48,6 +49,8 @@ import org.springframework.http.HttpStatus;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JoinCodeControllerTest extends IntegrationTestBase {
+
+    private static final int DEFAULT_WINDOW_DAYS = 7;
 
     @LocalServerPort int port;
 
@@ -90,7 +93,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("비로그인 상태에서도 코드를 확인해 동아리명과 기수를 볼 수 있고 내 상태 필드는 비어 있다")
     void anonymousCheckReturnsClubInfoWithoutPersonalState() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         checkCode(null, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
@@ -105,7 +108,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("소문자로 입력한 코드도 대문자로 정규화되어 같은 코드로 조회된다")
     void lowercaseCodeIsNormalized() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         checkCode(null, "ab12cd").then()
                 .statusCode(HttpStatus.OK.value())
@@ -120,18 +123,14 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("만료·폐기·소진된 코드는 확인은 되지만 사용 불가로 표시되고 요청 생성은 거절된다")
-    void expiredRevokedExhaustedCodeIsUnusable() {
-        ClubJoinCode expired = saveJoinCode("EXPIRE", 12, 30, LocalDateTime.now().minusMinutes(1));
-        assertUnusableAndRequestRejected("EXPIRE");
-        // 모집당 활성 코드는 1개(uk_club_join_code_active_per_recruitment) — 다음 코드 전에 폐기한다.
-        revoke(expired);
-
-        ClubJoinCode revoked = saveJoinCode("REVOKE", 12, 30, LocalDateTime.now().plusDays(30));
+    @DisplayName("폐기·소진된 코드는 확인은 되지만 사용 불가로 표시되고 요청 생성은 거절된다")
+    void revokedOrExhaustedCodeIsUnusable() {
+        ClubJoinCode revoked = saveJoinCode("REVOKE", 12, 30, DEFAULT_WINDOW_DAYS);
         revoke(revoked);
         assertUnusableAndRequestRejected("REVOKE");
 
-        ClubJoinCode exhausted = saveJoinCode("USEDUP", 12, 1, LocalDateTime.now().plusDays(30));
+        // 모집당 활성 코드는 1개(uk_club_join_code_active_per_recruitment) — 앞 코드를 폐기해야 다음이 들어간다.
+        ClubJoinCode exhausted = saveJoinCode("USEDUP", 12, 1, DEFAULT_WINDOW_DAYS);
         exhausted.tryConsume();
         clubJoinCodeRepository.save(exhausted);
         assertUnusableAndRequestRejected("USEDUP");
@@ -143,7 +142,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("로그인 상태로 코드를 확인하면 내 가입 요청 상태와 회원 여부가 함께 내려온다")
     void authenticatedCheckIncludesMyRequestStatus() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         checkCode(studentToken, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
@@ -161,7 +160,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("가입 요청은 한 번만 접수되고 대기 중에 다시 요청하면 409 를 반환한다")
     void duplicatePendingRequestReturns409() {
-        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CONFLICT.value());
@@ -178,7 +177,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("잔여 인원이 소진되면 다음 학생의 가입 요청은 거절되고 요청 행도 남지 않는다")
     void requestOnExhaustedCodeIsRejected() {
-        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, LocalDateTime.now().plusDays(30));
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, DEFAULT_WINDOW_DAYS);
         User laterStudent = saveUser();
 
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
@@ -192,7 +191,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("이미 활성 회원인 사용자는 확인에서 가입 상태가 표시되고 요청 생성은 409 로 막힌다")
     void activeMemberCannotCreateRequest() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         checkCode(existingMemberToken, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
@@ -203,7 +202,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("거절로 자리가 환급되면 잔여 1명짜리 코드로도 같은 학생이 다시 요청할 수 있다")
     void rejectedRequesterCanRequestAgain() {
-        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, LocalDateTime.now().plusDays(30));
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 1, DEFAULT_WINDOW_DAYS);
         User leader = saveUser();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
@@ -225,31 +224,86 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         Club inactiveClub = saveClub("휴면동아리", ClubStatus.INACTIVE);
         Recruitment inactiveClubRecruitment = saveOpenExternalRecruitment(inactiveClub);
         clubJoinCodeRepository.save(ClubJoinCode.issue(inactiveClub, inactiveClubRecruitment,
-                "INACTV", 12, 30, LocalDateTime.now().plusDays(30), null));
+                "INACTV", 12, 30, DEFAULT_WINDOW_DAYS, null));
 
         assertUnusableAndRequestRejected("INACTV");
     }
 
     @Test
-    @DisplayName("귀속 모집이 마감된 뒤에도 이미 발급된 코드로 가입 요청을 계속 접수할 수 있다")
-    void closedRecruitmentKeepsCodeUsable() {
-        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+    @DisplayName("모집이 종료돼도 가입 가능 기간 안이면 코드로 요청을 계속 접수할 수 있다")
+    void codeStaysUsableWithinJoinWindowAfterClose() {
+        ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
-        closeRecruitment();
+        // 6일 전 종료 + 프리셋 7일 → 아직 창 안. 합격자 등록은 종료 직후에 이어지는 절차다.
+        closeRecruitment(LocalDateTime.now().minusDays(6));
 
-        // 발급만 모집 진행 중으로 제한한다(스펙 v2 4.2) — 이미 공유된 링크는 자체 만료·소진·폐기 전까지
-        // 유효하다. 마감을 사용 불가로 읽으면 마감 직후 들어온 합격자의 등록 경로가 끊긴다.
         checkCode(null, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.usable", equalTo(true));
         createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
-        assertThat(usedCountOf(joinCode)).as("마감 후 접수된 요청도 자리를 확보한다").isEqualTo(1);
+        assertThat(usedCountOf(joinCode)).as("종료 후 접수된 요청도 자리를 확보한다").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("가입 가능 기간이 지나면 코드는 사용 불가로 표시되고 요청 생성도 거절된다")
+    void codeBecomesUnusableAfterJoinWindow() {
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
+
+        // 8일 전 종료 + 프리셋 7일 → 창 밖. 마감 경로마다 폐기 훅을 심지 않고 판정으로 파생시킨다.
+        closeRecruitment(LocalDateTime.now().minusDays(8));
+
+        assertUnusableAndRequestRejected("AB12CD");
+        assertThat(clubJoinRequestRepository.count())
+                .as("기간이 지난 코드로는 요청 행이 만들어지지 않는다").isZero();
+    }
+
+    @Test
+    @DisplayName("가입 가능 기간을 모집 종료일까지로 잡은 코드는 종료 즉시 사용할 수 없다")
+    void zeroJoinWindowCodeEndsAtClose() {
+        saveJoinCode("AB12CD", 12, 30, 0);
+
+        closeRecruitment(LocalDateTime.now().minusMinutes(1));
+
+        assertUnusableAndRequestRejected("AB12CD");
+    }
+
+    @Test
+    @DisplayName("종료 시각이 기록되지 않은 마감 모집의 코드는 사용할 수 없다")
+    void closedRecruitmentWithoutStampIsUnusable() throws Exception {
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
+
+        // 스탬프 도입 전 마감된 레거시 행 — 기간 계산 기준이 없으면 무기한 사용 대신 막는다(fail-closed).
+        Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
+        Field statusField = Recruitment.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(stored, RecruitmentStatus.CLOSED);
+        recruitmentRepository.save(stored);
+
+        assertUnusableAndRequestRejected("AB12CD");
+    }
+
+    @Test
+    @DisplayName("마감일이 없는 상시모집은 진행 중인 동안 코드를 계속 쓸 수 있다")
+    void alwaysOpenRecruitmentKeepsCodeUsable() throws Exception {
+        Club alwaysOpenClub = saveClub("상시모집동아리", ClubStatus.ACTIVE);
+        Recruitment alwaysOpenRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                alwaysOpenClub, "상시모집-" + sequence.getAndIncrement(), "내용",
+                LocalDate.now().minusDays(30), null, 10,
+                ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
+                TargetRole.MEMBER, null, null, false));
+        clubJoinCodeRepository.save(ClubJoinCode.issue(alwaysOpenClub, alwaysOpenRecruitment,
+                "ALWAYS", 12, 30, DEFAULT_WINDOW_DAYS, null));
+
+        checkCode(null, "ALWAYS").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.usable", equalTo(true));
+        createRequest(studentToken, "ALWAYS").then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test
     @DisplayName("비로그인 상태에서는 가입 요청을 생성할 수 없다")
     void anonymousRequestCreationReturns401() {
-        saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
 
         createRequest(null, "AB12CD").then().statusCode(HttpStatus.UNAUTHORIZED.value());
         assertThat(clubJoinRequestRepository.count()).isZero();
@@ -280,9 +334,10 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         clubJoinCodeRepository.save(joinCode);
     }
 
-    private void closeRecruitment() {
+    /** 실제 종료 시각을 지정해 마감한다 — 가입 가능 기간의 기준점이다. */
+    private void closeRecruitment(LocalDateTime closedAt) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
+        stored.close(closedAt);
         recruitmentRepository.save(stored);
     }
 
@@ -290,9 +345,9 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         return clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow().getUsedCount();
     }
 
-    private ClubJoinCode saveJoinCode(String code, Integer generation, int maxUses, LocalDateTime expiresAt) {
+    private ClubJoinCode saveJoinCode(String code, Integer generation, int maxUses, int joinWindowDays) {
         return clubJoinCodeRepository.save(
-                ClubJoinCode.issue(club, recruitment, code, generation, maxUses, expiresAt, null));
+                ClubJoinCode.issue(club, recruitment, code, generation, maxUses, joinWindowDays, null));
     }
 
     private String tokenOf(User user) {

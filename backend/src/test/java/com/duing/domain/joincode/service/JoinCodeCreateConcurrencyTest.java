@@ -24,6 +24,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -151,13 +152,13 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
 
     private void closeRecruitment(Recruitment recruitment) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
+        stored.close(LocalDateTime.now());
         recruitmentRepository.save(stored);
     }
 
     private Throwable tryCreate(Long clubId, Long recruitmentId, Long requesterId) {
         try {
-            joinCodeService.create(new CreateJoinCodeCommand(clubId, recruitmentId, requesterId, 30, 30, 1));
+            joinCodeService.create(new CreateJoinCodeCommand(clubId, recruitmentId, requesterId, 30, 7, 1));
             return null;
         } catch (Throwable failure) {
             return failure;

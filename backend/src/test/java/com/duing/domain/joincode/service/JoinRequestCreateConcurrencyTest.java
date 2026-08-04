@@ -21,7 +21,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -64,8 +63,7 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
         User student = userRepository.save(UserFixture.unique());
         Club club = saveActiveClub();
         ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
-                club, saveOpenExternalRecruitment(club), "AB12CD", 12, 30,
-                LocalDateTime.now().plusDays(30), null));
+                club, saveOpenExternalRecruitment(club), "AB12CD", 12, 30, 7, null));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         Callable<Throwable> requestTask = () -> tryCreate(joinCode.getCode(), student.getId());
@@ -99,8 +97,7 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
         User secondStudent = userRepository.save(UserFixture.unique());
         Club club = saveActiveClub();
         ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
-                club, saveOpenExternalRecruitment(club), "EF34GH", 12, 1,
-                LocalDateTime.now().plusDays(30), null));
+                club, saveOpenExternalRecruitment(club), "EF34GH", 12, 1, 7, null));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         List<Future<Throwable>> outcomes = pool.invokeAll(List.of(

@@ -46,7 +46,7 @@ import org.springframework.http.HttpStatus;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
-    private static final Map<String, Object> VALID_BODY = Map.of("maxUses", 10, "expiresInDays", 30);
+    private static final Map<String, Object> VALID_BODY = Map.of("maxUses", 10, "joinWindowDays", 7);
 
     @LocalServerPort int port;
 
@@ -89,18 +89,18 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("외부 폼 모집에서 운영진이 6자 가입 코드를 만들고 만료 시각을 절대시각으로 받는다")
+    @DisplayName("외부 폼 모집에서 운영진이 6자 가입 링크를 만들고 가입 가능 기간 프리셋을 함께 받는다")
     void leaderCreatesJoinCodeReturns201() {
-        Instant beforeCreate = Instant.now();
-
         Response created = createJoinCode(leaderToken, externalRecruitment, Map.of(
-                "maxUses", 30, "expiresInDays", 30, "generation", 12));
+                "maxUses", 30, "joinWindowDays", 14, "generation", 12));
 
         created.then()
                 .statusCode(HttpStatus.CREATED.value())
                 .body("data.maxUses", equalTo(30))
                 .body("data.usedCount", equalTo(0))
-                .body("data.generation", equalTo(12));
+                .body("data.generation", equalTo(12))
+                .body("data.joinWindowDays", equalTo(14))
+                .body("data.joinExpiresAt", nullValue());
 
         String code = created.jsonPath().getString("data.code");
         assertThat(code).as("Crockford Base32 6자").hasSize(6).matches("[0-9A-HJKMNP-TV-Z]{6}");
@@ -114,12 +114,19 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
                 .isEqualTo(club.getId());
         assertThat(stored.getCreatedById()).as("발급 주체가 감사 컬럼에 기록된다")
                 .isEqualTo(leaderUser.getId());
+        assertThat(stored.getJoinWindowDays()).as("가입 가능 기간 프리셋이 저장된다").isEqualTo((short) 14);
 
-        String expiresAt = created.jsonPath().getString("data.expiresAt");
-        assertThat(expiresAt).as("Event Time 은 오프셋 있는 절대시각(…Z) 으로 직렬화된다").endsWith("Z");
+        // 기한은 모집이 실제로 종료돼야 정해진다 — 종료 시각 + 프리셋을 절대시각으로 변환해 내려준다.
+        Instant beforeClose = Instant.now();
+        closeRecruitment(externalRecruitment);
+
+        String joinExpiresAt = getActiveJoinCode(leaderToken, externalRecruitment).then()
+                .statusCode(HttpStatus.OK.value())
+                .extract().jsonPath().getString("data.joinExpiresAt");
+        assertThat(joinExpiresAt).as("Event Time 은 오프셋 있는 절대시각(…Z) 으로 직렬화된다").endsWith("Z");
         // 양방향 오차 단언 — 한쪽만 보면 타임존 regime 착오(seoul 을 system 으로 변환 시 −9h)가 통과한다.
-        assertThat(Duration.between(beforeCreate.plus(Duration.ofDays(30)), Instant.parse(expiresAt)))
-                .as("만료는 생성 시점 + 30일 (KST 벽시계 → 절대시각 변환 정합)")
+        assertThat(Duration.between(beforeClose.plus(Duration.ofDays(14)), Instant.parse(joinExpiresAt)))
+                .as("기한은 종료 시점 + 14일 (KST 벽시계 → 절대시각 변환 정합)")
                 .isBetween(Duration.ofMinutes(-5), Duration.ofMinutes(5));
     }
 
@@ -192,7 +199,7 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
         Long firstJoinCodeId = firstCreated.jsonPath().getLong("data.joinCodeId");
 
         String secondCode = createJoinCode(leaderToken, externalRecruitment, Map.of(
-                        "maxUses", 20, "expiresInDays", 7, "generation", 13))
+                        "maxUses", 20, "joinWindowDays", 7, "generation", 13))
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getString("data.code");
 
@@ -209,16 +216,59 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("만료 기간이 7·30·90일이 아니거나 최대 사용 인원이 범위를 벗어나면 생성 요청이 거절된다")
+    @DisplayName("가입 가능 기간이 프리셋(0·7·14일) 밖이거나 최대 사용 인원이 범위를 벗어나면 생성 요청이 거절된다")
     void invalidCreateInputReturns400() {
-        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "expiresInDays", 15))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "joinWindowDays", 15))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo(
+                        "가입 가능 기간은 모집 종료일까지, 종료 후 7일, 종료 후 14일 중 하나여야 합니다."));
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "joinWindowDays", 30))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 501, "expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 501, "joinWindowDays", 7))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 0, "expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 0, "joinWindowDays", 7))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, externalRecruitment, Map.of("expiresInDays", 30))
+        createJoinCode(leaderToken, externalRecruitment, Map.of("joinWindowDays", 7))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("가입 가능 기간을 생략하면 기본 프리셋(모집 종료 후 7일)으로 발급된다")
+    void joinWindowDaysDefaultsToSevenDays() {
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.joinWindowDays", equalTo(7));
+    }
+
+    @Test
+    @DisplayName("모집 종료일까지(0일) 프리셋으로도 발급할 수 있다")
+    void zeroJoinWindowDaysIsAllowed() {
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "joinWindowDays", 0))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.joinWindowDays", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("마감일이 지났는데 마감 처리만 안 된 모집에서는 가입 링크를 새로 만들 수 없다")
+    void createIsBlockedWhenEndDateHasPassed() {
+        Recruitment expiredRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                otherClub, "기간지난모집-" + sequence.getAndIncrement(), "내용",
+                LocalDate.now().minusDays(30), LocalDate.now().minusDays(1), 10,
+                ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
+                TargetRole.MEMBER, null, null, false));
+
+        // 지원서 제출과 같은 기준(isEffectivelyOpen) — 상태만 OPEN 인 방치 모집은 "진행 중"이 아니다.
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherClubLeaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(VALID_BODY)
+                .when()
+                    .post("/api/v1/clubs/{clubId}/recruitments/{recruitmentId}/join-codes",
+                            otherClub.getId(), expiredRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.CONFLICT.value())
+                    .body("message", equalTo("모집이 진행 중일 때만 가입 링크를 만들 수 있습니다."));
     }
 
     @Test
@@ -365,7 +415,7 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
 
     private void closeRecruitment(Recruitment recruitment) {
         Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
+        stored.close(LocalDateTime.now());
         recruitmentRepository.save(stored);
     }
 }

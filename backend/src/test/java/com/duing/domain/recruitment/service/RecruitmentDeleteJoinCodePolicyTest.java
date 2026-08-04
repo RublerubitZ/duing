@@ -66,7 +66,7 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         recruitment = saveClosedExternalRecruitment();
         joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
-                club, recruitment, "AB12CD", 12, 30, LocalDateTime.now().plusDays(30), leader.getId()));
+                club, recruitment, "AB12CD", 12, 30, 7, leader.getId()));
     }
 
     @Test
@@ -146,7 +146,7 @@ class RecruitmentDeleteJoinCodePolicyTest extends IntegrationTestBase {
                 LocalDate.now().minusDays(14), LocalDate.now().minusDays(1), 10,
                 ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
                 TargetRole.MEMBER, null, null, false);
-        created.close();
+        created.close(LocalDateTime.now());
         return recruitmentRepository.save(created);
     }
 }

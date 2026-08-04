@@ -24,6 +24,7 @@ import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -92,7 +93,7 @@ class RecruitmentCreateGuardsTest {
 
         recruitmentService.create(buildCommand());
 
-        verify(expiredOpen).close();
+        verify(expiredOpen).close(any(LocalDateTime.class));
         verify(recruitmentRepository, atLeastOnce()).flush();
     }
 

@@ -8,10 +8,10 @@ import com.duing.domain.joincode.service.dto.command.CreateJoinCodeCommand;
 import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -43,12 +43,16 @@ public class GeneralJoinCodeService implements JoinCodeService {
                 .filter(locked -> locked.getClub().getId().equals(createCommand.clubId()))
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
-        // 외부 폼 모집 + 진행 중(OPEN) 한정(스펙 v2 4.2). 마감된 모집에서도 발급할 수 있으면
-        // "모집 생성 → 즉시 마감 → 코드만 발급"으로 모집 절차를 건너뛸 수 있다.
+        // 외부 폼 모집 + 진행 중 한정(스펙 v2 4.2). 마감된 모집에서도 발급할 수 있으면
+        // "모집 생성 → 즉시 마감 → 링크만 발급"으로 모집 절차를 건너뛸 수 있다. 최초 생성·재생성이
+        // 같은 경로라 재생성도 함께 막힌다.
         if (recruitment.getApplicationMode() != ApplicationMode.EXTERNAL) {
             throw new JoinCodeException.ExternalRecruitmentRequiredException();
         }
-        if (recruitment.getStatus() != RecruitmentStatus.OPEN) {
+        // 지원서 제출과 같은 기준(isEffectivelyOpen)을 쓴다 — 마감일이 지났는데 마감 처리만 안 된
+        // 모집에서 새 링크가 발급되는 비대칭을 없앤다. 이미 발급된 링크의 사용 판정은 status 기준이라
+        // 이 경우에도 계속 유효하다(의도된 비대칭 — 상시 운영과 실질이 같다).
+        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
             throw new JoinCodeException.OpenRecruitmentRequiredException();
         }
 
@@ -65,7 +69,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
         try {
             ClubJoinCode issued = clubJoinCodeRepository.save(ClubJoinCode.issue(
                     recruitment.getClub(), recruitment, generateUniqueCode(), createCommand.generation(),
-                    createCommand.maxUses(), now.plusDays(createCommand.expiresInDays()),
+                    createCommand.maxUses(), createCommand.joinWindowDays(),
                     createCommand.requesterId()));
             clubJoinCodeRepository.flush();
             return JoinCodeQuery.from(issued);

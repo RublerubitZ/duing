@@ -88,7 +88,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
             }
             // 만료된 OPEN — close UPDATE 가 새 INSERT 보다 먼저 DB 에 가도록 명시적 flush.
             // Hibernate 기본 액션 순서 INSERT→UPDATE 에서 자기 자신과 unique 충돌 차단 (replaceActive 와 동일 패턴).
-            existingOpen.close();
+            existingOpen.close(LocalDateTime.now(clock));
             recruitmentRepository.flush();
         });
 
@@ -293,7 +293,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Long clubId = recruitment.getClub().getId();
         clubAuthService.requireManager(currentUserId, clubId);
 
-        recruitment.close();
+        recruitment.close(LocalDateTime.now(clock));
     }
 
     @Override
@@ -359,7 +359,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // UPDATE 를 먼저 DB 에 반영한 뒤 INSERT 를 진행한다.
         recruitmentRepository.findActiveByClubId(club.getId())
                 .ifPresent(existingActive -> {
-                    existingActive.close();
+                    existingActive.close(LocalDateTime.now(clock));
                     recruitmentRepository.flush();
                 });
 
@@ -373,7 +373,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
         for (Recruitment recruitment : recruitments) {
             if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
-                recruitment.close();
+                recruitment.close(LocalDateTime.now(clock));
             }
         }
         return recruitments.stream().map(Recruitment::getId).toList();
@@ -382,7 +382,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public int closeAllOnClubDeactivation(Long clubId) {
-        return recruitmentRepository.closeAllOpenByClubId(clubId);
+        return recruitmentRepository.closeAllOpenByClubId(clubId, LocalDateTime.now(clock));
     }
 
     // 모집의 soft-delete 는 지원/면접 cascade(반환된 id 사용) 가 끝난 뒤 호출해야 한다. 모집을 먼저

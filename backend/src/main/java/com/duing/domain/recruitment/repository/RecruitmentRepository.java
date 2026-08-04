@@ -91,10 +91,11 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE Recruitment r
-               SET r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.CLOSED
+               SET r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.CLOSED,
+                   r.closedAt = :closedAt
              WHERE r.club.id = :clubId
                AND r.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
                AND r.deletedAt IS NULL
             """)
-    int closeAllOpenByClubId(@Param("clubId") Long clubId);
+    int closeAllOpenByClubId(@Param("clubId") Long clubId, @Param("closedAt") LocalDateTime closedAt);
 }
