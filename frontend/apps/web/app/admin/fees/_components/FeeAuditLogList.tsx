@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { useAdminFeeAuditLogsQuery } from '@duing/hooks';
@@ -16,7 +17,10 @@ import { FeeFilterChips } from './FeeFilterChips';
 
 const PAGE_SIZE = 20;
 
-type FeeEventGroup = 'POLICY' | 'BILL' | 'PAYMENT' | 'MATCH' | 'ACCOUNT' | 'VIEW';
+export type FeeEventGroup = 'POLICY' | 'BILL' | 'PAYMENT' | 'MATCH' | 'ACCOUNT' | 'VIEW';
+
+/** 이상징후 탭이 "이 유형의 로그를 보라"고 넘겨줄 때 쓰는 질의 키. 양쪽이 같은 이름을 봐야 필터가 걸린다. */
+export const FEE_AUDIT_GROUP_PARAM = 'group';
 
 /**
  * 유형그룹 → 서버에 보낼 이벤트 타입. 이벤트 15종을 빠짐없이 나눠 담는다 —
@@ -56,7 +60,16 @@ export function FeeAuditLogList({
   clubId: number;
   period: AdminFeePeriodParams;
 }) {
-  const [group, setGroup] = useState<FeeEventGroup | undefined>(undefined);
+  const searchParams = useSearchParams();
+  /**
+   * 이상징후 탭에서 넘어왔다면 그 유형그룹으로 열어 준다. 첫 렌더에서만 읽는다 —
+   * 이후 칩 조작은 주소에 싣지 않는 규약이라(관리자 콘솔) 주소를 계속 따라가면 사용자의 선택을 되돌린다.
+   */
+  const [group, setGroup] = useState<FeeEventGroup | undefined>(
+    () =>
+      GROUP_OPTIONS.find((option) => option.value === searchParams.get(FEE_AUDIT_GROUP_PARAM))
+        ?.value,
+  );
   const [page, setPage] = useState(0);
 
   const auditLogsQuery = useAdminFeeAuditLogsQuery(clubId, {

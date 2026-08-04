@@ -118,6 +118,50 @@ export const FEE_SEVERITY_BADGE_CLASS: Record<FeeAnomalySeverity, string> = {
   CRITICAL: 'bg-danger text-paper',
 };
 
+/**
+ * 이상징후 근거(evidence)의 키 이름. 규칙마다 싣는 키가 달라 아는 것만 한국어로 옮긴다.
+ * 값은 전부 건수·비율·임계값이라 개인정보가 없다(스펙 §9).
+ */
+const FEE_EVIDENCE_KEY_LABEL: Record<string, string> = {
+  threshold: '기준값',
+  matchedCount: '매칭 거래',
+  manualCount: '수동 매칭',
+  manualRatioPercent: '수동 매칭 비율(%)',
+  thresholdRatioPercent: '기준 비율(%)',
+  thresholdMatchedCount: '기준 거래 수',
+  voidCount: '납부 정정',
+  lateVoidCount: '마감 후 정정',
+  cancelledCount: '취소 청구',
+  issuedCount: '발행 청구',
+  cancelRatioPercent: '취소 비율(%)',
+  thresholdCancelledCount: '기준 취소 건수',
+  maxActorEventCount: '동일 운영진 최다 변경',
+  mutationCount: '변경 이벤트',
+  maxAmountChanges: '동일 정책 금액 변경',
+  accountChangeCount: '계좌 변경·삭제',
+  windowDays: '평가 윈도우(일)',
+  windowHours: '평가 윈도우(시간)',
+};
+
+/**
+ * 모르는 키는 원문 코드를 그대로 보여준다 — 서버가 근거 키를 늘려도 근거 한 줄이 조용히 사라지지 않게 한다
+ * (feeEventTypeLabel 과 같은 규칙).
+ */
+export function feeEvidenceKeyLabel(key: string): string {
+  return FEE_EVIDENCE_KEY_LABEL[key] ?? key;
+}
+
+/**
+ * 근거 값. 규칙마다 형태가 달라 숫자·불리언·중첩 객체 어느 것이 와도 `[object Object]` 를 내지 않는다 —
+ * 감사 화면에서 근거는 그대로 읽히는 것이 사라지는 것보다 낫다.
+ */
+export function formatEvidenceValue(value: unknown): string {
+  if (typeof value === 'number' || typeof value === 'string') return String(value);
+  if (typeof value === 'boolean') return value ? '예' : '아니오';
+  if (value === null || value === undefined) return '—';
+  return JSON.stringify(value) ?? '—';
+}
+
 export const FEE_COMMENT_STATUS_LABEL: Record<FeeAuditCommentStatus, string> = {
   OPEN: '진행중',
   IN_REVIEW: '확인중',

@@ -12,6 +12,7 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '../../../_components/ConsoleCard';
 import { ErrorState } from '../../../_components/ErrorState';
 import { FeeAccountCard } from '../../_components/FeeAccountCard';
+import { FeeAnomalyList } from '../../_components/FeeAnomalyList';
 import { FeeAuditLogList } from '../../_components/FeeAuditLogList';
 import { FeeBillsTable } from '../../_components/FeeBillsTable';
 import { FeeKpiCards } from '../../_components/FeeKpiCards';
@@ -26,7 +27,7 @@ import {
   type FeePeriodValue,
 } from '../../_lib/feePeriod';
 
-// PR-5 가 이상징후·의견/메모를 여기에 마저 덧붙인다.
+// PR-5 가 의견/메모를 여기에 마저 덧붙인다.
 const TABS = [
   { key: 'overview', label: '개요' },
   { key: 'policies', label: '정책' },
@@ -34,6 +35,7 @@ const TABS = [
   { key: 'payments', label: '납부' },
   { key: 'account', label: '계좌' },
   { key: 'audit-logs', label: '감사 로그' },
+  { key: 'anomalies', label: '이상징후' },
 ] as const;
 
 type FeeDetailTab = (typeof TABS)[number]['key'];
@@ -162,6 +164,7 @@ export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
         {activeTab === 'payments' && <FeePaymentsTable clubId={clubId} period={periodParams} />}
         {activeTab === 'account' && <FeeAccountCard clubId={clubId} />}
         {activeTab === 'audit-logs' && <FeeAuditLogList clubId={clubId} period={periodParams} />}
+        {activeTab === 'anomalies' && <FeeAnomalyList clubId={clubId} period={periodParams} />}
       </div>
     </main>
   );
