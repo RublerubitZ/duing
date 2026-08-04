@@ -1,6 +1,7 @@
 import {
   Building2,
   CircleAlert,
+  ClipboardList,
   Globe,
   HelpCircle,
   Landmark,
@@ -79,6 +80,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     group: '동아리',
     icon: Building2,
     pendingCountKey: 'facilityBooking',
+  },
+  {
+    // 아이콘은 Megaphone 을 피한다 — 사이드바에서 '홍보 관리' 부모가 이미 쓰고 있어 두 메뉴가 겹쳐 읽힌다.
+    href: '/admin/recruitments',
+    title: '모집 관리',
+    description: '전 동아리 모집 현황·강제 마감·지원자 열람',
+    group: '동아리',
+    icon: ClipboardList,
   },
   {
     href: '/admin/leader-succession',

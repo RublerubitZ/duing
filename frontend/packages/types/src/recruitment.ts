@@ -101,6 +101,51 @@ export type CreateRecruitmentPayload = {
   showApplicantCount?: boolean;
 };
 
+/** 총동연 모집 콘솔 정렬. 서버가 정렬 규칙을 정하며 클라이언트는 키만 고른다. */
+export type AdminRecruitmentSort = 'LATEST' | 'APPLICANTS' | 'DEADLINE';
+
+export type AdminRecruitmentSearchParams = {
+  q?: string;
+  status?: RecruitmentStatus;
+  mode?: ApplicationMode;
+  sort?: AdminRecruitmentSort;
+};
+
+export type AdminRecruitmentSummary = {
+  recruitmentId: number;
+  clubId: number;
+  clubName: string;
+  title: string;
+  applicationMode: ApplicationMode;
+  status: RecruitmentStatus;
+  /** 외부 폼 모집은 두잉에 지원 데이터가 없어 0 이 아니라 null(해당 없음)이다. */
+  applicantCount: number | null;
+  startDate: string; // ISO yyyy-MM-dd
+  endDate: string | null; // null = 상시모집
+  updatedAt: string;
+};
+
+/** 외부 폼 모집의 가입 코드·요청 현황. 전부 서버 계산값이라 화면은 표시만 한다. */
+export type AdminJoinLinkStatus = {
+  linkStatus: 'ACTIVE' | 'EXPIRED' | 'EXHAUSTED';
+  generation: number | null;
+  maxUses: number;
+  usedCount: number;
+  totalRequestCount: number;
+  pendingCount: number;
+  enrolledCount: number;
+  joinWindowDays: number;
+  joinExpiresAt: string | null;
+};
+
+export type AdminRecruitmentDetail = AdminRecruitmentSummary & {
+  externalFormUrl: string | null;
+  /** 외부 폼 모집이라도 활성 코드가 없으면 null — 화면은 "코드 없음"으로 읽는다. */
+  joinLink: AdminJoinLinkStatus | null;
+};
+
+export type ForceCloseRecruitmentPayload = { reason?: string };
+
 export type UpdateRecruitmentPayload = {
   title?: string;
   content?: string | null;
