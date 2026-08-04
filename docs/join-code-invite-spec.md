@@ -37,7 +37,9 @@ v1(가입 코드 1차 릴리스, #848~#854) 대비 변경: 코드 귀속을 Club
 
 ## 2. BE — EXTERNAL 모집 제약
 
-`applicationMode = EXTERNAL` 인 모집의 생성·수정 시:
+`applicationMode = EXTERNAL` 인 모집의 **생성** 시 (수정 경로는 의도적으로 미강제 — 내부 전용 값이 남은
+레거시 EXTERNAL 모집이 제목만 고쳐도 400 이 되는 것을 막기 위함. FE 는 수정 모드에서 값을 그대로 왕복한다.
+⚠️ 후속에서 update 검증을 추가하려면 레거시 값 정리 배치 + FE 왕복 정책 재검토를 반드시 동반할 것):
 
 - `questions`/`questionItems` 비어 있어야 함 (기존 유지)
 - `useInterview = false` 강제 — true 요청 시 400

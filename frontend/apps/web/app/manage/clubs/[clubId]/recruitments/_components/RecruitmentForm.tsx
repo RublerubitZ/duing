@@ -12,6 +12,8 @@ import { SectionCard } from '@/app/manage/_components/SectionCard';
 import { FormSegment, FormSwitch, SettingRow } from './form-controls';
 import { RecruitmentPreview } from './RecruitmentPreview';
 import type { RecruitmentPreviewData } from './RecruitmentPreview';
+import { ExternalModeConfirmDialog } from './ExternalModeConfirmDialog';
+import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 
 /** Task 8 의 페이지 헤더 제출 버튼이 `form` 속성으로 이 폼을 원격 제출한다. */
@@ -94,8 +96,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
    */
   const isLegacyQuestionsBackend = isEditMode && initialData?.questionItems === undefined;
 
+  /**
+   * 외부 폼 모집에는 안내문·질문·면접·지원자 수 공개가 존재할 수 없다(스펙 §2). 정책 이전에 만들어진
+   * EXTERNAL 모집을 복제하면 이 값들이 그대로 딸려와 저장 시 400 이 되므로 시드 단계에서 떨어뜨린다.
+   * (수정 모드는 시드가 곧 저장값이라 건드리지 않는다 — 화면에서 감추기만 하고 값은 왕복시킨다.)
+   */
+  const isExternalCloneSeed = cloneSeed?.applicationMode === 'EXTERNAL';
+
   const [title, setTitle] = useState(seed?.title ?? '');
-  const [content, setContent] = useState(seed?.content ?? '');
+  const [content, setContent] = useState(isExternalCloneSeed ? '' : (seed?.content ?? ''));
   const [startDate, setStartDate] = useState(initialData?.startDate ?? '');
   const [endDate, setEndDate] = useState(initialData?.endDate ?? '');
   const [isAlwaysOpen, setIsAlwaysOpen] = useState(
@@ -106,10 +115,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     seed?.applicationMode ?? 'SELF',
   );
   const [externalFormUrl, setExternalFormUrl] = useState(seed?.externalFormUrl ?? '');
-  const [useInterview, setUseInterview] = useState(seed?.useInterview ?? false);
+  const [useInterview, setUseInterview] = useState(
+    isExternalCloneSeed ? false : (seed?.useInterview ?? false),
+  );
   const [interviewStartDate, setInterviewStartDate] = useState(initialData?.interviewStartDate ?? '');
   const [interviewEndDate, setInterviewEndDate] = useState(initialData?.interviewEndDate ?? '');
-  const [showApplicantCount, setShowApplicantCount] = useState(seed?.showApplicantCount ?? false);
+  const [showApplicantCount, setShowApplicantCount] = useState(
+    isExternalCloneSeed ? false : (seed?.showApplicantCount ?? false),
+  );
   const [targetRole, setTargetRole] = useState<'MEMBER' | 'OFFICER'>(seed?.targetRole ?? 'MEMBER');
   // 서버 id 와 무관한 React key 발급기 — jsdom 에 crypto.randomUUID 가 없어 카운터로 만든다.
   const keyCounter = useRef(0);
@@ -121,14 +134,43 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         : toBuilderQuestions(initialData?.questionItems, initialData?.questions ?? [], nextKey);
     }
     if (cloneSeed) {
-      return toBuilderQuestions(cloneSeed.questionItems, cloneSeed.questions, nextKey);
+      return isExternalCloneSeed
+        ? []
+        : toBuilderQuestions(cloneSeed.questionItems, cloneSeed.questions, nextKey);
     }
     return [];
   });
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
 
   const isSelfForm = isEditMode ? initialData?.applicationMode === 'SELF' : applicationMode === 'SELF';
+
+  /** 외부 폼 전환은 되돌릴 수 없게 값을 비우므로 확인 다이얼로그를 먼저 띄운다 (스펙 §1.1). */
+  function handleApplicationModeChange(nextMode: 'SELF' | 'EXTERNAL') {
+    if (nextMode === applicationMode) return;
+    if (nextMode === 'EXTERNAL') {
+      setIsExternalConfirmOpen(true);
+      return;
+    }
+    // 자체 폼 복귀는 잃을 값이 없어 바로 전환한다(전환 전 값은 복원하지 않는다).
+    setApplicationMode('SELF');
+  }
+
+  /**
+   * 확인 시점에 내부 전용 값을 즉시 정리한다 — 화면에서 감추기만 하면 안 보이는 값이 그대로 저장돼
+   * 서버가 400 으로 되받는다(BE 검증은 방어선이지, 사용자에게 보여줄 UX 가 아니다).
+   */
+  function confirmExternalMode() {
+    setApplicationMode('EXTERNAL');
+    setContent('');
+    setQuestionItems([]);
+    setUseInterview(false);
+    setInterviewStartDate('');
+    setInterviewEndDate('');
+    setShowApplicantCount(false);
+    setIsExternalConfirmOpen(false);
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -184,7 +226,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       endDate: isAlwaysOpen ? null : endDate,
       capacity,
       applicationMode,
-      externalFormUrl: externalFormUrl || undefined,
+      // 붙여넣기로 딸려온 앞뒤 공백은 여기서 정리한다 — 화이트리스트 검증과 저장 값이 같아야 한다.
+      externalFormUrl: externalFormUrl.trim() || undefined,
       useInterview,
       targetRole,
       questionItems: isSelfForm ? toQuestionItemsPayload(questionItems) : undefined,
@@ -348,7 +391,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   { value: 'EXTERNAL', label: '외부 폼' },
                 ]}
                 value={applicationMode}
-                onChange={setApplicationMode}
+                onChange={handleApplicationModeChange}
                 ariaLabel="지원 방식"
               />
             )}
@@ -366,11 +409,12 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   value={externalFormUrl}
                   onChange={(event) => setExternalFormUrl(event.target.value)}
                   className={fieldInputClass}
-                  placeholder="https://forms.google.com/..."
+                  placeholder="https://docs.google.com/forms/..."
                 />
               </label>
               <p className="mt-2 text-xs leading-relaxed text-charcoal-3">
-                외부 폼 사용 시 지원서 질문 기능은 사용하지 않아요. 지원자는 링크로 이동해 작성합니다.
+                구글 폼(forms.gle · docs.google.com/forms) 또는 네이버 폼(form.naver.com) 주소만 등록할 수
+                있어요. 단축 URL 이 아닌 원본 주소를 붙여넣어 주세요.
               </p>
             </div>
           )}
@@ -389,110 +433,124 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             </div>
           )}
 
-          <SettingRow title="면접 진행" desc="서류 후 면접 전형을 둘지 여부">
-            <FormSwitch checked={useInterview} onChange={setUseInterview} ariaLabel="면접 진행" />
-          </SettingRow>
-          {useInterview && (
-            <div className="mb-2.5 grid grid-cols-1 gap-4 rounded-[13px] border border-line bg-cream p-4 sm:grid-cols-2">
-              <label className="block">
-                <span className={fieldLabelClass}>면접 시작일</span>
-                <input
-                  type="date"
-                  value={interviewStartDate}
-                  onChange={(event) => setInterviewStartDate(event.target.value)}
-                  className={fieldInputClass}
-                />
-              </label>
-              <label className="block">
-                <span className={fieldLabelClass}>면접 종료일</span>
-                <input
-                  type="date"
-                  value={interviewEndDate}
-                  onChange={(event) => setInterviewEndDate(event.target.value)}
-                  className={fieldInputClass}
-                />
-              </label>
-            </div>
-          )}
-          {/* 전형 단계 파생 칩 — 편집 불가 표시 전용 */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-charcoal-3">전형 단계</span>
-            {stageLabels.map((stage, index) => (
-              <span
-                key={stage}
-                className="rounded-full bg-sage-tint px-3 py-1.5 text-xs font-semibold text-charcoal-2"
-              >
-                {index + 1}. {stage}
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-2.5">
-            <SettingRow title="지원자 수 공개" desc="모집 페이지에 현재 지원자 수를 학생에게 보여줄지">
-              <FormSwitch
-                checked={showApplicantCount}
-                onChange={setShowApplicantCount}
-                ariaLabel="지원자 수 공개"
-              />
+          {/* 지원 흐름에 딸린 설정 — 외부 폼 모집에는 성립하지 않아 섹션째 렌더하지 않는다 (스펙 §1.2). */}
+          {isSelfForm && (
+            <>
+            <SettingRow title="면접 진행" desc="서류 후 면접 전형을 둘지 여부">
+              <FormSwitch checked={useInterview} onChange={setUseInterview} ariaLabel="면접 진행" />
             </SettingRow>
-          </div>
+            {useInterview && (
+              <div className="mb-2.5 grid grid-cols-1 gap-4 rounded-[13px] border border-line bg-cream p-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className={fieldLabelClass}>면접 시작일</span>
+                  <input
+                    type="date"
+                    value={interviewStartDate}
+                    onChange={(event) => setInterviewStartDate(event.target.value)}
+                    className={fieldInputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className={fieldLabelClass}>면접 종료일</span>
+                  <input
+                    type="date"
+                    value={interviewEndDate}
+                    onChange={(event) => setInterviewEndDate(event.target.value)}
+                    className={fieldInputClass}
+                  />
+                </label>
+              </div>
+            )}
+            {/* 전형 단계 파생 칩 — 편집 불가 표시 전용 */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-charcoal-3">전형 단계</span>
+              {stageLabels.map((stage, index) => (
+                <span
+                  key={stage}
+                  className="rounded-full bg-sage-tint px-3 py-1.5 text-xs font-semibold text-charcoal-2"
+                >
+                  {index + 1}. {stage}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-2.5">
+              <SettingRow title="지원자 수 공개" desc="모집 페이지에 현재 지원자 수를 학생에게 보여줄지">
+                <FormSwitch
+                  checked={showApplicantCount}
+                  onChange={setShowApplicantCount}
+                  ariaLabel="지원자 수 공개"
+                />
+              </SettingRow>
+            </div>
+            </>
+          )}
         </SectionCard>
+
+        {/* ③ 회원 등록 절차 — 외부 폼 모집 전용 (스펙 §7) */}
+        {!isSelfForm && (
+          <SectionCard
+            number={3}
+            title="회원 등록 절차"
+            description="외부 폼 모집은 지원서를 두잉에서 받지 않고, 합격자를 가입 코드로 등록해요."
+          >
+            <MemberEnrollmentStepsCard />
+          </SectionCard>
+        )}
 
         {/* ③ 안내문 */}
-        <SectionCard
-          number={3}
-          title="안내문"
-          description="학생 지원 화면 상단에 노출돼요. Markdown(제목·리스트·강조·링크)을 쓸 수 있어요."
-        >
-          <textarea
-            rows={8}
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            className={cn(fieldInputClass, 'resize-y')}
-            placeholder="동아리 소개, 가입 후 일정, 회비 안내 등 지원 전에 알아야 할 내용을 적어주세요"
-          />
-        </SectionCard>
+        {isSelfForm && (
+          <SectionCard
+            number={3}
+            title="안내문"
+            description="학생 지원 화면 상단에 노출돼요. Markdown(제목·리스트·강조·링크)을 쓸 수 있어요."
+          >
+            <textarea
+              rows={8}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              className={cn(fieldInputClass, 'resize-y')}
+              placeholder="동아리 소개, 가입 후 일정, 회비 안내 등 지원 전에 알아야 할 내용을 적어주세요"
+            />
+          </SectionCard>
+        )}
 
         {/* ④ 지원서 질문 */}
-        <SectionCard number={4} title="지원서 질문" description="자체 폼으로 받을 때 지원자가 작성할 항목이에요.">
-          {isSelfForm && isLegacyQuestionsBackend && (
-            <div>
-              <p className={cn(fieldLabelClass, 'mb-3')}>
-                지원 질문 <span className="font-normal text-charcoal-3">(수정 불가)</span>
-              </p>
-              <div className="rounded-md bg-graysoft p-4">
-                <p className="text-sm text-charcoal-2">
-                  서버 업데이트 이후에 질문을 수정할 수 있습니다. 다른 항목은 지금 저장할 수 있어요.
+        {isSelfForm && (
+          <SectionCard number={4} title="지원서 질문" description="자체 폼으로 받을 때 지원자가 작성할 항목이에요.">
+            {isLegacyQuestionsBackend && (
+              <div>
+                <p className={cn(fieldLabelClass, 'mb-3')}>
+                  지원 질문 <span className="font-normal text-charcoal-3">(수정 불가)</span>
                 </p>
-                {initialData !== null && initialData.questions.length > 0 && (
-                  <ol className="mt-3 list-decimal space-y-1 pl-5">
-                    {initialData.questions.map((question, index) => (
-                      <li key={index} className="text-sm text-charcoal-3">
-                        {question}
-                      </li>
-                    ))}
-                  </ol>
-                )}
+                <div className="rounded-md bg-graysoft p-4">
+                  <p className="text-sm text-charcoal-2">
+                    서버 업데이트 이후에 질문을 수정할 수 있습니다. 다른 항목은 지금 저장할 수 있어요.
+                  </p>
+                  {initialData !== null && initialData.questions.length > 0 && (
+                    <ol className="mt-3 list-decimal space-y-1 pl-5">
+                      {initialData.questions.map((question, index) => (
+                        <li key={index} className="text-sm text-charcoal-3">
+                          {question}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {isSelfForm && !isLegacyQuestionsBackend && (
-            <div>
-              <p className={cn(fieldLabelClass, 'mb-3')}>
-                지원 질문 <span className="text-coral">*</span>
-                <span className="ml-1 font-normal text-charcoal-3">(최소 1개)</span>
-              </p>
-              <QuestionBuilder questions={questionItems} onChange={setQuestionItems} nextKey={nextKey} />
-            </div>
-          )}
-
-          {!isSelfForm && (
-            <div className="rounded-md bg-graysoft p-4 text-sm text-charcoal-2">
-              외부 폼 사용 중 — 지원서 질문 기능은 사용하지 않아요. 질문은 외부 폼에서 관리해주세요.
-            </div>
-          )}
-        </SectionCard>
+            {!isLegacyQuestionsBackend && (
+              <div>
+                <p className={cn(fieldLabelClass, 'mb-3')}>
+                  지원 질문 <span className="text-coral">*</span>
+                  <span className="ml-1 font-normal text-charcoal-3">(최소 1개)</span>
+                </p>
+                <QuestionBuilder questions={questionItems} onChange={setQuestionItems} nextKey={nextKey} />
+              </div>
+            )}
+          </SectionCard>
+        )}
 
         {/* 오류 + 하단 제출 */}
         <div className="mt-2 flex items-center justify-end gap-3">
@@ -510,6 +568,12 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       <aside className="hidden xl:sticky xl:top-6 xl:block">
         <RecruitmentPreview data={previewData} />
       </aside>
+
+      <ExternalModeConfirmDialog
+        open={isExternalConfirmOpen}
+        onCancel={() => setIsExternalConfirmOpen(false)}
+        onConfirm={confirmExternalMode}
+      />
     </div>
   );
 }
