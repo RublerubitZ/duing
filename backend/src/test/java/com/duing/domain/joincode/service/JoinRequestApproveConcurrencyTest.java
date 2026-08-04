@@ -129,7 +129,7 @@ class JoinRequestApproveConcurrencyTest extends IntegrationTestBase {
     private ClubJoinCode saveJoinCode(Club club, int maxUses) {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(
                 club, saveOpenExternalRecruitment(club), codeOf(sequence.getAndIncrement()), 12, maxUses,
-                LocalDateTime.now().plusDays(30)));
+                LocalDateTime.now().plusDays(30), null));
     }
 
     /** code 는 전역 unique 이므로 시퀀스로 겹치지 않는 6자를 만든다. */

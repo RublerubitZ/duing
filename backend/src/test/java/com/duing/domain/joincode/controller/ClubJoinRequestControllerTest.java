@@ -288,10 +288,11 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("코드가 폐기되거나 귀속 모집이 마감된 뒤에도 이미 접수된 요청은 승인할 수 있다")
-    void approveWorksAfterCodeRevokedOrRecruitmentClosed() {
+    @DisplayName("코드가 폐기되거나 귀속 모집이 마감된 뒤에도 이미 접수된 요청은 승인·거절할 수 있다")
+    void decideWorksAfterCodeRevokedOrRecruitmentClosed() {
         ClubJoinRequest requestApprovedAfterRevoke = savePendingRequest(saveUser());
         ClubJoinRequest requestApprovedAfterClose = savePendingRequest(saveUser());
+        ClubJoinRequest requestRejectedAfterClose = savePendingRequest(saveUser());
 
         revokeCurrentJoinCode();
         decide(leaderToken, club.getId(), requestApprovedAfterRevoke.getId(), "APPROVED").then()
@@ -302,9 +303,13 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         decide(leaderToken, club.getId(), requestApprovedAfterClose.getId(), "APPROVED").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("APPROVED"));
+        // 마감 뒤에도 거절 경로가 살아 있어야 한다 — 막히면 대기 요청이 영원히 남아 모집 삭제까지 막힌다.
+        decide(leaderToken, club.getId(), requestRejectedAfterClose.getId(), "REJECTED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.result", equalTo("REJECTED"));
 
         assertThat(usedCountOfCurrentCode())
-                .as("두 건 모두 신청 때 확보한 자리를 그대로 쓴다").isEqualTo(2);
+                .as("승인 2건은 신청 때 확보한 자리를 그대로 쓰고 거절 1건만 환급된다").isEqualTo(2);
     }
 
     @Test
@@ -478,12 +483,12 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     private ClubJoinCode saveJoinCode(Club targetClub, Recruitment targetRecruitment, int maxUses) {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(
                 targetClub, targetRecruitment, randomCode(), 12, maxUses,
-                LocalDateTime.now().plusDays(30)));
+                LocalDateTime.now().plusDays(30), null));
     }
 
     private void revokeCurrentJoinCode() {
         ClubJoinCode stored = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
-        stored.revoke(LocalDateTime.now());
+        stored.revoke(LocalDateTime.now(), null);
         clubJoinCodeRepository.save(stored);
     }
 

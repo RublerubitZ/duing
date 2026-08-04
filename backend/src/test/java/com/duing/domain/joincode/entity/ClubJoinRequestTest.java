@@ -76,7 +76,7 @@ class ClubJoinRequestTest {
     private ClubJoinRequest pendingRequest(Integer generation) {
         Club club = club();
         ClubJoinCode joinCode = ClubJoinCode.issue(
-                club, openRecruitment(club), "AB12CD", generation, 30, NOW.plusDays(30));
+                club, openRecruitment(club), "AB12CD", generation, 30, NOW.plusDays(30), null);
         return ClubJoinRequest.pending(club, UserFixture.unique(), joinCode);
     }
 

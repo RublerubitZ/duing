@@ -28,11 +28,13 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
      * 생성(findWithLockByCode)과 직렬화된다.
      */
     @Modifying
-    @Query("UPDATE ClubJoinCode joinCode SET joinCode.revokedAt = :revokedAt "
+    @Query("UPDATE ClubJoinCode joinCode "
+            + "SET joinCode.revokedAt = :revokedAt, joinCode.revokedById = :revokedById "
             + "WHERE joinCode.recruitment.id = :recruitmentId "
             + "AND joinCode.revokedAt IS NULL AND joinCode.deletedAt IS NULL")
     int revokeActiveByRecruitmentId(@Param("recruitmentId") Long recruitmentId,
-                                    @Param("revokedAt") LocalDateTime revokedAt);
+                                    @Param("revokedAt") LocalDateTime revokedAt,
+                                    @Param("revokedById") Long revokedById);
 
     /** 학생의 코드 확인 진입점(읽기 전용). 유효성(미폐기·미만료·미소진) 판정은 호출 측 책임이다. */
     Optional<ClubJoinCode> findByCode(String code);

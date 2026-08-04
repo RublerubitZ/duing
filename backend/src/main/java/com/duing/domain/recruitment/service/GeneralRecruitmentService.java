@@ -299,8 +299,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public void delete(Long recruitmentId, Long currentUserId) {
-        // 행 잠금 — 가입 코드 발급(모집 상태를 보지 않는다)과 직렬화해, 아래 "활성 코드 폐기" 이후에
-        // 새 코드가 끼어들어 삭제된 모집의 고아 코드로 남는 경쟁을 차단한다.
+        // 행 잠금 — 가입 코드 발급과 직렬화해, 아래 "활성 코드 폐기" 이후에 새 코드가 끼어들어
+        // 삭제된 모집의 고아 코드로 남는 경쟁을 차단한다. 발급은 OPEN·삭제는 CLOSED 전제라
+        // 정책상 상호 배타지만(스펙 v2 4.2), 마감과 겹치는 경쟁까지 막는 심층 방어로 잠금을 유지한다.
         Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
@@ -324,7 +325,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 학생이 계속 유입되는 것을 막는다. revoked_at 은 코드 도메인 규약대로 seoulClock 벽시계로 쓴다.
         // 폐기 UPDATE 가 코드 행을 잠그는 덕에(신청 생성은 같은 행을 FOR UPDATE 로 읽는다) 아래 대기 요청
         // 확인이 동시 신청을 놓치지 않는다 — 순서를 뒤집으면 확인 직후 접수된 요청이 삭제된 모집에 매달린다.
-        clubJoinCodeRepository.revokeActiveByRecruitmentId(recruitmentId, LocalDateTime.now(clock));
+        // 폐기 주체는 삭제 수행자다(V100 감사 컬럼) — 코드가 왜 죽었는지 행만 보고 알 수 있게 한다.
+        clubJoinCodeRepository.revokeActiveByRecruitmentId(
+                recruitmentId, LocalDateTime.now(clock), currentUserId);
 
         // 대기 중인 가입 요청은 학생이 코드 자리를 차감한 채 응답을 기다리는 상태다 — 삭제로 응답 경로를
         // 없애지 않는다(먼저 승인·거절). 예외로 트랜잭션이 롤백되므로 위 폐기도 함께 되돌아간다.

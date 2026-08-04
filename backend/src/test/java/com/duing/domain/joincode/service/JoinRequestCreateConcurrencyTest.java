@@ -65,7 +65,7 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
                 club, saveOpenExternalRecruitment(club), "AB12CD", 12, 30,
-                LocalDateTime.now().plusDays(30)));
+                LocalDateTime.now().plusDays(30), null));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         Callable<Throwable> requestTask = () -> tryCreate(joinCode.getCode(), student.getId());
@@ -100,7 +100,7 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
                 club, saveOpenExternalRecruitment(club), "EF34GH", 12, 1,
-                LocalDateTime.now().plusDays(30)));
+                LocalDateTime.now().plusDays(30), null));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         List<Future<Throwable>> outcomes = pool.invokeAll(List.of(

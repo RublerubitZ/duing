@@ -61,6 +61,6 @@ class ClubJoinCodeRepositoryTest {
                 ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
                 TargetRole.MEMBER, null, null, false));
         return ClubJoinCode.issue(club, recruitment, "AB12CD", 1, 30,
-                LocalDateTime.now().plusDays(30));
+                LocalDateTime.now().plusDays(30), null);
     }
 }

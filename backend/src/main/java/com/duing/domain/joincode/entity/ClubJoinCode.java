@@ -65,9 +65,20 @@ public class ClubJoinCode extends BaseEntity {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
+    /**
+     * 발급 주체(V100). 재생성은 폐기 + 신규 행이므로 행마다 발급자가 남는다.
+     * 감사 조회 UI 는 후속이라 연관관계 대신 사용자 id 만 들고 있는다(FacilityBooking.decidedById 전례).
+     */
+    @Column(name = "created_by")
+    private Long createdById;
+
+    /** 폐기 주체(V100) — 수동 폐기·재생성의 자동 폐기·모집 삭제(삭제 수행자) 세 경로가 기록한다. */
+    @Column(name = "revoked_by")
+    private Long revokedById;
+
     @Builder(access = AccessLevel.PRIVATE)
     private ClubJoinCode(Club club, Recruitment recruitment, String code, Integer generation,
-                         int maxUses, LocalDateTime expiresAt) {
+                         int maxUses, LocalDateTime expiresAt, Long createdById) {
         this.club = club;
         this.recruitment = recruitment;
         this.code = code;
@@ -75,10 +86,12 @@ public class ClubJoinCode extends BaseEntity {
         this.maxUses = maxUses;
         this.usedCount = 0;
         this.expiresAt = expiresAt;
+        this.createdById = createdById;
     }
 
     public static ClubJoinCode issue(Club club, Recruitment recruitment, String code,
-                                     Integer generation, int maxUses, LocalDateTime expiresAt) {
+                                     Integer generation, int maxUses, LocalDateTime expiresAt,
+                                     Long createdById) {
         return ClubJoinCode.builder()
                 .club(club)
                 .recruitment(recruitment)
@@ -86,11 +99,13 @@ public class ClubJoinCode extends BaseEntity {
                 .generation(generation)
                 .maxUses(maxUses)
                 .expiresAt(expiresAt)
+                .createdById(createdById)
                 .build();
     }
 
-    public void revoke(LocalDateTime now) {
+    public void revoke(LocalDateTime now, Long revokedById) {
         this.revokedAt = now;
+        this.revokedById = revokedById;
     }
 
     public boolean isRevoked() {
@@ -108,9 +123,9 @@ public class ClubJoinCode extends BaseEntity {
     /**
      * 신규 가입 요청을 받을 수 있는 코드인지 판정한다 — 미폐기·미만료·미소진.
      *
-     * <p>귀속 모집의 상태는 보지 않는다(스펙 v2 4.2): 합격자 등록은 모집이 마감된 뒤에 이어지는
-     * 절차이므로, 마감을 사용 불가로 읽으면 정상 등록 경로가 끊긴다. 최종 등록 게이트는 운영진 승인이고
-     * 모집이 삭제되는 경우에는 삭제 트랜잭션이 코드를 명시적으로 폐기한다.
+     * <p>귀속 모집의 상태는 보지 않는다(스펙 v2 4.2): 발급은 모집 진행 중에만 가능하지만, 한 번 발급된
+     * 링크는 모집이 마감된 뒤에도 자체 만료·인원 소진·폐기 전까지 계속 쓸 수 있다. 최종 등록 게이트는
+     * 운영진 승인이고, 모집이 삭제되는 경우에는 삭제 트랜잭션이 코드를 명시적으로 폐기한다.
      */
     public boolean isUsable(LocalDateTime now) {
         return !isRevoked() && !isExpired(now) && !isExhausted();

@@ -225,21 +225,20 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         Club inactiveClub = saveClub("휴면동아리", ClubStatus.INACTIVE);
         Recruitment inactiveClubRecruitment = saveOpenExternalRecruitment(inactiveClub);
         clubJoinCodeRepository.save(ClubJoinCode.issue(inactiveClub, inactiveClubRecruitment,
-                "INACTV", 12, 30, LocalDateTime.now().plusDays(30)));
+                "INACTV", 12, 30, LocalDateTime.now().plusDays(30), null));
 
         assertUnusableAndRequestRejected("INACTV");
     }
 
     @Test
-    @DisplayName("귀속 모집이 마감돼도 코드는 그대로 사용 가능하고 가입 요청도 접수된다")
+    @DisplayName("귀속 모집이 마감된 뒤에도 이미 발급된 코드로 가입 요청을 계속 접수할 수 있다")
     void closedRecruitmentKeepsCodeUsable() {
         ClubJoinCode joinCode = saveJoinCode("AB12CD", 12, 30, LocalDateTime.now().plusDays(30));
 
-        Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
-        stored.close();
-        recruitmentRepository.save(stored);
+        closeRecruitment();
 
-        // 합격자 등록은 모집 마감 뒤에 이어지는 절차다 — 마감을 사용 불가로 읽으면 등록 경로가 끊긴다.
+        // 발급만 모집 진행 중으로 제한한다(스펙 v2 4.2) — 이미 공유된 링크는 자체 만료·소진·폐기 전까지
+        // 유효하다. 마감을 사용 불가로 읽으면 마감 직후 들어온 합격자의 등록 경로가 끊긴다.
         checkCode(null, "AB12CD").then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.usable", equalTo(true));
@@ -277,8 +276,14 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     private void revoke(ClubJoinCode joinCode) {
-        joinCode.revoke(LocalDateTime.now());
+        joinCode.revoke(LocalDateTime.now(), null);
         clubJoinCodeRepository.save(joinCode);
+    }
+
+    private void closeRecruitment() {
+        Recruitment stored = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
+        stored.close();
+        recruitmentRepository.save(stored);
     }
 
     private int usedCountOf(ClubJoinCode joinCode) {
@@ -287,7 +292,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
 
     private ClubJoinCode saveJoinCode(String code, Integer generation, int maxUses, LocalDateTime expiresAt) {
         return clubJoinCodeRepository.save(
-                ClubJoinCode.issue(club, recruitment, code, generation, maxUses, expiresAt));
+                ClubJoinCode.issue(club, recruitment, code, generation, maxUses, expiresAt, null));
     }
 
     private String tokenOf(User user) {

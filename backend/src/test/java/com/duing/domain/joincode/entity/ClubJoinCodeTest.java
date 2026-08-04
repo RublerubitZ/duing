@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 class ClubJoinCodeTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 3, 10, 0);
+    private static final Long ISSUER_ID = 7L;
 
     @Test
     @DisplayName("만료·폐기·소진 중 하나라도 해당하면 사용할 수 없는 코드다")
@@ -26,7 +27,7 @@ class ClubJoinCodeTest {
                 .as("만료된 코드").isFalse();
 
         ClubJoinCode revoked = issue(openRecruitment(), 5, NOW.plusDays(30));
-        revoked.revoke(NOW);
+        revoked.revoke(NOW, ISSUER_ID);
         assertThat(revoked.isUsable(NOW)).as("폐기된 코드").isFalse();
         assertThat(revoked.isRevoked()).isTrue();
 
@@ -36,13 +37,13 @@ class ClubJoinCodeTest {
     }
 
     @Test
-    @DisplayName("귀속 모집이 마감돼도 코드 자체는 계속 사용할 수 있다")
+    @DisplayName("귀속 모집이 마감돼도 이미 발급된 코드는 계속 사용할 수 있다")
     void closedRecruitmentKeepsCodeUsable() {
         Recruitment closedRecruitment = openRecruitment();
         closedRecruitment.close();
 
         assertThat(issue(closedRecruitment, 5, NOW.plusDays(30)).isUsable(NOW))
-                .as("합격자 등록은 모집 마감 뒤에 이어지는 절차다 — 마감을 사용 불가로 읽으면 등록 경로가 끊긴다")
+                .as("발급만 모집 진행 중으로 제한한다 — 발급된 링크는 자체 만료까지 유효하다")
                 .isTrue();
     }
 
@@ -72,7 +73,7 @@ class ClubJoinCodeTest {
     }
 
     private ClubJoinCode issue(Recruitment recruitment, int maxUses, LocalDateTime expiresAt) {
-        return ClubJoinCode.issue(club(), recruitment, "AB12CD", 3, maxUses, expiresAt);
+        return ClubJoinCode.issue(club(), recruitment, "AB12CD", 3, maxUses, expiresAt, ISSUER_ID);
     }
 
     private Club club() {
