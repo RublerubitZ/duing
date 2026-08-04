@@ -87,7 +87,7 @@ v1(가입 코드 1차 릴리스, #848~#854) 대비 변경: 코드 귀속을 Club
 
 ### 4.2 생성 조건 (최종 확정 — "가입 링크")
 
-**최초 생성·재생성 모두** `applicationMode == EXTERNAL` **AND** `Recruitment.status == OPEN` 일 때만 가능.
+**최초 생성·재생성 모두** `applicationMode == EXTERNAL` **AND** **실질 진행 중(`isEffectivelyOpen` — status OPEN 이고 endDate 미경과)** 일 때만 가능(지원서 제출과 동일 기준 — endDate 경과+미마감 모집 발급 차단).
 CLOSED 이후에는 생성·재생성 불가("모집 생성 → 즉시 종료 → 링크만 발급" 우회 원천 차단).
 
 | mode | status | 생성/재생성 |
