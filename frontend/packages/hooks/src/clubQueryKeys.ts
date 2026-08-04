@@ -16,4 +16,6 @@ export const clubQueryKeys = {
   joinRequestDetail: (clubId: number, joinRequestId: number) =>
     [...clubQueryKeys.joinRequestsAll(clubId), 'detail', joinRequestId] as const,
   managed: () => [...clubQueryKeys.all, 'managed'] as const,
+  // 학생용 코드 확인은 clubId 를 모른 채 코드로만 조회하므로 clubs 프리픽스에 매달 수 없다.
+  joinCodeCheck: (code: string) => ['join-codes', code, 'check'] as const,
 };

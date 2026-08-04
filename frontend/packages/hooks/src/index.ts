@@ -193,6 +193,8 @@ export {
   useJoinRequestDetailQuery,
   useDecideJoinRequestMutation,
   useBulkApproveJoinRequestsMutation,
+  useJoinCodeCheckQuery,
+  useCreateJoinRequestMutation,
 } from './joinCodes';
 export { useClubMembershipQuery } from './clubMembership';
 export {

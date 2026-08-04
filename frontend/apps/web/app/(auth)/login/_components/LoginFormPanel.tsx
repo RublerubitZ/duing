@@ -99,7 +99,13 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
-  const next = toLinkRoute(searchParams.get('next')) ?? toRoute('/me');
+  const validatedNext = toLinkRoute(searchParams.get('next'));
+  const next = validatedNext ?? toRoute('/me');
+  // 초대 링크로 들어온 신입생은 계정이 없어 이 화면에서 회원가입으로 빠진다 — 복귀 경로를 이어
+  // 넘기지 않으면 가입을 마쳐도 원래 가려던 곳(/join/{code})으로 돌아올 방법이 없다.
+  const signupHref = validatedNext
+    ? toRoute(`/signup?next=${encodeURIComponent(validatedNext)}`)
+    : toRoute('/signup');
 
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
@@ -285,7 +291,7 @@ function LoginForm() {
             <p>
               아직 두잉이 처음이세요?{' '}
               <Link
-                href="/signup"
+                href={signupHref}
                 className="font-medium text-charcoal underline underline-offset-2 transition-colors hover:text-ink"
               >
                 회원가입
