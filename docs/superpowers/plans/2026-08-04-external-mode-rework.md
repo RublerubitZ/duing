@@ -44,9 +44,9 @@
 - Modify: `ClubJoinCode.java` — `isUsable` 에서 귀속 모집 OPEN 조건 제거(미폐기·미만료·미소진만, 주석 갱신)
 - Modify: `ClubJoinCodeApi/Controller/JoinCodeService/GeneralJoinCodeService` — recruitment 스코프 경로로 이동(스펙 §4.3), create 검증을 "recruitmentId 조회 → clubId 소속 대조(불일치 404) → EXTERNAL+CLOSED 아니면 409(문구: OPEN 이면 '모집이 종료된 후 가입 코드를 만들 수 있습니다.', INTERNAL 이면 '외부 폼 모집에서만 가입 코드를 사용할 수 있습니다.')" 로 교체. 활성 조회·폐기도 recruitment 스코프 소속 대조. Repository: `findByRecruitmentIdAndRevokedAtIsNull` 추가·`findByClubIdAndRevokedAtIsNull` 제거
 - Modify: SecurityConfig — `GET /api/v1/clubs/*/join-codes/**` 매처를 `GET /api/v1/clubs/*/recruitments/*/join-codes/**` 로 교체 (join-requests 매처 유지)
-- Modify: 모집 삭제 서비스(기존 CLOSED+무지원자 검증 위치) — **가입 코드 존재 시 409** ("가입 코드가 발급된 모집은 삭제할 수 없습니다.") 추가, `existsByRecruitmentId`
+- Modify: 모집 삭제 서비스(기존 CLOSED+무지원자 검증 위치) — **단계적 삭제 정책(스펙 §4.2 표)**: PENDING 가입 요청 존재 시 409("처리되지 않은 가입 요청이 있습니다. 먼저 승인하거나 거절해주세요.") / 그 외(코드만·처리 완료 이력만)는 허용하되 **삭제 트랜잭션에서 활성 코드 자동 폐기**(revoke). Repository: PENDING 존재 검사·활성 코드 조회 재사용
 - Modify: `GeneralJoinRequestService.check/createRequest` — 모집 상태 참조 제거에 따른 정합(엔티티 isUsable 변경으로 자동 반영되는지 확인)
-- Test: 기존 joincode 테스트 전면 개정(시드가 OPEN EXTERNAL → CLOSED EXTERNAL) + 신규: §4.2 표 4케이스 / 삭제 가드 / 소속 대조 404 / 같은 클럽 CLOSED EXTERNAL 모집 2개에 각각 활성 코드 / 학생 플로우(신청 차감·거절 환급·승인) 회귀 초록 / 동시성 테스트 시드 갱신
+- Test: 기존 joincode 테스트 전면 개정(시드가 OPEN EXTERNAL → CLOSED EXTERNAL) + 신규: §4.2 표 4케이스 / 삭제 정책 3분기(코드만→삭제+코드 폐기 확인, PENDING→409, 처리 완료 이력만→삭제+이력 보존 확인) / 소속 대조 404 / 같은 클럽 CLOSED EXTERNAL 모집 2개에 각각 활성 코드 / 학생 플로우(신청 차감·거절 환급·승인) 회귀 초록 / 동시성 테스트 시드 갱신
 
 **Steps:** TDD → 전체 스위트 초록 → 커밋 1~2개.
 
@@ -55,7 +55,7 @@
 **Files:** (경로는 기존 모집 작성 폼 위치 확인 — `app/manage/clubs/[clubId]/recruitments/` 계열, `recruitment-form.test.tsx` 존재)
 - Create: 전환 확인 다이얼로그 컴포넌트(스펙 §1.1 문안·절차 플로우 포함, 기존 Dialog 재사용) — 취소=INTERNAL 유지, 확인=EXTERNAL 전환
 - Create: 회원 등록 절차 안내 카드 공용 컴포넌트(§7 — Task 4 도 사용, `_components` 공용 위치)
-- Modify: 모집 작성 폼 — EXTERNAL 시 안내문·질문·면접·지원자 수 공개 섹션 미렌더(구조상 어려운 요소만 "외부 폼 모집에서는 사용할 수 없습니다."), 외부 폼 URL 필드 + 안내, EXTERNAL 전환 시 숨김 필드 값 리셋(면접 off·질문 비움·지원자수 off — BE 400 방지)
+- Modify: 모집 작성 폼 — EXTERNAL 시 안내문·질문·면접·지원자 수 공개 섹션 미렌더(구조상 어려운 요소만 "외부 폼 모집에서는 사용할 수 없습니다."), 외부 폼 URL 필드 + 안내, **전환 확인 시점에 즉시 값 초기화(안내문·질문 비움·면접 off·지원자수 off — 저장 후 400 을 보는 UX 금지, BE 검증은 방어선)**
 - Modify: zod 스키마(`packages/schemas`) — URL 화이트리스트(BE 와 동일 리터럴 목록·정확 host 파싱, http 거부) + **목록 단언 동기화 테스트**
 - Test: 다이얼로그(취소/확인/Escape=취소), EXTERNAL 섹션 숨김, URL 검증 매트릭스(BE 와 동일 케이스), INTERNAL 폼 회귀
 
@@ -65,9 +65,9 @@
 
 **Files:**
 - Modify: `packages/types`·`packages/api/src/client.ts`(선언+구현)·`packages/hooks/src/joinCodes.ts` — 코드 생성/조회/폐기를 recruitment 스코프로 (`clubs/${clubId}/recruitments/${recruitmentId}/join-codes...`), 쿼리키 recruitmentId 포함
-- Modify: 모집 관리 화면(`recruitments/[recruitmentId]` 상세) — 모드·상태별 영역(스펙 §5): INTERNAL 무표시 / EXTERNAL+OPEN "모집 종료 후 사용할 수 있습니다." / EXTERNAL+CLOSED 회원 등록 영역(활성 코드 카드+생성·재생성·폐기, 가입 요청 관리 링크+대기 배지, §7 절차 카드, §8 차감 안내, §9 복사 버튼 근처 Warning Card)
-- Modify: `members/page.tsx` — 회원 초대 버튼·`InviteCodeDialog` 제거(가입 요청 링크·배지는 유지), InviteCodeDialog 는 recruitment 관리 쪽으로 이전·개편(기존 컴포넌트 재사용 가능하면 이동)
-- Test: 모드·상태 3분기 렌더, 안내·경고 문구, members 회원 초대 부재, 기존 requests 페이지 회귀
+- Modify: 모집 관리 화면(`recruitments/[recruitmentId]` 상세) — 모드·상태별 영역(스펙 §5): INTERNAL 무표시 / **EXTERNAL+OPEN "모집 종료 후 사용할 수 있습니다." + [모집 종료하기] CTA(기존 종료 액션 재사용)** / EXTERNAL+CLOSED 회원 등록 영역(활성 코드 카드+생성·재생성·폐기, 가입 요청 관리 링크+대기 배지, §7 절차 카드, §8 차감 안내, §9 복사 버튼 근처 Warning Card). **상세 헤더에 "외부 폼 모집" 배지 + 플랫폼명(호스트 판별: Google Forms/Naver Form)**
+- Modify: `members/page.tsx` — 회원 초대 **진입점 구조는 유지**하되 코드 생성 기능 대신 "외부 폼 모집의 회원 등록은 모집 관리에서 진행합니다." 안내 + 모집 관리 이동 링크로 대체(향후 이메일/QR/직접 초대 확장 자리). `InviteCodeDialog` 의 코드 관리 UI 는 recruitment 관리 쪽으로 이전·개편
+- Test: 모드·상태 3분기 렌더, 헤더 배지·플랫폼명, OPEN CTA, 안내·경고 문구, members 안내 대체 확인, 기존 requests 페이지 회귀
 
 **Steps:** 테스트 먼저 → 구현 → 전체 web 테스트·typecheck·lint·build → 커밋 1개.
 
