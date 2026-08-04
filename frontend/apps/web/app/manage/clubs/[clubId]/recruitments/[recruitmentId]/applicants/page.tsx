@@ -293,7 +293,7 @@ export default function ApplicantsPage({ params }: PageParams) {
         useInterview={useInterview}
       />
 
-      {/* 일괄 처리 확인 dialog (UNDER_REVIEW / ACCEPTED / REJECTED) */}
+      {/* 일괄 처리 확인 dialog (ON_HOLD / ACCEPTED / REJECTED) */}
       {pendingBulkTarget && (
         <BulkConfirmDialog
           targetStatus={pendingBulkTarget}

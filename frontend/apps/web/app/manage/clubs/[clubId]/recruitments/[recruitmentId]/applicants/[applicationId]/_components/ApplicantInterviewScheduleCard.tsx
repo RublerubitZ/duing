@@ -17,7 +17,7 @@ import type { ApplicationStatus, AvailabilityItem, InterviewRoundBrief } from '@
 // - 터미널 + 라운드 있음 → 정상 렌더 (면접 기록 보존 — 확정 슬롯 표시)
 // - 라운드 있음 (비터미널): 라운드 제목·단계 칩·멤버 상태·[면접 관리에서 조정 →] 딥링크 + 선택 시간 목록
 // - 라운드 null + INTERVIEW_PENDING: 대기열 안내 + [면접 관리] 링크
-// - 라운드 null + 그 외 (비터미널): 선정 전 안내
+// - 라운드 null + 그 외 (비터미널 — SUBMITTED / ON_HOLD): 선정 전 안내
 
 type Props = {
   interviewRound: InterviewRoundBrief | null;
@@ -154,7 +154,7 @@ export function ApplicantInterviewScheduleCard({
     );
   }
 
-  // ── 라운드 null + 그 외 (UNDER_REVIEW 등) ───────────────────────────────
+  // ── 라운드 null + 그 외 (SUBMITTED / ON_HOLD) ───────────────────────────
 
   return (
     <section className="rounded border border-neutral-200 bg-white p-4">
