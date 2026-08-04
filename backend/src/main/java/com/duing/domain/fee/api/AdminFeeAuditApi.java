@@ -1,8 +1,15 @@
 package com.duing.domain.fee.api;
 
+import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeDashboardResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeePaymentRowResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeePolicyResponse;
+import com.duing.domain.fee.entity.PaymentStatus;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeUsageFilter;
 import com.duing.global.auth.UserPrincipal;
@@ -13,6 +20,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -78,5 +86,75 @@ public interface AdminFeeAuditApi {
             @Parameter(description = "집계 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "회비 감사 정책 목록 (ADMIN)",
+            description = "동아리의 회비 정책 전부를 반환한다 — 비활성 정책도 감사 대상이라 함께 실린다. "
+                    + "납부율은 그 정책으로 기간 내 발행된 청구(취소 제외) 중 완납 비율이며, "
+                    + "기간 내 발행 청구가 없으면 0 이다. 최근 생성순으로 정렬한다.")
+    @GetMapping("/admin/fees/{clubId}/policies")
+    ResponseEntity<ApiResponse<List<AdminFeePolicyResponse>>> getFeePolicies(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "집계 시작일 (KST, 포함). 생략하면 전체 기간", example = "2026-03-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "집계 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    );
+
+    @Operation(summary = "회비 감사 청구 목록 (ADMIN)",
+            description = "동아리의 청구 내역. filter 는 저장된 상태값이 아니라 콘솔 의미 필터다 — "
+                    + "미납(UNPAID)과 연체(OVERDUE)는 마감일로 갈리며 마감 당일은 아직 미납이다. "
+                    + "응답의 status 는 DB 원본이고 overdue 는 같은 기준으로 계산한 파생 값이라, "
+                    + "연체 전이 배치가 늦어 status 가 PENDING 인 청구도 연체로 표시할 수 있다. "
+                    + "q 는 회원명 부분 일치 또는 학번 앞자리 일치이고, 기간은 청구 발행일 기준이다. "
+                    + "탈퇴 회원의 청구는 이름·학번 없이, 삭제된 정책의 청구는 정책명 없이 실린다.")
+    @GetMapping("/admin/fees/{clubId}/bills")
+    ResponseEntity<ApiResponse<PageResponse<AdminFeeBillRowResponse>>> searchFeeBills(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "청구 필터. PAID=완납, UNPAID=미납(마감 전), OVERDUE=연체(마감 경과), "
+                    + "CANCELLED=취소. 생략하면 전체", example = "OVERDUE")
+            @RequestParam(required = false) AdminFeeBillFilter filter,
+            @Parameter(description = "검색어 (회원명 부분 일치 또는 학번 앞자리). 생략 가능")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "발행 시작일 (KST, 포함). 생략하면 전체 기간", example = "2026-03-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "발행 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @Parameter(description = "정렬 기준. LATEST=최근 발행순(기본), DUE=마감 임박순, AMOUNT=청구액 큰 순",
+                    example = "LATEST")
+            @RequestParam(defaultValue = "LATEST") AdminFeeBillSort sort,
+            @Parameter(hidden = true) Pageable pageable
+    );
+
+    @Operation(summary = "회비 감사 납부 목록 (ADMIN)",
+            description = "동아리의 납부 내역을 납부일 최신순으로 반환한다. 정정(VOIDED)된 납부도 실린다 — "
+                    + "누가·언제·왜 정정했는지가 감사의 핵심이다. 기간은 납부일 기준이다. "
+                    + "matchType 은 DIRECT(수기 기록)·AUTO(자동매칭)·MANUAL(운영자가 거래를 골라 승인) 이며, "
+                    + "매칭을 해제한 뒤 정정된 납부는 원래 방식을 복원할 수 없어 MANUAL 로 표기된다. "
+                    + "입금자명은 거래가 연결된 납부에만 있다.")
+    @GetMapping("/admin/fees/{clubId}/payments")
+    ResponseEntity<ApiResponse<PageResponse<AdminFeePaymentRowResponse>>> searchFeePayments(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "납부 상태. ACTIVE=유효, VOIDED=정정됨. 생략하면 전체", example = "VOIDED")
+            @RequestParam(required = false) PaymentStatus status,
+            @Parameter(description = "납부 시작일 (KST, 포함). 생략하면 전체 기간", example = "2026-03-01")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "납부 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @Parameter(hidden = true) Pageable pageable
+    );
+
+    @Operation(summary = "회비 감사 계좌 조회 (ADMIN)",
+            description = "동아리의 회비 입금 계좌를 열람 전용으로 반환한다. 계좌번호는 끝 4자리만 남긴 마스킹 값이며 "
+                    + "평문은 어떤 필드로도 나가지 않는다. 복호화에 실패하면 마스킹 값만 비어 나온다. "
+                    + "계좌를 등록하지 않은 동아리는 registered=false 에 나머지가 비어 있다. "
+                    + "이 API 로 계좌를 바꾸거나 지울 수는 없다 — 자동매칭 허용은 별도 화면 소관이다.")
+    @GetMapping("/admin/fees/{clubId}/account")
+    ResponseEntity<ApiResponse<AdminFeeAccountResponse>> getFeeAccount(
+            @Parameter(description = "조회 대상 동아리 ID", required = true)
+            @PathVariable Long clubId
     );
 }

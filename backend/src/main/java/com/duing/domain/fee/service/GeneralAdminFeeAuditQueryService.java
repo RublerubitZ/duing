@@ -6,18 +6,29 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.fee.entity.BankMatchingSetting;
+import com.duing.domain.fee.entity.FeeAccount;
+import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.repository.AdminFeeAuditQueryRepository;
 import com.duing.domain.fee.repository.AdminFeeBillAggregate;
 import com.duing.domain.fee.repository.AdminFeeClubBasics;
 import com.duing.domain.fee.repository.AdminFeePaymentAggregate;
 import com.duing.domain.fee.repository.BankMatchingSettingRepository;
+import com.duing.domain.fee.repository.FeeAccountRepository;
+import com.duing.domain.fee.service.dto.query.AdminFeeAccountQuery;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillRow;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubDetailQuery;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeDashboardQuery;
 import com.duing.domain.fee.service.dto.query.AdminFeeKpiProjection;
+import com.duing.domain.fee.service.dto.query.AdminFeePaymentRow;
 import com.duing.domain.fee.service.dto.query.AdminFeePeriod;
+import com.duing.domain.fee.service.dto.query.AdminFeePolicyRow;
 import com.duing.domain.fee.service.dto.query.AdminFeeUsageFilter;
+import com.duing.domain.fee.support.AccountNumberMasker;
+import com.duing.global.crypto.FeeAccountCipher;
 import java.text.Collator;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -27,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 운영진 가드({@code requireManager})는 호출하지 않는다 — admin 은 전 동아리 접근이 정당하다
  * (선례: {@code GeneralAdminApplicationQueryService}).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -47,6 +60,9 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
     private final ClubRepository clubRepository;
     private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
+    private final FeeAccountRepository feeAccountRepository;
+    private final AccountNumberMasker accountNumberMasker;
+    private final FeeAccountCipher feeAccountCipher;
     private final Clock clock;
 
     @Override
@@ -108,6 +124,56 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
                 billAggregate.totalBilled() - paymentAggregate.totalPaid(),
                 collectionRate(billAggregate.totalBilled(), paymentAggregate.totalPaid()),
                 bankMatchingActive);
+    }
+
+    @Override
+    public List<AdminFeePolicyRow> getPolicies(Long clubId, AdminFeePeriod period) {
+        return adminFeeAuditQueryRepository.findPoliciesForAdmin(clubId, period);
+    }
+
+    /** 연체 판정 기준일(KST 오늘)은 서비스가 소유한다 — 필터와 응답 플래그가 같은 기준일을 쓰도록 한 번만 읽는다. */
+    @Override
+    public Page<AdminFeeBillRow> searchBills(Long clubId, AdminFeeBillFilter filter, String q,
+                                             AdminFeePeriod period, AdminFeeBillSort sort, Pageable pageable) {
+        return adminFeeAuditQueryRepository.searchBillsForAdmin(
+                clubId, filter, q, period, LocalDate.now(clock), sort, pageable);
+    }
+
+    @Override
+    public Page<AdminFeePaymentRow> searchPayments(Long clubId, PaymentStatus status, AdminFeePeriod period,
+                                                   Pageable pageable) {
+        return adminFeeAuditQueryRepository.searchPaymentsForAdmin(clubId, status, period, pageable);
+    }
+
+    /** 계좌는 열람 전용이다 — 평문 계좌번호는 응답에 실리지 않고 마스킹 값만 나간다(스펙 §7.7). */
+    @Override
+    public AdminFeeAccountQuery getAccount(Long clubId) {
+        return feeAccountRepository.findByClubId(clubId)
+                .map(account -> new AdminFeeAccountQuery(
+                        true,
+                        account.getBank(),
+                        maskSafely(account),
+                        account.getAccountHolder(),
+                        bankMatchingSettingRepository.findByClubId(clubId)
+                                .map(BankMatchingSetting::isUsable)
+                                .orElse(false)))
+                .orElseGet(AdminFeeAccountQuery::notRegistered);
+    }
+
+    /**
+     * 계좌번호를 복호화해 끝 4자리만 남긴다. 복호화 실패(키 회전·AAD 불일치·암호문 손상)는 화면 전체를 죽이지 않고
+     * 그 값만 비운다(graceful degrade, {@code GeneralBankMatchingAdminService} 선례).
+     * 평문·암호문·키는 절대 로깅하지 않는다.
+     */
+    private String maskSafely(FeeAccount account) {
+        try {
+            return accountNumberMasker.mask(
+                    feeAccountCipher.decrypt(account.getAccountNumber(), account.getClubId()));
+        } catch (IllegalArgumentException | IllegalStateException decryptFailure) {
+            log.warn("회비 감사 계좌 복호화 실패 — 해당 값 마스킹 생략: clubId={}",
+                    account.getClubId(), decryptFailure);
+            return null;
+        }
     }
 
     /** 테이블별 집계 소쿼리 6개를 clubId 로 병합한다(스펙 §10). */

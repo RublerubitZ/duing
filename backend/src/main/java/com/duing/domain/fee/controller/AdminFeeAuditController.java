@@ -1,10 +1,17 @@
 package com.duing.domain.fee.controller;
 
 import com.duing.domain.fee.api.AdminFeeAuditApi;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubSummaryResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeDashboardResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeePaymentRowResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeePolicyResponse;
+import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.AdminFeeAuditQueryService;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubSort;
 import com.duing.domain.fee.service.dto.query.AdminFeePeriod;
 import com.duing.domain.fee.service.dto.query.AdminFeeUsageFilter;
@@ -12,6 +19,7 @@ import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -66,5 +74,54 @@ public class AdminFeeAuditController implements AdminFeeAuditApi {
         return ResponseEntity.ok(ApiResponse.success(AdminFeeClubDetailResponse.from(
                 adminFeeAuditQueryService.getClubDetail(
                         clubId, AdminFeePeriod.of(from, to), currentUser.id()))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<AdminFeePolicyResponse>>> getFeePolicies(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        List<AdminFeePolicyResponse> policies = adminFeeAuditQueryService
+                .getPolicies(clubId, AdminFeePeriod.of(from, to)).stream()
+                .map(AdminFeePolicyResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(policies));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PageResponse<AdminFeeBillRowResponse>>> searchFeeBills(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) AdminFeeBillFilter filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "LATEST") AdminFeeBillSort sort,
+            Pageable pageable
+    ) {
+        Page<AdminFeeBillRowResponse> page = adminFeeAuditQueryService
+                .searchBills(clubId, filter, q, AdminFeePeriod.of(from, to), sort, pageable)
+                .map(AdminFeeBillRowResponse::from);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<PageResponse<AdminFeePaymentRowResponse>>> searchFeePayments(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Pageable pageable
+    ) {
+        Page<AdminFeePaymentRowResponse> page = adminFeeAuditQueryService
+                .searchPayments(clubId, status, AdminFeePeriod.of(from, to), pageable)
+                .map(AdminFeePaymentRowResponse::from);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminFeeAccountResponse>> getFeeAccount(@PathVariable Long clubId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminFeeAccountResponse.from(adminFeeAuditQueryService.getAccount(clubId))));
     }
 }

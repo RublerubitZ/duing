@@ -6,12 +6,20 @@ import static com.duing.domain.fee.entity.QBankTransaction.bankTransaction;
 import static com.duing.domain.fee.entity.QFeeBill.feeBill;
 import static com.duing.domain.fee.entity.QFeePolicy.feePolicy;
 import static com.duing.domain.fee.entity.QPayment.payment;
+import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.entity.PaymentStatus;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillRow;
+import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
 import com.duing.domain.fee.service.dto.query.AdminFeeKpiProjection;
+import com.duing.domain.fee.service.dto.query.AdminFeePaymentRow;
 import com.duing.domain.fee.service.dto.query.AdminFeePeriod;
+import com.duing.domain.fee.service.dto.query.AdminFeePolicyRow;
+import com.duing.domain.user.entity.QUser;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -24,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -92,8 +103,7 @@ public class AdminFeeAuditQueryRepository {
         return queryFactory
                 .select(feeBill.clubId, unpaidMembers)
                 .from(feeBill)
-                .where(feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE),
-                        createdGoe(period), createdLt(period))
+                .where(unpaidRemainder(), createdGoe(period), createdLt(period))
                 .groupBy(feeBill.clubId)
                 .fetch().stream()
                 .collect(Collectors.toMap(row -> row.get(feeBill.clubId), row -> row.get(unpaidMembers)));
@@ -157,11 +167,173 @@ public class AdminFeeAuditQueryRepository {
         return projection != null ? projection : new AdminFeeKpiProjection(0L, 0L, 0L, 0L, 0L);
     }
 
+    /**
+     * 콘솔 청구 검색(스펙 §7.5). {@code today} 는 KST 오늘이며 서비스가 넘긴다 —
+     * 필터의 연체 판정과 행의 {@code overdue} 플래그가 같은 식·같은 기준일을 쓰게 하기 위한 것이다.
+     *
+     * <p>회원 이름·학번은 club_member(club_id + user_id) → user 로 LEFT JOIN 해 얻고, 정책명도 LEFT JOIN 이다
+     * — 탈퇴 회원·삭제 정책의 청구도 이름만 null 인 채로 행은 남긴다(감사 대상에서 사라지면 안 된다).
+     */
+    public Page<AdminFeeBillRow> searchBillsForAdmin(Long clubId, AdminFeeBillFilter filter, String q,
+                                                     AdminFeePeriod period, LocalDate today,
+                                                     AdminFeeBillSort sort, Pageable pageable) {
+        BooleanExpression[] conditions = {
+                feeBill.clubId.eq(clubId), filterCondition(filter, today), billSearchCondition(q),
+                createdGoe(period), createdLt(period)};
+        List<AdminFeeBillRow> content = queryFactory
+                .select(Projections.constructor(AdminFeeBillRow.class,
+                        feeBill.id, feeBill.userId, user.name, user.studentId,
+                        clubMember.generation, feePolicy.name, feeBill.billingPeriod,
+                        feeBill.amount, payment.amount.sum().coalesce(0L), feeBill.status,
+                        overdueFlag(today),
+                        feeBill.createdAt, feeBill.dueDate, payment.paidAt.max()))
+                .from(feeBill)
+                .leftJoin(clubMember).on(clubMember.club.id.eq(feeBill.clubId),
+                        clubMember.user.id.eq(feeBill.userId), clubMember.deletedAt.isNull())
+                .leftJoin(clubMember.user, user)
+                .leftJoin(feePolicy).on(feePolicy.id.eq(feeBill.feePolicyId))
+                // 활성 납부만 붙여 청구 그레인으로 접는다 — 조인 뒤 GROUP BY 로 합치므로 납부가 여러 건이어도
+                // 청구 행이 늘지 않는다. GROUP BY 는 조인한 테이블의 PK 만 나열하면 된다(Postgres 함수 종속성).
+                .leftJoin(payment).on(payment.feeBillId.eq(feeBill.id),
+                        payment.status.eq(PaymentStatus.ACTIVE))
+                .where(conditions)
+                .groupBy(feeBill.id, clubMember.id, user.id, feePolicy.id)
+                .orderBy(orderOf(sort))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(feeBill.count())
+                .from(feeBill)
+                .leftJoin(clubMember).on(clubMember.club.id.eq(feeBill.clubId),
+                        clubMember.user.id.eq(feeBill.userId), clubMember.deletedAt.isNull())
+                .leftJoin(clubMember.user, user)
+                .where(conditions)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    /**
+     * 콘솔 납부 검색(스펙 §7.6). 정정(VOIDED) 납부도 그대로 싣는다 — 정정 이력이 감사의 핵심이다.
+     * 기간은 납부일(KST 벽시계) 기준이고, 동아리 격리는 청구 조인의 ON 절이 담당한다.
+     */
+    public Page<AdminFeePaymentRow> searchPaymentsForAdmin(Long clubId, PaymentStatus status,
+                                                           AdminFeePeriod period, Pageable pageable) {
+        QUser recordedByUser = new QUser("recordedByUser");
+        QUser voidedByUser = new QUser("voidedByUser");
+        BooleanExpression[] conditions = {statusEq(status), paidGoe(period), paidLt(period)};
+        List<AdminFeePaymentRow> content = queryFactory
+                .select(Projections.constructor(AdminFeePaymentRow.class,
+                        payment.id, feeBill.id, user.name,
+                        payment.amount, payment.method, payment.paidAt,
+                        payment.bankTransactionId, bankTransaction.matchStatus,
+                        bankTransaction.counterparty, recordedByUser.name, payment.status,
+                        voidedByUser.name, payment.voidedAt, payment.voidReason))
+                .from(payment)
+                .join(feeBill).on(feeBill.id.eq(payment.feeBillId), feeBill.clubId.eq(clubId))
+                .leftJoin(clubMember).on(clubMember.club.id.eq(feeBill.clubId),
+                        clubMember.user.id.eq(feeBill.userId), clubMember.deletedAt.isNull())
+                .leftJoin(clubMember.user, user)
+                .leftJoin(bankTransaction).on(bankTransaction.id.eq(payment.bankTransactionId))
+                .leftJoin(recordedByUser).on(recordedByUser.id.eq(payment.recordedBy))
+                .leftJoin(voidedByUser).on(voidedByUser.id.eq(payment.voidedBy))
+                .where(conditions)
+                .orderBy(payment.paidAt.desc(), payment.id.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(payment.count())
+                .from(payment)
+                .join(feeBill).on(feeBill.id.eq(payment.feeBillId), feeBill.clubId.eq(clubId))
+                .where(conditions)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    /**
+     * 콘솔 정책 목록(스펙 §7.4) — 비활성 정책도 감사 대상이라 active 무관하게 전부 싣는다.
+     *
+     * <p>청구 집계 조건(기간·취소 제외)을 WHERE 가 아니라 LEFT JOIN 의 ON 절에 두는 이유는,
+     * 기간 내 청구가 한 건도 없는 정책도 0건으로 목록에 남겨야 하기 때문이다.
+     * GROUP BY 는 PK 하나로 충분하다(Postgres 함수 종속성).
+     */
+    public List<AdminFeePolicyRow> findPoliciesForAdmin(Long clubId, AdminFeePeriod period) {
+        return queryFactory
+                .select(Projections.constructor(AdminFeePolicyRow.class,
+                        feePolicy.id, feePolicy.name, feePolicy.amount, feePolicy.billingType,
+                        feePolicy.targetType, feePolicy.active, feePolicy.autoIssue,
+                        feePolicy.issueDay, feePolicy.dueDay,
+                        feeBill.id.count(), statusCount(FeeStatus.PAID),
+                        feePolicy.createdAt))
+                .from(feePolicy)
+                // ON 절은 where 와 달리 null 술어를 받지 않으므로 and 로 잇는다(기간 미지정이면 null 이 무시된다).
+                .leftJoin(feeBill).on(feeBill.feePolicyId.eq(feePolicy.id)
+                        .and(feeBill.status.ne(FeeStatus.CANCELLED))
+                        .and(createdGoe(period))
+                        .and(createdLt(period)))
+                .where(feePolicy.clubId.eq(clubId))
+                .groupBy(feePolicy.id)
+                .orderBy(feePolicy.id.desc())
+                .fetch();
+    }
+
+    /** 콘솔 필터 → 파생 조건(스펙 §7.5). 마감 당일은 아직 연체가 아니라 미납이다. */
+    private BooleanExpression filterCondition(AdminFeeBillFilter filter, LocalDate today) {
+        if (filter == null) {
+            return null;
+        }
+        return switch (filter) {
+            case PAID -> feeBill.status.eq(FeeStatus.PAID);
+            case UNPAID -> unpaidRemainder().and(feeBill.dueDate.goe(today));
+            case OVERDUE -> overdueCondition(today);
+            case CANCELLED -> feeBill.status.eq(FeeStatus.CANCELLED);
+        };
+    }
+
+    /** q — 회원명 부분 일치(대소문자 무시)·학번 prefix(AdminUserApi 검색 규칙 미러). */
+    private BooleanExpression billSearchCondition(String q) {
+        if (!StringUtils.hasText(q)) {
+            return null;
+        }
+        return user.name.containsIgnoreCase(q).or(user.studentId.startsWith(q));
+    }
+
+    /**
+     * 응답 행의 연체 배지 값. 필터(OVERDUE)와 <b>같은 식</b>을 재사용하므로 필터 결과와 배지가 어긋날 수 없다 —
+     * 파생 규칙을 SQL 과 Java 양쪽에 각각 두면 한쪽만 고쳐 갈라지기 쉬워 한 곳으로 모았다.
+     * 완납·취소 청구는 마감이 지나도 false 다.
+     */
+    private BooleanExpression overdueFlag(LocalDate today) {
+        return new CaseBuilder().when(overdueCondition(today)).then(true).otherwise(false);
+    }
+
+    private BooleanExpression overdueCondition(LocalDate today) {
+        return unpaidRemainder().and(feeBill.dueDate.lt(today));
+    }
+
+    /** 미납 잔여 = 완납·취소가 아닌 상태. 연체 여부는 여기에 마감일 조건을 덧붙여 가른다. */
+    private BooleanExpression unpaidRemainder() {
+        return feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE);
+    }
+
+    private OrderSpecifier<?>[] orderOf(AdminFeeBillSort sort) {
+        // 집계·동률에서 페이지 간 순서가 흔들리지 않도록 id 로 고정한다.
+        return switch (sort == null ? AdminFeeBillSort.LATEST : sort) {
+            case LATEST -> new OrderSpecifier<?>[]{feeBill.createdAt.desc(), feeBill.id.desc()};
+            case DUE -> new OrderSpecifier<?>[]{feeBill.dueDate.asc(), feeBill.id.asc()};
+            case AMOUNT -> new OrderSpecifier<?>[]{feeBill.amount.desc(), feeBill.id.desc()};
+        };
+    }
+
     /** 미납 잔여(PENDING·PARTIAL_PAID·OVERDUE)를 마감일 조건으로 갈라 센다. */
     private NumberExpression<Long> remainderCount(BooleanExpression dueDateCondition) {
         return new CaseBuilder()
-                .when(feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE)
-                        .and(dueDateCondition)).then(1L).otherwise(0L)
+                .when(unpaidRemainder().and(dueDateCondition)).then(1L).otherwise(0L)
                 .sum().coalesce(0L);
     }
 
@@ -193,5 +365,18 @@ public class AdminFeeAuditQueryRepository {
 
     private BooleanExpression createdLt(AdminFeePeriod period) {
         return period.createdTo() == null ? null : feeBill.createdAt.lt(period.createdTo());
+    }
+
+    private BooleanExpression statusEq(PaymentStatus status) {
+        return status == null ? null : payment.status.eq(status);
+    }
+
+    /** 납부 기간 경계는 KST 벽시계로 적재된 paid_at 기준이다(발행일 기준인 청구와 컬럼이 다르다). */
+    private BooleanExpression paidGoe(AdminFeePeriod period) {
+        return period.paidFrom() == null ? null : payment.paidAt.goe(period.paidFrom());
+    }
+
+    private BooleanExpression paidLt(AdminFeePeriod period) {
+        return period.paidTo() == null ? null : payment.paidAt.lt(period.paidTo());
     }
 }
