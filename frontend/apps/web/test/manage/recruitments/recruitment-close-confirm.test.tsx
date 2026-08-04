@@ -32,6 +32,7 @@ function recruitmentSummary(overrides: Partial<RecruitmentSummary>): Recruitment
     capacity: 10,
     status: 'CLOSED',
     displayStatus: 'CLOSED',
+    closedAt: null,
     effectivelyOpen: false,
     applicationMode: 'SELF',
     externalFormUrl: null,
