@@ -18,8 +18,11 @@ import { toRoute } from '../../_lib/route';
 type ClubSwitcherProps = {
   managedClubs: ManagedClub[];
   currentClubId: number | null;
-  /** 클럽 선택 직후 호출 — 모바일 드로어 닫기용. 드롭다운은 포털로 렌더되어 Sheet 의 anchor 클릭 감지가 닿지 않는다. */
-  onNavigate?: () => void;
+  /**
+   * 클럽 선택 직후 호출 — 모바일 드로어 닫기용. 드롭다운은 포털로 렌더되어 Sheet 의 anchor 클릭 감지가 닿지 않는다.
+   * navigated: 실제 페이지 이동(router.push)이 시작됐는지 — 현재 동아리를 다시 고르면 false.
+   */
+  onNavigate?: (navigated: boolean) => void;
 };
 
 function recruitLabel(activeRecruitmentCount: number) {
@@ -113,7 +116,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
                 if (!isCurrent) {
                   router.push(toRoute(`/manage/clubs/${club.clubId}`));
                 }
-                onNavigate?.();
+                onNavigate?.(!isCurrent);
               }}
               className="cursor-pointer gap-2.5 rounded-sm px-2.5 py-2 focus:bg-white/10 focus:text-white"
             >

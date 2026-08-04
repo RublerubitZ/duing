@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isOverlayOnlyTraversal, useBackDismiss } from '@/app/_lib/backDismiss';
+import { isOverlayOnlyTraversal, skipNextOverlayReclaim, useBackDismiss } from '@/app/_lib/backDismiss';
 
 // jsdom 의 traversal 은 태스크 큐에 실린다(실측 ~3ms · 매크로태스크 2틱). 고정 지연 대신
 // popstate 발화 자체를 기다려야 안정적이다.
@@ -143,6 +143,203 @@ describe('useBackDismiss', () => {
       await poppedAgain;
     });
     expect(window.history.state).toEqual({ marker: 'prev' });
+  });
+
+  it('내비게이션과 겹치는 닫힘(skipNextOverlayReclaim)은 회수 back() 을 건너뛴다', async () => {
+    // 회귀 방지: 링크 클릭·router.push 와 겹치는 닫힘이 회수 back() 을 내보내면, 아직 커밋되지 않은
+    // 앞으로 이동을 되돌려 삼킨다(모바일 콘솔 메뉴·알림 시트가 안 눌리던 프로덕션 장애).
+    function NavigatingClose() {
+      const [open, setOpen] = useState(true);
+      useBackDismiss(open, () => setOpen(false));
+      return open ? (
+        <button
+          type="button"
+          onClick={() => {
+            skipNextOverlayReclaim();
+            setOpen(false);
+          }}
+        >
+          닫기
+        </button>
+      ) : null;
+    }
+
+    const backSpy = vi.spyOn(window.history, 'back');
+    const { getByRole } = render(<NavigatingClose />);
+    await act(async () => {
+      getByRole('button').click();
+    });
+    await settle();
+
+    // 회수 back() 이 나가지 않았다 — 엔트리는 죽은 채로 남고 우리는 그 위에 앉아 있다.
+    expect(backSpy).not.toHaveBeenCalled();
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+    backSpy.mockRestore();
+
+    // 실제 프로덕션 모양 재현 — Next 내비게이션 커밋이 죽은 엔트리 위에 새 페이지 엔트리를 쌓는다.
+    window.history.pushState({ marker: 'next-page' }, '', '/test-page-next');
+
+    // 새 페이지에서 뒤로가기 1회 — 죽은 엔트리는 자동 스킵돼 원래 페이지 엔트리까지 내려온다.
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(window.location.pathname).toBe('/test-page');
+  });
+
+  it('skip 은 그 닫힘 1회만 소비되고 다음 오버레이의 제자리 닫힘은 평소대로 회수한다', async () => {
+    // 드로어 A 를 skip 닫기 → 곧바로 드로어 B 를 열고 제자리 닫기(X·바깥·ESC 상당).
+    // B 의 회수 back() 이 억제되면 안 된다 — 플래그가 새면 B 가 죽은 엔트리를 남긴다.
+    function TwoDrawers() {
+      const [aOpen, setAOpen] = useState(true);
+      const [bOpen, setBOpen] = useState(false);
+      useBackDismiss(aOpen, () => setAOpen(false));
+      useBackDismiss(bOpen, () => setBOpen(false));
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              skipNextOverlayReclaim();
+              setAOpen(false);
+            }}
+          >
+            A 닫기(이동)
+          </button>
+          <button type="button" onClick={() => setBOpen(true)}>
+            B 열기
+          </button>
+          <button type="button" onClick={() => setBOpen(false)}>
+            B 닫기
+          </button>
+        </>
+      );
+    }
+
+    const { getByText } = render(<TwoDrawers />);
+    await act(async () => {
+      getByText('A 닫기(이동)').click();
+    });
+    await settle();
+
+    // A 는 skip — 죽은 엔트리 위에 앉아 있다.
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+
+    await act(async () => {
+      getByText('B 열기').click();
+    });
+    const popped = nextPopState();
+    await act(async () => {
+      getByText('B 닫기').click();
+      await popped; // B 의 회수 back() 이 실제로 발화해야 여기를 통과한다.
+    });
+    await settle();
+
+    // B 의 회수 back() 이 A 의 죽은 엔트리에 착지하는 순간 자동 스킵이 이어져, 그 자리에서
+    // 페이지 엔트리까지 정리된다 — 죽은 엔트리가 나중까지 남지 않는다.
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 사용자 뒤로가기 1회는 정확히 이전 페이지 몫이다 — 먹히는 뒤로가기가 없다.
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'prev' });
+  });
+
+  it('skip 닫힘을 반복해도 죽은 엔트리들이 자동 스킵돼 뒤로가기 1회로 페이지에 닿는다', async () => {
+    // 드로어 열기 → 메뉴 이동(skip 닫힘)을 3회 반복한 히스토리 모양을 재현한다.
+    function ReusableDrawer() {
+      const [open, setOpen] = useState(false);
+      useBackDismiss(open, () => setOpen(false));
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            열기
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              skipNextOverlayReclaim();
+              setOpen(false);
+            }}
+          >
+            이동 닫기
+          </button>
+        </>
+      );
+    }
+
+    const { getByText } = render(<ReusableDrawer />);
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await act(async () => {
+        getByText('열기').click();
+      });
+      await act(async () => {
+        getByText('이동 닫기').click();
+      });
+      await settle();
+    }
+
+    // 죽은 엔트리 3개 위에 앉아 있다 — 사용자 뒤로가기 1회로 전부 자동 스킵돼 페이지에 도달해야 한다.
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('열린 오버레이가 없으면 skip 호출은 무시된다 — 플래그가 잔존하지 않는다', async () => {
+    // 데스크탑 사이드바처럼 오버레이 밖 경로가 무조건 호출하는 경우를 재현한다.
+    skipNextOverlayReclaim();
+
+    const popped = nextPopState();
+    const { getByRole } = render(
+      (() => {
+        function CodeClosed() {
+          const [open, setOpen] = useState(true);
+          useBackDismiss(open, () => setOpen(false));
+          return open ? (
+            <button type="button" onClick={() => setOpen(false)}>
+              닫기
+            </button>
+          ) : null;
+        }
+        return <CodeClosed />;
+      })(),
+    );
+    await act(async () => {
+      getByRole('button').click();
+      await popped; // 잔존 플래그가 있었다면 회수 back() 이 억제돼 여기서 멈춘다.
+    });
+    await settle();
+
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('오프라인이면 skip 호출이 무시되고 닫힘은 평소처럼 엔트리를 회수한다', async () => {
+    // 오프라인에서는 소비처의 이동이 전부 거부되므로(useGuardedRouter/OfflineNavigationGuard),
+    // skip 이 걸리면 사용자가 앉을 죽은 엔트리만 남는다 — 게이트가 이를 무시해야 한다.
+    const onLineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+
+    function OfflineNavigatingClose() {
+      const [open, setOpen] = useState(true);
+      useBackDismiss(open, () => setOpen(false));
+      return open ? (
+        <button
+          type="button"
+          onClick={() => {
+            skipNextOverlayReclaim();
+            setOpen(false);
+          }}
+        >
+          닫기
+        </button>
+      ) : null;
+    }
+
+    const { getByRole } = render(<OfflineNavigatingClose />);
+    const popped = nextPopState();
+    await act(async () => {
+      getByRole('button').click();
+      await popped; // skip 이 무시되지 않았다면 회수 back() 이 억제돼 여기서 멈춘다.
+    });
+    await settle();
+    onLineSpy.mockRestore();
+
+    expect(window.history.state).toEqual({ marker: 'page' });
   });
 
   it('중간 오버레이를 코드로 닫아도 죽은 뒤로가기가 생기지 않는다', async () => {
