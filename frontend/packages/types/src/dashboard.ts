@@ -41,7 +41,7 @@ export type TodayScheduleItem = {
 export type ApplicantStatusTotals = {
   total: number;
   submitted: number;
-  underReview: number;
+  onHold: number;
   interviewPending: number;
   accepted: number;
   rejected: number;

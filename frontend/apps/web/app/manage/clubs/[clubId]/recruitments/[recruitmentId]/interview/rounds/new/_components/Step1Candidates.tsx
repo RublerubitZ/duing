@@ -16,8 +16,10 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 // 토글로 화면에서 필터링돼도 이미 선택된 UNDER_REVIEW 후보는 맵에서 유지된다.
 // 토글 off 상태에서도 UNDER_REVIEW 선택 항목을 하단에 칩으로 표시하고 개별 해제 가능.
 
+// ApplicantTable 의 STATUS_BADGE_CLASS 와 색 동기 — ON_HOLD 는 amber, INTERVIEW_PENDING 은 purple.
 const STATUS_BADGE_CLASS: Record<string, string> = {
-  UNDER_REVIEW: 'bg-amber-100 text-amber-700',
+  SUBMITTED: 'bg-sky-100 text-sky-700',
+  ON_HOLD: 'bg-amber-100 text-amber-700',
   INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
 };
 

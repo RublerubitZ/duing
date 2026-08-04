@@ -6,7 +6,6 @@
 // = ApplicantInterviewPhase enum (backend/.../service/dto/query/ApplicantInterviewPhase.java)
 export type ApplicantInterviewPhase =
   | 'NOT_APPLICABLE'
-  | 'DOCUMENT_REVIEW'
   | 'WAITING_ROUND'
   | 'WAITING_NEXT_ROUND'
   | 'AVAILABILITY_REQUESTED'

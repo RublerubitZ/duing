@@ -8,14 +8,14 @@ export type { College, Grade };
 
 export type ApplicationStatus =
   | 'SUBMITTED'
-  | 'UNDER_REVIEW'
+  | 'ON_HOLD'
   | 'INTERVIEW_PENDING'
   | 'ACCEPTED'
   | 'REJECTED';
 
 const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
   'SUBMITTED',
-  'UNDER_REVIEW',
+  'ON_HOLD',
   'INTERVIEW_PENDING',
   'ACCEPTED',
   'REJECTED',
