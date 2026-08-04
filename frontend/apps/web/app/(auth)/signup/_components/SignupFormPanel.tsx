@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useReducer, useState } from 'react';
+import { Suspense, useReducer, useState } from 'react';
 import { useSignupMutation } from '@duing/hooks';
 import { signupSchema } from '@duing/schemas';
 import { ApiError } from '@duing/api';
 import { initialSignupState, signupReducer, type SignupFormState } from '../_lib/signup-state';
 import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
+import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { SignupStepIndicator } from './SignupStepIndicator';
 import { SignupStepVerify } from './SignupStepVerify';
 import { SignupStepProfile } from './SignupStepProfile';
@@ -29,8 +31,15 @@ function IconChevronDown() {
   );
 }
 
-export function SignupFormPanel() {
+function SignupForm() {
   const router = useGuardedRouter();
+  const searchParams = useSearchParams();
+  // 로그인 화면이 이어 넘긴 복귀 경로. 여기서 떨어뜨리면 초대 링크로 들어온 신입생이 가입을 마치고도
+  // 원래 목적지(/join/{code})로 돌아가지 못한다. next 는 조작 가능한 값이라 toLinkRoute 로 내부
+  // 절대경로만 통과시킨다(open redirect 차단).
+  const next = toLinkRoute(searchParams.get('next')) ?? toRoute('/me');
+  // 가입을 마친 뒤에도, 계정이 있어 로그인으로 되돌아갈 때도 같은 복귀 경로를 이어 넘긴다.
+  const loginHref = toRoute(`/login?next=${encodeURIComponent(next)}`);
   const signup = useSignupMutation();
   const [state, dispatch] = useReducer(signupReducer, initialSignupState);
   const [step, setStep] = useState<1 | 2>(1);
@@ -87,7 +96,7 @@ export function SignupFormPanel() {
       const signedUpUserId = await signup.mutateAsync(parsed.data);
       posthog.identify(String(signedUpUserId));
       posthog.capture('user_signed_up', { college: parsed.data.college, grade: parsed.data.grade });
-      router.replace('/login?next=/me');
+      router.replace(loginHref);
     } catch (signupError) {
       if (signupError instanceof ApiError && signupError.code === 'PHONE_NOT_VERIFIED') {
         phoneVerification.reset();
@@ -152,12 +161,21 @@ export function SignupFormPanel() {
 
           <p className="mt-6 text-center text-sm text-charcoal-2">
             이미 두잉 계정이 있으신가요?{' '}
-            <Link href="/login" className="font-medium text-charcoal underline underline-offset-2 transition-colors hover:text-ink">
+            <Link href={loginHref} className="font-medium text-charcoal underline underline-offset-2 transition-colors hover:text-ink">
               로그인
             </Link>
           </p>
         </div>
       </main>
     </div>
+  );
+}
+
+// useSearchParams 는 Suspense 경계 안에서만 프리렌더가 안전하다(LoginFormPanel 과 같은 구조).
+export function SignupFormPanel() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   );
 }

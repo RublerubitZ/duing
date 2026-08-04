@@ -9,6 +9,7 @@ import { ApiClientProvider } from '@duing/hooks';
 
 // next/navigation.useRouter 를 모킹해 가입 성공 후 replace 인자를 검증한다(apply-page.test 선례).
 const mockRouterReplace = vi.fn();
+let mockSearchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockRouterReplace,
@@ -18,6 +19,7 @@ vi.mock('next/navigation', () => ({
     prefetch: vi.fn(),
     refresh: vi.fn(),
   }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 // next/navigation 모킹 팩토리가 mockRouterReplace 초기화 이후 실행되도록 패널 import 를 아래에 둔다.
@@ -32,6 +34,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   mockRouterReplace.mockReset();
+  mockSearchParams = new URLSearchParams();
   vi.useRealTimers();
 });
 afterAll(() => server.close());
@@ -114,7 +117,31 @@ async function issueVerifyAndAdvance() {
   fireEvent.click(screen.getByRole('button', { name: /다음/ }));
 }
 
+// Step2 기본정보를 제출 가능한 상태까지 채운다.
+function fillProfile() {
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '김도윤' } });
+  fireEvent.change(screen.getByLabelText('학번'), { target: { value: '20240001' } });
+  fireEvent.change(screen.getByLabelText('학번 확인'), { target: { value: '20240001' } });
+  fireEvent.change(screen.getByLabelText('학년'), { target: { value: 'FRESHMAN' } });
+  fireEvent.change(screen.getByLabelText(/단과대학/), { target: { value: 'IT_ENGINEERING' } });
+  fireEvent.change(screen.getByPlaceholderText(/학과명 입력/), { target: { value: '컴퓨터정보공학부' } });
+  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'duing1234!' } });
+  fireEvent.change(screen.getByLabelText('비밀번호 확인'), { target: { value: 'duing1234!' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: '약관에 모두 동의합니다' }));
+}
+
 describe('SignupFormPanel — 2-step 오케스트레이터', () => {
+  // 계정이 있어 로그인으로 되돌아가는 경로에서도 복귀 경로가 살아 있어야 왕복이 닫힌다.
+  it('로그인 링크에도 넘겨받은 next 를 이어 붙인다', () => {
+    mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234' });
+    renderPanel();
+
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      `/login?next=${encodeURIComponent('/join/ABCD1234')}`,
+    );
+  });
+
   it('처음에는 Step1(휴대폰 인증)만 보이고 기본정보 필드는 없다', () => {
     renderPanel();
 
@@ -204,7 +231,31 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
       termsOfServiceAgreed: true,
       privacyPolicyAgreed: true,
     });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/login?next=/me');
+    expect(mockRouterReplace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/me')}`);
+  });
+
+  // 초대 링크(/join/{code})로 들어온 신입생은 로그인 화면을 거쳐 여기로 온다 — 가입 완료 후 복귀
+  // 경로를 /me 로 덮어쓰면 원래 가려던 가입 코드 화면으로 돌아갈 방법이 사라진다.
+  it('로그인 화면이 넘겨준 next 를 가입 완료 후 로그인 복귀 경로로 유지한다', async () => {
+    mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234' });
+    vi.useFakeTimers();
+    renderPanel();
+
+    await issueVerifyAndAdvance();
+    fillProfile();
+
+    server.use(
+      http.post('*/auth/signup', () => HttpResponse.json({ ok: true, data: 1, message: null })),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /가입하고 두잉 시작하기/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(mockRouterReplace).toHaveBeenCalledWith(
+      `/login?next=${encodeURIComponent('/join/ABCD1234')}`,
+    );
   });
 
   it('가입이 403(PHONE_NOT_VERIFIED)로 실패하면 인증을 리셋하고 Step1로 복귀한다', async () => {

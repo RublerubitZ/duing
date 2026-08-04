@@ -167,8 +167,9 @@ class CreateRecruitmentRequestQuestionItemsTest {
     @DisplayName("외부 폼 모집에 questionItems 를 함께 보내면 400 으로 거부된다")
     void createExternalFormWithQuestionItemsIsRejected() {
         CreateRecruitmentRequest request = new CreateRecruitmentRequest(
-                "2026 봄 모집", "내용", LocalDate.now(), LocalDate.now().plusDays(14), 10,
-                ApplicationMode.EXTERNAL, "https://example.com/form", null, null,
+                // EXTERNAL 은 안내문(content)·비허용 URL 도 거부하므로, questionItems 만 유일한 위반이 되게 둔다.
+                "2026 봄 모집", null, LocalDate.now(), LocalDate.now().plusDays(14), 10,
+                ApplicationMode.EXTERNAL, "https://forms.gle/aBcD1234", null, null,
                 null,
                 List.of(new QuestionItemPayload(null, "지원 동기는?", QuestionType.TEXT, true, null)),
                 null, null, null);

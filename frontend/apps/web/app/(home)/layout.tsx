@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { cookies } from 'next/headers';
 
-import { verifyAuthHint } from '@/middleware';
+import { verifyAuthHint } from '@/app/_lib/auth-hint';
 
 import { AuthHintSeed } from '../_components/AuthHintSeed';
 import { HomeNav } from '../_components/HomeNav';

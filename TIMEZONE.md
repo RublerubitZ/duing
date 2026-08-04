@@ -45,7 +45,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 
 응답 DTO에 노출되는 Event Time 필드의 변환 근거. (Schedule "유지" 필드 포함)
 
-### Group 1 — application/draft/club/clubevent/clubmember/favorite/globalevent/notice/notification/promotion/recruitment/report/user
+### Group 1 — application/draft/club/clubevent/clubmember/favorite/globalevent/joincode/notice/notification/promotion/recruitment/report/user
 
 | 응답DTO.필드 | 원본 테이블.컬럼 | regime | writer 근거 |
 |---|---|---|---|
@@ -62,6 +62,10 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | SuccessionRequest{Detail,Summary}Response.createdAt/handledAt | leader_succession_requests.* | system | BaseEntity / LeaderSuccessionRequest.java:73 무클럭 now() |
 | FavoriteClubResponse.favoritedAt | club_favorites.created_at | system | ClubFavorite.java:52 무클럭 now() |
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
+| (내부 전용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 close 4경로(수동 마감·만료 OPEN 마감·replaceActive·동아리 폐쇄) + 벌크 마감(closeAllOpenByClubId) 모두 now(clock) — 응답에 직접 나가지는 않고 아래 joinExpiresAt 의 기준점이다 |
+| JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode.getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
+| JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
+| JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService 승인/거절 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
 | NotificationResponse.createdAt/readAt | notifications.* / notice_broadcasts.created_at | system | Notification.java:70,80·NoticeBroadcast.java:54 무클럭 now() |
 | Promotion 계열.createdAt/updatedAt/handledAt | promotions·promotion_requests.* | system | BaseEntity / PromotionRequest.java:76 무클럭 now() (startAt/endAt은 Schedule 유지) |

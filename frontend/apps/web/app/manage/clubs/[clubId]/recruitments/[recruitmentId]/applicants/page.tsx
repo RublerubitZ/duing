@@ -175,26 +175,35 @@ export default function ApplicantsPage({ params }: PageParams) {
         </h1>
       </div>
 
-      {/* 외부 폼 안내 */}
+      {/* 외부 폼 안내 — 지원서를 두잉에서 받지 않으므로 목록 대신 안내와 되돌아갈 길만 준다(§5.1) */}
       {recruitment.applicationMode === 'EXTERNAL' && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
           <p className="text-sm text-slate-600">
-            외부 폼 응답은 외부 시스템에서 확인하세요.
+            외부 폼 모집은 지원자 관리를 사용하지 않아요. 외부 폼 응답은 외부 시스템에서 확인하고,
+            합격자 등록은 모집 상세의 가입 링크로 진행해주세요.
           </p>
-          {(() => {
-            const safeExternalFormUrl = safeExternalHref(recruitment.externalFormUrl);
-            if (!safeExternalFormUrl) return null;
-            return (
-              <a
-                href={safeExternalFormUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-block text-sm text-sky-600 hover:underline"
-              >
-                외부 폼 바로가기 →
-              </a>
-            );
-          })()}
+          <div className="mt-3 flex flex-wrap justify-center gap-4">
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
+              className="text-sm text-sky-600 hover:underline"
+            >
+              모집 상세로 이동 →
+            </Link>
+            {(() => {
+              const safeExternalFormUrl = safeExternalHref(recruitment.externalFormUrl);
+              if (!safeExternalFormUrl) return null;
+              return (
+                <a
+                  href={safeExternalFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-sky-600 hover:underline"
+                >
+                  외부 폼 바로가기 →
+                </a>
+              );
+            })()}
+          </div>
         </div>
       )}
 

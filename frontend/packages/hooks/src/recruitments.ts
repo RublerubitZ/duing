@@ -53,13 +53,17 @@ export function useUpdateRecruitmentMutation(recruitmentId: number) {
   });
 }
 
-export function useCloseRecruitmentMutation(recruitmentId: number) {
+export function useCloseRecruitmentMutation(recruitmentId: number, clubId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => client.recruitments.close(recruitmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: recruitmentQueryKeys.detail(recruitmentId) });
+      // 마감은 가입 링크 응답도 바꾼다 — 종료 시각이 생기면서 joinExpiresAt 이 null 에서 실제
+      // 만료 일시로 채워진다(스펙 §4.3). 무효화하지 않으면 상태 카드가 "모집 종료 후 N일까지"에
+      // 멈춰 새로고침 전까지 구체 일시를 보여주지 못한다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
     },
   });
 }

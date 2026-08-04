@@ -15,6 +15,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
+import { useRecruitmentDetailQuery } from '@duing/hooks';
 import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
 
@@ -28,9 +29,11 @@ type NavItem = {
   key: string;
   label: string;
   icon: LucideIcon;
-  /** null 이면 비활성 안내 항목 (지원자/통계 — 모집 미선택). typedRoutes 이므로 Route 타입. */
+  /** null 이면 비활성 안내 항목 (지원자/통계 — 모집 미선택·외부 폼). typedRoutes 이므로 Route 타입. */
   href: Route | null;
   active: boolean;
+  /** 비활성 사유 문구. href 가 null 일 때만 쓴다. */
+  disabledHint?: string;
 };
 
 type NavGroup = {
@@ -39,7 +42,8 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const DISABLED_HINT = '모집을 먼저 선택하세요';
+const NO_RECRUITMENT_HINT = '모집을 먼저 선택하세요';
+const EXTERNAL_MODE_HINT = '외부 폼 모집은 사용하지 않아요';
 
 export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) {
   const pathname = usePathname();
@@ -60,12 +64,22 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
   const activeRecruitmentId =
     recruitmentSubPath && /^\d+$/.test(recruitmentSubPath) ? recruitmentSubPath : undefined;
 
-  const applicantsPath = activeRecruitmentId
-    ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/applicants`)
-    : null;
-  const statsPath = activeRecruitmentId
-    ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/stats`)
-    : null;
+  // 외부 폼 모집은 지원서·통계를 쓰지 않으므로 두 진입점을 비활성 안내로 바꾼다(스펙 §5.1).
+  // fail-open — 모드를 아직 모르는 로딩·조회 실패 상태는 링크를 그대로 둔다("알려진 EXTERNAL 만 숨김").
+  const { data: activeRecruitment } = useRecruitmentDetailQuery(
+    activeRecruitmentId === undefined ? undefined : Number(activeRecruitmentId),
+  );
+  const isExternalRecruitment = activeRecruitment?.applicationMode === 'EXTERNAL';
+
+  const applicantsPath =
+    activeRecruitmentId && !isExternalRecruitment
+      ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/applicants`)
+      : null;
+  const statsPath =
+    activeRecruitmentId && !isExternalRecruitment
+      ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/stats`)
+      : null;
+  const recruitmentActionHint = isExternalRecruitment ? EXTERNAL_MODE_HINT : NO_RECRUITMENT_HINT;
 
   const isApplicantsActive = applicantsPath !== null && pathname.startsWith(applicantsPath);
   const isStatsActive = statsPath !== null && pathname.startsWith(statsPath);
@@ -96,8 +110,22 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
           href: recruitmentsPath,
           active: isRecruitmentsActive,
         },
-        { key: 'applicants', label: '지원자', icon: Users, href: applicantsPath, active: isApplicantsActive },
-        { key: 'stats', label: '통계', icon: BarChart3, href: statsPath, active: isStatsActive },
+        {
+          key: 'applicants',
+          label: '지원자',
+          icon: Users,
+          href: applicantsPath,
+          active: isApplicantsActive,
+          disabledHint: recruitmentActionHint,
+        },
+        {
+          key: 'stats',
+          label: '통계',
+          icon: BarChart3,
+          href: statsPath,
+          active: isStatsActive,
+          disabledHint: recruitmentActionHint,
+        },
       ],
     },
     {
@@ -157,15 +185,16 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
   const Icon = item.icon;
 
   if (item.href === null) {
-    // 지원자/통계 — 모집 컨텍스트가 없을 때의 비활성 안내
+    // 지원자/통계 — 모집 컨텍스트가 없거나 외부 폼 모집일 때의 비활성 안내
+    const hint = item.disabledHint ?? NO_RECRUITMENT_HINT;
     if (collapsed) {
       return (
         <span
-          title={`${item.label} — ${DISABLED_HINT}`}
+          title={`${item.label} — ${hint}`}
           className="my-0.5 flex cursor-not-allowed select-none justify-center rounded-md py-2.5 text-white/25"
         >
           <Icon size={19} aria-hidden className="shrink-0" />
-          <span className="sr-only">{`${item.label} — ${DISABLED_HINT}`}</span>
+          <span className="sr-only">{`${item.label} — ${hint}`}</span>
         </span>
       );
     }
@@ -175,7 +204,7 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
           <Icon size={19} aria-hidden className="shrink-0 text-white/25" />
           {item.label}
         </span>
-        <span className="mt-0.5 block pl-8 text-[11px] leading-tight text-white/30">{DISABLED_HINT}</span>
+        <span className="mt-0.5 block pl-8 text-[11px] leading-tight text-white/30">{hint}</span>
       </span>
     );
   }

@@ -101,7 +101,7 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
     void closedRecruitmentReturnsBadRequest() {
         Club club = saveActiveClub("마감동아리");
         Recruitment recruitment = saveOpenRecruitment(club, "마감모집");
-        recruitment.close();
+        recruitment.close(LocalDateTime.now());
         recruitmentRepository.save(recruitment);
         User applicant = saveUser("마감지원희망자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
@@ -201,7 +201,7 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
     void closedRecruitmentEligibilityMatchesSubmitFailure() {
         Club club = saveActiveClub("정책동등동아리2");
         Recruitment recruitment = saveOpenRecruitment(club, "정책동등모집2");
-        recruitment.close();
+        recruitment.close(LocalDateTime.now());
         recruitmentRepository.save(recruitment);
         User applicant = saveUser("정책동등지원자2");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());

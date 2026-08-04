@@ -296,7 +296,7 @@ class RecruitmentQuestionTypesIntegrationTest extends IntegrationTestBase {
                   "endDate": "%s",
                   "capacity": 10,
                   "applicationMode": "EXTERNAL",
-                  "externalFormUrl": "https://forms.example.com/apply"
+                  "externalFormUrl": "https://forms.gle/aBcD1234"
                 }
                 """.formatted(today.minusDays(1), today.plusDays(7)), club.getId());
 
