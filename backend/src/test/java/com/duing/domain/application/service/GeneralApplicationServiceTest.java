@@ -329,16 +329,16 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     }
 
     // ────────────────────────────────────────────────────────────
-    // 7. V100 마이그레이션 — 서류심사 잔존 값 치환 후에도 이력 포함 상세 조회가 정상
+    // 7. V103 마이그레이션 — 서류심사 잔존 값 치환 후에도 이력 포함 상세 조회가 정상
     // ────────────────────────────────────────────────────────────
 
     // 이 테스트의 'UNDER_REVIEW' 문자열 리터럴은 레거시 데이터 시드용이며 enum 참조가 아니다 — UNDER_REVIEW grep 검증의 명시 예외.
     @Test
-    @DisplayName("서류심사 값이 남아 있어도 V100 치환 후에는 이력을 포함한 지원자 상세 조회가 정상 동작한다")
+    @DisplayName("서류심사 값이 남아 있어도 V103 치환 후에는 이력을 포함한 지원자 상세 조회가 정상 동작한다")
     void migrationReplacesLeftoverUnderReviewValues() throws Exception {
         setupClubAndLeader("마이그레이션-치환동아리");
         Long applicationId = createSubmittedApplication();
-        // 테스트 컨테이너에는 이미 V100 이 적용된 뒤라, 레거시 데이터는 enum 을 우회해 직접 심는다.
+        // 테스트 컨테이너에는 이미 V103 이 적용된 뒤라, 레거시 데이터는 enum 을 우회해 직접 심는다.
         jdbcTemplate.update("UPDATE application SET status = 'UNDER_REVIEW' WHERE id = ?", applicationId);
         jdbcTemplate.update("INSERT INTO application_status_history "
                         + "(application_id, previous_status, new_status, changed_by) "
@@ -347,7 +347,7 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
 
         // 마이그레이션 파일 원본을 그대로 다시 실행해 치환 SQL 자체를 검증한다.
         new ResourceDatabasePopulator(
-                new ClassPathResource("db/migration/V100__replace_under_review_with_submitted.sql"))
+                new ClassPathResource("db/migration/V103__replace_under_review_with_submitted.sql"))
                 .execute(dataSource);
 
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(applicationId, leaderId);
