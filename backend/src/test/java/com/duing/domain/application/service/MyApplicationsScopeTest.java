@@ -53,12 +53,19 @@ class MyApplicationsScopeTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("scope=ACTIVE 는 SUBMITTED/UNDER_REVIEW/INTERVIEW_PENDING 만 반환한다")
+    @DisplayName("scope=ACTIVE 는 SUBMITTED/ON_HOLD/INTERVIEW_PENDING 만 반환한다")
     void activeScopeReturnsOnlyActiveStatuses() throws Exception {
         User applicant = saveStudent("지원자ACTIVE");
         // V38 partial unique 인덱스로 동아리당 OPEN 모집은 1건만 허용되므로,
         // 지원 status 별 픽스처를 동아리별로 분리한다.
-        for (ApplicationStatus status : ApplicationStatus.values()) {
+        // UNDER_REVIEW 는 새 전이표에서 도달 불가한 죽은 상태라 픽스처에서 제외한다.
+        List<ApplicationStatus> reachableStatuses = List.of(
+                ApplicationStatus.SUBMITTED,
+                ApplicationStatus.ON_HOLD,
+                ApplicationStatus.INTERVIEW_PENDING,
+                ApplicationStatus.ACCEPTED,
+                ApplicationStatus.REJECTED);
+        for (ApplicationStatus status : reachableStatuses) {
             Club club = saveClub("ACTIVE동아리-" + status);
             Recruitment recruitment = saveRecruitment(club, "ACTIVE모집-" + status);
             saveApplication(recruitment, applicant, status);
@@ -71,7 +78,7 @@ class MyApplicationsScopeTest {
         assertThat(result).extracting(ApplicationSummaryQuery::status)
                 .containsExactlyInAnyOrder(
                         ApplicationStatus.SUBMITTED,
-                        ApplicationStatus.UNDER_REVIEW,
+                        ApplicationStatus.ON_HOLD,
                         ApplicationStatus.INTERVIEW_PENDING
                 );
     }

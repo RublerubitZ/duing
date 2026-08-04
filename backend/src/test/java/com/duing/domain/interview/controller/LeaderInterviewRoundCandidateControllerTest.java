@@ -29,7 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 // 라운드 생성 wizard Step1 / 상시모집 대기열의 후보 조회를 검증한다.
-// 후보 = 후보 상태(기본 INTERVIEW_PENDING, 옵션 UNDER_REVIEW 포함) && placement-active 멤버십 없음 (스펙 §5.4·§9.1 API 1).
+// 후보 = 후보 상태(기본 INTERVIEW_PENDING, 옵션 미결정(SUBMITTED·ON_HOLD) 포함) && placement-active 멤버십 없음 (스펙 §5.4·§9.1 API 1).
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTestSupport {
@@ -54,10 +54,11 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
     }
 
     @Test
-    @DisplayName("기본 호출은 면접 대기열만 반환한다 — 서류 검토 중 지원자는 포함되지 않는다")
+    @DisplayName("기본 호출은 면접 대기열만 반환한다 — 아직 결정하지 않은 지원자는 포함되지 않는다")
     void defaultCallReturnsQueueOnly() {
         Application queued = saveInterviewPendingApplication(recruitment, "대기열");
-        saveUnderReviewApplication(recruitment, "서류중");
+        saveSubmittedApplication(recruitment, "지원완료");
+        saveOnHoldApplication(recruitment, "보류");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -69,25 +70,25 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
     }
 
     @Test
-    @DisplayName("includeUnderReview=true 면 서류 검토 중 지원자도 후보에 포함된다")
-    void includeUnderReviewAddsUnderReviewApplicants() {
+    @DisplayName("미결정 포함 옵션을 켜면 지원 완료·보류 지원자도 후보에 포함된다")
+    void includeUndecidedAddsSubmittedAndOnHoldApplicants() {
         Application queued = saveInterviewPendingApplication(recruitment, "대기열");
-        Application reviewing = saveUnderReviewApplication(recruitment, "서류중");
+        Application submitted = saveSubmittedApplication(recruitment, "지원완료");
+        Application onHold = saveOnHoldApplication(recruitment, "보류");
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .queryParam("includeUnderReview", true)
                 .when().get(CANDIDATES_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data", hasSize(2))
+                .body("data", hasSize(3))
                 .body("data.applicationId", containsInAnyOrder(
-                        queued.getId().intValue(), reviewing.getId().intValue()));
+                        queued.getId().intValue(), submitted.getId().intValue(), onHold.getId().intValue()));
     }
 
     @Test
-    @DisplayName("SUBMITTED·ACCEPTED·REJECTED 지원자는 어떤 옵션에서도 후보에 포함되지 않는다")
-    void terminalAndUnreviewedStatusesAreNeverCandidates() {
-        saveApplicationWithStatus(recruitment, "미열람", ApplicationStatus.SUBMITTED);
+    @DisplayName("합격·불합격으로 종료된 지원자는 어떤 옵션에서도 후보에 포함되지 않는다")
+    void terminalStatusesAreNeverCandidates() {
         saveApplicationWithStatus(recruitment, "합격", ApplicationStatus.ACCEPTED);
         saveApplicationWithStatus(recruitment, "불합격", ApplicationStatus.REJECTED);
 

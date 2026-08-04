@@ -96,13 +96,18 @@ public class Application extends BaseEntity {
 
     private static boolean isAllowedTransition(ApplicationStatus from, ApplicationStatus to, boolean useInterview) {
         return switch (from) {
-            case SUBMITTED -> to == ApplicationStatus.UNDER_REVIEW;
-            case UNDER_REVIEW -> useInterview
-                    ? to == ApplicationStatus.INTERVIEW_PENDING
-                            || to == ApplicationStatus.REJECTED
-                    : to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
+            case SUBMITTED -> to == ApplicationStatus.ON_HOLD
+                    || to == ApplicationStatus.REJECTED
+                    || (useInterview
+                            ? to == ApplicationStatus.INTERVIEW_PENDING
+                            : to == ApplicationStatus.ACCEPTED);
+            case ON_HOLD -> to == ApplicationStatus.REJECTED
+                    || (useInterview
+                            ? to == ApplicationStatus.INTERVIEW_PENDING
+                            : to == ApplicationStatus.ACCEPTED);
             case INTERVIEW_PENDING -> to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
-            case ACCEPTED, REJECTED -> false;
+            // UNDER_REVIEW 는 V97 치환 후 존재하지 않는 죽은 상태 — 상수와 함께 후속 작업에서 제거한다.
+            case UNDER_REVIEW, ACCEPTED, REJECTED -> false;
         };
     }
 

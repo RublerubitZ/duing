@@ -64,7 +64,8 @@ class ApplicantInterviewControllerTest extends InterviewControllerTestSupport {
     @Test
     @DisplayName("서류 검토 중인 지원자는 DOCUMENT_REVIEW 단계를 받는다")
     void underReviewSeesDocumentReview() {
-        Application application = saveUnderReviewApplication(recruitment, "서류중");
+        // DOCUMENT_REVIEW 파생은 UNDER_REVIEW 에만 남아 있는 죽은 경로 — 전이로는 도달할 수 없어 직접 세팅한다.
+        Application application = saveApplicationWithStatus(recruitment, "서류중", ApplicationStatus.UNDER_REVIEW);
 
         givenApplicant(application)
                 .when().get(INTERVIEW_PATH, application.getId())
@@ -288,7 +289,7 @@ class ApplicantInterviewControllerTest extends InterviewControllerTestSupport {
         clubMemberRepository.save(ClubMember.asLeader(club, saveUser("리더2")));
         Recruitment simpleRecruitment = saveSimpleRecruitment(club, "면접없는모집");
         Application application = saveSubmittedApplication(simpleRecruitment, "일반지원자");
-        application.transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        application.transitionTo(ApplicationStatus.ON_HOLD, false);
         applicationRepository.save(application);
 
         givenApplicant(application)

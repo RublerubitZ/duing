@@ -50,8 +50,8 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("UNDER_REVIEW 3건을 REJECTED 로 일괄 변경하면 updated=3, failures=[] 로 처리된다")
-    void bulkRejectThreeUnderReviewApplications() throws Exception {
+    @DisplayName("면접을 쓰지 않는 모집에서는 SUBMITTED 3건을 중간 단계 없이 ACCEPTED 로 일괄 변경할 수 있다")
+    void bulkAcceptThreeSubmittedApplications() throws Exception {
         User leader = saveUser("일괄리더", UserRole.STUDENT);
         Club club = saveActiveClub("일괄벌크동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -59,21 +59,46 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 Recruitment.create(club, "일괄모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
 
-        Application a1 = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "지원자1");
-        Application a2 = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "지원자2");
-        Application a3 = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "지원자3");
+        Application firstApplication = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "지원자1");
+        Application secondApplication = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "지원자2");
+        Application thirdApplication = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "지원자3");
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(a1.getId(), a2.getId(), a3.getId()),
+                        List.of(firstApplication.getId(), secondApplication.getId(), thirdApplication.getId()),
                         leader.getId(),
-                        ApplicationStatus.REJECTED));
+                        ApplicationStatus.ACCEPTED));
 
         assertThat(result.updated()).isEqualTo(3);
         assertThat(result.failures()).isEmpty();
-        assertThat(applicationRepository.findById(a1.getId()).orElseThrow().getStatus())
-                .isEqualTo(ApplicationStatus.REJECTED);
-        assertThat(applicationRepository.findById(a3.getId()).orElseThrow().getStatus())
+        assertThat(applicationRepository.findById(firstApplication.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ACCEPTED);
+        assertThat(applicationRepository.findById(thirdApplication.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ACCEPTED);
+    }
+
+    @Test
+    @DisplayName("보류(ON_HOLD) 지원자도 일괄 불합격 처리할 수 있다")
+    void bulkRejectOnHoldApplications() throws Exception {
+        User leader = saveUser("보류리더", UserRole.STUDENT);
+        Club club = saveActiveClub("보류벌크동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "보류모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+
+        Application firstApplication = saveApplicationWithStatus(recruitment, ApplicationStatus.ON_HOLD, "보류자1");
+        Application secondApplication = saveApplicationWithStatus(recruitment, ApplicationStatus.ON_HOLD, "보류자2");
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(firstApplication.getId(), secondApplication.getId()),
+                        leader.getId(),
+                        ApplicationStatus.REJECTED));
+
+        assertThat(result.updated()).isEqualTo(2);
+        assertThat(result.failures()).isEmpty();
+        assertThat(applicationRepository.findById(firstApplication.getId()).orElseThrow().getStatus())
                 .isEqualTo(ApplicationStatus.REJECTED);
     }
 
@@ -87,16 +112,15 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 Recruitment.create(club, "부분모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
 
-        // UNDER_REVIEW: REJECTED 로 전이 가능 (useInterview=false 라서)
-        Application ok = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "정상지원자");
-        // SUBMITTED: REJECTED 로 직접 못 감 — UNDER_REVIEW 부터 거쳐야 함
-        Application notReady = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "검토전지원자");
-        // ACCEPTED: terminal — 어떤 전이도 불가
-        Application terminal = saveApplicationWithStatus(recruitment, ApplicationStatus.ACCEPTED, "이미합격자");
+        // SUBMITTED: REJECTED 로 직행 가능
+        Application transitionable = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
+        // ACCEPTED / REJECTED: terminal — 어떤 전이도 불가
+        Application accepted = saveApplicationWithStatus(recruitment, ApplicationStatus.ACCEPTED, "이미합격자");
+        Application rejected = saveApplicationWithStatus(recruitment, ApplicationStatus.REJECTED, "이미불합격자");
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(ok.getId(), notReady.getId(), terminal.getId()),
+                        List.of(transitionable.getId(), accepted.getId(), rejected.getId()),
                         leader.getId(),
                         ApplicationStatus.REJECTED));
 
@@ -104,7 +128,7 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         assertThat(result.failures()).hasSize(2);
         assertThat(result.failures())
                 .extracting(BulkUpdateApplicationStatusResult.Failure::applicationId)
-                .containsExactlyInAnyOrder(notReady.getId(), terminal.getId());
+                .containsExactlyInAnyOrder(accepted.getId(), rejected.getId());
     }
 
     @Test
@@ -117,7 +141,7 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 Recruitment.create(club, "미존재모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
 
-        Application ok = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "정상지원자");
+        Application ok = saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "정상지원자");
         long missingId = -42L;
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
@@ -146,7 +170,7 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
                 Recruitment.create(otherClub, "타클럽모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
         Application otherClubApp =
-                saveApplicationWithStatus(otherRecruitment, ApplicationStatus.UNDER_REVIEW, "타클럽지원자");
+                saveApplicationWithStatus(otherRecruitment, ApplicationStatus.ON_HOLD, "타클럽지원자");
 
         long missingId = -77L;
 
@@ -178,13 +202,13 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "전이모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
-        // SUBMITTED -> REJECTED 직접 전이는 FSM 상 금지(검토 단계를 건너뜀)라 InvalidStatusTransition 으로 실패한다.
-        Application submitted =
-                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "검토전지원자");
+        // ACCEPTED -> REJECTED 는 terminal 에서 나가는 전이라 InvalidStatusTransition 으로 실패한다.
+        Application accepted =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.ACCEPTED, "이미합격자");
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(submitted.getId()),
+                        List.of(accepted.getId()),
                         leader.getId(),
                         ApplicationStatus.REJECTED));
 
@@ -205,11 +229,11 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.save(
                 Recruitment.create(club, "권한모집", null,
                         LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
-        Application app = saveApplicationWithStatus(recruitment, ApplicationStatus.UNDER_REVIEW, "지원자");
+        Application application = saveApplicationWithStatus(recruitment, ApplicationStatus.ON_HOLD, "지원자");
 
         BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
                 new BulkUpdateApplicationStatusCommand(
-                        List.of(app.getId()), member.getId(), ApplicationStatus.REJECTED));
+                        List.of(application.getId()), member.getId(), ApplicationStatus.REJECTED));
 
         assertThat(result.updated()).isZero();
         assertThat(result.failures()).hasSize(1);

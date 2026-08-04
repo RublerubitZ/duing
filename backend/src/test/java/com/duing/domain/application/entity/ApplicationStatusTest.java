@@ -8,13 +8,13 @@ import org.junit.jupiter.api.Test;
 class ApplicationStatusTest {
 
     @Test
-    @DisplayName("SUBMITTED / UNDER_REVIEW / INTERVIEW_PENDING 는 active 상태로 분류된다")
+    @DisplayName("SUBMITTED / ON_HOLD / INTERVIEW_PENDING 는 active 상태로 분류된다")
     void activeStatuses() {
         assertThat(ApplicationStatus.SUBMITTED.isActive()).isTrue();
-        assertThat(ApplicationStatus.UNDER_REVIEW.isActive()).isTrue();
+        assertThat(ApplicationStatus.ON_HOLD.isActive()).isTrue();
         assertThat(ApplicationStatus.INTERVIEW_PENDING.isActive()).isTrue();
         assertThat(ApplicationStatus.SUBMITTED.isTerminal()).isFalse();
-        assertThat(ApplicationStatus.UNDER_REVIEW.isTerminal()).isFalse();
+        assertThat(ApplicationStatus.ON_HOLD.isTerminal()).isFalse();
         assertThat(ApplicationStatus.INTERVIEW_PENDING.isTerminal()).isFalse();
     }
 

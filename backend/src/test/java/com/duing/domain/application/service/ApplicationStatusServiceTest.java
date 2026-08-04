@@ -77,7 +77,7 @@ class ApplicationStatusServiceTest {
     // 공통 픽스처 빌더
     // ────────────────────────────────────────────────────────────
 
-    private Application stubUnderReviewApplication(Long clubId, Long applicantId, TargetRole targetRole) {
+    private Application stubApplication(Long clubId, Long applicantId, TargetRole targetRole) {
         Club club = mock(Club.class);
         when(club.getId()).thenReturn(clubId);
 
@@ -97,24 +97,24 @@ class ApplicationStatusServiceTest {
     }
 
     // ────────────────────────────────────────────────────────────
-    // 1. 상태 전이 스모크 (SUBMITTED → UNDER_REVIEW)
+    // 1. 상태 전이 스모크 (SUBMITTED → ON_HOLD)
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("운영진이 SUBMITTED 지원서를 UNDER_REVIEW 로 변경하면 정상 처리된다")
-    void submittedToUnderReviewSucceeds() {
+    @DisplayName("운영진이 SUBMITTED 지원서를 ON_HOLD 로 변경하면 정상 처리된다")
+    void submittedToOnHoldSucceeds() {
         Long applicationId = 1L;
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.UNDER_REVIEW));
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ON_HOLD));
 
-        verify(application).transitionTo(ApplicationStatus.UNDER_REVIEW, false);
+        verify(application).transitionTo(ApplicationStatus.ON_HOLD, false);
         verify(clubAuthService).requireManager(managerId, clubId);
     }
 
@@ -129,7 +129,7 @@ class ApplicationStatusServiceTest {
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
 
         // transitionTo 가 ACCEPTED→ACCEPTED 를 차단함 (도메인 계층 책임)
         doThrow(new ApplicationDomainException.InvalidStatusTransitionException())
@@ -159,7 +159,7 @@ class ApplicationStatusServiceTest {
         Long clubId = 5L;
         Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
+        Application application = stubApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
         when(clubMemberRepository.findByClubIdAndUserId(clubId, applicantId))
@@ -185,7 +185,7 @@ class ApplicationStatusServiceTest {
         Long clubId = 5L;
         Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.OFFICER);
+        Application application = stubApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
@@ -213,7 +213,7 @@ class ApplicationStatusServiceTest {
         Long clubId = 5L;
         Long applicantId = 20L;
 
-        Application application = stubUnderReviewApplication(clubId, applicantId, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, applicantId, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
@@ -241,14 +241,14 @@ class ApplicationStatusServiceTest {
         Long nonManagerUserId = 99L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManager(nonManagerUserId, clubId);
 
         assertThatThrownBy(() -> applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.UNDER_REVIEW)))
+                new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.ON_HOLD)))
                 .isInstanceOf(AccessDeniedException.class);
 
         // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
@@ -267,7 +267,7 @@ class ApplicationStatusServiceTest {
         Long managerId = 10L;
         Long clubId = 5L;
 
-        Application application = stubUnderReviewApplication(clubId, 20L, TargetRole.MEMBER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
