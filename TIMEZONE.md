@@ -64,6 +64,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 close 4경로(수동 마감·만료 OPEN 마감·replaceActive·동아리 폐쇄) + 벌크 마감(closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다 |
 | JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode.getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
+| AdminJoinLinkStatusResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | 위 JoinCodeResponse.joinExpiresAt 과 같은 파생·같은 변환(총동연 상세의 가입 링크 현황) |
+| AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
 | JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService 승인/거절 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
