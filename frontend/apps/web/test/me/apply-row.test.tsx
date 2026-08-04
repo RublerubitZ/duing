@@ -15,9 +15,9 @@ const app: App = {
   files: [],
   memo: '',
   steps: [
-    { label: '서류접수·심사', date: '06.10', state: 'current' },
-    { label: '면접/인터뷰', date: '06.20', state: 'pending' },
-    { label: '최종발표', date: '06.25', state: 'pending' },
+    { label: '심사', date: '06.10', state: 'current' },
+    { label: '면접', date: '06.20', state: 'pending' },
+    { label: '최종 결과', date: '06.25', state: 'pending' },
   ],
   status: 'applied',
   right: { eyebrow: '심사 결과', value: '06.14', sub: '발표 예정' },
@@ -36,10 +36,11 @@ describe('ApplyRow — 반응형 카드 reflow 구조', () => {
     }
   });
 
-  it('타임라인은 전달된 단계 수만 렌더한다 — 4칸 패딩으로 최종발표가 중복되지 않는다', () => {
+  it('타임라인은 전달된 단계 수만 렌더한다 — 4칸 패딩으로 최종 결과가 중복되지 않는다', () => {
     render(<ApplyRow app={app} isActive={false} onOpen={vi.fn()} />);
-    expect(screen.getAllByText('최종발표')).toHaveLength(1);
-    expect(screen.queryByText('서류심사')).not.toBeInTheDocument();
+    expect(screen.getAllByText('최종 결과')).toHaveLength(1);
+    // 소멸한 서류 단계 문구가 어디에도 남지 않는다 (스펙 §5-5).
+    expect(screen.queryByText(/서류/)).not.toBeInTheDocument();
   });
 
   it('화살표는 모바일에서 숨긴다(hidden, md:grid)', () => {
