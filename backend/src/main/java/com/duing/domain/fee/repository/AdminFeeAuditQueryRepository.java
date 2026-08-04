@@ -10,6 +10,7 @@ import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.fee.entity.FeeStatus;
+import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillRow;
@@ -282,6 +283,69 @@ public class AdminFeeAuditQueryRepository {
                 .fetch();
     }
 
+    /**
+     * 이상징후 FA-01 — 기간 내 매칭 완료 거래 수와 그중 수동 매칭 수.
+     * 매칭 대기(PENDING)·무시(IGNORED) 거래는 "수동으로 처리했는가"를 묻는 Rule 의 모수가 아니라 뺀다.
+     */
+    public AdminFeeMatchAggregate countMatchedTransactions(Long clubId, AdminFeePeriod period) {
+        NumberExpression<Long> manualCount = new CaseBuilder()
+                .when(bankTransaction.matchStatus.eq(MatchStatus.MANUAL_MATCHED)).then(1L).otherwise(0L)
+                .sum().coalesce(0L);
+        AdminFeeMatchAggregate aggregate = queryFactory
+                .select(Projections.constructor(AdminFeeMatchAggregate.class,
+                        bankTransaction.count(), manualCount))
+                .from(bankTransaction)
+                .where(bankTransaction.clubId.eq(clubId),
+                        bankTransaction.matchStatus.in(MatchStatus.AUTO_MATCHED, MatchStatus.MANUAL_MATCHED),
+                        transactionGoe(period), transactionLt(period))
+                .fetchOne();
+        // 거래가 0건이면 집계 함수가 null 행을 반환할 수 있어 0 으로 정규화한다.
+        return aggregate != null ? aggregate : AdminFeeMatchAggregate.EMPTY;
+    }
+
+    /**
+     * 이상징후 FA-02·FA-04 — 기간 내 정정된 납부의 정정 시각과 대상 청구 마감일.
+     * 두 Rule 이 같은 행 집합을 세므로 "정정 3건인데 마감 후 정정이 4건" 같은 자기모순이 날 수 없다.
+     *
+     * <p>ponytail: 건수만 필요한 FA-02 까지 행을 실어 오는 이유는 FA-04 가 컬럼 간 비교(시각 vs 날짜)라
+     * 어차피 Java 판정이 필요하기 때문이다. 한 동아리·수십일 창의 정정 건수라 행이 적다 —
+     * 정정이 수천 건 나오는 규모가 되면 FA-02 는 count 쿼리로 떼어낸다.
+     */
+    public List<AdminFeeVoidedPaymentDue> findVoidedPaymentDues(Long clubId, AdminFeePeriod period) {
+        return queryFactory
+                .select(Projections.constructor(AdminFeeVoidedPaymentDue.class,
+                        payment.voidedAt, feeBill.dueDate))
+                .from(payment)
+                .join(feeBill).on(feeBill.id.eq(payment.feeBillId), feeBill.clubId.eq(clubId))
+                .where(payment.status.eq(PaymentStatus.VOIDED), voidedGoe(period), voidedLt(period))
+                .fetch();
+    }
+
+    /** 이상징후 FA-03 의 분모 — 기간 내 발행 청구 수. 나중에 취소된 청구도 발행은 발행이라 포함한다. */
+    public long countIssuedBills(Long clubId, AdminFeePeriod period) {
+        Long issuedCount = queryFactory
+                .select(feeBill.count())
+                .from(feeBill)
+                .where(feeBill.clubId.eq(clubId), createdGoe(period), createdLt(period))
+                .fetchOne();
+        return issuedCount == null ? 0L : issuedCount;
+    }
+
+    /**
+     * 이상징후 FA-03 의 분자 — 기간 내 취소된 청구 수.
+     * 취소 시각은 {@code updated_at} 근사다 — 취소(CANCELLED)는 종단 상태라 그 뒤 수정이 없어
+     * 마지막 수정 시각이 곧 취소 시각이다. 취소 시각 컬럼이 따로 생기면 그 컬럼으로 옮긴다.
+     */
+    public long countCancelledBills(Long clubId, AdminFeePeriod period) {
+        Long cancelledCount = queryFactory
+                .select(feeBill.count())
+                .from(feeBill)
+                .where(feeBill.clubId.eq(clubId), feeBill.status.eq(FeeStatus.CANCELLED),
+                        updatedGoe(period), updatedLt(period))
+                .fetchOne();
+        return cancelledCount == null ? 0L : cancelledCount;
+    }
+
     /** 콘솔 필터 → 파생 조건(스펙 §7.5). 마감 당일은 아직 연체가 아니라 미납이다. */
     private BooleanExpression filterCondition(AdminFeeBillFilter filter, LocalDate today) {
         if (filter == null) {
@@ -365,6 +429,33 @@ public class AdminFeeAuditQueryRepository {
 
     private BooleanExpression createdLt(AdminFeePeriod period) {
         return period.createdTo() == null ? null : feeBill.createdAt.lt(period.createdTo());
+    }
+
+    /** 청구 취소 시각 근사(updated_at)도 created_at 과 같은 JVM 존 벽시계라 같은 경계를 쓴다. */
+    private BooleanExpression updatedGoe(AdminFeePeriod period) {
+        return period.createdFrom() == null ? null : feeBill.updatedAt.goe(period.createdFrom());
+    }
+
+    private BooleanExpression updatedLt(AdminFeePeriod period) {
+        return period.createdTo() == null ? null : feeBill.updatedAt.lt(period.createdTo());
+    }
+
+    /** 거래 시각은 paid_at 과 같은 KST 벽시계라 기간의 KST 경계를 쓴다(created_at 경계가 아니다). */
+    private BooleanExpression transactionGoe(AdminFeePeriod period) {
+        return period.paidFrom() == null ? null : bankTransaction.transactionAt.goe(period.paidFrom());
+    }
+
+    private BooleanExpression transactionLt(AdminFeePeriod period) {
+        return period.paidTo() == null ? null : bankTransaction.transactionAt.lt(period.paidTo());
+    }
+
+    /** 정정 시각도 seoulClock 으로 기록되는 KST 벽시계다(/TIMEZONE.md 대응표). */
+    private BooleanExpression voidedGoe(AdminFeePeriod period) {
+        return period.paidFrom() == null ? null : payment.voidedAt.goe(period.paidFrom());
+    }
+
+    private BooleanExpression voidedLt(AdminFeePeriod period) {
+        return period.paidTo() == null ? null : payment.voidedAt.lt(period.paidTo());
     }
 
     private BooleanExpression statusEq(PaymentStatus status) {

@@ -2,6 +2,7 @@ package com.duing.domain.fee.api;
 
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAnomalyReportResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
@@ -179,5 +180,24 @@ public interface AdminFeeAuditApi {
             @Parameter(description = "조회 종료일 (KST, 당일 포함). 생략하면 전체 기간", example = "2026-08-31")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @Parameter(hidden = true) Pageable pageable
+    );
+
+    @Operation(summary = "회비 이상징후 평가 (ADMIN)",
+            description = "동아리의 회비 데이터와 감사 로그를 8개 규칙으로 그 자리에서 평가해 걸린 것만 "
+                    + "심각도 높은 순으로 반환한다 — 아무것도 걸리지 않으면 빈 배열이다. "
+                    + "기간을 생략하면 최근 30일로 평가하며, 실제로 적용된 구간은 window 로 함께 내려간다. "
+                    + "단시간 대량 변경(24시간)·동일 운영진 반복 변경(7일)은 짧은 창 자체가 판정의 일부라 "
+                    + "요청 기간과 무관하게 현재 기준으로 보고, 계좌 교체는 기간이 90일보다 짧아도 90일까지 넓혀 본다 — "
+                    + "그래서 window 밖 시점의 징후가 실릴 수 있다. "
+                    + "이벤트를 보는 규칙은 감사 계측 배포 이후의 변경만 대상으로 한다. "
+                    + "evidence 는 판정 근거(건수·비율·임계값)이며 규칙마다 키가 다르다. 미존재·삭제 동아리는 404.")
+    @GetMapping("/admin/fees/{clubId}/anomalies")
+    ResponseEntity<ApiResponse<AdminFeeAnomalyReportResponse>> evaluateFeeAnomalies(
+            @Parameter(description = "평가 대상 동아리 ID", required = true)
+            @PathVariable Long clubId,
+            @Parameter(description = "평가 시작일 (KST, 포함). 생략하면 종료일 기준 30일 전", example = "2026-07-05")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @Parameter(description = "평가 종료일 (KST, 당일 포함). 생략하면 오늘", example = "2026-08-04")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     );
 }

@@ -56,4 +56,50 @@ public class ClubAuditEventRepositoryImpl implements ClubAuditEventRepositoryCus
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
+
+    @Override
+    public long countEventsSince(Long clubId, Collection<ClubAuditEventType> types, LocalDateTime since) {
+        if (isEmptyScope(clubId, types)) {
+            return 0L;
+        }
+        Long count = queryFactory
+                .select(clubAuditEvent.count())
+                .from(clubAuditEvent)
+                .where(burstConditions(clubId, types, since))
+                .fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    @Override
+    public long findMaxEventCountByActorSince(Long clubId, Collection<ClubAuditEventType> types,
+                                              LocalDateTime since) {
+        if (isEmptyScope(clubId, types)) {
+            return 0L;
+        }
+        // 행위자별 건수를 뽑아 최댓값만 남긴다 — 행이 행위자 수만큼이라(동아리 운영진 규모) 작다.
+        return queryFactory
+                .select(clubAuditEvent.count())
+                .from(clubAuditEvent)
+                .where(burstConditions(clubId, types, since))
+                .groupBy(clubAuditEvent.actorUserId)
+                .fetch().stream()
+                .mapToLong(Long::longValue)
+                .max()
+                .orElse(0L);
+    }
+
+    private static boolean isEmptyScope(Long clubId, Collection<ClubAuditEventType> types) {
+        Objects.requireNonNull(clubId, "clubId must not be null");
+        // 대상 종류가 하나도 없으면 셀 것도 없다 — 빈 IN 절 쿼리를 DB 로 내보내지 않는다.
+        return types == null || types.isEmpty();
+    }
+
+    private static Predicate[] burstConditions(Long clubId, Collection<ClubAuditEventType> types,
+                                               LocalDateTime since) {
+        return new Predicate[]{
+                clubAuditEvent.clubId.eq(clubId),
+                clubAuditEvent.eventType.in(types),
+                since == null ? null : clubAuditEvent.createdAt.goe(since)
+        };
+    }
 }

@@ -3,6 +3,7 @@ package com.duing.domain.fee.controller;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.fee.api.AdminFeeAuditApi;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAccountResponse;
+import com.duing.domain.fee.controller.dto.response.AdminFeeAnomalyReportResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeAuditLogResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeBillRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeeClubDetailResponse;
@@ -11,6 +12,7 @@ import com.duing.domain.fee.controller.dto.response.AdminFeeDashboardResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePaymentRowResponse;
 import com.duing.domain.fee.controller.dto.response.AdminFeePolicyResponse;
 import com.duing.domain.fee.entity.PaymentStatus;
+import com.duing.domain.fee.service.AdminFeeAnomalyService;
 import com.duing.domain.fee.service.AdminFeeAuditQueryService;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillFilter;
 import com.duing.domain.fee.service.dto.query.AdminFeeBillSort;
@@ -41,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminFeeAuditController implements AdminFeeAuditApi {
 
     private final AdminFeeAuditQueryService adminFeeAuditQueryService;
+    private final AdminFeeAnomalyService adminFeeAnomalyService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminFeeClubSummaryResponse>>> searchFeeClubs(
@@ -139,5 +142,16 @@ public class AdminFeeAuditController implements AdminFeeAuditApi {
                 .getAuditLogs(clubId, types, AdminFeePeriod.of(from, to), pageable)
                 .map(AdminFeeAuditLogResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    /** 기간 기본값(최근 30일)은 평가 창의 일부라 서비스가 정한다 — 여기서 AdminFeePeriod 로 굳히지 않는다. */
+    @Override
+    public ResponseEntity<ApiResponse<AdminFeeAnomalyReportResponse>> evaluateFeeAnomalies(
+            @PathVariable Long clubId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(AdminFeeAnomalyReportResponse.from(
+                adminFeeAnomalyService.evaluate(clubId, from, to))));
     }
 }
