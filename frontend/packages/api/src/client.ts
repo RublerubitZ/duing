@@ -415,7 +415,8 @@ export type DuingApiClient = {
   };
   joinCodes: {
     // 코드는 모집에 귀속된다 — 같은 동아리라도 모집마다 활성 코드가 따로 있다(스펙 v2 §4.3).
-    // 기존 활성 코드가 있으면 폐기 후 새로 만드는 원자 재생성이고, 자체 폼 모집이면 409 다.
+    // 기존 활성 코드가 있으면 폐기 후 새로 만드는 원자 재생성이고, 자체 폼 모집이거나
+    // 모집이 실질 진행 중이 아니면 409 다(스펙 v2 §4.2).
     createForRecruitment(
       clubId: number,
       recruitmentId: number,
@@ -423,6 +424,7 @@ export type DuingApiClient = {
     ): Promise<JoinCodeSummary>;
     // 활성 코드가 없으면 200 + data:null 이 정상 응답이라 null 을 그대로 돌려준다.
     // 만료된 코드도 폐기 전이면 활성으로 내려온다 — 사용 가능 판정은 호출부 몫이다.
+    // 상태 카드용 누적/대기 수치(totalRequestCount·pendingCount)도 이 응답에 함께 담긴다.
     getActiveForRecruitment(
       clubId: number,
       recruitmentId: number,

@@ -42,7 +42,10 @@ const activeJoinCode = {
   generation: 12,
   maxUses: 30,
   usedCount: 4,
-  expiresAt: '2026-09-01T14:59:59Z',
+  joinWindowDays: 7,
+  joinExpiresAt: null,
+  totalRequestCount: 5,
+  pendingCount: 2,
 };
 
 const pendingRequest = {
@@ -105,7 +108,7 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-describe('가입 코드 훅', () => {
+describe('가입 링크 훅', () => {
   it('활성 코드를 조회한다', async () => {
     const queryClient = newQueryClient();
     const { result } = renderHook(() => useActiveJoinCodeQuery(10, 55), {
@@ -160,7 +163,7 @@ describe('가입 코드 훅', () => {
     expect(result.current.fetchStatus).toBe('idle');
   });
 
-  it('코드 생성 성공 시 가입 코드 키를 무효화한다', async () => {
+  it('링크 생성 성공 시 가입 링크 키를 무효화하고 가입 가능 기간 프리셋을 그대로 보낸다', async () => {
     const queryClient = newQueryClient();
     queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), null);
 
@@ -168,14 +171,14 @@ describe('가입 코드 훅', () => {
       wrapper: makeWrapper(queryClient),
     });
     await act(async () => {
-      await result.current.mutateAsync({ maxUses: 30, expiresInDays: 30, generation: 12 });
+      await result.current.mutateAsync({ maxUses: 30, joinWindowDays: 14, generation: 12 });
     });
 
-    expect(lastCreateBody).toEqual({ maxUses: 30, expiresInDays: 30, generation: 12 });
+    expect(lastCreateBody).toEqual({ maxUses: 30, joinWindowDays: 14, generation: 12 });
     expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
   });
 
-  it('코드 폐기 성공 시 가입 코드 키를 무효화한다', async () => {
+  it('링크 폐기 성공 시 가입 링크 키를 무효화한다', async () => {
     const queryClient = newQueryClient();
     queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
 
