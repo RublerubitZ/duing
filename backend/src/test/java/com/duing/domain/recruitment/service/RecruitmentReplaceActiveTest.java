@@ -100,7 +100,7 @@ class RecruitmentReplaceActiveTest {
                 LocalDate.now().plusDays(7),
                 10,
                 ApplicationMode.EXTERNAL,
-                "https://example.com/form",
+                "https://forms.gle/aBcD1234",
                 false,
                 TargetRole.MEMBER,
                 List.of(),

@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.domain.club.entity.Club;
@@ -101,7 +102,7 @@ class RecruitmentCreateExtensionTest {
                 LocalDate.now().plusDays(7),
                 30,
                 ApplicationMode.EXTERNAL,
-                "https://forms.example.com/abc",
+                "https://forms.gle/aBcD1234",
                 false,
                 TargetRole.MEMBER,
                 null,
@@ -112,7 +113,7 @@ class RecruitmentCreateExtensionTest {
 
         Recruitment saved = recruitmentRepository.findById(recruitmentId).orElseThrow();
         assertThat(saved.getApplicationMode()).isEqualTo(ApplicationMode.EXTERNAL);
-        assertThat(saved.getExternalFormUrl()).isEqualTo("https://forms.example.com/abc");
+        assertThat(saved.getExternalFormUrl()).isEqualTo("https://forms.gle/aBcD1234");
         assertThat(saved.getForm()).isNull();
     }
 
@@ -148,12 +149,82 @@ class RecruitmentCreateExtensionTest {
         assertThatThrownBy(() -> new CreateRecruitmentCommand(
                 1L, 1L, "외부 폼", null,
                 LocalDate.now(), LocalDate.now().plusDays(7), 10,
-                ApplicationMode.EXTERNAL, "https://forms.example.com/x", false,
+                ApplicationMode.EXTERNAL, "https://forms.gle/aBcD1234", false,
                 TargetRole.MEMBER, List.of(RecruitmentQuestion.createText("질문1")),
                 null,
                 null,
                 false
         )).isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
+    }
+
+    @Test
+    @DisplayName("외부 폼 모집인데 면접 진행을 켜면 InvalidApplicationModeException 이 발생한다")
+    void externalFormWithInterviewFails() {
+        assertThatThrownBy(() -> externalCommand(null, true, false, "https://forms.gle/aBcD1234"))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("면접");
+    }
+
+    @Test
+    @DisplayName("외부 폼 모집인데 지원자 수 공개를 켜면 InvalidApplicationModeException 이 발생한다")
+    void externalFormWithApplicantCountFails() {
+        assertThatThrownBy(() -> externalCommand(null, false, true, "https://forms.gle/aBcD1234"))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("지원자 수");
+    }
+
+    @Test
+    @DisplayName("외부 폼 모집에 안내문(content)을 채워 보내면 InvalidApplicationModeException 이 발생한다")
+    void externalFormWithContentFails() {
+        assertThatThrownBy(() -> externalCommand("지원 전 꼭 읽어주세요", false, false, "https://forms.gle/aBcD1234"))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class)
+                .hasMessageContaining("안내문");
+    }
+
+    @Test
+    @DisplayName("외부 폼 모집의 안내문은 null·빈 문자열·공백이면 통과한다 — 미작성은 정상 입력이다")
+    void externalFormWithBlankContentPasses() {
+        assertThatCode(() -> externalCommand(null, false, false, "https://forms.gle/aBcD1234"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> externalCommand("", false, false, "https://forms.gle/aBcD1234"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> externalCommand("   ", false, false, "https://forms.gle/aBcD1234"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("외부 폼 모집의 URL 이 허용 플랫폼(구글 폼·네이버 폼)이 아니면 InvalidApplicationModeException 이 발생한다")
+    void externalFormWithUnlistedUrlFails() {
+        assertThatThrownBy(() -> externalCommand(null, false, false, "https://example.com/form"))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
+        assertThatThrownBy(() -> externalCommand(null, false, false, "http://forms.gle/aBcD1234"))
+                .isInstanceOf(RecruitmentException.InvalidApplicationModeException.class);
+    }
+
+    @Test
+    @DisplayName("자체 폼 모집은 안내문·면접·지원자 수 공개를 그대로 사용할 수 있다 — EXTERNAL 제약은 SELF 에 적용되지 않는다")
+    void selfFormKeepsNoticeInterviewAndApplicantCount() {
+        assertThatCode(() -> new CreateRecruitmentCommand(
+                1L, 1L, "자체 폼", "안내문 본문",
+                LocalDate.now(), LocalDate.now().plusDays(7), 10,
+                ApplicationMode.SELF, null, true, TargetRole.MEMBER,
+                List.of(RecruitmentQuestion.createText("질문1")),
+                LocalDate.now().plusDays(8),
+                LocalDate.now().plusDays(9),
+                true
+        )).doesNotThrowAnyException();
+    }
+
+    private static CreateRecruitmentCommand externalCommand(
+            String content, boolean useInterview, boolean showApplicantCount, String externalFormUrl) {
+        return new CreateRecruitmentCommand(
+                1L, 1L, "외부 폼", content,
+                LocalDate.now(), LocalDate.now().plusDays(7), 10,
+                ApplicationMode.EXTERNAL, externalFormUrl, useInterview, TargetRole.MEMBER, null,
+                null,
+                null,
+                showApplicantCount
+        );
     }
 
     @Test
