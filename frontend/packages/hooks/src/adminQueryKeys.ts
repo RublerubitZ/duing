@@ -1,6 +1,7 @@
 import type {
   AdminClubMemberHistoryParams,
   AdminClubSearchParams,
+  AdminRecruitmentSearchParams,
   AdminReportSearchParams,
   AdminSuccessionSearchParams,
   AdminUserSearchParams,
@@ -32,6 +33,11 @@ export const adminQueryKeys = {
     [...adminQueryKeys.reportsAll, 'list', params] as const,
   reportsDetail: (reportId: number) =>
     [...adminQueryKeys.reportsAll, 'detail', reportId] as const,
+  recruitmentsAll: ['admin', 'recruitments'] as const,
+  recruitmentsList: (params: AdminRecruitmentSearchParams) =>
+    [...adminQueryKeys.recruitmentsAll, 'list', params] as const,
+  recruitmentsDetail: (recruitmentId: number) =>
+    [...adminQueryKeys.recruitmentsAll, 'detail', recruitmentId] as const,
   leaderSuccessionAll: ['admin', 'leader-succession'] as const,
   leaderSuccessionList: (params: AdminSuccessionSearchParams) =>
     [...adminQueryKeys.leaderSuccessionAll, 'list', params] as const,

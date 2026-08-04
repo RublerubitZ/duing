@@ -39,6 +39,10 @@ import type {
   AdminReportDetail,
   ProcessReportPayload,
   SubmitReportPayload,
+  AdminRecruitmentSearchParams,
+  AdminRecruitmentSummary,
+  AdminRecruitmentDetail,
+  ForceCloseRecruitmentPayload,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -693,6 +697,13 @@ export type DuingApiClient = {
       list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
       get(reportId: number): Promise<AdminReportDetail>;
       process(reportId: number, payload: ProcessReportPayload): Promise<void>;
+    };
+    recruitments: {
+      /** 전 동아리 모집. 페이지네이션 없이 조건에 맞는 목록을 한 번에 준다. */
+      list(params: AdminRecruitmentSearchParams): Promise<AdminRecruitmentSummary[]>;
+      detail(recruitmentId: number): Promise<AdminRecruitmentDetail>;
+      /** 이미 마감된 모집이면 409. */
+      forceClose(recruitmentId: number, payload: ForceCloseRecruitmentPayload): Promise<void>;
     };
     leaderSuccession: {
       list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
@@ -1650,6 +1661,19 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           jsonOk<AdminReportDetail>(http.get(`admin/reports/${reportId}`)),
         process: (reportId, payload) =>
           jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
+      },
+      recruitments: {
+        list: (params) =>
+          jsonOk<AdminRecruitmentSummary[]>(
+            http.get('admin/recruitments', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
+          ),
+        detail: (recruitmentId) =>
+          jsonOk<AdminRecruitmentDetail>(http.get(`admin/recruitments/${recruitmentId}`)),
+        forceClose: (recruitmentId, payload) =>
+          jsonVoid(http.patch(`admin/recruitments/${recruitmentId}/close`, { json: payload })),
       },
       leaderSuccession: {
         list: (params) =>
