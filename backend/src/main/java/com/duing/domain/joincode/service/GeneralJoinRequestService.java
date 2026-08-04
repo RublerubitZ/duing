@@ -2,6 +2,9 @@ package com.duing.domain.joincode.service;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -62,6 +65,8 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     private final ClubJoinCodeRepository clubJoinCodeRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
+    // 접수·승인·거절을 본 트랜잭션에 함께 남긴다(스펙 v2 4.1) — 기록 실패는 삼키지 않는다.
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
     private final ClubMemberEnrollmentService clubMemberEnrollmentService;
@@ -127,8 +132,10 @@ public class GeneralJoinRequestService implements JoinRequestService {
         if (!joinCode.tryConsume()) {
             throw new JoinRequestException.UnusableJoinCodeException();
         }
+        ClubJoinRequest createdRequest;
         try {
-            clubJoinRequestRepository.save(ClubJoinRequest.pending(joinCode.getClub(), requester, joinCode));
+            createdRequest = clubJoinRequestRepository.save(
+                    ClubJoinRequest.pending(joinCode.getClub(), requester, joinCode));
             clubJoinRequestRepository.flush();
         } catch (DataIntegrityViolationException racedDuplicate) {
             // 동시 중복 요청: uk_club_join_request_pending 충돌만 409 로 변환한다.
@@ -138,6 +145,11 @@ public class GeneralJoinRequestService implements JoinRequestService {
             }
             throw new JoinRequestException.DuplicatePendingRequestException();
         }
+        // 이 이벤트만 주체가 학생이다 — 운영진 화면에서 "누가 언제 들어왔는지"의 시작점이 된다.
+        clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                ClubAuditEventType.JOIN_REQUEST_CREATED, clubId,
+                joinCode.getRecruitment().getId(), joinCode.getId(), createdRequest.getId(),
+                createCommand.userId()));
     }
 
     @Override
@@ -181,6 +193,13 @@ public class GeneralJoinRequestService implements JoinRequestService {
         } catch (ObjectOptimisticLockingFailureException concurrentDecision) {
             throw new JoinRequestException.ConcurrentDecisionException();
         }
+        // 자동 거절(AUTO_REJECTED)도 결과는 거절이다 — 사유는 요청 행(rejectReason)이 갖고 있다.
+        clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                decisionResult == JoinRequestDecisionResult.APPROVED
+                        ? ClubAuditEventType.JOIN_REQUEST_APPROVED
+                        : ClubAuditEventType.JOIN_REQUEST_REJECTED,
+                decideCommand.clubId(), joinRequest.getJoinCode().getRecruitment().getId(),
+                joinRequest.getJoinCode().getId(), joinRequest.getId(), decideCommand.requesterId()));
         return decisionResult;
     }
 

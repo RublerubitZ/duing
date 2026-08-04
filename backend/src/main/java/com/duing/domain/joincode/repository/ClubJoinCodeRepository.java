@@ -3,6 +3,7 @@ package com.duing.domain.joincode.repository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -35,6 +36,16 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     int revokeActiveByRecruitmentId(@Param("recruitmentId") Long recruitmentId,
                                     @Param("revokedAt") LocalDateTime revokedAt,
                                     @Param("revokedById") Long revokedById);
+
+    /**
+     * 모집 삭제가 자동 폐기할 대상 링크의 id (위 벌크 UPDATE 와 같은 조건) — 링크마다 감사 이벤트를
+     * 남기려면 무엇을 폐기했는지 알아야 한다. 엔티티가 아닌 id 만 읽는 이유는 위 주석과 같다:
+     * 삭제 트랜잭션에서 코드 엔티티를 영속성 컨텍스트에 올리면 커밋이 깨진다.
+     */
+    @Query("SELECT joinCode.id FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.recruitment.id = :recruitmentId "
+            + "AND joinCode.revokedAt IS NULL AND joinCode.deletedAt IS NULL")
+    List<Long> findActiveIdsByRecruitmentId(@Param("recruitmentId") Long recruitmentId);
 
     /** 학생의 코드 확인 진입점(읽기 전용). 유효성(미폐기·미만료·미소진) 판정은 호출 측 책임이다. */
     Optional<ClubJoinCode> findByCode(String code);

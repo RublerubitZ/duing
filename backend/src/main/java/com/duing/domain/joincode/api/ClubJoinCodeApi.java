@@ -35,7 +35,9 @@ public interface ClubJoinCodeApi {
     );
 
     @Operation(summary = "활성 가입 코드 조회 (LEADER/OFFICER)",
-            description = "해당 모집의 폐기되지 않은 코드 1건을 반환한다. 활성 코드가 없으면 200 + data null.")
+            description = "해당 모집의 폐기되지 않은 코드 1건을 반환한다. 활성 코드가 없으면 200 + data null."
+                    + " 상태 카드용으로 그 링크의 누적 가입 신청 수(totalRequestCount, 거절 후 재요청 포함 전 상태)와"
+                    + " 승인 대기 수(pendingCount)를 함께 내려준다.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/active")
     ResponseEntity<ApiResponse<JoinCodeResponse>> getActiveJoinCode(

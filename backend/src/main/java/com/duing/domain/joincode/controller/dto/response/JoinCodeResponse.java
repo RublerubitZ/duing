@@ -11,6 +11,9 @@ import java.time.Instant;
  * {@code joinWindowDays} 는 항상 내려가고, {@code joinExpiresAt} 은 모집이 실제로 종료된 뒤에만
  * 값이 생긴다 — 화면은 진행 중이면 "모집 종료 후 N일까지", 종료 뒤에는 구체 일시를 보여준다.
  * 종료 시각은 seoulClock 벽시계로 기록되므로 KST 기준으로 절대시각 변환한다(TIMEZONE.md).
+ *
+ * <p>{@code totalRequestCount}(누적 가입 신청, 전 상태)·{@code pendingCount}(승인 대기)는 상태 카드
+ * (스펙 v2 7.2)가 그대로 표시하는 수치다. 방금 발급된 링크는 둘 다 0 이다.
  */
 public record JoinCodeResponse(
         Long joinCodeId,
@@ -19,7 +22,9 @@ public record JoinCodeResponse(
         int maxUses,
         int usedCount,
         int joinWindowDays,
-        Instant joinExpiresAt
+        Instant joinExpiresAt,
+        long totalRequestCount,
+        long pendingCount
 ) {
     public static JoinCodeResponse from(JoinCodeQuery joinCodeQuery) {
         return new JoinCodeResponse(
@@ -29,7 +34,9 @@ public record JoinCodeResponse(
                 joinCodeQuery.maxUses(),
                 joinCodeQuery.usedCount(),
                 joinCodeQuery.joinWindowDays(),
-                TimeMapper.seoulWallClockToInstant(joinCodeQuery.joinExpiresAt())
+                TimeMapper.seoulWallClockToInstant(joinCodeQuery.joinExpiresAt()),
+                joinCodeQuery.totalRequestCount(),
+                joinCodeQuery.pendingCount()
         );
     }
 }

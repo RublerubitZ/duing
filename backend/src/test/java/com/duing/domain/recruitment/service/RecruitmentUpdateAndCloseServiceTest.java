@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
@@ -42,6 +43,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final ApplicationRepository applicationRepository = mock(ApplicationRepository.class);
     private final ClubJoinCodeRepository clubJoinCodeRepository = mock(ClubJoinCodeRepository.class);
     private final ClubJoinRequestRepository clubJoinRequestRepository = mock(ClubJoinRequestRepository.class);
+    private final ClubAuditEventRepository clubAuditEventRepository = mock(ClubAuditEventRepository.class);
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubMemberRepository clubMemberRepository = mock(ClubMemberRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
@@ -52,6 +54,7 @@ class RecruitmentUpdateAndCloseServiceTest {
             applicationRepository,
             clubJoinCodeRepository,
             clubJoinRequestRepository,
+            clubAuditEventRepository,
             clubRepository,
             clubAuthService,
             eventPublisher,
