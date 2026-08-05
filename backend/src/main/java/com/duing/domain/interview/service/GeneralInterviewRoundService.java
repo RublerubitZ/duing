@@ -269,7 +269,9 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 .orElseThrow(InterviewException.RoundNotFound::new);
         // 취소는 새 활동이 아니라 정리 행위라 마감된 모집에서도 허용한다. 막으면 자동 마감으로 남겨진
         // 라운드를 아무도 치울 수 없어, 이 정책이 지원서에서 없앤 교착을 라운드 계층에 그대로 재생산한다.
-        // (취소는 학생 알림을 발행하지 않으므로 마감 후 실행돼도 잘못된 안내가 나가지 않는다.)
+        // 특히 자동 마감으로 COLLECTING 라운드가 남으면 학생 화면에는 눌러도 409 만 나는 "가능 시간 응답"
+        // 폼이 영구히 남는다 — 취소가 그 죽은 폼을 걷어내는 유일한 수단이다.
+        // (취소는 학생 알림을 발행하지 않고, 일정이 통보된 SCHEDULED 라운드는 도메인이 취소를 거부한다.)
         interviewRoundAccessor.requireManager(round, currentUserId);
 
         round.cancel();
