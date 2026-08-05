@@ -1,6 +1,7 @@
 import type { ClubCategory } from './club';
 import type { AvailabilityItem } from './interview';
 import type { InterviewRoundStatus, InterviewRoundMemberStatus } from './interviewRound';
+import type { RecruitmentStatus } from './recruitment';
 import type { College, Grade } from './user';
 
 // College, Grade 는 user.ts 에서 정의된 타입을 재사용한다.
@@ -38,6 +39,13 @@ export type ApplicationSummary = {
   id: number;
   recruitmentId: number;
   recruitmentTitle: string;
+  /**
+   * 모집 마감 여부 — 지원 상태와 직교한 축이다. 마감된 모집의 미결 지원은 결과가 나오지 않은
+   * 채 종료된 것이라 "심사 중"으로 보이면 거짓이다.
+   * 아직 이 필드를 안 내려주는 백엔드가 있어 optional 이다 — 없으면 마감 아님으로 읽는다(fail-open).
+   * 전 배포가 끝나면 필수로 조인다.
+   */
+  recruitmentStatus?: RecruitmentStatus;
   clubId: number;
   clubName: string;
   category: ClubCategory;
@@ -51,6 +59,8 @@ export type MyApplicationDetail = {
   id: number;
   recruitmentId: number;
   recruitmentTitle: string;
+  /** 모집 마감 여부 — 면접 안내·철회처럼 마감 후 성립하지 않는 UI 를 접는 근거. 전환기 optional. */
+  recruitmentStatus?: RecruitmentStatus;
   clubId: number;
   clubName: string;
   questions: string[];

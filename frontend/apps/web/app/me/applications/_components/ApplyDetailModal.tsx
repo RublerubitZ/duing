@@ -10,6 +10,7 @@ import { ApiError } from '@duing/api';
 import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hooks';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { isRecruitmentClosed } from '@/app/_constants/application-status';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
@@ -110,6 +111,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
   const phase = interviewView?.phase ?? null;
   // 심사 중(SUBMITTED·ON_HOLD)에서 본인이 철회할 수 있다 — BE 가드와 동형.
   // 보류는 지원자에게 SUBMITTED 와 동일하게 동작해야 하므로 버튼 노출도 같다 (스펙 §1-1).
+  // 마감된 모집은 BE 가 철회를 409 로 막는데, 여기서는 별도 분기 없이 걸러진다 —
+  // 마감 + 미결은 toAppStatus 가 'closed-unresolved' 로 파생하므로 'applied' 가 될 수 없다.
   const canWithdraw = app.status === 'applied';
   const withdrawApplicationId = Number(app.id);
 
@@ -245,8 +248,10 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
               )}
 
               {/* 면접 카드 — applicantPhase 소비 (InterviewScheduleCard 대체).
-                  recruitmentId 가 확정된 detail 도착 후에만 마운트. */}
-              {detail && (
+                  recruitmentId 가 확정된 detail 도착 후에만 마운트.
+                  마감된 모집은 라운드 진행 자체가 불가능하므로(생성이 409) 회차 준비 안내·시간 선택 CTA 를
+                  통째로 접는다 — 도달할 수 없는 미래를 약속하지 않는다. */}
+              {detail && !isRecruitmentClosed(detail.recruitmentStatus) && (
                 <ApplicantInterviewCard applicationId={detail.id} />
               )}
             </div>
@@ -267,7 +272,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   fontSize: 12, color: 'var(--charcoal-2)', marginRight: 'auto',
                   wordBreak: 'keep-all', lineHeight: 1.4,
                 }}>
-                  철회하면 되돌릴 수 없어요. 같은 공고에 다시 지원할 수 있어요.
+                  {/* 재지원은 모집이 아직 지원 가능할 때만 된다 — 마감일이 지난 모집도 있으므로 단정하지 않는다. */}
+                  철회하면 되돌릴 수 없어요. 모집이 진행 중이면 다시 지원할 수 있어요.
                 </span>
                 <button
                   type="button"

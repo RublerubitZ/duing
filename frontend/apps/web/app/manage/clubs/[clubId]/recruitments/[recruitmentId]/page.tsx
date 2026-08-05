@@ -11,10 +11,18 @@ import {
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
-import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
+import {
+  displayStatusLabel,
+  isRecruitmentExpiredOpen,
+  recruitmentExpiredOpenNotice,
+  recruitmentPeriodLabel,
+  RECRUITMENT_EXPIRED_OPEN_BADGE,
+  RECRUITMENT_EXPIRED_OPEN_LABEL,
+} from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
+import { CloseRecruitmentConfirmDescription } from '../_components/CloseRecruitmentConfirmDescription';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -50,7 +58,11 @@ export default function RecruitmentDetailPage({
     return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
-  const isClosed = recruitment.displayStatus === 'CLOSED';
+  // 액션 게이트(수정·마감·삭제)는 raw status 기준이다 — 마감일이 지났어도 수동 마감 전이면 백엔드는
+  // 모집을 OPEN(심사 진행 중)으로 다루므로, 여기서 displayStatus 로 막으면 운영진이 마감할 방법이 사라진다.
+  const isClosed = recruitment.status === 'CLOSED';
+  // 마감일만 지난 구간 — '마감'이라 안내하면 거짓이므로 별도 문구·칩으로 분리한다.
+  const isExpiredOpen = isRecruitmentExpiredOpen(recruitment);
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
   const applicationModeLabel = isExternal ? '외부 폼' : '자체 폼';
   // 배지의 플랫폼명은 저장된 URL 호스트로 판별한다 — 화이트리스트 밖 레거시 URL 이면 생략한다.
@@ -105,10 +117,16 @@ export default function RecruitmentDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      {/* CLOSED 배너 */}
+      {/* 상태 배너 — 실제 마감과 '마감일만 경과'를 구분해 안내한다 */}
       {isClosed && (
         <div className="mb-6 rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
           이미 마감된 모집입니다.
+        </div>
+      )}
+      {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
+      {isExpiredOpen && (
+        <div role="status" className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {recruitmentExpiredOpenNotice(recruitment.applicationMode)}
         </div>
       )}
 
@@ -133,14 +151,24 @@ export default function RecruitmentDetailPage({
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
+        {/* 상태 칩. 라벨(displayStatusLabel)·색 규칙이 운영 콘솔 칩(recruitmentStatusChip)과 다른 어휘라
+            그 헬퍼를 쓰지 않는다 — 통합하면 예정/상시/마감 표기가 바뀌므로 디자인 판단이 먼저다. */}
         <span
-          className={
+          className={`mt-1 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
             isClosed
-              ? 'mt-1 shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
-              : 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
-          }
+              ? 'bg-slate-100 text-slate-500'
+              : isExpiredOpen
+                ? RECRUITMENT_EXPIRED_OPEN_BADGE
+                : 'bg-emerald-100 text-emerald-700'
+          }`}
         >
-          {displayStatusLabel(recruitment.displayStatus)}
+          {/* 제목 옆 맨 텍스트라 스크린리더에서 무엇의 상태인지 알 수 없다 */}
+          <span className="sr-only">모집 상태 </span>
+          <span>
+            {isExpiredOpen
+              ? RECRUITMENT_EXPIRED_OPEN_LABEL
+              : displayStatusLabel(recruitment.displayStatus)}
+          </span>
         </span>
       </div>
 
@@ -304,7 +332,12 @@ export default function RecruitmentDetailPage({
       <ConfirmDialog
         open={showCloseConfirm}
         title="모집을 마감할까요?"
-        description="마감 후에는 지원서를 더 이상 받을 수 없으며, 되돌릴 수 없습니다."
+        description={
+          <CloseRecruitmentConfirmDescription
+            applicationMode={recruitment.applicationMode}
+            statsSummary={statsSummary}
+          />
+        }
         confirmLabel="마감"
         isPending={closeRecruitment.isPending}
         errorMessage={closeError}

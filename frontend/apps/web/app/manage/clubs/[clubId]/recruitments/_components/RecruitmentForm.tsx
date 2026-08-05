@@ -345,6 +345,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 type="date"
                 required={!isAlwaysOpen}
                 disabled={isAlwaysOpen}
+                // 생성 시 과거 종료일 차단(zod·BE 와 동일 규칙) — 수정은 기존 과거 종료일 유지가 정당해 제한하지 않는다.
+                // en-CA 로케일은 사용자 로컬 기준 YYYY-MM-DD (toISOString 은 UTC 라 자정~09시 KST 에 하루 어긋남).
+                min={isEditMode ? undefined : new Date().toLocaleDateString('en-CA')}
                 value={isAlwaysOpen ? '' : endDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 className={cn(fieldInputClass, isAlwaysOpen && 'bg-graysoft text-charcoal-3')}

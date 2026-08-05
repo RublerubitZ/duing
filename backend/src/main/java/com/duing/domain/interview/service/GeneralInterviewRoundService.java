@@ -31,9 +31,9 @@ import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
 import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -103,9 +103,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
         // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라
         // 마감일이 지나도 수동 마감 전(심사 진행 중)인 모집에서는 라운드 생성이 그대로 열려 있다.
-        if (recruitment.getStatus() == RecruitmentStatus.CLOSED) {
-            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
-        }
+        ClosedRecruitmentPolicy.requireOpen(recruitment);
 
         User changedBy = userRepository.findById(createCommand.currentUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
@@ -192,7 +190,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult requestAvailability(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getForWrite(roundId, currentUserId);
 
         if (interviewSlotRepository.countByRoundId(round.getId()) == 0) {
             throw new InterviewException.RoundHasNoSlots();
@@ -211,7 +209,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult remind(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getForWrite(roundId, currentUserId);
 
         if (round.getStatus() != RoundStatus.COLLECTING) {
             throw new InterviewException.RoundTransitionNotAllowed();
@@ -244,7 +242,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         // §16-7-4 — round writer 직렬화 (자동배정·확정·취소와 동일 잠금).
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(updateCommand.roundId())
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManager(round, updateCommand.currentUserId());
+        interviewRoundAccessor.requireManagerForWrite(round, updateCommand.currentUserId());
 
         boolean nothingToUpdate = updateCommand.title() == null
                 && updateCommand.location() == null
@@ -269,6 +267,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     public void cancelRound(Long roundId, Long currentUserId) {
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
+        // 취소는 새 활동이 아니라 정리 행위라 마감된 모집에서도 허용한다. 막으면 자동 마감으로 남겨진
+        // 라운드를 아무도 치울 수 없어, 이 정책이 지원서에서 없앤 교착을 라운드 계층에 그대로 재생산한다.
+        // 특히 자동 마감으로 COLLECTING 라운드가 남으면 학생 화면에는 눌러도 409 만 나는 "가능 시간 응답"
+        // 폼이 영구히 남는다 — 취소가 그 죽은 폼을 걷어내는 유일한 수단이다.
+        // (취소는 학생 알림을 발행하지 않고, 일정이 통보된 SCHEDULED 라운드는 도메인이 취소를 거부한다.)
         interviewRoundAccessor.requireManager(round, currentUserId);
 
         round.cancel();

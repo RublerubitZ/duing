@@ -14,6 +14,7 @@ const base: ApplicationSummary = {
   id: 1,
   recruitmentId: 100,
   recruitmentTitle: '봄 신입 모집',
+  recruitmentStatus: 'OPEN',
   clubId: 10,
   clubName: '두잉 댄스',
   category: 'CREATION',
@@ -29,11 +30,14 @@ describe('SectionApply — active 상태만 렌더', () => {
     expect(screen.getByText('두잉 댄스')).toBeInTheDocument();
   });
 
-  it('ACCEPTED 가 섞여 들어와도 카드가 렌더되지 않는다', () => {
+  // 어떤 항목이든 조용히 버리지 않는다 — 헤더는 배열 길이를 그대로 세므로 렌더에서 걸러내면
+  // "카운트 N, 목록 N-1" 인 유령 항목이 된다. 진행 중/지난 지원 분류는 호출부가 책임진다.
+  it('종결 상태가 섞여 들어와도 버리지 않아 카운트와 목록이 어긋나지 않는다', () => {
     const accepted = { ...base, id: 2, status: 'ACCEPTED' as const, clubName: '합격동아리' };
     render(<SectionApply applications={[base, accepted]} />);
     expect(screen.getByText('두잉 댄스')).toBeInTheDocument();
-    expect(screen.queryByText('합격동아리')).not.toBeInTheDocument();
+    expect(screen.getByText('합격동아리')).toBeInTheDocument();
+    expect(screen.getByText(/진행 중인 지원 · 2/)).toBeInTheDocument();
   });
 
   it('SUBMITTED 와 ON_HOLD 는 지원자에게 동일하게 심사 중으로 보인다', () => {

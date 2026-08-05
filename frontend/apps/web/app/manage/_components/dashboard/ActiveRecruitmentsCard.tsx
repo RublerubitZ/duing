@@ -5,7 +5,7 @@ import { useActiveRecruitments } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
 import { DDayBadge } from '@/app/manage/_components/DDayBadge';
-import { RECRUITMENT_DISPLAY_STATUS_BADGE, RECRUITMENT_DISPLAY_STATUS_LABEL } from './dashboard-labels';
+import { recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 
 export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
   const { data, isLoading } = useActiveRecruitments(clubId);
@@ -21,22 +21,26 @@ export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
       emptyText="진행 중인 모집이 없어요"
     >
       <ul className="flex flex-col gap-2">
-        {recruitments.map((recruitment) => (
-          <li key={recruitment.id}>
-            <Link
-              href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
-              className="flex items-center justify-between rounded-md px-2 py-2 text-sm transition hover:bg-sage-tint"
-            >
-              <span className="truncate font-medium text-charcoal">{recruitment.title}</span>
-              <span className="ml-3 flex shrink-0 items-center">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}>
-                  {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+        {recruitments.map((recruitment) => {
+          // 마감일만 지난 모집도 여기 남는다(심사 진행 중) — 칩 헬퍼가 '마감' 대신 기간 종료로 구분한다.
+          const statusChip = recruitmentStatusChip(recruitment);
+          return (
+            <li key={recruitment.id}>
+              <Link
+                href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
+                className="flex items-center justify-between rounded-md px-2 py-2 text-sm transition hover:bg-sage-tint"
+              >
+                <span className="truncate font-medium text-charcoal">{recruitment.title}</span>
+                <span className="ml-3 flex shrink-0 items-center">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusChip.badgeClass}`}>
+                    {statusChip.label}
+                  </span>
+                  <DDayBadge recruitment={recruitment} now={now} />
                 </span>
-                <DDayBadge recruitment={recruitment} now={now} />
-              </span>
-            </Link>
-          </li>
-        ))}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </DashboardCard>
   );

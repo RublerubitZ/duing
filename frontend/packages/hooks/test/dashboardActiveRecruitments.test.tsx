@@ -34,6 +34,10 @@ const server = setupServer(
         { id: 2, clubId: 10, clubName: '두잉', title: '겨울 모집', startDate: '2025-12-01', endDate: '2025-12-31',
           capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
           applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+        // 만료-OPEN: 마감일은 지났지만 수동 마감 전이라 백엔드는 여전히 OPEN(심사 진행 중)으로 다룬다.
+        { id: 3, clubId: 10, clubName: '두잉', title: '가을 모집', startDate: '2025-09-01', endDate: '2025-09-30',
+          capacity: 20, status: 'OPEN', displayStatus: 'CLOSED', effectivelyOpen: false,
+          applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
       ],
     }),
   ),
@@ -44,10 +48,12 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('useActiveRecruitments', () => {
-  it('CLOSED를 제외한 진행 중 모집만 반환', async () => {
+  // 판정 기준은 raw status 다 — displayStatus 로 걸러내면 마감일이 지난 채 심사 중인 모집(id 3)이
+  // 진행 중 모집 카드·지원자 요약·처리 필요 업무에서 통째로 사라져 "처리 필요 0건"이 된다.
+  it('raw CLOSED만 제외한다 — 마감일이 지난 OPEN(심사 중) 모집은 진행 중으로 센다', async () => {
     const { result } = renderHook(() => useActiveRecruitments(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.map((r) => r.id)).toEqual([1]);
+    expect(result.current.data?.map((r) => r.id)).toEqual([1, 3]);
   });
 
   it('clubId undefined면 비활성', () => {

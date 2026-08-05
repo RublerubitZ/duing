@@ -6,6 +6,12 @@ import {
   updateRecruitmentSchema,
 } from '@duing/schemas';
 
+// 고정 날짜는 "종료일은 오늘 이후" 규칙(createRecruitmentSchema)에 만료된다 — 종료일만 상대 미래로 계산한다.
+const futureEndDateSource = new Date();
+futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);
+const FUTURE_END_DATE = `${futureEndDateSource.getFullYear()}-${String(futureEndDateSource.getMonth() + 1).padStart(2, '0')}-${String(futureEndDateSource.getDate()).padStart(2, '0')}`;
+
+
 describe('updateClubSchema — 메타 필드 검증', () => {
   const validBase = {
     name: '테스트동아리',
@@ -55,7 +61,7 @@ describe('createRecruitmentSchema — 면접 일정 검증', () => {
   const validBase = {
     title: '테스트모집',
     startDate: '2026-05-01',
-    endDate: '2026-05-31',
+    endDate: FUTURE_END_DATE,
     capacity: 10,
     applicationMode: 'EXTERNAL' as const,
     externalFormUrl: 'https://forms.gle/aBcD1234',
@@ -92,7 +98,7 @@ describe('updateRecruitmentSchema — 면접 일정 검증', () => {
   const validBase = {
     title: '수정된모집',
     startDate: '2026-05-01',
-    endDate: '2026-05-31',
+    endDate: FUTURE_END_DATE,
     capacity: 10,
     useInterview: true,
   };

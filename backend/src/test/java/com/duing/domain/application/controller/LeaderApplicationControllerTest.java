@@ -427,8 +427,28 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("마감된 모집의 지원자는 상태를 변경할 수 없고 마감 코드와 함께 409 로 거절된다")
-    void closedRecruitmentBlocksSingleStatusUpdate() {
+    @DisplayName("마감된 모집에서도 남은 지원서의 최종 결과는 확정할 수 있다")
+    void closedRecruitmentAllowsFinalizingSingleStatusUpdate() {
+        Club club = saveActiveClub("마감결과확정동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "마감결과확정모집");
+        Long applicationId = saveApplicationWithStatus(recruitment,
+                saveUser("마감확정지원자", UserRole.STUDENT, College.EDUCATION, "교육학"),
+                ApplicationStatus.SUBMITTED).getId();
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", "ACCEPTED"))
+                .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
+                .then().statusCode(204);
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서 최종 결과가 아닌 상태 변경(보류)은 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksNonFinalSingleStatusUpdate() {
         Club club = saveActiveClub("마감상태변경동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveOpenRecruitment(club, "마감상태변경모집");
@@ -441,11 +461,11 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
-                .body(Map.of("status", "ACCEPTED"))
+                .body(Map.of("status", "ON_HOLD"))
                 .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
                 .then().statusCode(409)
                 .body("code", equalTo("RECRUITMENT_CLOSED"))
-                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+                .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
     }
 
     private Long saveApplicationAtTime(Recruitment recruitment, LocalDateTime createdAt) {

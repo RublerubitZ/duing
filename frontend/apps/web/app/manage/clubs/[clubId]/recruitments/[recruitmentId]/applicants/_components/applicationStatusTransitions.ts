@@ -32,6 +32,18 @@ export function getStatusTransitions(
 }
 
 /**
+ * 마감(CLOSED)된 모집에서 허용되는 전이 — 남은 지원서의 최종 결과 확정뿐이다.
+ * 백엔드 Application.isClosedFinalizingTransition 과 동형: 아직 결과가 없는 지원만, 최종 결과로만.
+ *
+ * 면접 모집이라도 면접 단계를 요구하지 않는다 — 마감 후에는 라운드를 열 수 없어 면접 단계를 강제하면
+ * 불합격밖에 줄 수 없기 때문이다. 그래서 useInterview 를 받지 않는다.
+ */
+export function closedRecruitmentTransitionsFrom(status: ApplicationStatus): NextStatus[] {
+  const alreadyDecided = status === 'ACCEPTED' || status === 'REJECTED';
+  return alreadyDecided ? [] : ['ACCEPTED', 'REJECTED'];
+}
+
+/**
  * 상세 페이지 StatusActionBar 에서 사용.
  * getStatusTransitions 와 동일한 로직 — 단일 진실 보장을 위해 위임.
  */

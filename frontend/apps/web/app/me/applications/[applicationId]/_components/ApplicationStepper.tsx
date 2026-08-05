@@ -1,8 +1,17 @@
 import type { MyApplicationDetail, ApplicantInterviewPhase } from '@duing/types';
 
-import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
+import {
+  APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_STATUS_APPLICANT_LABEL,
+  isClosedWithoutResult,
+  isRecruitmentClosed,
+} from '@/app/_constants/application-status';
 
 import { getInterviewPhaseGuide } from '../_utils/interviewPhaseGuide';
+
+// 결과 없이 종료된 지원의 안내. P1 에서 마감 후 최종 결과 확정이 허용되어도 모순되지 않도록
+// "결과가 아직 나오지 않았다"까지만 말하고 종결을 단정하지 않는다.
+const CLOSED_WITHOUT_RESULT_GUIDE = '모집이 종료되어 결과가 아직 발표되지 않았습니다.';
 
 // 지원자 my-page 진행 stepper (applicantPhase 기반, §9.3).
 //
@@ -22,7 +31,12 @@ import { getInterviewPhaseGuide } from '../_utils/interviewPhaseGuide';
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline' | 'useInterview'
+  | 'status'
+  | 'recruitmentStatus'
+  | 'interviewAvailabilityCount'
+  | 'interview'
+  | 'availabilityDeadline'
+  | 'useInterview'
 >;
 
 type Props = {
@@ -103,17 +117,29 @@ function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
   if (detail.status === 'ACCEPTED' || detail.status === 'REJECTED') {
     return APPLICATION_STATUS_APPLICANT_LABEL[detail.status];
   }
+  // 결과가 나오지 않은 채 모집이 끝났다 — 마지막 마디를 미래형("최종 결과")으로 두면 거짓이 된다.
+  if (isClosedWithoutResult(detail.status, detail.recruitmentStatus)) {
+    return APPLICATION_CLOSED_WITHOUT_RESULT_LABEL;
+  }
   return step.defaultLabel;
 }
 
 export function ApplicationStepper({ detail, phase }: Props) {
   const steps = resolveSteps(detail.useInterview);
-  const activeIndex = resolveActiveStepIndex(phase, detail);
+  const recruitmentClosed = isRecruitmentClosed(detail.recruitmentStatus);
+  const closedWithoutResult = isClosedWithoutResult(detail.status, detail.recruitmentStatus);
+  // 결과 없이 끝난 지원은 어느 마디도 "진행 중"이 아니다 — 면접 마디에 활성 커서를 남기면
+  // 목록 화면(진행 점을 없앤다)과 정반대로 그려진다. 마지막 마디로 밀어 멈춘 지점을 표시한다.
+  const activeIndex = closedWithoutResult
+    ? steps.length - 1
+    : resolveActiveStepIndex(phase, detail);
   const isFinalReject = detail.status === 'REJECTED';
 
-  // guide 안내 문구 — 면접 모집에서 phase 가 있으면 guide.description 사용, 없으면 없음.
-  const guideDescription: string | null =
-    detail.useInterview && phase !== null && phase !== 'NOT_APPLICABLE'
+  // 마감된 모집에서는 면접 phase 안내가 전부 성립하지 않는다 — 회차 생성도, 시간 선택도 막혀 있고
+  // 면접 카드(CTA 를 가진 쪽)도 함께 접힌다. 결과가 아직 없을 때만 종료 안내를 대신 띄운다.
+  const guideDescription: string | null = recruitmentClosed
+    ? (closedWithoutResult ? CLOSED_WITHOUT_RESULT_GUIDE : null)
+    : detail.useInterview && phase !== null && phase !== 'NOT_APPLICABLE'
       ? (getInterviewPhaseGuide(phase)?.description ?? null)
       : null;
 
@@ -154,15 +180,18 @@ export function ApplicationStepper({ detail, phase }: Props) {
         {steps.map((step, index) => {
           const isActive = index === activeIndex;
           const isPast = index < activeIndex;
-          const isReachedFinal = step.key === 'finalized' && isActive && isFinalReject;
+          // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료는 중립 회색.
+          // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다.
+          const finalAccent = isFinalReject ? '#D9523A' : closedWithoutResult ? '#8A8F98' : null;
+          const isAccentedFinal = step.key === 'finalized' && isActive && finalAccent !== null;
 
-          const dotColor = isReachedFinal
-            ? '#D9523A'
+          const dotColor = isAccentedFinal
+            ? finalAccent
             : isPast || isActive
             ? '#2E6149'
             : '#D9D6CC';
           const dotBackground = isActive ? '#fff' : dotColor;
-          const dotBorder = isReachedFinal ? '#D9523A' : isPast || isActive ? '#2E6149' : '#D9D6CC';
+          const dotBorder = isAccentedFinal ? finalAccent : isPast || isActive ? '#2E6149' : '#D9D6CC';
           const labelColor = isPast || isActive ? 'var(--ink-deep)' : 'var(--charcoal-3)';
 
           return (
@@ -190,7 +219,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
                   placeItems: 'center',
                 }}
               >
-                {isActive && !isReachedFinal && (
+                {isActive && !isAccentedFinal && (
                   <span
                     style={{
                       width: 7,
@@ -200,13 +229,13 @@ export function ApplicationStepper({ detail, phase }: Props) {
                     }}
                   />
                 )}
-                {isActive && isReachedFinal && (
+                {isActive && isAccentedFinal && (
                   <span
                     style={{
                       width: 7,
                       height: 7,
                       borderRadius: '50%',
-                      background: '#D9523A',
+                      background: finalAccent ?? '#D9523A',
                     }}
                   />
                 )}

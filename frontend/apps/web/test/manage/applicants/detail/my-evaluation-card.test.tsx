@@ -136,7 +136,7 @@ describe('MyEvaluationCard', () => {
     // 상태 변경 문구 재사용이 아니라 평가 맥락 문구여야 한다.
     expect(screen.getByText('마감된 모집은 평가를 작성·수정할 수 없습니다')).toBeInTheDocument();
     expect(
-      screen.queryByText('마감된 모집은 상태를 변경할 수 없습니다'),
+      screen.queryByText(/최종 결과만 확정할 수 있습니다/),
     ).not.toBeInTheDocument();
   });
 
@@ -144,7 +144,7 @@ describe('MyEvaluationCard', () => {
   // 이때 작성 중이던 입력이 사라지면 안 된다.
   it('저장이 RECRUITMENT_CLOSED 로 실패하면 토스트를 띄우고 입력값을 보존한다', async () => {
     mockUpsert.mockRejectedValue(
-      new ApiError(409, '마감된 모집은 조회만 가능합니다.', undefined, 'RECRUITMENT_CLOSED'),
+      new ApiError(409, '마감된 모집에서는 할 수 없는 작업입니다.', undefined, 'RECRUITMENT_CLOSED'),
     );
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} />);
 
@@ -152,14 +152,14 @@ describe('MyEvaluationCard', () => {
     await userEvent.type(textarea, '작성 중이던 메모');
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집은 조회만 가능합니다');
+    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집에서는 할 수 없는 작업입니다');
     expect(screen.getByPlaceholderText(/강점, 약점/)).toHaveValue('작성 중이던 메모');
   });
 
   // 삭제도 같은 창에서 409 로 떨어진다 — 확인 모달은 닫지 않고 그 안에서 마감 사유를 안내한다.
   it('삭제가 RECRUITMENT_CLOSED 로 실패하면 확인 모달 안에 마감 안내가 뜬다', async () => {
     mockDelete.mockRejectedValue(
-      new ApiError(409, '마감된 모집은 조회만 가능합니다.', undefined, 'RECRUITMENT_CLOSED'),
+      new ApiError(409, '마감된 모집에서는 할 수 없는 작업입니다.', undefined, 'RECRUITMENT_CLOSED'),
     );
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} />);
 
@@ -168,7 +168,7 @@ describe('MyEvaluationCard', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
 
     expect(
-      await within(dialog).findByText('마감된 모집은 조회만 가능합니다'),
+      await within(dialog).findByText('마감된 모집에서는 할 수 없는 작업입니다'),
     ).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });

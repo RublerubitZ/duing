@@ -12,12 +12,18 @@ import { ApplicationStepper } from '@/app/me/applications/[applicationId]/_compo
 
 type StepperDetail = Pick<
   MyApplicationDetail,
-  'status' | 'interviewAvailabilityCount' | 'interview' | 'availabilityDeadline' | 'useInterview'
+  | 'status'
+  | 'recruitmentStatus'
+  | 'interviewAvailabilityCount'
+  | 'interview'
+  | 'availabilityDeadline'
+  | 'useInterview'
 >;
 
 function makeDetail(overrides: Partial<StepperDetail> = {}): StepperDetail {
   return {
     status: 'SUBMITTED',
+    recruitmentStatus: 'OPEN',
     interviewAvailabilityCount: 0,
     interview: null,
     availabilityDeadline: null,
@@ -108,6 +114,31 @@ describe('ApplicationStepper (phase 기반)', () => {
     );
     const activeStep = screen.getByRole('listitem', { current: 'step' });
     expect(activeStep).toHaveTextContent('최종 합격');
+  });
+
+  it('모집이 마감된 미결 지원은 마지막 단계 라벨이 결과 미발표로 바뀐다', () => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ status: 'SUBMITTED', recruitmentStatus: 'CLOSED' })}
+        phase={'NOT_APPLICABLE'}
+      />,
+    );
+
+    expect(screen.getByText('결과 미발표')).toBeInTheDocument();
+    expect(screen.queryByText('최종 결과')).toBeNull();
+  });
+
+  it('모집이 마감되면 면접 회차 준비 안내 대신 종료 안내를 보여준다 — 마감 후에는 회차를 만들 수 없다', () => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ status: 'INTERVIEW_PENDING', recruitmentStatus: 'CLOSED' })}
+        phase={'WAITING_ROUND'}
+      />,
+    );
+
+    const guide = screen.getByRole('status');
+    expect(guide.textContent).toContain('모집이 종료되어');
+    expect(guide.textContent).not.toContain('준비 중');
   });
 
   it('phase=null(로딩 중) + status=SUBMITTED → 기존 status fallback(0단계)', () => {

@@ -43,8 +43,6 @@ type Props = {
   useInterview: boolean;
   clubId: number;
   recruitmentId: number;
-  /** 마감(raw CLOSED) 모집이면 조회 전용 — 일괄 선택 체크박스를 감춘다 (스펙 §6). */
-  readOnly?: boolean;
 };
 
 export function ApplicantTable({
@@ -55,7 +53,6 @@ export function ApplicantTable({
   useInterview,
   clubId,
   recruitmentId,
-  readOnly = false,
 }: Props) {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
@@ -94,7 +91,7 @@ export function ApplicantTable({
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>
-            {!readOnly && <th className="w-10 px-4 py-3" />}
+            <th className="w-10 px-4 py-3" />
             <th className="px-4 py-3 text-left font-medium text-slate-600">이름</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600">학과</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600">학번</th>
@@ -117,26 +114,24 @@ export function ApplicantTable({
                 onClick={() => navigateToDetail(applicant.applicationId)}
                 className={`cursor-pointer hover:bg-slate-50 ${isSelected ? 'bg-slate-50' : ''}`}
               >
-                {!readOnly && (
-                  <td
-                    className="px-4 py-3"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={`${applicant.userName} 선택`}
-                      checked={isSelected}
-                      disabled={isTerminal}
-                      onChange={() => toggleRow(applicant.applicationId, applicant.status)}
-                      title={
-                        isTerminal
-                          ? '최종 상태인 지원자는 선택할 수 없습니다.'
-                          : undefined
-                      }
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  </td>
-                )}
+                <td
+                  className="px-4 py-3"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`${applicant.userName} 선택`}
+                    checked={isSelected}
+                    disabled={isTerminal}
+                    onChange={() => toggleRow(applicant.applicationId, applicant.status)}
+                    title={
+                      isTerminal
+                        ? '최종 상태인 지원자는 선택할 수 없습니다.'
+                        : undefined
+                    }
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </td>
                 <td className="px-4 py-3 font-medium text-slate-900">{applicant.userName}</td>
                 <td className="px-4 py-3 text-slate-600">
                   {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
@@ -184,18 +179,16 @@ export function ApplicantTable({
               }`}
             >
               <div className="flex items-start gap-2.5">
-                {!readOnly && (
-                  <input
-                    type="checkbox"
-                    aria-label={`${applicant.userName} 선택`}
-                    checked={isSelected}
-                    disabled={isTerminal}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={() => toggleRow(applicant.applicationId, applicant.status)}
-                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                )}
+                <input
+                  type="checkbox"
+                  aria-label={`${applicant.userName} 선택`}
+                  checked={isSelected}
+                  disabled={isTerminal}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={() => toggleRow(applicant.applicationId, applicant.status)}
+                  title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-medium text-slate-900">{applicant.userName}</span>

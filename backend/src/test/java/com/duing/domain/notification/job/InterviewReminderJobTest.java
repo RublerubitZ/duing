@@ -150,6 +150,32 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         assertThat(afterCount - beforeCount).isZero();
     }
 
+    @Test
+    @DisplayName("마감된 모집의 면접은 배정돼 있어도 리마인더가 나가지 않는다 — 마감 후엔 진행할 수 없다")
+    void interviewReminder_skipsClosedRecruitments() throws Exception {
+        LocalDateTime now = LocalDateTime.now(clock);
+        InterviewSchedule schedule = fixtureAssignedSchedule(now.plusHours(24), "마감모집");
+        closeRecruitmentOf(schedule);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long afterCount = notificationRepository.count();
+
+        assertThat(afterCount - beforeCount).isZero();
+    }
+
+    /**
+     * 해당 schedule 이 속한 모집을 마감한다 — 리마인더 제외 기준이 모집 상태임을 고정하기 위한 준비.
+     * 이 테스트는 트랜잭션 밖에서 돌아 lazy 연관을 탈 수 없으므로 라운드 → 모집을 id 로 되짚는다.
+     */
+    private void closeRecruitmentOf(InterviewSchedule schedule) {
+        Long recruitmentId = interviewRoundRepository.findById(schedule.getRoundId())
+                .orElseThrow().getRecruitmentId();
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
+        recruitment.close(LocalDateTime.now(clock));
+        recruitmentRepository.saveAndFlush(recruitment);
+    }
+
     // ── Fixture 헬퍼 ─────────────────────────────────────────────────────────────
 
     private InterviewSchedule fixtureAssignedSchedule(LocalDateTime slotStartTime, String label) throws Exception {

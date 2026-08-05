@@ -72,10 +72,12 @@ describe('isAllowedExternalFormUrl — BE ExternalFormUrlValidatorTest 와 동�
 });
 
 describe('createRecruitmentSchema — 외부 폼 URL 화이트리스트', () => {
+  // 고정 날짜는 "종료일은 오늘 이후" 규칙에 만료된다 — 이 파일의 관심사는 URL 뿐이라 상대 미래 날짜로 둔다.
+  const futureEndDate = new Date(Date.now() + 30 * 86_400_000);
   const externalBase = {
     title: '외부 폼 모집',
     startDate: '2026-05-01',
-    endDate: '2026-05-31',
+    endDate: `${futureEndDate.getFullYear()}-${String(futureEndDate.getMonth() + 1).padStart(2, '0')}-${String(futureEndDate.getDate()).padStart(2, '0')}`,
     capacity: 10,
     applicationMode: 'EXTERNAL' as const,
     useInterview: false,

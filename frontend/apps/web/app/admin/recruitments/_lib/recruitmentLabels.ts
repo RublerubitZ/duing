@@ -63,6 +63,12 @@ export function applicationModeLabel(
 /**
  * 기간이 끝났는데 아직 열려 있는 모집 — 학생에게는 지원할 수 있는 것처럼 보이므로 운영이 손을 대야 한다.
  * 화면 표시용 파생 값일 뿐이며, 강제 마감 가능 여부는 서버 상태(status === 'OPEN')만 본다.
+ *
+ * 동아리 운영 콘솔의 `isRecruitmentExpiredOpen`(app/_lib/recruitmentDisplay)이 같은 도메인 상태를
+ * 다른 이름·라벨로 표현한다. 그쪽은 서버가 내려준 displayStatus 를 그대로 읽는데 여기는 목록 응답
+ * (AdminRecruitmentSummary)에 displayStatus 가 없어 endDate 로 직접 계산한다 — 계산이 갈려 클라이언트
+ * 시계가 어긋나면 두 화면의 판정이 다를 수 있다(#896 에서 displayStatus 를 실어 통합). 세 번째 술어를
+ * 만들지 말고 둘 중 하나를 쓴다.
  */
 export function needsOperatorAttention(
   recruitment: Pick<AdminRecruitmentSummary, 'status' | 'endDate'>,

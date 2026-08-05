@@ -277,11 +277,38 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
         assertThat(result.failures().get(0).applicationId())
                 .isEqualTo(applicationInClosedRecruitment.getId());
         // 권한이 확인된 운영진에게는 마감 사유를 그대로 알려준다 (일반 메시지로 가리지 않는다).
-        assertThat(result.failures().get(0).reason()).isEqualTo("마감된 모집은 조회만 가능합니다.");
+        assertThat(result.failures().get(0).reason()).isEqualTo("마감된 모집에서는 할 수 없는 작업입니다.");
         assertThat(applicationRepository.findById(applicationInClosedRecruitment.getId())
                 .orElseThrow().getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
         assertThat(applicationRepository.findById(applicationInOpenRecruitment.getId())
                 .orElseThrow().getStatus()).isEqualTo(ApplicationStatus.ON_HOLD);
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서도 일괄 최종 결과 확정은 성공한다 — 건별로 같은 정책을 탄다")
+    void closedRecruitmentAllowsBulkFinalizing() throws Exception {
+        User leader = saveUser("마감벌크확정리더", UserRole.STUDENT);
+        Club club = saveActiveClub("마감벌크확정동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        Recruitment closedRecruitment = recruitmentRepository.save(
+                Recruitment.create(club, "마감확정모집", null,
+                        LocalDate.now().minusDays(10), LocalDate.now().minusDays(3), 10));
+        Application first =
+                saveApplicationWithStatus(closedRecruitment, ApplicationStatus.SUBMITTED, "확정지원자1");
+        Application second =
+                saveApplicationWithStatus(closedRecruitment, ApplicationStatus.SUBMITTED, "확정지원자2");
+        closedRecruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(closedRecruitment);
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(first.getId(), second.getId()),
+                        leader.getId(),
+                        ApplicationStatus.REJECTED));
+
+        assertThat(result.updated()).isEqualTo(2);
+        assertThat(result.failures()).isEmpty();
     }
 
     private User saveUser(String name, UserRole role) {

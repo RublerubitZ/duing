@@ -357,7 +357,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value())
                 .body("code", equalTo("RECRUITMENT_CLOSED"))
-                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+                .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
 
         // 라운드도 상태 전이도 일어나지 않았다.
         assertThat(interviewRoundRepository.findAll().stream()

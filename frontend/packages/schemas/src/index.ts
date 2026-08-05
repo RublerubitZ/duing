@@ -193,6 +193,14 @@ export function isAllowedExternalFormUrl(rawUrl: string): boolean {
   );
 }
 
+/** 사용자 로컬 타임존 기준 오늘(YYYY-MM-DD) — toISOString() 은 UTC 라 KST 자정~09시에 하루 어긋난다. */
+function localTodayIsoDate(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 export const createRecruitmentSchema = z
   .object({
     title: z
@@ -228,6 +236,12 @@ export const createRecruitmentSchema = z
   })
   .refine((data) => data.endDate === null || data.endDate >= data.startDate, {
     message: '모집 종료일은 시작일보다 빠를 수 없습니다.',
+    path: ['endDate'],
+  })
+  // 생성 한정 — 종료일이 이미 지난 공고는 만들어지자마자 만료(한 번도 열리지 않는 마감 공고)라 차단한다.
+  // 수정 스키마에는 넣지 않는다: 만료-OPEN 공고 편집은 기존 과거 종료일을 그대로 재전송하는 정당한 경로다(변경 여부는 BE 가 판정).
+  .refine((data) => data.endDate === null || data.endDate >= localTodayIsoDate(), {
+    message: '모집 종료일은 오늘 이후여야 합니다.',
     path: ['endDate'],
   })
   .refine(

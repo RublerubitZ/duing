@@ -42,9 +42,9 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   }
 
   const useInterview = recruitment?.useInterview ?? false;
-  // 마감(raw CLOSED) 모집은 조회 전용 (스펙 §6). status 를 아직 못 받았으면 차단하지 않는다(fail-open) —
+  // 마감(raw CLOSED) 모집은 남은 지원서의 최종 결과 확정만 허용 (스펙 §1-3 개정). status 를 아직 못 받았으면 차단하지 않는다(fail-open) —
   // 그 창에서 실행된 쓰기는 BE 409(RECRUITMENT_CLOSED)가 막고, 화면은 실패 토스트로 안내한다.
-  const isReadOnly = recruitment?.status === 'CLOSED';
+  const isFinalizeOnly = recruitment?.status === 'CLOSED';
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
@@ -63,11 +63,12 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
           <StatusTimeline history={detail.statusHistory} submittedAt={detail.submittedAt} />
         </div>
         <div className="flex flex-col gap-4">
+          {/* 평가는 마감 후 허용 범위에 없다 — 이쪽은 여전히 진짜 읽기 전용이다. */}
           <EvaluationPanel
             applicationId={applicationId}
             myEvaluation={detail.myEvaluation}
             otherEvaluations={detail.otherEvaluations}
-            readOnly={isReadOnly}
+            readOnly={isFinalizeOnly}
           />
           {useInterview && (
             <ApplicantInterviewScheduleCard
@@ -84,7 +85,7 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
             recruitmentId={recruitmentId}
             currentStatus={detail.status}
             useInterview={useInterview}
-            readOnly={isReadOnly}
+            finalizeOnly={isFinalizeOnly}
           />
         </div>
       </div>
