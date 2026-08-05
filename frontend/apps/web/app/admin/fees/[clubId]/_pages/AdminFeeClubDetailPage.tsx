@@ -13,6 +13,7 @@ import { ConsoleCard } from '../../../_components/ConsoleCard';
 import { ErrorState } from '../../../_components/ErrorState';
 import { FeeAccountCard } from '../../_components/FeeAccountCard';
 import { FeeAnomalyList } from '../../_components/FeeAnomalyList';
+import { FeeAuditCommentPanel } from '../../_components/FeeAuditCommentPanel';
 import { FeeAuditLogList } from '../../_components/FeeAuditLogList';
 import { FeeBillsTable } from '../../_components/FeeBillsTable';
 import { FeeKpiCards } from '../../_components/FeeKpiCards';
@@ -27,7 +28,6 @@ import {
   type FeePeriodValue,
 } from '../../_lib/feePeriod';
 
-// PR-5 가 의견/메모를 여기에 마저 덧붙인다.
 const TABS = [
   { key: 'overview', label: '개요' },
   { key: 'policies', label: '정책' },
@@ -36,6 +36,7 @@ const TABS = [
   { key: 'account', label: '계좌' },
   { key: 'audit-logs', label: '감사 로그' },
   { key: 'anomalies', label: '이상징후' },
+  { key: 'comments', label: '의견·메모' },
 ] as const;
 
 type FeeDetailTab = (typeof TABS)[number]['key'];
@@ -165,6 +166,8 @@ export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
         {activeTab === 'account' && <FeeAccountCard clubId={clubId} />}
         {activeTab === 'audit-logs' && <FeeAuditLogList clubId={clubId} period={periodParams} />}
         {activeTab === 'anomalies' && <FeeAnomalyList clubId={clubId} period={periodParams} />}
+        {/* 의견·메모는 기간과 무관하다 — 감사 기록은 어느 구간을 보고 있든 전부 남아 있어야 한다. */}
+        {activeTab === 'comments' && <FeeAuditCommentPanel clubId={clubId} />}
       </div>
     </main>
   );
