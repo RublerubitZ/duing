@@ -8,7 +8,12 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { RecruitmentQuestionItem, StatsSummary } from '@duing/types';
+import type {
+  RecruitmentDisplayStatus,
+  RecruitmentQuestionItem,
+  RecruitmentStatus,
+  StatsSummary,
+} from '@duing/types';
 import RecruitmentDetailPage from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/page';
 
 // 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 +
@@ -48,14 +53,25 @@ function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
 const server = setupServer(statsSummaryHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-type QuestionsMockOpts = {
+type RecruitmentDetailMockOpts = {
   questions?: string[];
   questionItems?: RecruitmentQuestionItem[];
+  /** 저장 상태·표시 상태를 따로 준다 — 만료-OPEN(OPEN + CLOSED) 구간 검증용. */
+  status?: RecruitmentStatus;
+  displayStatus?: RecruitmentDisplayStatus;
+  /** 서버가 내려주는 파생 값. 기본값만 서버 규칙을 흉내 내고, 필요하면 테스트가 직접 지정한다. */
+  effectivelyOpen?: boolean;
 };
 
 function mockRecruitmentDetail(
   useInterview: boolean,
-  { questions = [], questionItems }: QuestionsMockOpts = {},
+  {
+    questions = [],
+    questionItems,
+    status = 'OPEN',
+    displayStatus = 'OPEN',
+    effectivelyOpen = status === 'OPEN' && displayStatus !== 'CLOSED',
+  }: RecruitmentDetailMockOpts = {},
 ) {
   return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
     HttpResponse.json({
@@ -68,9 +84,9 @@ function mockRecruitmentDetail(
         startDate: '2099-01-01',
         endDate: '2099-02-01',
         capacity: 10,
-        status: 'OPEN',
-        displayStatus: 'OPEN',
-        effectivelyOpen: true,
+        status,
+        displayStatus,
+        effectivelyOpen,
         applicationMode: 'SELF',
         externalFormUrl: null,
         useInterview,
@@ -380,5 +396,41 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
     const reopened = await screen.findByRole('dialog');
     expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument();
     expect(closeCalls).toBe(1);
+  });
+});
+
+// 만료-OPEN(#894): 마감일은 지났지만 수동 마감 전인 구간. 백엔드는 이 모집을 여전히 OPEN 으로 다뤄
+// 수정·마감을 허용하므로, 화면도 액션을 raw status 로만 막고 '마감'이라 단정하지 않아야 한다.
+describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-OPEN)', () => {
+  it('마감·수정 액션이 그대로 보이고 배너가 마감을 단정하지 않는다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '마감' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '수정' })).toBeInTheDocument();
+    expect(screen.queryByText('이미 마감된 모집입니다.')).not.toBeInTheDocument();
+    expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
+    expect(screen.getByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
+    // 상태 칩도 '모집마감'이 아니라 기간 종료로 표기한다.
+    expect(screen.getByText('기간 종료')).toBeInTheDocument();
+    expect(screen.queryByText('모집마감')).not.toBeInTheDocument();
+  });
+
+  it('실제로 마감(raw CLOSED)되면 마감·수정 액션이 사라지고 마감 배너만 남는다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '마감' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
   });
 });

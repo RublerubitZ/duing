@@ -25,11 +25,14 @@ import {
 
 export const DASHBOARD_QUERY_OPTIONS = { staleTime: 60_000, gcTime: 300_000 } as const;
 
+// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
+// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
+// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
 function isActive(recruitment: RecruitmentSummary): boolean {
-  return recruitment.displayStatus !== 'CLOSED';
+  return recruitment.status !== 'CLOSED';
 }
 
-/** 카드2: CLOSED 제외 진행 중 모집 */
+/** 카드2: 마감(raw CLOSED) 제외 진행 중 모집 */
 export function useActiveRecruitments(clubId: number | undefined) {
   const client = useApiClient();
   const query = useQuery({

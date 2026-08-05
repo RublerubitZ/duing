@@ -5,11 +5,11 @@ import { useQueries } from '@tanstack/react-query';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 import { statsQueryKeys, useApiClient } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
 import {
+  recruitmentPeriodLabel,
   RECRUITMENT_DISPLAY_STATUS_BADGE,
   RECRUITMENT_DISPLAY_STATUS_LABEL,
-} from '@/app/manage/_components/dashboard/dashboard-labels';
+} from '@/app/_lib/recruitmentDisplay';
 import { recruitmentFlowLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import {
   recruitmentClosedLabel,

@@ -207,6 +207,20 @@ describe('CurrentRecruitmentCard — 외부 폼 모집 액션', () => {
     expect(screen.getByTestId('join-link-panel')).toHaveTextContent('42/두잉/false');
   });
 
+  // 만료-OPEN(#894) 안내는 지원 방식에 따라 다음 행동이 갈린다 — 외부 폼은 심사할 지원서가 없다.
+  it('마감일이 지난 외부 폼 모집은 심사 대신 가입 처리를 안내한다', () => {
+    render(
+      <CurrentRecruitmentCard
+        clubId={1}
+        recruitment={{ ...externalRecruitment(), displayStatus: 'CLOSED', effectivelyOpen: false }}
+      />,
+    );
+
+    expect(screen.getByText(/가입 처리를 마치면 모집을 마감해 주세요/)).toBeInTheDocument();
+    expect(screen.queryByText(/남은 지원자 심사/)).not.toBeInTheDocument();
+    expect(screen.getByText('기간 종료')).toBeInTheDocument();
+  });
+
   it('자체 폼 모집에는 가입 링크 액션을 두지 않는다', () => {
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 

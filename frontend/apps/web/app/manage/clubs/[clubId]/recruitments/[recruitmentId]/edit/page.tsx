@@ -31,7 +31,9 @@ export default function EditRecruitmentPage({
     return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
-  if (recruitment.displayStatus === 'CLOSED') {
+  // 수정 차단은 raw status 기준 — 마감일이 지났어도 수동 마감 전이면 백엔드가 수정을 허용한다
+  // (displayStatus 로 막으면 기간 종료 직후 오탈자 하나 못 고친다).
+  if (recruitment.status === 'CLOSED') {
     return (
       <div className="mx-auto max-w-2xl px-6 py-10">
         <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
