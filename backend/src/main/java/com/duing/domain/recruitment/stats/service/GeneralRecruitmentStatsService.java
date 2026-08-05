@@ -11,6 +11,7 @@ import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,10 +58,13 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         clubAuthService.requireManager(currentUserId, clubId);
 
         LocalDate startDate = recruitment.getStartDate();
-        // 상시모집(endDate=null)은 오늘(KST)까지를 조회 구간으로 사용한다
+        // 상시모집(endDate=null)은 종료일이 없으므로 구간의 끝을 따로 정해야 한다. 마감된 뒤에는
+        // 마감 시각까지만 그린다 — 오늘로 두면 마감 후에도 0 인 점이 매일 하나씩 붙어 차트가 무한히
+        // 길어지고, 실제 모집 기간이 그래프 왼쪽 끝으로 밀려난다. 종료 스탬프가 없는 레거시 마감 건은
+        // 기준을 알 수 없으므로 지금까지처럼 오늘까지 그린다.
         LocalDate effectiveEndDate = recruitment.getEndDate() != null
                 ? recruitment.getEndDate()
-                : LocalDate.now(clock);
+                : alwaysOpenEndDate(recruitment);
 
         Map<LocalDate, Long> dailySubmissionCounts =
                 recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, effectiveEndDate);
@@ -71,6 +75,12 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
             paddedDays.add(new StatsDailyPointQuery(paddingDate, submittedCount));
         }
         return paddedDays;
+    }
+
+    /** 상시모집의 구간 끝 — 마감됐고 종료 시각이 남아 있으면 그 날짜, 아니면 오늘(KST). */
+    private LocalDate alwaysOpenEndDate(Recruitment recruitment) {
+        LocalDateTime closedAt = recruitment.getClosedAt();
+        return closedAt != null ? closedAt.toLocalDate() : LocalDate.now(clock);
     }
 
     @Override

@@ -144,6 +144,47 @@ class RecruitmentStatsDailyServiceTest {
     }
 
     @Test
+    @DisplayName("마감된 상시모집은 마감일까지만 그려지고 마감 후 날짜가 계속 붙지 않는다")
+    void closedAlwaysOpenRecruitmentStopsAtClosedDate() {
+        Long recruitmentId = 6L;
+        Long clubId = 10L;
+        Long currentUserId = 100L;
+
+        LocalDate today = LocalDate.now(FIXED_SEOUL_CLOCK);
+        LocalDate startDate = today.minusDays(10);
+        LocalDate closedDate = today.minusDays(8);
+        Recruitment recruitment = mockRecruitmentWithPeriod(recruitmentId, clubId, startDate, null);
+        when(recruitment.getClosedAt()).thenReturn(closedDate.atTime(18, 0));
+
+        when(recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, closedDate))
+                .thenReturn(Map.of(startDate, 2L));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(recruitmentId, currentUserId);
+
+        // 마감일 기준이 아니라 오늘 기준으로 그리면 마감 후 매일 0 인 점이 하나씩 늘어 차트가 무한히 길어진다.
+        assertThat(result).hasSize(3);
+        assertThat(result.get(result.size() - 1).date()).isEqualTo(closedDate);
+    }
+
+    @Test
+    @DisplayName("종료 시각이 남지 않은 레거시 마감 상시모집은 지금까지처럼 오늘까지 그린다")
+    void closedAlwaysOpenWithoutStampFallsBackToToday() {
+        Long recruitmentId = 7L;
+        Long clubId = 10L;
+        Long currentUserId = 100L;
+
+        LocalDate today = LocalDate.now(FIXED_SEOUL_CLOCK);
+        LocalDate startDate = today.minusDays(2);
+        Recruitment recruitment = mockRecruitmentWithPeriod(recruitmentId, clubId, startDate, null);
+        when(recruitment.getClosedAt()).thenReturn(null);
+
+        when(recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, today))
+                .thenReturn(Map.of());
+
+        assertThat(recruitmentStatsService.getDaily(recruitmentId, currentUserId)).hasSize(3);
+    }
+
+    @Test
     @DisplayName("존재하지 않는 모집 ID로 일별 통계를 조회하면 RecruitmentNotFoundException이 발생한다")
     void nonExistentRecruitmentThrowsNotFoundException() {
         Long nonExistentRecruitmentId = 9999L;

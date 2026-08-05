@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react';
 
+import { notFound } from 'next/navigation';
+
 import {
   formatDateKst,
   formatTimeKst,
@@ -191,6 +193,18 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   }, [selected, apps]);
 
   const openApp = openId ? apps.find(app => app.id === openId) ?? null : null;
+
+  // 딥링크로 들어왔는데 목록이 다 온 뒤에도 그 지원서가 없다면 남의 것이거나 존재하지 않는다.
+  // 그대로 두면 서버의 403·404 가 삼켜지고 평범한 목록만 렌더돼 학생이 무엇이 잘못됐는지 알 수 없다.
+  // (권한 없는 관리 페이지를 notFound 로 보내는 전례와 같은 처리 — 존재 여부도 알리지 않는다.)
+  if (defaultOpenId !== null && !isLoading && !isError && openApp === null) {
+    notFound();
+  }
+
+  // 딥링크로 들어왔는데 목록이 다 온 뒤에도 그 지원서가 없다면 남의 것이거나 존재하지 않는다.
+  // 그대로 두면 서버의 403·404 가 삼켜지고 평범한 목록만 렌더돼 학생이 무엇이 잘못됐는지 알 수 없다.
+  // (권한 없는 관리 페이지를 notFound 로 보내는 전례와 같은 처리 — 존재 여부도 알리지 않는다.)
+
 
   return (
     // min-h-dvh — 안드로이드 크롬에서 100vh 는 주소창이 접힌 큰 뷰포트라 문서가 화면보다 길어진다.

@@ -54,7 +54,7 @@ public record MyApplicationDetailResponse(
                 detailQuery.clubName(),
                 detailQuery.questions(),
                 detailQuery.answers(),
-                detailQuery.status(),
+                detailQuery.status().asApplicantVisible(),
                 interview,
                 TimeMapper.systemWallClockToInstant(detailQuery.submittedAt()),
                 detailQuery.interviewAvailabilityCount(),
