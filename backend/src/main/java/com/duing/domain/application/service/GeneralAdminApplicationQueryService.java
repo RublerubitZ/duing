@@ -12,6 +12,8 @@ import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.exception.RecruitmentException;
+import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class GeneralAdminApplicationQueryService implements AdminApplicationQuer
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
 
@@ -42,6 +45,12 @@ public class GeneralAdminApplicationQueryService implements AdminApplicationQuer
     @Override
     public AdminApplicantListQuery getApplicants(Long recruitmentId, ApplicantSearchCondition condition,
                                                  AdminApplicantSort sort) {
+        // 미존재·삭제된 모집은 상세와 같이 404 로 답한다 — 없는 모집에 "지원자 0명"을 돌려주면
+        // 모집이 사라진 것과 아무도 지원하지 않은 것이 같은 응답이 된다(#880).
+        // 외부 폼 모집은 존재하되 지원 데이터가 없는 정상 상태이므로 그대로 빈 목록이다.
+        if (!recruitmentRepository.existsById(recruitmentId)) {
+            throw new RecruitmentException.RecruitmentNotFoundException();
+        }
         return new AdminApplicantListQuery(
                 recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId),
                 applicationRepository.searchApplicantsForAdmin(

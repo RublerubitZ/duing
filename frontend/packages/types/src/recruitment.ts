@@ -123,10 +123,17 @@ export type AdminRecruitmentSummary = {
   title: string;
   applicationMode: ApplicationMode;
   status: RecruitmentStatus;
+  /**
+   * 서버가 계산한 표시 상태. 강제 마감 가능 여부 같은 액션 판정은 status 를 보고, 화면 표기는 이 값을
+   * 쓴다 — 총동연·학생·운영진이 같은 모집을 다르게 부르지 않게 하는 단일 근거다.
+   */
+  displayStatus: RecruitmentDisplayStatus;
   /** 외부 폼 모집은 두잉에 지원 데이터가 없어 0 이 아니라 null(해당 없음)이다. */
   applicantCount: number | null;
   startDate: string; // ISO yyyy-MM-dd
   endDate: string | null; // null = 상시모집
+  /** 마감이 실제로 일어난 시각. 마감 전이거나 종료 시각이 없는 레거시 마감 건은 null. */
+  closedAt: string | null;
   updatedAt: string;
 };
 

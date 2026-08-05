@@ -186,6 +186,29 @@ class AdminApplicationControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("존재하지 않는 모집의 지원자 목록은 빈 목록이 아니라 404 로 답한다")
+    void missingRecruitmentReturnsNotFound() {
+        // 없는 모집에 "지원자 0명"을 돌려주면 모집이 사라진 것과 아무도 지원하지 않은 것이
+        // 같은 응답이 된다. 상세는 이미 404 라 목록만 계약이 어긋나 있었다(#880).
+        getList(adminToken, 99_999_999L, Map.of()).then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("삭제된 모집의 지원자 목록도 404 로 답한다")
+    void deletedRecruitmentReturnsNotFound() {
+        Club gammaClub = clubRepository.save(ClubFixture.academic("삭제모집동아리"));
+        Recruitment deletedRecruitment = recruitmentRepository.save(Recruitment.create(
+                gammaClub, "삭제될 모집", "내용",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(3), 10));
+        Long deletedRecruitmentId = deletedRecruitment.getId();
+        recruitmentRepository.delete(deletedRecruitment);
+
+        getList(adminToken, deletedRecruitmentId, Map.of()).then()
+                .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
     @DisplayName("지원자 목록 조회는 개인정보 열람 감사를 남기지 않는다")
     void listDoesNotRecordAuditEvent() {
         getList(adminToken, selfRecruitment.getId(), Map.of())

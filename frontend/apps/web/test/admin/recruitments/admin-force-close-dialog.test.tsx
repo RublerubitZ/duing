@@ -28,6 +28,8 @@ function makeDetail(overrides: Partial<AdminRecruitmentDetail> = {}): AdminRecru
     title: '2026 신입 부원 모집',
     applicationMode: 'SELF',
     status: 'OPEN',
+    displayStatus: 'OPEN',
+    closedAt: null,
     applicantCount: 12,
     startDate: '2026-03-02',
     endDate: '2026-03-20',

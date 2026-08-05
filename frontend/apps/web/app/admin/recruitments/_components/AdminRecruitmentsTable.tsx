@@ -9,10 +9,9 @@ import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
 import { EmptyState } from '../../_components/EmptyState';
 import {
-  RECRUITMENT_STATUS_BADGE_CLASS,
-  RECRUITMENT_STATUS_LABEL,
   applicationModeLabel,
   needsOperatorAttention,
+  recruitmentConsoleChip,
 } from '../_lib/recruitmentLabels';
 
 type Props = {
@@ -87,13 +86,7 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
               {/* 목록 응답에는 외부 폼 URL 이 없다 — 플랫폼명은 상세에서만 붙는다. */}
               <Td>{applicationModeLabel(recruitment.applicationMode, null)}</Td>
               <Td>
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
-                    RECRUITMENT_STATUS_BADGE_CLASS[recruitment.status]
-                  }`}
-                >
-                  {RECRUITMENT_STATUS_LABEL[recruitment.status]}
-                </span>
+                <StatusChip recruitment={recruitment} />
               </Td>
               {/* 외부 폼 모집은 두잉에 지원 데이터가 없다 — 0 으로 적으면 "아무도 안 냈다"로 읽힌다. */}
               <Td align="right">
@@ -116,6 +109,18 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
     </div>
   );
 }
+
+/** 라벨과 색은 항상 같이 갈리므로 한 번만 계산한다 — 호출부가 같은 조건을 두 번 쓰지 않게. */
+const StatusChip = ({ recruitment }: { recruitment: AdminRecruitmentSummary }) => {
+  const { label, badgeClass } = recruitmentConsoleChip(recruitment);
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${badgeClass}`}
+    >
+      {label}
+    </span>
+  );
+};
 
 const Th = ({ children, align }: { children: React.ReactNode; align?: 'right' }) => (
   <th className={`px-3 py-2 font-semibold ${align === 'right' ? 'text-right' : 'text-left'}`}>

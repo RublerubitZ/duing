@@ -101,7 +101,7 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
 
         alphaClub = clubRepository.save(ClubFixture.academic("알파동아리"));
         betaClub = clubRepository.save(ClubFixture.academic("베타동아리"));
-        Club gammaClub = clubRepository.save(ClubFixture.academic("감마동아리"));
+        Club gammaClub = clubRepository.save(ClubFixture.academic("감마동아리-" + sequence.incrementAndGet()));
         clubMemberRepository.save(ClubMember.asLeader(alphaClub, leaderUser));
 
         closedRecruitment = saveRecruitment(alphaClub, "지난 학기 모집", ApplicationMode.SELF,
@@ -123,6 +123,41 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
         saveApplication(selfRecruitment);
         applicationRepository.delete(saveApplication(selfRecruitment));
         saveApplication(alwaysOpenRecruitment);
+    }
+
+    @Test
+    @DisplayName("관리자 목록은 저장 상태와 표시 상태를 함께 내려 기간이 끝난 모집을 모집중으로 적지 않는다")
+    void listCarriesDisplayStatusAlongsideRawStatus() {
+        // 기간이 끝났는데 아직 마감 처리 전인 모집 — 저장 상태는 OPEN 이라 강제 마감 대상이지만,
+        // 학생 화면에는 이미 마감으로 보인다. 총동연 콘솔이 저장 상태만 받으면 같은 모집을
+        // "모집중"으로 적어 강제 마감 판단 근거가 실제와 어긋난다(#896).
+        // 동아리당 OPEN 모집은 1건(uk_recruitment_club_active)이라 기존 모집이 없는 동아리에 만든다.
+        Club gammaClub = clubRepository.save(ClubFixture.academic("감마동아리-" + sequence.incrementAndGet()));
+        Recruitment expiredOpen = saveRecruitment(gammaClub, "기간 끝난 모집", ApplicationMode.SELF,
+                LocalDate.now().minusDays(30), LocalDate.now().minusDays(1));
+
+        Map<String, Object> expiredRow = findRow(getList(adminToken, Map.of()), expiredOpen.getId());
+
+        assertThat(expiredRow.get("status")).as("액션 게이트는 저장 상태를 본다").isEqualTo("OPEN");
+        assertThat(expiredRow.get("displayStatus")).as("표기는 학생 화면과 같은 값을 쓴다").isEqualTo("CLOSED");
+        assertThat(expiredRow.get("closedAt")).as("아직 마감되지 않았으므로 마감 시각은 없다").isNull();
+
+        Map<String, Object> closedRow = findRow(getList(adminToken, Map.of()), closedRecruitment.getId());
+        assertThat(closedRow.get("displayStatus")).isEqualTo("CLOSED");
+        assertThat((String) closedRow.get("closedAt"))
+                .as("마감 시각은 오프셋 있는 절대시각(…Z)으로 직렬화된다").endsWith("Z");
+    }
+
+    @Test
+    @DisplayName("관리자 상세도 표시 상태와 마감 시각을 함께 내려준다")
+    void detailCarriesDisplayStatusAndClosedAt() {
+        Response detail = getDetail(adminToken, closedRecruitment.getId());
+
+        detail.then().statusCode(HttpStatus.OK.value());
+        assertThat(detail.jsonPath().getString("data.status")).isEqualTo("CLOSED");
+        assertThat(detail.jsonPath().getString("data.displayStatus")).isEqualTo("CLOSED");
+        assertThat(detail.jsonPath().getString("data.closedAt"))
+                .as("강제 마감의 주체인 화면이라 언제 마감됐는지 알 수 있어야 한다").endsWith("Z");
     }
 
     @Test
