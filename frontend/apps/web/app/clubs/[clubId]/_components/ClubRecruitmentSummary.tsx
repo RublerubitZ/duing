@@ -78,7 +78,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
       {ratio !== null && (
         <div className="mt-2.5">
           <div className="mb-1 flex items-center justify-between text-[11px] text-ink-deep">
-            <span>현재 지원자</span>
+            <span>{status === 'CLOSED' ? '최종 지원자' : '현재 지원자'}</span>
             <span className="font-bold">
               {applied} / {recruitment.capacity}명
             </span>

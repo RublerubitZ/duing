@@ -10,6 +10,8 @@ export const ACCENT: Record<AccentKey, AccentStyle> = {
   berry:  { dot: '#B65672',         bg: '#F6DCE3',          fg: '#7E2A45'         },
   sage:   { dot: 'var(--sage)',     bg: 'var(--sage-tint)', fg: 'var(--ink-deep)' },
   sky:    { dot: '#6A95B8',         bg: '#DDE8F1',          fg: '#2F557A'         },
+  // 지난 일정 — 채도를 뺀 회색. 읽히지 않을 만큼 흐리게 하지는 않는다(본문은 charcoal-2 대비 유지).
+  muted:  { dot: 'var(--charcoal-3)', bg: 'var(--gray-line)', fg: 'var(--charcoal-2)' },
 };
 
 export const KIND_LABEL: Record<EventKind, string> = {

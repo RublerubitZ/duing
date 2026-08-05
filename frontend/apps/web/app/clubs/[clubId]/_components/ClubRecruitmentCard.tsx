@@ -74,7 +74,7 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
             {recruitment.applicantCount !== null && (
               <Row
                 label="지원자"
-                value={`현재 ${recruitment.applicantCount}명 지원`}
+                value={`${status === 'CLOSED' ? '최종' : '현재'} ${recruitment.applicantCount}명 지원`}
               />
             )}
             <Row label="상태" value={displayStatusLabel(recruitment.displayStatus)} last />
