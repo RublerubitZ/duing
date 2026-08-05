@@ -4,10 +4,17 @@ import { useState } from 'react';
 
 import { useUpdateApplicationStatusMutation } from '@duing/hooks';
 import type { ApplicationStatus, UpdateApplicationStatusPayload } from '@duing/types';
-import { allowedTransitionsFrom } from '../../_components/applicationStatusTransitions';
+import {
+  allowedTransitionsFrom,
+  closedRecruitmentTransitionsFrom,
+} from '../../_components/applicationStatusTransitions';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { CLOSED_STATUS_CHANGE_NOTICE, toWriteFailureMessage } from './closedRecruitment';
+import {
+  CLOSED_ALREADY_DECIDED_NOTICE,
+  CLOSED_STATUS_CHANGE_NOTICE,
+  toWriteFailureMessage,
+} from './closedRecruitment';
 import { StatusConfirmDialog } from './StatusConfirmDialog';
 
 type Props = {
@@ -15,8 +22,12 @@ type Props = {
   recruitmentId: number;
   currentStatus: ApplicationStatus;
   useInterview: boolean;
-  /** 마감(raw CLOSED) 모집이면 조회 전용 — 전이 버튼 대신 안내만 남긴다 (스펙 §6). */
-  readOnly?: boolean;
+  /**
+   * 마감(raw CLOSED) 모집인지. 마감 후에는 남은 지원서의 최종 결과 확정만 허용되므로
+   * 합격·불합격 버튼만 남기고 심사를 되돌리는 전이(보류·면접 대상)는 감춘다 (스펙 §1-3 개정).
+   * 이름이 readOnly 가 아닌 이유 — 이 값이 true 여도 쓰기 버튼은 남는다.
+   */
+  finalizeOnly?: boolean;
 };
 
 type FinalStatus = 'ACCEPTED' | 'REJECTED';
@@ -39,13 +50,16 @@ export function StatusActionBar({
   recruitmentId,
   currentStatus,
   useInterview,
-  readOnly = false,
+  finalizeOnly = false,
 }: Props) {
   const updateStatus = useUpdateApplicationStatusMutation(recruitmentId);
   const { addToast } = useToast();
   const [pendingFinalStatus, setPendingFinalStatus] = useState<FinalStatus | null>(null);
 
-  const transitions = allowedTransitionsFrom(currentStatus, useInterview);
+  // 마감 후에는 최종 결과 확정만 남는다 — 백엔드가 그 외 전이를 409 로 막으므로 버튼도 같은 집합으로 좁힌다.
+  const transitions = finalizeOnly
+    ? closedRecruitmentTransitionsFrom(currentStatus)
+    : allowedTransitionsFrom(currentStatus, useInterview);
 
   // 실패는 반드시 안내한다 — 이전에는 조용히 실패해 사용자가 반영 여부를 알 수 없었다.
   function requestStatusChange(
@@ -72,10 +86,13 @@ export function StatusActionBar({
   return (
     <section className="rounded border border-neutral-200 bg-white p-4">
       <h2 className="mb-3 text-base font-semibold text-slate-900">상태 변경</h2>
-      {readOnly ? (
-        <p className="text-sm text-slate-500">{CLOSED_STATUS_CHANGE_NOTICE}</p>
-      ) : transitions.length === 0 ? (
-        <p className="text-sm text-slate-400">더 이상 변경 가능한 상태가 없습니다.</p>
+      {finalizeOnly && transitions.length > 0 && (
+        <p className="mb-3 text-sm text-slate-500">{CLOSED_STATUS_CHANGE_NOTICE}</p>
+      )}
+      {transitions.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          {finalizeOnly ? CLOSED_ALREADY_DECIDED_NOTICE : '더 이상 변경 가능한 상태가 없습니다.'}
+        </p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {transitions.map((target) => (

@@ -114,7 +114,8 @@ class ApplicationStatusServiceTest {
         applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ON_HOLD));
 
-        verify(application).transitionTo(ApplicationStatus.ON_HOLD, false);
+        // 3번째 인자는 "마감 정리 전이인지" — 진행 중 모집이므로 false.
+        verify(application).transitionTo(ApplicationStatus.ON_HOLD, false, false);
         verify(clubAuthService).requireManager(managerId, clubId);
     }
 
@@ -133,7 +134,7 @@ class ApplicationStatusServiceTest {
 
         // transitionTo 가 ACCEPTED→ACCEPTED 를 차단함 (도메인 계층 책임)
         doThrow(new ApplicationDomainException.InvalidStatusTransitionException())
-                .when(application).transitionTo(ApplicationStatus.ACCEPTED, false);
+                .when(application).transitionTo(ApplicationStatus.ACCEPTED, false, false);
 
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
@@ -239,7 +240,7 @@ class ApplicationStatusServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
 
         // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
-        verify(application, never()).transitionTo(any(), any(boolean.class));
+        verify(application, never()).transitionTo(any(), any(boolean.class), any(boolean.class));
     }
 
     // ────────────────────────────────────────────────────────────
@@ -268,6 +269,6 @@ class ApplicationStatusServiceTest {
 
         // 권한 확인 및 도메인 전이는 충돌 검출 이전에 호출되었어야 한다
         verify(clubAuthService).requireManager(managerId, clubId);
-        verify(application).transitionTo(ApplicationStatus.REJECTED, false);
+        verify(application).transitionTo(ApplicationStatus.REJECTED, false, false);
     }
 }

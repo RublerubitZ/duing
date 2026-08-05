@@ -88,10 +88,30 @@ public class Application extends BaseEntity {
     }
 
     public void transitionTo(ApplicationStatus newStatus, boolean useInterview) {
-        if (!isAllowedTransition(this.status, newStatus, useInterview)) {
+        transitionTo(newStatus, useInterview, false);
+    }
+
+    /**
+     * 상태 전이. {@code recruitmentClosed} 는 마감된 모집의 남은 지원서를 정리하는 전이인지를 뜻한다.
+     *
+     * <p>마감 후에는 면접 라운드를 만들 수 없으므로 면접 단계를 강제하면 면접 모집의 미결 지원자는
+     * 불합격밖에 줄 수 없게 된다 — "면접은 못 봤지만 서류로 합격"이 막힌다. 그래서 마감 정리 전이에
+     * 한해 면접 단계를 건너뛴 최종 결과 확정을 허용한다. 이 예외를 {@code useInterview=false} 로
+     * 위장해 통과시키지 않고 별도 인자로 드러내, 코드만 읽고도 정책을 알 수 있게 한다.
+     */
+    public void transitionTo(ApplicationStatus newStatus, boolean useInterview, boolean recruitmentClosed) {
+        boolean allowed = recruitmentClosed
+                ? isClosedFinalizingTransition(this.status, newStatus)
+                : isAllowedTransition(this.status, newStatus, useInterview);
+        if (!allowed) {
             throw new ApplicationDomainException.InvalidStatusTransitionException();
         }
         this.status = newStatus;
+    }
+
+    /** 마감된 모집에서 허용되는 유일한 전이 — 아직 결과가 없는 지원의 최종 결과 확정. */
+    private static boolean isClosedFinalizingTransition(ApplicationStatus from, ApplicationStatus to) {
+        return from.isActive() && to.isTerminal();
     }
 
     private static boolean isAllowedTransition(ApplicationStatus from, ApplicationStatus to, boolean useInterview) {

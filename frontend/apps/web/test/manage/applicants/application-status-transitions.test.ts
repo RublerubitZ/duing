@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   allowedTransitionsFrom,
+  closedRecruitmentTransitionsFrom,
   getStatusTransitions,
 } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/applicationStatusTransitions';
 
@@ -54,5 +55,25 @@ describe('allowedTransitionsFrom', () => {
   it('getStatusTransitions 에 위임한다 (단일 진실)', () => {
     expect(allowedTransitionsFrom('SUBMITTED', true)).toEqual(getStatusTransitions('SUBMITTED', true));
     expect(allowedTransitionsFrom('ON_HOLD', false)).toEqual(getStatusTransitions('ON_HOLD', false));
+  });
+});
+
+// 마감(CLOSED) 모집 전이표 — 백엔드 Application.isClosedFinalizingTransition 과 동형.
+// 렌더링 테스트는 두 출발 상태만 간접 고정하므로, 전 상태를 여기서 리터럴로 못박는다.
+describe('closedRecruitmentTransitionsFrom — 마감 후 최종 결과 확정만', () => {
+  it.each(['SUBMITTED', 'ON_HOLD', 'INTERVIEW_PENDING'] as const)(
+    '아직 결과가 없는 %s 는 합격·불합격만 남는다',
+    (status) => {
+      expect(closedRecruitmentTransitionsFrom(status)).toEqual(['ACCEPTED', 'REJECTED']);
+    },
+  );
+
+  it.each(['ACCEPTED', 'REJECTED'] as const)('이미 결과가 난 %s 는 전이 대상이 없다', (status) => {
+    expect(closedRecruitmentTransitionsFrom(status)).toEqual([]);
+  });
+
+  it('면접 모집이라도 면접 대상 단계를 요구하지 않는다 — 마감 후엔 라운드를 열 수 없다', () => {
+    expect(closedRecruitmentTransitionsFrom('SUBMITTED')).toContain('ACCEPTED');
+    expect(closedRecruitmentTransitionsFrom('SUBMITTED')).not.toContain('INTERVIEW_PENDING');
   });
 });

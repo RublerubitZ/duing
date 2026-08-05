@@ -158,7 +158,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     }
 
     private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
-        return interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
+        return interviewRoundAccessor.getForWrite(roundId, currentUserId);
     }
 
     /**

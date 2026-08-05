@@ -42,6 +42,8 @@ public interface InterviewScheduleRepository
     /**
      * 면접 24h 전 리마인더 윈도 대상 조회. INTERVIEW_PENDING 상태 지원자만 포함한다.
      * ACCEPTED/REJECTED 로 이미 전이된 지원자는 ASSIGNED schedule 이 남아 있어도 리마인더 대상에서 제외된다 (Codex review BE-2).
+     * 마감된 모집도 제외한다 — 마감 후에는 면접을 진행할 수 없으므로 "내일 면접" 알림이 나가면 거짓이 된다
+     * (마감 임박 알림이 status='OPEN' 을 거는 것과 같은 기준).
      */
     @Query("""
             select s
@@ -50,6 +52,7 @@ public interface InterviewScheduleRepository
               join Application a on a.id = s.applicationId
              where s.status = com.duing.domain.interview.entity.InterviewScheduleStatus.ASSIGNED
                and a.status = com.duing.domain.application.entity.ApplicationStatus.INTERVIEW_PENDING
+               and a.recruitment.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
                and slot.startTime between :start and :end
                and slot.deletedAt is null
             """)

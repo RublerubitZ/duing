@@ -34,6 +34,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -103,9 +104,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
         // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라
         // 마감일이 지나도 수동 마감 전(심사 진행 중)인 모집에서는 라운드 생성이 그대로 열려 있다.
-        if (recruitment.getStatus() == RecruitmentStatus.CLOSED) {
-            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
-        }
+        ClosedRecruitmentPolicy.requireOpen(recruitment);
 
         User changedBy = userRepository.findById(createCommand.currentUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
@@ -192,7 +191,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult requestAvailability(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getForWrite(roundId, currentUserId);
 
         if (interviewSlotRepository.countByRoundId(round.getId()) == 0) {
             throw new InterviewException.RoundHasNoSlots();
@@ -211,7 +210,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     @Override
     @Transactional
     public AvailabilityRequestResult remind(Long roundId, Long currentUserId) {
-        InterviewRound round = interviewRoundAccessor.getWithManagerAuth(roundId, currentUserId);
+        InterviewRound round = interviewRoundAccessor.getForWrite(roundId, currentUserId);
 
         if (round.getStatus() != RoundStatus.COLLECTING) {
             throw new InterviewException.RoundTransitionNotAllowed();
@@ -244,7 +243,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         // §16-7-4 — round writer 직렬화 (자동배정·확정·취소와 동일 잠금).
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(updateCommand.roundId())
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManager(round, updateCommand.currentUserId());
+        interviewRoundAccessor.requireManagerForWrite(round, updateCommand.currentUserId());
 
         boolean nothingToUpdate = updateCommand.title() == null
                 && updateCommand.location() == null
@@ -269,7 +268,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     public void cancelRound(Long roundId, Long currentUserId) {
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManager(round, currentUserId);
+        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
 
         round.cancel();
         // §16-2 — 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해

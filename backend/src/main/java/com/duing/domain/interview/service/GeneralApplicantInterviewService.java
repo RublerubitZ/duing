@@ -20,7 +20,7 @@ import com.duing.domain.interview.service.dto.command.RespondInterviewAvailabili
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewPhase;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewView;
 import com.duing.domain.interview.service.dto.query.VisibleMembership;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -127,7 +127,7 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
         // 모집에 운영 객체를 만들지만, 여기서 새는 것은 아무 라운드도 진행되지 않는 모집의 availability 행
         // 하나뿐이라 학생·운영진 어느 화면에도 나타나지 않는다. 마감 후 라운드 쓰기 전반을 함께 잠그는
         // 후속 작업에서 이 경로도 같은 정책으로 묶는다.
-        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+        if (ClosedRecruitmentPolicy.isClosed(application.getRecruitment())) {
             throw new InterviewException.RecruitmentClosed();
         }
 

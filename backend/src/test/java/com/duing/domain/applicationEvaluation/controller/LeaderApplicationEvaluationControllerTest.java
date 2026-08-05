@@ -419,7 +419,7 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
                 .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
                 .then().statusCode(409)
                 .body("code", equalTo("RECRUITMENT_CLOSED"))
-                .body("message", equalTo("마감된 모집은 조회만 가능합니다."));
+                .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
 
         assertThat(evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, leaderId))
                 .isEmpty();

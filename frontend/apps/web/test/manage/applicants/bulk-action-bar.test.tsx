@@ -137,4 +137,22 @@ describe('BulkActionBar', () => {
       screen.queryByRole('button', { name: '서류 검토 중' }),
     ).not.toBeInTheDocument();
   });
+  it('마감된 모집(finalizeOnly)에서는 최종 결과 액션만 남는다', () => {
+    render(
+      <BulkActionBar
+        selectedCount={2}
+        onBulkAction={vi.fn()}
+        onPromoteToInterview={vi.fn()}
+        useInterview
+        finalizeOnly
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '일괄 합격' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '일괄 불합격' })).toBeInTheDocument();
+    // 마감 후 409 가 될 액션은 버튼부터 사라진다.
+    expect(screen.queryByRole('button', { name: '보류' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '면접 대상으로 선정' })).not.toBeInTheDocument();
+  });
+
 });

@@ -9,6 +9,7 @@ import com.duing.domain.applicationEvaluation.service.dto.command.UpsertApplicat
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -59,13 +60,10 @@ public class GeneralApplicationEvaluationService implements ApplicationEvaluatio
     }
 
     /**
-     * 마감(CLOSED)된 모집은 아카이브라 평가 저장·삭제를 모두 막는다 — 읽기 전용 화면에서 도달 가능한
-     * 파괴적 쓰기까지 포함한 "조회만 허용" 원칙. 판정은 raw status 기준이므로 마감일이 지나도
-     * 수동 마감 전(심사 진행 중)인 모집은 평가가 그대로 열려 있다.
+     * 평가는 마감 후 허용되는 "최종 결과 확정"에 포함되지 않는 새 활동이라 저장·삭제를 모두 막는다.
+     * 판정·예외는 {@link ClosedRecruitmentPolicy} 한 곳을 경유해 다른 마감 가드와 어긋나지 않게 한다.
      */
     private void requireNotClosed(Application application) {
-        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
-            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
-        }
+        ClosedRecruitmentPolicy.requireOpen(application.getRecruitment());
     }
 }

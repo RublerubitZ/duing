@@ -47,6 +47,7 @@ import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
@@ -262,7 +263,7 @@ public class GeneralApplicationService implements ApplicationService {
         }
         // 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다. 상태 가드보다 앞에 두어
         // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (recruitment lazy SELECT 1회 추가 — 무해).
-        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+        if (ClosedRecruitmentPolicy.isClosed(application.getRecruitment())) {
             throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
         }
         // 운영진이 아직 결정을 내리지 않은 동안(SUBMITTED·ON_HOLD)에만 학생이 스스로 철회할 수 있다.
@@ -356,16 +357,18 @@ public class GeneralApplicationService implements ApplicationService {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
-        // 마감된 모집은 아카이브 — 조회만 허용한다. 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고,
-        // 실패 사유는 failures[] 로 전파된다. 판정은 raw status 기준 — 마감일이 지나도 수동 마감 전이면 심사 진행 중이다.
-        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
-            throw new RecruitmentException.ClosedRecruitmentReadOnlyException();
-        }
+        // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
+        // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
+        // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
+        // 판정은 raw status 기준 — 마감일이 지나도 수동 마감 전이면 심사 진행 중이라 전 기능이 열려 있다.
+        Recruitment recruitment = application.getRecruitment();
+        ClosedRecruitmentPolicy.requireFinalizingOnly(recruitment, updateApplicationStatusCommand.status());
 
         ApplicationStatus previousStatus = application.getStatus();
         application.transitionTo(
                 updateApplicationStatusCommand.status(),
-                application.getRecruitment().isUseInterview());
+                recruitment.isUseInterview(),
+                ClosedRecruitmentPolicy.isClosed(recruitment));
 
         User changedBy = userRepository.findById(updateApplicationStatusCommand.currentUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);

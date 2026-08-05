@@ -324,4 +324,52 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
         }
         return interviewRoundMemberRepository.save(member);
     }
+    // 마감된 모집의 라운드 쓰기 — 마감 후에도 열려 있으면 일정을 바꾸고 확정해 학생에게 면접 알림이
+    // 계속 나간다. 정작 그 결과를 반영하려는 순간에야 막히던 모순을 없앤다 (스펙 §1-3 개정).
+    @Test
+    @DisplayName("마감된 모집의 면접 라운드는 취소할 수 없고 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksRoundCancel() {
+        InterviewRound round = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(recruitment);
+
+        givenLeader()
+                .when().post(CANCEL_PATH, round.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"));
+
+        assertThat(interviewRoundRepository.findById(round.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("마감된 모집의 면접 라운드는 수정할 수 없고 마감 코드와 함께 409 로 거절된다")
+    void closedRecruitmentBlocksRoundUpdate() {
+        InterviewRound round = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(recruitment);
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("location", "바뀐 장소"))
+                .when().patch(ROUND_PATH, round.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_CLOSED"));
+    }
+
+    @Test
+    @DisplayName("마감된 모집의 면접 라운드도 조회는 계속 허용된다 — 아카이브")
+    void closedRecruitmentStillAllowsRoundRead() {
+        interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(recruitment);
+
+        givenLeader()
+                .when().get(CANDIDATES_PATH, recruitment.getId())
+                .then().statusCode(HttpStatus.OK.value());
+    }
+
 }
