@@ -163,7 +163,7 @@ describe('관리자 회비 이상징후 탭', () => {
     expect(within(evidence!).getByText('5')).toBeInTheDocument();
   });
 
-  it('감사 로그 소스 규칙만 로그 탭으로 잇고 기간을 그대로 물려준다', () => {
+  it('근거로 데려가는 규칙만 로그 탭으로 잇고 기간을 그대로 물려준다', () => {
     currentSearch = 'period=LAST_90D&tab=anomalies';
     mockAnomaliesQuery.mockReturnValue(
       success(
@@ -171,6 +171,7 @@ describe('관리자 회비 이상징후 탭', () => {
           makeAnomaly({ ruleId: 'FA-08', severity: 'CRITICAL', title: '계좌 빈번 교체' }),
           makeAnomaly({ ruleId: 'FA-06', severity: 'HIGH', title: '단시간 대량 변경' }),
           makeAnomaly(),
+          makeAnomaly({ ruleId: 'FA-05', severity: 'HIGH', title: '동일 운영진 반복 변경' }),
         ]),
       ),
     );
@@ -192,9 +193,11 @@ describe('관리자 회비 이상징후 탭', () => {
     );
     // FA-02 는 납부 테이블 집계라 대응하는 감사 이벤트가 없다 — 링크를 걸면 엉뚱한 목록으로 보낸다.
     expect(within(rows[2]!).queryByRole('link')).toBeNull();
+    // FA-05 는 축이 행위자인데 감사 로그에 행위자 필터가 없다 — 근거로 데려가지 못하는 링크는 걸지 않는다.
+    expect(within(rows[3]!).queryByRole('link')).toBeNull();
   });
 
-  it('넘겨받은 유형그룹으로 감사 로그 탭이 열린다', () => {
+  it('넘겨받은 유형그룹으로 감사 로그 탭이 열리고 그 파라미터는 한 번 쓰고 지워진다', () => {
     currentSearch = 'tab=audit-logs&group=ACCOUNT';
 
     renderAnomalyTab();
@@ -210,6 +213,11 @@ describe('관리자 회비 이상징후 탭', () => {
         name: '계좌',
       }),
     ).toHaveAttribute('aria-pressed', 'true');
+
+    // 주소에 남겨 두면 사용자가 칩을 '전체'로 되돌린 뒤 새로고침·뒤로가기에서 꺼 둔 필터가 되살아난다.
+    // 지우는 것은 히스토리 API 라 라우터 이동(replace)을 일으키지 않는다.
+    expect(window.location.search).toBe('?tab=audit-logs');
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('고유 윈도우로 판정하는 규칙은 기간과 무관함을 항목에 적는다', () => {

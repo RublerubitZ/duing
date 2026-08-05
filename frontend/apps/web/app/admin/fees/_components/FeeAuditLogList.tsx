@@ -72,6 +72,28 @@ export function FeeAuditLogList({
   );
   const [page, setPage] = useState(0);
 
+  /**
+   * 시드로 한 번 쓴 뒤 주소에서 지운다(1회성 소비). 남겨 두면 사용자가 칩을 '전체'로 되돌린 뒤
+   * 새로고침·뒤로가기로 이 화면이 다시 뜰 때 꺼 둔 필터가 되살아난다 — 주소가 화면과 다른 말을 하는 상태다.
+   *
+   * <p>`router.replace` 가 아니라 히스토리 API 를 쓴다(backDismiss 선례). 이건 이동이 아니라 진입 정리라
+   * RSC 왕복이 필요 없고, 오프라인에서 useGuardedRouter 가 띄우는 네트워크 오류 토스트도 헛경보가 된다.
+   * 칩 조작은 여전히 주소에 쓰지 않는다(관리자 콘솔 규약) — 지우기만 한다.
+   */
+  useEffect(() => {
+    if (!searchParams.has(FEE_AUDIT_GROUP_PARAM)) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(FEE_AUDIT_GROUP_PARAM);
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${query.length > 0 ? `?${query}` : ''}`,
+    );
+    // 마운트 1회만 — 이후 주소 변화는 컨테이너(탭·기간)의 몫이고, 여기서 다시 지울 것이 없다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const auditLogsQuery = useAdminFeeAuditLogsQuery(clubId, {
     ...period,
     // 모듈 상수를 그대로 넘겨 배열 참조가 렌더마다 바뀌지 않게 한다(React Query 키 안정).

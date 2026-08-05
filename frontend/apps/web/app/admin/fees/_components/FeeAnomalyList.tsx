@@ -21,12 +21,14 @@ import {
 import { FEE_AUDIT_GROUP_PARAM, type FeeEventGroup } from './FeeAuditLogList';
 
 /**
- * 규칙 → 감사 로그 유형그룹. `club_audit_event` 를 읽는 규칙만 로그로 이어진다 —
- * FA-01~04 는 청구·납부·거래 테이블 집계라 대응하는 감사 이벤트가 없고, 링크를 걸면 엉뚱한 목록으로 보낸다.
- * FA-05·06 은 정책·청구·납부에 걸쳐 있어 한 그룹으로 좁히지 못하므로 전체 목록으로 보낸다.
+ * 규칙 → 감사 로그 유형그룹. `club_audit_event` 를 읽는 규칙 중 **링크가 근거로 데려가는 것만** 잇는다.
+ *
+ * <p>FA-01~04 는 청구·납부·거래 테이블 집계라 대응하는 감사 이벤트가 아예 없다.
+ * FA-05(동일 운영진 반복 변경)는 판정 축이 행위자인데 evidence 에 actor 식별자가 없고 감사 로그에도
+ * 행위자 필터가 없어, 링크를 걸어 봐야 "로그 탭 열기" 이상이 못 된다 — 근거로 데려가지 못하는 링크는 걸지 않는다.
+ * FA-06 은 회비 변이 전체가 곧 판정 근거라 그룹 없이 전체 목록으로 보낸다(기간 어긋남은 항목 캡션이 알린다).
  */
 const RULE_AUDIT_GROUP: Record<string, FeeEventGroup | 'ALL' | undefined> = {
-  'FA-05': 'ALL',
   'FA-06': 'ALL',
   'FA-07': 'POLICY',
   'FA-08': 'ACCOUNT',
@@ -126,30 +128,35 @@ export function FeeAnomalyList({
                     </p>
                   )}
 
-                  {/* 네이티브 details — 접힘 상태는 브라우저가 관리한다(키보드·검색까지 공짜로 따라온다). */}
-                  <details className="mt-2">
-                    <summary className="w-fit cursor-pointer text-[12px] font-semibold text-charcoal-2">
-                      근거 보기
-                    </summary>
-                    {evidenceEntries.length > 0 && (
-                      <dl className="mt-2 grid grid-cols-1 gap-1.5 rounded-md bg-graysoft/50 px-3 py-2.5 text-[12px] sm:grid-cols-2">
-                        {evidenceEntries.map(([key, value]) => (
-                          <div key={key} className="flex flex-wrap gap-x-1.5">
-                            <dt className="text-charcoal-2">{feeEvidenceKeyLabel(key)}</dt>
-                            <dd className="tabular-nums text-ink">{formatEvidenceValue(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                    {auditGroup !== undefined && (
-                      <Link
-                        href={auditLogHref(clubId, searchParams.toString(), auditGroup)}
-                        className="mt-2 inline-block text-[12px] font-semibold text-ink underline underline-offset-2"
-                      >
-                        관련 감사 로그 보기 →
-                      </Link>
-                    )}
-                  </details>
+                  {/*
+                    네이티브 details — 접힘 상태는 브라우저가 관리한다(키보드·검색까지 공짜로 따라온다).
+                    보여줄 근거도 링크도 없으면 아예 그리지 않는다 — 열어 봐야 빈 상자인 토글은 두지 않는다.
+                  */}
+                  {(evidenceEntries.length > 0 || auditGroup !== undefined) && (
+                    <details className="mt-2">
+                      <summary className="w-fit cursor-pointer text-[12px] font-semibold text-charcoal-2">
+                        근거 보기
+                      </summary>
+                      {evidenceEntries.length > 0 && (
+                        <dl className="mt-2 grid grid-cols-1 gap-1.5 rounded-md bg-graysoft/50 px-3 py-2.5 text-[12px] sm:grid-cols-2">
+                          {evidenceEntries.map(([key, value]) => (
+                            <div key={key} className="flex flex-wrap gap-x-1.5">
+                              <dt className="text-charcoal-2">{feeEvidenceKeyLabel(key)}</dt>
+                              <dd className="tabular-nums text-ink">{formatEvidenceValue(value)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                      {auditGroup !== undefined && (
+                        <Link
+                          href={auditLogHref(clubId, searchParams.toString(), auditGroup)}
+                          className="mt-2 inline-block text-[12px] font-semibold text-ink underline underline-offset-2"
+                        >
+                          관련 감사 로그 보기 →
+                        </Link>
+                      )}
+                    </details>
+                  )}
                 </li>
               );
             })}

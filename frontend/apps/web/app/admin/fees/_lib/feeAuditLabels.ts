@@ -121,6 +121,11 @@ export const FEE_SEVERITY_BADGE_CLASS: Record<FeeAnomalySeverity, string> = {
 /**
  * 이상징후 근거(evidence)의 키 이름. 규칙마다 싣는 키가 달라 아는 것만 한국어로 옮긴다.
  * 값은 전부 건수·비율·임계값이라 개인정보가 없다(스펙 §9).
+ *
+ * <p>동기화 출처: `backend/src/main/java/com/duing/domain/fee/service/GeneralAdminFeeAnomalyService.java`
+ * 의 각 Rule 이 `Map.of(...)` 로 싣는 키(FA-01~08). **키를 늘리면 여기도 늘린다** —
+ * 서버 응답이 `Record<string, unknown>` 이고 BE 도 문자열 리터럴이라 타입도 테스트도 이 어긋남을 잡지 못한다.
+ * 놓쳤을 때의 증상은 관리자 화면에 영어 키가 그대로 뜨는 것이고(fail-open), 근거가 사라지지는 않는다.
  */
 const FEE_EVIDENCE_KEY_LABEL: Record<string, string> = {
   threshold: '기준값',
