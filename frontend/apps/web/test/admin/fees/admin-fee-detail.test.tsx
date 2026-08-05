@@ -256,6 +256,32 @@ describe('관리자 회비 감사 상세', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('청구 탭 회원 검색어는 주소에 싣지 않고 조회 파라미터로만 넘긴다', async () => {
+    const user = userEvent.setup();
+    currentSearch = 'tab=bills';
+    renderDetail();
+
+    await user.type(screen.getByLabelText('회원 검색'), '김회원');
+
+    expect(mockBillsQuery).toHaveBeenLastCalledWith(CLUB_ID, expect.objectContaining({ q: '김회원' }));
+    // 검색만으로는 주소를 건드리지 않는다.
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    // 검색어를 문 채 주소가 실제로 갱신되는 경로(기간 변경)까지 태운다 — replace 가 아예 안 일어나는 상태만
+    // 단언하면 "회원명·학번이 주소에 실리지 않는다"는 약속을 사실상 검사하지 않는 셈이다.
+    await user.selectOptions(screen.getByLabelText('기간'), 'SEMESTER');
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.not.stringContaining('김회원'),
+      expect.anything(),
+    );
+    // 질의 문자열은 퍼센트 인코딩돼 실리므로 인코딩된 형태도 함께 막는다.
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.not.stringContaining(encodeURIComponent('김회원')),
+      expect.anything(),
+    );
+  });
+
   it('정정된 납부는 취소선과 함께 사유·정정자를 같은 행에 적는다', () => {
     currentSearch = 'tab=payments';
     mockPaymentsQuery.mockReturnValue(
