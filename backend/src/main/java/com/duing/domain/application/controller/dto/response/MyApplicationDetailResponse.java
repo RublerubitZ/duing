@@ -2,6 +2,7 @@ package com.duing.domain.application.controller.dto.response;
 
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -11,6 +12,8 @@ public record MyApplicationDetailResponse(
         Long id,
         Long recruitmentId,
         String recruitmentTitle,
+        /** 모집 마감 여부 — 지원자 화면이 면접 안내·철회 UI 를 접을지 판단하는 근거다. */
+        RecruitmentStatus recruitmentStatus,
         Long clubId,
         String clubName,
         List<String> questions,
@@ -46,6 +49,7 @@ public record MyApplicationDetailResponse(
                 detailQuery.id(),
                 detailQuery.recruitmentId(),
                 detailQuery.recruitmentTitle(),
+                detailQuery.recruitmentStatus(),
                 detailQuery.clubId(),
                 detailQuery.clubName(),
                 detailQuery.questions(),
