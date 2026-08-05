@@ -20,7 +20,7 @@ import com.duing.domain.interview.service.dto.command.RespondInterviewAvailabili
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewPhase;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewView;
 import com.duing.domain.interview.service.dto.query.VisibleMembership;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -125,9 +125,8 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
         // 모집 행을 잠그지 않으므로 "OPEN 확인 → 마감 커밋 → 여기서 INSERT" 창이 남는다(#883 이 라운드
         // 생성에서 닫은 것과 같은 모양). 잠그지 않는 이유는 오염 범위가 다르기 때문이다 — 라운드는 마감된
         // 모집에 운영 객체를 만들지만, 여기서 새는 것은 아무 라운드도 진행되지 않는 모집의 availability 행
-        // 하나뿐이라 학생·운영진 어느 화면에도 나타나지 않는다. 마감 후 라운드 쓰기 전반을 함께 잠그는
-        // 후속 작업에서 이 경로도 같은 정책으로 묶는다.
-        if (application.getRecruitment().getStatus() == RecruitmentStatus.CLOSED) {
+        // 하나뿐이라 학생·운영진 어느 화면에도 나타나지 않는다.
+        if (ClosedRecruitmentPolicy.isClosed(application.getRecruitment())) {
             throw new InterviewException.RecruitmentClosed();
         }
 

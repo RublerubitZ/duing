@@ -4,14 +4,21 @@ import { ApiError } from '@duing/api';
  * 마감(raw CLOSED) 모집 읽기 전용 안내 (스펙 §6).
  * 막히는 행위가 표면마다 달라 맥락별로 나눈다 — 평가 폼에 상태 변경 문구가 뜨면 안내가 어긋난다.
  */
-export const CLOSED_STATUS_CHANGE_NOTICE = '마감된 모집은 상태를 변경할 수 없습니다';
+export const CLOSED_STATUS_CHANGE_NOTICE =
+  '마감된 모집이라 최종 결과만 확정할 수 있습니다. 보류·면접 대상으로는 되돌릴 수 없습니다.';
+
+/** 마감 + 이미 결과가 확정된 지원 — 더 남은 조치가 없다. */
+export const CLOSED_ALREADY_DECIDED_NOTICE = '마감된 모집이고 결과도 확정되어 변경할 수 없습니다';
 export const CLOSED_EVALUATION_NOTICE = '마감된 모집은 평가를 작성·수정할 수 없습니다';
 
 /**
  * BE 가 마감 모집 쓰기를 거절할 때의 안내 (스펙 §4 — 409 + code `RECRUITMENT_CLOSED`).
  * 화면 게이트는 fail-open 이라, 화면이 열린 뒤 모집이 마감된 창(lazy-close)에서는 이 응답이 최종 방어선이다.
+ *
+ * 상태 변경·평가 두 표면이 이 문구를 공유한다. 마감 후에도 최종 결과 확정은 되므로 "조회만 가능"이라
+ * 하면 거짓이고, 두 표면 중 무엇이 막혔는지도 단정하지 않는다.
  */
-export const CLOSED_RECRUITMENT_FAILURE_MESSAGE = '마감된 모집은 조회만 가능합니다';
+export const CLOSED_RECRUITMENT_FAILURE_MESSAGE = '마감된 모집에서는 할 수 없는 작업입니다';
 
 /**
  * 실패한 쓰기 요청을 사용자 대면 문구로 바꾼다. 마감 원인은 코드로 식별해 한 문구로 모으고,

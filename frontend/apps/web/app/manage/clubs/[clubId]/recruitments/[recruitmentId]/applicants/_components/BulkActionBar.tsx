@@ -14,6 +14,8 @@ type Props = {
   onBulkAction: (target: GenericBulkTarget) => void;
   onPromoteToInterview: () => void;
   useInterview: boolean;
+  /** 마감된 모집 — 최종 결과 확정만 허용되므로 되돌리는 액션을 감춘다. */
+  finalizeOnly?: boolean;
 };
 
 export function BulkActionBar({
@@ -21,6 +23,7 @@ export function BulkActionBar({
   onBulkAction,
   onPromoteToInterview,
   useInterview,
+  finalizeOnly = false,
 }: Props) {
   if (selectedCount === 0) return null;
 
@@ -37,7 +40,8 @@ export function BulkActionBar({
         </div>
         {/* 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 기존 한 줄 flex */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-          {useInterview && (
+          {/* 마감 후에는 심사를 되돌리는 액션(면접 대상 선정·보류)이 409 로 막힌다 — 버튼도 함께 감춘다. */}
+          {useInterview && !finalizeOnly && (
             <button
               type="button"
               onClick={onPromoteToInterview}
@@ -46,13 +50,15 @@ export function BulkActionBar({
               면접 대상으로 선정
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onBulkAction('ON_HOLD')}
-            className="rounded-md border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
-          >
-            보류
-          </button>
+          {!finalizeOnly && (
+            <button
+              type="button"
+              onClick={() => onBulkAction('ON_HOLD')}
+              className="rounded-md border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
+            >
+              보류
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}

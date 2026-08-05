@@ -410,8 +410,8 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("마감된 모집의 지원서는 상태를 변경할 수 없고 마감 안내와 함께 거절된다")
-    void closedRecruitmentRejectsStatusUpdate() throws Exception {
+    @DisplayName("마감된 모집에서 심사를 되돌리는 상태 변경(보류)은 마감 안내와 함께 거절된다")
+    void closedRecruitmentRejectsNonFinalStatusUpdate() throws Exception {
         setupClubAndLeader("마감-상태변경동아리");
         Long applicationId = createSubmittedApplication();
         closeActiveRecruitment();
@@ -420,6 +420,75 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
                 new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ON_HOLD)))
                 .isInstanceOf(RecruitmentException.ClosedRecruitmentReadOnlyException.class);
         assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서도 남은 지원서의 최종 결과는 확정할 수 있다 — 아무도 처리 못 하는 교착을 막는다")
+    void closedRecruitmentAllowsFinalizing() throws Exception {
+        setupClubAndLeader("마감-결과확정동아리");
+        Long acceptedTarget = createSubmittedApplication();
+        Long rejectedTarget = createSubmittedApplication();
+        closeActiveRecruitment();
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(acceptedTarget, leaderId, ApplicationStatus.ACCEPTED));
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(rejectedTarget, leaderId, ApplicationStatus.REJECTED));
+
+        assertThat(statusOf(acceptedTarget)).isEqualTo(ApplicationStatus.ACCEPTED);
+        assertThat(statusOf(rejectedTarget)).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    @Test
+    @DisplayName("마감된 면접 모집은 면접 단계를 거치지 않고 바로 합격시킬 수 있다 — 마감 후엔 면접을 열 수 없다")
+    void closedInterviewRecruitmentAllowsAcceptWithoutInterviewStage() throws Exception {
+        setupInterviewRecruitment("마감-면접생략동아리");
+        Long applicationId = createSubmittedApplication();
+        closeActiveRecruitment();
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ACCEPTED));
+
+        assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.ACCEPTED);
+    }
+
+    @Test
+    @DisplayName("모집이 열려 있으면 면접 모집의 지원서는 여전히 면접 단계를 건너뛸 수 없다")
+    void openInterviewRecruitmentStillRequiresInterviewStage() throws Exception {
+        setupInterviewRecruitment("진행중-면접필수동아리");
+        Long applicationId = createSubmittedApplication();
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ACCEPTED)))
+                .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
+        assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서 이미 결과가 난 지원은 결과를 번복할 수 없다")
+    void closedRecruitmentRejectsReversingFinalResult() throws Exception {
+        setupClubAndLeader("마감-번복금지동아리");
+        Long applicationId = createSubmittedApplication();
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.REJECTED));
+        closeActiveRecruitment();
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ACCEPTED)))
+                .isInstanceOf(ApplicationDomainException.InvalidStatusTransitionException.class);
+        assertThat(statusOf(applicationId)).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    /** 면접을 사용하는 진행 중 모집으로 고정한다 — 마감 후 면접 단계 생략 예외를 검증하기 위한 픽스처. */
+    private void setupInterviewRecruitment(String clubName) throws Exception {
+        User leader = saveUser("면접리더", UserRole.STUDENT);
+        leaderId = leader.getId();
+        Club club = saveActiveClub(clubName);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        activeRecruitment = recruitmentRepository.save(
+                Recruitment.createWithOptions(club, "면접모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10,
+                        ApplicationMode.SELF, null, true, TargetRole.MEMBER, null, null, false));
     }
 
     @Test

@@ -135,30 +135,49 @@ describe('StatusActionBar', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  // 마감 모집 읽기 전용 (스펙 §6)
-  it('readOnly 면 전이 버튼 대신 읽기 전용 안내를 보여준다', () => {
+  // 마감 모집 — 최종 결과 확정만 허용 (스펙 §1-3 개정)
+  it('마감된 모집에서는 최종 결과 버튼만 남고 심사를 되돌리는 전이는 사라진다', () => {
     renderBar(
       <StatusActionBar
         applicationId={1}
         recruitmentId={1}
         currentStatus="SUBMITTED"
         useInterview
-        readOnly
+        finalizeOnly
       />,
     );
 
-    expect(screen.getByText('마감된 모집은 상태를 변경할 수 없습니다')).toBeInTheDocument();
+    // 면접 모집이어도 면접 단계를 거치지 않고 바로 확정할 수 있다 — 마감 후엔 라운드를 열 수 없다.
+    expect(screen.getByRole('button', { name: '합격으로' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불합격으로' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '보류로' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '면접 대상으로' })).not.toBeInTheDocument();
+    expect(screen.getByText(/최종 결과만 확정할 수 있습니다/)).toBeInTheDocument();
+  });
+
+  it('마감된 모집에서 이미 결과가 확정된 지원은 남은 조치가 없다고 알린다', () => {
+    renderBar(
+      <StatusActionBar
+        applicationId={1}
+        recruitmentId={1}
+        currentStatus="ACCEPTED"
+        useInterview
+        finalizeOnly
+      />,
+    );
+
+    expect(screen.getByText('마감된 모집이고 결과도 확정되어 변경할 수 없습니다')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '합격으로' })).not.toBeInTheDocument();
   });
 
   // 기존 조용한 실패 결함 해소 — 상태 변경 실패는 반드시 안내가 뜬다.
   it('상태 변경이 RECRUITMENT_CLOSED 로 실패하면 마감 안내 토스트를 띄운다', async () => {
-    failMutationWith(new ApiError(409, '마감된 모집은 조회만 가능합니다.', undefined, 'RECRUITMENT_CLOSED'));
+    failMutationWith(new ApiError(409, '마감된 모집에서는 할 수 없는 작업입니다.', undefined, 'RECRUITMENT_CLOSED'));
     renderBar(<StatusActionBar applicationId={5} recruitmentId={2} currentStatus="SUBMITTED" useInterview />);
 
     await userEvent.click(screen.getByRole('button', { name: '보류로' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집은 조회만 가능합니다');
+    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집에서는 할 수 없는 작업입니다');
   });
 
   it('그 외 실패에도 일반 실패 토스트를 띄운다', async () => {
@@ -171,7 +190,7 @@ describe('StatusActionBar', () => {
   });
 
   it('확인 모달을 거치는 전이도 실패하면 토스트를 띄우고 모달을 닫는다', async () => {
-    failMutationWith(new ApiError(409, '마감된 모집은 조회만 가능합니다.', undefined, 'RECRUITMENT_CLOSED'));
+    failMutationWith(new ApiError(409, '마감된 모집에서는 할 수 없는 작업입니다.', undefined, 'RECRUITMENT_CLOSED'));
     renderBar(
       <StatusActionBar applicationId={7} recruitmentId={2} currentStatus="SUBMITTED" useInterview={false} />,
     );
@@ -179,7 +198,7 @@ describe('StatusActionBar', () => {
     await userEvent.click(screen.getByRole('button', { name: '합격으로' }));
     await userEvent.click(screen.getByRole('button', { name: '합격 처리' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집은 조회만 가능합니다');
+    expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집에서는 할 수 없는 작업입니다');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

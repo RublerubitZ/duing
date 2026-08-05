@@ -117,7 +117,7 @@ public class RecruitmentException extends ApplicationException {
      * code 를 공유해 프론트가 한 분기로 처리한다.
      */
     public static class ClosedRecruitmentReadOnlyException extends RecruitmentException {
-        private static final String MESSAGE = "마감된 모집은 조회만 가능합니다.";
+        private static final String MESSAGE = "마감된 모집에서는 할 수 없는 작업입니다.";
 
         public ClosedRecruitmentReadOnlyException() {
             super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
