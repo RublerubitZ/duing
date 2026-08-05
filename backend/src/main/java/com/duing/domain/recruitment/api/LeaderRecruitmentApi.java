@@ -54,7 +54,7 @@ public interface LeaderRecruitmentApi {
     );
 
     @Operation(summary = "모집 공고 삭제", description = "지원자가 없는 모집 공고만 삭제할 수 있다. 지원자가 1명이라도 있으면 409 — 진행 중 공고는 마감을 사용한다."
-            + " 처리되지 않은 가입 요청이 남아 있어도 409 이며, 삭제되는 모집의 활성 가입 코드는 같은 트랜잭션에서 폐기된다. 운영진(LEADER/OFFICER) 권한 필요.")
+            + " 처리되지 않은 가입 요청이 남아 있어도 409 이며, 삭제되는 모집의 활성 가입 링크는 같은 트랜잭션에서 폐기된다. 운영진(LEADER/OFFICER) 권한 필요.")
     @DeleteMapping("/leader/recruitments/{recruitmentId}")
     ResponseEntity<Void> deleteRecruitment(
             @PathVariable Long recruitmentId,

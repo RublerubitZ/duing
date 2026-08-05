@@ -164,7 +164,7 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
   it('없는 코드(404)면 사유 없이 유효하지 않다고만 안내한다', async () => {
     server.use(
       http.get(`*/join-codes/${CODE}`, () =>
-        HttpResponse.json({ ok: false, message: '가입 코드를 찾을 수 없습니다.', data: null }, { status: 404 }),
+        HttpResponse.json({ ok: false, message: '유효하지 않은 가입 링크입니다.', data: null }, { status: 404 }),
       ),
     );
     renderPage();

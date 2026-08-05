@@ -18,6 +18,7 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -129,6 +130,27 @@ public class GeneralJoinCodeService implements JoinCodeService {
         // 이미 대조됐고, 감사 기록 때문에 LAZY 연관을 초기화할 이유가 없다.
         recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, clubId,
                 recruitmentId, joinCodeId, requesterId);
+    }
+
+    @Override
+    @Transactional
+    public void revokeActiveOnClubClosure(Long clubId, List<Long> recruitmentIds, Long actorAdminUserId) {
+        // 모집 삭제 경로(GeneralRecruitmentService.delete)와 같은 방식이다 — 코드 엔티티를 영속성
+        // 컨텍스트에 올리면 같은 트랜잭션의 모집 soft-delete 와 충돌해 커밋이 깨지므로, 대상 id 만 읽고
+        // 벌크 UPDATE 로 폐기한다. 한 번의 폐쇄로 죽는 링크는 같은 시각을 갖는다.
+        LocalDateTime revokedAt = LocalDateTime.now(clock);
+        for (Long recruitmentId : recruitmentIds) {
+            List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
+            int revokedCount = clubJoinCodeRepository.revokeActiveByRecruitmentId(
+                    recruitmentId, revokedAt, actorAdminUserId);
+            // 폐쇄와 운영진의 수동 폐기가 겹쳐 UPDATE 가 0행이면 이 트랜잭션이 폐기한 것이 없으므로
+            // 이벤트도 남기지 않는다(일어나지 않은 폐기는 기록하지 않는다 — 삭제 경로와 같은 규약).
+            if (revokedCount > 0) {
+                revokedJoinCodeIds.forEach(joinCodeId -> recordJoinLinkEvent(
+                        ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId,
+                        joinCodeId, actorAdminUserId));
+            }
+        }
     }
 
     /**
