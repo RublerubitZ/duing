@@ -88,7 +88,11 @@
 - **Create:** `applicants/_components/RecruitmentSwitcher.tsx` — 지원현황 헤더에 드롭다운(기존 shadcn `dropdown-menu` 재사용). 데이터는 동일 `useClubRecruitmentsQuery`. 2그룹: **진행 중**(§1-2) / **지난 모집**(자체 폼 CLOSED, '마감' 뱃지, §5 정렬). 현재 모집 표시, 선택 시 해당 모집 지원현황으로 라우트 이동. 외부 폼 모집 제외.
 - **Modify:** `apps/web/app/manage/_components/ManageNav.tsx` — '지원자' 메뉴: 모집 컨텍스트 안에서는 현행(그 모집의 지원현황) 유지, **모집 미선택 시 비활성 대신 진입 라우트(`…/applicants`)로 활성화**. EXTERNAL 힌트 분기(`외부 폼 모집은 사용하지 않아요`)는 현행 유지.
 - **Modify:** `recruitments/_components/PastRecruitmentsTable.tsx` — 행 액션에 **"지원자" 링크 추가** (`…/recruitments/{id}/applicants`) — 기존 3-hop 을 1-hop 으로. 외부 폼 모집 행은 링크 제외.
-- **표면별 "지난 모집" 기준 차이는 의도 (문서 리뷰 반영·명시)**: 모집 관리의 PastRecruitmentsTable 모집단은 기존대로 `displayStatus === 'CLOSED'`(캠페인 기간 관점 — 마감일 경과·심사 중 raw-OPEN 포함), 진입 페이지·스위처의 "지난 모집" 그룹은 raw `status === 'CLOSED'`(읽기 전용 관점). 마감일이 지났지만 심사 중인 모집은 모집 관리 표에는 "지난 모집"으로 뜨되 그 행의 "지원자" 링크는 **전 기능 화면**으로 간다(심사 진행 중이므로 정상), 스위처에서는 "진행 중" 그룹에 속한다.
+- ~~**표면별 "지난 모집" 기준 차이는 의도**: 모집 관리의 PastRecruitmentsTable 모집단은 `displayStatus === 'CLOSED'`(마감일 경과·심사 중 raw-OPEN 포함)~~ → **2026-08-05 개정 (#894)**: 모집 관리의 현재/지난 그룹도 raw `status` 기준으로 통일했다.
+
+  > 옛 기준대로면 마감일이 지났을 뿐 심사 중인 모집(만료-OPEN)이 마감·편집 액션을 가진 `CurrentRecruitmentCard` 가 렌더되지 않는 표로 떨어지고, 모집 상세도 `displayStatus` 로 막혀 **운영진에게 마감 경로가 0개**가 됐다. 대시보드도 같은 기준이라 그 모집을 숨겨 "처리 필요 0건"을 보여줬고, 이것이 심사 방치 → 신규 모집 등록 시 자동 마감 → 미결 지원 교착(#892)의 앞단이었다.
+  >
+  > 새 기준은 **동작 축과 표시 축의 분리**다. 액션 게이트(마감·수정·삭제 버튼, 대시보드 활성 판정, 현재/지난 그룹)는 raw `status`, 캠페인 표기(상태 칩·D-day·새 모집 CTA)는 `displayStatus` 를 쓴다. 만료-OPEN 은 "현재 모집"에 남아 '기간 종료' 칩과 안내 문구로 심사가 남았음을 드러낸다. 지원현황·스위처는 처음부터 raw 기준이라 변경 없음.
 
 ## 4. BE 가드 (진짜 가드는 BE — FE 는 표면)
 
