@@ -324,7 +324,7 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
     const dialog = await screen.findByRole('dialog');
 
     expect(await within(dialog).findByText('4건')).toBeInTheDocument();
-    expect(within(dialog).getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/합격·불합격 확정만 할 수 있습니다/)).toBeInTheDocument();
   });
 
   it('마감 실패 시 모달을 유지하고 모달 안에서 안내한다', async () => {

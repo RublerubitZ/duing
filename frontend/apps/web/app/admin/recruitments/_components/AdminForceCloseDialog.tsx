@@ -31,7 +31,7 @@ type Props = {
  */
 function closeImpactNotice(recruitment: AdminRecruitmentDetail): string {
   if (recruitment.applicationMode === 'SELF') {
-    return '마감하면 더 이상 신규 지원이 불가능하고, 아직 심사가 끝나지 않은 지원서는 처리할 수 없게 됩니다(지원현황 조회 전용 전환).';
+    return '마감하면 신규 지원이 중단되고 평가·면접 진행도 멈춥니다. 아직 결과가 정해지지 않은 지원서는 마감 후에도 합격·불합격 확정만 할 수 있습니다.';
   }
   const joinLink = recruitment.joinLink;
   if (joinLink === null) {

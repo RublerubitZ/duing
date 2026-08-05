@@ -22,7 +22,7 @@ function summary(overrides: Partial<StatsSummary>): StatsSummary {
 }
 
 describe('CloseRecruitmentConfirmDescription', () => {
-  it('자체 폼에 미결 지원서(지원 완료+보류+면접 대상)가 있으면 건수와 처리 불가 경고를 보여준다', () => {
+  it('자체 폼에 미결 지원서(지원 완료+보류+면접 대상)가 있으면 건수와 마감 후 처리 범위를 알린다', () => {
     render(
       <CloseRecruitmentConfirmDescription
         applicationMode="SELF"
@@ -31,11 +31,12 @@ describe('CloseRecruitmentConfirmDescription', () => {
     );
 
     expect(screen.getByText('4건')).toBeInTheDocument();
-    expect(screen.getByText(/마감하면 더 이상 처리할 수 없습니다/)).toBeInTheDocument();
-    expect(screen.getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
+    // 결과를 영영 못 낸다고 겁주지 않는다 — 마감 후에도 합격·불합격 확정은 가능하다.
+    expect(screen.getByText(/합격·불합격 확정만 할 수 있습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/평가·면접 진행도 멈춥니다/)).toBeInTheDocument();
   });
 
-  it('미결이 0건이면 건수 경고 없이 조회 전용 안내만 보여준다', () => {
+  it('미결이 0건이면 건수 안내 없이 마감 효과만 보여준다', () => {
     render(
       <CloseRecruitmentConfirmDescription
         applicationMode="SELF"
@@ -43,21 +44,21 @@ describe('CloseRecruitmentConfirmDescription', () => {
       />,
     );
 
-    expect(screen.getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
-    expect(screen.queryByText(/아직 심사가 끝나지 않은/)).toBeNull();
+    expect(screen.getByText(/평가·면접 진행도 멈춥니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/아직 결과가 정해지지 않은/)).toBeNull();
   });
 
   it('요약을 아직 못 받았으면 수치를 지어내지 않고 일반 안내만 보여준다', () => {
     render(<CloseRecruitmentConfirmDescription applicationMode="SELF" statsSummary={undefined} />);
 
-    expect(screen.getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
-    expect(screen.queryByText(/아직 심사가 끝나지 않은/)).toBeNull();
+    expect(screen.getByText(/평가·면접 진행도 멈춥니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/아직 결과가 정해지지 않은/)).toBeNull();
   });
 
   it('외부 폼은 지원현황 대신 가입 링크 발급 중단을 알린다', () => {
     render(<CloseRecruitmentConfirmDescription applicationMode="EXTERNAL" statsSummary={undefined} />);
 
     expect(screen.getByText(/새 가입 링크를 만들 수 없고/)).toBeInTheDocument();
-    expect(screen.queryByText(/조회 전용으로 전환됩니다/)).toBeNull();
+    expect(screen.queryByText(/평가·면접 진행도 멈춥니다/)).toBeNull();
   });
 });

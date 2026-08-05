@@ -122,7 +122,7 @@ describe('CurrentRecruitmentCard', () => {
     await waitFor(() => expect(mockCloseMutateAsync).toHaveBeenCalled());
   });
 
-  it('마감 확인 다이얼로그는 미결 지원서가 있으면 건수와 조회 전용 전환을 경고한다', () => {
+  it('마감 확인 다이얼로그는 미결 지원서가 있으면 건수와 마감 후 처리 범위를 알린다', () => {
     // Once 가 아닌 영구 오버라이드 — 다이얼로그 열림 재렌더에서도 같은 요약이 와야 한다. 원복은 afterEach.
     mockStatsSummary.mockReturnValue({
       data: {
@@ -141,7 +141,7 @@ describe('CurrentRecruitmentCard', () => {
     fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
 
     expect(screen.getByText('3건')).toBeInTheDocument();
-    expect(screen.getByText(/조회 전용으로 전환됩니다/)).toBeInTheDocument();
+    expect(screen.getByText(/합격·불합격 확정만 할 수 있습니다/)).toBeInTheDocument();
   });
 
   it('마감 실패 시 다이얼로그를 유지하고 모달 안에서 안내한다', async () => {
