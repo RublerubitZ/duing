@@ -25,6 +25,7 @@ import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -90,14 +91,37 @@ class RecruitmentReplaceActiveTest {
         assertThat(recruitment.getStatus()).isEqualTo(RecruitmentStatus.OPEN);
     }
 
+    @Test
+    @DisplayName("replaceActive 도 종료일이 과거면 400 으로 거부되고 기존 active 는 마감되지 않는다")
+    void replaceActiveRejectsPastEndDateWithoutClosingExisting() throws Exception {
+        User leader = saveUser("과거종료");
+        Club club = saveActiveClub("과거종료동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Long existingId = recruitmentService.create(buildExternalCommand(club, leader, "기존active"));
+
+        // 서비스 seoulClock 과 같은 KST 기준 — 무존 LocalDate.now() 는 UTC CI 러너에서 경계일이 어긋난다.
+        LocalDate kstToday = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        assertThatThrownBy(() -> recruitmentService.replaceActive(
+                buildExternalCommand(club, leader, "과거모집", kstToday.minusDays(5), kstToday.minusDays(1))))
+                .isInstanceOf(RecruitmentException.PastEndDateException.class);
+
+        assertThat(recruitmentRepository.findById(existingId).orElseThrow().getStatus())
+                .isEqualTo(RecruitmentStatus.OPEN);
+    }
+
     private CreateRecruitmentCommand buildExternalCommand(Club club, User leader, String title) {
+        return buildExternalCommand(club, leader, title, LocalDate.now(), LocalDate.now().plusDays(7));
+    }
+
+    private CreateRecruitmentCommand buildExternalCommand(
+            Club club, User leader, String title, LocalDate startDate, LocalDate endDate) {
         return new CreateRecruitmentCommand(
                 club.getId(),
                 leader.getId(),
                 title,
                 null,
-                LocalDate.now(),
-                LocalDate.now().plusDays(7),
+                startDate,
+                endDate,
                 10,
                 ApplicationMode.EXTERNAL,
                 "https://forms.gle/aBcD1234",

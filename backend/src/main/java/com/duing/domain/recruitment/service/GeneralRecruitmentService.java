@@ -84,6 +84,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // endDate 가 지났지만 status 가 OPEN 인 행이 있으면 사전 체크는 통과하고 INSERT 가 인덱스에
         // 걸리는 모순이 생긴다. 이 경우 운영자가 보기엔 이미 끝난 모집이므로 자동 close 후 새 INSERT 를
         // 진행해 사용자 멘탈모델과 DB 인덱스의 의미차를 흡수한다. 진짜 활성인 경우엔 그대로 거부.
+        requireEndDateNotPast(createRecruitmentCommand.endDate());
         LocalDate today = LocalDate.now(clock);
         recruitmentRepository.findOpenByClubId(club.getId()).ifPresent(existingOpen -> {
             boolean isStillActive = existingOpen.getEndDate() == null
@@ -152,6 +153,17 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         Long clubId = recruitment.getClub().getId();
         clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
+
+        // 종료일을 과거로 "변경"하는 것만 차단 — 만료-OPEN 공고의 다른 필드 편집(기존 과거 종료일 재전송)은 허용.
+        // CLOSED(409)와 상시모집 전환 금지(전용 400)는 기존 예외가 더 정확하므로 그쪽 판정에 양보한다.
+        LocalDate requestedEndDate = updateRecruitmentCommand.endDate();
+        if (recruitment.getStatus() != RecruitmentStatus.CLOSED
+                && recruitment.getEndDate() != null
+                && requestedEndDate != null
+                && !requestedEndDate.equals(recruitment.getEndDate())
+                && requestedEndDate.isBefore(LocalDate.now(clock))) {
+            throw new RecruitmentException.PastEndDateException();
+        }
 
         // 두 통로를 함께 보내면 어느 쪽이 진실인지 알 수 없다 — 조용히 한쪽을 버리면 질문이 소실된다.
         if (updateRecruitmentCommand.questions() != null && updateRecruitmentCommand.questionItems() != null) {
@@ -373,6 +385,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         requireActiveClubUnderLock(club);
 
+        requireEndDateNotPast(command.endDate());
+
         // close() 는 메모리상의 status 만 바꾸므로 그 다음 buildAndPersist 의 INSERT 가
         // flush 될 때 Hibernate 기본 액션 순서(INSERT → UPDATE) 상 UPDATE 가 뒤로 밀려
         // uk_recruitment_club_active 와 자기 자신이 충돌한다. close 직후 명시적 flush 로
@@ -431,6 +445,17 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private void requireActiveClubUnderLock(Club club) {
         if (club.getStatus() != ClubStatus.ACTIVE) {
             throw new AccessDeniedException("운영 중(ACTIVE) 동아리에서만 모집을 열 수 있습니다.");
+        }
+    }
+
+    /**
+     * 종료일이 이미 지난 공고는 생성 즉시 만료-OPEN(한 번도 열리지 않는 마감 공고)이 된다 —
+     * 생성 경로(create·replaceActive) 공통 가드. 전임 모집 자동 마감보다 먼저 호출해
+     * 잘못된 요청이 기존 모집을 건드리지 못하게 한다.
+     */
+    private void requireEndDateNotPast(LocalDate endDate) {
+        if (endDate != null && endDate.isBefore(LocalDate.now(clock))) {
+            throw new RecruitmentException.PastEndDateException();
         }
     }
 

@@ -5,6 +5,12 @@ import { EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE } from '@duing/schemas';
 
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 
+// 고정 날짜는 "종료일은 오늘 이후" 규칙(createRecruitmentSchema)에 만료된다 — 종료일만 상대 미래로 계산한다.
+const futureEndDateSource = new Date();
+futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);
+const FUTURE_END_DATE = `${futureEndDateSource.getFullYear()}-${String(futureEndDateSource.getMonth() + 1).padStart(2, '0')}-${String(futureEndDateSource.getDate()).padStart(2, '0')}`;
+
+
 const CONTENT_PLACEHOLDER =
   '동아리 소개, 가입 후 일정, 회비 안내 등 지원 전에 알아야 할 내용을 적어주세요';
 const EXTERNAL_URL_PLACEHOLDER = 'https://docs.google.com/forms/...';
@@ -29,7 +35,7 @@ function fillCreateBasics() {
     target: { value: '신입 부원 모집' },
   });
   fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
-  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: '2026-05-31' } });
+  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
   fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '5' } });
 }
 
@@ -191,7 +197,7 @@ const externalCloneSeed: RecruitmentDetail = {
   clubName: '두잉 동아리',
   title: '레거시 외부 폼 모집',
   startDate: '2025-09-10',
-  endDate: '2025-09-24',
+  endDate: FUTURE_END_DATE,
   capacity: 12,
   status: 'CLOSED',
   displayStatus: 'CLOSED',
@@ -231,7 +237,7 @@ describe('RecruitmentForm — 외부 폼 모집 복제 시드', () => {
     expect(screen.queryByRole('switch', { name: '면접 진행' })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
-    fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: '2026-05-31' } });
+    fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
     fireEvent.click(screen.getByRole('button', { name: '복제하여 모집 시작' }));
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
@@ -262,7 +268,7 @@ describe('RecruitmentForm — 외부 폼 모집 복제 시드', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
-    fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: '2026-05-31' } });
+    fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
     fireEvent.click(screen.getByRole('button', { name: '복제하여 모집 시작' }));
 
     expect(await screen.findByText(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE)).toBeInTheDocument();

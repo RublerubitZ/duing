@@ -4,6 +4,12 @@ import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 import { toBuilderQuestions } from '../../app/manage/clubs/[clubId]/recruitments/_components/QuestionBuilder';
 
+// 고정 날짜는 "종료일은 오늘 이후" 규칙(createRecruitmentSchema)에 만료된다 — 종료일만 상대 미래로 계산한다.
+const futureEndDateSource = new Date();
+futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);
+const FUTURE_END_DATE = `${futureEndDateSource.getFullYear()}-${String(futureEndDateSource.getMonth() + 1).padStart(2, '0')}-${String(futureEndDateSource.getDate()).padStart(2, '0')}`;
+
+
 describe('toBuilderQuestions — undefined(구 BE) 와 [](신 BE 외부 폼) 구분', () => {
   it('빈 배열이면 legacy questions 텍스트로 fallback 하지 않는다', () => {
     expect(toBuilderQuestions([], ['서버가 이미 없다고 답한 질문'], () => 'key-1')).toEqual([]);
@@ -114,7 +120,7 @@ function fillCreateBasics() {
     target: { value: '신입 부원 모집' },
   });
   fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
-  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: '2026-05-31' } });
+  fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
   fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '5' } });
 }
 
