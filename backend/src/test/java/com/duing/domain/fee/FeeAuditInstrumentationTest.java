@@ -282,7 +282,7 @@ class FeeAuditInstrumentationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("회비 계좌는 최초 등록·변경·삭제가 각각 감사로 남고 detail 에 계좌번호·예금주가 실리지 않는다")
+    @DisplayName("회비 계좌는 등록·변경·삭제가 감사로 남고 값이 그대로인 재저장은 남지 않으며 계좌번호·예금주는 실리지 않는다")
     void accountLifecycleIsAuditedWithoutPii() {
         upsertAccount("KB", ACCOUNT_NUMBER, ACCOUNT_HOLDER);
 
@@ -291,7 +291,13 @@ class FeeAuditInstrumentationTest extends IntegrationTestBase {
         assertThat(registered.getActorUserId()).isEqualTo(leaderUserId);
         assertThat(detailOf(registered).get("bank").asText()).isEqualTo("KB");
 
-        // 같은 동아리에 다시 등록하면 계좌가 갱신되므로 변경 감사가 남는다.
+        // 같은 값으로 다시 저장하는 것은 계좌 교체가 아니다 — 여기서 변경 감사를 남기면
+        // 폼을 두 번 저장한 것만으로 FA-08(계좌 빈번 교체, 임계 2회·CRITICAL)이 오탐한다.
+        upsertAccount("KB", ACCOUNT_NUMBER, ACCOUNT_HOLDER);
+        assertThat(eventsOf(ClubAuditEventType.FEE_ACCOUNT_UPDATED)).isEmpty();
+        assertThat(eventsOf(ClubAuditEventType.FEE_ACCOUNT_REGISTERED)).hasSize(1);
+
+        // 값이 실제로 달라지면 계좌가 갱신되므로 변경 감사가 남는다.
         upsertAccount("TOSS", "222-222-222", "새예금주");
         ClubAuditEvent updated = singleEventOf(ClubAuditEventType.FEE_ACCOUNT_UPDATED);
         assertThat(detailOf(updated).get("bank").asText()).isEqualTo("TOSS");

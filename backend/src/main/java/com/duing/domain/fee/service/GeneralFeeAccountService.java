@@ -47,27 +47,52 @@ public class GeneralFeeAccountService implements FeeAccountService {
         if (bankMatchingAdminService.isActiveUsable(command.clubId())) {
             throw new FeeAccountException.BankMatchingActiveException();
         }
+        FeeAccount existingAccount = feeAccountRepository.findByClubId(command.clubId()).orElse(null);
+        // 값이 하나도 달라지지 않은 저장은 갱신도 감사도 하지 않는다 — 운영진이 계좌 폼을 두 번 저장한 것뿐인데
+        // FA-08(계좌 빈번 교체, 임계 2회·CRITICAL)이 수납 경로 변조로 경보하면 감사 콘솔을 못 믿게 된다.
+        if (existingAccount != null && isSameAccount(existingAccount, command)) {
+            return existingAccount.getId();
+        }
         // 평문 계좌번호는 저장 직전에 암호화한다 — 영속 계층에는 암호문만 들어간다.
         // clubId 를 AAD 로 바인딩해 다른 동아리 행에 끼워 넣어도 복호화되지 않게 한다.
         String encryptedAccountNumber = feeAccountCipher.encrypt(command.accountNumber(), command.clubId());
-        // 등록/변경 구분은 upsert 분기(람다) 밖에서 선판정한다 — 분기 안에서는 한 줄로 기록할 지점이 없다.
-        boolean existing = feeAccountRepository.existsByClubId(command.clubId());
-        Long accountId = feeAccountRepository.findByClubId(command.clubId())
-                .map(existingAccount -> {
-                    existingAccount.update(command.bank(), encryptedAccountNumber, command.accountHolder());
-                    return existingAccount.getId();
-                })
-                .orElseGet(() -> {
-                    FeeAccount account = FeeAccount.create(
-                            command.clubId(), command.bank(), encryptedAccountNumber, command.accountHolder());
-                    return feeAccountRepository.save(account).getId();
-                });
-        // 계좌번호·예금주는 detail 에도 절대 싣지 않는다(스펙 §9) — 은행 코드만 남긴다.
+        if (existingAccount != null) {
+            existingAccount.update(command.bank(), encryptedAccountNumber, command.accountHolder());
+            saveAccountAudit(ClubAuditEventType.FEE_ACCOUNT_UPDATED, command);
+            return existingAccount.getId();
+        }
+        FeeAccount account = feeAccountRepository.save(FeeAccount.create(
+                command.clubId(), command.bank(), encryptedAccountNumber, command.accountHolder()));
+        saveAccountAudit(ClubAuditEventType.FEE_ACCOUNT_REGISTERED, command);
+        return account.getId();
+    }
+
+    /** 계좌번호·예금주는 detail 에도 절대 싣지 않는다(스펙 §9) — 은행 코드만 남긴다. */
+    private void saveAccountAudit(ClubAuditEventType eventType, UpsertFeeAccountCommand command) {
         clubAuditEventRepository.save(ClubAuditEvent.feeAccount(
-                existing ? ClubAuditEventType.FEE_ACCOUNT_UPDATED : ClubAuditEventType.FEE_ACCOUNT_REGISTERED,
-                command.clubId(), command.actorId(),
+                eventType, command.clubId(), command.actorId(),
                 AuditDetailJson.of(Map.of("bank", command.bank().name()))));
-        return accountId;
+    }
+
+    /**
+     * 저장하려는 값이 기존 계좌와 완전히 같은가. 암호문은 저장할 때마다 AEAD nonce 가 달라 서로 비교할 수 없으므로
+     * 평문끼리 비교한다. 복호화가 실패하면(키 교체·손상) 같다고 단정할 수 없어 변경으로 취급한다 —
+     * 여기서 예외를 던지면 계좌를 다시 등록해 복구하는 길까지 막힌다.
+     */
+    private boolean isSameAccount(FeeAccount existingAccount, UpsertFeeAccountCommand command) {
+        if (existingAccount.getBank() != command.bank()
+                || !command.accountHolder().equals(existingAccount.getAccountHolder())) {
+            return false;
+        }
+        try {
+            return command.accountNumber().equals(
+                    feeAccountCipher.decrypt(existingAccount.getAccountNumber(), existingAccount.getClubId()));
+        } catch (RuntimeException decryptionFailure) {
+            // 평문·암호문·키는 절대 로깅하지 않는다 — clubId 와 원인만 남긴다.
+            log.warn("기존 회비 계좌 복호화 실패 — 값 비교를 건너뛰고 변경으로 기록한다: clubId={}",
+                    existingAccount.getClubId(), decryptionFailure);
+            return false;
+        }
     }
 
     @Override

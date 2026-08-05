@@ -197,7 +197,13 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
         }
         long issuedCount = adminFeeAuditQueryRepository.countIssuedBills(clubId, period);
         if (issuedCount == 0) {
-            return Optional.empty();
+            // 발행이 0건이면 비율을 낼 수 없지만 침묵하면 안 된다 — 취소는 updated_at, 발행은 created_at 기준이라
+            // 지난 학기 청구를 이번 달에 몰아 취소하면 분모만 0 이 되고 이 Rule 이 겨냥한 시나리오가 통째로 빠져나간다.
+            return Optional.of(new FeeAnomaly("FA-03", FeeAnomalySeverity.WARNING, "청구 취소 과다",
+                    "기간 내 청구 취소 %d건 (기간 내 발행 없음, 기준 %d건)".formatted(cancelledCount, CANCEL_MIN),
+                    Map.of("cancelledCount", cancelledCount,
+                            "issuedCount", issuedCount,
+                            "thresholdCancelledCount", CANCEL_MIN)));
         }
         double cancelRatio = (double) cancelledCount / issuedCount;
         if (cancelRatio < CANCEL_RATIO_WARNING) {

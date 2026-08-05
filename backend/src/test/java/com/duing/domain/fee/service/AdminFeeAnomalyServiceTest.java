@@ -131,6 +131,26 @@ class AdminFeeAnomalyServiceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("지난 학기 청구를 이번 달에 몰아 취소하면 발행이 0건이어도 5건부터 보고하고 4건이면 침묵한다")
+    void cancelRuleReportsMassCancellationWithoutIssuance() {
+        Long reportedClubId = clubWithBillsCancelledAfterIssuePeriod("취소5건동아리", 5);
+        Long quietClubId = clubWithBillsCancelledAfterIssuePeriod("취소4건동아리", 4);
+
+        JsonPath report = evaluate(reportedClubId);
+        assertThat(report.getString(rulePath("FA-03") + ".severity")).isEqualTo("WARNING");
+        assertThat(report.getString(rulePath("FA-03") + ".description"))
+                .isEqualTo("기간 내 청구 취소 5건 (기간 내 발행 없음, 기준 5건)");
+        assertThat(report.getLong(rulePath("FA-03") + ".evidence.cancelledCount")).isEqualTo(5L);
+        assertThat(report.getLong(rulePath("FA-03") + ".evidence.issuedCount"))
+                .as("분모가 0 이라 비율은 싣지 않는다 — 발행이 없었다는 사실 자체가 근거다")
+                .isZero();
+
+        assertThat(evaluate(quietClubId).getList("data.anomalies.ruleId", String.class))
+                .as("취소가 기준(5건) 미만이면 발행이 없어도 보고하지 않는다")
+                .doesNotContain("FA-03");
+    }
+
+    @Test
     @DisplayName("계좌 변경은 요청 기간이 30일이어도 90일까지 넓혀 보므로 두 달 전 교체까지 CRITICAL 로 잡힌다")
     void accountChangeRuleWidensWindowToNinetyDays() {
         LocalDate today = LocalDate.now(SEOUL);
@@ -235,6 +255,23 @@ class AdminFeeAnomalyServiceTest extends IntegrationTestBase {
             payment.voidPayment(leaderUserId, "중복 입금 정정", LocalDateTime.now(SEOUL));
             paymentRepository.save(payment);
         }
+        return clubId;
+    }
+
+    /**
+     * 발행은 기본 기간(최근 30일) 밖, 취소는 기간 안인 청구를 심는다 — 지난 학기 청구를 이번 달에 몰아 취소한 상황이다.
+     * 취소 시각은 updated_at(취소 저장 시점 = 지금)이고 발행 시각만 SQL 로 되돌린다(created_at 은 JVM 존 벽시계).
+     */
+    private Long clubWithBillsCancelledAfterIssuePeriod(String clubName, int cancelledCount) {
+        Long clubId = saveClub(clubName);
+        for (int index = 0; index < cancelledCount; index++) {
+            FeeBill bill = feeBillRepository.findById(saveBill(clubId, LocalDate.now(SEOUL).plusDays(7)))
+                    .orElseThrow();
+            bill.cancel();
+            feeBillRepository.save(bill);
+        }
+        jdbcTemplate.update("UPDATE fee_bill SET created_at = ? WHERE club_id = ?",
+                Timestamp.valueOf(LocalDateTime.now().minusDays(200)), clubId);
         return clubId;
     }
 
