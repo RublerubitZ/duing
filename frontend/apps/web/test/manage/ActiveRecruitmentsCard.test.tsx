@@ -124,6 +124,19 @@ describe('ActiveRecruitmentsCard', () => {
     expect(badge.className).toContain('text-charcoal-3');
   });
 
+  // 만료-OPEN(#894): 이 카드는 raw status 기준 필터를 쓰므로 마감일이 지난 OPEN 도 남는다.
+  // '마감' 칩을 달면 실제로 열려 있는 모집을 닫힌 것처럼 읽게 된다.
+  it('마감일이 지난 OPEN 모집은 "기간 종료" 칩으로 표기한다', () => {
+    mockUseActiveRecruitments.mockReturnValue({
+      data: [recruitment({ displayStatus: 'CLOSED', effectivelyOpen: false, endDate: kstDatePlusDays(-3) })],
+      isLoading: false,
+      isError: false,
+    });
+    render(<ActiveRecruitmentsCard clubId={1} />);
+    expect(screen.getByText('기간 종료')).toBeInTheDocument();
+    expect(screen.queryByText('마감')).toBeNull();
+  });
+
   it('ALWAYS_OPEN(상시모집)은 D-day를 렌더하지 않는다', () => {
     mockUseActiveRecruitments.mockReturnValue({
       data: [recruitment({ displayStatus: 'ALWAYS_OPEN', endDate: kstDatePlusDays(2) })],

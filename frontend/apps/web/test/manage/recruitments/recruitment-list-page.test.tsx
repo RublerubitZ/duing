@@ -115,4 +115,35 @@ describe('RecruitmentsPage', () => {
     expect(screen.getByRole('link', { name: '면접 관리' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '통계' })).toBeInTheDocument();
   });
+
+  // 만료-OPEN(#894): 마감일은 지났지만 수동 마감 전이라 심사·마감이 남아 있는 구간.
+  // 지난 모집으로 떨어뜨리면 마감 버튼을 가진 현재 모집 카드가 렌더되지 않아 마감할 방법이 사라진다.
+  it('마감일이 지난 OPEN 모집은 현재 모집으로 두고 심사 중임을 안내한다', async () => {
+    server.use(
+      recruitmentListHandler([
+        {
+          id: 11, clubId: CLUB_ID, clubName: '두잉', title: '11기 신입 모집',
+          startDate: '2025-03-01', endDate: '2025-03-14', capacity: 20,
+          status: 'OPEN', displayStatus: 'CLOSED', effectivelyOpen: false,
+          applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER',
+        },
+      ]),
+      summaryHandler(11, { total: 12, submitted: 4, onHold: 1 }),
+    );
+    renderPage();
+
+    // 현재 모집 카드(제목 링크 1회 + 마감 액션)로 렌더된다 — 지난 모집 표는 비어 있다.
+    expect(await screen.findByRole('link', { name: '11기 신입 모집' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모집 종료' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '모집글 편집' })).toBeInTheDocument();
+    expect(screen.getByText('아직 마감된 모집이 없어요.')).toBeInTheDocument();
+    // 심사가 남아 있음이 KPI(검토 대기 5건)와 안내 문구로 드러난다.
+    expect(screen.getByText('검토 대기')).toBeInTheDocument();
+    expect(await screen.findByText('5')).toBeInTheDocument();
+    expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
+    // 칩은 '마감'이라고 단정하지 않는다.
+    expect(screen.getByText('기간 종료')).toBeInTheDocument();
+    // 캠페인 기간은 끝났으므로 새 모집 CTA 는 그대로 열어둔다(등록 시 자동 마감은 작성 화면이 고지).
+    expect(screen.getByRole('link', { name: /새 모집 만들기/ })).toBeInTheDocument();
+  });
 });

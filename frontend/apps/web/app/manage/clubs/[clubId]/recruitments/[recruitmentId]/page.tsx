@@ -11,7 +11,13 @@ import {
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
-import { displayStatusLabel, recruitmentPeriodLabel } from '../../../../../_lib/recruitmentDisplay';
+import {
+  displayStatusLabel,
+  isRecruitmentUnderReview,
+  recruitmentPeriodLabel,
+  recruitmentUnderReviewNotice,
+  RECRUITMENT_UNDER_REVIEW_LABEL,
+} from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
@@ -51,7 +57,11 @@ export default function RecruitmentDetailPage({
     return <LoadingGate label="모집 정보 불러오는 중" />;
   }
 
-  const isClosed = recruitment.displayStatus === 'CLOSED';
+  // 액션 게이트(수정·마감·삭제)는 raw status 기준이다 — 마감일이 지났어도 수동 마감 전이면 백엔드는
+  // 모집을 OPEN(심사 진행 중)으로 다루므로, 여기서 displayStatus 로 막으면 운영진이 마감할 방법이 사라진다.
+  const isClosed = recruitment.status === 'CLOSED';
+  // 마감일만 지난 구간 — '마감'이라 안내하면 거짓이므로 별도 문구·칩으로 분리한다.
+  const isUnderReview = isRecruitmentUnderReview(recruitment);
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
   const applicationModeLabel = isExternal ? '외부 폼' : '자체 폼';
   // 배지의 플랫폼명은 저장된 URL 호스트로 판별한다 — 화이트리스트 밖 레거시 URL 이면 생략한다.
@@ -106,10 +116,15 @@ export default function RecruitmentDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      {/* CLOSED 배너 */}
+      {/* 상태 배너 — 실제 마감과 '마감일만 경과'를 구분해 안내한다 */}
       {isClosed && (
         <div className="mb-6 rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
           이미 마감된 모집입니다.
+        </div>
+      )}
+      {isUnderReview && (
+        <div className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {recruitmentUnderReviewNotice(recruitment.applicationMode)}
         </div>
       )}
 
@@ -138,10 +153,14 @@ export default function RecruitmentDetailPage({
           className={
             isClosed
               ? 'mt-1 shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
-              : 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
+              : isUnderReview
+                ? 'mt-1 shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700'
+                : 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
           }
         >
-          {displayStatusLabel(recruitment.displayStatus)}
+          {isUnderReview
+            ? RECRUITMENT_UNDER_REVIEW_LABEL
+            : displayStatusLabel(recruitment.displayStatus)}
         </span>
       </div>
 

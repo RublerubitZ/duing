@@ -5,12 +5,18 @@ import Link from 'next/link';
 import type { RecruitmentSummary } from '@duing/types';
 import { useCloseRecruitmentMutation, useRecruitmentStatsSummaryQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
+import {
+  isRecruitmentUnderReview,
+  recruitmentPeriodLabel,
+  recruitmentUnderReviewNotice,
+  RECRUITMENT_UNDER_REVIEW_LABEL,
+} from '@/app/_lib/recruitmentDisplay';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { DDayBadge } from '@/app/manage/_components/DDayBadge';
 import {
   RECRUITMENT_DISPLAY_STATUS_BADGE,
   RECRUITMENT_DISPLAY_STATUS_LABEL,
+  RECRUITMENT_UNDER_REVIEW_BADGE,
 } from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import { ExternalRecruitmentActions } from './ExternalRecruitmentActions';
@@ -33,6 +39,9 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
 
   const now = new Date();
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
+  // 마감일은 지났지만 수동 마감 전 — 카드는 그대로 두되(마감·편집 액션이 여기 있다) 칩과 안내 문구로
+  // 캠페인 기간이 끝났고 심사만 남았음을 드러낸다.
+  const isUnderReview = isRecruitmentUnderReview(recruitment);
   // 마감 확인 다이얼로그의 미결 지원서 경고용 — 외부 폼은 지원 데이터가 없어 조회하지 않는다.
   // KPI Row·통계 페이지와 같은 훅·쿼리키라 대부분 캐시 재사용이다.
   const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
@@ -55,15 +64,27 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
     <div className="card border-l-4 border-l-sage p-6">
       <div className="flex flex-wrap items-center gap-1">
         <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+            isUnderReview
+              ? RECRUITMENT_UNDER_REVIEW_BADGE
+              : RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]
+          }`}
         >
-          {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+          {isUnderReview
+            ? RECRUITMENT_UNDER_REVIEW_LABEL
+            : RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
         </span>
         <DDayBadge recruitment={recruitment} now={now} />
         <span className="ml-2 text-xs text-charcoal-3">
           {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
         </span>
       </div>
+
+      {isUnderReview && (
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+          {recruitmentUnderReviewNotice(recruitment.applicationMode)}
+        </p>
+      )}
 
       <h2 className="mt-2">
         <Link href={toRoute(recruitmentBasePath)} className="text-xl font-bold text-ink-deep hover:underline">

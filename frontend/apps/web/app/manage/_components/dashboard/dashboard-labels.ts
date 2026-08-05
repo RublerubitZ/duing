@@ -21,3 +21,10 @@ export const RECRUITMENT_DISPLAY_STATUS_BADGE: Record<RecruitmentDisplayStatus, 
   ALWAYS_OPEN: 'bg-sky-100 text-sky-700',
   CLOSED: 'bg-slate-100 text-slate-600',
 };
+
+/**
+ * 만료-OPEN(마감일 경과·수동 마감 전) 칩 색. displayStatus 는 CLOSED 지만 모집은 아직 열려 있어
+ * 마감(slate)과 구분하고, 운영진의 처리가 남았음을 알리는 주의색을 쓴다.
+ * 라벨은 `RECRUITMENT_UNDER_REVIEW_LABEL`(app/_lib/recruitmentDisplay).
+ */
+export const RECRUITMENT_UNDER_REVIEW_BADGE = 'bg-amber-100 text-amber-700';
