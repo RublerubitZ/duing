@@ -132,7 +132,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /마감된 모집은 지원현황이 조회 전용으로 전환되며, 지원 상태 변경, 평가, 면접 라운드 생성이\s+불가능합니다\./,
+        /마감된 모집은 평가와 면접 진행이 멈추고, 남은 지원서는 합격·불합격 확정만 할 수 있습니다\./,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('계속하시겠습니까?')).toBeInTheDocument();
