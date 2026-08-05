@@ -50,6 +50,13 @@ export const APPLICATION_STATUS_LABEL = APPLICATION_STATUS_OPERATOR_LABEL;
 /** 마감된 모집에서 결과가 정해지지 않은 지원에 쓰는 표기. 이후 결과가 나올 수 있으므로 종결을 단정하지 않는다. */
 export const APPLICATION_CLOSED_WITHOUT_RESULT_LABEL = '결과 미발표';
 
+/**
+ * 위 표기의 좁은 폭 변형 — 3열로 쪼갠 요약 타일(열당 약 53px)에서는 원래 표기가 두 줄로 접혀
+ * 그 열의 숫자만 아래로 내려간다. 같은 타일의 '진행 중'·'완료' 도 압축 표기라 어감이 어긋나지 않는다.
+ * 배지·필터 탭처럼 폭이 있는 자리에는 쓰지 말 것.
+ */
+export const APPLICATION_CLOSED_WITHOUT_RESULT_SHORT_LABEL = '미발표';
+
 /** 합격·불합격 — 결과가 확정된 지원. 술어로 두어 소비처가 단언 없이 좁힐 수 있게 한다. */
 export type TerminalApplicationStatus = Extract<ApplicationStatus, 'ACCEPTED' | 'REJECTED'>;
 

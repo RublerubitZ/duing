@@ -1,6 +1,6 @@
 /* a-apply-status-parts.jsx → TypeScript 변환: ApplySummaryCard */
 
-import { APPLICATION_CLOSED_WITHOUT_RESULT_LABEL } from '@/app/_constants/application-status';
+import { APPLICATION_CLOSED_WITHOUT_RESULT_SHORT_LABEL } from '@/app/_constants/application-status';
 
 import { SparkleFull } from './Shared';
 import type { Counts } from '../_constants/data';
@@ -46,7 +46,7 @@ export function ApplySummaryCard({ counts }: Props) {
         {[
           { label: '진행 중', value: progress },
           { label: '완료',   value: done },
-          { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL, value: closedWithoutResult },
+          { label: APPLICATION_CLOSED_WITHOUT_RESULT_SHORT_LABEL, value: closedWithoutResult },
         ].map((summaryItem, i) => (
           <div key={i} style={{
             textAlign: 'center',
