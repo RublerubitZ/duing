@@ -13,10 +13,11 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '../../../../../_lib/route';
 import {
   displayStatusLabel,
-  isRecruitmentUnderReview,
+  isRecruitmentExpiredOpen,
+  recruitmentExpiredOpenNotice,
   recruitmentPeriodLabel,
-  recruitmentUnderReviewNotice,
-  RECRUITMENT_UNDER_REVIEW_LABEL,
+  RECRUITMENT_EXPIRED_OPEN_BADGE,
+  RECRUITMENT_EXPIRED_OPEN_LABEL,
 } from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { InterviewStageChip } from './_components/InterviewStageChip';
@@ -61,7 +62,7 @@ export default function RecruitmentDetailPage({
   // 모집을 OPEN(심사 진행 중)으로 다루므로, 여기서 displayStatus 로 막으면 운영진이 마감할 방법이 사라진다.
   const isClosed = recruitment.status === 'CLOSED';
   // 마감일만 지난 구간 — '마감'이라 안내하면 거짓이므로 별도 문구·칩으로 분리한다.
-  const isUnderReview = isRecruitmentUnderReview(recruitment);
+  const isExpiredOpen = isRecruitmentExpiredOpen(recruitment);
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
   const applicationModeLabel = isExternal ? '외부 폼' : '자체 폼';
   // 배지의 플랫폼명은 저장된 URL 호스트로 판별한다 — 화이트리스트 밖 레거시 URL 이면 생략한다.
@@ -122,9 +123,10 @@ export default function RecruitmentDetailPage({
           이미 마감된 모집입니다.
         </div>
       )}
-      {isUnderReview && (
-        <div className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {recruitmentUnderReviewNotice(recruitment.applicationMode)}
+      {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
+      {isExpiredOpen && (
+        <div role="status" className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {recruitmentExpiredOpenNotice(recruitment.applicationMode)}
         </div>
       )}
 
@@ -149,18 +151,24 @@ export default function RecruitmentDetailPage({
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
+        {/* 상태 칩. 라벨(displayStatusLabel)·색 규칙이 운영 콘솔 칩(recruitmentStatusChip)과 다른 어휘라
+            그 헬퍼를 쓰지 않는다 — 통합하면 예정/상시/마감 표기가 바뀌므로 디자인 판단이 먼저다. */}
         <span
-          className={
+          className={`mt-1 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
             isClosed
-              ? 'mt-1 shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500'
-              : isUnderReview
-                ? 'mt-1 shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700'
-                : 'mt-1 shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
-          }
+              ? 'bg-slate-100 text-slate-500'
+              : isExpiredOpen
+                ? RECRUITMENT_EXPIRED_OPEN_BADGE
+                : 'bg-emerald-100 text-emerald-700'
+          }`}
         >
-          {isUnderReview
-            ? RECRUITMENT_UNDER_REVIEW_LABEL
-            : displayStatusLabel(recruitment.displayStatus)}
+          {/* 제목 옆 맨 텍스트라 스크린리더에서 무엇의 상태인지 알 수 없다 */}
+          <span className="sr-only">모집 상태 </span>
+          <span>
+            {isExpiredOpen
+              ? RECRUITMENT_EXPIRED_OPEN_LABEL
+              : displayStatusLabel(recruitment.displayStatus)}
+          </span>
         </span>
       </div>
 

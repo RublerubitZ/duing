@@ -6,18 +6,13 @@ import type { RecruitmentSummary } from '@duing/types';
 import { useCloseRecruitmentMutation, useRecruitmentStatsSummaryQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import {
-  isRecruitmentUnderReview,
+  isRecruitmentExpiredOpen,
+  recruitmentExpiredOpenNotice,
   recruitmentPeriodLabel,
-  recruitmentUnderReviewNotice,
-  RECRUITMENT_UNDER_REVIEW_LABEL,
+  recruitmentStatusChip,
 } from '@/app/_lib/recruitmentDisplay';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { DDayBadge } from '@/app/manage/_components/DDayBadge';
-import {
-  RECRUITMENT_DISPLAY_STATUS_BADGE,
-  RECRUITMENT_DISPLAY_STATUS_LABEL,
-  RECRUITMENT_UNDER_REVIEW_BADGE,
-} from '@/app/manage/_components/dashboard/dashboard-labels';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import { ExternalRecruitmentActions } from './ExternalRecruitmentActions';
 import { CloseRecruitmentConfirmDescription } from './CloseRecruitmentConfirmDescription';
@@ -41,7 +36,8 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
   // 마감일은 지났지만 수동 마감 전 — 카드는 그대로 두되(마감·편집 액션이 여기 있다) 칩과 안내 문구로
   // 캠페인 기간이 끝났고 심사만 남았음을 드러낸다.
-  const isUnderReview = isRecruitmentUnderReview(recruitment);
+  const isExpiredOpen = isRecruitmentExpiredOpen(recruitment);
+  const statusChip = recruitmentStatusChip(recruitment);
   // 마감 확인 다이얼로그의 미결 지원서 경고용 — 외부 폼은 지원 데이터가 없어 조회하지 않는다.
   // KPI Row·통계 페이지와 같은 훅·쿼리키라 대부분 캐시 재사용이다.
   const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
@@ -63,16 +59,8 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
   return (
     <div className="card border-l-4 border-l-sage p-6">
       <div className="flex flex-wrap items-center gap-1">
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            isUnderReview
-              ? RECRUITMENT_UNDER_REVIEW_BADGE
-              : RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]
-          }`}
-        >
-          {isUnderReview
-            ? RECRUITMENT_UNDER_REVIEW_LABEL
-            : RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusChip.badgeClass}`}>
+          {statusChip.label}
         </span>
         <DDayBadge recruitment={recruitment} now={now} />
         <span className="ml-2 text-xs text-charcoal-3">
@@ -80,9 +68,10 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
         </span>
       </div>
 
-      {isUnderReview && (
-        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-          {recruitmentUnderReviewNotice(recruitment.applicationMode)}
+      {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
+      {isExpiredOpen && (
+        <p role="status" className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+          {recruitmentExpiredOpenNotice(recruitment.applicationMode)}
         </p>
       )}
 

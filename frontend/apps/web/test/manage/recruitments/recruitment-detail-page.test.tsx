@@ -8,7 +8,12 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { RecruitmentQuestionItem, StatsSummary } from '@duing/types';
+import type {
+  RecruitmentDisplayStatus,
+  RecruitmentQuestionItem,
+  RecruitmentStatus,
+  StatsSummary,
+} from '@duing/types';
 import RecruitmentDetailPage from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/page';
 
 // 운영진 모집 상세 페이지 — useInterview 토글에 따른 "면접 관리" 링크 노출 +
@@ -48,12 +53,14 @@ function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
 const server = setupServer(statsSummaryHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-type QuestionsMockOpts = {
+type RecruitmentDetailMockOpts = {
   questions?: string[];
   questionItems?: RecruitmentQuestionItem[];
   /** 저장 상태·표시 상태를 따로 준다 — 만료-OPEN(OPEN + CLOSED) 구간 검증용. */
-  status?: 'OPEN' | 'CLOSED';
-  displayStatus?: 'UPCOMING' | 'OPEN' | 'ALWAYS_OPEN' | 'CLOSED';
+  status?: RecruitmentStatus;
+  displayStatus?: RecruitmentDisplayStatus;
+  /** 서버가 내려주는 파생 값. 기본값만 서버 규칙을 흉내 내고, 필요하면 테스트가 직접 지정한다. */
+  effectivelyOpen?: boolean;
 };
 
 function mockRecruitmentDetail(
@@ -63,7 +70,8 @@ function mockRecruitmentDetail(
     questionItems,
     status = 'OPEN',
     displayStatus = 'OPEN',
-  }: QuestionsMockOpts = {},
+    effectivelyOpen = status === 'OPEN' && displayStatus !== 'CLOSED',
+  }: RecruitmentDetailMockOpts = {},
 ) {
   return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
     HttpResponse.json({
@@ -78,7 +86,7 @@ function mockRecruitmentDetail(
         capacity: 10,
         status,
         displayStatus,
-        effectivelyOpen: status === 'OPEN' && displayStatus !== 'CLOSED',
+        effectivelyOpen,
         applicationMode: 'SELF',
         externalFormUrl: null,
         useInterview,

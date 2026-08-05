@@ -9,7 +9,7 @@ import {
   useRecruitmentDetailQuery,
 } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { isRecruitmentUnderReview } from '@/app/_lib/recruitmentDisplay';
+import { isRecruitmentExpiredOpen } from '@/app/_lib/recruitmentDisplay';
 import posthog from 'posthog-js';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import {
@@ -47,12 +47,12 @@ export default function NewRecruitmentPage({
   // 새 모집 등록은 마감일이 지난 채 OPEN 으로 남아 있는 기존 모집을 백엔드가 자동 마감한 뒤 진행된다
   // (GeneralRecruitmentService.create — 아직 진행 중인 모집이면 마감이 아니라 409 로 거부된다).
   // 마감되면 그 모집의 지원현황이 조회 전용으로 굳으므로(아카이브 스펙 §9) 제출 전에 고지한다.
-  // 자동 마감 대상은 "마감일이 지난 OPEN"(isRecruitmentUnderReview) — 백엔드가 같은 today 기준으로
+  // 자동 마감 대상은 "마감일이 지난 OPEN"(isRecruitmentExpiredOpen) — 백엔드가 같은 today 기준으로
   // 계산해 내려준 displayStatus 를 쓰므로 FE 날짜 연산이 필요 없다.
   // 활성 모집은 동아리당 1건뿐이라(V38 부분 유니크 인덱스) 자동 마감 대상도 최대 1건이다.
   // 목록을 못 받았으면(로딩·실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
   const { data: clubRecruitments } = useClubRecruitmentsQuery(isNaN(clubId) ? undefined : clubId);
-  const closingRecruitment = clubRecruitments?.find(isRecruitmentUnderReview);
+  const closingRecruitment = clubRecruitments?.find(isRecruitmentExpiredOpen);
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 

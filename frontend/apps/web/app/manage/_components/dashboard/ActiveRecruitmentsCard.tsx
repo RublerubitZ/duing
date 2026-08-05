@@ -5,15 +5,7 @@ import { useActiveRecruitments } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
 import { DDayBadge } from '@/app/manage/_components/DDayBadge';
-import {
-  isRecruitmentUnderReview,
-  RECRUITMENT_UNDER_REVIEW_LABEL,
-} from '@/app/_lib/recruitmentDisplay';
-import {
-  RECRUITMENT_DISPLAY_STATUS_BADGE,
-  RECRUITMENT_DISPLAY_STATUS_LABEL,
-  RECRUITMENT_UNDER_REVIEW_BADGE,
-} from './dashboard-labels';
+import { recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 
 export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
   const { data, isLoading } = useActiveRecruitments(clubId);
@@ -30,8 +22,8 @@ export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
     >
       <ul className="flex flex-col gap-2">
         {recruitments.map((recruitment) => {
-          // 마감일만 지난 모집도 여기 남는다(심사 진행 중) — '마감' 대신 기간 종료 칩으로 구분한다.
-          const isUnderReview = isRecruitmentUnderReview(recruitment);
+          // 마감일만 지난 모집도 여기 남는다(심사 진행 중) — 칩 헬퍼가 '마감' 대신 기간 종료로 구분한다.
+          const statusChip = recruitmentStatusChip(recruitment);
           return (
             <li key={recruitment.id}>
               <Link
@@ -40,16 +32,8 @@ export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
               >
                 <span className="truncate font-medium text-charcoal">{recruitment.title}</span>
                 <span className="ml-3 flex shrink-0 items-center">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      isUnderReview
-                        ? RECRUITMENT_UNDER_REVIEW_BADGE
-                        : RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]
-                    }`}
-                  >
-                    {isUnderReview
-                      ? RECRUITMENT_UNDER_REVIEW_LABEL
-                      : RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusChip.badgeClass}`}>
+                    {statusChip.label}
                   </span>
                   <DDayBadge recruitment={recruitment} now={now} />
                 </span>
