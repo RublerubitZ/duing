@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -42,7 +43,7 @@ const summary = {
 };
 
 function loaded(rows: (typeof summary)[]) {
-  return { data: rows, isLoading: false, isError: false };
+  return { data: rows, isLoading: false, isFetching: false, isError: false };
 }
 
 function renderPage(defaultOpenId: string) {
@@ -81,8 +82,44 @@ describe('내 지원 딥링크', () => {
 
   it('목록 조회 자체가 실패하면 404 가 아니라 오류 안내를 보여준다', () => {
     // 통신 실패와 "그 지원서가 없다"는 다른 사실이다 — 섞으면 장애를 404 로 오해하게 만든다.
-    mockApplicationsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    mockApplicationsQuery.mockReturnValue({
+      data: undefined, isLoading: false, isFetching: false, isError: true,
+    });
 
     expect(() => renderPage('42')).not.toThrow();
+  });
+
+  it('딥링크로 연 모달을 닫아도 404 가 아니라 목록이 남는다', async () => {
+    // 가드가 상태(openId)가 아니라 prop(defaultOpenId)만 보면, 닫기·백드롭·뒤로가기·철회 성공이
+    // 전부 404 가 된다 — 철회는 목록에서 그 지원까지 지우므로 특히 되돌릴 수 없다.
+    mockApplicationsQuery.mockReturnValue(loaded([summary]));
+
+    renderPage('42');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getAllByText('두잉').length).toBeGreaterThan(0);
+  });
+
+  it('쿼리가 아직 비활성이라 답이 없는 프레임에서는 404 로 끊지 않는다', () => {
+    // useMyApplicationsQuery 는 enabled: isAuthenticated 라 서버 렌더에서 꺼져 있다.
+    // isLoading 은 isPending && isFetching 이므로 이 프레임에서 false — "답이 왔다"로 읽으면 안 된다.
+    mockApplicationsQuery.mockReturnValue({
+      data: undefined, isLoading: false, isFetching: false, isError: false,
+    });
+
+    expect(() => renderPage('42')).not.toThrow();
+  });
+
+  it('옛 목록을 든 채 재검증 중이면 404 로 끊지 않는다', () => {
+    // 지원 제출은 invalidateQueries 만 하므로 비활성 쿼리는 옛 목록을 그대로 들고 stale 표시만 된다.
+    // 그 목록에는 방금 낸 지원이 없고 isLoading 도 false 라, 재검증 중 판정하면 정상 딥링크가 404 다.
+    mockApplicationsQuery.mockReturnValue({
+      data: [summary], isLoading: false, isFetching: true, isError: false,
+    });
+
+    expect(() => renderPage('99')).not.toThrow();
   });
 });
