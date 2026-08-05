@@ -1,34 +1,35 @@
 import Link from 'next/link';
 
 import { formatDateTimeKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
-import type { ApplicationSummary } from '@duing/types';
+import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 
 import { SectionHeader } from './SectionHeader';
 
-type ActiveApplicationStatus = 'SUBMITTED' | 'ON_HOLD' | 'INTERVIEW_PENDING';
-
 // 서류검토 단계 제거 (스펙 §5-5). 목록 응답에는 useInterview 가 없어 미니 진행바는
 // 항상 2단으로 근사하고, 면접 단계 조건부 표시는 상세 스테퍼가 담당한다.
 const STEPS = ['심사', '면접'] as const;
 
-const STATUS_STEP: Record<ActiveApplicationStatus, number> = {
+// 전 상태에 값을 두어 렌더 중 행을 버리지 않는다 — 카운트는 세고 행은 안 그리는 유령 항목을 만들지
+// 않기 위해서다. 진행 중 목록에는 종결 상태가 들어오지 않지만(분류가 걸러낸다) 방어값을 남긴다.
+const STATUS_STEP: Record<ApplicationStatus, number> = {
   SUBMITTED: 1,
   // 보류는 지원자에게 심사 중과 동일하게 보인다 (스펙 §1-1).
   ON_HOLD: 1,
   INTERVIEW_PENDING: 2,
+  ACCEPTED: 2,
+  REJECTED: 2,
 };
 
-const ACTION_LABEL: Record<ActiveApplicationStatus, string> = {
+const ACTION_LABEL: Record<ApplicationStatus, string> = {
   SUBMITTED: '지원서 보기',
   ON_HOLD: '지원서 보기',
   INTERVIEW_PENDING: '면접 일정 보기',
+  ACCEPTED: '지원서 보기',
+  REJECTED: '지원서 보기',
 };
-
-const isActiveStatus = (status: string): status is ActiveApplicationStatus =>
-  status in STATUS_STEP;
 
 // KST "M. D. (요일) 오전/오후 HH:MM" — 면접 일정 요약용 기존 표기 구조 유지.
 const INTERVIEW_AT_FORMATTER = kstDateTimeFormatter({
@@ -65,7 +66,7 @@ export function SectionApply({ applications }: Props) {
         <div className="max-w-layout mx-auto">
           <SectionHeader
             title="진행 중인 지원 · 0"
-            hint="현재 지원서를 작성 중이거나 결과를 기다리는 동아리입니다."
+            hint="아직 결과를 기다리고 있는 지원 내역입니다."
           />
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             진행 중인 지원이 없어요.{' '}
@@ -87,12 +88,11 @@ export function SectionApply({ applications }: Props) {
       <div className="max-w-layout mx-auto">
         <SectionHeader
           title={`진행 중인 지원 · ${applications.length}`}
-          hint="현재 지원서를 작성 중이거나 결과를 기다리는 동아리입니다."
+          hint="아직 결과를 기다리고 있는 지원 내역입니다."
         />
 
         <div className="flex flex-col gap-3">
           {applications.map((app) => {
-            if (!isActiveStatus(app.status)) return null;
             const step = STATUS_STEP[app.status];
             const isInterview = app.status === 'INTERVIEW_PENDING';
 

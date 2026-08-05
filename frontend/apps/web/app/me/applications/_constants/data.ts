@@ -3,7 +3,10 @@
    (a-apply-status.jsx 의 1번 섹션을 TypeScript 로 변환)
    ============================================================ */
 
-import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
+import {
+  APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_STATUS_APPLICANT_LABEL,
+} from '@/app/_constants/application-status';
 
 export const PAGE_MAX = 900;
 export const PAGE_PAD = '28px';
@@ -42,7 +45,10 @@ export type AppStatus =
   | 'interview-pending'
   | 'passed'
   | 'failed'
-  | 'applied';
+  | 'applied'
+  // 모집이 마감됐는데 합격/불합격이 정해지지 않은 지원. 지원 상태가 아니라 지원 상태 × 모집 마감의
+  // 파생값이라 ApplicationStatus 에는 대응 enum 이 없다.
+  | 'closed-unresolved';
 
 export type App = {
   id: string;
@@ -68,7 +74,7 @@ export type StatusMetaEntry = {
   bg: string;
 };
 
-export type FilterKey = 'all' | 'doc' | 'intv' | 'pass' | 'fail';
+export type FilterKey = 'all' | 'doc' | 'intv' | 'pass' | 'fail' | 'closed';
 
 export type Filter = {
   key: FilterKey;
@@ -83,7 +89,7 @@ export type Counts = Record<string, number>;
    AppStatus 는 ApplicationStatus 의 파생 키라 SoT 를 그대로 색인할 수 없어
    대응하는 enum 값을 골라 소비한다.
    ============================================================ */
-export const STATUS_META: Record<string, StatusMetaEntry> = {
+export const STATUS_META: Record<AppStatus, StatusMetaEntry> = {
   // INTERVIEW_PENDING 의 sub-state(면접 일정 배정 완료) — SoT 에 대응 enum 이 없어
   // '면접 대상' 다음 단계임이 드러나는 표기를 쓴다. 같은 카드의 '면접일' 표기와 짝.
   'interview-scheduled': { label: '면접일 확정',                                        pill: 'coral', textColor: '#9A3F23', bg: '#FCE2D9' },
@@ -92,17 +98,20 @@ export const STATUS_META: Record<string, StatusMetaEntry> = {
   'failed':              { label: APPLICATION_STATUS_APPLICANT_LABEL.REJECTED,          pill: 'fail',  textColor: '#9A3F23', bg: '#FCE2D9' },
   // SUBMITTED·ON_HOLD 는 지원자에게 같은 표기라 어느 쪽을 참조해도 동일하다 (스펙 §1-1).
   'applied':             { label: APPLICATION_STATUS_APPLICANT_LABEL.SUBMITTED,         pill: 'muted', textColor: '#4A504F', bg: '#EDEAE0' },
+  // 모집 마감 × 미결 — 진행도 결과도 아니므로 중립 회색으로 둔다.
+  'closed-unresolved':   { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,              pill: 'muted', textColor: '#6B7280', bg: '#E9E7E1' },
 };
 
 
 
 /* status → filter key 매핑 — 키 이름은 내부 식별자다(표기와 무관, 'doc' 은 초기 명명 잔재) */
-export const STATUS_TO_FILTER: Record<string, FilterKey | undefined> = {
+export const STATUS_TO_FILTER: Record<AppStatus, FilterKey> = {
   'interview-scheduled': 'intv',
   'interview-pending':   'intv',
   'passed':              'pass',
   'failed':              'fail',
   'applied':             'doc',
+  'closed-unresolved':   'closed',
 };
 
 /* 카테고리 → 작은 라벨 색상 */
@@ -123,4 +132,5 @@ export const FILTERS: Filter[] = [
   { key: 'intv', label: APPLICATION_STATUS_APPLICANT_LABEL.INTERVIEW_PENDING },
   { key: 'pass', label: APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED },
   { key: 'fail', label: APPLICATION_STATUS_APPLICANT_LABEL.REJECTED },
+  { key: 'closed', label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL },
 ];

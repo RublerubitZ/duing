@@ -1,17 +1,22 @@
 import Link from 'next/link';
 
 import { formatDateKst } from '@duing/hooks/datetime';
-import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
+import type { ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import {
+  APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  isTerminalApplicationStatus,
+} from '@/app/_constants/application-status';
+import type { TerminalApplicationStatus } from '@/app/_constants/application-status';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 
 import { SectionHeader } from './SectionHeader';
 
-type ArchivedStatus = Extract<ApplicationStatus, 'ACCEPTED' | 'REJECTED'>;
+type PillMeta = { label: string; className: string };
 
-const PILL: Record<ArchivedStatus, { label: string; className: string }> = {
+const PILL: Record<TerminalApplicationStatus, PillMeta> = {
   ACCEPTED: {
     label: '🎉 합격',
     className: 'bg-sage-mist text-ink-deep border-sage-mist',
@@ -22,8 +27,17 @@ const PILL: Record<ArchivedStatus, { label: string; className: string }> = {
   },
 };
 
-const isArchivedStatus = (status: ApplicationStatus): status is ArchivedStatus =>
-  status === 'ACCEPTED' || status === 'REJECTED';
+// 결과 없이 종료된 지원 — 합격/불합격 어느 쪽도 아니라 별도 표기를 쓴다. 여기서 걸러내면
+// 진행 중에서도 빠진 항목이 어디에도 안 보이므로(카운트만 남는 유령 항목) 반드시 렌더한다.
+const CLOSED_WITHOUT_RESULT_PILL: PillMeta = {
+  label: `🗂 ${APPLICATION_CLOSED_WITHOUT_RESULT_LABEL}`,
+  className: 'bg-graysoft text-charcoal-2 border-line',
+};
+
+const pillOf = (application: ApplicationSummary): PillMeta =>
+  isTerminalApplicationStatus(application.status)
+    ? PILL[application.status]
+    : CLOSED_WITHOUT_RESULT_PILL;
 
 type Props = {
   applications: ApplicationSummary[];
@@ -39,7 +53,7 @@ export function SectionArchived({ applications }: Props) {
       <div className="max-w-layout mx-auto">
         <SectionHeader
           title={`지난 지원 · ${applications.length}`}
-          hint="합격 또는 불합격으로 마무리된 지원 내역입니다."
+          hint="결과가 나왔거나 모집이 종료된 지원 내역입니다."
         />
 
         {applications.length === 0 ? (
@@ -52,8 +66,7 @@ export function SectionArchived({ applications }: Props) {
         ) : (
           <div className="flex flex-col gap-3">
             {applications.map((app) => {
-              if (!isArchivedStatus(app.status)) return null;
-              const pill = PILL[app.status];
+              const pill = pillOf(app);
 
               return (
                 <Link

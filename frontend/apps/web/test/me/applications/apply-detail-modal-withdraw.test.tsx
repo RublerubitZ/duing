@@ -46,6 +46,12 @@ describe('ApplyDetailModal — 지원 철회', () => {
     withdrawMutate.mockClear();
   });
 
+  it('모집이 마감돼 결과가 없는 지원(closed-unresolved)에는 철회 버튼이 없다 — 누르면 BE 가 409 를 준다', () => {
+    renderModal('closed-unresolved');
+
+    expect(screen.queryByRole('button', { name: '지원 철회' })).toBeNull();
+  });
+
   it('SUBMITTED(applied) 지원에는 "지원 철회" 버튼을 노출한다', () => {
     renderModal('applied');
     expect(screen.getByRole('button', { name: '지원 철회' })).toBeInTheDocument();
