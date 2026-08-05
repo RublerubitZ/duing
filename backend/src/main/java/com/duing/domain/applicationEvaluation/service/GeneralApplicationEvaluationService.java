@@ -7,8 +7,6 @@ import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.applicationEvaluation.service.dto.command.UpsertApplicationEvaluationCommand;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
-import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;

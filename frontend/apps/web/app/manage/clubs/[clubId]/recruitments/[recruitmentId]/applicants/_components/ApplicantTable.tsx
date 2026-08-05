@@ -43,7 +43,6 @@ type Props = {
   useInterview: boolean;
   clubId: number;
   recruitmentId: number;
-  /** 마감(raw CLOSED) 모집이면 조회 전용 — 일괄 선택 체크박스를 감춘다 (스펙 §6). */
 };
 
 export function ApplicantTable({

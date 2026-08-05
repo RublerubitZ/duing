@@ -41,7 +41,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public SlotsCreationResult createSlots(CreateInterviewSlotsCommand createCommand) {
-        InterviewRound round = getRoundWithManagerAuth(createCommand.roundId(), createCommand.currentUserId());
+        InterviewRound round = getRoundForWrite(createCommand.roundId(), createCommand.currentUserId());
         requireSlotChangeablePhase(round);
 
         for (CreateInterviewSlotsCommand.SlotItem slotItem : createCommand.slots()) {
@@ -97,7 +97,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     public void updateSlot(UpdateInterviewSlotCommand updateCommand) {
         InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(updateCommand.slotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        InterviewRound round = getRoundWithManagerAuth(slot.getRoundId(), updateCommand.currentUserId());
+        InterviewRound round = getRoundForWrite(slot.getRoundId(), updateCommand.currentUserId());
         requireSlotChangeablePhase(round);
 
         boolean startTimeGiven = updateCommand.startTime() != null;
@@ -136,7 +136,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     public void deleteSlot(Long slotId, Long currentUserId) {
         InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        InterviewRound round = getRoundWithManagerAuth(slot.getRoundId(), currentUserId);
+        InterviewRound round = getRoundForWrite(slot.getRoundId(), currentUserId);
         requireSlotChangeablePhase(round);
 
         if (interviewAvailabilityRepository.countBySlotId(slot.getId()) > 0) {
@@ -157,7 +157,7 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
         interviewSlotRepository.delete(slot);
     }
 
-    private InterviewRound getRoundWithManagerAuth(Long roundId, Long currentUserId) {
+    private InterviewRound getRoundForWrite(Long roundId, Long currentUserId) {
         return interviewRoundAccessor.getForWrite(roundId, currentUserId);
     }
 

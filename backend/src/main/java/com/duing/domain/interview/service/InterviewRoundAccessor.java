@@ -13,7 +13,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * 라운드 조회 + 운영진 권한 검증 헬퍼 — 3번째 사용처(배정 서비스)가 생겨 rule of three 로 추출.
- * 잠금 조회가 필요한 경로는 직접 잠금 조회 후 {@link #requireManager} 만 사용한다.
+ *
+ * <p><b>쓰기 경로는 {@link #requireManagerForWrite}/{@link #getForWrite} 를 쓴다</b> — 권한과 함께
+ * 모집 마감까지 본다. {@link #requireManager}/{@link #getWithManagerAuth} 는 조회 전용이며, 마감된
+ * 모집의 라운드도 열람은 계속 허용해야 하므로 마감을 보지 않는다.
+ * 잠금 조회가 필요한 경로는 직접 잠금 조회 후 위 검증 메서드만 호출한다.
  */
 @Component
 @RequiredArgsConstructor

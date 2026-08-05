@@ -31,7 +31,6 @@ import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import com.duing.domain.interview.service.dto.query.RoundSummaryQuery;
 import com.duing.domain.interview.service.dto.query.SlotSelectionCount;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
@@ -268,7 +267,10 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     public void cancelRound(Long roundId, Long currentUserId) {
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
+        // 취소는 새 활동이 아니라 정리 행위라 마감된 모집에서도 허용한다. 막으면 자동 마감으로 남겨진
+        // 라운드를 아무도 치울 수 없어, 이 정책이 지원서에서 없앤 교착을 라운드 계층에 그대로 재생산한다.
+        // (취소는 학생 알림을 발행하지 않으므로 마감 후 실행돼도 잘못된 안내가 나가지 않는다.)
+        interviewRoundAccessor.requireManager(round, currentUserId);
 
         round.cancel();
         // §16-2 — 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해

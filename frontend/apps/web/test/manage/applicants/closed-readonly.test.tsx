@@ -9,7 +9,7 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import type { ApplicationStatus, RecruitmentStatus } from '@duing/types';
 
-// 스펙 §6 — 마감(raw CLOSED) 모집은 조회 전용 아카이브다.
+// 스펙 §6 — 마감(raw CLOSED) 모집은 최종 결과 확정만 허용되는 아카이브다.
 // 게이트는 raw status 단일식이라 "마감일은 지났지만 수동 마감 전(OPEN)" 모집은 심사 중이므로 전 기능을 유지하고,
 // status 를 아직 못 받은 창(로딩·조회 실패)에서는 fail-open — 진짜 방어선은 BE 409(RECRUITMENT_CLOSED).
 
@@ -161,7 +161,7 @@ function renderWithProviders(children: ReactNode) {
   return queryClient;
 }
 
-describe('지원현황 목록 — 마감 모집 읽기 전용', () => {
+describe('지원현황 목록 — 마감 모집 — 최종 결과 확정만', () => {
   it('raw CLOSED 면 마감 배너가 뜨고, 최종 결과를 확정할 수 있도록 선택은 유지된다', async () => {
     server.use(recruitmentHandler('CLOSED'), applicantsHandler);
 
@@ -218,7 +218,7 @@ describe('지원현황 목록 — 마감 모집 읽기 전용', () => {
   });
 });
 
-describe('지원자 상세 — 마감 모집 읽기 전용', () => {
+describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () => {
   it('raw CLOSED 면 최종 결과 버튼만 남고 되돌리는 전이·평가 삭제는 사라진다', async () => {
     server.use(
       recruitmentHandler('CLOSED'),

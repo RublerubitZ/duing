@@ -90,7 +90,13 @@
 - **Modify:** `recruitments/_components/PastRecruitmentsTable.tsx` — 행 액션에 **"지원자" 링크 추가** (`…/recruitments/{id}/applicants`) — 기존 3-hop 을 1-hop 으로. 외부 폼 모집 행은 링크 제외.
 - **표면별 "지난 모집" 기준 차이는 의도 (문서 리뷰 반영·명시)**: 모집 관리의 PastRecruitmentsTable 모집단은 기존대로 `displayStatus === 'CLOSED'`(캠페인 기간 관점 — 마감일 경과·심사 중 raw-OPEN 포함), 진입 페이지·스위처의 "지난 모집" 그룹은 raw `status === 'CLOSED'`(읽기 전용 관점). 마감일이 지났지만 심사 중인 모집은 모집 관리 표에는 "지난 모집"으로 뜨되 그 행의 "지원자" 링크는 **전 기능 화면**으로 간다(심사 진행 중이므로 정상), 스위처에서는 "진행 중" 그룹에 속한다.
 
-## 4. BE 읽기 전용 가드 (진짜 가드는 BE — FE 는 표면)
+## 4. BE 가드 (진짜 가드는 BE — FE 는 표면)
+
+> **[2026-08-05 개정]** 아래 "가드 5곳" 목록은 최초 설계 기준이다. 현재는 `ClosedRecruitmentPolicy` 가
+> 판정을 소유하고, 면접 라운드 운영(수정·발송·리마인드·슬롯 CRUD·배정·확정)까지 같은 정책을 경유한다.
+> 상태 변경은 **차단이 아니라 최종 결과만 허용**으로 바뀌었고(§1-3 개정), **라운드 취소는 정리 행위라
+> 마감 후에도 허용**한다 — 막으면 자동 마감으로 남은 라운드를 아무도 치울 수 없는 교착이 생긴다.
+> 면접 리마인더 잡도 마감 모집을 제외한다.
 
 신설 예외 2종과 **API 계약 (사용자 확정 — FE 가 동일 코드 기준으로 토스트·예외 처리를 일관 구현)**:
 
@@ -100,7 +106,7 @@
 | Error Code | **`RECRUITMENT_CLOSED`** (두 예외 공통 — 같은 원인) |
 | 응답 형태 | 기존 `ApiResponse.error(message, code)` — `ApplicationException` 의 machine-readable `code` 필드 사용 (기성 인프라, 신규 응답 스키마 없음) |
 
-- 운영진용: `RecruitmentException.ClosedRecruitmentReadOnlyException` — "마감된 모집은 조회만 가능합니다." + code `RECRUITMENT_CLOSED`
+- 운영진용: `RecruitmentException.ClosedRecruitmentReadOnlyException` — "마감된 모집에서는 할 수 없는 작업입니다." + code `RECRUITMENT_CLOSED`
 - 지원자용: `ApplicationDomainException.CannotWithdrawClosedRecruitmentException` — "마감된 모집의 지원은 철회할 수 없어요." + code `RECRUITMENT_CLOSED` ('보류' 등 내부 상태 미노출)
 
 가드 지점 5곳 (각각 recruitment 로드 지점에 1분기 — withdraw 만 현재 recruitment 미접근이라 lazy SELECT 1회가 추가되며 무해, 그 외는 기로드):
