@@ -18,7 +18,7 @@ type Props = {
 export function BatchCancelDialog({ batch, isPending, onConfirm, onClose }: Props) {
   return (
     <Dialog open={batch !== null} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[22px]" aria-describedby={undefined}>
+      <DialogContent busy={isPending} className="w-[calc(100%-2rem)] max-w-sm rounded-[22px]" aria-describedby={undefined}>
         <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">제출 목록을 취소할까요?</DialogTitle>
         <p className="text-sm text-charcoal-2">취소하면 이 제출 목록은 사용할 수 없게 됩니다.</p>
         <p className="text-sm text-charcoal-2">

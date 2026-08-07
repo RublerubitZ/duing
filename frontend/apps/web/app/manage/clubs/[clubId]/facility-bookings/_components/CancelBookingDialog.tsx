@@ -15,7 +15,7 @@ type Props = {
 export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabel, onConfirm, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next && !isPending) onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm" aria-describedby={undefined}>
+      <DialogContent busy={isPending} className="w-[calc(100%-2rem)] max-w-sm" aria-describedby={undefined}>
         <DialogTitle>예약 신청을 취소할까요?</DialogTitle>
         <p className="text-sm text-charcoal-2">{summaryLabel}</p>
         <p className="text-xs text-charcoal-3">취소하면 되돌릴 수 없어요. 같은 시간이 필요하면 다시 신청해야 해요.</p>

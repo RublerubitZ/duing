@@ -107,8 +107,8 @@ export function ManualMatchDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+    <Dialog open onOpenChange={(open) => !open && !approveMatch.isPending && onClose()}>
+      <DialogContent busy={approveMatch.isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>회원 선택 후 매칭</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
