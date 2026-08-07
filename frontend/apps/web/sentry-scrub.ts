@@ -2,7 +2,8 @@ import type { Breadcrumb, ErrorEvent } from '@sentry/nextjs';
 
 // 학생 PII(이름·학번·이메일·전화)는 관리자 검색 등에서 URL 쿼리스트링으로 전달되므로,
 // Sentry 전송 직전 요청 URL·브레드크럼 URL 의 쿼리스트링을 제거한다(백엔드 beforeSend 와 동일 정책).
-function stripQuery(url: string): string {
+// PostHog 도 같은 정책을 쓴다(instrumentation-client 의 sanitize_properties) — 판정을 한 곳에 둔다.
+export function stripQuery(url: string): string {
   const queryIndex = url.indexOf('?');
   return queryIndex === -1 ? url : url.slice(0, queryIndex);
 }

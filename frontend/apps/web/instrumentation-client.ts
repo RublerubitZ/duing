@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 
-import { scrubBreadcrumb, scrubEvent } from './sentry-scrub';
+import { scrubBreadcrumb, scrubEvent, stripQuery } from './sentry-scrub';
 
 // 클라이언트(브라우저) 런타임 Sentry 초기화. NEXT_PUBLIC_SENTRY_DSN 이 비면 자동 비활성.
 Sentry.init({
@@ -48,6 +48,29 @@ import posthog from 'posthog-js';
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
+// URL 을 담는 속성 이름 — 키로 고르면 SDK 가 URL 속성을 새로 추가해도 자동으로 덮인다.
+// ($current_url · $referrer · $initial_current_url · $initial_referrer …)
+const URL_BEARING_PROPERTY = /url|referrer/i;
+
+/**
+ * PostHog 로 나가는 속성에서 URL 쿼리스트링을 제거한다.
+ *
+ * <p>관리자 콘솔의 검색어는 주소에 실린다 — 지원자 관리 검색창 안내가 "이름·학번·학과로 검색"이라
+ * 운영진이 이름을 타이핑하면 주소가 `?q=<이름>` 이 된다. PostHog 는 히스토리 변경마다 페이지뷰를
+ * 보내므로 그대로 두면 "누가 누구를 검색했는지"가 이름·학번 단위로 분석 도구에 쌓이고,
+ * 한 번 전송된 것은 회수할 수 없다.
+ *
+ * <p>Sentry 는 같은 이유로 이미 쿼리스트링을 지운다 — 판정을 sentry-scrub 한 곳에 두고 공유한다.
+ */
+function stripUrlQueryFromProperties(properties: Record<string, unknown>): Record<string, unknown> {
+  for (const [propertyName, propertyValue] of Object.entries(properties)) {
+    if (typeof propertyValue === 'string' && URL_BEARING_PROPERTY.test(propertyName)) {
+      properties[propertyName] = stripQuery(propertyValue);
+    }
+  }
+  return properties;
+}
+
 if (!posthogKey) {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line no-console
@@ -69,6 +92,9 @@ if (!posthogKey) {
     // 이 플래그는 대시보드 토글과 AND 로 묶인다(SDK: server_side_enabled && !disable_session_recording).
     // 원격으로 켜도 배포된 코드가 이 값을 들고 있는 한 레코더 스크립트조차 내려받지 않는다.
     disable_session_recording: true,
+    // 주소에 실린 검색어(관리자 콘솔의 이름·학번)가 페이지뷰마다 전송되는 것을 막는다.
+    // 이 줄이 사라지면 학생 PII 가 분석 도구에 축적되고 회수할 수 없다.
+    sanitize_properties: stripUrlQueryFromProperties,
     debug: process.env.NODE_ENV === 'development',
   });
 }

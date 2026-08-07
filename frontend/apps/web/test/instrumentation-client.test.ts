@@ -47,4 +47,41 @@ describe('PostHog 초기화 개인정보 정책', () => {
     const options = await captureInitOptions();
     expect(options.capture_exceptions).toBe(false);
   });
+
+  // 관리자 콘솔 검색어는 주소에 실린다(`?q=이름·학번`). 페이지뷰가 히스토리 변경마다 나가므로
+  // 이 정제가 빠지면 "누가 누구를 검색했는지"가 분석 도구에 쌓이고 회수할 수 없다.
+  it('URL 속성의 쿼리스트링을 제거한 뒤 전송한다', async () => {
+    const options = await captureInitOptions();
+    const sanitized = options.sanitize_properties?.(
+      {
+        $current_url: 'https://duings.com/manage/clubs/1/applicants?q=홍길동&status=SUBMITTED',
+        $referrer: 'https://duings.com/admin/users?q=20241234',
+        $initial_current_url: 'https://duings.com/clubs?recruitment=available',
+        $pathname: '/manage/clubs/1/applicants',
+      },
+      '$pageview',
+    );
+
+    expect(sanitized).toMatchObject({
+      $current_url: 'https://duings.com/manage/clubs/1/applicants',
+      $referrer: 'https://duings.com/admin/users',
+      $initial_current_url: 'https://duings.com/clubs',
+      $pathname: '/manage/clubs/1/applicants',
+    });
+  });
+
+  // $referrer 는 URL 이 아닌 값($direct)도 담는다 — 정제가 값을 망가뜨리면 유입 분석이 깨진다.
+  it('URL 이 아닌 속성과 쿼리 없는 주소는 그대로 둔다', async () => {
+    const options = await captureInitOptions();
+    const sanitized = options.sanitize_properties?.(
+      { $referrer: '$direct', $current_url: 'https://duings.com/clubs', $screen_name: '탐색' },
+      '$pageview',
+    );
+
+    expect(sanitized).toMatchObject({
+      $referrer: '$direct',
+      $current_url: 'https://duings.com/clubs',
+      $screen_name: '탐색',
+    });
+  });
 });
