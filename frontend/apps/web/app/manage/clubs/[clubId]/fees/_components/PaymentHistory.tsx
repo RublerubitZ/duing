@@ -149,7 +149,11 @@ function VoidPaymentConfirm({
 }: VoidPaymentConfirmProps) {
   const voidPayment = useVoidPaymentMutation(clubId, billId);
   // 전송 중 뒤로가기로 확인 UI 가 닫히면 취소된 것으로 오해한다 — ESC·바깥 클릭과 같은 기준으로 막는다.
-  useBackDismiss(true, voidPayment.isPending ? null : onClose);
+  // 핸들러를 null 로 떼면 훅이 엔트리를 회수했다가 다시 쌓아 히스토리 왕복이 늘어난다.
+  // 엔트리는 유지한 채 안에서 거부해야 훅이 준비해 둔 재push 경로를 탄다.
+  useBackDismiss(true, () => {
+    if (!voidPayment.isPending) onClose();
+  });
   const { addToast } = useToast();
   const [reason, setReason] = useState('');
 

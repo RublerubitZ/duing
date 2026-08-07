@@ -18,7 +18,7 @@ type Props = {
 export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Props) {
   return (
     <Dialog open={batch !== null} onOpenChange={(nextOpen) => { if (!nextOpen && !isPending) onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-[22px]" aria-describedby={undefined}>
+      <DialogContent busy={isPending} className="w-[calc(100%-2rem)] max-w-sm rounded-[22px]" aria-describedby={undefined}>
         {/* 목업 SubmitCompleteDialog — sage-mist 체크 타일 + 큰 타이틀. */}
         <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-sage-mist">
           <svg
