@@ -49,6 +49,12 @@ describe('DialogContent 전송 중 닫힘 가드', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
+  it('전송 중임을 보조기술에 알린다', () => {
+    renderDialog(true, vi.fn());
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+  });
+
   // 위 단언이 공허하지 않다는 근거 — 가드가 없으면 같은 조작으로 실제로 닫힌다.
   it('전송 중이 아니면 바깥을 눌러 닫힌다', async () => {
     const onOpenChange = vi.fn();
