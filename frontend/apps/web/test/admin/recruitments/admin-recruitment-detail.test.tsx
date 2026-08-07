@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { todayKstDateString } from '@duing/hooks/datetime';
 import type { AdminJoinLinkStatus, AdminRecruitmentDetail } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
@@ -62,6 +63,9 @@ function makeJoinLink(overrides: Partial<AdminJoinLinkStatus> = {}): AdminJoinLi
   };
 }
 
+// 하드코딩한 절대 날짜는 그 날이 지나면 테스트를 깨뜨린다 — 오늘 기준 상대 날짜로 만든다.
+const TOMORROW = todayKstDateString(new Date(Date.now() + 86_400_000));
+
 function makeDetail(overrides: Partial<AdminRecruitmentDetail> = {}): AdminRecruitmentDetail {
   return {
     recruitmentId: 5,
@@ -70,9 +74,13 @@ function makeDetail(overrides: Partial<AdminRecruitmentDetail> = {}): AdminRecru
     title: '2026 신입 부원 모집',
     applicationMode: 'SELF',
     status: 'OPEN',
+    displayStatus: 'OPEN',
+    closedAt: null,
     applicantCount: 12,
     startDate: '2026-03-02',
-    endDate: '2026-03-20',
+    // 진행 중 조합은 서버가 실제로 만들 수 있어야 한다 — 지난 종료일 + displayStatus OPEN 은
+    // 존재하지 않는 조합이라 픽스처가 거짓말을 하게 된다.
+    endDate: TOMORROW,
     updatedAt: '2026-08-01T02:30:00Z',
     externalFormUrl: null,
     joinLink: null,
@@ -116,11 +124,35 @@ describe('관리자 모집 상세', () => {
   });
 
   it('마감된 모집에는 강제 마감 버튼을 두지 않는다', () => {
-    mockDetailQuery.mockReturnValue(detailSuccess(makeDetail({ status: 'CLOSED' })));
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(makeDetail({ status: 'CLOSED', displayStatus: 'CLOSED' })),
+    );
 
     render(<AdminRecruitmentDetailPage recruitmentId={5} />);
 
     expect(screen.queryByRole('button', { name: '강제 마감' })).toBeNull();
+  });
+
+  it('마감된 모집은 마감 시각을 함께 보여준다', () => {
+    // 강제 마감의 주체인 화면인데 언제 마감됐는지 조회할 방법이 없었다(#896).
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({ status: 'CLOSED', displayStatus: 'CLOSED', closedAt: '2026-08-01T05:00:00Z' }),
+      ),
+    );
+
+    render(<AdminRecruitmentDetailPage recruitmentId={5} />);
+
+    expect(screen.getByText('마감 시각')).toBeInTheDocument();
+  });
+
+  it('마감 시각이 없으면 그 줄 자체를 띄우지 않는다', () => {
+    // 마감 전이거나 종료 시각이 없는 레거시 건 — 없는 시각을 지어내거나 빈칸으로 보여주지 않는다.
+    mockDetailQuery.mockReturnValue(detailSuccess(makeDetail({ closedAt: null })));
+
+    render(<AdminRecruitmentDetailPage recruitmentId={5} />);
+
+    expect(screen.queryByText('마감 시각')).toBeNull();
   });
 
   it('자체 지원 모집에는 외부 모집 안내 대신 지원자 패널을 붙인다', () => {

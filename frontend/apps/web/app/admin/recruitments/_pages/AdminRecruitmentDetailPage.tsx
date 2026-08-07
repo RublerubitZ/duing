@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useAdminRecruitmentDetailQuery, useForceCloseRecruitmentMutation } from '@duing/hooks';
 import { formatDateTimeKst } from '@duing/hooks/datetime';
-import type { ForceCloseRecruitmentPayload } from '@duing/types';
+import type { AdminRecruitmentDetail, ForceCloseRecruitmentPayload } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
@@ -19,9 +19,8 @@ import { AdminExternalRecruitmentPanel } from '../_components/AdminExternalRecru
 import { AdminForceCloseDialog } from '../_components/AdminForceCloseDialog';
 import { AdminSelfRecruitmentPanel } from '../_components/AdminSelfRecruitmentPanel';
 import {
-  RECRUITMENT_STATUS_BADGE_CLASS,
-  RECRUITMENT_STATUS_LABEL,
   applicationModeLabel,
+  recruitmentConsoleChip,
 } from '../_lib/recruitmentLabels';
 
 type Props = {
@@ -94,13 +93,7 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
                   {recruitment.title}
                 </h2>
               </div>
-              <span
-                className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${
-                  RECRUITMENT_STATUS_BADGE_CLASS[recruitment.status]
-                }`}
-              >
-                {RECRUITMENT_STATUS_LABEL[recruitment.status]}
-              </span>
+              <StatusChip recruitment={recruitment} />
             </div>
 
             <dl className="mt-5 grid grid-cols-1 gap-4 text-[13.5px] sm:grid-cols-2">
@@ -114,6 +107,11 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
               <MetaRow label="모집 기간">
                 {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
               </MetaRow>
+              {/* 강제 마감의 주체인 화면이라 언제 마감됐는지는 판단 근거다. 마감 전이거나 종료 시각이
+                  없는 레거시 건은 줄 자체를 띄우지 않는다 — 없는 시각을 지어내지 않는다. */}
+              {recruitment.closedAt && (
+                <MetaRow label="마감 시각">{formatDateTimeKst(recruitment.closedAt)}</MetaRow>
+              )}
               <MetaRow label="마지막 수정">{formatDateTimeKst(recruitment.updatedAt)}</MetaRow>
             </dl>
 
@@ -155,6 +153,18 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
         </>
       )}
     </main>
+  );
+}
+
+/** 라벨과 색은 항상 같이 갈리므로 한 번만 계산한다 — 목록의 StatusChip 과 같은 이유다. */
+function StatusChip({ recruitment }: { recruitment: AdminRecruitmentDetail }) {
+  const { label, badgeClass } = recruitmentConsoleChip(recruitment);
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${badgeClass}`}
+    >
+      {label}
+    </span>
   );
 }
 

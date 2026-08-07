@@ -14,6 +14,7 @@ import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentDetailQuer
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +53,8 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
         AdminRecruitmentRow recruitmentRow = new AdminRecruitmentRow(
                 recruitment,
                 recruitment.getClub().getName(),
-                applicationRepository.countByRecruitmentId(recruitmentId));
+                applicationRepository.countByRecruitmentId(recruitmentId),
+                LocalDate.now(clock));
 
         JoinCodeQuery activeJoinCode = findActiveJoinCode(recruitment);
         return new AdminRecruitmentDetailQuery(recruitmentRow, activeJoinCode,

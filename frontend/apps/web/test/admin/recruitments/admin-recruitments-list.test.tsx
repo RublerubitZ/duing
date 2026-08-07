@@ -56,9 +56,11 @@ function makeRecruitment(
     title: '2026 신입 부원 모집',
     applicationMode: 'SELF',
     status: 'OPEN',
+    displayStatus: 'OPEN',
     applicantCount: 12,
     startDate: '2026-03-02',
     endDate: TOMORROW,
+    closedAt: null,
     updatedAt: '2026-08-01T02:30:00Z',
     ...overrides,
   };
@@ -108,21 +110,45 @@ describe('관리자 모집 목록', () => {
 
   it('마감일 없는 모집은 기간 대신 상시모집으로 표기한다', () => {
     mockRecruitmentsQuery.mockReturnValue(
-      listSuccess([makeRecruitment({ title: '기간 없는 공고', endDate: null })]),
+      listSuccess([
+        makeRecruitment({ title: '기간 없는 공고', displayStatus: 'ALWAYS_OPEN', endDate: null }),
+      ]),
     );
 
     render(<AdminRecruitmentsPage />);
 
-    expect(within(rowByTitle('기간 없는 공고')).getByText('상시모집')).toBeInTheDocument();
+    // 상태 칩과 기간 칸 양쪽에 나타난다 — 서버가 표시 상태를 ALWAYS_OPEN 으로 내려주기 때문이다.
+    expect(within(rowByTitle('기간 없는 공고')).getAllByText('상시모집')).toHaveLength(2);
+  });
+
+  it('기간이 끝났는데 아직 열려 있는 모집은 모집중이 아니라 기간 종료로 적는다', () => {
+    // 같은 모집이 총동연 "모집중" / 학생 "모집마감"으로 갈리던 것을 없앤다 — 강제 마감 대상을
+    // 고르는 화면이라 표기가 실제와 다르면 판단 근거가 무너진다.
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ title: '기간 끝난 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    const row = rowByTitle('기간 끝난 모집');
+    expect(within(row).getByText('기간 종료')).toBeInTheDocument();
+    expect(within(row).queryByText('모집중')).toBeNull();
   });
 
   it('기간이 지났는데 아직 열려 있는 모집에만 운영 개입 배지를 단다', () => {
     mockRecruitmentsQuery.mockReturnValue(
       listSuccess([
-        makeRecruitment({ recruitmentId: 1, title: '기간 지난 열린 모집', status: 'OPEN', endDate: YESTERDAY }),
-        makeRecruitment({ recruitmentId: 2, title: '기간 지난 마감 모집', status: 'CLOSED', endDate: YESTERDAY }),
-        makeRecruitment({ recruitmentId: 3, title: '진행 중 모집', status: 'OPEN', endDate: TOMORROW }),
-        makeRecruitment({ recruitmentId: 4, title: '상시 열린 모집', status: 'OPEN', endDate: null }),
+        makeRecruitment({ recruitmentId: 1, title: '기간 지난 열린 모집', status: 'OPEN',
+          displayStatus: 'CLOSED', endDate: YESTERDAY }),
+        makeRecruitment({ recruitmentId: 2, title: '기간 지난 마감 모집', status: 'CLOSED',
+          displayStatus: 'CLOSED', endDate: YESTERDAY }),
+        makeRecruitment({ recruitmentId: 3, title: '진행 중 모집', status: 'OPEN',
+          displayStatus: 'OPEN', endDate: TOMORROW }),
+        makeRecruitment({ recruitmentId: 4, title: '상시 열린 모집', status: 'OPEN',
+          displayStatus: 'ALWAYS_OPEN', endDate: null }),
       ]),
     );
 

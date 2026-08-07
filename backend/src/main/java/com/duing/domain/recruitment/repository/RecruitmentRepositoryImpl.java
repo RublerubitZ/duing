@@ -219,11 +219,15 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                 .orderBy(orderSpecifiers(searchCondition.sort()))
                 .fetch();
 
+        // 표시 상태는 "오늘"에 의존하므로 KST(seoulClock) 기준으로 서버가 한 번만 판정한다 —
+        // 화면이 각자 계산하면 클라이언트 시계가 어긋난 순간 같은 모집을 다르게 부른다(#896).
+        LocalDate today = LocalDate.now(clock);
         return rows.stream()
                 .map(row -> new AdminRecruitmentRow(
                         row.get(recruitment),
                         row.get(club.name),
-                        row.get(application.count())))
+                        row.get(application.count()),
+                        today))
                 .toList();
     }
 
