@@ -67,7 +67,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 close 4경로(수동 마감·만료 OPEN 마감·replaceActive·동아리 폐쇄) + 벌크 마감(closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다 |
 | JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode.getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
 | AdminJoinLinkStatusResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | 위 JoinCodeResponse.joinExpiresAt 과 같은 파생·같은 변환(총동연 상세의 가입 링크 현황) |
-| AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
+| AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 closedAt·joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
+| AdminRecruitment{Summary,Detail}Response.closedAt | recruitment.closed_at | **seoul** | 위 RecruitmentSummaryResponse.closedAt 과 같은 컬럼·같은 변환(총동연 콘솔이 강제 마감 판단 근거로 쓴다) |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
 | JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService 승인/거절 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
@@ -96,6 +97,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | FederationFaqSearchMissResponse.lastSearchedAt | federation_faq_search_miss.last_searched_at (timestamptz) | system | DB NOW() 저장 — JDBC가 JVM 존 벽시계로 읽으므로 system 변환이 원 instant 복원 |
 | BankTransactionResponse.transactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | BankApiHttpClient.java:167 — BANK API를 KST 벽시계로 파싱 |
 | PaymentResponse.paidAt · ReceiptResponse.PaymentLine.paidAt | payment.paid_at (timestamptz) | **seoul** | GeneralPaymentService.java:60 atStartOfDay(SEOUL) / GeneralMatchedPaymentService.java:67 (KST) |
+| AdminFeeClubSummaryResponse.lastPaidAt | payment.paid_at (timestamptz) | **seoul** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 변환(총동연 회비 감사 목록) |
+| AdminFeeClubSummaryResponse.lastTransactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | 위 BankTransactionResponse.transactionAt 과 같은 컬럼·같은 변환 |
 | ReceiptResponse.issuedAt | (저장 없음 — 발급 시점) | Instant 직접 | GeneralReceiptService.java:74 `Instant.now(clock)` 로 전환 |
 | RoundCandidateResponse.submittedAt | application.created_at | system | BaseEntity 감사 |
 | interview availabilityDeadline·slot startTime/endTime, 예약·청구 일정(LocalDate/LocalTime) 전부 | - | 유지 | Schedule — 변경 없음 |

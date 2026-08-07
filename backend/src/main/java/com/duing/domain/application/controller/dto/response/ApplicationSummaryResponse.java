@@ -51,7 +51,7 @@ public record ApplicationSummaryResponse(
                 summaryQuery.clubName(),
                 summaryQuery.category(),
                 summaryQuery.logoUrl(),
-                summaryQuery.status(),
+                summaryQuery.status().asApplicantVisible(),
                 interview,
                 TimeMapper.systemWallClockToInstant(summaryQuery.submittedAt())
         );

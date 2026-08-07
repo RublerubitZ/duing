@@ -4,8 +4,10 @@ import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
- * 감사 이벤트 기록 전용 — 조회 화면은 후속이라 조회 메서드를 미리 만들지 않는다(스펙 v2 4.1).
- * 조회가 생기면 (club_id, created_at)·(recruitment_id, created_at) 인덱스(V102)를 쓰는 쿼리를 더한다.
+ * 감사 이벤트 기록 + 동아리 단위 타임라인 조회(스펙 v2 4.1). append-only 라 수정·삭제 메서드는 두지 않는다.
+ * 조회는 동적 조건이라 QueryDSL 로 {@link ClubAuditEventRepositoryCustom} 에 두며,
+ * (club_id, event_type, created_at) 인덱스(V105)를 탄다.
  */
-public interface ClubAuditEventRepository extends JpaRepository<ClubAuditEvent, Long> {
+public interface ClubAuditEventRepository
+        extends JpaRepository<ClubAuditEvent, Long>, ClubAuditEventRepositoryCustom {
 }

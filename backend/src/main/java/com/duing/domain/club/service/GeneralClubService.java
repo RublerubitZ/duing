@@ -141,12 +141,17 @@ public class GeneralClubService implements ClubService {
                 .toList();
 
         LocalDate today = LocalDate.now(clock);
-        StudentRecruitmentProjection activeRecruitment = recruitmentRepository.findActiveByClubId(clubId)
-                .map(active -> {
-                    Integer applicantCount = active.isShowApplicantCount()
-                            ? (int) applicationRepository.countByRecruitmentId(active.getId())
+        // 목록 카드와 같은 대표 모집 선정 규칙을 쓴다 — 진행 중인 모집이 없으면 가장 최근 마감 모집을
+        // 내려보낸다. 목록이 "모집마감" 칩을 띄우는데 상세는 "현재 모집 없음"이라 답하던 불일치를
+        // 없애기 위해서다(#895). 화면은 마감 상태를 이미 표시할 줄 알고, 지원 버튼은 표기 축
+        // (displayStatus) 판정이라 마감 모집에서 열리지 않는다.
+        StudentRecruitmentProjection representativeRecruitment = recruitmentRepository
+                .findRepresentativeByClubId(clubId, today)
+                .map(representative -> {
+                    Integer applicantCount = representative.isShowApplicantCount()
+                            ? (int) applicationRepository.countByRecruitmentId(representative.getId())
                             : null;
-                    return StudentRecruitmentProjection.from(active, today, applicantCount);
+                    return StudentRecruitmentProjection.from(representative, today, applicantCount);
                 })
                 .orElse(null);
 
@@ -154,8 +159,9 @@ public class GeneralClubService implements ClubService {
                 .map(leader -> ClubDetailQuery.of(
                         club, leader.getUser().getId(), leader.getUser().getName(),
                         resolveContactPhone(club, leader.getUser().getPhone(), viewer),
-                        photos, activeRecruitment))
-                .orElseGet(() -> ClubDetailQuery.of(club, null, null, null, photos, activeRecruitment));
+                        photos, representativeRecruitment))
+                .orElseGet(() -> ClubDetailQuery.of(
+                        club, null, null, null, photos, representativeRecruitment));
     }
 
     /**

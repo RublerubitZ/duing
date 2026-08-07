@@ -101,7 +101,7 @@ export function SectionSaved({ favorites }: Props) {
                         isRecruiting ? 'text-ink' : 'text-charcoal-3',
                       )}
                     >
-                      {isRecruiting ? `모집중 ${club.openRecruitmentCount}건` : '마감'}
+                      {isRecruiting ? `모집중 ${club.openRecruitmentCount}건` : '모집 없음'}
                     </span>
                   </div>
                 </Link>

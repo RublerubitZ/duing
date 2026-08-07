@@ -28,6 +28,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
+    /**
+     * 대표 모집 정렬에서 상시모집(endDate NULL)을 놓을 자리 — 가장 이른 날짜로 취급한다.
+     *
+     * <p>가장 늦은 날짜(9999-12-31)로 두면 마감된 상시모집이 "endDate 가 가장 최근인 마감 모집"을
+     * 영구히 이기고 대표 자리를 점유한다. 그 뒤로 기간제 모집을 몇 번을 더 돌려도 목록 카드와 상세가
+     * 옛날 상시모집을 가리킨다. 진행 중 그룹은 uk_recruitment_club_active 로 최대 1행이라 이 값의
+     * 영향을 받지 않으므로, 뒤집어도 마감 그룹의 정렬만 바로잡힌다.
+     */
+    private static final LocalDate REPRESENTATIVE_NULL_END_DATE = LocalDate.of(1, 1, 1);
+
     private final JPAQueryFactory queryFactory;
     // "오늘" 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 하루 어긋난다.
     private final Clock clock;
@@ -113,36 +123,17 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
             return Map.of();
         }
 
-        // 우선순위 식:
-        //   0 = isEffectivelyOpen (status=OPEN ∧ (endDate IS NULL ∨ endDate ≥ today))
-        //   1 = 그 외 (CLOSED 또는 status=OPEN 인데 endDate 가 과거)
-        NumberExpression<Integer> priority = new CaseBuilder()
-                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.isNull().or(recruitment.endDate.goe(today))))
-                .then(0)
-                .otherwise(1);
-
         List<Tuple> rows = queryFactory
                 .select(
                         recruitment.club.id,
                         recruitment.id,
                         recruitment.status,
                         recruitment.startDate,
-                        recruitment.endDate,
-                        priority,
-                        recruitment.endDate.coalesce(LocalDate.of(9999, 12, 31)),
-                        recruitment.createdAt
+                        recruitment.endDate
                 )
                 .from(recruitment)
                 .where(recruitment.club.id.in(clubIds))
-                .orderBy(
-                        recruitment.club.id.asc(),
-                        priority.asc(),
-                        // 활성 그룹: createdAt 최신 우선
-                        // 마감 그룹: endDate DESC (NULL coalesce 로 처리)
-                        recruitment.endDate.coalesce(LocalDate.of(9999, 12, 31)).desc(),
-                        recruitment.createdAt.desc()
-                )
+                .orderBy(prepend(recruitment.club.id.asc(), representativeOrder(today)))
                 .fetch();
 
         Map<Long, ClubActiveRecruitmentRow> picked = new HashMap<>();
@@ -160,6 +151,50 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
             ));
         }
         return picked;
+    }
+
+    @Override
+    public Optional<Recruitment> findRepresentativeByClubId(Long clubId, LocalDate today) {
+        return Optional.ofNullable(queryFactory
+                .selectFrom(recruitment)
+                .where(recruitment.club.id.eq(clubId))
+                .orderBy(representativeOrder(today))
+                .fetchFirst());
+    }
+
+    /**
+     * 대표 모집 선정 규칙 — 목록(배치)과 상세(단건)가 <b>같은 배열을 공유해야</b> 한다.
+     * 한쪽 정렬만 손대면 목록엔 "모집마감", 상세엔 "현재 모집 없음"이 동시에 뜨던 사고가 재발한다(#895).
+     *
+     * <ol>
+     *   <li>진행 중(status=OPEN ∧ (endDate IS NULL ∨ endDate ≥ today))이 먼저</li>
+     *   <li>그 안에서는 endDate 가 최근인 것부터 (상시모집은 {@link #REPRESENTATIVE_NULL_END_DATE} 자리)</li>
+     *   <li>동률이면 createdAt 최신, 그래도 동률이면 id 최신 — 두 조회의 실행계획이 달라도 같은 행이 나온다</li>
+     * </ol>
+     */
+    private static OrderSpecifier<?>[] representativeOrder(LocalDate today) {
+        return new OrderSpecifier<?>[]{
+                representativePriority(today).asc(),
+                recruitment.endDate.coalesce(REPRESENTATIVE_NULL_END_DATE).desc(),
+                recruitment.createdAt.desc(),
+                recruitment.id.desc()
+        };
+    }
+
+    private static NumberExpression<Integer> representativePriority(LocalDate today) {
+        return new CaseBuilder()
+                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
+                        .and(recruitment.endDate.isNull().or(recruitment.endDate.goe(today))))
+                .then(0)
+                .otherwise(1);
+    }
+
+    /** 배치 조회만 clubId 그룹핑이 앞에 하나 더 붙는다 — 나머지 순서는 그대로 공유한다. */
+    private static OrderSpecifier<?>[] prepend(OrderSpecifier<?> first, OrderSpecifier<?>[] rest) {
+        OrderSpecifier<?>[] combined = new OrderSpecifier<?>[rest.length + 1];
+        combined[0] = first;
+        System.arraycopy(rest, 0, combined, 1, rest.length);
+        return combined;
     }
 
     /**
@@ -184,11 +219,15 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                 .orderBy(orderSpecifiers(searchCondition.sort()))
                 .fetch();
 
+        // 표시 상태는 "오늘"에 의존하므로 KST(seoulClock) 기준으로 서버가 한 번만 판정한다 —
+        // 화면이 각자 계산하면 클라이언트 시계가 어긋난 순간 같은 모집을 다르게 부른다(#896).
+        LocalDate today = LocalDate.now(clock);
         return rows.stream()
                 .map(row -> new AdminRecruitmentRow(
                         row.get(recruitment),
                         row.get(club.name),
-                        row.get(application.count())))
+                        row.get(application.count()),
+                        today))
                 .toList();
     }
 

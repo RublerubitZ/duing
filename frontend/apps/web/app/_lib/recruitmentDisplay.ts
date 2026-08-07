@@ -32,9 +32,9 @@ export function recruitmentPeriodLabel(
  * (D-day·상태 칩 색)는 그대로 displayStatus 를 쓴다.
  *
  * 총동연 콘솔의 `needsOperatorAttention`(app/admin/recruitments/_lib/recruitmentLabels)이 같은 도메인
- * 상태를 다른 이름·라벨로 표현한다. 목록 응답(AdminRecruitmentSummary)에 displayStatus 가 없어 그쪽은
- * endDate 로 직접 계산하므로, 클라이언트 시계가 어긋나면 두 화면의 판정이 갈릴 수 있다(#896 에서 통합).
- * 세 번째 술어를 만들지 말고 둘 중 하나를 쓴다.
+ * 상태를 다른 이름으로 부르지만 판정은 이 함수 하나로 모였다(#896). 예전에는 그쪽이 목록 응답에
+ * displayStatus 가 없어 endDate 로 직접 계산했고, 클라이언트 시계가 어긋나면 두 화면의 판정이 갈렸다.
+ * 세 번째 술어를 만들지 말 것.
  */
 export function isRecruitmentExpiredOpen(
   recruitment: Pick<RecruitmentSummary, 'status' | 'displayStatus'>,

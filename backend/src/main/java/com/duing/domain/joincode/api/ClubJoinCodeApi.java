@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@Tag(name = "가입 코드", description = "외부 폼 모집 합격자 등록용 가입 코드 (운영진 전용)")
+@Tag(name = "가입 링크", description = "외부 폼 모집 합격자 등록용 가입 링크 (운영진 전용)")
 public interface ClubJoinCodeApi {
 
     @Operation(summary = "가입 링크 생성 (LEADER/OFFICER)",
@@ -34,8 +34,8 @@ public interface ClubJoinCodeApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "활성 가입 코드 조회 (LEADER/OFFICER)",
-            description = "해당 모집의 폐기되지 않은 코드 1건을 반환한다. 활성 코드가 없으면 200 + data null."
+    @Operation(summary = "활성 가입 링크 조회 (LEADER/OFFICER)",
+            description = "해당 모집의 폐기되지 않은 가입 링크 1건을 반환한다. 활성 링크가 없으면 200 + data null."
                     + " 상태 카드용으로 그 링크의 누적 가입 신청 수(totalRequestCount, 거절 후 재요청 포함 전 상태)와"
                     + " 승인 대기 수(pendingCount)를 함께 내려준다.")
     @SecurityRequirement(name = "bearerAuth")
@@ -46,8 +46,8 @@ public interface ClubJoinCodeApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "가입 코드 폐기 (LEADER/OFFICER)",
-            description = "이미 폐기된 코드를 다시 폐기해도 성공하며 최초 폐기 시각은 보존된다(멱등).")
+    @Operation(summary = "가입 링크 폐기 (LEADER/OFFICER)",
+            description = "이미 폐기된 링크를 다시 폐기해도 성공하며 최초 폐기 시각은 보존된다(멱등).")
     @SecurityRequirement(name = "bearerAuth")
     @DeleteMapping("/clubs/{clubId}/recruitments/{recruitmentId}/join-codes/{joinCodeId}")
     ResponseEntity<Void> revokeJoinCode(

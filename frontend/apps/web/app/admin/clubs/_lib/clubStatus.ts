@@ -65,7 +65,8 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       label: '운영 중단',
       nextStatus: 'INACTIVE',
       tone: 'danger',
-      description: '학생 탐색 페이지에서 동아리가 즉시 숨겨집니다. 기존 멤버십·지원 이력은 그대로 유지됩니다.',
+      description:
+        '학생 탐색 페이지에서 동아리가 즉시 숨겨지고, 진행 중인 모집은 모두 마감됩니다. 마감은 되돌릴 수 없습니다. 기존 멤버십·지원 이력은 그대로 유지됩니다.',
     },
   ],
   INACTIVE: [
@@ -73,7 +74,8 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       label: '재활성',
       nextStatus: 'ACTIVE',
       tone: 'primary',
-      description: '운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다.',
+      description:
+        '운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다. 중단 시 마감된 모집은 복구되지 않으므로 새로 등록해야 합니다.',
     },
   ],
   REJECTED: [

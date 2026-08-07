@@ -44,6 +44,10 @@ public record ClubDetailResponse(
         String tagline,
         List<String> highlights,
         List<ClubProject> projects,
+        /**
+         * 대표 모집 — 진행 중인 모집이 없으면 가장 최근 마감 모집이 실린다(목록 카드와 같은 규칙).
+         * 이름과 달리 마감 모집도 담기므로 지원 가능 여부는 반드시 displayStatus 로 판정한다.
+         */
         StudentRecruitmentProjection activeRecruitment,
         boolean centralClub,
         boolean useGeneration

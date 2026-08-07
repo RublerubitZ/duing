@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "가입 요청", description = "가입 코드로 접수된 동아리 가입 요청 처리 (운영진 전용)")
+@Tag(name = "가입 요청", description = "가입 링크로 접수된 동아리 가입 요청 처리 (운영진 전용)")
 public interface ClubJoinRequestApi {
 
     @Operation(summary = "가입 요청 목록 조회 (LEADER/OFFICER)",

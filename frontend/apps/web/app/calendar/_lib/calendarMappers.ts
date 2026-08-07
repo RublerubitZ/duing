@@ -25,14 +25,20 @@ export function toCalEvent_global(item: GlobalEventCard): CalEvent {
 
 export function toCalEvent_recruitment(item: RecruitmentSummary): CalEvent | null {
   if (item.endDate === null) return null; // 상시모집 — 캘린더 표시 대상 아님
+  // 강제 마감돼 종료일이 아직 미래인 모집도 달력에는 그대로 남는다 — "모집 일정 달력"이라
+  // 지난 일정이 사라지면 달력이 아니게 된다. 대신 회색으로 눕히고 지원 동선에서 뺀다.
+  // 판정은 표기 축(displayStatus)이다 — 학생 화면이라 기간이 끝났으면 지원할 수 없는 게 맞다.
+  const closed = item.displayStatus === 'CLOSED';
   return {
     id: `r-${item.id}`,
     sourceType: 'recruitment',
     sourceId: item.id,
+    sourceClubId: item.clubId,
+    sourceClosed: closed,
     kind: 'deadline',
-    accent: 'coral',
+    accent: closed ? 'muted' : 'coral',
     date: item.endDate,
-    title: `${item.clubName} 모집 마감`,
+    title: `${item.clubName} 모집 마감${closed ? ' (종료)' : ''}`,
     time: '23:59',
     place: '지원폼',
     club: item.clubName,

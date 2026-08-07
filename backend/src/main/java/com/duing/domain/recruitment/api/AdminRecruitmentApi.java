@@ -31,7 +31,7 @@ public interface AdminRecruitmentApi {
             description = "전 동아리의 모집을 한 목록으로 반환한다. 삭제된 모집은 조회되지 않는다. "
                     + "q 는 동아리명 또는 모집 제목 부분 일치(대소문자 무시)이며, "
                     + "status·mode 를 생략하면 각각 상태·방식을 가리지 않는다. "
-                    + "status 는 기간 경과 여부가 아니라 저장 상태(OPEN/CLOSED)다. "
+                    + "status 는 기간 경과 여부가 아니라 저장 상태(OPEN/CLOSED)다. 화면 표기는 서버가 함께 내려주는 displayStatus(UPCOMING/OPEN/ALWAYS_OPEN/CLOSED)를 쓴다 — 기간이 끝났지만 아직 마감 처리 전인 모집은 status=OPEN 이면서 displayStatus=CLOSED 다. closedAt 은 실제 마감 시각이며 마감 전이면 null. "
                     + "지원자 수는 외부 폼 모집이면 비어 있다 — 두잉에 지원 데이터가 없으므로 0 이 아니라 해당 없음이다. "
                     + "페이지네이션은 제공하지 않는다.")
     @GetMapping("/admin/recruitments")

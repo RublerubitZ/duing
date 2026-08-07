@@ -3,8 +3,8 @@ package com.duing.domain.clubaudit.entity;
 /**
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
- * <p>가입 링크 6종과 총동연 조치 2종이 있다. 값을 추가할 때는 {@code club_audit_event.event_type} 의
- * CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104).
+ * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105)이 있다. 값을 추가할 때는
+ * {@code club_audit_event.event_type} 의 CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105).
  */
 public enum ClubAuditEventType {
 
@@ -22,5 +22,42 @@ public enum ClubAuditEventType {
     /** 총동연이 진행 중인 모집을 강제로 마감했다 — 사유(reason)가 함께 남는다. */
     RECRUITMENT_FORCE_CLOSED,
     /** 총동연이 지원서 상세를 열람했다 — 개인정보 열람 이력이 목적이라 열람마다 남긴다(중복 제거 없음). */
-    APPLICATION_VIEWED
+    APPLICATION_VIEWED,
+    /** 운영진이 회비 정책을 만들었다. */
+    FEE_POLICY_CREATED,
+    /** 운영진이 회비 정책을 수정했다 — detail 에 금액 old/new 와 변경 필드 목록이 남는다. */
+    FEE_POLICY_UPDATED,
+    FEE_POLICY_DELETED,
+    /**
+     * 운영진이 청구를 일괄 발행했다 — 발행 액션 1회당 1건, detail 에 발행 건수·회차가 남는다.
+     * 자동 발행 잡은 계측하지 않는다(스펙 §15 결정 4).
+     */
+    FEE_BILL_ISSUED,
+    FEE_BILL_CANCELLED,
+    /** 납부가 기록됐다 — 수기 기록과 BANK 매칭 생성 모두 포함, detail.autoMatched 로 구분한다. */
+    FEE_PAYMENT_RECORDED,
+    /** 납부가 정정(VOID)됐다 — 운영진 직접 정정과 매칭취소(unmatch) 경유 모두 포함, reason 에 정정 사유가 남는다. */
+    FEE_PAYMENT_VOIDED,
+    FEE_TX_MANUAL_MATCHED,
+    FEE_TX_IGNORED,
+    /** 매칭이 취소됐다 — 같은 트랜잭션에 FEE_PAYMENT_VOIDED 가 함께 남는다(엔티티 직접 void 경로라 별도 기록, 스펙 §4). */
+    FEE_TX_UNMATCHED,
+    FEE_ACCOUNT_REGISTERED,
+    FEE_ACCOUNT_UPDATED,
+    FEE_ACCOUNT_DELETED,
+    /** 총동연이 회비 감사 상세에 진입했다 — 열람 감사(상세 진입 1회 = 1건, 스펙 §15 결정 5). */
+    FEE_ADMIN_DETAIL_VIEWED,
+    /** 총동연이 회비 CSV 를 내려받았다(P2 예정 — CHECK 재작성을 아끼려 미리 등록). */
+    FEE_ADMIN_CSV_DOWNLOADED;
+
+    /**
+     * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.
+     * 이상징후 버스트 판정(FA-06)과 대시보드 최근 변경 요약(스펙 §7.2)이 같은 기준을 써야 해서
+     * 판정을 값 자체가 갖는다(양쪽에 집합을 복사하면 열람 종류가 늘 때 한쪽만 새 값을 세게 된다).
+     */
+    public boolean isFeeMutation() {
+        return name().startsWith("FEE_")
+                && this != FEE_ADMIN_DETAIL_VIEWED
+                && this != FEE_ADMIN_CSV_DOWNLOADED;
+    }
 }

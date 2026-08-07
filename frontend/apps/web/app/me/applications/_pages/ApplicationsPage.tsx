@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react';
 
+import { notFound } from 'next/navigation';
+
 import {
   formatDateKst,
   formatTimeKst,
@@ -154,7 +156,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const [selected, setSelected] = useState<FilterKey[]>(['all']);
   const [openId, setOpenId] = useState<string | null>(defaultOpenId);
 
-  const { data: applicationSummaries, isLoading, isError } = useMyApplicationsQuery();
+  const { data: applicationSummaries, isLoading, isFetching, isError } = useMyApplicationsQuery();
 
   const openApplicationId = openId !== null ? Number(openId) : undefined;
   const { data: openDetail } = useMyApplicationDetailQuery(openApplicationId);
@@ -191,6 +193,24 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   }, [selected, apps]);
 
   const openApp = openId ? apps.find(app => app.id === openId) ?? null : null;
+
+  // 딥링크로 들어왔는데 목록이 다 온 뒤에도 그 지원서가 없다면 남의 것이거나 존재하지 않는다.
+  // 그대로 두면 서버의 403·404 가 삼켜지고 평범한 목록만 렌더돼 학생이 무엇이 잘못됐는지 알 수 없다.
+  // (권한 없는 관리 페이지를 notFound 로 보내는 전례와 같은 처리 — 존재 여부도 알리지 않는다.)
+  //
+  // 판정 기준은 "로딩 중이 아님"이 아니라 "권위 있는 답을 받았음"이다. isLoading 은
+  // isPending && isFetching 이라 (1) 비활성 쿼리(이 훅은 enabled: isAuthenticated 라 서버 렌더에서
+  // 꺼져 있다) 와 (2) 옛 데이터를 든 채 재검증 중인 쿼리 에서 모두 false 다. 그 둘을 답으로 오해하면
+  // 정당한 주인의 딥링크가 404 로 끊긴다 — 이 라우트는 면접 알림의 목적지라 오탐이 훨씬 비싸다.
+  //
+  // 그리고 "지금도 그 딥링크를 보고 있을 때"만 판정한다. 모달을 닫으면 openId 만 비고 defaultOpenId
+  // 는 남는데, 철회 성공 콜백도 같은 닫기를 부르고 철회는 목록에서 그 지원을 지우므로(soft delete)
+  // prop 만 보고 대조하면 정상 철회가 토스트 대신 404 가 된다.
+  const deepLinkStillOpen = defaultOpenId !== null && openId === defaultOpenId;
+  const listAnswered = applicationSummaries !== undefined && !isFetching && !isError;
+  if (deepLinkStillOpen && listAnswered && openApp === null) {
+    notFound();
+  }
 
   return (
     // min-h-dvh — 안드로이드 크롬에서 100vh 는 주소창이 접힌 큰 뷰포트라 문서가 화면보다 길어진다.

@@ -5,6 +5,8 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
+import Link from 'next/link';
+
 import type { MyApplicationDetail } from '@duing/types';
 import { ApiError } from '@duing/api';
 import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hooks';
@@ -12,6 +14,7 @@ import { useMyInterviewQuery, useWithdrawApplicationMutation } from '@duing/hook
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { isRecruitmentClosed } from '@/app/_constants/application-status';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ApplicationStepper } from '../[applicationId]/_components/ApplicationStepper';
@@ -220,14 +223,17 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                 </div>
               </div>
 
-              <a href="#" style={{
-                fontSize: 11, color: 'var(--charcoal-2)',
-                textDecoration: 'underline', textUnderlineOffset: 3,
-                display: 'inline-block', marginBottom: 16,
-                whiteSpace: 'nowrap',
-              }}>
-                동아리 소개 바로가기 →
-              </a>
+              {/* 상세가 아직 안 왔으면 링크를 걸지 않는다 — 갈 곳 없는 링크보다 없는 편이 낫다. */}
+              {detail && (
+                <Link href={toRoute(`/clubs/${detail.clubId}`)} style={{
+                  fontSize: 11, color: 'var(--charcoal-2)',
+                  textDecoration: 'underline', textUnderlineOffset: 3,
+                  display: 'inline-block', marginBottom: 16,
+                  whiteSpace: 'nowrap',
+                }}>
+                  동아리 소개 바로가기 →
+                </Link>
+              )}
               {/* mock data 기반 StepTimeline 은 상단 ApplicationStepper 와 중복 노출되어 제거.
                   funnel 진행 표시는 detail 기반 ApplicationStepper 가 authoritative 다. */}
             </div>

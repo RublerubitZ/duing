@@ -28,6 +28,8 @@ function makeDetail(overrides: Partial<AdminRecruitmentDetail> = {}): AdminRecru
     title: '2026 신입 부원 모집',
     applicationMode: 'SELF',
     status: 'OPEN',
+    displayStatus: 'OPEN',
+    closedAt: null,
     applicantCount: 12,
     startDate: '2026-03-02',
     endDate: '2026-03-20',
@@ -77,7 +79,7 @@ describe('모집 강제 마감 다이얼로그', () => {
     ).toBeInTheDocument();
   });
 
-  it('활성 가입 코드가 없으면 사용 기한 문장은 붙이지 않는다 — 기한을 지어내지 않는다', () => {
+  it('활성 가입 링크가 없으면 사용 기한 문장은 붙이지 않는다 — 기한을 지어내지 않는다', () => {
     render(
       <AdminForceCloseDialog
         {...props}

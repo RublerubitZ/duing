@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.controller.dto.response;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
@@ -22,9 +23,11 @@ public record AdminRecruitmentDetailResponse(
         String title,
         ApplicationMode applicationMode,
         RecruitmentStatus status,
+        RecruitmentDisplayStatus displayStatus,
         Long applicantCount,
         LocalDate startDate,
         LocalDate endDate,
+        Instant closedAt,
         Instant updatedAt,
         String externalFormUrl,
         AdminJoinLinkStatusResponse joinLink
@@ -39,9 +42,12 @@ public record AdminRecruitmentDetailResponse(
                 recruitment.getTitle(),
                 recruitment.getApplicationMode(),
                 recruitment.getStatus(),
+                recruitmentRow.displayStatus(),
                 recruitmentRow.visibleApplicantCount(),
                 recruitment.getStartDate(),
                 recruitment.getEndDate(),
+                // closedAt 은 도메인이 seoulClock 으로 찍은 벽시계다(TIMEZONE.md — seoul regime).
+                TimeMapper.seoulWallClockToInstant(recruitment.getClosedAt()),
                 // updatedAt 은 JPA 감사 필드라 JVM 존 벽시계다(TIMEZONE.md — system regime).
                 TimeMapper.systemWallClockToInstant(recruitment.getUpdatedAt()),
                 recruitment.getExternalFormUrl(),
