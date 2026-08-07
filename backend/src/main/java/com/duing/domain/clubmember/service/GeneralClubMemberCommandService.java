@@ -167,12 +167,14 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         clubMemberRepository.deleteAll(members);
     }
 
+    /**
+     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 탈퇴는 계정만 soft-delete 하고 비-LEADER
+     * 멤버십 행은 남기므로(의도된 동작), findById 로 읽으면 목록에서 이미 사라진 회원의 잔존 행에
+     * 조작이 그대로 성공한다 — 운영진 화면에는 보이지도 않는 대상에 이력만 쌓인다(#753).
+     * 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다.
+     */
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {
-        ClubMember membership = clubMemberRepository.findById(memberId)
+        return clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
                 .orElseThrow(ClubMemberException.NotFound::new);
-        if (!membership.getClub().getId().equals(clubId)) {
-            throw new ClubMemberException.NotFound();
-        }
-        return membership;
     }
 }
