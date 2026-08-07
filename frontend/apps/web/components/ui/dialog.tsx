@@ -72,8 +72,9 @@ const DialogContent = React.forwardRef<
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
-        // 닫기를 막는 동안 보조기술에도 "지금 진행 중"이 전달돼야 한다 — 시각적으로는 스피너가
-        // 그 역할을 하지만 ESC 가 삼켜지는 이유는 그것만으로 설명되지 않는다.
+        // 전송 중임을 영역 상태로 표기한다. 이 속성은 "갱신 중이니 노출을 미뤄도 된다"는 억제 힌트라
+        // 상태 변화를 읽어 주지는 않는다 — 진행 중임을 실제로 알리려면 호출처의 스피너를
+        // role="status" 로 감싸야 한다(레포의 기존 패턴). 여기서는 표기까지만 한다.
         aria-busy={busy}
         onEscapeKeyDown={(event) => {
           if (busy) event.preventDefault();

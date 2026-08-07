@@ -49,7 +49,7 @@ describe('DialogContent 전송 중 닫힘 가드', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it('전송 중임을 보조기술에 알린다', () => {
+  it('전송 중임을 영역 상태로 표기한다', () => {
     renderDialog(true, vi.fn());
 
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
@@ -80,6 +80,7 @@ describe('DialogContent 전송 중 닫힘 가드', () => {
     fireEvent.keyDown(screen.getByText('탈퇴할까요?'), { key: 'Escape' });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'false');
   });
 
   // busy 미전달 시 동작이 달라지면 이 prop 을 아직 안 붙인 다이얼로그 40여 곳이 함께 바뀐다.
