@@ -118,8 +118,10 @@ describe('PostHog 초기화 개인정보 정책', () => {
   it('요소 사슬에 실린 링크 주소의 쿼리스트링도 제거한다', async () => {
     const scrubbed = await sendThroughScrubber(
       eventWith({
-        // SDK 의 getElementsChainString 실제 출력 — attr__href 와 베어 href 가 함께 실리고
+        // SDK 의 getElementsChainString 실측 출력 — attr__href 와 베어 href 가 함께 실리고
         // 요소는 세미콜론으로 이어진다. 이 가드의 값어치가 형식 일치에 달려 있어 실측값을 쓴다.
+        // 속성 마스킹을 켠 지금 설정에서는 attr__class 가 빠진 형태로 나가므로 이 픽스처는
+        // 상위집합이다 — 마스킹을 끄는 경우까지 함께 덮는다.
         $elements_chain:
           'a.text-sm:attr__class="text-sm"' +
           'attr__href="/manage/clubs/1/recruitments/2/applicants?q=홍길동&status=SUBMITTED"' +
