@@ -63,6 +63,49 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감된 상시모집은 대표 자리를 가로채지 않고 가장 최근에 끝난 모집이 반환된다")
+    void closedAlwaysOpenRecruitmentDoesNotWinRepresentative() throws Exception {
+        Club club = saveActiveClub("lookupAlwaysOpen");
+        // 종료일이 없는 상시모집은 정렬에서 놓을 자리가 없다 — 가장 늦은 날짜로 취급하면 이 행이
+        // 영구히 대표가 되어, 이후 기간제 모집을 몇 번을 더 돌려도 옛날 상시모집이 화면에 남는다.
+        saveClosedRecruitment(club, LocalDate.now().minusDays(200), null);
+        Recruitment latestClosed = saveClosedRecruitment(
+                club, LocalDate.now().minusDays(30), LocalDate.now().minusDays(3));
+
+        Map<Long, ClubActiveRecruitmentRow> batchResult = recruitmentRepository
+                .findRepresentativeByClubIds(List.of(club.getId()), LocalDate.now());
+
+        assertThat(batchResult.get(club.getId()).recruitmentId()).isEqualTo(latestClosed.getId());
+        assertThat(recruitmentRepository.findRepresentativeByClubId(club.getId(), LocalDate.now()))
+                .as("단건 조회도 배치와 같은 규칙으로 같은 행을 고른다")
+                .get()
+                .extracting(Recruitment::getId)
+                .isEqualTo(latestClosed.getId());
+    }
+
+    @Test
+    @DisplayName("단건 대표 모집 조회는 진행 중인 모집을 마감 이력보다 먼저 고른다")
+    void singleRepresentativeLookupPrefersActive() throws Exception {
+        Club club = saveActiveClub("lookupSingle");
+        saveClosedRecruitment(club, LocalDate.now().minusDays(30), LocalDate.now().minusDays(10));
+        Recruitment active = saveRecruitment(club, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7));
+
+        assertThat(recruitmentRepository.findRepresentativeByClubId(club.getId(), LocalDate.now()))
+                .get()
+                .extracting(Recruitment::getId)
+                .isEqualTo(active.getId());
+    }
+
+    @Test
+    @DisplayName("모집 이력이 없는 동아리는 단건 대표 조회도 비어 있다")
+    void singleRepresentativeLookupIsEmptyWithoutRecruitment() throws Exception {
+        Club club = saveActiveClub("lookupSingleEmpty");
+
+        assertThat(recruitmentRepository.findRepresentativeByClubId(club.getId(), LocalDate.now()))
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("모집 이력이 없는 동아리는 결과 맵에 키가 없다")
     void clubWithoutRecruitmentIsAbsent() throws Exception {
         Club clubC = saveActiveClub("lookupC");
@@ -80,6 +123,14 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
         statusField.setAccessible(true);
         statusField.set(created, ClubStatus.ACTIVE);
         return clubRepository.save(created);
+    }
+
+    /** 마감 UPDATE 를 먼저 내보내야 다음 INSERT 가 uk_recruitment_club_active 에 걸리지 않는다. */
+    private Recruitment saveClosedRecruitment(Club club, LocalDate startDate, LocalDate endDate) {
+        Recruitment created = saveRecruitment(club, startDate, endDate);
+        created.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(created);
+        return created;
     }
 
     private Recruitment saveRecruitment(Club club, LocalDate startDate, LocalDate endDate) {

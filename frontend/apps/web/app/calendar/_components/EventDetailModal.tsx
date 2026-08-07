@@ -17,7 +17,14 @@ type Props = {
 
 const sourcePath: Record<EventSource, (event: CalEvent) => `/${string}` | null> = {
   global: () => null, // 캘린더 모달 안에서 description + linkUrl 노출 — 별도 페이지 없음
-  recruitment: (event) => `/apply/${event.sourceId}`,
+  // 마감된 모집은 지원 페이지로 보내면 에러 화면을 만난다. 대신 동아리 소개로 보낸다 —
+  // 지원은 못 해도 "어떤 동아리였는지"는 학생이 이어서 보고 싶어 하는 정보다.
+  recruitment: (event) =>
+    event.sourceClosed
+      ? event.sourceClubId !== undefined
+        ? `/clubs/${event.sourceClubId}`
+        : null
+      : `/apply/${event.sourceId}`,
   clubEvent: (event) =>
     event.sourceClubId !== undefined
       ? `/clubs/${event.sourceClubId}/member/events/${event.sourceId}`

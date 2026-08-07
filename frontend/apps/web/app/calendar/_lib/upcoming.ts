@@ -47,6 +47,9 @@ export function buildUpcoming(
   const originals = new Map<string, CalEvent>();
   for (const event of events) {
     if (!activeKinds.has(event.kind)) continue;
+    // 이미 끝난 출처(강제 마감된 모집 등)는 그리드에는 남아도 이 목록에는 올리지 않는다 —
+    // 여기는 달력이 아니라 행동을 권하는 자리라, 종료된 모집에 D-day 를 붙이면 학생을 잘못 부른다.
+    if (event.sourceClosed) continue;
     if (event.date < todayIso || event.date > windowEnd) continue;
     const key = `${event.sourceType}-${event.sourceId}`;
     const existing = originals.get(key);
