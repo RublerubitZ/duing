@@ -10,6 +10,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * 동아리 운영 감사 이벤트 (V102, 스펙 v2 4.1) — append-only, 수정·삭제 메서드를 두지 않는다.
@@ -51,14 +53,33 @@ public class ClubAuditEvent extends BaseEntity {
     @Column(name = "application_id")
     private Long applicationId;
 
-    /** 조치 사유(V104) — 총동연 강제 마감에서만 채워지며, 공백뿐이면 저장하지 않는다. */
+    /** 조치 사유(V104) — 총동연 강제 마감·납부 정정에서만 채워지며, 공백뿐이면 저장하지 않는다. */
     @Column(name = "reason", length = 500)
     private String reason;
+
+    /** 회비 참조(V105) — 회비 이벤트에서만 채워진다. 다른 참조와 같이 raw id 로만 보유한다. */
+    @Column(name = "fee_policy_id")
+    private Long feePolicyId;
+
+    @Column(name = "fee_bill_id")
+    private Long feeBillId;
+
+    @Column(name = "payment_id")
+    private Long paymentId;
+
+    @Column(name = "bank_transaction_id")
+    private Long bankTransactionId;
+
+    /** 변경 전/후 스냅샷(V105) — id·숫자·enum 만 담는다. PII(이름·전화·계좌번호) 저장 금지(스펙 §9). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "detail", columnDefinition = "jsonb")
+    private String detail;
 
     @Builder(access = AccessLevel.PRIVATE)
     private ClubAuditEvent(Long clubId, ClubAuditEventType eventType, Long actorUserId,
                            Long recruitmentId, Long joinCodeId, Long joinRequestId,
-                           Long applicationId, String reason) {
+                           Long applicationId, String reason, Long feePolicyId, Long feeBillId,
+                           Long paymentId, Long bankTransactionId, String detail) {
         this.clubId = clubId;
         this.eventType = eventType;
         this.actorUserId = actorUserId;
@@ -67,6 +88,11 @@ public class ClubAuditEvent extends BaseEntity {
         this.joinRequestId = joinRequestId;
         this.applicationId = applicationId;
         this.reason = reason;
+        this.feePolicyId = feePolicyId;
+        this.feeBillId = feeBillId;
+        this.paymentId = paymentId;
+        this.bankTransactionId = bankTransactionId;
+        this.detail = detail;
     }
 
     /** 가입 링크 생성·재생성·폐기 이벤트. */
@@ -116,6 +142,79 @@ public class ClubAuditEvent extends BaseEntity {
                 .actorUserId(actorUserId)
                 .recruitmentId(recruitmentId)
                 .applicationId(applicationId)
+                .build();
+    }
+
+    /** 회비 정책 생성·수정·삭제 이벤트 — 수정은 detail 에 금액 old/new 스냅샷이 함께 남는다. */
+    public static ClubAuditEvent feePolicy(ClubAuditEventType eventType, Long clubId,
+                                           Long feePolicyId, Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .feePolicyId(feePolicyId)
+                .detail(detail)
+                .build();
+    }
+
+    /** 청구 발행·취소 이벤트 — 발행은 액션 1회당 1건이라 detail 에 발행 건수가 남는다. */
+    public static ClubAuditEvent feeBill(ClubAuditEventType eventType, Long clubId, Long feePolicyId,
+                                         Long feeBillId, Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .feePolicyId(feePolicyId)
+                .feeBillId(feeBillId)
+                .detail(detail)
+                .build();
+    }
+
+    /** 납부 기록·정정 — reason 은 정정 사유(voidReason)에만 채워진다. */
+    public static ClubAuditEvent feePayment(ClubAuditEventType eventType, Long clubId, Long feeBillId,
+                                            Long paymentId, Long bankTransactionId, Long actorUserId,
+                                            String reason, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .feeBillId(feeBillId)
+                .paymentId(paymentId)
+                .bankTransactionId(bankTransactionId)
+                .reason(reason)
+                .detail(detail)
+                .build();
+    }
+
+    /** 거래 수기 매칭·무시·매칭 취소 — 무시는 대상 청구가 없어 feeBillId 가 비어 있다. */
+    public static ClubAuditEvent feeTransaction(ClubAuditEventType eventType, Long clubId,
+                                                Long bankTransactionId, Long feeBillId, Long actorUserId) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .bankTransactionId(bankTransactionId)
+                .feeBillId(feeBillId)
+                .build();
+    }
+
+    /** 계좌 등록·변경·삭제 — 계좌번호는 detail 에도 절대 싣지 않는다(은행 코드만). */
+    public static ClubAuditEvent feeAccount(ClubAuditEventType eventType, Long clubId,
+                                            Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .detail(detail)
+                .build();
+    }
+
+    /** 총동연 회비 감사 상세 열람 — 개인정보성 재무 데이터 열람 이력이라 진입마다 한 건씩 남는다. */
+    public static ClubAuditEvent feeAdminView(Long clubId, Long actorUserId) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.FEE_ADMIN_DETAIL_VIEWED)
+                .actorUserId(actorUserId)
                 .build();
     }
 }

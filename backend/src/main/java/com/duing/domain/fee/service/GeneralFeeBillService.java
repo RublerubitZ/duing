@@ -2,6 +2,10 @@ package com.duing.domain.fee.service;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.fee.entity.BillingType;
@@ -47,6 +51,7 @@ public class GeneralFeeBillService implements FeeBillService {
     private final ClubMemberRepository clubMemberRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final BillingPeriodResolver periodResolver;
     private final FeePaidAmountReader paidAmountReader;
     private final ApplicationEventPublisher eventPublisher;
@@ -85,7 +90,7 @@ public class GeneralFeeBillService implements FeeBillService {
         int skipped = (int) Math.max(0L, activeCount - created); // 동시 멤버 변동으로 음수가 되지 않게 클램프
         log.info("fee bills generated(all): actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
                 command.actorId(), command.clubId(), policy.getId(), resolved.billingPeriod(), created, skipped);
-        publishIssuedEventIfAny(command.clubId(), policy.getId(), resolved, created);
+        publishAndAuditIssuedIfAny(command.clubId(), policy.getId(), resolved, created, command.actorId());
         return new GenerateBillsResult(created, skipped, List.of());
     }
 
@@ -113,17 +118,26 @@ public class GeneralFeeBillService implements FeeBillService {
         log.info("fee bills generated(selected): actorId={}, clubId={}, policyId={}, period={}, created={}, skipped={}",
                 command.actorId(), command.clubId(), policy.getId(), resolved.billingPeriod(),
                 createdUserIds.size(), skippedUserIds.size());
-        publishIssuedEventIfAny(command.clubId(), policy.getId(), resolved, createdUserIds.size());
+        publishAndAuditIssuedIfAny(command.clubId(), policy.getId(), resolved,
+                createdUserIds.size(), command.actorId());
         return new GenerateBillsResult(createdUserIds.size(), skippedUserIds.size(), skippedUserIds);
     }
 
-    // 새 청구가 있을 때만 발행 알림을 fan-out 한다(billId dedup 으로 재알림은 리스너에서 흡수).
-    private void publishIssuedEventIfAny(Long clubId, Long policyId, BillingPeriodResolver.Resolved resolved, int created) {
+    // 새 청구가 있을 때만 발행 알림을 fan-out 하고(billId dedup 으로 재알림은 리스너에서 흡수)
+    // 같은 가드 안에서 감사 이벤트를 남긴다 — 발행 액션 1회당 1건(청구 건당 아님, 스펙 §15 결정 4).
+    // 자동 발행 잡(autoIssueMonthly)은 actor 가 없어 이 경로를 쓰지 않는다.
+    private void publishAndAuditIssuedIfAny(Long clubId, Long policyId, BillingPeriodResolver.Resolved resolved,
+                                            int created, Long actorId) {
         if (created > 0) {
             String clubName = clubRepository.findById(clubId).map(Club::getName).orElse("동아리");
             eventPublisher.publishEvent(new FeeBillsIssuedEvent(
                     clubId, clubName, policyId, resolved.billingPeriod(),
                     resolved.startDate(), resolved.dueDate()));
+            clubAuditEventRepository.save(ClubAuditEvent.feeBill(
+                    ClubAuditEventType.FEE_BILL_ISSUED, clubId, policyId, null, actorId,
+                    AuditDetailJson.of(Map.of(
+                            "issuedCount", created,
+                            "billingPeriod", resolved.billingPeriod()))));
         }
     }
 
@@ -180,6 +194,14 @@ public class GeneralFeeBillService implements FeeBillService {
         FeeStatus previous = bill.getStatus();
         bill.cancel(); // 이미 CANCELLED 면 멱등 no-op
         log.info("fee bill cancelled: actorId={}, billId={}, previousStatus={}", actorId, billId, previous);
+        // 실제 전이가 일어났을 때만 기록한다 — 멱등 재호출로 감사 행이 늘어나지 않게.
+        if (previous != FeeStatus.CANCELLED) {
+            clubAuditEventRepository.save(ClubAuditEvent.feeBill(
+                    ClubAuditEventType.FEE_BILL_CANCELLED, clubId, bill.getFeePolicyId(), bill.getId(),
+                    actorId, AuditDetailJson.of(Map.of(
+                            "amount", bill.getAmount(),
+                            "statusBefore", previous.name()))));
+        }
     }
 
     @Override

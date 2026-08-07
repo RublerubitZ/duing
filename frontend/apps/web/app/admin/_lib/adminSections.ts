@@ -2,6 +2,7 @@ import {
   Building2,
   CircleAlert,
   ClipboardList,
+  FileSearch,
   Globe,
   HelpCircle,
   Landmark,
@@ -88,6 +89,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: '전 동아리 모집 현황·강제 마감·지원자 열람',
     group: '동아리',
     icon: ClipboardList,
+  },
+  {
+    href: '/admin/fees',
+    title: '회비 감사',
+    description: '동아리 회비 운영 현황 조회와 감사',
+    group: '동아리',
+    icon: FileSearch,
   },
   {
     href: '/admin/leader-succession',

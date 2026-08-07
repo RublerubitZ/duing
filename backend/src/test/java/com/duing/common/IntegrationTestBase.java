@@ -47,6 +47,7 @@ public abstract class IntegrationTestBase {
                 "fee_bill, " +
                 "fee_policy, " +
                 "fee_account, " +
+                "admin_fee_audit_comment, " +
                 "interview_schedule, " +
                 "interview_availability, " +
                 "interview_slot, " +

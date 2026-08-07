@@ -46,6 +46,24 @@ import type {
   AdminApplicantSearchParams,
   AdminApplicantList,
   AdminApplicationDetail,
+  AdminFeeClubSearchParams,
+  AdminFeeClubSummary,
+  AdminFeePeriodParams,
+  AdminFeeDashboard,
+  AdminFeeClubDetail,
+  AdminFeePolicy,
+  AdminFeeBillSearchParams,
+  AdminFeeBillRow,
+  AdminFeePaymentSearchParams,
+  AdminFeePaymentRow,
+  AdminFeeAccount,
+  AdminFeeAuditLogSearchParams,
+  AdminFeeAuditLog,
+  AdminFeeAnomalyReport,
+  AdminFeeAuditComment,
+  FeeAuditCommentKind,
+  CreateFeeAuditCommentPayload,
+  UpdateFeeAuditCommentPayload,
   AdminPromotionRequestSummary,
   AdminPromotionRequestDetail,
   AdminPromotionRequestSearchParams,
@@ -714,6 +732,36 @@ export type DuingApiClient = {
       ): Promise<AdminApplicantList>;
       /** 지원서 열람(읽기 전용) — 경로는 모집이 아니라 지원서 단건이다. */
       applicationDetail(applicationId: number): Promise<AdminApplicationDetail>;
+    };
+    /** 회비 감사 콘솔. 감사자는 회비 데이터를 바꾸지 않는다 — 쓰기는 총동연 자신의 의견·메모뿐이다. */
+    fees: {
+      list(params: AdminFeeClubSearchParams): Promise<PageResponse<AdminFeeClubSummary>>;
+      dashboard(params: AdminFeePeriodParams): Promise<AdminFeeDashboard>;
+      /** 호출마다 열람 감사 이벤트가 남는다 — 상세 진입에서만 부른다. */
+      detail(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeeClubDetail>;
+      policies(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeePolicy[]>;
+      bills(clubId: number, params: AdminFeeBillSearchParams): Promise<PageResponse<AdminFeeBillRow>>;
+      payments(
+        clubId: number,
+        params: AdminFeePaymentSearchParams,
+      ): Promise<PageResponse<AdminFeePaymentRow>>;
+      /** 열람 전용 — 이 경로로 계좌를 바꾸거나 지울 수는 없다. */
+      account(clubId: number): Promise<AdminFeeAccount>;
+      auditLogs(
+        clubId: number,
+        params: AdminFeeAuditLogSearchParams,
+      ): Promise<PageResponse<AdminFeeAuditLog>>;
+      /** 저장된 결과가 아니라 호출 시점에 8개 규칙으로 그 자리에서 평가한 값이다. */
+      anomalies(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeeAnomalyReport>;
+      comments(clubId: number, kind?: FeeAuditCommentKind): Promise<AdminFeeAuditComment[]>;
+      /** 응답은 생성된 의견·메모 ID 뿐이라 목록은 무효화로 다시 받는다. */
+      createComment(clubId: number, payload: CreateFeeAuditCommentPayload): Promise<number>;
+      updateComment(
+        clubId: number,
+        commentId: number,
+        payload: UpdateFeeAuditCommentPayload,
+      ): Promise<void>;
+      deleteComment(clubId: number, commentId: number): Promise<void>;
     };
     leaderSuccession: {
       list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
@@ -1692,6 +1740,64 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           ),
         applicationDetail: (applicationId) =>
           jsonOk<AdminApplicationDetail>(http.get(`admin/applications/${applicationId}`)),
+      },
+      fees: {
+        list: (params) =>
+          jsonOk<PageResponse<AdminFeeClubSummary>>(
+            http.get('admin/fees', {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
+          ),
+        dashboard: (params) =>
+          jsonOk<AdminFeeDashboard>(
+            http.get('admin/fees/dashboard', { searchParams: cleanParams(params) }),
+          ),
+        detail: (clubId, params) =>
+          jsonOk<AdminFeeClubDetail>(
+            http.get(`admin/fees/${clubId}`, { searchParams: cleanParams(params) }),
+          ),
+        policies: (clubId, params) =>
+          jsonOk<AdminFeePolicy[]>(
+            http.get(`admin/fees/${clubId}/policies`, { searchParams: cleanParams(params) }),
+          ),
+        bills: (clubId, params) =>
+          jsonOk<PageResponse<AdminFeeBillRow>>(
+            http.get(`admin/fees/${clubId}/bills`, {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
+          ),
+        payments: (clubId, params) =>
+          jsonOk<PageResponse<AdminFeePaymentRow>>(
+            http.get(`admin/fees/${clubId}/payments`, { searchParams: cleanParams(params) }),
+          ),
+        account: (clubId) =>
+          jsonOk<AdminFeeAccount>(http.get(`admin/fees/${clubId}/account`)),
+        // types 배열은 cleanParams 가 같은 키 반복으로 직렬화한다(Spring List<T> 호환).
+        auditLogs: (clubId, params) =>
+          jsonOk<PageResponse<AdminFeeAuditLog>>(
+            http.get(`admin/fees/${clubId}/audit-logs`, {
+              searchParams: cleanParams(params),
+              timeout: REQUEST_TIMEOUT_MS.search,
+            }),
+          ),
+        anomalies: (clubId, params) =>
+          jsonOk<AdminFeeAnomalyReport>(
+            http.get(`admin/fees/${clubId}/anomalies`, { searchParams: cleanParams(params) }),
+          ),
+        comments: (clubId, kind) =>
+          jsonOk<AdminFeeAuditComment[]>(
+            http.get(`admin/fees/${clubId}/audit-comments`, { searchParams: cleanParams({ kind }) }),
+          ),
+        createComment: (clubId, payload) =>
+          jsonOk<number>(http.post(`admin/fees/${clubId}/audit-comments`, { json: payload })),
+        updateComment: (clubId, commentId, payload) =>
+          jsonVoid(
+            http.patch(`admin/fees/${clubId}/audit-comments/${commentId}`, { json: payload }),
+          ),
+        deleteComment: (clubId, commentId) =>
+          jsonVoid(http.delete(`admin/fees/${clubId}/audit-comments/${commentId}`)),
       },
       leaderSuccession: {
         list: (params) =>

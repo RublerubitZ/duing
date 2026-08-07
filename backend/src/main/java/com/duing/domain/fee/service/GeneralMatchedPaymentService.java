@@ -1,5 +1,9 @@
 package com.duing.domain.fee.service;
 
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeeStatus;
@@ -12,6 +16,7 @@ import com.duing.domain.fee.repository.BankTransactionRepository;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.notification.event.FeePaymentConfirmedEvent;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,6 +32,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
     private final FeeBillRepository feeBillRepository;
     private final PaymentRepository paymentRepository;
     private final BankTransactionRepository bankTransactionRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final FeeBillStatusCalculator statusCalculator;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -81,5 +87,11 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
                         + "amount={}, matchStatus={}, autoMatched={}, allowPartial={}, newStatus={}",
                 actorId, transaction.getClubId(), bill.getId(), payment.getId(), transaction.getId(),
                 appliedAmount, matchStatus, autoMatched, allowPartial, newStatus);
+        // 자동매칭·수동 승인이 모두 이 메서드를 타므로 납부 기록 감사는 여기 한 곳이면 두 경로가 커버된다.
+        // 자동매칭도 동기화를 트리거한 운영진이 actor 라 actorId 는 항상 사람이다(시스템 잡 경로 없음).
+        clubAuditEventRepository.save(ClubAuditEvent.feePayment(
+                ClubAuditEventType.FEE_PAYMENT_RECORDED, transaction.getClubId(), bill.getId(),
+                payment.getId(), transaction.getId(), actorId, null,
+                AuditDetailJson.of(Map.of("amount", appliedAmount, "autoMatched", autoMatched))));
     }
 }
