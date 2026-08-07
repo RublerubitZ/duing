@@ -54,7 +54,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
         if (!next) onClose();
       }}
     >
-      <DialogContent>
+      <DialogContent busy={withdrawMutation.isPending}>
         <DialogTitle>회원 탈퇴</DialogTitle>
         <DialogDescription className="text-[13.5px] leading-relaxed text-charcoal-2">
           정말 탈퇴하시겠어요? 계정과 활동 정보가 정리되며 되돌릴 수 없어요.

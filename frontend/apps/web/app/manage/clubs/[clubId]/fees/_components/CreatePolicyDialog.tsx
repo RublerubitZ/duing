@@ -127,7 +127,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         if (!open && !activeMutation.isPending) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent busy={isSubmitting || activeMutation.isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>{isEditMode ? '회비 정책 수정' : '회비 정책 추가'}</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">

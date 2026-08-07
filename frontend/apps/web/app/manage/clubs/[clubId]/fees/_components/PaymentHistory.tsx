@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { formatDateKst, useBillPaymentsQuery, useVoidPaymentMutation } from '@duing/hooks';
 import type { FeeBill, Payment } from '@duing/types';
@@ -30,10 +30,13 @@ type PaymentHistoryProps = {
 export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHistoryProps) {
   const { data: payments, isLoading } = useBillPaymentsQuery(clubId, bill.id);
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
+  // 무효화 요청은 확인 컴포넌트가 들고 있어 pending 이 여기 스코프에 없다 — 전송 중 ESC·바깥
+  // 클릭으로 내역 다이얼로그째 닫히는 것을 막으려면 DialogContent 계층으로 올려야 한다.
+  const [voiding, setVoiding] = useState(false);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent busy={voiding} className="max-w-md">
         <DialogHeader>
           <DialogTitle>납부 내역 · {memberName}</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
@@ -67,6 +70,7 @@ export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHis
             billId={bill.id}
             payment={voidTarget}
             onClose={() => setVoidTarget(null)}
+            onVoidingChange={setVoiding}
           />
         )}
       </DialogContent>
@@ -133,13 +137,28 @@ type VoidPaymentConfirmProps = {
   billId: number;
   payment: Payment;
   onClose: () => void;
+  onVoidingChange: (voiding: boolean) => void;
 };
 
-function VoidPaymentConfirm({ clubId, billId, payment, onClose }: VoidPaymentConfirmProps) {
+function VoidPaymentConfirm({
+  clubId,
+  billId,
+  payment,
+  onClose,
+  onVoidingChange,
+}: VoidPaymentConfirmProps) {
   useBackDismiss(true, onClose);
   const voidPayment = useVoidPaymentMutation(clubId, billId);
   const { addToast } = useToast();
   const [reason, setReason] = useState('');
+
+  // 전송 중임을 부모(DialogContent)에 알린다. 언마운트 해제가 없으면 확인 UI 가 사라진 뒤에도
+  // 내역 다이얼로그가 잠긴 채로 남는다 — 정리를 반드시 함께 둔다.
+  const voiding = voidPayment.isPending;
+  useEffect(() => {
+    onVoidingChange(voiding);
+    return () => onVoidingChange(false);
+  }, [voiding, onVoidingChange]);
 
   const confirmVoid = () => {
     const trimmedReason = reason.trim();

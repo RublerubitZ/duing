@@ -50,7 +50,7 @@ export function LeaveClubDialog({ club, onClose }: Props) {
         if (!next && !isPending) onClose();
       }}
     >
-      <DialogContent aria-describedby="leave-club-confirm-desc">
+      <DialogContent busy={isPending} aria-describedby="leave-club-confirm-desc">
         <DialogTitle>동아리를 탈퇴하시겠어요?</DialogTitle>
         <div id="leave-club-confirm-desc" className="space-y-2 text-[13.5px] leading-relaxed text-charcoal-2">
           <p>동아리를 탈퇴하면 동아리 공지, 일정, 회비 내역 등의 구성원 전용 정보를 더 이상 확인할 수 없습니다.</p>

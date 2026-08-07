@@ -89,7 +89,7 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent busy={isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>납부 기록</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
