@@ -69,6 +69,27 @@ describe('PostHog 초기화 개인정보 정책', () => {
     expect(options.mask_all_text).toBe(true);
   });
 
+  // 텍스트만 끄면 채널이 옮겨갈 뿐이다 — 목록의 체크박스·버튼은 접근성을 위해 이름을
+  // aria-label·title 에 담고, 그 값은 요소 사슬에 attr__* 로 실린다.
+  it('자동 수집이 요소 속성을 싣지 않게 한다', async () => {
+    const options = await captureInitOptions();
+    expect(options.mask_all_element_attributes).toBe(true);
+  });
+
+  // 히트맵과 같은 원격 토글 구조이고, 켜지면 자동 수집 속성이 같은 모양으로 한 번 더 실린다.
+  it('죽은 클릭 수집을 끈 상태로 초기화한다', async () => {
+    const options = await captureInitOptions();
+    expect(options.capture_dead_clicks).toBe(false);
+  });
+
+  // 최초 방문 주소는 저장소에 굳어 기능 플래그 요청 본문으로도 나가는데 그 경로는 전송 직전 훅을
+  // 타지 않는다 — 검색어 파라미터만은 SDK 단계에서 가려 그 창을 막는다.
+  it('검색어 파라미터를 SDK 단계에서도 가린다', async () => {
+    const options = await captureInitOptions();
+    expect(options.mask_personal_data_properties).toBe(true);
+    expect(options.custom_personal_data_properties).toContain('q');
+  });
+
   // 예외는 Sentry 전담 — PostHog 로 중복 캡처되면 예외 메시지를 타고 PII 가 한 번 더 흘러간다.
   it('예외 캡처를 PostHog 에서 켜지 않는다', async () => {
     const options = await captureInitOptions();

@@ -53,7 +53,8 @@ const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 // ($current_url · $referrer · $initial_current_url · $session_entry_url · $external_click_url …)
 const URL_BEARING_PROPERTY = /url|referrer/i;
 // autocapture 는 클릭한 요소의 링크 주소를 직렬화된 요소 사슬 안에 넣는다 — 속성 이름 기준으로는 안 걸린다.
-const HREF_ATTRIBUTE = /href="([^"]*)"/g;
+// 값 안의 따옴표는 SDK 가 역슬래시로 이스케이프하므로 그 짝을 함께 읽어야 값 경계를 놓치지 않는다.
+const HREF_ATTRIBUTE = /href="((?:\\.|[^"\\])*)"/g;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -71,6 +72,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * (경로가 그대로면 페이지뷰는 발화하지 않으므로 "타이핑할 때마다 전송"은 아니다.)
  *
  * <p>Sentry 는 같은 이유로 이미 쿼리스트링을 지운다 — 판정을 sentry-scrub 한 곳에 두고 공유한다.
+ *
+ * <p>범위 한계: 최상위 문자열 속성과 요소 사슬의 링크 주소만 본다. 중첩 객체 안의 주소(성능 지표
+ * 상세 등)와 이 훅을 타지 않는 전송 경로(기능 플래그 요청)는 덮지 못하므로, 그런 채널은 수집 자체를
+ * 끄거나 SDK 단계 마스킹으로 막는다 — 위 초기화 옵션이 그 역할이다.
  */
 function stripUrlQueryFromProperties(properties: Record<string, unknown>): void {
   for (const [propertyName, propertyValue] of Object.entries(properties)) {
@@ -145,6 +150,22 @@ if (!posthogKey) {
     // 행 자체가 클릭 대상이고(커서 모양이 상속돼 셀까지 수집 대상이 된다), SDK 내장 필터는
     // 해외 식별자 형식만 걸러 한글 이름·학번은 하나도 잡지 못한다.
     mask_all_text: true,
+    // 속성도 함께 막는다. 텍스트만 끄면 채널이 옮겨갈 뿐이다 — 목록의 체크박스·버튼은 접근성을 위해
+    // `aria-label="홍길동 선택"`, `title="… 님을 …"` 처럼 이름을 속성에 담고, 그 값은 요소 사슬에
+    // attr__* 로 그대로 실린다. 개별 속성을 열거해 막으면 새 화면이 생길 때마다 뚫리므로 전부 끈다.
+    //
+    // 대가: 위 둘을 끄면 자동 수집 이벤트에 사람이 읽을 수 있는 식별자가 남지 않는다(태그·클래스·순번뿐).
+    // "특정 문구 버튼 클릭" 기준의 퍼널·툴바 지정은 불가능해진다. 되살려야 하면 전면 해제가 아니라
+    // 안전한 라벨을 명시하는 방식(data-ph-capture-attribute-*)으로 가야 한다 — 그 경로는 마스킹 밖이다.
+    mask_all_element_attributes: true,
+    // 죽은 클릭 수집 금지 — 히트맵과 같은 원격 토글 구조이고, 켜지면 위 자동 수집 속성이
+    // 같은 모양으로 한 번 더 실린다.
+    capture_dead_clicks: false,
+    // 최초 방문 주소는 이벤트가 아니라 저장소에 굳어 기능 플래그 요청 본문으로도 나가는데,
+    // 그 경로는 아래 전송 직전 훅을 타지 않는다. 검색어 파라미터를 SDK 단계에서 가려 그 창을 막는다.
+    // (근본 해법은 주소에 검색어를 싣지 않는 것 — 총동연 회원 관리는 이미 그렇게 되어 있다.)
+    mask_personal_data_properties: true,
+    custom_personal_data_properties: ['q'],
     // 주소에 실린 검색어(관리자 콘솔의 이름·학번)가 전송되는 것을 막는다.
     // 이 줄이 사라지면 학생 PII 가 분석 도구에 축적되고 회수할 수 없다.
     before_send: scrubAnalyticsEvent,
