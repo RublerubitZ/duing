@@ -118,14 +118,22 @@ describe('PostHog 초기화 개인정보 정책', () => {
   it('요소 사슬에 실린 링크 주소의 쿼리스트링도 제거한다', async () => {
     const scrubbed = await sendThroughScrubber(
       eventWith({
+        // SDK 의 getElementsChainString 실제 출력 — attr__href 와 베어 href 가 함께 실리고
+        // 요소는 세미콜론으로 이어진다. 이 가드의 값어치가 형식 일치에 달려 있어 실측값을 쓴다.
         $elements_chain:
-          'a:attr__href="/manage/clubs/1/recruitments/2/applicants?q=홍길동"nth-child="1"',
+          'a.text-sm:attr__class="text-sm"' +
+          'attr__href="/manage/clubs/1/recruitments/2/applicants?q=홍길동&status=SUBMITTED"' +
+          'href="/manage/clubs/1/recruitments/2/applicants?q=홍길동&status=SUBMITTED"' +
+          'nth-child="2"nth-of-type="1";div:nth-child="1"nth-of-type="1"',
         $elements: [{ tag_name: 'a', attr__href: '/admin/users?q=20241234' }],
       }),
     );
 
     expect(scrubbed.properties.$elements_chain).toBe(
-      'a:attr__href="/manage/clubs/1/recruitments/2/applicants"nth-child="1"',
+      'a.text-sm:attr__class="text-sm"' +
+        'attr__href="/manage/clubs/1/recruitments/2/applicants"' +
+        'href="/manage/clubs/1/recruitments/2/applicants"' +
+        'nth-child="2"nth-of-type="1";div:nth-child="1"nth-of-type="1"',
     );
     expect(scrubbed.properties.$elements).toEqual([{ tag_name: 'a', attr__href: '/admin/users' }]);
   });
