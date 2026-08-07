@@ -13,7 +13,11 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -57,6 +61,7 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ApplicationRepository applicationRepository;
+    @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
 
@@ -340,6 +345,44 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
                     .get("/api/v1/recruitments/{recruitmentId}", recruitmentId)
                 .then()
                     .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("동아리 폐쇄 시 활성 가입 링크가 폐기되고 학생의 링크 랜딩은 500 이 아니라 404 로 안내된다")
+    void closureRevokesJoinCodesAndLandingFailsClosed() throws Exception {
+        Club club = saveClubWithLeader("가입링크폐쇄클럽", ClubStatus.ACTIVE);
+        Recruitment externalRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                club, "외부폼모집", "내용",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(14), 10,
+                ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
+                TargetRole.MEMBER, null, null, false));
+        ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
+                club, externalRecruitment, "CLOSD1", 12, 30, 7, leaderUser.getId()));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", club.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 이미 배포된 링크는 회수할 수 없으므로 서버가 끊어야 한다 — 폐기 시각과 폐기 주체가 남는다.
+        Map<String, Object> joinCodeRow = jdbcTemplate.queryForMap(
+                "SELECT revoked_at, revoked_by FROM club_join_code WHERE id = ?", joinCode.getId());
+        Assertions.assertNotNull(joinCodeRow.get("revoked_at"));
+        Assertions.assertEquals(adminUser.getId(), ((Number) joinCodeRow.get("revoked_by")).longValue());
+
+        // 회귀 방지: 링크 랜딩이 soft-delete 된 동아리·모집 프록시를 초기화하며 5xx 로 터지면 안 된다.
+        RestAssured
+                .given()
+                .when()
+                    .get("/api/v1/join-codes/{code}", joinCode.getCode())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value())
+                    .body("message", equalTo("유효하지 않은 가입 링크입니다."));
     }
 
     private User saveUser(String name, UserRole role) {

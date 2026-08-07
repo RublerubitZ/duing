@@ -138,7 +138,7 @@ describe('관리자 모집 상세', () => {
 
       expect(
         screen.getByText(
-          '외부 모집은 두잉에서 지원서를 관리하지 않습니다. 회원 등록은 가입 코드 → 가입 요청 → 운영진 승인 절차로 진행됩니다.',
+          '외부 모집은 두잉에서 지원서를 관리하지 않습니다. 회원 등록은 가입 링크 → 가입 요청 → 운영진 승인 절차로 진행됩니다.',
         ),
       ).toBeInTheDocument();
     });
@@ -158,7 +158,7 @@ describe('관리자 모집 상세', () => {
 
       render(<AdminRecruitmentDetailPage recruitmentId={5} />);
 
-      expect(screen.getByText('가입 코드 상태')).toBeInTheDocument();
+      expect(screen.getByText('가입 링크 상태')).toBeInTheDocument();
       expect(screen.getByText('활성')).toBeInTheDocument();
       expect(screen.getByText('가입 요청')).toBeInTheDocument();
       expect(screen.getByText('12건')).toBeInTheDocument();
@@ -168,12 +168,12 @@ describe('관리자 모집 상세', () => {
       expect(screen.getByText('9명')).toBeInTheDocument();
     });
 
-    it('활성 코드가 없으면 코드 없음으로 읽힌다', () => {
+    it('활성 링크가 없으면 링크 없음으로 읽힌다', () => {
       mockDetailQuery.mockReturnValue(detailSuccess(externalDetail({ joinLink: null })));
 
       render(<AdminRecruitmentDetailPage recruitmentId={5} />);
 
-      expect(screen.getByText('코드 없음')).toBeInTheDocument();
+      expect(screen.getByText('링크 없음')).toBeInTheDocument();
     });
 
     it('지원자 목록은 아예 렌더하지 않는다 — 두잉에 지원 데이터가 없다', () => {

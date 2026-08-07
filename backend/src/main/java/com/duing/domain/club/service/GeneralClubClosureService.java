@@ -10,6 +10,7 @@ import com.duing.domain.clubmember.service.ClubMemberCommandService;
 import com.duing.domain.clubmember.service.LeaderSuccessionService;
 import com.duing.domain.favorite.service.ClubFavoriteService;
 import com.duing.domain.interview.service.InterviewRoundService;
+import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.domain.promotion.service.PromotionService;
 import com.duing.domain.recruitment.service.RecruitmentService;
@@ -28,6 +29,7 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final ClubMemberCommandService clubMemberCommandService;
     private final LeaderSuccessionService leaderSuccessionService;
     private final RecruitmentService recruitmentService;
+    private final JoinCodeService joinCodeService;
     private final ApplicationService applicationService;
     private final InterviewRoundService interviewRoundService;
     private final PromotionService promotionService;
@@ -52,10 +54,20 @@ public class GeneralClubClosureService implements ClubClosureService {
         clubMemberCommandService.removeAllOnClubClosure(clubId, actorAdminUserId, reason);
         leaderSuccessionService.cancelPendingOnClubClosure(clubId, actorAdminUserId, reason);
 
-        // 2. 모집 → 지원 → 면접 (모집 id 체인)
+        // 2. 모집 → 가입 링크 → 지원 → 면접 (모집 id 체인)
         // 모집의 soft-delete 는 지원/면접 cascade 가 모집을 참조해 처리할 수 있도록 가장 마지막에 한다.
         // (먼저 삭제하면 @SQLRestriction 으로 모집이 가려져 cascade 가 누락된다.)
         List<Long> recruitmentIds = recruitmentService.closeAllOnClubClosure(clubId);
+        // 이미 배포된 가입 링크는 회수할 수 없으므로 폐쇄가 서버에서 끊어야 한다 — 폐기하지 않으면
+        // 죽은 동아리로 학생이 계속 유입된다(#869).
+        //
+        // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠그는데, 학생의 가입 요청 생성은
+        // club_join_code(FOR UPDATE) → club(FK KEY SHARE) 순이라 정확히 역순이다. 두 트랜잭션이
+        // 겹치면 교착이고 폐쇄 쪽이 abort 된다. 겹치지 않는 이유는 잠금이 아니라 상태 게이트다 —
+        // 폐쇄는 커밋된 비 ACTIVE 동아리에서만 시작되고(validateClosable), 코드 행을 잠그는 모든
+        // 경로가 ACTIVE 를 요구한다(요청 생성의 isUsable, 운영진 경로의 requireActiveClub).
+        // ACTIVE 동아리 폐쇄를 허용하거나 그 게이트를 완화하면 이 교착이 곧바로 열린다.
+        joinCodeService.revokeActiveOnClubClosure(clubId, recruitmentIds, actorAdminUserId);
         applicationService.rejectActiveOnClubClosure(recruitmentIds);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
         recruitmentService.softDeleteAllOnClubClosure(recruitmentIds);

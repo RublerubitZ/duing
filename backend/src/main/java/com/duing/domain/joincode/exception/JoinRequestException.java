@@ -60,7 +60,7 @@ public class JoinRequestException extends ApplicationException {
      * 알리지 않는다(스펙 6 "사유 구분 없는 단일 안내").
      */
     public static final class UnusableJoinCodeException extends JoinRequestException {
-        private static final String MESSAGE = "사용할 수 없는 가입 코드입니다.";
+        private static final String MESSAGE = "사용할 수 없는 가입 링크입니다.";
 
         public UnusableJoinCodeException() {
             super(MESSAGE, HttpStatus.CONFLICT);

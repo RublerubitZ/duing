@@ -11,7 +11,7 @@ public class JoinCodeException extends ApplicationException {
 
     /** 미존재·타 동아리 코드를 하나로 묶어 존재 여부 열거를 막는다(IDOR 차단). */
     public static final class JoinCodeNotFoundException extends JoinCodeException {
-        private static final String MESSAGE = "유효하지 않은 가입 코드입니다.";
+        private static final String MESSAGE = "유효하지 않은 가입 링크입니다.";
 
         public JoinCodeNotFoundException() {
             super(MESSAGE, HttpStatus.NOT_FOUND);
@@ -21,7 +21,7 @@ public class JoinCodeException extends ApplicationException {
     /** 모집당 활성 코드 1개 제약(partial unique)에 동시 재생성이 걸린 경우 — 재시도로 해소된다. */
     public static final class ConcurrentJoinCodeOperationException extends JoinCodeException {
         private static final String MESSAGE =
-                "다른 운영진이 먼저 가입 코드를 변경했습니다. 새로고침 후 다시 시도해주세요.";
+                "다른 운영진이 먼저 가입 링크를 변경했습니다. 새로고침 후 다시 시도해주세요.";
 
         public ConcurrentJoinCodeOperationException() {
             super(MESSAGE, HttpStatus.CONFLICT);

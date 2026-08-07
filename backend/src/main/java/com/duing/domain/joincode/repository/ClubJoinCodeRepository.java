@@ -47,8 +47,23 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
             + "AND joinCode.revokedAt IS NULL AND joinCode.deletedAt IS NULL")
     List<Long> findActiveIdsByRecruitmentId(@Param("recruitmentId") Long recruitmentId);
 
-    /** 학생의 코드 확인 진입점(읽기 전용). 유효성(미폐기·미만료·미소진) 판정은 호출 측 책임이다. */
-    Optional<ClubJoinCode> findByCode(String code);
+    /**
+     * 학생의 코드 확인 진입점(읽기 전용). 유효성(미폐기·미만료·미소진) 판정은 호출 측 책임이다.
+     *
+     * <p>동아리·모집의 생존을 직접 확인하는 이유: 코드 행은 soft-delete 하지 않으므로 폐쇄된 동아리의
+     * 링크도 그대로 조회되는데, 확인 응답은 동아리명을, 사용 판정은 모집 상태를 읽어야 한다. 둘 다
+     * LAZY 프록시라 대상이 soft-delete 됐으면 초기화 시점에 EntityNotFoundException 이 나 5xx 가 된다(#869).
+     * 죽은 부모를 가진 코드는 아예 조회되지 않아 "유효하지 않은 가입 링크"(404)로 떨어진다(fail-closed).
+     *
+     * <p>{@code deletedAt IS NULL} 을 직접 적는 이유: 조인 대상에 {@code @SQLRestriction} 이 적용되는지는
+     * Hibernate 버전 동작에 달려 있고, 현재 버전에서는 적용되지 않아 조인만으로는 필터가 되지 않는다
+     * (위 벌크 UPDATE 와 같은 함정). 버전 동작에 기대지 않도록 명시하는 것이므로 중복 조건이 아니다.
+     */
+    @Query("SELECT joinCode FROM ClubJoinCode joinCode "
+            + "JOIN joinCode.club club JOIN joinCode.recruitment recruitment "
+            + "WHERE joinCode.code = :code "
+            + "AND club.deletedAt IS NULL AND recruitment.deletedAt IS NULL")
+    Optional<ClubJoinCode> findByCode(@Param("code") String code);
 
     /**
      * 가입 요청 생성의 잔여 확인·차감({@code tryConsume})이 같은 코드 행에 대해 직렬화되도록
