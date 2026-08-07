@@ -1,5 +1,6 @@
 package com.duing.domain.application.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -78,6 +79,34 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+    }
+
+    @Test
+    @DisplayName("보류(ON_HOLD) 지원서는 목록·상세 모두 접수(SUBMITTED)로 내려가 내부 판단이 새지 않는다")
+    void onHoldIsMaskedAsSubmittedForApplicant() {
+        User applicant = saveUser("보류지원자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+        Club club = saveActiveClub("보류동아리");
+        Recruitment recruitment = saveSimpleRecruitment(club, "보류모집");
+        Application application = saveOnHoldApplication(recruitment, applicant);
+
+        // 마스킹을 화면에만 두면 매핑이 한 번 회귀하는 순간 원시 응답으로 "ON_HOLD" 가 그대로 나간다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }.status".formatted(application.getId()),
+                        equalTo("SUBMITTED"));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("SUBMITTED"));
+
+        // 운영진 판단 자체는 그대로 남아 있어야 한다 — 가리는 것은 노출뿐이다.
+        assertThat(applicationRepository.findById(application.getId()).orElseThrow().getStatus())
+                .isEqualTo(ApplicationStatus.ON_HOLD);
     }
 
     @Test
@@ -292,6 +321,12 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 title + "-" + sequence.incrementAndGet(), null,
                 today.minusDays(1), today.plusDays(7), 10);
         return recruitmentRepository.save(recruitment);
+    }
+
+    private Application saveOnHoldApplication(Recruitment recruitment, User user) {
+        Application application = Application.submit(recruitment, user, List.of());
+        ReflectionTestUtils.setField(application, "status", ApplicationStatus.ON_HOLD);
+        return applicationRepository.save(application);
     }
 
     private Application saveInterviewPendingApplication(Recruitment recruitment, User user) {

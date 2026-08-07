@@ -67,7 +67,7 @@ export async function RecruitmentTicker() {
         </div>
 
         <Link
-          href="/clubs?recruitmentStatus=AVAILABLE"
+          href="/clubs?recruitment=available"
           className="flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-white hover:text-sage"
         >
           전체 보기 <ArrowRight />

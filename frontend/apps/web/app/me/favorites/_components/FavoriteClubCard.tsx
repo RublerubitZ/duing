@@ -35,11 +35,19 @@ export function FavoriteClubCard({ favorite }: Props) {
             {CATEGORY_LABEL[favorite.category]}
             {favorite.division ? ` · ${favorite.division}` : ''}
           </p>
-          {favorite.openRecruitmentCount > 0 && (
-            <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              진행 중 모집 {favorite.openRecruitmentCount}개
-            </span>
-          )}
+          {/* 0건도 표기한다 — 배지가 아예 없으면 "모집 없음"과 "아직 안 불러옴"이 구분되지 않는다.
+              문구는 /me 홈의 찜 섹션(SectionSaved)과 같은 말을 쓴다. */}
+          <span
+            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+              favorite.openRecruitmentCount > 0
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {favorite.openRecruitmentCount > 0
+              ? `모집중 ${favorite.openRecruitmentCount}건`
+              : '모집 없음'}
+          </span>
         </div>
       </Link>
       <div className="absolute right-2 top-2">
