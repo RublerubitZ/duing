@@ -136,10 +136,16 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         boolean targetUserAlive = clubMemberRepository
                 .findByClubIdAndIdWithUser(command.clubId(), command.memberId())
                 .isPresent();
+        // 동아리 범위·역할 요건을 먼저 본다 — 위 조회는 동아리 조건도 함께 걸어서, 순서를 바꾸면
+        // 타 동아리 대상까지 아래 404 로 빨려 들어가 기존 계약이 바뀐다.
         if (!target.getClub().getId().equals(command.clubId())
-                || target.getRole() == ClubMemberRole.LEADER
-                || !targetUserAlive) {
+                || target.getRole() == ClubMemberRole.LEADER) {
             throw new ClubMemberException.TransferTargetInvalid();
+        }
+        if (!targetUserAlive) {
+            // 역할 요건 위반이 아니라 대상이 사라진 것이다 — 나머지 세 경로와 같은 404 로 맞춰야
+            // 운영진이 받는 안내가 "목록을 새로고침하라"로 읽힌다.
+            throw new ClubMemberException.NotFound();
         }
 
         ClubMemberRole previousTargetRole = target.getRole();

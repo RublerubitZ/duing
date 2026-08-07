@@ -350,7 +350,7 @@ class ClubMemberCommandServiceTest {
     }
 
     @Test
-    @DisplayName("탈퇴한 회원의 잔존 멤버십을 인계 대상으로 지정하면 500 이 아니라 TransferTargetInvalid 가 발생한다")
+    @DisplayName("탈퇴한 회원의 잔존 멤버십을 인계 대상으로 지정하면 500 이 아니라 NotFound 로 수렴한다")
     void withdrawnMemberCannotBeTransferTarget() throws Exception {
         User leader = saveUser("리더17");
         User withdrawnUser = saveUser("탈퇴17");
@@ -368,7 +368,7 @@ class ClubMemberCommandServiceTest {
         // 읽는 지점에서 프록시 초기화가 실패해 500 이 되던 경로다.
         assertThatThrownBy(() -> clubMemberCommandService.transferLeader(
                 new TransferLeaderCommand(club.getId(), ghostMembership.getId(), leader.getId())))
-                .isInstanceOf(ClubMemberException.TransferTargetInvalid.class);
+                .isInstanceOf(ClubMemberException.NotFound.class);
     }
 
     // ── fixtures ──────────────────────────────────────────────────────────
