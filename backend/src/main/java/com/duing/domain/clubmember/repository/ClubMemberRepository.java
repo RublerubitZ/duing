@@ -50,10 +50,16 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     List<ClubMember> findAllByClubIdOrderedByRoleAndJoinedAt(@Param("clubId") Long clubId);
 
     /**
-     * 원본 연락처 조회 전용 — clubId 스코프 검증과 User 로딩을 한 쿼리로 끝낸다.
+     * 원본 연락처 조회와 운영 명령(역할 변경·기수 변경·강퇴·인계 대상 검증)의 공용 조회 —
+     * clubId 스코프 검증과 User 로딩을 한 쿼리로 끝낸다. 소비자가 둘이므로 연락처 기준으로만
+     * 손대면(필요 컬럼 프로젝션·JOIN FETCH 제거) 탈퇴 회원 조작 차단이 조용히 풀린다.
      * JOIN FETCH(INNER)라 탈퇴(User soft-delete)로 남은 비-LEADER 잔존 행은 결과에서 빠져 404 로 수렴한다.
      * findById 로 읽으면 user 프록시 초기화가 실패해 500 이 되므로 이 경로를 반드시 쓴다.
      * 타 동아리 memberId 도 조건 불일치로 빈 Optional 이 돼 미존재와 구분되지 않는다.
+     *
+     * <p>탈퇴 회원 제외가 조인 ON 절의 @SQLRestriction 에 기대고 있어 Hibernate 동작이 바뀌면 뚫린다.
+     * 조건을 중복으로 적는 대신 테스트로 고정했다 — ClubMemberCommandServiceTest 의 탈퇴 회원 케이스와
+     * ClubMemberPhoneControllerTest 가 깨지므로 조용히 회귀하지 않는다.
      */
     @Query("""
             SELECT cm FROM ClubMember cm

@@ -14,6 +14,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.LeaveClubCommand;
 import com.duing.domain.clubmember.service.dto.command.RemoveMemberCommand;
 import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
+import com.duing.domain.clubmember.service.dto.command.UpdateMemberGenerationCommand;
 import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
 import com.duing.domain.user.entity.User;
@@ -316,6 +317,58 @@ class ClubMemberCommandServiceTest {
         assertThatThrownBy(() -> clubMemberCommandService.transferLeader(
                 new TransferLeaderCommand(clubA.getId(), inB.getId(), leader.getId())))
                 .isInstanceOf(ClubMemberException.TransferTargetInvalid.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 잔존 멤버십을 대상으로 역할 변경·기수 변경·강퇴를 시도하면 NotFound 로 수렴한다")
+    void withdrawnMemberCommandsResolveToNotFound() throws Exception {
+        User leader = saveUser("리더16");
+        User withdrawnUser = saveUser("탈퇴16");
+        Club club = saveActiveClub("두잉변경16");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubMember membership = clubMemberRepository.save(ClubMember.asMember(club, withdrawnUser));
+
+        // 탈퇴는 계정만 soft-delete 하고 비-LEADER 멤버십 행은 남긴다(의도된 동작).
+        // 실제 탈퇴는 별도 트랜잭션이라 멤버십 행만 남는데, 같은 트랜잭션에서 delete 를 부르면
+        // Hibernate 가 "제거된 User 를 참조하는 ClubMember" 로 보고 flush 에서 먼저 막는다.
+        // 운영 데이터와 같은 상태를 만들기 위해 컬럼만 직접 찍고 컨텍스트를 비운다.
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", withdrawnUser.getId())
+                .executeUpdate();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> clubMemberCommandService.updateRole(new UpdateMemberRoleCommand(
+                club.getId(), membership.getId(), leader.getId(), ClubMemberRole.OFFICER)))
+                .isInstanceOf(ClubMemberException.NotFound.class);
+        assertThatThrownBy(() -> clubMemberCommandService.updateGeneration(new UpdateMemberGenerationCommand(
+                club.getId(), membership.getId(), leader.getId(), 3)))
+                .isInstanceOf(ClubMemberException.NotFound.class);
+        assertThatThrownBy(() -> clubMemberCommandService.removeMember(new RemoveMemberCommand(
+                club.getId(), membership.getId(), leader.getId())))
+                .isInstanceOf(ClubMemberException.NotFound.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 잔존 멤버십을 인계 대상으로 지정하면 500 이 아니라 NotFound 로 수렴한다")
+    void withdrawnMemberCannotBeTransferTarget() throws Exception {
+        User leader = saveUser("리더17");
+        User withdrawnUser = saveUser("탈퇴17");
+        Club club = saveActiveClub("두잉변경17");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubMember ghostMembership = clubMemberRepository.save(ClubMember.asMember(club, withdrawnUser));
+
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", withdrawnUser.getId())
+                .executeUpdate();
+        entityManager.clear();
+
+        // 인계는 잠금 조회를 쓰므로 위 세 경로와 달리 공용 헬퍼를 타지 않는다 — 응답 변환이 이름을
+        // 읽는 지점에서 프록시 초기화가 실패해 500 이 되던 경로다.
+        assertThatThrownBy(() -> clubMemberCommandService.transferLeader(
+                new TransferLeaderCommand(club.getId(), ghostMembership.getId(), leader.getId())))
+                .isInstanceOf(ClubMemberException.NotFound.class);
     }
 
     // ── fixtures ──────────────────────────────────────────────────────────

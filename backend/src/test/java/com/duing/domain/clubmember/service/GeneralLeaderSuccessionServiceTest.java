@@ -229,6 +229,34 @@ class GeneralLeaderSuccessionServiceTest {
     }
 
     @Test
+    @DisplayName("요청과 승인 사이에 요청자가 탈퇴하면 승격되지 않고 현직 회장도 유지된다")
+    void approveRejectsWithdrawnRequester() {
+        User leader = saveUser(UserRole.STUDENT);
+        User officer = saveUser(UserRole.STUDENT);
+        User admin = saveUser(UserRole.ADMIN);
+        Club club = saveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        Long requestId = successionService.create(new CreateSuccessionCommand(
+                club.getId(), officer.getId(), "잠수"));
+
+        // 탈퇴는 계정만 지우고 비-LEADER 멤버십 행은 남긴다 — 막지 않으면 로그인 불가한 유령 회장이
+        // 생기면서 현직 회장이 강등되고, 동아리 운영이 총동연 강제 지정 없이는 복구되지 않는다.
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", officer.getId())
+                .executeUpdate();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> successionService.process(new ProcessSuccessionCommand(
+                requestId, admin.getId(), SuccessionStatus.APPROVED, null)))
+                .isInstanceOf(ClubMemberException.SuccessionRequesterNoLongerOfficer.class);
+
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), leader.getId())
+                .orElseThrow().getRole()).isEqualTo(ClubMemberRole.LEADER);
+    }
+
+    @Test
     @DisplayName("LEADER 가 부재한 동아리는 APPROVED 처리 불가 (강제 지정 경로 사용)")
     void approveRequiresLeaderPresent() {
         User officer = saveUser(UserRole.STUDENT);

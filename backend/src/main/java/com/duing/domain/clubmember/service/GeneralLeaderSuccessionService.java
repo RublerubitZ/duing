@@ -109,6 +109,12 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         if (requesterMember.getRole() != ClubMemberRole.OFFICER) {
             throw new ClubMemberException.SuccessionRequesterNoLongerOfficer();
         }
+        // 요청과 승인 사이에 요청자가 탈퇴하면 계정만 지워지고 멤버십 행은 남는다. 위 잠금 조회는
+        // 명시 HQL 이라 그 잔존 행도 잡히고, 그대로 승격하면 로그인 불가한 유령 회장이 생기면서
+        // 현직 회장은 강등된다 — 파생 쿼리로 계정 생존을 확인해 자격 상실로 처리한다.
+        if (clubMemberRepository.findByClubIdAndUserId(clubId, requesterUserId).isEmpty()) {
+            throw new ClubMemberException.SuccessionRequesterNoLongerOfficer();
+        }
 
         currentLeader.changeRole(ClubMemberRole.MEMBER);
         requesterMember.changeRole(ClubMemberRole.LEADER);

@@ -20,6 +20,8 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +42,7 @@ class GeneralAdminLeaderAssignmentServiceTest {
     @Autowired ClubMemberHistoryRepository historyRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
+    @PersistenceContext EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -77,6 +80,32 @@ class GeneralAdminLeaderAssignmentServiceTest {
         assertThat(row.getFromRole()).isEqualTo(ClubMemberRole.MEMBER);
         assertThat(row.getToRole()).isEqualTo(ClubMemberRole.LEADER);
         assertThat(row.getActorUserId()).isEqualTo(admin.getId());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 잔존 멤버십은 회장으로 지정되지 않는다")
+    void withdrawnMemberCannotBeAssignedAsLeader() {
+        User admin = saveUser(UserRole.ADMIN);
+        User leader = saveUser(UserRole.STUDENT);
+        User withdrawnUser = saveUser(UserRole.STUDENT);
+        Club club = saveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.of(club, withdrawnUser, ClubMemberRole.OFFICER));
+
+        // 탈퇴는 계정만 지우고 비-LEADER 멤버십 행은 남긴다. 잠금 조회는 그 잔존 행도 잡으므로,
+        // 막지 않으면 로그인 불가한 유령 회장이 생기고 현직 회장이 강등된다.
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", withdrawnUser.getId())
+                .executeUpdate();
+        entityManager.clear();
+
+        assertThatThrownBy(() -> service.assign(new AssignLeaderByAdminCommand(
+                club.getId(), withdrawnUser.getId(), admin.getId(), "회장 잠적")))
+                .isInstanceOf(ClubMemberException.AdminAssignTargetNotMember.class);
+
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), leader.getId())
+                .orElseThrow().getRole()).isEqualTo(ClubMemberRole.LEADER);
     }
 
     @Test
