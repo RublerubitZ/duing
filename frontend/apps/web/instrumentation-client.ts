@@ -45,30 +45,75 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 // PostHog 클라이언트 초기화 — Sentry 아래 별도로 둔다.
 import posthog from 'posthog-js';
+import type { CaptureResult } from 'posthog-js';
 
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
 // URL 을 담는 속성 이름 — 키로 고르면 SDK 가 URL 속성을 새로 추가해도 자동으로 덮인다.
-// ($current_url · $referrer · $initial_current_url · $initial_referrer …)
+// ($current_url · $referrer · $initial_current_url · $session_entry_url · $external_click_url …)
 const URL_BEARING_PROPERTY = /url|referrer/i;
+// autocapture 는 클릭한 요소의 링크 주소를 직렬화된 요소 사슬 안에 넣는다 — 속성 이름 기준으로는 안 걸린다.
+const HREF_ATTRIBUTE = /href="([^"]*)"/g;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 /**
  * PostHog 로 나가는 속성에서 URL 쿼리스트링을 제거한다.
  *
  * <p>관리자 콘솔의 검색어는 주소에 실린다 — 지원자 관리 검색창 안내가 "이름·학번·학과로 검색"이라
- * 운영진이 이름을 타이핑하면 주소가 `?q=<이름>` 이 된다. PostHog 는 히스토리 변경마다 페이지뷰를
- * 보내므로 그대로 두면 "누가 누구를 검색했는지"가 이름·학번 단위로 분석 도구에 쌓이고,
- * 한 번 전송된 것은 회수할 수 없다.
+ * 운영진이 이름을 타이핑하면 주소가 `?q=<이름>` 이 된다. 그대로 두면 "누가 누구를 검색했는지"가
+ * 이름·학번 단위로 분석 도구에 쌓이고, 한 번 전송된 것은 회수할 수 없다.
+ *
+ * <p>새는 경로는 두 가지다. 현재 주소는 페이지뷰뿐 아니라 <b>모든 이벤트</b>에 붙으므로 검색 상태에서
+ * 클릭 한 번이면 나가고, 목록에서 상세로 들어갈 때는 검색 조건을 그대로 물고 가 페이지뷰에 실린다.
+ * (경로가 그대로면 페이지뷰는 발화하지 않으므로 "타이핑할 때마다 전송"은 아니다.)
  *
  * <p>Sentry 는 같은 이유로 이미 쿼리스트링을 지운다 — 판정을 sentry-scrub 한 곳에 두고 공유한다.
  */
-function stripUrlQueryFromProperties(properties: Record<string, unknown>): Record<string, unknown> {
+function stripUrlQueryFromProperties(properties: Record<string, unknown>): void {
   for (const [propertyName, propertyValue] of Object.entries(properties)) {
     if (typeof propertyValue === 'string' && URL_BEARING_PROPERTY.test(propertyName)) {
       properties[propertyName] = stripQuery(propertyValue);
     }
   }
-  return properties;
+
+  // 요소 사슬의 링크 주소. SDK 가 이 값만은 속성 필터·마스킹 뒤에 무조건 다시 넣어서
+  // (autocapture 의 attr__href 재할당) 전송 직전인 여기서 지우는 수밖에 없다.
+  const elementsChain = properties.$elements_chain;
+  if (typeof elementsChain === 'string') {
+    properties.$elements_chain = elementsChain.replace(
+      HREF_ATTRIBUTE,
+      (_matched, href: string) => `href="${stripQuery(href)}"`,
+    );
+  }
+  const elements = properties.$elements;
+  if (Array.isArray(elements)) {
+    for (const element of elements) {
+      if (isRecord(element) && typeof element.attr__href === 'string') {
+        element.attr__href = stripQuery(element.attr__href);
+      }
+    }
+  }
+}
+
+/**
+ * 전송 직전 한 번에 정제한다. 이벤트 속성뿐 아니라 사람 속성($set·$set_once)까지 같은 함수가 덮는다 —
+ * 속성만 거르는 훅은 사람 속성 경로를 구조적으로 못 덮고, SDK 도 그 훅을 폐기 예정으로 표시했다.
+ */
+function scrubAnalyticsEvent(captureResult: CaptureResult | null): CaptureResult | null {
+  if (!captureResult) {
+    return captureResult;
+  }
+  stripUrlQueryFromProperties(captureResult.properties);
+  if (captureResult.$set) {
+    stripUrlQueryFromProperties(captureResult.$set);
+  }
+  if (captureResult.$set_once) {
+    stripUrlQueryFromProperties(captureResult.$set_once);
+  }
+  return captureResult;
 }
 
 if (!posthogKey) {
@@ -92,9 +137,17 @@ if (!posthogKey) {
     // 이 플래그는 대시보드 토글과 AND 로 묶인다(SDK: server_side_enabled && !disable_session_recording).
     // 원격으로 켜도 배포된 코드가 이 값을 들고 있는 한 레코더 스크립트조차 내려받지 않는다.
     disable_session_recording: true,
-    // 주소에 실린 검색어(관리자 콘솔의 이름·학번)가 페이지뷰마다 전송되는 것을 막는다.
+    // 히트맵 금지 — 세션 리코딩과 같은 이유이자 같은 구조다. 켜지면 클릭 좌표를 모으면서
+    // 쿼리스트링이 붙은 전체 주소를 버퍼의 키로 싣는데, 그 값은 아래 정제가 닿지 않는 모양이다.
+    // 활성 여부가 코드에 없으면 대시보드에서 배포 없이 켤 수 있으므로 여기서 못박는다.
+    capture_heatmaps: false,
+    // 자동 수집이 클릭한 요소의 텍스트를 싣는 것을 막는다. 지원자·회원 목록은 이름·학번이 보이는
+    // 행 자체가 클릭 대상이고(커서 모양이 상속돼 셀까지 수집 대상이 된다), SDK 내장 필터는
+    // 해외 식별자 형식만 걸러 한글 이름·학번은 하나도 잡지 못한다.
+    mask_all_text: true,
+    // 주소에 실린 검색어(관리자 콘솔의 이름·학번)가 전송되는 것을 막는다.
     // 이 줄이 사라지면 학생 PII 가 분석 도구에 축적되고 회수할 수 없다.
-    sanitize_properties: stripUrlQueryFromProperties,
+    before_send: scrubAnalyticsEvent,
     debug: process.env.NODE_ENV === 'development',
   });
 }
