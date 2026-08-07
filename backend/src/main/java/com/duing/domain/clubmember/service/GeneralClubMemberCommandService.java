@@ -130,8 +130,15 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         if (currentLeader.getRole() != ClubMemberRole.LEADER) {
             throw new ClubMemberException.ConcurrentTransferDetected();
         }
+        // 탈퇴 계정의 잔존 행이 대상이면 아래 응답 변환이 이름을 읽다 프록시 초기화에 실패해 500 이 된다.
+        // 잠금 쿼리에 조인을 넣으면 users 행까지 잠겨 잠금 범위가 넓어지므로, 운영 명령 3경로와 같은
+        // 조회로 생존만 따로 확인하고 대상 부적합으로 함께 거절한다.
+        boolean targetUserAlive = clubMemberRepository
+                .findByClubIdAndIdWithUser(command.clubId(), command.memberId())
+                .isPresent();
         if (!target.getClub().getId().equals(command.clubId())
-                || target.getRole() == ClubMemberRole.LEADER) {
+                || target.getRole() == ClubMemberRole.LEADER
+                || !targetUserAlive) {
             throw new ClubMemberException.TransferTargetInvalid();
         }
 

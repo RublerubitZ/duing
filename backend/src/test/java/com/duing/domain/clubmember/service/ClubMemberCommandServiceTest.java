@@ -13,8 +13,8 @@ import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.LeaveClubCommand;
 import com.duing.domain.clubmember.service.dto.command.RemoveMemberCommand;
-import com.duing.domain.clubmember.service.dto.command.UpdateMemberGenerationCommand;
 import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
+import com.duing.domain.clubmember.service.dto.command.UpdateMemberGenerationCommand;
 import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
 import com.duing.domain.user.entity.User;
@@ -347,6 +347,28 @@ class ClubMemberCommandServiceTest {
         assertThatThrownBy(() -> clubMemberCommandService.removeMember(new RemoveMemberCommand(
                 club.getId(), membership.getId(), leader.getId())))
                 .isInstanceOf(ClubMemberException.NotFound.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 잔존 멤버십을 인계 대상으로 지정하면 500 이 아니라 TransferTargetInvalid 가 발생한다")
+    void withdrawnMemberCannotBeTransferTarget() throws Exception {
+        User leader = saveUser("리더17");
+        User withdrawnUser = saveUser("탈퇴17");
+        Club club = saveActiveClub("두잉변경17");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubMember ghostMembership = clubMemberRepository.save(ClubMember.asMember(club, withdrawnUser));
+
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", withdrawnUser.getId())
+                .executeUpdate();
+        entityManager.clear();
+
+        // 인계는 잠금 조회를 쓰므로 위 세 경로와 달리 공용 헬퍼를 타지 않는다 — 응답 변환이 이름을
+        // 읽는 지점에서 프록시 초기화가 실패해 500 이 되던 경로다.
+        assertThatThrownBy(() -> clubMemberCommandService.transferLeader(
+                new TransferLeaderCommand(club.getId(), ghostMembership.getId(), leader.getId())))
+                .isInstanceOf(ClubMemberException.TransferTargetInvalid.class);
     }
 
     // ── fixtures ──────────────────────────────────────────────────────────
