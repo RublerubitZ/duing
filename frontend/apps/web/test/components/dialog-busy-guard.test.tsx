@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -30,9 +30,35 @@ describe('DialogContent 전송 중 닫힘 가드', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  // 바깥 클릭 경로는 여기서 검증하지 않는다 — jsdom 에서는 Radix 의 바깥 감지가 발화하지 않아
-  // (음성 대조로 확인: 가드를 꺼도 닫히지 않는다) 무엇을 넣어도 통과하는 공허한 단언이 된다.
-  // ESC 와 같은 한 줄 가드를 공유하므로 코드 경로는 동일하고, 실동작은 실브라우저 확인이 필요하다.
+  // Radix 는 바깥 감지 리스너를 setTimeout(0) 안에서 등록한다 — 렌더 직후 바로 이벤트를 쏘면
+  // 리스너가 아직 없어 아무 일도 일어나지 않고, 가드를 꺼도 통과하는 공허한 단언이 된다.
+  // 한 틱을 흘린 뒤에 쏴야 실제 경로를 탄다.
+  async function flushOutsideListener() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    });
+  }
+
+  it('전송 중에는 바깥을 눌러도 닫히지 않는다', async () => {
+    const onOpenChange = vi.fn();
+    renderDialog(true, onOpenChange);
+    await flushOutsideListener();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  // 위 단언이 공허하지 않다는 근거 — 가드가 없으면 같은 조작으로 실제로 닫힌다.
+  it('전송 중이 아니면 바깥을 눌러 닫힌다', async () => {
+    const onOpenChange = vi.fn();
+    renderDialog(false, onOpenChange);
+    await flushOutsideListener();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 
   it('전송이 끝나면 ESC 로 다시 닫힌다', () => {
     const onOpenChange = vi.fn();
@@ -58,5 +84,30 @@ describe('DialogContent 전송 중 닫힘 가드', () => {
     fireEvent.keyDown(screen.getByText('탈퇴할까요?'), { key: 'Escape' });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  // 호출처가 넘긴 핸들러를 그대로 이어 부르지 않으면, 자체 가드를 이미 가진 다이얼로그 20여 곳의
+  // preventDefault 가 조용히 죽는다 — 공용화의 안전망이라 이 축을 직접 고정한다.
+  it('호출처가 넘긴 닫기 핸들러를 그대로 이어 부른다', async () => {
+    const onEscapeKeyDown = vi.fn();
+    const onPointerDownOutside = vi.fn();
+    render(
+      <Dialog open onOpenChange={() => {}}>
+        <DialogContent
+          onEscapeKeyDown={onEscapeKeyDown}
+          onPointerDownOutside={onPointerDownOutside}
+          aria-describedby={undefined}
+        >
+          <DialogTitle>탈퇴할까요?</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    await flushOutsideListener();
+
+    fireEvent.keyDown(screen.getByText('탈퇴할까요?'), { key: 'Escape' });
+    fireEvent.pointerDown(document.body);
+
+    expect(onEscapeKeyDown).toHaveBeenCalledTimes(1);
+    expect(onPointerDownOutside).toHaveBeenCalledTimes(1);
   });
 });

@@ -124,7 +124,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !activeMutation.isPending) onClose();
+        if (!open && !isSubmitting && !activeMutation.isPending) onClose();
       }}
     >
       <DialogContent busy={isSubmitting || activeMutation.isPending} className="max-w-md">

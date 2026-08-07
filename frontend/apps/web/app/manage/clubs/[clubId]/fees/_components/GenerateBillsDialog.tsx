@@ -46,7 +46,7 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
   const activePolicies = (policies ?? []).filter((policy) => policy.active);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent busy={submitting} className="max-w-md">
         <DialogHeader>
           <DialogTitle>회비 청구 발행</DialogTitle>
@@ -79,6 +79,9 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
                     activePolicies.find((policy) => policy.id === nextId) ?? null,
                   );
                 }}
+                // 전송 중 정책을 바꾸면 아래 폼이 리마운트되면서 전송 상태가 조기 해제돼
+                // 닫힘 가드가 풀린다 — 요청이 끝날 때까지 선택을 잠근다.
+                disabled={submitting}
                 className={inputCls}
               >
                 <option value="" disabled>

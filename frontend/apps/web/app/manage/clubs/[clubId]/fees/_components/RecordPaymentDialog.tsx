@@ -88,7 +88,7 @@ export function RecordPaymentDialog({
   const isPending = isSubmitting || recordPayment.isPending;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !isPending && onClose()}>
       <DialogContent busy={isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>납부 기록</DialogTitle>

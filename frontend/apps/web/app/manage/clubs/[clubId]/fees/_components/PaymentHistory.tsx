@@ -35,7 +35,7 @@ export function PaymentHistory({ clubId, bill, memberName, onClose }: PaymentHis
   const [voiding, setVoiding] = useState(false);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !voiding && onClose()}>
       <DialogContent busy={voiding} className="max-w-md">
         <DialogHeader>
           <DialogTitle>납부 내역 · {memberName}</DialogTitle>
@@ -147,8 +147,9 @@ function VoidPaymentConfirm({
   onClose,
   onVoidingChange,
 }: VoidPaymentConfirmProps) {
-  useBackDismiss(true, onClose);
   const voidPayment = useVoidPaymentMutation(clubId, billId);
+  // 전송 중 뒤로가기로 확인 UI 가 닫히면 취소된 것으로 오해한다 — ESC·바깥 클릭과 같은 기준으로 막는다.
+  useBackDismiss(true, voidPayment.isPending ? null : onClose);
   const { addToast } = useToast();
   const [reason, setReason] = useState('');
 

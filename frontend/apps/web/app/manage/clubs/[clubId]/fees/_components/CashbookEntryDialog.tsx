@@ -122,7 +122,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
   const submitErrorMessage = submitError instanceof ApiError ? submitError.message : null;
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open && !activeMutation.isPending) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && !isSubmitting && !activeMutation.isPending) onClose(); }}>
       <DialogContent busy={isSubmitting || activeMutation.isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>

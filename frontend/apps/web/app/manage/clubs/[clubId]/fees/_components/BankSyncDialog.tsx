@@ -86,7 +86,7 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
   const isPending = isSubmitting || syncTransactions.isPending;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && closeAndClear()}>
+    <Dialog open onOpenChange={(open) => !open && !isPending && closeAndClear()}>
       <DialogContent busy={isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>거래내역 동기화</DialogTitle>
