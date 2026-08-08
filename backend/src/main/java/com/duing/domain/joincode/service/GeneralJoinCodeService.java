@@ -197,7 +197,10 @@ public class GeneralJoinCodeService implements JoinCodeService {
     @Transactional
     public void revokeClubInvite(Long clubId, Long joinCodeId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
-        ClubJoinCode joinCode = clubJoinCodeRepository.findById(joinCodeId)
+        // 잠금 조회로 처음 읽는다 — 무잠금 findById 로 읽으면 재발급(findWithLockBy...)이 이미 폐기한
+        // 행을 낡은 스냅샷으로 보고, 멱등 분기를 지나쳐 최초 폐기 시각·폐기자를 덮어쓰면서 같은 폐기를
+        // 두 번 기록한다(실측: 동시 폐기·재발급 25/25 에서 JOIN_LINK_REVOKED 중복).
+        ClubJoinCode joinCode = clubJoinCodeRepository.findWithLockById(joinCodeId)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         // 모집 링크와 타 동아리 링크는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
         // 형태를 먼저 보므로 모집 링크에서는 club 프록시를 건드리지 않는다.
@@ -220,6 +223,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
         // 모집 삭제 경로(GeneralRecruitmentService.delete)와 같은 방식이다 — 코드 엔티티를 영속성
         // 컨텍스트에 올리면 같은 트랜잭션의 모집 soft-delete 와 충돌해 커밋이 깨지므로, 대상 id 만 읽고
         // 벌크 UPDATE 로 폐기한다. 한 번의 폐쇄로 죽는 링크는 같은 시각을 갖는다.
+        // 링크 2종(V107)을 모두 끊어야 한다: 모집 링크는 모집 id 체인으로, 부원 초대 링크는 모집에
+        // 매달리지 않으므로 동아리 단위로 한 번 더 폐기한다.
         LocalDateTime revokedAt = LocalDateTime.now(clock);
         for (Long recruitmentId : recruitmentIds) {
             List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
@@ -232,6 +237,16 @@ public class GeneralJoinCodeService implements JoinCodeService {
                         ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId,
                         joinCodeId, actorAdminUserId));
             }
+        }
+
+        Optional<Long> revokedInviteCodeId = clubJoinCodeRepository.findActiveClubInviteIdByClubId(clubId);
+        int revokedInviteCount = clubJoinCodeRepository.revokeActiveClubInviteByClubId(
+                clubId, revokedAt, actorAdminUserId);
+        // 운영진의 수동 폐기와 겹쳐 UPDATE 가 0행이면 이 트랜잭션이 폐기한 것이 없으므로 기록하지 않는다.
+        if (revokedInviteCount > 0) {
+            // 초대 링크는 귀속 모집이 없어 recruitmentId 는 null 로 남긴다(V102 컬럼 nullable).
+            revokedInviteCodeId.ifPresent(joinCodeId -> recordJoinLinkEvent(
+                    ClubAuditEventType.JOIN_LINK_REVOKED, clubId, null, joinCodeId, actorAdminUserId));
         }
     }
 

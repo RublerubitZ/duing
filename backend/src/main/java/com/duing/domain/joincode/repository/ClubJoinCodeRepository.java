@@ -55,6 +55,34 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     List<Long> findActiveIdsByRecruitmentId(@Param("recruitmentId") Long recruitmentId);
 
     /**
+     * 동아리가 폐쇄될 때 그 동아리의 활성 부원 초대 링크를 폐기한다 (V107).
+     *
+     * <p>모집 링크와 같은 이유로 벌크 UPDATE 를 쓴다 — 폐쇄 트랜잭션에서 코드 엔티티를 영속성
+     * 컨텍스트에 올리면 같은 트랜잭션의 동아리·모집 soft-delete 와 충돌해 커밋이 깨진다. 벌크
+     * UPDATE 에는 @SQLRestriction 이 적용되지 않으므로 deletedAt IS NULL 을 명시한다.
+     * {@code recruitment IS NULL} 로 모집 링크를 제외하는 이유는 그쪽이 모집 id 체인으로 이미
+     * 폐기되기 때문이다 — 두 경로가 같은 행을 두 번 폐기하면 감사 이력이 중복된다.
+     */
+    @Modifying
+    @Query("UPDATE ClubJoinCode joinCode "
+            + "SET joinCode.revokedAt = :revokedAt, joinCode.revokedById = :revokedById "
+            + "WHERE joinCode.club.id = :clubId AND joinCode.recruitment.id IS NULL "
+            + "AND joinCode.revokedAt IS NULL AND joinCode.deletedAt IS NULL")
+    int revokeActiveClubInviteByClubId(@Param("clubId") Long clubId,
+                                       @Param("revokedAt") LocalDateTime revokedAt,
+                                       @Param("revokedById") Long revokedById);
+
+    /**
+     * 폐쇄가 자동 폐기할 부원 초대 링크의 id (위 벌크 UPDATE 와 같은 조건) — 감사 이벤트를 남기려면
+     * 무엇을 폐기했는지 알아야 한다. 엔티티가 아닌 id 만 읽는 이유는 위 주석과 같다. 동아리당 활성
+     * 초대 링크는 부분 유니크 인덱스가 최대 1건으로 묶으므로 Optional 이 안전하다.
+     */
+    @Query("SELECT joinCode.id FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.club.id = :clubId AND joinCode.recruitment.id IS NULL "
+            + "AND joinCode.revokedAt IS NULL AND joinCode.deletedAt IS NULL")
+    Optional<Long> findActiveClubInviteIdByClubId(@Param("clubId") Long clubId);
+
+    /**
      * 학생의 코드 확인 진입점(읽기 전용). 유효성(미폐기·미만료·미소진) 판정은 호출 측 책임이다.
      *
      * <p>동아리·모집의 생존을 직접 확인하는 이유: 코드 행은 soft-delete 하지 않으므로 폐쇄된 동아리의
@@ -98,9 +126,13 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     boolean existsByCode(String code);
 
     /**
-     * 거절·자동 거절의 환급({@code releaseUse})이 같은 코드 행에 대해 직렬화되도록 비관적 쓰기
-     * 잠금으로 조회한다. 요청의 joinCode 는 지연 프록시라 이 조회가 최신 행 상태를 실어온다.
-     * 단일 코드 행만 잠그므로 잠금 순서 사이클이 없어 교착이 불가능하다.
+     * 거절·자동 거절의 환급({@code releaseUse})과 운영진의 수동 폐기가 같은 코드 행에 대해
+     * 직렬화되도록 비관적 쓰기 잠금으로 조회한다. 요청의 joinCode 는 지연 프록시라 이 조회가 최신 행
+     * 상태를 실어온다. 단일 코드 행만 잠그므로 잠금 순서 사이클이 없어 교착이 불가능하다.
+     *
+     * <p>수동 폐기는 반드시 <b>이 메서드로 코드를 처음 읽어야</b> 한다 — 무잠금 {@code findById} 로
+     * 읽으면 경쟁 재발급이 이미 폐기한 행을 낡은 스냅샷으로 보고 멱등 분기를 지나쳐, 최초 폐기 시각·
+     * 폐기자를 덮어쓰면서 감사 이벤트를 한 번 더 남긴다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT joinCode FROM ClubJoinCode joinCode WHERE joinCode.id = :joinCodeId")
