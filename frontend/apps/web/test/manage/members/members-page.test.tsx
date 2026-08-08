@@ -384,15 +384,21 @@ describe('ClubMembersPage — 필터 칩 변경과 검색어의 분리', () => {
   });
 });
 
-// 가입 링크 발급은 모집 관리 카드의 다이얼로그로 완결된다(스펙 §5.1) — 안내만 하던 회원 초대
-// 진입점은 제거했고, 승인 업무인 가입 요청 진입은 클럽 단위라 여기 그대로 있다.
-describe('ClubMembersPage — 회원 초대 진입점', () => {
-  it('안내 전용 회원 초대 버튼은 두지 않는다', async () => {
+// 모집과 무관한 부원 초대 링크가 실기능으로 생기면서 진입점이 돌아왔다(스펙 2026-08-08 §7).
+// 승인 업무인 가입 요청 진입은 클럽 단위라 그 옆에 그대로 있다.
+describe('ClubMembersPage — 부원 초대 진입점', () => {
+  it('운영진에게 부원 초대 다이얼로그 진입 버튼을 보여준다', async () => {
     setupHandlers({ useGeneration: true });
     renderPage();
 
-    await screen.findByRole('link', { name: /가입 요청/ });
-    expect(screen.queryByRole('button', { name: '회원 초대' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '부원 초대' })).toBeInTheDocument();
+  });
+
+  it('임원(OFFICER)도 부원 초대를 쓸 수 있다', async () => {
+    setupHandlers({ useGeneration: true, myRole: 'OFFICER' });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '부원 초대' })).toBeInTheDocument();
   });
 
   it('가입 요청 관리 진입 링크는 그대로 유지한다', async () => {

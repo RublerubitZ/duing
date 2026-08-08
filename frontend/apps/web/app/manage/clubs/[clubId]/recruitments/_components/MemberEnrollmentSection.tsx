@@ -216,8 +216,8 @@ function CreateCodeForm({
 
   async function submit() {
     const parsedMaxUses = Number(maxUses.trim());
-    if (!/^\d+$/.test(maxUses.trim()) || parsedMaxUses < 1 || parsedMaxUses > 500) {
-      setError('최대 사용 인원은 1~500 사이로 입력해주세요.');
+    if (!/^\d+$/.test(maxUses.trim()) || parsedMaxUses < 1 || parsedMaxUses > 150) {
+      setError('최대 사용 인원은 1~150 사이로 입력해주세요.');
       return;
     }
     const trimmedGeneration = generation.trim();
@@ -250,7 +250,7 @@ function CreateCodeForm({
           id="join-code-max-uses"
           type="number"
           min={1}
-          max={500}
+          max={150}
           inputMode="numeric"
           value={maxUses}
           onChange={(event) => setMaxUses(event.target.value)}

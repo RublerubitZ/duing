@@ -47,7 +47,12 @@ export function JoinCodeLanding({ code }: { code: string }) {
   async function requestJoin() {
     try {
       await createJoinRequest.mutateAsync();
-      addToast('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
+      // 자동 승인 링크는 신청이 곧 가입이라 "승인되면 알려드릴게요"가 사실과 다르다.
+      addToast(
+        check.data?.autoApprove
+          ? '가입이 완료되었습니다.'
+          : '가입 신청을 보냈어요. 승인되면 알려드릴게요.',
+      );
     } catch (requestError) {
       // 409 사유(사용 불가 코드·이미 가입·대기 중 요청)는 서버 문구로만 구분된다 — 그대로 보여준다.
       addToast(
@@ -92,6 +97,24 @@ export function JoinCodeLanding({ code }: { code: string }) {
 
   const joinCode = check.data;
 
+  // 자동 승인 링크로 방금 가입을 마친 사람 — 신청 성공 뒤 재조회 결과는 alreadyMember=true 라
+  // 아래 순서에 맡기면 "이미 가입된 동아리입니다"가 뜬다. 승인 게이트가 없어 실제로 등록됐으므로
+  // 여기서만 완료 표현을 쓴다(즉시 등록 표현 금지는 승인 게이트가 남은 경우의 규약이다).
+  if (joinCode.autoApprove && createJoinRequest.isSuccess) {
+    return (
+      <LandingShell>
+        <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
+        <p className="mt-4 text-sm font-semibold text-ink">🎉 가입이 완료되었습니다.</p>
+        <p className="mt-2 text-sm text-charcoal-2">
+          이제 {joinCode.clubName} 동아리 회원이에요.
+        </p>
+        <Link href={toRoute(`/clubs/${joinCode.clubId}`)} className="btn btn-secondary mt-5 w-full">
+          동아리 페이지로 이동
+        </Link>
+      </LandingShell>
+    );
+  }
+
   // 아래 분기는 스펙 6 의 우선순위 순서다 — 가입·요청 상태가 코드 사용 가능 여부보다 앞선다.
   // 코드가 만료된 뒤 링크를 다시 연 회원에게 "유효하지 않은 코드"만 보여주면, 정작 알아야 할
   // 자기 상태(이미 가입됨·요청 대기 중)를 영영 확인할 수 없다.
@@ -135,14 +158,21 @@ export function JoinCodeLanding({ code }: { code: string }) {
 
   // 여기까지 온 나머지 — 이력 없음·거절·탈퇴 후 남은 승인 이력. 승인 이력을 종결 화면으로 취급하면
   // 탈퇴한 회원의 재가입을 프론트가 영구히 막게 되므로 모두 요청 가능으로 둔다(스펙 6).
+  // 모집 링크는 합격 통보 뒤에 열리는 화면이라 "회원가입"이 아니라 축하 → 가입 톤이고(스펙 §6),
+  // 부원 초대 링크는 합격 문맥이 아니라 초대 톤이다. 자동 승인 ON 이면 승인 게이트 안내도 거짓이 된다.
+  const introMessage =
+    joinCode.linkType === 'CLUB_INVITE'
+      ? `${joinCode.clubName} 부원 초대입니다. 링크 확인 후 가입을 완료해 주세요. ${
+          joinCode.autoApprove
+            ? '가입 신청을 완료하면 바로 회원으로 등록됩니다.'
+            : '가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.'
+        }`
+      : `🎉 축하합니다! ${joinCode.clubName} 최종 합격을 축하드립니다. 가입은 약 30초 정도 소요됩니다. 가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.`;
+
   return (
     <LandingShell>
       <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
-      {/* 합격 통보 뒤에 열리는 화면이라 "회원가입"이 아니라 축하 → 가입 톤이다(스펙 §6). */}
-      <p className="mt-4 text-sm leading-relaxed text-charcoal-2">
-        🎉 축하합니다! {joinCode.clubName} 최종 합격을 축하드립니다. 가입은 약 30초 정도 소요됩니다.
-        가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.
-      </p>
+      <p className="mt-4 text-sm leading-relaxed text-charcoal-2">{introMessage}</p>
       {isAuthenticated ? (
         <button
           type="button"

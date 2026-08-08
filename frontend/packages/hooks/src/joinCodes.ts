@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BulkApproveJoinRequestsPayload,
+  CreateClubInviteCodePayload,
   CreateJoinCodePayload,
   DecideJoinRequestPayload,
   JoinRequestStatus,
@@ -53,6 +54,52 @@ export function useRevokeJoinCodeMutation(clubId: number, recruitmentId: number)
       client.joinCodes.revokeForRecruitment(clubId, recruitmentId, joinCodeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
+    },
+  });
+}
+
+/**
+ * 동아리의 활성 부원 초대 링크 조회. 모집 링크와 달리 모집에 귀속되지 않아 동아리당 1개다.
+ * 활성 링크가 없으면 200 + data:null 이므로 `data === null` 이 "링크 없음"이고 오류가 아니다.
+ * 만료된 링크도 폐기 전이면 내려오므로(초대 링크는 절대 만료) 사용 가능 여부는 화면이 판정한다.
+ */
+export function useClubInviteCodeQuery(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey:
+      clubId !== undefined
+        ? clubQueryKeys.clubInviteCode(clubId)
+        : ['clubs', clubId, 'join-code', 'club-invite'],
+    queryFn: () => {
+      if (clubId === undefined) {
+        throw new Error('clubId is required');
+      }
+      return client.joinCodes.getActiveClubInvite(clubId);
+    },
+    enabled: clubId !== undefined,
+  });
+}
+
+// 기존 활성 링크가 있으면 서버가 폐기 후 재발급하므로, 성공은 항상 "이 동아리의 활성 링크가 바뀜"이다.
+export function useCreateClubInviteCodeMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateClubInviteCodePayload) =>
+      client.joinCodes.createClubInvite(clubId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.clubInviteCode(clubId) });
+    },
+  });
+}
+
+export function useRevokeClubInviteCodeMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (joinCodeId: number) => client.joinCodes.revokeClubInvite(clubId, joinCodeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.clubInviteCode(clubId) });
     },
   });
 }
