@@ -175,6 +175,53 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
   });
 });
 
+describe('가입 요청 페이지 — 자동 승인 표시', () => {
+  // 운영진 손을 거치지 않고 승인된 요청이라, 표시가 없으면 승인 이력만 보고는 누가 승인했는지 알 수 없다.
+  it('자동 승인된 요청은 목록 행과 상세에 자동 승인 배지를 보여준다', async () => {
+    const autoApproved = request({ status: 'APPROVED', autoApproved: true });
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, ({ request: httpRequest }) => {
+        const status = new URL(httpRequest.url).searchParams.get('status');
+        return json(status === 'APPROVED' ? [autoApproved] : []);
+      }),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
+        json({
+          ...autoApproved,
+          phone: '010-1234-5678',
+          rejectReason: null,
+          reviewedAt: '2026-08-01T02:00:05Z',
+        }),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '승인' }));
+    const row = await screen.findByRole('row', { name: /홍길동/ });
+    expect(within(row).getByText('자동 승인')).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: '홍길동 상세' }));
+
+    const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
+    expect(within(panel).getByText('자동 승인')).toBeInTheDocument();
+  });
+
+  it('운영진이 직접 승인한 요청에는 자동 승인 배지가 없다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
+        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '홍길동 상세' }));
+
+    const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
+    expect(within(panel).queryByText('자동 승인')).not.toBeInTheDocument();
+    expect(screen.queryByText('자동 승인')).not.toBeInTheDocument();
+  });
+});
+
 describe('가입 요청 페이지 — 일괄 승인', () => {
   it('선택한 요청을 일괄 승인하고 실패가 있으면 결과 다이얼로그로 사유를 보여준다', async () => {
     let bulkBody: unknown = null;

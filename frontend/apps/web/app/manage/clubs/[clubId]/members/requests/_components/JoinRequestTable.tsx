@@ -95,7 +95,15 @@ export function JoinRequestTable({
                     />
                   </td>
                 )}
-                <td className="px-4 py-3 font-medium text-ink-deep">{joinRequest.userName}</td>
+                <td className="px-4 py-3 font-medium text-ink-deep">
+                  {joinRequest.userName}
+                  {/* 운영진 손을 거치지 않고 승인된 요청이라, 표시가 없으면 승인 경위를 알 길이 없다. */}
+                  {joinRequest.autoApproved && (
+                    <span className="ml-1.5 rounded-full bg-sage-mist px-2 py-0.5 text-xs font-medium text-ink">
+                      자동 승인
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-mono text-xs text-charcoal-2">{joinRequest.studentId}</td>
                 <td className="px-4 py-3 text-charcoal-2">{joinRequest.major}</td>
                 <td className="px-4 py-3 font-mono text-xs text-charcoal-2">{joinRequest.code}</td>
