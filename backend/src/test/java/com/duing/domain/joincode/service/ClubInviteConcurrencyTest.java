@@ -79,9 +79,13 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
         User leader = saveLeaderOf(club);
         User officer = saveOfficerOf(club);
 
+        // 걸쇠 없이는 두 INSERT 가 겹치지 않고 순차 재발급(뒤가 앞을 폐기) 경로로 빠져 409 매핑이
+        // 한 번도 행사되지 않은 채 통과할 수 있다 — 두 스레드를 같은 순간에 풀어 경쟁을 실제로 만든다.
+        CountDownLatch startGate = new CountDownLatch(1);
         List<Throwable> failures = runConcurrently(
-                () -> tryCreateInvite(club.getId(), leader.getId()),
-                () -> tryCreateInvite(club.getId(), officer.getId()));
+                () -> awaitThen(startGate, () -> tryCreateInvite(club.getId(), leader.getId())),
+                () -> awaitThen(startGate, () -> tryCreateInvite(club.getId(), officer.getId())),
+                startGate);
 
         // 핵심 contract 1: 최소 한쪽은 성공한다(둘 다 거부되면 운영진이 링크를 못 만든다).
         assertThat(failures).as("두 발급이 모두 실패해서는 안 된다").hasSizeLessThan(2);
@@ -100,9 +104,12 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
         User secondStudent = saveUser();
         ClubJoinCode inviteCode = saveInvite(club, "INVCC1", 1, true, null);
 
+        // 걸쇠로 두 신청을 같은 순간에 풀어 잔여 1자리를 두고 실제로 경쟁시킨다.
+        CountDownLatch startGate = new CountDownLatch(1);
         List<Throwable> failures = runConcurrently(
-                () -> tryCreateRequest(inviteCode.getCode(), firstStudent.getId()),
-                () -> tryCreateRequest(inviteCode.getCode(), secondStudent.getId()));
+                () -> awaitThen(startGate, () -> tryCreateRequest(inviteCode.getCode(), firstStudent.getId())),
+                () -> awaitThen(startGate, () -> tryCreateRequest(inviteCode.getCode(), secondStudent.getId())),
+                startGate);
 
         assertThat(failures).as("잔여 1명이므로 정확히 한 명만 접수된다").hasSize(1);
         assertThat(failures.get(0))
