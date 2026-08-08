@@ -29,6 +29,12 @@ import org.hibernate.annotations.SQLRestriction;
  * <p>사용 가능 기간은 절대 만료일이 아니라 모집 종료 시각({@code recruitment.closedAt}) + 프리셋으로
  * 파생한다(스펙 v2 4.3). 종료 시각은 seoulClock 벽시계(KST)라 응답 경계에서
  * {@code TimeMapper.seoulWallClockToInstant} 로 변환한다(TIMEZONE.md).
+ *
+ * <p><b>링크 2종</b>(V107): {@code recruitment} 가 있으면 모집 링크, 없으면 동아리 단위의 부원 초대
+ * 링크다({@link #isClubInvite()}). 초대 링크는 모집 상태를 전혀 보지 않고 절대 만료 시각
+ * ({@code inviteExpiresAt})만으로 기간을 판정하며, 활성 1개 제약도 동아리 단위의 별도 부분 유니크
+ * 인덱스가 맡는다. 두 형태가 섞이지 않도록 DB {@code ck_club_join_code_link_shape} 가
+ * "모집 귀속 ⟺ 절대 만료 없음" 을 강제한다.
  */
 @Getter
 @Entity
@@ -42,9 +48,12 @@ public class ClubJoinCode extends BaseEntity {
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
 
-    /** 코드가 귀속된 외부 폼(EXTERNAL) 모집. 활성 코드 1개 제약의 단위이며 코드의 소유 주체다. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "recruitment_id", nullable = false)
+    /**
+     * 코드가 귀속된 외부 폼(EXTERNAL) 모집. 활성 코드 1개 제약의 단위이며 코드의 소유 주체다.
+     * null 이면 부원 초대 링크(동아리 단위, V107).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_id")
     private Recruitment recruitment;
 
     @Column(nullable = false, length = 6)
@@ -67,6 +76,14 @@ public class ClubJoinCode extends BaseEntity {
     @Column(name = "join_window_days", nullable = false)
     private short joinWindowDays;
 
+    /** 부원 초대 링크의 절대 만료 시각(V107, seoulClock 벽시계). 모집 링크는 null — ck_club_join_code_link_shape. */
+    @Column(name = "invite_expires_at")
+    private LocalDateTime inviteExpiresAt;
+
+    /** 부원 초대 링크의 자동 승인 여부(V107). true 면 신청 즉시 승인·가입된다. 생성 후 변경 불가. */
+    @Column(name = "auto_approve", nullable = false)
+    private boolean autoApprove;
+
     /** 폐기 시각 — 운영진 수동 폐기와 귀속 모집 삭제(스펙 v2 4.2) 두 경로가 기록한다. */
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
@@ -84,7 +101,8 @@ public class ClubJoinCode extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private ClubJoinCode(Club club, Recruitment recruitment, String code, Integer generation,
-                         int maxUses, int joinWindowDays, Long createdById) {
+                         int maxUses, int joinWindowDays, LocalDateTime inviteExpiresAt,
+                         boolean autoApprove, Long createdById) {
         this.club = club;
         this.recruitment = recruitment;
         this.code = code;
@@ -93,6 +111,8 @@ public class ClubJoinCode extends BaseEntity {
         this.usedCount = 0;
         // 프리셋(0/7/14)만 들어오므로 SMALLINT 컬럼 폭으로 좁혀도 손실이 없다. 허용값 검증은 커맨드가 한다.
         this.joinWindowDays = (short) joinWindowDays;
+        this.inviteExpiresAt = inviteExpiresAt;
+        this.autoApprove = autoApprove;
         this.createdById = createdById;
     }
 
@@ -106,8 +126,37 @@ public class ClubJoinCode extends BaseEntity {
                 .generation(generation)
                 .maxUses(maxUses)
                 .joinWindowDays(joinWindowDays)
+                .inviteExpiresAt(null)
+                .autoApprove(false)
                 .createdById(createdById)
                 .build();
+    }
+
+    /** 부원 초대 링크 발급 — 모집 무귀속·절대 만료(스펙 §3). joinWindowDays 는 초대 링크에서 미사용(0 고정). */
+    public static ClubJoinCode issueClubInvite(Club club, String code, Integer generation,
+                                               int maxUses, LocalDateTime inviteExpiresAt,
+                                               boolean autoApprove, Long createdById) {
+        return ClubJoinCode.builder()
+                .club(club)
+                .recruitment(null)
+                .code(code)
+                .generation(generation)
+                .maxUses(maxUses)
+                .joinWindowDays(0)
+                .inviteExpiresAt(inviteExpiresAt)
+                .autoApprove(autoApprove)
+                .createdById(createdById)
+                .build();
+    }
+
+    /** 모집에 귀속되지 않은 동아리 단위의 부원 초대 링크인지(V107). */
+    public boolean isClubInvite() {
+        return recruitment == null;
+    }
+
+    /** 감사 이벤트 기록용 — 초대 링크는 recruitment 가 없어 null 을 기록한다(V102 컬럼 nullable). */
+    public Long getRecruitmentIdOrNull() {
+        return recruitment == null ? null : recruitment.getId();
     }
 
     public void revoke(LocalDateTime now, Long revokedById) {
@@ -126,8 +175,13 @@ public class ClubJoinCode extends BaseEntity {
     /**
      * 가입 가능 기한 = 실제 종료 시각 + 프리셋(스펙 v2 4.3). 모집이 진행 중이거나 종료 스탬프가 없으면
      * 기한이 정해지지 않아 null 이다 — 운영 화면은 이 값이 없을 때 "모집 종료 후 N일까지"로 안내한다.
+     *
+     * <p>부원 초대 링크(V107)는 파생이 아니라 발급 시 정한 절대 만료 시각이 곧 기한이다.
      */
     public LocalDateTime getJoinExpiresAt() {
+        if (isClubInvite()) {
+            return inviteExpiresAt;
+        }
         if (recruitment.getStatus() == RecruitmentStatus.OPEN || recruitment.getClosedAt() == null) {
             return null;
         }
@@ -148,10 +202,16 @@ public class ClubJoinCode extends BaseEntity {
      * <p>모집 조건을 뒤에 두는 이유: recruitment 는 LAZY 이고 삭제된 모집은 조회되지 않으므로,
      * 삭제와 함께 폐기된 코드는 앞의 {@code isRevoked()} 에서 단축 평가돼 프록시 초기화를 피한다.
      * 트랜잭션 안에서 호출해야 한다.
+     *
+     * <p>부원 초대 링크(V107)는 모집 상태를 참조하지 않는다 — 절대 만료 시각까지만 유효하며
+     * 경계 시각은 포함한다(모집 링크의 프리셋 경계와 같은 규칙).
      */
     public boolean isUsable(LocalDateTime now) {
         if (isRevoked() || isExhausted()) {
             return false;
+        }
+        if (isClubInvite()) {
+            return !now.isAfter(inviteExpiresAt);
         }
         if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
             return true;
