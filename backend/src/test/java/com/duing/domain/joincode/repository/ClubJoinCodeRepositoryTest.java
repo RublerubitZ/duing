@@ -12,6 +12,7 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -42,6 +43,7 @@ class ClubJoinCodeRepositoryTest {
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -92,8 +94,44 @@ class ClubJoinCodeRepositoryTest {
                     assertThat(found.isAutoApprove()).isTrue();
                     assertThat(found.getInviteExpiresAt()).isNotNull();
                 });
-        assertThat(clubJoinCodeRepository.findByCode(saved.getCode()))
-                .as("모집 조인이 걸린 학생용 조회에는 초대 링크가 잡히지 않는다(구 이미지 fail-closed)").isEmpty();
+    }
+
+    @Test
+    @DisplayName("부원 초대 링크는 귀속 모집이 없어도 코드로 조회된다")
+    void findByCodeReturnsClubInvite() {
+        String inviteCode = nextCode();
+        clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(club, inviteCode, null, 40,
+                LocalDateTime.now().plusHours(24), false, null));
+
+        assertThat(clubJoinCodeRepository.findByCode(inviteCode))
+                .as("모집 무귀속이 학생용 조회에서 걸러지면 초대 링크는 전부 404 가 된다").isPresent();
+    }
+
+    @Test
+    @DisplayName("모집이 삭제된 가입 링크는 코드로 조회되지 않는다")
+    void findByCodeExcludesDeadRecruitment() {
+        // fail-closed(#869) 회귀 가드 — 모집 없는 링크를 통과시킨 뒤에도 죽은 모집의 링크는 404 여야 한다.
+        String deadRecruitmentCode = nextCode();
+        clubJoinCodeRepository.save(
+                ClubJoinCode.issue(club, recruitment, deadRecruitmentCode, null, 40, 7, null));
+        detachSavedCodes();
+        recruitmentRepository.delete(recruitmentRepository.findById(recruitmentId).orElseThrow());
+        recruitmentRepository.flush();   // @SQLDelete soft delete
+
+        assertThat(clubJoinCodeRepository.findByCode(deadRecruitmentCode)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("동아리가 삭제된 부원 초대 링크는 코드로 조회되지 않는다")
+    void findByCodeExcludesDeadClubInvite() {
+        String deadClubInviteCode = nextCode();
+        clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(club, deadClubInviteCode, null, 40,
+                LocalDateTime.now().plusHours(24), false, null));
+        detachSavedCodes();
+        clubRepository.delete(clubRepository.findById(clubId).orElseThrow());
+        clubRepository.flush();   // @SQLDelete soft delete
+
+        assertThat(clubJoinCodeRepository.findByCode(deadClubInviteCode)).isEmpty();
     }
 
     @Test
@@ -121,6 +159,16 @@ class ClubJoinCodeRepositoryTest {
                 "INSERT INTO club_join_code (club_id, recruitment_id, code, max_uses, used_count, join_window_days, invite_expires_at) "
                         + "VALUES (?, ?, ?, 40, 0, 7, NOW())", clubId, recruitmentId, nextCode()))
                 .hasMessageContaining("ck_club_join_code_link_shape");
+    }
+
+    /**
+     * 부모(동아리·모집)를 soft-delete 하기 전에 코드 행을 영속성 컨텍스트에서 내린다 —
+     * 제거된 엔티티를 참조하는 코드 엔티티가 남아 있으면 flush 가 TransientObjectException 으로
+     * 깨진다(ClubJoinCodeRepository 벌크 폐기 주석과 같은 함정).
+     */
+    private void detachSavedCodes() {
+        clubJoinCodeRepository.flush();
+        entityManager.clear();
     }
 
     private ClubJoinCode joinCode() {

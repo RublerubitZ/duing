@@ -55,14 +55,24 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
      * LAZY 프록시라 대상이 soft-delete 됐으면 초기화 시점에 EntityNotFoundException 이 나 5xx 가 된다(#869).
      * 죽은 부모를 가진 코드는 아예 조회되지 않아 "유효하지 않은 가입 링크"(404)로 떨어진다(fail-closed).
      *
-     * <p>{@code deletedAt IS NULL} 을 직접 적는 이유: 조인 대상에 {@code @SQLRestriction} 이 적용되는지는
-     * Hibernate 버전 동작에 달려 있고, 현재 버전에서는 적용되지 않아 조인만으로는 필터가 되지 않는다
-     * (위 벌크 UPDATE 와 같은 함정). 버전 동작에 기대지 않도록 명시하는 것이므로 중복 조건이 아니다.
+     * <p>{@code deletedAt IS NULL} 을 직접 적는 이유: 조인·서브쿼리 대상에 {@code @SQLRestriction} 이
+     * 붙는지는 Hibernate 버전 동작에 달려 있다(벌크 UPDATE 에는 붙지 않는다 — 위 주석과 같은 함정).
+     * 버전 동작에 기대지 않도록 명시하는 것이므로 중복 조건이 아니다.
+     *
+     * <p>모집을 조인이 아니라 EXISTS 로 확인하는 이유(V107): 부원 초대 링크는 귀속 모집이 없어
+     * INNER JOIN 이면 조회 자체가 되지 않는데, LEFT JOIN 으로 바꾸면 "모집이 없는 링크"와 "죽은 모집의
+     * 링크"가 똑같이 조인 미매칭이 되어 fail-closed(#869)가 뚫린다(현재 버전은 조인 ON 절에
+     * {@code @SQLRestriction} 을 붙이므로 죽은 모집은 매칭되지 않는다). 조인 별칭이 있으면
+     * {@code joinCode.recruitment.id} 조차 FK 컬럼이 아니라 그 별칭으로 번역돼 둘을 구분할 수 없다 —
+     * 별칭을 두지 않아야 FK 컬럼(recruitment_id)이 그대로 남아 "모집 없음"과 "모집이 죽음"이 갈린다.
      */
     @Query("SELECT joinCode FROM ClubJoinCode joinCode "
-            + "JOIN joinCode.club club JOIN joinCode.recruitment recruitment "
+            + "JOIN joinCode.club club "
             + "WHERE joinCode.code = :code "
-            + "AND club.deletedAt IS NULL AND recruitment.deletedAt IS NULL")
+            + "AND club.deletedAt IS NULL "
+            + "AND (joinCode.recruitment.id IS NULL "
+            + "OR EXISTS (SELECT 1 FROM Recruitment recruitment "
+            + "WHERE recruitment.id = joinCode.recruitment.id AND recruitment.deletedAt IS NULL))")
     Optional<ClubJoinCode> findByCode(@Param("code") String code);
 
     /**

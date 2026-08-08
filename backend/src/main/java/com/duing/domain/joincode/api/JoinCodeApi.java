@@ -29,7 +29,7 @@ public interface JoinCodeApi {
     );
 
     @Operation(summary = "가입 요청 생성",
-            description = "가입 링크로 가입 요청(PENDING)을 접수한다. 승인 전까지 사용 인원은 차감되지 않는다."
+            description = "가입 링크로 가입 요청(PENDING)을 접수한다. 사용 인원은 접수 시점에 차감되고 거절 시 환급된다."
                     + " 미존재 링크는 404, 사용할 수 없는 링크·이미 가입된 동아리·대기 중인 요청 존재 시 409,"
                     + " IP 레이트리밋(분 10/시 60) 초과는 429.")
     @SecurityRequirement(name = "bearerAuth")

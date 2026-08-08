@@ -148,7 +148,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
         // 이 이벤트만 주체가 학생이다 — 운영진 화면에서 "누가 언제 들어왔는지"의 시작점이 된다.
         clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
                 ClubAuditEventType.JOIN_REQUEST_CREATED, clubId,
-                joinCode.getRecruitment().getId(), joinCode.getId(), createdRequest.getId(),
+                joinCode.getRecruitmentIdOrNull(), joinCode.getId(), createdRequest.getId(),
                 createCommand.userId()));
     }
 
@@ -198,7 +198,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 decisionResult == JoinRequestDecisionResult.APPROVED
                         ? ClubAuditEventType.JOIN_REQUEST_APPROVED
                         : ClubAuditEventType.JOIN_REQUEST_REJECTED,
-                decideCommand.clubId(), joinRequest.getJoinCode().getRecruitment().getId(),
+                decideCommand.clubId(), joinRequest.getJoinCode().getRecruitmentIdOrNull(),
                 joinRequest.getJoinCode().getId(), joinRequest.getId(), decideCommand.requesterId()));
         return decisionResult;
     }
