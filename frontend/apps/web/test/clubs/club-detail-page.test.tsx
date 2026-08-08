@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
-import ClubDetailPage from '@/app/clubs/[clubId]/page';
+import { ClubDetailPage } from '@/app/clubs/[clubId]/_pages/ClubDetailPage';
 
 const CLUB_ID = 1;
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
@@ -113,18 +113,11 @@ function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  // React 19 use(thenable) 가 재진입 없이 값을 꺼내가도록 status/value 를 미리 태깅한다
-  // (activity-feed-page.test 선례 — 일반 Promise.resolve 는 jsdom+vitest 에서 영구 loading).
-  const paramsValue = { clubId: String(CLUB_ID) };
-  const params = Object.assign(Promise.resolve(paramsValue), {
-    status: 'fulfilled' as const,
-    value: paramsValue,
-  });
   return render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <ClubDetailPage params={params} />
+          <ClubDetailPage clubId={CLUB_ID} />
         </ToastProvider>
       </QueryClientProvider>
     </ApiClientProvider>,
