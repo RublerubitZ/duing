@@ -66,7 +66,15 @@ export function JoinRequestDetailPanel({
             {joinRequest?.userName ?? '가입 요청'}
           </h3>
           {joinRequest && (
-            <p className="text-sm text-charcoal-3">{joinRequestStatusLabel(joinRequest.status)}</p>
+            <p className="flex items-center gap-1.5 text-sm text-charcoal-3">
+              {joinRequestStatusLabel(joinRequest.status)}
+              {/* 운영진 손을 거치지 않고 승인된 요청이라, 표시가 없으면 승인 경위를 알 길이 없다. */}
+              {joinRequest.autoApproved && (
+                <span className="rounded-full bg-sage-mist px-2 py-0.5 text-xs font-medium text-ink">
+                  자동 승인
+                </span>
+              )}
+            </p>
           )}
         </div>
         <button

@@ -41,15 +41,49 @@ const DialogOverlay = React.forwardRef<
   );
 });
 
+/**
+ * `busy` 는 "요청이 나갔고 아직 안 끝났다"를 뜻한다 — true 면 ESC·바깥 클릭 닫기를 막는다.
+ *
+ * <p>취소 버튼만 `disabled={isPending}` 로 막고 ESC·바깥 클릭은 열어두면 같은 모달에서
+ * 버튼으로는 못 닫는데 키보드로는 닫힌다. 사용자는 "취소됐다"고 이해하지만 요청은 그대로 진행돼,
+ * 회원 탈퇴처럼 되돌릴 수 없는 작업에서는 모달이 사라진 뒤 결과만 뒤늦게 나타난다.
+ *
+ * <p>뒤로가기 닫기(`useBackDismiss`)는 여기서 막지 않는다 — 호출처의 `onOpenChange` 게이트가
+ * 담당하는 경로라 두 곳에서 같은 판정을 하면 어긋난다. 훅을 직접 부르는 소비처(다이얼로그 안에
+ * 겹쳐 뜨는 확인 UI 등)는 핸들러 안에서 거부한다. 이때 핸들러 자리에 null 을 넣어 떼면 훅이
+ * 엔트리를 회수했다 다시 쌓아 히스토리 왕복이 늘어나므로, 엔트리는 유지한 채 거부해야 한다.
+ *
+ * <p>미전달 시 동작은 이전과 완전히 같다. 잠금이 안 풀리는 상황은 구조적으로 없다 —
+ * API 클라이언트가 분류별 타임아웃을 걸고 오프라인은 즉시 실패하므로 pending 은 반드시 풀린다.
+ */
+type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  busy?: boolean;
+};
+
 const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(function DialogContent({ className, children, ...props }, ref) {
+  DialogContentProps
+>(function DialogContent(
+  { className, children, busy, onEscapeKeyDown, onPointerDownOutside, ...props },
+  ref,
+) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
+        // 전송 중임을 영역 상태로 표기한다. 이 속성은 "갱신 중이니 노출을 미뤄도 된다"는 억제 힌트라
+        // 상태 변화를 읽어 주지는 않는다 — 진행 중임을 실제로 알리려면 호출처의 스피너를
+        // role="status" 로 감싸야 한다(레포의 기존 패턴). 여기서는 표기까지만 한다.
+        aria-busy={busy}
+        onEscapeKeyDown={(event) => {
+          if (busy) event.preventDefault();
+          onEscapeKeyDown?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          if (busy) event.preventDefault();
+          onPointerDownOutside?.(event);
+        }}
         className={cn(
           'fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-line bg-card p-6 font-body tracking-body shadow-3',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

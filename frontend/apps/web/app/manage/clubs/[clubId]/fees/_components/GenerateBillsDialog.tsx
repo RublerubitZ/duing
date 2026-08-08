@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -39,12 +39,15 @@ const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:rin
 export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProps) {
   const { data: policies, isLoading } = useClubFeePoliciesQuery(clubId);
   const [selectedPolicy, setSelectedPolicy] = useState<FeePolicy | null>(null);
+  // 발행 요청은 자식 폼이 들고 있어 pending 이 여기 스코프에 없다 — 전송 중 ESC·바깥 클릭을
+  // 막으려면 DialogContent 가 있는 이 계층으로 올려야 한다.
+  const [submitting, setSubmitting] = useState(false);
 
   const activePolicies = (policies ?? []).filter((policy) => policy.active);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent busy={submitting} className="max-w-md">
         <DialogHeader>
           <DialogTitle>회비 청구 발행</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
@@ -76,6 +79,9 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
                     activePolicies.find((policy) => policy.id === nextId) ?? null,
                   );
                 }}
+                // 전송 중 정책을 바꾸면 아래 폼이 리마운트되면서 전송 상태가 조기 해제돼
+                // 닫힘 가드가 풀린다 — 요청이 끝날 때까지 선택을 잠근다.
+                disabled={submitting}
                 className={inputCls}
               >
                 <option value="" disabled>
@@ -97,6 +103,7 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
               clubId={clubId}
               policy={selectedPolicy}
               onClose={onClose}
+              onSubmittingChange={setSubmitting}
             />
           )}
         </div>
@@ -109,9 +116,10 @@ type GenerateBillsFormProps = {
   clubId: number;
   policy: FeePolicy;
   onClose: () => void;
+  onSubmittingChange: (submitting: boolean) => void;
 };
 
-function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) {
+function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: GenerateBillsFormProps) {
   const generateBills = useGenerateBillsMutation(clubId);
   const { addToast } = useToast();
 
@@ -138,6 +146,14 @@ function GenerateBillsForm({ clubId, policy, onClose }: GenerateBillsFormProps) 
     resolver: zodResolver(generateBillsSchema),
     defaultValues: defaultValuesFor(policy.billingType),
   });
+
+  // 전송 중임을 부모(DialogContent)에 알려 ESC·바깥 클릭 닫기를 막는다.
+  // 언마운트 해제가 없으면 폼이 사라진 뒤에도 부모가 잠긴 채로 남는다 — 정리를 반드시 함께 둔다.
+  const submitting = isSubmitting || generateBills.isPending;
+  useEffect(() => {
+    onSubmittingChange(submitting);
+    return () => onSubmittingChange(false);
+  }, [submitting, onSubmittingChange]);
 
   const onSubmit = (formData: GenerateBillsInput) => {
     if (isSelected && selectedUserIds.length === 0) {

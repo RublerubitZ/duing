@@ -11,11 +11,14 @@ import { useCloseRecruitmentMutation } from '../src/recruitments';
 import {
   useActiveJoinCodeQuery,
   useBulkApproveJoinRequestsMutation,
+  useClubInviteCodeQuery,
+  useCreateClubInviteCodeMutation,
   useCreateJoinCodeMutation,
   useCreateJoinRequestMutation,
   useDecideJoinRequestMutation,
   useJoinRequestDetailQuery,
   useJoinRequestsQuery,
+  useRevokeClubInviteCodeMutation,
   useRevokeJoinCodeMutation,
 } from '../src/joinCodes';
 
@@ -47,6 +50,26 @@ const activeJoinCode = {
   joinExpiresAt: null,
   totalRequestCount: 5,
   pendingCount: 2,
+  linkType: 'RECRUITMENT',
+  inviteExpiresAt: null,
+  autoApprove: false,
+};
+
+// 부원 초대 링크는 모집에 귀속되지 않고 절대 만료(24/72시간)를 가진다 — 같은 응답 형태에
+// linkType·inviteExpiresAt·autoApprove 만 다르게 실린다.
+const activeInviteCode = {
+  joinCodeId: 9,
+  code: 'INVT5678',
+  generation: null,
+  maxUses: 150,
+  usedCount: 0,
+  joinWindowDays: 0,
+  joinExpiresAt: '2026-08-09T12:00:00Z',
+  totalRequestCount: 0,
+  pendingCount: 0,
+  linkType: 'CLUB_INVITE',
+  inviteExpiresAt: '2026-08-09T12:00:00Z',
+  autoApprove: true,
 };
 
 const pendingRequest = {
@@ -58,10 +81,12 @@ const pendingRequest = {
   generation: 12,
   status: 'PENDING',
   requestedAt: '2026-08-01T02:00:00Z',
+  autoApproved: false,
 };
 
 let lastRequestsQuery: string | null = null;
 let lastCreateBody: unknown = null;
+let lastInviteCreateBody: unknown = null;
 let lastDecideBody: unknown = null;
 let lastBulkBody: unknown = null;
 
@@ -74,6 +99,14 @@ const server = setupServer(
     HttpResponse.json({ ok: true, message: null, data: activeJoinCode }),
   ),
   http.delete('*/clubs/10/recruitments/55/join-codes/7', () => new HttpResponse(null, { status: 204 })),
+  http.post('*/clubs/10/join-codes', async ({ request }) => {
+    lastInviteCreateBody = await request.json();
+    return HttpResponse.json({ ok: true, message: null, data: activeInviteCode }, { status: 201 });
+  }),
+  http.get('*/clubs/10/join-codes/active', () =>
+    HttpResponse.json({ ok: true, message: null, data: activeInviteCode }),
+  ),
+  http.delete('*/clubs/10/join-codes/9', () => new HttpResponse(null, { status: 204 })),
   http.patch('*/leader/recruitments/55/close', () => new HttpResponse(null, { status: 204 })),
   http.get('*/clubs/10/join-requests', ({ request }) => {
     lastRequestsQuery = new URL(request.url).searchParams.get('status');
@@ -105,6 +138,7 @@ afterEach(() => {
   server.resetHandlers();
   lastRequestsQuery = null;
   lastCreateBody = null;
+  lastInviteCreateBody = null;
   lastDecideBody = null;
   lastBulkBody = null;
 });
@@ -214,6 +248,73 @@ describe('가입 링크 훅', () => {
   });
 });
 
+describe('부원 초대 링크 훅', () => {
+  it('활성 초대 링크를 조회하고 모집 링크 캐시와 섞이지 않는다', async () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useClubInviteCodeQuery(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(activeInviteCode);
+    expect(queryClient.getQueryData(clubQueryKeys.clubInviteCode(10))).toEqual(activeInviteCode);
+    expect(queryClient.getQueryData(clubQueryKeys.joinCode(10, 55))).toBeUndefined();
+  });
+
+  it('활성 초대 링크가 없으면 200 + data null 을 null 로 돌려준다(오류 아님)', async () => {
+    server.use(
+      http.get('*/clubs/10/join-codes/active', () =>
+        HttpResponse.json({ ok: true, message: null, data: null }),
+      ),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useClubInviteCodeQuery(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toBeNull();
+  });
+
+  it('clubId 가 없으면 초대 링크를 조회하지 않는다', () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useClubInviteCodeQuery(undefined), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('초대 링크 생성 성공 시 발급 설정을 그대로 보내고 초대 링크 키를 무효화한다', async () => {
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(clubQueryKeys.clubInviteCode(10), null);
+
+    const { result } = renderHook(() => useCreateClubInviteCodeMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({ maxUses: 150, expiresInHours: 72, autoApprove: true });
+    });
+
+    expect(lastInviteCreateBody).toEqual({ maxUses: 150, expiresInHours: 72, autoApprove: true });
+    expect(queryClient.getQueryState(clubQueryKeys.clubInviteCode(10))?.isInvalidated).toBe(true);
+  });
+
+  it('초대 링크 폐기 성공 시 초대 링크 키를 무효화한다', async () => {
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(clubQueryKeys.clubInviteCode(10), activeInviteCode);
+
+    const { result } = renderHook(() => useRevokeClubInviteCodeMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await act(async () => {
+      await result.current.mutateAsync(9);
+    });
+
+    expect(queryClient.getQueryState(clubQueryKeys.clubInviteCode(10))?.isInvalidated).toBe(true);
+  });
+});
+
 describe('가입 요청 훅', () => {
   it('상태 필터를 쿼리 파라미터로 보내고 상태별로 키를 분리한다', async () => {
     const queryClient = newQueryClient();
@@ -253,6 +354,7 @@ describe('가입 요청 훅', () => {
     queryClient.setQueryData(clubQueryKeys.joinRequests(10, 'PENDING'), [pendingRequest]);
     queryClient.setQueryData(clubQueryKeys.members(10), []);
     queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
+    queryClient.setQueryData(clubQueryKeys.clubInviteCode(10), activeInviteCode);
 
     const { result } = renderHook(() => useDecideJoinRequestMutation(10), {
       wrapper: makeWrapper(queryClient),
@@ -273,6 +375,8 @@ describe('가입 요청 훅', () => {
     ).toBe(true);
     expect(queryClient.getQueryState(clubQueryKeys.members(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
+    // 승인 한 건은 초대 링크의 usedCount·대기 수도 바꾼다 — 클럽 프리픽스 무효화가 초대 링크 키까지 덮어야 한다.
+    expect(queryClient.getQueryState(clubQueryKeys.clubInviteCode(10))?.isInvalidated).toBe(true);
   });
 
   it('일괄 승인은 승인 수와 실패 사유를 반환하고 관련 키를 무효화한다', async () => {

@@ -28,6 +28,8 @@ function check(overrides: Partial<JoinCodeCheck> = {}): JoinCodeCheck {
     usable: true,
     alreadyMember: false,
     myRequestStatus: null,
+    linkType: 'RECRUITMENT',
+    autoApprove: false,
     ...overrides,
   };
 }
@@ -120,6 +122,40 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
         /🎉 축하합니다! 두잉 개발동아리 최종 합격을 축하드립니다\. 가입은 약 30초 정도 소요됩니다\./,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
+    // 모집 링크는 초대 톤이 섞이면 안 된다 — 합격 문맥이 그대로 유지되는지 회귀로 못박는다.
+    expect(screen.queryByText(/부원 초대/)).not.toBeInTheDocument();
+  });
+
+  // 부원 초대 링크는 합격 통보 뒤에 열리는 화면이 아니다 — 합격 문구를 그대로 쓰면 거짓 안내가 된다.
+  it('부원 초대 링크면 합격 문구 없이 초대 톤으로 안내한다', async () => {
+    signIn();
+    server.use(
+      http.get(`*/join-codes/${CODE}`, () => json(check({ linkType: 'CLUB_INVITE' }))),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(/두잉 개발동아리 부원 초대입니다\. 링크 확인 후 가입을 완료해 주세요\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/합격/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
+  });
+
+  // 자동 승인 ON 이면 승인 게이트가 없다 — 진입 화면부터 그렇게 알려야 신청 뒤 안내가 뒤집히지 않는다.
+  it('자동 승인 초대 링크는 진입 화면에서 바로 회원 등록된다고 안내한다', async () => {
+    signIn();
+    server.use(
+      http.get(`*/join-codes/${CODE}`, () =>
+        json(check({ linkType: 'CLUB_INVITE', autoApprove: true })),
+      ),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(/가입 신청을 완료하면 바로 회원으로 등록됩니다\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/운영진 확인 후/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
   });
 
@@ -214,6 +250,73 @@ describe('가입 링크 랜딩 — 가입 신청', () => {
     await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
 
     expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(mockAddToast).toHaveBeenCalledWith('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
+  });
+
+  // 자동 승인 ON 은 신청 성공 뒤 재조회 결과가 alreadyMember=true 로 바뀐다 — 그 상태에서도
+  // "이미 가입된 동아리입니다"가 아니라 방금 끝난 가입의 완료 화면이 나와야 한다.
+  it('자동 승인 초대 링크는 신청 성공 시 재조회로 회원이 된 뒤에도 가입 완료 화면을 보여준다', async () => {
+    signIn();
+    let joined = false;
+    server.use(
+      http.get(`*/join-codes/${CODE}`, () =>
+        json(
+          check({
+            linkType: 'CLUB_INVITE',
+            autoApprove: true,
+            alreadyMember: joined,
+            myRequestStatus: joined ? 'APPROVED' : null,
+          }),
+        ),
+      ),
+      http.post(`*/join-codes/${CODE}/requests`, () => {
+        joined = true;
+        return new HttpResponse(null, { status: 201 });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
+
+    expect(await screen.findByText(/가입이 완료되었습니다/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '동아리 페이지로 이동' })).toHaveAttribute(
+      'href',
+      '/clubs/7',
+    );
+    expect(screen.queryByText('이미 가입된 동아리입니다')).not.toBeInTheDocument();
+    await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith('가입이 완료되었습니다.'));
+    // 이 시점엔 재조회(alreadyMember=true)가 착지해 있다 — 완료 분기가 alreadyMember 뒤로 밀리는 회귀 가드.
+    expect(screen.getByText(/가입이 완료되었습니다/)).toBeInTheDocument();
+    expect(screen.queryByText('이미 가입된 동아리입니다')).not.toBeInTheDocument();
+  });
+
+  it('자동 승인이 꺼진 초대 링크는 기존 승인 대기 안내를 그대로 보여준다', async () => {
+    signIn();
+    let requested = false;
+    server.use(
+      http.get(`*/join-codes/${CODE}`, () =>
+        json(
+          check({
+            linkType: 'CLUB_INVITE',
+            autoApprove: false,
+            myRequestStatus: requested ? 'PENDING' : null,
+          }),
+        ),
+      ),
+      http.post(`*/join-codes/${CODE}/requests`, () => {
+        requested = true;
+        return new HttpResponse(null, { status: 201 });
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
+
+    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(
+      screen.getByText('운영진 확인 후 두잉 개발동아리 동아리 회원으로 등록됩니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/가입이 완료되었습니다/)).not.toBeInTheDocument();
     expect(mockAddToast).toHaveBeenCalledWith('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
   });
 

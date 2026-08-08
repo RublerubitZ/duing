@@ -130,9 +130,22 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         if (currentLeader.getRole() != ClubMemberRole.LEADER) {
             throw new ClubMemberException.ConcurrentTransferDetected();
         }
+        // 탈퇴 계정의 잔존 행이 대상이면 아래 응답 변환이 이름을 읽다 프록시 초기화에 실패해 500 이 된다.
+        // 잠금 쿼리에 조인을 넣으면 users 행까지 잠겨 잠금 범위가 넓어지므로, 운영 명령 3경로와 같은
+        // 조회로 생존만 따로 확인하고 대상 부적합으로 함께 거절한다.
+        boolean targetUserAlive = clubMemberRepository
+                .findByClubIdAndIdWithUser(command.clubId(), command.memberId())
+                .isPresent();
+        // 동아리 범위·역할 요건을 먼저 본다 — 위 조회는 동아리 조건도 함께 걸어서, 순서를 바꾸면
+        // 타 동아리 대상까지 아래 404 로 빨려 들어가 기존 계약이 바뀐다.
         if (!target.getClub().getId().equals(command.clubId())
                 || target.getRole() == ClubMemberRole.LEADER) {
             throw new ClubMemberException.TransferTargetInvalid();
+        }
+        if (!targetUserAlive) {
+            // 역할 요건 위반이 아니라 대상이 사라진 것이다 — 나머지 세 경로와 같은 404 로 맞춰야
+            // 운영진이 받는 안내가 "목록을 새로고침하라"로 읽힌다.
+            throw new ClubMemberException.NotFound();
         }
 
         ClubMemberRole previousTargetRole = target.getRole();
@@ -167,12 +180,14 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         clubMemberRepository.deleteAll(members);
     }
 
+    /**
+     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 탈퇴는 계정만 soft-delete 하고 비-LEADER
+     * 멤버십 행은 남기므로(의도된 동작), findById 로 읽으면 목록에서 이미 사라진 회원의 잔존 행에
+     * 조작이 그대로 성공한다 — 운영진 화면에는 보이지도 않는 대상에 이력만 쌓인다(#753).
+     * 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다.
+     */
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {
-        ClubMember membership = clubMemberRepository.findById(memberId)
+        return clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
                 .orElseThrow(ClubMemberException.NotFound::new);
-        if (!membership.getClub().getId().equals(clubId)) {
-            throw new ClubMemberException.NotFound();
-        }
-        return membership;
     }
 }

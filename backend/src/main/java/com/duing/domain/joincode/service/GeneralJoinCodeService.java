@@ -1,5 +1,8 @@
 package com.duing.domain.joincode.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -9,6 +12,7 @@ import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
+import com.duing.domain.joincode.service.dto.command.CreateClubInviteCodeCommand;
 import com.duing.domain.joincode.service.dto.command.CreateJoinCodeCommand;
 import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -37,6 +41,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final RecruitmentRepository recruitmentRepository;
+    // 부원 초대 링크는 모집을 거치지 않고 동아리에 직접 매달린다 — 발급 시 동아리 참조가 필요하다.
+    private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final JoinCodeGenerator joinCodeGenerator;
     private final Clock clock;
@@ -117,7 +123,10 @@ public class GeneralJoinCodeService implements JoinCodeService {
         ClubJoinCode joinCode = clubJoinCodeRepository.findById(joinCodeId)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         // 다른 모집(=다른 동아리 포함)의 코드는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
-        if (!joinCode.getRecruitment().getId().equals(recruitmentId)) {
+        // 모집 무귀속(부원 초대 링크, V107) 도 여기서 걸린다 — null 을 그대로 역참조하면 500 이 되어
+        // 열거 차단이 무너지므로 먼저 확인한다.
+        if (joinCode.getRecruitment() == null
+                || !joinCode.getRecruitment().getId().equals(recruitmentId)) {
             throw new JoinCodeException.JoinCodeNotFoundException();
         }
         if (joinCode.isRevoked()) {
@@ -134,10 +143,88 @@ public class GeneralJoinCodeService implements JoinCodeService {
 
     @Override
     @Transactional
+    public JoinCodeQuery createClubInvite(CreateClubInviteCodeCommand createCommand) {
+        clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
+        Club club = clubRepository.findById(createCommand.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);   // requireManager 통과라 사실상 도달 불가
+        LocalDateTime now = LocalDateTime.now(clock);
+        // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
+        // 잠금 조회가 낡은 인스턴스를 돌려주고(findWithLockByCode 와 같은 함정), 그 사이 커밋된
+        // 수동 폐기를 보지 못한 채 최초 폐기 시각·폐기자를 덮어쓴다. 활성 술어를 잠금 조회에
+        // 실었으므로 경쟁 폐기가 먼저 커밋됐다면 빈 결과가 되어 이 트랜잭션은 최초 생성이 된다.
+        Optional<ClubJoinCode> replacedCode = clubJoinCodeRepository
+                .findWithLockByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(createCommand.clubId());
+        replacedCode.ifPresent(activeCode -> {
+            activeCode.revoke(now, createCommand.requesterId());
+            // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
+            // 신규 INSERT 가 uk_club_join_code_active_invite_per_club 에 걸린다.
+            clubJoinCodeRepository.flush();
+            recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, createCommand.clubId(),
+                    null, activeCode.getId(), createCommand.requesterId());
+        });
+
+        ClubJoinCode issued;
+        try {
+            issued = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                    club, generateUniqueCode(), createCommand.generation(), createCommand.maxUses(),
+                    now.plusHours(createCommand.expiresInHours()), createCommand.autoApprove(),
+                    createCommand.requesterId()));
+            clubJoinCodeRepository.flush();
+        } catch (DataIntegrityViolationException concurrentIssue) {
+            // 동시 생성 경쟁: uk_club_join_code_active_invite_per_club 충돌 → 409 (모집 링크와 동일 규약).
+            throw new JoinCodeException.ConcurrentJoinCodeOperationException();
+        }
+        // 이 트랜잭션이 실제로 갈아끼웠을 때만 REGENERATED — 잠금 조회가 비었다면 최초 생성이다.
+        recordJoinLinkEvent(replacedCode.isPresent()
+                        ? ClubAuditEventType.JOIN_LINK_REGENERATED
+                        : ClubAuditEventType.JOIN_LINK_CREATED,
+                createCommand.clubId(), null, issued.getId(), createCommand.requesterId());
+        // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
+        return JoinCodeQuery.from(issued, 0, 0);
+    }
+
+    @Override
+    public Optional<JoinCodeQuery> findActiveClubInvite(Long clubId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        return clubJoinCodeRepository.findByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(clubId)
+                .map(activeCode -> JoinCodeQuery.from(activeCode,
+                        clubJoinRequestRepository.countByJoinCodeId(activeCode.getId()),
+                        clubJoinRequestRepository.countByJoinCodeIdAndStatus(
+                                activeCode.getId(), JoinRequestStatus.PENDING)));
+    }
+
+    @Override
+    @Transactional
+    public void revokeClubInvite(Long clubId, Long joinCodeId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        // 잠금 조회로 처음 읽는다 — 무잠금 findById 로 읽으면 재발급(findWithLockBy...)이 이미 폐기한
+        // 행을 낡은 스냅샷으로 보고, 멱등 분기를 지나쳐 최초 폐기 시각·폐기자를 덮어쓰면서 같은 폐기를
+        // 두 번 기록한다(실측: 동시 폐기·재발급 25/25 에서 JOIN_LINK_REVOKED 중복).
+        ClubJoinCode joinCode = clubJoinCodeRepository.findWithLockById(joinCodeId)
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
+        // 모집 링크와 타 동아리 링크는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
+        // 형태를 먼저 보므로 모집 링크에서는 club 프록시를 건드리지 않는다.
+        if (!joinCode.isClubInvite() || !joinCode.getClub().getId().equals(clubId)) {
+            throw new JoinCodeException.JoinCodeNotFoundException();
+        }
+        if (joinCode.isRevoked()) {
+            // 멱등 — 최초 폐기 시각(감사 이력)을 덮어쓰지 않고 감사 이벤트도 남기지 않는다
+            // (같은 폐기가 호출 횟수만큼 늘어나 보이면 이력이 거짓말이 된다).
+            return;
+        }
+        joinCode.revoke(LocalDateTime.now(clock), requesterId);
+        // 초대 링크는 귀속 모집이 없어 recruitmentId 는 null 로 남긴다(V102 컬럼 nullable).
+        recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, clubId, null, joinCodeId, requesterId);
+    }
+
+    @Override
+    @Transactional
     public void revokeActiveOnClubClosure(Long clubId, List<Long> recruitmentIds, Long actorAdminUserId) {
         // 모집 삭제 경로(GeneralRecruitmentService.delete)와 같은 방식이다 — 코드 엔티티를 영속성
         // 컨텍스트에 올리면 같은 트랜잭션의 모집 soft-delete 와 충돌해 커밋이 깨지므로, 대상 id 만 읽고
         // 벌크 UPDATE 로 폐기한다. 한 번의 폐쇄로 죽는 링크는 같은 시각을 갖는다.
+        // 링크 2종(V107)을 모두 끊어야 한다: 모집 링크는 모집 id 체인으로, 부원 초대 링크는 모집에
+        // 매달리지 않으므로 동아리 단위로 한 번 더 폐기한다.
         LocalDateTime revokedAt = LocalDateTime.now(clock);
         for (Long recruitmentId : recruitmentIds) {
             List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
@@ -150,6 +237,16 @@ public class GeneralJoinCodeService implements JoinCodeService {
                         ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId,
                         joinCodeId, actorAdminUserId));
             }
+        }
+
+        Optional<Long> revokedInviteCodeId = clubJoinCodeRepository.findActiveClubInviteIdByClubId(clubId);
+        int revokedInviteCount = clubJoinCodeRepository.revokeActiveClubInviteByClubId(
+                clubId, revokedAt, actorAdminUserId);
+        // 운영진의 수동 폐기와 겹쳐 UPDATE 가 0행이면 이 트랜잭션이 폐기한 것이 없으므로 기록하지 않는다.
+        if (revokedInviteCount > 0) {
+            // 초대 링크는 귀속 모집이 없어 recruitmentId 는 null 로 남긴다(V102 컬럼 nullable).
+            revokedInviteCodeId.ifPresent(joinCodeId -> recordJoinLinkEvent(
+                    ClubAuditEventType.JOIN_LINK_REVOKED, clubId, null, joinCodeId, actorAdminUserId));
         }
     }
 

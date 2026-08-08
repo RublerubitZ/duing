@@ -122,8 +122,8 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
   const submitErrorMessage = submitError instanceof ApiError ? submitError.message : null;
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open && !activeMutation.isPending) onClose(); }}>
-      <DialogContent className="max-w-md">
+    <Dialog open onOpenChange={(open) => { if (!open && !isSubmitting && !activeMutation.isPending) onClose(); }}>
+      <DialogContent busy={isSubmitting || activeMutation.isPending} className="max-w-md">
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? '장부 항목 수정' : effectiveType === 'INCOME' ? '수입 등록' : '지출 등록'}

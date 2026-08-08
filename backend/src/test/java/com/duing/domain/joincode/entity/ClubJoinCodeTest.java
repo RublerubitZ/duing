@@ -12,7 +12,9 @@ import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class ClubJoinCodeTest {
 
@@ -40,7 +42,12 @@ class ClubJoinCodeTest {
     @DisplayName("모집 종료 후에는 종료 시각으로부터 프리셋 기간 안에서만 쓸 수 있다")
     void joinWindowStartsFromActualCloseTime() {
         Recruitment recruitment = openRecruitment();
+        // 영속화하지 않는 단위 테스트라 id 가 비어 있다 — 단언이 공허해지지 않게 발급 전에 채워 둔다.
+        ReflectionTestUtils.setField(recruitment, "id", 42L);
         ClubJoinCode joinCode = issue(recruitment, 5, DEFAULT_WINDOW_DAYS);
+        assertThat(joinCode.isClubInvite()).as("모집에 귀속된 링크는 부원 초대 링크가 아니다").isFalse();
+        assertThat(joinCode.getRecruitmentIdOrNull())
+                .as("모집 링크는 귀속 모집 id 를 그대로 돌려준다").isEqualTo(42L);
         recruitment.close(NOW);
 
         assertThat(joinCode.isUsable(NOW.plusDays(7)))
@@ -108,6 +115,67 @@ class ClubJoinCodeTest {
 
         joinCode.releaseUse();
         assertThat(joinCode.getUsedCount()).as("이미 0 이면 더 내려가지 않는다").isZero();
+    }
+
+    @Nested
+    class 부원_초대_링크 {
+        private final LocalDateTime issuedAt = LocalDateTime.of(2026, 1, 1, 12, 0);
+
+        private ClubJoinCode inviteCode(LocalDateTime inviteExpiresAt) {
+            return ClubJoinCode.issueClubInvite(club(), "ABC234", null, 40, inviteExpiresAt, false, 1L);
+        }
+
+        @Test
+        @DisplayName("부원 초대 링크는 만료 시각 전까지 사용 가능하고 만료 시각이 지나면 사용 불가다")
+        void inviteExpiryBoundary() {
+            ClubJoinCode joinCode = inviteCode(issuedAt.plusHours(24));
+            assertThat(joinCode.isUsable(issuedAt.plusHours(24))).as("경계는 포함").isTrue();
+            assertThat(joinCode.isUsable(issuedAt.plusHours(24).plusSeconds(1)))
+                    .as("1초라도 넘기면 사용 불가").isFalse();
+        }
+
+        @Test
+        @DisplayName("부원 초대 링크의 가입 가능 기한은 모집이 아닌 절대 만료 시각에서 나온다")
+        void joinExpiresAtIsInviteExpiresAt() {
+            assertThat(inviteCode(issuedAt.plusHours(72)).getJoinExpiresAt())
+                    .isEqualTo(issuedAt.plusHours(72));
+        }
+
+        @Test
+        @DisplayName("폐기된 부원 초대 링크는 만료 전이라도 사용 불가다")
+        void revokedInviteIsUnusable() {
+            ClubJoinCode joinCode = inviteCode(issuedAt.plusHours(24));
+            joinCode.revoke(issuedAt.plusHours(1), 1L);
+            assertThat(joinCode.isUsable(issuedAt.plusHours(2))).isFalse();
+        }
+
+        @Test
+        @DisplayName("인원이 소진된 부원 초대 링크는 만료 전이라도 사용 불가다")
+        void exhaustedInviteIsUnusable() {
+            ClubJoinCode joinCode = ClubJoinCode.issueClubInvite(club(), "ABC234", null, 1,
+                    issuedAt.plusHours(24), false, 1L);
+            assertThat(joinCode.tryConsume()).isTrue();
+            assertThat(joinCode.isUsable(issuedAt.plusHours(2))).isFalse();
+        }
+
+        @Test
+        @DisplayName("부원 초대 링크는 귀속 모집이 없고 recruitment id 는 null 로 조회된다")
+        void inviteHasNoRecruitment() {
+            ClubJoinCode joinCode = inviteCode(issuedAt.plusHours(24));
+            assertThat(joinCode.isClubInvite()).isTrue();
+            assertThat(joinCode.getRecruitmentIdOrNull()).isNull();
+        }
+
+        @Test
+        @DisplayName("자동 승인으로 발급한 부원 초대 링크는 자동 승인 여부를 그대로 들고 있다")
+        void autoApproveIsKept() {
+            ClubJoinCode autoApproved = ClubJoinCode.issueClubInvite(club(), "ABC234", 12, 40,
+                    issuedAt.plusHours(24), true, 1L);
+            assertThat(autoApproved.isAutoApprove()).isTrue();
+            assertThat(autoApproved.getGeneration()).as("기수는 초대 링크에서도 선택 항목이다").isEqualTo(12);
+            assertThat(inviteCode(issuedAt.plusHours(24)).isAutoApprove())
+                    .as("기본은 운영진 승인").isFalse();
+        }
     }
 
     private ClubJoinCode issue(Recruitment recruitment, int maxUses, int joinWindowDays) {

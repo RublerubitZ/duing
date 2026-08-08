@@ -33,6 +33,14 @@ public class GeneralAdminLeaderAssignmentService implements AdminLeaderAssignmen
                 .findByClubIdAndUserIdForUpdate(command.clubId(), command.newLeaderUserId())
                 .orElseThrow(ClubMemberException.AdminAssignTargetNotMember::new);
 
+        // 위 잠금 조회는 명시 HQL 이라 탈퇴 계정의 잔존 멤버십도 잡힌다. 그대로 지정하면 로그인 불가한
+        // 유령 회장이 부분 유니크 인덱스를 점유하고 콘솔에는 "회장 없음"으로 보인다 —
+        // 파생 쿼리로 계정 생존을 확인해 멤버가 아닌 것과 같게 처리한다.
+        if (clubMemberRepository.findByClubIdAndUserId(command.clubId(), command.newLeaderUserId())
+                .isEmpty()) {
+            throw new ClubMemberException.AdminAssignTargetNotMember();
+        }
+
         ClubMember currentLeader = clubMemberRepository
                 .findByClubIdAndRoleForUpdate(command.clubId(), ClubMemberRole.LEADER)
                 .orElse(null);

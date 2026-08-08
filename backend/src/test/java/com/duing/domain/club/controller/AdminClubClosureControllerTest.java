@@ -385,6 +385,76 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
                     .body("message", equalTo("유효하지 않은 가입 링크입니다."));
     }
 
+    @Test
+    @DisplayName("동아리 폐쇄 시 부원 초대 링크도 폐기되고 모집 없는 폐기 감사가 남는다")
+    void closureRevokesClubInviteLink() throws Exception {
+        Club club = saveClubWithLeader("초대링크폐쇄클럽", ClubStatus.ACTIVE);
+        // 초대 링크는 모집에 매달리지 않으므로 폐쇄의 모집 id 체인으로는 닿지 않는다(V107).
+        ClubJoinCode inviteCode = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                club, "INVCL1", 13, 30, LocalDateTime.now().plusDays(1), true, leaderUser.getId()));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", club.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        Map<String, Object> inviteRow = jdbcTemplate.queryForMap(
+                "SELECT revoked_at, revoked_by FROM club_join_code WHERE id = ?", inviteCode.getId());
+        Assertions.assertNotNull(inviteRow.get("revoked_at"));
+        Assertions.assertEquals(adminUser.getId(), ((Number) inviteRow.get("revoked_by")).longValue());
+
+        // 폐기 감사는 링크당 정확히 1건이며(queryForMap 이 단건을 강제), 초대 링크는 귀속 모집이 없어
+        // recruitment_id 가 null 이다.
+        Map<String, Object> auditRow = jdbcTemplate.queryForMap(
+                "SELECT recruitment_id, actor_user_id FROM club_audit_event "
+                        + "WHERE event_type = 'JOIN_LINK_REVOKED' AND join_code_id = ?", inviteCode.getId());
+        Assertions.assertNull(auditRow.get("recruitment_id"));
+        Assertions.assertEquals(adminUser.getId(), ((Number) auditRow.get("actor_user_id")).longValue());
+
+        RestAssured
+                .given()
+                .when()
+                    .get("/api/v1/join-codes/{code}", inviteCode.getCode())
+                .then()
+                    .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("이미 폐기된 초대 링크만 있으면 동아리 폐쇄는 폐기 감사를 남기지 않는다")
+    void closureRecordsNoEventWhenInviteLinkAlreadyRevoked() throws Exception {
+        Club club = saveClubWithLeader("선폐기초대링크클럽", ClubStatus.ACTIVE);
+        ClubJoinCode inviteCode = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                club, "INVCL2", 13, 30, LocalDateTime.now().plusDays(1), false, leaderUser.getId()));
+        // 운영진이 먼저 폐기해 둔 상태 — 폐쇄가 폐기할 것이 없다.
+        jdbcTemplate.update("UPDATE club_join_code SET revoked_at = NOW(), revoked_by = ? WHERE id = ?",
+                leaderUser.getId(), inviteCode.getId());
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", club.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 일어나지 않은 폐기를 기록하면 이력이 거짓말이 된다(모집 링크 경로와 같은 규약).
+        Integer revocationEventCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_audit_event "
+                        + "WHERE event_type = 'JOIN_LINK_REVOKED' AND join_code_id = ?",
+                Integer.class, inviteCode.getId());
+        Assertions.assertEquals(0, revocationEventCount);
+        Long revokedById = jdbcTemplate.queryForObject(
+                "SELECT revoked_by FROM club_join_code WHERE id = ?", Long.class, inviteCode.getId());
+        Assertions.assertEquals(leaderUser.getId(), revokedById, "최초 폐기자가 유지된다");
+    }
+
     private User saveUser(String name, UserRole role) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
