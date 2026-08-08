@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
  *
  * <p>{@code requestedAt} 은 BaseEntity 감사 필드(JVM 존 벽시계), {@code reviewedAt} 은 seoulClock 으로
  * 기록되므로 응답 경계에서 서로 다른 변환을 태운다(TIMEZONE.md).
+ *
+ * <p>{@code autoApproved} 는 소속 코드의 {@code autoApprove} 에서 파생한다(V107, 스펙 §4) —
+ * 자동 승인 요청은 처리자가 신청자 본인이라, 콘솔이 "운영진이 승인한 건"과 구분해 표시할 근거가 된다.
  */
 public record JoinRequestDetailQuery(
         Long joinRequestId,
@@ -21,7 +24,8 @@ public record JoinRequestDetailQuery(
         JoinRequestStatus status,
         String rejectReason,
         LocalDateTime requestedAt,
-        LocalDateTime reviewedAt
+        LocalDateTime reviewedAt,
+        boolean autoApproved
 ) {
     /** user·joinCode 가 LAZY 이므로 트랜잭션 안에서 호출한다. */
     public static JoinRequestDetailQuery from(ClubJoinRequest joinRequest) {
@@ -36,7 +40,8 @@ public record JoinRequestDetailQuery(
                 joinRequest.getStatus(),
                 joinRequest.getRejectReason(),
                 joinRequest.getCreatedAt(),
-                joinRequest.getReviewedAt()
+                joinRequest.getReviewedAt(),
+                joinRequest.getJoinCode().isAutoApprove()
         );
     }
 }

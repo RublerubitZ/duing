@@ -358,6 +358,58 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("자동 승인이 꺼진 초대 링크 요청도 운영진 승인으로 회원이 등록되고 자동 승인 표시는 꺼진 채 내려온다")
+    void manualApproveWorksForClubInviteRequest() {
+        ClubJoinCode inviteCode = saveInviteCode(false);
+        User student = saveUser();
+        ClubJoinRequest pending = savePendingRequest(inviteCode, student);
+
+        listRequests(leaderToken, null).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data[0].joinRequestId", equalTo(pending.getId().intValue()))
+                .body("data[0].code", equalTo(inviteCode.getCode()))
+                .body("data[0].autoApproved", equalTo(false));
+        getRequestDetail(leaderToken, club.getId(), pending.getId()).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.autoApproved", equalTo(false));
+
+        decide(leaderToken, club.getId(), pending.getId(), "APPROVED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.result", equalTo("APPROVED"));
+
+        ClubMember enrolled = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), student.getId()).orElseThrow();
+        assertThat(enrolled.getRole()).isEqualTo(ClubMemberRole.MEMBER);
+        assertThat(enrolled.getGeneration())
+                .as("초대 링크의 기수 스냅샷을 따른다").isEqualTo(inviteCode.getGeneration());
+        assertThat(auditEvents())
+                .as("초대 링크 요청의 승인 감사는 귀속 모집 없이 기록된다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getRecruitmentId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_APPROVED, null));
+    }
+
+    @Test
+    @DisplayName("자동 승인 초대 링크로 접수된 요청은 목록·상세에 자동 승인으로 표시된다")
+    void autoApproveInviteRequestIsMarkedInConsole() {
+        ClubJoinCode autoApproveInvite = saveInviteCode(true);
+        User student = saveUser();
+        // 자동 승인 경로는 신청자 본인이 처리자로 남는다(학생측 테스트가 플로우 자체를 검증한다).
+        ClubJoinRequest approved = savePendingRequest(autoApproveInvite, student);
+        approved.approve(student, LocalDateTime.now(clock));
+        clubJoinRequestRepository.save(approved);
+
+        listRequests(leaderToken, "APPROVED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].joinRequestId", equalTo(approved.getId().intValue()))
+                .body("data[0].autoApproved", equalTo(true));
+        getRequestDetail(leaderToken, club.getId(), approved.getId()).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("APPROVED"))
+                .body("data.autoApproved", equalTo(true));
+    }
+
+    @Test
     @DisplayName("일괄 승인은 처리 가능한 요청만 승인하고 나머지는 사유와 함께 실패로 돌려준다")
     void bulkApproveReportsPerRequestFailures() {
         User existingMemberStudent = saveUser();
@@ -497,6 +549,20 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
         stored.tryConsume();
         clubJoinCodeRepository.save(stored);
         return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, student, joinCode));
+    }
+
+    /** 코드를 지정해 받는 대기 요청 — 초대 링크처럼 셋업 코드가 아닌 링크로 접수된 흐름을 만든다. */
+    private ClubJoinRequest savePendingRequest(ClubJoinCode targetJoinCode, User student) {
+        ClubJoinCode stored = clubJoinCodeRepository.findById(targetJoinCode.getId()).orElseThrow();
+        stored.tryConsume();
+        clubJoinCodeRepository.save(stored);
+        return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, student, stored));
+    }
+
+    /** 초대 링크는 모집 무귀속·절대 만료다 — 하드코딩 절대 날짜 없이 발급 시점 기준 상대 시각으로 만든다. */
+    private ClubJoinCode saveInviteCode(boolean autoApprove) {
+        return clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(club, randomCode(), 13, 30,
+                LocalDateTime.now(clock).plusHours(24), autoApprove, leaderUser.getId()));
     }
 
     private ClubJoinRequest saveOtherClubPendingRequest() {
