@@ -12,6 +12,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
+import com.duing.domain.joincode.entity.JoinCodeLinkType;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.exception.JoinRequestException;
@@ -88,11 +89,15 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         Club club = joinCode.getClub();
         boolean usable = isUsable(joinCode);
+        // 링크 형태와 자동 승인은 사용자와 무관한 링크 속성이라 두 분기가 같은 값을 싣는다(스펙 §7 문구 분기).
+        JoinCodeLinkType linkType = joinCode.isClubInvite()
+                ? JoinCodeLinkType.CLUB_INVITE
+                : JoinCodeLinkType.RECRUITMENT;
 
         // 비로그인 확인은 동아리 정보까지만 — 내 상태 2종은 null 로 남긴다(스펙 5).
         if (currentUserId == null) {
             return new JoinCodeCheckQuery(club.getId(), club.getName(), joinCode.getGeneration(),
-                    usable, null, null);
+                    usable, null, null, linkType, joinCode.isAutoApprove());
         }
         boolean alreadyMember = clubMemberRepository
                 .findByClubIdAndUserId(club.getId(), currentUserId).isPresent();
@@ -102,7 +107,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 .map(ClubJoinRequest::getStatus)
                 .orElse(null);
         return new JoinCodeCheckQuery(club.getId(), club.getName(), joinCode.getGeneration(),
-                usable, alreadyMember, myRequestStatus);
+                usable, alreadyMember, myRequestStatus, linkType, joinCode.isAutoApprove());
     }
 
     @Override
@@ -150,6 +155,18 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 ClubAuditEventType.JOIN_REQUEST_CREATED, clubId,
                 joinCode.getRecruitmentIdOrNull(), joinCode.getId(), createdRequest.getId(),
                 createCommand.userId()));
+        // 자동 승인(스펙 §4): 코드 행 잠금 구간 안이라 이미 회원 검사~enroll 이 직렬화된다 —
+        // 동시 중복 신청은 후행이 잠금 해제 후 AlreadyMemberException(409)으로 떨어진다.
+        // 최후 방어선은 uk_club_member_club_user_active + enrollment 서비스의 23505 멱등 처리.
+        if (joinCode.isAutoApprove()) {
+            clubMemberEnrollmentService.enroll(joinCode.getClub(), requester,
+                    ClubMemberRole.MEMBER, createdRequest.getGeneration());
+            createdRequest.approve(requester, LocalDateTime.now(clock));   // decidedBy = 신청자 본인
+            clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                    ClubAuditEventType.JOIN_REQUEST_APPROVED, clubId,
+                    joinCode.getRecruitmentIdOrNull(), joinCode.getId(), createdRequest.getId(),
+                    createCommand.userId()));
+        }
     }
 
     @Override

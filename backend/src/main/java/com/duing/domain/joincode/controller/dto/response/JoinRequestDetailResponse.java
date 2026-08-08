@@ -11,6 +11,9 @@ import java.time.Instant;
  * <p>시각 두 개는 writer 가 달라 변환도 다르다(TIMEZONE.md):
  * {@code requestedAt} 은 BaseEntity 감사 필드(JVM 존 벽시계) → system,
  * {@code reviewedAt} 은 seoulClock 으로 기록한 도메인 필드 → seoul.
+ *
+ * <p>{@code autoApproved} 가 true 면 처리자는 운영진이 아니라 신청자 본인이다 — 자동 승인 부원 초대
+ * 링크(V107)로 접수돼 같은 트랜잭션에서 승인까지 끝난 요청이다.
  */
 public record JoinRequestDetailResponse(
         Long joinRequestId,
@@ -23,7 +26,8 @@ public record JoinRequestDetailResponse(
         JoinRequestStatus status,
         String rejectReason,
         Instant requestedAt,
-        Instant reviewedAt
+        Instant reviewedAt,
+        boolean autoApproved
 ) {
     public static JoinRequestDetailResponse from(JoinRequestDetailQuery joinRequestDetailQuery) {
         return new JoinRequestDetailResponse(
@@ -37,7 +41,8 @@ public record JoinRequestDetailResponse(
                 joinRequestDetailQuery.status(),
                 joinRequestDetailQuery.rejectReason(),
                 TimeMapper.systemWallClockToInstant(joinRequestDetailQuery.requestedAt()),
-                TimeMapper.seoulWallClockToInstant(joinRequestDetailQuery.reviewedAt())
+                TimeMapper.seoulWallClockToInstant(joinRequestDetailQuery.reviewedAt()),
+                joinRequestDetailQuery.autoApproved()
         );
     }
 }

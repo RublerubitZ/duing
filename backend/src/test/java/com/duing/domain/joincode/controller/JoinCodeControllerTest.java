@@ -16,6 +16,7 @@ import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
@@ -40,6 +41,7 @@ import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,14 +50,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JoinCodeControllerTest extends IntegrationTestBase {
 
     private static final int DEFAULT_WINDOW_DAYS = 7;
+    /** 모집 링크(12)와 눈으로 구분되는 값 — 자동 가입된 회원의 기수가 어느 링크에서 왔는지 드러난다. */
+    private static final int INVITE_GENERATION = 13;
 
     @LocalServerPort int port;
 
@@ -69,6 +75,8 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired JoinRequestService joinRequestService;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** LAZY 연관(reviewedBy)을 트랜잭션 안에서 읽기 위한 도구 — open-in-view 가 꺼져 있다. */
+    @Autowired TransactionTemplate transactionTemplate;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
 
@@ -323,6 +331,139 @@ class JoinCodeControllerTest extends IntegrationTestBase {
         assertThat(clubJoinRequestRepository.count()).isZero();
     }
 
+    @Test
+    @DisplayName("부원 초대 링크를 확인하면 링크 종류와 자동 승인 여부가 함께 내려오고 모집 링크는 기존 값 그대로다")
+    void checkExposesLinkTypeAndAutoApprove() {
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
+        saveInviteCode("INVITE", 30, true);
+
+        // 랜딩 문구는 로그인 전에 갈라야 하므로 두 필드는 비로그인 확인에도 실린다.
+        checkCode(null, "INVITE").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.linkType", equalTo("CLUB_INVITE"))
+                .body("data.autoApprove", equalTo(true))
+                .body("data.generation", equalTo(INVITE_GENERATION))
+                .body("data.usable", equalTo(true));
+        checkCode(studentToken, "INVITE").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.linkType", equalTo("CLUB_INVITE"))
+                .body("data.autoApprove", equalTo(true))
+                .body("data.alreadyMember", equalTo(false));
+
+        checkCode(null, "AB12CD").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.linkType", equalTo("RECRUITMENT"))
+                .body("data.autoApprove", equalTo(false));
+    }
+
+    @Test
+    @DisplayName("자동 승인 초대 링크로 신청하면 즉시 링크의 기수로 회원이 되고 요청은 승인 이력으로 남는다")
+    void autoApproveInviteEnrollsImmediately() {
+        ClubJoinCode inviteCode = saveInviteCode("INVITE", 30, true);
+
+        createRequest(studentToken, "INVITE").then().statusCode(HttpStatus.CREATED.value());
+
+        ClubMember enrolled = clubMemberRepository
+                .findByClubIdAndUserId(club.getId(), student.getId()).orElseThrow();
+        assertThat(enrolled.getRole()).isEqualTo(ClubMemberRole.MEMBER);
+        assertThat(enrolled.getGeneration())
+                .as("초대 링크의 기수가 그대로 회원에 반영된다").isEqualTo(INVITE_GENERATION);
+
+        ClubJoinRequest stored = clubJoinRequestRepository
+                .findTopByClubIdAndUserIdOrderByIdDesc(club.getId(), student.getId()).orElseThrow();
+        assertThat(stored.getStatus())
+                .as("자동 승인도 요청 행을 APPROVED 이력으로 남긴다").isEqualTo(JoinRequestStatus.APPROVED);
+        assertThat(reviewerIdOf(stored)).as("자동 승인의 처리자는 신청자 본인이다").isEqualTo(student.getId());
+        assertThat(usedCountOf(inviteCode)).as("자리는 신청 시점에 한 번만 확보된다").isEqualTo(1);
+
+        assertThat(auditEvents())
+                .as("자동 승인은 접수·승인 두 건을 남기고 둘 다 주체는 학생이며 귀속 모집은 없다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId,
+                        ClubAuditEvent::getActorUserId, ClubAuditEvent::getRecruitmentId,
+                        ClubAuditEvent::getJoinCodeId)
+                .containsExactly(
+                        tuple(ClubAuditEventType.JOIN_REQUEST_CREATED, stored.getId(),
+                                student.getId(), null, inviteCode.getId()),
+                        tuple(ClubAuditEventType.JOIN_REQUEST_APPROVED, stored.getId(),
+                                student.getId(), null, inviteCode.getId()));
+    }
+
+    @Test
+    @DisplayName("이미 회원인 학생은 자동 승인 초대 링크로도 가입 신청을 할 수 없다")
+    void autoApproveInviteRejectsExistingMember() {
+        ClubJoinCode inviteCode = saveInviteCode("INVITE", 30, true);
+
+        createRequest(existingMemberToken, "INVITE").then().statusCode(HttpStatus.CONFLICT.value());
+
+        assertThat(clubJoinRequestRepository.count()).as("막힌 신청은 요청 행을 만들지 않는다").isZero();
+        assertThat(usedCountOf(inviteCode)).as("막힌 신청은 자리도 차감하지 않는다").isZero();
+        assertThat(clubAuditEventRepository.count()).as("일어나지 않은 가입은 감사에 남지 않는다").isZero();
+    }
+
+    @Test
+    @DisplayName("자동 승인이 꺼진 초대 링크는 기존처럼 대기 요청만 남기고 회원을 만들지 않는다")
+    void manualApproveInviteKeepsRequestPending() {
+        saveInviteCode("INVITE", 30, false);
+
+        createRequest(studentToken, "INVITE").then().statusCode(HttpStatus.CREATED.value());
+
+        ClubJoinRequest stored = clubJoinRequestRepository
+                .findTopByClubIdAndUserIdOrderByIdDesc(club.getId(), student.getId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(JoinRequestStatus.PENDING);
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), student.getId()))
+                .as("운영진 승인 전에는 회원이 되지 않는다").isEmpty();
+        assertThat(auditEvents()).extracting(ClubAuditEvent::getEventType)
+                .as("접수 이벤트 1건만 남는다").containsExactly(ClubAuditEventType.JOIN_REQUEST_CREATED);
+    }
+
+    @Test
+    @DisplayName("만료·소진·폐기된 초대 링크는 사용 불가로 표시되고 자동 승인 설정과 무관하게 신청이 거절된다")
+    void unusableInviteCodesAreRejected() {
+        // 만료는 절대 시각 판정이다 — 하드코딩 날짜 없이 발급 시점 기준 상대 시각으로 만든다.
+        ClubJoinCode expired = saveInviteCode(club, "EXPIRE", 30, true,
+                LocalDateTime.now(clock).minusMinutes(1));
+        assertUnusableAndRequestRejected("EXPIRE");
+        revoke(expired);
+
+        // 동아리당 활성 초대 링크는 1개(uk_club_join_code_active_invite_per_club) — 앞 링크를 폐기해야 다음이 들어간다.
+        ClubJoinCode exhausted = saveInviteCode("USEDUP", 1, true);
+        exhausted.tryConsume();
+        clubJoinCodeRepository.save(exhausted);
+        assertUnusableAndRequestRejected("USEDUP");
+        revoke(exhausted);
+
+        ClubJoinCode revoked = saveInviteCode("REVOKE", 30, true);
+        revoke(revoked);
+        assertUnusableAndRequestRejected("REVOKE");
+
+        assertThat(clubJoinRequestRepository.count())
+                .as("사용 불가 링크로는 요청 행이 만들어지지 않는다").isZero();
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), student.getId()))
+                .as("자동 승인이 켜져 있어도 사용 불가 링크는 회원을 만들지 않는다").isEmpty();
+    }
+
+    @Test
+    @DisplayName("비 ACTIVE 동아리의 초대 링크는 사용 불가로 표시되고 신청 생성도 거절된다")
+    void inactiveClubInviteIsUnusable() throws Exception {
+        Club inactiveClub = saveClub("휴면동아리", ClubStatus.INACTIVE);
+        saveInviteCode(inactiveClub, "INACTV", 30, true, LocalDateTime.now(clock).plusHours(24));
+
+        assertUnusableAndRequestRejected("INACTV");
+        assertThat(clubMemberRepository.findByClubIdAndUserId(inactiveClub.getId(), student.getId()))
+                .as("휴면 동아리에는 자동 승인으로도 들어갈 수 없다").isEmpty();
+    }
+
+    /** 감사 이벤트는 기록 순서가 곧 이야기라 id 오름차순으로 본다(접수 → 승인). */
+    private List<ClubAuditEvent> auditEvents() {
+        return clubAuditEventRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    /** reviewedBy 는 LAZY 라 트랜잭션 안에서 다시 읽는다(open-in-view 꺼짐). */
+    private Long reviewerIdOf(ClubJoinRequest joinRequest) {
+        return transactionTemplate.execute(status -> clubJoinRequestRepository
+                .findById(joinRequest.getId()).orElseThrow().getReviewedBy().getId());
+    }
+
     private void assertUnusableAndRequestRejected(String code) {
         checkCode(null, code).then()
                 .statusCode(HttpStatus.OK.value())
@@ -362,6 +503,17 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     private ClubJoinCode saveJoinCode(String code, Integer generation, int maxUses, int joinWindowDays) {
         return clubJoinCodeRepository.save(
                 ClubJoinCode.issue(club, recruitment, code, generation, maxUses, joinWindowDays, null));
+    }
+
+    /** 초대 링크는 모집에 귀속되지 않고 발급 시점 기준 상대 시각으로 만료를 잡는다(시한폭탄 테스트 방지). */
+    private ClubJoinCode saveInviteCode(String code, int maxUses, boolean autoApprove) {
+        return saveInviteCode(club, code, maxUses, autoApprove, LocalDateTime.now(clock).plusHours(24));
+    }
+
+    private ClubJoinCode saveInviteCode(Club targetClub, String code, int maxUses, boolean autoApprove,
+                                        LocalDateTime inviteExpiresAt) {
+        return clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(targetClub, code,
+                INVITE_GENERATION, maxUses, inviteExpiresAt, autoApprove, null));
     }
 
     private String tokenOf(User user) {
