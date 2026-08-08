@@ -64,14 +64,14 @@ CREATE UNIQUE INDEX uk_club_join_code_active_invite_per_club
 학교 동아리 규모상 500 은 과도하다 — 150 이면 정상 규모를 충분히 커버하고, 두 링크의 정책을 동일하게 유지해 운영·코드 복잡도를 줄인다.
 
 ```sql
--- V107 에 포함. ADD CONSTRAINT 는 기존 행을 검증하므로 max_uses > 150 행이 있으면 마이그레이션이 실패한다
--- → §10 릴리스 게이트(prod 사전 조회)가 이 실패를 배포 전에 차단한다.
+-- V107 에 포함 (최종 확정형 — 아래 실측 판정 참조)
 ALTER TABLE club_join_code DROP CONSTRAINT club_join_code_max_uses_check;
-ALTER TABLE club_join_code ADD CONSTRAINT club_join_code_max_uses_check CHECK (max_uses BETWEEN 1 AND 150);
+ALTER TABLE club_join_code ADD CONSTRAINT club_join_code_max_uses_check
+    CHECK (max_uses >= 1 AND (max_uses <= 150 OR revoked_at IS NOT NULL));
 ```
 
-- **기존 데이터 확인(사용자 지시 — 강제 축소 금지)**: dev DB 조회 완료, `max_uses > 150` **0건** (제약 이름 `club_join_code_max_uses_check` 실측 확인). prod 는 MCP 재인증 후 동일 쿼리로 확인 — §10 릴리스 게이트.
-- **prod 에 >150 행이 존재할 경우의 예비 방침**: 기존 링크를 150 으로 축소하는 UPDATE 는 하지 않는다(사용자 지시). 이 경우 DB CHECK 교체를 보류하고(1~500 유지) BE/FE 검증만 150 으로 조여 **신규 발급부터** 제한한다 — `NOT VALID` 는 쓰지 않는다(기존 >150 행의 used_count 차감·환급 UPDATE 가 행 재검증에 걸려 가입 신청이 500 으로 터진다). 실측 후 사용자 보고·판단.
+- **기존 데이터 실측·판정(2026-08-09 확정)**: dev 0건. **prod 1건 실존** — max_uses=200 폐기 이력 행(club 10 모집 링크, 8/5 재생성으로 폐기, PENDING 1건 잔존). 사용자 판단으로 **"활성 링크만 150" 완화형 CHECK 채택**: 이력 무손상 + 활성/신규 링크 DB 백스톱 유지 + 마이그레이션 통과. 폐기 행의 max_uses 는 불변·운영상 무의미라 의미론도 정확하다.
+- **기각된 대안**: ① 이력 행 150 축소 UPDATE — 감사 왜곡, 사용자 금지. ② `NOT VALID` — 폐기 행의 PENDING 거절이 환급 UPDATE 로 행 재검증을 트리거해 거절 처리가 500 (해당 행에 PENDING 실존이라 실위험). ③ CHECK 교체 보류(앱 검증만 150) — DB 백스톱 후퇴라 차선.
 - BE Bean Validation `@Max(500)`→`@Max(150)`(모집·초대 공통 요청 DTO), FE 입력 상한(수동 검증 — `MemberEnrollmentSection` 은 zod 미사용), Swagger 문구, 테스트 픽스처의 150 초과 값 정리.
 - 이 변경은 v2 스펙(`docs/join-code-invite-spec.md`)의 "인원 1~500" 정책을 대체한다.
 
@@ -185,7 +185,7 @@ ALTER TABLE club_join_code ADD CONSTRAINT club_join_code_max_uses_check CHECK (m
 
 ## 10. 릴리스
 
-- **릴리스 게이트(필수)**: prod DB 에 `SELECT count(*) FROM club_join_code WHERE max_uses > 150` 실행 — 0건 확인 후 배포. 0건이 아니면 §2.1 예비 방침으로 전환하고 사용자 보고 (V107 의 CHECK 교체가 기존 행 검증에 걸려 마이그레이션 실패 → 배포 실패가 되므로, 이 게이트 없이 배포 금지). dev 는 0건 실측 완료.
+- **릴리스 게이트: 수행 완료(2026-08-09)** — prod 실측에서 max_uses=200 폐기 행 1건 발견, §2.1 완화형 CHECK 로 해소(사용자 확정). 완화형은 실측 시점의 기존 행 전부를 통과시킨다. 단 **현 prod 이미지는 아직 상한 500** 이라 실측~배포 사이 창에서 활성 151~500 링크가 새로 생기면 완화형도 기존 행 검증에서 실패한다 — **배포 직전 재확인 권장**: `SELECT count(*) FROM club_join_code WHERE max_uses > 150 AND revoked_at IS NULL` = 0 확인 후 배포(새 이미지 배포 후에는 BE 검증이 150 이라 신규 발생 불가).
 - BE(V107 포함) → FE 순 머지, 같은 릴리스로 배포 (FE 가 신규 API 의존).
 - V107 은 Expand-only — 구 이미지와 데이터 호환(초대 링크 행은 구 이미지에서 404 fail-closed). 릴리스 후 롤백은 레포 표준 roll-forward 원칙.
 - 기존 링크·요청 데이터 백필 없음.

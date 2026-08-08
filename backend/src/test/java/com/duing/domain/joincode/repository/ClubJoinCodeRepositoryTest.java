@@ -144,6 +144,17 @@ class ClubJoinCodeRepositoryTest {
     }
 
     @Test
+    @DisplayName("폐기된 가입 링크 행은 최대 인원이 150을 초과해도 보존된다")
+    void maxUsesCheckGrandfathersRevokedRows() {
+        // prod 에 max_uses=200 폐기 이력 행이 실존한다(V107 주석) — 유예 분기가 빠지면
+        // 마이그레이션이 기존 행 검증에서 실패하므로, 이 INSERT 성공이 그 호환성의 가드다.
+        int insertedRowCount = jdbcTemplate.update(
+                "INSERT INTO club_join_code (club_id, recruitment_id, code, max_uses, used_count, join_window_days, revoked_at) "
+                        + "VALUES (?, ?, ?, 200, 0, 7, NOW())", clubId, recruitmentId, nextCode());
+        assertThat(insertedRowCount).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("모집이 없는데 절대 만료도 없는 가입 링크 행은 DB 가 거부한다")
     void linkShapeCheckRejectsInviteWithoutExpiry() {
         assertThatThrownBy(() -> jdbcTemplate.update(

@@ -14,7 +14,11 @@ CREATE UNIQUE INDEX uk_club_join_code_active_invite_per_club
     ON club_join_code (club_id)
     WHERE recruitment_id IS NULL AND revoked_at IS NULL AND deleted_at IS NULL;
 
--- maxUses 상한 500→150 통일(스펙 §2.1). ADD CONSTRAINT 는 기존 행을 검증한다 —
--- dev 0건 실측, prod 는 릴리스 게이트에서 0건 확인 후 배포(강제 축소 UPDATE 금지).
+-- maxUses 상한 500→150 통일(스펙 §2.1) — 단, 폐기 행은 유예한다.
+-- prod 에 max_uses=200 인 폐기 이력 행이 실존(릴리스 게이트 실측 1건)하고, 이력 행의 상한을
+-- 강제 축소하는 UPDATE 는 감사 왜곡이라 금지다. 폐기 행의 max_uses 는 불변·운영상 무의미하므로
+-- "살아있는 링크는 150 을 넘을 수 없다"가 정확한 불변식이다. NOT VALID 는 대안이 아니다 —
+-- 폐기 행의 PENDING 거절이 환급 UPDATE 로 행 재검증을 트리거해 거절 처리가 실패한다.
 ALTER TABLE club_join_code DROP CONSTRAINT club_join_code_max_uses_check;
-ALTER TABLE club_join_code ADD CONSTRAINT club_join_code_max_uses_check CHECK (max_uses BETWEEN 1 AND 150);
+ALTER TABLE club_join_code ADD CONSTRAINT club_join_code_max_uses_check
+    CHECK (max_uses >= 1 AND (max_uses <= 150 OR revoked_at IS NOT NULL));
