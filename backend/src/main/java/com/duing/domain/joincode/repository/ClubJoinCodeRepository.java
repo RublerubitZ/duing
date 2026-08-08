@@ -105,4 +105,24 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT joinCode FROM ClubJoinCode joinCode WHERE joinCode.id = :joinCodeId")
     Optional<ClubJoinCode> findWithLockById(@Param("joinCodeId") Long joinCodeId);
+
+    /**
+     * 부원 초대 링크 재발급이 교체 대상(활성 링크)을 잠그고 읽는다 — 발급과 수동 폐기가 같은
+     * 동아리에 대해 직렬화된다.
+     *
+     * <p>재발급 경로는 반드시 <b>이 메서드로 활성 링크를 처음 읽어야</b> 한다. 잠그지 않은
+     * {@code findByClubIdAndRecruitmentIsNullAndRevokedAtIsNull} 로 먼저 로딩하면 이미 영속성
+     * 컨텍스트에 올라온 엔티티는 잠금만 걸릴 뿐 필드가 갱신되지 않아, 그 사이 커밋된 수동 폐기를
+     * 보지 못한 채 낡은 {@code revokedAt} 으로 판단하게 된다({@code findWithLockByCode} 와 같은 함정).
+     *
+     * <p>활성 술어를 잠금 조회 자체에 두는 이유: READ COMMITTED 는 잠금 대기 후 술어를 재평가하므로,
+     * 먼저 커밋된 폐기가 있으면 빈 결과가 되어 호출부가 "교체할 것이 없다"를 그대로 읽는다 —
+     * 폐기 여부를 다시 검사하는 분기 없이 최초 폐기 시각·폐기자와 감사 이력이 보존된다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT joinCode FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.club.id = :clubId "
+            + "AND joinCode.recruitment.id IS NULL AND joinCode.revokedAt IS NULL")
+    Optional<ClubJoinCode> findWithLockByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(
+            @Param("clubId") Long clubId);
 }

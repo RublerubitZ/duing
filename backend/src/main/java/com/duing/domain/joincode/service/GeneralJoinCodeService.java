@@ -148,42 +148,39 @@ public class GeneralJoinCodeService implements JoinCodeService {
         Club club = clubRepository.findById(createCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);   // requireManager 통과라 사실상 도달 불가
         LocalDateTime now = LocalDateTime.now(clock);
-        Optional<ClubJoinCode> activeCode = clubJoinCodeRepository
-                .findByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(createCommand.clubId());
-        boolean replaced = false;
-        if (activeCode.isPresent()) {
-            // 수동 폐기와의 경쟁 방어: 무잠금 스냅샷으로 폐기하면 먼저 커밋된 폐기의
-            // revoked_at/revoked_by 를 덮어쓰고 JOIN_LINK_REVOKED 를 중복 기록한다 — 모집 경로의
-            // 모집 행 잠금에 해당하는 방어를 코드 행 잠금으로 대신하고, 미폐기일 때만 폐기한다.
-            ClubJoinCode lockedCode = clubJoinCodeRepository.findWithLockById(activeCode.get().getId())
-                    .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
-            if (!lockedCode.isRevoked()) {
-                lockedCode.revoke(now, createCommand.requesterId());
-                // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
-                // 신규 INSERT 가 uk_club_join_code_active_invite_per_club 에 걸린다.
-                clubJoinCodeRepository.flush();
-                recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, createCommand.clubId(),
-                        null, lockedCode.getId(), createCommand.requesterId());
-                replaced = true;
-            }
-        }
+        // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
+        // 잠금 조회가 낡은 인스턴스를 돌려주고(findWithLockByCode 와 같은 함정), 그 사이 커밋된
+        // 수동 폐기를 보지 못한 채 최초 폐기 시각·폐기자를 덮어쓴다. 활성 술어를 잠금 조회에
+        // 실었으므로 경쟁 폐기가 먼저 커밋됐다면 빈 결과가 되어 이 트랜잭션은 최초 생성이 된다.
+        Optional<ClubJoinCode> replacedCode = clubJoinCodeRepository
+                .findWithLockByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(createCommand.clubId());
+        replacedCode.ifPresent(activeCode -> {
+            activeCode.revoke(now, createCommand.requesterId());
+            // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
+            // 신규 INSERT 가 uk_club_join_code_active_invite_per_club 에 걸린다.
+            clubJoinCodeRepository.flush();
+            recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, createCommand.clubId(),
+                    null, activeCode.getId(), createCommand.requesterId());
+        });
+
+        ClubJoinCode issued;
         try {
-            ClubJoinCode issued = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+            issued = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
                     club, generateUniqueCode(), createCommand.generation(), createCommand.maxUses(),
                     now.plusHours(createCommand.expiresInHours()), createCommand.autoApprove(),
                     createCommand.requesterId()));
             clubJoinCodeRepository.flush();
-            // 이 트랜잭션이 실제로 갈아끼웠을 때만 REGENERATED — 경쟁 폐기로 이미 죽어 있었다면 최초 생성이다.
-            recordJoinLinkEvent(replaced
-                            ? ClubAuditEventType.JOIN_LINK_REGENERATED
-                            : ClubAuditEventType.JOIN_LINK_CREATED,
-                    createCommand.clubId(), null, issued.getId(), createCommand.requesterId());
-            // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
-            return JoinCodeQuery.from(issued, 0, 0);
         } catch (DataIntegrityViolationException concurrentIssue) {
             // 동시 생성 경쟁: uk_club_join_code_active_invite_per_club 충돌 → 409 (모집 링크와 동일 규약).
             throw new JoinCodeException.ConcurrentJoinCodeOperationException();
         }
+        // 이 트랜잭션이 실제로 갈아끼웠을 때만 REGENERATED — 잠금 조회가 비었다면 최초 생성이다.
+        recordJoinLinkEvent(replacedCode.isPresent()
+                        ? ClubAuditEventType.JOIN_LINK_REGENERATED
+                        : ClubAuditEventType.JOIN_LINK_CREATED,
+                createCommand.clubId(), null, issued.getId(), createCommand.requesterId());
+        // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
+        return JoinCodeQuery.from(issued, 0, 0);
     }
 
     @Override
