@@ -251,12 +251,22 @@ class ClubJoinCodeControllerTest extends IntegrationTestBase {
                         "가입 가능 기간은 모집 종료일까지, 종료 후 7일, 종료 후 14일 중 하나여야 합니다."));
         createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 10, "joinWindowDays", 30))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
-        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 501, "joinWindowDays", 7))
-                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        // 상한은 DB CHECK(1~150) 와 같은 값이어야 한다 — 느슨하면 INSERT 단계에서 500 이 된다.
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 151, "joinWindowDays", 7))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("maxUses: 최대 사용 인원은 150명 이하여야 합니다."));
         createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 0, "joinWindowDays", 7))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
         createJoinCode(leaderToken, externalRecruitment, Map.of("joinWindowDays", 7))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("최대 사용 인원 150명까지는 가입 링크를 발급할 수 있다")
+    void maxUsesUpperBoundIsAllowed() {
+        createJoinCode(leaderToken, externalRecruitment, Map.of("maxUses", 150, "joinWindowDays", 7))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.maxUses", equalTo(150));
     }
 
     @Test

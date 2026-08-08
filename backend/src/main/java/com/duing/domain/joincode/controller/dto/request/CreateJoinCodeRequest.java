@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotNull;
 public record CreateJoinCodeRequest(
         @NotNull(message = "최대 사용 인원은 필수 입력값입니다.")
         @Min(value = 1, message = "최대 사용 인원은 1명 이상이어야 합니다.")
-        @Max(value = 500, message = "최대 사용 인원은 500명 이하여야 합니다.")
+        @Max(value = 150, message = "최대 사용 인원은 150명 이하여야 합니다.")
         Integer maxUses,
         Integer joinWindowDays,
         @Min(value = 1, message = "기수는 1 이상이어야 합니다.")
