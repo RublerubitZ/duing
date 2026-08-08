@@ -28,6 +28,8 @@ function check(overrides: Partial<JoinCodeCheck> = {}): JoinCodeCheck {
     usable: true,
     alreadyMember: false,
     myRequestStatus: null,
+    linkType: 'RECRUITMENT',
+    autoApprove: false,
     ...overrides,
   };
 }

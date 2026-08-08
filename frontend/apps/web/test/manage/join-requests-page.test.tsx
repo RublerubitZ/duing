@@ -29,6 +29,7 @@ function request(overrides: Partial<JoinRequestSummary> = {}): JoinRequestSummar
     generation: 12,
     status: 'PENDING',
     requestedAt: '2026-08-01T02:00:00Z',
+    autoApproved: false,
     ...overrides,
   };
 }

@@ -83,6 +83,7 @@ import type {
   JoinCodeSummary,
   JoinCodeCheck,
   CreateJoinCodePayload,
+  CreateClubInviteCodePayload,
   JoinRequestStatus,
   JoinRequestSummary,
   JoinRequestDetail,
@@ -459,6 +460,14 @@ export type DuingApiClient = {
       recruitmentId: number,
       joinCodeId: number,
     ): Promise<void>;
+    // 부원 초대 링크는 모집이 아니라 동아리에 귀속된다 — 동아리당 활성 링크 1개이고, 기존 활성
+    // 링크가 있으면 폐기 후 새로 만드는 원자 재생성이다(동시 생성 경쟁만 409).
+    createClubInvite(clubId: number, payload: CreateClubInviteCodePayload): Promise<JoinCodeSummary>;
+    // 활성 초대 링크가 없으면 200 + data:null 이 정상 응답이라 null 을 그대로 돌려준다.
+    // 만료된 링크도 폐기 전이면 활성으로 내려온다 — 사용 가능 판정은 호출부 몫이다.
+    getActiveClubInvite(clubId: number): Promise<JoinCodeSummary | null>;
+    // 이미 폐기된 링크도 204(멱등). 없는 링크·모집 링크·타 동아리 링크는 404(열거 차단).
+    revokeClubInvite(clubId: number, joinCodeId: number): Promise<void>;
     listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
     // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
     getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
@@ -1294,6 +1303,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonVoid(
           http.delete(`clubs/${clubId}/recruitments/${recruitmentId}/join-codes/${joinCodeId}`),
         ),
+      createClubInvite: (clubId, payload) =>
+        jsonOk<JoinCodeSummary>(http.post(`clubs/${clubId}/join-codes`, { json: payload })),
+      getActiveClubInvite: (clubId) =>
+        jsonOkNullable<JoinCodeSummary>(http.get(`clubs/${clubId}/join-codes/active`)),
+      revokeClubInvite: (clubId, joinCodeId) =>
+        jsonVoid(http.delete(`clubs/${clubId}/join-codes/${joinCodeId}`)),
       listRequests: (clubId, status) =>
         jsonOk<JoinRequestSummary[]>(
           http.get(`clubs/${clubId}/join-requests`, { searchParams: { status } }),

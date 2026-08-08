@@ -56,6 +56,9 @@ function joinCode(overrides: Partial<JoinCodeSummary> = {}): JoinCodeSummary {
     joinExpiresAt: null,
     totalRequestCount: 6,
     pendingCount: 2,
+    linkType: 'RECRUITMENT',
+    inviteExpiresAt: null,
+    autoApprove: false,
     ...overrides,
   };
 }
