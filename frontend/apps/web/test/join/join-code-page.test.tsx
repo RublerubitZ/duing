@@ -142,6 +142,23 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
     expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
   });
 
+  // 자동 승인 ON 이면 승인 게이트가 없다 — 진입 화면부터 그렇게 알려야 신청 뒤 안내가 뒤집히지 않는다.
+  it('자동 승인 초대 링크는 진입 화면에서 바로 회원 등록된다고 안내한다', async () => {
+    signIn();
+    server.use(
+      http.get(`*/join-codes/${CODE}`, () =>
+        json(check({ linkType: 'CLUB_INVITE', autoApprove: true })),
+      ),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(/가입 신청을 완료하면 바로 회원으로 등록됩니다\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/운영진 확인 후/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
+  });
+
   it('거절 이력이 있어도 다시 가입 요청할 수 있다', async () => {
     signIn();
     server.use(
@@ -268,6 +285,9 @@ describe('가입 링크 랜딩 — 가입 신청', () => {
     );
     expect(screen.queryByText('이미 가입된 동아리입니다')).not.toBeInTheDocument();
     await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith('가입이 완료되었습니다.'));
+    // 이 시점엔 재조회(alreadyMember=true)가 착지해 있다 — 완료 분기가 alreadyMember 뒤로 밀리는 회귀 가드.
+    expect(screen.getByText(/가입이 완료되었습니다/)).toBeInTheDocument();
+    expect(screen.queryByText('이미 가입된 동아리입니다')).not.toBeInTheDocument();
   });
 
   it('자동 승인이 꺼진 초대 링크는 기존 승인 대기 안내를 그대로 보여준다', async () => {
