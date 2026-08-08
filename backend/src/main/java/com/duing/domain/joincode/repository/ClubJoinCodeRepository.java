@@ -20,6 +20,13 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     Optional<ClubJoinCode> findByRecruitmentIdAndRevokedAtIsNull(Long recruitmentId);
 
     /**
+     * 동아리의 활성(미폐기) 부원 초대 링크. 부분 유니크 인덱스
+     * {@code uk_club_join_code_active_invite_per_club}(V107)가 최대 1건을 보장한다.
+     * 모집 귀속 링크는 {@code recruitment IS NULL} 조건에서 제외된다 — 두 형태는 서로 다른 단위로 산다.
+     */
+    Optional<ClubJoinCode> findByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(Long clubId);
+
+    /**
      * 귀속 모집이 삭제될 때 그 모집의 활성 코드를 폐기한다 (스펙 v2 4.2).
      *
      * <p>엔티티 로딩 대신 벌크 UPDATE 를 쓰는 이유: 코드 엔티티를 영속성 컨텍스트에 올려 두면

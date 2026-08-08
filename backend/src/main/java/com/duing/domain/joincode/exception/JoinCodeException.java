@@ -57,4 +57,13 @@ public class JoinCodeException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    /** 부원 초대 링크의 유효기간은 2택 프리셋이다(스펙 §3) — 장기 링크 방치를 막는다. */
+    public static final class InvalidInviteExpiresInHoursException extends JoinCodeException {
+        private static final String MESSAGE = "초대 링크 유효기간은 24시간 또는 72시간이어야 합니다.";
+
+        public InvalidInviteExpiresInHoursException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }
