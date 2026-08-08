@@ -393,7 +393,7 @@ describe('모집 상세 — 가입 링크 생성', () => {
     await userEvent.click(await screen.findByRole('button', { name: '가입 링크 만들기' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '최대 사용 인원은 1~500 사이로 입력해주세요.',
+      '최대 사용 인원은 1~150 사이로 입력해주세요.',
     );
   });
 

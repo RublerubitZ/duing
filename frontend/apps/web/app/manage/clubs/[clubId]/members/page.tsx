@@ -18,6 +18,7 @@ import { MemberTable } from './_components/MemberTable';
 import { MemberDetailPanel } from './_components/MemberDetailPanel';
 import { MemberBulkToolbar } from './_components/MemberBulkToolbar';
 import { MemberCsvDownloadPopover } from './_components/MemberCsvDownloadPopover';
+import { ClubInviteDialog } from './_components/ClubInviteDialog';
 import { SuccessionRequestModal } from './_components/SuccessionRequestModal';
 import { TransferLeaderDialog } from './_components/TransferLeaderDialog';
 import {
@@ -164,8 +165,9 @@ export default function ClubMembersPage({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {/* 가입 요청 처리는 운영진(LEADER/OFFICER) 공통 권한이다. 회원 초대(가입 링크) 진입점은
-              모집 관리 카드의 링크 다이얼로그로 완결돼 여기서는 제거했다(스펙 §5.1). */}
+          {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
+              부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
+          <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
           <Link
             href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
