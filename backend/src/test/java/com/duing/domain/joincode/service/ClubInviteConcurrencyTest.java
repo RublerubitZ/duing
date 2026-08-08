@@ -154,11 +154,6 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
         assertThat(activeInviteCount(club)).as("재발급된 활성 링크 1개만 남는다").isEqualTo(1);
     }
 
-    private List<Throwable> runConcurrently(Callable<Throwable> firstTask, Callable<Throwable> secondTask)
-            throws Exception {
-        return runConcurrently(firstTask, secondTask, null);
-    }
-
     private List<Throwable> runConcurrently(Callable<Throwable> firstTask, Callable<Throwable> secondTask,
                                             CountDownLatch startGate) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(2);
