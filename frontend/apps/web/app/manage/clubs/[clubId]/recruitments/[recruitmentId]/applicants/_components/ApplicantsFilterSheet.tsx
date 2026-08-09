@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ApplicantsFilters } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, COLLEGE_OPTIONS, isCollege } from '@duing/types';
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import {
   Sheet,
   SheetContent,
@@ -108,6 +109,10 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
           <button
             type="button"
             onClick={() => {
+              // 닫힘과 이동(router.replace)이 겹치는 자리다. 오버레이 닫힘의 회수 back() 이
+              // 방금 적용한 필터 URL 을 되돌려 삼켜, 적용이 통째로 무효가 된다(실브라우저 실측).
+              // 닫기 직전에 회수 1회를 건너뛰게 한다 — 알림 시트·콘솔 메뉴와 같은 규약.
+              skipNextOverlayReclaim();
               onApply(draft);
               onOpenChange(false);
             }}

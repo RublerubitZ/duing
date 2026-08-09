@@ -12,12 +12,13 @@ import type {
   BulkUpdateApplicationStatusResult,
   College,
 } from '@duing/types';
+import { isApplicationStatus, isCollege } from '@duing/types';
 import {
   useRecruitmentDetailQuery,
   useApplicantsQuery,
   useBulkUpdateApplicationStatusMutation,
 } from '@duing/hooks';
-import { safeExternalHref, toRoute } from '../../../../../../_lib/route';
+import { safeExternalHref, toRoute } from '@/app/_lib/route';
 import { ApplicantCardList } from './_components/ApplicantCardList';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
@@ -27,9 +28,23 @@ import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
 import { SelectAllBar } from './_components/SelectAllBar';
 import { countByStatus } from './_lib/applicantCounts';
-import { selectableIds, selectAllState, toggleSelectAll } from './_lib/applicantSelection';
+import {
+  actionableSelectedIds,
+  selectableIds,
+  selectAllState,
+  toggleSelectAll,
+} from './_lib/applicantSelection';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+
+/** URL 값이 알려진 enum 일 때만 필터로 인정한다 — 상세 화면(ApplicantDetailPage)과 같은 방식. */
+function readStatusParam(raw: string | null): ApplicationStatus | undefined {
+  return raw !== null && isApplicationStatus(raw) ? raw : undefined;
+}
+
+function readCollegeParam(raw: string | null): College | undefined {
+  return raw !== null && isCollege(raw) ? raw : undefined;
+}
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
 
@@ -43,8 +58,10 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   const filters = useMemo<ApplicantsFilters>(
     () => ({
-      status: (searchParams.get('status') as ApplicationStatus | null) ?? undefined,
-      college: (searchParams.get('college') as College | null) ?? undefined,
+      // 수기 URL·구버전 링크로 알 수 없는 값이 오면 필터 없음으로 떨어뜨린다 — 클라이언트 필터
+      // 술어이자 칩 선택 상태를 겸하게 되어, 검증 없이 통과하면 "어떤 칩도 안 눌린 빈 목록" 이 된다.
+      status: readStatusParam(searchParams.get('status')),
+      college: readCollegeParam(searchParams.get('college')),
       q: searchParams.get('q') ?? undefined,
       submittedFrom: searchParams.get('submittedFrom') ?? undefined,
       submittedTo: searchParams.get('submittedTo') ?? undefined,
@@ -155,6 +172,16 @@ export default function ApplicantsPage({ params }: PageParams) {
     () => setSelectedIds(toggleSelectAll(selectable, allState)),
     [selectable, allState],
   );
+  /*
+   * 일괄 처리에 실제로 실을 대상 — 지금 화면에 보이고 선택 가능한 것만.
+   * 검색어가 바뀌어도 선택을 지우지 않는 규칙(updateFilters)과 반드시 짝을 이룬다. 짝이 없으면
+   * "김" 으로 5명 고르고 "박" 으로 바꿔 2명을 더 고를 때, 화면에 없는 김씨 5명까지 함께 처리된다.
+   * 합격·불합격은 되돌릴 수 없다. 회원 관리 벌크 툴바도 같은 교집합으로 실행한다.
+   */
+  const actionableIds = useMemo(
+    () => actionableSelectedIds(selectable, selectedSet),
+    [selectable, selectedSet],
+  );
 
   // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
   // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
@@ -172,13 +199,13 @@ export default function ApplicantsPage({ params }: PageParams) {
   const isFinalizeOnly = recruitment?.status === 'CLOSED';
 
   function handleBulkConfirm() {
-    if (!pendingBulkTarget || selectedIds.length === 0) {
+    if (!pendingBulkTarget || actionableIds.length === 0) {
       setPendingBulkTarget(null);
       return;
     }
     setBulkError(null);
     bulkMutation.mutate(
-      { applicationIds: selectedIds, status: pendingBulkTarget },
+      { applicationIds: actionableIds, status: pendingBulkTarget },
       {
         onSuccess: (result) => {
           setLastBulkResult(result);
@@ -199,13 +226,13 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   // Spec P0-4 — "면접 대상으로 선정" 확정. 본문 모달은 INTERVIEW_PENDING 전용.
   function handlePromoteConfirm() {
-    if (selectedIds.length === 0) {
+    if (actionableIds.length === 0) {
       setIsPromoteDialogOpen(false);
       return;
     }
     setBulkError(null);
     bulkMutation.mutate(
-      { applicationIds: selectedIds, status: 'INTERVIEW_PENDING' },
+      { applicationIds: actionableIds, status: 'INTERVIEW_PENDING' },
       {
         onSuccess: (result) => {
           setLastBulkResult(result);
@@ -227,12 +254,12 @@ export default function ApplicantsPage({ params }: PageParams) {
   // 선택된 지원자 중 대표 (정렬은 list 응답 기준 — 첫 번째 선택자).
   // applicants list 순서를 따라가서 BulkActionBar 의 "선택 N건" 과 일관된 표시.
   const promoteRepresentativeName = useMemo(() => {
-    if (selectedIds.length === 0) return '';
+    if (actionableIds.length === 0) return '';
     const firstSelected = applicants.find((applicant) =>
       selectedSet.has(applicant.applicationId),
     );
     return firstSelected?.userName ?? '';
-  }, [applicants, selectedIds, selectedSet]);
+  }, [applicants, actionableIds, selectedSet]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -244,7 +271,7 @@ export default function ApplicantsPage({ params }: PageParams) {
     <div
       className={cn(
         'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
-        selectedIds.length > 0
+        actionableIds.length > 0
           ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
           : 'pb-10',
       )}
@@ -386,7 +413,7 @@ export default function ApplicantsPage({ params }: PageParams) {
               {/* 목록이 0건이면 위 빈 상태 분기로 빠져 이 블록 자체가 렌더되지 않는다. */}
               <SelectAllBar
                 selectableCount={selectable.length}
-                selectedCount={selectable.filter((id) => selectedSet.has(id)).length}
+                selectedCount={actionableIds.length}
                 state={allState}
                 onToggleAll={toggleAll}
               />
@@ -413,7 +440,7 @@ export default function ApplicantsPage({ params }: PageParams) {
 
       {/* 일괄 처리 sticky bar */}
       <BulkActionBar
-        selectedCount={selectedIds.length}
+        selectedCount={actionableIds.length}
         onBulkAction={setPendingBulkTarget}
         onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
         useInterview={useInterview}
@@ -424,7 +451,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {pendingBulkTarget && (
         <BulkConfirmDialog
           targetStatus={pendingBulkTarget}
-          selectedCount={selectedIds.length}
+          selectedCount={actionableIds.length}
           isPending={bulkMutation.isPending}
           onConfirm={handleBulkConfirm}
           onCancel={() => setPendingBulkTarget(null)}
@@ -435,7 +462,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {isPromoteDialogOpen && (
         <BulkPromoteDialog
           representativeName={promoteRepresentativeName}
-          selectedCount={selectedIds.length}
+          selectedCount={actionableIds.length}
           isPending={bulkMutation.isPending}
           onConfirm={handlePromoteConfirm}
           onCancel={() => setIsPromoteDialogOpen(false)}

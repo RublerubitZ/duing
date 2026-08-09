@@ -19,6 +19,11 @@ const baseApplicant: Applicant = {
   myScore: null,
 };
 
+function requireLabel(node: Element | null): HTMLLabelElement {
+  if (!(node instanceof HTMLLabelElement)) throw new Error('히트 영역 라벨을 찾지 못했습니다');
+  return node;
+}
+
 function renderList(applicants: Applicant[], selected: number[] = []) {
   const onToggleSelect = vi.fn();
   const onOpenDetail = vi.fn();
@@ -102,7 +107,7 @@ describe('모바일 지원자 카드 리스트', () => {
   it('히트 영역(라벨) 을 눌러도 선택만 된다', () => {
     const { onToggleSelect, onOpenDetail } = renderList([baseApplicant]);
     const label = screen.getByRole('checkbox', { name: '홍길동 선택' }).closest('label');
-    fireEvent.click(label as HTMLLabelElement);
+    fireEvent.click(requireLabel(label));
     expect(onToggleSelect).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
   });
@@ -114,12 +119,46 @@ describe('모바일 지원자 카드 리스트', () => {
     expect(onToggleSelect).not.toHaveBeenCalled();
   });
 
+  /* 삭제된 applicant-card-touch.test.tsx 에서 이관 — 토글 의미가 페이지로 내려가도 카드 층에서 지킨다. */
+  it('선택된 상태에서 히트 영역을 누르면 해제 방향으로 토글된다', () => {
+    const { onToggleSelect, onOpenDetail } = renderList([baseApplicant], [1]);
+    const label = requireLabel(
+      screen.getByRole('checkbox', { name: '홍길동 선택' }).closest('label'),
+    );
+    expect(screen.getByRole('checkbox', { name: '홍길동 선택' })).toBeChecked();
+
+    fireEvent.click(label);
+
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
+    expect(onToggleSelect).toHaveBeenCalledWith(1);
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
+  it('여러 지원자를 연속으로 눌러도 각각 한 번씩만 토글된다', () => {
+    const second = { ...baseApplicant, applicationId: 2, userName: '김두잉' };
+    const { onToggleSelect, onOpenDetail } = renderList([baseApplicant, second]);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '홍길동 선택' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '김두잉 선택' }));
+
+    expect(onToggleSelect.mock.calls).toEqual([[1], [2]]);
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
+  it('선택된 카드는 배경으로 표시하되 상태 띠 색을 덮지 않는다', () => {
+    renderList([baseApplicant], [1]);
+    const card = screen.getByText('컴퓨터공학과').closest('[data-applicant-card]');
+    expect(card?.className).toContain('bg-cream/60');
+    expect(card?.className).toContain('border-l-sky-400');
+    expect(card?.className).not.toContain('border-sage');
+  });
+
   it('최종 상태 카드는 체크박스가 비활성이고 히트 영역이 탭을 삼키지 않는다', () => {
     const { onToggleSelect, onOpenDetail } = renderList([{ ...baseApplicant, status: 'ACCEPTED' }]);
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
     expect(checkbox).toHaveClass('disabled:pointer-events-none');
-    fireEvent.click(checkbox.closest('label') as HTMLLabelElement);
+    fireEvent.click(requireLabel(checkbox.closest('label')));
     expect(onToggleSelect).not.toHaveBeenCalled();
     expect(onOpenDetail).toHaveBeenCalledTimes(1);
   });

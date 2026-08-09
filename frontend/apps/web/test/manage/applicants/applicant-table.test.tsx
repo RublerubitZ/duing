@@ -53,8 +53,12 @@ describe('데스크탑 지원자 표', () => {
 
   it('단과대·학번 열은 1024~1279px 에서 숨기는 클래스를 갖는다', () => {
     renderTable([baseApplicant]);
-    expect(screen.getByText('IT·공과대학').closest('td')?.className).toContain('xl:table-cell');
-    expect(screen.getByText('20200001').closest('td')?.className).toContain('xl:table-cell');
+    for (const cell of [screen.getByText('IT·공과대학'), screen.getByText('20200001')]) {
+      const className = cell.closest('td')?.className ?? '';
+      // hidden 이 빠지면 1024px 에서 그대로 노출된다 — 쌍으로 확인한다.
+      expect(className).toContain('hidden');
+      expect(className).toContain('xl:table-cell');
+    }
   });
 
   it('이름은 상세 링크라 키보드로 도달할 수 있다', () => {
@@ -73,8 +77,8 @@ describe('데스크탑 지원자 표', () => {
 
   it('일부만 선택되면 헤더 체크박스가 indeterminate 다', () => {
     renderTable([baseApplicant, { ...baseApplicant, applicationId: 2, userName: '김두잉' }], [1]);
-    const headerCheckbox = screen.getByRole('checkbox', { name: '전체 선택' });
-    expect((headerCheckbox as HTMLInputElement).indeterminate).toBe(true);
+    const headerCheckbox = screen.getByRole<HTMLInputElement>('checkbox', { name: '전체 선택' });
+    expect(headerCheckbox.indeterminate).toBe(true);
   });
 
   it('선택 가능 인원이 없으면 헤더 체크박스가 비활성이다', () => {

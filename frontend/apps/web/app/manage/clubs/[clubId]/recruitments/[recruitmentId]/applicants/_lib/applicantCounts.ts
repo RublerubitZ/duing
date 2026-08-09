@@ -21,7 +21,8 @@ export function countByStatus(applicants: Applicant[]): StatusCounts {
     (counts, applicant) => ({
       ...counts,
       total: counts.total + 1,
-      [applicant.status]: counts[applicant.status] + 1,
+      // BE 가 새 상태를 추가해도 NaN 이 칩에 노출되지 않게 한다(FE fail-open 관례).
+      [applicant.status]: (counts[applicant.status] ?? 0) + 1,
     }),
     { ...EMPTY_COUNTS },
   );

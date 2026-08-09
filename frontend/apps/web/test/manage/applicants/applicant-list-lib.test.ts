@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Applicant } from '@duing/types';
 import {
+  actionableSelectedIds,
   selectableIds,
   selectAllState,
   toggleSelectAll,
@@ -60,6 +61,31 @@ describe('지원자 선택 계산', () => {
   });
 });
 
+describe('일괄 처리 실행 대상 — 화면 ∩ 선택', () => {
+  /*
+   * 검색어가 바뀌어도 선택을 지우지 않는 규칙과 한 쌍이다. 이 교집합이 없으면 화면에서 사라진
+   * 지원자가 일괄 불합격에 딸려간다 — 되돌릴 수 없다.
+   */
+  it('화면에 없는 선택은 실행 대상에서 빠진다', () => {
+    // 화면에 보이는 선택 가능 지원자는 1·3, 선택은 1·3·99(다른 검색어에서 고른 잔여)
+    expect(actionableSelectedIds([1, 3], new Set([1, 3, 99]))).toEqual([1, 3]);
+  });
+
+  it('화면에 있어도 선택 가능하지 않으면 빠진다', () => {
+    // selectable 이 이미 최종 상태를 제외한 목록이므로 그 밖의 선택은 실행되지 않는다
+    expect(actionableSelectedIds([1], new Set([1, 2]))).toEqual([1]);
+  });
+
+  it('교집합이 비면 빈 배열 — 일괄 처리 버튼이 뜨지 않아야 한다', () => {
+    expect(actionableSelectedIds([], new Set([1, 2]))).toEqual([]);
+    expect(actionableSelectedIds([5, 6], new Set([1, 2]))).toEqual([]);
+  });
+
+  it('목록 순서를 따른다', () => {
+    expect(actionableSelectedIds([5, 1, 3], new Set([3, 5, 1]))).toEqual([5, 1, 3]);
+  });
+});
+
 describe('상태별 카운트', () => {
   it('목록에서 상태별로 세고 전체도 함께 낸다', () => {
     const counts = countByStatus(applicants);
@@ -69,6 +95,13 @@ describe('상태별 카운트', () => {
     expect(counts.INTERVIEW_PENDING).toBe(1);
     expect(counts.ACCEPTED).toBe(1);
     expect(counts.REJECTED).toBe(1);
+  });
+
+  it('알 수 없는 상태가 섞여도 NaN 을 내지 않는다', () => {
+    const unknown = [{ ...makeApplicant(9, 'SUBMITTED'), status: 'FUTURE_STATUS' as Applicant['status'] }];
+    const counts = countByStatus(unknown);
+    expect(counts.total).toBe(1);
+    expect(Number.isNaN(counts.SUBMITTED)).toBe(false);
   });
 
   it('빈 목록은 전부 0 이다', () => {
