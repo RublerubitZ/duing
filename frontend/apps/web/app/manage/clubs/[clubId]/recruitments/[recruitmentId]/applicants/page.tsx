@@ -25,7 +25,9 @@ import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
+import { countByStatus } from './_lib/applicantCounts';
 import { selectableIds, selectAllState, toggleSelectAll } from './_lib/applicantSelection';
+import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
@@ -66,11 +68,26 @@ export default function ApplicantsPage({ params }: PageParams) {
   const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
-  const { data: applicants = [], isLoading: isApplicantsLoading } = useApplicantsQuery(
+  // 상태는 클라이언트에서 건다 — 칩 숫자가 현재 필터 결과 안의 분포와 항상 일치해야 한다(설계 §6).
+  // URL 의 status 는 그대로 둔다: 상세 이전/다음 탐색을 서버가 같은 조건으로 계산한다.
+  const listFilters = useMemo(() => ({ ...filters, status: undefined }), [filters]);
+  const {
+    data: allApplicants = [],
+    isLoading: isApplicantsLoading,
+    isFetching: isApplicantsFetching,
+  } = useApplicantsQuery(
     recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId)
       ? recruitmentId
       : undefined,
-    filters,
+    listFilters,
+  );
+  const counts = useMemo(() => countByStatus(allApplicants), [allApplicants]);
+  const applicants = useMemo(
+    () =>
+      filters.status
+        ? allApplicants.filter((applicant) => applicant.status === filters.status)
+        : allApplicants,
+    [allApplicants, filters.status],
   );
   const bulkMutation = useBulkUpdateApplicationStatusMutation(recruitmentId);
 
@@ -263,6 +280,7 @@ export default function ApplicantsPage({ params }: PageParams) {
             filters={filters}
             onChange={updateFilters}
             useInterview={useInterview}
+            counts={counts}
           />
 
           {/* 일괄 처리 결과 알림 */}
@@ -320,7 +338,12 @@ export default function ApplicantsPage({ params }: PageParams) {
               {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}
             </p>
           ) : (
-            <>
+            // 필터 전환 중에는 이전 결과를 그대로 두고 딤으로만 갱신을 알린다 — 목록이 비었다
+            // 다시 차오르면 스크롤과 선택 맥락이 끊긴다.
+            <div
+              aria-busy={isApplicantsFetching}
+              className={cn(isApplicantsFetching && 'opacity-60 transition-opacity')}
+            >
               <ApplicantCardList
                 applicants={applicants}
                 selectedSet={selectedSet}
@@ -337,7 +360,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                 detailHref={detailHref}
                 useInterview={useInterview}
               />
-            </>
+            </div>
           )}
         </>
       )}
