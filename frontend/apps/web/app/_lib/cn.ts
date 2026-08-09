@@ -13,3 +13,5 @@ import { twMerge } from 'tailwind-merge';
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
+
+// ci-gate 시나리오 C 검증용 임시 주석

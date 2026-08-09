@@ -378,3 +378,5 @@ public class Club extends BaseEntity {
         if (payload.department() != null) this.department = normalizeDepartment(payload.department());
     }
 }
+
+// ci-gate 시나리오 C 검증용 임시 주석
