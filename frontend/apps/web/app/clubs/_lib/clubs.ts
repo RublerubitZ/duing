@@ -1,4 +1,6 @@
-import type { ClubSummaryRecruitment } from '@duing/types';
+import type { ClubSummaryRecruitment, College } from '@duing/types';
+
+import { collegeDisplayName } from '../../_lib/college';
 
 export const DIVISIONS = ['문화예술', '사회', '스포츠레저', '전시창작', '종교', '학술'] as const;
 export type Division = (typeof DIVISIONS)[number];
@@ -32,6 +34,8 @@ export type Club = {
   division: string | null;
   /** 단과대 동아리의 소속 학과 — 미입력이면 null. */
   department: string | null;
+  /** 단과대 동아리의 소속 단과대학 — 학과 미입력 시 카드 보조 표기로 대신 쓰인다. */
+  college: College | null;
   color: string;
   logoUrl: string | null;
   /** 활성 또는 가장 최근 마감 모집 1건. null 이면 카드에 "모집 없음" 표시. */
@@ -48,12 +52,17 @@ export const formatDivisionLabel = (division: string): string =>
 /**
  * 카드 카테고리 옆 보조 표기 — 중앙은 분과, 단과대는 학과. 카드/리스트가 같은 규칙을 쓰도록 한 곳에 둔다.
  * 값이 없으면 null 을 돌려주고 호출부는 영역 자체를 그리지 않는다 ('-'·'없음' 같은 placeholder 금지).
- * 단과대 이름 자체는 배지가 이미 유형을 말하므로 여기서 반복하지 않는다.
+ *
+ * 학과가 비어 있으면 단과대학명으로 물러선다 — 특정 학과가 아니라 단과대 산하로 활동하는 동아리가
+ * 있어서다. 배지의 "단과대" 는 유형만 말하고 어느 단과대인지는 알려주지 않으므로 중복이 아니다.
  */
-export const clubAffiliationLabel = (club: Club): string | null =>
-  club.scope === '중앙'
-    ? (club.division ? formatDivisionLabel(club.division) : null)
-    : club.department;
+export const clubAffiliationLabel = (club: Club): string | null => {
+  if (club.scope === '중앙') {
+    return club.division ? formatDivisionLabel(club.division) : null;
+  }
+  if (club.department) return club.department;
+  return club.college ? collegeDisplayName(club.college) : null;
+};
 
 export const CAT_COLORS: Record<
   ClubCat,

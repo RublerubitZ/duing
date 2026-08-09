@@ -19,6 +19,7 @@ const baseClub: Club = {
   scope: '중앙',
   division: null,
   department: null,
+  college: null,
   color: '#1F4A36',
   logoUrl: null,
   activeRecruitment: null,
@@ -57,8 +58,26 @@ describe('ClubCard — 소속 칩·분과·해시태그 렌더링', () => {
     expect(screen.getByText('회계학과')).toBeInTheDocument();
   });
 
-  it('학과가 없는 단과대 동아리는 학과 영역 자체를 렌더하지 않는다', () => {
-    render(<ClubCard club={{ ...baseClub, scope: '학과', department: null }} />);
+  it('학과가 없으면 단과대학명으로 물러선다 — 특정 학과가 아닌 단과대 산하 동아리를 위해', () => {
+    render(
+      <ClubCard club={{ ...baseClub, scope: '학과', department: null, college: 'GLOBAL_BUSINESS' }} />,
+    );
+    expect(screen.getByText('단과대')).toBeInTheDocument();
+    expect(screen.getByText('글로벌경영대학')).toBeInTheDocument();
+  });
+
+  it('학과가 있으면 단과대학명 대신 학과명을 쓴다', () => {
+    render(
+      <ClubCard
+        club={{ ...baseClub, scope: '학과', department: '회계학과', college: 'GLOBAL_BUSINESS' }}
+      />,
+    );
+    expect(screen.getByText('회계학과')).toBeInTheDocument();
+    expect(screen.queryByText('글로벌경영대학')).toBeNull();
+  });
+
+  it('학과·단과대학이 모두 없으면 소속 영역 자체를 렌더하지 않는다', () => {
+    render(<ClubCard club={{ ...baseClub, scope: '학과', department: null, college: null }} />);
     expect(screen.getByText('단과대')).toBeInTheDocument();
     expect(screen.queryByText('-')).toBeNull();
     expect(screen.queryByText('없음')).toBeNull();

@@ -17,6 +17,7 @@ const baseClub: Club = {
   scope: '중앙',
   division: '컴퓨터정보공학분과',
   department: null,
+  college: null,
   color: '#1F4A36',
   logoUrl: null,
   activeRecruitment: null,
@@ -53,6 +54,15 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     render(<ClubListItem club={{ ...baseClub, scope: '학과', department: null }} />);
     expect(screen.queryByText('회계학과')).toBeNull();
     expect(screen.getByText('단과대')).toBeInTheDocument();
+  });
+
+  it('모바일 목록도 학과가 없으면 단과대학명으로 물러선다', () => {
+    render(
+      <ClubListItem
+        club={{ ...baseClub, scope: '학과', department: null, college: 'HEALTH_BIO' }}
+      />,
+    );
+    expect(screen.getByText('보건바이오대학')).toBeInTheDocument();
   });
 
   it('이름이 아주 길어도 소속 칩은 잘리지 않고 렌더된다 (이름만 truncate)', () => {
