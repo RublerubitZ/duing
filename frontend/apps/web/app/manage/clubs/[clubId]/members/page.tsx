@@ -153,10 +153,18 @@ export default function ClubMembersPage({
   return (
     <div
       // 벌크 툴바 사용 가능 시 하단 여백: 선택하면 나타나는 fixed 툴바가 콘텐츠를 가리지 않도록 자리 확보(레이아웃 점프 회피).
-      className={cn('mx-auto max-w-6xl space-y-6 px-6 py-10', bulkEnabled && 'pb-28')}
+      // 상·하 여백을 pt/pb 로 나눠 쓴다 — py 로 묶으면 아래 조건부 pb 와 그룹이 갈려 반응형 우선순위가 뒤집힌다.
+      className={cn(
+        'mx-auto max-w-6xl space-y-6 px-4 pb-10 pt-6 sm:px-6 sm:pb-10 sm:pt-10',
+        // 모바일 툴바는 액션이 2행(2열 그리드)이라 데스크탑보다 높다 — 실측 136px 을 덮도록 더 크게 잡는다.
+        bulkEnabled && 'pb-36 sm:pb-28',
+      )}
     >
-      <header className="flex items-start justify-between gap-4">
-        <div>
+      {/* lg 미만은 제목 아래로 액션을 내린다 — 액션 묶음이 shrink-0 라 한 줄에 두면 뷰포트를 넘겨
+          가로 스크롤이 생기고 제목이 한 글자씩 접힌다(임원 4버튼 실측: 375px→528px, 768px→813px).
+          md 부터는 사이드바가 280px 을 먹어 오히려 더 좁으므로, 액션이 확실히 들어가는 lg 에서만 한 줄로 둔다. */}
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold">회원 관리</h1>
           <p className="mt-1 text-sm text-charcoal-3">
             {useGeneration
@@ -164,7 +172,7 @@ export default function ClubMembersPage({
               : '회원을 검색·필터할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
           {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
               부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
           <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
