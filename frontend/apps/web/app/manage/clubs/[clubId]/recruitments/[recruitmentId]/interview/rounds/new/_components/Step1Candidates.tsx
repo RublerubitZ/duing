@@ -4,7 +4,10 @@ import { useState } from 'react';
 import { useInterviewRoundCandidatesQuery } from '@duing/hooks';
 import type { InterviewRoundCandidate } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
-import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
+import {
+  APPLICATION_STATUS_BADGE_CLASS,
+  APPLICATION_STATUS_OPERATOR_LABEL,
+} from '@/app/_constants/application-status';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
@@ -15,13 +18,6 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 // 선택 상태는 RoundWizard 가 Map<number, InterviewRoundCandidate> 로 보유.
 // 토글로 화면에서 필터링돼도 이미 선택된 미결정 후보는 맵에서 유지된다.
 // 토글 off 상태에서도 미결정 선택 항목을 하단에 칩으로 표시하고 개별 해제 가능.
-
-// ApplicantTable 의 STATUS_BADGE_CLASS 와 색 동기 — ON_HOLD 는 amber, INTERVIEW_PENDING 은 purple.
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  SUBMITTED: 'bg-sky-100 text-sky-700',
-  ON_HOLD: 'bg-amber-100 text-amber-700',
-  INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
-};
 
 /** 미결정 = 아직 면접 대상/최종 결정 전인 지원 (SUBMITTED·ON_HOLD) — RoundWizard 도 사용. */
 export function isUndecidedCandidate(candidate: InterviewRoundCandidate): boolean {
@@ -112,7 +108,7 @@ export function Step1Candidates({
           {groupCandidates.map((candidate) => {
             const isSelected = selectedMap.has(candidate.applicationId);
             const badgeClass =
-              STATUS_BADGE_CLASS[candidate.status] ?? 'bg-slate-100 text-slate-700';
+              APPLICATION_STATUS_BADGE_CLASS[candidate.status] ?? 'pill pill-outline';
             const statusLabel =
               APPLICATION_STATUS_OPERATOR_LABEL[candidate.status] ??
               candidate.status;
@@ -134,7 +130,7 @@ export function Step1Candidates({
                   {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
                 </span>
                 <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
-                <span className={cn('ml-auto rounded-full px-2 py-0.5 text-xs font-medium', badgeClass)}>
+                <span className={cn(badgeClass, 'ml-auto px-2 py-0.5 text-[11px]')}>
                   {statusLabel}
                 </span>
               </li>

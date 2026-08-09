@@ -7,10 +7,11 @@ import type { Applicant } from '@duing/types';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import {
+  APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
-import { STATUS_BADGE_CLASS, STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
+import { STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
 import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 /**
@@ -101,8 +102,8 @@ export function ApplicantCardList({
                   </span>
                   <span
                     className={cn(
-                      'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium leading-4',
-                      STATUS_BADGE_CLASS[applicant.status],
+                      APPLICATION_STATUS_BADGE_CLASS[applicant.status],
+                      'ml-auto shrink-0 px-2 py-0.5 text-[11px] leading-4',
                     )}
                   >
                     {APPLICATION_STATUS_LABEL[applicant.status]}

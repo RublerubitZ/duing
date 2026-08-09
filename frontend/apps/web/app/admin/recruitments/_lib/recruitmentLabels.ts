@@ -27,17 +27,10 @@ export const JOIN_LINK_STATUS_LABEL: Record<AdminJoinLinkStatus['linkStatus'], s
 };
 
 /**
- * 지원 상태 뱃지 색. 라벨은 공용 상수(APPLICATION_STATUS_LABEL)를 쓰고 여기서는 색만 정한다.
- * Record 라 상태 집합이 바뀌면 타입 검사에서 곧바로 걸린다 — 조용히 색이 빠지지 않는다.
+ * 지원 상태 뱃지 색은 공용 상수 하나로 모았다 — 같은 상태가 화면마다 다른 색이면 안 된다.
+ * (이전에는 보류만 운영진 콘솔에 맞춘 예외로 남아 있었다.)
  */
-export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
-  SUBMITTED: 'bg-graysoft text-charcoal-2',
-  // 보류 색은 운영진 콘솔(manage ApplicantTable) 과 맞춘다 — 같은 상태가 화면마다 다른 색이면 안 된다.
-  ON_HOLD: 'bg-amber-100 text-amber-700',
-  INTERVIEW_PENDING: 'bg-sage/10 text-ink',
-  ACCEPTED: 'bg-sage/20 text-ink-deep',
-  REJECTED: 'bg-danger/10 text-danger',
-};
+export { APPLICATION_STATUS_BADGE_CLASS } from '@/app/_constants/application-status';
 
 /**
  * 단과대·학과 한 줄 표기. 단과대는 서버 enum 이라 표시명으로 옮기되, 아직 모르는 값이 오면

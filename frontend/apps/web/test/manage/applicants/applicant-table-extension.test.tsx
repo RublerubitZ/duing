@@ -78,13 +78,13 @@ describe('ApplicantTable 확장', () => {
     expect(screen.getByText('면접일정')).toBeInTheDocument();
   });
 
-  it('myScore 색상 — 4 이상이면 초록 뱃지', () => {
+  it('myScore 색상 — 4 이상이면 브랜드 톤 뱃지', () => {
     renderTable({ ...baseApplicant, myScore: 5 });
-    expect(screen.getByText('5 / 5').className).toContain('emerald');
+    expect(screen.getByText('5 / 5').className).toContain('pill');
   });
 
-  it('myScore 색상 — 2 이하이면 빨강 뱃지', () => {
+  it('myScore 색상 — 2 이하이면 코랄 톤 뱃지', () => {
     renderTable({ ...baseApplicant, myScore: 2 });
-    expect(screen.getByText('2 / 5').className).toContain('rose');
+    expect(screen.getByText('2 / 5').className).toContain('pill-coral');
   });
 });

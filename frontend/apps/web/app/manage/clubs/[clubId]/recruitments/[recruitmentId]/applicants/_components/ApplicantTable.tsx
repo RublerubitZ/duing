@@ -8,27 +8,17 @@ import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import {
+  APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
-import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 function MyScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-charcoal-3">—</span>;
-  const colorClass =
-    score >= 4
-      ? 'bg-emerald-100 text-emerald-700'
-      : score === 3
-        ? 'bg-graysoft text-charcoal-2'
-        : 'bg-rose-100 text-rose-700';
-  return (
-    <span
-      className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs', colorClass)}
-    >
-      {score} / 5
-    </span>
-  );
+  // 상태 배지와 같은 하우스 톤 — 표 안에서 두 배지가 다른 색 어휘를 쓰면 시선이 갈린다.
+  const toneClass = score >= 4 ? 'pill' : score === 3 ? 'pill pill-outline' : 'pill pill-coral';
+  return <span className={cn(toneClass, 'px-2 py-0.5 text-[11px]')}>{score} / 5</span>;
 }
 
 type Props = {
@@ -116,10 +106,11 @@ export function ApplicantTable({
                   </Link>
                 </td>
                 <td className="px-3 py-3 xl:px-4">
+                  {/* 하우스 배지(.pill) 색을 쓰고 기하만 표 밀도에 맞춰 좁힌다. */}
                   <span
                     className={cn(
-                      'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
-                      STATUS_BADGE_CLASS[applicant.status],
+                      APPLICATION_STATUS_BADGE_CLASS[applicant.status],
+                      'px-2 py-0.5 text-[11px]',
                     )}
                   >
                     {APPLICATION_STATUS_LABEL[applicant.status]}

@@ -57,7 +57,8 @@ export function ApplicantCheckbox({
       <span
         aria-hidden
         className={cn(
-          'grid h-5 w-5 place-items-center rounded-md border-[1.5px] transition-colors',
+          // 반지름은 명시값이다 — 이 테마의 rounded-md 는 14px 라 20px 박스에서 원이 된다.
+          'grid h-5 w-5 place-items-center rounded-[6px] border-[1.5px] transition-colors',
           'peer-focus-visible:ring-2 peer-focus-visible:ring-sage peer-focus-visible:ring-offset-1',
           'peer-disabled:opacity-50',
           filled ? 'border-ink-deep bg-ink-deep' : 'border-line bg-paper',
