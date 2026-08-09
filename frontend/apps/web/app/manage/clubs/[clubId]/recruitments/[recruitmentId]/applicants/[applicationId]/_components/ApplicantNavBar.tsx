@@ -1,10 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { cn } from '@/app/_lib/cn';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useApplicantNeighborsQuery } from '@duing/hooks';
 import type { ApplicantsFilters, ApplicationStatus } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../../_constants/application-status';
+import {
+  APPLICATION_STATUS_BADGE_CLASS,
+  APPLICATION_STATUS_LABEL,
+} from '../../../../../../../../_constants/application-status';
 import { toRoute } from '../../../../../../../../_lib/route';
 
 type Props = {
@@ -41,12 +45,14 @@ export function ApplicantNavBar({
   const nextHref = nextBase ? (qs ? `${nextBase}?${qs}` : nextBase) : undefined;
 
   return (
-    <nav className="flex items-center gap-2 rounded border border-neutral-200 bg-white p-3">
+    // flex-wrap: 320px 에서 상태 pill 이 다음 줄로 내려가 찌그러지지 않게 한다.
+    <nav aria-label="지원자 탐색" className="card flex flex-wrap items-center gap-2 p-3">
       <Link
         href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants${qs ? `?${qs}` : ''}`)}
-        className="text-sm text-neutral-600 hover:underline"
+        className="inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-sm text-charcoal-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
-        ← 목록
+        {/* 화살표는 장식 — aria-hidden 으로 빼야 SR 이 "홑화살괄호 목록"으로 읽지 않는다. */}
+        <span aria-hidden="true">←</span> 목록
       </Link>
       <button
         type="button"
@@ -56,9 +62,9 @@ export function ApplicantNavBar({
             router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${prevId}${qs ? `?${qs}` : ''}`));
           }
         }}
-        className="ml-3 rounded border border-neutral-300 px-3 py-1 text-sm text-slate-700 disabled:opacity-40"
+        className={cn(NAV_BUTTON_CLASS, 'ml-3')}
       >
-        ‹ 이전
+        <span aria-hidden="true">‹</span> 이전
       </button>
       <button
         type="button"
@@ -68,16 +74,28 @@ export function ApplicantNavBar({
             router.push(toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${nextId}${qs ? `?${qs}` : ''}`));
           }
         }}
-        className="rounded border border-neutral-300 px-3 py-1 text-sm text-slate-700 disabled:opacity-40"
+        className={NAV_BUTTON_CLASS}
       >
-        다음 ›
+        다음 <span aria-hidden="true">›</span>
       </button>
-      <span className="ml-auto rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700">
+      <span
+        className={cn(
+          APPLICATION_STATUS_BADGE_CLASS[currentStatus],
+          'ml-auto shrink-0 px-2 py-0.5 text-[11px]',
+        )}
+      >
         {APPLICATION_STATUS_LABEL[currentStatus]}
       </span>
     </nav>
   );
 }
+
+/**
+ * 이전/다음 공통 외형 — 첫/마지막 지원자에서는 네이티브 disabled 로 남긴다.
+ * 비활성 컨트롤은 1.4.3 대비 예외지만 opacity-40 은 너무 흐려 50 으로 완화했다.
+ */
+const NAV_BUTTON_CLASS =
+  'inline-flex min-h-11 items-center gap-1 rounded-sm border border-line px-3 text-sm text-charcoal-2 hover:border-sage disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
 function filtersToQuery(filters: ApplicantsFilters): string {
   const params = new URLSearchParams();

@@ -167,6 +167,14 @@ body {
   .btn:disabled {
     @apply cursor-not-allowed opacity-50;
   }
+  /* 키보드 포커스 — ring(box-shadow)은 forced-colors 에서 사양상 무시돼 표시가 사라지므로
+     outline 만 쓴다(ApplicantCheckbox 의 outline 표준과 동일 근거).
+     --ink 는 .duing 에 정의된 변수라 그 밖(/apply·/join·/notifications 등)에서는 치환에 실패한다.
+     치환 실패는 선언 전체를 무효로 만들어 UA 기본 포커스 링까지 지울 수 있어 같은 값을 폴백으로 둔다. */
+  .btn:focus-visible {
+    outline: 2px solid var(--ink, #1f4a36);
+    outline-offset: 2px;
+  }
   .btn-primary {
     @apply bg-ink text-paper hover:bg-ink-deep;
   }
