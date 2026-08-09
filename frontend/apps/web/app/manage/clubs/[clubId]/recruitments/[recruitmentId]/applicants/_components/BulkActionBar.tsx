@@ -43,7 +43,9 @@ export function BulkActionBar({
         </div>
         {/*
          * 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 한 줄 flex.
-         * 버튼은 `.btn` 기본 크기(px-5 py-3 ≈ 44px)를 쓴다 — btn-sm 은 36px 라 터치 기준에 못 미친다.
+         * 버튼은 `btn-sm` + `min-h-11` 이다. `.btn` 기본(px-5)은 320px 2열에서 "면접 대상으로 선정" 이
+         * 버튼 안에서 두 줄로 접혀 바가 171px 까지 부푼다(실측). 좁은 패딩으로 한 줄을 지키고
+         * 높이만 44px 로 올려 터치 기준을 맞춘다 — DESIGN.md 가 권하는 히트 영역 확대 방식이다.
          * 위계는 DESIGN.md 대로 primary/secondary/ghost/danger-quiet.
          */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
@@ -52,7 +54,7 @@ export function BulkActionBar({
             <button
               type="button"
               onClick={onPromoteToInterview}
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm min-h-11"
             >
               면접 대상으로 선정
             </button>
@@ -61,7 +63,7 @@ export function BulkActionBar({
             <button
               type="button"
               onClick={() => onBulkAction('ON_HOLD')}
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-sm min-h-11"
             >
               보류
             </button>
@@ -69,7 +71,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}
-            className="btn btn-danger-quiet"
+            className="btn btn-danger-quiet btn-sm min-h-11"
           >
             일괄 불합격
           </button>
@@ -77,7 +79,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={() => onBulkAction('ACCEPTED')}
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm min-h-11"
           >
             일괄 합격
           </button>
