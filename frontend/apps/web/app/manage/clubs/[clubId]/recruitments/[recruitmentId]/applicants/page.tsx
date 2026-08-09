@@ -20,6 +20,7 @@ import {
 } from '@duing/hooks';
 import { safeExternalHref, toRoute } from '@/app/_lib/route';
 import { ApplicantCardList } from './_components/ApplicantCardList';
+import { ApplicantListToolbar } from './_components/ApplicantListToolbar';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
@@ -428,10 +429,22 @@ export default function ApplicantsPage({ params }: PageParams) {
                 applicants={applicants}
                 selectedSet={selectedSet}
                 onToggleSelect={toggleOne}
-                onToggleAll={toggleAll}
                 onOpenDetail={openDetail}
                 detailHref={detailHref}
                 useInterview={useInterview}
+                toolbar={
+                  <ApplicantListToolbar
+                    totalCount={applicants.length}
+                    selectableCount={selectable.length}
+                    selectedCount={actionableIds.length}
+                    state={allState}
+                    onToggleAll={toggleAll}
+                    onBulkAction={setPendingBulkTarget}
+                    onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
+                    useInterview={useInterview}
+                    finalizeOnly={isFinalizeOnly}
+                  />
+                }
               />
             </div>
           )}

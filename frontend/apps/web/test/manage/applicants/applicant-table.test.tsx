@@ -21,14 +21,12 @@ const baseApplicant: Applicant = {
 
 function renderTable(applicants: Applicant[], selected: number[] = []) {
   const onToggleSelect = vi.fn();
-  const onToggleAll = vi.fn();
   const onOpenDetail = vi.fn();
   render(
     <ApplicantTable
       applicants={applicants}
       selectedSet={new Set(selected)}
       onToggleSelect={onToggleSelect}
-      onToggleAll={onToggleAll}
       onOpenDetail={onOpenDetail}
       detailHref={(applicationId) =>
         toRoute(`/manage/clubs/1/recruitments/1/applicants/${applicationId}`)
@@ -36,9 +34,10 @@ function renderTable(applicants: Applicant[], selected: number[] = []) {
       useInterview={false}
     />,
   );
-  return { onToggleSelect, onToggleAll, onOpenDetail };
+  return { onToggleSelect, onOpenDetail };
 }
 
+// 전체 선택은 카드 안 상단 툴바(ApplicantListToolbar)로 옮겼다 — 해당 케이스는 그쪽 테스트에 있다.
 describe('데스크탑 지원자 표', () => {
   it('내 평가는 표에서 점수로 유지한다', () => {
     renderTable([baseApplicant]);
@@ -69,22 +68,8 @@ describe('데스크탑 지원자 표', () => {
     );
   });
 
-  it('헤더 전체 선택을 누르면 onToggleAll 이 불린다', () => {
-    const { onToggleAll } = renderTable([baseApplicant]);
-    fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
-    expect(onToggleAll).toHaveBeenCalledTimes(1);
-  });
 
-  it('일부만 선택되면 헤더 체크박스가 indeterminate 다', () => {
-    renderTable([baseApplicant, { ...baseApplicant, applicationId: 2, userName: '김두잉' }], [1]);
-    const headerCheckbox = screen.getByRole<HTMLInputElement>('checkbox', { name: '전체 선택' });
-    expect(headerCheckbox.indeterminate).toBe(true);
-  });
 
-  it('선택 가능 인원이 없으면 헤더 체크박스가 비활성이다', () => {
-    renderTable([{ ...baseApplicant, status: 'ACCEPTED' }]);
-    expect(screen.getByRole('checkbox', { name: '전체 선택' })).toBeDisabled();
-  });
 
   it('행 체크박스는 전파를 끊어 상세로 가지 않는다', () => {
     const { onToggleSelect, onOpenDetail } = renderTable([baseApplicant]);

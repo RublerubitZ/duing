@@ -32,7 +32,9 @@ export function BulkActionBar({
       role="region"
       aria-label="일괄 처리 액션"
       data-bottom-bar
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]"
+      // 데스크탑(≥1024px)은 표 카드 안 상단 툴바가 같은 액션을 갖는다 — 두 벌이 동시에 보이면
+      // 어느 쪽이 실행되는지 헷갈린다. 좁은 폭에서만 이 고정 바를 쓴다.
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {/* 폭은 page.tsx 컨테이너(max-w-6xl px-4 sm:px-6)와 같아야 한다 — 바만 좁으면 좌우가 어긋난다. */}
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">

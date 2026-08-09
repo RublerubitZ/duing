@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { formatDateTimeKst } from '@duing/hooks';
@@ -12,7 +12,7 @@ import {
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
-import { selectableIds, selectAllState } from '../_lib/applicantSelection';
+import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 function MyScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-charcoal-3">—</span>;
@@ -35,11 +35,12 @@ type Props = {
   applicants: Applicant[];
   selectedSet: ReadonlySet<number>;
   onToggleSelect: (applicationId: number) => void;
-  onToggleAll: () => void;
   onOpenDetail: (applicationId: number) => void;
   /** typedRoutes 라 Link 의 href 는 Route 여야 한다 — 페이지가 toRoute 로 만들어 내린다. */
   detailHref: (applicationId: number) => Route;
   useInterview: boolean;
+  /** 카드 안 맨 위에 놓이는 일괄 처리 바(ApplicantListToolbar). 전체 선택도 여기 있다. */
+  toolbar?: ReactNode;
 };
 
 /**
@@ -54,37 +55,19 @@ export function ApplicantTable({
   applicants,
   selectedSet,
   onToggleSelect,
-  onToggleAll,
   onOpenDetail,
   detailHref,
   useInterview,
+  toolbar,
 }: Props) {
-  const headerCheckboxRef = useRef<HTMLInputElement>(null);
-  const selectable = selectableIds(applicants);
-  const allState = selectAllState(selectedSet, selectable);
-
-  useEffect(() => {
-    if (headerCheckboxRef.current) {
-      headerCheckboxRef.current.indeterminate = allState === 'partial';
-    }
-  }, [allState]);
-
   return (
     <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+      {toolbar}
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-graysoft text-left">
           <tr>
-            <th className="w-12 px-3 py-2.5 xl:px-4">
-              <input
-                ref={headerCheckboxRef}
-                type="checkbox"
-                aria-label="전체 선택"
-                checked={allState === 'all'}
-                disabled={selectable.length === 0}
-                onChange={onToggleAll}
-                className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </th>
+            {/* 전체 선택은 카드 안 상단 바(toolbar)가 갖는다 — 표 헤더에는 자리만 남긴다. */}
+            <th className="w-12 px-3 py-2.5 xl:px-4" />
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">지원자</th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">상태</th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">학과 · 학년</th>
@@ -106,15 +89,21 @@ export function ApplicantTable({
                 className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-sage-tint')}
               >
                 <td className="px-3 py-3 xl:px-4" onClick={(event) => event.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    aria-label={`${applicant.userName} 선택`}
-                    checked={isSelected}
-                    disabled={isTerminal}
-                    onChange={() => onToggleSelect(applicant.applicationId)}
-                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
-                  />
+                  {/*
+                   * 라벨이 반드시 있어야 한다. 커스텀 외형은 숨긴 input 의 형제 span 이라, 라벨 없이는
+                   * 시각 박스를 눌러도 아무 일이 일어나지 않는다(실브라우저에서 확인). 겸사겸사 셀 안
+                   * 히트 영역도 넓어진다.
+                   */}
+                  <label className="flex w-fit cursor-pointer items-center py-1">
+                    <ApplicantCheckbox
+                      label={`${applicant.userName} 선택`}
+                      checked={isSelected}
+                      disabled={isTerminal}
+                      onChange={() => onToggleSelect(applicant.applicationId)}
+                      title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                      className={isTerminal ? 'cursor-not-allowed' : 'cursor-pointer'}
+                    />
+                  </label>
                 </td>
                 {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
                 <td className="whitespace-nowrap px-3 py-3 xl:px-4">

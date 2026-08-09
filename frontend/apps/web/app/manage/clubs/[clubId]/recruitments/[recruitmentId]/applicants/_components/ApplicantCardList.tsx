@@ -11,6 +11,7 @@ import {
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS, STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
+import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 /**
  * 목록 전용 축약 — `2026.05.01` → `05.01`. 좁은 2행에서 연도는 모집 기간이 이미 말해준다.
@@ -71,14 +72,17 @@ export function ApplicantCardList({
                 onClick={isTerminal ? undefined : (event) => event.stopPropagation()}
                 className="-my-3 -ml-4 grid h-11 w-11 shrink-0 place-items-center"
               >
-                <input
-                  type="checkbox"
-                  aria-label={`${applicant.userName} 선택`}
+                {/*
+                 * 비활성 체크박스는 pointer-events 를 꺼야 탭이 카드까지 내려가 상세로 진입한다(PR #939).
+                 * 커스텀 외형은 형제 span 이라, 끄는 대상은 래퍼 전체다.
+                 */}
+                <ApplicantCheckbox
+                  label={`${applicant.userName} 선택`}
                   checked={isSelected}
                   disabled={isTerminal}
                   onChange={() => onToggleSelect(applicant.applicationId)}
                   title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                  className="h-4 w-4 rounded border-line text-ink focus:ring-sage disabled:pointer-events-none disabled:opacity-50"
+                  className={isTerminal ? 'pointer-events-none' : undefined}
                 />
               </label>
 

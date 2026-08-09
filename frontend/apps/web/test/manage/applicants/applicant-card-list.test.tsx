@@ -157,7 +157,8 @@ describe('모바일 지원자 카드 리스트', () => {
     const { onToggleSelect, onOpenDetail } = renderList([{ ...baseApplicant, status: 'ACCEPTED' }]);
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveClass('disabled:pointer-events-none');
+    // 커스텀 외형은 형제 span 이라, 탭이 카드까지 내려가려면 래퍼 전체가 포인터를 받지 않아야 한다.
+    expect(checkbox.parentElement?.className).toContain('pointer-events-none');
     fireEvent.click(requireLabel(checkbox.closest('label')));
     expect(onToggleSelect).not.toHaveBeenCalled();
     expect(onOpenDetail).toHaveBeenCalledTimes(1);

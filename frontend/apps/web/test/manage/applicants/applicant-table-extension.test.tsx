@@ -28,7 +28,6 @@ function renderTable(applicant: Applicant, useInterview = true) {
       applicants={[applicant]}
       selectedSet={emptySet}
       onToggleSelect={noop}
-      onToggleAll={noop}
       onOpenDetail={noop}
       detailHref={(applicationId) =>
         toRoute(`/manage/clubs/1/recruitments/1/applicants/${applicationId}`)

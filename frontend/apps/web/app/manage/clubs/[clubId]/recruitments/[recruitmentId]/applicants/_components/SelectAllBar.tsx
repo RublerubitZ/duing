@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import type { SelectAllState } from '../_lib/applicantSelection';
+import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 type Props = {
   selectableCount: number;
@@ -16,14 +16,6 @@ type Props = {
  * 체크하기 전에 대상 인원을 먼저 알려준다 — 34명을 눌렀는데 14명만 선택되면 놀란다.
  */
 export function SelectAllBar({ selectableCount, selectedCount, state, onToggleAll }: Props) {
-  const checkboxRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (checkboxRef.current) {
-      checkboxRef.current.indeterminate = state === 'partial';
-    }
-  }, [state]);
-
   const label =
     state === 'all'
       ? `전체 선택 (${selectedCount}명)`
@@ -33,14 +25,13 @@ export function SelectAllBar({ selectableCount, selectedCount, state, onToggleAl
 
   return (
     <label className="mt-4 flex cursor-pointer items-center gap-2 px-1 text-[13px] font-medium text-charcoal-2 lg:hidden">
-      <input
-        ref={checkboxRef}
-        type="checkbox"
-        aria-label="전체 선택"
+      <ApplicantCheckbox
+        label="전체 선택"
         checked={state === 'all'}
+        indeterminate={state === 'partial'}
         disabled={selectableCount === 0}
         onChange={onToggleAll}
-        className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
+        className={selectableCount === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}
       />
       {label}
     </label>
