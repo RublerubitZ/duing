@@ -9,7 +9,7 @@ import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
-} from '../../../../../../../_constants/application-status';
+} from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS, STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
 
 /**

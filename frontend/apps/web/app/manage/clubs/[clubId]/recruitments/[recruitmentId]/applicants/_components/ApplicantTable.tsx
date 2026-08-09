@@ -8,8 +8,8 @@ import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import {
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
-} from '../../../../../../../_constants/application-status';
-import { toRoute } from '../../../../../../../_lib/route';
+} from '@/app/_constants/application-status';
+import { toRoute } from '@/app/_lib/route';
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 
 function MyScoreBadge({ score }: { score: number | null }) {

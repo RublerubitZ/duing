@@ -1,5 +1,5 @@
 import type { Applicant } from '@duing/types';
-import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status';
+import { isTerminalApplicationStatus } from '@/app/_constants/application-status';
 
 /** 선택 가능한 지원자 = 최종 상태가 아닌 지원자. 목록 순서를 유지한다. */
 export function selectableIds(applicants: Applicant[]): number[] {
