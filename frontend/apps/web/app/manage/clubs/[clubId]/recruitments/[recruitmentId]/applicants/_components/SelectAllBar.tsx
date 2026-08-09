@@ -24,7 +24,7 @@ export function SelectAllBar({ selectableCount, selectedCount, state, onToggleAl
         : `전체 선택 (${selectableCount}명 선택 가능)`;
 
   return (
-    <label className="mt-4 flex cursor-pointer items-center gap-2 px-1 text-[13px] font-medium text-charcoal-2 lg:hidden">
+    <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-2 px-1 text-[13px] font-medium text-charcoal-2 lg:hidden">
       <ApplicantCheckbox
         label="전체 선택"
         checked={state === 'all'}

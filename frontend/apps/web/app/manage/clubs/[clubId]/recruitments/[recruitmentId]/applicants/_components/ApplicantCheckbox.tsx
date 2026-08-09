@@ -57,15 +57,37 @@ export function ApplicantCheckbox({
       <span
         aria-hidden
         className={cn(
-          // 반지름은 명시값이다 — 이 테마의 rounded-md 는 14px 라 20px 박스에서 원이 된다.
-          'grid h-5 w-5 place-items-center rounded-[6px] border-[1.5px] transition-colors',
-          'peer-focus-visible:ring-2 peer-focus-visible:ring-sage peer-focus-visible:ring-offset-1',
+          // radius 는 어휘 안의 rounded-sm(8px) — rounded-md 는 14px 라 20px 박스에서 원이 된다.
+          'grid h-5 w-5 place-items-center rounded-sm border transition-colors',
+          /*
+           * 포커스는 ring(box-shadow) 이 아니라 outline 으로 그린다. input 이 sr-only 라 UA 기본
+           * 아웃라인이 잘려 나가 이게 유일한 포커스 신호인데, box-shadow 는 강제 색 모드에서
+           * 사양상 무시돼 표시가 통째로 사라진다. outline-color 는 시스템 색으로 치환돼 살아남는다.
+           */
+          'peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink',
           'peer-disabled:opacity-50',
-          filled ? 'border-ink-deep bg-ink-deep' : 'border-line bg-paper',
+          /*
+           * 미선택 테두리는 charcoal-3 다. 이 레포엔 @tailwindcss/forms 가 없어 예전 네이티브
+           * 체크박스는 UA 기본 테두리(약 4.5:1)로 그려졌는데, 외형을 직접 그리면서 border-line
+           * (#E5E2DA, 흰 배경 1.29:1)을 쓰면 빈 체크박스가 사실상 보이지 않는다(1.4.11 미달).
+           */
+          filled ? 'border-ink-deep bg-ink-deep' : 'border-charcoal-3 bg-paper',
         )}
       >
+        {/* 대시도 체크와 같은 SVG stroke 로 그린다 — 배경색으로 그린 도형은 강제 색 모드에서 사라진다. */}
         {indeterminate ? (
-          <span className="h-[2.5px] w-[9px] rounded-full bg-paper" />
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.4"
+            strokeLinecap="round"
+            className="text-paper"
+          >
+            <path d="M5 12h14" />
+          </svg>
         ) : checked ? (
           <svg
             width="13"

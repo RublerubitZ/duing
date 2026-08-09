@@ -107,8 +107,7 @@ export function Step1Candidates({
         <ul className="space-y-1">
           {groupCandidates.map((candidate) => {
             const isSelected = selectedMap.has(candidate.applicationId);
-            const badgeClass =
-              APPLICATION_STATUS_BADGE_CLASS[candidate.status] ?? 'pill pill-outline';
+            const badgeClass = APPLICATION_STATUS_BADGE_CLASS[candidate.status];
             const statusLabel =
               APPLICATION_STATUS_OPERATOR_LABEL[candidate.status] ??
               candidate.status;

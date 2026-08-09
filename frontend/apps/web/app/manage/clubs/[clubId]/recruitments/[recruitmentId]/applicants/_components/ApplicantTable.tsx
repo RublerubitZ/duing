@@ -56,8 +56,10 @@ export function ApplicantTable({
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-graysoft text-left">
           <tr>
-            {/* 전체 선택은 카드 안 상단 바(toolbar)가 갖는다 — 표 헤더에는 자리만 남긴다. */}
-            <th className="w-12 px-3 py-2.5 xl:px-4" />
+            {/* 전체 선택은 카드 안 상단 바(toolbar)가 갖는다 — 헤더에는 자리와 이름만 남긴다. */}
+            <th className="w-12 px-3 py-2.5 xl:px-4">
+              <span className="sr-only">선택</span>
+            </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">지원자</th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">상태</th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">학과 · 학년</th>

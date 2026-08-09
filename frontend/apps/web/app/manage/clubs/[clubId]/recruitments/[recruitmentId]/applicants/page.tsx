@@ -273,7 +273,8 @@ export default function ApplicantsPage({ params }: PageParams) {
       className={cn(
         'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
         actionableIds.length > 0
-          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
+          // lg 부터는 하단 고정 바가 없다(툴바가 대신한다) — 여백을 남기면 표 아래 빈 띠가 생긴다.
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24 lg:pb-10'
           : 'pb-10',
       )}
     >

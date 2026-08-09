@@ -60,12 +60,13 @@ export function ApplicantListToolbar({
         hasSelection && 'bg-sage-tint',
       )}
     >
-      <label className="flex cursor-pointer items-center gap-2.5 text-[13px] font-bold text-ink-deep">
+      {/* lg 게이트라 iPad 가로(1024px)에서 터치로 온다 — 라벨 높이를 44px 로 잡는다. */}
+      <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[13px] font-bold text-ink-deep">
         <ApplicantCheckbox
           checked={state === 'all'}
           indeterminate={state === 'partial'}
           disabled={selectableCount === 0}
-          label="전체 선택"
+          label={hasSelection ? `전체 선택 (${selectedCount}명 선택됨)` : '전체 선택'}
           onChange={onToggleAll}
         />
         {hasSelection ? `${selectedCount}명 선택됨` : '전체 선택'}

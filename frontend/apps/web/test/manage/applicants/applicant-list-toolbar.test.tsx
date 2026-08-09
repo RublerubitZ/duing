@@ -58,7 +58,7 @@ describe('지원자 목록 도구 모음 (데스크탑)', () => {
 
   it('일부만 선택되면 indeterminate 다', () => {
     renderToolbar({ selectedCount: 2, state: 'partial' });
-    const checkbox = screen.getByRole<HTMLInputElement>('checkbox', { name: '전체 선택' });
+    const checkbox = screen.getByRole<HTMLInputElement>('checkbox', { name: /전체 선택/ });
     expect(checkbox.indeterminate).toBe(true);
     expect(checkbox.checked).toBe(false);
   });
@@ -70,9 +70,18 @@ describe('지원자 목록 도구 모음 (데스크탑)', () => {
 
   it('전체 선택 상태면 checked 다', () => {
     renderToolbar({ selectedCount: 6, state: 'all' });
-    const checkbox = screen.getByRole<HTMLInputElement>('checkbox', { name: '전체 선택' });
+    const checkbox = screen.getByRole<HTMLInputElement>('checkbox', { name: /전체 선택/ });
     expect(checkbox.checked).toBe(true);
     expect(checkbox.indeterminate).toBe(false);
+  });
+
+  /* WCAG 2.5.3 — 접근 이름이 가시 텍스트를 포함해야 음성 제어로 부를 수 있다. */
+  it('선택 중에는 접근 이름이 가시 텍스트("N명 선택됨")를 포함한다', () => {
+    renderToolbar({ selectedCount: 5, state: 'partial' });
+    expect(screen.getByText('5명 선택됨')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: '전체 선택 (5명 선택됨)' }),
+    ).toBeInTheDocument();
   });
 
   it('액션은 콜백으로 전달된다', () => {

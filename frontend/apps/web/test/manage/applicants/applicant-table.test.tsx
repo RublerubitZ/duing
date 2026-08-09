@@ -68,9 +68,6 @@ describe('데스크탑 지원자 표', () => {
     );
   });
 
-
-
-
   it('행 체크박스는 전파를 끊어 상세로 가지 않는다', () => {
     const { onToggleSelect, onOpenDetail } = renderTable([baseApplicant]);
     fireEvent.click(screen.getByRole('checkbox', { name: '홍길동 선택' }));

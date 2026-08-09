@@ -2,7 +2,6 @@ import { COLLEGE_DISPLAY_NAME, isCollege } from '@duing/types';
 import type {
   AdminJoinLinkStatus,
   ApplicationMode,
-  ApplicationStatus,
   RecruitmentDisplayStatus,
   RecruitmentStatus,
 } from '@duing/types';
