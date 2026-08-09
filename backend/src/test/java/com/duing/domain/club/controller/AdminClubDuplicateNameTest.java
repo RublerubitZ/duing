@@ -18,6 +18,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -31,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -44,7 +46,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class AdminClubCreateDuplicateNameTest extends IntegrationTestBase {
+class AdminClubDuplicateNameTest extends IntegrationTestBase {
 
     private static final String CLUB_NAME = "날개";
 
@@ -117,6 +119,39 @@ class AdminClubCreateDuplicateNameTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("같은 이름의 활성 동아리를 DB 에 직접 넣으면 부분 유니크 인덱스가 막는다")
+    void activeNamesStayUniqueAtDatabaseLevel() throws Exception {
+        saveClubWithLeader(CLUB_NAME, ClubStatus.ACTIVE);
+
+        // 애플리케이션 가드(existsByName) 를 건너뛴 경로 — 동시 생성이 검사-삽입 사이를 파고들 때
+        // 마지막 방어선이 인덱스다. 이 단언이 없으면 마이그레이션에서 UNIQUE 를 떨어뜨려도 수트가 초록이다.
+        Assertions.assertThrows(DataIntegrityViolationException.class,
+                () -> saveClubWithLeader(CLUB_NAME, ClubStatus.ACTIVE));
+    }
+
+    @Test
+    @DisplayName("폐쇄된 동아리의 이름으로 다른 동아리를 개명하면 200 으로 성공한다")
+    void closedClubNameCanBeTakenByRename() throws Exception {
+        Club closedClub = saveClubWithLeader(CLUB_NAME, ClubStatus.INACTIVE);
+        closeClub(closedClub.getId());
+        Club survivingClub = saveClubWithLeader("개명대상클럽", ClubStatus.ACTIVE);
+
+        // 생성과 같은 existsByName 가드를 쓰므로 이름 변경도 같은 원인으로 막혀 있었다.
+        renameClub(survivingClub.getId(), CLUB_NAME).statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("활성 동아리의 이름으로 다른 동아리를 개명하면 409 로 거절된다")
+    void activeClubNameCannotBeTakenByRename() throws Exception {
+        saveClubWithLeader(CLUB_NAME, ClubStatus.ACTIVE);
+        Club survivingClub = saveClubWithLeader("개명거부대상클럽", ClubStatus.ACTIVE);
+
+        renameClub(survivingClub.getId(), CLUB_NAME)
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo("이미 존재하는 동아리 이름입니다."));
+    }
+
+    @Test
     @DisplayName("이름이 겹치지 않는 동아리 생성은 201 로 성공하고 회장이 LEADER 로 등록된다")
     void creatingClubWithFreeNameSucceeds() {
         Long createdClubId = createClub("겹치지않는이름")
@@ -127,7 +162,7 @@ class AdminClubCreateDuplicateNameTest extends IntegrationTestBase {
                 clubMemberRepository.findByClubIdAndUserId(createdClubId, leaderUser.getId()).isPresent());
     }
 
-    private io.restassured.response.ValidatableResponse createClub(String name) {
+    private ValidatableResponse createClub(String name) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", name);
         body.put("category", ClubCategory.ACADEMIC.name());
@@ -141,6 +176,17 @@ class AdminClubCreateDuplicateNameTest extends IntegrationTestBase {
                     .body(body)
                 .when()
                     .post("/api/v1/admin/clubs")
+                .then();
+    }
+
+    private ValidatableResponse renameClub(Long clubId, String newName) {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("name", newName))
+                .when()
+                    .patch("/api/v1/admin/clubs/{clubId}", clubId)
                 .then();
     }
 
