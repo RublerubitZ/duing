@@ -47,7 +47,10 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   const isFinalizeOnly = recruitment?.status === 'CLOSED';
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
+    // ManageShell 이 이미 <main> 을 렌더한다 — 목록 페이지(page.tsx:274)와 같은 이유로 div.
+    // 하단 pb 는 모바일 고정 액션 바(6rem = 바 실높이 + 여유)가 콘텐츠를 가리지 않게 비운 자리다.
+    // 데스크탑은 바가 없으니 lg:pb-4 로 원복한다.
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:pb-4">
       <ApplicantNavBar
         clubId={clubId}
         recruitmentId={recruitmentId}
@@ -89,6 +92,6 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
           />
         </div>
       </div>
-    </main>
+    </div>
   );
 }

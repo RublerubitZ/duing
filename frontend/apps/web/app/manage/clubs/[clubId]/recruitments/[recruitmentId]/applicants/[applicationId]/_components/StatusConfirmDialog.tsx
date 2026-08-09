@@ -38,10 +38,11 @@ const CONFIRM_LABEL: Record<FinalStatus, string> = {
   REJECTED: '불합격 처리',
 };
 
-// 불합격만 위험(coral), 합격은 기본(ink) — BulkConfirmDialog 와 같은 정책.
+// 불합격만 위험(danger), 합격은 기본(ink) — BulkConfirmDialog 와 같은 정책.
+// coral 직접 칠은 흰 글자 대비 3.12:1 로 AA 미달이라 danger 토큰(btn-danger)으로 통일한다.
 const CONFIRM_BUTTON_CLASS: Record<FinalStatus, string> = {
-  ACCEPTED: 'btn btn-primary btn-sm disabled:opacity-50',
-  REJECTED: 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50',
+  ACCEPTED: 'btn btn-primary btn-sm min-h-11 disabled:opacity-50',
+  REJECTED: 'btn btn-danger btn-sm min-h-11 disabled:opacity-50',
 };
 
 export function StatusConfirmDialog({ targetStatus, isPending, onConfirm, onCancel }: Props) {
@@ -67,7 +68,12 @@ export function StatusConfirmDialog({ targetStatus, isPending, onConfirm, onCanc
         </DialogHeader>
 
         <DialogFooter>
-          <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="btn btn-ghost btn-sm min-h-11"
+          >
             취소
           </button>
           <button

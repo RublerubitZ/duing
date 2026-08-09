@@ -237,7 +237,9 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
     );
 
     expect(await screen.findAllByText(/최종 결과만 확정할 수 있습니다/)).not.toHaveLength(0);
-    expect(screen.getByRole('button', { name: '합격으로' })).toBeInTheDocument();
+    // 상세도 목록과 같다 — 데스크탑 카드와 모바일 하단 바가 같은 전이 버튼을 두 벌 갖는다.
+    const statusBar = screen.getByRole('region', { name: '상태 변경 액션' });
+    expect(within(statusBar).getByRole('button', { name: '합격으로' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '보류로' })).not.toBeInTheDocument();
     // 평가는 마감 후 허용되는 "최종 결과 확정"에 포함되지 않으므로 계속 막힌다.
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
@@ -256,7 +258,8 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
       />,
     );
 
-    expect(await screen.findByRole('button', { name: '보류로' })).toBeInTheDocument();
+    const statusBar = await screen.findByRole('region', { name: '상태 변경 액션' });
+    expect(within(statusBar).getByRole('button', { name: '보류로' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '삭제' })).toBeInTheDocument();
     expect(
       screen.queryByText(/최종 결과만 확정할 수 있습니다/),
