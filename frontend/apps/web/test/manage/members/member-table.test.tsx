@@ -90,6 +90,26 @@ describe('MemberTable — 선택 콜백', () => {
     expect(onToggleAll).toHaveBeenCalledTimes(1);
   });
 
+  // 모바일 카드의 체크박스는 터치 영역 확보를 위해 패딩을 준 label 로 감싸져 있다.
+  // 카드 자체가 상세를 여는 클릭 대상이라, 그 label 이 클릭을 삼키지 않으면 선택할 때마다 상세가 열린다.
+  it('모바일 카드 체크박스를 눌러도 상세는 열리지 않는다', async () => {
+    const onToggleSelect = vi.fn();
+    const onOpenDetail = vi.fn();
+    renderTable({
+      members: [member({ memberId: 42, name: '김철수' })],
+      onToggleSelect,
+      onOpenDetail,
+    });
+
+    // 표·카드가 함께 마운트되므로 체크박스는 회원당 2개 — 두 번째가 모바일 카드 쪽이다.
+    const checkboxes = screen.getAllByRole('checkbox', { name: '김철수 선택' });
+    expect(checkboxes).toHaveLength(2);
+    await userEvent.click(checkboxes[1]!);
+
+    expect(onToggleSelect).toHaveBeenCalledWith(42);
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
   it('모든 행이 선택되면 헤더 체크박스가 checked 이다', () => {
     renderTable({
       members: [member({ memberId: 1 }), member({ memberId: 2 })],
