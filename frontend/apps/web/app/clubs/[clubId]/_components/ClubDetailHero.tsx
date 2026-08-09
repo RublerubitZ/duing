@@ -7,7 +7,9 @@ import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
+import { collegeDisplayName } from '../../../_lib/college';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
+import { formatDivisionLabel } from '../../_lib/clubs';
 import { pickColor } from '../../_lib/clubAdapter';
 import { ClubDetailTopBar } from './ClubDetailTopBar';
 
@@ -22,6 +24,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   // 소속 보조 표기 — 중앙은 분과, 단과대는 학과. 비중앙 행의 division 은 단과대명·분과명이 섞인
   // 잔여 데이터라 centralClub 게이트로 함께 막는다(탐색 카드와 같은 규칙).
   const affiliation = club.centralClub ? club.division : club.department;
+  // 모바일 히어로용 소속 조각 — 데스크탑은 카테고리 pill 옆이라 짧게(분과/학과) 두지만,
+  // 모바일에는 소속을 보여줄 자리가 여기뿐이라 단과대 동아리는 단과대학까지 함께 밝힌다.
+  // 값이 없는 조각은 통째로 빠지고, 전부 없으면 소속 표기 자체를 그리지 않는다.
+  const affiliationParts = (
+    club.centralClub
+      ? [club.division && formatDivisionLabel(club.division)]
+      : [club.college != null && collegeDisplayName(club.college), club.department]
+  ).filter((part): part is string => typeof part === 'string' && part.length > 0);
   const initial = club.name.trim().charAt(0);
   // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
   const logoColor = pickColor(club.id);
@@ -197,14 +207,24 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             </h1>
           </div>
 
-          {/* 창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다. */}
-          {(club.foundedYear !== null || club.cohortNumber !== null || isAuthenticated) && (
-            <div className="mt-2.5 flex items-center gap-3">
-              {(club.foundedYear !== null || club.cohortNumber !== null) && (
+          {/* 소속·창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다.
+              소속까지 얹으면 좁은 화면에서 두 줄로 접히므로 items-start 로 신고하기를 첫 줄에 붙인다. */}
+          {(affiliationParts.length > 0
+            || club.foundedYear !== null
+            || club.cohortNumber !== null
+            || isAuthenticated) && (
+            <div className="mt-2.5 flex items-start gap-3">
+              {(affiliationParts.length > 0
+                || club.foundedYear !== null
+                || club.cohortNumber !== null) && (
                 <div className="min-w-0 text-[12px] text-charcoal-3">
-                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                  {[
+                    ...affiliationParts,
+                    club.foundedYear !== null ? `${club.foundedYear}년 창설` : null,
+                    club.cohortNumber !== null ? `${club.cohortNumber}기` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </div>
               )}
               {isAuthenticated && (
