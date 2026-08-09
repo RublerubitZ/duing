@@ -76,7 +76,7 @@ describe('ClubDetailHero — 이름 아래 해시태그', () => {
     expect(screen.queryByText('한줄 소개 문구')).toBeNull();
   });
 
-  it('모바일 히어로는 단과대 동아리에 단과대학·학과를 창설년도 앞에 함께 표기한다', () => {
+  it('모바일 히어로는 단과대 동아리에 단과대학·학과를 표기한다', () => {
     render(
       <ClubDetailHero
         club={{
@@ -90,28 +90,68 @@ describe('ClubDetailHero — 이름 아래 해시태그', () => {
       />,
     );
 
-    expect(
-      screen.getByText('글로벌경영대학 · 회계학과 · 2002년 창설 · 24기'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('글로벌경영대학 · 회계학과')).toBeInTheDocument();
   });
 
-  it('모바일 히어로는 중앙동아리에 분과만 표기한다', () => {
+  it('모바일 히어로 소속 줄에는 창설년도·기수를 겹쳐 싣지 않는다', () => {
+    // 데스크탑 히어로는 같은 트리에 함께 렌더되므로(반응형은 CSS 로만 갈린다) 모바일 블록으로 좁힌다.
+    const { container } = render(
+      <ClubDetailHero
+        club={{
+          ...baseClub,
+          centralClub: false,
+          college: 'GLOBAL_BUSINESS',
+          department: '회계학과',
+          foundedYear: 2002,
+          cohortNumber: 24,
+        }}
+      />,
+    );
+
+    const mobileHero = container.querySelector('div.md\\:hidden');
+    expect(mobileHero?.textContent).toContain('글로벌경영대학 · 회계학과');
+    expect(mobileHero?.textContent).not.toContain('2002년 창설');
+    expect(mobileHero?.textContent).not.toContain('24기');
+  });
+
+  it('모바일 히어로는 중앙동아리에 분과를 표기한다', () => {
     render(
       <ClubDetailHero
         club={{ ...baseClub, centralClub: true, division: '학술', foundedYear: 2002, cohortNumber: 24 }}
       />,
     );
 
-    expect(screen.getByText('학술분과 · 2002년 창설 · 24기')).toBeInTheDocument();
+    expect(screen.getByText('학술분과')).toBeInTheDocument();
   });
 
-  it('모바일 히어로는 학과가 없으면 단과대학만, 소속이 전부 없으면 창설년도만 남긴다', () => {
+  it('모바일 히어로 소속 줄은 중앙동아리에 분과명을, 단과대 동아리에 단과대학·학과를 같은 자리에 그린다', () => {
+    const central = render(
+      <ClubDetailHero club={{ ...baseClub, centralClub: true, division: '스포츠레저' }} />,
+    );
+    const centralLine = central.container
+      .querySelector('div.md\\:hidden')
+      ?.querySelector('div.min-w-0.text-\\[12px\\]');
+    expect(centralLine?.textContent).toBe('스포츠레저분과');
+    central.unmount();
+
+    const collegeClub = render(
+      <ClubDetailHero
+        club={{ ...baseClub, centralClub: false, college: 'HEALTH_BIO', department: '의생명공학과' }}
+      />,
+    );
+    const collegeLine = collegeClub.container
+      .querySelector('div.md\\:hidden')
+      ?.querySelector('div.min-w-0.text-\\[12px\\]');
+    expect(collegeLine?.textContent).toBe('보건바이오대학 · 의생명공학과');
+  });
+
+  it('모바일 히어로는 학과가 없으면 단과대학만 남기고, 소속이 전부 없으면 줄 자체를 그리지 않는다', () => {
     const { unmount } = render(
       <ClubDetailHero
         club={{ ...baseClub, centralClub: false, college: 'GLOBAL_BUSINESS', department: null, foundedYear: 2002 }}
       />,
     );
-    expect(screen.getByText('글로벌경영대학 · 2002년 창설')).toBeInTheDocument();
+    expect(screen.getByText('글로벌경영대학')).toBeInTheDocument();
     unmount();
 
     render(
@@ -119,8 +159,6 @@ describe('ClubDetailHero — 이름 아래 해시태그', () => {
         club={{ ...baseClub, centralClub: false, college: null, department: null, foundedYear: 2002 }}
       />,
     );
-    // 데스크탑 히어로도 같은 문구를 그리므로(반응형은 CSS 로만 갈린다) 존재만 확인한다.
-    expect(screen.getAllByText('2002년 창설').length).toBeGreaterThan(0);
     expect(screen.queryByText(/글로벌경영대학/)).toBeNull();
   });
 });

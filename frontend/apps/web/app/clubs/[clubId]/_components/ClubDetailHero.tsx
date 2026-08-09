@@ -207,24 +207,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             </h1>
           </div>
 
-          {/* 소속·창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다.
-              소속까지 얹으면 좁은 화면에서 두 줄로 접히므로 items-start 로 신고하기를 첫 줄에 붙인다. */}
-          {(affiliationParts.length > 0
-            || club.foundedYear !== null
-            || club.cohortNumber !== null
-            || isAuthenticated) && (
+          {/* 소속(좌) 과 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다.
+              창설년도·기수는 이 줄에서 뺐다 — 창설년도는 바로 아래 통계에, 기수는 상세정보 탭에
+              이미 있어서 여기서 겹치기만 한다. 긴 소속이 접힐 때 신고하기가 첫 줄에 남도록 items-start. */}
+          {(affiliationParts.length > 0 || isAuthenticated) && (
             <div className="mt-2.5 flex items-start gap-3">
-              {(affiliationParts.length > 0
-                || club.foundedYear !== null
-                || club.cohortNumber !== null) && (
+              {affiliationParts.length > 0 && (
                 <div className="min-w-0 text-[12px] text-charcoal-3">
-                  {[
-                    ...affiliationParts,
-                    club.foundedYear !== null ? `${club.foundedYear}년 창설` : null,
-                    club.cohortNumber !== null ? `${club.cohortNumber}기` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  {affiliationParts.join(' · ')}
                 </div>
               )}
               {isAuthenticated && (
