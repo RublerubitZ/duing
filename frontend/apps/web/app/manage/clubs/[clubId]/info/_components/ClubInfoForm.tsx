@@ -54,7 +54,7 @@ const CATEGORY_LABELS: Record<ClubCategory, string> = {
 };
 
 const LOCKED_NOTICE =
-  '동아리명 · 카테고리 · 분과(또는 단과대학)는 총동연에서 관리하며 운영진은 수정할 수 없습니다.';
+  '동아리명 · 카테고리 · 분과(또는 단과대학)는 총동연에서 관리하며 운영진은 수정할 수 없습니다. 학과는 운영진이 직접 수정할 수 있습니다.';
 
 // 소개글 글자 수 정책 — 텍스트(getText) 기준. HTML 백스톱은 zod(clubProfileBaseSchema.description).
 const DESCRIPTION_TEXT_LIMIT = 1500;
@@ -108,6 +108,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const [category, setCategory] = useState<ClubCategory>(detail.category);
   const [division, setDivision] = useState(detail.division ?? '');
   const [college, setCollege] = useState<College | ''>(detail.college ?? '');
+  // 학과는 잠금 필드가 아니다 — 소속 학과는 운영진이 직접 최신으로 유지한다(단과대는 총동연 관리).
+  const [department, setDepartment] = useState(detail.department ?? '');
 
   // 편집 진입 시 레거시 plain 소개는 <p> 로 변환해 시드한다(개행 소실 방지). value 는 마운트 시 1회만 읽힌다.
   const [seededDescription] = useState(() => seedEditorHtml(detail.description ?? ''));
@@ -151,6 +153,10 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const parsedCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
   const parsedActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
   const parsedDivision = division.trim() === '' ? null : division;
+  // 서버 정규화(Club.normalizeDepartment)를 그대로 미러링한다. trim() 만으로는 부족한데,
+  // 서버는 문자열 가운데 NBSP 까지 일반 공백으로 바꾸기 때문이다 — 붙여넣은 "글로벌<NBSP>경영학과"
+  // 를 그대로 보내면 저장값과 폼 값이 영원히 달라 보여 매 저장마다 학과가 실려 나간다.
+  const normalizedDepartment = department.replace(/[\u00A0\u2007\u202F]/g, ' ').trim();
   const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
 
   function handleDescriptionChange(html: string, textLength: number) {
@@ -207,6 +213,11 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     // 회비 안내문은 주기/금액 쌍과 독립 — 비우기는 '' 전송(BE blankToNull) (§clear-intent)
     if (feeNote !== (detail.feeNote ?? '')) payload.feeNote = feeNote;
 
+    // 학과 — 중앙동아리는 입력 자체를 그리지 않으므로 담기지 않는다. 비우기는 '' 전송.
+    if (!detail.centralClub && normalizedDepartment !== (detail.department ?? '')) {
+      payload.department = normalizedDepartment;
+    }
+
     // 잠금 필드 diff 는 adminMode 일 때만 — leader/officer 페이로드엔 절대 들어가지 않는다.
     if (adminMode) {
       if (name !== detail.name) payload.name = name;
@@ -250,6 +261,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       membershipFeeAmount: nextFeeAmount,
       feeNote: feeNote || null,
       projects,
+      department: normalizedDepartment || null,
     };
     const parsed = adminMode
       ? adminUpdateClubSchema.safeParse({ ...baseData, name, category, division: parsedDivision })
@@ -440,6 +452,27 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 </>
               )}
             </div>
+
+            {/* 학과는 단과대 동아리에만 해당하고, 단과대학과 달리 운영진이 직접 수정한다. */}
+            {!detail.centralClub && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="학과" htmlFor="f-department">
+                  {readOnly ? (
+                    <LockedInput value={detail.department ?? '미지정'} />
+                  ) : (
+                    <input
+                      id="f-department"
+                      type="text"
+                      value={department}
+                      onChange={(event) => setDepartment(event.target.value)}
+                      maxLength={50}
+                      placeholder="예: 회계학과"
+                      className={inputCls}
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="창설년도" htmlFor="f-year">

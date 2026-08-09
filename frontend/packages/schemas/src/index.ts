@@ -401,6 +401,8 @@ const clubProfileBaseSchema = z.object({
   projects: z.array(clubProjectSchema).max(6, '활동 소개는 최대 6개까지 등록할 수 있어요.').optional(),
   // 회원 기수 표시 여부(표시 제어 전용). 생략 시 미변경.
   useGeneration: z.boolean().optional(),
+  // 소속 학과 — 자유입력·선택값. 잠금 필드가 아니라 운영진 폼에도 들어간다.
+  department: z.string().max(50, '학과는 50자 이하여야 합니다.').nullable().optional(),
 });
 
 export const updateClubSchema = clubProfileBaseSchema.refine(feePairRule.check, feePairRule.options);

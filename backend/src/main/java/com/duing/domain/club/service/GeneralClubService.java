@@ -74,7 +74,8 @@ public class GeneralClubService implements ClubService {
                 createClubCommand.description(),
                 createClubCommand.logoUrl(),
                 createClubCommand.centralClub(),
-                createClubCommand.college()
+                createClubCommand.college(),
+                createClubCommand.department()
         );
         Club savedClub = clubRepository.save(club);
 

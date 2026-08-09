@@ -7,7 +7,9 @@ import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
+import { collegeDisplayName } from '../../../_lib/college';
 import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
+import { divisionLabelOrNull } from '../../_lib/clubs';
 import { pickColor } from '../../_lib/clubAdapter';
 import { ClubDetailTopBar } from './ClubDetailTopBar';
 
@@ -19,6 +21,17 @@ type Props = {
 
 export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
+  // 소속 보조 표기 — 중앙은 분과, 단과대는 학과. 비중앙 행의 division 은 단과대명·분과명이 섞인
+  // 잔여 데이터라 centralClub 게이트로 함께 막는다(탐색 카드와 같은 규칙).
+  const affiliation = club.centralClub ? divisionLabelOrNull(club.division) : club.department;
+  // 모바일 히어로용 소속 조각 — 데스크탑은 카테고리 pill 옆이라 짧게(분과/학과) 두지만,
+  // 모바일에는 소속을 보여줄 자리가 여기뿐이라 단과대 동아리는 단과대학까지 함께 밝힌다.
+  // 값이 없는 조각은 통째로 빠지고, 전부 없으면 소속 표기 자체를 그리지 않는다.
+  const affiliationParts = (
+    club.centralClub
+      ? [divisionLabelOrNull(club.division)]
+      : [club.college != null && collegeDisplayName(club.college), club.department]
+  ).filter((part): part is string => typeof part === 'string' && part.length > 0);
   const initial = club.name.trim().charAt(0);
   // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
   const logoColor = pickColor(club.id);
@@ -88,7 +101,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   {club.centralClub && <span className="pill pill-solid">🏛️ 중앙동아리</span>}
                   <span className="pill">
                     {categoryLabel}
-                    {club.division ? ` · ${club.division}` : ''}
+                    {affiliation ? ` · ${affiliation}` : ''}
                   </span>
                   {recruitmentDisplayStatus && (
                     <span className="pill pill-solid">
@@ -178,7 +191,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은
                 글자 단위로 쪼개 잘림을 막는다. 글꼴 확대(OS 접근성 설정) 상태까지 방어. */}
             <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]">
-              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
+              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 단과대/일반. */}
               {club.centralClub ? (
                 <>
                   {nameHead}
@@ -194,14 +207,14 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             </h1>
           </div>
 
-          {/* 창설년도·기수(좌) 와 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다. */}
-          {(club.foundedYear !== null || club.cohortNumber !== null || isAuthenticated) && (
-            <div className="mt-2.5 flex items-center gap-3">
-              {(club.foundedYear !== null || club.cohortNumber !== null) && (
+          {/* 소속(좌) 과 신고하기(우) 한 행 — 이름 행 폭을 비워 긴 동아리명을 살린다.
+              창설년도·기수는 이 줄에서 뺐다 — 창설년도는 바로 아래 통계에, 기수는 상세정보 탭에
+              이미 있어서 여기서 겹치기만 한다. 긴 소속이 접힐 때 신고하기가 첫 줄에 남도록 items-start. */}
+          {(affiliationParts.length > 0 || isAuthenticated) && (
+            <div className="mt-2.5 flex items-start gap-3">
+              {affiliationParts.length > 0 && (
                 <div className="min-w-0 text-[12px] text-charcoal-3">
-                  {club.foundedYear !== null && `${club.foundedYear}년 창설`}
-                  {club.foundedYear !== null && club.cohortNumber !== null && ' · '}
-                  {club.cohortNumber !== null && `${club.cohortNumber}기`}
+                  {affiliationParts.join(' · ')}
                 </div>
               )}
               {isAuthenticated && (

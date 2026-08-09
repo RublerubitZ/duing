@@ -29,8 +29,17 @@ const FEE_STATUS: Record<MemberFeeStatus, { label: string; className: string }> 
 function FeeBadge({ status }: { status: MemberFeeStatus }) {
   const { label, className } = FEE_STATUS[status];
   if (status === 'NONE') return <span className="text-charcoal-3">—</span>;
+  // shrink-0/nowrap 은 모바일 카드용 — 좁은 폭에서 배지가 눌려 '납/부' 로 접히는 것을 막는다.
+  // 데스크탑 표에서는 셀 안 인라인 요소라 아무 영향이 없다.
   return (
-    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', className)}>{label}</span>
+    <span
+      className={cn(
+        'shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
+        className,
+      )}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -84,9 +93,11 @@ export function MemberTable({
 
   return (
     <>
-      {/* 데스크탑/태블릿: 표 */}
-      <div className="card hidden overflow-x-auto md:block">
-        <table className="w-full text-sm">
+      {/* 데스크탑: 표. 태블릿(md~lg)은 사이드바 280px 이 빠져 본문이 ~416px 뿐이라 표를 넣으면
+          한글이 한 글자씩 세로로 접힌다 — 그 구간은 아래 카드 리스트가 맡는다.
+          min-w 는 상세 패널이 열려 표 컬럼이 좁아졌을 때의 최후 방어선(그 아래로는 카드가 가로 스크롤). */}
+      <div className="card hidden overflow-x-auto lg:block">
+        <table className="w-full min-w-[520px] text-sm">
           <thead className="bg-cream text-left">
             <tr>
               {selectable && (
@@ -170,8 +181,8 @@ export function MemberTable({
         </table>
       </div>
 
-      {/* 모바일: 카드 리스트 */}
-      <div className="space-y-2.5 md:hidden">
+      {/* 모바일·태블릿: 카드 리스트 */}
+      <div className="space-y-2.5 lg:hidden">
         {members.map((member) => {
           const isSelected = selectedIds.has(member.memberId);
           return (
@@ -185,14 +196,20 @@ export function MemberTable({
             >
               <div className="flex items-start gap-2.5">
                 {selectable && (
-                  <input
-                    type="checkbox"
-                    aria-label={`${member.name} 선택`}
-                    checked={isSelected}
+                  // 터치 영역 확보(16px → 32px). 카드 전체가 상세를 여는 클릭 대상이라, 체크박스를
+                  // 살짝 빗나간 탭이 상세 패널을 연다. 음수 마진으로 차지하는 자리는 그대로 둔다.
+                  <label
+                    className="-m-2 flex shrink-0 cursor-pointer p-2"
                     onClick={(event) => event.stopPropagation()}
-                    onChange={() => onToggleSelect(member.memberId)}
-                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
-                  />
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`${member.name} 선택`}
+                      checked={isSelected}
+                      onChange={() => onToggleSelect(member.memberId)}
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                    />
+                  </label>
                 )}
                 <InitialAvatar name={member.name} />
                 <div className="min-w-0 flex-1">
@@ -205,25 +222,30 @@ export function MemberTable({
                   <p className="mt-0.5 text-xs text-charcoal-3">
                     {member.major} · {GRADE_DISPLAY_NAME[member.grade]}
                   </p>
-                  <div className="mt-2 flex items-center gap-2 pt-2 text-xs text-charcoal-2">
-                    {useGeneration && <span>{generationLabel(member)}</span>}
+                  {/* 좁은 폭(≤360px)에서는 한 줄에 다 못 들어간다 — 각 항목은 줄바꿈하지 않고(shrink-0)
+                      행이 통째로 접히게 둔다. 안 그러면 '2기'·'납부'·'상세' 가 글자 단위로 세로로 쪼개진다. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 pt-2 text-xs text-charcoal-2">
+                    {useGeneration && <span className="shrink-0">{generationLabel(member)}</span>}
                     <FeeBadge status={member.feeStatus} />
-                    <span className="ml-auto font-mono text-charcoal-3">
-                      {formatDateKst(member.joinedAt)}
+                    {/* 가입일과 상세 버튼은 한 덩어리로 접힌다 — 따로 두면 줄이 갈릴 때 버튼만 왼쪽에 남는다. */}
+                    <span className="ml-auto flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-charcoal-3">
+                        {formatDateKst(member.joinedAt)}
+                      </span>
+                      {/* 카드 자체는 포인터 편의용 onClick 일 뿐이라, 키보드·스크린리더가 상세 패널에
+                          도달할 유일한 통로로 데스크탑 표와 동일한 상세 버튼을 둔다. */}
+                      <button
+                        type="button"
+                        aria-label={`${member.name} 상세`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenDetail(member);
+                        }}
+                        className="btn btn-ghost btn-sm -my-1"
+                      >
+                        상세
+                      </button>
                     </span>
-                    {/* 카드 자체는 포인터 편의용 onClick 일 뿐이라, 키보드·스크린리더가 상세 패널에
-                        도달할 유일한 통로로 데스크탑 표와 동일한 상세 버튼을 둔다. */}
-                    <button
-                      type="button"
-                      aria-label={`${member.name} 상세`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenDetail(member);
-                      }}
-                      className="btn btn-ghost btn-sm -my-1"
-                    >
-                      상세
-                    </button>
                   </div>
                 </div>
               </div>

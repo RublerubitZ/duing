@@ -9,10 +9,15 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.exception.JoinCodeException;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.service.dto.command.CreateJoinCodeCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -39,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
@@ -51,6 +57,8 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
+    @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JdbcTemplate jdbcTemplate;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
@@ -139,6 +147,59 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
                 .as("삭제된 모집에 활성 코드가 남으면 학생이 계속 유입되는 고아 코드가 된다").isZero();
     }
 
+    @Test
+    @DisplayName("가입 코드 수동 폐기와 재생성이 동시에 일어나도 구 코드의 폐기 기록은 최초 1건만 남는다")
+    void concurrentRevokeAndRegenerateKeepsSingleRevocation() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        User officer = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        Recruitment recruitment = saveExternalRecruitment(club);
+        ClubJoinCode oldCode = clubJoinCodeRepository.save(
+                ClubJoinCode.issue(club, recruitment, "RJCC01", 13, 30, 7, leader.getId()));
+
+        // 걸쇠로 두 스레드를 같은 순간에 풀어 인터리빙 확률을 높인다(레포 동시성 테스트 전례) —
+        // 걸쇠가 없으면 두 트랜잭션이 겹치지 않아 경쟁이 일어나지 않은 채 조용히 통과한다.
+        CountDownLatch startGate = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<Future<Throwable>> outcomes;
+        try {
+            outcomes = List.of(
+                    pool.submit(() -> awaitThen(startGate, () -> tryRevoke(
+                            club.getId(), recruitment.getId(), oldCode.getId(), leader.getId()))),
+                    pool.submit(() -> awaitThen(startGate,
+                            () -> tryCreate(club.getId(), recruitment.getId(), officer.getId()))));
+            startGate.countDown();
+        } finally {
+            pool.shutdown();
+        }
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS))
+                .as("동시 폐기·재생성 테스트가 시간 내에 완료").isTrue();
+
+        List<Throwable> failures = outcomes.stream().map(this::quietGet).filter(java.util.Objects::nonNull).toList();
+        // 폐기가 먼저면 재생성은 최초 생성이 되고, 재생성이 먼저면 수동 폐기는 멱등으로 끝난다.
+        assertThat(failures).as("두 경로 모두 성공한다").isEmpty();
+
+        List<ClubAuditEvent> oldCodeRevocations = clubAuditEventRepository
+                .findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
+                .filter(event -> event.getEventType() == ClubAuditEventType.JOIN_LINK_REVOKED
+                        && oldCode.getId().equals(event.getJoinCodeId()))
+                .toList();
+        assertThat(oldCodeRevocations)
+                .as("한 번 일어난 폐기가 두 번 기록되면 감사 이력이 거짓말이 된다").hasSize(1);
+        ClubJoinCode reloadedOldCode = clubJoinCodeRepository.findById(oldCode.getId()).orElseThrow();
+        assertThat(reloadedOldCode.getRevokedAt()).as("구 코드는 어느 순서에서도 폐기된다").isNotNull();
+        assertThat(reloadedOldCode.getRevokedById())
+                .as("뒤늦은 경쟁 트랜잭션이 최초 폐기자를 덮어쓰면 행과 감사 이력이 어긋난다")
+                .isEqualTo(oldCodeRevocations.get(0).getActorUserId());
+        Integer activeCodeCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_join_code "
+                        + "WHERE recruitment_id = ? AND revoked_at IS NULL AND deleted_at IS NULL",
+                Integer.class, recruitment.getId());
+        assertThat(activeCodeCount).as("재생성된 활성 코드 1개만 남는다").isEqualTo(1);
+    }
+
     private Throwable awaitThen(CountDownLatch startGate, Callable<Throwable> task) throws Exception {
         startGate.await();
         return task.call();
@@ -162,6 +223,15 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
     private Throwable tryCreate(Long clubId, Long recruitmentId, Long requesterId) {
         try {
             joinCodeService.create(new CreateJoinCodeCommand(clubId, recruitmentId, requesterId, 30, 7, 1));
+            return null;
+        } catch (Throwable failure) {
+            return failure;
+        }
+    }
+
+    private Throwable tryRevoke(Long clubId, Long recruitmentId, Long joinCodeId, Long requesterId) {
+        try {
+            joinCodeService.revoke(clubId, recruitmentId, joinCodeId, requesterId);
             return null;
         } catch (Throwable failure) {
             return failure;

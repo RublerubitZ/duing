@@ -12,7 +12,10 @@ import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Set;
 
-/** 리더/어드민 공용 수정 커맨드. 리더 요청은 잠금 필드(name/category/division/college)에 항상 null 을 넣는다. */
+/**
+ * 리더/어드민 공용 수정 커맨드. 리더 요청은 잠금 필드(name/category/division/college)에 항상 null 을 넣는다.
+ * department(학과)는 잠금 대상이 아니라 리더도 채워 보낸다 — 소속 학과는 운영진이 최신으로 유지한다.
+ */
 public record UpdateClubCommand(
         Long clubId,
         Long requesterId,
@@ -41,7 +44,8 @@ public record UpdateClubCommand(
         Boolean clearLogoImage,
         Boolean clearCoverImage,
         Boolean useGeneration,
-        String feeNote
+        String feeNote,
+        String department
 ) {
     public Club.UpdatePayload toPayload() {
         return new Club.UpdatePayload(
@@ -50,7 +54,7 @@ public record UpdateClubCommand(
                 activityFrequency(), activeDays(), tagline(), highlights(),
                 contactVisibility(), feeCycle(), membershipFeeAmount(), projects(),
                 college(), clearCollege(), clearLogoImage(), clearCoverImage(), useGeneration(),
-                feeNote()
+                feeNote(), department()
         );
     }
 }

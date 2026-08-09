@@ -38,7 +38,7 @@ public interface AdminClubApi {
             @Parameter(description = "상태 필터 (미지정 시 전체)") @RequestParam(required = false) ClubStatus status,
             @Parameter(description = "카테고리 필터") @RequestParam(required = false) ClubCategory category,
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
-            @Parameter(description = "이름/설명 키워드") @RequestParam(required = false) String keyword,
+            @Parameter(description = "이름/소개/태그/학과 키워드") @RequestParam(required = false) String keyword,
             @Parameter(hidden = true) Pageable pageable
     );
 

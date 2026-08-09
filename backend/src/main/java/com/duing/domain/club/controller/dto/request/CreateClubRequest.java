@@ -3,6 +3,7 @@ package com.duing.domain.club.controller.dto.request;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.user.entity.College;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -33,9 +34,19 @@ public record CreateClubRequest(
 
         boolean centralClub,
 
-        College college
+        College college,
+
+        @Size(max = 50, message = "학과는 50자 이하여야 합니다.")
+        String department
 ) {
+    /** 단과대 동아리는 소속 단과대학이 정체성 — 학과(department)는 선택값이라 함께 강제하지 않는다. */
+    @AssertTrue(message = "단과대 동아리는 소속 단과대학을 선택해야 합니다.")
+    public boolean isCollegePresentForNonCentral() {
+        return centralClub || college != null;
+    }
+
     public CreateClubCommand toCommand() {
-        return new CreateClubCommand(name, category, division, description, logoUrl, leaderId, centralClub, college);
+        return new CreateClubCommand(
+                name, category, division, description, logoUrl, leaderId, centralClub, college, department);
     }
 }

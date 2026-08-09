@@ -11,5 +11,6 @@ public record CreateClubCommand(
         String logoUrl,
         Long leaderId,
         boolean centralClub,
-        College college
+        College college,
+        String department
 ) {}

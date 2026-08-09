@@ -60,4 +60,24 @@ describe('AdminClubCreateForm', () => {
     const lastCall = mockImageUploader.mock.calls.at(-1)?.[0];
     expect(lastCall?.value).toBe('https://storage.example.com/x.jpg');
   });
+
+  it('중앙동아리 체크를 해제하면 단과대학과 학과 입력이 나타난다', () => {
+    render(<AdminClubCreateForm />);
+    expect(screen.getByText('단과대학')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('예: 회계학과 (선택)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.queryByPlaceholderText('예: 회계학과 (선택)')).toBeNull();
+    expect(screen.getByText('분과')).toBeInTheDocument();
+  });
+
+  it('단과대학을 고르지 않고 제출하면 단과대학 선택을 요구한다', () => {
+    render(<AdminClubCreateForm />);
+    fireEvent.change(screen.getByPlaceholderText('예: 두잉 코딩 동아리'), {
+      target: { value: '회계연구회' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '등록' }));
+
+    expect(screen.getByText('단과대 동아리는 단과대학을 선택해주세요.')).toBeInTheDocument();
+  });
 });

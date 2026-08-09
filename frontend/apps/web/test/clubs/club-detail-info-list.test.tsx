@@ -11,6 +11,7 @@ const baseClub: ClubDetail = {
   category: 'ACADEMIC',
   division: null,
   college: null,
+  department: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: [],
@@ -137,5 +138,40 @@ describe('ClubDetailInfoList — 대표 연락처 정책', () => {
 
     expect(screen.queryByText('대표 연락처')).not.toBeInTheDocument();
     expect(screen.getByText('창설년도')).toBeInTheDocument();
+  });
+
+  it('단과대 동아리는 단과대·학과 행을 표시한다', () => {
+    render(
+      <ClubDetailInfoList
+        club={{ ...baseClub, centralClub: false, college: 'GLOBAL_BUSINESS', department: '회계학과' }}
+      />,
+    );
+
+    expect(screen.getByText('단과대')).toBeInTheDocument();
+    expect(screen.getByText('글로벌경영대학')).toBeInTheDocument();
+    expect(screen.getByText('학과')).toBeInTheDocument();
+    expect(screen.getByText('회계학과')).toBeInTheDocument();
+  });
+
+  it('학과가 없는 단과대 동아리는 학과 행을 만들지 않는다', () => {
+    render(
+      <ClubDetailInfoList
+        club={{ ...baseClub, centralClub: false, college: 'GLOBAL_BUSINESS', department: null }}
+      />,
+    );
+
+    expect(screen.getByText('단과대')).toBeInTheDocument();
+    expect(screen.queryByText('학과')).toBeNull();
+  });
+
+  it('중앙동아리는 소속 값이 남아 있어도 단과대·학과 행을 그리지 않는다', () => {
+    render(
+      <ClubDetailInfoList
+        club={{ ...baseClub, centralClub: true, college: 'GLOBAL_BUSINESS', department: '회계학과' }}
+      />,
+    );
+
+    expect(screen.queryByText('단과대')).toBeNull();
+    expect(screen.queryByText('학과')).toBeNull();
   });
 });

@@ -19,6 +19,7 @@ const CLUB_DETAIL: ClubDetail = {
   category: 'ACADEMIC',
   division: '1',
   college: null,
+  department: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: ['개발'],

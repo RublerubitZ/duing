@@ -12,6 +12,7 @@ function club(id: number, name: string, endDate: string | null): ClubSummary {
     category: 'ACADEMIC',
     division: null,
     college: null,
+    department: null,
     logoUrl: null,
     status: 'ACTIVE',
     tags: [],

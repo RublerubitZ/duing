@@ -48,6 +48,7 @@ export function AdminClubCreateForm() {
   const [leader, setLeader] = useState<AdminUserSearchResult | null>(null);
   const [centralClub, setCentralClub] = useState(false);
   const [college, setCollege] = useState<College | ''>('');
+  const [department, setDepartment] = useState('');
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -57,6 +58,9 @@ export function AdminClubCreateForm() {
     if (trimmedName.length > 100) return '동아리 이름은 100자 이하여야 합니다.';
     if (division.trim().length > 50) return '분류는 50자 이하여야 합니다.';
     if (logoUrl.trim().length > 500) return '로고 이미지 경로가 너무 깁니다.';
+    // 단과대학은 단과대 동아리의 정체성 — BE 도 같은 조건으로 거부한다.
+    if (!centralClub && college === '') return '단과대 동아리는 단과대학을 선택해주세요.';
+    if (department.trim().length > 50) return '학과는 50자 이하여야 합니다.';
     if (!leader) return '동아리장(회장) 을 검색해 선택해주세요.';
     return null;
   }
@@ -81,6 +85,7 @@ export function AdminClubCreateForm() {
       logoUrl: logoUrl.trim() || undefined,
       leaderId: leader.id,
       centralClub,
+      department: centralClub ? undefined : department.trim() || undefined,
     };
 
     mutation.mutate(payload, {
@@ -133,6 +138,7 @@ export function AdminClubCreateForm() {
               setCentralClub(event.target.checked);
               setDivision('');
               setCollege('');
+              setDepartment('');
             }}
             className="h-4 w-4 rounded border-slate-300"
           />
@@ -154,18 +160,32 @@ export function AdminClubCreateForm() {
           </select>
         </Field>
       ) : (
-        <Field label="단과대학">
-          <select
-            value={college}
-            onChange={(event) => setCollege(event.target.value as College | '')}
-            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
-          >
-            <option value="">단과대학 선택</option>
-            {COLLEGE_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>{option.label}</option>
-            ))}
-          </select>
-        </Field>
+        <>
+          <Field label="단과대학" required>
+            <select
+              value={college}
+              onChange={(event) => setCollege(event.target.value as College | '')}
+              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">단과대학 선택</option>
+              {COLLEGE_OPTIONS.map((option) => (
+                <option key={option.code} value={option.code}>{option.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          {/* 학과는 선택 — 단과대 단위로만 활동하고 특정 학과에 속하지 않는 동아리가 있다. */}
+          <Field label="학과">
+            <input
+              type="text"
+              value={department}
+              onChange={(event) => setDepartment(event.target.value)}
+              maxLength={50}
+              placeholder="예: 회계학과 (선택)"
+              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </Field>
+        </>
       )}
 
       <Field label="설명">

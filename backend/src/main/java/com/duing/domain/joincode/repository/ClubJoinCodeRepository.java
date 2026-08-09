@@ -139,6 +139,28 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     Optional<ClubJoinCode> findWithLockById(@Param("joinCodeId") Long joinCodeId);
 
     /**
+     * 모집 가입 링크 재생성이 교체 대상(활성 코드)을 잠그고 읽는다 — 발급과 수동 폐기가 같은
+     * 모집에 대해 직렬화된다(부원 초대 링크의 형제 메서드와 같은 규약).
+     *
+     * <p>재생성 경로는 반드시 <b>이 메서드로 활성 코드를 처음 읽어야</b> 한다. 잠그지 않은
+     * {@code findByRecruitmentIdAndRevokedAtIsNull} 로 먼저 로딩하면 이미 영속성 컨텍스트에 올라온
+     * 엔티티는 잠금만 걸릴 뿐 필드가 갱신되지 않아, 그 사이 커밋된 수동 폐기를 보지 못한 채 낡은
+     * {@code revokedAt} 으로 판단하게 된다({@code findWithLockByCode} 와 같은 함정).
+     *
+     * <p>활성 술어를 잠금 조회 자체에 두는 이유: READ COMMITTED 는 잠금 대기 후 술어를 재평가하므로,
+     * 먼저 커밋된 폐기가 있으면 빈 결과가 되어 호출부가 "교체할 것이 없다"를 그대로 읽는다 —
+     * 폐기 여부를 다시 검사하는 분기 없이 최초 폐기 시각·폐기자와 감사 이력이 보존된다.
+     *
+     * <p>조인 별칭 없이 FK 컬럼({@code recruitment_id})으로 비교하는 이유: 조인이 섞인 SELECT 에는
+     * PostgreSQL 의 {@code FOR UPDATE} 를 그대로 붙일 수 없다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT joinCode FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.recruitment.id = :recruitmentId AND joinCode.revokedAt IS NULL")
+    Optional<ClubJoinCode> findWithLockByRecruitmentIdAndRevokedAtIsNull(
+            @Param("recruitmentId") Long recruitmentId);
+
+    /**
      * 부원 초대 링크 재발급이 교체 대상(활성 링크)을 잠그고 읽는다 — 발급과 수동 폐기가 같은
      * 동아리에 대해 직렬화된다.
      *

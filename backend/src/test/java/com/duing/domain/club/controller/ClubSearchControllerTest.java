@@ -52,7 +52,7 @@ class ClubSearchControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("centralClub=false&college=IT_ENGINEERING 이면 해당 단과대 학과동아리만 반환된다")
+    @DisplayName("centralClub=false&college=IT_ENGINEERING 이면 해당 단과대 동아리만 반환된다")
     void departmentCollegeFilter() throws Exception {
         Club central = saveActiveClub("중앙클럽필터", true, null);
         Club itDept = saveActiveClub("IT학과클럽", false, College.IT_ENGINEERING);
