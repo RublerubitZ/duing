@@ -10,9 +10,10 @@ type Row = { label: string; value: string | null; note?: string | null };
 export function ClubDetailInfoList({ club }: Props) {
   const rows: Row[] = [];
   // 소속 정보는 단과대 동아리에만 해당 — 값이 없는 행은 아예 만들지 않는다(placeholder 금지).
+  // department 는 배포 전환기(구 백엔드 응답)에 아예 없을 수 있어 != null 로 undefined 까지 걸러낸다.
   if (!club.centralClub) {
-    if (club.college !== null) rows.push({ label: '단과대', value: collegeDisplayName(club.college) });
-    if (club.department !== null) rows.push({ label: '학과', value: club.department });
+    if (club.college != null) rows.push({ label: '단과대', value: collegeDisplayName(club.college) });
+    if (club.department != null) rows.push({ label: '학과', value: club.department });
   }
   if (club.leaderName !== null) rows.push({ label: '동아리 회장', value: club.leaderName });
   if (club.foundedYear !== null) rows.push({ label: '창설년도', value: `${club.foundedYear}년` });
