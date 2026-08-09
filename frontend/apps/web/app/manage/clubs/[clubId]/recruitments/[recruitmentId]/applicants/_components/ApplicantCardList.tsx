@@ -55,7 +55,7 @@ export function ApplicantCardList({
               'card cursor-pointer border-l-4 p-3 transition',
               STATUS_STRIPE_CLASS[applicant.status],
               // 선택 표시는 배경만 바꾼다 — border-sage 를 주면 왼쪽 상태 띠 색을 덮어쓴다.
-              isSelected && 'bg-cream/60',
+              isSelected && 'bg-sage-tint',
             )}
           >
             <div className="flex items-start gap-0.5">

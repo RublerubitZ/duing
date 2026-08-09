@@ -148,7 +148,7 @@ describe('모바일 지원자 카드 리스트', () => {
   it('선택된 카드는 배경으로 표시하되 상태 띠 색을 덮지 않는다', () => {
     renderList([baseApplicant], [1]);
     const card = screen.getByText('컴퓨터공학과').closest('[data-applicant-card]');
-    expect(card?.className).toContain('bg-cream/60');
+    expect(card?.className).toContain('bg-sage-tint');
     expect(card?.className).toContain('border-l-sky-400');
     expect(card?.className).not.toContain('border-sage');
   });
