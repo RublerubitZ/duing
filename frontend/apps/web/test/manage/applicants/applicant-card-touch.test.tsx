@@ -173,18 +173,26 @@ describe('모바일 지원자 카드 — 선택 영역과 상세 이동 분리',
   });
 
   /*
-   * 의도된 정책: 선택 영역은 카드 상태와 무관하게 항상 선택 영역이다. 최종 상태라 선택이 막힌
-   * 카드에서 이 영역이 상세 이동으로 새어버리면, 다중 선택 도중 손가락이 스치는 순간 화면이
-   * 튀고 선택이 통째로 날아간다 — 이 PR 이 없애려는 바로 그 사고다. 데스크탑 표도 동일 규칙.
+   * 최종 상태 카드는 선택할 것이 없으므로 히트 영역을 두지 않는다. 전파를 끊으면 카드 좌측 절반이
+   * 아무 반응 없는 영역이 되기 때문. 선택이 불가능한 카드라 오터치로 잃을 선택도 없다.
    */
-  it('최종 상태(ACCEPTED) 카드의 히트 영역은 선택도 이동도 하지 않는다', () => {
+  it('최종 상태(ACCEPTED) 카드는 체크박스 영역을 눌러도 상세로 이동한다', () => {
     const onSelect = vi.fn();
     renderTable({ applicants: [{ ...baseApplicant, status: 'ACCEPTED' }], onSelect });
 
     fireEvent.click(mobileHitArea('홍길동'));
 
     expect(onSelect).not.toHaveBeenCalled();
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(pushMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('최종 상태 카드의 체크박스는 비활성이고 탭을 삼키지 않는다', () => {
+    renderTable({ applicants: [{ ...baseApplicant, status: 'ACCEPTED' }] });
+
+    const checkbox = mobileCheckbox('홍길동');
+    expect(checkbox).toBeDisabled();
+    // 비활성 체크박스는 클릭 이벤트 자체가 안 뜨므로, 그 위 탭이 카드로 내려가도록 pointer-events 를 끈다.
+    expect(checkbox).toHaveClass('disabled:pointer-events-none');
   });
 
   it('최종 상태 카드도 본문을 누르면 상세로 이동한다', () => {

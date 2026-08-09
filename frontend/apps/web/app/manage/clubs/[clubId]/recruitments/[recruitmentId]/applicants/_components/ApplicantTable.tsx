@@ -184,17 +184,16 @@ export function ApplicantTable({
                  * 자주 카드로 새어 상세로 이동해버리므로, 44px 라벨로 감싸 히트 영역을 넓히고
                  * 라벨에서 전파를 끊는다. 음수 마진(-my-3 -ml-3 = 카드 padding)으로 카드 좌상단
                  * 모서리까지 히트 영역을 밀어내되 레이아웃 높이는 그대로 둔다.
-                 * 최종 상태(선택 불가) 카드에서도 전파를 끊어 이 영역은 상세로 이동하지 않는다 —
-                 * 다중 선택 중 손가락이 최종 상태 카드에 닿아 화면이 튀고 선택이 통째로 날아가는
-                 * 쪽이 "반응 없음"보다 나쁘다. 데스크탑 표(td stopPropagation)와도 같은 규칙이다.
-                 * 주의: 라벨 클릭은 input 으로 포워딩됐다 되돌아와 이 onClick 이 2회 실행된다.
+                 * 최종 상태 카드는 선택할 것이 없으므로 히트 영역을 두지 않는다 — 전파를 끊으면
+                 * 카드 높이의 절반이 아무 반응 없는 영역이 된다. 44px 박스는 정렬을 위한 자리로만
+                 * 남기고(전파 차단 없음), 비활성 체크박스는 pointer-events 를 꺼 탭이 카드까지
+                 * 내려가게 한다. 선택할 것이 없는 카드라 오터치로 잃을 선택도 없다.
+                 * 주의: 라벨 클릭은 input 으로 포워딩됐다 되돌아와 onClick 이 2회 실행된다.
                  * 부수효과 있는 로직을 여기 얹지 말 것(토글은 input 의 onChange 가 1회만 받는다).
                  */}
                 <label
-                  onClick={(event) => event.stopPropagation()}
-                  className={`-my-3 -ml-3 grid h-11 w-11 shrink-0 place-items-center ${
-                    isTerminal ? 'cursor-not-allowed' : 'cursor-pointer'
-                  }`}
+                  onClick={isTerminal ? undefined : (event) => event.stopPropagation()}
+                  className="-my-3 -ml-3 grid h-11 w-11 shrink-0 place-items-center"
                 >
                   <input
                     type="checkbox"
@@ -203,7 +202,7 @@ export function ApplicantTable({
                     disabled={isTerminal}
                     onChange={() => toggleRow(applicant.applicationId, applicant.status)}
                     title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:pointer-events-none disabled:opacity-50"
                   />
                 </label>
                 <div className="min-w-0 flex-1">
