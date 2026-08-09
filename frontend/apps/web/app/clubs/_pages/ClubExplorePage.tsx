@@ -284,7 +284,7 @@ export function ClubExplorePage() {
                 <input
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
-                  placeholder="동아리 이름·소개 검색"
+                  placeholder="동아리 이름·소개·학과 검색"
                   className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
@@ -620,7 +620,7 @@ export function ClubExplorePage() {
             <input
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
-              placeholder="동아리 이름 · 관심사 검색"
+              placeholder="동아리 이름 · 관심사 · 학과 검색"
               className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
               style={{ fontFamily: 'inherit' }}
             />

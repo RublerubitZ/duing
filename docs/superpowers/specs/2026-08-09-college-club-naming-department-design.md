@@ -28,7 +28,7 @@
 
 | 항목 | 건수 |
 |---|---|
-| `college IS NULL` | 12 |
+| `college IS NULL` | 13 |
 | `division` 잔여값 보유 | 3 (`"공과대학"`, `"전시창작"`, `"사회"`) |
 
 `division` 잔여값은 전부 단과대명 또는 분과명이고 **학과명이 아니다.** 자동 매핑 불가.
@@ -150,6 +150,12 @@ export const SCOPE_CLUB_LABEL = { 중앙: '중앙동아리', 학과: '단과대 
 `clubs/_lib/clubs.ts` · `clubs/_lib/clubAdapter.ts` · `ScopeChip` · `ClubCard` · `ClubListItem` ·
 `ClubExplorePage` · `ClubDetailHero` · `ClubDetailInfoList` · `ClubInfoForm` · `AdminClubCreateForm`
 
+### 6.6 키워드 검색
+
+`/clubs` 키워드 검색 대상에 학과를 더한다. 기존 대상은 동아리명·소개·태그였고, 여기에 학과를
+넣으면 "회계학과" 로 단과대 동아리를 바로 찾을 수 있다. 분과·단과대학은 이미 전용 필터가 있어
+키워드까지 태우지 않는다. 검색창 안내 문구도 실제 대상과 맞춘다.
+
 ## 7. 테스트
 
 - **BE**: 단과대 동아리 생성 시 college 누락 → 400 / college 포함 → 성공 / 학과 없이 생성 성공 /
@@ -176,7 +182,7 @@ export const SCOPE_CLUB_LABEL = { 중앙: '중앙동아리', 학과: '단과대 
 - 학과명 표준화·자동 정규화·학과 마스터 데이터 (자유입력 + trim 만)
 - 카드에 단과대학과 학과를 **동시에** 표기 (학과가 있으면 학과만 — 폭이 좁다)
 - 데스크탑 히어로 pill 에 단과대학 추가 (카테고리 옆이라 짧게 유지)
-- 학과 기준 검색/필터 신규 추가 (기존 단과대 필터만 유지)
+- 학과 **전용 필터** 신규 추가 (칩·드롭다운 — 키워드 검색으로만 닿는다)
 - 기존 `division` 잔여 데이터 정리·삭제
 - 총동연 목록/상세 테이블에 학과 컬럼 추가
 - **`centralClub` 토글 API의 college 필수 검증** — 토글은 `Club.update()` 를 거치지 않아

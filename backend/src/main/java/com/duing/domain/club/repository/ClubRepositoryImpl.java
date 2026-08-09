@@ -171,8 +171,11 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 ","
         ).like("%" + normalized.toLowerCase(Locale.ROOT) + "%");
 
+        // 학과는 단과대 동아리를 찾는 실제 단서라 검색 대상에 넣는다("회계학과" 로 찾기).
+        // 분과·단과대학은 이미 전용 필터가 있어 키워드까지 태우지 않는다.
         return club.name.containsIgnoreCase(normalized)
                 .or(club.description.containsIgnoreCase(normalized))
+                .or(club.department.containsIgnoreCase(normalized))
                 .or(tagMatch);
     }
 
