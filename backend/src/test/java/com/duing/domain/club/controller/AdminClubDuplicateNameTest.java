@@ -166,6 +166,10 @@ class AdminClubDuplicateNameTest extends IntegrationTestBase {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", name);
         body.put("category", ClubCategory.ACADEMIC.name());
+        // 이 수트의 관심사는 이름 유일성이라 소속은 검증만 통과하면 된다. 비중앙 동아리는 단과대학이
+        // 필수(CreateClubRequest#isCollegePresentForNonCentral)이므로, 이미 분과를 싣고 있는 흐름에
+        // 맞춰 중앙동아리로 보낸다 — 안 그러면 생성이 400 이라 이름 판정에 닿지도 못한다.
+        body.put("centralClub", true);
         body.put("division", "분과");
         body.put("description", "설명");
         body.put("leaderId", leaderUser.getId());
