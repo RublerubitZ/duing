@@ -288,3 +288,38 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
     );
   });
 });
+
+// 여기만 ApplicantDetailPage 를 실제로 렌더한다 — 컨테이너 레이아웃 회귀 가드를 함께 둔다.
+// jsdom 은 레이아웃을 계산하지 못하므로 실측으로 확정된 결함을 클래스로 못박는다.
+describe('지원자 상세 — 컨테이너 레이아웃', () => {
+  it('두 컬럼은 min-w-0 이고 컨테이너는 하단 바 자리를 10rem 예약한다', async () => {
+    server.use(recruitmentHandler('OPEN'), applicantDetailHandler(false), neighborsHandler);
+
+    renderWithProviders(
+      <ApplicantDetailPage
+        clubId={CLUB_ID}
+        recruitmentId={RECRUITMENT_ID}
+        applicationId={APPLICATION_ID}
+      />,
+    );
+
+    const rightColumn = (await screen.findByRole('heading', { name: '상태 변경' })).closest(
+      'section',
+    )?.parentElement;
+    const grid = rightColumn?.parentElement;
+    expect(grid?.className).toContain('lg:grid-cols-2');
+
+    // grid item 의 기본 min-width:auto 는 자손의 min-content 까지 트랙을 늘린다 — 답변에 든
+    // 무공백 긴 URL 하나가 컬럼째 뷰포트를 밀어냈다(320px 에서 650px 오버플로 실측).
+    // 답변의 break-words 는 조상이 폭을 제약해야만 동작하므로 두 컬럼 모두 min-w-0 이어야 한다.
+    const columns = Array.from(grid?.children ?? []);
+    expect(columns).toHaveLength(2);
+    columns.forEach((column) => expect(column).toHaveClass('min-w-0'));
+
+    // 하단 고정 바는 320px·전이 3개에서 2줄(실측 121px)이라 6rem 예약으로는 마지막 카드를 가린다.
+    // 데스크탑에는 바가 없으므로 lg 에서 원복해야 표 아래 빈 띠가 생기지 않는다.
+    const container = grid?.parentElement;
+    expect(container?.className).toContain('pb-[calc(10rem+env(safe-area-inset-bottom))]');
+    expect(container?.className).toContain('lg:pb-4');
+  });
+});
