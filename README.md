@@ -190,3 +190,5 @@ API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 | [`docs/superpowers/specs/`](./docs/superpowers/specs) | 기능별 설계 spec + 구현 plan |
 | [`.claude/agents/duing-code-reviewer.md`](./.claude/agents/duing-code-reviewer.md) | DDD/네이밍/예외 컨벤션 자동 리뷰 |
 | [`.claude/skills/`](./.claude/skills) | 스캐폴딩 스킬 (new-domain, new-api, flyway-migration, api-test) |
+
+<!-- ci-gate 시나리오 D 검증용 임시 줄 -->
