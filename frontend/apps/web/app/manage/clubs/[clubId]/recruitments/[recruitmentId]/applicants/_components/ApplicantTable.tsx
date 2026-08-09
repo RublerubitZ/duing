@@ -1,27 +1,31 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useEffect, useRef } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { formatDateTimeKst } from '@duing/hooks';
-import type { Applicant, ApplicationStatus } from '@duing/types';
+import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
+import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
-import { toRoute } from '@/app/_lib/route';
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
+import { selectableIds, selectAllState } from '../_lib/applicantSelection';
 
 function MyScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-neutral-400">—</span>;
+  if (score === null) return <span className="text-charcoal-3">—</span>;
   const colorClass =
     score >= 4
       ? 'bg-emerald-100 text-emerald-700'
       : score === 3
-        ? 'bg-neutral-100 text-neutral-700'
+        ? 'bg-graysoft text-charcoal-2'
         : 'bg-rose-100 text-rose-700';
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${colorClass}`}>
+    <span
+      className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs', colorClass)}
+    >
       {score} / 5
     </span>
   );
@@ -29,117 +33,120 @@ function MyScoreBadge({ score }: { score: number | null }) {
 
 type Props = {
   applicants: Applicant[];
-  selectedIds: number[];
   selectedSet: ReadonlySet<number>;
-  onSelect: (next: number[]) => void;
+  onToggleSelect: (applicationId: number) => void;
+  onToggleAll: () => void;
+  onOpenDetail: (applicationId: number) => void;
+  /** typedRoutes 라 Link 의 href 는 Route 여야 한다 — 페이지가 toRoute 로 만들어 내린다. */
+  detailHref: (applicationId: number) => Route;
   useInterview: boolean;
-  clubId: number;
-  recruitmentId: number;
 };
 
+/**
+ * 데스크탑(≥1024px) 지원자 표. 1024~1279px 은 콘텐츠 폭이 672~927px 뿐이라
+ * Secondary 열(단과대·학번)을 숨기고 xl(1280px) 이상에서만 노출한다(설계 §3).
+ * overflow-x-auto 는 최후 방어선으로 남긴다 — 예외적으로 긴 학과명 하나에 페이지가 밀리면 안 된다.
+ */
 export function ApplicantTable({
   applicants,
-  selectedIds,
   selectedSet,
-  onSelect,
+  onToggleSelect,
+  onToggleAll,
+  onOpenDetail,
+  detailHref,
   useInterview,
-  clubId,
-  recruitmentId,
 }: Props) {
-  const router = useGuardedRouter();
-  const searchParams = useSearchParams();
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
+  const selectable = selectableIds(applicants);
+  const allState = selectAllState(selectedSet, selectable);
 
-  const toggleRow = (applicationId: number, status: ApplicationStatus) => {
-    if (isTerminalApplicationStatus(status)) return;
-    const isSelected = selectedSet.has(applicationId);
-    onSelect(
-      isSelected
-        ? selectedIds.filter((id) => id !== applicationId)
-        : [...selectedIds, applicationId],
-    );
-  };
-
-  const navigateToDetail = (applicationId: number) => {
-    const currentQs = searchParams.toString();
-    if (currentQs) {
-      router.push(
-        toRoute(
-          `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}?${currentQs}`,
-        ),
-      );
-    } else {
-      router.push(
-        toRoute(
-          `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`,
-        ),
-      );
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = allState === 'partial';
     }
-  };
+  }, [allState]);
 
   return (
-    <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 lg:block">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
+    <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+      <table className="w-full min-w-[640px] text-sm">
+        <thead className="bg-cream text-left">
           <tr>
-            <th className="w-10 px-4 py-3" />
-            <th className="px-4 py-3 text-left font-medium text-slate-600">이름</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학과</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학번</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학년</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">지원일시</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">상태</th>
-            {useInterview && (
-              <th className="px-4 py-3 text-left font-medium text-slate-600">면접일정</th>
-            )}
-            <th className="px-4 py-3 text-left font-medium text-slate-600">내 점수</th>
+            <th className="w-12 px-4 py-3">
+              <input
+                ref={headerCheckboxRef}
+                type="checkbox"
+                aria-label="전체 선택"
+                checked={allState === 'all'}
+                disabled={selectable.length === 0}
+                onChange={onToggleAll}
+                className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </th>
+            <th className="px-4 py-3 font-medium text-charcoal-2">지원자</th>
+            <th className="px-4 py-3 font-medium text-charcoal-2">상태</th>
+            <th className="px-4 py-3 font-medium text-charcoal-2">학과 · 학년</th>
+            <th className="hidden px-4 py-3 font-medium text-charcoal-2 xl:table-cell">단과대</th>
+            <th className="hidden px-4 py-3 font-medium text-charcoal-2 xl:table-cell">학번</th>
+            <th className="px-4 py-3 font-medium text-charcoal-2">지원일시</th>
+            {useInterview && <th className="px-4 py-3 font-medium text-charcoal-2">면접일정</th>}
+            <th className="px-4 py-3 font-medium text-charcoal-2">내 평가</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-line">
           {applicants.map((applicant) => {
             const isTerminal = isTerminalApplicationStatus(applicant.status);
             const isSelected = selectedSet.has(applicant.applicationId);
             return (
               <tr
                 key={applicant.applicationId}
-                onClick={() => navigateToDetail(applicant.applicationId)}
-                className={`cursor-pointer hover:bg-slate-50 ${isSelected ? 'bg-slate-50' : ''}`}
+                onClick={() => onOpenDetail(applicant.applicationId)}
+                className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-cream/60')}
               >
-                <td
-                  className="px-4 py-3"
-                  onClick={(event) => event.stopPropagation()}
-                >
+                <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                   <input
                     type="checkbox"
                     aria-label={`${applicant.userName} 선택`}
                     checked={isSelected}
                     disabled={isTerminal}
-                    onChange={() => toggleRow(applicant.applicationId, applicant.status)}
-                    title={
-                      isTerminal
-                        ? '최종 상태인 지원자는 선택할 수 없습니다.'
-                        : undefined
-                    }
-                    className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    onChange={() => onToggleSelect(applicant.applicationId)}
+                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900">{applicant.userName}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
-                </td>
-                <td className="px-4 py-3 text-slate-600">{applicant.studentId}</td>
-                <td className="px-4 py-3 text-slate-600">{GRADE_DISPLAY_NAME[applicant.grade]}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {formatDateTimeKst(applicant.submittedAt)}
+                {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
+                <td className="px-4 py-3">
+                  <Link
+                    href={detailHref(applicant.applicationId)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="font-semibold text-ink-deep hover:underline"
+                  >
+                    {applicant.userName}
+                  </Link>
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[applicant.status]}`}
+                    className={cn(
+                      'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
+                      STATUS_BADGE_CLASS[applicant.status],
+                    )}
                   >
                     {APPLICATION_STATUS_LABEL[applicant.status]}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-charcoal-2">
+                  {applicant.major} · {GRADE_DISPLAY_NAME[applicant.grade]}
+                </td>
+                <td className="hidden px-4 py-3 text-charcoal-3 xl:table-cell">
+                  {COLLEGE_DISPLAY_NAME[applicant.college]}
+                </td>
+                <td className="hidden px-4 py-3 tabular-nums text-charcoal-3 xl:table-cell">
+                  {applicant.studentId}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-charcoal-3">
+                  {formatDateTimeKst(applicant.submittedAt)}
+                </td>
                 {useInterview && (
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="whitespace-nowrap px-4 py-3 tabular-nums text-charcoal-3">
                     {applicant.interviewStartAt
                       ? formatDateTimeKst(applicant.interviewStartAt)
                       : '—'}

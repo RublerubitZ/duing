@@ -25,6 +25,7 @@ import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
+import { selectableIds, selectAllState, toggleSelectAll } from './_lib/applicantSelection';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
@@ -96,6 +97,9 @@ export default function ApplicantsPage({ params }: PageParams) {
         : [...current, applicationId],
     );
   }, []);
+  // 전체 선택의 분모는 언제나 선택 가능한(비최종) 지원자다.
+  const selectable = selectableIds(applicants);
+  const allState = selectAllState(selectedSet, selectable);
 
   // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
   // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
@@ -326,12 +330,12 @@ export default function ApplicantsPage({ params }: PageParams) {
               />
               <ApplicantTable
                 applicants={applicants}
-                selectedIds={selectedIds}
                 selectedSet={selectedSet}
-                onSelect={setSelectedIds}
+                onToggleSelect={toggleOne}
+                onToggleAll={() => setSelectedIds(toggleSelectAll(selectable, allState))}
+                onOpenDetail={openDetail}
+                detailHref={detailHref}
                 useInterview={useInterview}
-                clubId={clubId}
-                recruitmentId={recruitmentId}
               />
             </>
           )}
