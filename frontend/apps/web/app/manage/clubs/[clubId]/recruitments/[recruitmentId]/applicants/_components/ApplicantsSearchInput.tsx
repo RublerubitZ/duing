@@ -31,7 +31,7 @@ export function ApplicantsSearchInput({
       placeholder="이름·학번·학과로 검색"
       value={inputValue}
       onChange={(event) => setInputValue(event.target.value)}
-      className="rounded border border-neutral-300 px-3 py-2 text-sm w-64"
+      className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none lg:max-w-xs"
       aria-label="지원자 검색"
     />
   );

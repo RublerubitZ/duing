@@ -1,35 +1,31 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { formatDateKst, formatDateTimeKst } from '@duing/hooks';
-import type { Applicant, ApplicationStatus } from '@duing/types';
+import { useEffect, useRef } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { formatDateTimeKst } from '@duing/hooks';
+import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
-import { toRoute } from '../../../../../../../_lib/route';
-
-const STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
-  SUBMITTED: 'bg-sky-100 text-sky-700',
-  ON_HOLD: 'bg-amber-100 text-amber-700',
-  INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
-  ACCEPTED: 'bg-emerald-100 text-emerald-700',
-  REJECTED: 'bg-rose-100 text-rose-700',
-};
-
-function isTerminalStatus(status: ApplicationStatus): boolean {
-  return status === 'ACCEPTED' || status === 'REJECTED';
-}
+import { cn } from '@/app/_lib/cn';
+import {
+  APPLICATION_STATUS_LABEL,
+  isTerminalApplicationStatus,
+} from '@/app/_constants/application-status';
+import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
+import { selectableIds, selectAllState } from '../_lib/applicantSelection';
 
 function MyScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-neutral-400">—</span>;
+  if (score === null) return <span className="text-charcoal-3">—</span>;
   const colorClass =
     score >= 4
       ? 'bg-emerald-100 text-emerald-700'
       : score === 3
-        ? 'bg-neutral-100 text-neutral-700'
+        ? 'bg-graysoft text-charcoal-2'
         : 'bg-rose-100 text-rose-700';
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${colorClass}`}>
+    <span
+      className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs', colorClass)}
+    >
       {score} / 5
     </span>
   );
@@ -37,125 +33,129 @@ function MyScoreBadge({ score }: { score: number | null }) {
 
 type Props = {
   applicants: Applicant[];
-  selectedIds: number[];
   selectedSet: ReadonlySet<number>;
-  onSelect: (next: number[]) => void;
+  onToggleSelect: (applicationId: number) => void;
+  onToggleAll: () => void;
+  onOpenDetail: (applicationId: number) => void;
+  /** typedRoutes 라 Link 의 href 는 Route 여야 한다 — 페이지가 toRoute 로 만들어 내린다. */
+  detailHref: (applicationId: number) => Route;
   useInterview: boolean;
-  clubId: number;
-  recruitmentId: number;
 };
 
+/**
+ * 데스크탑(≥1024px) 지원자 표. 1024~1279px 은 콘텐츠 폭이 672~927px 뿐이라
+ * Secondary 열(단과대·학번)을 숨기고 xl(1280px) 이상에서만 노출한다(설계 §3).
+ * overflow-x-auto 는 최후 방어선으로 남긴다 — 예외적으로 긴 학과명 하나에 페이지가 밀리면 안 된다.
+ * 1280px 은 사이드바를 빼면 콘텐츠가 928px 뿐이라 9열이 빡빡하다. 이름·단과대·날짜처럼 식별에 쓰는
+ * 값은 nowrap 으로 접힘을 막고(이서아가 "이서/아" 로 갈리면 스캔이 깨진다), 접힘은 가장 긴
+ * 학과·학년 한 열에만 허용한다. 좁은 구간에서는 셀 패딩도 함께 줄인다.
+ */
 export function ApplicantTable({
   applicants,
-  selectedIds,
   selectedSet,
-  onSelect,
+  onToggleSelect,
+  onToggleAll,
+  onOpenDetail,
+  detailHref,
   useInterview,
-  clubId,
-  recruitmentId,
 }: Props) {
-  const router = useGuardedRouter();
-  const searchParams = useSearchParams();
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
+  const selectable = selectableIds(applicants);
+  const allState = selectAllState(selectedSet, selectable);
 
-  const toggleRow = (applicationId: number, status: ApplicationStatus) => {
-    if (isTerminalStatus(status)) return;
-    const isSelected = selectedSet.has(applicationId);
-    onSelect(
-      isSelected
-        ? selectedIds.filter((id) => id !== applicationId)
-        : [...selectedIds, applicationId],
-    );
-  };
-
-  const navigateToDetail = (applicationId: number) => {
-    const currentQs = searchParams.toString();
-    if (currentQs) {
-      router.push(
-        toRoute(
-          `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}?${currentQs}`,
-        ),
-      );
-    } else {
-      router.push(
-        toRoute(
-          `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`,
-        ),
-      );
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = allState === 'partial';
     }
-  };
+  }, [allState]);
 
   return (
-    <>
-    {/* 데스크탑/태블릿: 표 (모바일은 아래 카드 리스트) */}
-    <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
+    <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+      <table className="w-full min-w-[640px] text-sm">
+        <thead className="bg-graysoft text-left">
           <tr>
-            <th className="w-10 px-4 py-3" />
-            <th className="px-4 py-3 text-left font-medium text-slate-600">이름</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학과</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학번</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">학년</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">지원일시</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">상태</th>
-            {useInterview && (
-              <th className="px-4 py-3 text-left font-medium text-slate-600">면접일정</th>
-            )}
-            <th className="px-4 py-3 text-left font-medium text-slate-600">내 점수</th>
+            <th className="w-12 px-3 py-2.5 xl:px-4">
+              <input
+                ref={headerCheckboxRef}
+                type="checkbox"
+                aria-label="전체 선택"
+                checked={allState === 'all'}
+                disabled={selectable.length === 0}
+                onChange={onToggleAll}
+                className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">지원자</th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">상태</th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">학과 · 학년</th>
+            <th className="hidden whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:table-cell xl:px-4">단과대</th>
+            <th className="hidden whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:table-cell xl:px-4">학번</th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">지원일시</th>
+            {useInterview && <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">면접일정</th>}
+            <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">내 평가</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-line">
           {applicants.map((applicant) => {
-            const isTerminal = isTerminalStatus(applicant.status);
+            const isTerminal = isTerminalApplicationStatus(applicant.status);
             const isSelected = selectedSet.has(applicant.applicationId);
             return (
               <tr
                 key={applicant.applicationId}
-                onClick={() => navigateToDetail(applicant.applicationId)}
-                className={`cursor-pointer hover:bg-slate-50 ${isSelected ? 'bg-slate-50' : ''}`}
+                onClick={() => onOpenDetail(applicant.applicationId)}
+                className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-sage-tint')}
               >
-                <td
-                  className="px-4 py-3"
-                  onClick={(event) => event.stopPropagation()}
-                >
+                <td className="px-3 py-3 xl:px-4" onClick={(event) => event.stopPropagation()}>
                   <input
                     type="checkbox"
                     aria-label={`${applicant.userName} 선택`}
                     checked={isSelected}
                     disabled={isTerminal}
-                    onChange={() => toggleRow(applicant.applicationId, applicant.status)}
-                    title={
-                      isTerminal
-                        ? '최종 상태인 지원자는 선택할 수 없습니다.'
-                        : undefined
-                    }
-                    className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    onChange={() => onToggleSelect(applicant.applicationId)}
+                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900">{applicant.userName}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
+                {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
+                <td className="whitespace-nowrap px-3 py-3 xl:px-4">
+                  <Link
+                    href={detailHref(applicant.applicationId)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="font-semibold text-ink-deep hover:underline"
+                  >
+                    {applicant.userName}
+                  </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{applicant.studentId}</td>
-                <td className="px-4 py-3 text-slate-600">{GRADE_DISPLAY_NAME[applicant.grade]}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {formatDateTimeKst(applicant.submittedAt)}
-                </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 xl:px-4">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[applicant.status]}`}
+                    className={cn(
+                      'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
+                      STATUS_BADGE_CLASS[applicant.status],
+                    )}
                   >
                     {APPLICATION_STATUS_LABEL[applicant.status]}
                   </span>
                 </td>
+                <td className="px-3 py-3 text-charcoal-2 xl:px-4">
+                  {applicant.major} · {GRADE_DISPLAY_NAME[applicant.grade]}
+                </td>
+                <td className="hidden whitespace-nowrap px-3 py-3 text-charcoal-3 xl:table-cell xl:px-4">
+                  {COLLEGE_DISPLAY_NAME[applicant.college]}
+                </td>
+                <td className="hidden whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:table-cell xl:px-4">
+                  {applicant.studentId}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:px-4">
+                  {formatDateTimeKst(applicant.submittedAt)}
+                </td>
                 {useInterview && (
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:px-4">
                     {applicant.interviewStartAt
                       ? formatDateTimeKst(applicant.interviewStartAt)
                       : '—'}
                   </td>
                 )}
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 xl:px-4">
                   <MyScoreBadge score={applicant.myScore} />
                 </td>
               </tr>
@@ -164,87 +164,5 @@ export function ApplicantTable({
         </tbody>
       </table>
     </div>
-
-      {/* 모바일: 카드 리스트 (표 대신) */}
-      <div className="mt-4 space-y-2 md:hidden">
-        {applicants.map((applicant) => {
-          const isTerminal = isTerminalStatus(applicant.status);
-          const isSelected = selectedSet.has(applicant.applicationId);
-          return (
-            <div
-              key={applicant.applicationId}
-              onClick={() => navigateToDetail(applicant.applicationId)}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
-                isSelected ? 'border-slate-400 bg-slate-50' : 'border-slate-200 bg-white'
-              }`}
-            >
-              <div className="flex items-start gap-0.5">
-                {/*
-                 * 선택 영역과 카드 이동 영역을 분리한다. 체크박스(16px)만으로는 손가락 터치가
-                 * 자주 카드로 새어 상세로 이동해버리므로, 44px 라벨로 감싸 히트 영역을 넓히고
-                 * 라벨에서 전파를 끊는다. 음수 마진(-my-3 -ml-3 = 카드 padding)으로 카드 좌상단
-                 * 모서리까지 히트 영역을 밀어내되 레이아웃 높이는 그대로 둔다.
-                 * 최종 상태 카드는 선택할 것이 없으므로 히트 영역을 두지 않는다 — 전파를 끊으면
-                 * 카드 높이의 절반이 아무 반응 없는 영역이 된다. 44px 박스는 정렬을 위한 자리로만
-                 * 남기고(전파 차단 없음), 비활성 체크박스는 pointer-events 를 꺼 탭이 카드까지
-                 * 내려가게 한다. 선택할 것이 없는 카드라 오터치로 잃을 선택도 없다.
-                 * 주의: 라벨 클릭은 input 으로 포워딩됐다 되돌아와 onClick 이 2회 실행된다.
-                 * 부수효과 있는 로직을 여기 얹지 말 것(토글은 input 의 onChange 가 1회만 받는다).
-                 */}
-                <label
-                  onClick={isTerminal ? undefined : (event) => event.stopPropagation()}
-                  className="-my-3 -ml-3 grid h-11 w-11 shrink-0 place-items-center"
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={`${applicant.userName} 선택`}
-                    checked={isSelected}
-                    disabled={isTerminal}
-                    onChange={() => toggleRow(applicant.applicationId, applicant.status)}
-                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:pointer-events-none disabled:opacity-50"
-                  />
-                </label>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-medium leading-5 text-slate-900">
-                      {applicant.userName}
-                    </span>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${STATUS_BADGE_CLASS[applicant.status]}`}
-                    >
-                      {APPLICATION_STATUS_LABEL[applicant.status]}
-                    </span>
-                  </div>
-                  {/* 좁은 화면(320px)에서 긴 단과대·학과는 잘라내지 않고 줄바꿈한다 — 카드 높이보다 정보가 우선. */}
-                  <div className="flex items-start justify-between gap-2 text-[12.5px] leading-[17px] text-slate-600">
-                    <span>
-                      {COLLEGE_DISPLAY_NAME[applicant.college]} · {applicant.major}
-                    </span>
-                    <span className="shrink-0 text-[11.5px] text-slate-500">
-                      지원 {formatDateKst(applicant.submittedAt)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-[12px] leading-4 text-slate-500">
-                    <span>
-                      학번 {applicant.studentId} · {GRADE_DISPLAY_NAME[applicant.grade]}
-                    </span>
-                    <MyScoreBadge score={applicant.myScore} />
-                  </div>
-                  {useInterview && (
-                    <div className="text-[11.5px] leading-4 text-slate-500">
-                      면접{' '}
-                      {applicant.interviewStartAt
-                        ? formatDateTimeKst(applicant.interviewStartAt)
-                        : '—'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
   );
 }

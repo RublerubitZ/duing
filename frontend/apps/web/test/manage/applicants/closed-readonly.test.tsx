@@ -173,8 +173,8 @@ describe('지원현황 목록 — 마감 모집 — 최종 결과 확정만', ()
     expect(await screen.findAllByText('홍길동')).not.toHaveLength(0);
     // 마감 후에도 남은 지원서를 합격·불합격으로 정리할 수 있어야 하므로 선택 수단을 없애지 않는다.
     expect(screen.getAllByRole('checkbox', { name: '홍길동 선택' })).not.toHaveLength(0);
-    // 조회 수단(필터·검색)은 그대로 남는다.
-    expect(screen.getByLabelText('상태')).toBeInTheDocument();
+    // 조회 수단(필터·검색)은 그대로 남는다 — 상태는 select 가 아니라 칩으로 거른다.
+    expect(screen.getByRole('button', { name: /지원 완료/ })).toBeInTheDocument();
   });
 
   it('마감일이 지났어도 raw OPEN 이면 배너 없이 선택 체크박스를 유지한다', async () => {
