@@ -57,13 +57,23 @@ describe('ApplicantInterviewScheduleCard — 라운드 있음', () => {
     );
   });
 
+  // jsdom 은 레이아웃을 계산하지 않아 실제 44px 를 잴 수 없다 — 히트 영역은 클래스로 못박는다.
+  it('[면접 관리에서 조정] 링크는 44px 히트 영역을 가진다', () => {
+    render(<ApplicantInterviewScheduleCard {...defaultProps} />);
+
+    const link = screen.getByRole('link', { name: '면접 관리에서 조정' });
+    expect(link).toHaveClass('min-h-11');
+    // 긴 라운드 제목이 링크를 찌그러뜨리지 않게 한다.
+    expect(link).toHaveClass('shrink-0');
+  });
+
   it('memberStatus=INVITED + unresponded=false → "응답 대기" 노출', () => {
     render(<ApplicantInterviewScheduleCard {...defaultProps} />);
 
     expect(screen.getByText('응답 대기')).toBeInTheDocument();
   });
 
-  it('memberStatus=INVITED + unresponded=true → rose 배경의 "미응답" 노출', () => {
+  it('memberStatus=INVITED + unresponded=true → 부정 의미의 coral pill "미응답" 노출', () => {
     render(
       <ApplicantInterviewScheduleCard
         {...defaultProps}
@@ -73,8 +83,8 @@ describe('ApplicantInterviewScheduleCard — 라운드 있음', () => {
 
     const badge = screen.getByText('미응답');
     expect(badge).toBeInTheDocument();
-    // rose 배경 클래스 확인
-    expect(badge.className).toMatch(/rose/);
+    // 하우스 pill 어휘 — raw rose 팔레트가 아니라 pill-coral 로 "부정" 을 전달한다.
+    expect(badge.className).toContain('pill-coral');
   });
 
   it('memberStatus=NO_AVAILABLE_SLOT → "가능한 시간 없음" + 사유 인용 박스 노출', () => {
@@ -90,7 +100,9 @@ describe('ApplicantInterviewScheduleCard — 라운드 있음', () => {
     );
 
     expect(screen.getByText('가능한 시간 없음')).toBeInTheDocument();
-    expect(screen.getByText('오전에는 수업이 있어서 어렵습니다')).toBeInTheDocument();
+    // aria-label 로 인용 박스를 특정한다 — blockquote 는 ARIA role 이 없어 role 쿼리로는 잡히지 않는다.
+    const quote = screen.getByLabelText('지원자가 작성한 대체 가능 시간 설명');
+    expect(quote).toHaveTextContent('오전에는 수업이 있어서 어렵습니다');
   });
 
   it('배정 슬롯이 availability 안에 포함되면 해당 row 에 "현재 배정" 배지가 표시된다', () => {
@@ -132,6 +144,8 @@ describe('ApplicantInterviewScheduleCard — 라운드 null', () => {
     ).toBeInTheDocument();
     const link = screen.getByRole('link', { name: '면접 관리' });
     expect(link).toHaveAttribute('href', '/manage/clubs/1/recruitments/2/interview');
+    // 라운드 있음 분기의 딥링크와 같은 44px 히트 영역을 갖는다.
+    expect(link).toHaveClass('min-h-11');
   });
 
   it('SUBMITTED → 선정 전 안내 문구가 노출된다', () => {
@@ -232,7 +246,9 @@ describe('ApplicantInterviewScheduleCard — memberStatus 분기', () => {
     );
 
     expect(screen.getByText('가능한 시간 없음')).toBeInTheDocument();
-    expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
+    // queryByRole('blockquote') 는 blockquote 에 암묵 role 이 없어 항상 null 이었다(무의미한 단언).
+    // 실제로 인용 박스가 없는지 확인하려면 aria-label 로 물어야 한다.
+    expect(screen.queryByLabelText('지원자가 작성한 대체 가능 시간 설명')).not.toBeInTheDocument();
   });
 
   it('interviewAvailabilities=[] → "아직 선택하지 않았습니다" 문구가 노출된다', () => {
