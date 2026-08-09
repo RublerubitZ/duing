@@ -192,8 +192,9 @@ body {
   }
   /* 파괴적 액션의 약한 형태 — 목록 행처럼 솔리드 버튼이 과한 자리. 흰 배경 위 글자도 AA 를 지켜야 하므로
      text-coral(3.02:1)이 아니라 같은 danger 토큰을 쓴다. */
+  /* hover 틴트는 danger/5 다 — /10 은 sage-tint(4.32:1)·cream(4.29:1) 위에서 AA 에 못 미친다. */
   .btn-danger-quiet {
-    @apply bg-transparent text-danger hover:bg-danger/10;
+    @apply bg-transparent text-danger hover:bg-danger/5;
   }
   .btn-big {
     @apply px-7 py-4 text-base rounded-lg;

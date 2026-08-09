@@ -20,6 +20,7 @@ import {
 } from '@duing/hooks';
 import { safeExternalHref, toRoute } from '@/app/_lib/route';
 import { ApplicantCardList } from './_components/ApplicantCardList';
+import { ApplicantListToolbar } from './_components/ApplicantListToolbar';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
@@ -272,7 +273,8 @@ export default function ApplicantsPage({ params }: PageParams) {
       className={cn(
         'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
         actionableIds.length > 0
-          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
+          // lg 부터는 하단 고정 바가 없다(툴바가 대신한다) — 여백을 남기면 표 아래 빈 띠가 생긴다.
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24 lg:pb-10'
           : 'pb-10',
       )}
     >
@@ -428,10 +430,23 @@ export default function ApplicantsPage({ params }: PageParams) {
                 applicants={applicants}
                 selectedSet={selectedSet}
                 onToggleSelect={toggleOne}
-                onToggleAll={toggleAll}
                 onOpenDetail={openDetail}
                 detailHref={detailHref}
                 useInterview={useInterview}
+                toolbar={
+                  <ApplicantListToolbar
+                    // 상태 칩 '전체' 와 같은 출처 — applicants 는 상태 필터 적용본이라 "총" 이 아니다.
+                    totalCount={counts.total}
+                    selectableCount={selectable.length}
+                    selectedCount={actionableIds.length}
+                    state={allState}
+                    onToggleAll={toggleAll}
+                    onBulkAction={setPendingBulkTarget}
+                    onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
+                    useInterview={useInterview}
+                    finalizeOnly={isFinalizeOnly}
+                  />
+                }
               />
             </div>
           )}

@@ -28,7 +28,6 @@ function renderTable(applicant: Applicant, useInterview = true) {
       applicants={[applicant]}
       selectedSet={emptySet}
       onToggleSelect={noop}
-      onToggleAll={noop}
       onOpenDetail={noop}
       detailHref={(applicationId) =>
         toRoute(`/manage/clubs/1/recruitments/1/applicants/${applicationId}`)
@@ -54,14 +53,22 @@ describe('ApplicantTable 확장', () => {
     renderTable({ ...baseApplicant, status: 'ACCEPTED' });
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    // 툴팁은 시각 요소(래퍼)가 갖는다 — sr-only input 에 있으면 hit chain 밖이라 hover 로 안 뜬다.
+    expect(checkbox.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('최종 상태'),
+    );
   });
 
   it('REJECTED 행 체크박스는 disabled 이고 tooltip 이 있다', () => {
     renderTable({ ...baseApplicant, status: 'REJECTED' });
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    // 툴팁은 시각 요소(래퍼)가 갖는다 — sr-only input 에 있으면 hit chain 밖이라 hover 로 안 뜬다.
+    expect(checkbox.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('최종 상태'),
+    );
   });
 
   it('SUBMITTED 행 체크박스는 disabled 가 아니다', () => {
@@ -79,13 +86,13 @@ describe('ApplicantTable 확장', () => {
     expect(screen.getByText('면접일정')).toBeInTheDocument();
   });
 
-  it('myScore 색상 — 4 이상이면 초록 뱃지', () => {
+  it('myScore 색상 — 4 이상이면 브랜드 톤 뱃지', () => {
     renderTable({ ...baseApplicant, myScore: 5 });
-    expect(screen.getByText('5 / 5').className).toContain('emerald');
+    expect(screen.getByText('5 / 5').className).toContain('pill');
   });
 
-  it('myScore 색상 — 2 이하이면 빨강 뱃지', () => {
+  it('myScore 색상 — 2 이하이면 코랄 톤 뱃지', () => {
     renderTable({ ...baseApplicant, myScore: 2 });
-    expect(screen.getByText('2 / 5').className).toContain('rose');
+    expect(screen.getByText('2 / 5').className).toContain('pill-coral');
   });
 });

@@ -39,6 +39,24 @@ export const APPLICATION_STATUS_APPLICANT_LABEL: Record<ApplicationStatus, strin
 // 신규 코드는 audience 가 명시적인 OPERATOR / APPLICANT 상수를 직접 import 한다.
 export const APPLICATION_STATUS_LABEL = APPLICATION_STATUS_OPERATOR_LABEL;
 
+/**
+ * 지원 상태 배지 색 — 운영 콘솔·관리자·면접 라운드 마법사가 공유하는 단일 출처.
+ *
+ * 값은 globals.css 의 하우스 배지 세트(`.pill-*`)를 그대로 쓴다. Tailwind 기본 팔레트
+ * (sky/amber/purple/emerald/rose)는 차갑고 채도가 높아, 크림·세이지·잉크로 짜인 콘솔 위에서
+ * 배지만 떠 보였다. `.pill` 계열은 같은 웜 톤에 맞춰 만들어진 값이라 표에 얹어도 가라앉는다.
+ *
+ * 합격만 브랜드 그린(`.pill` 기본, sage-mist/ink)을 받는다 — 목록에서 눈이 먼저 가야 하는 상태다.
+ * 기하(패딩·크기)는 화면마다 달라 여기서 정하지 않는다. 호출부가 유틸리티로 덮어쓴다.
+ */
+export const APPLICATION_STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
+  SUBMITTED: 'pill pill-sky',
+  ON_HOLD: 'pill pill-warm',
+  INTERVIEW_PENDING: 'pill pill-berry',
+  ACCEPTED: 'pill',
+  REJECTED: 'pill pill-coral',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 모집 마감 축
 //

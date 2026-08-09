@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { formatDateTimeKst } from '@duing/hooks';
@@ -8,38 +8,29 @@ import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import {
+  APPLICATION_STATUS_BADGE_CLASS,
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
-import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
-import { selectableIds, selectAllState } from '../_lib/applicantSelection';
+import { ApplicantCheckbox } from './ApplicantCheckbox';
 
 function MyScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-charcoal-3">—</span>;
-  const colorClass =
-    score >= 4
-      ? 'bg-emerald-100 text-emerald-700'
-      : score === 3
-        ? 'bg-graysoft text-charcoal-2'
-        : 'bg-rose-100 text-rose-700';
-  return (
-    <span
-      className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs', colorClass)}
-    >
-      {score} / 5
-    </span>
-  );
+  // 상태 배지와 같은 하우스 톤 — 표 안에서 두 배지가 다른 색 어휘를 쓰면 시선이 갈린다.
+  const toneClass = score >= 4 ? 'pill' : score === 3 ? 'pill pill-outline' : 'pill pill-coral';
+  return <span className={cn(toneClass, 'px-2 py-0.5 text-[11px]')}>{score} / 5</span>;
 }
 
 type Props = {
   applicants: Applicant[];
   selectedSet: ReadonlySet<number>;
   onToggleSelect: (applicationId: number) => void;
-  onToggleAll: () => void;
   onOpenDetail: (applicationId: number) => void;
   /** typedRoutes 라 Link 의 href 는 Route 여야 한다 — 페이지가 toRoute 로 만들어 내린다. */
   detailHref: (applicationId: number) => Route;
   useInterview: boolean;
+  /** 카드 안 맨 위에 놓이는 일괄 처리 바(ApplicantListToolbar). 전체 선택도 여기 있다. */
+  toolbar?: ReactNode;
 };
 
 /**
@@ -54,36 +45,27 @@ export function ApplicantTable({
   applicants,
   selectedSet,
   onToggleSelect,
-  onToggleAll,
   onOpenDetail,
   detailHref,
   useInterview,
+  toolbar,
 }: Props) {
-  const headerCheckboxRef = useRef<HTMLInputElement>(null);
-  const selectable = selectableIds(applicants);
-  const allState = selectAllState(selectedSet, selectable);
-
-  useEffect(() => {
-    if (headerCheckboxRef.current) {
-      headerCheckboxRef.current.indeterminate = allState === 'partial';
-    }
-  }, [allState]);
-
   return (
-    <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+    /*
+     * 툴바는 가로 스크롤 컨테이너 **밖**에 둔다. 안에 두면 (1) 글꼴 확대로 표가 넓어져 가로 스크롤이
+     * 생길 때 툴바까지 함께 밀려 잘리고, (2) sticky 를 걸어도 스크롤포트가 이 컨테이너라 화면에
+     * 붙지 않는다. 밖으로 빼면 창 스크롤 기준 sticky 가 되어, 긴 목록에서 아래쪽 행을 고른 뒤에도
+     * 액션이 화면에 남는다(80명 목록에서 3,400px 를 되올라가야 하던 문제).
+     */
+    <div className="mt-4 hidden rounded-lg border border-line bg-paper lg:block">
+      {toolbar}
+      <div className="overflow-x-auto rounded-b-lg">
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-graysoft text-left">
           <tr>
+            {/* 전체 선택은 카드 안 상단 바(toolbar)가 갖는다 — 헤더에는 자리와 이름만 남긴다. */}
             <th className="w-12 px-3 py-2.5 xl:px-4">
-              <input
-                ref={headerCheckboxRef}
-                type="checkbox"
-                aria-label="전체 선택"
-                checked={allState === 'all'}
-                disabled={selectable.length === 0}
-                onChange={onToggleAll}
-                className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
-              />
+              <span className="sr-only">선택</span>
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">지원자</th>
             <th className="whitespace-nowrap px-3 py-2.5 text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3 xl:px-4">상태</th>
@@ -106,15 +88,22 @@ export function ApplicantTable({
                 className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-sage-tint')}
               >
                 <td className="px-3 py-3 xl:px-4" onClick={(event) => event.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    aria-label={`${applicant.userName} 선택`}
-                    checked={isSelected}
-                    disabled={isTerminal}
-                    onChange={() => onToggleSelect(applicant.applicationId)}
-                    title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
-                  />
+                  {/*
+                   * 라벨이 반드시 있어야 한다. 커스텀 외형은 숨긴 input 의 형제 span 이라, 라벨 없이는
+                   * 시각 박스를 눌러도 아무 일이 일어나지 않는다(실브라우저에서 확인). 겸사겸사 셀 안
+                   * 히트 영역도 넓어진다.
+                   */}
+                  {/* 음수 마진으로 셀 패딩까지 먹어 44px 을 만든다 — 행 높이는 그대로다(iPad 가로 터치). */}
+                  <label className="-my-3 flex w-fit cursor-pointer items-center py-3">
+                    <ApplicantCheckbox
+                      label={`${applicant.userName} 선택`}
+                      checked={isSelected}
+                      disabled={isTerminal}
+                      onChange={() => onToggleSelect(applicant.applicationId)}
+                      title={isTerminal ? '최종 상태인 지원자는 선택할 수 없습니다.' : undefined}
+                      className={isTerminal ? 'cursor-not-allowed' : 'cursor-pointer'}
+                    />
+                  </label>
                 </td>
                 {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
                 <td className="whitespace-nowrap px-3 py-3 xl:px-4">
@@ -127,10 +116,11 @@ export function ApplicantTable({
                   </Link>
                 </td>
                 <td className="px-3 py-3 xl:px-4">
+                  {/* 하우스 배지(.pill) 색을 쓰고 기하만 표 밀도에 맞춰 좁힌다. */}
                   <span
                     className={cn(
-                      'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
-                      STATUS_BADGE_CLASS[applicant.status],
+                      APPLICATION_STATUS_BADGE_CLASS[applicant.status],
+                      'px-2 py-0.5 text-[11px]',
                     )}
                   >
                     {APPLICATION_STATUS_LABEL[applicant.status]}
@@ -163,6 +153,7 @@ export function ApplicantTable({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

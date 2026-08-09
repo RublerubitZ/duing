@@ -155,4 +155,21 @@ describe('BulkActionBar', () => {
     expect(screen.queryByRole('button', { name: '면접 대상으로 선정' })).not.toBeInTheDocument();
   });
 
+
+  /*
+   * 이 바는 모바일 전용이다 — 데스크탑은 표 카드 안 툴바가 같은 액션을 갖는다.
+   * lg:hidden 이 빠지면 두 벌이 동시에 보여 어느 쪽이 실행되는지 알 수 없다.
+   * jsdom 은 CSS 를 모르니 클래스로 못박는다.
+   */
+  it('데스크탑에서는 숨는다 — 툴바와 두 벌로 보이면 안 된다', () => {
+    render(
+      <BulkActionBar
+        selectedCount={2}
+        onBulkAction={() => {}}
+        onPromoteToInterview={() => {}}
+        useInterview
+      />,
+    );
+    expect(screen.getByRole('region', { name: '일괄 처리 액션' })).toHaveClass('lg:hidden');
+  });
 });

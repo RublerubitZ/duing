@@ -86,7 +86,7 @@ describe('모바일 지원자 카드 리스트', () => {
   it('상태 띠는 상태별 색이고 4px 이다', () => {
     renderList([baseApplicant]);
     const card = screen.getByText('컴퓨터공학과').closest('[data-applicant-card]');
-    expect(card?.className).toContain('border-l-sky-400');
+    expect(card?.className).toContain('border-l-sky');
     expect(card?.className).toContain('border-l-4');
   });
 
@@ -149,7 +149,7 @@ describe('모바일 지원자 카드 리스트', () => {
     renderList([baseApplicant], [1]);
     const card = screen.getByText('컴퓨터공학과').closest('[data-applicant-card]');
     expect(card?.className).toContain('bg-sage-tint');
-    expect(card?.className).toContain('border-l-sky-400');
+    expect(card?.className).toContain('border-l-sky');
     expect(card?.className).not.toContain('border-sage');
   });
 
@@ -157,7 +157,8 @@ describe('모바일 지원자 카드 리스트', () => {
     const { onToggleSelect, onOpenDetail } = renderList([{ ...baseApplicant, status: 'ACCEPTED' }]);
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveClass('disabled:pointer-events-none');
+    // 커스텀 외형은 형제 span 이라, 탭이 카드까지 내려가려면 래퍼 전체가 포인터를 받지 않아야 한다.
+    expect(checkbox.parentElement?.className).toContain('pointer-events-none');
     fireEvent.click(requireLabel(checkbox.closest('label')));
     expect(onToggleSelect).not.toHaveBeenCalled();
     expect(onOpenDetail).toHaveBeenCalledTimes(1);

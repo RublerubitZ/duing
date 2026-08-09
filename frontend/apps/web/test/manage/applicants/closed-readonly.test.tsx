@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -207,11 +207,13 @@ describe('지원현황 목록 — 마감 모집 — 최종 결과 확정만', ()
       await queryClient.invalidateQueries();
     });
 
+    // 데스크탑 툴바와 모바일 하단 바가 같은 액션을 갖는다(화면에는 폭에 따라 하나만 보이지만
+    // jsdom 은 CSS 를 모른다) — 리전을 좁혀 하단 바 기준으로 확인한다.
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: '보류' })).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole('region', { name: '일괄 처리 액션' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '일괄 합격' })).toBeInTheDocument();
+    const bottomBar = screen.getByRole('region', { name: '일괄 처리 액션' });
+    expect(within(bottomBar).getByRole('button', { name: '일괄 합격' })).toBeInTheDocument();
     expect(
       screen.getByText('마감된 모집 — 남은 지원서의 최종 결과만 확정할 수 있습니다.'),
     ).toBeInTheDocument();
