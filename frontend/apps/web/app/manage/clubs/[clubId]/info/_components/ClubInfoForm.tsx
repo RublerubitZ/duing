@@ -153,9 +153,10 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const parsedCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
   const parsedActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
   const parsedDivision = division.trim() === '' ? null : division;
-  // 서버가 학과를 strip 해 저장하므로 여기서도 trim 한 값으로 비교·전송한다 —
-  // 안 그러면 끝 공백만 넣어도 detail 과 영원히 달라 보여 폼이 계속 dirty 로 남는다.
-  const trimmedDepartment = department.trim();
+  // 서버 정규화(Club.normalizeDepartment)를 그대로 미러링한다. trim() 만으로는 부족한데,
+  // 서버는 문자열 가운데 NBSP 까지 일반 공백으로 바꾸기 때문이다 — 붙여넣은 "글로벌<NBSP>경영학과"
+  // 를 그대로 보내면 저장값과 폼 값이 영원히 달라 보여 매 저장마다 학과가 실려 나간다.
+  const normalizedDepartment = department.replace(/[\u00A0\u2007\u202F]/g, ' ').trim();
   const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
 
   function handleDescriptionChange(html: string, textLength: number) {
@@ -213,8 +214,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     if (feeNote !== (detail.feeNote ?? '')) payload.feeNote = feeNote;
 
     // 학과 — 중앙동아리는 입력 자체를 그리지 않으므로 담기지 않는다. 비우기는 '' 전송.
-    if (!detail.centralClub && trimmedDepartment !== (detail.department ?? '')) {
-      payload.department = trimmedDepartment;
+    if (!detail.centralClub && normalizedDepartment !== (detail.department ?? '')) {
+      payload.department = normalizedDepartment;
     }
 
     // 잠금 필드 diff 는 adminMode 일 때만 — leader/officer 페이로드엔 절대 들어가지 않는다.
@@ -260,7 +261,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       membershipFeeAmount: nextFeeAmount,
       feeNote: feeNote || null,
       projects,
-      department: trimmedDepartment || null,
+      department: normalizedDepartment || null,
     };
     const parsed = adminMode
       ? adminUpdateClubSchema.safeParse({ ...baseData, name, category, division: parsedDivision })

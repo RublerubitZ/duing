@@ -49,6 +49,13 @@ export const isDivision = (value: string | null | undefined): value is Division 
 export const formatDivisionLabel = (division: string): string =>
   division.endsWith('분과') ? division : `${division}분과`;
 
+/** 미지정까지 감안한 분과 표기 — 값이 없으면 null 이라 호출부가 영역을 그리지 않을 수 있다. */
+export const divisionLabelOrNull = (division: string | null | undefined): string | null =>
+  division ? formatDivisionLabel(division) : null;
+
+/** 탐색 검색이 실제로 훑는 대상 — placeholder 가 화면마다 갈리지 않게 한 곳에 둔다. */
+export const CLUB_SEARCH_PLACEHOLDER = '동아리 이름 · 소개 · 태그 · 학과 검색';
+
 /**
  * 카드 카테고리 옆 보조 표기 — 중앙은 분과, 단과대는 학과. 카드/리스트가 같은 규칙을 쓰도록 한 곳에 둔다.
  * 값이 없으면 null 을 돌려주고 호출부는 영역 자체를 그리지 않는다 ('-'·'없음' 같은 placeholder 금지).
@@ -58,7 +65,7 @@ export const formatDivisionLabel = (division: string): string =>
  */
 export const clubAffiliationLabel = (club: Club): string | null => {
   if (club.scope === '중앙') {
-    return club.division ? formatDivisionLabel(club.division) : null;
+    return divisionLabelOrNull(club.division);
   }
   if (club.department) return club.department;
   return club.college ? collegeDisplayName(club.college) : null;

@@ -85,6 +85,18 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("중앙동아리로 전환해 학과가 숨겨진 동아리는 학과 키워드 검색에 걸리지 않는다")
+    void keywordMatchesDepartmentSkipsCentralClub() {
+        Club central = saveDepartmentClub("이름C", "회계학과");
+        central.changeCentralClub(true);
+        clubRepository.save(central);
+
+        // 값은 보존되지만(스펙 결정 5) 화면에서는 숨기므로 검색 결과에도 나오면 안 된다.
+        assertThat(central.getDepartment()).isEqualTo("회계학과");
+        assertSearch("회계").isEmpty();
+    }
+
+    @Test
     @DisplayName("학과가 없는 동아리는 학과 키워드 검색에 걸리지 않는다")
     void keywordMatchesDepartmentSkipsNullDepartment() {
         saveDepartmentClub("이름A", null);

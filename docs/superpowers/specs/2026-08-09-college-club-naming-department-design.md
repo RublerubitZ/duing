@@ -93,7 +93,8 @@ FE 를 먼저 배포하면, 운영진이 학과를 입력해 저장할 때 `PATC
 
 `Club`(엔티티) · `ClubException` · `CreateClubRequest` · `CreateClubCommand` · `GeneralClubService` ·
 `UpdateClubRequest` · `AdminUpdateClubRequest` · `UpdateClubCommand` · `ClubSummaryQuery` ·
-`ClubDetailQuery` · `ClubSummaryResponse` · `ClubDetailResponse` · `ClubApi`(Swagger 문구)
+`ClubDetailQuery` · `ClubSummaryResponse` · `ClubDetailResponse` ·
+`ClubRepositoryImpl`(키워드 검색) · `ClubApi`·`AdminClubApi`(Swagger 문구)
 
 ## 6. 프론트 설계
 
@@ -144,13 +145,7 @@ export const SCOPE_CLUB_LABEL = { 중앙: '중앙동아리', 학과: '단과대 
 - **총동연(`AdminClubCreateForm`)**: 중앙동아리 체크 해제 시 `단과대학 *`(필수) + `학과`(선택) 노출.
   단과대 미선택이면 제출 차단.
 
-### 6.5 변경 파일
-
-`packages/types/src/club.ts` · `packages/schemas/src/index.ts` · `app/_lib/college.ts` ·
-`clubs/_lib/clubs.ts` · `clubs/_lib/clubAdapter.ts` · `ScopeChip` · `ClubCard` · `ClubListItem` ·
-`ClubExplorePage` · `ClubDetailHero` · `ClubDetailInfoList` · `ClubInfoForm` · `AdminClubCreateForm`
-
-### 6.6 키워드 검색
+### 6.5 키워드 검색
 
 `/clubs` 키워드 검색 대상에 학과를 더한다. 기존 대상은 동아리명·소개·태그였고, 여기에 학과를
 넣으면 "회계학과" 로 단과대 동아리를 바로 찾을 수 있다. 분과·단과대학은 이미 전용 필터가 있어
@@ -164,6 +159,12 @@ export const SCOPE_CLUB_LABEL = { 중앙: '중앙동아리', 학과: '단과대 
 검색창 안내 문구(FE placeholder)와 API 문서(`@Parameter`·Javadoc)를 실제 대상과 맞춘다 —
 API 문서는 태그가 추가된 시점부터 이미 "이름/설명" 으로 밀려 있었다.
 
+### 6.6 변경 파일
+
+`packages/types/src/club.ts` · `packages/schemas/src/index.ts` · `app/_lib/college.ts` ·
+`clubs/_lib/clubs.ts` · `clubs/_lib/clubAdapter.ts` · `ScopeChip` · `ClubCard` · `ClubListItem` ·
+`ClubExplorePage` · `ClubDetailHero` · `ClubDetailInfoList` · `ClubInfoForm` · `AdminClubCreateForm`
+
 ## 7. 테스트
 
 - **BE**: 단과대 동아리 생성 시 college 누락 → 400 / college 포함 → 성공 / 학과 없이 생성 성공 /
@@ -172,7 +173,10 @@ API 문서는 태그가 추가된 시점부터 이미 "이름/설명" 으로 밀
 - **FE**: 카드가 단과대 동아리에 `[단과대]` + 학과를 그린다 / 학과 없으면 단과대학으로 폴백 /
   둘 다 없으면 영역 미렌더 / 중앙동아리는 학과 값이 남아 있어도 분과만 /
   운영진 폼에서 학과 편집 가능·단과대는 잠금 / 관리자 생성 폼 단과대 필수 /
-  모바일 히어로 소속 줄(중앙=분과명, 단과대=단과대학·학과, 창설년도·기수 미포함)
+  모바일 히어로 소속 줄(중앙=분과명, 단과대=단과대학·학과, 창설년도·기수 미포함) /
+  학과 가운데 NBSP 를 서버와 같은 규칙으로 눕혀 전송 · 같은 값 재입력은 "변경 없음"
+- **검색**: 학과 키워드 매칭 / 학과 없는 동아리 미매칭 / **중앙 전환으로 숨겨진 학과는 미매칭** /
+  NBSP 만 남은 학과는 미지정 저장
 
 ### 7.1 로컬 QA 실측 (2026-08-09)
 
@@ -187,7 +191,7 @@ API 문서는 태그가 추가된 시점부터 이미 "이름/설명" 으로 밀
 
 ## 8. Out of Scope
 
-- 학과명 표준화·자동 정규화·학과 마스터 데이터 (자유입력 + trim 만)
+- 학과명 표준화·학과 마스터 데이터 (자유입력 + 공백 정규화만 — 앞뒤 trim 과 NBSP 계열 → 일반 공백)
 - 카드에 단과대학과 학과를 **동시에** 표기 (학과가 있으면 학과만 — 폭이 좁다)
 - 데스크탑 히어로 pill 에 단과대학 추가 (카테고리 옆이라 짧게 유지)
 - 학과 **전용 필터** 신규 추가 (칩·드롭다운 — 키워드 검색으로만 닿는다)

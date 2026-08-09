@@ -93,4 +93,4 @@ coverage/
 *.tsbuildinfo
 
 # 로컬 QA 스크린샷
-qa-*.png
+/qa-*.png

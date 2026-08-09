@@ -211,6 +211,44 @@ describe('ClubInfoForm', () => {
     expect(mutateAsync).toHaveBeenCalledWith({ department: '' });
   });
 
+  it('학과 가운데 NBSP 는 서버와 같은 규칙으로 눕혀 보내, 저장값과 폼이 어긋나지 않는다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: null })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    // 문서에서 복사하면 어절 사이에 NBSP 가 섞여 온다. 서버는 이걸 일반 공백으로 저장하므로
+    // 폼도 같은 값을 보내야 다음 저장에서 "변경 없음" 이 걸린다.
+    fireEvent.change(screen.getByLabelText('학과'), {
+      target: { value: '글로벌\u00A0경영학과' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ department: '글로벌 경영학과' });
+  });
+
+  it('서버가 눕혀 저장한 학과로 다시 열면 같은 값 입력은 변경으로 잡히지 않는다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '글로벌 경영학과' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('학과'), {
+      target: { value: '글로벌\u00A0경영학과' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument());
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('학과 끝 공백은 trim 해서 보내 저장 후 폼이 계속 dirty 로 남지 않는다', async () => {
     const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
     render(

@@ -19,7 +19,7 @@ import { ClubCard } from '../_components/ClubCard';
 import { ClubListSkeletonItems } from '../_components/ClubExploreSkeleton';
 import { ClubListItem } from '../_components/ClubListItem';
 import { summaryToClub } from '../_lib/clubAdapter';
-import { DIVISIONS, SCOPE_CLUB_LABEL, type Division } from '../_lib/clubs';
+import { CLUB_SEARCH_PLACEHOLDER, DIVISIONS, SCOPE_CLUB_LABEL, type Division } from '../_lib/clubs';
 import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
 import {
   CATEGORY_OPTIONS,
@@ -284,7 +284,7 @@ export function ClubExplorePage() {
                 <input
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
-                  placeholder="동아리 이름·소개·학과 검색"
+                  placeholder={CLUB_SEARCH_PLACEHOLDER}
                   className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
@@ -620,7 +620,7 @@ export function ClubExplorePage() {
             <input
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
-              placeholder="동아리 이름 · 관심사 · 학과 검색"
+              placeholder={CLUB_SEARCH_PLACEHOLDER}
               className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
               style={{ fontFamily: 'inherit' }}
             />
