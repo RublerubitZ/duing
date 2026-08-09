@@ -205,9 +205,14 @@ public class Club extends BaseEntity {
         return value == null || value.isBlank() ? null : value;
     }
 
-    /** 학과는 자유입력이라 앞뒤 공백을 떨어내고 저장한다(빈 값은 미지정과 같은 null). */
+    /**
+     * 학과는 자유입력이라 앞뒤 공백을 떨어내고 저장한다(빈 값은 미지정과 같은 null).
+     * strip()/isBlank() 는 NBSP(U+00A0) 계열을 공백으로 보지 않아, 문서에서 복사해 붙여 넣으면
+     * 보이지 않는 문자만 남은 학과가 그대로 저장된다 — 먼저 일반 공백으로 바꾼 뒤 떨어낸다.
+     */
     private static String normalizeDepartment(String value) {
-        return value == null ? null : blankToNull(value.strip());
+        if (value == null) return null;
+        return blankToNull(value.replaceAll("[\\u00A0\\u2007\\u202F]", " ").strip());
     }
 
     @Builder(access = AccessLevel.PRIVATE)

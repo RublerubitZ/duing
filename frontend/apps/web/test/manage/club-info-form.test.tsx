@@ -211,6 +211,23 @@ describe('ClubInfoForm', () => {
     expect(mutateAsync).toHaveBeenCalledWith({ department: '' });
   });
 
+  it('학과 끝 공백은 trim 해서 보내 저장 후 폼이 계속 dirty 로 남지 않는다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '컴퓨터공학과' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    // 서버가 strip 해 저장한 값과 같아지므로 "변경 없음" 으로 판정돼야 한다.
+    fireEvent.change(screen.getByLabelText('학과'), { target: { value: '컴퓨터공학과  ' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument());
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('중앙동아리에는 학과 입력이 나타나지 않는다', () => {
     render(
       <ClubInfoForm

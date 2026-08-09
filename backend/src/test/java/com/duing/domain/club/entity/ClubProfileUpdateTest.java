@@ -76,7 +76,7 @@ class ClubProfileUpdateTest {
         assertThat(project.subtitle()).isNull();
     }
 
-    // ---- payload helpers: 아래 헬퍼들은 emptyPayload() 와 동일한 26개 인자 순서에서
+    // ---- payload helpers: 아래 헬퍼들은 emptyPayload() 와 동일한 27개 인자 순서에서
     //      해당 필드만 채운다. UpdatePayload record 정의의 컴포넌트 순서를 따를 것.
     private Club.UpdatePayload payloadWithFee(FeeCycle feeCycle, Integer amount) {
         return new Club.UpdatePayload(

@@ -39,8 +39,11 @@ export type ClubSummary = {
   category: ClubCategory;
   division: string | null;
   college: College | null;
-  /** 단과대 동아리의 소속 학과. 자유입력·선택값이라 미입력이면 null. */
-  department: string | null;
+  /**
+   * 단과대 동아리의 소속 학과. 자유입력·선택값이라 미입력이면 null.
+   * BE 미배포 전환기에는 필드 자체가 없을 수 있어 옵셔널이다 (User.college 와 같은 규약).
+   */
+  department?: string | null;
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];

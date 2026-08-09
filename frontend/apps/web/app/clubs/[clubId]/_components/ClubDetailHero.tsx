@@ -23,7 +23,9 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
   // 소속 보조 표기 — 중앙은 분과, 단과대는 학과. 비중앙 행의 division 은 단과대명·분과명이 섞인
   // 잔여 데이터라 centralClub 게이트로 함께 막는다(탐색 카드와 같은 규칙).
-  const affiliation = club.centralClub ? club.division : club.department;
+  const affiliation = club.centralClub
+    ? (club.division ? formatDivisionLabel(club.division) : null)
+    : club.department;
   // 모바일 히어로용 소속 조각 — 데스크탑은 카테고리 pill 옆이라 짧게(분과/학과) 두지만,
   // 모바일에는 소속을 보여줄 자리가 여기뿐이라 단과대 동아리는 단과대학까지 함께 밝힌다.
   // 값이 없는 조각은 통째로 빠지고, 전부 없으면 소속 표기 자체를 그리지 않는다.

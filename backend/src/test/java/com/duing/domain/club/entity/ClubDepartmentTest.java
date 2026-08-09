@@ -58,6 +58,19 @@ class ClubDepartmentTest {
     }
 
     @Test
+    @DisplayName("문서에서 붙여넣은 NBSP 만 남은 학과는 미지정으로 저장된다")
+    void departmentWithOnlyNonBreakingSpaceBecomesNull() {
+        String nbsp = "\u00A0";   // 문서 붙여넣기로 흔히 섞여 들어오는 비분리 공백
+        Club onlyNbsp = Club.create("동아리C", ClubCategory.ACADEMIC, null, "소개", null,
+                false, College.GLOBAL_BUSINESS, nbsp + nbsp);
+        Club paddedNbsp = Club.create("동아리D", ClubCategory.ACADEMIC, null, "소개", null,
+                false, College.GLOBAL_BUSINESS, nbsp + "회계학과" + nbsp);
+
+        assertThat(onlyNbsp.getDepartment()).isNull();
+        assertThat(paddedNbsp.getDepartment()).isEqualTo("회계학과");
+    }
+
+    @Test
     @DisplayName("학과는 null 이면 미변경, 빈 문자열이면 null 로 비워진다")
     void updatesDepartmentPartially() {
         Club club = departmentClub();
