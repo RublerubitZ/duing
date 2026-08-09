@@ -41,14 +41,18 @@ export function BulkActionBar({
         <div className="text-sm font-medium text-charcoal-2">
           선택 <span className="font-bold text-ink-deep">{selectedCount}</span>건
         </div>
-        {/* 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 기존 한 줄 flex */}
+        {/*
+         * 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 한 줄 flex.
+         * 버튼은 `.btn` 기본 크기(px-5 py-3 ≈ 44px)를 쓴다 — btn-sm 은 36px 라 터치 기준에 못 미친다.
+         * 위계는 DESIGN.md 대로 primary/secondary/ghost/danger-quiet.
+         */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           {/* 마감 후에는 심사를 되돌리는 액션(면접 대상 선정·보류)이 409 로 막힌다 — 버튼도 함께 감춘다. */}
           {useInterview && !finalizeOnly && (
             <button
               type="button"
               onClick={onPromoteToInterview}
-              className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-purple-700 hover:bg-purple-50 sm:py-1.5 sm:text-xs"
+              className="btn btn-secondary"
             >
               면접 대상으로 선정
             </button>
@@ -57,7 +61,7 @@ export function BulkActionBar({
             <button
               type="button"
               onClick={() => onBulkAction('ON_HOLD')}
-              className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
+              className="btn btn-ghost"
             >
               보류
             </button>
@@ -65,7 +69,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}
-            className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 sm:py-1.5 sm:text-xs"
+            className="btn btn-danger-quiet"
           >
             일괄 불합격
           </button>
@@ -73,7 +77,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={() => onBulkAction('ACCEPTED')}
-            className="rounded-md bg-emerald-600 px-3 py-2 text-[13px] font-semibold text-white hover:bg-emerald-700 sm:py-1.5 sm:text-xs"
+            className="btn btn-primary"
           >
             일괄 합격
           </button>

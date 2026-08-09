@@ -24,9 +24,13 @@ type Props = {
   finalizeOnly: boolean;
 };
 
-const ACTION_CLASS =
-  'rounded-md border border-line px-3 py-1.5 text-xs font-semibold transition-colors';
-
+/*
+ * 버튼 위계는 DESIGN.md 를 따른다 — 손으로 만들지 않고 `.btn` 계열을 쓰고, hover 는 색상 전환만 둔다.
+ *   일괄 합격          primary       잉크. 목록에서 가장 결정적인 액션 하나만 채운다.
+ *   면접 대상으로 선정  secondary     파이프라인을 앞으로 미는 보조 액션.
+ *   보류               ghost         "일단 세워둔다" — 가장 조용해야 한다.
+ *   일괄 불합격         danger-quiet  되돌릴 수 없지만 솔리드로 외칠 자리는 아니다.
+ */
 /**
  * 데스크탑(≥1024px) 표 카드 안 상단 바 — 전체 선택·선택 수·일괄 액션·총원을 한 줄에 둔다.
  * 표와 붙어 있어 "무엇을 고르고 있는지" 와 "무엇을 할 수 있는지" 가 같은 시야에 들어온다.
@@ -73,7 +77,7 @@ export function ApplicantListToolbar({
             <button
               type="button"
               onClick={onPromoteToInterview}
-              className={cn(ACTION_CLASS, 'text-purple-700 hover:bg-purple-50')}
+              className="btn btn-secondary btn-sm"
             >
               면접 대상으로 선정
             </button>
@@ -82,7 +86,7 @@ export function ApplicantListToolbar({
             <button
               type="button"
               onClick={() => onBulkAction('ON_HOLD')}
-              className={cn(ACTION_CLASS, 'text-amber-700 hover:bg-amber-50')}
+              className="btn btn-ghost btn-sm"
             >
               보류
             </button>
@@ -90,14 +94,14 @@ export function ApplicantListToolbar({
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}
-            className={cn(ACTION_CLASS, 'text-rose-700 hover:bg-rose-50')}
+            className="btn btn-danger-quiet btn-sm"
           >
             일괄 불합격
           </button>
           <button
             type="button"
             onClick={() => onBulkAction('ACCEPTED')}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+            className="btn btn-primary btn-sm"
           >
             일괄 합격
           </button>
