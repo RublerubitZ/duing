@@ -51,8 +51,15 @@ export function ApplicantTable({
   toolbar,
 }: Props) {
   return (
-    <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+    /*
+     * 툴바는 가로 스크롤 컨테이너 **밖**에 둔다. 안에 두면 (1) 글꼴 확대로 표가 넓어져 가로 스크롤이
+     * 생길 때 툴바까지 함께 밀려 잘리고, (2) sticky 를 걸어도 스크롤포트가 이 컨테이너라 화면에
+     * 붙지 않는다. 밖으로 빼면 창 스크롤 기준 sticky 가 되어, 긴 목록에서 아래쪽 행을 고른 뒤에도
+     * 액션이 화면에 남는다(80명 목록에서 3,400px 를 되올라가야 하던 문제).
+     */
+    <div className="mt-4 hidden rounded-lg border border-line bg-paper lg:block">
       {toolbar}
+      <div className="overflow-x-auto rounded-b-lg">
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-graysoft text-left">
           <tr>
@@ -86,7 +93,8 @@ export function ApplicantTable({
                    * 시각 박스를 눌러도 아무 일이 일어나지 않는다(실브라우저에서 확인). 겸사겸사 셀 안
                    * 히트 영역도 넓어진다.
                    */}
-                  <label className="flex w-fit cursor-pointer items-center py-1">
+                  {/* 음수 마진으로 셀 패딩까지 먹어 44px 을 만든다 — 행 높이는 그대로다(iPad 가로 터치). */}
+                  <label className="-my-3 flex w-fit cursor-pointer items-center py-3">
                     <ApplicantCheckbox
                       label={`${applicant.userName} 선택`}
                       checked={isSelected}
@@ -145,6 +153,7 @@ export function ApplicantTable({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

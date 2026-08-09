@@ -56,8 +56,9 @@ export function ApplicantListToolbar({
       role="region"
       aria-label="지원자 목록 도구 모음"
       className={cn(
-        'flex items-center gap-3 border-b border-line px-4 py-3 transition-colors',
-        hasSelection && 'bg-sage-tint',
+        // sticky — 긴 목록에서 아래쪽 행을 고른 뒤에도 액션이 화면에 남아야 한다.
+        'sticky top-0 z-10 flex items-center gap-3 rounded-t-lg border-b border-line px-4 py-3 transition-colors',
+        hasSelection ? 'bg-sage-tint' : 'bg-paper',
       )}
     >
       {/* lg 게이트라 iPad 가로(1024px)에서 터치로 온다 — 라벨 높이를 44px 로 잡는다. */}
@@ -87,7 +88,7 @@ export function ApplicantListToolbar({
             <button
               type="button"
               onClick={() => onBulkAction('ON_HOLD')}
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm hover:bg-paper"
             >
               보류
             </button>
@@ -95,7 +96,7 @@ export function ApplicantListToolbar({
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}
-            className="btn btn-danger-quiet btn-sm"
+            className="btn btn-danger-quiet btn-sm hover:bg-paper"
           >
             일괄 불합격
           </button>

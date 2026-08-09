@@ -435,7 +435,8 @@ export default function ApplicantsPage({ params }: PageParams) {
                 useInterview={useInterview}
                 toolbar={
                   <ApplicantListToolbar
-                    totalCount={applicants.length}
+                    // 상태 칩 '전체' 와 같은 출처 — applicants 는 상태 필터 적용본이라 "총" 이 아니다.
+                    totalCount={counts.total}
                     selectableCount={selectable.length}
                     selectedCount={actionableIds.length}
                     state={allState}

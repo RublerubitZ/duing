@@ -53,14 +53,22 @@ describe('ApplicantTable 확장', () => {
     renderTable({ ...baseApplicant, status: 'ACCEPTED' });
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    // 툴팁은 시각 요소(래퍼)가 갖는다 — sr-only input 에 있으면 hit chain 밖이라 hover 로 안 뜬다.
+    expect(checkbox.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('최종 상태'),
+    );
   });
 
   it('REJECTED 행 체크박스는 disabled 이고 tooltip 이 있다', () => {
     renderTable({ ...baseApplicant, status: 'REJECTED' });
     const checkbox = screen.getByRole('checkbox', { name: '홍길동 선택' });
     expect(checkbox).toBeDisabled();
-    expect(checkbox).toHaveAttribute('title', expect.stringContaining('최종 상태'));
+    // 툴팁은 시각 요소(래퍼)가 갖는다 — sr-only input 에 있으면 hit chain 밖이라 hover 로 안 뜬다.
+    expect(checkbox.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('최종 상태'),
+    );
   });
 
   it('SUBMITTED 행 체크박스는 disabled 가 아니다', () => {

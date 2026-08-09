@@ -43,12 +43,12 @@ export function ApplicantCheckbox({
   const filled = checked || indeterminate;
 
   return (
-    <span className={cn('relative inline-grid place-items-center', className)}>
+    /* title 은 래퍼가 갖는다 — sr-only input 에 두면 hit chain 에 없어 hover 로 뜨지 않는다. */
+    <span title={title} className={cn('relative inline-grid place-items-center', className)}>
       <input
         ref={inputRef}
         type="checkbox"
         aria-label={label}
-        title={title}
         checked={checked}
         disabled={disabled}
         onChange={onChange}

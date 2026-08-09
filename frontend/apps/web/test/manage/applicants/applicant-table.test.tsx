@@ -68,9 +68,15 @@ describe('데스크탑 지원자 표', () => {
     );
   });
 
-  it('행 체크박스는 전파를 끊어 상세로 가지 않는다', () => {
+  /*
+   * 라벨을 통해 누른다. 커스텀 체크박스는 input 이 sr-only 라 라벨이 없으면 보이는 박스를 눌러도
+   * 아무 일이 없는데, input 을 직접 때리는 테스트는 그걸 못 잡는다(실제로 한 번 났던 버그).
+   */
+  it('행 체크박스는 라벨로 감싸져 있고 전파를 끊어 상세로 가지 않는다', () => {
     const { onToggleSelect, onOpenDetail } = renderTable([baseApplicant]);
-    fireEvent.click(screen.getByRole('checkbox', { name: '홍길동 선택' }));
+    const label = screen.getByRole('checkbox', { name: '홍길동 선택' }).closest('label');
+    expect(label).not.toBeNull();
+    fireEvent.click(label as HTMLLabelElement);
     expect(onToggleSelect).toHaveBeenCalledWith(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
   });

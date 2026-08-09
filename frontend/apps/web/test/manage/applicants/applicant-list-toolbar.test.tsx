@@ -50,9 +50,12 @@ describe('지원자 목록 도구 모음 (데스크탑)', () => {
   });
 
   /* 표 헤더에 있던 케이스 3건을 여기로 옮겼다 — 전체 선택이 툴바로 이동했다. */
-  it('누르면 onToggleAll 이 불린다', () => {
+  /* 라벨을 통해 누른다 — sr-only input 구조라 라벨이 없으면 화면에서 클릭이 죽는다. */
+  it('라벨로 감싸져 있고 누르면 onToggleAll 이 불린다', () => {
     const { onToggleAll } = renderToolbar();
-    fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
+    const label = screen.getByRole('checkbox', { name: '전체 선택' }).closest('label');
+    expect(label).not.toBeNull();
+    fireEvent.click(label as HTMLLabelElement);
     expect(onToggleAll).toHaveBeenCalledTimes(1);
   });
 
