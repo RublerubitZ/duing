@@ -24,7 +24,10 @@ export function HomeNav({ slimOnMobile = false, initialAuthenticated = null }: P
   return (
     <header className="relative z-50 bg-cream/90 backdrop-blur">
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
-        <Link href="/" aria-label="두잉 홈" className="translate-y-[3px]">
+        {/* `/` 링크는 프리페치 제외 — 홈이 force-dynamic 이라 뷰포트 프리페치가 페이지뷰마다
+            서버리스 함수를 깨운다(Active CPU). hover·터치 프리페치까지 꺼져 첫 클릭 커밋이 RSC 응답
+            시작까지 지연될 수 있다(staleTimes.dynamic 180s 내 재방문은 즉시) — 의도된 트레이드오프. */}
+        <Link href="/" prefetch={false} aria-label="두잉 홈" className="translate-y-[3px]">
           <BrandMark size={44} />
         </Link>
         <ul
@@ -34,7 +37,7 @@ export function HomeNav({ slimOnMobile = false, initialAuthenticated = null }: P
           )}
         >
           <li>
-            <Link href="/" className={activeLink}>
+            <Link href="/" prefetch={false} className={activeLink}>
               홈
               <span className="absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-ink" />
             </Link>

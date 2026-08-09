@@ -99,6 +99,11 @@ export function BottomNav() {
               <li key={href} className="flex-1">
                 <Link
                   href={linkHref}
+                  // 홈 탭만 프리페치 제외 — `/` 는 force-dynamic 이라 뷰포트 프리페치가 페이지뷰마다
+                  // 서버리스 함수를 깨운다(Active CPU). prefetch={false} 는 hover·터치 프리페치까지 전부 꺼서
+                  // 첫 탭 커밋이 RSC 응답 시작까지 지연될 수 있다(라우터 캐시 staleTimes.dynamic 180s 내
+                  // 재방문은 즉시, 응답 시작 후엔 (home)/loading.tsx 폴백) — 의도된 트레이드오프다.
+                  prefetch={href === '/' ? false : undefined}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
                     'relative flex h-14 flex-col items-center justify-center gap-1 text-[10px] leading-none motion-safe:transition-colors',

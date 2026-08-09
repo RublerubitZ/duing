@@ -61,7 +61,10 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
       )}
     >
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
-        <Link href="/" aria-label="두잉 홈" className="translate-y-[3px]">
+        {/* `/` 링크는 프리페치 제외 — 홈이 force-dynamic 이라 뷰포트 프리페치가 페이지뷰마다
+            서버리스 함수를 깨운다(Active CPU). hover·터치 프리페치까지 꺼져 첫 클릭 커밋이 RSC 응답
+            시작까지 지연될 수 있다(staleTimes.dynamic 180s 내 재방문은 즉시) — 의도된 트레이드오프. */}
+        <Link href="/" prefetch={false} aria-label="두잉 홈" className="translate-y-[3px]">
           <BrandMark size={44} />
         </Link>
 
@@ -79,6 +82,8 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
               <li key={item.label}>
                 <Link
                   href={linkHref}
+                  // 홈만 프리페치 제외 — 위 브랜드 링크와 같은 이유(force-dynamic 홈의 Active CPU).
+                  prefetch={item.href === '/' ? false : undefined}
                   aria-current={on ? 'page' : undefined}
                   className={`relative py-1 ${on ? 'text-ink-deep' : 'text-charcoal-3 hover:text-charcoal'}`}
                 >
