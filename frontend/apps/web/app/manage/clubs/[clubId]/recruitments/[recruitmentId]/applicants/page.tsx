@@ -18,6 +18,7 @@ import {
   useBulkUpdateApplicationStatusMutation,
 } from '@duing/hooks';
 import { safeExternalHref, toRoute } from '../../../../../../_lib/route';
+import { ApplicantCardList } from './_components/ApplicantCardList';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
@@ -74,6 +75,28 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const detailHref = useCallback(
+    (applicationId: number) => {
+      const currentQs = searchParams.toString();
+      // 템플릿 리터럴을 const 로 받으면 string 으로 넓어져 toRoute 의 `/${string}` 에 안 맞는다.
+      const base: `/${string}` = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`;
+      return toRoute(currentQs ? `${base}?${currentQs}` : base);
+    },
+    [searchParams, clubId, recruitmentId],
+  );
+  const openDetail = useCallback(
+    (applicationId: number) => router.push(detailHref(applicationId)),
+    [router, detailHref],
+  );
+  const toggleOne = useCallback((applicationId: number) => {
+    setSelectedIds((current) =>
+      current.includes(applicationId)
+        ? current.filter((id) => id !== applicationId)
+        : [...current, applicationId],
+    );
+  }, []);
+
   // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
   // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
   const [pendingBulkTarget, setPendingBulkTarget] = useState<
@@ -293,15 +316,24 @@ export default function ApplicantsPage({ params }: PageParams) {
               {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}
             </p>
           ) : (
-            <ApplicantTable
-              applicants={applicants}
-              selectedIds={selectedIds}
-              selectedSet={selectedSet}
-              onSelect={setSelectedIds}
-              useInterview={useInterview}
-              clubId={clubId}
-              recruitmentId={recruitmentId}
-            />
+            <>
+              <ApplicantCardList
+                applicants={applicants}
+                selectedSet={selectedSet}
+                onToggleSelect={toggleOne}
+                onOpenDetail={openDetail}
+                detailHref={detailHref}
+              />
+              <ApplicantTable
+                applicants={applicants}
+                selectedIds={selectedIds}
+                selectedSet={selectedSet}
+                onSelect={setSelectedIds}
+                useInterview={useInterview}
+                clubId={clubId}
+                recruitmentId={recruitmentId}
+              />
+            </>
           )}
         </>
       )}
