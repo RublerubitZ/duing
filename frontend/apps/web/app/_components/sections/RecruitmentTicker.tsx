@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight } from '@/components/duing/Icon';
 import { cn } from '@/app/_lib/cn';
 import { fetchUpcomingDeadlineClubs } from '@/app/_lib/home-data';
+import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import {
   selectClosingSoonClubs,
   type ClosingSoonEmphasis,
@@ -67,7 +68,7 @@ export async function RecruitmentTicker() {
         </div>
 
         <Link
-          href="/clubs?recruitment=available"
+          href={RECRUITING_CLUBS_HREF}
           className="flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-white hover:text-sage"
         >
           전체 보기 <ArrowRight />
