@@ -51,13 +51,17 @@ describe('데스크탑 지원자 표', () => {
     expect(screen.getByRole('columnheader', { name: '지원일시' })).toBeInTheDocument();
   });
 
-  it('단과대·학번 열은 1024~1279px 에서 숨기는 클래스를 갖는다', () => {
+  /*
+   * 보조 열(단과대·학번)은 1400px 부터 나온다. 실측 근거: 사이드바를 빼면 1280px 의 콘텐츠는 928px 뿐이라
+   * 아바타까지 얹은 9열이 학과명을 세 줄로 접었다. 1400px(콘텐츠 1048px)부터 전 행이 한 줄로 들어간다.
+   */
+  it('단과대·학번 열은 1400px 미만에서 숨기는 클래스를 갖는다', () => {
     renderTable([baseApplicant]);
     for (const cell of [screen.getByText('IT·공과대학'), screen.getByText('20200001')]) {
       const className = cell.closest('td')?.className ?? '';
-      // hidden 이 빠지면 1024px 에서 그대로 노출된다 — 쌍으로 확인한다.
+      // hidden 이 빠지면 좁은 폭에서 그대로 노출된다 — 쌍으로 확인한다.
       expect(className).toContain('hidden');
-      expect(className).toContain('xl:table-cell');
+      expect(className).toContain('min-[1400px]:table-cell');
     }
   });
 

@@ -14,6 +14,20 @@ import {
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 import { selectableIds, selectAllState } from '../_lib/applicantSelection';
 
+/** 회원 관리 표와 같은 이니셜 원 — 콘솔 안에서 사람 행의 생김새를 맞춘다. 장식이라 접근성 트리에서 뺀다. */
+function InitialAvatar({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      // 1024~1279 는 콘텐츠가 672~927px 뿐이라 아바타 32px 이 학과명을 세 줄로 접는다 — 그 구간은
+      // 밀도를 택해 감춘다(장식이라 정보 손실 없음).
+      className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage-mist text-xs font-semibold text-ink xl:flex"
+    >
+      {name.slice(0, 1)}
+    </span>
+  );
+}
+
 function MyScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-charcoal-3">—</span>;
   const colorClass =
@@ -74,7 +88,7 @@ export function ApplicantTable({
       <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-cream text-left">
           <tr>
-            <th className="w-12 px-3 py-3 xl:px-4">
+            <th className="w-12 px-3 py-3 min-[1400px]:px-4">
               <input
                 ref={headerCheckboxRef}
                 type="checkbox"
@@ -85,14 +99,14 @@ export function ApplicantTable({
                 className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
               />
             </th>
-            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">지원자</th>
-            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">상태</th>
-            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">학과 · 학년</th>
-            <th className="hidden whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:table-cell xl:px-4">단과대</th>
-            <th className="hidden whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:table-cell xl:px-4">학번</th>
-            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">지원일시</th>
-            {useInterview && <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">면접일정</th>}
-            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 xl:px-4">내 평가</th>
+            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">지원자</th>
+            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">상태</th>
+            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">학과 · 학년</th>
+            <th className="hidden whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:table-cell min-[1400px]:px-4">단과대</th>
+            <th className="hidden whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:table-cell min-[1400px]:px-4">학번</th>
+            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">지원일시</th>
+            {useInterview && <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">면접일정</th>}
+            <th className="whitespace-nowrap px-3 py-3 font-medium text-charcoal-2 min-[1400px]:px-4">내 평가</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -105,7 +119,7 @@ export function ApplicantTable({
                 onClick={() => onOpenDetail(applicant.applicationId)}
                 className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-cream/60')}
               >
-                <td className="px-3 py-3 xl:px-4" onClick={(event) => event.stopPropagation()}>
+                <td className="px-3 py-3 min-[1400px]:px-4" onClick={(event) => event.stopPropagation()}>
                   <input
                     type="checkbox"
                     aria-label={`${applicant.userName} 선택`}
@@ -117,16 +131,19 @@ export function ApplicantTable({
                   />
                 </td>
                 {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
-                <td className="whitespace-nowrap px-3 py-3 xl:px-4">
-                  <Link
-                    href={detailHref(applicant.applicationId)}
-                    onClick={(event) => event.stopPropagation()}
-                    className="font-semibold text-ink-deep hover:underline"
-                  >
-                    {applicant.userName}
-                  </Link>
+                <td className="whitespace-nowrap px-3 py-3 min-[1400px]:px-4">
+                  <span className="flex items-center gap-2.5">
+                    <InitialAvatar name={applicant.userName} />
+                    <Link
+                      href={detailHref(applicant.applicationId)}
+                      onClick={(event) => event.stopPropagation()}
+                      className="font-semibold text-ink-deep hover:underline"
+                    >
+                      {applicant.userName}
+                    </Link>
+                  </span>
                 </td>
-                <td className="px-3 py-3 xl:px-4">
+                <td className="px-3 py-3 min-[1400px]:px-4">
                   <span
                     className={cn(
                       'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
@@ -136,26 +153,26 @@ export function ApplicantTable({
                     {APPLICATION_STATUS_LABEL[applicant.status]}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-charcoal-2 xl:px-4">
+                <td className="px-3 py-3 text-charcoal-2 min-[1400px]:px-4">
                   {applicant.major} · {GRADE_DISPLAY_NAME[applicant.grade]}
                 </td>
-                <td className="hidden whitespace-nowrap px-3 py-3 text-charcoal-3 xl:table-cell xl:px-4">
+                <td className="hidden whitespace-nowrap px-3 py-3 text-charcoal-3 min-[1400px]:table-cell min-[1400px]:px-4">
                   {COLLEGE_DISPLAY_NAME[applicant.college]}
                 </td>
-                <td className="hidden whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:table-cell xl:px-4">
+                <td className="hidden whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 min-[1400px]:table-cell min-[1400px]:px-4">
                   {applicant.studentId}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:px-4">
+                <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 min-[1400px]:px-4">
                   {formatDateTimeKst(applicant.submittedAt)}
                 </td>
                 {useInterview && (
-                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 xl:px-4">
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-charcoal-3 min-[1400px]:px-4">
                     {applicant.interviewStartAt
                       ? formatDateTimeKst(applicant.interviewStartAt)
                       : '—'}
                   </td>
                 )}
-                <td className="px-3 py-3 xl:px-4">
+                <td className="px-3 py-3 min-[1400px]:px-4">
                   <MyScoreBadge score={applicant.myScore} />
                 </td>
               </tr>
