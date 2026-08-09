@@ -21,6 +21,11 @@
 - CLOSED 모집(`finalizeOnly`)에서 되돌리는 액션을 감추는 기존 로직 유지.
 - 테스트 cwd 는 `frontend/apps/web`, 명령은 `pnpm exec vitest run <경로>`. **각 셸 명령은 독립된 `cd` 로 쓴다** — 한 블록에서 상대 `cd` 를 이어 쓰면 두 번째가 실패한다.
 - 커밋은 Conventional Commits + 한국어. Claude 공동저자 라인 금지.
+- **`next.config.mjs` 에 `typedRoutes: true` 가 켜져 있다.** `Link href` 는 `string` 을 받지 않고
+  `Route` 를 요구한다. 그래서 `detailHref` 의 반환 타입은 `Route`(`import type { Route } from 'next'`)이고,
+  페이지에서는 `toRoute(...)` 로 만든다. 템플릿 리터럴을 `const base = ...` 로 받으면 `string` 으로
+  넓어져 `toRoute` 의 `` `/${string}` `` 파라미터에 안 맞으므로, 타입 주석을 붙이거나 인자에 직접 넣는다.
+  **테스트도 타입체크 대상**이라 `detailHref` mock 역시 `toRoute(...)` 로 감싼다. `as` 로 우회하지 않는다.
 
 ### 태스크 경계 원칙 — 브랜치는 항상 동작해야 한다
 
@@ -61,7 +66,7 @@ UI 변화 없음. 표·카드가 갈라질 때 복제될 것들을 먼저 순수
   - `applicantStatus.ts` — `STATUS_BADGE_CLASS: Record<ApplicationStatus, string>`, `STATUS_STRIPE_CLASS: Record<ApplicationStatus, string>`
   - `applicantSelection.ts` — `selectableIds(applicants: Applicant[]): number[]`, `type SelectAllState = 'none' | 'partial' | 'all'`, `selectAllState(selected: ReadonlySet<number>, selectable: readonly number[]): SelectAllState`, `toggleSelectAll(selectable: readonly number[], state: SelectAllState): number[]`
   - `applicantCounts.ts` — `type StatusCounts = Record<ApplicationStatus, number> & { total: number }`, `countByStatus(applicants: Applicant[]): StatusCounts`
-- 최종 상태 술어는 새로 만들지 않는다. `import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status'` (`_lib/` 와 `_components/` 모두 `../` 7개로 같은 깊이 — 검증됨).
+- 최종 상태 술어는 새로 만들지 않는다. `import { isTerminalApplicationStatus } from '@/app/_constants/application-status'` (`_lib/` 와 `_components/` 모두 `../` 7개로 같은 깊이 — 검증됨).
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -188,7 +193,7 @@ export const STATUS_STRIPE_CLASS: Record<ApplicationStatus, string> = {
 
 ```ts
 import type { Applicant } from '@duing/types';
-import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status';
+import { isTerminalApplicationStatus } from '@/app/_constants/application-status';
 
 /** 선택 가능한 지원자 = 최종 상태가 아닌 지원자. 목록 순서를 유지한다. */
 export function selectableIds(applicants: Applicant[]): number[] {
@@ -264,7 +269,7 @@ Expected: PASS (8 tests)
 파일 상단의 `STATUS_BADGE_CLASS` 상수와 `isTerminalStatus` 함수 정의를 지우고 아래 import 로 바꾼다. 호출부의 `isTerminalStatus(...)` 는 `isTerminalApplicationStatus(...)` 로 이름만 바뀐다. 다른 코드는 그대로 둔다.
 
 ```tsx
-import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status';
+import { isTerminalApplicationStatus } from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 ```
 
@@ -300,7 +305,7 @@ cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit 
     onToggleSelect: (applicationId: number) => void;
     onOpenDetail: (applicationId: number) => void;
     /** 이름 링크의 href. 라우팅 규칙은 페이지가 소유한다(현재 쿼리스트링 유지). */
-    detailHref: (applicationId: number) => string;
+    detailHref: (applicationId: number) => Route;
   };
   ```
 
@@ -454,7 +459,7 @@ import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
-} from '../../../../../../../_constants/application-status';
+} from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS, STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
 
 /**
@@ -668,7 +673,7 @@ cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit 
     onToggleSelect: (applicationId: number) => void;
     onToggleAll: () => void;
     onOpenDetail: (applicationId: number) => void;
-    detailHref: (applicationId: number) => string;
+    detailHref: (applicationId: number) => Route;   // next 의 typedRoutes — string 은 Link href 에 안 들어간다
     useInterview: boolean;
   };
   ```
@@ -682,6 +687,7 @@ cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit 
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { Applicant } from '@duing/types';
+import { toRoute } from '@/app/_lib/route';
 import { ApplicantTable } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantTable';
 
 const baseApplicant: Applicant = {
@@ -710,7 +716,7 @@ function renderTable(applicants: Applicant[], selected: number[] = []) {
       onToggleSelect={onToggleSelect}
       onToggleAll={onToggleAll}
       onOpenDetail={onOpenDetail}
-      detailHref={(applicationId) => `/manage/clubs/1/recruitments/1/applicants/${applicationId}`}
+      detailHref={(applicationId) => toRoute(`/manage/clubs/1/recruitments/1/applicants/${applicationId}`)}
       useInterview={false}
     />,
   );
@@ -789,6 +795,7 @@ Expected: FAIL — props 불일치, `전체 선택` 없음
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { formatDateTimeKst } from '@duing/hooks';
 import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
@@ -796,7 +803,7 @@ import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_STATUS_LABEL,
   isTerminalApplicationStatus,
-} from '../../../../../../../_constants/application-status';
+} from '@/app/_constants/application-status';
 import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 import { selectableIds, selectAllState } from '../_lib/applicantSelection';
 
@@ -823,7 +830,7 @@ type Props = {
   onToggleSelect: (applicationId: number) => void;
   onToggleAll: () => void;
   onOpenDetail: (applicationId: number) => void;
-  detailHref: (applicationId: number) => string;
+  detailHref: (applicationId: number) => Route;
   useInterview: boolean;
 };
 
@@ -1087,7 +1094,7 @@ Expected: FAIL — 모듈 없음
 
 import type { ApplicationStatus } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
+import { APPLICATION_STATUS_LABEL } from '@/app/_constants/application-status';
 import type { StatusCounts } from '../_lib/applicantCounts';
 
 // 회원 관리 MemberFilterChips 와 같은 칩 스타일 — 콘솔 안에서 필터 생김새가 갈리지 않게 한다.
