@@ -5,20 +5,12 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { formatDateKst, formatDateTimeKst } from '@duing/hooks';
 import type { Applicant, ApplicationStatus } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
+import {
+  APPLICATION_STATUS_LABEL,
+  isTerminalApplicationStatus,
+} from '../../../../../../../_constants/application-status';
 import { toRoute } from '../../../../../../../_lib/route';
-
-const STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
-  SUBMITTED: 'bg-sky-100 text-sky-700',
-  ON_HOLD: 'bg-amber-100 text-amber-700',
-  INTERVIEW_PENDING: 'bg-purple-100 text-purple-700',
-  ACCEPTED: 'bg-emerald-100 text-emerald-700',
-  REJECTED: 'bg-rose-100 text-rose-700',
-};
-
-function isTerminalStatus(status: ApplicationStatus): boolean {
-  return status === 'ACCEPTED' || status === 'REJECTED';
-}
+import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 
 function MyScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-neutral-400">—</span>;
@@ -58,7 +50,7 @@ export function ApplicantTable({
   const searchParams = useSearchParams();
 
   const toggleRow = (applicationId: number, status: ApplicationStatus) => {
-    if (isTerminalStatus(status)) return;
+    if (isTerminalApplicationStatus(status)) return;
     const isSelected = selectedSet.has(applicationId);
     onSelect(
       isSelected
@@ -106,7 +98,7 @@ export function ApplicantTable({
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
           {applicants.map((applicant) => {
-            const isTerminal = isTerminalStatus(applicant.status);
+            const isTerminal = isTerminalApplicationStatus(applicant.status);
             const isSelected = selectedSet.has(applicant.applicationId);
             return (
               <tr
@@ -168,7 +160,7 @@ export function ApplicantTable({
       {/* 모바일: 카드 리스트 (표 대신) */}
       <div className="mt-4 space-y-2 md:hidden">
         {applicants.map((applicant) => {
-          const isTerminal = isTerminalStatus(applicant.status);
+          const isTerminal = isTerminalApplicationStatus(applicant.status);
           const isSelected = selectedSet.has(applicant.applicationId);
           return (
             <div
