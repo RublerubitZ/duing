@@ -4,80 +4,68 @@
 
 **Goal:** 지원자 관리 **목록 화면**을 운영 콘솔의 duing 디자인 언어로 통일하고, 데스크탑·태블릿·모바일 각각에 맞는 밀도와 선택·필터 UX를 제공한다.
 
-**Architecture:** 지금 `ApplicantTable.tsx` 한 파일이 데스크탑 표와 모바일 카드를 모두 들고 있다. 이를 책임별로 쪼갠다 — 상태 색·선택 계산은 `_lib/`의 순수 모듈로 내리고, 표(`ApplicantTable`)와 카드 리스트(`ApplicantCardList`)를 분리하며, 필터는 칩(`StatusFilterChips`)·시트(`ApplicantsFilterSheet`)·조립부(`ApplicantsFilterBar`)로 나눈다. 페이지는 조립과 선택 상태만 담당한다.
+**Architecture:** `ApplicantTable.tsx` 한 파일이 데스크탑 표와 모바일 카드를 모두 들고 있다. 책임별로 쪼갠다 — 상태 색·선택·카운트 계산은 `_lib/` 순수 모듈로, 표(`ApplicantTable`)와 카드 리스트(`ApplicantCardList`)를 분리, 필터는 칩(`StatusFilterChips`)·시트(`ApplicantsFilterSheet`)·조립부(`ApplicantsFilterBar`)로. 페이지는 조립·선택 상태·라우팅만 맡는다.
 
-**Tech Stack:** Next.js 15 App Router / React 19 / TanStack Query / Tailwind (duing 토큰) / Radix Sheet (`components/ui/sheet`) / vitest + @testing-library/react
+**Tech Stack:** Next.js 15 App Router / React 19 / TanStack Query / Tailwind (duing 토큰) / Radix Sheet / vitest + @testing-library/react
 
 ## Global Constraints
 
-- 설계 문서: `docs/superpowers/specs/2026-08-09-applicants-list-redesign-design.md` — 충돌 시 설계 문서가 우선한다.
-- **백엔드·DB·상태 전이 규칙·API contract 변경 금지.** 신규 API 금지. 기존 훅만 재사용한다.
+- 설계 문서: `docs/superpowers/specs/2026-08-09-applicants-list-redesign-design.md` — 충돌 시 설계 문서 우선.
+- **백엔드·DB·상태 전이·API contract 변경 금지.** 신규 API 금지.
 - **범위 밖**: 메일 발송, CSV, 파이프라인/칸반, 지원자 상세 화면 리디자인.
-- **`any` / `as` 타입 단언 금지**, 타입 선언은 `type`. 변수명 축약(`e`, `data`, `res`) 금지.
-- 반응형 전환: **≤1023px 카드 리스트 / 1024~1279px 표(단과대·학번 숨김) / ≥1280px 표(전 열)**. Tailwind `lg:` = 1024, `xl:` = 1280.
-- 상태 라벨은 `app/_constants/application-status.ts`의 `APPLICATION_STATUS_LABEL`(운영진 라벨: 지원 완료 / 보류 / 면접 대상 / 합격 / 불합격)만 쓴다. 새 어휘 금지.
-- 색 토큰은 회원 관리와 동일 — `card` / `bg-cream` / `bg-cream/60` / `border-line` / `border-sage` / `text-ink` / `text-ink-deep` / `text-charcoal-2` / `text-charcoal-3` / `bg-paper`. **`sage-tint` 는 존재하지 않는다.**
-- 모바일 체크박스 정책(PR #939)은 유지: 선택 가능 → 44×44 라벨 + 전파 차단, 최종 상태 → 인터랙티브 라벨 없음 + `disabled:pointer-events-none`.
-- CLOSED 모집(`finalizeOnly`)에서 되돌리는 액션(면접 대상 선정·보류)을 감추는 기존 로직을 유지한다.
-- 테스트 실행 cwd 는 `frontend/apps/web`, 명령은 `pnpm exec vitest run <경로>`.
-- 커밋 메시지는 Conventional Commits + 한국어. Claude 공동저자 라인 금지.
+- `any` / `as` 금지, 타입 선언은 `type`, 변수명 축약(`e`·`data`·`res`) 금지.
+- 반응형: **≤1023px 카드 / 1024~1279px 표(단과대·학번 숨김) / ≥1280px 표(전 열)**. `lg:`=1024, `xl:`=1280.
+- 상태 라벨은 `APPLICATION_STATUS_LABEL`(지원 완료 / 보류 / 면접 대상 / 합격 / 불합격)만 쓴다.
+- 색 토큰: `card` / `bg-cream` / `bg-cream/60` / `border-line` / `border-sage` / `text-ink` / `text-ink-deep` / `text-charcoal-2` / `text-charcoal-3` / `bg-paper` / `bg-graysoft`.
+- 모바일 체크박스 정책(PR #939) 유지: 선택 가능 → 44×44 라벨 + 전파 차단, 최종 상태 → 인터랙티브 라벨 없음 + `disabled:pointer-events-none`.
+- CLOSED 모집(`finalizeOnly`)에서 되돌리는 액션을 감추는 기존 로직 유지.
+- 테스트 cwd 는 `frontend/apps/web`, 명령은 `pnpm exec vitest run <경로>`. **각 셸 명령은 독립된 `cd` 로 쓴다** — 한 블록에서 상대 `cd` 를 이어 쓰면 두 번째가 실패한다.
+- 커밋은 Conventional Commits + 한국어. Claude 공동저자 라인 금지.
 
-## 설계 리뷰 반영 — 모든 태스크가 함께 지켜야 하는 것
+### 태스크 경계 원칙 — 브랜치는 항상 동작해야 한다
 
-아래는 설계 리뷰에서 나온 지적이며, 해당 태스크의 요구사항에 포함된다.
+컴포넌트의 props 를 바꾸는 태스크는 **같은 태스크 안에서 `page.tsx` 호출부까지 고친다.** 중간에
+"테스트는 통과하지만 화면이 빈" 상태를 만들지 않는다. 그래서 아래 태스크들의 Files 에는 `page.tsx` 가
+거의 항상 포함된다.
 
-1. **전체 선택 술어의 분모는 `selectable`** 이다. 회원 관리는 선택 불가 행이 없어 `every(members)` 로
-   충분하지만, 여기서 그대로 복붙하면 최종 상태가 한 건만 있어도 `allSelected` 가 영원히 false 가 되어
-   "전체 해제" 로 못 넘어간다. 표시 문구 `(7/14)` 의 분모도 `selectable.length`.
-2. **`-ml-3` → `-ml-4` 는 기존 가드 테스트를 함께 갱신**해야 한다(`applicant-card-touch.test.tsx` 의
-   클래스 박제). 가드의 의도는 유지하고 값만 바꾼다.
-3. **표 컨테이너의 `overflow-x-auto` 는 남긴다.** "가로 스크롤을 만들지 않는다"는 열 구성으로 폭을
-   맞춘다는 뜻이다. 지우면 예외적으로 긴 학과명 하나에 페이지 전체가 밀린다.
-4. **데스크탑 지원일 열은 `formatDateTimeKst`(날짜+시각)를 유지**하고 헤더도 `지원일시` 로 둔다.
-   정렬이 `createdAt desc` 라 같은 날 순서 판단에 시각이 쓰인다. 날짜만 쓰는 축약은 모바일 한정.
-5. **이름을 `next/link` 로 감싼다**(표·카드 모두). 지금은 키보드·스크린리더로 상세에 갈 길이 없다.
-   `href` 는 행 클릭과 같은 규칙(현재 쿼리스트링 유지)이고, 링크에서 전파를 끊어 이중 이동을 막는다.
-6. **필터 변경 시 선택은 교집합으로 정리**한다 — 상태·단과대·기간 변경은 정리, **검색어 변경은 선택을
-   건드리지 않는다**(회원 관리와 동일). 일괄 처리 성공 후 전량 초기화는 현행 유지.
-7. **`BulkActionBar` 내부 컨테이너도 `max-w-6xl` 로 동기화**한다. 페이지만 올리면 바가 표보다 좁게
-   정렬된다. `page.tsx` 의 `pb-[calc(10rem+…)]` 보정값이 재도색 후 바 높이와 맞는지도 확인한다.
-8. **페이지 나머지 요소(헤더·마감 배너·일괄 결과·오류·빈 상태·PII 푸터)도 콘솔 토큰으로 재도색**한다.
-   문구·구조는 그대로 두고 색만 바꾼다. 필터·표·카드만 바꾸면 반쪽 화면이 된다.
-9. **`useApplicantsQuery` 에 `placeholderData: keepPreviousData` 를 넣고** 갱신 중 딤 신호를 준다.
-   상태 칩은 클라이언트 필터라 네트워크가 없지만 검색어는 디바운스 재요청이라 목록이 깜빡인다.
-10. **깨질 기존 테스트**: `applicants-filter-bar.test.tsx`(`combobox` 전제),
-    `closed-readonly.test.tsx`(`getByLabelText('상태')` 전제), `applicant-card-touch.test.tsx`(클래스 박제),
-    `applicant-table-extension.test.tsx`(옛 props). 착수 시점에 함께 손본다.
-11. **전체 선택 컨트롤은 표 헤더와 모바일 줄 두 벌이 DOM 에 공존**한다. 실브라우저에서는 한쪽이
-    `display:none` 이라 문제없지만 jsdom 은 CSS 를 모른다 — 페이지 단위 테스트는 컨테이너를 좁혀 조회한다.
-12. **상태 배지 팔레트는 현행 유지**(`.pill-*` 로 옮기지 않는다). 5상태 ↔ 4변형이라 1:1 이 안 되고,
-    면접 라운드 마법사가 이 색에 맞춰 동기화돼 있다.
+### 계획 리뷰에서 반영한 함정 (각 태스크 본문에 내려와 있다)
+
+1. 최종 상태 술어는 새로 만들지 않는다 — `_constants/application-status.ts` 의 `isTerminalApplicationStatus` 를 쓴다.
+2. 칩의 접근 이름은 `aria-label` 로 직접 준다 — JSX 인라인 `<span>` 은 accname 에 공백을 안 넣어 "전체5명" 이 된다.
+3. `필터 초기화` 는 **한 벌만** 렌더한다 — 두 벌이면 jsdom 이 둘 다 잡아 `getByRole` 이 터진다.
+4. 표 컨테이너의 `overflow-x-auto` 는 남긴다(최후 방어선).
+5. 데스크탑 지원일 열은 `formatDateTimeKst` + 헤더 `지원일시` 유지.
+6. 이름은 `next/link` 로 감싼다(표·카드 모두). `href` 는 페이지가 만들어 props 로 내린다.
+7. 필터 변경 시 선택은 정리하되 **검색어 변경은 건드리지 않는다**.
+8. `stats/summary` 는 쓰지 않는다 — 카운트는 목록에서 파생한다.
+9. `useApplicantsQuery` 에 `placeholderData: keepPreviousData` + 갱신 중 딤 신호.
+10. `BulkActionBar` 내부 컨테이너도 `max-w-6xl` 로 동기화.
+11. `page.tsx` 의 헤더·배너·알림·빈 상태·푸터도 콘솔 토큰으로 재도색.
+12. 상태 배지 팔레트는 현행 유지(`.pill-*` 로 옮기지 않는다).
 
 ---
 
-### Task 1: 상태 색·선택 계산 공용 모듈
+### Task 1: 공용 계산 모듈
 
-표와 카드 리스트가 갈라지면 `STATUS_BADGE_CLASS` 와 `isTerminalStatus` 가 양쪽에 복제된다. 먼저 순수 모듈로 내린다. UI 변화 없음.
+UI 변화 없음. 표·카드가 갈라질 때 복제될 것들을 먼저 순수 모듈로 내린다.
 
 **Files:**
 - Create: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantStatus.ts`
-- Create: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantSelection.ts`
-- Modify: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantTable.tsx` (자체 정의 대신 import)
-- Test: `frontend/apps/web/test/manage/applicants/applicant-selection.test.ts`
+- Create: `.../applicants/_lib/applicantSelection.ts`
+- Create: `.../applicants/_lib/applicantCounts.ts`
+- Modify: `.../applicants/_components/ApplicantTable.tsx` (자체 `STATUS_BADGE_CLASS`·`isTerminalStatus` 정의를 import 로 교체)
+- Test: `frontend/apps/web/test/manage/applicants/applicant-list-lib.test.ts`
 
 **Interfaces:**
 - Produces:
-  - `STATUS_BADGE_CLASS: Record<ApplicationStatus, string>`
-  - `STATUS_STRIPE_CLASS: Record<ApplicationStatus, string>`
-  - `isTerminalStatus(status: ApplicationStatus): boolean`
-  - `selectableIds(applicants: Applicant[]): number[]`
-  - `type SelectAllState = 'none' | 'partial' | 'all'`
-  - `selectAllState(selected: ReadonlySet<number>, selectable: readonly number[]): SelectAllState`
-  - `toggleSelectAll(selectable: readonly number[], state: SelectAllState): number[]`
+  - `applicantStatus.ts` — `STATUS_BADGE_CLASS: Record<ApplicationStatus, string>`, `STATUS_STRIPE_CLASS: Record<ApplicationStatus, string>`
+  - `applicantSelection.ts` — `selectableIds(applicants: Applicant[]): number[]`, `type SelectAllState = 'none' | 'partial' | 'all'`, `selectAllState(selected: ReadonlySet<number>, selectable: readonly number[]): SelectAllState`, `toggleSelectAll(selectable: readonly number[], state: SelectAllState): number[]`
+  - `applicantCounts.ts` — `type StatusCounts = Record<ApplicationStatus, number> & { total: number }`, `countByStatus(applicants: Applicant[]): StatusCounts`
+- 최종 상태 술어는 새로 만들지 않는다. `import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status'` (`_lib/` 와 `_components/` 모두 `../` 7개로 같은 깊이 — 검증됨).
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`frontend/apps/web/test/manage/applicants/applicant-selection.test.ts`:
+`frontend/apps/web/test/manage/applicants/applicant-list-lib.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -87,6 +75,7 @@ import {
   selectAllState,
   toggleSelectAll,
 } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantSelection';
+import { countByStatus } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
 
 function makeApplicant(applicationId: number, status: Applicant['status']): Applicant {
   return {
@@ -105,20 +94,20 @@ function makeApplicant(applicationId: number, status: Applicant['status']): Appl
   };
 }
 
-describe('지원자 선택 계산', () => {
-  const applicants = [
-    makeApplicant(1, 'SUBMITTED'),
-    makeApplicant(2, 'ACCEPTED'),
-    makeApplicant(3, 'ON_HOLD'),
-    makeApplicant(4, 'REJECTED'),
-    makeApplicant(5, 'INTERVIEW_PENDING'),
-  ];
+const applicants = [
+  makeApplicant(1, 'SUBMITTED'),
+  makeApplicant(2, 'ACCEPTED'),
+  makeApplicant(3, 'ON_HOLD'),
+  makeApplicant(4, 'REJECTED'),
+  makeApplicant(5, 'INTERVIEW_PENDING'),
+];
 
+describe('지원자 선택 계산', () => {
   it('최종 상태(합격·불합격)는 선택 대상에서 빠진다', () => {
     expect(selectableIds(applicants)).toEqual([1, 3, 5]);
   });
 
-  it('선택 가능 인원이 0명이면 전체 선택 상태는 none 이다', () => {
+  it('선택 가능 인원이 0명이면 none', () => {
     expect(selectAllState(new Set([1, 2]), [])).toBe('none');
   });
 
@@ -130,24 +119,43 @@ describe('지원자 선택 계산', () => {
     expect(selectAllState(new Set([1]), [1, 3, 5])).toBe('partial');
   });
 
-  it('선택 가능 전원을 선택하면 all', () => {
+  it('선택 가능 전원을 선택하면 all — 최종 상태가 섞여 있어도 all 이 된다', () => {
     expect(selectAllState(new Set([1, 3, 5]), [1, 3, 5])).toBe('all');
   });
 
-  it('전체 선택 토글 — all 이면 비우고, 그 외에는 선택 가능 전원을 채운다', () => {
+  it('전체 선택 토글 — all 이면 비우고 그 외에는 선택 가능 전원을 채운다', () => {
     expect(toggleSelectAll([1, 3, 5], 'all')).toEqual([]);
     expect(toggleSelectAll([1, 3, 5], 'none')).toEqual([1, 3, 5]);
     expect(toggleSelectAll([1, 3, 5], 'partial')).toEqual([1, 3, 5]);
+  });
+});
+
+describe('상태별 카운트', () => {
+  it('목록에서 상태별로 세고 전체도 함께 낸다', () => {
+    const counts = countByStatus(applicants);
+    expect(counts.total).toBe(5);
+    expect(counts.SUBMITTED).toBe(1);
+    expect(counts.ON_HOLD).toBe(1);
+    expect(counts.INTERVIEW_PENDING).toBe(1);
+    expect(counts.ACCEPTED).toBe(1);
+    expect(counts.REJECTED).toBe(1);
+  });
+
+  it('빈 목록은 전부 0 이다', () => {
+    const counts = countByStatus([]);
+    expect(counts.total).toBe(0);
+    expect(counts.SUBMITTED).toBe(0);
+    expect(counts.REJECTED).toBe(0);
   });
 });
 ```
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-selection.test.ts`
+Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-list-lib.test.ts`
 Expected: FAIL — `Failed to resolve import ... _lib/applicantSelection`
 
-- [ ] **Step 3: 최소 구현**
+- [ ] **Step 3: 세 모듈 구현**
 
 `_lib/applicantStatus.ts`:
 
@@ -165,7 +173,7 @@ export const STATUS_BADGE_CLASS: Record<ApplicationStatus, string> = {
 
 /**
  * 모바일 카드 왼쪽 4px 띠 — 배지와 같은 색 계열이며 새 색 어휘를 만들지 않는다.
- * 띠는 배지를 대체하지 않는 보조 신호라 접근성 트리에서는 제외한다(색 단독 전달 금지).
+ * 배지를 대체하지 않는 보조 신호라 접근성 트리에서는 제외한다(색 단독 전달 금지).
  */
 export const STATUS_STRIPE_CLASS: Record<ApplicationStatus, string> = {
   SUBMITTED: 'border-l-sky-400',
@@ -174,27 +182,27 @@ export const STATUS_STRIPE_CLASS: Record<ApplicationStatus, string> = {
   ACCEPTED: 'border-l-emerald-500',
   REJECTED: 'border-l-rose-400',
 };
-
-export function isTerminalStatus(status: ApplicationStatus): boolean {
-  return status === 'ACCEPTED' || status === 'REJECTED';
-}
 ```
 
 `_lib/applicantSelection.ts`:
 
 ```ts
 import type { Applicant } from '@duing/types';
-import { isTerminalStatus } from './applicantStatus';
+import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status';
 
 /** 선택 가능한 지원자 = 최종 상태가 아닌 지원자. 목록 순서를 유지한다. */
 export function selectableIds(applicants: Applicant[]): number[] {
   return applicants
-    .filter((applicant) => !isTerminalStatus(applicant.status))
+    .filter((applicant) => !isTerminalApplicationStatus(applicant.status))
     .map((applicant) => applicant.applicationId);
 }
 
 export type SelectAllState = 'none' | 'partial' | 'all';
 
+/**
+ * 분모는 언제나 selectable 이다. 회원 관리처럼 전체 행을 분모로 삼으면 최종 상태가 한 건만 있어도
+ * all 이 영원히 성립하지 않아 "전체 해제" 로 넘어가지 못한다.
+ */
 export function selectAllState(
   selected: ReadonlySet<number>,
   selectable: readonly number[],
@@ -205,7 +213,6 @@ export function selectAllState(
   return selectedCount === selectable.length ? 'all' : 'partial';
 }
 
-/** 전체 선택 토글 — 이미 전원이면 비우고, 아니면 선택 가능 전원을 채운다. */
 export function toggleSelectAll(
   selectable: readonly number[],
   state: SelectAllState,
@@ -214,45 +221,77 @@ export function toggleSelectAll(
 }
 ```
 
-- [ ] **Step 4: 통과 확인**
+`_lib/applicantCounts.ts`:
 
-Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-selection.test.ts`
-Expected: PASS (6 tests)
+```ts
+import type { Applicant, ApplicationStatus } from '@duing/types';
 
-- [ ] **Step 5: `ApplicantTable.tsx` 가 공용 모듈을 쓰도록 교체**
+export type StatusCounts = Record<ApplicationStatus, number> & { total: number };
 
-`ApplicantTable.tsx` 상단의 `STATUS_BADGE_CLASS` 상수 정의와 `isTerminalStatus` 함수 정의를 삭제하고 import 로 바꾼다:
+const EMPTY_COUNTS: StatusCounts = {
+  total: 0,
+  SUBMITTED: 0,
+  ON_HOLD: 0,
+  INTERVIEW_PENDING: 0,
+  ACCEPTED: 0,
+  REJECTED: 0,
+};
 
-```tsx
-import { STATUS_BADGE_CLASS, isTerminalStatus } from '../_lib/applicantStatus';
+/**
+ * 상태별 인원을 목록에서 직접 센다. stats/summary 는 필터를 받지 않아 단과대·기간·검색어가 걸리면
+ * 칩 숫자와 눈앞 목록이 어긋난다 — 칩이 "현황 + 필터" 이려면 둘이 같아야 한다.
+ * 그래서 목록은 status 없이 받아오고(다른 필터는 서버가 적용), 여기서 세고, 상태 필터는 클라이언트에서 건다.
+ */
+export function countByStatus(applicants: Applicant[]): StatusCounts {
+  return applicants.reduce<StatusCounts>(
+    (counts, applicant) => ({
+      ...counts,
+      total: counts.total + 1,
+      [applicant.status]: counts[applicant.status] + 1,
+    }),
+    { ...EMPTY_COUNTS },
+  );
+}
 ```
 
-- [ ] **Step 6: 기존 테스트가 그대로 통과하는지 확인**
+- [ ] **Step 4: 통과 확인**
+
+Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-list-lib.test.ts`
+Expected: PASS (8 tests)
+
+- [ ] **Step 5: `ApplicantTable.tsx` 를 공용 모듈로 교체**
+
+파일 상단의 `STATUS_BADGE_CLASS` 상수와 `isTerminalStatus` 함수 정의를 지우고 아래 import 로 바꾼다. 호출부의 `isTerminalStatus(...)` 는 `isTerminalApplicationStatus(...)` 로 이름만 바뀐다. 다른 코드는 그대로 둔다.
+
+```tsx
+import { isTerminalApplicationStatus } from '../../../../../../../_constants/application-status';
+import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
+```
+
+- [ ] **Step 6: 회귀 없음 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants`
-Expected: PASS — 기존 지원자 테스트 전부 초록(리팩터링이라 동작 변화 없음)
+Expected: PASS — 리팩터링이라 기존 테스트 전부 초록
 
 - [ ] **Step 7: 커밋**
 
 ```bash
-git add frontend/apps/web/app/manage/clubs/\[clubId\]/recruitments/\[recruitmentId\]/applicants/_lib frontend/apps/web/app/manage/clubs/\[clubId\]/recruitments/\[recruitmentId\]/applicants/_components/ApplicantTable.tsx frontend/apps/web/test/manage/applicants/applicant-selection.test.ts
-git commit -m "refactor(frontend): 지원자 상태 색·선택 계산 공용 모듈 분리"
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "refactor(frontend): 지원자 상태 색·선택·카운트 공용 모듈 분리"
 ```
 
 ---
 
-### Task 2: 모바일 2줄 dense list
-
-`ApplicantTable.tsx` 안의 모바일 카드 블록을 별도 컴포넌트로 떼어내고 2줄 구조·상태 띠·평가 표식으로 다시 만든다.
+### Task 2: 모바일 2줄 dense list (+ 페이지 배선)
 
 **Files:**
-- Create: `frontend/apps/web/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantCardList.tsx`
-- Modify: `.../applicants/_components/ApplicantTable.tsx` (모바일 블록 제거 — 표만 남김)
+- Create: `.../applicants/_components/ApplicantCardList.tsx`
+- Modify: `.../applicants/_components/ApplicantTable.tsx` (모바일 블록 제거, 표는 `hidden lg:block`)
+- Modify: `.../applicants/page.tsx` (카드 리스트 배선 — 이 태스크 안에서 화면이 비지 않게)
+- Delete: `frontend/apps/web/test/manage/applicants/applicant-card-touch.test.tsx`
 - Test: `frontend/apps/web/test/manage/applicants/applicant-card-list.test.tsx`
-- Modify: `frontend/apps/web/test/manage/applicants/applicant-card-touch.test.tsx` (대상 컴포넌트 교체)
 
 **Interfaces:**
-- Consumes: Task 1 의 `STATUS_BADGE_CLASS`, `STATUS_STRIPE_CLASS`, `isTerminalStatus`
+- Consumes: Task 1 의 `STATUS_BADGE_CLASS` / `STATUS_STRIPE_CLASS`, `isTerminalApplicationStatus`
 - Produces:
   ```ts
   type ApplicantCardListProps = {
@@ -260,10 +299,10 @@ git commit -m "refactor(frontend): 지원자 상태 색·선택 계산 공용 �
     selectedSet: ReadonlySet<number>;
     onToggleSelect: (applicationId: number) => void;
     onOpenDetail: (applicationId: number) => void;
+    /** 이름 링크의 href. 라우팅 규칙은 페이지가 소유한다(현재 쿼리스트링 유지). */
+    detailHref: (applicationId: number) => string;
   };
-  export function ApplicantCardList(props: ApplicantCardListProps): JSX.Element;
   ```
-  `ApplicantTable` 은 더 이상 모바일을 렌더하지 않는다 — props 는 그대로 두되 `hidden lg:block` 컨테이너만 남는다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -290,15 +329,16 @@ const baseApplicant: Applicant = {
   myScore: null,
 };
 
-function renderList(applicants: Applicant[], overrides?: Partial<{ onToggleSelect: (id: number) => void; onOpenDetail: (id: number) => void; selected: number[] }>) {
-  const onToggleSelect = overrides?.onToggleSelect ?? vi.fn();
-  const onOpenDetail = overrides?.onOpenDetail ?? vi.fn();
+function renderList(applicants: Applicant[], selected: number[] = []) {
+  const onToggleSelect = vi.fn();
+  const onOpenDetail = vi.fn();
   render(
     <ApplicantCardList
       applicants={applicants}
-      selectedSet={new Set(overrides?.selected ?? [])}
+      selectedSet={new Set(selected)}
       onToggleSelect={onToggleSelect}
       onOpenDetail={onOpenDetail}
+      detailHref={(applicationId) => `/manage/clubs/1/recruitments/1/applicants/${applicationId}`}
     />,
   );
   return { onToggleSelect, onOpenDetail };
@@ -307,7 +347,7 @@ function renderList(applicants: Applicant[], overrides?: Partial<{ onToggleSelec
 describe('모바일 지원자 카드 리스트', () => {
   it('1행에 이름·학년·상태, 2행에 학과·학번·지원일을 보여준다', () => {
     renderList([baseApplicant]);
-    expect(screen.getByText('홍길동')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '홍길동' })).toBeInTheDocument();
     expect(screen.getByText('3학년')).toBeInTheDocument();
     expect(screen.getByText('지원 완료')).toBeInTheDocument();
     expect(screen.getByText('컴퓨터공학과')).toBeInTheDocument();
@@ -332,9 +372,23 @@ describe('모바일 지원자 카드 리스트', () => {
     expect(screen.queryByLabelText('내 평가 작성됨')).not.toBeInTheDocument();
   });
 
-  it('상태 띠는 상태별 색을 쓰고 접근성 트리에 노출되지 않는다', () => {
+  it('이름 링크가 상세 경로를 가리켜 키보드로 도달할 수 있다', () => {
     renderList([baseApplicant]);
-    const card = screen.getByText('홍길동').closest('[data-applicant-card]');
+    expect(screen.getByRole('link', { name: '홍길동' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments/1/applicants/1',
+    );
+  });
+
+  it('이름 링크 클릭은 카드 onClick 을 이중 발화시키지 않는다', () => {
+    const { onOpenDetail } = renderList([baseApplicant]);
+    fireEvent.click(screen.getByRole('link', { name: '홍길동' }));
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
+  it('상태 띠는 상태별 색이고 4px 이다', () => {
+    renderList([baseApplicant]);
+    const card = screen.getByText('컴퓨터공학과').closest('[data-applicant-card]');
     expect(card?.className).toContain('border-l-sky-400');
     expect(card?.className).toContain('border-l-4');
   });
@@ -350,6 +404,14 @@ describe('모바일 지원자 카드 리스트', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '홍길동 선택' }));
     expect(onToggleSelect).toHaveBeenCalledTimes(1);
     expect(onToggleSelect).toHaveBeenCalledWith(1);
+    expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+
+  it('히트 영역(라벨) 을 눌러도 선택만 된다', () => {
+    const { onToggleSelect, onOpenDetail } = renderList([baseApplicant]);
+    const label = screen.getByRole('checkbox', { name: '홍길동 선택' }).closest('label');
+    fireEvent.click(label as HTMLLabelElement);
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
   });
 
@@ -375,7 +437,7 @@ describe('모바일 지원자 카드 리스트', () => {
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-card-list.test.tsx`
-Expected: FAIL — `Failed to resolve import ... ApplicantCardList`
+Expected: FAIL — 모듈 없음
 
 - [ ] **Step 3: 컴포넌트 구현**
 
@@ -384,16 +446,16 @@ Expected: FAIL — `Failed to resolve import ... ApplicantCardList`
 ```tsx
 'use client';
 
+import Link from 'next/link';
 import { formatDateKst } from '@duing/hooks';
 import type { Applicant } from '@duing/types';
 import { GRADE_DISPLAY_NAME } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
 import {
-  STATUS_BADGE_CLASS,
-  STATUS_STRIPE_CLASS,
-  isTerminalStatus,
-} from '../_lib/applicantStatus';
+  APPLICATION_STATUS_LABEL,
+  isTerminalApplicationStatus,
+} from '../../../../../../../_constants/application-status';
+import { STATUS_BADGE_CLASS, STATUS_STRIPE_CLASS } from '../_lib/applicantStatus';
 
 /**
  * 목록 전용 축약 — `2026.05.01` → `05.01`. 좁은 2행에서 연도는 모집 기간이 이미 말해준다.
@@ -409,6 +471,7 @@ type Props = {
   selectedSet: ReadonlySet<number>;
   onToggleSelect: (applicationId: number) => void;
   onOpenDetail: (applicationId: number) => void;
+  detailHref: (applicationId: number) => string;
 };
 
 /**
@@ -420,11 +483,12 @@ export function ApplicantCardList({
   selectedSet,
   onToggleSelect,
   onOpenDetail,
+  detailHref,
 }: Props) {
   return (
     <div className="mt-4 space-y-2 lg:hidden">
       {applicants.map((applicant) => {
-        const isTerminal = isTerminalStatus(applicant.status);
+        const isTerminal = isTerminalApplicationStatus(applicant.status);
         const isSelected = selectedSet.has(applicant.applicationId);
         return (
           <div
@@ -463,11 +527,15 @@ export function ApplicantCardList({
               </label>
 
               <div className="min-w-0 flex-1">
-                {/* 1행 — 이름·학년·상태 */}
+                {/* 1행 — 이름·학년·상태. 이름 링크가 키보드·스크린리더의 유일한 상세 진입로다. */}
                 <div className="flex items-center gap-1.5">
-                  <span className="min-w-0 truncate text-[14px] font-semibold leading-5 text-ink-deep">
+                  <Link
+                    href={detailHref(applicant.applicationId)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="min-w-0 truncate text-[14px] font-semibold leading-5 text-ink-deep hover:underline"
+                  >
                     {applicant.userName}
-                  </span>
+                  </Link>
                   <span className="shrink-0 text-[12px] leading-5 text-charcoal-3">
                     {GRADE_DISPLAY_NAME[applicant.grade]}
                   </span>
@@ -517,38 +585,81 @@ export function ApplicantCardList({
 - [ ] **Step 4: 통과 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-card-list.test.tsx`
-Expected: PASS (9 tests)
+Expected: PASS (12 tests)
 
-- [ ] **Step 5: `ApplicantTable.tsx` 에서 모바일 블록 삭제**
+- [ ] **Step 5: `ApplicantTable.tsx` 에서 모바일 블록 제거**
 
-`ApplicantTable.tsx` 의 `{/* 모바일: 카드 리스트 */}` 로 시작하는 `md:hidden` 블록 전체를 지우고, 감싸던 프래그먼트(`<>...</>`)를 없앤 뒤 표 컨테이너만 반환하도록 바꾼다. 표 컨테이너 클래스는 `hidden md:block` → `hidden lg:block` 으로 바꾼다(전환점 이동).
+`{/* 모바일: 카드 리스트 */}` 로 시작하는 `md:hidden` 블록 전체를 지우고, 감싸던 프래그먼트(`<>…</>`)를 없애 표 컨테이너만 반환하게 한다. 표 컨테이너 클래스의 `hidden md:block` 을 `hidden lg:block` 으로 바꾼다.
 
-- [ ] **Step 6: 기존 터치 테스트를 새 컴포넌트로 옮김**
+- [ ] **Step 6: 페이지에 카드 리스트 배선 (화면이 비지 않게)**
 
-`test/manage/applicants/applicant-card-touch.test.tsx` 의 import 와 렌더 대상을 `ApplicantTable` → `ApplicantCardList` 로 바꾼다. `ApplicantCardList` 는 라우팅을 하지 않고 `onOpenDetail` 콜백만 부르므로, `next/navigation` mock 과 `pushMock` 단언은 `onOpenDetail` 단언으로 교체한다. 데스크탑 표가 같이 렌더되지 않으므로 `mobileCheckbox` 헬퍼의 "라벨로 감싸진 것 하나만 고르기" 로직은 단순 조회로 바꾼다.
+`page.tsx` 에서 `ApplicantTable` 을 렌더하는 자리 바로 위에 `ApplicantCardList` 를 추가한다. 이 시점의 페이지는 아직 `selectedIds` 배열과 `setSelectedIds` 를 쓰므로 아래 어댑터를 넘긴다(Task 6 에서 정리된다). 상세 경로 문자열은 한 곳에서 만들어 `onOpenDetail` 과 `detailHref` 가 공유한다.
 
-- [ ] **Step 7: 전체 테스트 통과 확인**
+```tsx
+import { ApplicantCardList } from './_components/ApplicantCardList';
+...
+  const detailHref = useCallback(
+    (applicationId: number) => {
+      const currentQs = searchParams.toString();
+      const base = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`;
+      return toRoute(currentQs ? `${base}?${currentQs}` : base);
+    },
+    [searchParams, clubId, recruitmentId],
+  );
+  const openDetail = useCallback(
+    (applicationId: number) => router.push(detailHref(applicationId)),
+    [router, detailHref],
+  );
+  const toggleOne = useCallback((applicationId: number) => {
+    setSelectedIds((current) =>
+      current.includes(applicationId)
+        ? current.filter((id) => id !== applicationId)
+        : [...current, applicationId],
+    );
+  }, []);
+...
+<ApplicantCardList
+  applicants={applicants}
+  selectedSet={selectedSet}
+  onToggleSelect={toggleOne}
+  onOpenDetail={openDetail}
+  detailHref={detailHref}
+/>
+```
 
-Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants`
-Expected: PASS — 모든 지원자 테스트 초록
+> 선택 토글이 최종 상태를 따로 막지 않아도 된다 — 카드가 최종 상태 체크박스를 `disabled` 로 렌더하므로 호출 자체가 오지 않는다.
 
-- [ ] **Step 8: 커밋**
+- [ ] **Step 7: 옛 터치 테스트 삭제**
+
+`test/manage/applicants/applicant-card-touch.test.tsx` 를 지운다. 이 파일의 가드(44px 히트 영역 클래스 박제, 오터치 분리, 최종 상태 동작)는 Step 1 의 `applicant-card-list.test.tsx` 가 전부 흡수했고, 옛 파일은 `-ml-3` 과 배열형 `onSelect` 를 전제해 더 유지할 수 없다.
 
 ```bash
-git add frontend/apps/web/app/manage frontend/apps/web/test/manage/applicants
-git commit -m "feat(frontend): 지원자 목록 모바일 2줄 dense list — 상태 띠·평가 표식·히트 영역 보정"
+cd /Users/ksy/orca/workspaces/Duing/darter && git rm frontend/apps/web/test/manage/applicants/applicant-card-touch.test.tsx
+```
+
+- [ ] **Step 8: 전체 통과 확인**
+
+Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants`
+Expected: PASS
+
+- [ ] **Step 9: 커밋**
+
+```bash
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "feat(frontend): 지원자 목록 모바일 2줄 dense list — 상태 띠·평가 표식·이름 링크"
 ```
 
 ---
 
-### Task 3: 데스크탑 표 리디자인
+### Task 3: 데스크탑 표 리디자인 (+ 페이지 배선)
 
 **Files:**
-- Modify: `.../applicants/_components/ApplicantTable.tsx`
+- Modify: `.../applicants/_components/ApplicantTable.tsx` (전면 교체)
+- Modify: `.../applicants/page.tsx` (새 props 로 호출부 교체 — 같은 태스크에서 반드시 함께)
+- Modify: `frontend/apps/web/test/manage/applicants/applicant-table-extension.test.tsx`
 - Test: `frontend/apps/web/test/manage/applicants/applicant-table.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 1 의 `STATUS_BADGE_CLASS`, `isTerminalStatus`, `selectAllState`, `toggleSelectAll`
+- Consumes: Task 1 의 `STATUS_BADGE_CLASS`, `selectableIds`, `selectAllState`, `toggleSelectAll`, `isTerminalApplicationStatus`
 - Produces:
   ```ts
   type ApplicantTableProps = {
@@ -557,10 +668,11 @@ git commit -m "feat(frontend): 지원자 목록 모바일 2줄 dense list — �
     onToggleSelect: (applicationId: number) => void;
     onToggleAll: () => void;
     onOpenDetail: (applicationId: number) => void;
+    detailHref: (applicationId: number) => string;
     useInterview: boolean;
   };
   ```
-  `clubId` / `recruitmentId` / `selectedIds` / `onSelect` props 는 없어진다 — 라우팅과 선택 계산은 페이지가 맡는다(Task 6).
+  `clubId` / `recruitmentId` / `selectedIds` / `onSelect` props 는 사라진다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -598,6 +710,7 @@ function renderTable(applicants: Applicant[], selected: number[] = []) {
       onToggleSelect={onToggleSelect}
       onToggleAll={onToggleAll}
       onOpenDetail={onOpenDetail}
+      detailHref={(applicationId) => `/manage/clubs/1/recruitments/1/applicants/${applicationId}`}
       useInterview={false}
     />,
   );
@@ -610,15 +723,27 @@ describe('데스크탑 지원자 표', () => {
     expect(screen.getByText('4 / 5')).toBeInTheDocument();
   });
 
-  it('단과대·학번 열은 1024~1279px 에서 숨기는 클래스를 갖는다', () => {
+  it('지원일 열은 날짜+시각을 유지한다', () => {
     renderTable([baseApplicant]);
-    const collegeCell = screen.getByText('IT·공과대학');
-    const studentIdCell = screen.getByText('20200001');
-    expect(collegeCell.closest('td')?.className).toContain('hidden xl:table-cell');
-    expect(studentIdCell.closest('td')?.className).toContain('hidden xl:table-cell');
+    expect(screen.getByText('2026.05.01 10:00')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '지원일시' })).toBeInTheDocument();
   });
 
-  it('헤더 전체 선택 체크박스가 있고 누르면 onToggleAll 이 불린다', () => {
+  it('단과대·학번 열은 1024~1279px 에서 숨기는 클래스를 갖는다', () => {
+    renderTable([baseApplicant]);
+    expect(screen.getByText('IT·공과대학').closest('td')?.className).toContain('xl:table-cell');
+    expect(screen.getByText('20200001').closest('td')?.className).toContain('xl:table-cell');
+  });
+
+  it('이름은 상세 링크라 키보드로 도달할 수 있다', () => {
+    renderTable([baseApplicant]);
+    expect(screen.getByRole('link', { name: '홍길동' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments/1/applicants/1',
+    );
+  });
+
+  it('헤더 전체 선택을 누르면 onToggleAll 이 불린다', () => {
     const { onToggleAll } = renderTable([baseApplicant]);
     fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
     expect(onToggleAll).toHaveBeenCalledTimes(1);
@@ -642,9 +767,9 @@ describe('데스크탑 지원자 표', () => {
     expect(onOpenDetail).not.toHaveBeenCalled();
   });
 
-  it('행 본문을 누르면 상세로 간다', () => {
+  it('행 본문(이름 링크 밖)을 누르면 상세로 간다', () => {
     const { onOpenDetail } = renderTable([baseApplicant]);
-    fireEvent.click(screen.getByText('홍길동'));
+    fireEvent.click(screen.getByText('컴퓨터공학과 · 3학년'));
     expect(onOpenDetail).toHaveBeenCalledWith(1);
   });
 });
@@ -653,22 +778,26 @@ describe('데스크탑 지원자 표', () => {
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-table.test.tsx`
-Expected: FAIL — props 불일치로 타입/렌더 실패, `전체 선택` 체크박스 없음
+Expected: FAIL — props 불일치, `전체 선택` 없음
 
 - [ ] **Step 3: 표 구현**
 
-`ApplicantTable.tsx` 전체를 아래로 교체한다:
+`ApplicantTable.tsx` 전체를 아래로 교체한다.
 
 ```tsx
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { formatDateKst } from '@duing/hooks';
+import Link from 'next/link';
+import { formatDateTimeKst } from '@duing/hooks';
 import type { Applicant } from '@duing/types';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
-import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
-import { STATUS_BADGE_CLASS, isTerminalStatus } from '../_lib/applicantStatus';
+import {
+  APPLICATION_STATUS_LABEL,
+  isTerminalApplicationStatus,
+} from '../../../../../../../_constants/application-status';
+import { STATUS_BADGE_CLASS } from '../_lib/applicantStatus';
 import { selectableIds, selectAllState } from '../_lib/applicantSelection';
 
 function MyScoreBadge({ score }: { score: number | null }) {
@@ -680,7 +809,9 @@ function MyScoreBadge({ score }: { score: number | null }) {
         ? 'bg-graysoft text-charcoal-2'
         : 'bg-rose-100 text-rose-700';
   return (
-    <span className={cn('inline-block rounded-full px-2 py-0.5 text-xs', colorClass)}>
+    <span
+      className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs', colorClass)}
+    >
       {score} / 5
     </span>
   );
@@ -692,13 +823,14 @@ type Props = {
   onToggleSelect: (applicationId: number) => void;
   onToggleAll: () => void;
   onOpenDetail: (applicationId: number) => void;
+  detailHref: (applicationId: number) => string;
   useInterview: boolean;
 };
 
 /**
  * 데스크탑(≥1024px) 지원자 표. 1024~1279px 은 콘텐츠 폭이 672~927px 뿐이라
  * Secondary 열(단과대·학번)을 숨기고 xl(1280px) 이상에서만 노출한다(설계 §3).
- * 가로 스크롤은 만들지 않는다.
+ * overflow-x-auto 는 최후 방어선으로 남긴다 — 예외적으로 긴 학과명 하나에 페이지가 밀리면 안 된다.
  */
 export function ApplicantTable({
   applicants,
@@ -706,6 +838,7 @@ export function ApplicantTable({
   onToggleSelect,
   onToggleAll,
   onOpenDetail,
+  detailHref,
   useInterview,
 }: Props) {
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
@@ -719,8 +852,8 @@ export function ApplicantTable({
   }, [allState]);
 
   return (
-    <div className="mt-4 hidden overflow-hidden rounded-lg border border-line bg-paper lg:block">
-      <table className="w-full text-sm">
+    <div className="mt-4 hidden overflow-x-auto rounded-lg border border-line bg-paper lg:block">
+      <table className="w-full min-w-[640px] text-sm">
         <thead className="bg-cream text-left">
           <tr>
             <th className="w-12 px-4 py-3">
@@ -739,25 +872,20 @@ export function ApplicantTable({
             <th className="px-4 py-3 font-medium text-charcoal-2">학과 · 학년</th>
             <th className="hidden px-4 py-3 font-medium text-charcoal-2 xl:table-cell">단과대</th>
             <th className="hidden px-4 py-3 font-medium text-charcoal-2 xl:table-cell">학번</th>
-            <th className="px-4 py-3 font-medium text-charcoal-2">지원일</th>
-            {useInterview && (
-              <th className="px-4 py-3 font-medium text-charcoal-2">면접일정</th>
-            )}
+            <th className="px-4 py-3 font-medium text-charcoal-2">지원일시</th>
+            {useInterview && <th className="px-4 py-3 font-medium text-charcoal-2">면접일정</th>}
             <th className="px-4 py-3 font-medium text-charcoal-2">내 평가</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
           {applicants.map((applicant) => {
-            const isTerminal = isTerminalStatus(applicant.status);
+            const isTerminal = isTerminalApplicationStatus(applicant.status);
             const isSelected = selectedSet.has(applicant.applicationId);
             return (
               <tr
                 key={applicant.applicationId}
                 onClick={() => onOpenDetail(applicant.applicationId)}
-                className={cn(
-                  'cursor-pointer hover:bg-cream/60',
-                  isSelected && 'bg-cream/60',
-                )}
+                className={cn('cursor-pointer hover:bg-cream/60', isSelected && 'bg-cream/60')}
               >
                 <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                   <input
@@ -770,7 +898,16 @@ export function ApplicantTable({
                     className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </td>
-                <td className="px-4 py-3 font-semibold text-ink-deep">{applicant.userName}</td>
+                {/* 이름 링크가 키보드·스크린리더의 상세 진입로다. 행 onClick 과 겹치지 않게 전파를 끊는다. */}
+                <td className="px-4 py-3">
+                  <Link
+                    href={detailHref(applicant.applicationId)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="font-semibold text-ink-deep hover:underline"
+                  >
+                    {applicant.userName}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={cn(
@@ -790,13 +927,13 @@ export function ApplicantTable({
                 <td className="hidden px-4 py-3 tabular-nums text-charcoal-3 xl:table-cell">
                   {applicant.studentId}
                 </td>
-                <td className="px-4 py-3 tabular-nums text-charcoal-3">
-                  {formatDateKst(applicant.submittedAt)}
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-charcoal-3">
+                  {formatDateTimeKst(applicant.submittedAt)}
                 </td>
                 {useInterview && (
-                  <td className="px-4 py-3 tabular-nums text-charcoal-3">
+                  <td className="whitespace-nowrap px-4 py-3 tabular-nums text-charcoal-3">
                     {applicant.interviewStartAt
-                      ? formatDateKst(applicant.interviewStartAt)
+                      ? formatDateTimeKst(applicant.interviewStartAt)
                       : '—'}
                   </td>
                 )}
@@ -816,54 +953,65 @@ export function ApplicantTable({
 - [ ] **Step 4: 통과 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicant-table.test.tsx`
-Expected: PASS (7 tests)
+Expected: PASS (9 tests)
 
-- [ ] **Step 5: 낡은 테스트 정리**
+- [ ] **Step 5: 페이지 호출부 교체 (같은 태스크에서 필수)**
 
-`test/manage/applicants/applicant-table-extension.test.tsx` 는 옛 props(`selectedIds`/`onSelect`/`clubId`/`recruitmentId`)와 표+카드 동시 렌더를 전제로 한다. 새 props 에 맞게 고치고, 모바일 카드에 관한 단언(`getAllByRole` 로 2개 기대)은 Task 2 의 카드 테스트가 이미 덮으므로 표 단독 단언으로 바꾼다.
+`page.tsx` 의 `<ApplicantTable …/>` 를 새 props 로 바꾼다. Task 2 에서 만든 `toggleOne` / `openDetail` / `detailHref` 를 그대로 재사용하고, 전체 선택은 아래를 추가한다(Task 6 에서 `useMemo` 로 정리된다).
 
-- [ ] **Step 6: 전체 테스트 통과 확인**
+```tsx
+import { selectableIds, selectAllState, toggleSelectAll } from './_lib/applicantSelection';
+...
+  const selectable = selectableIds(applicants);
+  const allState = selectAllState(selectedSet, selectable);
+...
+<ApplicantTable
+  applicants={applicants}
+  selectedSet={selectedSet}
+  onToggleSelect={toggleOne}
+  onToggleAll={() => setSelectedIds(toggleSelectAll(selectable, allState))}
+  onOpenDetail={openDetail}
+  detailHref={detailHref}
+  useInterview={useInterview}
+/>
+```
+
+- [ ] **Step 6: 옛 확장 테스트 갱신**
+
+`applicant-table-extension.test.tsx` 는 옛 props 와 "표+카드 동시 렌더(같은 이름 체크박스 2개)" 를 전제한다. 새 props 로 바꾸고, `getAllByRole` 로 2개를 기대하던 단언은 단수 조회로 바꾼다. `myScore` 색상·`useInterview` 헤더 케이스는 그대로 살린다.
+
+- [ ] **Step 7: 전체 통과 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants`
 Expected: PASS
 
-- [ ] **Step 7: 커밋**
+- [ ] **Step 8: 커밋**
 
 ```bash
-git add frontend/apps/web/app/manage frontend/apps/web/test/manage/applicants
-git commit -m "feat(frontend): 지원자 표 리디자인 — 콘솔 토큰 정렬·열 위계·좁은 데스크탑 보조열 숨김"
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "feat(frontend): 지원자 표 리디자인 — 콘솔 토큰·열 위계·보조열 단계 공개·이름 링크"
 ```
 
 ---
 
-### Task 4: 상태 필터 칩 + 카운트
+### Task 4: 상태 필터 칩
 
 **Files:**
 - Create: `.../applicants/_components/StatusFilterChips.tsx`
 - Test: `frontend/apps/web/test/manage/applicants/status-filter-chips.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 1 의 `_lib/applicantSelection.ts` 와 같은 자리에 두는 카운트 헬퍼
+- Consumes: Task 1 의 `StatusCounts`
 - Produces:
   ```ts
-  // _lib/applicantCounts.ts
-  type StatusCounts = Record<ApplicationStatus, number> & { total: number };
-  export function countByStatus(applicants: Applicant[]): StatusCounts;
-
-  // _components/StatusFilterChips.tsx
   type StatusFilterChipsProps = {
-    value: ApplicationStatus | undefined;      // undefined = 전체
+    value: ApplicationStatus | undefined;   // undefined = 전체
     onChange: (next: ApplicationStatus | undefined) => void;
-    counts: StatusCounts;                      // 목록에서 파생 — 항상 존재한다
+    counts: StatusCounts;
     useInterview: boolean;
   };
   ```
 
-> **설계 변경(리뷰 반영):** 카운트를 `stats/summary` 가 아니라 **목록에서 파생**한다. `stats/summary` 는
-> 필터를 받지 않아 단과대·기간·검색어가 걸리면 칩 숫자와 목록 길이가 어긋난다. 목록 API 를 `status`
-> 없이 받아 클라이언트에서 세고 상태 필터도 클라이언트에서 적용하면, 숫자가 항상 목록과 일치하고
-> 칩 전환에 네트워크 왕복도 없다. **URL 의 `status` 파라미터는 그대로 유지한다**(상세 이전/다음이 서버
-> 계산이라 이 값에 묶여 있다).
+**접근 이름 주의:** JSX 의 인라인 `<span>` 은 accname 계산에 공백을 넣지 않아 `전체5명` 이 된다. 그래서 버튼에 `aria-label` 을 직접 준다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -872,49 +1020,20 @@ git commit -m "feat(frontend): 지원자 표 리디자인 — 콘솔 토큰 정�
 ```tsx
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { Applicant } from '@duing/types';
-import { countByStatus } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
+import type { StatusCounts } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
 import { StatusFilterChips } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/StatusFilterChips';
 
-function makeApplicant(applicationId: number, status: Applicant['status']): Applicant {
-  return {
-    applicationId, userId: applicationId, userName: `지원자${applicationId}`,
-    studentId: `2020000${applicationId}`, college: 'IT_ENGINEERING', major: '컴퓨터공학과',
-    grade: 'JUNIOR', answers: [], status, submittedAt: '2026-05-01T10:00:00',
-    interviewStartAt: null, myScore: null,
-  };
-}
-
-// 지원 완료 2 · 보류 1 · 면접 대상 1 · 합격 1 · 불합격 0 → 전체 5
-const applicants = [
-  makeApplicant(1, 'SUBMITTED'),
-  makeApplicant(2, 'SUBMITTED'),
-  makeApplicant(3, 'ON_HOLD'),
-  makeApplicant(4, 'INTERVIEW_PENDING'),
-  makeApplicant(5, 'ACCEPTED'),
-];
-const counts = countByStatus(applicants);
-
-describe('상태별 카운트', () => {
-  it('목록에서 상태별로 세고 전체도 함께 낸다', () => {
-    expect(counts.total).toBe(5);
-    expect(counts.SUBMITTED).toBe(2);
-    expect(counts.ON_HOLD).toBe(1);
-    expect(counts.INTERVIEW_PENDING).toBe(1);
-    expect(counts.ACCEPTED).toBe(1);
-    expect(counts.REJECTED).toBe(0);
-  });
-
-  it('빈 목록은 전부 0 이다', () => {
-    const empty = countByStatus([]);
-    expect(empty.total).toBe(0);
-    expect(empty.SUBMITTED).toBe(0);
-    expect(empty.REJECTED).toBe(0);
-  });
-});
+const counts: StatusCounts = {
+  total: 5,
+  SUBMITTED: 2,
+  ON_HOLD: 1,
+  INTERVIEW_PENDING: 1,
+  ACCEPTED: 1,
+  REJECTED: 0,
+};
 
 describe('상태 필터 칩', () => {
-  it('운영진 라벨과 카운트를 함께 보여준다', () => {
+  it('운영진 라벨과 카운트를 접근 이름에 함께 담는다', () => {
     render(<StatusFilterChips value={undefined} onChange={vi.fn()} counts={counts} useInterview />);
     expect(screen.getByRole('button', { name: '전체 5명' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지원 완료 2명' })).toBeInTheDocument();
@@ -925,11 +1044,13 @@ describe('상태 필터 칩', () => {
   });
 
   it('면접을 쓰지 않는 모집은 면접 대상 칩을 감춘다', () => {
-    render(<StatusFilterChips value={undefined} onChange={vi.fn()} counts={counts} useInterview={false} />);
+    render(
+      <StatusFilterChips value={undefined} onChange={vi.fn()} counts={counts} useInterview={false} />,
+    );
     expect(screen.queryByRole('button', { name: /면접 대상/ })).not.toBeInTheDocument();
   });
 
-  it('선택된 칩만 aria-pressed 가 true 다 — 단일 선택', () => {
+  it('단일 선택 — 선택된 칩만 aria-pressed 가 true 다', () => {
     render(<StatusFilterChips value="ON_HOLD" onChange={vi.fn()} counts={counts} useInterview />);
     expect(screen.getByRole('button', { name: '보류 1명' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: '전체 5명' })).toHaveAttribute('aria-pressed', 'false');
@@ -959,48 +1080,15 @@ Expected: FAIL — 모듈 없음
 
 - [ ] **Step 3: 구현**
 
-`_lib/applicantCounts.ts`:
-
-```ts
-import type { Applicant, ApplicationStatus } from '@duing/types';
-
-export type StatusCounts = Record<ApplicationStatus, number> & { total: number };
-
-const EMPTY_COUNTS: StatusCounts = {
-  total: 0,
-  SUBMITTED: 0,
-  ON_HOLD: 0,
-  INTERVIEW_PENDING: 0,
-  ACCEPTED: 0,
-  REJECTED: 0,
-};
-
-/**
- * 상태별 인원을 목록에서 직접 센다. stats/summary 는 필터를 받지 않아 단과대·기간·검색어가 걸리면
- * 칩 숫자와 눈앞 목록이 어긋난다 — 칩이 "현황 + 필터" 역할을 하려면 둘이 같아야 한다.
- * 그래서 목록은 status 없이 받아오고(다른 필터는 서버가 적용), 여기서 세고, 상태 필터도 클라이언트에서 건다.
- */
-export function countByStatus(applicants: Applicant[]): StatusCounts {
-  return applicants.reduce<StatusCounts>(
-    (counts, applicant) => ({
-      ...counts,
-      total: counts.total + 1,
-      [applicant.status]: counts[applicant.status] + 1,
-    }),
-    { ...EMPTY_COUNTS },
-  );
-}
-```
-
 `_components/StatusFilterChips.tsx`:
 
 ```tsx
 'use client';
 
 import type { ApplicationStatus } from '@duing/types';
-import type { StatusCounts } from '../_lib/applicantCounts';
 import { cn } from '@/app/_lib/cn';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
+import type { StatusCounts } from '../_lib/applicantCounts';
 
 // 회원 관리 MemberFilterChips 와 같은 칩 스타일 — 콘솔 안에서 필터 생김새가 갈리지 않게 한다.
 const CHIP_BASE =
@@ -1041,11 +1129,11 @@ export function StatusFilterChips({ value, onChange, counts, useInterview }: Pro
 
   return (
     // 칩은 한 줄 가로 스크롤이다 — 줄바꿈하면 목록이 아래로 밀린다.
-    // 스크롤바 숨김·오버스크롤 체인 차단은 ClubExplorePage 칩 행과 같은 처리다.
+    // 음수 마진은 페이지 좌우 패딩(px-4 sm:px-6)과 정확히 짝을 맞춘다.
     <div
       role="group"
       aria-label="상태 필터"
-      className="-mx-4 flex gap-1.5 overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0"
+      className="-mx-4 flex gap-1.5 overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0"
     >
       {visibleChips.map((chip) => {
         const selected = value === chip.value;
@@ -1055,13 +1143,14 @@ export function StatusFilterChips({ value, onChange, counts, useInterview }: Pro
             key={chip.value ?? 'ALL'}
             type="button"
             aria-pressed={selected}
+            // 인라인 span 은 accname 에 공백을 넣지 않아 "전체5명" 이 된다 — 이름을 직접 준다.
+            aria-label={`${chip.label} ${count}명`}
             onClick={() => onChange(chip.value)}
             className={cn(CHIP_BASE, selected ? CHIP_ON : CHIP_OFF)}
           >
             {chip.label}
-            <span className="ml-1 tabular-nums">
+            <span aria-hidden className="ml-1 tabular-nums">
               {count}
-              <span className="sr-only">명</span>
             </span>
           </button>
         );
@@ -1074,27 +1163,31 @@ export function StatusFilterChips({ value, onChange, counts, useInterview }: Pro
 - [ ] **Step 4: 통과 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/status-filter-chips.test.tsx`
-Expected: PASS (6 tests)
+Expected: PASS (5 tests)
 
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add frontend/apps/web/app/manage frontend/apps/web/test/manage/applicants/status-filter-chips.test.tsx
-git commit -m "feat(frontend): 지원자 상태 필터 칩 — 현황 카운트 통합·stats 실패 시 숫자 생략"
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "feat(frontend): 지원자 상태 필터 칩 — 목록 파생 카운트 통합"
 ```
 
 ---
 
-### Task 5: 필터 시트 + 필터 바 재구성
+### Task 5: 검색·필터 리디자인 (+ 클라이언트 상태 필터 배선)
+
+이 태스크가 설계의 핵심 배선을 담당한다. **목록을 `status` 없이 받아 카운트를 세고, 상태 필터를 클라이언트에서 적용한다.**
 
 **Files:**
 - Create: `.../applicants/_components/ApplicantsFilterSheet.tsx`
 - Modify: `.../applicants/_components/ApplicantsFilterBar.tsx` (전면 교체)
-- Modify: `.../applicants/_components/ApplicantsSearchInput.tsx` (콘솔 토큰·전폭 대응)
-- Test: `frontend/apps/web/test/manage/applicants/applicants-filter-bar.test.tsx` (기존 파일 갱신)
+- Modify: `.../applicants/_components/ApplicantsSearchInput.tsx` (토큰·전폭)
+- Modify: `.../applicants/page.tsx` (목록 쿼리에서 status 제외 + 카운트 + 클라이언트 필터)
+- Modify: `frontend/packages/hooks/src/applications.ts` (`placeholderData: keepPreviousData`)
+- Modify: `frontend/apps/web/test/manage/applicants/applicants-filter-bar.test.tsx` (전면 교체)
+- Modify: `frontend/apps/web/test/manage/applicants/closed-readonly.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 4 의 `StatusFilterChips`
+- Consumes: Task 4 의 `StatusFilterChips`, Task 1 의 `countByStatus`
 - Produces:
   ```ts
   type ApplicantsFilterBarProps = {
@@ -1103,27 +1196,28 @@ git commit -m "feat(frontend): 지원자 상태 필터 칩 — 현황 카운트 
     useInterview: boolean;
     counts: StatusCounts;
   };
-  type ApplicantsFilterSheetProps = {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    filters: ApplicantsFilters;
-    onApply: (next: ApplicantsFilters) => void;
-  };
+  export function secondaryFilterCount(filters: ApplicantsFilters): number; // 단과대 1 + 기간 1
   ```
-  `secondaryFilterCount(filters)` — 단과대·기간에서 적용된 개수(0~2). 필터 버튼 배지에 쓴다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`test/manage/applicants/applicants-filter-bar.test.tsx` 를 아래로 교체한다:
+`test/manage/applicants/applicants-filter-bar.test.tsx` 를 아래로 교체한다. **기존 파일의 검색 디바운스 케이스는 반드시 살린다.**
 
 ```tsx
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import type { ApplicantsFilters } from '@duing/types';
-import { countByStatus } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
+import type { StatusCounts } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
 import { ApplicantsFilterBar } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantsFilterBar';
 
-const counts = countByStatus([]);   // 카운트 표시 자체는 Task 4 테스트가 덮는다
+const counts: StatusCounts = {
+  total: 5,
+  SUBMITTED: 2,
+  ON_HOLD: 1,
+  INTERVIEW_PENDING: 1,
+  ACCEPTED: 1,
+  REJECTED: 0,
+};
 
 function renderBar(filters: ApplicantsFilters = {}) {
   const onChange = vi.fn();
@@ -1137,28 +1231,30 @@ describe('지원자 필터 바', () => {
   it('검색과 상태 칩을 항상 노출한다', () => {
     renderBar();
     expect(screen.getByLabelText('지원자 검색')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /지원 완료/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원 완료 2명' })).toBeInTheDocument();
   });
 
   it('상태 칩을 누르면 status 필터만 바뀐다', () => {
     const { onChange } = renderBar({ college: 'IT_ENGINEERING' });
-    fireEvent.click(screen.getByRole('button', { name: '보류 0명' }));
+    fireEvent.click(screen.getByRole('button', { name: '보류 1명' }));
     expect(onChange).toHaveBeenCalledWith({ college: 'IT_ENGINEERING', status: 'ON_HOLD' });
   });
 
-  it('모바일 필터 버튼은 단과대·기간 적용 개수를 배지로 보여준다', () => {
+  it('필터 버튼은 단과대·기간 적용 개수를 접근 이름에 담는다', () => {
     renderBar({ college: 'IT_ENGINEERING', submittedFrom: '2026-05-01' });
     expect(screen.getByRole('button', { name: '필터 2개 적용됨' })).toBeInTheDocument();
   });
 
-  it('적용된 보조 필터가 없으면 개수 없이 "필터" 로만 보인다', () => {
+  it('적용된 보조 필터가 없으면 "필터" 로만 보인다', () => {
     renderBar({ status: 'ON_HOLD' });
     expect(screen.getByRole('button', { name: '필터' })).toBeInTheDocument();
   });
 
-  it('필터 초기화는 모든 필터를 비운다', () => {
+  it('필터 초기화는 한 벌만 렌더되고 모든 필터를 비운다', () => {
     const { onChange } = renderBar({ status: 'ON_HOLD', college: 'IT_ENGINEERING', q: '홍' });
-    fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+    const resetButtons = screen.getAllByRole('button', { name: '필터 초기화' });
+    expect(resetButtons).toHaveLength(1);
+    fireEvent.click(resetButtons[0]);
     expect(onChange).toHaveBeenCalledWith({});
   });
 
@@ -1168,12 +1264,27 @@ describe('지원자 필터 바', () => {
     expect(onChange).toHaveBeenCalledWith({ college: 'IT_ENGINEERING' });
   });
 });
+
+describe('검색 디바운스', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('입력 후 디바운스가 지나야 q 로 커밋된다', () => {
+    const { onChange } = renderBar();
+    fireEvent.change(screen.getByLabelText('지원자 검색'), { target: { value: '홍길동' } });
+    expect(onChange).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(onChange).toHaveBeenCalledWith({ q: '홍길동' });
+  });
+});
 ```
 
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicants-filter-bar.test.tsx`
-Expected: FAIL — 새 props(`summary`) 와 칩·필터 버튼이 없음
+Expected: FAIL — 새 props·칩·필터 버튼 없음
 
 - [ ] **Step 3: 시트 구현**
 
@@ -1206,7 +1317,8 @@ type Props = {
 
 /**
  * 모바일 보조 필터(단과대·지원 기간) 시트. 상태는 칩이 항상 노출하므로 여기 중복해 넣지 않는다.
- * 시트 안에서는 임시 상태로 편집하고 "적용" 에서 한 번에 반영한다 — 열 때마다 현재 필터로 초기화한다.
+ * 시트 안에서는 초안으로 편집하고 "적용" 에서 한 번에 반영한다 — 즉시 반영하면 시트가 열린 채
+ * router.replace 가 반복된다. 열 때마다 현재 필터로 초기화한다.
  */
 export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: Props) {
   const [draft, setDraft] = useState<ApplicantsFilters>(filters);
@@ -1233,7 +1345,8 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
               onChange={(event) =>
                 setDraft({
                   ...draft,
-                  college: event.target.value === '' ? undefined : (event.target.value as College),
+                  college:
+                    event.target.value === '' ? undefined : (event.target.value as College),
                 })
               }
               className="mt-1.5 w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal"
@@ -1277,7 +1390,12 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
           <button
             type="button"
             onClick={() =>
-              setDraft({ ...draft, college: undefined, submittedFrom: undefined, submittedTo: undefined })
+              setDraft({
+                ...draft,
+                college: undefined,
+                submittedFrom: undefined,
+                submittedTo: undefined,
+              })
             }
             className="btn btn-secondary btn-sm flex-1"
           >
@@ -1302,15 +1420,15 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
 
 - [ ] **Step 4: 필터 바 구현**
 
-`_components/ApplicantsFilterBar.tsx` 전체 교체:
+`_components/ApplicantsFilterBar.tsx` 전체 교체. **`필터 초기화` 는 한 벌만 렌더한다** — 두 벌을 두면 jsdom 이 둘 다 잡아 테스트가 터진다. 배치만 `lg:` 로 분기한다.
 
 ```tsx
 'use client';
 
 import { useState } from 'react';
 import type { ApplicantsFilters, ApplicationStatus, College } from '@duing/types';
-import type { StatusCounts } from '../_lib/applicantCounts';
 import { COLLEGE_DISPLAY_NAME } from '@duing/types';
+import type { StatusCounts } from '../_lib/applicantCounts';
 import { ApplicantsSearchInput } from './ApplicantsSearchInput';
 import { ApplicantsFilterSheet } from './ApplicantsFilterSheet';
 import { StatusFilterChips } from './StatusFilterChips';
@@ -1319,7 +1437,7 @@ const COLLEGE_OPTIONS = (Object.entries(COLLEGE_DISPLAY_NAME) as [College, strin
   ([value, label]) => ({ value, label }),
 );
 
-/** 시트에 들어가는 보조 필터(단과대·기간) 중 적용된 개수. 기간은 시작·종료를 한 덩어리로 센다. */
+/** 시트에 들어가는 보조 필터 중 적용된 개수. 기간은 시작·종료를 한 덩어리로 센다. */
 export function secondaryFilterCount(filters: ApplicantsFilters): number {
   let count = 0;
   if (filters.college) count += 1;
@@ -1364,7 +1482,7 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
         </button>
       </div>
 
-      {/* 2행 — 상태 칩 (모바일은 가로 스크롤, 데스크탑은 줄바꿈) */}
+      {/* 2행 — 상태 칩 (모바일 가로 스크롤 / 데스크탑 줄바꿈) */}
       <StatusFilterChips
         value={filters.status}
         onChange={(nextStatus: ApplicationStatus | undefined) =>
@@ -1374,68 +1492,60 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
         useInterview={useInterview}
       />
 
-      {/* 3행 — 데스크탑 전용 보조 필터(시트에 숨기지 않는다) */}
-      <div className="hidden items-center gap-2 lg:flex">
-        <select
-          value={filters.college ?? ''}
-          aria-label="단과대"
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              college: event.target.value === '' ? undefined : (event.target.value as College),
-            })
-          }
-          className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] font-medium text-charcoal-2"
-        >
-          <option value="">단과대 전체</option>
-          {COLLEGE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+      {/* 3행 — 데스크탑 전용 보조 필터 + 초기화(한 벌만 렌더) */}
+      <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 lg:flex">
+          <select
+            value={filters.college ?? ''}
+            aria-label="단과대"
+            onChange={(event) =>
+              onChange({
+                ...filters,
+                college:
+                  event.target.value === '' ? undefined : (event.target.value as College),
+              })
+            }
+            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] font-medium text-charcoal-2"
+          >
+            <option value="">단과대 전체</option>
+            {COLLEGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
-        <input
-          type="date"
-          aria-label="시작일"
-          value={filters.submittedFrom ?? ''}
-          onChange={(event) =>
-            onChange({ ...filters, submittedFrom: event.target.value || undefined })
-          }
-          className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
-        />
-        <span aria-hidden className="text-charcoal-3">~</span>
-        <input
-          type="date"
-          aria-label="종료일"
-          value={filters.submittedTo ?? ''}
-          onChange={(event) =>
-            onChange({ ...filters, submittedTo: event.target.value || undefined })
-          }
-          className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
-        />
+          <input
+            type="date"
+            aria-label="시작일"
+            value={filters.submittedFrom ?? ''}
+            onChange={(event) =>
+              onChange({ ...filters, submittedFrom: event.target.value || undefined })
+            }
+            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
+          />
+          <span aria-hidden className="text-charcoal-3">~</span>
+          <input
+            type="date"
+            aria-label="종료일"
+            value={filters.submittedTo ?? ''}
+            onChange={(event) =>
+              onChange({ ...filters, submittedTo: event.target.value || undefined })
+            }
+            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
+          />
+        </div>
 
         {hasAnyFilter && (
           <button
             type="button"
             onClick={() => onChange({})}
-            className="btn btn-ghost btn-sm ml-auto"
+            className="btn btn-ghost btn-sm lg:ml-auto"
           >
             필터 초기화
           </button>
         )}
       </div>
-
-      {/* 모바일 초기화 — 필터가 하나라도 걸린 경우에만 */}
-      {hasAnyFilter && (
-        <button
-          type="button"
-          onClick={() => onChange({})}
-          className="btn btn-ghost btn-sm lg:hidden"
-        >
-          필터 초기화
-        </button>
-      )}
 
       <ApplicantsFilterSheet
         open={isSheetOpen}
@@ -1450,36 +1560,92 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
 
 - [ ] **Step 5: 검색 입력 정렬**
 
-`ApplicantsSearchInput.tsx` 의 className 을 콘솔 토큰과 전폭 대응으로 바꾼다(로직·디바운스는 그대로):
+`ApplicantsSearchInput.tsx` 의 className 만 바꾼다(디바운스 로직은 그대로).
 
 ```tsx
     className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none lg:max-w-xs"
 ```
 
-- [ ] **Step 6: 통과 확인**
+- [ ] **Step 6: 목록 쿼리에서 status 를 빼고 클라이언트에서 건다**
 
-Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/applicants-filter-bar.test.tsx`
-Expected: PASS (6 tests)
+`page.tsx`:
 
-- [ ] **Step 7: 커밋**
+```tsx
+import { countByStatus } from './_lib/applicantCounts';
+...
+  // 상태는 클라이언트에서 건다 — 칩 숫자가 현재 필터 결과 안의 분포와 항상 일치해야 한다(설계 §6).
+  // URL 의 status 는 그대로 둔다: 상세 이전/다음 탐색을 서버가 같은 조건으로 계산한다.
+  const listFilters = useMemo(() => ({ ...filters, status: undefined }), [filters]);
+  const {
+    data: allApplicants = [],
+    isLoading: isApplicantsLoading,
+    isFetching: isApplicantsFetching,
+  } = useApplicantsQuery(
+    recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId) ? recruitmentId : undefined,
+    listFilters,
+  );
+  const counts = useMemo(() => countByStatus(allApplicants), [allApplicants]);
+  const applicants = useMemo(
+    () =>
+      filters.status
+        ? allApplicants.filter((applicant) => applicant.status === filters.status)
+        : allApplicants,
+    [allApplicants, filters.status],
+  );
+```
+
+**`selectableIds` 의 입력은 반드시 `applicants`(상태 필터 적용본)** 이어야 한다. `allApplicants` 를 넣으면 화면에 없는 지원자까지 전체 선택되어 일괄 처리에 딸려간다.
+
+`ApplicantsFilterBar` 호출부에 `counts={counts}` 를 넘긴다.
+
+- [ ] **Step 7: 목록 전환 중 이전 결과 유지**
+
+`frontend/packages/hooks/src/applications.ts` 의 `useApplicantsQuery` 에 `placeholderData` 를 추가한다.
+
+```ts
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+...
+    placeholderData: keepPreviousData,
+```
+
+`page.tsx` 의 목록 래퍼에 갱신 중 신호를 준다.
+
+```tsx
+<div aria-busy={isApplicantsFetching} className={cn(isApplicantsFetching && 'opacity-60 transition-opacity')}>
+  {/* ApplicantCardList + ApplicantTable */}
+</div>
+```
+
+- [ ] **Step 8: `closed-readonly.test.tsx` 갱신**
+
+`getByLabelText('상태')`(select 전제)를 칩 조회로 바꾼다. 마감 모집에서도 상태로 거를 수단이 남아 있는지 확인하는 원래 의도를 유지한다.
+
+```tsx
+    expect(screen.getByRole('button', { name: /지원 완료/ })).toBeInTheDocument();
+```
+
+- [ ] **Step 9: 전체 통과 확인**
+
+Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants`
+Expected: PASS
+
+- [ ] **Step 10: 커밋**
 
 ```bash
-git add frontend/apps/web/app/manage frontend/apps/web/test/manage/applicants/applicants-filter-bar.test.tsx
-git commit -m "feat(frontend): 지원자 검색·필터 리디자인 — 상태 칩 상시 노출·보조 필터 모바일 시트"
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "feat(frontend): 지원자 검색·필터 리디자인 — 상태 칩 상시 노출·보조 필터 시트·클라이언트 상태 필터"
 ```
 
 ---
 
-### Task 6: 전체 선택 바 + 페이지 조립
+### Task 6: 전체 선택 · 선택 생존 규칙 · 화면 마감
 
 **Files:**
 - Create: `.../applicants/_components/SelectAllBar.tsx`
 - Modify: `.../applicants/page.tsx`
-- Modify: `.../applicants/_components/BulkActionBar.tsx` (콘솔 토큰 재도색만)
+- Modify: `.../applicants/_components/BulkActionBar.tsx` (폭 동기화 + 재도색)
 - Test: `frontend/apps/web/test/manage/applicants/select-all-bar.test.tsx`
 
 **Interfaces:**
-- Consumes: Task 1 의 `selectableIds` / `selectAllState` / `toggleSelectAll`, Task 2·3 의 컴포넌트, Task 5 의 `ApplicantsFilterBar`
 - Produces:
   ```ts
   type SelectAllBarProps = {
@@ -1508,8 +1674,9 @@ describe('전체 선택 바', () => {
   it('부분 선택이면 진행 상황을 보여주고 indeterminate 다', () => {
     render(<SelectAllBar selectableCount={14} selectedCount={7} state="partial" onToggleAll={vi.fn()} />);
     expect(screen.getByText('전체 선택 (7/14)')).toBeInTheDocument();
-    const checkbox = screen.getByRole('checkbox', { name: '전체 선택' });
-    expect((checkbox as HTMLInputElement).indeterminate).toBe(true);
+    expect(
+      (screen.getByRole('checkbox', { name: '전체 선택' }) as HTMLInputElement).indeterminate,
+    ).toBe(true);
   });
 
   it('전체 선택이면 선택 인원을 보여준다', () => {
@@ -1556,8 +1723,8 @@ type Props = {
 
 /**
  * 모바일·태블릿(≤1023px) 전체 선택 줄. 데스크탑은 표 헤더 체크박스가 같은 역할을 한다.
- * "전체" 는 현재 필터 결과 중 선택 가능한 지원자 전원이며, 최종 상태는 제외된다.
- * 체크하기 전에 몇 명이 대상인지 먼저 알려준다 — 34명을 눌렀는데 14명만 선택되면 놀란다.
+ * "전체" 는 현재 필터 결과 중 선택 가능한 지원자 전원이며 최종 상태는 제외된다.
+ * 체크하기 전에 대상 인원을 먼저 알려준다 — 34명을 눌렀는데 14명만 선택되면 놀란다.
  */
 export function SelectAllBar({ selectableCount, selectedCount, state, onToggleAll }: Props) {
   const checkboxRef = useRef<HTMLInputElement>(null);
@@ -1597,41 +1764,24 @@ export function SelectAllBar({ selectableCount, selectedCount, state, onToggleAl
 Run: `cd frontend/apps/web && pnpm exec vitest run test/manage/applicants/select-all-bar.test.tsx`
 Expected: PASS (5 tests)
 
-- [ ] **Step 5: 페이지 조립**
+- [ ] **Step 5: 페이지 마감 — 컨테이너·선택 생존·재도색**
 
-`page.tsx` 를 다음 원칙으로 수정한다.
-
-1. 컨테이너를 `max-w-5xl px-6 py-10` → `max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pb-10 sm:pt-10` 로 바꿔 회원 관리와 통일한다. 선택 시 하단 여백(`pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24`) 규칙은 유지한다.
-2. `useRecruitmentStatsSummaryQuery` 를 붙인다:
+**(1) 컨테이너를 회원 관리와 통일**
 
 ```tsx
-import { useRecruitmentStatsSummaryQuery } from '@duing/hooks';
-...
-const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
-  recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId) ? recruitmentId : undefined,
-);
+    <div
+      className={cn(
+        'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
+        selectedIds.length > 0
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
+          : 'pb-10',
+      )}
+    >
 ```
 
-3. 선택 상태 헬퍼를 만든다:
+**(2) 선택 생존 규칙 — 정리하되 검색어는 예외**
 
-```tsx
-const selectable = useMemo(() => selectableIds(applicants), [applicants]);
-const allState = useMemo(() => selectAllState(selectedSet, selectable), [selectedSet, selectable]);
-
-const toggleOne = useCallback((applicationId: number) => {
-  setSelectedIds((current) =>
-    current.includes(applicationId)
-      ? current.filter((id) => id !== applicationId)
-      : [...current, applicationId],
-  );
-}, []);
-
-const toggleAll = useCallback(() => {
-  setSelectedIds(toggleSelectAll(selectable, allState));
-}, [selectable, allState]);
-```
-
-4. **필터가 바뀌면 선택을 비운다.** "선택 = 지금 보이는 것" 을 지키기 위해서다 — 안 지우면 화면에서 사라진 지원자가 일괄 처리에 딸려간다.
+회원 관리 `members/page.tsx` 의 규칙을 따른다. 검색어 한 글자에 선택이 전멸하면 안 된다.
 
 ```tsx
   const updateFilters = useCallback(
@@ -1642,57 +1792,114 @@ const toggleAll = useCallback(() => {
       if (nextFilters.q) nextParams.set('q', nextFilters.q);
       if (nextFilters.submittedFrom) nextParams.set('submittedFrom', nextFilters.submittedFrom);
       if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
-      // 목록이 바뀌면 선택도 비운다 — 화면에서 사라진 지원자가 일괄 처리에 딸려가면 안 된다.
-      setSelectedIds([]);
+
+      // 검색어만 바뀐 경우는 선택을 건드리지 않는다 — 타이핑 한 글자에 선택이 영구 소실되고
+      // 검색어를 지워도 복구되지 않는다(회원 관리와 같은 규칙).
+      const onlyQueryChanged =
+        nextFilters.status === filters.status &&
+        nextFilters.college === filters.college &&
+        nextFilters.submittedFrom === filters.submittedFrom &&
+        nextFilters.submittedTo === filters.submittedTo;
+
+      if (!onlyQueryChanged) {
+        // 상태가 바뀌면 새 상태에 해당하는 선택만 남긴다(클라이언트에서 즉시 판정 가능).
+        // 단과대·기간은 서버 필터라 새 결과를 아직 모르므로 비운다 — "보이지 않는 선택" 을
+        // 남기지 않는 쪽으로 안전하게 기운다.
+        const collegeOrPeriodChanged =
+          nextFilters.college !== filters.college ||
+          nextFilters.submittedFrom !== filters.submittedFrom ||
+          nextFilters.submittedTo !== filters.submittedTo;
+        setSelectedIds((current) =>
+          collegeOrPeriodChanged
+            ? []
+            : current.filter((id) =>
+                allApplicants.some(
+                  (applicant) =>
+                    applicant.applicationId === id &&
+                    (!nextFilters.status || applicant.status === nextFilters.status),
+                ),
+              ),
+        );
+      }
       router.replace(`?${nextParams.toString()}`);
     },
-    [router],
+    [router, filters, allApplicants],
   );
 ```
 
-5. 상세 이동 콜백을 페이지로 올린다. 기존 `navigateToDetail` 을 `ApplicantTable` 에서 그대로 옮겨온다 — **현재 쿼리스트링을 붙이는 규칙을 바꾸지 않는다.** 상세의 이전/다음 탐색이 같은 필터 결과 안에서 움직이는 근거가 이 쿼리스트링이다.
+**(3) 선택 헬퍼 정리** — Task 3 에서 인라인으로 둔 것을 `useMemo`/`useCallback` 으로 옮긴다.
 
 ```tsx
-  const openDetail = useCallback(
-    (applicationId: number) => {
-      const currentQs = searchParams.toString();
-      const base = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`;
-      router.push(toRoute(currentQs ? `${base}?${currentQs}` : base));
-    },
-    [router, searchParams, clubId, recruitmentId],
+  const selectable = useMemo(() => selectableIds(applicants), [applicants]);
+  const allState = useMemo(
+    () => selectAllState(selectedSet, selectable),
+    [selectedSet, selectable],
+  );
+  const toggleAll = useCallback(
+    () => setSelectedIds(toggleSelectAll(selectable, allState)),
+    [selectable, allState],
   );
 ```
 
-6. 렌더 순서: 헤더 → (마감 배너) → `ApplicantsFilterBar` → (일괄 결과·오류) → `SelectAllBar` → `ApplicantCardList` + `ApplicantTable` → `BulkActionBar`.
+**(4) `SelectAllBar` 배치** — 목록이 0건이면 렌더하지 않는다.
 
-7. **빈 상태·로딩 분기는 그대로 둔다** — `isApplicantsLoading` 일 때 `LoadingGate`, 0건일 때 `hasActiveFilters` 에 따라 `검색 결과 없음` / `지원자가 아직 없습니다`. 다만 목록이 0건이면 `SelectAllBar` 도 렌더하지 않는다.
+```tsx
+{applicants.length > 0 && (
+  <SelectAllBar
+    selectableCount={selectable.length}
+    selectedCount={selectable.filter((id) => selectedSet.has(id)).length}
+    state={allState}
+    onToggleAll={toggleAll}
+  />
+)}
+```
 
-- [ ] **Step 6: `BulkActionBar` 재도색**
+**(5) 페이지 나머지 재도색** — 문구·구조·분기 조건은 그대로 두고 색만 바꾼다.
 
-버튼·텍스트 색만 콘솔 토큰으로 바꾼다. 액션 구성·`finalizeOnly` 분기·`useInterview` 분기는 **건드리지 않는다**. `text-slate-700` → `text-charcoal-2`, `text-slate-900` → `text-ink-deep`, 합격 버튼 `bg-emerald-600` 유지(상태색), 나머지 테두리 `border-line`.
+| 위치 | 지금 | 바꿀 값 |
+|---|---|---|
+| 뒤로 가기 링크 | `text-slate-500 hover:text-slate-700` | `text-charcoal-3 hover:text-charcoal` |
+| h1 | `text-slate-900` | `text-ink-deep` |
+| 마감 배너 | `border-slate-200 bg-slate-50 text-slate-600` | `border-line bg-graysoft/40 text-charcoal-2` |
+| 외부 폼 안내 | `border-slate-200 bg-slate-50 text-slate-600` | `border-line bg-graysoft/40 text-charcoal-2` |
+| 일괄 결과 닫기 | `text-slate-500 hover:text-slate-800` | `text-charcoal-3 hover:text-charcoal` |
+| 빈 상태 | `text-neutral-500` | `text-charcoal-3` |
+| PII 푸터 | `text-slate-400` | `text-charcoal-3` |
 
-- [ ] **Step 7: 전체 테스트·타입·린트·빌드**
+- [ ] **Step 6: `BulkActionBar` 폭 동기화 + 재도색**
+
+- `mx-auto flex max-w-5xl` → `max-w-6xl` (페이지가 `max-w-6xl` 로 올라가 바만 좁게 정렬되는 것을 막는다)
+- `text-slate-700` → `text-charcoal-2`, `text-slate-900` → `text-ink-deep`, 버튼 테두리 → `border-line`
+- **액션 구성·`finalizeOnly` 분기·`useInterview` 분기는 절대 건드리지 않는다.**
+- 재도색 후 바 높이가 `page.tsx` 의 `pb-[calc(10rem+…)]` 보정값과 맞는지는 Task 7 에서 실측한다.
+
+- [ ] **Step 7: 전체 게이트 (각 명령을 독립 실행)**
 
 ```bash
-cd frontend/apps/web && pnpm exec vitest run test/manage
-cd frontend && pnpm typecheck
-cd frontend && pnpm lint
-cd frontend && NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1 AUTH_HINT_SECRET=build-only pnpm build
+cd /Users/ksy/orca/workspaces/Duing/darter/frontend/apps/web && pnpm exec vitest run test/manage
 ```
-Expected: 전부 통과. 빌드 출력에 `Compiled successfully` 확인.
+```bash
+cd /Users/ksy/orca/workspaces/Duing/darter/frontend && pnpm typecheck
+```
+```bash
+cd /Users/ksy/orca/workspaces/Duing/darter/frontend && pnpm lint
+```
+```bash
+cd /Users/ksy/orca/workspaces/Duing/darter/frontend && NEXT_PUBLIC_API_BASE_URL=https://api.example.com/api/v1 AUTH_HINT_SECRET=build-only pnpm build
+```
+Expected: 전부 통과, 빌드 출력에 `Compiled successfully`.
 
 - [ ] **Step 8: 커밋**
 
 ```bash
-git add frontend/apps/web/app/manage frontend/apps/web/test/manage/applicants
-git commit -m "feat(frontend): 지원자 전체 선택 도입·목록 페이지 조립 — 필터 변경 시 선택 초기화"
+cd /Users/ksy/orca/workspaces/Duing/darter && git add -A frontend && git commit -m "feat(frontend): 지원자 전체 선택 도입·목록 화면 마감 — 선택 생존 규칙·콘솔 토큰 재도색"
 ```
 
 ---
 
 ### Task 7: 실브라우저 검증
 
-jsdom 은 레이아웃이 없어 44px·2줄 기하·열 숨김·가로 overflow 를 검증하지 못한다. 실제 브라우저로 실측하고 결과를 보고에 남긴다.
+jsdom 은 레이아웃이 없어 44px·2줄 기하·열 숨김·가로 overflow 를 검증하지 못한다.
 
 **Files:**
 - Create(임시): `frontend/apps/web/app/qa-applicants/page.tsx` — 검증 후 **반드시 삭제**
@@ -1700,56 +1907,54 @@ jsdom 은 레이아웃이 없어 44px·2줄 기하·열 숨김·가로 overflow 
 
 - [ ] **Step 1: QA 하네스 준비**
 
-`.env.local` 에 `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1` 와 `AUTH_HINT_SECRET=local-qa-only` 를 넣는다. 백엔드가 없어도 되도록, QA 페이지는 고정 fixture 로 `ApplicantsFilterBar` + `SelectAllBar` + `ApplicantCardList` + `ApplicantTable` 을 직접 조립한다(최종 상태 1명·선택 가능 2명·긴 학과명 1명 포함).
+`.env.local` 에 `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1` 와 `AUTH_HINT_SECRET=local-qa-only` 를 넣는다. 백엔드 없이 돌도록 QA 페이지는 고정 fixture 로 `ApplicantsFilterBar` + `SelectAllBar` + `ApplicantCardList` + `ApplicantTable` 을 직접 조립한다(최종 상태 1명 · 선택 가능 2명 · 긴 학과명 1명 · 평가 있는 1명 포함).
 
 - [ ] **Step 2: 개발 서버 기동**
 
 ```bash
-cd frontend/apps/web && (pnpm dev > /tmp/dev.log 2>&1 &) ; sleep 14; grep -m2 -E "Local:|Ready" /tmp/dev.log
+cd /Users/ksy/orca/workspaces/Duing/darter/frontend/apps/web && (pnpm dev > /tmp/dev-qa.log 2>&1 &) ; sleep 14; grep -m2 -E "Local:|Ready" /tmp/dev-qa.log
 ```
-로그에서 포트가 3000 인지 확인한다. 좀비 프로세스가 3000 을 잡고 있으면 `next dev` 부모 → `next-server` 워커 → 포트 순으로 정리한다.
+포트가 3000 인지 확인한다. 좀비가 잡고 있으면 **부모(`next dev`) → 워커(`next-server`) → 포트** 순으로 정리한다(순서를 뒤집으면 부모가 워커를 재생성한다).
 
 - [ ] **Step 3: 오터치 실측 (320 / 360 / 390 / 414)**
 
-각 폭에서 Playwright 좌표 클릭으로 다음 4가지를 확인한다. **`locator.click()` 은 쓰지 않는다** — 라벨의 연결 컨트롤이 disabled 면 actionability 검사에서 타임아웃 나는 도구 특성이 있어 오판을 부른다. `page.mouse.click(x, y)` 를 쓴다.
+`page.mouse.click(x, y)` 좌표 클릭을 쓴다. **`locator.click()` 은 쓰지 않는다** — 라벨의 연결 컨트롤이 disabled 면 actionability 검사에서 타임아웃 나 오판을 부른다. 첫 로드 직후는 하이드레이션 전이라 `waitForTimeout(900)` 이상 준 뒤 클릭한다.
 
 | 대상 | 탭 위치 | 기대 |
 |---|---|---|
-| 선택 가능 | 체크박스 중심에서 10px·18px 빗나간 지점 | 선택만, 상세 이동 0 |
+| 선택 가능 | 체크박스 중심에서 10px·18px 빗나간 지점 | 선택만, 이동 0 |
 | 선택 가능 | 카드 본문 | 상세 진입 |
 | 최종 상태 | 체크박스 정중앙 | 상세 진입 |
 | 최종 상태 | 44px 자리 모서리 | 상세 진입 |
 
-첫 로드 직후 클릭은 하이드레이션 전이라 무반응일 수 있다 — `waitForTimeout(900)` 이상 준 뒤 클릭한다.
-
 - [ ] **Step 4: 뷰포트별 레이아웃 실측**
 
-320 / 360 / 375 / 390 / 414 / 768 / 1024 / 1280 / 1440 / 1920 에서 측정한다.
-- 카드 높이, 히트 영역 크기, 가로 overflow(`documentElement.scrollWidth > innerWidth`)
-- 잘린 텍스트(`scrollWidth > clientWidth + 1` 인 리프 노드) — 이름이 잘리면 레이아웃을 먼저 손본다
+320 / 360 / 375 / 390 / 414 / 768 / 1024 / 1280 / 1440 / 1920.
+- 카드 높이(최종 수치 기록), 히트 영역 크기, 가로 overflow(`documentElement.scrollWidth > innerWidth`)
+- 잘린 텍스트(`scrollWidth > clientWidth + 1` 인 리프 노드) — **이름이 잘리면 레이아웃을 먼저 손본다**
 - 1024 에서 단과대·학번 열이 숨겨졌는지, 1280 에서 노출되는지
-- 상태 칩이 한 줄 가로 스크롤인지(줄바꿈 금지), 칩 행 높이가 두 줄이 되지 않는지
+- 상태 칩이 한 줄 가로 스크롤인지(줄바꿈 금지)
+- 일괄 바 높이 vs `pb-[calc(10rem+…)]` 보정값이 맞는지
 
 - [ ] **Step 5: 기능 회귀 확인**
 
-검색 입력 → 목록 갱신, 상태 칩 → 필터 반영, 시트에서 단과대·기간 적용, 전체 선택 → 최종 상태 제외 확인, 다중 선택 후 일괄 바 노출.
+검색 입력 → 목록 갱신(이전 목록이 딤으로 유지되는지), 상태 칩 → 즉시 반응(네트워크 없음), 시트에서 단과대·기간 적용, **시트 적용 후 닫고 뒤로가기 1회가 이전 화면으로 가는지**, 전체 선택이 최종 상태를 제외하는지, 다중 선택 후 일괄 바 노출.
 
 - [ ] **Step 6: 정리**
 
 ```bash
-rm -rf frontend/apps/web/app/qa-applicants frontend/apps/web/.env.local
-pkill -f "next-server"; pkill -f "next dev"
+cd /Users/ksy/orca/workspaces/Duing/darter && rm -rf frontend/apps/web/app/qa-applicants frontend/apps/web/.env.local && pkill -f "next dev"; pkill -f "next-server"
 ```
 `git status` 로 임시 파일이 남지 않았는지 확인한다.
 
-- [ ] **Step 7: 실측 결과를 최종 보고에 정리**
+- [ ] **Step 7: 실측 결과 정리**
 
-설계 문서 §10 의 검증 항목을 표로 채운다. 카드 높이 최종 수치와 한 화면에 보이는 지원자 수를 함께 적는다.
+설계 문서 §10 검증 항목을 표로 채운다. 카드 높이 최종 수치와 한 화면에 보이는 지원자 수를 함께 적는다.
 
 ---
 
-## 실행 순서 메모
+## 실행 순서
 
-Task 1 → 2 → 3 은 순차 의존(공용 모듈 → 카드 → 표). Task 4 는 1~3 과 독립이라 병행 가능하지만, Task 5 는 Task 4 를 소비한다. Task 6 은 2·3·5 를 모두 소비하므로 마지막이고, Task 7 은 6 이후에만 의미가 있다.
+1 → 2 → 3 → 4 → 5 → 6 → 7 순차. Task 4 만 1~3 과 독립이라 병행 가능하지만 Task 5 가 소비한다.
 
-PR #939 가 아직 develop 에 머지되지 않았다면 이 작업은 그 브랜치 위에 쌓인다 — 스택 PR 이 되므로 base 브랜치를 `#939` 브랜치로 두고, 머지 후 base 를 `develop` 으로 재지정한다.
+PR #939 가 아직 develop 에 머지되지 않았다면 이 작업은 그 브랜치 위에 쌓인다(스택 PR).
