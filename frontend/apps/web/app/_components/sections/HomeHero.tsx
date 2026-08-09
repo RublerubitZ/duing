@@ -6,6 +6,11 @@ import { fetchClubStats } from '@/app/_lib/club-stats';
 import { cn } from '@/app/_lib/cn';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
+import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
+
+// 통계 조회 실패("—곳") 시 링크 접근명 — 대시만 읽히지 않도록 링크 자체에 건다.
+// 숫자 div(role=generic)에 aria-label 을 두면 ARIA 금지 속성이 된다.
+const RECRUITING_UNKNOWN_LABEL = '모집 현황 정보 없음 — 이번 학기 모집중 동아리 보기';
 
 const SUGGESTED_QUERIES: ReadonlyArray<string> = [
   '개발',
@@ -32,25 +37,22 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 — 모집 현황 카드 + 활동 토스트 2개를 작게 세로로 노출.
-              우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황과 활동 분위기를 전달한다.
+          {/* 모바일: 헤드라인 우측 — 모집 현황 카드만 작게 노출(활동 토스트는 데스크탑 전용).
+              우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황은 전달한다.
               stats null(조회 실패) 시에도 카드는 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
-          <div className="md:hidden absolute right-0 top-[44px] z-[3] flex w-[130px] flex-col items-stretch gap-1.5">
-            <div className="rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1">
-              <div
-                className="font-display text-[28px] font-bold leading-none text-ink"
-                aria-label={stats ? undefined : '모집 현황 정보 없음'}
-              >
-                {stats ? stats.recruitingCount : '—'}
-                <span className="text-sm font-bold">곳</span>
-              </div>
-              <div className="mt-0.5 text-[10.5px] font-medium leading-tight text-ink/75">
-                이번 학기 모집중
-              </div>
+          <Link
+            href={RECRUITING_CLUBS_HREF}
+            aria-label={stats ? undefined : RECRUITING_UNKNOWN_LABEL}
+            className="md:hidden absolute right-0 top-[44px] z-[3] w-[130px] rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1 transition duration-250 ease-duing active:scale-95 motion-reduce:transition-none"
+          >
+            <div className="font-display text-[28px] font-bold leading-none text-ink">
+              {stats ? stats.recruitingCount : '—'}
+              <span className="text-sm font-bold">곳</span>
             </div>
-            <HeroActivityToast {...toasts[0]} />
-            <HeroActivityToast {...toasts[1]} />
-          </div>
+            <div className="mt-0.5 text-[10.5px] font-medium leading-tight text-ink/75">
+              이번 학기 모집중
+            </div>
+          </Link>
 
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
@@ -133,14 +135,14 @@ export async function HomeHero() {
   );
 }
 
-// 테스트용 export — 런타임에선 HeroRightVisual(데스크탑·태블릿)과 HomeHero(모바일 스택)가 렌더한다.
-// 사이즈 3단: 모바일(기본) 최소 · 태블릿(md) 중간 · 데스크탑(lg) 기본.
+// 테스트용 export — 런타임에선 HeroRightVisual(데스크탑·태블릿)만 렌더한다.
+// 사이즈 2단: 태블릿(기본, md 미만에선 렌더되지 않음) · 데스크탑(lg) 확대.
 export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
   const isDark = variant === 'dark';
   return (
     <div
       className={cn(
-        'w-[130px] rounded-md px-2 py-1 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none md:w-[182px] md:px-3 md:py-2 lg:w-[230px] lg:px-4 lg:py-3',
+        'w-[182px] rounded-md px-3 py-2 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:w-[230px] lg:px-4 lg:py-3',
         isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
       )}
     >
@@ -151,7 +153,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
         />
         <span
           className={cn(
-            'text-[9.5px] font-bold md:text-[11.5px] lg:text-[13px]',
+            'text-[11.5px] font-bold lg:text-[13px]',
             isDark ? 'text-cream' : 'text-ink',
           )}
         >
@@ -159,7 +161,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
         </span>
         <span
           className={cn(
-            'ml-auto text-[8px] md:text-[10px] lg:text-[11px]',
+            'ml-auto text-[10px] lg:text-[11px]',
             isDark ? 'text-cream/60' : 'text-charcoal-3',
           )}
         >
@@ -168,7 +170,7 @@ export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroT
       </div>
       <div
         className={cn(
-          'mt-0.5 text-[9px] leading-snug md:text-[11px] lg:mt-1 lg:text-[12.5px]',
+          'mt-0.5 text-[11px] leading-snug lg:mt-1 lg:text-[12.5px]',
           isDark ? 'text-cream/85' : 'text-charcoal-2',
         )}
       >
@@ -205,16 +207,17 @@ export function HeroRightVisual({
 
         {/* 모집중 카드 — 일러스트 좌상단에 겹쳐 뜨는 실데이터 카드 + hover 반응. null="—곳", 0="0곳". */}
         <div className="absolute left-1 top-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none lg:left-2 lg:top-2">
-          <div className="rounded-md border border-sage-soft bg-sage-mist px-4 py-3 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:px-5 lg:py-4">
-            <div
-              className="font-display text-[30px] font-bold leading-none text-ink lg:text-[36px]"
-              aria-label={recruitingCount === null ? '모집 현황 정보 없음' : undefined}
-            >
+          <Link
+            href={RECRUITING_CLUBS_HREF}
+            aria-label={recruitingCount === null ? RECRUITING_UNKNOWN_LABEL : undefined}
+            className="block rounded-md border border-sage-soft bg-sage-mist px-4 py-3 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:px-5 lg:py-4"
+          >
+            <div className="font-display text-[30px] font-bold leading-none text-ink lg:text-[36px]">
               {recruitingCount === null ? '—' : recruitingCount}
               <span className="text-base lg:text-lg">곳</span>
             </div>
             <div className="mt-1 text-[11px] text-ink/70 lg:text-[11.5px]">이번 학기 모집중</div>
-          </div>
+          </Link>
         </div>
 
         {/* Toast 1 — 일러스트 좌하단에 겹치게 안쪽으로. */}
