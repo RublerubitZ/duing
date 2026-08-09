@@ -22,6 +22,37 @@
 - 테스트 실행 cwd 는 `frontend/apps/web`, 명령은 `pnpm exec vitest run <경로>`.
 - 커밋 메시지는 Conventional Commits + 한국어. Claude 공동저자 라인 금지.
 
+## 설계 리뷰 반영 — 모든 태스크가 함께 지켜야 하는 것
+
+아래는 설계 리뷰에서 나온 지적이며, 해당 태스크의 요구사항에 포함된다.
+
+1. **전체 선택 술어의 분모는 `selectable`** 이다. 회원 관리는 선택 불가 행이 없어 `every(members)` 로
+   충분하지만, 여기서 그대로 복붙하면 최종 상태가 한 건만 있어도 `allSelected` 가 영원히 false 가 되어
+   "전체 해제" 로 못 넘어간다. 표시 문구 `(7/14)` 의 분모도 `selectable.length`.
+2. **`-ml-3` → `-ml-4` 는 기존 가드 테스트를 함께 갱신**해야 한다(`applicant-card-touch.test.tsx` 의
+   클래스 박제). 가드의 의도는 유지하고 값만 바꾼다.
+3. **표 컨테이너의 `overflow-x-auto` 는 남긴다.** "가로 스크롤을 만들지 않는다"는 열 구성으로 폭을
+   맞춘다는 뜻이다. 지우면 예외적으로 긴 학과명 하나에 페이지 전체가 밀린다.
+4. **데스크탑 지원일 열은 `formatDateTimeKst`(날짜+시각)를 유지**하고 헤더도 `지원일시` 로 둔다.
+   정렬이 `createdAt desc` 라 같은 날 순서 판단에 시각이 쓰인다. 날짜만 쓰는 축약은 모바일 한정.
+5. **이름을 `next/link` 로 감싼다**(표·카드 모두). 지금은 키보드·스크린리더로 상세에 갈 길이 없다.
+   `href` 는 행 클릭과 같은 규칙(현재 쿼리스트링 유지)이고, 링크에서 전파를 끊어 이중 이동을 막는다.
+6. **필터 변경 시 선택은 교집합으로 정리**한다 — 상태·단과대·기간 변경은 정리, **검색어 변경은 선택을
+   건드리지 않는다**(회원 관리와 동일). 일괄 처리 성공 후 전량 초기화는 현행 유지.
+7. **`BulkActionBar` 내부 컨테이너도 `max-w-6xl` 로 동기화**한다. 페이지만 올리면 바가 표보다 좁게
+   정렬된다. `page.tsx` 의 `pb-[calc(10rem+…)]` 보정값이 재도색 후 바 높이와 맞는지도 확인한다.
+8. **페이지 나머지 요소(헤더·마감 배너·일괄 결과·오류·빈 상태·PII 푸터)도 콘솔 토큰으로 재도색**한다.
+   문구·구조는 그대로 두고 색만 바꾼다. 필터·표·카드만 바꾸면 반쪽 화면이 된다.
+9. **`useApplicantsQuery` 에 `placeholderData: keepPreviousData` 를 넣고** 갱신 중 딤 신호를 준다.
+   상태 칩은 클라이언트 필터라 네트워크가 없지만 검색어는 디바운스 재요청이라 목록이 깜빡인다.
+10. **깨질 기존 테스트**: `applicants-filter-bar.test.tsx`(`combobox` 전제),
+    `closed-readonly.test.tsx`(`getByLabelText('상태')` 전제), `applicant-card-touch.test.tsx`(클래스 박제),
+    `applicant-table-extension.test.tsx`(옛 props). 착수 시점에 함께 손본다.
+11. **전체 선택 컨트롤은 표 헤더와 모바일 줄 두 벌이 DOM 에 공존**한다. 실브라우저에서는 한쪽이
+    `display:none` 이라 문제없지만 jsdom 은 CSS 를 모른다 — 페이지 단위 테스트는 컨테이너를 좁혀 조회한다.
+12. **상태 배지 팔레트는 현행 유지**(`.pill-*` 로 옮기지 않는다). 5상태 ↔ 4변형이라 1:1 이 안 되고,
+    면접 라운드 마법사가 이 색에 맞춰 동기화돼 있다.
+
 ---
 
 ### Task 1: 상태 색·선택 계산 공용 모듈
@@ -812,15 +843,27 @@ git commit -m "feat(frontend): 지원자 표 리디자인 — 콘솔 토큰 정�
 - Test: `frontend/apps/web/test/manage/applicants/status-filter-chips.test.tsx`
 
 **Interfaces:**
+- Consumes: Task 1 의 `_lib/applicantSelection.ts` 와 같은 자리에 두는 카운트 헬퍼
 - Produces:
   ```ts
+  // _lib/applicantCounts.ts
+  type StatusCounts = Record<ApplicationStatus, number> & { total: number };
+  export function countByStatus(applicants: Applicant[]): StatusCounts;
+
+  // _components/StatusFilterChips.tsx
   type StatusFilterChipsProps = {
     value: ApplicationStatus | undefined;      // undefined = 전체
     onChange: (next: ApplicationStatus | undefined) => void;
-    summary: StatsSummary | undefined;         // 로딩·실패 시 undefined
+    counts: StatusCounts;                      // 목록에서 파생 — 항상 존재한다
     useInterview: boolean;
   };
   ```
+
+> **설계 변경(리뷰 반영):** 카운트를 `stats/summary` 가 아니라 **목록에서 파생**한다. `stats/summary` 는
+> 필터를 받지 않아 단과대·기간·검색어가 걸리면 칩 숫자와 목록 길이가 어긋난다. 목록 API 를 `status`
+> 없이 받아 클라이언트에서 세고 상태 필터도 클라이언트에서 적용하면, 숫자가 항상 목록과 일치하고
+> 칩 전환에 네트워크 왕복도 없다. **URL 의 `status` 파라미터는 그대로 유지한다**(상세 이전/다음이 서버
+> 계산이라 이 값에 묶여 있다).
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -829,59 +872,81 @@ git commit -m "feat(frontend): 지원자 표 리디자인 — 콘솔 토큰 정�
 ```tsx
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { StatsSummary } from '@duing/types';
+import type { Applicant } from '@duing/types';
+import { countByStatus } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
 import { StatusFilterChips } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/StatusFilterChips';
 
-const summary: StatsSummary = {
-  total: 34,
-  submitted: 12,
-  onHold: 3,
-  interviewPending: 8,
-  accepted: 10,
-  rejected: 1,
-  capacity: 20,
-  ratio: 0.5,
-};
+function makeApplicant(applicationId: number, status: Applicant['status']): Applicant {
+  return {
+    applicationId, userId: applicationId, userName: `지원자${applicationId}`,
+    studentId: `2020000${applicationId}`, college: 'IT_ENGINEERING', major: '컴퓨터공학과',
+    grade: 'JUNIOR', answers: [], status, submittedAt: '2026-05-01T10:00:00',
+    interviewStartAt: null, myScore: null,
+  };
+}
+
+// 지원 완료 2 · 보류 1 · 면접 대상 1 · 합격 1 · 불합격 0 → 전체 5
+const applicants = [
+  makeApplicant(1, 'SUBMITTED'),
+  makeApplicant(2, 'SUBMITTED'),
+  makeApplicant(3, 'ON_HOLD'),
+  makeApplicant(4, 'INTERVIEW_PENDING'),
+  makeApplicant(5, 'ACCEPTED'),
+];
+const counts = countByStatus(applicants);
+
+describe('상태별 카운트', () => {
+  it('목록에서 상태별로 세고 전체도 함께 낸다', () => {
+    expect(counts.total).toBe(5);
+    expect(counts.SUBMITTED).toBe(2);
+    expect(counts.ON_HOLD).toBe(1);
+    expect(counts.INTERVIEW_PENDING).toBe(1);
+    expect(counts.ACCEPTED).toBe(1);
+    expect(counts.REJECTED).toBe(0);
+  });
+
+  it('빈 목록은 전부 0 이다', () => {
+    const empty = countByStatus([]);
+    expect(empty.total).toBe(0);
+    expect(empty.SUBMITTED).toBe(0);
+    expect(empty.REJECTED).toBe(0);
+  });
+});
 
 describe('상태 필터 칩', () => {
   it('운영진 라벨과 카운트를 함께 보여준다', () => {
-    render(<StatusFilterChips value={undefined} onChange={vi.fn()} summary={summary} useInterview />);
-    expect(screen.getByRole('button', { name: '전체 34명' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '지원 완료 12명' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '보류 3명' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '면접 대상 8명' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '합격 10명' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '불합격 1명' })).toBeInTheDocument();
-  });
-
-  it('summary 가 없으면 숫자 없이 칩만 렌더한다', () => {
-    render(<StatusFilterChips value={undefined} onChange={vi.fn()} summary={undefined} useInterview />);
-    expect(screen.getByRole('button', { name: '전체' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '지원 완료' })).toBeInTheDocument();
+    render(<StatusFilterChips value={undefined} onChange={vi.fn()} counts={counts} useInterview />);
+    expect(screen.getByRole('button', { name: '전체 5명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원 완료 2명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '보류 1명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '면접 대상 1명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '합격 1명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불합격 0명' })).toBeInTheDocument();
   });
 
   it('면접을 쓰지 않는 모집은 면접 대상 칩을 감춘다', () => {
-    render(<StatusFilterChips value={undefined} onChange={vi.fn()} summary={summary} useInterview={false} />);
+    render(<StatusFilterChips value={undefined} onChange={vi.fn()} counts={counts} useInterview={false} />);
     expect(screen.queryByRole('button', { name: /면접 대상/ })).not.toBeInTheDocument();
   });
 
-  it('선택된 칩만 aria-pressed 가 true 다', () => {
-    render(<StatusFilterChips value="ON_HOLD" onChange={vi.fn()} summary={summary} useInterview />);
-    expect(screen.getByRole('button', { name: '보류 3명' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '전체 34명' })).toHaveAttribute('aria-pressed', 'false');
+  it('선택된 칩만 aria-pressed 가 true 다 — 단일 선택', () => {
+    render(<StatusFilterChips value="ON_HOLD" onChange={vi.fn()} counts={counts} useInterview />);
+    expect(screen.getByRole('button', { name: '보류 1명' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '전체 5명' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '합격 1명' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('전체 칩은 상태 필터를 지운다', () => {
     const onChange = vi.fn();
-    render(<StatusFilterChips value="ON_HOLD" onChange={onChange} summary={summary} useInterview />);
-    fireEvent.click(screen.getByRole('button', { name: '전체 34명' }));
+    render(<StatusFilterChips value="ON_HOLD" onChange={onChange} counts={counts} useInterview />);
+    fireEvent.click(screen.getByRole('button', { name: '전체 5명' }));
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
   it('상태 칩은 해당 상태로 필터한다', () => {
     const onChange = vi.fn();
-    render(<StatusFilterChips value={undefined} onChange={onChange} summary={summary} useInterview />);
-    fireEvent.click(screen.getByRole('button', { name: '합격 10명' }));
+    render(<StatusFilterChips value={undefined} onChange={onChange} counts={counts} useInterview />);
+    fireEvent.click(screen.getByRole('button', { name: '합격 1명' }));
     expect(onChange).toHaveBeenCalledWith('ACCEPTED');
   });
 });
@@ -894,12 +959,46 @@ Expected: FAIL — 모듈 없음
 
 - [ ] **Step 3: 구현**
 
+`_lib/applicantCounts.ts`:
+
+```ts
+import type { Applicant, ApplicationStatus } from '@duing/types';
+
+export type StatusCounts = Record<ApplicationStatus, number> & { total: number };
+
+const EMPTY_COUNTS: StatusCounts = {
+  total: 0,
+  SUBMITTED: 0,
+  ON_HOLD: 0,
+  INTERVIEW_PENDING: 0,
+  ACCEPTED: 0,
+  REJECTED: 0,
+};
+
+/**
+ * 상태별 인원을 목록에서 직접 센다. stats/summary 는 필터를 받지 않아 단과대·기간·검색어가 걸리면
+ * 칩 숫자와 눈앞 목록이 어긋난다 — 칩이 "현황 + 필터" 역할을 하려면 둘이 같아야 한다.
+ * 그래서 목록은 status 없이 받아오고(다른 필터는 서버가 적용), 여기서 세고, 상태 필터도 클라이언트에서 건다.
+ */
+export function countByStatus(applicants: Applicant[]): StatusCounts {
+  return applicants.reduce<StatusCounts>(
+    (counts, applicant) => ({
+      ...counts,
+      total: counts.total + 1,
+      [applicant.status]: counts[applicant.status] + 1,
+    }),
+    { ...EMPTY_COUNTS },
+  );
+}
+```
+
 `_components/StatusFilterChips.tsx`:
 
 ```tsx
 'use client';
 
-import type { ApplicationStatus, StatsSummary } from '@duing/types';
+import type { ApplicationStatus } from '@duing/types';
+import type { StatusCounts } from '../_lib/applicantCounts';
 import { cn } from '@/app/_lib/cn';
 import { APPLICATION_STATUS_LABEL } from '../../../../../../../_constants/application-status';
 
@@ -909,67 +1008,48 @@ const CHIP_BASE =
 const CHIP_ON = 'bg-ink border-ink text-paper';
 const CHIP_OFF = 'bg-paper border-line text-charcoal-2 hover:border-sage hover:text-ink';
 
-type StatusChip = {
-  value: ApplicationStatus | undefined;
-  label: string;
-  count: (summary: StatsSummary) => number;
-};
+type StatusChip = { value: ApplicationStatus | undefined; label: string };
 
+// 칩은 라디오 성격의 단일 선택이다 — ApplicantsFilters.status 가 단일 값이고 백엔드도 단일 enum 을 받는다.
+// (회원 관리의 role 칩과 같고, 다중 토글인 flags 칩과 다르다.)
 const CHIPS: StatusChip[] = [
-  { value: undefined, label: '전체', count: (summary) => summary.total },
-  {
-    value: 'SUBMITTED',
-    label: APPLICATION_STATUS_LABEL.SUBMITTED,
-    count: (summary) => summary.submitted,
-  },
-  {
-    value: 'ON_HOLD',
-    label: APPLICATION_STATUS_LABEL.ON_HOLD,
-    count: (summary) => summary.onHold,
-  },
-  {
-    value: 'INTERVIEW_PENDING',
-    label: APPLICATION_STATUS_LABEL.INTERVIEW_PENDING,
-    count: (summary) => summary.interviewPending,
-  },
-  {
-    value: 'ACCEPTED',
-    label: APPLICATION_STATUS_LABEL.ACCEPTED,
-    count: (summary) => summary.accepted,
-  },
-  {
-    value: 'REJECTED',
-    label: APPLICATION_STATUS_LABEL.REJECTED,
-    count: (summary) => summary.rejected,
-  },
+  { value: undefined, label: '전체' },
+  { value: 'SUBMITTED', label: APPLICATION_STATUS_LABEL.SUBMITTED },
+  { value: 'ON_HOLD', label: APPLICATION_STATUS_LABEL.ON_HOLD },
+  { value: 'INTERVIEW_PENDING', label: APPLICATION_STATUS_LABEL.INTERVIEW_PENDING },
+  { value: 'ACCEPTED', label: APPLICATION_STATUS_LABEL.ACCEPTED },
+  { value: 'REJECTED', label: APPLICATION_STATUS_LABEL.REJECTED },
 ];
 
 type Props = {
   value: ApplicationStatus | undefined;
   onChange: (next: ApplicationStatus | undefined) => void;
-  /** stats 로딩·실패 시 undefined — 그때는 숫자 없이 필터만 동작한다. */
-  summary: StatsSummary | undefined;
+  /** 목록에서 파생한 카운트 — 항상 존재하므로 로딩 분기가 없다. */
+  counts: StatusCounts;
   useInterview: boolean;
 };
 
 /**
  * 상태 필터 = 현황 표시. 별도 KPI 타일을 두지 않고 칩에 카운트를 얹는다(설계 §6).
- * 카운트는 모집 전체 집계라 단과대·기간·검색어 필터와는 무관하다.
+ * 카운트는 목록에서 파생하므로 다른 필터(단과대·기간·검색어)가 걸린 결과 안의 분포이며,
+ * 눈앞의 목록과 항상 일치한다.
  */
-export function StatusFilterChips({ value, onChange, summary, useInterview }: Props) {
+export function StatusFilterChips({ value, onChange, counts, useInterview }: Props) {
   const visibleChips = CHIPS.filter(
     (chip) => useInterview || chip.value !== 'INTERVIEW_PENDING',
   );
 
   return (
+    // 칩은 한 줄 가로 스크롤이다 — 줄바꿈하면 목록이 아래로 밀린다.
+    // 스크롤바 숨김·오버스크롤 체인 차단은 ClubExplorePage 칩 행과 같은 처리다.
     <div
       role="group"
       aria-label="상태 필터"
-      className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      className="-mx-4 flex gap-1.5 overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0"
     >
       {visibleChips.map((chip) => {
         const selected = value === chip.value;
-        const count = summary ? chip.count(summary) : null;
+        const count = chip.value === undefined ? counts.total : counts[chip.value];
         return (
           <button
             key={chip.value ?? 'ALL'}
@@ -979,12 +1059,10 @@ export function StatusFilterChips({ value, onChange, summary, useInterview }: Pr
             className={cn(CHIP_BASE, selected ? CHIP_ON : CHIP_OFF)}
           >
             {chip.label}
-            {count !== null && (
-              <span className="ml-1 tabular-nums">
-                {count}
-                <span className="sr-only">명</span>
-              </span>
-            )}
+            <span className="ml-1 tabular-nums">
+              {count}
+              <span className="sr-only">명</span>
+            </span>
           </button>
         );
       })}
@@ -1023,7 +1101,7 @@ git commit -m "feat(frontend): 지원자 상태 필터 칩 — 현황 카운트 
     filters: ApplicantsFilters;
     onChange: (next: ApplicantsFilters) => void;
     useInterview: boolean;
-    summary: StatsSummary | undefined;
+    counts: StatusCounts;
   };
   type ApplicantsFilterSheetProps = {
     open: boolean;
@@ -1041,18 +1119,16 @@ git commit -m "feat(frontend): 지원자 상태 필터 칩 — 현황 카운트 
 ```tsx
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { ApplicantsFilters, StatsSummary } from '@duing/types';
+import type { ApplicantsFilters } from '@duing/types';
+import { countByStatus } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_lib/applicantCounts';
 import { ApplicantsFilterBar } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/_components/ApplicantsFilterBar';
 
-const summary: StatsSummary = {
-  total: 34, submitted: 12, onHold: 3, interviewPending: 8,
-  accepted: 10, rejected: 1, capacity: 20, ratio: 0.5,
-};
+const counts = countByStatus([]);   // 카운트 표시 자체는 Task 4 테스트가 덮는다
 
 function renderBar(filters: ApplicantsFilters = {}) {
   const onChange = vi.fn();
   render(
-    <ApplicantsFilterBar filters={filters} onChange={onChange} useInterview summary={summary} />,
+    <ApplicantsFilterBar filters={filters} onChange={onChange} useInterview counts={counts} />,
   );
   return { onChange };
 }
@@ -1061,12 +1137,12 @@ describe('지원자 필터 바', () => {
   it('검색과 상태 칩을 항상 노출한다', () => {
     renderBar();
     expect(screen.getByLabelText('지원자 검색')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '지원 완료 12명' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /지원 완료/ })).toBeInTheDocument();
   });
 
   it('상태 칩을 누르면 status 필터만 바뀐다', () => {
     const { onChange } = renderBar({ college: 'IT_ENGINEERING' });
-    fireEvent.click(screen.getByRole('button', { name: '보류 3명' }));
+    fireEvent.click(screen.getByRole('button', { name: '보류 0명' }));
     expect(onChange).toHaveBeenCalledWith({ college: 'IT_ENGINEERING', status: 'ON_HOLD' });
   });
 
@@ -1232,7 +1308,8 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
 'use client';
 
 import { useState } from 'react';
-import type { ApplicantsFilters, ApplicationStatus, College, StatsSummary } from '@duing/types';
+import type { ApplicantsFilters, ApplicationStatus, College } from '@duing/types';
+import type { StatusCounts } from '../_lib/applicantCounts';
 import { COLLEGE_DISPLAY_NAME } from '@duing/types';
 import { ApplicantsSearchInput } from './ApplicantsSearchInput';
 import { ApplicantsFilterSheet } from './ApplicantsFilterSheet';
@@ -1254,10 +1331,10 @@ type Props = {
   filters: ApplicantsFilters;
   onChange: (next: ApplicantsFilters) => void;
   useInterview: boolean;
-  summary: StatsSummary | undefined;
+  counts: StatusCounts;
 };
 
-export function ApplicantsFilterBar({ filters, onChange, useInterview, summary }: Props) {
+export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }: Props) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const appliedCount = secondaryFilterCount(filters);
   const hasAnyFilter = Object.values(filters).some(Boolean);
@@ -1293,7 +1370,7 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, summary }
         onChange={(nextStatus: ApplicationStatus | undefined) =>
           onChange({ ...filters, status: nextStatus })
         }
-        summary={summary}
+        counts={counts}
         useInterview={useInterview}
       />
 
