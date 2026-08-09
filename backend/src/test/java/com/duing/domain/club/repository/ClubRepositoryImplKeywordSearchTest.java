@@ -128,7 +128,7 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
                     null, null, null, null, null, null,
                     tags,
                     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                    null));
+                    null, null));
         }
         return clubRepository.save(club);
     }

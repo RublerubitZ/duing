@@ -19,7 +19,7 @@ import { ClubCard } from '../_components/ClubCard';
 import { ClubListSkeletonItems } from '../_components/ClubExploreSkeleton';
 import { ClubListItem } from '../_components/ClubListItem';
 import { summaryToClub } from '../_lib/clubAdapter';
-import { DIVISIONS, type Division } from '../_lib/clubs';
+import { DIVISIONS, SCOPE_CLUB_LABEL, type Division } from '../_lib/clubs';
 import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
 import {
   CATEGORY_OPTIONS,
@@ -298,7 +298,7 @@ export function ClubExplorePage() {
               [
                 { key: '전체', hint: '모든 동아리' },
                 { key: '중앙', hint: '5개 분과' },
-                { key: '학과', hint: '학과 · 단과대 산하' },
+                { key: '학과', hint: '단과대 산하' },
               ] as const
             ).map((segment) => {
               const on = segment.key === params.scope;
@@ -309,7 +309,7 @@ export function ClubExplorePage() {
                   onClick={() => handleScopeChange(segment.key)}
                   className={`inline-flex items-center gap-2.5 px-[18px] py-2.5 rounded-[12px] text-sm font-bold border-[1.5px] ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
                 >
-                  {segment.key === '전체' ? '전체' : segment.key === '중앙' ? '중앙동아리' : '학과동아리'}
+                  {segment.key === '전체' ? '전체' : SCOPE_CLUB_LABEL[segment.key]}
                   {on && (
                     <span className="text-[11px] text-sage font-medium tracking-wide04">
                       · {segment.hint}
@@ -481,7 +481,7 @@ export function ClubExplorePage() {
                 <span className="text-[13px] text-charcoal-3 pt-1.5">필터:</span>
                 {params.scope !== '전체' && (
                   <ActiveFilterChip
-                    label={params.scope === '중앙' ? '중앙동아리' : '학과동아리'}
+                    label={SCOPE_CLUB_LABEL[params.scope]}
                     variant="primary"
                     onRemove={() => handleScopeChange('전체')}
                   />
@@ -781,7 +781,7 @@ export function ClubExplorePage() {
               {(['전체', '중앙', '학과'] as const).map((segment) => (
                 <FilterChip
                   key={segment}
-                  label={segment === '전체' ? '전체' : segment === '중앙' ? '중앙동아리' : '과동아리'}
+                  label={segment === '전체' ? '전체' : SCOPE_CLUB_LABEL[segment]}
                   on={params.scope === segment}
                   onClick={() => handleScopeChange(segment)}
                 />

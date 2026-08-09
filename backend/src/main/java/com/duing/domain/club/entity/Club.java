@@ -63,6 +63,10 @@ public class Club extends BaseEntity {
     @Column(length = 40)
     private College college;
 
+    /** 단과대 동아리의 소속 학과. 자유입력·선택값이며 중앙동아리는 표시되지 않는다. */
+    @Column(name = "department", length = 50)
+    private String department;
+
     @Column(name = "cover_url", length = 500)
     private String coverUrl;
 
@@ -201,9 +205,15 @@ public class Club extends BaseEntity {
         return value == null || value.isBlank() ? null : value;
     }
 
+    /** 학과는 자유입력이라 앞뒤 공백을 떨어내고 저장한다(빈 값은 미지정과 같은 null). */
+    private static String normalizeDepartment(String value) {
+        return value == null ? null : blankToNull(value.strip());
+    }
+
     @Builder(access = AccessLevel.PRIVATE)
     private Club(String name, ClubCategory category, String division, String description,
-                 String logoUrl, ClubStatus status, boolean centralClub, College college) {
+                 String logoUrl, ClubStatus status, boolean centralClub, College college,
+                 String department) {
         this.name = name;
         this.category = category;
         this.division = division;
@@ -212,6 +222,7 @@ public class Club extends BaseEntity {
         this.status = status;
         this.centralClub = centralClub;
         this.college = college;
+        this.department = department;
     }
 
     public static Club create(String name, ClubCategory category, String division,
@@ -222,6 +233,12 @@ public class Club extends BaseEntity {
     public static Club create(String name, ClubCategory category, String division,
                               String description, String logoUrl, boolean centralClub,
                               College college) {
+        return create(name, category, division, description, logoUrl, centralClub, college, null);
+    }
+
+    public static Club create(String name, ClubCategory category, String division,
+                              String description, String logoUrl, boolean centralClub,
+                              College college, String department) {
         return Club.builder()
                 .name(name)
                 .category(category)
@@ -231,6 +248,7 @@ public class Club extends BaseEntity {
                 .status(ClubStatus.PENDING_APPROVAL)
                 .centralClub(centralClub)
                 .college(college)
+                .department(normalizeDepartment(department))
                 .build();
     }
 
@@ -299,7 +317,8 @@ public class Club extends BaseEntity {
             Boolean clearLogoImage,              // 23
             Boolean clearCoverImage,             // 24
             Boolean useGeneration,               // 25
-            String feeNote                       // 26
+            String feeNote,                      // 26
+            String department                    // 27
     ) {}
 
     public void update(UpdatePayload payload) {
@@ -340,11 +359,17 @@ public class Club extends BaseEntity {
         }
         if (payload.projects() != null) this.projects = new ArrayList<>(payload.projects());
         if (Boolean.TRUE.equals(payload.clearCollege())) {
+            // 단과대 동아리는 단과대학이 정체성이라 비울 수 없다. 리더·총동연 어느 경로로 들어와도
+            // 여기서 막히므로 새로운 college NULL 행이 생기지 않는다(기존 NULL 행은 그대로 통과).
+            if (!this.centralClub) {
+                throw new ClubException.CollegeRequiredException();
+            }
             this.college = null;
         } else if (payload.college() != null) {
             this.college = payload.college();
         }
         if (payload.useGeneration() != null) this.useGeneration = payload.useGeneration();
         if (payload.feeNote() != null) this.feeNote = blankToNull(payload.feeNote());
+        if (payload.department() != null) this.department = normalizeDepartment(payload.department());
     }
 }

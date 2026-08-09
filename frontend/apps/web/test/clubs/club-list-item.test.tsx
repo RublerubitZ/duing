@@ -16,6 +16,7 @@ const baseClub: Club = {
   cat: '학술',
   scope: '중앙',
   division: '컴퓨터정보공학분과',
+  department: null,
   color: '#1F4A36',
   logoUrl: null,
   activeRecruitment: null,
@@ -35,10 +36,23 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.queryByText(/분과/)).toBeNull();
   });
 
-  it('scope="학과" → 소속 칩 "학과", division 이 있어도 분과 텍스트 미노출', () => {
+  it('scope="학과" → 소속 칩 "단과대", division 이 있어도 분과 텍스트 미노출', () => {
     render(<ClubListItem club={{ ...baseClub, scope: '학과' }} />);
-    expect(screen.getByText('학과')).toBeInTheDocument();
+    expect(screen.getByText('단과대')).toBeInTheDocument();
+    expect(screen.queryByText('학과')).toBeNull();
     expect(screen.queryByText('컴퓨터정보공학분과')).toBeNull();
+  });
+
+  it('모바일 목록도 단과대 동아리에는 분과 자리에 학과를 표시하고, 없으면 그리지 않는다', () => {
+    const { unmount } = render(
+      <ClubListItem club={{ ...baseClub, scope: '학과', department: '회계학과' }} />,
+    );
+    expect(screen.getByText('회계학과')).toBeInTheDocument();
+    unmount();
+
+    render(<ClubListItem club={{ ...baseClub, scope: '학과', department: null }} />);
+    expect(screen.queryByText('회계학과')).toBeNull();
+    expect(screen.getByText('단과대')).toBeInTheDocument();
   });
 
   it('이름이 아주 길어도 소속 칩은 잘리지 않고 렌더된다 (이름만 truncate)', () => {

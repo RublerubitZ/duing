@@ -3,7 +3,20 @@ import type { ClubSummaryRecruitment } from '@duing/types';
 export const DIVISIONS = ['문화예술', '사회', '스포츠레저', '전시창작', '종교', '학술'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
+/**
+ * scope 코드는 URL 파라미터(`?scope=학과`) 이기도 해서 공유·북마크 호환을 위해 '학과' 를 유지한다.
+ * 사용자에게 보이는 문구는 항상 아래 라벨 맵을 거친다 — 컴포넌트에서 직접 문자열을 쓰지 않는다.
+ */
 export type ClubScope = '중앙' | '학과';
+
+/** 카드 배지처럼 폭이 좁은 자리용 짧은 라벨. */
+export const SCOPE_LABEL: Record<ClubScope, string> = { 중앙: '중앙', 학과: '단과대' };
+
+/** 필터 칩·세그먼트처럼 유형 전체를 밝혀야 하는 자리용 라벨. */
+export const SCOPE_CLUB_LABEL: Record<ClubScope, string> = {
+  중앙: '중앙동아리',
+  학과: '단과대 동아리',
+};
 
 export type ClubCat =
   | '학술' | '운동' | '음악' | '공연' | '봉사'
@@ -17,6 +30,8 @@ export type Club = {
   cat: ClubCat;
   scope: ClubScope;
   division: string | null;
+  /** 단과대 동아리의 소속 학과 — 미입력이면 null. */
+  department: string | null;
   color: string;
   logoUrl: string | null;
   /** 활성 또는 가장 최근 마감 모집 1건. null 이면 카드에 "모집 없음" 표시. */
@@ -29,6 +44,16 @@ export const isDivision = (value: string | null | undefined): value is Division 
 /** 분과 표시 라벨 — 값이 이미 "…분과" 로 끝나면 그대로, 아니면 "분과" 를 붙인다. */
 export const formatDivisionLabel = (division: string): string =>
   division.endsWith('분과') ? division : `${division}분과`;
+
+/**
+ * 카드 카테고리 옆 보조 표기 — 중앙은 분과, 단과대는 학과. 카드/리스트가 같은 규칙을 쓰도록 한 곳에 둔다.
+ * 값이 없으면 null 을 돌려주고 호출부는 영역 자체를 그리지 않는다 ('-'·'없음' 같은 placeholder 금지).
+ * 단과대 이름 자체는 배지가 이미 유형을 말하므로 여기서 반복하지 않는다.
+ */
+export const clubAffiliationLabel = (club: Club): string | null =>
+  club.scope === '중앙'
+    ? (club.division ? formatDivisionLabel(club.division) : null)
+    : club.department;
 
 export const CAT_COLORS: Record<
   ClubCat,

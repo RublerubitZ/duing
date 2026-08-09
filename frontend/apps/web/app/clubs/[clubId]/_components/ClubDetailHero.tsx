@@ -19,6 +19,9 @@ type Props = {
 
 export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const categoryLabel = clubCategoryLabel(club.category);
+  // 소속 보조 표기 — 중앙은 분과, 단과대는 학과. 비중앙 행의 division 은 단과대명·분과명이 섞인
+  // 잔여 데이터라 centralClub 게이트로 함께 막는다(탐색 카드와 같은 규칙).
+  const affiliation = club.centralClub ? club.division : club.department;
   const initial = club.name.trim().charAt(0);
   // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
   const logoColor = pickColor(club.id);
@@ -88,7 +91,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   {club.centralClub && <span className="pill pill-solid">🏛️ 중앙동아리</span>}
                   <span className="pill">
                     {categoryLabel}
-                    {club.division ? ` · ${club.division}` : ''}
+                    {affiliation ? ` · ${affiliation}` : ''}
                   </span>
                   {recruitmentDisplayStatus && (
                     <span className="pill pill-solid">
@@ -178,7 +181,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은
                 글자 단위로 쪼개 잘림을 막는다. 글꼴 확대(OS 접근성 설정) 상태까지 방어. */}
             <h1 className="min-w-0 text-[28px] leading-[1.15] tracking-tightx break-keep [overflow-wrap:anywhere]">
-              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 학과/일반. */}
+              {/* 중앙동아리는 칩 대신 이름 뒤 은은한 체크 아이콘으로만 표시 — 없으면 단과대/일반. */}
               {club.centralClub ? (
                 <>
                   {nameHead}

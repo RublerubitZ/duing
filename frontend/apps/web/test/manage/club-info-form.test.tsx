@@ -32,6 +32,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     category: 'ACADEMIC',
     division: '학술',
     college: null,
+    department: null,
     logoUrl: 'https://cdn.example.com/logo.png',
     status: 'ACTIVE',
     tags: [],
@@ -162,7 +163,7 @@ describe('ClubInfoForm', () => {
     expect(screen.queryByText(/회비 정보가 새 형식으로 개편되었어요/)).toBeNull();
   });
 
-  it('과동아리(centralClub=false)는 분과 대신 단과대학이 잠금 표시된다', () => {
+  it('단과대 동아리(centralClub=false)는 분과 대신 단과대학이 잠금 표시된다', () => {
     render(
       <ClubInfoForm
         detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', division: null })}
@@ -173,6 +174,52 @@ describe('ClubInfoForm', () => {
     expect(screen.getByText('단과대학')).toBeInTheDocument();
     expect(screen.getByText('IT·공과대학')).toBeInTheDocument();
     expect(screen.queryByText('분과')).toBeNull();
+  });
+
+  it('운영진은 학과를 직접 수정할 수 있고 단과대학 입력은 열리지 않는다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '컴퓨터공학과' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    // 단과대학은 총동연 관리 — 리더에게는 select 가 열리지 않는다.
+    expect(screen.queryByRole('combobox', { name: '단과대학' })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('학과'), { target: { value: '소프트웨어학과' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ department: '소프트웨어학과' });
+  });
+
+  it('학과를 비우면 빈 문자열로 전송해 서버가 미지정으로 되돌리게 한다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '컴퓨터공학과' })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('학과'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ department: '' });
+  });
+
+  it('중앙동아리에는 학과 입력이 나타나지 않는다', () => {
+    render(
+      <ClubInfoForm
+        detail={makeDetail({ centralClub: true, division: '학술' })}
+        mode="leader"
+        mutation={makeMutation()}
+      />,
+    );
+    expect(screen.queryByLabelText('학과')).toBeNull();
   });
 
   it('회원 기수 관리 스위치를 켜면 페이로드에 useGeneration 이 담긴다', async () => {

@@ -16,7 +16,7 @@ class ClubProfileUpdateTest {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -82,20 +82,20 @@ class ClubProfileUpdateTest {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                feeCycle, amount, null, null, null, null, null, null, null);
+                feeCycle, amount, null, null, null, null, null, null, null, null);
     }
 
     private Club.UpdatePayload payloadWithSns(List<ClubSnsLink> snsLinks) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, snsLinks, null,
                 null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null);
     }
 
     private Club.UpdatePayload payloadWithFeeNote(String feeNote) {
         return new Club.UpdatePayload(
                 null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, feeNote);
+                null, null, null, null, null, null, null, null, feeNote, null);
     }
 }

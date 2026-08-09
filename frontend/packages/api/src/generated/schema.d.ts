@@ -12638,9 +12638,9 @@ export interface operations {
                 recruiting?: boolean;
                 /** @description 모집 상태 필터 (AVAILABLE / UPCOMING / CLOSED). 미지정 시 전체. recruiting 보다 우선 적용. */
                 recruitmentStatus?: "AVAILABLE" | "UPCOMING" | "CLOSED";
-                /** @description true=중앙동아리만, false=학과동아리만, 미지정=전체 */
+                /** @description true=중앙동아리만, false=단과대 동아리만, 미지정=전체 */
                 centralClub?: boolean;
-                /** @description 학과동아리의 단과대학 (College enum 코드) */
+                /** @description 단과대 동아리의 단과대학 (College enum 코드) */
                 college?: "PUBLIC_LEADERS" | "GLOBAL_BUSINESS" | "SOCIAL_SCIENCE" | "HEALTH_BIO" | "IT_ENGINEERING" | "DESIGN_ART" | "EDUCATION" | "REHABILITATION" | "NURSING" | "GLOCAL_LIFE" | "INTERNATIONAL" | "SPORTS_LEISURE" | "CULTURE_CONTENTS" | "FREE_MAJOR";
                 /** @description 활동요일 다중 (OR 매칭). 선택 요일 중 하나라도 포함하면 매칭. 미지정/전체 선택 시 필터 미적용. */
                 activeDays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];

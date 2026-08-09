@@ -1,5 +1,6 @@
 import type { ClubDetail } from '@duing/types';
 
+import { collegeDisplayName } from '../../../_lib/college';
 import { formatClubFee } from '../../../_lib/clubFee';
 
 type Props = { club: ClubDetail };
@@ -8,6 +9,11 @@ type Row = { label: string; value: string | null; note?: string | null };
 
 export function ClubDetailInfoList({ club }: Props) {
   const rows: Row[] = [];
+  // 소속 정보는 단과대 동아리에만 해당 — 값이 없는 행은 아예 만들지 않는다(placeholder 금지).
+  if (!club.centralClub) {
+    if (club.college !== null) rows.push({ label: '단과대', value: collegeDisplayName(club.college) });
+    if (club.department !== null) rows.push({ label: '학과', value: club.department });
+  }
   if (club.leaderName !== null) rows.push({ label: '동아리 회장', value: club.leaderName });
   if (club.foundedYear !== null) rows.push({ label: '창설년도', value: `${club.foundedYear}년` });
   if (club.cohortNumber !== null) rows.push({ label: '현재 기수', value: `${club.cohortNumber}기` });

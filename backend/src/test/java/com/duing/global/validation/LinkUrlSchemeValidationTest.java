@@ -129,7 +129,7 @@ class LinkUrlSchemeValidationTest {
     }
 
     private static CreateClubRequest clubCreate(String logoUrl) {
-        return new CreateClubRequest("동아리", ClubCategory.OTHER, "분과", "설명", logoUrl, 1L, false, null);
+        return new CreateClubRequest("동아리", ClubCategory.OTHER, "분과", "설명", logoUrl, 1L, false, null, null);
     }
 
     private static CreateNoticeRequest noticeCreate(String linkUrl) {
