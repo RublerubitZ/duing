@@ -60,6 +60,7 @@ function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
     category: 'ACADEMIC',
     division: '학술',
     college: null,
+    department: null,
     logoUrl: null,
     status: 'ACTIVE',
     tags: [],

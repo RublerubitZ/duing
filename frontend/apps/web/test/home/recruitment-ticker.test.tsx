@@ -33,6 +33,7 @@ function makeSummary(id: number, name: string, endDate: string | null): ClubSumm
     category: 'ACADEMIC',
     division: '학술분과',
     college: null,
+    department: null,
     logoUrl: null,
     status: 'ACTIVE',
     tags: [],

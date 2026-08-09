@@ -39,6 +39,11 @@ export type ClubSummary = {
   category: ClubCategory;
   division: string | null;
   college: College | null;
+  /**
+   * 단과대 동아리의 소속 학과. 자유입력·선택값이라 미입력이면 null.
+   * BE 미배포 전환기에는 필드 자체가 없을 수 있어 옵셔널이다 (User.college 와 같은 규약).
+   */
+  department?: string | null;
   logoUrl: string | null;
   status: ClubStatus;
   tags: string[];
@@ -138,6 +143,7 @@ export type CreateClubPayload = {
   logoUrl?: string;
   leaderId: number;
   centralClub?: boolean;
+  department?: string;
 };
 
 export type UpdateClubStatusPayload = {
@@ -176,7 +182,7 @@ export type MyClubSummary = {
   joinedAt: string; // ISO datetime
 };
 
-// 리더 PATCH clubs/{id} — 잠금 필드(name/category/division/college)는 포함하지 않는다.
+// 리더 PATCH clubs/{id} — 잠금 필드(name/category/division/college)는 포함하지 않는다(department 는 잠금 아님).
 export type UpdateClubPayload = {
   clearLogoImage?: boolean;
   clearCoverImage?: boolean;
@@ -200,6 +206,8 @@ export type UpdateClubPayload = {
   projects?: ClubProject[];
   // 회원 기수 표시 여부(표시 제어 전용). 생략 시 미변경.
   useGeneration?: boolean;
+  // 소속 학과 — 잠금 필드가 아니라 운영진도 수정할 수 있다. '' 전송 = 비우기.
+  department?: string | null;
 };
 
 // 총동연 PATCH admin/clubs/{id} — 리더 payload + 잠금 필드까지 수정 가능.

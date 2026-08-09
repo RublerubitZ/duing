@@ -34,6 +34,7 @@ const CLUB: ClubSummary = {
   category: 'ART',
   division: '예술분과',
   college: null,
+  department: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: ['합주'],

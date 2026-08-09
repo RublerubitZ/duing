@@ -16,6 +16,8 @@ const baseClub: Club = {
   cat: '학술',
   scope: '중앙',
   division: null,
+  department: null,
+  college: null,
   color: '#1F4A36',
   logoUrl: null,
   activeRecruitment: null,

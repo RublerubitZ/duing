@@ -5,7 +5,7 @@ import { Link } from 'next-view-transitions';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
-import { CAT_COLORS, formatDivisionLabel, type Club } from '../_lib/clubs';
+import { CAT_COLORS, clubAffiliationLabel, type Club } from '../_lib/clubs';
 import type { RecruitmentDisplayStatus } from '@duing/types';
 
 function HeartIcon({ filled = false }: { filled?: boolean }) {
@@ -79,6 +79,7 @@ function renderPeriod(club: Club): React.ReactNode {
 
 export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false, onLikeToggle }: Props) {
   const cat = CAT_COLORS[club.cat];
+  const affiliation = clubAffiliationLabel(club);
   const statusKey: StatusKey = club.activeRecruitment?.displayStatus ?? 'NONE';
   const statusStyle = STATUS_STYLES[statusKey];
   const isDimmed = statusKey === 'CLOSED' || statusKey === 'NONE';
@@ -139,12 +140,10 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
             {club.tagline ?? ' '}
           </p>
         </div>
-        {/* 계층 3·4 — 카테고리는 pill 없이 카테고리별 색상 텍스트로, 분과는 회색 보조 텍스트(중앙만). */}
+        {/* 계층 3·4 — 카테고리는 pill 없이 카테고리별 색상 텍스트로, 소속(중앙=분과·단과대=학과)은 회색 보조 텍스트. */}
         <div className="flex flex-wrap items-center gap-2">
           <span className={`text-[13px] font-semibold ${cat.text}`}>{club.cat}</span>
-          {club.scope === '중앙' && club.division && (
-            <span className="text-[13px] text-charcoal-3">{formatDivisionLabel(club.division)}</span>
-          )}
+          {affiliation && <span className="text-[13px] text-charcoal-3">{affiliation}</span>}
         </div>
       </div>
 

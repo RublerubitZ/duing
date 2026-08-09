@@ -23,6 +23,7 @@ function makeSummary(overrides: Partial<ClubSummary> = {}): ClubSummary {
     category: 'ACADEMIC',
     division: '학술분과',
     college: null,
+    department: null,
     logoUrl: null,
     status: 'ACTIVE',
     tags: ['스터디'],

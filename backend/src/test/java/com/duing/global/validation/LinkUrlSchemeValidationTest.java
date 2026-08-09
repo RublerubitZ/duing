@@ -129,7 +129,8 @@ class LinkUrlSchemeValidationTest {
     }
 
     private static CreateClubRequest clubCreate(String logoUrl) {
-        return new CreateClubRequest("동아리", ClubCategory.OTHER, "분과", "설명", logoUrl, 1L, false, null);
+        // 중앙동아리로 둔다 — 단과대 동아리는 단과대학이 필수라, logoUrl 외의 위반이 섞여 들어온다.
+        return new CreateClubRequest("동아리", ClubCategory.OTHER, "분과", "설명", logoUrl, 1L, true, null, null);
     }
 
     private static CreateNoticeRequest noticeCreate(String linkUrl) {

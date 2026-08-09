@@ -10,6 +10,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.user.entity.College;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -75,7 +76,36 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("이름·소개·태그 어디에도 키워드가 없으면 검색 결과에서 제외된다")
+    @DisplayName("학과에 키워드가 포함되면 검색 결과에 노출된다")
+    void keywordMatchesDepartment() {
+        Long target = saveDepartmentClub("이름A", "회계학과").getId();
+        saveDepartmentClub("이름B", "간호학과");
+
+        assertSearch("회계").containsExactly(target);
+    }
+
+    @Test
+    @DisplayName("중앙동아리로 전환해 학과가 숨겨진 동아리는 학과 키워드 검색에 걸리지 않는다")
+    void keywordMatchesDepartmentSkipsCentralClub() {
+        Club central = saveDepartmentClub("이름C", "회계학과");
+        central.changeCentralClub(true);
+        clubRepository.save(central);
+
+        // 값은 보존되지만(스펙 결정 5) 화면에서는 숨기므로 검색 결과에도 나오면 안 된다.
+        assertThat(central.getDepartment()).isEqualTo("회계학과");
+        assertSearch("회계").isEmpty();
+    }
+
+    @Test
+    @DisplayName("학과가 없는 동아리는 학과 키워드 검색에 걸리지 않는다")
+    void keywordMatchesDepartmentSkipsNullDepartment() {
+        saveDepartmentClub("이름A", null);
+
+        assertSearch("회계").isEmpty();
+    }
+
+    @Test
+    @DisplayName("이름·소개·태그·학과 어디에도 키워드가 없으면 검색 결과에서 제외된다")
     void keywordWithNoMatchExcludesClub() {
         saveActiveClub("요리부", "맛있는 모임", List.of("봉사"));
 
@@ -107,6 +137,32 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         return assertThat(result.getContent()).extracting(Club::getId);
     }
 
+    private Club saveDepartmentClub(String name, String department) {
+        long seq = sequence.incrementAndGet();
+        Club club = Club.create(
+                name + "-" + seq,
+                ClubCategory.ACADEMIC,
+                null,
+                "소개",
+                null,
+                false,
+                College.GLOBAL_BUSINESS,
+                department
+        );
+        activate(club);
+        return clubRepository.save(club);
+    }
+
+    private void activate(Club club) {
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
+    }
+
     private Club saveActiveClub(String name, String description, List<String> tags) {
         long seq = sequence.incrementAndGet();
         Club club = Club.create(
@@ -116,19 +172,13 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
                 description,
                 null
         );
-        try {
-            Field statusField = Club.class.getDeclaredField("status");
-            statusField.setAccessible(true);
-            statusField.set(club, ClubStatus.ACTIVE);
-        } catch (ReflectiveOperationException reflectionFailure) {
-            throw new IllegalStateException(reflectionFailure);
-        }
+        activate(club);
         if (!tags.isEmpty()) {
             club.update(new UpdatePayload(
                     null, null, null, null, null, null,
                     tags,
                     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                    null));
+                    null, null));
         }
         return clubRepository.save(club);
     }

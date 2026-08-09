@@ -11,6 +11,7 @@ const baseClub: ClubDetail = {
   category: 'ACADEMIC',
   division: null,
   college: null,
+  department: null,
   logoUrl: null,
   status: 'ACTIVE',
   tags: [],

@@ -39,6 +39,9 @@ export function summaryToClub(summary: ClubSummary): Club {
     cat,
     scope,
     division,
+    // 배포 전환기(department 미탑재 구버전 응답)는 undefined 로 오므로 null 로 눕힌다.
+    department: summary.department ?? null,
+    college: summary.college ?? null,
     color: pickColor(summary.id),
     logoUrl: summary.logoUrl,
     activeRecruitment: summary.activeRecruitment,

@@ -171,8 +171,18 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 ","
         ).like("%" + normalized.toLowerCase(Locale.ROOT) + "%");
 
+        // 학과는 단과대 동아리를 찾는 실제 단서라 검색 대상에 넣는다("회계학과" 로 찾기).
+        // 분과·단과대학은 이미 전용 필터가 있어 키워드까지 태우지 않는다.
+        //
+        // centralClub 게이트는 표시 규칙과 검색을 맞추기 위한 것이다 — 중앙 전환 시 학과 값을
+        // 보존하지만(스펙 결정 5) 화면에서는 전부 숨기므로, 게이트가 없으면 학생이 학과로 검색했을 때
+        // 왜 걸렸는지 알 수 없는 중앙동아리가 결과에 섞인다. 회장도 총동연도 그 값을 볼 수 없다.
+        BooleanExpression departmentMatch = club.centralClub.isFalse()
+                .and(club.department.containsIgnoreCase(normalized));
+
         return club.name.containsIgnoreCase(normalized)
                 .or(club.description.containsIgnoreCase(normalized))
+                .or(departmentMatch)
                 .or(tagMatch);
     }
 

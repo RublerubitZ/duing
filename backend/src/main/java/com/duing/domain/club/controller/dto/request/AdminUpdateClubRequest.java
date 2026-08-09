@@ -97,7 +97,11 @@ public record AdminUpdateClubRequest(
 
         Boolean clearLogoImage,
 
-        Boolean clearCoverImage
+        Boolean clearCoverImage,
+
+        // 단과대 동아리의 소속 학과. "" 전송 = 비우기.
+        @Size(max = 50, message = "학과는 50자 이하여야 합니다.")
+        String department
 ) {
     /** 회비는 주기+금액 쌍 전송 규약 (§4.3) — 주기 없이 금액만, NONE+금액, 유료 주기+금액 누락 전부 거부. */
     @AssertTrue(message = "회비는 납부 주기와 금액을 함께 보내야 하며, 회비 없음(NONE)은 금액 없이 보내야 합니다.")
@@ -125,7 +129,7 @@ public record AdminUpdateClubRequest(
                 college, clearCollege,
                 clearLogoImage, clearCoverImage,
                 null,                                   // useGeneration — 리더 프로필 수정 전용
-                feeNote
+                feeNote, department
         );
     }
 }

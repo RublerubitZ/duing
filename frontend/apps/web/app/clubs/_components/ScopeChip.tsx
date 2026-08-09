@@ -1,8 +1,8 @@
 import { BadgeCheck, GraduationCap } from 'lucide-react';
 
-import type { ClubScope } from '../_lib/clubs';
+import { SCOPE_LABEL, type ClubScope } from '../_lib/clubs';
 
-// 중앙/학과 구분 칩 — filled 파스텔로 색만 봐도 구분되게(중앙=세이지 그린, 학과=스카이 블루).
+// 중앙/단과대 구분 칩 — filled 파스텔로 색만 봐도 구분되게(중앙=세이지 그린, 단과대=스카이 블루).
 // 두 색 모두 기존 팔레트(sage-mist·pill-sky) 재사용이라 튀지 않는다.
 // 아이콘 단독 표기 금지: 처음 보는 사용자도 읽을 수 있게 텍스트를 항상 병기한다.
 export function ScopeChip({ scope }: { scope: ClubScope }) {
@@ -15,7 +15,7 @@ export function ScopeChip({ scope }: { scope: ClubScope }) {
       }`}
     >
       <ScopeIcon size={12} aria-hidden />
-      {scope}
+      {SCOPE_LABEL[scope]}
     </span>
   );
 }
