@@ -49,7 +49,10 @@ describe('MyEvaluationCard', () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} />);
 
     expect(screen.getByText('내 평가')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/강점, 약점/)).toBeInTheDocument();
+    // placeholder 는 accessible name 이 아니다 — 라벨이 생겼으니 role 로 잡는다.
+    // placeholder 자체는 예시 문구로 계속 필요하므로 함께 못박는다.
+    const memoField = screen.getByRole('textbox', { name: '메모' });
+    expect(memoField.getAttribute('placeholder')).toContain('강점, 약점');
     expect(
       screen.getByText('메모는 평가 근거 작성에 사용됩니다. 지원자에게는 공개되지 않습니다.'),
     ).toBeInTheDocument();
@@ -67,11 +70,11 @@ describe('MyEvaluationCard', () => {
 
     expect(screen.getByText('4 / 5')).toBeInTheDocument();
     expect(screen.getByText('기존 메모')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/강점, 약점/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '메모' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '수정' }));
 
-    expect(screen.getByPlaceholderText(/강점, 약점/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '메모' })).toBeInTheDocument();
   });
 
   it('수정 모드에서 저장하면 현재 score 와 memo 로 upsert mutation 을 호출한다', async () => {
@@ -79,7 +82,7 @@ describe('MyEvaluationCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '수정' }));
 
-    const textarea = screen.getByPlaceholderText(/강점, 약점/);
+    const textarea = screen.getByRole('textbox', { name: '메모' });
     await userEvent.clear(textarea);
     await userEvent.type(textarea, '새 메모');
 
@@ -116,6 +119,23 @@ describe('MyEvaluationCard', () => {
     expect(mockDelete).not.toHaveBeenCalled();
   });
 
+  // 히트 영역과 토큰은 jsdom 이 레이아웃을 계산하지 않아 눈으로 볼 수 없다 —
+  // BulkActionBar 전례처럼 클래스로 못박는다.
+  it('점수 라디오는 44px 히트 영역 라벨로 감싸져 있다', () => {
+    wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} />);
+
+    const radio = screen.getByRole('radio', { name: '3' });
+    const label = radio.closest('label');
+    expect(label).not.toBeNull();
+    expect(label).toHaveClass('min-h-11', 'min-w-11');
+  });
+
+  it('삭제 버튼은 danger-quiet 토큰을 쓴다', () => {
+    wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} />);
+
+    expect(screen.getByRole('button', { name: '삭제' }).className).toContain('btn-danger-quiet');
+  });
+
   // 마감 모집 읽기 전용 (스펙 §1-3 차단 표 · §6)
   it('readOnly 면 평가 수정·삭제 버튼이 사라진다', () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={existingEvaluation} readOnly />);
@@ -131,7 +151,7 @@ describe('MyEvaluationCard', () => {
   it('readOnly 면 입력과 저장이 비활성되고 평가 맥락 안내가 뜬다', () => {
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} readOnly />);
 
-    expect(screen.getByPlaceholderText(/강점, 약점/)).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '메모' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
     // 상태 변경 문구 재사용이 아니라 평가 맥락 문구여야 한다.
     expect(screen.getByText('마감된 모집은 평가를 작성·수정할 수 없습니다')).toBeInTheDocument();
@@ -148,12 +168,12 @@ describe('MyEvaluationCard', () => {
     );
     wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} />);
 
-    const textarea = screen.getByPlaceholderText(/강점, 약점/);
+    const textarea = screen.getByRole('textbox', { name: '메모' });
     await userEvent.type(textarea, '작성 중이던 메모');
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집에서는 할 수 없는 작업입니다');
-    expect(screen.getByPlaceholderText(/강점, 약점/)).toHaveValue('작성 중이던 메모');
+    expect(screen.getByRole('textbox', { name: '메모' })).toHaveValue('작성 중이던 메모');
   });
 
   // 삭제도 같은 창에서 409 로 떨어진다 — 확인 모달은 닫지 않고 그 안에서 마감 사유를 안내한다.
