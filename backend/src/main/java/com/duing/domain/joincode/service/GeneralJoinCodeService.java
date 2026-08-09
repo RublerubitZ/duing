@@ -74,12 +74,16 @@ public class GeneralJoinCodeService implements JoinCodeService {
         LocalDateTime now = LocalDateTime.now(clock);
         Long clubId = recruitment.getClub().getId();
 
-        // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
-        // 신규 INSERT 가 uk_club_join_code_active_per_recruitment 에 걸린다.
+        // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
+        // 잠금 조회가 낡은 인스턴스를 돌려주고(findWithLockByCode 와 같은 함정), 그 사이 커밋된
+        // 수동 폐기를 보지 못한 채 최초 폐기 시각·폐기자를 덮어쓴다. 활성 술어를 잠금 조회에
+        // 실었으므로 경쟁 폐기가 먼저 커밋됐다면 빈 결과가 되어 이 트랜잭션은 최초 생성이 된다.
         Optional<ClubJoinCode> replacedCode = clubJoinCodeRepository
-                .findByRecruitmentIdAndRevokedAtIsNull(createCommand.recruitmentId());
+                .findWithLockByRecruitmentIdAndRevokedAtIsNull(createCommand.recruitmentId());
         replacedCode.ifPresent(activeCode -> {
             activeCode.revoke(now, createCommand.requesterId());
+            // Hibernate 는 INSERT 를 UPDATE 보다 먼저 flush 하므로, 폐기를 먼저 flush 하지 않으면
+            // 신규 INSERT 가 uk_club_join_code_active_per_recruitment 에 걸린다.
             clubJoinCodeRepository.flush();
             recordJoinLinkEvent(ClubAuditEventType.JOIN_LINK_REVOKED, clubId,
                     createCommand.recruitmentId(), activeCode.getId(), createCommand.requesterId());
@@ -120,7 +124,10 @@ public class GeneralJoinCodeService implements JoinCodeService {
     public void revoke(Long clubId, Long recruitmentId, Long joinCodeId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
         getOwnedRecruitment(clubId, recruitmentId);
-        ClubJoinCode joinCode = clubJoinCodeRepository.findById(joinCodeId)
+        // 잠금 조회로 처음 읽는다 — 무잠금 findById 로 읽으면 재생성(findWithLockByRecruitmentId...)이
+        // 이미 폐기한 행을 낡은 스냅샷으로 보고, 멱등 분기를 지나쳐 최초 폐기 시각·폐기자를 덮어쓰면서
+        // 같은 폐기를 두 번 기록한다(실측: 동시 폐기·재생성 25/25 에서 JOIN_LINK_REVOKED 중복).
+        ClubJoinCode joinCode = clubJoinCodeRepository.findWithLockById(joinCodeId)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         // 다른 모집(=다른 동아리 포함)의 코드는 존재 여부를 알리지 않는다(403 이 아닌 404 로 열거 차단).
         // 모집 무귀속(부원 초대 링크, V107) 도 여기서 걸린다 — null 을 그대로 역참조하면 500 이 되어
