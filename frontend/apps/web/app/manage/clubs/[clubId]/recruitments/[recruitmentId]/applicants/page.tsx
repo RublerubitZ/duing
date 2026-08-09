@@ -25,6 +25,7 @@ import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
+import { SelectAllBar } from './_components/SelectAllBar';
 import { countByStatus } from './_lib/applicantCounts';
 import { selectableIds, selectAllState, toggleSelectAll } from './_lib/applicantSelection';
 import { cn } from '@/app/_lib/cn';
@@ -49,20 +50,6 @@ export default function ApplicantsPage({ params }: PageParams) {
       submittedTo: searchParams.get('submittedTo') ?? undefined,
     }),
     [searchParams],
-  );
-
-  const updateFilters = useCallback(
-    (nextFilters: ApplicantsFilters) => {
-      const nextParams = new URLSearchParams();
-      if (nextFilters.status) nextParams.set('status', nextFilters.status);
-      if (nextFilters.college) nextParams.set('college', nextFilters.college);
-      if (nextFilters.q) nextParams.set('q', nextFilters.q);
-      if (nextFilters.submittedFrom)
-        nextParams.set('submittedFrom', nextFilters.submittedFrom);
-      if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
-      router.replace(`?${nextParams.toString()}`);
-    },
-    [router],
   );
 
   const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
@@ -94,6 +81,50 @@ export default function ApplicantsPage({ params }: PageParams) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
+  // allApplicants 를 의존성으로 쓰므로 목록 쿼리 아래에 둔다(위에 두면 의존성 배열이 TDZ 에 걸린다).
+  const updateFilters = useCallback(
+    (nextFilters: ApplicantsFilters) => {
+      const nextParams = new URLSearchParams();
+      if (nextFilters.status) nextParams.set('status', nextFilters.status);
+      if (nextFilters.college) nextParams.set('college', nextFilters.college);
+      if (nextFilters.q) nextParams.set('q', nextFilters.q);
+      if (nextFilters.submittedFrom)
+        nextParams.set('submittedFrom', nextFilters.submittedFrom);
+      if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
+
+      // 검색어만 바뀐 경우는 선택을 건드리지 않는다 — 타이핑 한 글자에 선택이 영구 소실되고
+      // 검색어를 지워도 복구되지 않는다(회원 관리와 같은 규칙).
+      const onlyQueryChanged =
+        nextFilters.status === filters.status &&
+        nextFilters.college === filters.college &&
+        nextFilters.submittedFrom === filters.submittedFrom &&
+        nextFilters.submittedTo === filters.submittedTo;
+
+      if (!onlyQueryChanged) {
+        // 상태가 바뀌면 새 상태에 해당하는 선택만 남긴다(클라이언트에서 즉시 판정 가능).
+        // 단과대·기간은 서버 필터라 새 결과를 아직 모르므로 비운다 — "보이지 않는 선택" 을
+        // 남기지 않는 쪽으로 안전하게 기운다.
+        const collegeOrPeriodChanged =
+          nextFilters.college !== filters.college ||
+          nextFilters.submittedFrom !== filters.submittedFrom ||
+          nextFilters.submittedTo !== filters.submittedTo;
+        setSelectedIds((current) =>
+          collegeOrPeriodChanged
+            ? []
+            : current.filter((id) =>
+                allApplicants.some(
+                  (applicant) =>
+                    applicant.applicationId === id &&
+                    (!nextFilters.status || applicant.status === nextFilters.status),
+                ),
+              ),
+        );
+      }
+      router.replace(`?${nextParams.toString()}`);
+    },
+    [router, filters, allApplicants],
+  );
+
   const detailHref = useCallback(
     (applicationId: number) => {
       const currentQs = searchParams.toString();
@@ -115,8 +146,15 @@ export default function ApplicantsPage({ params }: PageParams) {
     );
   }, []);
   // 전체 선택의 분모는 언제나 선택 가능한(비최종) 지원자다.
-  const selectable = selectableIds(applicants);
-  const allState = selectAllState(selectedSet, selectable);
+  const selectable = useMemo(() => selectableIds(applicants), [applicants]);
+  const allState = useMemo(
+    () => selectAllState(selectedSet, selectable),
+    [selectedSet, selectable],
+  );
+  const toggleAll = useCallback(
+    () => setSelectedIds(toggleSelectAll(selectable, allState)),
+    [selectable, allState],
+  );
 
   // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
   // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
@@ -204,24 +242,25 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   return (
     <div
-      className={`mx-auto max-w-5xl px-6 py-10 ${
+      className={cn(
+        'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
         selectedIds.length > 0
           ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
-          : 'pb-24'
-      }`}
+          : 'pb-10',
+      )}
     >
       {/* 헤더 */}
       <div className="mb-6 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-charcoal-3 hover:text-charcoal"
         >
           ← 모집 상세로 돌아가기
         </Link>
         {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
             드롭다운이 걷히는 경우(외부 폼·목록 조회 실패)에도 제목은 폴백으로 남는다. */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-bold text-slate-900">지원자 관리</h1>
+          <h1 className="text-xl font-bold text-ink-deep">지원자 관리</h1>
           <RecruitmentSwitcher
             clubId={clubId}
             currentRecruitmentId={recruitmentId}
@@ -234,7 +273,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {isFinalizeOnly && (
         <div
           role="status"
-          className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+          className="mb-4 rounded-md border border-line bg-graysoft/40 px-3 py-2 text-sm text-charcoal-2"
         >
           마감된 모집 — 남은 지원서의 최종 결과만 확정할 수 있습니다.
         </div>
@@ -242,8 +281,8 @@ export default function ApplicantsPage({ params }: PageParams) {
 
       {/* 외부 폼 안내 — 지원서를 두잉에서 받지 않으므로 목록 대신 안내와 되돌아갈 길만 준다(§5.1) */}
       {recruitment.applicationMode === 'EXTERNAL' && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
-          <p className="text-sm text-slate-600">
+        <div className="rounded-xl border border-line bg-graysoft/40 px-6 py-8 text-center">
+          <p className="text-sm text-charcoal-2">
             외부 폼 모집은 지원자 관리를 사용하지 않아요. 외부 폼 응답은 외부 시스템에서 확인하고,
             합격자 등록은 모집 상세의 가입 링크로 진행해주세요.
           </p>
@@ -315,7 +354,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                 <button
                   type="button"
                   onClick={() => setLastBulkResult(null)}
-                  className="text-xs text-slate-500 hover:text-slate-800"
+                  className="text-xs text-charcoal-3 hover:text-charcoal"
                 >
                   닫기
                 </button>
@@ -334,7 +373,7 @@ export default function ApplicantsPage({ params }: PageParams) {
           {isApplicantsLoading ? (
             <LoadingGate label="지원자 목록 불러오는 중" className="min-h-0 py-8" />
           ) : applicants.length === 0 ? (
-            <p className="mt-8 py-8 text-center text-neutral-500">
+            <p className="mt-8 py-8 text-center text-charcoal-3">
               {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}
             </p>
           ) : (
@@ -344,6 +383,13 @@ export default function ApplicantsPage({ params }: PageParams) {
               aria-busy={isApplicantsFetching}
               className={cn(isApplicantsFetching && 'opacity-60 transition-opacity')}
             >
+              {/* 목록이 0건이면 위 빈 상태 분기로 빠져 이 블록 자체가 렌더되지 않는다. */}
+              <SelectAllBar
+                selectableCount={selectable.length}
+                selectedCount={selectable.filter((id) => selectedSet.has(id)).length}
+                state={allState}
+                onToggleAll={toggleAll}
+              />
               <ApplicantCardList
                 applicants={applicants}
                 selectedSet={selectedSet}
@@ -355,7 +401,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                 applicants={applicants}
                 selectedSet={selectedSet}
                 onToggleSelect={toggleOne}
-                onToggleAll={() => setSelectedIds(toggleSelectAll(selectable, allState))}
+                onToggleAll={toggleAll}
                 onOpenDetail={openDetail}
                 detailHref={detailHref}
                 useInterview={useInterview}
@@ -397,7 +443,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       )}
 
       {/* PII 고지 */}
-      <footer className="mt-10 pt-4 text-center text-xs text-slate-400">
+      <footer className="mt-10 pt-4 text-center text-xs text-charcoal-3">
         본 정보는 합격 결정 외 용도로 사용하지 않습니다
       </footer>
     </div>

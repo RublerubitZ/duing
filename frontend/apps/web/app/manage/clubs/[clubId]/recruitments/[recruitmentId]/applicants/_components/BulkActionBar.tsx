@@ -34,9 +34,10 @@ export function BulkActionBar({
       data-bottom-bar
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
-        <div className="text-sm font-medium text-slate-700">
-          선택 <span className="font-bold text-slate-900">{selectedCount}</span>건
+      {/* 폭은 page.tsx 컨테이너(max-w-6xl px-4 sm:px-6)와 같아야 한다 — 바만 좁으면 좌우가 어긋난다. */}
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+        <div className="text-sm font-medium text-charcoal-2">
+          선택 <span className="font-bold text-ink-deep">{selectedCount}</span>건
         </div>
         {/* 모바일: 2열 그리드로 줄바꿈(전 라벨 유지) / sm 이상: 기존 한 줄 flex */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
@@ -45,7 +46,7 @@ export function BulkActionBar({
             <button
               type="button"
               onClick={onPromoteToInterview}
-              className="rounded-md border border-purple-200 px-3 py-2 text-[13px] font-semibold text-purple-700 hover:bg-purple-50 sm:py-1.5 sm:text-xs"
+              className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-purple-700 hover:bg-purple-50 sm:py-1.5 sm:text-xs"
             >
               면접 대상으로 선정
             </button>
@@ -54,7 +55,7 @@ export function BulkActionBar({
             <button
               type="button"
               onClick={() => onBulkAction('ON_HOLD')}
-              className="rounded-md border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
+              className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-amber-700 hover:bg-amber-50 sm:py-1.5 sm:text-xs"
             >
               보류
             </button>
@@ -62,7 +63,7 @@ export function BulkActionBar({
           <button
             type="button"
             onClick={() => onBulkAction('REJECTED')}
-            className="rounded-md border border-rose-200 px-3 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 sm:py-1.5 sm:text-xs"
+            className="rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 sm:py-1.5 sm:text-xs"
           >
             일괄 불합격
           </button>
