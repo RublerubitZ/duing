@@ -10,7 +10,6 @@
 // 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
 // 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import {
   HiCalendar, HiInformationCircle, HiMap,
@@ -20,6 +19,7 @@ import {
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 import { BuildingFilled, HomeFilled, HomeOutline } from './BottomNavIcons';
 
@@ -57,7 +57,9 @@ function matchTabHref(pathname: string): string | null {
 }
 
 export function BottomNav() {
-  const pathname = usePathname();
+  // usePathname 이 아니라 정규화 훅 — 홈(`/`)은 ISR 이라 재생성 중 `/index` 가 넘어오고,
+  // 그러면 matchTabHref 가 null 을 돌려 탭바가 통째로 빠진 HTML 이 캐시된다(React #418).
+  const pathname = useRoutePathname();
   const activeHref = matchTabHref(pathname);
   const lastInfoPath = useLastInfoPath(pathname);
 
