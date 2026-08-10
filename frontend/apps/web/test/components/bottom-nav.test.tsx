@@ -44,6 +44,16 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
   });
 
+  // Vercel ISR 재생성 중에는 usePathname 이 공개 경로가 아니라 내부 페이지 경로(/index)를 준다.
+  // 정규화가 없으면 matchTabHref 가 null 을 돌려 탭바가 빠진 HTML 이 캐시되고, 브라우저 첫 렌더와
+  // 갈려 홈에서 매 로드 React #418 이 났다(2026-08-10 프로덕션 실측).
+  it('ISR 재생성 경로(/index)도 홈으로 접혀 탭바가 유지된다', () => {
+    mockUsePathname.mockReturnValue('/index');
+    render(<BottomNav />);
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '홈' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('동아리 상세(/clubs/123)는 자체 하단 지원 바를 쓰므로 탭바를 미노출한다', () => {
     mockUsePathname.mockReturnValue('/clubs/123');
     const { container } = render(<BottomNav />);
