@@ -292,9 +292,8 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
 // 여기만 ApplicantDetailPage 를 실제로 렌더한다 — 컨테이너 레이아웃 회귀 가드를 함께 둔다.
 // jsdom 은 레이아웃을 계산하지 못하므로 실측으로 확정된 결함을 클래스로 못박는다.
 describe('지원자 상세 — 컨테이너 레이아웃', () => {
-  it('두 컬럼은 min-w-0 이고 컨테이너는 하단 바 자리를 10rem 예약한다', async () => {
-    server.use(recruitmentHandler('OPEN'), applicantDetailHandler(false), neighborsHandler);
-
+  /** '상태 변경' 카드에서 컬럼·그리드·컨테이너를 거슬러 올라간다 — 셋 다 클래스만 검사할 대상이다. */
+  async function renderAndClimb() {
     renderWithProviders(
       <ApplicantDetailPage
         clubId={CLUB_ID}
@@ -307,6 +306,13 @@ describe('지원자 상세 — 컨테이너 레이아웃', () => {
       'section',
     )?.parentElement;
     const grid = rightColumn?.parentElement;
+    return { grid, container: grid?.parentElement };
+  }
+
+  it('두 컬럼은 min-w-0 이다', async () => {
+    server.use(recruitmentHandler('OPEN'), applicantDetailHandler(false), neighborsHandler);
+
+    const { grid } = await renderAndClimb();
     expect(grid?.className).toContain('lg:grid-cols-2');
 
     // grid item 의 기본 min-width:auto 는 자손의 min-content 까지 트랙을 늘린다 — 답변에 든
@@ -315,11 +321,33 @@ describe('지원자 상세 — 컨테이너 레이아웃', () => {
     const columns = Array.from(grid?.children ?? []);
     expect(columns).toHaveLength(2);
     columns.forEach((column) => expect(column).toHaveClass('min-w-0'));
+  });
+
+  it('전이가 남아 있으면 하단 바 자리를 10rem 예약한다', async () => {
+    // 마감 + 미확정 = 합격·불합격 전이가 남아 하단 고정 바가 렌더되는 케이스.
+    server.use(recruitmentHandler('CLOSED'), applicantDetailHandler(false), neighborsHandler);
+
+    const { container } = await renderAndClimb();
 
     // 하단 고정 바는 320px·전이 3개에서 2줄(실측 121px)이라 6rem 예약으로는 마지막 카드를 가린다.
     // 데스크탑에는 바가 없으므로 lg 에서 원복해야 표 아래 빈 띠가 생기지 않는다.
-    const container = grid?.parentElement;
     expect(container?.className).toContain('pb-[calc(10rem+env(safe-area-inset-bottom))]');
     expect(container?.className).toContain('lg:pb-4');
+  });
+
+  it('전이가 없으면 하단 바가 없으므로 예약 여백도 없다', async () => {
+    // 마감 + 확정 완료 = 전이 0 → StatusActionBar 가 바를 렌더하지 않는다.
+    server.use(
+      recruitmentHandler('CLOSED'),
+      applicantDetailHandler(false, 'ACCEPTED'),
+      neighborsHandler,
+    );
+
+    const { container } = await renderAndClimb();
+
+    // 바가 없는데 예약만 남으면 모바일에 160px 죽은 여백이 생긴다.
+    expect(container?.className).not.toContain('10rem');
+    // toHaveClass 는 토큰 단위라 lg:pb-4 로는 통과하지 않는다 — 무조건 pb-4 인지 정확히 본다.
+    expect(container).toHaveClass('pb-4');
   });
 });

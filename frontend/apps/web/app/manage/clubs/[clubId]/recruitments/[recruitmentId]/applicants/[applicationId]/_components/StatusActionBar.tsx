@@ -48,6 +48,23 @@ const TRANSITION_BUTTON_CLASS: Partial<Record<ApplicationStatus, string>> = {
 };
 const DEFAULT_TRANSITION_BUTTON_CLASS = 'btn btn-secondary btn-sm min-h-11';
 
+/**
+ * 이 화면에서 실제로 노출할 전이 목록.
+ * 마감 후에는 최종 결과 확정만 남는다 — 백엔드가 그 외 전이를 409 로 막으므로 버튼도 같은 집합으로 좁힌다.
+ *
+ * export 하는 이유 — 이 목록이 비면 모바일 하단 고정 바가 렌더되지 않고, 그러면 페이지 컨테이너의
+ * 하단 여백 예약도 없어야 한다. 페이지가 같은 판정을 따로 계산하면 둘이 어긋나므로 여기 한 곳에서만 정한다.
+ */
+export function statusTransitionsFor(
+  currentStatus: ApplicationStatus,
+  useInterview: boolean,
+  finalizeOnly: boolean,
+) {
+  return finalizeOnly
+    ? closedRecruitmentTransitionsFrom(currentStatus)
+    : allowedTransitionsFrom(currentStatus, useInterview);
+}
+
 // 한글 조사 '으로/로' — 받침이 없거나 ㄹ 받침이면 '로' ("보류로", "합격으로").
 function withDestinationParticle(label: string): string {
   const syllableIndex = label.charCodeAt(label.length - 1) - 0xac00;
@@ -69,10 +86,7 @@ export function StatusActionBar({
   // 어느 버튼이 요청 중인지 — isPending 만으로는 전 버튼에 스피너가 걸려 무엇을 눌렀는지 알 수 없다.
   const [inFlightTarget, setInFlightTarget] = useState<ApplicationStatus | null>(null);
 
-  // 마감 후에는 최종 결과 확정만 남는다 — 백엔드가 그 외 전이를 409 로 막으므로 버튼도 같은 집합으로 좁힌다.
-  const transitions = finalizeOnly
-    ? closedRecruitmentTransitionsFrom(currentStatus)
-    : allowedTransitionsFrom(currentStatus, useInterview);
+  const transitions = statusTransitionsFor(currentStatus, useInterview, finalizeOnly);
 
   // 성공·실패 모두 안내한다 — 이전에는 조용히 실패했고, 성공해도 화면 변화를 스스로 찾아야 했다.
   function requestStatusChange(

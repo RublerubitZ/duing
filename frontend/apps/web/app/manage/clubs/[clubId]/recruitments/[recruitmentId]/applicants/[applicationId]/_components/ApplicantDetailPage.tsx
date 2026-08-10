@@ -11,8 +11,9 @@ import { ApplicantInterviewScheduleCard } from './ApplicantInterviewScheduleCard
 import { ApplicantNavBar } from './ApplicantNavBar';
 import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
-import { StatusActionBar } from './StatusActionBar';
+import { StatusActionBar, statusTransitionsFor } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
+import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type Props = {
@@ -45,13 +46,25 @@ export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Pr
   // 마감(raw CLOSED) 모집은 남은 지원서의 최종 결과 확정만 허용 (스펙 §1-3 개정). status 를 아직 못 받았으면 차단하지 않는다(fail-open) —
   // 그 창에서 실행된 쓰기는 BE 409(RECRUITMENT_CLOSED)가 막고, 화면은 실패 토스트로 안내한다.
   const isFinalizeOnly = recruitment?.status === 'CLOSED';
+  // 전이가 없으면 StatusActionBar 가 모바일 하단 고정 바를 렌더하지 않는다 — 판정을 여기서 다시
+  // 계산하면 둘이 어긋나므로 바와 같은 함수를 쓴다.
+  const hasBottomActionBar =
+    statusTransitionsFor(detail.status, useInterview, isFinalizeOnly).length > 0;
 
   return (
     // ManageShell 이 이미 <main> 을 렌더한다 — 목록 페이지(page.tsx:274)와 같은 이유로 div.
-    // 하단 pb 는 모바일 고정 액션 바가 콘텐츠를 가리지 않게 비운 자리다. 320px 에서 전이 3개면
-    // 바가 2줄(실측 121px)이 되고 마감 안내 문단까지 붙으면 더 커진다 — 목록 page.tsx:277 과 같은 10rem.
-    // 데스크탑은 바가 없으니 lg:pb-4 로 원복한다.
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-4 pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-6 lg:pb-4">
+    <div
+      className={cn(
+        'mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-4 sm:px-6',
+        hasBottomActionBar
+          // 하단 고정 바가 콘텐츠를 가리지 않게 비운 자리. 320px 에서 전이 3개면 바가 2줄(실측 121px)이
+          // 되고 마감 안내 문단까지 붙으면 더 커진다 — 목록 page.tsx:277 과 같은 10rem.
+          // 데스크탑은 바가 없으니 lg:pb-4 로 원복한다.
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] lg:pb-4'
+          // 바가 없는 경우(터미널 상태·마감 후 확정 완료)까지 예약하면 모바일에 죽은 여백만 남는다.
+          : 'pb-4',
+      )}
+    >
       <ApplicantNavBar
         clubId={clubId}
         recruitmentId={recruitmentId}
