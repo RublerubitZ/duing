@@ -1,10 +1,12 @@
-// auth_hint 쿠키(HS256 JWT) 서버 검증 — 앱(RSC) 쪽 사용본.
+// auth_hint 쿠키(HS256 JWT) 서버 검증 — 앱(RSC) 쪽 레퍼런스 구현.
 //
-// middleware.ts 에 같은 구현이 하나 더 있다(의도적 이중화). 미들웨어는 Vercel Edge 번들러가
-// 이 모노레포의 import(워크스페이스 패키지·경로 별칭)를 인라인하지 못해 자기완결이어야 하고,
-// 반대로 앱 코드가 middleware.ts 를 import 하면 그 안의 `export const config`(matcher)가
-// 페이지 설정으로 오인돼 "Invalid page configuration" 경고가 난다. 그래서 한 파일로 합칠 수 없다.
-// 두 구현의 드리프트는 test/auth/middleware-auth-hint.test.ts 의 교차 테스트가 잡는다 —
+// 홈 ISR 전환(#925)으로 앱 코드 소비자((home) 레이아웃의 A′ 서버 시드)는 사라졌고, 프로덕션에서
+// 실제로 도는 것은 middleware.ts 의 자기완결 쌍둥이 구현뿐이다. 이 파일을 남기는 이유:
+// test/auth/middleware-auth-hint.test.ts 의 교차 테스트가 이 구현을 기준 삼아 미들웨어 쪽
+// 회귀를 잡고, 서버 시드를 재도입할 라우트가 생기면 이 파일을 import 하면 된다.
+// (한 파일로 합칠 수 없는 사정: 미들웨어는 Vercel Edge 번들러가 모노레포 import 를 인라인하지
+// 못해 자기완결이어야 하고, 앱 코드가 middleware.ts 를 import 하면 `export const config` 가
+// 페이지 설정으로 오인돼 "Invalid page configuration" 경고가 난다.)
 // 이 파일을 고치면 미들웨어 쪽도 함께 고쳐라.
 
 export type AuthHintClaims = {
