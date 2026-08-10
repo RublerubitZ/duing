@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { PublicActivityFeed } from '@duing/types';
 
 // createApiClient 를 모킹해, 백엔드 호출 없이 fetchPublicActivities 의 매핑·폴백·파라미터를 검증한다.
@@ -13,14 +13,39 @@ vi.mock('@duing/api', () => ({
 
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
 
+/** 실패 정책 분기의 입력인 두 환경변수만 명시적으로 고정한다(런타임 = 빌드 국면 아님). */
+function stubPhase(nodeEnv: string, nextPhase?: string) {
+  vi.stubEnv('NODE_ENV', nodeEnv);
+  vi.stubEnv('NEXT_PHASE', nextPhase);
+}
+
 beforeEach(() => {
   createApiClientMock.mockReset();
   listMock.mockReset();
   createApiClientMock.mockReturnValue({ publicActivities: { list: listMock } });
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('fetchPublicActivities', () => {
-  it('list 가 throw 하면 빈 배열을 반환한다(폴백 토스트로 대체)', async () => {
+  it('production 런타임(ISR 재생성)에서 list 가 throw 하면 그대로 throw 한다(직전 캐시본 유지)', async () => {
+    stubPhase('production');
+    listMock.mockRejectedValue(new Error('backend unavailable'));
+
+    await expect(fetchPublicActivities()).rejects.toThrow('backend unavailable');
+  });
+
+  it('빌드 국면에서는 list 가 throw 해도 빈 배열을 반환한다(폴백 토스트로 대체)', async () => {
+    stubPhase('production', 'phase-production-build');
+    listMock.mockRejectedValue(new Error('backend unavailable'));
+
+    await expect(fetchPublicActivities()).resolves.toEqual([]);
+  });
+
+  it('development 에서 list 가 throw 하면 빈 배열을 반환한다(폴백 토스트로 대체)', async () => {
+    stubPhase('development');
     listMock.mockRejectedValue(new Error('backend unavailable'));
 
     const activities = await fetchPublicActivities();

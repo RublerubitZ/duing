@@ -19,9 +19,20 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-// HomeHero / FeaturedClubs / RecruitmentTicker 가 서버 컴포넌트에서 백엔드 API 를 호출하므로
-// 빌드 타임 prerender 를 막아 런타임에 fetch 가 실행되도록 한다. CI 환경에 BE 가 없어도 빌드 통과.
-export const dynamic = 'force-dynamic';
+// 홈은 전 섹션이 공개 데이터(모집 목록·통계·배너·활동 피드·FAQ)라 라우트째 ISR 로 캐시한다(#925).
+// TTL 300s 근거: 가장 엄격한 freshness 요구는 "모집 오픈/마감·배너 게시가 홈에 보이기까지"인데,
+// 홈은 발견성 표면이라 5분 지연을 수용한다(클라 라우터 캐시도 이미 3분 stale 을 허용해 온 데이터다).
+// 60s 로 낮추면 재생성(=서버리스 실행)이 5배 늘어 invocation 절감이라는 목적이 무뎌진다.
+// 데이터 로더(home-data·public-activities)는 빌드 국면에서 실패 시 폴백(fail-soft)이라
+// BE 없는 CI 빌드도 통과하고(빈 섹션으로 프리렌더), Vercel 빌드는 실 API 로 실데이터를 박는다.
+// 반대로 런타임(=재생성) 실패는 rethrow 해 직전 캐시본을 유지한다 — swallow 하면 재생성이
+// "성공" 처리돼 빈 홈이 300초 캐시된다(app/_lib/fail-soft.ts).
+// club-stats 만 예외로 전 국면 fail-soft(null) 유지 — 홈 단독 소비가 아니라 login/signup
+// (force-dynamic)도 쓰기 때문에, rethrow 하면 그 두 페이지가 우아한 열화 대신 500 이 된다.
+// 홈에서 club-stats 만 단독 실패하면 통계 문구가 빠질 뿐이라(빈 홈 아님) 감수 가능하다.
+// ⚠️ 불변식: 이 라우트(레이아웃 포함)에서 cookies()/headers() 를 읽는 순간 다시 dynamic 이 된다 —
+// 개인화(인증 상태·알림)는 클라이언트 전용으로 유지할 것.
+export const revalidate = 300;
 
 // GNB(HomeNav)·크림 캔버스 래퍼는 (home)/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
 // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(검색바)면 라우터 자동 스크롤 기준에서

@@ -12,19 +12,40 @@ import type {
   BulkUpdateApplicationStatusResult,
   College,
 } from '@duing/types';
+import { isApplicationStatus, isCollege } from '@duing/types';
 import {
   useRecruitmentDetailQuery,
   useApplicantsQuery,
   useBulkUpdateApplicationStatusMutation,
 } from '@duing/hooks';
-import { safeExternalHref, toRoute } from '../../../../../../_lib/route';
+import { safeExternalHref, toRoute } from '@/app/_lib/route';
+import { ApplicantCardList } from './_components/ApplicantCardList';
+import { ApplicantListToolbar } from './_components/ApplicantListToolbar';
 import { ApplicantTable } from './_components/ApplicantTable';
 import { ApplicantsFilterBar } from './_components/ApplicantsFilterBar';
 import { BulkActionBar } from './_components/BulkActionBar';
 import { BulkConfirmDialog } from './_components/BulkConfirmDialog';
 import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
+import { SelectAllBar } from './_components/SelectAllBar';
+import { countByStatus } from './_lib/applicantCounts';
+import {
+  actionableSelectedIds,
+  selectableIds,
+  selectAllState,
+  toggleSelectAll,
+} from './_lib/applicantSelection';
+import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+
+/** URL 값이 알려진 enum 일 때만 필터로 인정한다 — 상세 화면(ApplicantDetailPage)과 같은 방식. */
+function readStatusParam(raw: string | null): ApplicationStatus | undefined {
+  return raw !== null && isApplicationStatus(raw) ? raw : undefined;
+}
+
+function readCollegeParam(raw: string | null): College | undefined {
+  return raw !== null && isCollege(raw) ? raw : undefined;
+}
 
 type PageParams = { params: Promise<{ clubId: string; recruitmentId: string }> };
 
@@ -38,8 +59,10 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   const filters = useMemo<ApplicantsFilters>(
     () => ({
-      status: (searchParams.get('status') as ApplicationStatus | null) ?? undefined,
-      college: (searchParams.get('college') as College | null) ?? undefined,
+      // 수기 URL·구버전 링크로 알 수 없는 값이 오면 필터 없음으로 떨어뜨린다 — 클라이언트 필터
+      // 술어이자 칩 선택 상태를 겸하게 되어, 검증 없이 통과하면 "어떤 칩도 안 눌린 빈 목록" 이 된다.
+      status: readStatusParam(searchParams.get('status')),
+      college: readCollegeParam(searchParams.get('college')),
       q: searchParams.get('q') ?? undefined,
       submittedFrom: searchParams.get('submittedFrom') ?? undefined,
       submittedTo: searchParams.get('submittedTo') ?? undefined,
@@ -47,6 +70,36 @@ export default function ApplicantsPage({ params }: PageParams) {
     [searchParams],
   );
 
+  const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
+    isNaN(recruitmentId) ? undefined : recruitmentId,
+  );
+  // 상태는 클라이언트에서 건다 — 칩 숫자가 현재 필터 결과 안의 분포와 항상 일치해야 한다(설계 §6).
+  // URL 의 status 는 그대로 둔다: 상세 이전/다음 탐색을 서버가 같은 조건으로 계산한다.
+  const listFilters = useMemo(() => ({ ...filters, status: undefined }), [filters]);
+  const {
+    data: allApplicants = [],
+    isLoading: isApplicantsLoading,
+    isFetching: isApplicantsFetching,
+  } = useApplicantsQuery(
+    recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId)
+      ? recruitmentId
+      : undefined,
+    listFilters,
+  );
+  const counts = useMemo(() => countByStatus(allApplicants), [allApplicants]);
+  const applicants = useMemo(
+    () =>
+      filters.status
+        ? allApplicants.filter((applicant) => applicant.status === filters.status)
+        : allApplicants,
+    [allApplicants, filters.status],
+  );
+  const bulkMutation = useBulkUpdateApplicationStatusMutation(recruitmentId);
+
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  // allApplicants 를 의존성으로 쓰므로 목록 쿼리 아래에 둔다(위에 두면 의존성 배열이 TDZ 에 걸린다).
   const updateFilters = useCallback(
     (nextFilters: ApplicantsFilters) => {
       const nextParams = new URLSearchParams();
@@ -56,24 +109,81 @@ export default function ApplicantsPage({ params }: PageParams) {
       if (nextFilters.submittedFrom)
         nextParams.set('submittedFrom', nextFilters.submittedFrom);
       if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
+
+      // 검색어만 바뀐 경우는 선택을 건드리지 않는다 — 타이핑 한 글자에 선택이 영구 소실되고
+      // 검색어를 지워도 복구되지 않는다(회원 관리와 같은 규칙).
+      const onlyQueryChanged =
+        nextFilters.status === filters.status &&
+        nextFilters.college === filters.college &&
+        nextFilters.submittedFrom === filters.submittedFrom &&
+        nextFilters.submittedTo === filters.submittedTo;
+
+      if (!onlyQueryChanged) {
+        // 상태가 바뀌면 새 상태에 해당하는 선택만 남긴다(클라이언트에서 즉시 판정 가능).
+        // 단과대·기간은 서버 필터라 새 결과를 아직 모르므로 비운다 — "보이지 않는 선택" 을
+        // 남기지 않는 쪽으로 안전하게 기운다.
+        const collegeOrPeriodChanged =
+          nextFilters.college !== filters.college ||
+          nextFilters.submittedFrom !== filters.submittedFrom ||
+          nextFilters.submittedTo !== filters.submittedTo;
+        setSelectedIds((current) =>
+          collegeOrPeriodChanged
+            ? []
+            : current.filter((id) =>
+                allApplicants.some(
+                  (applicant) =>
+                    applicant.applicationId === id &&
+                    (!nextFilters.status || applicant.status === nextFilters.status),
+                ),
+              ),
+        );
+      }
       router.replace(`?${nextParams.toString()}`);
     },
-    [router],
+    [router, filters, allApplicants],
   );
 
-  const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
-    isNaN(recruitmentId) ? undefined : recruitmentId,
+  const detailHref = useCallback(
+    (applicationId: number) => {
+      const currentQs = searchParams.toString();
+      // 템플릿 리터럴을 const 로 받으면 string 으로 넓어져 toRoute 의 `/${string}` 에 안 맞는다.
+      const base: `/${string}` = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`;
+      return toRoute(currentQs ? `${base}?${currentQs}` : base);
+    },
+    [searchParams, clubId, recruitmentId],
   );
-  const { data: applicants = [], isLoading: isApplicantsLoading } = useApplicantsQuery(
-    recruitment?.applicationMode === 'SELF' && !isNaN(recruitmentId)
-      ? recruitmentId
-      : undefined,
-    filters,
+  const openDetail = useCallback(
+    (applicationId: number) => router.push(detailHref(applicationId)),
+    [router, detailHref],
   );
-  const bulkMutation = useBulkUpdateApplicationStatusMutation(recruitmentId);
+  const toggleOne = useCallback((applicationId: number) => {
+    setSelectedIds((current) =>
+      current.includes(applicationId)
+        ? current.filter((id) => id !== applicationId)
+        : [...current, applicationId],
+    );
+  }, []);
+  // 전체 선택의 분모는 언제나 선택 가능한(비최종) 지원자다.
+  const selectable = useMemo(() => selectableIds(applicants), [applicants]);
+  const allState = useMemo(
+    () => selectAllState(selectedSet, selectable),
+    [selectedSet, selectable],
+  );
+  const toggleAll = useCallback(
+    () => setSelectedIds(toggleSelectAll(selectable, allState)),
+    [selectable, allState],
+  );
+  /*
+   * 일괄 처리에 실제로 실을 대상 — 지금 화면에 보이고 선택 가능한 것만.
+   * 검색어가 바뀌어도 선택을 지우지 않는 규칙(updateFilters)과 반드시 짝을 이룬다. 짝이 없으면
+   * "김" 으로 5명 고르고 "박" 으로 바꿔 2명을 더 고를 때, 화면에 없는 김씨 5명까지 함께 처리된다.
+   * 합격·불합격은 되돌릴 수 없다. 회원 관리 벌크 툴바도 같은 교집합으로 실행한다.
+   */
+  const actionableIds = useMemo(
+    () => actionableSelectedIds(selectable, selectedSet),
+    [selectable, selectedSet],
+  );
 
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   // INTERVIEW_PENDING 전이는 BulkPromoteDialog (Spec P0-4) 가 전담하므로,
   // BulkConfirmDialog 의 pending target 에서는 INTERVIEW_PENDING 을 제외한다.
   const [pendingBulkTarget, setPendingBulkTarget] = useState<
@@ -90,13 +200,13 @@ export default function ApplicantsPage({ params }: PageParams) {
   const isFinalizeOnly = recruitment?.status === 'CLOSED';
 
   function handleBulkConfirm() {
-    if (!pendingBulkTarget || selectedIds.length === 0) {
+    if (!pendingBulkTarget || actionableIds.length === 0) {
       setPendingBulkTarget(null);
       return;
     }
     setBulkError(null);
     bulkMutation.mutate(
-      { applicationIds: selectedIds, status: pendingBulkTarget },
+      { applicationIds: actionableIds, status: pendingBulkTarget },
       {
         onSuccess: (result) => {
           setLastBulkResult(result);
@@ -117,13 +227,13 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   // Spec P0-4 — "면접 대상으로 선정" 확정. 본문 모달은 INTERVIEW_PENDING 전용.
   function handlePromoteConfirm() {
-    if (selectedIds.length === 0) {
+    if (actionableIds.length === 0) {
       setIsPromoteDialogOpen(false);
       return;
     }
     setBulkError(null);
     bulkMutation.mutate(
-      { applicationIds: selectedIds, status: 'INTERVIEW_PENDING' },
+      { applicationIds: actionableIds, status: 'INTERVIEW_PENDING' },
       {
         onSuccess: (result) => {
           setLastBulkResult(result);
@@ -145,12 +255,12 @@ export default function ApplicantsPage({ params }: PageParams) {
   // 선택된 지원자 중 대표 (정렬은 list 응답 기준 — 첫 번째 선택자).
   // applicants list 순서를 따라가서 BulkActionBar 의 "선택 N건" 과 일관된 표시.
   const promoteRepresentativeName = useMemo(() => {
-    if (selectedIds.length === 0) return '';
+    if (actionableIds.length === 0) return '';
     const firstSelected = applicants.find((applicant) =>
       selectedSet.has(applicant.applicationId),
     );
     return firstSelected?.userName ?? '';
-  }, [applicants, selectedIds, selectedSet]);
+  }, [applicants, actionableIds, selectedSet]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -160,24 +270,26 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   return (
     <div
-      className={`mx-auto max-w-5xl px-6 py-10 ${
-        selectedIds.length > 0
-          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24'
-          : 'pb-24'
-      }`}
+      className={cn(
+        'mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10',
+        actionableIds.length > 0
+          // lg 부터는 하단 고정 바가 없다(툴바가 대신한다) — 여백을 남기면 표 아래 빈 띠가 생긴다.
+          ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-24 lg:pb-10'
+          : 'pb-10',
+      )}
     >
       {/* 헤더 */}
       <div className="mb-6 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-charcoal-3 hover:text-charcoal"
         >
           ← 모집 상세로 돌아가기
         </Link>
         {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
             드롭다운이 걷히는 경우(외부 폼·목록 조회 실패)에도 제목은 폴백으로 남는다. */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-bold text-slate-900">지원자 관리</h1>
+          <h1 className="text-xl font-bold text-ink-deep">지원자 관리</h1>
           <RecruitmentSwitcher
             clubId={clubId}
             currentRecruitmentId={recruitmentId}
@@ -190,7 +302,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {isFinalizeOnly && (
         <div
           role="status"
-          className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+          className="mb-4 rounded-md border border-line bg-graysoft/40 px-3 py-2 text-sm text-charcoal-2"
         >
           마감된 모집 — 남은 지원서의 최종 결과만 확정할 수 있습니다.
         </div>
@@ -198,8 +310,8 @@ export default function ApplicantsPage({ params }: PageParams) {
 
       {/* 외부 폼 안내 — 지원서를 두잉에서 받지 않으므로 목록 대신 안내와 되돌아갈 길만 준다(§5.1) */}
       {recruitment.applicationMode === 'EXTERNAL' && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
-          <p className="text-sm text-slate-600">
+        <div className="rounded-xl border border-line bg-graysoft/40 px-6 py-8 text-center">
+          <p className="text-sm text-charcoal-2">
             외부 폼 모집은 지원자 관리를 사용하지 않아요. 외부 폼 응답은 외부 시스템에서 확인하고,
             합격자 등록은 모집 상세의 가입 링크로 진행해주세요.
           </p>
@@ -236,6 +348,7 @@ export default function ApplicantsPage({ params }: PageParams) {
             filters={filters}
             onChange={updateFilters}
             useInterview={useInterview}
+            counts={counts}
           />
 
           {/* 일괄 처리 결과 알림 */}
@@ -270,7 +383,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                 <button
                   type="button"
                   onClick={() => setLastBulkResult(null)}
-                  className="text-xs text-slate-500 hover:text-slate-800"
+                  className="text-xs text-charcoal-3 hover:text-charcoal"
                 >
                   닫기
                 </button>
@@ -289,26 +402,60 @@ export default function ApplicantsPage({ params }: PageParams) {
           {isApplicantsLoading ? (
             <LoadingGate label="지원자 목록 불러오는 중" className="min-h-0 py-8" />
           ) : applicants.length === 0 ? (
-            <p className="mt-8 py-8 text-center text-neutral-500">
+            <p className="mt-8 py-8 text-center text-charcoal-3">
               {hasActiveFilters ? '검색 결과 없음' : '지원자가 아직 없습니다'}
             </p>
           ) : (
-            <ApplicantTable
-              applicants={applicants}
-              selectedIds={selectedIds}
-              selectedSet={selectedSet}
-              onSelect={setSelectedIds}
-              useInterview={useInterview}
-              clubId={clubId}
-              recruitmentId={recruitmentId}
-            />
+            // 필터 전환 중에는 이전 결과를 그대로 두고 딤으로만 갱신을 알린다 — 목록이 비었다
+            // 다시 차오르면 스크롤과 선택 맥락이 끊긴다.
+            <div
+              aria-busy={isApplicantsFetching}
+              className={cn(isApplicantsFetching && 'opacity-60 transition-opacity')}
+            >
+              {/* 목록이 0건이면 위 빈 상태 분기로 빠져 이 블록 자체가 렌더되지 않는다. */}
+              <SelectAllBar
+                selectableCount={selectable.length}
+                selectedCount={actionableIds.length}
+                state={allState}
+                onToggleAll={toggleAll}
+              />
+              <ApplicantCardList
+                applicants={applicants}
+                selectedSet={selectedSet}
+                onToggleSelect={toggleOne}
+                onOpenDetail={openDetail}
+                detailHref={detailHref}
+              />
+              <ApplicantTable
+                applicants={applicants}
+                selectedSet={selectedSet}
+                onToggleSelect={toggleOne}
+                onOpenDetail={openDetail}
+                detailHref={detailHref}
+                useInterview={useInterview}
+                toolbar={
+                  <ApplicantListToolbar
+                    // 상태 칩 '전체' 와 같은 출처 — applicants 는 상태 필터 적용본이라 "총" 이 아니다.
+                    totalCount={counts.total}
+                    selectableCount={selectable.length}
+                    selectedCount={actionableIds.length}
+                    state={allState}
+                    onToggleAll={toggleAll}
+                    onBulkAction={setPendingBulkTarget}
+                    onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
+                    useInterview={useInterview}
+                    finalizeOnly={isFinalizeOnly}
+                  />
+                }
+              />
+            </div>
           )}
         </>
       )}
 
       {/* 일괄 처리 sticky bar */}
       <BulkActionBar
-        selectedCount={selectedIds.length}
+        selectedCount={actionableIds.length}
         onBulkAction={setPendingBulkTarget}
         onPromoteToInterview={() => setIsPromoteDialogOpen(true)}
         useInterview={useInterview}
@@ -319,7 +466,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {pendingBulkTarget && (
         <BulkConfirmDialog
           targetStatus={pendingBulkTarget}
-          selectedCount={selectedIds.length}
+          selectedCount={actionableIds.length}
           isPending={bulkMutation.isPending}
           onConfirm={handleBulkConfirm}
           onCancel={() => setPendingBulkTarget(null)}
@@ -330,7 +477,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       {isPromoteDialogOpen && (
         <BulkPromoteDialog
           representativeName={promoteRepresentativeName}
-          selectedCount={selectedIds.length}
+          selectedCount={actionableIds.length}
           isPending={bulkMutation.isPending}
           onConfirm={handlePromoteConfirm}
           onCancel={() => setIsPromoteDialogOpen(false)}
@@ -338,7 +485,7 @@ export default function ApplicantsPage({ params }: PageParams) {
       )}
 
       {/* PII 고지 */}
-      <footer className="mt-10 pt-4 text-center text-xs text-slate-400">
+      <footer className="mt-10 pt-4 text-center text-xs text-charcoal-3">
         본 정보는 합격 결정 외 용도로 사용하지 않습니다
       </footer>
     </div>

@@ -1,8 +1,13 @@
 'use client';
 
+import type { DayLevel } from '../../_lib/bookingCalendar';
 import { DAY_LEVEL_META } from '../../_lib/bookingCalendar';
+import { LevelGauge } from './LevelGauge';
 
 export type CalendarView = 'month' | 'week';
+
+// 월간 항목만 level 을 갖는다 — 모바일에서 색 견본 대신 셀과 같은 3단계 게이지를 그리는 표식.
+type LegendItem = { label: string; barClass: string; level?: DayLevel };
 
 type Props = {
   view: CalendarView;
@@ -14,16 +19,18 @@ type Props = {
   canNext: boolean;
 };
 
-// 월간 범례 — 캘린더 히트맵 레벨(여유/보통/혼잡/마감) 재사용(§2).
-const MONTH_LEGEND = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map((level) => ({
+// 월간 범례 — 캘린더 히트맵 레벨(여유/보통/혼잡/마감) 재사용(§2). 모바일 셀은 8칸 바 대신
+// 3단계 게이지를 쓰므로, 범례 스와치도 모바일에서만 같은 게이지로 바꿔 표기를 일치시킨다.
+const MONTH_LEGEND: LegendItem[] = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map((level) => ({
   label: DAY_LEVEL_META[level].label,
   barClass: DAY_LEVEL_META[level].barClass,
+  level,
 }));
 
 // 주간 범례(§2·§10.1) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 기본 확보 시간=sky 점선 가이드 셀, 대기=warm.
 // 예약됨은 파스텔 팔레트를 순환하지만 범례는 대표 1색(mint)으로 "확정 예약" 을 안내한다.
 // 기본 확보 시간 스와치는 그리드 가이드 셀과 정합하도록 점선(border-dashed) + 연한 sky 로 표기한다(§10.1).
-const WEEK_LEGEND = [
+const WEEK_LEGEND: LegendItem[] = [
   { label: '가능', barClass: 'bg-sage-mist' },
   { label: '예약됨', barClass: 'bg-pastel-mint' },
   { label: '기본 확보 시간', barClass: 'border border-dashed border-sage-soft bg-sage-mist' },
@@ -81,7 +88,15 @@ export function BookingViewHeader({ view, onChangeView, periodLabel, onPrev, onN
       <span className="flex flex-wrap items-center gap-3 text-[11px] text-charcoal-3">
         {legend.map((item) => (
           <span key={item.label} className="inline-flex items-center gap-1">
-            <span aria-hidden className={`h-2.5 w-2.5 rounded-[2px] ${item.barClass}`} />
+            {item.level !== undefined && (
+              <span className="inline-flex sm:hidden">
+                <LevelGauge level={item.level} />
+              </span>
+            )}
+            <span
+              aria-hidden
+              className={`h-2.5 w-2.5 rounded-[2px] ${item.level !== undefined ? 'hidden sm:block' : ''} ${item.barClass}`}
+            />
             {item.label}
           </span>
         ))}

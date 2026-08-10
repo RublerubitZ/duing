@@ -14,6 +14,8 @@ import { BookingPanel } from '@/app/facilities/_components/booking/BookingPanel'
 import { BookingConfirmDialog } from '@/app/facilities/_components/booking/BookingConfirmDialog';
 import { BookingSuccess } from '@/app/facilities/_components/booking/BookingSuccess';
 import { FacilityHomeCard } from '@/app/facilities/_components/booking/FacilityHomeCard';
+import type { DayLevel } from '@/app/facilities/_lib/bookingCalendar';
+import { DAY_LEVEL_META } from '@/app/facilities/_lib/bookingCalendar';
 import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
 // FacilityHomeCard 는 내부에서 new Date() 로 오늘을 계산하므로 시스템 시각을 고정한다.
@@ -138,6 +140,51 @@ it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과
   expect(weekdayHeaders).toHaveLength(7);
   const [firstWeekday] = weekdayHeaders;
   expect(firstWeekday).toHaveTextContent('월');
+});
+
+it('모바일 캘린더 셀은 가로 3단계 게이지로 표기하고 상태 텍스트를 줄바꿈 없이 유지한다', () => {
+  // 여유(11/13)·보통(5/13)·혼잡(2/13)·마감(0) — dayLevelOf 경계 그대로.
+  const days = [
+    makeDay({ date: '2026-07-20', availableSlotCount: 11 }),
+    makeDay({ date: '2026-07-21', availableSlotCount: 5 }),
+    makeDay({ date: '2026-07-22', availableSlotCount: 2 }),
+    makeDay({ date: '2026-07-23', dayStatus: 'FULL', availableSlotCount: 0 }),
+  ];
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map(days.map((day) => [day.date, day]))}
+      bookableFrom="2026-07-13"
+      bookableUntil="2026-08-31"
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={vi.fn()}
+      onOutOfWindowSelect={vi.fn()}
+    />,
+  );
+  // 채워진 칸 수 = 잔여 여유량 — 색만이 아니라 칸 수 자체가 신호다.
+  // 많이 찰수록 여유 = sm 이상 8칸 히트맵 바와 같은 방향(기기마다 반대로 읽히면 안 된다).
+  // 빈 칸 색은 선택 여부에 따라 bg-line/bg-cream 으로 갈리므로, 레벨 색으로 세야 오측정이 없다.
+  const filledStepsOf = (label: string, level: DayLevel) => {
+    const gauge = within(screen.getByRole('button', { name: label })).getByTestId('level-gauge');
+    return Array.from(gauge.children).filter((bar) => bar.className.includes(DAY_LEVEL_META[level].barClass)).length;
+  };
+  expect(filledStepsOf('20일 여유, 남은 11칸', 'HIGH')).toBe(3);
+  expect(filledStepsOf('21일 보통, 남은 5칸', 'MID')).toBe(2);
+  expect(filledStepsOf('22일 혼잡, 남은 2칸', 'LOW')).toBe(1);
+  // 마감은 0단계 — 빈 게이지가 아니라 대시(자식 막대 없음)로 구분한다.
+  const fullGauge = within(screen.getByRole('button', { name: '23일 마감, 남은 0칸' })).getByTestId('level-gauge');
+  expect(fullGauge.dataset.level).toBe('FULL');
+  expect(fullGauge.children).toHaveLength(0);
+  // 좁은 모바일에서 "여/유" 로 분해되던 회귀 가드 — 상태 텍스트는 남기되 절대 줄바꿈되지 않는다.
+  expect(screen.getByText('여유')).toHaveClass('max-sm:whitespace-nowrap');
+  // PC 표기(8칸 히트맵 바)는 그대로 — 모바일에서만 숨고, 3단계 게이지가 그 자리를 대신한다.
+  const highCell = screen.getByRole('button', { name: '20일 여유, 남은 11칸' });
+  const heatBar = highCell.querySelector('.sm\\:flex');
+  expect(heatBar).toHaveClass('hidden');
+  expect(heatBar?.children).toHaveLength(8);
+  // 역방향 가드 — 3단계 게이지는 sm 이상에서 반드시 숨는다. 없으면 PC 에 두 표기가 겹쳐 나온다.
+  expect(within(highCell).getByTestId('level-gauge').parentElement).toHaveClass('sm:hidden');
 });
 
 it('캘린더 상단 기간 표기·오픈 마커는 렌더되지 않는다 (미니멀 정리 회귀 가드)', () => {
@@ -488,6 +535,11 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   // 월간 범례
   expect(screen.getByText('여유')).toBeInTheDocument();
   expect(screen.getByText('마감')).toBeInTheDocument();
+  // 월간 스와치는 모바일=셀과 같은 3단계 게이지 / sm 이상=기존 색 사각형 두 벌이다.
+  // 셀에서 텍스트가 사라져도 범례로 단계 의미를 읽을 수 있어야 하고, PC 스와치는 그대로여야 한다.
+  const monthSwatches = screen.getAllByTestId('level-gauge');
+  expect(monthSwatches.map((swatch) => swatch.dataset.level)).toEqual(['HIGH', 'MID', 'LOW', 'FULL']);
+  expect(container.querySelectorAll('.h-2\\.5.hidden.sm\\:block')).toHaveLength(4);
 
   // 주간으로 전환 — 라벨/화살표 aria/범례가 주간용으로 바뀐다.
   rerender(
@@ -511,6 +563,8 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   expect(screen.getByText('예약됨')).toBeInTheDocument();
   expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
   expect(screen.getByText('대기')).toBeInTheDocument();
+  // 주간 스와치는 게이지 없이 색 견본만 — 월간 전용 표기가 주간으로 새지 않는다.
+  expect(screen.queryAllByTestId('level-gauge')).toHaveLength(0);
   // 금지어(§10.2): 범례에 "운영 중"·"운영 시간" 부재.
   expect(container).not.toHaveTextContent(/운영 중/);
   expect(container).not.toHaveTextContent(/운영 시간/);

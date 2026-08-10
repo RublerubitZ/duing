@@ -10,15 +10,21 @@ import type { BrowserContext, Page } from '@playwright/test';
  *
  * 백엔드는 띄우지 않는다. 브라우저가 내는 모든 API 호출을 context.route 로 가로채
  * 시나리오(정상·access 만료·익명·갱신 일시장애)를 직접 만든다. auth_hint 는 서버와 같은
- * 시크릿으로 스펙이 직접 HMAC 서명하므로 미들웨어·(home) 레이아웃의 실제 검증을 통과한다.
+ * 시크릿으로 스펙이 직접 HMAC 서명하므로 미들웨어의 실제 검증을 통과한다(홈 ISR 전환 #925
+ * 이후 (home) 레이아웃은 쿠키를 읽지 않는다 — auth_hint 는 보호 라우트 미들웨어 전용).
+ *
+ * 홈 ISR(#925) 계약: 정적 HTML 은 항상 미인증 슬롯으로 페인트되므로 하이드레이션 전
+ * 로그인 버튼 프레임은 정상이다(A′ 서버 시드의 "0프레임" 보장은 서버 시드와 함께 제거).
+ * 남는 불변식 — 유저 메뉴가 한 번 그려진 뒤 로그인 버튼으로 되돌아가는 프레임이 없다(단조 정정).
  *
  * 관측 방식: addInitScript 로 rAF 마다 헤더/본문 상태를 적어 두고, 안정 상태에 도달한 뒤
  * "그 사이 한 프레임이라도 X 가 보였는가"를 되짚는다. 사후 스냅샷으로는 첫 프레임의 깜빡임
  * (로그인 버튼·권한 거부·자리표시)을 잡을 수 없다.
  *
- * 주의: 홈(/)의 서버 컴포넌트는 Node 프로세스에서 백엔드를 호출한다 — context.route 는 브라우저
- * 요청만 가로채므로 그 호출은 실제로 나간다(공개 조회 엔드포인트, 쿠키 미동봉). 백엔드가 없어도
- * home-data 가 빈 결과로 폴백하므로 이 스펙의 관측 대상(헤더·가드)에는 영향이 없다.
+ * 주의: 홈(/)의 서버 컴포넌트는 빌드/ISR 재생성 시점에 Node 프로세스에서 백엔드를 호출한다 —
+ * context.route 는 브라우저 요청만 가로채므로 그 호출은 실제로 나간다(공개 조회 엔드포인트,
+ * 쿠키 미동봉). 백엔드가 없어도 home-data 가 빈 결과로 폴백하므로 관측 대상(헤더·가드)에는
+ * 영향이 없다.
  */
 
 const API_HOST = 'https://api.duings.com';
@@ -327,9 +333,9 @@ async function waitForTextFrame(page: Page, text: string): Promise<void> {
 
 /**
  * 하이드레이션 정합 오류(React #418·#419·#423·#425)와 렌더 페이즈 상태 갱신 경고를 모은다.
- * 후자("Cannot update a component ...")는 AuthHintSeed 의 렌더 페이즈 시드가 남길 수 있는 흔적인데,
+ * 후자("Cannot update a component ...")는 렌더 페이즈 시드가 남길 수 있는 흔적인데,
  * 프로덕션 React 는 이 경고를 빌드에서 제거하므로 여기서는 백스톱일 뿐 증명이 아니다 —
- * 시드가 실제로 성립했다는 증거는 아래 프레임 단언(0프레임 로그인 버튼)이 맡는다.
+ * 시드가 실제로 성립했다는 증거는 아래 프레임 단언이 맡는다.
  */
 const REACT_ERROR_PATTERNS = [
   /react\.dev\/errors\/(418|419|423|425)/,
@@ -369,7 +375,16 @@ async function newThrottledPage(
   return page;
 }
 
-async function assertLoggedInHomeHasNoLoginFlash(
+// 홈 ISR(#925) 이후의 로그인 사용자 홈 불변식(파일 상단 주석 참조): 유저 메뉴가 처음 그려진
+// 프레임부터는 로그인 버튼 프레임이 0이어야 한다. 유저 메뉴 프레임이 아예 없으면 전체가 대상이
+// 되어 어차피 위쪽 waitForHeaderFrame 단언이 먼저 실패한다.
+function loginButtonFramesAfterFirstUserMenu(frames: AuthFrame[]): AuthFrame[] {
+  const firstUserMenuIndex = frames.findIndex((frame) => frame.hasUserMenu);
+  const observed = firstUserMenuIndex < 0 ? frames : frames.slice(firstUserMenuIndex);
+  return observed.filter((frame) => frame.hasLoginButton);
+}
+
+async function assertLoggedInHomeCorrectsToUserMenu(
   context: BrowserContext,
   throttle: ThrottleOption,
 ): Promise<void> {
@@ -385,12 +400,7 @@ async function assertLoggedInHomeHasNoLoginFlash(
 
   const frames = await readAuthFrames(page);
   expect(frames.length).toBeGreaterThan(0);
-  // 헤더의 인증 슬롯이 처음 무언가를 그린 프레임 — A′ 서버 시드면 그 자리는 이미 유저 메뉴다.
-  const firstAuthSlotFrame = frames.find(
-    (frame) => frame.hasLoginButton || frame.hasUserMenu || frame.hasHeaderPlaceholder,
-  );
-  expect(firstAuthSlotFrame?.hasUserMenu).toBe(true);
-  expect(frames.filter((frame) => frame.hasLoginButton)).toHaveLength(0);
+  expect(loginButtonFramesAfterFirstUserMenu(frames)).toHaveLength(0);
   expect(frames.filter((frame) => frame.hasHeaderPlaceholder)).toHaveLength(0);
   expect(reactErrors).toEqual([]);
 }
@@ -422,11 +432,11 @@ async function assertAnonymousHomeHasNoPlaceholder(
 /* ────────────────────────── 스펙 ────────────────────────── */
 
 test.describe('PR-3 인증 초기 상태', () => {
-  test('[metric 1] 로그인 사용자 홈 하드 로드 — 로그인 버튼 0프레임, 하이드레이션 오류 0', async ({
+  test('[metric 1†#925] 로그인 사용자 홈 하드 로드 — 하이드레이션 후 유저 메뉴 단조 정정, 오류 0', async ({
     browser,
   }) => {
     const context = await browser.newContext();
-    await assertLoggedInHomeHasNoLoginFlash(context, {});
+    await assertLoggedInHomeCorrectsToUserMenu(context, {});
     await context.close();
   });
 
@@ -438,9 +448,9 @@ test.describe('PR-3 인증 초기 상태', () => {
     await context.close();
   });
 
-  test('[metric 1] CPU 4x — 로그인 사용자 홈에서도 로그인 버튼 0프레임', async ({ browser }) => {
+  test('[metric 1†#925] CPU 4x — 로그인 사용자 홈에서도 유저 메뉴 단조 정정', async ({ browser }) => {
     const context = await browser.newContext();
-    await assertLoggedInHomeHasNoLoginFlash(context, { cpuThrottlingRate: 4 });
+    await assertLoggedInHomeCorrectsToUserMenu(context, { cpuThrottlingRate: 4 });
     await context.close();
   });
 
@@ -482,7 +492,7 @@ test.describe('PR-3 인증 초기 상태', () => {
     expect(api.refreshCalls()).toBe(1);
     expect(api.meCalls()).toBe(3);
     const frames = await readAuthFrames(page);
-    expect(frames.filter((frame) => frame.hasLoginButton)).toHaveLength(0);
+    expect(loginButtonFramesAfterFirstUserMenu(frames)).toHaveLength(0);
     await context.close();
   });
 
@@ -539,7 +549,7 @@ test.describe('PR-3 인증 초기 상태', () => {
     await expect(page.getByRole('button', { name: /회원님/ })).toBeVisible();
     await waitForHeaderFrame(page, 'hasUserMenu');
     const frames = await readAuthFrames(page);
-    expect(frames.filter((frame) => frame.hasLoginButton)).toHaveLength(0);
+    expect(loginButtonFramesAfterFirstUserMenu(frames)).toHaveLength(0);
     expect(await page.evaluate((key: string) => window.localStorage.getItem(key), HAD_SESSION_KEY)).toBe('1');
     await context.close();
   });

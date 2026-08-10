@@ -47,9 +47,15 @@ duing/
 - 모든 작업 브랜치는 `develop` 에서 분기, `develop` 으로 PR
 
 ### CI
-- `.github/workflows/backend-ci.yml` — `backend/**` 변경 시 자동 실행
-- `.github/workflows/frontend-ci.yml` — `frontend/**` 변경 시 자동 실행
+- `.github/workflows/ci-gate.yml` — **모든 PR 에서 실행**. 변경 영역을 판정해 아래 두 워크플로를 필요한 만큼만 호출하고, 그 결과를 모아 `Gate` 체크 하나로 낸다.
+- `.github/workflows/backend-ci.yml` — `backend/**` 변경 시 (PR 은 게이트가 호출, develop·main push 는 직접 실행)
+- `.github/workflows/frontend-ci.yml` — `frontend/**` 변경 시 (동일)
 - PR 템플릿: [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md)
+
+`develop` 브랜치 보호의 필수 체크는 **`Gate` 하나뿐**이다. 두 CI 를 직접 필수로 지정하면, 해당 경로를
+건드리지 않은 PR 에서는 체크가 생성되지 않아 GitHub 이 이를 pending 으로 간주하고 머지가 영구히 막힌다.
+게이트는 "변경이 있는데 성공이 아닌" 경우와 "변경이 없는데 건너뛰지 않은" 경우를 모두 실패로 처리하므로,
+검사가 돌지 않았는데 통과하는 경로는 없다. 게이트 자신이 바뀌면 양쪽 CI 를 모두 돌린다.
 
 ### 에이전트 & 스킬 자동 사용
 모든 에이전트(`.claude/agents/`)와 스킬(`.claude/skills/`)은 사용자가 명시적으로 요청하지 않아도

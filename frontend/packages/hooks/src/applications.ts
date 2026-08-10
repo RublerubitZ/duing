@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ApplicationScope,
   ApplicantsFilters,
@@ -109,6 +109,8 @@ export function useApplicantsQuery(
       return client.applications.applicants(recruitmentId, filters);
     },
     enabled: recruitmentId !== undefined,
+    // 필터가 바뀌어도 이전 목록을 유지한다 — 목록이 비었다 차오르면 스크롤·선택 맥락이 끊긴다.
+    placeholderData: keepPreviousData,
   });
 }
 

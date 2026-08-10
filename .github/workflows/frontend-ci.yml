@@ -6,13 +6,10 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
-  # base 브랜치를 가리지 않는다 — 스택 PR(앞 PR 을 base 로 삼는 후속 PR)에서도 검사가 돌아야 한다.
-  # branches 필터를 두면 base 가 develop 이 아닌 중간 PR 들이 검사 없이 리뷰된다.
-  # 중복 실행 걱정은 없다: push 트리거는 여전히 main·develop 으로 제한된다.
-  pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
+  # PR 에서는 ci-gate.yml 이 변경 영역을 판정해 이 워크플로를 호출한다(workflow_call).
+  # 여기에 pull_request 트리거를 되살리면 게이트 호출분과 이중 실행되므로 두지 않는다.
+  # 스택 PR(앞 PR 을 base 로 삼는 후속 PR)도 게이트가 base 브랜치를 가리지 않아 그대로 검사된다.
+  workflow_call:
 
 permissions:
   contents: read
