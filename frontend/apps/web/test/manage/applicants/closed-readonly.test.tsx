@@ -237,7 +237,9 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
     );
 
     expect(await screen.findAllByText(/최종 결과만 확정할 수 있습니다/)).not.toHaveLength(0);
-    expect(screen.getByRole('button', { name: '합격으로' })).toBeInTheDocument();
+    // 상세도 목록과 같다 — 데스크탑 카드와 모바일 하단 바가 같은 전이 버튼을 두 벌 갖는다.
+    const statusBar = screen.getByRole('region', { name: '상태 변경 액션' });
+    expect(within(statusBar).getByRole('button', { name: '합격으로' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '보류로' })).not.toBeInTheDocument();
     // 평가는 마감 후 허용되는 "최종 결과 확정"에 포함되지 않으므로 계속 막힌다.
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
@@ -256,7 +258,8 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
       />,
     );
 
-    expect(await screen.findByRole('button', { name: '보류로' })).toBeInTheDocument();
+    const statusBar = await screen.findByRole('region', { name: '상태 변경 액션' });
+    expect(within(statusBar).getByRole('button', { name: '보류로' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '삭제' })).toBeInTheDocument();
     expect(
       screen.queryByText(/최종 결과만 확정할 수 있습니다/),
@@ -283,5 +286,68 @@ describe('지원자 상세 — 마감 모집 — 최종 결과 확정만', () =>
       'href',
       `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview`,
     );
+  });
+});
+
+// 여기만 ApplicantDetailPage 를 실제로 렌더한다 — 컨테이너 레이아웃 회귀 가드를 함께 둔다.
+// jsdom 은 레이아웃을 계산하지 못하므로 실측으로 확정된 결함을 클래스로 못박는다.
+describe('지원자 상세 — 컨테이너 레이아웃', () => {
+  /** '상태 변경' 카드에서 컬럼·그리드·컨테이너를 거슬러 올라간다 — 셋 다 클래스만 검사할 대상이다. */
+  async function renderAndClimb() {
+    renderWithProviders(
+      <ApplicantDetailPage
+        clubId={CLUB_ID}
+        recruitmentId={RECRUITMENT_ID}
+        applicationId={APPLICATION_ID}
+      />,
+    );
+
+    const rightColumn = (await screen.findByRole('heading', { name: '상태 변경' })).closest(
+      'section',
+    )?.parentElement;
+    const grid = rightColumn?.parentElement;
+    return { grid, container: grid?.parentElement };
+  }
+
+  it('두 컬럼은 min-w-0 이다', async () => {
+    server.use(recruitmentHandler('OPEN'), applicantDetailHandler(false), neighborsHandler);
+
+    const { grid } = await renderAndClimb();
+    expect(grid?.className).toContain('lg:grid-cols-2');
+
+    // grid item 의 기본 min-width:auto 는 자손의 min-content 까지 트랙을 늘린다 — 답변에 든
+    // 무공백 긴 URL 하나가 컬럼째 뷰포트를 밀어냈다(320px 에서 650px 오버플로 실측).
+    // 답변의 break-words 는 조상이 폭을 제약해야만 동작하므로 두 컬럼 모두 min-w-0 이어야 한다.
+    const columns = Array.from(grid?.children ?? []);
+    expect(columns).toHaveLength(2);
+    columns.forEach((column) => expect(column).toHaveClass('min-w-0'));
+  });
+
+  it('전이가 남아 있으면 하단 바 자리를 10rem 예약한다', async () => {
+    // 마감 + 미확정 = 합격·불합격 전이가 남아 하단 고정 바가 렌더되는 케이스.
+    server.use(recruitmentHandler('CLOSED'), applicantDetailHandler(false), neighborsHandler);
+
+    const { container } = await renderAndClimb();
+
+    // 하단 고정 바는 320px·전이 3개에서 2줄(실측 121px)이라 6rem 예약으로는 마지막 카드를 가린다.
+    // 데스크탑에는 바가 없으므로 lg 에서 원복해야 표 아래 빈 띠가 생기지 않는다.
+    expect(container?.className).toContain('pb-[calc(10rem+env(safe-area-inset-bottom))]');
+    expect(container?.className).toContain('lg:pb-4');
+  });
+
+  it('전이가 없으면 하단 바가 없으므로 예약 여백도 없다', async () => {
+    // 마감 + 확정 완료 = 전이 0 → StatusActionBar 가 바를 렌더하지 않는다.
+    server.use(
+      recruitmentHandler('CLOSED'),
+      applicantDetailHandler(false, 'ACCEPTED'),
+      neighborsHandler,
+    );
+
+    const { container } = await renderAndClimb();
+
+    // 바가 없는데 예약만 남으면 모바일에 160px 죽은 여백이 생긴다.
+    expect(container?.className).not.toContain('10rem');
+    // toHaveClass 는 토큰 단위라 lg:pb-4 로는 통과하지 않는다 — 무조건 pb-4 인지 정확히 본다.
+    expect(container).toHaveClass('pb-4');
   });
 });
