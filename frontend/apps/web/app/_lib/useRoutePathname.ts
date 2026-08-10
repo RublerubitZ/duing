@@ -16,10 +16,5 @@ import { usePathname } from 'next/navigation';
  */
 export function useRoutePathname(): string {
   const pathname = usePathname();
-  return normalizeRoutePathname(pathname);
-}
-
-/** 훅 밖(테스트·유틸)에서 같은 정규화를 쓰기 위한 순수 함수. */
-export function normalizeRoutePathname(pathname: string): string {
   return pathname === '/index' ? '/' : pathname;
 }
