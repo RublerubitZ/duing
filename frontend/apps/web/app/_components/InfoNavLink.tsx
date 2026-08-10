@@ -3,10 +3,10 @@
 import { useState } from 'react';
 // GNB "정보" 탭 이동은 View Transition 제외(next/link) — ExploreNav·BottomNav 와 동일 정책.
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 import { INFO_MENU_ITEMS } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 /**
  * HomeNav(Server Component)용 "정보" 링크 + PC Hover Quick Menu.
@@ -17,7 +17,9 @@ import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
  * - ExploreNav/정보 섹션 내부에는 이 메뉴를 두지 않는다 — 섹션 내비게이션은 InfoTabs 담당.
  */
 export function InfoNavLink({ className }: { className?: string }) {
-  const pathname = usePathname();
+  // 홈(ISR)에서 렌더되므로 usePathname 이 아니라 정규화 훅을 쓴다 — 재생성 중에는 `/index` 가
+  // 넘어오고, 경로로 렌더를 가르는 순간 서버/클라이언트가 갈린다(#950 과 동일 함정).
+  const pathname = useRoutePathname();
   const lastInfoPath = useLastInfoPath(pathname);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 

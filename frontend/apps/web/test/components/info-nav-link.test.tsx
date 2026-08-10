@@ -25,6 +25,21 @@ describe('InfoNavLink — HomeNav 용 정보 링크 슬롯', () => {
     expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
   });
 
+  // 홈은 ISR 이라 재생성 중 usePathname 이 `/index` 를 준다. 경로 파생 렌더가 그 값에 반응하면
+  // 재생성된 HTML 과 브라우저 첫 렌더가 갈린다(#950 에서 하단 탭바가 같은 함정에 빠졌다).
+  // href 하나가 아니라 마크업 전체를 비교한다 — 나중에 active 밑줄·aria-current 같은 경로 파생
+  // 표현이 들어와도 잡히게. 이 컴포넌트는 useId 등 비결정 마크업이 없어 두 렌더가 문자열까지 같다.
+  it('ISR 재생성 경로(/index)에서도 홈(/)과 동일한 결과를 낸다', () => {
+    mockUsePathname.mockReturnValue('/');
+    const home = render(<InfoNavLink />);
+    const homeMarkup = home.container.innerHTML;
+    home.unmount();
+
+    mockUsePathname.mockReturnValue('/index');
+    const regenerated = render(<InfoNavLink />);
+    expect(regenerated.container.innerHTML).toBe(homeMarkup);
+  });
+
   it('마지막 방문 허브 경로로 이동한다', () => {
     window.localStorage.setItem('duing:info-last-path', '/introduce');
     mockUsePathname.mockReturnValue('/');
