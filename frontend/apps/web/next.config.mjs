@@ -88,4 +88,13 @@ export default withSentryConfig(nextConfig, {
   project: 'next-duing',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
+  webpack: {
+    // 미들웨어 자동 래핑 해제. 켜두면 Sentry 가 middleware.ts 를 wrapMiddlewareWithSentry 로 감싸면서
+    // @sentry/core 를 미들웨어 번들에 끌어들이고, 매 요청 isolation scope 복제·요청 헤더 직렬화·span
+    // 생성·flush 예약을 돌린다. 미들웨어가 하는 일은 auth_hint 검증 한 번뿐이라 관측 이득 대비
+    // Active CPU 비용이 크다. 서버·클라이언트 계측과 소스맵 업로드는 그대로 유지된다.
+    // webpack 빌드(`next build`) 전용 옵션이다 — 빌드를 turbopack 으로 옮기면 이 줄은 무효가 된다.
+    // (다만 Sentry 는 turbopack 에서 애초에 미들웨어를 감싸지 못하므로 그때도 래핑은 없다.)
+    autoInstrumentMiddleware: false,
+  },
 });
