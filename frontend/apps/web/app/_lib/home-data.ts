@@ -7,6 +7,7 @@ import {
   type CarouselSlide,
 } from './promotion';
 import { resolveApiBaseUrl } from './apiBaseUrl';
+import { shouldRethrowBackendFailure } from './fail-soft';
 
 const apiBaseUrl = resolveApiBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -19,8 +20,8 @@ function client() {
   });
 }
 
-// 백엔드 미가동/장애 시에도 홈을 500 없이 렌더하기 위한 폴백.
-// Server Component 에서 호출되므로, 네트워크 실패는 빈 배열로 swallow 한다.
+// 빌드 국면·development 한정 폴백 — 백엔드 미가동에도 홈을 500 없이 렌더한다.
+// production 런타임(=ISR 재생성 경로)에서는 swallow 하지 않고 rethrow 한다. 근거는 fail-soft.ts 참조.
 function logBackendUnavailable(scope: string, error: unknown) {
   if (process.env.NODE_ENV !== 'production') {
     console.warn(`[home-data] ${scope} 백엔드 호출 실패 — 빈 결과로 폴백`, error);
@@ -37,6 +38,7 @@ export async function fetchPopularClubs(size: number): Promise<ClubSummary[]> {
     });
     return page.content;
   } catch (error) {
+    if (shouldRethrowBackendFailure()) throw error;
     logBackendUnavailable('fetchPopularClubs', error);
     return [];
   }
@@ -52,6 +54,7 @@ export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSumm
     });
     return page.content.filter((club) => club.activeRecruitment?.endDate != null);
   } catch (error) {
+    if (shouldRethrowBackendFailure()) throw error;
     logBackendUnavailable('fetchUpcomingDeadlineClubs', error);
     return [];
   }
@@ -63,6 +66,7 @@ export async function fetchFederationFaqHighlights(size: number): Promise<Federa
     const page = await client().federationFaqs.list({ page: 0, size });
     return page.content;
   } catch (error) {
+    if (shouldRethrowBackendFailure()) throw error;
     logBackendUnavailable('fetchFederationFaqHighlights', error);
     return []; // BE 다운 시 홈 섹션 자체를 숨긴다(코드 버그로 오인 방지 — RecruitmentTicker 동일)
   }
@@ -70,7 +74,8 @@ export async function fetchFederationFaqHighlights(size: number): Promise<Federa
 
 /**
  * BannerCarousel 용: 공개 활성 프로모션 슬라이드.
- * DB 가 비었거나 백엔드 장애 시 정적 폴백 배너를 반환해 홈 레이아웃 깨짐을 방지한다.
+ * DB 가 비어 0건이면(정상 응답) 정적 폴백 배너를 반환해 홈 레이아웃 깨짐을 방지한다.
+ * 백엔드 장애는 위 로더들과 같은 정책 — 빌드·dev 만 폴백 배너, 런타임은 rethrow.
  */
 export async function fetchPublicPromotionSlides(): Promise<CarouselSlide[]> {
   try {
@@ -79,6 +84,7 @@ export async function fetchPublicPromotionSlides(): Promise<CarouselSlide[]> {
       return page.content.map(promotionToSlide);
     }
   } catch (error) {
+    if (shouldRethrowBackendFailure()) throw error;
     logBackendUnavailable('fetchPublicPromotionSlides', error);
   }
   return FALLBACK_BANNERS.map(fallbackBannerToSlide);
