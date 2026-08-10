@@ -22,6 +22,27 @@ const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
   "worker-src 'self' blob:",
 ].join('; ');
 
+// AUTH_HINT_SECRET 미주입 fail-fast. 이 값이 없으면 미들웨어가 보호 경로(/apply·/me·/manage·/admin)
+// 요청마다 throw 해서 500 을 낸다(apps/web/middleware.ts). 런타임 throw 는 이미 있지만 그건 "사용자가
+// 먼저 맞는다"는 뜻이라, 그런 빌드가 배포되지 못하게 여기서 먼저 깬다.
+//
+// 한계를 분명히 해둔다: 미들웨어는 이 값을 번들에 인라인하지 않고 런타임에 읽으므로(빌드 산출물에서
+// `process.env.AUTH_HINT_SECRET` 그대로 확인), 이 검사는 빌드 환경으로 런타임 환경을 추정하는 대리
+// 검사다. 같은 Vercel 프로젝트 환경변수 집합을 쓰기에 "아예 등록을 안 한" 실수는 잡지만, 빌드에만
+// 노출하고 런타임에서 뺀 경우는 못 잡는다. 그쪽은 uptime 모니터 5번(deploy/UPTIME.md)이 맡는다.
+//
+// 조건을 NODE_ENV 가 아니라 VERCEL_ENV 로 잡은 이유(되돌리지 말 것): next.config 는 `next build` 뿐
+// 아니라 `next lint`·`next start` 도 로드하고, 그때 NODE_ENV 는 전부 'production' 이다. NODE_ENV 로
+// 걸면 CI 의 Lint 스텝(AUTH_HINT_SECRET 미주입)이 깨져 Gate 가 영구 red 가 되고, Preview 환경에 이
+// 변수를 등록하지 않았다면 프리뷰 배포까지 전부 깨진다. VERCEL_ENV 는 Vercel 빌드에서만 정의되므로
+// 실제로 막고 싶은 지점 — 운영 배포 빌드 — 에만 걸린다. 실패하면 직전 배포가 그대로 유지된다.
+if (process.env.VERCEL_ENV === 'production' && !process.env.AUTH_HINT_SECRET) {
+  throw new Error(
+    'AUTH_HINT_SECRET 이 없습니다. 운영 배포 빌드에 필수입니다 — Vercel 프로젝트 환경변수(Production)에 ' +
+      '등록됐는지 확인하세요. 없으면 /apply·/me·/manage·/admin 이 전부 500 이 됩니다.',
+  );
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
