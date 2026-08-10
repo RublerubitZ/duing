@@ -51,7 +51,7 @@ describe('next.config 보안 헤더', () => {
 });
 
 describe('next.config 클라이언트 라우터 캐시', () => {
-  it('동적 세그먼트 staleTime 을 둬 탭 재방문(홈 등 force-dynamic)이 RSC 재페치·로딩 플래시 없이 복원되게 한다', () => {
+  it('동적 세그먼트 staleTime 을 둬 탭 재방문(로그인·콘솔 등 동적 라우트)이 RSC 재페치·로딩 플래시 없이 복원되게 한다', () => {
     expect(nextConfig.experimental?.staleTimes).toEqual({ dynamic: 180 });
   });
 });

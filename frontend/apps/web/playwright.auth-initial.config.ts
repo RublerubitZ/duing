@@ -13,8 +13,9 @@ import { defineConfig, devices } from '@playwright/test';
  *   (apps/web/) npx playwright test -c playwright.auth-initial.config.ts
  * </pre>
  *
- * <p>webServer 는 apps/web/.env.local 을 그대로 읽는다 — 미들웨어·(home) 레이아웃의 auth_hint
- * 검증에 AUTH_HINT_SECRET 이 필요하고, 스펙도 같은 파일에서 그 값을 읽어 쿠키를 서명한다.
+ * <p>webServer 는 apps/web/.env.local 을 그대로 읽는다 — 미들웨어의 auth_hint 검증에
+ * AUTH_HINT_SECRET 이 필요하고, 스펙도 같은 파일에서 그 값을 읽어 쿠키를 서명한다
+ * (홈 ISR 전환 #925 이후 (home) 레이아웃은 쿠키를 읽지 않는다).
  */
 export default defineConfig({
   testDir: './e2e',
