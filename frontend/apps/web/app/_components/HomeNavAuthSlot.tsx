@@ -6,8 +6,8 @@ import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { UserMenu } from '@/components/UserMenu';
 
 // 시드 모델(스펙 §8·§9.2)에서는 "확인 중" 대기 상태가 없다 — status 는 언제나 현재 최선의
-// 판단이고, 홈에서는 A′ 서버 시드가 SSR 시점에 이 값을 확정한다(자리표시 제거 — metric 1·2).
-// 시드가 틀린 드문 경우(스텔 힌트 등)는 서버 확인이 도착하는 대로 그쪽으로 정정된다.
+// 판단이다. initialAuthenticated 는 A′ 서버 시드용 통로였으나 홈 ISR 전환(#925)으로 현재 웹
+// 라우트는 전부 null(클라 시드) 경로만 쓴다 — 시드가 틀린 드문 경우는 서버 확인이 정정한다.
 export function HomeNavAuthSlot({
   initialAuthenticated = null,
 }: {

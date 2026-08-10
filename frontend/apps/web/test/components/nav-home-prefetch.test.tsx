@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
-// `/` 는 force-dynamic 이라 뷰포트 프리페치가 페이지뷰마다 서버리스 함수를 깨운다(Active CPU).
+// 홈 링크 프리페치 제외(P0 Active CPU 조치) — 홈이 ISR(#925)로 바뀐 뒤에도 복원은 실측 후
+// 별도 판단이므로 유지한다.
 // 전역 네비 3종(BottomNav·ExploreNav·HomeNav)의 홈 링크는 prefetch={false} 여야 하고,
 // 나머지 링크는 기본 프리페치 정책(undefined)을 유지해야 한다 — 둘 다 가드한다.
 // next/link 는 prefetch 여부를 DOM 에 남기지 않으므로 스텁으로 받아 data 속성으로 노출한다.

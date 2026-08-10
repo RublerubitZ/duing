@@ -27,8 +27,8 @@ export function hadSession(): boolean {
 }
 
 // §9.2 3단 시드의 클라이언트 층(신호 없음 행) — 로컬 이력이 있으면 authenticated 로 추정한다.
-// 이력이 없으면 스토어 초기값(unauthenticated)이 곧 시드다. 홈에서는 A′ 서버 시드(AuthHintSeed)가
-// 이 값을 승격할 수 있다. 시드가 틀렸다면 서버 확인(부트스트랩/만료 핸들러)이 정정한다.
+// 이력이 없으면 스토어 초기값(unauthenticated)이 곧 시드다. 홈 ISR 전환(#925) 이후 웹 라우트에
+// A′ 서버 시드 전달자는 없다 — 시드가 틀렸다면 서버 확인(부트스트랩/만료 핸들러)이 정정한다.
 export function seedAuthFromLocalHistory(): void {
   if (typeof window === 'undefined') return;
   if (hadSession()) useAuthStore.getState().seedSession('authenticated');

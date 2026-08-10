@@ -15,18 +15,17 @@ const activeLink = 'relative py-1 text-ink-deep';
 // 하단 탭바(BottomNav)·유저 메뉴 드롭다운·푸터가 대신한다. 끄면(false, 기본값) md 미만에서도
 // 상단 네비 링크가 그대로 노출된다.
 //
-// initialAuthenticated: 서버가 auth_hint 로 판정한 초기 인증 상태(A′). (home) 레이아웃만 내려주고,
-// 쿠키를 읽지 않는 다른 호출부는 null 로 둬 라우트가 동적으로 바뀌지 않게 한다 — null 이면
-// 소비자는 스토어 초기값을 서버 스냅샷으로 쓴다.
-type Props = { slimOnMobile?: boolean; initialAuthenticated?: boolean | null };
+// 인증 UI(알림 벨·유저메뉴)는 서버 시드 없이 클라이언트 스토어로만 결정된다 — 호출부가 전부
+// 정적/ISR 라우트라 쿠키를 읽을 수 없다(홈 ISR 전환 #925 로 A′ 서버 시드 전달자가 사라짐).
+type Props = { slimOnMobile?: boolean };
 
-export function HomeNav({ slimOnMobile = false, initialAuthenticated = null }: Props) {
+export function HomeNav({ slimOnMobile = false }: Props) {
   return (
     <header className="relative z-50 bg-cream/90 backdrop-blur">
       <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
-        {/* `/` 링크는 프리페치 제외 — 홈이 force-dynamic 이라 뷰포트 프리페치가 페이지뷰마다
-            서버리스 함수를 깨운다(Active CPU). hover·터치 프리페치까지 꺼져 첫 클릭 커밋이 RSC 응답
-            시작까지 지연될 수 있다(staleTimes.dynamic 180s 내 재방문은 즉시) — 의도된 트레이드오프. */}
+        {/* `/` 링크는 프리페치 제외(P0) — force-dynamic 시절 서버리스 비용 조치. 홈이 ISR(#925)로
+            바뀐 뒤에도 복원은 Active CPU 실측 후 별도 판단한다. hover·터치 프리페치까지 꺼져
+            첫 클릭 커밋이 RSC 응답 시작까지 지연될 수 있다 — 의도된 트레이드오프. */}
         <Link href="/" prefetch={false} aria-label="두잉 홈" className="translate-y-[3px]">
           <BrandMark size={44} />
         </Link>
@@ -65,8 +64,8 @@ export function HomeNav({ slimOnMobile = false, initialAuthenticated = null }: P
           </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">
-          <NotificationBell initialAuthenticated={initialAuthenticated} />
-          <HomeNavAuthSlot initialAuthenticated={initialAuthenticated} />
+          <NotificationBell />
+          <HomeNavAuthSlot />
         </div>
       </nav>
     </header>
