@@ -102,7 +102,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             crossOrigin="anonymous"
           />
         </head>
-        <body>
+        {/* 본문 폰트를 문서 기본값으로 둔다 — Pretendard 는 .duing 스코프 안에서만 적용돼서
+            그 밖의 화면(/apply·/join·/notifications·/me/* ·/403)은 시스템 폰트로 렌더됐고,
+            그 문서들에선 위 preload 를 아무도 소비하지 않아 "preloaded but not used" 경고가 났다. */}
+        <body className="font-body">
           <Providers>{children}</Providers>
           <BottomNav />
         </body>
