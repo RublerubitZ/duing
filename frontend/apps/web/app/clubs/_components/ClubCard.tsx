@@ -137,7 +137,12 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
         <div className="flex flex-col gap-1.5">
           {/* 계층 1·2 — 이름 + 한줄 소개(1줄 말줄임). 미작성이면 문구 없이 빈 줄로 높이만 유지해
               모든 카드에서 카테고리 행 위치가 일정하게 정렬되도록 한다(NBSP가 줄 높이 확보). */}
-          <h3 className="text-[20px] leading-[1.25]">{club.name}</h3>
+          {/* 이름은 1줄 말줄임 — 카드 리듬(이름/소개/카테고리 각 1줄)을 모든 카드에서 고정한다.
+              긴 이름이 카드를 늘리거나(2~3줄) 예약 공간이 구멍을 만들지 않도록 1줄이 유일해다.
+              전체 이름은 title 툴팁·상세 페이지에서 확인(접근성 이름은 전체 유지). */}
+          <h3 className="truncate text-[20px] leading-[1.25]" title={club.name}>
+            {club.name}
+          </h3>
           <p className="truncate text-[14px] text-charcoal-2 leading-[1.5]">
             {club.tagline ?? ' '}
           </p>
