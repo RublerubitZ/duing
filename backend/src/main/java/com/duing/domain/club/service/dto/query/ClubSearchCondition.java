@@ -28,9 +28,9 @@ public record ClubSearchCondition(
         return Boolean.TRUE.equals(recruiting);
     }
 
-    /** 미지정이면 RECENT 로 폴백. */
+    /** 미지정이면 RECOMMENDED(추천순) 로 폴백. */
     public ClubSortOption sortOptionOrDefault() {
-        return sortOption == null ? ClubSortOption.RECENT : sortOption;
+        return sortOption == null ? ClubSortOption.RECOMMENDED : sortOption;
     }
 
     /**

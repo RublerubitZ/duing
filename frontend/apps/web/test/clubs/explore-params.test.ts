@@ -41,6 +41,34 @@ describe('exploreParams — RecruitmentFilter 라운드 트립', () => {
   });
 });
 
+describe('exploreParams — sort(추천순) 라운드 트립', () => {
+  it("sort 미지정이면 기본값 'RECOMMENDED'(추천순) 로 파싱된다", () => {
+    const parsed = parseExploreParams(new URLSearchParams(''));
+    expect(parsed.sort).toBe('RECOMMENDED');
+  });
+
+  it("이전 URL 의 sort='RECENT'(최근 등록순) 는 'RECOMMENDED' 로 마이그레이션된다", () => {
+    const parsed = parseExploreParams(new URLSearchParams('sort=RECENT'));
+    expect(parsed.sort).toBe('RECOMMENDED');
+  });
+
+  it("기본값 'RECOMMENDED' 는 URL 에 직렬화되지 않는다", () => {
+    const query = serializeExploreParams({ ...DEFAULT_EXPLORE_PARAMS, sort: 'RECOMMENDED' });
+    expect(new URLSearchParams(query).get('sort')).toBeNull();
+  });
+
+  it("sort='DEADLINE_SOON' 은 URL 직렬화 후 같은 값으로 파싱된다", () => {
+    const query = serializeExploreParams({ ...DEFAULT_EXPLORE_PARAMS, sort: 'DEADLINE_SOON' });
+    const parsed = parseExploreParams(new URLSearchParams(query));
+    expect(parsed.sort).toBe('DEADLINE_SOON');
+  });
+
+  it("API 파라미터에는 기본 정렬도 'RECOMMENDED' 로 명시 전송된다", () => {
+    const api = toApiParams(DEFAULT_EXPLORE_PARAMS, 20);
+    expect(api.sort).toBe('RECOMMENDED');
+  });
+});
+
 describe('exploreParams — category 라운드 트립', () => {
   it("category='CREATION' 은 URL 직렬화 후 다시 같은 값으로 파싱된다", () => {
     const query = serializeExploreParams({ ...DEFAULT_EXPLORE_PARAMS, category: 'CREATION' });

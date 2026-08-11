@@ -1,14 +1,13 @@
 'use client';
 
 // 모바일 전용 가로형 리스트 카드(media-object) — 데스크탑은 세로형 ClubCard 를 쓴다(ClubExplorePage 에서 분기).
-// 리딩 모노그램 + [이름+소속 칩 / 한줄 소개 / 카테고리·분과] + 우측(상단 D-day · 하단 찜). 첫 항목은 추천 강조(잉크 보더).
+// 리딩 모노그램 + [이름+소속 칩 / 한줄 소개 / 카테고리·분과] + 우측(상단 D-day · 하단 찜).
 
 import { Link } from 'next-view-transitions';
 
 import { daysUntilKst } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
-import { Sparkle } from '../../_components/Sparkle';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
@@ -60,8 +59,6 @@ type Props = {
   liked?: boolean;
   isLikeBusy?: boolean;
   onLikeToggle?: (id: number) => void;
-  /** 리스트 첫 항목 추천 강조(잉크 보더 + 추천 라벨). */
-  recommended?: boolean;
 };
 
 export function ClubListItem({
@@ -69,7 +66,6 @@ export function ClubListItem({
   liked = false,
   isLikeBusy = false,
   onLikeToggle,
-  recommended = false,
 }: Props) {
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
@@ -81,18 +77,10 @@ export function ClubListItem({
     <Link
       href={toRoute(`/clubs/${club.id}`)}
       className={cn(
-        'group relative flex items-center gap-3 rounded-2xl bg-paper p-3.5 transition hover:shadow-2',
-        recommended ? 'border-[1.5px] border-ink' : 'border border-line',
+        'group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 transition hover:shadow-2',
         isDimmed && 'opacity-[0.78]',
       )}
     >
-      {recommended && (
-        <span className="absolute -top-2 left-3.5 inline-flex items-center gap-1 rounded-full bg-ink px-2 py-[2px] text-[10px] font-bold text-white">
-          <Sparkle size={9} color="#9DB6A0" />
-          추천
-        </span>
-      )}
-
       <div
         className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl font-display text-[23px] font-bold leading-none text-white shadow-1"
         style={{

@@ -4,7 +4,7 @@ import { type Division, isDivision } from './clubs';
 
 export type Scope = '전체' | '중앙' | '학과';
 export type DivisionFilter = '전체' | Division;
-export type SortKey = 'DEADLINE_SOON' | 'RECENT' | 'ALPHABETICAL';
+export type SortKey = 'RECOMMENDED' | 'DEADLINE_SOON' | 'ALPHABETICAL';
 
 export type RecruitmentFilter = 'all' | 'available' | 'upcoming' | 'closed';
 
@@ -31,7 +31,7 @@ export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   college: null,
   category: null,
   activeDays: [],
-  sort: 'RECENT',
+  sort: 'RECOMMENDED',
   favorite: false,
   page: 1,
 };
@@ -59,7 +59,7 @@ export function categoryLabel(value: ClubCategory): string {
 
 const SCOPES: readonly Scope[] = ['전체', '중앙', '학과'];
 const RECRUITMENTS: readonly RecruitmentFilter[] = ['all', 'available', 'upcoming', 'closed'];
-const SORT_KEYS: readonly SortKey[] = ['DEADLINE_SOON', 'RECENT', 'ALPHABETICAL'];
+const SORT_KEYS: readonly SortKey[] = ['RECOMMENDED', 'DEADLINE_SOON', 'ALPHABETICAL'];
 
 const DAY_OF_WEEK: readonly ClubDayOfWeek[] = [
   'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY',
@@ -106,7 +106,9 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
     rawCollege !== null && isCollege(rawCollege) ? rawCollege : null;
 
   const rawSort = search.get('sort');
-  const sort: SortKey = SORT_KEYS.find((s) => s === rawSort) ?? 'RECENT';
+  const sort: SortKey =
+    rawSort === 'RECENT' ? 'RECOMMENDED'                            // 이전 URL 호환 (최근 등록순 → 추천순)
+      : SORT_KEYS.find((s) => s === rawSort) ?? 'RECOMMENDED';
 
   const rawCategory = search.get('category');
   const category: ClubCategory | null =
@@ -134,7 +136,7 @@ export function serializeExploreParams(params: ExploreParams): string {
   if (params.college) next.set('college', params.college);
   if (params.category) next.set('category', params.category);
   params.activeDays.forEach((day) => next.append('activeDays', day));
-  if (params.sort !== 'RECENT') next.set('sort', params.sort);
+  if (params.sort !== 'RECOMMENDED') next.set('sort', params.sort);
   if (params.favorite) next.set('favorite', 'true');
   if (params.page > 1) next.set('page', String(params.page));
   return next.toString();

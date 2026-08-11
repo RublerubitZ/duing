@@ -103,12 +103,7 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.getByText('마감')).toBeInTheDocument();
   });
 
-  it('recommended → "추천" 라벨 노출', () => {
-    render(<ClubListItem club={baseClub} recommended />);
-    expect(screen.getByText('추천')).toBeInTheDocument();
-  });
-
-  it('recommended=false → "추천" 라벨 없음', () => {
+  it('근거 없는 "추천" 라벨을 렌더하지 않는다 — 추천은 정렬(RECOMMENDED)이 담당한다', () => {
     render(<ClubListItem club={baseClub} />);
     expect(screen.queryByText('추천')).toBeNull();
   });

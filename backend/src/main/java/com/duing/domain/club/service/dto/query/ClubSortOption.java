@@ -5,9 +5,23 @@ package com.duing.domain.club.service.dto.query;
  * 자유 형태 Sort 문자열을 받지 않고 의도된 정렬만 허용하기 위해 enum 으로 가드한다.
  */
 public enum ClubSortOption {
+    /**
+     * 추천순. 기본값. 정책·산식은 {@code ClubRecommendationPolicy} 참고.
+     * <ol>
+     *   <li>모집 상태 그룹: 모집중(1) → 상시모집(2) → 예정·마감·없음(3, 내부 상태 우선순위 없음)</li>
+     *   <li>그룹 내부: KST 1시간 bucket deterministic random 70% + 활동점수(club_metric) 30% DESC</li>
+     *   <li>{@code club.id} ASC (tie-break — 동점 시 페이지네이션 안정화)</li>
+     * </ol>
+     */
+    RECOMMENDED,
     /** 활성 모집의 마감일이 가까운 순. 모집 없는 동아리는 마지막. */
     DEADLINE_SOON,
-    /** 등록일(createdAt) DESC. 기본값. */
+    /**
+     * @deprecated 전환기 호환 alias — {@link #RECOMMENDED} 와 동일 동작. 배포 전환기의 stale FE 번들이
+     * {@code sort=RECENT} 를 명시 전송하므로 enum 을 즉시 지우면 바인딩 400 으로 탐색이 깨진다.
+     * FE 반영이 완전히 퍼진 다음 릴리스에서 제거한다.
+     */
+    @Deprecated
     RECENT,
     /** 이름 가나다순 ASC. */
     ALPHABETICAL,
@@ -21,6 +35,7 @@ public enum ClubSortOption {
      * </ol>
      * 활성 모집이 없는 동아리는 tier 1 = 0 으로 자연 후순위, tier 3 NULL → NULLS LAST.
      * "현재 모집 중인 동아리 중 인기순" 사용 시 {@code recruitmentStatus=AVAILABLE} 와 조합.
+     * 홈 FeaturedClubs 가 사용 — 탐색 추천순(RECOMMENDED)과는 별개 정렬이다.
      */
     POPULAR
 }
