@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 // 반대로 런타임(=재생성) 실패는 rethrow 해 직전 캐시본을 유지한다 — swallow 하면 재생성이
 // "성공" 처리돼 빈 홈이 300초 캐시된다(app/_lib/fail-soft.ts).
 // club-stats 만 예외로 전 국면 fail-soft(null) 유지 — 홈 단독 소비가 아니라 login/signup
-// (force-dynamic)도 쓰기 때문에, rethrow 하면 그 두 페이지가 우아한 열화 대신 500 이 된다.
+// (같은 300초 ISR)도 쓰기 때문에, rethrow 하면 그 두 페이지가 우아한 열화 대신 500 이 된다.
 // 홈에서 club-stats 만 단독 실패하면 통계 문구가 빠질 뿐이라(빈 홈 아님) 감수 가능하다.
 // ⚠️ 불변식: 이 라우트(레이아웃 포함)에서 cookies()/headers() 를 읽는 순간 다시 dynamic 이 된다 —
 // 개인화(인증 상태·알림)는 클라이언트 전용으로 유지할 것.
