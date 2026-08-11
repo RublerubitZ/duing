@@ -1,6 +1,5 @@
 package com.duing.domain.clubmember.service;
 
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -164,8 +163,7 @@ public class ClubAuthService {
      * lazy 프록시 초기화 실패(500)를 방지한다 (PR-2 하드닝과 동일).
      */
     private ClubStatus resolveClubStatusOrThrow(Long clubId) {
-        return clubRepository.findById(clubId)
-                .map(Club::getStatus)
+        return clubRepository.findStatusById(clubId)
                 .orElseThrow(ClubMemberException.NotAMember::new);
     }
 }
