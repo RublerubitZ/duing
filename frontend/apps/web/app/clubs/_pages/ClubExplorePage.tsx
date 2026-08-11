@@ -654,8 +654,14 @@ export function ClubExplorePage() {
         </nav>
 
         <div className="flex items-center justify-between px-4 pb-3 pt-4">
-          {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다. */}
-          <div className="text-[13.5px] text-charcoal-2">
+          {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
+              필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
+          <div
+            className={cn(
+              'text-[13.5px] text-charcoal-2',
+              recruitingCountQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+            )}
+          >
             {recruitingTotal !== undefined && (
               <>
                 지금 <span className="font-bold text-ink">{recruitingTotal}곳</span> 모집 중

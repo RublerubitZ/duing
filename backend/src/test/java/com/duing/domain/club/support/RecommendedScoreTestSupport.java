@@ -42,8 +42,8 @@ public final class RecommendedScoreTestSupport {
                 hex.append(String.format("%02x", hashByte));
             }
             return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("MD5 미지원 JVM 은 없다", e);
+        } catch (NoSuchAlgorithmException md5Unavailable) {
+            throw new IllegalStateException("MD5 미지원 JVM 은 없다", md5Unavailable);
         }
     }
 }

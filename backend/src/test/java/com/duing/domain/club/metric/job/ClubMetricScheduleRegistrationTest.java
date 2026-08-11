@@ -33,9 +33,15 @@ class ClubMetricScheduleRegistrationTest {
                 .flatMap(holder -> holder.getScheduledTasks().stream())
                 .collect(Collectors.toSet());
 
+        // 표현식만 보면 다른 잡의 동일 크론에도 거짓 통과할 수 있어 대상 메서드까지 짚는다.
+        // 러너블은 Spring 이 관측 래퍼로 감싸므로(instanceof ScheduledMethodRunnable 불가)
+        // "클래스명.메서드명" toString 계약으로 매칭한다. 크론 zone 은 CronTrigger 가
+        // 공개 API 로 노출하지 않아 표현식·대상 검증까지만 한다.
+        String refreshTarget = ClubMetricRefreshJob.class.getName() + ".refresh";
         boolean hourlyCronRegistered = scheduledTasks.stream()
                 .anyMatch(scheduledTask -> scheduledTask.getTask() instanceof CronTask cronTask
-                        && cronTask.getExpression().equals("0 0 * * * *"));
+                        && cronTask.getExpression().equals("0 0 * * * *")
+                        && cronTask.getRunnable().toString().equals(refreshTarget));
 
         assertThat(hourlyCronRegistered)
                 .as("ClubMetricRefreshJob 의 매시 정각 크론이 등록되어야 한다. 등록된 태스크: %s",
