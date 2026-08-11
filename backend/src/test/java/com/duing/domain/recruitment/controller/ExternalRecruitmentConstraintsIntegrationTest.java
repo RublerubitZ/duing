@@ -83,6 +83,8 @@ class ExternalRecruitmentConstraintsIntegrationTest extends IntegrationTestBase 
                 .statusCode(HttpStatus.CREATED.value());
         createExternal(saveActiveClubLedByLeader("네이버폼동아리"), "https://form.naver.com/response/abc123", "")
                 .statusCode(HttpStatus.CREATED.value());
+        createExternal(saveActiveClubLedByLeader("네이버단축동아리"), "https://naver.me/5sulQYsy", "")
+                .statusCode(HttpStatus.CREATED.value());
     }
 
     @Test
@@ -96,9 +98,7 @@ class ExternalRecruitmentConstraintsIntegrationTest extends IntegrationTestBase 
                 .body("message", containsString("forms.gle"))
                 .body("message", containsString("form.naver.com"));
 
-        // 단축 URL(naver.me)·호스트 위장은 원본 주소 안내로 되돌린다.
-        createExternal(club, "https://naver.me/abcdefg", "")
-                .statusCode(HttpStatus.BAD_REQUEST.value());
+        // 호스트 위장은 허용 플랫폼 안내로 되돌린다.
         createExternal(club, "https://docs.google.com.evil.com/forms", "")
                 .statusCode(HttpStatus.BAD_REQUEST.value());
         createExternal(club, "https://docs.google.com@evil.com/forms", "")

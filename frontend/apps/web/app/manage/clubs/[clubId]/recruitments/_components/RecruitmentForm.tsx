@@ -447,8 +447,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 />
               </label>
               <p className="mt-2 text-xs leading-relaxed text-charcoal-3">
-                구글 폼(forms.gle · docs.google.com/forms) 또는 네이버 폼(form.naver.com) 주소만 등록할 수
-                있어요. 단축 URL 이 아닌 원본 주소를 붙여넣어 주세요.
+                구글 폼(forms.gle · docs.google.com/forms) 또는 네이버 폼(form.naver.com · naver.me)
+                주소만 등록할 수 있어요.
               </p>
             </div>
           )}

@@ -10,6 +10,8 @@ const PLATFORM_LABEL_BY_HOST: Readonly<Record<string, string>> = {
   'forms.gle': 'Google Forms',
   'docs.google.com': 'Google Forms',
   'form.naver.com': 'Naver Form',
+  // naver.me 단축코드는 목적지가 폼임을 보장하지 않으므로 "Naver Form" 대신 중립 라벨.
+  'naver.me': 'Naver',
 };
 
 export function externalFormPlatformLabel(externalFormUrl: string | null): string | null {
