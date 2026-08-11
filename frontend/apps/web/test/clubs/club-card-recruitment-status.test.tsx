@@ -38,7 +38,7 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
     expect(screen.getByText('3.15 - 4.20')).toBeInTheDocument();
   });
 
-  it('ALWAYS_OPEN: "상시모집" 뱃지 + "상시모집" 기간 라벨', () => {
+  it('ALWAYS_OPEN: 칩은 "모집중", 기간 영역만 "상시모집" — 같은 라벨 중복 표기 없음', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -48,7 +48,8 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
         endDate: null,
       },
     }} />);
-    expect(screen.getAllByText('상시모집').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('모집중')).toBeInTheDocument();
+    expect(screen.getAllByText('상시모집')).toHaveLength(1);
   });
 
   it('UPCOMING: "모집예정" 뱃지 + "3.20부터 모집"', () => {

@@ -38,7 +38,8 @@ type StatusStyle = {
 
 const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
   OPEN:        { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
-  ALWAYS_OPEN: { label: '상시모집',  dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  // 우측 기간 영역이 "상시모집"을 표기하므로 칩은 모집 가능 상태만 말한다(중복 제거).
+  ALWAYS_OPEN: { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
   UPCOMING:    { label: '모집예정',  dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
   CLOSED:      { label: '모집마감',  dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
   NONE:        { label: '모집 없음', dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
