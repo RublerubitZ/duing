@@ -3,9 +3,27 @@ package com.duing.domain.club.metric.repository;
 import com.duing.domain.club.metric.entity.ClubMetric;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 public interface ClubMetricRepository extends JpaRepository<ClubMetric, Long> {
+
+    /**
+     * 집계 대상(ACTIVE·미삭제)에서 빠진 동아리의 고아 metric 행 삭제.
+     * <p>refresh 는 upsert 만 하므로 폐쇄·중단·삭제된 동아리의 행이 영구 잔존한다 — 목록은 ACTIVE 만
+     * 노출해 정렬엔 무해하지만, 재활성 시 낡은 점수로 되살아나지 않도록 매 갱신마다 함께 걷어낸다.
+     */
+    // native DELETE 는 영속성 컨텍스트를 우회한다 — 이전에 로드된 ClubMetric 이 1차 캐시에 남아
+    // 삭제 후 조회에 되살아나지 않도록 flush/clear 를 강제한다.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM club_metric metric
+            WHERE NOT EXISTS (SELECT 1 FROM club c
+                              WHERE c.id = metric.club_id
+                                AND c.deleted_at IS NULL
+                                AND c.status = 'ACTIVE')
+            """, nativeQuery = true)
+    int deleteOrphans();
 
     /**
      * 동아리별 활동 지표 원천값 일괄 집계.
