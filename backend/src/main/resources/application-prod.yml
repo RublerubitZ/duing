@@ -81,6 +81,11 @@ duing:
   federation-inquiry:
     purge:
       enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:true}
+  # 추천순 활동점수 집계 잡 — 운영 기본 활성(집계 upsert 만이라 안전, 꺼지면 추천 정렬이 활동점수 0 으로
+  # 저하 동작한다). 다른 잡들과 동일한 하드코딩 관례. DUING_CLUB_METRIC_ENABLED=false 로 끌 수 있다.
+  club:
+    metric:
+      enabled: ${DUING_CLUB_METRIC_ENABLED:true}
   # 시설 크롤 스케줄러 — 운영에서는 항상 켠다. 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막는다.
   # 끄고 싶으면 DUING_FACILITY_CRAWLER_ENABLED=false 로 오버라이드한다.
   facility:

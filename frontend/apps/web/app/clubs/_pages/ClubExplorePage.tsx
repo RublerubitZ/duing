@@ -143,10 +143,13 @@ export function ClubExplorePage() {
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
-  const recruitingCount = visibleClubs.filter((club) => {
-    const status = club.activeRecruitment?.displayStatus;
-    return status === 'OPEN' || status === 'ALWAYS_OPEN';
-  }).length;
+  /** 모바일 "지금 N곳 모집 중" — 현재 페이지 20개가 아니라 현재 필터 조건 전체에서 모집중인
+      동아리 수를 서버 count(totalElements)로 센다. size=1 이라 목록 페이로드는 최소. */
+  const recruitingCountQuery = useClubListQuery(
+    toApiParams({ ...params, recruitment: 'available', page: 1 }, 1),
+    { enabled: !requiresLoginForFavorite },
+  );
+  const recruitingTotal = recruitingCountQuery.data?.totalElements;
   const activeFilterCount =
     (params.favorite ? 1 : 0) +
     (params.recruitment !== 'all' ? 1 : 0) +
@@ -246,7 +249,7 @@ export function ClubExplorePage() {
   };
 
   const handleSortChange = (value: string) => {
-    if (value === 'RECENT' || value === 'DEADLINE_SOON' || value === 'ALPHABETICAL') {
+    if (value === 'RECOMMENDED' || value === 'DEADLINE_SOON' || value === 'ALPHABETICAL') {
       updateParams({ sort: value, page: 1 });
     }
   };
@@ -467,7 +470,7 @@ export function ClubExplorePage() {
                   }
                   className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-2"
                 >
-                  <option value="RECENT">최근 등록순</option>
+                  <option value="RECOMMENDED">추천순</option>
                   <option value="DEADLINE_SOON">마감 임박순</option>
                   <option value="ALPHABETICAL">가나다순</option>
                 </select>
@@ -651,8 +654,19 @@ export function ClubExplorePage() {
         </nav>
 
         <div className="flex items-center justify-between px-4 pb-3 pt-4">
-          <div className="text-[13.5px] text-charcoal-2">
-            지금 <span className="font-bold text-ink">{recruitingCount}곳</span> 모집 중
+          {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
+              필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
+          <div
+            className={cn(
+              'text-[13.5px] text-charcoal-2',
+              recruitingCountQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+            )}
+          >
+            {recruitingTotal !== undefined && (
+              <>
+                지금 <span className="font-bold text-ink">{recruitingTotal}곳</span> 모집 중
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -674,7 +688,7 @@ export function ClubExplorePage() {
                 onChange={(event) => handleSortChange(event.target.value)}
                 className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
               >
-                <option value="RECENT">최근순</option>
+                <option value="RECOMMENDED">추천순</option>
                 <option value="DEADLINE_SOON">마감순</option>
                 <option value="ALPHABETICAL">가나다순</option>
               </select>
@@ -709,11 +723,10 @@ export function ClubExplorePage() {
                     clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                   )}
                 >
-                  {visibleClubs.map((club, index) => (
+                  {visibleClubs.map((club) => (
                     <ClubListItem
                       key={club.id}
                       club={club}
-                      recommended={index === 0 && params.page === 1}
                       liked={likedIds.has(club.id)}
                       isLikeBusy={
                         isFavoriteDirectionUnknown ||

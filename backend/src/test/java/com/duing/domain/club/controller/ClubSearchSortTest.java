@@ -53,15 +53,29 @@ class ClubSearchSortTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("sort 미지정(RECENT 기본값) 이면 나중에 생성된 동아리가 앞에 반환된다")
-    void defaultSortReturnsRecentlyCreatedClubFirst() throws Exception {
-        Club firstCreated = saveActiveClub("먼저생성recent");
-        Club secondCreated = saveActiveClub("나중생성recent");
+    @DisplayName("sort 미지정(RECOMMENDED 기본값) 이면 모집중 동아리가 모집공고 없는 동아리보다 앞에 반환된다")
+    void defaultSortPlacesRecruitingClubFirst() throws Exception {
+        saveActiveClub("무모집defaultrec");
+        Club recruiting = saveActiveClub("모집중defaultrec");
+        saveOpenRecruitment(recruiting, LocalDate.now().plusDays(5));
 
         RestAssured.given()
-                .when().get("/api/v1/clubs?keyword=recent")
+                .when().get("/api/v1/clubs?keyword=defaultrec")
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.content[0].name", equalTo(secondCreated.getName()));
+                .body("data.content[0].name", equalTo(recruiting.getName()));
+    }
+
+    @Test
+    @DisplayName("구 클라이언트의 sort=RECENT 는 400 없이 추천순(RECOMMENDED)과 동일하게 동작한다")
+    void legacyRecentSortIsAcceptedAsRecommendedAlias() throws Exception {
+        saveActiveClub("무모집legacyrec");
+        Club recruiting = saveActiveClub("모집중legacyrec");
+        saveOpenRecruitment(recruiting, LocalDate.now().plusDays(5));
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?sort=RECENT&keyword=legacyrec")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].name", equalTo(recruiting.getName()));
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.duing.domain.club.repository;
 
 import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
+import static com.duing.domain.club.metric.entity.QClubMetric.clubMetric;
 import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
 import static com.duing.domain.favorite.entity.QClubFavorite.clubFavorite;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
@@ -12,6 +13,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.QUser;
+import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
@@ -31,6 +33,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -296,58 +299,60 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                     club.createdAt.desc()
             };
             case ALPHABETICAL -> new OrderSpecifier<?>[]{ club.name.asc() };
-            case RECENT -> {
-                // 동아리당 대표 모집을 sub-select 로 한 번 lookup 해서 그룹 번호와 보조 정렬 키를 만든다.
-                // 운영 가정상 동아리당 활성 모집은 1건. 다중일 때는 createdAt 최신을 대표로 본다.
+            // RECENT 는 전환기 alias — stale FE 번들의 sort=RECENT 를 추천순으로 흡수한다(ClubSortOption 참고).
+            case RECOMMENDED, RECENT -> {
                 LocalDate today = LocalDate.now(clock);
+                String hourBucket = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
 
-                // 주의: CASE 절은 위에서부터 평가된다. RecruitmentDisplayStatus.resolve() 의 우선순위와 맞추기 위해
-                // (1) CLOSED → 그룹 4
-                // (2) status=OPEN ∧ today < startDate → UPCOMING → 그룹 3
-                // (3) status=OPEN ∧ endDate IS NULL → ALWAYS_OPEN → 그룹 2  (startDate ≤ today 는 이미 (2) 가 걸러냄)
-                // (4) status=OPEN ∧ today > endDate → CLOSED → 그룹 4
-                // (5) 이외(OPEN ∧ startDate ≤ today ≤ endDate) → OPEN → 그룹 1
-                NumberExpression<Integer> recruitmentPriority = Expressions.asNumber(
+                // 그룹 판정은 RecruitmentDisplayStatus.resolve() 와 동치: OPEN=1, ALWAYS_OPEN=2,
+                // 예정·마감·없음=3 (그룹 3 내부에 상태 하위 우선순위를 두지 않는다 — 스펙 §3).
+                // when 조건들이 상호 배타라 평가 순서 무관, 다중 모집은 MIN 으로 가장 좋은 상태를 취한다.
+                NumberExpression<Integer> statusPriority = Expressions.asNumber(
                         JPAExpressions
                                 .select(new CaseBuilder()
-                                        .when(recruitment.status.eq(RecruitmentStatus.CLOSED))
-                                        .then(4)
-                                        .when(recruitment.startDate.gt(today))
-                                        .then(3)
-                                        .when(recruitment.endDate.isNull())
-                                        .then(2)
-                                        .when(recruitment.endDate.lt(today))
-                                        .then(4)
-                                        .otherwise(1)
+                                        .when(recruitment.status.eq(RecruitmentStatus.OPEN)
+                                                .and(recruitment.startDate.loe(today))
+                                                .and(recruitment.endDate.goe(today)))
+                                        .then(ClubRecommendationPolicy.PRIORITY_OPEN)
+                                        .when(recruitment.status.eq(RecruitmentStatus.OPEN)
+                                                .and(recruitment.startDate.loe(today))
+                                                .and(recruitment.endDate.isNull()))
+                                        .then(ClubRecommendationPolicy.PRIORITY_ALWAYS_OPEN)
+                                        .otherwise(ClubRecommendationPolicy.PRIORITY_OTHERS)
                                         .min())
                                 .from(recruitment)
                                 .where(recruitment.club.eq(club)));
 
-                // 그룹 내 보조 정렬용 정렬키들 (모두 sub-select). 그룹에 안 맞으면 null → NULLS LAST 로 영향 없음.
-                var openEndDateAsc = JPAExpressions.select(recruitment.endDate.min())
-                        .from(recruitment)
-                        .where(recruitment.club.eq(club),
-                                recruitment.status.eq(RecruitmentStatus.OPEN),
-                                recruitment.startDate.loe(today),
-                                recruitment.endDate.goe(today));
-                var upcomingStartDateAsc = JPAExpressions.select(recruitment.startDate.min())
-                        .from(recruitment)
-                        .where(recruitment.club.eq(club),
-                                recruitment.status.eq(RecruitmentStatus.OPEN),
-                                recruitment.startDate.gt(today));
-                var closedEndDateDesc = JPAExpressions.select(recruitment.endDate.max())
-                        .from(recruitment)
-                        .where(recruitment.club.eq(club),
-                                recruitment.status.eq(RecruitmentStatus.CLOSED)
-                                        .or(recruitment.endDate.isNotNull().and(recruitment.endDate.lt(today))));
+                // KST 1시간 bucket deterministic random — 같은 bucket 동안 페이지네이션이 안정적이고
+                // 시간이 바뀌면 순서가 순환한다. categoryShuffle 은 시간대별 카테고리 순환 성분으로,
+                // 카테고리 필터가 걸리면 결과 집합 안에서 상수가 되어 자동 무효화된다.
+                // 직접 호출 문법을 쓴다 — JPA function('...') 문법은 등록된 반환 타입(Double)을 무시해
+                // 산술 컨텍스트에서 "JdbcType for java.lang.Object" 해석 오류가 난다(술어 컨텍스트만 관대).
+                NumberExpression<Double> clubShuffle = Expressions.numberTemplate(Double.class,
+                        "hourly_shuffle({0}, {1})", club.id, hourBucket);
+                NumberExpression<Double> categoryShuffle = Expressions.numberTemplate(Double.class,
+                        "hourly_shuffle({0}, {1})", club.category, hourBucket);
+
+                // 활동점수 — ClubMetricRefreshJob 이 매시 집계한 0~1 값. 행이 없으면(배치 전 신규) coalesce 0.
+                // 산식 전체를 단일 템플릿으로 내린다 — QueryDSL 산술 체인(multiply/add)은 서브쿼리
+                // coalesce 표현식의 결과 타입을 추론하지 못해 런타임 IllegalArgumentException(MULT)이 난다.
+                NumberExpression<Double> finalScore = Expressions.numberTemplate(Double.class,
+                        "({0} * {1} + {2} * {3}) * {4} + coalesce({5}, 0.0) * {6}",
+                        clubShuffle, ClubRecommendationPolicy.CLUB_SHUFFLE_WEIGHT,
+                        categoryShuffle, ClubRecommendationPolicy.CATEGORY_SHUFFLE_WEIGHT,
+                        ClubRecommendationPolicy.RANDOM_WEIGHT,
+                        JPAExpressions.select(clubMetric.activityScore)
+                                .from(clubMetric)
+                                .where(clubMetric.clubId.eq(club.id)),
+                        ClubRecommendationPolicy.ACTIVITY_WEIGHT);
 
                 yield new OrderSpecifier<?>[]{
-                        new OrderSpecifier<>(Order.ASC, recruitmentPriority.coalesce(5),
+                        new OrderSpecifier<>(Order.ASC,
+                                statusPriority.coalesce(ClubRecommendationPolicy.PRIORITY_OTHERS),
                                 OrderSpecifier.NullHandling.NullsLast),
-                        new OrderSpecifier<>(Order.ASC, openEndDateAsc, OrderSpecifier.NullHandling.NullsLast),
-                        new OrderSpecifier<>(Order.ASC, upcomingStartDateAsc, OrderSpecifier.NullHandling.NullsLast),
-                        new OrderSpecifier<>(Order.DESC, closedEndDateDesc, OrderSpecifier.NullHandling.NullsLast),
-                        club.createdAt.desc()
+                        new OrderSpecifier<>(Order.DESC, finalScore),
+                        // 동점 시 페이지네이션이 흔들리지 않도록 하는 deterministic tie-breaker.
+                        club.id.asc()
                 };
             }
             case POPULAR -> {

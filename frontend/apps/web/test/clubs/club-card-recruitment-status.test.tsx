@@ -24,7 +24,7 @@ const baseClub: Club = {
 };
 
 describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
-  it('OPEN: "모집중" 뱃지 + "모집 03.15 - 04.20" 기간', () => {
+  it('OPEN: "모집중" 뱃지 + "3.15 - 4.20" 기간(앞자리 0 제거, 접두어 없음)', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -35,10 +35,10 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
       },
     }} />);
     expect(screen.getByText('모집중')).toBeInTheDocument();
-    expect(screen.getByText('모집 03.15 - 04.20')).toBeInTheDocument();
+    expect(screen.getByText('3.15 - 4.20')).toBeInTheDocument();
   });
 
-  it('ALWAYS_OPEN: "상시모집" 뱃지 + "상시모집" 기간 라벨', () => {
+  it('ALWAYS_OPEN: 칩은 "모집중", 기간 영역만 "상시모집" — 같은 라벨 중복 표기 없음', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -48,10 +48,11 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
         endDate: null,
       },
     }} />);
-    expect(screen.getAllByText('상시모집').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('모집중')).toBeInTheDocument();
+    expect(screen.getAllByText('상시모집')).toHaveLength(1);
   });
 
-  it('UPCOMING: "모집예정" 뱃지 + "03.20부터 모집"', () => {
+  it('UPCOMING: "모집예정" 뱃지 + "3.20부터 모집"', () => {
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -62,7 +63,7 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
       },
     }} />);
     expect(screen.getByText('모집예정')).toBeInTheDocument();
-    expect(screen.getByText('03.20부터 모집')).toBeInTheDocument();
+    expect(screen.getByText('3.20부터 모집')).toBeInTheDocument();
   });
 
   it('CLOSED: "모집마감" 뱃지 + "모집 종료"', () => {
@@ -82,6 +83,6 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
   it('activeRecruitment=null: "모집 없음" 뱃지, 기간 영역에 텍스트 없음', () => {
     render(<ClubCard club={{ ...baseClub, activeRecruitment: null }} />);
     expect(screen.getByText('모집 없음')).toBeInTheDocument();
-    expect(screen.queryByText(/모집 종료|상시모집|부터 모집|모집 \d{2}\.\d{2}/)).toBeNull();
+    expect(screen.queryByText(/모집 종료|상시모집|부터 모집|\d{1,2}\.\d{1,2} - /)).toBeNull();
   });
 });
