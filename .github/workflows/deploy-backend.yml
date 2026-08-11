@@ -33,6 +33,12 @@ on:
     paths:
       - 'backend/**'
       - 'deploy/**'
+      # deploy/ 아래 문서는 배포 대상이 아니다 — 서버로 올라가는 건 docker-compose.yml·Caddyfile 뿐인데
+      # (Stage 스텝의 source 참고), 이 잡은 `docker compose up -d` 로 단일 인스턴스를 recreate 해 수십 초
+      # 백엔드를 내린다. 실제로 2026-08-10 릴리스에서 UPTIME.md 한 줄 때문에 운영 백엔드가 재기동됐고,
+      # 그 순단 창에 홈 ISR 재생성이 502 를 맞아 Sentry 에 5건이 찍혔다(사용자 영향은 stale 서빙으로 없었음).
+      # `deploy/**` 자체는 남겨둔다 — 새 배포 파일이 추가돼도 자동으로 잡히는 fail-safe 가 낫다.
+      - '!deploy/**.md'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: {}
 
