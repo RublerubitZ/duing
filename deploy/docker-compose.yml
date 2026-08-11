@@ -15,9 +15,10 @@ services:
     expose:
       - "8080"           # 내부 네트워크에만 노출 — 호스트로 직접 게시하지 않는다(Caddy 경유).
     healthcheck:
-      # 상태 가시화용. Docker 는 unhealthy 라고 자동 재시작하지 않으므로 DB 일시 장애(503)가
-      # 컨테이너 재시작을 유발하지 않는다(단일 인스턴스 안정성).
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      # 상태 가시화용(Docker 는 unhealthy 여도 자동 재시작하지 않는다). liveness(프로세스 생존)만 본다 —
+      # aggregate health 는 db indicator 를 포함해 30초마다 DB 검증 쿼리(일 2,880회)를 만들었다.
+      # DB 장애 감지는 Better Stack 1번(aggregate /actuator/health, deploy/UPTIME.md 분류표 ①)이 담당한다.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/liveness"]
       interval: 30s
       timeout: 5s
       retries: 3
