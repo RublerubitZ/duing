@@ -178,6 +178,32 @@ class ClubRecommendedSortTest {
     }
 
     @Test
+    @DisplayName("카테고리 순환 성분이 SQL 정렬에 반영된다 — 서로 다른 카테고리 동아리들의 순서가 복제 산식과 일치한다")
+    void categoryShuffleComponentIsWiredIntoSqlOrdering() throws Exception {
+        // 전부 기타 그룹(모집 없음)·활동점수 0 — 순서는 오로지 clubShuffle+categoryShuffle 이 결정한다.
+        // SQL 이 club.category 를 셔플에 안 태우거나 다른 소스를 쓰면 복제 산식과 순서가 어긋난다.
+        record Entry(Club club, ClubCategory category) {}
+        List<Entry> entries = List.of(
+                new Entry(saveActiveClub("recCatMix", ClubCategory.ACADEMIC), ClubCategory.ACADEMIC),
+                new Entry(saveActiveClub("recCatMix", ClubCategory.SPORTS), ClubCategory.SPORTS),
+                new Entry(saveActiveClub("recCatMix", ClubCategory.HOBBY), ClubCategory.HOBBY),
+                new Entry(saveActiveClub("recCatMix", ClubCategory.ART), ClubCategory.ART));
+
+        withStableBucket(bucket -> {
+            List<String> expectedByScore = entries.stream()
+                    .sorted(Comparator
+                            .comparingDouble((Entry entry) -> RecommendedScoreTestSupport.finalScore(
+                                    entry.club().getId(), entry.category(), bucket, 0.0))
+                            .reversed()
+                            .thenComparing(entry -> entry.club().getId()))
+                    .map(entry -> entry.club().getName())
+                    .toList();
+            assertThat(fetchNames("recCatMix")).containsExactlyElementsOf(expectedByScore);
+            return null;
+        });
+    }
+
+    @Test
     @DisplayName("SQL hourly_shuffle 과 Java 복제 산식은 같은 값을 내고, bucket 이 바뀌면 값이 달라진다")
     void sqlShuffleMatchesJavaReplicaAndVariesByBucket() {
         String sqlExpression =

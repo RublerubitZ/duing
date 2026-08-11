@@ -3,6 +3,7 @@ package com.duing.domain.club.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import com.duing.domain.club.support.RecommendedScoreTestSupport;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -32,6 +33,28 @@ class ClubRecommendationPolicyTest {
         Clock kstMidnightAfter = Clock.fixed(Instant.parse("2026-08-10T15:30:00Z"), SEOUL);
         String bucket = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(kstMidnightAfter));
         assertThat(bucket).isEqualTo("2026081100");
+    }
+
+    @Test
+    @DisplayName("카테고리 순환 — 시간 bucket 이 지남에 따라 우세 카테고리가 서로 뒤바뀐다")
+    void categoryRotationAlternatesDominantCategoryAcrossBuckets() {
+        // 고정된 100시간 구간에서 두 카테고리의 셔플 우위가 양쪽 모두 발생해야 순환이다.
+        // md5 결정적 산식이라 재현 가능(절대 날짜여도 만료 의미가 없어 timebomb 아님).
+        LocalDateTime base = LocalDateTime.of(2026, 8, 11, 0, 0);
+        int academicWins = 0;
+        int sportsWins = 0;
+        for (int hourOffset = 0; hourOffset < 100; hourOffset++) {
+            String bucket = ClubRecommendationPolicy.hourBucket(base.plusHours(hourOffset));
+            double academic = RecommendedScoreTestSupport.shuffleScore("ACADEMIC", bucket);
+            double sports = RecommendedScoreTestSupport.shuffleScore("SPORTS", bucket);
+            if (academic > sports) {
+                academicWins++;
+            } else {
+                sportsWins++;
+            }
+        }
+        assertThat(academicWins).isGreaterThan(0);
+        assertThat(sportsWins).isGreaterThan(0);
     }
 
     @Test
