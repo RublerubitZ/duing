@@ -128,6 +128,30 @@ class ClubMetricRefreshTest {
         assertThat(modestScore / extremeScore).isCloseTo(expectedLogRatio, within(1e-9));
     }
 
+    @Test
+    @DisplayName("운영 중단·삭제로 집계 대상에서 빠진 동아리의 metric 행은 다음 갱신에서 제거된다")
+    void orphanMetricRowsAreRemovedOnRefresh() throws Exception {
+        Club staying = saveActiveClub("metricOrphanStay");
+        Club deactivated = saveActiveClub("metricOrphanInactive");
+        Club deleted = saveActiveClub("metricOrphanDeleted");
+        clubMetricService.refreshAll();
+        assertThat(clubMetricRepository.findById(deactivated.getId())).isPresent();
+        assertThat(clubMetricRepository.findById(deleted.getId())).isPresent();
+
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(deactivated, ClubStatus.INACTIVE);
+        clubRepository.save(deactivated);
+        clubRepository.delete(deleted);   // @SQLDelete soft-delete
+        clubRepository.flush();
+
+        clubMetricService.refreshAll();
+
+        assertThat(clubMetricRepository.findById(deactivated.getId())).isEmpty();
+        assertThat(clubMetricRepository.findById(deleted.getId())).isEmpty();
+        assertThat(clubMetricRepository.findById(staying.getId())).isPresent();
+    }
+
     // ── helpers ──
 
     private Club saveActiveClub(String name) throws Exception {

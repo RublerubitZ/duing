@@ -25,6 +25,8 @@ public class GeneralClubMetricService implements ClubMetricService {
     @Override
     @Transactional
     public void refreshAll() {
+        // 폐쇄·중단·삭제로 집계 대상에서 빠진 동아리의 고아 행을 먼저 걷어낸다(재활성 시 낡은 점수 방지).
+        clubMetricRepository.deleteOrphans();
         List<ClubMetricSourceRow> sourceRows = clubMetricRepository.findMetricSources();
         if (sourceRows.isEmpty()) {
             return;
