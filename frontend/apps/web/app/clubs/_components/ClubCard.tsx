@@ -44,10 +44,11 @@ const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
   NONE:        { label: '모집 없음', dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
 };
 
+/** "2026-08-08" → "8.8" — 앞자리 0 을 떼 달력 표기처럼 읽히게 한다. */
 function formatMonthDay(isoDate: string): string {
   const parts = isoDate.split('-');
-  const month = parts[1] ?? '';
-  const day = parts[2] ?? '';
+  const month = Number(parts[1] ?? '');
+  const day = Number(parts[2] ?? '');
   return `${month}.${day}`;
 }
 
@@ -61,7 +62,7 @@ function renderPeriod(club: Club): React.ReactNode {
       if (recruitment.endDate === null) return null;
       return (
         <span className="font-bold text-ink">
-          모집 {formatMonthDay(recruitment.startDate)} - {formatMonthDay(recruitment.endDate)}
+          {formatMonthDay(recruitment.startDate)} - {formatMonthDay(recruitment.endDate)}
         </span>
       );
     case 'ALWAYS_OPEN':
@@ -148,8 +149,9 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
       </div>
 
       <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+        {/* 기간 텍스트가 길어 줄바꿈될 때 칩이 눌려 "모집\n중"으로 세로 분리되지 않게 nowrap+shrink-0. */}
         <span
-          className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
         >
           <span
             className="w-1.5 h-1.5 rounded-full"
