@@ -171,7 +171,10 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
     college: params.college ?? undefined,
     category: params.category ?? undefined,
     activeDays,
-    sort: params.sort,
+    // 기본 정렬(RECOMMENDED)은 미전송 — 서버 기본값에 맡긴다. 배포 전환기에 새 FE 가
+    // RECOMMENDED 를 모르는 구 BE 를 만나면 enum 바인딩 400 으로 탐색이 깨지므로,
+    // 기본값 생략이 유일하게 양방향 안전하다(구 FE 의 sort=RECENT 는 BE alias 가 흡수).
+    sort: params.sort === 'RECOMMENDED' ? undefined : params.sort,
     favorite: params.favorite || undefined,
     page: Math.max(0, params.page - 1),
     size: pageSize,

@@ -63,9 +63,14 @@ describe('exploreParams — sort(추천순) 라운드 트립', () => {
     expect(parsed.sort).toBe('DEADLINE_SOON');
   });
 
-  it("API 파라미터에는 기본 정렬도 'RECOMMENDED' 로 명시 전송된다", () => {
+  it('기본 정렬(RECOMMENDED)은 API 로 sort 를 전송하지 않는다 — 구 BE(enum 에 값 없음) 400 방지', () => {
     const api = toApiParams(DEFAULT_EXPLORE_PARAMS, 20);
-    expect(api.sort).toBe('RECOMMENDED');
+    expect(api.sort).toBeUndefined();
+  });
+
+  it("기본이 아닌 정렬(DEADLINE_SOON)은 API 로 명시 전송된다", () => {
+    const api = toApiParams({ ...DEFAULT_EXPLORE_PARAMS, sort: 'DEADLINE_SOON' }, 20);
+    expect(api.sort).toBe('DEADLINE_SOON');
   });
 });
 

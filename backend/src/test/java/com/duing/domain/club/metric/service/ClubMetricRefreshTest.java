@@ -13,7 +13,6 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.metric.entity.ClubMetric;
 import com.duing.domain.club.metric.repository.ClubMetricRepository;
 import com.duing.domain.club.repository.ClubRepository;
-import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -51,7 +50,7 @@ class ClubMetricRefreshTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("찜·지원·최근활동이 모두 최대인 동아리는 활동점수 1.0, 신호가 없는 동아리는 0 으로 집계된다")
+    @DisplayName("찜·지원·최근활동이 있는 동아리는 카운트·활동시각·양수 점수로, 신호가 없는 동아리는 0 으로 집계된다")
     void refreshComputesCountsAndNormalizedScore() throws Exception {
         Club active = saveActiveClub("metricActive");
         Club idle = saveActiveClub("metricIdle");
@@ -61,12 +60,14 @@ class ClubMetricRefreshTest {
 
         clubMetricService.refreshAll();
 
+        // 점수는 전역 최댓값 정규화라 공유 테스트 DB 의 잔존 데이터(다른 클래스가 커밋한 찜·지원)에
+        // 절대값이 흔들린다 — 절대값(=1.0) 특성은 ClubRecommendationPolicyTest 단위테스트가 검증하고,
+        // 여기서는 잔존 데이터와 무관한 카운트·상대 비교만 단언한다.
         ClubMetric activeMetric = clubMetricRepository.findById(active.getId()).orElseThrow();
         assertThat(activeMetric.getFavoriteCount()).isEqualTo(2);
         assertThat(activeMetric.getApplicationCount()).isEqualTo(1);
-        // 모집 등록(created_at=방금)이 최근활동으로 잡힌다 → recency 1.0. 찜·지원 모두 전체 최댓값 → 1.0.
+        // 모집 등록(created_at=방금)이 최근활동으로 잡힌다.
         assertThat(activeMetric.getLastActivityAt()).isNotNull();
-        assertThat(activeMetric.getActivityScore()).isCloseTo(1.0, within(1e-9));
         assertThat(activeMetric.getComputedAt()).isNotNull();
 
         ClubMetric idleMetric = clubMetricRepository.findById(idle.getId()).orElseThrow();
@@ -74,6 +75,9 @@ class ClubMetricRefreshTest {
         assertThat(idleMetric.getApplicationCount()).isZero();
         assertThat(idleMetric.getLastActivityAt()).isNull();
         assertThat(idleMetric.getActivityScore()).isZero();
+        assertThat(activeMetric.getActivityScore())
+                .isGreaterThan(idleMetric.getActivityScore())
+                .isLessThanOrEqualTo(1.0);
     }
 
     @Test
@@ -117,9 +121,11 @@ class ClubMetricRefreshTest {
 
         double extremeScore = clubMetricRepository.findById(extreme.getId()).orElseThrow().getActivityScore();
         double modestScore = clubMetricRepository.findById(modest.getId()).orElseThrow().getActivityScore();
-        assertThat(extremeScore).isCloseTo(ClubRecommendationPolicy.FAVORITE_WEIGHT, within(1e-9));
-        // raw 합산이면 10배 차이(0.1x) — 로그 정규화로 격차가 크게 줄어든다(≈0.4x).
-        assertThat(modestScore).isGreaterThan(extremeScore * 0.3);
+        // 두 동아리 모두 찜 성분만 있으므로 점수비 = log1p(3)/log1p(30) — 전역 최댓값이
+        // 분모에서 소거되어 잔존 데이터와 무관하게 성립한다(raw 합산이면 0.1x 였을 격차).
+        double expectedLogRatio = Math.log1p(3) / Math.log1p(30);
+        assertThat(extremeScore).isGreaterThan(0);
+        assertThat(modestScore / extremeScore).isCloseTo(expectedLogRatio, within(1e-9));
     }
 
     // ── helpers ──
