@@ -22,6 +22,8 @@ const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockRouterPush, replace: mockRouterReplace, back: vi.fn() }),
+  // 정적 셸 전환으로 recruitmentId 는 클라이언트가 useParams 로 읽는다 (vi.mock 호이스팅 탓에 리터럴).
+  useParams: () => ({ recruitmentId: '42' }),
 }));
 
 const RECRUITMENT_ID = 42;
@@ -149,21 +151,12 @@ function wrapperFor(queryClient: QueryClient) {
   };
 }
 
-/**
- * React 19 의 use(thenable) 이 재진입 없이 동기적으로 값을 꺼내가도록 status/value 가 미리
- * 태깅된 thenable 을 넘긴다 (server-rendered params 와 같은 모양).
- */
 function renderApplyPage(queryClient: QueryClient) {
-  const paramsValue = { recruitmentId: String(RECRUITMENT_ID) };
-  const params = Object.assign(Promise.resolve(paramsValue), {
-    status: 'fulfilled' as const,
-    value: paramsValue,
-  });
   const Wrapper = wrapperFor(queryClient);
   return render(
     <Wrapper>
       <Suspense fallback={<p>loading…</p>}>
-        <ApplyPage params={params} />
+        <ApplyPage />
       </Suspense>
     </Wrapper>,
   );

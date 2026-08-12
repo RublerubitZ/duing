@@ -15,6 +15,8 @@ const mockRouterReplace = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockRouterPush, replace: mockRouterReplace, back: vi.fn() }),
+  // 정적 셸 전환으로 recruitmentId 는 클라이언트가 useParams 로 읽는다 (vi.mock 호이스팅 탓에 리터럴).
+  useParams: () => ({ recruitmentId: '42' }),
 }));
 
 import { ApplyForm } from '@/app/apply/[recruitmentId]/_components/ApplyForm';
@@ -559,20 +561,10 @@ function renderApplyPage(queryClient: QueryClient = makeQueryClient()) {
     );
   }
 
-  // React 19 의 use(thenable) 이 정상 fulfilled 상태로 재진입 없이 동기적으로 값을 꺼내가도록
-  // status/value 가 미리 태깅된 thenable 을 전달한다 (server-rendered params 와 동일 모양).
-  // 일반 Promise.resolve 를 넘기면 use 가 한 번 suspend 한 뒤 microtask 가 act 경계를 벗어나
-  // jsdom + vitest 환경에서 영구 loading 으로 막힌다.
-  const paramsValue = { recruitmentId: String(RECRUITMENT_ID) };
-  const params = Object.assign(Promise.resolve(paramsValue), {
-    status: 'fulfilled' as const,
-    value: paramsValue,
-  });
-
   return render(
     <Wrapper>
       <Suspense fallback={<p>loading…</p>}>
-        <ApplyPage params={params} />
+        <ApplyPage />
       </Suspense>
     </Wrapper>,
   );

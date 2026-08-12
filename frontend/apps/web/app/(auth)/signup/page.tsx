@@ -42,10 +42,10 @@ const BENEFITS = [
   },
 ];
 
-// 통계는 홈과 같은 300초 ISR — force-dynamic 은 요청(·`?next=` 리다이렉트 복귀)마다 백엔드
-// COUNT 2발을 만들었다. 빌드 시점 API 실패 폴백(null → 통계 문구 생략)이 박혀도 첫 재생성(≤300초)에
+// 통계는 홈과 같은 600초 ISR — force-dynamic 은 요청(·`?next=` 리다이렉트 복귀)마다 백엔드
+// COUNT 2발을 만들었다. 빌드 시점 API 실패 폴백(null → 통계 문구 생략)이 박혀도 첫 재생성(≤600초)에
 // 회복되므로 과거 "SSG 박제"(무기한 고정) 문제는 재발하지 않는다.
-export const revalidate = 300;
+export const revalidate = 600;
 
 export default async function SignupPage() {
   const stats = await fetchClubStats();
