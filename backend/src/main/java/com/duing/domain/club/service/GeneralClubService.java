@@ -87,26 +87,25 @@ public class GeneralClubService implements ClubService {
 
     @Override
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
-        Page<Club> clubPage = clubRepository.findByCondition(condition, pageable);
-        List<Club> clubs = clubPage.getContent();
-        if (clubs.isEmpty()) {
-            return clubPage.map(ClubSummaryQuery::from);
+        Page<ClubSummaryQuery> clubPage = clubRepository.findByCondition(condition, pageable);
+        List<ClubSummaryQuery> summaries = clubPage.getContent();
+        if (summaries.isEmpty()) {
+            return clubPage;
         }
 
-        List<Long> clubIds = clubs.stream().map(Club::getId).toList();
+        List<Long> clubIds = summaries.stream().map(ClubSummaryQuery::id).toList();
         LocalDate today = LocalDate.now(clock);
         Map<Long, ClubActiveRecruitmentRow> representativeByClubId =
                 recruitmentRepository.findRepresentativeByClubIds(clubIds, today);
 
-        return clubPage.map(eachClub -> {
-            ClubSummaryQuery base = ClubSummaryQuery.from(eachClub);
-            ClubActiveRecruitmentRow row = representativeByClubId.get(eachClub.getId());
+        return clubPage.map(summary -> {
+            ClubActiveRecruitmentRow row = representativeByClubId.get(summary.id());
             if (row == null) {
-                return base;
+                return summary;
             }
             RecruitmentDisplayStatus displayStatus = RecruitmentDisplayStatus.resolve(
                     row.status(), row.startDate(), row.endDate(), today);
-            return base.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
+            return summary.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
                     row.recruitmentId(), displayStatus, row.startDate(), row.endDate()));
         });
     }

@@ -8,6 +8,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import java.lang.reflect.Field;
 import java.time.DayOfWeek;
 import java.util.Set;
@@ -38,7 +39,7 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월수금테스트")
                 .doesNotContain("화목테스트");
     }
@@ -57,11 +58,11 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월수금ORTEST", "월ORTEST", "수ORTEST")
                 .doesNotContain("화목ORTEST");
         assertThat(page.getContent().stream()
-                .map(Club::getName)
+                .map(ClubSummaryQuery::name)
                 .filter("월수금ORTEST"::equals)
                 .count()).isEqualTo(1);
     }
@@ -78,7 +79,7 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(filtered.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월요일NULLTEST")
                 .doesNotContain("미설정NULLTEST");
 
@@ -88,7 +89,7 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(unfiltered.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월요일NULLTEST", "미설정NULLTEST");
     }
 
@@ -104,7 +105,7 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월요일EMPTYTEST")
                 .doesNotContain("빈문자열EMPTYTEST");
     }
@@ -125,7 +126,7 @@ class ClubSearchActiveDaysTest {
                 PageRequest.of(0, 50));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("월요일SEVENTEST", "미설정SEVENTEST");
     }
 

@@ -1,6 +1,5 @@
 package com.duing.domain.club.service.dto.query;
 
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
@@ -28,23 +27,6 @@ public record ClubSummaryQuery(
             LocalDate startDate,
             LocalDate endDate
     ) {}
-
-    public static ClubSummaryQuery from(Club club) {
-        return new ClubSummaryQuery(
-                club.getId(),
-                club.getName(),
-                club.getCategory(),
-                club.getDivision(),
-                club.getCollege(),
-                club.getDepartment(),
-                club.getLogoUrl(),
-                club.getStatus(),
-                club.getTags(),
-                club.getTagline(),
-                club.isCentralClub(),
-                null
-        );
-    }
 
     public ClubSummaryQuery withActiveRecruitment(ActiveRecruitmentSummary recruitmentSummary) {
         return new ClubSummaryQuery(id, name, category, division, college, department, logoUrl, status, tags, tagline, centralClub, recruitmentSummary);

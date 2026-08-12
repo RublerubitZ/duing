@@ -1,18 +1,24 @@
 package com.duing.domain.club.controller;
 
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.Club.UpdatePayload;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.user.entity.College;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -95,6 +101,58 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                         "data.content.find { it.name == '" + club.getName() + "' }.tagline",
                         equalTo("매주 함께 성장하는 동아리")
                 );
+    }
+
+    @Test
+    @DisplayName("목록 응답은 카드가 쓰는 전 필드를 각기 다른 값으로 그대로 담아 내려준다")
+    void listResponseCarriesEveryCardField() throws Exception {
+        // 값이 서로 달라야 컬럼 순서가 뒤바뀐 projection(동형 스왑)을 잡아낼 수 있다.
+        Club saved = saveFullyPopulatedClub("전필드계약클럽");
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?keyword=" + saved.getName())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                // 응답 키 집합 자체를 고정 — 필드가 늘거나 빠지면 실패한다.
+                .body("data.content[0].keySet()", containsInAnyOrder(
+                        "id", "name", "category", "division", "college", "department",
+                        "logoUrl", "status", "tags", "tagline", "centralClub", "activeRecruitment"))
+                .body("data.content[0].id", equalTo(saved.getId().intValue()))
+                .body("data.content[0].name", equalTo(saved.getName()))
+                .body("data.content[0].category", equalTo("SPORTS"))
+                .body("data.content[0].division", equalTo("분과값"))
+                .body("data.content[0].college", equalTo("DESIGN_ART"))
+                .body("data.content[0].department", equalTo("학과값"))
+                .body("data.content[0].logoUrl", equalTo("https://cdn.example.test/logo.png"))
+                .body("data.content[0].status", equalTo("ACTIVE"))
+                .body("data.content[0].tags", contains("태그하나", "태그둘"))
+                .body("data.content[0].tagline", equalTo("한줄소개값"))
+                .body("data.content[0].centralClub", equalTo(true))
+                .body("data.content[0].activeRecruitment", nullValue());
+    }
+
+    /**
+     * 목록 카드가 쓰는 필드는 전부 서로 다른 값으로, 쓰지 않는 필드(소개·커버·활동장소)도 값을 채워
+     * 잘못된 컬럼이 실려 오면 단언이 깨지게 한다.
+     */
+    private Club saveFullyPopulatedClub(String name) throws Exception {
+        String uniqueName = name + "-" + sequence.getAndIncrement();
+        Club created = Club.create(
+                uniqueName, ClubCategory.SPORTS, "분과값", "소개값",
+                "https://cdn.example.test/logo.png", true, College.DESIGN_ART, "학과값");
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(created, ClubStatus.ACTIVE);
+        created.update(new UpdatePayload(
+                null, null, null, null, null,
+                "https://cdn.example.test/cover.png",   // coverUrl — 목록 미사용
+                List.of("태그하나", "태그둘"),
+                null, null, null, null,
+                "활동장소값",                             // location — 목록 미사용
+                null, null,
+                "한줄소개값",
+                null, null, null, null, null, null, null, null, null, null, null, null));
+        return clubRepository.save(created);
     }
 
     private Club saveActiveClub(String name, boolean centralClub, College college) throws Exception {

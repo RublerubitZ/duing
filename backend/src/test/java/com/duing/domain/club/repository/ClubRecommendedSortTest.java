@@ -12,6 +12,7 @@ import com.duing.domain.club.metric.repository.ClubMetricRepository;
 import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.support.RecommendedScoreTestSupport;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -143,7 +144,7 @@ class ClubRecommendedSortTest {
             List<String> paged = new ArrayList<>();
             for (int page = 0; page < 3; page++) {
                 paged.addAll(clubRepository.findByCondition(recommendedCondition("recPage"), PageRequest.of(page, 2))
-                        .getContent().stream().map(Club::getName).toList());
+                        .getContent().stream().map(ClubSummaryQuery::name).toList());
             }
             assertThat(paged).containsExactlyElementsOf(wholeList).doesNotHaveDuplicates();
             return null;
@@ -172,9 +173,9 @@ class ClubRecommendedSortTest {
         ClubSearchCondition condition = new ClubSearchCondition(
                 ClubCategory.SPORTS, null, "recCat", null, null, null, null, null, null,
                 ClubSortOption.RECOMMENDED, null);
-        List<Club> content = clubRepository.findByCondition(condition, PageRequest.of(0, 50)).getContent();
+        List<ClubSummaryQuery> content = clubRepository.findByCondition(condition, PageRequest.of(0, 50)).getContent();
 
-        assertThat(content).extracting(Club::getName).containsExactly(sports.getName());
+        assertThat(content).extracting(ClubSummaryQuery::name).containsExactly(sports.getName());
     }
 
     @Test
@@ -228,7 +229,7 @@ class ClubRecommendedSortTest {
 
     private List<String> fetchNames(String keyword) {
         return clubRepository.findByCondition(recommendedCondition(keyword), PageRequest.of(0, 50))
-                .getContent().stream().map(Club::getName).toList();
+                .getContent().stream().map(ClubSummaryQuery::name).toList();
     }
 
     /**

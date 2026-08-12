@@ -12,6 +12,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
@@ -60,11 +61,11 @@ class ClubSearchPopularSortTest {
         saveApplications(fewRec, 1);
         saveApplications(manyRec, 5);
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popApp"),
                 PageRequest.of(0, 50)).getContent();
 
-        assertThat(page).extracting(Club::getName).containsSubsequence(many.getName(), few.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(many.getName(), few.getName());
     }
 
     @Test
@@ -79,11 +80,11 @@ class ClubSearchPopularSortTest {
         saveFavorites(lessFav, 1);
         saveFavorites(moreFav, 3);
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popFav"),
                 PageRequest.of(0, 50)).getContent();
 
-        assertThat(page).extracting(Club::getName).containsSubsequence(moreFav.getName(), lessFav.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(moreFav.getName(), lessFav.getName());
     }
 
     @Test
@@ -94,11 +95,11 @@ class ClubSearchPopularSortTest {
         saveOpenRecruitment(earlier, LocalDate.now().minusDays(10), LocalDate.now().plusDays(7));
         saveOpenRecruitment(later, LocalDate.now().minusDays(2), LocalDate.now().plusDays(7));
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popStart"),
                 PageRequest.of(0, 50)).getContent();
 
-        assertThat(page).extracting(Club::getName).containsSubsequence(later.getName(), earlier.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(later.getName(), earlier.getName());
     }
 
     @Test
@@ -110,11 +111,11 @@ class ClubSearchPopularSortTest {
         saveApplications(withRecRec, 1);
         saveFavorites(withoutRec, 99);
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popWith"),
                 PageRequest.of(0, 50)).getContent();
 
-        assertThat(page).extracting(Club::getName).containsSubsequence(withRec.getName(), withoutRec.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(withRec.getName(), withoutRec.getName());
     }
 
     @Test
@@ -130,9 +131,9 @@ class ClubSearchPopularSortTest {
                 null, null, "popAvail", null, null,
                 RecruitmentStatusFilter.AVAILABLE, null, null, null, ClubSortOption.POPULAR, null);
 
-        List<Club> page = clubRepository.findByCondition(condition, PageRequest.of(0, 50)).getContent();
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(condition, PageRequest.of(0, 50)).getContent();
 
-        assertThat(page).extracting(Club::getName)
+        assertThat(page).extracting(ClubSummaryQuery::name)
                 .contains(withRec.getName())
                 .doesNotContain(withoutRec.getName());
     }
@@ -156,12 +157,12 @@ class ClubSearchPopularSortTest {
         Recruitment fewNewOpenRec = saveOpenRecruitment(fewNew, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7));
         saveApplications(fewNewOpenRec, 3);
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popOnlyOpen"),
                 PageRequest.of(0, 50)).getContent();
 
         // fewNew(OPEN 3) > manyOld(OPEN 1) — CLOSED 의 10개는 제외
-        assertThat(page).extracting(Club::getName).containsSubsequence(fewNew.getName(), manyOld.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(fewNew.getName(), manyOld.getName());
     }
 
     @Test
@@ -179,12 +180,12 @@ class ClubSearchPopularSortTest {
         }
         applicationRepository.flush();
 
-        List<Club> page = clubRepository.findByCondition(
+        List<ClubSummaryQuery> page = clubRepository.findByCondition(
                 conditionPopular("popSoft"),
                 PageRequest.of(0, 50)).getContent();
 
         // alive(2) > deleted(1 살아남음)
-        assertThat(page).extracting(Club::getName).containsSubsequence(alive.getName(), deleted.getName());
+        assertThat(page).extracting(ClubSummaryQuery::name).containsSubsequence(alive.getName(), deleted.getName());
     }
 
     private ClubSearchCondition conditionPopular(String keyword) {
