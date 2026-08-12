@@ -117,6 +117,12 @@ duing:
     window-days: 30
     default-limit: 10
     max-limit: 20
+  public-api-cache:
+    # 공개 API 마이크로 캐시는 테스트 기본 비활성(운영 기본값은 활성). 대부분의 통합테스트가
+    # "시드 → 조회 → 변경 → 재조회" 를 한 컨텍스트 안에서 반복하는데, 캐시가 켜져 있으면 재조회가
+    # 이전 응답을 받아 검증이 무너진다. 캐시 동작 자체는 PublicApiMicroCacheAcceptanceTest 가
+    # 자기 프로퍼티로 켜서 검증한다.
+    enabled: false
   facility:
     crawler:
       enabled: false
