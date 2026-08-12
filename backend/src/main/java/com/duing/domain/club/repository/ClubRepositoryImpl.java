@@ -299,8 +299,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                     club.createdAt.desc()
             };
             case ALPHABETICAL -> new OrderSpecifier<?>[]{ club.name.asc() };
-            // RECENT 는 전환기 alias — stale FE 번들의 sort=RECENT 를 추천순으로 흡수한다(ClubSortOption 참고).
-            case RECOMMENDED, RECENT -> {
+            case RECOMMENDED -> {
                 LocalDate today = LocalDate.now(clock);
                 String hourBucket = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
 
