@@ -235,7 +235,8 @@ class FacilityBookingNotificationIntegrationTest extends IntegrationTestBase {
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(YearMonth.from(date))
                 .orElseGet(() -> FacilityMonthSnapshot.create(YearMonth.from(date), generation,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
-        snapshot.recordSuccessful(generation, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
+        snapshot.recordSuccessful(generation, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                List.of(fixture.facility().getId()));
         snapshotRepository.save(snapshot);
 
         boolean confirmed = matchingService.verifyAndConfirm(bookingId, clubName, Set.of());

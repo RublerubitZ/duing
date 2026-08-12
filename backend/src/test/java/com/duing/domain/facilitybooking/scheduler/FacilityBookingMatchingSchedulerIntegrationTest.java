@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -144,14 +145,21 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     /**
-     * 지정한 세대 시각(crawledAt)으로 SUCCESS 스냅샷을 기록한다. 정확 세대 결박은 크롤 행의 crawledAt 이
-     * 스냅샷 crawledAt 과 일치해야 확정하므로, 행과 스냅샷이 같은 세대임을 표현하려면 이 시각을 공유해야 한다.
+     * 지정한 세대 시각(crawledAt)으로 SUCCESS 스냅샷을 기록한다. 전 시설 성공 크롤과 같게 저장된 모든 시설을
+     * 세대 성공 집합에 넣는다 — 세대 결박은 "이 세대에 수집 성공한 시설인가"로 판별하기 때문이다.
      */
     private void recordSuccessSnapshot(YearMonth yearMonth, LocalDateTime crawledAt) {
+        recordSnapshot(yearMonth, crawledAt, FetchStatus.SUCCESS, null,
+                facilityRepository.findAll().stream().map(Facility::getId).toList());
+    }
+
+    /** 세대 성공 집합을 직접 지정하는 스냅샷 기록 — 일부 시설만 수집 성공한 PARTIAL 상황 재현용. */
+    private void recordSnapshot(YearMonth yearMonth, LocalDateTime crawledAt, FetchStatus fetchStatus,
+                                String lastError, List<Long> syncedFacilityIds) {
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(yearMonth)
                 .orElseGet(() -> FacilityMonthSnapshot.create(yearMonth, crawledAt,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
-        snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
+        snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, fetchStatus, lastError, syncedFacilityIds);
         snapshotRepository.save(snapshot);
     }
 
@@ -216,7 +224,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
                 sequence.getAndIncrement(), YearMonth.from(date), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, null, null, generation));
 
-        // 크롤이 실패한 룸의 예약 — 잔존 행이 구세대(crawledAt 불일치)라 세대 결박이 확정을 막아야 한다
+        // 크롤이 실패한 룸의 예약 — 세대 성공 집합에서 빠져 있어 세대 결박이 확정을 막아야 한다
         Fixture staleFixture = fixture();
         String staleClubName = clubRepository.findById(staleFixture.club().getId()).orElseThrow().getName();
         Long staleBooking = pendingBooking(staleFixture, date, 9, 11);
@@ -226,19 +234,17 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
                 LocalTime.of(9, 0), LocalTime.of(11, 0), staleClubName, null, null,
                 generation.minusMinutes(10)));
 
-        // 룸 1개 실패 상황 — 월 메타는 새 세대의 PARTIAL 로 기록된다(FacilityCrawlService 와 동일 경로)
-        FacilityMonthSnapshot partialSnapshot = snapshotRepository.findByYearMonth(YearMonth.from(date))
-                .orElseGet(() -> FacilityMonthSnapshot.create(YearMonth.from(date), generation,
-                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
-        partialSnapshot.recordSuccessful(generation, CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "룸 1개 실패");
-        snapshotRepository.save(partialSnapshot);
+        // 룸 1개 실패 상황 — 월 메타는 새 세대의 PARTIAL 로 기록되고, 성공한 시설만 세대 집합에 들어간다
+        // (FacilityCrawlService 와 동일 경로).
+        recordSnapshot(YearMonth.from(date), generation, FetchStatus.PARTIAL, "룸 1개 실패",
+                List.of(fixture.facility().getId()));
 
         scheduler.runMatchingCycle();
 
         assertThat(bookingRepository.findById(matched).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.CONFIRMED);
         assertThat(bookingRepository.findById(staleBooking).orElseThrow().getStatus())
-                .isEqualTo(BookingStatus.APPROVED); // 구세대 행은 fail-closed 로 제외
+                .isEqualTo(BookingStatus.APPROVED); // 세대 집합에 없는 시설은 fail-closed 로 제외
     }
 
     @Test
@@ -301,8 +307,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     @Test
-    @DisplayName("스냅샷 세대(crawledAt)와 다른 세대의 크롤 행은 커버로 인정하지 않는다 — 정확 세대 결박")
-    void skipsRowsOfDifferentGeneration() throws Exception {
+    @DisplayName("세대 성공 집합에 없는 시설의 크롤 행은 SUCCESS 월이어도 커버로 인정하지 않는다 — 정확 세대 결박")
+    void skipsFacilityMissingFromGeneration() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
@@ -310,18 +316,17 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
-        // 완전 커버하지만 crawledAt 이 스냅샷 세대(generation)와 다른 이전 세대(-10분)의 행 — 옛 15분 창이면
-        // 통과했겠지만 정확 세대 결박(행 crawledAt == 스냅샷 crawledAt)이 제외해 미커버가 된다.
+        // 18~20 을 완전 커버하는 행이지만, 이 시설은 이번 세대에 수집이 되지 않아 행이 최신이라는 보장이 없다.
         LocalDateTime generation = LocalDateTime.now();
-        LocalDateTime previousGeneration = generation.minusMinutes(10);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, previousGeneration));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, previousGeneration));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
 
-        recordSuccessSnapshot(YearMonth.from(date), generation); // 스냅샷 세대 = generation (행보다 10분 최신)
+        // 월은 SUCCESS 지만 세대 성공 집합이 비어 있다(마이그레이션 직후 등) — fail-closed 로 확정하지 않는다.
+        recordSnapshot(YearMonth.from(date), generation, FetchStatus.SUCCESS, null, List.of());
         scheduler.runMatchingCycle();
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())

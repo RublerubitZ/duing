@@ -69,7 +69,7 @@ class FacilityCrawlTruncationIntegrationTest extends IntegrationTestBase {
         Facility facility = facilityRepository.save(Facility.create(4, "공동연습실(1)", "2105", 0));
         String overLengthName = "가".repeat(MAX_ORGANIZATION_NAME_LENGTH + 50);
 
-        snapshotWriter.replaceReservations(facility.getId(), List.of(TARGET_MONTH),
+        snapshotWriter.reconcileReservations(facility.getId(), List.of(TARGET_MONTH),
                 Map.of(TARGET_MONTH, List.of(reservationWithOrganizationName(18134L, overLengthName))), CRAWLED_AT);
 
         List<FacilityReservation> persisted =
@@ -87,7 +87,7 @@ class FacilityCrawlTruncationIntegrationTest extends IntegrationTestBase {
         // 199 BMP + 서로게이트 쌍 → 절단점(index 199)이 high surrogate 에 정확히 걸린다.
         String surrogateBoundaryName = "가".repeat(MAX_ORGANIZATION_NAME_LENGTH - 1) + EMOJI;
 
-        snapshotWriter.replaceReservations(facility.getId(), List.of(TARGET_MONTH),
+        snapshotWriter.reconcileReservations(facility.getId(), List.of(TARGET_MONTH),
                 Map.of(TARGET_MONTH, List.of(reservationWithOrganizationName(18135L, surrogateBoundaryName))),
                 CRAWLED_AT);
 

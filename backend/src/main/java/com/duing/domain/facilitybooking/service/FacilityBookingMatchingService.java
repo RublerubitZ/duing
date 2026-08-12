@@ -89,9 +89,11 @@ public class FacilityBookingMatchingService {
      * 조회부터 상태 전이까지 한 트랜잭션에 묶어, 이전 세대 행과 메타 미갱신 상태의 다음 세대 행을 시간창(휴리스틱)이
      * 아닌 정확 세대 동일성으로 구분한다 — 15분 창의 오확정 여지를 제거한다.
      *
-     * <p>세대 결박: 크롤은 사이클당 단일 crawledAt 을 시설 행과 월 스냅샷 메타 양쪽에 기록하고, 시설별 행 교체는
-     * 단일 트랜잭션이라 한 시설의 행들은 세대가 균일하다. 따라서 {@code row.crawledAt == snapshot.crawledAt}
-     * 이 세대 동일성의 정확한 판별식이다 — 불일치 행은 세대 전환 중이라는 신호이므로 fail-closed 로 제외한다.
+     * <p>세대 결박: 크롤은 사이클당 단일 crawledAt 과 "그 세대에 수집·영속까지 성공한 시설 집합"을 월 스냅샷
+     * 메타에 함께 기록하고, 시설별 반영은 단일 트랜잭션이라 성공한 시설의 행은 그 세대의 학교 데이터와 일치한다.
+     * 따라서 {@code snapshot.isFacilitySynced(facilityId)} 가 세대 동일성의 판별식이다 — 미포함 시설은 수집이
+     * 실패·스킵돼 구세대 행이 남아 있다는 신호이므로 fail-closed 로 제외한다. (예약 행은 변경분만 차등 반영되어
+     * 내용이 그대로면 crawled_at 이 갱신되지 않으므로, 행 단위 crawled_at 은 세대 표식이 될 수 없다.)
      *
      * <p>confirmByMatching 의 crawlBasisAt·이력 crawlBasisAt 에는 확정 시점(now)이 아니라 판정 근거 세대의
      * 수집 시각(generation)을 남긴다 — "어느 크롤 데이터로 확정했는가"를 기록(승인 경로 관례와 필드 의미 일치).
@@ -129,13 +131,15 @@ public class FacilityBookingMatchingService {
         if (snapshot == null || snapshot.getFetchStatus() == FetchStatus.FAILED) {
             return false;
         }
+        // 정확 세대 결박 — 이 시설이 현재 세대에 수집·영속까지 성공했을 때만 그 행들을 판정 근거로 쓴다.
+        // 미포함은 fetch/쓰기 실패·데드라인 스킵으로 구세대 행이 잔존한다는 신호이므로 fail-closed 로 제외한다.
+        if (!snapshot.isFacilitySynced(booking.getFacilityId())) {
+            return false;
+        }
         LocalDateTime generation = snapshot.getCrawledAt();
-        // 정확 세대 결박 — 행·메타는 사이클당 단일 crawledAt 을 공유하므로 generation 과 일치하는 행만 사용한다.
-        // 불일치는 세대 전환 중이라는 신호이므로 fail-closed 로 제외한다(예약 날짜 필터도 함께 적용).
         List<FacilityReservation> freshRows = facilityReservationRepository
                 .findByFacilityIdAndYearMonth(booking.getFacilityId(), month).stream()
                 .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
-                .filter(row -> row.getCrawledAt().equals(generation))
                 .toList();
         // 정규화 키 충돌 가드 — 2개 이상 동아리가 공유하는 정규화 키의 예약은 오확정 위험이라 자동 확정을 포기한다.
         if (ambiguousNormalizedKeys.contains(normalizer.normalize(clubName))) {
