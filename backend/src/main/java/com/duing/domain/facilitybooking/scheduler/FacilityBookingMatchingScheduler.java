@@ -80,8 +80,8 @@ public class FacilityBookingMatchingScheduler {
      * 키로 붕괴하면 다른 단체 행으로 오확정될 수 있어, 이런 키의 예약은 자동 확정을 포기하고 수동 확정으로 넘긴다.
      */
     private Set<String> collidingClubKeys() {
-        Map<String, Long> keyCounts = clubRepository.findAll().stream()
-                .map(club -> normalizer.normalize(club.getName()))
+        Map<String, Long> keyCounts = clubRepository.findAllNames().stream()
+                .map(normalizer::normalize)
                 .filter(key -> !key.isEmpty())
                 .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
         return keyCounts.entrySet().stream()
@@ -106,9 +106,10 @@ public class FacilityBookingMatchingScheduler {
         if (approvedBookings.isEmpty()) {
             return 0;
         }
-        Map<Long, String> clubNames = clubRepository.findAllById(
+        Map<Long, String> clubNames = clubRepository.findNameRowsByIdIn(
                         approvedBookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
-                .collect(Collectors.toMap(club -> club.getId(), club -> club.getName(), (first, second) -> first));
+                .collect(Collectors.toMap(ClubRepository.ClubNameProjection::getId,
+                        ClubRepository.ClubNameProjection::getName, (first, second) -> first));
 
         int confirmedCount = 0;
         for (FacilityBooking booking : approvedBookings) {
