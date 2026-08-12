@@ -19,12 +19,13 @@ import org.junit.jupiter.api.Test;
 class ExternalFormUrlValidatorTest {
 
     @Test
-    @DisplayName("허용 호스트 목록은 스펙 §3 표(forms.gle / docs.google.com+/forms / form.naver.com)와 정확히 일치한다")
+    @DisplayName("허용 호스트 목록은 스펙 §3 표(forms.gle / docs.google.com+/forms / form.naver.com / naver.me)와 정확히 일치한다")
     void allowedHostListMatchesSpecTable() {
         assertThat(ExternalFormUrlValidator.ALLOWED_HOSTS).containsExactly(
                 new AllowedFormHost("forms.gle", ""),
                 new AllowedFormHost("docs.google.com", "/forms"),
-                new AllowedFormHost("form.naver.com", ""));
+                new AllowedFormHost("form.naver.com", ""),
+                new AllowedFormHost("naver.me", ""));
     }
 
     @Test
@@ -34,6 +35,8 @@ class ExternalFormUrlValidatorTest {
         assertThatCode(() -> ExternalFormUrlValidator.validate(
                 "https://docs.google.com/forms/d/e/1FAIpQLSf/viewform?usp=sf_link")).doesNotThrowAnyException();
         assertThatCode(() -> ExternalFormUrlValidator.validate("https://form.naver.com/response/abc123"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> ExternalFormUrlValidator.validate("https://naver.me/5sulQYsy"))
                 .doesNotThrowAnyException();
     }
 
@@ -81,11 +84,13 @@ class ExternalFormUrlValidatorTest {
     }
 
     @Test
-    @DisplayName("허용 목록에 없는 도메인과 단축 URL 은 거부된다")
-    void rejectsUnlistedDomainsAndShortLinks() {
-        assertRejected("https://naver.me/abcdefg");
+    @DisplayName("허용 목록에 없는 도메인은 거부된다")
+    void rejectsUnlistedDomains() {
         assertRejected("https://example.com/form");
         assertRejected("https://forms.gle.evil.com/abc");
+        // naver.me 는 정확 일치라 접미사 위장도, 진짜 서브도메인도 통과하지 못한다.
+        assertRejected("https://naver.me.evil.com/abc");
+        assertRejected("https://x.naver.me/abc");
     }
 
     @Test
@@ -107,6 +112,7 @@ class ExternalFormUrlValidatorTest {
                 .hasMessageContaining("forms.gle")
                 .hasMessageContaining("docs.google.com")
                 .hasMessageContaining("form.naver.com")
+                .hasMessageContaining("naver.me")
                 .hasMessageContaining("https");
     }
 
@@ -117,7 +123,7 @@ class ExternalFormUrlValidatorTest {
 
         assertThat(allowedHosts).isUnmodifiable();
         assertThat(allowedHosts).extracting(AllowedFormHost::host)
-                .containsExactly("forms.gle", "docs.google.com", "form.naver.com");
+                .containsExactly("forms.gle", "docs.google.com", "form.naver.com", "naver.me");
     }
 
     private static void assertRejected(String externalFormUrl) {

@@ -9,11 +9,12 @@ import {
 // 이 목록은 BE ExternalFormUrlValidator.ALLOWED_HOSTS 와 같아야 한다. 양쪽 테스트가 리터럴을 그대로
 // 단언하므로(BE: allowedHostListMatchesSpecTable) 한쪽만 플랫폼을 늘리면 반대쪽이 깨져 드리프트를 알린다.
 describe('외부 폼 URL 허용 목록 — BE 동기화 가드', () => {
-  it('허용 호스트 목록은 스펙 §3 표(forms.gle / docs.google.com+/forms / form.naver.com)와 정확히 일치한다', () => {
+  it('허용 호스트 목록은 스펙 §3 표(forms.gle / docs.google.com+/forms / form.naver.com / naver.me)와 정확히 일치한다', () => {
     expect(ALLOWED_EXTERNAL_FORM_HOSTS).toEqual([
       { host: 'forms.gle', requiredPathPrefix: '' },
       { host: 'docs.google.com', requiredPathPrefix: '/forms' },
       { host: 'form.naver.com', requiredPathPrefix: '' },
+      { host: 'naver.me', requiredPathPrefix: '' },
     ]);
   });
 
@@ -21,6 +22,7 @@ describe('외부 폼 URL 허용 목록 — BE 동기화 가드', () => {
     expect(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE).toContain('forms.gle');
     expect(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE).toContain('docs.google.com');
     expect(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE).toContain('form.naver.com');
+    expect(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE).toContain('naver.me');
     expect(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE).toContain('https');
   });
 });
@@ -31,6 +33,7 @@ describe('isAllowedExternalFormUrl — BE ExternalFormUrlValidatorTest 와 동�
     'https://docs.google.com/forms/d/e/1FAIpQLSf/viewform?usp=sf_link',
     'https://docs.google.com/forms/u/0/d/e/abc/viewform',
     'https://form.naver.com/response/abc123',
+    'https://naver.me/5sulQYsy',
     // 호스트는 대소문자를 구분하지 않는다.
     'https://DOCS.Google.COM/forms/d/e/xyz/viewform',
   ])('허용 플랫폼의 https 주소(%s)는 통과한다', (url) => {
@@ -56,10 +59,11 @@ describe('isAllowedExternalFormUrl — BE ExternalFormUrlValidatorTest 와 동�
     'https://docs.google.com/',
     'https://docs.google.com/document/d/abc/edit',
     'https://docs.google.com/spreadsheets/d/abc/edit',
-    // 목록에 없는 도메인·단축 URL
-    'https://naver.me/abcdefg',
+    // 목록에 없는 도메인 — naver.me 는 정확 일치라 접미사 위장·서브도메인 모두 거부된다
     'https://example.com/form',
     'https://forms.google.com/x',
+    'https://naver.me.evil.com/abc',
+    'https://x.naver.me/abc',
     // 파싱 불가·상대 경로·호스트 없음·공백 포함
     'https://forms.gle/ 공백 포함',
     '/forms/d/e/abc',

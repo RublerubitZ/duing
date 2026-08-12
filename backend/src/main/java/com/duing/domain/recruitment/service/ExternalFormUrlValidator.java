@@ -10,7 +10,7 @@ import java.util.Locale;
  * 외부 폼 모집의 externalFormUrl 화이트리스트 검증 (스펙 §3).
  *
  * <p>구 검증(<code>^https?://</code> 프리픽스)은 임의 도메인과 http 를 모두 통과시켜, 학생이 클릭하는 링크가
- * 사실상 무제한이었다. 여기서는 허용 플랫폼 3종만, https 로만 받는다.
+ * 사실상 무제한이었다. 여기서는 {@link #ALLOWED_HOSTS} 목록의 호스트만, https 로만 받는다.
  *
  * <p>호스트 판정은 {@link URI} 파싱 후 <b>정확 일치</b>다 — 부분 문자열·endsWith 로 판정하면
  * <code>docs.google.com.evil.com</code> 이나 <code>evil.com/docs.google.com/forms</code> 가 통과한다.
@@ -30,17 +30,18 @@ public final class ExternalFormUrlValidator {
      */
     public record AllowedFormHost(String host, String requiredPathPrefix) {}
 
+    // naver.me 는 네이버 공식 단축 도메인이다 — 네이버 폼 공유 버튼이 이 형태를 주므로 허용한다.
     public static final List<AllowedFormHost> ALLOWED_HOSTS = List.of(
             new AllowedFormHost("forms.gle", ""),
             new AllowedFormHost("docs.google.com", "/forms"),
-            new AllowedFormHost("form.naver.com", ""));
+            new AllowedFormHost("form.naver.com", ""),
+            new AllowedFormHost("naver.me", ""));
 
     private static final String HTTPS_SCHEME = "https";
 
     private static final String NOT_ALLOWED_MESSAGE =
             "외부 폼 URL 은 구글 폼(https://forms.gle/…, https://docs.google.com/forms/…) 또는 "
-                    + "네이버 폼(https://form.naver.com/…) 주소만 사용할 수 있습니다. "
-                    + "단축 URL 이 아닌 원본 주소를 입력해주세요.";
+                    + "네이버 폼(https://form.naver.com/…, https://naver.me/…) 주소만 사용할 수 있습니다.";
 
     private ExternalFormUrlValidator() {
     }

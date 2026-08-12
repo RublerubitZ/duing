@@ -38,16 +38,18 @@ type StatusStyle = {
 
 const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
   OPEN:        { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
-  ALWAYS_OPEN: { label: '상시모집',  dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  // 우측 기간 영역이 "상시모집"을 표기하므로 칩은 모집 가능 상태만 말한다(중복 제거).
+  ALWAYS_OPEN: { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
   UPCOMING:    { label: '모집예정',  dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
   CLOSED:      { label: '모집마감',  dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
   NONE:        { label: '모집 없음', dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
 };
 
+/** "2026-08-08" → "8.8" — 앞자리 0 을 떼 달력 표기처럼 읽히게 한다. */
 function formatMonthDay(isoDate: string): string {
   const parts = isoDate.split('-');
-  const month = parts[1] ?? '';
-  const day = parts[2] ?? '';
+  const month = Number(parts[1] ?? '');
+  const day = Number(parts[2] ?? '');
   return `${month}.${day}`;
 }
 
@@ -61,7 +63,7 @@ function renderPeriod(club: Club): React.ReactNode {
       if (recruitment.endDate === null) return null;
       return (
         <span className="font-bold text-ink">
-          모집 {formatMonthDay(recruitment.startDate)} - {formatMonthDay(recruitment.endDate)}
+          {formatMonthDay(recruitment.startDate)} - {formatMonthDay(recruitment.endDate)}
         </span>
       );
     case 'ALWAYS_OPEN':
@@ -135,7 +137,12 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
         <div className="flex flex-col gap-1.5">
           {/* 계층 1·2 — 이름 + 한줄 소개(1줄 말줄임). 미작성이면 문구 없이 빈 줄로 높이만 유지해
               모든 카드에서 카테고리 행 위치가 일정하게 정렬되도록 한다(NBSP가 줄 높이 확보). */}
-          <h3 className="text-[20px] leading-[1.25]">{club.name}</h3>
+          {/* 이름은 1줄 말줄임 — 카드 리듬(이름/소개/카테고리 각 1줄)을 모든 카드에서 고정한다.
+              긴 이름이 카드를 늘리거나(2~3줄) 예약 공간이 구멍을 만들지 않도록 1줄이 유일해다.
+              전체 이름은 title 툴팁·상세 페이지에서 확인(접근성 이름은 전체 유지). */}
+          <h3 className="truncate text-[20px] leading-[1.25]" title={club.name}>
+            {club.name}
+          </h3>
           <p className="truncate text-[14px] text-charcoal-2 leading-[1.5]">
             {club.tagline ?? ' '}
           </p>
@@ -148,8 +155,9 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
       </div>
 
       <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+        {/* 기간 텍스트가 길어 줄바꿈될 때 칩이 눌려 "모집\n중"으로 세로 분리되지 않게 nowrap+shrink-0. */}
         <span
-          className={`inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-2 pr-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.02em] ${statusStyle.chipClass}`}
         >
           <span
             className="w-1.5 h-1.5 rounded-full"

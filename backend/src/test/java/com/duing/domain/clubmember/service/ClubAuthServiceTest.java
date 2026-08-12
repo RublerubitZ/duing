@@ -8,7 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -36,9 +35,7 @@ class ClubAuthServiceTest {
     }
 
     private void stubClubStatus(ClubStatus status) {
-        Club club = mock(Club.class);
-        when(club.getStatus()).thenReturn(status);
-        when(clubRepository.findById(1L)).thenReturn(Optional.of(club));
+        when(clubRepository.findStatusById(1L)).thenReturn(Optional.of(status));
     }
 
     @Test
@@ -116,7 +113,7 @@ class ClubAuthServiceTest {
         when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.requireManager(10L, 1L))
                 .isInstanceOf(ClubMemberException.NotAMember.class);
-        verify(clubRepository, never()).findById(anyLong());
+        verify(clubRepository, never()).findStatusById(anyLong());
     }
 
     @Test
@@ -127,7 +124,7 @@ class ClubAuthServiceTest {
         stubClubStatus(ClubStatus.INACTIVE);
         assertThatThrownBy(() -> service.requireManager(10L, 1L))
                 .isInstanceOf(AccessDeniedException.class);
-        verify(clubRepository, never()).findById(anyLong());
+        verify(clubRepository, never()).findStatusById(anyLong());
     }
 
     @Test
@@ -135,7 +132,7 @@ class ClubAuthServiceTest {
     void deletedClubMembershipTreatedAsNonMember() {
         ClubMember leaderMember = memberWithRole(ClubMemberRole.LEADER);
         when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(leaderMember));
-        when(clubRepository.findById(1L)).thenReturn(Optional.empty());
+        when(clubRepository.findStatusById(1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.requireLeader(10L, 1L))
                 .isInstanceOf(ClubMemberException.NotAMember.class);
     }
@@ -170,7 +167,7 @@ class ClubAuthServiceTest {
         when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(regularMember));
         assertThatThrownBy(() -> service.requireEditableClubManager(10L, 1L))
                 .isInstanceOf(AccessDeniedException.class);
-        verify(clubRepository, never()).findById(anyLong());
+        verify(clubRepository, never()).findStatusById(anyLong());
     }
 
     @Test

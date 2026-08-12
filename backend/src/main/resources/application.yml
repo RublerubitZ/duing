@@ -188,6 +188,12 @@ duing:
       # 운영에서 DUING_FEDERATION_INQUIRY_PURGE_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:false}
       window: ${DUING_FEDERATION_INQUIRY_PURGE_WINDOW:P45D}
+  club:
+    metric:
+      # 추천순 활동점수 집계 잡(매시 정각 Asia/Seoul — bucket 전환과 동기화 + 기동 직후 1회). 기본 비활성 —
+      # 운영에서 DUING_CLUB_METRIC_ENABLED=true(application-prod.yml)로 활성화한다.
+      # 비활성이어도 추천 정렬은 활동점수 0 으로 동작한다(fail-open).
+      enabled: ${DUING_CLUB_METRIC_ENABLED:false}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.

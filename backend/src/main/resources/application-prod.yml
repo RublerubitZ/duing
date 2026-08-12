@@ -24,12 +24,16 @@ spring:
     # 향후 레플리카 몫까지 감안해 한도 안에서 정한다(레플리카 N 대면 인스턴스당 한도÷N). 한 노브로
     # maximum-pool-size 와 minimum-idle 을 같게 둬 고정 풀(fixed pool) 로 운영 — 유휴 시에도 연결 수를
     # 일정하게 유지해 풀러가 보는 연결 수를 예측 가능하게 한다(HikariCP 권장 구성).
-    # max-lifetime 은 풀러의 서버측 idle 타임아웃보다 짧게 두어 stale connection 재사용을 막는다.
+    # max-lifetime: 기존 280초는 "풀러 idle 타임아웃 회피" 목적의 보수값이었으나, idle 은 keepalive-time
+    # 60초가 이미 방어하고, 재접속(TLS 핸드셰이크 + 세션 초기화 문장 6개)이 일 ~3,000회 발생해 Supabase
+    # egress 의 주요 요인이었다(2026-08 egress 감사). Supavisor 세션 모드에 문서화된 서버측 수명 종료는
+    # 없어 단계 상향한다: 600s(현재, 재접속 일 ~1,440회) → 관찰 후 .env 의 DB_MAX_LIFETIME_MS 로
+    # 1200s → 1800s. connection reset/SQLState 08* 이 늘면 직전 안정값으로 되돌린다.
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       minimum-idle: ${DB_POOL_MAX_SIZE:10}
       connection-timeout: 30000
-      max-lifetime: 280000
+      max-lifetime: ${DB_MAX_LIFETIME_MS:600000}
       keepalive-time: 60000
       leak-detection-threshold: 60000
   jpa:
@@ -81,6 +85,11 @@ duing:
   federation-inquiry:
     purge:
       enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:true}
+  # 추천순 활동점수 집계 잡 — 운영 기본 활성(집계 upsert 만이라 안전, 꺼지면 추천 정렬이 활동점수 0 으로
+  # 저하 동작한다). 다른 잡들과 동일한 하드코딩 관례. DUING_CLUB_METRIC_ENABLED=false 로 끌 수 있다.
+  club:
+    metric:
+      enabled: ${DUING_CLUB_METRIC_ENABLED:true}
   # 시설 크롤 스케줄러 — 운영에서는 항상 켠다. 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막는다.
   # 끄고 싶으면 DUING_FACILITY_CRAWLER_ENABLED=false 로 오버라이드한다.
   facility:

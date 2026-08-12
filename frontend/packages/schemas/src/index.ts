@@ -159,12 +159,13 @@ export const ALLOWED_EXTERNAL_FORM_HOSTS: readonly { host: string; requiredPathP
   { host: 'forms.gle', requiredPathPrefix: '' },
   { host: 'docs.google.com', requiredPathPrefix: '/forms' },
   { host: 'form.naver.com', requiredPathPrefix: '' },
+  // naver.me 는 네이버 공식 단축 도메인 — 네이버 폼 공유 버튼이 이 형태를 준다.
+  { host: 'naver.me', requiredPathPrefix: '' },
 ];
 
 export const EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE =
   '외부 폼 URL 은 구글 폼(https://forms.gle/…, https://docs.google.com/forms/…) 또는 ' +
-  '네이버 폼(https://form.naver.com/…) 주소만 사용할 수 있습니다. ' +
-  '단축 URL 이 아닌 원본 주소를 입력해주세요.';
+  '네이버 폼(https://form.naver.com/…, https://naver.me/…) 주소만 사용할 수 있습니다.';
 
 /**
  * 외부 폼 URL 화이트리스트 검증 — 호스트 정확 일치 + https 만 (BE ExternalFormUrlValidator 와 동일 판정).

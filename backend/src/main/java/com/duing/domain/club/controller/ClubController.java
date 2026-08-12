@@ -18,11 +18,13 @@ import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.validation.Valid;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -68,7 +70,17 @@ public class ClubController implements ClubApi {
                 centralClub, college, activeDaysSet, sort, favoriteUserId);
         Page<ClubSummaryResponse> page = clubService.search(condition, pageable)
                 .map(ClubSummaryResponse::from);
-        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+        // 추천순은 1시간 bucket 단위로만 순서가 바뀌므로 60초 공유 캐시가 순환을 해치지 않는다.
+        // favorite=true 는 사용자별 결과라 공유 캐시 금지(no-store) — 사용자 간 결과 오염 방지.
+        // ⚠️ cachePublic 은 Authorization 이 붙은 응답의 공유 캐시 저장을 허용한다(RFC 9111) —
+        // ClubSummaryResponse 에 사용자별 필드(isFavorited 류)를 추가하는 순간 사용자 간 데이터
+        // 오염이 되므로, 그런 필드가 필요해지면 이 캐시 정책부터 함께 바꿔야 한다.
+        CacheControl cacheControl = favoriteOnly
+                ? CacheControl.noStore()
+                : CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic();
+        return ResponseEntity.ok()
+                .cacheControl(cacheControl)
+                .body(ApiResponse.success(PageResponse.from(page)));
     }
 
     @Override

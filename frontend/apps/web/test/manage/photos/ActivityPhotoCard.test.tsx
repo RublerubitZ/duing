@@ -150,7 +150,9 @@ describe('ActivityPhotoCard', () => {
 
     // 공통 규칙(B안) — 실패해도 닫지 않고 모달 안에서 알린다.
     const dialog = await screen.findByRole('dialog');
-    const alert = within(dialog).getByRole('alert');
+    // dialog 는 확인 클릭 전부터 열려 있어 위 findByRole 이 즉시 반환된다 — alert 는 거부된
+    // mutation 의 에러 상태 렌더 뒤에야 나타나므로 비동기 조회로 기다려야 한다(동기 조회는 CI 에서 경쟁).
+    const alert = await within(dialog).findByRole('alert');
     expect(alert).toHaveTextContent(/대표 활동에 사용 중인 사진입니다/);
     // 카드 영역에 그리면 오버레이·aria-hidden 뒤에 갇힌다 — 접근 가능한 위치인지 확인한다.
     expect(alert.closest('[aria-hidden="true"]')).toBeNull();

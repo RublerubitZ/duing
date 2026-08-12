@@ -1,5 +1,6 @@
 package com.duing.domain.club.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -19,6 +20,7 @@ import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -170,7 +172,7 @@ class ClubSearchRecruitmentStatusTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("기본 정렬은 OPEN > ALWAYS_OPEN > UPCOMING > CLOSED > 모집없음 순으로 동아리를 노출한다")
+    @DisplayName("기본 정렬(추천순)은 모집중 > 상시모집 > 기타(예정·마감·없음, 내부 상태 무순) 그룹 순으로 노출한다")
     void defaultSortGroupsByRecruitmentStatus() throws Exception {
         Club bareClub = saveActiveClub("sortGroupBare");
         Club closedClub = saveActiveClub("sortGroupClosed");
@@ -183,15 +185,17 @@ class ClubSearchRecruitmentStatusTest extends IntegrationTestBase {
         saveOpenRecruitment(alwaysClub, LocalDate.now().minusDays(3), null);
         saveOpenRecruitment(openClub, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7));
 
-        RestAssured.given()
+        List<String> names = RestAssured.given()
                 .when().get("/api/v1/clubs?keyword=sortGroup&size=10")
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.content", hasSize(5))
-                .body("data.content[0].name", equalTo(openClub.getName()))
-                .body("data.content[1].name", equalTo(alwaysClub.getName()))
-                .body("data.content[2].name", equalTo(upcomingClub.getName()))
-                .body("data.content[3].name", equalTo(closedClub.getName()))
-                .body("data.content[4].name", equalTo(bareClub.getName()));
+                .extract().jsonPath().getList("data.content.name", String.class);
+
+        assertThat(names).hasSize(5);
+        assertThat(names.get(0)).isEqualTo(openClub.getName());
+        assertThat(names.get(1)).isEqualTo(alwaysClub.getName());
+        // 기타 그룹은 예정·마감·없음의 하위 우선순위 없이 시간별 추천 점수순 — 구성만 검증한다.
+        assertThat(names.subList(2, 5)).containsExactlyInAnyOrder(
+                upcomingClub.getName(), closedClub.getName(), bareClub.getName());
     }
 
     private Club saveActiveClub(String name) throws Exception {

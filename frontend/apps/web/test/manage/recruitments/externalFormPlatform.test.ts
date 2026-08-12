@@ -9,6 +9,8 @@ describe('externalFormPlatformLabel', () => {
     ['https://docs.google.com/forms/d/e/abc/viewform', 'Google Forms'],
     ['https://DOCS.Google.COM/forms/d/e/abc/viewform', 'Google Forms'],
     ['https://form.naver.com/response/abc123', 'Naver Form'],
+    // 단축코드는 목적지가 폼임을 보장하지 않으므로 중립 라벨이다.
+    ['https://naver.me/5sulQYsy', 'Naver'],
   ])('허용 플랫폼 주소(%s)는 플랫폼명을 돌려준다', (url, expected) => {
     expect(externalFormPlatformLabel(url)).toBe(expected);
   });
