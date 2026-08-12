@@ -1,5 +1,7 @@
 package com.duing.domain.application.controller;
 
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
@@ -9,6 +11,7 @@ import static org.hamcrest.Matchers.nullValue;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
@@ -18,6 +21,8 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -87,6 +92,41 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
         leaderToken = jwtTokenProvider.createToken(leader.getId(), leader.getRole().name());
         User nonMember = saveUser("일반회원", UserRole.STUDENT, College.IT_ENGINEERING, "컴퓨터공학");
         memberToken = jwtTokenProvider.createToken(nonMember.getId(), nonMember.getRole().name());
+    }
+
+    @Test
+    @DisplayName("지원자 목록 행은 신원·학년·답변·제출시각을 채우고 미배정 면접·미평가 항목은 null 로 내려준다")
+    void applicantRowCarriesEveryResponseField() {
+        Club club = saveActiveClub("행스키마동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        RecruitmentQuestion motivationQuestion = RecruitmentQuestion.createText("지원 동기는?");
+        Recruitment recruitment = Recruitment.create(club, "행스키마모집-" + sequence.incrementAndGet(),
+                null, LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10);
+        recruitment.attachForm(RecruitmentForm.create(recruitment, List.of(motivationQuestion)));
+        recruitment = recruitmentRepository.save(recruitment);
+
+        User applicant = saveUserWithStudentId("행지원자", "20230777", College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(Application.submit(recruitment, applicant,
+                List.of(new ApplicationAnswer(motivationQuestion.id(), List.of("열심히 하겠습니다.")))));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications", recruitment.getId())
+                .then().statusCode(200)
+                .body("data.size()", is(1))
+                .body("data[0].applicationId", equalTo(application.getId().intValue()))
+                .body("data[0].userId", equalTo(applicant.getId().intValue()))
+                .body("data[0].userName", equalTo("행지원자"))
+                .body("data[0].studentId", equalTo("20230777"))
+                .body("data[0].college", equalTo("EDUCATION"))
+                .body("data[0].major", equalTo("교육학"))
+                .body("data[0].grade", equalTo("FRESHMAN"))
+                // jsonb 답변이 projection 을 거쳐도 폼 질문 순서대로 그대로 복원된다
+                .body("data[0].answers", contains("열심히 하겠습니다."))
+                .body("data[0].status", equalTo("SUBMITTED"))
+                .body("data[0].submittedAt", endsWith("Z"))
+                .body("data[0].interviewStartAt", nullValue())
+                .body("data[0].myScore", nullValue());
     }
 
     @Test

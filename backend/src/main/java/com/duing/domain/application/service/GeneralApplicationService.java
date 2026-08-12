@@ -292,8 +292,7 @@ public class GeneralApplicationService implements ApplicationService {
         // 폼 질문을 통해 라벨로 해석해야 한다. 폼이 없는 모집(EXTERNAL 등)은 빈 목록이라 답변도 비어 나간다.
         List<RecruitmentQuestion> formQuestions = questionsOf(recruitment);
         return applicationRepository.searchApplicants(recruitmentId, currentUserId, condition).stream()
-                .map(row -> ApplicantQuery.of(
-                        row.application(), formQuestions, row.interviewStartAt(), row.myScore()))
+                .map(row -> ApplicantQuery.of(row, formQuestions))
                 .toList();
     }
 
