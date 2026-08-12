@@ -1,5 +1,6 @@
 package com.duing.domain.interview.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -16,8 +17,12 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
+import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,6 +72,45 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
                 .body("data", hasSize(1))
                 .body("data[0].applicationId", equalTo(queued.getId().intValue()))
                 .body("data[0].status", equalTo("INTERVIEW_PENDING"));
+    }
+
+    @Test
+    @DisplayName("후보 한 건은 9개 필드를 모두 담고, 각 값이 해당 지원서·지원자의 것과 일치한다")
+    void candidateRowCarriesEveryContractField() {
+        User applicant = saveUser("계약검증");
+        Application application = applicationRepository.save(Application.submit(recruitment, applicant, List.of()));
+        application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
+        application = applicationRepository.save(application);
+        // 지원서 시각은 DB 에 저장된 값(마이크로초 절삭)을 기준으로 비교한다 — 저장 직후 인메모리 엔티티의
+        // 나노초 값과 달라질 수 있어, 응답과 같은 출처인 DB 를 다시 읽는다.
+        LocalDateTime persistedCreatedAt = applicationRepository.findById(application.getId())
+                .orElseThrow().getCreatedAt();
+        // 같은 타입(String·Long) 필드끼리 자리가 바뀌어도 잡히도록, 비교 대상 값이 서로 다름을 먼저 못 박는다.
+        assertThat(List.of(applicant.getName(), applicant.getStudentId(), applicant.getMajor()))
+                .as("이름·학번·전공이 같은 값이면 필드 스왑을 검출할 수 없다").doesNotHaveDuplicates();
+        assertThat(application.getId())
+                .as("applicationId·userId 가 같은 값이면 필드 스왑을 검출할 수 없다").isNotEqualTo(applicant.getId());
+
+        Map<String, Object> candidate = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(CANDIDATES_PATH, recruitment.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .extract().jsonPath().getMap("data[0]");
+
+        assertThat(candidate.keySet()).containsExactlyInAnyOrder(
+                "applicationId", "userId", "userName", "studentId",
+                "college", "major", "grade", "status", "submittedAt");
+        assertThat(candidate.get("applicationId")).isEqualTo(application.getId().intValue());
+        assertThat(candidate.get("userId")).isEqualTo(applicant.getId().intValue());
+        assertThat(candidate.get("userName")).isEqualTo(applicant.getName());
+        assertThat(candidate.get("studentId")).isEqualTo(applicant.getStudentId());
+        assertThat(candidate.get("college")).isEqualTo("IT_ENGINEERING");
+        assertThat(candidate.get("major")).isEqualTo(applicant.getMajor());
+        assertThat(candidate.get("grade")).isEqualTo("FRESHMAN");
+        assertThat(candidate.get("status")).isEqualTo("INTERVIEW_PENDING");
+        assertThat(Instant.parse((String) candidate.get("submittedAt")))
+                .as("제출 시각은 지원서 생성 시각을 절대시각으로 환산한 값이다")
+                .isEqualTo(TimeMapper.systemWallClockToInstant(persistedCreatedAt));
     }
 
     @Test

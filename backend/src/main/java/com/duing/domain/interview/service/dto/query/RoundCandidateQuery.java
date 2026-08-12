@@ -1,11 +1,11 @@
 package com.duing.domain.interview.service.dto.query;
 
-import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import java.time.LocalDateTime;
 
+/** 라운드 생성 후보 한 행 — application ⋈ user QueryDSL projection (RoundMemberLine 전례). */
 public record RoundCandidateQuery(
         Long applicationId,
         Long userId,
@@ -16,17 +16,4 @@ public record RoundCandidateQuery(
         Grade grade,
         ApplicationStatus status,
         LocalDateTime submittedAt
-) {
-    public static RoundCandidateQuery from(Application application) {
-        return new RoundCandidateQuery(
-                application.getId(),
-                application.getUser().getId(),
-                application.getUser().getName(),
-                application.getUser().getStudentId(),
-                application.getUser().getCollege(),
-                application.getUser().getMajor(),
-                application.getUser().getGrade(),
-                application.getStatus(),
-                application.getCreatedAt());
-    }
-}
+) {}
