@@ -106,7 +106,6 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
     rawCollege !== null && isCollege(rawCollege) ? rawCollege : null;
 
   const rawSort = search.get('sort');
-  // 'RECENT' 는 BE enum 에서 제거됐지만 북마크·공유 URL 수명은 더 길다 — URL 파싱 호환은 유지한다.
   const sort: SortKey =
     rawSort === 'RECENT' ? 'RECOMMENDED'                            // 이전 URL 호환 (최근 등록순 → 추천순)
       : SORT_KEYS.find((s) => s === rawSort) ?? 'RECOMMENDED';
@@ -173,9 +172,8 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
     category: params.category ?? undefined,
     activeDays,
     // 기본 정렬(RECOMMENDED)은 미전송 — 서버 기본값에 맡긴다. 배포 전환기에 새 FE 가
-    // RECOMMENDED 를 모르는 구 BE 를 만나면 enum 바인딩 400 으로 탐색이 깨지므로 기본값을
-    // 생략한다. 구 URL 의 sort=RECENT 는 위 parseExploreParams 가 RECOMMENDED 로 흡수한다
-    // (BE 의 RECENT alias 는 제거됨 — API 로는 더 이상 전송될 일이 없다).
+    // RECOMMENDED 를 모르는 구 BE 를 만나면 enum 바인딩 400 으로 탐색이 깨지므로,
+    // 기본값 생략이 유일하게 양방향 안전하다(구 FE 의 sort=RECENT 는 BE alias 가 흡수).
     sort: params.sort === 'RECOMMENDED' ? undefined : params.sort,
     favorite: params.favorite || undefined,
     page: Math.max(0, params.page - 1),
