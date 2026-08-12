@@ -57,10 +57,11 @@ v1(가입 코드 1차 릴리스, #848~#854) 대비 변경: 코드 귀속을 Club
 | Google Forms | `forms.gle` | — |
 | Google Forms | `docs.google.com` | path 가 `/forms` 로 **시작(startsWith)** — `/forms/u/0/`·`/forms/d/e/` 등 하위 경로 포함 |
 | Naver Form | `form.naver.com` | — |
+| Naver | `naver.me` | — (2026-08-12 정책 변경으로 허용. 네이버 공식 단축 도메인이라 피싱 도메인은 못 타지만, 단축코드가 불투명해 목적지가 폼임은 보장하지 않는다) |
 
 - **HTTPS 만 허용** (http 거부 — 기존 검증은 http 허용이었음)
 - URI 파싱 기반 **호스트 정확 일치** (부분 문자열·endsWith 금지 — `docs.google.com.evil.com` 차단)
-- 그 외 도메인·단축 URL(naver.me 포함) 거부 — 에러 문구에 허용 플랫폼 안내
+- 그 외 도메인·단축 URL 거부 — 에러 문구에 허용 플랫폼 안내
 - 화이트리스트는 상수 목록으로 두어 추후 플랫폼 추가가 1줄이 되게 한다
 - FE(zod)와 BE 가 같은 목록 — 이름 금칙어 전례처럼 **양쪽 동기화 가드 테스트** 필수
 - 기존 저장된 URL 은 소급하지 않는다(신규 생성·수정만 검증). `externalFormUrl` 은 생성 후 변경 불가 필드라 실질 영향은 신규 생성뿐
@@ -169,7 +170,8 @@ CLOSED 이후에는 생성·재생성 불가("모집 생성 → 즉시 종료 �
   빈 화면 대신 안내를 표시한다. 모드를 아직 모르는 로딩 상태는 기존 링크 유지(fail-open —
   알려진 EXTERNAL 만 숨김)
 - **모집 상세 헤더 배지**: EXTERNAL 모집은 상단에 "외부 폼 모집" 배지 + 플랫폼명(URL 호스트로 판별 —
-  forms.gle/docs.google.com → "Google Forms", form.naver.com → "Naver Form") 표시
+  forms.gle/docs.google.com → "Google Forms", form.naver.com → "Naver Form",
+  naver.me → "Naver" — 단축코드는 목적지가 폼임을 보장하지 않으므로 중립 라벨) 표시
 - 회원 관리 페이지의 **[회원 초대] 진입점은 제거(최종 확정)** — 실동선이 모집 카드의 가입 링크
   다이얼로그로 완결되어 안내 전용 버튼은 유지하지 않는다. 이메일/QR/직접 초대가 실제 추가될 때
   진입점을 다시 만든다. [가입 요청] 버튼(대기 수 배지)은 승인 업무가 회원 관리 소관이므로 유지
@@ -228,7 +230,7 @@ EXTERNAL 모집 화면(작성 §1.2·관리 §5)에 절차 카드를 항상 표�
 
 - CSV 회원 생성 / CSV 코드 일괄 발급 / 이메일 초대 / QR 이미지
 - 모집별 다중 활성 코드 (모집당 1개 유지)
-- naver.me 등 단축 URL 허용 (원본 URL 안내로 대응)
+- naver.me 외 단축 URL 허용 (naver.me 는 2026-08-12 정책 변경으로 §3 허용 목록에 포함)
 - 학생 가입 요청 취소(CANCELED)
 - 기존 EXTERNAL 모집 데이터의 URL 소급 검증
 
