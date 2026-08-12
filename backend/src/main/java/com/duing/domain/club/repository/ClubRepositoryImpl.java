@@ -18,10 +18,12 @@ import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -34,6 +36,8 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -47,12 +51,23 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
+    /**
+     * 탐색 카드({@link ClubSummaryQuery})가 쓰는 컬럼 집합.
+     * {@link #toSummary} 가 읽는 컬럼은 반드시 여기 있어야 한다 — Tuple 은 SELECT 에 없는 컬럼을
+     * 예외 없이 null 로 돌려주므로, 빠뜨리면 그 필드만 조용히 비어서 응답된다.
+     * (나열 순서는 무관하다. Tuple 조회는 위치가 아니라 expression 기준이다.)
+     */
+    private static final Expression<?>[] SUMMARY_COLUMNS = {
+            club.id, club.name, club.category, club.division, club.college, club.department,
+            club.logoUrl, club.status, club.tags, club.tagline, club.centralClub
+    };
+
     private final JPAQueryFactory queryFactory;
     // 모집중/예정/마감 판정(startDate·endDate vs 오늘)은 KST(seoulClock) 기준.
     private final Clock clock;
 
     @Override
-    public Page<Club> findByCondition(ClubSearchCondition condition, Pageable pageable) {
+    public Page<ClubSummaryQuery> findByCondition(ClubSearchCondition condition, Pageable pageable) {
         RecruitmentStatusFilter effectiveStatus = condition.effectiveRecruitmentStatus();
 
         BooleanExpression[] predicates = {
@@ -68,13 +83,20 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 favoritedBy(condition.favoriteUserId()),
         };
 
-        List<Club> content = queryFactory
-                .selectFrom(club)
+        // 탐색 카드가 쓰는 컬럼만 읽는다 — 엔티티 전체 조회는 description·jsonb(sns_links·faqs·
+        // highlights·projects) 등 목록에서 쓰지 않는 대형 컬럼까지 매 요청 실어 나른다.
+        List<Tuple> rows = queryFactory
+                .select(SUMMARY_COLUMNS)
+                .from(club)
                 .where(predicates)
                 .orderBy(applySort(condition.sortOptionOrDefault()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
+
+        List<ClubSummaryQuery> content = rows.stream()
+                .map(ClubRepositoryImpl::toSummary)
+                .toList();
 
         Long total = queryFactory
                 .select(club.count())
@@ -83,6 +105,26 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    private static ClubSummaryQuery toSummary(Tuple row) {
+        String[] tags = row.get(club.tags);
+        return new ClubSummaryQuery(
+                row.get(club.id),
+                row.get(club.name),
+                row.get(club.category),
+                row.get(club.division),
+                row.get(club.college),
+                row.get(club.department),
+                row.get(club.logoUrl),
+                row.get(club.status),
+                // Club.getTags() 와 같은 계약 — null 컬럼은 빈 목록으로 본다.
+                tags == null ? List.of() : Collections.unmodifiableList(Arrays.asList(tags)),
+                row.get(club.tagline),
+                Boolean.TRUE.equals(row.get(club.centralClub)),
+                // 대표 모집은 목록 조회 이후 clubIds 로 한 번에 채운다(GeneralClubService.search).
+                null
+        );
     }
 
     @Override

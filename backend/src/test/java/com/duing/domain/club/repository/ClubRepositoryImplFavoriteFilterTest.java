@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.user.entity.User;
@@ -43,10 +44,10 @@ class ClubRepositoryImplFavoriteFilterTest extends IntegrationTestBase {
         Club notFavorited = saveActiveClub("안찜한클럽", ClubCategory.ACADEMIC);
         clubFavoriteRepository.save(ClubFavorite.create(student, favorited));
 
-        Page<Club> result = clubRepository.findByCondition(
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(
                 favoriteCondition(student.getId(), null), PageRequest.of(0, 20));
 
-        assertThat(result.getContent()).extracting(Club::getId)
+        assertThat(result.getContent()).extracting(ClubSummaryQuery::id)
                 .containsExactly(favorited.getId())
                 .doesNotContain(notFavorited.getId());
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -61,10 +62,10 @@ class ClubRepositoryImplFavoriteFilterTest extends IntegrationTestBase {
         clubFavoriteRepository.save(ClubFavorite.create(student, academicFavorited));
         clubFavoriteRepository.save(ClubFavorite.create(student, sportsFavorited));
 
-        Page<Club> result = clubRepository.findByCondition(
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(
                 favoriteCondition(student.getId(), ClubCategory.ACADEMIC), PageRequest.of(0, 20));
 
-        assertThat(result.getContent()).extracting(Club::getId)
+        assertThat(result.getContent()).extracting(ClubSummaryQuery::id)
                 .containsExactly(academicFavorited.getId());
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
@@ -79,7 +80,7 @@ class ClubRepositoryImplFavoriteFilterTest extends IntegrationTestBase {
         clubFavoriteRepository.delete(favorite);   // @SQLDelete — deleted_at 스탬프
         clubFavoriteRepository.flush();
 
-        Page<Club> result = clubRepository.findByCondition(
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(
                 favoriteCondition(student.getId(), null), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
@@ -94,7 +95,7 @@ class ClubRepositoryImplFavoriteFilterTest extends IntegrationTestBase {
         Club otherFavorited = saveActiveClub("타인찜클럽", ClubCategory.ACADEMIC);
         clubFavoriteRepository.save(ClubFavorite.create(other, otherFavorited));
 
-        Page<Club> result = clubRepository.findByCondition(
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(
                 favoriteCondition(me.getId(), null), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
@@ -108,11 +109,11 @@ class ClubRepositoryImplFavoriteFilterTest extends IntegrationTestBase {
         Club notFavorited = saveActiveClub("널안찜", ClubCategory.ACADEMIC);
         clubFavoriteRepository.save(ClubFavorite.create(student, favorited));
 
-        Page<Club> result = clubRepository.findByCondition(
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(
                 favoriteCondition(null, null), PageRequest.of(0, 100));
 
         // 다른 테스트가 커밋한 데이터가 공존할 수 있어 정확한 개수 대신 포함 여부만 단언한다.
-        assertThat(result.getContent()).extracting(Club::getId)
+        assertThat(result.getContent()).extracting(ClubSummaryQuery::id)
                 .contains(favorited.getId(), notFavorited.getId());
     }
 

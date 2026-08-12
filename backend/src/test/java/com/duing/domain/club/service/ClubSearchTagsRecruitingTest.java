@@ -7,6 +7,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -44,7 +45,7 @@ class ClubSearchTagsRecruitingTest {
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("축구부테스트")
                 .doesNotContain("러닝클럽테스트");
     }
@@ -65,7 +66,7 @@ class ClubSearchTagsRecruitingTest {
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("A동아리테스트")
                 .doesNotContain("B동아리테스트");
     }
