@@ -10,13 +10,14 @@ import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationAnswer;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
-import com.duing.domain.application.repository.ApplicationRepositoryCustom;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand.AnswerItem;
 import com.duing.domain.application.service.dto.query.ApplicantQuery;
+import com.duing.domain.application.service.dto.query.ApplicantRowQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
@@ -41,7 +42,6 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -375,17 +375,20 @@ class ApplicationAnswerValidationTest {
         RecruitmentQuestion textQuestion = requiredTextQuestion("지원 동기는?");
         RecruitmentQuestion singleChoice = singleChoiceQuestion("주 활동 요일은?", true, "월요일", "화요일");
         RecruitmentQuestion multipleChoice = multipleChoiceQuestion("관심 분야는?", true, "백엔드", "프론트엔드");
-        Recruitment recruitment = stubOpenRecruitmentWithQuestions(
-                List.of(textQuestion, singleChoice, multipleChoice));
+        stubOpenRecruitmentWithQuestions(List.of(textQuestion, singleChoice, multipleChoice));
 
-        Application application = Application.submit(recruitment, applicantUser(), List.of(
-                new ApplicationAnswer(textQuestion.id(), List.of("동아리에 관심이 많습니다.")),
-                new ApplicationAnswer(singleChoice.id(), List.of(choiceIdAt(singleChoice, 1))),
-                new ApplicationAnswer(multipleChoice.id(),
-                        List.of(choiceIdAt(multipleChoice, 0), choiceIdAt(multipleChoice, 1)))));
+        ApplicantRowQuery row = new ApplicantRowQuery(
+                1L, ApplicationStatus.SUBMITTED, LocalDateTime.now(),
+                List.of(
+                        new ApplicationAnswer(textQuestion.id(), List.of("동아리에 관심이 많습니다.")),
+                        new ApplicationAnswer(singleChoice.id(), List.of(choiceIdAt(singleChoice, 1))),
+                        new ApplicationAnswer(multipleChoice.id(),
+                                List.of(choiceIdAt(multipleChoice, 0), choiceIdAt(multipleChoice, 1)))),
+                USER_ID, "지원자", "20250001", College.IT_ENGINEERING, "컴퓨터공학과", Grade.FRESHMAN,
+                null, null);
         ApplicantSearchCondition noFilter = new ApplicantSearchCondition(null, null, null, null, null);
         when(applicationRepository.searchApplicants(RECRUITMENT_ID, USER_ID, noFilter))
-                .thenReturn(List.of(new ApplicationRepositoryCustom.ApplicantWithScore(application, null, null)));
+                .thenReturn(List.of(row));
 
         List<ApplicantQuery> applicants = applicationService.getApplicants(RECRUITMENT_ID, USER_ID, noFilter);
 
@@ -454,18 +457,5 @@ class ApplicationAnswerValidationTest {
         Application savedApplication = mock(Application.class);
         when(savedApplication.getId()).thenReturn(100L);
         when(applicationRepository.save(any(Application.class))).thenReturn(savedApplication);
-    }
-
-    private static User applicantUser() {
-        return User.create(
-                "2020123456",
-                "지원자",
-                "hashed",
-                UserRole.STUDENT,
-                Grade.FRESHMAN,
-                College.IT_ENGINEERING,
-                "컴퓨터공학",
-                "010-0000-0000",
-                LocalDateTime.now());
     }
 }
