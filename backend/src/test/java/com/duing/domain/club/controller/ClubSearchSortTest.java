@@ -66,6 +66,19 @@ class ClubSearchSortTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("구 클라이언트의 sort=RECENT 는 400 없이 추천순(RECOMMENDED)과 동일하게 동작한다")
+    void legacyRecentSortIsAcceptedAsRecommendedAlias() throws Exception {
+        saveActiveClub("무모집legacyrec");
+        Club recruiting = saveActiveClub("모집중legacyrec");
+        saveOpenRecruitment(recruiting, LocalDate.now().plusDays(5));
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?sort=RECENT&keyword=legacyrec")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].name", equalTo(recruiting.getName()));
+    }
+
+    @Test
     @DisplayName("sort=DEADLINE_SOON 이면 가장 가까운 마감일의 모집을 가진 동아리가 앞에 반환된다")
     void deadlineSoonSortReturnsClubWithEarliestDeadlineFirst() throws Exception {
         Club urgentClub = saveActiveClub("임박동아리deadline");

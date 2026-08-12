@@ -16,6 +16,13 @@ public enum ClubSortOption {
     RECOMMENDED,
     /** 활성 모집의 마감일이 가까운 순. 모집 없는 동아리는 마지막. */
     DEADLINE_SOON,
+    /**
+     * @deprecated 전환기 호환 alias — {@link #RECOMMENDED} 와 동일 동작. 배포 전환기의 stale FE 번들이
+     * {@code sort=RECENT} 를 명시 전송하므로 enum 을 즉시 지우면 바인딩 400 으로 탐색이 깨진다.
+     * FE 반영이 완전히 퍼진 다음 릴리스에서 제거한다.
+     */
+    @Deprecated
+    RECENT,
     /** 이름 가나다순 ASC. */
     ALPHABETICAL,
     /**
