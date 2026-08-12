@@ -83,7 +83,11 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
                             LocalTime reservedStartTime, LocalTime reservedEndTime) {}
 
     private List<RowState> storedRows() {
-        return reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), targetMonth).stream()
+        return storedRows(targetMonth);
+    }
+
+    private List<RowState> storedRows(YearMonth yearMonth) {
+        return reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), yearMonth).stream()
                 .map(row -> new RowState(row.getScheduleSeq(), row.getId(), row.getUpdatedAt(), row.getCrawledAt(),
                         row.getOrganizationName(), row.getStartTime(), row.getEndTime(),
                         row.getReservedStartTime(), row.getReservedEndTime()))
@@ -100,7 +104,11 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     }
 
     private void schoolReturns(String json) {
-        when(schoolFacilityClient.fetchReservations(eq(ROOM_SEQ), eq(targetMonth))).thenReturn(payload(json));
+        schoolReturns(targetMonth, json);
+    }
+
+    private void schoolReturns(YearMonth yearMonth, String json) {
+        when(schoolFacilityClient.fetchReservations(eq(ROOM_SEQ), eq(yearMonth))).thenReturn(payload(json));
     }
 
     private void crawl() {
@@ -234,6 +242,42 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(storedRows()).isEqualTo(baseline); // fail-safe: 빈 스냅샷으로 덮어쓰지 않는다
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
         assertThat(snapshot.getFetchStatus()).isEqualTo(FetchStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("예약이 월 경계를 넘어 옮겨지면 옛 월의 행이 지워지고 새 월에 새로 저장된다 — schedule_seq 자기 충돌 없이")
+    void reservationMovedAcrossMonthsIsDeletedThenReinserted() {
+        List<RowState> baseline = crawlBaseline(); // 당월에 18134(1일)·18135(2일)
+        YearMonth nextMonth = targetMonth.plusMonths(1);
+
+        // 18134 가 당월에서 빠지고 익월로 옮겨진 상태(말일 예약이 다음 달로 연기되는 실사용 시나리오)를
+        // 한 수집 세대에서 함께 본다. schedule_seq 는 전역 UNIQUE 라, 익월 INSERT 가 당월 DELETE 보다
+        // 먼저 나가면 자기 자신과 충돌해 그 시설 트랜잭션이 통째로 롤백된다(fail-safe 라 조용히 매 주기 반복).
+        schoolReturns(targetMonth, """
+                [{"schedule_seq":"18135","schedule_dept":"동아리연합회",
+                  "schedule_date":"02","schedule_time":"10:00~11:00"}]
+                """);
+        schoolReturns(nextMonth, """
+                [{"schedule_seq":"18134","schedule_dept":"고정관념(9:00~20:00)",
+                  "schedule_date":"03","schedule_time":"19:00~20:00"}]
+                """);
+
+        crawlService.crawlAndReplace(List.of(targetMonth, nextMonth), CrawlSource.SCHEDULER);
+
+        // 옛 월: 옮겨간 행만 사라지고 남은 행은 쓰이지 않았다(지문 불변).
+        assertThat(storedRows(targetMonth)).containsExactly(baseline.get(1));
+        // 새 월: 같은 schedule_seq 가 신규 행으로 들어갔다(제자리 갱신이 아니라 신규 — 옛 행 id 와 다르다).
+        List<RowState> movedRows = storedRows(nextMonth);
+        assertThat(movedRows).hasSize(1);
+        assertThat(movedRows.get(0).scheduleSeq()).isEqualTo(18134L);
+        assertThat(movedRows.get(0).id()).isNotEqualTo(baseline.get(0).id());
+        assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(19, 0));
+        // unique 충돌 롤백이 없었음의 증명 — 두 달 모두 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
+        for (YearMonth crawledMonth : List.of(targetMonth, nextMonth)) {
+            FacilityMonthSnapshot monthSnapshot = snapshotRepository.findByYearMonth(crawledMonth).orElseThrow();
+            assertThat(monthSnapshot.getFetchStatus()).isEqualTo(FetchStatus.SUCCESS);
+            assertThat(monthSnapshot.isFacilitySynced(facility.getId())).isTrue();
+        }
     }
 
     @Test
