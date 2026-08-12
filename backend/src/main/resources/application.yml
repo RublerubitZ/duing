@@ -204,6 +204,16 @@ duing:
     window-days: ${DUING_PUBLIC_ACTIVITY_WINDOW_DAYS:30}
     default-limit: ${DUING_PUBLIC_ACTIVITY_DEFAULT_LIMIT:10}
     max-limit: ${DUING_PUBLIC_ACTIVITY_MAX_LIMIT:20}
+  public-api-cache:
+    # 공개(비개인화) 조회 API 인메모리 마이크로 캐시(PublicApiCacheConfig). 잡과 달리 기본 활성 —
+    # 부수효과 없는 읽기 최적화라 조용히 꺼져 있으면 얻는 것 없이 손해만 본다. 이상 시
+    # DUING_PUBLIC_API_CACHE_ENABLED=false 로 즉시 끌 수 있다(재기동 필요).
+    enabled: ${DUING_PUBLIC_API_CACHE_ENABLED:true}
+    # 캐시 수명(ms). 대상 응답이 이미 선언한 Cache-Control: max-age=60 과 같은 값으로 맞춘다 —
+    # 브라우저에 허용한 것보다 서버가 더 낡은 값을 주지 않게 하는 상한이다.
+    ttl-ms: ${DUING_PUBLIC_API_CACHE_TTL_MS:60000}
+    # 캐시별 엔트리 상한. keyword 처럼 값이 무제한인 파라미터가 키에 들어가므로 힙 상한을 명시한다.
+    max-entries: ${DUING_PUBLIC_API_CACHE_MAX_ENTRIES:200}
   facility:
     crawler:
       # 시설 예약 크롤 스케줄러(10분)/시설목록 동기화(1일). 로컬/테스트 기본 비활성 —
