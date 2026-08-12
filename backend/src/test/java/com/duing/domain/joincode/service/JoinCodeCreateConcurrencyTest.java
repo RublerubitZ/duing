@@ -107,7 +107,8 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
         User leader = userRepository.save(UserFixture.unique());
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        // 삭제는 마감된 모집만 가능하고, 발급은 모집 상태를 보지 않으므로 두 경로가 같은 모집에서 겹친다.
+        // 삭제는 마감된 모집만 가능하고, 발급도 마감 모집이면 거부한다(#871 의 isEffectivelyOpen 게이트).
+        // 그래서 이 경쟁의 관심사는 발급 성공 여부가 아니라, 어느 인터리빙에서도 고아 코드가 남지 않는다는 불변식이다.
         Recruitment recruitment = saveExternalRecruitment(club);
         closeRecruitment(recruitment);
 
@@ -130,12 +131,15 @@ class JoinCodeCreateConcurrencyTest extends IntegrationTestBase {
                 .as("동시 삭제·발급 테스트가 시간 내에 완료").isTrue();
 
         List<Throwable> failures = outcomes.stream().map(this::quietGet).filter(java.util.Objects::nonNull).toList();
-        // 발급이 먼저면 둘 다 성공(삭제가 그 코드를 폐기), 삭제가 먼저면 발급은 404 — 둘 다 실패는 없다.
+        // 삭제가 먼저 커밋되면 발급은 404, 발급이 삭제 커밋 전에 모집을 읽으면 마감 모집 발급 거부 —
+        // 어느 쪽이든 발급만 실패하고 삭제는 성공하므로 둘 다 실패는 없다.
         assertThat(failures).as("두 요청이 모두 실패해서는 안 된다").hasSizeLessThan(2);
         // 실패 타입을 고정한다 — 교착·잠금 타임아웃으로 실패해도 통과하는 공허한 단언이 되지 않게 한다.
         assertThat(failures).allSatisfy(failure -> assertThat(failure)
-                .as("삭제가 먼저 커밋되면 발급은 사라진 모집에 대한 404 로만 실패한다")
-                .isInstanceOf(RecruitmentException.RecruitmentNotFoundException.class));
+                .as("발급 실패는 삭제 선점의 404 또는 마감 모집 발급 거부로만 한정한다")
+                .isInstanceOfAny(
+                        RecruitmentException.RecruitmentNotFoundException.class,
+                        JoinCodeException.OpenRecruitmentRequiredException.class));
 
         assertThat(recruitmentRepository.findById(recruitment.getId()))
                 .as("삭제는 어느 순서에서도 성공한다").isEmpty();
