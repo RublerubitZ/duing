@@ -1,12 +1,14 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import posthog from 'posthog-js';
 
 import { createApiClient, registerUnauthorizedHandler } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, useMeQuery, userQueryKeys } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 import type { User } from '@duing/types';
@@ -32,7 +34,14 @@ const TEST_USER: User = {
   role: 'STUDENT',
 };
 
+let queryClient: QueryClient;
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeEach(() => {
+  // 앱과 같은 기본값(staleTime 30초)을 준다 — 부팅 복원이 채운 캐시가 곧바로 stale 이면
+  // 뒤따라 마운트되는 소비자가 다시 요청해, 중복 제거를 측정할 수 없다.
+  queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } });
+});
 afterEach(() => {
   server.resetHandlers();
   refreshCallCount = 0;
@@ -76,14 +85,25 @@ async function waitForRefreshSettled() {
   await waitFor(() => expect(refreshCallCount).toBe(1));
 }
 
-function renderBootstrap() {
+// providers.tsx 와 같은 순서로 렌더한다 — 부트스트랩이 먼저, 소비자가 뒤. 이 순서가 뒤집히면
+// 소비자가 먼저 요청을 내 중복 제거가 성립하지 않는다.
+function renderBootstrap(consumer?: ReactNode) {
   return render(
     <ApiClientProvider client={apiClient}>
-      <ToastProvider>
-        <AuthSessionBootstrap />
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthSessionBootstrap />
+          {consumer}
+        </ToastProvider>
+      </QueryClientProvider>
     </ApiClientProvider>,
   );
+}
+
+// 헤더(UserMenu)·마이페이지 등 부팅 직후 마운트되는 /users/me 소비자를 대표한다.
+function MeConsumer() {
+  const meQuery = useMeQuery();
+  return <span data-testid="me-name">{meQuery.data?.name ?? ''}</span>;
 }
 
 describe('AuthSessionBootstrap', () => {
@@ -121,6 +141,39 @@ describe('AuthSessionBootstrap', () => {
 
     await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
     expect(requestCount).toBe(1);
+  });
+
+  // 부팅 복원과 화면의 me 소비자(헤더·마이페이지 등)는 같은 /users/me 다. 복원 요청을 me 쿼리의
+  // 첫 조회로 등록하지 않으면, 하이드레이션 직후 마운트된 소비자가 같은 요청을 한 번 더 낸다.
+  it('부팅 복원을 me 쿼리 조회로 등록해 소비자가 요청을 다시 내지 않는다', async () => {
+    let requestCount = 0;
+    let releaseResponse = () => {};
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/users/me`, async () => {
+        requestCount += 1;
+        await responseGate;
+        return HttpResponse.json({ ok: true, data: TEST_USER, message: null });
+      }),
+    );
+
+    // 로컬 이력이 있는 재방문 = 시드된 authenticated — 소비자 쿼리가 첫 마운트부터 열린다(최악의 경우).
+    act(() => useAuthStore.getState().seedSession('authenticated'));
+    startBootSessionRestore(apiClient);
+    await waitFor(() => expect(requestCount).toBe(1));
+
+    renderBootstrap(<MeConsumer />);
+
+    // 소비자가 자기 요청을 냈다면 응답을 풀기 전에 이미 2건이다.
+    await act(async () => {
+      releaseResponse();
+      await waitFor(() => expect(screen.getByTestId('me-name')).toHaveTextContent('홍길동'));
+    });
+
+    expect(requestCount).toBe(1);
+    expect(queryClient.getQueryData(userQueryKeys.me())).toEqual(TEST_USER);
   });
 
   // 이 PR 의 핵심 계약 변경. 401 봉투는 진짜 만료와 일시 장애가 완전히 같아서, 이 컴포넌트가
@@ -348,6 +401,9 @@ describe('AuthSessionBootstrap', () => {
       isVerified: true,
       user: null,
     });
+    // 스토어와 같은 이유로 캐시에도 남기지 않는다 — 공용 단말에서 로그아웃한 사용자의 정보가
+    // 다음 사용자의 화면에 뜨지 않아야 한다.
+    expect(queryClient.getQueryData(userQueryKeys.me())).toBeUndefined();
     expect(identifySpy).not.toHaveBeenCalled();
     identifySpy.mockRestore();
   });
