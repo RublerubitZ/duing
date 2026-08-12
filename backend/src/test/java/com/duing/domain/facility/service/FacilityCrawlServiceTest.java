@@ -86,8 +86,8 @@ class FacilityCrawlServiceTest {
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, times(1)).replaceReservations(any(), any(), any(), any());
-        verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.SUCCESS), any(), any(), any());
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any());
+        verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.SUCCESS), any(), any(), any(), any());
         assertThat(summary.failedRooms()).isEmpty();
     }
 
@@ -106,8 +106,8 @@ class FacilityCrawlServiceTest {
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
         // 기존 스냅샷을 빈 데이터로 덮어쓰지 않고(§1 fail-safe) 실패 메타만 남긴다.
-        verify(snapshotWriter, never()).replaceReservations(any(), any(), any(), any());
-        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any());
+        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any());
+        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
         assertThat(summary.failedRooms()).containsExactly(4);
         assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
@@ -122,7 +122,7 @@ class FacilityCrawlServiceTest {
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, never()).replaceReservations(any(), any(), any(), any());
+        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
         assertThat(summary.failedRooms()).containsExactly(6);
         assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
@@ -140,8 +140,8 @@ class FacilityCrawlServiceTest {
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, times(1)).replaceReservations(any(), any(), any(), any()); // ok 만
-        verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.PARTIAL), any(), any(), any());
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any()); // ok 만
+        verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.PARTIAL), any(), any(), any(), any());
         assertThat(summary.failedRooms()).containsExactly(6);
         assertThat(summary.succeededRooms()).isEqualTo(1);
         assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
@@ -155,12 +155,12 @@ class FacilityCrawlServiceTest {
         when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
         when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
         doThrow(new org.springframework.dao.DataIntegrityViolationException("schedule_seq 충돌"))
-                .when(snapshotWriter).replaceReservations(any(), any(), any(), any());
+                .when(snapshotWriter).reconcileReservations(any(), any(), any(), any());
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
         // 쓰기 실패 → 성공 메타 기록 금지, 실패 메타로 crawled_at 보존
-        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any());
+        verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
         assertThat(summary.failedRooms()).containsExactly(4);
         assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
@@ -214,7 +214,7 @@ class FacilityCrawlServiceTest {
         doAnswer(invocation -> {
             firstCrawlFinished.set(true); // 크롤 종료(락 해제 직전) 표식 — 둘째가 이 시점 이후에 반환하면 블로킹 회귀다
             return null;
-        }).when(snapshotWriter).recordSuccessfulMeta(eq(current), any(), any(), any(), any());
+        }).when(snapshotWriter).recordSuccessfulMeta(eq(current), any(), any(), any(), any(), any());
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         Future<DataSource> first = pool.submit(() -> service.ensureFresh(current));
@@ -322,10 +322,10 @@ class FacilityCrawlServiceTest {
 
         verify(client, times(1)).fetchReservationsOnDemand(eq(4), eq(july));
         verify(client, never()).fetchReservationsOnDemand(eq(6), eq(july)); // 스킵 룸은 시도 자체가 없다
-        verify(snapshotWriter, times(1)).replaceReservations(any(), any(), any(), any()); // 완료한 룸만 영속
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any()); // 완료한 룸만 영속
         // 스킵이 있으면 그 달을 신선(SUCCESS)으로 기록하면 안 된다 — PARTIAL(stale=true)로 남아 재시도된다.
         verify(snapshotWriter, times(1)).recordSuccessfulMeta(
-                eq(july), eq(FetchStatus.PARTIAL), any(), any(), eq("온디맨드 데드라인 초과"));
+                eq(july), eq(FetchStatus.PARTIAL), any(), any(), eq("온디맨드 데드라인 초과"), any());
         assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
         assertThat(summary.succeededRooms()).isEqualTo(1); // 스킵 룸을 성공으로 오집계하지 않는다
         assertThat(summary.failedRooms()).isEmpty(); // 시도하지 않은 룸은 실패도 아니다

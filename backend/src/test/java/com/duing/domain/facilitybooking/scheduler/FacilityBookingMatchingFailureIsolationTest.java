@@ -126,11 +126,13 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
         return bookingId;
     }
 
+    /** 전 시설 성공 크롤 — 저장된 모든 시설이 이 세대의 성공 집합에 들어간다(세대 결박 판별 근거). */
     private void recordSuccessSnapshot(YearMonth yearMonth, LocalDateTime crawledAt) {
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(yearMonth)
                 .orElseGet(() -> FacilityMonthSnapshot.create(yearMonth, crawledAt,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
-        snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null);
+        snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                facilityRepository.findAll().stream().map(Facility::getId).toList());
         snapshotRepository.save(snapshot);
     }
 

@@ -33,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * 가용성 조회 조립(설계 §8.1) — 트랜잭션 없는 오케스트레이션이다. ensureFresh 가 온디맨드 크롤(delete+insert)을
+ * 가용성 조회 조립(설계 §8.1) — 트랜잭션 없는 오케스트레이션이다. ensureFresh 가 온디맨드 크롤(예약 행 쓰기)을
  * 유발할 수 있어, 클래스 레벨 readOnly 트랜잭션에 편승시키면 PostgreSQL 25006(read-only 트랜잭션 내 DELETE 금지)
  * → 공개 GET 500 을 유발한다(기존 GeneralFacilityUsageService §5.4 와 동일 원칙). 각 조회는 리포지토리
  * 단건 호출로 자체 트랜잭션을 가지며 다중 쿼리 정합 요구가 없다.
