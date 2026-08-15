@@ -106,7 +106,9 @@ class ClubSearchSortTest extends IntegrationTestBase {
         // 만료-OPEN: 과거 endDate 가 min() 을 오염시켜 최상단에 오던 회귀 케이스.
         saveRecruitmentWithPeriod(expiredOpenClub, today.minusDays(20), today.minusDays(1));
         // 모집예정: 아직 접수 전인데 가까운 endDate 로 지원 가능 동아리를 앞지르던 회귀 케이스.
-        saveRecruitmentWithPeriod(upcomingClub, today.plusDays(1), today.plusDays(2));
+        // 시작일을 +2 로 두는 이유: 테스트 날짜는 JVM 존, 쿼리는 KST(seoulClock) 기준이라
+        // UTC CI 에서 KST 날짜가 하루 앞서는 구간(UTC 15~24시)에도 "시작 전" 이 유지돼야 한다.
+        saveRecruitmentWithPeriod(upcomingClub, today.plusDays(2), today.plusDays(3));
 
         RestAssured.given()
                 .when().get("/api/v1/clubs?sort=DEADLINE_SOON&keyword=dlscope")
