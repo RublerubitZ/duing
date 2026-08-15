@@ -12,6 +12,7 @@ import com.duing.domain.facility.crawler.exception.FacilityClientException.Facil
 import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -278,6 +279,33 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
             assertThat(monthSnapshot.getFetchStatus()).isEqualTo(FetchStatus.SUCCESS);
             assertThat(monthSnapshot.isFacilitySynced(facility.getId())).isTrue();
         }
+    }
+
+    @Test
+    @DisplayName("크롤 윈도우 밖 과거 월에 같은 schedule_seq 행이 남아 있어도 윈도우 안으로 옮겨온 예약이 충돌 없이 반영된다")
+    void reservationMovedIntoWindowFromOutsideResolvesStaleRow() {
+        // 크롤 윈도우는 당월·익월뿐이라 지지난달 행은 차등 비교 대상에 아예 들어오지 않는다.
+        // 그 상태로 같은 schedule_seq 를 INSERT 하면 전역 UNIQUE 와 충돌해 이 시설 트랜잭션이 롤백되고,
+        // fail-safe 라 조용히 매 주기 같은 충돌이 반복된다(수동 개입 전까지 수집·자동 확정 영구 정지).
+        YearMonth outsideWindowMonth = targetMonth.minusMonths(2);
+        FacilityReservation staleRow = reservationRepository.save(FacilityReservation.create(
+                facility.getId(), 18134L, outsideWindowMonth, outsideWindowMonth.atDay(10),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념", null, null,
+                LocalDateTime.now().minusDays(30)));
+
+        schoolReturns(BASELINE_PAYLOAD); // 같은 18134 가 당월 1일 예약으로 들어온다
+        crawl();
+
+        assertThat(reservationRepository.findById(staleRow.getId())).isEmpty(); // 잔존 행은 해소됐다
+        List<RowState> afterCrawl = storedRows();
+        assertThat(afterCrawl).hasSize(2);
+        assertThat(afterCrawl.get(0).scheduleSeq()).isEqualTo(18134L);
+        assertThat(afterCrawl.get(0).startTime()).isEqualTo(LocalTime.of(19, 0)); // 옮겨온 새 값으로 반영
+        assertThat(reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), outsideWindowMonth)).isEmpty();
+        // unique 충돌 롤백이 없었음의 증명 — 월 메타가 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
+        assertThat(snapshot.getFetchStatus()).isEqualTo(FetchStatus.SUCCESS);
+        assertThat(snapshot.isFacilitySynced(facility.getId())).isTrue();
     }
 
     @Test

@@ -21,6 +21,12 @@ public interface FacilityReservationRepository extends JpaRepository<FacilityRes
     List<FacilityReservation> findByFacilityIdAndYearMonthIn(Long facilityId, Collection<YearMonth> yearMonths);
 
     /**
+     * 신규 INSERT 예정 seq 의 잔존 행 탐지 — 크롤 윈도우(당월·익월) 밖 월이나 다른 시설에 같은
+     * schedule_seq 행이 남아 있는지 전역 UNIQUE 인덱스로 확인한다. 신규가 없는 주기에는 호출하지 않는다.
+     */
+    List<FacilityReservation> findByScheduleSeqIn(Collection<Long> scheduleSeqs);
+
+    /**
      * 차등 반영의 delete 단계 — 학교에서 사라진 행만 id 로 지운다. 삭제 대상이 없으면 호출하지 않으므로
      * 변경 없는 크롤에서는 이 문장이 아예 실행되지 않는다.
      * 영속성 컨텍스트는 비우지 않는다(clearAutomatically 미사용) — 같은 트랜잭션에서 diff 로 이미
