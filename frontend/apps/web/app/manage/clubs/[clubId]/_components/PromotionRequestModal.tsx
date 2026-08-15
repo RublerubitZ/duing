@@ -75,7 +75,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
         if (!open && !submitPromotion.isPending) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent busy={isSubmitting || submitPromotion.isPending} className="max-w-lg">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3">
           <DialogHeader>

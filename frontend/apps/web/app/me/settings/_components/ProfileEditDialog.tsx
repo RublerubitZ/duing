@@ -112,7 +112,7 @@ export function ProfileEditDialog({
       }}
     >
       {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제). */}
-      <DialogContent aria-describedby={undefined}>
+      <DialogContent busy={updateMutation.isPending} aria-describedby={undefined}>
         <DialogTitle>프로필 수정</DialogTitle>
         {/* 검증은 JS(userNameSchema/majorSchema)로 친절한 한글 메시지를 노출한다.
             CollegeSelect 의 native required 가 빈 값일 때 submit 을 막지 않도록 noValidate. */}

@@ -80,7 +80,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
         if (!next) onClose();
       }}
     >
-      <DialogContent>
+      <DialogContent busy={changeMutation.isPending}>
         <DialogTitle>비밀번호 변경</DialogTitle>
         <DialogDescription className="text-[12.5px]">
           변경하면 보안을 위해 다시 로그인해야 해요.
