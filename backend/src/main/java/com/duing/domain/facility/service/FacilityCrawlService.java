@@ -31,8 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * 시설 예약 수집 오케스트레이션 + 원자적 스냅샷 교체(fail-safe) + 온디맨드 single-flight(Task 16).
- * fetch·파싱·검증은 트랜잭션 밖에서 하고 성공한 월만 {@link FacilitySnapshotWriter} 로 원자 교체한다.
+ * 시설 예약 수집 오케스트레이션 + 원자적 차등 반영(fail-safe) + 온디맨드 single-flight(Task 16).
+ * fetch·파싱·검증은 트랜잭션 밖에서 하고 성공한 월만 {@link FacilitySnapshotWriter} 로 원자 반영한다
+ * (전체 재작성이 아니라 변경분만 반영하므로 내용이 같은 주기는 DB 쓰기를 만들지 않는다).
  * 룸 실패는 격리되어 다른 룸에 영향이 없고, 실패한 (시설,월)은 기존 스냅샷을 유지한다.
  */
 @Slf4j
@@ -143,10 +144,14 @@ public class FacilityCrawlService {
         Map<YearMonth, Integer> reservationCount = new LinkedHashMap<>();
         Map<YearMonth, Boolean> anySuccess = new LinkedHashMap<>();
         Map<YearMonth, Boolean> anyFailure = new LinkedHashMap<>();
+        // 이 세대에 수집·영속까지 성공한 시설 — 월 메타에 함께 기록해 자동 확정의 세대 결박 근거로 쓴다.
+        // 예약 행은 변경분만 차등 반영되므로 행의 crawled_at 으로는 세대를 판별할 수 없다.
+        Map<YearMonth, List<Long>> syncedFacilityIds = new LinkedHashMap<>();
         for (YearMonth month : months) {
             reservationCount.put(month, 0);
             anySuccess.put(month, false);
             anyFailure.put(month, false);
+            syncedFacilityIds.put(month, new ArrayList<>());
         }
         List<Integer> failedRooms = new ArrayList<>();
         String lastError = null;
@@ -184,7 +189,7 @@ public class FacilityCrawlService {
                             : client.fetchReservations(facility.getRoomSeq(), month);
                     List<ParsedReservation> parsed = reservationParser.parse(body, month);
                     if (body.size() > 0 && parsed.isEmpty()) {
-                        // 200 + 비어있지 않은 배열인데 전원소 파싱 실패 — 학교 스키마 드리프트로 판단, 빈 스냅샷 교체(데이터 소실) 대신 룸 실패 처리(§1 fail-safe).
+                        // 200 + 비어있지 않은 배열인데 전원소 파싱 실패 — 학교 스키마 드리프트로 판단, 빈 스냅샷으로 반영(데이터 소실) 대신 룸 실패 처리(§1 fail-safe).
                         throw new FacilityClientException.FacilityBadResponseException(
                                 "시설 예약 응답 스키마 불일치 의심: 원소 " + body.size() + "건 전부 파싱 불가");
                     }
@@ -197,20 +202,21 @@ public class FacilityCrawlService {
             }
             if (!fetchedByMonth.isEmpty()) {
                 try {
-                    snapshotWriter.replaceReservations(
+                    snapshotWriter.reconcileReservations(
                             facility.getId(), new ArrayList<>(fetchedByMonth.keySet()), fetchedByMonth, crawledAt);
                     // 영속 성공 후에만 성공으로 집계한다 — 쓰기 실패(유니크 충돌 등)를 성공으로 오집계해
                     // crawled_at 을 갱신(신선 처리)하고 옛 스냅샷을 최신인 양 서빙하는 것을 막는다(C1).
                     fetchedByMonth.forEach((month, reservations) -> {
                         anySuccess.put(month, true);
                         reservationCount.merge(month, reservations.size(), Integer::sum);
+                        syncedFacilityIds.get(month).add(facility.getId());
                     });
-                } catch (RuntimeException replaceFailure) {
+                } catch (RuntimeException reconcileFailure) {
                     // schedule_seq unique 충돌 등 — fail-safe: 해당 시설 기존 스냅샷 유지, 다음 주기에 정합.
                     roomFailed = true;
                     fetchedByMonth.keySet().forEach(month -> anyFailure.put(month, true));
-                    lastError = summarize(replaceFailure);
-                    log.warn("시설 스냅샷 교체 실패(기존 유지): roomSeq={}", facility.getRoomSeq());
+                    lastError = summarize(reconcileFailure);
+                    log.warn("시설 예약 반영 실패(기존 유지): roomSeq={}", facility.getRoomSeq());
                 }
             }
             if (roomFailed) {
@@ -233,7 +239,8 @@ public class FacilityCrawlService {
             try {
                 if (Boolean.TRUE.equals(anySuccess.get(month))) {
                     FetchStatus status = Boolean.TRUE.equals(anyFailure.get(month)) ? FetchStatus.PARTIAL : FetchStatus.SUCCESS;
-                    snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source, status == FetchStatus.PARTIAL ? lastError : null);
+                    snapshotWriter.recordSuccessfulMeta(month, status, crawledAt, source,
+                            status == FetchStatus.PARTIAL ? lastError : null, syncedFacilityIds.get(month));
                 } else {
                     snapshotWriter.recordFailureMeta(month, source, lastError);
                 }

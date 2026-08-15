@@ -68,6 +68,8 @@ describe('useLogout', () => {
     const queryClient = newQueryClient();
     const { result } = renderHook(() => useLogout(), { wrapper: makeWrapper(queryClient) });
 
+    queryClient.setQueryData(['users', 'me'], { id: 1 });
+
     await act(async () => {
       await result.current();
     });
@@ -75,6 +77,8 @@ describe('useLogout', () => {
     expect(capturedAuth).toBeNull();
     expect(useAuthStore.getState().status).toBe('unauthenticated');
     expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    // 로그인·부팅 복원이 심어 둔 사용자 정보도 함께 사라진다(공용 단말 노출 방지).
+    expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
   });
 
   it('서버 로그아웃이 실패하면 오류를 전파하고 로컬 세션과 캐시를 유지한다', async () => {

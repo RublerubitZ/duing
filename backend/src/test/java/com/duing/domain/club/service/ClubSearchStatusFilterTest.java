@@ -8,6 +8,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import java.lang.reflect.Field;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ class ClubSearchStatusFilterTest {
                 PageRequest.of(0, 10));
 
         assertThat(page.getContent())
-                .extracting(Club::getName)
+                .extracting(ClubSummaryQuery::name)
                 .contains("활성동아리테스트")
                 .doesNotContain("승인대기동아리테스트")
                 .doesNotContain("중단동아리테스트");

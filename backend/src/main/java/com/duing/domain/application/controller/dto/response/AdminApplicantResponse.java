@@ -1,9 +1,8 @@
 package com.duing.domain.application.controller.dto.response;
 
-import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.service.dto.query.AdminApplicantQuery;
 import com.duing.domain.user.entity.College;
-import com.duing.domain.user.entity.User;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
@@ -20,17 +19,16 @@ public record AdminApplicantResponse(
         ApplicationStatus status,
         Instant submittedAt
 ) {
-    public static AdminApplicantResponse from(Application application) {
-        User applicant = application.getUser();
+    public static AdminApplicantResponse from(AdminApplicantQuery applicant) {
         return new AdminApplicantResponse(
-                application.getId(),
-                applicant.getName(),
-                applicant.getStudentId(),
-                applicant.getCollege(),
-                applicant.getMajor(),
-                application.getStatus(),
+                applicant.applicationId(),
+                applicant.userName(),
+                applicant.studentId(),
+                applicant.college(),
+                applicant.major(),
+                applicant.status(),
                 // 제출 시각은 JPA 감사 필드라 JVM 존 벽시계다(TIMEZONE.md — system regime).
-                TimeMapper.systemWallClockToInstant(application.getCreatedAt())
+                TimeMapper.systemWallClockToInstant(applicant.submittedAt())
         );
     }
 }

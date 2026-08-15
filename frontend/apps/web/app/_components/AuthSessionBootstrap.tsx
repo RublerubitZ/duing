@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { useApiClient } from '@duing/hooks';
+import { useApiClient, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -12,6 +13,7 @@ import posthog from 'posthog-js';
 export function AuthSessionBootstrap() {
   const [attempt, setAttempt] = useState(0);
   const client = useApiClient();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
   const status = useAuthStore((state) => state.status);
   const isVerified = useAuthStore((state) => state.isVerified);
@@ -39,14 +41,28 @@ export function AuthSessionBootstrap() {
     // 레버 1: 부팅 1회분은 모듈 스코프에서 선점된 요청을 받아쓴다(요청이 하이드레이션보다
     // 먼저 나간다). 재시도(attempt>0)와 선점이 없던 경우는 여기서 새로 요청한다.
     const preflighted = attempt === 0 ? consumeBootSessionRestore() : null;
-    void (preflighted ?? client.users.me())
+    // 복원 요청을 me 쿼리의 첫 조회로 등록한다 — 화면의 /users/me 소비자(헤더·마이페이지 등)는
+    // 하이드레이션 직후 같은 키로 마운트되므로, 등록해 두면 진행 중인 이 요청을 물려받는다
+    // (React Query 중복 제거). 등록하지 않으면 부팅마다 /users/me 가 두 번 나간다.
+    // retry: false — 자동 재시도는 하지 않는다. 선점 프로미스는 1회용이라 재시도해도 같은
+    // 실패를 되풀이하고, 복구는 아래 '다시 시도' 알림(새 요청)이 맡는다.
+    void queryClient
+      .fetchQuery({
+        queryKey: userQueryKeys.me(),
+        queryFn: () => preflighted ?? client.users.me(),
+        retry: false,
+      })
       .then((user) => {
         if (cancelled) return;
         // 확정된 종료(로그아웃·만료 확정) 후 도착한 늦은 응답은 세션을 되살리지 않는다 —
         // 종료 판정의 단일 출처는 SessionExpiryHandler·clearSession 이고, 이 응답은 그보다
-        // 먼저 나간 요청이다(catch 의 침묵 가드와 대칭).
+        // 먼저 나간 요청이다(catch 의 침묵 가드와 대칭). 스토어와 같은 이유로 캐시에서도
+        // 지운다 — 종료 경로들이 비운 캐시를 이 늦은 응답이 되채우면 안 된다.
         const settled = useAuthStore.getState();
-        if (settled.isVerified && settled.status === 'unauthenticated') return;
+        if (settled.isVerified && settled.status === 'unauthenticated') {
+          queryClient.removeQueries({ queryKey: userQueryKeys.me() });
+          return;
+        }
         setSession(user);
         posthog.identify(String(user.id), {
           role: user.role,
@@ -79,7 +95,7 @@ export function AuthSessionBootstrap() {
     return () => {
       cancelled = true;
     };
-  }, [attempt, client, setSession, addToast]);
+  }, [attempt, client, queryClient, setSession, addToast]);
 
   return null;
 }

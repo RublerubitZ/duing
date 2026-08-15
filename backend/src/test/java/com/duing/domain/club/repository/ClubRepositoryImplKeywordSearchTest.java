@@ -10,6 +10,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.user.entity.College;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -133,8 +134,8 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
             org.assertj.core.api.ObjectAssert<Long>> assertSearch(String keyword) {
         ClubSearchCondition condition = new ClubSearchCondition(
                 null, null, keyword, null, null, null, null, null, null, ClubSortOption.ALPHABETICAL, null);
-        Page<Club> result = clubRepository.findByCondition(condition, PageRequest.of(0, 50));
-        return assertThat(result.getContent()).extracting(Club::getId);
+        Page<ClubSummaryQuery> result = clubRepository.findByCondition(condition, PageRequest.of(0, 50));
+        return assertThat(result.getContent()).extracting(ClubSummaryQuery::id);
     }
 
     private Club saveDepartmentClub(String name, String department) {

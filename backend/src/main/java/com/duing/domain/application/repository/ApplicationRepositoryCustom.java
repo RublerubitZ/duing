@@ -1,9 +1,9 @@
 package com.duing.domain.application.repository;
 
-import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.service.dto.query.AdminApplicantQuery;
 import com.duing.domain.application.service.dto.query.ApplicantNeighborsQuery;
+import com.duing.domain.application.service.dto.query.ApplicantRowQuery;
 import com.duing.domain.application.service.dto.query.ApplicantSearchCondition;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ApplicationRepositoryCustom {
@@ -16,7 +16,7 @@ public interface ApplicationRepositoryCustom {
      * ASSIGNED InterviewSchedule 이 가리키는 슬롯의 startTime 을 interviewStartAt 으로 반환한다
      * (없거나 CANCELLED 면 null).
      */
-    List<ApplicantWithScore> searchApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition);
+    List<ApplicantRowQuery> searchApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition);
 
     /**
      * 동일 필터 컨텍스트에서 createdAt desc 정렬 기준 prev/next applicationId 를 반환한다.
@@ -31,8 +31,6 @@ public interface ApplicationRepositoryCustom {
      * — 관리자 화면은 점수·면접 일정을 보지 않으므로 그만큼 가벼운 쿼리로 끝낸다.
      * {@code oldestFirst} 가 참이면 먼저 제출한 순, 거짓이면 운영진 목록과 같은 최근 제출 순이다.
      */
-    List<Application> searchApplicantsForAdmin(Long recruitmentId, ApplicantSearchCondition condition,
-                                               boolean oldestFirst);
-
-    record ApplicantWithScore(Application application, LocalDateTime interviewStartAt, Integer myScore) {}
+    List<AdminApplicantQuery> searchApplicantsForAdmin(Long recruitmentId, ApplicantSearchCondition condition,
+                                                       boolean oldestFirst);
 }

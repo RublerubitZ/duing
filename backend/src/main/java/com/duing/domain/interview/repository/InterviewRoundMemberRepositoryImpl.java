@@ -5,10 +5,10 @@ import static com.duing.domain.interview.entity.QInterviewRound.interviewRound;
 import static com.duing.domain.interview.entity.QInterviewRoundMember.interviewRoundMember;
 import static com.duing.domain.user.entity.QUser.user;
 
-import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.service.dto.query.RoundCandidateQuery;
 import com.duing.domain.interview.service.dto.query.RoundMemberLine;
 import com.duing.domain.interview.service.dto.query.RoundMemberStatusCount;
 import com.duing.domain.interview.service.dto.query.VisibleMembership;
@@ -27,10 +27,20 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<Application> findRoundCandidates(Long recruitmentId, boolean includeUndecided) {
+    public List<RoundCandidateQuery> findRoundCandidates(Long recruitmentId, boolean includeUndecided) {
         return queryFactory
-                .selectFrom(application)
-                .join(application.user).fetchJoin()
+                .select(Projections.constructor(RoundCandidateQuery.class,
+                        application.id,
+                        user.id,
+                        user.name,
+                        user.studentId,
+                        user.college,
+                        user.major,
+                        user.grade,
+                        application.status,
+                        application.createdAt))
+                .from(application)
+                .join(application.user, user)
                 .where(
                         application.recruitment.id.eq(recruitmentId),
                         candidateStatuses(includeUndecided),

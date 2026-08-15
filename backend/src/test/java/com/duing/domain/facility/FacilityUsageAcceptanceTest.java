@@ -112,7 +112,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 null, null, now));
 
         long newSeq = 90201L;
-        snapshotWriter.replaceReservations(
+        snapshotWriter.reconcileReservations(
                 facility.getId(),
                 List.of(currentMonth),
                 Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(10, 0),
@@ -128,7 +128,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         assertThat(afterReplace.get(0).getReservedStartTime()).isEqualTo(LocalTime.of(9, 0));
         assertThat(afterReplace.get(0).getReservedEndTime()).isEqualTo(LocalTime.of(17, 0));
 
-        snapshotWriter.replaceReservations(
+        snapshotWriter.reconcileReservations(
                 facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), now);
 
         List<FacilityReservation> afterEmptyReplace =

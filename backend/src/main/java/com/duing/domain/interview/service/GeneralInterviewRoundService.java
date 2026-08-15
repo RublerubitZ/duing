@@ -86,9 +86,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             throw new InterviewException.InterviewNotUsed();
         }
 
-        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUndecided).stream()
-                .map(RoundCandidateQuery::from)
-                .toList();
+        return interviewRoundMemberRepository.findRoundCandidates(recruitmentId, includeUndecided);
     }
 
     @Override

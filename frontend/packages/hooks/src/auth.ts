@@ -33,6 +33,10 @@ export function useLoginMutation() {
       // 로그인 페이지가 세션 보유 상태에서도 열리므로(사용자 전환), 이전 계정의 캐시가
       // 새 계정 화면에 노출되지 않도록 로그아웃 경로들과 동일하게 비운 뒤 세션을 연다.
       queryClient.clear();
+      // 로그인 응답의 user 는 /users/me 와 같은 서버 표현(UserResponse)이다 — 비운 자리에
+      // 심어 두면 로그인 직후 열리는 화면이 같은 정보를 다시 받아오지 않는다. 세션을 열기
+      // 전에 심어야 이미 마운트된 소비자가 활성화 전이에서 요청을 내지 않는다.
+      queryClient.setQueryData(userQueryKeys.me(), user);
       setSession(user);
     },
   });

@@ -117,13 +117,16 @@ describe('LoginFormPanel', () => {
     const user = userEvent.setup();
     const { container, queryClient } = renderLoginForm();
     queryClient.setQueryData(['users', 'me'], { id: 99, name: '이전사용자' });
+    queryClient.setQueryData(['users', 'me', 'clubs'], [{ clubId: 99 }]);
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'password1234');
     submitForm(container);
 
     await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
-    expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
+    expect(queryClient.getQueryData(['users', 'me', 'clubs'])).toBeUndefined();
+    // me 만은 비운 자리에 로그인 응답(새 계정)으로 다시 심는다 — 이전 사용자 정보는 남지 않는다.
+    expect(queryClient.getQueryData(['users', 'me'])).toEqual(TEST_USER);
   });
 
   it('유효한 학번·비밀번호로 제출하면 login 을 호출한다', async () => {

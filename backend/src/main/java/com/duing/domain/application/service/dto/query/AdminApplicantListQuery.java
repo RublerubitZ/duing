@@ -1,6 +1,5 @@
 package com.duing.domain.application.service.dto.query;
 
-import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +13,7 @@ import java.util.Map;
  */
 public record AdminApplicantListQuery(
         Map<ApplicationStatus, Long> statusCounts,
-        List<Application> applicants
+        List<AdminApplicantQuery> applicants
 ) {
     /** 모집 전체 지원자 수 — 취소(soft delete)된 지원서는 상태별 집계에서 이미 빠져 있다. */
     public long total() {
