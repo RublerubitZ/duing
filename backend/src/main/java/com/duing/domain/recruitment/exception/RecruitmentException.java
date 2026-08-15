@@ -70,6 +70,31 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /**
+     * 접수 마감(stopIntake)은 상시모집(endDate=null) 전용이다. 기간모집은 종료일 경과로,
+     * 이미 접수 마감된 모집은 확정된 종료일로 같은 상태에 도달하므로 모두 이 예외로 수렴한다.
+     */
+    public static class StopIntakeRequiresAlwaysOpenException extends RecruitmentException {
+        private static final String MESSAGE = "상시모집 공고만 접수를 마감할 수 있습니다.";
+
+        public StopIntakeRequiresAlwaysOpenException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * 접수 마감은 종료일을 어제로 확정하므로 기간 불변식(endDate >= startDate)을 지키려면
+     * 시작일이 오늘보다 과거여야 한다. 시작일 당일·미래 시작 상시모집이 모두 해당한다 —
+     * 당일 즉시 종료가 필요하면 모집 종료(close)를 쓴다.
+     */
+    public static class StopIntakeTooEarlyException extends RecruitmentException {
+        private static final String MESSAGE = "모집 시작일 다음 날부터 접수를 마감할 수 있습니다.";
+
+        public StopIntakeTooEarlyException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class InvalidInterviewPeriodException extends RecruitmentException {
         private static final String MESSAGE = "면접 종료일은 시작일보다 빠를 수 없습니다.";
 

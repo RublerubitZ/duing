@@ -1,7 +1,6 @@
 package com.duing.domain.recruitment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.club.entity.Club;
@@ -15,12 +14,10 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
-import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
-import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
-import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -28,6 +25,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -37,10 +35,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 상시모집 접수 마감(#888) 통합 검증 — 실제 seoulClock 빈·리포지토리로 KST 어제 확정과
+ * "접수 마감 → 새 모집 생성" 흐름(create 의 만료-OPEN 자동 마감 조건 endDate.isBefore(today) 정합성)을 고정한다.
+ */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @Transactional
-class RecruitmentAlwaysOpenTest {
+class RecruitmentStopIntakeTest {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Autowired
     private RecruitmentService recruitmentService;
@@ -56,56 +60,43 @@ class RecruitmentAlwaysOpenTest {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("endDate 가 null 이면 상시모집으로 생성되고 displayStatus 가 ALWAYS_OPEN 으로 도출된다")
-    void alwaysOpenRecruitmentIsCreatedAndDisplayStatusBecomesAlwaysOpen() throws Exception {
+    @DisplayName("상시모집 접수를 마감하면 종료일이 KST 어제로 확정되고 OPEN 상태로 표시만 마감된다")
+    void stopIntakeFixesEndDateToYesterdayAndDisplayStatusBecomesClosed() throws Exception {
         User leader = saveUser("리더");
         Club club = saveActiveClub("상시동아리");
         saveMembership(club, leader, ClubMemberRole.LEADER);
+        Long recruitmentId = recruitmentService.create(
+                alwaysOpenCommand(club.getId(), leader.getId(), LocalDate.now(KST).minusDays(10)));
 
-        Long recruitmentId = recruitmentService.create(new CreateRecruitmentCommand(
-                club.getId(),
-                leader.getId(),
-                "상시 모집",
-                "내용",
-                LocalDate.now().minusDays(1),
-                null,
-                10,
-                ApplicationMode.SELF,
-                null,
-                false,
-                TargetRole.MEMBER,
-                List.of(RecruitmentQuestion.createText("자기소개")),
-                null,
-                null,
-                false
-        ));
+        recruitmentService.stopIntake(recruitmentId, leader.getId());
 
-        Recruitment savedRecruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
-        assertThat(savedRecruitment.getEndDate()).isNull();
-        assertThat(savedRecruitment.isEffectivelyOpen(LocalDate.now().plusYears(1))).isTrue();
-
-        RecruitmentDetailQuery detailQuery = recruitmentService.getById(recruitmentId);
-        assertThat(detailQuery.displayStatus()).isEqualTo(RecruitmentDisplayStatus.ALWAYS_OPEN);
+        LocalDate kstToday = LocalDate.now(KST);
+        Recruitment stoppedRecruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
+        assertThat(stoppedRecruitment.getEndDate()).isEqualTo(kstToday.minusDays(1));
+        assertThat(stoppedRecruitment.getStatus()).isEqualTo(RecruitmentStatus.OPEN);
+        assertThat(stoppedRecruitment.getClosedAt()).isNull();
+        assertThat(stoppedRecruitment.isEffectivelyOpen(kstToday)).isFalse();
+        assertThat(recruitmentService.getById(recruitmentId).displayStatus())
+                .isEqualTo(RecruitmentDisplayStatus.CLOSED);
     }
 
-    /**
-     * 일반 update 경로의 전환 금지는 접수 마감(stopIntake, #888) 도입 후에도 그대로다 —
-     * 접수 마감은 update 를 거치지 않는 전용 커맨드로 endDate 를 확정한다 (RecruitmentStopIntakeServiceTest).
-     */
     @Test
-    @DisplayName("상시모집(endDate=null)을 기간모집으로 전환하려고 하면 AlwaysOpenConversionNotAllowedException 이 발생한다")
-    void convertingAlwaysOpenToFixedPeriodThrows() throws Exception {
+    @DisplayName("접수 마감된 모집이 있어도 새 모집을 생성할 수 있고 기존 모집은 자동으로 마감된다")
+    void creatingNewRecruitmentAfterStopIntakeAutoClosesStoppedOne() throws Exception {
         User leader = saveUser("리더");
         Club club = saveActiveClub("상시동아리");
         saveMembership(club, leader, ClubMemberRole.LEADER);
+        Long stoppedRecruitmentId = recruitmentService.create(
+                alwaysOpenCommand(club.getId(), leader.getId(), LocalDate.now(KST).minusDays(10)));
+        recruitmentService.stopIntake(stoppedRecruitmentId, leader.getId());
 
-        Long recruitmentId = recruitmentService.create(new CreateRecruitmentCommand(
+        Long newRecruitmentId = recruitmentService.create(new CreateRecruitmentCommand(
                 club.getId(),
                 leader.getId(),
-                "상시 모집",
+                "다음 기수 모집",
                 "내용",
-                LocalDate.now().minusDays(1),
-                null,
+                LocalDate.now(KST),
+                LocalDate.now(KST).plusDays(14),
                 10,
                 ApplicationMode.SELF,
                 null,
@@ -117,55 +108,32 @@ class RecruitmentAlwaysOpenTest {
                 false
         ));
 
-        UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
-                recruitmentId,
-                leader.getId(),
+        Recruitment stoppedRecruitment = recruitmentRepository.findById(stoppedRecruitmentId).orElseThrow();
+        assertThat(stoppedRecruitment.getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(stoppedRecruitment.getClosedAt())
+                .as("자동 마감도 close() 경로라 종료 시각이 스탬프된다").isNotNull();
+        Recruitment newRecruitment = recruitmentRepository.findById(newRecruitmentId).orElseThrow();
+        assertThat(newRecruitment.getStatus()).isEqualTo(RecruitmentStatus.OPEN);
+    }
+
+    private CreateRecruitmentCommand alwaysOpenCommand(Long clubId, Long leaderId, LocalDate startDate) {
+        return new CreateRecruitmentCommand(
+                clubId,
+                leaderId,
+                "상시 모집",
+                "내용",
+                startDate,
+                null,
+                10,
+                ApplicationMode.SELF,
+                null,
+                false,
+                TargetRole.MEMBER,
+                List.of(RecruitmentQuestion.createText("자기소개")),
                 null,
                 null,
-                null,
-                LocalDate.now().plusDays(7),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+                false
         );
-
-        assertThatThrownBy(() -> recruitmentService.update(updateCommand))
-                .isInstanceOf(RecruitmentException.AlwaysOpenConversionNotAllowedException.class);
-    }
-
-    @Test
-    @DisplayName("상시모집을 마감하면 displayStatus 가 CLOSED 로 도출된다")
-    void closingAlwaysOpenRecruitmentMakesDisplayStatusClosed() throws Exception {
-        User leader = saveUser("리더");
-        Club club = saveActiveClub("상시동아리");
-        saveMembership(club, leader, ClubMemberRole.LEADER);
-
-        Long recruitmentId = recruitmentService.create(new CreateRecruitmentCommand(
-                club.getId(),
-                leader.getId(),
-                "상시 모집",
-                "내용",
-                LocalDate.now().minusDays(1),
-                null,
-                10,
-                ApplicationMode.SELF,
-                null,
-                false,
-                TargetRole.MEMBER,
-                List.of(RecruitmentQuestion.createText("자기소개")),
-                null,
-                null,
-                false
-        ));
-
-        recruitmentService.close(recruitmentId, leader.getId());
-
-        RecruitmentDetailQuery detailQuery = recruitmentService.getById(recruitmentId);
-        assertThat(detailQuery.displayStatus()).isEqualTo(RecruitmentDisplayStatus.CLOSED);
     }
 
     private User saveUser(String name) {

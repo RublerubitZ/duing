@@ -238,4 +238,26 @@ public class Recruitment extends BaseEntity {
         this.status = RecruitmentStatus.CLOSED;
         this.closedAt = closedAt;
     }
+
+    /**
+     * 상시모집의 신규 접수만 마감한다 — 종료일을 어제로 확정해 만료-OPEN(심사 기간)으로 전환한다 (#888).
+     *
+     * <p>status 는 OPEN 을 유지하므로 마감 아카이브(ClosedRecruitmentPolicy)가 걸리지 않아 심사·면접·상태
+     * 변경은 계속 가능하고, 신규 지원·임시저장·가입 링크 신규 발급만 {@link #isEffectivelyOpen} 으로 닫힌다.
+     * 종료일은 당일 포함(inclusive)이라 오늘로 확정하면 자정까지 접수가 열려 있다 — 즉시 마감하려면 어제여야 한다.
+     * 재개는 의도된 undo 경로다: update 로 미래 종료일을 보내면 접수가 다시 열린다(상시모집 복귀는 표현 불가).
+     */
+    public void stopIntake(LocalDate today) {
+        if (this.status == RecruitmentStatus.CLOSED) {
+            throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        if (this.endDate != null) {
+            throw new RecruitmentException.StopIntakeRequiresAlwaysOpenException();
+        }
+        // 어제 확정이 기간 불변식(endDate >= startDate)을 지키려면 시작일이 오늘보다 과거여야 한다.
+        if (!this.startDate.isBefore(today)) {
+            throw new RecruitmentException.StopIntakeTooEarlyException();
+        }
+        this.endDate = today.minusDays(1);
+    }
 }
