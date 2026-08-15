@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ClubSummary, FederationFaqItem, PageResponse, PromotionCard } from '@duing/types';
 
 // createApiClient 를 모킹해, 백엔드 호출 없이 home-data 로더들의 실패 정책(fail-soft ↔ throw)을 검증한다.
-// 홈(/)은 ISR(revalidate 300s) 이라 재생성 중 백엔드 순단을 swallow 하면 빈 홈이 300초 전역 캐시된다.
+// 홈(/)은 ISR(revalidate 600s) 이라 재생성 중 백엔드 순단을 swallow 하면 빈 홈이 600초 전역 캐시된다.
 const { createApiClientMock, clubsListMock, faqsListMock, promotionsListMock } = vi.hoisted(() => ({
   createApiClientMock: vi.fn(),
   clubsListMock: vi.fn(),
