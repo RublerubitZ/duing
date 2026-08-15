@@ -13,6 +13,7 @@ import { ApplicantProfilePanel } from './ApplicantProfilePanel';
 import { EvaluationPanel } from './EvaluationPanel';
 import { StatusActionBar, statusTransitionsFor } from './StatusActionBar';
 import { StatusTimeline } from './StatusTimeline';
+import { useApplicantSearch } from '../../_lib/applicantSearch';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
@@ -24,13 +25,16 @@ type Props = {
 
 export function ApplicantDetailPage({ clubId, recruitmentId, applicationId }: Props) {
   const searchParams = useSearchParams();
+  // 검색어는 주소가 아니라 applicants 세그먼트 상태에서 온다(개인정보라 주소에 싣지 않는다).
+  // 상세 URL 로 곧장 들어오면 비어 있고, 그때는 검색 없이 필터만으로 이웃을 계산한다.
+  const [searchTerm] = useApplicantSearch();
 
   const statusRaw = searchParams.get('status');
   const collegeRaw = searchParams.get('college');
   const filters: ApplicantsFilters = {
     status: statusRaw !== null && isApplicationStatus(statusRaw) ? statusRaw : undefined,
     college: collegeRaw !== null && isCollege(collegeRaw) ? collegeRaw : undefined,
-    q: searchParams.get('q') ?? undefined,
+    q: searchTerm || undefined,
     submittedFrom: searchParams.get('submittedFrom') ?? undefined,
     submittedTo: searchParams.get('submittedTo') ?? undefined,
   };
