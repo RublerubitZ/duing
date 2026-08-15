@@ -55,7 +55,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
         if (!open && !submitSuccession.isPending) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent busy={submitSuccession.isPending} className="max-w-md">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3">
           <DialogHeader>

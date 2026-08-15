@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
@@ -237,6 +237,33 @@ describe('ProfileEditDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(capturedBody).toMatchObject({ grade: 'SENIOR' });
+  });
+
+  // 취소 버튼만 pending 으로 막고 ESC 를 열어두면 작성 중이던 값이 저장 도중에 사라진다(#830).
+  // 폼 다이얼로그의 busy 배선이 빠지면 이 단언이 깨진다.
+  it('저장 중에는 ESC 로 닫히지 않는다', async () => {
+    server.use(
+      http.patch(`${BASE}/users/me`, async () => {
+        await delay('infinite');
+        return ok204();
+      }),
+    );
+
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog open onClose={onClose} currentName="홍길동" currentGrade="JUNIOR" />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    // 전송 중 판정은 취소 버튼의 disabled 로 잡는다 — 가드 자체(aria-busy)로 기다리면
+    // 배선이 빠졌을 때 ESC 단언에 닿기도 전에 대기에서 터져 무엇이 깨졌는지 흐려진다.
+    await waitFor(() => expect(screen.getByRole('button', { name: '취소' })).toBeDisabled());
+
+    await user.keyboard('{Escape}');
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
 
