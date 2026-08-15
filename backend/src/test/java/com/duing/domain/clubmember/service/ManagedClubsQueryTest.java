@@ -119,6 +119,24 @@ class ManagedClubsQueryTest {
     }
 
     @Test
+    @DisplayName("상시모집(종료일 없음) 중인 동아리도 모집중 카운트에 포함된다")
+    void alwaysOpenRecruitmentIsCountedAsActive() throws Exception {
+        // 회귀 방지: endDate 가 NULL 인 상시모집은 SQL 3치 논리(goe 단독 비교) 에서
+        // 카운트가 0 으로 떨어졌던 버그가 있었다 — Recruitment.isEffectivelyOpen 과 동치여야 한다.
+        User currentUser = saveStudent("상시모집리더");
+        Club alwaysOpenClub = saveActiveClub("상시모집동아리");
+        saveMembership(alwaysOpenClub, currentUser, ClubMemberRole.LEADER);
+
+        LocalDate today = LocalDate.now();
+        saveRecruitment(alwaysOpenClub, "상시모집", today.minusDays(3), null, RecruitmentStatus.OPEN);
+
+        List<ManagedClubQuery> result = clubMemberRepository.findActiveManagedClubsByUser(currentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).activeRecruitmentCount()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("중앙동아리·일반동아리 모두 반환되며 centralClub 값은 각 동아리 플래그와 일치한다")
     void centralClubFlagMatchesEachClub() throws Exception {
         User currentUser = saveStudent("플래그리더");
