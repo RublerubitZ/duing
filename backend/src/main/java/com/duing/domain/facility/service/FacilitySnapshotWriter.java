@@ -12,14 +12,17 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 예약 차등 반영과 월 메타 upsert 의 트랜잭션 경계. 오케스트레이터에서 분리해 프록시 self-invocation 을 피한다. */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FacilitySnapshotWriter {
@@ -35,7 +38,8 @@ public class FacilitySnapshotWriter {
      * <p>{@code 200 + []} 는 빈 리스트로 들어와 그 시설·월의 행이 전부 삭제된다(취소된 예약 유령 방지).
      * schedule_seq unique 충돌 시 트랜잭션이 롤백되어 호출부가 fail-safe(기존 유지)로 처리한다.
      * DELETE 를 INSERT 보다 먼저 실행해, 한 트랜잭션에서 여러 월을 다룰 때 월 간 이동한 schedule_seq 가
-     * 자기 자신과 unique 충돌하지 않게 한다.
+     * 자기 자신과 unique 충돌하지 않게 한다. 반영 범위 밖(윈도우 밖 월·다른 시설)에 남은 같은 seq 행도
+     * 같은 DELETE 에 실어 함께 지운다 — {@link #staleRowIdsOutsideScope} 참고.
      */
     @Transactional
     public void reconcileReservations(Long facilityId, List<YearMonth> months,
@@ -64,16 +68,48 @@ public class FacilitySnapshotWriter {
             }
         }
 
-        List<Long> removedRowIds = storedByScheduleSeq.values().stream()
-                .map(FacilityReservation::getId)
-                .filter(rowId -> !reconciledRowIds.contains(rowId))
-                .toList();
+        Set<Long> removedRowIds = new LinkedHashSet<>();
+        for (FacilityReservation stored : storedByScheduleSeq.values()) {
+            if (!reconciledRowIds.contains(stored.getId())) {
+                removedRowIds.add(stored.getId());
+            }
+        }
+        removedRowIds.addAll(staleRowIdsOutsideScope(facilityId, toInsert, removedRowIds));
         if (!removedRowIds.isEmpty()) {
             reservationRepository.deleteByIdIn(removedRowIds);
         }
         if (!toInsert.isEmpty()) {
             reservationRepository.saveAll(toInsert);
         }
+    }
+
+    /**
+     * 이번 반영 범위(이 시설의 대상 월들) 밖에 같은 schedule_seq 로 남아 있는 행의 id — INSERT 전에 함께 지운다.
+     *
+     * <p>크롤은 당월·익월 윈도우만 reconcile 하므로, 윈도우 밖 과거 월에 남은 행이나 다른 시설로 옮겨간 예약의
+     * 행은 위 diff 의 비교 대상에 아예 들어오지 않는다. 그대로 INSERT 하면 전역 UNIQUE(schedule_seq) 와
+     * 충돌해 그 시설 트랜잭션이 롤백되고, fail-safe 라 조용히 다음 주기에도 같은 충돌이 반복된다 —
+     * 수동 개입 전까지 그 시설의 수집·자동 확정이 영구히 멈춘다.
+     *
+     * <p>schedule_seq 는 학교 전역 자연키다. 크롤이 그 seq 를 (시설,월)로 내려준 순간 다른 위치의 같은 seq 행은
+     * 정의상 예약이 옮겨간 뒤의 잔존물이므로, 윈도우 안 월 이동과 같은 규약(제거 + 신규)으로 해소한다.
+     * 신규 INSERT 가 없는 주기(=대부분)에는 조회 자체를 하지 않는다.
+     */
+    private List<Long> staleRowIdsOutsideScope(Long facilityId, List<FacilityReservation> toInsert,
+                                               Set<Long> removedRowIds) {
+        if (toInsert.isEmpty()) {
+            return List.of();
+        }
+        List<Long> insertScheduleSeqs = toInsert.stream().map(FacilityReservation::getScheduleSeq).toList();
+        List<FacilityReservation> staleRows = reservationRepository.findByScheduleSeqIn(insertScheduleSeqs).stream()
+                .filter(staleRow -> !removedRowIds.contains(staleRow.getId()))
+                .toList();
+        if (staleRows.isEmpty()) {
+            return List.of();
+        }
+        log.warn("크롤 범위 밖 잔존 예약 제거(예약 이동으로 판단): facilityId={} scheduleSeqs={}",
+                facilityId, staleRows.stream().map(FacilityReservation::getScheduleSeq).toList());
+        return staleRows.stream().map(FacilityReservation::getId).toList();
     }
 
     /**
