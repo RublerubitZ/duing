@@ -93,6 +93,28 @@ class ClubSearchSortTest extends IntegrationTestBase {
                 .body("data.content[0].name", equalTo(urgentClub.getName()));
     }
 
+    @Test
+    @DisplayName("마감임박순에서 기간이 지난 OPEN 모집과 아직 시작 전인 모집은 지원 가능한 동아리보다 앞에 오지 않는다")
+    void deadlineSoonSortExcludesExpiredAndUpcomingRecruitments() throws Exception {
+        LocalDate today = LocalDate.now();
+        Club availableClub = saveActiveClub("지원가능dlscope");
+        Club expiredOpenClub = saveActiveClub("기간종료dlscope");
+        Club upcomingClub = saveActiveClub("시작전dlscope");
+
+        // 지원 가능: 마감이 10일 뒤로 가장 멀지만, 아래 둘은 후보 자격이 없어야 한다.
+        saveRecruitmentWithPeriod(availableClub, today.minusDays(1), today.plusDays(10));
+        // 만료-OPEN: 과거 endDate 가 min() 을 오염시켜 최상단에 오던 회귀 케이스.
+        saveRecruitmentWithPeriod(expiredOpenClub, today.minusDays(20), today.minusDays(1));
+        // 모집예정: 아직 접수 전인데 가까운 endDate 로 지원 가능 동아리를 앞지르던 회귀 케이스.
+        saveRecruitmentWithPeriod(upcomingClub, today.plusDays(1), today.plusDays(2));
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs?sort=DEADLINE_SOON&keyword=dlscope")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(3))
+                .body("data.content[0].name", equalTo(availableClub.getName()));
+    }
+
     private Club saveActiveClub(String name) throws Exception {
         String uniqueName = name + "-" + sequence.getAndIncrement();
         Club created = Club.create(uniqueName, ClubCategory.ACADEMIC, "분과", "설명", null, false, null);
@@ -103,8 +125,12 @@ class ClubSearchSortTest extends IntegrationTestBase {
     }
 
     private void saveOpenRecruitment(Club club, LocalDate endDate) {
-        LocalDate today = LocalDate.now();
-        Recruitment recruitment = Recruitment.create(club, "모집-" + sequence.getAndIncrement(), null, today, endDate, 10);
+        saveRecruitmentWithPeriod(club, LocalDate.now(), endDate);
+    }
+
+    private void saveRecruitmentWithPeriod(Club club, LocalDate startDate, LocalDate endDate) {
+        Recruitment recruitment =
+                Recruitment.create(club, "모집-" + sequence.getAndIncrement(), null, startDate, endDate, 10);
         recruitmentRepository.save(recruitment);
     }
 }
