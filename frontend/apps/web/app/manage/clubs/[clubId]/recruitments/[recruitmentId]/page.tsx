@@ -7,6 +7,7 @@ import {
   useCloseRecruitmentMutation,
   useDeleteRecruitmentMutation,
   useRecruitmentStatsSummaryQuery,
+  useStopRecruitmentIntakeMutation,
 } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
@@ -20,9 +21,11 @@ import {
   RECRUITMENT_EXPIRED_OPEN_LABEL,
 } from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
+import { stopIntakeGate } from '../_lib/stopIntakeGate';
 import { InterviewStageChip } from './_components/InterviewStageChip';
 import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
 import { CloseRecruitmentConfirmDescription } from '../_components/CloseRecruitmentConfirmDescription';
+import { StopIntakeConfirmDescription } from '../_components/StopIntakeConfirmDescription';
 import { RecruitmentQuestionItemList } from './_components/RecruitmentQuestionItemList';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -39,6 +42,8 @@ export default function RecruitmentDetailPage({
   const router = useGuardedRouter();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [showStopIntakeConfirm, setShowStopIntakeConfirm] = useState(false);
+  const [stopIntakeError, setStopIntakeError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -47,6 +52,7 @@ export default function RecruitmentDetailPage({
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
   const closeRecruitment = useCloseRecruitmentMutation(recruitmentId, clubId);
+  const stopIntake = useStopRecruitmentIntakeMutation(recruitmentId, clubId);
   const deleteRecruitment = useDeleteRecruitmentMutation(clubId, recruitmentId);
   // 통계 페이지 진입 전 핵심 지표(지원자·합격·합격률)를 상세에서 미리 보여주기 위한 1회 호출.
   // 통계 페이지와 동일 훅·쿼리키를 공유하므로 통계로 이동 시 캐시가 재사용된다.
@@ -63,6 +69,8 @@ export default function RecruitmentDetailPage({
   const isClosed = recruitment.status === 'CLOSED';
   // 마감일만 지난 구간 — '마감'이라 안내하면 거짓이므로 별도 문구·칩으로 분리한다.
   const isExpiredOpen = isRecruitmentExpiredOpen(recruitment);
+  // 접수 마감(신규 지원만 차단·심사 계속)은 상시모집 전용 — 시작일 다음 날(KST)부터 활성화된다.
+  const stopIntakeAction = stopIntakeGate(recruitment, new Date());
   const isExternal = recruitment.applicationMode === 'EXTERNAL';
   const applicationModeLabel = isExternal ? '외부 폼' : '자체 폼';
   // 배지의 플랫폼명은 저장된 URL 호스트로 판별한다 — 화이트리스트 밖 레거시 URL 이면 생략한다.
@@ -112,6 +120,16 @@ export default function RecruitmentDetailPage({
       setShowCloseConfirm(false);
     } catch (err) {
       setCloseError(err instanceof Error ? err.message : '마감 처리에 실패했습니다.');
+    }
+  }
+
+  async function handleStopIntake() {
+    setStopIntakeError(null);
+    try {
+      await stopIntake.mutateAsync();
+      setShowStopIntakeConfirm(false);
+    } catch (err) {
+      setStopIntakeError(err instanceof Error ? err.message : '접수 마감 처리에 실패했습니다.');
     }
   }
 
@@ -297,6 +315,17 @@ export default function RecruitmentDetailPage({
             >
               수정
             </Link>
+            {stopIntakeAction.visible && (
+              <button
+                type="button"
+                disabled={!stopIntakeAction.enabled}
+                aria-describedby={stopIntakeAction.enabled ? undefined : 'stop-intake-too-early'}
+                onClick={() => setShowStopIntakeConfirm(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-700 shadow-sm transition-colors hover:border-amber-400 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-amber-300 disabled:hover:bg-white"
+              >
+                접수 마감
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowCloseConfirm(true)}
@@ -318,6 +347,13 @@ export default function RecruitmentDetailPage({
         )}
       </div>
 
+      {stopIntakeAction.visible && !stopIntakeAction.enabled && (
+        <p id="stop-intake-too-early" className="mt-2 text-xs text-slate-500">
+          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 마감을
+          이용해주세요.
+        </p>
+      )}
+
       {/* 외부 폼 모집은 지원자 화면 대신 여기서 회원을 등록한다 — 모집 상태와 무관하게 노출하되,
           링크 생성은 실질 진행 중일 때만 열어 종료 후 409 를 UX 에서 차단한다(§4.2·§5). */}
       {isExternal && (
@@ -328,6 +364,20 @@ export default function RecruitmentDetailPage({
           canCreate={recruitment.effectivelyOpen}
         />
       )}
+
+      <ConfirmDialog
+        open={showStopIntakeConfirm}
+        title="접수를 마감할까요?"
+        description={<StopIntakeConfirmDescription applicationMode={recruitment.applicationMode} />}
+        confirmLabel="접수 마감"
+        isPending={stopIntake.isPending}
+        errorMessage={stopIntakeError}
+        onConfirm={handleStopIntake}
+        onCancel={() => {
+          setShowStopIntakeConfirm(false);
+          setStopIntakeError(null);
+        }}
+      />
 
       <ConfirmDialog
         open={showCloseConfirm}

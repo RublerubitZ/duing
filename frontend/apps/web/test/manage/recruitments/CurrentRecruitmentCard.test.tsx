@@ -8,6 +8,7 @@ vi.mock('next/link', () => ({
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockCloseMutateAsync = vi.fn();
+const mockStopIntakeMutateAsync = vi.fn();
 const mockPendingJoinRequests = vi.fn(() => ({ data: [] as unknown[] }));
 const mockStatsSummary = vi.fn(() => ({ data: undefined as unknown }));
 vi.mock('@duing/hooks', async (importOriginal) => {
@@ -15,6 +16,7 @@ vi.mock('@duing/hooks', async (importOriginal) => {
   return {
     ...actualHooks,
     useCloseRecruitmentMutation: () => ({ mutateAsync: mockCloseMutateAsync, isPending: false }),
+    useStopRecruitmentIntakeMutation: () => ({ mutateAsync: mockStopIntakeMutateAsync, isPending: false }),
     useJoinRequestsQuery: () => mockPendingJoinRequests(),
     useRecruitmentStatsSummaryQuery: () => mockStatsSummary(),
   };

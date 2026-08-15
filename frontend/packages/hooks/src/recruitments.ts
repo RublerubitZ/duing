@@ -68,6 +68,21 @@ export function useCloseRecruitmentMutation(recruitmentId: number, clubId: numbe
   });
 }
 
+export function useStopRecruitmentIntakeMutation(recruitmentId: number, clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.recruitments.stopIntake(recruitmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: recruitmentQueryKeys.detail(recruitmentId) });
+      // 접수 마감은 endDate 를 확정해 목록 카드의 기간 라벨·상태 칩·D-day 를 바꾼다 — 목록도 함께 갱신한다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.recruitments(clubId) });
+      // effectivelyOpen 이 닫히면서 가입 링크 신규 발급 게이트도 바뀐다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
+    },
+  });
+}
+
 export function useDeleteRecruitmentMutation(clubId: number, recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();

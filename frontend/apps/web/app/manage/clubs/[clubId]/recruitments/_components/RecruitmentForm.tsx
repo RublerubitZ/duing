@@ -370,6 +370,13 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
               상시모집 (종료일 없음 — 직접 마감할 때까지 지원 접수)
             </label>
           )}
+          {/* 접수 마감(#888)은 종료일을 어제로 확정하는 방식이라 시작일 당일에는 쓸 수 없다 — 생성 시점에 미리 알린다. */}
+          {!isEditMode && isAlwaysOpen && (
+            <p className="mt-2 text-xs text-charcoal-3">
+              접수 마감(신규 지원만 중단)은 모집 시작일 다음 날부터 할 수 있습니다. 당일에 바로
+              끝내야 한다면 모집 종료를 이용해주세요.
+            </p>
+          )}
           {isEditMode && initialData?.endDate === null && (
             <p className="mt-2 text-xs text-charcoal-3">
               이 모집은 상시모집입니다. 종료일은 변경할 수 없습니다.
