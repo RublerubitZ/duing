@@ -157,7 +157,10 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 createCommand.userId()));
         // 자동 승인(스펙 §4): 코드 행 잠금 구간 안이라 이미 회원 검사~enroll 이 직렬화된다 —
         // 동시 중복 신청은 후행이 잠금 해제 후 AlreadyMemberException(409)으로 떨어진다.
-        // 최후 방어선은 uk_club_member_club_user_active + enrollment 서비스의 23505 멱등 처리.
+        // 남는 창은 코드 잠금이 닿지 않는 교차 경로(다른 링크 승인·지원 합격)의 동시 등록이다. 이때는
+        // uk_club_member_club_user_active 가 발화하고, enrollment 서비스가 이를 409(이미 회원)로 바꿔
+        // 던진다 — 접수·차감·감사까지 이 트랜잭션 전체가 롤백되므로 자리가 새지 않고, 재시도하면
+        // 위의 이미 회원 검사에서 409 로 걸린다(#921).
         if (joinCode.isAutoApprove()) {
             clubMemberEnrollmentService.enroll(joinCode.getClub(), requester,
                     ClubMemberRole.MEMBER, createdRequest.getGeneration());

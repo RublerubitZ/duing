@@ -20,8 +20,11 @@ public interface ClubMemberEnrollmentService {
      *       이 경우 기존 기수는 건드리지 않는다.</li>
      * </ul>
      * 동시 등록 경합은 club_member (club_id, user_id) WHERE deleted_at IS NULL partial unique 인덱스(V7)로
-     * DB 레벨에서 차단된다. flush 로 트랜잭션 안에서 충돌을 트리거하고,
-     * 23505 + uk_club_member_club_user_active 만 멱등 처리, 나머지는 전파한다.
+     * DB 레벨에서 차단된다. 경합에 진 쪽은 23505 + uk_club_member_club_user_active 를
+     * {@link com.duing.domain.clubmember.exception.ClubMemberException.DuplicateMembershipException}(409)
+     * 으로 바꿔 던지고, 나머지 제약 위반은 그대로 전파한다 — 어느 쪽이든 호출측 트랜잭션은 전부 롤백된다.
+     * 삼키고 진행하는 멱등 처리는 불가능하다: 23505 가 나면 PostgreSQL 트랜잭션이 aborted 상태라
+     * 뒤따르는 쿼리도 커밋도 실패한다(#921). 재시도하면 기존 멤버십을 읽어 승급 경로로 흡수된다.
      */
     void enroll(Club club, User user, ClubMemberRole grantedRole, Integer generation);
 }
