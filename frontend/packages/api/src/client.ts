@@ -496,6 +496,9 @@ export type DuingApiClient = {
     create(clubId: number, payload: CreateRecruitmentPayload): Promise<number>;
     update(recruitmentId: number, payload: UpdateRecruitmentPayload): Promise<void>;
     close(recruitmentId: number): Promise<void>;
+    // 상시모집 전용 접수 마감 — 종료일을 어제로 확정해 신규 지원만 차단한다(심사는 계속, status 는 OPEN 유지).
+    // 상시모집이 아니거나 시작일이 지나지 않았으면 400, 이미 마감(CLOSED)이면 409.
+    stopIntake(recruitmentId: number): Promise<void>;
     remove(recruitmentId: number): Promise<void>;
   };
   applications: {
@@ -1354,6 +1357,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       close: (recruitmentId) =>
         jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/close`)),
+      stopIntake: (recruitmentId) =>
+        jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/stop-intake`)),
       remove: (recruitmentId) =>
         jsonVoid(http.delete(`leader/recruitments/${recruitmentId}`)),
     },

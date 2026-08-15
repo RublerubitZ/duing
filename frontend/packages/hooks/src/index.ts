@@ -45,6 +45,7 @@ export {
   useRecruitmentDetailQuery,
   useUpdateRecruitmentMutation,
   useCloseRecruitmentMutation,
+  useStopRecruitmentIntakeMutation,
   useDeleteRecruitmentMutation,
 } from './recruitments';
 export {
