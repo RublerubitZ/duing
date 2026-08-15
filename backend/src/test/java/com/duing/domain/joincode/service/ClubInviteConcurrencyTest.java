@@ -14,7 +14,9 @@ import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.exception.JoinRequestException;
@@ -43,6 +45,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 부원 초대 링크(V107)의 동시성 계약을 실제 스레드로 검증한다 — 발급 경쟁·자동 승인 소진 경쟁·
@@ -60,6 +63,8 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
+    @Autowired ClubMemberEnrollmentService clubMemberEnrollmentService;
+    @Autowired TransactionTemplate transactionTemplate;
     @Autowired JdbcTemplate jdbcTemplate;
     /** 만료 시각은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
@@ -152,6 +157,75 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
                 .as("뒤늦은 경쟁 트랜잭션이 최초 폐기자를 덮어쓰면 행과 감사 이력이 어긋난다")
                 .isEqualTo(oldLinkRevocations.get(0).getActorUserId());
         assertThat(activeInviteCount(club)).as("재발급된 활성 링크 1개만 남는다").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("자동 승인 신청 도중 같은 학생이 다른 경로로 먼저 회원 등록되면 500 이 아니라 409 로 응답하고 접수는 전부 롤백된다")
+    void autoApproveLosingMemberRaceSurfacesConflictInsteadOfServerError() throws Exception {
+        Club club = saveActiveClub();
+        User student = saveUser();
+        ClubJoinCode inviteCode = saveInvite(club, "INVCC3", 30, true, null);
+
+        // 코드 행 잠금이 닿지 않는 교차 경로(지원 합격·다른 링크 승인) 를 커밋 직전에 붙잡아 둔다.
+        // 자동 승인 스레드는 아직 커밋되지 않은 이 행을 "이미 회원" 검사에서 못 보고 지나쳐,
+        // enroll 의 INSERT 에서 uk_club_member_club_user_active 대기에 걸린다 — 붙잡은 쪽이 커밋하는
+        // 순간 23505 가 터지는, 이슈가 말한 경합 그대로다.
+        CountDownLatch membershipPending = new CountDownLatch(1);
+        List<Throwable> failures = runConcurrently(
+                () -> awaitThen(membershipPending, () -> tryCreateRequest(inviteCode.getCode(), student.getId())),
+                () -> tryEnrollHoldingTransaction(club, student, membershipPending),
+                null);
+
+        assertThat(failures).as("경합에 진 자동 승인 신청 한 건만 실패한다").hasSize(1);
+        assertThat(failures.get(0))
+                .as("aborted 트랜잭션이 500 으로 새지 않고 이미 회원 409 로 표면화된다")
+                .isInstanceOf(ClubMemberException.DuplicateMembershipException.class);
+        assertThat(countOf("SELECT COUNT(*) FROM club_member WHERE club_id = ? AND deleted_at IS NULL",
+                club.getId())).as("멤버십은 먼저 커밋한 경로의 1건만 남는다").isEqualTo(1);
+        assertThat(countOf("SELECT COUNT(*) FROM club_join_request WHERE club_id = ? AND deleted_at IS NULL",
+                club.getId())).as("실패한 신청의 접수 행은 롤백되어 남지 않는다").isEqualTo(0);
+        assertThat(clubJoinCodeRepository.findById(inviteCode.getId()).orElseThrow().getUsedCount())
+                .as("차감했던 자리도 롤백으로 되돌아온다").isEqualTo(0);
+    }
+
+    /**
+     * 회원 등록을 커밋하지 않은 채 붙잡고, 경쟁 스레드의 INSERT 가 실제로 잠금 대기에 들어갈 때까지 기다린다.
+     * 대기 진입 전에 커밋하면 경쟁 스레드가 커밋된 행을 읽어 23505 대신 사전 검사 409 로 끝나, 검증하려는
+     * 경로가 한 번도 행사되지 않은 채 통과한다.
+     */
+    private Throwable tryEnrollHoldingTransaction(Club club, User student, CountDownLatch membershipPending) {
+        try {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                clubMemberEnrollmentService.enroll(club, student, ClubMemberRole.MEMBER, 13);
+                membershipPending.countDown();
+                awaitBlockedLock();
+            });
+            return null;
+        } catch (Throwable failure) {
+            return failure;
+        }
+    }
+
+    private void awaitBlockedLock() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Integer blocked = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM pg_locks WHERE NOT granted", Integer.class);
+            if (blocked != null && blocked > 0) {
+                return;
+            }
+            sleepBriefly();
+        }
+        throw new IllegalStateException("경쟁 INSERT 가 제한 시간 안에 잠금 대기에 진입하지 않았다.");
+    }
+
+    private void sleepBriefly() {
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("잠금 대기 폴링이 중단되었다.", interrupted);
+        }
     }
 
     private List<Throwable> runConcurrently(Callable<Throwable> firstTask, Callable<Throwable> secondTask,
