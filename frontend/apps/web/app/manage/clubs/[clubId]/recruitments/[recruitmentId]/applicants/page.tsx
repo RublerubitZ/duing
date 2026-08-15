@@ -29,6 +29,7 @@ import { BulkPromoteDialog } from './_components/BulkPromoteDialog';
 import { RecruitmentSwitcher } from './_components/RecruitmentSwitcher';
 import { SelectAllBar } from './_components/SelectAllBar';
 import { countByStatus } from './_lib/applicantCounts';
+import { useApplicantSearch } from './_lib/applicantSearch';
 import {
   actionableSelectedIds,
   selectableIds,
@@ -56,6 +57,8 @@ export default function ApplicantsPage({ params }: PageParams) {
 
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
+  // 검색어만 세그먼트 상태다 — 이름·학번이 주소에 실리면 방문 기록·referrer·액세스 로그로 새어나간다.
+  const [searchTerm, setSearchTerm] = useApplicantSearch();
 
   const filters = useMemo<ApplicantsFilters>(
     () => ({
@@ -63,11 +66,11 @@ export default function ApplicantsPage({ params }: PageParams) {
       // 술어이자 칩 선택 상태를 겸하게 되어, 검증 없이 통과하면 "어떤 칩도 안 눌린 빈 목록" 이 된다.
       status: readStatusParam(searchParams.get('status')),
       college: readCollegeParam(searchParams.get('college')),
-      q: searchParams.get('q') ?? undefined,
+      q: searchTerm || undefined,
       submittedFrom: searchParams.get('submittedFrom') ?? undefined,
       submittedTo: searchParams.get('submittedTo') ?? undefined,
     }),
-    [searchParams],
+    [searchParams, searchTerm],
   );
 
   const { data: recruitment, isLoading: isRecruitmentLoading } = useRecruitmentDetailQuery(
@@ -102,10 +105,13 @@ export default function ApplicantsPage({ params }: PageParams) {
   // allApplicants 를 의존성으로 쓰므로 목록 쿼리 아래에 둔다(위에 두면 의존성 배열이 TDZ 에 걸린다).
   const updateFilters = useCallback(
     (nextFilters: ApplicantsFilters) => {
+      // 검색어는 주소에 싣지 않고 세그먼트 상태로만 옮긴다 — 나머지 비식별 조건은 공유·뒤로가기를
+      // 위해 그대로 주소에 남긴다.
+      setSearchTerm(nextFilters.q ?? '');
+
       const nextParams = new URLSearchParams();
       if (nextFilters.status) nextParams.set('status', nextFilters.status);
       if (nextFilters.college) nextParams.set('college', nextFilters.college);
-      if (nextFilters.q) nextParams.set('q', nextFilters.q);
       if (nextFilters.submittedFrom)
         nextParams.set('submittedFrom', nextFilters.submittedFrom);
       if (nextFilters.submittedTo) nextParams.set('submittedTo', nextFilters.submittedTo);
@@ -140,12 +146,15 @@ export default function ApplicantsPage({ params }: PageParams) {
       }
       router.replace(`?${nextParams.toString()}`);
     },
-    [router, filters, allApplicants],
+    [router, filters, allApplicants, setSearchTerm],
   );
 
   const detailHref = useCallback(
     (applicationId: number) => {
-      const currentQs = searchParams.toString();
+      // 앱은 더는 q 를 주소에 싣지 않지만, 과거 공유 링크의 ?q= 가 상세 링크로 전파되지 않게 걸러낸다.
+      const carriedParams = new URLSearchParams(searchParams);
+      carriedParams.delete('q');
+      const currentQs = carriedParams.toString();
       // 템플릿 리터럴을 const 로 받으면 string 으로 넓어져 toRoute 의 `/${string}` 에 안 맞는다.
       const base: `/${string}` = `/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants/${applicationId}`;
       return toRoute(currentQs ? `${base}?${currentQs}` : base);

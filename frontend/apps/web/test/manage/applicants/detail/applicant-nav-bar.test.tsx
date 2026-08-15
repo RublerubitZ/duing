@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ApplicantsFilters, ApplicationStatus } from '@duing/types';
 import { ApplicantNavBar } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ApplicantNavBar';
 
@@ -53,11 +53,34 @@ describe('ApplicantNavBar', () => {
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled();
   });
 
-  it('필터 search params 가 목록 링크의 href 에 포함된다', () => {
-    renderNavBar({ filters: { status: 'ON_HOLD', q: '홍길동' }, currentStatus: 'ON_HOLD' });
+  /* 비식별 조건만 주소에 싣는다 — 검색어는 이름·학번이라 주소에 들어가면 방문 기록·referrer·
+   * 액세스 로그로 새어나간다(#913). 이웃 계산에는 여전히 반영되지만 링크에는 남지 않아야 한다. */
+  it('목록·이전/다음 링크에 비식별 필터만 싣고 검색어는 빼놓는다', () => {
+    renderNavBar({
+      prevId: 1,
+      nextId: 3,
+      filters: { status: 'ON_HOLD', q: '홍길동' },
+      currentStatus: 'ON_HOLD',
+    });
     const listLink = screen.getByRole('link', { name: '목록' });
     expect(listLink).toHaveAttribute('href', expect.stringContaining('status=ON_HOLD'));
-    expect(listLink).toHaveAttribute('href', expect.stringContaining('q='));
+    expect(listLink.getAttribute('href')).not.toContain('q=');
+    expect(listLink.getAttribute('href')).not.toContain('홍길동');
+  });
+
+  it('이전/다음 이동 주소에도 검색어가 실리지 않는다', () => {
+    renderNavBar({
+      prevId: 1,
+      nextId: 3,
+      filters: { status: 'ON_HOLD', q: '홍길동' },
+      currentStatus: 'ON_HOLD',
+    });
+    mockPush.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    const pushedHref = String(mockPush.mock.calls[0]?.[0]);
+    expect(pushedHref).toContain('status=ON_HOLD');
+    expect(pushedHref).not.toContain('q=');
   });
 
   it('현재 상태 뱃지가 표시된다', () => {
