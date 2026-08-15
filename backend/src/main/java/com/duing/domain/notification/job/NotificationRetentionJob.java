@@ -33,7 +33,8 @@ public class NotificationRetentionJob {
     @Scheduled(cron = "0 0 5 * * *", zone = "Asia/Seoul")
     @Transactional
     public void run() {
-        LocalDateTime cutoff = LocalDateTime.now(clock).minusDays(NotificationRetention.RETENTION_DAYS);
+        // 노출 쿼리와 같은 경계를 쓴다 — 별도 계산으로 갈라지면 "노출은 되는데 이미 파기됨" 이 생긴다.
+        LocalDateTime cutoff = NotificationRetention.visibilityFloor(clock);
         int deleted = notificationRepository.deleteCreatedBefore(cutoff);
         log.info("[알림 보존정책] {}일 경과 개인 알림 파기: deleted={}, cutoff={}",
                 NotificationRetention.RETENTION_DAYS, deleted, cutoff);

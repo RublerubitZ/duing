@@ -6,6 +6,7 @@ import com.duing.domain.notification.NotificationRetention;
 import com.duing.domain.notification.entity.Notification;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +18,11 @@ import org.springframework.data.domain.Pageable;
 public class NotificationRepositoryImpl implements NotificationRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    private final Clock clock;
 
     @Override
     public Page<Notification> findMine(Long userId, boolean unreadOnly, Pageable pageable) {
-        LocalDateTime visibilityFloor = NotificationRetention.visibilityFloor();
+        LocalDateTime visibilityFloor = NotificationRetention.visibilityFloor(clock);
 
         List<Notification> content = queryFactory
                 .selectFrom(notification)
@@ -55,7 +57,7 @@ public class NotificationRepositoryImpl implements NotificationRepositoryCustom 
                 .where(
                         notification.userId.eq(userId),
                         notification.readAt.isNull(),
-                        notification.createdAt.goe(NotificationRetention.visibilityFloor())
+                        notification.createdAt.goe(NotificationRetention.visibilityFloor(clock))
                 )
                 .fetchOne();
         return count == null ? 0L : count;
