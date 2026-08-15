@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
-import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
+import { useParams } from 'next/navigation';
+import posthog from 'posthog-js';
+import { ApiError } from '@duing/api';
 import {
   useRecruitmentDetailQuery,
   useApplicationDraftQuery,
   useApplicationEligibilityQuery,
 } from '@duing/hooks';
-import { ApiError } from '@duing/api';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { LoadingGate } from '@/components/loading/LoadingGate';
-import { ApplyForm } from '../_components/ApplyForm';
 import { toRoute } from '../../../_lib/route';
-import posthog from 'posthog-js';
+import { ApplyForm } from '../_components/ApplyForm';
+import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 
 export function ApplyPage() {
   const params = useParams<{ recruitmentId: string }>();
@@ -41,6 +41,28 @@ export function ApplyPage() {
   // 딥링크로 바로 들어오는 진입점이라 제출 시와 동일한 정책으로 부적격 사유를 미리 확인한다.
   // 외부 폼(EXTERNAL)은 위 effect 가 동아리 상세로 되돌려보내므로 대상에서 제외한다.
   const eligibility = useApplicationEligibilityQuery(recruitmentId, Boolean(recruitment) && isSelf);
+
+  // 상세 조회 실패 시 isLoading=false·data=undefined 라 아래 로딩 분기가 영구 표류한다 — 먼저 탈출.
+  // clubId 를 모르는 상태라 안전한 복귀처는 탐색 목록뿐이다.
+  if (detail.isError) {
+    const detailErrorMessage =
+      detail.error instanceof ApiError
+        ? detail.error.message
+        : '모집 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+    return (
+      <div
+        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
+        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      >
+        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral">
+          {detailErrorMessage}
+        </p>
+        <Link href={toRoute('/clubs')} className="btn btn-secondary">
+          동아리 탐색으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
 
   if (
     detail.isLoading ||
