@@ -319,6 +319,20 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     @Transactional
+    public void stopIntake(Long recruitmentId, Long currentUserId) {
+        // 행 잠금 — close()·delete() 와 같은 모집 행 잠금으로 동시 마감·삭제·교체와 직렬화한다.
+        // 예: close 가 먼저 커밋되면 이 요청은 잠금 해제 후 CLOSED 를 읽어 409 로 거절된다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        recruitment.stopIntake(LocalDate.now(clock));
+    }
+
+    @Override
+    @Transactional
     public void delete(Long recruitmentId, Long currentUserId) {
         // 행 잠금 — 가입 코드 발급과 직렬화해, 아래 "활성 코드 폐기" 이후에 새 코드가 끼어들어
         // 삭제된 모집의 고아 코드로 남는 경쟁을 차단한다. 발급은 OPEN·삭제는 CLOSED 전제라

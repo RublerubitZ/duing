@@ -22,6 +22,7 @@ import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -123,7 +124,7 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("타 동아리 운영진(OFFICER)도 남의 모집을 마감·삭제할 수 없다")
+    @DisplayName("타 동아리 운영진(OFFICER)도 남의 모집을 마감·접수 마감·삭제할 수 없다")
     void otherClubOfficerCannotCloseOrDeleteRecruitment() {
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherOfficerToken)
@@ -131,6 +132,9 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
                     .patch("/api/v1/leader/recruitments/{recruitmentId}/close", targetRecruitmentId)
                 .then()
                     .statusCode(HttpStatus.FORBIDDEN.value());
+
+        stopIntake(otherOfficerToken, targetRecruitmentId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
 
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherOfficerToken)
@@ -188,6 +192,38 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("자기 동아리 회장은 상시모집 접수를 마감할 수 있다")
+    void ownLeaderCanStopIntakeOfAlwaysOpenRecruitment() {
+        User leader = saveStudent("상시모집회장");
+        String leaderToken = tokenFor(leader);
+        Club alwaysOpenClub = saveActiveClub("상시모집동아리", leader, ClubMemberRole.LEADER);
+        Long alwaysOpenRecruitmentId = createAlwaysOpenRecruitment(leaderToken, alwaysOpenClub.getId());
+
+        stopIntake(leaderToken, alwaysOpenRecruitmentId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("자기 동아리 운영진(OFFICER)도 상시모집 접수를 마감할 수 있다")
+    void ownOfficerCanStopIntakeOfAlwaysOpenRecruitment() {
+        User leader = saveStudent("상시모집회장");
+        Club alwaysOpenClub = saveActiveClub("상시모집동아리", leader, ClubMemberRole.LEADER);
+        Long alwaysOpenRecruitmentId = createAlwaysOpenRecruitment(tokenFor(leader), alwaysOpenClub.getId());
+        User officer = saveStudent("상시모집운영진");
+        clubMemberRepository.save(ClubMember.of(alwaysOpenClub, officer, ClubMemberRole.OFFICER));
+
+        stopIntake(tokenFor(officer), alwaysOpenRecruitmentId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("같은 동아리의 일반 회원(MEMBER)은 접수를 마감할 수 없다")
+    void plainMemberCannotStopIntake() {
+        stopIntake(targetPlainMemberToken, targetRecruitmentId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
     @DisplayName("비로그인 상태로 모집 관리 API 를 호출하면 401 이다")
     void anonymousCannotReachManageApi() {
         RestAssured.given()
@@ -201,6 +237,12 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
         RestAssured.given()
                 .when()
                     .get("/api/v1/leader/recruitments/{recruitmentId}/stats/summary", targetRecruitmentId)
+                .then()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value());
+
+        RestAssured.given()
+                .when()
+                    .patch("/api/v1/leader/recruitments/{recruitmentId}/stop-intake", targetRecruitmentId)
                 .then()
                     .statusCode(HttpStatus.UNAUTHORIZED.value());
     }
@@ -219,6 +261,34 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when()
                     .patch("/api/v1/leader/recruitments/{recruitmentId}/close", recruitmentId);
+    }
+
+    private io.restassured.response.Response stopIntake(String token, Long recruitmentId) {
+        return RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when()
+                    .patch("/api/v1/leader/recruitments/{recruitmentId}/stop-intake", recruitmentId);
+    }
+
+    /** 접수 마감(stop-intake) 대상 픽스처 — 시작일이 지난 상시모집(endDate 없음)을 만든다. */
+    private Long createAlwaysOpenRecruitment(String token, Long clubId) {
+        LocalDate kstYesterday = LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1);
+        return RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {
+                              "title": "상시 모집",
+                              "startDate": "%s",
+                              "capacity": 10,
+                              "questions": ["지원 동기를 알려주세요"]
+                            }
+                            """.formatted(kstYesterday))
+                .when()
+                    .post("/api/v1/leader/clubs/{clubId}/recruitments", clubId)
+                .then()
+                    .statusCode(HttpStatus.CREATED.value())
+                    .extract().jsonPath().getLong("data");
     }
 
     private Long createRecruitment(String token, Long clubId) {
