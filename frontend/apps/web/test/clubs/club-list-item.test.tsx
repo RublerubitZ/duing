@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { describe, expect, it, vi } from 'vitest';
 import type { Club } from '../../app/clubs/_lib/clubs';
 import { ClubListItem } from '../../app/clubs/_components/ClubListItem';
@@ -93,6 +94,30 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
       activeRecruitment: { recruitmentId: 1, displayStatus: 'OPEN', startDate: '2026-03-15', endDate: '2099-12-31' },
     }} />);
     expect(screen.getByText(/^D-\d+$/)).toBeInTheDocument();
+  });
+
+  it('마감 당일 OPEN → "D-day" 뱃지 ("D-0" 표기 금지)', () => {
+    render(<ClubListItem club={{
+      ...baseClub,
+      activeRecruitment: {
+        recruitmentId: 3,
+        displayStatus: 'OPEN',
+        startDate: '2026-03-15',
+        endDate: todayKstDateString(new Date()),
+      },
+    }} />);
+    expect(screen.getByText('D-day')).toBeInTheDocument();
+  });
+
+  it('종료일이 지났어도 서버 판정이 OPEN 이면 "마감"으로 단정하지 않고 "모집중"으로 폴백한다', () => {
+    // 표기 판정은 displayStatus 가 유일 소스(#896 '세 번째 술어 금지') — stale 캐시·시계 편차
+    // 구간에서 목록만 '마감'으로 갈라지던 클라이언트 재계산을 제거한 회귀 방지.
+    render(<ClubListItem club={{
+      ...baseClub,
+      activeRecruitment: { recruitmentId: 4, displayStatus: 'OPEN', startDate: '2026-01-01', endDate: '2026-01-31' },
+    }} />);
+    expect(screen.getByText('모집중')).toBeInTheDocument();
+    expect(screen.queryByText('마감')).toBeNull();
   });
 
   it('CLOSED → "마감" 뱃지', () => {

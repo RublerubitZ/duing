@@ -1,5 +1,7 @@
+import { CLOSING_SOON_DAYS } from '@duing/hooks/datetime';
 import type { ClubSummary } from '@duing/types';
 
+import { ddayLabel } from './dday';
 import { recruitmentDaysLeft } from './recruitmentDisplay';
 
 /** 마감 임박 노출 윈도우 — 마감 D-7 부터 D-Day 까지만 노출(D-8 이상·마감 완료·상시모집 제외). */
@@ -15,10 +17,10 @@ export type ClosingSoonItem = {
   emphasis: ClosingSoonEmphasis;
 };
 
-/** 강조 규칙: D-day·D-1 = 위험(danger), D-2·D-3 = 경고(warning), D-4~D-7 = 기본(default). */
+/** 강조 규칙: D-day·D-1 = 위험(danger), 마감임박 임계(D-3) 이내 = 경고(warning), 그 밖은 기본(default). */
 export function closingSoonEmphasis(daysLeft: number): ClosingSoonEmphasis {
   if (daysLeft <= 1) return 'danger';
-  if (daysLeft <= 3) return 'warning';
+  if (daysLeft <= CLOSING_SOON_DAYS) return 'warning';
   return 'default';
 }
 
@@ -37,7 +39,7 @@ export function selectClosingSoonClubs(clubs: ClubSummary[], today: Date): Closi
       id: club.id,
       name: club.name,
       daysLeft,
-      label: daysLeft === 0 ? 'D-day' : `D-${daysLeft}`,
+      label: ddayLabel(daysLeft),
       emphasis: closingSoonEmphasis(daysLeft),
     });
   }

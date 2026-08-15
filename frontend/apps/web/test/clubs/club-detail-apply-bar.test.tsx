@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
@@ -94,6 +95,11 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
     expect(screen.getByText(/^모집중 · D-\d+$/)).toBeInTheDocument();
     expect(screen.getByText('20명 모집중')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지원하기' })).not.toBeDisabled();
+  });
+
+  it('마감 당일 → 상단 "모집중 · D-day" ("D-0" 표기 금지)', () => {
+    renderBar({ ...base, endDate: todayKstDateString(new Date()) });
+    expect(screen.getByText('모집중 · D-day')).toBeInTheDocument();
   });
 
   it('상시모집 → 상단 "상시모집", 활성 지원 버튼', () => {

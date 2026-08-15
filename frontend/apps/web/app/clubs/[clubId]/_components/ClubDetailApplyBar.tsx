@@ -9,6 +9,7 @@ import type { StudentRecruitmentProjection } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 import { Spinner } from '@/components/loading/Spinner';
+import { ddayLabel } from '../../../_lib/dday';
 import { recruitmentDaysLeft } from '../../../_lib/recruitmentDisplay';
 import { useClubApply } from '../_lib/useClubApply';
 
@@ -26,8 +27,9 @@ function barLabels(recruitment: StudentRecruitmentProjection | undefined): {
   switch (recruitment.displayStatus) {
     case 'OPEN': {
       const daysLeft = recruitmentDaysLeft(recruitment.endDate);
+      // 마감 당일은 'D-day'(ddayLabel SSOT). 음수 구간은 카운트다운 없이 '모집중' 으로 폴백한다.
       return {
-        top: daysLeft !== null ? `모집중 · D-${daysLeft}` : '모집중',
+        top: daysLeft !== null && daysLeft >= 0 ? `모집중 · ${ddayLabel(daysLeft)}` : '모집중',
         main: `${recruitment.capacity}명 모집중`,
       };
     }
