@@ -63,7 +63,9 @@ public class PublicApiCacheConfig {
 
     /**
      * TTL 경과 시 전량 비움. {@code fixedRate} 라 마지막 실행 완료 시각이 아니라 시작 시각 기준으로
-     * 반복되므로, 엔트리가 살아 있는 시간은 최대 TTL 이다.
+     * 반복되므로, 엔트리가 살아 있는 시간은 최대 TTL 이다. 단, Spring 기본 단일 스레드 TaskScheduler 를
+     * 다른 {@code @Scheduled} 잡(시설 크롤 등)과 공유하므로 앞선 잡이 오래 걸리면 비움이 밀려
+     * staleness 상한이 TTL+지연만큼 늘 수 있다(prod 크롤 실측 ~5초 수준이라 실해는 미미).
      */
     @Scheduled(fixedRateString = "${duing.public-api-cache.ttl-ms:60000}")
     public void evictAllOnTtlElapsed() {
