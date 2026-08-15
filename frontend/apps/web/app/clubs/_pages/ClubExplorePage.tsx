@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
-import { ApiError } from '@duing/api';
-import { useClubListQuery, useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
+import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
+import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { ClubDayOfWeek } from '@duing/types';
 
@@ -111,14 +111,11 @@ export function ClubExplorePage() {
   const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
+  // 찜 필터 교집합(likedIds)용으로만 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
   const favoriteIdsQuery = useFavoriteIdsQuery();
-  const favoriteToggle = useFavoriteToggleMutation();
-  /** 시드는 "로그인했다"까지만 말해 준다 — 무엇을 찜했는지는 목록이 와야 안다. 목록 전에는 모든
-      카드가 "찜 안 함" 으로 보여, 누르면 해제 대신 추가가 나가고 이미 찜한 동아리는 409 로 조용히
-      실패한다. 방향을 모르는 동안만 하트를 비활성으로 둔다(§8.1 되돌릴 수 없는 동작).
-      미인증은 목록이 아예 없고 클릭이 로그인 이동이라 이 제약을 받지 않는다. */
-  const isFavoriteDirectionUnknown =
-    authStatus === 'authenticated' && favoriteIdsQuery.data === undefined;
+  // 토글 동작(방향 가드·로그인 이동·401 처리·PostHog)은 하트 버튼과 공용 플로우로 공유한다.
+  const favoriteFlow = useFavoriteToggleFlow();
+  const isFavoriteDirectionUnknown = favoriteFlow.isDirectionUnknown;
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
@@ -172,33 +169,7 @@ export function ClubExplorePage() {
     params.category !== null ||
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
-  const handleToggleLike = (clubId: number) => {
-    // 하트 비활성(disabled)과 같은 조건을 핸들러에도 둔다 — 마크업이 바뀌어도 방향을 모르는
-    // 동안에는 토글이 나가지 않는다(FavoriteToggleButton 과 동형).
-    if (isFavoriteDirectionUnknown) return;
-    // 현재 탐색 상태(필터·페이지·검색어)가 쿼리스트링에 있으므로 그대로 next 에 실어 복귀시킨다.
-    const currentUrl = window.location.pathname + window.location.search;
-    const loginPath = toRoute(`/login?next=${encodeURIComponent(currentUrl)}`);
-    if (authStatus === 'unauthenticated') {
-      router.push(loginPath);
-      return;
-    }
-    // 시드된 인증은 아직 서버로 확인되지 않았지만 그대로 요청한다 — 만료된 access 는 API 계층이
-    // 갱신하고, 정말 미인증이면 401 로 돌아와 그때 로그인으로 보낸다. 방향이 확정되기 전에는
-    // 하트가 비활성이라 여기 도달하지 않는다.
-    favoriteToggle.mutate(
-      { clubId, isFavorited: likedIds.has(clubId) },
-      {
-        onError: (toggleError) => {
-          if (toggleError instanceof ApiError && toggleError.status === 401) {
-            router.push(loginPath);
-            return;
-          }
-          console.error('찜 토글 실패:', toggleError);
-        },
-      },
-    );
-  };
+  const handleToggleLike = favoriteFlow.toggle;
 
   /** 로그인 후 찜 필터가 켜진 채 돌아오도록 next 에 favorite=true 를 얹는다. */
   const favoriteLoginHref = useMemo(() => {
@@ -581,7 +552,7 @@ export function ClubExplorePage() {
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
                           isFavoriteDirectionUnknown ||
-                          (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
+                          (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                         }
                         onLikeToggle={handleToggleLike}
                       />
@@ -730,7 +701,7 @@ export function ClubExplorePage() {
                       liked={likedIds.has(club.id)}
                       isLikeBusy={
                         isFavoriteDirectionUnknown ||
-                        (favoriteToggle.isPending && favoriteToggle.variables?.clubId === club.id)
+                        (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                       }
                       onLikeToggle={handleToggleLike}
                     />
