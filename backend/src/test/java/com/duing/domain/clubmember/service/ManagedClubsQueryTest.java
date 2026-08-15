@@ -91,7 +91,7 @@ class ManagedClubsQueryTest {
     }
 
     @Test
-    @DisplayName("진행 중인 모집(OPEN AND end_date >= today)만 activeRecruitmentCount 에 카운트된다")
+    @DisplayName("OPEN 이면서 종료일이 지나지 않은 모집만 activeRecruitmentCount 에 카운트된다 (상시모집 포함은 별도 검증)")
     void activeRecruitmentCountReflectsOpenAndDateRange() throws Exception {
         // uk_recruitment_club_active (V38) 로 동아리당 OPEN 모집은 1건만 허용되므로
         // 각 필터 차원(OPEN+future / OPEN+past / CLOSED+future) 을 동아리별로 분리해 검증한다.
