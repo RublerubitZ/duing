@@ -1,5 +1,6 @@
 package com.duing.domain.clubevent.service;
 
+import com.duing.domain.clubevent.controller.dto.response.AdminClubEventCardResponse;
 import com.duing.domain.clubevent.controller.dto.response.ClubEventCardResponse;
 import com.duing.domain.clubevent.controller.dto.response.ClubEventDetailResponse;
 import com.duing.domain.clubevent.service.dto.command.CreateClubEventCommand;
@@ -12,6 +13,7 @@ public interface ClubEventService {
     void update(UpdateClubEventCommand command);
     void delete(Long clubId, Long eventId);
     List<ClubEventCardResponse> listWindow(Long clubId, LocalDate from, LocalDate to);
+    List<AdminClubEventCardResponse> listWindowForAdmin(LocalDate from, LocalDate to);
     ClubEventDetailResponse getDetail(Long clubId, Long eventId);
 
     void removeAllOnClubClosure(Long clubId);
