@@ -1,11 +1,11 @@
 'use client';
 
 import { use } from 'react';
-import { notFound } from 'next/navigation';
-import { useClubDetailQuery, useManagedClubsQuery, useUpdateClubMutation } from '@duing/hooks';
+import { useClubDetailQuery, useUpdateClubMutation } from '@duing/hooks';
 import { ClubInfoForm } from './_components/ClubInfoForm';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
+// 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function ClubInfoPage({
   params,
 }: {
@@ -14,19 +14,13 @@ export default function ClubInfoPage({
   const { clubId: clubIdParam } = use(params);
   const currentClubId = Number(clubIdParam);
 
-  const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
   const { data: detail, isLoading: isDetailLoading } = useClubDetailQuery(
     isNaN(currentClubId) ? undefined : currentClubId,
   );
   const updateMutation = useUpdateClubMutation(currentClubId);
 
-  if (isManagedClubsLoading || isDetailLoading) {
+  if (isDetailLoading) {
     return <LoadingGate label="동아리 정보 불러오는 중" />;
-  }
-
-  const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
-  if (!managedClub) {
-    notFound();
   }
 
   if (!detail) {

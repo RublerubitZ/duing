@@ -3,12 +3,11 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useManagedClubsQuery } from '@duing/hooks';
-import { notFound } from 'next/navigation';
 import { toRoute } from '../../../_lib/route';
-import { LoadingGate } from '@/components/loading/LoadingGate';
 import { PromotionRequestModal } from './_components/PromotionRequestModal';
 import { DashboardCardGrid } from '../../_components/dashboard/DashboardCardGrid';
 
+// 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function ClubManagePage({
   params,
 }: {
@@ -17,21 +16,9 @@ export default function ClubManagePage({
   const { clubId: clubIdParam } = use(params);
   const currentClubId = Number(clubIdParam);
 
-  // useState는 조건부 return 이전에 반드시 호출해야 한다 (Rules of Hooks)
   const [promotionOpen, setPromotionOpen] = useState(false);
 
-  const { data: managedClubs, isLoading: isManagedClubsLoading } = useManagedClubsQuery();
-
-  if (isManagedClubsLoading) {
-    return <LoadingGate label="운영 권한 확인 중" />;
-  }
-
-  const isManaged =
-    managedClubs?.some((managedClub) => managedClub.clubId === currentClubId) ?? false;
-
-  if (!isManagedClubsLoading && managedClubs && !isManaged) {
-    notFound();
-  }
+  const { data: managedClubs } = useManagedClubsQuery();
 
   const currentManagedClub = managedClubs?.find(
     (managedClub) => managedClub.clubId === currentClubId,

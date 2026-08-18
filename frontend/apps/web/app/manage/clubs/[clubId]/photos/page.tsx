@@ -1,7 +1,6 @@
 'use client';
 
 import { use, useRef, useState } from 'react';
-import { notFound } from 'next/navigation';
 import {
   useClubHeroActivitiesQuery,
   useClubPhotosQuery,
@@ -18,6 +17,7 @@ import { ActivityPreview } from './_components/ActivityPreview';
 
 const HERO_SLOT_COUNT = 6;
 
+// 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function ClubPhotosPage({
   params,
 }: {
@@ -35,13 +35,8 @@ export default function ClubPhotosPage({
   const photosQuery = useClubPhotosQuery(queryClubId);
   const heroQuery = useClubHeroActivitiesQuery(queryClubId);
 
-  if (managedClubsQuery.isLoading || photosQuery.isLoading || heroQuery.isLoading) {
+  if (photosQuery.isLoading || heroQuery.isLoading) {
     return <LoadingGate label="활동 피드 불러오는 중" />;
-  }
-
-  const managedClub = managedClubsQuery.data?.find((club) => club.clubId === currentClubId);
-  if (!managedClub) {
-    notFound();
   }
 
   const pageHeader = (
@@ -54,7 +49,7 @@ export default function ClubPhotosPage({
   );
 
   // hero/photos 쿼리 실패 시 빈 데이터로 정상 화면을 렌더하면 6칸 전부 빈 슬롯으로 보여 재등록을 유도한다.
-  // 대신 에러 상태 + 두 쿼리 재시도 버튼을 보인다(managedClubs 실패는 위 notFound() 로 처리).
+  // 대신 에러 상태 + 두 쿼리 재시도 버튼을 보인다(managedClubs 는 미리보기 동아리명에만 쓰여 실패해도 화면은 산다).
   // 단, 백그라운드 refetch 실패는 이전 data 가 남아 있으므로 화면을 유지한다 — 여기서 언마운트하면
   // 편집 중 draft(시드 사진·타이핑 텍스트)가 통째로 소실된다. 초기 로드 실패(data 부재)만 에러 화면.
   const heroLoadFailed = heroQuery.isError && heroQuery.data === undefined;
@@ -87,6 +82,9 @@ export default function ClubPhotosPage({
   const promoteDisabled = heroList.length + pendingPhotoIds.length >= HERO_SLOT_COUNT;
   // 저장된 hero + pending 시드 사진 = 사용 중. 해당 그리드 카드의 "대표로 지정"을 선차단한다.
   const usedPhotoIds = [...heroList.map((hero) => hero.clubPhotoId), ...pendingPhotoIds];
+  // 미리보기 동아리명 — ManageShell 이 이미 부른 managedClubs 캐시에서 파생(실패해도 화면은 산다).
+  const clubName =
+    managedClubsQuery.data?.find((club) => club.clubId === currentClubId)?.clubName ?? '';
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9">
@@ -114,7 +112,7 @@ export default function ClubPhotosPage({
 
         <aside data-testid="activity-preview" className="hidden xl:sticky xl:top-6 xl:block">
           <ActivityPreview
-            clubName={managedClub.clubName}
+            clubName={clubName}
             heroActivities={heroList}
             photos={photoList}
           />
