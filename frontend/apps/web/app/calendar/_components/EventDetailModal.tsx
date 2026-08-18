@@ -1,5 +1,6 @@
 'use client';
 
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import Link from 'next/link';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
@@ -37,70 +38,81 @@ const sourcePath: Record<EventSource, (event: CalEvent, isAdmin: boolean) => `/$
 };
 
 export function EventDetailModal({ event, open, onClose, isAdmin }: Props) {
+  // PhotoLightbox 와 같은 방식 — 커스텀 룩은 그대로 두고 Radix 프리미티브만 재사용해
+  // ESC·포커스 트랩·스크롤 잠금·aria-labelledby 를 얻는다. Root 를 직접 쓰므로
+  // 뒤로가기 닫기(components/ui/dialog 의 Dialog 래퍼에 내장된 것)는 여기서 직접 건다.
   useBackDismiss(open, onClose);
-
-  if (!open) return null;
 
   const rawPath = sourcePath[event.sourceType](event, isAdmin);
   const originPath = rawPath !== null ? toRoute(rawPath) : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40"
-      role="dialog"
-      aria-modal="true"
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
     >
-      <div className="w-[480px] max-w-[92vw] rounded-2xl bg-paper p-6 space-y-5">
-        <header className="flex items-center justify-between">
-          <span className="text-[11px] font-bold tracking-wider text-charcoal-3">
-            {KIND_LABEL[event.kind]}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="text-charcoal-3 text-[20px]"
-          >
-            ×
-          </button>
-        </header>
-
-        <div>
-          <h2 className="text-[18px] font-bold text-ink leading-snug">{event.title}</h2>
-          <p className="mt-2 text-[12.5px] text-charcoal-3 font-mono">
-            {event.date} · {event.time}
-          </p>
-          {event.place && (
-            <p className="mt-1 text-[13px] text-charcoal-2">📍 {event.place}</p>
-          )}
-          {event.club && (
-            <p className="mt-1 text-[13px] text-charcoal-2">🏷 {event.club}</p>
-          )}
-        </div>
-
-        {event.sourceType === 'global' && (
-          <GlobalDetailSection eventId={event.sourceId} />
-        )}
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-line">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-full border border-line text-[13px] text-charcoal-2"
-          >
-            닫기
-          </button>
-          {originPath && (
-            <Link
-              href={originPath}
-              className="px-4 py-2 rounded-full bg-ink text-paper text-[13px] font-semibold"
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-paper p-6 space-y-5 outline-none"
+        >
+          <header className="flex items-center justify-between">
+            <span className="text-[11px] font-bold tracking-wider text-charcoal-3">
+              {KIND_LABEL[event.kind]}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="text-charcoal-3 text-[20px]"
             >
-              원본 보기
-            </Link>
+              ×
+            </button>
+          </header>
+
+          <div>
+            {/* Radix 가 이 Title(h2) 을 aria-labelledby 로 연결한다. */}
+            <DialogPrimitive.Title className="text-[18px] font-bold text-ink leading-snug">
+              {event.title}
+            </DialogPrimitive.Title>
+            <p className="mt-2 text-[12.5px] text-charcoal-3 font-mono">
+              {event.date} · {event.time}
+            </p>
+            {event.place && (
+              <p className="mt-1 text-[13px] text-charcoal-2">📍 {event.place}</p>
+            )}
+            {event.club && (
+              <p className="mt-1 text-[13px] text-charcoal-2">🏷 {event.club}</p>
+            )}
+          </div>
+
+          {event.sourceType === 'global' && (
+            <GlobalDetailSection eventId={event.sourceId} />
           )}
-        </div>
-      </div>
-    </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-line">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-full border border-line text-[13px] text-charcoal-2"
+            >
+              닫기
+            </button>
+            {originPath && (
+              <Link
+                href={originPath}
+                className="px-4 py-2 rounded-full bg-ink text-paper text-[13px] font-semibold"
+              >
+                원본 보기
+              </Link>
+            )}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
