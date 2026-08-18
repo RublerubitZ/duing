@@ -12,6 +12,7 @@ import {
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
+import { ddayLabel } from '../../../_lib/dday';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). */
@@ -31,8 +32,12 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
 
   const status = recruitment.displayStatus;
   const daysLeft = recruitmentDaysLeft(recruitment.endDate);
+  // 마감 당일은 'D-day'(ddayLabel SSOT). 음수(서버가 아직 OPEN 인 stale·시계 편차 구간)는
+  // 카운트다운을 접고 상태 라벨로 폴백한다 — 표기 판정은 displayStatus 가 유일 소스(#896).
   const header =
-    status === 'OPEN' && daysLeft !== null ? `모집중 · D-${daysLeft}` : displayStatusLabel(status);
+    status === 'OPEN' && daysLeft !== null && daysLeft >= 0
+      ? `모집중 · ${ddayLabel(daysLeft)}`
+      : displayStatusLabel(status);
   const end = endLabel(recruitment.endDate);
 
   const rows: Array<{ label: string; value: string }> = [

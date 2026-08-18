@@ -6,6 +6,7 @@ import {
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
+import { ddayLabel } from '../../../_lib/dday';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { Spinner } from '@/components/loading/Spinner';
 import { useClubApply } from '../_lib/useClubApply';
@@ -25,7 +26,10 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
 
   const header = (() => {
     if (!recruitment) return '모집 없음';
-    if (status === 'OPEN' && daysLeft !== null) return `모집중 · D-${daysLeft}`;
+    // 마감 당일은 'D-day'(ddayLabel SSOT). 음수 구간은 카운트다운 없이 '모집중' 으로 폴백한다.
+    if (status === 'OPEN') {
+      return daysLeft !== null && daysLeft >= 0 ? `모집중 · ${ddayLabel(daysLeft)}` : '모집중';
+    }
     if (status === 'ALWAYS_OPEN') return '상시모집';
     if (status === 'UPCOMING') return `모집예정 · ${recruitment.startDate}부터`;
     return '모집마감';
