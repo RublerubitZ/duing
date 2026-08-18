@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -21,6 +22,9 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockSearchParams.value),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
+
+const { mockPosthogCapture } = vi.hoisted(() => ({ mockPosthogCapture: vi.fn() }));
+vi.mock('posthog-js', () => ({ default: { capture: mockPosthogCapture } }));
 
 import { ClubExplorePage } from '@/app/clubs/_pages/ClubExplorePage';
 
@@ -65,6 +69,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   mockSearchParams.value = '';
+  mockPosthogCapture.mockReset();
   act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 });
 afterAll(() => server.close());
@@ -125,6 +130,36 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
 
     await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
     for (const heart of hearts('찜 추가')) expect(heart).toBeEnabled();
+  });
+});
+
+describe('ClubExplorePage — 찜 토글 관측 이벤트', () => {
+  // 과거 탐색 카드의 토글 사본에는 capture 가 빠져 있어 찜 지표가 과소집계됐다(하트 버튼만 발화).
+  // 공용 플로우(useFavoriteToggleFlow) 통합 후, 탐색 진입점에서도 이벤트가 나가는지 고정한다.
+  it('탐색 카드에서 찜 추가에 성공하면 club_favorited 이벤트가 잡힌다', async () => {
+    server.use(
+      clubListHandler,
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [] }, message: null }),
+      ),
+      http.post(`${BASE}/me/favorites/7`, () =>
+        HttpResponse.json({ ok: true, data: 1, message: null }),
+      ),
+    );
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+    renderExplore();
+
+    const firstAddHeart = () => {
+      const [heart] = hearts('찜 추가');
+      if (!heart) throw new Error('찜 추가 하트가 렌더되지 않았다');
+      return heart;
+    };
+    await waitFor(() => expect(firstAddHeart()).toBeEnabled());
+    await userEvent.click(firstAddHeart());
+
+    await waitFor(() =>
+      expect(mockPosthogCapture).toHaveBeenCalledWith('club_favorited', { club_id: 7 }),
+    );
   });
 });
 
