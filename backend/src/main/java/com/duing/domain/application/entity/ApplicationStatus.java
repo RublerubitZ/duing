@@ -1,5 +1,9 @@
 package com.duing.domain.application.entity;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public enum ApplicationStatus {
     SUBMITTED,
     // 운영진 내부 관리용 "아직 결정하지 않음". 지원자에게는 SUBMITTED 와 동일하게 노출한다
@@ -15,6 +19,19 @@ public enum ApplicationStatus {
 
     public boolean isActive() {
         return !isTerminal();
+    }
+
+    private static final Set<ApplicationStatus> ACTIVE_SET = Arrays.stream(values())
+            .filter(ApplicationStatus::isActive)
+            .collect(Collectors.toUnmodifiableSet());
+
+    /**
+     * 활성(미종결) 상태 집합 — 쿼리 IN 절·일괄 처리용. isActive() 의 컬렉션 파생이라
+     * 상태가 추가돼도 자동 추종한다. 리터럴 재열거(List.of)를 만들지 말 것 —
+     * 사본이 갈라지면 폐쇄 시 미거절 지원서 잔존·면접 후보 누락 같은 정합 사고가 된다.
+     */
+    public static Set<ApplicationStatus> activeSet() {
+        return ACTIVE_SET;
     }
 
     /**

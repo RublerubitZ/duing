@@ -70,7 +70,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
 
         bookingPolicyValidator.validateSlotRange(command.date(), command.startTime(), command.endTime());
         bookingPolicyValidator.validateActiveCap(facilityBookingRepository.countByClubIdAndStatusIn(
-                command.clubId(), List.of(BookingStatus.PENDING, BookingStatus.APPROVED)));
+                command.clubId(), BookingStatus.activeCapStatuses()));
 
         rejectIfBlockedBySchool(command);
         rejectIfBlockedInternally(command);
@@ -179,7 +179,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private void rejectIfBlockedInternally(CreateFacilityBookingCommand command) {
         boolean blocked = !facilityBookingRepository.findOverlapping(
                 command.facilityId(), command.date(),
-                List.of(BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                BookingStatus.slotBlockingStatuses(),
                 command.startTime(), command.endTime()).isEmpty();
         if (blocked) {
             throw new FacilityBookingException.SlotUnavailableException();
@@ -189,7 +189,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private void rejectIfClubDuplicate(CreateFacilityBookingCommand command) {
         boolean duplicate = !facilityBookingRepository.findClubOverlapping(
                 command.clubId(), command.date(),
-                List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                BookingStatus.normalPathStatuses(),
                 command.startTime(), command.endTime()).isEmpty();
         if (duplicate) {
             throw new FacilityBookingException.DuplicateClubBookingException();

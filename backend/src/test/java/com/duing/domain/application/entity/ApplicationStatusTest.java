@@ -26,4 +26,12 @@ class ApplicationStatusTest {
         assertThat(ApplicationStatus.ACCEPTED.isActive()).isFalse();
         assertThat(ApplicationStatus.REJECTED.isActive()).isFalse();
     }
+
+    @Test
+    @DisplayName("activeSet 은 isActive 술어의 파생이라 종결 상태를 제외한 전 상태를 담는다")
+    void activeSetDerivesFromPredicate() {
+        assertThat(ApplicationStatus.activeSet())
+                .containsExactlyInAnyOrder(
+                        ApplicationStatus.SUBMITTED, ApplicationStatus.ON_HOLD, ApplicationStatus.INTERVIEW_PENDING);
+    }
 }

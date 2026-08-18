@@ -19,8 +19,8 @@ public record MyClubMembershipResponse(
             boolean canDeleteEvent
     ) {
         public static ClubActionPermissions from(ClubMemberRole role) {
-            // 동아리 공지·일정의 생성/수정/삭제는 모두 운영진(LEADER/OFFICER) 권한이다.
-            boolean isManager = role == ClubMemberRole.LEADER || role == ClubMemberRole.OFFICER;
+            // 동아리 공지·일정의 생성/수정/삭제는 모두 운영진 권한이다 — 판정은 역할 SSOT 술어에 위임한다.
+            boolean isManager = role.canManageClub();
             return new ClubActionPermissions(
                     isManager, isManager, isManager,
                     isManager, isManager, isManager

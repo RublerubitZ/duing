@@ -450,12 +450,8 @@ public class GeneralApplicationService implements ApplicationService {
         if (recruitmentIds.isEmpty()) {
             return;
         }
-        List<ApplicationStatus> activeStatuses = List.of(
-                ApplicationStatus.SUBMITTED,
-                ApplicationStatus.ON_HOLD,
-                ApplicationStatus.INTERVIEW_PENDING);
-        List<Application> applications =
-                applicationRepository.findByRecruitmentIdInAndStatusIn(recruitmentIds, activeStatuses);
+        List<Application> applications = applicationRepository
+                .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet());
         for (Application application : applications) {
             application.transitionTo(ApplicationStatus.REJECTED, application.getRecruitment().isUseInterview());
         }

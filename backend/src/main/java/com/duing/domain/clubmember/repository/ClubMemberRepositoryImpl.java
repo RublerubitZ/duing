@@ -46,7 +46,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .leftJoin(recruitment).on(recruitment.club.id.eq(club.id))
                 .where(
                         clubMember.user.id.eq(userId),
-                        clubMember.role.in(ClubMemberRole.LEADER, ClubMemberRole.OFFICER),
+                        clubMember.role.in(ClubMemberRole.MANAGER_ROLES),
                         club.status.eq(ClubStatus.ACTIVE)
                 )
                 .groupBy(club.id, club.name, club.logoUrl, clubMember.role, club.centralClub)
