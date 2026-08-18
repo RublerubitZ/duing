@@ -168,7 +168,7 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private void rejectIfInternallyBlocked(FacilityBooking booking) {
         boolean blocked = facilityBookingRepository.findOverlapping(
                         booking.getFacilityId(), booking.getReservationDate(),
-                        List.of(BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                        BookingStatus.slotBlockingStatuses(),
                         booking.getStartTime(), booking.getEndTime()).stream()
                 .anyMatch(other -> !other.getId().equals(booking.getId()));
         if (blocked) {

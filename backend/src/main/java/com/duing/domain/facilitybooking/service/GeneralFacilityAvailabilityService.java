@@ -107,7 +107,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         List<FacilityBooking> bookings =
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
-                        List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
+                        BookingStatus.normalPathStatuses());
         // BLOCKED(INTERNAL) 대상(APPROVED/CONFIRMED)만 동아리명을 노출한다 — 승인 완료 예약은 학교 반영 후
         // 크롤 SCHOOL 행으로 어차피 실명 공개되므로 새 정보가 아니다(2026-07-17 사용자 결정 §4⁗.1로 구
         // 비노출 정책 부분 반전). PENDING 은 신청 경쟁 정보라 비노출 유지 → 이름을 조회·주입하지 않는다.

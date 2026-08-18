@@ -382,7 +382,7 @@ public class AdminFeeAuditQueryRepository {
 
     /** 미납 잔여 = 완납·취소가 아닌 상태. 연체 여부는 여기에 마감일 조건을 덧붙여 가른다. */
     private BooleanExpression unpaidRemainder() {
-        return feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE);
+        return feeBill.status.in(FeeStatus.unpaidRemainderSet());
     }
 
     private OrderSpecifier<?>[] orderOf(AdminFeeBillSort sort) {

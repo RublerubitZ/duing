@@ -124,7 +124,7 @@ public class FacilityBookingAdminQueryService {
         // 내부 APPROVED/CONFIRMED(자기 제외) — 관리자 화면은 내부용이므로 동아리명을 노출한다.
         List<FacilityBooking> internalOverlaps = facilityBookingRepository.findOverlapping(
                         booking.getFacilityId(), date,
-                        List.of(BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                        BookingStatus.slotBlockingStatuses(),
                         booking.getStartTime(), booking.getEndTime()).stream()
                 .filter(other -> !other.getId().equals(booking.getId()))
                 .toList();

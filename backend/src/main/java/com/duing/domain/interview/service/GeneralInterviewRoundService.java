@@ -136,10 +136,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
             if (!application.getRecruitment().getId().equals(createCommand.recruitmentId())) {
                 throw new InterviewException.CandidateNotInRecruitment();
             }
-            ApplicationStatus candidateStatus = application.getStatus();
-            if (candidateStatus != ApplicationStatus.SUBMITTED
-                    && candidateStatus != ApplicationStatus.ON_HOLD
-                    && candidateStatus != ApplicationStatus.INTERVIEW_PENDING) {
+            if (!application.getStatus().isActive()) {
                 throw new InterviewException.CandidateNotEligible();
             }
         }

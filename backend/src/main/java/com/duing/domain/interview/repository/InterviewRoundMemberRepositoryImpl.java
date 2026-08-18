@@ -67,8 +67,7 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
 
     private BooleanExpression candidateStatuses(boolean includeUndecided) {
         if (includeUndecided) {
-            return application.status.in(
-                    ApplicationStatus.INTERVIEW_PENDING, ApplicationStatus.SUBMITTED, ApplicationStatus.ON_HOLD);
+            return application.status.in(ApplicationStatus.activeSet());
         }
         return application.status.eq(ApplicationStatus.INTERVIEW_PENDING);
     }
