@@ -18,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 동아리 권한 검증의 단일 진입점.
  * Controller / 다른 Service 는 본 클래스의 require* 메서드를 호출하여 검증한다.
+ *
+ * <p>여기서 던지는 Spring AccessDeniedException 의 메시지("회장만 가능" 등)는 클라이언트에 노출되지
+ * 않는다 — 전역 핸들러가 무정보 고정 문구로 소거한다(열거 방지 정책, 2026-08-18 확정). 이 문구들은
+ * 서버 debug 로그·테스트 가독용이며, 사용자 안내가 필요한 거부는 도메인 예외로 던져야 한다.
  */
 @Service
 @RequiredArgsConstructor

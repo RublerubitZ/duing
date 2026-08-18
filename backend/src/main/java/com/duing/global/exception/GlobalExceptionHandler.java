@@ -3,6 +3,7 @@ package com.duing.global.exception;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.interview.controller.dto.response.UnresolvedMembersResponse;
 import com.duing.domain.interview.exception.InterviewException;
+import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
@@ -80,10 +81,18 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("인증이 필요합니다."));
     }
 
+    /**
+     * Spring Security AccessDeniedException 의 예외 메시지는 응답에 싣지 않는다 — 의도적 소거(정책 확정: 2026-08-18).
+     * "회장만 가능" 류의 구체 사유는 권한 구조·리소스 존재를 알려주는 열거 힌트가 될 수 있어, 이 경로의
+     * 403 은 전부 무정보 고정 문구로 통일한다(URL 레이어 백스톱 JwtAccessDeniedHandler 와 동일 문구·단일 상수).
+     * 사용자 안내가 필요한 403 은 ApplicationException 계열 도메인 예외로 던질 것 — 그 경로는 메시지가 노출된다.
+     * 원 메시지는 서버 디버깅용 debug 로그로만 남긴다.
+     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException exception) {
+        log.debug("접근 거부(사유는 응답에 미노출): {}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("권한이 없습니다."));
+                .body(ApiResponse.error(JwtAccessDeniedHandler.ACCESS_DENIED_MESSAGE));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
