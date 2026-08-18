@@ -1,6 +1,5 @@
 package com.duing.domain.draft.service;
 
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.draft.entity.ApplicationDraft;
 import com.duing.domain.draft.exception.DraftException;
 import com.duing.domain.draft.repository.ApplicationDraftRepository;
@@ -43,7 +42,7 @@ public class GeneralApplicationDraftService implements ApplicationDraftService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         // 비공개 상태 동아리의 모집에는 임시저장할 수 없다 — 존재 은닉을 위해 404 (공개 상세와 동일 의미론).
-        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+        if (!recruitment.getClub().getStatus().isPubliclyVisible()) {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
 

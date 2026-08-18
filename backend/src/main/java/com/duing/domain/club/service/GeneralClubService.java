@@ -48,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralClubService implements ClubService {
 
     private final ClubRepository clubRepository;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubPhotoRepository clubPhotoRepository;
@@ -137,10 +138,7 @@ public class GeneralClubService implements ClubService {
     public ClubDetailQuery getActiveById(Long clubId, ClubViewer viewer) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
-        // 존재 여부를 숨기기 위해 403 이 아닌 404 로 동일하게 응답한다.
-        if (club.getStatus() != ClubStatus.ACTIVE) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        clubVisibilityPolicy.requirePubliclyVisible(club);
         return toDetailQuery(club, viewer);
     }
 

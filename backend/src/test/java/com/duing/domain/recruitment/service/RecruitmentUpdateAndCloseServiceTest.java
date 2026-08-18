@@ -24,6 +24,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import java.lang.reflect.Field;
 import java.time.Clock;
@@ -57,6 +58,7 @@ class RecruitmentUpdateAndCloseServiceTest {
             clubAuditEventRepository,
             clubRepository,
             clubAuthService,
+            new ClubVisibilityPolicy(clubRepository),
             eventPublisher,
             // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
             Clock.system(ZoneId.of("Asia/Seoul"))

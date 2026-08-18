@@ -1,7 +1,6 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -348,7 +347,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
      */
     private boolean isUsable(ClubJoinCode joinCode) {
         return joinCode.isUsable(LocalDateTime.now(clock))
-                && joinCode.getClub().getStatus() == ClubStatus.ACTIVE;
+                && joinCode.getClub().getStatus().isPubliclyVisible();
     }
 
     private String normalizeCode(String rawCode) {

@@ -1,7 +1,6 @@
 package com.duing.domain.club.heroactivity.service;
 
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.heroactivity.entity.ClubHeroActivity;
 import com.duing.domain.club.heroactivity.exception.ClubHeroActivityException;
@@ -14,6 +13,7 @@ import com.duing.domain.club.heroactivity.service.dto.query.HeroActivityQuery;
 import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import java.util.HashSet;
 import java.util.List;
@@ -36,13 +36,12 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
     private final ClubPhotoRepository clubPhotoRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
 
     @Override
     public List<HeroActivityQuery> getByClubId(Long clubId) {
-        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 공개 엔드포인트 전용 — 비공개 동아리는 게이트가 404 로 숨긴다.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         return clubHeroActivityRepository.findByClubIdOrderByDisplayOrderAsc(clubId).stream()
                 .map(HeroActivityQuery::from)
                 .toList();
