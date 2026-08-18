@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
-    // 모집중 뱃지 판정(startDate·endDate vs 오늘)은 KST(seoulClock) 기준.
+    // 모집중 카운트 판정은 KST(seoulClock) 기준 — Recruitment.isEffectivelyOpen 과 동치여야 한다.
     private final Clock clock;
 
     @Override
@@ -83,10 +83,15 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .fetch();
     }
 
+    /**
+     * Recruitment.isEffectivelyOpen(OPEN && (endDate 없음(상시모집) || 종료일 미경과)) 의 SQL 동치식.
+     * endDate 는 NULL 허용 컬럼이라 goe 단독 비교는 상시모집을 UNKNOWN(false) 으로 떨어뜨린다 —
+     * 반드시 isNull() 대안을 함께 건다 (ClubFavoriteRepositoryImpl 의 모집중 카운트와 동일 규칙).
+     */
     private NumberExpression<Integer> activeRecruitmentFlag(LocalDate today) {
         return new CaseBuilder()
                 .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.goe(today))
+                        .and(recruitment.endDate.isNull().or(recruitment.endDate.goe(today)))
                         .and(recruitment.deletedAt.isNull()))
                 .then(1)
                 .otherwise(0);
