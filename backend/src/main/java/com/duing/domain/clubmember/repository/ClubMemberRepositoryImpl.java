@@ -8,7 +8,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.repository.RecruitmentPredicates;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -83,16 +83,10 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .fetch();
     }
 
-    /**
-     * Recruitment.isEffectivelyOpen(OPEN && (endDate 없음(상시모집) || 종료일 미경과)) 의 SQL 동치식.
-     * endDate 는 NULL 허용 컬럼이라 goe 단독 비교는 상시모집을 UNKNOWN(false) 으로 떨어뜨린다 —
-     * 반드시 isNull() 대안을 함께 건다 (ClubFavoriteRepositoryImpl 의 모집중 카운트와 동일 규칙).
-     */
+    /** 모집중 카운트 판정 — 사본 드리프트(#995) 재발 방지를 위해 공용 술어(RecruitmentPredicates)만 쓴다. */
     private NumberExpression<Integer> activeRecruitmentFlag(LocalDate today) {
         return new CaseBuilder()
-                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.isNull().or(recruitment.endDate.goe(today)))
-                        .and(recruitment.deletedAt.isNull()))
+                .when(RecruitmentPredicates.effectivelyOpen(today))
                 .then(1)
                 .otherwise(0);
     }

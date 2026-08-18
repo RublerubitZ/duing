@@ -74,29 +74,13 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     }
 
     @Override
-    public boolean existsActiveByClubId(Long clubId) {
-        LocalDate today = LocalDate.now(clock);
-        Integer one = queryFactory
-                .selectOne()
-                .from(recruitment)
-                .where(
-                        recruitment.club.id.eq(clubId),
-                        recruitment.status.eq(RecruitmentStatus.OPEN),
-                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
-                )
-                .fetchFirst();
-        return one != null;
-    }
-
-    @Override
     public Optional<Recruitment> findActiveByClubId(Long clubId) {
         LocalDate today = LocalDate.now(clock);
         Recruitment found = queryFactory
                 .selectFrom(recruitment)
                 .where(
                         recruitment.club.id.eq(clubId),
-                        recruitment.status.eq(RecruitmentStatus.OPEN),
-                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
+                        RecruitmentPredicates.effectivelyOpen(today)
                 )
                 .orderBy(recruitment.startDate.asc(), recruitment.id.asc())
                 .fetchFirst();
@@ -183,8 +167,7 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     private static NumberExpression<Integer> representativePriority(LocalDate today) {
         return new CaseBuilder()
-                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.isNull().or(recruitment.endDate.goe(today))))
+                .when(RecruitmentPredicates.effectivelyOpen(today))
                 .then(0)
                 .otherwise(1);
     }

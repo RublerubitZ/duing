@@ -6,7 +6,7 @@ import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.favorite.service.dto.query.FavoriteClubQuery;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.repository.RecruitmentPredicates;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -41,9 +41,7 @@ public class ClubFavoriteRepositoryImpl implements ClubFavoriteRepositoryCustom 
                                 .from(recruitment)
                                 .where(
                                         recruitment.club.id.eq(club.id),
-                                        recruitment.status.eq(RecruitmentStatus.OPEN),
-                                        recruitment.endDate.isNull().or(recruitment.endDate.goe(LocalDate.now(clock))),
-                                        recruitment.deletedAt.isNull()
+                                        RecruitmentPredicates.effectivelyOpen(LocalDate.now(clock))
                                 )
                 ))
                 .from(clubFavorite)
