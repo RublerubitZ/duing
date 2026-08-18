@@ -11,6 +11,7 @@ import {
 } from '@duing/hooks';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
@@ -99,6 +100,13 @@ export function CalendarPage() {
   const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
+
+  // 비로그인 배너는 하이드레이션 이후에만 그린다 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않다.
+  // 서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
+  // (providers 모듈 스코프의 startBootSessionRestore 가 하이드레이션 전에 요청을 띄우고
+  // AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
+  // 그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
+  const hydrated = useHydrated();
 
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
@@ -233,7 +241,7 @@ export function CalendarPage() {
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100%' }}>
 
       {/* ===== 비로그인 배너 ===== */}
-      {!isAuthenticated && !meQuery.isLoading && (
+      {hydrated && !isAuthenticated && !meQuery.isLoading && (
         <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
           내 동아리 일정을 보려면 로그인해주세요.
         </div>
