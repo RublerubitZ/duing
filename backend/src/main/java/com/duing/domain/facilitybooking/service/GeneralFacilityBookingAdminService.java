@@ -150,11 +150,8 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private void rejectIfSchoolOccupied(FacilityBooking booking, List<FacilityReservation> monthRows,
             LocalDateTime crawlBasisAt) {
         List<FacilityBookingException.SchoolConflictException.ConflictItem> conflicts =
-                monthRows.stream()
-                        .filter(reservation -> reservation.getReservationDate().equals(booking.getReservationDate()))
-                        .filter(reservation -> availabilityPolicy.classify(reservation) == CrawlRowType.OCCUPIED)
-                        .filter(reservation -> reservation.getStartTime().isBefore(booking.getEndTime())
-                                && reservation.getEndTime().isAfter(booking.getStartTime()))
+                availabilityPolicy.occupiedOverlapping(monthRows, booking.getReservationDate(),
+                                booking.getStartTime(), booking.getEndTime())
                         .map(reservation -> new FacilityBookingException.SchoolConflictException.ConflictItem(
                                 reservation.getOrganizationName(),
                                 reservation.getStartTime(), reservation.getEndTime()))
