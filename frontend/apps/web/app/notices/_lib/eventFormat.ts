@@ -3,6 +3,8 @@
 import { daysUntilKst, formatDateKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
 import type { NoticeEventInfo } from '@duing/types';
 
+import { ddayLabel } from '@/app/_lib/dday';
+
 // "9.25(금) 10:00" 조립용 — 월·일·요일·시·분을 KST 기준으로 한 번에 뽑는다.
 const EVENT_PARTS_FORMATTER = kstDateTimeFormatter({
   month: 'numeric',
@@ -33,10 +35,9 @@ export function formatEventRange(startAt: string, endAt: string | null): string 
 }
 
 export function formatDdayLabel(expiresAt: string): string {
+  // 만료 판정은 이 표면의 자체 축(시각 기준 선판정)을 유지하고, 라벨 표기만 공용 SSOT 를 따른다.
   if (parseKstInstant(expiresAt).getTime() < Date.now()) return '마감';
-  const days = daysUntilKst(expiresAt, new Date());
-  if (days <= 0) return 'D-DAY';
-  return `D-${days}`;
+  return ddayLabel(daysUntilKst(expiresAt, new Date()));
 }
 
 export function formatPublishedDate(iso: string): string {
