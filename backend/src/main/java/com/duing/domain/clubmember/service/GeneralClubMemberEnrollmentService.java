@@ -6,6 +6,7 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
+import com.duing.global.exception.PostgresConstraintViolations;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -18,8 +19,6 @@ public class GeneralClubMemberEnrollmentService implements ClubMemberEnrollmentS
 
     // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
     private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final ClubMemberRepository clubMemberRepository;
 
@@ -65,14 +64,6 @@ public class GeneralClubMemberEnrollmentService implements ClubMemberEnrollmentS
      * 그대로 위로 전파된다.
      */
     private static boolean isClubMemberDuplicateMembership(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(CLUB_MEMBER_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, CLUB_MEMBER_UNIQUE_CONSTRAINT);
     }
 }

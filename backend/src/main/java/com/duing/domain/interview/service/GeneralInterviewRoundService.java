@@ -37,7 +37,7 @@ import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
-import java.sql.SQLException;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -58,8 +58,6 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     // V49 의 모집당 DRAFT 라운드 1개 partial unique (race 최종 방어선).
     private static final String DRAFT_ROUND_UNIQUE_INDEX = "uq_interview_round_draft_per_recruitment";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final RecruitmentRepository recruitmentRepository;
     private final ClubAuthService clubAuthService;
@@ -351,14 +349,6 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
      * 다른 무결성 위반은 그대로 위로 전파한다 (club_member 23505 처리 전례).
      */
     private static boolean isDraftRoundUniqueViolation(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(DRAFT_ROUND_UNIQUE_INDEX);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, DRAFT_ROUND_UNIQUE_INDEX);
     }
 }

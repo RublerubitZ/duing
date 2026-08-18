@@ -36,7 +36,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final String POSTGRES_EXCLUSION_VIOLATION_SQL_STATE = "23P01";
     private static final String FACILITY_BOOKING_OVERLAP_CONSTRAINT = "excl_facility_booking_active_overlap";
 
     @ExceptionHandler(InterviewException.RoundHasUnresolvedMembers.class)
@@ -235,15 +234,7 @@ public class GlobalExceptionHandler {
      * 전례(SQLState + 제약명 메시지 매칭)를 따른다.
      */
     private static boolean isFacilityBookingOverlapViolation(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_EXCLUSION_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(FACILITY_BOOKING_OVERLAP_CONSTRAINT);
+        return PostgresConstraintViolations.isExclusionViolationOf(exception, FACILITY_BOOKING_OVERLAP_CONSTRAINT);
     }
 
     @ExceptionHandler(PessimisticLockingFailureException.class)

@@ -26,6 +26,7 @@ import com.duing.domain.recruitment.service.dto.command.QuestionItemCommand;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,8 +51,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     // V38 partial unique 인덱스. (club_id) WHERE status='OPEN' AND deleted_at IS NULL.
     private static final String RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT = "uk_recruitment_club_active";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
@@ -533,14 +532,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 다른 unique / CHECK / FK 위반은 false 를 돌려 호출 측에서 그대로 전파시킨다.
      */
     private static boolean isRecruitmentActiveDuplicate(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT);
     }
 }

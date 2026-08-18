@@ -51,6 +51,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -85,8 +86,6 @@ public class GeneralApplicationService implements ApplicationService {
 
     // V6 partial unique 인덱스. (recruitment_id, user_id) WHERE deleted_at IS NULL.
     private static final String APPLICATION_UNIQUE_CONSTRAINT = "uk_application_recruitment_user_active";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
     // 일괄 상태 변경의 건별 실패 사유 — 미존재(NotFound)와 타 클럽 권한없음(NotAMember)을 동일 메시지로
     // 합쳐, 타 클럽 운영진이 임의 ID 로 지원서 존재/소속 여부를 알아내는 열거(oracle)를 막는다.
     private static final String BULK_ITEM_GENERIC_FAILURE = "해당 지원서를 처리할 권한이 없거나 존재하지 않습니다.";
@@ -502,15 +501,7 @@ public class GeneralApplicationService implements ApplicationService {
      * 향후 application 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
      */
     private static boolean isApplicationDuplicate(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(APPLICATION_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, APPLICATION_UNIQUE_CONSTRAINT);
     }
 
     /**
