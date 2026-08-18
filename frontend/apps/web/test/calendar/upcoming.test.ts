@@ -91,8 +91,9 @@ describe('buildUpcoming', () => {
 describe('toUpcomingView', () => {
   const today = '2026-08-03';
 
-  it('오늘은 D-DAY, 이후는 D-N 으로 표기한다', () => {
-    expect(toUpcomingView(makeEvent({ date: today }), today).dday).toBe('D-DAY');
+  it('오늘은 D-day, 이후는 D-N 으로 표기한다 — 모집 표면과 동일 표기(SSOT)', () => {
+    expect(toUpcomingView(makeEvent({ date: today }), today).dday).toBe('D-day');
+    expect(toUpcomingView(makeEvent({ date: today }), today).daysLeft).toBe(0);
     expect(toUpcomingView(makeEvent({ date: '2026-08-10' }), today).dday).toBe('D-7');
     expect(toUpcomingView(makeEvent({ date: '2026-09-02' }), today).dday).toBe('D-30');
   });
