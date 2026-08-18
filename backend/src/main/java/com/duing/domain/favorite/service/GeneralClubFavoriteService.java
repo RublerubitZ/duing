@@ -4,6 +4,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.exception.FavoriteException;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
@@ -25,15 +26,13 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
     private final ClubFavoriteRepository favoriteRepository;
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
 
     @Override
     @Transactional
     public Long add(Long userId, Long clubId) {
-        // 학생에게 노출되지 않는 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        // (중복 찜 409 보다 먼저 검사해, 기존 찜 여부로 비공개 동아리의 존재가 드러나지 않게 한다)
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 중복 찜 409 보다 먼저 게이트를 지나야 한다 — 기존 찜 여부로 비공개 동아리의 존재가 드러나지 않게.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         if (favoriteRepository.existsByUserIdAndClubId(userId, clubId)) {
             throw new FavoriteException.AlreadyFavoritedException();
         }

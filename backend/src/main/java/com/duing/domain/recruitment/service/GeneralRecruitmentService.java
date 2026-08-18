@@ -5,6 +5,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -61,6 +62,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
     private final ApplicationEventPublisher eventPublisher;
     // 모집 활성/마감 판정용 — 저장용 타임스탬프(softDelete 등)에는 쓰지 않는다.
     private final Clock clock;
@@ -116,7 +118,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         // 비공개 상태 동아리의 모집은 존재를 숨긴다(404). 이 메서드의 호출처는 공개 컨트롤러 1곳뿐이다.
-        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+        // 모집을 물었으므로 RecruitmentNotFound 가 은닉 의미론 — ClubVisibilityPolicy 게이트 대신 판정만 공유한다.
+        if (!recruitment.getClub().getStatus().isPubliclyVisible()) {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
         Integer applicantCount = recruitment.isShowApplicantCount()
@@ -132,10 +135,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     public List<RecruitmentSummaryQuery> getByClubId(Long clubId) {
-        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 공개 엔드포인트 전용 — 비공개 동아리는 게이트가 404 로 숨긴다.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         LocalDate today = LocalDate.now(clock);
         return recruitmentRepository
                 .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)

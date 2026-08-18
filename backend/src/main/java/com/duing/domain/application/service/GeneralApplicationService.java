@@ -20,7 +20,6 @@ import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatu
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -170,7 +169,7 @@ public class GeneralApplicationService implements ApplicationService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         // 비공개 상태 동아리의 모집에는 지원할 수 없다 — 존재 은닉을 위해 404 (공개 상세와 동일 의미론).
-        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+        if (!recruitment.getClub().getStatus().isPubliclyVisible()) {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
 
