@@ -14,9 +14,9 @@ public interface RecruitmentRepositoryCustom {
 
     List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
 
-
     /**
-     * 활성 모집 1건 조회. 비정상 케이스로 여러 건이면 startDate ASC, id ASC tie-break.
+     * 활성 모집({@link RecruitmentPredicates#effectivelyOpen}) 1건 조회.
+     * 비정상 케이스로 여러 건이면 startDate ASC, id ASC tie-break.
      */
     Optional<Recruitment> findActiveByClubId(Long clubId);
 
