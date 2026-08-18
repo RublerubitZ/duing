@@ -123,18 +123,31 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             """)
     List<UserClubMembershipQuery> findClubMembershipsByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT cm.user.id FROM ClubMember cm WHERE cm.club.id IN :clubIds")
+    /**
+     * 알림 수신자(fan-out) 스코프 — 뷰어 스코프(findClubIdsByUserId)와 동일하게 비 ACTIVE 동아리
+     * 소속은 제외한다. 필터가 없으면 승인 대기·운영 중단 동아리 소속자가 열람할 수 없는 공지
+     * 알림을 계속 수신한다("알림 클릭 → 접근 거부"). 정책 확정: 2026-08-18.
+     */
+    @Query("""
+            SELECT DISTINCT cm.user.id FROM ClubMember cm
+            WHERE cm.club.id IN :clubIds
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
+            """)
     List<Long> findUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
 
+    /** 알림 수신자 스코프 — 비 ACTIVE 동아리 제외 규약은 findUserIdsByClubIdIn 참조. */
     @Query("""
             SELECT DISTINCT cm.user.id FROM ClubMember cm
             WHERE cm.club.id IN :clubIds AND cm.role IN ('LEADER','OFFICER')
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
     List<Long> findOfficerUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
 
+    /** 알림 수신자 스코프 — 비 ACTIVE 동아리 제외 규약은 findUserIdsByClubIdIn 참조. */
     @Query("""
             SELECT DISTINCT cm.user.id FROM ClubMember cm
             WHERE cm.role IN ('LEADER','OFFICER')
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
     List<Long> findAllOfficerUserIds();
 
