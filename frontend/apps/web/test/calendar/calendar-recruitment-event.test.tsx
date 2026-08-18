@@ -92,7 +92,7 @@ describe('캘린더 모집 이벤트 — 마감 반영', () => {
   it('상세 모달은 진행 중인 모집을 지원 페이지로 보낸다', () => {
     const event = toCalEvent_recruitment(base);
 
-    render(<EventDetailModal event={event!} open onClose={vi.fn()} />);
+    render(<EventDetailModal event={event!} open onClose={vi.fn()} isAdmin={false} />);
 
     expect(screen.getByRole('link', { name: '원본 보기' })).toHaveAttribute(
       'href',
@@ -103,7 +103,7 @@ describe('캘린더 모집 이벤트 — 마감 반영', () => {
   it('상세 모달은 마감된 모집을 지원 페이지 대신 동아리 소개로 보낸다', () => {
     const event = toCalEvent_recruitment({ ...base, status: 'CLOSED', displayStatus: 'CLOSED' });
 
-    render(<EventDetailModal event={event!} open onClose={vi.fn()} />);
+    render(<EventDetailModal event={event!} open onClose={vi.fn()} isAdmin={false} />);
 
     const link = screen.getByRole('link', { name: '원본 보기' });
     expect(link).toHaveAttribute('href', expect.stringContaining('/clubs/12'));

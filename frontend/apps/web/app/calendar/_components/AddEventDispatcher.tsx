@@ -49,7 +49,10 @@ export function AddEventDispatcher({ open, onClose }: Props) {
         </header>
 
         {hasManagedClubs && (
-          <Section title="동아리 일정 추가" description="회원 전용 동아리 일정 페이지로 이동합니다.">
+          <Section
+            title="동아리 일정 추가"
+            description="회원 전용 동아리 일정 페이지로 이동합니다. 등록한 일정은 동아리 회원과 총동연(ADMIN)이 캘린더에서 볼 수 있습니다."
+          >
             <ClubSelect
               clubs={managedClubs}
               value={targetClubId}

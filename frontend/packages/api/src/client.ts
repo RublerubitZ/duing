@@ -165,6 +165,7 @@ import type {
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
   ClubNoticeDetail,
+  AdminClubEventCard,
   ClubEventCard,
   ClubEventDetail,
   ClubEventListParams,
@@ -661,6 +662,13 @@ export type DuingApiClient = {
       members(clubId: number): Promise<AdminClubMember[]>;
       /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
       update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
+    };
+    /**
+     * 캘린더용 전 동아리 행사 일정. ACTIVE 동아리만, 카드 정보만 준다.
+     * 페이지네이션 없이 창(from~to)으로만 제한한다 — admin.recruitments 와 같은 형태.
+     */
+    clubEvents: {
+      list(params: ClubEventListParams): Promise<AdminClubEventCard[]>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -1627,6 +1635,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
         update: (clubId, payload) =>
           jsonOk<ClubDetail>(http.patch(`admin/clubs/${clubId}`, { json: payload })),
+      },
+      clubEvents: {
+        list: (params) =>
+          jsonOk<AdminClubEventCard[]>(
+            http.get('admin/club-events', { searchParams: cleanParams(params) }),
+          ),
       },
       users: {
         search: (params) =>

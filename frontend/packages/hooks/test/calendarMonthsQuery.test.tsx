@@ -1,11 +1,17 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
-import type { CalEvent, GlobalEventCard } from '@duing/types';
+import type {
+  AdminClubEventCard,
+  CalEvent,
+  ClubEventCard,
+  GlobalEventCard,
+  MyClubSummary,
+} from '@duing/types';
 
 import { ApiClientProvider } from '../src/api-context';
-import { useCalendarMonthsQuery } from '../src/calendarMonth';
+import { monthBounds, useCalendarMonthsQuery } from '../src/calendarMonth';
 import { globalEventKeys } from '../src/globalEventQueryKeys';
 import { recruitmentQueryKeys } from '../src/recruitmentQueryKeys';
 
@@ -25,9 +31,19 @@ const mappers = {
     span: 1,
   }),
   toRecruitment: (): CalEvent | null => null,
-  toClubEvent: (): CalEvent => {
-    throw new Error('사용하지 않음');
-  },
+  toClubEvent: (item: ClubEventCard, club: { clubId: number; clubName: string }): CalEvent => ({
+    id: `c-${item.id}`,
+    date: '2026-08-10',
+    kind: 'event',
+    sourceType: 'clubEvent',
+    sourceId: item.id,
+    sourceClubId: club.clubId,
+    title: `일정 ${item.id}`,
+    time: '10:00',
+    place: '',
+    club: club.clubName,
+    accent: 'sage',
+  }),
 };
 
 function makeGlobalEvent(id: number, startAt: string): GlobalEventCard {
@@ -41,17 +57,98 @@ function makeGlobalEvent(id: number, startAt: string): GlobalEventCard {
   };
 }
 
+type ApiClient = Parameters<typeof ApiClientProvider>[0]['client'];
+
+// 실제 클라이언트는 수십 개 도메인을 갖지만 이 훅이 부르는 것만 스텁한다.
+function asApiClient(stub: object): ApiClient {
+  return stub as unknown as ApiClient;
+}
+
 // 캐시를 미리 시드하므로 queryFn 은 호출되지 않는다 — Provider 를 채우기 위한 최소 스텁.
-const apiClientStub = {
+const apiClientStub = asApiClient({
   globalEvents: { list: async () => [] },
   recruitments: { calendar: async () => [] },
   clubEvents: { list: async () => [] },
-} as unknown as Parameters<typeof ApiClientProvider>[0]['client'];
+});
 
-function makeWrapper(client: QueryClient) {
+const TWO_MONTHS = ['2026-08', '2026-09'];
+
+/** 두 달치 글로벌·모집 캐시를 미리 채운다 — 동아리 일정 경로만 남겨 로딩·요청 수를 관찰한다. */
+function seedNonClubDomains(client: QueryClient) {
+  for (const month of TWO_MONTHS) {
+    const { from, to } = monthBounds(month);
+    client.setQueryData(globalEventKeys.publicList({ from, to }), []);
+    client.setQueryData(recruitmentQueryKeys.calendar(month), []);
+  }
+}
+
+/**
+ * 도메인별 호출 횟수를 세는 스텁. 동아리 일정 응답은 조회 창의 월로 id 를 만들어
+ * 달마다 다른 일정이 오게 한다(같은 id 는 병합 단계에서 접혀 개수 검증이 무의미해진다).
+ */
+function makeCallCountingClient(myClubs: MyClubSummary[], adminListFails = false) {
+  const callCounts = { adminClubEvents: 0, clubEvents: 0, myClubs: 0 };
+  const monthNumber = (params: { from?: string }): number => Number(params.from?.slice(5, 7) ?? 0);
+  const apiClient = asApiClient({
+    globalEvents: { list: async () => [] },
+    recruitments: { calendar: async () => [] },
+    users: {
+      myClubs: async (): Promise<MyClubSummary[]> => {
+        callCounts.myClubs += 1;
+        return myClubs;
+      },
+    },
+    clubEvents: {
+      list: async (clubId: number, params: { from?: string }): Promise<ClubEventCard[]> => {
+        callCounts.clubEvents += 1;
+        return [
+          {
+            id: clubId * 100 + monthNumber(params),
+            title: '동아리 정기모임',
+            startAt: '2026-08-10T10:00:00',
+            endAt: '2026-08-10T12:00:00',
+            location: '동방',
+          },
+        ];
+      },
+    },
+    admin: {
+      clubEvents: {
+        list: async (params: { from?: string }): Promise<AdminClubEventCard[]> => {
+          callCounts.adminClubEvents += 1;
+          if (adminListFails) throw new Error('전 동아리 일정 조회 실패');
+          return [
+            {
+              id: monthNumber(params),
+              clubId: 42,
+              clubName: '다른 동아리',
+              title: '전체 회의',
+              startAt: '2026-08-20T18:00:00',
+              endAt: '2026-08-20T20:00:00',
+              location: '학생회관',
+            },
+          ];
+        },
+      },
+    },
+  });
+  return { apiClient, callCounts };
+}
+
+const myClub: MyClubSummary = {
+  clubId: 7,
+  clubName: '내 동아리',
+  logoUrl: null,
+  status: 'ACTIVE',
+  myRole: 'MEMBER',
+  activeRecruitmentCount: 0,
+  joinedAt: '2026-03-01T00:00:00',
+};
+
+function makeWrapper(client: QueryClient, apiClient: ApiClient = apiClientStub) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ApiClientProvider client={apiClientStub}>
+      <ApiClientProvider client={apiClient}>
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
       </ApiClientProvider>
     );
@@ -62,7 +159,7 @@ function renderWithClient(client: QueryClient, yearMonths: string[]) {
   const wrapper = makeWrapper(client);
   return renderHook(
     ({ months }: { months: string[] }) =>
-      useCalendarMonthsQuery(months, { isAuthenticated: false, mappers }),
+      useCalendarMonthsQuery(months, { isAuthenticated: false, isAdmin: false, mappers }),
     { wrapper, initialProps: { months: yearMonths } },
   );
 }
@@ -141,6 +238,7 @@ describe('useCalendarMonthsQuery', () => {
       () =>
         useCalendarMonthsQuery(['2026-08', '2026-09'], {
           isAuthenticated: false,
+          isAdmin: false,
           mappers: spanMappers,
         }),
       { wrapper },
@@ -149,5 +247,68 @@ describe('useCalendarMonthsQuery', () => {
     // 한 버전만 살아남아야 한다 — 같은 날짜가 두 번 나오면 안 된다.
     const dates = result.current.events.map((event) => event.date);
     expect(new Set(dates).size).toBe(dates.length);
+  });
+
+  it('ADMIN 세션은 전 동아리 집계를 월당 1회만 부르고 동아리별 조회는 하지 않는다', async () => {
+    // 총동연 분기를 "전 동아리 루프" 로 되돌리는 변경을 막는 잠금이다 —
+    // 동아리 수만큼 요청이 나가면 이 카운트가 즉시 깨진다.
+    const adminQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    seedNonClubDomains(adminQueryClient);
+    // ADMIN 이 어느 동아리의 멤버이더라도 동아리별 경로는 타지 않아야 한다.
+    const adminSession = makeCallCountingClient([myClub]);
+
+    const adminRender = renderHook(
+      () =>
+        useCalendarMonthsQuery(TWO_MONTHS, { isAuthenticated: true, isAdmin: true, mappers }),
+      { wrapper: makeWrapper(adminQueryClient, adminSession.apiClient) },
+    );
+
+    // 집계를 받는 동안 isLoading 이 false 면 "일정이 없어요" 가 떴다가 채워진다 — 집계도 로딩에 포함된다.
+    expect(adminRender.result.current.isLoading).toBe(true);
+    await waitFor(() => expect(adminRender.result.current.isLoading).toBe(false));
+
+    expect(adminSession.callCounts.adminClubEvents).toBe(TWO_MONTHS.length);
+    expect(adminSession.callCounts.clubEvents).toBe(0);
+    expect(adminSession.callCounts.myClubs).toBe(0);
+    expect(adminRender.result.current.events.map((event) => event.club)).toEqual([
+      '다른 동아리',
+      '다른 동아리',
+    ]);
+
+    // ── 일반 학생은 기존 경로 그대로 (요청 수까지 회귀 잠금) ──
+    const studentQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    seedNonClubDomains(studentQueryClient);
+    const studentSession = makeCallCountingClient([myClub]);
+
+    const studentRender = renderHook(
+      () =>
+        useCalendarMonthsQuery(TWO_MONTHS, { isAuthenticated: true, isAdmin: false, mappers }),
+      { wrapper: makeWrapper(studentQueryClient, studentSession.apiClient) },
+    );
+
+    await waitFor(() => expect(studentRender.result.current.isLoading).toBe(false));
+
+    expect(studentSession.callCounts.adminClubEvents).toBe(0);
+    expect(studentSession.callCounts.myClubs).toBe(1);
+    expect(studentSession.callCounts.clubEvents).toBe(TWO_MONTHS.length);
+    expect(studentRender.result.current.events.map((event) => event.club)).toEqual([
+      '내 동아리',
+      '내 동아리',
+    ]);
+  });
+
+  it('ADMIN 집계 조회가 실패하면 오류로 집계된다', async () => {
+    // 집계를 오류 판정에서 빼면 "일부 일정을 불러오지 못했습니다" 배너가 뜨지 않는다.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    seedNonClubDomains(client);
+    const { apiClient } = makeCallCountingClient([], true);
+
+    const { result } = renderHook(
+      () => useCalendarMonthsQuery(TWO_MONTHS, { isAuthenticated: true, isAdmin: true, mappers }),
+      { wrapper: makeWrapper(client, apiClient) },
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.perDomain.clubEventsError).toBe(true);
   });
 });
