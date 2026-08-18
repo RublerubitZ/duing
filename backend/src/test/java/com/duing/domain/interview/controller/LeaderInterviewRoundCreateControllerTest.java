@@ -22,6 +22,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.entity.User;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -356,7 +357,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value())
-                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
 
         // 라운드도 상태 전이도 일어나지 않았다.
@@ -478,7 +479,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
 
             Response creationResponse = creating.get(30, TimeUnit.SECONDS);
             assertThat(creationResponse.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
-            assertThat(creationResponse.jsonPath().getString("code")).isEqualTo("RECRUITMENT_CLOSED");
+            assertThat(creationResponse.jsonPath().getString("code")).isEqualTo(ErrorCodes.RECRUITMENT_CLOSED);
         } finally {
             closeMayCommit.countDown();
             executor.shutdownNow();

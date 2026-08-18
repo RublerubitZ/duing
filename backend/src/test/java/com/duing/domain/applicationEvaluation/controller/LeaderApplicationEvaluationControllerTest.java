@@ -29,6 +29,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -418,7 +419,7 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
                 .body(Map.of("score", 4, "memo", "마감 후 평가"))
                 .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
                 .then().statusCode(409)
-                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
 
         assertThat(evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, leaderId))
@@ -439,7 +440,7 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().delete("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
                 .then().statusCode(409)
-                .body("code", equalTo("RECRUITMENT_CLOSED"));
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED));
 
         // 파괴적 쓰기가 차단됐고, 아카이브 조회는 그대로 동작한다.
         ApplicantDetailQuery detail = applicationService.getApplicantDetail(applicationId, leaderId);

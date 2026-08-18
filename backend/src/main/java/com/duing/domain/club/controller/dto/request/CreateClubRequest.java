@@ -22,11 +22,10 @@ public record CreateClubRequest(
 
         String description,
 
-        // http(s) 절대 URL(운영 S3) 또는 `/files/...` 내부 경로(로컬 스토리지)만 허용 — javascript:/data:
-        // 등 스크립트 스킴과 프로토콜 상대경로(//)를 막아 저장 후 렌더 시 XSS·외부유출을 차단한다.
-        @Size(max = 500, message = "로고 URL은 500자 이하여야 합니다.")
-        @Pattern(regexp = "^$|^https?://.+$|^/[^/\\\\].*$",
-                message = "로고 URL은 http:// 또는 https:// 로 시작하거나 / 로 시작하는 내부 경로여야 합니다.")
+        // 허용 형태와 차단 이유는 ClubProfileValidationRules.LINK_OR_INTERNAL_PATH 참고.
+        @Size(max = ClubProfileValidationRules.URL_MAX, message = "로고 URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = ClubProfileValidationRules.LINK_OR_INTERNAL_PATH,
+                message = ClubProfileValidationRules.LOGO_URL_MESSAGE)
         String logoUrl,
 
         @NotNull(message = "동아리장 ID는 필수 입력값입니다.")
