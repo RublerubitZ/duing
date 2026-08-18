@@ -166,6 +166,24 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("아직 시작하지 않은 모집예정 공고는 마감이 3일 뒤라도 마감 임박 알림 후보에서 제외된다")
+    void upcomingRecruitmentIsExcludedFromDeadlineKind() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저모집예정");
+        Club club = saveActiveClub("모집예정동아리");
+        saveFavorite(favoringUser, club);
+        // 내일 시작·3일 뒤 마감 — 표기 축(RecruitmentDisplayStatus) 기준 UPCOMING 이라
+        // 접수가 열리기 전인데 "마감 3일 전" 알림이 나가면 안 된다 (회귀 방지).
+        saveOpenRecruitment(club, "모집예정공고", today.plusDays(1), today.plusDays(3));
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+
+        assertThat(notificationRepository.count() - beforeCount).isZero();
+    }
+
+    @Test
     @DisplayName("soft-delete 된 동아리의 OPEN 모집은 마감 알림 후보에서 제외된다")
     void softDeletedClubRecruitmentIsExcluded() throws Exception {
         LocalDate today = LocalDate.now(clock);
