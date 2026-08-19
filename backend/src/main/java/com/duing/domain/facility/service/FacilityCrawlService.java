@@ -49,8 +49,6 @@ public class FacilityCrawlService {
     private final FacilityCrawlerProperties properties;
     private final Clock clock;
 
-    private static final int CURRENT_NEXT_TTL_MINUTES = 10;
-    private static final int OTHER_TTL_HOURS = 24;
     private static final int ON_DEMAND_COOLDOWN_SECONDS = 30;
     private static final int ON_DEMAND_MAX_CONCURRENT = 3;
 
@@ -128,12 +126,12 @@ public class FacilityCrawlService {
                 .orElse(false);
     }
 
+    /**
+     * TTL 값은 SnapshotFreshnessPolicy 와 공유하되, 신선 경계(isFresh 의 경과 &lt; TTL)는 의도적으로
+     * 소비자들의 stale 판정(경과 &gt; TTL)과 별개다 — 정확히 TTL 인 순간 크롤러는 재크롤(보수), 표시는 신선(보수).
+     */
     private Duration ttl(YearMonth yearMonth) {
-        YearMonth current = YearMonth.now(clock);
-        if (yearMonth.equals(current) || yearMonth.equals(current.plusMonths(1))) {
-            return Duration.ofMinutes(CURRENT_NEXT_TTL_MINUTES);
-        }
-        return Duration.ofHours(OTHER_TTL_HOURS);
+        return SnapshotFreshnessPolicy.ttlFor(yearMonth, YearMonth.now(clock));
     }
 
     public CrawlSummary crawlAndReplace(List<YearMonth> months, CrawlSource source) {
