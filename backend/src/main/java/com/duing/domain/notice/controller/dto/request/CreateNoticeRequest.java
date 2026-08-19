@@ -5,6 +5,7 @@ import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
+import com.duing.global.constant.LinkUrlPatterns;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -18,7 +19,7 @@ public record CreateNoticeRequest(
         @NotBlank @Size(max = 50000) String content,
         @NotBlank @Size(max = 500) String coverImageUrl,
         @Size(max = 2000)
-        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String linkUrl,
+        @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE) String linkUrl,
         @NotNull NoticeCategory category,
         @Size(max = 8) List<@Size(max = 20) String> tags,
         @NotNull NoticeVisibility visibility,

@@ -1,5 +1,6 @@
 package com.duing.domain.application.exception;
 
+import com.duing.global.constant.ErrorCodes;
 import com.duing.global.exception.ApplicationException;
 import org.springframework.http.HttpStatus;
 
@@ -142,7 +143,7 @@ public class ApplicationDomainException extends ApplicationException {
         private static final String MESSAGE = "마감된 모집의 지원은 철회할 수 없어요.";
 
         public CannotWithdrawClosedRecruitmentException() {
-            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
+            super(MESSAGE, HttpStatus.CONFLICT, ErrorCodes.RECRUITMENT_CLOSED);
         }
     }
 

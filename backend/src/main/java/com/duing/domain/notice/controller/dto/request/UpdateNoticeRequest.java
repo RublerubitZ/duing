@@ -5,6 +5,7 @@ import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.command.UpdateNoticeCommand;
+import com.duing.global.constant.LinkUrlPatterns;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
@@ -16,7 +17,7 @@ public record UpdateNoticeRequest(
         @Size(max = 50000) String content,
         @Size(max = 500) String coverImageUrl,
         @Size(max = 2000)
-        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String linkUrl,
+        @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE) String linkUrl,
         Boolean clearExternalLink,
         NoticeCategory category,
         @Size(max = 8) List<@Size(max = 20) String> tags,

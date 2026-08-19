@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.time.LocalDateTime;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -149,6 +150,36 @@ class PromotionRequestValidationTest {
                 null);
         Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
         assertThat(violations).isEmpty();
+    }
+
+    @Test
+    @DisplayName("CreatePromotionRequest: 노출 시작 시각이 종료 시각과 같거나 뒤면 검증 실패")
+    void createRejectsNonIncreasingSchedule() {
+        LocalDateTime sameMoment = LocalDateTime.now();
+        CreatePromotionRequest request = new CreatePromotionRequest(
+                null, "T", "/files/b.png", null, true, 0,
+                null, null, null, null, PromotionPalette.INK,
+                sameMoment, sameMoment,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                null);
+        Set<ConstraintViolation<CreatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).anyMatch(v -> v.getMessage().contains("시작 시각 이후"));
+    }
+
+    @Test
+    @DisplayName("UpdatePromotionRequest: 노출 시작 시각이 종료 시각보다 뒤면 검증 실패")
+    void updateRejectsReversedSchedule() {
+        LocalDateTime endMoment = LocalDateTime.now();
+        UpdatePromotionRequest request = new UpdatePromotionRequest(
+                null, null, null, null, null, null, null,
+                null, null, null, null, PromotionPalette.INK,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                endMoment.plusDays(1), endMoment,
+                null, null, null, null, null, null,
+                null, null, null,
+                null, null);
+        Set<ConstraintViolation<UpdatePromotionRequest>> violations = validator.validate(request);
+        assertThat(violations).anyMatch(v -> v.getMessage().contains("시작 시각 이후"));
     }
 
     @Test

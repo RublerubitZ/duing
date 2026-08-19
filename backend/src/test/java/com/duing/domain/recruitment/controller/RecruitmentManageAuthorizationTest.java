@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
@@ -111,7 +112,7 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
         // 프론트가 마감 관련 실패를 단일 분기로 처리할 수 있다.
         closeRecruitment(targetLeaderToken, targetRecruitmentId)
                 .then().statusCode(HttpStatus.CONFLICT.value())
-                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("이미 마감된 모집 공고입니다."));
     }
 

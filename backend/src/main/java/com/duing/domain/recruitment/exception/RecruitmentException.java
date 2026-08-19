@@ -1,5 +1,6 @@
 package com.duing.domain.recruitment.exception;
 
+import com.duing.global.constant.ErrorCodes;
 import com.duing.global.exception.ApplicationException;
 import org.springframework.http.HttpStatus;
 
@@ -52,7 +53,7 @@ public class RecruitmentException extends ApplicationException {
         private static final String MESSAGE = "이미 마감된 모집 공고입니다.";
 
         public RecruitmentAlreadyClosedException() {
-            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
+            super(MESSAGE, HttpStatus.CONFLICT, ErrorCodes.RECRUITMENT_CLOSED);
         }
     }
 
@@ -158,7 +159,7 @@ public class RecruitmentException extends ApplicationException {
         private static final String MESSAGE = "마감된 모집에서는 할 수 없는 작업입니다.";
 
         public ClosedRecruitmentReadOnlyException() {
-            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED");
+            super(MESSAGE, HttpStatus.CONFLICT, ErrorCodes.RECRUITMENT_CLOSED);
         }
     }
 

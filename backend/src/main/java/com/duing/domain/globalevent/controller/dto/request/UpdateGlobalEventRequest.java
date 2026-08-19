@@ -2,6 +2,7 @@ package com.duing.domain.globalevent.controller.dto.request;
 
 import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.domain.globalevent.service.dto.command.UpdateGlobalEventCommand;
+import com.duing.global.constant.LinkUrlPatterns;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
@@ -13,7 +14,7 @@ public record UpdateGlobalEventRequest(
         LocalDateTime endAt,
         @Size(max = 200, message = "장소는 200자 이하여야 합니다.") String location,
         // 빈 문자열은 "linkUrl clear" 시맨틱 (description/location 과 일관). non-empty 일 때만 http(s) regex enforce.
-        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.")
+        @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE)
         @Size(max = 500, message = "링크는 500자 이하여야 합니다.") String linkUrl,
         GlobalEventCategory category,
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")

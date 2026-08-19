@@ -19,6 +19,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -73,7 +74,7 @@ class MyApplicationWithdrawControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(applicant))
                 .when().delete(WITHDRAW_PATH, application.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value())
-                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집의 지원은 철회할 수 없어요."));
 
         assertThat(applicationRepository.findById(application.getId())).isPresent();

@@ -1,6 +1,7 @@
 package com.duing.domain.promotion.controller.dto.request;
 
 import com.duing.domain.promotion.service.dto.command.CreatePromotionRequestCommand;
+import com.duing.global.constant.LinkUrlPatterns;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -12,7 +13,7 @@ public record CreatePromotionRequestRequest(
         @Size(max = 2000, message = "설명은 2000자 이하여야 합니다.") String description,
         @Size(max = 500, message = "배너 이미지 URL은 500자 이하여야 합니다.") String suggestedBannerImageUrl,
         @Size(max = 2000, message = "링크는 2000자 이하여야 합니다.")
-        @Pattern(regexp = "^$|^https?://.+$", message = "링크는 http:// 또는 https:// 로 시작해야 합니다.") String suggestedLinkUrl
+        @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE) String suggestedLinkUrl
 ) {
     public CreatePromotionRequestCommand toCommand(Long clubId, Long requesterUserId) {
         return new CreatePromotionRequestCommand(
