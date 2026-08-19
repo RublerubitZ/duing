@@ -1,7 +1,6 @@
 'use client';
 
 import { use, useState } from 'react';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { ClubMember } from '@duing/types';
 import {
@@ -32,6 +31,7 @@ import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
+// 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function ClubMembersPage({
   params,
 }: {
@@ -69,13 +69,18 @@ export default function ClubMembersPage({
   if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
     return <LoadingGate label="멤버 목록 불러오는 중" />;
   }
-
-  const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
-  if (!managedClub || !me) {
-    notFound();
+  // me 쿼리만 실패한 극단 창(인증 만료급)에서 -1 폴백으로 자기 행 보호(isSelf)가 꺼진 채
+  // 관리 버튼이 보이는 것을 막는다 — 권한 가드가 아니라 데이터 부재 fail-soft 다.
+  if (!me) {
+    return <LoadingGate label="멤버 목록 불러오는 중" />;
   }
 
-  const viewerRole = managedClub.myRole;
+  const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
+  // 레이아웃 가드를 통과했으므로 managedClub·me 는 사실상 항상 있다. 타입상의 옵셔널만
+  // 최소 권한 쪽 기본값으로 닫는다 — 값이 비어도 회장·임원 전용 액션이 열리지 않는 방향.
+  const viewerRole = managedClub?.myRole ?? 'MEMBER';
+  const clubName = managedClub?.clubName ?? '';
+  const viewerUserId = me.id;
   const isLeader = viewerRole === 'LEADER';
   const useGeneration = clubDetail?.useGeneration ?? false;
   // 선택·벌크 툴바: 회장은 전체 액션, 임원(OFFICER)은 기수 일괄 변경만 —
@@ -187,10 +192,10 @@ export default function ClubMembersPage({
               </span>
             )}
           </Link>
-          {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 이 페이지는 managedClub 이 없으면 notFound 다. */}
+          {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 운영 권한 자체는 레이아웃 가드가 이미 보장한다. */}
           <MemberCsvDownloadPopover
             clubId={currentClubId}
-            clubName={managedClub.clubName}
+            clubName={clubName}
             memberIds={filteredIds}
             useGeneration={useGeneration}
           />
@@ -245,7 +250,7 @@ export default function ClubMembersPage({
             clubId={currentClubId}
             useGeneration={useGeneration}
             viewerRole={viewerRole}
-            viewerUserId={me.id}
+            viewerUserId={viewerUserId}
             open={detailOpen}
             onClose={() => setDetailMemberId(null)}
             onTransferLeader={(target) => {
@@ -272,7 +277,7 @@ export default function ClubMembersPage({
       {transferTarget && (
         <TransferLeaderDialog
           target={transferTarget}
-          clubName={managedClub.clubName}
+          clubName={clubName}
           isPending={transferLeader.isPending}
           onConfirm={doTransfer}
           onCancel={() => {
@@ -285,7 +290,7 @@ export default function ClubMembersPage({
       {successionOpen && (
         <SuccessionRequestModal
           clubId={currentClubId}
-          clubName={managedClub.clubName}
+          clubName={clubName}
           onClose={() => setSuccessionOpen(false)}
         />
       )}
