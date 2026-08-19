@@ -9,9 +9,10 @@ import {
 } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { toRoute } from '../../../_lib/route';
 import { AdminGlobalEventCategoryStats } from '../_components/AdminGlobalEventCategoryStats';
-import { AdminGlobalEventDeleteDialog } from '../_components/AdminGlobalEventDeleteDialog';
 import { AdminGlobalEventFilterBar } from '../_components/AdminGlobalEventFilterBar';
 import { AdminGlobalEventTable } from '../_components/AdminGlobalEventTable';
 
@@ -23,6 +24,8 @@ export function AdminGlobalEventsListPage() {
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null);
+  // 삭제 실패는 확인 모달 안에 남긴다(공통 규칙) — 목록 위에 그리면 오버레이 뒤에 갇힌다.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const listQuery = useAdminGlobalEventListQuery({
     category: category === 'ALL' ? undefined : category,
@@ -85,14 +88,28 @@ export function AdminGlobalEventsListPage() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
-      <AdminGlobalEventDeleteDialog
-        title={deleteTarget?.title ?? null}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="이벤트 삭제"
+        description={
+          deleteTarget ? (
+            <>
+              &quot;<strong className="font-semibold text-ink">{deleteTarget.title}</strong>&quot; 를 삭제하시겠어요? 캘린더에서 즉시 사라집니다.
+            </>
+          ) : undefined
+        }
         isPending={deleteMutation.isPending}
-        onCancel={() => setDeleteTarget(null)}
+        errorMessage={deleteError}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
         onConfirm={() => {
           if (!deleteTarget) return;
+          setDeleteError(null);
           deleteMutation.mutate(deleteTarget.id, {
             onSuccess: () => setDeleteTarget(null),
+            onError: (error) => setDeleteError(extractErrorMessage(error) ?? '삭제에 실패했습니다.'),
           });
         }}
       />

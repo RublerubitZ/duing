@@ -8,9 +8,10 @@ import {
 } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { AdminPromotionsFilterBar } from '../_components/AdminPromotionsFilterBar';
 import { AdminPromotionsTable } from '../_components/AdminPromotionsTable';
-import { AdminPromotionDeleteDialog } from '../_components/AdminPromotionDeleteDialog';
 
 type ActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
@@ -26,6 +27,8 @@ export function AdminPromotionsListPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('ALL');
   const [page, setPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null);
+  // 삭제 실패는 확인 모달 안에 남긴다(공통 규칙) — 목록 위에 그리면 오버레이 뒤에 갇힌다.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const listQuery = useAdminPromotionListQuery({
     active: toActiveParam(activeFilter),
@@ -75,14 +78,22 @@ export function AdminPromotionsListPage() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
-      <AdminPromotionDeleteDialog
-        title={deleteTarget?.title ?? null}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="배너를 삭제할까요?"
+        description={deleteTarget ? `"${deleteTarget.title}" 배너가 더 이상 노출되지 않습니다.` : undefined}
         isPending={deleteMutation.isPending}
-        onCancel={() => setDeleteTarget(null)}
+        errorMessage={deleteError}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
         onConfirm={() => {
           if (!deleteTarget) return;
+          setDeleteError(null);
           deleteMutation.mutate(deleteTarget.id, {
             onSuccess: () => setDeleteTarget(null),
+            onError: (error) => setDeleteError(extractErrorMessage(error) ?? '삭제에 실패했습니다.'),
           });
         }}
       />
