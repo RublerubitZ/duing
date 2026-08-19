@@ -55,6 +55,8 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
 
     /**
      * Deadline 알림 후보를 조회한다. 운영 중(ACTIVE) 동아리의 모집만 대상이다.
+     * c.status = 'ACTIVE' 조건은 리스너(RecruitmentOpenedListener)의 AFTER_COMMIT
+     * existsByIdAndStatus 재검증과 같은 규칙이다 — 두 발송 경로가 같은 동아리 집합만 본다.
      * - OPENED: 오늘 시작하는 OPEN 모집
      * - DEADLINE: 시작일이 지났고 마감 3일 / 1일 / 당일인 OPEN 모집
      *   (start_date 조건이 없으면 "내일 시작, 3일 뒤 마감" 인 모집예정(UPCOMING) 공고에도
