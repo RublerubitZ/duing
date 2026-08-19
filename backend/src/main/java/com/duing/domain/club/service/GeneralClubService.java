@@ -31,12 +31,14 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.config.PublicApiCacheConfig;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralClubService implements ClubService {
+
+    // V109 partial unique. (name) WHERE deleted_at IS NULL.
+    private static final String CLUB_NAME_UNIQUE_CONSTRAINT = "uk_club_name_active";
 
     private final ClubRepository clubRepository;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
@@ -80,7 +85,17 @@ public class GeneralClubService implements ClubService {
                 createClubCommand.college(),
                 createClubCommand.department()
         );
-        Club savedClub = clubRepository.save(club);
+        Club savedClub;
+        try {
+            savedClub = clubRepository.save(club);
+            clubRepository.flush();
+        } catch (DataIntegrityViolationException racedInsertion) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedInsertion, CLUB_NAME_UNIQUE_CONSTRAINT)) {
+                throw racedInsertion;
+            }
+            // 동시 등록이 선조회를 함께 통과한 경합 — 사전 검사와 같은 409 로 표면화한다.
+            throw new ClubException.DuplicateClubNameException();
+        }
 
         // 동아리 생성과 동시에 designated leader 를 ClubMember(LEADER) 로 자동 등록.
         clubMemberRepository.save(ClubMember.asLeader(savedClub, leader));
@@ -216,6 +231,16 @@ public class GeneralClubService implements ClubService {
         }
 
         club.update(updateClubCommand.toPayload());
+        try {
+            // UPDATE 를 지금 내보내 개명 경합을 이 자리에서 분류한다 — 커밋 시점 flush 로 미루면
+            // 이 catch 밖(커밋 예외 경유 500)으로 새어 나간다.
+            clubRepository.flush();
+        } catch (DataIntegrityViolationException racedRename) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedRename, CLUB_NAME_UNIQUE_CONSTRAINT)) {
+                throw racedRename;
+            }
+            throw new ClubException.DuplicateClubNameException();
+        }
     }
 
     @Override

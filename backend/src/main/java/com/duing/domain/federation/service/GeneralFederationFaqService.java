@@ -18,6 +18,7 @@ import com.duing.domain.federation.service.dto.command.UpdateFederationFaqComman
 import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +39,9 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralFederationFaqService implements FederationFaqService {
+
+    // V73 partial unique. (name) WHERE deleted_at IS NULL.
+    private static final String FAQ_CATEGORY_NAME_UNIQUE_CONSTRAINT = "uq_federation_faq_category_name";
 
     private final FederationFaqRepository federationFaqRepository;
     private final FederationFaqCategoryRepository categoryRepository;
@@ -139,7 +144,17 @@ public class GeneralFederationFaqService implements FederationFaqService {
         }
         FederationFaqCategory category = FederationFaqCategory.create(
                 command.name(), categoryRepository.findMaxSortOrder() + 1);
-        return categoryRepository.save(category).getId();
+        try {
+            Long categoryId = categoryRepository.save(category).getId();
+            categoryRepository.flush();
+            return categoryId;
+        } catch (DataIntegrityViolationException racedInsertion) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedInsertion, FAQ_CATEGORY_NAME_UNIQUE_CONSTRAINT)) {
+                throw racedInsertion;
+            }
+            // 동시 생성이 선조회를 함께 통과한 경합 — 사전 검사와 같은 409 로 표면화한다.
+            throw new FederationFaqException.DuplicateFederationFaqCategoryNameException();
+        }
     }
 
     @Override
@@ -154,6 +169,16 @@ public class GeneralFederationFaqService implements FederationFaqService {
             throw new FederationFaqException.DuplicateFederationFaqCategoryNameException();
         }
         category.update(command.name(), command.sortOrder());
+        try {
+            // UPDATE 를 지금 내보내 개명 경합을 이 자리에서 분류한다 — 커밋 시점 flush 로 미루면
+            // 이 catch 밖(커밋 예외 경유 500)으로 새어 나간다.
+            categoryRepository.flush();
+        } catch (DataIntegrityViolationException racedRename) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedRename, FAQ_CATEGORY_NAME_UNIQUE_CONSTRAINT)) {
+                throw racedRename;
+            }
+            throw new FederationFaqException.DuplicateFederationFaqCategoryNameException();
+        }
     }
 
     @Override

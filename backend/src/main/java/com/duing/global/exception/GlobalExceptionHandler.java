@@ -219,11 +219,10 @@ public class GlobalExceptionHandler {
                     .body(ApiResponse.error(FacilityBookingException.SlotUnavailableException.MESSAGE,
                             FacilityBookingException.SlotUnavailableException.CODE));
         }
-        // warn 유지 — error 승격(Sentry 관측, 2026-07-17 감사 제안)은 보류한다: 찜 더블클릭
-        // (GeneralClubFavoriteService)·회원가입/번호변경 TOCTOU(GeneralUserService)의 정상 사용자 경합이
-        // 아직 자체 catch 없이 이 분기로 흘러들어, 승격하면 정상 행동이 서버 장애처럼 알람이 된다.
-        // 세 경로에 도메인 로컬 catch(8개 도메인 전례 패턴)를 정비한 뒤 승격할 것.
-        log.warn("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
+        // error 승격(2026-07-17 감사 제안) — 정상 사용자 경합 경로(찜·가입·번호변경·클럽 이름·FAQ 카테고리)가
+        // 전부 도메인 로컬 catch 로 분류되면서, 여기 도달하는 위반은 분류되지 않은 새 제약 경합뿐이다.
+        // 새 unique/CHECK/FK 를 추가할 때는 해당 도메인에 로컬 catch 를 함께 정비한다.
+        log.error("DB 제약 위반 발생 (409 변환): {}", rootCauseMessage(exception));
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("요청을 처리할 수 없습니다. 잠시 후 다시 시도해주세요."));
     }

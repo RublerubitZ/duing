@@ -28,6 +28,7 @@ import com.duing.domain.user.service.dto.query.LoginResult;
 import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.exception.PostgresConstraintViolations;
 import com.duing.global.web.SortWhitelist;
 import java.time.Clock;
 import java.time.Duration;
@@ -35,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +51,11 @@ import org.springframework.util.StringUtils;
 @Transactional(readOnly = true)
 @Slf4j
 public class GeneralUserService implements UserService {
+
+    // V18 partial unique. (student_id) WHERE deleted_at IS NULL.
+    private static final String USERS_STUDENT_ID_UNIQUE_CONSTRAINT = "uk_users_student_id_active";
+    // V19 partial unique. (phone) WHERE deleted_at IS NULL AND phone <> '010-0000-0000'(플레이스홀더).
+    private static final String USERS_PHONE_UNIQUE_CONSTRAINT = "ux_users_phone";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -90,6 +97,7 @@ public class GeneralUserService implements UserService {
                 || userRepository.existsByPhone(verifiedPhone)) {
             throw new UserException.DuplicateAccountException();
         }
+        // 위 재검증조차 함께 통과한 진짜 동시 가입은 아래 save 의 로컬 catch 가 같은 409 로 수렴시킨다.
 
         String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
         User user = User.create(
@@ -104,7 +112,18 @@ public class GeneralUserService implements UserService {
                 now
         );
         user.markPhoneVerified(now);
-        Long userId = userRepository.save(user).getId();
+        Long userId;
+        try {
+            userId = userRepository.save(user).getId();
+            userRepository.flush();
+        } catch (DataIntegrityViolationException racedSignup) {
+            if (!isDuplicateAccountViolation(racedSignup)) {
+                throw racedSignup;
+            }
+            // 인증~가입 창의 TOCTOU 경합 — 사전 재검증과 같은 409 로 치환만 한다.
+            // 23505 로 트랜잭션이 aborted 라 세션 소비 등 후속 작업은 불가능하다(#921).
+            throw new UserException.DuplicateAccountException();
+        }
         phoneVerificationSessionManager.consume(verifiedSession, userId, clientIp, userAgent);
         return userId;
     }
@@ -280,6 +299,25 @@ public class GeneralUserService implements UserService {
         user.bumpTokenVersion();
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         phoneVerificationSessionManager.consume(verifiedSession, user.getId(), clientIp, userAgent);
+        try {
+            // UPDATE 를 지금 내보내 번호 선점 경합을 이 자리에서 분류한다 — 커밋 시점 flush 로 미루면
+            // 이 catch 밖(커밋 예외 경유 500)으로 새어 나간다.
+            userRepository.flush();
+        } catch (DataIntegrityViolationException racedPhoneChange) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedPhoneChange, USERS_PHONE_UNIQUE_CONSTRAINT)) {
+                throw racedPhoneChange;
+            }
+            throw new UserException.DuplicateAccountException();
+        }
+    }
+
+    /**
+     * 동시 가입 경합으로 인한 학번·전화번호 unique 위반 only true.
+     * 그 외 무결성 위반은 그대로 위로 전파한다 (club_member 23505 처리 전례).
+     */
+    private static boolean isDuplicateAccountViolation(DataIntegrityViolationException exception) {
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, USERS_STUDENT_ID_UNIQUE_CONSTRAINT)
+                || PostgresConstraintViolations.isUniqueViolationOf(exception, USERS_PHONE_UNIQUE_CONSTRAINT);
     }
 
     @Override
