@@ -3,9 +3,9 @@ package com.duing.domain.publicactivity.service;
 import com.duing.domain.publicactivity.config.PublicActivityProperties;
 import com.duing.domain.publicactivity.repository.PublicActivityQueryRepository;
 import com.duing.domain.publicactivity.service.dto.query.ActivityItem;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,8 +32,8 @@ public class GeneralPublicActivityService implements PublicActivityService {
     public List<ActivityItem> getRecentActivities(Integer limitParam) {
         int effectiveLimit = clampLimit(limitParam);
         int sourceFetchLimit = effectiveLimit * 2; // 머지 헤드룸
-        // 윈도우 경계도 저장 존(systemDefault)에서 계산해야 created_at(LocalDateTime, JVM 존 벽시계)과 같은 공간에서 비교된다.
-        LocalDateTime since = LocalDateTime.now(clock.withZone(ZoneId.systemDefault())).minusDays(properties.windowDays());
+        // 윈도우 경계도 저장 존에서 계산해야 created_at(system regime)과 같은 공간에서 비교된다.
+        LocalDateTime since = TimeMapper.systemNow(clock).minusDays(properties.windowDays());
 
         List<ActivityItem> merged = new ArrayList<>();
         merged.addAll(queryRepository.findRecentRecruitOpen(since, sourceFetchLimit));

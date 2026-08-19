@@ -18,6 +18,7 @@ import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -162,21 +163,17 @@ public class FacilityBookingAdminQueryService {
     public AdminBookingSummaryCounts getSummary() {
         LocalDate today = LocalDate.now(clock);
         long pendingCount = facilityBookingRepository.countByStatus(BookingStatus.PENDING);
-        // 오늘 접수(§9.7·§5.3): 상태 무관 "오늘 생성된 신청" 수(처리 완료돼도 오늘 접수는 접수). createdAt 은
-        // JPA 감사가 저장 존(JVM 기본)으로 기록하므로, KST 하루 경계를 저장 존 LocalDateTime 으로 변환해 넘긴다 —
-        // clock 은 KST 라 그냥 systemDefault 경계로 세면 UTC 러너·운영에서 자정~오전 구간에 하루가 어긋난다.
-        LocalDateTime dayStart = today.atStartOfDay(SEOUL_ZONE)
-                .withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
-        LocalDateTime dayEnd = today.atTime(LocalTime.MAX).atZone(SEOUL_ZONE)
-                .withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+        // 오늘 접수(§9.7·§5.3): 상태 무관 "오늘 생성된 신청" 수(처리 완료돼도 오늘 접수는 접수).
+        // createdAt 은 감사가 저장 존으로 기록(system regime)하므로 KST 하루 경계를 저장 존으로 옮겨 넘긴다.
+        LocalDateTime dayStart = TimeMapper.seoulToSystemWallClock(today.atStartOfDay());
+        LocalDateTime dayEnd = TimeMapper.seoulToSystemWallClock(today.atTime(LocalTime.MAX));
         long todaySubmittedCount = facilityBookingRepository.countByCreatedAtBetween(dayStart, dayEnd);
         long oldestPendingWaitingDays = facilityBookingRepository
                 .findFirstByStatusOrderByCreatedAtAsc(BookingStatus.PENDING)
-                // createdAt 은 감사가 저장 존(JVM 기본)으로 기록하므로 KST 로 변환해 날짜 경계를 맞춘다 —
-                // today 는 KST(clock) 기준이라 그냥 systemDefault 날짜로 빼면 UTC 러너·운영에서 하루가 어긋난다.
+                // createdAt 은 감사가 저장 존으로 기록(system regime)하므로 KST 날짜로 환산해 today(KST)와 뺀다.
                 .map(oldest -> ChronoUnit.DAYS.between(
-                        oldest.getCreatedAt().atZone(ZoneId.systemDefault())
-                                .withZoneSameInstant(SEOUL_ZONE).toLocalDate(), today))
+                        TimeMapper.systemWallClockToInstant(oldest.getCreatedAt())
+                                .atZone(SEOUL_ZONE).toLocalDate(), today))
                 .orElse(0L);
         long approvedWaitingCount = facilityBookingRepository.countByStatus(BookingStatus.APPROVED);
         long oldestApprovedWaitingDays = facilityBookingRepository
