@@ -8,7 +8,13 @@ export type AuthStatus = 'authenticated' | 'unauthenticated';
 
 type AuthState = {
   user: User | null;
-  /** 현재 최선의 판단(시드 또는 서버 확정). "모른다"를 표현하지 않는다 — 화면은 이 값으로만 그린다. */
+  /**
+   * 현재 최선의 판단(시드 또는 서버 확정). "모른다"를 표현하지 않는다 — 화면은 이 값으로만 그린다.
+   *
+   * @deprecated apps/web 화면 렌더는 이 값을 직접 비교하지 말고 useSeededAuthStatus 로 읽는다(§8.1) —
+   * SSR 스냅샷이 서버 시드와 어긋나면 하이드레이션 불일치(React #419)가 된다. isVerified 를 함께 보는
+   * 만료 축(AuthSessionBootstrap·SessionExpiryHandler)과 packages 내부는 예외다.
+   */
   status: AuthStatus;
   /** 서버 응답으로 확인된 값인가. 되돌릴 수 없는 동작·만료 처리 발동에만 함께 본다 — 화면 분기 금지. */
   isVerified: boolean;

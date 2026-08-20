@@ -38,6 +38,11 @@
             "name": "next-view-transitions",
             "importNames": ["useTransitionRouter"],
             "message": "오프라인 가드를 위해 @/app/_lib/useGuardedRouter 의 useGuardedRouter 를 사용하세요."
+          },
+          {
+            "name": "@duing/stores",
+            "importNames": ["selectIsAuthenticated"],
+            "message": "화면 렌더의 인증 판정은 @/app/_lib/useSeededAuthStatus 의 useSeededAuthStatus 를 사용하세요. selectIsAuthenticated 는 packages 의 인증 종속 쿼리 게이트 전용입니다."
           }
         ]
       }

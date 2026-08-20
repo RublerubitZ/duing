@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
-import { useAuthStore } from '@duing/stores';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { collegeDisplayName } from '../../../_lib/college';
@@ -35,8 +35,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const initial = club.name.trim().charAt(0);
   // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
   const logoColor = pickColor(club.id);
-  const authStatus = useAuthStore((state) => state.status);
-  const isAuthenticated = authStatus === 'authenticated';
+  const isAuthenticated = useSeededAuthStatus() === 'authenticated';
 
   const [reportOpen, setReportOpen] = useState(false);
 

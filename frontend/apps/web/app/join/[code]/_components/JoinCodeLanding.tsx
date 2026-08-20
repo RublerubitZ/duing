@@ -5,10 +5,10 @@ import Link from 'next/link';
 
 import { ApiError } from '@duing/api';
 import { useCreateJoinRequestMutation, useJoinCodeCheckQuery } from '@duing/hooks';
-import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { toRoute } from '@/app/_lib/route';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
@@ -39,7 +39,7 @@ function ClubHeading({ clubName, generation }: { clubName: string; generation: n
 }
 
 export function JoinCodeLanding({ code }: { code: string }) {
-  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const { addToast } = useToast();
   const check = useJoinCodeCheckQuery(code);
   const createJoinRequest = useCreateJoinRequestMutation(code);

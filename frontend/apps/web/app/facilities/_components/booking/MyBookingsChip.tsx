@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { useClubFacilityBookingsQuery, useManagedClubsQuery } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
 import { toRoute } from '@/app/_lib/route';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 
 /** 예약 홈 상단 "내 신청 N건 진행 중" 칩(§9.6) — 로그인 운영진에게만 보인다. */
 export function MyBookingsChip() {
-  const authStatus = useAuthStore((state) => state.status);
+  const authStatus = useSeededAuthStatus();
   const managedClubsQuery = useManagedClubsQuery({ enabled: authStatus === 'authenticated' });
   const managedClubs = managedClubsQuery.data ?? [];
   const singleClubId = managedClubs.length === 1 ? managedClubs[0]?.clubId : undefined;
