@@ -46,7 +46,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final BankMatchingAdminService bankMatchingAdminService;
     private final MatchedPaymentService matchedPaymentService;
-    private final FeeBillStatusCalculator statusCalculator;
+    private final FeeBillStatusRefresher statusRefresher;
     private final Clock clock;
 
     @Override
@@ -167,8 +167,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
 
         payment.voidPayment(actorId, UNMATCH_REASON, LocalDateTime.now(clock));
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
-        FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), activePaid);
-        bill.updateStatus(newStatus);
+        FeeStatus newStatus = statusRefresher.refresh(bill, activePaid);
         transaction.resetToPending();
 
         // 매칭취소는 납부 정정을 엔티티에서 직접 호출해 GeneralPaymentService 계측을 타지 않으므로,

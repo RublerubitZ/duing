@@ -33,7 +33,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
     private final PaymentRepository paymentRepository;
     private final BankTransactionRepository bankTransactionRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
-    private final FeeBillStatusCalculator statusCalculator;
+    private final FeeBillStatusRefresher statusRefresher;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -75,8 +75,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
         payment.linkBankTransaction(transaction.getId());
 
         long newSum = activePaid + appliedAmount;
-        FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), newSum);
-        bill.updateStatus(newStatus);
+        FeeStatus newStatus = statusRefresher.refresh(bill, newSum);
         transaction.matchTo(bill.getId(), matchStatus);
 
         eventPublisher.publishEvent(new FeePaymentConfirmedEvent(

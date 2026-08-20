@@ -40,7 +40,7 @@ public class GeneralPaymentService implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final ClubAuthService clubAuthService;
     private final ClubAuditEventRepository clubAuditEventRepository;
-    private final FeeBillStatusCalculator statusCalculator;
+    private final FeeBillStatusRefresher statusRefresher;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -68,8 +68,7 @@ public class GeneralPaymentService implements PaymentService {
                 command.billId(), command.amount(), command.method(), paidAt, command.actorId(), command.memo()));
 
         long newSum = activePaid + command.amount();
-        FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), newSum);
-        bill.updateStatus(newStatus);
+        FeeStatus newStatus = statusRefresher.refresh(bill, newSum);
         eventPublisher.publishEvent(new FeePaymentConfirmedEvent(
                 bill.getUserId(), bill.getId(), bill.getBillingPeriod(), newStatus,
                 bill.remainingAfter(newSum), payment.getId(), false)); // 수동 납부 기록은 자동매칭이 아니다
@@ -103,7 +102,7 @@ public class GeneralPaymentService implements PaymentService {
         payment.voidPayment(command.actorId(), command.reason(), LocalDateTime.now(clock)); // 이미 VOIDED 면 멱등 no-op
         long activePaid = paymentRepository.sumActiveByFeeBillId(command.billId());
         // CANCELLED 청구는 updateStatus 가 멱등 no-op 이라 정정으로 되살아나지 않는다.
-        bill.updateStatus(statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), activePaid));
+        statusRefresher.refresh(bill, activePaid);
 
         log.info("payment voided: actorId={}, clubId={}, billId={}, paymentId={}, activePaid={}",
                 command.actorId(), command.clubId(), command.billId(), command.paymentId(), activePaid);
