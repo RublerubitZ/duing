@@ -31,6 +31,6 @@ public record FeeBillQuery(
                 bill.getDueDate(),
                 bill.getStatus(),
                 paidAmount,
-                bill.getAmount() - paidAmount);
+                bill.remainingAfter(paidAmount));
     }
 }

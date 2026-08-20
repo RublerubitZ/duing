@@ -58,7 +58,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
             throw new BankMatchingException.BillNotMatchableException();
         }
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
-        long remaining = bill.getAmount() - activePaid;
+        long remaining = bill.remainingAfter(activePaid);
         if (transaction.getAmount() > remaining) {
             // 초과 입금은 부분 매칭이라도 항상 거부한다(잔액을 넘는 납부 기록·음수 잔액을 막는다).
             throw new BankMatchingException.MatchAmountMismatchException();
@@ -81,7 +81,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
 
         eventPublisher.publishEvent(new FeePaymentConfirmedEvent(
                 bill.getUserId(), bill.getId(), bill.getBillingPeriod(), newStatus,
-                bill.getAmount() - newSum, payment.getId(), autoMatched));
+                bill.remainingAfter(newSum), payment.getId(), autoMatched));
 
         log.info("matched payment created: actorId={}, clubId={}, billId={}, paymentId={}, txId={}, "
                         + "amount={}, matchStatus={}, autoMatched={}, allowPartial={}, newStatus={}",
