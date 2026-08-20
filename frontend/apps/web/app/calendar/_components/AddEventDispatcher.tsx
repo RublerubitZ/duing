@@ -4,9 +4,9 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useState } from 'react';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import type { ManagedClub } from '@duing/types';
 import { toRoute } from '../../_lib/route';
+import { useOperatorAccess } from '../_lib/useOperatorAccess';
 
 type Props = {
   open: boolean;
@@ -15,18 +15,15 @@ type Props = {
 
 export function AddEventDispatcher({ open, onClose }: Props) {
   const router = useGuardedRouter();
-  const meQuery = useMeQuery();
-  // 비로그인 시 /leader/clubs/me/managed 호출 자체를 skip — 401 콘솔 노이즈 방지.
-  // 비로그인 사용자는 운영 클럽이 있을 수 없으므로 빈 배열 처리와 의미상 동일.
-  const isAuthenticated = !!meQuery.data;
-  const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
+  // 권한 판정(운영 동아리 보유 or 총동연)과 비로그인 managed 조회 skip 은 useOperatorAccess 가
+  // 정의한다 — 캘린더 페이지의 '내 일정 추가' 버튼도 같은 훅을 본다.
+  const { isAdmin, managedClubs, canOperate } = useOperatorAccess();
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
   // EventDetailModal 과 같은 이유로 Radix 프리미티브를 재사용한다(PhotoLightbox 전례).
   // Root 를 직접 쓰므로 뒤로가기 닫기는 여기서 직접 건다.
   useBackDismiss(open, onClose);
 
-  const isAdmin = meQuery.data?.role === 'ADMIN';
-  const managedClubs: ManagedClub[] = managedClubsQuery.data ?? [];
+  // 동아리 섹션은 총동연 축과 무관하게 "운영 동아리 보유" 만 본다 — 총동연 전용 섹션과 별개다.
   const hasManagedClubs = managedClubs.length > 0;
   const targetClubId = selectedClubId ?? managedClubs[0]?.clubId ?? null;
 
@@ -102,7 +99,8 @@ export function AddEventDispatcher({ open, onClose }: Props) {
             </Section>
           )}
 
-          {!hasManagedClubs && !isAdmin && (
+          {/* !hasManagedClubs && !isAdmin 과 동치(드모르간) — 두 축 다 없음 = 운영 권한 없음. */}
+          {!canOperate && (
             <p className="text-[13px] text-charcoal-2">
               일정 추가 권한이 없습니다. 동아리 운영진(LEADER/OFFICER) 또는 총동연(ADMIN) 만 사용할 수 있습니다.
             </p>
