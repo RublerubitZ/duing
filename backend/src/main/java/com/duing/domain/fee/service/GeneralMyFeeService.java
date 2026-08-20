@@ -26,10 +26,11 @@ public class GeneralMyFeeService implements MyFeeService {
     // user_id 고정 술어가 다른 회원의 청구 노출을 차단한다(§8 currentUser.id() 한정).
     @Override
     public List<MyFeeResponse> getMyFees(Long userId, MyFeeSearchQuery query) {
-        List<FeeBill> bills = feeBillRepository.searchMyBills(userId, query);
+        // today 를 한 번만 산출해 필터(표기 축)와 응답 displayStatus 파생이 같은 기준일을 쓰게 한다.
+        LocalDate today = LocalDate.now(clock);
+        List<FeeBill> bills = feeBillRepository.searchMyBills(userId, query, today);
         Map<Long, Long> paidByBill = paidAmountReader.paidAmountByBillId(
                 bills.stream().map(FeeBill::getId).toList());
-        LocalDate today = LocalDate.now(clock);
         return bills.stream()
                 .map(bill -> MyFeeResponse.from(
                         FeeBillQuery.from(bill, paidByBill.getOrDefault(bill.getId(), 0L), today)))

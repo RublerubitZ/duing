@@ -206,6 +206,36 @@ class MyFeeControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("status 필터는 표기 축이라, 저장 상태가 납부대기여도 마감이 지난 청구는 OVERDUE 로 걸리고 PENDING 에서는 빠진다")
+    void statusFilterFollowsDisplayAxis() {
+        // 마감(2026-05-31)이 오늘(2026-06-15)보다 앞서지만 연체 전이 배치 전이라 저장 status 는 PENDING 인 청구
+        saveBill(clubId, policyId, userA.getId(), PAST_DUE_PERIOD, FeeStatus.PENDING);
+        // 마감(2026-07-31)이 남은 청구 — 저장·표기 모두 PENDING
+        saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
+
+        // OVERDUE 필터에는 마감이 지난 청구만 잡힌다(저장 status 는 여전히 PENDING).
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .queryParam("status", "OVERDUE")
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].billingPeriod", equalTo(PAST_DUE_PERIOD))
+                .body("data[0].status", equalTo("PENDING"))
+                .body("data[0].displayStatus", equalTo("OVERDUE"));
+
+        // PENDING 필터에서는 마감이 지난 청구가 빠지고 마감 전 청구만 남는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .queryParam("status", "PENDING")
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].billingPeriod", equalTo("2026-07"))
+                .body("data[0].displayStatus", equalTo("PENDING"));
+    }
+
+    @Test
     @DisplayName("내 회비 응답은 청구별 납부 합계(paidAmount)와 남은 금액(remainingAmount)을 담고 VOIDED 납부는 제외한다")
     void carriesPaidAndRemainingAmount() {
         // 청구액 10000 에 ACTIVE 4000 + VOIDED 3000 → paidAmount=4000(VOID 제외), remainingAmount=6000

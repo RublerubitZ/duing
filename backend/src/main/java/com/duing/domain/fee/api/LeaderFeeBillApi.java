@@ -37,7 +37,9 @@ public interface LeaderFeeBillApi {
     );
 
     @Operation(summary = "회비 청구 현황 조회 (LEADER/OFFICER)",
-            description = "동아리 청구 현황을 회차·상태·회원 동적 필터와 페이지네이션으로 조회한다.")
+            description = "동아리 청구 현황을 회차·상태·회원 동적 필터와 페이지네이션으로 조회한다. "
+                    + "응답의 status 는 저장 상태이고, 화면 표기와 status 필터는 조회 시점 기준 표기 축"
+                    + "(displayStatus 시멘틱)이다 — 마감이 지난 저장 PENDING 은 status=OVERDUE 로 걸러진다.")
     @GetMapping("/leader/clubs/{clubId}/fee-bills")
     ResponseEntity<ApiResponse<PageResponse<FeeBillResponse>>> getBills(
             @PathVariable Long clubId,
@@ -57,7 +59,8 @@ public interface LeaderFeeBillApi {
     );
 
     @Operation(summary = "회비 영수증 조회 (LEADER/OFFICER)",
-            description = "동아리 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404, 타 동아리 청구도 404.")
+            description = "동아리 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404, 타 동아리 청구도 404. "
+                    + "status 는 저장 상태(레코드 보존용)이고 화면 표기는 조회 시점 기준 표기 축인 displayStatus 를 쓴다.")
     @GetMapping("/leader/clubs/{clubId}/fee-bills/{billId}/receipt")
     ResponseEntity<ApiResponse<ReceiptResponse>> getReceipt(
             @PathVariable Long clubId,

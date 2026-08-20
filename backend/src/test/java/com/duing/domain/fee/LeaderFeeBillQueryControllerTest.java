@@ -28,21 +28,44 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, LeaderFeeBillQueryControllerTest.FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
+
+    // '오늘'을 2026-06-15(Asia/Seoul)로 고정한다. status 필터가 표기 축이라 마감 경과 여부로 결과가 갈리므로,
+    // 시스템 시계로 두면 아래 픽스처(2026-07·2026-08 회차)의 마감이 지나는 순간 필터 테스트가 깨진다.
+    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
+    // 마감 2026-05-31 < 오늘 → 미납이면 표기는 OVERDUE(픽스처가 회차 말일을 마감으로 파생한다).
+    static final String PAST_DUE_PERIOD = "2026-05";
+
+    @TestConfiguration
+    static class FixedClockConfig {
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
+                    ZoneId.of("Asia/Seoul"));
+        }
+    }
 
     @LocalServerPort
     int port;
@@ -214,9 +237,9 @@ class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("연체 전이 배치가 실행되지 않아 저장 상태가 납부대기여도, 마감이 지난 청구의 표기 상태는 연체다")
     void displayStatusIsOverdueForPastDueBillEvenBeforeBatchTransition() {
-        // 픽스처가 회차 말일을 마감으로 파생하므로 마감은 2026-05-31 — 지나간 절대 날짜라 실행 시점과 무관하게 항상 경과다.
+        // 픽스처가 회차 말일을 마감으로 파생하므로 마감은 2026-05-31 — 고정한 오늘(2026-06-15)보다 앞선다.
         // 연체 전이 배치는 돌지 않아 저장 status 는 PENDING 그대로 남는다.
-        saveBill(clubId, memberUser.getId(), "2026-05", FeeStatus.PENDING);
+        saveBill(clubId, memberUser.getId(), PAST_DUE_PERIOD, FeeStatus.PENDING);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
@@ -226,6 +249,36 @@ class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
                 // 저장 축은 배치가 찍은 값 그대로, 표기 축만 조회 시점 기준으로 연체를 드러낸다.
                 .body("data.content[0].status", equalTo("PENDING"))
                 .body("data.content[0].displayStatus", equalTo("OVERDUE"));
+    }
+
+    @Test
+    @DisplayName("status 필터는 표기 축이라, 저장 상태가 납부대기여도 마감이 지난 청구는 OVERDUE 로 걸리고 PENDING 에서는 빠진다")
+    void statusFilterFollowsDisplayAxis() {
+        // 마감(2026-05-31)이 지났지만 연체 전이 배치 전이라 저장 status 는 PENDING 인 청구
+        saveBill(clubId, memberUser.getId(), PAST_DUE_PERIOD, FeeStatus.PENDING);
+        // 마감(2026-07-31)이 남은 청구 — 저장·표기 모두 PENDING
+        saveBill(clubId, saveUserId(), "2026-07", FeeStatus.PENDING);
+
+        // OVERDUE 필터에는 마감이 지난 청구만 잡힌다(저장 status 는 여전히 PENDING).
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .queryParam("status", "OVERDUE")
+                .when().get("/api/v1/leader/clubs/" + clubId + "/fee-bills")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].billingPeriod", equalTo(PAST_DUE_PERIOD))
+                .body("data.content[0].status", equalTo("PENDING"))
+                .body("data.content[0].displayStatus", equalTo("OVERDUE"));
+
+        // PENDING 필터에서는 마감이 지난 청구가 빠지고 마감 전 청구만 남는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .queryParam("status", "PENDING")
+                .when().get("/api/v1/leader/clubs/" + clubId + "/fee-bills")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].billingPeriod", equalTo("2026-07"))
+                .body("data.content[0].displayStatus", equalTo("PENDING"));
     }
 
     @Test

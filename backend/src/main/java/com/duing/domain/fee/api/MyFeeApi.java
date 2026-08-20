@@ -21,7 +21,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface MyFeeApi {
 
     @Operation(summary = "내 회비 청구 조회",
-            description = "로그인 회원 본인(currentUser.id())의 청구만 반환한다. clubId·status 는 옵션 필터.")
+            description = "로그인 회원 본인(currentUser.id())의 청구만 반환한다. clubId·status 는 옵션 필터. "
+                    + "응답의 status 는 저장 상태이고, 화면 표기와 status 필터는 조회 시점 기준 표기 축"
+                    + "(displayStatus 시멘틱)이다 — 마감이 지난 저장 PENDING 은 status=OVERDUE 로 걸러진다.")
     @GetMapping("/my/fees")
     ResponseEntity<ApiResponse<List<MyFeeResponse>>> getMyFees(
             @RequestParam(required = false) Long clubId,
@@ -30,7 +32,8 @@ public interface MyFeeApi {
     );
 
     @Operation(summary = "내 회비 영수증 조회",
-            description = "본인 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404.")
+            description = "본인 청구의 영수증 데이터를 반환한다. ACTIVE 납부가 없거나 취소된 청구는 404. "
+                    + "status 는 저장 상태(레코드 보존용)이고 화면 표기는 조회 시점 기준 표기 축인 displayStatus 를 쓴다.")
     @GetMapping("/my/fees/{billId}/receipt")
     ResponseEntity<ApiResponse<ReceiptResponse>> getMyReceipt(
             @PathVariable Long billId,

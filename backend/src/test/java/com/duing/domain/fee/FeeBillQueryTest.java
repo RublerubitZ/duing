@@ -37,6 +37,10 @@ import org.springframework.data.domain.Pageable;
 @DisplayName("FeeBill QueryDSL 동적 필터/페이지네이션")
 class FeeBillQueryTest extends IntegrationTestBase {
 
+    // 리포지토리에 넘기는 '오늘'. status 필터가 표기 축이라 마감 경과 여부로 결과가 갈리므로,
+    // 아래 픽스처(2026-07 이후 회차)의 마감보다 앞선 날짜로 고정해 필터 결과를 결정적으로 만든다.
+    private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
+
     @Autowired
     UserRepository userRepository;
     @Autowired
@@ -82,7 +86,7 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(other.getId(), userC, "2026-07", FeeStatus.PENDING);
 
         Page<FeeBill> page = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, null, null), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery(null, null, null), TODAY, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(2L);
         assertThat(page.getContent()).allMatch(bill -> bill.getClubId().equals(clubId));
@@ -97,7 +101,7 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(clubId, userB, "2026-08", FeeStatus.PENDING);
 
         Page<FeeBill> page = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery("2026-07", null, null), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery("2026-07", null, null), TODAY, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1L);
         assertThat(page.getContent()).allMatch(bill -> bill.getBillingPeriod().equals("2026-07"));
@@ -112,9 +116,9 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(clubId, userB, "2026-07", FeeStatus.CANCELLED);
 
         Page<FeeBill> pending = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, FeeStatus.PENDING, null), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery(null, FeeStatus.PENDING, null), TODAY, PageRequest.of(0, 20));
         Page<FeeBill> cancelled = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, FeeStatus.CANCELLED, null), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery(null, FeeStatus.CANCELLED, null), TODAY, PageRequest.of(0, 20));
 
         assertThat(pending.getTotalElements()).isEqualTo(1L);
         assertThat(pending.getContent()).allMatch(bill -> bill.getStatus() == FeeStatus.PENDING);
@@ -131,7 +135,7 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(clubId, userB, "2026-07", FeeStatus.PENDING);
 
         Page<FeeBill> page = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, null, userA), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery(null, null, userA), TODAY, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1L);
         assertThat(page.getContent()).allMatch(bill -> bill.getUserId().equals(userA));
@@ -148,7 +152,7 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(clubId, userA, "2026-07", FeeStatus.CANCELLED); // 상태 불일치(같은 회차여도 CANCELLED 라 유니크 인덱스 제외)
 
         Page<FeeBill> page = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery("2026-07", FeeStatus.PENDING, userA), PageRequest.of(0, 20));
+                clubId, new BillSearchQuery("2026-07", FeeStatus.PENDING, userA), TODAY, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1L);
         FeeBill only = page.getContent().get(0);
@@ -166,9 +170,9 @@ class FeeBillQueryTest extends IntegrationTestBase {
 
         Pageable firstPage = PageRequest.of(0, 10);
         Page<FeeBill> page0 = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, null, null), firstPage);
+                clubId, new BillSearchQuery(null, null, null), TODAY, firstPage);
         Page<FeeBill> page2 = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, null, null), PageRequest.of(2, 10));
+                clubId, new BillSearchQuery(null, null, null), TODAY, PageRequest.of(2, 10));
 
         assertThat(page0.getTotalElements()).isEqualTo(25L);
         assertThat(page0.getContent()).hasSize(10);
@@ -189,8 +193,8 @@ class FeeBillQueryTest extends IntegrationTestBase {
         feeBillRepository.delete(toDelete); // @SQLDelete soft delete (deleted_at = NOW())
 
         Page<FeeBill> clubBills = feeBillRepository.searchClubBills(
-                clubId, new BillSearchQuery(null, null, null), PageRequest.of(0, 20));
-        List<FeeBill> myBills = feeBillRepository.searchMyBills(userB, new MyFeeSearchQuery(null, null));
+                clubId, new BillSearchQuery(null, null, null), TODAY, PageRequest.of(0, 20));
+        List<FeeBill> myBills = feeBillRepository.searchMyBills(userB, new MyFeeSearchQuery(null, null), TODAY);
 
         // 운영진 청구 현황·회원 본인 조회 모두 soft-delete 행을 제외해야 한다
         assertThat(clubBills.getTotalElements()).isEqualTo(1L);
@@ -232,9 +236,9 @@ class FeeBillQueryTest extends IntegrationTestBase {
         saveBill(clubId, userA, "2026-08", FeeStatus.CANCELLED);                     // 본인, clubA, CANCELLED
         saveBill(clubId, userB, "2026-07", FeeStatus.PENDING);                       // 타인
 
-        List<FeeBill> mineAll = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(null, null));
-        List<FeeBill> mineClubA = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(clubId, null));
-        List<FeeBill> minePending = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(null, FeeStatus.PENDING));
+        List<FeeBill> mineAll = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(null, null), TODAY);
+        List<FeeBill> mineClubA = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(clubId, null), TODAY);
+        List<FeeBill> minePending = feeBillRepository.searchMyBills(userA, new MyFeeSearchQuery(null, FeeStatus.PENDING), TODAY);
 
         assertThat(mineAll).hasSize(3).allMatch(bill -> bill.getUserId().equals(userA));
         assertThat(mineClubA).hasSize(2).allMatch(bill -> bill.getClubId().equals(clubId));

@@ -208,10 +208,11 @@ public class GeneralFeeBillService implements FeeBillService {
     @Transactional(readOnly = true)
     public Page<FeeBillResponse> getBills(Long clubId, Long actorId, BillSearchQuery query, Pageable pageable) {
         clubAuthService.requireManager(actorId, clubId);
-        Page<FeeBill> page = feeBillRepository.searchClubBills(clubId, query, pageable);
+        // today 를 한 번만 산출해 필터(표기 축)와 응답 displayStatus 파생이 같은 기준일을 쓰게 한다.
+        LocalDate today = LocalDate.now(clock);
+        Page<FeeBill> page = feeBillRepository.searchClubBills(clubId, query, today, pageable);
         Map<Long, Long> paidByBill = paidAmountReader.paidAmountByBillId(
                 page.getContent().stream().map(FeeBill::getId).toList());
-        LocalDate today = LocalDate.now(clock);
         return page.map(bill -> FeeBillResponse.from(
                 FeeBillQuery.from(bill, paidByBill.getOrDefault(bill.getId(), 0L), today)));
     }
