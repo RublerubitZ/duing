@@ -1377,28 +1377,21 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       checkEligibility: (recruitmentId) =>
         jsonVoid(http.get(`recruitments/${recruitmentId}/applications/eligibility`)),
-      applicants: (recruitmentId, filters) => {
-        const search = new URLSearchParams();
-        if (filters?.status) search.set('status', filters.status);
-        if (filters?.college) search.set('college', filters.college);
-        if (filters?.q) search.set('q', filters.q);
-        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
-        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
-        const qs = search.toString();
-        const path = `leader/recruitments/${recruitmentId}/applications${qs ? `?${qs}` : ''}`;
-        return jsonOk<Applicant[]>(http.get(path, { timeout: REQUEST_TIMEOUT_MS.search }));
-      },
-      applicantNeighbors: (recruitmentId, applicationId, filters) => {
-        const search = new URLSearchParams();
-        if (filters?.status) search.set('status', filters.status);
-        if (filters?.college) search.set('college', filters.college);
-        if (filters?.q) search.set('q', filters.q);
-        if (filters?.submittedFrom) search.set('submittedFrom', filters.submittedFrom);
-        if (filters?.submittedTo) search.set('submittedTo', filters.submittedTo);
-        const qs = search.toString();
-        const path = `leader/recruitments/${recruitmentId}/applications/${applicationId}/neighbors${qs ? `?${qs}` : ''}`;
-        return jsonOk<ApplicantNeighbors>(http.get(path));
-      },
+      // 지원자 필터 5개는 전부 문자열이라 cleanParams 의 빈값 제거 규칙(undefined·null·'')이
+      // 필드별 수기 falsy 검사와 같은 결과를 낸다. 목록과 이웃 탐색은 같은 조건을 보내야 하므로 한 벌로 둔다.
+      applicants: (recruitmentId, filters) =>
+        jsonOk<Applicant[]>(
+          http.get(`leader/recruitments/${recruitmentId}/applications`, {
+            searchParams: cleanParams(filters),
+            timeout: REQUEST_TIMEOUT_MS.search,
+          }),
+        ),
+      applicantNeighbors: (recruitmentId, applicationId, filters) =>
+        jsonOk<ApplicantNeighbors>(
+          http.get(`leader/recruitments/${recruitmentId}/applications/${applicationId}/neighbors`, {
+            searchParams: cleanParams(filters),
+          }),
+        ),
       updateStatus: (applicationId, payload) =>
         jsonVoid(
           http.patch(`leader/applications/${applicationId}/status`, { json: payload }),
