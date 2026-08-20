@@ -14,7 +14,7 @@ import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
-import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { feeStatusChip, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
 
 import { RecordPaymentDialog } from './RecordPaymentDialog';
@@ -35,15 +35,6 @@ const STATUS_OPTIONS: FeeStatus[] = [
   'OVERDUE',
   'CANCELLED',
 ];
-
-// 상태별 뱃지 색. CANCELLED 는 회색, 미납/부분납부는 warm, 연체는 coral, 납부완료는 sage.
-const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
-  PENDING: 'bg-warm/15 text-charcoal',
-  PAID: 'bg-sage/20 text-sage',
-  PARTIAL_PAID: 'bg-warm/15 text-charcoal',
-  OVERDUE: 'bg-coral/10 text-coral',
-  CANCELLED: 'bg-graysoft text-charcoal-3',
-};
 
 const inputCls =
   'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
@@ -299,6 +290,7 @@ type BillRowProps = {
 };
 
 function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRowProps) {
+  // 액션 게이트(취소·납부 기록·영수증)는 저장 status 를 본다 — 표기 축은 배지에만 쓴다.
   const isCancelled = bill.status === 'CANCELLED';
   // 이미 완납(remainingAmount<=0)이거나 취소된 청구는 추가 납부 기록 불가(백엔드 400) — 버튼 비활성화.
   const isFullyPaid = bill.remainingAmount <= 0;
@@ -307,6 +299,7 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
   // 진행률 = paidAmount / amount(0 나눔 방지), 0~100% 로 클램프.
   const progressPercent =
     bill.amount > 0 ? Math.min(100, Math.max(0, (bill.paidAmount / bill.amount) * 100)) : 0;
+  const statusChip = feeStatusChip(bill.displayStatus);
 
   return (
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
@@ -321,10 +314,10 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
           <span
             className={cn(
               'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-              STATUS_BADGE_CLS[bill.status],
+              statusChip.badgeClass,
             )}
           >
-            {feeStatusLabel(bill.status)}
+            {statusChip.label}
           </span>
         </div>
         <p className="mt-0.5 text-xs text-charcoal-3">

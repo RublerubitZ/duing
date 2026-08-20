@@ -212,6 +212,8 @@ function ApplicableBills({
   });
 
   // 미납 상태이면서 잔액이 입금액 이상인 청구만 적용 가능(백엔드: 입금 ≤ 잔액).
+  // 후보 판정은 저장 status — 백엔드 승인 가드(FeeStatus.unpaidRemainderSet)와 같은 축이라야
+  // "후보로 떴는데 승인에서 거부"가 나지 않는다. 표기(라벨)만 displayStatus 를 쓴다.
   const applicableBills = (billsPage?.content ?? []).filter(
     (bill) => isUnpaid(bill.status) && bill.remainingAmount >= depositAmount,
   );
@@ -247,7 +249,7 @@ function ApplicableBills({
                 {bill.billingPeriod} · 잔액 {formatWon(bill.remainingAmount)}
               </p>
               <p className="mt-0.5 text-xs text-charcoal-3">
-                {feeStatusLabel(bill.status)} · {isFullPayment ? '완납' : '부분납부'}
+                {feeStatusLabel(bill.displayStatus)} · {isFullPayment ? '완납' : '부분납부'}
               </p>
             </div>
             <button
