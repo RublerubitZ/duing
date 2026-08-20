@@ -6,8 +6,6 @@ import {
   monthsInRange,
   useCalendarMonthQuery,
   useCalendarMonthsQuery,
-  useManagedClubsQuery,
-  useMeQuery,
 } from '@duing/hooks';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
@@ -25,6 +23,7 @@ import {
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
 import { buildUpcoming, resolveUpcomingEmptyState, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
+import { useOperatorAccess } from '../_lib/useOperatorAccess';
 
 import type { CalEvent, EventKind } from '../_types';
 
@@ -130,16 +129,11 @@ export function CalendarPage() {
 
   const yearMonth = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
 
-  const meQuery = useMeQuery();
-  const isAuthenticated = !!meQuery.data;
-  // 총동연은 어느 동아리의 멤버도 아니라 동아리별 조회로는 아무것도 못 본다 —
-  // 전 동아리 집계 1건으로 대체한다. role 확정 전에는 false 라 학생 경로로 시작하지만,
-  // 그동안 myClubs 가 비어 per-club 요청이 나가지 않으므로 낭비되는 요청은 없다.
-  const isAdmin = meQuery.data?.role === 'ADMIN';
-  // '내 일정 추가' 노출 조건 — AddEventDispatcher 의 권한 기준(운영진 보유 or ADMIN)과 동일.
-  // 비로그인 시 managed 호출 skip(401 노이즈 방지)도 디스패처와 같은 패턴.
-  const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
-  const canAddEvent = isAdmin || (managedClubsQuery.data ?? []).length > 0;
+  // 권한 판정('내 일정 추가' 노출 조건·비로그인 managed 조회 skip)의 정의는 useOperatorAccess —
+  // 디스패처도 같은 훅을 본다. isAdmin 은 캘린더 조회 경로도 가른다: 총동연은 어느 동아리의
+  // 멤버도 아니라 동아리별 조회로는 아무것도 못 봐서 전 동아리 집계 1건으로 대체한다. role 확정
+  // 전에는 false 라 학생 경로로 시작하지만, 그동안 myClubs 가 비어 per-club 요청은 나가지 않는다.
+  const { isAuthenticated, isAdmin, isMeLoading, canOperate } = useOperatorAccess();
 
   // mapper 안정화 — 모듈 스코프 함수이므로 deps 비어있어도 stable.
   const calendarMappers = useMemo(
@@ -206,7 +200,7 @@ export function CalendarPage() {
     unfilteredCount: upcomingUnfiltered.length,
     // 동아리 일정 쿼리는 인증이 확정된 뒤에야 시작한다 — meQuery 로딩을 빼면 로그인 사용자에게
     // "일정이 없어요" 가 잠깐 떴다가 목록으로 바뀐다.
-    isLoading: upcomingCalendar.isLoading || meQuery.isLoading,
+    isLoading: upcomingCalendar.isLoading || isMeLoading,
   });
 
   const handlePrevMonth = () => {
@@ -246,7 +240,7 @@ export function CalendarPage() {
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100%' }}>
 
       {/* ===== 비로그인 배너 ===== */}
-      {hydrated && !isAuthenticated && !meQuery.isLoading && (
+      {hydrated && !isAuthenticated && !isMeLoading && (
         <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
           내 동아리 일정을 보려면 로그인해주세요.
         </div>
@@ -278,8 +272,8 @@ export function CalendarPage() {
               </h1>
             </div>
 
-            {/* 권한(운영진/ADMIN) 없는 사용자에게는 버튼 자체를 렌더하지 않는다 — 디스패처 권한 기준과 동일. */}
-            {canAddEvent && (
+            {/* 권한(운영진/ADMIN) 없는 사용자에게는 버튼 자체를 렌더하지 않는다 — 판정은 useOperatorAccess. */}
+            {canOperate && (
               <button
                 type="button"
                 className="cal-add-btn"
