@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
  *
  * <p>질문 목록과 답변 목록만 보면 끝나는 순수 판정이라 리포지토리·시계·트랜잭션이 필요 없다.
  * 그래서 빈으로 만들지 않고 static 으로 둔다({@link com.duing.domain.recruitment.service.ClosedRecruitmentPolicy}
- * 와 같은 결) — 검증 규칙을 읽으려고 지원 서비스 700줄을 뒤질 필요가 없어지고,
+ * 와 같은 결) — 검증 규칙을 읽으려고 긴 지원 서비스를 뒤질 필요가 없어지고,
  * 지원 서비스의 생성자 의존도 늘지 않는다.
  *
  * <p>질문 목록을 넘겨받는 이유는 폼이 없는 모집의 빈 목록 처리를 호출자 쪽 단일 소스에 맡기기 위해서다.
