@@ -33,7 +33,6 @@ import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewRoundBrief;
 import com.duing.domain.interview.service.dto.query.ManagerInterviewSnapshot;
 import com.duing.domain.recruitment.entity.ApplicationMode;
-import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
@@ -49,12 +48,10 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -120,7 +117,7 @@ public class GeneralApplicationService implements ApplicationService {
                         .map(answerItem -> new ApplicationAnswer(answerItem.questionId(), answerItem.values()))
                         .toList()
                 : resolveLegacyAnswers(recruitment, submitApplicationCommand.answers());
-        validateAnswersAgainstForm(recruitment, resolvedAnswers);
+        ApplicationAnswerValidator.validateAnswersAgainstForm(questionsOf(recruitment), resolvedAnswers);
 
         Application application =
                 Application.submit(recruitment, eligibilityTarget.user(), resolvedAnswers);
@@ -531,76 +528,4 @@ public class GeneralApplicationService implements ApplicationService {
         return form == null ? List.of() : form.getQuestions();
     }
 
-    private void validateAnswersAgainstForm(Recruitment recruitment, List<ApplicationAnswer> answers) {
-        List<RecruitmentQuestion> questions = questionsOf(recruitment);
-        if (questions.size() != answers.size()) {
-            throw new ApplicationDomainException.InvalidAnswersException();
-        }
-        Map<String, ApplicationAnswer> answerByQuestionId = new HashMap<>();
-        for (ApplicationAnswer answer : answers) {
-            if (answer.questionId() == null
-                    || answerByQuestionId.put(answer.questionId(), answer) != null) {
-                throw new ApplicationDomainException.InvalidAnswersException();
-            }
-        }
-        for (RecruitmentQuestion question : questions) {
-            ApplicationAnswer answer = answerByQuestionId.get(question.id());
-            if (answer == null) {
-                throw new ApplicationDomainException.InvalidAnswersException();
-            }
-            validateAnswerForQuestion(question, answer);
-        }
-    }
-
-    /**
-     * 스펙 §2.6 유형별 규칙 — 필수/선택 × TEXT/SINGLE_CHOICE/MULTIPLE_CHOICE.
-     * values 원소의 null 정규화(→ 빈 문자열)와 values 자체의 null 정규화(→ 빈 목록)는
-     * {@link ApplicationAnswer} 컴팩트 생성자가 이미 끝낸 상태로 들어온다.
-     */
-    private void validateAnswerForQuestion(RecruitmentQuestion question, ApplicationAnswer answer) {
-        List<String> values = answer.values();
-        switch (question.type()) {
-            case TEXT -> {
-                if (values.size() > 1) {
-                    throw new ApplicationDomainException.InvalidAnswersException();
-                }
-                String content = values.isEmpty() ? "" : values.get(0);
-                if (question.required() && content.isBlank()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-            }
-            case SINGLE_CHOICE -> {
-                if (values.size() > 1) {
-                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
-                }
-                if (question.required() && values.isEmpty()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-                requireChoiceIdsBelongToQuestion(question, values);
-            }
-            case MULTIPLE_CHOICE -> {
-                if (question.required() && values.isEmpty()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-                if (values.size() != Set.copyOf(values).size()) {
-                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
-                }
-                requireChoiceIdsBelongToQuestion(question, values);
-            }
-            // enum 3 값을 모두 다루지만, 새 유형이 추가될 때 검증 없이 조용히 통과하지 않도록 명시적으로 막는다
-            // (validateClubMembershipPolicy 와 동일한 방어).
-            default -> throw new IllegalStateException(
-                    "답변 검증 규칙이 정의되지 않은 질문 유형입니다: " + question.type());
-        }
-    }
-
-    /** "바로 그 질문의" 선택지인지 검증 — 타 질문의 choiceId·미지 choiceId 를 모두 거부한다 (스펙 §2.6). */
-    private void requireChoiceIdsBelongToQuestion(RecruitmentQuestion question, List<String> selectedChoiceIds) {
-        Set<String> allowedChoiceIds = question.choices().stream()
-                .map(QuestionChoice::id)
-                .collect(Collectors.toSet());
-        if (!allowedChoiceIds.containsAll(selectedChoiceIds)) {
-            throw new ApplicationDomainException.InvalidChoiceSelectionException();
-        }
-    }
 }
