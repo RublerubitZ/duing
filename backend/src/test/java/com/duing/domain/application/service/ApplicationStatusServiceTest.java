@@ -65,6 +65,7 @@ class ApplicationStatusServiceTest {
             clubMemberEnrollmentService,
             applicationDraftService,
             applicationStatusHistoryRepository,
+            new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,

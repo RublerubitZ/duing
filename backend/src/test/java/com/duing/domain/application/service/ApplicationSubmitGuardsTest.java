@@ -69,6 +69,7 @@ class ApplicationSubmitGuardsTest {
             clubMemberEnrollmentService,
             applicationDraftService,
             applicationStatusHistoryRepository,
+            new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,

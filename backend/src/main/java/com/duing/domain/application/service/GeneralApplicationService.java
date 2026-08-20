@@ -99,6 +99,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubMemberEnrollmentService clubMemberEnrollmentService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final ApplicationStatusChanger applicationStatusChanger;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
@@ -367,17 +368,15 @@ public class GeneralApplicationService implements ApplicationService {
         Recruitment recruitment = application.getRecruitment();
         ClosedRecruitmentPolicy.requireFinalizingOnly(recruitment, updateApplicationStatusCommand.status());
 
-        ApplicationStatus previousStatus = application.getStatus();
-        application.transitionTo(
+        // 전이와 이력 기록은 ApplicationStatusChanger 한 곳에서만 조립한다.
+        // 변경 주체 조회는 전이가 FSM 에 막히면 필요 없는 왕복이라 Supplier 로 넘겨 전이 성공 이후로 미룬다.
+        applicationStatusChanger.change(
+                application,
                 updateApplicationStatusCommand.status(),
                 recruitment.isUseInterview(),
-                ClosedRecruitmentPolicy.isClosed(recruitment));
-
-        User changedBy = userRepository.findById(updateApplicationStatusCommand.currentUserId())
-                .orElseThrow(UserException.UserNotFoundException::new);
-        applicationStatusHistoryRepository.save(
-                ApplicationStatusHistory.record(application, previousStatus, updateApplicationStatusCommand.status(), changedBy)
-        );
+                ClosedRecruitmentPolicy.isClosed(recruitment),
+                () -> userRepository.findById(updateApplicationStatusCommand.currentUserId())
+                        .orElseThrow(UserException.UserNotFoundException::new));
 
         // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록한다.
         // upgrade-or-insert 와 동시 등록 경합 처리는 ClubMemberEnrollmentService 가 단독으로 책임진다.
@@ -449,6 +448,11 @@ public class GeneralApplicationService implements ApplicationService {
                 || domainFailure instanceof ClubMemberException.NotAMember;
     }
 
+    /**
+     * 동아리 폐쇄에 딸린 일괄 거절. 단건 경로와 달리 ApplicationStatusChanger 를 쓰지 않고 전이만 한다 —
+     * 이 경로는 상태 이력을 남기지 않는 기존 비대칭이 있고, 이력을 붙이면 동작 변경이 되기 때문이다.
+     * 의도된 비대칭인지 미확정이므로 후속 정책 판단 대상으로 남긴다.
+     */
     @Override
     @Transactional
     public void rejectActiveOnClubClosure(List<Long> recruitmentIds) {
