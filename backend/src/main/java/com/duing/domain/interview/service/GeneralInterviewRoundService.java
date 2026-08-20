@@ -2,10 +2,9 @@ package com.duing.domain.interview.service;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
-import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.repository.ApplicationRepository;
-import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
+import com.duing.domain.application.service.ApplicationStatusChanger;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
@@ -64,7 +63,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     private final InterviewRoundMemberRepository interviewRoundMemberRepository;
     private final InterviewRoundRepository interviewRoundRepository;
     private final ApplicationRepository applicationRepository;
-    private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final ApplicationStatusChanger applicationStatusChanger;
     private final UserRepository userRepository;
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
@@ -163,12 +162,12 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
         for (Application application : applications) {
             // 대기열(INTERVIEW_PENDING) 재수용은 상태 변화가 없으므로 전이·이력을 만들지 않는다.
-            ApplicationStatus statusBeforePromotion = application.getStatus();
-            if (statusBeforePromotion != ApplicationStatus.INTERVIEW_PENDING) {
-                application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
-                applicationStatusHistoryRepository.save(ApplicationStatusHistory.record(
-                        application, statusBeforePromotion,
-                        ApplicationStatus.INTERVIEW_PENDING, changedBy));
+            if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
+                // recruitmentClosed=false — 위 requireOpen 이 마감 모집을 이미 막았고, 이 인자를 받지 않던
+                // 기존 2인자 transitionTo 오버로드도 내부에서 false 를 넘기므로 동치다.
+                // 변경 주체는 이미 확보돼 있어 Supplier 가 즉시 반환한다(추가 조회 없음).
+                applicationStatusChanger.change(application, ApplicationStatus.INTERVIEW_PENDING,
+                        true, false, () -> changedBy);
             }
         }
 

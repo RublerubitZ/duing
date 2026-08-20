@@ -226,24 +226,20 @@ public class GeneralJoinCodeService implements JoinCodeService {
 
     @Override
     @Transactional
+    public void revokeActiveByRecruitment(Long clubId, Long recruitmentId, Long actorUserId) {
+        revokeActiveByRecruitment(clubId, recruitmentId, LocalDateTime.now(clock), actorUserId);
+    }
+
+    @Override
+    @Transactional
     public void revokeActiveOnClubClosure(Long clubId, List<Long> recruitmentIds, Long actorAdminUserId) {
-        // 모집 삭제 경로(GeneralRecruitmentService.delete)와 같은 방식이다 — 코드 엔티티를 영속성
-        // 컨텍스트에 올리면 같은 트랜잭션의 모집 soft-delete 와 충돌해 커밋이 깨지므로, 대상 id 만 읽고
-        // 벌크 UPDATE 로 폐기한다. 한 번의 폐쇄로 죽는 링크는 같은 시각을 갖는다.
         // 링크 2종(V107)을 모두 끊어야 한다: 모집 링크는 모집 id 체인으로, 부원 초대 링크는 모집에
         // 매달리지 않으므로 동아리 단위로 한 번 더 폐기한다.
+        // 한 번의 폐쇄로 죽는 링크는 같은 시각을 갖는다 — 루프 안에서 시계를 다시 읽으면 같은 폐쇄로
+        // 죽은 링크들의 폐기 시각이 모집마다 미세하게 어긋나므로, 시각을 한 번만 읽어 넘긴다.
         LocalDateTime revokedAt = LocalDateTime.now(clock);
         for (Long recruitmentId : recruitmentIds) {
-            List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
-            int revokedCount = clubJoinCodeRepository.revokeActiveByRecruitmentId(
-                    recruitmentId, revokedAt, actorAdminUserId);
-            // 폐쇄와 운영진의 수동 폐기가 겹쳐 UPDATE 가 0행이면 이 트랜잭션이 폐기한 것이 없으므로
-            // 이벤트도 남기지 않는다(일어나지 않은 폐기는 기록하지 않는다 — 삭제 경로와 같은 규약).
-            if (revokedCount > 0) {
-                revokedJoinCodeIds.forEach(joinCodeId -> recordJoinLinkEvent(
-                        ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId,
-                        joinCodeId, actorAdminUserId));
-            }
+            revokeActiveByRecruitment(clubId, recruitmentId, revokedAt, actorAdminUserId);
         }
 
         Optional<Long> revokedInviteCodeId = clubJoinCodeRepository.findActiveClubInviteIdByClubId(clubId);
@@ -254,6 +250,29 @@ public class GeneralJoinCodeService implements JoinCodeService {
             // 초대 링크는 귀속 모집이 없어 recruitmentId 는 null 로 남긴다(V102 컬럼 nullable).
             revokedInviteCodeId.ifPresent(joinCodeId -> recordJoinLinkEvent(
                     ClubAuditEventType.JOIN_LINK_REVOKED, clubId, null, joinCodeId, actorAdminUserId));
+        }
+    }
+
+    /**
+     * 폐기 시각을 호출자가 정하는 형태 — 동아리 폐쇄는 여러 모집의 링크를 한 시각으로 끊어야 해서
+     * 루프 밖에서 읽은 시각을 그대로 넘긴다.
+     *
+     * <p>코드 엔티티를 영속성 컨텍스트에 올리면 같은 트랜잭션의 모집 soft-delete 와 충돌해 커밋이
+     * 깨지므로, 대상 id 만 읽고 벌크 UPDATE 로 폐기한다. 벌크 UPDATE 후에는 무엇을 폐기했는지 알 수
+     * 없으므로 대상 id 를 먼저 읽어 둔다.
+     */
+    private void revokeActiveByRecruitment(Long clubId, Long recruitmentId,
+                                           LocalDateTime revokedAt, Long actorUserId) {
+        List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
+        int revokedCount = clubJoinCodeRepository.revokeActiveByRecruitmentId(
+                recruitmentId, revokedAt, actorUserId);
+        // 위 조회와 UPDATE 사이에 운영진이 같은 링크를 수동 폐기하면 UPDATE 는 0행이 된다 — 그때는 이
+        // 트랜잭션이 폐기한 것이 없으므로 이벤트도 남기지 않는다("일어나지 않은 폐기는 기록하지 않는다").
+        // 활성 링크는 모집당 1개(uk_club_join_code_active_per_recruitment)라 두 값은 함께 0 이거나 함께 1 이다.
+        if (revokedCount > 0) {
+            revokedJoinCodeIds.forEach(joinCodeId -> recordJoinLinkEvent(
+                    ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId,
+                    joinCodeId, actorUserId));
         }
     }
 

@@ -11,10 +11,9 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
-import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
+import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
@@ -42,9 +41,8 @@ class RecruitmentStopIntakeServiceTest {
 
     private final RecruitmentRepository recruitmentRepository = mock(RecruitmentRepository.class);
     private final ApplicationRepository applicationRepository = mock(ApplicationRepository.class);
-    private final ClubJoinCodeRepository clubJoinCodeRepository = mock(ClubJoinCodeRepository.class);
     private final ClubJoinRequestRepository clubJoinRequestRepository = mock(ClubJoinRequestRepository.class);
-    private final ClubAuditEventRepository clubAuditEventRepository = mock(ClubAuditEventRepository.class);
+    private final JoinCodeService joinCodeService = mock(JoinCodeService.class);
     private final ClubRepository clubRepository = mock(ClubRepository.class);
     private final ClubAuthService clubAuthService = mock(ClubAuthService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
@@ -52,9 +50,8 @@ class RecruitmentStopIntakeServiceTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
-            clubJoinCodeRepository,
             clubJoinRequestRepository,
-            clubAuditEventRepository,
+            joinCodeService,
             clubRepository,
             clubAuthService,
             new ClubVisibilityPolicy(clubRepository),

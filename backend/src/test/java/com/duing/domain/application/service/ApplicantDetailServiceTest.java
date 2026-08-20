@@ -73,6 +73,7 @@ class ApplicantDetailServiceTest {
             clubMemberEnrollmentService,
             applicationDraftService,
             applicationStatusHistoryRepository,
+            new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAvailabilityRepository,
             interviewScheduleRepository,

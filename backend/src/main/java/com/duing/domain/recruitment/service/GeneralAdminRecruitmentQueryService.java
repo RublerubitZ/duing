@@ -64,6 +64,10 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
     /**
      * 운영진 상태 카드와 같은 조립을 쓴다({@code JoinCodeQuery.from}) — 수치 계산이 두 벌이 되면
      * 같은 링크를 보는 두 화면의 숫자가 갈린다. 폐기된 코드는 활성 조회에서 이미 빠진다.
+     *
+     * <p>{@code JoinCodeService.findActive} 로는 위임하지 않는다 — 그쪽은 운영진 가드
+     * ({@code requireManager} + 모집 소속 대조)를 거치므로, 동아리 소속이 아닌 총동연이 호출하면
+     * 전 동아리 상세가 403·404 로 막힌다. 가드 없는 변형을 새로 열면 IDOR 표면이 늘어난다.
      */
     private JoinCodeQuery findActiveJoinCode(Recruitment recruitment) {
         if (recruitment.getApplicationMode() != ApplicationMode.EXTERNAL) {

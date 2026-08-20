@@ -1,8 +1,6 @@
 package com.duing.global.exception;
 
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
-import com.duing.domain.interview.controller.dto.response.UnresolvedMembersResponse;
-import com.duing.domain.interview.exception.InterviewException;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,20 +33,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    private static final String FACILITY_BOOKING_OVERLAP_CONSTRAINT = "excl_facility_booking_active_overlap";
-
-    @ExceptionHandler(InterviewException.RoundHasUnresolvedMembers.class)
-    public ResponseEntity<ApiResponse<UnresolvedMembersResponse>> handleUnresolvedMembers(
-            InterviewException.RoundHasUnresolvedMembers exception) {
-        // §6.3 — 경고 2종을 데이터로 실어 FE 가 분리 렌더·강조할 수 있게 한다.
-        log.warn("RoundHasUnresolvedMembers: unresponded={}, respondedUnassigned={}",
-                exception.getPayload().unresponded().size(),
-                exception.getPayload().respondedUnassigned().size());
-        return ResponseEntity.status(exception.getStatus())
-                .body(new ApiResponse<>(false, UnresolvedMembersResponse.from(exception.getPayload()),
-                        exception.getMessage(), null));
-    }
 
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ApiResponse<Void>> handleApplicationException(ApplicationException exception) {
@@ -233,7 +217,8 @@ public class GlobalExceptionHandler {
      * 전례(SQLState + 제약명 메시지 매칭)를 따른다.
      */
     private static boolean isFacilityBookingOverlapViolation(DataIntegrityViolationException exception) {
-        return PostgresConstraintViolations.isExclusionViolationOf(exception, FACILITY_BOOKING_OVERLAP_CONSTRAINT);
+        return PostgresConstraintViolations.isExclusionViolationOf(
+                exception, FacilityBookingException.SlotUnavailableException.ACTIVE_OVERLAP_CONSTRAINT);
     }
 
     @ExceptionHandler(PessimisticLockingFailureException.class)

@@ -116,6 +116,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 mock(ClubMemberEnrollmentService.class),
                 mock(ApplicationDraftService.class),
                 mock(ApplicationStatusHistoryRepository.class),
+                new ApplicationStatusChanger(mock(ApplicationStatusHistoryRepository.class)),
                 mock(ApplicationEvaluationRepository.class),
                 mock(InterviewAvailabilityRepository.class),
                 mock(InterviewScheduleRepository.class),
