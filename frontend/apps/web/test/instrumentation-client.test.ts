@@ -82,6 +82,14 @@ describe('PostHog 초기화 개인정보 정책', () => {
     expect(options.capture_dead_clicks).toBe(false);
   });
 
+  // 다른 프라이버시 플래그와 달리 이건 대시보드 토글과 AND 로 묶이지 않는다 — 원격 설정이 surveys:false
+  // 여도 SDK 는 그대로 surveys.js(디코드 약 100KB)를 매 문서 로드마다 받아 실행한다. 이 줄이 사라지면
+  // 꺼진 기능을 위해 요청·다운로드·파싱이 되살아난다.
+  it('설문 스크립트를 내려받지 않는 상태로 초기화한다', async () => {
+    const options = await captureInitOptions();
+    expect(options.disable_surveys).toBe(true);
+  });
+
   // 최초 방문 주소는 저장소에 굳어 기능 플래그 요청 본문으로도 나가는데 그 경로는 전송 직전 훅을
   // 타지 않는다 — 검색어 파라미터만은 SDK 단계에서 가려 그 창을 막는다.
   it('검색어 파라미터를 SDK 단계에서도 가린다', async () => {

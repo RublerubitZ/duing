@@ -161,6 +161,15 @@ if (!posthogKey) {
     // 죽은 클릭 수집 금지 — 히트맵과 같은 원격 토글 구조이고, 켜지면 위 자동 수집 속성이
     // 같은 모양으로 한 번 더 실린다.
     capture_dead_clicks: false,
+    // 설문 스크립트 로드 금지 — 대시보드 토글과 AND 로 묶이지 않는 유일한 예외라 여기서 못박는다.
+    // 원격 설정이 surveys:false 여도 SDK 는 그 값을 '비활성 확정'으로 저장한 뒤 그대로
+    // loadExternalDependency('surveys') 를 타서 /ingest/static/surveys.js(디코드 약 100KB)를 매 문서
+    // 로드마다 내려받고 실행한다(posthog-js 1.407.2 lib/src/posthog-surveys.js 의 loadIfEnabled 가
+    // undefined 일 때만 조기 반환하고 false 는 통과시킨다). 이 플래그만이 그 경로 자체를 막는다.
+    // 절감 대상은 Vercel Active CPU 가 아니다 — /ingest 는 외부 rewrite 라 함수를 깨우지 않는다.
+    // 줄어드는 것은 Edge Request 1건/문서 로드와 브라우저 다운로드·파싱 비용이다.
+    // 설문 기능을 실제로 쓰기로 하면 이 줄을 지우고 재배포해야 한다(원격 토글만으로는 안 뜬다).
+    disable_surveys: true,
     // 최초 방문 주소는 이벤트가 아니라 저장소에 굳어 기능 플래그 요청 본문으로도 나가는데,
     // 그 경로는 아래 전송 직전 훅을 타지 않는다. 검색어 파라미터를 SDK 단계에서 가려 그 창을 막는다.
     // (근본 해법은 주소에 검색어를 싣지 않는 것 — 총동연 회원 관리는 이미 그렇게 되어 있다.)
