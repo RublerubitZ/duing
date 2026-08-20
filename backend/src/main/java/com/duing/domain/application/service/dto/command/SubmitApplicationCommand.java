@@ -9,7 +9,7 @@ import java.util.List;
  * - {@code answerItems}: questionId 기반 구조화 통로.
  * <p>
  * 통로 선택으로 질문 유형을 가르지는 않는다 — 어느 통로로 들어오든 값은 동일한 유형별 검증
- * (GeneralApplicationService.validateAnswerForQuestion)을 통과해야 한다. 다만 legacy 통로는 답변을
+ * (ApplicationAnswerValidator)을 통과해야 한다. 다만 legacy 통로는 답변을
  * 본문 문자열로 싣기 때문에, 선택형 질문의 값은 choiceId 여야 한다는 규칙에 사실상 걸려 거부된다.
  */
 public record SubmitApplicationCommand(

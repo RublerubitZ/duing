@@ -15,11 +15,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
-import com.duing.domain.interview.repository.InterviewRoundRepository;
-import com.duing.domain.interview.repository.InterviewScheduleRepository;
-import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.interview.service.InterviewAssignmentQueryService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -118,11 +114,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 mock(ApplicationStatusHistoryRepository.class),
                 new ApplicationStatusChanger(mock(ApplicationStatusHistoryRepository.class)),
                 mock(ApplicationEvaluationRepository.class),
-                mock(InterviewAvailabilityRepository.class),
-                mock(InterviewScheduleRepository.class),
-                mock(InterviewRoundRepository.class),
-                mock(InterviewSlotRepository.class),
-                mock(InterviewRoundMemberRepositoryCustom.class),
+                mock(InterviewAssignmentQueryService.class),
                 fixedClock);
     }
 }

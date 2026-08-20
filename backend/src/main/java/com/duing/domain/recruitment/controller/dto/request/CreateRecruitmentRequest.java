@@ -49,7 +49,7 @@ public record CreateRecruitmentRequest(
         TargetRole targetRole,
 
         // 질문 개수 상한(50)은 지원서 답변 개수 상한과 반드시 일치해야 한다 — 제출 시
-        // answers.size() == questions.size() 를 검증하므로(GeneralApplicationService.validateAnswersAgainstForm),
+        // answers.size() == questions.size() 를 검증하므로(ApplicationAnswerValidator.validateAnswersAgainstForm),
         // 답변 캡보다 질문 캡이 크면 정상 폼의 제출이 답변 캡에 걸려 막힌다.
         // TODO(legacy-questions-v1): 신 FE 전환 후 제거
         @Size(max = 50, message = "질문은 최대 50개까지 등록할 수 있습니다.")
