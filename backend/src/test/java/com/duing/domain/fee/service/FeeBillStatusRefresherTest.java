@@ -63,4 +63,15 @@ class FeeBillStatusRefresherTest {
         assertThatThrownBy(() -> statusRefresher.refresh(detachedBill, 0L))
                 .isInstanceOf(AssertionError.class);
     }
+
+    @Test
+    @DisplayName("관리 엔티티라도 비관적 잠금이 없으면 재산출은 계약 위반으로 실패한다")
+    void refreshRejectsManagedButUnlockedBill() {
+        FeeBill unlockedBill = FeeBill.issue(1L, 2L, 3L, 10000L, "2026-07",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), LocalDate.of(2026, 7, 31));
+        when(entityManager.contains(unlockedBill)).thenReturn(true);
+        when(entityManager.getLockMode(unlockedBill)).thenReturn(LockModeType.NONE);
+        assertThatThrownBy(() -> statusRefresher.refresh(unlockedBill, 0L))
+                .isInstanceOf(AssertionError.class);
+    }
 }
