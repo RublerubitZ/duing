@@ -24,6 +24,32 @@ class InterviewRoundDomainTest {
     }
 
     @Test
+    @DisplayName("가용시간 마감이 지나야 마감 경과로 판정되고, 마감이 없으면(DRAFT) 경과가 아니다")
+    void availabilityDeadlinePassedOnlyAfterDeadline() {
+        LocalDateTime deadline = LocalDateTime.now().plusDays(3);
+        InterviewRound round = InterviewRound.create(1L, "1차 면접", deadline, null);
+        InterviewRound deadlineUnset = InterviewRound.create(1L, "1차 면접", null, null);
+
+        assertThat(deadlineUnset.isAvailabilityDeadlinePassed(deadline.plusDays(1))).isFalse();
+        assertThat(round.isAvailabilityDeadlinePassed(deadline)).isFalse();
+        assertThat(round.isAvailabilityDeadlinePassed(deadline.plusMinutes(1))).isTrue();
+    }
+
+    @Test
+    @DisplayName("미응답은 저장하지 않고 초대 상태와 마감 경과의 조합으로 파생한다")
+    void unrespondedDerivedFromInvitedAndDeadlinePassed() {
+        InterviewRoundMember invited = InterviewRoundMember.invite(1L, 10L);
+        InterviewRoundMember responded = InterviewRoundMember.invite(1L, 11L);
+        responded.markResponded();
+
+        assertThat(invited.isUnresponded(true)).isTrue();
+        assertThat(invited.isUnresponded(false)).isFalse();
+        assertThat(responded.isUnresponded(true)).isFalse();
+        // 멤버 엔티티 없이 상태 스칼라만 가진 조회 projection 경로도 같은 판정을 쓴다.
+        assertThat(RoundMemberStatus.NO_AVAILABLE_SLOT.isUnresponded(true)).isFalse();
+    }
+
+    @Test
     @DisplayName("가능 슬롯이 없다고 응답했던 멤버는 추가 슬롯 생성 시 INVITED 로 복귀하고 대체 가능시간 텍스트가 비워진다")
     void noAvailableSlotMemberIsReinvitedWithClearedText() {
         InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);

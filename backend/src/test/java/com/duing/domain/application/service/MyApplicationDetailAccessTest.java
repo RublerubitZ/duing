@@ -22,15 +22,13 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.entity.InterviewRound;
-import com.duing.domain.interview.entity.InterviewSchedule;
-import com.duing.domain.interview.entity.InterviewScheduleStatus;
-import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
@@ -147,7 +145,7 @@ class MyApplicationDetailAccessTest {
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(2L);
         // ASSIGNED schedule 이 없으면 interview = null
-        when(interviewScheduleRepository.findByApplicationId(applicationId))
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
 
         InterviewRound collectingRound = InterviewRoundFixture.withStatus(
@@ -212,7 +210,6 @@ class MyApplicationDetailAccessTest {
         long currentUserId = 10L;
         long recruitmentId = 6L;
         long slotId = 100L;
-        long roundId = 30L;
         LocalDateTime startAt = LocalDateTime.of(2026, 6, 20, 18, 0);
         LocalDateTime endAt = LocalDateTime.of(2026, 6, 20, 18, 30);
 
@@ -220,21 +217,9 @@ class MyApplicationDetailAccessTest {
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(3L);
 
-        InterviewRound scheduledRound = InterviewRoundFixture.withStatus(
-                recruitmentId, LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호", RoundStatus.SCHEDULED);
-        when(interviewRoundRepository.findById(roundId)).thenReturn(Optional.of(scheduledRound));
-
-        InterviewSchedule schedule = mock(InterviewSchedule.class);
-        when(schedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
-        when(schedule.getSlotId()).thenReturn(slotId);
-        when(schedule.getRoundId()).thenReturn(roundId);
-        when(interviewScheduleRepository.findByApplicationId(applicationId))
-                .thenReturn(Optional.of(schedule));
-
-        InterviewSlot slot = mock(InterviewSlot.class);
-        when(slot.getStartTime()).thenReturn(startAt);
-        when(slot.getEndTime()).thenReturn(endAt);
-        when(interviewSlotRepository.findById(slotId)).thenReturn(Optional.of(slot));
+        // 슬롯 시간창과 라운드 장소는 조인 프로젝션 한 번으로 함께 내려온다.
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+                .thenReturn(Optional.of(new AssignedInterviewSlot(slotId, startAt, endAt, "3호관 201호")));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 
@@ -256,10 +241,9 @@ class MyApplicationDetailAccessTest {
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
 
-        InterviewSchedule cancelled = mock(InterviewSchedule.class);
-        when(cancelled.getStatus()).thenReturn(InterviewScheduleStatus.CANCELLED);
-        when(interviewScheduleRepository.findByApplicationId(applicationId))
-                .thenReturn(Optional.of(cancelled));
+        // CANCELLED 는 조인 쿼리의 status=ASSIGNED 술어에서 걸러져 배정 자체가 없는 것으로 나온다.
+        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 

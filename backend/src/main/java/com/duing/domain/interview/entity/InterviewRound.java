@@ -77,6 +77,16 @@ public class InterviewRound extends BaseEntity {
     }
 
     /**
+     * 가용시간 응답 마감이 지났는가 — unresponded 파생·마감 뱃지의 단일 판정 지점.
+     * 마감이 없으면(DRAFT 구간) 경과가 아니고, 정각(now == deadline)도 경과가 아니다.
+     * 주의: 수집 오픈 검증(openCollecting)·응답 창(GeneralApplicantInterviewService)·Rule 2 재초대 창
+     * (GeneralInterviewSlotService)은 정각 취급이 달라 이 메서드를 쓰지 않는다 — 경계 시멘틱이 다른 별도 규칙이다.
+     */
+    public boolean isAvailabilityDeadlinePassed(LocalDateTime now) {
+        return this.availabilityDeadline != null && now.isAfter(this.availabilityDeadline);
+    }
+
+    /**
      * 발송: DRAFT → COLLECTING (스펙 §5.1). 마감은 발송의 전제 조건이라 도메인이 직접 검증한다 —
      * 생성 시점에 미래였어도 발송까지 시간이 흐를 수 있어 재검증한다.
      * 슬롯·멤버 존재 가드는 레포지토리가 필요하므로 서비스가 담당한다 (스펙 §10.3 가드 3종 중 나머지).

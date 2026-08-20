@@ -69,8 +69,7 @@ public class GeneralApplicantInterviewService implements ApplicantInterviewServi
 
         InterviewRound round = visibleMembership.get().round();
         InterviewRoundMember member = visibleMembership.get().member();
-        boolean deadlinePassed = round.getAvailabilityDeadline() != null
-                && now.isAfter(round.getAvailabilityDeadline());
+        boolean deadlinePassed = round.isAvailabilityDeadlinePassed(now);
 
         ApplicantInterviewPhase phase = ApplicantInterviewPhase.derive(
                 application.getStatus(), round.getStatus(), member.getStatus(), false, deadlinePassed);

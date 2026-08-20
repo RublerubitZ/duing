@@ -37,6 +37,7 @@ import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCusto
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.QuestionChoice;
@@ -60,6 +61,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -329,12 +331,17 @@ public class GeneralApplicationService implements ApplicationService {
                     .map(window -> new ApplicantDetailQuery.AvailabilityItem(
                             window.slotId(), window.startTime(), window.endTime()))
                     .toList();
-            assignedSlot = interviewScheduleRepository
-                    .findAssignedSlotByApplicationId(applicationId)
+            // 배정 슬롯과 배정 면접은 같은 행에서 나오므로 한 번만 조회해 두 표현으로 나눠 담는다.
+            Optional<AssignedInterviewSlot> assignedInterviewSlot =
+                    interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId);
+            assignedSlot = assignedInterviewSlot
                     .map(window -> new ApplicantDetailQuery.AvailabilityItem(
                             window.slotId(), window.startTime(), window.endTime()))
                     .orElse(null);
-            interview = resolveAssignedInterview(applicationId);
+            interview = assignedInterviewSlot
+                    .map(window -> new AssignedInterviewQuery(
+                            window.startTime(), window.endTime(), window.location()))
+                    .orElse(null);
             interviewRoundBrief = resolvePlacementActiveMembership(applicationId);
         } else {
             interviewAvailabilities = List.of();
@@ -478,9 +485,8 @@ public class GeneralApplicationService implements ApplicationService {
                 .map(membership -> {
                     InterviewRound round = membership.round();
                     RoundMemberStatus memberStatus = membership.member().getStatus();
-                    boolean unresponded = memberStatus == RoundMemberStatus.INVITED
-                            && round.getAvailabilityDeadline() != null
-                            && LocalDateTime.now(clock).isAfter(round.getAvailabilityDeadline());
+                    boolean unresponded = membership.member()
+                            .isUnresponded(round.isAvailabilityDeadlinePassed(LocalDateTime.now(clock)));
                     String alternativeText = memberStatus == RoundMemberStatus.NO_AVAILABLE_SLOT
                             ? membership.member().getAlternativeAvailabilityText()
                             : null;
@@ -630,20 +636,16 @@ public class GeneralApplicationService implements ApplicationService {
      * 응답 DTO 의 nested {@code interview} 채움용 단건 헬퍼.
      * ASSIGNED 상태 schedule 이 있고 그 schedule 에 매핑된 슬롯이 존재하면 {@link AssignedInterviewQuery} 를 반환한다.
      * location 은 schedule 이 속한 {@code InterviewRound.location} 에서 가져오며, round 가 없거나
-     * location 이 비어 있어도 interview 자체는 노출하고 location 만 null 로 채운다 (Codex review BE-3 유지).
+     * location 이 비어 있어도 interview 자체는 노출하고 location 만 null 로 채운다 (Codex review BE-3 유지) —
+     * 라운드를 left join 하는 단일 조인 쿼리가 이 계약을 그대로 재현한다.
      * <p>
-     * {@code InterviewSchedule} 의 CANCELLED 는 MVP 미사용 예약값이지만 방어적으로 status 조건을 명시한다.
+     * {@code InterviewSchedule} 의 CANCELLED 는 MVP 미사용 예약값이지만 방어적으로 status 조건을 명시한다
+     * (조인 쿼리의 where 절이 담당).
      */
     private AssignedInterviewQuery resolveAssignedInterview(Long applicationId) {
-        return interviewScheduleRepository.findByApplicationId(applicationId)
-                .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
-                .flatMap(schedule -> interviewSlotRepository.findById(schedule.getSlotId())
-                        .map(slot -> new AssignedInterviewQuery(
-                                slot.getStartTime(),
-                                slot.getEndTime(),
-                                interviewRoundRepository.findById(schedule.getRoundId())
-                                        .map(InterviewRound::getLocation)
-                                        .orElse(null))))
+        return interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId)
+                .map(window -> new AssignedInterviewQuery(
+                        window.startTime(), window.endTime(), window.location()))
                 .orElse(null);
     }
 
