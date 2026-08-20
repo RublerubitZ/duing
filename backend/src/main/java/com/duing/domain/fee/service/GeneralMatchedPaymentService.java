@@ -38,12 +38,11 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
 
     @Override
     @Transactional
-    public void createMatchedPayment(BankTransaction tx, Long feeBillId, Long actorId,
+    public void createMatchedPayment(Long bankTransactionId, Long clubId, Long feeBillId, Long actorId,
                                      MatchStatus matchStatus, boolean autoMatched, boolean allowPartial) {
-        // 호출 측이 넘긴 거래가 다른 영속성 컨텍스트의 detached 엔티티일 수 있으므로, 이 트랜잭션에 영속된
-        // 인스턴스를 비관적 잠금으로 다시 조회해 matchTo() 변경이 확실히 flush 되게 한다(동아리 격리도 함께).
+        // 거래는 id 로 받아 이 트랜잭션에 영속된 인스턴스를 비관적 잠금으로 조회한다(동아리 격리 포함).
         // 거래 행 잠금으로 같은 입금을 서로 다른 청구로 동시 매칭하려는 호출들이 직렬화되어 한 입금의 이중 소비를 막는다.
-        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(tx.getId(), tx.getClubId())
+        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(bankTransactionId, clubId)
                 .orElseThrow(BankMatchingException.BankTransactionNotFoundException::new);
         if (!transaction.isPending()) {
             // 거래 잠금을 먼저 획득한 호출이 커밋한 뒤 두 번째 호출이 여기 도달 → 이미 매칭/무시된 거래이므로 중단.
