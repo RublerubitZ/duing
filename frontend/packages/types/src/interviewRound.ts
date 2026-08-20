@@ -1,5 +1,5 @@
 // 면접 라운드 (재설계) — 백엔드 DTO 1:1 수동 정의.
-// generated/schema.d.ts 가 stale 이라(재생성은 live 서버 필요 — 별도 chore) 직접 정의한다.
+// OpenAPI codegen 산출물은 커밋하지 않으므로(재생성은 live 서버 필요) 직접 정의한다.
 // 각 타입의 출처: backend/src/main/java/com/duing/domain/interview/controller/dto/
 // drift 방지: 백엔드 DTO 변경 시 본 파일도 직접 갱신 필요.
 //
