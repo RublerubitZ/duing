@@ -478,9 +478,8 @@ public class GeneralApplicationService implements ApplicationService {
                 .map(membership -> {
                     InterviewRound round = membership.round();
                     RoundMemberStatus memberStatus = membership.member().getStatus();
-                    boolean unresponded = memberStatus == RoundMemberStatus.INVITED
-                            && round.getAvailabilityDeadline() != null
-                            && LocalDateTime.now(clock).isAfter(round.getAvailabilityDeadline());
+                    boolean unresponded = membership.member()
+                            .isUnresponded(round.isAvailabilityDeadlinePassed(LocalDateTime.now(clock)));
                     String alternativeText = memberStatus == RoundMemberStatus.NO_AVAILABLE_SLOT
                             ? membership.member().getAlternativeAvailabilityText()
                             : null;

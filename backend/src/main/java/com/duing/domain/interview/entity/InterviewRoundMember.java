@@ -52,6 +52,11 @@ public class InterviewRoundMember extends BaseEntity {
                 .build();
     }
 
+    /** 미응답(NO_RESPONSE) 파생 — 저장하지 않고 INVITED ∧ 마감 경과로 판정한다 ({@link RoundMemberStatus} 계약 주석 참조). */
+    public boolean isUnresponded(boolean availabilityDeadlinePassed) {
+        return this.status.isUnresponded(availabilityDeadlinePassed);
+    }
+
     /**
      * Rule 2 (스펙 §5.5): COLLECTING && 마감 전 추가 슬롯 생성 시 NO_AVAILABLE_SLOT → INVITED 복귀.
      * 대체 가능시간 텍스트는 비운다 — INVITED 상태에 이전 응답이 남으면 dashboard 표시가 오염되고,
