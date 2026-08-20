@@ -17,8 +17,10 @@ import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
+import com.duing.domain.fee.service.dto.query.FeeBillQuery;
 import com.duing.domain.fee.service.dto.query.MyFeeSearchQuery;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -194,6 +196,26 @@ class FeeBillQueryTest extends IntegrationTestBase {
         assertThat(clubBills.getTotalElements()).isEqualTo(1L);
         assertThat(clubBills.getContent()).allMatch(bill -> bill.getUserId().equals(userA));
         assertThat(myBills).isEmpty();
+    }
+
+    @Test
+    @DisplayName("FeeBillQuery 는 저장 status 를 그대로 두고 주입한 today 기준으로 표기 상태(displayStatus)를 파생한다")
+    void fromDerivesDisplayStatusFromGivenToday() {
+        // 청구액 10000, 마감 2026-07-31(픽스처가 회차 말일에서 파생), 저장 status = PENDING
+        FeeBill bill = saveBill(clubId, saveUserId(), "2026-07", FeeStatus.PENDING);
+        LocalDate dayAfterDue = LocalDate.of(2026, 8, 1);
+
+        FeeBillQuery unpaidAfterDue = FeeBillQuery.from(bill, 0L, dayAfterDue);
+        FeeBillQuery fullyPaidAfterDue = FeeBillQuery.from(bill, 10000L, dayAfterDue);
+        FeeBillQuery unpaidBeforeDue = FeeBillQuery.from(bill, 0L, LocalDate.of(2026, 7, 31));
+
+        // 저장 축은 어떤 today 에도 건드리지 않는다
+        assertThat(unpaidAfterDue.status()).isEqualTo(FeeStatus.PENDING);
+        assertThat(fullyPaidAfterDue.status()).isEqualTo(FeeStatus.PENDING);
+        // 표기 축만 today·납부 합계로 갈린다 — 마감 당일까지는 정상, 익일부터 연체, 완납은 최우선
+        assertThat(unpaidBeforeDue.displayStatus()).isEqualTo(FeeStatus.PENDING);
+        assertThat(unpaidAfterDue.displayStatus()).isEqualTo(FeeStatus.OVERDUE);
+        assertThat(fullyPaidAfterDue.displayStatus()).isEqualTo(FeeStatus.PAID);
     }
 
     @Test

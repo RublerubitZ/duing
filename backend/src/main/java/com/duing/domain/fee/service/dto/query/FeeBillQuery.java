@@ -15,10 +15,12 @@ public record FeeBillQuery(
         LocalDate billingEndDate,
         LocalDate dueDate,
         FeeStatus status,
+        FeeStatus displayStatus,
         Long paidAmount,
         Long remainingAmount
 ) {
-    public static FeeBillQuery from(FeeBill bill, long paidAmount) {
+    /** paidAmount 는 ACTIVE 납부 합계, today 는 seoulClock 기준 오늘 — displayStatus(표기 축) 파생에 쓴다. */
+    public static FeeBillQuery from(FeeBill bill, long paidAmount, LocalDate today) {
         return new FeeBillQuery(
                 bill.getId(),
                 bill.getClubId(),
@@ -30,6 +32,7 @@ public record FeeBillQuery(
                 bill.getBillingEndDate(),
                 bill.getDueDate(),
                 bill.getStatus(),
+                FeeStatus.resolveDisplay(bill.getStatus(), bill.getAmount(), bill.getDueDate(), paidAmount, today),
                 paidAmount,
                 bill.remainingAfter(paidAmount));
     }

@@ -212,6 +212,23 @@ class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("연체 전이 배치가 실행되지 않아 저장 상태가 납부대기여도, 마감이 지난 청구의 표기 상태는 연체다")
+    void displayStatusIsOverdueForPastDueBillEvenBeforeBatchTransition() {
+        // 픽스처가 회차 말일을 마감으로 파생하므로 마감은 2026-05-31 — 지나간 절대 날짜라 실행 시점과 무관하게 항상 경과다.
+        // 연체 전이 배치는 돌지 않아 저장 status 는 PENDING 그대로 남는다.
+        saveBill(clubId, memberUser.getId(), "2026-05", FeeStatus.PENDING);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/fee-bills")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                // 저장 축은 배치가 찍은 값 그대로, 표기 축만 조회 시점 기준으로 연체를 드러낸다.
+                .body("data.content[0].status", equalTo("PENDING"))
+                .body("data.content[0].displayStatus", equalTo("OVERDUE"));
+    }
+
+    @Test
     @DisplayName("일반 멤버가 청구 현황을 조회하면 403 을 반환한다")
     void memberForbidden() {
         saveBill(clubId, saveUserId(), "2026-07", FeeStatus.PENDING);
