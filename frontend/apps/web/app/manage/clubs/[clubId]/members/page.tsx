@@ -27,6 +27,7 @@ import {
   normalizeMemberFilters,
   type MemberFilters,
 } from './_lib/memberFilters';
+import { memberPermissions } from './_lib/memberPermissions';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -81,11 +82,9 @@ export default function ClubMembersPage({
   const viewerRole = managedClub?.myRole ?? 'MEMBER';
   const clubName = managedClub?.clubName ?? '';
   const viewerUserId = me.id;
-  const isLeader = viewerRole === 'LEADER';
   const useGeneration = clubDetail?.useGeneration ?? false;
-  // 선택·벌크 툴바: 회장은 전체 액션, 임원(OFFICER)은 기수 일괄 변경만 —
-  // 기수를 안 쓰는 동아리의 임원에겐 실행 가능한 벌크 액션이 없어 선택 UI 자체를 닫는다.
-  const bulkEnabled = isLeader || useGeneration;
+  // 역할별로 무엇이 열리는지는 memberPermissions 가 단독 정의한다 — 이 페이지·벌크 툴바·상세 패널이 같은 표를 본다.
+  const permissions = memberPermissions(viewerRole, { useGeneration });
   const memberList = members ?? [];
   const pendingCount = pendingJoinRequests?.length ?? 0;
   const generations = availableGenerations(memberList);
@@ -162,7 +161,7 @@ export default function ClubMembersPage({
       className={cn(
         'mx-auto max-w-6xl space-y-6 px-4 pb-10 pt-6 sm:px-6 sm:pb-10 sm:pt-10',
         // 모바일 툴바는 액션이 2행(2열 그리드)이라 데스크탑보다 높다 — 실측 136px 을 덮도록 더 크게 잡는다.
-        bulkEnabled && 'pb-36 sm:pb-28',
+        permissions.bulkSelectable && 'pb-36 sm:pb-28',
       )}
     >
       {/* lg 미만은 제목 아래로 액션을 내린다 — 액션 묶음이 shrink-0 라 한 줄에 두면 뷰포트를 넘겨
@@ -199,7 +198,7 @@ export default function ClubMembersPage({
             memberIds={filteredIds}
             useGeneration={useGeneration}
           />
-          {viewerRole === 'OFFICER' && (
+          {permissions.canRequestSuccession && (
             <button
               type="button"
               onClick={() => setSuccessionOpen(true)}
@@ -241,7 +240,7 @@ export default function ClubMembersPage({
             onToggleAll={toggleAll}
             onOpenDetail={openDetail}
             query={query}
-            selectable={bulkEnabled}
+            selectable={permissions.bulkSelectable}
           />
         </div>
         <div className="lg:sticky lg:top-4">
@@ -261,7 +260,7 @@ export default function ClubMembersPage({
         </div>
       </div>
 
-      {bulkEnabled && (
+      {permissions.bulkSelectable && (
         <MemberBulkToolbar
           clubId={currentClubId}
           selectedIds={selectedIds}

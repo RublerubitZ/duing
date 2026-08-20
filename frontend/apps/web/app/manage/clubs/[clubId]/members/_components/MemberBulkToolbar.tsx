@@ -18,6 +18,7 @@ import {
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
+import { memberPermissions } from '../_lib/memberPermissions';
 import { runBulkMemberAction, type BulkMemberFailure } from '../_lib/runBulkMemberAction';
 
 type ActionKey = 'promote' | 'demote' | 'generation' | 'remove';
@@ -40,7 +41,7 @@ type MemberBulkToolbarProps = {
   // 이름 표시·회장 스킵 판정용. 화면에 보이는 전체 목록을 넘기면 선택분만 걸러 쓴다.
   members: ClubMember[];
   useGeneration: boolean;
-  // 승급·강등·탈퇴는 회장 전용 — OFFICER 뷰어에겐 기수 변경만 노출한다(BE 도 OFFICER 403).
+  // 어떤 액션이 열리는지는 memberPermissions 가 정의한다 — 이 툴바는 그 플래그만 소비한다.
   viewerRole: ClubMemberRole;
   // 작업 1건이 끝날 때마다 부모가 목록을 갱신(invalidate)하도록 알린다.
   onDone: () => void;
@@ -54,7 +55,7 @@ export function MemberBulkToolbar({
   viewerRole,
   onDone,
 }: MemberBulkToolbarProps) {
-  const isLeaderViewer = viewerRole === 'LEADER';
+  const permissions = memberPermissions(viewerRole, { useGeneration });
   const updateRole = useUpdateMemberRoleMutation(clubId);
   const updateGeneration = useUpdateMemberGenerationMutation(clubId);
   const removeMember = useRemoveMemberMutation(clubId);
@@ -217,7 +218,7 @@ export function MemberBulkToolbar({
               선택 <span className="font-bold text-slate-900">{selectedMembers.length}</span>명
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-              {isLeaderViewer && (
+              {permissions.canChangeRole && (
                 <>
                   <button
                     type="button"
@@ -239,7 +240,7 @@ export function MemberBulkToolbar({
                   </button>
                 </>
               )}
-              {useGeneration && (
+              {permissions.canEditGeneration && (
                 <button
                   type="button"
                   onClick={onClickGeneration}
@@ -250,7 +251,7 @@ export function MemberBulkToolbar({
                   기수 변경
                 </button>
               )}
-              {isLeaderViewer && (
+              {permissions.canKick && (
                 <button
                   type="button"
                   onClick={onClickRemove}
