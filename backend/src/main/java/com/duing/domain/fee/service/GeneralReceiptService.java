@@ -17,6 +17,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class GeneralReceiptService implements ReceiptService {
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
     private final ClubAuthService clubAuthService;
-    private final Clock clock; // Asia/Seoul — issuedAt(now)
+    private final Clock clock; // Asia/Seoul — issuedAt(now)·displayStatus 파생의 '오늘'
 
     @Override
     public ReceiptResponse getMemberReceipt(Long userId, Long billId) {
@@ -74,7 +75,10 @@ public class GeneralReceiptService implements ReceiptService {
                 receiptNumber, clubName, memberName, policyName, bill.getBillingPeriod(),
                 bill.getBillingStartDate(), bill.getBillingEndDate(), bill.getDueDate(),
                 bill.getAmount(), paidTotal, bill.remainingAfter(paidTotal), activePayments.size(),
-                bill.getStatus(), Instant.now(clock),
+                bill.getStatus(),
+                FeeStatus.resolveDisplay(bill.getStatus(), bill.getAmount(), bill.getDueDate(),
+                        paidTotal, LocalDate.now(clock)),
+                Instant.now(clock),
                 activePayments.stream()
                         // paid_at 은 KST 벽시계 계열(수기 납부 atStartOfDay(SEOUL)·BANK 매칭 transactionAt) — seoul 변환.
                         .map(payment -> new ReceiptResponse.PaymentLine(

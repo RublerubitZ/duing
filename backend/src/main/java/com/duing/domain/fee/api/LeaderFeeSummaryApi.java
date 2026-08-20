@@ -19,7 +19,9 @@ public interface LeaderFeeSummaryApi {
 
     @Operation(summary = "회비 수납 현황 집계 조회 (LEADER/OFFICER)",
             description = "동아리 청구의 총 청구액·총 납부액·미수금·수납률·청구 건수·상태별 건수를 회차·정책 필터로 집계한다. "
-                    + "취소(CANCELLED) 청구와 정정(VOID) 납부는 집계에서 제외된다.")
+                    + "취소(CANCELLED) 청구와 정정(VOID) 납부는 집계에서 제외된다. "
+                    + "상태별 건수는 저장 상태가 아니라 조회 시점 기준 표기 축(displayStatus 시멘틱)으로 센다 — "
+                    + "마감이 지난 저장 PENDING 은 pendingCount 가 아니라 overdueCount 에 잡힌다.")
     @GetMapping("/leader/clubs/{clubId}/fee-bills/summary")
     ResponseEntity<ApiResponse<FeeSummaryResponse>> getSummary(
             @PathVariable Long clubId,

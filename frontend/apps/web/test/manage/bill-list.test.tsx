@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import type { FeeBill } from '@duing/types';
+
 const mockUseClubFeeBillsQuery = vi.fn();
 const mockCancelMutate = vi.fn();
 const mockUseBillPaymentsQuery = vi.fn((_clubId: number, _billId: number) => ({
@@ -62,7 +64,7 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
 
 import { BillList } from '@/app/manage/clubs/[clubId]/fees/_components/BillList';
 
-const buildBill = (over: Partial<Record<string, unknown>> = {}) => ({
+const buildBill = (over: Partial<FeeBill> = {}): FeeBill => ({
   id: 100,
   clubId: 1,
   userId: 42,
@@ -72,10 +74,12 @@ const buildBill = (over: Partial<Record<string, unknown>> = {}) => ({
   billingStartDate: '2026-07-01',
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
-  status: 'PENDING' as const,
+  status: 'PENDING',
   paidAmount: 0,
   remainingAmount: 10000,
   ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PENDING',
 });
 
 const buildPage = (content: ReturnType<typeof buildBill>[]) => ({
@@ -109,6 +113,51 @@ describe('BillList', () => {
     expect(within(row).queryByText('회원 #42')).not.toBeInTheDocument();
     expect(within(row).getByText(/2026-07 · 10,000원 · 마감 2026-07-31/)).toBeInTheDocument();
     expect(within(row).getByText('납부대기')).toBeInTheDocument();
+  });
+
+  it('마감이 지난 미납 청구는 저장 상태가 납부대기여도 연체 배지로 보여준다', () => {
+    // 연체 전이 배치가 늦으면 status 는 아직 PENDING 인 채로 서버 파생 표기만 OVERDUE 가 된다.
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([buildBill({ status: 'PENDING', displayStatus: 'OVERDUE' })]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText('연체')).toBeInTheDocument();
+    expect(within(row).queryByText('납부대기')).not.toBeInTheDocument();
+  });
+
+  it('저장 상태가 연체여도 완납된 청구에는 납부완료 배지를 보여준다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([
+        buildBill({
+          status: 'OVERDUE',
+          displayStatus: 'PAID',
+          paidAmount: 10000,
+          remainingAmount: 0,
+        }),
+      ]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText('납부완료')).toBeInTheDocument();
+    expect(within(row).queryByText('연체')).not.toBeInTheDocument();
+  });
+
+  it('취소 액션 게이트는 표기 축이 아니라 저장 상태로 판정한다', () => {
+    // 파생 표기가 연체여도 저장 상태가 CANCELLED 면 취소 버튼은 이미 소진된 상태여야 한다.
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([buildBill({ status: 'CANCELLED', displayStatus: 'OVERDUE' })]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+
+    expect(screen.getByRole('button', { name: '취소됨' })).toBeDisabled();
+    // 배지는 표기 축을 따라 연체로 보인다 — 두 축이 서로 침범하지 않는다.
+    expect(within(screen.getByRole('listitem')).getByText('연체')).toBeInTheDocument();
   });
 
   it('회원을 못 찾으면(탈퇴 등) `회원 #id` 로 폴백한다', () => {

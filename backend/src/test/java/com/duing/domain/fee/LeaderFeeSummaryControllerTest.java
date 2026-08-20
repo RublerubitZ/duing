@@ -294,6 +294,25 @@ class LeaderFeeSummaryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("연체 전이 배치 전이라 저장 상태가 납부대기여도, 마감이 지난 청구는 overdueCount 로 집계되고 pendingCount 에서 빠진다")
+    void pastDueBillCountedAsOverdueEvenBeforeBatchTransition() {
+        // 마감(2026-05-31)이 오늘(2026-06-15)보다 앞서지만 납부·배치가 없어 저장 status 는 PENDING 그대로다.
+        FeeBill pastDueBill = saveBill(memberUserId, 30000L, PAST_PERIOD);
+        assertThat(feeBillRepository.findById(pastDueBill.getId()).orElseThrow().getStatus())
+                .isEqualTo(FeeStatus.PENDING);
+        // 마감이 남은 청구는 표기도 PENDING — 카운트가 한쪽으로 몰리지 않음을 같이 확인한다.
+        saveBill(memberUserId, 20000L, FUTURE_PERIOD);
+
+        Response response = getSummaryAs(leaderToken, "");
+        response.then().statusCode(HttpStatus.OK.value());
+
+        assertThat(response.jsonPath().getLong("data.billCount")).isEqualTo(2L);
+        // 저장 축으로 세면 pending 2·overdue 0 이지만, 표기 축이라 마감 경과 1건이 연체로 넘어간다.
+        assertThat(response.jsonPath().getLong("data.overdueCount")).isEqualTo(1L);
+        assertThat(response.jsonPath().getLong("data.pendingCount")).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("운영진이 아닌 일반 멤버가 수납 현황을 조회하면 403 을 반환한다")
     void nonManagerForbidden() {
         saveBill(memberUserId, 10000L, FUTURE_PERIOD);

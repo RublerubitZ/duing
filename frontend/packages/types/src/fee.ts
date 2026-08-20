@@ -76,6 +76,8 @@ export type FeeBill = {
   billingEndDate: string;
   dueDate: string;
   status: FeeStatus;
+  // 표기 축(서버 파생, 배치 무관) — 화면 표기는 이 값, 액션 가드는 status
+  displayStatus: FeeStatus;
   paidAmount: number;
   remainingAmount: number;
 };
@@ -92,6 +94,8 @@ export type MyFee = {
   billingEndDate: string;
   dueDate: string;
   status: FeeStatus;
+  // 표기 축(서버 파생, 배치 무관) — 화면 표기는 이 값, 액션 가드는 status
+  displayStatus: FeeStatus;
   paidAmount: number;
   remainingAmount: number;
 };
@@ -133,6 +137,8 @@ export type Receipt = {
   remaining: number;
   paymentCount: number;
   status: FeeStatus;
+  // 표기 축(서버 파생, 배치 무관) — 화면 표기는 이 값, 액션 가드는 status
+  displayStatus: FeeStatus;
   issuedAt: string; // ISO 일시(발급 시각)
   payments: ReceiptPaymentLine[];
 };

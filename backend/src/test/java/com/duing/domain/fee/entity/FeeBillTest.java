@@ -44,5 +44,6 @@ class FeeBillTest {
         assertThat(bill.remainingAfter(0L)).isEqualTo(10000L);
         assertThat(bill.remainingAfter(4000L)).isEqualTo(6000L);
         assertThat(bill.remainingAfter(10000L)).isZero();
+        assertThat(bill.remainingAfter(12000L)).isEqualTo(-2000L); // 음수 비클램프 계약 핀
     }
 }

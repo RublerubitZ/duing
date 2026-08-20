@@ -45,6 +45,7 @@ const buildBill = (over: Partial<Record<string, unknown>> = {}) => ({
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
   status: 'PARTIAL_PAID' as const,
+  displayStatus: 'PARTIAL_PAID' as const,
   paidAmount: 4000,
   remainingAmount: 6000,
   ...over,

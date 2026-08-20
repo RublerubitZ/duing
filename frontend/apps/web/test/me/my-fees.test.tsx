@@ -36,6 +36,8 @@ const buildFee = (over: Partial<MyFee> = {}): MyFee => ({
   paidAmount: 0,
   remainingAmount: 10000,
   ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PENDING',
 });
 
 const buildClub = (clubId: number, clubName: string) => ({
@@ -178,6 +180,49 @@ describe('MyFeeList', () => {
 
     const row = screen.getByRole('listitem');
     expect(within(row).getByText('취소됨')).toBeInTheDocument();
+  });
+
+  it('마감이 지난 미납 청구는 저장 상태가 납부대기여도 연체 배지로 보여준다', () => {
+    // 연체 전이 배치가 늦으면 status 는 아직 PENDING 인 채로 서버 파생 표기만 OVERDUE 가 된다.
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [buildFee({ status: 'PENDING', displayStatus: 'OVERDUE' })],
+      isLoading: false,
+    });
+    render(<MyFeeList />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText('연체')).toBeInTheDocument();
+    expect(within(row).queryByText('납부대기')).not.toBeInTheDocument();
+  });
+
+  it('저장 상태가 연체여도 완납된 청구에는 납부완료 배지를 보여준다', () => {
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [
+        buildFee({
+          status: 'OVERDUE',
+          displayStatus: 'PAID',
+          paidAmount: 10000,
+          remainingAmount: 0,
+        }),
+      ],
+      isLoading: false,
+    });
+    render(<MyFeeList />);
+
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText('납부완료')).toBeInTheDocument();
+    expect(within(row).queryByText('연체')).not.toBeInTheDocument();
+  });
+
+  it('취소된 청구의 영수증 링크 차단은 표기 축이 아니라 저장 상태로 판정한다', () => {
+    // 취소는 실제 상태 — 파생 표기가 무엇이든 영수증을 열어주면 안 된다.
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [buildFee({ status: 'CANCELLED', displayStatus: 'OVERDUE', paidAmount: 4000 })],
+      isLoading: false,
+    });
+    render(<MyFeeList />);
+
+    expect(screen.queryByRole('link', { name: '영수증' })).not.toBeInTheDocument();
   });
 
   it('동아리명이 로딩 중이면(청구가 먼저 도착해도) 로딩을 유지하고 #id 폴백을 깜빡이지 않는다', () => {

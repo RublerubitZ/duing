@@ -17,6 +17,7 @@ type Props = {
  * 연체가 있으면 "연체 N건"을 메인으로 강조(coral)하고 다음 마감은 숨긴다. 연체가 없으면 가장 이른 마감을 안내한다.
  */
 export function MyFeeSummary({ fees, today }: Props) {
+  // 취소 여부는 저장 status 로 판정한다 — 파생 표기가 아니라 실제로 청구가 살아 있는지의 문제다.
   const unpaidFees = fees.filter((fee) => fee.status !== 'CANCELLED' && fee.remainingAmount > 0);
 
   if (unpaidFees.length === 0) {
@@ -28,7 +29,8 @@ export function MyFeeSummary({ fees, today }: Props) {
   }
 
   const totalOutstanding = unpaidFees.reduce((sum, fee) => sum + fee.remainingAmount, 0);
-  const overdueCount = unpaidFees.filter((fee) => fee.status === 'OVERDUE').length;
+  // 연체 강조는 표기 축(displayStatus) 기준 — 연체 전이 배치가 늦어도 마감이 지난 미납은 연체로 센다.
+  const overdueCount = unpaidFees.filter((fee) => fee.displayStatus === 'OVERDUE').length;
   const hasOverdue = overdueCount > 0;
   // YYYY-MM-DD 사전식 정렬 = 날짜 오름차순. 가장 이른 미납 마감.
   const nearestDueDate = unpaidFees.map((fee) => fee.dueDate).sort()[0] ?? '';

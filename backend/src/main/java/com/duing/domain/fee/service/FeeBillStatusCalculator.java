@@ -19,13 +19,7 @@ public class FeeBillStatusCalculator {
     }
 
     public FeeStatus calculate(long billAmount, LocalDate dueDate, long activePaidSum) {
-        if (activePaidSum >= billAmount) {
-            return FeeStatus.PAID;
-        }
-        boolean pastDue = dueDate.isBefore(LocalDate.now(clock));
-        if (activePaidSum > 0) {
-            return pastDue ? FeeStatus.OVERDUE : FeeStatus.PARTIAL_PAID;
-        }
-        return pastDue ? FeeStatus.OVERDUE : FeeStatus.PENDING;
+        // 공식 정본은 FeeStatus.calculate — 저장 축(여기)과 표기 축(resolveDisplay)이 같은 식을 쓰도록 위임한다.
+        return FeeStatus.calculate(billAmount, dueDate, activePaidSum, LocalDate.now(clock));
     }
 }
