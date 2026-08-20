@@ -135,6 +135,8 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .select(payment.amount.sum().coalesce(0L))
                 .from(payment)
                 .where(payment.feeBillId.eq(feeBill.id), payment.status.eq(PaymentStatus.ACTIVE)));
+        // FeeBill.remainingAfter() 의 SQL 미러 — 후보 필터(where)와 표시값(select) 양쪽에 쓰여 스칼라 호출로 뺄 수 없다.
+        // 잔액 정의를 바꾸면 엔티티 메서드와 함께 바꿀 것.
         NumberExpression<Long> remaining = feeBill.amount.subtract(activePaidSum);
         return queryFactory
                 .select(Projections.constructor(MatchCandidate.class,

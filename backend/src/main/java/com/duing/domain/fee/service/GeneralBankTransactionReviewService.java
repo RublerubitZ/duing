@@ -46,7 +46,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final BankMatchingAdminService bankMatchingAdminService;
     private final MatchedPaymentService matchedPaymentService;
-    private final FeeBillStatusCalculator statusCalculator;
+    private final FeeBillStatusRefresher statusRefresher;
     private final Clock clock;
 
     @Override
@@ -91,32 +91,20 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     @Transactional
     public void approve(Long clubId, Long actorId, Long txId, Long feeBillId) {
         clubAuthService.requireManager(actorId, clubId);
-        // 거래를 잠근 채 후보 검증을 수행한다(ignore/unmatch 와 일관). approve 는 @Transactional 이고
-        // createMatchedPayment 가 같은 거래를 다시 잠그지만 같은 트랜잭션에 재진입하므로 재잠금은 안전하다.
-        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(txId, clubId)
-                .orElseThrow(BankMatchingException.BankTransactionNotFoundException::new);
-        if (!transaction.isPending()) {
-            throw new BankMatchingException.AlreadyMatchedException();
-        }
-        // 부분 매칭 허용: 선택한 청구가 정확 후보(잔액=입금액)가 아니어도 같은 동아리의 미납 청구이고
-        // 입금액이 잔액 이하면 부분 납부로 적용할 수 있다. 청구 자체를 먼저 잠가 잔액·상태를 검증한다
-        // (createMatchedPayment 가 같은 트랜잭션에서 재진입 잠금하므로 안전).
-        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(feeBillId, clubId)
-                .orElseThrow(BankMatchingException.InvalidMatchCandidateException::new);
-        if (!bill.getStatus().isUnpaidRemainder()) {
-            // 완납·취소된 청구는 매칭 대상이 아니다 — 후보 쿼리(findMatchCandidates)와 같은 술어를 쓴다.
+        // 거래 잠금·PENDING 확인·청구 잠금·상태 가드·잔액 재계산은 전부 createMatchedPayment 한 곳에 맡긴다.
+        // (과거의 사전검증 사본은 같은 TX 재진입이라 통과 후 내부 검증이 한 번 더 돌던 중복 왕복이었다.)
+        // 수동 승인: MANUAL_MATCHED·autoMatched=false → 표준 "확인"/부분 납부 알림 문구,
+        // allowPartial=true → 입금액 ≤ 잔액이면 부분 납부로 적용.
+        try {
+            matchedPaymentService.createMatchedPayment(
+                    txId, clubId, feeBillId, actorId, MatchStatus.MANUAL_MATCHED, false, true);
+        } catch (FeeBillException.FeeBillNotFoundException
+                 | BankMatchingException.BillNotMatchableException
+                 | BankMatchingException.MatchAmountMismatchException candidateRejection) {
+            // 수동 승인 계약 보존: 청구 축 부적격(없음·타 동아리·취소·완납·잔액 초과)은 종전대로
+            // "매칭 후보 아님" 400 으로 수렴한다. 거래 축(AlreadyMatched 409·BankTransactionNotFound 404)은 그대로 전파.
             throw new BankMatchingException.InvalidMatchCandidateException();
         }
-        long remaining = bill.getAmount() - paymentRepository.sumActiveByFeeBillId(bill.getId());
-        if (transaction.getAmount() > remaining) {
-            // 입금액이 잔액을 초과하면 부분 납부로도 적용할 수 없다.
-            throw new BankMatchingException.InvalidMatchCandidateException();
-        }
-        // 실제 납부·상태 전이는 BE-5a 의 매칭 납부 생성에 위임한다(거래 재잠금·PENDING 재확인·잔액 재검증 포함).
-        // 수동 승인이므로 MANUAL_MATCHED·autoMatched=false → 표준 "확인"/부분 납부 알림 문구로 발송되고,
-        // allowPartial=true 로 입금액 ≤ 잔액 부분 납부를 허용한다.
-        matchedPaymentService.createMatchedPayment(
-                transaction, feeBillId, actorId, MatchStatus.MANUAL_MATCHED, false, true);
 
         log.info("bank transaction approved: actorId={}, clubId={}, txId={}, feeBillId={}",
                 actorId, clubId, txId, feeBillId);
@@ -167,8 +155,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
 
         payment.voidPayment(actorId, UNMATCH_REASON, LocalDateTime.now(clock));
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
-        FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), activePaid);
-        bill.updateStatus(newStatus);
+        FeeStatus newStatus = statusRefresher.refresh(bill, activePaid);
         transaction.resetToPending();
 
         // 매칭취소는 납부 정정을 엔티티에서 직접 호출해 GeneralPaymentService 계측을 타지 않으므로,

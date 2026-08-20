@@ -61,6 +61,8 @@ public class GeneralReceiptService implements ReceiptService {
         if (bill.getStatus() == FeeStatus.CANCELLED || activePayments.isEmpty()) {
             throw new FeeBillException.ReceiptUnavailableException();
         }
+        // ACTIVE 납부 합산의 인메모리 형 — 정본은 PaymentRepository.sumActiveByFeeBillId. 영수증 라인 항목으로
+        // 이미 로드한 activePayments 를 재사용해 추가 왕복을 피한다(Payment.isActive 술어 공유로 의미 동치).
         long paidTotal = activePayments.stream().mapToLong(Payment::getAmount).sum();
         String memberName = userRepository.findById(bill.getUserId()).map(User::getName).orElse("회원");
         String clubName = clubRepository.findById(bill.getClubId()).map(Club::getName).orElse("동아리");
@@ -71,7 +73,7 @@ public class GeneralReceiptService implements ReceiptService {
         return new ReceiptResponse(
                 receiptNumber, clubName, memberName, policyName, bill.getBillingPeriod(),
                 bill.getBillingStartDate(), bill.getBillingEndDate(), bill.getDueDate(),
-                bill.getAmount(), paidTotal, bill.getAmount() - paidTotal, activePayments.size(),
+                bill.getAmount(), paidTotal, bill.remainingAfter(paidTotal), activePayments.size(),
                 bill.getStatus(), Instant.now(clock),
                 activePayments.stream()
                         // paid_at 은 KST 벽시계 계열(수기 납부 atStartOfDay(SEOUL)·BANK 매칭 transactionAt) — seoul 변환.
