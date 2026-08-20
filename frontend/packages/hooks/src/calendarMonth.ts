@@ -129,17 +129,15 @@ export function useCalendarMonthsQuery(
     queries: ranges.map((range) => ({
       queryKey: globalEventKeys.publicList({ from: range.from, to: range.to }),
       queryFn: () => client.globalEvents.list({ from: range.from, to: range.to }),
-      staleTime: 30 * 1000,
     })),
   });
 
+  // 관측자가 그리드·Upcoming 둘 이상이라 staleTime 0 이면 마운트마다 재요청이 된다.
+  // 전역 기본값 30초를 그대로 쓴다 — 세 도메인 모두 같고, 모집 마감일은 초 단위로 바뀌지 않는다.
   const recruitmentQueries = useQueries({
     queries: ranges.map((range) => ({
       queryKey: recruitmentQueryKeys.calendar(range.yearMonth),
       queryFn: () => client.recruitments.calendar(range.yearMonth),
-      // 관측자가 그리드·Upcoming 둘 이상이 되면서 staleTime 0 은 마운트마다 재요청이 된다.
-      // 다른 두 도메인과 같은 30초로 맞춘다(모집 마감일은 초 단위로 바뀌지 않는다).
-      staleTime: 30 * 1000,
     })),
   });
 
@@ -156,7 +154,6 @@ export function useCalendarMonthsQuery(
           });
           return items.map((item) => mappers.toClubEvent(item, club));
         },
-        staleTime: 30 * 1000,
         enabled: usesMyClubEvents,
       })),
     ),
@@ -172,7 +169,6 @@ export function useCalendarMonthsQuery(
           mappers.toClubEvent(item, { clubId: item.clubId, clubName: item.clubName }),
         );
       },
-      staleTime: 30 * 1000,
     })),
   });
 

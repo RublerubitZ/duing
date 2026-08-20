@@ -23,7 +23,6 @@ export function useClubFeePoliciesQuery(clubId: number) {
   return useQuery({
     queryKey: feeQueryKeys.policies(clubId),
     queryFn: () => client.leader.fees.listPolicies(clubId),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -60,7 +59,6 @@ export function useClubFeeBillsQuery(clubId: number, params: BillSearchParams) {
   return useQuery({
     queryKey: feeQueryKeys.bills(clubId, params),
     queryFn: () => client.leader.fees.listBills(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -92,7 +90,6 @@ export function useBillPaymentsQuery(clubId: number, billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.billPayments(clubId, billId),
     queryFn: () => client.leader.fees.payments.list(clubId, billId),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -132,7 +129,6 @@ export function useClubFeeSummaryQuery(clubId: number, params: FeeSummaryParams)
   return useQuery({
     queryKey: feeQueryKeys.summary(clubId, params),
     queryFn: () => client.leader.fees.summary(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -141,7 +137,6 @@ export function useMyFeesQuery(params: MyFeeSearchParams) {
   return useQuery({
     queryKey: feeQueryKeys.myFees(params),
     queryFn: () => client.my.fees(params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -151,7 +146,6 @@ export function useClubFeeAccountQuery(clubId: number) {
   return useQuery({
     queryKey: feeQueryKeys.account(clubId),
     queryFn: () => client.leader.fees.account.get(clubId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -189,7 +183,6 @@ export function useMemberFeeAccountQuery(clubId: number) {
   return useQuery({
     queryKey: feeQueryKeys.memberAccount(clubId),
     queryFn: () => client.clubs.feeAccount(clubId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -200,7 +193,6 @@ export function useClubFeeReceiptQuery(clubId: number, billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.receipt(clubId, billId),
     queryFn: () => client.leader.fees.receipt(clubId, billId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -211,7 +203,6 @@ export function useMyFeeReceiptQuery(billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.myReceipt(billId),
     queryFn: () => client.my.feeReceipt(billId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }

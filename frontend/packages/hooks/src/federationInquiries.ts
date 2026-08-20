@@ -24,7 +24,6 @@ export function useMyFederationInquiriesQuery(params: MyListParams, enabled = tr
     queryKey: federationInquiryQueryKeys.my(params),
     queryFn: () => client.federationInquiries.listMine(params),
     enabled,
-    staleTime: 30_000,
   });
 }
 

@@ -43,7 +43,6 @@ export function useClubBankMatchingStatusQuery(clubId: number) {
   return useQuery({
     queryKey: bankQueryKeys.matchingStatus(clubId),
     queryFn: () => client.leader.fees.bank.status(clubId),
-    staleTime: 30 * 1000,
     // 403(비운영진)은 재시도해도 결과가 바뀌지 않으므로 즉시 중단한다(검토 큐 조회와 동일 정책).
     retry: retryUnlessForbidden,
   });
@@ -55,7 +54,6 @@ export function useBankTransactionsQuery(clubId: number, params: BankTransaction
   return useQuery({
     queryKey: bankQueryKeys.transactions(clubId, params),
     queryFn: () => client.leader.fees.bank.list(clubId, params),
-    staleTime: 30 * 1000,
     retry: retryUnlessForbidden,
   });
 }
@@ -97,7 +95,6 @@ export function useAdminBankMatchingQuery() {
   return useQuery({
     queryKey: bankQueryKeys.adminOverview(),
     queryFn: () => client.admin.bankMatching.overview(),
-    staleTime: 30 * 1000,
   });
 }
 

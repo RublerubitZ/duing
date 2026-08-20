@@ -12,7 +12,6 @@ export function useClubEventListQuery(clubId: number, params: ClubEventListParam
   return useQuery({
     queryKey: clubEventKeys.list(clubId, params),
     queryFn: () => client.clubEvents.list(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 

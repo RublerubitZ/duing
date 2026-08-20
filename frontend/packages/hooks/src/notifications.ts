@@ -18,7 +18,6 @@ export function useUnreadCountQuery(enabled = true) {
   return useQuery({
     queryKey: notificationQueryKeys.unreadCount(),
     queryFn: () => client.notifications.unreadCount(),
-    staleTime: 30_000,
     refetchOnWindowFocus: true,
     enabled,
   });
