@@ -2,10 +2,7 @@ package com.duing.domain.facilitybooking.controller.dto.response;
 
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.service.FacilityBookingService.BookingDetailResult;
-import com.duing.domain.facilitybooking.service.FacilityBookingService.HistoryEntry;
-import com.duing.global.time.TimeMapper;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -18,20 +15,13 @@ public record FacilityBookingDetailResponse(
         String contactPhone,
         @JsonInclude(JsonInclude.Include.NON_NULL) String rejectReason,
         @JsonInclude(JsonInclude.Include.NON_NULL) String conflictDetail,
-        List<HistoryItem> history
+        List<BookingHistoryItemResponse> history
 ) {
-    public record HistoryItem(BookingStatus previousStatus, BookingStatus newStatus,
-                              String reason, Instant changedAt) {
-        static HistoryItem from(HistoryEntry entry) {
-            return new HistoryItem(entry.previousStatus(), entry.newStatus(), entry.reason(),
-                    TimeMapper.systemWallClockToInstant(entry.changedAt()));
-        }
-    }
 
     public static FacilityBookingDetailResponse from(BookingDetailResult result) {
         return new FacilityBookingDetailResponse(result.bookingId(), result.facilityId(), result.roomName(),
                 result.date(), result.startTime(), result.endTime(), result.status(), result.purpose(),
                 result.attendeeCount(), result.contactPhone(), result.rejectReason(), result.conflictDetail(),
-                result.history().stream().map(HistoryItem::from).toList());
+                result.history().stream().map(BookingHistoryItemResponse::from).toList());
     }
 }
