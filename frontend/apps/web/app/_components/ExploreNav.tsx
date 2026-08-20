@@ -3,7 +3,6 @@
 // GNB 탭 이동은 View Transition 제외(next/link) — 병렬 탭 전환에 전역 크로스페이드를 돌리면
 // 화면 전체가 재구성되는 것처럼 깜빡인다. VT 는 목록→상세(로고 모핑) 전진 내비에만 쓴다.
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';
 import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
@@ -12,6 +11,7 @@ import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 import { BrandMark } from './BrandMark';
 import { NotificationBell } from './NotificationBell';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 type NavItem = {
   label: string;
@@ -38,7 +38,8 @@ type Props = {
 };
 
 export function ExploreNav({ active, floating = false, slimOnMobile = false }: Props) {
-  const pathname = usePathname();
+  // raw usePathname 은 트레일링 슬래시 URL 에서 프리렌더 셸과 갈린다 — 정규화 훅을 쓴다(#1021).
+  const pathname = useRoutePathname();
   const lastInfoPath = useLastInfoPath(pathname);
 
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
