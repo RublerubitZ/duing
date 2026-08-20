@@ -22,7 +22,8 @@ import { usePathname } from 'next/navigation';
  */
 export function useRoutePathname(): string {
   const pathname = usePathname();
-  if (pathname === '/index') return '/';
-  if (pathname.length > 1 && pathname.endsWith('/')) return pathname.replace(/\/+$/, '') || '/';
-  return pathname;
+  // 슬래시를 먼저 접는다 — '/index/' 같은 합성 케이스도 '/index' 로 수렴한 뒤 '/' 로 접힌다.
+  const collapsed =
+    pathname.length > 1 && pathname.endsWith('/') ? pathname.replace(/\/+$/, '') || '/' : pathname;
+  return collapsed === '/index' ? '/' : collapsed;
 }
