@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 
 import { useClubDetailQuery, useClubPhotosQuery, useClubMembershipQuery } from '@duing/hooks';
-import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import posthog from 'posthog-js';
 
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ClubContactCard } from '../_components/ClubContactCard';
@@ -24,7 +24,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
     posthog.capture('club_detail_viewed', { club_id: clubId });
   }, [clubId]);
   // 멤버에게만 공지/일정 탭을 노출한다. 비로그인 시 null 로 비활성화해 불필요한 요청을 막는다.
-  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
   if (detail.isLoading) {

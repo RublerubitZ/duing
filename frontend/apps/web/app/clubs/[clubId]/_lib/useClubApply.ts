@@ -1,10 +1,10 @@
 'use client';
 
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ApiError } from '@duing/api';
 import { useCheckEligibilityMutation } from '@duing/hooks';
-import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { safeExternalHref, toRoute } from '../../../_lib/route';
@@ -17,7 +17,7 @@ import { safeExternalHref, toRoute } from '../../../_lib/route';
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
  */
 export function useClubApply(recruitment: StudentRecruitmentProjection | undefined) {
-  const authStatus = useAuthStore((state) => state.status);
+  const authStatus = useSeededAuthStatus();
   const router = useGuardedRouter();
   const { addToast } = useToast();
   const eligibilityCheck = useCheckEligibilityMutation();
