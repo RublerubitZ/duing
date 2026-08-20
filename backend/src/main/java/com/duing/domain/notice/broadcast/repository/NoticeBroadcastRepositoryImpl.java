@@ -7,6 +7,7 @@ import com.duing.domain.notification.NotificationRetention;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    private final Clock clock;
 
     @Override
     public List<BroadcastSlice> findSliceForUser(Long userId, int limit) {
@@ -25,7 +27,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .select(noticeBroadcast, noticeBroadcastRead.readAt)
                 .from(noticeBroadcast)
                 .leftJoin(noticeBroadcastRead).on(readJoin)
-                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor()))
+                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)))
                 .orderBy(noticeBroadcast.createdAt.desc())
                 .limit(limit)
                 .fetch();
@@ -48,7 +50,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .leftJoin(noticeBroadcastRead).on(readJoin)
                 .where(
                         noticeBroadcastRead.id.userId.isNull(),
-                        noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor())
+                        noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock))
                 )
                 .fetchOne();
         return count == null ? 0L : count;
@@ -59,7 +61,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
         Long count = queryFactory
                 .select(noticeBroadcast.count())
                 .from(noticeBroadcast)
-                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor()))
+                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)))
                 .fetchOne();
         return count == null ? 0L : count;
     }

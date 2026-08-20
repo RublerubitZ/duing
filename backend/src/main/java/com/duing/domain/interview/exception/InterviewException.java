@@ -1,6 +1,7 @@
 package com.duing.domain.interview.exception;
 
 import com.duing.domain.interview.service.dto.query.UnresolvedMembersPayload;
+import com.duing.global.constant.ErrorCodes;
 import com.duing.global.exception.ApplicationException;
 import org.springframework.http.HttpStatus;
 
@@ -117,7 +118,7 @@ public class InterviewException extends ApplicationException {
      */
     public static final class RecruitmentClosed extends InterviewException {
         private static final String MESSAGE = "마감된 모집이라 면접 가능 시간을 제출할 수 없어요.";
-        public RecruitmentClosed() { super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_CLOSED"); }
+        public RecruitmentClosed() { super(MESSAGE, HttpStatus.CONFLICT, ErrorCodes.RECRUITMENT_CLOSED); }
     }
 
     public static final class ApplicationAlreadyDecided extends InterviewException {

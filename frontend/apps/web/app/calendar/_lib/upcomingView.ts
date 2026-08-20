@@ -1,5 +1,7 @@
 import { addDaysIso } from '@duing/hooks';
 
+import { ddayLabel } from '@/app/_lib/dday';
+
 import type { AccentStyle, CalEvent } from '../_types';
 import { ACCENT, KIND_LABEL } from './calendarDisplay';
 
@@ -12,8 +14,10 @@ export type UpcomingView = {
   dayNumber: number;
   /** '월' */
   weekdayLabel: string;
-  /** 'D-DAY' | 'D-28' */
+  /** 'D-day' | 'D-28' — 표기는 모집 표면과 공용 SSOT(ddayLabel)를 따른다 */
   dday: string;
+  /** 강조(당일 여부) 판정용 — 라벨 문자열 비교로 스타일이 갈라지지 않게 숫자를 직접 준다. */
+  daysLeft: number;
   title: string;
   /** '지원폼 · FLYING' — 동아리가 없으면 장소만 */
   placeLabel: string;
@@ -54,7 +58,8 @@ export function toUpcomingView(event: CalEvent, todayIso: string): UpcomingView 
     monthNumber: Number(monthPart),
     dayNumber: Number(dayPart),
     weekdayLabel: WEEKDAY_KR[eventDate.getDay()] ?? '',
-    dday: daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`,
+    dday: ddayLabel(daysLeft),
+    daysLeft,
     title: event.title,
     // 장소가 비어 있는 일정이 있어 결합 전에 걸러낸다(안 그러면 ' · 동아리' 처럼 구분점이 앞에 남는다).
     placeLabel: [event.place, event.club].filter(Boolean).join(' · '),

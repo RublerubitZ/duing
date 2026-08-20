@@ -20,6 +20,7 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
@@ -355,7 +356,7 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
                 .body(Map.of("location", "바뀐 장소"))
                 .when().patch(ROUND_PATH, round.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value())
-                .body("code", equalTo("RECRUITMENT_CLOSED"));
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED));
     }
 
     @Test

@@ -47,6 +47,24 @@ class NotificationRetentionJobTest extends IntegrationTestBase {
         assertThat(countById(freshId)).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("생성 후 정확히 30일 경계 직전(1시간 이내)의 알림은 파기되지 않는다")
+    void keepsNotificationJustInsideRetentionWindow() {
+        // 회귀 방지: 경계를 KST 벽시계로 계산하면 JVM 존이 UTC 인 환경(CI·prod)에서
+        // 경계가 9시간 앞당겨져 이 알림(경계 안쪽 1시간)이 파기된다 — created_at 과
+        // 같은 system 존 벽시계로 경계를 계산해야 유지된다.
+        User user = saveUser();
+        Notification notification = Notification.create(user.getId(), NotificationType.RECRUITMENT_OPENED,
+                "경계 알림", "본문", "/clubs/1", Map.of(), "retention-dedup-" + sequence.incrementAndGet());
+        Long boundaryId = notificationRepository.saveAndFlush(notification).getId();
+        jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?",
+                Timestamp.valueOf(LocalDateTime.now().minusDays(30).plusHours(1)), boundaryId);
+
+        job.run();
+
+        assertThat(countById(boundaryId)).isEqualTo(1);
+    }
+
     private int countById(Long id) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM notification WHERE id = ?", Integer.class, id);

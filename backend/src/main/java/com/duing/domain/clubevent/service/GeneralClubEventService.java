@@ -1,5 +1,6 @@
 package com.duing.domain.clubevent.service;
 
+import com.duing.domain.clubevent.controller.dto.response.AdminClubEventCardResponse;
 import com.duing.domain.clubevent.controller.dto.response.ClubEventCardResponse;
 import com.duing.domain.clubevent.controller.dto.response.ClubEventDetailResponse;
 import com.duing.domain.clubevent.entity.ClubEvent;
@@ -81,6 +82,24 @@ public class GeneralClubEventService implements ClubEventService {
         LocalDateTime toTs   = toDate.atTime(LocalTime.MAX);
         return eventRepository.findWindow(clubId, fromTs, toTs).stream()
                 .map(ClubEventCardResponse::from)
+                .toList();
+    }
+
+    @Override
+    public List<AdminClubEventCardResponse> listWindowForAdmin(LocalDate from, LocalDate to) {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate fromDate = from != null ? from : today.minusDays(DEFAULT_PAST_DAYS);
+        LocalDate toDate   = to   != null ? to   : today.plusDays(DEFAULT_FUTURE_DAYS);
+        if (toDate.isBefore(fromDate)) {
+            throw new ClubEventException.InvalidWindowException();
+        }
+        if (ChronoUnit.DAYS.between(fromDate, toDate) > MAX_WINDOW_DAYS) {
+            throw new ClubEventException.InvalidWindowException();
+        }
+        LocalDateTime fromTs = fromDate.atStartOfDay();
+        LocalDateTime toTs   = toDate.atTime(LocalTime.MAX);
+        return eventRepository.findWindowAllClubs(fromTs, toTs).stream()
+                .map(AdminClubEventCardResponse::from)
                 .toList();
     }
 

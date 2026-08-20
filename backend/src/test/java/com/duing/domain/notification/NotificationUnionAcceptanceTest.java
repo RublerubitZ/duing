@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.hasItem;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -19,6 +20,7 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,7 +108,16 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     void officersAllFansOutPersonalNotifications() {
         User officer = saveUser(UserRole.STUDENT);
         String officerToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
-        Club club = clubRepository.save(Club.create("오피서클럽", ClubCategory.ACADEMIC, "분과", "설명", null));
+        // 알림 수신자 스코프는 ACTIVE 동아리 소속만 대상이다(정책 2026-08-18) — 팬아웃 전제를 명시한다.
+        Club club = Club.create("오피서클럽", ClubCategory.ACADEMIC, "분과", "설명", null);
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
+        club = clubRepository.save(club);
         clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
 
         String noticeTitle = "운영진 전용 공지";

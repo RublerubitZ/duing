@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 public record UpdateProfileRequest(
         // 한국어 기반 서비스 정책 — 가입(SignupRequest)과 동일하게 한글 완성형 2~7자만 허용.
         @NotBlank(message = "이름은 필수 입력값입니다.")
-        @Pattern(regexp = "^[가-힣]{2,7}$", message = "이름은 한글 2~7자만 입력할 수 있습니다.")
+        @Pattern(regexp = UserNameRules.KOREAN_NAME_PATTERN, message = UserNameRules.KOREAN_NAME_MESSAGE)
         String name,
 
         // 학년 — 생략 시 기존 값 유지(선택). 전화번호는 이 API로 변경할 수 없다(번호 변경은 MO 재인증 필요).

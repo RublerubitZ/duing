@@ -124,7 +124,7 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
         saveFavorite(favoringUser, club);
 
         // 오늘 시작하는 모집
-        saveOpenRecruitment(club, "오늘시작모집", today, today.plusDays(14));
+        Recruitment recruitment = saveOpenRecruitment(club, "오늘시작모집", today, today.plusDays(14));
 
         long beforeCount = notificationRepository.count();
         job.run();
@@ -132,11 +132,17 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
 
         assertThat(createdCount).isEqualTo(1);
 
-        // RECRUITMENT_OPENED dedup_key 형식 검증
-        boolean hasOpenedKey = notificationRepository.findAll().stream()
-                .filter(n -> n.getUserId().equals(favoringUser.getId()))
-                .anyMatch(n -> n.getDedupKey().startsWith("RECRUITMENT_OPENED:r="));
-        assertThat(hasOpenedKey).isTrue();
+        Notification openedNotification = notificationRepository.findAll().stream()
+                .filter(notification -> notification.getUserId().equals(favoringUser.getId()))
+                .findFirst()
+                .orElseThrow();
+        // dedup_key 는 리스너 발송분을 배치가 흡수하는 유일한 계약이라 형식 전체를 정확히 고정한다.
+        assertThat(openedNotification.getDedupKey())
+                .isEqualTo("RECRUITMENT_OPENED:r=" + recruitment.getId());
+        // 제목에는 동아리 이름이, 본문에는 모집 제목이 들어간다 (행→이벤트 매핑에서 뒤바뀜 방지).
+        assertThat(openedNotification.getTitle())
+                .isEqualTo("찜한 " + club.getName() + "의 새 모집이 시작됐어요");
+        assertThat(openedNotification.getBody()).startsWith("오늘시작모집 · ");
     }
 
     @Test
@@ -163,6 +169,24 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
         assertThat(openedNotification.getBody()).contains("상시 모집");
         assertThat(openedNotification.getBody()).doesNotContain("null");
         assertThat(openedNotification.getLinkUrl()).isEqualTo("/clubs/" + club.getId());
+    }
+
+    @Test
+    @DisplayName("아직 시작하지 않은 모집예정 공고는 마감이 3일 뒤라도 마감 임박 알림 후보에서 제외된다")
+    void upcomingRecruitmentIsExcludedFromDeadlineKind() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+
+        User favoringUser = saveStudent("찜유저모집예정");
+        Club club = saveActiveClub("모집예정동아리");
+        saveFavorite(favoringUser, club);
+        // 내일 시작·3일 뒤 마감 — 표기 축(RecruitmentDisplayStatus) 기준 UPCOMING 이라
+        // 접수가 열리기 전인데 "마감 3일 전" 알림이 나가면 안 된다 (회귀 방지).
+        saveOpenRecruitment(club, "모집예정공고", today.plusDays(1), today.plusDays(3));
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+
+        assertThat(notificationRepository.count() - beforeCount).isZero();
     }
 
     @Test
@@ -239,9 +263,9 @@ class DeadlineNotificationJobTest extends IntegrationTestBase {
         favoriteRepository.save(favorite);
     }
 
-    private void saveOpenRecruitment(Club club, String title, LocalDate start, LocalDate end) {
+    private Recruitment saveOpenRecruitment(Club club, String title, LocalDate start, LocalDate end) {
         Recruitment recruitment = Recruitment.create(club, title, null, start, end, 10);
-        recruitmentRepository.save(recruitment);
+        return recruitmentRepository.save(recruitment);
     }
 
     private void saveClosedRecruitment(Club club, String title, LocalDate start, LocalDate end)

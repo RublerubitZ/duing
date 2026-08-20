@@ -101,13 +101,22 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             """)
     List<Long> findClubIdsByUserId(@Param("userId") Long userId);
 
-    /** 공지 뷰어 스코프 전용 — 비 ACTIVE 동아리는 내부 공지 가시성에서 제외한다 (스펙 Part B). */
+    /**
+     * 공지 뷰어 스코프 전용 — 비 ACTIVE 동아리는 내부 공지 가시성에서 제외한다 (스펙 Part B).
+     * 운영진 집합은 정의(ClubMemberRole.MANAGER_ROLES) 를 바인딩한다 — 문자열 리터럴 재열거 금지.
+     */
+    default List<Long> findOfficerClubIdsByUserId(Long userId) {
+        return findOfficerClubIdsByUserId(userId, ClubMemberRole.MANAGER_ROLES);
+    }
+
+    /** {@link #findOfficerClubIdsByUserId(Long)} 전용 바인딩 대상 — 직접 호출하지 말 것. */
     @Query("""
             SELECT cm.club.id FROM ClubMember cm
-            WHERE cm.user.id = :userId AND cm.role IN ('LEADER','OFFICER')
+            WHERE cm.user.id = :userId AND cm.role IN :managerRoles
               AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
-    List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId);
+    List<Long> findOfficerClubIdsByUserId(@Param("userId") Long userId,
+                                          @Param("managerRoles") Collection<ClubMemberRole> managerRoles);
 
     /**
      * 회원이 가입한 동아리 목록(총동연 회원 상세용). 기존 findClubIdsByUserId 는 id 만 반환해 재사용할 수 없다.
@@ -123,20 +132,44 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             """)
     List<UserClubMembershipQuery> findClubMembershipsByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT cm.user.id FROM ClubMember cm WHERE cm.club.id IN :clubIds")
+    /**
+     * 알림 수신자(fan-out) 스코프 — 뷰어 스코프(findClubIdsByUserId)와 동일하게 비 ACTIVE 동아리
+     * 소속은 제외한다. 필터가 없으면 승인 대기·운영 중단 동아리 소속자가 열람할 수 없는 공지
+     * 알림을 계속 수신한다("알림 클릭 → 접근 거부"). 정책 확정: 2026-08-18.
+     */
+    @Query("""
+            SELECT DISTINCT cm.user.id FROM ClubMember cm
+            WHERE cm.club.id IN :clubIds
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
+            """)
     List<Long> findUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
 
-    @Query("""
-            SELECT DISTINCT cm.user.id FROM ClubMember cm
-            WHERE cm.club.id IN :clubIds AND cm.role IN ('LEADER','OFFICER')
-            """)
-    List<Long> findOfficerUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds);
+    /** 알림 수신자 스코프 — 비 ACTIVE 동아리 제외 규약은 findUserIdsByClubIdIn 참조. */
+    default List<Long> findOfficerUserIdsByClubIdIn(Collection<Long> clubIds) {
+        return findOfficerUserIdsByClubIdIn(clubIds, ClubMemberRole.MANAGER_ROLES);
+    }
 
+    /** {@link #findOfficerUserIdsByClubIdIn(Collection)} 전용 바인딩 대상 — 직접 호출하지 말 것. */
     @Query("""
             SELECT DISTINCT cm.user.id FROM ClubMember cm
-            WHERE cm.role IN ('LEADER','OFFICER')
+            WHERE cm.club.id IN :clubIds AND cm.role IN :managerRoles
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
             """)
-    List<Long> findAllOfficerUserIds();
+    List<Long> findOfficerUserIdsByClubIdIn(@Param("clubIds") Collection<Long> clubIds,
+                                            @Param("managerRoles") Collection<ClubMemberRole> managerRoles);
+
+    /** 알림 수신자 스코프 — 비 ACTIVE 동아리 제외 규약은 findUserIdsByClubIdIn 참조. */
+    default List<Long> findAllOfficerUserIds() {
+        return findAllOfficerUserIds(ClubMemberRole.MANAGER_ROLES);
+    }
+
+    /** {@link #findAllOfficerUserIds()} 전용 바인딩 대상 — 직접 호출하지 말 것. */
+    @Query("""
+            SELECT DISTINCT cm.user.id FROM ClubMember cm
+            WHERE cm.role IN :managerRoles
+              AND cm.club.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
+            """)
+    List<Long> findAllOfficerUserIds(@Param("managerRoles") Collection<ClubMemberRole> managerRoles);
 
     /** 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다. */
     @Query("SELECT COUNT(cm) FROM ClubMember cm WHERE cm.club.id = :clubId")

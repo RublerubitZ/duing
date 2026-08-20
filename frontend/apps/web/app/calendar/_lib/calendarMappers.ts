@@ -2,7 +2,6 @@ import type {
   CalEvent,
   ClubEventCard,
   GlobalEventCard,
-  MyClubSummary,
   RecruitmentSummary,
 } from '@duing/types';
 import { formatRange, spanDays } from './monthRange';
@@ -45,7 +44,12 @@ export function toCalEvent_recruitment(item: RecruitmentSummary): CalEvent | nul
   };
 }
 
-export function toCalEvent_clubEvent(item: ClubEventCard, club: MyClubSummary): CalEvent {
+// club 은 출처 표시에 쓰는 두 필드만 받는다 — 내 동아리 요약(MyClubSummary)과 총동연 집계 응답
+// 양쪽이 그대로 만족한다. 넓게 받으면 총동연 경로에서 쓰지도 않는 로고·역할·가입일을 날조해야 한다.
+export function toCalEvent_clubEvent(
+  item: ClubEventCard,
+  club: { clubId: number; clubName: string },
+): CalEvent {
   return {
     id: `c-${item.id}`,
     sourceType: 'clubEvent',

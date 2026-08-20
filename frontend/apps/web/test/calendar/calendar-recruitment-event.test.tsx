@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { EventKind, RecruitmentSummary } from '@duing/types';
 
@@ -92,7 +93,7 @@ describe('캘린더 모집 이벤트 — 마감 반영', () => {
   it('상세 모달은 진행 중인 모집을 지원 페이지로 보낸다', () => {
     const event = toCalEvent_recruitment(base);
 
-    render(<EventDetailModal event={event!} open onClose={vi.fn()} />);
+    render(<EventDetailModal event={event!} open onClose={vi.fn()} isAdmin={false} />);
 
     expect(screen.getByRole('link', { name: '원본 보기' })).toHaveAttribute(
       'href',
@@ -103,10 +104,23 @@ describe('캘린더 모집 이벤트 — 마감 반영', () => {
   it('상세 모달은 마감된 모집을 지원 페이지 대신 동아리 소개로 보낸다', () => {
     const event = toCalEvent_recruitment({ ...base, status: 'CLOSED', displayStatus: 'CLOSED' });
 
-    render(<EventDetailModal event={event!} open onClose={vi.fn()} />);
+    render(<EventDetailModal event={event!} open onClose={vi.fn()} isAdmin={false} />);
 
     const link = screen.getByRole('link', { name: '원본 보기' });
     expect(link).toHaveAttribute('href', expect.stringContaining('/clubs/12'));
     expect(link.getAttribute('href')).not.toContain('/apply/');
+  });
+
+  // 수제 오버레이였던 상세 모달을 Radix Dialog 재사용으로 교체한 변경을 고정한다.
+  // 교체로 ESC·포커스 트랩·스크롤 잠금·aria-labelledby 가 함께 들어왔다.
+  it('ESC 로 상세 모달을 닫을 수 있다', async () => {
+    const event = toCalEvent_recruitment(base);
+    const onClose = vi.fn();
+
+    render(<EventDetailModal event={event!} open onClose={onClose} isAdmin={false} />);
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

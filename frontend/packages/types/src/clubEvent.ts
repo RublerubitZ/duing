@@ -6,6 +6,15 @@ export type ClubEventCard = {
   location: string | null;
 };
 
+/**
+ * 총동연 캘린더용 전 동아리 행사 카드. 학생용 {@link ClubEventCard} 에 출처 동아리를 더한 형태다
+ * (전 동아리 집계라 어느 동아리 일정인지 표시해야 한다). 상세(설명·작성자)는 노출되지 않는다.
+ */
+export type AdminClubEventCard = ClubEventCard & {
+  clubId: number;
+  clubName: string;
+};
+
 export type ClubEventCreator = { id: number; name: string };
 
 export type ClubEventDetail = {

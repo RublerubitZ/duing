@@ -2,9 +2,10 @@ package com.duing.domain.notification.job;
 
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.notification.entity.NotificationType;
+import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
-import com.duing.domain.notification.support.RecruitmentDeadlineLabel;
+import com.duing.domain.notification.support.RecruitmentOpenedNotification;
 import com.duing.domain.recruitment.repository.DeadlineRow;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import java.time.Clock;
@@ -47,10 +48,18 @@ public class DeadlineNotificationJob {
         int created = 0;
         for (DeadlineRow row : candidates) {
             List<Long> favoringUserIds = favoriteRepository.findUserIdsByClubId(row.getClubId());
+            // OPENED 는 리스너와 같은 조립 지점(RecruitmentOpenedNotification)을 쓴다.
+            // 행을 이벤트로 옮겨 담는 일은 모집당 한 번이면 충분하다. 이벤트 레코드는 발행 없이
+            // 조립 입력으로만 재사용한다 — 필요한 5필드를 정확히 담은 기존 타입이라 별도 DTO 를 만들지 않는다.
+            RecruitmentOpenedEvent openedRecruitment = "OPENED".equals(row.getKind())
+                    ? new RecruitmentOpenedEvent(row.getRecruitmentId(), row.getClubId(),
+                            row.getClubName(), row.getTitle(), row.getEndDate())
+                    : null;
             for (Long userId : favoringUserIds) {
                 try {
-                    boolean inserted = "OPENED".equals(row.getKind())
-                            ? notificationService.createIfAbsent(buildOpenedCommand(userId, row))
+                    boolean inserted = openedRecruitment != null
+                            ? notificationService.createIfAbsent(
+                                    RecruitmentOpenedNotification.commandFor(userId, openedRecruitment))
                             : notificationService.createIfAbsent(buildDeadlineCommand(userId, row));
                     if (inserted) {
                         created++;
@@ -62,20 +71,6 @@ public class DeadlineNotificationJob {
             }
         }
         log.info("DeadlineNotificationJob done: created={}", created);
-    }
-
-    private CreateNotificationCommand buildOpenedCommand(Long userId, DeadlineRow row) {
-        return new CreateNotificationCommand(
-                userId,
-                NotificationType.RECRUITMENT_OPENED,
-                "찜한 " + row.getClubName() + "의 새 모집이 시작됐어요",
-                row.getTitle() + " · " + RecruitmentDeadlineLabel.of(row.getEndDate()),
-                // 학생측 모집 상세 라우트는 #98 PR 에서 제거되었다. active 모집은 동아리 상세 카드에
-                // 임베드되어 노출되므로 동아리 상세로 보낸다. payload 의 recruitmentId 는 그대로 유지.
-                "/clubs/" + row.getClubId(),
-                Map.of("recruitmentId", row.getRecruitmentId(), "clubId", row.getClubId()),
-                "RECRUITMENT_OPENED:r=" + row.getRecruitmentId()
-        );
     }
 
     private CreateNotificationCommand buildDeadlineCommand(Long userId, DeadlineRow row) {

@@ -11,6 +11,7 @@ import {
 } from '@duing/hooks';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
@@ -100,6 +101,13 @@ export function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
 
+  // 비로그인 배너는 하이드레이션 이후에만 그린다 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않다.
+  // 서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
+  // (providers 모듈 스코프의 startBootSessionRestore 가 하이드레이션 전에 요청을 띄우고
+  // AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
+  // 그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
+  const hydrated = useHydrated();
+
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
 
@@ -124,11 +132,14 @@ export function CalendarPage() {
 
   const meQuery = useMeQuery();
   const isAuthenticated = !!meQuery.data;
+  // 총동연은 어느 동아리의 멤버도 아니라 동아리별 조회로는 아무것도 못 본다 —
+  // 전 동아리 집계 1건으로 대체한다. role 확정 전에는 false 라 학생 경로로 시작하지만,
+  // 그동안 myClubs 가 비어 per-club 요청이 나가지 않으므로 낭비되는 요청은 없다.
+  const isAdmin = meQuery.data?.role === 'ADMIN';
   // '내 일정 추가' 노출 조건 — AddEventDispatcher 의 권한 기준(운영진 보유 or ADMIN)과 동일.
   // 비로그인 시 managed 호출 skip(401 노이즈 방지)도 디스패처와 같은 패턴.
   const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
-  const canAddEvent =
-    meQuery.data?.role === 'ADMIN' || (managedClubsQuery.data ?? []).length > 0;
+  const canAddEvent = isAdmin || (managedClubsQuery.data ?? []).length > 0;
 
   // mapper 안정화 — 모듈 스코프 함수이므로 deps 비어있어도 stable.
   const calendarMappers = useMemo(
@@ -142,6 +153,7 @@ export function CalendarPage() {
 
   const calendar = useCalendarMonthQuery(yearMonth, {
     isAuthenticated,
+    isAdmin,
     mappers: calendarMappers,
   });
   const { events } = calendar;
@@ -176,6 +188,7 @@ export function CalendarPage() {
   );
   const upcomingCalendar = useCalendarMonthsQuery(upcomingMonths, {
     isAuthenticated,
+    isAdmin,
     mappers: calendarMappers,
   });
   const upcoming = useMemo(
@@ -233,7 +246,7 @@ export function CalendarPage() {
     <div className="duing" style={{ background: 'var(--cream)', minHeight: '100%' }}>
 
       {/* ===== 비로그인 배너 ===== */}
-      {!isAuthenticated && !meQuery.isLoading && (
+      {hydrated && !isAuthenticated && !meQuery.isLoading && (
         <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
           내 동아리 일정을 보려면 로그인해주세요.
         </div>
@@ -293,7 +306,8 @@ export function CalendarPage() {
               { label: '이번 달 전체 일정', num: stats.total,    color: 'var(--ink)',      dot: 'var(--sage)' },
               { label: '행사·일정',         num: stats.system,   color: '#8E6620',         dot: '#E8B968'     },
               { label: '모집 마감',         num: stats.deadline, color: '#9A3F23',         dot: '#D97757'     },
-              { label: '내 동아리 일정',    num: stats.event,    color: 'var(--ink-deep)', dot: 'var(--sage)' },
+              // 총동연은 전 동아리 일정을 보므로 '내' 가 붙으면 거짓이 된다.
+              { label: isAdmin ? '동아리 일정' : '내 동아리 일정', num: stats.event, color: 'var(--ink-deep)', dot: 'var(--sage)' },
             ].map((card) => (
               <div key={card.label} style={{
                 background: 'var(--paper)', border: '1px solid var(--gray-line)',
@@ -714,6 +728,7 @@ export function CalendarPage() {
       {selectedEvent && (
         <EventDetailModal
           event={selectedEvent}
+          isAdmin={isAdmin}
           open={eventDetailOpen}
           onClose={() => {
             setEventDetailOpen(false);

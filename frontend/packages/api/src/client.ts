@@ -165,6 +165,7 @@ import type {
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
   ClubNoticeDetail,
+  AdminClubEventCard,
   ClubEventCard,
   ClubEventDetail,
   ClubEventListParams,
@@ -496,6 +497,9 @@ export type DuingApiClient = {
     create(clubId: number, payload: CreateRecruitmentPayload): Promise<number>;
     update(recruitmentId: number, payload: UpdateRecruitmentPayload): Promise<void>;
     close(recruitmentId: number): Promise<void>;
+    // 상시모집 전용 접수 마감 — 종료일을 어제로 확정해 신규 지원만 차단한다(심사는 계속, status 는 OPEN 유지).
+    // 상시모집이 아니거나 시작일이 지나지 않았으면 400, 이미 마감(CLOSED)이면 409.
+    stopIntake(recruitmentId: number): Promise<void>;
     remove(recruitmentId: number): Promise<void>;
   };
   applications: {
@@ -658,6 +662,13 @@ export type DuingApiClient = {
       members(clubId: number): Promise<AdminClubMember[]>;
       /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
       update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
+    };
+    /**
+     * 캘린더용 전 동아리 행사 일정. ACTIVE 동아리만, 카드 정보만 준다.
+     * 페이지네이션 없이 창(from~to)으로만 제한한다 — admin.recruitments 와 같은 형태.
+     */
+    clubEvents: {
+      list(params: ClubEventListParams): Promise<AdminClubEventCard[]>;
     };
     users: {
       search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
@@ -1354,6 +1365,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       close: (recruitmentId) =>
         jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/close`)),
+      stopIntake: (recruitmentId) =>
+        jsonVoid(http.patch(`leader/recruitments/${recruitmentId}/stop-intake`)),
       remove: (recruitmentId) =>
         jsonVoid(http.delete(`leader/recruitments/${recruitmentId}`)),
     },
@@ -1622,6 +1635,12 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
         update: (clubId, payload) =>
           jsonOk<ClubDetail>(http.patch(`admin/clubs/${clubId}`, { json: payload })),
+      },
+      clubEvents: {
+        list: (params) =>
+          jsonOk<AdminClubEventCard[]>(
+            http.get('admin/club-events', { searchParams: cleanParams(params) }),
+          ),
       },
       users: {
         search: (params) =>

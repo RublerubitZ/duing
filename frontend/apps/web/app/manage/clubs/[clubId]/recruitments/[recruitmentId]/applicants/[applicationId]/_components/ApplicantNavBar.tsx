@@ -97,11 +97,17 @@ export function ApplicantNavBar({
 const NAV_BUTTON_CLASS =
   'inline-flex min-h-11 items-center gap-1 rounded-sm border border-line px-3 text-sm text-charcoal-2 hover:border-sage disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
+/**
+ * 목록 복귀·이전/다음 주소에 실을 조건.
+ *
+ * 검색어(`q`)는 빼고 비식별 조건만 싣는다 — 이름·학번이 주소에 들어가면 방문 기록·referrer·
+ * 액세스 로그로 새어나간다. 검색어는 applicants 세그먼트 상태로 이어지므로 이웃 계산(filters)에는
+ * 그대로 반영되고, 주소에만 빠진다.
+ */
 function filtersToQuery(filters: ApplicantsFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set('status', filters.status);
   if (filters.college) params.set('college', filters.college);
-  if (filters.q) params.set('q', filters.q);
   if (filters.submittedFrom) params.set('submittedFrom', filters.submittedFrom);
   if (filters.submittedTo) params.set('submittedTo', filters.submittedTo);
   return params.toString();

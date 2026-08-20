@@ -5,6 +5,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -26,6 +27,7 @@ import com.duing.domain.recruitment.service.dto.command.QuestionItemCommand;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,8 +52,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     // V38 partial unique 인덱스. (club_id) WHERE status='OPEN' AND deleted_at IS NULL.
     private static final String RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT = "uk_recruitment_club_active";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
@@ -62,6 +62,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
     private final ApplicationEventPublisher eventPublisher;
     // 모집 활성/마감 판정용 — 저장용 타임스탬프(softDelete 등)에는 쓰지 않는다.
     private final Clock clock;
@@ -117,7 +118,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         // 비공개 상태 동아리의 모집은 존재를 숨긴다(404). 이 메서드의 호출처는 공개 컨트롤러 1곳뿐이다.
-        if (recruitment.getClub().getStatus() != ClubStatus.ACTIVE) {
+        // 모집을 물었으므로 RecruitmentNotFound 가 은닉 의미론 — ClubVisibilityPolicy 게이트 대신 판정만 공유한다.
+        if (!recruitment.getClub().getStatus().isPubliclyVisible()) {
             throw new RecruitmentException.RecruitmentNotFoundException();
         }
         Integer applicantCount = recruitment.isShowApplicantCount()
@@ -133,10 +135,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     public List<RecruitmentSummaryQuery> getByClubId(Long clubId) {
-        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 공개 엔드포인트 전용 — 비공개 동아리는 게이트가 404 로 숨긴다.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         LocalDate today = LocalDate.now(clock);
         return recruitmentRepository
                 .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)
@@ -315,6 +315,20 @@ public class GeneralRecruitmentService implements RecruitmentService {
         clubAuthService.requireManager(currentUserId, clubId);
 
         recruitment.close(LocalDateTime.now(clock));
+    }
+
+    @Override
+    @Transactional
+    public void stopIntake(Long recruitmentId, Long currentUserId) {
+        // 행 잠금 — close()·delete() 와 같은 모집 행 잠금으로 동시 마감·삭제·교체와 직렬화한다.
+        // 예: close 가 먼저 커밋되면 이 요청은 잠금 해제 후 CLOSED 를 읽어 409 로 거절된다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
+                .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
+
+        Long clubId = recruitment.getClub().getId();
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        recruitment.stopIntake(LocalDate.now(clock));
     }
 
     @Override
@@ -519,14 +533,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 다른 unique / CHECK / FK 위반은 false 를 돌려 호출 측에서 그대로 전파시킨다.
      */
     private static boolean isRecruitmentActiveDuplicate(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT);
     }
 }

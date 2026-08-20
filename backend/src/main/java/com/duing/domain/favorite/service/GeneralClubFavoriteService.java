@@ -4,14 +4,17 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.favorite.entity.ClubFavorite;
 import com.duing.domain.favorite.exception.FavoriteException;
 import com.duing.domain.favorite.repository.ClubFavoriteRepository;
 import com.duing.domain.favorite.service.dto.query.FavoriteClubQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,18 +25,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralClubFavoriteService implements ClubFavoriteService {
 
+    // V14 full UNIQUE (user_id, club_id) — soft delete 행도 잡으므로 재활성화 경로가 선행한다.
+    private static final String FAVORITE_UNIQUE_CONSTRAINT = "uq_club_favorite";
+
     private final ClubFavoriteRepository favoriteRepository;
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
 
     @Override
     @Transactional
     public Long add(Long userId, Long clubId) {
-        // 학생에게 노출되지 않는 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        // (중복 찜 409 보다 먼저 검사해, 기존 찜 여부로 비공개 동아리의 존재가 드러나지 않게 한다)
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 중복 찜 409 보다 먼저 게이트를 지나야 한다 — 기존 찜 여부로 비공개 동아리의 존재가 드러나지 않게.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         if (favoriteRepository.existsByUserIdAndClubId(userId, clubId)) {
             throw new FavoriteException.AlreadyFavoritedException();
         }
@@ -49,7 +53,18 @@ public class GeneralClubFavoriteService implements ClubFavoriteService {
         }
 
         User user = userRepository.getReferenceById(userId);
-        return favoriteRepository.save(ClubFavorite.create(user, club)).getId();
+        try {
+            ClubFavorite savedFavorite = favoriteRepository.save(ClubFavorite.create(user, club));
+            favoriteRepository.flush();
+            return savedFavorite.getId();
+        } catch (DataIntegrityViolationException racedInsertion) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(racedInsertion, FAVORITE_UNIQUE_CONSTRAINT)) {
+                throw racedInsertion;
+            }
+            // 더블클릭/동시 요청이 선조회를 함께 통과한 경합 — 사전 검사와 같은 409 로 표면화한다.
+            // 23505 로 트랜잭션이 aborted 라 삼키고 진행할 수 없다(#921, club_member 전례).
+            throw new FavoriteException.AlreadyFavoritedException();
+        }
     }
 
     @Override

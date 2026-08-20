@@ -103,8 +103,8 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         // (createMatchedPayment 가 같은 트랜잭션에서 재진입 잠금하므로 안전).
         FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(feeBillId, clubId)
                 .orElseThrow(BankMatchingException.InvalidMatchCandidateException::new);
-        if (bill.getStatus() == FeeStatus.PAID || bill.getStatus() == FeeStatus.CANCELLED) {
-            // 완납·취소된 청구는 매칭 대상이 아니다.
+        if (!bill.getStatus().isUnpaidRemainder()) {
+            // 완납·취소된 청구는 매칭 대상이 아니다 — 후보 쿼리(findMatchCandidates)와 같은 술어를 쓴다.
             throw new BankMatchingException.InvalidMatchCandidateException();
         }
         long remaining = bill.getAmount() - paymentRepository.sumActiveByFeeBillId(bill.getId());

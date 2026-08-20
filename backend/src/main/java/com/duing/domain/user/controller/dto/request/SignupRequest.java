@@ -14,10 +14,9 @@ public record SignupRequest(
         @Pattern(regexp = "\\d{8}", message = "학번은 8자리 숫자여야 합니다.")
         String studentId,
 
-        // 한국어 기반 서비스 정책 — 한글 완성형(가~힣) 2~7자만 허용(자모·공백·숫자·영문·특수문자·이모지 불가).
-        // 다국어 지원 시 이 정규식만 확장하면 된다. FE signupSchema 와 동일 정책.
+        // 허용 범위와 정책 배경은 UserNameRules.KOREAN_NAME_PATTERN 참고.
         @NotBlank(message = "이름은 필수 입력값입니다.")
-        @Pattern(regexp = "^[가-힣]{2,7}$", message = "이름은 한글 2~7자만 입력할 수 있습니다.")
+        @Pattern(regexp = UserNameRules.KOREAN_NAME_PATTERN, message = UserNameRules.KOREAN_NAME_MESSAGE)
         String name,
 
         @NotBlank(message = "비밀번호는 필수 입력값입니다.")

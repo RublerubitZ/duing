@@ -12,12 +12,12 @@ import com.duing.domain.fee.service.dto.query.AdminFeePeriod;
 import com.duing.domain.fee.service.dto.query.FeeAnomaly;
 import com.duing.domain.fee.service.dto.query.FeeAnomalyReport;
 import com.duing.domain.fee.service.dto.query.FeeAnomalySeverity;
+import com.duing.global.time.TimeMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -108,9 +108,8 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
         LocalDate windowTo = to != null ? to : LocalDate.now(clock);
         LocalDate windowFrom = from != null ? from : windowTo.minusDays(DEFAULT_WINDOW_DAYS);
         AdminFeePeriod period = AdminFeePeriod.of(windowFrom, windowTo);
-        // 고정 윈도우의 기준 시각. created_at 은 JPA 감사 필드라 JVM 존 벽시계이므로 같은 존으로 환산한다 —
-        // seoulClock 의 벽시계(LocalDateTime.now(clock))를 그대로 쓰면 prod(JVM=UTC)에서 창이 9시간 어긋난다.
-        LocalDateTime nowInSystemZone = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
+        // 고정 윈도우의 기준 시각. created_at 은 JPA 감사 필드(system regime)라 같은 존으로 환산해 비교한다.
+        LocalDateTime nowInSystemZone = TimeMapper.systemNow(clock);
         // FA-02·FA-04 는 같은 행 집합을 보므로 한 번만 읽어 두 Rule 에 나눠 준다.
         List<AdminFeeVoidedPaymentDue> voidedPayments =
                 adminFeeAuditQueryRepository.findVoidedPaymentDues(clubId, period);

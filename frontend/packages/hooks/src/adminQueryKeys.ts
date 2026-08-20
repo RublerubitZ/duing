@@ -9,6 +9,7 @@ import type {
   AdminPromotionRequestSearchParams,
   AdminPromotionSearchParams,
   AdminBookingQueueParams,
+  ClubEventListParams,
   SubmissionCandidatesParams,
   SubmissionBatchListParams,
   AdminFeeClubSearchParams,
@@ -30,6 +31,10 @@ export const adminQueryKeys = {
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
   clubMembers: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'members', clubId] as const,
+  // 캘린더용 전 동아리 일정. 'admin' 접두사가 있어 동아리별 키(clubEventKeys)와 겹치지 않는다.
+  clubEventsAll: ['admin', 'club-events'] as const,
+  clubEventsList: (params: ClubEventListParams) =>
+    [...adminQueryKeys.clubEventsAll, 'list', params] as const,
   usersAll: ['admin', 'users'] as const,
   usersSearch: (params: AdminUserSearchParams) =>
     [...adminQueryKeys.usersAll, 'search', params] as const,

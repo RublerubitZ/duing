@@ -24,8 +24,8 @@ function seoulTodayIso(): string {
 export function FacilityBookingsView({ clubId }: { clubId: number }) {
   const [activeTab, setActiveTab] = useState<ManageTabKey>('ACTIVE');
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-  // clubId 유효성(운영 권한·NaN)은 page.tsx 가 managedClubs 로 게이트해 notFound 처리하므로,
-  // 여기서는 항상 유효한 clubId 만 받는다(sibling photos·members 관례와 동일).
+  // clubId 유효성(운영 권한·NaN)은 [clubId]/layout.tsx 의 ManageGuard 가 403 으로 처리하므로,
+  // 여기서는 항상 유효한 clubId 만 받는다.
   const bookingsQuery = useClubFacilityBookingsQuery(clubId);
 
   const bookings = bookingsQuery.data ?? [];

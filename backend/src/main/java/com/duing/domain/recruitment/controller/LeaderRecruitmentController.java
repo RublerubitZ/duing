@@ -67,6 +67,15 @@ public class LeaderRecruitmentController implements LeaderRecruitmentApi {
     }
 
     @Override
+    public ResponseEntity<Void> stopRecruitmentIntake(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        recruitmentService.stopIntake(recruitmentId, currentUser.id());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
     public ResponseEntity<Void> deleteRecruitment(
             @PathVariable Long recruitmentId,
             @AuthenticationPrincipal UserPrincipal currentUser

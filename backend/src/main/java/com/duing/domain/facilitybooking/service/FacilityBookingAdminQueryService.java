@@ -11,14 +11,15 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facility.service.SnapshotFreshnessPolicy;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -45,8 +46,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class FacilityBookingAdminQueryService {
 
-    // 신선도 판정 TTL — 가용성 서비스(GeneralFacilityAvailabilityService.isStale)와 동일 값.
-    private static final Duration FRESH_TTL = Duration.ofMinutes(10);
     // 오늘 접수 카운트의 하루 경계 존 — createdAt 저장 존(JVM 기본)과 별개로, "오늘"은 KST 로 판단한다(§9.7).
     private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
 
@@ -114,17 +113,15 @@ public class FacilityBookingAdminQueryService {
         // ② 겹침 컨텍스트.
         List<OverlapContext> overlaps = new ArrayList<>();
         // 점유행(SCHOOL) — 학교 단체명 그대로 노출.
-        facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month).stream()
-                .filter(row -> row.getReservationDate().equals(date))
-                .filter(row -> availabilityPolicy.classify(row) == CrawlRowType.OCCUPIED)
-                .filter(row -> row.getStartTime().isBefore(booking.getEndTime())
-                        && row.getEndTime().isAfter(booking.getStartTime()))
+        availabilityPolicy.occupiedOverlapping(
+                        facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month),
+                        date, booking.getStartTime(), booking.getEndTime())
                 .forEach(row -> overlaps.add(new OverlapContext(
                         "SCHOOL", row.getOrganizationName(), row.getStartTime(), row.getEndTime())));
         // 내부 APPROVED/CONFIRMED(자기 제외) — 관리자 화면은 내부용이므로 동아리명을 노출한다.
         List<FacilityBooking> internalOverlaps = facilityBookingRepository.findOverlapping(
                         booking.getFacilityId(), date,
-                        List.of(BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                        BookingStatus.slotBlockingStatuses(),
                         booking.getStartTime(), booking.getEndTime()).stream()
                 .filter(other -> !other.getId().equals(booking.getId()))
                 .toList();
@@ -166,21 +163,17 @@ public class FacilityBookingAdminQueryService {
     public AdminBookingSummaryCounts getSummary() {
         LocalDate today = LocalDate.now(clock);
         long pendingCount = facilityBookingRepository.countByStatus(BookingStatus.PENDING);
-        // 오늘 접수(§9.7·§5.3): 상태 무관 "오늘 생성된 신청" 수(처리 완료돼도 오늘 접수는 접수). createdAt 은
-        // JPA 감사가 저장 존(JVM 기본)으로 기록하므로, KST 하루 경계를 저장 존 LocalDateTime 으로 변환해 넘긴다 —
-        // clock 은 KST 라 그냥 systemDefault 경계로 세면 UTC 러너·운영에서 자정~오전 구간에 하루가 어긋난다.
-        LocalDateTime dayStart = today.atStartOfDay(SEOUL_ZONE)
-                .withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
-        LocalDateTime dayEnd = today.atTime(LocalTime.MAX).atZone(SEOUL_ZONE)
-                .withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+        // 오늘 접수(§9.7·§5.3): 상태 무관 "오늘 생성된 신청" 수(처리 완료돼도 오늘 접수는 접수).
+        // createdAt 은 감사가 저장 존으로 기록(system regime)하므로 KST 하루 경계를 저장 존으로 옮겨 넘긴다.
+        LocalDateTime dayStart = TimeMapper.seoulToSystemWallClock(today.atStartOfDay());
+        LocalDateTime dayEnd = TimeMapper.seoulToSystemWallClock(today.atTime(LocalTime.MAX));
         long todaySubmittedCount = facilityBookingRepository.countByCreatedAtBetween(dayStart, dayEnd);
         long oldestPendingWaitingDays = facilityBookingRepository
                 .findFirstByStatusOrderByCreatedAtAsc(BookingStatus.PENDING)
-                // createdAt 은 감사가 저장 존(JVM 기본)으로 기록하므로 KST 로 변환해 날짜 경계를 맞춘다 —
-                // today 는 KST(clock) 기준이라 그냥 systemDefault 날짜로 빼면 UTC 러너·운영에서 하루가 어긋난다.
+                // createdAt 은 감사가 저장 존으로 기록(system regime)하므로 KST 날짜로 환산해 today(KST)와 뺀다.
                 .map(oldest -> ChronoUnit.DAYS.between(
-                        oldest.getCreatedAt().atZone(ZoneId.systemDefault())
-                                .withZoneSameInstant(SEOUL_ZONE).toLocalDate(), today))
+                        TimeMapper.systemWallClockToInstant(oldest.getCreatedAt())
+                                .atZone(SEOUL_ZONE).toLocalDate(), today))
                 .orElse(0L);
         long approvedWaitingCount = facilityBookingRepository.countByStatus(BookingStatus.APPROVED);
         long oldestApprovedWaitingDays = facilityBookingRepository
@@ -251,10 +244,8 @@ public class FacilityBookingAdminQueryService {
             return false;
         }
         List<FacilityReservation> dayRows = dayRows(booking, crawlCache);
-        boolean matchingNameOverlap = dayRows.stream()
-                .filter(row -> availabilityPolicy.classify(row) == CrawlRowType.OCCUPIED)
-                .filter(row -> row.getStartTime().isBefore(booking.getEndTime())
-                        && row.getEndTime().isAfter(booking.getStartTime()))
+        boolean matchingNameOverlap = availabilityPolicy.occupiedOverlapping(
+                        dayRows, booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
                 .anyMatch(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
         if (!matchingNameOverlap) {
             return false;
@@ -274,11 +265,8 @@ public class FacilityBookingAdminQueryService {
     private boolean hasMismatchedOccupiedOverlap(FacilityBooking booking, Map<Long, String> clubNames,
             Map<FacilityMonthKey, List<FacilityReservation>> crawlCache) {
         String normalizedClubName = normalizer.normalize(clubNames.getOrDefault(booking.getClubId(), ""));
-        return crawlRows(booking, crawlCache).stream()
-                .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
-                .filter(row -> availabilityPolicy.classify(row) == CrawlRowType.OCCUPIED)
-                .filter(row -> row.getStartTime().isBefore(booking.getEndTime())
-                        && row.getEndTime().isAfter(booking.getStartTime()))
+        return availabilityPolicy.occupiedOverlapping(crawlRows(booking, crawlCache),
+                        booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
                 .anyMatch(row -> !normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
     }
 
@@ -303,11 +291,9 @@ public class FacilityBookingAdminQueryService {
                 .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
     }
 
-    /** 가용성 서비스(GeneralFacilityAvailabilityService.isStale)와 동일 규칙: STALE_CACHE·스냅샷 null·비SUCCESS·10분 초과. */
+    /** 관리자 상세는 당월·익월 예약 심사 화면이라 고정 10분 TTL(가용성 서비스와 동일 정책 파라미터). */
     private boolean isStale(LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
-        if (source == DataSource.STALE_CACHE || crawledAt == null || fetchStatus != FetchStatus.SUCCESS) {
-            return true;
-        }
-        return Duration.between(crawledAt, LocalDateTime.now(clock)).compareTo(FRESH_TTL) > 0;
+        return SnapshotFreshnessPolicy.isStale(source, fetchStatus, crawledAt,
+                SnapshotFreshnessPolicy.CURRENT_NEXT_TTL, LocalDateTime.now(clock));
     }
 }

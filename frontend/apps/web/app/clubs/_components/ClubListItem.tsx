@@ -5,9 +5,10 @@
 
 import { Link } from 'next-view-transitions';
 
-import { daysUntilKst } from '@duing/hooks';
+import { CLOSING_SOON_DAYS, daysUntilKst } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { ddayLabel } from '@/app/_lib/dday';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
@@ -41,9 +42,14 @@ function recruitBadge(club: Club): Badge | null {
     case 'OPEN': {
       if (recruitment.endDate === null) return { text: '모집중', tone: 'recruiting' };
       const remainingDays = daysUntilKst(recruitment.endDate, new Date());
-      if (remainingDays < 0) return { text: '마감', tone: 'muted' };
-      if (remainingDays === 0) return { text: 'D-day', tone: 'urgent' };
-      return { text: `D-${remainingDays}`, tone: remainingDays <= 3 ? 'urgent' : 'recruiting' };
+      // 표기 판정은 displayStatus 가 유일 소스다(#896 '세 번째 술어 금지'). 서버가 OPEN 이라는데
+      // 클라이언트 시계로 '마감'을 단정하지 않는다 — stale 캐시·시계 편차 구간에는 카운트다운만
+      // 접고 상태 라벨로 폴백한다.
+      if (remainingDays < 0) return { text: '모집중', tone: 'recruiting' };
+      return {
+        text: ddayLabel(remainingDays),
+        tone: remainingDays <= CLOSING_SOON_DAYS ? 'urgent' : 'recruiting',
+      };
     }
   }
 }

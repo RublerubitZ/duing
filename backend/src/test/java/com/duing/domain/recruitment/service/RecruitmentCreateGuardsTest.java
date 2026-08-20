@@ -13,6 +13,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
@@ -54,6 +55,7 @@ class RecruitmentCreateGuardsTest {
             mock(ClubAuditEventRepository.class),
             clubRepository,
             clubAuthService,
+            new ClubVisibilityPolicy(clubRepository),
             eventPublisher,
             // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
             Clock.system(ZoneId.of("Asia/Seoul")));

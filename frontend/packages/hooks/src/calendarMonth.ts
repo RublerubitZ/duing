@@ -4,10 +4,10 @@ import type {
   CalEvent,
   ClubEventCard,
   GlobalEventCard,
-  MyClubSummary,
   RecruitmentSummary,
 } from '@duing/types';
 
+import { adminQueryKeys } from './adminQueryKeys';
 import { useApiClient } from './api-context';
 import { clubEventKeys } from './clubEventQueryKeys';
 import { useMyClubsQuery } from './clubs';
@@ -20,11 +20,20 @@ export type CalendarMonthOptions = {
    * 401 을 isError 로 잡지 않게 하기 위함.
    */
   isAuthenticated: boolean;
+  /**
+   * 총동연(ADMIN) 이면 동아리별 조회 대신 전 동아리 집계 1건으로 대체한다. 두 경로는 배타 —
+   * ADMIN 이 어느 동아리의 멤버이더라도 그 결과는 집계 응답의 부분집합이라 요청만 늘어난다.
+   *
+   * <p>role 은 호출자가 판정해 주입한다(`isAuthenticated` 와 같은 패턴) — packages/hooks 가
+   * auth 에 묶이지 않게 하기 위함이다.
+   */
+  isAdmin: boolean;
   /** mapper 3 개를 호출자에서 주입 — packages/hooks 가 apps/web 의 _lib 를 import 하지 않도록. */
   mappers: {
     toGlobal: (item: GlobalEventCard) => CalEvent;
     toRecruitment: (item: RecruitmentSummary) => CalEvent | null;
-    toClubEvent: (item: ClubEventCard, club: MyClubSummary) => CalEvent;
+    /** club 은 출처 표시에 필요한 두 필드만 받는다 — 내 동아리 요약과 집계 응답 양쪽이 만족한다. */
+    toClubEvent: (item: ClubEventCard, club: { clubId: number; clubName: string }) => CalEvent;
   };
 };
 
@@ -83,8 +92,6 @@ export function monthsInRange(fromIso: string, toIso: string): string[] {
   return months;
 }
 
-export type CalendarMappers = CalendarMonthOptions['mappers'];
-
 /**
  * 여러 달을 한 번에 조회해 CalEvent 로 병합한다.
  *
@@ -98,10 +105,10 @@ export type CalendarMappers = CalendarMonthOptions['mappers'];
  */
 export function useCalendarMonthsQuery(
   yearMonths: string[],
-  options: { isAuthenticated: boolean; mappers: CalendarMappers },
+  options: CalendarMonthOptions,
 ): CalendarMonthResult {
   const client = useApiClient();
-  const { isAuthenticated, mappers } = options;
+  const { isAuthenticated, isAdmin, mappers } = options;
 
   const monthsKey = yearMonths.join(',');
   const ranges = useMemo(
@@ -113,8 +120,10 @@ export function useCalendarMonthsQuery(
     [monthsKey],
   );
 
-  const myClubsQuery = useMyClubsQuery({ enabled: isAuthenticated });
-  const myClubs = isAuthenticated ? (myClubsQuery.data ?? []) : [];
+  // 동아리별 경로를 쓰는 조건 — ADMIN 은 집계 1건으로 대체하므로 내 동아리 목록조차 필요 없다.
+  const usesMyClubEvents = isAuthenticated && !isAdmin;
+  const myClubsQuery = useMyClubsQuery({ enabled: usesMyClubEvents });
+  const myClubs = usesMyClubEvents ? (myClubsQuery.data ?? []) : [];
 
   const globalEventQueries = useQueries({
     queries: ranges.map((range) => ({
@@ -148,9 +157,23 @@ export function useCalendarMonthsQuery(
           return items.map((item) => mappers.toClubEvent(item, club));
         },
         staleTime: 30 * 1000,
-        enabled: isAuthenticated,
+        enabled: usesMyClubEvents,
       })),
     ),
+  });
+
+  // 총동연 경로 — 동아리 수와 무관하게 월당 1건. 동아리별 경로와 배타이므로 둘 중 하나만 쿼리를 만든다.
+  const adminClubEventQueries = useQueries({
+    queries: (isAdmin ? ranges : []).map((range) => ({
+      queryKey: adminQueryKeys.clubEventsList({ from: range.from, to: range.to }),
+      queryFn: async (): Promise<CalEvent[]> => {
+        const items = await client.admin.clubEvents.list({ from: range.from, to: range.to });
+        return items.map((item) =>
+          mappers.toClubEvent(item, { clubId: item.clubId, clubName: item.clubName }),
+        );
+      },
+      staleTime: 30 * 1000,
+    })),
   });
 
   // useQueries 반환 배열은 매 렌더 새 참조라 배열 자체를 의존성으로 두면 병합이 매번 다시 돈다.
@@ -160,9 +183,12 @@ export function useCalendarMonthsQuery(
   const dataSignature = [
     monthsKey,
     myClubs.map((club) => club.clubId).join(','),
-    ...[...globalEventQueries, ...recruitmentQueries, ...clubEventQueries].map(
-      (query) => query.dataUpdatedAt,
-    ),
+    ...[
+      ...globalEventQueries,
+      ...recruitmentQueries,
+      ...clubEventQueries,
+      ...adminClubEventQueries,
+    ].map((query) => query.dataUpdatedAt),
   ].join('|');
 
   const events = useMemo<CalEvent[]>(() => {
@@ -199,7 +225,7 @@ export function useCalendarMonthsQuery(
         if (mapped) merged.push(mapped);
       }
     }
-    for (const query of clubEventQueries) {
+    for (const query of [...clubEventQueries, ...adminClubEventQueries]) {
       if (query.data) merged.push(...query.data);
     }
     // 달 경계를 걸친 다일 행사는 두 달의 응답에 모두 담겨 같은 id 가 중복될 수 있다.
@@ -209,17 +235,27 @@ export function useCalendarMonthsQuery(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 쿼리 배열 대신 내용 시그니처로 비교한다.
   }, [dataSignature, mappers]);
 
+  // 동아리 일정 로딩·오류는 두 경로를 함께 본다 — ADMIN 경로를 빼면 집계를 받는 동안 isLoading 이
+  // false 라 "일정이 없어요" 가 떴다가 채워지고, 실패해도 오류 배너가 뜨지 않는다.
+  const clubEventsLoading =
+    (usesMyClubEvents && myClubsQuery.isLoading)
+    || clubEventQueries.some((query) => query.isLoading)
+    || adminClubEventQueries.some((query) => query.isLoading);
+
+  const clubEventsError =
+    (usesMyClubEvents && myClubsQuery.isError)
+    || clubEventQueries.some((query) => query.isError)
+    || adminClubEventQueries.some((query) => query.isError);
+
   const isLoading =
     globalEventQueries.some((query) => query.isLoading)
     || recruitmentQueries.some((query) => query.isLoading)
-    || (isAuthenticated && myClubsQuery.isLoading)
-    || clubEventQueries.some((query) => query.isLoading);
+    || clubEventsLoading;
 
   const isError =
     globalEventQueries.some((query) => query.isError)
     || recruitmentQueries.some((query) => query.isError)
-    || (isAuthenticated && myClubsQuery.isError)
-    || clubEventQueries.some((query) => query.isError);
+    || clubEventsError;
 
   return {
     events,
@@ -228,9 +264,7 @@ export function useCalendarMonthsQuery(
     perDomain: {
       globalEventsError: globalEventQueries.some((query) => query.isError),
       recruitmentsError: recruitmentQueries.some((query) => query.isError),
-      clubEventsError:
-        clubEventQueries.some((query) => query.isError)
-        || (isAuthenticated && myClubsQuery.isError),
+      clubEventsError,
     },
   };
 }
@@ -246,8 +280,5 @@ export function useCalendarMonthQuery(
   options: CalendarMonthOptions,
 ): CalendarMonthResult {
   const yearMonths = useMemo(() => [yearMonth], [yearMonth]);
-  return useCalendarMonthsQuery(yearMonths, {
-    isAuthenticated: options.isAuthenticated,
-    mappers: options.mappers,
-  });
+  return useCalendarMonthsQuery(yearMonths, options);
 }

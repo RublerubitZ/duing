@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { describe, expect, it } from 'vitest';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ClubRecruitmentSummary } from '../../app/clubs/[clubId]/_components/ClubRecruitmentSummary';
@@ -36,6 +37,11 @@ describe('ClubRecruitmentSummary — 모바일 모집 요약 카드', () => {
   it('applicantCount 가 null 이면 지원자 진행을 숨긴다', () => {
     render(<ClubRecruitmentSummary recruitment={{ ...base, applicantCount: null }} />);
     expect(screen.queryByText('현재 지원자')).toBeNull();
+  });
+
+  it('마감 당일 → 헤더가 "모집중 · D-day" ("D-0" 표기 금지)', () => {
+    render(<ClubRecruitmentSummary recruitment={{ ...base, endDate: todayKstDateString(new Date()) }} />);
+    expect(screen.getByText('모집중 · D-day')).toBeInTheDocument();
   });
 
   it('CLOSED → 헤더가 "모집마감"', () => {

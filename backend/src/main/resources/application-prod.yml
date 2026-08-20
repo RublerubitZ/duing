@@ -74,6 +74,17 @@ duing:
         # 있었다(운영 갭) — 문의 알림(dedupKey FEDERATION_INQUIRY_*) 등의 제목이 notification body 에
         # 무기한 잔존하는 문제를 이 활성화로 봉합한다. DUING_NOTIFICATION_RETENTION_ENABLED=false 로 끌 수 있다.
         enabled: ${DUING_NOTIFICATION_RETENTION_ENABLED:true}
+  # 회비 운영 크론 3종(연체 전이·자동 월발행·마감 리마인더) — 다른 잡들과 동일한 하드코딩 관례로
+  # 운영 기본 활성화한다. base 기본값이 false 라 이 오버라이드가 없으면 서버 .env 재작성 때
+  # 플래그가 빠지는 순간 금전 도메인 잡이 조용히 멈춘다(notification.retention 운영 갭과 동일 유형).
+  # 각각 DUING_FEE_OVERDUE_ENABLED / DUING_FEE_AUTO_ISSUE_ENABLED / DUING_FEE_REMINDER_ENABLED=false 로 끌 수 있다.
+  fee:
+    overdue:
+      enabled: ${DUING_FEE_OVERDUE_ENABLED:true}
+    auto-issue:
+      enabled: ${DUING_FEE_AUTO_ISSUE_ENABLED:true}
+    reminder:
+      enabled: ${DUING_FEE_REMINDER_ENABLED:true}
   # 개인정보 처리방침의 45일 보관/파기 잡을 운영에서만 활성화한다. base application.yml 기본값은 false
   # (로컬은 꺼짐) 이고 여기서만 켜서 운영 DB 의 soft-delete PII 가 45일 후 비식별화/삭제되게 한다.
   # DUING_PII_RETENTION_ENABLED=false 로 끌 수 있다.

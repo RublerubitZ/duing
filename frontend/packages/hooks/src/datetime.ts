@@ -7,6 +7,8 @@ import { parseKstInstant } from './dashboardDate';
 
 // 서버 컴포넌트는 배럴(클라이언트 훅 포함) 대신 이 모듈(@duing/hooks/datetime)을 임포트한다.
 export { parseKstInstant, daysUntilKst, kstDateString, isTodayKst, todayKstDateString } from './dashboardDate';
+// '마감임박 = D-3 이내' 임계값 — 서버 컴포넌트 소비처(홈 티커 등)를 위해 서버 안전 엔트리에도 노출한다.
+export { CLOSING_SOON_DAYS } from './dashboardSelectors';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

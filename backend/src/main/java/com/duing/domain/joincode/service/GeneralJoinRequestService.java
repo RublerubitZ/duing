@@ -1,7 +1,6 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -30,7 +29,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
-import java.sql.SQLException;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -58,7 +57,6 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private static final Logger log = LoggerFactory.getLogger(GeneralJoinRequestService.class);
 
     private static final String PENDING_REQUEST_UNIQUE_CONSTRAINT = "uk_club_join_request_pending";
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
     // 일괄 승인의 건별 실패 사유 — 미존재와 타 동아리 요청을 같은 문구로 합쳐, 임의 ID 로 요청의
     // 존재·소속 여부를 알아내는 열거(oracle)를 막는다.
     private static final String BULK_ITEM_GENERIC_FAILURE = "해당 가입 요청을 처리할 권한이 없거나 존재하지 않습니다.";
@@ -157,7 +155,10 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 createCommand.userId()));
         // 자동 승인(스펙 §4): 코드 행 잠금 구간 안이라 이미 회원 검사~enroll 이 직렬화된다 —
         // 동시 중복 신청은 후행이 잠금 해제 후 AlreadyMemberException(409)으로 떨어진다.
-        // 최후 방어선은 uk_club_member_club_user_active + enrollment 서비스의 23505 멱등 처리.
+        // 남는 창은 코드 잠금이 닿지 않는 교차 경로(다른 링크 승인·지원 합격)의 동시 등록이다. 이때는
+        // uk_club_member_club_user_active 가 발화하고, enrollment 서비스가 이를 409(이미 회원)로 바꿔
+        // 던진다 — 접수·차감·감사까지 이 트랜잭션 전체가 롤백되므로 자리가 새지 않고, 재시도하면
+        // 위의 이미 회원 검사에서 409 로 걸린다(#921).
         if (joinCode.isAutoApprove()) {
             clubMemberEnrollmentService.enroll(joinCode.getClub(), requester,
                     ClubMemberRole.MEMBER, createdRequest.getGeneration());
@@ -324,19 +325,11 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     /**
      * 동시 요청으로 인한 PENDING 중복 삽입에만 true 를 반환한다
-     * (enrollment 서비스의 23505 판정 패턴). 향후 club_join_request 에 새 unique / CHECK / FK 가
+     * (PostgresConstraintViolations strict 판정). 향후 club_join_request 에 새 unique / CHECK / FK 가
      * 추가되어도 그 위반은 409 로 둔갑하지 않고 그대로 위로 전파된다.
      */
     private static boolean isDuplicatePendingRequest(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(PENDING_REQUEST_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, PENDING_REQUEST_UNIQUE_CONSTRAINT);
     }
 
     /**
@@ -345,7 +338,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
      */
     private boolean isUsable(ClubJoinCode joinCode) {
         return joinCode.isUsable(LocalDateTime.now(clock))
-                && joinCode.getClub().getStatus() == ClubStatus.ACTIVE;
+                && joinCode.getClub().getStatus().isPubliclyVisible();
     }
 
     private String normalizeCode(String rawCode) {

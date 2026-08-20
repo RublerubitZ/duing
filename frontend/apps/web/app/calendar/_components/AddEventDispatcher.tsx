@@ -1,5 +1,6 @@
 'use client';
 
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useState } from 'react';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
@@ -20,9 +21,9 @@ export function AddEventDispatcher({ open, onClose }: Props) {
   const isAuthenticated = !!meQuery.data;
   const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
+  // EventDetailModal 과 같은 이유로 Radix 프리미티브를 재사용한다(PhotoLightbox 전례).
+  // Root 를 직접 쓰므로 뒤로가기 닫기는 여기서 직접 건다.
   useBackDismiss(open, onClose);
-
-  if (!open) return null;
 
   const isAdmin = meQuery.data?.role === 'ADMIN';
   const managedClubs: ManagedClub[] = managedClubsQuery.data ?? [];
@@ -30,72 +31,85 @@ export function AddEventDispatcher({ open, onClose }: Props) {
   const targetClubId = selectedClubId ?? managedClubs[0]?.clubId ?? null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40"
-      role="dialog"
-      aria-modal="true"
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
     >
-      <div className="w-[480px] max-w-[92vw] rounded-2xl bg-paper p-6 space-y-6">
-        <header className="flex items-center justify-between">
-          <h2 className="text-[18px] font-bold text-ink">일정 추가</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="text-charcoal-3 text-[20px]"
-          >
-            ×
-          </button>
-        </header>
-
-        {hasManagedClubs && (
-          <Section title="동아리 일정 추가" description="회원 전용 동아리 일정 페이지로 이동합니다.">
-            <ClubSelect
-              clubs={managedClubs}
-              value={targetClubId}
-              onChange={setSelectedClubId}
-            />
-            <PrimaryButton
-              disabled={targetClubId === null}
-              onClick={() => {
-                if (targetClubId === null) return;
-                router.push(toRoute(`/clubs/${targetClubId}/member/events`));
-              }}
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-paper p-6 space-y-6 outline-none"
+        >
+          <header className="flex items-center justify-between">
+            {/* Radix 가 이 Title(h2) 을 aria-labelledby 로 연결한다. */}
+            <DialogPrimitive.Title className="text-[18px] font-bold text-ink">
+              일정 추가
+            </DialogPrimitive.Title>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="text-charcoal-3 text-[20px]"
             >
-              선택한 동아리 일정 페이지로 이동
-            </PrimaryButton>
-          </Section>
-        )}
+              ×
+            </button>
+          </header>
 
-        {hasManagedClubs && (
-          <Section title="모집 공고" description="모집 마감일이 캘린더에 자동 노출됩니다.">
-            <PrimaryButton
-              disabled={targetClubId === null}
-              onClick={() => {
-                if (targetClubId === null) return;
-                router.push(toRoute(`/manage/clubs/${targetClubId}/recruitments/new`));
-              }}
+          {hasManagedClubs && (
+            <Section
+              title="동아리 일정 추가"
+              description="회원 전용 동아리 일정 페이지로 이동합니다. 등록한 일정은 동아리 회원과 총동연(ADMIN)이 캘린더에서 볼 수 있습니다."
             >
-              모집 공고 작성
-            </PrimaryButton>
-          </Section>
-        )}
+              <ClubSelect
+                clubs={managedClubs}
+                value={targetClubId}
+                onChange={setSelectedClubId}
+              />
+              <PrimaryButton
+                disabled={targetClubId === null}
+                onClick={() => {
+                  if (targetClubId === null) return;
+                  router.push(toRoute(`/clubs/${targetClubId}/member/events`));
+                }}
+              >
+                선택한 동아리 일정 페이지로 이동
+              </PrimaryButton>
+            </Section>
+          )}
 
-        {isAdmin && (
-          <Section title="총동연 일정 등록" description="비로그인 포함 모든 사용자에게 노출됩니다.">
-            <PrimaryButton onClick={() => router.push(toRoute('/admin/global-events/new'))}>
-              글로벌 일정 등록
-            </PrimaryButton>
-          </Section>
-        )}
+          {hasManagedClubs && (
+            <Section title="모집 공고" description="모집 마감일이 캘린더에 자동 노출됩니다.">
+              <PrimaryButton
+                disabled={targetClubId === null}
+                onClick={() => {
+                  if (targetClubId === null) return;
+                  router.push(toRoute(`/manage/clubs/${targetClubId}/recruitments/new`));
+                }}
+              >
+                모집 공고 작성
+              </PrimaryButton>
+            </Section>
+          )}
 
-        {!hasManagedClubs && !isAdmin && (
-          <p className="text-[13px] text-charcoal-2">
-            일정 추가 권한이 없습니다. 동아리 운영진(LEADER/OFFICER) 또는 총동연(ADMIN) 만 사용할 수 있습니다.
-          </p>
-        )}
-      </div>
-    </div>
+          {isAdmin && (
+            <Section title="총동연 일정 등록" description="비로그인 포함 모든 사용자에게 노출됩니다.">
+              <PrimaryButton onClick={() => router.push(toRoute('/admin/global-events/new'))}>
+                글로벌 일정 등록
+              </PrimaryButton>
+            </Section>
+          )}
+
+          {!hasManagedClubs && !isAdmin && (
+            <p className="text-[13px] text-charcoal-2">
+              일정 추가 권한이 없습니다. 동아리 운영진(LEADER/OFFICER) 또는 총동연(ADMIN) 만 사용할 수 있습니다.
+            </p>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 

@@ -55,15 +55,20 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
 
     /**
      * Deadline 알림 후보를 조회한다. 운영 중(ACTIVE) 동아리의 모집만 대상이다.
+     * c.status = 'ACTIVE' 조건은 리스너(RecruitmentOpenedListener)의 AFTER_COMMIT
+     * existsByIdAndStatus 재검증과 같은 규칙이다 — 두 발송 경로가 같은 동아리 집합만 본다.
      * - OPENED: 오늘 시작하는 OPEN 모집
-     * - DEADLINE: 마감 3일 / 1일 / 당일인 OPEN 모집
+     * - DEADLINE: 시작일이 지났고 마감 3일 / 1일 / 당일인 OPEN 모집
+     *   (start_date 조건이 없으면 "내일 시작, 3일 뒤 마감" 인 모집예정(UPCOMING) 공고에도
+     *   마감 임박 알림이 나간다 — 표기 축(RecruitmentDisplayStatus, UPCOMING 우선)과 어긋난다)
      */
     @Query(value = """
             SELECT r.id AS recruitmentId, r.club_id AS clubId, c.name AS clubName, r.title AS title,
                    r.end_date AS endDate,
                    CASE
                      WHEN r.start_date = :today                                    THEN 'OPENED'
-                     WHEN r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) THEN 'DEADLINE'
+                     WHEN r.start_date <= :today
+                          AND r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) THEN 'DEADLINE'
                    END AS kind,
                    (r.end_date - :today) AS daysToEnd
               FROM recruitment r JOIN club c ON c.id = r.club_id
@@ -71,7 +76,8 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                AND c.status = 'ACTIVE'
                AND (
                      r.start_date = :today
-                     OR ( r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )
+                     OR ( r.start_date <= :today
+                          AND r.end_date IS NOT NULL AND (r.end_date - :today) IN (3,1,0) )
                    )
             """, nativeQuery = true)
     List<DeadlineRow> findDeadlineNotificationCandidates(@Param("today") LocalDate today);

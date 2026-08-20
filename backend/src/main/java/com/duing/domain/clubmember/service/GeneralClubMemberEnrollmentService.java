@@ -3,8 +3,10 @@ package com.duing.domain.clubmember.service;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
+import com.duing.global.exception.PostgresConstraintViolations;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -17,8 +19,6 @@ public class GeneralClubMemberEnrollmentService implements ClubMemberEnrollmentS
 
     // V7 partial unique 인덱스. (club_id, user_id) WHERE deleted_at IS NULL.
     private static final String CLUB_MEMBER_UNIQUE_CONSTRAINT = "uk_club_member_club_user_active";
-    // PostgreSQL unique_violation.
-    private static final String POSTGRES_UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private final ClubMemberRepository clubMemberRepository;
 
@@ -40,7 +40,11 @@ public class GeneralClubMemberEnrollmentService implements ClubMemberEnrollmentS
                                 if (!isClubMemberDuplicateMembership(racedInsertion)) {
                                     throw racedInsertion;
                                 }
-                                // 다른 트랜잭션이 먼저 (club, user) 멤버십을 등록한 경우로 간주, idempotent 처리.
+                                // 다른 트랜잭션이 (club, user) 멤버십을 먼저 커밋했다. 여기서 삼키고 진행할 수는
+                                // 없다 — 23505 로 PostgreSQL 트랜잭션이 이미 aborted 라 후속 쿼리도, 커밋도
+                                // 전부 실패한다(#921). 호출측 전체를 롤백시키고 409 로 표면화한다.
+                                // 이 예외가 이 트랜잭션의 마지막 문장이라 aborted 커넥션에는 ROLLBACK 만 나간다.
+                                throw new ClubMemberException.DuplicateMembershipException();
                             }
                         });
     }
@@ -56,17 +60,10 @@ public class GeneralClubMemberEnrollmentService implements ClubMemberEnrollmentS
 
     /**
      * 동시 등록으로 인한 club_member 중복 삽입 only true.
-     * 향후 club_member 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 그대로 위로 전파된다.
+     * 향후 club_member 에 새 unique / CHECK / FK 가 추가되어도 그 위반은 409 로 둔갑하지 않고
+     * 그대로 위로 전파된다.
      */
     private static boolean isClubMemberDuplicateMembership(DataIntegrityViolationException exception) {
-        Throwable mostSpecific = exception.getMostSpecificCause();
-        if (!(mostSpecific instanceof java.sql.SQLException sqlException)) {
-            return false;
-        }
-        if (!POSTGRES_UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-            return false;
-        }
-        String message = sqlException.getMessage();
-        return message != null && message.contains(CLUB_MEMBER_UNIQUE_CONSTRAINT);
+        return PostgresConstraintViolations.isUniqueViolationOf(exception, CLUB_MEMBER_UNIQUE_CONSTRAINT);
     }
 }

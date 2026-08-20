@@ -16,7 +16,6 @@ import com.duing.domain.facility.service.dto.query.FacilityUsageItem;
 import com.duing.domain.facility.service.dto.query.FacilityUsageResult;
 import com.duing.domain.facility.service.dto.query.ReservationSlot;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
@@ -43,8 +42,6 @@ import org.springframework.stereotype.Service;
 public class GeneralFacilityUsageService implements FacilityUsageService {
 
     private static final int MONTH_WINDOW = 12;
-    private static final int CURRENT_NEXT_TTL_MINUTES = 10;
-    private static final int OTHER_TTL_HOURS = 24;
 
     private final FacilityCrawlService crawlService;
     private final FacilityRepository facilityRepository;
@@ -165,18 +162,7 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
 
     /** PARTIAL(일부 룸만 성공)은 신선 취급하지 않는다 — 누락된 룸 데이터를 최신으로 오표기하지 않기 위함. */
     private boolean isStale(YearMonth yearMonth, LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
-        if (source == DataSource.STALE_CACHE || crawledAt == null || fetchStatus != FetchStatus.SUCCESS) {
-            return true;
-        }
-        Duration ttl = ttl(yearMonth);
-        return Duration.between(crawledAt, LocalDateTime.now(clock)).compareTo(ttl) > 0;
-    }
-
-    private Duration ttl(YearMonth yearMonth) {
-        YearMonth current = YearMonth.now(clock);
-        if (yearMonth.equals(current) || yearMonth.equals(current.plusMonths(1))) {
-            return Duration.ofMinutes(CURRENT_NEXT_TTL_MINUTES);
-        }
-        return Duration.ofHours(OTHER_TTL_HOURS);
+        return SnapshotFreshnessPolicy.isStale(source, fetchStatus, crawledAt,
+                SnapshotFreshnessPolicy.ttlFor(yearMonth, YearMonth.now(clock)), LocalDateTime.now(clock));
     }
 }

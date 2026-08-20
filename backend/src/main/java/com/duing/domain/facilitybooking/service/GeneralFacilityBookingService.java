@@ -70,7 +70,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
 
         bookingPolicyValidator.validateSlotRange(command.date(), command.startTime(), command.endTime());
         bookingPolicyValidator.validateActiveCap(facilityBookingRepository.countByClubIdAndStatusIn(
-                command.clubId(), List.of(BookingStatus.PENDING, BookingStatus.APPROVED)));
+                command.clubId(), BookingStatus.activeCapStatuses()));
 
         rejectIfBlockedBySchool(command);
         rejectIfBlockedInternally(command);
@@ -165,12 +165,11 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
      * 명백히 불가능한 신청만 거르는 1차 게이트이고, 정합성의 최종 게이트는 승인 재검증(PR2)이다(설계 §5.1).
      */
     private void rejectIfBlockedBySchool(CreateFacilityBookingCommand command) {
-        boolean blocked = facilityReservationRepository
-                .findByFacilityIdAndYearMonth(command.facilityId(), YearMonth.from(command.date())).stream()
-                .filter(reservation -> reservation.getReservationDate().equals(command.date()))
-                .filter(reservation -> availabilityPolicy.classify(reservation) == CrawlRowType.OCCUPIED)
-                .anyMatch(reservation -> reservation.getStartTime().isBefore(command.endTime())
-                        && reservation.getEndTime().isAfter(command.startTime()));
+        boolean blocked = availabilityPolicy.occupiedOverlapping(
+                        facilityReservationRepository.findByFacilityIdAndYearMonth(
+                                command.facilityId(), YearMonth.from(command.date())),
+                        command.date(), command.startTime(), command.endTime())
+                .findAny().isPresent();
         if (blocked) {
             throw new FacilityBookingException.SlotUnavailableException();
         }
@@ -179,7 +178,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private void rejectIfBlockedInternally(CreateFacilityBookingCommand command) {
         boolean blocked = !facilityBookingRepository.findOverlapping(
                 command.facilityId(), command.date(),
-                List.of(BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                BookingStatus.slotBlockingStatuses(),
                 command.startTime(), command.endTime()).isEmpty();
         if (blocked) {
             throw new FacilityBookingException.SlotUnavailableException();
@@ -189,7 +188,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     private void rejectIfClubDuplicate(CreateFacilityBookingCommand command) {
         boolean duplicate = !facilityBookingRepository.findClubOverlapping(
                 command.clubId(), command.date(),
-                List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED),
+                BookingStatus.normalPathStatuses(),
                 command.startTime(), command.endTime()).isEmpty();
         if (duplicate) {
             throw new FacilityBookingException.DuplicateClubBookingException();

@@ -183,7 +183,7 @@ export function ActivityPhotoCard({
           if (!next && !updatePhoto.isPending) closeCaption();
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent busy={updatePhoto.isPending} className="max-w-sm">
           <DialogHeader>
             <DialogTitle>캡션 편집</DialogTitle>
             <DialogDescription>사진 설명을 입력해요. 비워서 저장하면 캡션이 지워져요.</DialogDescription>

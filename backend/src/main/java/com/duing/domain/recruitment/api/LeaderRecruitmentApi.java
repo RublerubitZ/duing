@@ -53,6 +53,15 @@ public interface LeaderRecruitmentApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
+    @Operation(summary = "상시모집 접수 마감", description = "상시모집(endDate 없음)의 종료일을 어제로 확정해 신규 지원 접수만 즉시 중단한다. "
+            + "status 는 OPEN 을 유지하므로 기존 지원자 심사·면접은 계속 가능하다. 상시모집이 아니면 400, "
+            + "시작일이 지나지 않았으면(당일 포함) 400 — 시작일 다음 날부터 가능, 이미 마감(CLOSED)된 공고면 409 반환. 운영진(LEADER/OFFICER) 권한 필요.")
+    @PatchMapping("/leader/recruitments/{recruitmentId}/stop-intake")
+    ResponseEntity<Void> stopRecruitmentIntake(
+            @PathVariable Long recruitmentId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
     @Operation(summary = "모집 공고 삭제", description = "지원자가 없는 모집 공고만 삭제할 수 있다. 지원자가 1명이라도 있으면 409 — 진행 중 공고는 마감을 사용한다."
             + " 처리되지 않은 가입 요청이 남아 있어도 409 이며, 삭제되는 모집의 활성 가입 링크는 같은 트랜잭션에서 폐기된다. 운영진(LEADER/OFFICER) 권한 필요.")
     @DeleteMapping("/leader/recruitments/{recruitmentId}")

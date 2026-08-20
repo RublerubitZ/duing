@@ -1,7 +1,6 @@
 package com.duing.domain.club.photo.service;
 
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.heroactivity.repository.ClubHeroActivityRepository;
 import com.duing.domain.club.photo.entity.ClubPhoto;
@@ -12,6 +11,7 @@ import com.duing.domain.club.photo.service.dto.command.ReorderClubPhotosCommand;
 import com.duing.domain.club.photo.service.dto.command.ReorderClubPhotosCommand.PhotoOrder;
 import com.duing.domain.club.photo.service.dto.command.UpdateClubPhotoCommand;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import java.util.List;
@@ -31,13 +31,12 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ClubHeroActivityRepository clubHeroActivityRepository;
+    private final ClubVisibilityPolicy clubVisibilityPolicy;
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
-        // 공개 엔드포인트 전용 — 비 ACTIVE 동아리는 존재 은닉을 위해 404 로 응답한다.
-        if (!clubRepository.existsByIdAndStatus(clubId, ClubStatus.ACTIVE)) {
-            throw new ClubException.ClubNotFoundException();
-        }
+        // 공개 엔드포인트 전용 — 비공개 동아리는 게이트가 404 로 숨긴다.
+        clubVisibilityPolicy.requirePubliclyVisible(clubId);
         return clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(clubId).stream()
                 .map(ClubPhotoQuery::from)
                 .toList();

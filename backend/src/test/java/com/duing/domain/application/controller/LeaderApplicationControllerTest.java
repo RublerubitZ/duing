@@ -30,6 +30,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
@@ -504,7 +505,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .body(Map.of("status", "ON_HOLD"))
                 .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
                 .then().statusCode(409)
-                .body("code", equalTo("RECRUITMENT_CLOSED"))
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
     }
 

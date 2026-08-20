@@ -11,6 +11,7 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facility.service.SnapshotFreshnessPolicy;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -21,7 +22,6 @@ import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.BookingSli
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.CrawlSlice;
 import com.duing.global.time.TimeMapper;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -41,9 +41,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class GeneralFacilityAvailabilityService implements FacilityAvailabilityService {
-
-    // 예약 홈은 당월·익월 전용이라 TTL 은 항상 10분(선행 스펙 §5.5의 현재·다음월 TTL 과 동일 값)
-    private static final Duration FRESH_TTL = Duration.ofMinutes(10);
 
     private final FacilityRepository facilityRepository;
     private final FacilityReservationRepository facilityReservationRepository;
@@ -107,7 +104,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         List<FacilityBooking> bookings =
                 facilityBookingRepository.findByFacilityIdAndReservationDateBetweenAndStatusIn(
                         facilityId, targetMonth.atDay(1), targetMonth.atEndOfMonth(),
-                        List.of(BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED));
+                        BookingStatus.normalPathStatuses());
         // BLOCKED(INTERNAL) 대상(APPROVED/CONFIRMED)만 동아리명을 노출한다 — 승인 완료 예약은 학교 반영 후
         // 크롤 SCHOOL 행으로 어차피 실명 공개되므로 새 정보가 아니다(2026-07-17 사용자 결정 §4⁗.1로 구
         // 비노출 정책 부분 반전). PENDING 은 신청 경쟁 정보라 비노출 유지 → 이름을 조회·주입하지 않는다.
@@ -134,11 +131,10 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
+    /** 예약 홈은 당월·익월 전용이라 고정 10분 TTL(선행 스펙 §5.5의 현재·다음월 TTL 정책 파라미터). */
     private boolean isStale(LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
-        if (source == DataSource.STALE_CACHE || crawledAt == null || fetchStatus != FetchStatus.SUCCESS) {
-            return true;
-        }
-        return Duration.between(crawledAt, LocalDateTime.now(clock)).compareTo(FRESH_TTL) > 0;
+        return SnapshotFreshnessPolicy.isStale(source, fetchStatus, crawledAt,
+                SnapshotFreshnessPolicy.CURRENT_NEXT_TTL, LocalDateTime.now(clock));
     }
 
 }

@@ -153,7 +153,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                         clubMember.deletedAt.isNull())
                 .where(
                         feeBill.clubId.eq(clubId),
-                        feeBill.status.in(FeeStatus.PENDING, FeeStatus.PARTIAL_PAID, FeeStatus.OVERDUE),
+                        feeBill.status.in(FeeStatus.unpaidRemainderSet()),
                         remaining.eq(depositAmount))
                 .orderBy(feeBill.dueDate.asc(), feeBill.createdAt.desc(), feeBill.id.asc())
                 .fetch();

@@ -8,13 +8,14 @@
 import { useEffect } from 'react';
 // 허브 간 탭 이동도 View Transition 제외(next/link) — GNB 탭과 동일 정책(전역 크로스페이드 깜빡임).
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 import { cn } from '@/app/_lib/cn';
 import { INFO_MENU_ITEMS, rememberInfoPath } from '@/app/_lib/infoMenu';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 export function InfoTabs() {
-  const pathname = usePathname();
+  // 정확 일치 비교(aria-current)라 트레일링 슬래시가 붙으면 프리렌더 셸과 갈린다 — 정규화 훅을 쓴다(#1021).
+  const pathname = useRoutePathname();
 
   // 마운트 1회가 아니라 pathname 변경마다 기록 — 인스턴스가 유지된 채 경로만 바뀌는 경우 대응.
   useEffect(() => {

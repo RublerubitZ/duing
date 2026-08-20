@@ -8,7 +8,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.repository.RecruitmentPredicates;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
-    // 모집중 뱃지 판정(startDate·endDate vs 오늘)은 KST(seoulClock) 기준.
+    // 모집중 카운트 판정은 KST(seoulClock) 기준 — Recruitment.isEffectivelyOpen 과 동치여야 한다.
     private final Clock clock;
 
     @Override
@@ -46,7 +46,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .leftJoin(recruitment).on(recruitment.club.id.eq(club.id))
                 .where(
                         clubMember.user.id.eq(userId),
-                        clubMember.role.in(ClubMemberRole.LEADER, ClubMemberRole.OFFICER),
+                        clubMember.role.in(ClubMemberRole.MANAGER_ROLES),
                         club.status.eq(ClubStatus.ACTIVE)
                 )
                 .groupBy(club.id, club.name, club.logoUrl, clubMember.role, club.centralClub)
@@ -83,11 +83,10 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                 .fetch();
     }
 
+    /** 모집중 카운트 판정 — 사본 드리프트(#995) 재발 방지를 위해 공용 술어(RecruitmentPredicates)만 쓴다. */
     private NumberExpression<Integer> activeRecruitmentFlag(LocalDate today) {
         return new CaseBuilder()
-                .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                        .and(recruitment.endDate.goe(today))
-                        .and(recruitment.deletedAt.isNull()))
+                .when(RecruitmentPredicates.effectivelyOpen(today))
                 .then(1)
                 .otherwise(0);
     }

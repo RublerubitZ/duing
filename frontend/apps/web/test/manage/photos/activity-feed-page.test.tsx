@@ -9,9 +9,6 @@ import { ApiClientProvider } from '@duing/hooks';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
 }));
 
 import ClubPhotosPage from '@/app/manage/clubs/[clubId]/photos/page';

@@ -22,6 +22,7 @@ import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.repository.RecruitmentPredicates;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
@@ -269,9 +270,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                     .from(recruitment)
                     .where(
                             recruitment.club.id.eq(club.id),
-                            recruitment.status.eq(RecruitmentStatus.OPEN),
-                            recruitment.endDate.isNull().or(recruitment.endDate.goe(today)),
-                            recruitment.startDate.loe(today)
+                            RecruitmentPredicates.availableToday(today)
                     )
                     .exists();
             case UPCOMING -> JPAExpressions
@@ -297,8 +296,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                             .from(recruitment)
                             .where(
                                     recruitment.club.id.eq(club.id),
-                                    recruitment.status.eq(RecruitmentStatus.OPEN),
-                                    recruitment.endDate.isNull().or(recruitment.endDate.goe(today))
+                                    RecruitmentPredicates.effectivelyOpen(today)
                             )
                             .notExists());
         };
@@ -329,17 +327,24 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private OrderSpecifier<?>[] applySort(ClubSortOption sortOption) {
         return switch (sortOption) {
-            case DEADLINE_SOON -> new OrderSpecifier<?>[]{
-                    new OrderSpecifier<>(
-                            Order.ASC,
-                            JPAExpressions.select(recruitment.endDate.min())
-                                    .from(recruitment)
-                                    .where(recruitment.club.eq(club)
-                                            .and(recruitment.status.eq(RecruitmentStatus.OPEN))),
-                            OrderSpecifier.NullHandling.NullsLast
-                    ),
-                    club.createdAt.desc()
-            };
+            case DEADLINE_SOON -> {
+                // min(endDate) 후보는 "오늘 지원 가능한 모집(시작됐고 미만료)" 으로 한정한다.
+                // 만료-OPEN(과거 endDate)·모집예정(startDate 미도래)이 min 에 섞이면 지원 불가
+                // 동아리가 최상단에 오는 오정렬이 난다. 상시모집(endDate NULL)은 마감 자체가
+                // 없으므로 min() 이 NULL 을 무시해 자연 제외되고 NullsLast 로 내려간다.
+                LocalDate today = LocalDate.now(clock);
+                yield new OrderSpecifier<?>[]{
+                        new OrderSpecifier<>(
+                                Order.ASC,
+                                JPAExpressions.select(recruitment.endDate.min())
+                                        .from(recruitment)
+                                        .where(recruitment.club.eq(club)
+                                                .and(RecruitmentPredicates.availableToday(today))),
+                                OrderSpecifier.NullHandling.NullsLast
+                        ),
+                        club.createdAt.desc()
+                };
+            }
             case ALPHABETICAL -> new OrderSpecifier<?>[]{ club.name.asc() };
             // RECENT 는 전환기 alias — stale FE 번들의 sort=RECENT 를 추천순으로 흡수한다(ClubSortOption 참고).
             case RECOMMENDED, RECENT -> {
