@@ -21,11 +21,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
-import com.duing.domain.interview.repository.InterviewRoundRepository;
-import com.duing.domain.interview.repository.InterviewSlotRepository;
-import com.duing.domain.interview.repository.InterviewScheduleRepository;
+import com.duing.domain.interview.service.InterviewAssignmentQueryService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -49,11 +45,8 @@ class ApplicationStatusServiceTest {
     private final ApplicationDraftService applicationDraftService = mock(ApplicationDraftService.class);
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository = mock(ApplicationStatusHistoryRepository.class);
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
-    private final InterviewAvailabilityRepository interviewAvailabilityRepository = mock(InterviewAvailabilityRepository.class);
-    private final InterviewScheduleRepository interviewScheduleRepository = mock(InterviewScheduleRepository.class);
-    private final InterviewRoundRepository interviewRoundRepository = mock(InterviewRoundRepository.class);
-    private final InterviewSlotRepository interviewSlotRepository = mock(InterviewSlotRepository.class);
-    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository = mock(InterviewRoundMemberRepositoryCustom.class);
+    private final InterviewAssignmentQueryService interviewAssignmentQueryService =
+            mock(InterviewAssignmentQueryService.class);
     private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -67,11 +60,7 @@ class ApplicationStatusServiceTest {
             applicationStatusHistoryRepository,
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
-            interviewAvailabilityRepository,
-            interviewScheduleRepository,
-            interviewRoundRepository,
-            interviewSlotRepository,
-            interviewRoundMemberRepository,
+            interviewAssignmentQueryService,
             clock);
 
     // ────────────────────────────────────────────────────────────
