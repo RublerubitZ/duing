@@ -24,7 +24,7 @@ export function useInterviewRoundCandidatesQuery(
 ) {
   const client = useApiClient();
   return useQuery({
-    queryKey: [...interviewRoundKeys.candidates(recruitmentId), includeUndecided] as const,
+    queryKey: interviewRoundKeys.candidates(recruitmentId, includeUndecided),
     queryFn: () => client.interviewRounds.candidates(recruitmentId, includeUndecided),
   });
 }

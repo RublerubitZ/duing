@@ -8,7 +8,6 @@ export function useClubNoticeListQuery(clubId: number, page = 0, size = 20) {
   return useQuery({
     queryKey: clubNoticeKeys.list(clubId, page, size),
     queryFn: () => client.clubNotices.listForClub(clubId, { page, size }),
-    staleTime: 30 * 1000,
   });
 }
 

@@ -32,6 +32,10 @@ pnpm-debug.log*
 coverage
 .nyc_output
 
+# OpenAPI codegen 산출물 — `pnpm gen:api` 로 언제든 다시 만든다(live 백엔드 필요).
+# 커밋해 두면 재생성 없이 늙어 실제 응답과 어긋난 채 남는다.
+packages/api/src/generated/
+
 # misc
 *.log
 .turbo

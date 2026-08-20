@@ -13,7 +13,6 @@ export function useGlobalEventListQuery(params: GlobalEventListParams = {}) {
   return useQuery({
     queryKey: globalEventKeys.publicList(params),
     queryFn: () => client.globalEvents.list(params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -26,7 +25,6 @@ export function useGlobalEventDetailQuery(eventId: number | null) {
       return client.globalEvents.get(eventId);
     },
     enabled: eventId !== null,
-    staleTime: 30 * 1000,
   });
 }
 

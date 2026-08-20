@@ -7,8 +7,8 @@
 // alias 그대로 사용하면 호출부마다 undefined 가드가 강제되므로 도메인 레이어에서
 // 명시적으로 non-null narrow 한다. 안전성을 alias 일관성보다 우선.
 //
-// drift 방지: backend response 가 변경(필드 추가/optional 화)되면 `openapi-types.d.ts`
-// 재생성과 함께 본 type 도 직접 갱신해야 한다.
+// drift 방지: backend response 가 변경(필드 추가/optional 화)되면 본 type 을 직접 갱신해야 한다
+// (`pnpm gen:api` 산출물은 커밋하지 않아 저장소에는 이 정의만 남는다).
 export type AvailabilityItem = {
   slotId: number;
   startTime: string;

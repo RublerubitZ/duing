@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError } from '@duing/api';
 import type {
   BillSearchParams,
   CreateFeePolicyPayload,
@@ -13,26 +12,17 @@ import type {
 import { useApiClient } from './api-context';
 import { bankQueryKeys } from './bankQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
-import { isNonRetryableError } from './retry';
+import { retryUnlessStatuses } from './retry';
 
 // 계좌 미등록은 404(FeeAccountNotFoundException) 로 내려온다 — 정상적인 "빈 상태"이므로 재시도하지 않고
-// 호출부가 ApiError(status 404) 로 등록 폼을 노출한다. 인증 실패·타임아웃도 재시도하지 않는다(전역 정책과 동일).
-function retryUnlessNotFound(failureCount: number, error: unknown): boolean {
-  if (isNonRetryableError(error)) {
-    return false;
-  }
-  if (error instanceof ApiError && error.status === 404) {
-    return false;
-  }
-  return failureCount < 2;
-}
+// 호출부가 ApiError(status 404) 로 등록 폼을 노출한다. 인증 실패·타임아웃·재시도 상한은 전역 정책과 같다.
+const retryUnlessNotFound = retryUnlessStatuses(404);
 
 export function useClubFeePoliciesQuery(clubId: number) {
   const client = useApiClient();
   return useQuery({
     queryKey: feeQueryKeys.policies(clubId),
     queryFn: () => client.leader.fees.listPolicies(clubId),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -69,7 +59,6 @@ export function useClubFeeBillsQuery(clubId: number, params: BillSearchParams) {
   return useQuery({
     queryKey: feeQueryKeys.bills(clubId, params),
     queryFn: () => client.leader.fees.listBills(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -101,7 +90,6 @@ export function useBillPaymentsQuery(clubId: number, billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.billPayments(clubId, billId),
     queryFn: () => client.leader.fees.payments.list(clubId, billId),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -141,7 +129,6 @@ export function useClubFeeSummaryQuery(clubId: number, params: FeeSummaryParams)
   return useQuery({
     queryKey: feeQueryKeys.summary(clubId, params),
     queryFn: () => client.leader.fees.summary(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -150,7 +137,6 @@ export function useMyFeesQuery(params: MyFeeSearchParams) {
   return useQuery({
     queryKey: feeQueryKeys.myFees(params),
     queryFn: () => client.my.fees(params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -160,7 +146,6 @@ export function useClubFeeAccountQuery(clubId: number) {
   return useQuery({
     queryKey: feeQueryKeys.account(clubId),
     queryFn: () => client.leader.fees.account.get(clubId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -198,7 +183,6 @@ export function useMemberFeeAccountQuery(clubId: number) {
   return useQuery({
     queryKey: feeQueryKeys.memberAccount(clubId),
     queryFn: () => client.clubs.feeAccount(clubId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -209,7 +193,6 @@ export function useClubFeeReceiptQuery(clubId: number, billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.receipt(clubId, billId),
     queryFn: () => client.leader.fees.receipt(clubId, billId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }
@@ -220,7 +203,6 @@ export function useMyFeeReceiptQuery(billId: number) {
   return useQuery({
     queryKey: feeQueryKeys.myReceipt(billId),
     queryFn: () => client.my.feeReceipt(billId),
-    staleTime: 30 * 1000,
     retry: retryUnlessNotFound,
   });
 }

@@ -12,7 +12,6 @@ export function useCashbookEntriesQuery(clubId: number, params: CashbookSearchPa
   return useQuery({
     queryKey: cashbookQueryKeys.list(clubId, params),
     queryFn: () => client.leader.cashbook.list(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 
@@ -21,7 +20,6 @@ export function useCashbookSummaryQuery(clubId: number, params: CashbookSearchPa
   return useQuery({
     queryKey: cashbookQueryKeys.summary(clubId, params),
     queryFn: () => client.leader.cashbook.summary(clubId, params),
-    staleTime: 30 * 1000,
   });
 }
 

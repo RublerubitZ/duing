@@ -21,3 +21,17 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
   }
   return failureCount < MAX_QUERY_RETRIES;
 }
+
+// 도메인이 "정상적인 빈 상태"로 쓰는 status(계좌 미등록 404, 자동매칭 미사용 403 …)를 추가로 제외하는
+// 재시도 정책 팩토리. 호출부는 그 status 만 넘기고, 상한과 비재시도 판정은 전역 정책을 그대로 재사용한다 —
+// 로컬에 상한을 복제하면 전역 값과 소리 없이 어긋난다(실제로 4벌이 2회로 갈라져 있었다).
+export function retryUnlessStatuses(
+  ...statuses: number[]
+): (failureCount: number, error: unknown) => boolean {
+  return (failureCount, error) => {
+    if (error instanceof ApiError && statuses.includes(error.status)) {
+      return false;
+    }
+    return shouldRetryQuery(failureCount, error);
+  };
+}
