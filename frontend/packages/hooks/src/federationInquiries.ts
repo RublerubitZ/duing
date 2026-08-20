@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError } from '@duing/api';
 import type {
   AnswerFederationInquiryPayload,
   ChangeFederationInquiryStatusPayload,
@@ -11,19 +10,11 @@ import type {
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
 import { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
-import { isNonRetryableError } from './retry';
+import { retryUnlessStatuses } from './retry';
 
 // 삭제(410)·존재 은닉(404)은 정상적인 "더 볼 수 없는 상태"이므로 재시도하지 않고
-// 호출부가 ApiError(status 404/410)로 폴백 화면을 노출한다. fee.ts의 retryUnlessNotFound 확장.
-function retryUnlessClientError(failureCount: number, error: unknown): boolean {
-  if (isNonRetryableError(error)) {
-    return false;
-  }
-  if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
-    return false;
-  }
-  return failureCount < 2;
-}
+// 호출부가 ApiError(status 404/410)로 폴백 화면을 노출한다.
+const retryUnlessClientError = retryUnlessStatuses(404, 410);
 
 type MyListParams = { status?: FederationInquiryStatus; page: number; size: number };
 

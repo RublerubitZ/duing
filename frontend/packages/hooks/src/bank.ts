@@ -1,23 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError } from '@duing/api';
 import type { BankTransactionSearchParams, SyncBankTransactionsPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { bankQueryKeys } from './bankQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
-import { isNonRetryableError } from './retry';
+import { retryUnlessStatuses } from './retry';
 
 // BANK 자동매칭 미사용 동아리는 검토 큐 조회 시 403(BankMatchingNotEnabled) 으로 내려온다 —
 // 정상적인 "미사용" 상태이므로 재시도하지 않고 호출부가 ApiError(status 403) 로 안내 카드를 노출한다.
-// 그 외 오류는 기본 횟수만큼 재시도한다(Sprint 2 fee-account 404 패턴 미러).
-function retryUnlessForbidden(failureCount: number, error: unknown): boolean {
-  if (isNonRetryableError(error)) {
-    return false;
-  }
-  if (error instanceof ApiError && error.status === 403) {
-    return false;
-  }
-  return failureCount < 2;
-}
+// 403 은 전역 비재시도 집합(인증 실패)에도 들어 있어 지금은 인자 없이도 결과가 같지만, 여기서 막는
+// 이유는 인증이 아니라 "미사용" 도메인 상태이므로 그 근거를 인자로 남긴다.
+const retryUnlessForbidden = retryUnlessStatuses(403);
 
 // 매칭/무시/해제는 검토 큐뿐 아니라 Sprint 2 청구 잔액·수납 집계에도 영향을 준다(납부 생성/무효화).
 // 따라서 동기화·승인·무시·해제 후 검토 큐 + 동아리 청구 목록 + 수납 집계를 함께 무효화한다.

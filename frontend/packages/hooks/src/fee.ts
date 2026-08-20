@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError } from '@duing/api';
 import type {
   BillSearchParams,
   CreateFeePolicyPayload,
@@ -13,19 +12,11 @@ import type {
 import { useApiClient } from './api-context';
 import { bankQueryKeys } from './bankQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
-import { isNonRetryableError } from './retry';
+import { retryUnlessStatuses } from './retry';
 
 // 계좌 미등록은 404(FeeAccountNotFoundException) 로 내려온다 — 정상적인 "빈 상태"이므로 재시도하지 않고
-// 호출부가 ApiError(status 404) 로 등록 폼을 노출한다. 인증 실패·타임아웃도 재시도하지 않는다(전역 정책과 동일).
-function retryUnlessNotFound(failureCount: number, error: unknown): boolean {
-  if (isNonRetryableError(error)) {
-    return false;
-  }
-  if (error instanceof ApiError && error.status === 404) {
-    return false;
-  }
-  return failureCount < 2;
-}
+// 호출부가 ApiError(status 404) 로 등록 폼을 노출한다. 인증 실패·타임아웃·재시도 상한은 전역 정책과 같다.
+const retryUnlessNotFound = retryUnlessStatuses(404);
 
 export function useClubFeePoliciesQuery(clubId: number) {
   const client = useApiClient();
