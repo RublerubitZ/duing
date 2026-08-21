@@ -14,9 +14,11 @@ import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facility.service.SnapshotFreshnessPolicy;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
+import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
+import com.duing.domain.facilitybooking.repository.FacilityBookingPurposePresetRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.BookingSlice;
 import com.duing.domain.facilitybooking.service.FacilitySlotAssembler.CrawlSlice;
@@ -46,6 +48,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityBookingRepository facilityBookingRepository;
+    private final FacilityBookingPurposePresetRepository purposePresetRepository;
     private final ClubRepository clubRepository;
     private final FacilityCrawlService facilityCrawlService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
@@ -98,6 +101,13 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     public BookingWindowResponse getBookingWindow() {
         LocalDate today = LocalDate.now(clock);
         return BookingWindowResponse.from(bookingApplicationPolicy.windowFor(today));
+    }
+
+    @Override
+    public List<PurposePresetResponse> listActivePurposePresets() {
+        return purposePresetRepository.findByActiveTrueOrderBySortOrderAsc().stream()
+                .map(PurposePresetResponse::from)
+                .toList();
     }
 
     private List<BookingSlice> toBookingSlices(Long facilityId, YearMonth targetMonth) {

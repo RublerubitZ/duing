@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeClubScopeRole;
@@ -83,6 +84,7 @@ class NoticeExpiryKstBoundaryTest {
                 noticeRepository,
                 targetClubRepository,
                 mock(ClubRepository.class),
+                mock(ClubMemberRepository.class),
                 mock(NoticeBroadcaster.class),
                 fixedClock);
     }

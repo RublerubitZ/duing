@@ -6,7 +6,10 @@ import com.duing.domain.globalevent.exception.GlobalEventException;
 import com.duing.domain.globalevent.repository.GlobalEventRepository;
 import com.duing.domain.globalevent.service.dto.command.CreateGlobalEventCommand;
 import com.duing.domain.globalevent.service.dto.command.UpdateGlobalEventCommand;
+import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminDetailQuery;
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +33,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
     private static final int MAX_WINDOW_DAYS = 400;
 
     private final GlobalEventRepository eventRepository;
+    private final UserRepository userRepository;
     private final Clock clock;
 
     @Override
@@ -93,9 +97,13 @@ public class GeneralGlobalEventService implements GlobalEventService {
     }
 
     @Override
-    public GlobalEvent getAdmin(Long eventId) {
-        return eventRepository.findById(eventId)
+    public GlobalEventAdminDetailQuery getAdmin(Long eventId) {
+        GlobalEvent event = eventRepository.findById(eventId)
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
+        // created_by 는 users FK 라 행이 사라질 수 없다 — 없으면 데이터 파손이므로 500 으로 드러낸다.
+        User creator = userRepository.findById(event.getCreatedBy())
+                .orElseThrow(() -> new IllegalStateException("global event creator missing: " + event.getCreatedBy()));
+        return GlobalEventAdminDetailQuery.of(event, creator);
     }
 
     @Override

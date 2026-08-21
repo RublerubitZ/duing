@@ -7,9 +7,7 @@ import com.duing.domain.notice.controller.dto.response.AdminNoticeSummaryRespons
 import com.duing.domain.notice.controller.dto.response.NoticeDetailResponse;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
-import com.duing.domain.notice.entity.NoticeTargetClub;
 import com.duing.domain.notice.entity.NoticeVisibility;
-import com.duing.domain.notice.repository.NoticeTargetClubRepository;
 import com.duing.domain.notice.service.NoticeService;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
@@ -19,7 +17,6 @@ import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +37,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminNoticeController implements AdminNoticeApi {
 
     private final NoticeService noticeService;
-    private final NoticeTargetClubRepository targetClubRepository;
 
     @Override
     public ResponseEntity<ApiResponse<Long>> createNotice(
@@ -79,10 +75,9 @@ public class AdminNoticeController implements AdminNoticeApi {
 
     @Override
     public ResponseEntity<ApiResponse<NoticeDetailResponse>> getAdminNoticeDetail(@PathVariable Long noticeId) {
-        ViewerScope adminScope = new ViewerScope(UserRole.ADMIN, null, Set.of(), Set.of());
+        ViewerScope adminScope = noticeService.resolveViewerScope(null, UserRole.ADMIN);
         Notice notice = noticeService.getVisible(noticeId, adminScope);
-        List<Long> targetClubIds = targetClubRepository.findAllByIdNoticeId(notice.getId())
-                .stream().map(NoticeTargetClub::getClubId).toList();
+        List<Long> targetClubIds = noticeService.findTargetClubIds(notice.getId());
         // 관리자 화면은 owningClubId·targetClubIds·visibility 로 출처를 다루므로 공개용 clubName 라벨은 생략한다.
         return ResponseEntity.ok(ApiResponse.success(
                 NoticeDetailResponse.from(notice, targetClubIds, true, null)));
