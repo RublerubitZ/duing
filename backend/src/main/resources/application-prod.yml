@@ -44,6 +44,9 @@ spring:
     # 운영에서는 운영 마이그레이션만 적용한다. application-local.yml 의 migration-dev 는 포함되지 않으므로
     # 로컬 시드(V12~) 가 운영 DB 로 흘러 들어가지 않는다.
     locations: classpath:db/migration
+    placeholders:
+      # 운영 DB 에만 +9h 왜곡이 쌓여 있어 V112 백필을 여기서만 켠다(기본값은 공통 application.yml 의 false).
+      apply_tz_backfill: "true"
 
 # API 문서(Swagger UI / OpenAPI JSON)는 운영에서 비활성화한다. SecurityConfig 가 /swagger-ui/**,
 # /v3/api-docs/** 를 permitAll 로 열어두므로, 운영에 노출되면 전체 엔드포인트·요청 스키마가 인증 없이

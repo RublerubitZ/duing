@@ -41,6 +41,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    placeholders:
+      # 테스트 컨테이너는 빈 DB 라 백필할 왜곡 이력이 없다 — V112 는 no-op 으로 통과시킨다.
+      apply_tz_backfill: "false"
 
 management:
   endpoints:

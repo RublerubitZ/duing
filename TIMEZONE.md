@@ -43,7 +43,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 - **seoul** — `now(seoulClock)` 저장 값(auth_session, phone_verification, payment, facility 운영 필드 등). 항상 KST 벽시계.
 - **schedule** — 사용자가 입력한 KST 예정 시각. 변환 대상이 아님.
 
-⚠️ **timestamptz 컬럼 + seoul 벽시계 저장(면접·회비 일부)은 DB에 기록된 절대시각이 실제보다 +9h 왜곡**되어 있다(JDBC 세션 존=UTC로 캐스팅되기 때문). 앱 왕복은 벽시계가 복원되어 정상이지만, SQL 직접 조회·CSV·BI에서는 틀린 값이다. 2단계 백필에서 `- interval '9 hours'` 보정 대상. 해당 컬럼은 아래 대응표에서 ⚠️ 로 표시했다 — `payment.paid_at`·`payment.voided_at`·`bank_transaction.transaction_at`·`interview_round.assignment_completed_at` 이 지금도 왜곡을 적립 중이다.
+⚠️ **timestamptz 컬럼 + seoul 벽시계 저장(면접·회비 일부)은 DB에 기록된 절대시각이 실제보다 +9h 왜곡**되어 있다(JDBC 세션 존=UTC로 캐스팅되기 때문). 앱 왕복은 벽시계가 복원되어 정상이지만, SQL 직접 조회·CSV·BI에서는 틀린 값이다. 2단계 백필에서 `- interval '9 hours'` 보정 대상. 해당 컬럼은 아래 대응표에서 ⚠️ 로 표시했다 — 지금도 왜곡을 적립 중인 것은 `interview_round.assignment_completed_at` 하나뿐이고(후속 V113), `payment.paid_at`·`payment.voided_at`·`bank_transaction.transaction_at` 은 **V112 백필 + Instant 전환 완료(2026-08-21)** 로 적립이 멈췄다(저장 코드가 절대시각을 쓰고, 운영의 기존 행은 V112 가 −9h 보정).
 
 ## 필드별 regime 대응표
 
@@ -101,13 +101,13 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | SubmissionCandidatesResponse.Booking.decidedAt | facility_booking.decided_at | **seoul** | GeneralFacilityBookingAdminService#approve·#reject now(clock). 수기 확정(#confirmManually)·매칭 확정(FacilityBookingMatchingService#verifyAndConfirm)은 decided_at 이 아니라 confirmed_at 을 쓰며 응답에 노출되지 않는다 |
 | Federation 계열 createdAt/updatedAt/answeredAt (FAQ·문의·답변) | federation_*.* (timestamptz) | system | BaseEntity 감사 / FederationInquiry#markAnswered·#close 무클럭 now() |
 | FederationFaqSearchMissResponse.lastSearchedAt | federation_faq_search_miss.last_searched_at (timestamptz) | system | DB NOW() 저장 — JDBC가 JVM 존 벽시계로 읽으므로 system 변환이 원 instant 복원 |
-| ⚠️ BankTransactionResponse.transactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | BankApiHttpClient#appendTransaction — BANK API 응답의 date·time 을 존 변환 없이 KST 벽시계로 조립 |
-| ⚠️ PaymentResponse.paidAt · ReceiptResponse.PaymentLine.paidAt | payment.paid_at (timestamptz) | **seoul** | 수기: GeneralPaymentService#record 가 입력 LocalDate 를 `atStartOfDay(SEOUL)` 로 승격 — LocalDate 기점이라 존 변환은 실제로 일어나지 않고 KST 벽시계 자정이 그대로 저장된다. 매칭: GeneralMatchedPaymentService#createMatchedPayment 는 시각 계산 없이 `transaction.getTransactionAt()` 을 그대로 저장 — bank_transaction 과 동일 regime |
-| ⚠️ AdminFeePaymentRowResponse.voidedAt (#893 회비 감사) | payment.voided_at (timestamptz) | **seoul** | GeneralPaymentService#voidPayment 가 `now(clock)` 의 KST 벽시계를 timestamptz 컬럼에 저장 → **DB-01 과 같은 +9h 왜곡을 지금도 적립 중**. 2단계에서 `- interval '9 hours'` 보정 대상 |
-| AdminFeePaymentRowResponse.paidAt · AdminFeeBillRowResponse.lastPaidAt (#893) | payment.paid_at (timestamptz) / MAX(payment.paid_at) | **seoul** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 변환 |
-| AdminFeeClubSummaryResponse.lastPaidAt | payment.paid_at (timestamptz) | **seoul** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 변환(총동연 회비 감사 목록) |
-| AdminFeeClubSummaryResponse.lastTransactionAt | bank_transaction.transaction_at (timestamptz) | **seoul** | 위 BankTransactionResponse.transactionAt 과 같은 컬럼·같은 변환 |
-| AdminFeeBillRowResponse.createdAt (#893) | fee_bill.created_at (timestamptz) | system | BaseEntity 감사 — 같은 행의 lastPaidAt(seoul) 과 regime 이 갈린다 |
+| BankTransactionResponse.transactionAt | bank_transaction.transaction_at (timestamptz) | **Instant** | BANK API 페이로드는 여전히 KST 벽시계(BankApiHttpClient#appendTransaction 조립·해시 입력 불변)이고, 적재 경계인 GeneralBankTransactionSyncService#persist 가 `atZone(SEOUL).toInstant()` 로 절대시각 승격 후 저장 — 응답은 TimeMapper 없이 직반환. V112 백필 완료(2026-08-21) |
+| PaymentResponse.paidAt · ReceiptResponse.PaymentLine.paidAt | payment.paid_at (timestamptz) | **Instant** | 수기: GeneralPaymentService#record 가 입력 LocalDate 를 `atStartOfDay(SEOUL).toInstant()` 로 승격(KST 날짜 의미 보존). 매칭: GeneralMatchedPaymentService#createMatchedPayment 는 시각 계산 없이 `transaction.getTransactionAt()` 복사 — bank_transaction 과 동일 regime. V112 백필 완료(2026-08-21) |
+| AdminFeePaymentRowResponse.voidedAt (#893 회비 감사) | payment.voided_at (timestamptz) | **Instant** | GeneralPaymentService#voidPayment 가 `Instant.now(clock)` 저장 — 왜곡 적립 중단. V112 백필 완료(2026-08-21) |
+| AdminFeePaymentRowResponse.paidAt · AdminFeeBillRowResponse.lastPaidAt (#893) | payment.paid_at (timestamptz) / MAX(payment.paid_at) | **Instant** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 저장 |
+| AdminFeeClubSummaryResponse.lastPaidAt | payment.paid_at (timestamptz) | **Instant** | 위 PaymentResponse.paidAt 과 같은 컬럼·같은 저장(총동연 회비 감사 목록) |
+| AdminFeeClubSummaryResponse.lastTransactionAt | bank_transaction.transaction_at (timestamptz) | **Instant** | 위 BankTransactionResponse.transactionAt 과 같은 컬럼·같은 저장 |
+| AdminFeeBillRowResponse.createdAt (#893) | fee_bill.created_at (timestamptz) | system | BaseEntity 감사 — 같은 행의 lastPaidAt(Instant) 과 저장 regime 이 갈린다(응답 절대시각은 양쪽 다 정합) |
 | AdminFeeAuditCommentResponse.createdAt/updatedAt (#893) | admin_fee_audit_comment.* (timestamptz) | system | BaseEntity 감사 |
 | AdminFeeAuditLogResponse.createdAt (#893) | club_audit_event.created_at (timestamptz) | system | BaseEntity 감사 |
 | AdminFeePolicyResponse.createdAt (#893) | fee_policy.created_at (timestamptz) | system | BaseEntity 감사 |
@@ -138,9 +138,11 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 1. 위 regime 대응표가 백필 명세다. 컬럼별로:
    - system(naive) → `timestamptz`: prod 데이터는 `AT TIME ZONE 'UTC'` 백필
    - seoul(naive) → `timestamptz`: `AT TIME ZONE 'Asia/Seoul'` 백필
-   - seoul(이미 timestamptz, +9h 왜곡) → `- interval '9 hours'` 보정. 대응표의 ⚠️ 행이 전부 여기 해당한다 — `payment.paid_at`·`payment.voided_at`·`bank_transaction.transaction_at`·`interview_round.assignment_completed_at`
+   - seoul(이미 timestamptz, +9h 왜곡) → `- interval '9 hours'` 보정. 대응표의 ⚠️ 행이 전부 여기 해당한다 — `payment.paid_at`·`payment.voided_at`·`bank_transaction.transaction_at`(**V112 로 보정 완료, 2026-08-21** — 저장 코드도 Instant 전환)·`interview_round.assignment_completed_at`(미처리 — 후속 V113)
    - schedule 필드는 naive 유지(또는 date+time 분리) — 마이그레이션 대상 아님
    - **제외 대상**: `admin_user_action_log.created_at` — 신규 테이블이라 처음부터 `timestamptz` + 엔티티 `Instant`. 백필·변환 대상이 아니다.
    - **제외 대상**: `recertification_round`·`recertification_request` — 쓰는 코드가 없는 고아 테이블(알려진 이슈 4). 백필하지 말고 별도 DROP 과제로 넘긴다.
 2. BaseEntity·seoul 저장 코드의 Instant 전환 + TimeMapper 제거를 같은 릴리스에서.
 3. 백업 리허설 필수. 앱 릴리스와 마이그레이션 릴리스 분리 원칙(자동 롤백 호환성) 준수.
+4. **환경 분기는 Flyway placeholder 로 가드한다.** +9h 왜곡은 JVM=UTC 인 운영에만 쌓였고 dev/local(JVM=KST)의 같은 컬럼은 이미 정합이라, 모든 환경에 백필을 돌리면 개발 DB 가 오히려 −9h 로 오염된다. 그래서 V112 는 `WHERE ${apply_tz_backfill}` 형태로 쓰고, 공통 `application.yml`·테스트 `application.yml` 은 `"false"`(no-op), `application-prod.yml` 만 `"true"` 로 둔다(레포 첫 placeholder 사용). Flyway 체크섬은 치환 전 원문 기준이라 환경 간 불일치가 생기지 않고, placeholder 를 정의하지 않은 환경은 부팅 단계에서 즉시 실패해 조용한 누락이 없다.
+5. **롤백 시 재왜곡 창 주의.** 백필과 저장 코드 전환은 한 릴리스로 묶인다 — 백필만 끝난 운영 DB 로 구버전 앱(KST 벽시계 저장)을 되돌리면, 되돌린 시점 이후 새로 쌓이는 행만 다시 +9h 로 왜곡되어 한 컬럼에 두 regime 이 섞인다. 롤백이 필요하면 앱을 되돌리기 전에 그 창에 들어온 행의 범위를 확보하고(감사 로그·created_at 기준), 재적용 시 그 구간만 다시 −9h 보정해야 한다. 마이그레이션 자체는 되돌릴 스크립트가 없으므로 백업 선행이 전제다.
