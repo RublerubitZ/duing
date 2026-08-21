@@ -1,6 +1,7 @@
 package com.duing.domain.fee.service.dto.query;
 
 import com.duing.domain.fee.entity.FeeStatus;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
  * <p>{@code overdue} 는 저장된 status 가 아니라 마감일 파생 값이다. 목록 필터(OVERDUE)와 똑같은 식을
  * 쿼리에서 재사용하므로 필터 결과와 배지가 어긋날 수 없다 — 기준일(KST 오늘)은 서비스가 넘긴다.
  *
- * <p>{@code createdAt} 은 JVM 존 벽시계, {@code lastPaidAt} 은 KST 벽시계다(/TIMEZONE.md 대응표).
+ * <p>{@code createdAt} 은 JVM 존 벽시계고, {@code lastPaidAt} 은 정합 절대시각이다(/TIMEZONE.md 대응표).
  */
 public record AdminFeeBillRow(
         Long billId,
@@ -29,6 +30,6 @@ public record AdminFeeBillRow(
         boolean overdue,
         LocalDateTime createdAt,
         LocalDate dueDate,
-        LocalDateTime lastPaidAt
+        Instant lastPaidAt
 ) {
 }

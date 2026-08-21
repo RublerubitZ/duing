@@ -24,8 +24,8 @@ public interface CashbookEntryRepository extends JpaRepository<CashbookEntry, Lo
                    'BANK_API', 'OTHER', NULL, bt.amount,
                    COALESCE(NULLIF(bt.counterparty, ''),
                             CASE WHEN bt.transaction_type = 'DEPOSIT' THEN '입금' ELSE '출금' END),
-                   -- transaction_at 은 KST 벽시계가 UTC instant 로 저장됨 → AT TIME ZONE 'UTC' 로 그 KST 날짜를 복원(Asia/Seoul 쓰면 +9h 더 변환돼 저녁 거래 +1일)
-                   (bt.transaction_at AT TIME ZONE 'UTC')::date, NULL, NULL, bt.id, now(), now()
+                   -- transaction_at 은 정합 절대시각(timestamptz)이라 AT TIME ZONE 'Asia/Seoul' 로 거래일을 KST 로 뽑는다
+                   (bt.transaction_at AT TIME ZONE 'Asia/Seoul')::date, NULL, NULL, bt.id, now(), now()
             FROM bank_transaction bt
             WHERE bt.transaction_hash IN (:transactionHashes) AND bt.deleted_at IS NULL AND bt.amount > 0
             ON CONFLICT (bank_transaction_id) WHERE bank_transaction_id IS NOT NULL AND deleted_at IS NULL

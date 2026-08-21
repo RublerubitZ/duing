@@ -14,6 +14,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.fee.repository.BankTransactionRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,13 +49,13 @@ class CashbookBankGenerationTest extends IntegrationTestBase {
     // bank_transaction 1건을 native insert 로 적재한다(insertIgnoringConflict: 신규=1).
     private void insertBankTx(String hash, String type, long amount, String counterparty) {
         bankTransactionRepository.insertIgnoringConflict(
-                clubId, "KB", LocalDateTime.of(2026, 9, 1, 10, 0), amount, 500000L, counterparty,
+                clubId, "KB", LocalDateTime.of(2026, 9, 1, 10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+                amount, 500000L, counterparty,
                 type, type.equals("DEPOSIT") ? "PENDING" : "IGNORED", null, hash, "{}");
     }
 
     // transaction_at 을 명시적 UTC instant 문자열로 적재한다(거래일 추출 규약 검증용).
-    // LocalDateTime 바인딩은 실행 JVM 타임존에 의존하므로, 운영(JVM=UTC) 적재 형상을 호스트 TZ 와
-    // 무관하게 재현하려면 stored instant 를 직접 지정해야 회귀 단정이 결정적이 된다.
+    // 저장 절대시각을 직접 지정해야 호스트 TZ 와 무관하게 회귀 단정이 결정적이 된다.
     private void insertBankTxAtInstant(String hash, String type, long amount, String counterparty,
                                        String transactionAtUtc) {
         jdbcTemplate.update("""
@@ -103,20 +104,20 @@ class CashbookBankGenerationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("저녁 23시 KST 거래도 같은 날짜로 장부에 기록된다(+1일로 어긋나지 않는다)")
-    void eveningTransactionKeepsSameDate() {
-        // 운영(JVM=UTC)에서 KST 벽시계 9/1 23:00 은 UTC instant 23:00+00 으로 저장된다.
-        // AT TIME ZONE 'UTC' 로 그 벽시계 날짜(9/1)를 복원해야 한다.
-        // Asia/Seoul 로 바꾸면 +9h 더해져 9/2 로 어긋나므로(이 입력이 UTC 자정을 넘김), 이 단정이 그 회귀를 잡는다.
+    @DisplayName("새벽 01시 KST 거래는 그 KST 날짜로 장부에 기록된다(전날로 어긋나지 않는다)")
+    void earlyMorningTransactionKeepsKstDate() {
+        // transaction_at 이 정합 절대시각이 된 뒤로는 KST 자정~09시 구간이 UTC 로는 전날이다.
+        // KST 9/2 01:00 = UTC 9/1 16:00 이라, AT TIME ZONE 'Asia/Seoul' 로 뽑아야 거래일이 9/2 가 된다 —
+        // 'UTC' 로 되돌리면 9/1 로 하루 밀리므로 이 단정이 그 회귀를 잡는다.
         transactionTemplate.executeWithoutResult(status -> {
-            insertBankTxAtInstant("h-evening", "DEPOSIT", 50000L, "야간입금", "2026-09-01 23:00:00+00");
+            insertBankTxAtInstant("h-early", "DEPOSIT", 50000L, "새벽입금", "2026-09-01 16:00:00+00");
 
-            cashbookEntryRepository.generateFromBankTransactions(List.of("h-evening"));
+            cashbookEntryRepository.generateFromBankTransactions(List.of("h-early"));
         });
 
         List<CashbookEntry> entries = cashbookEntryRepository.findAll();
         assertThat(entries).hasSize(1);
-        assertThat(entries.get(0).getTransactionDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(entries.get(0).getTransactionDate()).isEqualTo(LocalDate.of(2026, 9, 2));
     }
 
     @Test

@@ -16,8 +16,9 @@ import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
 import com.duing.global.crypto.FeeAccountCipher;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,8 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
 
     /** 동기화 조회 기간 하한(오늘 기준 N 일 전). 최초 동기화·오래된 마지막 거래 모두 이 하한으로 제한한다. */
     private static final int LOOKBACK_DAYS = 14;
+
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final ClubAuthService clubAuthService;
     private final BankMatchingAdminService bankMatchingAdminService;
@@ -146,8 +149,10 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             boolean isDeposit = transaction.isDeposit();
             String transactionType = isDeposit ? "DEPOSIT" : "WITHDRAWAL";
             String matchStatus = isDeposit ? "PENDING" : "IGNORED";
+            // BANK API 페이로드의 거래 시각은 KST 벽시계다(BankTransactionData 계약). 해시는 그 벽시계
+            // 문자열 그대로 계산하고(멱등성 계약), 저장만 여기서 절대시각으로 변환한다.
             int inserted = bankTransactionRepository.insertIgnoringConflict(
-                    clubId, bankCode, transaction.transactionAt(),
+                    clubId, bankCode, transaction.transactionAt().atZone(SEOUL).toInstant(),
                     transaction.amount(), transaction.balance(), transaction.counterparty(),
                     transactionType, matchStatus, null, transactionHash,
                     transaction.rawJson());   // raw_payload 는 BANK API 응답 거래만 — 인증정보는 절대 들어가지 않는다
@@ -185,11 +190,12 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
      */
     private LocalDate resolveStartDate(Long clubId, LocalDate today) {
         LocalDate lowerBound = today.minusDays(LOOKBACK_DAYS);
-        LocalDateTime latest = bankTransactionRepository.findLatestTransactionAt(clubId).orElse(null);
+        Instant latest = bankTransactionRepository.findLatestTransactionAt(clubId).orElse(null);
         if (latest == null) {
             return lowerBound;
         }
-        LocalDate fromLatest = latest.toLocalDate().minusDays(1);
+        // BANK API 조회 시작일은 KST 날짜라 마지막 거래도 KST 달력으로 환산해 하루를 뺀다.
+        LocalDate fromLatest = latest.atZone(SEOUL).toLocalDate().minusDays(1);
         return fromLatest.isBefore(lowerBound) ? lowerBound : fromLatest;
     }
 }

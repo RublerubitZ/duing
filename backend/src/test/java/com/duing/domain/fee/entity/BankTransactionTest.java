@@ -2,13 +2,17 @@ package com.duing.domain.fee.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class BankTransactionTest {
 
-    private static final LocalDateTime TRANSACTION_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
+    // BANK 거래 시각은 KST 의미라, 그 벽시계를 절대시각으로 굳혀 픽스처로 쓴다.
+    private static final Instant TRANSACTION_AT =
+            LocalDateTime.of(2026, 6, 15, 10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
     private static final String RAW_PAYLOAD = "{\"tranAmt\":10000}";
 
     private BankTransaction depositTransaction() {

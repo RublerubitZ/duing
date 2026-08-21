@@ -27,6 +27,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,7 +93,7 @@ class LeaderFeeReceiptControllerTest extends IntegrationTestBase {
         FeeBill bill = feeBillRepository.save(
                 FeeBillFixture.withStatus(clubIdValue, memberUserId, policyIdValue, "2026-07", FeeStatus.PAID));
         paymentRepository.save(Payment.record(bill.getId(), 10000L, PaymentMethod.TRANSFER,
-                LocalDateTime.of(2026, 7, 10, 0, 0), memberUserId, null));
+                LocalDateTime.of(2026, 7, 10, 0, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(), memberUserId, null));
         return bill;
     }
 

@@ -8,7 +8,9 @@ import com.duing.common.fixture.ClubFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.fee.entity.BankTransaction;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +24,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SpringBootTest
 class BankTransactionRepositoryTest extends IntegrationTestBase {
 
-    private static final LocalDateTime TRANSACTION_AT = LocalDateTime.of(2026, 6, 15, 10, 0);
+    // 거래 시각은 KST 의미라, 벽시계를 절대시각으로 굳혀 적재한다.
+    private static final Instant TRANSACTION_AT =
+            LocalDateTime.of(2026, 6, 15, 10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant();
 
     @Autowired
     private BankTransactionRepository bankTransactionRepository;
@@ -75,7 +79,7 @@ class BankTransactionRepositoryTest extends IntegrationTestBase {
             assertThat(first).isEqualTo(1);
 
             int second = bankTransactionRepository.insertIgnoringConflict(
-                    clubId, "NH", TRANSACTION_AT.plusHours(1), 20000L, 70000L, "김두잉",
+                    clubId, "NH", TRANSACTION_AT.plusSeconds(3600), 20000L, 70000L, "김두잉",
                     "DEPOSIT", "PENDING", null, "hash-aaa", "{}");
 
             assertThat(second).isEqualTo(0);

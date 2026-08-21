@@ -30,9 +30,11 @@ import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -251,8 +253,8 @@ class AdminFeeAnomalyServiceTest extends IntegrationTestBase {
         Long billId = saveBill(clubId, LocalDate.now(SEOUL).plusDays(7));
         for (int index = 0; index < voidCount; index++) {
             Payment payment = Payment.record(billId, 20_000L, PaymentMethod.TRANSFER,
-                    LocalDateTime.now(SEOUL).minusDays(2), leaderUserId, null);
-            payment.voidPayment(leaderUserId, "중복 입금 정정", LocalDateTime.now(SEOUL));
+                    Instant.now().minus(2, ChronoUnit.DAYS), leaderUserId, null);
+            payment.voidPayment(leaderUserId, "중복 입금 정정", Instant.now());
             paymentRepository.save(payment);
         }
         return clubId;
@@ -286,7 +288,7 @@ class AdminFeeAnomalyServiceTest extends IntegrationTestBase {
     private void saveMatchedTransactions(Long clubId, Long billId, MatchStatus matchStatus, int count) {
         for (int index = 0; index < count; index++) {
             BankTransaction transaction = BankTransaction.ingest(clubId, "NH",
-                    LocalDateTime.now(SEOUL).minusDays(1), 20_000L, 100_000L, "홍길동",
+                    Instant.now().minus(1, ChronoUnit.DAYS), 20_000L, 100_000L, "홍길동",
                     TransactionType.DEPOSIT, "hash-" + System.nanoTime() + "-" + index, "{}");
             transaction.matchTo(billId, matchStatus);
             bankTransactionRepository.save(transaction);

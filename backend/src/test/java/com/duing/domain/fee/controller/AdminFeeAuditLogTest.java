@@ -27,7 +27,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.Map;
@@ -104,7 +104,7 @@ class AdminFeeAuditLogTest extends IntegrationTestBase {
         billId = feeBillRepository.save(FeeBill.issue(auditClubId, leaderUser.getId(), policyId, 20_000L,
                 YearMonth.now(SEOUL).toString(), today.minusDays(30), today.minusDays(1), today)).getId();
         paymentId = paymentRepository.save(Payment.record(billId, 20_000L, PaymentMethod.TRANSFER,
-                LocalDateTime.now(SEOUL), leaderUser.getId(), null)).getId();
+                Instant.now(), leaderUser.getId(), null)).getId();
 
         policyUpdatedEventId = saveEvent(ClubAuditEvent.feePolicy(
                 ClubAuditEventType.FEE_POLICY_UPDATED, auditClubId, policyId, leaderUser.getId(),

@@ -30,6 +30,7 @@ import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -296,13 +297,13 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
 
     private void saveActivePayment(Long feeBillId, long amount, Long recordedBy) {
         paymentRepository.save(Payment.record(feeBillId, amount, PaymentMethod.TRANSFER,
-                LocalDateTime.now(SEOUL), recordedBy, null));
+                Instant.now(), recordedBy, null));
     }
 
     private void saveVoidedPayment(Long feeBillId, long amount, Long recordedBy) {
         Payment payment = Payment.record(feeBillId, amount, PaymentMethod.TRANSFER,
-                LocalDateTime.now(SEOUL), recordedBy, null);
-        payment.voidPayment(recordedBy, "중복 입금 정정", LocalDateTime.now(SEOUL));
+                Instant.now(), recordedBy, null);
+        payment.voidPayment(recordedBy, "중복 입금 정정", Instant.now());
         paymentRepository.save(payment);
     }
 

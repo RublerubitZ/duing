@@ -3,13 +3,13 @@ package com.duing.domain.fee.service.dto.query;
 import com.duing.domain.fee.entity.Payment;
 import com.duing.domain.fee.entity.PaymentMethod;
 import com.duing.domain.fee.entity.PaymentStatus;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PaymentQuery(
         Long id,
         Long amount,
         PaymentMethod method,
-        LocalDateTime paidAt,
+        Instant paidAt,
         String memo,
         PaymentStatus status,
         String voidReason
