@@ -13,8 +13,8 @@ package com.duing.global.constant;
 public final class ErrorCodes {
 
     /**
-     * 마감된 모집에 대한 쓰기 시도. 모집 재마감·마감 모집 읽기 전용 가드·면접 가능 시간 제출·지원 철회가
-     * 같은 코드를 공유한다(HTTP 409).
+     * 마감된 모집에 대한 쓰기 시도. 모집 재마감·마감 모집 읽기 전용 가드·면접 가능 시간 제출·지원 철회·
+     * 지원 제출(사전 확인 포함)이 같은 코드를 공유한다(HTTP 409).
      */
     public static final String RECRUITMENT_CLOSED = "RECRUITMENT_CLOSED";
 
