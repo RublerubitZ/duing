@@ -18,6 +18,9 @@ public record AdminFeePeriod(
         LocalDateTime createdFrom, LocalDateTime createdTo,
         Instant paidFrom, Instant paidTo
 ) {
+
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
     public static AdminFeePeriod of(LocalDate from, LocalDate to) {
         return new AdminFeePeriod(
                 from, to,
@@ -26,8 +29,6 @@ public record AdminFeePeriod(
                 from == null ? null : from.atStartOfDay(SEOUL).toInstant(),
                 to == null ? null : to.plusDays(1).atStartOfDay(SEOUL).toInstant());
     }
-
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private static LocalDateTime toSystemZone(LocalDate kstDate) {
         return TimeMapper.seoulToSystemWallClock(kstDate.atStartOfDay());
