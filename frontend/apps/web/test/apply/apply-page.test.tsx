@@ -24,6 +24,9 @@ import ApplyPage from '@/app/apply/[recruitmentId]/page';
 
 const RECRUITMENT_ID = 42;
 
+/** 마감 배너 문구 — 자동저장 410 과 제출 409(RECRUITMENT_CLOSED)가 같은 UI 로 수렴한다. */
+const CLOSED_BANNER_TEXT = '모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.';
+
 // 질문 id 는 V78 이후 서버가 발급하는 UUID 다 — 배열 인덱스가 아니라는 점이 드러나도록 UUID 형태로 둔다.
 // (makeRecruitment 의 기본 인자로 쓰이므로 setupServer 호출보다 위에 있어야 TDZ 를 피한다.)
 const TEXT_QUESTION_ID = '11111111-1111-1111-1111-111111111111';
@@ -248,6 +251,55 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('이미 지원한 모집입니다.'),
     );
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('제출이 RECRUITMENT_CLOSED 로 실패하면 마감 배너가 뜨고 제출이 비활성화된다', async () => {
+    server.use(
+      http.post('*/recruitments/:recruitmentId/applications', () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '마감된 모집 공고에는 지원할 수 없습니다.',
+            code: 'RECRUITMENT_CLOSED',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderForm({ useInterview: false });
+    await user.type(screen.getByLabelText(/지원 동기/), '열정');
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    // 자동저장 410 과 같은 마감 UI 로 전환된다 — 서버 메시지 대신 배너가 안내를 대체한다.
+    expect(await screen.findByRole('alert')).toHaveTextContent(CLOSED_BANNER_TEXT);
+    expect(screen.getByRole('button', { name: '제출' })).toBeDisabled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('code 없는 제출 실패는 기존처럼 서버 메시지를 인라인 알림으로 보여준다', async () => {
+    server.use(
+      http.post('*/recruitments/:recruitmentId/applications', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '지원서 형식이 올바르지 않습니다.' },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderForm({ useInterview: false });
+    await user.type(screen.getByLabelText(/지원 동기/), '열정');
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('지원서 형식이 올바르지 않습니다.'),
+    );
+    expect(screen.queryByText(CLOSED_BANNER_TEXT)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '제출' })).toBeEnabled();
     expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
