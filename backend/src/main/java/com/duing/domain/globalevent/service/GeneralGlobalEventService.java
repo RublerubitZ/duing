@@ -100,7 +100,9 @@ public class GeneralGlobalEventService implements GlobalEventService {
     public GlobalEventAdminDetailQuery getAdmin(Long eventId) {
         GlobalEvent event = eventRepository.findById(eventId)
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
-        // created_by 는 users FK 라 행이 사라질 수 없다 — 없으면 데이터 파손이므로 500 으로 드러낸다.
+        // created_by 는 users FK 지만 User 는 soft delete 라, 작성자가 탈퇴하면 물리 행이 남아도 빈 Optional 이 온다.
+        // 즉 500 은 데이터 파손 외에 "탈퇴한 운영자가 만든 행사"에서도 난다 — 이관 전 동작을 그대로 두되,
+        // promotion 의 resolveUserRef(orElse(null) + 삭제 라벨) 처럼 라벨로 낮추는 정합은 후속 후보다.
         User creator = userRepository.findById(event.getCreatedBy())
                 .orElseThrow(() -> new IllegalStateException("global event creator missing: " + event.getCreatedBy()));
         return GlobalEventAdminDetailQuery.of(event, creator);
