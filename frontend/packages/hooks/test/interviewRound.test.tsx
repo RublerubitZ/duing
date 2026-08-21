@@ -39,6 +39,21 @@ function newQueryClient() {
   });
 }
 
+describe('interviewRoundKeys.candidates', () => {
+  it('두 번째 인자를 생략한 키는 전달한 키의 prefix 와 모양이 같다 — prefix 무효화 계약', () => {
+    // 시드·단언이 함께 움직여도 못 깨지도록 기대 모양을 직접 적는다. 팩토리가 인자 생략 시에도
+    // includeUndecided 를 붙이도록 변형되면 라운드 mutation 의 prefix 무효화가 토글별 캐시에
+    // 닿지 않아 후보 목록이 조용히 stale 해진다.
+    expect(interviewRoundKeys.candidates(10)).toEqual(['interview-rounds', 'candidates', 10]);
+    expect(interviewRoundKeys.candidates(10, false)).toEqual([
+      'interview-rounds',
+      'candidates',
+      10,
+      false,
+    ]);
+  });
+});
+
 describe('useCreateInterviewRoundMutation (스펙 §10.1)', () => {
   it('성공 시 list + candidates queryKey 가 invalidate 된다', async () => {
     const queryClient = newQueryClient();

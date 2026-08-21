@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import type { FeeBill } from '@duing/types';
+
 const mockUseClubFeeBillsQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useClubFeeBillsQuery: (clubId: number, params: unknown) => mockUseClubFeeBillsQuery(clubId, params),
@@ -29,10 +31,12 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
 
 import { BillList } from '@/app/manage/clubs/[clubId]/fees/_components/BillList';
 
-const buildBill = (over: Record<string, unknown> = {}) => ({
+const buildBill = (over: Partial<FeeBill> = {}): FeeBill => ({
   id: 100, clubId: 1, userId: 42, feePolicyId: 7, amount: 10000,
   billingPeriod: '2026-07', billingStartDate: '2026-07-01', billingEndDate: '2026-07-31',
   dueDate: '2026-07-31', status: 'PARTIAL_PAID', paidAmount: 4000, remainingAmount: 6000, ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PARTIAL_PAID',
 });
 const buildPage = (content: unknown[]) => ({
   content, page: 0, size: 20, totalElements: content.length,

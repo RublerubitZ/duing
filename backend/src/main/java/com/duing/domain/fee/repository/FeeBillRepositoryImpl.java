@@ -17,6 +17,7 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -32,7 +33,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<FeeBill> searchClubBills(Long clubId, BillSearchQuery query, Pageable pageable) {
+    public Page<FeeBill> searchClubBills(Long clubId, BillSearchQuery query, LocalDate today, Pageable pageable) {
         // clubId 는 동아리 격리의 필수 조건이다. null 이면 where 절에서 격리가 사라져 전 동아리 청구가
         // 노출되므로 진입 시점에 가드한다(searchClubBills 는 항상 경로의 clubId 로 호출됨).
         Objects.requireNonNull(clubId, "clubId must not be null");
@@ -41,7 +42,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .where(
                         clubIdEq(clubId),
                         billingPeriodEq(query.billingPeriod()),
-                        statusEq(query.status()),
+                        displayStatusEq(query.status(), today),
                         userIdEq(query.userId())
                 )
                 .orderBy(feeBill.createdAt.desc(), feeBill.id.desc())
@@ -55,7 +56,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .where(
                         clubIdEq(clubId),
                         billingPeriodEq(query.billingPeriod()),
-                        statusEq(query.status()),
+                        displayStatusEq(query.status(), today),
                         userIdEq(query.userId())
                 )
                 .fetchOne();
@@ -64,7 +65,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
     }
 
     @Override
-    public List<FeeBill> searchMyBills(Long userId, MyFeeSearchQuery query) {
+    public List<FeeBill> searchMyBills(Long userId, MyFeeSearchQuery query, LocalDate today) {
         // userId 는 본인 회비 격리의 필수 조건이다. null 이면 where 절에서 격리가 사라져 전 사용자 청구가
         // 노출되므로 진입 시점에 가드하고, null-safe 헬퍼가 아닌 직접 술어로 격리를 보장한다.
         Objects.requireNonNull(userId, "userId must not be null");
@@ -73,14 +74,14 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .where(
                         feeBill.userId.eq(userId),
                         clubIdEq(query.clubId()),
-                        statusEq(query.status())
+                        displayStatusEq(query.status(), today)
                 )
                 .orderBy(feeBill.dueDate.desc(), feeBill.id.desc())
                 .fetch();
     }
 
     @Override
-    public FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query) {
+    public FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query, LocalDate today) {
         // clubId 는 동아리 격리의 필수 조건이다(searchClubBills 와 동일 가드). null 이면 전 동아리 집계가 노출된다.
         Objects.requireNonNull(clubId, "clubId must not be null");
         // 청구 그레인 단독 집계. payment 를 조인하면 1:N fan-out 으로 totalBilled 가 납부 건수만큼 중복 합산되므로
@@ -89,10 +90,11 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .select(Projections.constructor(FeeBillSummaryProjection.class,
                         feeBill.amount.sum().coalesce(0L),
                         feeBill.count(),
-                        statusCount(FeeStatus.PENDING),
-                        statusCount(FeeStatus.PARTIAL_PAID),
-                        statusCount(FeeStatus.OVERDUE),
-                        statusCount(FeeStatus.PAID)))
+                        // 카운트도 표기 축 — displayStatusEq 와 동일한 동치 근거(위 주석). paid/cancelled 는 저장=표기.
+                        displayCount(FeeStatus.PENDING, today),
+                        displayCount(FeeStatus.PARTIAL_PAID, today),
+                        displayCount(FeeStatus.OVERDUE, today),
+                        displayCount(FeeStatus.PAID, today)))
                 .from(feeBill)
                 .where(
                         feeBill.clubId.eq(clubId),
@@ -135,6 +137,8 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .select(payment.amount.sum().coalesce(0L))
                 .from(payment)
                 .where(payment.feeBillId.eq(feeBill.id), payment.status.eq(PaymentStatus.ACTIVE)));
+        // FeeBill.remainingAfter() 의 SQL 미러 — 후보 필터(where)와 표시값(select) 양쪽에 쓰여 스칼라 호출로 뺄 수 없다.
+        // 잔액 정의를 바꾸면 엔티티 메서드와 함께 바꿀 것.
         NumberExpression<Long> remaining = feeBill.amount.subtract(activePaidSum);
         return queryFactory
                 .select(Projections.constructor(MatchCandidate.class,
@@ -184,9 +188,9 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .fetch();
     }
 
-    private NumberExpression<Long> statusCount(FeeStatus status) {
+    private NumberExpression<Long> displayCount(FeeStatus displayStatus, LocalDate today) {
         return new CaseBuilder()
-                .when(feeBill.status.eq(status)).then(1L).otherwise(0L)
+                .when(displayStatusEq(displayStatus, today)).then(1L).otherwise(0L)
                 .sum().coalesce(0L);
     }
 
@@ -206,7 +210,21 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
         return StringUtils.hasText(billingPeriod) ? feeBill.billingPeriod.eq(billingPeriod) : null;
     }
 
-    private BooleanExpression statusEq(FeeStatus status) {
-        return status != null ? feeBill.status.eq(status) : null;
+    /**
+     * 상태 필터를 표기 축(displayStatus) 시멘틱으로 해석한다 — FeeStatus.resolveDisplay 의 SQL 미러.
+     * 화면 배지가 표기 축이므로 필터도 같은 축이어야 "납부대기로 걸렀는데 연체 배지"가 안 나온다(admin
+     * AdminFeeBillFilter 전례). 동치 근거: 납부 변동은 쓰기 경로가 저장 status 를 동기 재산출하므로
+     * 저장·표기가 갈리는 유일한 축은 마감 경과(dueDate)뿐이고, dueDate 는 수정 경로가 없어 저장
+     * OVERDUE ⇒ 항상 과거 마감이다. 식을 바꾸면 FeeStatus.resolveDisplay 와 함께 바꿀 것.
+     */
+    private BooleanExpression displayStatusEq(FeeStatus filterStatus, LocalDate today) {
+        if (filterStatus == null) {
+            return null;
+        }
+        return switch (filterStatus) {
+            case PAID, CANCELLED -> feeBill.status.eq(filterStatus);
+            case OVERDUE -> feeBill.status.in(FeeStatus.unpaidRemainderSet()).and(feeBill.dueDate.lt(today));
+            case PENDING, PARTIAL_PAID -> feeBill.status.eq(filterStatus).and(feeBill.dueDate.goe(today));
+        };
     }
 }

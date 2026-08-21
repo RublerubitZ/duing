@@ -34,7 +34,8 @@ export function FeeReceiptDocument({ receipt }: FeeReceiptDocumentProps) {
         <Field label="회원" value={receipt.memberName} />
         <Field label="정책" value={receipt.policyName} />
         <Field label="회차" value={receipt.billingPeriod} />
-        <Field label="상태" value={feeStatusLabel(receipt.status)} />
+        {/* 표기 축(displayStatus) — 연체 전이 배치를 기다리지 않고 발급 시점의 실제 상태를 찍는다. */}
+        <Field label="상태" value={feeStatusLabel(receipt.displayStatus)} />
         <Field label="청구 기간" value={`${receipt.billingStartDate} ~ ${receipt.billingEndDate}`} />
         <Field label="마감일" value={receipt.dueDate} />
       </dl>

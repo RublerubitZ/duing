@@ -84,4 +84,12 @@ public class FeeBill extends BaseEntity {
         }
         this.status = newStatus;
     }
+
+    /**
+     * 청구액에서 활성(ACTIVE) 납부 합계를 뺀 잔액. 음수로 클램프하지 않는다 —
+     * 호출부가 초과 납부 검증(잔액 초과 비교)과 이벤트 페이로드에 원값 그대로 사용한다.
+     */
+    public long remainingAfter(long activePaidSum) {
+        return this.amount - activePaidSum;
+    }
 }

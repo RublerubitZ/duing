@@ -12,9 +12,17 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { ClubRecruitmentCard } from '../../app/clubs/[clubId]/_components/ClubRecruitmentCard';
 
 const mockAuthStatus = { value: 'unauthenticated' };
+// 지원 흐름은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
+// 흉내 내면 subscribe/getState 가 없어 렌더가 터진다.
 vi.mock('@duing/stores', () => ({
-  useAuthStore: (selector: (state: { status: string }) => unknown) =>
-    selector({ status: mockAuthStatus.value }),
+  useAuthStore: Object.assign(
+    (selector: (state: { status: string }) => unknown) => selector({ status: mockAuthStatus.value }),
+    {
+      subscribe: () => () => {},
+      getState: () => ({ status: mockAuthStatus.value }),
+      getInitialState: () => ({ status: mockAuthStatus.value }),
+    },
+  ),
 }));
 
 const mockRouterPush = vi.fn();

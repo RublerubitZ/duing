@@ -16,7 +16,8 @@ type Props = {
   onOpenDetail: (member: ClubMember) => void;
   // 빈 상태 문구에 검색어를 반영하기 위한 현재 검색어(옵셔널 — 미전달 시 일반 문구).
   query?: string;
-  // 선택(체크박스) 컬럼 노출 여부. 일괄 작업 권한이 없는 뷰어(OFFICER)에겐 false 로 숨긴다. 기본 true(비파괴).
+  // 선택(체크박스) 컬럼 노출 여부. 판정은 memberPermissions 의 bulkSelectable — 실행 가능한 일괄
+  // 작업이 없는 뷰어에겐 호출부가 false 를 넘겨 숨긴다. 기본 true(비파괴).
   selectable?: boolean;
 };
 

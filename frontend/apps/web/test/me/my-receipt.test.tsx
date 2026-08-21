@@ -35,6 +35,8 @@ const buildReceipt = (over: Partial<Receipt> = {}): Receipt => ({
     { amount: 3000, method: 'TRANSFER', paidAt: '2026-07-12T00:00:00', memo: '이체' },
   ],
   ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PARTIAL_PAID',
 });
 
 beforeEach(() => {
@@ -56,6 +58,18 @@ describe('회원 영수증 페이지', () => {
     fireEvent.click(screen.getByRole('button', { name: '인쇄 / PDF 저장' }));
     expect(printSpy).toHaveBeenCalledOnce();
     printSpy.mockRestore();
+  });
+
+  it('상태 항목은 저장 상태가 아니라 표기 축(displayStatus)을 찍는다', () => {
+    // 연체 전이 배치가 늦으면 status 는 아직 PENDING 인 채로 서버 파생 표기만 OVERDUE 가 된다.
+    mockUseMyFeeReceiptQuery.mockReturnValue({
+      data: buildReceipt({ status: 'PENDING', displayStatus: 'OVERDUE' }),
+      isLoading: false,
+      isError: false,
+    });
+    render(<MemberReceiptPage />);
+    expect(screen.getByText('연체')).toBeInTheDocument();
+    expect(screen.queryByText('납부대기')).not.toBeInTheDocument();
   });
 
   it('발급 불가(에러)면 안내 문구와 돌아가기 링크를 표시한다', () => {

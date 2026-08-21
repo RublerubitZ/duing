@@ -45,7 +45,8 @@ public class GeneralTransactionMatcher implements TransactionMatcher {
         try {
             // 자동매칭은 잔액과 정확히 일치하는 경우에만 매칭한다(allowPartial=false) — 부분 납부는 총무 수동 승인 전용.
             matchedPaymentService.createMatchedPayment(
-                    transaction, chosen.feeBillId(), actorId, MatchStatus.AUTO_MATCHED, true, false);
+                    transaction.getId(), transaction.getClubId(), chosen.feeBillId(), actorId,
+                    MatchStatus.AUTO_MATCHED, true, false);
             return true;
         } catch (BankMatchingException.MatchAmountMismatchException
                  | BankMatchingException.AlreadyMatchedException

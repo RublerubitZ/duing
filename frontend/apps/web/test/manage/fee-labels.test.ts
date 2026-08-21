@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Bank } from '@duing/types';
+import type { Bank, FeeStatus } from '@duing/types';
 
-import { bankLabel, billingTypeLabel, feeStatusLabel, formatWon } from '../../app/_lib/feeLabels';
+import {
+  bankLabel,
+  billingTypeLabel,
+  feeStatusChip,
+  feeStatusLabel,
+  formatWon,
+} from '../../app/_lib/feeLabels';
 
 describe('feeLabels', () => {
   describe('billingTypeLabel', () => {
@@ -21,6 +27,22 @@ describe('feeLabels', () => {
       expect(feeStatusLabel('PARTIAL_PAID')).toBe('부분납부');
       expect(feeStatusLabel('OVERDUE')).toBe('연체');
       expect(feeStatusLabel('CANCELLED')).toBe('취소됨');
+    });
+  });
+
+  describe('feeStatusChip', () => {
+    it('라벨과 배지 색을 한 쌍으로 돌려주고 라벨은 feeStatusLabel 과 같다', () => {
+      const statuses: FeeStatus[] = ['PENDING', 'PAID', 'PARTIAL_PAID', 'OVERDUE', 'CANCELLED'];
+      for (const status of statuses) {
+        const chip = feeStatusChip(status);
+        expect(chip.label).toBe(feeStatusLabel(status));
+        expect(chip.badgeClass).not.toBe('');
+      }
+    });
+
+    it('연체와 납부완료는 서로 다른 배지 색을 쓴다', () => {
+      expect(feeStatusChip('OVERDUE').badgeClass).toBe('bg-coral/10 text-coral');
+      expect(feeStatusChip('PAID').badgeClass).toBe('bg-sage/20 text-sage');
     });
   });
 

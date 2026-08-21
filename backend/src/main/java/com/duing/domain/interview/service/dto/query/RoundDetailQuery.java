@@ -63,8 +63,7 @@ public record RoundDetailQuery(
                                             Map<Long, Long> selectionCountBySlotId,
                                             Map<Long, Long> assignedCountBySlotId,
                                             LocalDateTime now) {
-        boolean deadlinePassed = round.getAvailabilityDeadline() != null
-                && now.isAfter(round.getAvailabilityDeadline());
+        boolean deadlinePassed = round.isAvailabilityDeadlinePassed(now);
 
         List<MemberLine> members = memberLines.stream()
                 .map(line -> new MemberLine(
@@ -73,7 +72,7 @@ public record RoundDetailQuery(
                         line.userName(),
                         line.studentId(),
                         line.status(),
-                        deadlinePassed && line.status() == RoundMemberStatus.INVITED,
+                        line.status().isUnresponded(deadlinePassed),
                         line.alternativeAvailabilityText(),
                         selectionCountByApplicationId.getOrDefault(line.applicationId(), 0L),
                         assignedSlotIdByApplicationId.get(line.applicationId())))

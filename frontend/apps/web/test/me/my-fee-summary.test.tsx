@@ -20,6 +20,8 @@ const buildFee = (over: Partial<MyFee> = {}): MyFee => ({
   paidAmount: 0,
   remainingAmount: 10000,
   ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PENDING',
 });
 
 describe('MyFeeSummary', () => {
@@ -82,6 +84,26 @@ describe('MyFeeSummary', () => {
     );
     expect(screen.getByText('35,000원')).toBeInTheDocument();
     expect(screen.getByText('연체 2건')).toBeInTheDocument();
+    expect(screen.queryByText(/다음 마감/)).not.toBeInTheDocument();
+  });
+
+  it('연체 건수는 저장 상태가 아니라 표기 축(displayStatus)으로 센다', () => {
+    // 연체 전이 배치가 늦으면 status 는 아직 PENDING 인 채로 서버 파생 표기만 OVERDUE 가 된다.
+    render(
+      <MyFeeSummary
+        today={TODAY}
+        fees={[
+          buildFee({
+            id: 1,
+            status: 'PENDING',
+            displayStatus: 'OVERDUE',
+            dueDate: '2026-05-31',
+            remainingAmount: 10000,
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('연체 1건')).toBeInTheDocument();
     expect(screen.queryByText(/다음 마감/)).not.toBeInTheDocument();
   });
 });

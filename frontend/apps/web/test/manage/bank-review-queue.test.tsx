@@ -169,6 +169,8 @@ const buildFeeBill = (over: Partial<FeeBill> = {}): FeeBill => ({
   paidAmount: 0,
   remainingAmount: 10000,
   ...over,
+  // 표기 축 기본값은 저장 상태와 동일 — 표기/저장이 갈리는 케이스만 displayStatus 를 따로 준다.
+  displayStatus: over.displayStatus ?? over.status ?? 'PENDING',
 });
 
 describe('BankReviewQueue', () => {

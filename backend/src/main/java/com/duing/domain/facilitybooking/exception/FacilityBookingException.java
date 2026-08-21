@@ -55,6 +55,12 @@ public class FacilityBookingException extends ApplicationException {
         /** EXCLUDE 백스톱 발화 시 GlobalExceptionHandler 가 동일 응답을 재현하는 데 쓰는 단일 출처 상수. */
         public static final String MESSAGE = "이미 예약된 시간이 포함되어 있어 신청할 수 없습니다.";
         public static final String CODE = "FACILITY_BOOKING_SLOT_UNAVAILABLE";
+        /**
+         * 활성 예약 겹침 EXCLUDE 제약명 — V82__create_facility_booking.sql 에서 정의한다.
+         * DB 백스톱(GlobalExceptionHandler 의 DataIntegrityViolation 처리)이 이 위반만 골라내
+         * 위 MESSAGE·CODE 로 응답을 재현할 때의 판정 기준이다.
+         */
+        public static final String ACTIVE_OVERLAP_CONSTRAINT = "excl_facility_booking_active_overlap";
 
         public SlotUnavailableException() {
             super(MESSAGE, HttpStatus.CONFLICT, CODE);

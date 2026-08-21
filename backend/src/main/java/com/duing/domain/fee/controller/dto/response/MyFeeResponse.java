@@ -14,6 +14,8 @@ public record MyFeeResponse(
         LocalDate billingEndDate,
         LocalDate dueDate,
         FeeStatus status,
+        // 표기 축 — 조회 시점 기준 파생. status 는 저장 원본(레코드 보존용).
+        FeeStatus displayStatus,
         Long paidAmount,
         Long remainingAmount
 ) {
@@ -28,6 +30,7 @@ public record MyFeeResponse(
                 query.billingEndDate(),
                 query.dueDate(),
                 query.status(),
+                query.displayStatus(),
                 query.paidAmount(),
                 query.remainingAmount());
     }

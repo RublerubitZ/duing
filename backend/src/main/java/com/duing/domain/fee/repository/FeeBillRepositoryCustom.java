@@ -4,6 +4,7 @@ import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
 import com.duing.domain.fee.service.dto.query.FeeBillSummaryQuery;
 import com.duing.domain.fee.service.dto.query.MyFeeSearchQuery;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -11,11 +12,14 @@ import org.springframework.data.domain.Pageable;
 
 public interface FeeBillRepositoryCustom {
 
-    Page<FeeBill> searchClubBills(Long clubId, BillSearchQuery query, Pageable pageable);
+    // status 필터는 표기 축(displayStatus) 시멘틱으로 해석된다 — today 는 KST 오늘이며 서비스가 넘긴다.
+    Page<FeeBill> searchClubBills(Long clubId, BillSearchQuery query, LocalDate today, Pageable pageable);
 
-    List<FeeBill> searchMyBills(Long userId, MyFeeSearchQuery query);
+    // searchClubBills 와 동일하게 status 필터를 표기 축으로 해석한다(today 는 서비스가 주입).
+    List<FeeBill> searchMyBills(Long userId, MyFeeSearchQuery query, LocalDate today);
 
-    FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query);
+    // 상태별 카운트도 표기 축 파생이다 — today 는 KST 오늘이며 서비스가 넘긴다.
+    FeeBillSummaryProjection summarizeBills(Long clubId, FeeBillSummaryQuery query, LocalDate today);
 
     long sumActivePaid(Long clubId, FeeBillSummaryQuery query);
 

@@ -24,8 +24,6 @@ public interface InterviewScheduleRepository
             + "WHERE s.roundId = :roundId AND s.deletedAt IS NULL")
     void softDeleteByRoundId(@Param("roundId") Long roundId);
 
-    Optional<InterviewSchedule> findByApplicationId(Long applicationId);
-
     Optional<InterviewSchedule> findByRoundIdAndApplicationIdAndStatus(Long roundId, Long applicationId,
                                                                         InterviewScheduleStatus status);
 

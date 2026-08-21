@@ -22,6 +22,7 @@ import { X } from '@/components/duing/Icon';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { memberPermissions } from '../_lib/memberPermissions';
 import { formatMembershipDuration } from '../_lib/membershipDuration';
 
 type MemberDetailPanelProps = {
@@ -152,9 +153,9 @@ function PanelBody({
   onClose,
   onTransferLeader,
 }: PanelBodyProps) {
+  // 행 단위 축(본인 행·회장 행)은 역할 매트릭스 밖이라 여기서 파생한다 — memberPermissions 는 역할 축만 답한다.
   const isSelf = member.userId === viewerUserId;
   const isLeaderRow = member.role === 'LEADER';
-  const isLeaderViewer = viewerRole === 'LEADER';
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -193,7 +194,6 @@ function PanelBody({
           useGeneration={useGeneration}
           isSelf={isSelf}
           isLeaderRow={isLeaderRow}
-          isLeaderViewer={isLeaderViewer}
           viewerRole={viewerRole}
           onTransferLeader={onTransferLeader}
         />
@@ -347,23 +347,21 @@ type ManagementSectionProps = {
   useGeneration: boolean;
   isSelf: boolean;
   isLeaderRow: boolean;
-  isLeaderViewer: boolean;
   viewerRole: ClubMemberRole;
   onTransferLeader: (target: ClubMember) => void;
 };
 
-// 역할 변경·강퇴·회장 인계는 LEADER 전용(BE 가 OFFICER 403). 기수 수정은 운영진(LEADER/OFFICER) 공통 —
-// OFFICER 뷰어에겐 기수 수정과 본인 탈퇴만 노출한다.
+// 역할별로 무엇이 열리는지는 memberPermissions 정의를 따른다 — 여기서는 그 플래그를 행 단위 축(isSelf·isLeaderRow)과 조합만 한다.
 function ManagementSection({
   member,
   clubId,
   useGeneration,
   isSelf,
   isLeaderRow,
-  isLeaderViewer,
   viewerRole,
   onTransferLeader,
 }: ManagementSectionProps) {
+  const permissions = memberPermissions(viewerRole, { useGeneration });
   const updateRole = useUpdateMemberRoleMutation(clubId);
   const removeMember = useRemoveMemberMutation(clubId);
   const leaveClub = useLeaveClubMutation(clubId);
@@ -416,15 +414,17 @@ function ManagementSection({
   }
 
   // OFFICER 뷰어: 기수 수정(운영진 공통) + 본인 탈퇴만. 그 외 관리 액션은 숨김.
-  if (!isLeaderViewer) {
+  if (!permissions.canChangeRole) {
+    // 본인 탈퇴는 역할 매트릭스에 없는 축(누구나 자기 동아리는 나갈 수 있다)이라, 운영진이 아닌
+    // 폴백 역할에는 관리 섹션 자체를 열지 않는다는 판정만 여기 남긴다.
     if (viewerRole !== 'OFFICER') return null;
-    if (!useGeneration && !isSelf) return null;
+    if (!permissions.canEditGeneration && !isSelf) return null;
     return (
       <section>
         <SectionTitle>관리</SectionTitle>
-        {useGeneration && <GenerationEditor member={member} clubId={clubId} />}
+        {permissions.canEditGeneration && <GenerationEditor member={member} clubId={clubId} />}
         {isSelf && (
-          <div className={cn(useGeneration && 'mt-3')}>
+          <div className={cn(permissions.canEditGeneration && 'mt-3')}>
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(true)}
@@ -455,7 +455,7 @@ function ManagementSection({
     <section>
       <SectionTitle>관리</SectionTitle>
 
-      {useGeneration && <GenerationEditor member={member} clubId={clubId} />}
+      {permissions.canEditGeneration && <GenerationEditor member={member} clubId={clubId} />}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {/* 본인(회장) 행: 탈퇴 불가 — 회장 인계 후에만 가능 */}
@@ -505,20 +505,24 @@ function ManagementSection({
 
         {!isSelf && !isLeaderRow && (
           <>
-            <button
-              type="button"
-              onClick={() => onTransferLeader(member)}
-              className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
-            >
-              회장 인계
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowRemoveDialog(true)}
-              className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
-            >
-              탈퇴
-            </button>
+            {permissions.canTransferLeadership && (
+              <button
+                type="button"
+                onClick={() => onTransferLeader(member)}
+                className="rounded-md px-3 py-2 text-sm text-charcoal-2 hover:bg-graysoft"
+              >
+                회장 인계
+              </button>
+            )}
+            {permissions.canKick && (
+              <button
+                type="button"
+                onClick={() => setShowRemoveDialog(true)}
+                className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+              >
+                탈퇴
+              </button>
+            )}
           </>
         )}
       </div>

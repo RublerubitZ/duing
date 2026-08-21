@@ -10,7 +10,7 @@ import java.util.List;
 public record SubmitApplicationRequest(
         // TODO(legacy-questions-v1): 신 FE 전환 후 제거 — 위치 기반 legacy 통로.
         // 답변 개수 상한(50)은 모집 질문 개수 상한과 일치한다 — 제출 시 answers.size() == questions.size()
-        // 를 검증하므로(GeneralApplicationService.validateAnswersAgainstForm) 어긋나면 정상 제출이 막힌다.
+        // 를 검증하므로(ApplicationAnswerValidator.validateAnswersAgainstForm) 어긋나면 정상 제출이 막힌다.
         // 개별 답변은 빈 문자열(무응답)을 허용하므로 @NotBlank 없이 길이 상한만 둔다.
         // answerItems 와 정확히 하나만 채워야 하며, 그 검증은 SubmitApplicationCommand 컴팩트 생성자가 담당한다.
         @Size(max = 50, message = "답변은 최대 50개까지 제출할 수 있습니다.")

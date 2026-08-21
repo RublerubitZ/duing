@@ -33,17 +33,16 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
     private final PaymentRepository paymentRepository;
     private final BankTransactionRepository bankTransactionRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
-    private final FeeBillStatusCalculator statusCalculator;
+    private final FeeBillStatusRefresher statusRefresher;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
-    public void createMatchedPayment(BankTransaction tx, Long feeBillId, Long actorId,
+    public void createMatchedPayment(Long bankTransactionId, Long clubId, Long feeBillId, Long actorId,
                                      MatchStatus matchStatus, boolean autoMatched, boolean allowPartial) {
-        // 호출 측이 넘긴 거래가 다른 영속성 컨텍스트의 detached 엔티티일 수 있으므로, 이 트랜잭션에 영속된
-        // 인스턴스를 비관적 잠금으로 다시 조회해 matchTo() 변경이 확실히 flush 되게 한다(동아리 격리도 함께).
+        // 거래는 id 로 받아 이 트랜잭션에 영속된 인스턴스를 비관적 잠금으로 조회한다(동아리 격리 포함).
         // 거래 행 잠금으로 같은 입금을 서로 다른 청구로 동시 매칭하려는 호출들이 직렬화되어 한 입금의 이중 소비를 막는다.
-        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(tx.getId(), tx.getClubId())
+        BankTransaction transaction = bankTransactionRepository.findByIdAndClubIdForUpdate(bankTransactionId, clubId)
                 .orElseThrow(BankMatchingException.BankTransactionNotFoundException::new);
         if (!transaction.isPending()) {
             // 거래 잠금을 먼저 획득한 호출이 커밋한 뒤 두 번째 호출이 여기 도달 → 이미 매칭/무시된 거래이므로 중단.
@@ -58,7 +57,7 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
             throw new BankMatchingException.BillNotMatchableException();
         }
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
-        long remaining = bill.getAmount() - activePaid;
+        long remaining = bill.remainingAfter(activePaid);
         if (transaction.getAmount() > remaining) {
             // 초과 입금은 부분 매칭이라도 항상 거부한다(잔액을 넘는 납부 기록·음수 잔액을 막는다).
             throw new BankMatchingException.MatchAmountMismatchException();
@@ -75,13 +74,12 @@ public class GeneralMatchedPaymentService implements MatchedPaymentService {
         payment.linkBankTransaction(transaction.getId());
 
         long newSum = activePaid + appliedAmount;
-        FeeStatus newStatus = statusCalculator.calculate(bill.getAmount(), bill.getDueDate(), newSum);
-        bill.updateStatus(newStatus);
+        FeeStatus newStatus = statusRefresher.refresh(bill, newSum);
         transaction.matchTo(bill.getId(), matchStatus);
 
         eventPublisher.publishEvent(new FeePaymentConfirmedEvent(
                 bill.getUserId(), bill.getId(), bill.getBillingPeriod(), newStatus,
-                bill.getAmount() - newSum, payment.getId(), autoMatched));
+                bill.remainingAfter(newSum), payment.getId(), autoMatched));
 
         log.info("matched payment created: actorId={}, clubId={}, billId={}, paymentId={}, txId={}, "
                         + "amount={}, matchStatus={}, autoMatched={}, allowPartial={}, newStatus={}",

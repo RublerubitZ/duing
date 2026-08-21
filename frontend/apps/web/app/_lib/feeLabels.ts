@@ -22,6 +22,22 @@ const FEE_STATUS_LABEL: Record<FeeStatus, string> = {
   CANCELLED: '취소됨',
 };
 
+// 상태별 뱃지 색. CANCELLED 는 회색, 미납/부분납부는 warm, 연체는 coral, 납부완료는 sage.
+const FEE_STATUS_BADGE_CLS: Record<FeeStatus, string> = {
+  PENDING: 'bg-warm/15 text-charcoal',
+  PAID: 'bg-sage/20 text-sage',
+  PARTIAL_PAID: 'bg-warm/15 text-charcoal',
+  OVERDUE: 'bg-coral/10 text-coral',
+  CANCELLED: 'bg-graysoft text-charcoal-3',
+};
+
+// 상태 라벨과 배지 색을 한 쌍으로 반환한다 — 호출부가 같은 조건을 두 번 쓰다 한쪽만 바뀌는 것을 막는다
+// (recruitmentStatusChip 전례). 학생·운영진 화면 공용. admin 콘솔은 pill-* 토큰 체계라 별도 유지.
+// 인자는 표기 축(displayStatus)을 넘긴다 — 액션 게이트는 저장 status 를 그대로 본다.
+export function feeStatusChip(status: FeeStatus): { label: string; badgeClass: string } {
+  return { label: FEE_STATUS_LABEL[status], badgeClass: FEE_STATUS_BADGE_CLS[status] };
+}
+
 // 회비 계좌 은행 코드 → 한글 표시명. 백엔드 Bank enum(19개 코드)과 1:1 대응한다.
 const BANK_LABEL: Record<Bank, string> = {
   KB: 'KB국민',

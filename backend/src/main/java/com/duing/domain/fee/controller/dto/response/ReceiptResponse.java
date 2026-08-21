@@ -20,6 +20,8 @@ public record ReceiptResponse(
         Long remaining,
         int paymentCount,
         FeeStatus status,
+        // 표기 축 — 조회 시점 기준 파생. status 는 저장 원본(레코드 보존용).
+        FeeStatus displayStatus,
         Instant issuedAt,
         List<PaymentLine> payments) {
 

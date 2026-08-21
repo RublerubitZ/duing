@@ -5,24 +5,15 @@ import Link from 'next/link';
 import { Check, Copy } from 'lucide-react';
 
 import { useMemberFeeAccountQuery, useMyClubsQuery, useMyFeesQuery } from '@duing/hooks';
-import type { FeeStatus, MyFee } from '@duing/types';
+import type { MyFee } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { bankLabel, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { bankLabel, feeStatusChip, formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
 
 import { MyFeeSummary } from './MyFeeSummary';
-
-// 상태별 뱃지 색. 운영진 청구 현황(BillList)과 동일한 팔레트를 사용한다.
-const STATUS_BADGE_CLS: Record<FeeStatus, string> = {
-  PENDING: 'bg-warm/15 text-charcoal',
-  PAID: 'bg-sage/20 text-sage',
-  PARTIAL_PAID: 'bg-warm/15 text-charcoal',
-  OVERDUE: 'bg-coral/10 text-coral',
-  CANCELLED: 'bg-graysoft text-charcoal-3',
-};
 
 type ClubGroup = {
   clubId: number;
@@ -176,6 +167,7 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
   // 진행률 = paidAmount / amount(0 나눔 방지), 0~100% 로 클램프. 운영진 청구 현황(BillRow)과 동일.
   const progressPercent =
     bill.amount > 0 ? Math.min(100, Math.max(0, (bill.paidAmount / bill.amount) * 100)) : 0;
+  const statusChip = feeStatusChip(bill.displayStatus);
 
   return (
     <li className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
@@ -185,10 +177,10 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
           <span
             className={cn(
               'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-              STATUS_BADGE_CLS[bill.status],
+              statusChip.badgeClass,
             )}
           >
-            {feeStatusLabel(bill.status)}
+            {statusChip.label}
           </span>
         </div>
         <p className="mt-0.5 text-xs text-charcoal-3">

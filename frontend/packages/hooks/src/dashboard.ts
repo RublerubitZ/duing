@@ -138,7 +138,7 @@ export function useClubActionItems(clubId: number | undefined): {
   // candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
   const candidatesQueries = useQueries({
     queries: interviewRecruitmentIds.map((recruitmentId) => ({
-      queryKey: [...interviewRoundKeys.candidates(recruitmentId), false] as const,
+      queryKey: interviewRoundKeys.candidates(recruitmentId, false),
       queryFn: () => client.interviewRounds.candidates(recruitmentId, false),
       ...DASHBOARD_QUERY_OPTIONS,
     })),

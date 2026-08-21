@@ -32,6 +32,7 @@ const bill = {
   billingEndDate: '2026-07-31',
   dueDate: '2026-07-31',
   status: 'PARTIAL_PAID' as const,
+  displayStatus: 'PARTIAL_PAID' as const,
   paidAmount: 6000,
   remainingAmount: 4000,
 };

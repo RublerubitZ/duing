@@ -113,6 +113,9 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
                 .body("data.remaining", equalTo(3000))
                 .body("data.paymentCount", equalTo(2))
                 .body("data.status", equalTo("PARTIAL_PAID"))
+                // 마감(2026-07-31)은 지나간 절대 날짜라 실행 시점과 무관하게 경과 상태다 —
+                // 저장은 부분납부 그대로지만 표기 축은 조회 시점 기준으로 연체가 된다.
+                .body("data.displayStatus", equalTo("OVERDUE"))
                 .body("data.payments", hasSize(2));
     }
 
@@ -127,6 +130,8 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/my/fees/" + bill.getId() + "/receipt")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.status", equalTo("OVERDUE"))
+                // 부분 납부 + 마감(2026-07-31) 경과라 표기 축도 저장 축과 같은 연체다.
+                .body("data.displayStatus", equalTo("OVERDUE"))
                 .body("data.paidTotal", equalTo(5000));
     }
 

@@ -6,12 +6,9 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
-import com.duing.domain.clubaudit.entity.ClubAuditEvent;
-import com.duing.domain.clubaudit.entity.ClubAuditEventType;
-import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
-import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
+import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.QuestionChoice;
@@ -55,11 +52,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
-    // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 코드·요청 상태를 함께 판정한다.
-    private final ClubJoinCodeRepository clubJoinCodeRepository;
+    // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 요청 상태를 함께 판정한다.
     private final ClubJoinRequestRepository clubJoinRequestRepository;
-    // 삭제에 딸린 가입 링크 자동 폐기도 감사 이벤트로 남긴다(스펙 v2 4.1).
-    private final ClubAuditEventRepository clubAuditEventRepository;
+    // 삭제에 딸린 가입 링크 폐기는 코드 도메인에 맡긴다 — 감사 이벤트도 그쪽에서 남는다(스펙 v2 4.1).
+    private final JoinCodeService joinCodeService;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
@@ -357,23 +353,12 @@ public class GeneralRecruitmentService implements RecruitmentService {
         }
 
         // 가입 코드는 모집의 부속물이므로 삭제 트랜잭션에서 함께 폐기한다(스펙 v2 4.2) — 고아 코드로
-        // 학생이 계속 유입되는 것을 막는다. revoked_at 은 코드 도메인 규약대로 seoulClock 벽시계로 쓴다.
+        // 학생이 계속 유입되는 것을 막는다. 폐기 주체는 삭제 수행자다(V100 감사 컬럼) — 코드가 왜
+        // 죽었는지 행만 보고 알 수 있게 한다. 폐기 절차·감사 기록은 코드 도메인이 소유한다.
         // 폐기 UPDATE 가 코드 행을 잠그는 덕에(신청 생성은 같은 행을 FOR UPDATE 로 읽는다) 아래 대기 요청
         // 확인이 동시 신청을 놓치지 않는다 — 순서를 뒤집으면 확인 직후 접수된 요청이 삭제된 모집에 매달린다.
-        // 폐기 주체는 삭제 수행자다(V100 감사 컬럼) — 코드가 왜 죽었는지 행만 보고 알 수 있게 한다.
-        // 무엇을 폐기했는지는 벌크 UPDATE 후에는 알 수 없으므로 대상 id 를 먼저 읽어 둔다.
-        List<Long> revokedJoinCodeIds = clubJoinCodeRepository.findActiveIdsByRecruitmentId(recruitmentId);
-        int revokedCount = clubJoinCodeRepository.revokeActiveByRecruitmentId(
-                recruitmentId, LocalDateTime.now(clock), currentUserId);
-        // 자동 폐기도 수동 폐기와 같은 이벤트로 남긴다 — 감사에서 중요한 건 "링크가 죽었다"는 사실이고
-        // 삭제 트랜잭션이 롤백되면(아래 대기 요청 가드) 이벤트도 함께 사라진다.
-        // 위 조회와 UPDATE 사이에 운영진이 같은 링크를 수동 폐기하면 UPDATE 는 0행이 된다 — 그때는
-        // 이 트랜잭션이 폐기한 게 없으므로 이벤트도 남기지 않는다("일어나지 않은 폐기는 남기지 않는다").
-        // 활성 링크는 모집당 1개(uk_club_join_code_active_per_recruitment)라 두 값은 함께 0 이거나 함께 1 이다.
-        if (revokedCount > 0) {
-            revokedJoinCodeIds.forEach(joinCodeId -> clubAuditEventRepository.save(ClubAuditEvent.joinLink(
-                    ClubAuditEventType.JOIN_LINK_REVOKED, clubId, recruitmentId, joinCodeId, currentUserId)));
-        }
+        // 같은 트랜잭션이라 아래 대기 요청 가드로 롤백되면 폐기와 감사 이벤트도 함께 사라진다.
+        joinCodeService.revokeActiveByRecruitment(clubId, recruitmentId, currentUserId);
 
         // 대기 중인 가입 요청은 학생이 코드 자리를 차감한 채 응답을 기다리는 상태다 — 삭제로 응답 경로를
         // 없애지 않는다(먼저 승인·거절). 예외로 트랜잭션이 롤백되므로 위 폐기도 함께 되돌아간다.

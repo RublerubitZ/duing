@@ -29,20 +29,42 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, MyFeeControllerTest.FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MyFeeControllerTest extends IntegrationTestBase {
+
+    // '오늘'을 2026-06-15(Asia/Seoul)로 고정해 표기 상태(displayStatus)의 마감 경과 판정을 결정적으로 만든다.
+    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
+    // 마감 2026-05-31 < 오늘 → 미납이면 표기는 OVERDUE(픽스처가 회차 말일을 마감으로 파생한다).
+    static final String PAST_DUE_PERIOD = "2026-05";
+
+    @TestConfiguration
+    static class FixedClockConfig {
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
+                    ZoneId.of("Asia/Seoul"));
+        }
+    }
 
     @LocalServerPort
     int port;
@@ -96,6 +118,14 @@ class MyFeeControllerTest extends IntegrationTestBase {
 
     private FeeBill saveBill(Long clubIdValue, Long policyIdValue, Long userId, String period, FeeStatus status) {
         return feeBillRepository.save(FeeBillFixture.withStatus(clubIdValue, userId, policyIdValue, period, status));
+    }
+
+    // 공유 픽스처(withStatus)는 CANCELLED 만 실제 전이하므로, 저장 status 를 목표 상태로 직접 전이해 만든다.
+    private FeeBill saveBillWithStoredStatus(Long clubIdValue, Long policyIdValue, Long userId,
+                                             String period, FeeStatus status) {
+        FeeBill bill = saveBill(clubIdValue, policyIdValue, userId, period, FeeStatus.PENDING);
+        bill.updateStatus(status);
+        return feeBillRepository.save(bill);
     }
 
     /** billId 청구에 지정 상태의 납부 1건을 직접 적재한다(VOIDED 는 합계에서 제외돼야 한다). */
@@ -176,6 +206,36 @@ class MyFeeControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("status 필터는 표기 축이라, 저장 상태가 납부대기여도 마감이 지난 청구는 OVERDUE 로 걸리고 PENDING 에서는 빠진다")
+    void statusFilterFollowsDisplayAxis() {
+        // 마감(2026-05-31)이 오늘(2026-06-15)보다 앞서지만 연체 전이 배치 전이라 저장 status 는 PENDING 인 청구
+        saveBill(clubId, policyId, userA.getId(), PAST_DUE_PERIOD, FeeStatus.PENDING);
+        // 마감(2026-07-31)이 남은 청구 — 저장·표기 모두 PENDING
+        saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
+
+        // OVERDUE 필터에는 마감이 지난 청구만 잡힌다(저장 status 는 여전히 PENDING).
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .queryParam("status", "OVERDUE")
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].billingPeriod", equalTo(PAST_DUE_PERIOD))
+                .body("data[0].status", equalTo("PENDING"))
+                .body("data[0].displayStatus", equalTo("OVERDUE"));
+
+        // PENDING 필터에서는 마감이 지난 청구가 빠지고 마감 전 청구만 남는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .queryParam("status", "PENDING")
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].billingPeriod", equalTo("2026-07"))
+                .body("data[0].displayStatus", equalTo("PENDING"));
+    }
+
+    @Test
     @DisplayName("내 회비 응답은 청구별 납부 합계(paidAmount)와 남은 금액(remainingAmount)을 담고 VOIDED 납부는 제외한다")
     void carriesPaidAndRemainingAmount() {
         // 청구액 10000 에 ACTIVE 4000 + VOIDED 3000 → paidAmount=4000(VOID 제외), remainingAmount=6000
@@ -194,6 +254,40 @@ class MyFeeControllerTest extends IntegrationTestBase {
                 .body("data.find { it.billingPeriod == '2026-07' }.remainingAmount", equalTo(6000))
                 .body("data.find { it.billingPeriod == '2026-08' }.paidAmount", equalTo(0))
                 .body("data.find { it.billingPeriod == '2026-08' }.remainingAmount", equalTo(10000));
+    }
+
+    @Test
+    @DisplayName("연체 전이 배치가 실행되지 않아 저장 상태가 납부대기여도, 마감이 지났으면 표기 상태는 연체다")
+    void displayStatusIsOverdueForPastDueBillEvenBeforeBatchTransition() {
+        // 마감(2026-05-31)이 오늘(2026-06-15)보다 앞서지만 연체 전이 배치가 돌지 않아 저장 status 는 PENDING 그대로다.
+        saveBill(clubId, policyId, userA.getId(), PAST_DUE_PERIOD, FeeStatus.PENDING);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                // 저장 축은 배치가 찍은 값 그대로, 표기 축만 조회 시점 기준으로 연체를 드러낸다.
+                .body("data[0].status", equalTo("PENDING"))
+                .body("data[0].displayStatus", equalTo("OVERDUE"));
+    }
+
+    @Test
+    @DisplayName("저장 상태가 연체여도 완납된 청구의 표기 상태는 납부완료다")
+    void displayStatusIsPaidForFullyPaidBillEvenIfStoredOverdue() {
+        // 연체로 전이된 뒤 전액(10000) 납부된 청구 — 재계산이 아직 반영되지 않아 저장 status 는 OVERDUE 다.
+        FeeBill overdueBill = saveBillWithStoredStatus(
+                clubId, policyId, userA.getId(), PAST_DUE_PERIOD, FeeStatus.OVERDUE);
+        recordPayment(overdueBill.getId(), 10000L, false);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].status", equalTo("OVERDUE"))
+                // 완납은 마감 경과보다 우선한다 — 표기는 PAID.
+                .body("data[0].displayStatus", equalTo("PAID"));
     }
 
     @Test

@@ -12,8 +12,13 @@ export const interviewRoundKeys = {
     [...interviewRoundKeys.all, 'list', recruitmentId] as const,
   detail: (roundId: number) =>
     [...interviewRoundKeys.all, 'detail', roundId] as const,
-  candidates: (recruitmentId: number) =>
-    [...interviewRoundKeys.all, 'candidates', recruitmentId] as const,
+  // includeUndecided 를 넘기면 토글별 캐시 엔트리, 생략하면 그 엔트리들을 모두 덮는 무효화 prefix 다.
+  // 생략했을 때의 키 모양은 인자 1개짜리 시절과 완전히 같아야 한다 — 한 칸이라도 달라지면
+  // 라운드 생성/취소/제외/확정의 prefix 무효화가 후보 캐시에 닿지 않는다.
+  candidates: (recruitmentId: number, includeUndecided?: boolean) =>
+    includeUndecided === undefined
+      ? ([...interviewRoundKeys.all, 'candidates', recruitmentId] as const)
+      : ([...interviewRoundKeys.all, 'candidates', recruitmentId, includeUndecided] as const),
   // 지원자 본인의 면접 진행 단계 캐시 — applicationId 기준 (스펙 §10.1)
   myInterview: (applicationId: number) =>
     [...interviewRoundKeys.all, 'my-interview', applicationId] as const,

@@ -5,6 +5,8 @@ import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeeBillSummaryProjection;
 import com.duing.domain.fee.service.dto.query.FeeBillSummary;
 import com.duing.domain.fee.service.dto.query.FeeBillSummaryQuery;
+import java.time.Clock;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,7 @@ public class GeneralFeeBillSummaryService implements FeeBillSummaryService {
 
     private final FeeBillRepository feeBillRepository;
     private final ClubAuthService clubAuthService;
+    private final Clock clock; // Asia/Seoul Clock 빈(상태별 카운트 표기 축 파생의 '오늘')
 
     @Override
     public FeeBillSummary getSummary(Long clubId, Long actorId, FeeBillSummaryQuery query) {
@@ -23,7 +26,7 @@ public class GeneralFeeBillSummaryService implements FeeBillSummaryService {
 
         // 청구 그레인 집계와 활성 납부 합계를 분리 산출한다. payment 를 fee_bill 에 조인해 한 번에 뽑으면
         // 1:N fan-out 으로 totalBilled 가 납부 건수만큼 중복 합산되므로 두 쿼리를 의도적으로 나눈다.
-        FeeBillSummaryProjection billSummary = feeBillRepository.summarizeBills(clubId, query);
+        FeeBillSummaryProjection billSummary = feeBillRepository.summarizeBills(clubId, query, LocalDate.now(clock));
         long totalPaid = feeBillRepository.sumActivePaid(clubId, query);
         long outstanding = billSummary.totalBilled() - totalPaid;
         double collectionRate = collectionRate(billSummary.totalBilled(), totalPaid);

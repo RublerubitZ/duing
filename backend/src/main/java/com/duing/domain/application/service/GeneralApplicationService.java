@@ -27,19 +27,12 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
-import com.duing.domain.interview.entity.InterviewRound;
-import com.duing.domain.interview.entity.InterviewSchedule;
-import com.duing.domain.interview.entity.InterviewScheduleStatus;
-import com.duing.domain.interview.entity.InterviewSlot;
-import com.duing.domain.interview.entity.RoundMemberStatus;
-import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
-import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
-import com.duing.domain.interview.repository.InterviewRoundRepository;
-import com.duing.domain.interview.repository.InterviewScheduleRepository;
-import com.duing.domain.interview.repository.InterviewSlotRepository;
-import com.duing.domain.interview.service.dto.query.InterviewSlotTimeWindow;
+import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.dto.query.ApplicantInterviewProgress;
+import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
+import com.duing.domain.interview.service.dto.query.InterviewRoundBrief;
+import com.duing.domain.interview.service.dto.query.ManagerInterviewSnapshot;
 import com.duing.domain.recruitment.entity.ApplicationMode;
-import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
@@ -53,16 +46,12 @@ import com.duing.global.exception.ApplicationException;
 import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -97,18 +86,15 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubMemberEnrollmentService clubMemberEnrollmentService;
     private final ApplicationDraftService applicationDraftService;
     private final ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
+    private final ApplicationStatusChanger applicationStatusChanger;
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
-    private final InterviewAvailabilityRepository interviewAvailabilityRepository;
-    private final InterviewScheduleRepository interviewScheduleRepository;
-    private final InterviewRoundRepository interviewRoundRepository;
-    private final InterviewSlotRepository interviewSlotRepository;
-    private final InterviewRoundMemberRepositoryCustom interviewRoundMemberRepository;
+    private final InterviewAssignmentQueryService interviewAssignmentQueryService;
     private final Clock clock;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
      * 생성자 자체에 self-reference 를 넣으면 순환 의존이 되므로 setter 주입을 사용한다.
-     * 단위 테스트가 8-arg 생성자만 사용하는 케이스를 보호하기 위해서이기도 하다 — bulkUpdateStatus 만
+     * 단위 테스트가 생성자 주입 의존만 넘기는 케이스를 보호하기 위해서이기도 하다 — bulkUpdateStatus 만
      * 본 의존이 필요하고 그 외 진입점에서는 NPE 위험이 없다.
      */
     @Autowired
@@ -131,7 +117,7 @@ public class GeneralApplicationService implements ApplicationService {
                         .map(answerItem -> new ApplicationAnswer(answerItem.questionId(), answerItem.values()))
                         .toList()
                 : resolveLegacyAnswers(recruitment, submitApplicationCommand.answers());
-        validateAnswersAgainstForm(recruitment, resolvedAnswers);
+        ApplicationAnswerValidator.validateAnswersAgainstForm(questionsOf(recruitment), resolvedAnswers);
 
         Application application =
                 Application.submit(recruitment, eligibilityTarget.user(), resolvedAnswers);
@@ -208,12 +194,13 @@ public class GeneralApplicationService implements ApplicationService {
         // 응답 카드의 nested interview 채움용 batch lookup — application 별 개별 쿼리(N+1) 회피.
         // ASSIGNED schedule 이 있으면 interview 가 채워지고 (location 은 nullable),
         // CANCELLED 만 / 미배정인 경우만 null 로 응답한다 (Codex review BE-3 — round.location null 도 interview 노출 유지).
-        Map<Long, AssignedInterviewQuery> interviewByApplicationId =
-                resolveInterviewBatch(applications.stream().map(Application::getId).toList());
+        Map<Long, AssignedInterviewSlot> assignedByApplicationId = interviewAssignmentQueryService
+                .findAssignedByApplicationIds(applications.stream().map(Application::getId).toList());
 
         return applications.stream()
                 .map(application -> ApplicationSummaryQuery.from(
-                        application, interviewByApplicationId.get(application.getId())))
+                        application,
+                        toAssignedInterviewQuery(assignedByApplicationId.get(application.getId()))))
                 .toList();
     }
 
@@ -235,19 +222,14 @@ public class GeneralApplicationService implements ApplicationService {
             return MyApplicationDetailQuery.fromAll(application, 0, null, null);
         }
 
-        long interviewAvailabilityCount =
-                interviewAvailabilityRepository.countByApplicationId(applicationId);
-        LocalDateTime availabilityDeadline = interviewRoundRepository
-                .findVisibleToApplicantRoundByApplicationId(applicationId)
-                .map(InterviewRound::getAvailabilityDeadline)
-                .orElse(null);
-        AssignedInterviewQuery interview = resolveAssignedInterview(applicationId);
+        ApplicantInterviewProgress interviewProgress =
+                interviewAssignmentQueryService.findApplicantProgress(applicationId);
 
         return MyApplicationDetailQuery.fromAll(
                 application,
-                Math.toIntExact(interviewAvailabilityCount),
-                interview,
-                availabilityDeadline);
+                interviewProgress.availabilityCount(),
+                toAssignedInterviewQuery(interviewProgress.assigned()),
+                interviewProgress.availabilityDeadline());
     }
 
     @Override
@@ -313,29 +295,26 @@ public class GeneralApplicationService implements ApplicationService {
 
         // 운영진 상세 카드에 노출할 "지원자가 선택한 면접 가능시간 + 현재 배정 슬롯 + 배정 면접 일정 + 라운드 요약".
         // useInterview=false 모집은 면접 도메인 자체가 없으므로 추가 쿼리 호출 자체를 생략하고
-        // 빈 리스트 / null 로 응답한다 (Task 1 의 useInterview 가드 패턴과 동일).
-        // 또한 InterviewSchedule.cancel() 은 status 만 CANCELLED 로 바꾸는 도메인 취소이고
-        // soft delete 가 아니므로 assignedSlot 쿼리는 status=ASSIGNED 조건을 명시한다.
+        // 빈 리스트 / null 로 응답한다 (getMyApplicationDetail 의 useInterview 가드 패턴과 동일).
         List<ApplicantDetailQuery.AvailabilityItem> interviewAvailabilities;
         ApplicantDetailQuery.AvailabilityItem assignedSlot;
         AssignedInterviewQuery interview;
         ApplicantDetailQuery.InterviewRoundBriefQuery interviewRoundBrief;
         if (application.getRecruitment().isUseInterview()) {
-            // interview 도메인은 자체 표현인 InterviewSlotTimeWindow 로 반환하고,
-            // application 도메인이 자기 표현인 AvailabilityItem 으로 매핑한다.
-            List<InterviewSlotTimeWindow> availabilityWindows =
-                    interviewAvailabilityRepository.findAvailabilityItemsByApplicationId(applicationId);
-            interviewAvailabilities = availabilityWindows.stream()
+            // interview 도메인은 자체 표현으로 반환하고, application 도메인이 자기 표현으로 매핑한다.
+            // 배정 슬롯과 배정 면접은 같은 조회 결과에서 나와 두 표현으로 나눠 담긴다.
+            ManagerInterviewSnapshot interviewSnapshot =
+                    interviewAssignmentQueryService.findManagerSnapshot(applicationId);
+            interviewAvailabilities = interviewSnapshot.availabilities().stream()
                     .map(window -> new ApplicantDetailQuery.AvailabilityItem(
                             window.slotId(), window.startTime(), window.endTime()))
                     .toList();
-            assignedSlot = interviewScheduleRepository
-                    .findAssignedSlotByApplicationId(applicationId)
-                    .map(window -> new ApplicantDetailQuery.AvailabilityItem(
-                            window.slotId(), window.startTime(), window.endTime()))
-                    .orElse(null);
-            interview = resolveAssignedInterview(applicationId);
-            interviewRoundBrief = resolvePlacementActiveMembership(applicationId);
+            AssignedInterviewSlot assignedInterviewSlot = interviewSnapshot.assigned();
+            assignedSlot = assignedInterviewSlot == null ? null
+                    : new ApplicantDetailQuery.AvailabilityItem(assignedInterviewSlot.slotId(),
+                            assignedInterviewSlot.startTime(), assignedInterviewSlot.endTime());
+            interview = toAssignedInterviewQuery(assignedInterviewSlot);
+            interviewRoundBrief = toInterviewRoundBriefQuery(interviewSnapshot.roundBrief());
         } else {
             interviewAvailabilities = List.of();
             assignedSlot = null;
@@ -360,17 +339,15 @@ public class GeneralApplicationService implements ApplicationService {
         Recruitment recruitment = application.getRecruitment();
         ClosedRecruitmentPolicy.requireFinalizingOnly(recruitment, updateApplicationStatusCommand.status());
 
-        ApplicationStatus previousStatus = application.getStatus();
-        application.transitionTo(
+        // 전이와 이력 기록은 ApplicationStatusChanger 한 곳에서만 조립한다.
+        // 변경 주체 조회는 전이가 FSM 에 막히면 필요 없는 왕복이라 Supplier 로 넘겨 전이 성공 이후로 미룬다.
+        applicationStatusChanger.change(
+                application,
                 updateApplicationStatusCommand.status(),
                 recruitment.isUseInterview(),
-                ClosedRecruitmentPolicy.isClosed(recruitment));
-
-        User changedBy = userRepository.findById(updateApplicationStatusCommand.currentUserId())
-                .orElseThrow(UserException.UserNotFoundException::new);
-        applicationStatusHistoryRepository.save(
-                ApplicationStatusHistory.record(application, previousStatus, updateApplicationStatusCommand.status(), changedBy)
-        );
+                ClosedRecruitmentPolicy.isClosed(recruitment),
+                () -> userRepository.findById(updateApplicationStatusCommand.currentUserId())
+                        .orElseThrow(UserException.UserNotFoundException::new));
 
         // 합격 처리 시 지원자를 모집의 targetRole 에 맞춰 동아리 회원으로 자동 등록한다.
         // upgrade-or-insert 와 동시 등록 경합 처리는 ClubMemberEnrollmentService 가 단독으로 책임진다.
@@ -442,6 +419,11 @@ public class GeneralApplicationService implements ApplicationService {
                 || domainFailure instanceof ClubMemberException.NotAMember;
     }
 
+    /**
+     * 동아리 폐쇄에 딸린 일괄 거절. 단건 경로와 달리 ApplicationStatusChanger 를 쓰지 않고 전이만 한다 —
+     * 이 경로는 상태 이력을 남기지 않는 기존 비대칭이 있고, 이력을 붙이면 동작 변경이 되기 때문이다.
+     * 의도된 비대칭인지 미확정이므로 후속 정책 판단 대상으로 남긴다.
+     */
     @Override
     @Transactional
     public void rejectActiveOnClubClosure(List<Long> recruitmentIds) {
@@ -465,34 +447,27 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     /**
-     * 운영진 상세 카드의 면접 라운드 요약 단건 헬퍼.
-     * placement-active 멤버십(§5.4 — DRAFT 포함, EXCLUDED·CANCELLED 제외)이 있으면 brief 를 채우고,
-     * 없으면 null (= 대기열/선정 전) 을 반환한다.
-     * <p>
-     * {@code unresponded} 는 저장 필드가 아니라 파생값이다 — INVITED && now > availabilityDeadline.
-     * availabilityDeadline 이 null 인 DRAFT 라운드는 마감이 미설정 상태이므로 unresponded 가 false.
+     * interview 도메인 표현 → 응답 DTO 의 nested {@code interview} 표현 매핑.
+     * 배정이 없으면(미배정 / CANCELLED 만 존재) {@code null} 을 그대로 흘려보내 "면접 미배정" 을 표현한다.
+     * location 이 null 이어도 배정 자체는 노출한다 (Codex review BE-3).
      */
-    private ApplicantDetailQuery.InterviewRoundBriefQuery resolvePlacementActiveMembership(Long applicationId) {
-        return interviewRoundMemberRepository
-                .findPlacementActiveMembershipByApplicationId(applicationId)
-                .map(membership -> {
-                    InterviewRound round = membership.round();
-                    RoundMemberStatus memberStatus = membership.member().getStatus();
-                    boolean unresponded = memberStatus == RoundMemberStatus.INVITED
-                            && round.getAvailabilityDeadline() != null
-                            && LocalDateTime.now(clock).isAfter(round.getAvailabilityDeadline());
-                    String alternativeText = memberStatus == RoundMemberStatus.NO_AVAILABLE_SLOT
-                            ? membership.member().getAlternativeAvailabilityText()
-                            : null;
-                    return new ApplicantDetailQuery.InterviewRoundBriefQuery(
-                            round.getId(),
-                            round.getTitle(),
-                            round.getStatus(),
-                            memberStatus,
-                            unresponded,
-                            alternativeText);
-                })
-                .orElse(null);
+    private static AssignedInterviewQuery toAssignedInterviewQuery(AssignedInterviewSlot assignedInterviewSlot) {
+        return assignedInterviewSlot == null ? null
+                : new AssignedInterviewQuery(assignedInterviewSlot.startTime(),
+                        assignedInterviewSlot.endTime(), assignedInterviewSlot.location());
+    }
+
+    /** interview 도메인 표현 → 운영진 상세의 라운드 요약 표현 매핑. 멤버십이 없으면 null (= 대기열/선정 전). */
+    private static ApplicantDetailQuery.InterviewRoundBriefQuery toInterviewRoundBriefQuery(
+            InterviewRoundBrief interviewRoundBrief) {
+        return interviewRoundBrief == null ? null
+                : new ApplicantDetailQuery.InterviewRoundBriefQuery(
+                        interviewRoundBrief.roundId(),
+                        interviewRoundBrief.title(),
+                        interviewRoundBrief.roundStatus(),
+                        interviewRoundBrief.memberStatus(),
+                        interviewRoundBrief.unresponded(),
+                        interviewRoundBrief.alternativeAvailabilityText());
     }
 
     /**
@@ -553,146 +528,4 @@ public class GeneralApplicationService implements ApplicationService {
         return form == null ? List.of() : form.getQuestions();
     }
 
-    private void validateAnswersAgainstForm(Recruitment recruitment, List<ApplicationAnswer> answers) {
-        List<RecruitmentQuestion> questions = questionsOf(recruitment);
-        if (questions.size() != answers.size()) {
-            throw new ApplicationDomainException.InvalidAnswersException();
-        }
-        Map<String, ApplicationAnswer> answerByQuestionId = new HashMap<>();
-        for (ApplicationAnswer answer : answers) {
-            if (answer.questionId() == null
-                    || answerByQuestionId.put(answer.questionId(), answer) != null) {
-                throw new ApplicationDomainException.InvalidAnswersException();
-            }
-        }
-        for (RecruitmentQuestion question : questions) {
-            ApplicationAnswer answer = answerByQuestionId.get(question.id());
-            if (answer == null) {
-                throw new ApplicationDomainException.InvalidAnswersException();
-            }
-            validateAnswerForQuestion(question, answer);
-        }
-    }
-
-    /**
-     * 스펙 §2.6 유형별 규칙 — 필수/선택 × TEXT/SINGLE_CHOICE/MULTIPLE_CHOICE.
-     * values 원소의 null 정규화(→ 빈 문자열)와 values 자체의 null 정규화(→ 빈 목록)는
-     * {@link ApplicationAnswer} 컴팩트 생성자가 이미 끝낸 상태로 들어온다.
-     */
-    private void validateAnswerForQuestion(RecruitmentQuestion question, ApplicationAnswer answer) {
-        List<String> values = answer.values();
-        switch (question.type()) {
-            case TEXT -> {
-                if (values.size() > 1) {
-                    throw new ApplicationDomainException.InvalidAnswersException();
-                }
-                String content = values.isEmpty() ? "" : values.get(0);
-                if (question.required() && content.isBlank()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-            }
-            case SINGLE_CHOICE -> {
-                if (values.size() > 1) {
-                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
-                }
-                if (question.required() && values.isEmpty()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-                requireChoiceIdsBelongToQuestion(question, values);
-            }
-            case MULTIPLE_CHOICE -> {
-                if (question.required() && values.isEmpty()) {
-                    throw new ApplicationDomainException.RequiredAnswerMissingException();
-                }
-                if (values.size() != Set.copyOf(values).size()) {
-                    throw new ApplicationDomainException.InvalidChoiceSelectionException();
-                }
-                requireChoiceIdsBelongToQuestion(question, values);
-            }
-            // enum 3 값을 모두 다루지만, 새 유형이 추가될 때 검증 없이 조용히 통과하지 않도록 명시적으로 막는다
-            // (validateClubMembershipPolicy 와 동일한 방어).
-            default -> throw new IllegalStateException(
-                    "답변 검증 규칙이 정의되지 않은 질문 유형입니다: " + question.type());
-        }
-    }
-
-    /** "바로 그 질문의" 선택지인지 검증 — 타 질문의 choiceId·미지 choiceId 를 모두 거부한다 (스펙 §2.6). */
-    private void requireChoiceIdsBelongToQuestion(RecruitmentQuestion question, List<String> selectedChoiceIds) {
-        Set<String> allowedChoiceIds = question.choices().stream()
-                .map(QuestionChoice::id)
-                .collect(Collectors.toSet());
-        if (!allowedChoiceIds.containsAll(selectedChoiceIds)) {
-            throw new ApplicationDomainException.InvalidChoiceSelectionException();
-        }
-    }
-
-    /**
-     * 응답 DTO 의 nested {@code interview} 채움용 단건 헬퍼.
-     * ASSIGNED 상태 schedule 이 있고 그 schedule 에 매핑된 슬롯이 존재하면 {@link AssignedInterviewQuery} 를 반환한다.
-     * location 은 schedule 이 속한 {@code InterviewRound.location} 에서 가져오며, round 가 없거나
-     * location 이 비어 있어도 interview 자체는 노출하고 location 만 null 로 채운다 (Codex review BE-3 유지).
-     * <p>
-     * {@code InterviewSchedule} 의 CANCELLED 는 MVP 미사용 예약값이지만 방어적으로 status 조건을 명시한다.
-     */
-    private AssignedInterviewQuery resolveAssignedInterview(Long applicationId) {
-        return interviewScheduleRepository.findByApplicationId(applicationId)
-                .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
-                .flatMap(schedule -> interviewSlotRepository.findById(schedule.getSlotId())
-                        .map(slot -> new AssignedInterviewQuery(
-                                slot.getStartTime(),
-                                slot.getEndTime(),
-                                interviewRoundRepository.findById(schedule.getRoundId())
-                                        .map(InterviewRound::getLocation)
-                                        .orElse(null))))
-                .orElse(null);
-    }
-
-    /**
-     * 응답 리스트 DTO 의 nested {@code interview} 채움용 batch 헬퍼.
-     * 지원 ID 다건을 한 번에 끌어와 N+1 을 회피한다 — InterviewReminderJob 패턴과 동일.
-     * <ol>
-     *   <li>application_id IN (...) AND status=ASSIGNED InterviewSchedule 일괄 조회</li>
-     *   <li>대상 schedule 들의 slot_id / round_id 를 batch 로 join</li>
-     *   <li>{@code InterviewRound.location} 이 비어 있어도 interview 객체는 그대로 노출 (location 만 null)</li>
-     * </ol>
-     * 결과 Map 에 키가 없는 application 은 호출 측에서 {@code null} 로 표현되어 "면접 미배정" 을 의미한다.
-     */
-    private Map<Long, AssignedInterviewQuery> resolveInterviewBatch(List<Long> applicationIds) {
-        if (applicationIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        List<InterviewSchedule> assignedSchedules = interviewScheduleRepository
-                .findByApplicationIdIn(applicationIds).stream()
-                .filter(schedule -> schedule.getStatus() == InterviewScheduleStatus.ASSIGNED)
-                .toList();
-        if (assignedSchedules.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        Set<Long> slotIds = assignedSchedules.stream()
-                .map(InterviewSchedule::getSlotId)
-                .collect(Collectors.toSet());
-        Set<Long> roundIds = assignedSchedules.stream()
-                .map(InterviewSchedule::getRoundId)
-                .collect(Collectors.toSet());
-
-        Map<Long, InterviewSlot> slotById = interviewSlotRepository.findAllById(slotIds).stream()
-                .collect(Collectors.toMap(InterviewSlot::getId, Function.identity()));
-        Map<Long, InterviewRound> roundById = interviewRoundRepository.findAllById(roundIds).stream()
-                .collect(Collectors.toMap(InterviewRound::getId, Function.identity()));
-
-        Map<Long, AssignedInterviewQuery> result = new HashMap<>();
-        for (InterviewSchedule schedule : assignedSchedules) {
-            InterviewSlot slot = slotById.get(schedule.getSlotId());
-            if (slot == null) {
-                continue;
-            }
-            InterviewRound round = roundById.get(schedule.getRoundId());
-            String location = round == null ? null : round.getLocation();
-            result.put(schedule.getApplicationId(), new AssignedInterviewQuery(
-                    slot.getStartTime(), slot.getEndTime(), location));
-        }
-        return result;
-    }
 }
