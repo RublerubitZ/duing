@@ -92,9 +92,6 @@ public class Club extends BaseEntity {
     @Column(name = "location", length = 200)
     private String location;
 
-    @Column(name = "contact_email", length = 200)
-    private String contactEmail;
-
     @Column(name = "activity_frequency")
     private Integer activityFrequency;
 
@@ -104,18 +101,12 @@ public class Club extends BaseEntity {
     @Column(name = "active_days", length = 50)
     private String activeDays;
 
-    @Column(name = "membership_fee", length = 100)
-    private String membershipFee;
-
     @Column(name = "tagline", length = 60)
     private String tagline;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "highlights", columnDefinition = "jsonb", nullable = false)
     private List<String> highlights = new ArrayList<>();
-
-    @Column(name = "major_projects", columnDefinition = "TEXT")
-    private String majorProjects;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "contact_visibility", nullable = false, length = 20)
