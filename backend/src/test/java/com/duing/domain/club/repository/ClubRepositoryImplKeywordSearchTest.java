@@ -130,6 +130,30 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         assertSearch("엔드").containsExactly(target);
     }
 
+    @Test
+    @DisplayName("키워드의 % 는 와일드카드가 아니라 리터럴로 매칭되어 모든 태그를 걸어오지 않는다")
+    void percentInKeywordMatchesLiterally() {
+        saveActiveClub("이름A", "소개A", List.of("백엔드"));
+
+        assertSearch("%").isEmpty();
+    }
+
+    @Test
+    @DisplayName("키워드 뒤의 % 도 리터럴이라 '백%' 는 '백엔드' 태그에 매치되지 않는다")
+    void percentSuffixInKeywordMatchesLiterally() {
+        saveActiveClub("이름A", "소개A", List.of("백엔드"));
+
+        assertSearch("백%").isEmpty();
+    }
+
+    @Test
+    @DisplayName("키워드의 _ 도 리터럴이라 임의의 한 글자를 대신하지 않는다")
+    void underscoreInKeywordMatchesLiterally() {
+        saveActiveClub("이름A", "소개A", List.of("백엔드"));
+
+        assertSearch("백__").isEmpty();
+    }
+
     private org.assertj.core.api.AbstractListAssert<?, java.util.List<? extends Long>, Long,
             org.assertj.core.api.ObjectAssert<Long>> assertSearch(String keyword) {
         ClubSearchCondition condition = new ClubSearchCondition(

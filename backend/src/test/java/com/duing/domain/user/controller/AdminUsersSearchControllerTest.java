@@ -280,6 +280,38 @@ class AdminUsersSearchControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("검색어의 % 는 와일드카드가 아니라 리터럴로 매칭되어 전체 회원을 반환하지 않는다")
+    void percentInQueryMatchesLiterally() {
+        saveUser("2024030080", "와일드카드", UserRole.STUDENT);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .queryParam("q", "%")
+                .when()
+                    .get("/api/v1/admin/users")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content.size()", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("검색어의 _ 도 리터럴이라 임의의 한 글자를 대신하지 않는다")
+    void underscoreInQueryMatchesLiterally() {
+        saveUser("2024030081", "언더스코어", UserRole.STUDENT);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .queryParam("q", "언__코어")
+                .when()
+                    .get("/api/v1/admin/users")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content.size()", equalTo(0));
+    }
+
+    @Test
     @DisplayName("허용 목록에 없는 정렬 속성을 요청하면 400 을 반환한다")
     void unknownSortPropertyReturns400() {
         RestAssured

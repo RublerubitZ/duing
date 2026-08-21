@@ -293,6 +293,15 @@ class GlobalEventAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.content", hasSize(1))
                 .body("data.content[0].title", equalTo("두잉 페스티벌"));
+
+        // 앞뒤 공백이 매칭을 막지 않는다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .queryParam("keyword", "  페스티벌  ")
+                .when().get("/api/v1/admin/global-events")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(1))
+                .body("data.content[0].title", equalTo("두잉 페스티벌"));
     }
 
     @Test
