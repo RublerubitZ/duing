@@ -33,9 +33,8 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
-import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -83,10 +82,6 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
-
-    /** assignment_completed_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 regime 이 갈린다. */
-    @Autowired
-    Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -261,13 +256,13 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("INTERVIEW_RESULT 발생시각은 KST 벽시계 저장값의 seoul 해석과 일치한다 — JVM 존과 무관")
-    void interviewResultOccurredAtEqualsSeoulInterpretationOfStoredWallClock() {
+    @DisplayName("INTERVIEW_RESULT 발생시각은 확정 시각으로 저장한 절대 Instant 와 그대로 일치한다")
+    void interviewResultOccurredAtEqualsStoredConfirmInstant() {
         Club activeClub = saveAndActivate("면접확정시각동아리" + sequence.incrementAndGet());
         Recruitment recruitment = saveOpenRecruitment(activeClub);
-        // confirmRound 와 동일하게 KST 벽시계를 기록한다. nano 절삭으로 Postgres 마이크로초 반올림 여지를 없앤다.
-        LocalDateTime confirmedAtSeoulWallClock = LocalDateTime.now(clock).minusHours(1).withNano(0);
-        saveScheduledRound(recruitment.getId(), confirmedAtSeoulWallClock);
+        // nano 절삭으로 Postgres 마이크로초 반올림 여지를 없앤다.
+        Instant confirmedAt = Instant.now().minus(Duration.ofHours(1)).truncatedTo(ChronoUnit.SECONDS);
+        saveScheduledRound(recruitment.getId(), confirmedAt);
 
         String occurredAtRaw = RestAssured.given()
                 .when().get("/api/v1/public-activities")
@@ -278,10 +273,8 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
                 .getString("data.items.find { it.clubName == '" + activeClub.getName()
                         + "' && it.type == 'INTERVIEW_RESULT' }.occurredAt");
 
-        // JVM=KST 인 로컬에서는 수정 전에도 우연히 통과한다(system 해석 == seoul 해석) — 계약 핀이 목적이다.
-        // CI·prod(JVM=UTC)에서는 수정 전 9시간 어긋나 실패하는 실검증이 된다. (/TIMEZONE.md 알려진 이슈 3)
-        org.assertj.core.api.Assertions.assertThat(Instant.parse(occurredAtRaw))
-                .isEqualTo(TimeMapper.seoulWallClockToInstant(confirmedAtSeoulWallClock));
+        // 저장·응답 양쪽이 Instant 라 벽시계 해석이 개입하지 않는다 — TZ 를 바꿔도 같은 값이라 존별 재실증이 불필요하다.
+        org.assertj.core.api.Assertions.assertThat(Instant.parse(occurredAtRaw)).isEqualTo(confirmedAt);
     }
 
     @Test
@@ -381,11 +374,11 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
 
     /** DRAFT → COLLECTING → ASSIGNING → SCHEDULED(확정). confirm 이 assignmentCompletedAt 을 기록한다. */
     private InterviewRound saveScheduledRound(Long recruitmentId) {
-        return saveScheduledRound(recruitmentId, LocalDateTime.now());
+        return saveScheduledRound(recruitmentId, Instant.now());
     }
 
-    /** 확정 시각을 지정하는 변형 — regime 검증처럼 저장 벽시계를 고정해야 하는 테스트용. */
-    private InterviewRound saveScheduledRound(Long recruitmentId, LocalDateTime confirmedAt) {
+    /** 확정 시각을 지정하는 변형 — 발생시각 동치처럼 저장값을 고정해야 하는 테스트용. */
+    private InterviewRound saveScheduledRound(Long recruitmentId, Instant confirmedAt) {
         InterviewRound round = InterviewRound.create(recruitmentId, "확정 면접", futureDeadline(), null);
         round.openCollecting(LocalDateTime.now());
         round.openAssigning();

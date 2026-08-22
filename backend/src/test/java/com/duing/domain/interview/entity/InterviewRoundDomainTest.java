@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.domain.interview.exception.InterviewException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -245,7 +246,7 @@ class InterviewRoundDomainTest {
         round.openCollecting(LocalDateTime.now());
         round.openAssigning();
 
-        LocalDateTime confirmedAt = LocalDateTime.now();
+        Instant confirmedAt = Instant.now();
         round.confirm(confirmedAt);
 
         assertThat(round.getStatus()).isEqualTo(RoundStatus.SCHEDULED);
@@ -259,13 +260,13 @@ class InterviewRoundDomainTest {
                 LocalDateTime.now().plusDays(7), null);
         collecting.openCollecting(LocalDateTime.now());
 
-        assertThatThrownBy(() -> collecting.confirm(LocalDateTime.now()))
+        assertThatThrownBy(() -> collecting.confirm(Instant.now()))
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
 
         InterviewRound draft = InterviewRound.create(1L, "1차 면접",
                 LocalDateTime.now().plusDays(7), null);
 
-        assertThatThrownBy(() -> draft.confirm(LocalDateTime.now()))
+        assertThatThrownBy(() -> draft.confirm(Instant.now()))
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
     }
 
@@ -294,7 +295,7 @@ class InterviewRoundDomainTest {
         InterviewRound scheduled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
         scheduled.openCollecting(LocalDateTime.now());
         scheduled.openAssigning();
-        scheduled.confirm(LocalDateTime.now());
+        scheduled.confirm(Instant.now());
         InterviewRound cancelled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
         cancelled.cancel();
 
@@ -331,7 +332,7 @@ class InterviewRoundDomainTest {
         InterviewRound scheduled = InterviewRound.create(1L, "1차", LocalDateTime.now().plusDays(7), null);
         scheduled.openCollecting(LocalDateTime.now());
         scheduled.openAssigning();
-        scheduled.confirm(LocalDateTime.now());
+        scheduled.confirm(Instant.now());
         assertThatThrownBy(() -> scheduled.updateInfo("변경", null))
                 .isInstanceOf(InterviewException.RoundTransitionNotAllowed.class);
     }
