@@ -2,6 +2,7 @@ package com.duing.domain.fee.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -21,35 +22,19 @@ import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 
-@Import({TestcontainersConfiguration.class, MonthlyBillIssueJobTest.FixedClockConfig.class})
+// 오늘을 FixedClockConfig.TODAY(2026-06-15 Asia/Seoul)로 고정 — issue_day 비교(today.day=15)를 결정적으로 만든다.
+@Import({TestcontainersConfiguration.class, FixedClockConfig.class})
 @SpringBootTest(properties = "duing.fee.auto-issue.enabled=true")
 class MonthlyBillIssueJobTest extends IntegrationTestBase {
-
-    // 오늘을 2026-06-15(Asia/Seoul)로 고정 — issue_day 비교(today.day=15)를 결정적으로 만든다.
-    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
-
-    @TestConfiguration
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
-        }
-    }
 
     @Autowired MonthlyBillIssueJob job;
     @Autowired ClubRepository clubRepository;
