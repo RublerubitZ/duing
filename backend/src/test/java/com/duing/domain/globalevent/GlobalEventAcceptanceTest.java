@@ -14,6 +14,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.AdminLabels;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
@@ -42,15 +43,16 @@ class GlobalEventAcceptanceTest extends IntegrationTestBase {
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
+    private User adminUser;
     private String adminToken;
     private String studentToken;
 
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        User admin = saveUser(UserRole.ADMIN);
+        adminUser = saveUser(UserRole.ADMIN);
         User student = saveUser(UserRole.STUDENT);
-        adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
+        adminToken = jwtTokenProvider.createToken(adminUser.getId(), adminUser.getRole().name());
         studentToken = jwtTokenProvider.createToken(student.getId(), student.getRole().name());
     }
 
@@ -74,8 +76,12 @@ class GlobalEventAcceptanceTest extends IntegrationTestBase {
     }
 
     private Long createAsAdmin(LocalDateTime start, LocalDateTime end) {
+        return createAs(adminToken, start, end);
+    }
+
+    private Long createAs(String token, LocalDateTime start, LocalDateTime end) {
         return RestAssured.given()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(ContentType.JSON)
                 .body(samplePayload(start, end))
                 .when().post("/api/v1/admin/global-events")
@@ -412,6 +418,47 @@ class GlobalEventAcceptanceTest extends IntegrationTestBase {
                 .when().get("/api/v1/global-events/" + eventId)
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.linkUrl", equalTo(""));
+    }
+
+    @Test
+    @DisplayName("어드민 상세는 작성자의 id 와 이름을 원값 그대로 내려준다")
+    void adminDetailExposesCreator() {
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createAsAdmin(start, start.plusHours(2));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.title", equalTo("가을 동아리 박람회"))
+                .body("data.category", equalTo("FAIR"))
+                .body("data.createdBy.id", equalTo(adminUser.getId().intValue()))
+                .body("data.createdBy.name", equalTo(adminUser.getName()));
+    }
+
+    @Test
+    @DisplayName("작성자가 탈퇴한 행사도 어드민 상세는 200 으로 삭제 라벨과 원본 작성자 id 를 내려준다")
+    void adminDetailLabelsWithdrawnCreator() {
+        User withdrawnAdmin = saveUser(UserRole.ADMIN);
+        String withdrawnToken = jwtTokenProvider.createToken(
+                withdrawnAdmin.getId(), withdrawnAdmin.getRole().name());
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createAs(withdrawnToken, start, start.plusHours(2));
+
+        // soft delete — users 행은 남고 @SQLRestriction 때문에 조회만 되지 않는다.
+        userRepository.delete(withdrawnAdmin);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get("/api/v1/admin/global-events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                // 작성자 이름만 라벨로 대체되고, 행사 본문과 작성자 id 는 그대로 살아 있어야 수정 화면이 열린다.
+                .body("data.createdBy.id", equalTo(withdrawnAdmin.getId().intValue()))
+                .body("data.createdBy.name", equalTo(AdminLabels.DELETED))
+                .body("data.title", equalTo("가을 동아리 박람회"))
+                .body("data.category", equalTo("FAIR"))
+                .body("data.location", equalTo("중앙광장"))
+                .body("data.linkUrl", equalTo("https://example.com/info"));
     }
 
     @Test
