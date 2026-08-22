@@ -11,6 +11,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubClosureService;
+import com.duing.domain.club.service.dto.command.CloseClubCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinCode;
@@ -49,6 +51,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -64,6 +68,8 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired ClubClosureService clubClosureService;
+    @Autowired PlatformTransactionManager transactionManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -309,6 +315,47 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
 
         Application rejectedApplication = applicationRepository.findById(applicationId).orElseThrow();
         Assertions.assertEquals(ApplicationStatus.REJECTED, rejectedApplication.getStatus());
+
+        // 폐쇄 반려도 단건 반려와 동일한 상태 이력을 남기고, 주체는 폐쇄를 실행한 총동연 관리자다.
+        // queryForMap 이 단건을 강제하므로 이력이 정확히 1건임도 함께 검증된다.
+        Map<String, Object> historyRow = jdbcTemplate.queryForMap(
+                "SELECT previous_status, new_status, changed_by FROM application_status_history "
+                        + "WHERE application_id = ?", applicationId);
+        Assertions.assertEquals("SUBMITTED", historyRow.get("previous_status"));
+        Assertions.assertEquals("REJECTED", historyRow.get("new_status"));
+        Assertions.assertEquals(adminUser.getId(), ((Number) historyRow.get("changed_by")).longValue());
+    }
+
+    @Test
+    @DisplayName("폐쇄 트랜잭션이 롤백되면 일괄 반려된 지원서의 상태와 상태 이력이 함께 되돌아간다")
+    void closureRollbackRevertsApplicationStatusAndHistoryTogether() throws Exception {
+        Club club = saveClubWithLeader("폐쇄롤백클럽", ClubStatus.ACTIVE);
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "롤백대상모집", "내용",
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 5));
+        User applicant = saveUser("롤백지원자", UserRole.STUDENT);
+        long applicationId = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of())).getId();
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+
+        // close() 는 @Transactional(REQUIRED) 라 여기서 연 트랜잭션에 합류한다 — 상태 전이와 이력 INSERT 가
+        // 폐쇄의 나머지 작업과 같은 커밋 단위에 묶인다는 뜻이고, 그래서 바깥을 롤백하면 둘 다 함께 사라진다.
+        // 이력만 별도 트랜잭션으로 새면 폐쇄가 실패한 동아리에 "불합격 처리됨" 이력이 남는다.
+        new TransactionTemplate(transactionManager).executeWithoutResult(transaction -> {
+            clubClosureService.close(new CloseClubCommand(club.getId(), adminUser.getId(), "롤백 검증"));
+            // 롤백 전 확인 — 이력이 애초에 쓰이지 않았다면 아래 "0건" 단언은 공허하게 통과한다.
+            // close() 가 마지막에 flush 하므로 같은 트랜잭션의 커넥션으로 미커밋 행이 보인다.
+            Assertions.assertEquals(1, countStatusHistory(applicationId), "롤백 전에는 이력이 기록돼 있다");
+            transaction.setRollbackOnly();
+        });
+
+        String applicationStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM application WHERE id = ?", String.class, applicationId);
+        Assertions.assertEquals(ApplicationStatus.SUBMITTED.name(), applicationStatus);
+        Assertions.assertEquals(0, countStatusHistory(applicationId));
+        LocalDateTime clubDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM club WHERE id = ?", LocalDateTime.class, club.getId());
+        Assertions.assertNull(clubDeletedAt, "폐쇄 자체도 롤백된다");
     }
 
     @Test
@@ -453,6 +500,12 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
         Long revokedById = jdbcTemplate.queryForObject(
                 "SELECT revoked_by FROM club_join_code WHERE id = ?", Long.class, inviteCode.getId());
         Assertions.assertEquals(leaderUser.getId(), revokedById, "최초 폐기자가 유지된다");
+    }
+
+    private int countStatusHistory(long applicationId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM application_status_history WHERE application_id = ?",
+                Integer.class, applicationId);
     }
 
     private User saveUser(String name, UserRole role) {

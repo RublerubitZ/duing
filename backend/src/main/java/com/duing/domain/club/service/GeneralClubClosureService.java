@@ -68,7 +68,7 @@ public class GeneralClubClosureService implements ClubClosureService {
         // 경로가 ACTIVE 를 요구한다(요청 생성의 isUsable, 운영진 경로의 requireActiveClub).
         // ACTIVE 동아리 폐쇄를 허용하거나 그 게이트를 완화하면 이 교착이 곧바로 열린다.
         joinCodeService.revokeActiveOnClubClosure(clubId, recruitmentIds, actorAdminUserId);
-        applicationService.rejectActiveOnClubClosure(recruitmentIds);
+        applicationService.rejectActiveOnClubClosure(recruitmentIds, actorAdminUserId);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
         recruitmentService.softDeleteAllOnClubClosure(recruitmentIds);
 
