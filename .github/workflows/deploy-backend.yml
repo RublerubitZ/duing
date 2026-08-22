@@ -225,3 +225,39 @@ jobs:
           GHCR_USER: ${{ github.repository_owner }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR || '/home/ubuntu/duing' }}
+
+      # 배포 결과 Slack 알림(성공·실패·취소 모두). GitHub Secret SLACK_WEBHOOK_URL 이 없으면 조용히 생략한다.
+      # 서드파티 액션 없이 curl+jq 만 쓴다 — SSH 키를 다루는 잡이라 공급망 표면을 늘리지 않는다.
+      # 알림 실패는 배포 결과를 바꾸지 않는다(항상 exit 0). 채널·형식은 deploy/MONITORING.md.
+      - name: Notify Slack (deploy result)
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL 미설정 — 배포 알림 생략"
+            exit 0
+          fi
+          case "$JOB_STATUS" in
+            success)   ICON="🚀"; STATUS="SUCCESS" ;;
+            cancelled) ICON="⚪"; STATUS="CANCELLED" ;;
+            *)         ICON="🔴"; STATUS="FAILURE (헬스 게이트 실패면 직전 이미지로 자동 롤백 시도됨 — 실행 로그 확인)" ;;
+          esac
+          TEXT="$(printf '%s\n' \
+            "${ICON} Deployment" \
+            "서비스: Duing" \
+            "환경: production" \
+            "release: ${RELEASE_SHA}" \
+            "status: ${STATUS}" \
+            "시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST" \
+            "실행: ${RUN_URL}")"
+          PAYLOAD="$(jq -cn --arg text "$TEXT" '{text: $text}')"
+          # URL 은 시크릿 — 실패 시에도 에러 본문을 출력하지 않는다.
+          if ! curl -sS -o /dev/null --max-time 10 -X POST -H 'Content-Type: application/json' \
+               --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" 2>/dev/null; then
+            echo "::warning::Slack 배포 알림 전송 실패(배포 결과와 무관)"
+          fi
+          exit 0
