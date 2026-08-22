@@ -371,14 +371,34 @@ describe('관리자 회비 감사 상세', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+  it('기간을 전체로 바꾸면 from/to 없이 다시 묻는다', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDetail();
+
+    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, DEFAULT_PERIOD);
+
+    await user.selectOptions(screen.getByLabelText('기간'), 'ALL');
+    rerender(<AdminFeeClubDetailPage clubId={CLUB_ID} />);
+
+    // 전체는 상세의 기본값(최근 30일)이 아니므로 주소에 실려야 한다 — 생략하면 다음 렌더가 30일로 되돌린다.
+    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?period=ALL`, {
+      scroll: false,
+    });
+    expect(screen.getByLabelText('기간')).toHaveValue('ALL');
+    // 조회 인자가 그대로면 쿼리키가 안 바뀌어 재요청 자체가 일어나지 않는다.
+    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, {});
+  });
+
   it('탭을 바꾸면 기간을 유지한 채 주소에 탭만 얹는다', async () => {
     const user = userEvent.setup();
     renderDetail();
 
     await user.click(screen.getByRole('tab', { name: '납부' }));
 
-    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?period=LAST_30D&tab=payments`, {
+    // 최근 30일은 이 화면의 기본값이라 주소에서 빠진다 — 기간이 없는 주소는 그대로 30일로 복원된다.
+    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?tab=payments`, {
       scroll: false,
     });
+    expect(screen.getByLabelText('기간')).toHaveValue('LAST_30D');
   });
 });
