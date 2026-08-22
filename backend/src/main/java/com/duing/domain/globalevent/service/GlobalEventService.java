@@ -4,6 +4,7 @@ import com.duing.domain.globalevent.entity.GlobalEvent;
 import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.domain.globalevent.service.dto.command.CreateGlobalEventCommand;
 import com.duing.domain.globalevent.service.dto.command.UpdateGlobalEventCommand;
+import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminDetailQuery;
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,7 +26,8 @@ public interface GlobalEventService {
 
     Page<GlobalEvent> listAdmin(GlobalEventAdminSearchCondition condition, Pageable pageable);
 
-    GlobalEvent getAdmin(Long eventId);
+    /** 어드민 상세 — 작성자까지 합쳐서 내려준다. */
+    GlobalEventAdminDetailQuery getAdmin(Long eventId);
 
     Map<GlobalEventCategory, Long> categoryStats();
 }

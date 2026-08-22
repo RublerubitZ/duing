@@ -62,9 +62,9 @@ public class FederationInquiryRepositoryImpl implements FederationInquiryReposit
     }
 
     private BooleanExpression keywordContains(String keyword) {
-        return StringUtils.hasText(keyword)
-                ? federationInquiry.title.containsIgnoreCase(keyword)
-                        .or(federationInquiry.content.containsIgnoreCase(keyword))
-                : null;
+        if (!StringUtils.hasText(keyword)) return null;
+        String normalized = keyword.strip();
+        return federationInquiry.title.containsIgnoreCase(normalized)
+                .or(federationInquiry.content.containsIgnoreCase(normalized));
     }
 }

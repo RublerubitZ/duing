@@ -9,7 +9,9 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
+import com.duing.domain.user.entity.UserRole;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +24,16 @@ public interface NoticeService {
 
     void delete(Long noticeId);
 
+    /**
+     * 인증 주체(비로그인이면 role=null)로 뷰어 스코프를 조립한다 — 소속·임원 동아리 조회는 서비스가 소유한다.
+     * 가시성 판정에 쓰이는 스코프가 화면마다 달리 조립되면 권한 구멍이 생기므로 조립 지점은 여기 하나뿐이다.
+     */
+    ViewerScope resolveViewerScope(Long userId, UserRole role);
+
     Notice getVisible(Long noticeId, ViewerScope viewer);
+
+    /** 공지 상세의 대상 동아리 id 목록 (CLUB_SCOPED 가 아니면 빈 목록). */
+    List<Long> findTargetClubIds(Long noticeId);
 
     Page<Notice> searchFeed(NoticeSearchCondition condition, ViewerScope viewer, Pageable pageable);
 

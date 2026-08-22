@@ -23,6 +23,7 @@ import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentPredicates;
+import com.duing.global.persistence.LikeEscapes;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
@@ -211,11 +212,15 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로
         // 인식하지 못하는 케이스가 있어, stringTemplate 으로 명시적 String 타입을 부여한 뒤
         // .like() 를 호출한다. ilike 를 위해 lower() 로 양쪽을 소문자화한다.
+        //
+        // containsIgnoreCase 와 달리 .like() 는 패턴을 그대로 받으므로 QueryDSL 이 값을 이스케이프하지
+        // 않는다 — 직접 이스케이프하지 않으면 키워드의 '%'·'_' 가 와일드카드로 살아 태그 전체가 걸린다.
+        // escape 절('!')은 QueryDSL 이 Ops.LIKE 에 항상 붙여 방출한다.
         BooleanExpression tagMatch = Expressions.stringTemplate(
                 "lower(function('array_to_string', {0}, {1}))",
                 club.tags,
                 ","
-        ).like("%" + normalized.toLowerCase(Locale.ROOT) + "%");
+        ).like("%" + LikeEscapes.escape(normalized.toLowerCase(Locale.ROOT)) + "%");
 
         // 학과는 단과대 동아리를 찾는 실제 단서라 검색 대상에 넣는다("회계학과" 로 찾기).
         // 분과·단과대학은 이미 전용 필터가 있어 키워드까지 태우지 않는다.

@@ -74,7 +74,8 @@ public class GlobalEventRepositoryImpl implements GlobalEventRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        return globalEvent.title.containsIgnoreCase(keyword)
-                .or(globalEvent.description.containsIgnoreCase(keyword));
+        String normalized = keyword.strip();
+        return globalEvent.title.containsIgnoreCase(normalized)
+                .or(globalEvent.description.containsIgnoreCase(normalized));
     }
 }

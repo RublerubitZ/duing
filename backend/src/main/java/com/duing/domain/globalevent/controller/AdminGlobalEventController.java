@@ -10,8 +10,6 @@ import com.duing.domain.globalevent.entity.GlobalEvent;
 import com.duing.domain.globalevent.entity.GlobalEventCategory;
 import com.duing.domain.globalevent.service.GlobalEventService;
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
-import com.duing.domain.user.entity.User;
-import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -32,7 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminGlobalEventController implements AdminGlobalEventApi {
 
     private final GlobalEventService eventService;
-    private final UserRepository userRepository;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminGlobalEventSummaryResponse>>> list(
@@ -54,11 +51,8 @@ public class AdminGlobalEventController implements AdminGlobalEventApi {
 
     @Override
     public ResponseEntity<ApiResponse<AdminGlobalEventDetailResponse>> getDetail(Long eventId) {
-        GlobalEvent event = eventService.getAdmin(eventId);
-        User creator = userRepository.findById(event.getCreatedBy())
-                .orElseThrow(() -> new IllegalStateException("global event creator missing: " + event.getCreatedBy()));
         return ResponseEntity.ok(
-                ApiResponse.success(AdminGlobalEventDetailResponse.from(event, creator))
+                ApiResponse.success(AdminGlobalEventDetailResponse.from(eventService.getAdmin(eventId)))
         );
     }
 

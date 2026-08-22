@@ -2,6 +2,7 @@ package com.duing.domain.notice.service;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notice.broadcast.service.NoticeBroadcaster;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
@@ -20,9 +21,11 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
+import com.duing.domain.user.entity.UserRole;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +46,7 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeRepository noticeRepository;
     private final NoticeTargetClubRepository targetClubRepository;
     private final ClubRepository clubRepository;
+    private final ClubMemberRepository clubMemberRepository;
     private final NoticeBroadcaster broadcaster;
     // 만료 판정용 — 운영자가 KST 벽시계로 입력한 expiresAt 과 같은 기준(seoulClock)으로 비교한다.
     private final Clock clock;
@@ -120,6 +124,24 @@ public class GeneralNoticeService implements NoticeService {
         Notice found = noticeRepository.findById(noticeId)
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
         noticeRepository.delete(found);
+    }
+
+    @Override
+    public ViewerScope resolveViewerScope(Long userId, UserRole role) {
+        if (role == null) return ViewerScope.anonymous();
+        // 관리자는 전체 열람이라 소속 집합이 판정에 쓰이지 않는다 — 불필요한 조회를 건너뛴다.
+        if (role == UserRole.ADMIN) {
+            return new ViewerScope(UserRole.ADMIN, userId, Set.of(), Set.of());
+        }
+        Set<Long> memberClubIds = new HashSet<>(clubMemberRepository.findClubIdsByUserId(userId));
+        Set<Long> officerClubIds = new HashSet<>(clubMemberRepository.findOfficerClubIdsByUserId(userId));
+        return new ViewerScope(role, userId, memberClubIds, officerClubIds);
+    }
+
+    @Override
+    public List<Long> findTargetClubIds(Long noticeId) {
+        return targetClubRepository.findAllByIdNoticeId(noticeId).stream()
+                .map(NoticeTargetClub::getClubId).toList();
     }
 
     @Override

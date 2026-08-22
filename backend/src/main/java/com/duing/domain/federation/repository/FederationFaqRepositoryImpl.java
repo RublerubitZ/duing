@@ -87,10 +87,12 @@ public class FederationFaqRepositoryImpl implements FederationFaqRepositoryCusto
         return categoryId != null ? federationFaq.categoryId.eq(categoryId) : null;
     }
 
+    // strip 은 admin 검색을 위한 것이다 — 공개 검색은 FederationFaqSearchCondition 이 이미
+    // strip + 공백 압축을 마친 키워드를 넘기므로(무결과 기록과 형태를 맞추기 위해) 여기서는 무해하게 지나간다.
     private BooleanExpression keywordContains(String keyword) {
-        return StringUtils.hasText(keyword)
-                ? federationFaq.question.containsIgnoreCase(keyword)
-                        .or(federationFaq.answer.containsIgnoreCase(keyword))
-                : null;
+        if (!StringUtils.hasText(keyword)) return null;
+        String normalized = keyword.strip();
+        return federationFaq.question.containsIgnoreCase(normalized)
+                .or(federationFaq.answer.containsIgnoreCase(normalized));
     }
 }

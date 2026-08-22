@@ -55,12 +55,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
      *
      * <p>정렬은 Pageable 이 담당하되 서비스가 항상 id DESC tie-breaker 를 덧붙인다 — 정렬 키가 같은 행들의
      * 페이지 경계가 흔들리면 페이지 간 행 중복·누락이 생긴다.
+     *
+     * <p>패턴을 CONCAT 으로 직접 조립하므로 q 는 호출자(GeneralUserService)가 {@code LikeEscapes} 로
+     * 이스케이프해 넘긴다 — 그래서 두 LIKE 에 {@code ESCAPE '!'} 절이 필요하다. 절을 지우면
+     * 이스케이프된 '!' 가 리터럴로 남아 '!'·'%'·'_' 가 든 검색어가 아무것도 찾지 못한다.
      */
     @Query("""
             SELECT u FROM User u
             WHERE (CAST(:q AS String) IS NULL
-                   OR u.studentId LIKE CONCAT(CAST(:q AS String), '%')
-                   OR LOWER(u.name) LIKE LOWER(CONCAT('%', CAST(:q AS String), '%')))
+                   OR u.studentId LIKE CONCAT(CAST(:q AS String), '%') ESCAPE '!'
+                   OR LOWER(u.name) LIKE LOWER(CONCAT('%', CAST(:q AS String), '%')) ESCAPE '!')
               AND (:status IS NULL OR u.status = :status)
             """)
     Page<User> searchForAdmin(@Param("q") String q,

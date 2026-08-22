@@ -229,7 +229,8 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
         if (keyword == null || keyword.isBlank()) {
             return null;
         }
-        return club.name.containsIgnoreCase(keyword).or(recruitment.title.containsIgnoreCase(keyword));
+        String normalized = keyword.strip();
+        return club.name.containsIgnoreCase(normalized).or(recruitment.title.containsIgnoreCase(normalized));
     }
 
     private BooleanExpression statusEq(RecruitmentStatus status) {

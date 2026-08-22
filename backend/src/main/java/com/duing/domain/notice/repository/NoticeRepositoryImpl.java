@@ -146,7 +146,8 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        return notice.title.containsIgnoreCase(keyword).or(notice.summary.containsIgnoreCase(keyword));
+        String normalized = keyword.strip();
+        return notice.title.containsIgnoreCase(normalized).or(notice.summary.containsIgnoreCase(normalized));
     }
 
     private BooleanExpression tagsOverlap(List<String> tags) {

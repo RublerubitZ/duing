@@ -1,13 +1,10 @@
 package com.duing.domain.notice.controller;
 
-import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notice.api.NoticeApi;
 import com.duing.domain.notice.controller.dto.response.NoticeCardResponse;
 import com.duing.domain.notice.controller.dto.response.NoticeDetailResponse;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
-import com.duing.domain.notice.entity.NoticeTargetClub;
-import com.duing.domain.notice.repository.NoticeTargetClubRepository;
 import com.duing.domain.notice.service.NoticeService;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.NoticeSource;
@@ -16,10 +13,8 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,8 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class NoticeController implements NoticeApi {
 
     private final NoticeService noticeService;
-    private final NoticeTargetClubRepository targetClubRepository;
-    private final ClubMemberRepository clubMemberRepository;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<NoticeCardResponse>>> getNotices(
@@ -48,7 +41,7 @@ public class NoticeController implements NoticeApi {
             Pageable pageable,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        ViewerScope viewer = buildViewerScope(currentUser);
+        ViewerScope viewer = viewerScopeOf(currentUser);
         NoticeSearchCondition condition = new NoticeSearchCondition(category, tags, keyword, source);
         Page<Notice> noticePage = noticeService.searchFeed(condition, viewer, pageable);
         // 동아리 공지 카드에 동아리명을 붙이기 위해 페이지 내 owningClubId 들을 한 번에 조회한다(N+1 방지).
@@ -66,10 +59,9 @@ public class NoticeController implements NoticeApi {
             @PathVariable Long noticeId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        ViewerScope viewer = buildViewerScope(currentUser);
+        ViewerScope viewer = viewerScopeOf(currentUser);
         Notice notice = noticeService.getVisible(noticeId, viewer);
-        List<Long> targetClubIds = targetClubRepository.findAllByIdNoticeId(notice.getId())
-                .stream().map(NoticeTargetClub::getClubId).toList();
+        List<Long> targetClubIds = noticeService.findTargetClubIds(notice.getId());
         boolean exposeAdmin = viewer.isAdmin();
         String clubName = notice.getOwningClubId() == null ? null
                 : noticeService.findClubNamesByIds(List.of(notice.getOwningClubId()))
@@ -78,15 +70,10 @@ public class NoticeController implements NoticeApi {
                 NoticeDetailResponse.from(notice, targetClubIds, exposeAdmin, clubName)));
     }
 
-    private ViewerScope buildViewerScope(UserPrincipal currentUser) {
-        if (currentUser == null) return ViewerScope.anonymous();
-        UserRole role = UserRole.valueOf(currentUser.role());
-        Long userId = currentUser.id();
-        if (role == UserRole.ADMIN) {
-            return new ViewerScope(UserRole.ADMIN, userId, Set.of(), Set.of());
-        }
-        Set<Long> memberClubIds = new HashSet<>(clubMemberRepository.findClubIdsByUserId(userId));
-        Set<Long> officerClubIds = new HashSet<>(clubMemberRepository.findOfficerClubIdsByUserId(userId));
-        return new ViewerScope(role, userId, memberClubIds, officerClubIds);
+    /** 인증 주체를 서비스에 넘겨 스코프를 받는다 — 비로그인은 role=null. */
+    private ViewerScope viewerScopeOf(UserPrincipal currentUser) {
+        return currentUser == null
+                ? noticeService.resolveViewerScope(null, null)
+                : noticeService.resolveViewerScope(currentUser.id(), UserRole.valueOf(currentUser.role()));
     }
 }

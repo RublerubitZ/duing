@@ -203,6 +203,10 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
                 .as("제목 부분 일치는 대소문자를 가리지 않는다")
                 .containsExactly(externalRecruitment.getId());
 
+        assertThat(getList(adminToken, Map.of("q", "  알파  ")).jsonPath().getList("data.recruitmentId", Long.class))
+                .as("앞뒤 공백은 매칭을 막지 않는다")
+                .containsExactlyInAnyOrder(closedRecruitment.getId(), selfRecruitment.getId());
+
         getList(adminToken, Map.of("q", "존재하지않는검색어"))
                 .then().statusCode(HttpStatus.OK.value()).body("data", hasSize(0));
     }
