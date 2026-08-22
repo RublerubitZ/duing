@@ -7,8 +7,8 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { ApiError } from '@duing/api';
 import { useCreateFederationInquiryMutation } from '@duing/hooks';
-import posthog from 'posthog-js';
 
+import { captureEvent } from '@/app/_lib/analytics';
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { ButtonSpinner } from '@/components/loading/Spinner';
@@ -38,7 +38,7 @@ export function InquiryCreatePage() {
         content: content.trim(),
         attachmentUrls: attachmentUrls.length > 0 ? attachmentUrls : undefined,
       });
-      posthog.capture('inquiry_submitted', {
+      captureEvent('inquiry_submitted', {
         inquiry_id: inquiryId,
         has_attachments: attachmentUrls.length > 0,
       });

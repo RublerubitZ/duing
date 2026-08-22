@@ -17,7 +17,7 @@ import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
 import { ApplyAnswersStep } from './ApplyAnswersStep';
 import { toRoute } from '../../../_lib/route';
-import posthog from 'posthog-js';
+import { captureEvent } from '../../../_lib/analytics';
 
 type Props = {
   recruitment: RecruitmentDetail;
@@ -125,7 +125,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         answerItems: answers.map(({ questionId, values }) => ({ questionId, values })),
       };
       const applicationId = await submit.mutateAsync(payload);
-      posthog.capture('club_application_submitted', {
+      captureEvent('club_application_submitted', {
         recruitment_id: recruitmentId,
         club_name: recruitment.clubName,
         application_id: applicationId,

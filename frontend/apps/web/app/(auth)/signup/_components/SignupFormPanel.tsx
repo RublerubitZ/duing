@@ -13,6 +13,7 @@ import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { SignupStepIndicator } from './SignupStepIndicator';
 import { SignupStepVerify } from './SignupStepVerify';
 import { SignupStepProfile } from './SignupStepProfile';
+import { captureEvent } from '@/app/_lib/analytics';
 import posthog from 'posthog-js';
 
 function IconChevronLeft() {
@@ -95,7 +96,7 @@ function SignupForm() {
     try {
       const signedUpUserId = await signup.mutateAsync(parsed.data);
       posthog.identify(String(signedUpUserId));
-      posthog.capture('user_signed_up', { college: parsed.data.college, grade: parsed.data.grade });
+      captureEvent('user_signed_up', { college: parsed.data.college, grade: parsed.data.grade });
       router.replace(loginHref);
     } catch (signupError) {
       if (signupError instanceof ApiError && signupError.code === 'PHONE_NOT_VERIFIED') {
