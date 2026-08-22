@@ -11,9 +11,11 @@ import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.command.UpsertFeeAccountCommand;
 import com.duing.domain.fee.service.dto.query.FeeAccountQuery;
 import com.duing.global.crypto.FeeAccountCipher;
+import com.duing.global.exception.PostgresConstraintViolations;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralFeeAccountService implements FeeAccountService {
+
+    // V61:18 부분 유니크 — (club_id) WHERE deleted_at IS NULL. soft delete 행은 제외라 재등록은 INSERT 로 통과한다.
+    private static final String FEE_ACCOUNT_UNIQUE_CONSTRAINT = "uk_fee_account_club";
 
     private final FeeAccountRepository feeAccountRepository;
     private final ClubAuthService clubAuthService;
@@ -61,10 +66,25 @@ public class GeneralFeeAccountService implements FeeAccountService {
             saveAccountAudit(ClubAuditEventType.FEE_ACCOUNT_UPDATED, command);
             return existingAccount.getId();
         }
-        FeeAccount account = feeAccountRepository.save(FeeAccount.create(
-                command.clubId(), command.bank(), encryptedAccountNumber, command.accountHolder()));
+        FeeAccount newAccount;
+        // try 범위는 INSERT 하나로 좁힌다 — 뒤따르는 감사 저장의 제약 위반까지 경합으로 오분류하지 않는다.
+        try {
+            newAccount = feeAccountRepository.save(FeeAccount.create(
+                    command.clubId(), command.bank(), encryptedAccountNumber, command.accountHolder()));
+            feeAccountRepository.flush();
+        } catch (DataIntegrityViolationException racedRegistration) {
+            if (!PostgresConstraintViolations.isUniqueViolationOf(
+                    racedRegistration, FEE_ACCOUNT_UNIQUE_CONSTRAINT)) {
+                throw racedRegistration;
+            }
+            // 두 운영진(또는 더블클릭)의 첫 등록이 선조회를 함께 통과한 경합 — 등록은 멱등 PUT 이라
+            // 사전 검증으로 걸러낼 중복이 없으므로 여기서만 도메인 409 로 표면화한다.
+            // 23505 로 트랜잭션이 aborted 라 삼키고 갱신으로 이어붙일 수 없다(#921, club_member 전례).
+            throw new FeeAccountException.ConcurrentRegistrationException();
+        }
+        // 감사 로그는 같은 트랜잭션이라 위 경합으로 롤백된다 — 실패한 등록이 감사에 남지 않는다.
         saveAccountAudit(ClubAuditEventType.FEE_ACCOUNT_REGISTERED, command);
-        return account.getId();
+        return newAccount.getId();
     }
 
     /** 계좌번호·예금주는 detail 에도 절대 싣지 않는다(스펙 §9) — 은행 코드만 남긴다. */
