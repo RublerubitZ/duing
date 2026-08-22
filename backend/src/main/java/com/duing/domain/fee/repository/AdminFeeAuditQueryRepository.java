@@ -359,12 +359,16 @@ public class AdminFeeAuditQueryRepository {
         };
     }
 
-    /** q — 회원명 부분 일치(대소문자 무시)·학번 prefix(AdminUserApi 검색 규칙 미러). */
+    /**
+     * q — 회원명 부분 일치(대소문자 무시)·학번 prefix(AdminUserApi 검색 규칙 미러).
+     * 학번은 prefix 매칭이라 앞뒤 공백이 남으면 첫 글자부터 어긋나 아무것도 걸리지 않는다 — strip 후 매칭한다.
+     */
     private BooleanExpression billSearchCondition(String q) {
         if (!StringUtils.hasText(q)) {
             return null;
         }
-        return user.name.containsIgnoreCase(q).or(user.studentId.startsWith(q));
+        String normalized = q.strip();
+        return user.name.containsIgnoreCase(normalized).or(user.studentId.startsWith(normalized));
     }
 
     /**
@@ -408,7 +412,11 @@ public class AdminFeeAuditQueryRepository {
     }
 
     private BooleanExpression clubNameContains(String q) {
-        return StringUtils.hasText(q) ? club.name.containsIgnoreCase(q) : null;
+        if (!StringUtils.hasText(q)) {
+            return null;
+        }
+        String normalized = q.strip();
+        return club.name.containsIgnoreCase(normalized);
     }
 
     private BooleanExpression billClubIdEq(Long clubId) {

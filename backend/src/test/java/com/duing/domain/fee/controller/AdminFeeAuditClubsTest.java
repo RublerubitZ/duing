@@ -162,6 +162,14 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동아리명 검색어의 앞뒤 공백은 매칭을 막지 않는다")
+    void clubSearchIgnoresSurroundingWhitespace() {
+        JsonPath response = searchClubs("q", "  감사알파동아리  ");
+
+        assertThat(response.getList("data.content.clubId", Long.class)).containsExactly(alphaClubId);
+    }
+
+    @Test
     @DisplayName("한 회원이 미납 청구를 여러 건 가지고 있어도 미납 인원은 1명으로 집계된다")
     void unpaidMemberCountIsDistinctByMember() {
         JsonPath response = searchClubs("q", "감사베타동아리");
