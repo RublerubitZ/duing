@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 
+import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -28,8 +29,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
-import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,35 +36,20 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Import({TestcontainersConfiguration.class, LeaderFeeBillQueryControllerTest.FixedClockConfig.class})
+// '오늘'을 FixedClockConfig.TODAY(2026-06-15 Asia/Seoul)로 고정한다. status 필터가 표기 축이라 마감 경과 여부로
+// 결과가 갈리므로, 시스템 시계로 두면 아래 픽스처(2026-07·2026-08 회차)의 마감이 지나는 순간 필터 테스트가 깨진다.
+@Import({TestcontainersConfiguration.class, FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LeaderFeeBillQueryControllerTest extends IntegrationTestBase {
 
-    // '오늘'을 2026-06-15(Asia/Seoul)로 고정한다. status 필터가 표기 축이라 마감 경과 여부로 결과가 갈리므로,
-    // 시스템 시계로 두면 아래 픽스처(2026-07·2026-08 회차)의 마감이 지나는 순간 필터 테스트가 깨진다.
-    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
     // 마감 2026-05-31 < 오늘 → 미납이면 표기는 OVERDUE(픽스처가 회차 말일을 마감으로 파생한다).
     static final String PAST_DUE_PERIOD = "2026-05";
-
-    @TestConfiguration
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(
-                    TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
-                    ZoneId.of("Asia/Seoul"));
-        }
-    }
 
     @LocalServerPort
     int port;

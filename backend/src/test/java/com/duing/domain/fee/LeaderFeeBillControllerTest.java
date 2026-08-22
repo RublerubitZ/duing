@@ -3,6 +3,7 @@ package com.duing.domain.fee;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -25,9 +26,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,33 +41,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@Import({TestcontainersConfiguration.class, LeaderFeeBillControllerTest.FixedClockConfig.class})
+// 발행일(오늘)을 FixedClockConfig.TODAY(2026-06-15 Asia/Seoul)로 고정해 due_date 기본 산출·과거 검증을 결정적으로 만든다.
+@Import({TestcontainersConfiguration.class, FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LeaderFeeBillControllerTest extends IntegrationTestBase {
-
-    // 발행일(오늘)을 2026-06-15(Asia/Seoul)로 고정해 due_date 기본 산출·과거 검증을 결정적으로 만든다.
-    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
-
-    @TestConfiguration
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(
-                    TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
-                    ZoneId.of("Asia/Seoul"));
-        }
-    }
 
     @LocalServerPort
     int port;
