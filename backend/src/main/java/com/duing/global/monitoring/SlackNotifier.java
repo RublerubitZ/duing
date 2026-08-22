@@ -1,5 +1,7 @@
 package com.duing.global.monitoring;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,8 @@ import org.springframework.web.client.RestClientResponseException;
 /**
  * Slack Incoming Webhook 전송기 — 운영 이벤트 채널용. 핵심 서비스와의 격리가 계약이다:
  * {@link #send} 는 어떤 경우에도 예외를 던지지 않으며, 호출부(리스너)는 커밋 이후 별도 스레드에서 돈다.
+ * 바디는 문자열로 직렬화해 보낸다 — Content-Length 가 붙어 chunked 전송을 피한다
+ * (SimpleClientHttpRequestFactory 는 6.1+ 에서 스트리밍 기본).
  *
  * <p>재시도 정책: <b>5xx·429 에만 1회</b> — 서버가 거절했음이 확실해 중복 게시가 없다. 타임아웃·네트워크 오류는
  * 요청이 이미 도달했을 수 있어 재시도하지 않는다(같은 메시지가 두 번 올라가는 것보다 한 번 빠지는 편이 낫다).
@@ -36,10 +40,12 @@ public class SlackNotifier {
 
     private final boolean enabled;
     private final RestClient slackRestClient;
+    private final ObjectMapper objectMapper;
 
-    public SlackNotifier(SlackProperties slackProperties, RestClient slackRestClient) {
+    public SlackNotifier(SlackProperties slackProperties, RestClient slackRestClient, ObjectMapper objectMapper) {
         this.enabled = slackProperties.enabled();
         this.slackRestClient = slackRestClient;
+        this.objectMapper = objectMapper;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -57,12 +63,19 @@ public class SlackNotifier {
             log.debug("Slack 운영 알림 비활성(SLACK_WEBHOOK_URL 미설정) — 전송 생략");
             return;
         }
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of("text", text));
+        } catch (JsonProcessingException serializationFailure) {
+            log.error("Slack 운영 알림 전송 실패 — reason=JSON_SERIALIZATION");
+            return;
+        }
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
                 // URI 를 지정하지 않으면 baseUrl(=webhook URL) 그대로 호출된다.
                 slackRestClient.post()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(Map.of("text", text))
+                        .body(payload)
                         .retrieve()
                         .toBodilessEntity();
                 log.debug("Slack 운영 알림 전송 완료(attempt={})", attempt);

@@ -13,6 +13,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +36,7 @@ class SlackNotifierTest {
     void setUp() {
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl(WEBHOOK_URL);
         mockServer = MockRestServiceServer.bindTo(restClientBuilder).build();
-        slackNotifier = new SlackNotifier(new SlackProperties(WEBHOOK_URL), restClientBuilder.build());
+        slackNotifier = new SlackNotifier(new SlackProperties(WEBHOOK_URL), restClientBuilder.build(), new ObjectMapper());
     }
 
     @Test
@@ -45,6 +46,7 @@ class SlackNotifierTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.text").value("🟢 신규 회원 가입\n이름: 홍길동"))
+                .andExpect(content().json("{\"text\":\"🟢 신규 회원 가입\\n이름: 홍길동\"}"))
                 .andRespond(withSuccess("ok", MediaType.TEXT_PLAIN));
 
         slackNotifier.send("🟢 신규 회원 가입\n이름: 홍길동");
@@ -99,7 +101,7 @@ class SlackNotifierTest {
     void disabledWhenWebhookUrlBlank() {
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl("http://localhost:0/slack-disabled");
         MockRestServiceServer disabledServer = MockRestServiceServer.bindTo(restClientBuilder).build();
-        SlackNotifier disabledNotifier = new SlackNotifier(new SlackProperties(""), restClientBuilder.build());
+        SlackNotifier disabledNotifier = new SlackNotifier(new SlackProperties(""), restClientBuilder.build(), new ObjectMapper());
 
         disabledNotifier.send("x");
 
