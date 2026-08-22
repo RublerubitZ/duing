@@ -23,6 +23,7 @@ import com.duing.domain.interview.service.dto.query.ConfirmResult;
 import com.duing.domain.interview.service.dto.query.RoundMemberLine;
 import com.duing.domain.interview.service.dto.query.UnresolvedMembersPayload;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -239,7 +240,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         // force — 잔존 미처리 자동 EXCLUDED (§6.3). 미처리 = 활성 배정 미보유라 §16-3 정리 대상이 없다.
         unresolvedMembers.forEach(InterviewRoundMember::exclude);
         confirmTargets.forEach(InterviewRoundMember::confirmAssigned);
-        round.confirm(LocalDateTime.now(clock));
+        round.confirm(Instant.now(clock));
 
         // 알림은 AFTER_COMMIT 리스너가 처리 — 롤백 시 발송되지 않는다 (기존 인프라 재사용).
         confirmTargets.forEach(member -> eventPublisher.publishEvent(new InterviewScheduledEvent(

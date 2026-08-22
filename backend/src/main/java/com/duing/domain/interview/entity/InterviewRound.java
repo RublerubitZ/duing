@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -42,8 +43,9 @@ public class InterviewRound extends BaseEntity {
     @Column(length = 200)
     private String location;
 
+    // timestamptz 컬럼 — 확정이 일어난 절대시각으로 저장한다 (V113 백필로 기존 KST 벽시계 행 정정).
     @Column(name = "assignment_completed_at")
-    private LocalDateTime assignmentCompletedAt;
+    private Instant assignmentCompletedAt;
 
     // MVP 는 Availability 요청/재알림 dedupKey 생성용 — 발송·재알림·Rule 2 재초대 직전에 증가한다.
     // 향후 NotificationLog/InterviewRoundNotification 테이블로 이관 가능 (스펙 §4·§8).
@@ -115,8 +117,11 @@ public class InterviewRound extends BaseEntity {
         this.status = RoundStatus.ASSIGNING;
     }
 
-    /** 확정: ASSIGNING → SCHEDULED (터미널, 스펙 §5.1·§6.3) + 확정 시각 기록. 재확정·확정 후 변경 경로는 없다 (§14). */
-    public void confirm(LocalDateTime now) {
+    /**
+     * 확정: ASSIGNING → SCHEDULED (터미널, 스펙 §5.1·§6.3) + 확정 시각 기록. 재확정·확정 후 변경 경로는 없다 (§14).
+     * 전이 판정은 상태만 보므로 {@code now} 는 기록 전용이다 — 존 해석이 끼지 않도록 절대시각(Instant)으로 받는다.
+     */
+    public void confirm(Instant now) {
         if (this.status != RoundStatus.ASSIGNING) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
