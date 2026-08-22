@@ -75,7 +75,7 @@ export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
   // 기간·탭만 주소에 남긴다 — 청구 탭의 회원 검색어는 방문 기록·referrer 로 새어나가므로 싣지 않는다.
   const syncUrl = (next: { period?: FeePeriodValue; tab?: FeeDetailTab }) => {
     const params = new URLSearchParams();
-    writePeriodParams(params, next.period ?? period);
+    writePeriodParams(params, next.period ?? period, 'LAST_30D');
     const nextTab = next.tab ?? activeTab;
     if (nextTab !== DEFAULT_TAB) params.set('tab', nextTab);
     const query = params.toString();

@@ -100,9 +100,17 @@ function readDate(raw: string | null): string | undefined {
   return raw !== null && KST_DATE_PATTERN.test(raw) ? raw : undefined;
 }
 
-/** 기본값(전체 기간)은 주소에 남기지 않는다 — 기본 상태의 주소가 지저분해지지 않게 한다. */
-export function writePeriodParams(params: URLSearchParams, value: FeePeriodValue): void {
-  if (value.preset === 'ALL') return;
+/**
+ * 그 화면의 기본 프리셋(= 주소에 기간이 없을 때 복원되는 값)만 주소에서 뺀다 — 기본 상태의 주소가
+ * 지저분해지지 않게 한다. 생략 기준은 화면마다 다르다: 목록은 전체 기간이 기본이라 ALL 을 빼지만,
+ * 상세는 최근 30일이 기본이라 ALL 을 반드시 실어야 한다(빼면 다음 렌더가 30일로 되돌린다).
+ */
+export function writePeriodParams(
+  params: URLSearchParams,
+  value: FeePeriodValue,
+  fallback: FeePeriodPreset = 'ALL',
+): void {
+  if (value.preset === fallback) return;
   params.set('period', value.preset);
   if (value.preset !== 'CUSTOM') return;
   if (value.from !== undefined) params.set('from', value.from);
