@@ -14,6 +14,7 @@ import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
 import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminListQuery;
 import com.duing.domain.promotion.service.dto.query.PromotionAdminSearchCondition;
+import com.duing.domain.promotion.service.dto.query.PromotionCardQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
@@ -103,8 +104,24 @@ public class GeneralPromotionService implements PromotionService {
     }
 
     @Override
-    public Page<Promotion> findPublic(Pageable pageable) {
-        return promotionRepository.findPublicActive(pageable);
+    public Page<PromotionCardQuery> findPublicCards(Pageable pageable) {
+        Page<Promotion> promotionPage = promotionRepository.findPublicActive(pageable);
+
+        Set<Long> clubIds = new HashSet<>();
+        Set<Long> noticeIds = new HashSet<>();
+        for (Promotion promotion : promotionPage.getContent()) {
+            if (promotion.getClubId() != null) clubIds.add(promotion.getClubId());
+            if (promotion.getNoticeId() != null) noticeIds.add(promotion.getNoticeId());
+        }
+        Map<Long, Club> clubMap = clubRepository.findAllById(clubIds).stream()
+                .collect(Collectors.toMap(Club::getId, Function.identity()));
+        Map<Long, Notice> noticeMap = noticeRepository.findAllById(noticeIds).stream()
+                .collect(Collectors.toMap(Notice::getId, Function.identity()));
+
+        return promotionPage.map(promotion -> PromotionCardQuery.of(
+                promotion,
+                resolvePublicClubRef(promotion.getClubId(), clubMap.get(promotion.getClubId())),
+                resolveCardNoticeRef(promotion.getNoticeId(), noticeMap.get(promotion.getNoticeId()))));
     }
 
     @Override
@@ -115,10 +132,14 @@ public class GeneralPromotionService implements PromotionService {
                 ? null
                 : clubRepository.findById(promotion.getClubId()).orElse(null);
         User createdBy = userRepository.findById(promotion.getCreatedBy()).orElse(null);
+        Notice notice = promotion.getNoticeId() == null
+                ? null
+                : noticeRepository.findById(promotion.getNoticeId()).orElse(null);
         return PromotionAdminListQuery.of(
                 promotion,
                 resolveClubRef(promotion.getClubId(), club),
-                resolveUserRef(promotion.getCreatedBy(), createdBy));
+                resolveUserRef(promotion.getCreatedBy(), createdBy),
+                resolveAdminNoticeRef(promotion.getNoticeId(), notice));
     }
 
     @Override
@@ -129,19 +150,24 @@ public class GeneralPromotionService implements PromotionService {
 
         Set<Long> clubIds = new HashSet<>();
         Set<Long> userIds = new HashSet<>();
+        Set<Long> noticeIds = new HashSet<>();
         for (Promotion promotion : promotionPage.getContent()) {
             if (promotion.getClubId() != null) clubIds.add(promotion.getClubId());
             userIds.add(promotion.getCreatedBy());
+            if (promotion.getNoticeId() != null) noticeIds.add(promotion.getNoticeId());
         }
         Map<Long, Club> clubMap = clubRepository.findAllById(clubIds).stream()
                 .collect(Collectors.toMap(Club::getId, Function.identity()));
         Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<Long, Notice> noticeMap = noticeRepository.findAllById(noticeIds).stream()
+                .collect(Collectors.toMap(Notice::getId, Function.identity()));
 
         return promotionPage.map(promotion -> PromotionAdminListQuery.of(
                 promotion,
                 resolveClubRef(promotion.getClubId(), clubMap.get(promotion.getClubId())),
-                resolveUserRef(promotion.getCreatedBy(), userMap.get(promotion.getCreatedBy()))));
+                resolveUserRef(promotion.getCreatedBy(), userMap.get(promotion.getCreatedBy())),
+                resolveAdminNoticeRef(promotion.getNoticeId(), noticeMap.get(promotion.getNoticeId()))));
     }
 
     private void validateSingleLinkTarget(String linkUrl, Long noticeId, Long clubId) {
@@ -158,9 +184,39 @@ public class GeneralPromotionService implements PromotionService {
         if (noticeId == null) return;
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
-        if (notice.getVisibility() != NoticeVisibility.PUBLIC) {
+        if (!isNoticeAccessible(notice)) {
             throw new PromotionException.NonPublicNoticeLinkException();
         }
+    }
+
+    /**
+     * 배너가 가리키는 공지를 열람할 수 있는지 판정하는 단일 지점 — PUBLIC 만 접근 가능하고,
+     * 삭제·미존재(null)는 접근 불가로 수렴한다. 공개·어드민 응답이 같은 판정을 공유하고
+     * 마스킹 정책(공개=title 비움 / 어드민=원값·삭제 라벨)만 각 ref 조립에서 갈린다.
+     */
+    private boolean isNoticeAccessible(Notice notice) {
+        return notice != null && notice.getVisibility() == NoticeVisibility.PUBLIC;
+    }
+
+    private PromotionCardQuery.NoticeRef resolveCardNoticeRef(Long noticeId, Notice notice) {
+        if (noticeId == null) return null;
+        boolean accessible = isNoticeAccessible(notice);
+        return new PromotionCardQuery.NoticeRef(noticeId, accessible ? notice.getTitle() : "", accessible);
+    }
+
+    private PromotionAdminListQuery.NoticeRef resolveAdminNoticeRef(Long noticeId, Notice notice) {
+        if (noticeId == null) return null;
+        if (notice == null) {
+            return new PromotionAdminListQuery.NoticeRef(noticeId, AdminLabels.DELETED, null, false);
+        }
+        return new PromotionAdminListQuery.NoticeRef(
+                notice.getId(), notice.getTitle(), notice.getVisibility(), isNoticeAccessible(notice));
+    }
+
+    private PromotionCardQuery.ClubRef resolvePublicClubRef(Long clubId, Club club) {
+        // 공개 응답에서는 삭제 노이즈를 노출하지 않는다 — clubId 가 있어도 row 가 사라졌으면 ref 를 숨김.
+        if (clubId == null || club == null) return null;
+        return new PromotionCardQuery.ClubRef(club.getId(), club.getName());
     }
 
     private PromotionAdminListQuery.ClubRef resolveClubRef(Long clubId, Club club) {

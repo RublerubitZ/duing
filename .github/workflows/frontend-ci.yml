@@ -27,25 +27,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - name: Detect scaffolding
-        id: detect
-        run: |
-          if [ -f pnpm-lock.yaml ] && [ -f apps/web/package.json ]; then
-            echo "scaffolded=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "scaffolded=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::pnpm-lock.yaml 또는 apps/web/package.json 이 아직 없어 빌드 단계를 스킵합니다. 첫 'pnpm install' 후 lockfile 을 커밋하면 활성화됩니다."
-          fi
-
       - name: Enable Corepack & activate pnpm
-        if: steps.detect.outputs.scaffolded == 'true'
         # pnpm/action-setup 의존 제거 — Node 내장 corepack 이 pnpm 설치/활성화. codeload SHA 캐시 미스 우회.
         run: |
           corepack enable
           corepack prepare pnpm@9 --activate
 
       - name: Set up Node.js 20
-        if: steps.detect.outputs.scaffolded == 'true'
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
@@ -53,15 +41,12 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm lint
 
       - name: Build
-        if: steps.detect.outputs.scaffolded == 'true'
         env:
           # 운영 API URL fail-fast(#634) 통과용 CI 전용 https URL — 실서버 아님
           NEXT_PUBLIC_API_BASE_URL: https://api.ci.invalid/api/v1
@@ -70,9 +55,7 @@ jobs:
         run: pnpm build
 
       - name: Type check
-        if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm typecheck
 
       - name: Test
-        if: steps.detect.outputs.scaffolded == 'true'
         run: pnpm test

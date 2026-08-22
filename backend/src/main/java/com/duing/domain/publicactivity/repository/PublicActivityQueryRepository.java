@@ -83,7 +83,9 @@ public class PublicActivityQueryRepository {
                 recruitment.club.id, recruitment.club.name, interviewRound.createdAt);
     }
 
-    public List<ActivityItem> findRecentInterviewResult(LocalDateTime since, int limit) {
+    // assignment_completed_at 은 저장이 Instant 로 정합화되어(V113) 벽시계 해석이 끼지 않는다 —
+    // 경계도 결과도 절대시각 그대로 오간다. (/TIMEZONE.md)
+    public List<ActivityItem> findRecentInterviewResult(Instant since, int limit) {
         List<Tuple> rows = queryFactory
                 .select(recruitment.club.id, recruitment.club.name, interviewRound.assignmentCompletedAt)
                 .from(interviewRound)
@@ -97,8 +99,13 @@ public class PublicActivityQueryRepository {
                 .orderBy(interviewRound.assignmentCompletedAt.desc())
                 .limit(limit)
                 .fetch();
-        return toItems(rows, PublicActivityType.INTERVIEW_RESULT,
-                recruitment.club.id, recruitment.club.name, interviewRound.assignmentCompletedAt);
+        return rows.stream()
+                .map(row -> new ActivityItem(
+                        PublicActivityType.INTERVIEW_RESULT,
+                        row.get(recruitment.club.id),
+                        row.get(recruitment.club.name),
+                        row.get(interviewRound.assignmentCompletedAt)))
+                .toList();
     }
 
     public List<ActivityItem> findRecentEventCreated(LocalDateTime since, int limit) {
@@ -134,6 +141,7 @@ public class PublicActivityQueryRepository {
         return toItems(rows, PublicActivityType.FEE_OPEN, club.id, club.name, feePolicy.createdAt);
     }
 
+    // created_at 등은 JPA 감사가 JVM 기본 존으로 기록하므로 system 벽시계로 해석한다. (/TIMEZONE.md)
     private List<ActivityItem> toItems(List<Tuple> rows, PublicActivityType type,
                                        NumberPath<Long> clubIdPath, StringPath clubNamePath,
                                        DateTimePath<LocalDateTime> tsPath) {
@@ -142,12 +150,7 @@ public class PublicActivityQueryRepository {
                         type,
                         row.get(clubIdPath),
                         row.get(clubNamePath),
-                        toInstant(row.get(tsPath))))
+                        TimeMapper.systemWallClockToInstant(row.get(tsPath))))
                 .toList();
-    }
-
-    // created_at 등은 JPA 감사가 JVM 기본 존으로 기록하므로 system 벽시계로 해석한다. (/TIMEZONE.md)
-    private Instant toInstant(LocalDateTime ldt) {
-        return TimeMapper.systemWallClockToInstant(ldt);
     }
 }

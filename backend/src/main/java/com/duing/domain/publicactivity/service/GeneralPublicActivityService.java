@@ -5,6 +5,8 @@ import com.duing.domain.publicactivity.repository.PublicActivityQueryRepository;
 import com.duing.domain.publicactivity.service.dto.query.ActivityItem;
 import com.duing.global.time.TimeMapper;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -34,12 +36,14 @@ public class GeneralPublicActivityService implements PublicActivityService {
         int sourceFetchLimit = effectiveLimit * 2; // 머지 헤드룸
         // 윈도우 경계도 저장 존에서 계산해야 created_at(system regime)과 같은 공간에서 비교된다.
         LocalDateTime since = TimeMapper.systemNow(clock).minusDays(properties.windowDays());
+        // INTERVIEW_RESULT 컬럼만 Instant 저장이라 경계도 절대시각으로 준다 — 시간폭은 위와 동일하다.
+        Instant instantSince = Instant.now(clock).minus(Duration.ofDays(properties.windowDays()));
 
         List<ActivityItem> merged = new ArrayList<>();
         merged.addAll(queryRepository.findRecentRecruitOpen(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentNoticeCreated(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentInterviewCreated(since, sourceFetchLimit));
-        merged.addAll(queryRepository.findRecentInterviewResult(since, sourceFetchLimit));
+        merged.addAll(queryRepository.findRecentInterviewResult(instantSince, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentEventCreated(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentFeeOpen(since, sourceFetchLimit));
 

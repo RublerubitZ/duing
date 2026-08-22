@@ -163,9 +163,10 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
         if (q == null || q.isBlank()) {
             return null;
         }
-        return user.name.containsIgnoreCase(q)
-                .or(user.studentId.containsIgnoreCase(q))
-                .or(user.major.containsIgnoreCase(q));
+        String normalized = q.strip();
+        return user.name.containsIgnoreCase(normalized)
+                .or(user.studentId.containsIgnoreCase(normalized))
+                .or(user.major.containsIgnoreCase(normalized));
     }
 
     private BooleanExpression submittedAfter(LocalDate from) {

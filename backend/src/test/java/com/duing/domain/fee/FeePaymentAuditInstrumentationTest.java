@@ -32,8 +32,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -134,7 +134,7 @@ class FeePaymentAuditInstrumentationTest extends IntegrationTestBase {
     private BankTransaction savePendingDeposit(long amount) {
         String hash = "hash-" + hashCounter.incrementAndGet();
         return bankTransactionRepository.save(BankTransaction.ingest(
-                clubId, "011", LocalDateTime.now(SEOUL).minusHours(1), amount, 100000L,
+                clubId, "011", Instant.now().minusSeconds(3600), amount, 100000L,
                 "홍길동", TransactionType.DEPOSIT, hash, "{\"type\":\"deposit\"}"));
     }
 

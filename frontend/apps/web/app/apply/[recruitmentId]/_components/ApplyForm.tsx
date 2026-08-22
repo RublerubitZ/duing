@@ -58,13 +58,15 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  // 제출 시점에 마감된 경우(409 RECRUITMENT_CLOSED) — 자동저장 410 과 같은 마감 UI 로 수렴시킨다.
+  const [closedBySubmit, setClosedBySubmit] = useState(false);
 
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
     enabled: true,
   });
 
-  const isClosedByDraft = autosaveStatus.kind === 'closed';
+  const isClosed = autosaveStatus.kind === 'closed' || closedBySubmit;
 
   function formatTime(date: Date): string {
     return date.toLocaleTimeString('ko-KR', {
@@ -100,7 +102,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
     }
   }
 
-  const submitDisabled = submit.isPending || isClosedByDraft;
+  const submitDisabled = submit.isPending || isClosed;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -131,6 +133,11 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
       queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
+      if (submitError instanceof ApiError && submitError.code === 'RECRUITMENT_CLOSED') {
+        // 제출 직전에 마감된 경우 — 인라인 오류 대신 마감 배너·입력 비활성으로 전환한다.
+        setClosedBySubmit(true);
+        return;
+      }
       if (submitError instanceof ApiError) {
         setError(submitError.message || '지원에 실패했습니다.');
         return;
@@ -156,7 +163,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           </h1>
 
           {/* 자동저장 상태 */}
-          {isClosedByDraft ? (
+          {isClosed ? (
             <span className="font-mono text-[12.5px] tracking-wide text-coral">
               모집 마감 — 임시저장 및 제출 불가
             </span>
@@ -181,8 +188,9 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         </header>
 
         {/* 마감 알림 */}
-        {isClosedByDraft && (
-          <div className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">
+        {isClosed && (
+          // 제출 실패로 동적 삽입되는 경로가 있어 role="alert" 로 스크린리더에 알린다.
+          <div role="alert" className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">
             <p className="text-sm text-coral">
               모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
             </p>
@@ -203,7 +211,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
             answers={answers}
             errors={fieldErrors}
             onChange={handleAnswersChange}
-            disabled={isClosedByDraft}
+            disabled={isClosed}
           />
 
           {error && (

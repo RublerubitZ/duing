@@ -19,11 +19,15 @@ import com.duing.domain.promotion.exception.PromotionException;
 import com.duing.domain.promotion.repository.PromotionRepository;
 import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
 import com.duing.domain.promotion.service.dto.command.UpdatePromotionCommand;
+import com.duing.domain.promotion.service.dto.query.PromotionAdminListQuery;
+import com.duing.domain.promotion.service.dto.query.PromotionCardQuery;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.constant.AdminLabels;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,6 +49,7 @@ class GeneralPromotionServiceTest {
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired NoticeRepository noticeRepository;
+    @Autowired EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -129,8 +134,8 @@ class GeneralPromotionServiceTest {
         promotionService.delete(id);
 
         assertThat(promotionRepository.findById(id)).isEmpty();
-        assertThat(promotionService.findPublic(PageRequest.of(0, 10)).getContent())
-                .noneMatch(p -> p.getId().equals(id));
+        assertThat(promotionService.findPublicCards(PageRequest.of(0, 10)).getContent())
+                .noneMatch(card -> card.id().equals(id));
     }
 
     @Test
@@ -153,9 +158,9 @@ class GeneralPromotionServiceTest {
                 null, null,
                 PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
-        var content = promotionService.findPublic(PageRequest.of(0, 10)).getContent();
-        assertThat(content).extracting(Promotion::getId).containsExactly(first, second);
-        assertThat(content).noneMatch(p -> p.getId().equals(inactiveId));
+        var content = promotionService.findPublicCards(PageRequest.of(0, 10)).getContent();
+        assertThat(content).extracting(PromotionCardQuery::id).containsExactly(first, second);
+        assertThat(content).noneMatch(card -> card.id().equals(inactiveId));
     }
 
     @Test
@@ -184,8 +189,8 @@ class GeneralPromotionServiceTest {
                 now.minusDays(1), now.plusDays(1),
                 PromotionRenderMode.SYSTEM_COMPOSED, null, null));
 
-        var content = promotionService.findPublic(PageRequest.of(0, 10)).getContent();
-        assertThat(content).extracting(Promotion::getId)
+        var content = promotionService.findPublicCards(PageRequest.of(0, 10)).getContent();
+        assertThat(content).extracting(PromotionCardQuery::id)
                 .contains(alwaysOn, inRange)
                 .doesNotContain(upcoming, expired);
     }
@@ -250,6 +255,48 @@ class GeneralPromotionServiceTest {
                 PromotionRenderMode.SYSTEM_COMPOSED, null,
                 notice.getId())))
                 .isInstanceOf(PromotionException.NonPublicNoticeLinkException.class);
+    }
+
+    @Test
+    @DisplayName("공개 카드는 연결 공지가 비공개면 제목을 감추고 접근 불가로 내린다")
+    void publicCardMasksNonPublicNoticeTitle() {
+        User admin = saveAdmin();
+        Notice hidden = saveNotice(NoticeVisibility.OFFICERS_ALL);
+        // 연결 시점엔 PUBLIC 이었다가 뒤늦게 비공개로 바뀐 상태 — create 검증을 우회해 직접 저장한다.
+        promotionRepository.save(Promotion.create(
+                null, "공지 배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, hidden.getId()));
+
+        PromotionCardQuery card = promotionService.findPublicCards(PageRequest.of(0, 50)).getContent().stream()
+                .filter(item -> item.notice() != null && item.notice().id().equals(hidden.getId()))
+                .findFirst().orElseThrow();
+
+        assertThat(card.notice().accessible()).isFalse();
+        assertThat(card.notice().title()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("어드민 상세는 삭제된 연결 공지를 삭제 라벨과 접근 불가로 식별시킨다")
+    void adminDetailLabelsDeletedNotice() {
+        User admin = saveAdmin();
+        Notice notice = saveNotice(NoticeVisibility.PUBLIC);
+        Long promotionId = promotionService.create(new CreatePromotionCommand(
+                null, "공지 배너", "/files/b.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null,
+                notice.getId()));
+        noticeRepository.delete(notice);
+        // soft delete 는 1차 캐시의 관리 엔티티를 그대로 두므로, 비우지 않으면 findById 가 삭제 전 상태를 돌려준다.
+        entityManager.flush();
+        entityManager.clear();
+
+        PromotionAdminListQuery query = promotionService.getAdminItemById(promotionId);
+
+        assertThat(query.notice().title()).isEqualTo(AdminLabels.DELETED);
+        assertThat(query.notice().visibility()).isNull();
+        assertThat(query.notice().accessible()).isFalse();
     }
 
     @Test

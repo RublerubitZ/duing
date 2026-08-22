@@ -2,13 +2,12 @@ package com.duing.domain.fee.controller.dto.response;
 
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.fee.service.dto.query.AdminFeeClubRow;
-import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
 /**
  * 감사 콘솔 동아리 목록 행(스펙 §7.1).
  *
- * <p>{@code lastPaidAt}·{@code lastTransactionAt} 은 KST 벽시계로 저장된 컬럼이라 seoul 존으로 환산한다
+ * <p>{@code lastPaidAt}·{@code lastTransactionAt} 은 정합 절대시각으로 저장된 컬럼이라 그대로 내보낸다
  * (payment.paid_at·bank_transaction.transaction_at — /TIMEZONE.md 대응표).
  */
 public record AdminFeeClubSummaryResponse(
@@ -39,7 +38,7 @@ public record AdminFeeClubSummaryResponse(
                 clubRow.totalPaid(),
                 clubRow.outstanding(),
                 clubRow.unpaidMemberCount(),
-                TimeMapper.seoulWallClockToInstant(clubRow.lastPaidAt()),
-                TimeMapper.seoulWallClockToInstant(clubRow.lastTransactionAt()));
+                clubRow.lastPaidAt(),
+                clubRow.lastTransactionAt());
     }
 }

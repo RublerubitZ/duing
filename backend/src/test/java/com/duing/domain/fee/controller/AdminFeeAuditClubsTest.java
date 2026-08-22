@@ -30,6 +30,7 @@ import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -158,6 +159,14 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
         assertThat(response.getLong("data.content[0].totalPaid")).isEqualTo(10_000L);
         assertThat(response.getLong("data.content[0].outstanding")).isEqualTo(20_000L);
         assertThat(response.getString("data.content[0].lastPaidAt")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("동아리명 검색어의 앞뒤 공백은 매칭을 막지 않는다")
+    void clubSearchIgnoresSurroundingWhitespace() {
+        JsonPath response = searchClubs("q", "  감사알파동아리  ");
+
+        assertThat(response.getList("data.content.clubId", Long.class)).containsExactly(alphaClubId);
     }
 
     @Test
@@ -296,13 +305,13 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
 
     private void saveActivePayment(Long feeBillId, long amount, Long recordedBy) {
         paymentRepository.save(Payment.record(feeBillId, amount, PaymentMethod.TRANSFER,
-                LocalDateTime.now(SEOUL), recordedBy, null));
+                Instant.now(), recordedBy, null));
     }
 
     private void saveVoidedPayment(Long feeBillId, long amount, Long recordedBy) {
         Payment payment = Payment.record(feeBillId, amount, PaymentMethod.TRANSFER,
-                LocalDateTime.now(SEOUL), recordedBy, null);
-        payment.voidPayment(recordedBy, "중복 입금 정정", LocalDateTime.now(SEOUL));
+                Instant.now(), recordedBy, null);
+        payment.voidPayment(recordedBy, "중복 입금 정정", Instant.now());
         paymentRepository.save(payment);
     }
 

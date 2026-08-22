@@ -6,7 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,8 +30,10 @@ public class BankTransaction extends BaseEntity {
     @Column(name = "bank_code", nullable = false, length = 10)
     private String bankCode;
 
+    // timestamptz 컬럼 — 정합 절대시각으로 저장한다. BANK API 페이로드는 KST 벽시계라
+    // 적재 경계(GeneralBankTransactionSyncService)에서 Asia/Seoul 로 해석해 넘긴다.
     @Column(name = "transaction_at", nullable = false)
-    private LocalDateTime transactionAt;
+    private Instant transactionAt;
 
     @Column(nullable = false)
     private Long amount;
@@ -61,7 +63,7 @@ public class BankTransaction extends BaseEntity {
     private String rawPayload;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private BankTransaction(Long clubId, String bankCode, LocalDateTime transactionAt, Long amount,
+    private BankTransaction(Long clubId, String bankCode, Instant transactionAt, Long amount,
                             Long balance, String counterparty, TransactionType transactionType,
                             MatchStatus matchStatus, String transactionHash, String rawPayload) {
         this.clubId = clubId;
@@ -80,7 +82,7 @@ public class BankTransaction extends BaseEntity {
      * BANK API 로 수집한 거래 1건을 적재한다. 입금(DEPOSIT)은 매칭 대상이므로 PENDING 으로,
      * 출금(WITHDRAWAL)은 회비 매칭과 무관하므로 IGNORED 로 초기화한다.
      */
-    public static BankTransaction ingest(Long clubId, String bankCode, LocalDateTime transactionAt,
+    public static BankTransaction ingest(Long clubId, String bankCode, Instant transactionAt,
                                          Long amount, Long balance, String counterparty,
                                          TransactionType transactionType, String transactionHash,
                                          String rawPayload) {

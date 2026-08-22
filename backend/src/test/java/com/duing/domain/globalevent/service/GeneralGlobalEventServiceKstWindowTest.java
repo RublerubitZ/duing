@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.globalevent.repository.GlobalEventRepository;
+import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,7 +37,8 @@ class GeneralGlobalEventServiceKstWindowTest {
         // 상대 미래 고정 Clock — 무클럭 now() 였다면 실행 시점의 실제 오늘(≈1년 전)을 써 윈도우가 어긋난다.
         LocalDate kstToday = LocalDate.now(SEOUL).plusYears(1);
         Clock fixedClock = Clock.fixed(kstToday.atStartOfDay(SEOUL).toInstant(), SEOUL);
-        GeneralGlobalEventService service = new GeneralGlobalEventService(eventRepository, fixedClock);
+        GeneralGlobalEventService service =
+                new GeneralGlobalEventService(eventRepository, mock(UserRepository.class), fixedClock);
         when(eventRepository.findWindow(any(), any(), isNull())).thenReturn(List.of());
 
         service.listPublicWindow(null, null, null);

@@ -34,6 +34,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import io.restassured.RestAssured;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -255,6 +256,28 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("INTERVIEW_RESULT 발생시각은 확정 시각으로 저장한 절대 Instant 와 그대로 일치한다")
+    void interviewResultOccurredAtEqualsStoredConfirmInstant() {
+        Club activeClub = saveAndActivate("면접확정시각동아리" + sequence.incrementAndGet());
+        Recruitment recruitment = saveOpenRecruitment(activeClub);
+        // nano 절삭으로 Postgres 마이크로초 반올림 여지를 없앤다.
+        Instant confirmedAt = Instant.now().minus(Duration.ofHours(1)).truncatedTo(ChronoUnit.SECONDS);
+        saveScheduledRound(recruitment.getId(), confirmedAt);
+
+        String occurredAtRaw = RestAssured.given()
+                .when().get("/api/v1/public-activities")
+                .then()
+                .statusCode(HttpStatus.OK.value())
+                .body(typeForClub(activeClub), hasItem("INTERVIEW_RESULT"))
+                .extract().jsonPath()
+                .getString("data.items.find { it.clubName == '" + activeClub.getName()
+                        + "' && it.type == 'INTERVIEW_RESULT' }.occurredAt");
+
+        // 저장·응답 양쪽이 Instant 라 벽시계 해석이 개입하지 않는다 — TZ 를 바꿔도 같은 값이라 존별 재실증이 불필요하다.
+        org.assertj.core.api.Assertions.assertThat(Instant.parse(occurredAtRaw)).isEqualTo(confirmedAt);
+    }
+
+    @Test
     @DisplayName("limit=999 요청 시 최대 허용 limit(20)으로 클램프되어 반환된다")
     void limitIsClampedToMaxLimitOf20() {
         Club activeClub = saveAndActivate("limit테스트동아리" + sequence.incrementAndGet());
@@ -351,10 +374,15 @@ class PublicActivityAcceptanceTest extends IntegrationTestBase {
 
     /** DRAFT → COLLECTING → ASSIGNING → SCHEDULED(확정). confirm 이 assignmentCompletedAt 을 기록한다. */
     private InterviewRound saveScheduledRound(Long recruitmentId) {
+        return saveScheduledRound(recruitmentId, Instant.now());
+    }
+
+    /** 확정 시각을 지정하는 변형 — 발생시각 동치처럼 저장값을 고정해야 하는 테스트용. */
+    private InterviewRound saveScheduledRound(Long recruitmentId, Instant confirmedAt) {
         InterviewRound round = InterviewRound.create(recruitmentId, "확정 면접", futureDeadline(), null);
         round.openCollecting(LocalDateTime.now());
         round.openAssigning();
-        round.confirm(LocalDateTime.now());
+        round.confirm(confirmedAt);
         return interviewRoundRepository.save(round);
     }
 

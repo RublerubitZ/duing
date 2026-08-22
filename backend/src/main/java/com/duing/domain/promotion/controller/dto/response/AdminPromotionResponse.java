@@ -56,11 +56,15 @@ public record AdminPromotionResponse(
                 deriveLinkType(promotion.getLinkUrl(), promotion.getNoticeId(), promotion.getClubId()));
     }
 
-    public static AdminPromotionResponse from(PromotionAdminListQuery query, NoticeRef notice) {
+    public static AdminPromotionResponse from(PromotionAdminListQuery query) {
         ClubRef clubRef = query.club() == null
                 ? null
                 : new ClubRef(query.club().id(), query.club().name());
         UserRef userRef = new UserRef(query.createdBy().id(), query.createdBy().name());
+        NoticeRef notice = query.notice() == null
+                ? null
+                : new NoticeRef(query.notice().id(), query.notice().title(),
+                        query.notice().visibility(), query.notice().accessible());
         Long clubId = query.club() == null ? null : query.club().id();
         return new AdminPromotionResponse(
                 query.id(), clubRef, query.title(), query.bannerImageUrl(),

@@ -27,8 +27,8 @@ import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.DateTimeExpression;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,7 +85,7 @@ public class AdminFeeAuditQueryRepository {
      */
     public Map<Long, AdminFeePaymentAggregate> aggregatePayments(AdminFeePeriod period, Long clubId) {
         NumberExpression<Long> totalPaid = payment.amount.sum().coalesce(0L);
-        DateTimeExpression<LocalDateTime> lastPaidAt = payment.paidAt.max();
+        DateTimeExpression<Instant> lastPaidAt = payment.paidAt.max();
         return queryFactory
                 .select(feeBill.clubId, totalPaid, lastPaidAt)
                 .from(payment)
@@ -134,9 +134,9 @@ public class AdminFeeAuditQueryRepository {
                 .collect(Collectors.toMap(row -> row.get(clubMember.club.id), row -> row.get(memberCount)));
     }
 
-    /** 동아리별 최근 거래 시각 — KST 벽시계로 적재된 값이다. */
-    public Map<Long, LocalDateTime> findLastTransactionAt() {
-        DateTimeExpression<LocalDateTime> lastTransactionAt = bankTransaction.transactionAt.max();
+    /** 동아리별 최근 거래 시각 — 적재 경계에서 KST 를 환산한 정합 절대시각이다. */
+    public Map<Long, Instant> findLastTransactionAt() {
+        DateTimeExpression<Instant> lastTransactionAt = bankTransaction.transactionAt.max();
         return queryFactory
                 .select(bankTransaction.clubId, lastTransactionAt)
                 .from(bankTransaction)
@@ -218,7 +218,7 @@ public class AdminFeeAuditQueryRepository {
 
     /**
      * 콘솔 납부 검색(스펙 §7.6). 정정(VOIDED) 납부도 그대로 싣는다 — 정정 이력이 감사의 핵심이다.
-     * 기간은 납부일(KST 벽시계) 기준이고, 동아리 격리는 청구 조인의 ON 절이 담당한다.
+     * 기간은 납부일(KST 날짜를 Instant 로 굳힌 경계) 기준이고, 동아리 격리는 청구 조인의 ON 절이 담당한다.
      */
     public Page<AdminFeePaymentRow> searchPaymentsForAdmin(Long clubId, PaymentStatus status,
                                                            AdminFeePeriod period, Pageable pageable) {
@@ -359,12 +359,16 @@ public class AdminFeeAuditQueryRepository {
         };
     }
 
-    /** q — 회원명 부분 일치(대소문자 무시)·학번 prefix(AdminUserApi 검색 규칙 미러). */
+    /**
+     * q — 회원명 부분 일치(대소문자 무시)·학번 prefix(AdminUserApi 검색 규칙 미러).
+     * 학번은 prefix 매칭이라 앞뒤 공백이 남으면 첫 글자부터 어긋나 아무것도 걸리지 않는다 — strip 후 매칭한다.
+     */
     private BooleanExpression billSearchCondition(String q) {
         if (!StringUtils.hasText(q)) {
             return null;
         }
-        return user.name.containsIgnoreCase(q).or(user.studentId.startsWith(q));
+        String normalized = q.strip();
+        return user.name.containsIgnoreCase(normalized).or(user.studentId.startsWith(normalized));
     }
 
     /**
@@ -408,7 +412,11 @@ public class AdminFeeAuditQueryRepository {
     }
 
     private BooleanExpression clubNameContains(String q) {
-        return StringUtils.hasText(q) ? club.name.containsIgnoreCase(q) : null;
+        if (!StringUtils.hasText(q)) {
+            return null;
+        }
+        String normalized = q.strip();
+        return club.name.containsIgnoreCase(normalized);
     }
 
     private BooleanExpression billClubIdEq(Long clubId) {
@@ -440,7 +448,7 @@ public class AdminFeeAuditQueryRepository {
         return period.createdTo() == null ? null : feeBill.updatedAt.lt(period.createdTo());
     }
 
-    /** 거래 시각은 paid_at 과 같은 KST 벽시계라 기간의 KST 경계를 쓴다(created_at 경계가 아니다). */
+    /** 거래 시각은 paid_at 과 같은 절대시각이라 기간의 KST 경계를 Instant 로 쓴다(created_at 벽시계 경계가 아니다). */
     private BooleanExpression transactionGoe(AdminFeePeriod period) {
         return period.paidFrom() == null ? null : bankTransaction.transactionAt.goe(period.paidFrom());
     }
@@ -449,7 +457,7 @@ public class AdminFeeAuditQueryRepository {
         return period.paidTo() == null ? null : bankTransaction.transactionAt.lt(period.paidTo());
     }
 
-    /** 정정 시각도 seoulClock 으로 기록되는 KST 벽시계다(/TIMEZONE.md 대응표). */
+    /** 정정 시각도 seoulClock 이 만든 절대시각이라 paid 경계를 그대로 쓴다(/TIMEZONE.md 대응표). */
     private BooleanExpression voidedGoe(AdminFeePeriod period) {
         return period.paidFrom() == null ? null : payment.voidedAt.goe(period.paidFrom());
     }
@@ -462,7 +470,7 @@ public class AdminFeeAuditQueryRepository {
         return status == null ? null : payment.status.eq(status);
     }
 
-    /** 납부 기간 경계는 KST 벽시계로 적재된 paid_at 기준이다(발행일 기준인 청구와 컬럼이 다르다). */
+    /** 납부 기간 경계는 절대시각으로 적재된 paid_at 기준이다(발행일 기준인 청구와 컬럼이 다르다). */
     private BooleanExpression paidGoe(AdminFeePeriod period) {
         return period.paidFrom() == null ? null : payment.paidAt.goe(period.paidFrom());
     }

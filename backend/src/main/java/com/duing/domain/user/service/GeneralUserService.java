@@ -29,6 +29,7 @@ import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.persistence.LikeEscapes;
 import com.duing.global.web.SortWhitelist;
 import java.time.Clock;
 import java.time.Duration;
@@ -397,7 +398,10 @@ public class GeneralUserService implements UserService {
                                                       Pageable pageable) {
         SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_ADMIN_USER_SORT);
         // 검색어는 선택이다 — 상태 필터만으로 목록을 훑는 경로(정지 회원 찾기)가 필요하다.
-        String normalizedQuery = StringUtils.hasText(queryOrNull) ? queryOrNull.trim() : null;
+        // 리포지토리가 CONCAT 으로 LIKE 패턴을 조립하므로 여기서 와일드카드를 죽여 넘긴다(ESCAPE '!' 와 한 쌍).
+        String normalizedQuery = StringUtils.hasText(queryOrNull)
+                ? LikeEscapes.escape(queryOrNull.strip())
+                : null;
         return userRepository.searchForAdmin(normalizedQuery, statusOrNull, withStableSort(pageable))
                 .map(UserSearchResultQuery::from);
     }

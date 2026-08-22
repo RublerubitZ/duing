@@ -4,7 +4,6 @@ import com.duing.domain.facilitybooking.api.FacilityAvailabilityApi;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
-import com.duing.domain.facilitybooking.repository.FacilityBookingPurposePresetRepository;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
 import com.duing.global.response.ApiResponse;
 import java.time.Duration;
@@ -24,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class FacilityAvailabilityController implements FacilityAvailabilityApi {
 
     private final FacilityAvailabilityService facilityAvailabilityService;
-    private final FacilityBookingPurposePresetRepository presetRepository;
 
     @Override
     public ResponseEntity<ApiResponse<FacilityAvailabilityResponse>> getAvailability(
@@ -49,9 +47,7 @@ public class FacilityAvailabilityController implements FacilityAvailabilityApi {
 
     @Override
     public ResponseEntity<ApiResponse<List<PurposePresetResponse>>> listPurposePresets() {
-        List<PurposePresetResponse> presets = presetRepository.findByActiveTrueOrderBySortOrderAsc().stream()
-                .map(PurposePresetResponse::from)
-                .toList();
+        List<PurposePresetResponse> presets = facilityAvailabilityService.listActivePurposePresets();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic())
                 .body(ApiResponse.success(presets));

@@ -4,13 +4,12 @@ import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.PaymentMethod;
 import com.duing.domain.fee.entity.PaymentStatus;
 import com.duing.domain.fee.service.dto.query.AdminFeePaymentRow;
-import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
 /**
  * 감사 콘솔 납부 행(스펙 §7.6). 정정(VOIDED) 행도 실린다 — 누가·언제·왜 정정했는지가 감사의 핵심이다.
  *
- * <p>{@code paidAt}·{@code voidedAt} 은 KST 벽시계를 환산한 값이다(/TIMEZONE.md 대응표).
+ * <p>{@code paidAt}·{@code voidedAt} 은 저장된 정합 절대시각 그대로다(/TIMEZONE.md 대응표).
  */
 public record AdminFeePaymentRowResponse(
         Long paymentId,
@@ -41,13 +40,13 @@ public record AdminFeePaymentRowResponse(
                 paymentRow.userName(),
                 paymentRow.amount(),
                 paymentRow.method(),
-                TimeMapper.seoulWallClockToInstant(paymentRow.paidAt()),
+                paymentRow.paidAt(),
                 resolveMatchType(paymentRow),
                 paymentRow.counterparty(),
                 paymentRow.recordedByName(),
                 paymentRow.status(),
                 paymentRow.voidedByName(),
-                TimeMapper.seoulWallClockToInstant(paymentRow.voidedAt()),
+                paymentRow.voidedAt(),
                 paymentRow.voidReason());
     }
 

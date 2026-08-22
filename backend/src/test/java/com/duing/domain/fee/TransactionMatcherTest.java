@@ -27,6 +27,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -95,7 +96,8 @@ class TransactionMatcherTest extends IntegrationTestBase {
     /** 입금 거래 1건을 적재한다(은행코드·입금자명 지정 — Tier 1/2 분기 검증용). */
     private BankTransaction saveDeposit(String bankCode, long amount, String counterparty) {
         return bankTransactionRepository.save(BankTransaction.ingest(
-                clubId, bankCode, LocalDateTime.of(2026, 6, 10, 9, 0), amount, 100000L, counterparty,
+                clubId, bankCode, LocalDateTime.of(2026, 6, 10, 9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+                amount, 100000L, counterparty,
                 TransactionType.DEPOSIT, "hash-" + bankCode + "-" + amount + "-" + System.nanoTime(), "{}"));
     }
 

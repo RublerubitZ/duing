@@ -42,6 +42,7 @@ import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,15 +147,15 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
                 today.plusDays(3), FeeStatus.PENDING);
 
         // 납부 3건 — 납부일을 벌려 최신순 정렬이 결정적이게 둔다(정정 > 자동매칭 > 수기).
-        LocalDateTime now = LocalDateTime.now(SEOUL);
+        Instant now = Instant.now();
         directPaymentId = saveActivePayment(paidBillId, 4_000L, leaderUser.getId(),
-                now.minusHours(3), null);
+                now.minusSeconds(3 * 3600), null);
         BankTransaction depositTransaction =
                 saveAutoMatchedTransaction(auditClubId, paidBillId, 6_000L, "김두잉");
         autoMatchedPaymentId = saveActivePayment(paidBillId, 6_000L, leaderUser.getId(),
-                now.minusHours(2), depositTransaction.getId());
+                now.minusSeconds(2 * 3600), depositTransaction.getId());
         voidedPaymentId = saveVoidedPayment(dueTodayBillId, 20_000L, leaderUser.getId(),
-                now.minusHours(1), adminUser.getId());
+                now.minusSeconds(3600), adminUser.getId());
 
         feeAccountRepository.save(FeeAccount.create(auditClubId, Bank.KB,
                 feeAccountCipher.encrypt(PLAIN_ACCOUNT_NUMBER, auditClubId), "총무 김두잉"));
@@ -204,6 +205,19 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
 
         JsonPath byStudentIdMiddle = searchBills("q", "9999");
         assertThat(byStudentIdMiddle.getList("data.content")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("청구 검색어의 앞뒤 공백은 매칭을 막지 않는다")
+    void billSearchIgnoresSurroundingWhitespace() {
+        JsonPath byName = searchBills("q", "  김두  ");
+        assertThat(byName.getList("data.content.billId", Long.class))
+                .containsExactlyInAnyOrder(paidBillId, futureBillId, cancelledBillId);
+
+        // 학번은 prefix 매칭이라, 공백이 남으면 앞자리부터 어긋나 아무것도 걸리지 않는다.
+        JsonPath byStudentIdPrefix = searchBills("q", "  20239  ");
+        assertThat(byStudentIdPrefix.getList("data.content.billId", Long.class))
+                .containsExactlyInAnyOrder(dueTodayBillId, overdueBillId);
     }
 
     @Test
@@ -397,7 +411,7 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
     }
 
     private Long saveActivePayment(Long feeBillId, long amount, Long recordedBy,
-                                   LocalDateTime paidAt, Long bankTransactionId) {
+                                   Instant paidAt, Long bankTransactionId) {
         PaymentMethod method = bankTransactionId == null
                 ? PaymentMethod.TRANSFER : PaymentMethod.AUTO_MATCHED;
         Payment payment = Payment.record(feeBillId, amount, method, paidAt, recordedBy, null);
@@ -408,15 +422,15 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
     }
 
     private Long saveVoidedPayment(Long feeBillId, long amount, Long recordedBy,
-                                   LocalDateTime paidAt, Long voidedBy) {
+                                   Instant paidAt, Long voidedBy) {
         Payment payment = Payment.record(feeBillId, amount, PaymentMethod.TRANSFER, paidAt, recordedBy, null);
-        payment.voidPayment(voidedBy, "중복 입금 정정", paidAt.plusMinutes(10));
+        payment.voidPayment(voidedBy, "중복 입금 정정", paidAt.plusSeconds(600));
         return paymentRepository.save(payment).getId();
     }
 
     private BankTransaction saveAutoMatchedTransaction(Long clubId, Long feeBillId, long amount,
                                                        String counterparty) {
-        BankTransaction transaction = BankTransaction.ingest(clubId, "KB", LocalDateTime.now(SEOUL),
+        BankTransaction transaction = BankTransaction.ingest(clubId, "KB", Instant.now(),
                 amount, null, counterparty, TransactionType.DEPOSIT,
                 "hash-" + clubId + "-" + amount, "{}");
         transaction.matchTo(feeBillId, MatchStatus.AUTO_MATCHED);

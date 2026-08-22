@@ -4,7 +4,7 @@ import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.TransactionType;
 import com.duing.domain.fee.repository.MatchCandidate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -15,7 +15,7 @@ import java.util.List;
  */
 public record BankTransactionView(
         Long id,
-        LocalDateTime transactionAt,
+        Instant transactionAt,
         Long amount,
         String counterparty,
         TransactionType transactionType,

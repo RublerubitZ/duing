@@ -38,6 +38,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.crypto.FeeAccountCipher;
 import java.text.Collator;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -292,7 +293,7 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
         Map<Long, Long> unpaidMembersByClub = adminFeeAuditQueryRepository.countUnpaidMembers(period);
         Map<Long, Long> activePoliciesByClub = adminFeeAuditQueryRepository.countActivePolicies(null);
         Map<Long, Long> membersByClub = adminFeeAuditQueryRepository.countMembers(null);
-        Map<Long, LocalDateTime> lastTransactionByClub = adminFeeAuditQueryRepository.findLastTransactionAt();
+        Map<Long, Instant> lastTransactionByClub = adminFeeAuditQueryRepository.findLastTransactionAt();
 
         return adminFeeAuditQueryRepository.findClubs(q).stream()
                 .map(clubBasics -> toRow(clubBasics,
@@ -307,7 +308,7 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
 
     private AdminFeeClubRow toRow(AdminFeeClubBasics clubBasics, AdminFeeBillAggregate billAggregate,
                                   AdminFeePaymentAggregate paymentAggregate, long unpaidMemberCount,
-                                  long activePolicyCount, long memberCount, LocalDateTime lastTransactionAt) {
+                                  long activePolicyCount, long memberCount, Instant lastTransactionAt) {
         return new AdminFeeClubRow(
                 clubBasics.clubId(), clubBasics.clubName(), clubBasics.clubStatus(),
                 // 회비 사용 판정 = 활성 정책 ≥1 또는 청구 이력 ≥1 (스펙 §15 결정 7).
