@@ -237,6 +237,8 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # 기본 셸이 -e 라 어떤 명령이 실패해도 아래 exit 0 까지 도달하도록 끈다 — 알림 실패는 배포 결과를 바꾸지 않는다.
+          set +e
           if [ -z "$SLACK_WEBHOOK_URL" ]; then
             echo "SLACK_WEBHOOK_URL 미설정 — 배포 알림 생략"
             exit 0

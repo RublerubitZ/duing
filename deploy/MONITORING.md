@@ -73,6 +73,7 @@ Sentry 에 스택트레이스를 Slack 으로 그대로 복제하는 별도 코�
 ```bash
 # 1) mock webhook — 받은 페이로드를 그대로 찍는다 (MODE=500 이면 5xx 로 응답해 재시도를 본다)
 python3 - <<'EOF' &
+# 앱은 고정 길이 바디(Content-Length)로 보낸다 — 이 최소 mock 은 chunked 를 처리하지 않는다.
 import json, os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 MODE = os.environ.get("MODE", "200")
