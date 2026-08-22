@@ -72,6 +72,9 @@ gzip -t ./*.sql.gz && gunzip ./*.sql.gz
 순서가 계약이다. 롤이 없으면 스키마의 소유자·권한 구문이 깨지고, 스키마가 없으면 데이터가 들어갈 곳이 없다.
 
 ```bash
+# TARGET_DB_URL = 복원 대상 DB 의 Postgres 연결 문자열. prod 를 제자리 복원하는 경우 backup.yml 이 덤프에 쓰는
+# 시크릿 SUPABASE_DB_URL(Supabase Session Pooler)과 같은 대상이고, 다른 프로젝트로 되살리면 그쪽 값을 넣는다.
+# Pooler 경유로 이 적재가 끝까지 되는지(안 되면 Direct 연결)는 아래 ⚠️ 리허설에서 실측 확정한다.
 psql \
   --single-transaction \
   --variable ON_ERROR_STOP=1 \
