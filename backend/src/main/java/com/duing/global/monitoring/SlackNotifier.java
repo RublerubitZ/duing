@@ -63,6 +63,15 @@ public class SlackNotifier {
             log.debug("Slack 운영 알림 비활성(SLACK_WEBHOOK_URL 미설정) — 전송 생략");
             return;
         }
+        try {
+            doSend(text);
+        } catch (RuntimeException unexpected) {
+            // 위 catch 들이 못 잡는 나머지(널 text, 잘못된 baseUrl 등) — 여기서 끊어 호출부로 새지 않게 한다.
+            log.error("Slack 운영 알림 전송 실패 — reason={}", unexpected.getClass().getSimpleName());
+        }
+    }
+
+    private void doSend(String text) {
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map.of("text", text));

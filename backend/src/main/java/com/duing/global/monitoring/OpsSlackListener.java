@@ -24,6 +24,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * {@code @Async(monitoringTaskExecutor)} 라 발행한 요청 스레드와 분리된다. 각 메서드는 예외를 전파하지 않는다 —
  * 기본 AsyncUncaughtExceptionHandler 가 ERROR(=Sentry) 로 남기는 경로를 타지 않게 여기서 신호만 남긴다.
  *
+ * <p>발행은 반드시 {@code @Transactional} 안에서 해야 한다 — 트랜잭션 밖 발행은 fallbackExecution=false 라
+ * 수신되지 않고 조용히 사라진다.
+ *
  * <p>기존 알림 도메인 이벤트(모집 오픈·시설 예약)는 새 record 없이 그대로 구독한다 — 발행 지점·필드 불변.
  */
 @Slf4j

@@ -97,6 +97,14 @@ class SlackNotifierTest {
     }
 
     @Test
+    @DisplayName("텍스트가 null 이어도 예외를 던지지 않고 요청도 보내지 않는다")
+    void doesNotThrowOnNullText() {
+        assertThatCode(() -> slackNotifier.send(null)).doesNotThrowAnyException();
+
+        mockServer.verify(); // 기대 요청 0건 — 직렬화 전에 끊겨 나가는 요청이 없다
+    }
+
+    @Test
     @DisplayName("webhook URL 이 비어 있으면 비활성 — 어떤 요청도 보내지 않는다(로컬·CI)")
     void disabledWhenWebhookUrlBlank() {
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl("http://localhost:0/slack-disabled");
