@@ -96,15 +96,22 @@ public class GeneralGlobalEventService implements GlobalEventService {
         return eventRepository.findAdminList(condition, pageable);
     }
 
+    /**
+     * 어드민 상세 — 행사에 작성자를 합쳐 내려준다.
+     *
+     * <p>created_by 는 users FK 지만 User 는 soft delete 라, 작성자가 탈퇴하면 물리 행이 남아도 빈 Optional 이 온다.
+     * 예전에는 여기서 {@code IllegalStateException} 을 던져 "탈퇴한 운영자가 만든 행사"의 상세·수정 화면이 통째로
+     * 500 이 됐다. promotion 의 {@code resolveUserRef} 와 같은 의미론으로 낮춰, 이름 자리만 삭제 라벨로 채운다.
+     *
+     * <p>빈 Optional 이 탈퇴인지 데이터 파손인지 구분할 수단은 이 조회에 애초에 없다(둘 다 "행이 안 잡힌다"로만
+     * 관측된다). 그래서 파손 케이스도 같은 라벨로 수렴시킨다 — 구분되지 않는 두 상태를 다르게 다루는 척하는 대신,
+     * 조회는 열어 두고 나머지 필드를 그대로 보여주는 쪽을 택했다.
+     */
     @Override
     public GlobalEventAdminDetailQuery getAdmin(Long eventId) {
         GlobalEvent event = eventRepository.findById(eventId)
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
-        // created_by 는 users FK 지만 User 는 soft delete 라, 작성자가 탈퇴하면 물리 행이 남아도 빈 Optional 이 온다.
-        // 즉 500 은 데이터 파손 외에 "탈퇴한 운영자가 만든 행사"에서도 난다 — 이관 전 동작을 그대로 두되,
-        // promotion 의 resolveUserRef(orElse(null) + 삭제 라벨) 처럼 라벨로 낮추는 정합은 후속 후보다.
-        User creator = userRepository.findById(event.getCreatedBy())
-                .orElseThrow(() -> new IllegalStateException("global event creator missing: " + event.getCreatedBy()));
+        User creator = userRepository.findById(event.getCreatedBy()).orElse(null);
         return GlobalEventAdminDetailQuery.of(event, creator);
     }
 
