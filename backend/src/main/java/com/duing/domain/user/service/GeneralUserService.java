@@ -29,6 +29,8 @@ import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.monitoring.event.AdminUserActionEvent;
+import com.duing.global.monitoring.event.UserRegisteredEvent;
 import com.duing.global.persistence.LikeEscapes;
 import com.duing.global.web.SortWhitelist;
 import java.time.Clock;
@@ -37,6 +39,7 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -67,6 +70,8 @@ public class GeneralUserService implements UserService {
     private final AdminUserActionLogRepository adminUserActionLogRepository;
     private final PhoneVerificationSessionManager phoneVerificationSessionManager;
     private final Clock clock;
+    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    private final ApplicationEventPublisher eventPublisher;
     private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -126,6 +131,8 @@ public class GeneralUserService implements UserService {
             throw new UserException.DuplicateAccountException();
         }
         phoneVerificationSessionManager.consume(verifiedSession, userId, clientIp, userAgent);
+        // 운영 모니터링 — 커밋 후 Slack 으로 간다. 이름·학번·UserId 만 싣는다(전화번호·비밀번호 제외).
+        eventPublisher.publishEvent(new UserRegisteredEvent(userId, user.getStudentId(), user.getName(), now));
         return userId;
     }
 
@@ -234,6 +241,8 @@ public class GeneralUserService implements UserService {
         // reason 은 null 이다 — 강제 로그아웃은 사유를 받지 않는다(정지와 달리 입력 칸이 없다).
         adminUserActionLogRepository.save(AdminUserActionLog.of(
                 forceLogoutCommand.actorUserId(), user.getId(), AdminUserAction.FORCE_LOGOUT, null));
+        eventPublisher.publishEvent(new AdminUserActionEvent(
+                AdminUserAction.FORCE_LOGOUT, user.getId(), forceLogoutCommand.actorUserId()));
         log.info("Admin force logout. actorId={}, targetUserId={}",
                 forceLogoutCommand.actorUserId(), forceLogoutCommand.targetUserId());
     }

@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 /**
@@ -34,7 +35,7 @@ class FeeAccountRaceGuardTest {
     private final ClubAuditEventRepository clubAuditEventRepository = mock(ClubAuditEventRepository.class);
     private final GeneralFeeAccountService feeAccountService = new GeneralFeeAccountService(
             feeAccountRepository, clubAuthService, feeAccountCipher,
-            bankMatchingAdminService, clubAuditEventRepository);
+            bankMatchingAdminService, clubAuditEventRepository, mock(ApplicationEventPublisher.class));
 
     private static final UpsertFeeAccountCommand COMMAND =
             new UpsertFeeAccountCommand(1L, 10L, Bank.KB, "111-111-111", "두잉회비");

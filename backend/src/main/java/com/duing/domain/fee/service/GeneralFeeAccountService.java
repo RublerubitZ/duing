@@ -12,9 +12,11 @@ import com.duing.domain.fee.service.dto.command.UpsertFeeAccountCommand;
 import com.duing.domain.fee.service.dto.query.FeeAccountQuery;
 import com.duing.global.crypto.FeeAccountCipher;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class GeneralFeeAccountService implements FeeAccountService {
     private final FeeAccountCipher feeAccountCipher;
     private final BankMatchingAdminService bankMatchingAdminService;
     private final ClubAuditEventRepository clubAuditEventRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -84,6 +87,9 @@ public class GeneralFeeAccountService implements FeeAccountService {
         }
         // 감사 로그는 같은 트랜잭션이라 위 경합으로 롤백된다 — 실패한 등록이 감사에 남지 않는다.
         saveAccountAudit(ClubAuditEventType.FEE_ACCOUNT_REGISTERED, command);
+        // 운영 Slack 알림 — 최초 등록만. 계좌번호·예금주는 싣지 않는다(은행 코드·id 만).
+        eventPublisher.publishEvent(new FeeAccountCreatedEvent(
+                command.clubId(), newAccount.getId(), command.bank(), command.actorId()));
         return newAccount.getId();
     }
 

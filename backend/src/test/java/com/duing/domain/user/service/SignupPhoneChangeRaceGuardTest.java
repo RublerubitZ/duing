@@ -26,6 +26,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -49,7 +50,8 @@ class SignupPhoneChangeRaceGuardTest {
             mock(AdminUserActionLogRepository.class),
             phoneVerificationSessionManager,
             // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
-            Clock.system(ZoneId.of("Asia/Seoul")));
+            Clock.system(ZoneId.of("Asia/Seoul")),
+            mock(ApplicationEventPublisher.class));
 
     @Test
     @DisplayName("재검증을 함께 통과한 동시 가입이 학번 unique 인덱스에 걸리면 사전 검사와 같은 중복 계정 409 로 치환된다")
