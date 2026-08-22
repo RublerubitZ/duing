@@ -104,6 +104,30 @@ describe('PostHog 초기화 개인정보 정책', () => {
     expect(options.capture_exceptions).toBe(false);
   });
 
+  // 이름이 어긋난 이벤트는 대시보드에 새 이름으로 조용히 쌓이고, 발견 시점에는 이미 늦다.
+  // 전송 직전 훅은 모든 이벤트가 지나는 유일한 자리라 타입으로 막지 못하는 직접 호출까지 여기서 걸린다.
+  it('레지스트리에 없는 이벤트를 개발 중 콘솔로 알린다', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await sendThroughScrubber({ uuid: 'test-uuid', event: 'club_favourited', properties: {} });
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('club_favourited'));
+  });
+
+  // 등재된 이벤트마다 경고가 뜨면 신호가 묻힌다. $ 접두는 SDK 내장이라 레지스트리 대상이 아니다.
+  // posthog-js 의 기본 내보내기는 모듈 캐시를 비워도 같은 인스턴스라 init 스파이 호출이 누적된다 —
+  // 두 이벤트를 보려면 초기화를 한 번만 하고 훅을 직접 두 번 태워야 한다.
+  it('등재된 이벤트와 SDK 내장 이벤트는 경고하지 않는다', async () => {
+    const options = await captureInitOptions();
+    if (typeof options.before_send !== 'function') throw new Error('before_send 가 배선되어야 한다');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    options.before_send({ uuid: 'test-uuid', event: 'club_favorited', properties: {} });
+    options.before_send({ uuid: 'test-uuid', event: '$pageview', properties: {} });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('URL 속성의 쿼리스트링을 제거한 뒤 전송한다', async () => {
     const scrubbed = await sendThroughScrubber(
       eventWith({

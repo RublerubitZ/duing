@@ -10,6 +10,7 @@ import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { captureEvent } from '@/app/_lib/analytics';
 import posthog from 'posthog-js';
 
 const CREDENTIAL_ERROR_MESSAGE = '학번 또는 비밀번호가 올바르지 않습니다.';
@@ -128,7 +129,7 @@ function LoginForm() {
     try {
       const loggedInUser = await login.mutateAsync({ ...parsed.data, rememberMe });
       posthog.identify(String(loggedInUser.id));
-      posthog.capture('user_logged_in', { remember_me: rememberMe });
+      captureEvent('user_logged_in', { remember_me: rememberMe });
       router.replace(next);
     } catch (loginError) {
       setError(loginErrorMessage(loginError));

@@ -10,7 +10,7 @@ import {
 } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { isRecruitmentExpiredOpen } from '@/app/_lib/recruitmentDisplay';
-import posthog from 'posthog-js';
+import { captureEvent } from '@/app/_lib/analytics';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import {
   RecruitmentForm,
@@ -72,7 +72,7 @@ export default function NewRecruitmentPage({
       interviewEndDate: values.interviewEndDate ?? undefined,
       showApplicantCount: values.showApplicantCount,
     });
-    posthog.capture('recruitment_created', {
+    captureEvent('recruitment_created', {
       club_id: clubId,
       recruitment_id: newRecruitmentId,
       application_mode: values.applicationMode,
