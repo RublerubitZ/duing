@@ -420,20 +420,34 @@ public class GeneralApplicationService implements ApplicationService {
     }
 
     /**
-     * 동아리 폐쇄에 딸린 일괄 거절. 단건 경로와 달리 ApplicationStatusChanger 를 쓰지 않고 전이만 한다 —
-     * 이 경로는 상태 이력을 남기지 않는 기존 비대칭이 있고, 이력을 붙이면 동작 변경이 되기 때문이다.
-     * 의도된 비대칭인지 미확정이므로 후속 정책 판단 대상으로 남긴다.
+     * 동아리 폐쇄에 딸린 일괄 거절. 단건 반려와 똑같이 ApplicationStatusChanger 를 경유해 상태 이력을 남긴다
+     * (2026-08-23 정책 확정). 지원자가 받는 결과는 어느 경로든 같은 "불합격"인데 이력만 비어 있으면
+     * 지원자 상세의 상태 이력이 그 결과를 설명하지 못한다 — 상태 이력 없이 끝나는 전이는 이제 없다.
+     * 이력 주체는 폐쇄를 실행한 총동연 관리자다.
      */
     @Override
     @Transactional
-    public void rejectActiveOnClubClosure(List<Long> recruitmentIds) {
+    public void rejectActiveOnClubClosure(List<Long> recruitmentIds, Long actorAdminUserId) {
         if (recruitmentIds.isEmpty()) {
             return;
         }
         List<Application> applications = applicationRepository
                 .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet());
+        if (applications.isEmpty()) {
+            return;
+        }
+
+        // 이력 주체는 전 건이 같은 폐쇄 실행자라 한 번만 조회해 재사용한다. Changer 가 주체를 Supplier 로
+        // 받는 것은 FSM 에 막히는 전이에서 쓸데없는 주체 조회를 피하려는 것인데, 여기서는 전이 대상이
+        // 하나라도 있으면 어차피 필요한 조회이고(대상이 없으면 위에서 반환) 전이 자체가 FSM 상 항상
+        // 허용되므로(active → REJECTED), 선조회가 그 지연 목적과 어긋나지 않는다.
+        User closureActor = userRepository.findById(actorAdminUserId)
+                .orElseThrow(UserException.UserNotFoundException::new);
         for (Application application : applications) {
-            application.transitionTo(ApplicationStatus.REJECTED, application.getRecruitment().isUseInterview());
+            // recruitmentClosed=false — 기존 2인자 transitionTo 도 내부에서 false 를 넘겼고,
+            // active → REJECTED 는 면접 사용·마감 여부와 무관하게 허용돼 전이 동작은 그대로다.
+            applicationStatusChanger.change(application, ApplicationStatus.REJECTED,
+                    application.getRecruitment().isUseInterview(), false, () -> closureActor);
         }
     }
 

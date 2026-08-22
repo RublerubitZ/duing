@@ -348,10 +348,11 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("동아리 폐쇄 시 지원·보류·면접 대상 지원서가 중간 단계 없이 곧바로 불합격으로 종료된다")
+    @DisplayName("동아리 폐쇄 시 지원·보류·면접 대상 지원서가 중간 단계 없이 곧바로 불합격으로 종료되고 폐쇄 실행자 이름의 상태 이력이 남는다")
     void clubClosureRejectsActiveApplicationsDirectly() throws Exception {
         User leader = saveUser("폐쇄리더", UserRole.STUDENT);
         leaderId = leader.getId();
+        Long closureActorId = saveUser("폐쇄관리자", UserRole.ADMIN).getId();
         Club club = saveActiveClub("폐쇄-일괄거절동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         activeRecruitment = recruitmentRepository.save(
@@ -364,13 +365,32 @@ class GeneralApplicationServiceTest extends IntegrationTestBase {
         Long interviewPendingId = createApplicationWithStatus(ApplicationStatus.INTERVIEW_PENDING);
         Long acceptedId = createApplicationWithStatus(ApplicationStatus.ACCEPTED);
 
-        applicationService.rejectActiveOnClubClosure(List.of(activeRecruitment.getId()));
+        applicationService.rejectActiveOnClubClosure(List.of(activeRecruitment.getId()), closureActorId);
 
         assertThat(statusOf(submittedId)).isEqualTo(ApplicationStatus.REJECTED);
         assertThat(statusOf(onHoldId)).isEqualTo(ApplicationStatus.REJECTED);
         assertThat(statusOf(interviewPendingId)).isEqualTo(ApplicationStatus.REJECTED);
         // 이미 종료된 지원은 일괄 거절 대상이 아니다.
         assertThat(statusOf(acceptedId)).isEqualTo(ApplicationStatus.ACCEPTED);
+
+        // 폐쇄 반려도 단건 반려와 같은 이력을 남긴다 — 지원자 상세의 상태 이력이 결과를 설명하지 못하면
+        // "왜 불합격인지" 를 화면이 답할 수 없다. 주체는 폐쇄를 실행한 총동연 관리자다.
+        assertClosureRejectionHistory(submittedId, ApplicationStatus.SUBMITTED, closureActorId);
+        assertClosureRejectionHistory(onHoldId, ApplicationStatus.ON_HOLD, closureActorId);
+        assertClosureRejectionHistory(interviewPendingId, ApplicationStatus.INTERVIEW_PENDING, closureActorId);
+        // 전이가 없었으면 이력도 없다.
+        assertThat(applicationStatusHistoryRepository
+                .findByApplicationIdOrderByCreatedAtDesc(acceptedId)).isEmpty();
+    }
+
+    private void assertClosureRejectionHistory(Long applicationId, ApplicationStatus previousStatus,
+                                               Long expectedActorId) {
+        List<ApplicationStatusHistory> rows =
+                applicationStatusHistoryRepository.findByApplicationIdOrderByCreatedAtDesc(applicationId);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getPreviousStatus()).isEqualTo(previousStatus);
+        assertThat(rows.get(0).getNewStatus()).isEqualTo(ApplicationStatus.REJECTED);
+        assertThat(rows.get(0).getChangedBy().getId()).isEqualTo(expectedActorId);
     }
 
     // ────────────────────────────────────────────────────────────

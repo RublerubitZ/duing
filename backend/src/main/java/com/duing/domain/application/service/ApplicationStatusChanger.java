@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
  * FSM 가드는 엔티티가 단독으로 소유하고, 여기는 "전이했으면 이력을 남긴다"는 짝 계약만 강제한다.
  * 트랜잭션 경계는 호출자의 것을 그대로 쓴다 — 전이와 이력은 같은 커밋 단위여야 하기 때문이다.
  * <p>
- * 예외: 동아리 폐쇄 일괄 거절(GeneralApplicationService.rejectActiveOnClubClosure)은 이력을 남기지 않는
- * 기존 비대칭을 유지하므로 이 클래스를 경유하지 않는다.
+ * 예외는 없다 — 이력을 남기지 않던 동아리 폐쇄 일괄 거절(GeneralApplicationService.rejectActiveOnClubClosure)도
+ * 2026-08-23 정책 확정으로 이 경로를 경유한다. 상태 전이는 전부 여기를 지나므로 이력이 비는 전이는 존재하지 않는다.
  */
 @Component
 @RequiredArgsConstructor

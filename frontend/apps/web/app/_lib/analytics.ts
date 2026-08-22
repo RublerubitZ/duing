@@ -16,6 +16,10 @@ import type { College, Grade } from '@duing/types';
  * <p><b>알려진 접두 불일치 1건.</b> `club_application_submitted` 는 도메인 접두(`club_`)를 쓰고
  * `inquiry_submitted` 는 쓰지 않는다. 규칙상으로는 어긋나지만 위 불변 계약이 우선이라 그대로 둔다.
  *
+ * <p><b>dev 이중 발화.</b> React StrictMode 가 개발 모드에서 effect 를 두 번 실행하므로, effect 안에서
+ * 보내는 이벤트(화면 조회 계열)는 로컬에서 2배로 찍힌다 — 프로덕션 빌드에는 없는 현상이고, `$pageview` 는
+ * effect 가 아니라 SDK 가 직접 보내므로 dev 에서도 1회다. 로컬 카운트를 근거로 배선을 고치지 않는다.
+ *
  * <p>범위 밖: `identify`/`reset`(신원 수명주기)과 `$` 접두 SDK 내장 이벤트는 여기서 다루지 않는다.
  */
 type AnalyticsEvents = {

@@ -42,5 +42,5 @@ public interface ApplicationService {
     ApplicantNeighborsQuery getNeighbors(Long recruitmentId, Long applicationId, Long currentUserId,
                                          ApplicantSearchCondition condition);
 
-    void rejectActiveOnClubClosure(List<Long> recruitmentIds);
+    void rejectActiveOnClubClosure(List<Long> recruitmentIds, Long actorAdminUserId);
 }
