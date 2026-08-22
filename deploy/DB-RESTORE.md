@@ -85,6 +85,9 @@ psql \
 - `session_replication_role = replica` 는 데이터 적재 동안 트리거·FK 검사를 비활성화한다. 덤프의 COPY 순서가
   FK 위상을 따르지 않기 때문에 이게 없으면 참조 오류로 멈춘다.
 - `--single-transaction` + `ON_ERROR_STOP=1` 이라 중간 실패 시 전부 롤백된다 — 반쯤 복원된 DB 가 남지 않는다.
+- ⚠️ **이 명령 조합은 아직 실복원으로 검증되지 않았다**(덤프 3파일 구성에 맞춘 표준형이다). 특히
+  `SET session_replication_role = replica` 는 접속 계정의 권한에 따라 거부될 수 있다 — 장애 한복판에서
+  처음 시도하지 말고, **첫 실복원 전에 별도 DB 로 리허설을 한 번 돌려** 이 절 전체를 실측으로 갱신한다.
 - 대상이 **비어 있지 않다면** 먼저 비운다. 기존 데이터 위에 덧씌우는 복원은 PK 충돌로 실패하거나,
   통과하더라도 두 시점의 행이 섞인다.
 
@@ -128,7 +131,7 @@ curl -s https://api.duings.com/actuator/health
 | 항목 | V112 | V113 |
 |---|---|---|
 | 파일 | `V112__tz_stage2_fee_bank_backfill.sql` | `V113__tz_stage2_interview_backfill.sql` |
-| 적용 | 2026-08-21 릴리스 | 2026-08-22 릴리스 |
+| prod 적용 | 2026-08-22 릴리스(main `5455ffd7`) — 둘이 **같은 릴리스**로 도달했다 | 좌동 |
 | 대상 컬럼 | `payment.paid_at`(NOT NULL) · `payment.voided_at`(nullable) · `bank_transaction.transaction_at`(NOT NULL) | `interview_round.assignment_completed_at`(nullable) |
 | 보정 | `- interval '9 hours'` | 동일 |
 | 실행 조건 | Flyway placeholder `${apply_tz_backfill}` — `application-prod.yml` 만 `"true"`, 공통·테스트 `application.yml` 은 `"false"`(WHERE 절이 거짓이라 no-op) | 동일(V112 인프라 재사용) |
