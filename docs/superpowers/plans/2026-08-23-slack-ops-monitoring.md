@@ -38,7 +38,7 @@
 - Test: `backend/src/test/java/com/duing/global/monitoring/SlackNotifierTest.java`
 
 **Interfaces:**
-- Produces: `SlackProperties(String webhookUrl)` + `boolean enabled()`; `RestClient` 빈 `slackRestClient`; `SlackNotifier.send(String text)`(void, never throws), `SlackNotifier.isEnabled()`.
+- Produces: `SlackProperties(String webhookUrl)` + `boolean enabled()`; `RestClient` 빈 `slackRestClient`; `SlackNotifier.send(String text)`(void, never throws) + 부팅 상태 로그 `logStatus()`(ApplicationReadyEvent, INFO/WARN).
 
 - [ ] **Step 1: 실패하는 테스트 작성** — `backend/src/test/java/com/duing/global/monitoring/SlackNotifierTest.java`
 
@@ -228,6 +228,8 @@ package com.duing.global.monitoring;
 import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -245,6 +247,10 @@ import org.springframework.web.client.RestClientResponseException;
  * <p>로깅 정책: {@code RestClientResponseException}/{@code ResourceAccessException} 의 메시지에는 요청 URL(=webhook
  * 시크릿)과 응답 바디가 섞인다 — 예외 객체·메시지를 로그에 싣지 않고 상태코드·클래스명만 남긴다.
  * 최종 실패는 ERROR(→ Sentry 이슈) 로 신호만 남긴다(스택 없음, 메일 제공자 ERROR 정책과 동일).
+ *
+ * <p>운영에서 URL 누락은 부팅 실패가 아니라 비활성이다(SENTRY_DSN 의 fail-fast 관례를 일부러 따르지 않는다 —
+ * 모니터링 설정이 배포를 깨는 경로를 만들지 않기 위해). 대신 부팅 직후 상태를 한 줄 남겨 사일런트 결손을 드러낸다
+ * (NotificationJobStatusLogger 전례).
  */
 @Slf4j
 @Component
@@ -261,8 +267,13 @@ public class SlackNotifier {
         this.slackRestClient = slackRestClient;
     }
 
-    public boolean isEnabled() {
-        return enabled;
+    @EventListener(ApplicationReadyEvent.class)
+    public void logStatus() {
+        if (enabled) {
+            log.info("[Slack 운영 알림] 활성 — 주요 운영 이벤트를 webhook 으로 전송한다(deploy/MONITORING.md).");
+        } else {
+            log.warn("[Slack 운영 알림] 비활성 — SLACK_WEBHOOK_URL 미설정. 로컬·CI 는 정상이며, 운영이라면 서버 .env 에 주입하라.");
+        }
     }
 
     /** 평문 메시지를 webhook 으로 보낸다. 비활성이면 즉시 반환. 절대 예외를 던지지 않는다. */
@@ -327,11 +338,12 @@ monitoring:
 
 ```yaml
 
-# 운영 Slack 알림 — SENTRY_DSN 과 같은 정책: 키를 폴백 없이 요구해 사일런트 결손을 막는다.
-# 의도적으로 끄려면 빈 값(SLACK_WEBHOOK_URL=)을 준다. 키 자체가 없으면 부팅이 실패한다(배포 게이트가 롤백).
+# 운영 Slack 알림 — SENTRY_DSN 과 달리 폴백을 둔다(미설정=비활성). 이 기능의 1순위 요구가 "모니터링이 핵심
+# 서비스에 절대 영향을 주지 않는다" 라서, .env 키 한 줄 누락으로 릴리스가 부팅 실패→롤백되는 경로를 만들지 않는다.
+# 대신 SlackNotifier 가 부팅 직후 활성/비활성을 로그(비활성이면 WARN)로 남겨 사일런트 결손을 드러낸다.
 monitoring:
   slack:
-    webhook-url: ${SLACK_WEBHOOK_URL}
+    webhook-url: ${SLACK_WEBHOOK_URL:}
 ```
 
 `backend/src/test/resources/application.yml` — `octomo:` 블록 바로 아래에 추가:
@@ -347,7 +359,7 @@ monitoring:
 `backend/.env.example` — `SENTRY_ENVIRONMENT=production` 줄 아래에 추가:
 
 ```
-# Slack 운영 알림 Incoming Webhook URL (운영 필수 키 — prod 는 키 자체가 없으면 부팅 실패, 빈 값이면 비활성).
+# Slack 운영 알림 Incoming Webhook URL (운영 권장 — 미설정/빈 값이면 비활성으로 부팅하며 시작 로그에 WARN 한 줄).
 # 로컬은 비워 둔다(운영 webhook 을 로컬에서 쓰지 말 것). 채널·이벤트 목록은 deploy/MONITORING.md.
 SLACK_WEBHOOK_URL=
 ```
@@ -395,7 +407,7 @@ git commit -m "feat(backend): Slack 운영 알림 전송기 — webhook RestClie
   - `record FeeAccountCreatedEvent(Long clubId, Long feeAccountId, Bank bank, Long actorUserId)`
   - `record AdminUserActionEvent(AdminUserAction action, Long targetUserId, Long actorUserId)`
   - `MoPollThrottle.DailyUsage(int usedCalls, int dailyLimit)` + `public synchronized DailyUsage dailyUsage(LocalDateTime now)`
-  - `OpsSlackMessageFormatter(String environment, MoPollThrottle moPollThrottle, Clock clock)` 와 메서드 `userRegistered / clubCreated / clubStatusChanged / clubClosed / feeAccountCreated / adminUserAction / recruitmentOpened / facilityBookingSubmitted / facilityBookingCancelled / facilityBookingConflict` — 모두 `String` 반환.
+  - `OpsSlackMessageFormatter(String environment, MoPollThrottle moPollThrottle, Clock clock)` 와 메서드 `userRegistered / clubCreated / clubStatusChanged / clubClosed / feeAccountCreated / adminUserAction / recruitmentOpened / facilityBookingSubmitted / facilityBookingRejected / facilityBookingCancelled / facilityBookingConflict` — 모두 `String` 반환.
 
 - [ ] **Step 1: `MoPollThrottleTest` 에 실패 테스트 2개 추가** (`resetClearsState` 테스트 앞에)
 
@@ -531,6 +543,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.fee.entity.Bank;
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
 import com.duing.domain.notification.event.FacilityBookingConflictEvent;
+import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
 import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.user.entity.AdminUserAction;
@@ -652,6 +665,11 @@ class OpsSlackMessageFormatterTest {
         assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L)))
                 .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "BookingId: 90", "ClubId: 7");
 
+        String rejected = formatter.facilityBookingRejected(
+                new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"));
+        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "BookingId: 90", "ClubId: 7")
+                .doesNotContain("홍길동", "서류 미비");
+
         String cancelled = formatter.facilityBookingCancelled(
                 new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"));
         assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED", "BookingId: 90")
@@ -686,6 +704,7 @@ package com.duing.global.monitoring;
 
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
 import com.duing.domain.notification.event.FacilityBookingConflictEvent;
+import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
 import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.user.service.MoPollThrottle;
@@ -710,7 +729,8 @@ import org.springframework.stereotype.Component;
  * 자유 텍스트(사유·상세)는 어떤 메서드도 읽지 않는다. 골격: 헤더 / 서비스 / 이벤트 / 도메인 필드 / 환경 / 시간 (/ 부가줄).
  *
  * <p>환경 라벨은 {@code sentry.environment} 를 재사용한다(prod=production, 로컬=local) — 환경 이름의 단일 출처.
- * 시간은 seoulClock(Asia/Seoul) 기준 KST. Octomo 줄은 {@link MoPollThrottle#dailyUsage} 의 <b>자체 집계</b>다 —
+ * 시간은 seoulClock(Asia/Seoul) 기준 KST — USER_REGISTERED 만 가입 트랜잭션의 시각(event.registeredAt)이고 나머지는
+ * 리스너 수신 시각이다(비동기 지연은 ms 단위). Octomo 줄은 {@link MoPollThrottle#dailyUsage} 의 <b>자체 집계</b>다 —
  * Octomo 는 잔여 쿼터 조회 API 를 제공하지 않는다(벤더 월 쿼터는 Octomo 마이페이지에서만 확인).
  */
 @Component
@@ -784,6 +804,12 @@ public class OpsSlackMessageFormatter {
                 Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
     }
 
+    /** reason(자유 텍스트)은 읽지 않는다. */
+    public String facilityBookingRejected(FacilityBookingRejectedEvent event) {
+        return compose("🏟️ 시설 예약 거절", "FACILITY_BOOKING_REJECTED",
+                Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
+    }
+
     /** 관리자 취소만 이벤트가 있다(동아리 측 취소는 이벤트 미발행). reason(자유 텍스트)은 읽지 않는다. */
     public String facilityBookingCancelled(FacilityBookingCancelledEvent event) {
         return compose("🏟️ 시설 예약 취소(관리자)", "FACILITY_BOOKING_CANCELLED",
@@ -844,7 +870,7 @@ git commit -m "feat(backend): 운영 이벤트 record 6종·Slack 메시지 포�
 
 **Interfaces:**
 - Consumes: Task 1 `SlackNotifier.send(String)`, Task 2 `OpsSlackMessageFormatter` 메서드·이벤트 record.
-- Produces: `MonitoringAsyncConfig.EXECUTOR_BEAN_NAME = "monitoringTaskExecutor"`; `OpsSlackListener` 의 `@Async @TransactionalEventListener(AFTER_COMMIT)` 메서드 10개 (`onUserRegistered`, `onClubCreated`, `onClubStatusChanged`, `onClubClosed`, `onFeeAccountCreated`, `onAdminUserAction`, `onRecruitmentOpened`, `onFacilityBookingSubmitted`, `onFacilityBookingCancelled`, `onFacilityBookingConflict`).
+- Produces: `MonitoringAsyncConfig.EXECUTOR_BEAN_NAME = "monitoringTaskExecutor"`; `OpsSlackListener` 의 `@Async @TransactionalEventListener(AFTER_COMMIT)` 메서드 11개 (`onUserRegistered`, `onClubCreated`, `onClubStatusChanged`, `onClubClosed`, `onFeeAccountCreated`, `onAdminUserAction`, `onRecruitmentOpened`, `onFacilityBookingSubmitted`, `onFacilityBookingRejected`, `onFacilityBookingCancelled`, `onFacilityBookingConflict`).
 
 - [ ] **Step 1: 실패하는 단위 테스트 작성** — `backend/src/test/java/com/duing/global/monitoring/OpsSlackListenerTest.java`
 
@@ -949,7 +975,7 @@ public class MonitoringAsyncConfig {
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("ops-slack-");
         executor.setRejectedExecutionHandler((rejectedTask, pool) ->
-                log.warn("운영 알림 큐 포화 — 이번 Slack 알림을 폐기한다(핵심 서비스 무영향). queue={}", pool.getQueue().size()));
+                log.warn("운영 알림 큐 포화 — 이번 Slack 알림을 폐기한다(핵심 서비스 무영향)."));
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(5);
         return executor;
@@ -964,6 +990,7 @@ package com.duing.global.monitoring;
 
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
 import com.duing.domain.notification.event.FacilityBookingConflictEvent;
+import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
 import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
@@ -1045,6 +1072,12 @@ public class OpsSlackListener {
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onFacilityBookingRejected(FacilityBookingRejectedEvent event) {
+        notify("FACILITY_BOOKING_REJECTED", () -> formatter.facilityBookingRejected(event));
+    }
+
+    @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFacilityBookingCancelled(FacilityBookingCancelledEvent event) {
         notify("FACILITY_BOOKING_CANCELLED", () -> formatter.facilityBookingCancelled(event));
     }
@@ -1113,6 +1146,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -1159,12 +1193,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -1172,7 +1208,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * 운영 Slack 알림의 end-to-end 계약 — 발행 지점 → AFTER_COMMIT → @Async 리스너 → 포매터 → SlackNotifier.
  * SlackNotifier 만 목으로 바꿔 "무엇이 전송되려 했는지" 와 "핵심 흐름이 Slack 실패와 무관한지" 를 고정한다.
- * 리스너는 별도 스레드라 verify(timeout)/after 로 기다린다.
+ * 리스너는 별도 스레드라 verify(timeout)/after 로 기다린다. @MockitoBean 은 테스트마다 리셋되지만 executor 의
+ * 진행 중 작업은 리셋되지 않으므로, 앞 테스트의 늦은 전송이 다음 테스트의 never()/times(1) 에 섞이지 않게
+ * 각 테스트 시작 시 executor 를 드레인한 뒤 invocation 을 비운다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -1198,10 +1236,23 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
     @Autowired ClubService clubService;
     @Autowired ClubClosureService clubClosureService;
     @Autowired FeeAccountService feeAccountService;
+    @Autowired @Qualifier(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME) ThreadPoolTaskExecutor monitoringTaskExecutor;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws InterruptedException {
         RestAssured.port = port;
+        drainMonitoringExecutor();
+        clearInvocations(slackNotifier);
+    }
+
+    /** 앞 테스트가 남긴 비동기 전송이 끝날 때까지(활성 0·큐 비움) 최대 3초 기다린다. */
+    private void drainMonitoringExecutor() throws InterruptedException {
+        long deadline = System.currentTimeMillis() + ASYNC_WAIT_MS;
+        while ((monitoringTaskExecutor.getActiveCount() > 0
+                || !monitoringTaskExecutor.getThreadPoolExecutor().getQueue().isEmpty())
+                && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20);
+        }
     }
 
     private String prepareVerifiedPhone(String phone) {
@@ -1293,8 +1344,10 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
         Long clubId = clubService.create(new CreateClubCommand(
                 "두잉운영동아리", ClubCategory.ACADEMIC, null, "설명", null,
                 leader.getId(), false, null, null));
-        verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(contains("이벤트: CLUB_CREATED"));
-        verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(contains("동아리: 두잉운영동아리"));
+        ArgumentCaptor<String> createdCaptor = ArgumentCaptor.forClass(String.class);
+        verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(createdCaptor.capture());
+        assertThat(createdCaptor.getValue()).contains("이벤트: CLUB_CREATED", "동아리: 두잉운영동아리",
+                "ClubId: " + clubId, "회장 UserId: " + leader.getId());
 
         clubService.updateStatus(new UpdateClubStatusCommand(clubId, ClubStatus.ACTIVE, null, admin.getId()));
         verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(contains("상태: PENDING_APPROVAL → ACTIVE"));
@@ -1342,6 +1395,7 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
         verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(contains("조치: ACCOUNT_UNSUSPENDED"));
 
         userService.forceLogout(new ForceLogoutCommand(target.getId(), admin.getId()));
+        // timeout + times(3): 세 번째 비동기 전송이 도착할 때까지 재검증한다(캡처는 3건이 모두 모인 뒤 읽는다).
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
         verify(slackNotifier, timeout(ASYNC_WAIT_MS).times(3)).send(messageCaptor.capture());
         assertThat(messageCaptor.getAllValues())
@@ -1467,7 +1521,7 @@ Expected: `BUILD SUCCESSFUL`
 
 - [ ] **Step 10: 발행 지점 도메인 회귀**
 
-Run: `cd /Users/ksy/orca/workspaces/Duing/cetacean/backend && ./gradlew test --tests "com.duing.domain.user.*" --tests "com.duing.domain.club.controller.AdminClubClosureControllerTest" --tests "com.duing.domain.club.controller.AdminClubStatusAndCentralClubControllerTest" --tests "com.duing.domain.fee.FeeAccountControllerTest" --tests "com.duing.domain.fee.FeeAccountConcurrencyTest"`
+Run: `cd /Users/ksy/orca/workspaces/Duing/cetacean/backend && ./gradlew test --tests "com.duing.domain.user.controller.AuthControllerSignupTest" --tests "com.duing.domain.user.controller.AdminForceLogoutControllerTest" --tests "com.duing.domain.club.controller.AdminClubClosureControllerTest" --tests "com.duing.domain.club.controller.AdminClubStatusAndCentralClubControllerTest" --tests "com.duing.domain.fee.FeeAccountControllerTest" --tests "com.duing.domain.fee.FeeAccountConcurrencyTest"`
 Expected: `BUILD SUCCESSFUL`
 
 - [ ] **Step 11: 커밋**
@@ -1534,7 +1588,7 @@ git commit -m "feat(backend): 운영 이벤트 발행 — 회원가입·동아�
 - [ ] **Step 2: YAML 문법 검증**
 
 Run: `cd /Users/ksy/orca/workspaces/Duing/cetacean && python3 -c "import yaml,sys; d=yaml.safe_load(open('.github/workflows/deploy-backend.yml')); steps=d['jobs']['deploy']['steps']; print(len(steps), steps[-1]['name'], steps[-1]['if'])"`
-Expected: `8 Notify Slack (deploy result) always()` (기존 7 스텝 + 1). `yaml` 모듈이 없으면 `pip3 install pyyaml` 대신 `ruby -ryaml -e 'p YAML.load_file(".github/workflows/deploy-backend.yml")["jobs"]["deploy"]["steps"].last["name"]'` 로 대체.
+Expected: `7 Notify Slack (deploy result) always()` (기존 6 스텝 + 1). `yaml` 모듈이 없으면 `pip3 install pyyaml` 대신 `ruby -ryaml -e 'p YAML.load_file(".github/workflows/deploy-backend.yml")["jobs"]["deploy"]["steps"].last["name"]'` 로 대체.
 
 - [ ] **Step 3: `deploy/MONITORING.md` 작성**
 
@@ -1558,6 +1612,7 @@ Expected: `8 Notify Slack (deploy result) always()` (기존 7 스텝 + 1). `yaml
 ## 채널
 
 `#duing-monitoring` 하나로 시작한다(세분화는 소음이 문제가 될 때). Better Stack·Sentry·배포·앱 이벤트 모두 같은 채널.
+Better Stack 이 이미 보내는 운영 채널이 따로 있으면 새 채널을 만들지 말고 **그 채널의 webhook** 을 쓴다(이 문서의 채널명은 가정).
 
 ## 앱 이벤트 카탈로그 (백엔드 `global/monitoring/`)
 
@@ -1569,8 +1624,10 @@ Expected: `8 Notify Slack (deploy result) always()` (기존 7 스텝 + 1). `yaml
 | `CLUB_CLOSED` | 총동연 폐쇄 | 동아리명·ClubId·관리자 UserId (사유 제외) |
 | `FEE_ACCOUNT_CREATED` | 회비 계좌 **최초** 등록 | ClubId·계좌Id·은행 코드·등록자 UserId (계좌번호·예금주 제외) |
 | `ADMIN_USER_ACTION` | 계정 정지/해제/강제 로그아웃 | 조치·대상 UserId·관리자 UserId (사유 제외) |
-| `RECRUITMENT_OPENED` | 모집 생성 시점에 이미 오픈 | 동아리명·ClubId·모집 제목·RecruitmentId·마감 |
-| `FACILITY_BOOKING_SUBMITTED` / `_CANCELLED`(관리자) / `_CONFLICT` | 시설 예약 | BookingId·ClubId (취소 사유·충돌 상세 제외) |
+| `RECRUITMENT_OPENED` | 모집 생성·교체 시점에 **이미 OPEN 이고 시작일이 지난 경우만**(예정→날짜 도래 오픈·수정 경유는 이벤트 자체가 없음) | 동아리명·ClubId·모집 제목(공개 게시물 — 자유 텍스트 예외)·RecruitmentId·마감 |
+| `FACILITY_BOOKING_SUBMITTED` / `_REJECTED` / `_CANCELLED`(관리자) / `_CONFLICT` | 시설 예약 | BookingId·ClubId (거절·취소 사유·충돌 상세 제외) |
+
+시간 줄: `USER_REGISTERED` 만 가입 트랜잭션 시각(가입시간), 나머지는 리스너 수신 시각(발행과 ms 차이).
 
 의도적으로 싣는 개인정보: **이름·학번·UserId**(회원가입). 절대 싣지 않는 것: 이메일(수집 안 함)·전화번호·비밀번호·JWT/refresh/cookie/Authorization·요청 바디·계좌번호·예금주·자유 텍스트 사유.
 
@@ -1590,12 +1647,12 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 
 | 위치 | 키 | 값 |
 |---|---|---|
-| 서버 `deploy/.env` | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL. **prod 는 키 자체가 없으면 부팅 실패(배포 게이트 롤백)**, 빈 값이면 비활성 |
+| 서버 `deploy/.env` | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL. 미설정/빈 값이면 **비활성으로 부팅**하고 시작 로그에 `[Slack 운영 알림] 비활성` WARN 한 줄(부팅 실패 아님 — 모니터링이 배포를 깨지 않게) |
 | GitHub Secrets | `SLACK_WEBHOOK_URL` | 배포 결과 알림용(선택 — 없으면 스텝 생략) |
 | 로컬 `backend/.env` | `SLACK_WEBHOOK_URL` | 비워 둔다. 운영 webhook 을 로컬에서 쓰지 말 것 |
 
 Webhook 발급: Slack → 앱 디렉터리 "Incoming Webhooks" → 채널 `#duing-monitoring` 선택 → URL 복사.
-**릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. (①을 빼먹으면 새 백엔드가 부팅에 실패하고 직전 이미지로 롤백된다.)
+**릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. ①을 빼먹어도 배포는 성공하지만 앱 알림이 조용히 꺼진다 — 릴리스 후 컨테이너 시작 로그에서 `[Slack 운영 알림] 활성` 을 확인한다.
 
 ## P0 — Sentry → Slack (수동, 약 5분)
 
@@ -1633,7 +1690,7 @@ EOF
 
 1. 서비스 영향은 없다(격리 설계). 급하지 않다.
 2. Sentry 에 `Slack 운영 알림 전송 실패 — reason=HTTP_4xx/5xx/…` 이슈가 있으면: 4xx(특히 404/410) = webhook 폐기됨 → 재발급 후 `.env` 교체·재기동. 5xx/타임아웃 = Slack 측 장애, 자연 복구.
-3. 이슈가 없고 조용하면: 서버 `.env` 의 `SLACK_WEBHOOK_URL` 이 비어 있는지(비활성), 컨테이너 기동 로그에 `Slack 운영 알림 비활성` debug 가 있는지 확인.
+3. 이슈가 없고 조용하면: 컨테이너 시작 로그에 `[Slack 운영 알림] 비활성` WARN 이 있는지(= 서버 `.env` 의 `SLACK_WEBHOOK_URL` 미설정) 확인.
 ```
 
 - [ ] **Step 4: `deploy/UPTIME.md` 알림 정책 섹션에 포인터 1줄** — `- SSL 만료 감시(제공 시 활성): ...` 줄 바로 아래:
@@ -1645,7 +1702,7 @@ EOF
 - [ ] **Step 5: `backend/AGENTS.md` 환경변수 블록** — `SENTRY_*`/모니터링 관련 줄이 없으므로 `# 로컬 전용` 블록 위, `# DUING_AUTH_* ...` 주석 줄 아래에 추가:
 
 ```bash
-SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 로컬은 비움=비활성, prod 는 키 필수(빈 값=의도적 비활성). deploy/MONITORING.md
+SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 비움/미설정=비활성(시작 로그 WARN), 운영은 주입 권장. deploy/MONITORING.md
 ```
 
 - [ ] **Step 6: 마크다운·워크플로 변경이 백엔드 빌드에 영향 없는지 확인(컴파일만)**

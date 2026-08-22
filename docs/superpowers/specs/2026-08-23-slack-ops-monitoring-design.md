@@ -48,7 +48,7 @@ Octomo 호출(자체 집계, 오늘): 37 / 1,000
 
 ### 비동기 — `MonitoringAsyncConfig`
 - `@EnableAsync` + `@Bean("monitoringTaskExecutor") ThreadPoolTaskExecutor`: core 1 / max 2 / queue 100 / 스레드명 `ops-slack-` / 거부 시 `log.warn` 후 폐기(알림은 손실 허용) / 종료 시 진행 중 작업 5초 대기.
-- 기존 리스너에는 `@Async` 가 없으므로 `@EnableAsync` 는 기존 동작에 영향이 없다.
+- 기존 리스너에는 `@Async` 가 없으므로 `@EnableAsync` 는 기존 동작에 영향이 없다. 단 이 빈이 생기면 Boot 기본 `applicationTaskExecutor` 는 물러난다(`@ConditionalOnMissingBean(Executor)`) — MVC async(Callable/SseEmitter 등) 소비자가 코드베이스에 없음을 확인했다. **함정:** 이후 누군가 한정자 없는 `@Async` 를 쓰면 이 작은 풀(1~2 스레드)을 타게 된다 — 그때는 별도 executor 를 만들 것.
 - `@Async` 메서드 안에서 모든 예외를 잡는다 — `AsyncUncaughtExceptionHandler` 기본값이 ERROR 로그(=Sentry) 라서.
 
 ### Slack — `SlackProperties` / `SlackClientConfig` / `SlackNotifier`
@@ -71,7 +71,7 @@ Octomo 호출(자체 집계, 오늘): 37 / 1,000
 | FEE_ACCOUNT_CREATED | `FeeAccountCreatedEvent(Long clubId, Long feeAccountId, Bank bank, Long actorUserId)` | `GeneralFeeAccountService.upsert` — **최초 등록(INSERT) 분기만**. 갱신·무변경·경합 409 는 발행 안 함 | 🏦 회비 계좌 등록 |
 | ADMIN_USER_ACTION | `AdminUserActionEvent(AdminUserAction action, Long targetUserId, Long actorUserId)` | `GeneralAdminUserCommandService.changeStatus`(SUSPENDED/UNSUSPENDED), `GeneralUserService.forceLogout`(FORCE_LOGOUT) — 감사로그 저장 직후 | 🛡️ 관리자 조치 |
 
-기존 이벤트 재사용(새 record 없음, 리스너만 구독): `RecruitmentOpenedEvent`(📣 모집 오픈), `FacilityBookingSubmittedEvent`(🏟️ 시설 예약 신청), `FacilityBookingCancelledEvent`(관리자 취소, 🏟️ 시설 예약 취소), `FacilityBookingConflictEvent`(⚠️ 시설 예약 충돌). 재사용 이벤트의 자유 텍스트 필드(`reason`·`detail`)는 **출력하지 않는다** — id 만.
+기존 이벤트 재사용(새 record 없음, 리스너만 구독): `RecruitmentOpenedEvent`(📣 모집 오픈 — **생성·교체 시점에 이미 OPEN 이고 시작일이 지난 경우만** 발행된다(`GeneralRecruitmentService.buildAndPersist`). 예정(UPCOMING)→날짜 도래로 열리는 모집, `update` 로 상태가 바뀌는 모집은 어느 도메인에도 이벤트가 없어 Slack 에도 가지 않는다), `FacilityBookingSubmittedEvent`(🏟️ 시설 예약 신청), `FacilityBookingRejectedEvent`(🏟️ 시설 예약 거절), `FacilityBookingCancelledEvent`(관리자 취소, 🏟️ 시설 예약 취소), `FacilityBookingConflictEvent`(⚠️ 시설 예약 충돌). 재사용 이벤트의 자유 텍스트 필드(`reason`·`detail`)는 **출력하지 않는다** — id 만. 예외: `RecruitmentOpenedEvent.recruitmentTitle` 은 공개 게시물 제목이라 출력한다.
 
 ### 메시지 포맷 (`OpsSlackMessageFormatter`)
 
@@ -114,10 +114,12 @@ Octomo 호출(자체 집계, 오늘): 37 / 1,000
 
 ### 설정 / 시크릿
 - `application.yml`: `monitoring.slack.webhook-url: ${SLACK_WEBHOOK_URL:}` (로컬·CI 비활성).
-- `application-prod.yml`: `monitoring.slack.webhook-url: ${SLACK_WEBHOOK_URL}` — 폴백 없음(SENTRY_DSN 관례). **릴리스 전 서버 `deploy/.env` 에 `SLACK_WEBHOOK_URL=` 줄을 반드시 추가**(빈 값이면 비활성으로 부팅, 키 자체가 없으면 부팅 실패→자동 롤백).
+- `application-prod.yml`: `monitoring.slack.webhook-url: ${SLACK_WEBHOOK_URL:}` — **폴백 있음(빈 값=비활성)**. SENTRY_DSN 의 fail-fast 관례를 일부러 따르지 않는다: 이 기능의 1순위 요구가 "모니터링이 핵심 서비스에 절대 영향을 주지 않는다"인데, `.env` 키 한 줄 누락으로 릴리스가 부팅 실패→자동 롤백되는 것은 모니터링이 배포를 깨는 경로다. 대신 `SlackNotifier` 가 `ApplicationReadyEvent` 에서 상태를 한 줄 남긴다 — 활성이면 INFO `[Slack 운영 알림] 활성`, 비활성이면 WARN `[Slack 운영 알림] 비활성 — SLACK_WEBHOOK_URL 미설정(로컬·CI 는 정상)` (`NotificationJobStatusLogger` 전례). 사일런트 결손은 이 WARN + Better Stack·Sentry 가 덮는다.
 - 테스트 `application.yml`: `monitoring.slack.webhook-url: ""`.
 - `backend/.env.example` 에 `SLACK_WEBHOOK_URL=` 항목(모니터링 섹션).
 - GitHub Actions Secret `SLACK_WEBHOOK_URL`(배포 알림용, 선택 — 없으면 스텝이 조용히 생략).
+- `backend/AGENTS.md` 환경변수 블록에 `SLACK_WEBHOOK_URL` 한 줄.
+- 로컬 `.env` 에 운영 webhook 을 넣지 않는 것은 문서 규약이다(기술 가드 없음) — 실수로 게시돼도 메시지의 `환경: local` 라벨로 즉시 식별된다.
 
 ## P0 장애 알림 (코드 밖 + CD 스텝)
 
@@ -130,6 +132,8 @@ Octomo 호출(자체 집계, 오늘): 37 / 1,000
 
 배포 메시지: `🚀 Deployment` / 서비스 / 환경: production / release: `${{ github.sha }}` / status: SUCCESS·FAILURE(cancelled 포함) / 시간(KST) / 실행 URL. 실패 시 "헬스 게이트 실패면 직전 이미지로 자동 롤백 시도됨" 한 줄.
 
+요구 §14 의 `🔴 Backend Error`(endpoint/error/release) 포맷은 **우리가 만들지 않는다** — Sentry Slack 연동의 기본 포맷이 그 역할을 하며, 백엔드가 5xx 마다 Slack 에 쏘는 두 번째 파이프라인은 Sentry 와 중복·폭주 위험이라 두지 않는다. Sentry Slack 연동은 UI OAuth 전용이라 자동화할 수 없고 수동 단계로 남는다 → 최종 판정은 이 두 항목 때문에 PASS 가 아니라 **CONDITIONAL PASS** 가 정직하다(조건: Sentry Slack 연동 설치 + 서버/GitHub 에 webhook 주입).
+
 ## 테스트
 
 | 대상 | 검증 |
@@ -141,9 +145,15 @@ Octomo 호출(자체 집계, 오늘): 37 / 1,000
 | `OpsSlackMonitoringIntegrationTest` (`@SpringBootTest`, `@MockitoBean SlackNotifier`, RestAssured) | 가입 201 → `verify(notifier, timeout(3000))` 로 USER_REGISTERED 메시지(이름·학번·UserId·환경·KST·Octomo 줄, 전화·비밀번호 부재) / 중복 가입 409 → 추가 전송 0 / 발행 후 롤백 → 호출 0 / notifier 가 예외 → 가입 201·저장 정상 / 동아리 생성·승인·중단·폐쇄, 회비 계좌 최초 등록만(재저장·갱신 제외), 관리자 정지·해제·강제 로그아웃 메시지(사유 부재) |
 | 회귀 | 백엔드 전체 `./gradlew test` BUILD SUCCESSFUL |
 
+통합 테스트 제약: `@MockitoBean` 은 테스트마다 리셋되지만 `monitoringTaskExecutor` 의 진행 중 작업은 리셋되지 않는다 — 앞 테스트의 마지막 비동기 전송이 다음 테스트의 `never()`/`times(1)` 에 섞이지 않도록 **각 테스트 시작 시 executor 를 드레인**(활성 0·큐 비움까지 폴링)한 뒤 `clearInvocations` 로 시작한다.
+
 ## 실검증 계획
 1. 로컬 mock webhook(HTTP 서버)으로 백엔드 기동 → 가입 API 호출 → 수신 페이로드 확인(필드·PII 부재·KST·Octomo 줄), 5xx 모드로 재시도 1회·서비스 무영향 확인.
 2. 실제 Slack webhook URL 은 현재 어디에도 없다(로컬 .env·GitHub Secrets·서버 미확인). URL 을 받으면 동일 절차를 실채널로 재실행한다 — 실운영 회원가입 데이터는 만들지 않고 로컬 서버 + 테스트 학번으로 수행.
+
+## 채널
+
+`#duing-monitoring` 단일 채널 — 단, 이 세션은 Slack 워크스페이스를 조사할 수단이 없어(연동 없음) 이는 가정이다. Better Stack 이 이미 보내는 운영 채널이 있으면 **그 채널의 webhook 을 쓰고 이름만 맞춘다**(세분화는 소음이 문제될 때).
 
 ## Out of Scope
 - Octomo 벤더 월 쿼터·잔여 호출(API 미제공) · 월 누적 영속 카운터(DB) · Redis 카운터.
