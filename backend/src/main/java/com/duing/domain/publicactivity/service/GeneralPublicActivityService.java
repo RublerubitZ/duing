@@ -34,12 +34,14 @@ public class GeneralPublicActivityService implements PublicActivityService {
         int sourceFetchLimit = effectiveLimit * 2; // 머지 헤드룸
         // 윈도우 경계도 저장 존에서 계산해야 created_at(system regime)과 같은 공간에서 비교된다.
         LocalDateTime since = TimeMapper.systemNow(clock).minusDays(properties.windowDays());
+        // INTERVIEW_RESULT 만 컬럼 regime 이 seoul(KST 벽시계) 이라 경계도 같은 축으로 별도 산출한다. (/TIMEZONE.md)
+        LocalDateTime seoulSince = LocalDateTime.now(clock).minusDays(properties.windowDays());
 
         List<ActivityItem> merged = new ArrayList<>();
         merged.addAll(queryRepository.findRecentRecruitOpen(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentNoticeCreated(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentInterviewCreated(since, sourceFetchLimit));
-        merged.addAll(queryRepository.findRecentInterviewResult(since, sourceFetchLimit));
+        merged.addAll(queryRepository.findRecentInterviewResult(seoulSince, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentEventCreated(since, sourceFetchLimit));
         merged.addAll(queryRepository.findRecentFeeOpen(since, sourceFetchLimit));
 

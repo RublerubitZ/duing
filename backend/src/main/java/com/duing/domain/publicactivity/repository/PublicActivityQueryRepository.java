@@ -22,6 +22,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -83,7 +84,7 @@ public class PublicActivityQueryRepository {
                 recruitment.club.id, recruitment.club.name, interviewRound.createdAt);
     }
 
-    public List<ActivityItem> findRecentInterviewResult(LocalDateTime since, int limit) {
+    public List<ActivityItem> findRecentInterviewResult(LocalDateTime seoulSince, int limit) {
         List<Tuple> rows = queryFactory
                 .select(recruitment.club.id, recruitment.club.name, interviewRound.assignmentCompletedAt)
                 .from(interviewRound)
@@ -91,14 +92,17 @@ public class PublicActivityQueryRepository {
                 .where(
                         interviewRound.status.eq(RoundStatus.SCHEDULED),
                         interviewRound.assignmentCompletedAt.isNotNull(),
-                        interviewRound.assignmentCompletedAt.goe(since),
+                        interviewRound.assignmentCompletedAt.goe(seoulSince),
                         recruitment.club.status.eq(ClubStatus.ACTIVE)
                 )
                 .orderBy(interviewRound.assignmentCompletedAt.desc())
                 .limit(limit)
                 .fetch();
+        // assignment_completed_at 은 confirmRound 가 KST 벽시계(clock=seoul)로 기록한다 — BaseEntity 감사(system)와
+        // regime 이 달라 이 피드만 seoul 로 해석하고, 경계(seoulSince)도 같은 축으로 받는다. (/TIMEZONE.md)
         return toItems(rows, PublicActivityType.INTERVIEW_RESULT,
-                recruitment.club.id, recruitment.club.name, interviewRound.assignmentCompletedAt);
+                recruitment.club.id, recruitment.club.name, interviewRound.assignmentCompletedAt,
+                TimeMapper::seoulWallClockToInstant);
     }
 
     public List<ActivityItem> findRecentEventCreated(LocalDateTime since, int limit) {
@@ -134,20 +138,23 @@ public class PublicActivityQueryRepository {
         return toItems(rows, PublicActivityType.FEE_OPEN, club.id, club.name, feePolicy.createdAt);
     }
 
+    // created_at 등은 JPA 감사가 JVM 기본 존으로 기록하므로 system 벽시계로 해석한다. (/TIMEZONE.md)
     private List<ActivityItem> toItems(List<Tuple> rows, PublicActivityType type,
                                        NumberPath<Long> clubIdPath, StringPath clubNamePath,
                                        DateTimePath<LocalDateTime> tsPath) {
+        return toItems(rows, type, clubIdPath, clubNamePath, tsPath, TimeMapper::systemWallClockToInstant);
+    }
+
+    private List<ActivityItem> toItems(List<Tuple> rows, PublicActivityType type,
+                                       NumberPath<Long> clubIdPath, StringPath clubNamePath,
+                                       DateTimePath<LocalDateTime> tsPath,
+                                       Function<LocalDateTime, Instant> toInstant) {
         return rows.stream()
                 .map(row -> new ActivityItem(
                         type,
                         row.get(clubIdPath),
                         row.get(clubNamePath),
-                        toInstant(row.get(tsPath))))
+                        toInstant.apply(row.get(tsPath))))
                 .toList();
-    }
-
-    // created_at 등은 JPA 감사가 JVM 기본 존으로 기록하므로 system 벽시계로 해석한다. (/TIMEZONE.md)
-    private Instant toInstant(LocalDateTime ldt) {
-        return TimeMapper.systemWallClockToInstant(ldt);
     }
 }
