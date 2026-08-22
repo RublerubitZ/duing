@@ -208,6 +208,19 @@ class AdminFeeAuditDetailTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("청구 검색어의 앞뒤 공백은 매칭을 막지 않는다")
+    void billSearchIgnoresSurroundingWhitespace() {
+        JsonPath byName = searchBills("q", "  김두  ");
+        assertThat(byName.getList("data.content.billId", Long.class))
+                .containsExactlyInAnyOrder(paidBillId, futureBillId, cancelledBillId);
+
+        // 학번은 prefix 매칭이라, 공백이 남으면 앞자리부터 어긋나 아무것도 걸리지 않는다.
+        JsonPath byStudentIdPrefix = searchBills("q", "  20239  ");
+        assertThat(byStudentIdPrefix.getList("data.content.billId", Long.class))
+                .containsExactlyInAnyOrder(dueTodayBillId, overdueBillId);
+    }
+
+    @Test
     @DisplayName("연체 여부는 저장된 상태가 아니라 마감일로 파생되고 완납 청구는 마감이 지나도 연체가 아니다")
     void overdueFlagIsDerivedFromDueDate() {
         JsonPath response = searchBills();
