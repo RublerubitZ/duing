@@ -36,6 +36,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,7 +127,8 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
     private BankTransaction savePendingDeposit(Long ownerClubId, long amount, String counterparty) {
         String hash = "hash-" + hashCounter.incrementAndGet();
         BankTransaction transaction = BankTransaction.ingest(
-                ownerClubId, "011", LocalDateTime.of(2026, 6, 10, 12, 0), amount, 100000L,
+                ownerClubId, "011", LocalDateTime.of(2026, 6, 10, 12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+                amount, 100000L,
                 counterparty, TransactionType.DEPOSIT, hash, "{\"type\":\"deposit\"}");
         return bankTransactionRepository.save(transaction);
     }

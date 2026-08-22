@@ -126,7 +126,8 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
     /** 입금 거래 1건을 적재한다(매칭 대상이 되도록 DEPOSIT 으로). */
     private BankTransaction saveDeposit(long amount) {
         return bankTransactionRepository.save(BankTransaction.ingest(
-                clubId, "NH", LocalDateTime.of(2026, 6, 10, 9, 0), amount, 100000L, "홍길동",
+                clubId, "NH", LocalDateTime.of(2026, 6, 10, 9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+                amount, 100000L, "홍길동",
                 TransactionType.DEPOSIT, "hash-" + amount + "-" + System.nanoTime(), "{}"));
     }
 
@@ -329,7 +330,7 @@ class MatchedPaymentServiceTest extends IntegrationTestBase {
         FeeBill partialBill = saveBill(10000L, "2026-07");
         paymentRepository.save(com.duing.domain.fee.entity.Payment.record(
                 partialBill.getId(), 6000L, PaymentMethod.CASH,
-                LocalDateTime.of(2026, 6, 10, 9, 0), actorId, "선납"));
+                LocalDateTime.of(2026, 6, 10, 9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(), actorId, "선납"));
 
         // 다른 청구: 완납(매칭) 처리해 후보에서 빠져야 한다.
         FeeBill paidBill = saveBill(10000L, "2026-08");

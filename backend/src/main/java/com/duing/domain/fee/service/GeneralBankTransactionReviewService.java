@@ -19,7 +19,7 @@ import com.duing.domain.fee.repository.MatchedBillInfo;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.query.BankTransactionView;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -153,7 +153,7 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         Payment payment = paymentRepository.findByBankTransactionIdAndStatus(txId, PaymentStatus.ACTIVE)
                 .orElseThrow(BankMatchingException.MatchedPaymentNotFoundException::new);
 
-        payment.voidPayment(actorId, UNMATCH_REASON, LocalDateTime.now(clock));
+        payment.voidPayment(actorId, UNMATCH_REASON, Instant.now(clock));
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
         FeeStatus newStatus = statusRefresher.refresh(bill, activePaid);
         transaction.resetToPending();

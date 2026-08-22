@@ -18,7 +18,7 @@ import com.duing.domain.fee.service.dto.command.VoidPaymentCommand;
 import com.duing.domain.fee.service.dto.query.PaymentQuery;
 import com.duing.domain.notification.event.FeePaymentConfirmedEvent;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +63,8 @@ public class GeneralPaymentService implements PaymentService {
             throw new PaymentException.PaymentExceedsRemainingException();
         }
 
-        LocalDateTime paidAt = command.paidAt().atStartOfDay(SEOUL).toLocalDateTime();
+        // 수기 납부일은 KST 날짜라 KST 자정의 절대시각으로 굳힌다.
+        Instant paidAt = command.paidAt().atStartOfDay(SEOUL).toInstant();
         Payment payment = paymentRepository.save(Payment.record(
                 command.billId(), command.amount(), command.method(), paidAt, command.actorId(), command.memo()));
 
@@ -99,7 +100,7 @@ public class GeneralPaymentService implements PaymentService {
 
         // 감사는 실제 VOID 전이가 일어났을 때만 남긴다 — 멱등 재호출로 정정 이력이 부풀지 않게 호출 전 상태를 캡처한다.
         boolean wasActive = payment.isActive();
-        payment.voidPayment(command.actorId(), command.reason(), LocalDateTime.now(clock)); // 이미 VOIDED 면 멱등 no-op
+        payment.voidPayment(command.actorId(), command.reason(), Instant.now(clock)); // 이미 VOIDED 면 멱등 no-op
         long activePaid = paymentRepository.sumActiveByFeeBillId(command.billId());
         // CANCELLED 청구는 updateStatus 가 멱등 no-op 이라 정정으로 되살아나지 않는다.
         statusRefresher.refresh(bill, activePaid);

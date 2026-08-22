@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * PENDING 인 마감 경과 청구도 FE 가 연체로 표시할 수 있다. 완납·취소는 마감이 지나도 false 다.
  *
  * <p>{@code userName}·{@code studentId}·{@code generation} 은 탈퇴 회원, {@code policyName} 은
- * 삭제된 정책이면 null 이다. {@code createdAt} 은 JVM 존, {@code lastPaidAt} 은 KST 벽시계를 환산한다.
+ * 삭제된 정책이면 null 이다. {@code createdAt} 만 JVM 존 벽시계라 환산하고, {@code lastPaidAt} 은 저장값 그대로다.
  */
 public record AdminFeeBillRowResponse(
         Long billId,
@@ -46,6 +46,6 @@ public record AdminFeeBillRowResponse(
                 billRow.overdue(),
                 TimeMapper.systemWallClockToInstant(billRow.createdAt()),
                 billRow.dueDate(),
-                TimeMapper.seoulWallClockToInstant(billRow.lastPaidAt()));
+                billRow.lastPaidAt());
     }
 }

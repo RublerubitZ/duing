@@ -27,6 +27,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -88,9 +89,10 @@ class MyFeeReceiptControllerTest extends IntegrationTestBase {
 
     private void recordPayment(Long billId, long amount, boolean voided) {
         Payment payment = Payment.record(billId, amount, PaymentMethod.CASH,
-                LocalDateTime.of(2026, 7, 10, 0, 0), userA.getId(), "현금 납부");
+                LocalDateTime.of(2026, 7, 10, 0, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(), userA.getId(), "현금 납부");
         if (voided) {
-            payment.voidPayment(userA.getId(), "정정", LocalDateTime.of(2026, 7, 11, 0, 0));
+            payment.voidPayment(userA.getId(), "정정",
+                    LocalDateTime.of(2026, 7, 11, 0, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant());
         }
         paymentRepository.save(payment);
     }

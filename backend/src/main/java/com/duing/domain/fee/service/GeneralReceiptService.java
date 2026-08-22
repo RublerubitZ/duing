@@ -14,7 +14,6 @@ import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -80,10 +79,9 @@ public class GeneralReceiptService implements ReceiptService {
                         paidTotal, LocalDate.now(clock)),
                 Instant.now(clock),
                 activePayments.stream()
-                        // paid_at 은 KST 벽시계 계열(수기 납부 atStartOfDay(SEOUL)·BANK 매칭 transactionAt) — seoul 변환.
                         .map(payment -> new ReceiptResponse.PaymentLine(
                                 payment.getAmount(), payment.getMethod(),
-                                TimeMapper.seoulWallClockToInstant(payment.getPaidAt()), payment.getMemo()))
+                                payment.getPaidAt(), payment.getMemo()))
                         .toList());
     }
 }

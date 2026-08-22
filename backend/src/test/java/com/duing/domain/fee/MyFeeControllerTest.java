@@ -131,10 +131,11 @@ class MyFeeControllerTest extends IntegrationTestBase {
     /** billId 청구에 지정 상태의 납부 1건을 직접 적재한다(VOIDED 는 합계에서 제외돼야 한다). */
     private void recordPayment(Long billId, long amount, boolean voided) {
         Payment payment = Payment.record(
-                billId, amount, PaymentMethod.CASH, LocalDateTime.of(2026, 6, 10, 0, 0),
+                billId, amount, PaymentMethod.CASH, LocalDateTime.of(2026, 6, 10, 0, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
                 userA.getId(), null);
         if (voided) {
-            payment.voidPayment(userA.getId(), "정정", LocalDateTime.of(2026, 6, 11, 0, 0));
+            payment.voidPayment(userA.getId(), "정정",
+                    LocalDateTime.of(2026, 6, 11, 0, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant());
         }
         paymentRepository.save(payment);
     }

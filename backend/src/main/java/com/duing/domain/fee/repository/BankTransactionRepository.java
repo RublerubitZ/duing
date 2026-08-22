@@ -4,7 +4,7 @@ import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.MatchStatus;
 import com.duing.domain.fee.entity.TransactionType;
 import jakarta.persistence.LockModeType;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -30,7 +30,7 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     List<BankTransaction> findByTransactionHashIn(List<String> transactionHashes);
 
     @Query("SELECT MAX(bt.transactionAt) FROM BankTransaction bt WHERE bt.clubId = :clubId")
-    Optional<LocalDateTime> findLatestTransactionAt(@Param("clubId") Long clubId);
+    Optional<Instant> findLatestTransactionAt(@Param("clubId") Long clubId);
 
     /**
      * BANK API 수집분을 멱등 적재한다. transaction_hash 유니크 충돌 시 DO NOTHING 으로 무시한다.
@@ -51,7 +51,7 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
             """, nativeQuery = true)
     int insertIgnoringConflict(@Param("clubId") Long clubId,
                                @Param("bankCode") String bankCode,
-                               @Param("transactionAt") LocalDateTime transactionAt,
+                               @Param("transactionAt") Instant transactionAt,
                                @Param("amount") Long amount,
                                @Param("balance") Long balance,
                                @Param("counterparty") String counterparty,

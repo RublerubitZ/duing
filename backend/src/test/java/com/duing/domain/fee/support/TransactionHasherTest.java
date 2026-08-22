@@ -28,6 +28,19 @@ class TransactionHasherTest {
     }
 
     @Test
+    @DisplayName("거래 dedup 해시는 KST 벽시계 문자열 기준으로 불변이다 — 백필 후 재수집분이 기존 행과 같은 해시여야 중복 적재가 없다")
+    void transactionHashIsPinnedToSeoulWallClockSerialization() {
+        // 해시 입력은 BANK API 응답 DTO(BankTransactionData) 의 KST 벽시계 문자열이다 —
+        // 엔티티 transaction_at 이 Instant 로 바뀌어도 이 값은 절대 달라지면 안 된다.
+        // transaction_hash 는 전역 unique 이므로, 해시가 바뀌면 이미 적재된 거래가 다른 해시로 재적재돼
+        // 회계 장부(cashbook_entry)까지 중복 생성된다.
+        BankTransactionData transaction = transaction("홍길동", "회비", "본점", "메모");
+
+        assertThat(hasher.hash(CLUB_ID, BANK_CODE, transaction))
+                .isEqualTo("b9a7c11f29e950e937a86a0fa2032eebf65f43934610fa12696358b3ff4de550");
+    }
+
+    @Test
     @DisplayName("같은 입력은 항상 같은 64자리 소문자 hex 해시를 만든다")
     void sameInputProducesSameHash() {
         BankTransactionData transaction = transaction("홍길동", "회비", "본점", "메모");
