@@ -18,7 +18,7 @@ vi.mock('@duing/hooks', () => ({
   useDeleteMyApplicationEvaluationMutation: () => ({
     mutateAsync: mockDelete,
   }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 function wrap(ui: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

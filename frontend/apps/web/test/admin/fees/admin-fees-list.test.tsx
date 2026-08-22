@@ -12,7 +12,7 @@ const mockDashboardQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useAdminFeeClubsQuery: (...args: unknown[]) => mockClubsQuery(...args),
   useAdminFeeDashboardQuery: (...args: unknown[]) => mockDashboardQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // 검색어는 의도적으로 주소에 싣지 않는다 — replace 호출 여부로 그 약속을 지킨다.
 // 기간·필터는 반대로 주소가 진실이라, replace 가 쓴 질의 문자열을 useSearchParams 가 되읽도록 이어 붙인다

@@ -22,14 +22,7 @@ vi.mock(
 const server = setupServer();
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-beforeAll(() =>
-  server.listen({
-    onUnhandledRequest: (req) => {
-      console.error(`Unhandled ${req.method} ${req.url}`);
-      throw new Error(`Unhandled ${req.method} ${req.url}`);
-    },
-  }),
-);
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 

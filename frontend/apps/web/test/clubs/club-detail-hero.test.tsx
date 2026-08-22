@@ -19,7 +19,7 @@ vi.mock('@duing/stores', () => {
 vi.mock('@duing/hooks', () => ({
   useFavoriteIdsQuery: () => ({ data: [] }),
   useFavoriteToggleMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const baseClub: ClubDetail = {
   id: 1,

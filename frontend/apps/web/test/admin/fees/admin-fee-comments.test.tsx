@@ -29,7 +29,7 @@ vi.mock('@duing/hooks', () => ({
   useCreateFeeAuditCommentMutation: () => ({ mutate: mockCreate, isPending: false }),
   useUpdateFeeAuditCommentMutation: () => ({ mutate: mockUpdate, isPending: false }),
   useDeleteFeeAuditCommentMutation: () => ({ mutate: mockDelete, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 let currentSearch = 'tab=comments';
 const mockPush = vi.fn();

@@ -3,6 +3,7 @@ package com.duing.domain.fee;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -30,7 +31,6 @@ import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.MatchedPaymentService;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,29 +46,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Import({TestcontainersConfiguration.class, MatchedPaymentServiceTest.FixedClockConfig.class})
+// '오늘'을 FixedClockConfig.TODAY(2026-06-15 Asia/Seoul)로 고정해 마감 경과(OVERDUE) 판정을 결정적으로 만든다.
+@Import({TestcontainersConfiguration.class, FixedClockConfig.class})
 @SpringBootTest
 class MatchedPaymentServiceTest extends IntegrationTestBase {
-
-    // '오늘'을 2026-06-15(Asia/Seoul)로 고정해 마감 경과(OVERDUE) 판정을 결정적으로 만든다.
-    static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
-
-    @TestConfiguration
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(
-                    TODAY.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
-                    ZoneId.of("Asia/Seoul"));
-        }
-    }
 
     @Autowired
     UserRepository userRepository;

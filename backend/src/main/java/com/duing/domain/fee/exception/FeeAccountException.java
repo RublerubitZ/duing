@@ -43,4 +43,18 @@ public class FeeAccountException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    /**
+     * 계좌가 없는 동아리에 두 요청이 동시에 첫 등록을 시도해 한쪽이 {@code uk_fee_account_club} 에 걸린 경우.
+     * 등록은 멱등 PUT 이라 사전 검증으로 걸러낼 중복이 없으므로, 이 예외는 <em>경합 전용</em>이다 —
+     * 사전 검증 실패(권한·자동매칭 잠금)와 달리 재시도하면 갱신 경로로 정상 처리된다.
+     */
+    public static class ConcurrentRegistrationException extends FeeAccountException {
+        private static final String MESSAGE =
+                "다른 운영진이 먼저 회비 계좌를 등록했습니다. 새로고침 후 다시 시도해주세요.";
+
+        public ConcurrentRegistrationException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }

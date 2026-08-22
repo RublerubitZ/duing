@@ -1,4 +1,4 @@
-import ky, { type KyInstance, type ResponsePromise, HTTPError, TimeoutError } from 'ky';
+import ky, { type KyInstance, type ResponsePromise } from 'ky';
 import { notifyUnauthorized } from './unauthorized-context';
 import type {
   InterviewRoundCandidate,
@@ -17,67 +17,13 @@ import type {
   UpdateInterviewSlotPayload,
 } from '@duing/types';
 import type {
-  AdminClubSearchParams,
-  AdminClubSummary,
-  AdminClubMemberHistoryParams,
-  AdminClubMemberHistoryRow,
-  AdminPendingCounts,
-  AdminSuccessionDetail,
-  AdminSuccessionSearchParams,
-  AdminSuccessionSummary,
-  AssignAdminLeaderPayload,
-  ProcessSuccessionPayload,
   SubmitSuccessionRequestPayload,
-  AdminUserSearchParams,
-  AdminUserSearchResult,
-  AdminUserDetail,
-  AdminUserPhone,
-  ChangeUserStatusPayload,
-  UpdateAdminNotePayload,
-  AdminReportSearchParams,
-  AdminReportSummary,
-  AdminReportDetail,
-  ProcessReportPayload,
   SubmitReportPayload,
-  AdminRecruitmentSearchParams,
-  AdminRecruitmentSummary,
-  AdminRecruitmentDetail,
-  ForceCloseRecruitmentPayload,
-  AdminApplicantSearchParams,
-  AdminApplicantList,
-  AdminApplicationDetail,
-  AdminFeeClubSearchParams,
-  AdminFeeClubSummary,
-  AdminFeePeriodParams,
-  AdminFeeDashboard,
-  AdminFeeClubDetail,
-  AdminFeePolicy,
-  AdminFeeBillSearchParams,
-  AdminFeeBillRow,
-  AdminFeePaymentSearchParams,
-  AdminFeePaymentRow,
-  AdminFeeAccount,
-  AdminFeeAuditLogSearchParams,
-  AdminFeeAuditLog,
-  AdminFeeAnomalyReport,
-  AdminFeeAuditComment,
-  FeeAuditCommentKind,
-  CreateFeeAuditCommentPayload,
-  UpdateFeeAuditCommentPayload,
-  AdminPromotionRequestSummary,
-  AdminPromotionRequestDetail,
-  AdminPromotionRequestSearchParams,
-  ProcessPromotionRequestPayload,
   SubmitPromotionRequestPayload,
-  AdminPromotionSummary,
-  AdminPromotionSearchParams,
-  CreatePromotionPayload,
-  UpdatePromotionPayload,
   ApiResponse,
   PageResponse,
   ClubDetail,
   ClubMember,
-  AdminClubMember,
   ClubMemberExportRow,
   ClubMemberPhone,
   JoinCodeSummary,
@@ -118,7 +64,6 @@ import type {
   SubmitApplicationPayload,
   UpdateApplicationStatusPayload,
   UpdateClubPayload,
-  AdminUpdateClubPayload,
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
   CloseClubPayload,
@@ -144,11 +89,7 @@ import type {
   NoticeCardItem,
   NoticeDetail,
   NoticeCategory,
-  NoticeVisibility,
   NoticeSource,
-  AdminNoticeSummary,
-  CreateNoticePayload,
-  UpdateNoticePayload,
   CreateClubPhotoPayload,
   UpdateClubPhotoPayload,
   ReorderClubPhotosPayload,
@@ -165,21 +106,14 @@ import type {
   CreateClubNoticePayload,
   UpdateClubNoticePayload,
   ClubNoticeDetail,
-  AdminClubEventCard,
   ClubEventCard,
   ClubEventDetail,
   ClubEventListParams,
   CreateClubEventPayload,
   UpdateClubEventPayload,
-  AdminGlobalEventDetail,
-  AdminGlobalEventListParams,
-  AdminGlobalEventSummary,
-  CreateGlobalEventPayload,
   GlobalEventCard,
-  GlobalEventCategoryStats,
   GlobalEventDetail,
   GlobalEventListParams,
-  UpdateGlobalEventPayload,
   FeePolicy,
   FeeBill,
   MyFee,
@@ -201,7 +135,6 @@ import type {
   BankMatchingStatus,
   SyncResult,
   SyncBankTransactionsPayload,
-  BankMatchingOverview,
   CashbookEntry,
   CashbookSummary,
   CashbookSearchParams,
@@ -220,144 +153,36 @@ import type {
   BookingStatus,
   FacilityBookingSummary,
   FacilityBookingDetail,
-  AdminFacilityBookingSummary,
-  AdminFacilityBookingDetail,
-  AdminFacilityBookingCounts,
-  AdminBookingQueueParams,
-  SubmissionCandidatesParams,
-  SubmissionCandidatesResponse,
-  CreateSubmissionBatchPayload,
-  CreateSubmissionBatchResult,
-  SubmissionBatchListParams,
-  SubmissionBatchSummary,
-  SubmissionBatchDetail,
-  CompleteSubmissionBatchResult,
   FederationFaqCategory,
   FederationFaqItem,
-  AdminFederationFaqSummary,
-  CreateFederationFaqPayload,
-  UpdateFederationFaqPayload,
   FederationFaqFeedbackPayload,
-  AdminFederationFaqSearchMiss,
-  CreateFederationFaqCategoryPayload,
-  UpdateFederationFaqCategoryPayload,
   FederationInquiryStatus,
   FederationInquirySummary,
   FederationInquiryDetail,
-  AdminFederationInquirySummary,
-  AdminFederationInquiryDetail,
   CreateFederationInquiryPayload,
   UpdateFederationInquiryPayload,
-  ChangeFederationInquiryStatusPayload,
-  AnswerFederationInquiryPayload,
-  UpdateFederationInquiryAnswerPayload,
 } from '@duing/types';
 import { clearToken, readToken, writeToken } from './token';
 import { isKnownOffline } from './connectivity';
 import { createRefreshCoordinator } from './refresh-coordinator';
 import type { RefreshOutcome } from './refresh-coordinator';
+import {
+  ApiError,
+  BLOB_BODY_READ_TIMEOUT_MS,
+  JSON_BODY_READ_TIMEOUT_MS,
+  NETWORK_ERROR_MESSAGE,
+  REQUEST_TIMEOUT_MS,
+  cleanParams,
+  readBodyWithTimeout,
+  toApiError,
+  unwrap,
+  unwrapNullable,
+} from './http';
+import { createAdminApi, type AdminApi } from './domains/admin';
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly payload?: unknown,
-    public readonly code?: string,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-// 사용자 대면 네트워크 오류 안내 문구 — 전 화면의 `error instanceof ApiError ? error.message : …`
-// 패턴이 그대로 노출하므로 여기 한 곳에서만 관리한다. (스펙 §3.2)
-export const TIMEOUT_ERROR_MESSAGE = '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
-export const NETWORK_ERROR_MESSAGE = '인터넷 연결을 확인해주세요.';
-
-/**
- * 서버가 ApiResponse 본문을 주지 못했을 때(프록시 HTML 응답·본문 파싱 실패) 합성하는 폴백 문구.
- * 항상 truthy 라 `error.message ?? 기본문구` 로는 걸러지지 않으므로, 서버가 내려준 사용자 대면 사유와
- * 이 합성 문구를 구분해야 하는 호출처(MemberAccessGuard 등)가 비교에 쓴다.
- */
-export const httpFallbackMessage = (status: number) => `요청 실패 (${status})`;
-
-export async function toApiError(error: unknown): Promise<never> {
-  // connectivity fail-fast 등 이미 정규화된 에러는 그대로 통과시킨다.
-  if (error instanceof ApiError) {
-    throw error;
-  }
-  // ky 타임아웃 — 분류별 REQUEST_TIMEOUT_MS 초과. 재시도 정책(shouldRetryQuery)이 code 로 식별한다.
-  if (error instanceof TimeoutError) {
-    throw new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT');
-  }
-  if (error instanceof HTTPError) {
-    let message = httpFallbackMessage(error.response.status);
-    let payload: unknown;
-    let code: string | undefined;
-    try {
-      const body = (await error.response.json()) as ApiResponse<unknown>;
-      if (body && typeof body.message === 'string') {
-        message = body.message;
-      }
-      if (body && typeof body.code === 'string') {
-        code = body.code;
-      }
-      payload = body.data;
-    } catch {
-      // ignore json parse failure
-    }
-    throw new ApiError(error.response.status, message, payload, code);
-  }
-  // fetch 네트워크 실패(오프라인·DNS·연결 거부)는 TypeError 로 도착한다.
-  if (error instanceof TypeError) {
-    throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
-  }
-  throw error;
-}
-
-function unwrap<T>(response: ApiResponse<T>): T {
-  // 200 + null 봉투(res.json() 이 null)면 response 자체가 null 로 도착한다 — 이때 response.ok 접근이
-  // TypeError 를 던져 toApiError 가 NETWORK 로 오분류하므로, 먼저 null 봉투를 빈 응답으로 가드한다.
-  if (!response || !response.ok || response.data === null) {
-    throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
-  }
-  return response.data;
-}
-
-/**
- * `data: null` 을 오류가 아닌 유효한 결과로 취급하는 조회 전용 언래퍼.
- * unwrap 은 null 을 빈 응답(ApiError)으로 던지므로, "없음도 정상 응답"이 계약인 엔드포인트
- * (예: 비멤버일 때 200 + null 인 멤버십 조회)만 이쪽을 쓴다.
- */
-function unwrapNullable<T>(response: ApiResponse<T | null>): T | null {
-  // 봉투 자체가 없는 경우(본문이 통째로 빈 응답)는 서버가 명시적으로 내린 data: null 과 다르다 —
-  // unwrap 과 동일하게 오류로 처리한다.
-  if (!response || !response.ok) {
-    throw new ApiError(0, response?.message ?? '응답이 비어 있습니다.');
-  }
-  return response.data ?? null;
-}
-
-// 본문 소비 타임아웃(ms). ky 의 timeout 은 응답 헤더 도착까지만 계측하므로,
-// 헤더 후 본문이 중단(stall)되면 json()/blob() 이 무한 대기한다 — 별도 상한으로 막는다.
-const JSON_BODY_READ_TIMEOUT_MS = 10_000;
-const BLOB_BODY_READ_TIMEOUT_MS = 60_000;
-
-// 테스트를 위해 export. 타임아웃 시 정규화된 TIMEOUT ApiError 로 거부한다.
-export async function readBodyWithTimeout<T>(bodyPromise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timerId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timerId = setTimeout(
-      () => reject(new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT')),
-      timeoutMs,
-    );
-  });
-  try {
-    return await Promise.race([bodyPromise, timeoutPromise]);
-  } finally {
-    clearTimeout(timerId);
-  }
-}
+// 공통 HTTP 원시값(ApiError·언래퍼·타임아웃 상수·cleanParams)은 http.ts 로 옮겼지만,
+// 소비자와 테스트가 '../src/client' 경로로 잡아 온 표면은 재수출로 그대로 유지한다.
+export * from './http';
 
 export type DuingApiClient = {
   auth: {
@@ -652,196 +477,7 @@ export type DuingApiClient = {
   reports: {
     submit(payload: SubmitReportPayload): Promise<number>;
   };
-  admin: {
-    /** 콘솔 사이드바 뱃지용 도메인별 미처리 건수. 미처리 판정 기준은 전부 서버가 정한다. */
-    pendingCounts(): Promise<AdminPendingCounts>;
-    clubs: {
-      list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
-      detail(clubId: number): Promise<ClubDetail>;
-      /** 학교 제출용 동아리원 명단(이름·학번·전공·단과대). 총동연 전용, 소속 무관 조회. */
-      members(clubId: number): Promise<AdminClubMember[]>;
-      /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
-      update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
-    };
-    /**
-     * 캘린더용 전 동아리 행사 일정. ACTIVE 동아리만, 카드 정보만 준다.
-     * 페이지네이션 없이 창(from~to)으로만 제한한다 — admin.recruitments 와 같은 형태.
-     */
-    clubEvents: {
-      list(params: ClubEventListParams): Promise<AdminClubEventCard[]>;
-    };
-    users: {
-      search(params: AdminUserSearchParams): Promise<PageResponse<AdminUserSearchResult>>;
-      detail(userId: number): Promise<AdminUserDetail>;
-      changeStatus(userId: number, payload: ChangeUserStatusPayload): Promise<void>;
-      updateNote(userId: number, payload: UpdateAdminNotePayload): Promise<void>;
-      /** 원본 휴대폰 번호. 서버가 no-store 를 보내며 열람 사실이 감사 로그에 남는다. */
-      phone(userId: number): Promise<AdminUserPhone>;
-      forceLogout(userId: number): Promise<void>;
-    };
-    notices: {
-      list(params: {
-        category?: NoticeCategory;
-        visibility?: NoticeVisibility;
-        keyword?: string;
-        includeExpired?: boolean;
-        page: number;
-        size: number;
-      }): Promise<PageResponse<AdminNoticeSummary>>;
-      detail(noticeId: number): Promise<NoticeDetail>;
-      create(payload: CreateNoticePayload): Promise<number>;
-      update(noticeId: number, payload: UpdateNoticePayload): Promise<void>;
-      remove(noticeId: number): Promise<void>;
-    };
-    federationFaqs: {
-      list(params: {
-        published?: boolean;
-        categoryId?: number;
-        keyword?: string;
-        page: number;
-        size: number;
-      }): Promise<PageResponse<AdminFederationFaqSummary>>;
-      create(payload: CreateFederationFaqPayload): Promise<number>;
-      update(faqId: number, payload: UpdateFederationFaqPayload): Promise<void>;
-      remove(faqId: number): Promise<void>;
-      reorder(orderedIds: number[]): Promise<void>;
-      // 정렬 서버 고정(missCount desc·lastSearchedAt desc), sort 파라미터 미지원.
-      searchMisses(params: { page: number; size: number }): Promise<PageResponse<AdminFederationFaqSearchMiss>>;
-    };
-    federationFaqCategories: {
-      create(payload: CreateFederationFaqCategoryPayload): Promise<number>;
-      update(categoryId: number, payload: UpdateFederationFaqCategoryPayload): Promise<void>;
-      // moveToCategoryId 지정 시 소속 FAQ 전부 이관 후 삭제, 미지정 시 FAQ 가 있으면 409.
-      remove(categoryId: number, moveToCategoryId?: number): Promise<void>;
-    };
-    federationInquiries: {
-      list(params: {
-        status?: FederationInquiryStatus;
-        keyword?: string;
-        page: number;
-        size: number;
-      }): Promise<PageResponse<AdminFederationInquirySummary>>;
-      detail(inquiryId: number): Promise<AdminFederationInquiryDetail>;
-      changeStatus(inquiryId: number, payload: ChangeFederationInquiryStatusPayload): Promise<void>;
-      answer(inquiryId: number, payload: AnswerFederationInquiryPayload): Promise<number>;
-      updateAnswer(inquiryId: number, payload: UpdateFederationInquiryAnswerPayload): Promise<void>;
-    };
-    globalEvents: {
-      list(params: AdminGlobalEventListParams): Promise<PageResponse<AdminGlobalEventSummary>>;
-      detail(eventId: number): Promise<AdminGlobalEventDetail>;
-      create(payload: CreateGlobalEventPayload): Promise<number>;
-      update(eventId: number, payload: UpdateGlobalEventPayload): Promise<void>;
-      remove(eventId: number): Promise<void>;
-      categoryStats(): Promise<GlobalEventCategoryStats>;
-    };
-    reports: {
-      list(params: AdminReportSearchParams): Promise<PageResponse<AdminReportSummary>>;
-      get(reportId: number): Promise<AdminReportDetail>;
-      process(reportId: number, payload: ProcessReportPayload): Promise<void>;
-    };
-    recruitments: {
-      /** 전 동아리 모집. 페이지네이션 없이 조건에 맞는 목록을 한 번에 준다. */
-      list(params: AdminRecruitmentSearchParams): Promise<AdminRecruitmentSummary[]>;
-      detail(recruitmentId: number): Promise<AdminRecruitmentDetail>;
-      /** 이미 마감된 모집이면 409. */
-      forceClose(recruitmentId: number, payload: ForceCloseRecruitmentPayload): Promise<void>;
-      /** 자체 지원 모집의 지원자 목록. total·statusCounts 는 검색·필터와 무관한 모집 전체 기준이다. */
-      applications(
-        recruitmentId: number,
-        params: AdminApplicantSearchParams,
-      ): Promise<AdminApplicantList>;
-      /** 지원서 열람(읽기 전용) — 경로는 모집이 아니라 지원서 단건이다. */
-      applicationDetail(applicationId: number): Promise<AdminApplicationDetail>;
-    };
-    /** 회비 감사 콘솔. 감사자는 회비 데이터를 바꾸지 않는다 — 쓰기는 총동연 자신의 의견·메모뿐이다. */
-    fees: {
-      list(params: AdminFeeClubSearchParams): Promise<PageResponse<AdminFeeClubSummary>>;
-      dashboard(params: AdminFeePeriodParams): Promise<AdminFeeDashboard>;
-      /** 호출마다 열람 감사 이벤트가 남는다 — 상세 진입에서만 부른다. */
-      detail(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeeClubDetail>;
-      policies(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeePolicy[]>;
-      bills(clubId: number, params: AdminFeeBillSearchParams): Promise<PageResponse<AdminFeeBillRow>>;
-      payments(
-        clubId: number,
-        params: AdminFeePaymentSearchParams,
-      ): Promise<PageResponse<AdminFeePaymentRow>>;
-      /** 열람 전용 — 이 경로로 계좌를 바꾸거나 지울 수는 없다. */
-      account(clubId: number): Promise<AdminFeeAccount>;
-      auditLogs(
-        clubId: number,
-        params: AdminFeeAuditLogSearchParams,
-      ): Promise<PageResponse<AdminFeeAuditLog>>;
-      /** 저장된 결과가 아니라 호출 시점에 8개 규칙으로 그 자리에서 평가한 값이다. */
-      anomalies(clubId: number, params: AdminFeePeriodParams): Promise<AdminFeeAnomalyReport>;
-      comments(clubId: number, kind?: FeeAuditCommentKind): Promise<AdminFeeAuditComment[]>;
-      /** 응답은 생성된 의견·메모 ID 뿐이라 목록은 무효화로 다시 받는다. */
-      createComment(clubId: number, payload: CreateFeeAuditCommentPayload): Promise<number>;
-      updateComment(
-        clubId: number,
-        commentId: number,
-        payload: UpdateFeeAuditCommentPayload,
-      ): Promise<void>;
-      deleteComment(clubId: number, commentId: number): Promise<void>;
-    };
-    leaderSuccession: {
-      list(params: AdminSuccessionSearchParams): Promise<PageResponse<AdminSuccessionSummary>>;
-      get(requestId: number): Promise<AdminSuccessionDetail>;
-      process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
-      assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
-      memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
-    };
-    promotionRequests: {
-      list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
-      get(requestId: number): Promise<AdminPromotionRequestDetail>;
-      process(requestId: number, payload: ProcessPromotionRequestPayload): Promise<void>;
-    };
-    promotions: {
-      list(params: AdminPromotionSearchParams): Promise<PageResponse<AdminPromotionSummary>>;
-      detail(promotionId: number): Promise<AdminPromotionSummary>;
-      create(payload: CreatePromotionPayload): Promise<number>;
-      update(promotionId: number, payload: UpdatePromotionPayload): Promise<void>;
-      delete(promotionId: number): Promise<void>;
-    };
-    facilityBookings: {
-      // GET /api/v1/admin/facility-bookings — 큐(정렬은 서버가 status 종속 결정, sort 전송 금지)
-      queue(params: AdminBookingQueueParams): Promise<PageResponse<AdminFacilityBookingSummary>>;
-      // GET /api/v1/admin/facility-bookings/{bookingId} — 상세+검증 컨텍스트(온디맨드 재크롤)
-      detail(bookingId: number): Promise<AdminFacilityBookingDetail>;
-      // POST .../approve — 바디 없음. 409+code=FACILITY_BOOKING_SCHOOL_CONFLICT 시 payload에 충돌 상세
-      approve(bookingId: number): Promise<void>;
-      reject(bookingId: number, reason: string): Promise<void>;
-      // POST .../confirm — 수동 확정(자동 매칭 실패분), 바디 없음
-      confirm(bookingId: number): Promise<void>;
-      markConflict(bookingId: number, detail: string): Promise<void>;
-      cancel(bookingId: number, reason: string): Promise<void>;
-      // GET .../summary — 대시보드 카드 수치(§9.7)
-      summary(): Promise<AdminFacilityBookingCounts>;
-    };
-    // === 학교 제출(Submission Batch) — BE §5 ===
-    facilitySubmission: {
-      // GET .../submission/candidates — 기간 내 전체 예약 + summary(REJECTED 제외)
-      candidates(params: SubmissionCandidatesParams): Promise<SubmissionCandidatesResponse>;
-      // POST .../submission — all-or-nothing, 409(기제출/미승인)
-      create(payload: CreateSubmissionBatchPayload): Promise<CreateSubmissionBatchResult>;
-      // GET .../submission/{batchId}/csv — BOM 포함 CSV(비 ApiResponse, Blob 그대로)
-      downloadCsv(batchId: number): Promise<Blob>;
-      // GET .../submission?page=&size= — 제출 이력 목록(PageResponse)
-      list(params: SubmissionBatchListParams): Promise<PageResponse<SubmissionBatchSummary>>;
-      // GET .../submission/{batchId} — 상세(batch/bookings/audits, VIEWED 는 BE 부수효과)
-      detail(batchId: number): Promise<SubmissionBatchDetail>;
-      // POST .../submission/{batchId}/complete — 제출 완료 확정(404/기취소·기완료 409)
-      complete(batchId: number): Promise<CompleteSubmissionBatchResult>;
-      // DELETE .../submission/{batchId} — 제출 취소(204, 404/기취소·기완료 409)
-      cancel(batchId: number): Promise<void>;
-    };
-    // === BANK 자동매칭 관리 (Sprint 3) ===
-    bankMatching: {
-      // GET /admin/clubs/bank-matching — 동아리별 상태 목록 + 자동매칭 등록 동아리 수.
-      overview(): Promise<BankMatchingOverview>;
-      // PUT /admin/clubs/{clubId}/bank-matching — 동아리 자동매칭 허용/해제.
-      setActive(clubId: number, active: boolean): Promise<void>;
-    };
-  };
+  admin: AdminApi;
   interviewRounds: {
     // === 면접 라운드 후보 조회 (BE#2) ===
     // GET /leader/recruitments/{recruitmentId}/interview-round-candidates
@@ -972,30 +608,6 @@ export type CreateApiClientOptions = {
   baseUrl: string;
   authTransport?: AuthTransport;
 };
-
-// 요청 분류별 클라이언트 타임아웃(ms). 모든 요청은 ky 전역 기본값(default)을 받고,
-// 분류가 다른 엔드포인트만 개별 오버라이드한다.
-// (스펙: docs/superpowers/specs/2026-07-12-network-resilience-design.md §3.1)
-export const REQUEST_TIMEOUT_MS = {
-  /** 전역 기본 — 일반 조회·변경 */
-  default: 10_000,
-  /** 로그인 — 대기 체감이 가장 민감한 경로 */
-  login: 5_000,
-  /** 가입·MO 인증·비밀번호 재설정·번호 변경 — 인증사 경유 가능성이 있어 로그인보다 여유 */
-  authFlow: 8_000,
-  /** 사용자가 타이핑 후 결과를 기다리는 검색성 목록 */
-  search: 8_000,
-  /** 파일 업로드 — 느린 회선에서도 전송이 완료되도록 넉넉히 */
-  upload: 60_000,
-  /** 로그아웃의 서버 폐기는 best-effort — 백엔드가 행이어도 로컬 로그아웃이 오래 묶이지 않게 짧게 */
-  logoutRevoke: 5_000,
-  /** 거래 동기화 — 백엔드가 외부 은행 API(connect 5s + read 15s)를 기다린다 */
-  bankSync: 30_000,
-  /** 시설 이용현황·가용성 — 백엔드가 요청 스레드에서 학교 서버 온디맨드 재크롤 후 응답할 수 있다.
-   *  BE 최악 응답시간 ≈ 16.5s(첫 룸은 데드라인 예외 — 2회 시도 × (connect 3s + read 5s) + 백오프 0.5s)라
-   *  default 10s 로는 stale-serving 응답이 도착하기 전에 끊긴다(2026-07-17 감사). */
-  facilityOnDemand: 18_000,
-} as const;
 
 export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
   const { baseUrl } = options;
@@ -1613,315 +1225,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
       submit: (payload) =>
         jsonOk<number>(http.post('reports', { json: payload })),
     },
-    admin: {
-      pendingCounts: () => jsonOk<AdminPendingCounts>(http.get('admin/pending-counts')),
-      clubs: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminClubSummary>>(
-            http.get('admin/clubs', {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        detail: (clubId) => jsonOk<ClubDetail>(http.get(`admin/clubs/${clubId}`)),
-        members: (clubId) =>
-          jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
-        update: (clubId, payload) =>
-          jsonOk<ClubDetail>(http.patch(`admin/clubs/${clubId}`, { json: payload })),
-      },
-      clubEvents: {
-        list: (params) =>
-          jsonOk<AdminClubEventCard[]>(
-            http.get('admin/club-events', { searchParams: cleanParams(params) }),
-          ),
-      },
-      users: {
-        search: (params) =>
-          jsonOk<PageResponse<AdminUserSearchResult>>(
-            http.get('admin/users', {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        detail: (userId) => jsonOk<AdminUserDetail>(http.get(`admin/users/${userId}`)),
-        changeStatus: (userId, payload) =>
-          jsonVoid(http.patch(`admin/users/${userId}/status`, { json: payload })),
-        updateNote: (userId, payload) =>
-          jsonVoid(http.put(`admin/users/${userId}/admin-note`, { json: payload })),
-        phone: (userId) => jsonOk<AdminUserPhone>(http.get(`admin/users/${userId}/phone`)),
-        forceLogout: (userId) => jsonVoid(http.post(`admin/users/${userId}/force-logout`)),
-      },
-      notices: {
-        list: (params) => {
-          const search = new URLSearchParams();
-          search.append('page', String(params.page));
-          search.append('size', String(params.size));
-          if (params.category) search.append('category', params.category);
-          if (params.visibility) search.append('visibility', params.visibility);
-          if (params.keyword) search.append('keyword', params.keyword);
-          if (params.includeExpired) search.append('includeExpired', 'true');
-          return jsonOk<PageResponse<AdminNoticeSummary>>(
-            http.get(`admin/notices?${search.toString()}`),
-          );
-        },
-        detail: (noticeId) =>
-          jsonOk<NoticeDetail>(http.get(`admin/notices/${noticeId}`)),
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/notices', { json: payload })),
-        update: (noticeId, payload) =>
-          jsonVoid(http.patch(`admin/notices/${noticeId}`, { json: payload })),
-        remove: (noticeId) =>
-          jsonVoid(http.delete(`admin/notices/${noticeId}`)),
-      },
-      federationFaqs: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminFederationFaqSummary>>(
-            http.get('admin/federation/faqs', { searchParams: cleanParams(params) }),
-          ),
-        create: (payload) => jsonOk<number>(http.post('admin/federation/faqs', { json: payload })),
-        update: (faqId, payload) =>
-          jsonVoid(http.patch(`admin/federation/faqs/${faqId}`, { json: payload })),
-        remove: (faqId) => jsonVoid(http.delete(`admin/federation/faqs/${faqId}`)),
-        reorder: (orderedIds) =>
-          jsonVoid(http.put('admin/federation/faqs/order', { json: { orderedIds } })),
-        searchMisses: (params) =>
-          jsonOk<PageResponse<AdminFederationFaqSearchMiss>>(
-            http.get('admin/federation/faq-search-misses', { searchParams: cleanParams(params) }),
-          ),
-      },
-      federationFaqCategories: {
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/federation/faq-categories', { json: payload })),
-        update: (categoryId, payload) =>
-          jsonVoid(http.patch(`admin/federation/faq-categories/${categoryId}`, { json: payload })),
-        remove: (categoryId, moveToCategoryId) =>
-          jsonVoid(
-            http.delete(`admin/federation/faq-categories/${categoryId}`, {
-              searchParams: cleanParams({ moveToCategoryId }),
-            }),
-          ),
-      },
-      federationInquiries: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminFederationInquirySummary>>(
-            http.get('admin/federation/inquiries', { searchParams: cleanParams(params) }),
-          ),
-        detail: (inquiryId) =>
-          jsonOk<AdminFederationInquiryDetail>(http.get(`admin/federation/inquiries/${inquiryId}`)),
-        changeStatus: (inquiryId, payload) =>
-          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/status`, { json: payload })),
-        answer: (inquiryId, payload) =>
-          jsonOk<number>(
-            http.post(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload }),
-          ),
-        updateAnswer: (inquiryId, payload) =>
-          jsonVoid(http.patch(`admin/federation/inquiries/${inquiryId}/answer`, { json: payload })),
-      },
-      globalEvents: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminGlobalEventSummary>>(
-            http.get('admin/global-events', { searchParams: cleanParams(params) }),
-          ),
-        detail: (eventId) =>
-          jsonOk<AdminGlobalEventDetail>(http.get(`admin/global-events/${eventId}`)),
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/global-events', { json: payload })),
-        update: (eventId, payload) =>
-          jsonVoid(http.patch(`admin/global-events/${eventId}`, { json: payload })),
-        remove: (eventId) =>
-          jsonVoid(http.delete(`admin/global-events/${eventId}`)),
-        categoryStats: async () => {
-          const wrapper = await jsonOk<{ distribution: GlobalEventCategoryStats }>(
-            http.get('admin/global-events/category-stats'),
-          );
-          return wrapper.distribution;
-        },
-      },
-      reports: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminReportSummary>>(
-            http.get('admin/reports', { searchParams: cleanParams(params) }),
-          ),
-        get: (reportId) =>
-          jsonOk<AdminReportDetail>(http.get(`admin/reports/${reportId}`)),
-        process: (reportId, payload) =>
-          jsonVoid(http.patch(`admin/reports/${reportId}`, { json: payload })),
-      },
-      recruitments: {
-        list: (params) =>
-          jsonOk<AdminRecruitmentSummary[]>(
-            http.get('admin/recruitments', {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        detail: (recruitmentId) =>
-          jsonOk<AdminRecruitmentDetail>(http.get(`admin/recruitments/${recruitmentId}`)),
-        forceClose: (recruitmentId, payload) =>
-          jsonVoid(http.patch(`admin/recruitments/${recruitmentId}/close`, { json: payload })),
-        applications: (recruitmentId, params) =>
-          jsonOk<AdminApplicantList>(
-            http.get(`admin/recruitments/${recruitmentId}/applications`, {
-              searchParams: cleanParams(params),
-            }),
-          ),
-        applicationDetail: (applicationId) =>
-          jsonOk<AdminApplicationDetail>(http.get(`admin/applications/${applicationId}`)),
-      },
-      fees: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminFeeClubSummary>>(
-            http.get('admin/fees', {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        dashboard: (params) =>
-          jsonOk<AdminFeeDashboard>(
-            http.get('admin/fees/dashboard', { searchParams: cleanParams(params) }),
-          ),
-        detail: (clubId, params) =>
-          jsonOk<AdminFeeClubDetail>(
-            http.get(`admin/fees/${clubId}`, { searchParams: cleanParams(params) }),
-          ),
-        policies: (clubId, params) =>
-          jsonOk<AdminFeePolicy[]>(
-            http.get(`admin/fees/${clubId}/policies`, { searchParams: cleanParams(params) }),
-          ),
-        bills: (clubId, params) =>
-          jsonOk<PageResponse<AdminFeeBillRow>>(
-            http.get(`admin/fees/${clubId}/bills`, {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        payments: (clubId, params) =>
-          jsonOk<PageResponse<AdminFeePaymentRow>>(
-            http.get(`admin/fees/${clubId}/payments`, { searchParams: cleanParams(params) }),
-          ),
-        account: (clubId) =>
-          jsonOk<AdminFeeAccount>(http.get(`admin/fees/${clubId}/account`)),
-        // types 배열은 cleanParams 가 같은 키 반복으로 직렬화한다(Spring List<T> 호환).
-        auditLogs: (clubId, params) =>
-          jsonOk<PageResponse<AdminFeeAuditLog>>(
-            http.get(`admin/fees/${clubId}/audit-logs`, {
-              searchParams: cleanParams(params),
-              timeout: REQUEST_TIMEOUT_MS.search,
-            }),
-          ),
-        anomalies: (clubId, params) =>
-          jsonOk<AdminFeeAnomalyReport>(
-            http.get(`admin/fees/${clubId}/anomalies`, { searchParams: cleanParams(params) }),
-          ),
-        comments: (clubId, kind) =>
-          jsonOk<AdminFeeAuditComment[]>(
-            http.get(`admin/fees/${clubId}/audit-comments`, { searchParams: cleanParams({ kind }) }),
-          ),
-        createComment: (clubId, payload) =>
-          jsonOk<number>(http.post(`admin/fees/${clubId}/audit-comments`, { json: payload })),
-        updateComment: (clubId, commentId, payload) =>
-          jsonVoid(
-            http.patch(`admin/fees/${clubId}/audit-comments/${commentId}`, { json: payload }),
-          ),
-        deleteComment: (clubId, commentId) =>
-          jsonVoid(http.delete(`admin/fees/${clubId}/audit-comments/${commentId}`)),
-      },
-      leaderSuccession: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminSuccessionSummary>>(
-            http.get('admin/leader-succession-requests', { searchParams: cleanParams(params) }),
-          ),
-        get: (requestId) =>
-          jsonOk<AdminSuccessionDetail>(http.get(`admin/leader-succession-requests/${requestId}`)),
-        process: (requestId, payload) =>
-          jsonVoid(http.patch(`admin/leader-succession-requests/${requestId}`, { json: payload })),
-        assignLeader: (clubId, payload) =>
-          jsonVoid(http.post(`admin/clubs/${clubId}/leader`, { json: payload })),
-        memberHistory: (clubId, params) =>
-          jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
-            http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
-          ),
-      },
-      promotionRequests: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminPromotionRequestSummary>>(
-            http.get('admin/promotion-requests', { searchParams: cleanParams(params) }),
-          ),
-        get: (requestId) =>
-          jsonOk<AdminPromotionRequestDetail>(
-            http.get(`admin/promotion-requests/${requestId}`),
-          ),
-        process: (requestId, payload) =>
-          jsonVoid(http.patch(`admin/promotion-requests/${requestId}`, { json: payload })),
-      },
-      promotions: {
-        list: (params) =>
-          jsonOk<PageResponse<AdminPromotionSummary>>(
-            http.get('admin/promotions', { searchParams: cleanParams(params) }),
-          ),
-        detail: (promotionId) =>
-          jsonOk<AdminPromotionSummary>(http.get(`admin/promotions/${promotionId}`)),
-        create: (payload) =>
-          jsonOk<number>(http.post('admin/promotions', { json: payload })),
-        update: (promotionId, payload) =>
-          jsonVoid(http.patch(`admin/promotions/${promotionId}`, { json: payload })),
-        delete: (promotionId) =>
-          jsonVoid(http.delete(`admin/promotions/${promotionId}`)),
-      },
-      facilityBookings: {
-        queue: (params) =>
-          jsonOk<PageResponse<AdminFacilityBookingSummary>>(
-            http.get('admin/facility-bookings', { searchParams: cleanParams(params) }),
-          ),
-        detail: (bookingId) =>
-          // 관리자 상세도 온디맨드 재크롤(ensureFresh)을 경유한다 — 공개 가용성과 동일한 타임아웃 필요
-          jsonOk<AdminFacilityBookingDetail>(
-            http.get(`admin/facility-bookings/${bookingId}`, {
-              timeout: REQUEST_TIMEOUT_MS.facilityOnDemand,
-            }),
-          ),
-        approve: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/approve`)),
-        reject: (bookingId, reason) =>
-          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/reject`, { json: { reason } })),
-        confirm: (bookingId) => jsonVoid(http.post(`admin/facility-bookings/${bookingId}/confirm`)),
-        markConflict: (bookingId, detail) =>
-          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/conflict`, { json: { detail } })),
-        cancel: (bookingId, reason) =>
-          jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
-        summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
-      },
-      facilitySubmission: {
-        candidates: (params) =>
-          jsonOk<SubmissionCandidatesResponse>(
-            http.get('admin/facility-bookings/submission/candidates', { searchParams: cleanParams(params) }),
-          ),
-        create: (payload) =>
-          jsonOk<CreateSubmissionBatchResult>(
-            http.post('admin/facility-bookings/submission', { json: payload }),
-          ),
-        // 원본 바이트(BOM CSV·비 ApiResponse) — 첨부 다운로드와 동일하게 blobOk 로 에러 정규화+본문 타임아웃.
-        downloadCsv: (batchId) =>
-          blobOk(http.get(`admin/facility-bookings/submission/${batchId}/csv`)),
-        list: (params) =>
-          jsonOk<PageResponse<SubmissionBatchSummary>>(
-            http.get('admin/facility-bookings/submission', { searchParams: cleanParams(params) }),
-          ),
-        detail: (batchId) =>
-          jsonOk<SubmissionBatchDetail>(http.get(`admin/facility-bookings/submission/${batchId}`)),
-        complete: (batchId) =>
-          jsonOk<CompleteSubmissionBatchResult>(
-            http.post(`admin/facility-bookings/submission/${batchId}/complete`),
-          ),
-        cancel: (batchId) =>
-          jsonVoid(http.delete(`admin/facility-bookings/submission/${batchId}`)),
-      },
-      bankMatching: {
-        overview: () =>
-          jsonOk<BankMatchingOverview>(http.get('admin/clubs/bank-matching')),
-        setActive: (clubId, active) =>
-          jsonVoid(http.put(`admin/clubs/${clubId}/bank-matching`, { json: { active } })),
-      },
-    },
+    admin: createAdminApi({ http, jsonOk, jsonVoid, blobOk }),
     applicantInterview: {
       view: (applicationId) =>
         jsonOk<ApplicantInterviewView>(http.get(`applications/${applicationId}/interview`)),
@@ -2086,23 +1390,4 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     },
     raw: http,
   };
-}
-
-function cleanParams<T extends object>(params: T | undefined): URLSearchParams {
-  const searchParams = new URLSearchParams();
-  if (!params) return searchParams;
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') continue;
-    // 배열은 같은 키를 여러 번 append 해 Spring `@RequestParam List<T>` 와 호환되게 한다.
-    // (e.g. tags=[a,b] → ?tags=a&tags=b)
-    if (Array.isArray(value)) {
-      for (const element of value) {
-        if (element === undefined || element === null || element === '') continue;
-        searchParams.append(key, String(element));
-      }
-      continue;
-    }
-    searchParams.append(key, String(value));
-  }
-  return searchParams;
 }

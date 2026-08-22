@@ -21,7 +21,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminFeeAccountQuery: (...args: unknown[]) => mockAccountQuery(...args),
   useAdminFeeAuditLogsQuery: (...args: unknown[]) => mockAuditLogsQuery(...args),
   useAdminFeeAnomaliesQuery: (...args: unknown[]) => mockAnomaliesQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 let currentSearch = 'tab=anomalies';
 const mockPush = vi.fn();

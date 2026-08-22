@@ -10,7 +10,7 @@ const mockRecruitmentsQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminRecruitmentsQuery: (...args: unknown[]) => mockRecruitmentsQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // 검색어는 의도적으로 주소에 싣지 않는다 — replace 호출 여부로 그 약속을 지킨다.
 const mockPush = vi.fn();

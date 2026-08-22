@@ -48,7 +48,7 @@ vi.mock('@duing/hooks', () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 vi.mock('@/app/_components/NoticeRichEditorLazy', () => ({
   NoticeRichEditorLazy: (props: { value: string }) => <div data-testid="rich-editor">{props.value}</div>,

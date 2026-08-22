@@ -2,8 +2,8 @@
 
 import { ApiError } from '@duing/api';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
-import posthog from 'posthog-js';
 
+import { captureEvent } from '@/app/_lib/analytics';
 import { toRoute } from '@/app/_lib/route';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -48,7 +48,7 @@ export function useFavoriteToggleFlow() {
       { clubId, isFavorited: currentlyFavorited },
       {
         onSuccess: () => {
-          posthog.capture(currentlyFavorited ? 'club_unfavorited' : 'club_favorited', {
+          captureEvent(currentlyFavorited ? 'club_unfavorited' : 'club_favorited', {
             club_id: clubId,
           });
         },

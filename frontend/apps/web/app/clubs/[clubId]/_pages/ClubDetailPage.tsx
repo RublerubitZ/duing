@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 
 import { useClubDetailQuery, useClubPhotosQuery, useClubMembershipQuery } from '@duing/hooks';
-import posthog from 'posthog-js';
 
+import { captureEvent } from '@/app/_lib/analytics';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
@@ -21,7 +21,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const photos = useClubPhotosQuery(clubId);
 
   useEffect(() => {
-    posthog.capture('club_detail_viewed', { club_id: clubId });
+    captureEvent('club_detail_viewed', { club_id: clubId });
   }, [clubId]);
   // 멤버에게만 공지/일정 탭을 노출한다. 비로그인 시 null 로 비활성화해 불필요한 요청을 막는다.
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';

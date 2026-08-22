@@ -13,7 +13,7 @@ vi.mock('@duing/hooks', () => ({
   useUpsertFeeAccountMutation: () => ({ mutate: mockUpsertMutate, isPending: false, error: null }),
   useDeleteFeeAccountMutation: () => ({ mutate: mockDeleteMutate, isPending: false, error: null }),
   useClubBankMatchingStatusQuery: (clubId: number) => mockUseClubBankMatchingStatusQuery(clubId),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

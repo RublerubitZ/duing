@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
 const mockRecruitmentDetail = vi.fn(() => ({ data: undefined }) as { data: unknown });
 vi.mock('@duing/hooks', () => ({
   useRecruitmentDetailQuery: () => mockRecruitmentDetail(),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageNav } from '@/app/manage/_components/ManageNav';
 

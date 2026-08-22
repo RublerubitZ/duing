@@ -7,7 +7,7 @@ const mockUpdateMutate = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: null }),
   useUpdateFeePolicyMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { CreatePolicyDialog } from '@/app/manage/clubs/[clubId]/fees/_components/CreatePolicyDialog';
 

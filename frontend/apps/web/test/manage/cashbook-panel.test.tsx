@@ -12,7 +12,7 @@ vi.mock('@duing/hooks', () => ({
   useCashbookSummaryQuery: (clubId: number, params: unknown) => mockUseSummary(clubId, params),
   useDeleteCashbookEntryMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useToggleCashbookExclusionMutation: () => ({ mutate: mockToggleMutate, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@/app/_components/toast/ToastProvider', () => ({ useToast: () => ({ addToast: vi.fn() }) }));
 
 import { CashbookPanel } from '@/app/manage/clubs/[clubId]/fees/_components/CashbookPanel';

@@ -24,7 +24,7 @@ vi.mock('next/link', () => ({
 // 셀렉터 한 번 호출로 대체되는 가짜 스토어로는 구독 계약이 재현되지 않는다.
 vi.mock('@duing/hooks', () => ({
   useUnreadCountQuery: () => mockUnreadCount(),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 // 트리거 로직만 검증하기 위해 패널 본체는 가벼운 더미로 대체한다(별도 테스트에서 실물 검증).
 vi.mock('../../app/_components/NotificationSheet', () => ({
   NotificationSheet: ({ open }: { open: boolean }) =>

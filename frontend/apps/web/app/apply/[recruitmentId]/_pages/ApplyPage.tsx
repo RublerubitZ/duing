@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import posthog from 'posthog-js';
 import { ApiError } from '@duing/api';
 import {
   useRecruitmentDetailQuery,
@@ -13,6 +12,7 @@ import {
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
+import { captureEvent } from '../../../_lib/analytics';
 import { ApplyForm } from '../_components/ApplyForm';
 import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 
@@ -25,7 +25,7 @@ export function ApplyPage() {
   const draftQuery = useApplicationDraftQuery(recruitmentId);
 
   useEffect(() => {
-    posthog.capture('apply_page_viewed', { recruitment_id: recruitmentId });
+    captureEvent('apply_page_viewed', { recruitment_id: recruitmentId });
   }, [recruitmentId]);
 
   // 외부 폼 모집은 동아리 상세로 되돌려보낸다. side-effect 라 effect 로 격리한다.

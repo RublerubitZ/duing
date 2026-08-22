@@ -26,7 +26,7 @@ let mockQueryResult: MockQueryResult = { data: undefined, isLoading: true };
 
 vi.mock('@duing/hooks', () => ({
   useManagedClubsQuery: () => mockQueryResult,
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import ManagePage from '@/app/manage/page';
 

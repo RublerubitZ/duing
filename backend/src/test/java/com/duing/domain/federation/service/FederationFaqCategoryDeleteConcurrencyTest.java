@@ -74,8 +74,10 @@ class FederationFaqCategoryDeleteConcurrencyTest extends IntegrationTestBase {
         assertThat(failures.get(0))
                 .isInstanceOf(FederationFaqException.FederationFaqCategoryNotFoundException.class);
 
-        // 불변식: 카테고리는 정확히 1개 살아남고, 살아있는 FAQ 2건 모두 그 카테고리를 참조한다(고아 0).
-        List<FederationFaqCategory> liveCategories = categoryRepository.findAll();
+        // 불변식: 두 카테고리 중 정확히 1개 살아남고, 살아있는 FAQ 2건 모두 그 카테고리를 참조한다(고아 0).
+        // 카테고리 테이블은 V73 시드 보존 때문에 truncate 대상이 아니라, 이 테스트가 만든 두 건으로 좁혀 센다.
+        List<FederationFaqCategory> liveCategories =
+                categoryRepository.findAllById(List.of(categoryAId, categoryBId));
         assertThat(liveCategories).hasSize(1);
         List<FederationFaq> liveFaqs = faqRepository.findAll();
         assertThat(liveFaqs).hasSize(2);

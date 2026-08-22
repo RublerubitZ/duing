@@ -5,7 +5,7 @@ import type { ActionItem } from '@duing/types';
 vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 
 const mockUse = vi.fn();
-vi.mock('@duing/hooks', () => ({ useClubActionItems: (clubId: number) => mockUse(clubId) }));
+vi.mock('@duing/hooks', () => ({ useClubActionItems: (clubId: number) => mockUse(clubId) }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ActionItemsCard } from '@/app/manage/_components/dashboard/ActionItemsCard';
 

@@ -23,7 +23,7 @@ vi.mock('@duing/hooks', () => ({
   useMyApplicationsQuery: () => ({ data: [] }),
   useManagedClubsQuery: () => ({ data: [] }),
   useFavoriteListQuery: () => ({ data: { content: [] } }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => null }));
 vi.mock('@/app/me/_components/MyPageHeader', () => ({ MyPageHeader: () => null }));
 vi.mock('@/components/duing/Sparkle', () => ({ SparkleFull: () => null }));

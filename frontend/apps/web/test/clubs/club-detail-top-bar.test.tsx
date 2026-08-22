@@ -18,7 +18,7 @@ vi.mock('@duing/stores', () => {
 vi.mock('@duing/hooks', () => ({
   useFavoriteIdsQuery: () => ({ data: [] }),
   useFavoriteToggleMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 describe('ClubDetailTopBar — 모바일 상단 액션바', () => {
   it('뒤로 · 찜 · 공유 버튼을 노출한다', () => {

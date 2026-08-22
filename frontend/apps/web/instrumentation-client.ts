@@ -47,6 +47,8 @@ export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 import posthog from 'posthog-js';
 import type { CaptureResult } from 'posthog-js';
 
+import { ANALYTICS_EVENT_NAMES } from './app/_lib/analytics';
+
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
 // URL 을 담는 속성 이름 — 키로 고르면 SDK 가 URL 속성을 새로 추가해도 자동으로 덮인다.
@@ -104,6 +106,26 @@ function stripUrlQueryFromProperties(properties: Record<string, unknown>): void 
 }
 
 /**
+ * 레지스트리에 없는 제품 이벤트를 개발 중에만 알린다.
+ *
+ * <p>전송 직전 훅은 우리 코드가 보내든 SDK 가 보내든 모든 이벤트가 지나는 유일한 자리라, 타입으로
+ * 막지 못하는 경로(직접 `posthog.capture`, 서드파티 배선)까지 여기서 걸린다. 이름이 어긋난 이벤트는
+ * 대시보드에 새 이름으로 조용히 쌓이고 그때는 이미 늦으므로, 개발 단계에서 콘솔로 드러낸다.
+ *
+ * <p>`$` 접두는 SDK 내장 이벤트($pageview·$identify 등)라 레지스트리 대상이 아니다.
+ * 조건이 `NODE_ENV !== 'production'` 이라 프로덕션 번들에서는 통째로 제거된다(런타임 비용 0).
+ */
+function warnIfUnregistered(eventName: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+  if (eventName.startsWith('$') || ANALYTICS_EVENT_NAMES.has(eventName)) return;
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[analytics] 레지스트리에 없는 PostHog 이벤트 "${eventName}" — ` +
+      'app/_lib/analytics.ts 의 AnalyticsEvents 에 등재하고 captureEvent 로 보내세요.',
+  );
+}
+
+/**
  * 전송 직전 한 번에 정제한다. 이벤트 속성뿐 아니라 사람 속성($set·$set_once)까지 같은 함수가 덮는다 —
  * 속성만 거르는 훅은 사람 속성 경로를 구조적으로 못 덮고, SDK 도 그 훅을 폐기 예정으로 표시했다.
  */
@@ -111,6 +133,7 @@ function scrubAnalyticsEvent(captureResult: CaptureResult | null): CaptureResult
   if (!captureResult) {
     return captureResult;
   }
+  warnIfUnregistered(captureResult.event);
   stripUrlQueryFromProperties(captureResult.properties);
   if (captureResult.$set) {
     stripUrlQueryFromProperties(captureResult.$set);
