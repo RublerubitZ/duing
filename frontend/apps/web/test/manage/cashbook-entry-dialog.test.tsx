@@ -7,7 +7,7 @@ const mockUpdateMutate = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useCreateCashbookEntryMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: null }),
   useUpdateCashbookEntryMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@duing/api', () => ({ ApiError: class extends Error {} }));
 
 import type { CashbookEntry } from '@duing/types';

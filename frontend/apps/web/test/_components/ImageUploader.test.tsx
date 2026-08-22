@@ -6,7 +6,7 @@ const mockUseFileUploadMutation = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useFileUploadMutation: () => mockUseFileUploadMutation(),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ImageUploader } from '../../app/_components/ImageUploader';
 import { IMAGE_UPLOAD_POLICY } from '../../app/_components/imageUploadPolicy';

@@ -11,7 +11,7 @@ vi.mock('@duing/hooks', () => ({
     void billId;
     return { mutate: mockRecordMutate, isPending: mockRecordPending, error: mockRecordError };
   },
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

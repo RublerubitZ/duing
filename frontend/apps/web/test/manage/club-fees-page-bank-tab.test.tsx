@@ -33,7 +33,7 @@ vi.mock('@duing/hooks', () => ({
   useRecordPaymentMutation: () => idleMutation,
   useBillPaymentsQuery: () => ({ data: [], isLoading: false, error: null }),
   useVoidPaymentMutation: () => idleMutation,
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

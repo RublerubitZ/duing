@@ -8,7 +8,7 @@ const mockUseFederationInquiryAttachmentQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useFederationInquiryAttachmentQuery: (...args: unknown[]) =>
     mockUseFederationInquiryAttachmentQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 /* ── 테스트 대상 ───────────────────────────────────────────── */
 import { AttachmentImage } from '@/app/_components/AttachmentImage';

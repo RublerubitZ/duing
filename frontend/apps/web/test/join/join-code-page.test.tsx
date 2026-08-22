@@ -35,7 +35,7 @@ function check(overrides: Partial<JoinCodeCheck> = {}): JoinCodeCheck {
 }
 
 const server = setupServer();
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   mockAddToast.mockClear();

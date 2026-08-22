@@ -31,7 +31,7 @@ vi.mock('@duing/hooks', () => ({
   useCreateFeeAuditCommentMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateFeeAuditCommentMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteFeeAuditCommentMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // 기간·탭은 주소가 진실이라, replace 가 쓴 질의 문자열을 다음 렌더의 useSearchParams 가 되읽도록 잇는다
 // (실제 앱에서 Next 라우터가 하는 일을 흉내 낸 것 — 이 연결이 없으면 탭 전환을 화면에서 검증할 수 없다).

@@ -46,7 +46,7 @@ const server = setupServer(
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   capturedRoleBody = null;

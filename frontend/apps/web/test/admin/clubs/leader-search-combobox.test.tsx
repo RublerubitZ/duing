@@ -5,7 +5,7 @@ import type { AdminUserSearchResult } from '@duing/types';
 const mockUseAdminUserSearchQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useAdminUserSearchQuery: (...args: unknown[]) => mockUseAdminUserSearchQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 // 디바운스는 즉시 통과시켜 입력 → 결과 노출을 동기적으로 검증한다.
 vi.mock('@/app/admin/_hooks/useDebouncedValue', () => ({
   useDebouncedValue: (value: string) => value,

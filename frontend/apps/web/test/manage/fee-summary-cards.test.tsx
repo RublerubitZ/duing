@@ -5,7 +5,7 @@ const mockUseClubFeeSummaryQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useClubFeeSummaryQuery: (clubId: number, params: unknown) =>
     mockUseClubFeeSummaryQuery(clubId, params),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { FeeSummaryCards } from '@/app/manage/clubs/[clubId]/fees/_components/FeeSummaryCards';
 

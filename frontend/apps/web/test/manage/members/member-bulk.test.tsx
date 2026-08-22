@@ -80,7 +80,7 @@ const server = setupServer(
 
 const apiClient = createApiClient({ baseUrl: BASE });
 
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   roleCalls = [];

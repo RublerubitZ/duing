@@ -6,7 +6,7 @@ vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.Re
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockUseApplicantSummary = vi.fn();
-vi.mock('@duing/hooks', () => ({ useApplicantSummary: (clubId: number) => mockUseApplicantSummary(clubId) }));
+vi.mock('@duing/hooks', () => ({ useApplicantSummary: (clubId: number) => mockUseApplicantSummary(clubId) }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ApplicantSummaryCard } from '@/app/manage/_components/dashboard/ApplicantSummaryCard';
 

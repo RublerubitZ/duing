@@ -32,7 +32,7 @@ vi.mock('next/link', () => ({
 vi.mock('@duing/hooks', () => ({
   useMeQuery: () => ({ data: mockMeData() }),
   useLogout: () => mockLogout,
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mockRefresh }),
 }));

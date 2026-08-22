@@ -9,7 +9,7 @@ const mockApplicationDetailQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminApplicationDetailQuery: (...args: unknown[]) => mockApplicationDetailQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 /* ── 대상 ───────────────────────────────────────────────────── */
 import {

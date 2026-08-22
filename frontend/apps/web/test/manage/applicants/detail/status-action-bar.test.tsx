@@ -15,7 +15,7 @@ vi.mock('@duing/hooks', () => ({
     mutate: mockMutate,
     isPending: mockIsPending,
   }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),

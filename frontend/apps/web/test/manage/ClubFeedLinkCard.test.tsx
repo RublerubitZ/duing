@@ -5,7 +5,7 @@ vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.Re
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockUseClubFeedCounts = vi.fn();
-vi.mock('@duing/hooks', () => ({ useClubFeedCounts: (clubId: number) => mockUseClubFeedCounts(clubId) }));
+vi.mock('@duing/hooks', () => ({ useClubFeedCounts: (clubId: number) => mockUseClubFeedCounts(clubId) }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ClubFeedLinkCard } from '@/app/manage/_components/dashboard/ClubFeedLinkCard';
 

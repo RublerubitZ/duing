@@ -31,7 +31,7 @@ vi.mock('@duing/hooks', () => ({
   }),
   useTodaySchedule: () => ({ items: [], isLoading: false, isError: false }),
   useClubFeedCounts: () => ({ noticeCount: 0, eventCount: 0, isLoading: false, isError: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { DashboardCardGrid } from '@/app/manage/_components/dashboard/DashboardCardGrid';
 

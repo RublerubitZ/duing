@@ -16,7 +16,7 @@ vi.mock('@duing/hooks', () => ({
   useClubFacilityBookingsQuery: () => mockBookingsQuery.current,
   useFacilityBookingDetailQuery: () => ({ data: undefined, isLoading: false, isError: false }),
   useCancelFacilityBookingMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { FacilityBookingsView } from '@/app/manage/clubs/[clubId]/facility-bookings/_components/FacilityBookingsView';
 

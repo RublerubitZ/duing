@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@duing/hooks', () => ({
   useFileUploadMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { NoticeRichEditor } from '../../app/_components/NoticeRichEditor';
 
