@@ -23,6 +23,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -97,8 +98,8 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("마감된 모집의 사전 확인은 400 을 반환한다")
-    void closedRecruitmentReturnsBadRequest() {
+    @DisplayName("마감된 모집의 사전 확인은 철회 차단과 같은 409 + RECRUITMENT_CLOSED 를 반환한다")
+    void closedRecruitmentReturnsConflictWithCode() {
         Club club = saveActiveClub("마감동아리");
         Recruitment recruitment = saveOpenRecruitment(club, "마감모집");
         recruitment.close(LocalDateTime.now());
@@ -109,7 +110,30 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
                 .when().get("/api/v1/recruitments/{recruitmentId}/applications/eligibility", recruitment.getId())
-                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
+                .body("message", equalTo("마감된 모집 공고에는 지원할 수 없습니다."));
+    }
+
+    @Test
+    @DisplayName("마감된 모집에 지원서를 제출하면 사전 확인과 같은 409 + RECRUITMENT_CLOSED 를 반환한다")
+    void closedRecruitmentSubmitReturnsConflictWithCode() {
+        Club club = saveActiveClub("마감제출동아리");
+        Recruitment recruitment = saveOpenRecruitment(club, "마감제출모집");
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+        User applicant = saveUser("마감제출자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        // 마감 가드는 답변 검증보다 먼저 걸리므로(validateEligibility 가 단일 소스)
+        // 질문 구성과 무관한 최소 유효 body 로 와이어 계약만 고정한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("answerItems", List.of(Map.of("questionId", "q1", "values", List.of("답변")))))
+                .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집 공고에는 지원할 수 없습니다."));
     }
 
@@ -215,7 +239,7 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
                 .body(Map.of("answers", List.of()))
                 .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId());
 
-        assertThat(eligibilityResponse.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(eligibilityResponse.statusCode()).isEqualTo(HttpStatus.CONFLICT.value());
         assertThat(eligibilityResponse.statusCode()).isEqualTo(submitResponse.statusCode());
         assertThat(eligibilityResponse.jsonPath().getString("message"))
                 .isEqualTo(submitResponse.jsonPath().getString("message"));

@@ -31,11 +31,16 @@ public class ApplicationDomainException extends ApplicationException {
         }
     }
 
+    /**
+     * 마감된 모집에 대한 지원 제출·사전 확인 거절. 철회(CannotWithdrawClosedRecruitmentException)·
+     * 면접 가능 시간 제출·모집 관리 쓰기와 같은 409 + RECRUITMENT_CLOSED 계약을 공유한다 —
+     * FE 는 code 로 마감 상태 전환을 분기한다. (감사 BE-EC-02 2단계)
+     */
     public static class RecruitmentClosedException extends ApplicationDomainException {
         private static final String MESSAGE = "마감된 모집 공고에는 지원할 수 없습니다.";
 
         public RecruitmentClosedException() {
-            super(MESSAGE, HttpStatus.BAD_REQUEST);
+            super(MESSAGE, HttpStatus.CONFLICT, ErrorCodes.RECRUITMENT_CLOSED);
         }
     }
 
