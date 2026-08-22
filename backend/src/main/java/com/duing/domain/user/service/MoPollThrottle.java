@@ -148,6 +148,19 @@ public class MoPollThrottle {
         }
     }
 
+    /** 운영 모니터링용 일일 사용량 스냅샷 — 자체 집계(벤더 월 쿼터가 아니다). */
+    public record DailyUsage(int usedCalls, int dailyLimit) {}
+
+    /**
+     * 오늘(호출부가 주입한 시각 기준) 예약된 Octomo 실호출 수와 자체 일일 상한을 읽는다 — Slack 운영 알림의
+     * "Octomo 호출(자체 집계)" 줄. 읽기는 롤오버를 수행하지 않고(다음 {@link #reserveDailyQuota} 가 한다)
+     * 카운터 날짜가 조회일보다 과거면 0 으로 읽는다 — 자정 직후 전날 수치가 오늘 것처럼 보이지 않게.
+     */
+    public synchronized DailyUsage dailyUsage(LocalDateTime now) {
+        boolean counterIsCurrent = quotaDate != null && !quotaDate.isBefore(now.toLocalDate());
+        return new DailyUsage(counterIsCurrent ? dailyCallCount : 0, dailyCallLimit);
+    }
+
     /** 테스트 전용 — 오늘 소비된 일일 쿼터 수. 프로덕션 호출 금지. */
     public synchronized int consumedDailyCalls() {
         return dailyCallCount;
