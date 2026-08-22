@@ -15,7 +15,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminRecruitmentDetailQuery: (...args: unknown[]) => mockDetailQuery(...args),
   useForceCloseRecruitmentMutation: () => ({ mutate: mockForceClose, isPending: false }),
   useAdminApplicantsQuery: (...args: unknown[]) => mockApplicantsQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (

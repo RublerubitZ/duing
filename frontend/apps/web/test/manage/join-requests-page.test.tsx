@@ -40,7 +40,7 @@ const pendingFixture: JoinRequestSummary[] = [
 ];
 
 const server = setupServer();
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   mockAddToast.mockClear();

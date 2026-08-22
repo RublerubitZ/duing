@@ -11,7 +11,7 @@ vi.mock('@duing/hooks', () => ({
   useBillPaymentsQuery: () => ({ data: [], isLoading: false }),
   useRecordPaymentMutation: () => ({ mutate: vi.fn(), isPending: false, error: null }),
   useVoidPaymentMutation: () => ({ mutate: vi.fn(), isPending: false, error: null }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const { MockApiError } = vi.hoisted(() => {
   class MockApiError extends Error {

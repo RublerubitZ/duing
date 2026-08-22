@@ -48,7 +48,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminUserDetailQuery: (userId: number | undefined) => mockUserDetail(userId),
   useAdminUserPhoneMutation: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false }),
   useAdminUserNoteMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 // useGuardedRouter 가 ToastProvider 컨텍스트를 물어 useOptionalToast 까지 스텁한다.

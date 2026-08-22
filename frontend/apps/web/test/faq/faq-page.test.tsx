@@ -41,7 +41,7 @@ vi.mock('@duing/hooks', () => ({
   useFederationFaqListQuery: (...args: unknown[]) => mockUseFederationFaqListQuery(...args),
   useFederationFaqDetailQuery: (...args: unknown[]) => mockUseFederationFaqDetailQuery(...args),
   useSubmitFaqFeedbackMutation: () => ({ mutateAsync: mockSubmitFeedbackMutateAsync, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // useToast 는 ToastProvider 컨텍스트 밖에서 호출되면 예외를 던진다 — FAQ 본문과 무관하므로 스텁한다.
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

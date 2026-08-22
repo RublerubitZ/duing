@@ -127,7 +127,7 @@ const applicantDetailHandler = http.get(`*/leader/applications/${APPLICATION_ID}
 );
 
 const server = setupServer();
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   requestedUrls = [];

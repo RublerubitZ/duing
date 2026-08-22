@@ -22,7 +22,7 @@ const mockUseAdminClubsQuery = vi.fn();
 
 vi.mock('@duing/hooks', () => ({
   useAdminClubsQuery: (...args: unknown[]) => mockUseAdminClubsQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
 import { NoticeForm } from '../../../app/admin/notices/_components/NoticeForm';

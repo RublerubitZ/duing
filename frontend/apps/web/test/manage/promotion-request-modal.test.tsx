@@ -37,7 +37,7 @@ vi.mock('@duing/hooks', () => ({
     mutate: mockSubmit,
     isPending: false,
   }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { PromotionRequestModal } from '../../app/manage/clubs/[clubId]/_components/PromotionRequestModal';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';

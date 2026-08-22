@@ -48,7 +48,7 @@ const membersFixture: ClubMember[] = [
 ];
 
 const server = setupServer();
-beforeAll(() => server.listen());
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.restoreAllMocks();

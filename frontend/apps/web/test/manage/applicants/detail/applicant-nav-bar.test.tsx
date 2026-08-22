@@ -15,7 +15,7 @@ vi.mock('@duing/hooks', () => ({
   useApplicantNeighborsQuery: (_rId: number, _aId: number, _filters: unknown) => ({
     data: mockNeighborsData(),
   }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 function renderNavBar({
   prevId = null,

@@ -41,7 +41,7 @@ vi.mock('@duing/hooks', () => ({
     mockUseBillPaymentsQuery(clubId, billId),
   useRecordPaymentMutation: () => ({ mutate: mockRecordMutate, isPending: false, error: null }),
   useVoidPaymentMutation: () => ({ mutate: mockVoidMutate, isPending: false, error: null }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // RecordPaymentDialog 가 import 하는 ApiError(분기 해소용).
 const { MockApiError } = vi.hoisted(() => {

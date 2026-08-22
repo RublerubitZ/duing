@@ -11,7 +11,7 @@ const mockApplicationDetailQuery = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useAdminApplicantsQuery: (...args: unknown[]) => mockApplicantsQuery(...args),
   useAdminApplicationDetailQuery: (...args: unknown[]) => mockApplicationDetailQuery(...args),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 // 디바운스는 타이밍 의존을 없애기 위해 항등 함수로 대체한다(모집 목록 테스트 전례).
 vi.mock('@/app/admin/_hooks/useDebouncedValue', () => ({

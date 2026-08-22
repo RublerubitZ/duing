@@ -23,7 +23,7 @@ const mockOverviewQuery = vi.fn<() => OverviewQueryResult>();
 vi.mock('@duing/hooks', () => ({
   useAdminBankMatchingQuery: () => ({ refetch: mockRefetch, ...mockOverviewQuery() }),
   useSetBankMatchingMutation: () => ({ mutate: mockSetActive, isPending: false, error: null }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

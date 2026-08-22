@@ -24,7 +24,7 @@ vi.mock('@duing/hooks', async () => ({
   useMyApplicationDetailQuery: () => ({ data: undefined }),
   useMyInterviewQuery: () => ({ data: undefined }),
   useWithdrawApplicationMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 vi.mock('@/app/_components/ExploreNav', () => ({ ExploreNav: () => null }));
 

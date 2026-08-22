@@ -20,7 +20,7 @@ vi.mock('@duing/hooks', () => ({
   useAdminUserDetailQuery: (userId: number | undefined) => detailQueryResult(userId),
   useAdminUserPhoneMutation: () => ({ mutate: phoneMutate, reset: phoneReset, isPending: false }),
   useAdminUserNoteMutation: () => ({ mutate: noteMutate, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({

@@ -13,7 +13,7 @@ const withdrawMutate = vi.fn(
 vi.mock('@duing/hooks', () => ({
   useMyInterviewQuery: () => ({ data: undefined }),
   useWithdrawApplicationMutation: () => ({ mutate: withdrawMutate, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const makeApp = (status: AppStatus): App => ({
   id: '42',

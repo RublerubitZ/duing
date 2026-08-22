@@ -12,7 +12,7 @@ const mockUploadMutateAsync = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useCreateFederationInquiryMutation: () => ({ mutateAsync: mockCreateMutateAsync, isPending: false }),
   useFileUploadMutation: () => ({ mutateAsync: mockUploadMutateAsync, isPending: false }),
-}));
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
