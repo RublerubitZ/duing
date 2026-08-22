@@ -1,5 +1,6 @@
 package com.duing.domain.federation;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
@@ -137,18 +138,19 @@ class FederationFaqPublicAcceptanceTest extends IntegrationTestBase {
         String firstName = "테스트-정렬A" + sequence.incrementAndGet();
         String secondName = "테스트-정렬B" + sequence.incrementAndGet();
         // 저장은 정렬 역순 — "저장 순서가 아니라 sort_order 로 정렬됨"을 검증한다.
-        // @BeforeEach 카테고리는 sortOrder 10/11 이라 이 둘(5/6)보다 뒤로 밀린다.
         categoryRepository.save(FederationFaqCategory.create(secondName, 6));
         categoryRepository.save(FederationFaqCategory.create(firstName, 5));
 
+        // 카테고리 테이블은 V73 시드(sortOrder 0~4)를 보존하려고 truncate 대상에서 빠져 있다 —
+        // 절대 인덱스가 아니라 이 두 건의 상대 순서로 정렬 규칙을 단언한다.
         RestAssured.given()
             .when()
                 .get("/api/v1/federation/faq-categories")
             .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("ok", equalTo(true))
-                .body("data[0].name", equalTo(firstName))
-                .body("data[1].name", equalTo(secondName));
+                .body("data.findAll { it.name in ['%s', '%s'] }.name".formatted(firstName, secondName),
+                        contains(firstName, secondName));
     }
 
     @Test
