@@ -86,6 +86,50 @@ class PhoneVerificationRateLimiterTest {
     }
 
     @Test
+    @DisplayName("발급 IP 창 선검사는 한도 안에서 몇 번을 호출해도 예산을 소모하지 않는다 — 기록은 발급 쪽이 단독으로 한다")
+    void issueIpPreCheckDoesNotConsumeBudget() {
+        for (int attempt = 0; attempt < 50; attempt++) {
+            rateLimiter.assertIssueIpWithinLimit(CLIENT_IP, NOW);
+        }
+
+        // 선검사가 기록까지 했다면 여기서 이미 분당 한도(10)를 넘겨 429 가 났어야 한다.
+        assertThatCode(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("발급 IP 창이 가득 차면 선검사가 기록과 같은 임계에서 429 를 던진다")
+    void issueIpPreCheckThrowsAtSameThreshold() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
+        }
+
+        assertThatThrownBy(() -> rateLimiter.assertIssueIpWithinLimit(CLIENT_IP, NOW.plusSeconds(30)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("IP 창이 막아낸 재설정 시작은 학번 창을 소모하지 않는다 — 선검사를 학번 기록보다 앞에 두는 이유")
+    void blockedByIpWindowDoesNotConsumeStudentIdWindow() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
+        }
+        // IP 창이 찬 상태에서 재설정 시작을 반복 — 서비스와 같은 순서(선검사 → 학번 기록)를 재현한다.
+        for (int attempt = 0; attempt < 20; attempt++) {
+            LocalDateTime blockedAt = NOW.plusSeconds(30 + attempt);
+            assertThatThrownBy(() -> rateLimiter.assertIssueIpWithinLimit(CLIENT_IP, blockedAt))
+                    .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+        }
+
+        // 학번 창이 온전해야 한다 — 선검사가 뒤에 있었다면 위 20회가 학번 엔트리를 설치하고 한도를 태웠을 것이다.
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(2).plusSeconds(attempt));
+        }
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(3)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
     @DisplayName("같은 학번의 재설정 시작은 시간당 3회까지 허용하고 4번째는 429 를 던진다")
     void resetStartWindowLimitsPerHour() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {

@@ -125,7 +125,8 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
         // 셀 수 있는 계수 오라클이 남는다(상태코드를 균일하게 만들어도 카운터가 샌다).
         // IP 창 '선검사' — 기록은 하지 않는다. 아래 학번 창은 새 학번마다 항상 통과하므로, 이 검사가 없으면
         // 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치돼(8자리 공간 1e8, 만료 정리 없음) 단일 IP 로
-        // 힙을 고갈시킬 수 있다. 기록까지 하면 미가입 1회·가입 2회로 갈려 계수 오라클이 되살아난다.
+        // 힙을 고갈시킬 수 있다. 기록은 아래 issue() 가 단독으로 해 "요청당 IP 예산 1" 을 유지한다
+        // (여기서도 기록하면 열거 오라클이 생기지는 않지만 재설정 실효 예산이 시 60→30 으로 반감된다).
         rateLimiter.assertIssueIpWithinLimit(clientIp, now);
         rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
 
