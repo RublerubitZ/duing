@@ -11,7 +11,7 @@ public record SubmitFederationFaqFeedbackRequest(
         @Size(max = 64, message = "세션 키는 64자 이하여야 합니다.")
         String sessionKey
 ) {
-    public SubmitFederationFaqFeedbackCommand toCommand(Long faqId, Long userId) {
-        return new SubmitFederationFaqFeedbackCommand(faqId, helpful, sessionKey, userId);
+    public SubmitFederationFaqFeedbackCommand toCommand(Long faqId, Long userId, String clientIp) {
+        return new SubmitFederationFaqFeedbackCommand(faqId, helpful, sessionKey, userId, clientIp);
     }
 }

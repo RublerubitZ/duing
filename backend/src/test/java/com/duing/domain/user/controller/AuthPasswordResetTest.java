@@ -36,6 +36,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class AuthPasswordResetTest extends IntegrationTestBase {
 
     private static final String ORIGINAL_PASSWORD = "Abcd1234!";
+    /** 미가입 학번에 발급되는 decoy 번호의 마스킹 형태 — 가입 학번 응답과 육안으로 구분되지 않아야 한다. */
+    private static final String MASKED_PHONE_PATTERN = "010-\\*{4}-\\d{4}";
 
     @LocalServerPort
     private int port;
@@ -97,13 +99,73 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("가입되지 않은 학번으로 재설정을 시작하면 사유를 특정하지 않는 400 을 반환한다")
-    void startPasswordResetWithUnknownStudentIdReturns400() {
-        given().contentType(ContentType.JSON)
-                .body(Map.of("studentId", "99999999"))
+    @DisplayName("가입되지 않은 학번으로 재설정을 시작해도 가입 학번과 구분되지 않는 202 와 마스킹 번호를 반환한다")
+    void startPasswordResetWithUnknownStudentIdReturnsSameAccepted() {
+        JsonPath body = startPasswordReset(uniqueStudentId());
+
+        // 필드 수·형태가 가입 학번 응답과 같아야 한다 — 하나라도 비면 그 자체가 계정 존재 오라클이다.
+        assertThat(body.getString("data.verificationToken")).isNotBlank();
+        assertThat(body.getString("data.code")).isNotBlank();
+        assertThat(body.getString("data.maskedPhone")).matches(MASKED_PHONE_PATTERN);
+        PhoneVerification decoySession = phoneVerificationRepository
+                .findByToken(body.getString("data.verificationToken")).orElseThrow();
+        assertThat(decoySession.getPurpose()).isEqualTo(VerificationPurpose.PASSWORD_RESET);
+        // 귀속 계정이 없어야 한다 — 만에 하나 인증에 도달해도 완료 API 가 400 으로 막는 안전판이다.
+        assertThat(decoySession.getTargetUserId()).isNull();
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 학번으로 발급된 세션도 상태 조회에서 404 가 아니라 PENDING 을 반환한다")
+    void unknownStudentIdSessionStatusReturnsPending() {
+        String token = startPasswordReset(uniqueStudentId()).getString("data.verificationToken");
+
+        given().contentType(ContentType.JSON).body(Map.of("verificationToken", token))
+                .when().post("/api/v1/auth/phone-verifications/status")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("PENDING"));
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 학번을 60초 안에 다시 시도하면 가입 학번과 동일하게 쿨다운 429 를 반환한다")
+    void startPasswordResetWithUnknownStudentIdWithinCooldownReturns429() {
+        String unknownStudentId = uniqueStudentId();
+        startPasswordReset(unknownStudentId);
+
+        given().contentType(ContentType.JSON).body(Map.of("studentId", unknownStudentId))
                 .when().post("/api/v1/auth/password-resets")
-                .then().statusCode(HttpStatus.BAD_REQUEST.value())
-                .body("code", equalTo("PASSWORD_RESET_NOT_ALLOWED"));
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("PHONE_VERIFICATION_COOLDOWN"));
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 학번의 마스킹 번호는 재시도해도 같은 값이다")
+    void unknownStudentIdMaskedPhoneStaysSameAcrossRetries() {
+        String unknownStudentId = uniqueStudentId();
+        JsonPath firstBody = startPasswordReset(unknownStudentId);
+        String decoyPhone = phoneVerificationRepository
+                .findByToken(firstBody.getString("data.verificationToken")).orElseThrow().getPhone();
+        // 60초 쿨다운(번호당 1행) 회피 — 발급된 그 번호의 세션 행만 과거로 되돌린다.
+        jdbcTemplate.update(
+                "UPDATE phone_verifications SET last_issued_at = last_issued_at - INTERVAL '2 minutes' "
+                        + "WHERE phone = ?", decoyPhone);
+
+        JsonPath secondBody = startPasswordReset(unknownStudentId);
+
+        // 재시도마다 번호가 흔들리면 "값이 바뀌는 쪽 = 미가입"이라는 새 오라클이 된다.
+        assertThat(secondBody.getString("data.maskedPhone"))
+                .isEqualTo(firstBody.getString("data.maskedPhone"));
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 학번의 세션으로 완료를 시도하면 가입 학번의 미인증 세션과 같은 403 을 반환한다")
+    void completePasswordResetWithUnknownStudentIdSessionReturns403() {
+        String token = startPasswordReset(uniqueStudentId()).getString("data.verificationToken");
+
+        given().contentType(ContentType.JSON)
+                .body(Map.of("verificationToken", token, "newPassword", "newPass123!"))
+                .when().post("/api/v1/auth/password-resets/complete")
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("code", equalTo("PHONE_NOT_VERIFIED"));
     }
 
     @Test
@@ -114,9 +176,7 @@ class AuthPasswordResetTest extends IntegrationTestBase {
         signupUser(registeredPhone, studentId);
         // 60초 쿨다운(번호당 1행) 회피 — 시드된 그 번호의 세션 행만 과거로 되돌린다(다른 테스트 행 오염 방지).
         for (int attempt = 0; attempt < 3; attempt++) {
-            given().contentType(ContentType.JSON).body(Map.of("studentId", studentId))
-                    .when().post("/api/v1/auth/password-resets")
-                    .then().statusCode(HttpStatus.ACCEPTED.value());
+            startPasswordReset(studentId);
             jdbcTemplate.update(
                     "UPDATE phone_verifications SET last_issued_at = last_issued_at - INTERVAL '2 minutes' "
                             + "WHERE phone = ?", registeredPhone);
@@ -128,28 +188,87 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("탈퇴한 학번으로 재설정을 시작하면 400 을 반환한다")
-    void startPasswordResetForWithdrawnUserReturns400() {
+    @DisplayName("탈퇴한 학번으로 재설정을 시작해도 가입되지 않은 학번과 동일한 202 를 반환한다")
+    void startPasswordResetForWithdrawnUserReturnsSameAccepted() {
         String studentId = uniqueStudentId();
-        signupUser(uniquePhone(), studentId);
+        String registeredPhone = uniquePhone();
+        signupUser(registeredPhone, studentId);
         jdbcTemplate.update("UPDATE users SET deleted_at = now() WHERE student_id = ?", studentId);
 
+        JsonPath body = startPasswordReset(studentId);
+
+        assertThat(body.getString("data.maskedPhone")).matches(MASKED_PHONE_PATTERN);
+        PhoneVerification decoySession = phoneVerificationRepository
+                .findByToken(body.getString("data.verificationToken")).orElseThrow();
+        // 탈퇴 계정의 실제 등록 번호가 아니라 decoy 번호로 발급된다 — 탈퇴자에게 문자 인증 경로를 열지 않는다.
+        assertThat(decoySession.getPhone()).isNotEqualTo(registeredPhone);
+        assertThat(decoySession.getTargetUserId()).isNull();
+    }
+
+    @Test
+    @DisplayName("번호가 V19 placeholder 인 레거시 계정도 decoy 번호로 발급돼 실계정임이 드러나지 않는다")
+    void startPasswordResetForPlaceholderPhoneUserUsesDecoy() {
+        String studentId = uniqueStudentId();
+        signupUser(uniquePhone(), studentId);
+        // V19 가 기존 계정에 백필한 상태를 재현한다 — 운영 백필 마이그레이션이 아직 없어 활성 계정에 남을 수 있다.
+        jdbcTemplate.update("UPDATE users SET phone = '010-0000-0000' WHERE student_id = ?", studentId);
+
+        JsonPath body = startPasswordReset(studentId);
+
+        // mask('010-0000-0000') = '010-****-0000' 이 그대로 나가면, 그 고정값만으로 해당 학번이
+        // 레거시 실계정임이 익명 1회 요청에 확정된다. decoy 로 보내 그 신호를 없앤다.
+        assertThat(body.getString("data.maskedPhone")).matches(MASKED_PHONE_PATTERN);
+        PhoneVerification decoySession = phoneVerificationRepository
+                .findByToken(body.getString("data.verificationToken")).orElseThrow();
+        assertThat(decoySession.getPhone()).isNotEqualTo("010-0000-0000");
+        assertThat(decoySession.getTargetUserId()).isNull();
+    }
+
+    @Test
+    @DisplayName("번호가 placeholder 인 계정이 둘이어도 서로의 재설정 세션을 쿨다운으로 막지 않는다")
+    void placeholderPhoneUsersDoNotShareVerificationSession() {
+        String firstStudentId = uniqueStudentId();
+        String secondStudentId = uniqueStudentId();
+        signupUser(uniquePhone(), firstStudentId);
+        signupUser(uniquePhone(), secondStudentId);
+        jdbcTemplate.update("UPDATE users SET phone = '010-0000-0000' WHERE student_id IN (?, ?)",
+                firstStudentId, secondStudentId);
+
+        String firstPhone = phoneVerificationRepository
+                .findByToken(startPasswordReset(firstStudentId).getString("data.verificationToken"))
+                .orElseThrow().getPhone();
+        // uk_phone_verifications_phone(V79:17)에는 placeholder 예외가 없어, 둘 다 실번호로 발급하면
+        // 같은 세션 행을 공유해 두 번째 요청이 60초 쿨다운 429 로 막힌다.
+        String secondPhone = phoneVerificationRepository
+                .findByToken(startPasswordReset(secondStudentId).getString("data.verificationToken"))
+                .orElseThrow().getPhone();
+
+        assertThat(firstPhone).isNotEqualTo(secondPhone);
+    }
+
+    @Test
+    @DisplayName("미가입 학번의 세션은 문자 인증을 통과해도 비밀번호를 바꾸지 못한다 — decoy 의 최종 안전판")
+    void verifiedDecoySessionStillCannotResetPassword() {
+        // decoy 번호는 소유자가 없어 실제로는 인증까지 갈 수 없지만, 번호 충돌 등으로 VERIFIED 에 도달하더라도
+        // targetUserId=null 이라 완료 단계가 400 으로 막는다는 계약을 고정한다.
+        String token = issueAndVerifyResetSession(uniqueStudentId());
+
         given().contentType(ContentType.JSON)
-                .body(Map.of("studentId", studentId))
-                .when().post("/api/v1/auth/password-resets")
+                .body(Map.of("verificationToken", token, "newPassword", "newPass123!"))
+                .when().post("/api/v1/auth/password-resets/complete")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("code", equalTo("PASSWORD_RESET_NOT_ALLOWED"));
     }
 
     @Test
-    @DisplayName("같은 IP 로 미가입 학번 재설정을 반복하면 계정 존재 여부와 무관하게 IP 분당 한도(10회)에서 429 로 막힌다")
-    void startPasswordResetIsIpRateLimitedEvenOnUnknownStudentId() {
+    @DisplayName("가입되지 않은 학번의 재설정 시작도 가입 학번과 같은 만큼만 IP 발급 한도를 소모한다")
+    void startPasswordResetConsumesSameIpIssueQuotaForUnknownStudentId() {
         // 매 요청 학번이 서로 달라 학번당 3회 제한엔 걸리지 않는다 — IP 발급 축만 격리 검증한다.
         // 발급 IP 분당 한도(10)는 서비스 package-private 상수라 형제 테스트처럼 리터럴로 맞춘다.
+        // 미가입 요청이 IP 창을 2회 소모하던 옛 이중 계수가 살아나면 6번째 요청이 429 가 돼 루프가 깨진다 —
+        // 상태코드를 균일하게 만들어도 "429 가 몇 번째에 뜨는지"로 실계정을 셀 수 있던 오라클의 회귀 잠금이다.
         for (int attempt = 0; attempt < 10; attempt++) {
-            given().contentType(ContentType.JSON).body(Map.of("studentId", uniqueStudentId()))
-                    .when().post("/api/v1/auth/password-resets")
-                    .then().statusCode(HttpStatus.BAD_REQUEST.value());
+            startPasswordReset(uniqueStudentId());
         }
         given().contentType(ContentType.JSON).body(Map.of("studentId", uniqueStudentId()))
                 .when().post("/api/v1/auth/password-resets")
@@ -193,10 +312,7 @@ class AuthPasswordResetTest extends IntegrationTestBase {
         String studentId = uniqueStudentId();
         signupUser(uniquePhone(), studentId);
         // 시작만 하고(PENDING) 인증 없이 완료 시도
-        String token = given().contentType(ContentType.JSON).body(Map.of("studentId", studentId))
-                .when().post("/api/v1/auth/password-resets")
-                .then().statusCode(HttpStatus.ACCEPTED.value())
-                .extract().jsonPath().getString("data.verificationToken");
+        String token = startPasswordReset(studentId).getString("data.verificationToken");
 
         given().contentType(ContentType.JSON)
                 .body(Map.of("verificationToken", token, "newPassword", "newPass123!"))
@@ -312,6 +428,15 @@ class AuthPasswordResetTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.CREATED.value());
     }
 
+    /** 재설정 시작 요청 — 계정 존재 여부와 무관한 202 를 단언하고 응답 본문을 돌려준다. */
+    private JsonPath startPasswordReset(String studentId) {
+        return given().contentType(ContentType.JSON)
+                .body(Map.of("studentId", studentId))
+                .when().post("/api/v1/auth/password-resets")
+                .then().statusCode(HttpStatus.ACCEPTED.value())
+                .extract().jsonPath();
+    }
+
     /** 로그인(또는 재로그인) — 액세스 토큰을 돌려준다. 재설정 후 새 비밀번호 로그인 성공 검증에 재사용한다. */
     private String login(String studentId, String password) {
         return given().contentType(ContentType.JSON)
@@ -327,11 +452,7 @@ class AuthPasswordResetTest extends IntegrationTestBase {
      * 스텁 등록에 쓸 전체 번호는 세션 행에서 읽는다.
      */
     private String issueAndVerifyResetSession(String studentId) {
-        JsonPath issueBody = given().contentType(ContentType.JSON)
-                .body(Map.of("studentId", studentId))
-                .when().post("/api/v1/auth/password-resets")
-                .then().statusCode(HttpStatus.ACCEPTED.value())
-                .extract().jsonPath();
+        JsonPath issueBody = startPasswordReset(studentId);
         String token = issueBody.getString("data.verificationToken");
         String registeredPhone = phoneVerificationRepository.findByToken(token).orElseThrow().getPhone();
         return verifyIssuedSession(registeredPhone, token, issueBody.getString("data.code"));

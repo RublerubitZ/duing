@@ -36,6 +36,7 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
@@ -331,13 +332,29 @@ public class GeneralApplicationService implements ApplicationService {
     public void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand) {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManager(updateApplicationStatusCommand.currentUserId(), application.getRecruitment().getClub().getId());
+        // 반환된 ClubMember 를 그대로 받아 아래 운영진 승급 게이트의 역할 판정에 쓴다 — 추가 조회 없음.
+        ClubMember actor = clubAuthService.requireManager(
+                updateApplicationStatusCommand.currentUserId(),
+                application.getRecruitment().getClub().getId());
         // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
         // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
         // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
         // 판정은 raw status 기준 — 마감일이 지나도 수동 마감 전이면 심사 진행 중이라 전 기능이 열려 있다.
         Recruitment recruitment = application.getRecruitment();
         ClosedRecruitmentPolicy.requireFinalizingOnly(recruitment, updateApplicationStatusCommand.status());
+
+        // 운영진 승급은 회장의 결정이다 — 직접 경로(GeneralClubMemberCommandService.updateRole)가
+        // requireLeader 인 것과 등급을 맞춘다. 모집을 경유한다고 등급이 내려가지는 않는다.
+        // 합격(ACCEPTED)만 본다: 나머지 전이는 club_members.role 을 건드리지 않는다.
+        // 조건 순서(status → targetRole → actor 역할)는 값싼 판정을 앞에 두어, 대다수인 부원 모집·비합격
+        // 전이가 enum 비교 한 번으로 빠져나가게 한다.
+        // 마감 모집 계약(409)의 우선순위를 유지하려고 requireFinalizingOnly 뒤에 두고,
+        // 상태 전이·이력이 먼저 기록되지 않도록 applicationStatusChanger.change 앞에 둔다.
+        if (updateApplicationStatusCommand.status() == ApplicationStatus.ACCEPTED
+                && recruitment.getTargetRole() == TargetRole.OFFICER
+                && actor.getRole() != ClubMemberRole.LEADER) {
+            throw new RecruitmentException.OfficerTargetRequiresLeaderException();
+        }
 
         // 전이와 이력 기록은 ApplicationStatusChanger 한 곳에서만 조립한다.
         // 변경 주체 조회는 전이가 FSM 에 막히면 필요 없는 왕복이라 Supplier 로 넘겨 전이 성공 이후로 미룬다.

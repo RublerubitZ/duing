@@ -168,4 +168,24 @@ public class RecruitmentException extends ApplicationException {
             super(message, HttpStatus.BAD_REQUEST);
         }
     }
+
+    /**
+     * 운영진 대상 모집(targetRole=OFFICER)은 개설·합격 처리 모두 회장만 할 수 있다 — 운영진이
+     * 모집 경유로 스스로 운영진을 늘리는 경로를 막는다. 직접 경로(ClubMember updateRole)가
+     * requireLeader 인 것과 등급을 맞춘 것이다.
+     *
+     * <p>Spring 의 {@code AccessDeniedException} 을 쓰지 않고 도메인 예외로 던지는 이유:
+     * (1) 전역 핸들러가 AccessDenied 의 메시지를 열거 방지용 무정보 고정 문구로 소거해 거부 사유가
+     * 사라지고, (2) 벌크 경로({@code GeneralApplicationService.bulkUpdateStatus})가 AccessDenied 를
+     * 잡아 일반 실패 문구로 뭉개므로 20건 일괄 합격 시 이유를 알 수 없는 실패 20개가 나온다.
+     * 여기서 거부되는 주체는 이미 해당 동아리 운영진임이 검증된 사용자라 열거 위험이 없고,
+     * "회장에게 요청하라"는 안내가 반드시 필요하다.
+     */
+    public static class OfficerTargetRequiresLeaderException extends RecruitmentException {
+        private static final String MESSAGE = "운영진 대상 모집의 개설과 합격 처리는 동아리 회장만 할 수 있습니다.";
+
+        public OfficerTargetRequiresLeaderException() {
+            super(MESSAGE, HttpStatus.FORBIDDEN);
+        }
+    }
 }

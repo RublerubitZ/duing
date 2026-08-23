@@ -34,6 +34,15 @@ public class FederationFaqException extends ApplicationException {
         public FaqFeedbackSessionKeyRequiredException() { super(MESSAGE, HttpStatus.BAD_REQUEST); }
     }
 
+    /**
+     * 익명 FAQ 피드백 제출의 IP 레이트리밋 초과 — sessionKey 는 클라이언트가 만들어 보내는 값이라
+     * 키를 갈아끼우면 dedup 이 무력해진다. IP 창이 행 증식의 유일한 총량 상한이다.
+     */
+    public static class FaqFeedbackRateLimitedException extends FederationFaqException {
+        private static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+        public FaqFeedbackRateLimitedException() { super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS); }
+    }
+
     public static class FederationFaqCategoryInUseException extends FederationFaqException {
         private static final String MESSAGE = "FAQ가 있는 카테고리는 삭제할 수 없습니다. 이관할 카테고리를 지정해 주세요.";
         public FederationFaqCategoryInUseException() { super(MESSAGE, HttpStatus.CONFLICT); }

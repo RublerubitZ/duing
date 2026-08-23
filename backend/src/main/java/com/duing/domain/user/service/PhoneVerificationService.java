@@ -12,7 +12,11 @@ public interface PhoneVerificationService {
 
     /**
      * 비밀번호 재설정 인증 시작 — 학번으로 계정을 찾아 <b>등록된 번호로만</b> PASSWORD_RESET 세션을
-     * 발급한다(번호를 입력받지 않는다, spec §10.2). 계정 미존재 400, 학번당 시간당 3회 제한.
+     * 발급한다(번호를 입력받지 않는다, spec §10.2). 학번당 시간당 3회 제한.
+     *
+     * <p>미가입·탈퇴 학번도 학번에서 파생한 decoy 번호로 <b>실제 세션을 발급해</b> 계정 존재 여부와
+     * 무관하게 같은 202 를 돌려준다 (계정 열거 평탄화, spec §7.6). 응답·쿨다운·폴링·리밋이 모두
+     * 존재 계정과 동일하다.
      */
     PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp);
 

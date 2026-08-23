@@ -59,6 +59,41 @@ public class PhoneVerificationRateLimiter {
     }
 
     /**
+     * 발급 IP 윈도우(분 10/시 60) 검사만 한다 — 기록은 {@link #assertAndRecordIssueIpRequest} 가 단독으로 한다.
+     *
+     * <p>재설정 시작의 <b>선검사</b> 전용이다. 그 경로는 학번 키 창({@link #assertAndRecordPasswordResetStart})을
+     * 먼저 설치한 뒤 issue() 안에서야 IP 창을 만나는데, 학번 창은 새 키마다 항상 통과(시간당 3회)라
+     * 선검사가 없으면 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치된다 — 8자리 학번 공간(1e8)과
+     * 만료 엔트리 미정리가 겹쳐 단일 IP 로 힙을 고갈시킬 수 있다.
+     *
+     * <p>여기서 <b>기록하지 않는</b> 것이 핵심이다. 기록까지 하면 미가입 학번은 IP 창을 1회,
+     * 가입 학번은 issue() 에서 한 번 더 2회를 소모해 "429 가 몇 번째 요청에서 뜨는지"로 실계정을 세는
+     * 계수 오라클이 되살아난다(그 오라클을 없애려고 중복 호출을 걷어낸 것이다).
+     */
+    public void assertIssueIpWithinLimit(String clientIp, LocalDateTime now) {
+        boolean[] limitExceeded = {false};
+        issueTimesByIp.compute(clientIp, (key, issueTimes) -> {
+            if (issueTimes == null) {
+                return null;
+            }
+            LocalDateTime hourAgo = now.minusHours(1);
+            LocalDateTime minuteAgo = now.minusMinutes(1);
+            while (!issueTimes.isEmpty() && !issueTimes.peekFirst().isAfter(hourAgo)) {
+                issueTimes.pollFirst();
+            }
+            long lastMinuteCount = issueTimes.stream()
+                    .filter(issueTime -> issueTime.isAfter(minuteAgo))
+                    .count();
+            limitExceeded[0] = lastMinuteCount >= ISSUE_PER_MINUTE_LIMIT
+                    || issueTimes.size() >= ISSUE_PER_HOUR_LIMIT;
+            return issueTimes.isEmpty() ? null : issueTimes;
+        });
+        if (limitExceeded[0]) {
+            throw new PhoneVerificationException.VerificationRateLimitedException();
+        }
+    }
+
+    /**
      * 번호+IP당 발급 총량(시간당 5회) 검사만 한다 — 기록은 upsert 성공 후 {@link #recordIssuePhoneRequest}.
      * 검사·기록 사이의 동시 유입은 upsert 행잠금(60초 쿨다운)이 성공을 직렬화하므로 상한을 의미 있게
      * 넘지 못한다. 초과 시 429 (쿨다운과 구분되는 코드 — 사용자 안내 분리).

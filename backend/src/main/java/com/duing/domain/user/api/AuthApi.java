@@ -141,10 +141,10 @@ public interface AuthApi {
     @Operation(summary = "비밀번호 재설정 시작",
             description = "학번으로 계정을 찾아 등록된 번호로 PASSWORD_RESET MO 인증 세션을 발급한다 — 번호는 "
                     + "입력받지 않으며 응답에 마스킹된 번호를 안내한다. 이후 폴링은 공용 상태조회 API 를 쓴다. "
-                    + "학번당 시간당 3회 제한. 계정을 확인할 수 없으면 400(PASSWORD_RESET_NOT_ALLOWED).")
+                    + "학번당 시간당 3회 제한. 계정 존재 여부와 무관하게 202 를 반환한다(계정 열거 방지) — "
+                    + "미가입 학번에는 학번에서 파생한 안내용 번호로 세션이 발급되며 응답 형태가 동일하다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "발급됨"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "계정을 확인할 수 없음"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "학번·IP 한도 또는 쿨다운")
     })
     @PostMapping("/auth/password-resets")

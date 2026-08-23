@@ -6,6 +6,8 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
@@ -17,6 +19,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
@@ -72,7 +75,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
         // 동아리 운영진(LEADER/OFFICER)만 모집 공고를 생성할 수 있다.
-        clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
+        ClubMember actor = clubAuthService.requireManager(createRecruitmentCommand.currentUserId(), club.getId());
+        requireLeaderForOfficerTarget(actor, createRecruitmentCommand.targetRole());
 
         requireActiveClubUnderLock(club);
 
@@ -380,7 +384,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
         Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
-        clubAuthService.requireManager(command.currentUserId(), club.getId());
+        ClubMember actor = clubAuthService.requireManager(command.currentUserId(), club.getId());
+        requireLeaderForOfficerTarget(actor, command.targetRole());
 
         requireActiveClubUnderLock(club);
 
@@ -455,6 +460,25 @@ public class GeneralRecruitmentService implements RecruitmentService {
     private void requireEndDateNotPast(LocalDate endDate) {
         if (endDate != null && endDate.isBefore(LocalDate.now(clock))) {
             throw new RecruitmentException.PastEndDateException();
+        }
+    }
+
+    /**
+     * 운영진 대상 모집(targetRole=OFFICER)은 회장만 개설한다. targetRole 은 생성 시점에 확정되고
+     * 이후 변경 통로가 없으므로(update 는 targetRole 을 받지 않는다) 이 한 번의 결정이
+     * "누가 운영진이 될 수 있는가"를 고정한다.
+     *
+     * <p>보안상의 최종 관문은 합격 처리(GeneralApplicationService.updateStatus)지만, 여기서 함께
+     * 막아 처리할 수 없는 모집이 동아리당 1건뿐인 활성 모집 슬롯(uk_recruitment_club_active)을
+     * 차지하는 것을 방지한다 — 그대로 두면 운영진이 공개 게시까지 해놓고 지원자를 모은 뒤
+     * 마지막 합격 처리에서만 막히는 막다른 깔때기가 된다.
+     *
+     * <p>부원 모집(targetRole=MEMBER) 생성은 스펙 R-3 대로 운영진에게 그대로 열려 있다.
+     * 조건은 반드시 targetRole 을 먼저 본다 — MEMBER 모집 경로가 actor 없이도 통과해야 한다.
+     */
+    private void requireLeaderForOfficerTarget(ClubMember actor, TargetRole targetRole) {
+        if (targetRole == TargetRole.OFFICER && actor.getRole() != ClubMemberRole.LEADER) {
+            throw new RecruitmentException.OfficerTargetRequiresLeaderException();
         }
     }
 

@@ -5,7 +5,6 @@ import com.duing.domain.user.entity.PhoneVerificationStatus;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
-import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.IssuePhoneVerificationCommand;
@@ -39,6 +38,12 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
 
     /** Octomo exists 조회 창(분) — 세션 유효시간(5분)과 정렬한다 (spec §2.1). */
     private static final int EXISTS_WITHIN_MINUTES = (int) PhoneVerification.VALIDITY.toMinutes();
+
+    /**
+     * V19 가 기존 계정에 백필한 번호 placeholder — 실번호가 아니다(V19:13, users_phone_format_chk 예외값).
+     * V19:8 이 예고한 운영 백필 마이그레이션이 아직 저장소에 없어 활성 레거시 계정에 남아 있을 수 있다.
+     */
+    private static final String PLACEHOLDER_PHONE = "010-0000-0000";
 
     private final PhoneVerificationRepository phoneVerificationRepository;
     private final PhoneVerificationSessionManager sessionManager;
@@ -90,7 +95,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
                     throw new PhoneVerificationException.PhoneAlreadyRegisteredException();
                 }
             }
-            // 계정에 등록된 번호로만 발급되므로 중복검사가 성립하지 않는다 (spec §10.2).
+            // 계정 등록 번호(또는 미가입 학번의 decoy 번호)로만 발급되므로 중복검사가 성립하지 않는다 (spec §10.2).
             case PASSWORD_RESET -> { }
         }
 
@@ -114,21 +119,39 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     @Override
     public PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp) {
         LocalDateTime now = LocalDateTime.now(clock);
-        // 계정 존재 여부와 무관하게 IP 발급 리밋을 먼저 건다 — 미존재 학번 400 경로도 카운트해야
-        // 한 IP 의 학번 열거와 resetStart 맵 무한 성장을 막는다 (spec §11 "IP — 인증 시작"). happy path 는
-        // 내부 issue() 가 한 번 더 기록하지만, 재설정 시작은 드문 동작이라 이 보수적 이중 계수는 무해하다.
-        rateLimiter.assertAndRecordIssueIpRequest(clientIp, now);
+        // 학번 리밋은 세션 발급(외부 QR 콜 포함)보다 먼저 — 계정 존재 여부와 무관하게 소모한다
+        // (spec §11 "학번 — 재설정 시작"). IP 발급 창은 아래 issue() 가 단독으로 계수한다: 여기서 한 번 더
+        // 기록하면 미존재 학번은 1회, 존재 학번은 2회를 소모해 "429 가 몇 번째 요청에서 뜨는지"로 실계정을
+        // 셀 수 있는 계수 오라클이 남는다(상태코드를 균일하게 만들어도 카운터가 샌다).
+        // IP 창 '선검사' — 기록은 하지 않는다. 아래 학번 창은 새 학번마다 항상 통과하므로, 이 검사가 없으면
+        // 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치돼(8자리 공간 1e8, 만료 정리 없음) 단일 IP 로
+        // 힙을 고갈시킬 수 있다. 기록까지 하면 미가입 1회·가입 2회로 갈려 계수 오라클이 되살아난다.
+        rateLimiter.assertIssueIpWithinLimit(clientIp, now);
         rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
 
-        // @SQLRestriction 으로 탈퇴 계정은 조회되지 않는다 — 미존재와 동일한 400 으로 수렴(사유 미특정).
-        User targetUser = userRepository.findByStudentId(studentId)
-                .orElseThrow(UserException.PasswordResetNotAllowedException::new);
+        // 미가입·탈퇴(@SQLRestriction) 학번도 400 이 아니라 학번에서 파생한 decoy 번호로 실제 세션을 발급해
+        // 균일한 202 를 돌려준다 (spec §7.6). 가짜 토큰만 만들어 응답을 흉내 내면 후속 폴링이 404, 재시도가
+        // 쿨다운 없이 202 라 열거가 그대로 복원된다 — 같은 issue() 를 그대로 타야 쿨다운·폴링·리밋·QR
+        // 왕복 시간까지 존재 계정과 구분되지 않는다.
+        User targetUser = userRepository.findByStudentId(studentId).orElse(null);
+        // 실계정이어도 번호가 V19 placeholder 면 decoy 로 보낸다. 두 가지를 동시에 막는다:
+        // (1) mask('010-0000-0000') = '010-****-0000' 는 고정값이라, 그 값이 나오는 것만으로 해당 학번이
+        //     레거시 실계정임이 익명 1회 요청에 확정된다(decoy 가 우연히 0000 으로 끝날 확률은 1/10,000).
+        // (2) ux_users_phone 은 placeholder 를 제외하지만(V19:28-30) uk_phone_verifications_phone(V79:17)은
+        //     제외가 없어, placeholder 계정 전원이 세션 행 하나를 공유하며 서로의 재설정을 쿨다운 429 로 막는다.
+        // 기능 손실은 없다 — placeholder 번호는 소유자가 없어 어차피 MO 인증을 완료할 수 없다.
+        boolean hasReachablePhone = targetUser != null
+                && !PLACEHOLDER_PHONE.equals(targetUser.getPhone());
+        // targetUserId=null 이 decoy 의 안전판이다 — 만에 하나 VERIFIED 에 도달해도 완료 API 가 400 으로 막는다.
+        Long targetUserId = hasReachablePhone ? targetUser.getId() : null;
+        String sessionPhone = hasReachablePhone
+                ? targetUser.getPhone() : codeDeriver.deriveDecoyPhone(studentId);
 
         PhoneVerificationIssueResult issueResult = issue(
                 new IssuePhoneVerificationCommand(
-                        targetUser.getPhone(), VerificationPurpose.PASSWORD_RESET, includeQr, targetUser.getId()),
+                        sessionPhone, VerificationPurpose.PASSWORD_RESET, includeQr, targetUserId),
                 clientIp);
-        return new PasswordResetStartResult(issueResult, PhoneMasker.mask(targetUser.getPhone()));
+        return new PasswordResetStartResult(issueResult, PhoneMasker.mask(sessionPhone));
     }
 
     @Override

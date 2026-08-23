@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -105,6 +106,28 @@ class RecruitmentReplaceActiveTest {
                 buildExternalCommand(club, leader, "과거모집", kstToday.minusDays(5), kstToday.minusDays(1))))
                 .isInstanceOf(RecruitmentException.PastEndDateException.class);
 
+        assertThat(recruitmentRepository.findById(existingId).orElseThrow().getStatus())
+                .isEqualTo(RecruitmentStatus.OPEN);
+    }
+
+    @Test
+    @DisplayName("운영진(OFFICER)은 replaceActive 로도 운영진 대상 모집을 개설할 수 없다")
+    void officerCannotReplaceActiveWithOfficerTargetRecruitment() throws Exception {
+        User officer = saveUser("교체운영진");
+        Club club = saveActiveClub("교체운영진동아리");
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        Long existingId = recruitmentService.create(buildExternalCommand(club, officer, "기존active"));
+
+        CreateRecruitmentCommand officerTarget = new CreateRecruitmentCommand(
+                club.getId(), officer.getId(), "운영진 모집", null,
+                LocalDate.now(), LocalDate.now().plusDays(7), 10,
+                ApplicationMode.EXTERNAL, "https://forms.gle/aBcD1234", false, TargetRole.OFFICER,
+                List.of(), null, null, false);
+
+        assertThatThrownBy(() -> recruitmentService.replaceActive(officerTarget))
+                .isInstanceOf(RecruitmentException.OfficerTargetRequiresLeaderException.class);
+
+        // 게이트가 기존 active 마감보다 먼저 걸려야 한다 — 막힌 요청이 진행 중 모집을 닫으면 안 된다.
         assertThat(recruitmentRepository.findById(existingId).orElseThrow().getStatus())
                 .isEqualTo(RecruitmentStatus.OPEN);
     }
