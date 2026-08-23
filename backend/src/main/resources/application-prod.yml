@@ -130,6 +130,13 @@ sentry:
   dsn: ${SENTRY_DSN}
   environment: production
 
+# 운영 Slack 알림 — SENTRY_DSN 과 달리 폴백을 둔다(미설정=비활성). 이 기능의 1순위 요구가 "모니터링이 핵심
+# 서비스에 절대 영향을 주지 않는다" 라서, .env 키 한 줄 누락으로 릴리스가 부팅 실패→롤백되는 경로를 만들지 않는다.
+# 대신 SlackNotifier 가 부팅 직후 활성/비활성을 로그(비활성이면 WARN)로 남겨 사일런트 결손을 드러낸다.
+monitoring:
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+
 file:
   storage:
     provider: s3

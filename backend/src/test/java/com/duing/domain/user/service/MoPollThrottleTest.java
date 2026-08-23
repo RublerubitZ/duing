@@ -218,6 +218,28 @@ class MoPollThrottleTest {
     }
 
     @Test
+    @DisplayName("일일 사용량 읽기는 오늘 예약된 실호출 수와 자체 상한을 함께 돌려준다(운영 모니터링용)")
+    void dailyUsageReportsTodaysReservedCallsAndLimit() {
+        assertThat(pollThrottle.dailyUsage(NOW)).isEqualTo(new MoPollThrottle.DailyUsage(0, DAILY_CALL_LIMIT));
+
+        pollThrottle.reserveDailyQuota(NOW);
+        pollThrottle.reserveDailyQuota(NOW);
+        pollThrottle.reserveDailyQuota(NOW);
+
+        assertThat(pollThrottle.dailyUsage(NOW)).isEqualTo(new MoPollThrottle.DailyUsage(3, DAILY_CALL_LIMIT));
+    }
+
+    @Test
+    @DisplayName("날짜가 바뀐 뒤 첫 예약 전에 읽어도 전날 카운터가 아니라 0 으로 읽힌다(자정 롤오버를 읽기에도 반영)")
+    void dailyUsageReadsZeroAfterMidnightBeforeFirstReservation() {
+        pollThrottle.reserveDailyQuota(NOW);
+
+        assertThat(pollThrottle.dailyUsage(NOW.plusDays(1))).isEqualTo(new MoPollThrottle.DailyUsage(0, DAILY_CALL_LIMIT));
+        // 예약이 없었으니 전날 카운터는 아직 남아 있다 — 같은 날로 다시 읽으면 1.
+        assertThat(pollThrottle.dailyUsage(NOW)).isEqualTo(new MoPollThrottle.DailyUsage(1, DAILY_CALL_LIMIT));
+    }
+
+    @Test
     @DisplayName("reset 은 간격 기록과 일일 카운터를 모두 초기화한다 (통합 테스트 격리용)")
     void resetClearsState() {
         pollThrottle.tryAcquire(TOKEN, NOW);

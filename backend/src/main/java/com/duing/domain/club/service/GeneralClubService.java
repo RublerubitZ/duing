@@ -32,12 +32,15 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -63,6 +66,8 @@ public class GeneralClubService implements ClubService {
     private final ApplicationRepository applicationRepository;
     // 모집 표시 상태(today) 판정용 — KST(seoulClock) 기준.
     private final Clock clock;
+    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -100,6 +105,7 @@ public class GeneralClubService implements ClubService {
         // 동아리 생성과 동시에 designated leader 를 ClubMember(LEADER) 로 자동 등록.
         clubMemberRepository.save(ClubMember.asLeader(savedClub, leader));
 
+        eventPublisher.publishEvent(new ClubCreatedEvent(savedClub.getId(), savedClub.getName(), leader.getId()));
         return savedClub.getId();
     }
 
@@ -249,11 +255,16 @@ public class GeneralClubService implements ClubService {
         // 폐쇄·상태변경 동시 요청이 같은 행을 직렬화하도록 잠금 (stale 검증 방지)
         Club club = clubRepository.findByIdForUpdate(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
+        ClubStatus previousStatus = club.getStatus();
         club.changeStatus(
                 updateClubStatusCommand.status(),
                 updateClubStatusCommand.rejectionReason(),
                 updateClubStatusCommand.actorUserId()
         );
+        // 운영 Slack 알림 — 전이가 검증을 통과한 뒤에만(거절 사유는 싣지 않는다).
+        eventPublisher.publishEvent(new ClubStatusChangedEvent(
+                club.getId(), club.getName(), previousStatus, updateClubStatusCommand.status(),
+                updateClubStatusCommand.actorUserId()));
         if (updateClubStatusCommand.status() == ClubStatus.INACTIVE) {
             // 운영 중단 = 신규 모집 활동 정지. OPEN 모집을 일괄 마감해 공개 표면·알림에 남지 않게 한다 (스펙 Part A).
             recruitmentService.closeAllOnClubDeactivation(club.getId());
