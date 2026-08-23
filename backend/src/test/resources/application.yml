@@ -80,6 +80,11 @@ octomo:
   api-key: ""
   base-url: http://localhost:0/octomo-stub
 
+monitoring:
+  slack:
+    # 테스트 기본 비활성 — 실제 전송 없음. SlackNotifier 단위 테스트는 MockRestServiceServer 로 계약을 검증한다.
+    webhook-url: ""
+
 bank-api:
   # 테스트 전용 더미 baseUrl — @NotBlank fail-fast 충족용. 실제 호출은 발생하지 않는다.
   # 통합테스트는 BankApiClient 를 @Primary stub 으로 대체하므로 이 URL 로 나가는 외부 호출이 없다.

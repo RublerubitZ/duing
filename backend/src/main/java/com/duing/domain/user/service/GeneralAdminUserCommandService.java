@@ -11,8 +11,10 @@ import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangeUserStatusCommand;
 import com.duing.domain.user.service.dto.command.UpdateAdminNoteCommand;
+import com.duing.global.monitoring.event.AdminUserActionEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
     private final UserRepository userRepository;
     private final AdminUserActionLogRepository adminUserActionLogRepository;
     private final AuthSessionService authSessionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -63,6 +66,9 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
 
         adminUserActionLogRepository.save(AdminUserActionLog.of(
                 changeStatusCommand.actorUserId(), target.getId(), action, changeStatusCommand.reason()));
+
+        // 운영 Slack 알림 — 조치 종류·대상·관리자 id 만(사유 제외). 커밋 후 비동기 소비.
+        eventPublisher.publishEvent(new AdminUserActionEvent(action, target.getId(), changeStatusCommand.actorUserId()));
 
         log.info("Admin account status change. actorId={}, targetUserId={}, action={}",
                 changeStatusCommand.actorUserId(), target.getId(), action);

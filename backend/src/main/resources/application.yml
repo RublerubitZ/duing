@@ -102,6 +102,13 @@ sentry:
     minimum-event-level: error
     minimum-breadcrumb-level: info
 
+# Slack 운영 알림(Incoming Webhook) — 주요 비즈니스 이벤트(회원가입·동아리·회비·시설·관리자 조치)를
+# 운영 채널로 보낸다. 로그 집계·Sentry 복제가 아니다(deploy/MONITORING.md). 빈 값이면 완전 비활성(로컬·CI).
+# 전송은 커밋 후(@TransactionalEventListener AFTER_COMMIT) 전용 스레드에서 하며, 실패해도 서비스에 영향이 없다.
+monitoring:
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/tmp/duing/uploads}
   storage:

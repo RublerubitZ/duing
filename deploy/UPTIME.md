@@ -38,6 +38,7 @@
 - **채널**: 이메일(기본) + **Slack(연결 완료, 테스트 수신 확인)**. 모니터 1·2번(백엔드)은 즉시 알림, 3·4·5번도 즉시.
   (Better Stack 무료 티어는 Discord 네이티브·outgoing webhook 미제공 — Slack 연동 사용, 2026-07-24 구성)
 - SSL 만료 감시(제공 시 활성): api.duings.com, duings.com — 만료 14일 전 알림.
+- **앱 운영 이벤트(회원가입·동아리·회비·시설·관리자 조치)와 배포 결과**도 같은 Slack 채널로 온다 — 백엔드 `global/monitoring/` + `deploy-backend.yml` 알림 스텝, 설정·카탈로그·검증 절차는 [`MONITORING.md`](./MONITORING.md).
 
 ## 서비스 선택
 

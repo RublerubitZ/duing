@@ -14,9 +14,11 @@ import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.domain.promotion.service.PromotionService;
 import com.duing.domain.recruitment.service.RecruitmentService;
+import com.duing.global.monitoring.event.ClubClosedEvent;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,7 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final ClubEventService clubEventService;
     private final ClubFavoriteService clubFavoriteService;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -49,6 +52,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         Club club = clubRepository.findByIdForUpdate(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.validateClosable();
+        // 아래 entityManager.clear() 로 detached 되기 전에 읽어 둔다.
+        String clubName = club.getName();
 
         // 1. 멤버십 · 위임
         clubMemberCommandService.removeAllOnClubClosure(clubId, actorAdminUserId, reason);
@@ -86,5 +91,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         entityManager.clear();
         Club clubToDelete = clubRepository.getReferenceById(club.getId());
         clubRepository.delete(clubToDelete);
+
+        // 운영 Slack 알림 — soft-delete 까지 커밋된 뒤에만 간다(폐쇄 사유는 싣지 않는다).
+        eventPublisher.publishEvent(new ClubClosedEvent(clubId, clubName, actorAdminUserId));
     }
 }
