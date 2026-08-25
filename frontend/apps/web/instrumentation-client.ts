@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 
+import { installDeploySkewRecovery } from './app/_lib/deploySkewRecovery';
 import { scrubBreadcrumb, scrubEvent, stripQuery } from './sentry-scrub';
 
 // 클라이언트(브라우저) 런타임 Sentry 초기화. NEXT_PUBLIC_SENTRY_DSN 이 비면 자동 비활성.
@@ -39,6 +40,11 @@ window.addEventListener('unhandledrejection', (event) => {
     reason.message.includes('Transition was aborted');
   if (isViewTransitionAbort) event.preventDefault();
 });
+
+// 배포 스큐(구 번들 × 새 배포)로 webpack 모듈 해석이 죽는 부호를 감지하면 하드 리로드로 복구한다
+// (세션당 최대 3회·60초 간격 — 상세 정책은 deploySkewRecovery.ts).
+// Sentry 초기화 뒤에 설치한다 — 오류 보고를 막지 않고(리스너는 관찰만) 복구만 담당한다.
+installDeploySkewRecovery();
 
 // App Router 네비게이션 계측 훅(추적 비활성 시 no-op).
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
