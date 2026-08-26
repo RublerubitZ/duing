@@ -66,6 +66,47 @@ class ReservationParserTest {
     }
 
     @Test
+    @DisplayName("하이픈 꼬리 (10:00-17:00) 는 실예약 범위다 — 마커 슬롯 대신 표기 범위 전체로 확장된 점유행이 된다")
+    void hyphenTailExpandsSlotToWholeReservedRange() throws IOException {
+        JsonNode hyphenTail = objectMapper.readTree("""
+                [{"schedule_seq":"20005","schedule_dept":"학생생활상담센터(10:00-17:00)",
+                  "schedule_date":"07","schedule_time":"10:00~11:00"},
+                 {"schedule_seq":"20006","schedule_dept":"학생생활상담센터(10:00-17:00)",
+                  "schedule_date":"07","schedule_time":"16:00~17:00"}]
+                """);
+
+        List<ParsedReservation> reservations = parser.parse(hyphenTail, YearMonth.of(2026, 7));
+
+        assertThat(reservations).hasSize(2);
+        assertThat(reservations).allSatisfy(row -> {
+            assertThat(row.organizationName()).isEqualTo("학생생활상담센터");
+            assertThat(row.startTime()).isEqualTo(LocalTime.of(10, 0)); // 마커(10~11, 16~17) 아님
+            assertThat(row.endTime()).isEqualTo(LocalTime.of(17, 0));
+            // 하이픈은 기본 확보 시간이 아니라 실예약 — 운영시간 필드는 비운다(점유행 분류 유지).
+            assertThat(row.reservedStartTime()).isNull();
+            assertThat(row.reservedEndTime()).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("역전 하이픈 꼬리 (17:00-09:00) 는 확장하지 않고 마커 슬롯을 유지하며 꼬리만 제거한다 — 임의 추정 금지")
+    void reversedHyphenTailKeepsMarkerSlotWithoutExpansion() throws IOException {
+        JsonNode reversedHyphenTail = objectMapper.readTree("""
+                [{"schedule_seq":"20007","schedule_dept":"야간센터(17:00-09:00)",
+                  "schedule_date":"08","schedule_time":"17:00~18:00"}]
+                """);
+
+        List<ParsedReservation> reservations = parser.parse(reversedHyphenTail, YearMonth.of(2026, 7));
+
+        assertThat(reservations).hasSize(1);
+        assertThat(reservations.get(0).organizationName()).isEqualTo("야간센터");
+        assertThat(reservations.get(0).startTime()).isEqualTo(LocalTime.of(17, 0));
+        assertThat(reservations.get(0).endTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(reservations.get(0).reservedStartTime()).isNull();
+        assertThat(reservations.get(0).reservedEndTime()).isNull();
+    }
+
+    @Test
     @DisplayName("역전 운영시간 (17:00~09:00) 은 범위만 null 폴백하고 원소는 스킵하지 않으며 꼬리 제거는 기존대로 수행한다")
     void reversedOperatingHoursFallBackToNullWithoutSkipping() throws IOException {
         JsonNode reversedTail = objectMapper.readTree("""
