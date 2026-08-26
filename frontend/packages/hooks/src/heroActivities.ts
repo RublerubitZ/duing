@@ -6,6 +6,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
+import { PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 
 export function useClubHeroActivitiesQuery(clubId: number | undefined) {
   const client = useApiClient();
@@ -21,6 +22,8 @@ export function useClubHeroActivitiesQuery(clubId: number | undefined) {
       return client.clubs.heroActivities(clubId);
     },
     enabled: clubId !== undefined,
+    // 공개 콘텐츠 계층(freshness.ts) — 본인 수정은 mutation 무효화가 즉시 반영한다.
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
