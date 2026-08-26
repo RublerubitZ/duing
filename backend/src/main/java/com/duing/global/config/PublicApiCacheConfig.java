@@ -35,6 +35,11 @@ import org.springframework.scheduling.annotation.Scheduled;
  *
  * <p>단일 인스턴스(Lightsail 1대) 전제의 힙 캐시다. 인스턴스를 늘리면 인스턴스 수만큼 miss 가
  * 늘 뿐 정합성 문제는 없다(각자 최대 TTL 초 낡은 값).
+ *
+ * <p>테스트 규약 — 캐시는 Spring 컨텍스트와 함께 살아남으므로, 같은 컨텍스트를 공유하는 테스트들이
+ * 같은 캐시 키(예: 모집 달력의 같은 YearMonth)를 재사용하면 앞 테스트의 엔트리(롤백된 데이터 포함)를
+ * 읽는 오염이 생긴다. 캐시 대상 응답의 본문을 단언하는 테스트는 키를 유일하게 잡거나, 계측 전에
+ * {@link #evictAllOnTtlElapsed()} 를 호출해 miss 에서 시작할 것.
  */
 @Configuration
 @EnableScheduling
