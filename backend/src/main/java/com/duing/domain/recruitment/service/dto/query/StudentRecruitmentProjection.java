@@ -1,7 +1,6 @@
 package com.duing.domain.recruitment.service.dto.query;
 
 import com.duing.domain.recruitment.entity.ApplicationMode;
-import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import java.time.LocalDate;
@@ -29,29 +28,28 @@ public record StudentRecruitmentProjection(
     /**
      * applicantCount 는 호출자가 결정한다.
      * showApplicantCount=true 면 count 쿼리 결과를 넘기고, false 면 null 을 넘긴다.
+     *
+     * <p>스칼라 projection 행 전용 — 엔티티를 받는 오버로드는 두지 않는다. 대표 모집을 엔티티로
+     * 읽는 순간 form eager +1 쿼리와 content TEXT 전송이 재유입된다(성능 감사 P1-6).
      */
     public static StudentRecruitmentProjection from(
-            Recruitment recruitment,
+            RepresentativeRecruitmentRow row,
             LocalDate today,
             Integer applicantCount
     ) {
         return new StudentRecruitmentProjection(
-                recruitment.getId(),
-                recruitment.getTitle(),
-                recruitment.getStartDate(),
-                recruitment.getEndDate(),
-                RecruitmentDisplayStatus.resolve(
-                        recruitment.getStatus(),
-                        recruitment.getStartDate(),
-                        recruitment.getEndDate(),
-                        today),
-                recruitment.getCapacity(),
-                recruitment.isUseInterview(),
-                recruitment.getTargetRole(),
-                recruitment.getApplicationMode(),
-                recruitment.getExternalFormUrl(),
-                recruitment.getInterviewStartDate(),
-                recruitment.getInterviewEndDate(),
+                row.id(),
+                row.title(),
+                row.startDate(),
+                row.endDate(),
+                RecruitmentDisplayStatus.resolve(row.status(), row.startDate(), row.endDate(), today),
+                row.capacity(),
+                row.useInterview(),
+                row.targetRole(),
+                row.applicationMode(),
+                row.externalFormUrl(),
+                row.interviewStartDate(),
+                row.interviewEndDate(),
                 applicantCount
         );
     }
