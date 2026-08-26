@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateNoticePayload, NoticeCategory, NoticeSource, NoticeVisibility, UpdateNoticePayload } from '@duing/types';
 import { useApiClient } from './api-context';
+import { PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 import { noticeQueryKeys } from './noticeQueryKeys';
 
 type ListParams = {
@@ -20,6 +21,8 @@ export function useNoticeListQuery(params: ListParams, enabled = true) {
     enabled,
     // 카테고리·검색·페이지 변경 시 로딩 리셋 대신 이전 목록을 유지한 채 갱신한다.
     placeholderData: keepPreviousData,
+    // 공개 콘텐츠 계층(freshness.ts) — admin 수정은 noticeQueryKeys.all 무효화가 즉시 반영한다.
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
@@ -32,6 +35,7 @@ export function useNoticeDetailQuery(noticeId: number | null, enabled = true) {
       return client.notices.detail(noticeId);
     },
     enabled: enabled && noticeId !== null,
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 

@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.repository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
+import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -10,8 +11,18 @@ import java.util.Optional;
 
 public interface RecruitmentRepositoryCustom {
 
-    List<Recruitment> findOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd);
+    /**
+     * 공개 달력 조회 — 스칼라 projection. 엔티티로 읽으면 행마다 form eager SELECT + full Club
+     * 로드가 붙어 쿼리 수가 모집 수에 비례한다({@link RecruitmentSummaryRow} 참고).
+     */
+    List<RecruitmentSummaryRow> findSummariesOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd);
 
+    /**
+     * 공개 클럽별 모집 목록 — 스칼라 projection. 정렬은 아래 엔티티 버전과 같은 배열을 공유한다.
+     */
+    List<RecruitmentSummaryRow> findSummariesByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
+
+    /** 쓰기 경로(운영 중단 시 일괄 마감 등) 전용 엔티티 조회 — 공개 읽기는 위 projection 을 쓴다. */
     List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
 
     /**

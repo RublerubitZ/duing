@@ -11,8 +11,11 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
+import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.ConstructorExpression;
 import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -42,12 +45,35 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     // "오늘" 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 하루 어긋난다.
     private final Clock clock;
 
+    /**
+     * 공개 목록 projection — {@link RecruitmentSummaryRow} 생성자 순서와 1:1. 컬럼을 빼먹으면
+     * 생성자 매칭이 깨져 즉시 실패한다(조용한 null 없음). club 은 호출부에서 join 되어 있어야 한다.
+     */
+    private static ConstructorExpression<RecruitmentSummaryRow> summaryRowProjection() {
+        return Projections.constructor(RecruitmentSummaryRow.class,
+                recruitment.id,
+                club.id,
+                club.name,
+                recruitment.title,
+                recruitment.startDate,
+                recruitment.endDate,
+                recruitment.capacity,
+                recruitment.status,
+                recruitment.applicationMode,
+                recruitment.externalFormUrl,
+                recruitment.useInterview,
+                recruitment.targetRole,
+                recruitment.closedAt);
+    }
+
     @Override
-    public List<Recruitment> findOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd) {
+    public List<RecruitmentSummaryRow> findSummariesOverlappingPeriod(LocalDate periodStart, LocalDate periodEnd) {
         // 공개 달력 전용 — 운영 중(ACTIVE) 동아리의 모집만 노출한다.
         // 벌크 마감(운영 중단 시 OPEN 일괄 CLOSED)과 별개의 2차 방어선으로, 정합이 깨진 과거 행도 걸러낸다.
+        // 상시모집(endDate NULL)은 goe 비교가 false 라 달력에서 제외된다 — 엔티티 시절과 동일한 동작.
         return queryFactory
-                .selectFrom(recruitment)
+                .select(summaryRowProjection())
+                .from(recruitment)
                 .join(recruitment.club, club)
                 .where(
                         recruitment.startDate.loe(periodEnd),
@@ -59,18 +85,35 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     }
 
     @Override
+    public List<RecruitmentSummaryRow> findSummariesByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId) {
+        // 공개 게이트(ClubVisibilityPolicy)가 선행하므로 club join 은 clubName 스칼라 추출용이다.
+        return queryFactory
+                .select(summaryRowProjection())
+                .from(recruitment)
+                .join(recruitment.club, club)
+                .where(recruitment.club.id.eq(clubId))
+                .orderBy(openFirstThenStartDateDesc())
+                .fetch();
+    }
+
+    @Override
     public List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId) {
         return queryFactory
                 .selectFrom(recruitment)
                 .where(recruitment.club.id.eq(clubId))
-                .orderBy(
-                        new CaseBuilder()
-                                .when(recruitment.status.eq(RecruitmentStatus.OPEN))
-                                .then(0)
-                                .otherwise(1).asc(),
-                        recruitment.startDate.desc()
-                )
+                .orderBy(openFirstThenStartDateDesc())
                 .fetch();
+    }
+
+    /** 클럽별 모집 목록 정렬 — projection(공개 읽기)과 엔티티(쓰기 경로) 조회가 같은 배열을 공유한다. */
+    private static OrderSpecifier<?>[] openFirstThenStartDateDesc() {
+        return new OrderSpecifier<?>[]{
+                new CaseBuilder()
+                        .when(recruitment.status.eq(RecruitmentStatus.OPEN))
+                        .then(0)
+                        .otherwise(1).asc(),
+                recruitment.startDate.desc()
+        };
     }
 
     @Override
