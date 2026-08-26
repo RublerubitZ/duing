@@ -97,7 +97,17 @@ const nextConfig = {
         value: CONTENT_SECURITY_POLICY_REPORT_ONLY,
       });
     }
-    return [{ source: '/:path*', headers }];
+    return [
+      { source: '/:path*', headers },
+      // 정적 폰트 장기 캐시. Vercel 은 public/ 자산을 max-age=0, must-revalidate 로 서빙해
+      // 재방문 문서 로드마다 폰트 4~5건(합 ~3.9MB)의 조건부 재검증 왕복이 발생한다 — immutable 로 제거한다.
+      // ⚠ immutable 규약: 폰트 파일을 교체할 때는 반드시 파일명을 바꾼다(같은 이름으로 덮어쓰면
+      // 기존 방문자에게 최대 1년간 구 폰트가 보인다). globals.css 의 @font-face url 도 함께 갱신할 것.
+      {
+        source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
   },
 };
 
