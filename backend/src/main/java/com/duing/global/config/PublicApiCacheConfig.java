@@ -47,10 +47,19 @@ public class PublicApiCacheConfig {
     /** 동아리 목록 검색({@code GET /api/v1/clubs}) — 찜 필터(개인화) 요청은 제외하고 캐시한다. */
     public static final String CLUB_SEARCH_CACHE = "publicClubSearch";
 
+    /**
+     * 모집 달력({@code GET /api/v1/recruitments?yearMonth=}) — 개인화가 전혀 없고 키 공간이
+     * 월 단위(십수 개)라 히트율이 가장 높다. 캐시 히트 시 projection 쿼리 1개와 readOnly 트랜잭션의
+     * 커넥션 획득까지 사라진다(성능 감사 P1-5).
+     */
+    public static final String RECRUITMENT_CALENDAR_CACHE = "publicRecruitmentCalendar";
+
     private final List<Cache> publicApiCaches;
 
     public PublicApiCacheConfig(@Value("${duing.public-api-cache.max-entries:200}") int maxEntries) {
-        this.publicApiCaches = List.of(boundedCache(CLUB_SEARCH_CACHE, maxEntries));
+        this.publicApiCaches = List.of(
+                boundedCache(CLUB_SEARCH_CACHE, maxEntries),
+                boundedCache(RECRUITMENT_CALENDAR_CACHE, maxEntries));
     }
 
     @Bean
