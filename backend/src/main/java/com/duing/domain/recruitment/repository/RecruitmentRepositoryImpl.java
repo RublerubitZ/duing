@@ -12,6 +12,7 @@ import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
+import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ConstructorExpression;
 import com.querydsl.core.types.OrderSpecifier;
@@ -181,9 +182,26 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     }
 
     @Override
-    public Optional<Recruitment> findRepresentativeByClubId(Long clubId, LocalDate today) {
+    public Optional<RepresentativeRecruitmentRow> findRepresentativeByClubId(Long clubId, LocalDate today) {
+        // 스칼라 projection — 엔티티 로드의 form eager +1 쿼리·content TEXT 전송을 피한다.
+        // clubName 은 상세 응답이 Club 에서 이미 가지므로 club join 자체가 없다.
+        // 정렬은 배치(findRepresentativeByClubIds)와 같은 representativeOrder 를 공유한다(#895).
         return Optional.ofNullable(queryFactory
-                .selectFrom(recruitment)
+                .select(Projections.constructor(RepresentativeRecruitmentRow.class,
+                        recruitment.id,
+                        recruitment.title,
+                        recruitment.startDate,
+                        recruitment.endDate,
+                        recruitment.capacity,
+                        recruitment.status,
+                        recruitment.applicationMode,
+                        recruitment.externalFormUrl,
+                        recruitment.useInterview,
+                        recruitment.targetRole,
+                        recruitment.interviewStartDate,
+                        recruitment.interviewEndDate,
+                        recruitment.showApplicantCount))
+                .from(recruitment)
                 .where(recruitment.club.id.eq(clubId))
                 .orderBy(representativeOrder(today))
                 .fetchFirst());

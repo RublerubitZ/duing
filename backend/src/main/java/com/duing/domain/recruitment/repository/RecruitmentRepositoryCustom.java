@@ -4,6 +4,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
+import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -52,14 +53,17 @@ public interface RecruitmentRepositoryCustom {
     Map<Long, ClubActiveRecruitmentRow> findRepresentativeByClubIds(List<Long> clubIds, LocalDate today);
 
     /**
-     * 동아리 1곳의 대표 모집. 선택 규칙은 {@link #findRepresentativeByClubIds} 와 동일하며 실제로
-     * 같은 우선순위 식·정렬을 공유한다 — 목록 카드와 상세 화면이 같은 모집을 가리켜야 하기 때문이다.
-     * 규칙이 갈리면 목록엔 "모집마감", 상세엔 "현재 모집 없음"이 동시에 뜬다(#895).
+     * 동아리 1곳의 대표 모집 — 스칼라 projection. 선택 규칙은 {@link #findRepresentativeByClubIds} 와
+     * 동일하며 실제로 같은 우선순위 식·정렬을 공유한다 — 목록 카드와 상세 화면이 같은 모집을 가리켜야
+     * 하기 때문이다. 규칙이 갈리면 목록엔 "모집마감", 상세엔 "현재 모집 없음"이 동시에 뜬다(#895).
+     *
+     * <p>엔티티가 아니라 행({@link RepresentativeRecruitmentRow})을 반환한다 — 호출처(동아리 상세)가
+     * 읽기 전용이고, 엔티티 로드는 form eager +1 쿼리·content TEXT 전송을 동반하기 때문이다.
      *
      * <p>{@link #findActiveByClubId} 와 달리 마감 모집도 반환한다. 진행 중인 모집만 필요한 쓰기
      * 경로(모집 교체 등)는 그쪽을 계속 쓴다.
      */
-    Optional<Recruitment> findRepresentativeByClubId(Long clubId, LocalDate today);
+    Optional<RepresentativeRecruitmentRow> findRepresentativeByClubId(Long clubId, LocalDate today);
 
     /**
      * 총동연(ADMIN) 모집 콘솔의 전 동아리 모집 검색. 페이지네이션은 두지 않는다(스펙 2.1).
