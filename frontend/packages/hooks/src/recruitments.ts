@@ -65,6 +65,10 @@ export function useCloseRecruitmentMutation(recruitmentId: number, clubId: numbe
     mutationFn: () => client.recruitments.close(recruitmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: recruitmentQueryKeys.detail(recruitmentId) });
+      // 마감은 공개 클럽 모집 목록의 상태 칩·대표 모집 표시도 바꾼다 — stopIntake·delete 와 동일하게
+      // 목록을 무효화한다. staleTime 계층화(freshness.ts) 후에는 이 무효화가 없으면 마감 직후 본인
+      // 공개 페이지에 '모집중'이 최대 2분 남는다.
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.recruitments(clubId) });
       // 마감은 가입 링크 응답도 바꾼다 — 종료 시각이 생기면서 joinExpiresAt 이 null 에서 실제
       // 만료 일시로 채워진다(스펙 §4.3). 무효화하지 않으면 상태 카드가 "모집 종료 후 N일까지"에
       // 멈춰 새로고침 전까지 구체 일시를 보여주지 못한다.

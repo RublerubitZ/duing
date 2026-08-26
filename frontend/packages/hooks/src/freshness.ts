@@ -27,5 +27,9 @@ export const PUBLIC_CONTENT_STALE_TIME_MS = 5 * 60_000;
  * 마감·일정 변경의 노출 지연을 2분 이내로 묶는다. 같은 queryKey 를 여러 화면(캘린더 그리드·
  * Upcoming·단독 훅)이 관측하므로 반드시 이 상수를 공유한다 — 관측자마다 staleTime 이 다르면
  * 가장 짧은 쪽이 재요청을 일으켜 계층화가 무의미해진다.
+ *
+ * <p>의도된 예외: manage 대시보드(dashboard.ts, 60s)는 운영진 콘솔의 자체 신선도 계약이라 이
+ * 상수를 쓰지 않는다 — 일부 키(클럽 모집·일정 목록)가 겹치지만 데이터 shape 이 같아 정합성 문제는
+ * 없고, 짧은 쪽이 자기 마운트 시점에 한 번 더 요청할 뿐이다.
  */
 export const CALENDAR_STALE_TIME_MS = 2 * 60_000;
