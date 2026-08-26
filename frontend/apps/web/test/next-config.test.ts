@@ -50,6 +50,29 @@ describe('next.config 보안 헤더', () => {
   });
 });
 
+describe('next.config 정적 폰트 캐시', () => {
+  it('/fonts 자산에 1년 immutable 캐시를 내려 재방문마다의 조건부 재검증 왕복을 없앤다', async () => {
+    const headersFn = nextConfig.headers;
+    if (!headersFn) throw new Error('headers() 가 정의되어야 한다');
+    const rules = await headersFn();
+
+    const fontsRule = rules.find((entry) => entry.source === '/fonts/:path*');
+    if (!fontsRule) throw new Error('/fonts/:path* 규칙이 있어야 한다');
+    const fontsHeaders = Object.fromEntries(
+      fontsRule.headers.map((header) => [header.key, header.value]),
+    );
+
+    // immutable 규약: 폰트 교체 시 파일명 변경 필수 (next.config.mjs 규칙 주석 참고).
+    expect(fontsHeaders['Cache-Control']).toBe('public, max-age=31536000, immutable');
+  });
+
+  it('보안 헤더 규칙(/:path*)은 폰트 규칙 추가와 무관하게 유지된다', async () => {
+    const headers = await resolvePathHeaders();
+    expect(headers['Strict-Transport-Security']).toContain('max-age=');
+    expect(headers['X-Content-Type-Options']).toBe('nosniff');
+  });
+});
+
 describe('next.config 클라이언트 라우터 캐시', () => {
   it('동적 세그먼트 staleTime 을 둬 탭 재방문(로그인·콘솔 등 동적 라우트)이 RSC 재페치·로딩 플래시 없이 복원되게 한다', () => {
     expect(nextConfig.experimental?.staleTimes).toEqual({ dynamic: 180 });

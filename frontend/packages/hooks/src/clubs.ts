@@ -12,6 +12,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
+import { CALENDAR_STALE_TIME_MS, PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 import { userQueryKeys } from './userQueryKeys';
 
 export function useManagedClubsQuery(options?: { enabled?: boolean }) {
@@ -54,6 +55,8 @@ export function useClubDetailQuery(clubId: number | undefined) {
       return client.clubs.detail(clubId);
     },
     enabled: clubId !== undefined,
+    // 공개 콘텐츠 계층(freshness.ts) — 본인 수정은 mutation 무효화가 즉시 반영한다.
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
@@ -68,6 +71,7 @@ export function useClubPhotosQuery(clubId: number | undefined) {
       return client.clubs.photos(clubId);
     },
     enabled: clubId !== undefined,
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
@@ -85,6 +89,8 @@ export function useClubRecruitmentsQuery(clubId: number | undefined) {
       return client.clubs.recruitmentsByClub(clubId);
     },
     enabled: clubId !== undefined,
+    // 모집 축은 마감 표시 지연을 2분 이내로 묶는다 — 지원 클릭은 eligibility 재확인이 최종 게이트.
+    staleTime: CALENDAR_STALE_TIME_MS,
   });
 }
 

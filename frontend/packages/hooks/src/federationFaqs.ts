@@ -8,6 +8,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { federationFaqQueryKeys } from './federationFaqQueryKeys';
+import { PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 
 type ListParams = {
   categoryId?: number;
@@ -24,6 +25,8 @@ export function useFederationFaqListQuery(params: ListParams, enabled = true) {
     enabled,
     // 카테고리·검색·페이지 변경 시 "불러오는 중" 리셋 대신 이전 목록을 유지한 채 갱신한다.
     placeholderData: keepPreviousData,
+    // 공개 콘텐츠 계층(freshness.ts) — admin 수정은 federationFaqQueryKeys.all 무효화가 즉시 반영한다.
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
@@ -36,6 +39,7 @@ export function useFederationFaqDetailQuery(faqId: number | null, enabled = true
       return client.federationFaqs.detail(faqId);
     },
     enabled: enabled && faqId !== null,
+    staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
 }
 
