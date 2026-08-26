@@ -159,6 +159,14 @@ public class Recruitment extends BaseEntity {
     }
 
     public boolean isEffectivelyOpen(LocalDate today) {
+        return isEffectivelyOpen(status, endDate, today);
+    }
+
+    /**
+     * 스칼라 projection(공개 목록 조회)도 엔티티와 같은 판정을 쓰도록 정적으로 노출한다 —
+     * 두 경로의 규칙이 갈리면 목록과 상세의 모집 중 표시가 어긋난다.
+     */
+    public static boolean isEffectivelyOpen(RecruitmentStatus status, LocalDate endDate, LocalDate today) {
         if (status != RecruitmentStatus.OPEN) {
             return false;
         }

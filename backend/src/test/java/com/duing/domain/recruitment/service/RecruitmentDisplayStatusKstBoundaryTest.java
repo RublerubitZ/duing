@@ -5,7 +5,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.repository.ApplicationRepository;
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
@@ -13,11 +12,12 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
-import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -70,26 +70,24 @@ class RecruitmentDisplayStatusKstBoundaryTest {
     }
 
     private void stubActiveClubWithRecruitmentEndingOnDeadline() {
-        Club activeClub = mock(Club.class);
-        when(activeClub.getId()).thenReturn(CLUB_ID);
-        when(activeClub.getName()).thenReturn("경계 동아리");
-        Recruitment recruitment = Recruitment.createWithOptions(
-                activeClub,
+        // 공개 목록은 스칼라 projection 경로를 탄다 — 표시 상태 파생은 응답 조립(from)에서 동일하게 일어난다.
+        RecruitmentSummaryRow summaryRow = new RecruitmentSummaryRow(
+                1L,
+                CLUB_ID,
+                "경계 동아리",
                 "마감 경계 모집",
-                "내용",
                 deadline.minusDays(10),
                 deadline,
                 10,
+                RecruitmentStatus.OPEN,
                 ApplicationMode.SELF,
                 null,
                 false,
                 TargetRole.MEMBER,
-                null,
-                null,
-                false);
+                null);
         when(clubRepository.existsByIdAndStatus(CLUB_ID, ClubStatus.ACTIVE)).thenReturn(true);
-        when(recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(CLUB_ID))
-                .thenReturn(List.of(recruitment));
+        when(recruitmentRepository.findSummariesByClubIdOrderByStatusOpenFirstAndStartDateDesc(CLUB_ID))
+                .thenReturn(List.of(summaryRow));
     }
 
     private GeneralRecruitmentService serviceWithClock(Clock fixedClock) {

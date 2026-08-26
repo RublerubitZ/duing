@@ -25,27 +25,29 @@ public record RecruitmentSummaryQuery(
         TargetRole targetRole,
         LocalDateTime closedAt
 ) {
-    public static RecruitmentSummaryQuery from(Recruitment recruitment, LocalDate today) {
+    /**
+     * 공개 목록 경로(스칼라 projection) 전용 — 파생값(displayStatus·effectivelyOpen)은 엔티티와
+     * 같은 정적 로직으로 계산한다. 엔티티를 받는 오버로드는 두지 않는다: 목록을 엔티티로 읽는 순간
+     * form eager N+1 과 full Club 로드가 조용히 재유입된다(성능 감사 P0-3).
+     */
+    public static RecruitmentSummaryQuery from(RecruitmentSummaryRow row, LocalDate today) {
         return new RecruitmentSummaryQuery(
-                recruitment.getId(),
-                recruitment.getClub().getId(),
-                recruitment.getClub().getName(),
-                recruitment.getTitle(),
-                recruitment.getStartDate(),
-                recruitment.getEndDate(),
-                recruitment.getCapacity(),
-                recruitment.getStatus(),
-                RecruitmentDisplayStatus.resolve(
-                        recruitment.getStatus(),
-                        recruitment.getStartDate(),
-                        recruitment.getEndDate(),
-                        today),
-                recruitment.isEffectivelyOpen(today),
-                recruitment.getApplicationMode(),
-                recruitment.getExternalFormUrl(),
-                recruitment.isUseInterview(),
-                recruitment.getTargetRole(),
-                recruitment.getClosedAt()
+                row.id(),
+                row.clubId(),
+                row.clubName(),
+                row.title(),
+                row.startDate(),
+                row.endDate(),
+                row.capacity(),
+                row.status(),
+                RecruitmentDisplayStatus.resolve(row.status(), row.startDate(), row.endDate(), today),
+                Recruitment.isEffectivelyOpen(row.status(), row.endDate(), today),
+                row.applicationMode(),
+                row.externalFormUrl(),
+                row.useInterview(),
+                row.targetRole(),
+                row.closedAt()
         );
     }
+
 }
