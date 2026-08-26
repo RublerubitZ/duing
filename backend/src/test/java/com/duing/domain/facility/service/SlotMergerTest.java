@@ -50,6 +50,26 @@ class SlotMergerTest {
     }
 
     @Test
+    @DisplayName("하이픈 실예약 범위 확장으로 같은 구간이 된 마커 행 2건(10-17·10-17)은 한 건으로 접힌다")
+    void collapsesDuplicateExpandedRangeRows() {
+        List<MergedSlot> merged = merger.merge(List.of(
+                slot(1, "학생생활상담센터", 10, 17), slot(2, "학생생활상담센터", 10, 17)));
+        assertThat(merged).hasSize(1);
+        assertThat(merged.get(0).start()).isEqualTo(LocalTime.of(10, 0));
+        assertThat(merged.get(0).end()).isEqualTo(LocalTime.of(17, 0));
+    }
+
+    @Test
+    @DisplayName("같은 날짜·단체의 겹치는 슬롯(09-12·10-11·11-13)은 늦은 끝시각 기준 09-13 하나로 병합된다")
+    void mergesOverlappingSlotsKeepingLatestEnd() {
+        List<MergedSlot> merged = merger.merge(List.of(
+                slot(1, "고정관념", 9, 12), slot(2, "고정관념", 10, 11), slot(3, "고정관념", 11, 13)));
+        assertThat(merged).hasSize(1);
+        assertThat(merged.get(0).start()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(merged.get(0).end()).isEqualTo(LocalTime.of(13, 0));
+    }
+
+    @Test
     @DisplayName("같은 단체·인접 시각이라도 날짜가 다르면 병합되지 않는다")
     void doesNotMergeDifferentDate() {
         ParsedReservation d1 = new ParsedReservation(1, LocalDate.of(2026, 7, 1), LocalTime.of(23, 0), LocalTime.of(23, 59), "A", null, null);

@@ -18,15 +18,24 @@ import org.springframework.stereotype.Component;
 /**
  * 예약 JSON 배열 → List&lt;ParsedReservation&gt;. schedule_seq distinct, dept 꼬리 시간표기 제거(§6.2),
  * schedule_date(일) + YearMonth → LocalDate, schedule_time '19:00~20:00' → start/end LocalTime.
- * 꼬리 시간표기는 제거 전에 운영시간(reservedStart/End)으로 추출한다(§16.1) — 역전·형식 이상이면
- * 범위만 null 폴백하고 원소는 스킵하지 않는다(정책 ③). 파싱 불가 원소는 건너뛴다(사유별 건수만 로깅).
+ *
+ * <p>꼬리 시간표기는 구분자가 의미를 가른다(실데이터 관찰 — 기본 확보 단체는 전부 물결, 하이픈은 실점유뿐):
+ * <ul>
+ *   <li>물결 "고정관념(9:00~20:00)" — 기본 확보 시간. 제거 전에 운영시간(reservedStart/End)으로
+ *       추출한다(§16.1). 역전·형식 이상이면 범위만 null 폴백하고 원소는 스킵하지 않는다(정책 ③).</li>
+ *   <li>하이픈 "학생생활상담센터(10:00-17:00)" — 실예약 범위. 학교가 시작·끝 마커 슬롯만 내려주므로
+ *       start/end 를 표기 범위 전체로 확장해 일반 점유행이 되게 한다(전 구간 차단). 역전·형식 이상이면
+ *       확장 없이 마커 슬롯을 유지한다(임의 추정 금지).</li>
+ * </ul>
+ * 파싱 불가 원소는 건너뛴다(사유별 건수만 로깅).
  */
 @Slf4j
 @Component
 public class ReservationParser {
 
-    // 꼬리 시간표기 추출+제거: "고정관념(9:00~20:00)" → 운영시간 9:00~20:00, 조직명 "고정관념". 그 외 괄호는 보존.
-    private static final Pattern TRAILING_TIME = Pattern.compile("\\s*\\((\\d{1,2}:\\d{2})\\s*~\\s*(\\d{1,2}:\\d{2})\\)\\s*$");
+    // 꼬리 시간표기 추출+제거: 구분자(~/-)를 그룹으로 잡아 의미를 분기한다. 그 외 괄호는 보존.
+    private static final Pattern TRAILING_TIME =
+            Pattern.compile("\\s*\\((\\d{1,2}:\\d{2})\\s*([~-])\\s*(\\d{1,2}:\\d{2})\\)\\s*$");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("H:mm");
     private static final String TIME_SEPARATOR = "~";
 
@@ -69,12 +78,21 @@ public class ReservationParser {
             LocalTime start = LocalTime.parse(slot[0].trim(), TIME);
             LocalTime end = LocalTime.parse(slot[1].trim(), TIME);
             Matcher trailingTime = TRAILING_TIME.matcher(deptText.trim());
-            OperatingHours operatingHours = trailingTime.find()
-                    ? parseOperatingHours(trailingTime.group(1), trailingTime.group(2))
-                    : OperatingHours.NONE;
+            OperatingHours securedHours = OperatingHours.NONE;
+            if (trailingTime.find()) {
+                OperatingHours tailRange = parseOperatingHours(trailingTime.group(1), trailingTime.group(3));
+                if (TIME_SEPARATOR.equals(trailingTime.group(2))) {
+                    securedHours = tailRange; // 물결 = 기본 확보 시간(비차단 운영행, §16.1)
+                } else if (tailRange != OperatingHours.NONE) {
+                    // 하이픈 = 실예약 범위: 마커 슬롯 대신 표기 범위 전체를 점유행으로 저장(전 구간 차단).
+                    // 파싱 실패(역전·형식 이상)면 확장 없이 마커 슬롯 유지 — 임의 추정 금지.
+                    start = tailRange.start();
+                    end = tailRange.end();
+                }
+            }
             String organization = trailingTime.replaceAll("").trim();
             return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization,
-                    operatingHours.start(), operatingHours.end());
+                    securedHours.start(), securedHours.end());
         } catch (NumberFormatException | DateTimeException malformed) {
             return null; // 개별 원소 오류는 스킵(내용은 로깅하지 않음)
         }

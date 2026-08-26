@@ -214,6 +214,23 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("하이픈 실예약 범위가 확장된 점유행 10~17 은 범위 안 신청을 막고 종료 경계에 맞닿는 신청은 허용한다")
+    void expandedRangeOccupiedRowBlocksInsideAndAllowsBoundary() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        // ReservationParser 가 "학생생활상담센터(10:00-17:00)" 를 확장 저장한 형태 — 10~17 점유행(꼬리 없음).
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터", null, null, LocalDateTime.now()));
+
+        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 13, 14))) // 범위 안 → 충돌
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
+
+        var boundary = bookingService.create(command(fixture, date, 17, 18)); // 경계 접촉 → 허용(반개구간)
+        assertThat(boundary.bookingId()).isNotNull();
+    }
+
+    @Test
     @DisplayName("타 동아리 PENDING 과 겹치는 신청은 허용되고 overlappingPendingCount 가 잡힌다")
     void pendingOverlapIsAllowedWithWarningCount() throws Exception {
         Fixture first = fixture();
