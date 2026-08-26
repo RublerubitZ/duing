@@ -11,6 +11,7 @@ import { adminQueryKeys } from './adminQueryKeys';
 import { useApiClient } from './api-context';
 import { clubEventKeys } from './clubEventQueryKeys';
 import { useMyClubsQuery } from './clubs';
+import { CALENDAR_STALE_TIME_MS } from './freshness';
 import { globalEventKeys } from './globalEventQueryKeys';
 import { recruitmentQueryKeys } from './recruitmentQueryKeys';
 
@@ -125,19 +126,21 @@ export function useCalendarMonthsQuery(
   const myClubsQuery = useMyClubsQuery({ enabled: usesMyClubEvents });
   const myClubs = usesMyClubEvents ? (myClubsQuery.data ?? []) : [];
 
+  // 캘린더 축은 CALENDAR_STALE_TIME_MS(freshness.ts)로 계층화한다 — 마감일·일정은 초 단위로
+  // 바뀌지 않고, 관측자가 그리드·Upcoming·단독 훅 여럿이라 같은 키의 staleTime 을 반드시 공유한다.
   const globalEventQueries = useQueries({
     queries: ranges.map((range) => ({
       queryKey: globalEventKeys.publicList({ from: range.from, to: range.to }),
       queryFn: () => client.globalEvents.list({ from: range.from, to: range.to }),
+      staleTime: CALENDAR_STALE_TIME_MS,
     })),
   });
 
-  // 관측자가 그리드·Upcoming 둘 이상이라 staleTime 0 이면 마운트마다 재요청이 된다.
-  // 전역 기본값 30초를 그대로 쓴다 — 세 도메인 모두 같고, 모집 마감일은 초 단위로 바뀌지 않는다.
   const recruitmentQueries = useQueries({
     queries: ranges.map((range) => ({
       queryKey: recruitmentQueryKeys.calendar(range.yearMonth),
       queryFn: () => client.recruitments.calendar(range.yearMonth),
+      staleTime: CALENDAR_STALE_TIME_MS,
     })),
   });
 
@@ -155,6 +158,7 @@ export function useCalendarMonthsQuery(
           return items.map((item) => mappers.toClubEvent(item, club));
         },
         enabled: usesMyClubEvents,
+        staleTime: CALENDAR_STALE_TIME_MS,
       })),
     ),
   });

@@ -6,6 +6,7 @@ import type {
   UpdateGlobalEventPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { CALENDAR_STALE_TIME_MS } from './freshness';
 import { globalEventKeys } from './globalEventQueryKeys';
 
 export function useGlobalEventListQuery(params: GlobalEventListParams = {}) {
@@ -13,6 +14,8 @@ export function useGlobalEventListQuery(params: GlobalEventListParams = {}) {
   return useQuery({
     queryKey: globalEventKeys.publicList(params),
     queryFn: () => client.globalEvents.list(params),
+    // 캘린더 축 계층(freshness.ts) — calendarMonth 의 같은 키 관측자와 값을 공유해야 한다.
+    staleTime: CALENDAR_STALE_TIME_MS,
   });
 }
 
@@ -25,6 +28,7 @@ export function useGlobalEventDetailQuery(eventId: number | null) {
       return client.globalEvents.get(eventId);
     },
     enabled: eventId !== null,
+    staleTime: CALENDAR_STALE_TIME_MS,
   });
 }
 

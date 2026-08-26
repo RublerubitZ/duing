@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateRecruitmentPayload, UpdateRecruitmentPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
+import { CALENDAR_STALE_TIME_MS } from './freshness';
 import { recruitmentQueryKeys } from './recruitmentQueryKeys';
 
 export function useCreateRecruitmentMutation(clubId: number) {
@@ -21,6 +22,8 @@ export function useRecruitmentCalendarQuery(yearMonth: string) {
   return useQuery({
     queryKey: recruitmentQueryKeys.calendar(yearMonth),
     queryFn: () => client.recruitments.calendar(yearMonth),
+    // 캘린더 축 계층(freshness.ts) — calendarMonth 의 같은 키 관측자와 값을 공유해야 한다.
+    staleTime: CALENDAR_STALE_TIME_MS,
   });
 }
 
@@ -38,6 +41,8 @@ export function useRecruitmentDetailQuery(recruitmentId: number | undefined) {
       return client.recruitments.detail(recruitmentId);
     },
     enabled: recruitmentId !== undefined,
+    // 모집 축 계층(freshness.ts) — 마감·수정은 detail 무효화가 즉시 반영, 지원은 eligibility 가 최종 게이트.
+    staleTime: CALENDAR_STALE_TIME_MS,
   });
 }
 
