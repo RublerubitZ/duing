@@ -104,8 +104,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
         LocalDate periodEnd = yearMonth.atEndOfMonth();
         LocalDate today = LocalDate.now(clock);
 
-        return recruitmentRepository.findOverlappingPeriod(periodStart, periodEnd).stream()
-                .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
+        // 스칼라 projection — 엔티티로 읽으면 행마다 form eager +1 쿼리와 full Club 로드가 붙는다.
+        return recruitmentRepository.findSummariesOverlappingPeriod(periodStart, periodEnd).stream()
+                .map(summaryRow -> RecruitmentSummaryQuery.from(summaryRow, today))
                 .toList();
     }
 
@@ -135,9 +136,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
         clubVisibilityPolicy.requirePubliclyVisible(clubId);
         LocalDate today = LocalDate.now(clock);
         return recruitmentRepository
-                .findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)
+                .findSummariesByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId)
                 .stream()
-                .map(recruitment -> RecruitmentSummaryQuery.from(recruitment, today))
+                .map(summaryRow -> RecruitmentSummaryQuery.from(summaryRow, today))
                 .toList();
     }
 
