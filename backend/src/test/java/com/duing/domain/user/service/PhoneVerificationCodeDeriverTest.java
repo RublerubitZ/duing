@@ -45,6 +45,36 @@ class PhoneVerificationCodeDeriverTest {
     }
 
     @Test
+    @DisplayName("같은 학번에서는 항상 같은 decoy 번호가 파생된다 — 재시도마다 마스킹 번호가 흔들리면 그 자체가 계정 열거 오라클이 된다")
+    void sameStudentIdDerivesSameDecoyPhone() {
+        assertThat(codeDeriver.deriveDecoyPhone("20250001"))
+                .isEqualTo(codeDeriver.deriveDecoyPhone("20250001"));
+    }
+
+    @Test
+    @DisplayName("decoy 번호는 실계정 번호와 같은 010-XXXX-XXXX(13자) 형식이라 저장·마스킹 결과로 구분되지 않는다")
+    void decoyPhoneUsesRealPhoneFormat() {
+        assertThat(codeDeriver.deriveDecoyPhone("20250001"))
+                .hasSize(13)
+                .matches("^010-\\d{4}-\\d{4}$");
+    }
+
+    @Test
+    @DisplayName("secret 이 다르면 같은 학번이라도 decoy 번호가 다르다 — 예측 가능한 decoy 는 마스킹 번호 대조로 계정 열거를 되살린다")
+    void differentSecretsDeriveDifferentDecoyPhones() {
+        PhoneVerificationCodeDeriver otherSecretDeriver = new PhoneVerificationCodeDeriver("other-secret");
+        assertThat(codeDeriver.deriveDecoyPhone("20250001"))
+                .isNotEqualTo(otherSecretDeriver.deriveDecoyPhone("20250001"));
+    }
+
+    @Test
+    @DisplayName("학번이 다르면 decoy 번호도 다르다 — 미가입 학번들이 한 세션 행을 공유해 서로의 쿨다운에 걸리지 않도록")
+    void differentStudentIdsDeriveDifferentDecoyPhones() {
+        assertThat(codeDeriver.deriveDecoyPhone("20250001"))
+                .isNotEqualTo(codeDeriver.deriveDecoyPhone("20250002"));
+    }
+
+    @Test
     @DisplayName("secret 이 비어 있으면 기동 시점에 실패한다 — 운영 설정 실수를 늦게 발견하지 않도록")
     void blankSecretFailsFast() {
         assertThatThrownBy(() -> new PhoneVerificationCodeDeriver(" "))

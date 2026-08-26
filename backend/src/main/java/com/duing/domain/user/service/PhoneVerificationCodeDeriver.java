@@ -20,6 +20,9 @@ public class PhoneVerificationCodeDeriver {
     private static final char[] ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ".toCharArray();
     private static final int CODE_LENGTH = 8;
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    /** decoy 번호 파생의 도메인 분리 접두사 — 같은 secret 을 쓰되 인증 코드와 출력 공간을 겹치지 않게 한다. */
+    private static final String DECOY_PHONE_PREFIX = "decoy-phone:";
+    private static final int PHONE_GROUP_MODULUS = 10_000;
 
     private final String secret;
 
@@ -41,11 +44,28 @@ public class PhoneVerificationCodeDeriver {
         return code.toString();
     }
 
-    private byte[] hmac(String token) {
+    /**
+     * 미가입 학번용 decoy 번호(010-XXXX-XXXX) — 계정 열거 평탄화 전용 (spec §7.6 균일 응답).
+     *
+     * <p>미존재 학번도 이 번호로 실제 세션을 발급해 존재 계정과 같은 응답·쿨다운·폴링·리밋을 태운다.
+     * 학번당 결정적이라 재시도해도 같은 마스킹 번호가 나오고(값이 흔들리면 그 자체가 오라클),
+     * secret 없이는 예측 불가라 실계정 번호와 구분되지 않는다. 실번호와의 충돌 확률은 사용자수/1e8 이며,
+     * 충돌해도 세션 귀속은 targetUserId=null 이라 계정 탈취로 이어지지 않는다.
+     */
+    public String deriveDecoyPhone(String studentId) {
+        byte[] hmac = hmac(DECOY_PHONE_PREFIX + studentId);
+        int middleGroup = (((hmac[0] & 0xFF) << 8) | (hmac[1] & 0xFF)) % PHONE_GROUP_MODULUS;
+        int lastGroup = (((hmac[2] & 0xFF) << 8) | (hmac[3] & 0xFF)) % PHONE_GROUP_MODULUS;
+        // 010- 네임스페이스를 쓴다 — PhoneMasker 가 앞자리를 그대로 노출하므로 예약 대역을 쓰면
+        // 마스킹 결과(예: 000-****-1234)만 보고 미가입 계정임을 알 수 있게 된다.
+        return String.format("010-%04d-%04d", middleGroup, lastGroup);
+    }
+
+    private byte[] hmac(String message) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            return mac.doFinal(token.getBytes(StandardCharsets.UTF_8));
+            return mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
         } catch (java.security.GeneralSecurityException hmacFailure) {
             // HmacSHA256 은 JDK 필수 알고리즘 — 발생 시 설정 오류이므로 즉시 노출한다.
             throw new IllegalStateException("HMAC 계산 실패", hmacFailure);

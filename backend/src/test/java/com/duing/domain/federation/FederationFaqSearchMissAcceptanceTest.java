@@ -12,6 +12,7 @@ import com.duing.domain.federation.entity.FederationFaqSearchMiss;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
 import com.duing.domain.federation.repository.FederationFaqRepository;
 import com.duing.domain.federation.repository.FederationFaqSearchMissRepository;
+import com.duing.domain.federation.service.FederationFaqSearchMissRateLimiter;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -48,6 +49,11 @@ class FederationFaqSearchMissAcceptanceTest extends IntegrationTestBase {
     @Autowired FederationFaqRepository faqRepository;
     @Autowired FederationFaqCategoryRepository categoryRepository;
     @Autowired FederationFaqSearchMissRepository searchMissRepository;
+    @Autowired FederationFaqSearchMissRateLimiter searchMissRateLimiter;
+
+    // 무결과 기록의 분당 한도(FederationFaqSearchMissRateLimiter.PER_MINUTE_LIMIT = 10, package-private 라
+    // 직접 참조 불가)를 확실히 넘기는 고정 횟수. 정확한 경계값은 FederationFaqSearchMissRateLimiterTest 가 검증한다.
+    private static final int MISSED_SEARCHES_OVER_LIMIT = 13;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -58,6 +64,8 @@ class FederationFaqSearchMissAcceptanceTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+        // 리미터는 in-memory 싱글턴이라 테스트 간 창이 누수된다 — DB TRUNCATE 와 별개로 초기화한다.
+        searchMissRateLimiter.reset();
         User admin = saveUser(UserRole.ADMIN);
         User student = saveUser(UserRole.STUDENT);
         adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
@@ -255,6 +263,47 @@ class FederationFaqSearchMissAcceptanceTest extends IntegrationTestBase {
                 .get("/api/v1/admin/federation/faq-search-misses")
             .then()
                 .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("무결과 검색을 분당 한도보다 많이 반복해도 검색 응답은 200 이고 초과분만 집계에서 빠진다")
+    void missedSearchesOverLimitStillReturn200AndOnlySkipRecording() {
+        // 여기서 429 를 던지면 공개 FAQ 검색 자체가 죽는다 — 방어책이 기능을 파괴해선 안 된다.
+        for (int attempt = 0; attempt < MISSED_SEARCHES_OVER_LIMIT; attempt++) {
+            RestAssured.given()
+                    .queryParam("keyword", "무제한생성키워드" + attempt)
+                .when()
+                    .get("/api/v1/federation/faqs")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content.size()", equalTo(0));
+        }
+
+        // 서로 다른 키워드마다 새 행이 생기는 축을 창이 캡한다 — 시도 횟수보다 적게 쌓여야 한다.
+        assertThat(searchMissRepository.count()).isPositive();
+        assertThat(searchMissRepository.count()).isLessThan(MISSED_SEARCHES_OVER_LIMIT);
+    }
+
+    @Test
+    @DisplayName("결과가 있는 검색은 무결과 기록 한도를 소모하지 않는다")
+    void searchesWithResultsDoNotConsumeRecordingLimit() {
+        // 판정 순서(resultCount → 정규화 → 리미터)를 어기면 정상 검색이 예산을 태워 무결과 기록이
+        // 조용히 멈춘다 — 알림 없는 신호 유실이라 여기서 잠근다.
+        for (int attempt = 0; attempt < MISSED_SEARCHES_OVER_LIMIT + 5; attempt++) {
+            RestAssured.given()
+                    .queryParam("keyword", "등록")
+                .when()
+                    .get("/api/v1/federation/faqs")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.content.size()", equalTo(1));
+        }
+
+        searchFaqs("예산소모여부확인키워드");
+
+        List<FederationFaqSearchMiss> rows = searchMissRepository.findAll();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getKeyword()).isEqualTo("예산소모여부확인키워드");
     }
 
     // ---- helpers ----

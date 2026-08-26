@@ -1,6 +1,8 @@
 package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.repository.FederationFaqSearchMissRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -32,6 +34,16 @@ import org.springframework.util.StringUtils;
  *
  * <p><b>검색 가용성 불변식</b>: 기록 실패는 절대 검색 응답을 깨지 않는다(신호 유실 < 검색 가용성).
  * 정규화·길이 검증 실패는 조용히 무시하고, 트랜잭션 실행 중 예외는 warn 로그만 남기고 삼킨다.
+ *
+ * <p><b>IP 레이트리밋</b>: 같은 키워드 반복은 UNIQUE + ON CONFLICT 가 카운트 증가로 흡수하지만,
+ * 서로 다른 랜덤 키워드를 대량 생성하면 고유 키워드 수만큼 행이 늘어난다. 그 축만
+ * {@link FederationFaqSearchMissRateLimiter} 로 캡한다 — 위 불변식 때문에 429 를 던지지 않고 기록만
+ * 건너뛴다(근거는 리미터 Javadoc). 리밋은 <b>실제로 기록될 요청</b>에만 적용해야 하므로 판정 순서를
+ * {@code resultCount → 정규화·길이 → 리미터 → 트랜잭션} 으로 고정한다: 결과가 있는 검색이나 keyword
+ * 없는 목록 조회가 창을 소모하면 정상 사용자가 자기 예산을 태워 무결과 기록이 조용히 멈춘다.
+ *
+ * <p>ponytail: IP 레이트리밋만 적용 — 분산 IP 공격으로 행이 계속 늘어 상한이 필요해지면 그때 추가한다.
+ * (행 상한 SQL 은 도달 시 진짜 새 키워드가 조용히 유실되는 실패 모드가 있어 지금은 두지 않는다.)
  */
 @Slf4j
 @Component
@@ -40,25 +52,35 @@ public class FederationFaqSearchMissRecorder {
     private static final int MAX_KEYWORD_LENGTH = 100;
 
     private final FederationFaqSearchMissRepository searchMissRepository;
+    private final FederationFaqSearchMissRateLimiter searchMissRateLimiter;
+    private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
     public FederationFaqSearchMissRecorder(
             FederationFaqSearchMissRepository searchMissRepository,
+            FederationFaqSearchMissRateLimiter searchMissRateLimiter,
+            Clock clock,
             PlatformTransactionManager platformTransactionManager) {
         this.searchMissRepository = searchMissRepository;
+        this.searchMissRateLimiter = searchMissRateLimiter;
+        this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     // resultCount가 0이 아니면 기록하지 않는다. keyword 정규화(trim → 연속 공백 압축 → lower) 후
-    // blank이거나 100자를 넘으면 역시 기록하지 않는다. 트랜잭션 실행 중 예외는 여기서 흡수해
+    // blank이거나 100자를 넘으면 역시 기록하지 않는다. 그 둘을 통과해 실제로 기록될 요청만 IP 창을
+    // 소모하며, 창을 넘긴 요청은 예외 없이 기록만 건너뛴다. 트랜잭션 실행 중 예외는 여기서 흡수해
     // 호출부(컨트롤러)의 응답 흐름에 영향을 주지 않는다.
-    public void recordIfMissed(String searchedKeyword, long resultCount) {
+    public void recordIfMissed(String searchedKeyword, long resultCount, String clientIp) {
         if (resultCount != 0) {
             return;
         }
         String normalizedKeyword = normalize(searchedKeyword);
         if (!StringUtils.hasText(normalizedKeyword) || normalizedKeyword.length() > MAX_KEYWORD_LENGTH) {
+            return;
+        }
+        if (!searchMissRateLimiter.allowAndRecord(clientIp, LocalDateTime.now(clock))) {
             return;
         }
         try {

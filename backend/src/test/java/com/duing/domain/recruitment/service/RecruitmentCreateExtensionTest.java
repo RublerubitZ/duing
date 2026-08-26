@@ -256,6 +256,47 @@ class RecruitmentCreateExtensionTest {
     }
 
     @Test
+    @DisplayName("운영진(OFFICER)은 운영진 대상 모집을 개설할 수 없다")
+    void officerCannotCreateOfficerTargetRecruitment() throws Exception {
+        User officer = saveUser("운영진증식");
+        Club club = saveActiveClub("운영진증식동아리");
+        saveMembership(club, officer, ClubMemberRole.OFFICER);
+
+        CreateRecruitmentCommand command = officerTargetCommand(club, officer);
+
+        assertThatThrownBy(() -> recruitmentService.create(command))
+                .isInstanceOf(RecruitmentException.OfficerTargetRequiresLeaderException.class);
+
+        // 활성 모집 슬롯(uk_recruitment_club_active)을 소모하지 않고 생성 시점에 막혀야 한다.
+        assertThat(recruitmentRepository.findOpenByClubId(club.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("회장은 운영진 대상 모집을 개설할 수 있다")
+    void leaderCanCreateOfficerTargetRecruitment() throws Exception {
+        User leader = saveUser("운영진모집회장");
+        Club club = saveActiveClub("운영진모집동아리");
+        saveMembership(club, leader, ClubMemberRole.LEADER);
+
+        Long recruitmentId = recruitmentService.create(officerTargetCommand(club, leader));
+
+        Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
+        assertThat(recruitment.getTargetRole()).isEqualTo(TargetRole.OFFICER);
+    }
+
+    private static CreateRecruitmentCommand officerTargetCommand(Club club, User author) {
+        return new CreateRecruitmentCommand(
+                club.getId(), author.getId(), "운영진 모집", null,
+                LocalDate.now(), LocalDate.now().plusDays(5), 3,
+                ApplicationMode.SELF, null, false, TargetRole.OFFICER,
+                List.of(RecruitmentQuestion.createText("지원 동기")),
+                null,
+                null,
+                false
+        );
+    }
+
+    @Test
     @DisplayName("MEMBER 가 모집 공고를 생성하려 하면 NotClubManagerException 이 발생한다")
     void memberCannotCreateRecruitment() throws Exception {
         User member = saveUser("일반회원");

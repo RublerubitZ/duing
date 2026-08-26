@@ -10,6 +10,7 @@ import com.duing.domain.federation.entity.FederationFaq;
 import com.duing.domain.federation.entity.FederationFaqCategory;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
 import com.duing.domain.federation.repository.FederationFaqRepository;
+import com.duing.domain.federation.service.FederationFaqFeedbackRateLimiter;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -42,6 +43,7 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired FederationFaqRepository faqRepository;
     @Autowired FederationFaqCategoryRepository categoryRepository;
+    @Autowired FederationFaqFeedbackRateLimiter feedbackRateLimiter;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -53,6 +55,8 @@ class FederationFaqAdminAcceptanceTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+        // 피드백 집계 시딩이 공개 POST 를 쓰므로, in-memory 싱글턴 리미터의 카운터 누수를 끊는다.
+        feedbackRateLimiter.reset();
         User admin = saveUser(UserRole.ADMIN);
         User student = saveUser(UserRole.STUDENT);
         adminId = admin.getId();
