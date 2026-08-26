@@ -24,6 +24,7 @@ import com.duing.domain.recruitment.service.dto.command.QuestionItemCommand;
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
@@ -98,7 +100,13 @@ public class GeneralRecruitmentService implements RecruitmentService {
         return buildAndPersist(club, createRecruitmentCommand);
     }
 
+    /**
+     * 공개 모집 달력 — 개인화가 전혀 없어 앱 마이크로 캐시(60초 TTL) 대상이다. 캐시 값에는
+     * displayStatus·effectivelyOpen 이 "조회 시점의 오늘"로 굳어 들어가므로, KST 자정 경계에서
+     * 최대 TTL 초 낡은 표시가 가능하다 — 클럽 목록 캐시와 동일하게 수용한 정책이다.
+     */
     @Override
+    @Cacheable(cacheNames = PublicApiCacheConfig.RECRUITMENT_CALENDAR_CACHE)
     public List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth) {
         LocalDate periodStart = yearMonth.atDay(1);
         LocalDate periodEnd = yearMonth.atEndOfMonth();
