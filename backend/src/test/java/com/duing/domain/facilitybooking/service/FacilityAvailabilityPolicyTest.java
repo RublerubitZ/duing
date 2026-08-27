@@ -42,7 +42,7 @@ class FacilityAvailabilityPolicyTest {
     private FacilityReservation crawlRow(LocalDate date, LocalTime startTime, LocalTime endTime,
                                          String organization) {
         return FacilityReservation.create(1L, 100L, YearMonth.from(date), date,
-                startTime, endTime, organization, LocalDateTime.of(2026, 1, 15, 8, 0));
+                startTime, endTime, organization, false, LocalDateTime.of(2026, 1, 15, 8, 0));
     }
 
     @Test

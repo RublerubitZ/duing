@@ -44,29 +44,34 @@ class ReservationParserTest {
     }
 
     @Test
-    @DisplayName("물결 꼬리 (9:00~20:00) 도 실예약 범위다 — 마커 슬롯 대신 표기 범위 전체로 확장되고 꼬리 없는 행은 슬롯을 유지한다")
+    @DisplayName("물결 꼬리 (9:00~20:00) 는 기본 확보 시간 표기다 — 표기 범위 전체로 확장하되 securedTail 신호를 보존하고 꼬리 없는 행은 슬롯을 유지한다")
     void tildeTailExpandsSlotToWholeReservedRange() throws IOException {
         List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room4.json"), YearMonth.of(2026, 7));
 
-        // "고정관념(9:00~20:00)" — 마커 두 건(09~10, 19~20) 모두 표기 범위 전체로 확장된다(전 구간 차단).
+        // "고정관념(9:00~20:00)" — 마커 두 건(09~10, 19~20) 모두 표기 범위 전체로 확장되고(V116 유지),
+        // 물결 구분자는 기본 확보 시간 표기 신호로 보존된다(행 단위 정밀 분류 스펙 §1).
         List<ParsedReservation> expandedRows = reservations.stream()
                 .filter(row -> row.organizationName().equals("고정관념")).toList();
         assertThat(expandedRows).hasSize(2);
         assertThat(expandedRows).allSatisfy(row -> {
             assertThat(row.startTime()).isEqualTo(LocalTime.of(9, 0));
             assertThat(row.endTime()).isEqualTo(LocalTime.of(20, 0));
+            assertThat(row.securedTail()).isTrue();
         });
 
-        // "댄스동아리" — 꼬리 표기 없음 → 원본 슬롯 그대로(임의 시간 생성 금지).
-        assertThat(reservations.stream().filter(row -> row.organizationName().equals("댄스동아리")))
+        // "댄스동아리" — 꼬리 표기 없음 → 원본 슬롯 그대로(임의 시간 생성 금지) + 확보 신호 없음(실예약).
+        List<ParsedReservation> markerRows = reservations.stream()
+                .filter(row -> row.organizationName().equals("댄스동아리")).toList();
+        assertThat(markerRows)
                 .extracting(ParsedReservation::startTime, ParsedReservation::endTime)
                 .containsExactlyInAnyOrder(
                         tuple(LocalTime.of(9, 0), LocalTime.of(10, 0)),
                         tuple(LocalTime.of(10, 0), LocalTime.of(11, 0)));
+        assertThat(markerRows).allSatisfy(row -> assertThat(row.securedTail()).isFalse());
     }
 
     @Test
-    @DisplayName("하이픈 꼬리 (10:00-17:00) 는 실예약 범위다 — 마커 슬롯 대신 표기 범위 전체로 확장된 점유행이 된다")
+    @DisplayName("하이픈 꼬리 (10:00-17:00) 는 실예약 범위다 — 표기 범위 전체로 확장되고 확보 신호는 남지 않는다")
     void hyphenTailExpandsSlotToWholeReservedRange() throws IOException {
         JsonNode hyphenTail = objectMapper.readTree("""
                 [{"schedule_seq":"20005","schedule_dept":"학생생활상담센터(10:00-17:00)",
@@ -82,6 +87,7 @@ class ReservationParserTest {
             assertThat(row.organizationName()).isEqualTo("학생생활상담센터");
             assertThat(row.startTime()).isEqualTo(LocalTime.of(10, 0)); // 마커(10~11, 16~17) 아님
             assertThat(row.endTime()).isEqualTo(LocalTime.of(17, 0));
+            assertThat(row.securedTail()).isFalse(); // 하이픈 = 실점유(구 main 실데이터 관찰)
         });
     }
 
@@ -99,10 +105,11 @@ class ReservationParserTest {
         assertThat(reservations.get(0).organizationName()).isEqualTo("야간센터");
         assertThat(reservations.get(0).startTime()).isEqualTo(LocalTime.of(17, 0));
         assertThat(reservations.get(0).endTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(reservations.get(0).securedTail()).isFalse();
     }
 
     @Test
-    @DisplayName("역전 물결 꼬리 (17:00~09:00) 도 확장 없이 마커 슬롯을 유지하고 원소는 스킵하지 않으며 꼬리 제거는 기존대로 수행한다")
+    @DisplayName("역전 물결 꼬리 (17:00~09:00) 는 확장 없이 마커 슬롯을 유지하고 확보 신호도 남기지 않는다 — 물결이어도 파싱 실패면 fail-closed")
     void reversedTildeTailKeepsMarkerSlotWithoutSkipping() throws IOException {
         JsonNode reversedTail = objectMapper.readTree("""
                 [{"schedule_seq":"20001","schedule_dept":"야간동아리(17:00~09:00)",
@@ -115,6 +122,7 @@ class ReservationParserTest {
         assertThat(reservations.get(0).organizationName()).isEqualTo("야간동아리"); // 꼬리 제거는 그대로
         assertThat(reservations.get(0).startTime()).isEqualTo(LocalTime.of(17, 0));
         assertThat(reservations.get(0).endTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(reservations.get(0).securedTail()).isFalse(); // 물결이어도 역전이면 확보 신호 없음
     }
 
     @Test
@@ -132,6 +140,7 @@ class ReservationParserTest {
         assertThat(reservations).hasSize(2);
         assertThat(reservations).extracting(ParsedReservation::organizationName)
                 .containsExactly("밴드부(공연준비)", "연극부(9:00~)"); // 시간형식 아닌 괄호는 제거 대상 아님(기존 유지)
+        assertThat(reservations).allSatisfy(row -> assertThat(row.securedTail()).isFalse());
     }
 
     @Test
@@ -148,6 +157,7 @@ class ReservationParserTest {
         assertThat(reservations.get(0).organizationName()).isEqualTo("바둑부");
         assertThat(reservations.get(0).startTime()).isEqualTo(LocalTime.of(9, 0));
         assertThat(reservations.get(0).endTime()).isEqualTo(LocalTime.of(10, 0));
+        assertThat(reservations.get(0).securedTail()).isFalse(); // 파싱 실패 = fail-closed
     }
 
     @Test

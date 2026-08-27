@@ -239,11 +239,11 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         LocalDateTime crawledAt = LocalDateTime.now(clock);
         // 파서가 꼬리 범위를 확장 저장한 형태의 행들: 고정관념 [10,13) / 상담센터 [13,15) / ABC동아리 [15,17)
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91001L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념", crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념", false, crawledAt));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91002L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(13, 0), LocalTime.of(15, 0), "학생생활상담센터", crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(13, 0), LocalTime.of(15, 0), "학생생활상담센터", false, crawledAt));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91003L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(15, 0), LocalTime.of(17, 0), "ABC동아리", crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(15, 0), LocalTime.of(17, 0), "ABC동아리", false, crawledAt));
 
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(crawlDate));

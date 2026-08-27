@@ -46,6 +46,10 @@ public class FacilityReservation extends BaseEntity {
     @Column(name = "organization_name", nullable = false, length = 200)
     private String organizationName;
 
+    /** 물결 꼬리(기본 확보 시간 표기)가 정상 파싱된 행 — 행 단위 정밀 분류의 신호(스펙 §1, V118). */
+    @Column(name = "secured_tail", nullable = false)
+    private boolean securedTail;
+
     // reserved_start_time/reserved_end_time(V72) 컬럼은 DB 에 남아 있으나 매핑하지 않는다 —
     // 구 "기본 확보 시간" 파생값으로 전면 차단 정책(2026-08-27)에서 폐지됐다(물리 drop 은 후속 마이그레이션).
 
@@ -55,7 +59,7 @@ public class FacilityReservation extends BaseEntity {
     @Builder(access = AccessLevel.PRIVATE)
     private FacilityReservation(Long facilityId, Long scheduleSeq, YearMonth yearMonth, LocalDate reservationDate,
                                 LocalTime startTime, LocalTime endTime, String organizationName,
-                                LocalDateTime crawledAt) {
+                                boolean securedTail, LocalDateTime crawledAt) {
         this.facilityId = facilityId;
         this.scheduleSeq = scheduleSeq;
         this.yearMonth = yearMonth;
@@ -63,12 +67,13 @@ public class FacilityReservation extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.organizationName = organizationName;
+        this.securedTail = securedTail;
         this.crawledAt = crawledAt;
     }
 
     public static FacilityReservation create(Long facilityId, Long scheduleSeq, YearMonth yearMonth,
                                              LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                             String organizationName, LocalDateTime crawledAt) {
+                                             String organizationName, boolean securedTail, LocalDateTime crawledAt) {
         return FacilityReservation.builder()
                 .facilityId(facilityId)
                 .scheduleSeq(scheduleSeq)
@@ -77,6 +82,7 @@ public class FacilityReservation extends BaseEntity {
                 .startTime(startTime)
                 .endTime(endTime)
                 .organizationName(truncate(organizationName, MAX_ORGANIZATION_NAME_LENGTH))
+                .securedTail(securedTail)
                 .crawledAt(crawledAt)
                 .build();
     }
@@ -93,12 +99,15 @@ public class FacilityReservation extends BaseEntity {
      * crawled_at 은 그래서 비교 대상에서 빼고 실제 변경이 있을 때만 함께 갱신한다.
      */
     public void updateCrawledDetails(LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                     String organizationName, LocalDateTime crawledAt) {
+                                     String organizationName, boolean securedTail, LocalDateTime crawledAt) {
         String normalizedOrganizationName = truncate(organizationName, MAX_ORGANIZATION_NAME_LENGTH);
+        // securedTail 도 무변경 비교에 넣어야 한다: V118 직후 false 로 남은 물결 행은 다른 필드가 전부
+        // 불변이라, 이 비교 없이는 영원히 스킵돼 자연 치유(다음 크롤 1주기 내 true 복원)가 막힌다.
         boolean unchanged = Objects.equals(this.reservationDate, reservationDate)
                 && Objects.equals(this.startTime, startTime)
                 && Objects.equals(this.endTime, endTime)
-                && Objects.equals(this.organizationName, normalizedOrganizationName);
+                && Objects.equals(this.organizationName, normalizedOrganizationName)
+                && this.securedTail == securedTail;
         if (unchanged) {
             return;
         }
@@ -106,6 +115,7 @@ public class FacilityReservation extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.organizationName = normalizedOrganizationName;
+        this.securedTail = securedTail;
         this.crawledAt = crawledAt;
     }
 

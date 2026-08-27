@@ -228,10 +228,10 @@ class FacilityBookingNotificationIntegrationTest extends IntegrationTestBase {
         adminService.approve(admin.getId(), bookingId);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, false, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, false, generation));
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(YearMonth.from(date))
                 .orElseGet(() -> FacilityMonthSnapshot.create(YearMonth.from(date), generation,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));

@@ -32,7 +32,7 @@ class FacilityBookingMatchingServiceTest {
 
     private FacilityReservation occupiedRow(long scheduleSeq, int startHour, String organization) {
         return FacilityReservation.create(1L, scheduleSeq, YearMonth.from(DATE), DATE,
-                LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0), organization, LocalDateTime.of(2026, 1, 20, 8, 0));
+                LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0), organization, false, LocalDateTime.of(2026, 1, 20, 8, 0));
     }
 
     @Test
@@ -67,7 +67,7 @@ class FacilityBookingMatchingServiceTest {
         // 전면 차단 정책에서는 파서가 9~20 전 구간 행으로 확장 저장하므로 정상 커버다.
         // (기본 확보 시간 대상 동아리의 증거 제외는 verifyAndConfirm 의 동아리 단위 스킵이 담당 — 통합 테스트 검증.)
         FacilityReservation expanded = FacilityReservation.create(1L, 103L, YearMonth.from(DATE), DATE,
-                LocalTime.of(9, 0), LocalTime.of(20, 0), "밴드부", LocalDateTime.of(2026, 1, 20, 8, 0));
+                LocalTime.of(9, 0), LocalTime.of(20, 0), "밴드부", false, LocalDateTime.of(2026, 1, 20, 8, 0));
 
         var decision = matchingService.decide(booking, "밴드부", List.of(expanded));
 
@@ -80,7 +80,7 @@ class FacilityBookingMatchingServiceTest {
     void nonAlignedRowDoesNotCover() {
         FacilityBooking booking = approvedBooking(18, 20);
         FacilityReservation nonAligned = FacilityReservation.create(1L, 104L, YearMonth.from(DATE), DATE,
-                LocalTime.of(18, 30), LocalTime.of(19, 30), "밴드부", LocalDateTime.of(2026, 1, 20, 8, 0));
+                LocalTime.of(18, 30), LocalTime.of(19, 30), "밴드부", false, LocalDateTime.of(2026, 1, 20, 8, 0));
 
         assertThat(matchingService.decide(booking, "밴드부", List.of(nonAligned)).confirmed()).isFalse();
     }

@@ -100,7 +100,7 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
         for (Facility facility : facilities) {
             List<ParsedReservation> raw = byFacility.getOrDefault(facility.getId(), List.of()).stream()
                     .map(row -> new ParsedReservation(row.getScheduleSeq(), row.getReservationDate(),
-                            row.getStartTime(), row.getEndTime(), row.getOrganizationName()))
+                            row.getStartTime(), row.getEndTime(), row.getOrganizationName(), row.isSecuredTail()))
                     .toList();
             // 파서가 꼬리 범위를 행 자체로 확장 저장하므로(전면 차단 정책) 병합은 SlotMerger 단일 경로다 —
             // 같은 범위로 확장된 마커 중복 행은 겹침 병합이 1건으로 접는다.

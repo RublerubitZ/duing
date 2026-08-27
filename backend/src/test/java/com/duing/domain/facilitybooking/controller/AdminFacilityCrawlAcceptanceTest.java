@@ -213,6 +213,6 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
     private void saveReservation(Facility facility, LocalDate date, int startHour, int endHour, String organization) {
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), sequence.getAndIncrement(),
                 YearMonth.from(date), date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0),
-                organization, LocalDateTime.now(clock)));
+                organization, false, LocalDateTime.now(clock)));
     }
 }

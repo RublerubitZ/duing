@@ -121,7 +121,7 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
         for (int hour = startHour; hour < endHour; hour++) {
             facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                     sequence.getAndIncrement(), YearMonth.from(date), date,
-                    LocalTime.of(hour, 0), LocalTime.of(hour + 1, 0), clubName, generation));
+                    LocalTime.of(hour, 0), LocalTime.of(hour + 1, 0), clubName, false, generation));
         }
         return bookingId;
     }
