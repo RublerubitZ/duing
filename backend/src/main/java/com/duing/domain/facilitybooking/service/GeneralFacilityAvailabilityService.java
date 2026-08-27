@@ -70,7 +70,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         DataSource source = facilityCrawlService.ensureFresh(targetMonth);
 
-        // 분류는 표시 구분 전용(둘 다 차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다(설계 §3.2).
+        // 분류가 차단 여부를 가른다(실예약만 차단·확보 시간 비차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다.
         List<FacilityReservation> crawlRows =
                 facilityReservationRepository.findByFacilityIdAndYearMonth(facility.getId(), targetMonth);
         Set<String> securedOrganizationKeys =
