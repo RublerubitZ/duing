@@ -289,7 +289,7 @@ function ContactValue({ member, clubId }: { member: ClubMember; clubId: number }
   return (
     <span className="inline-flex flex-col items-end gap-1">
       <span className="inline-flex items-center gap-2">
-        <span className="font-mono">{revealed ?? member.phoneMasked}</span>
+        <span className="tabular-nums">{revealed ?? member.phoneMasked}</span>
         {revealed === null && (
           <button
             type="button"

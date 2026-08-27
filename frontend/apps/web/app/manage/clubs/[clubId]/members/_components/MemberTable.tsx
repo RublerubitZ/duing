@@ -159,7 +159,7 @@ export function MemberTable({
                   <td className="px-4 py-3">
                     <FeeBadge status={member.feeStatus} />
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-charcoal-2">
+                  <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">
                     {formatDateKst(member.joinedAt)}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -230,7 +230,7 @@ export function MemberTable({
                     <FeeBadge status={member.feeStatus} />
                     {/* 가입일과 상세 버튼은 한 덩어리로 접힌다 — 따로 두면 줄이 갈릴 때 버튼만 왼쪽에 남는다. */}
                     <span className="ml-auto flex shrink-0 items-center gap-2">
-                      <span className="font-mono text-charcoal-3">
+                      <span className="tabular-nums text-charcoal-3">
                         {formatDateKst(member.joinedAt)}
                       </span>
                       {/* 카드 자체는 포인터 편의용 onClick 일 뿐이라, 키보드·스크린리더가 상세 패널에

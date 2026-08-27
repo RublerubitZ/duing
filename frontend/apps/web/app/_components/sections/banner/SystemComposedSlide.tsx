@@ -238,7 +238,7 @@ function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: Previe
         </div>
       )}
       <div
-        className="relative line-clamp-2 whitespace-pre-line font-display text-[19px] font-bold leading-[1.15]"
+        className="relative line-clamp-2 whitespace-pre-line text-[19px] font-bold leading-[1.15]"
         style={{ color: textColor }}
       >
         {slide.title}

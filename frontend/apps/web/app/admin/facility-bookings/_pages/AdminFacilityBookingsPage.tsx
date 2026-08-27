@@ -117,7 +117,7 @@ export function AdminFacilityBookingsPage() {
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal-3">
             FACILITY BOOKINGS · 학교 제출 워크플로
           </p>
-          <h1 className="mt-1 font-display text-2xl text-ink-deep">시설 예약 관리</h1>
+          <h1 className="mt-1 text-2xl text-ink-deep">시설 예약 관리</h1>
         </div>
         <CrawlFreshnessChip crawledAt={summaryQuery.data?.crawledAt} />
       </div>
@@ -146,7 +146,7 @@ export function AdminFacilityBookingsPage() {
               >
                 <span
                   aria-hidden
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-extrabold ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full tabular-nums text-[13px] font-extrabold ${
                     isActive
                       ? 'bg-sage text-ink-deep'
                       : isDone
@@ -188,7 +188,7 @@ export function AdminFacilityBookingsPage() {
                     <>
                       {' '}
                       <span
-                        className={`mt-0.5 block font-mono text-[11px] ${
+                        className={`mt-0.5 block tabular-nums text-[11px] ${
                           isActive ? 'text-sage' : 'text-charcoal-3'
                         } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
                         title={tab === 'prepare' ? '이번 달 기준' : undefined}

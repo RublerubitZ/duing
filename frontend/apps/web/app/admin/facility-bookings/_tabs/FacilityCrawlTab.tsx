@@ -197,7 +197,7 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
           </span>
         )}
         {group.groupType === 'FACILITY_DATE' && group.reservationDate !== undefined && (
-          <span className="font-mono text-xs text-charcoal-3">{group.reservationDate}</span>
+          <span className="tabular-nums text-xs text-charcoal-3">{group.reservationDate}</span>
         )}
       </div>
       <ul className="mt-2 flex flex-col gap-1.5">
@@ -209,8 +209,8 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
               className="flex flex-wrap items-center gap-2 text-[13px]"
             >
               <span className="text-charcoal-2">{context.facilityName ?? '알 수 없는 시설'}</span>
-              <span className="font-mono text-charcoal-3">{contextDateLabel(context)}</span>
-              <span className="font-mono font-semibold text-ink">
+              <span className="tabular-nums text-charcoal-3">{contextDateLabel(context)}</span>
+              <span className="tabular-nums font-semibold text-ink">
                 {context.startTime}~{context.endTime}
               </span>
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.className}`}>

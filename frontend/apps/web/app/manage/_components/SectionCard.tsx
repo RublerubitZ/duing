@@ -7,7 +7,7 @@ export function SectionCard({ number, title, description, children }: SectionCar
   return (
     <section className="mb-4 rounded-[18px] border border-[#d9d4c3] bg-white p-[22px]">
       <div className={`flex items-baseline gap-2.5 ${description ? 'mb-1' : 'mb-4'}`}>
-        <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#e3e9e1] font-mono text-[12px] font-extrabold text-[#1f3a2e]">
+        <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#e3e9e1] tabular-nums text-[12px] font-extrabold text-[#1f3a2e]">
           {number}
         </span>
         <h3 className="text-[16px] font-bold text-[#2a2f27]">{title}</h3>

@@ -15,7 +15,6 @@ export function ClubLogo({ logo, size = 64 }: Props) {
     background: bg, color: fg,
     display: 'grid', placeItems: 'center',
     flexShrink: 0,
-    fontFamily: 'var(--font-display)',
     letterSpacing: '0.02em',
     overflow: 'hidden',
     position: 'relative',

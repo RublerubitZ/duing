@@ -29,29 +29,25 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 — 모집 현황 카드만 작게 노출(활동 토스트는 데스크탑 전용).
-              우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황은 전달한다.
-              stats null(조회 실패) 시에도 카드는 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
-          <Link
-            href={RECRUITING_CLUBS_HREF}
-            aria-label={stats ? undefined : RECRUITING_UNKNOWN_LABEL}
-            className="md:hidden absolute right-0 top-[44px] z-[3] w-[130px] rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1 transition duration-250 ease-duing active:scale-95 motion-reduce:transition-none"
-          >
-            <div className="font-display text-[28px] font-bold leading-none text-ink">
-              {stats ? stats.recruitingCount : '—'}
-              <span className="text-sm font-bold">곳</span>
-            </div>
-            <div className="mt-0.5 text-[10.5px] font-medium leading-tight text-ink/75">
-              이번 학기 모집중
-            </div>
-          </Link>
+          {/* 모바일: 헤드라인 우측에 마스코트(두두)를 겹쳐 둔다 — 시안의 모바일 히어로 구성.
+              데스크탑은 우측 일러스트가 같은 역할을 하므로 md 이상에서 숨긴다.
+              헤드라인 뒤에 깔리되 클릭을 가로채지 않도록 z-0 + pointer-events-none. */}
+          <Image
+            src="/duing-mascot.png"
+            alt="두잉 마스코트 두두"
+            width={531}
+            height={441}
+            priority
+            draggable={false}
+            className="pointer-events-none absolute -right-3 -top-2 z-0 w-[176px] select-none md:hidden"
+          />
 
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
+          <div className="relative z-[1] mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
             <Sparkle size={11} color="#143025" />
             DU + ING
           </div>
 
-          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[52px] md:text-[64px] lg:text-[72px] xl:text-[84px]">
+          <h1 className="type-display relative z-[1] mb-4 text-[34px] leading-[1.28] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[72px]">
             오늘,
             <br />
             캠퍼스의
@@ -190,7 +186,7 @@ export function HeroRightVisual({
             aria-label={recruitingCount === null ? RECRUITING_UNKNOWN_LABEL : undefined}
             className="block rounded-md border border-sage-soft bg-sage-mist px-4 py-3 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:px-5 lg:py-4"
           >
-            <div className="font-display text-[30px] font-bold leading-none text-ink lg:text-[36px]">
+            <div className="text-[30px] font-bold leading-none text-ink lg:text-[36px]">
               {recruitingCount === null ? '—' : recruitingCount}
               <span className="text-base lg:text-lg">곳</span>
             </div>

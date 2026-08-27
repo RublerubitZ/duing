@@ -90,14 +90,15 @@ describe('HeroRightVisual', () => {
 });
 
 describe('HomeHero (server component)', () => {
-  it('모바일·데스크탑 모집중 카드가 모두 링크이고, 활동 토스트는 데스크탑 2개만 남는다', async () => {
+  it('모집중 카드는 데스크탑 1개만 링크로 남고, 활동 토스트도 데스크탑 2개만 남는다', async () => {
     mockFetchClubStats.mockResolvedValueOnce({ totalCount: 40, recruitingCount: 16 });
     mockFetchPublicActivities.mockResolvedValueOnce([]);
 
     render(<>{await HomeHero()}</>);
 
+    // 모바일 히어로는 시안대로 마스코트만 두고 모집중 카드를 뺐다 — 링크는 데스크탑 카드 하나뿐이다.
     const recruitingLinks = screen.getAllByRole('link', { name: /이번 학기 모집중/ });
-    expect(recruitingLinks).toHaveLength(2);
+    expect(recruitingLinks).toHaveLength(1);
     for (const link of recruitingLinks) {
       expect(link).toHaveAttribute('href', '/clubs?recruitment=available');
     }
@@ -113,7 +114,7 @@ describe('HomeHero (server component)', () => {
 
     expect(
       screen.getAllByRole('link', { name: '모집 현황 정보 없음 — 이번 학기 모집중 동아리 보기' }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 });
 

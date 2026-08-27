@@ -648,7 +648,7 @@ export function ClubExplorePage() {
               <Icon.sliders className="h-[15px] w-[15px]" />
               필터
               {activeFilterCount > 0 && (
-                <span className="grid h-4 min-w-4 place-items-center rounded-full bg-sage px-1 font-mono text-[10px] font-extrabold text-ink-deep">
+                <span className="grid h-4 min-w-4 place-items-center rounded-full bg-sage px-1 tabular-nums text-[10px] font-extrabold text-ink-deep">
                   {activeFilterCount}
                 </span>
               )}

@@ -60,7 +60,7 @@ export function WeekBlockSheet({ block, onClose }: Props) {
           <dl className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-xs text-charcoal-3">시간</dt>
-              <dd className="font-mono text-sm font-semibold text-ink-deep">
+              <dd className="tabular-nums text-sm font-semibold text-ink-deep">
                 {shown.start}~{shown.end}
               </dd>
             </div>

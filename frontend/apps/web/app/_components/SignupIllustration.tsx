@@ -57,7 +57,7 @@ export function SignupIllustration({ className }: Props) {
         fontWeight="700"
         fill="#2F3433"
         letterSpacing="7"
-        fontFamily="'JetBrains Mono', ui-monospace, Menlo, monospace"
+        fontFamily="ui-monospace, Menlo, monospace"
       >
         5WAVK4YZ
       </text>

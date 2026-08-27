@@ -123,7 +123,7 @@ export default function ClubApplicantsEntryPage({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink-deep">{recruitment.title}</p>
-                  <p className="mt-0.5 font-mono text-xs text-charcoal-3">
+                  <p className="mt-0.5 tabular-nums text-xs text-charcoal-3">
                     {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
                     {recruitmentClosedLabel(recruitment) !== null &&
                       ` · ${recruitmentClosedLabel(recruitment)}`}

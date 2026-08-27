@@ -54,7 +54,7 @@ export function FeeAccountCard({ clubId }: { clubId: number }) {
         <p className="text-[17px] font-bold text-ink-deep">
           {/* 복호화에 실패하면 은행·예금주는 살아 있어도 번호만 비어 온다 — 카드를 통째로 감추지 않는다. */}
           {account.bank === null ? '은행 미상' : bankLabel(account.bank)}
-          <span className="ml-2 font-mono tabular-nums text-charcoal">
+          <span className="ml-2 tabular-nums text-charcoal">
             {account.maskedAccountNumber ?? '계좌번호 확인 불가'}
           </span>
         </p>

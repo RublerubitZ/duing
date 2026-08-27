@@ -16,7 +16,7 @@ export function AdminMockup() {
       <div className="mb-3.5 flex items-end gap-2">
         {promoFunnel.map((stage) => (
           <div key={stage.label} className="flex flex-1 flex-col items-center gap-1.5">
-            <span className="font-mono text-[12px] font-bold text-ink-deep">{stage.value}</span>
+            <span className="tabular-nums text-[12px] font-bold text-ink-deep">{stage.value}</span>
             <div className="flex h-16 w-full items-end">
               <div
                 className="w-full rounded-sm bg-ink"
@@ -30,7 +30,7 @@ export function AdminMockup() {
 
       {/* 지원자 테이블 */}
       <div className="overflow-hidden rounded-md border border-line">
-        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2.5 bg-paper px-3.5 py-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-charcoal-3">
+        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2.5 bg-paper px-3.5 py-2.5 tabular-nums text-[11px] uppercase tracking-[0.08em] text-charcoal-3">
           <span>지원자</span>
           <span>학과</span>
           <span>상태</span>

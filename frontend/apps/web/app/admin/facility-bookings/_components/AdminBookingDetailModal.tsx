@@ -263,7 +263,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="text-lg font-extrabold text-ink-deep">{detail?.clubName ?? '예약 신청 검토'}</span>
-                {detail && <span className="font-mono text-xs text-charcoal-3">#{detail.bookingId}</span>}
+                {detail && <span className="tabular-nums text-xs text-charcoal-3">#{detail.bookingId}</span>}
                 {detail && <BookingStatusBadge status={detail.status} />}
               </div>
             </div>
@@ -327,13 +327,13 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                       </div>
                       <div className="border-r border-line px-[18px] py-3">
                         <dt className="text-[11.5px] font-semibold text-charcoal-3">사용 시간</dt>
-                        <dd className="mt-0.5 font-mono text-[13px] font-semibold text-ink-deep">
+                        <dd className="mt-0.5 tabular-nums text-[13px] font-semibold text-ink-deep">
                           {bookingDateLabel(detail.date)} {bookingTimeLabel(detail.startTime, detail.endTime)}
                         </dd>
                       </div>
                       <div className="px-[18px] py-3">
                         <dt className="text-[11.5px] font-semibold text-charcoal-3">대표 연락처</dt>
-                        <dd className="mt-0.5 font-mono text-[13px] font-semibold text-ink-deep">
+                        <dd className="mt-0.5 tabular-nums text-[13px] font-semibold text-ink-deep">
                           {detail.contactPhone ?? '—'}
                         </dd>
                       </div>
@@ -387,7 +387,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     className="rounded-[14px] border-[1.5px] border-[#E8B9A8] bg-[#FCE2D9] px-[18px] py-4"
                   >
                     <p className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#9A3F23]">
-                      <span className="rounded-md bg-[#9A3F23] px-[7px] py-0.5 font-mono text-[11px] font-bold text-paper">
+                      <span className="rounded-md bg-[#9A3F23] px-[7px] py-0.5 tabular-nums text-[11px] font-bold text-paper">
                         409
                       </span>
                       학교 예약과 시간이 충돌하여 승인할 수 없습니다.
@@ -455,7 +455,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                                 <span className="font-normal text-charcoal-3"> — {item.reason}</span>
                               )}
                             </span>
-                            <span className="shrink-0 font-mono text-[11.5px] text-charcoal-3">
+                            <span className="shrink-0 tabular-nums text-[11.5px] text-charcoal-3">
                               {formatDateTimeKst(item.changedAt)}
                             </span>
                           </span>

@@ -67,7 +67,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
         }}>{app.tag}</div>
         <div style={{
           fontSize: 10.5, color: 'var(--charcoal-3)',
-          fontFamily: 'var(--font-mono)',
+          fontVariantNumeric: 'tabular-nums',
         }}>
           지원일 {app.appliedDate}
         </div>
@@ -90,11 +90,11 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
             <div style={{ fontSize: 10.5, color: 'var(--charcoal-3)', marginBottom: 1 }}>
               {app.right.eyebrow}
             </div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-deep)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-deep)', fontVariantNumeric: 'tabular-nums' }}>
               {app.right.value}
             </div>
             {app.right.sub && (
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-deep)', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-deep)', fontVariantNumeric: 'tabular-nums' }}>
                 {app.right.sub}
               </div>
             )}

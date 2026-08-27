@@ -15,9 +15,7 @@ export async function Categories() {
   return (
     <section className="px-4 sm:px-6 md:px-10 pb-6 pt-8 sm:pb-8 sm:pt-14">
       <div className="max-w-layout mx-auto">
-        <h2 className="mb-5 text-[20px] sm:mb-9 sm:text-[36px] md:text-[40px]">
-          내게 맞는 카테고리
-        </h2>
+        <h2 className="mb-5 text-[20px] md:mb-10 md:text-[36px]">내게 맞는 카테고리</h2>
 
         {/* 모바일: 4×2 타일 */}
         <div className="grid grid-cols-4 gap-2.5 md:hidden">
@@ -67,15 +65,15 @@ function CategoryCard({
       aria-label={categoryLinkLabel(category, count)}
       // 네이티브 앵커 드래그가 가로 스크롤 제스처를 끊지 않도록 막는다.
       draggable={false}
-      className="group relative flex h-[200px] w-[272px] shrink-0 flex-col justify-between overflow-hidden rounded-[20px] border border-line bg-paper p-6 text-inherit no-underline transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
+      className="group relative flex h-[194px] w-[264px] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] border border-line bg-paper p-[22px] text-inherit no-underline transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
     >
       <div className="flex items-start justify-between">
-        <span aria-hidden className="text-[30px] font-semibold leading-none text-ink">
+        <span aria-hidden className="text-[30px] font-semibold leading-none tracking-tightest text-ink">
           {category.label}
         </span>
         <span
           aria-hidden
-          className="text-[22px] leading-none text-charcoal-3 transition-transform duration-250 group-hover:translate-x-0.5"
+          className="text-[24px] leading-none text-charcoal-3 transition-transform duration-250 group-hover:translate-x-0.5"
         >
           ›
         </span>
@@ -84,7 +82,7 @@ function CategoryCard({
       {count !== undefined && (
         <span
           aria-hidden
-          className="w-fit rounded-full bg-ink-deep px-4 py-1.5 text-[15px] font-medium leading-none text-cream"
+          className="w-fit rounded-full bg-ink-deep px-4 py-2 text-[16px] font-semibold leading-none tracking-tightest text-cream"
         >
           {count}개
         </span>
@@ -93,7 +91,7 @@ function CategoryCard({
       {/* 픽토그램 — 장식이라 접근성 트리에서 제외한다. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute bottom-4 right-5 select-none text-[64px] leading-none"
+        className="pointer-events-none absolute bottom-3.5 right-4 select-none text-[80px] leading-none"
       >
         {category.emoji}
       </span>
@@ -113,14 +111,14 @@ function CategoryTile({
       href={`/clubs?category=${category.value}`}
       aria-label={categoryLinkLabel(category, count)}
       draggable={false}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] border border-line bg-paper p-2 text-inherit no-underline transition active:scale-[0.97]"
+      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] border border-line bg-paper p-2.5 text-inherit no-underline transition active:scale-[0.97]"
     >
-      <span aria-hidden className="text-[13px] font-medium leading-none text-ink">
+      <span aria-hidden className="text-[14px] font-semibold leading-none tracking-tightest text-ink">
         {category.label}
       </span>
       <span
         aria-hidden
-        className="pointer-events-none select-none self-end text-[26px] leading-none"
+        className="pointer-events-none select-none self-end text-[30px] leading-none"
       >
         {category.emoji}
       </span>

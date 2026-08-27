@@ -95,7 +95,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
     >
       <div className="flex items-start justify-between gap-2">
         <div
-          className={`relative grid place-items-center shrink-0 text-white font-display font-bold leading-none shadow-1 overflow-hidden ${size === 'lg' ? 'rounded-[22px]' : 'rounded-[16px]'}`}
+          className={`relative grid place-items-center shrink-0 text-white font-bold leading-none shadow-1 overflow-hidden ${size === 'lg' ? 'rounded-[22px]' : 'rounded-[16px]'}`}
           style={{
             width: logoSize,
             height: logoSize,

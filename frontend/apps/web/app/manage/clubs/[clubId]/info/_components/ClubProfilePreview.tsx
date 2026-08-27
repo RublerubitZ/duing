@@ -50,7 +50,7 @@ export function ClubProfilePreview({ preview }: { preview: ClubPreviewData }) {
             <img src={preview.coverUrl} alt="" draggable={false} className="h-full w-full object-cover" />
           )}
           {/* 로고 1/3만 커버에 걸침 — 히어로 프로필 규칙(편집 폼·학생 히어로와 통일). */}
-          <div className="absolute -bottom-[38px] left-4 grid h-14 w-14 place-items-center overflow-hidden rounded-[16px] border-[3px] border-white bg-[#1f3a2e] font-mono text-[20px] font-bold text-white shadow-lg">
+          <div className="absolute -bottom-[38px] left-4 grid h-14 w-14 place-items-center overflow-hidden rounded-[16px] border-[3px] border-white bg-[#1f3a2e] tabular-nums text-[20px] font-bold text-white shadow-lg">
             {preview.logoUrl !== '' ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={preview.logoUrl} alt="로고" draggable={false} className="h-full w-full object-cover" />

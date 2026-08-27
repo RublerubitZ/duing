@@ -20,7 +20,7 @@ export function MyStatusMockup() {
     <div className="rounded-lg border border-line bg-paper p-4 shadow-2">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[14px] font-bold text-ink-deep">내 지원 현황</span>
-        <span className="flex items-center gap-1.5 font-mono text-[11px] text-ink">
+        <span className="flex items-center gap-1.5 tabular-nums text-[11px] text-ink">
           <Heart size={13} strokeWidth={1.75} aria-hidden />
           관심 5
         </span>
@@ -34,7 +34,7 @@ export function MyStatusMockup() {
           >
             <div className="min-w-0">
               <div className="text-[13.5px] font-bold text-charcoal">{application.club}</div>
-              <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">{application.cat}</div>
+              <div className="mt-0.5 tabular-nums text-[11px] text-charcoal-3">{application.cat}</div>
             </div>
             <span className={`pill ${statusClass(application.status)} text-[11px]`}>
               {application.status}

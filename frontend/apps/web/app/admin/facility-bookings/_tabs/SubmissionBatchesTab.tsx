@@ -200,8 +200,8 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                         {facilityLabel}
                       </p>
                     </td>
-                    <td className="py-3.5 pr-3.5 font-mono text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
-                    <td className="whitespace-nowrap py-3.5 pr-3.5 font-mono text-[12.5px]">
+                    <td className="py-3.5 pr-3.5 tabular-nums text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
+                    <td className="whitespace-nowrap py-3.5 pr-3.5 tabular-nums text-[12.5px]">
                       <p>{formatDateKst(batch.submittedAt)}</p>
                       {/* 진행 중 배치의 방치 감지(3일↑ 경고색) / 완료·취소는 처리일을 함께 보여준다. */}
                       {status === 'REVIEWING' && ageDays !== null && ageDays >= 1 && (

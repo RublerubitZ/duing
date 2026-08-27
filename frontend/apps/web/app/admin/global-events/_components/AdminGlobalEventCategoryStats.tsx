@@ -68,7 +68,7 @@ export function AdminGlobalEventCategoryStats() {
                   style={{ width: `${widthPercent}%`, background: color }}
                 />
               </div>
-              <span className="w-[60px] text-right text-[12.5px] font-mono text-charcoal-2">
+              <span className="w-[60px] text-right text-[12.5px] tabular-nums text-charcoal-2">
                 {count}건
               </span>
             </li>

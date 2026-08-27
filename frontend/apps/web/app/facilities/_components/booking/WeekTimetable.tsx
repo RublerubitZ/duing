@@ -180,7 +180,7 @@ export function WeekTimetable({
                       {WEEKDAY_LABELS[colIndex]}
                     </span>
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12px] font-bold ${
+                      className={`flex h-6 w-6 items-center justify-center rounded-full tabular-nums text-[12px] font-bold ${
                         isSelectedColumn ? 'bg-ink text-cream' : 'text-charcoal'
                       }`}
                     >
@@ -199,8 +199,8 @@ export function WeekTimetable({
               <tr key={hour}>
                 <td className="pr-1 align-top text-right sm:pr-1.5">
                   {/* 모바일: HH 만(시간열 w-8), PC: HH:00 — §9.1. */}
-                  <span className="font-mono text-[10px] text-charcoal-3 sm:hidden">{pad2(hour)}</span>
-                  <span className="hidden font-mono text-[10px] text-charcoal-3 sm:inline">{pad2(hour)}:00</span>
+                  <span className="tabular-nums text-[10px] text-charcoal-3 sm:hidden">{pad2(hour)}</span>
+                  <span className="hidden tabular-nums text-[10px] text-charcoal-3 sm:inline">{pad2(hour)}:00</span>
                 </td>
                 {columns.map(({ iso, withinWindow, plan }, colIndex) => {
                   const entry = plan[rowIndex];
@@ -238,7 +238,7 @@ export function WeekTimetable({
                           <span className={`truncate text-[10px] font-bold sm:hidden ${visual.name}`}>{abbrev}</span>
                           {/* PC: 풀네임 Bold(1줄 말줄임) + 시간 범위 secondary — 2단계 정보 고정(격자 불변). */}
                           <span className={`hidden truncate text-[11px] font-bold sm:block ${visual.name}`}>{displayName}</span>
-                          <span className="hidden truncate font-mono text-[10px] text-charcoal-3 sm:block">
+                          <span className="hidden truncate tabular-nums text-[10px] text-charcoal-3 sm:block">
                             {entry.start}~{entry.end}
                           </span>
                         </button>

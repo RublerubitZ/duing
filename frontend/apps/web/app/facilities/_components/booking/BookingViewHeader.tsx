@@ -73,7 +73,7 @@ export function BookingViewHeader({ view, onChangeView, periodLabel, onPrev, onN
           >
             ←
           </button>
-          <h2 className="min-w-[7.5rem] text-center font-display text-lg text-ink-deep">{periodLabel}</h2>
+          <h2 className="min-w-[7.5rem] text-center text-lg text-ink-deep">{periodLabel}</h2>
           <button
             type="button"
             aria-label={view === 'month' ? '다음 달' : '다음 주'}

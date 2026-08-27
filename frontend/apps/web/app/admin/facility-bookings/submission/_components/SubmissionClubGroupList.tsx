@@ -97,13 +97,13 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                             checked={selection.has(booking.bookingId)}
                             onChange={() => onToggleSelect(booking.bookingId)}
                           />
-                          <span className="font-mono text-xs text-charcoal">{formatDateWithWeekday(booking.reservationDate)}</span>
-                          <span className="font-mono text-xs text-charcoal">{bookingTimeLabel(booking.startTime, booking.endTime)}</span>
+                          <span className="tabular-nums text-xs text-charcoal">{formatDateWithWeekday(booking.reservationDate)}</span>
+                          <span className="tabular-nums text-xs text-charcoal">{bookingTimeLabel(booking.startTime, booking.endTime)}</span>
                           <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
                           <span className="tabular-nums text-xs text-charcoal-3">
                             {booking.attendeeCount !== null ? `${booking.attendeeCount}명` : '-'}
                           </span>
-                          <span className="font-mono text-[10px] text-charcoal-3">
+                          <span className="tabular-nums text-[10px] text-charcoal-3">
                             승인 {booking.decidedAt !== null ? formatDateKst(booking.decidedAt) : '-'}
                           </span>
                           <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${visual.container}`}>
@@ -114,7 +114,7 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                             </span>
                           </span>
                           {booking.submitted && booking.submissionNo !== null && (
-                            <span className="font-mono text-[10px] text-charcoal-3">{booking.submissionNo}</span>
+                            <span className="tabular-nums text-[10px] text-charcoal-3">{booking.submissionNo}</span>
                           )}
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShowDetail(booking)}>
                             상세

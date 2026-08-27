@@ -62,7 +62,7 @@ export function SubmissionDetailSheet({
               {shown.submitted && shown.submissionNo !== null && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-charcoal-3">{submissionRelationLabel}</dt>
-                  <dd className="font-mono text-xs">{shown.submissionNo}</dd>
+                  <dd className="tabular-nums text-xs">{shown.submissionNo}</dd>
                 </div>
               )}
               <div className="flex justify-between gap-2">

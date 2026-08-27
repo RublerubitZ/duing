@@ -47,18 +47,13 @@ export async function InterestingClubs() {
   return (
     <section className="px-4 sm:px-6 md:px-10 py-7 sm:py-14">
       <div className="max-w-layout mx-auto">
-        <div className="mb-6 flex items-end justify-between sm:mb-9">
-          <div>
-            <div className="mb-2.5 hidden text-[13px] font-semibold tracking-wide08 text-ink sm:block">
-              INTEREST · 최근 일주일
-            </div>
-            <h2 className="text-[20px] sm:text-[36px] md:text-[40px]">관심도가 높은 동아리</h2>
-          </div>
+        <div className="mb-5 flex items-center justify-between md:mb-10">
+          <h2 className="text-[20px] md:text-[36px]">관심도가 높은 동아리</h2>
           {/* 아이콘만 있는 링크라 접근명을 직접 단다 — 인라인 텍스트가 없으면 스크린리더가 읽을 게 없다. */}
           <Link
             href="/clubs"
             aria-label="관심도가 높은 동아리 전체 보기"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-deep text-cream transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-3 motion-reduce:transition-none sm:h-10 sm:w-10"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-deep text-cream transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-3 motion-reduce:transition-none md:h-[35px] md:w-[35px]"
           >
             <ArrowRight />
           </Link>
@@ -135,14 +130,14 @@ function InterestCard({ club }: { club: ClubSummary }) {
   return (
     <Link
       href={`/clubs/${club.id}`}
-      className="group flex flex-col rounded-[24px] border border-line bg-paper p-6 transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
+      className="group flex min-h-[290px] flex-col rounded-[24px] border border-line bg-paper p-[22px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
     >
       <div className="flex items-start justify-between gap-3">
-        <ClubLogo club={club} className="h-[72px] w-[72px] rounded-[20px] text-[28px]" />
+        <ClubLogo club={club} className="h-[82px] w-[82px] rounded-[18px] text-[30px]" />
         {badge && (
           <span
             className={cn(
-              'shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-medium leading-none',
+              'shrink-0 rounded-full px-3.5 py-2 text-[14px] font-semibold leading-none',
               badge.className,
             )}
           >
@@ -151,22 +146,22 @@ function InterestCard({ club }: { club: ClubSummary }) {
         )}
       </div>
 
-      <div className="mt-4 flex min-w-0 items-baseline gap-2">
-        <h3 className="min-w-0 truncate text-[26px] leading-tight">{club.name}</h3>
+      <div className="mt-3.5 flex min-w-0 items-baseline gap-2">
+        <h3 className="min-w-0 truncate text-[30px] font-semibold leading-tight">{club.name}</h3>
         <span
-          className="shrink-0 text-[14px] font-semibold"
+          className="shrink-0 text-[16px] font-semibold tracking-tightest"
           style={{ color: CATEGORY_COLOR[club.category] }}
         >
           {CATEGORY_LABEL[club.category]}
         </span>
       </div>
-      <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-relaxed text-charcoal-2">
+      <p className="mt-1 line-clamp-2 text-[16px] font-normal leading-[1.5] tracking-tightest text-charcoal-2">
         {club.tagline ?? (club.tags.length > 0 ? club.tags.join(' · ') : '소개 준비중')}
       </p>
 
-      {/* 임계값 미만이면 이 줄만 빠진다 — 카드가 아래로 짧아질 뿐 레이아웃이 깨지지 않는다. */}
+      {/* 임계값 미만이면 이 줄만 빠진다 — 카드 최소 높이는 유지돼 그리드가 흔들리지 않는다. */}
       {interestCount !== null && (
-        <p className="mt-auto pt-6 text-[15.5px] leading-snug text-ink-deep">
+        <p className="mt-auto pt-7 text-[16px] font-normal leading-[1.5] tracking-tightest text-ink-deep">
           이번 주에
           <br />
           <span className="font-bold">{interestCount}명</span>이 관심을 보였어요
@@ -182,15 +177,17 @@ function InterestRow({ club }: { club: ClubSummary }) {
   return (
     <Link
       href={`/clubs/${club.id}`}
-      className="flex items-center gap-3 rounded-[10px] border border-line bg-paper px-3 py-2.5 transition active:scale-[0.99]"
+      className="flex h-[76px] items-center gap-3 rounded-[10px] border border-line bg-paper px-3 transition active:scale-[0.99]"
     >
       <ClubLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-baseline gap-1">
-            <span className="min-w-0 truncate text-[17px] font-semibold text-ink">{club.name}</span>
+            <span className="min-w-0 truncate text-[18px] font-semibold tracking-tightest text-ink">
+              {club.name}
+            </span>
             <span
-              className="shrink-0 text-[12px] font-semibold"
+              className="shrink-0 text-[12px] font-semibold tracking-tightest"
               style={{ color: CATEGORY_COLOR[club.category] }}
             >
               {CATEGORY_LABEL[club.category]}
@@ -199,7 +196,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
           {badge && (
             <span
               className={cn(
-                'shrink-0 rounded-full px-2 py-1 text-[10.5px] font-medium leading-none',
+                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none',
                 badge.className,
               )}
             >
@@ -207,7 +204,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
             </span>
           )}
         </div>
-        <p className="truncate text-[13.5px] text-charcoal-2">
+        <p className="truncate text-[14px] font-normal tracking-tightest text-charcoal-2">
           {club.tagline ?? (club.tags.length > 0 ? club.tags.join(' · ') : '소개 준비중')}
         </p>
       </div>

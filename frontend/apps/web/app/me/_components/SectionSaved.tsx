@@ -97,7 +97,7 @@ export function SectionSaved({ favorites }: Props) {
                     <span className="pill text-[10px]">{clubCategoryLabel(club.category)}</span>
                     <span
                       className={cn(
-                        'font-semibold font-mono',
+                        'font-semibold tabular-nums',
                         isRecruiting ? 'text-ink' : 'text-charcoal-3',
                       )}
                     >

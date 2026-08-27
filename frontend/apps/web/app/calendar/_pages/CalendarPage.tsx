@@ -313,7 +313,7 @@ export function CalendarPage() {
                     {card.label}
                   </div>
                   <div style={{
-                    fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 700,
+                    fontSize: 36, fontWeight: 700,
                     color: card.color, lineHeight: 1,
                   }}>
                     {card.num}<span style={{ fontSize: 14, color: 'var(--charcoal-3)', marginLeft: 4, fontWeight: 500 }}>건</span>
@@ -476,12 +476,12 @@ export function CalendarPage() {
                             isSun ? '#9A3F23' : isSat ? '#2F557A' : 'var(--charcoal)',
                           fontWeight: 700,
                           fontSize: detailOpen ? 12.5 : 13.5,
-                          fontFamily: 'var(--font-mono)',
+                          fontVariantNumeric: 'tabular-nums',
                         }}>{cell.d}</span>
                         {cellEvents.length > 3 && (
                           <span style={{
                             fontSize: 10.5, fontWeight: 700, color: 'var(--charcoal-3)',
-                            fontFamily: 'var(--font-mono)',
+                            fontVariantNumeric: 'tabular-nums',
                           }}>+{cellEvents.length - 2}</span>
                         )}
                       </div>
@@ -589,7 +589,7 @@ export function CalendarPage() {
                   {selectedDate === todayIso ? 'TODAY · 오늘' : 'SELECTED · 선택한 날짜'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 700, lineHeight: 1, color: '#fff' }}>
+                  <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: '#fff' }}>
                     {parseInt(selectedDate.slice(8), 10)}
                   </span>
                   <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
@@ -602,7 +602,7 @@ export function CalendarPage() {
                   fontSize: 12, color: 'rgba(255,255,255,0.6)',
                 }}>
                   <span>{dayEvents.length}건의 일정</span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>{selectedDate}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{selectedDate}</span>
                 </div>
               </div>
 
@@ -641,7 +641,7 @@ export function CalendarPage() {
                     >
                       <div style={{
                         minWidth: 60, paddingTop: 2,
-                        fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 700,
+                        fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700,
                         color: 'var(--charcoal-2)',
                       }}>{event.time}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>

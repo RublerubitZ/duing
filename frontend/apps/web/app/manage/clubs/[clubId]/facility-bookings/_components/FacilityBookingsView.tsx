@@ -45,7 +45,7 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
     <section>
       <header>
         <p className="text-[11px] font-bold tracking-wide08 text-ink">MY RESERVATIONS · 동아리 예약</p>
-        <h1 className="mt-1 font-display text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
+        <h1 className="mt-1 text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
       </header>
 
       <div className="mt-5 flex gap-1" role="tablist" aria-label="예약 상태 필터">

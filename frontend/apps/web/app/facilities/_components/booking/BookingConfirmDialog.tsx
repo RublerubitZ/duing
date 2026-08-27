@@ -89,7 +89,7 @@ export function BookingConfirmDialog({
             <dt className="shrink-0 text-xs text-charcoal-3">예약 일시</dt>
             <dd className="text-right text-sm font-medium text-charcoal">
               <span className="block">{confirmDateLabel(date)}</span>
-              <span className="block font-mono text-[13px] text-charcoal-2">{confirmTimeLabel(range)}</span>
+              <span className="block tabular-nums text-[13px] text-charcoal-2">{confirmTimeLabel(range)}</span>
             </dd>
           </div>
           <ConfirmRow label="신청 동아리" value={clubName} />

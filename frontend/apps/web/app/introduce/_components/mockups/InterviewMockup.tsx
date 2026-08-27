@@ -21,7 +21,7 @@ export function InterviewMockup() {
   return (
     <div className="rounded-lg border border-line bg-paper p-4 shadow-2">
       <div className="mb-3.5 flex items-center justify-between">
-        <p className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+        <p className="tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
           INTERVIEW · 1라운드
         </p>
         <span className="pill pill-solid gap-1.5">
@@ -34,14 +34,14 @@ export function InterviewMockup() {
       <div className="mb-3.5 rounded-md border border-line bg-cream p-3">
         <div className="mb-2 flex gap-2 pl-12">
           {SLOT_LABELS.map((day) => (
-            <span key={day} className="w-7 text-center font-mono text-[10.5px] text-charcoal-3">
+            <span key={day} className="w-7 text-center tabular-nums text-[10.5px] text-charcoal-3">
               {day}
             </span>
           ))}
         </div>
         {AVAILABILITY.map((row, rowIdx) => (
           <div key={`row-${SLOT_LABELS[rowIdx]}`} className="mb-1 flex items-center gap-2">
-            <span className="w-10 text-right font-mono text-[10.5px] text-charcoal-3">
+            <span className="w-10 text-right tabular-nums text-[10.5px] text-charcoal-3">
               {13 + rowIdx}시
             </span>
             <div className="flex gap-2 pl-2">
@@ -70,7 +70,7 @@ export function InterviewMockup() {
               </span>
               {slot.name}
             </span>
-            <span className="font-mono text-[11.5px] text-ink">
+            <span className="tabular-nums text-[11.5px] text-ink">
               {slot.day} · {slot.time}
             </span>
           </div>

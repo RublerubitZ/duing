@@ -39,7 +39,7 @@ export function FaqsRepeater({
           className="rounded-[12px] border border-[#e2ddcb] bg-white p-3.5"
         >
           <div className="flex items-start gap-2.5">
-            <span className="mt-2 shrink-0 font-mono text-[14px] font-extrabold text-[#4a6b3f]">Q</span>
+            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-[#4a6b3f]">Q</span>
             <input
               type="text"
               value={faq.question}
@@ -50,7 +50,7 @@ export function FaqsRepeater({
             />
           </div>
           <div className="mt-2 flex items-start gap-2.5">
-            <span className="mt-2 shrink-0 font-mono text-[14px] font-extrabold text-[#b6a06a]">A</span>
+            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-[#b6a06a]">A</span>
             <textarea
               value={faq.answer}
               onChange={(event) => update(idx, { answer: event.target.value })}

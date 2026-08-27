@@ -33,7 +33,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 flexShrink: 0,
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{view.monthNumber}월</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
                   {view.dayNumber}
                 </div>
                 <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.75, marginTop: 2 }}>{view.weekdayLabel}요일</div>
@@ -42,7 +42,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 padding: '5px 10px', borderRadius: 999,
                 background: view.daysLeft === 0 ? 'var(--ink)' : 'var(--gray-soft)',
                 color: view.daysLeft === 0 ? '#fff' : 'var(--charcoal-2)',
-                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
               }}>{view.dday}</span>
             </div>
@@ -65,7 +65,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
               {view.periodLabel !== null && (
                 <p style={{
                   fontSize: 12, color: 'var(--charcoal-3)',
-                  fontFamily: 'var(--font-mono)', marginBottom: 6,
+                  fontVariantNumeric: 'tabular-nums', marginBottom: 6,
                 }}>
                   {view.periodLabel}
                 </p>
@@ -83,7 +83,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               fontSize: 12, color: 'var(--charcoal-3)',
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{view.timeLabel}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{view.timeLabel}</span>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 color: 'var(--ink)', fontWeight: 700,

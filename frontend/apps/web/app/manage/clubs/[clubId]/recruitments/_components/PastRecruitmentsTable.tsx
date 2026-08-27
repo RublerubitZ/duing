@@ -84,13 +84,13 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                     전형 {recruitmentFlowLabel(recruitment.useInterview)}
                   </div>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-charcoal-2">
+                <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">
                   {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
                   {recruitmentClosedLabel(recruitment) !== null && (
                     <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
                   )}
                 </td>
-                <td className="px-4 py-3 font-mono text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
+                <td className="px-4 py-3 tabular-nums text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
@@ -152,7 +152,7 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
               {recruitmentClosedLabel(recruitment) !== null && ` · ${recruitmentClosedLabel(recruitment)}`} · 전형{' '}
               {recruitmentFlowLabel(recruitment.useInterview)}
             </div>
-            <div className="mt-1 font-mono text-sm text-charcoal">
+            <div className="mt-1 tabular-nums text-sm text-charcoal">
               지원 {appliedAcceptedLabel(recruitment.id)}
             </div>
             <div className="mt-3 flex gap-2">
