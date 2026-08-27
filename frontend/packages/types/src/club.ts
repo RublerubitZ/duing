@@ -49,7 +49,23 @@ export type ClubSummary = {
   tags: string[];
   tagline: string | null;
   centralClub: boolean;
+  /**
+   * 최근 7일 순방문자 수 — 홈 "관심도가 높은 동아리" 카드의 표시값.
+   * BE 미배포 전환기에는 필드 자체가 없을 수 있어 옵셔널이다 (department 와 같은 규약).
+   * 정렬에 쓰는 내부 점수는 응답에 실리지 않는다.
+   */
+  weeklyInterestCount?: number;
   activeRecruitment: ClubSummaryRecruitment | null;
+};
+
+/**
+ * 공개 동아리 통계 — 홈 히어로 문구와 카테고리 탐색 카운트가 함께 쓴다.
+ * categoryCounts 는 BE 미배포 전환기에 없을 수 있어 옵셔널이다 — 없으면 화면이 카운트만 생략한다.
+ */
+export type ClubStats = {
+  totalCount: number;
+  recruitingCount: number;
+  categoryCounts?: Partial<Record<ClubCategory, number>>;
 };
 
 export type ContactVisibility = 'PUBLIC' | 'LOGGED_IN_ONLY' | 'PRIVATE';

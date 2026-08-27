@@ -12,14 +12,6 @@ import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 // 숫자 div(role=generic)에 aria-label 을 두면 ARIA 금지 속성이 된다.
 const RECRUITING_UNKNOWN_LABEL = '모집 현황 정보 없음 — 이번 학기 모집중 동아리 보기';
 
-const SUGGESTED_QUERIES: ReadonlyArray<string> = [
-  '개발',
-  '공모전',
-  '봉사',
-  '축구',
-  '창업',
-];
-
 export async function HomeHero() {
   // 통계·활동을 병렬 조회. 활동 조회 실패 시 [] → resolveHeroToasts 가 폴백 토스트로 채운다.
   const [stats, activities] = await Promise.all([fetchClubStats(), fetchPublicActivities()]);
@@ -113,20 +105,6 @@ export async function HomeHero() {
               <ArrowRight />
             </button>
           </form>
-
-          {/* 추천 검색어 — 모바일에선 숨김(#3), 데스크탑만 노출 */}
-          <div className="mt-5 hidden flex-wrap items-center gap-2.5 md:flex">
-            <span className="text-[13px] text-charcoal-3">요즘 많이 찾는</span>
-            {SUGGESTED_QUERIES.map((query) => (
-              <Link
-                key={query}
-                href={`/clubs?q=${encodeURIComponent(query)}`}
-                className="rounded-full border border-dashed border-line px-3 py-[5px] text-[13px] font-medium text-charcoal-2 hover:border-ink hover:text-ink"
-              >
-                {query}
-              </Link>
-            ))}
-          </div>
         </div>
 
         <HeroRightVisual recruitingCount={stats?.recruitingCount ?? null} toasts={toasts} />

@@ -1,60 +1,56 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { ClubSummary, PageResponse } from '@duing/types';
+import type { ClubStats } from '@duing/types';
 
-// createApiClient 를 모킹해, 백엔드 호출 없이 fetchClubStats 의 폴백·매핑·파라미터를 검증한다.
-const { createApiClientMock, listMock } = vi.hoisted(() => ({
+// createApiClient 를 모킹해, 백엔드 호출 없이 fetchClubStats 의 폴백·매핑·왕복 수를 검증한다.
+const { createApiClientMock, statsMock } = vi.hoisted(() => ({
   createApiClientMock: vi.fn(),
-  listMock: vi.fn(),
+  statsMock: vi.fn(),
 }));
 
 vi.mock('@duing/api', () => ({
   createApiClient: createApiClientMock,
 }));
 
+// React cache 는 렌더 밖에서도 호출 가능해야 하므로 통과 함수로 대체한다
+// (테스트마다 다른 응답을 확인해야 해서 메모이즈가 남으면 두 번째 케이스가 첫 결과를 본다).
+vi.mock('react', async () => {
+  const actual = await vi.importActual<typeof import('react')>('react');
+  return { ...actual, cache: <T,>(fn: T) => fn };
+});
+
 import { fetchClubStats } from '@/app/_lib/club-stats';
 
-function makePage(totalElements: number): PageResponse<ClubSummary> {
-  return {
-    content: [],
-    page: 0,
-    size: 1,
-    totalElements,
-    totalPages: 1,
-    hasNext: false,
-  };
-}
+const stats: ClubStats = {
+  totalCount: 128,
+  recruitingCount: 67,
+  categoryCounts: { ACADEMIC: 42, SPORTS: 11 },
+};
 
 beforeEach(() => {
   createApiClientMock.mockReset();
-  listMock.mockReset();
-  createApiClientMock.mockReturnValue({ clubs: { list: listMock } });
+  statsMock.mockReset();
+  createApiClientMock.mockReturnValue({ clubs: { stats: statsMock } });
 });
 
 describe('fetchClubStats', () => {
-  it('clubs.list 가 throw 하면 null 을 반환한다(가짜 숫자 폴백 제거)', async () => {
-    listMock.mockRejectedValue(new Error('backend unavailable'));
+  it('통계 조회가 throw 하면 null 을 반환한다(가짜 숫자 폴백 제거)', async () => {
+    statsMock.mockRejectedValue(new Error('backend unavailable'));
 
-    const stats = await fetchClubStats();
-
-    expect(stats).toBeNull();
+    await expect(fetchClubStats()).resolves.toBeNull();
   });
 
-  it('정상 응답이면 각 totalElements 를 totalCount/recruitingCount 로 매핑한다', async () => {
-    listMock
-      .mockResolvedValueOnce(makePage(128))
-      .mockResolvedValueOnce(makePage(67));
+  it('총 수·모집중 수·카테고리별 수를 응답 그대로 돌려준다', async () => {
+    statsMock.mockResolvedValue(stats);
 
-    const stats = await fetchClubStats();
-
-    expect(stats).toEqual({ totalCount: 128, recruitingCount: 67 });
+    await expect(fetchClubStats()).resolves.toEqual(stats);
   });
 
-  it('모집 카운트는 recruitmentStatus=AVAILABLE 로 조회한다(deprecated recruiting 회귀 방지)', async () => {
-    listMock.mockResolvedValueOnce(makePage(128)).mockResolvedValueOnce(makePage(67));
+  it('통계 전용 엔드포인트를 한 번만 호출한다(목록 조회 두 번 왕복 회귀 방지)', async () => {
+    statsMock.mockResolvedValue(stats);
 
     await fetchClubStats();
 
-    expect(listMock).toHaveBeenNthCalledWith(1, { size: 1 });
-    expect(listMock).toHaveBeenNthCalledWith(2, { recruitmentStatus: 'AVAILABLE', size: 1 });
+    expect(statsMock).toHaveBeenCalledTimes(1);
+    expect(statsMock).toHaveBeenCalledWith();
   });
 });
