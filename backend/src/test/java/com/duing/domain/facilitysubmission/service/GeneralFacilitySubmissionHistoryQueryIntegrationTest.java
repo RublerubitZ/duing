@@ -77,8 +77,12 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     private FacilityBooking approvedBooking(int startHour) {
+        return approvedBooking(club, startHour);
+    }
+
+    private FacilityBooking approvedBooking(Club bookingClub, int startHour) {
         FacilityBooking booking = FacilityBooking.request(
-                facility.getId(), club.getId(), applicant.getId(), LocalDate.now().plusDays(7),
+                facility.getId(), bookingClub.getId(), applicant.getId(), LocalDate.now().plusDays(7),
                 LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0),
                 "정기 합주", 20, FacilityBookingFixture.VALID_CONTACT_PHONE);
         booking.approve(admin.getId(), null, LocalDateTime.now());
@@ -241,6 +245,52 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         assertThat(page.getContent().get(0).completed()).isTrue();
         assertThat(page.getContent().get(0).completedAt()).isNotNull();
         assertThat(page.getContent().get(0).cancelled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("배치 목록의 각 행에는 포함 동아리명이 중복 없이 가나다순으로 담긴다")
+    void 배치_목록_동아리명_집계() {
+        Club windClub = clubRepository.save(Club.create("바람", ClubCategory.OTHER, "분과", "설명", null));
+        Club gaonClub = clubRepository.save(Club.create("가온", ClubCategory.OTHER, "분과", "설명", null));
+        FacilityBooking firstWindBooking = approvedBooking(windClub, 9);
+        FacilityBooking secondWindBooking = approvedBooking(windClub, 11);
+        FacilityBooking gaonBooking = approvedBooking(gaonClub, 13);
+        Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(firstWindBooking.getId(), secondWindBooking.getId(), gaonBooking.getId()), null),
+                actor()).batchId();
+
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 10));
+
+        SubmissionBatchListItem row = page.getContent().stream()
+                .filter(listItem -> listItem.batchId().equals(batchId))
+                .findFirst().orElseThrow();
+        assertThat(row.clubNames()).containsExactly("가온", "바람");
+        // 상세 헤더도 같은 기준으로 채워진다(§2 — 대기/이력 어디서 열어도 동일 표기).
+        assertThat(queryService.getDetail(batchId, actor()).batch().clubNames())
+                .containsExactly("가온", "바람");
+    }
+
+    @Test
+    @DisplayName("완료 시 스킵된 예약의 동아리도 포함 동아리명에 남는다 — 건수(bookingCount)와 같은 기준")
+    void 스킵_항목_동아리_포함() {
+        Club skippedClub = clubRepository.save(Club.create("가온", ClubCategory.OTHER, "분과", "설명", null));
+        FacilityBooking keptBooking = approvedBooking(9);
+        FacilityBooking skippedBooking = approvedBooking(skippedClub, 11);
+        Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(keptBooking.getId(), skippedBooking.getId()), null), actor()).batchId();
+        FacilityBooking toConflict = bookingRepository.findById(skippedBooking.getId()).orElseThrow();
+        toConflict.markConflict("학교 시간표와 충돌");
+        bookingRepository.save(toConflict);
+        submissionService.complete(batchId, actor());
+
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 10));
+
+        SubmissionBatchListItem row = page.getContent().stream()
+                .filter(listItem -> listItem.batchId().equals(batchId))
+                .findFirst().orElseThrow();
+        assertThat(row.clubNames()).containsExactly("가온", club.getName());
     }
 
     @Test

@@ -23,6 +23,12 @@ public interface FacilitySubmissionItemRepository extends JpaRepository<Facility
             + "WHERE i.batchId IN :batchIds GROUP BY i.batchId")
     List<BatchItemCountProjection> countByBatchIdIn(@Param("batchIds") Collection<Long> batchIds);
 
+    /** 배치별 포함 동아리(동아리 중심 보기 스펙 §2) — bookingCount 와 같은 전 item 기준(스킵 포함). */
+    @Query("SELECT i.batchId AS batchId, fb.clubId AS clubId FROM FacilitySubmissionItem i "
+            + "JOIN FacilityBooking fb ON i.bookingId = fb.id "
+            + "WHERE i.batchId IN :batchIds GROUP BY i.batchId, fb.clubId")
+    List<BatchClubProjection> findClubIdsByBatchIdIn(@Param("batchIds") Collection<Long> batchIds);
+
     interface ActiveSubmissionProjection {
         Long getBookingId();
 
@@ -33,5 +39,11 @@ public interface FacilitySubmissionItemRepository extends JpaRepository<Facility
         Long getBatchId();
 
         long getBookingCount();
+    }
+
+    interface BatchClubProjection {
+        Long getBatchId();
+
+        Long getClubId();
     }
 }
