@@ -39,9 +39,15 @@ const NEW_CLUB_WINDOW_DAYS = 30;
 const INTEREST_CANDIDATE_SIZE = 12;
 
 function isNewlyRecruiting(club: ClubSummary, today: Date): boolean {
-  const startDate = club.activeRecruitment?.startDate;
-  if (!startDate) return false;
-  const started = new Date(`${startDate}T00:00:00`);
+  const recruitment = club.activeRecruitment;
+  if (!recruitment) return false;
+  // 시작일만 보면 이미 끝난 단기 모집도 30일간 "신규" 로 잡혀, 마감 배지를 단 카드가 슬롯을 차지한다.
+  // 이 슬롯의 목적은 "지금 지원할 수 있는 새 동아리" 를 보이게 하는 것이라 열린 모집만 인정한다.
+  if (recruitment.displayStatus !== 'OPEN' && recruitment.displayStatus !== 'ALWAYS_OPEN') {
+    return false;
+  }
+  // 날짜는 KST 자정 기준으로 읽는다 — 서버(Vercel)는 UTC 라 존을 붙이지 않으면 경계가 9시간 밀린다.
+  const started = new Date(`${recruitment.startDate}T00:00:00+09:00`);
   if (Number.isNaN(started.getTime())) return false;
   const elapsedDays = (today.getTime() - started.getTime()) / 86_400_000;
   return elapsedDays >= 0 && elapsedDays <= NEW_CLUB_WINDOW_DAYS;

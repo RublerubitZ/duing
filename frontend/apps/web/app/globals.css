@@ -122,6 +122,13 @@ body {
     @apply font-extrabold;
   }
 
+  /* 카드 제목(Font Guide H4) — 섹션 제목(h1~h3 Bold)보다 한 단계 낮은 SemiBold 다.
+     h3 로 마크업하면 위 기본 규칙이 유틸리티를 이겨 Bold 로 렌더되므로 같은 방식으로 되돌린다. */
+  .duing .type-card-title {
+    @apply font-semibold;
+    line-height: 1.25;
+  }
+
   .pill {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sage-mist text-ink whitespace-nowrap;
   }

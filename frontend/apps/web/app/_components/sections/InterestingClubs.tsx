@@ -3,31 +3,9 @@ import type { ClubSummary } from '@duing/types';
 
 import { ArrowRight } from '@/components/duing/Icon';
 import { fetchInterestingClubs } from '@/app/_lib/home-data';
+import { HOME_CATEGORY_BY_VALUE } from '@/app/_lib/homeCategories';
 import { displayStatusLabel } from '@/app/_lib/recruitmentDisplay';
 import { cn } from '@/app/_lib/cn';
-
-const CATEGORY_LABEL: Record<ClubSummary['category'], string> = {
-  ACADEMIC: '학술',
-  CREATION: '창작',
-  ART: '예술',
-  SPORTS: '운동',
-  VOLUNTEER: '봉사',
-  RELIGION: '종교',
-  HOBBY: '취미',
-  OTHER: '기타',
-};
-
-// 카테고리 액센트는 기존 팔레트를 그대로 쓴다 — 크림/세이지 브랜드 위에서 검증된 저채도 값이다.
-const CATEGORY_COLOR: Record<ClubSummary['category'], string> = {
-  ACADEMIC: '#1F4A36',
-  CREATION: '#6b7e3e',
-  ART: '#7d4f87',
-  SPORTS: '#c47a3b',
-  VOLUNTEER: '#b88b3b',
-  RELIGION: '#a85e5e',
-  HOBBY: '#4d6b8a',
-  OTHER: '#3e7a73',
-};
 
 /**
  * 주간 관심 인원 문구를 노출할 최소 인원.
@@ -92,13 +70,13 @@ function statusBadge(club: ClubSummary): { label: string; className: string } | 
     className: isOpen
       ? 'bg-ink-deep text-cream'
       : displayStatus === 'UPCOMING'
-        ? 'bg-sage-mist text-charcoal-3'
-        : 'bg-graysoft text-charcoal-3',
+        ? 'bg-sage-mist text-charcoal-2'
+        : 'bg-graysoft text-charcoal-2',
   };
 }
 
 function ClubLogo({ club, className }: { club: ClubSummary; className?: string }) {
-  const color = CATEGORY_COLOR[club.category];
+  const color = HOME_CATEGORY_BY_VALUE[club.category].labelColor;
   if (club.logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -147,12 +125,12 @@ function InterestCard({ club }: { club: ClubSummary }) {
       </div>
 
       <div className="mt-3.5 flex min-w-0 items-baseline gap-2">
-        <h3 className="min-w-0 truncate text-[30px] font-semibold leading-tight">{club.name}</h3>
+        <h3 className="type-card-title min-w-0 truncate text-[30px]">{club.name}</h3>
         <span
           className="shrink-0 text-[16px] font-semibold tracking-tightest"
-          style={{ color: CATEGORY_COLOR[club.category] }}
+          style={{ color: HOME_CATEGORY_BY_VALUE[club.category].labelColor }}
         >
-          {CATEGORY_LABEL[club.category]}
+          {HOME_CATEGORY_BY_VALUE[club.category].label}
         </span>
       </div>
       <p className="mt-1 line-clamp-2 text-[16px] font-normal leading-[1.5] tracking-tightest text-charcoal-2">
@@ -188,9 +166,9 @@ function InterestRow({ club }: { club: ClubSummary }) {
             </span>
             <span
               className="shrink-0 text-[12px] font-semibold tracking-tightest"
-              style={{ color: CATEGORY_COLOR[club.category] }}
+              style={{ color: HOME_CATEGORY_BY_VALUE[club.category].labelColor }}
             >
-              {CATEGORY_LABEL[club.category]}
+              {HOME_CATEGORY_BY_VALUE[club.category].label}
             </span>
           </div>
           {badge && (

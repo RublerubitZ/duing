@@ -63,8 +63,8 @@ export function HeroActivityToasts({ toasts }: { toasts: HeroToast[] }) {
               onClick={() => scrollToIndex(index)}
               aria-label={`${index + 1}번째 활동 보기`}
               aria-current={index === activeIndex ? 'true' : undefined}
-              // 점 자체는 8px 이지만 누르는 면은 20px 로 넓혀 둔다.
-              className="grid h-5 w-5 place-items-center"
+              // 점 자체는 8px 이지만 누르는 면은 24px 로 넓혀 둔다(WCAG 2.5.8 최소 크기).
+              className="grid h-6 w-6 place-items-center"
             >
               <span
                 aria-hidden

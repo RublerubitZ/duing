@@ -1,9 +1,7 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Search } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
-import { cn } from '@/app/_lib/cn';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { HeroActivityToasts } from './HeroActivityToasts';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
@@ -25,7 +23,9 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측에 마스코트(두두)를 겹쳐 둔다 — 시안의 모바일 히어로 구성.
+          {/* 모바일: 헤드라인 우측에 마스코트(두두)와 종이조각 장식을 겹쳐 둔다 — 시안의 모바일 히어로 구성.
+              장식(컨페티)은 preload 하지 않는다 — priority 는 CSS 를 모르고 link[rel=preload] 를 항상
+              심어서, md:hidden 이라도 데스크탑이 쓰지 않을 이미지를 내려받게 된다.
               데스크탑은 우측 일러스트가 같은 역할을 하므로 md 이상에서 숨긴다.
               헤드라인 뒤에 깔리되 클릭을 가로채지 않도록 z-0 + pointer-events-none. */}
           <Image
@@ -34,7 +34,6 @@ export async function HomeHero() {
             aria-hidden
             width={678}
             height={449}
-            priority
             draggable={false}
             className="pointer-events-none absolute -right-4 -top-4 z-0 w-[230px] select-none md:hidden"
           />
