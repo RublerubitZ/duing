@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Search } from '@/components/duing/Icon';
-import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
+import { SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { cn } from '@/app/_lib/cn';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
@@ -42,11 +42,7 @@ export async function HomeHero() {
             className="pointer-events-none absolute -right-3 -top-2 z-0 w-[176px] select-none md:hidden"
           />
 
-          <div className="relative z-[1] mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
-            <Sparkle size={11} color="#143025" />
-            DU + ING
-          </div>
-
+          {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
           <h1 className="type-display relative z-[1] mb-4 text-[34px] leading-[1.28] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[72px]">
             오늘,
             <br />
