@@ -1,6 +1,6 @@
 // 예약 홈의 순수 계산 — 시각/날짜 문자열('HH:mm'·'yyyy-MM-dd')은 사전순 비교가 시간순과 일치한다.
 // Date 파싱은 로컬 필드 생성만 사용한다(new Date('yyyy-MM-dd') 는 UTC 자정 함정).
-import type { BookingAvailabilitySlot } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
 import { seoulDateIso, seoulTimeHHmm } from './facilityTimeline';
 
 export type CalendarCell = { iso: string; day: number; inMonth: boolean };
@@ -278,11 +278,37 @@ export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingE
   return entries;
 }
 
+// ── 통합 예약 현황 파생 — 사용 중 행(기본 확보·예약 건)과 예약 가능 구간을 계층으로 표시 ─────
+
+export type DayUsageEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind | 'OPERATING' };
+
+/**
+ * 사용 중 행: 확보 노트(기본 확보 — 비차단 정보, 스펙 §3 복원)는 자르지 않고 통짜 그대로,
+ * 예약 건(BLOCKED·PENDING 병합)과 함께 시작 시각순으로 합친다(동률이면 기본 확보를 앞에 —
+ * 담는 창을 먼저 읽는다). 구간 겹침은 허용 — 카드가 "기본 확보 창 안의 예약"이라는 계층으로
+ * 읽히는 구조라 절단하지 않는다.
+ */
+export function dayUsageEntries(
+  slots: BookingAvailabilitySlot[],
+  operatingNotes: BookingOperatingNote[],
+): DayUsageEntry[] {
+  const noteEntries: DayUsageEntry[] = operatingNotes.map((note) => ({
+    start: note.start,
+    end: note.end,
+    label: note.organization,
+    kind: 'OPERATING',
+  }));
+  return [...noteEntries, ...dayBookingEntries(slots)].sort((left, right) => {
+    if (left.start !== right.start) return left.start < right.start ? -1 : 1;
+    return (left.kind === 'OPERATING' ? 0 : 1) - (right.kind === 'OPERATING' ? 0 : 1);
+  });
+}
+
 export type AvailableRun = { start: string; end: string; slotCount: number };
 
 /**
- * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다.
- * BLOCKED·PENDING_HOLD·PAST 는 구간을 끊는다.
+ * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다 — 기본 확보(확보 노트)
+ * 여부와 무관하다(기본 확보 시간도 예약 가능 시간이다). BLOCKED·PENDING_HOLD·PAST 는 구간을 끊는다.
  */
 export function availableRuns(slots: BookingAvailabilitySlot[]): AvailableRun[] {
   const runs: AvailableRun[] = [];

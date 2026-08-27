@@ -71,7 +71,9 @@ export type BookingAvailabilitySlot = {
   organization?: string;
 };
 
-/** @deprecated 비차단 운영행 개념 폐지(2026-08-27 전면 차단) — 서버가 항상 빈 배열을 내려준다. 필드 제거는 후속. */
+// 기본 확보 시간 정보 행(비차단, 스펙 §3 복원 2026-08-27) — BE 가 BASIC_SECURED_TIME 분류 슬라이스에서
+// (단체, 시작, 끝) distinct 로 채운다. 표시 전용(설명 박스·점선 셀·"(기본 확보)" 표기)이며 예약 가능 여부와 무관.
+// 구응답은 빈 배열 → 표시만 생략(fail-soft).
 export type BookingOperatingNote = {
   organization: string;
   start: string; // HH:mm

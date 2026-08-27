@@ -1,6 +1,6 @@
 'use client';
 
-import type { BookingAvailabilitySlot, BookingDayAvailability } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingDayAvailability, BookingOperatingNote } from '@duing/types';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import {
   dayBookingEntries,
@@ -56,19 +56,27 @@ type PlanBlock = {
   rowSpan: number;
   reachesBottom: boolean;
 };
-type PlanCell = { type: 'cell'; slot: BookingAvailabilitySlot };
+// operating: 확보 노트 구간에 완전 포함된 셀(스펙 §3 복원) — AVAILABLE 이면 점선 가이드 셀(선택 가능)로 렌더.
+type PlanCell = { type: 'cell'; slot: BookingAvailabilitySlot; operating: boolean };
 type PlanEmpty = { type: 'empty' };
 type PlanCovered = { type: 'covered' };
 type PlanEntry = PlanBlock | PlanCell | PlanEmpty | PlanCovered;
 
-// 셀 상태(§4) — 가능=sage 셀·PAST=gray·창 밖=gray. BLOCKED/PENDING 은 블록으로 승격.
+// 셀 상태(§4) — 가능=sage 셀·기본 확보 시간=sage 점선 가이드 셀(둘 다 탭)·PAST=gray·창 밖=gray.
+// BLOCKED/PENDING 은 블록으로 승격.
 type CellState = { statusText: string; toneClass: string; selectable: boolean };
 
 const hourIndexOf = (time: string) => Number(time.slice(0, 2)) - 9;
 
+// 확보 노트 구간 판정(슬롯이 노트에 완전 포함일 때만 true — 부분 겹침은 일반 가용 셀) — 점선 가이드 셀 판정용.
+function isWithinOperating(slot: BookingAvailabilitySlot, operatingNotes: BookingOperatingNote[]): boolean {
+  return operatingNotes.some((note) => slot.start >= note.start && slot.end <= note.end);
+}
+
 /**
  * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을
- * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다.
+ * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
+ * 셀의 operating 플래그(비차단 정보 표시 — 점선 장식, 스펙 §3 복원).
  * 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만. 길이 13(09~21시).
  */
 function buildColumnPlan(
@@ -81,7 +89,7 @@ function buildColumnPlan(
   const cellAt = (hour: number, index: number): PlanEntry => {
     const slot = day.slots[index];
     if (slot === undefined) return { type: 'empty' };
-    return { type: 'cell', slot };
+    return { type: 'cell', slot, operating: isWithinOperating(slot, day.operatingNotes) };
   };
   // 창 밖 날은 블록화하지 않고 1시간 셀(예약 기간 아님)로 둔다 — 기존 게이팅과 일관.
   if (!withinWindow) {
@@ -108,8 +116,8 @@ function buildColumnPlan(
 
 /**
  * 주간 타임테이블(§4·§8·목업 F3) — 좌측 시간 라벨 열 + 7일 컬럼(월~일) 그리드.
- * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브),
- * AVAILABLE 은 선택 가능 셀(탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
+ * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브), AVAILABLE 은 선택 가능 셀 —
+ * 확보 노트 구간이면 점선 sage 가이드, 밖이면 sage(동작 동일: 탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
  * 선택일 컬럼은 ink 프레임 + sage tint 로 강조하고, 블록이 여러 행을 차지해도 컬럼 좌우 보더가 이어진다.
  * 차단·지난·창 밖·데이터 없음은 비활성.
  */
@@ -251,7 +259,7 @@ export function WeekTimetable({
                   const { slot } = entry;
                   const isPast = slot.status === 'PAST' || iso < todayIso;
                   const selected = isSelectedColumn && selection !== null && slotInRange(slot, selection);
-                  const state = cellStateOf(slot.status, withinWindow, isPast);
+                  const state = cellStateOf(slot.status, withinWindow, isPast, entry.operating);
                   return (
                     <td key={iso} className={`p-[2px] ${tdFrame}`}>
                       <button
@@ -299,17 +307,21 @@ function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayN
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
-// 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(sage) 순. AVAILABLE 만 탭 가능(§4).
+// 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
 // BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
   withinWindow: boolean,
   isPast: boolean,
+  operating: boolean,
 ): CellState {
   if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (status === 'AVAILABLE') {
+    // 확보 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(스펙 §3 복원) — 색은 일반 가용 셀과 동일(sage),
+    // 점선 보더만 "안내" 신호(장식). 동작(탭 선택·토글·선택 ink+✓)은 일반 가용 셀과 완전 동일 — status 단독 판정.
     // hover 는 가용 셀만: 배경 한 톤 진하게 + 보더 sage(선택 가능 어포던스, transition 은 버튼 공통 클래스).
+    if (operating) return { statusText: '기본 확보 시간 · 예약 신청 가능', toneClass: 'border-dashed border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
     return { statusText: '가능', toneClass: 'border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
   }
   // 방어적 폴백 — BLOCKED·PENDING_HOLD 는 블록으로 렌더되어 셀 경로에 도달하지 않지만, 도달해도
