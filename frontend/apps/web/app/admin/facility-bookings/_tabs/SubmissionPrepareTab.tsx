@@ -50,7 +50,8 @@ function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilte
 
 /**
  * 학교 제출 준비 탭(스펙 v3 §7.2) — 승인된 예약이 자동 유입되는 준비 큐.
- * 전 시설을 시설별 섹션으로 표시하고, 제출 필요 예약은 기본 전체 선택(선택 = selectable − excluded 파생).
+ * 목록 뷰는 동아리 최상위(동아리 중심 보기 스펙 §1), 시간표 뷰는 시설별 섹션을 유지하고,
+ * 제출 필요 예약은 기본 전체 선택(선택 = selectable − excluded 파생).
  * 운영자는 제외만 하고 시설 단위 "제출 목록 만들기"를 수행한다.
  */
 export function SubmissionPrepareTab() {
@@ -322,7 +323,20 @@ export function SubmissionPrepareTab() {
                 />
               )
             )}
-            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && view === 'list' && (
+              /* 목록 뷰(동아리 중심 보기 스펙 §1) — 동아리 최상위. 배치=시설 단위 계약은 selectedFacilityGroups 파생이 담당하므로 렌더 구조와 무관. */
+              <div className="px-2 py-2">
+                <SubmissionClubGroupList
+                  bookings={visibleBookings}
+                  selection={selectedIdSet}
+                  onToggleSelect={toggleSelect}
+                  onToggleMany={toggleMany}
+                  onShowDetail={setDetailBooking}
+                />
+              </div>
+            )}
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && view === 'timetable' && (
+              /* 시간표 뷰 — 기존 시설 × 날짜/시간 기준 유지(스펙 §1, 시간 충돌 확인 용도). */
               <ul>
                 {sections.map((section) => {
                   const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
@@ -336,24 +350,14 @@ export function SubmissionPrepareTab() {
                           미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
                         </p>
                       </div>
-                      <div className={view === 'list' ? 'px-2 py-2' : 'px-[18px] py-3'}>
-                        {view === 'list' ? (
-                          <SubmissionClubGroupList
-                            bookings={section.bookings}
-                            selection={selectedIdSet}
-                            onToggleSelect={toggleSelect}
-                            onToggleMany={toggleMany}
-                            onShowDetail={setDetailBooking}
-                          />
-                        ) : (
-                          <SubmissionTimetable
-                            bookings={section.bookings}
-                            facilityName={section.facilityName}
-                            selection={selectedIdSet}
-                            onToggleSelect={toggleSelect}
-                            onShowDetail={setDetailBooking}
-                          />
-                        )}
+                      <div className="px-[18px] py-3">
+                        <SubmissionTimetable
+                          bookings={section.bookings}
+                          facilityName={section.facilityName}
+                          selection={selectedIdSet}
+                          onToggleSelect={toggleSelect}
+                          onShowDetail={setDetailBooking}
+                        />
                       </div>
                     </li>
                   );

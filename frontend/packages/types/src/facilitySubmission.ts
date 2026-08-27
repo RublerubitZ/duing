@@ -60,6 +60,8 @@ export type SubmissionBatchSummary = {
   facilityId: number;
   facilityName: string | null;
   bookingCount: number;
+  // 포함 동아리명(동아리 중심 보기 스펙 §2) — BE 배포 전 구응답 호환을 위해 결측 허용(fail-open).
+  clubNames?: string[];
   submittedAt: string; // 생성 시각 — BE 가 Instant(UTC, `…Z`)로 직렬화한다
   submittedByName: string | null; // 탈퇴 관리자 null
   memo: string | null;

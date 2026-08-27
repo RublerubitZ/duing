@@ -136,11 +136,12 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] text-left text-sm">
+          <table className="w-full min-w-[60rem] text-left text-sm">
             <thead>
               <tr className="bg-graysoft text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3">
                 <th className="px-[18px] py-2.5 font-bold">제출 목록</th>
                 <th className="py-2.5 pr-3.5 font-bold">시설</th>
+                <th className="py-2.5 pr-3.5 font-bold">동아리</th>
                 <th className="py-2.5 pr-3.5 font-bold">건수</th>
                 <th className="py-2.5 pr-3.5 font-bold">생성일</th>
                 <th className="py-2.5 pr-3.5 font-bold">상태</th>
@@ -173,6 +174,16 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                       <p className="mt-0.5 text-[11.5px] text-charcoal-3">{subText}</p>
                     </td>
                     <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">{facilityLabel}</td>
+                    {/* 포함 동아리명(동아리 중심 보기 스펙 §2) — 구버전 응답(결측)·빈 배열은 '-' 폴백. */}
+                    <td className="py-3.5 pr-3.5 text-[13px] text-charcoal-2">
+                      {batch.clubNames === undefined || batch.clubNames.length === 0 ? (
+                        '-'
+                      ) : (
+                        <p className="max-w-[14rem] truncate" title={batch.clubNames.join(', ')}>
+                          {batch.clubNames.join(' · ')}
+                        </p>
+                      )}
+                    </td>
                     <td className="py-3.5 pr-3.5 font-mono text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
                     <td className="whitespace-nowrap py-3.5 pr-3.5 font-mono text-[12.5px]">
                       <p>{formatDateKst(batch.submittedAt)}</p>
