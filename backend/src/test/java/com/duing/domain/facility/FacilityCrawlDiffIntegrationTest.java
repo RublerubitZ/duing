@@ -273,6 +273,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(movedRows.get(0).scheduleSeq()).isEqualTo(18134L);
         assertThat(movedRows.get(0).id()).isNotEqualTo(baseline.get(0).id());
         assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(9, 0)); // 꼬리 전 구간 확장(전면 차단 정책)
+        assertThat(movedRows.get(0).endTime()).isEqualTo(LocalTime.of(20, 0));
         // unique 충돌 롤백이 없었음의 증명 — 두 달 모두 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
         for (YearMonth crawledMonth : List.of(targetMonth, nextMonth)) {
             FacilityMonthSnapshot monthSnapshot = snapshotRepository.findByYearMonth(crawledMonth).orElseThrow();

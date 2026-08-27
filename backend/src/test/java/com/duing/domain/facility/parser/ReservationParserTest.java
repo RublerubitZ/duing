@@ -85,6 +85,8 @@ class ReservationParserTest {
             assertThat(row.organizationName()).isEqualTo("학생생활상담센터");
             assertThat(row.startTime()).isEqualTo(LocalTime.of(10, 0)); // 마커(10~11, 16~17) 아님
             assertThat(row.endTime()).isEqualTo(LocalTime.of(17, 0));
+            assertThat(row.reservedStartTime()).isNull();
+            assertThat(row.reservedEndTime()).isNull();
         });
     }
 
