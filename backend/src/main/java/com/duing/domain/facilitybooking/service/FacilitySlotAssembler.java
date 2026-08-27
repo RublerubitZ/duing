@@ -2,6 +2,7 @@ package com.duing.domain.facilitybooking.service;
 
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayStatus;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
@@ -11,6 +12,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,10 +20,11 @@ import java.util.Optional;
  * 가용성 슬롯 계산(전면 차단 설계 §3.3) — 순수 함수. 입력은 서비스가 크롤 엔티티·Booking 을 slice 로 매핑해
  * 넣는다(엔티티에 직접 의존하지 않아 단위 테스트가 쉽고, 판별 정책은 호출부의 FacilityAvailabilityPolicy 가 담당).
  *
- * <p>크롤 slice 는 분류와 무관하게 전부 차단한다(P1·P3). 슬롯 판정 우선순위(공존 시 표시 순서):
- * PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL=CRAWLED_RESERVATION) → BLOCKED(BASIC_SECURED)
- * → PENDING_HOLD → AVAILABLE. operatingNotes 는 구 계약 유지를 위해 항상 빈 배열로 발행한다
- * (비차단 운영행 개념 폐지 — 필드 제거는 후속).
+ * <p>크롤 slice 는 실예약 분류(CRAWLED_RESERVATION)만 차단한다 — 기본 확보 시간(BASIC_SECURED_TIME)은
+ * 비차단이라 다른 동아리가 그 시간대를 신청할 수 있다(2026-08-27 비차단 전환). 슬롯 판정 우선순위(공존 시 표시 순서):
+ * PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL=CRAWLED_RESERVATION) → PENDING_HOLD → AVAILABLE.
+ * operatingNotes 는 확보(BASIC_SECURED_TIME) 슬라이스의 (단체, 시작, 끝) distinct 나열이다 —
+ * 표시 전용, 차단 아님(v2 스펙 §3).
  */
 public final class FacilitySlotAssembler {
 
@@ -33,7 +36,7 @@ public final class FacilitySlotAssembler {
     private FacilitySlotAssembler() {
     }
 
-    /** 크롤 행 slice — type 은 FacilityAvailabilityPolicy 분류 결과(둘 다 차단, 표시 구분 전용). */
+    /** 크롤 행 slice — type 은 FacilityAvailabilityPolicy 분류 결과(실예약만 차단, 확보 시간은 비차단). */
     public record CrawlSlice(LocalDate date, LocalTime start, LocalTime end, String organization,
                              CrawlRowType type) {}
 
@@ -61,7 +64,8 @@ public final class FacilitySlotAssembler {
         List<CrawlSlice> crawledReservations = crawlSlices.stream()
                 .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.CRAWLED_RESERVATION)
                 .toList();
-        List<CrawlSlice> basicSecured = crawlSlices.stream()
+        // 확보 분류는 표시 전용 — 차단 아님(v2 스펙 §3). 슬롯 판정에는 관여하지 않고 operatingNotes 소스로만 쓴다.
+        List<CrawlSlice> basicSecuredTimes = crawlSlices.stream()
                 .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.BASIC_SECURED_TIME)
                 .toList();
         List<BookingSlice> blockedBookings = bookingSlices.stream()
@@ -77,7 +81,7 @@ public final class FacilitySlotAssembler {
             LocalTime slotStart = OPEN_TIME.plusHours(index);
             LocalTime slotEnd = slotStart.plusHours(1);
             SlotAvailability slot = resolveSlot(date, today, nowTime, slotStart, slotEnd,
-                    crawledReservations, basicSecured, blockedBookings, pendingBookings);
+                    crawledReservations, blockedBookings, pendingBookings);
             if (slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.PENDING_HOLD) {
                 availableCount++;
             }
@@ -87,13 +91,25 @@ public final class FacilitySlotAssembler {
         DayStatus dayStatus = date.isBefore(today) ? DayStatus.PAST
                 : availableCount == 0 ? DayStatus.FULL
                 : DayStatus.AVAILABLE;
-        // operatingNotes 는 항상 빈 배열 — 비차단 운영행 개념 폐지(구 FE 스큐 호환용 계약 유지, 제거는 후속).
-        return new DayAvailability(date, dayStatus, availableCount, List.of(), slots);
+        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots);
+    }
+
+    /**
+     * 확보 슬라이스의 (단체, 시작, 끝)을 행 단위 distinct 로 나열한다 — 표시 전용, 차단 아님(v2 스펙 §3).
+     * 인접 구간 병합은 하지 않는다(main 의 다중 노트 나열 동작과 동등).
+     */
+    private static List<OperatingNote> operatingNotes(List<CrawlSlice> basicSecuredTimes) {
+        LinkedHashSet<OperatingNote> notes = new LinkedHashSet<>();
+        for (CrawlSlice slice : basicSecuredTimes) {
+            notes.add(new OperatingNote(slice.organization(),
+                    TIME_FORMAT.format(slice.start()), TIME_FORMAT.format(slice.end())));
+        }
+        return List.copyOf(notes);
     }
 
     private static SlotAvailability resolveSlot(LocalDate date, LocalDate today, LocalTime nowTime,
                                                 LocalTime slotStart, LocalTime slotEnd,
-                                                List<CrawlSlice> crawledReservations, List<CrawlSlice> basicSecured,
+                                                List<CrawlSlice> crawledReservations,
                                                 List<BookingSlice> blockedBookings,
                                                 List<BookingSlice> pendingBookings) {
         String start = TIME_FORMAT.format(slotStart);
@@ -119,14 +135,7 @@ public final class FacilitySlotAssembler {
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
                     SlotBlockSource.SCHOOL, schoolBlock.get().organization());
         }
-        // 기본 확보 시간도 차단이다 — 실예약(SCHOOL)이 같은 슬롯에 공존하면 더 구체적인 실예약을 우선 표기.
-        Optional<CrawlSlice> securedBlock = basicSecured.stream()
-                .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
-                .findFirst();
-        if (securedBlock.isPresent()) {
-            return new SlotAvailability(start, end, SlotStatus.BLOCKED,
-                    SlotBlockSource.BASIC_SECURED, securedBlock.get().organization());
-        }
+        // 기본 확보 시간(BASIC_SECURED_TIME)은 비차단 — 여기까지 오면 확보 구간이라도 PENDING_HOLD/AVAILABLE 로 내려간다.
         boolean pendingHold = pendingBookings.stream()
                 .anyMatch(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd));
         if (pendingHold) {

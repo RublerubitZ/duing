@@ -82,7 +82,8 @@ public interface AdminClubApi {
 
     @Operation(summary = "기본 확보 시간 대상 토글",
             description = "ADMIN 이 동아리의 시설 기본 확보 시간 대상 여부를 변경한다. ON 인 동아리의 시설 크롤 예약은 "
-                    + "조회 시점에 BASIC_SECURED_TIME 으로 자동 분류된다(차단 효과는 동일, 변경 시 감사 기록).")
+                    + "조회 시점에 BASIC_SECURED_TIME 으로 자동 분류되어 예약 차단에서 제외된다"
+                    + "(다른 동아리가 그 시간대를 신청·승인받을 수 있다, 변경 시 감사 기록).")
     @PatchMapping("/admin/clubs/{clubId}/facility-secured-time-target")
     ResponseEntity<ApiResponse<Void>> updateClubFacilitySecuredTimeTarget(
             @PathVariable Long clubId,

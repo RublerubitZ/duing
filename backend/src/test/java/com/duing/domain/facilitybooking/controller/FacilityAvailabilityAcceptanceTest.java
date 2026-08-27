@@ -20,6 +20,7 @@ import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
@@ -227,8 +228,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 행은 전 구간 차단되고, 기본 확보 시간 대상 동아리 행만 BASIC_SECURED 로 구분 표기된다 — 경계 슬롯은 열려 있다")
-    void crawlRowsBlockFullRangeAndSecuredTargetIsDistinguished() {
+    @DisplayName("기본 확보 시간 대상 동아리 행은 차단하지 않고(AVAILABLE), 실예약 행만 SCHOOL 로 차단한다 — 플래그 OFF 시 즉시 재차단")
+    void securedTargetRowsDoNotBlockWhileCrawledRowsDo() {
         Facility facility = facilityRepository.save(Facility.create(90006, "커뮤니티룸(T6)", null, 0));
         Club securedClub = clubRepository.save(Club.create("고정관념", ClubCategory.OTHER, "분과", "설명", null));
         securedClub.changeFacilitySecuredTimeTarget(true);
@@ -247,12 +248,12 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(crawlDate));
 
-        // 기본 확보 시간 대상 동아리 — 실범위 전 구간 BLOCKED + BASIC_SECURED 구분 표기.
+        // 기본 확보 시간 대상 동아리 — 실범위 전 구간 AVAILABLE(2026-08-27 비차단 전환, 다른 동아리 신청 가능).
         for (String start : new String[] {"10:00", "11:00", "12:00"}) {
             SlotAvailability slot = slotAt(response, crawlDate, start);
-            assertThat(slot.status()).isEqualTo(SlotStatus.BLOCKED);
-            assertThat(slot.blockedBy()).isEqualTo(SlotBlockSource.BASIC_SECURED);
-            assertThat(slot.organization()).isEqualTo("고정관념");
+            assertThat(slot.status()).isEqualTo(SlotStatus.AVAILABLE);
+            assertThat(slot.blockedBy()).isNull();
+            assertThat(slot.organization()).isNull();
         }
         // 미등록 기관·플래그 OFF 등록 동아리 — 전부 SCHOOL 차단(fail-closed, 매칭 여부는 차단 조건이 아니다).
         assertThat(slotAt(response, crawlDate, "13:00").blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
@@ -262,19 +263,27 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         // 경계 슬롯(09~10, 17~18)은 차단되지 않는다(반개구간).
         assertThat(slotAt(response, crawlDate, "09:00").status()).isEqualTo(SlotStatus.AVAILABLE);
         assertThat(slotAt(response, crawlDate, "17:00").status()).isEqualTo(SlotStatus.AVAILABLE);
-        // 비차단 운영행 개념 폐지 — operatingNotes 는 항상 빈 배열(계약 유지).
-        assertThat(response.days().stream()
+        // availableSlotCount 는 차단 목록 변화를 자동 추종한다 — 실예약 4칸(13~17)만 차단이므로 9.
+        FacilityAvailabilityResponse.DayAvailability crawlDay = response.days().stream()
                 .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
-                .findFirst().orElseThrow().operatingNotes()).isEmpty();
+                .findFirst().orElseThrow();
+        assertThat(crawlDay.availableSlotCount()).isEqualTo(9);
+        // 확보 행은 표시 전용 operatingNotes 로 내려간다 — 차단 아님(v2 스펙 §3). 실예약 행 2건은 미포함.
+        assertThat(crawlDay.operatingNotes()).containsExactly(new OperatingNote("고정관념", "10:00", "13:00"));
 
-        // 플래그 OFF 로 바꾸면 재크롤 없이 같은 행이 즉시 CRAWLED(SCHOOL 표기)로 재분류된다(수정 6).
+        // 플래그 OFF 로 바꾸면 재크롤 없이 같은 행이 즉시 CRAWLED(SCHOOL)로 재분류되어 다시 차단된다(수정 6).
         securedClub.changeFacilitySecuredTimeTarget(false);
         clubRepository.save(securedClub);
         FacilityAvailabilityResponse afterToggle =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(crawlDate));
         SlotAvailability reclassified = slotAt(afterToggle, crawlDate, "10:00");
-        assertThat(reclassified.status()).isEqualTo(SlotStatus.BLOCKED); // 차단은 분류와 무관하게 유지
+        assertThat(reclassified.status()).isEqualTo(SlotStatus.BLOCKED); // 확보 해제 즉시 재차단(소급 없는 조회 시점 파생)
         assertThat(reclassified.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+        // 확보 미지정 상태에서는 표시 데이터 소스가 없으므로 operatingNotes 가 빈 배열이다.
+        FacilityAvailabilityResponse.DayAvailability afterToggleDay = afterToggle.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
+                .findFirst().orElseThrow();
+        assertThat(afterToggleDay.operatingNotes()).isEmpty();
     }
 
     private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {
