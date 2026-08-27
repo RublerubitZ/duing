@@ -107,6 +107,9 @@ function seed(options: { heroFails?: boolean } = {}) {
         ? new HttpResponse(null, { status: 500 })
         : envelope([makeHero(1, 1), makeHero(2, 2)]),
     ),
+    // 상세 진입 시 나가는 관심도 집계 비콘 — 이 파일의 관심사는 아니지만, 페이지가 실제로 보내는
+    // 요청이라 핸들러를 선언해 둔다(동작 검증은 club-view-beacon.test.tsx).
+    http.post(`*/clubs/${CLUB_ID}/views`, () => new HttpResponse(null, { status: 204 })),
   );
 }
 

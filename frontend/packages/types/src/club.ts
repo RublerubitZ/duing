@@ -134,6 +134,13 @@ export type ClubSearchParams = {
   sort?: string;
 };
 
+/**
+ * 동아리 상세 조회 기록 요청 — 홈 "관심도가 높은 동아리" 집계용.
+ * visitorKey 는 이 브라우저가 보관하는 익명 식별자다(app/_lib/visitorKey.ts).
+ * 같은 키로 같은 동아리를 같은 날 여러 번 보내도 서버가 1건으로 접으므로 중복 호출은 무해하다.
+ */
+export type RecordClubViewPayload = { visitorKey: string };
+
 export type CreateClubPayload = {
   name: string;
   category: ClubCategory;
