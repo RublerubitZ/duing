@@ -95,20 +95,24 @@ describe('SubmissionPrepareTab', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
-    // 강당(미제출 밴드부)은 보이고, 세미나실(제출된 방송국)은 기본 목록에서 빠진다.
-    expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '세미나실' })).not.toBeInTheDocument();
-    expect(screen.getByText(/미제출 예약 1건/)).toBeInTheDocument();
+    // 밴드부(미제출·강당)는 보이고, 방송국(제출된 세미나실)은 기본 목록에서 빠진다.
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByText('강당')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /방송국/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('세미나실')).not.toBeInTheDocument();
+    expect(screen.getByText(/시설 1곳 · 1건 · 선택 1/)).toBeInTheDocument();
   });
 
-  it('전체 보기로 바꾸면 제출 대기 예약이 있는 시설 섹션도 함께 보인다', () => {
+  it('전체 보기로 바꾸면 제출 대기 예약이 있는 동아리 그룹도 함께 보인다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'ALL' } });
 
-    expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '세미나실' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByText('강당')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
+    expect(screen.getByText('세미나실')).toBeInTheDocument();
   });
 
   it('제출 필요 예약은 기본 전체 선택이고, 체크 해제는 제외로 동작해 요약 바에 반영된다', () => {
@@ -228,15 +232,19 @@ describe('SubmissionPrepareTab', () => {
     expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
   });
 
-  it('시간표 토글 시 섹션 안에 시간표가 렌더된다', () => {
+  it('시간표 토글 시 시설 섹션 헤더와 시간표가 렌더된다 — 시간표 뷰는 시설 기준 유지', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
+    // 목록 뷰는 동아리 최상위 — 시설 sage 밴드(heading)는 없다.
     expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '강당' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '시간표' }));
 
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
+    expect(screen.getByText(/미제출 예약 1건 · 선택 1건/)).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: '09' }).length).toBeGreaterThan(0);
   });
 
