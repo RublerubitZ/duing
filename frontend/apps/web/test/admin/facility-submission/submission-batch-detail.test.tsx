@@ -139,6 +139,63 @@ describe('SubmissionBatchDetailPage', () => {
     expect(mockDetailQuery).toHaveBeenCalledWith(1);
   });
 
+  // ①-b 헤더 시설 표기 — facilityNames 우선 · 구응답 폴백(동아리 단위 v2 §5)
+  it('헤더 시설 표기는 facilityNames 를 " · " 로 join 하고, 구응답은 facilityName 으로 폴백한다', () => {
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          batch: makeBatch({ facilityId: null, facilityName: null, facilityNames: ['강당', '세미나실'] }),
+        }),
+      ),
+    );
+    const { unmount } = render(<SubmissionBatchDetailPage batchId={1} />);
+    expect(screen.getByText('시설').nextElementSibling).toHaveTextContent('강당 · 세미나실');
+    unmount();
+
+    // legacy 시설 단위 배치(facilityNames 결측)는 기존 facilityName 그대로.
+    mockDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
+    render(<SubmissionBatchDetailPage batchId={1} />);
+    expect(screen.getByText('시설').nextElementSibling).toHaveTextContent('강당');
+  });
+
+  // ①-c 시간표 뷰 시설 분할(동아리 단위 v2 §5) — 다시설 배치가 한 그리드에 뭉개지지 않는다
+  it('다시설 배치의 시간표 뷰는 시설 헤더 2개와 시설별 그리드로 분할된다', () => {
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(
+        makeDetail({
+          batch: makeBatch({ facilityId: null, facilityName: null, facilityNames: ['강당', '세미나실'] }),
+          bookings: [
+            makeBooking({ bookingId: 1, facilityId: 100, facilityName: '강당' }),
+            makeBooking({
+              bookingId: 2,
+              facilityId: 200,
+              facilityName: '세미나실',
+              reservationDate: '2026-08-02',
+              purpose: '리허설',
+            }),
+          ],
+        }),
+      ),
+    );
+    render(<SubmissionBatchDetailPage batchId={1} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: '시간표' }));
+
+    expect(screen.getByRole('heading', { name: '강당' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '세미나실' })).toBeInTheDocument();
+    expect(document.querySelectorAll('table')).toHaveLength(2);
+  });
+
+  it('legacy 단일 시설 배치의 시간표 뷰는 분할 전과 동일하게 시설 헤더 없는 단일 그리드다', () => {
+    // 기본 fixture = 강당 단일 시설 2건 — 섹션 1개라 기존 렌더(그리드 하나·헤더 없음)가 유지되어야 한다.
+    render(<SubmissionBatchDetailPage batchId={1} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: '시간표' }));
+
+    expect(document.querySelectorAll('table')).toHaveLength(1);
+    expect(screen.queryByRole('heading', { name: '강당' })).not.toBeInTheDocument();
+  });
+
   // ② Audit
   it('운영 기록을 한글 라벨·탈퇴 관리자 폴백·완료 요약으로 보여주고 IP 는 표시하지 않는다', () => {
     // createdAt 은 BE 가 Instant(UTC)로 내려준다 — 화면은 KST(+9h)로 환산해 보여야 한다.

@@ -4,6 +4,7 @@ import {
   AUDIT_ACTION_LABELS,
   BATCH_STATUS_META,
   batchAgeDays,
+  batchFacilityLabel,
   batchTitle,
   defaultBatchMemo,
   deriveBatchStatus,
@@ -99,6 +100,24 @@ describe('AUDIT_ACTION_LABELS', () => {
       VIEWED: '조회',
       COMPLETED: '학교 제출 완료',
     });
+  });
+});
+
+describe('batchFacilityLabel', () => {
+  it('facilityNames 가 있으면 " · " 로 join 한다 (동아리 단위 v2 §5)', () => {
+    expect(
+      batchFacilityLabel(makeBatch({ facilityId: null, facilityName: null, facilityNames: ['강당', '세미나실'] })),
+    ).toBe('강당 · 세미나실');
+  });
+
+  it('facilityNames 결측(구응답)·빈 배열은 facilityName 으로 폴백한다', () => {
+    expect(batchFacilityLabel(makeBatch())).toBe('강당');
+    expect(batchFacilityLabel(makeBatch({ facilityNames: [] }))).toBe('강당');
+  });
+
+  it('facilityName 도 없으면 facilityId 폴백, 둘 다 없으면 - 를 반환한다', () => {
+    expect(batchFacilityLabel(makeBatch({ facilityName: null }))).toBe('시설 100');
+    expect(batchFacilityLabel(makeBatch({ facilityId: null, facilityName: null }))).toBe('-');
   });
 });
 

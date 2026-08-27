@@ -118,6 +118,34 @@ describe('SubmissionBatchesTab', () => {
     expect(within(row).getAllByText('-')).toHaveLength(1);
   });
 
+  it('다시설 배치는 시설 셀에 facilityNames 목록을, legacy(구응답) 행은 기존 facilityName 을 표기한다', () => {
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch({
+          batchId: 1,
+          submissionNo: 'SUB-MULTI',
+          facilityId: null,
+          facilityName: null,
+          facilityNames: ['공동연습실(1)', '커뮤니티룸(2)'],
+        }),
+        // legacy 시설 단위 배치 — facilityNames 결측(구응답)이면 기존 단일 facilityName 그대로.
+        makeBatch({ batchId: 2, submissionNo: 'SUB-LEGACY' }),
+      ]),
+    );
+    render(<SubmissionBatchesTab />);
+
+    expect(within(rowOf('SUB-MULTI')).getByText('공동연습실(1) · 커뮤니티룸(2)')).toBeInTheDocument();
+    expect(within(rowOf('SUB-LEGACY')).getByText('강당')).toBeInTheDocument();
+  });
+
+  it('동아리 컬럼이 시설 컬럼보다 앞에 온다 (동아리 단위 v2 §5)', () => {
+    render(<SubmissionBatchesTab />);
+
+    const headerLabels = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    expect(headerLabels.indexOf('동아리')).toBeGreaterThanOrEqual(0);
+    expect(headerLabels.indexOf('동아리')).toBeLessThan(headerLabels.indexOf('시설'));
+  });
+
   it('동아리 컬럼에 포함 동아리명을 표시하고, clubNames 결측(구버전 응답)·빈 배열 행은 - 로 표시한다', () => {
     mockBatchesQuery.mockReturnValue(
       listSuccess([

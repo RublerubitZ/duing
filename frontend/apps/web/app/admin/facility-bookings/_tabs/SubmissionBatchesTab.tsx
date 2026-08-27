@@ -29,6 +29,7 @@ import { BatchCompleteResultDialog } from '../submission/_components/BatchComple
 import {
   BATCH_STATUS_META,
   batchAgeDays,
+  batchFacilityLabel,
   batchTitle,
   deriveBatchStatus,
   submissionCsvFileName,
@@ -140,8 +141,9 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
             <thead>
               <tr className="bg-graysoft text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3">
                 <th className="px-[18px] py-2.5 font-bold">제출 목록</th>
-                <th className="py-2.5 pr-3.5 font-bold">시설</th>
+                {/* 배치=동아리 단위(v2 §5) — 동아리가 주 식별자라 시설보다 앞에 둔다. */}
                 <th className="py-2.5 pr-3.5 font-bold">동아리</th>
+                <th className="py-2.5 pr-3.5 font-bold">시설</th>
                 <th className="py-2.5 pr-3.5 font-bold">건수</th>
                 <th className="py-2.5 pr-3.5 font-bold">생성일</th>
                 <th className="py-2.5 pr-3.5 font-bold">상태</th>
@@ -152,7 +154,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
               {batches.map((batch) => {
                 const status = deriveBatchStatus(batch);
                 const statusMeta = BATCH_STATUS_META[status];
-                const facilityLabel = batch.facilityName ?? `시설 ${batch.facilityId}`;
+                const facilityLabel = batchFacilityLabel(batch);
                 // 메모=제목 승격(개편 스펙 §5) — 메모 없으면 제출번호가 제목이라 서브에서 번호를 뺀다.
                 const title = batchTitle(batch);
                 const subText =
@@ -173,7 +175,6 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                       </p>
                       <p className="mt-0.5 text-[11.5px] text-charcoal-3">{subText}</p>
                     </td>
-                    <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">{facilityLabel}</td>
                     {/* 포함 동아리명(동아리 중심 보기 스펙 §2) — 구버전 응답(결측)·빈 배열은 '-' 폴백. */}
                     <td className="py-3.5 pr-3.5 text-[13px] text-charcoal-2">
                       {batch.clubNames === undefined || batch.clubNames.length === 0 ? (
@@ -183,6 +184,12 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                           {batch.clubNames.join(' · ')}
                         </p>
                       )}
+                    </td>
+                    {/* 시설 표기 단일 규칙(v2 §5) — 다시설 목록은 길어질 수 있어 truncate+title. */}
+                    <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">
+                      <p className="max-w-[14rem] truncate" title={facilityLabel}>
+                        {facilityLabel}
+                      </p>
                     </td>
                     <td className="py-3.5 pr-3.5 font-mono text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
                     <td className="whitespace-nowrap py-3.5 pr-3.5 font-mono text-[12.5px]">

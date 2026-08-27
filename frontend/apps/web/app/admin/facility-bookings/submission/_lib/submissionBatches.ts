@@ -26,6 +26,15 @@ export const AUDIT_ACTION_LABELS: Record<SubmissionAuditEntry['action'], string>
   COMPLETED: '학교 제출 완료',
 };
 
+/** 시설 표기 단일 규칙(v2 §5) — facilityNames 우선, 구응답/legacy 는 facilityName, 둘 다 없으면 '-'. */
+export function batchFacilityLabel(
+  batch: Pick<SubmissionBatchSummary, 'facilityId' | 'facilityName' | 'facilityNames'>,
+): string {
+  if (batch.facilityNames !== undefined && batch.facilityNames.length > 0) return batch.facilityNames.join(' · ');
+  if (batch.facilityName !== null) return batch.facilityName;
+  return batch.facilityId !== null ? `시설 ${batch.facilityId}` : '-';
+}
+
 /** BE 저장 규칙과 동일(FacilitySubmissionBatch: "facility-submission-" + submissionNo + ".csv"). */
 export function submissionCsvFileName(submissionNo: string): string {
   return `facility-submission-${submissionNo}.csv`;
