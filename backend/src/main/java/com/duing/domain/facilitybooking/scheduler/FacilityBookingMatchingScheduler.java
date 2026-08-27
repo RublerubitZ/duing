@@ -6,7 +6,6 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
-import com.duing.domain.facilitybooking.service.FacilityAvailabilityPolicy;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.OrganizationNameNormalizer;
 import java.time.Clock;
@@ -40,7 +39,6 @@ public class FacilityBookingMatchingScheduler {
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityBookingMatchingService matchingService;
-    private final FacilityAvailabilityPolicy availabilityPolicy;
     private final OrganizationNameNormalizer normalizer;
     private final ClubRepository clubRepository;
     private final Clock clock;
@@ -64,9 +62,9 @@ public class FacilityBookingMatchingScheduler {
     public void runMatchingCycle() {
         YearMonth currentMonth = YearMonth.now(clock);
         // 사이클당 1회 — 정규화 후 2개 이상 동아리가 공유하는 키(오확정 위험)를 미리 모아 verifyAndConfirm 에 넘긴다.
+        // 기본 확보 시간 증거 제외는 행 단위 정밀화(2026-08-27)로 decide 가 securedTail 플래그로 수행한다 —
+        // 사이클 시작 시점 확보 키 조달·전달이 사라지면서 조달-판정 시차(TOCTOU P2)도 자연 소멸했다.
         Set<String> collidingClubKeys = collidingClubKeys();
-        // 사이클당 1회 — 기본 확보 시간 대상 동아리는 자동 확정 증거에서 제외한다(수정 8, 판별은 정책 단일 지점).
-        Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
         int confirmedCount = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
             // 신뢰 스냅샷 사전 게이트(빠른 스킵) — 세대 결박·확정은 verifyAndConfirm 이 트랜잭션 안에서 재확인한다.
@@ -74,7 +72,7 @@ public class FacilityBookingMatchingScheduler {
                 log.info("FacilityBooking Matching skip month={} (스냅샷 신뢰 불가 — FAILED 또는 미기록)", month);
                 continue;
             }
-            confirmedCount += matchMonth(month, collidingClubKeys, securedOrganizationKeys);
+            confirmedCount += matchMonth(month, collidingClubKeys);
         }
         log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
     }
@@ -103,7 +101,7 @@ public class FacilityBookingMatchingScheduler {
                 .orElse(false);
     }
 
-    private int matchMonth(YearMonth month, Set<String> collidingClubKeys, Set<String> securedOrganizationKeys) {
+    private int matchMonth(YearMonth month, Set<String> collidingClubKeys) {
         List<FacilityBooking> approvedBookings = facilityBookingRepository
                 .findByStatusAndReservationDateBetween(BookingStatus.APPROVED,
                         month.atDay(1), month.atEndOfMonth());
@@ -121,8 +119,7 @@ public class FacilityBookingMatchingScheduler {
             // 검증·아카이브 재확인·세대 결박·확정은 모두 verifyAndConfirm 의 단일 트랜잭션 안에서 이뤄진다.
             try {
                 String clubName = clubNames.getOrDefault(booking.getClubId(), "");
-                if (matchingService.verifyAndConfirm(booking.getId(), clubName, collidingClubKeys,
-                        securedOrganizationKeys)) {
+                if (matchingService.verifyAndConfirm(booking.getId(), clubName, collidingClubKeys)) {
                     confirmedCount++;
                 }
             } catch (ObjectOptimisticLockingFailureException concurrentTransition) {

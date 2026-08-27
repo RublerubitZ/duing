@@ -18,9 +18,10 @@ import org.springframework.stereotype.Component;
  * 분류 결과(CrawlRowType)만 소비하며 저장 구조를 알지 못한다.
  *
  * <p>확보 시간 비차단 전환(2026-08-27): 크롤 행 중 CRAWLED_RESERVATION 분류만 차단 대상이고
- * BASIC_SECURED_TIME 분류(기본 확보 시간 대상 동아리 행)는 차단에서 제외한다. 분류는 "기본 확보 시간
- * 대상" 동아리(club.facility_secured_time_target)와의 정규화 정확 일치에서 조회 시점에 파생되며(P7),
- * 저장하지 않으므로 재크롤이 분류를 초기화할 수 없고 플래그 변경이 기존 행에 즉시 반영된다.
+ * BASIC_SECURED_TIME 분류(기본 확보 시간 대상 동아리의 물결 꼬리 행)는 차단에서 제외한다. 분류는
+ * 물결 꼬리 저장 플래그(securedTail, V118) AND "기본 확보 시간 대상" 동아리
+ * (club.facility_secured_time_target)와의 정규화 정확 일치 — 두 조건의 교집합에서 조회 시점에
+ * 파생되며(P7·행 단위 정밀화), 동아리 플래그 변경이 기존 행에 즉시 반영된다.
  * 겹침 판정({@link #blockingOverlapping})도 이 클래스 소관이다.
  */
 @Component
@@ -50,11 +51,14 @@ public class FacilityAvailabilityPolicy {
 
     /**
      * 확보 시간 비차단 전환(2026-08-27) 이후 분류는 차단 판정의 분기점이다 — BASIC_SECURED_TIME 이면
-     * {@link #blockingOverlapping} 이 차단에서 제외한다. 분류 실패(이름 충돌 P5·미등록)는 CRAWLED_RESERVATION
-     * 폴백이라 차단 유지 방향(fail-closed)이다. securedOrganizationKeys 는 호출부가 요청당 1회 조회해 넘긴다.
+     * {@link #blockingOverlapping} 이 차단에서 제외한다. 행 단위 정밀화: 물결 꼬리(securedTail) 행이면서
+     * 확보 대상 동아리와 일치할 때만 확보 분류다 — 확보 동아리라도 무꼬리·하이픈 행은 실예약이라 차단 복귀.
+     * 분류 실패(이름 충돌 P5·미등록·무꼬리)는 CRAWLED_RESERVATION 폴백이라 차단 유지 방향(fail-closed)이다.
+     * securedOrganizationKeys 는 호출부가 요청당 1회 조회해 넘긴다.
      */
     public CrawlRowType classify(FacilityReservation reservation, Set<String> securedOrganizationKeys) {
-        return securedOrganizationKeys.contains(normalizer.normalize(reservation.getOrganizationName()))
+        return reservation.isSecuredTail()
+                && securedOrganizationKeys.contains(normalizer.normalize(reservation.getOrganizationName()))
                 ? CrawlRowType.BASIC_SECURED_TIME
                 : CrawlRowType.CRAWLED_RESERVATION;
     }
@@ -62,7 +66,7 @@ public class FacilityAvailabilityPolicy {
     /**
      * 차단 대상 크롤 행 중 지정 날짜의 [startTime, endTime) 반개구간과 겹치는 행만 남긴다.
      * 확보 시간 비차단 전환(2026-08-27): BASIC_SECURED_TIME 분류 행은 차단에서 제외한다 — 확보 대상
-     * 동아리 이름과 일치하는 행 전부가 비차단이 된다(이름 기반 분류의 한계, 스펙 전문).
+     * 동아리의 물결 꼬리 행만 비차단이고, 같은 동아리의 무꼬리·하이픈 실예약 행은 차단이다(행 단위 정밀화).
      * 신청 차단·승인 재검증·관리자 상세·부분반영·충돌의심은 "같은 규칙이어야 하는 쌍"(설계 §5.1↔§5.2)이라
      * 이 필터 하나를 공유한다 — 갈라지면 이중 대관 승인이 난다. 결과 성형(boolean/payload/컨텍스트 누적)은
      * 호출부 소관이므로 Stream 을 그대로 돌려준다.

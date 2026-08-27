@@ -40,14 +40,14 @@ class FacilityAvailabilityPolicyTest {
     }
 
     private FacilityReservation crawlRow(LocalDate date, LocalTime startTime, LocalTime endTime,
-                                         String organization) {
+                                         String organization, boolean securedTail) {
         return FacilityReservation.create(1L, 100L, YearMonth.from(date), date,
-                startTime, endTime, organization, false, LocalDateTime.of(2026, 1, 15, 8, 0));
+                startTime, endTime, organization, securedTail, LocalDateTime.of(2026, 1, 15, 8, 0));
     }
 
     @Test
-    @DisplayName("기본 확보 시간 대상 동아리와 정규화 정확 일치하는 행만 BASIC_SECURED_TIME 이고 나머지는 전부 CRAWLED_RESERVATION 이다")
-    void classifiesOnlyExactSecuredMatches() {
+    @DisplayName("물결 꼬리 행이면서 확보 대상 동아리와 정규화 정확 일치할 때만 BASIC_SECURED_TIME 이고 나머지는 전부 CRAWLED_RESERVATION 이다")
+    void classifiesOnlySecuredTailRowsOfSecuredClubs() {
         when(clubRepository.findSecuredTargetNameRows()).thenReturn(List.of(
                 new SecuredNameRow("고정관념", true),
                 new SecuredNameRow("ABC동아리", false),
@@ -55,22 +55,33 @@ class FacilityAvailabilityPolicyTest {
         Set<String> securedKeys = policy.securedOrganizationKeys();
         LocalDate date = LocalDate.of(2026, 1, 15);
 
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념"), securedKeys))
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념", true), securedKeys))
                 .isEqualTo(CrawlRowType.BASIC_SECURED_TIME);
         // 공백·끝 괄호 차이는 정규화로 흡수된다(기존 매칭 정책 재사용).
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정 관념"), securedKeys))
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정 관념", true), securedKeys))
                 .isEqualTo(CrawlRowType.BASIC_SECURED_TIME);
-        // 플래그 OFF 등록 동아리·학교 기관/행사/부서·미등록 단체는 전부 CRAWLED_RESERVATION(이쪽만 차단).
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "ABC동아리"), securedKeys))
+        // 확보 대상 동아리라도 무꼬리(하이픈 포함) 행은 실예약이다 — 행 단위 정밀화의 핵심(차단 복귀).
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념", false), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터"), securedKeys))
+        // 물결 행이라도 비확보(플래그 OFF 등록 동아리·기관·행사·부서·미등록)면 CRAWLED(차단 유지).
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "ABC동아리", true), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(15, 0), "헌혈 행사"), securedKeys))
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터", true), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(9, 0), LocalTime.of(18, 0), "장학복지팀"), securedKeys))
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(15, 0), "헌혈 행사", false), securedKeys))
+                .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(9, 0), LocalTime.of(18, 0), "장학복지팀", false), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
         // 부분 문자열 매칭 금지 — "고정관념2" 는 "고정관념" 과 다른 주체다.
-        assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념2"), securedKeys))
+        assertThat(policy.classify(
+                crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념2", true), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
     }
 
@@ -86,7 +97,8 @@ class FacilityAvailabilityPolicyTest {
 
         assertThat(securedKeys).isEmpty();
         assertThat(policy.classify(
-                crawlRow(LocalDate.of(2026, 1, 15), LocalTime.of(10, 0), LocalTime.of(12, 0), "밴드부"), securedKeys))
+                crawlRow(LocalDate.of(2026, 1, 15), LocalTime.of(10, 0), LocalTime.of(12, 0), "밴드부", true),
+                securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
     }
 
@@ -94,7 +106,7 @@ class FacilityAvailabilityPolicyTest {
     @DisplayName("플래그 토글은 재크롤 없이 같은 크롤 행의 분류를 즉시 바꾼다 — 분류는 저장값이 아니라 파생값이다")
     void flagToggleReclassifiesExistingRowsImmediately() {
         FacilityReservation storedRow = crawlRow(LocalDate.of(2026, 1, 15),
-                LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념");
+                LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념", true);
 
         when(clubRepository.findSecuredTargetNameRows())
                 .thenReturn(List.of(new SecuredNameRow("고정관념", false)));
@@ -122,8 +134,8 @@ class FacilityAvailabilityPolicyTest {
         Set<String> securedKeys = policy.securedOrganizationKeys();
         LocalDate date = LocalDate.of(2026, 1, 15);
 
-        FacilityReservation before = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념");
-        FacilityReservation after = crawlRow(date, LocalTime.of(13, 0), LocalTime.of(15, 0), "고정관념");
+        FacilityReservation before = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념", true);
+        FacilityReservation after = crawlRow(date, LocalTime.of(13, 0), LocalTime.of(15, 0), "고정관념", true);
 
         // 확보 시간은 고정 시간이 아니다 — 재크롤로 범위가 바뀌어도 분류는 저장 행의 실범위 기준으로 파생된다.
         assertThat(policy.classify(before, securedKeys)).isEqualTo(CrawlRowType.BASIC_SECURED_TIME);
@@ -142,12 +154,12 @@ class FacilityAvailabilityPolicyTest {
                 .thenReturn(List.of(new SecuredNameRow("고정관념", true)));
         Set<String> securedKeys = policy.securedOrganizationKeys();
         LocalDate date = LocalDate.of(2026, 1, 15);
-        FacilityReservation crawled = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(10, 0), "학생생활상담센터");
-        // 확보 대상 동아리의 행은 비차단이다(확보 시간 비차단 전환, 2026-08-27).
-        FacilityReservation secured = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념");
+        FacilityReservation crawled = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(10, 0), "학생생활상담센터", false);
+        // 확보 대상 동아리의 물결 행은 비차단이다(확보 시간 비차단 전환, 2026-08-27 · 행 단위 정밀화).
+        FacilityReservation secured = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념", true);
         // [10:00, 11:00) 는 조회 구간 [9:30, 10:00) 과 경계 접촉일 뿐 겹침이 아니다(반개구간).
-        FacilityReservation adjacent = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(11, 0), "동아리연합회");
-        FacilityReservation otherDate = crawlRow(date.plusDays(1), LocalTime.of(9, 0), LocalTime.of(10, 0), "밴드부");
+        FacilityReservation adjacent = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(11, 0), "동아리연합회", false);
+        FacilityReservation otherDate = crawlRow(date.plusDays(1), LocalTime.of(9, 0), LocalTime.of(10, 0), "밴드부", false);
 
         List<FacilityReservation> result = policy.blockingOverlapping(
                         List.of(crawled, secured, adjacent, otherDate),
@@ -166,7 +178,7 @@ class FacilityAvailabilityPolicyTest {
                 new SecuredNameRow("밴드 부", false)));
         Set<String> securedKeys = policy.securedOrganizationKeys();
         LocalDate date = LocalDate.of(2026, 1, 15);
-        FacilityReservation colliding = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(12, 0), "밴드부");
+        FacilityReservation colliding = crawlRow(date, LocalTime.of(10, 0), LocalTime.of(12, 0), "밴드부", true);
 
         assertThat(policy.blockingOverlapping(List.of(colliding), date,
                 LocalTime.of(10, 0), LocalTime.of(11, 0), securedKeys).toList()).containsExactly(colliding);

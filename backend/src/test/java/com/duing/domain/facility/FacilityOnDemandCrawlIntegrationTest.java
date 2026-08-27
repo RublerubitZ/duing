@@ -78,7 +78,8 @@ class FacilityOnDemandCrawlIntegrationTest extends IntegrationTestBase {
         assertThat(persistedReservations).hasSize(1);
         assertThat(persistedReservations.get(0).getScheduleSeq()).isEqualTo(18134L);
         assertThat(persistedReservations.get(0).getOrganizationName()).isEqualTo("고정관념");
-        // 꼬리 (9:00~20:00) 는 실예약 범위 — 마커 슬롯(19~20) 대신 전 구간으로 확장 저장된다(전면 차단 정책).
+        // 물결 꼬리 (9:00~20:00) 도 시간 범위는 마커 슬롯(19~20) 대신 전 구간으로 확장 저장된다(V116 유지) —
+        // 확보 표기 여부는 securedTail 플래그로만 갈린다(V118 행 단위 분류).
         assertThat(persistedReservations.get(0).getStartTime()).isEqualTo(LocalTime.of(9, 0));
         assertThat(persistedReservations.get(0).getEndTime()).isEqualTo(LocalTime.of(20, 0));
 

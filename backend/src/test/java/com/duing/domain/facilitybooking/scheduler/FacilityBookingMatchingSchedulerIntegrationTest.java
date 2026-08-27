@@ -210,8 +210,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     @Test
-    @DisplayName("기본 확보 시간 대상 동아리는 이름 일치 행이 전 구간을 덮어도 자동 확정되지 않는다 — 상시 확보 표시는 학교 반영 증거가 아니다")
-    void securedTargetClubIsSkippedByAutoConfirm() throws Exception {
+    @DisplayName("확보 대상 동아리라도 물결 확보 표기 행만으로는 자동 확정되지 않는다 — 상시 확보 표시는 학교 반영 증거가 아니다")
+    void securedTailRowAloneDoesNotAutoConfirm() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
@@ -223,7 +223,38 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
-        // 학교 크롤에 동아리명 그대로 예약 전 구간을 덮는 행이 있다 — 플래그 OFF 였다면 자동 확정 조건 충족.
+        // 동아리명 그대로 예약 전 구간을 덮는 물결 확보 표기 행 — 실예약 행이었다면 자동 확정 조건 충족.
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, true, generation));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+
+        scheduler.runMatchingCycle();
+
+        // securedTail 행은 decide 증거에서 행 단위로 제외되어 APPROVED 유지(수동 확정 폴백) — 차단과는 무관하다.
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리도 무꼬리 실예약 행이 전 구간을 덮으면 자동 CONFIRMED 된다 — 실예약 행은 증거로 복귀한다")
+    void securedTargetClubAutoConfirmsOnRealReservationRows() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = clubRepository.findById(fixture.club().getId()).orElseThrow();
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        String clubName = securedClub.getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 상시 확보 물결 행(증거 아님)과 별개로, 학교가 이 예약을 무꼬리 실예약 행으로 등록했다 —
+        // 구 동아리 단위 스킵이었다면 영구 수동 확정 대상이던 케이스가 정상 자동 확정으로 복귀한다.
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), clubName, true, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
                 LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, false, generation));
@@ -231,9 +262,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         scheduler.runMatchingCycle();
 
-        // BASIC_SECURED_TIME 행은 증거에서 제외되어 APPROVED 유지(수동 확정 폴백) — 차단과는 무관하다.
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
-                .isEqualTo(BookingStatus.APPROVED);
+                .isEqualTo(BookingStatus.CONFIRMED);
     }
 
     @Test
@@ -418,7 +448,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         Callable<Throwable> confirmTask = () -> {
             startGate.await(5, TimeUnit.SECONDS);
             try {
-                matchingService.verifyAndConfirm(approved, clubName, Set.of(), Set.of());
+                matchingService.verifyAndConfirm(approved, clubName, Set.of());
                 return null;
             } catch (Throwable failure) {
                 return failure;

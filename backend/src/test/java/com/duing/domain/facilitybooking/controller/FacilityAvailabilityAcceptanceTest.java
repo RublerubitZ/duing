@@ -237,13 +237,13 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         clubRepository.save(Club.create("ABC동아리", ClubCategory.OTHER, "분과", "설명", null)); // 플래그 OFF 등록 동아리
         LocalDate crawlDate = LocalDate.now(clock).plusDays(1);
         LocalDateTime crawledAt = LocalDateTime.now(clock);
-        // 파서가 꼬리 범위를 확장 저장한 형태의 행들: 고정관념 [10,13) / 상담센터 [13,15) / ABC동아리 [15,17)
+        // 파서가 물결 꼬리 범위를 확장 저장한 형태의 행들: 고정관념 [10,13) / 상담센터 [13,15) / ABC동아리 [15,17)
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91001L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념", false, crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념", true, crawledAt));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91002L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(13, 0), LocalTime.of(15, 0), "학생생활상담센터", false, crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(13, 0), LocalTime.of(15, 0), "학생생활상담센터", true, crawledAt));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91003L,
-                YearMonth.from(crawlDate), crawlDate, LocalTime.of(15, 0), LocalTime.of(17, 0), "ABC동아리", false, crawledAt));
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(15, 0), LocalTime.of(17, 0), "ABC동아리", true, crawledAt));
 
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(crawlDate));
@@ -284,6 +284,42 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
                 .findFirst().orElseThrow();
         assertThat(afterToggleDay.operatingNotes()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리의 물결 행은 AVAILABLE 이고, 같은 동아리의 무꼬리 실예약 행은 SCHOOL 로 차단된다")
+    void securedClubRealReservationRowBlocksSlots() {
+        Facility facility = facilityRepository.save(Facility.create(90007, "커뮤니티룸(T7)", null, 0));
+        Club securedClub = clubRepository.save(Club.create("확보정밀", ClubCategory.OTHER, "분과", "설명", null));
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        LocalDate crawlDate = LocalDate.now(clock).plusDays(1);
+        LocalDateTime crawledAt = LocalDateTime.now(clock);
+        // 같은 확보 동아리의 물결 확보 행 [10,13) 과 무꼬리 실예약 행 [14,16) 이 공존한다 — 행 단위 분류.
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91011L,
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(10, 0), LocalTime.of(13, 0), "확보정밀", true, crawledAt));
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91012L,
+                YearMonth.from(crawlDate), crawlDate, LocalTime.of(14, 0), LocalTime.of(16, 0), "확보정밀", false, crawledAt));
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(crawlDate));
+
+        // 물결 확보 행 구간은 비차단 유지(무회귀).
+        for (String start : new String[] {"10:00", "11:00", "12:00"}) {
+            assertThat(slotAt(response, crawlDate, start).status()).isEqualTo(SlotStatus.AVAILABLE);
+        }
+        // 무꼬리 실예약 행 구간은 확보 동아리 이름이어도 차단 복귀(스펙 핵심).
+        for (String start : new String[] {"14:00", "15:00"}) {
+            SlotAvailability blocked = slotAt(response, crawlDate, start);
+            assertThat(blocked.status()).isEqualTo(SlotStatus.BLOCKED);
+            assertThat(blocked.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+            assertThat(blocked.organization()).isEqualTo("확보정밀");
+        }
+        // operatingNotes 는 물결 확보 행만 담는다 — 실예약 행은 표시 데이터 소스가 아니다.
+        FacilityAvailabilityResponse.DayAvailability crawlDay = response.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
+                .findFirst().orElseThrow();
+        assertThat(crawlDay.operatingNotes()).containsExactly(new OperatingNote("확보정밀", "10:00", "13:00"));
     }
 
     private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {

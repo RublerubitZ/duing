@@ -249,10 +249,10 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         Club securedClub = saveActiveClub("확보동아리");
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
-        // 확보 동아리 상시 확보 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
+        // 확보 동아리 상시 확보 물결 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), false, LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), true, LocalDateTime.now()));
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
 

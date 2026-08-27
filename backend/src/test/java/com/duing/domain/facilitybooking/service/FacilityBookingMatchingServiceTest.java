@@ -60,12 +60,11 @@ class FacilityBookingMatchingServiceTest {
     }
 
     @Test
-    @DisplayName("꼬리 시간표기로 전 구간 확장된 행도 같은 정규화 이름이면 커버로 인정한다 — 구 운영행 누락의 편입")
+    @DisplayName("하이픈 꼬리로 전 구간 확장된 실예약 행도 같은 정규화 이름이면 커버로 인정한다")
     void expandedTailRowCoversWhenNameMatches() {
         FacilityBooking booking = approvedBooking(18, 20);
-        // 구 정책에서는 "밴드부(9:00~20:00)" 물결 행이 비차단 운영행이라 커버에서 제외됐다.
-        // 전면 차단 정책에서는 파서가 9~20 전 구간 행으로 확장 저장하므로 정상 커버다.
-        // (기본 확보 시간 대상 동아리의 증거 제외는 verifyAndConfirm 의 동아리 단위 스킵이 담당 — 통합 테스트 검증.)
+        // "밴드부(9:00-20:00)" 하이픈 행은 실예약 범위다 — 파서가 9~20 전 구간 행(securedTail=false)으로
+        // 확장 저장하므로 정상 커버다(물결 확보 표기 행의 제외는 아래 securedTail 테스트).
         FacilityReservation expanded = FacilityReservation.create(1L, 103L, YearMonth.from(DATE), DATE,
                 LocalTime.of(9, 0), LocalTime.of(20, 0), "밴드부", false, LocalDateTime.of(2026, 1, 20, 8, 0));
 
@@ -73,6 +72,24 @@ class FacilityBookingMatchingServiceTest {
 
         assertThat(decision.confirmed()).isTrue();
         assertThat(decision.matchedScheduleSeq()).isEqualTo(103L);
+    }
+
+    @Test
+    @DisplayName("물결 꼬리 확보 표기 행은 이름이 일치해도 자동 확정 증거가 아니고, 실예약 행이 따로 덮으면 확정된다")
+    void securedTailRowIsExcludedFromEvidence() {
+        FacilityBooking booking = approvedBooking(18, 20);
+        // 상시 확보 표기(물결) 행 — "학교가 이 예약을 반영했다"는 증거가 아니므로 행 단위로 제외한다(수정 8).
+        FacilityReservation securedTailRow = FacilityReservation.create(1L, 105L, YearMonth.from(DATE), DATE,
+                LocalTime.of(9, 0), LocalTime.of(20, 0), "밴드부", true, LocalDateTime.of(2026, 1, 20, 8, 0));
+
+        assertThat(matchingService.decide(booking, "밴드부", List.of(securedTailRow)).confirmed()).isFalse();
+
+        // 같은 동아리의 무꼬리 실예약 행이 함께 있으면 그 행만 증거로 커버를 인정한다(증거 복귀).
+        var decision = matchingService.decide(booking, "밴드부",
+                List.of(securedTailRow, occupiedRow(106L, 18, "밴드부"), occupiedRow(107L, 19, "밴드부")));
+
+        assertThat(decision.confirmed()).isTrue();
+        assertThat(decision.matchedScheduleSeq()).isEqualTo(106L);
     }
 
     @Test

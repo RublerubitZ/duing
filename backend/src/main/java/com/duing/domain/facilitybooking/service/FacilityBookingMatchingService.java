@@ -50,9 +50,9 @@ public class FacilityBookingMatchingService {
         }
     }
 
-    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). 판정 기준은 정규화 이름 일치뿐이다 —
-     *  기본 확보 시간 대상 동아리의 증거 제외는 {@link #verifyAndConfirm} 의 동아리 단위 스킵이 담당한다
-     *  (플래그 ON 동아리는 정의상 이름 일치 행 전부가 BASIC_SECURED_TIME 이라 행 단위 제외와 동치). */
+    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). 판정 기준은 정규화 이름 일치이며,
+     *  물결 꼬리(확보 표기, securedTail) 행은 "학교가 이 예약을 반영했다"는 증거가 아니므로 행 단위로
+     *  제외한다(수정 8 의 본래 논리) — 확보 대상 동아리의 무꼬리·하이픈 실예약 행은 정상 증거로 복귀한다. */
     public MatchDecision decide(FacilityBooking booking, String clubName, List<FacilityReservation> dayRows) {
         String normalizedClubName = normalizer.normalize(clubName);
         if (normalizedClubName.isEmpty()) {
@@ -60,6 +60,10 @@ public class FacilityBookingMatchingService {
         }
         List<FacilityReservation> matchingOccupiedRows = dayRows.stream()
                 .filter(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName))
+                // 수정 8 을 행 단위로 — 확보 표기(물결 꼬리) 행만 증거에서 제외한다. 같은 트랜잭션에서 읽은
+                // 행의 저장 플래그를 쓰므로, 사이클 시작 시점 확보 키 조달과 판정 사이의 시차(TOCTOU P2)도
+                // 함께 소멸했다(동아리 단위 스킵·keys 전달 자체가 없어졌다).
+                .filter(row -> !row.isSecuredTail())
                 .toList();
 
         // 각 서브슬롯이 단일 점유행에 완전 포함되어야 커버로 인정 — 비정렬 크롤 행·분할 행은 미매칭(수동 확정 폴백, 보수 방향)
@@ -98,11 +102,10 @@ public class FacilityBookingMatchingService {
      * <p>confirmByMatching 의 crawlBasisAt·이력 crawlBasisAt 에는 확정 시점(now)이 아니라 판정 근거 세대의
      * 수집 시각(generation)을 남긴다 — "어느 크롤 데이터로 확정했는가"를 기록(승인 경로 관례와 필드 의미 일치).
      *
-     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·기본 확보 대상·미매칭)이면 false
+     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·미매칭)이면 false
      */
     @Transactional
-    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys,
-                                    Set<String> securedOrganizationKeys) {
+    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
         // 관리자 전이(취소·충돌 전환)와의 경합은 @Version 낙관 잠금이 차단한다 — 늦은 커밋이 실패·롤백되어
         // 덮어쓰기가 불가능하고, 그 실패는 스케줄러의 per-booking 격리로 다음 사이클에 재판정된다.
@@ -147,13 +150,8 @@ public class FacilityBookingMatchingService {
             log.info("FacilityBooking Matching skip bookingId={} (정규화 키 충돌 — 수동 확정 폴백)", bookingId);
             return false;
         }
-        // 기본 확보 시간 대상 동아리 — 이름 일치 크롤 행은 전부 BASIC_SECURED_TIME(상시 확보 표시)이라
-        // "학교가 이 예약을 반영했다"는 증거가 아니다(수정 8). 자동 확정을 포기하고 수동 확정으로 넘긴다.
-        // 확보 행은 비차단이지만(2026-08-27) 이 스킵의 근거는 차단이 아니라 "학교 반영 증거 아님"이므로 유지한다.
-        if (securedOrganizationKeys.contains(normalizer.normalize(clubName))) {
-            log.info("FacilityBooking Matching skip bookingId={} (기본 확보 시간 대상 — 증거 제외, 수동 확정 폴백)", bookingId);
-            return false;
-        }
+        // 기본 확보 시간 대상 동아리의 동아리 단위 스킵은 행 단위 정밀화(2026-08-27)로 폐지 — 확보 표기 행의
+        // 증거 제외는 decide 가 securedTail 플래그로 행 단위 수행한다(수정 8 의 본래 논리).
         MatchDecision decision = decide(booking, clubName, freshRows);
         if (!decision.confirmed()) {
             return false;
