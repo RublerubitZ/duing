@@ -177,6 +177,26 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("시설 필터 없이 조회하면 전 시설의 행이 시설 정렬 순서(sortOrder)로 병합 조회된다")
+    void unfilteredQueryMergesAllFacilitiesInSortOrder() {
+        Facility laterFacility = facilityRepository.save(
+                Facility.create((int) (sequence.getAndIncrement() % 1_000_000), "정렬뒤연습실", null, 5));
+        Facility earlierFacility = facilityRepository.save(
+                Facility.create((int) (sequence.getAndIncrement() % 1_000_000), "정렬앞연습실", null, 1));
+        YearMonth currentMonth = YearMonth.now(clock);
+        saveReservation(laterFacility, currentMonth.atDay(10), 10, 12, "뒤시설단체");
+        saveReservation(earlierFacility, currentMonth.atDay(10), 13, 15, "앞시설단체");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(PATH + "?yearMonth=" + currentMonth + "&groupBy=FACILITY")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(2))
+                .body("data.content[0].title", equalTo("정렬앞연습실"))
+                .body("data.content[1].title", equalTo("정렬뒤연습실"));
+    }
+
+    @Test
     @DisplayName("크롤 창(당월·익월) 밖 월 조회는 400 이다")
     void monthOutOfCrawlWindowIs400() {
         RestAssured.given()
