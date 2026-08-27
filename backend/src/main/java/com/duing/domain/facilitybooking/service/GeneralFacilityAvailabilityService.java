@@ -5,6 +5,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
@@ -69,10 +70,12 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         DataSource source = facilityCrawlService.ensureFresh(targetMonth);
 
-        // 분류는 표시 구분 전용(둘 다 차단) — 기본 확보 시간 대상 키는 요청당 1회 조회한다(설계 §3.2).
-        Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
-        List<CrawlSlice> crawlSlices = facilityReservationRepository
-                .findByFacilityIdAndYearMonth(facility.getId(), targetMonth).stream()
+        // 분류는 표시 구분 전용(둘 다 차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다(설계 §3.2).
+        List<FacilityReservation> crawlRows =
+                facilityReservationRepository.findByFacilityIdAndYearMonth(facility.getId(), targetMonth);
+        Set<String> securedOrganizationKeys =
+                crawlRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
+        List<CrawlSlice> crawlSlices = crawlRows.stream()
                 .map(reservation -> new CrawlSlice(
                         reservation.getReservationDate(), reservation.getStartTime(), reservation.getEndTime(),
                         reservation.getOrganizationName(),

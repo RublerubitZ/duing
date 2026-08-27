@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -40,6 +41,7 @@ class ClubNameRaceGuardTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final GeneralClubService clubService = new GeneralClubService(
             clubRepository,
+            mock(ClubAuditEventRepository.class),
             new ClubVisibilityPolicy(clubRepository),
             userRepository,
             mock(ClubMemberRepository.class),

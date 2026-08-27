@@ -112,7 +112,8 @@ public class FacilityBookingAdminQueryService {
 
         // ② 겹침 컨텍스트.
         List<OverlapContext> overlaps = new ArrayList<>();
-        // 점유행(SCHOOL) — 학교 단체명 그대로 노출.
+        // 크롤 행 전부(SCHOOL 표기 고정) — 학교 단체명 그대로 노출. 기본 확보 시간 대상 구분은 관리자
+        // 상세의 관심사가 아니라 크롤 현황 화면(§3.6)이 담당한다(여기선 "학교 측이 막는다" 사실만 중요).
         availabilityPolicy.blockingOverlapping(
                         facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month),
                         date, booking.getStartTime(), booking.getEndTime())

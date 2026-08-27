@@ -9,8 +9,12 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubFacilitySecuredTimeTargetCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
@@ -56,6 +60,7 @@ public class GeneralClubService implements ClubService {
     private static final String CLUB_NAME_UNIQUE_CONSTRAINT = "uk_club_name_active";
 
     private final ClubRepository clubRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
@@ -277,5 +282,21 @@ public class GeneralClubService implements ClubService {
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeCentralClub(command.centralClub());
+    }
+
+    @Override
+    @Transactional
+    public void updateFacilitySecuredTimeTarget(UpdateClubFacilitySecuredTimeTargetCommand command) {
+        Club club = clubRepository.findById(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        boolean before = club.isFacilitySecuredTimeTarget();
+        if (before == command.facilitySecuredTimeTarget()) {
+            return; // no-op 은 감사를 남기지 않는다(멱등 재요청이 감사 스트림을 오염시키지 않게).
+        }
+        club.changeFacilitySecuredTimeTarget(command.facilitySecuredTimeTarget());
+        // 감사는 변이와 같은 트랜잭션 — 분류는 조회 시점 파생이라 이 커밋 즉시 기존 크롤 행에도 반영된다.
+        clubAuditEventRepository.save(ClubAuditEvent.securedTargetChanged(club.getId(), command.actorUserId(),
+                AuditDetailJson.of(Map.of(
+                        "before", before, "after", command.facilitySecuredTimeTarget()))));
     }
 }

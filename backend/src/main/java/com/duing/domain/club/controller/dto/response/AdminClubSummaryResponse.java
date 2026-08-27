@@ -21,6 +21,7 @@ public record AdminClubSummaryResponse(
         String leaderName,
         String leaderStudentId,
         boolean centralClub,
+        boolean facilitySecuredTimeTarget,
         String rejectionReason,
         Instant statusChangedAt,
         String statusChangedByName
@@ -39,6 +40,7 @@ public record AdminClubSummaryResponse(
                 summaryQuery.leaderName(),
                 summaryQuery.leaderStudentId(),
                 summaryQuery.centralClub(),
+                summaryQuery.facilitySecuredTimeTarget(),
                 summaryQuery.rejectionReason(),
                 TimeMapper.systemWallClockToInstant(summaryQuery.statusChangedAt()),
                 summaryQuery.statusChangedByName()

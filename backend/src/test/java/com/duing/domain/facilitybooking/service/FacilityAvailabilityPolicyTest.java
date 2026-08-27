@@ -24,6 +24,11 @@ class FacilityAvailabilityPolicyTest {
     private record SecuredNameRow(String name, boolean secured)
             implements ClubRepository.ClubSecuredNameProjection {
         @Override
+        public Long getId() {
+            return (long) name.hashCode(); // 정책은 id 를 쓰지 않는다 — 프로젝션 계약 충족용
+        }
+
+        @Override
         public String getName() {
             return name;
         }
@@ -61,6 +66,8 @@ class FacilityAvailabilityPolicyTest {
         assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터"), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
         assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(15, 0), "헌혈 행사"), securedKeys))
+                .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
+        assertThat(policy.classify(crawlRow(date, LocalTime.of(9, 0), LocalTime.of(18, 0), "장학복지팀"), securedKeys))
                 .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
         // 부분 문자열 매칭 금지 — "고정관념2" 는 "고정관념" 과 다른 주체다.
         assertThat(policy.classify(crawlRow(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념2"), securedKeys))

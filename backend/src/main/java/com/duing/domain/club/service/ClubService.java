@@ -3,6 +3,7 @@ package com.duing.domain.club.service;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubFacilitySecuredTimeTargetCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
@@ -34,4 +35,7 @@ public interface ClubService {
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);
 
     void updateCentralClub(UpdateClubCentralClubCommand updateClubCentralClubCommand);
+
+    /** 총동연(ADMIN) 전용 — 기본 확보 시간 대상 플래그 변경. 실제 변경 시에만 감사 이벤트를 남긴다. */
+    void updateFacilitySecuredTimeTarget(UpdateClubFacilitySecuredTimeTargetCommand updateFacilitySecuredTimeTargetCommand);
 }
