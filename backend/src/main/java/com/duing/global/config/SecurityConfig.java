@@ -110,6 +110,10 @@ public class SecurityConfig {
                         // 인증 필수. 코드 문자열이 실려 나가므로 GET 이 아래 clubs GET permitAll 에 닿으면 안 된다.
                         .requestMatchers("/api/v1/clubs/*/join-codes/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/join-requests/**").authenticated()
+                        // 홈 관심도 집계용 조회 기록 — 비로그인 방문자도 집계 대상이라 permitAll 이다.
+                        // 인증이 없는 쓰기 경로라 ClubViewRateLimiter 가 IP 총량 상한을 건다.
+                        // 위 인증 필수 clubs 하위 경로들과 path 가 겹치지 않아 순서에 영향을 주지 않는다.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/clubs/*/views").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
                         // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
                         // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상

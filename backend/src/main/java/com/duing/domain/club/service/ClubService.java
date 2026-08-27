@@ -9,6 +9,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,9 @@ public interface ClubService {
     Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable);
 
     Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable);
+
+    /** 홈 공개 통계 — 총 수·모집중 수·카테고리별 수. 비로그인도 조회한다. */
+    ClubStatsQuery getStats();
 
     ClubDetailQuery getById(Long clubId, ClubViewer viewer);
 
