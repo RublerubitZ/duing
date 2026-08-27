@@ -138,7 +138,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         // 신청 이후 겹치는 학교 점유행(꼬리 없음)이 크롤로 유입 — 승인 재검증에 걸려 409 가 되어야 한다
         facilityReservationRepository.save(FacilityReservation.create(
                 facility.getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", LocalDateTime.now()));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)

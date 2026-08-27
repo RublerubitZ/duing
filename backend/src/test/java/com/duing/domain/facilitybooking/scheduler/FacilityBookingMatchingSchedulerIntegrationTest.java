@@ -181,16 +181,16 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         // 학교가 동아리명 그대로 18~19·19~20 점유행 등록
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, generation));
 
         Long mismatched = pendingBooking(fixture, date, 9, 10);
         adminService.approve(admin.getId(), mismatched);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", null, null, generation));
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", generation));
 
         recordSuccessSnapshot(YearMonth.from(date), generation);
         scheduler.runMatchingCycle();
@@ -210,6 +210,33 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     }
 
     @Test
+    @DisplayName("기본 확보 시간 대상 동아리는 이름 일치 행이 전 구간을 덮어도 자동 확정되지 않는다 — 상시 확보 표시는 학교 반영 증거가 아니다")
+    void securedTargetClubIsSkippedByAutoConfirm() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = clubRepository.findById(fixture.club().getId()).orElseThrow();
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        String clubName = securedClub.getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 학교 크롤에 동아리명 그대로 예약 전 구간을 덮는 행이 있다 — 플래그 OFF 였다면 자동 확정 조건 충족.
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, generation));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+
+        scheduler.runMatchingCycle();
+
+        // BASIC_SECURED_TIME 행은 증거에서 제외되어 APPROVED 유지(수동 확정 폴백) — 차단과는 무관하다.
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
     @DisplayName("PARTIAL 월에서도 세대가 일치하는 시설은 자동 확정된다 — 한 룸의 실패가 월 전체 자동 확정을 멈추지 않는다")
     void confirmsGenerationMatchedFacilitiesInPartialMonth() throws Exception {
         Fixture fixture = fixture();
@@ -222,7 +249,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         adminService.approve(admin.getId(), matched);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, generation));
 
         // 크롤이 실패한 룸의 예약 — 세대 성공 집합에서 빠져 있어 세대 결박이 확정을 막아야 한다
         Fixture staleFixture = fixture();
@@ -231,7 +258,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         adminService.approve(admin.getId(), staleBooking);
         facilityReservationRepository.save(FacilityReservation.create(staleFixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(11, 0), staleClubName, null, null,
+                LocalTime.of(9, 0), LocalTime.of(11, 0), staleClubName,
                 generation.minusMinutes(10)));
 
         // 룸 1개 실패 상황 — 월 메타는 새 세대의 PARTIAL 로 기록되고, 성공한 시설만 세대 집합에 들어간다
@@ -258,7 +285,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         adminService.approve(admin.getId(), approved);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(11, 0), LocalTime.of(12, 0), clubName, null, null, LocalDateTime.now()));
+                LocalTime.of(11, 0), LocalTime.of(12, 0), clubName, LocalDateTime.now()));
         // 1) 스냅샷 미기록 상태 — 게이트가 막아 APPROVED 유지
         scheduler.runMatchingCycle();
 
@@ -290,10 +317,10 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         // 동아리명 그대로 18~20 을 완전 커버하는 점유행(승인 후 유입) — 활성 시설이면 자동 확정될 상태
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, LocalDateTime.now()));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, LocalDateTime.now()));
 
         // 시설을 아카이브 — 크롤이 잔존 행을 지우지 않아도 매칭 대상에서 제외돼야 한다
         fixture.facility().archive(LocalDateTime.now());
@@ -320,10 +347,10 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         LocalDateTime generation = LocalDateTime.now();
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, generation));
 
         // 월은 SUCCESS 지만 세대 성공 집합이 비어 있다(마이그레이션 직후 등) — fail-closed 로 확정하지 않는다.
         recordSnapshot(YearMonth.from(date), generation, FetchStatus.SUCCESS, null, List.of());
@@ -355,10 +382,10 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         LocalDateTime generation = LocalDateTime.now();
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), bandName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), bandName, generation));
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), bandName, null, null, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), bandName, generation));
 
         recordSuccessSnapshot(YearMonth.from(date), generation);
         scheduler.runMatchingCycle();
@@ -380,10 +407,10 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         adminService.approve(admin.getId(), approved);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, generation));
         recordSuccessSnapshot(YearMonth.from(date), generation);
 
         CountDownLatch startGate = new CountDownLatch(1);
@@ -391,7 +418,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         Callable<Throwable> confirmTask = () -> {
             startGate.await(5, TimeUnit.SECONDS);
             try {
-                matchingService.verifyAndConfirm(approved, clubName, Set.of());
+                matchingService.verifyAndConfirm(approved, clubName, Set.of(), Set.of());
                 return null;
             } catch (Throwable failure) {
                 return failure;

@@ -1,12 +1,13 @@
 package com.duing.domain.facilitybooking.service;
 
 /**
- * 크롤 행 분류(설계 §3.1 0단계). 확장 가능 — 향후 학교 데이터에 별도 "예약 불가 행" 유형이
- * 생기면 새 타입을 추가하고 FacilityAvailabilityPolicy 만 수정한다.
+ * 크롤 행 분류(전면 차단 설계 §3.2). 두 분류 모두 겹치는 슬롯을 차단하며(P1·P3), 차이는 관리·표시
+ * 의미뿐이다 — 차단 판정은 분류와 무관한 {@link FacilityAvailabilityPolicy#blockingOverlapping} 소관이라
+ * 분류가 어떻게 되든 차단이 풀리지 않는다(fail-closed).
  */
 public enum CrawlRowType {
-    /** 실제 예약(점유) — 겹치는 슬롯 신청 불가. */
-    OCCUPIED,
-    /** 상시 운영 단체의 개방 시간 — 어떤 슬롯도 막지 않고 정보 라벨로만 노출. */
-    OPERATING
+    /** 학교 크롤 실예약(기본값) — 미등록 동아리·학교 행사·부서·기관·매칭 실패 전부 포함. */
+    CRAWLED_RESERVATION,
+    /** 총동연이 "기본 확보 시간 대상"으로 지정한 동아리의 크롤 예약 — 차단은 동일, 표시·정책 의미만 다르다. */
+    BASIC_SECURED_TIME
 }

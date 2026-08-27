@@ -83,8 +83,7 @@ public class ReservationParser {
                 }
             }
             String organization = trailingTime.replaceAll("").trim();
-            // reserved(구 기본 확보 시간) 추출 중단 — 항상 null(전면 차단 정책, 필드 제거는 후속 단계).
-            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization, null, null);
+            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization);
         } catch (NumberFormatException | DateTimeException malformed) {
             return null; // 개별 원소 오류는 스킵(내용은 로깅하지 않음)
         }

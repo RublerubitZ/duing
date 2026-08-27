@@ -113,7 +113,7 @@ public class FacilityBookingAdminQueryService {
         // ② 겹침 컨텍스트.
         List<OverlapContext> overlaps = new ArrayList<>();
         // 점유행(SCHOOL) — 학교 단체명 그대로 노출.
-        availabilityPolicy.occupiedOverlapping(
+        availabilityPolicy.blockingOverlapping(
                         facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month),
                         date, booking.getStartTime(), booking.getEndTime())
                 .forEach(row -> overlaps.add(new OverlapContext(
@@ -244,7 +244,7 @@ public class FacilityBookingAdminQueryService {
             return false;
         }
         List<FacilityReservation> dayRows = dayRows(booking, crawlCache);
-        boolean matchingNameOverlap = availabilityPolicy.occupiedOverlapping(
+        boolean matchingNameOverlap = availabilityPolicy.blockingOverlapping(
                         dayRows, booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
                 .anyMatch(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
         if (!matchingNameOverlap) {
@@ -265,7 +265,7 @@ public class FacilityBookingAdminQueryService {
     private boolean hasMismatchedOccupiedOverlap(FacilityBooking booking, Map<Long, String> clubNames,
             Map<FacilityMonthKey, List<FacilityReservation>> crawlCache) {
         String normalizedClubName = normalizer.normalize(clubNames.getOrDefault(booking.getClubId(), ""));
-        return availabilityPolicy.occupiedOverlapping(crawlRows(booking, crawlCache),
+        return availabilityPolicy.blockingOverlapping(crawlRows(booking, crawlCache),
                         booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
                 .anyMatch(row -> !normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
     }

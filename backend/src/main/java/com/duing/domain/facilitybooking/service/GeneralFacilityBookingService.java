@@ -165,7 +165,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
      * 명백히 불가능한 신청만 거르는 1차 게이트이고, 정합성의 최종 게이트는 승인 재검증(PR2)이다(설계 §5.1).
      */
     private void rejectIfBlockedBySchool(CreateFacilityBookingCommand command) {
-        boolean blocked = availabilityPolicy.occupiedOverlapping(
+        boolean blocked = availabilityPolicy.blockingOverlapping(
                         facilityReservationRepository.findByFacilityIdAndYearMonth(
                                 command.facilityId(), YearMonth.from(command.date())),
                         command.date(), command.startTime(), command.endTime())

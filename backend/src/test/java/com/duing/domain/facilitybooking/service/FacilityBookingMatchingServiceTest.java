@@ -17,7 +17,7 @@ class FacilityBookingMatchingServiceTest {
 
     // decide(...) 는 순수 판정(DB·Clock 미접근)이라 확정용 의존(리포지토리·스냅샷·시설·Clock)은 null 로 조립한다.
     private final FacilityBookingMatchingService matchingService =
-            new FacilityBookingMatchingService(new FacilityAvailabilityPolicy(), new OrganizationNameNormalizer(),
+            new FacilityBookingMatchingService(new OrganizationNameNormalizer(),
                     null, null, null, null, null, null, null);
 
     private static final LocalDate DATE = LocalDate.of(2026, 1, 20);
@@ -32,8 +32,7 @@ class FacilityBookingMatchingServiceTest {
 
     private FacilityReservation occupiedRow(long scheduleSeq, int startHour, String organization) {
         return FacilityReservation.create(1L, scheduleSeq, YearMonth.from(DATE), DATE,
-                LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0), organization,
-                null, null, LocalDateTime.of(2026, 1, 20, 8, 0));
+                LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0), organization, LocalDateTime.of(2026, 1, 20, 8, 0));
     }
 
     @Test
@@ -50,7 +49,7 @@ class FacilityBookingMatchingServiceTest {
     }
 
     @Test
-    @DisplayName("이름 불일치·부분 커버·운영행 커버는 CONFIRMED 판정이 아니다")
+    @DisplayName("이름 불일치·부분 커버는 CONFIRMED 판정이 아니다")
     void staysWhenNameMismatchOrPartialCoverage() {
         FacilityBooking booking = approvedBooking(18, 20);
 
@@ -58,12 +57,22 @@ class FacilityBookingMatchingServiceTest {
                 List.of(occupiedRow(101L, 18, "문화팀"), occupiedRow(102L, 19, "문화팀"))).confirmed()).isFalse();
         assertThat(matchingService.decide(booking, "밴드부",
                 List.of(occupiedRow(101L, 18, "밴드부"))).confirmed()).isFalse(); // 19~20 미커버
-        // 운영행(꼬리 있음)은 커버로 인정하지 않는다
-        FacilityReservation operating = FacilityReservation.create(1L, 103L, YearMonth.from(DATE), DATE,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), "밴드부",
-                LocalTime.of(9, 0), LocalTime.of(20, 0), LocalDateTime.of(2026, 1, 20, 8, 0));
-        assertThat(matchingService.decide(booking, "밴드부",
-                List.of(operating, occupiedRow(102L, 19, "밴드부"))).confirmed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("꼬리 시간표기로 전 구간 확장된 행도 같은 정규화 이름이면 커버로 인정한다 — 구 운영행 누락의 편입")
+    void expandedTailRowCoversWhenNameMatches() {
+        FacilityBooking booking = approvedBooking(18, 20);
+        // 구 정책에서는 "밴드부(9:00~20:00)" 물결 행이 비차단 운영행이라 커버에서 제외됐다.
+        // 전면 차단 정책에서는 파서가 9~20 전 구간 행으로 확장 저장하므로 정상 커버다.
+        // (기본 확보 시간 대상 동아리의 증거 제외는 verifyAndConfirm 의 동아리 단위 스킵이 담당 — 통합 테스트 검증.)
+        FacilityReservation expanded = FacilityReservation.create(1L, 103L, YearMonth.from(DATE), DATE,
+                LocalTime.of(9, 0), LocalTime.of(20, 0), "밴드부", LocalDateTime.of(2026, 1, 20, 8, 0));
+
+        var decision = matchingService.decide(booking, "밴드부", List.of(expanded));
+
+        assertThat(decision.confirmed()).isTrue();
+        assertThat(decision.matchedScheduleSeq()).isEqualTo(103L);
     }
 
     @Test
@@ -71,8 +80,7 @@ class FacilityBookingMatchingServiceTest {
     void nonAlignedRowDoesNotCover() {
         FacilityBooking booking = approvedBooking(18, 20);
         FacilityReservation nonAligned = FacilityReservation.create(1L, 104L, YearMonth.from(DATE), DATE,
-                LocalTime.of(18, 30), LocalTime.of(19, 30), "밴드부",
-                null, null, LocalDateTime.of(2026, 1, 20, 8, 0));
+                LocalTime.of(18, 30), LocalTime.of(19, 30), "밴드부", LocalDateTime.of(2026, 1, 20, 8, 0));
 
         assertThat(matchingService.decide(booking, "밴드부", List.of(nonAligned)).confirmed()).isFalse();
     }

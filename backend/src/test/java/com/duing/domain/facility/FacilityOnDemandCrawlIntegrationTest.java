@@ -81,8 +81,6 @@ class FacilityOnDemandCrawlIntegrationTest extends IntegrationTestBase {
         // 꼬리 (9:00~20:00) 는 실예약 범위 — 마커 슬롯(19~20) 대신 전 구간으로 확장 저장된다(전면 차단 정책).
         assertThat(persistedReservations.get(0).getStartTime()).isEqualTo(LocalTime.of(9, 0));
         assertThat(persistedReservations.get(0).getEndTime()).isEqualTo(LocalTime.of(20, 0));
-        assertThat(persistedReservations.get(0).getReservedStartTime()).isNull();
-        assertThat(persistedReservations.get(0).getReservedEndTime()).isNull();
 
         FacilityMonthSnapshot monthMeta = snapshotRepository.findByYearMonth(pastMonth).orElseThrow();
         assertThat(monthMeta.getFetchStatus()).isEqualTo(FetchStatus.SUCCESS);

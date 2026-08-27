@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -68,12 +69,14 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         DataSource source = facilityCrawlService.ensureFresh(targetMonth);
 
+        // 분류는 표시 구분 전용(둘 다 차단) — 기본 확보 시간 대상 키는 요청당 1회 조회한다(설계 §3.2).
+        Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
         List<CrawlSlice> crawlSlices = facilityReservationRepository
                 .findByFacilityIdAndYearMonth(facility.getId(), targetMonth).stream()
                 .map(reservation -> new CrawlSlice(
                         reservation.getReservationDate(), reservation.getStartTime(), reservation.getEndTime(),
-                        reservation.getOrganizationName(), availabilityPolicy.classify(reservation),
-                        reservation.getReservedStartTime(), reservation.getReservedEndTime()))
+                        reservation.getOrganizationName(),
+                        availabilityPolicy.classify(reservation, securedOrganizationKeys)))
                 .toList();
 
         List<BookingSlice> bookingSlices = toBookingSlices(facility.getId(), targetMonth);

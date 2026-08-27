@@ -55,9 +55,6 @@ class ReservationParserTest {
         assertThat(expandedRows).allSatisfy(row -> {
             assertThat(row.startTime()).isEqualTo(LocalTime.of(9, 0));
             assertThat(row.endTime()).isEqualTo(LocalTime.of(20, 0));
-            // 물결 꼬리를 더는 "기본 확보 시간"으로 추출하지 않는다 — reserved null = 점유행(차단) 분류.
-            assertThat(row.reservedStartTime()).isNull();
-            assertThat(row.reservedEndTime()).isNull();
         });
 
         // "댄스동아리" — 꼬리 표기 없음 → 원본 슬롯 그대로(임의 시간 생성 금지).
@@ -85,8 +82,6 @@ class ReservationParserTest {
             assertThat(row.organizationName()).isEqualTo("학생생활상담센터");
             assertThat(row.startTime()).isEqualTo(LocalTime.of(10, 0)); // 마커(10~11, 16~17) 아님
             assertThat(row.endTime()).isEqualTo(LocalTime.of(17, 0));
-            assertThat(row.reservedStartTime()).isNull();
-            assertThat(row.reservedEndTime()).isNull();
         });
     }
 

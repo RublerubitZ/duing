@@ -100,10 +100,11 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
         for (Facility facility : facilities) {
             List<ParsedReservation> raw = byFacility.getOrDefault(facility.getId(), List.of()).stream()
                     .map(row -> new ParsedReservation(row.getScheduleSeq(), row.getReservationDate(),
-                            row.getStartTime(), row.getEndTime(), row.getOrganizationName(),
-                            row.getReservedStartTime(), row.getReservedEndTime()))
+                            row.getStartTime(), row.getEndTime(), row.getOrganizationName()))
                     .toList();
-            List<ReservationSlot> slots = mergeWithOperatingHoursPrecedence(raw).stream()
+            // 파서가 꼬리 범위를 행 자체로 확장 저장하므로(전면 차단 정책) 병합은 SlotMerger 단일 경로다 —
+            // 같은 범위로 확장된 마커 중복 행은 겹침 병합이 1건으로 접는다.
+            List<ReservationSlot> slots = slotMerger.merge(raw).stream()
                     .map(merged -> toSlot(merged, now))
                     .sorted(Comparator.comparing(ReservationSlot::date).thenComparing(ReservationSlot::start))
                     .toList();
@@ -118,24 +119,6 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
                     current != null, current, next, slots));
         }
         return items;
-    }
-
-    /**
-     * §16.1 병합 우선순위 — 운영시간(reservedStart/End)이 있는 행은 (날짜, 단체, 운영시간범위) 그룹당
-     * 예약 1건으로 dedup(슬롯과 모순이어도 학교 제공 운영시간을 신뢰, 정책 ①·②). 운영시간이 없는 행은
-     * 기존 SlotMerger(연속 슬롯 병합) 폴백 그대로다(정책 ③). 순서는 호출부의 날짜·시작시각 정렬이 보장한다.
-     */
-    private List<MergedSlot> mergeWithOperatingHoursPrecedence(List<ParsedReservation> reservations) {
-        Map<Boolean, List<ParsedReservation>> byOperatingHours = reservations.stream()
-                .collect(Collectors.partitioningBy(
-                        row -> row.reservedStartTime() != null && row.reservedEndTime() != null));
-        List<MergedSlot> merged = new ArrayList<>(byOperatingHours.get(true).stream()
-                .map(row -> new MergedSlot(row.reservationDate(), row.reservedStartTime(),
-                        row.reservedEndTime(), row.organizationName()))
-                .distinct()
-                .toList());
-        merged.addAll(slotMerger.merge(byOperatingHours.get(false)));
-        return merged;
     }
 
     private ReservationSlot toSlot(MergedSlot merged, LocalDateTime now) {

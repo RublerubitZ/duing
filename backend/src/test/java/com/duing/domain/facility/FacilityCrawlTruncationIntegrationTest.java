@@ -147,6 +147,6 @@ class FacilityCrawlTruncationIntegrationTest extends IntegrationTestBase {
 
     private ParsedReservation reservationWithOrganizationName(long scheduleSeq, String organizationName) {
         return new ParsedReservation(scheduleSeq, LocalDate.of(2026, 7, 1), LocalTime.of(19, 0),
-                LocalTime.of(20, 0), organizationName, null, null);
+                LocalTime.of(20, 0), organizationName);
     }
 }
