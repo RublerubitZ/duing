@@ -39,7 +39,7 @@ function makeDay(overrides?: Partial<BookingDayAvailability>): BookingDayAvailab
     date: '2026-07-20',
     dayStatus: 'AVAILABLE',
     availableSlotCount: 11,
-    operatingNotes: [{ organization: '고정관념', start: '09:00', end: '20:00' }],
+    operatingNotes: [], // 전면 차단 설계 — 서버가 항상 빈 배열(비차단 운영행 폐지)
     slots: Array.from({ length: 13 }, (_, index) => {
       const pad = (n: number) => String(n).padStart(2, '0');
       const start = `${pad(9 + index)}:00`;
@@ -249,7 +249,6 @@ it('슬롯 리스트는 흰 바탕 행으로 SCHOOL 단체명·INTERNAL "예약�
   expect(pendingLabel).toHaveClass('text-coral');
   expect(screen.queryByText('승인 대기중')).not.toBeInTheDocument();
   expect(screen.queryByText('신청 가능')).not.toBeInTheDocument();
-  expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
 });
 
 it('슬롯 리스트는 organization 이 실린 INTERNAL 차단 슬롯을 소스 무관 동아리명으로 표기한다', () => {
@@ -291,37 +290,28 @@ it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이
   expect(within(pendingRow()).getByText(/승인 대기/)).toHaveClass('text-cream/85');
 });
 
-it('운영행이 있는 날은 기본 확보 시간 안내를 아코디언으로 렌더한다 — 단체·시간은 항상, 긴 설명은 기본 접힘', () => {
+it('기본 확보 슬롯 행은 단체명 · 기본 확보 라벨로 비활성 표시되고 안내 아코디언은 더 이상 없다(전면 차단)', () => {
   const day = makeDay({
-    operatingNotes: [
-      { organization: '고정관념', start: '09:00', end: '20:00' },
-      { organization: '두잉밴드', start: '10:00', end: '12:00' },
-    ],
+    slots: makeDay().slots.map((slot) =>
+      slot.start === '10:00'
+        ? { ...slot, status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization: '고정관념' }
+        : slot,
+    ),
   });
   const { container } = render(<DaySlotList day={day} selection={null} onToggleSlot={vi.fn()} />);
-  // 제목·단체·시간 나열은 summary 로 항상 노출
-  expect(screen.getByText('기본 확보 시간')).toBeInTheDocument();
-  expect(screen.getByText('고정관념 09:00~20:00 · 두잉밴드 10:00~12:00')).toBeInTheDocument();
-  // 긴 정책 설명은 <details> 본문 — 기본 접힘(open 속성 없음), 토글로 펼침. "설명 보기" 라벨이 어포던스.
-  const accordion = container.querySelector('details');
-  expect(accordion).not.toBeNull();
-  expect(accordion).not.toHaveAttribute('open');
-  expect(screen.getByText('설명 보기')).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      '학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요. 다른 동아리도 같은 시간에 예약을 신청할 수 있고, 관리자 승인 후 일정 조정을 거쳐 이용할 수 있어요.',
-    ),
-  ).toBeInTheDocument();
-  // 승인 주체는 "관리자"로 통일 — "총동연" 비노출 정책
-  expect(screen.queryByText(/총동연/)).not.toBeInTheDocument();
-  // 금지어(§10.2): 렌더 출력에 "운영 시간"·"운영 중" 부재.
-  expect(container).not.toHaveTextContent(/운영 시간/);
-  expect(container).not.toHaveTextContent(/운영 중/);
+  const securedRow = screen.getByRole('button', { name: /10:00~11:00.*고정관념 · 기본 확보/ });
+  expect(securedRow).toBeDisabled();
+  expect(securedRow).toHaveClass('bg-graysoft/60');
+  // 구 안내 아코디언(비차단 시절)은 렌더하지 않는다.
+  expect(container.querySelector('details')).toBeNull();
+  expect(screen.queryByText('설명 보기')).not.toBeInTheDocument();
+  // 기본 확보는 차단 상태 — "예약 신청 가능" 류 문구 금지(수정 7).
+  expect(container).not.toHaveTextContent(/예약 신청 가능/);
 });
 
-it('운영행이 없는 날은 기본 확보 시간 안내 박스를 렌더하지 않는다', () => {
-  render(<DaySlotList day={makeDay({ operatingNotes: [] })} selection={null} onToggleSlot={vi.fn()} />);
-  expect(screen.queryByText('기본 확보 시간')).not.toBeInTheDocument();
+it('기본 확보 슬롯이 없는 날은 기본 확보 표기가 등장하지 않는다', () => {
+  render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.queryByText(/기본 확보/)).not.toBeInTheDocument();
 });
 
 it('차단 슬롯 버튼은 비활성이다', () => {
@@ -394,16 +384,23 @@ it('예약 성공 화면은 세로 타임라인·통일 승인 문구·CTA 3종�
 });
 
 it('통합 예약 현황 카드는 날짜 없는 제목 아래 사용 중 행·예약 가능 구간·기간 분포를 순서대로 렌더한다', () => {
-  // makeDay(): 운영 고정관념 09~20 · SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21
-  const { container } = render(<DayBookingOverview day={makeDay()} />);
+  // 기본 확보 고정관념 09~11(차단 슬롯 병합) · SCHOOL 비호응원단 17~18 · INTERNAL 18~19 · PENDING 20~21
+  const day = makeDay({
+    slots: makeDay().slots.map((slot) =>
+      slot.start === '09:00' || slot.start === '10:00'
+        ? { ...slot, status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization: '고정관념' }
+        : slot,
+    ),
+  });
+  const { container } = render(<DayBookingOverview day={day} />);
   // 제목에 날짜 없음 — 날짜는 상단 캘린더/헤더 담당(중복 금지)
   expect(screen.getByText('예약 현황')).toBeInTheDocument();
   expect(screen.queryByText(/7월 20일/)).not.toBeInTheDocument();
-  // 사용 중 행: 기본 확보는 자르지 않은 통짜(09~20) — sage 도트 + 단체명 + muted "(기본 확보)"
+  // 사용 중 행: 기본 확보 = 크롤 실범위 병합(09~11) — sage 도트 + 단체명 + muted "(기본 확보)"
   expect(screen.getByText('고정관념')).toBeInTheDocument();
   expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
-  const operatingRow = screen.getByText('09:00~20:00').closest('li');
-  expect(operatingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
+  const securedRow = screen.getByText('09:00~11:00').closest('li');
+  expect(securedRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-sage');
   // 예약 건 행: SCHOOL 단체명 / INTERNAL "예약됨" / PENDING warm 도트
   expect(screen.getByText('17:00~18:00')).toBeInTheDocument();
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
@@ -411,15 +408,15 @@ it('통합 예약 현황 카드는 날짜 없는 제목 아래 사용 중 행·�
   expect(screen.getByText('예약됨')).toBeInTheDocument();
   const pendingRow = screen.getByText('승인 대기').closest('li');
   expect(pendingRow?.querySelector('span[aria-hidden]')).toHaveClass('bg-warm');
-  // 예약 가능 구간: 하루 전체 축 기준(기본 확보 시간 포함) — 09~17(8타임)·19~20(1타임)·21~22(1타임)
-  const availableRow = screen.getByText('09:00~17:00').closest('li');
+  // 예약 가능 구간: 기본 확보도 차단이라 구간을 끊는다 — 11~17(6타임)·19~20(1타임)·21~22(1타임)
+  const availableRow = screen.getByText('11:00~17:00').closest('li');
   expect(availableRow).toHaveTextContent('예약 가능');
-  expect(availableRow).toHaveTextContent('(8타임)');
+  expect(availableRow).toHaveTextContent('(6타임)');
   expect(screen.getByText('19:00~20:00')).toBeInTheDocument();
   expect(screen.getByText('21:00~22:00')).toBeInTheDocument();
-  // 기간 분포 통합(오전 3/3 · 오후 5/6 · 저녁 2/4)
+  // 기간 분포 통합(오전 1/3 · 오후 5/6 · 저녁 2/4) — 기본 확보 차단으로 오전이 줄었다
   expect(screen.getByText('오전')).toBeInTheDocument();
-  expect(screen.getByText('3/3')).toBeInTheDocument();
+  expect(screen.getByText('1/3')).toBeInTheDocument();
   expect(screen.getByText('5/6')).toBeInTheDocument();
   expect(screen.getByText('2/4')).toBeInTheDocument();
   // 제거된 요약 정보: 선택한 날짜·레벨 뱃지·이용 가능 시간(캘린더 상단·현황 행과 중복)
@@ -431,23 +428,27 @@ it('통합 예약 현황 카드는 날짜 없는 제목 아래 사용 중 행·�
   expect(container).not.toHaveTextContent(/운영 중/);
 });
 
-it('예약 건이 없으면 기본 확보 통짜 행과 하루 전체 예약 가능 구간(기본 확보 미제외)을 렌더한다', () => {
+it('예약 건이 없으면 기본 확보 병합 행만 남고 예약 가능 구간은 확보 범위를 제외하고 집계된다(전면 차단)', () => {
   const pad = (n: number) => String(n).padStart(2, '0');
-  const operatingOnlyDay = makeDay({
-    slots: Array.from({ length: 13 }, (_, index) => ({
-      start: `${pad(9 + index)}:00`,
-      end: `${pad(10 + index)}:00`,
-      status: 'AVAILABLE' as const,
-    })),
-    operatingNotes: [{ organization: '고정관념', start: '09:00', end: '20:00' }],
+  const securedOnlyDay = makeDay({
+    slots: Array.from({ length: 13 }, (_, index) => {
+      const start = `${pad(9 + index)}:00`;
+      const end = `${pad(10 + index)}:00`;
+      if (index <= 10) {
+        return { start, end, status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization: '고정관념' };
+      }
+      return { start, end, status: 'AVAILABLE' as const };
+    }),
   });
-  render(<DayBookingOverview day={operatingOnlyDay} />);
+  render(<DayBookingOverview day={securedOnlyDay} />);
+  // 기본 확보 = 크롤 실범위(09~20) 병합 통짜 행 + (기본 확보) 접미
   expect(screen.getByText('09:00~20:00')).toBeInTheDocument();
   expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
-  // 예약 가능은 기본 확보를 빼고 계산하지 않는다 — 전체 축 09~22 를 한 구간(13타임)으로
-  const availableRow = screen.getByText('09:00~22:00').closest('li');
+  // 기본 확보 시간은 이제 예약 가능이 아니다 — 확보 범위 밖(20~22)만 예약 가능으로 집계
+  const availableRow = screen.getByText('20:00~22:00').closest('li');
   expect(availableRow).toHaveTextContent('예약 가능');
-  expect(availableRow).toHaveTextContent('(13타임)');
+  expect(availableRow).toHaveTextContent('(2타임)');
+  expect(screen.queryByText('09:00~22:00')).not.toBeInTheDocument();
 });
 
 it('예약 건도 운영행도 없어도 카드를 렌더한다 — 예약 가능 구간·기간 분포는 항상 표시', () => {
@@ -458,7 +459,6 @@ it('예약 건도 운영행도 없어도 카드를 렌더한다 — 예약 가�
       end: `${pad(10 + index)}:00`,
       status: 'AVAILABLE' as const,
     })),
-    operatingNotes: [],
   });
   render(<DayBookingOverview day={emptyDay} />);
   expect(screen.getByText('예약 현황')).toBeInTheDocument();
@@ -803,13 +803,19 @@ function makeBlockWeekDaysByIso(): Map<string, BookingDayAvailability> {
     operatingNotes: BookingDayAvailability['operatingNotes'] = [],
   ): BookingDayAvailability => ({ date, dayStatus: 'AVAILABLE', availableSlotCount: 13, operatingNotes, slots });
   const school = (organization: string) => ({ status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization });
+  const secured = (organization: string) => ({ status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization });
   return new Map<string, BookingDayAvailability>([
     [
       '2026-07-20',
       day(
         '2026-07-20',
-        makeWeekSlots({ 4: school('비호응원단'), 5: school('비호응원단'), 6: { status: 'PENDING_HOLD' } }),
-        [{ organization: '고정관념', start: '09:00', end: '11:00' }],
+        makeWeekSlots({
+          0: secured('고정관념'),
+          1: secured('고정관념'),
+          4: school('비호응원단'),
+          5: school('비호응원단'),
+          6: { status: 'PENDING_HOLD' },
+        }),
       ),
     ],
     ['2026-07-21', day('2026-07-21', makeWeekSlots({ 0: school('비호응원단'), 1: school('비호응원단') }))],
@@ -851,37 +857,33 @@ it('주간 그리드는 연속 BLOCKED 를 rowSpan 병합 블록(이름 Bold·�
   expect(block).toBeDisabled();
 });
 
-it('주간 그리드의 기본 확보 시간 가용 셀은 sky 점선 가이드 셀이다 — 블록 아님·단체명 미표기(§8.1·§10.1)', () => {
+it('주간 그리드의 기본 확보 시간은 sage 점선 차단 블록이다 — 선택 불가·단체명 표기(전면 차단)', () => {
   const { onTapSlot } = renderBlockWeek();
-  // 운영(고정관념 09~11) 구간의 AVAILABLE 셀 = sky 점선 가이드 셀. 동작은 일반 가용 셀과 동일(탭 = onTapSlot).
-  const operatingCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
-  expect(operatingCell).toBeEnabled();
-  // §10.1 가이드 레이어: 색은 일반 가용 셀과 동일(sage), 점선 보더만 차이(사용자 조정 2026-07-17).
-  expect(operatingCell).toHaveClass('bg-sage-mist');
-  expect(operatingCell).toHaveClass('border-dashed');
-  expect(operatingCell).toHaveClass('border-sage-soft');
-  fireEvent.click(operatingCell);
-  expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '09:00');
-  // 운영 단체명·"(운영)" 은 그리드에 없다(사이드바 현황 카드·기본 확보 시간 안내 박스가 담당).
-  expect(screen.queryByText('고정관념')).toBeNull();
-  expect(screen.queryByText('(운영)')).toBeNull();
+  const securedBlock = screen.getByRole('button', { name: '월요일 20일 09:00~11:00 고정관념 기본 확보 시간' });
+  // 크롤 실범위(09~11) rowSpan 병합 + 기존 기본 확보 시각 언어(sage 점선) 유지.
+  expect(securedBlock.closest('td')).toHaveAttribute('rowspan', '2');
+  expect(securedBlock).toHaveClass('bg-sage-mist');
+  expect(securedBlock).toHaveClass('border-dashed');
+  // PC 비인터랙티브 + 차단 — 탭해도 슬롯 선택이 일어나지 않는다.
+  expect(securedBlock).toBeDisabled();
+  fireEvent.click(securedBlock);
+  expect(onTapSlot).not.toHaveBeenCalled();
+  // "예약 신청 가능" 류 문구 금지(수정 7) — 기본 확보는 차단 상태다.
+  expect(screen.queryByRole('button', { name: /예약 신청 가능/ })).toBeNull();
   // 금지어(§10.2): aria-label 에 "운영 중" 부재.
   expect(screen.queryByRole('button', { name: /운영 중/ })).toBeNull();
-  // 운영 구간 밖 가능 셀(12:00)은 sage 유지.
-  expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveClass('bg-sage-mist');
+  // 확보 구간 밖 가능 셀(12:00)은 sage 유지·탭 가능.
+  const availableCell = screen.getByRole('button', { name: '월요일 20일 12:00 가능' });
+  expect(availableCell).toHaveClass('bg-sage-mist');
+  fireEvent.click(availableCell);
+  expect(onTapSlot).toHaveBeenCalledWith('2026-07-20', '12:00');
 });
 
-it('기본 확보 시간 sky 셀도 선택되면 ink 배경·✓·aria-pressed=true 로 표기된다', () => {
-  renderBlockWeek({ selection: { start: '09:00', end: '11:00' } });
-  const selectedCell = screen.getByRole('button', { name: '월요일 20일 09:00 기본 확보 시간 · 예약 신청 가능' });
-  expect(selectedCell).toHaveClass('bg-ink');
-  expect(selectedCell).toHaveAttribute('aria-pressed', 'true');
-  expect(selectedCell).toHaveTextContent('✓');
-  // 범위 내 두 번째 기본 확보 시간 셀도 선택 표기.
-  expect(screen.getByRole('button', { name: '월요일 20일 10:00 기본 확보 시간 · 예약 신청 가능' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+it('기본 확보 블록은 모바일에서 탭 시 시트 콜백을 부르고 파스텔 순환에서는 제외된다', () => {
+  const onTapBlock = vi.fn();
+  renderBlockWeek({ blocksInteractive: true, onTapBlock });
+  fireEvent.click(screen.getByRole('button', { name: '월요일 20일 09:00~11:00 고정관념 기본 확보 시간' }));
+  expect(onTapBlock).toHaveBeenCalledWith({ kind: 'BASIC_SECURED', label: '고정관념', start: '09:00', end: '11:00' });
 });
 
 it('주간 그리드는 확정 블록에 라벨 첫 등장 순 파스텔을 배정한다(동일 동아리=동일 색·다른 동아리=다른 색)', () => {
@@ -917,6 +919,16 @@ it('블록 상세 시트(§9.3): 대기 블록은 이름 없이 "승인 대기" 
   expect(within(dialog).queryByText('예약됨')).not.toBeInTheDocument();
 });
 
+it('블록 상세 시트: 기본 확보 블록은 단체명·기본 확보 시간 배지·신청 불가 안내를 노출한다', () => {
+  render(<WeekBlockSheet block={{ kind: 'BASIC_SECURED', label: '고정관념', start: '09:00', end: '11:00' }} onClose={vi.fn()} />);
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('고정관념')).toBeInTheDocument();
+  expect(within(dialog).getByText('기본 확보 시간')).toBeInTheDocument();
+  expect(within(dialog).getByText('09:00~11:00')).toBeInTheDocument();
+  expect(within(dialog).getByText(/예약을 신청할 수 없어요/)).toBeInTheDocument();
+  expect(within(dialog).queryByText('예약됨')).not.toBeInTheDocument();
+});
+
 it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는다', () => {
   render(<WeekBlockSheet block={null} onClose={vi.fn()} />);
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -947,15 +959,13 @@ function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>
   return props;
 }
 
-it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디케이터·슬롯 리스트·기본 확보 안내·CTA·시간표로 보기를 렌더하고 요약/현황 카드는 없다', () => {
+it('빠른 예약 시트(§11.1): slots 스텝은 날짜 제목·스텝 인디케이터·슬롯 리스트·CTA·시간표로 보기를 렌더하고 요약/현황 카드는 없다', () => {
   renderMobileSheet();
   const dialog = screen.getByRole('dialog');
   // 헤더 날짜 제목 = bookingDateLabel(2026-07-20) = "7월 20일 (월)".
   expect(within(dialog).getByText('7월 20일 (월)')).toBeInTheDocument();
   expect(within(dialog).getByLabelText('예약 진행 단계')).toBeInTheDocument();
   expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
-  // 슬롯 리스트에 기본 확보 시간 안내 박스가 함께 온다(DaySlotList 재사용).
-  expect(within(dialog).getByText('기본 확보 시간')).toBeInTheDocument();
   // 선택 전 CTA 비활성 + 보조 버튼 "시간표로 보기" 노출(slots 스텝).
   const sheetCta = within(dialog).getByRole('button', { name: '시간을 선택해주세요' });
   expect(sheetCta).toBeDisabled();
