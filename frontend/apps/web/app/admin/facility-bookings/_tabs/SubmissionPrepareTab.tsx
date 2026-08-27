@@ -262,7 +262,8 @@ export function SubmissionPrepareTab() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => setExcludedById(new Map(visibleSelectableEntries))}
+              // 병합 — 검색·필터 밖에 숨은 기존 제외를 덮어쓰지 않는다(P2-15/20 원칙). 전체 선택은 명시적 전체 의도라 Map 비움 유지.
+              onClick={() => setExcludedById((previous) => new Map([...previous, ...visibleSelectableEntries]))}
             >
               전체 해제
             </button>

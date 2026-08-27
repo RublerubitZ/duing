@@ -302,6 +302,36 @@ describe('SubmissionPrepareTab', () => {
     expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3], [4]]);
   });
 
+  it('검색 중 "전체 해제"는 보이는 예약만 제외에 더하고 검색 밖 기존 제외를 지우지 않는다', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 11, submissionNo: 'SUB-20260801-006', csvFileName: 'facility-submission-SUB-20260801-006.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
+    render(<SubmissionPrepareTab />);
+
+    // 밴드부 강당(1) 제외 → 검색으로 밴드부 숨김 → 화면(테니스부 4)만 "전체 해제" → 검색 해제.
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '테니스' } });
+    fireEvent.click(screen.getByRole('button', { name: '전체 해제' }));
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+
+    // 검색 밖 제외(1)는 유지, 화면에 있던 4 도 제외, 손대지 않은 3 만 선택.
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-03 14:00 선택/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /테니스부 2026-08-04 10:00 선택/ })).not.toBeChecked();
+    expect(screen.getByText('1건 선택됨 · 동아리 1곳')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^제출 목록 만들기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3]]);
+  });
+
   it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여준다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
