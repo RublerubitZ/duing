@@ -24,10 +24,13 @@ import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
+import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService;
+import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingSummaryResult;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingService;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
+import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -52,6 +55,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 /**
@@ -66,6 +70,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
     @Autowired FacilityBookingMatchingScheduler scheduler;
     @Autowired FacilityBookingMatchingService matchingService;
+    @Autowired FacilityBookingAdminQueryService queryService;
     @Autowired FacilityBookingAdminService adminService;
     @Autowired FacilityBookingService bookingService;
     @Autowired FacilityBookingRepository bookingRepository;
@@ -161,6 +166,15 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
         snapshot.recordSuccessful(crawledAt, CrawlSource.SCHEDULER, fetchStatus, lastError, syncedFacilityIds);
         snapshotRepository.save(snapshot);
+    }
+
+    /** 관리자 큐(APPROVED 탭)에서 해당 예약 행을 찾는다 — 큐 파생 플래그와 매칭 결과의 일치를 단언하기 위한 것. */
+    private AdminBookingSummaryResult approvedQueueRow(Long bookingId) {
+        return queryService.getQueue(new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                        PageRequest.of(0, 20)).getContent().stream()
+                .filter(row -> row.bookingId().equals(bookingId))
+                .findFirst()
+                .orElseThrow();
     }
 
     // ---------- tests ----------
@@ -264,6 +278,108 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
         assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("자기 이름 행이 전 구간을 덮어도 타 단체 실예약 행이 겹치면 자동 확정을 보류한다 — APPROVED 로 남아 큐의 충돌 의심 신호가 살아남는다")
+    void holdsAutoConfirmWhenOtherOrganizationRowOverlaps() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        // 완전 커버 + 타 단체 겹침 — 자동 CONFIRMED 로 닫으면 conflictSuspected(APPROVED 전용)·markConflict
+        // (APPROVED 가드)가 모두 닫혀 이중 대관 신호가 소실된다(P2-02). 보류해 수동 검토로 넘긴다.
+        Long held = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), held);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, false, generation));
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "전혀다른단체", false, generation));
+
+        // 부분 커버 + 타 단체 겹침 — 기존과 같이 미확정(커버 판정 단계에서 이미 불발).
+        Long partial = pendingBooking(fixture, date, 9, 11);
+        adminService.approve(admin.getId(), partial);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), clubName, false, generation));
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(10, 0), LocalTime.of(11, 0), "전혀다른단체", false, generation));
+
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(held).orElseThrow().getStatus())
+                .as("완전 커버여도 타 단체 겹침이면 자동 확정을 보류한다")
+                .isEqualTo(BookingStatus.APPROVED);
+        assertThat(bookingRepository.findById(partial).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+        // 큐와 매칭이 같은 정책 판정을 공유한다 — 보류된 예약은 큐에서 충돌 의심으로 표시된다(신호 생존).
+        assertThat(approvedQueueRow(held).conflictSuspected()).isTrue();
+        assertThat(approvedQueueRow(partial).conflictSuspected()).isTrue();
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리의 물결 확보 행이 겹쳐도 타 단체 겹침이 아니라 자동 확정을 보류하지 않는다 — 비차단 행은 충돌 신호가 아니다")
+    void securedClubSecuredTailOverlapDoesNotHoldAutoConfirm() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        LocalDateTime generation = LocalDateTime.now();
+
+        // 확보 동아리 상시 확보 물결 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
+        // 스케줄러가 확보 키를 조달해 넘기지 않으면 이 행이 타 단체 겹침으로 세어져 보류된다(회귀 고정).
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), true, generation));
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, false, generation));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("확보 미지정 동아리의 물결 확보 행은 큐의 부분 반영 증거도 자동 확정 증거도 아니다 — 양쪽이 같은 증거 기준을 쓴다")
+    void unflaggedClubSecuredTailRowIsEvidenceOnNeitherSide() throws Exception {
+        Fixture fixture = fixture(); // 기본 확보 시간 대상 플래그 OFF(기본값) — 물결 행은 CRAWLED 분류(차단)로 남는다
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 플래그 OFF 라 차단 분류지만, 물결 꼬리 행은 "학교가 이 예약을 반영했다"는 증거가 아니다 — 자동 확정이
+        // 영구 제외하는 행을 큐가 부분 반영으로 세면 관리자가 기다려도 오지 않는 자동 확정을 기다리게 된다(P2-01).
+        facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
+                sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), clubName, true, generation));
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+
+        scheduler.runMatchingCycle();
+
+        assertThat(bookingRepository.findById(approved).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+        AdminBookingSummaryResult queueRow = approvedQueueRow(approved);
+        assertThat(queueRow.partiallyMatched())
+                .as("자동 확정이 증거로 쓰지 않는 행을 큐가 부분 반영으로 세면 오배지다")
+                .isFalse();
+        assertThat(queueRow.conflictSuspected()).isFalse(); // 같은 이름 행이라 타 단체 겹침도 아니다
     }
 
     @Test
@@ -448,7 +564,7 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         Callable<Throwable> confirmTask = () -> {
             startGate.await(5, TimeUnit.SECONDS);
             try {
-                matchingService.verifyAndConfirm(approved, clubName, Set.of());
+                matchingService.verifyAndConfirm(approved, clubName, Set.of(), Set.of());
                 return null;
             } catch (Throwable failure) {
                 return failure;

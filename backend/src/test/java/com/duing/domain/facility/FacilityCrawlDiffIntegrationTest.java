@@ -300,6 +300,36 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("일부 원소만 파싱 실패한 크롤은 파싱 성공 행만 신규 저장·제자리 갱신하고 미반영 저장 행은 지우지 않으며, 그 달은 PARTIAL·세대 성공 집합 미포함으로 남는다")
+    void partiallyParsedCrawlKeepsUnparsedRowsAndUpsertsParsedRows() {
+        List<RowState> baseline = crawlBaseline(); // 18134(확보 표기)·18135(실예약)
+
+        // 18135 는 학교 응답에 여전히 있지만 시간 필드가 깨져 파싱 불가 — 기존 예약이 사라진 것이 아니다.
+        // 18134 는 단체명이 바뀌었고(갱신), 18136 은 새 예약(신규).
+        schoolReturns("""
+                [{"schedule_seq":"18134","schedule_dept":"바뀐고정관념(9:00~20:00)",
+                  "schedule_date":"01","schedule_time":"19:00~20:00"},
+                 {"schedule_seq":"18135","schedule_dept":"동아리연합회",
+                  "schedule_date":"02","schedule_time":"미정"},
+                 {"schedule_seq":"18136","schedule_dept":"신규동아리",
+                  "schedule_date":"03","schedule_time":"14:00~15:00"}]
+                """);
+        crawl();
+
+        List<RowState> afterCrawl = storedRows();
+        assertThat(afterCrawl).extracting(RowState::scheduleSeq).containsExactly(18134L, 18135L, 18136L);
+        assertThat(afterCrawl.get(0).id()).isEqualTo(baseline.get(0).id()); // 파싱 성공 행은 제자리 갱신
+        assertThat(afterCrawl.get(0).organizationName()).isEqualTo("바뀐고정관념");
+        assertThat(afterCrawl.get(1)).isEqualTo(baseline.get(1)); // 파싱 실패 원소의 저장 행은 지문 그대로 유지(삭제 보류)
+        assertThat(afterCrawl.get(2).organizationName()).isEqualTo("신규동아리"); // 신규 행은 정상 저장
+        // 행 집합이 불완전한 달은 신선(SUCCESS)으로 기록하지 않고 세대 결박에서도 뺀다 — 다음 주기 재시도·자동 확정 fail-closed.
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
+        assertThat(snapshot.getFetchStatus()).isEqualTo(FetchStatus.PARTIAL);
+        assertThat(snapshot.getLastError()).contains("부분 파싱 실패");
+        assertThat(snapshot.isFacilitySynced(facility.getId())).isFalse();
+    }
+
+    @Test
     @DisplayName("예약이 월 경계를 넘어 옮겨지면 옛 월의 행이 지워지고 새 월에 새로 저장된다 — schedule_seq 자기 충돌 없이")
     void reservationMovedAcrossMonthsIsDeletedThenReinserted() {
         List<RowState> baseline = crawlBaseline(); // 당월에 18134(1일)·18135(2일)

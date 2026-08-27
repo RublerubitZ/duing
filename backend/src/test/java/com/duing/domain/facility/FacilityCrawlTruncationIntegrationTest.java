@@ -22,6 +22,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -70,7 +71,8 @@ class FacilityCrawlTruncationIntegrationTest extends IntegrationTestBase {
         String overLengthName = "가".repeat(MAX_ORGANIZATION_NAME_LENGTH + 50);
 
         snapshotWriter.reconcileReservations(facility.getId(), List.of(TARGET_MONTH),
-                Map.of(TARGET_MONTH, List.of(reservationWithOrganizationName(18134L, overLengthName))), CRAWLED_AT);
+                Map.of(TARGET_MONTH, List.of(reservationWithOrganizationName(18134L, overLengthName))),
+                Set.of(TARGET_MONTH), CRAWLED_AT);
 
         List<FacilityReservation> persisted =
                 reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), TARGET_MONTH);
@@ -89,7 +91,7 @@ class FacilityCrawlTruncationIntegrationTest extends IntegrationTestBase {
 
         snapshotWriter.reconcileReservations(facility.getId(), List.of(TARGET_MONTH),
                 Map.of(TARGET_MONTH, List.of(reservationWithOrganizationName(18135L, surrogateBoundaryName))),
-                CRAWLED_AT);
+                Set.of(TARGET_MONTH), CRAWLED_AT);
 
         String persistedName = reservationRepository
                 .findByFacilityIdAndYearMonth(facility.getId(), TARGET_MONTH)

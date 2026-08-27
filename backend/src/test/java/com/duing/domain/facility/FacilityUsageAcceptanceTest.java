@@ -25,6 +25,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -114,7 +115,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 List.of(currentMonth),
                 Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(17, 0),
                         "새단체", false))),
-                now);
+                Set.of(currentMonth), now);
 
         List<FacilityReservation> afterReplace =
                 reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), currentMonth);
@@ -126,7 +127,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         assertThat(afterReplace.get(0).getEndTime()).isEqualTo(LocalTime.of(17, 0));
 
         snapshotWriter.reconcileReservations(
-                facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), now);
+                facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), Set.of(currentMonth), now);
 
         List<FacilityReservation> afterEmptyReplace =
                 reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), currentMonth);

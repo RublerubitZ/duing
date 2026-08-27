@@ -13,8 +13,12 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -63,6 +67,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository facilityReservationRepository;
+    @Autowired FacilityMonthSnapshotRepository snapshotRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
@@ -132,6 +137,36 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         var histories = historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
         assertThat(histories.get(0).getNewStatus()).isEqualTo(BookingStatus.APPROVED);
         assertThat(histories.get(0).getChangedById()).isEqualTo(admin.getId());
+    }
+
+    @Test
+    @DisplayName("부분 파싱으로 세대 성공 집합에서 빠진 시설의 승인은 크롤 기준 시각을 월 메타 세대가 아니라 실제 보유 행의 최종 반영 시각으로 남긴다")
+    void approveFallsBackToRowCrawledAtWhenFacilityIsNotSyncedInGeneration() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        // 이 시설의 행은 구세대(1시간 전)에 마지막으로 반영됐고, 월 메타는 그 뒤 부분 파싱 세대(PARTIAL)로 갱신됐다.
+        LocalDateTime rowCrawledAt = LocalDateTime.now().withNano(0).minusHours(1);
+        LocalDateTime partialGeneration = rowCrawledAt.plusHours(1);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, rowCrawledAt));
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, partialGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(partialGeneration, CrawlSource.SCHEDULER, FetchStatus.PARTIAL,
+                "예약 부분 파싱 실패: skipped=1", List.of()); // 부분 파싱 시설은 세대 성공 집합에 들지 않는다
+        snapshotRepository.save(snapshot);
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        FacilityBooking approved = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(approved.getStatus()).isEqualTo(BookingStatus.APPROVED);
+        assertThat(approved.getCrawlBasisAt()).isEqualTo(rowCrawledAt); // 스냅샷 세대(partialGeneration)가 아니다
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).get(0).getCrawlBasisAt())
+                .isEqualTo(rowCrawledAt);
     }
 
     @Test

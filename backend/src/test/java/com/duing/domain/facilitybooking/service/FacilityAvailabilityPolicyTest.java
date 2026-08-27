@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 class FacilityAvailabilityPolicyTest {
 
     private final ClubRepository clubRepository = mock(ClubRepository.class);
-    private final FacilityAvailabilityPolicy policy =
-            new FacilityAvailabilityPolicy(clubRepository, new OrganizationNameNormalizer());
+    private final OrganizationNameNormalizer normalizer = new OrganizationNameNormalizer();
+    private final FacilityAvailabilityPolicy policy = new FacilityAvailabilityPolicy(clubRepository, normalizer);
 
     private record SecuredNameRow(String name, boolean secured)
             implements ClubRepository.ClubSecuredNameProjection {
@@ -182,5 +182,40 @@ class FacilityAvailabilityPolicyTest {
 
         assertThat(policy.blockingOverlapping(List.of(colliding), date,
                 LocalTime.of(10, 0), LocalTime.of(11, 0), securedKeys).toList()).containsExactly(colliding);
+    }
+
+    @Test
+    @DisplayName("타 단체 실예약 행이 겹치면 불일치 점유 겹침이고, 같은 이름 행·확보 대상의 물결 행·다른 날짜 행은 아니다")
+    void hasMismatchedOccupiedOverlapCountsOnlyBlockingRowsOfOtherOrganizations() {
+        when(clubRepository.findSecuredTargetNameRows())
+                .thenReturn(List.of(new SecuredNameRow("고정관념", true)));
+        Set<String> securedKeys = policy.securedOrganizationKeys();
+        LocalDate date = LocalDate.of(2026, 1, 15);
+        LocalTime startTime = LocalTime.of(18, 0);
+        LocalTime endTime = LocalTime.of(20, 0);
+        String normalizedClubName = normalizer.normalize("밴드부");
+
+        FacilityReservation otherOrganization =
+                crawlRow(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "학생생활상담센터", false);
+        // 공백 변형은 정규화로 같은 이름 — 학교가 우리 예약을 등록한 정상 경로라 불일치가 아니다.
+        FacilityReservation sameName = crawlRow(date, LocalTime.of(18, 0), LocalTime.of(20, 0), "밴드 부", false);
+        // 확보 대상 동아리의 물결 행은 비차단(classify 제외)이라 타 단체 겹침으로 세지 않는다.
+        FacilityReservation securedTail = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(22, 0), "고정관념", true);
+        // 확보 미지정 동아리의 물결 행은 CRAWLED 폴백(차단)이라 타 단체 겹침이다 — 차단 정책과 정합(fail-closed).
+        FacilityReservation unflaggedTail = crawlRow(date, LocalTime.of(9, 0), LocalTime.of(22, 0), "ABC동아리", true);
+        // 날짜 필터는 헬퍼가 내장한다 — 월 단위 행을 그대로 넘겨도 다른 날짜는 세지 않는다.
+        FacilityReservation otherDate =
+                crawlRow(date.plusDays(1), LocalTime.of(18, 0), LocalTime.of(20, 0), "학생생활상담센터", false);
+
+        assertThat(policy.hasMismatchedOccupiedOverlap(List.of(sameName, otherOrganization),
+                date, startTime, endTime, normalizedClubName, securedKeys)).isTrue();
+        assertThat(policy.hasMismatchedOccupiedOverlap(List.of(sameName),
+                date, startTime, endTime, normalizedClubName, securedKeys)).isFalse();
+        assertThat(policy.hasMismatchedOccupiedOverlap(List.of(sameName, securedTail),
+                date, startTime, endTime, normalizedClubName, securedKeys)).isFalse();
+        assertThat(policy.hasMismatchedOccupiedOverlap(List.of(unflaggedTail),
+                date, startTime, endTime, normalizedClubName, securedKeys)).isTrue();
+        assertThat(policy.hasMismatchedOccupiedOverlap(List.of(otherDate),
+                date, startTime, endTime, normalizedClubName, securedKeys)).isFalse();
     }
 }
