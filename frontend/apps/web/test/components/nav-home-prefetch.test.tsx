@@ -49,7 +49,7 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
     render(<BottomNav />);
 
     expectPrefetch(screen.getByRole('link', { name: '홈' }), 'false');
-    for (const label of ['탐색', '시설', '캘린더', '정보']) {
+    for (const label of ['탐색', '시설', '일정', '소식']) {
       expectPrefetch(screen.getByRole('link', { name: label }), 'undefined');
     }
   });
