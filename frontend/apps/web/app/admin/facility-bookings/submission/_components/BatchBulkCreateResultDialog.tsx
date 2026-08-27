@@ -18,8 +18,8 @@ import {
 import { submissionCsvFileName } from '../_lib/submissionBatches';
 
 export type BulkCreateOutcome = {
-  facilityId: number;
-  facilityName: string;
+  clubId: number;
+  clubName: string;
   bookingCount: number;
   batch: CreateSubmissionBatchResult | null; // null = 생성 실패
   errorMessage: string | null;
@@ -31,8 +31,8 @@ type Props = {
 };
 
 /**
- * 생성 결과 다이얼로그(개편 스펙 §4) — 생성 직후 배치별 CSV 를 바로 받게 해
- * "탭 이동 → 배치 찾기 → CSV" 동선을 없앤다. 부분 실패는 시설별로 구분 보고한다.
+ * 생성 결과 다이얼로그(v2 스펙 §4) — 생성 직후 배치별 CSV 를 바로 받게 해
+ * "탭 이동 → 배치 찾기 → CSV" 동선을 없앤다. 부분 실패는 동아리별로 구분 보고한다.
  */
 export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
   const csvMutation = useDownloadSubmissionCsvMutation();
@@ -69,13 +69,13 @@ export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
           <DialogDescription>
             {failureCount === 0
               ? 'CSV 를 바로 받아 제출 서류를 준비할 수 있어요.'
-              : '실패한 시설의 예약은 계속 선택돼 있어요 — 잠시 후 다시 시도해 주세요.'}
+              : '실패한 동아리의 예약은 계속 선택돼 있어요 — 잠시 후 다시 시도해 주세요.'}
           </DialogDescription>
         </DialogHeader>
         <ul className="max-h-64 space-y-2 overflow-y-auto">
           {outcomes.map((outcome) => (
             <li
-              key={outcome.facilityId}
+              key={outcome.clubId}
               className={`flex flex-wrap items-center gap-2 rounded-md px-3 py-2 ${
                 outcome.batch !== null ? 'bg-sage/10' : 'bg-coral/10'
               }`}
@@ -85,7 +85,7 @@ export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
               </span>
               {/* 아이콘·배경색은 장식 — 스크린리더용 성공/실패 라벨을 텍스트로 남긴다. */}
               <span className="sr-only">{outcome.batch !== null ? '생성 성공' : '생성 실패'}</span>
-              <span className="text-sm font-medium text-ink-deep">{outcome.facilityName}</span>
+              <span className="text-sm font-medium text-ink-deep">{outcome.clubName}</span>
               {outcome.batch !== null ? (
                 <>
                   <span className="text-xs text-charcoal-3">

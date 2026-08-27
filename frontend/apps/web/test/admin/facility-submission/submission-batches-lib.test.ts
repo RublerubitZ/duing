@@ -64,10 +64,10 @@ describe('BATCH_STATUS_META', () => {
 });
 
 describe('defaultBatchMemo', () => {
-  it('오늘 날짜 기준 "M월 N주차 · 시설명"을 만든다 — 월말(29~31일)은 5주차', () => {
-    expect(defaultBatchMemo('강당', new Date(2026, 6, 1))).toBe('7월 1주차 · 강당');
-    expect(defaultBatchMemo('강당', new Date(2026, 6, 20))).toBe('7월 3주차 · 강당');
-    expect(defaultBatchMemo('세미나실', new Date(2026, 6, 31))).toBe('7월 5주차 · 세미나실');
+  it('오늘 날짜 기준 "M월 N주차 · 동아리명"을 만든다 — 월말(29~31일)은 5주차', () => {
+    expect(defaultBatchMemo('밴드부', new Date(2026, 6, 1))).toBe('7월 1주차 · 밴드부');
+    expect(defaultBatchMemo('밴드부', new Date(2026, 6, 20))).toBe('7월 3주차 · 밴드부');
+    expect(defaultBatchMemo('방송국', new Date(2026, 6, 31))).toBe('7월 5주차 · 방송국');
   });
 });
 
