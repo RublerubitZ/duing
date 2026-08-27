@@ -20,6 +20,7 @@ import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
@@ -267,8 +268,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
                 .findFirst().orElseThrow();
         assertThat(crawlDay.availableSlotCount()).isEqualTo(9);
-        // 비차단 운영행 개념 폐지 — operatingNotes 는 항상 빈 배열(계약 유지).
-        assertThat(crawlDay.operatingNotes()).isEmpty();
+        // 확보 행은 표시 전용 operatingNotes 로 내려간다 — 차단 아님(v2 스펙 §3). 실예약 행 2건은 미포함.
+        assertThat(crawlDay.operatingNotes()).containsExactly(new OperatingNote("고정관념", "10:00", "13:00"));
 
         // 플래그 OFF 로 바꾸면 재크롤 없이 같은 행이 즉시 CRAWLED(SCHOOL)로 재분류되어 다시 차단된다(수정 6).
         securedClub.changeFacilitySecuredTimeTarget(false);
@@ -278,6 +279,11 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         SlotAvailability reclassified = slotAt(afterToggle, crawlDate, "10:00");
         assertThat(reclassified.status()).isEqualTo(SlotStatus.BLOCKED); // 확보 해제 즉시 재차단(소급 없는 조회 시점 파생)
         assertThat(reclassified.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+        // 확보 미지정 상태에서는 표시 데이터 소스가 없으므로 operatingNotes 가 빈 배열이다.
+        FacilityAvailabilityResponse.DayAvailability afterToggleDay = afterToggle.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
+                .findFirst().orElseThrow();
+        assertThat(afterToggleDay.operatingNotes()).isEmpty();
     }
 
     private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {

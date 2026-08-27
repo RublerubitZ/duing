@@ -2,6 +2,7 @@ package com.duing.domain.facilitybooking.service;
 
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayStatus;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
@@ -11,6 +12,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,7 +23,8 @@ import java.util.Optional;
  * <p>크롤 slice 는 실예약 분류(CRAWLED_RESERVATION)만 차단한다 — 기본 확보 시간(BASIC_SECURED_TIME)은
  * 비차단이라 다른 동아리가 그 시간대를 신청할 수 있다(2026-08-27 비차단 전환). 슬롯 판정 우선순위(공존 시 표시 순서):
  * PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL=CRAWLED_RESERVATION) → PENDING_HOLD → AVAILABLE.
- * operatingNotes 는 구 계약 유지를 위해 항상 빈 배열로 발행한다(비차단 운영행 개념 폐지 — 필드 제거는 후속).
+ * operatingNotes 는 확보(BASIC_SECURED_TIME) 슬라이스의 (단체, 시작, 끝) distinct 나열이다 —
+ * 표시 전용, 차단 아님(v2 스펙 §3).
  */
 public final class FacilitySlotAssembler {
 
@@ -61,6 +64,10 @@ public final class FacilitySlotAssembler {
         List<CrawlSlice> crawledReservations = crawlSlices.stream()
                 .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.CRAWLED_RESERVATION)
                 .toList();
+        // 확보 분류는 표시 전용 — 차단 아님(v2 스펙 §3). 슬롯 판정에는 관여하지 않고 operatingNotes 소스로만 쓴다.
+        List<CrawlSlice> basicSecuredTimes = crawlSlices.stream()
+                .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.BASIC_SECURED_TIME)
+                .toList();
         List<BookingSlice> blockedBookings = bookingSlices.stream()
                 .filter(slice -> slice.date().equals(date) && slice.status().blocksSlot())
                 .toList();
@@ -84,8 +91,20 @@ public final class FacilitySlotAssembler {
         DayStatus dayStatus = date.isBefore(today) ? DayStatus.PAST
                 : availableCount == 0 ? DayStatus.FULL
                 : DayStatus.AVAILABLE;
-        // operatingNotes 는 항상 빈 배열 — 비차단 운영행 개념 폐지(구 FE 스큐 호환용 계약 유지, 제거는 후속).
-        return new DayAvailability(date, dayStatus, availableCount, List.of(), slots);
+        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots);
+    }
+
+    /**
+     * 확보 슬라이스의 (단체, 시작, 끝)을 행 단위 distinct 로 나열한다 — 표시 전용, 차단 아님(v2 스펙 §3).
+     * 인접 구간 병합은 하지 않는다(main 의 다중 노트 나열 동작과 동등).
+     */
+    private static List<OperatingNote> operatingNotes(List<CrawlSlice> basicSecuredTimes) {
+        LinkedHashSet<OperatingNote> notes = new LinkedHashSet<>();
+        for (CrawlSlice slice : basicSecuredTimes) {
+            notes.add(new OperatingNote(slice.organization(),
+                    TIME_FORMAT.format(slice.start()), TIME_FORMAT.format(slice.end())));
+        }
+        return List.copyOf(notes);
     }
 
     private static SlotAvailability resolveSlot(LocalDate date, LocalDate today, LocalTime nowTime,

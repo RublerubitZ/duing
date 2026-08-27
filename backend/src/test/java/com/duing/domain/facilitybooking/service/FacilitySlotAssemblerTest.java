@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayStatus;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -71,8 +72,33 @@ class FacilitySlotAssemblerTest {
         assertThat(target.slots().get(17 - 9).organization()).isEqualTo("비호응원단");
         assertThat(slotStatus(target, 18)).isEqualTo(SlotStatus.BLOCKED);
         assertThat(target.availableSlotCount()).isEqualTo(11); // 실예약 2칸(17~19)만 차단
-        // 비차단 운영행 개념 폐지 — operatingNotes 는 항상 빈 배열(구 FE 스큐 호환용 계약 유지).
-        assertThat(target.operatingNotes()).isEmpty();
+        // 확보 슬라이스는 표시 전용 operatingNotes 로 내려간다 — 차단 아님(v2 스펙 §3). 실예약 행은 미포함.
+        assertThat(target.operatingNotes()).containsExactly(new OperatingNote("고정관념", "10:00", "17:00"));
+    }
+
+    @Test
+    @DisplayName("확보 슬라이스가 있는 날은 operatingNotes 에 (단체, 시작, 끝)이 중복 없이 담기고, 없는 날은 빈 배열이다")
+    void operatingNotesDedupeSecuredSlicesPerDay() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        List<CrawlSlice> crawl = List.of(
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 같은 단체·같은 구간의 중복 행 — 행 단위 distinct 로 한 건만 남긴다.
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 같은 단체의 인접 구간 — 병합하지 않고 별도 노트로 나열한다(행 단위 distinct).
+                new CrawlSlice(date, LocalTime.of(13, 0), LocalTime.of(15, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 실예약 분류는 표시 데이터 소스가 아니다.
+                new CrawlSlice(date, LocalTime.of(17, 0), LocalTime.of(18, 0), "비호응원단",
+                        CrawlRowType.CRAWLED_RESERVATION));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
+
+        assertThat(day(days, 20).operatingNotes()).containsExactly(
+                new OperatingNote("고정관념", "10:00", "13:00"),
+                new OperatingNote("고정관념", "13:00", "15:00"));
+        assertThat(day(days, 21).operatingNotes()).isEmpty(); // 확보 슬라이스가 없는 날은 빈 배열
     }
 
     @Test
