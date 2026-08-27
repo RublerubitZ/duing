@@ -8,11 +8,13 @@ import type {
   CreateClubPayload,
   UpdateAdminNotePayload,
   UpdateClubCentralClubPayload,
+  UpdateClubFacilitySecuredTimeTargetPayload,
   UpdateClubStatusPayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
 import { clubQueryKeys } from './clubQueryKeys';
+import { facilityQueryKeys } from './facilityQueryKeys';
 
 /**
  * 콘솔 사이드바 뱃지용 미처리 건수. 전역 staleTime(30초)을 그대로 써서, 사이드바가 다시 마운트되거나
@@ -225,6 +227,21 @@ export function useUpdateClubCentralClubMutation() {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+    },
+  });
+}
+
+export function useUpdateClubFacilitySecuredTimeTargetMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ clubId, payload }: { clubId: number; payload: UpdateClubFacilitySecuredTimeTargetPayload }) =>
+      client.clubs.updateFacilitySecuredTimeTarget(clubId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      // 분류는 조회 시점 파생이라 플래그 변경 즉시 가용성·크롤 현황 표기가 바뀐다 — 함께 무효화.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityCrawlAll });
+      queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
     },
   });
 }

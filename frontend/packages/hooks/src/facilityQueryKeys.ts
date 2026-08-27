@@ -2,6 +2,7 @@ import type { BookingStatus } from '@duing/types';
 
 export const facilityQueryKeys = {
   all: ['facilities'] as const,
+  list: () => [...facilityQueryKeys.all, 'list'] as const,
   usage: (yearMonth?: string) =>
     [...facilityQueryKeys.all, 'usage', yearMonth ?? 'current'] as const,
   detail: (facilityId: number, yearMonth?: string) =>

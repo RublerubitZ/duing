@@ -96,6 +96,8 @@ import type {
   ChangeFederationInquiryStatusPayload,
   AnswerFederationInquiryPayload,
   UpdateFederationInquiryAnswerPayload,
+  AdminCrawlReservationGroup,
+  AdminCrawlReservationParams,
 } from '@duing/types';
 import { REQUEST_TIMEOUT_MS, cleanParams } from '../http';
 
@@ -264,6 +266,13 @@ export type AdminApi = {
     cancel(bookingId: number, reason: string): Promise<void>;
     // GET .../summary — 대시보드 카드 수치(§9.7)
     summary(): Promise<AdminFacilityBookingCounts>;
+  };
+  // === 크롤 예약 현황(전면 차단 설계 §3.6) — 읽기 전용, 그룹 단위 페이징 ===
+  facilityCrawl: {
+    // GET /api/v1/admin/facility-crawl/reservations — 당월·익월만(400), groupBy 기본 CLUB
+    reservations(
+      params: AdminCrawlReservationParams,
+    ): Promise<PageResponse<AdminCrawlReservationGroup>>;
   };
   // === 학교 제출(Submission Batch) — BE §5 ===
   facilitySubmission: {
@@ -578,6 +587,12 @@ export function createAdminApi(deps: {
       cancel: (bookingId, reason) =>
         jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
       summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+    },
+    facilityCrawl: {
+      reservations: (params) =>
+        jsonOk<PageResponse<AdminCrawlReservationGroup>>(
+          http.get('admin/facility-crawl/reservations', { searchParams: cleanParams(params) }),
+        ),
     },
     facilitySubmission: {
       candidates: (params) =>

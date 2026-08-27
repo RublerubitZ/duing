@@ -7,11 +7,13 @@ import {
   useAdminClubsQuery,
   useCloseClubMutation,
   useUpdateClubCentralClubMutation,
+  useUpdateClubFacilitySecuredTimeTargetMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
 import type { AdminClubSummary, ClubStatus } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
+import { AdminClubSecuredTargetToggleDialog } from '../_components/AdminClubSecuredTargetToggleDialog';
 import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
@@ -35,6 +37,8 @@ export function AdminClubsListPage() {
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [centralClubDialog, setCentralClubDialog] = useState<AdminClubSummary | null>(null);
   const [centralClubError, setCentralClubError] = useState<string | null>(null);
+  const [securedTargetDialog, setSecuredTargetDialog] = useState<AdminClubSummary | null>(null);
+  const [securedTargetError, setSecuredTargetError] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<AdminClubSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const closeMutation = useCloseClubMutation();
@@ -52,6 +56,7 @@ export function AdminClubsListPage() {
   const clubsQuery = useAdminClubsQuery(params);
   const statusMutation = useUpdateClubStatusMutation();
   const centralClubMutation = useUpdateClubCentralClubMutation();
+  const securedTargetMutation = useUpdateClubFacilitySecuredTimeTargetMutation();
 
   function handleFilterChange(next: StatusFilter) {
     setStatusFilter(next);
@@ -142,6 +147,35 @@ export function AdminClubsListPage() {
     );
   }
 
+  function handleSecuredTargetToggleClick(club: AdminClubSummary) {
+    setSecuredTargetError(null);
+    setSecuredTargetDialog(club);
+  }
+
+  function handleSecuredTargetConfirm() {
+    if (!securedTargetDialog) return;
+    setSecuredTargetError(null);
+    securedTargetMutation.mutate(
+      {
+        clubId: securedTargetDialog.id,
+        payload: { facilitySecuredTimeTarget: !securedTargetDialog.facilitySecuredTimeTarget },
+      },
+      {
+        onSuccess: () => setSecuredTargetDialog(null),
+        onError: (mutationError) => {
+          const message =
+            mutationError instanceof ApiError ? mutationError.message : '처리에 실패했습니다.';
+          setSecuredTargetError(message);
+        },
+      },
+    );
+  }
+
+  function handleSecuredTargetCancel() {
+    setSecuredTargetDialog(null);
+    setSecuredTargetError(null);
+  }
+
   function handleCentralClubCancel() {
     setCentralClubDialog(null);
     setCentralClubError(null);
@@ -211,6 +245,7 @@ export function AdminClubsListPage() {
               setDialogError(null);
             }}
             onCentralClubToggleClick={handleCentralClubToggleClick}
+            onSecuredTargetToggleClick={handleSecuredTargetToggleClick}
             onCloseClick={handleCloseClick}
           />
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
@@ -258,6 +293,16 @@ export function AdminClubsListPage() {
           errorMessage={centralClubError}
           onConfirm={handleCentralClubConfirm}
           onCancel={handleCentralClubCancel}
+        />
+      )}
+      {securedTargetDialog && (
+        <AdminClubSecuredTargetToggleDialog
+          clubName={securedTargetDialog.name}
+          currentValue={securedTargetDialog.facilitySecuredTimeTarget}
+          isPending={securedTargetMutation.isPending}
+          errorMessage={securedTargetError}
+          onConfirm={handleSecuredTargetConfirm}
+          onCancel={handleSecuredTargetCancel}
         />
       )}
       {deleteDialog && (

@@ -1017,7 +1017,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 주간 진입 확인 — 창 첫날이 선택일.
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
-    // 창 첫날 18·19시는 운영(09~20) 구간 내 가용 = sky 점선 가이드 셀(§10.1) — 일반 가용 셀과 동일하게 탭 선택.
+    // 창 첫날 18·19시는 혼합 슬롯일의 일반 가용 셀(18~19시) — 일반 가용 셀과 동일하게 탭 선택.
     // 선택일 컬럼(창 첫날)의 18:00 셀 탭 → 18:00~19:00 단일 선택(CTA 활성).
     fireEvent.click(
       await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 가능`) }),
