@@ -474,13 +474,18 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
             // 아니다), 동점이면 POPULAR 티어로 내려간다. 배포 직후처럼 관심도가 전 동아리 0 인 구간에서
             // 정렬이 사실상 club.id 순으로 무너지지 않게 하는 지점이다 — 그때는 기존 인기순 그대로 보인다.
             case INTEREST -> {
-                // 배치 전 신규 동아리는 metric 행 자체가 없다 → 서브쿼리가 NULL → NullsLast 로 0 점과 같은 자리.
-                var interestScore = JPAExpressions.select(clubMetric.interestScore)
-                        .from(clubMetric)
-                        .where(clubMetric.clubId.eq(club.id));
+                // 배치 전 신규 동아리는 metric 행 자체가 없다. NULL 을 NullsLast 로 흘리면 0 점 동아리들보다
+                // 더 뒤로 밀려 인기순 폴백의 구제를 받지 못하고 목록 최하단에 박힌다 — 정각 사이에 ACTIVE 로
+                // 전환된 동아리가 최대 한 시간 동안 그렇게 된다. coalesce 로 0 점과 같은 자리에 두어
+                // 아래 폴백 티어가 순서를 정하게 한다.
+                NumberExpression<Double> interestScore = Expressions.numberTemplate(Double.class,
+                        "coalesce({0}, 0.0)",
+                        JPAExpressions.select(clubMetric.interestScore)
+                                .from(clubMetric)
+                                .where(clubMetric.clubId.eq(club.id)));
                 OrderSpecifier<?>[] popularFallback = popularOrderSpecifiers();
                 OrderSpecifier<?>[] specifiers = new OrderSpecifier<?>[popularFallback.length + 1];
-                specifiers[0] = new OrderSpecifier<>(Order.DESC, interestScore, OrderSpecifier.NullHandling.NullsLast);
+                specifiers[0] = new OrderSpecifier<>(Order.DESC, interestScore);
                 System.arraycopy(popularFallback, 0, specifiers, 1, popularFallback.length);
                 yield specifiers;
             }

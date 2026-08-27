@@ -97,6 +97,24 @@ class ClubInterestSortTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("지표 행이 없는 동아리는 0 점 동아리보다 뒤로 밀리지 않고 인기순 폴백으로 함께 줄 세워진다")
+    void clubWithoutMetricRowIsOrderedByFallbackNotPinnedLast() throws Exception {
+        // 먼저 만든 두 곳은 배치를 거쳐 0 점 지표 행을 갖고, 마지막 한 곳은 행 자체가 없다
+        // (정각 사이에 ACTIVE 로 전환된 신규 동아리와 같은 상태).
+        saveActiveClub("폴백정렬가");
+        saveActiveClub("폴백정렬나");
+        clubMetricService.refreshAll();
+        Club newestWithoutMetric = saveActiveClub("폴백정렬다");
+
+        List<String> order = fetchNames("INTEREST", "폴백정렬");
+
+        // 셋 다 관심도 0 이므로 인기순 폴백의 마지막 티어(생성일 DESC)가 순서를 정한다 —
+        // 지표 행이 없다는 이유만으로 최하단에 박히면 안 된다.
+        assertThat(order).hasSize(3);
+        assertThat(order.get(0)).isEqualTo(newestWithoutMetric.getName());
+    }
+
+    @Test
     @DisplayName("집계 배치가 아직 돌지 않아 지표 행이 없는 동아리도 관심도순 결과에서 빠지지 않는다")
     void clubWithoutMetricRowStillAppearsInInterestSort() throws Exception {
         // refreshAll 을 부르지 않아 club_metric 행 자체가 없는 상태 — left join 이 아니면 결과에서 사라진다.

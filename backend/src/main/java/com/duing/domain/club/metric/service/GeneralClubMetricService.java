@@ -39,7 +39,9 @@ public class GeneralClubMetricService implements ClubMetricService {
         // 폐쇄·중단·삭제로 집계 대상에서 빠진 동아리의 고아 행을 먼저 걷어낸다(재활성 시 낡은 점수 방지).
         clubMetricRepository.deleteOrphans();
         // 보존 기간이 지난 관심도 원천 이벤트도 이 주기에 함께 정리한다 — 별도 잡을 두지 않는다.
-        // 집계보다 먼저 지워야 창 밖 데이터가 이번 집계에 섞이지 않는다.
+        // (전용 PiiRetentionJob 이 있지만 기본 비활성이라, 거기 두면 보존이 사실상 돌지 않는다.)
+        // 집계 쿼리가 이미 창으로 거르므로 삭제 순서는 결과에 영향이 없다 — 한 트랜잭션 안에서
+        // 지우는 편이 잡이 중간에 죽었을 때 반쯤 정리된 상태를 남기지 않아 먼저 둔다.
         LocalDate today = LocalDate.now(clock);
         // 오늘 포함 RETENTION_DAYS 일치를 남긴다 — cutoff 는 남길 가장 오래된 날짜다.
         clubViewEventRepository.deleteOlderThan(today.minusDays(ClubInterestPolicy.RETENTION_DAYS - 1L));
