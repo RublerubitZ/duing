@@ -1,6 +1,5 @@
 import {
   Building2,
-  CalendarSearch,
   CircleAlert,
   ClipboardList,
   FileSearch,
@@ -78,17 +77,10 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     href: '/admin/facility-bookings',
     title: '시설 예약 관리',
-    description: '대관 예약 검토·학교 제출 준비·제출 이력 관리',
+    description: '대관 예약 검토·학교 제출 준비·제출 이력·크롤 예약 현황',
     group: '동아리',
     icon: Building2,
     pendingCountKey: 'facilityBooking',
-  },
-  {
-    href: '/admin/facility-crawl',
-    title: '크롤 예약 현황',
-    description: '학교 크롤 예약 원본 열람 — 분류·동아리 매칭 확인(전부 차단)',
-    group: '동아리',
-    icon: CalendarSearch,
   },
   {
     // 아이콘은 Megaphone 을 피한다 — 사이드바에서 '홍보 관리' 부모가 이미 쓰고 있어 두 메뉴가 겹쳐 읽힌다.

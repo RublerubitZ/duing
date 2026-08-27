@@ -9,7 +9,7 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import type { AdminCrawlReservationGroup, PageResponse } from '@duing/types';
 
-import { AdminFacilityCrawlPage } from '@/app/admin/facility-crawl/_pages/AdminFacilityCrawlPage';
+import { FacilityCrawlTab } from '@/app/admin/facility-bookings/_tabs/FacilityCrawlTab';
 
 /* ── 테스트 데이터 — 동아리별(기본) 보기: 매칭 동아리 + 미매칭 기관이 함께 온다(수정 2) ── */
 const CLUB_GROUP: AdminCrawlReservationGroup = {
@@ -110,10 +110,10 @@ function renderPage() {
       </QueryClientProvider>
     );
   }
-  return render(<AdminFacilityCrawlPage />, { wrapper: Providers });
+  return render(<FacilityCrawlTab />, { wrapper: Providers });
 }
 
-describe('AdminFacilityCrawlPage', () => {
+describe('FacilityCrawlTab', () => {
   it('동아리별 보기(기본)는 매칭 동아리 그룹과 미매칭 주체 그룹을 함께 렌더한다 — 분류·맥락 접기 포함', async () => {
     renderPage();
 
