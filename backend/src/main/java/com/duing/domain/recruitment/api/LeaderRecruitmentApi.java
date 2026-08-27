@@ -20,7 +20,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 @SecurityRequirement(name = "BearerAuth")
 public interface LeaderRecruitmentApi {
 
-    @Operation(summary = "모집 공고 생성", description = "본인이 동아리장인 동아리에만 등록 가능. 질문 목록을 함께 전송하면 RecruitmentForm 도 함께 생성된다.")
+    @Operation(summary = "모집 공고 생성", description = "본인이 운영진(LEADER/OFFICER)인 동아리에만 등록 가능. "
+            + "단 targetRole=OFFICER(운영진 대상) 모집은 동아리장만 생성할 수 있다. "
+            + "질문 목록을 함께 전송하면 RecruitmentForm 도 함께 생성된다.")
     @PostMapping("/leader/clubs/{clubId}/recruitments")
     ResponseEntity<ApiResponse<Long>> createRecruitment(
             @PathVariable Long clubId,
@@ -30,7 +32,8 @@ public interface LeaderRecruitmentApi {
 
     @Operation(summary = "active 모집 교체",
             description = "현재 active 모집을 마감하고 같은 트랜잭션 안에서 새 모집을 생성한다. "
-                    + "본인이 동아리장인 동아리에서만 호출 가능. 기존 active 가 없으면 close 단계 없이 새 모집만 생성된다.")
+                    + "본인이 운영진(LEADER/OFFICER)인 동아리에서만 호출 가능하며, targetRole=OFFICER 모집은 동아리장 전용이다. "
+                    + "기존 active 가 없으면 close 단계 없이 새 모집만 생성된다.")
     @PostMapping("/leader/clubs/{clubId}/recruitments/replace-active")
     ResponseEntity<ApiResponse<Long>> replaceActiveRecruitment(
             @PathVariable Long clubId,

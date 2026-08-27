@@ -19,6 +19,8 @@ import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import com.duing.global.exception.PostgresConstraintViolations;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +49,8 @@ public class GeneralFederationFaqService implements FederationFaqService {
     private final FederationFaqCategoryRepository categoryRepository;
     private final FederationFaqFeedbackRepository feedbackRepository;
     private final FederationFaqSearchMissRepository searchMissRepository;
+    private final FederationFaqFeedbackRateLimiter feedbackRateLimiter;
+    private final Clock clock;
 
     @Override
     public Page<FederationFaq> searchPublished(FederationFaqSearchCondition condition, Pageable pageable) {
@@ -228,6 +232,14 @@ public class GeneralFederationFaqService implements FederationFaqService {
     @Override
     @Transactional
     public void submitFeedback(SubmitFederationFaqFeedbackCommand command) {
+        // 익명 제출만 IP 창으로 캡한다 — sessionKey 는 클라이언트가 만들어 보내는 값이라 키를 갈아끼우면
+        // upsert dedup 을 비껴가 행이 무제한 늘어난다. 로그인 제출은 uq_fff_faq_user 가 FAQ 당 1행을
+        // 강제하므로 대상이 아니다(공유 IP 의 정상 학생을 집단 차단하지 않기 위함).
+        // getPublished 앞에 두어 거절된 요청이 SELECT 를 태우지 않게 하되, userId 분기로 감싸 기존
+        // 400/404 판정 순서는 그대로 유지한다.
+        if (command.userId() == null) {
+            feedbackRateLimiter.assertAndRecordAnonymousFeedback(command.clientIp(), LocalDateTime.now(clock));
+        }
         // 발행된 FAQ만 대상 — 비공개·미존재 모두 404(공개 단건 조회 규칙과 동일).
         FederationFaq faq = getPublished(command.faqId());
         if (command.userId() != null) {

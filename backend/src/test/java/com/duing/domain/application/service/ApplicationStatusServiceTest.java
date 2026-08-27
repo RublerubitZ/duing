@@ -1,7 +1,9 @@
 package com.duing.domain.application.service;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,6 +18,7 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.application.service.dto.command.UpdateApplicationStatusCommand;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
@@ -24,11 +27,13 @@ import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -66,6 +71,22 @@ class ApplicationStatusServiceTest {
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
     // ────────────────────────────────────────────────────────────
+
+    /**
+     * 운영진 대상 모집 합격 게이트가 requireManager 의 반환값(수행자)으로 역할을 판정하므로,
+     * 기본 반환값 null 을 그대로 두면 그 분기에 도달하는 테스트가 NPE 로 죽는다.
+     * 기본 전제는 "회장이 아닌 일반 운영진" — 회장 전용 경로를 검증하는 테스트만 LEADER 로 덮어쓴다.
+     */
+    @BeforeEach
+    void stubDefaultActorAsOfficer() {
+        stubActorRole(ClubMemberRole.OFFICER);
+    }
+
+    private void stubActorRole(ClubMemberRole role) {
+        ClubMember actor = mock(ClubMember.class);
+        when(actor.getRole()).thenReturn(role);
+        when(clubAuthService.requireManager(any(), any())).thenReturn(actor);
+    }
 
     private Application stubApplication(Long clubId, Long applicantId, TargetRole targetRole) {
         Club club = mock(Club.class);
@@ -143,19 +164,21 @@ class ApplicationStatusServiceTest {
     // ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("OFFICER 모집 합격자는 OFFICER 역할로 동아리 회원 등록에 위임된다")
-    void officerRecruitmentAcceptedDelegatesOfficerEnrollment() {
+    @DisplayName("회장이 처리한 OFFICER 모집 합격자는 OFFICER 역할로 동아리 회원 등록에 위임된다")
+    void officerRecruitmentAcceptedByLeaderDelegatesOfficerEnrollment() {
         Long applicationId = 3L;
-        Long managerId = 10L;
+        Long leaderId = 10L;
         Long clubId = 5L;
         Long applicantId = 20L;
 
+        // 운영진 대상 모집의 합격 처리는 회장 전용이므로 수행자를 회장으로 명시한다.
+        stubActorRole(ClubMemberRole.LEADER);
         Application application = stubApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
-        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
+        when(userRepository.findById(leaderId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
-                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED));
+                new UpdateApplicationStatusCommand(applicationId, leaderId, ApplicationStatus.ACCEPTED));
 
         // 지원 승인 경로는 기수를 부여하지 않으므로 generation 은 null 로 전달되어야 한다.
         verify(clubMemberEnrollmentService).enroll(
@@ -163,6 +186,74 @@ class ApplicationStatusServiceTest {
                 application.getUser(),
                 ClubMemberRole.OFFICER,
                 null);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 3-1. 운영진 대상 모집의 합격 처리는 회장 전용 — 운영진이 모집을 경유해 스스로
+    //      운영진을 늘리는 경로를 막는다. 직접 경로(updateRole)의 requireLeader 와 등급을 맞춘 것.
+    // ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("운영진 대상 모집의 합격 처리는 회장만 할 수 있다")
+    void officerTargetAcceptanceIsRejectedForNonLeaderManager() {
+        Long applicationId = 8L;
+        Long officerId = 11L;
+        Long clubId = 5L;
+
+        stubActorRole(ClubMemberRole.OFFICER);
+        Application application = stubApplication(clubId, 20L, TargetRole.OFFICER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+
+        assertThatThrownBy(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, officerId, ApplicationStatus.ACCEPTED)))
+                .isInstanceOf(RecruitmentException.OfficerTargetRequiresLeaderException.class);
+
+        // 게이트는 상태 전이·이력 기록보다 먼저 걸려야 한다 — 흔적을 남기고 롤백되면 안 된다.
+        verify(application, never()).transitionTo(any(), anyBoolean(), anyBoolean());
+        verify(clubMemberEnrollmentService, never()).enroll(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("운영진이라도 부원 대상 모집의 합격 처리는 그대로 할 수 있다")
+    void memberTargetAcceptanceRemainsOpenToOfficer() {
+        Long applicationId = 9L;
+        Long officerId = 11L;
+        Long clubId = 5L;
+
+        stubActorRole(ClubMemberRole.OFFICER);
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(officerId)).thenReturn(Optional.of(mock(User.class)));
+
+        assertThatCode(() -> applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, officerId, ApplicationStatus.ACCEPTED)))
+                .doesNotThrowAnyException();
+
+        verify(clubMemberEnrollmentService).enroll(
+                application.getRecruitment().getClub(),
+                application.getUser(),
+                ClubMemberRole.MEMBER,
+                null);
+    }
+
+    @Test
+    @DisplayName("운영진 대상 모집이라도 불합격 처리는 운영진이 할 수 있다")
+    void officerTargetRejectionRemainsOpenToOfficer() {
+        Long applicationId = 10L;
+        Long officerId = 11L;
+        Long clubId = 5L;
+
+        stubActorRole(ClubMemberRole.OFFICER);
+        Application application = stubApplication(clubId, 20L, TargetRole.OFFICER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(userRepository.findById(officerId)).thenReturn(Optional.of(mock(User.class)));
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, officerId, ApplicationStatus.REJECTED));
+
+        // 게이트는 ACCEPTED 에만 걸린다 — 나머지 전이는 club_members.role 을 건드리지 않는다.
+        verify(application).transitionTo(ApplicationStatus.REJECTED, false, false);
+        verify(clubMemberEnrollmentService, never()).enroll(any(), any(), any(), any());
     }
 
     @Test

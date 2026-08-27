@@ -15,6 +15,7 @@ import com.duing.domain.federation.repository.FederationFaqSearchMissRepository;
 import com.duing.domain.federation.service.dto.command.CreateFederationFaqCategoryCommand;
 import com.duing.domain.federation.service.dto.command.UpdateFederationFaqCategoryCommand;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,10 @@ class FederationFaqCategoryRaceGuardTest {
             mock(FederationFaqRepository.class),
             categoryRepository,
             mock(FederationFaqFeedbackRepository.class),
-            mock(FederationFaqSearchMissRepository.class));
+            mock(FederationFaqSearchMissRepository.class),
+            // 이 테스트가 다루는 카테고리 경합 경로는 리미터·시계를 타지 않는다 — 생성자 시그니처만 맞춘다.
+            mock(FederationFaqFeedbackRateLimiter.class),
+            Clock.systemUTC());
 
     @Test
     @DisplayName("선조회를 함께 통과한 동시 카테고리 생성이 unique 인덱스에 걸리면 사전 검사와 같은 중복 이름 409 로 표면화된다")

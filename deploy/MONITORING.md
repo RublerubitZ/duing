@@ -6,7 +6,7 @@
 
 | 시스템 | 역할 | Slack 으로 오는 것 |
 |---|---|---|
-| **Sentry** | 예외·스택·릴리스 회귀·장애 분석 | High/Critical 이슈만(Sentry Slack 연동, 아래 수동 설정) |
+| **Sentry** | 예외·스택·릴리스 회귀·장애 분석 | **없음** — Slack 연동은 유료 플랜 기능이라 진행하지 않음(2026-08-23 결정). High 이슈는 기존 이메일 알림(규칙 3609658) 유지 |
 | **PostHog** | 사용자 행동·pageview (FE 전용) | 없음 |
 | **Better Stack** | 가용성(BE health·API·FE·liveness·인증 가드) | 다운/복구 알림(연결 완료) |
 | **Slack 채널 자체** | 운영 이벤트·주요 비즈니스 이벤트·배포 결과 | 아래 이벤트 카탈로그 + 배포 |
@@ -16,7 +16,7 @@
 
 ## 채널
 
-`#duing-monitoring` 하나로 시작한다(세분화는 소음이 문제가 될 때). Better Stack·Sentry·배포·앱 이벤트 모두 같은 채널.
+`#duing-monitoring` 하나로 시작한다(세분화는 소음이 문제가 될 때). Better Stack·배포·앱 이벤트 모두 같은 채널(Sentry 는 이메일).
 Better Stack 이 이미 보내는 운영 채널이 따로 있으면 새 채널을 만들지 말고 **그 채널의 webhook** 을 쓴다(이 문서의 채널명은 가정).
 
 ## 앱 이벤트 카탈로그 (백엔드 `global/monitoring/`)
@@ -59,14 +59,14 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 Webhook 발급: Slack → 앱 디렉터리 "Incoming Webhooks" → 채널 `#duing-monitoring` 선택 → URL 복사.
 **릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. ①을 빼먹어도 배포는 성공하지만 앱 알림이 조용히 꺼진다 — 릴리스 후 컨테이너 시작 로그에서 `[Slack 운영 알림] 활성` 을 확인한다.
 
-## P0 — Sentry → Slack (수동, 약 5분)
+## P0 — Sentry 알림은 이메일로 유지 (Slack 연동 미진행)
 
-1. Sentry → Settings → Integrations → **Slack** → Add to workspace(OAuth) → 채널 `#duing-monitoring` 허용.
-2. Alerts → 프로젝트 `java-spring-boot` 규칙 **"Send a notification for high priority issues"**(id 3609658) → Edit → Actions 에 "Send a Slack notification to #duing-monitoring" 추가(이메일 액션은 유지).
-3. (선택) 5xx 급증: Alerts → Create Alert → Metric alert "Number of errors" ≥ 10 / 5 min → Slack 액션.
-4. `next-duing`(FE) 도 같은 규칙이 있으면 동일하게 Slack 액션 추가.
+Sentry 의 Slack 연동은 유료 플랜 기능이라 **진행하지 않기로 했다(2026-08-23)**. High/Critical 이슈·5xx 급증은
+기존 Sentry 이메일 알림(프로젝트 `java-spring-boot` 규칙 "Send a notification for high priority issues", id 3609658)으로
+받는다. 플랜이 바뀌어 연동하게 되면: Sentry → Settings → Integrations → Slack 설치 → 위 규칙의 Actions 에
+"Send a Slack notification to #duing-monitoring" 추가(이메일 액션 유지) — 그 외 코드 변경은 필요 없다.
 
-Sentry 에 스택트레이스를 Slack 으로 그대로 복제하는 별도 코드는 두지 않는다 — Sentry 알림이 그 역할이다.
+Sentry 에 스택트레이스를 Slack 으로 그대로 복제하는 별도 코드는 두지 않는다 — 5xx 건별 Slack 알림은 Sentry 와 중복·폭주 위험이다.
 
 ## 검증 — 실채널 없이 end-to-end
 

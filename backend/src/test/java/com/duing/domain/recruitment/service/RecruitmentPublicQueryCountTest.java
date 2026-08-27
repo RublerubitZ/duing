@@ -12,6 +12,7 @@ import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
+import com.duing.global.config.PublicApiCacheConfig;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import java.lang.reflect.Field;
@@ -22,8 +23,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -50,8 +53,16 @@ class RecruitmentPublicQueryCountTest {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired EntityManagerFactory entityManagerFactory;
     @Autowired EntityManager entityManager;
+    @Autowired ObjectProvider<PublicApiCacheConfig> publicApiCacheConfig;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
+
+    @BeforeEach
+    void evictPublicCaches() {
+        // 캘린더가 앱 마이크로 캐시(P1-5) 대상이라, 같은 컨텍스트의 다른 테스트가 남긴 엔트리가
+        // 캐시 히트(0쿼리)로 이 계측을 오염시킬 수 있다 — 항상 miss 에서 시작하도록 비운다.
+        publicApiCacheConfig.ifAvailable(PublicApiCacheConfig::evictAllOnTtlElapsed);
+    }
 
     // 시한폭탄 금지 — 절대 날짜 대신 상대 월. 서로 다른 달을 써서 두 데이터셋을 격리한다.
     private final YearMonth smallMonth = YearMonth.from(LocalDate.now()).minusMonths(2);

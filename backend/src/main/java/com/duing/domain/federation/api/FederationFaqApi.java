@@ -9,6 +9,7 @@ import com.duing.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
@@ -23,12 +24,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Tag(name = "총동연 FAQ", description = "총동아리연합회 FAQ 공개 조회 API (비로그인 접근 가능)")
 public interface FederationFaqApi {
 
-    @Operation(summary = "FAQ 목록", description = "공개(published) FAQ만 반환. 정렬: 고정 우선 → 정렬순서 → 최신순.")
+    @Operation(summary = "FAQ 목록", description = "공개(published) FAQ만 반환. 정렬: 고정 우선 → 정렬순서 → 최신순. "
+            + "무결과 검색어는 admin 갭 신호로 집계되며, 그 기록에만 IP 레이트리밋(분 10/시 60)이 걸린다 "
+            + "— 초과해도 검색 응답은 항상 200이고 집계만 건너뛴다.")
     @GetMapping("/federation/faqs")
     ResponseEntity<ApiResponse<PageResponse<FederationFaqResponse>>> getFaqs(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
-            @Parameter(hidden = true) Pageable pageable
+            @Parameter(hidden = true) Pageable pageable,
+            HttpServletRequest httpServletRequest
     );
 
     @Operation(summary = "FAQ 단건", description = "딥링크(/faq?item={id})용. 비공개·삭제 항목은 404.")
@@ -40,11 +44,13 @@ public interface FederationFaqApi {
     ResponseEntity<ApiResponse<List<FederationFaqCategoryResponse>>> getCategories();
 
     @Operation(summary = "FAQ 피드백 제출", description = "\"이 답변이 도움이 되었나요?\" 응답. "
-            + "로그인은 userId, 비로그인은 sessionKey로 식별자당 1건 — 재제출은 값 갱신. 비로그인 접근 가능.")
+            + "로그인은 userId, 비로그인은 sessionKey로 식별자당 1건 — 재제출은 값 갱신. 비로그인 접근 가능. "
+            + "비로그인 제출은 IP 레이트리밋(분 30/시 200) 초과 시 429.")
     @PostMapping("/federation/faqs/{faqId}/feedback")
     ResponseEntity<ApiResponse<Void>> submitFeedback(
             @PathVariable Long faqId,
             @Valid @RequestBody SubmitFederationFaqFeedbackRequest request,
-            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest
     );
 }

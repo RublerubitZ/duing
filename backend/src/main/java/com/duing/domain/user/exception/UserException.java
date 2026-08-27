@@ -89,7 +89,7 @@ public class UserException extends ApplicationException {
         }
     }
 
-    /** 재설정 시작(계정 미존재)·완료(대상 계정 소실) 공통 — 사유 미특정 단일 400 (spec §7.8·§10.2). */
+    /** 재설정 완료 단계의 대상 계정 소실(미존재·탈퇴·번호 변경) — 사유 미특정 단일 400 (spec §7.8). */
     public static class PasswordResetNotAllowedException extends UserException {
         private static final String MESSAGE = "등록된 정보를 확인할 수 없습니다.";
 

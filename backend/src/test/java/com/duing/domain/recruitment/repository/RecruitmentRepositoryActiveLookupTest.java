@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -77,9 +78,9 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
 
         assertThat(batchResult.get(club.getId()).recruitmentId()).isEqualTo(latestClosed.getId());
         assertThat(recruitmentRepository.findRepresentativeByClubId(club.getId(), LocalDate.now()))
-                .as("단건 조회도 배치와 같은 규칙으로 같은 행을 고른다")
+                .as("단건 조회(projection)도 배치와 같은 규칙으로 같은 행을 고른다")
                 .get()
-                .extracting(Recruitment::getId)
+                .extracting(RepresentativeRecruitmentRow::id)
                 .isEqualTo(latestClosed.getId());
     }
 
@@ -92,7 +93,7 @@ class RecruitmentRepositoryActiveLookupTest extends IntegrationTestBase {
 
         assertThat(recruitmentRepository.findRepresentativeByClubId(club.getId(), LocalDate.now()))
                 .get()
-                .extracting(Recruitment::getId)
+                .extracting(RepresentativeRecruitmentRow::id)
                 .isEqualTo(active.getId());
     }
 

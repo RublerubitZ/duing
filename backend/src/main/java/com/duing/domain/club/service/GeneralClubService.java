@@ -178,8 +178,8 @@ public class GeneralClubService implements ClubService {
         StudentRecruitmentProjection representativeRecruitment = recruitmentRepository
                 .findRepresentativeByClubId(clubId, today)
                 .map(representative -> {
-                    Integer applicantCount = representative.isShowApplicantCount()
-                            ? (int) applicationRepository.countByRecruitmentId(representative.getId())
+                    Integer applicantCount = representative.showApplicantCount()
+                            ? (int) applicationRepository.countByRecruitmentId(representative.id())
                             : null;
                     return StudentRecruitmentProjection.from(representative, today, applicantCount);
                 })

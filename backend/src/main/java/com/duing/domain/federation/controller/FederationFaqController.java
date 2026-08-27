@@ -12,6 +12,7 @@ import com.duing.domain.federation.service.dto.query.FederationFaqSearchConditio
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -39,14 +40,16 @@ public class FederationFaqController implements FederationFaqApi {
     public ResponseEntity<ApiResponse<PageResponse<FederationFaqResponse>>> getFaqs(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
-            Pageable pageable
+            Pageable pageable,
+            HttpServletRequest httpServletRequest
     ) {
         // size 상한은 전역 PageableConfig(100)가 컨트롤러 진입 전에 클램프한다 — 대량 size 요청의 DoS 표면을 줄인다.
         FederationFaqSearchCondition condition = new FederationFaqSearchCondition(categoryId, keyword);
         Page<FederationFaq> faqPage = federationFaqService.searchPublished(condition, pageable);
         // 검색 서비스의 readOnly 트랜잭션이 커넥션을 반납한 뒤(서비스 밖) 기록해 이중 커넥션 점유를
         // 피한다 — 기록 실패는 recorder 내부에서 흡수되므로 이 호출은 응답 흐름에 영향을 주지 않는다.
-        searchMissRecorder.recordIfMissed(condition.keyword(), faqPage.getTotalElements());
+        searchMissRecorder.recordIfMissed(condition.keyword(), faqPage.getTotalElements(),
+                httpServletRequest.getRemoteAddr());
         Map<Long, String> categoryNames = faqPage.isEmpty() ? Map.of() : categoryNameMap();
         Page<FederationFaqResponse> responsePage = faqPage.map(
                 faq -> FederationFaqResponse.from(faq, categoryNames.get(faq.getCategoryId())));
@@ -72,11 +75,15 @@ public class FederationFaqController implements FederationFaqApi {
     public ResponseEntity<ApiResponse<Void>> submitFeedback(
             @PathVariable Long faqId,
             @Valid @RequestBody SubmitFederationFaqFeedbackRequest request,
-            @AuthenticationPrincipal UserPrincipal currentUser
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            HttpServletRequest httpServletRequest
     ) {
         // permitAll 경로 — 비로그인이면 currentUser 가 null(AuthenticationPrincipalArgumentResolver 기본 동작).
         Long currentUserId = currentUser != null ? currentUser.id() : null;
-        federationFaqService.submitFeedback(request.toCommand(faqId, currentUserId));
+        // clientIp 는 익명 제출의 IP 레이트리밋 축 — 프록시 뒤에서는 forward-headers-strategy=native 가
+        // 신뢰 프록시의 X-Forwarded-For 만 반영하므로 getRemoteAddr() 이 위조 불가한 유일한 출처다.
+        federationFaqService.submitFeedback(
+                request.toCommand(faqId, currentUserId, httpServletRequest.getRemoteAddr()));
         return ResponseEntity.noContent().build();
     }
 

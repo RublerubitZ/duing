@@ -9,12 +9,16 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import jakarta.persistence.EntityManagerFactory;
 import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.concurrent.atomic.AtomicLong;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -53,6 +57,7 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
     @LocalServerPort int port;
 
     @Autowired ClubRepository clubRepository;
+    @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired UserRepository userRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired CacheManager cacheManager;
@@ -134,16 +139,16 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
         saveActiveClub("파라미터동아리");
 
         long statementsBefore = statements();
-        getClubList("/api/v1/clubs?size=10&keyword=파라미터");
+        getPublicBody("/api/v1/clubs?size=10&keyword=파라미터");
         assertThat(statements() - statementsBefore).isPositive();
 
         // 앞선 요청의 엔트리로 응답하면 안 된다 — 조건이 달라졌으므로 DB 를 다시 조회해야 한다.
         statementsBefore = statements();
-        getClubList("/api/v1/clubs?size=10&keyword=다른키워드");
+        getPublicBody("/api/v1/clubs?size=10&keyword=다른키워드");
         assertThat(statements() - statementsBefore).isPositive();
 
         statementsBefore = statements();
-        getClubList("/api/v1/clubs?size=10&keyword=파라미터");
+        getPublicBody("/api/v1/clubs?size=10&keyword=파라미터");
         assertThat(statements() - statementsBefore).isZero();
     }
 
@@ -161,17 +166,44 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("공개 목록 캐시만 등록되고 개인화 API 용 캐시는 존재하지 않는다")
-    void onlyThePublicClubListCacheIsRegistered() {
+    @DisplayName("같은 달 모집 달력을 다시 조회하면 DB 문장 없이 첫 응답과 동일한 본문을 돌려주고, 비움 후에는 다시 DB 를 읽는다")
+    void repeatedCalendarRequestIsServedWithoutAnyDatabaseStatement() throws Exception {
+        Club calendarClub = saveActiveClub("달력동아리");
+        recruitmentRepository.save(Recruitment.create(
+                calendarClub, "달력모집", null, LocalDate.now().minusDays(3), LocalDate.now().plusDays(7), 10));
+        String calendarPath = "/api/v1/recruitments?yearMonth=" + YearMonth.from(LocalDate.now());
+
+        // 달력 1회 = projection 단일 select (P0-3).
+        long statementsBefore = statements();
+        String firstBody = getPublicBody(calendarPath);
+        assertThat(statements() - statementsBefore).isEqualTo(1);
+        assertThat(firstBody).contains("달력모집");
+
+        statementsBefore = statements();
+        String secondBody = getPublicBody(calendarPath);
+        assertThat(statements() - statementsBefore).isZero();
+        assertThat(secondBody).isEqualTo(firstBody);
+
+        publicApiCacheConfig.evictAllOnTtlElapsed();
+        statementsBefore = statements();
+        getPublicBody(calendarPath);
+        assertThat(statements() - statementsBefore).isPositive();
+    }
+
+    @Test
+    @DisplayName("공개 목록·모집 달력 캐시만 등록되고 개인화 API 용 캐시는 존재하지 않는다")
+    void onlyThePublicCachesAreRegistered() {
         assertThat(cacheManager.getCacheNames())
-                .containsExactly(PublicApiCacheConfig.CLUB_SEARCH_CACHE);
+                .containsExactlyInAnyOrder(
+                        PublicApiCacheConfig.CLUB_SEARCH_CACHE,
+                        PublicApiCacheConfig.RECRUITMENT_CALENDAR_CACHE);
     }
 
     private String getPublicClubList() {
-        return getClubList(CLUB_LIST_PATH);
+        return getPublicBody(CLUB_LIST_PATH);
     }
 
-    private String getClubList(String path) {
+    private String getPublicBody(String path) {
         return RestAssured.given()
                 .when().get(path)
                 .then().statusCode(HttpStatus.OK.value())

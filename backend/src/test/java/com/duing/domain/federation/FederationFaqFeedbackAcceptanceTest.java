@@ -11,6 +11,7 @@ import com.duing.domain.federation.entity.FederationFaqFeedback;
 import com.duing.domain.federation.repository.FederationFaqCategoryRepository;
 import com.duing.domain.federation.repository.FederationFaqFeedbackRepository;
 import com.duing.domain.federation.repository.FederationFaqRepository;
+import com.duing.domain.federation.service.FederationFaqFeedbackRateLimiter;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -19,6 +20,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +50,12 @@ class FederationFaqFeedbackAcceptanceTest extends IntegrationTestBase {
     @Autowired FederationFaqRepository faqRepository;
     @Autowired FederationFaqCategoryRepository categoryRepository;
     @Autowired FederationFaqFeedbackRepository feedbackRepository;
+    @Autowired FederationFaqFeedbackRateLimiter feedbackRateLimiter;
     @Autowired JwtTokenProvider jwtTokenProvider;
+
+    // 익명 제출의 분당 한도(FederationFaqFeedbackRateLimiter.PER_MINUTE_LIMIT = 30, package-private 라
+    // 직접 참조 불가)를 확실히 넘기는 고정 횟수. 정확한 경계값은 FederationFaqFeedbackRateLimiterTest 가 검증한다.
+    private static final int SUBMISSIONS_OVER_LIMIT = 32;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -59,6 +66,8 @@ class FederationFaqFeedbackAcceptanceTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+        // 리미터는 in-memory 싱글턴이라 테스트 간 카운터가 누수된다 — DB TRUNCATE 와 별개로 초기화한다.
+        feedbackRateLimiter.reset();
         authorId = saveUser(UserRole.ADMIN).getId();
         categoryId = categoryRepository.save(FederationFaqCategory.create("테스트-피드백" + sequence.incrementAndGet(), 0)).getId();
         publishedFaqId = seedFaq("피드백 대상 질문", true);
@@ -239,6 +248,74 @@ class FederationFaqFeedbackAcceptanceTest extends IntegrationTestBase {
         // (TransferLeaderConcurrencyTest 전례) — 핵심 불변식은 "해당 identity 로 행이 정확히 1건".
         assertThat(feedbackRepository.count()).isEqualTo(1);
         assertThat(feedbackRepository.findByFaqIdAndSessionKey(publishedFaqId, sessionKey)).isPresent();
+    }
+
+    @Test
+    @DisplayName("같은 IP 에서 sessionKey 만 바꿔 반복 제출하면 한도 초과분은 429 로 차단된다")
+    void rotatingSessionKeysFromSameIpIsRateLimited() {
+        // sessionKey 는 클라이언트가 만들어 보내는 값이라 매번 새 키를 쓰면 upsert dedup 을 비껴가
+        // 행이 무제한 늘어난다 — IP 창이 그 총량을 캡한다.
+        int firstStatus = -1;
+        int lastStatus = -1;
+        for (int attempt = 0; attempt < SUBMISSIONS_OVER_LIMIT; attempt++) {
+            Response response = RestAssured.given()
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("helpful", true, "sessionKey", "rotating-key-" + attempt))
+                .when()
+                    .post("/api/v1/federation/faqs/" + publishedFaqId + "/feedback");
+            if (attempt == 0) {
+                firstStatus = response.statusCode();
+            }
+            lastStatus = response.statusCode();
+        }
+
+        assertThat(firstStatus).isEqualTo(HttpStatus.NO_CONTENT.value());
+        assertThat(lastStatus).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        // 행 증식 상한이 실제로 걸렸는지 — 시도 횟수보다 적게 쌓여야 한다.
+        assertThat(feedbackRepository.count()).isLessThan(SUBMISSIONS_OVER_LIMIT);
+    }
+
+    @Test
+    @DisplayName("로그인 사용자는 같은 IP 에서 한도보다 많이 재제출해도 429 로 막히지 않고 행은 1건만 남는다")
+    void loggedInResubmissionsAreNotRateLimited() {
+        // userId 는 서버가 발급하고 uq_fff_faq_user 가 FAQ 당 1행을 강제하므로 행 증식이 원천 불가다.
+        // 로그인까지 IP 로 묶으면 교내 NAT 공유 IP 의 정상 학생이 집단 차단된다.
+        User loginUser = saveUser(UserRole.STUDENT);
+        String accessToken = jwtTokenProvider.createToken(loginUser.getId(), loginUser.getRole().name());
+
+        for (int attempt = 0; attempt < SUBMISSIONS_OVER_LIMIT; attempt++) {
+            RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("helpful", attempt % 2 == 0))
+                .when()
+                    .post("/api/v1/federation/faqs/" + publishedFaqId + "/feedback")
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+        }
+
+        assertThat(feedbackRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("한 사용자가 한 화면의 여러 FAQ 에 연속 피드백해도 429 로 막히지 않는다")
+    void feedbackOnManyFaqsInOneScreenIsNotRateLimited() {
+        // 공개 FAQ 페이지 크기(20)만큼 한 화면에서 전량 제출하는 정상 UX 는 반드시 통과해야 한다.
+        int faqPageSize = 20;
+        String sessionKey = "session-one-screen";
+
+        for (int index = 0; index < faqPageSize; index++) {
+            Long faqId = seedFaq("한 화면 질문 " + index, true);
+            RestAssured.given()
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("helpful", true, "sessionKey", sessionKey))
+                .when()
+                    .post("/api/v1/federation/faqs/" + faqId + "/feedback")
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+        }
+
+        assertThat(feedbackRepository.count()).isEqualTo(faqPageSize);
     }
 
     private void submitConcurrently(CountDownLatch start, CountDownLatch done, List<Integer> statusCodes,
