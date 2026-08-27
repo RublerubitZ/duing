@@ -65,7 +65,9 @@ export function SubmissionPrepareTab() {
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('NEED');
   const { addToast } = useToast();
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
-  const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
+  // 값은 제외 시점의 예약일 — 정리 effect 가 "기간 밖(기간 변경으로 숨겨짐)" 과 "기간 안인데 서버에 없음(실제 소실)" 을 가른다.
+  const [excludedById, setExcludedById] = useState<ReadonlyMap<number, string>>(new Map());
+  const excludedIds: ReadonlySet<number> = new Set(excludedById.keys());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
   // 일괄 생성(v2 스펙 §4) — 선택 요약 바 하나로 동아리별 배치를 순차 생성한다.
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -105,45 +107,58 @@ export function SubmissionPrepareTab() {
     }))
     .filter((group) => group.bookingIds.length > 0);
   const selectedTotalCount = selectedClubGroups.reduce((sum, group) => sum + group.bookingIds.length, 0);
-  const visibleSelectableIds = visibleBookings
+  const visibleSelectableEntries = visibleBookings
     .filter((booking) => booking.selectable)
-    .map((booking) => booking.bookingId);
+    .map((booking): [number, string] => [booking.bookingId, booking.reservationDate]);
+  const reservationDateById = new Map(
+    allBookings.map((booking): [number, string] => [booking.bookingId, booking.reservationDate]),
+  );
 
   // 제출 상태 셀렉트는 필터의 3값(미제출 예약/제출 대기 예약/전체)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
-  // 화면에서 사라진 예약(기간·검색·필터 변경, 재조회)은 excluded 에서도 정리한다 — 세션 상태 누적 방지.
+  // 제외 상태는 검색·상태 필터·기간 변경으로 숨겨져도 유지한다(P2-15/20). 서버 결과에 없고 예약일이
+  // 현재 조회 기간 안인 것만 "실제 사라진 예약"으로 보고 정리한다 — 기간 밖 예약은 기간 변경으로 숨겨진 것.
+  // 새 기간 로딩 중(data 없음)에는 판정하지 않는다 — 빈 결과를 소실로 오판해 기간 안 제외를 지우지 않도록.
   // (레포의 useEffect 금지는 데이터 패칭 한정 — 페이지 클램프 전례와 같은 상태 정리 용도)
-  const visibleSelectableKey = visibleBookings
-    .filter((booking) => booking.selectable)
-    .map((booking) => booking.bookingId)
-    .sort((left, right) => left - right)
-    .join(',');
+  const periodStart = candidatesParams?.startDate ?? null;
+  const periodEnd = candidatesParams?.endDate ?? null;
+  const serverIdsKey = candidatesQuery.isSuccess
+    ? allBookings.map((booking) => booking.bookingId).sort((left, right) => left - right).join(',')
+    : null;
   useEffect(() => {
-    setExcludedIds((previous) => {
-      const visibleIds = new Set(
-        visibleSelectableKey === '' ? [] : visibleSelectableKey.split(',').map(Number),
+    if (serverIdsKey === null || periodStart === null || periodEnd === null) return;
+    const serverIds = new Set(serverIdsKey === '' ? [] : serverIdsKey.split(',').map(Number));
+    setExcludedById((previous) => {
+      const next = new Map(
+        [...previous].filter(
+          ([bookingId, reservationDate]) =>
+            serverIds.has(bookingId) || reservationDate < periodStart || reservationDate > periodEnd,
+        ),
       );
-      const next = new Set([...previous].filter((bookingId) => visibleIds.has(bookingId)));
       return next.size === previous.size ? previous : next;
     });
-  }, [visibleSelectableKey]);
+  }, [serverIdsKey, periodStart, periodEnd]);
 
-  // 재사용 컴포넌트의 선택 콜백을 제외 모델로 반전 연결한다.
+  // 재사용 컴포넌트의 선택 콜백을 제외 모델로 반전 연결한다 — 제외 시 예약일을 함께 기록한다.
+  const exclude = (next: Map<number, string>, bookingId: number) => {
+    const reservationDate = reservationDateById.get(bookingId);
+    if (reservationDate !== undefined) next.set(bookingId, reservationDate);
+  };
   const toggleSelect = (bookingId: number) =>
-    setExcludedIds((previous) => {
-      const next = new Set(previous);
+    setExcludedById((previous) => {
+      const next = new Map(previous);
       if (next.has(bookingId)) next.delete(bookingId);
-      else next.add(bookingId);
+      else exclude(next, bookingId);
       return next;
     });
   const toggleMany = (bookingIds: number[], nextSelected: boolean) =>
-    setExcludedIds((previous) => {
-      const next = new Set(previous);
+    setExcludedById((previous) => {
+      const next = new Map(previous);
       for (const bookingId of bookingIds) {
         if (nextSelected) next.delete(bookingId);
-        else next.add(bookingId);
+        else exclude(next, bookingId);
       }
       return next;
     });
@@ -241,13 +256,13 @@ export function SubmissionPrepareTab() {
             }`}
           </p>
           <div className="flex gap-1">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedIds(new Set())}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedById(new Map())}>
               전체 선택
             </button>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => setExcludedIds(new Set(visibleSelectableIds))}
+              onClick={() => setExcludedById(new Map(visibleSelectableEntries))}
             >
               전체 해제
             </button>
