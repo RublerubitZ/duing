@@ -186,6 +186,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 row.get(user.name),
                 row.get(user.studentId),
                 source.isCentralClub(),
+                source.isFacilitySecuredTimeTarget(),
                 source.getRejectionReason(),
                 source.getStatusChangedAt(),
                 row.get(actor.name)

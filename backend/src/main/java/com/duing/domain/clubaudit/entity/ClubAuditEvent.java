@@ -209,6 +209,16 @@ public class ClubAuditEvent extends BaseEntity {
                 .build();
     }
 
+    /** 총동연이 시설 기본 확보 시간 대상 설정을 변경했다 — detail 에 before/after 스냅샷(boolean)이 남는다. */
+    public static ClubAuditEvent securedTargetChanged(Long clubId, Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.SECURED_TARGET_CHANGED)
+                .actorUserId(actorUserId)
+                .detail(detail)
+                .build();
+    }
+
     /** 총동연 회비 감사 상세 열람 — 개인정보성 재무 데이터 열람 이력이라 진입마다 한 건씩 남는다. */
     public static ClubAuditEvent feeAdminView(Long clubId, Long actorUserId) {
         return ClubAuditEvent.builder()

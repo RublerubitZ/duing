@@ -35,7 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FacilityBookingMatchingService {
 
-    private final FacilityAvailabilityPolicy availabilityPolicy;
     private final OrganizationNameNormalizer normalizer;
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityBookingStatusHistoryRepository historyRepository;
@@ -51,14 +50,15 @@ public class FacilityBookingMatchingService {
         }
     }
 
-    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). */
+    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). 판정 기준은 정규화 이름 일치뿐이다 —
+     *  기본 확보 시간 대상 동아리의 증거 제외는 {@link #verifyAndConfirm} 의 동아리 단위 스킵이 담당한다
+     *  (플래그 ON 동아리는 정의상 이름 일치 행 전부가 BASIC_SECURED_TIME 이라 행 단위 제외와 동치). */
     public MatchDecision decide(FacilityBooking booking, String clubName, List<FacilityReservation> dayRows) {
         String normalizedClubName = normalizer.normalize(clubName);
         if (normalizedClubName.isEmpty()) {
             return MatchDecision.none();
         }
         List<FacilityReservation> matchingOccupiedRows = dayRows.stream()
-                .filter(row -> availabilityPolicy.classify(row) == CrawlRowType.OCCUPIED)
                 .filter(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName))
                 .toList();
 
@@ -98,10 +98,11 @@ public class FacilityBookingMatchingService {
      * <p>confirmByMatching 의 crawlBasisAt·이력 crawlBasisAt 에는 확정 시점(now)이 아니라 판정 근거 세대의
      * 수집 시각(generation)을 남긴다 — "어느 크롤 데이터로 확정했는가"를 기록(승인 경로 관례와 필드 의미 일치).
      *
-     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·미매칭)이면 false
+     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·기본 확보 대상·미매칭)이면 false
      */
     @Transactional
-    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys) {
+    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys,
+                                    Set<String> securedOrganizationKeys) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
         // 관리자 전이(취소·충돌 전환)와의 경합은 @Version 낙관 잠금이 차단한다 — 늦은 커밋이 실패·롤백되어
         // 덮어쓰기가 불가능하고, 그 실패는 스케줄러의 per-booking 격리로 다음 사이클에 재판정된다.
@@ -144,6 +145,13 @@ public class FacilityBookingMatchingService {
         // 정규화 키 충돌 가드 — 2개 이상 동아리가 공유하는 정규화 키의 예약은 오확정 위험이라 자동 확정을 포기한다.
         if (ambiguousNormalizedKeys.contains(normalizer.normalize(clubName))) {
             log.info("FacilityBooking Matching skip bookingId={} (정규화 키 충돌 — 수동 확정 폴백)", bookingId);
+            return false;
+        }
+        // 기본 확보 시간 대상 동아리 — 이름 일치 크롤 행은 전부 BASIC_SECURED_TIME(상시 확보 표시)이라
+        // "학교가 이 예약을 반영했다"는 증거가 아니다(수정 8). 자동 확정을 포기하고 수동 확정으로 넘긴다.
+        // availability 차단은 blockingOverlapping 이 분류와 무관하게 유지하므로 이 스킵이 슬롯을 열지 않는다.
+        if (securedOrganizationKeys.contains(normalizer.normalize(clubName))) {
+            log.info("FacilityBooking Matching skip bookingId={} (기본 확보 시간 대상 — 증거 제외, 수동 확정 폴백)", bookingId);
             return false;
         }
         MatchDecision decision = decide(booking, clubName, freshRows);

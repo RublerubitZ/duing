@@ -192,24 +192,25 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 점유행과 겹치면 409, 운영행과 겹치는 것은 허용된다")
-    void schoolOccupiedBlocksButOperatingAllows() throws Exception {
+    @DisplayName("크롤 행은 유형과 무관하게 겹치는 신청을 전부 막고, 어떤 행과도 겹치지 않는 시간만 신청된다")
+    void allCrawlRowsBlockOverlappingRequests() throws Exception {
         Fixture fixture = fixture();
         LocalDate date = bookableDate();
-        // 점유행(꼬리 없음): 18~19 — schedule_seq 는 전역 UNIQUE 라 증가 시퀀스로 발급
+        // 실예약 행: 18~19 — schedule_seq 는 전역 UNIQUE 라 증가 시퀀스로 발급
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), "비호응원단", null, null, LocalDateTime.now()));
-        // 운영행(꼬리 있음): 마커 9~10, 운영 09~20
+                LocalTime.of(18, 0), LocalTime.of(19, 0), "비호응원단", LocalDateTime.now()));
+        // 물결 꼬리에서 확장된 행: 고정관념 [09:00, 18:00) — 구 정책의 비차단 운영행이 이제 전 구간 차단이다.
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                LocalTime.of(9, 0), LocalTime.of(20, 0), LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "고정관념", LocalDateTime.now()));
 
         assertThatThrownBy(() -> bookingService.create(command(fixture, date, 18, 20)))
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
+        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 9, 11))) // 확장 행도 차단(전면 차단)
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
 
-        var allowed = bookingService.create(command(fixture, date, 9, 11)); // 운영행 마커 시간과 겹쳐도 OK
+        var allowed = bookingService.create(command(fixture, date, 19, 21)); // 어떤 행과도 안 겹침 → 허용
         assertThat(allowed.bookingId()).isNotNull();
     }
 
@@ -221,7 +222,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         // ReservationParser 가 "학생생활상담센터(10:00-17:00)" 를 확장 저장한 형태 — 10~17 점유행(꼬리 없음).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터", null, null, LocalDateTime.now()));
+                LocalTime.of(10, 0), LocalTime.of(17, 0), "학생생활상담센터", LocalDateTime.now()));
 
         assertThatThrownBy(() -> bookingService.create(command(fixture, date, 13, 14))) // 범위 안 → 충돌
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);

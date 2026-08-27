@@ -44,37 +44,56 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("점유행은 겹치는 슬롯만 BLOCKED(SCHOOL·단체명)로 만들고, 운영행은 어떤 슬롯도 막지 않는다")
-    void occupiedBlocksButOperatingDoesNot() {
+    @DisplayName("크롤 행은 분류와 무관하게 겹치는 슬롯을 전부 차단한다 — 기본 확보 시간은 BASIC_SECURED 로만 구분 표기된다")
+    void allCrawlRowsBlockRegardlessOfClassification() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<CrawlSlice> crawl = List.of(
-                // 운영행: 고정관념(09:00~20:00) — 슬롯 마커가 시작·끝 2행으로 내려오는 상황(선행 스펙 §16.1)
-                // → 같은 (단체, 운영시간)이므로 OperatingNote 는 dedupe 되어 1건이어야 한다
-                new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                        CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
-                new CrawlSlice(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "고정관념",
-                        CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
-                // 점유행: 비호응원단 17~18, 18~19
+                // 기본 확보 시간 대상 동아리의 확장 행: 고정관념 [10:00, 17:00)
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 실예약(미매칭 단체): 비호응원단 17~18, 18~19
                 new CrawlSlice(date, LocalTime.of(17, 0), LocalTime.of(18, 0), "비호응원단",
-                        CrawlRowType.OCCUPIED, null, null),
+                        CrawlRowType.CRAWLED_RESERVATION),
                 new CrawlSlice(date, LocalTime.of(18, 0), LocalTime.of(19, 0), "비호응원단",
-                        CrawlRowType.OCCUPIED, null, null));
+                        CrawlRowType.CRAWLED_RESERVATION));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
         DayAvailability target = day(days, 20);
 
-        assertThat(slotStatus(target, 9)).isEqualTo(SlotStatus.AVAILABLE); // 운영행 마커는 차단 안 함
+        assertThat(slotStatus(target, 9)).isEqualTo(SlotStatus.AVAILABLE); // 경계 밖(09~10)은 차단 없음
+        // 기본 확보 시간 [10, 17) 전 구간 차단 + BASIC_SECURED 표기 + 동아리명 노출
+        for (int hour = 10; hour < 17; hour++) {
+            assertThat(slotStatus(target, hour)).isEqualTo(SlotStatus.BLOCKED);
+            assertThat(target.slots().get(hour - 9).blockedBy()).isEqualTo(SlotBlockSource.BASIC_SECURED);
+            assertThat(target.slots().get(hour - 9).organization()).isEqualTo("고정관념");
+        }
         assertThat(slotStatus(target, 17)).isEqualTo(SlotStatus.BLOCKED);
-        assertThat(slotStatus(target, 18)).isEqualTo(SlotStatus.BLOCKED);
-        assertThat(slotStatus(target, 19)).isEqualTo(SlotStatus.AVAILABLE);
         assertThat(target.slots().get(17 - 9).blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
         assertThat(target.slots().get(17 - 9).organization()).isEqualTo("비호응원단");
-        assertThat(target.availableSlotCount()).isEqualTo(11);
-        assertThat(target.operatingNotes()).singleElement().satisfies(note -> {
-            assertThat(note.organization()).isEqualTo("고정관념");
-            assertThat(note.start()).isEqualTo("09:00");
-            assertThat(note.end()).isEqualTo("20:00");
-        });
+        assertThat(slotStatus(target, 18)).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(slotStatus(target, 19)).isEqualTo(SlotStatus.AVAILABLE); // 경계 접촉(19~20)은 차단 아님
+        assertThat(target.availableSlotCount()).isEqualTo(4); // 09~10 + 19~22 3칸
+        // 비차단 운영행 개념 폐지 — operatingNotes 는 항상 빈 배열(구 FE 스큐 호환용 계약 유지).
+        assertThat(target.operatingNotes()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("같은 슬롯에 실예약과 기본 확보 시간이 겹치면 더 구체적인 실예약(SCHOOL)을 우선 표기한다 — 차단은 동일")
+    void crawledReservationWinsOverBasicSecuredOnSameSlot() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        List<CrawlSlice> crawl = List.of(
+                new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), "학생생활상담센터",
+                        CrawlRowType.CRAWLED_RESERVATION));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
+        DayAvailability target = day(days, 20);
+
+        assertThat(target.slots().get(14 - 9).blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+        assertThat(target.slots().get(14 - 9).organization()).isEqualTo("학생생활상담센터");
+        assertThat(target.slots().get(13 - 9).blockedBy()).isEqualTo(SlotBlockSource.BASIC_SECURED);
+        assertThat(target.availableSlotCount()).isEqualTo(2); // 확보 범위 밖 20~22 두 칸만 남는다
     }
 
     @Test
@@ -135,7 +154,7 @@ class FacilitySlotAssemblerTest {
     void blockedWinsOverPendingHold() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<CrawlSlice> crawl = List.of(new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0),
-                "총학생회", CrawlRowType.OCCUPIED, null, null));
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
         List<BookingSlice> bookings = List.of(
                 new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, null));
 

@@ -19,23 +19,18 @@ import org.springframework.stereotype.Component;
  * 예약 JSON 배열 → List&lt;ParsedReservation&gt;. schedule_seq distinct, dept 꼬리 시간표기 제거(§6.2),
  * schedule_date(일) + YearMonth → LocalDate, schedule_time '19:00~20:00' → start/end LocalTime.
  *
- * <p>꼬리 시간표기는 구분자가 의미를 가른다(실데이터 관찰 — 기본 확보 단체는 전부 물결, 하이픈은 실점유뿐):
- * <ul>
- *   <li>물결 "고정관념(9:00~20:00)" — 기본 확보 시간. 제거 전에 운영시간(reservedStart/End)으로
- *       추출한다(§16.1). 역전·형식 이상이면 범위만 null 폴백하고 원소는 스킵하지 않는다(정책 ③).</li>
- *   <li>하이픈 "학생생활상담센터(10:00-17:00)" — 실예약 범위. 학교가 시작·끝 마커 슬롯만 내려주므로
- *       start/end 를 표기 범위 전체로 확장해 일반 점유행이 되게 한다(전 구간 차단). 역전·형식 이상이면
- *       확장 없이 마커 슬롯을 유지한다(임의 추정 금지).</li>
- * </ul>
+ * <p>꼬리 시간표기 (H:MM~H:MM)/(H:MM-H:MM) 는 구분자와 무관하게 **실예약 범위**다(2026-08-27 전면 차단 정책).
+ * 학교가 시작·끝 마커 슬롯만 내려주므로 start/end 를 표기 범위 전체로 확장해 [start, end) 전 구간이
+ * 점유행이 되게 한다. 역전(end&lt;=start)·형식 이상이면 확장 없이 마커 슬롯을 유지한다(임의 추정 금지).
  * 파싱 불가 원소는 건너뛴다(사유별 건수만 로깅).
  */
 @Slf4j
 @Component
 public class ReservationParser {
 
-    // 꼬리 시간표기 추출+제거: 구분자(~/-)를 그룹으로 잡아 의미를 분기한다. 그 외 괄호는 보존.
+    // 꼬리 시간표기 추출+제거: 구분자(~/-)는 표기 관행 차이일 뿐 의미 차이가 없다. 그 외 괄호는 보존.
     private static final Pattern TRAILING_TIME =
-            Pattern.compile("\\s*\\((\\d{1,2}:\\d{2})\\s*([~-])\\s*(\\d{1,2}:\\d{2})\\)\\s*$");
+            Pattern.compile("\\s*\\((\\d{1,2}:\\d{2})\\s*[~-]\\s*(\\d{1,2}:\\d{2})\\)\\s*$");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("H:mm");
     private static final String TIME_SEPARATOR = "~";
 
@@ -78,42 +73,38 @@ public class ReservationParser {
             LocalTime start = LocalTime.parse(slot[0].trim(), TIME);
             LocalTime end = LocalTime.parse(slot[1].trim(), TIME);
             Matcher trailingTime = TRAILING_TIME.matcher(deptText.trim());
-            OperatingHours securedHours = OperatingHours.NONE;
             if (trailingTime.find()) {
-                OperatingHours tailRange = parseOperatingHours(trailingTime.group(1), trailingTime.group(3));
-                if (TIME_SEPARATOR.equals(trailingTime.group(2))) {
-                    securedHours = tailRange; // 물결 = 기본 확보 시간(비차단 운영행, §16.1)
-                } else if (tailRange != OperatingHours.NONE) {
-                    // 하이픈 = 실예약 범위: 마커 슬롯 대신 표기 범위 전체를 점유행으로 저장(전 구간 차단).
+                TailRange tailRange = parseTailRange(trailingTime.group(1), trailingTime.group(2));
+                if (tailRange != TailRange.NONE) {
+                    // 꼬리 범위 = 실예약 구간: 마커 슬롯 대신 표기 범위 전체를 점유행으로 저장(전 구간 차단).
                     // 파싱 실패(역전·형식 이상)면 확장 없이 마커 슬롯 유지 — 임의 추정 금지.
                     start = tailRange.start();
                     end = tailRange.end();
                 }
             }
             String organization = trailingTime.replaceAll("").trim();
-            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization,
-                    securedHours.start(), securedHours.end());
+            return new ParsedReservation(scheduleSeq, reservationDate, start, end, organization);
         } catch (NumberFormatException | DateTimeException malformed) {
             return null; // 개별 원소 오류는 스킵(내용은 로깅하지 않음)
         }
     }
 
-    /** 꼬리 운영시간(§16.1). NONE 은 표기 없음/파싱 실패 폴백(start·end 모두 null). */
-    private record OperatingHours(LocalTime start, LocalTime end) {
-        private static final OperatingHours NONE = new OperatingHours(null, null);
+    /** 꼬리 시간 범위. NONE 은 파싱 실패 폴백(확장하지 않음). */
+    private record TailRange(LocalTime start, LocalTime end) {
+        private static final TailRange NONE = new TailRange(null, null);
     }
 
-    /** 꼬리 운영시간 파싱(§16.1 정책 ③) — 역전(end<=start)·형식 이상은 NONE 폴백, 원소 스킵 아님. */
-    private OperatingHours parseOperatingHours(String startText, String endText) {
+    /** 꼬리 범위 파싱 — 역전(end<=start)·형식 이상은 NONE 폴백, 원소 스킵 아님. */
+    private TailRange parseTailRange(String startText, String endText) {
         try {
             LocalTime candidateStart = LocalTime.parse(startText, TIME);
             LocalTime candidateEnd = LocalTime.parse(endText, TIME);
             if (candidateEnd.isAfter(candidateStart)) {
-                return new OperatingHours(candidateStart, candidateEnd);
+                return new TailRange(candidateStart, candidateEnd);
             }
         } catch (DateTimeException malformedRange) {
             // 범위 파싱 실패는 폴백 — 아래 공통 반환으로 수렴
         }
-        return OperatingHours.NONE;
+        return TailRange.NONE;
     }
 }

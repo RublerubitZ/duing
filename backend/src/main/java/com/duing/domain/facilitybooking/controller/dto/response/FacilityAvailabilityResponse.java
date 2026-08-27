@@ -20,7 +20,8 @@ public record FacilityAvailabilityResponse(
 
     public enum SlotStatus { AVAILABLE, PENDING_HOLD, BLOCKED, PAST }
 
-    public enum SlotBlockSource { SCHOOL, INTERNAL }
+    /** BASIC_SECURED = 총동연 지정 기본 확보 시간 대상 동아리의 크롤 예약 — 차단은 SCHOOL 과 동일, 표시만 구분. */
+    public enum SlotBlockSource { SCHOOL, INTERNAL, BASIC_SECURED }
 
     public record DayAvailability(
             LocalDate date,

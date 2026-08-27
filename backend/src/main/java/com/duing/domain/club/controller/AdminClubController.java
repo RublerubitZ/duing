@@ -5,6 +5,7 @@ import com.duing.domain.club.controller.dto.request.AdminUpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
+import com.duing.domain.club.controller.dto.request.UpdateClubFacilitySecuredTimeTargetRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -98,6 +99,17 @@ public class AdminClubController implements AdminClubApi {
             @Valid @RequestBody UpdateClubCentralClubRequest updateClubCentralClubRequest
     ) {
         clubService.updateCentralClub(updateClubCentralClubRequest.toCommand(clubId));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> updateClubFacilitySecuredTimeTarget(
+            @PathVariable Long clubId,
+            @Valid @RequestBody UpdateClubFacilitySecuredTimeTargetRequest updateClubFacilitySecuredTimeTargetRequest,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        clubService.updateFacilitySecuredTimeTarget(
+                updateClubFacilitySecuredTimeTargetRequest.toCommand(clubId, currentUser.id()));
         return ResponseEntity.noContent().build();
     }
 

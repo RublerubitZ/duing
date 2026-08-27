@@ -135,26 +135,30 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("승인 시 크롤 점유행과 겹치면 SchoolConflict 409, 운영행 겹침은 승인된다")
+    @DisplayName("승인 시 크롤 행과 겹치면 유형 무관 SchoolConflict 409, 어떤 행과도 겹치지 않는 신청만 승인된다")
     void approveRevalidatesAgainstSchoolRows() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
         Long blocked = pendingBooking(fixture, date, 18, 20);
-        // 신청 이후에 학교 점유행(꼬리 없음)이 크롤로 유입된 상황
+        // 신청 이후에 학교 실예약 행(꼬리 없음)이 크롤로 유입된 상황
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", LocalDateTime.now()));
 
         assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
                 .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
 
-        // 운영행(꼬리 있음)만 겹치는 다른 신청은 승인된다
-        Long allowed = pendingBooking(fixture, date, 9, 11);
+        // 물결 꼬리에서 확장된 행(구 비차단 운영행)과 겹치는 신청도 이제 409 다(전면 차단).
+        Long expandedBlocked = pendingBooking(fixture, date, 9, 11);
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                LocalTime.of(9, 0), LocalTime.of(20, 0), LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(12, 0), "고정관념", LocalDateTime.now()));
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), expandedBlocked))
+                .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
+
+        // 어떤 크롤 행과도 겹치지 않는 신청은 승인된다.
+        Long allowed = pendingBooking(fixture, date, 13, 15);
         adminService.approve(admin.getId(), allowed);
         assertThat(bookingRepository.findById(allowed).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED);
@@ -172,7 +176,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         // 이 시나리오에서 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 가 된다(2026-07-17 감사).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", LocalDateTime.now()));
 
         adminService.confirmManually(admin.getId(), approved);
 

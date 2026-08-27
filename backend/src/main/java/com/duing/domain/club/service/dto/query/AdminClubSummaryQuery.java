@@ -23,6 +23,7 @@ public record AdminClubSummaryQuery(
         String leaderName,
         String leaderStudentId,
         boolean centralClub,
+        boolean facilitySecuredTimeTarget,
         String rejectionReason,
         LocalDateTime statusChangedAt,
         String statusChangedByName

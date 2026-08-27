@@ -228,10 +228,10 @@ class FacilityBookingNotificationIntegrationTest extends IntegrationTestBase {
         adminService.approve(admin.getId(), bookingId);
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, null, null, generation));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, generation));
         facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                 sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, null, null, generation));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), clubName, generation));
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(YearMonth.from(date))
                 .orElseGet(() -> FacilityMonthSnapshot.create(YearMonth.from(date), generation,
                         CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
@@ -239,7 +239,7 @@ class FacilityBookingNotificationIntegrationTest extends IntegrationTestBase {
                 List.of(fixture.facility().getId()));
         snapshotRepository.save(snapshot);
 
-        boolean confirmed = matchingService.verifyAndConfirm(bookingId, clubName, Set.of());
+        boolean confirmed = matchingService.verifyAndConfirm(bookingId, clubName, Set.of(), Set.of());
 
         assertThat(confirmed).isTrue();
         assertThat(notificationsOf(fixture.leader().getId(), NotificationType.FACILITY_BOOKING_CONFIRMED))
