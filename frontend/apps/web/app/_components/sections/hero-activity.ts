@@ -39,24 +39,20 @@ const ACTIVITY_PRESETS: Record<HeroActivityType, { message: string; variant: Her
   FEE_OPEN: { message: '회비 납부 시작', variant: 'dark' },
 };
 
-// 실활동이 부족할 때 채우는 슬롯별 기본 토스트. slot0=light, slot1=dark 로 시각 균형을 유지하고,
-// 실제 동아리명 대신 일반 명칭을 써 초기 서비스에서도 어색하지 않게 한다.
-const FALLBACK_LIGHT: HeroToast = {
+/** 토스트 캐러셀 슬라이드 상한 — 이보다 많이 오면 앞에서부터 자른다. */
+export const MAX_HERO_TOASTS = 5;
+
+// 실활동이 하나도 없을 때만 쓰는 기본 토스트. 실제 동아리명 대신 일반 명칭을 써
+// 초기 서비스에서도 어색하지 않게 한다. 슬라이드가 하나뿐이라 페이저는 자동으로 사라진다.
+// 가짜 토스트를 여러 장 깔지 않는 이유 — 활동이 없는 상태를 활발한 것처럼 보이게 하지 않는다.
+const FALLBACK_TOAST: HeroToast = {
   variant: 'light',
   clubName: '캠퍼스 동아리',
   message: '신규 모집 오픈',
   timeAgo: '방금 전',
 };
-const FALLBACK_DARK: HeroToast = {
-  variant: 'dark',
-  clubName: '캠퍼스 동아리',
-  message: '합격자 발표',
-  timeAgo: '방금 전',
-};
 
-// 실활동(있으면)을 토스트로 매핑, 없으면 슬롯 폴백을 쓴다.
-function toHeroToast(activity: HeroActivity | undefined, fallback: HeroToast, now: Date): HeroToast {
-  if (!activity) return fallback;
+function toHeroToast(activity: HeroActivity, now: Date): HeroToast {
   const preset = ACTIVITY_PRESETS[activity.type];
   return {
     variant: preset.variant,
@@ -66,11 +62,11 @@ function toHeroToast(activity: HeroActivity | undefined, fallback: HeroToast, no
   };
 }
 
-// 실활동 최대 2개를 토스트로 매핑하고, 부족한 슬롯은 폴백으로 채워 항상 정확히 2개(튜플)를 반환한다.
-// 튜플 반환이라 호출부의 toasts[0]/toasts[1] 가 noUncheckedIndexedAccess 에서도 안전하다(2개 초과는 무시).
-export function resolveHeroToasts(activities: HeroActivity[], now: Date): [HeroToast, HeroToast] {
-  return [
-    toHeroToast(activities[0], FALLBACK_LIGHT, now),
-    toHeroToast(activities[1], FALLBACK_DARK, now),
-  ];
+/**
+ * 실활동을 최대 {@link MAX_HERO_TOASTS} 개까지 토스트로 매핑한다.
+ * 활동이 하나도 없으면 폴백 한 장만 돌려준다 — 항상 1개 이상이라 호출부가 빈 배열을 다룰 필요가 없다.
+ */
+export function resolveHeroToasts(activities: HeroActivity[], now: Date): HeroToast[] {
+  if (activities.length === 0) return [FALLBACK_TOAST];
+  return activities.slice(0, MAX_HERO_TOASTS).map((activity) => toHeroToast(activity, now));
 }
