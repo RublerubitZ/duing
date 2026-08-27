@@ -57,9 +57,9 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         if (bookings.size() != bookingIds.size()) {
             throw new FacilitySubmissionException.SubmissionBookingNotFoundException();
         }
-        Long facilityId = bookings.get(0).getFacilityId();
-        if (bookings.stream().anyMatch(booking -> !booking.getFacilityId().equals(facilityId))) {
-            throw new FacilitySubmissionException.MixedFacilityException();
+        Long clubId = bookings.get(0).getClubId();
+        if (bookings.stream().anyMatch(booking -> !booking.getClubId().equals(clubId))) {
+            throw new FacilitySubmissionException.MixedClubException();
         }
         if (bookings.stream().anyMatch(booking -> booking.getStatus() != BookingStatus.APPROVED)) {
             throw new FacilitySubmissionException.BookingNotApprovedException();
@@ -71,7 +71,7 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         LocalDateTime submittedAt = LocalDateTime.now(clock);
         String submissionNo = numberGenerator.nextNumber(submittedAt.toLocalDate());
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                submissionNo, facilityId, actor.adminId(), submittedAt, blankToNull(command.memo())));
+                submissionNo, clubId, actor.adminId(), submittedAt, blankToNull(command.memo())));
         itemRepository.saveAll(bookingIds.stream()
                 .map(bookingId -> FacilitySubmissionItem.of(batch.getId(), bookingId))
                 .toList());

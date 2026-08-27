@@ -45,10 +45,10 @@ public class FacilitySubmissionException extends ApplicationException {
         }
     }
 
-    public static class MixedFacilityException extends FacilitySubmissionException {
-        private static final String MESSAGE = "한 번의 제출에는 같은 시설의 예약만 담을 수 있습니다.";
+    public static class MixedClubException extends FacilitySubmissionException {
+        private static final String MESSAGE = "한 번의 제출에는 같은 동아리의 예약만 담을 수 있습니다.";
 
-        public MixedFacilityException() {
+        public MixedClubException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }

@@ -193,8 +193,10 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                         (first, second) -> first));
     }
 
+    /** legacy(시설 단위) 배치 표기용(v2 §2) — 동아리 단위 전환 이후 신규 배치는 facilityId 가 null 이라 제외한다. */
     private Map<Long, String> facilityNames(List<FacilitySubmissionBatch> batches) {
-        List<Long> facilityIds = batches.stream().map(FacilitySubmissionBatch::getFacilityId).distinct().toList();
+        List<Long> facilityIds = batches.stream().map(FacilitySubmissionBatch::getFacilityId)
+                .filter(Objects::nonNull).distinct().toList();
         return facilityRepository.findAllById(facilityIds).stream()
                 .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
     }

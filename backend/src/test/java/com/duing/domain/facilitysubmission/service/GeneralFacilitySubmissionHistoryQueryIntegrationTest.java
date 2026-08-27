@@ -15,9 +15,11 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
+import com.duing.domain.facilitysubmission.entity.FacilitySubmissionItem;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRepository;
+import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
 import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
@@ -50,6 +52,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     @Autowired FacilitySubmissionQueryService queryService;
     @Autowired FacilitySubmissionService submissionService;
     @Autowired FacilitySubmissionAuditRepository auditRepository;
+    @Autowired FacilitySubmissionItemRepository itemRepository;
     @Autowired FacilityBookingRepository bookingRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
@@ -108,7 +111,8 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         SubmissionBatchListItem cancelledRow = page.getContent().get(1);
         assertThat(cancelledRow.cancelled()).isTrue();
         assertThat(cancelledRow.bookingCount()).isEqualTo(1);
-        assertThat(cancelledRow.facilityName()).isEqualTo(facility.getRoomName());
+        assertThat(cancelledRow.facilityName())
+                .as("동아리 단위 전환(v2 §2) 후 신규 배치는 배치 레벨 시설 표기가 없다").isNull();
         assertThat(cancelledRow.submittedByName()).isEqualTo(admin.getName());
         assertThat(cancelledRow.memo()).isEqualTo("1차");
     }
@@ -150,7 +154,8 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     private List<Long> batchIdsOf(SubmissionBatchStatusFilter status) {
-        return queryService.getBatches(new SubmissionBatchSearchCondition(facility.getId(), status),
+        // 동아리 단위 전환 후 신규 배치는 facility_id 가 null 이라 시설 필터로는 잡히지 않는다 — 무필터로 조회한다.
+        return queryService.getBatches(new SubmissionBatchSearchCondition(null, status),
                         PageRequest.of(0, 20)).getContent().stream()
                 .map(SubmissionBatchListItem::batchId)
                 .toList();
@@ -256,8 +261,10 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         FacilityBooking secondWindBooking = approvedBooking(windClub, 11);
         FacilityBooking gaonBooking = approvedBooking(gaonClub, 13);
         Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
-                List.of(firstWindBooking.getId(), secondWindBooking.getId(), gaonBooking.getId()), null),
-                actor()).batchId();
+                List.of(firstWindBooking.getId(), secondWindBooking.getId()), null), actor()).batchId();
+        // 동아리 단위 전환(v2 §1) 후 생성 경로로는 다동아리 배치를 만들 수 없다 — legacy(시설 단위) 배치의
+        // 다동아리 상태를 item 직접 저장으로 재현한다. clubNames 파생(item→booking)은 §2 대로 불변이다.
+        itemRepository.save(FacilitySubmissionItem.of(batchId, gaonBooking.getId()));
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
                 new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 10));
@@ -278,7 +285,9 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         FacilityBooking keptBooking = approvedBooking(9);
         FacilityBooking skippedBooking = approvedBooking(skippedClub, 11);
         Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
-                List.of(keptBooking.getId(), skippedBooking.getId()), null), actor()).batchId();
+                List.of(keptBooking.getId()), null), actor()).batchId();
+        // legacy(시설 단위) 다동아리 배치 상태 재현 — 생성 경로는 이제 단일 동아리만 허용한다(v2 §1).
+        itemRepository.save(FacilitySubmissionItem.of(batchId, skippedBooking.getId()));
         FacilityBooking toConflict = bookingRepository.findById(skippedBooking.getId()).orElseThrow();
         toConflict.markConflict("학교 시간표와 충돌");
         bookingRepository.save(toConflict);

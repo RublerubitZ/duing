@@ -37,9 +37,11 @@ public class SubmissionExportDataAssembler {
     public SubmissionExportData assemble(Long batchId) {
         FacilitySubmissionBatch batch = batchRepository.findById(batchId)
                 .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
-        String facilityName = facilityRepository.findById(batch.getFacilityId())
-                .map(Facility::getRoomName)
-                .orElse(null);
+        // 동아리 단위 전환(v2 §1) 이후 신규 배치는 facilityId 가 null — 행별 시설명 전환(§3)은 후속 작업.
+        String facilityName = batch.getFacilityId() == null ? null
+                : facilityRepository.findById(batch.getFacilityId())
+                        .map(Facility::getRoomName)
+                        .orElse(null);
         List<Long> bookingIds = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
                 .map(FacilitySubmissionItem::getBookingId)
                 .toList();
