@@ -10,6 +10,7 @@ import { ErrorState } from '../../_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
 import {
   contextDateLabel,
+  crawledAtLabel,
   foldReservationContexts,
   nextYearMonth,
   seoulYearMonth,
@@ -225,6 +226,9 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
               {context.reservations.length > 1 && (
                 <span className="text-[11px] text-charcoal-3">({context.reservations.length}건 연속)</span>
               )}
+              <span className="text-[11px] text-charcoal-3">
+                수집 {crawledAtLabel(context.reservations[0]?.crawledAt ?? '')}
+              </span>
             </li>
           );
         })}

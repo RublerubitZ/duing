@@ -67,6 +67,19 @@ export function foldReservationContexts(reservations: AdminCrawlReservation[]): 
   return contexts;
 }
 
+/** 크롤 수집 시각(ISO 절대시각) → "MM/DD HH:mm"(KST) — §13 확인 목록의 "크롤링 시각" 표기용. */
+export function crawledAtLabel(iso: string): string {
+  const formatted = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+  // sv-SE: "MM-DD HH:mm" — 구분자만 표기 관례(/)로 바꾼다.
+  return formatted.replace('-', '/');
+}
+
 /** "08/28~08/30" 또는 단일 일자 "08/28" — 맥락 표기용. */
 export function contextDateLabel(context: CrawlContext): string {
   const short = (iso: string) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}`;
