@@ -272,7 +272,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(movedRows).hasSize(1);
         assertThat(movedRows.get(0).scheduleSeq()).isEqualTo(18134L);
         assertThat(movedRows.get(0).id()).isNotEqualTo(baseline.get(0).id());
-        assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(19, 0));
+        assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(9, 0)); // 꼬리 전 구간 확장(전면 차단 정책)
         // unique 충돌 롤백이 없었음의 증명 — 두 달 모두 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
         for (YearMonth crawledMonth : List.of(targetMonth, nextMonth)) {
             FacilityMonthSnapshot monthSnapshot = snapshotRepository.findByYearMonth(crawledMonth).orElseThrow();
@@ -300,7 +300,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         List<RowState> afterCrawl = storedRows();
         assertThat(afterCrawl).hasSize(2);
         assertThat(afterCrawl.get(0).scheduleSeq()).isEqualTo(18134L);
-        assertThat(afterCrawl.get(0).startTime()).isEqualTo(LocalTime.of(19, 0)); // 옮겨온 새 값으로 반영
+        assertThat(afterCrawl.get(0).startTime()).isEqualTo(LocalTime.of(9, 0)); // 옮겨온 새 값(꼬리 전 구간 확장)으로 반영
         assertThat(reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), outsideWindowMonth)).isEmpty();
         // unique 충돌 롤백이 없었음의 증명 — 월 메타가 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
