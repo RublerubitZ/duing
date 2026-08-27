@@ -38,13 +38,15 @@ export const metadata: Metadata = {
 export const revalidate = 600;
 
 // GNB(HomeNav)·크림 캔버스 래퍼는 (home)/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
-// 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(검색바)면 라우터 자동 스크롤 기준에서
-// 제외되어 dev 콘솔에 Skipping auto-scroll 경고가 뜬다(layout-router shouldSkipElement).
+// 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky 면 라우터 자동 스크롤 기준에서 제외되어
+// dev 콘솔에 Skipping auto-scroll 경고가 뜬다(layout-router shouldSkipElement).
 export default function HomePage() {
   return (
     <div>
-      <HomeMobileSearchBar />
       <HomeHero />
+      {/* 모바일 검색 바는 시안대로 히어로 다음에 온다. sticky 라 이 자리에 있다가 지나치면 상단에 붙는다 —
+          히어로 섹션 안에 넣으면 섹션을 벗어나는 순간 함께 사라져 스크롤 중 검색을 잃는다. */}
+      <HomeMobileSearchBar />
       <BannerCarousel />
       <RecruitmentTicker />
       {/* 발견 흐름의 중심 섹션 — 탐색·카테고리보다 먼저 두어, 스크롤 초반에 "지금 볼 만한 곳" 을 먼저 만나게 한다.
