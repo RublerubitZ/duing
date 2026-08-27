@@ -18,6 +18,7 @@ import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
+import com.duing.domain.facilitysubmission.entity.FacilitySubmissionBatch;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionItem;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
@@ -142,21 +143,45 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
     }
 
     @Test
-    @DisplayName("다른 시설의 예약이 섞이면 거부된다")
-    void mixedFacilityRejects() {
-        FacilityBooking mine = approvedBooking(9);
+    @DisplayName("같은 동아리라면 다른 시설의 예약도 한 Batch 로 제출할 수 있고 배치는 동아리를 갖는다")
+    void sameClubMultiFacilitySucceeds() {
+        FacilityBooking firstFacilityBooking = approvedBooking(9);
         Facility otherFacility = facilityRepository.save(Facility.create(
                 (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(2)", "1504호", 0));
-        FacilityBooking other = FacilityBooking.request(
+        FacilityBooking otherFacilityBooking = FacilityBooking.request(
                 otherFacility.getId(), club.getId(), applicant.getId(), LocalDate.now().plusDays(7),
                 LocalTime.of(13, 0), LocalTime.of(14, 0), "정기 합주", 20,
                 FacilityBookingFixture.VALID_CONTACT_PHONE);
-        other.approve(admin.getId(), null, LocalDateTime.now());
-        bookingRepository.save(other);
+        otherFacilityBooking.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(otherFacilityBooking);
 
-        assertThatThrownBy(() -> submissionService.create(
-                new CreateSubmissionBatchCommand(List.of(mine.getId(), other.getId()), null), actor()))
-                .isInstanceOf(FacilitySubmissionException.MixedFacilityException.class);
+        CreateSubmissionBatchResult result = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(firstFacilityBooking.getId(), otherFacilityBooking.getId()), null), actor());
+
+        FacilitySubmissionBatch batch = batchRepository.findById(result.batchId()).orElseThrow();
+        assertThat(batch.getClubId()).isEqualTo(club.getId());
+        assertThat(batch.getFacilityId()).as("동아리 단위 전환 후 신규 배치는 시설을 갖지 않는다").isNull();
+        assertThat(itemRepository.findByBatchIdOrderByIdAsc(result.batchId())).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("서로 다른 동아리의 예약을 섞으면 Batch 는 전혀 생성되지 않고 400 예외가 발생한다")
+    void mixedClubRejects() {
+        FacilityBooking myClubBooking = approvedBooking(9);
+        Club otherClub = clubRepository.save(Club.create("제출동아리-" + sequence.getAndIncrement(),
+                ClubCategory.OTHER, "분과", "설명", null));
+        FacilityBooking otherClubBooking = FacilityBooking.request(
+                facility.getId(), otherClub.getId(), applicant.getId(), LocalDate.now().plusDays(7),
+                LocalTime.of(13, 0), LocalTime.of(14, 0), "정기 합주", 20,
+                FacilityBookingFixture.VALID_CONTACT_PHONE);
+        otherClubBooking.approve(admin.getId(), null, LocalDateTime.now());
+        bookingRepository.save(otherClubBooking);
+
+        assertThatThrownBy(() -> submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(myClubBooking.getId(), otherClubBooking.getId()), null), actor()))
+                .isInstanceOf(FacilitySubmissionException.MixedClubException.class);
+        assertThat(batchRepository.count()).isZero();
+        assertThat(itemRepository.count()).isZero();
     }
 
     @Test

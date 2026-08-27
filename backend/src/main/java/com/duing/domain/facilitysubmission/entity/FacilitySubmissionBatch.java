@@ -25,7 +25,12 @@ public class FacilitySubmissionBatch extends BaseEntity {
     @Column(name = "submission_no", nullable = false, length = 20)
     private String submissionNo;
 
-    @Column(name = "facility_id", nullable = false)
+    /** 동아리 단위 전환(v2 §1) 이후 배치의 소유 동아리 — 전환 전 legacy 배치는 null. */
+    @Column(name = "club_id")
+    private Long clubId;
+
+    /** legacy(시설 단위) 배치 전용(v2 §2) — 전환 이후 신규 배치는 null. */
+    @Column(name = "facility_id")
     private Long facilityId;
 
     @Column(name = "submitted_by", nullable = false)
@@ -52,10 +57,12 @@ public class FacilitySubmissionBatch extends BaseEntity {
     @Column(name = "completed_by")
     private Long completedById;
 
+    // facilityId 는 legacy(시설 단위) 배치 상태를 테스트에서 재현하기 위해 빌더에 남긴다(v2 §2).
     @Builder(access = AccessLevel.PRIVATE)
-    private FacilitySubmissionBatch(String submissionNo, Long facilityId, Long submittedById,
+    private FacilitySubmissionBatch(String submissionNo, Long clubId, Long facilityId, Long submittedById,
                                     LocalDateTime submittedAt, String memo, String csvFileName) {
         this.submissionNo = submissionNo;
+        this.clubId = clubId;
         this.facilityId = facilityId;
         this.submittedById = submittedById;
         this.submittedAt = submittedAt;
@@ -63,11 +70,11 @@ public class FacilitySubmissionBatch extends BaseEntity {
         this.csvFileName = csvFileName;
     }
 
-    public static FacilitySubmissionBatch create(String submissionNo, Long facilityId, Long submittedById,
+    public static FacilitySubmissionBatch create(String submissionNo, Long clubId, Long submittedById,
                                                  LocalDateTime submittedAt, String memo) {
         return FacilitySubmissionBatch.builder()
                 .submissionNo(submissionNo)
-                .facilityId(facilityId)
+                .clubId(clubId)
                 .submittedById(submittedById)
                 .submittedAt(submittedAt)
                 .memo(memo)

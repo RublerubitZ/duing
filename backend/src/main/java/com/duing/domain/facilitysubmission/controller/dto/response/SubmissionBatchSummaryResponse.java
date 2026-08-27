@@ -10,6 +10,7 @@ public record SubmissionBatchSummaryResponse(
         String submissionNo,
         Long facilityId,
         String facilityName,
+        List<String> facilityNames,
         long bookingCount,
         List<String> clubNames,
         Instant submittedAt,
@@ -23,7 +24,7 @@ public record SubmissionBatchSummaryResponse(
     public static SubmissionBatchSummaryResponse from(SubmissionBatchListItem listItem) {
         // submittedAt/cancelledAt/completedAt 은 모두 seoulClock(KST wall-clock) 기록값이다.
         return new SubmissionBatchSummaryResponse(listItem.batchId(), listItem.submissionNo(),
-                listItem.facilityId(), listItem.facilityName(), listItem.bookingCount(),
+                listItem.facilityId(), listItem.facilityName(), listItem.facilityNames(), listItem.bookingCount(),
                 listItem.clubNames(), TimeMapper.seoulWallClockToInstant(listItem.submittedAt()),
                 listItem.submittedByName(), listItem.memo(), listItem.cancelled(),
                 TimeMapper.seoulWallClockToInstant(listItem.cancelledAt()),

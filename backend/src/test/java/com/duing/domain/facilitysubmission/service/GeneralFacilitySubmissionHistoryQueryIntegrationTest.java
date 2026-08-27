@@ -15,9 +15,11 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionAudit;
+import com.duing.domain.facilitysubmission.entity.FacilitySubmissionItem;
 import com.duing.domain.facilitysubmission.entity.SubmissionAuditAction;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.repository.FacilitySubmissionAuditRepository;
+import com.duing.domain.facilitysubmission.repository.FacilitySubmissionItemRepository;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
 import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
@@ -29,6 +31,8 @@ import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchStat
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -42,6 +46,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -50,10 +55,13 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     @Autowired FacilitySubmissionQueryService queryService;
     @Autowired FacilitySubmissionService submissionService;
     @Autowired FacilitySubmissionAuditRepository auditRepository;
+    @Autowired FacilitySubmissionItemRepository itemRepository;
     @Autowired FacilityBookingRepository bookingRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired FacilityRepository facilityRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
+    @PersistenceContext EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime() % 1_000_000);
 
@@ -77,16 +85,27 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     private FacilityBooking approvedBooking(int startHour) {
-        return approvedBooking(club, startHour);
+        return approvedBooking(club, facility, startHour);
     }
 
     private FacilityBooking approvedBooking(Club bookingClub, int startHour) {
+        return approvedBooking(bookingClub, facility, startHour);
+    }
+
+    private FacilityBooking approvedBooking(Club bookingClub, Facility bookingFacility, int startHour) {
         FacilityBooking booking = FacilityBooking.request(
-                facility.getId(), bookingClub.getId(), applicant.getId(), LocalDate.now().plusDays(7),
+                bookingFacility.getId(), bookingClub.getId(), applicant.getId(), LocalDate.now().plusDays(7),
                 LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0),
                 "정기 합주", 20, FacilityBookingFixture.VALID_CONTACT_PHONE);
         booking.approve(admin.getId(), null, LocalDateTime.now());
         return bookingRepository.save(booking);
+    }
+
+    /** legacy(시설 단위) 배치 상태 재현 — 생성 경로는 이제 동아리 단위뿐이라(v2 §1) SQL 로 전환 전 행을 만든다. */
+    private void turnIntoLegacyFacilityBatch(Long batchId, Long legacyFacilityId) {
+        jdbcTemplate.update("UPDATE facility_submission_batch SET club_id = NULL, facility_id = ? WHERE id = ?",
+                legacyFacilityId, batchId);
+        entityManager.clear();
     }
 
     @Test
@@ -101,30 +120,59 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         submissionService.cancel(olderBatchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 20));
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).extracting(SubmissionBatchListItem::batchId)
                 .containsExactly(newerBatchId, olderBatchId);
         SubmissionBatchListItem cancelledRow = page.getContent().get(1);
         assertThat(cancelledRow.cancelled()).isTrue();
         assertThat(cancelledRow.bookingCount()).isEqualTo(1);
-        assertThat(cancelledRow.facilityName()).isEqualTo(facility.getRoomName());
+        assertThat(cancelledRow.facilityName())
+                .as("동아리 단위 전환(v2 §2) 후 신규 배치는 배치 레벨 시설 표기가 없다").isNull();
         assertThat(cancelledRow.submittedByName()).isEqualTo(admin.getName());
         assertThat(cancelledRow.memo()).isEqualTo("1차");
     }
 
     @Test
-    @DisplayName("facilityId 필터를 주면 해당 시설의 이력만 반환된다")
-    void facilityFilterNarrowsBatches() {
-        FacilityBooking mine = approvedBooking(9);
-        submissionService.create(new CreateSubmissionBatchCommand(List.of(mine.getId()), null), actor());
-        Facility otherFacility = facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(2)", "1504호", 0));
+    @DisplayName("한 동아리 다시설 배치의 facilityNames 는 가나다순 시설명 목록이고 배치 레벨 facilityName 은 null 이다")
+    void 다시설_배치_시설명_목록() {
+        Facility hallFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "가온홀", "1101호", 0));
+        FacilityBooking roomBooking = approvedBooking(9);
+        FacilityBooking hallBooking = approvedBooking(club, hallFacility, 11);
+        Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
+                List.of(roomBooking.getId(), hallBooking.getId()), null), actor()).batchId();
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(otherFacility.getId(), null), PageRequest.of(0, 20));
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
 
-        assertThat(page.getContent()).isEmpty();
+        SubmissionBatchListItem row = page.getContent().get(0);
+        assertThat(row.facilityNames()).containsExactly("가온홀", "커뮤니티룸(1)");
+        assertThat(row.facilityName()).as("신규(동아리 단위) 배치는 배치 레벨 시설 표기가 없다").isNull();
+        assertThat(row.facilityId()).isNull();
+        // 상세 헤더도 같은 규칙으로 채워진다(§5 — 대기/이력 어디서 열어도 동일 표기).
+        assertThat(queryService.getDetail(batchId, actor()).batch().facilityNames())
+                .containsExactly("가온홀", "커뮤니티룸(1)");
+    }
+
+    @Test
+    @DisplayName("legacy(시설 단위) 배치는 facilityName 이 유지되고 facilityNames 는 그 시설 1개다")
+    void legacy_배치_시설명_유지() {
+        FacilityBooking booking = approvedBooking(9);
+        Long batchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(booking.getId()), null), actor()).batchId();
+        turnIntoLegacyFacilityBatch(batchId, facility.getId());
+
+        Page<SubmissionBatchListItem> page = queryService.getBatches(
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
+
+        SubmissionBatchListItem row = page.getContent().get(0);
+        assertThat(row.facilityId()).isEqualTo(facility.getId());
+        assertThat(row.facilityName()).isEqualTo("커뮤니티룸(1)");
+        assertThat(row.facilityNames()).containsExactly("커뮤니티룸(1)");
+        SubmissionBatchListItem header = queryService.getDetail(batchId, actor()).batch();
+        assertThat(header.facilityName()).isEqualTo("커뮤니티룸(1)");
+        assertThat(header.facilityNames()).containsExactly("커뮤니티룸(1)");
     }
 
     @Test
@@ -150,7 +198,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     private List<Long> batchIdsOf(SubmissionBatchStatusFilter status) {
-        return queryService.getBatches(new SubmissionBatchSearchCondition(facility.getId(), status),
+        return queryService.getBatches(new SubmissionBatchSearchCondition(status),
                         PageRequest.of(0, 20)).getContent().stream()
                 .map(SubmissionBatchListItem::batchId)
                 .toList();
@@ -240,7 +288,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         submissionService.complete(batchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 20));
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 20));
 
         assertThat(page.getContent().get(0).completed()).isTrue();
         assertThat(page.getContent().get(0).completedAt()).isNotNull();
@@ -256,11 +304,14 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         FacilityBooking secondWindBooking = approvedBooking(windClub, 11);
         FacilityBooking gaonBooking = approvedBooking(gaonClub, 13);
         Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
-                List.of(firstWindBooking.getId(), secondWindBooking.getId(), gaonBooking.getId()), null),
-                actor()).batchId();
+                List.of(firstWindBooking.getId(), secondWindBooking.getId()), null), actor()).batchId();
+        // 동아리 단위 전환(v2 §1) 후 생성 경로로는 다동아리 배치를 만들 수 없다 — 타 동아리 item 직접 저장
+        // + legacy(시설 단위) 행 전환으로 재현한다. clubNames 파생(item→booking)은 §2 대로 불변이다.
+        itemRepository.save(FacilitySubmissionItem.of(batchId, gaonBooking.getId()));
+        turnIntoLegacyFacilityBatch(batchId, facility.getId());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().stream()
                 .filter(listItem -> listItem.batchId().equals(batchId))
@@ -278,14 +329,17 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         FacilityBooking keptBooking = approvedBooking(9);
         FacilityBooking skippedBooking = approvedBooking(skippedClub, 11);
         Long batchId = submissionService.create(new CreateSubmissionBatchCommand(
-                List.of(keptBooking.getId(), skippedBooking.getId()), null), actor()).batchId();
+                List.of(keptBooking.getId()), null), actor()).batchId();
+        // legacy(시설 단위) 다동아리 배치 상태 재현 — 타 동아리 item 직접 저장 + legacy 행 전환(v2 §1·§2).
+        itemRepository.save(FacilitySubmissionItem.of(batchId, skippedBooking.getId()));
+        turnIntoLegacyFacilityBatch(batchId, facility.getId());
         FacilityBooking toConflict = bookingRepository.findById(skippedBooking.getId()).orElseThrow();
         toConflict.markConflict("학교 시간표와 충돌");
         bookingRepository.save(toConflict);
         submissionService.complete(batchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null, null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().stream()
                 .filter(listItem -> listItem.batchId().equals(batchId))

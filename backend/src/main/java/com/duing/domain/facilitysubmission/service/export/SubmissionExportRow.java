@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public record SubmissionExportRow(
+        String facilityName,
         LocalDate reservationDate,
         LocalTime startTime,
         LocalTime endTime,
