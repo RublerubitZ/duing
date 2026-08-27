@@ -149,7 +149,7 @@ public class FacilityBookingMatchingService {
         }
         // 기본 확보 시간 대상 동아리 — 이름 일치 크롤 행은 전부 BASIC_SECURED_TIME(상시 확보 표시)이라
         // "학교가 이 예약을 반영했다"는 증거가 아니다(수정 8). 자동 확정을 포기하고 수동 확정으로 넘긴다.
-        // availability 차단은 blockingOverlapping 이 분류와 무관하게 유지하므로 이 스킵이 슬롯을 열지 않는다.
+        // 확보 행은 비차단이지만(2026-08-27) 이 스킵의 근거는 차단이 아니라 "학교 반영 증거 아님"이므로 유지한다.
         if (securedOrganizationKeys.contains(normalizer.normalize(clubName))) {
             log.info("FacilityBooking Matching skip bookingId={} (기본 확보 시간 대상 — 증거 제외, 수동 확정 폴백)", bookingId);
             return false;

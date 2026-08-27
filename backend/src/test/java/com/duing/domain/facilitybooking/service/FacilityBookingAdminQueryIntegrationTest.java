@@ -241,6 +241,34 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("확보 행 위 APPROVED 는 충돌 의심이 아니고, 요약 KPI 와 상세 SCHOOL 겹침에서도 확보 행이 제외된다")
+    void securedRowOverlapIsNotConflictSuspected() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        // 확보 동아리 상시 확보 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                PageRequest.of(0, 10));
+
+        // 이름 불일치 점유행 겹침이지만 확보 행은 충돌 증거에서 제외된다 — 오배지 해소(리뷰 P2 #01).
+        assertThat(queue.getContent().get(0).conflictSuspected()).isFalse();
+        assertThat(queryService.getSummary().conflictSuspectedCount()).isZero();
+        // 상세의 SCHOOL 겹침 목록에서도 빠진다 — 비차단 행을 SCHOOL 로 내리면 "학교 측이 막는다" 오표기다.
+        assertThat(queryService.getDetail(approved).overlaps())
+                .noneMatch(context -> context.source().equals("SCHOOL"));
+    }
+
+    @Test
     @DisplayName("PENDING 큐는 오래된 순(createdAt asc)으로 정렬한다 — §9.7 기본 뷰")
     void pendingQueueOrdersOldestFirst() throws Exception {
         Fixture fixture = fixture();

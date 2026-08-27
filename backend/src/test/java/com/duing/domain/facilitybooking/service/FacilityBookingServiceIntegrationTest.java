@@ -192,7 +192,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 행은 유형과 무관하게 겹치는 신청을 전부 막고, 어떤 행과도 겹치지 않는 시간만 신청된다")
+    @DisplayName("크롤 실예약 행은 겹치는 신청을 전부 막고, 어떤 행과도 겹치지 않는 시간만 신청된다")
     void allCrawlRowsBlockOverlappingRequests() throws Exception {
         Fixture fixture = fixture();
         LocalDate date = bookableDate();
@@ -200,18 +200,72 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
                 LocalTime.of(18, 0), LocalTime.of(19, 0), "비호응원단", LocalDateTime.now()));
-        // 물결 꼬리에서 확장된 행: 고정관념 [09:00, 18:00) — 구 정책의 비차단 운영행이 이제 전 구간 차단이다.
+        // 물결 꼬리에서 확장된 행: 고정관념 [09:00, 18:00) — 확보 대상 미지정 이름이라 CRAWLED 폴백(전 구간 차단).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
                 LocalTime.of(9, 0), LocalTime.of(18, 0), "고정관념", LocalDateTime.now()));
 
         assertThatThrownBy(() -> bookingService.create(command(fixture, date, 18, 20)))
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
-        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 9, 11))) // 확장 행도 차단(전면 차단)
+        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 9, 11))) // 확장 행도 차단(실예약)
                 .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
 
         var allowed = bookingService.create(command(fixture, date, 19, 21)); // 어떤 행과도 안 겹침 → 허용
         assertThat(allowed.bookingId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("기본 확보 대상 동아리의 크롤 행 시간대에는 다른 동아리가 신청할 수 있다 — 확보 행은 비차단")
+    void securedClubCrawlRowDoesNotBlockOtherClubs() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        // 확보 동아리 이름의 상시 확보 행 9~22 — 구 전면 차단 정책이면 전 구간 차단이던 행이다.
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+
+        var allowed = bookingService.create(command(fixture, date, 18, 20));
+
+        assertThat(allowed.bookingId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("기본 확보 대상 동아리 본인도 자기 확보 시간에 신청할 수 있다 — 완결은 수동 확정이 정규 경로")
+    void securedClubCanApplyOnItsOwnSecuredWindow() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        Club securedClub = clubRepository.findById(fixture.club().getId()).orElseThrow();
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+
+        var allowed = bookingService.create(command(fixture, date, 18, 20));
+
+        assertThat(allowed.bookingId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리의 정규화 이름이 다른 동아리와 충돌하면 매칭을 포기해 해당 크롤 행의 차단이 유지된다")
+    void collidingSecuredClubNameKeepsBlocking() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("충돌확보");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        // 끝 괄호 그룹은 정규화로 제거된다 — 두 동아리가 같은 키로 붕괴(P5 매칭 포기 → CRAWLED 폴백).
+        clubRepository.save(Club.create(securedClub.getName() + "(2)",
+                ClubCategory.OTHER, "분과", "설명", null));
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+
+        assertThatThrownBy(() -> bookingService.create(command(fixture, date, 18, 20)))
+                .isInstanceOf(FacilityBookingException.SlotUnavailableException.class);
     }
 
     @Test
