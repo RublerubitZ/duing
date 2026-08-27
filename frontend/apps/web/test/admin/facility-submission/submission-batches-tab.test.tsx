@@ -400,6 +400,90 @@ describe('SubmissionBatchesTab', () => {
     expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
   });
 
+  /* ── 페이지 clamp(P2-13) — 완료/취소로 totalPages 가 줄면 범위 밖 page 가 빈 화면을 만든다 ── */
+  const loadingState = {
+    data: undefined,
+    isLoading: true,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  };
+
+  it('마지막 페이지의 마지막 배치를 완료해 totalPages 가 줄면 page 를 이전 페이지로 클램프한다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 1,
+      confirmedCount: 1,
+      skippedCount: 0,
+      completedAt: '2026-08-01T11:00:00',
+      skippedBookings: [],
+    });
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10, status: 'REVIEWING' });
+
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
+    await waitFor(() => expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 1 }));
+
+    // 완료된 배치가 진행 중 목록에서 빠져 재조회 totalPages 가 1 — 2페이지(index 1)는 범위 밖이다.
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 1));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+  });
+
+  it('마지막 페이지의 마지막 배치를 취소해 totalPages 가 줄어도 동일하게 클램프한다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 취소' }));
+    await waitFor(() => expect(mockCancelMutateAsync).toHaveBeenCalledWith({ batchId: 1 }));
+
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 1));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+  });
+
+  it('재조회 결과 totalPages 가 0 이면 page 0 으로 돌아가 빈 상태를 보여준다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([], 0));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+    expect(screen.getByText('진행 중인 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
+  it('페이지 전환 중(데이터 미도착)에는 클램프하지 않아 일반 페이지 이동이 유지된다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab />);
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    // 새 page 키로 넘어가는 순간 data 가 비는데, 이때 totalPages 0 으로 오인해 page 0 으로 되돌리면 안 된다.
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(loadingState);
+    rerender(<SubmissionBatchesTab />);
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
+
+    // 2페이지 데이터가 도착해도 범위 안이면 그대로 둔다(불필요 setPage 루프 없음).
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 2));
+    rerender(<SubmissionBatchesTab />);
+    expect(mockBatchesQuery).toHaveBeenCalledTimes(1);
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
+  });
+
   it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏) 링크를 노출하고 상세는 없다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 55 })]));
     render(<SubmissionBatchesTab />);

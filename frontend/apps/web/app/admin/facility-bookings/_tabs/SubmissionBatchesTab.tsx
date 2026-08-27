@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   formatDateKst,
@@ -67,6 +67,15 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
   const batches = batchesQuery.data?.content ?? [];
   const totalPages = batchesQuery.data?.totalPages ?? 0;
+  // 완료/취소로 마지막 페이지의 배치가 사라지면 재조회 totalPages 가 줄어 현재 page 가 범위 밖(빈 화면)이 된다 —
+  // 검토 탭(BookingManagementTab) 전례대로 데이터 도착 후에만 클램프한다(P2-13). 페이지 전환 중엔 data 가 비어
+  // totalPages 0 으로 보이므로, 그때 판단하면 정상 이동까지 page 0 으로 되돌린다. (useEffect 금지는 데이터 패칭 한정)
+  const loadedTotalPages = batchesQuery.data !== undefined ? totalPages : undefined;
+  useEffect(() => {
+    if (loadedTotalPages === undefined) return;
+    if (loadedTotalPages === 0 && page !== 0) setPage(0);
+    else if (loadedTotalPages > 0 && page >= loadedTotalPages) setPage(loadedTotalPages - 1);
+  }, [loadedTotalPages, page]);
   // 에이징 표기 기준 시각 — 렌더당 1회 계산해 전 행이 같은 기준을 공유한다(큐 테이블 전례).
   const now = new Date();
 

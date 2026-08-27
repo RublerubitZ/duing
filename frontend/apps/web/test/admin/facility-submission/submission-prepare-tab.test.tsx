@@ -76,6 +76,28 @@ const querySuccess = (response: SubmissionCandidatesResponse) => ({
   data: response, isLoading: false, isSuccess: true, isError: false, refetch: vi.fn(),
 });
 const queryIdle = { data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() };
+const queryLoading = { data: undefined, isLoading: true, isSuccess: false, isError: false, refetch: vi.fn() };
+
+/** 조회 기간을 명시 지정한다 — 픽스처 예약일(2026-08)과 기간의 포함 관계가 정리 규칙에 영향을 주므로 오늘 날짜에 기대지 않는다. */
+function setPeriod(startDate: string, endDate: string) {
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: startDate } });
+  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: endDate } });
+}
+
+/** 밴드부 강당 예약(1)을 뺀 다른 달 결과 — 기간 변경 시 서버가 돌려주는 "예약일 밖" 목록. */
+function makeSeptemberResponse(): SubmissionCandidatesResponse {
+  return {
+    summary: { approvedCount: 1, awaitingCount: 1, submittedCount: 0, confirmedCount: 0 },
+    bookings: [
+      {
+        bookingId: 5, facilityId: 100, facilityName: '강당', clubId: 12, clubName: '테니스부', applicantName: '이영희', contactPhone: '010-9999-8888',
+        reservationDate: '2026-09-05', startTime: '10:00', endTime: '12:00', purpose: '9월 연습',
+        attendeeCount: 15, status: 'APPROVED', submitted: false, selectable: true,
+        submissionNo: null, decidedByName: '관리자', decidedAt: '2026-08-20T10:00:00',
+      },
+    ],
+  };
+}
 
 describe('SubmissionPrepareTab', () => {
   beforeEach(() => {
@@ -168,16 +190,146 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByText('3건 선택됨 · 동아리 2곳')).toBeInTheDocument();
   });
 
-  it('검색으로 화면에서 사라진 예약의 제외 상태는 정리된다 — 검색 해제 시 기본 선택으로 복귀', () => {
+  // ── 제외 상태 보존(P2-15/20) — 검색·상태 필터·기간 변경으로 숨겨진 제외는 유지하고, 서버 결과에서 실제 사라진 것만 정리한다. ──
+
+  it('검색으로 숨겨진 예약의 제외 상태는 유지된다 — 검색 해제 후에도 제외 표시', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
-    // 제외 → 검색으로 해당 예약을 숨김 → 검색 해제 → 제외가 정리되어 다시 기본 선택
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
     fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '방송' } });
     fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
 
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
+  });
+
+  it('상태 필터 전환으로 숨겨진 예약의 제외 상태는 유지된다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'SUBMITTED' } });
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'NEED' } });
+
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
+  });
+
+  it('기간 변경으로 예약일 밖이 된 제외는 유지되고, 기간 복귀(로딩 경유) 후에도 제외 표시', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    const { rerender } = render(<SubmissionPrepareTab />);
+    setPeriod('2026-08-01', '2026-08-31');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+
+    // 9월로 이동 — 서버 결과에 예약 1 이 없지만 예약일(08-01)이 기간 밖이라 "기간 변경으로 숨겨진 것".
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeSeptemberResponse()));
+    setPeriod('2026-09-01', '2026-09-30');
+    expect(screen.getByRole('group', { name: /테니스부/ })).toBeInTheDocument();
+
+    // 8월 복귀 — 새 키 로딩 중(data 없음)에 정리하면 안 되고, 결과가 도착해 예약 1 이 다시 있으면 제외 유지.
+    mockCandidatesQuery.mockReturnValue(queryLoading);
+    setPeriod('2026-08-01', '2026-08-31');
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    rerender(<SubmissionPrepareTab />);
+
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
+  });
+
+  it('서버 재조회 결과에서 기간 안 예약이 사라지면 제외를 정리한다 — 다시 나타나면 기본 선택', () => {
+    const fullResponse = makeMultiClubResponse();
+    mockCandidatesQuery.mockReturnValue(querySuccess(fullResponse));
+    const { rerender } = render(<SubmissionPrepareTab />);
+    setPeriod('2026-08-01', '2026-08-31');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    expect(screen.getByText('2건 선택됨 · 동아리 2곳')).toBeInTheDocument();
+
+    // 예약 1 이 서버 결과에서 빠짐(기간 안) → 실제 소실로 보고 제외 정리.
+    mockCandidatesQuery.mockReturnValue(
+      querySuccess({ ...fullResponse, bookings: fullResponse.bookings.filter((booking) => booking.bookingId !== 1) }),
+    );
+    rerender(<SubmissionPrepareTab />);
+    expect(screen.queryByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeInTheDocument();
+
+    mockCandidatesQuery.mockReturnValue(querySuccess(fullResponse));
+    rerender(<SubmissionPrepareTab />);
     expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).toBeChecked();
+    expect(screen.getByText('3건 선택됨 · 동아리 2곳')).toBeInTheDocument();
+  });
+
+  it('일부만 제외한 뒤 검색·필터를 거쳐도 제외/선택 구분이 그대로 보존된다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '밴드' } });
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-03 14:00 선택/ })).toBeChecked();
+
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'SUBMITTED' } });
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'NEED' } });
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-03 14:00 선택/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /테니스부 2026-08-04 10:00 선택/ })).toBeChecked();
+    expect(screen.getByText('2건 선택됨 · 동아리 2곳')).toBeInTheDocument();
+  });
+
+  it('검색으로 숨겼다 해제한 제외 예약은 제출 목록 생성 payload 에 포함되지 않는다', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 10, submissionNo: 'SUB-20260801-005', csvFileName: 'facility-submission-SUB-20260801-005.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '테니스' } });
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 만들기 (2개 동아리)' }));
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledTimes(2);
+    });
+    // 밴드부는 세미나실(3)만, 테니스부는 4 — 제외한 강당(1)은 어느 호출에도 없다.
+    expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3], [4]]);
+  });
+
+  it('검색 중 "전체 해제"는 보이는 예약만 제외에 더하고 검색 밖 기존 제외를 지우지 않는다', async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue({
+      batchId: 11, submissionNo: 'SUB-20260801-006', csvFileName: 'facility-submission-SUB-20260801-006.csv',
+    });
+    mockCreateMutation.mockReturnValue({ mutateAsync: createMutateAsync, isPending: false });
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
+    render(<SubmissionPrepareTab />);
+
+    // 밴드부 강당(1) 제외 → 검색으로 밴드부 숨김 → 화면(테니스부 4)만 "전체 해제" → 검색 해제.
+    fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '테니스' } });
+    fireEvent.click(screen.getByRole('button', { name: '전체 해제' }));
+    expect(screen.getByText('0건 선택됨')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+
+    // 검색 밖 제외(1)는 유지, 화면에 있던 4 도 제외, 손대지 않은 3 만 선택.
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /밴드부 2026-08-03 14:00 선택/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /테니스부 2026-08-04 10:00 선택/ })).not.toBeChecked();
+    expect(screen.getByText('1건 선택됨 · 동아리 1곳')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^제출 목록 만들기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3]]);
   });
 
   it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여준다', () => {
