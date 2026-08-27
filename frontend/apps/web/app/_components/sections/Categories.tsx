@@ -88,13 +88,20 @@ function CategoryCard({
         </span>
       )}
 
-      {/* 픽토그램 — 장식이라 접근성 트리에서 제외한다. */}
-      <span
+      {/* 픽토그램(토스페이스 원본 SVG) — 장식이라 접근성 트리에서 제외한다.
+          링크 접근명이 카테고리와 개수를 이미 담고 있어 alt 는 비운다. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={category.iconSrc}
+        alt=""
         aria-hidden
-        className="pointer-events-none absolute bottom-3.5 right-4 select-none text-[80px] leading-none"
-      >
-        {category.emoji}
-      </span>
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        width={80}
+        height={80}
+        className="pointer-events-none absolute bottom-3.5 right-4 h-20 w-20 select-none"
+      />
     </Link>
   );
 }
@@ -116,12 +123,18 @@ function CategoryTile({
       <span aria-hidden className="text-[14px] font-semibold leading-none tracking-tightest text-ink">
         {category.label}
       </span>
-      <span
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={category.iconSrc}
+        alt=""
         aria-hidden
-        className="pointer-events-none select-none self-end text-[30px] leading-none"
-      >
-        {category.emoji}
-      </span>
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        width={32}
+        height={32}
+        className="pointer-events-none h-8 w-8 select-none self-end"
+      />
     </Link>
   );
 }

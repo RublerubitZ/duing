@@ -22,6 +22,7 @@ const { fetchClubStatsMock } = vi.hoisted(() => ({ fetchClubStatsMock: vi.fn() }
 vi.mock('@/app/_lib/club-stats', () => ({ fetchClubStats: fetchClubStatsMock }));
 
 import { Categories } from '@/app/_components/sections/Categories';
+import { HOME_CATEGORIES } from '@/app/_lib/homeCategories';
 
 const stats: ClubStats = {
   totalCount: 60,
@@ -84,6 +85,19 @@ describe('Categories', () => {
     render(await Categories());
 
     expect(screen.getAllByRole('link', { name: '학술 동아리 42개 보기' }).length).toBeGreaterThan(0);
+  });
+
+  it('픽토그램은 토스페이스 원본 SVG 로 렌더하고 접근성 트리에서는 감춘다', async () => {
+    const { container } = render(await Categories());
+
+    // 웹폰트로 얹으면 같은 그림에 5.9MB 를 내려받는다 — 원본 SVG 경로를 계약으로 고정한다.
+    const icons = container.querySelectorAll('img[src^="/tossface/"]');
+    // 모바일 타일 + 데스크탑 카드 이중 렌더라 카테고리 수의 두 배다.
+    expect(icons).toHaveLength(HOME_CATEGORIES.length * 2);
+    for (const icon of icons) {
+      expect(icon).toHaveAttribute('alt', '');
+      expect(icon).toHaveAttribute('aria-hidden');
+    }
   });
 
   it('통계 조회에 실패하면 개수만 생략하고 카테고리 타일은 그대로 그린다', async () => {
