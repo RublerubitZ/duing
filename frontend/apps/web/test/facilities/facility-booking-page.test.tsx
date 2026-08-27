@@ -89,8 +89,8 @@ const WINDOW_FROM_WEEK_LABEL = weekRangeLabel(mondayOf(WINDOW.from));
 
 // 주간 셀 탭 통합(§4)용 — 창 안에서 다른 요일 셀이 항상 존재하도록 '창 첫날+3일'이 속한 주를 기준으로
 // 앵커(딥링크 진입일)와 다른 요일 타깃을 고른다(주 경계·일요일 엣지에서도 형제 요일이 보장됨).
-// WINDOW.from 은 제외 — 혼합 슬롯 특수일이라 차단 블록·대기 홀드가 섞여
-// "N일 15:00 가능" 매칭이 깨질 수 있다(창 첫날 요일이 월~목인 달에만 터지는 날짜 의존 실패 방지).
+// WINDOW.from 은 제외 — 운영노트 특수일이라 셀 aria 가 "기본 확보 시간 · 예약 신청 가능"으로 달라져
+// "N일 15:00 가능" 매칭이 깨진다(창 첫날 요일이 월~목인 달에만 터지는 날짜 의존 실패 방지).
 const CROSS_ANCHOR = shiftDateByDays(WINDOW.from, 3);
 const CROSS_TARGET =
   weekDatesOf(CROSS_ANCHOR).find(
@@ -115,13 +115,13 @@ const NEXT_RANGE_CHIP = `${NEXT_RANGE.label} ${labelPart(NEXT_RANGE.startDate)} 
 // 다음 구간 시작일 셀(availableSlotCount 13 → 레벨 '여유') — 오픈 마커 제거 후 일반 셀과 동일.
 const NEXT_RANGE_START_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸`;
 
-// 창 첫날 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
+// 창 첫날 셀에 배치할 13칸: 9시=SCHOOL(고정관념), 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
   return Array.from({ length: 13 }, (_, index) => {
     const start = `${pad2(9 + index)}:00`;
     const end = `${pad2(10 + index)}:00`;
     if (index === 0)
-      return { start, end, status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization: '고정관념' };
+      return { start, end, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '고정관념' };
     if (index === 2)
       return { start, end, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '비호응원단' };
     if (index === 3) return { start, end, status: 'BLOCKED' as const, blockedBy: 'INTERNAL' as const };
@@ -153,7 +153,8 @@ function makeAvailability(facilityId: number, yearMonth: string): FacilityAvaila
           date: iso,
           dayStatus: 'AVAILABLE' as const,
           availableSlotCount: 10,
-          operatingNotes: [], // 전면 차단 설계 — 기본 확보는 슬롯(BASIC_SECURED)으로 내려온다
+          // 확보 시간 비차단 정보(스펙 §3 복원) — BE 가 BASIC_SECURED_TIME 슬라이스에서 채운다.
+          operatingNotes: [{ organization: '고정관념', start: '09:00', end: '20:00' }],
           slots: makeMixedSlots(),
         };
       }
@@ -380,12 +381,17 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // INTERNAL 비노출("예약됨")·PENDING_HOLD("승인 대기")도 현황·슬롯·요약 집계에 나타난다.
     expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
     expect(screen.getAllByText('승인 대기').length).toBeGreaterThan(0);
-    // 기본 확보 시간은 차단 슬롯(BASIC_SECURED)으로 내려와 현황 카드에 "(기본 확보)" 접미로 표기된다
-    // (전면 차단 설계 — 구 비차단 안내 박스는 폐지).
+    // 확보 시간 비차단 정보 표시(스펙 §3 복원) — 운영행은 정책 안내 박스로 승격(단체·시간 나열 + 고정 문구).
+    // "기본 확보 시간"은 주간 범례에도 있어 박스 고유의 고정 문구로 단언한다.
     expect(screen.getAllByText('고정관념').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/학교와 협의되어 기본적으로 이 동아리가 사용하는 시간이에요/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/고정관념 09:00~20:00/)).toBeInTheDocument();
+    // 예약 현황 카드엔 확보 통짜 행 "(기본 확보)" 접미 표기.
     expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
 
-    // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 1/3 — 09시가 기본 확보 차단, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
+    // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 1/3 — 09시 차단, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
     expect(screen.getByText('오전')).toBeInTheDocument();
     expect(screen.getByText('오후')).toBeInTheDocument();
     expect(screen.getByText('저녁')).toBeInTheDocument();
@@ -1017,15 +1023,15 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 주간 진입 확인 — 창 첫날이 선택일.
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
-    // 창 첫날 18·19시는 혼합 슬롯일의 일반 가용 셀(18~19시) — 일반 가용 셀과 동일하게 탭 선택.
+    // 창 첫날 18·19시는 확보 창(09~20) 안의 점선 가이드 셀 — 일반 가용 셀과 동일하게 탭 선택.
     // 선택일 컬럼(창 첫날)의 18:00 셀 탭 → 18:00~19:00 단일 선택(CTA 활성).
     fireEvent.click(
-      await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 가능`) }),
+      await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 기본 확보 시간 · 예약 신청 가능`) }),
     );
     expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
 
     // 인접 19:00 셀 연속 탭 → 18:00~20:00 병합 범위.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 가능`) }));
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.getByRole('button', { name: '18:00~20:00 예약 신청' })).toBeEnabled();
   });
 
@@ -1065,8 +1071,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
     await screen.findByLabelText('승인 진행 타임라인');
 
-    // 같은 날 주간 셀(19:00 — 운영 구간 내 sky 점선 가이드 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${APPLY_DAY}일 19:00 가능`) }));
+    // 같은 날 주간 셀(19:00 — 확보 구간 내 점선 가이드 셀) 탭 → 성공 화면 범위 변조 대신 슬롯 단계 + 19:00 단일 선택으로 리셋.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`${APPLY_DAY}일 19:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.queryByLabelText('승인 진행 타임라인')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '19:00~20:00 예약 신청' })).toBeEnabled();
   });
@@ -1099,8 +1105,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     fireEvent.click(await within(daySheet).findByRole('button', { name: '시간표로 보기' }));
     await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL });
 
-    // 가용 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 가능`) }));
+    // 가용(확보 구간 점선 가이드) 셀 탭은 모바일에서도 선택 동작 — 시트가 아니다(§9.3).
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`${WINDOW_FROM_DAY}일 18:00 기본 확보 시간 · 예약 신청 가능`) }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '18:00~19:00 예약 신청' })).toBeEnabled();
 

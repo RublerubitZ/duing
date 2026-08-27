@@ -56,9 +56,9 @@ export type FacilityDetailResponse = {
 // ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
 
 export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
-// BASIC_SECURED = 총동연 지정 기본 확보 시간 대상 동아리의 크롤 예약 — 차단은 SCHOOL 과 동일, 표시만 구분.
+// 기본 확보 시간(총동연 지정 대상)은 비차단(2026-08-27 전환) — 확보 슬롯은 AVAILABLE 로 내려와 blockedBy 가 없다.
 // fail-closed 계약: 예약 가능 여부는 status 만이 결정한다 — 미지의 blockedBy 값도 BLOCKED 표시를 유지한다.
-export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL' | 'BASIC_SECURED';
+export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
 export type BookingDayStatus = 'AVAILABLE' | 'FULL' | 'PAST';
 
 export type BookingAvailabilitySlot = {
@@ -71,7 +71,9 @@ export type BookingAvailabilitySlot = {
   organization?: string;
 };
 
-/** @deprecated 비차단 운영행 개념 폐지(2026-08-27 전면 차단) — 서버가 항상 빈 배열을 내려준다. 필드 제거는 후속. */
+// 기본 확보 시간 정보 행(비차단, 스펙 §3 복원 2026-08-27) — BE 가 BASIC_SECURED_TIME 분류 슬라이스에서
+// (단체, 시작, 끝) distinct 로 채운다. 표시 전용(설명 박스·점선 셀·"(기본 확보)" 표기)이며 예약 가능 여부와 무관.
+// 구응답은 빈 배열 → 표시만 생략(fail-soft).
 export type BookingOperatingNote = {
   organization: string;
   start: string; // HH:mm

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BookingAvailabilitySlot } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
 import {
   adjacentMonthToFetch,
   availableRuns,
@@ -7,6 +7,7 @@ import {
   DAY_LEVEL_META,
   dayBookingEntries,
   dayLevelOf,
+  dayUsageEntries,
   isApplicationDeadlinePassed,
   isSelectableSlot,
   isWithinBookable,
@@ -302,26 +303,9 @@ describe('dayBookingEntries', () => {
   });
 });
 
-describe('기본 확보 시간·미지 blockedBy — 전면 차단(fail-closed)', () => {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const securedSlot = (startHour: number, organization: string): BookingAvailabilitySlot => ({
-    start: `${pad(startHour)}:00`,
-    end: `${pad(startHour + 1)}:00`,
-    status: 'BLOCKED',
-    blockedBy: 'BASIC_SECURED',
-    organization,
-  });
-
-  it('BASIC_SECURED 슬롯은 차단 건으로 병합되고 kind 로만 구분된다 — 실범위(슬롯 병합 결과)를 그대로 쓴다', () => {
-    expect(dayBookingEntries([securedSlot(10, '고정관념'), securedSlot(11, '고정관념')])).toEqual([
-      { start: '10:00', end: '12:00', label: '고정관념', kind: 'BASIC_SECURED' },
-    ]);
-  });
-
-  it('기본 확보 슬롯은 선택할 수 없다 — 차단 효과는 SCHOOL 과 동일하다', () => {
-    expect(isSelectableSlot(securedSlot(10, '고정관념'))).toBe(false);
-  });
-
+// 확보 시간 비차단 전환(2026-08-27): BASIC_SECURED 는 응답에서 사라졌다(확보 슬롯 = AVAILABLE).
+// 미지 blockedBy fail-closed 계약은 절대 유지 — 미래의 새 차단 소스가 와도 차단 표시를 지킨다.
+describe('미지 blockedBy — fail-closed', () => {
   it('미지의 blockedBy 값도 BLOCKED 표시를 유지한다 — AVAILABLE 로 풀리지 않는다(fail-closed)', () => {
     const unknownSource = {
       start: '09:00',
@@ -335,12 +319,53 @@ describe('기본 확보 시간·미지 blockedBy — 전면 차단(fail-closed)'
       { start: '09:00', end: '10:00', label: '미래단체', kind: 'INTERNAL' },
     ]);
   });
+});
 
-  it('availableRuns 는 기본 확보 차단 구간을 예약 가능으로 세지 않는다', () => {
-    expect(availableRuns([slot(9, 'AVAILABLE'), securedSlot(10, '고정관념'), slot(11, 'AVAILABLE')])).toEqual([
-      { start: '09:00', end: '10:00', slotCount: 1 },
-      { start: '11:00', end: '12:00', slotCount: 1 },
+// 확보 시간 비차단 정보 표시 복원(2026-08-27 스펙 §3): operatingNotes(기본 확보 창)는 차단이 아니라
+// 사용 중 계층의 통짜 표기 데이터다 — 예약 건과 함께 시작 시각순으로 합친다.
+describe('dayUsageEntries', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const note = (organization: string, start: string, end: string): BookingOperatingNote => ({ organization, start, end });
+  const schoolBlock = (startHour: number, organization: string): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'BLOCKED',
+    blockedBy: 'SCHOOL',
+    organization,
+  });
+  const pendingSlot = (startHour: number): BookingAvailabilitySlot => ({
+    start: `${pad(startHour)}:00`,
+    end: `${pad(startHour + 1)}:00`,
+    status: 'PENDING_HOLD',
+  });
+
+  it('운영 노트는 자르지 않은 통짜로, 예약 건과 시작 시각순으로 합친다(동률은 기본 확보 먼저)', () => {
+    expect(
+      dayUsageEntries(
+        [schoolBlock(9, '비호응원단'), pendingSlot(15)],
+        [note('고정관념', '09:00', '20:00')],
+      ),
+    ).toEqual([
+      { start: '09:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '09:00', end: '10:00', label: '비호응원단', kind: 'SCHOOL' },
+      { start: '15:00', end: '16:00', label: '승인 대기', kind: 'PENDING' },
     ]);
+  });
+
+  it('노트 구간과 겹치는 예약도 절단 없이 둘 다 그대로 남는다(계층 표시)', () => {
+    expect(
+      dayUsageEntries([schoolBlock(10, '비호응원단'), schoolBlock(11, '비호응원단')], [note('고정관념', '09:00', '20:00')]),
+    ).toEqual([
+      { start: '09:00', end: '20:00', label: '고정관념', kind: 'OPERATING' },
+      { start: '10:00', end: '12:00', label: '비호응원단', kind: 'SCHOOL' },
+    ]);
+  });
+
+  it('노트가 없으면 예약 건만, 슬롯·노트 둘 다 없으면 빈 배열이다(구응답 fail-soft)', () => {
+    expect(dayUsageEntries([schoolBlock(10, '비호응원단')], [])).toEqual([
+      { start: '10:00', end: '11:00', label: '비호응원단', kind: 'SCHOOL' },
+    ]);
+    expect(dayUsageEntries([], [])).toEqual([]);
   });
 });
 
