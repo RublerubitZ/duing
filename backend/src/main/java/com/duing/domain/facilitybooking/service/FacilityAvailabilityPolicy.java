@@ -75,9 +75,10 @@ public class FacilityAvailabilityPolicy {
      */
     public Stream<FacilityReservation> blockingOverlapping(Collection<FacilityReservation> rows,
             LocalDate date, LocalTime startTime, LocalTime endTime, Set<String> securedOrganizationKeys) {
+        // 날짜·겹침 필터를 classify 앞에 둔다 — 정규화 호출을 겹침 행 수준으로 줄이는 순서 재배열(결과 불변).
         return rows.stream()
-                .filter(row -> classify(row, securedOrganizationKeys) == CrawlRowType.CRAWLED_RESERVATION)
                 .filter(row -> row.getReservationDate().equals(date))
-                .filter(row -> row.getStartTime().isBefore(endTime) && row.getEndTime().isAfter(startTime));
+                .filter(row -> row.getStartTime().isBefore(endTime) && row.getEndTime().isAfter(startTime))
+                .filter(row -> classify(row, securedOrganizationKeys) == CrawlRowType.CRAWLED_RESERVATION);
     }
 }
