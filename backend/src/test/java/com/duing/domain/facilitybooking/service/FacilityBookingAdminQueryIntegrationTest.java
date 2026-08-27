@@ -331,6 +331,30 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("확보 미지정 동아리의 물결 확보 행은 이름이 일치해도 부분 반영이 아니다 — 자동 확정의 증거 기준(물결 행 제외)과 같다")
+    void unflaggedClubSecuredTailRowIsNotPartiallyMatched() throws Exception {
+        Fixture fixture = fixture(); // 기본 확보 시간 대상 OFF(기본값) — 물결 행은 CRAWLED 분류(차단)로 남는다
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String clubName = clubRepository.findById(fixture.club().getId()).orElseThrow().getName();
+
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        // 동아리명 물결 확보 표기 행이 18~19 를 덮는다 — 자동 확정(decide)은 이 행을 증거에서 행 단위로 제외하므로
+        // 큐가 부분 반영으로 세면 오지 않는 자동 확정을 기다리게 하는 오배지다(P2-01).
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, true, LocalDateTime.now()));
+
+        AdminBookingSummaryResult row = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                PageRequest.of(0, 10)).getContent().get(0);
+
+        assertThat(row.partiallyMatched()).isFalse();
+        assertThat(row.conflictSuspected()).isFalse(); // 같은 이름 행이라 타 단체 겹침도 아니다
+    }
+
+    @Test
     @DisplayName("상세는 겹침 컨텍스트(SCHOOL·INTERNAL·PENDING 수)와 이력·stale 을 담는다")
     void detailCarriesOverlapContextHistoryAndStale() throws Exception {
         Fixture fixture = fixture();

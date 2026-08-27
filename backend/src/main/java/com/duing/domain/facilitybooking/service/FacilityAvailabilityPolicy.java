@@ -81,4 +81,19 @@ public class FacilityAvailabilityPolicy {
                 .filter(row -> row.getStartTime().isBefore(endTime) && row.getEndTime().isAfter(startTime))
                 .filter(row -> classify(row, securedOrganizationKeys) == CrawlRowType.CRAWLED_RESERVATION);
     }
+
+    /**
+     * 차단 점유행({@link #blockingOverlapping}) 중 정규화 이름이 {@code normalizedClubName} 과 불일치하는 행이
+     * 있는가 — "타 단체가 같은 슬롯을 실제로 점유 중"이라는 이중 대관 신호. 관리자 큐의 conflictSuspected 와
+     * 자동 확정 보류(FacilityBookingMatchingService.verifyAndConfirm)가 공유하는 단일 판정이다(P2-02) —
+     * 둘이 갈라지면 큐가 의심 표시하는 예약을 자동 CONFIRMED 로 닫아 신호가 소실된다. 확보 분류 행은 비차단이라
+     * 타 단체 겹침으로 세지 않고, 확보 미지정 동아리의 물결 행은 CRAWLED 폴백이라 센다(차단 정책과 정합).
+     * 날짜 필터는 blockingOverlapping 이 내장하므로 일 단위·월 단위 행 어느 입력이든 결과가 같다.
+     */
+    public boolean hasMismatchedOccupiedOverlap(Collection<FacilityReservation> rows, LocalDate date,
+            LocalTime startTime, LocalTime endTime, String normalizedClubName,
+            Set<String> securedOrganizationKeys) {
+        return blockingOverlapping(rows, date, startTime, endTime, securedOrganizationKeys)
+                .anyMatch(row -> !normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
+    }
 }

@@ -263,7 +263,11 @@ public class FacilityBookingAdminQueryService {
         boolean matchingNameOverlap = availabilityPolicy.blockingOverlapping(
                         dayRows, booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                         securedOrganizationKeys)
-                .anyMatch(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
+                // decide 와 동일 증거 기준(P2-01) — 확보 표기(물결 꼬리) 행은 동아리 플래그와 무관하게 증거가
+                // 아니다. 차단 분류만으로 거르면 확보 미지정 동아리의 물결 행이 "부분 반영"으로 세어져 오지 않는
+                // 자동 확정을 기다리게 하는 오배지가 난다.
+                .anyMatch(row -> matchingService.isEvidenceRow(row)
+                        && normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
         if (!matchingNameOverlap) {
             return false;
         }
@@ -278,14 +282,17 @@ public class FacilityBookingAdminQueryService {
                 .toList();
     }
 
-    /** (시설,월) 차단 점유행(확보 분류 제외) 중 예약 시간과 겹치는데 정규화 이름이 동아리명과 불일치하는 행이 존재하는가. */
+    /**
+     * 충돌 의심 — 차단 점유행(확보 분류 제외) 중 예약 시간과 겹치는데 정규화 이름이 동아리명과 불일치하는 행이
+     * 존재하는가. 판정은 정책 한 곳에 위임한다 — 자동 확정 보류(P2-02)와 같은 메서드라 "큐는 의심 표시하는데
+     * 매칭은 확정해 버리는" 갈림이 구조적으로 없다. 날짜 필터는 정책이 내장하므로 월 단위 행을 그대로 넘긴다.
+     */
     private boolean hasMismatchedOccupiedOverlap(FacilityBooking booking, Map<Long, String> clubNames,
             Map<FacilityMonthKey, List<FacilityReservation>> crawlCache, Set<String> securedOrganizationKeys) {
         String normalizedClubName = normalizer.normalize(clubNames.getOrDefault(booking.getClubId(), ""));
-        return availabilityPolicy.blockingOverlapping(crawlRows(booking, crawlCache),
-                        booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
-                        securedOrganizationKeys)
-                .anyMatch(row -> !normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
+        return availabilityPolicy.hasMismatchedOccupiedOverlap(crawlRows(booking, crawlCache),
+                booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
+                normalizedClubName, securedOrganizationKeys);
     }
 
     private List<FacilityReservation> crawlRows(FacilityBooking booking,

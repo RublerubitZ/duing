@@ -239,7 +239,7 @@ class FacilityBookingNotificationIntegrationTest extends IntegrationTestBase {
                 List.of(fixture.facility().getId()));
         snapshotRepository.save(snapshot);
 
-        boolean confirmed = matchingService.verifyAndConfirm(bookingId, clubName, Set.of());
+        boolean confirmed = matchingService.verifyAndConfirm(bookingId, clubName, Set.of(), Set.of());
 
         assertThat(confirmed).isTrue();
         assertThat(notificationsOf(fixture.leader().getId(), NotificationType.FACILITY_BOOKING_CONFIRMED))
