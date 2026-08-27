@@ -121,7 +121,7 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
         for (int hour = startHour; hour < endHour; hour++) {
             facilityReservationRepository.save(FacilityReservation.create(fixture.facility().getId(),
                     sequence.getAndIncrement(), YearMonth.from(date), date,
-                    LocalTime.of(hour, 0), LocalTime.of(hour + 1, 0), clubName, generation));
+                    LocalTime.of(hour, 0), LocalTime.of(hour + 1, 0), clubName, false, generation));
         }
         return bookingId;
     }
@@ -153,7 +153,7 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
 
         // 특정 예약 한 건에만 처리 실패를 주입한다 — 데이터 이상·일시 장애로 한 건이 영구 실패하는 상황 재현
         doThrow(new IllegalStateException("주입된 처리 실패"))
-                .when(matchingService).verifyAndConfirm(eq(failingBooking), anyString(), anySet(), anySet());
+                .when(matchingService).verifyAndConfirm(eq(failingBooking), anyString(), anySet());
 
         scheduler.runMatchingCycle();
 

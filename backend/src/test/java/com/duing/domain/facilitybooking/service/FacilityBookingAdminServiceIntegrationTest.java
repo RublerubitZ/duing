@@ -144,7 +144,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         // 신청 이후에 학교 실예약 행(꼬리 없음)이 크롤로 유입된 상황
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", false, LocalDateTime.now()));
 
         assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
                 .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
@@ -153,7 +153,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         Long expandedBlocked = pendingBooking(fixture, date, 9, 11);
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(12, 0), "고정관념", LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(12, 0), "고정관념", true, LocalDateTime.now()));
         assertThatThrownBy(() -> adminService.approve(admin.getId(), expandedBlocked))
                 .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
 
@@ -173,10 +173,10 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         Club securedClub = saveActiveClub("확보동아리");
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
-        // 확보 동아리 상시 확보 행 9~22 — 승인 재검증의 차단 대상이 아니다(확보 시간 비차단 전환).
+        // 확보 동아리 상시 확보 물결 행 9~22 — 승인 재검증의 차단 대상이 아니다(확보 시간 비차단 전환).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), true, LocalDateTime.now()));
 
         Long allowed = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), allowed);
@@ -187,12 +187,35 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         Long blocked = pendingBooking(fixture, date, 13, 15);
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(13, 0), LocalTime.of(14, 0), "문화팀", LocalDateTime.now()));
+                LocalTime.of(13, 0), LocalTime.of(14, 0), "문화팀", false, LocalDateTime.now()));
         assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
                 .isInstanceOfSatisfying(FacilityBookingException.SchoolConflictException.class,
                         conflict -> assertThat(conflict.getConflicts())
                                 .extracting(FacilityBookingException.SchoolConflictException.ConflictItem::organization)
                                 .containsExactly("문화팀"));
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리의 무꼬리 실예약 행과 겹치는 승인은 409 다 — 비차단은 물결 확보 행에만 적용된다")
+    void approveConflictsWithSecuredClubRealReservationRow() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+
+        Long blocked = pendingBooking(fixture, date, 18, 20);
+        // 확보 동아리 이름이지만 꼬리 없는 실예약 행 — 행 단위 분류로 CRAWLED(차단 복귀), 승인 재검증에 걸린다.
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), securedClub.getName(), false, LocalDateTime.now()));
+
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
+                .isInstanceOfSatisfying(FacilityBookingException.SchoolConflictException.class,
+                        conflict -> assertThat(conflict.getConflicts())
+                                .extracting(FacilityBookingException.SchoolConflictException.ConflictItem::organization)
+                                .containsExactly(securedClub.getName()));
     }
 
     @Test
@@ -207,7 +230,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         // 이 시나리오에서 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 가 된다(2026-07-17 감사).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", false, LocalDateTime.now()));
 
         adminService.confirmManually(admin.getId(), approved);
 

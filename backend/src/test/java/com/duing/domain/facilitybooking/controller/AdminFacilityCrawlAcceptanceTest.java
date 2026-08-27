@@ -89,9 +89,9 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
         YearMonth currentMonth = YearMonth.now(clock);
         LocalDate firstDate = currentMonth.atDay(10);
         LocalDate secondDate = currentMonth.atDay(11);
-        // 고정관념 연속 2일(같은 시간) + 미매칭 기관 + 플래그 OFF 등록 동아리
-        saveReservation(facility, firstDate, 10, 17, "고정관념");
-        saveReservation(facility, secondDate, 10, 17, "고정관념");
+        // 고정관념 물결 확보 행 연속 2일(같은 시간) + 미매칭 기관 + 플래그 OFF 등록 동아리
+        saveSecuredTailReservation(facility, firstDate, 10, 17, "고정관념");
+        saveSecuredTailReservation(facility, secondDate, 10, 17, "고정관념");
         saveReservation(facility, firstDate, 13, 15, "학생생활상담센터");
         saveReservation(facility, firstDate, 17, 19, "ABC동아리");
 
@@ -213,6 +213,14 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
     private void saveReservation(Facility facility, LocalDate date, int startHour, int endHour, String organization) {
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), sequence.getAndIncrement(),
                 YearMonth.from(date), date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0),
-                organization, LocalDateTime.now(clock)));
+                organization, false, LocalDateTime.now(clock)));
+    }
+
+    /** 물결 꼬리 확보 표기 행 — 행 단위 분류에서 BASIC_SECURED_TIME 후보가 되는 유일한 형태다. */
+    private void saveSecuredTailReservation(Facility facility, LocalDate date, int startHour, int endHour,
+                                            String organization) {
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(), sequence.getAndIncrement(),
+                YearMonth.from(date), date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0),
+                organization, true, LocalDateTime.now(clock)));
     }
 }

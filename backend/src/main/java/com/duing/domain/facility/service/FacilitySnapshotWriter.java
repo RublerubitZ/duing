@@ -58,11 +58,12 @@ public class FacilitySnapshotWriter {
                 if (stored == null || !stored.getYearMonth().equals(yearMonth)) {
                     toInsert.add(FacilityReservation.create(
                             facilityId, crawled.scheduleSeq(), yearMonth, crawled.reservationDate(),
-                            crawled.startTime(), crawled.endTime(), crawled.organizationName(), crawledAt));
+                            crawled.startTime(), crawled.endTime(), crawled.organizationName(),
+                            crawled.securedTail(), crawledAt));
                     continue;
                 }
                 stored.updateCrawledDetails(crawled.reservationDate(), crawled.startTime(), crawled.endTime(),
-                        crawled.organizationName(), crawledAt);
+                        crawled.organizationName(), crawled.securedTail(), crawledAt);
                 reconciledRowIds.add(stored.getId());
             }
         }

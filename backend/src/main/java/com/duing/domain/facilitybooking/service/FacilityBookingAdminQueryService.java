@@ -94,8 +94,11 @@ public class FacilityBookingAdminQueryService {
         Map<Long, String> roomNames = roomNames(bookings);
         // (시설,월) 크롤 행은 페이지 내 조합당 1회만 조회한다(N+1 금지). 확보 키도 요청당 1회만 조달한다.
         Map<FacilityMonthKey, List<FacilityReservation>> crawlCache = new HashMap<>();
+        // 키를 소비하는 파생(충돌 의심·부분 반영)은 APPROVED 전용이라 페이지에 APPROVED 가 있을 때만 조달한다
+        // — 기본 탭(PENDING)에서 전 동아리 이름 스캔 0회.
         Set<String> securedOrganizationKeys =
-                bookings.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
+                bookings.stream().anyMatch(booking -> booking.getStatus() == BookingStatus.APPROVED)
+                        ? availabilityPolicy.securedOrganizationKeys() : Set.of();
         LocalDate today = LocalDate.now(clock);
 
         return page.map(booking ->

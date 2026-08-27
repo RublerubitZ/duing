@@ -182,7 +182,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         adminService.approve(admin.getId(), approved);
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "전혀다른단체", LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "전혀다른단체", false, LocalDateTime.now()));
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
                 new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
@@ -231,7 +231,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // 학교가 동아리명(공백 변형)으로 겹치는 점유행 등록 — 정규화 일치라 충돌 의심 아님
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
                 new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
@@ -249,10 +249,10 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         Club securedClub = saveActiveClub("확보동아리");
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
-        // 확보 동아리 상시 확보 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
+        // 확보 동아리 상시 확보 물결 행 9~22 위에 타 동아리 신청 → 승인 — 비차단 전환으로 성립하는 정규 경로.
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), true, LocalDateTime.now()));
         Long approved = pendingBooking(fixture, date, 18, 20);
         adminService.approve(admin.getId(), approved);
 
@@ -297,7 +297,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // 동아리명(공백 변형)으로 18~19 만 덮는 점유행 — 19~20 미커버라 자동 확정 불발, 부분 반영 표시 대상
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         AdminBookingSummaryResult row = queryService.getQueue(
                 new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
@@ -320,7 +320,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // 동아리명(공백 변형)으로 18~19 전 슬롯을 단일 행으로 완전 커버 — 자동 확정 판정 대상이라 부분 반영이 아니다
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         AdminBookingSummaryResult row = queryService.getQueue(
                 new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
@@ -366,7 +366,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // 점유행(SCHOOL) 겹침 — 신청/승인 검증을 우회해 직접 주입
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(19, 0), "문화팀", LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(19, 0), "문화팀", false, LocalDateTime.now()));
 
         AdminBookingDetailResult detail = queryService.getDetail(target);
 
@@ -435,7 +435,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         // 9~10 APPROVED 와 겹치는 이름 불일치 점유행 — 충돌 의심 1건을 만든다(10~11 APPROVED 는 미겹침)
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(today), today,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "전혀다른단체", false, LocalDateTime.now()));
 
         AdminBookingSummaryCounts summary = queryService.getSummary();
 

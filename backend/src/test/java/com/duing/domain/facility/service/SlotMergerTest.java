@@ -17,7 +17,7 @@ class SlotMergerTest {
     private final LocalDate day = LocalDate.of(2026, 7, 1);
 
     private ParsedReservation slot(long seq, String org, int startHour, int endHour) {
-        return new ParsedReservation(seq, day, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org);
+        return new ParsedReservation(seq, day, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), org, false);
     }
 
     @Test
@@ -72,8 +72,8 @@ class SlotMergerTest {
     @Test
     @DisplayName("같은 단체·인접 시각이라도 날짜가 다르면 병합되지 않는다")
     void doesNotMergeDifferentDate() {
-        ParsedReservation d1 = new ParsedReservation(1, LocalDate.of(2026, 7, 1), LocalTime.of(23, 0), LocalTime.of(23, 59), "A");
-        ParsedReservation d2 = new ParsedReservation(2, LocalDate.of(2026, 7, 2), LocalTime.of(9, 0), LocalTime.of(10, 0), "A");
+        ParsedReservation d1 = new ParsedReservation(1, LocalDate.of(2026, 7, 1), LocalTime.of(23, 0), LocalTime.of(23, 59), "A", false);
+        ParsedReservation d2 = new ParsedReservation(2, LocalDate.of(2026, 7, 2), LocalTime.of(9, 0), LocalTime.of(10, 0), "A", false);
         assertThat(merger.merge(List.of(d1, d2))).hasSize(2);
     }
 }

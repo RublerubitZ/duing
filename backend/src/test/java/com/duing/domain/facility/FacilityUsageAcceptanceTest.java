@@ -59,7 +59,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         snapshotRepository.save(FacilityMonthSnapshot.create(
                 current, now, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리", now));
+                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리", false, now));
     }
 
     @Test
@@ -104,16 +104,16 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
 
         Facility facility = facilityRepository.save(Facility.create(5, "테스트연습실", "테스트동", 1));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1", now));
+                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1", false, now));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2", now));
+                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2", false, now));
 
         long newSeq = 90201L;
         snapshotWriter.reconcileReservations(
                 facility.getId(),
                 List.of(currentMonth),
                 Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(17, 0),
-                        "새단체"))),
+                        "새단체", false))),
                 now);
 
         List<FacilityReservation> afterReplace =

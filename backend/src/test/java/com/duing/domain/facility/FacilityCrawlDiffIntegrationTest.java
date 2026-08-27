@@ -87,7 +87,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
 
     /** 저장 행의 신원(id)·감사 필드·값 전체. equals 비교만으로 "쓰기가 있었는가"를 판정하기 위한 지문이다. */
     private record RowState(long scheduleSeq, Long id, LocalDateTime updatedAt, LocalDateTime crawledAt,
-                            String organizationName, LocalTime startTime, LocalTime endTime) {}
+                            String organizationName, LocalTime startTime, LocalTime endTime, boolean securedTail) {}
 
     private List<RowState> storedRows() {
         return storedRows(targetMonth);
@@ -96,7 +96,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     private List<RowState> storedRows(YearMonth yearMonth) {
         return reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), yearMonth).stream()
                 .map(row -> new RowState(row.getScheduleSeq(), row.getId(), row.getUpdatedAt(), row.getCrawledAt(),
-                        row.getOrganizationName(), row.getStartTime(), row.getEndTime()))
+                        row.getOrganizationName(), row.getStartTime(), row.getEndTime(), row.isSecuredTail()))
                 .sorted(Comparator.comparingLong(RowState::scheduleSeq))
                 .toList();
     }
@@ -127,6 +127,10 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         crawl();
         List<RowState> baseline = storedRows();
         assertThat(baseline).hasSize(2);
+        // 물결 꼬리(18134)는 확보 표기 신호가, 무꼬리(18135)는 실예약(false)이 저장된다 — 이후 무변경
+        // 회귀(identical/reordered)가 두 상태 모두를 지문으로 잡는다.
+        assertThat(baseline.get(0).securedTail()).isTrue();
+        assertThat(baseline.get(1).securedTail()).isFalse();
         return baseline;
     }
 
@@ -200,6 +204,24 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(changed.startTime()).isEqualTo(LocalTime.of(15, 0));
         assertThat(changed.endTime()).isEqualTo(LocalTime.of(16, 0));
         assertThat(changed.crawledAt()).isAfter(baseline.get(1).crawledAt()); // 변경된 행만 세대 갱신
+    }
+
+    @Test
+    @DisplayName("securedTail 만 다른 저장 행도 갱신된다 — V118 직후 false 로 남은 물결 행이 재크롤 한 주기로 자연 치유되는 근거")
+    void securedTailOnlyChangeStillUpdatesRow() {
+        // V118 배포 직후 상태 재현: 값은 이미 확장 저장돼 있는데(원본 꼬리 소실) secured_tail 만 DEFAULT false.
+        LocalDateTime beforeMigrationCrawl = LocalDateTime.now().minusDays(1);
+        FacilityReservation legacyRow = reservationRepository.save(FacilityReservation.create(
+                facility.getId(), 18134L, targetMonth, targetMonth.atDay(1),
+                LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념", false, beforeMigrationCrawl));
+
+        schoolReturns(BASELINE_PAYLOAD); // 18134 = "고정관념(9:00~20:00)" — securedTail 외 전 필드 동일
+        crawl();
+
+        // 무변경 스킵이 securedTail 차이를 못 보면 이 행은 영원히 false 로 남는다(자연 치유 경로의 핵심).
+        FacilityReservation healedRow = reservationRepository.findById(legacyRow.getId()).orElseThrow();
+        assertThat(healedRow.isSecuredTail()).isTrue();
+        assertThat(healedRow.getCrawledAt()).isAfter(beforeMigrationCrawl); // 스킵이 아니라 실제 갱신이었다
     }
 
     @Test
@@ -324,7 +346,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         FacilityReservation staleRow = reservationRepository.save(FacilityReservation.create(
                 facility.getId(), 18134L, outsideWindowMonth, outsideWindowMonth.atDay(10),
                 LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                LocalDateTime.now().minusDays(30)));
+                false, LocalDateTime.now().minusDays(30)));
 
         schoolReturns(BASELINE_PAYLOAD); // 같은 18134 가 당월 1일 예약으로 들어온다
         crawl();
