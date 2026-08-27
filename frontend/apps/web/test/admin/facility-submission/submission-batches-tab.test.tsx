@@ -40,6 +40,7 @@ function makeBatch(overrides: Partial<SubmissionBatchSummary> = {}): SubmissionB
     facilityId: 100,
     facilityName: '강당',
     bookingCount: 3,
+    clubNames: ['가온', '바람'],
     // BE 는 Instant(UTC) 로 내려준다 — UTC 로는 08-01 이지만 KST 로는 08-02 다.
     submittedAt: '2026-08-01T15:30:00Z',
     submittedByName: '관리자',
@@ -115,6 +116,22 @@ describe('SubmissionBatchesTab', () => {
     // 메모 없음 → 제출번호가 제목으로 승격되고, 서브는 생성자 폴백 '-' 하나만 남는다.
     expect(within(row).getByText('SUB-20260801-001')).toBeInTheDocument();
     expect(within(row).getAllByText('-')).toHaveLength(1);
+  });
+
+  it('동아리 컬럼에 포함 동아리명을 표시하고, clubNames 결측(구버전 응답)·빈 배열 행은 - 로 표시한다', () => {
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch(),
+        makeBatch({ batchId: 2, submissionNo: 'SUB-LEGACY', clubNames: undefined }),
+        makeBatch({ batchId: 3, submissionNo: 'SUB-EMPTY', clubNames: [] }),
+      ]),
+    );
+    render(<SubmissionBatchesTab />);
+
+    expect(screen.getByText('동아리')).toBeInTheDocument();
+    expect(within(rowOf('SUB-20260801-001')).getByText('가온 · 바람')).toBeInTheDocument();
+    expect(within(rowOf('SUB-LEGACY')).getByText('-')).toBeInTheDocument();
+    expect(within(rowOf('SUB-EMPTY')).getByText('-')).toBeInTheDocument();
   });
 
   it('진행 중 배치는 생성 후 경과 일수를 표기하고 3일 이상이면 경고색으로 강조한다', () => {
