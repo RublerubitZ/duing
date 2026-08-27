@@ -37,9 +37,20 @@ public interface ClubRepository extends JpaRepository<Club, Long>, ClubRepositor
     @Query("SELECT club.status FROM Club club WHERE club.id = :clubId")
     Optional<ClubStatus> findStatusById(@Param("clubId") Long clubId);
 
+    // 시설 크롤 분류(기본 확보 시간 대상)가 요청마다 호출한다 — 정규화 키 충돌 판정에 전체 동아리
+    // 이름이 필요해 플래그 필터 없이 뽑되, 엔티티 대신 두 컬럼만 프로젝션한다(findAllNames 전례).
+    @Query("SELECT club.name AS name, club.facilitySecuredTimeTarget AS facilitySecuredTimeTarget FROM Club club")
+    List<ClubSecuredNameProjection> findSecuredTargetNameRows();
+
     interface ClubNameProjection {
         Long getId();
 
         String getName();
+    }
+
+    interface ClubSecuredNameProjection {
+        String getName();
+
+        boolean isFacilitySecuredTimeTarget();
     }
 }
