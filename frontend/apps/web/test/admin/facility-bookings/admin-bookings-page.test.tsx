@@ -40,6 +40,14 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   useCancelSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDownloadSubmissionCsvMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCompleteSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // crawl 탭(FacilityCrawlTab)이 마운트되면 호출되는 훅 — 빈 목록 성공을 돌려준다(탭 내부는 facility-crawl-tab.test 가 격리 검증).
+  useAdminCrawlReservationsQuery: () => ({
+    data: { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, hasNext: false },
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useFacilityListQuery: () => ({ data: [] }),
 }));
 
 // 탭 셸은 URL(?tab=)로 상태를 관리한다 — searchParams 로 상태 주입, 탭 전환은 replace 호출 인자로 단언(ClubExplorePage 계약).
@@ -150,7 +158,7 @@ describe('AdminFacilityBookingsPage', () => {
     mockQueueQuery.mockReturnValue(makeQueueSuccess([]));
   });
 
-  it('워크플로 탭 4개가 렌더되고 기본은 예약 검토, 검토 탭에 대기 건수가 붙는다', () => {
+  it('워크플로 탭 4개 + 크롤 참조 탭이 렌더되고 기본은 예약 검토, 검토 탭에 대기 건수가 붙는다', () => {
     render(<AdminFacilityBookingsPage />);
 
     expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-selected', 'true');
@@ -159,6 +167,7 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.getByRole('tab', { name: /제출 준비/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /제출 대기/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /제출 이력/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /크롤 예약/ })).toBeInTheDocument();
     // 제출 대기 건수는 REVIEWING size-1 조회의 totalElements 를 쓴다(개편 스펙 §1).
     expect(mockBatchesListQuery).toHaveBeenCalledWith({ page: 0, size: 1, status: 'REVIEWING' });
     // 기본 탭 = 기존 관리 화면(요약 카드 렌더) — '오늘 접수'는 승인 대기 카드에만 있어 큐 필터 탭 라벨과 겹치지 않는다.
@@ -187,6 +196,21 @@ describe('AdminFacilityBookingsPage', () => {
     mockTabParam = 'pending';
     render(<AdminFacilityBookingsPage />);
     expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('?tab=crawl 딥링크는 크롤 탭을 렌더하고, 참조 탭이라 앞 단계에 완료(✓) 표시가 붙지 않는다', () => {
+    mockTabParam = 'crawl';
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByRole('tab', { name: /크롤 예약/ })).toHaveAttribute('aria-selected', 'true');
+    // 크롤 탭 콘텐츠(빈 상태)가 실제로 렌더된다 — 검토 화면은 렌더되지 않는다.
+    expect(screen.getByText('크롤 예약이 없어요')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /오늘 접수/ })).not.toBeInTheDocument();
+    // 워크플로 단계 진행 계산에서 제외(스펙 §3) — 1~4 단계가 ✓ 로 바뀌지 않고 번호를 유지한다.
+    const stepper = screen.getByRole('tablist', { name: '시설 예약 업무 단계' });
+    for (const stepNumber of ['1', '2', '3', '4', '5']) {
+      expect(within(stepper).getByText(stepNumber)).toBeInTheDocument();
+    }
   });
 
   it('프로토타입 상속 키(tab=constructor)는 별칭으로 오인되지 않고 기본 탭으로 폴백한다', () => {

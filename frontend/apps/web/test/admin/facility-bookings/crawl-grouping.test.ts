@@ -5,7 +5,7 @@ import {
   contextDateLabel,
   foldReservationContexts,
   nextYearMonth,
-} from '@/app/admin/facility-crawl/_lib/crawlGrouping';
+} from '@/app/admin/facility-bookings/_lib/crawlGrouping';
 
 function reservation(overrides: Partial<AdminCrawlReservation>): AdminCrawlReservation {
   return {
