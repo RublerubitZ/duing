@@ -18,6 +18,7 @@ import type {
   AdminFeePaymentSearchParams,
   AdminFeeAuditLogSearchParams,
   FeeAuditCommentKind,
+  AdminCrawlReservationParams,
 } from '@duing/types';
 
 export const adminQueryKeys = {
@@ -25,6 +26,10 @@ export const adminQueryKeys = {
   // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
   pendingCounts: () => ['admin', 'pending-counts'] as const,
   clubsAll: ['admin', 'clubs'] as const,
+  // 크롤 예약 현황(전면 차단 설계 §3.6) — 플래그 토글 성공 시 전체 무효화(facilityCrawlAll)
+  facilityCrawlAll: ['admin', 'facility-crawl'] as const,
+  facilityCrawlReservations: (params: AdminCrawlReservationParams) =>
+    [...adminQueryKeys.facilityCrawlAll, 'reservations', params] as const,
   clubsList: (params: AdminClubSearchParams) =>
     [...adminQueryKeys.clubsAll, 'list', params] as const,
   clubsDetail: (clubId: number) =>

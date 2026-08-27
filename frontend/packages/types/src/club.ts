@@ -159,6 +159,11 @@ export type UpdateClubCentralClubPayload = {
   centralClub: boolean;
 };
 
+/** 기본 확보 시간 대상(시설 크롤 자동 분류 정책) 토글 — 시간 값이 아니라 분류 정책 플래그다. */
+export type UpdateClubFacilitySecuredTimeTargetPayload = {
+  facilitySecuredTimeTarget: boolean;
+};
+
 export type ClubRole = 'LEADER' | 'OFFICER';
 
 export type ManagedClub = {

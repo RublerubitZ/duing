@@ -66,6 +66,7 @@ import type {
   UpdateClubPayload,
   UpdateClubStatusPayload,
   UpdateClubCentralClubPayload,
+  UpdateClubFacilitySecuredTimeTargetPayload,
   CloseClubPayload,
   Applicant,
   ApplicantsFilters,
@@ -223,6 +224,10 @@ export type DuingApiClient = {
     update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
     updateCentralClub(clubId: number, payload: UpdateClubCentralClubPayload): Promise<void>;
+    updateFacilitySecuredTimeTarget(
+      clubId: number,
+      payload: UpdateClubFacilitySecuredTimeTargetPayload,
+    ): Promise<void>;
     close(clubId: number, payload: CloseClubPayload): Promise<void>;
     photos(clubId: number): Promise<ClubPhoto[]>;
     createPhoto(clubId: number, payload: CreateClubPhotoPayload): Promise<ClubPhoto>;
@@ -863,6 +868,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonVoid(http.patch(`admin/clubs/${clubId}/status`, { json: payload })),
       updateCentralClub: (clubId, payload) =>
         jsonVoid(http.patch(`admin/clubs/${clubId}/central-club`, { json: payload })),
+      updateFacilitySecuredTimeTarget: (clubId, payload) =>
+        jsonVoid(http.patch(`admin/clubs/${clubId}/facility-secured-time-target`, { json: payload })),
       close: (clubId, payload) =>
         jsonVoid(http.post(`admin/clubs/${clubId}/close`, { json: payload })),
       photos: (clubId) => jsonOk<ClubPhoto[]>(http.get(`clubs/${clubId}/photos`)),

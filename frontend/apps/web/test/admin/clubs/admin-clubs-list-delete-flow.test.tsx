@@ -33,6 +33,7 @@ const REJECTED_CLUB: AdminClubSummary = {
   leaderName: null,
   leaderStudentId: null,
   centralClub: false,
+  facilitySecuredTimeTarget: false,
   rejectionReason: null,
   statusChangedAt: null,
   statusChangedByName: null,

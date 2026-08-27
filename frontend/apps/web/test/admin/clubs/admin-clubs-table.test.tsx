@@ -25,6 +25,7 @@ function makeClub(overrides: Partial<AdminClubSummary> = {}): AdminClubSummary {
     leaderName: null,
     leaderStudentId: null,
     centralClub: false,
+  facilitySecuredTimeTarget: false,
     rejectionReason: null,
     statusChangedAt: null,
     statusChangedByName: null,
@@ -38,6 +39,7 @@ function renderTable(club: AdminClubSummary, onCloseClick = vi.fn()) {
       clubs={[club]}
       onActionClick={vi.fn()}
       onCentralClubToggleClick={vi.fn()}
+      onSecuredTargetToggleClick={vi.fn()}
       onCloseClick={onCloseClick}
     />,
   );
