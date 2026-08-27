@@ -9,6 +9,7 @@ import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.parser.ParsedReservation;
+import com.duing.domain.facility.parser.ReservationParseResult;
 import com.duing.domain.facility.parser.ReservationParser;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -21,8 +22,10 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
@@ -179,19 +182,34 @@ public class FacilityCrawlService {
             }
 
             Map<YearMonth, List<ParsedReservation>> fetchedByMonth = new LinkedHashMap<>();
+            // 삭제 허용 월 — 전 원소 파싱에 성공해 "응답에 없는 저장 행 = 학교에서 사라진 예약"이 성립하는 달만.
+            Set<YearMonth> deletableMonths = new LinkedHashSet<>();
+            Set<YearMonth> partialMonths = new LinkedHashSet<>();
             boolean roomFailed = false;
             for (YearMonth month : months) {
                 try {
                     JsonNode body = onDemand
                             ? client.fetchReservationsOnDemand(facility.getRoomSeq(), month)
                             : client.fetchReservations(facility.getRoomSeq(), month);
-                    List<ParsedReservation> parsed = reservationParser.parse(body, month);
-                    if (body.size() > 0 && parsed.isEmpty()) {
+                    ReservationParseResult parseResult = reservationParser.parse(body, month);
+                    if (parseResult.allFailed()) {
                         // 200 + 비어있지 않은 배열인데 전원소 파싱 실패 — 학교 스키마 드리프트로 판단, 빈 스냅샷으로 반영(데이터 소실) 대신 룸 실패 처리(§1 fail-safe).
                         throw new FacilityClientException.FacilityBadResponseException(
-                                "시설 예약 응답 스키마 불일치 의심: 원소 " + body.size() + "건 전부 파싱 불가");
+                                "시설 예약 응답 스키마 불일치 의심: 원소 " + parseResult.inputSize() + "건 전부 파싱 불가");
                     }
-                    fetchedByMonth.put(month, parsed);
+                    fetchedByMonth.put(month, parseResult.reservations());
+                    if (parseResult.partial()) {
+                        // 부분 파싱 실패(P2-10 fail-safe): 성공 행은 반영하되 미반영 저장 행을 지우지 않는다 —
+                        // 실패 원소가 기존 예약일 수 있어 삭제하면 슬롯이 열린다. 월은 PARTIAL 로 남겨 다음 주기에 재시도.
+                        partialMonths.add(month);
+                        anyFailure.put(month, true);
+                        lastError = "예약 부분 파싱 실패: roomSeq=" + facility.getRoomSeq() + " month=" + month
+                                + " skipped=" + parseResult.skippedCount();
+                        log.warn("시설 예약 부분 파싱 실패(기존 행 삭제 보류): roomSeq={} month={} skipped={} parsed={}",
+                                facility.getRoomSeq(), month, parseResult.skippedCount(), parseResult.reservations().size());
+                    } else {
+                        deletableMonths.add(month);
+                    }
                 } catch (FacilityClientException fetchFailure) {
                     roomFailed = true;
                     anyFailure.put(month, true);
@@ -200,14 +218,17 @@ public class FacilityCrawlService {
             }
             if (!fetchedByMonth.isEmpty()) {
                 try {
-                    snapshotWriter.reconcileReservations(
-                            facility.getId(), new ArrayList<>(fetchedByMonth.keySet()), fetchedByMonth, crawledAt);
+                    snapshotWriter.reconcileReservations(facility.getId(), new ArrayList<>(fetchedByMonth.keySet()),
+                            fetchedByMonth, deletableMonths, crawledAt);
                     // 영속 성공 후에만 성공으로 집계한다 — 쓰기 실패(유니크 충돌 등)를 성공으로 오집계해
                     // crawled_at 을 갱신(신선 처리)하고 옛 스냅샷을 최신인 양 서빙하는 것을 막는다(C1).
                     fetchedByMonth.forEach((month, reservations) -> {
                         anySuccess.put(month, true);
                         reservationCount.merge(month, reservations.size(), Integer::sum);
-                        syncedFacilityIds.get(month).add(facility.getId());
+                        // 부분 파싱 월은 세대 결박에서 제외 — 행 집합이 불완전해 자동 확정 근거로 쓰면 안 된다(fail-closed).
+                        if (!partialMonths.contains(month)) {
+                            syncedFacilityIds.get(month).add(facility.getId());
+                        }
                     });
                 } catch (RuntimeException reconcileFailure) {
                     // schedule_seq unique 충돌 등 — fail-safe: 해당 시설 기존 스냅샷 유지, 다음 주기에 정합.

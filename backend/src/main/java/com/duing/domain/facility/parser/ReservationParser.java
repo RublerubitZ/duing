@@ -8,7 +8,6 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * 예약 JSON 배열 → List&lt;ParsedReservation&gt;. schedule_seq distinct, dept 꼬리 시간표기 제거(§6.2),
+ * 예약 JSON 배열 → {@link ReservationParseResult}. schedule_seq distinct, dept 꼬리 시간표기 제거(§6.2),
  * schedule_date(일) + YearMonth → LocalDate, schedule_time '19:00~20:00' → start/end LocalTime.
  *
  * <p>꼬리 시간표기 (H:MM~H:MM)/(H:MM-H:MM) 는 구분자와 무관하게 start/end 를 표기 범위 전체로 확장해
@@ -24,7 +23,7 @@ import org.springframework.stereotype.Component;
  * (구 main 실데이터 관찰 복원 — 기본 확보 단체는 전부 물결, 하이픈은 실점유뿐): 물결이면 기본 확보 시간
  * 표기 신호로 {@code securedTail=true} 를 함께 남긴다(행 단위 정밀 분류 스펙 §1). 역전(end&lt;=start)·형식
  * 이상이면 확장 없이 마커 슬롯 유지 + {@code securedTail=false}(fail-closed, 임의 추정 금지).
- * 파싱 불가 원소는 건너뛴다(사유별 건수만 로깅).
+ * 파싱 불가 원소는 건너뛴다(건수만 로깅하고 {@link ReservationParseResult#skippedCount()} 로 노출).
  */
 @Slf4j
 @Component
@@ -36,11 +35,12 @@ public class ReservationParser {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("H:mm");
     private static final String TIME_SEPARATOR = "~";
 
-    public List<ParsedReservation> parse(JsonNode arrayNode, YearMonth yearMonth) {
+    /** 파싱 불가 원소는 건너뛰되 건수를 결과에 실어 호출부가 부분 실패를 성공과 구분하게 한다(P2-10). */
+    public ReservationParseResult parse(JsonNode arrayNode, YearMonth yearMonth) {
         // LinkedHashMap: schedule_seq 로 distinct 하되 최초 입력 순서를 보존한다.
         Map<Long, ParsedReservation> bySeq = new LinkedHashMap<>();
         if (arrayNode == null || !arrayNode.isArray()) {
-            return new ArrayList<>();
+            return new ReservationParseResult(new ArrayList<>(), 0, 0);
         }
         int skipped = 0;
         for (JsonNode element : arrayNode) {
@@ -54,7 +54,7 @@ public class ReservationParser {
         if (skipped > 0) {
             log.warn("시설 예약 파싱 건너뜀: yearMonth={}, skipped={}", yearMonth, skipped);
         }
-        return new ArrayList<>(bySeq.values());
+        return new ReservationParseResult(new ArrayList<>(bySeq.values()), skipped, arrayNode.size());
     }
 
     private ParsedReservation parseElement(JsonNode element, YearMonth yearMonth) {

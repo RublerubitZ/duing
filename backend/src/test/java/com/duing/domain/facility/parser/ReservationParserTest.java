@@ -28,7 +28,7 @@ class ReservationParserTest {
     @Test
     @DisplayName("room4 픽스처: 중복 schedule_seq 를 distinct 하고 dept 꼬리 시간표기를 제거하며 date/time 을 조립한다")
     void parsesRoom4() throws IOException {
-        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room4.json"), YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room4.json"), YearMonth.of(2026, 7)).reservations();
 
         // schedule_seq 18141 중복 1건 제거 → 4건
         assertThat(reservations).hasSize(4);
@@ -46,7 +46,7 @@ class ReservationParserTest {
     @Test
     @DisplayName("물결 꼬리 (9:00~20:00) 는 기본 확보 시간 표기다 — 표기 범위 전체로 확장하되 securedTail 신호를 보존하고 꼬리 없는 행은 슬롯을 유지한다")
     void tildeTailExpandsSlotToWholeReservedRange() throws IOException {
-        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room4.json"), YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room4.json"), YearMonth.of(2026, 7)).reservations();
 
         // "고정관념(9:00~20:00)" — 마커 두 건(09~10, 19~20) 모두 표기 범위 전체로 확장되고(V116 유지),
         // 물결 구분자는 기본 확보 시간 표기 신호로 보존된다(행 단위 정밀 분류 스펙 §1).
@@ -80,7 +80,7 @@ class ReservationParserTest {
                   "schedule_date":"07","schedule_time":"16:00~17:00"}]
                 """);
 
-        List<ParsedReservation> reservations = parser.parse(hyphenTail, YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(hyphenTail, YearMonth.of(2026, 7)).reservations();
 
         assertThat(reservations).hasSize(2);
         assertThat(reservations).allSatisfy(row -> {
@@ -99,7 +99,7 @@ class ReservationParserTest {
                   "schedule_date":"08","schedule_time":"17:00~18:00"}]
                 """);
 
-        List<ParsedReservation> reservations = parser.parse(reversedHyphenTail, YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(reversedHyphenTail, YearMonth.of(2026, 7)).reservations();
 
         assertThat(reservations).hasSize(1);
         assertThat(reservations.get(0).organizationName()).isEqualTo("야간센터");
@@ -116,7 +116,7 @@ class ReservationParserTest {
                   "schedule_date":"03","schedule_time":"17:00~18:00"}]
                 """);
 
-        List<ParsedReservation> reservations = parser.parse(reversedTail, YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(reversedTail, YearMonth.of(2026, 7)).reservations();
 
         assertThat(reservations).hasSize(1); // 정책 ③: 원소 스킵 아님
         assertThat(reservations.get(0).organizationName()).isEqualTo("야간동아리"); // 꼬리 제거는 그대로
@@ -135,7 +135,7 @@ class ReservationParserTest {
                   "schedule_date":"04","schedule_time":"11:00~12:00"}]
                 """);
 
-        List<ParsedReservation> reservations = parser.parse(malformedTail, YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(malformedTail, YearMonth.of(2026, 7)).reservations();
 
         assertThat(reservations).hasSize(2);
         assertThat(reservations).extracting(ParsedReservation::organizationName)
@@ -151,7 +151,7 @@ class ReservationParserTest {
                   "schedule_date":"05","schedule_time":"09:00~10:00"}]
                 """);
 
-        List<ParsedReservation> reservations = parser.parse(equalRangeTail, YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(equalRangeTail, YearMonth.of(2026, 7)).reservations();
 
         assertThat(reservations).hasSize(1);
         assertThat(reservations.get(0).organizationName()).isEqualTo("바둑부");
@@ -161,16 +161,60 @@ class ReservationParserTest {
     }
 
     @Test
-    @DisplayName("빈 배열(200+[]) 픽스처는 빈 목록으로 파싱된다")
+    @DisplayName("빈 배열(200+[]) 픽스처는 빈 목록으로 파싱되고 부분 실패도 전부 실패도 아니다")
     void parsesEmptyArray() throws IOException {
-        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room1_empty.json"), YearMonth.of(2026, 7));
-        assertThat(reservations).isEmpty();
+        ReservationParseResult parseResult = parser.parse(loadFixture("room_data_list_room1_empty.json"), YearMonth.of(2026, 7));
+
+        assertThat(parseResult.reservations()).isEmpty();
+        assertThat(parseResult.skippedCount()).isZero();
+        assertThat(parseResult.inputSize()).isZero();
+        assertThat(parseResult.partial()).isFalse();
+        assertThat(parseResult.allFailed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("원소 3건 중 1건이 형식 이상이면 성공 2건과 함께 건너뛴 건수 1 을 결과에 실어 부분 실패임을 드러낸다")
+    void partiallyMalformedInputExposesSkippedCount() throws IOException {
+        JsonNode partiallyMalformed = objectMapper.readTree("""
+                [{"schedule_seq":"20010","schedule_dept":"밴드부",
+                  "schedule_date":"04","schedule_time":"10:00~11:00"},
+                 {"schedule_seq":"20011","schedule_dept":"연극부",
+                  "schedule_date":"04","schedule_time":"미정"},
+                 {"schedule_seq":"20012","schedule_dept":"댄스부",
+                  "schedule_date":"05","schedule_time":"12:00~13:00"}]
+                """);
+
+        ReservationParseResult parseResult = parser.parse(partiallyMalformed, YearMonth.of(2026, 7));
+
+        assertThat(parseResult.reservations()).extracting(ParsedReservation::scheduleSeq)
+                .containsExactly(20010L, 20012L);
+        assertThat(parseResult.skippedCount()).isEqualTo(1);
+        assertThat(parseResult.inputSize()).isEqualTo(3);
+        assertThat(parseResult.partial()).isTrue();
+        assertThat(parseResult.allFailed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("원소가 있는데 전부 파싱 불가면 전부 실패로 판정된다 — 부분 실패와 구분된다")
+    void allMalformedInputIsAllFailed() throws IOException {
+        JsonNode allMalformed = objectMapper.readTree("""
+                [{"renamed_seq":"20013","renamed_time":"10:00~11:00"},
+                 {"renamed_seq":"20014","renamed_time":"12:00~13:00"}]
+                """);
+
+        ReservationParseResult parseResult = parser.parse(allMalformed, YearMonth.of(2026, 7));
+
+        assertThat(parseResult.reservations()).isEmpty();
+        assertThat(parseResult.skippedCount()).isEqualTo(2);
+        assertThat(parseResult.inputSize()).isEqualTo(2);
+        assertThat(parseResult.allFailed()).isTrue();
+        assertThat(parseResult.partial()).isFalse();
     }
 
     @Test
     @DisplayName("room143 픽스처의 예약을 파싱한다")
     void parsesRoom143() throws IOException {
-        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room143.json"), YearMonth.of(2026, 7));
+        List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room143.json"), YearMonth.of(2026, 7)).reservations();
         assertThat(reservations).hasSize(1);
         assertThat(reservations.get(0).organizationName()).isEqualTo("총학생회");
         assertThat(reservations.get(0).reservationDate()).isEqualTo(LocalDate.of(2026, 7, 15));
