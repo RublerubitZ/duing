@@ -27,14 +27,11 @@ const MONTH_LEGEND: LegendItem[] = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map
   level,
 }));
 
-// 주간 범례(§2) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 기본 확보 시간=sage 점선 차단 블록, 대기=warm.
+// 주간 범례(§2) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 대기=warm.
 // 예약됨은 파스텔 팔레트를 순환하지만 범례는 대표 1색(mint)으로 "확정 예약" 을 안내한다.
-// 기본 확보 시간 스와치는 그리드 차단 블록과 정합하는 점선(border-dashed) sage — 전면 차단 설계로
-// 이제 예약 신청 불가 시간이다(구 "가이드 셀" 폐지).
 const WEEK_LEGEND: LegendItem[] = [
   { label: '가능', barClass: 'bg-sage-mist' },
   { label: '예약됨', barClass: 'bg-pastel-mint' },
-  { label: '기본 확보 시간', barClass: 'border border-dashed border-sage-soft bg-sage-mist' },
   { label: '대기', barClass: 'bg-warm/60' },
 ];
 

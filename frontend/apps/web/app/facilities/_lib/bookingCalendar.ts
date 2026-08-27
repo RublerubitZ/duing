@@ -236,7 +236,7 @@ export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDist
 
 // ── 예약 건별 현황 파생(§4‴.2) — BLOCKED·PENDING_HOLD 만 건 단위로 추출·병합 ─────
 
-export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING' | 'BASIC_SECURED';
+export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING';
 export type DayBookingEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind };
 
 /**
@@ -248,14 +248,8 @@ export function bookingEntryOf(
   slot: BookingAvailabilitySlot,
 ): Pick<DayBookingEntry, 'label' | 'kind'> | null {
   if (slot.status === 'BLOCKED') {
-    // BASIC_SECURED = 총동연 지정 기본 확보 시간(차단 동일, 표시만 구분). SCHOOL 은 organization 이
-    // 있을 때만(§4⁗.1 정책 반전), 그 외·미지값은 INTERNAL 계열 폴백 — 어느 쪽이든 차단 표시다.
-    const kind: DayBookingEntryKind =
-      slot.blockedBy === 'BASIC_SECURED'
-        ? 'BASIC_SECURED'
-        : slot.blockedBy === 'SCHOOL' && slot.organization
-          ? 'SCHOOL'
-          : 'INTERNAL';
+    // SCHOOL 은 organization 이 있을 때만(§4⁗.1 정책 반전), 그 외·미지값은 INTERNAL 계열 폴백 — 어느 쪽이든 차단 표시다.
+    const kind: DayBookingEntryKind = slot.blockedBy === 'SCHOOL' && slot.organization ? 'SCHOOL' : 'INTERNAL';
     // ||: 빈 문자열 organization(계약상 퇴화 입력)도 폴백 — kind 판정(truthy)과 기준 일치
     return { label: slot.organization || '예약됨', kind };
   }
@@ -288,7 +282,7 @@ export type AvailableRun = { start: string; end: string; slotCount: number };
 
 /**
  * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다.
- * BLOCKED(기본 확보 시간 포함 — 전면 차단 설계)·PENDING_HOLD·PAST 는 구간을 끊는다.
+ * BLOCKED·PENDING_HOLD·PAST 는 구간을 끊는다.
  */
 export function availableRuns(slots: BookingAvailabilitySlot[]): AvailableRun[] {
   const runs: AvailableRun[] = [];

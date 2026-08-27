@@ -31,10 +31,6 @@ const PASTEL_BLOCK_CLASSES = [
 // bg /20: 흰 격자 위 구분감(명도 대비) 보강 — /15 는 가용 셀(sage-mist)과 톤이 붙어 흐릿했다.
 const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-[#8E6620]' } as const;
 
-// 기본 확보 시간(BASIC_SECURED) 고정색 블록 — 기존 기본 확보 시각 언어(sage 점선)를 유지하되
-// 이제 차단 블록이다(전면 차단 설계 §3.7): 선택 불가·rowSpan 병합은 다른 차단 블록과 동일.
-const SECURED_BLOCK_CLASS = { bg: 'bg-sage-mist', border: 'border-dashed border-sage-soft', accent: 'border-l-sage', name: 'text-ink' } as const;
-
 type Props = {
   selectedDate: string;
   daysByIso: Map<string, BookingDayAvailability>;
@@ -49,7 +45,7 @@ type Props = {
   onTapBlock?: (block: WeekBlockDetail) => void;
 };
 
-type BlockKind = 'BLOCKED' | 'PENDING' | 'BASIC_SECURED';
+type BlockKind = 'BLOCKED' | 'PENDING';
 // 컬럼 렌더 계획 항목 — 블록(rowSpan)·1시간 셀·데이터 없음·상위 블록에 덮인 행.
 type PlanBlock = {
   type: 'block';
@@ -65,15 +61,15 @@ type PlanEmpty = { type: 'empty' };
 type PlanCovered = { type: 'covered' };
 type PlanEntry = PlanBlock | PlanCell | PlanEmpty | PlanCovered;
 
-// 셀 상태(§4) — 가능=sage 셀·PAST=gray·창 밖=gray. BLOCKED(기본 확보 포함)/PENDING 은 블록으로 승격.
+// 셀 상태(§4) — 가능=sage 셀·PAST=gray·창 밖=gray. BLOCKED/PENDING 은 블록으로 승격.
 type CellState = { statusText: string; toneClass: string; selectable: boolean };
 
 const hourIndexOf = (time: string) => Number(time.slice(0, 2)) - 9;
 
 /**
- * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합, 기본 확보 포함)을
- * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 기본 확보 시간도 차단 블록이다
- * (전면 차단 설계 — 구 sky 가이드 셀 폐지). 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만. 길이 13(09~21시).
+ * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을
+ * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다.
+ * 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만. 길이 13(09~21시).
  */
 function buildColumnPlan(
   day: BookingDayAvailability | undefined,
@@ -98,7 +94,7 @@ function buildColumnPlan(
     if (end <= start) continue;
     plan[start] = {
       type: 'block',
-      kind: entry.kind === 'PENDING' || entry.kind === 'BASIC_SECURED' ? entry.kind : 'BLOCKED',
+      kind: entry.kind === 'PENDING' ? 'PENDING' : 'BLOCKED',
       label: entry.label,
       start: entry.start,
       end: entry.end,
@@ -112,7 +108,7 @@ function buildColumnPlan(
 
 /**
  * 주간 타임테이블(§4·§8·목업 F3) — 좌측 시간 라벨 열 + 7일 컬럼(월~일) 그리드.
- * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm·기본 확보=sage 점선 — 전부 차단, PC 비인터랙티브),
+ * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브),
  * AVAILABLE 은 선택 가능 셀(탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
  * 선택일 컬럼은 ink 프레임 + sage tint 로 강조하고, 블록이 여러 행을 차지해도 컬럼 좌우 보더가 이어진다.
  * 차단·지난·창 밖·데이터 없음은 비활성.
@@ -209,8 +205,7 @@ export function WeekTimetable({
                     const tdFrame = selectedTdFrame(isSelectedColumn, entry.reachesBottom);
                     const visual = blockVisual(entry, pastelMap);
                     const displayName = entry.kind === 'PENDING' ? '승인 대기' : entry.label;
-                    const tooltipSuffix = entry.kind === 'BASIC_SECURED' ? ' · 기본 확보 시간' : '';
-                    // 모바일 약칭(§9.2): 대기="대기", 확정·기본 확보=라벨 앞 2자(예: "비호"). 시간·풀네임은 PC(sm) 전용.
+                    // 모바일 약칭(§9.2): 대기="대기", 확정=라벨 앞 2자(예: "비호"). 시간·풀네임은 PC(sm) 전용.
                     // [...str]: 코드포인트 단위 절단 — 서로게이트 페어(이모지 선두 이름) 깨짐 방지.
                     const abbrev = entry.kind === 'PENDING' ? '대기' : [...entry.label].slice(0, 2).join('');
                     // h-px: rowSpan 병합 td 는 명시 높이가 없으면 자식 h-full 이 auto 로 풀려
@@ -227,7 +222,7 @@ export function WeekTimetable({
                               : undefined
                           }
                           // PC 상세 = 네이티브 hover 툴팁(블록 내부는 이름·시간 2단계만), 모바일 상세 = 탭 시트(§9.3).
-                          title={`${displayName} ${entry.start}~${entry.end}${tooltipSuffix}`}
+                          title={`${displayName} ${entry.start}~${entry.end}`}
                           aria-label={blockAriaLabel(entry, weekdayLabel, dayNumber)}
                           className={`flex h-full min-h-7 w-full flex-col justify-center gap-0.5 overflow-hidden rounded-[5px] border border-l-[3px] px-1 py-0.5 text-left leading-tight disabled:cursor-default sm:min-h-10 sm:px-1.5 sm:py-1 ${visual.bg} ${visual.border} ${visual.accent}`}
                         >
@@ -290,25 +285,22 @@ function selectedTdFrame(isSelectedColumn: boolean, reachesBottom: boolean): str
   return `sm:border-l sm:border-r sm:border-ink sm:bg-sage/20${reachesBottom ? ' sm:rounded-b-md sm:border-b' : ''}`;
 }
 
-// 블록 색(§8.2) — 확정=라벨 첫 등장 순 파스텔, 대기=warm 고정, 기본 확보=sage 점선 고정(전면 차단 설계 §3.7).
+// 블록 색(§8.2) — 확정=라벨 첫 등장 순 파스텔, 대기=warm 고정.
 function blockVisual(entry: PlanBlock, pastelMap: Map<string, number>) {
   if (entry.kind === 'PENDING') return PENDING_BLOCK_CLASS;
-  if (entry.kind === 'BASIC_SECURED') return SECURED_BLOCK_CLASS;
   const paletteIndex = pastelMap.get(entry.label) ?? 0;
   return PASTEL_BLOCK_CLASSES[paletteIndex] ?? PASTEL_BLOCK_CLASSES[0];
 }
 
-// 블록 aria-label(§8.1) — "요일 N일 HH:MM~HH:MM 라벨 상태". 대기는 이름 비노출("승인 대기"만),
-// 기본 확보는 "기본 확보 시간"(신청 가능 문구 금지 — 차단 상태다).
+// 블록 aria-label(§8.1) — "요일 N일 HH:MM~HH:MM 라벨 상태". 대기는 이름 비노출("승인 대기"만).
 function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayNumber: number): string {
   const prefix = `${weekdayLabel}요일 ${dayNumber}일 ${entry.start}~${entry.end}`;
   if (entry.kind === 'PENDING') return `${prefix} 승인 대기`;
-  if (entry.kind === 'BASIC_SECURED') return `${prefix} ${entry.label} 기본 확보 시간`;
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
 // 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(sage) 순. AVAILABLE 만 탭 가능(§4).
-// BLOCKED(기본 확보 포함)/PENDING 은 블록으로 승격돼 미도달.
+// BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
   withinWindow: boolean,

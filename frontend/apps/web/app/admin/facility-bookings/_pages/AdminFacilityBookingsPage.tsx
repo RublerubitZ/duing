@@ -56,8 +56,9 @@ const TAB_PURPOSE: Record<FacilityOpsTab, ReactNode> = {
   ),
   crawl: (
     <>
-      학교에서 수집한 <strong>크롤 예약 원본</strong>이에요. 모든 크롤 예약은 분류와 무관하게 해당 시간 예약이
-      차단되고, <strong>기본 확보 시간</strong> 분류는 동아리 관리의 &lsquo;기본 확보 시간 대상&rsquo; 설정을 따라요.
+      학교에서 수집한 크롤 예약 원본이에요. <strong>크롤 예약</strong>은 해당 시간 예약이 차단되고,{' '}
+      <strong>기본 확보 시간</strong>(동아리 관리의 &lsquo;기본 확보 시간 대상&rsquo; 지정)은 차단 없이 다른
+      동아리도 신청할 수 있어요.
     </>
   ),
 };

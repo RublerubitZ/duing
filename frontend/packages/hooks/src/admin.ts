@@ -242,6 +242,8 @@ export function useUpdateClubFacilitySecuredTimeTargetMutation() {
       // 분류는 조회 시점 파생이라 플래그 변경 즉시 가용성·크롤 현황 표기가 바뀐다 — 함께 무효화.
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityCrawlAll });
       queryClient.invalidateQueries({ queryKey: facilityQueryKeys.availabilityAll() });
+      // 비차단 전환(2026-08-27)으로 큐 파생(충돌 의심 배지)·요약 KPI 도 토글에 반응한다 — 큐·summary 공통 프리픽스 무효화.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityBookingsAll });
     },
   });
 }

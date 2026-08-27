@@ -21,7 +21,7 @@ type Props = {
 
 /**
  * 기본 확보 시간 대상 토글 확인 다이얼로그 — 중앙동아리 토글(AdminClubCentralClubToggleDialog) 전례.
- * ON 이면 이 동아리의 시설 크롤 예약이 즉시 BASIC_SECURED_TIME 으로 분류된다(재크롤 불요·차단은 동일).
+ * ON 이면 이 동아리의 시설 크롤 예약이 즉시 BASIC_SECURED_TIME 으로 분류되어 예약 차단이 해제된다(재크롤 불요).
  */
 export function AdminClubSecuredTargetToggleDialog({
   clubName,
@@ -54,8 +54,8 @@ export function AdminClubSecuredTargetToggleDialog({
             <span className="font-medium text-charcoal-2">{clubName}</span> 을(를) 기본 확보 시간
             대상으로 {action}하시겠습니까?{' '}
             {currentValue
-              ? '해제하면 이 동아리의 학교 크롤 예약이 일반 크롤 예약으로 표시됩니다(차단은 유지).'
-              : '지정하면 이 동아리의 학교 크롤 예약이 기본 확보 시간으로 표시됩니다(시간은 크롤 실범위 그대로, 차단은 동일).'}
+              ? '일반 크롤 예약으로 되돌아가 해당 시간대가 다시 차단됩니다.'
+              : "이 동아리 이름의 크롤 행이 '기본 확보 시간'으로 표시되고, 해당 시간대의 예약 차단이 해제됩니다(다른 동아리 신청 가능)."}
           </DialogDescription>
         </DialogHeader>
 

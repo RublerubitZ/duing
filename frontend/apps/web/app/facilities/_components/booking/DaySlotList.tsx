@@ -19,12 +19,10 @@ const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
   PAST: 'border-transparent bg-graysoft/60 text-charcoal-3',
 };
 
-// 라벨 규칙은 bookingEntryOf(단일 지점) 재사용 — 기본 확보 시간만 접미로 관리 의미를 구분한다(차단은 동일).
+// 라벨 규칙은 bookingEntryOf(단일 지점) 재사용.
 function slotStatusLabel(slot: BookingAvailabilitySlot): string {
   const entry = bookingEntryOf(slot);
-  if (entry !== null) {
-    return entry.kind === 'BASIC_SECURED' ? `${entry.label} · 기본 확보` : entry.label;
-  }
+  if (entry !== null) return entry.label;
   if (slot.status === 'PAST') return '지난 시간';
   return '예약 가능';
 }

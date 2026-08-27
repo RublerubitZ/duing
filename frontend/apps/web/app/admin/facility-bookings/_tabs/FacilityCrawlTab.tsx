@@ -24,7 +24,7 @@ const GROUP_BY_OPTIONS: { value: AdminCrawlGroupBy; label: string }[] = [
   { value: 'FACILITY_DATE', label: '시설+날짜별' },
 ];
 
-// 두 분류 모두 차단 상태다 — 배지는 관리 의미 구분 전용(전면 차단 설계 §3.6).
+// 크롤 예약=차단, 기본 확보 시간=비차단(신청 가능) — 배지는 그 구분 표시다.
 const CLASSIFICATION_META = {
   CRAWLED_RESERVATION: { label: '크롤 예약', className: 'bg-graysoft text-charcoal-2' },
   BASIC_SECURED_TIME: { label: '기본 확보 시간', className: 'bg-sage-mist text-ink border border-sage-soft' },
@@ -34,7 +34,7 @@ const CLASSIFICATION_META = {
  * 크롤 예약 현황(전면 차단 설계 §3.6, 수정 1~4) — 시설 예약 관리의 5번째 탭(동아리 중심 보기 스펙 §3).
  * 학교 크롤 원본을 정리 기준 3종으로 열람하는 읽기 전용 화면. 페이징 단위가 그룹이라 같은 주체가
  * 페이지 간 갈라지지 않고, 동아리별 보기에도 미매칭 주체(학교 행사·부서·기관)가 반드시 함께 나온다.
- * 분류 전환은 동아리 관리의 "기본 확보 시간 대상" 토글이 담당한다(모든 크롤 예약은 분류와 무관하게 차단).
+ * 분류 전환은 동아리 관리의 "기본 확보 시간 대상" 토글이 담당한다(크롤 예약=차단, 기본 확보 시간=비차단).
  * 페이지 헤더·안내문은 부모 페이지의 타이틀·PurposeNote 가 담당한다.
  */
 export function FacilityCrawlTab() {

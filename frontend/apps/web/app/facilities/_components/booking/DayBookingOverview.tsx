@@ -13,19 +13,17 @@ type Props = {
   day: BookingDayAvailability;
 };
 
-// 종류 → 상태 도트 색(§5.2): 예약됨(SCHOOL·INTERNAL) = charcoal-3, 승인 대기(PENDING) = warm,
-// 기본 확보(BASIC_SECURED) = sage. 기본 확보도 차단이지만(전면 차단 설계) 관리 의미가 달라 색으로 구분한다.
+// 종류 → 상태 도트 색(§5.2): 예약됨(SCHOOL·INTERNAL) = charcoal-3, 승인 대기(PENDING) = warm.
 const USAGE_DOT_CLASS: Record<DayBookingEntry['kind'], string> = {
   SCHOOL: 'bg-charcoal-3',
   INTERNAL: 'bg-charcoal-3',
   PENDING: 'bg-warm',
-  BASIC_SECURED: 'bg-sage',
 };
 
 /**
  * 통합 예약 현황 카드 — 우측 사이드바의 단일 카드. 날짜·총계는 상단 캘린더·헤더와 중복이라 두지 않고,
- * ① 사용 중(기본 확보·예약 완료·승인 대기 — 전부 슬롯 파생) ② 예약 가능 구간(N타임) ③ 오전/오후/저녁 분포
- * 순으로 쌓는다. 기본 확보 시간도 차단 슬롯이라 dayBookingEntries 가 병합해 만든다. 빈 섹션은 생략한다.
+ * ① 사용 중(예약 완료·승인 대기 — 전부 슬롯 파생) ② 예약 가능 구간(N타임) ③ 오전/오후/저녁 분포
+ * 순으로 쌓는다. 빈 섹션은 생략한다.
  */
 export function DayBookingOverview({ day }: Props) {
   const usage = dayBookingEntries(day.slots);
@@ -39,10 +37,7 @@ export function DayBookingOverview({ day }: Props) {
             <li key={`${entry.kind}-${entry.start}-${entry.end}-${index}`} className="flex items-center gap-2">
               <span className="w-[82px] font-mono text-xs text-charcoal-3">{rangeLabel(entry)}</span>
               <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${USAGE_DOT_CLASS[entry.kind]}`} />
-              <span className="text-[13px] font-semibold text-ink">
-                {entry.label}
-                {entry.kind === 'BASIC_SECURED' ? <span className="ml-1 font-normal text-charcoal-3">(기본 확보)</span> : null}
-              </span>
+              <span className="text-[13px] font-semibold text-ink">{entry.label}</span>
             </li>
           ))}
         </ul>

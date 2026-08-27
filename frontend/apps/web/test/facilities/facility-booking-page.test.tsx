@@ -115,13 +115,13 @@ const NEXT_RANGE_CHIP = `${NEXT_RANGE.label} ${labelPart(NEXT_RANGE.startDate)} 
 // 다음 구간 시작일 셀(availableSlotCount 13 → 레벨 '여유') — 오픈 마커 제거 후 일반 셀과 동일.
 const NEXT_RANGE_START_CELL = `${NEXT_RANGE_FROM_DAY}일 여유, 남은 13칸`;
 
-// 창 첫날 셀에 배치할 13칸: 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
+// 창 첫날 셀에 배치할 13칸: 9시=SCHOOL(고정관념), 11시=SCHOOL(비호응원단), 12시=INTERNAL(예약됨), 14시=HOLD, 나머지 AVAILABLE
 function makeMixedSlots(): BookingAvailabilitySlot[] {
   return Array.from({ length: 13 }, (_, index) => {
     const start = `${pad2(9 + index)}:00`;
     const end = `${pad2(10 + index)}:00`;
     if (index === 0)
-      return { start, end, status: 'BLOCKED' as const, blockedBy: 'BASIC_SECURED' as const, organization: '고정관념' };
+      return { start, end, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '고정관념' };
     if (index === 2)
       return { start, end, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '비호응원단' };
     if (index === 3) return { start, end, status: 'BLOCKED' as const, blockedBy: 'INTERNAL' as const };
@@ -153,7 +153,7 @@ function makeAvailability(facilityId: number, yearMonth: string): FacilityAvaila
           date: iso,
           dayStatus: 'AVAILABLE' as const,
           availableSlotCount: 10,
-          operatingNotes: [], // 전면 차단 설계 — 기본 확보는 슬롯(BASIC_SECURED)으로 내려온다
+          operatingNotes: [], // deprecated — 서버가 항상 빈 배열을 내려준다
           slots: makeMixedSlots(),
         };
       }
@@ -380,12 +380,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // INTERNAL 비노출("예약됨")·PENDING_HOLD("승인 대기")도 현황·슬롯·요약 집계에 나타난다.
     expect(screen.getAllByText('예약됨').length).toBeGreaterThan(0);
     expect(screen.getAllByText('승인 대기').length).toBeGreaterThan(0);
-    // 기본 확보 시간은 차단 슬롯(BASIC_SECURED)으로 내려와 현황 카드에 "(기본 확보)" 접미로 표기된다
-    // (전면 차단 설계 — 구 비차단 안내 박스는 폐지).
+    // 확보 시간 비차단 전환(2026-08-27) — BASIC_SECURED 는 응답에서 사라졌고 "(기본 확보)" 접미 표기도 폐지됐다.
     expect(screen.getAllByText('고정관념').length).toBeGreaterThan(0);
-    expect(screen.getByText('(기본 확보)')).toBeInTheDocument();
+    expect(screen.queryByText('(기본 확보)')).not.toBeInTheDocument();
 
-    // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 1/3 — 09시가 기본 확보 차단, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
+    // 요약 카드 시간대 분포(오전 09–12 = AVAILABLE 1/3 — 09시 차단, 오후 12–18 = 4/6, 저녁 18–22 = 4/4).
     expect(screen.getByText('오전')).toBeInTheDocument();
     expect(screen.getByText('오후')).toBeInTheDocument();
     expect(screen.getByText('저녁')).toBeInTheDocument();

@@ -56,9 +56,9 @@ export type FacilityDetailResponse = {
 // ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
 
 export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
-// BASIC_SECURED = 총동연 지정 기본 확보 시간 대상 동아리의 크롤 예약 — 차단은 SCHOOL 과 동일, 표시만 구분.
+// 기본 확보 시간(총동연 지정 대상)은 비차단(2026-08-27 전환) — 확보 슬롯은 AVAILABLE 로 내려와 blockedBy 가 없다.
 // fail-closed 계약: 예약 가능 여부는 status 만이 결정한다 — 미지의 blockedBy 값도 BLOCKED 표시를 유지한다.
-export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL' | 'BASIC_SECURED';
+export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
 export type BookingDayStatus = 'AVAILABLE' | 'FULL' | 'PAST';
 
 export type BookingAvailabilitySlot = {
