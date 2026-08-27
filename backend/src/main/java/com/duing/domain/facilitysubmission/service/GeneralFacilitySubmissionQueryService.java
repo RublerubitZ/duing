@@ -26,10 +26,12 @@ import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidate
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionSummaryCounts;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.text.Collator;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -92,10 +94,14 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         Map<Long, Long> bookingCounts = bookingCounts(batches);
         Map<Long, String> facilityNames = facilityNames(batches);
         Map<Long, String> submitterNames = submitterNames(batches);
+        Map<Long, List<Long>> clubIdsByBatchId = clubIdsByBatchId(batches);
+        Map<Long, String> batchClubNames = clubNamesByIds(clubIdsByBatchId.values().stream()
+                .flatMap(List::stream).distinct().toList());
         return batchPage.map(batch -> toListItem(batch,
                 bookingCounts.getOrDefault(batch.getId(), 0L),
                 facilityNames.get(batch.getFacilityId()),
-                submitterNames.get(batch.getSubmittedById())));
+                submitterNames.get(batch.getSubmittedById()),
+                clubNameLabels(clubIdsByBatchId.getOrDefault(batch.getId(), List.of()), batchClubNames)));
     }
 
     // 감사 기록(VIEWED)이 포함된 조회 — 클래스 readOnly 를 쓰기 트랜잭션으로 오버라이드한다(전역 제약).
@@ -128,7 +134,8 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 .toList();
         SubmissionBatchListItem header = toListItem(batch, bookingIds.size(),
                 facilityNames(List.of(batch)).get(batch.getFacilityId()),
-                submitterNames(List.of(batch)).get(batch.getSubmittedById()));
+                submitterNames(List.of(batch)).get(batch.getSubmittedById()),
+                clubNameLabels(bookings.stream().map(FacilityBooking::getClubId).distinct().toList(), clubNames));
         auditRepository.save(FacilitySubmissionAudit.of(batchId, SubmissionAuditAction.VIEWED,
                 actor.adminId(), actor.ipAddress(), actor.userAgent()));
         List<FacilitySubmissionAudit> auditRows = auditRepository.findByBatchIdOrderByIdAsc(batchId);
@@ -140,11 +147,38 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private SubmissionBatchListItem toListItem(FacilitySubmissionBatch batch, long bookingCount,
-            String facilityName, String submittedByName) {
+            String facilityName, String submittedByName, List<String> clubNames) {
         return new SubmissionBatchListItem(batch.getId(), batch.getSubmissionNo(), batch.getFacilityId(),
-                facilityName, bookingCount, batch.getSubmittedAt(), submittedByName, batch.getMemo(),
+                facilityName, bookingCount, clubNames, batch.getSubmittedAt(), submittedByName, batch.getMemo(),
                 batch.isCancelled(), batch.getCancelledAt(),
                 batch.isCompleted(), batch.getCompletedAt());
+    }
+
+    private Map<Long, List<Long>> clubIdsByBatchId(List<FacilitySubmissionBatch> batches) {
+        if (batches.isEmpty()) {
+            return Map.of();
+        }
+        return itemRepository.findClubIdsByBatchIdIn(
+                        batches.stream().map(FacilitySubmissionBatch::getId).toList()).stream()
+                .collect(Collectors.groupingBy(
+                        FacilitySubmissionItemRepository.BatchClubProjection::getBatchId,
+                        Collectors.mapping(
+                                FacilitySubmissionItemRepository.BatchClubProjection::getClubId,
+                                Collectors.toList())));
+    }
+
+    private Map<Long, String> clubNamesByIds(List<Long> clubIds) {
+        return clubRepository.findAllById(clubIds).stream()
+                .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
+    }
+
+    /** 삭제 동아리는 이름 결측 → "동아리 {id}" 폴백(FE 후보 화면 폴백과 동일 문구). 가나다순. */
+    private List<String> clubNameLabels(List<Long> clubIds, Map<Long, String> clubNames) {
+        Collator koreanCollator = Collator.getInstance(Locale.KOREAN);
+        return clubIds.stream()
+                .map(clubId -> clubNames.getOrDefault(clubId, "동아리 " + clubId))
+                .sorted(koreanCollator::compare)
+                .toList();
     }
 
     private Map<Long, Long> bookingCounts(List<FacilitySubmissionBatch> batches) {
@@ -204,9 +238,7 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private Map<Long, String> clubNames(List<FacilityBooking> bookings) {
-        List<Long> clubIds = bookings.stream().map(FacilityBooking::getClubId).distinct().toList();
-        return clubRepository.findAllById(clubIds).stream()
-                .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
+        return clubNamesByIds(bookings.stream().map(FacilityBooking::getClubId).distinct().toList());
     }
 
     private Map<Long, String> bookingFacilityNames(List<FacilityBooking> bookings) {
