@@ -212,6 +212,21 @@ class ReservationParserTest {
     }
 
     @Test
+    @DisplayName("배열이 아닌 객체 본문(필드 있음)은 빈 응답이 아니라 전부 파싱 실패로 판정된다 — 의심 본문으로 기존 행을 지우지 않는 방어선")
+    void nonArrayObjectBodyIsAllFailed() throws IOException {
+        JsonNode objectBody = objectMapper.readTree("""
+                {"error":"session expired","code":401}
+                """);
+
+        ReservationParseResult parseResult = parser.parse(objectBody, YearMonth.of(2026, 7));
+
+        assertThat(parseResult.reservations()).isEmpty();
+        assertThat(parseResult.inputSize()).isEqualTo(2);
+        assertThat(parseResult.allFailed()).isTrue();
+        assertThat(parseResult.partial()).isFalse();
+    }
+
+    @Test
     @DisplayName("room143 픽스처의 예약을 파싱한다")
     void parsesRoom143() throws IOException {
         List<ParsedReservation> reservations = parser.parse(loadFixture("room_data_list_room143.json"), YearMonth.of(2026, 7)).reservations();

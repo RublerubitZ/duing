@@ -39,8 +39,11 @@ public class ReservationParser {
     public ReservationParseResult parse(JsonNode arrayNode, YearMonth yearMonth) {
         // LinkedHashMap: schedule_seq 로 distinct 하되 최초 입력 순서를 보존한다.
         Map<Long, ParsedReservation> bySeq = new LinkedHashMap<>();
+        // 입력 크기는 배열 판정 밖에서 센다 — 필드가 있는 객체 본문(size>0)은 빈 응답이 아니라 전부 파싱 실패로
+        // 떨어져야 호출부가 룸 실패 처리한다(의심 본문으로 기존 행 전량 삭제 금지). null 은 0 = 빈 응답 취급(기존 동일).
+        int inputSize = arrayNode == null ? 0 : arrayNode.size();
         if (arrayNode == null || !arrayNode.isArray()) {
-            return new ReservationParseResult(new ArrayList<>(), 0, 0);
+            return new ReservationParseResult(new ArrayList<>(), 0, inputSize);
         }
         int skipped = 0;
         for (JsonNode element : arrayNode) {
@@ -54,7 +57,7 @@ public class ReservationParser {
         if (skipped > 0) {
             log.warn("시설 예약 파싱 건너뜀: yearMonth={}, skipped={}", yearMonth, skipped);
         }
-        return new ReservationParseResult(new ArrayList<>(bySeq.values()), skipped, arrayNode.size());
+        return new ReservationParseResult(new ArrayList<>(bySeq.values()), skipped, inputSize);
     }
 
     private ParsedReservation parseElement(JsonNode element, YearMonth yearMonth) {
