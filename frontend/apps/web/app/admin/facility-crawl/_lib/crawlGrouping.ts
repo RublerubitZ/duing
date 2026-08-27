@@ -41,13 +41,16 @@ export function foldReservationContexts(reservations: AdminCrawlReservation[]): 
   const contexts: CrawlContext[] = [];
   for (const reservation of reservations) {
     const last = contexts[contexts.length - 1];
+    // 같은 날짜의 동일 구간 중복 행(학교가 시작·끝 마커를 별도 행으로 내려 같은 범위로 확장된 쌍)도
+    // 하나의 맥락에 흡수한다 — 분리하면 같은 구간이 두 줄로 보이고 React key 도 충돌한다(실데이터 QA).
     const continues =
       last !== undefined &&
       last.facilityId === reservation.facilityId &&
       last.startTime === reservation.startTime &&
       last.endTime === reservation.endTime &&
       last.classification === reservation.classification &&
-      nextDateIso(last.endDate) === reservation.reservationDate;
+      (reservation.reservationDate === last.endDate ||
+        nextDateIso(last.endDate) === reservation.reservationDate);
     if (continues) {
       last.endDate = reservation.reservationDate;
       last.reservations.push(reservation);

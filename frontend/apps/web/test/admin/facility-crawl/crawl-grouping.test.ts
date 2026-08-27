@@ -72,6 +72,17 @@ describe('foldReservationContexts — 예약 맥락 접기(수정 3)', () => {
     expect(contexts).toHaveLength(2);
   });
 
+  it('같은 날짜의 동일 구간 중복 행(마커 쌍 확장)은 한 맥락에 흡수된다 — 중복 표시·key 충돌 방지', () => {
+    const contexts = foldReservationContexts([
+      reservation({ reservationId: 1, reservationDate: '2026-08-28' }),
+      reservation({ reservationId: 2, reservationDate: '2026-08-28' }), // 동일 구간 중복 행
+      reservation({ reservationId: 3, reservationDate: '2026-08-29' }),
+    ]);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]?.reservations).toHaveLength(3);
+    expect(contextDateLabel(contexts[0]!)).toBe('08/28~08/29');
+  });
+
   it('월 경계 연속(8/31→9/1)도 하나의 맥락으로 이어진다', () => {
     const contexts = foldReservationContexts([
       reservation({ reservationId: 1, reservationDate: '2026-08-31' }),
