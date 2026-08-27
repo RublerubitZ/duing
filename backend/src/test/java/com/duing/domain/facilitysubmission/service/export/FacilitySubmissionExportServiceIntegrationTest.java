@@ -24,10 +24,13 @@ import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorCo
 import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -48,6 +52,8 @@ class FacilitySubmissionExportServiceIntegrationTest extends IntegrationTestBase
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired FacilityRepository facilityRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
+    @PersistenceContext EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime() % 1_000_000);
 
@@ -71,12 +77,32 @@ class FacilitySubmissionExportServiceIntegrationTest extends IntegrationTestBase
     }
 
     private FacilityBooking approvedBooking(int startHour) {
+        return approvedBooking(facility, startHour);
+    }
+
+    private FacilityBooking approvedBooking(Facility bookingFacility, int startHour) {
         FacilityBooking booking = FacilityBooking.request(
-                facility.getId(), club.getId(), applicant.getId(), LocalDate.now().plusDays(7),
+                bookingFacility.getId(), club.getId(), applicant.getId(), LocalDate.now().plusDays(7),
                 LocalTime.of(startHour, 0), LocalTime.of(startHour + 1, 0),
                 "정기 합주", 20, FacilityBookingFixture.VALID_CONTACT_PHONE);
         booking.approve(admin.getId(), null, LocalDateTime.now());
         return bookingRepository.save(booking);
+    }
+
+    /** legacy(시설 단위) 배치 상태 재현 — 생성 경로는 이제 동아리 단위뿐이라(v2 §1) SQL 로 전환 전 행을 만든다. */
+    private void turnIntoLegacyFacilityBatch(Long batchId, Long legacyFacilityId) {
+        jdbcTemplate.update("UPDATE facility_submission_batch SET club_id = NULL, facility_id = ? WHERE id = ?",
+                legacyFacilityId, batchId);
+        entityManager.clear();
+    }
+
+    /** BOM 을 떼고 CRLF 로 나눈 뒤 각 행의 "시설명"(2번째) 컬럼만 뽑는다. */
+    private List<String> facilityColumnOfBodyRows(byte[] csvBytes) {
+        String csvText = new String(csvBytes, 3, csvBytes.length - 3, StandardCharsets.UTF_8);
+        String[] lines = csvText.split("\r\n");
+        return Arrays.stream(lines).skip(1)
+                .map(line -> line.split(",", -1)[1])
+                .toList();
     }
 
     @Test
@@ -111,6 +137,38 @@ class FacilitySubmissionExportServiceIntegrationTest extends IntegrationTestBase
         ExportFile exportFile = exportService.export(created.batchId(), ExportFormat.CSV, actor());
 
         assertThat(exportFile.content()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("다시설 배치 CSV 는 각 행에 그 예약의 시설명이 채워진다")
+    void 다시설_배치_행별_시설명() {
+        Facility hallFacility = facilityRepository.save(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "가온홀", "1101호", 0));
+        FacilityBooking roomBooking = approvedBooking(9);
+        FacilityBooking hallBooking = approvedBooking(hallFacility, 11);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(roomBooking.getId(), hallBooking.getId()), null), actor());
+
+        ExportFile exportFile = exportService.export(created.batchId(), ExportFormat.CSV, actor());
+
+        // 행 순서는 예약일·시작시간 오름차순 — 9시 커뮤니티룸, 11시 가온홀.
+        assertThat(facilityColumnOfBodyRows(exportFile.content()))
+                .containsExactly("커뮤니티룸(1)", "가온홀");
+    }
+
+    @Test
+    @DisplayName("legacy(시설 단위) 배치 CSV 재다운로드는 전 행이 그 시설명으로 나와 기존 출력과 동일하다")
+    void legacy_배치_재다운로드_시설명_유지() {
+        FacilityBooking firstBooking = approvedBooking(9);
+        FacilityBooking secondBooking = approvedBooking(11);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(firstBooking.getId(), secondBooking.getId()), null), actor());
+        turnIntoLegacyFacilityBatch(created.batchId(), facility.getId());
+
+        ExportFile exportFile = exportService.export(created.batchId(), ExportFormat.CSV, actor());
+
+        assertThat(facilityColumnOfBodyRows(exportFile.content()))
+                .containsExactly("커뮤니티룸(1)", "커뮤니티룸(1)");
     }
 
     @Test

@@ -20,12 +20,16 @@ class CsvSubmissionWriterTest {
             LocalDate.now().plusDays(8 - LocalDate.now().getDayOfWeek().getValue());
 
     private SubmissionExportData exportData(SubmissionExportRow... rows) {
-        return new SubmissionExportData("SUB-20260801-001", "학생회관 강당", "8월 1차",
+        return new SubmissionExportData("SUB-20260801-001", "8월 1차",
                 "facility-submission-SUB-20260801-001.csv", List.of(rows));
     }
 
     private SubmissionExportRow row(String clubName, String purpose) {
-        return new SubmissionExportRow(NEXT_MONDAY, LocalTime.of(18, 0), LocalTime.of(21, 0),
+        return row("학생회관 강당", clubName, purpose);
+    }
+
+    private SubmissionExportRow row(String facilityName, String clubName, String purpose) {
+        return new SubmissionExportRow(facilityName, NEXT_MONDAY, LocalTime.of(18, 0), LocalTime.of(21, 0),
                 clubName, "홍길동", "010-1234-5678", 30, purpose, "관리자",
                 LocalDateTime.of(NEXT_MONDAY.minusDays(3), LocalTime.of(10, 30)));
     }
@@ -55,6 +59,41 @@ class CsvSubmissionWriterTest {
         assertThat(bodyLine).contains(",월,");
         assertThat(bodyLine).contains("18:00,21:00");
         assertThat(bodyLine).endsWith(",8월 1차");
+    }
+
+    @Test
+    @DisplayName("서로 다른 시설의 두 행은 각자 자기 시설명으로 출력된다")
+    void rowsCarryTheirOwnFacilityName() {
+        byte[] csvBytes = csvWriter.write(exportData(
+                row("커뮤니티룸(1)", "합주부", "정기 합주"),
+                row("가온홀", "합주부", "공연 리허설")));
+        String[] lines = new String(csvBytes, 3, csvBytes.length - 3, StandardCharsets.UTF_8).split("\r\n");
+
+        assertThat(lines[1].split(",", -1)[1]).isEqualTo("커뮤니티룸(1)");
+        assertThat(lines[2].split(",", -1)[1]).isEqualTo("가온홀");
+    }
+
+    @Test
+    @DisplayName("전 행이 같은 시설명인 배치(legacy 상당)는 배치 상수 시절과 바이트 동일한 CSV 가 된다")
+    void sameFacilityRowsKeepLegacyByteIdenticalOutput() {
+        byte[] csvBytes = csvWriter.write(exportData(row("합주부", "정기 합주"), row("합주부", "공연 리허설")));
+
+        String decidedAtText = NEXT_MONDAY.minusDays(3) + " 10:30";
+        String expectedCsvText = String.join("\r\n",
+                "제출번호,시설명,예약일,요일,예약 시작시간,예약 종료시간,동아리명,신청자,연락처,사용인원,사용목적,승인자,승인일시,비고",
+                "SUB-20260801-001,학생회관 강당," + NEXT_MONDAY + ",월,18:00,21:00,합주부,홍길동,010-1234-5678,30,"
+                        + "정기 합주,관리자," + decidedAtText + ",8월 1차",
+                "SUB-20260801-001,학생회관 강당," + NEXT_MONDAY + ",월,18:00,21:00,합주부,홍길동,010-1234-5678,30,"
+                        + "공연 리허설,관리자," + decidedAtText + ",8월 1차",
+                "");
+        byte[] expectedBody = expectedCsvText.getBytes(StandardCharsets.UTF_8);
+        byte[] expectedBytes = new byte[3 + expectedBody.length];
+        expectedBytes[0] = (byte) 0xEF;
+        expectedBytes[1] = (byte) 0xBB;
+        expectedBytes[2] = (byte) 0xBF;
+        System.arraycopy(expectedBody, 0, expectedBytes, 3, expectedBody.length);
+
+        assertThat(csvBytes).isEqualTo(expectedBytes);
     }
 
     @Test
@@ -89,9 +128,9 @@ class CsvSubmissionWriterTest {
     @Test
     @DisplayName("null 값(인원·메모 등)은 빈 문자열로 출력된다")
     void nullValuesBecomeEmptyCells() {
-        SubmissionExportData dataWithNulls = new SubmissionExportData("SUB-20260801-002", "체육관", null,
+        SubmissionExportData dataWithNulls = new SubmissionExportData("SUB-20260801-002", null,
                 "facility-submission-SUB-20260801-002.csv",
-                List.of(new SubmissionExportRow(NEXT_MONDAY, LocalTime.of(9, 0), LocalTime.of(10, 0),
+                List.of(new SubmissionExportRow(null, NEXT_MONDAY, LocalTime.of(9, 0), LocalTime.of(10, 0),
                         "농구부", "김철수", null, null, "연습", null, null)));
 
         String bodyLine = new String(csvWriter.write(dataWithNulls), StandardCharsets.UTF_8).split("\r\n")[1];

@@ -21,7 +21,7 @@ public class CsvSubmissionWriter {
         for (SubmissionExportRow row : exportData.rows()) {
             appendRow(csv, new String[] {
                     exportData.submissionNo(),
-                    exportData.facilityName(),
+                    row.facilityName(),
                     row.reservationDate().toString(),
                     row.reservationDate().getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.KOREAN),
                     row.startTime().toString(),
