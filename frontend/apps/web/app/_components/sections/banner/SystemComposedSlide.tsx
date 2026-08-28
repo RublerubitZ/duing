@@ -31,8 +31,9 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
   const body = (
     <div
       // 하단 패딩은 캐러셀 컨트롤 밴드를 비워 두는 몫이다 — justify-between 이라 CTA 가 하단에
-      // 붙는데, md 미만에서는 점 인디케이터·정지 버튼이 가로로도 겹치는 위치라 세로로 비켜야 한다.
-      // md 부터는 배너가 넓어 컨트롤이 우측에, 콘텐츠가 좌측에 떨어지므로 원래 여백으로 돌아간다.
+      // 붙는데, md 미만에서는 점 인디케이터가 가로로도 겹치는 위치라 세로로 비켜야 한다.
+      // md 부터는 배너가 넓어 화살표가 우측, 콘텐츠가 좌측으로 떨어져 아래 여백을 줄인다.
+      // lg 는 다시 키우되 44px 이 아니라 36px 이다 — 44px 이면 2줄 제목이 들어갈 자리가 없다.
       className="relative flex h-full flex-col justify-between px-5 pb-10 pt-3.5 sm:px-12 sm:pt-5 md:pb-5 lg:py-9"
       style={{ background: slide.bg, color: textColor }}
     >

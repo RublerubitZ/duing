@@ -14,7 +14,6 @@ import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { InfoNavLink } from './InfoNavLink';
 import { NotificationBell } from './NotificationBell';
 
-
 // slimOnMobile: 모바일 상단바를 브랜드 + 알림 벨 + 유저메뉴/로그인 으로 슬림화하기 위해
 // 네비 링크를 md 미만에서 숨긴다. 현재 모든 호출부가 이 옵션을 켜며, 모바일 내비게이션은
 // 하단 탭바(BottomNav)·유저 메뉴 드롭다운·푸터가 대신한다. 끄면(false, 기본값) md 미만에서도

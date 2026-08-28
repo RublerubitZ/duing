@@ -254,14 +254,15 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     expect(screen.getByRole('button', { name: '배너 1로 이동' })).not.toHaveAttribute('aria-current');
   });
 
-  it('자동 재생 토글은 보이는 문구와 눌림 상태가 같은 사실을 가리킨다', () => {
+  it('자동 재생 토글은 보이는 문구로만 상태를 알린다', () => {
     render(<BannerCarouselClient slides={makeSlides(4)} />);
     const toggle = screen.getByRole('button', { name: '자동재생 중' });
 
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    // 이름이 상태를 따라 바뀌므로 aria-pressed 를 겹쳐 두지 않는다(APG) — 같은 사실을 두 번 말하게 된다.
+    expect(toggle).not.toHaveAttribute('aria-pressed');
     fireEvent.click(toggle);
-    // 이름이 상태를 그대로 말하므로 aria-pressed 와 어긋날 수 없다.
-    expect(screen.getByRole('button', { name: '정지됨' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '정지됨' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
   });
 
   it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {

@@ -353,7 +353,7 @@ export function BannerCarouselClient({ slides }: Props) {
               {/* 모바일 — 탭으로 직접 이동하는 점. 스와이프는 경로 제스처라 단일 포인터 대안이
                   따로 있어야 한다(WCAG 2.5.1). 히트 영역은 24px(2.5.8), 점 자체는 그보다 작게 둔다. */}
               <div className="pointer-events-auto flex flex-1 justify-center md:hidden">
-                <div className="flex items-center rounded-full bg-black/40 px-1 backdrop-blur-sm">
+                <div className="flex items-center rounded-full bg-black/50 px-1 backdrop-blur-sm">
                   {slides.map((slide, index) => (
                     <button
                       key={slide.key}
@@ -361,7 +361,7 @@ export function BannerCarouselClient({ slides }: Props) {
                       aria-label={`배너 ${index + 1}로 이동`}
                       aria-current={index === activeIndex ? 'true' : undefined}
                       onClick={() => goTo(index)}
-                      className="grid h-6 w-6 place-items-center"
+                      className="btn grid h-6 w-6 place-items-center rounded-full p-0"
                     >
                       <span
                         aria-hidden
@@ -381,7 +381,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="이전 배너"
                   onClick={goPrev}
-                  className="bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream grid h-9 w-9 place-items-center rounded-full ring-1 transition"
+                  className="btn bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream grid h-9 w-9 place-items-center rounded-full p-0 ring-1"
                 >
                   <ArrowLeft />
                 </button>
@@ -389,7 +389,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="다음 배너"
                   onClick={goNext}
-                  className="bg-ink-deep text-cream shadow-1 hover:bg-ink grid h-9 w-9 place-items-center rounded-full transition"
+                  className="btn bg-ink-deep text-cream shadow-1 hover:bg-ink grid h-9 w-9 place-items-center rounded-full p-0"
                 >
                   <ArrowRight />
                 </button>
@@ -402,14 +402,14 @@ export function BannerCarouselClient({ slides }: Props) {
             하는데(WCAG 2.2.2), 배너 안에 두면 슬라이드 콘텐츠와 자리를 다투고 이미지 위에서
             대비도 불안정하다. 밖으로 빼면 페이지 배경 위라 톤이 안정되고, 이동 수단(점·화살표)
             과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
-            덮지 않는다 — 덮으면 눈에 보이는 이름과 갈린다(2.5.3). */}
+            덮지 않고(덮으면 눈에 보이는 이름과 갈린다 — 2.5.3), aria-pressed 도 두지 않는다.
+            이름이 상태를 따라 바뀌는 토글에 눌림 상태까지 붙이면 같은 사실을 두 번 말한다(APG). */}
         {slides.length > 1 && (
           <div className="mt-3 flex justify-end">
             <button
               type="button"
-              aria-pressed={isPlaying}
               onClick={() => setIsPlaying((prev) => !prev)}
-              className="btn btn-ghost btn-sm text-charcoal-3 hover:text-charcoal gap-1.5"
+              className="btn btn-ghost btn-sm gap-1.5"
             >
               <span aria-hidden className="text-sm leading-none">
                 {isPlaying ? '⏸' : '▶'}
