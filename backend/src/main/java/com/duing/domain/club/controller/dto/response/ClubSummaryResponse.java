@@ -20,6 +20,11 @@ public record ClubSummaryResponse(
         List<String> tags,
         String tagline,
         boolean centralClub,
+        /**
+         * 최근 7일 순방문자 수 — 홈 "관심도가 높은 동아리" 카드의 표시값.
+         * 내부 정렬값(interest_score)은 노출하지 않는다. 집계 전이거나 조회가 없으면 0.
+         */
+        int weeklyInterestCount,
         ActiveRecruitmentSummaryResponse activeRecruitment
 ) {
     public record ActiveRecruitmentSummaryResponse(
@@ -51,6 +56,7 @@ public record ClubSummaryResponse(
                 summaryQuery.tags(),
                 summaryQuery.tagline(),
                 summaryQuery.centralClub(),
+                summaryQuery.weeklyInterestCount(),
                 summaryQuery.activeRecruitment() == null
                         ? null
                         : ActiveRecruitmentSummaryResponse.from(summaryQuery.activeRecruitment())

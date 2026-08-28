@@ -20,6 +20,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -146,6 +147,11 @@ public class GeneralClubService implements ClubService {
             return summary.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
                     row.recruitmentId(), displayStatus, row.startDate(), row.endDate()));
         });
+    }
+
+    @Override
+    public ClubStatsQuery getStats() {
+        return clubRepository.countStats();
     }
 
     @Override
