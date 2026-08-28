@@ -245,13 +245,23 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     expect(screen.getByTestId('banner-pager')).toHaveTextContent('4 / 4');
   });
 
-  it('점 인디케이터로 임의의 배너에 바로 이동한다 — 스와이프의 단일 포인터 대안', () => {
+  it('위치 표시를 눌러도 다음으로 넘어간다 — 화살표 없는 모바일의 단일 포인터 대안', () => {
     render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const pager = screen.getByTestId('banner-pager');
 
-    fireEvent.click(screen.getByRole('button', { name: '배너 3로 이동' }));
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('3 / 4');
-    expect(screen.getByRole('button', { name: '배너 3로 이동' })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('button', { name: '배너 1로 이동' })).not.toHaveAttribute('aria-current');
+    // 스와이프는 경로 제스처라 대안이 없으면 모바일에 이동 수단이 하나도 남지 않는다(WCAG 2.5.1).
+    expect(pager.tagName).toBe('BUTTON');
+    fireEvent.click(pager);
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+  });
+
+  it('위치 표시의 접근 이름이 보이는 문구를 그대로 품는다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const pager = screen.getByTestId('banner-pager');
+
+    // 이름이 보이는 글자를 포함하지 않으면 음성 조작 사용자가 부를 수 없다(WCAG 2.5.3).
+    expect(pager).toHaveTextContent('1 / 4');
+    expect(pager.getAttribute('aria-label')).toContain('1 / 4');
   });
 
   it('자동 재생 토글은 보이는 문구로만 상태를 알린다', () => {

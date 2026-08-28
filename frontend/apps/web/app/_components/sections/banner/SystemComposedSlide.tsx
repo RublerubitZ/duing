@@ -30,11 +30,11 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      // 하단 패딩은 캐러셀 컨트롤 밴드를 비워 두는 몫이다 — justify-between 이라 CTA 가 하단에
-      // 붙는데, md 미만에서는 점 인디케이터가 가로로도 겹치는 위치라 세로로 비켜야 한다.
-      // md 부터는 배너가 넓어 화살표가 우측, 콘텐츠가 좌측으로 떨어져 아래 여백을 줄인다.
-      // lg 는 다시 키우되 44px 이 아니라 36px 이다 — 44px 이면 2줄 제목이 들어갈 자리가 없다.
-      className="relative flex h-full flex-col justify-between px-5 pb-10 pt-3.5 sm:px-12 sm:pt-5 md:pb-5 lg:py-9"
+      // 여백은 배너 높이에 맞춰 단계별로 다르다. 배너는 높이가 고정이고 제목은 시안 크기(sm 부터
+      // 48px, 2줄이면 106px)라, 폭이 좁을수록 여백을 줄여야 태그·제목·부제·CTA 가 들어간다.
+      // sm 미만만 아래를 크게 비우는데, 그 폭에서는 우측 하단 위치 표시가 CTA 와 가로로도
+      // 겹치기 때문이다. sm 부터는 배너가 넓어 둘이 좌우로 갈라져 세로로 비킬 필요가 없다.
+      className="relative flex h-full flex-col justify-between px-5 pb-11 pt-3.5 sm:px-12 sm:py-4 lg:py-9"
       style={{ background: slide.bg, color: textColor }}
     >
       {hasImage && (
@@ -107,7 +107,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
       )}
       <div className="relative">
         <h2
-          className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] leading-[1.1] tracking-[-0.025em] sm:mb-2.5 sm:text-[32px] sm:leading-[1.05] lg:text-5xl"
+          className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] leading-[1.1] tracking-[-0.025em] sm:mb-2.5 sm:text-5xl sm:leading-[1.05]"
           style={{ color: textColor }}
         >
           {slide.title}
@@ -119,7 +119,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
           // 태그·2줄 제목·CTA 만으로 이미 꽉 찬다. md 부터 배너가 커지고 밴드도 우측으로 빠진다.
           <div className="hidden md:block">
             <p
-              className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:text-[15.5px] sm:leading-[1.5] lg:mb-5"
+              className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:text-[15.5px] sm:leading-[1.5] md:mb-2 lg:mb-5"
               style={{ color: textColor, opacity: 0.85 }}
             >
               {slide.sub}

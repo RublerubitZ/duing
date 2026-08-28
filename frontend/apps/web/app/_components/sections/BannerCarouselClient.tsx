@@ -94,18 +94,6 @@ export function BannerCarouselClient({ slides }: Props) {
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
   }, [slides, activeIndex, startSlideTransition]);
 
-  // 모바일 점 인디케이터의 직접 이동. 스와이프(경로 제스처)만으로는 단일 포인터 대안이 없어
-  // WCAG 2.5.1 을 못 맞추므로, 화살표를 뺀 모바일에서는 이 점들이 그 대안 역할을 한다.
-  const goTo = useCallback(
-    (index: number) => {
-      if (index === activeIndex) return;
-      const currentSlide = slides[activeIndex];
-      if (currentSlide) startSlideTransition(index > activeIndex ? 'left' : 'right', currentSlide);
-      setActiveIndex(index);
-    },
-    [slides, activeIndex, startSlideTransition],
-  );
-
   useEffect(() => {
     return () => {
       if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
@@ -321,79 +309,44 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
-          {/* 위치 표시 — 우측 상단. 합성 슬라이드는 태그가 좌측 상단이라 이 자리가 비고,
-              하단 밴드에서 빠지면서 이동 수단과 상태 표시가 자리로 나뉜다.
-              모바일은 점 인디케이터가 같은 정보를 주므로 띄우지 않는다. */}
+          {/* 위치 표시 — 모바일은 우측 하단, md 부터는 우측 상단이다. md 하단은 화살표 자리이고,
+              합성 슬라이드는 태그가 좌측 상단이라 위쪽 오른편이 비어 있다.
+              누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
+              되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
+              보이는 문구가 이름 안에 그대로 들어가 눈에 보이는 이름과 갈리지 않는다(2.5.3). */}
           {slides.length > 1 && (
-            <span
+            <button
+              type="button"
               data-testid="banner-pager"
-              className="absolute right-4 top-4 z-10 hidden rounded-full bg-black/60 px-3.5 py-1.5 text-[14px] font-semibold tabular-nums text-white md:right-9 md:top-5 md:inline-block"
+              aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
+              onClick={goNext}
+              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 md:bottom-auto md:right-9 md:top-5 md:text-[14px]"
             >
               {activeIndex + 1} / {slides.length}
-            </span>
+            </button>
           )}
 
-          {/*
-           * 하단 컨트롤 밴드 — 모바일과 데스크탑이 서로 다른 입력을 쓴다.
-           *
-           * 모바일은 스와이프가 주 조작이라 화살표를 두지 않고 점 인디케이터만 둔다.
-           * 데스크탑은 포인터라 이전·다음 화살표를 준다. 위치 표시는 우측 상단, 자동 재생
-           * 토글은 배너 밖 아래로 빠져 이 밴드에는 이동 수단만 남는다.
-           *
-           * 배치는 반드시 슬라이드 콘텐츠가 비운 밴드 안에서만 이뤄져야 한다. SYSTEM_COMPOSED
-           * 슬라이드는 본문이 justify-between 이라 CTA 가 하단에 붙는데, 컨트롤이 그 위에 겹치면
-           * 보기만 나쁜 게 아니라 z-10·pointer-events-auto 라 CTA 링크 클릭까지 가로챈다.
-           * 그래서 슬라이드 쪽에서 이 밴드만큼 하단 패딩을 비워 둔다(SystemComposedSlide 주석 참조).
-           *
-           * 바깥 래퍼는 pointer-events-none 이라 배너 위 빈 자리는 그대로 드래그 영역으로 남고,
-           * track 밖이라 드래그해도 컨트롤이 따라 움직이지 않는다.
-           */}
+          {/* 이전·다음 — 데스크탑 전용. 모바일은 스와이프와 우측 하단 위치 표시로 넘긴다.
+              track 밖이라 드래그해도 따라 움직이지 않고, 바깥 래퍼가 pointer-events-none 이라
+              배너 위 빈 자리는 그대로 드래그 영역으로 남는다. */}
           {slides.length > 1 && (
-            <div className="pointer-events-none absolute inset-x-4 bottom-3 z-10 flex items-center justify-end gap-2 md:inset-x-9 md:bottom-5 md:gap-4">
-              {/* 모바일 — 탭으로 직접 이동하는 점. 스와이프는 경로 제스처라 단일 포인터 대안이
-                  따로 있어야 한다(WCAG 2.5.1). 히트 영역은 24px(2.5.8), 점 자체는 그보다 작게 둔다. */}
-              <div className="pointer-events-auto flex flex-1 justify-center md:hidden">
-                <div className="flex items-center rounded-full bg-black/50 px-1 backdrop-blur-sm">
-                  {slides.map((slide, index) => (
-                    <button
-                      key={slide.key}
-                      type="button"
-                      aria-label={`배너 ${index + 1}로 이동`}
-                      aria-current={index === activeIndex ? 'true' : undefined}
-                      onClick={() => goTo(index)}
-                      className="btn grid h-6 w-6 place-items-center rounded-full p-0"
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'h-1.5 rounded-full transition-[width,background-color]',
-                          index === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55',
-                        )}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 데스크탑 화살표 — 모바일은 스와이프로 대신한다. */}
-              <div className="pointer-events-auto hidden items-center gap-4 md:flex">
-                <button
-                  type="button"
-                  aria-label="이전 배너"
-                  onClick={goPrev}
-                  className="btn bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream grid h-9 w-9 place-items-center rounded-full p-0 ring-1"
-                >
-                  <ArrowLeft />
-                </button>
-                <button
-                  type="button"
-                  aria-label="다음 배너"
-                  onClick={goNext}
-                  className="btn bg-ink-deep text-cream shadow-1 hover:bg-ink grid h-9 w-9 place-items-center rounded-full p-0"
-                >
-                  <ArrowRight />
-                </button>
-              </div>
+            <div className="pointer-events-none absolute inset-x-9 bottom-5 z-10 hidden items-center justify-end gap-4 md:flex">
+              <button
+                type="button"
+                aria-label="이전 배너"
+                onClick={goPrev}
+                className="btn bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream pointer-events-auto grid h-9 w-9 place-items-center rounded-full p-0 ring-1"
+              >
+                <ArrowLeft />
+              </button>
+              <button
+                type="button"
+                aria-label="다음 배너"
+                onClick={goNext}
+                className="btn bg-ink-deep text-cream shadow-1 hover:bg-ink pointer-events-auto grid h-9 w-9 place-items-center rounded-full p-0"
+              >
+                <ArrowRight />
+              </button>
             </div>
           )}
         </div>
