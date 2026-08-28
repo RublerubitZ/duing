@@ -30,11 +30,15 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      // 여백은 배너 높이에 맞춰 단계별로 다르다. 배너는 높이가 고정이고 제목은 시안 크기(sm 부터
-      // 48px, 2줄이면 106px)라, 폭이 좁을수록 여백을 줄여야 태그·제목·부제·CTA 가 들어간다.
-      // sm 미만만 아래를 크게 비우는데, 그 폭에서는 우측 하단 위치 표시가 CTA 와 가로로도
-      // 겹치기 때문이다. sm 부터는 배너가 넓어 둘이 좌우로 갈라져 세로로 비킬 필요가 없다.
-      className="relative flex h-full flex-col justify-between px-5 pb-11 pt-3.5 sm:px-12 sm:py-4 lg:py-9"
+      // 가로 여백은 페이지의 다른 카드 리듬에 맞춘다. 카드가 페이지 여백선에서 시작하므로 안쪽
+      // 여백만큼 글자가 더 밀리는데, 예전 48px 은 카테고리 카드(22px)의 두 배라 배너 글자만
+      // 혼자 안으로 들어가 보였다(데스크탑 실측 48px 차이). 배너가 더 큰 면이라 카드보다는
+      // 넉넉하게 두되 그 절반 가까이 줄여 다른 섹션과 시작선이 크게 어긋나지 않게 한다.
+      // 세로: 배너는 높이가 고정이고 제목은 시안 크기(sm 부터 48px, 2줄이면 106px)라 여백이 곧 예산이다.
+      // sm 미만만 아래를 크게 비운다 — 그 폭에서는 위치 표시가 우측 하단이라 CTA 와 세로로 겹친다.
+      // sm 부터는 표시가 우측 상단으로 올라가므로 예약이 필요 없고 develop 여백(20px)을 그대로 쓴다.
+      // md 만 한 단계 줄이는데, 그 구간에서 부제가 다시 나오면서 20px 로는 콘텐츠가 넘치기 때문이다.
+      className="relative flex h-full flex-col justify-between px-4 pb-12 pt-3.5 sm:px-6 sm:py-5 md:px-8 md:py-4 lg:py-9"
       style={{ background: slide.bg, color: textColor }}
     >
       {hasImage && (
@@ -90,9 +94,9 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
       {slide.tag && (
         <div
           // 태그는 60자까지 들어올 수 있어(백엔드 @Size) 그대로 두면 우측 상단 페이저 밑으로 파고든다.
-          // md 부터 페이저가 차지하는 우측 폭만큼 비워 두고, 넘치면 말줄임한다.
+          // sm 부터 우측 상단 위치 표시가 차지하는 폭만큼 비워 두고, 넘치면 말줄임한다.
           // 안쪽 span 의 min-w-0 이 없으면 flex 아이템이 글자 폭 아래로 안 줄어 max-w 가 무력해진다.
-          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold md:max-w-[calc(100%-7rem)]"
+          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold sm:max-w-[calc(100%-7rem)]"
           style={{
             background: hasImage
               ? 'rgba(255,255,255,0.95)'
@@ -115,8 +119,8 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
         {slide.sub && (
           // 노출은 래퍼가, 줄 상한은 <p> 가 맡는다. 둘을 한 요소에 얹으면 hidden/block 의 display 가
           // line-clamp 의 -webkit-box 를 덮어 상한이 풀린다(부제가 조용히 2줄로 늘어난다).
-          // md 미만에서 접는다 — 그 구간의 배너는 185~258px 인데 하단 컨트롤 밴드까지 비워야 해서
-          // 태그·2줄 제목·CTA 만으로 이미 꽉 찬다. md 부터 배너가 커지고 밴드도 우측으로 빠진다.
+          // md 미만에서 접는다 — 그 구간의 배너는 185~258px 이라 태그·2줄 제목·CTA 만으로 이미
+          // 꽉 찬다(640 에서 부제를 넣으면 콘텐츠가 박스를 넘긴다). md 부터 배너가 커져 자리가 난다.
           <div className="hidden md:block">
             <p
               className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:text-[15.5px] sm:leading-[1.5] md:mb-2 lg:mb-5"
@@ -128,14 +132,19 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
         )}
         {slide.cta && (
           <span
-            className="btn rounded-md px-4 py-2 text-[13px] font-bold sm:px-[22px] sm:py-3 sm:text-[15px]"
+            // CTA 도 40자까지 들어온다. 상한이 없으면 좁은 폭에서 두 줄로 감기고, 그만큼 콘텐츠가
+            // 자라 아래 위치 표시를 침범한다 — 제목·부제·태그와 같은 이유로 한 줄로 묶는다.
+            // 화살표는 shrink-0 으로 남기고 글자만 줄여야 버튼이 화살표를 먹지 않는다.
+            className="btn max-w-full rounded-md px-4 py-2 text-[13px] font-bold sm:px-[22px] sm:py-3 sm:text-[15px]"
             style={{
               background: isDarkText ? '#9DB6A0' : slide.accent,
               color: isDarkText ? '#143025' : '#fff',
             }}
           >
-            {slide.cta}
-            <ArrowRight />
+            <span className="min-w-0 truncate">{slide.cta}</span>
+            <span className="shrink-0">
+              <ArrowRight />
+            </span>
           </span>
         )}
       </div>

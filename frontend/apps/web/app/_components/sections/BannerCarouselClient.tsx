@@ -102,7 +102,7 @@ export function BannerCarouselClient({ slides }: Props) {
   }, []);
 
   useEffect(() => {
-    // 서버 refresh 로 슬라이드 수가 줄면 activeIndex 가 범위를 벗어나 페이저/dot 이 어긋난다.
+    // 서버 refresh 로 슬라이드 수가 줄면 activeIndex 가 범위를 벗어나 위치 표시가 어긋난다.
     setActiveIndex((prev) => (slides.length === 0 ? 0 : prev % slides.length));
   }, [slides.length]);
 
@@ -244,8 +244,7 @@ export function BannerCarouselClient({ slides }: Props) {
       <div className="max-w-layout relative mx-auto">
         {/*
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
-         * 컨트롤도 배너 밖 별도 바가 아니라 배너 위 오버레이 하나로 모았고, PC·모바일 구성이
-         * 같아 예전처럼 브레이크포인트로 갈라 두 벌을 유지할 필요가 없다.
+         * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(배너 밖 아래)로 나뉜다.
          *
          * 높이는 예전 그대로 viewport 의 '연속 1차식' clamp 다. 비율을 브레이크포인트로 끊으면
          * 640px·1280px 에서 높이가 점프해 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다.
@@ -309,7 +308,9 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
-          {/* 위치 표시 — 모바일은 우측 하단, md 부터는 우측 상단이다. md 하단은 화살표 자리이고,
+          {/* 위치 표시 — sm 미만은 우측 하단, sm 부터는 우측 상단이다. 전환 지점은 슬라이드가
+              하단을 비우는 지점(pb-11 → sm:py-5)과 반드시 같아야 한다. 어긋나면 그 사이 폭에서
+              "표시는 아직 아래, 예약은 이미 없음" 이 되어 긴 CTA 와 겹치고 클릭까지 가로챈다.
               합성 슬라이드는 태그가 좌측 상단이라 위쪽 오른편이 비어 있다.
               누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
               되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
@@ -320,7 +321,7 @@ export function BannerCarouselClient({ slides }: Props) {
               data-testid="banner-pager"
               aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
               onClick={goNext}
-              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 md:bottom-auto md:right-9 md:top-5 md:text-[14px]"
+              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5 sm:text-[14px]"
             >
               {activeIndex + 1} / {slides.length}
             </button>
@@ -353,7 +354,7 @@ export function BannerCarouselClient({ slides }: Props) {
 
         {/* 자동 재생 토글 — 배너 밖 아래. 자동으로 움직이는 콘텐츠에는 멈출 방법이 있어야
             하는데(WCAG 2.2.2), 배너 안에 두면 슬라이드 콘텐츠와 자리를 다투고 이미지 위에서
-            대비도 불안정하다. 밖으로 빼면 페이지 배경 위라 톤이 안정되고, 이동 수단(점·화살표)
+            대비도 불안정하다. 밖으로 빼면 페이지 배경 위라 톤이 안정되고, 이동 수단(위치 표시·화살표)
             과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
             덮지 않고(덮으면 눈에 보이는 이름과 갈린다 — 2.5.3), aria-pressed 도 두지 않는다.
             이름이 상태를 따라 바뀌는 토글에 눌림 상태까지 붙이면 같은 사실을 두 번 말한다(APG). */}
