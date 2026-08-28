@@ -252,7 +252,7 @@ export function BannerCarouselClient({ slides }: Props) {
   if (!activeSlide) return null;
 
   return (
-    <section className="px-4 sm:px-6 md:px-10 pt-2">
+    <section className="px-4 pt-2 sm:px-6 md:px-10">
       <div className="max-w-layout relative mx-auto">
         {/*
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
@@ -321,11 +321,24 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
+          {/* 위치 표시 — 우측 상단. 합성 슬라이드는 태그가 좌측 상단이라 이 자리가 비고,
+              하단 밴드에서 빠지면서 이동 수단과 상태 표시가 자리로 나뉜다.
+              모바일은 점 인디케이터가 같은 정보를 주므로 띄우지 않는다. */}
+          {slides.length > 1 && (
+            <span
+              data-testid="banner-pager"
+              className="absolute right-4 top-4 z-10 hidden rounded-full bg-black/60 px-3.5 py-1.5 text-[14px] font-semibold tabular-nums text-white md:right-9 md:top-5 md:inline-block"
+            >
+              {activeIndex + 1} / {slides.length}
+            </span>
+          )}
+
           {/*
            * 하단 컨트롤 밴드 — 모바일과 데스크탑이 서로 다른 입력을 쓴다.
            *
-           * 모바일은 스와이프가 주 조작이라 화살표를 두지 않고 점 인디케이터 + 정지만 남긴다.
-           * 데스크탑은 포인터라 위치 표시(N / M)와 이전·다음 화살표를 준다.
+           * 모바일은 스와이프가 주 조작이라 화살표를 두지 않고 점 인디케이터만 둔다.
+           * 데스크탑은 포인터라 이전·다음 화살표를 준다. 위치 표시는 우측 상단, 자동 재생
+           * 토글은 배너 밖 아래로 빠져 이 밴드에는 이동 수단만 남는다.
            *
            * 배치는 반드시 슬라이드 콘텐츠가 비운 밴드 안에서만 이뤄져야 한다. SYSTEM_COMPOSED
            * 슬라이드는 본문이 justify-between 이라 CTA 가 하단에 붙는데, 컨트롤이 그 위에 겹치면
@@ -362,33 +375,13 @@ export function BannerCarouselClient({ slides }: Props) {
                 </div>
               </div>
 
-              {/* 데스크탑 — 위치 표시. 모바일은 점이 같은 정보를 주므로 숨긴다. */}
-              <span
-                data-testid="banner-pager"
-                className="pointer-events-auto hidden rounded-full bg-black/60 px-3.5 py-1.5 text-[14px] font-semibold tabular-nums text-white md:inline-block"
-              >
-                {activeIndex + 1} / {slides.length}
-              </span>
-
-              {/* 자동 재생 정지 수단 — 시안에는 없지만 자동으로 움직이는 콘텐츠에는 멈출 방법이
-                  있어야 한다(WCAG 2.2.2). 두 폭 모두에서 나온다. */}
-              <button
-                type="button"
-                aria-label="배너 자동 재생"
-                aria-pressed={isPlaying}
-                onClick={() => setIsPlaying((prev) => !prev)}
-                className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full bg-black/60 text-[10px] text-white transition hover:bg-black/75 md:h-7 md:w-7 md:text-[11px]"
-              >
-                <span aria-hidden>{isPlaying ? '⏸' : '▶'}</span>
-              </button>
-
               {/* 데스크탑 화살표 — 모바일은 스와이프로 대신한다. */}
               <div className="pointer-events-auto hidden items-center gap-4 md:flex">
                 <button
                   type="button"
                   aria-label="이전 배너"
                   onClick={goPrev}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink-deep shadow-1 ring-1 ring-ink/15 transition hover:bg-cream"
+                  className="bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream grid h-9 w-9 place-items-center rounded-full ring-1 transition"
                 >
                   <ArrowLeft />
                 </button>
@@ -396,7 +389,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="다음 배너"
                   onClick={goNext}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-ink-deep text-cream shadow-1 transition hover:bg-ink"
+                  className="bg-ink-deep text-cream shadow-1 hover:bg-ink grid h-9 w-9 place-items-center rounded-full transition"
                 >
                   <ArrowRight />
                 </button>
@@ -404,6 +397,27 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           )}
         </div>
+
+        {/* 자동 재생 토글 — 배너 밖 아래. 자동으로 움직이는 콘텐츠에는 멈출 방법이 있어야
+            하는데(WCAG 2.2.2), 배너 안에 두면 슬라이드 콘텐츠와 자리를 다투고 이미지 위에서
+            대비도 불안정하다. 밖으로 빼면 페이지 배경 위라 톤이 안정되고, 이동 수단(점·화살표)
+            과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
+            덮지 않는다 — 덮으면 눈에 보이는 이름과 갈린다(2.5.3). */}
+        {slides.length > 1 && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              aria-pressed={isPlaying}
+              onClick={() => setIsPlaying((prev) => !prev)}
+              className="btn btn-ghost btn-sm text-charcoal-3 hover:text-charcoal gap-1.5"
+            >
+              <span aria-hidden className="text-sm leading-none">
+                {isPlaying ? '⏸' : '▶'}
+              </span>
+              <span className="text-xs">{isPlaying ? '자동재생 중' : '정지됨'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

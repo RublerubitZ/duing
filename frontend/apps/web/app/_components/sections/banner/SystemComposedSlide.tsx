@@ -88,7 +88,10 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
 
       {slide.tag && (
         <div
-          className="tracking-wide08 relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
+          // 태그는 60자까지 들어올 수 있어(백엔드 @Size) 그대로 두면 우측 상단 페이저 밑으로 파고든다.
+          // md 부터 페이저가 차지하는 우측 폭만큼 비워 두고, 넘치면 말줄임한다.
+          // 안쪽 span 의 min-w-0 이 없으면 flex 아이템이 글자 폭 아래로 안 줄어 max-w 가 무력해진다.
+          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold md:max-w-[calc(100%-7rem)]"
           style={{
             background: hasImage
               ? 'rgba(255,255,255,0.95)'
@@ -98,7 +101,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
             color: hasImage ? '#143025' : isDarkText ? '#9DB6A0' : slide.accent,
           }}
         >
-          {slide.tag}
+          <span className="min-w-0 truncate">{slide.tag}</span>
         </div>
       )}
       <div className="relative">

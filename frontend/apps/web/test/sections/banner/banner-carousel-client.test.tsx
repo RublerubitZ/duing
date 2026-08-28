@@ -147,6 +147,8 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     // 넘길 곳이 없으면 페이저·이전/다음을 그리지 않는다(시안의 컨트롤은 여러 장 전제).
     expect(screen.queryByTestId('banner-pager')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다음 배너' })).not.toBeInTheDocument();
+    // 배너 밖 자동 재생 토글도 마찬가지 — 넘어가지 않으니 멈출 것도 없다.
+    expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
     // 드래그가 무시됐으니 track 이 손가락을 따라가지 않는다(예전에는 페이저 값으로 확인했다).
     const track = viewport.firstElementChild as HTMLElement;
     expect(track.style.transform).toBe('translateX(0px)');
@@ -252,20 +254,21 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     expect(screen.getByRole('button', { name: '배너 1로 이동' })).not.toHaveAttribute('aria-current');
   });
 
-  it('자동 재생 버튼은 이름이 고정이고 눌림 상태로 재생 여부를 알린다', () => {
+  it('자동 재생 토글은 보이는 문구와 눌림 상태가 같은 사실을 가리킨다', () => {
     render(<BannerCarouselClient slides={makeSlides(4)} />);
-    const toggle = screen.getByRole('button', { name: '배너 자동 재생' });
+    const toggle = screen.getByRole('button', { name: '자동재생 중' });
 
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    // 이름이 상태를 그대로 말하므로 aria-pressed 와 어긋날 수 없다.
+    expect(screen.getByRole('button', { name: '정지됨' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {
     vi.useFakeTimers();
     try {
       render(<BannerCarouselClient slides={makeSlides(4)} />);
-      fireEvent.click(screen.getByRole('button', { name: '배너 자동 재생' }));
+      fireEvent.click(screen.getByRole('button', { name: '자동재생 중' }));
 
       // 5초 간격이라 12초면 정지가 안 먹었을 때 3 / 4 가 된다 — 한 바퀴(20초) 를 쓰면
       // 정지 여부와 무관하게 1 / 4 로 돌아와 단언이 아무것도 못 잡는다.
