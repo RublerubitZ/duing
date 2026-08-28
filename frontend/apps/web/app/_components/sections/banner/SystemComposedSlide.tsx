@@ -30,7 +30,10 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      className="relative flex h-full flex-col justify-between px-5 py-3.5 sm:px-12 sm:py-5 lg:py-11"
+      // 하단 패딩은 캐러셀 컨트롤 밴드를 비워 두는 몫이다 — justify-between 이라 CTA 가 하단에
+      // 붙는데, md 미만에서는 점 인디케이터·정지 버튼이 가로로도 겹치는 위치라 세로로 비켜야 한다.
+      // md 부터는 배너가 넓어 컨트롤이 우측에, 콘텐츠가 좌측에 떨어지므로 원래 여백으로 돌아간다.
+      className="relative flex h-full flex-col justify-between px-5 pt-3.5 pb-10 sm:px-12 sm:pt-5 md:pb-5 lg:py-11"
       style={{ background: slide.bg, color: textColor }}
     >
       {hasImage && (
@@ -102,7 +105,9 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
         </h2>
         {slide.sub && (
           <p
-            className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:line-clamp-none sm:text-[15.5px] sm:leading-[1.5] lg:mb-6"
+            // 모바일(<sm)에서는 접는다 — 배너가 185px 뿐이라 태그·2줄 제목·CTA 만으로 이미 꽉 차고,
+            // 한 줄로 잘린 부제를 끼우면 콘텐츠가 컨트롤 밴드로 흘러넘친다.
+            className="mb-2 hidden line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:block sm:line-clamp-none sm:text-[15.5px] sm:leading-[1.5] lg:mb-6"
             style={{ color: textColor, opacity: 0.85 }}
           >
             {slide.sub}

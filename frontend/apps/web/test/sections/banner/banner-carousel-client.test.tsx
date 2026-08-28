@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, createEvent } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
@@ -220,5 +220,61 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
 
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -40, clientY: 0 }));
     expect(setPointerCapture).toHaveBeenCalledTimes(1); // 가로 락 시 캡처
+  });
+});
+
+describe('BannerCarouselClient — 오버레이 컨트롤', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('다음·이전 버튼이 배너를 순환 이동시킨다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+
+    fireEvent.click(screen.getByRole('button', { name: '이전 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+
+    // 첫 배너에서 이전 → 마지막으로 감긴다.
+    fireEvent.click(screen.getByRole('button', { name: '이전 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('4 / 4');
+  });
+
+  it('점 인디케이터로 임의의 배너에 바로 이동한다 — 스와이프의 단일 포인터 대안', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '배너 3로 이동' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('3 / 4');
+    expect(screen.getByRole('button', { name: '배너 3로 이동' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: '배너 1로 이동' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('자동 재생 버튼은 이름이 고정이고 눌림 상태로 재생 여부를 알린다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const toggle = screen.getByRole('button', { name: '배너 자동 재생' });
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {
+    vi.useFakeTimers();
+    try {
+      render(<BannerCarouselClient slides={makeSlides(4)} />);
+      fireEvent.click(screen.getByRole('button', { name: '배너 자동 재생' }));
+
+      // 5초 간격이라 12초면 정지가 안 먹었을 때 3 / 4 가 된다 — 한 바퀴(20초) 를 쓰면
+      // 정지 여부와 무관하게 1 / 4 로 돌아와 단언이 아무것도 못 잡는다.
+      act(() => {
+        vi.advanceTimersByTime(12_000);
+      });
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

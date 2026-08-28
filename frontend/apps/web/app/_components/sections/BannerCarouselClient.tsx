@@ -94,6 +94,18 @@ export function BannerCarouselClient({ slides }: Props) {
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
   }, [slides, activeIndex, startSlideTransition]);
 
+  // 모바일 점 인디케이터의 직접 이동. 스와이프(경로 제스처)만으로는 단일 포인터 대안이 없어
+  // WCAG 2.5.1 을 못 맞추므로, 화살표를 뺀 모바일에서는 이 점들이 그 대안 역할을 한다.
+  const goTo = useCallback(
+    (index: number) => {
+      if (index === activeIndex) return;
+      const currentSlide = slides[activeIndex];
+      if (currentSlide) startSlideTransition(index > activeIndex ? 'left' : 'right', currentSlide);
+      setActiveIndex(index);
+    },
+    [slides, activeIndex, startSlideTransition],
+  );
+
   useEffect(() => {
     return () => {
       if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
@@ -309,35 +321,74 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
-          {/* 오버레이 컨트롤 — 좌하단 페이저, 우하단 이전/다음. track 밖이라 드래그해도 따라 움직이지 않는다.
-              바깥 래퍼는 pointer-events-none 이라 배너 위 빈 자리는 그대로 드래그 영역으로 남는다. */}
+          {/*
+           * 하단 컨트롤 밴드 — 모바일과 데스크탑이 서로 다른 입력을 쓴다.
+           *
+           * 모바일은 스와이프가 주 조작이라 화살표를 두지 않고 점 인디케이터 + 정지만 남긴다.
+           * 데스크탑은 포인터라 위치 표시(N / M)와 이전·다음 화살표를 준다.
+           *
+           * 배치는 반드시 슬라이드 콘텐츠가 비운 밴드 안에서만 이뤄져야 한다. SYSTEM_COMPOSED
+           * 슬라이드는 본문이 justify-between 이라 CTA 가 하단에 붙는데, 컨트롤이 그 위에 겹치면
+           * 보기만 나쁜 게 아니라 z-10·pointer-events-auto 라 CTA 링크 클릭까지 가로챈다.
+           * 그래서 슬라이드 쪽에서 이 밴드만큼 하단 패딩을 비워 둔다(SystemComposedSlide 주석 참조).
+           *
+           * 바깥 래퍼는 pointer-events-none 이라 배너 위 빈 자리는 그대로 드래그 영역으로 남고,
+           * track 밖이라 드래그해도 컨트롤이 따라 움직이지 않는다.
+           */}
           {slides.length > 1 && (
-            <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex items-center justify-between md:inset-x-9 md:bottom-5">
-              <div className="pointer-events-auto flex items-center gap-1.5">
-                <span
-                  data-testid="banner-pager"
-                  className="rounded-full bg-black/50 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white md:text-[14px]"
-                >
-                  {activeIndex + 1} / {slides.length}
-                </span>
-                {/* 자동 재생 정지 수단 — 시안에는 없지만 자동으로 움직이는 콘텐츠에는 멈출 방법이 있어야 한다
-                    (WCAG 2.2.2). 페이저와 같은 톤으로 붙여 시각 무게를 최소화한다. */}
-                <button
-                  type="button"
-                  aria-label={isPlaying ? '배너 자동 재생 정지' : '배너 자동 재생 시작'}
-                  aria-pressed={isPlaying}
-                  onClick={() => setIsPlaying((prev) => !prev)}
-                  className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-[11px] text-white transition hover:bg-black/65"
-                >
-                  <span aria-hidden>{isPlaying ? '⏸' : '▶'}</span>
-                </button>
+            <div className="pointer-events-none absolute inset-x-4 bottom-3 z-10 flex items-center justify-end gap-2 md:inset-x-9 md:bottom-5 md:gap-4">
+              {/* 모바일 — 탭으로 직접 이동하는 점. 스와이프는 경로 제스처라 단일 포인터 대안이
+                  따로 있어야 한다(WCAG 2.5.1). 히트 영역은 24px(2.5.8), 점 자체는 그보다 작게 둔다. */}
+              <div className="pointer-events-auto flex flex-1 justify-center md:hidden">
+                <div className="flex items-center rounded-full bg-black/40 px-1 backdrop-blur-sm">
+                  {slides.map((slide, index) => (
+                    <button
+                      key={slide.key}
+                      type="button"
+                      aria-label={`배너 ${index + 1}로 이동`}
+                      aria-current={index === activeIndex ? 'true' : undefined}
+                      onClick={() => goTo(index)}
+                      className="grid h-6 w-6 place-items-center"
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'h-1.5 rounded-full transition-[width,background-color]',
+                          index === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55',
+                        )}
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="pointer-events-auto flex items-center gap-2.5 md:gap-[19px]">
+
+              {/* 데스크탑 — 위치 표시. 모바일은 점이 같은 정보를 주므로 숨긴다. */}
+              <span
+                data-testid="banner-pager"
+                className="pointer-events-auto hidden rounded-full bg-black/60 px-3.5 py-1.5 text-[14px] font-semibold tabular-nums text-white md:inline-block"
+              >
+                {activeIndex + 1} / {slides.length}
+              </span>
+
+              {/* 자동 재생 정지 수단 — 시안에는 없지만 자동으로 움직이는 콘텐츠에는 멈출 방법이
+                  있어야 한다(WCAG 2.2.2). 두 폭 모두에서 나온다. */}
+              <button
+                type="button"
+                aria-label="배너 자동 재생"
+                aria-pressed={isPlaying}
+                onClick={() => setIsPlaying((prev) => !prev)}
+                className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full bg-black/60 text-[10px] text-white transition hover:bg-black/75 md:h-7 md:w-7 md:text-[11px]"
+              >
+                <span aria-hidden>{isPlaying ? '⏸' : '▶'}</span>
+              </button>
+
+              {/* 데스크탑 화살표 — 모바일은 스와이프로 대신한다. */}
+              <div className="pointer-events-auto hidden items-center gap-4 md:flex">
                 <button
                   type="button"
                   aria-label="이전 배너"
                   onClick={goPrev}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink-deep shadow-1 transition hover:bg-cream"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink-deep shadow-1 ring-1 ring-ink/15 transition hover:bg-cream"
                 >
                   <ArrowLeft />
                 </button>
