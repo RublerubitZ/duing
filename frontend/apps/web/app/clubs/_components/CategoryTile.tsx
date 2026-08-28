@@ -21,7 +21,6 @@ export function CategoryTile({ cat, count, big = false }: Props) {
       overflow: 'hidden',
     }}>
       <div style={{
-        fontFamily: 'var(--font-display)',
         fontSize: big ? 13 : 11.5,
         fontWeight: 500,
         color: c.fgValue, opacity: 0.65,
@@ -33,7 +32,6 @@ export function CategoryTile({ cat, count, big = false }: Props) {
       }}>{c.emoji}</div>
       <div>
         <div style={{
-          fontFamily: 'var(--font-display)',
           fontSize: big ? 28 : 22,
           fontWeight: 700,
           color: c.fgValue,

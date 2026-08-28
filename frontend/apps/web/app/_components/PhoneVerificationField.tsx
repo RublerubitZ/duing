@@ -177,7 +177,7 @@ export function PhoneVerificationField({
             <div className="min-w-0">
               <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                <span className="font-mono text-2xl font-bold tracking-wide text-ink">{code}</span>
+                <span className="tabular-nums text-2xl font-bold tracking-wide text-ink">{code}</span>
                 <button type="button" onClick={handleCopyCode} className="btn btn-sm shrink-0 whitespace-nowrap">
                   코드 복사
                 </button>
@@ -236,7 +236,7 @@ export function PhoneVerificationField({
           {/* 직접 보내기 fallback (딥링크 미동작 대비) */}
           <div className="mt-4 rounded-md border border-line bg-paper p-3.5 text-center">
             <p className="text-xs text-charcoal-3">수신번호 {formatMoNumber(moNumber)} · 코드</p>
-            <p className="mt-1 font-mono text-xl font-bold tracking-wide text-ink">{code}</p>
+            <p className="mt-1 tabular-nums text-xl font-bold tracking-wide text-ink">{code}</p>
             <p className="mt-1.5 text-xs text-charcoal-3">남은 시간 {formatSeconds(remainingSeconds)}</p>
             <p className="mt-1.5 text-[11px] text-charcoal-3">
               버튼이 안 열리면 이 코드를 위 번호로 직접 문자 보내주세요

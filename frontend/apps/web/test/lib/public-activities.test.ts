@@ -70,11 +70,11 @@ describe('fetchPublicActivities', () => {
     ]);
   });
 
-  it('상위 2건만 요청한다(limit=2)', async () => {
+  it('토스트 슬라이드 상한과 같은 5건을 요청한다(limit=5)', async () => {
     listMock.mockResolvedValue({ items: [] });
 
     await fetchPublicActivities();
 
-    expect(listMock).toHaveBeenCalledWith({ limit: 2 });
+    expect(listMock).toHaveBeenCalledWith({ limit: 5 });
   });
 });

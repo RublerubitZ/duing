@@ -409,7 +409,7 @@ export function BannerCarouselClient({ slides }: Props) {
               />
             ))}
           </div>
-          <span data-testid="banner-pager" className="ml-1 font-mono text-xs text-charcoal-3">
+          <span data-testid="banner-pager" className="ml-1 tabular-nums text-xs text-charcoal-3">
             {String(activeIndex + 1).padStart(2, '0')} /{' '}
             {String(slides.length).padStart(2, '0')}
           </span>

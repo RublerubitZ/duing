@@ -82,7 +82,7 @@ export function BookingPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-2">
-        <h3 className="font-display text-base text-ink-deep">{facility.roomName} · {dateLabel}</h3>
+        <h3 className="text-base text-ink-deep">{facility.roomName} · {dateLabel}</h3>
       </div>
 
       <div className="mb-3">
@@ -106,7 +106,7 @@ export function BookingPanel({
         className="sticky bottom-0 bg-paper pt-2 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] max-md:z-40 max-md:border-t max-md:border-line max-md:px-4 max-md:pb-2">
         {selection && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
-            <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
+            <span className="tabular-nums text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
             <span className="ml-auto rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">
               {Number(selection.end.slice(0, 2)) - Number(selection.start.slice(0, 2))}시간
             </span>

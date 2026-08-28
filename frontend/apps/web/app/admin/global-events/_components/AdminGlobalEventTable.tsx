@@ -39,7 +39,7 @@ export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
                 {GLOBAL_EVENT_CATEGORY_LABEL[item.category]}
               </td>
               <td className="px-4 py-3 text-ink font-semibold">{item.title}</td>
-              <td className="px-4 py-3 text-charcoal-2 font-mono text-[12.5px]">
+              <td className="px-4 py-3 text-charcoal-2 tabular-nums text-[12.5px]">
                 {formatRange(item.startAt, item.endAt)}
               </td>
               <td className="px-4 py-3 text-charcoal-3">{item.location ?? '—'}</td>

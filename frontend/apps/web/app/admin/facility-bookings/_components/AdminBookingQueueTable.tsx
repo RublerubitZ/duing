@@ -41,7 +41,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                   row.status === 'CONFLICT' ? 'bg-[#FDF1EC] hover:bg-[#FCE9E1]' : 'hover:bg-graysoft/50'
                 }`}
               >
-                <td className="whitespace-nowrap px-[18px] py-[13px] font-mono text-xs font-bold text-ink-deep">
+                <td className="whitespace-nowrap px-[18px] py-[13px] tabular-nums text-xs font-bold text-ink-deep">
                   #{row.bookingId}
                 </td>
                 <td className="py-[13px] pr-3.5">
@@ -59,7 +59,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                   {row.roomName}
                 </td>
                 <td className="py-[13px] pr-3.5">
-                  <p className="whitespace-nowrap font-mono text-[12.5px] text-charcoal">
+                  <p className="whitespace-nowrap tabular-nums text-[12.5px] text-charcoal">
                     {bookingDateLabel(row.date)} {bookingTimeLabel(row.startTime, row.endTime)}
                   </p>
                   <p className="mt-0.5 whitespace-nowrap text-[11px] text-charcoal-3">

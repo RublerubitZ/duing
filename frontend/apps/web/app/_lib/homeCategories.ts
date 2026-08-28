@@ -3,30 +3,36 @@ import type { ClubCategory } from '@duing/types';
 export type HomeCategoryMeta = {
   value: ClubCategory;
   label: string;
-  index: string;
-  accent: string;
-  fallbackBg: string;
-  imageSrc: string;
   /**
-   * 카테고리 타일 픽토그램. 이미지 파일이 아니라 유니코드 이모지 문자를 그대로 쓴다 —
-   * 디자인의 픽토그램이 전부 표준 이모지라, 같은 그림을 SVG 20여 개로 커밋할 이유가 없다.
-   * 렌더 모양은 OS 이모지 폰트를 따른다.
+   * 목록 카드에서 동아리명 옆에 붙는 카테고리 라벨 색.
+   *
+   * <p>장식 틴트가 아니라 <b>본문 텍스트 색</b>이다 — 흰 카드(paper) 위에서 4.5:1 이상이어야 한다
+   * (모바일 12px·데스크탑 16px 라 large-text 예외에 해당하지 않는다).
+   * 값을 바꿀 때는 대비를 다시 재고 넣을 것. 현재 값은 전부 4.6:1 이상이다.
    */
-  emoji: string;
+  labelColor: string;
+  /** 카테고리 타일 픽토그램 — 토스페이스 원본 SVG(public/tossface). 파일은 수정하지 않는다. */
+  iconSrc: string;
 };
 
 /**
- * 홈 Categories 섹션 메타. ClubCategory enum 의 8개 값과 1:1 매핑.
+ * 홈 카테고리 메타 — ClubCategory enum 8개 값과 1:1. 라벨·색·픽토그램의 단일 출처다.
  * label/URL 은 탐색 페이지(`/clubs?category=…`) 와 정합.
- * 이미지는 기존 8장(`/public/categories/cat-0X-*.png`) 을 의미 가까운 enum 으로 임시 매핑.
  */
 export const HOME_CATEGORIES: ReadonlyArray<HomeCategoryMeta> = [
-  { value: 'ACADEMIC',  label: '학술', index: '01', accent: '#5b7e4d', fallbackBg: '#1e2e1a', imageSrc: '/categories/cat-01-academic.png', emoji: '📚' },
-  { value: 'CREATION',  label: '창작', index: '02', accent: '#6b7e3e', fallbackBg: '#1e2614', imageSrc: '/categories/cat-07-culture.png', emoji: '💡' },
-  { value: 'ART',       label: '예술', index: '03', accent: '#7d4f87', fallbackBg: '#221428', imageSrc: '/categories/cat-02-music.png', emoji: '🎶' },
-  { value: 'SPORTS',    label: '운동', index: '04', accent: '#c47a3b', fallbackBg: '#2e1e0e', imageSrc: '/categories/cat-03-sport.png', emoji: '💪' },
-  { value: 'VOLUNTEER', label: '봉사', index: '05', accent: '#b88b3b', fallbackBg: '#28200e', imageSrc: '/categories/cat-06-volunteer.png', emoji: '🤝' },
-  { value: 'RELIGION',  label: '종교', index: '06', accent: '#a85e5e', fallbackBg: '#281414', imageSrc: '/categories/cat-05-perform.png', emoji: '❤️' },
-  { value: 'HOBBY',     label: '취미', index: '07', accent: '#4d6b8a', fallbackBg: '#121e2a', imageSrc: '/categories/cat-04-it.png', emoji: '🫧' },
-  { value: 'OTHER',     label: '기타', index: '08', accent: '#3e7a73', fallbackBg: '#0e2422', imageSrc: '/categories/cat-08-startup.png', emoji: '💬' },
+  { value: 'ACADEMIC',  label: '학술', labelColor: '#1F4A36', iconSrc: '/tossface/u1F4DA.svg' },
+  { value: 'CREATION',  label: '창작', labelColor: '#697C3D', iconSrc: '/tossface/u1F4A1.svg' },
+  { value: 'ART',       label: '예술', labelColor: '#7D4F87', iconSrc: '/tossface/u1F3B6.svg' },
+  { value: 'SPORTS',    label: '운동', labelColor: '#A56632', iconSrc: '/tossface/u1F4AA.svg' },
+  { value: 'VOLUNTEER', label: '봉사', labelColor: '#936F2F', iconSrc: '/tossface/u1F91D.svg' },
+  { value: 'RELIGION',  label: '종교', labelColor: '#A85E5E', iconSrc: '/tossface/u2764.svg' },
+  { value: 'HOBBY',     label: '취미', labelColor: '#4D6B8A', iconSrc: '/tossface/u1FAE7.svg' },
+  { value: 'OTHER',     label: '기타', labelColor: '#3E7A73', iconSrc: '/tossface/u1F4AC.svg' },
 ];
+
+/** enum 으로 바로 찾는 조회용 맵 — 목록 카드처럼 순서가 아니라 값으로 접근하는 쪽이 쓴다. */
+export const HOME_CATEGORY_BY_VALUE: Readonly<Record<ClubCategory, HomeCategoryMeta>> =
+  Object.fromEntries(HOME_CATEGORIES.map((category) => [category.value, category])) as Record<
+    ClubCategory,
+    HomeCategoryMeta
+  >;

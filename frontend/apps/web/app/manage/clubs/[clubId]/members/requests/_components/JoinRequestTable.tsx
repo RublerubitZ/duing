@@ -104,15 +104,15 @@ export function JoinRequestTable({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-charcoal-2">{joinRequest.studentId}</td>
+                <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">{joinRequest.studentId}</td>
                 <td className="px-4 py-3 text-charcoal-2">{joinRequest.major}</td>
-                <td className="px-4 py-3 font-mono text-xs text-charcoal-2">{joinRequest.code}</td>
+                <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">{joinRequest.code}</td>
                 {showGeneration && (
                   <td className="px-4 py-3 text-charcoal-2">
                     {joinRequest.generation === null ? '—' : `${joinRequest.generation}기`}
                   </td>
                 )}
-                <td className="px-4 py-3 font-mono text-xs text-charcoal-2">
+                <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">
                   {formatDateKst(joinRequest.requestedAt)}
                 </td>
                 <td className="px-4 py-3 text-right">

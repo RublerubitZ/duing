@@ -176,7 +176,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 {/* 메모=제목 승격(개편 스펙 §7) — 메모가 있으면 제목, 제출번호는 서브 표기로 내린다. */}
                 <h1 className="text-[22px] font-bold text-ink">{batchTitle(detail.batch)}</h1>
                 {batchTitle(detail.batch) !== detail.batch.submissionNo && (
-                  <span className="font-mono text-xs text-charcoal-3">{detail.batch.submissionNo}</span>
+                  <span className="tabular-nums text-xs text-charcoal-3">{detail.batch.submissionNo}</span>
                 )}
                 <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
               </div>
@@ -264,8 +264,8 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                               onClick={() => setDetailBooking(booking)}
                               className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sage-mist/40"
                             >
-                              <span className="font-mono text-xs text-charcoal">{booking.reservationDate}</span>
-                              <span className="font-mono text-xs text-charcoal">
+                              <span className="tabular-nums text-xs text-charcoal">{booking.reservationDate}</span>
+                              <span className="tabular-nums text-xs text-charcoal">
                                 {bookingTimeLabel(booking.startTime, booking.endTime)}
                               </span>
                               <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>

@@ -21,13 +21,13 @@ export function FeesMockup() {
               stat.highlight ? 'border-line bg-sage-mist' : 'border-line bg-cream'
             }`}
           >
-            <div className="font-mono text-[22px] font-bold text-ink-deep">{stat.value}</div>
+            <div className="tabular-nums text-[22px] font-bold text-ink-deep">{stat.value}</div>
             <div className="mt-0.5 text-[11.5px] text-charcoal-3">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <p className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+      <p className="mb-2 tabular-nums text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
         은행 입금 자동매칭
       </p>
       <div className="overflow-hidden rounded-md border border-line">
@@ -40,7 +40,7 @@ export function FeesMockup() {
           >
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-charcoal">{row.payer} 입금</div>
-              <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">
+              <div className="mt-0.5 tabular-nums text-[11px] text-charcoal-3">
                 {formatWon(row.amount)} → {row.member}
               </div>
             </div>

@@ -58,7 +58,7 @@ export function StageFilterCard({ checked, onToggle, counts }: Props) {
               <span style={{
                 fontSize: 11.5, fontWeight: 600,
                 color: 'var(--charcoal-3)',
-                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
               }}>{counts[filterItem.key]}</span>
             </label>
           );

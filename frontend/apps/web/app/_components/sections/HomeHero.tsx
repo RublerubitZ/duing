@@ -1,16 +1,10 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Search } from '@/components/duing/Icon';
-import { Sparkle, SparkleFull } from '@/components/duing/Sparkle';
+import { SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
-import { cn } from '@/app/_lib/cn';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
+import { HeroActivityToasts } from './HeroActivityToasts';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
-import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
-
-// 통계 조회 실패("—곳") 시 링크 접근명 — 대시만 읽히지 않도록 링크 자체에 건다.
-// 숫자 div(role=generic)에 aria-label 을 두면 ARIA 금지 속성이 된다.
-const RECRUITING_UNKNOWN_LABEL = '모집 현황 정보 없음 — 이번 학기 모집중 동아리 보기';
 
 export async function HomeHero() {
   // 통계·활동을 병렬 조회. 활동 조회 실패 시 [] → resolveHeroToasts 가 폴백 토스트로 채운다.
@@ -29,29 +23,32 @@ export async function HomeHero() {
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative">
-          {/* 모바일: 헤드라인 우측 — 모집 현황 카드만 작게 노출(활동 토스트는 데스크탑 전용).
-              우측 비주얼(일러스트·토스트)이 숨겨지는 모바일에서도 모집 현황은 전달한다.
-              stats null(조회 실패) 시에도 카드는 "—곳"으로 폴백(데스크탑 카드와 동일 규약). */}
-          <Link
-            href={RECRUITING_CLUBS_HREF}
-            aria-label={stats ? undefined : RECRUITING_UNKNOWN_LABEL}
-            className="md:hidden absolute right-0 top-[44px] z-[3] w-[130px] rounded-xl border border-sage-soft bg-sage-mist px-3.5 py-2.5 shadow-1 transition duration-250 ease-duing active:scale-95 motion-reduce:transition-none"
-          >
-            <div className="font-display text-[28px] font-bold leading-none text-ink">
-              {stats ? stats.recruitingCount : '—'}
-              <span className="text-sm font-bold">곳</span>
-            </div>
-            <div className="mt-0.5 text-[10.5px] font-medium leading-tight text-ink/75">
-              이번 학기 모집중
-            </div>
-          </Link>
+          {/* 모바일: 헤드라인 우측에 마스코트(두두)와 종이조각 장식을 겹쳐 둔다 — 시안의 모바일 히어로 구성.
+              장식(컨페티)은 preload 하지 않는다 — priority 는 CSS 를 모르고 link[rel=preload] 를 항상
+              심어서, md:hidden 이라도 데스크탑이 쓰지 않을 이미지를 내려받게 된다.
+              데스크탑은 우측 일러스트가 같은 역할을 하므로 md 이상에서 숨긴다.
+              헤드라인 뒤에 깔리되 클릭을 가로채지 않도록 z-0 + pointer-events-none. */}
+          <Image
+            src="/duing-hero-confetti.png"
+            alt=""
+            aria-hidden
+            width={678}
+            height={449}
+            draggable={false}
+            className="pointer-events-none absolute -right-4 -top-4 z-0 w-[230px] select-none md:hidden"
+          />
+          <Image
+            src="/duing-mascot.png"
+            alt="두잉 마스코트 두두"
+            width={531}
+            height={441}
+            priority
+            draggable={false}
+            className="pointer-events-none absolute -right-3 -top-2 z-0 w-[176px] select-none md:hidden"
+          />
 
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sage-mist px-3 py-1.5 font-mono text-[11.5px] font-bold tracking-[0.14em] text-ink-deep sm:mb-[22px]">
-            <Sparkle size={11} color="#143025" />
-            DU + ING
-          </div>
-
-          <h1 className="mb-2.5 text-[40px] leading-none tracking-[-0.035em] sm:mb-12 sm:text-[52px] md:text-[64px] lg:text-[72px] xl:text-[84px]">
+          {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
+          <h1 className="type-display relative z-[1] mb-4 text-[34px] leading-[1.28] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[72px]">
             오늘,
             <br />
             캠퍼스의
@@ -65,9 +62,10 @@ export async function HomeHero() {
             .
           </h1>
 
-          {/* 본문 카피 — 모바일에선 숨겨 히어로를 압축(#2·#6), 데스크탑만 노출.
+          {/* 본문 카피 — 시안은 모바일에도 노출한다(예전에는 히어로를 압축하려 숨겼다).
+              카피는 마스코트 아래에 오므로 폭을 좁히지 않고, 글자만 한 단계 작게 둔다.
               통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="mb-9 hidden max-w-[500px] text-lg leading-[1.6] text-charcoal-2 md:block">
+          <p className="relative z-[1] mb-3 text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? (
@@ -107,68 +105,17 @@ export async function HomeHero() {
           </form>
         </div>
 
-        <HeroRightVisual recruitingCount={stats?.recruitingCount ?? null} toasts={toasts} />
+        <HeroRightVisual toasts={toasts} />
       </div>
     </section>
   );
 }
 
-// 테스트용 export — 런타임에선 HeroRightVisual(데스크탑·태블릿)만 렌더한다.
-// 사이즈 2단: 태블릿(기본, md 미만에선 렌더되지 않음) · 데스크탑(lg) 확대.
-export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
-  const isDark = variant === 'dark';
-  return (
-    <div
-      className={cn(
-        'w-[182px] rounded-md px-3 py-2 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:w-[230px] lg:px-4 lg:py-3',
-        isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
-      )}
-    >
-      <div className="flex items-center gap-1.5 lg:gap-2">
-        <span
-          aria-hidden
-          className={cn('h-1.5 w-1.5 shrink-0 rounded-full lg:h-2 lg:w-2', isDark ? 'bg-warm' : 'bg-sage')}
-        />
-        <span
-          className={cn(
-            'text-[11.5px] font-bold lg:text-[13px]',
-            isDark ? 'text-cream' : 'text-ink',
-          )}
-        >
-          {clubName}
-        </span>
-        <span
-          className={cn(
-            'ml-auto text-[10px] lg:text-[11px]',
-            isDark ? 'text-cream/60' : 'text-charcoal-3',
-          )}
-        >
-          {timeAgo}
-        </span>
-      </div>
-      <div
-        className={cn(
-          'mt-0.5 text-[11px] leading-snug lg:mt-1 lg:text-[12.5px]',
-          isDark ? 'text-cream/85' : 'text-charcoal-2',
-        )}
-      >
-        {message}
-      </div>
-    </div>
-  );
-}
-
 // 테스트용 export — 런타임에선 HomeHero 가 렌더한다.
-export function HeroRightVisual({
-  recruitingCount,
-  toasts,
-}: {
-  recruitingCount: number | null;
-  toasts: [HeroToast, HeroToast];
-}) {
+export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
   return (
     // 모바일(<md)에선 우측 비주얼 전체 숨김. 내부 relative 박스 폭을 일러스트 폭에 맞춰,
-    // 모집중 카드·토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
+    // 토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
     <div className="hidden md:block">
       <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[760px]">
         {/* 브랜드 일러스트 — 우측 메인 비주얼(박스를 가득 채움). drop-shadow 없음, 드래그 방지. */}
@@ -183,29 +130,9 @@ export function HeroRightVisual({
           className="h-auto w-full object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none"
         />
 
-        {/* 모집중 카드 — 일러스트 좌상단에 겹쳐 뜨는 실데이터 카드 + hover 반응. null="—곳", 0="0곳". */}
-        <div className="absolute left-1 top-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-150 motion-reduce:animate-none lg:left-2 lg:top-2">
-          <Link
-            href={RECRUITING_CLUBS_HREF}
-            aria-label={recruitingCount === null ? RECRUITING_UNKNOWN_LABEL : undefined}
-            className="block rounded-md border border-sage-soft bg-sage-mist px-4 py-3 shadow-3 transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-4 motion-reduce:transition-none lg:px-5 lg:py-4"
-          >
-            <div className="font-display text-[30px] font-bold leading-none text-ink lg:text-[36px]">
-              {recruitingCount === null ? '—' : recruitingCount}
-              <span className="text-base lg:text-lg">곳</span>
-            </div>
-            <div className="mt-1 text-[11px] text-ink/70 lg:text-[11.5px]">이번 학기 모집중</div>
-          </Link>
-        </div>
-
-        {/* Toast 1 — 일러스트 좌하단에 겹치게 안쪽으로. */}
-        <div className="absolute bottom-6 left-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-300 motion-reduce:animate-none lg:bottom-10 lg:left-3">
-          <HeroActivityToast {...toasts[0]} />
-        </div>
-
-        {/* Toast 2 — 일러스트 우측 상단에 겹치게(캐릭터 머리 위 빈 영역). */}
-        <div className="absolute right-1 top-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-500 motion-reduce:animate-none lg:right-3 lg:top-16">
-          <HeroActivityToast {...toasts[1]} />
+        {/* 활동 토스트 — 시안대로 일러스트 우측 상단 한 자리에만 두고, 나머지는 옆으로 밀어 본다. */}
+        <div className="absolute right-1 top-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-300 motion-reduce:animate-none lg:right-3 lg:top-16">
+          <HeroActivityToasts toasts={toasts} />
         </div>
       </div>
     </div>

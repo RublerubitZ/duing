@@ -33,7 +33,7 @@ export function ExploreMockup() {
               <div className="truncate text-[13.5px] font-bold leading-tight text-ink-deep">
                 {club.name}
               </div>
-              <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">{club.members}명</div>
+              <div className="mt-0.5 tabular-nums text-[11px] text-charcoal-3">{club.members}명</div>
             </div>
           </div>
         ))}

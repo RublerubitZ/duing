@@ -721,11 +721,12 @@ it('주간 그리드의 선택 범위 셀은 ink 배경·✓·aria-pressed=true 
   expect(screen.getByRole('button', { name: '월요일 20일 12:00 가능' })).toHaveAttribute('aria-pressed', 'false');
 });
 
-it('주간 그리드는 좌측 시간 라벨의 PC 표기를 mono HH:00 으로 유지하고, 셀 행 높이를 모바일 압축(h-7)·PC(sm:h-10)로 둔다', () => {
+it('주간 그리드는 좌측 시간 라벨의 PC 표기를 자릿수 고정 HH:00 으로 유지하고, 셀 행 높이를 모바일 압축(h-7)·PC(sm:h-10)로 둔다', () => {
   renderWeek();
-  // PC 시간 라벨(HH:00)은 mono 유지 — 모바일은 HH 만 노출하는 별도 span(§9.1).
+  // PC 시간 라벨(HH:00)은 자릿수가 흔들리면 행마다 폭이 달라진다 — 모노 서체를 없앤 뒤로는
+  // tabular-nums 가 그 역할을 한다. 모바일은 HH 만 노출하는 별도 span(§9.1).
   const nineLabel = screen.getByText('09:00');
-  expect(nineLabel).toHaveClass('font-mono');
+  expect(nineLabel).toHaveClass('tabular-nums');
   expect(screen.getByText('21:00')).toBeInTheDocument(); // 13행(09~21시)
   // 셀 행 높이 — 모바일 h-7(28px)로 압축, PC sm:h-10(40px).
   const cell = screen.getByRole('button', { name: '월요일 20일 18:00 가능' });

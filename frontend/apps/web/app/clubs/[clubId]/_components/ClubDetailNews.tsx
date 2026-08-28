@@ -125,7 +125,7 @@ function UpcomingEvents({ clubId }: Props) {
                 >
                   <div className="flex w-10 shrink-0 flex-col items-center">
                     <span className="text-[11px] leading-none text-charcoal-3">{month}월</span>
-                    <span className="mt-0.5 font-display text-xl font-bold leading-none text-ink-deep">{day}</span>
+                    <span className="mt-0.5 text-xl font-bold leading-none text-ink-deep">{day}</span>
                     <span className="mt-0.5 text-[11px] text-charcoal-3">{weekday}</span>
                   </div>
                   <div className="h-9 w-px shrink-0 bg-line" aria-hidden />

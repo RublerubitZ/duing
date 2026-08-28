@@ -88,7 +88,7 @@ export function ClubListItem({
       )}
     >
       <div
-        className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl font-display text-[23px] font-bold leading-none text-white shadow-1"
+        className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-[23px] font-bold leading-none text-white shadow-1"
         style={{
           background: club.logoUrl
             ? undefined
@@ -107,7 +107,7 @@ export function ClubListItem({
         {/* 계층 1·2 — 이름(데스크탑 카드와 같은 디스플레이 서체, 한 단계 큼)과 소속 칩을
             한 줄에(A안) — 이름을 읽는 순간 소속까지 인지. 긴 이름은 truncate, 칩은 고정 폭. */}
         <div className="flex min-w-0 items-center gap-1.5">
-          <div className="min-w-0 truncate font-display text-[17px] font-bold leading-tight tracking-tightx text-ink-deep">
+          <div className="min-w-0 truncate text-[17px] font-bold leading-tight tracking-tightx text-ink-deep">
             {club.name}
           </div>
           <ScopeChip scope={club.scope} />
@@ -125,7 +125,7 @@ export function ClubListItem({
 
       <div className="flex shrink-0 flex-col items-end justify-between self-stretch py-0.5">
         {badge && (
-          <span className={cn('rounded-full px-2.5 py-1 font-mono text-[11px] font-extrabold', BADGE_TONE[badge.tone])}>
+          <span className={cn('rounded-full px-2.5 py-1 tabular-nums text-[11px] font-extrabold', BADGE_TONE[badge.tone])}>
             {badge.text}
           </span>
         )}

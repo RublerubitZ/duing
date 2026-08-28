@@ -3,7 +3,7 @@
 
 **Theme:** light (라이트 고정 — `color-scheme: light`, 다크모드 없음)
 
-Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 딥 포레스트 그린 잉크(#1F4A36)가 모든 구조적 무게를 담당하는 에디토리얼 스크랩북이다. 헤딩과 프라이머리 버튼은 잉크가, 장식은 세이지(#9DB6A0)가 맡는다 — Sparkle 스티커, 형광펜 밑줄, 라이브 도트가 전부 세이지다. 깊이는 두꺼운 테두리가 아니라 1px 웜그레이 헤어라인(#E5E2DA)이 그리는 컴포넌트 윤곽과 잉크색 틴트 소프트 섀도, 그리고 인라인 rotate 로 기울인 카드 콜라주가 만든다. 헤어라인은 컴포넌트의 경계를 그릴 때 쓴다 — 섹션과 섹션 사이는 여백이 가른다. 타이포는 이중 인격 — GmarketSans 가 84px 초대형 헤드라인에서 포스터처럼 외치고, Pretendard 가 본문을 조용히 받치며, JetBrains Mono 마이크로 라벨(`DU + ING`, `01 / 04`)이 사전(辭典) 같은 격식을 더한다. 무드는 절제된 playful — 이모지는 그래픽 레이어에만, 느낌표는 페이지당 1회, 장난기는 `두잉/ing` 워드플레이로만 표현한다.
+Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 딥 포레스트 그린 잉크(#1F4A36)가 모든 구조적 무게를 담당하는 에디토리얼 스크랩북이다. 헤딩과 프라이머리 버튼은 잉크가, 장식은 세이지(#9DB6A0)가 맡는다 — Sparkle 스티커, 형광펜 밑줄, 라이브 도트가 전부 세이지다. 깊이는 두꺼운 테두리가 아니라 1px 웜그레이 헤어라인(#E5E2DA)이 그리는 컴포넌트 윤곽과 잉크색 틴트 소프트 섀도, 그리고 인라인 rotate 로 기울인 카드 콜라주가 만든다. 헤어라인은 컴포넌트의 경계를 그릴 때 쓴다 — 섹션과 섹션 사이는 여백이 가른다. 타이포는 Pretendard 한 서체로 통일하고 위계를 weight 로 만든다 — 72px 초대형 헤드라인이 ExtraBold 로 포스터처럼 외치고, Bold 가 섹션 제목을, SemiBold 가 카드 제목과 라벨을, Regular 가 본문을 맡는다. 와이드 트래킹을 준 영문 대문자 마이크로 라벨(`01 / 04`)이 사전(辭典) 같은 격식을 더한다. 무드는 절제된 playful — 이모지는 그래픽 레이어에만, 느낌표는 페이지당 1회, 장난기는 `두잉/ing` 워드플레이로만 표현한다.
 
 > 토큰 원본: `apps/web/tailwind.config.ts` + `apps/web/app/globals.css`
 > 모든 토큰은 **`.duing` 스코프 안에서만 적용**된다 — 페이지 루트에 `className="duing min-h-screen bg-cream"` 래퍼 필수.
@@ -38,42 +38,74 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 
 ## Tokens — Typography
 
-### GmarketSans — 디스플레이 전용. 헤딩·브랜드 마크·디스플레이 숫자에서만 외치는 포스터 보이스 · `font-display`
-- **Substitute:** Pretendard(폴백 내장), system-ui
-- **Weights:** 300, 500, 700 (CDN `@font-face`, `font-display: swap`)
-- **Sizes:** 26px(브랜드 마크), 36px(스탯 숫자), clamp(28~38px)·44px(섹션 h2), 84px(히어로)
-- **Line height:** 1.0–1.1
-- **Letter spacing:** -0.035em(84px 히어로), `tracking-tightx`(-0.02em, h1~h4 자동)
-- **Role:** `.duing` 스코프에서 h1~h4 에 **자동 적용** (`font-display text-ink-deep font-bold tracking-tightx`, line-height 1.1). 본문·UI 에 쓰지 않는다. 84px 히어로 + `leading-none` + `<br/>` 강제 개행이 시그니처.
+### 타입 스케일 — Figma `컴포넌트 > Font Guide` 가 SoT
+서체는 **Pretendard 하나**이고 위계는 전부 weight 로 만든다. 아래 표가 디자인 시스템의 Font Guide
+원본이며, 새 화면을 만들 때는 크기를 눈대중으로 고르지 말고 **역할부터 고른 뒤** 그 행을 쓴다.
+
+| Style | Size | Weight | 용도 |
+| --- | --- | --- | --- |
+| Display / XL | 72px | **ExtraBold 800** | 메인 히어로 문구 |
+| Display / L | 64px | **ExtraBold 800** | 작은 히어로 문구 |
+| Heading / H1 | 48px | **Bold 700** | 페이지 제목 |
+| Heading / H2 | 36px | **Bold 700** | 큰 섹션 제목 |
+| Heading / H3 | 28px | **Bold 700** | 섹션 제목 |
+| Heading / H4 | 24px | **SemiBold 600** | 카드·콘텐츠 제목 |
+| Label / Navigation | 20px | **SemiBold 600** | 상단바 메뉴 |
+| Label / Large | 18px | **SemiBold 600** | 큰 버튼, 탭 |
+| Label / Medium | 16px | **SemiBold 600** | 일반 버튼, 카드 라벨 |
+| Body / Large | 18px | **Regular 400** | 큰 본문 |
+| Body / Medium | 16px | **Regular 400** | 기본 본문 |
+| Body / Small | 14px | **Regular 400** | 보조 설명 |
+| Caption / Regular | 12px | **Regular 400** | 날짜, 작은 정보 |
+
+**Medium 500 은 쓰지 않는다.** Font Guide 에 없는 단계라, 섞이는 순간 Regular 와 SemiBold 사이가
+흐려져 위계가 무너진다. 굵게 하고 싶으면 한 단계를 올리는 게 아니라 역할을 다시 고른다.
+
+- **자동 적용:** `.duing` 스코프에서 h1~h3 는 `text-ink-deep font-bold tracking-tightest`,
+  h4 는 같은 규칙에 `font-semibold`. line-height 1.1.
+- **Display:** 히어로 문구는 h1 기본(Bold)보다 한 단계 위인 ExtraBold 라 `.type-display` 로 지정한다.
+  행간은 1.1 이 아니라 **1.28** — 시안의 히어로가 이 값이고, 1.0 으로 붙이면 세 줄이 뭉쳐 보인다.
+- **Letter spacing:** `tracking-tightest`(-0.03em). Pretendard 는 큰 사이즈에서 -0.02em 보다 한 단계
+  더 조여야 시안과 같은 밀도로 읽힌다.
+- **숫자 정렬:** 모노 서체를 두지 않는다. 시각·날짜·개수처럼 자릿수가 흔들리면 안 되는 자리는
+  `tabular-nums`(font-variant-numeric)로 처리한다 — 서체를 바꾸지 않고 자간만 고정한다.
+- **픽토그램:** 시안의 카테고리 그림은 토스페이스(Tossface)다. 웹폰트가 아니라 토스팀이 배포하는
+  **원본 SVG**(`/public/tossface`, 파일명 = 유니코드 코드포인트)를 그대로 가져다 쓴다.
+  컬러 이모지 폰트라 서브셋 하나가 0.5~1.9MB 이고, 홈의 픽토그램 8개는 서브셋 6개에 흩어져 있어
+  폰트로 받으면 약 5.9MB 다 — 같은 그림이 SVG 로는 합계 9KB 다. CSP 의 `font-src 'self'` 도
+  CDN 폰트를 막는다. 파일은 수정하지 않는다(라이선스가 2차적저작물을 금지). 출처 표시는 푸터에 둔다.
 
 ### Pretendard — 기능하는 모든 것: 본문·버튼·카드·네비. 디스플레이가 외칠 수 있도록 조용히 받친다 · `font-body`
 - **Substitute:** system-ui, -apple-system
-- **Weights:** 400, 500, 600, 700
+- **Weights:** 400, 600, 700, 800 (Font Guide 스케일 — 500 은 쓰지 않는다)
 - **Sizes:** 11.5, 12.5, 13, 13.5, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
 - **Line height:** 1.5 (`.duing` 기본), 히어로 서브카피 1.6
 - **Letter spacing:** -0.005em (`.duing` 기본), `font-feature-settings: 'ss01' 'ss02' 'cv11'`
-- **Role:** 본문 텍스트. 위계는 크기보다 **색 3단**(charcoal-3 → charcoal-2 → ink/ink-deep+bold)으로 만든다.
+- **Role:** 본문·UI 전부. 위계는 크기보다 **색 3단**(charcoal-3 → charcoal-2 → ink/ink-deep+bold)으로 만든다.
 
-### JetBrains Mono — 마이크로 라벨, 인덱스, 카운터. 사전·도감 같은 격식 담당 · `font-mono`
-- **Substitute:** ui-monospace, Menlo (로딩 선언 없음 — 시스템 폴백 의존)
-- **Weights:** 400, 600, 700
-- **Sizes:** 10, 11, 11.5px
-- **Letter spacing:** +0.12em ~ +0.22em (와이드 트래킹이 필수)
-- **Role:** `font-mono text-[11~11.5px] font-bold tracking-[0.14em~0.16em]` 조합이 시그니처. 모노 배지(`DU + ING`), 사전식 주석, 페이저 카운터(`01 / 04`, zero-pad), 인덱스 칩. 영문 대문자로만 쓴다.
+### 마이크로 라벨 — 예전 모노 자리. 서체를 바꾸지 않고 트래킹과 대문자로 격식을 만든다
+모노 서체(JetBrains Mono)는 제거했다. 서체를 하나로 줄이면서, 모노가 담당하던 두 가지 일을 나눴다.
+
+- **격식(사전·도감 톤):** 서체가 아니라 **와이드 트래킹 + 영문 대문자**가 만든다.
+  `text-[11~11.5px] font-semibold tracking-[0.14em~0.22em]` 조합이 시그니처 —
+  배지(`DU + ING`), 사전식 주석, 인덱스 칩. Label 역할이므로 굵기는 SemiBold 다.
+- **자릿수 고정(카운터·시각·날짜):** `tabular-nums` 로 처리한다. 페이저(`01 / 04`), 주간 그리드
+  시간 라벨(`09:00`), 금액처럼 행마다 폭이 흔들리면 안 되는 곳이 대상이다.
+  모노를 걷어낸 뒤 이 속성이 유일한 정렬 수단이므로, 숫자가 세로로 쌓이는 UI 에서는 빠뜨리지 말 것.
 
 ### Type Scale
 
 | Role | Size | Line Height | Letter Spacing | 실제 클래스 |
 |------|------|-------------|----------------|------------|
-| mono-tag | 10–11.5px | 1.2 | +0.12~0.22em | `font-mono text-[11.5px] font-bold tracking-[0.14em]` |
+| micro-label | 10–11.5px | 1.2 | +0.12~0.22em | `text-[11.5px] font-semibold tracking-[0.14em]` (영문 대문자) |
 | caption | 11.5–12.5px | 1.4 | — | `text-[11.5px] text-charcoal-3` |
 | ui | 13–13.5px | 1.4 | — | `text-[13px]` / `text-[13.5px] font-semibold` |
 | body-sm | 15px | 1.5 | — | `text-[15px]` (검색 인풋) |
 | body | 16–18px | 1.5–1.6 | -0.005em | `text-lg leading-[1.6] text-charcoal-2` (히어로 서브) |
-| card-title | 17–18px | 1.3 | — | `text-[17px]`~`text-[18px]` (h3 자동 스타일) |
+| card-title | 17–30px | 1.25 | tightest | `type-card-title` (h3 기본 Bold 를 SemiBold 로 되돌리는 역할 클래스) |
 | heading-sm | 28–38px | 1.1 | -0.025em | `clamp(28px, 3vw, 38px)` (Categories h2) |
-| heading | 36–44px | 1.1 | tightx | `text-[44px]`(FeaturedClubs h2) / `text-4xl`(LeaderCta) |
-| display | 84px | 1.0 | -0.035em | `text-[84px] leading-none tracking-[-0.035em]` (히어로 전용) |
+| heading | 20–36px | 1.1 | tightest | `text-[20px] md:text-[36px]` (섹션 h2, 자동 Bold) |
+| display | 34–72px | 1.28 | tightest | `type-display text-[34px] … xl:text-[72px]` (히어로 전용, ExtraBold) |
 
 ## Tokens — Spacing & Shapes
 
@@ -152,7 +184,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Section Heading Block
 **Role:** 모든 콘텐츠 섹션의 도입부.
 
-`mb-9 flex items-end justify-between` — 좌측: 아이브로우(**`영문 키워드 · 한글 설명`** 포맷, `font-mono text-[11.5px]` + 와이드 트래킹 또는 `text-[13px] font-semibold tracking-wide08 text-ink`) + 큰 h2. 우측: `전체 보기` 링크 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` (gap 모핑으로 화살표 밀기).
+`mb-9 flex items-end justify-between` — 좌측: 아이브로우(**`영문 키워드 · 한글 설명`** 포맷, `text-[11.5px] font-semibold` + 와이드 트래킹 또는 `text-[13px] font-semibold tracking-wide08 text-ink`) + 큰 h2. 우측: `전체 보기` 링크 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` (gap 모핑으로 화살표 밀기).
 
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
@@ -162,7 +194,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Carousel Pager
 **Role:** 배너 캐러셀 인디케이터.
 
-모핑 도트: `h-[5px] rounded-full transition-all` + 활성 `w-6 bg-ink` / 비활성 `w-[5px] bg-line` — 점이 알약으로 늘어난다. 옆에 `font-mono text-xs` 카운터 `01 / 04` (zero-pad).
+모핑 도트: `h-[5px] rounded-full transition-all` + 활성 `w-6 bg-ink` / 비활성 `w-[5px] bg-line` — 점이 알약으로 늘어난다. 옆에 `tabular-nums text-xs` 카운터 `01 / 04` (zero-pad — 자릿수가 흔들리면 도트가 밀린다).
 
 ### Sparkle (장식 모티프)
 **Role:** 브랜드 장식 — 헤딩 옆 스티커, 카드 모서리.
@@ -177,7 +209,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Dictionary Annotation (사전식 주석)
 **Role:** 워드플레이를 시각화하는 시그니처 장치.
 
-단어 아래 `font-mono text-[11px] font-bold tracking-[0.16em] text-charcoal-3` 라벨 + 눈금선 `h-px w-3.5 bg-charcoal-3 opacity-50`. 형광펜 밑줄 변형: `<em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">`.
+단어 아래 `text-[11px] font-semibold tracking-[0.16em] text-charcoal-3` 라벨 + 눈금선 `h-px w-3.5 bg-charcoal-3 opacity-50`. 형광펜 밑줄 변형: `<em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">`.
 
 ### Suggested Keyword Chip
 **Role:** 검색 아래 추천 키워드.
@@ -273,11 +305,11 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 ## Imagery
 
-일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 실사 사진은 카테고리 타일에만 (`next/image fill` + `object-cover` + 톤 그라디언트 오버레이), 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등). 텍스트 자체를 그래픽으로 쓰는 패턴 — 모노 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
+일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 실사 사진은 카테고리 타일에만 (`next/image fill` + `object-cover` + 톤 그라디언트 오버레이), 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등). 텍스트 자체를 그래픽으로 쓰는 패턴 — 와이드 트래킹 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
 
 ## Layout
 
-1280px(`max-w-layout`) 중앙 컨테이너 + `px-10`, 풀블리드 크림 캔버스. 히어로는 비대칭 2컬럼(`md:grid-cols-[1.15fr_1fr]`) — 좌측 텍스트(모노 배지 → 84px 헤드라인 → 서브카피 → 검색 캡슐 → 점선 키워드 칩), 우측 rotate 콜라주 카드 스택. 배경에 도트 그리드(`bg-grid opacity-50`) + 우상단 sage 블러 원. 이후 섹션 리듬: 컬러 블록 배너(24:8 비율, `rounded-xl`) → **다크그린 풀블리드 띠**(유일한 다크 브레이크) → 크림 + 흰 카드 그리드 ×2 → 세이지 미스트 패널 마무리 → `bg-cream-2` 푸터. 섹션 수직 패딩은 비대칭으로 수공예적으로. 네비는 `bg-cream/90 backdrop-blur` 반투명 상단 바. 장식(Sparkle·회전·블러 원)은 히어로와 CTA 에 집중시키고 푸터·정보 영역은 조용하게 — 대비가 리듬을 만든다.
+1280px(`max-w-layout`) 중앙 컨테이너 + `px-10`, 풀블리드 크림 캔버스. 히어로는 비대칭 2컬럼(`md:grid-cols-[1.15fr_1fr]`) — 좌측 텍스트(72px 헤드라인 → 서브카피 → 검색 캡슐), 우측 브랜드 일러스트 + 겹쳐 뜨는 활동 토스트. 배경에 도트 그리드(`bg-grid opacity-50`) + 우상단 sage 블러 원. 이후 섹션 리듬: 컬러 블록 배너(24:8 비율, `rounded-xl`) → **다크그린 풀블리드 띠**(유일한 다크 브레이크) → 크림 + 흰 카드 그리드(관심도) → 가로 스크롤 카드(카테고리) → `bg-cream-2` 푸터. 섹션 수직 패딩은 비대칭으로 수공예적으로. 네비는 `bg-cream/90 backdrop-blur` 반투명 상단 바. 장식(Sparkle·회전·블러 원)은 히어로와 CTA 에 집중시키고 푸터·정보 영역은 조용하게 — 대비가 리듬을 만든다.
 
 ## Agent Prompt Guide
 
@@ -291,7 +323,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 **Example Component Prompts**
 
-1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 아이브로우 `font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em]` 으로 `APPLICATION · 지원 현황`, 그 아래 h2(자동으로 GmarketSans ink-deep bold). 우측에 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` 링크 `전체 보기` + ArrowRight.
+1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 아이브로우 `text-[11.5px] font-semibold uppercase tracking-[0.22em]` 으로 `APPLICATION · 지원 현황`, 그 아래 h2(자동으로 ink-deep bold). 우측에 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` 링크 `전체 보기` + ArrowRight.
 2. **표준 카드**: `rounded-lg border border-line bg-paper p-4 transition hover:shadow-2`. 상단 썸네일 `grid h-[156px] place-items-center rounded-md` + `linear-gradient(135deg, #1F4A3622, #1F4A3611)`. 제목 h3 17px, 설명 `text-[12.5px] text-charcoal-3`, 푸터 `pt-3` 양끝 정렬(구분선 없음).
 3. **상태 배지**: `.pill` + `h-1.5 w-1.5 rounded-full bg-sage` 도트 + `모집중`. 강조형은 `rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-bold text-paper`.
 4. **CTA 패널**: `rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]`, 좌측 h2 `text-4xl` + 서브 `지원자 관리 · 공지 발송 · 회비 정산까지.` 스타일 나열, 우측 `btn btn-primary btn-big` + ArrowRight. SparkleFull 48px sage 절대배치 1~2개.
@@ -331,9 +363,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --coral:      #D97757;
   --berry:      #B65672;
   --sky:        #6A95B8;
-  --font-display: 'GmarketSans', Pretendard, system-ui, sans-serif;
   --font-body:    Pretendard, system-ui, sans-serif;
-  --font-mono:    'JetBrains Mono', ui-monospace, Menlo, monospace;
   --shadow-1: 0 1px 2px rgba(31,74,54,.04), 0 2px 8px rgba(31,74,54,.04);
   --shadow-2: 0 2px 6px rgba(31,74,54,.05), 0 12px 32px rgba(31,74,54,.08);
   --shadow-3: 0 6px 20px rgba(31,74,54,.08), 0 24px 60px rgba(31,74,54,.12);
@@ -352,9 +382,7 @@ colors: {
   warm: '#E8B968', coral: '#D97757', berry: '#B65672', sky: { DEFAULT: '#6A95B8' /* +50~950 */ },
 },
 fontFamily: {
-  display: ['GmarketSans', 'Pretendard', 'system-ui', 'sans-serif'],
   body: ['Pretendard', 'system-ui', 'sans-serif'],
-  mono: ['JetBrains Mono', 'ui-monospace', 'Menlo', 'monospace'],
 },
 borderRadius: { sm: '8px', md: '14px', lg: '20px', xl: '28px' },
 boxShadow: {
@@ -459,7 +487,7 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 ### Performance
 모바일 4G/중급기 기준 예산: **LCP < 2.5s · CLS < 0.1 · INP < 200ms.** 현 코드 상태 기준 권고:
 
-- **폰트(현재 외부 CDN):** GmarketSans 는 `globals.css` `@font-face` 로 jsdelivr `.woff` 3웨이트(`font-display: swap`) — 외부 도메인이라 연결 비용이 있다. **`<link rel="preconnect">`(cdn.jsdelivr.net)** 로 핸드셰이크 단축, 가능하면 **woff2**(약 30% 작음) 또는 `next/font/local` 셀프호스팅으로 옮긴다. swap 으로 FOUT 은 허용(Pretendard/system 폴백). 추가 웨이트 로딩은 자제.
+- **폰트(셀프호스팅):** `/public/fonts` 의 Pretendard 가변본(woff2, 45~920) 하나가 전 weight 를 덮고 `layout.tsx` 가 이것만 preload 한다. 디스플레이 서체를 없애면서 3웨이트 `.woff` 왕복이 사라졌다 — 서체를 다시 늘리지 말 것. `font-display: swap` 으로 FOUT 은 허용한다.
 - **이미지:** 현재 `<img>` 직접 사용이 13곳(사용자 업로드 배너 + onError 폴백)이고 `next/image` 는 3파일뿐. 모바일 절감을 위해 콘텐츠 이미지는 가능하면 **`next/image`(자동 lazy·포맷·`sizes`)** 로, raw `<img>` 는 **명시적 `width/height`(또는 `aspect-ratio`) + `loading="lazy"`** 로 CLS·전송량을 줄인다. 카테고리 타일 `sizes`(`(max-width:768px) 50vw, 25vw`)처럼 모바일 뷰포트에 맞춘 `sizes` 필수. **LCP 이미지(히어로/배너)** 는 `priority`(현재 2곳뿐 — 첫 화면 핵심 이미지에 확대).
 - **JS / 모션:** framer-motion 을 현재 전체 `motion` 으로 import — 사용처가 늘면 **`LazyMotion` + `domAnimation` feature(또는 `m` 컴포넌트)** 로 번들을 줄인다. `'use client'` 남발 금지(서버 컴포넌트 우선 — 프로젝트 규칙)로 모바일 하이드레이션 비용 억제. 스크롤 리빌은 `once:true`(현 `FadeIn`), `transform`/`opacity` 만 애니메이트(레이아웃 thrash·리플로 금지), 무한 애니메이션 금지(Motion 원칙).
 - **렌더링/데이터:** `force-dynamic` 홈은 런타임 BE fetch → 모바일 네트워크 TTFB 영향. 섹션별 **Suspense + 스켈레톤**으로 체감 단축, 빈 데이터는 섹션 `return null`(기존 규칙). 긴 리스트는 페이지네이션, 무한 스크롤 도입 시 가상화 검토.

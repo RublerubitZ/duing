@@ -78,7 +78,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: Props) {
             <DialogPrimitive.Title className="text-[18px] font-bold text-ink leading-snug">
               {event.title}
             </DialogPrimitive.Title>
-            <p className="mt-2 text-[12.5px] text-charcoal-3 font-mono">
+            <p className="mt-2 text-[12.5px] text-charcoal-3 tabular-nums">
               {event.date} · {event.time}
             </p>
             {event.place && (

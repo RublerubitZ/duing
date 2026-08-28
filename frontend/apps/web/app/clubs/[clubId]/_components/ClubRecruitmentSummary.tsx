@@ -68,7 +68,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
           <Sparkle size={13} color="#1F4A36" />
           {header}
         </span>
-        {end && <span className="font-mono text-[12.5px] font-bold text-ink">{end}</span>}
+        {end && <span className="tabular-nums text-[12.5px] font-bold text-ink">{end}</span>}
       </div>
 
       <dl className="grid grid-cols-[44px_1fr] gap-y-1 text-[12.5px]">

@@ -2,7 +2,7 @@
 
 // shadcn/ui Tabs — 두잉 전용 셋업 (Radix on 두잉 토큰).
 // 두잉 보정: 언더라인 탭 스타일 — TabsTrigger 는 활성 시 border-ink/text-ink,
-// 비활성은 text-charcoal-3 hover:text-charcoal. 라벨은 font-body(Pretendard) — UI 텍스트라 GmarketSans 아님.
+// 비활성은 text-charcoal-3 hover:text-charcoal. 라벨은 본문 서체(Pretendard) 그대로.
 // 레일 받침선은 두지 않는다(섹션 구분선 금지) — 활성 표시는 트리거의 2.5px 보더 단독.
 // Radix 가 roving tabindex·화살표 키 네비·ARIA(tablist/tab/tabpanel)를 제공한다.
 

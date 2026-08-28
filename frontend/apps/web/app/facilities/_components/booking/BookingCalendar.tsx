@@ -89,7 +89,7 @@ export function BookingCalendar({
               }`}
             >
               <span
-                className={`font-mono text-[13px] font-bold sm:text-sm ${
+                className={`tabular-nums text-[13px] font-bold sm:text-sm ${
                   selected ? 'text-cream' : outOfWindow || isPastOrUnknown ? 'text-charcoal-3' : 'text-charcoal'
                 }`}
               >

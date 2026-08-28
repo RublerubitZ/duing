@@ -35,7 +35,7 @@ export function SubmissionSummaryCards({ counts, activeFilter, onSelectFilter }:
             >
               <p className={`text-xs font-semibold ${isActive ? 'text-sage' : 'text-charcoal-3'}`}>{card.label}</p>
               <p
-                className={`mt-1.5 font-display text-[26px] font-bold leading-none tabular-nums ${
+                className={`mt-1.5 text-[26px] font-bold leading-none tabular-nums ${
                   isActive ? 'text-paper' : 'text-ink-deep'
                 }`}
               >

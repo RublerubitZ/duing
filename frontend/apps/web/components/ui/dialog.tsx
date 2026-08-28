@@ -2,7 +2,8 @@
 
 // shadcn/ui Dialog — 두잉 전용 셋업 (Radix on 두잉 토큰).
 // 두잉 보정: 스크림 bg-ink/35(잉크틴트), 패널 bg-card(paper)/border-line/shadow-3(잉크틴트)/rounded-lg(20px),
-// 타이틀 font-body(Pretendard, UI 텍스트는 GmarketSans 아님 — DESIGN line 47). 빌트인 X 닫기 버튼은 두지 않는다
+// 타이틀은 본문 서체(Pretendard) 그대로 — 서체는 하나뿐이고 위계는 weight 로 만든다(DESIGN Typography).
+// 빌트인 X 닫기 버튼은 두지 않는다
 // (호출처가 비동기 제어 패턴이면 명시 버튼/ESC 로 닫는다). 포털은 .duing 스코프 밖이라 토큰 클래스로만 스타일링한다.
 
 import * as React from 'react';

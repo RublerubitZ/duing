@@ -30,7 +30,6 @@ export function ApplySummaryCard({ counts }: Props) {
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 12 }}>
         <span style={{
-          fontFamily: 'var(--font-display)',
           fontSize: 42, fontWeight: 700, color: '#fff',
           lineHeight: 1,
           letterSpacing: '-0.02em',
@@ -55,7 +54,7 @@ export function ApplySummaryCard({ counts }: Props) {
             <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.62)', marginBottom: 2 }}>
               {summaryItem.label}
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#fff' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
               {summaryItem.value}
             </div>
           </div>

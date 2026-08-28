@@ -101,10 +101,10 @@ export function JoinRequestDetailPanel({
             <Field label="학과">{joinRequest.major || EMPTY}</Field>
             {/* 전화번호는 상세 응답에만 담긴다 — 명단 대조용이라 목록에는 내려오지 않는다. */}
             <Field label="연락처">
-              <span className="font-mono">{joinRequest.phone || EMPTY}</span>
+              <span className="tabular-nums">{joinRequest.phone || EMPTY}</span>
             </Field>
             <Field label="사용 코드">
-              <span className="font-mono">{joinRequest.code}</span>
+              <span className="tabular-nums">{joinRequest.code}</span>
             </Field>
             {joinRequest.generation !== null && (
               <Field label="기수">{joinRequest.generation}기</Field>

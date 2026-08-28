@@ -87,7 +87,7 @@ export function ClubRosterAccordion({ clubId, clubName }: { clubId: number; club
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] font-bold text-charcoal-3">
-                  총 <span className="font-mono">{members.length}</span>명
+                  총 <span className="tabular-nums">{members.length}</span>명
                 </span>
                 <button
                   type="button"
@@ -113,7 +113,7 @@ export function ClubRosterAccordion({ clubId, clubName }: { clubId: number; club
                       >
                         <span className="min-w-0 flex-1 truncate text-[13px] text-charcoal-2">
                           <span className="font-semibold text-ink-deep">{member.name}</span>
-                          <span className="ml-2 font-mono text-[12px] text-charcoal-3">{member.studentId}</span>
+                          <span className="ml-2 tabular-nums text-[12px] text-charcoal-3">{member.studentId}</span>
                           <span className="ml-2 break-keep text-[12px] text-charcoal-3">
                             {(member.major || '—')} · {college} · {GRADE_DISPLAY_NAME[member.grade]}
                           </span>

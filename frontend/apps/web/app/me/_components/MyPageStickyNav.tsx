@@ -48,7 +48,7 @@ export function MyPageStickyNav({ sections, active, onSelect }: Props) {
               {section.count != null && (
                 <span
                   className={cn(
-                    'text-[11px] font-bold px-2 py-0.5 rounded-full font-mono transition-colors duration-150',
+                    'text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums transition-colors duration-150',
                     isActive ? 'bg-ink text-paper' : 'bg-graysoft text-charcoal-3',
                   )}
                 >

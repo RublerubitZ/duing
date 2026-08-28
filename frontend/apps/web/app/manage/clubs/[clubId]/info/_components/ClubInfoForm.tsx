@@ -308,7 +308,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       <form onSubmit={handleSubmit} className="min-w-0">
         <header className="mb-6 flex items-baseline gap-3">
           <h1 className="text-[26px] font-bold tracking-tight text-[#2a2f27]">동아리 정보</h1>
-          <span className="font-mono text-[11px] tracking-[0.14em] text-[#8a8f83] uppercase">
+          <span className="tabular-nums text-[11px] tracking-[0.14em] text-[#8a8f83] uppercase">
             CLUB PROFILE
           </span>
         </header>

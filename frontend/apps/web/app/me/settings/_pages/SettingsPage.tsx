@@ -205,7 +205,7 @@ export function SettingsPage() {
             <SettingsRow
               label="비밀번호"
               value={
-                <span className="font-mono tracking-[0.2em]">••••••••</span>
+                <span className="tabular-nums tracking-[0.2em]">••••••••</span>
               }
               action={
                 <button

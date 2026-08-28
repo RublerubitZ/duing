@@ -38,7 +38,7 @@ export function DayBookingOverview({ day }: Props) {
         <ul className="mt-2 flex flex-col gap-1.5">
           {usage.map((entry, index) => (
             <li key={`${entry.kind}-${entry.start}-${entry.end}-${index}`} className="flex items-center gap-2">
-              <span className="w-[82px] font-mono text-xs text-charcoal-3">{rangeLabel(entry)}</span>
+              <span className="w-[82px] tabular-nums text-xs text-charcoal-3">{rangeLabel(entry)}</span>
               <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${USAGE_DOT_CLASS[entry.kind]}`} />
               <span className="text-[13px] font-semibold text-ink">
                 {entry.label}
@@ -52,7 +52,7 @@ export function DayBookingOverview({ day }: Props) {
         <ul className={`mt-2 flex flex-col gap-1.5 ${usage.length > 0 ? 'pt-2' : ''}`}>
           {available.map((run) => (
             <li key={run.start} className="flex items-center gap-2">
-              <span className="w-[82px] font-mono text-xs text-charcoal-3">{rangeLabel(run)}</span>
+              <span className="w-[82px] tabular-nums text-xs text-charcoal-3">{rangeLabel(run)}</span>
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-sage" />
               <span className="text-[13px] font-bold text-ink">
                 예약 가능 <span className="font-normal text-charcoal-3">({run.slotCount}타임)</span>
@@ -67,13 +67,13 @@ export function DayBookingOverview({ day }: Props) {
         {periodDistribution(day.slots).map((period) => (
           <div key={period.key} className="flex items-center gap-2 text-[11px]">
             <span className="w-7 font-bold text-ink">{period.label}</span>
-            <span className="w-11 font-mono text-charcoal-3">{period.range}</span>
+            <span className="w-11 tabular-nums text-charcoal-3">{period.range}</span>
             <span aria-hidden className="flex flex-1 gap-[2px]">
               {Array.from({ length: period.total }).map((_, index) => (
                 <span key={index} className={`h-1.5 flex-1 rounded-[2px] ${index < period.free ? 'bg-sage' : 'bg-line'}`} />
               ))}
             </span>
-            <span className="w-8 text-right font-mono text-ink">{period.free}/{period.total}</span>
+            <span className="w-8 text-right tabular-nums text-ink">{period.free}/{period.total}</span>
           </div>
         ))}
       </div>

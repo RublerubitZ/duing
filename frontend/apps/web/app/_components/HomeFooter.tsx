@@ -29,6 +29,10 @@ export function HomeFooter() {
               </a>
             </div>
             <div className="mt-3 text-charcoal-3/80">© DUING · All Rights Reserved</div>
+            {/* 토스페이스 라이선스가 요구하는 출처 표시 — 카테고리 픽토그램에 쓰인다. */}
+            <div className="mt-1 text-charcoal-3/70">
+              이 페이지에는 토스팀에서 제공한 토스페이스가 적용되어 있습니다.
+            </div>
           </div>
         </div>
       </footer>
@@ -112,7 +116,11 @@ export function HomeFooter() {
         </div>
       </div>
       <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 pt-6 text-xs text-charcoal-3">
-        <div>© DUING · All Rights Reserved</div>
+        <div>
+          <div>© DUING · All Rights Reserved</div>
+          {/* 토스페이스 라이선스가 요구하는 출처 표시 — 카테고리 픽토그램에 쓰인다. */}
+          <div className="mt-1">이 페이지에는 토스팀에서 제공한 토스페이스가 적용되어 있습니다.</div>
+        </div>
         <div className="flex gap-5">
           <Link href="/terms#terms" className={linkClass}>
             이용약관

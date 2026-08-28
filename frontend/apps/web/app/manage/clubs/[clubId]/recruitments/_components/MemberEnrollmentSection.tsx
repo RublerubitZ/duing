@@ -403,7 +403,7 @@ function ActiveCodeCard({
 
       <div className="rounded-md border border-line bg-graysoft/40 p-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-mono text-xl font-bold tracking-widest text-ink-deep">{joinCode.code}</p>
+          <p className="tabular-nums text-xl font-bold tracking-widest text-ink-deep">{joinCode.code}</p>
           <div className="flex shrink-0 gap-1">
             <CopyButton label="코드 복사" value={joinCode.code} />
             <CopyButton label="가입 링크 복사" value={joinLink} />

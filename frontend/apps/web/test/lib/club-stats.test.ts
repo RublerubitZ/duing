@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ClubStats } from '@duing/types';
 
-// createApiClient 를 모킹해, 백엔드 호출 없이 fetchClubStats 의 폴백·매핑·왕복 수를 검증한다.
+// createApiClient 를 모킹해, 백엔드 호출 없이 fetchClubStats 의 실패 정책·매핑·왕복 수를 검증한다.
 const { createApiClientMock, statsMock } = vi.hoisted(() => ({
   createApiClientMock: vi.fn(),
   statsMock: vi.fn(),
@@ -26,19 +26,23 @@ const stats: ClubStats = {
   categoryCounts: { ACADEMIC: 42, SPORTS: 11 },
 };
 
+/** 실패 정책 분기의 입력인 두 환경변수만 명시적으로 고정한다(런타임 = 빌드 국면 아님). */
+function stubPhase(nodeEnv: string, nextPhase?: string) {
+  vi.stubEnv('NODE_ENV', nodeEnv);
+  vi.stubEnv('NEXT_PHASE', nextPhase);
+}
+
 beforeEach(() => {
   createApiClientMock.mockReset();
   statsMock.mockReset();
   createApiClientMock.mockReturnValue({ clubs: { stats: statsMock } });
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('fetchClubStats', () => {
-  it('통계 조회가 throw 하면 null 을 반환한다(가짜 숫자 폴백 제거)', async () => {
-    statsMock.mockRejectedValue(new Error('backend unavailable'));
-
-    await expect(fetchClubStats()).resolves.toBeNull();
-  });
-
   it('총 수·모집중 수·카테고리별 수를 응답 그대로 돌려준다', async () => {
     statsMock.mockResolvedValue(stats);
 
@@ -52,5 +56,27 @@ describe('fetchClubStats', () => {
 
     expect(statsMock).toHaveBeenCalledTimes(1);
     expect(statsMock).toHaveBeenCalledWith();
+  });
+
+  it('production 런타임(ISR 재생성)에서 실패하면 throw 한다(직전 캐시본 유지에 위임)', async () => {
+    // swallow 하면 재생성이 "성공" 처리돼 통계·카테고리 개수가 빠진 홈이 600초 캐시된다.
+    stubPhase('production');
+    statsMock.mockRejectedValue(new Error('backend unavailable'));
+
+    await expect(fetchClubStats()).rejects.toThrow('backend unavailable');
+  });
+
+  it('빌드 국면에서 실패하면 null 로 폴백한다(BE 순단이 배포를 깨지 않도록)', async () => {
+    stubPhase('production', 'phase-production-build');
+    statsMock.mockRejectedValue(new Error('backend unavailable'));
+
+    await expect(fetchClubStats()).resolves.toBeNull();
+  });
+
+  it('development 에서 실패하면 null 로 폴백한다(BE 없이 프론트만 띄우는 DX)', async () => {
+    stubPhase('development');
+    statsMock.mockRejectedValue(new Error('backend unavailable'));
+
+    await expect(fetchClubStats()).resolves.toBeNull();
   });
 });

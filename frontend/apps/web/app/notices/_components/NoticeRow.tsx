@@ -28,7 +28,7 @@ export function NoticeRow({ notice }: Props) {
       <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--charcoal)' }}>
         {notice.title}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--charcoal-3)', fontFamily: 'var(--font-mono)' }}>
+      <div style={{ fontSize: 12.5, color: 'var(--charcoal-3)', fontVariantNumeric: 'tabular-nums' }}>
         {notice.date}
       </div>
     </div>

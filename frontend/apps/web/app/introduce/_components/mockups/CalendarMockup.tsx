@@ -28,7 +28,7 @@ export function CalendarMockup() {
 
       <div className="grid grid-cols-7 gap-1 rounded-md border border-line bg-cream p-2.5">
         {WEEKDAYS.map((day) => (
-          <span key={day} className="py-0.5 text-center font-mono text-[9.5px] text-charcoal-3">
+          <span key={day} className="py-0.5 text-center tabular-nums text-[9.5px] text-charcoal-3">
             {day}
           </span>
         ))}

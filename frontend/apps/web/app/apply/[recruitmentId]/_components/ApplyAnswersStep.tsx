@@ -99,7 +99,7 @@ export function ApplyAnswersStep({
               id={legendId}
               className="mb-2.5 block text-sm font-semibold tracking-body text-charcoal"
             >
-              <span className="mr-1.5 font-mono font-semibold text-ink">{index + 1}.</span>
+              <span className="mr-1.5 tabular-nums font-semibold text-ink">{index + 1}.</span>
               {question.text}
               {question.required ? (
                 <span aria-hidden="true" className="ml-1 text-coral">

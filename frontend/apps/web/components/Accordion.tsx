@@ -26,7 +26,7 @@ function AccordionRow({ item, index, defaultOpen }: { item: AccordionItemData; i
         onClick={() => setOpen((prev) => !prev)}
         className="flex w-full cursor-pointer items-center gap-3.5 py-4 text-left md:py-5"
       >
-        <span className="shrink-0 font-mono text-[12px] font-semibold tracking-[0.12em] text-ink">
+        <span className="shrink-0 tabular-nums text-[12px] font-semibold tracking-[0.12em] text-ink">
           Q.{String(index + 1).padStart(2, '0')}
         </span>
         <span className="flex-1 text-[15px] font-bold text-ink-deep">{item.question}</span>

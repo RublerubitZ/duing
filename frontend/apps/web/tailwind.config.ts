@@ -109,10 +109,10 @@ const config: Config = {
           foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
         },
       },
+      // 서체는 Pretendard 하나 — 위계는 weight 로 만든다(globals.css 상단 규약 참고).
+      // 숫자 정렬은 모노 서체가 아니라 tabular-nums 로 처리한다.
       fontFamily: {
-        display: ['GmarketSans', 'Pretendard', 'system-ui', 'sans-serif'],
         body: ['Pretendard', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'Menlo', 'monospace'],
       },
       borderRadius: {
         sm: '8px',
@@ -141,6 +141,9 @@ const config: Config = {
       },
       letterSpacing: {
         tightx: '-0.02em',
+        // 시안의 제목·카드 자간. Pretendard 는 큰 사이즈에서 -0.02em 보다 한 단계 더 조여야
+        // 시안과 같은 밀도로 읽힌다(디스플레이 서체를 걷어내면서 함께 맞춘 값).
+        tightest: '-0.03em',
         body: '-0.005em',
         wide04: '0.04em',
         wide06: '0.06em',

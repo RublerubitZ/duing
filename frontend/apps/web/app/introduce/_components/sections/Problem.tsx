@@ -27,7 +27,7 @@ export function Problem() {
     <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-layout">
         <FadeIn>
-          <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
+          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             FOR STUDENTS · 동아리를 찾고 있나요?
           </p>
           <h2 className="mb-12 max-w-[760px]" style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>
@@ -51,7 +51,7 @@ export function Problem() {
 
         <FadeIn>
           <p
-            className="text-center font-display font-bold text-ink-deep"
+            className="text-center font-bold text-ink-deep"
             style={{ fontSize: 'clamp(24px, 3vw, 32px)', letterSpacing: '-0.02em' }}
           >
             두잉 하나면 충분합니다.

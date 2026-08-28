@@ -82,7 +82,7 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
                   selected ? 'border-ink-deep bg-ink text-cream' : SLOT_ROW_CLASS[slot.status]
                 }`}
               >
-                <span className="font-mono text-[13px] font-bold">{slot.start}~{slot.end}</span>
+                <span className="tabular-nums text-[13px] font-bold">{slot.start}~{slot.end}</span>
                 <span className={labelClass}>
                   {selected ? '✓ ' : ''}{slotStatusLabel(slot)}
                 </span>
