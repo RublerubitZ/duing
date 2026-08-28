@@ -96,7 +96,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
           // 태그는 60자까지 들어올 수 있어(백엔드 @Size) 그대로 두면 우측 상단 페이저 밑으로 파고든다.
           // sm 부터 우측 상단 위치 표시가 차지하는 폭만큼 비워 두고, 넘치면 말줄임한다.
           // 안쪽 span 의 min-w-0 이 없으면 flex 아이템이 글자 폭 아래로 안 줄어 max-w 가 무력해진다.
-          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold sm:max-w-[calc(100%-7rem)]"
+          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-semibold sm:max-w-[calc(100%-7rem)]"
           style={{
             background: hasImage
               ? 'rgba(255,255,255,0.95)'
@@ -111,7 +111,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
       )}
       <div className="relative">
         <h2
-          className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] leading-[1.1] tracking-[-0.025em] sm:mb-2.5 sm:text-5xl sm:leading-[1.05]"
+          className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] sm:mb-2.5 sm:text-5xl"
           style={{ color: textColor }}
         >
           {slide.title}
@@ -123,7 +123,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
           // 꽉 찬다(640 에서 부제를 넣으면 콘텐츠가 박스를 넘긴다). md 부터 배너가 커져 자리가 난다.
           <div className="hidden md:block">
             <p
-              className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:text-[15.5px] sm:leading-[1.5] md:mb-2 lg:mb-5"
+              className="mb-2 line-clamp-1 max-w-[460px] text-[12.5px] leading-[1.4] sm:mb-3 sm:text-[15px] sm:leading-[1.5] lg:mb-5"
               style={{ color: textColor, opacity: 0.85 }}
             >
               {slide.sub}
@@ -135,7 +135,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
             // CTA 도 40자까지 들어온다. 상한이 없으면 좁은 폭에서 두 줄로 감기고, 그만큼 콘텐츠가
             // 자라 아래 위치 표시를 침범한다 — 제목·부제·태그와 같은 이유로 한 줄로 묶는다.
             // 화살표는 shrink-0 으로 남기고 글자만 줄여야 버튼이 화살표를 먹지 않는다.
-            className="btn max-w-full rounded-md px-4 py-2 text-[13px] font-bold sm:px-[22px] sm:py-3 sm:text-[15px]"
+            className="btn max-w-full rounded-md px-4 py-2 text-[13px] sm:px-[22px] sm:py-3 sm:text-[15px]"
             style={{
               background: isDarkText ? '#9DB6A0' : slide.accent,
               color: isDarkText ? '#143025' : '#fff',

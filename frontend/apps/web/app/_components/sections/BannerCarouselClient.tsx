@@ -321,7 +321,7 @@ export function BannerCarouselClient({ slides }: Props) {
               data-testid="banner-pager"
               aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
               onClick={goNext}
-              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5 sm:text-[14px]"
+              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5"
             >
               {activeIndex + 1} / {slides.length}
             </button>
