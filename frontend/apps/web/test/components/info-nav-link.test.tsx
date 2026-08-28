@@ -22,7 +22,7 @@ describe('InfoNavLink — HomeNav 용 정보 링크 슬롯', () => {
   it('방문 이력이 없으면 /notices 로 이동한다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
   });
 
   // 홈은 ISR 이라 재생성 중 usePathname 이 `/index` 를 준다. 경로 파생 렌더가 그 값에 반응하면
@@ -44,13 +44,13 @@ describe('InfoNavLink — HomeNav 용 정보 링크 슬롯', () => {
     window.localStorage.setItem('duing:info-last-path', '/introduce');
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/introduce');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/introduce');
   });
 
   it('className 을 링크에 전달한다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink className="text-charcoal-3" />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveClass('text-charcoal-3');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveClass('text-charcoal-3');
   });
 });
 
@@ -59,15 +59,15 @@ describe('InfoNavLink — Hover Quick Menu', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
     expect(screen.getAllByRole('link')).toHaveLength(1);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('마우스 hover 시 허브 4개로 직행하는 Quick Menu 를 펼친다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    fireEvent.mouseOver(screen.getByRole('link', { name: '정보' }));
+    fireEvent.mouseOver(screen.getByRole('link', { name: '소식' }));
 
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
     expect(screen.getByRole('link', { name: '자주 묻는 질문' })).toHaveAttribute('href', '/faq');
     expect(screen.getByRole('link', { name: '운영정책' })).toHaveAttribute('href', '/terms');
@@ -78,16 +78,16 @@ describe('InfoNavLink — Hover Quick Menu', () => {
     window.localStorage.setItem('duing:info-last-path', '/terms');
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    fireEvent.mouseOver(screen.getByRole('link', { name: '정보' }));
+    fireEvent.mouseOver(screen.getByRole('link', { name: '소식' }));
 
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/terms');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/terms');
     expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
   });
 
   it('마우스가 떠나면 Quick Menu 를 닫는다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    const trigger = screen.getByRole('link', { name: '정보' });
+    const trigger = screen.getByRole('link', { name: '소식' });
     fireEvent.mouseOver(trigger);
     expect(screen.getAllByRole('link')).toHaveLength(5);
 
@@ -98,7 +98,7 @@ describe('InfoNavLink — Hover Quick Menu', () => {
   it('Escape 로 Quick Menu 를 닫는다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    const trigger = screen.getByRole('link', { name: '정보' });
+    const trigger = screen.getByRole('link', { name: '소식' });
     fireEvent.mouseOver(trigger);
     expect(screen.getAllByRole('link')).toHaveLength(5);
 
@@ -109,7 +109,7 @@ describe('InfoNavLink — Hover Quick Menu', () => {
   it('키보드 포커스 진입으로도 열리고, 포커스가 밖으로 나가면 닫힌다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    const trigger = screen.getByRole('link', { name: '정보' });
+    const trigger = screen.getByRole('link', { name: '소식' });
 
     fireEvent.focus(trigger);
     expect(screen.getAllByRole('link')).toHaveLength(5);
@@ -122,7 +122,7 @@ describe('InfoNavLink — Hover Quick Menu', () => {
     mockMatchMediaMatches.value = false;
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    fireEvent.mouseOver(screen.getByRole('link', { name: '정보' }));
+    fireEvent.mouseOver(screen.getByRole('link', { name: '소식' }));
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 });

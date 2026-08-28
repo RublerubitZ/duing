@@ -238,90 +238,106 @@ export function BannerCarouselClient({ slides }: Props) {
 
   const activeSlide = slideAt(activeIndex);
   if (!activeSlide) return null;
-  const previewSlides: CarouselSlide[] = [slideAt(activeIndex + 1), slideAt(activeIndex + 2)]
-    .filter((slide): slide is CarouselSlide => slide !== undefined && slide.key !== activeSlide.key);
 
   return (
     <section className="px-4 sm:px-6 md:px-10 pt-2">
       <div className="max-w-layout relative mx-auto">
         {/*
-         * 반응형 위계 전략:
-         * - md 미만: 메인만 (보조 숨김) — 모바일.
-         * - md~lg: 단일 컬럼 → 메인 전체폭 상단 + 보조 2-up 하단(카드 폭 상한으로 과대 방지).
-         * - lg 이상: [1fr_340px] 좌우 배치 — 보조를 옆 컬럼으로 빼 리사이즈 시 보조가 급증하지 않게 한다.
-         * items-start 로 stretch 제거 → 메인이 보조 컬럼 높이로 늘어나지 않고 자체 높이(연속 clamp)를 유지.
+         * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
+         * 컨트롤도 배너 밖 별도 바가 아니라 배너 위 오버레이 하나로 모았고, PC·모바일 구성이
+         * 같아 예전처럼 브레이크포인트로 갈라 두 벌을 유지할 필요가 없다.
+         *
+         * 높이는 예전 그대로 viewport 의 '연속 1차식' clamp 다. 비율을 브레이크포인트로 끊으면
+         * 640px·1280px 에서 높이가 점프해 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다.
+         * 상한 308px 의 원래 근거(옆 보조 컬럼 높이와 맞춤)는 그 컬럼이 사라지며 없어졌지만,
+         * 시안 비율(1472:342)을 콘텐츠 폭에 대입한 값과 비슷해 그대로 둔다.
          */}
-        <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+        <div
+          ref={containerRef}
+          data-testid="banner-carousel-viewport"
+          className="relative touch-pan-y select-none overflow-hidden rounded-lg"
+          style={{ height: 'clamp(160px, 108px + 19.5vw, 308px)' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onClickCapture={handleClickCapture}
+          // 앵커/이미지 등의 네이티브 드래그(dragstart)를 막아 데스크탑 마우스 스와이프가 pointercancel 로 끊기지 않게 한다.
+          onDragStart={(event) => event.preventDefault()}
+        >
+          {/* peek/커밋/복귀 변위를 담는 안정적인 track — 키 변경으로 remount 되는 슬라이드와 달리 마운트 유지. */}
           <div
-            ref={containerRef}
-            data-testid="banner-carousel-viewport"
-            className="relative touch-pan-y select-none overflow-hidden rounded-xl"
-            // 높이를 breakpoint 비율(예전 aspect-[2/1]↔sm:aspect-[24/8])이 아니라 viewport 의 '연속 1차식'으로 잡는다.
-            // 비율을 끊으면 640px 에서 높이가 점프(198↔304)하고 xl(1280px) 그리드 재배치에서도 점프(282↔400)해
-            // 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다. clamp 1차식은 모바일 ~2:1·데스크탑 ~3:1
-            // 인상을 유지하면서 전 구간 단조 증가(점프 0)·CLS 0. 상한 308px 는 lg+ 옆 보조 컬럼(프리뷰 2장
-            // 스택) 높이와 같아, 옆배치 구간에서 메인이 보조보다 커지지 않는다(감각 상수, 필요 시 조정).
-            style={{ height: 'clamp(160px, 108px + 19.5vw, 308px)' }}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
-            onClickCapture={handleClickCapture}
-            // 앵커/이미지 등의 네이티브 드래그(dragstart)를 막아 데스크탑 마우스 스와이프가 pointercancel 로 끊기지 않게 한다.
-            onDragStart={(event) => event.preventDefault()}
+            ref={trackRef}
+            className="absolute inset-0"
+            style={{
+              transform: `translateX(${dragOffset}px)`,
+              transition: isSettling ? `transform ${settleMs}ms ease-out` : 'none',
+              willChange: isDragging || isSettling ? 'transform' : 'auto',
+            }}
           >
-            {/* peek/커밋/복귀 변위를 담는 안정적인 track — 키 변경으로 remount 되는 슬라이드와 달리 마운트 유지. */}
-            <div
-              ref={trackRef}
-              className="absolute inset-0"
-              style={{
-                transform: `translateX(${dragOffset}px)`,
-                transition: isSettling ? `transform ${settleMs}ms ease-out` : 'none',
-                willChange: isDragging || isSettling ? 'transform' : 'auto',
-              }}
-            >
-              {exitingSlide && (
-                <div
-                  key={`exit-${exitingSlide.key}`}
-                  className={cn(
-                    'pointer-events-none absolute inset-0',
-                    direction === 'left' ? 'animate-slide-out-left' : 'animate-slide-out-right',
-                  )}
-                >
-                  {exitingSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
-                    <FullBleedSlide variant="main" slide={exitingSlide} />
-                  ) : (
-                    <SystemComposedSlide variant="main" slide={exitingSlide} />
-                  )}
-                </div>
-              )}
+            {exitingSlide && (
               <div
-                key={`enter-${activeSlide.key}`}
+                key={`exit-${exitingSlide.key}`}
                 className={cn(
-                  'absolute inset-0',
-                  exitingSlide
-                    ? direction === 'left'
-                      ? 'animate-slide-in-right'
-                      : 'animate-slide-in-left'
-                    : '',
+                  'pointer-events-none absolute inset-0',
+                  direction === 'left' ? 'animate-slide-out-left' : 'animate-slide-out-right',
                 )}
               >
-                {activeSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
-                  <FullBleedSlide variant="main" slide={activeSlide} />
+                {exitingSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
+                  <FullBleedSlide slide={exitingSlide} />
                 ) : (
-                  <SystemComposedSlide variant="main" slide={activeSlide} />
+                  <SystemComposedSlide slide={exitingSlide} />
                 )}
               </div>
+            )}
+            <div
+              key={`enter-${activeSlide.key}`}
+              className={cn(
+                'absolute inset-0',
+                exitingSlide
+                  ? direction === 'left'
+                    ? 'animate-slide-in-right'
+                    : 'animate-slide-in-left'
+                  : '',
+              )}
+            >
+              {activeSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
+                <FullBleedSlide slide={activeSlide} />
+              ) : (
+                <SystemComposedSlide slide={activeSlide} />
+              )}
             </div>
+          </div>
 
-            {/* 모바일: 배너 양 끝 화살표(이동) + 내부 점 인디케이터(비상호작용). track 밖이라 드래그 시 안 움직임. */}
-            {slides.length > 1 && (
-              <>
+          {/* 오버레이 컨트롤 — 좌하단 페이저, 우하단 이전/다음. track 밖이라 드래그해도 따라 움직이지 않는다.
+              바깥 래퍼는 pointer-events-none 이라 배너 위 빈 자리는 그대로 드래그 영역으로 남는다. */}
+          {slides.length > 1 && (
+            <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex items-center justify-between md:inset-x-9 md:bottom-5">
+              <div className="pointer-events-auto flex items-center gap-1.5">
+                <span
+                  data-testid="banner-pager"
+                  className="rounded-full bg-black/50 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white md:text-[14px]"
+                >
+                  {activeIndex + 1} / {slides.length}
+                </span>
+                {/* 자동 재생 정지 수단 — 시안에는 없지만 자동으로 움직이는 콘텐츠에는 멈출 방법이 있어야 한다
+                    (WCAG 2.2.2). 페이저와 같은 톤으로 붙여 시각 무게를 최소화한다. */}
+                <button
+                  type="button"
+                  aria-label={isPlaying ? '배너 자동 재생 정지' : '배너 자동 재생 시작'}
+                  aria-pressed={isPlaying}
+                  onClick={() => setIsPlaying((prev) => !prev)}
+                  className="grid h-7 w-7 place-items-center rounded-full bg-black/50 text-[11px] text-white transition hover:bg-black/65"
+                >
+                  <span aria-hidden>{isPlaying ? '⏸' : '▶'}</span>
+                </button>
+              </div>
+              <div className="pointer-events-auto flex items-center gap-2.5 md:gap-[19px]">
                 <button
                   type="button"
                   aria-label="이전 배너"
                   onClick={goPrev}
-                  className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 sm:grid md:hidden"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-paper text-ink-deep shadow-1 transition hover:bg-cream"
                 >
                   <ArrowLeft />
                 </button>
@@ -329,115 +345,13 @@ export function BannerCarouselClient({ slides }: Props) {
                   type="button"
                   aria-label="다음 배너"
                   onClick={goNext}
-                  className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-ink/40 text-white backdrop-blur-sm active:bg-ink/60 sm:grid md:hidden"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-ink-deep text-cream shadow-1 transition hover:bg-ink"
                 >
                   <ArrowRight />
                 </button>
-                <div
-                  aria-hidden
-                  className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-ink/30 px-2 py-1 backdrop-blur-sm md:hidden"
-                >
-                  {slides.map((slide, idx) => (
-                    <span
-                      key={slide.key}
-                      className={`h-1.5 rounded-full transition-[width,background-color] ${
-                        idx === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 보조 배너 프리뷰 — md 미만 숨김(모바일은 메인만), md~lg 하단 2-up(전체폭 채움), lg 우측 세로 1열.
-              md~lg 에선 카드가 폭을 꽉 채우되 높이를 max-h 로 상한(≈옆 컬럼 카드 높이)해, lg 경계에서 보조가
-              옆 컬럼(340·≈148h)→전체폭 2-up 으로 급증하던 "창 줄일 때 보조 커짐"을 막는다(여백 없이 비율만 가변). */}
-          <div
-            className={cn(
-              'hidden gap-3 md:grid lg:grid-cols-1',
-              previewSlides.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1',
-            )}
-          >
-            {previewSlides.map((slide, idx) => {
-              const previewProps = {
-                slide,
-                direction,
-                animationDelay: idx === 1 ? '120ms' : undefined,
-                onSelect: () => {
-                  const next = slides.findIndex((s) => s.key === slide.key);
-                  if (next >= 0) {
-                    const currentSlide = slides[activeIndex];
-                    if (currentSlide) startSlideTransition(next > activeIndex ? 'left' : 'right', currentSlide);
-                    setActiveIndex(next);
-                  }
-                },
-              } as const;
-              return slide.renderMode === 'FULL_BLEED_IMAGE' ? (
-                <FullBleedSlide
-                  key={`${activeIndex}-${direction}-${slide.key}`}
-                  variant="preview"
-                  {...previewProps}
-                />
-              ) : (
-                <SystemComposedSlide
-                  key={`${activeIndex}-${direction}-${slide.key}`}
-                  variant="preview"
-                  {...previewProps}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 하단 컨트롤 바 — 모바일은 배너 내부 화살표·점으로 대체, 데스크탑만 노출 */}
-        <div className="mt-[18px] hidden items-center gap-3.5 md:flex">
-          <div className="flex items-center gap-2">
-            {slides.map((slide, idx) => (
-              <button
-                key={slide.key}
-                type="button"
-                aria-label={`배너 ${idx + 1}로 이동`}
-                onClick={() => {
-                  const currentSlide = slides[activeIndex];
-                  if (currentSlide) startSlideTransition(idx > activeIndex ? 'left' : 'right', currentSlide);
-                  setActiveIndex(idx);
-                }}
-                className={`h-[5px] rounded-full transition-[width,background-color] ${
-                  idx === activeIndex ? 'w-6 bg-ink' : 'w-[5px] bg-line'
-                }`}
-              />
-            ))}
-          </div>
-          <span data-testid="banner-pager" className="ml-1 tabular-nums text-xs text-charcoal-3">
-            {String(activeIndex + 1).padStart(2, '0')} /{' '}
-            {String(slides.length).padStart(2, '0')}
-          </span>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setIsPlaying((prev) => !prev)}
-            className="btn btn-ghost btn-sm hidden gap-1 md:inline-flex"
-          >
-            <span className="text-sm">{isPlaying ? '⏸' : '▶'}</span>
-            <span className="text-xs">{isPlaying ? '자동재생 중' : '정지됨'}</span>
-          </button>
-          <button
-            type="button"
-            aria-label="이전 배너"
-            onClick={goPrev}
-            className="btn btn-secondary hidden h-9 w-9 place-items-center rounded-full p-0 md:grid"
-          >
-            <ArrowLeft />
-          </button>
-          <button
-            type="button"
-            aria-label="다음 배너"
-            onClick={goNext}
-            className="btn btn-primary hidden h-9 w-9 place-items-center rounded-full p-0 md:grid"
-          >
-            <ArrowRight />
-          </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

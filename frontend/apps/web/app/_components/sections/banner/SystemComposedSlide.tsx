@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import type { PromotionRenderMode } from '@duing/types';
-import { cn } from '@/app/_lib/cn';
 import { safeExternalHref, toLinkRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
@@ -24,31 +23,7 @@ export type SystemComposedSlideData = {
   imageAltText: string | null;
 };
 
-type Props =
-  | { variant: 'main'; slide: SystemComposedSlideData }
-  | {
-      variant: 'preview';
-      slide: SystemComposedSlideData;
-      direction: 'left' | 'right';
-      animationDelay?: string;
-      onSelect(): void;
-    };
-
-export function SystemComposedSlide(props: Props) {
-  if (props.variant === 'main') {
-    return <MainSlideBody slide={props.slide} />;
-  }
-  return (
-    <PreviewSlideBody
-      slide={props.slide}
-      direction={props.direction}
-      animationDelay={props.animationDelay}
-      onSelect={props.onSelect}
-    />
-  );
-}
-
-function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
+export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData }) {
   const hasImage = !!slide.bannerImageUrl;
   // 이미지가 깔리면 가독성을 위해 텍스트를 흰색 톤으로 고정한다.
   const isDarkText = hasImage || slide.fg === '#fff';
@@ -169,88 +144,4 @@ function MainSlideBody({ slide }: { slide: SystemComposedSlideData }) {
   }
   // href === null → Spec #7 의 비인터랙티브 컨테이너 (role/tab/cursor 모두 비활성).
   return <div className="block h-full cursor-default">{body}</div>;
-}
-
-type PreviewBodyProps = {
-  slide: SystemComposedSlideData;
-  direction: 'left' | 'right';
-  animationDelay?: string;
-  onSelect(): void;
-};
-
-function PreviewSlideBody({ slide, direction, animationDelay, onSelect }: PreviewBodyProps) {
-  const hasImage = !!slide.bannerImageUrl;
-  const isDarkText = hasImage || slide.fg === '#fff';
-  const textColor = hasImage ? '#fff' : slide.fg;
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'relative aspect-[85/37] max-h-[150px] w-full cursor-pointer overflow-hidden rounded-lg px-5 py-[18px] text-left lg:max-h-none',
-        direction === 'left' ? 'animate-preview-in' : 'animate-preview-in-reverse',
-      )}
-      style={{ background: slide.bg, color: textColor, animationDelay }}
-    >
-      {hasImage && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL. 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김. */}
-          <img
-            src={slide.bannerImageUrl ?? ''}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-            onError={(event) => {
-              event.currentTarget.style.display = 'none';
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{ background: 'rgba(0,0,0,0.22)' }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.6) 100%)' }}
-          />
-        </>
-      )}
-      {slide.emoji && (
-        <div
-          className="absolute -right-2.5 -top-2.5 text-[86px] leading-none opacity-[0.22]"
-          style={{ transform: 'rotate(-8deg)' }}
-        >
-          {slide.emoji}
-        </div>
-      )}
-      {slide.tag && (
-        <div
-          className="relative mb-1.5 inline-flex items-center rounded-full px-2 py-[2px] text-[10.5px] font-extrabold tracking-wide08"
-          style={{
-            background: hasImage ? 'rgba(255,255,255,0.95)' : 'transparent',
-            color: hasImage ? '#143025' : isDarkText ? '#9DB6A0' : slide.accent,
-            paddingInline: hasImage ? '8px' : '0',
-          }}
-        >
-          {slide.tag.split(' · ')[0]}
-        </div>
-      )}
-      <div
-        className="relative line-clamp-2 whitespace-pre-line text-[19px] font-bold leading-[1.15]"
-        style={{ color: textColor }}
-      >
-        {slide.title}
-      </div>
-      {slide.sub && (
-        <div
-          className="relative mt-2 text-xs"
-          style={{ color: textColor, opacity: 0.85 }}
-        >
-          {slide.sub.split(' · ')[0]}
-        </div>
-      )}
-    </button>
-  );
 }

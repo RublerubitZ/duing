@@ -62,7 +62,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
   });
 
   it('거리 임계를 넘게 우로 드래그하면 이전 배너로 넘어간다(무한 루프: 첫→마지막)', () => {
@@ -73,7 +73,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('04 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('4 / 4');
   });
 
   it('짧지만 빠른 플릭은 거리 미달이어도 다음 배너로 넘어간다(속도 경로)', () => {
@@ -85,7 +85,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -50, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -50, clientY: 0 }), 1020);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
   });
 
   it('거리·속도 모두 미달인 드래그는 전환 없이 현재 배너를 유지한다(복귀)', () => {
@@ -97,7 +97,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -10, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -10, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
   });
 
   it('세로 우세 제스처는 전환을 일으키지 않는다(스크롤 양보)', () => {
@@ -108,7 +108,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 0, clientY: -200 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: -200 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
   });
 
   it('드래그 후 발생한 클릭은 억제된다(링크 이동 방지)', () => {
@@ -136,7 +136,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     expect(clickEvent.defaultPrevented).toBe(false);
   });
 
-  it('슬라이드가 1장이면 드래그를 무시한다', () => {
+  it('슬라이드가 1장이면 드래그를 무시하고 컨트롤도 두지 않는다', () => {
     render(<BannerCarouselClient slides={makeSlides(1)} />);
     const viewport = mockViewportWidth();
 
@@ -144,7 +144,12 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 01');
+    // 넘길 곳이 없으면 페이저·이전/다음을 그리지 않는다(시안의 컨트롤은 여러 장 전제).
+    expect(screen.queryByTestId('banner-pager')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다음 배너' })).not.toBeInTheDocument();
+    // 드래그가 무시됐으니 track 이 손가락을 따라가지 않는다(예전에는 페이저 값으로 확인했다).
+    const track = viewport.firstElementChild as HTMLElement;
+    expect(track.style.transform).toBe('translateX(0px)');
   });
 
   it('복귀 중 re-grab 후 탭으로 끝내도 track 이 0으로 복귀한다(어긋남 고정 방지)', () => {

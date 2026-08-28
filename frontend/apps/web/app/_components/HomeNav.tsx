@@ -2,13 +2,18 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { cn } from '@/app/_lib/cn';
+import {
+  NAV_LINK_ACTIVE,
+  NAV_LINK_INACTIVE,
+  NAV_LINK_UNDERLINE,
+  NAV_LIST_BASE,
+  NAV_ROW_BASE,
+} from './navLinkStyles';
 import { HomeNavAdminLink } from './HomeNavAdminLink';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { InfoNavLink } from './InfoNavLink';
 import { NotificationBell } from './NotificationBell';
 
-const inactiveLink = 'relative py-1 text-charcoal-3 hover:text-charcoal';
-const activeLink = 'relative py-1 text-ink-deep';
 
 // slimOnMobile: 모바일 상단바를 브랜드 + 알림 벨 + 유저메뉴/로그인 으로 슬림화하기 위해
 // 네비 링크를 md 미만에서 숨긴다. 현재 모든 호출부가 이 옵션을 켜며, 모바일 내비게이션은
@@ -22,7 +27,7 @@ type Props = { slimOnMobile?: boolean };
 export function HomeNav({ slimOnMobile = false }: Props) {
   return (
     <header className="relative z-50 bg-cream/90 backdrop-blur">
-      <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
+      <nav className={NAV_ROW_BASE}>
         {/* `/` 링크는 프리페치 제외(P0) — force-dynamic 시절 서버리스 비용 조치. 홈이 ISR(#925)로
             바뀐 뒤에도 복원은 Active CPU 실측 후 별도 판단한다. hover·터치 프리페치까지 꺼져
             첫 클릭 커밋이 RSC 응답 시작까지 지연될 수 있다 — 의도된 트레이드오프. */}
@@ -31,36 +36,36 @@ export function HomeNav({ slimOnMobile = false }: Props) {
         </Link>
         <ul
           className={cn(
-            'items-center gap-8 text-[13.5px] font-semibold',
+            NAV_LIST_BASE,
             slimOnMobile ? 'hidden md:flex' : 'flex',
           )}
         >
           <li>
-            <Link href="/" prefetch={false} className={activeLink}>
+            <Link href="/" prefetch={false} className={NAV_LINK_ACTIVE}>
               홈
-              <span className="absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-ink" />
+              <span className={NAV_LINK_UNDERLINE} />
             </Link>
           </li>
           <li>
-            <Link href="/clubs" className={inactiveLink}>
+            <Link href="/clubs" className={NAV_LINK_INACTIVE}>
               탐색
             </Link>
           </li>
           <li>
-            <Link href="/facilities" className={inactiveLink}>
+            <Link href="/facilities" className={NAV_LINK_INACTIVE}>
               시설
             </Link>
           </li>
           <li>
-            <Link href="/calendar" className={inactiveLink}>
-              캘린더
+            <Link href="/calendar" className={NAV_LINK_INACTIVE}>
+              일정
             </Link>
           </li>
           <li>
-            <InfoNavLink className={inactiveLink} />
+            <InfoNavLink className={NAV_LINK_INACTIVE} />
           </li>
           <li>
-            <HomeNavAdminLink className={inactiveLink} />
+            <HomeNavAdminLink className={NAV_LINK_INACTIVE} />
           </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">

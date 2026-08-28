@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ClubSummary, RecruitmentDisplayStatus } from '@duing/types';
 
@@ -135,5 +135,34 @@ describe('InterestingClubs', () => {
     expect(
       screen.getByRole('link', { name: '관심도가 높은 동아리 전체 보기' }),
     ).toHaveAttribute('href', '/clubs');
+  });
+});
+
+describe('InterestingClubs — 로고 폴백', () => {
+  function clubWith(logoUrl: string | null): ClubSummary {
+    return club({ id: 9, name: '로고클럽', logoUrl });
+  }
+
+  it('로고 이미지가 실패하면 깨진 이미지 대신 이니셜로 떨어진다', async () => {
+    // 삭제된 스토리지 URL 에서 깨진 이미지 아이콘이 그대로 노출되던 것을 공용 ClubLogo 로 막았다.
+    fetchInterestingClubsMock.mockResolvedValue([clubWith('https://cdn.example.test/gone.png')]);
+
+    const { container } = render(await InterestingClubs());
+
+    const logos = container.querySelectorAll('img[src="https://cdn.example.test/gone.png"]');
+    expect(logos).not.toHaveLength(0);
+    for (const logo of logos) fireEvent.error(logo);
+
+    expect(container.querySelectorAll('img[src="https://cdn.example.test/gone.png"]')).toHaveLength(0);
+    expect(screen.getAllByText('로').length).toBeGreaterThan(0);
+  });
+
+  it('로고가 없으면 처음부터 이니셜을 그린다', async () => {
+    fetchInterestingClubsMock.mockResolvedValue([clubWith(null)]);
+
+    const { container } = render(await InterestingClubs());
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getAllByText('로').length).toBeGreaterThan(0);
   });
 });
