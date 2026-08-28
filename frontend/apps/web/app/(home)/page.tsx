@@ -5,11 +5,9 @@ import { FadeIn } from '@/components/motion/FadeIn';
 import { HomeFooter } from '../_components/HomeFooter';
 import { BannerCarousel } from '../_components/sections/BannerCarousel';
 import { Categories } from '../_components/sections/Categories';
-import { FeaturedClubs } from '../_components/sections/FeaturedClubs';
 import { HomeHero } from '../_components/sections/HomeHero';
 import { HomeMobileSearchBar } from '../_components/sections/HomeMobileSearchBar';
-import { HomeQnaSection } from '../_components/sections/HomeQnaSection';
-import { LeaderCta } from '../_components/sections/LeaderCta';
+import { InterestingClubs } from '../_components/sections/InterestingClubs';
 import { RecruitmentTicker } from '../_components/sections/RecruitmentTicker';
 
 // 홈(/)은 검색 대표 페이지 — 자기참조 canonical 로 대표 URL/제목 신호를 명확히 한다.
@@ -19,12 +17,14 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-// 홈은 전 섹션이 공개 데이터(모집 목록·통계·배너·활동 피드·FAQ)라 라우트째 ISR 로 캐시한다(#925).
+// 홈은 전 섹션이 공개 데이터(모집 목록·통계·배너·활동 피드·관심도 집계)라 라우트째 ISR 로 캐시한다(#925).
 // TTL 600s 근거(3차 Active CPU 감사): 프로덕션 serverless 실행의 대부분이 ISR 재생성이고, uptime
 // 봇(60s)이 TTL 을 상시 포화시켜 재생성 주기가 곧 Active CPU 고정비의 상한이다 — 300→600 상향으로
 // 그 고정비를 절반으로 줄인다. 가장 엄격한 freshness 요구는 "모집 오픈/마감·배너 게시가 홈에
 // 보이기까지"인데, 홈은 발견성 표면이라 10분 지연을 수용한다(클라 라우터 캐시도 3분 stale 허용해 온
 // 데이터다). 되돌릴 땐 재생성 고정비가 배가되는 것을 감수할 것.
+// 관심도 순위는 서버 배치가 매시 갱신하므로 이 TTL 안에서 최대 한 시간 늦게 반영된다 — 발견성
+// 표면이라 수용한다(카드에 찍히는 주간 인원도 같은 주기다).
 // 데이터 로더(home-data·public-activities)는 빌드 국면에서 실패 시 폴백(fail-soft)이라
 // BE 없는 CI 빌드도 통과하고(빈 섹션으로 프리렌더), Vercel 빌드는 실 API 로 실데이터를 박는다.
 // 반대로 런타임(=재생성) 실패는 rethrow 해 직전 캐시본을 유지한다 — swallow 하면 재생성이
@@ -47,17 +47,11 @@ export default function HomePage() {
       <HomeHero />
       <BannerCarousel />
       <RecruitmentTicker />
-      {/* 모바일 뷰포트 첫 화면에 걸치는 above-the-fold 콘텐츠 — FadeIn(초기 opacity:0) 언랩 */}
-      <Categories />
+      {/* 발견 흐름의 중심 섹션 — 탐색·카테고리보다 먼저 두어, 스크롤 초반에 "지금 볼 만한 곳" 을 먼저 만나게 한다.
+          모바일 뷰포트 첫 화면에 걸치는 above-the-fold 콘텐츠라 FadeIn(초기 opacity:0)으로 감싸지 않는다. */}
+      <InterestingClubs />
       <FadeIn>
-        <FeaturedClubs />
-      </FadeIn>
-      <FadeIn>
-        <HomeQnaSection />
-      </FadeIn>
-      {/* 운영자용 동아리 등록 CTA — 모바일에선 숨기고 md+ 에서만 노출 */}
-      <FadeIn className="hidden md:block">
-        <LeaderCta />
+        <Categories />
       </FadeIn>
       <HomeFooter />
     </div>

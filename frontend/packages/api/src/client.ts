@@ -39,6 +39,7 @@ import type {
   BulkApproveResult,
   ClubPhoto,
   ClubSearchParams,
+  ClubStats,
   ClubSummary,
   RecordClubViewPayload,
   CreateClubPayload,
@@ -220,6 +221,8 @@ export type DuingApiClient = {
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
+    /** 공개 통계(총 수·모집중 수·카테고리별 수)를 한 번에. */
+    stats(): Promise<ClubStats>;
     detail(clubId: number): Promise<ClubDetail>;
     /** 상세 조회 1건 기록(관심도 집계). 실패해도 화면에 영향을 주지 않는 fire-and-forget 용도다. */
     recordView(clubId: number, payload: RecordClubViewPayload): Promise<void>;
@@ -862,6 +865,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             timeout: REQUEST_TIMEOUT_MS.search,
           }),
         ),
+      stats: () => jsonOk<ClubStats>(http.get('clubs/stats')),
       detail: (clubId) => jsonOk<ClubDetail>(http.get(`clubs/${clubId}`)),
       recordView: (clubId, payload) =>
         jsonVoid(http.post(`clubs/${clubId}/views`, { json: payload })),
