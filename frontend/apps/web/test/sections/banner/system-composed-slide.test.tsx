@@ -98,3 +98,29 @@ describe('SystemComposedSlide', () => {
     expect(screen.getByText('박람회 자세히 보기')).toBeInTheDocument();
   });
 });
+
+/**
+ * 배너는 높이가 고정이라, 네 문구의 줄 수 상한이 곧 높이 예산이다. 가장 좁은 md 는 여유가 4px
+ * 뿐이라 상한 하나만 풀려도 콘텐츠가 아래 위치 표시를 침범한다(실제로 두 번 그렇게 깨졌다).
+ * 클래스 문자열을 통째로 단언하면 스타일 변경마다 깨지므로, 상한을 만드는 구조만 고정한다.
+ */
+describe('SystemComposedSlide — 고정 높이를 지키는 줄 수 상한', () => {
+  it('제목은 두 줄에서 잘린다', () => {
+    render(<SystemComposedSlide slide={makeSlide({ title: '아주 긴 제목' })} />);
+    expect(screen.getByRole('heading')).toHaveClass('line-clamp-2');
+  });
+
+  it('부제는 한 줄에서 잘린다 — 노출 래퍼와 분리돼 있어야 line-clamp 가 살아 있다', () => {
+    render(<SystemComposedSlide slide={makeSlide({ sub: '아주 긴 부제' })} />);
+    const sub = screen.getByText('아주 긴 부제');
+    expect(sub).toHaveClass('line-clamp-1');
+    // display 유틸리티를 같은 요소에 얹으면 -webkit-box 를 덮어 상한이 조용히 풀린다.
+    expect(sub.className).not.toMatch(/\b(hidden|block)\b/);
+  });
+
+  it('태그와 CTA 는 말줄임 스팬 안에 담긴다 — 인라인으로 되돌리면 줄바꿈이 살아난다', () => {
+    render(<SystemComposedSlide slide={makeSlide({ tag: '아주 긴 태그', cta: '아주 긴 CTA' })} />);
+    expect(screen.getByText('아주 긴 태그')).toHaveClass('truncate');
+    expect(screen.getByText('아주 긴 CTA')).toHaveClass('truncate');
+  });
+});

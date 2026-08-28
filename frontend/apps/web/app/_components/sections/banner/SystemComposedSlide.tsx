@@ -30,10 +30,10 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
   const textColor = hasImage ? '#fff' : slide.fg;
   const body = (
     <div
-      // 가로 여백은 페이지의 다른 카드 리듬에 맞춘다. 카드가 페이지 여백선에서 시작하므로 안쪽
-      // 여백만큼 글자가 더 밀리는데, 예전 48px 은 카테고리 카드(22px)의 두 배라 배너 글자만
-      // 혼자 안으로 들어가 보였다(데스크탑 실측 48px 차이). 배너가 더 큰 면이라 카드보다는
-      // 넉넉하게 두되 그 절반 가까이 줄여 다른 섹션과 시작선이 크게 어긋나지 않게 한다.
+      // 가로 여백: 카드가 페이지 여백선에서 시작하므로 안쪽 여백만큼 글자가 더 밀린다. 예전 48px 은
+      // 카테고리 카드(22px)의 두 배라 배너 글자만 혼자 안으로 들어가 보였다(데스크탑 실측 48px 차이).
+      // 좁은 폭은 페이지 좌우 여백과 같은 값(16·24)을 써 들여쓰기가 한 칸으로 읽히게 하고,
+      // md 는 면이 넓어지는 만큼 32 로 한 단계만 올린다 — 카드(22)와 예전 값(48) 사이다.
       // 세로: 배너는 높이가 고정이고 제목은 시안 크기(sm 부터 48px, 2줄이면 106px)라 여백이 곧 예산이다.
       // sm 미만만 아래를 크게 비운다 — 그 폭에서는 위치 표시가 우측 하단이라 CTA 와 세로로 겹친다.
       // sm 부터는 표시가 우측 상단으로 올라가므로 예약이 필요 없고 develop 여백(20px)을 그대로 쓴다.
@@ -96,7 +96,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
           // 태그는 60자까지 들어올 수 있어(백엔드 @Size) 그대로 두면 우측 상단 페이저 밑으로 파고든다.
           // sm 부터 우측 상단 위치 표시가 차지하는 폭만큼 비워 두고, 넘치면 말줄임한다.
           // 안쪽 span 의 min-w-0 이 없으면 flex 아이템이 글자 폭 아래로 안 줄어 max-w 가 무력해진다.
-          className="tracking-wide08 relative inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-semibold sm:max-w-[calc(100%-7rem)]"
+          className="tracking-wide08 relative inline-flex max-w-full items-center self-start rounded-full px-3 py-[5px] text-[11.5px] font-semibold sm:max-w-[calc(100%-7rem)]"
           style={{
             background: hasImage
               ? 'rgba(255,255,255,0.95)'
@@ -111,6 +111,9 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
       )}
       <div className="relative">
         <h2
+          // 자간·행간은 .duing 의 h1~h3 규칙(-0.03em, 1.1)을 그대로 받는다 — 여기서 덮으면 다른
+          // 섹션 제목과 밀도가 갈린다. 다만 그 규칙이 text-5xl 의 line-height:1 을 특이도로 이기는
+          // 구조라, 이 슬라이드를 .duing 밖으로 옮기면 제목이 조용히 뭉친다.
           className="mb-1 line-clamp-2 whitespace-pre-line text-[21px] sm:mb-2.5 sm:text-5xl"
           style={{ color: textColor }}
         >
@@ -142,9 +145,7 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
             }}
           >
             <span className="min-w-0 truncate">{slide.cta}</span>
-            <span className="shrink-0">
-              <ArrowRight />
-            </span>
+            <ArrowRight className="shrink-0" />
           </span>
         )}
       </div>
