@@ -40,6 +40,7 @@ import type {
   ClubPhoto,
   ClubSearchParams,
   ClubSummary,
+  RecordClubViewPayload,
   CreateClubPayload,
   CreateRecruitmentPayload,
   LoginPayload,
@@ -220,6 +221,8 @@ export type DuingApiClient = {
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
     detail(clubId: number): Promise<ClubDetail>;
+    /** 상세 조회 1건 기록(관심도 집계). 실패해도 화면에 영향을 주지 않는 fire-and-forget 용도다. */
+    recordView(clubId: number, payload: RecordClubViewPayload): Promise<void>;
     create(payload: CreateClubPayload): Promise<number>;
     update(clubId: number, payload: UpdateClubPayload): Promise<ClubDetail>;
     updateStatus(clubId: number, payload: UpdateClubStatusPayload): Promise<void>;
@@ -860,6 +863,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           }),
         ),
       detail: (clubId) => jsonOk<ClubDetail>(http.get(`clubs/${clubId}`)),
+      recordView: (clubId, payload) =>
+        jsonVoid(http.post(`clubs/${clubId}/views`, { json: payload })),
       create: (payload) =>
         jsonOk<number>(http.post('admin/clubs', { json: payload })),
       update: (clubId, payload) =>
