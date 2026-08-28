@@ -103,7 +103,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | body-sm | 15px | 1.5 | — | `text-[15px]` (검색 인풋) |
 | body | 16–18px | 1.5–1.6 | -0.005em | `text-lg leading-[1.6] text-charcoal-2` (히어로 서브) |
 | card-title | 17–30px | 1.25 | tightest | `type-card-title` (h3 기본 Bold 를 SemiBold 로 되돌리는 역할 클래스) |
-| heading-sm | 28–38px | 1.1 | -0.025em | `clamp(28px, 3vw, 38px)` (Categories h2) |
+| heading-sm | 28px | 1.1 | tightest | `text-[28px]` (Font Guide H3 — 하위 섹션 제목) |
 | heading | 20–36px | 1.1 | tightest | `text-[20px] md:text-[36px]` (섹션 h2, 자동 Bold) |
 | display | 34–72px | 1.28 | tightest | `type-display text-[34px] … xl:text-[72px]` (히어로 전용, ExtraBold) |
 
@@ -172,7 +172,8 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 `rounded-[18px]` + 카드별 `--accent` CSS 변수 주입. `transition-[transform,box-shadow,border-color] duration-[250ms] ease-[cubic-bezier(.2,.7,.2,1)] hover:-translate-y-1 hover:border-[color:var(--accent)]`. 내부 이미지 `group-hover:scale-105`(600ms), 원형 화살표 버튼 `group-hover:-rotate-45` + 액센트색 채움.
 
 ### CTA Panel
-**Role:** 섹션 전체가 한 장의 패널인 마무리 CTA (LeaderCta).
+**Role:** 섹션 전체가 한 장의 패널인 마무리 CTA.
+홈의 운영자 등록 CTA(LeaderCta)가 이 패턴의 유일한 사용처였는데 홈 개편에서 걷어냈다 — 지금은 미사용 패턴이다.
 
 보더·섀도 없이 `rounded-xl bg-sage-mist px-14 py-11` — 색 면이 분리를 담당한다. SparkleFull 2개(48px/opacity-60 + 28px/opacity-40)를 절대배치 장식으로.
 
@@ -305,7 +306,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 ## Imagery
 
-일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 실사 사진은 카테고리 타일에만 (`next/image fill` + `object-cover` + 톤 그라디언트 오버레이), 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등). 텍스트 자체를 그래픽으로 쓰는 패턴 — 와이드 트래킹 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
+일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 카테고리 타일은 실사 사진이 아니라 토스페이스 픽토그램(원본 SVG, `/public/tossface`)을 쓴다. 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등). 텍스트 자체를 그래픽으로 쓰는 패턴 — 와이드 트래킹 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
 
 ## Layout
 
@@ -488,9 +489,9 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 모바일 4G/중급기 기준 예산: **LCP < 2.5s · CLS < 0.1 · INP < 200ms.** 현 코드 상태 기준 권고:
 
 - **폰트(셀프호스팅):** `/public/fonts` 의 Pretendard 가변본(woff2, 45~920) 하나가 전 weight 를 덮고 `layout.tsx` 가 이것만 preload 한다. 디스플레이 서체를 없애면서 3웨이트 `.woff` 왕복이 사라졌다 — 서체를 다시 늘리지 말 것. `font-display: swap` 으로 FOUT 은 허용한다.
-- **이미지:** 현재 `<img>` 직접 사용이 13곳(사용자 업로드 배너 + onError 폴백)이고 `next/image` 는 3파일뿐. 모바일 절감을 위해 콘텐츠 이미지는 가능하면 **`next/image`(자동 lazy·포맷·`sizes`)** 로, raw `<img>` 는 **명시적 `width/height`(또는 `aspect-ratio`) + `loading="lazy"`** 로 CLS·전송량을 줄인다. 카테고리 타일 `sizes`(`(max-width:768px) 50vw, 25vw`)처럼 모바일 뷰포트에 맞춘 `sizes` 필수. **LCP 이미지(히어로/배너)** 는 `priority`(현재 2곳뿐 — 첫 화면 핵심 이미지에 확대).
+- **이미지:** 현재 `<img>` 직접 사용이 13곳(사용자 업로드 배너 + onError 폴백)이고 `next/image` 는 3파일뿐. 모바일 절감을 위해 콘텐츠 이미지는 가능하면 **`next/image`(자동 lazy·포맷·`sizes`)** 로, raw `<img>` 는 **명시적 `width/height`(또는 `aspect-ratio`) + `loading="lazy"`** 로 CLS·전송량을 줄인다. 뷰포트에 맞춘 `sizes` 는 필수다(카테고리 타일이 그 예였는데, 지금은 사진 대신 SVG 픽토그램이라 해당 없음). **LCP 이미지(히어로/배너)** 는 `priority`(현재 2곳뿐 — 첫 화면 핵심 이미지에 확대).
 - **JS / 모션:** framer-motion 을 현재 전체 `motion` 으로 import — 사용처가 늘면 **`LazyMotion` + `domAnimation` feature(또는 `m` 컴포넌트)** 로 번들을 줄인다. `'use client'` 남발 금지(서버 컴포넌트 우선 — 프로젝트 규칙)로 모바일 하이드레이션 비용 억제. 스크롤 리빌은 `once:true`(현 `FadeIn`), `transform`/`opacity` 만 애니메이트(레이아웃 thrash·리플로 금지), 무한 애니메이션 금지(Motion 원칙).
-- **렌더링/데이터:** `force-dynamic` 홈은 런타임 BE fetch → 모바일 네트워크 TTFB 영향. 섹션별 **Suspense + 스켈레톤**으로 체감 단축, 빈 데이터는 섹션 `return null`(기존 규칙). 긴 리스트는 페이지네이션, 무한 스크롤 도입 시 가상화 검토.
+- **렌더링/데이터:** 홈은 `force-dynamic` 이 아니라 ISR(`revalidate = 600`)이다. 재생성 실패 정책은 `app/_lib/fail-soft.ts` 가 단일 출처 — 런타임 실패는 rethrow 해 직전 캐시본을 유지한다. 섹션별 **Suspense + 스켈레톤**으로 체감 단축, 빈 데이터는 섹션 `return null`(기존 규칙). 긴 리스트는 페이지네이션, 무한 스크롤 도입 시 가상화 검토.
 - **CLS 가드:** 폰트 swap·무치수 이미지·동적 삽입이 시프트 유발 — 이미지 치수/`aspect-ratio` 명시. **하단 탭바/고정 액션바는 `fixed` 라 플로우에 영향 없으나**, 콘텐츠에 그 높이만큼 하단 패딩을 둬 가림을 막는다(시프트 아님).
 - **접근성×성능:** `prefers-reduced-motion` 존중(현 `MotionConfig reducedMotion="user"`) — 모션 비용도 함께 절감.
 

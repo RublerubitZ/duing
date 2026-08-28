@@ -37,6 +37,9 @@ export async function HomeHero() {
             draggable={false}
             className="pointer-events-none absolute -right-4 -top-4 z-0 w-[230px] select-none md:hidden"
           />
+          {/* 마스코트만 preload 한다 — 모바일 히어로의 LCP 후보라 lazy 로 두면 한 왕복만큼 늦는다.
+              데스크탑에서도 받게 되는 낭비는 감수한다(우측 일러스트가 모바일에서 그런 것과 같은 맞교환).
+              장식인 컨페티는 그럴 이유가 없어 위에서 preload 하지 않는다. */}
           <Image
             src="/duing-mascot.png"
             alt="두잉 마스코트 두두"
