@@ -136,7 +136,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 - **Page max-width:** 1280px (`max-w-layout mx-auto`) + 섹션 좌우 패딩 `px-10` — 네비·히어로·섹션·푸터 전부 동일한 컨테이너 공식
 - **Section gap:** 비대칭 (예: `pt-24 pb-10`, `py-16`, `pt-20 pb-6`) — 리듬 조절용으로 섹션마다 다르게
 - **Card padding:** 16px (`p-4`), CTA 패널은 `px-14 py-11`
-- **Card grid:** `grid gap-4 md:grid-cols-4` / `gap-5`. 히어로는 비대칭 2컬럼 `md:grid-cols-[1.15fr_1fr] gap-16`
+- **Card grid:** `grid gap-5 md:grid-cols-2 lg:grid-cols-4` — md 는 2×2, lg 부터 4열. 관심도 카드는 래퍼 `lg:[container-type:inline-size]` + 카드 루트 `text-[16px] lg:text-[5.614cqw]`(1280 카드 폭 285 기준)로 안쪽 치수를 전부 em 으로 두어 폭에 비례해 통째로 줄어든다(1024 에서 0.78 배, 비율 0.98 고정). 히어로는 비대칭 2컬럼 `md:grid-cols-[1.15fr_1fr] gap-16`
 
 ## Components
 
