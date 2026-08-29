@@ -126,7 +126,9 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
     // 토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
     <div className="hidden md:block">
       <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[760px]">
-        {/* 브랜드 일러스트 — 우측 메인 비주얼(박스를 가득 채움). drop-shadow 없음, 드래그 방지. */}
+        {/* 브랜드 일러스트 — 우측 메인 비주얼(박스를 가득 채움). drop-shadow 없음, 드래그 방지.
+            등장 애니메이션은 두지 않는다 — 새로고침마다 첫 화면이 다시 "나타나" 리로드처럼 읽히고,
+            opacity 0 인 요소는 LCP 후보에서 빠지므로, 페이드가 시작돼 보이기 시작하는 시점만큼 LCP 가 늦어진다. */}
         <Image
           src="/duing-illustration.png"
           alt="두잉 — 캠퍼스 동아리 활동 일러스트레이션"
@@ -135,11 +137,11 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
           priority
           fetchPriority="high"
           draggable={false}
-          className="h-auto w-full object-contain animate-in fade-in-0 zoom-in-95 duration-700 motion-reduce:animate-none"
+          className="h-auto w-full object-contain"
         />
 
         {/* 활동 토스트 — 시안대로 일러스트 우측 상단 한 자리에만 두고, 나머지는 옆으로 밀어 본다. */}
-        <div className="absolute right-1 top-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 delay-300 motion-reduce:animate-none lg:right-3 lg:top-16">
+        <div className="absolute right-1 top-10 lg:right-3 lg:top-16">
           <HeroActivityToasts toasts={toasts} />
         </div>
       </div>

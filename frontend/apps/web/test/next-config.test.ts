@@ -66,6 +66,25 @@ describe('next.config 정적 폰트 캐시', () => {
     expect(fontsHeaders['Cache-Control']).toBe('public, max-age=31536000, immutable');
   });
 
+  it('정적 이미지·favicon 에도 1년 immutable 캐시를 내린다 — 새로고침마다의 이미지 재검증 왕복을 없앤다', async () => {
+    const headersFn = nextConfig.headers;
+    if (!headersFn) throw new Error('headers() 가 정의되어야 한다');
+    const rules = await headersFn();
+
+    const imageRule = rules.find((entry) => /\(png\|/.test(entry.source));
+    if (!imageRule) throw new Error('이미지 확장자 규칙이 있어야 한다');
+    const imageHeaders = Object.fromEntries(
+      imageRule.headers.map((header) => [header.key, header.value]),
+    );
+    expect(imageHeaders['Cache-Control']).toBe('public, max-age=31536000, immutable');
+    // favicon·svg 로고까지 같은 규칙에 걸려야 한다 — 확장자 목록에서 빠지면 조용히 max-age=0 으로 돌아간다.
+    for (const ext of ['png', 'webp', 'svg', 'ico']) expect(imageRule.source).toContain(ext);
+  });
+
+  it('/_next/image 최적화 결과도 1년 하한으로 캐시한다 — 원본이 public/ 정적 자산뿐이라 immutable 규칙과 같은 값', () => {
+    expect(nextConfig.images?.minimumCacheTTL).toBe(31536000);
+  });
+
   it('보안 헤더 규칙(/:path*)은 폰트 규칙 추가와 무관하게 유지된다', async () => {
     const headers = await resolvePathHeaders();
     expect(headers['Strict-Transport-Security']).toContain('max-age=');
