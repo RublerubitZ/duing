@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { ArrowRight, Search } from '@/components/duing/Icon';
+import { Search } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
@@ -90,20 +90,25 @@ export async function HomeHero() {
             )}
           </p>
 
-          {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3) */}
-          <form action="/clubs" method="get" className="hidden max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2 ring-ink/40 focus-within:ring-2 md:flex">
-            <label className="flex flex-1 items-center gap-3 px-[18px] py-3.5">
-              <Search className="text-charcoal-3" />
-              <input
-                type="search"
-                name="q"
-                placeholder="동아리 이름, 키워드, 카테고리로 검색"
-                className="flex-1 border-none bg-transparent text-[15px] text-charcoal outline-none"
-              />
-            </label>
-            <button type="submit" className="btn btn-primary rounded-md px-[22px] py-3.5">
+          {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3).
+              시안 PC 프레임(602×78, 모서리 22, 안쪽 좌 23·우 18, 버튼 115×61 '검색 + 돋보기' 22px)을
+              콘텐츠 폭 기준 ×0.815 로 옮겼다: 490×64, 모서리 18, 버튼 50px, 글자 18px. 왼쪽 돋보기와
+              섀도는 시안에 없어 뺐다 — 흰 면만으로 크림 위에서 분리되고 포커스는 링이 맡는다.
+              시안 굵기는 Medium 이지만 Font Guide 에 500 이 없어 모바일 바처럼 입력 Regular·버튼 SemiBold. */}
+          <form action="/clubs" method="get" className="hidden max-w-[490px] items-center gap-3 rounded-[18px] bg-paper py-[7px] pl-5 pr-4 ring-ink/40 focus-within:ring-2 md:flex">
+            <input
+              type="search"
+              name="q"
+              placeholder="찾으시는 동아리를 검색해주세요."
+              aria-label="동아리 검색"
+              className="min-w-0 flex-1 border-none bg-transparent text-[18px] tracking-tightest text-charcoal outline-none placeholder:text-charcoal-3"
+            />
+            <button
+              type="submit"
+              className="flex h-[50px] shrink-0 items-center gap-2 rounded-[18px] bg-ink-deep pl-5 pr-3.5 text-[18px] font-semibold tracking-tightest text-cream transition hover:bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
               검색
-              <ArrowRight />
+              <Search size={24} />
             </button>
           </form>
         </div>
