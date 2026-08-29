@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import { Search } from '@/components/duing/Icon';
-import { SparkleFull } from '@/components/duing/Sparkle';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { HeroActivityToasts } from './HeroActivityToasts';
@@ -57,11 +56,8 @@ export async function HomeHero() {
             캠퍼스의
             <br />
             모든{' '}
-            <span className="relative inline-block">
-              <span className="text-ink-deep">두</span>
-              <span className="text-ink">잉</span>
-              <SparkleFull size={48} color="#9DB6A0" className="absolute -right-11 -top-2.5" />
-            </span>
+            <span className="text-ink-deep">두</span>
+            <span className="text-ink">잉</span>
             .
           </h1>
 
