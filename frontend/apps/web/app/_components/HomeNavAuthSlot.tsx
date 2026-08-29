@@ -18,17 +18,19 @@ export function HomeNavAuthSlot({
   if (status !== 'authenticated') {
     return (
       // 시안의 상단바 CTA — 로그인은 면 없는 잉크 텍스트, 회원가입은 딥그린 알약에 라이트그린 글자다.
-      // 회원가입은 .btn 의 기하·전환만 가져오고 색은 직접 준다 — btn-primary(ink/paper)와 색 조합이 다르다.
-      <div className="flex items-center gap-2 lg:gap-3">
+      // PC(컴포넌트 210:2824, ×0.815): 높이 42→34·좌우 24→20·글자 Medium 20→16·간격 12→10.
+      // 모바일(426:4094, 1:1)은 높이 24·폭 66·글자 13 인데 한 단계 키워 26·70·14 로 둔다 — 13 은 타입 스케일 밖이고
+      // 14(Body/Small)가 40px 헤더 행에서 더 또렷하다(사용자 요청). 간격 4. 경계는 상단 네비 링크와 같은 md.
+      <div className="flex items-center gap-1 md:gap-2.5">
         <Link
           href="/login"
-          className="grid h-10 place-items-center rounded-full px-4 text-[14px] font-semibold tracking-tightest text-ink-deep hover:bg-graysoft lg:px-6 lg:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
         >
           로그인
         </Link>
         <Link
           href="/signup"
-          className="btn h-10 rounded-full bg-ink-deep px-4 py-0 text-[14px] tracking-tightest text-sage-mist hover:bg-ink lg:px-6 lg:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full bg-ink-deep text-[14px] font-medium tracking-tightest text-sage-mist transition hover:bg-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
         >
           회원가입
         </Link>

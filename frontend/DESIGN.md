@@ -143,7 +143,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 ### Primary Button (`.btn .btn-primary`)
 **Role:** 핵심 전환 액션 — 검색, 등록 신청, 배너 CTA.
 
-`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-md font-semibold text-sm cursor-pointer transition` + `letter-spacing: -0.01em`. Ink(#1F4A36) 배경, Paper 텍스트, hover 는 `bg-ink-deep` 색상 전환만 — translate/scale/섀도 변화 없음. 주요 CTA 는 텍스트 뒤 `<ArrowRight />` 동반. 변형: `.btn-big`(px-7 py-4 text-base rounded-lg), `.btn-sm`(px-3.5 py-2 text-[13px] rounded-sm), 알약형은 `rounded-full` 오버라이드 (네비 회원가입 CTA: `btn h-10 rounded-full bg-ink-deep px-4 text-[14px] text-sage-mist lg:px-6 lg:text-[16px]` — 딥그린 면에 세이지미스트 글자. 짝인 로그인은 면 없는 텍스트 링크).
+`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-md font-semibold text-sm cursor-pointer transition` + `letter-spacing: -0.01em`. Ink(#1F4A36) 배경, Paper 텍스트, hover 는 `bg-ink-deep` 색상 전환만 — translate/scale/섀도 변화 없음. 주요 CTA 는 텍스트 뒤 `<ArrowRight />` 동반. 변형: `.btn-big`(px-7 py-4 text-base rounded-lg), `.btn-sm`(px-3.5 py-2 text-[13px] rounded-sm), 알약형은 `rounded-full` 오버라이드 (네비 회원가입 CTA는 `.btn` 을 쓰지 않는 자체 알약: 모바일 `h-[26px] w-[70px] text-[14px]`(시안 24·66·13 에서 한 단계 키움), md 부터 `h-[34px] px-5 text-[16px]`, `font-medium bg-ink-deep text-sage-mist` — 시안 컴포넌트 210:2824(×0.815)·426:4094(1:1). 짝인 로그인은 같은 기하의 면 없는 텍스트 링크).
 
 ### Secondary / Ghost Button (`.btn-secondary` / `.btn-ghost`)
 **Role:** 보조 액션, 텍스트성 컨트롤.
@@ -189,7 +189,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
 
-`relative z-50 bg-cream/90 backdrop-blur` — 반투명 크림 + 블러. 하단 구분선 없음 — 본문과는 여백으로 나뉜다. 내부 `max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12`(HomeNav·ExploreNav 가 `navLinkStyles.ts` 상수를 공유한다 — 값이 갈리면 페이지를 옮길 때 메뉴가 튄다). 링크 `text-[14px] font-semibold tracking-tightest lg:text-[16px]`, 항목 간격 `gap-6 lg:gap-10 xl:gap-14` — 시안 24px·88px(캔버스 1920·콘텐츠 1472 → 우리 1200 기준 ×0.815 ≈ 20px·72px)에서 요청으로 한 단계 낮춘 값. 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-[2px] rounded-full bg-ink`. 우측은 로그인(면 없는 텍스트) + 회원가입(딥그린 알약, 위 Primary Button 참조). 드롭다운: `w-[280px] rounded-[16px] border border-line bg-paper` + `var(--shadow-3)`, 항목 hover `bg-sage-tint`.
+`relative z-50 bg-cream/90 backdrop-blur` — 반투명 크림 + 블러. 하단 구분선 없음 — 본문과는 여백으로 나뉜다. 내부 `max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12`(HomeNav·ExploreNav 가 `navLinkStyles.ts` 상수를 공유한다 — 값이 갈리면 페이지를 옮길 때 메뉴가 튄다). 링크 `text-[14px] font-semibold tracking-tightest lg:text-[16px]`, 항목 간격 `gap-6 lg:gap-10 xl:gap-14` — 시안 24px·88px(캔버스 1920·콘텐츠 1472 → 우리 1200 기준 ×0.815 ≈ 20px·72px)에서 요청으로 한 단계 낮춘 값. 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-[2px] rounded-full bg-ink`. 우측은 비로그인 로그인(면 없는 텍스트) + 회원가입(딥그린 알약, 위 Primary Button 참조), 로그인 시 Phosphor Bell(글리프 모바일 19·PC 24, 히트 40px 원, `text-ink-deep`) + 흰 알약 "이름님"(`bg-paper font-semibold text-ink-deep`, 모바일 `h-[26px] min-w-[70px] text-[14px]`·PC `h-[34px] px-5 text-[16px]`, 아바타 없음 — 이름은 /users/me). 드롭다운: `w-[280px] rounded-[16px] border border-line bg-paper` + `var(--shadow-3)`, 항목 hover `bg-sage-tint`.
 
 ### Carousel Controls
 **Role:** 배너 캐러셀 위치 표시·이동.
@@ -440,7 +440,7 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 - 콘텐츠는 탭바 높이 + 세이프에어리어만큼 하단 패딩으로 가림 방지. **공개 공지 탭 ≠ 개인 알림 벨**(벨은 상단 우측 유지, 둘을 합치지 않는다).
 
 **② 프로필(`/me`) — 상단 우측 유저메뉴**
-- 하단 탭이 아니라 현 shadcn `UserMenu`(아바타)로 진입. 비로그인 시 그 자리에 **로그인·가입**. (인증 게이팅된 개인영역을 항상보이는 바에서 분리 — X/YouTube 식.)
+- 하단 탭이 아니라 상단 우측 `UserMenu`(흰 알약 "이름님", 아바타 없음)로 진입. 비로그인 시 그 자리에 **로그인·가입**. (인증 게이팅된 개인영역을 항상보이는 바에서 분리 — X/YouTube 식.)
 
 **③ 도구형 콘솔 — Sheet 드로어 (하단 탭바 없음)**
 
