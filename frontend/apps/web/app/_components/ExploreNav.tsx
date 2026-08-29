@@ -5,6 +5,13 @@
 import Link from 'next/link';
 
 import { cn } from '@/app/_lib/cn';
+import {
+  NAV_LINK_ACTIVE,
+  NAV_LINK_INACTIVE,
+  NAV_LINK_UNDERLINE,
+  NAV_LIST_BASE,
+  NAV_ROW_BASE,
+} from './navLinkStyles';
 import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 
@@ -24,9 +31,10 @@ const NAV_ITEMS: readonly NavItem[] = [
   { label: '홈', href: '/' },
   { label: '탐색', href: '/clubs' },
   { label: '시설', href: '/facilities' },
-  { label: '캘린더', href: '/calendar' },
-  // 정보: /notices·/faq·/terms·/introduce 전체에서 활성, 이동은 마지막 방문 허브 경로(아래 참고).
-  { label: '정보', href: DEFAULT_INFO_PATH, match: isInfoSection },
+  { label: '일정', href: '/calendar' },
+  // 소식: 라벨만 시안을 따른 것이고 범위는 정보 섹션 전체(/notices·/faq·/terms·/introduce)다.
+  // 이동은 마지막 방문 허브 경로(아래 참고).
+  { label: '소식', href: DEFAULT_INFO_PATH, match: isInfoSection },
 ];
 
 type Props = {
@@ -61,7 +69,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
         isDetailFocus && 'hidden md:block',
       )}
     >
-      <nav className="max-w-layout mx-auto flex items-center gap-12 px-4 sm:px-6 md:px-10 py-3">
+      <nav className={NAV_ROW_BASE}>
         {/* `/` 링크는 프리페치 제외(P0) — force-dynamic 시절 서버리스 비용 조치. 홈이 ISR(#925)로
             바뀐 뒤에도 복원은 Active CPU 실측 후 별도 판단한다. hover·터치 프리페치까지 꺼져
             첫 클릭 커밋이 RSC 응답 시작까지 지연될 수 있다 — 의도된 트레이드오프. */}
@@ -71,7 +79,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
 
         <ul
           className={cn(
-            'items-center gap-8 text-[13.5px] font-semibold',
+            NAV_LIST_BASE,
             slimOnMobile ? 'hidden md:flex' : 'flex',
           )}
         >
@@ -86,11 +94,11 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
                   // 홈만 프리페치 제외 — 위 브랜드 링크와 같은 이유(P0 Active CPU 조치 유지).
                   prefetch={item.href === '/' ? false : undefined}
                   aria-current={on ? 'page' : undefined}
-                  className={`relative py-1 ${on ? 'text-ink-deep' : 'text-charcoal-3 hover:text-charcoal'}`}
+                  className={on ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
                 >
                   {item.label}
                   {on && (
-                    <span className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-ink" />
+                    <span className={NAV_LINK_UNDERLINE} />
                   )}
                 </Link>
               </li>

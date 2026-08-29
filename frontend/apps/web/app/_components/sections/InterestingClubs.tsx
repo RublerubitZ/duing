@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ClubSummary } from '@duing/types';
 
 import { ArrowRight } from '@/components/duing/Icon';
+import { ClubLogo } from '@/app/_components/ClubLogo';
 import { fetchInterestingClubs } from '@/app/_lib/home-data';
 import { HOME_CATEGORY_BY_VALUE } from '@/app/_lib/homeCategories';
 import { displayStatusLabel } from '@/app/_lib/recruitmentDisplay';
@@ -75,28 +76,20 @@ function statusBadge(club: ClubSummary): { label: string; className: string } | 
   };
 }
 
-function ClubLogo({ club, className }: { club: ClubSummary; className?: string }) {
+/**
+ * 카드 로고 — 이미지 로드 실패 시 이니셜로 떨어지는 공용 ClubLogo 를 쓴다.
+ * 직접 <img> 를 그리면 삭제된 스토리지 URL 에서 깨진 이미지 아이콘이 그대로 노출된다(실제로 관측).
+ * 컨테이너가 relative·overflow-hidden·크기·배경을 책임진다는 게 그 컴포넌트의 계약이다.
+ */
+function ClubCardLogo({ club, className }: { club: ClubSummary; className?: string }) {
   const color = HOME_CATEGORY_BY_VALUE[club.category].labelColor;
-  if (club.logoUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={club.logoUrl}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-        className={cn('shrink-0 object-cover', className)}
-      />
-    );
-  }
   return (
     <span
       aria-hidden
-      className={cn('grid shrink-0 place-items-center font-bold', className)}
+      className={cn('relative grid shrink-0 place-items-center overflow-hidden font-bold', className)}
       style={{ background: `${color}1f`, color }}
     >
-      {club.name.charAt(0)}
+      <ClubLogo logoUrl={club.logoUrl}>{club.name.charAt(0)}</ClubLogo>
     </span>
   );
 }
@@ -111,7 +104,7 @@ function InterestCard({ club }: { club: ClubSummary }) {
       className="group flex min-h-[290px] flex-col rounded-[24px] border border-line bg-paper p-[22px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
     >
       <div className="flex items-start justify-between gap-3">
-        <ClubLogo club={club} className="h-[82px] w-[82px] rounded-[18px] text-[30px]" />
+        <ClubCardLogo club={club} className="h-[82px] w-[82px] rounded-[18px] text-[30px]" />
         {badge && (
           <span
             className={cn(
@@ -157,7 +150,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
       href={`/clubs/${club.id}`}
       className="flex h-[76px] items-center gap-3 rounded-[10px] border border-line bg-paper px-3 transition active:scale-[0.99]"
     >
-      <ClubLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
+      <ClubCardLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-baseline gap-1">

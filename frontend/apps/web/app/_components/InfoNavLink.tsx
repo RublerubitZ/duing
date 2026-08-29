@@ -9,8 +9,8 @@ import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 /**
- * HomeNav(Server Component)용 "정보" 링크 + PC Hover Quick Menu.
- * - "정보" 클릭: 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices)로 이동.
+ * HomeNav(Server Component)용 "소식" 링크(범위는 정보 섹션 전체) + PC Hover Quick Menu.
+ * - "소식" 클릭: 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices)로 이동.
  * - hover(또는 키보드 포커스 진입) 시 허브 4개로 직행하는 Quick Menu 를 펼친다 — HomeNav 가
  *   렌더되는 모든 화면에서 동작(스펙 결정 11, 컴포넌트 단위 적용). 터치 기기는 첫 탭이 hover 를
  *   합성할 수 있어 matchMedia('(hover: hover)') 게이트로 막는다 — 탭은 곧바로 클릭 이동.
@@ -49,7 +49,7 @@ export function InfoNavLink({ className }: { className?: string }) {
       }}
     >
       <Link href={lastInfoPath} className={className} aria-expanded={quickMenuOpen}>
-        정보
+        소식
       </Link>
       {quickMenuOpen && (
         // pt-2 가 트리거와 패널 사이 hover 브리지 — 마진이면 데드존이 생겨 메뉴가 깜빡인다.

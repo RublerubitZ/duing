@@ -173,16 +173,6 @@ const config: Config = {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(100%)' },
         },
-        // 진입 오버슈트를 8px 로 둔다 — 16px 일 때 카드가 컨테이너 밖으로 잠깐(<0.1s) 새던 현상 완화.
-        // 컨테이너 overflow-hidden 은 프리뷰 버튼 포커스 링까지 잘라 a11y 를 해치므로 오버슈트 축소로 대응.
-        'preview-in': {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        'preview-in-reverse': {
-          '0%': { opacity: '0', transform: 'translateY(-8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
         'accordion-down': {
           from: { height: '0' },
           to: { height: 'var(--radix-accordion-content-height)' },
@@ -202,15 +192,12 @@ const config: Config = {
         'slide-out-left': 'slide-out-to-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
         'slide-in-left': 'slide-in-from-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
         'slide-out-right': 'slide-out-to-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
-        'preview-in': 'preview-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
-        'preview-in-reverse': 'preview-in-reverse 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         marquee: 'marquee 30s linear infinite',
       },
     },
   },
-  safelist: ['animate-preview-in', 'animate-preview-in-reverse'],
   plugins: [tailwindcssAnimate],
 };
 
