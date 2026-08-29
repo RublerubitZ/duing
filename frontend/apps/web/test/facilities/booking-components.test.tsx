@@ -491,10 +491,10 @@ it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시�
   const slotList = screen.getByRole('list', { name: '시간대 선택' }); // DaySlotList
   // 예약 현황 → 시간 선택 순서(DOCUMENT_POSITION_FOLLOWING = 4)
   expect(overview.compareDocumentPosition(slotList) & 4).toBeTruthy();
-  // 모바일(<md) 주간: CTA 바는 BottomNav(3.5rem+safe-area) 위 fixed — 탭바에 가려지던 회귀 방지. 스페이서 동반.
+  // 모바일(<md) 주간: CTA 바는 BottomNav(60px+safe-area) 위 fixed — 탭바에 가려지던 회귀 방지. 스페이서 동반.
   const ctaBar = screen.getByRole('button', { name: '시간을 선택해주세요' }).closest('div');
   expect(ctaBar).toHaveClass('max-md:fixed');
-  expect(ctaBar).toHaveClass('max-md:bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))]');
+  expect(ctaBar).toHaveClass('max-md:bottom-[calc(60px_+_env(safe-area-inset-bottom))]');
   // 다크 요약 카드는 통합으로 제거 — "선택한 날짜" 미렌더.
   expect(screen.queryByText('선택한 날짜')).not.toBeInTheDocument();
   // 일간/주간 뷰 토글은 공용 헤더(BookingViewHeader)로 이관 — 패널 내부 tablist·주간 그리드는 없다.

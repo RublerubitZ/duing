@@ -428,14 +428,14 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 ### Safe Area
 - `app/layout.tsx` viewport: `viewport-fit=cover`, `width=device-width, initial-scale=1`, `themeColor:'#F6F3EC'`(cream), `maximumScale` 미설정(확대 허용).
 - `env(safe-area-inset-*)`: 상단 sticky 네비(`pt-[env(safe-area-inset-top)]`), 하단 고정 액션바·바텀시트(`pb-[env(safe-area-inset-bottom)]`).
-- 풀하이트는 **`min-h-dvh`**(=`min-height:100dvh`, 현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용. *Tailwind 가 `min-h-screen` 을 dvh 유틸보다 뒤에 emit 하므로 `min-h-screen min-h-dvh` 공존 fallback 은 무효 → `min-h-dvh` 단독으로 둔다.* 예외: **하단 탭바가 뜨는 탭 캔버스는 `min-h-lvh max-md:min-h-[calc(100lvh+3.5rem)]`** — 콘텐츠가 한 화면이면 dvh 문서의 스크롤 여유가 탭바 스페이서 56px 뿐이라 안드로이드 크롬 주소창·chin 접힘 유지 임계에 못 미쳐, 해당 탭에서만 탭바 높이·safe-area 가 달라 보인다. 모바일은 탭바 높이(3.5rem)를 더해 여유 112px(정상 판정 시설 탭과 동일 밴드)을 보장한다(`app/notices/layout.tsx` 참조).
+- 풀하이트는 **`min-h-dvh`**(=`min-height:100dvh`, 현 `min-h-screen`=100vh는 모바일 크롬에서 잘림). 신규 영역은 `dvh` 사용. *Tailwind 가 `min-h-screen` 을 dvh 유틸보다 뒤에 emit 하므로 `min-h-screen min-h-dvh` 공존 fallback 은 무효 → `min-h-dvh` 단독으로 둔다.* 예외: **하단 탭바가 뜨는 탭 캔버스는 `min-h-lvh max-md:min-h-[calc(100lvh+60px)]`** — 콘텐츠가 한 화면이면 dvh 문서의 스크롤 여유가 탭바 스페이서 60px 뿐이라 안드로이드 크롬 주소창·chin 접힘 유지 임계에 못 미쳐, 해당 탭에서만 탭바 높이·safe-area 가 달라 보인다. 모바일은 탭바 높이(60px)를 더해 여유 120px(정상 판정 시설 탭과 같은 밴드)을 보장한다(`app/notices/layout.tsx` 참조).
 
 ### Navigation
 모바일 네비는 **하이브리드** — 공개 콘텐츠 탐색은 **하단 탭바(앱형)**, 도구형 콘솔(운영/관리)은 **Sheet 드로어**, 개인영역(`/me`)은 **상단 우측 유저메뉴**. 드로어·시트는 shadcn 두잉 셋업(stone 금지 — `bg-card`·`border-line`·`shadow-3`·스크림 `bg-ink/35`, 열림은 `slide-in-*` 400ms).
 
 **① 하단 탭바 — 공개 콘텐츠 (mobile only, `md:hidden`)**
 - 탭 5개: **홈(`/`) · 탐색(`/clubs`) · 시설(`/facilities`) · 일정(`/calendar`) · 소식(정보 메뉴 기본 경로)** — 모두 공개 라우트(인증 불요)라 게스트도 동일 동작. 라벨은 상단바와 같은 단어를 쓴다(일정·소식). 3~5개 범위 준수(소개 등은 탭에 넣지 않음).
-- 스타일: `fixed inset-x-0 bottom-0` + `bg-cream/90 backdrop-blur` + 상단 헤어라인 `border-t border-line` + `pb-[env(safe-area-inset-bottom)]`. 활성 `text-ink`(+ ink 도트/언더라인 모티프), 비활성 `text-charcoal-3`. 아이콘은 outline/filled 한 쌍으로 활성 탭만 채운다 — 홈 한 쌍과 시설 채움은 `BottomNavIcons` 자체 SVG, 시설 outline 은 lucide `Building2`, 나머지는 `react-icons/hi2`. 라벨 `text-[10~11px]`.
+- 스타일(시안 491:4527): `fixed inset-x-0 bottom-0` + 흰 면 `bg-paper` + 상단 헤어라인 `border-t-[0.5px] border-[#E1E1E1]` + 위 모서리 `rounded-t-[10px]` + `pb-[env(safe-area-inset-bottom)]`. 그림자·블러·스포트라이트 없음. 탭 높이 60px(시안 93 − 홈 인디케이터 34). 아이콘은 Phosphor Regular/Fill 한 쌍 26px(홈 House·탐색 Binoculars·일정 CalendarBlank·소식 Megaphone, 시설은 시안 자체 건물) — 시안 export 패스를 `BottomNavIcons` 에 담아 의존성 없음. 라벨 `text-[11px] leading-[1.5] tracking-tightest`, 비활성 `font-medium text-[#5A5A5A]`(Font Guide 밖의 500 이지만 시안이 Medium 이라 따름 — 가변 폰트라 실제 500), 활성 `font-semibold text-ink-deep`.
 - 가시성: 5탭 루트 + 그 하위 콘텐츠에 노출. 동아리·공지 상세(`/clubs/{id}`, `/notices/{id}`)는 자체 상단 액션바를 쓰는 포커스 뷰라 숨기고, 시설 상세는 액션바가 없어 유지한다. **포커스 플로우(`/apply` 지원서)에서도 숨김.** `md:` 이상은 기존 상단 HomeNav.
 - 콘텐츠는 탭바 높이 + 세이프에어리어만큼 하단 패딩으로 가림 방지. **공개 공지 탭 ≠ 개인 알림 벨**(벨은 상단 우측 유지, 둘을 합치지 않는다).
 

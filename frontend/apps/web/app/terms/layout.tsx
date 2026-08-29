@@ -11,7 +11,7 @@ import { ExploreNav } from '../_components/ExploreNav';
 // 높이)에 못 미쳐 탭 진입마다 컨트롤이 펴지고 하단 탭바가 다른 탭과 달라 보인다(notices/layout.tsx 참조).
 export default function TermsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="duing min-h-lvh max-md:min-h-[calc(100lvh+3.5rem)] bg-cream">
+    <div className="duing min-h-lvh max-md:min-h-[calc(100lvh+60px)] bg-cream">
       <ExploreNav slimOnMobile />
       {children}
     </div>
