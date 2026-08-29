@@ -124,12 +124,13 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
       <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[760px]">
         {/* 브랜드 일러스트 — 우측 메인 비주얼(박스를 가득 채움). drop-shadow 없음, 드래그 방지.
             등장 애니메이션은 두지 않는다 — 새로고침마다 첫 화면이 다시 "나타나" 리로드처럼 읽히고,
-            opacity 0 인 요소는 LCP 후보에서 빠지므로, 페이드가 시작돼 보이기 시작하는 시점만큼 LCP 가 늦어진다. */}
+            opacity 0 인 요소는 LCP 후보에서 빠지므로, 페이드가 시작돼 보이기 시작하는 시점만큼 LCP 가 늦어진다.
+            파일명에 판 번호를 붙인다 — public 이미지는 1년 immutable 캐시라 같은 이름으로 덮으면 옛 그림이 남는다. */}
         <Image
-          src="/duing-illustration.png"
+          src="/duing-illustration-2.png"
           alt="두잉 — 캠퍼스 동아리 활동 일러스트레이션"
-          width={1536}
-          height={1024}
+          width={1600}
+          height={1000}
           priority
           fetchPriority="high"
           draggable={false}
