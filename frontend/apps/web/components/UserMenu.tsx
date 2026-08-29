@@ -58,7 +58,7 @@ export function UserMenu({
             테두리 없이 크림 헤더 위 흰 면으로만 분리된다. */}
         <button
           type="button"
-          className="flex h-[26px] min-w-[70px] items-center justify-center rounded-full bg-paper px-3 text-[14px] font-semibold tracking-tightest text-ink-deep transition hover:bg-graysoft md:h-[34px] md:px-5 md:text-[16px]"
+          className="flex h-[26px] min-w-[70px] items-center justify-center rounded-full bg-paper px-3 text-[14px] font-semibold tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:px-5 md:text-[16px]"
         >
           {userName}님
         </button>

@@ -24,13 +24,13 @@ export function HomeNavAuthSlot({
       <div className="flex items-center gap-1 md:gap-2.5">
         <Link
           href="/login"
-          className="grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
         >
           로그인
         </Link>
         <Link
           href="/signup"
-          className="grid h-[26px] w-[70px] place-items-center rounded-full bg-ink-deep text-[14px] font-medium tracking-tightest text-sage-mist transition hover:bg-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full bg-ink-deep text-[14px] font-medium tracking-tightest text-sage-mist transition hover:bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
         >
           회원가입
         </Link>
