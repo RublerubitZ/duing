@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ClubSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...anchorProps }: React.ComponentPropsWithoutRef<'a'>) => (
+    <a href={href} {...anchorProps}>
+      {children}
+    </a>
   ),
 }));
 
@@ -61,13 +63,17 @@ describe('RecruitmentTicker (server component)', () => {
     expect(screen.getAllByText('베타')).toHaveLength(2);
   });
 
-  it('섹션 라벨은 "마감 임박" 으로 표기된다', async () => {
+  it('섹션 라벨은 "마감 임박 동아리", 전체 보기는 아이콘만 있는 링크라 접근명을 가진다', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([makeSummary(3, '감마', isoInDays(3))]);
 
     const Component = await RecruitmentTicker();
     render(<>{Component}</>);
 
-    expect(screen.getByText('마감 임박')).toBeInTheDocument();
+    expect(screen.getByText('마감 임박 동아리')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '마감 임박 동아리 전체 보기' })).toHaveAttribute(
+      'href',
+      '/clubs?recruitment=available',
+    );
   });
 
   it('마감 D-8 이상만 있으면(윈도우 밖) 섹션이 미렌더된다', async () => {
