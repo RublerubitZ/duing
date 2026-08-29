@@ -121,10 +121,12 @@ public class GeneralClubService implements ClubService {
      * 찜 필터(favoriteUserId != null)는 사용자별 결과이므로 캐시에서 읽지도, 쓰지도 않는다 —
      * 컨트롤러가 같은 이유로 no-store 를 내려보내는 것과 같은 경계다.
      * 캐시 히트 1회당 count·목록·대표모집 3개 쿼리가 사라진다.
+     * 같은 키의 동시 miss 는 로더(이 메서드 본문) 1회로 병합된다 — 엔트리 만료 순간에 몰린 요청이
+     * 전부 DB 로 가던 스탬피드를 막는다.
      */
     @Override
     @Cacheable(cacheNames = PublicApiCacheConfig.CLUB_SEARCH_CACHE,
-            condition = "#condition.favoriteUserId() == null")
+            condition = "#condition.favoriteUserId() == null", sync = true)
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
         Page<ClubSummaryQuery> clubPage = clubRepository.findByCondition(condition, pageable);
         List<ClubSummaryQuery> summaries = clubPage.getContent();
