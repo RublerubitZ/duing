@@ -107,6 +107,13 @@ export function BannerCarouselClient({ slides }: Props) {
   }, [slides.length]);
 
   useEffect(() => {
+    // OS '동작 줄이기' 면 자동 넘김을 처음부터 멈춘다(WCAG 2.3.3). 초기 state 에 넣지 않는 이유는
+    // 서버 렌더가 matchMedia 를 모르기 때문 — 마운트 후 한 번만 내려 하이드레이션 불일치를 피한다.
+    // 사용자는 토글로 다시 켤 수 있다. 전환 키프레임은 globals.css 의 같은 미디어 쿼리가 끈다.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) setIsPlaying(false);
+  }, []);
+
+  useEffect(() => {
     // 드래그/복귀/전환 애니메이션 중에는 오토플레이를 멈춰, 손 뗀 직후 애니메이션이 끝난 뒤 재개한다.
     if (!isPlaying || isDragging || isSettling || slides.length <= 1) return;
     const timer = window.setInterval(goNext, AUTOPLAY_INTERVAL_MS);
@@ -314,14 +321,16 @@ export function BannerCarouselClient({ slides }: Props) {
               합성 슬라이드는 태그가 좌측 상단이라 위쪽 오른편이 비어 있다.
               누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
               되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
-              보이는 문구가 이름 안에 그대로 들어가 눈에 보이는 이름과 갈리지 않는다(2.5.3). */}
+              보이는 문구가 이름 안에 그대로 들어가 눈에 보이는 이름과 갈리지 않는다(2.5.3).
+              보이는 알약은 32px 높이지만 모바일의 유일한 비제스처 이동 수단이라, before 가상요소로
+              히트 영역만 44px 로 넓힌다(레이아웃·높이 예산 불변). */}
           {slides.length > 1 && (
             <button
               type="button"
               data-testid="banner-pager"
               aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
               onClick={goNext}
-              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5"
+              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition before:absolute before:-inset-1.5 hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5"
             >
               {activeIndex + 1} / {slides.length}
             </button>

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
 vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
-vi.mock('../../app/_components/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
+vi.mock('@/components/duing/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
 vi.mock('../../app/_components/NotificationBell', () => ({ NotificationBell: () => <button>알림</button> }));
 vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () => <span>인증</span> }));
 
@@ -44,7 +44,7 @@ describe('ExploreNav — 동아리·공지 상세 모바일 숨김', () => {
 });
 
 describe('ExploreNav — 정보 메뉴', () => {
-  it('메뉴 라벨은 공지가 아니라 정보다', () => {
+  it('메뉴 라벨은 공지가 아니라 소식이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<ExploreNav />);
     expect(screen.getByRole('link', { name: '소식' })).toBeInTheDocument();
