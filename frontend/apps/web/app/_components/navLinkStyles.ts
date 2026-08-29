@@ -4,12 +4,13 @@
  * <p>두 컴포넌트는 같은 바를 서로 다른 화면에서 렌더한다 — 값이 갈리면 페이지를 옮길 때마다
  * 같은 자리의 메뉴가 다르게 보인다. 예전에는 각자 같은 문자열을 들고 있어 실제로 어긋날 뻔했다.
  *
- * <p>크기는 시안(Font Guide `Label / Navigation` = 20px SemiBold)을 따르되, 시안 캔버스가
- * 이 프로젝트의 콘텐츠 폭보다 넓어 md~xl 로 나눠 올린다. md 에서 곧장 20px·큰 간격을 쓰면
- * 다섯 항목이 로고·우측 CTA 와 겹친다.
+ * <p>시안 홈 헤더(Figma node 608:4884 안의 210:2735)는 24px SemiBold·항목 간격 88px 이고, 캔버스 1920 에
+ * 콘텐츠 1472 라 이 프로젝트의 콘텐츠 폭 1200 으로 환산(×0.815)하면 ≈20px·72px 다. 그 환산값이 커 보인다는
+ * 요청으로 한 단계 낮춘 16px·56px 를 쓴다. md 는 폭이 좁아 다시 한 단계 내린다 — 곧장 16px·큰 간격을
+ * 쓰면 다섯 항목이 로고·우측 CTA 와 겹친다.
  */
 export const NAV_LIST_BASE =
-  'items-center gap-6 text-[15px] font-semibold tracking-tightest lg:gap-12 lg:text-[17px] xl:gap-[68px] xl:text-[20px]';
+  'items-center gap-6 text-[14px] font-semibold tracking-tightest lg:gap-10 lg:text-[16px] xl:gap-14';
 
 /** 비활성 — 시안 #6C6C6C 에 대응하는 기존 토큰. */
 export const NAV_LINK_INACTIVE = 'relative py-1 text-charcoal-3 hover:text-charcoal';

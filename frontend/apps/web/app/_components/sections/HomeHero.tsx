@@ -12,7 +12,7 @@ export async function HomeHero() {
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       <div
         className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"
@@ -51,7 +51,7 @@ export async function HomeHero() {
           />
 
           {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
-          <h1 className="type-display relative z-[1] mb-4 text-[34px] leading-[1.28] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[72px]">
+          <h1 className="type-display relative z-[1] mb-4 text-[34px] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[78px]">
             오늘,
             <br />
             캠퍼스의
@@ -68,7 +68,7 @@ export async function HomeHero() {
           {/* 본문 카피 — 시안은 모바일에도 노출한다(예전에는 히어로를 압축하려 숨겼다).
               카피는 마스코트 아래에 오므로 폭을 좁히지 않고, 글자만 한 단계 작게 둔다.
               통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
+          <p className="relative z-[1] mb-3 text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? (
