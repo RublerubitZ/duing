@@ -100,17 +100,23 @@ describe('SystemComposedSlide', () => {
 });
 
 /**
- * 배너는 높이가 고정이라, 네 문구의 줄 수 상한이 곧 높이 예산이다. 가장 좁은 md 는 여유가 4px
- * 뿐이라 상한 하나만 풀려도 콘텐츠가 아래 위치 표시를 침범한다(실제로 두 번 그렇게 깨졌다).
+ * 배너는 비율 고정(모바일 2.9:1, md 부터 4.3:1)이라 높이가 곧 예산이다(md 띠 160px 에 여유 7px). 문구의 줄 수 상한
+ * 하나만 풀려도 콘텐츠가 위치 표시·화살표를 침범한다(실제로 두 번 그렇게 깨졌다).
  * 클래스 문자열을 통째로 단언하면 스타일 변경마다 깨지므로, 상한을 만드는 구조만 고정한다.
  */
-describe('SystemComposedSlide — 고정 높이를 지키는 줄 수 상한', () => {
-  it('제목은 두 줄에서 잘린다', () => {
+describe('SystemComposedSlide — 고정 비율 띠를 지키는 줄 수 상한', () => {
+  it('제목은 한 줄에서 잘린다', () => {
     render(<SystemComposedSlide slide={makeSlide({ title: '아주 긴 제목' })} />);
     const heading = screen.getByRole('heading');
-    expect(heading).toHaveClass('line-clamp-2');
-    // 반응형 변형으로 상한을 다시 풀면(sm:line-clamp-none 등) toHaveClass 만으로는 못 잡는다.
-    expect(heading.className).not.toMatch(/line-clamp-none/);
+    expect(heading).toHaveClass('line-clamp-1');
+    // 반응형 변형으로 상한을 다시 풀면(sm:line-clamp-none·md:line-clamp-2 등) toHaveClass 만으로는 못 잡는다.
+    expect(heading.className).not.toMatch(/:line-clamp-/);
+  });
+
+  it('부제는 lg 부터, CTA 는 md 부터만 보인다 — 좁은 띠에는 자리가 없다', () => {
+    render(<SystemComposedSlide slide={makeSlide({ sub: '부제', cta: '자세히' })} />);
+    expect(screen.getByText('부제').parentElement).toHaveClass('hidden', 'lg:block');
+    expect(screen.getByText('자세히').closest('.btn')).toHaveClass('hidden', 'md:inline-flex');
   });
 
   it('부제는 한 줄에서 잘린다 — 노출 래퍼와 분리돼 있어야 line-clamp 가 살아 있다', () => {

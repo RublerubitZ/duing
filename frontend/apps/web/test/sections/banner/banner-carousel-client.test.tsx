@@ -292,3 +292,13 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     }
   });
 });
+
+describe('BannerCarouselClient — 뷰포트 비율', () => {
+  it('시안 비율을 쓴다 — 모바일 361:124, md 부터 1472:342 — 인라인 높이 없음', () => {
+    render(<BannerCarouselClient slides={makeSlides(2)} />);
+    const viewport = screen.getByTestId('banner-carousel-viewport');
+    // 높이를 다시 vw 식으로 정하면 어느 시안과도 어긋나고 관리자 권장 규격(1472×342)과도 갈린다.
+    expect(viewport).toHaveClass('aspect-[361/124]', 'md:aspect-[1472/342]');
+    expect(viewport.style.height).toBe('');
+  });
+});
