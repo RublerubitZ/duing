@@ -121,15 +121,21 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
     // 모바일(<md)에선 우측 비주얼 전체 숨김. 내부 relative 박스 폭을 일러스트 폭에 맞춰,
     // 토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
     <div className="hidden md:block">
-      <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[760px]">
+      {/* lg 부터는 박스를 컬럼보다 120px 넓혀 왼쪽으로 당긴다 — 시안(608:4884)의 그림은 콘텐츠 폭의 64%
+          (1200 기준 ≈ 770px)로 헤드라인 끝 ~120px 오른쪽에서 시작하는데, 우측 컬럼(≈690)만으로는 그 크기가
+          안 나온다. 넓힌 만큼 왼쪽 컬럼의 검색 버튼 위를 박스가 덮는데 그 자리는 그림의 투명 영역이다 —
+          투명해도 박스·이미지는 클릭을 먹으므로 박스째 pointer-events-none 으로 통과시키고, 토스트만 다시 살린다. */}
+      <div className="pointer-events-none relative mx-auto w-full max-w-[560px] lg:-ml-[120px] lg:w-[calc(100%+120px)] lg:max-w-none">
         {/* 브랜드 일러스트 — 우측 메인 비주얼(박스를 가득 채움). drop-shadow 없음, 드래그 방지.
             등장 애니메이션은 두지 않는다 — 새로고침마다 첫 화면이 다시 "나타나" 리로드처럼 읽히고,
-            opacity 0 인 요소는 LCP 후보에서 빠지므로, 페이드가 시작돼 보이기 시작하는 시점만큼 LCP 가 늦어진다. */}
+            opacity 0 인 요소는 LCP 후보에서 빠지므로, 페이드가 시작돼 보이기 시작하는 시점만큼 LCP 가 늦어진다.
+            파일명에 판 번호를 붙인다 — public 이미지는 1년 immutable 캐시라 같은 이름으로 덮으면 옛 그림이 남는다.
+            원본의 투명 여백(좌 11·상 20·우 15·하 10%)은 2% 만 남기고 잘라 넣었다 — 여백째 넣으면 그림이 박스의 3/4 로 보인다. */}
         <Image
-          src="/duing-illustration.png"
+          src="/duing-illustration-2.png"
           alt="두잉 — 캠퍼스 동아리 활동 일러스트레이션"
-          width={1536}
-          height={1024}
+          width={1643}
+          height={1000}
           priority
           fetchPriority="high"
           draggable={false}
@@ -137,7 +143,7 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
         />
 
         {/* 활동 토스트 — 시안대로 일러스트 우측 상단 한 자리에만 두고, 나머지는 옆으로 밀어 본다. */}
-        <div className="absolute right-1 top-10 lg:right-3 lg:top-16">
+        <div className="pointer-events-auto absolute right-1 top-10 lg:right-3 lg:top-16">
           <HeroActivityToasts toasts={toasts} />
         </div>
       </div>
