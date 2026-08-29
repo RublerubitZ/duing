@@ -66,10 +66,10 @@ export async function HomeHero() {
             .
           </h1>
 
-          {/* 본문 카피 — PC 전용. 모바일 시안(509:9210)에는 있지만 사용자 결정으로 모바일에서는 뺀다 —
-              헤드라인 + 마스코트만 남겨 첫 화면을 짧게 가져간다. 통계 미가용(stats=null) 시 숫자 없는
-              기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] hidden text-pretty text-lg leading-[1.6] text-charcoal-2 sm:max-w-[500px] md:mb-9 md:block">
+          {/* 본문 카피 — 모바일 시안(509:9210)대로 헤드라인 아래 두 줄, 폭 182 안에서 마스코트 왼쪽에 둔다
+              (한 번 뺐다가 사용자 판단으로 되돌림). 글자 14px 은 시안(14/1.5)과 같고 행간만 1.6 으로 조금 넉넉하다.
+              통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
+          <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? (
