@@ -100,7 +100,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | micro-label | 10–11.5px | 1.2 | +0.12~0.22em | `text-[11.5px] font-semibold tracking-[0.14em]` (영문 대문자) |
 | caption | 11.5–12.5px | 1.4 | — | `text-[11.5px] text-charcoal-3` |
 | ui | 13–13.5px | 1.4 | — | `text-[13px]` / `text-[13.5px] font-semibold` |
-| body-sm | 15px | 1.5 | — | `text-[15px]` (검색 인풋) |
+| body-sm | 15px | 1.5 | — | `text-[15px]` (폼 인풋 기본 — 히어로 검색만 18px) |
 | body | 16–18px | 1.5–1.6 | -0.005em | `text-lg leading-[1.6] text-charcoal-2` (히어로 서브) |
 | card-title | 17–30px | 1.25 | tightest | `type-card-title` (h3 기본 Bold 를 SemiBold 로 되돌리는 역할 클래스) |
 | heading | 20–36px | 1.1 | tightest | `text-[20px] md:text-[36px]` (섹션 h2, 자동 Bold) |
@@ -121,7 +121,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | CTA 패널 | 28px | `rounded-xl` |
 | small (btn-sm) | 8px | `rounded-sm` |
 | pills·배지·도트·원형 버튼 | 9999px | `rounded-full` |
-| 카테고리 타일 (예외) | 18px | `rounded-[18px]` |
+| 카테고리 타일·히어로 검색 캡슐 (예외) | 18px | `rounded-[18px]` |
 
 ### Shadows (전부 잉크색 `rgb(31 74 54)` 틴트 — 뉴트럴 그레이 섀도 금지, 임의 `shadow-[...]` 금지)
 
@@ -153,7 +153,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Search Capsule (캡슐 인 패널)
 **Role:** 히어로 검색 — 인풋과 버튼을 한 장의 흰 패널에 담는다.
 
-`flex max-w-[540px] items-center gap-1.5 rounded-lg bg-paper p-1.5 shadow-2` — **섀도는 패널이 갖고 버튼은 갖지 않는다.** 내부 인풋 `text-[15px] border-none bg-transparent outline-none`, 버튼 `btn btn-primary rounded-md px-[22px] py-3.5`.
+`flex max-w-[490px] items-center gap-3 rounded-[18px] bg-paper py-[7px] pl-5 pr-4` — 시안 PC 프레임(602×78, 모서리 22, 우측 인셋이 위아래보다 넓다)을 콘텐츠 폭 기준 ×0.815 로 옮긴 값. **섀도 없이 흰 면만으로 크림 위에서 분리되고**, 포커스는 `focus-within:ring-2 ring-ink/40` 이 맡는다. 왼쪽 돋보기 없이 플레이스홀더(`찾으시는 동아리를 검색해주세요.`, 18px)만 두고, 버튼은 `h-[50px] rounded-[18px] bg-ink-deep text-cream` 에 `검색 + 돋보기(24px)`. 모바일 바(HomeMobileSearchBar)와 같은 구성이라 두 폭에서 같은 검색으로 읽힌다.
 
 ### Pill / Badge (`.pill` 계열)
 **Role:** 카테고리 라벨, 상태 배지.
@@ -288,7 +288,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
 | 0 | Cream Canvas | `#F6F3EC` | 페이지 배경 — 모든 섹션의 베이스 |
-| 1 | Paper Card | `#FFFFFF` | 카드·패널·검색 캡슐 — 헤어라인 보더 + 잉크 섀도와 함께 |
+| 1 | Paper Card | `#FFFFFF` | 카드·패널 — 헤어라인 보더 + 잉크 섀도와 함께. 히어로 검색 캡슐만 보더·섀도 없이 흰 면 |
 | 2 | Sage Mist Panel | `#E8EEE8` | CTA 패널, pill 배경 — 보더·섀도 없이 색 면으로 분리 |
 | 3 | Cream 2 | `#EFEBE0` | 푸터 — 본문보다 한 톤 가라앉은 마감 |
 | 4 | Ink Deep Band | `#143025` | 풀블리드 다크 띠(티커) — 페이지당 1회의 다크 브레이크, Paper 텍스트 |
@@ -296,7 +296,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ## Elevation
 
 - **Default card (hover):** `shadow-2` — `0 2px 6px rgb(31 74 54 / 0.05), 0 12px 32px rgb(31 74 54 / 0.08)`
-- **검색 캡슐·네비 드롭다운·다크 카드:** `shadow-2` ~ `shadow-3`
+- **네비 드롭다운·다크 카드:** `shadow-2` ~ `shadow-3` (히어로 검색 캡슐은 시안대로 섀도 없음)
 - **Lift Card (hover):** `0 16px 32px rgba(47,58,46,.08), 0 2px 6px rgba(47,58,46,.04)` + `-translate-y-1`
 - **버튼:** 섀도 없음 (패널이 대신 가진다)
 - **CTA 패널·pill·푸터:** 섀도 없음 — 색 면과 보더로만
