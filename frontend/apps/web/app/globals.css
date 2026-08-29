@@ -120,6 +120,8 @@ body {
      h1 기본값(Bold)보다 한 단계 위라 클래스 두 개짜리 선택자로 우선순위를 확보한다. */
   .duing .type-display {
     @apply font-extrabold;
+    /* 시안 히어로 행간. 위 h1 규칙(1.1)이 유틸리티 leading-* 보다 우선하므로 여기서 같은 특이도로 되돌린다. */
+    line-height: 1.28;
   }
 
   /* 카드 제목(Font Guide H4) — 섹션 제목(h1~h3 Bold)보다 한 단계 낮은 SemiBold 다.
