@@ -13,16 +13,21 @@ export async function HomeHero() {
   return (
     <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
+      {/* 우상단 세이지 블러 원은 PC 시안 전용 — 모바일 프레임(509:8861)의 배경은 크림 단색이라 md 부터만 그린다. */}
       <div
-        className="absolute -right-40 -top-32 h-[520px] w-[520px] rounded-full opacity-70 blur-[8px]"
+        className="absolute -right-40 -top-32 hidden h-[520px] w-[520px] rounded-full opacity-70 blur-[8px] md:block"
         style={{
           background: 'radial-gradient(circle at 40% 40%, #C9D8CC 0%, #F6F3EC 70%)',
         }}
       />
 
       <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr]">
-        <div className="relative">
-          {/* 모바일: 헤드라인 우측에 마스코트(두두)와 종이조각 장식을 겹쳐 둔다 — 시안의 모바일 히어로 구성.
+        {/* 모바일은 헤드라인 옆 마스코트가 헤드라인보다 아래로 내려오므로(시안: 헤드라인 위 +25 → 발 172px,
+            다음 요소까지 33px) 컬럼 높이를 184px 로 잡는다 — 없으면 section overflow-hidden 에 발이 잘린다. */}
+        <div className="relative min-h-[184px] md:min-h-0">
+          {/* 모바일: 헤드라인 우측에 마스코트(두두)와 종이조각 장식을 겹쳐 둔다 — 모바일 프레임(509:8861) 좌표를
+              콘텐츠 박스(x16, 헤드라인 y125) 기준으로 옮긴 값: 컨페티 그룹 (150,125) 226×150·불투명도 0.7 →
+              right-0 top-0, 마스코트 (180,150) 177×147 → 오른쪽 여백 20 = right-5, top-6.
               장식(컨페티)은 preload 하지 않는다 — priority 는 CSS 를 모르고 link[rel=preload] 를 항상
               심어서, md:hidden 이라도 데스크탑이 쓰지 않을 이미지를 내려받게 된다.
               데스크탑은 우측 일러스트가 같은 역할을 하므로 md 이상에서 숨긴다.
@@ -34,7 +39,7 @@ export async function HomeHero() {
             width={678}
             height={449}
             draggable={false}
-            className="pointer-events-none absolute -right-4 -top-4 z-0 w-[230px] select-none md:hidden"
+            className="pointer-events-none absolute right-0 top-0 z-0 w-[226px] select-none opacity-70 md:hidden"
           />
           {/* 마스코트만 preload 한다 — 모바일 히어로의 LCP 후보라 lazy 로 두면 한 왕복만큼 늦는다.
               데스크탑에서도 받게 되는 낭비는 감수한다(우측 일러스트가 모바일에서 그런 것과 같은 맞교환).
@@ -46,7 +51,7 @@ export async function HomeHero() {
             height={441}
             priority
             draggable={false}
-            className="pointer-events-none absolute -right-3 -top-2 z-0 w-[176px] select-none md:hidden"
+            className="pointer-events-none absolute right-5 top-6 z-0 w-[177px] select-none md:hidden"
           />
 
           {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
@@ -61,10 +66,10 @@ export async function HomeHero() {
             .
           </h1>
 
-          {/* 본문 카피 — 시안은 모바일에도 노출한다(예전에는 히어로를 압축하려 숨겼다).
-              카피는 마스코트 아래에 오므로 폭을 좁히지 않고, 글자만 한 단계 작게 둔다.
-              통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
+          {/* 본문 카피 — PC 전용. 모바일 시안(509:9210)에는 있지만 사용자 결정으로 모바일에서는 뺀다 —
+              헤드라인 + 마스코트만 남겨 첫 화면을 짧게 가져간다. 통계 미가용(stats=null) 시 숫자 없는
+              기본 카피로 우아하게 폴백한다. */}
+          <p className="relative z-[1] hidden text-pretty text-lg leading-[1.6] text-charcoal-2 sm:max-w-[500px] md:mb-9 md:block">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? (
