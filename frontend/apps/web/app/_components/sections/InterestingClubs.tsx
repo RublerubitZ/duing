@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ClubSummary } from '@duing/types';
 
-import { ArrowRight } from '@/components/duing/Icon';
+import { ChevronRight } from 'lucide-react';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { fetchInterestingClubs } from '@/app/_lib/home-data';
 import { HOME_CATEGORY_BY_VALUE } from '@/app/_lib/homeCategories';
@@ -28,13 +28,15 @@ export async function InterestingClubs() {
       <div className="max-w-layout mx-auto">
         <div className="mb-5 flex items-center justify-between md:mb-10">
           <h2 className="text-[20px] md:text-[36px]">관심도가 높은 동아리</h2>
-          {/* 아이콘만 있는 링크라 접근명을 직접 단다 — 인라인 텍스트가 없으면 스크린리더가 읽을 게 없다. */}
+          {/* 아이콘만 있는 링크라 접근명을 직접 단다 — 인라인 텍스트가 없으면 스크린리더가 읽을 게 없다.
+              시안은 딥그린 원 안의 캐럿이지만 제목 옆에서 무게가 과해 캐럿만 둔다 — 면 없이 글자색으로만.
+              히트 영역은 44px 박스로 유지하고, 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다. */}
           <Link
             href="/clubs"
             aria-label="관심도가 높은 동아리 전체 보기"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-deep text-cream transition duration-250 ease-duing hover:-translate-y-0.5 hover:shadow-3 motion-reduce:transition-none md:h-[35px] md:w-[35px]"
+            className="-mr-2.5 grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-deep transition hover:bg-sage-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none"
           >
-            <ArrowRight />
+            <ChevronRight size={24} strokeWidth={2.25} aria-hidden />
           </Link>
         </div>
 
