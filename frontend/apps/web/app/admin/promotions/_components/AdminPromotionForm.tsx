@@ -124,7 +124,8 @@ export function AdminPromotionForm(props: Props) {
     buildInitialState(mode === 'edit' ? props.initialValues : undefined),
   );
 
-  // 권장 비율(1920×840, 16:7) 측정 — FULL_BLEED 모드에서만 경고 노출.
+  // 권장 비율(1472×342, 약 4.3:1 — 홈 배너가 md 이상에서 쓰는 시안 비율) 측정 — FULL_BLEED 모드에서만 경고 노출.
+  // 모바일 배너는 시안대로 2.9:1 이라, 규격에 맞는 이미지도 모바일에서는 가운데 기준으로 좌우가 잘려 보인다.
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
@@ -144,12 +145,12 @@ export function AdminPromotionForm(props: Props) {
     const { width, height } = imageDimensions;
     const shortSide = Math.min(width, height);
     const ratio = width / height;
-    const targetRatio = 16 / 7;
+    const targetRatio = 1472 / 342;
     const tolerancePercent = 0.1;
     const ratioOff = Math.abs(ratio - targetRatio) / targetRatio > tolerancePercent;
-    const tooSmall = shortSide < 840;
+    const tooSmall = shortSide < 342;
     if (!ratioOff && !tooSmall) return null;
-    return '권장 사이즈(1920×840, 16:7) 와 다릅니다 — 모바일에서 이미지 일부가 잘릴 수 있습니다.';
+    return '권장 사이즈(1472×342, 약 4.3:1) 와 다릅니다 — 이미지 일부가 잘릴 수 있습니다.';
   })();
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {

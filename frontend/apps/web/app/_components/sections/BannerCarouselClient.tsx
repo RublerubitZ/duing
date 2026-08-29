@@ -254,16 +254,16 @@ export function BannerCarouselClient({ slides }: Props) {
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
          * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(배너 밖 아래)로 나뉜다.
          *
-         * 높이는 예전 그대로 viewport 의 '연속 1차식' clamp 다. 비율을 브레이크포인트로 끊으면
-         * 640px·1280px 에서 높이가 점프해 리사이즈 중 "줄이는데 커졌다 작아지는" 레이아웃 점프가 생긴다.
-         * 상한 308px 의 원래 근거(옆 보조 컬럼 높이와 맞춤)는 그 컬럼이 사라지며 없어졌지만,
-         * 시안 비율(1472:342)을 콘텐츠 폭에 대입한 값과 비슷해 그대로 둔다.
+         * 높이는 시안 비율로 정한다 — PC 프레임 배너 1472×342(≈4.3:1, 라운드 24→20), 모바일 프레임
+         * 배너 361×124(≈2.9:1, 라운드 10). 전환은 화살표·CTA 와 같은 md 다. 예전의 viewport 1차식
+         * clamp 는 PC ≈ 3.9:1·모바일 ≈ 1.95:1 로 어느 시안과도 달랐다. md 이상은 비율이 하나라
+         * 관리자 권장 규격(1472×342)이 곧 보이는 모습이고, 모바일은 그 이미지의 가운데 2.9:1 이 보인다.
+         * 1200 폭에서 279px, 390 폭에서 123px.
          */}
         <div
           ref={containerRef}
           data-testid="banner-carousel-viewport"
-          className="relative touch-pan-y select-none overflow-hidden rounded-lg"
-          style={{ height: 'clamp(160px, 108px + 19.5vw, 308px)' }}
+          className="relative aspect-[361/124] touch-pan-y select-none overflow-hidden rounded-[10px] md:aspect-[1472/342] md:rounded-lg"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -316,9 +316,9 @@ export function BannerCarouselClient({ slides }: Props) {
             </div>
           </div>
 
-          {/* 위치 표시 — sm 미만은 우측 하단, sm 부터는 우측 상단이다. 전환 지점은 슬라이드가
-              하단을 비우는 지점(pb-12 → sm:py-5)과 반드시 같아야 한다. 어긋나면 그 사이 폭에서
-              "표시는 아직 아래, 예약은 이미 없음" 이 되어 긴 CTA 와 겹치고 클릭까지 가로챈다.
+          {/* 위치 표시 — sm 미만은 우측 하단, sm 부터는 우측 상단이다. 전환 지점은 합성 슬라이드가
+              제목 오른쪽을 비우는 지점(pr-[84px] → sm:pr-0)과 반드시 같아야 한다. 어긋나면 그 사이 폭에서
+              "표시는 아직 아래, 예약은 이미 없음" 이 되어 긴 제목과 겹친다.
               합성 슬라이드는 태그가 좌측 상단이라 위쪽 오른편이 비어 있다.
               누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
               되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
