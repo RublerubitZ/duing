@@ -52,6 +52,10 @@ dependencies {
     implementation("org.springframework.retry:spring-retry")
     implementation("org.springframework.boot:spring-boot-starter-aop")
 
+    // 공개 API 마이크로 캐시의 엔트리별 TTL·동일 키 miss 병합(PublicApiCacheConfig). 버전은 Spring Boot BOM 이 관리한다.
+    implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // HTML sanitizer — 공지 본문(HTML 포맷) 서버측 XSS 정제
     implementation("org.jsoup:jsoup:1.18.3")
 

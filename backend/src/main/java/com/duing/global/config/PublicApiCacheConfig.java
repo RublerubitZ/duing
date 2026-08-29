@@ -1,19 +1,19 @@
 package com.duing.global.config;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.ConcurrentMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * 공개(비개인화) 조회 API 의 인메모리 마이크로 캐시.
@@ -29,9 +29,22 @@ import org.springframework.scheduling.annotation.Scheduled;
  * 전체로 잡아 쿼리 파라미터별로 분리한다. 인증 주체는 키에도 값에도 들어가지 않는다 — 인증/비인증
  * 응답이 섞일 수 있는 메서드는 아예 캐시하지 않는다.
  *
- * <p>TTL 은 주기적 전량 비움으로 구현한다. 엔트리별 만료가 아니라서 실제 수명은 0~TTL 사이지만,
- * "최대 TTL 초 이상 낡은 응답은 없다"는 상한은 보장된다. 엔트리별 만료가 필요해지면 별도 캐시
- * 라이브러리 도입 대신 {@link Cache} 구현을 교체하면 된다.
+ * <p>TTL 은 Caffeine 의 {@code expireAfterWrite} 로 엔트리마다 적용한다. "최대 TTL 초 이상 낡은 응답은
+ * 없다"는 상한은 예전의 주기적 전량 비움과 같지만, 모든 엔트리가 같은 순간에 함께 사라지지 않는다 —
+ * 매분 전량 비움 직후 같은 키의 요청이 한꺼번에 DB 로 몰려 CPU 와 p99 가 튀던 스탬피드(2026-08-29
+ * capacity 테스트)가 사라진다. 대신 엔트리의 평균 낡음은 TTL 의 절반(전량 비움은 수명 0~TTL 균등)
+ * 수준으로 오르는데, 정책이 "평균"이 아니라 "상한"이므로 그대로 둔다.
+ *
+ * <p>엔트리 수 상한은 {@code maximumSize} 로 잡는다. keyword·tags 처럼 값이 무제한인 질의 파라미터가
+ * 캐시 키에 들어가므로 상한이 없으면 비인증 요청만으로 힙을 채울 수 있다. 상한에 닿으면 새 키를
+ * 거부하던 예전 구현과 달리 Caffeine 은 오래된/덜 쓰인 엔트리를 축출하므로(W-TinyLFU), 상한 도달 후
+ * 캐시가 통째로 무용해지는 구간이 없다. 축출은 근사이므로 일시적으로 상한을 몇 개 넘길 수 있다.
+ *
+ * <p>동일 키 miss 병합 — 대상 메서드는 {@code @Cacheable(sync = true)} 라, 같은 키의 miss 가 동시에
+ * 도착하면 로더(= DB 조회)를 한 번만 실행하고 나머지 스레드는 그 결과를 기다린다. Spring 이 이를
+ * 이 캐시 구현의 키 단위 계산({@code CaffeineCache.get(key, Callable)})에 그대로 위임하므로, 엔트리가
+ * 자연 만료되는 순간에 겹친 동시 miss 도 같은 경로로 병합된다 — 프로덕션에서 스탬피드를 막는 실제
+ * 경로다.
  *
  * <p>단일 인스턴스(Lightsail 1대) 전제의 힙 캐시다. 인스턴스를 늘리면 인스턴스 수만큼 miss 가
  * 늘 뿐 정합성 문제는 없다(각자 최대 TTL 초 낡은 값).
@@ -39,10 +52,9 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>테스트 규약 — 캐시는 Spring 컨텍스트와 함께 살아남으므로, 같은 컨텍스트를 공유하는 테스트들이
  * 같은 캐시 키(예: 모집 달력의 같은 YearMonth)를 재사용하면 앞 테스트의 엔트리(롤백된 데이터 포함)를
  * 읽는 오염이 생긴다. 캐시 대상 응답의 본문을 단언하는 테스트는 키를 유일하게 잡거나, 계측 전에
- * {@link #evictAllOnTtlElapsed()} 를 호출해 miss 에서 시작할 것.
+ * {@link #evictAll()} 를 호출해 miss 에서 시작할 것.
  */
 @Configuration
-@EnableScheduling
 // 캐시 어드바이스를 트랜잭션 어드바이스보다 바깥에 둔다. 안쪽이면 캐시 히트에도 readOnly 트랜잭션이
 // 열려 커넥션을 잡고 SET TRANSACTION READ ONLY 왕복이 남아, 줄이려던 왕복이 그대로 남는다.
 @EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)
@@ -61,10 +73,12 @@ public class PublicApiCacheConfig {
 
     private final List<Cache> publicApiCaches;
 
-    public PublicApiCacheConfig(@Value("${duing.public-api-cache.max-entries:200}") int maxEntries) {
+    public PublicApiCacheConfig(
+            @Value("${duing.public-api-cache.max-entries:200}") int maxEntries,
+            @Value("${duing.public-api-cache.ttl-ms:60000}") long ttlMs) {
         this.publicApiCaches = List.of(
-                boundedCache(CLUB_SEARCH_CACHE, maxEntries),
-                boundedCache(RECRUITMENT_CALENDAR_CACHE, maxEntries));
+                caffeineCache(CLUB_SEARCH_CACHE, maxEntries, ttlMs, Ticker.systemTicker()),
+                caffeineCache(RECRUITMENT_CALENDAR_CACHE, maxEntries, ttlMs, Ticker.systemTicker()));
     }
 
     @Bean
@@ -76,34 +90,25 @@ public class PublicApiCacheConfig {
     }
 
     /**
-     * TTL 경과 시 전량 비움. {@code fixedRate} 라 마지막 실행 완료 시각이 아니라 시작 시각 기준으로
-     * 반복되므로, 엔트리가 살아 있는 시간은 최대 TTL 이다. 단, Spring 기본 단일 스레드 TaskScheduler 를
-     * 다른 {@code @Scheduled} 잡(시설 크롤 등)과 공유하므로 앞선 잡이 오래 걸리면 비움이 밀려
-     * staleness 상한이 TTL+지연만큼 늘 수 있다(prod 크롤 실측 ~5초 수준이라 실해는 미미).
+     * 모든 엔트리 제거. 스케줄되지 않는다 — TTL 은 엔트리별 만료가 담당하고, 이 메서드는 같은 Spring
+     * 컨텍스트를 공유하는 테스트가 계측 전에 캐시를 miss 상태로 되돌리기 위한 리셋 전용이다.
      */
-    @Scheduled(fixedRateString = "${duing.public-api-cache.ttl-ms:60000}")
-    public void evictAllOnTtlElapsed() {
+    public void evictAll() {
         publicApiCaches.forEach(Cache::clear);
     }
 
     /**
-     * 엔트리 수 상한이 있는 {@link ConcurrentMapCache}. keyword·tags 처럼 값이 무제한인 질의
-     * 파라미터가 캐시 키에 들어가므로, 상한이 없으면 비인증 요청만으로 힙을 채울 수 있다.
+     * 엔트리별 TTL({@code expireAfterWrite})과 크기 상한을 가진 캐시. {@code ticker} 는 단위 테스트가
+     * 시계를 직접 밀어 만료를 결정적으로 검증하기 위한 이음매이며, 프로덕션은 항상 시스템 시계다.
      *
-     * <p>상한 도달 후에는 새 키를 받지 않는다(기존 엔트리는 TTL 까지 유지). 최악의 경우 캐시가 잠깐
-     * 무용해질 뿐 캐시가 없던 상태보다 나빠지지 않는다. size 확인과 put 사이의 경합으로 상한을 몇 개
-     * 넘길 수 있는 근사 상한이며, 정밀한 LRU 가 필요해지면 이 구현만 교체한다.
+     * <p>{@code allowNullValues = true} — 대상 메서드가 null 을 돌려줄 일은 없지만, 값이 없다고
+     * 캐시가 조용히 매번 로더를 부르는 구성보다 Spring 기본(null 래핑)을 유지하는 쪽이 안전하다.
      */
-    private static Cache boundedCache(String cacheName, int maxEntries) {
-        return new ConcurrentMapCache(cacheName) {
-            @Override
-            public void put(Object key, Object value) {
-                ConcurrentMap<Object, Object> store = getNativeCache();
-                if (store.size() >= maxEntries && !store.containsKey(key)) {
-                    return;
-                }
-                super.put(key, value);
-            }
-        };
+    static CaffeineCache caffeineCache(String cacheName, int maxEntries, long ttlMs, Ticker ticker) {
+        return new CaffeineCache(cacheName, Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMillis(ttlMs))
+                .maximumSize(maxEntries)
+                .ticker(ticker)
+                .build(), true);
     }
 }
