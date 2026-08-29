@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 // ExploreNav 는 usePathname·인증 스토어·알림 훅 체인을 물고 있어, 레이아웃 골격 검증과 무관한
 // 부분만 스텁으로 대체한다(test/components/explore-nav.test.tsx 와 동일한 모킹 세트).
 vi.mock('next/navigation', () => ({ usePathname: () => '/notices' }));
-vi.mock('../../app/_components/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
+vi.mock('@/components/duing/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
 vi.mock('../../app/_components/NotificationBell', () => ({
   NotificationBell: () => <button type="button">알림</button>,
 }));

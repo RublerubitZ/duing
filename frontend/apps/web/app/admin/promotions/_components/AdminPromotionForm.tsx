@@ -359,7 +359,7 @@ export function AdminPromotionForm(props: Props) {
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="CTA 라벨 (선택, ≤40자)">
+            <Field label="CTA 라벨 (선택, ≤40자 · 모바일은 약 15자부터 말줄임)">
               <input
                 type="text"
                 maxLength={40}

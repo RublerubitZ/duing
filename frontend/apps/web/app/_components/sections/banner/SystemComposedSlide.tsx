@@ -138,7 +138,9 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
             // CTA 도 40자까지 들어온다. 상한이 없으면 좁은 폭에서 두 줄로 감기고, 그만큼 콘텐츠가
             // 자라 아래 위치 표시를 침범한다 — 제목·부제·태그와 같은 이유로 한 줄로 묶는다.
             // 화살표는 shrink-0 으로 남기고 글자만 줄여야 버튼이 화살표를 먹지 않는다.
-            className="btn max-w-full rounded-md px-4 py-2 text-[13px] sm:px-[22px] sm:py-3 sm:text-[15px]"
+            // md 부터는 우측 하단에 이전·다음 화살표(inset-x-9, 36px×2+gap)가 뜨므로 태그와 같은 폭만큼
+            // 비운다 — 768~900 에서 31자 넘는 CTA 가 화살표 밑으로 들어가 클릭을 뺏기던 자리다.
+            className="btn max-w-full rounded-md px-4 py-2 text-[13px] sm:px-[22px] sm:py-3 sm:text-[15px] md:max-w-[calc(100%-7rem)]"
             style={{
               background: isDarkText ? '#9DB6A0' : slide.accent,
               color: isDarkText ? '#143025' : '#fff',

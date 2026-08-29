@@ -107,7 +107,10 @@ describe('SystemComposedSlide', () => {
 describe('SystemComposedSlide — 고정 높이를 지키는 줄 수 상한', () => {
   it('제목은 두 줄에서 잘린다', () => {
     render(<SystemComposedSlide slide={makeSlide({ title: '아주 긴 제목' })} />);
-    expect(screen.getByRole('heading')).toHaveClass('line-clamp-2');
+    const heading = screen.getByRole('heading');
+    expect(heading).toHaveClass('line-clamp-2');
+    // 반응형 변형으로 상한을 다시 풀면(sm:line-clamp-none 등) toHaveClass 만으로는 못 잡는다.
+    expect(heading.className).not.toMatch(/line-clamp-none/);
   });
 
   it('부제는 한 줄에서 잘린다 — 노출 래퍼와 분리돼 있어야 line-clamp 가 살아 있다', () => {

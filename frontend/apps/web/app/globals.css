@@ -582,7 +582,12 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-float-a,
   .animate-float-b,
-  .animate-spin-slow {
+  .animate-spin-slow,
+  /* 배너 전환 — 나가는 슬라이드가 들어오는 슬라이드 아래에 깔리는 구조라 끄면 즉시 전환이 된다. */
+  .animate-slide-in-left,
+  .animate-slide-in-right,
+  .animate-slide-out-left,
+  .animate-slide-out-right {
     animation: none;
   }
 }

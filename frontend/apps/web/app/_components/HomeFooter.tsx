@@ -41,7 +41,8 @@ export function HomeFooter() {
       <footer className="hidden mt-10 bg-cream-2 px-4 sm:px-6 md:px-10 py-14 md:block">
       <div className="max-w-layout mx-auto grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <BrandMark size={28} />
+          {/* 시안 푸터 로고 120×43(1920 캔버스) → 콘텐츠 폭 1200 기준 ×0.815 ≈ 35px. */}
+          <BrandMark size={35} />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-charcoal-2">
             탐색부터 운영까지, 두잉 하나로.
           </p>
@@ -55,7 +56,7 @@ export function HomeFooter() {
           </li>
           <li>
             <Link href="/calendar" className={linkClass}>
-              캘린더
+              일정
             </Link>
           </li>
           <li>

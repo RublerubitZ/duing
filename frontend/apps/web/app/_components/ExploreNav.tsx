@@ -15,7 +15,7 @@ import {
 import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
 import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 
-import { BrandMark } from './BrandMark';
+import { BrandMark } from '@/components/duing/BrandMark';
 import { NotificationBell } from './NotificationBell';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
