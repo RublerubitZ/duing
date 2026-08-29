@@ -184,7 +184,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Section Heading Block
 **Role:** 모든 콘텐츠 섹션의 도입부.
 
-`mb-9 flex items-end justify-between` — 좌측: 아이브로우(**`영문 키워드 · 한글 설명`** 포맷, `text-[11.5px] font-semibold` + 와이드 트래킹 또는 `text-[13px] font-semibold tracking-wide08 text-ink`) + 큰 h2. 우측: `전체 보기` 링크 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` (gap 모핑으로 화살표 밀기).
+`mb-9 flex items-end justify-between` — 좌측: 아이브로우(**`영문 키워드 · 한글 설명`** 포맷, `text-[11.5px] font-semibold` + 와이드 트래킹 또는 `text-[13px] font-semibold tracking-wide08 text-ink`) + 큰 h2. 우측: 아이콘 전용 `전체 보기` 링크 — 면 없이 캐럿만(`-mr-2.5 grid h-11 w-11 rounded-full text-ink-deep hover:bg-sage-tint` + lucide `ChevronRight` 24px), 접근명은 `aria-label` 로. 44px 박스라 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다.
 
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
@@ -304,7 +304,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 ## Imagery
 
-일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 카테고리 타일은 실사 사진이 아니라 토스페이스 픽토그램(원본 SVG, `/public/tossface`)을 쓴다. 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등). 텍스트 자체를 그래픽으로 쓰는 패턴 — 와이드 트래킹 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
+일러스트·사진보다 **타이포와 색면이 그래픽의 주인공**이다. 이모지는 카피에 못 들어가는 대신 그래픽 레이어에서 크게 활약한다 — 카드 썸네일의 단일 이모지(`🎸`, 48px, 카테고리색 틴트 그라디언트 위), 배너의 초대형 워터마크(`text-[220px] opacity-[0.18]` + rotate, 우상단 오버플로). 카테고리 타일은 실사 사진이 아니라 토스페이스 픽토그램(원본 SVG, `/public/tossface`)을 쓴다. 사용자 업로드 배너는 `<img>` + `onError` 폴백. 아이콘은 `@/components/duing/Icon` 의 thin-stroke 라인 아이콘과 인라인 SVG(햇살 모양 `spin 6s linear infinite` 회전 등), 캐럿·상태 아이콘처럼 그 셋에 없는 것은 `lucide-react`(같은 2px 라인 계열). 텍스트 자체를 그래픽으로 쓰는 패턴 — 와이드 트래킹 인덱스 칩(`01`), `{ }` 글리프, 이니셜 폴백 — 이 두잉다움의 핵심.
 
 ## Layout
 

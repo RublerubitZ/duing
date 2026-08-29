@@ -10,7 +10,8 @@ import {
 } from 'react';
 import { cn } from '@/app/_lib/cn';
 import type { CarouselSlide } from '@/app/_lib/promotion';
-import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
+// 시안의 배너 화살표는 꼬리 없는 캐럿(‹ ›)이다 — 두잉 Icon 셋엔 꼬리 달린 화살표뿐이라 lucide 것을 쓴다.
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SystemComposedSlide } from './banner/SystemComposedSlide';
 import { FullBleedSlide } from './banner/FullBleedSlide';
 
@@ -347,7 +348,7 @@ export function BannerCarouselClient({ slides }: Props) {
                 onClick={goPrev}
                 className="btn bg-paper text-ink-deep shadow-1 ring-ink/15 hover:bg-cream pointer-events-auto grid h-9 w-9 place-items-center rounded-full p-0 ring-1"
               >
-                <ArrowLeft />
+                <ChevronLeft size={20} strokeWidth={2.25} aria-hidden />
               </button>
               <button
                 type="button"
@@ -355,7 +356,7 @@ export function BannerCarouselClient({ slides }: Props) {
                 onClick={goNext}
                 className="btn bg-ink-deep text-cream shadow-1 hover:bg-ink pointer-events-auto grid h-9 w-9 place-items-center rounded-full p-0"
               >
-                <ArrowRight />
+                <ChevronRight size={20} strokeWidth={2.25} aria-hidden />
               </button>
             </div>
           )}
