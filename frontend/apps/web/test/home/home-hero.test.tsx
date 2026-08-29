@@ -141,12 +141,19 @@ describe('HeroActivityToasts (스와이프 캐러셀)', () => {
     expect(screen.getAllByText('신규 모집 오픈')).toHaveLength(2);
   });
 
-  it('그림자가 잘리지 않도록 스크롤 컨테이너에 여백을 두고 같은 크기로 되돌린다', () => {
+  it('그림자는 카드가 아니라 스크롤 컨테이너가 진다 — 컨테이너 경계에서 잘리지 않도록', () => {
     render(<HeroActivityToasts toasts={[toastAt(0), toastAt(1)]} />);
 
-    // 가로 스크롤 컨테이너는 세로도 함께 자른다 — 여유가 없으면 카드 그림자가 라운드 경계에서
-    // 직각으로 잘려 사각 테두리처럼 보인다. 음수 마진이 빠지면 토스트 위치가 24px 밀린다.
+    // 가로 스크롤 컨테이너는 자식을 사방으로 자르므로 카드에 그림자를 두면 직선으로 끊긴다.
+    // 요소는 자기 overflow 로 자기 그림자를 자르지 않으니 컨테이너가 카드 실루엣(같은 라운드,
+    // 카드는 h-full)으로 그림자를 진다. 여백 보정(py/-my)이 다시 들어오면 위치가 밀린다.
     const scroller = screen.getByRole('group', { name: '최근 동아리 활동' });
-    expect(scroller).toHaveClass('py-6', '-my-6');
+    expect(scroller).toHaveClass('rounded-lg');
+    expect(scroller.className).toMatch(/\bshadow-/);
+    expect(scroller.className).not.toMatch(/\b-?(m|p)y-/);
+
+    const card = screen.getAllByText('신규 모집 오픈')[0]?.closest('.rounded-lg');
+    expect(card).toHaveClass('h-full', 'w-full');
+    expect(card?.className).not.toMatch(/\b(shadow-|border\b)/);
   });
 });

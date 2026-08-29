@@ -39,10 +39,12 @@ export function HeroActivityToasts({ toasts }: { toasts: HeroToast[] }) {
         onScroll={handleScroll}
         role="group"
         aria-label="최근 동아리 활동"
-        // -my-6 py-6: 가로 스크롤 컨테이너는 세로도 함께 잘라서, 여유가 0 이면 카드의 그림자가
-        // 라운드 경계에서 직각으로 잘려 사각 테두리처럼 보인다. 안쪽 여백으로 그림자 자리를
-        // 만들고 같은 크기의 음수 마진으로 되돌려, 레이아웃 위치는 그대로 두면서 클리핑만 피한다.
-        className="-my-6 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth py-6 [-ms-overflow-style:none] [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
+        // 그림자는 카드가 아니라 이 스크롤 컨테이너에 올린다. 가로 스크롤 컨테이너는 자식을 상하좌우
+        // 모두 잘라서, 카드에 그림자를 두면 컨테이너 경계에서 직선으로 끊겨 사각 테두리처럼 보였다
+        // (세로만 안쪽 여백으로 피하던 시절에도 좌우 절단선은 남았다). 요소는 자기 overflow 로 자기
+        // 그림자를 자르지 않으므로, 카드와 같은 실루엣(카드 h-full·같은 라운드)인 컨테이너에 두면
+        // 여백 보정 없이 클리핑이 사라진다. 시안(509:7772)은 테두리 없는 24px 라운드 카드라 옅게 깐다.
+        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth rounded-lg shadow-[0_8px_28px_rgb(31_74_54/0.08)] [-ms-overflow-style:none] [scrollbar-width:none] motion-reduce:scroll-auto [&::-webkit-scrollbar]:hidden"
       >
         {toasts.map((toast, index) => (
           <div
@@ -81,14 +83,14 @@ export function HeroActivityToasts({ toasts }: { toasts: HeroToast[] }) {
   );
 }
 
-/** 활동 토스트 한 장. 폭은 캐러셀 슬라이드가 정하므로 여기서는 꽉 채운다. */
+/** 활동 토스트 한 장. 폭·높이는 캐러셀 슬라이드가 정하므로 여기서는 꽉 채운다(그림자는 컨테이너 몫). */
 export function HeroActivityToast({ variant, clubName, message, timeAgo }: HeroToast) {
   const isDark = variant === 'dark';
   return (
     <div
       className={cn(
-        'w-full rounded-md px-3 py-2 shadow-2 lg:px-4 lg:py-3',
-        isDark ? 'bg-ink-deep text-cream' : 'border border-line bg-paper text-ink',
+        'h-full w-full rounded-lg px-3 py-2 lg:px-4 lg:py-3',
+        isDark ? 'bg-ink-deep text-cream' : 'bg-paper text-ink',
       )}
     >
       <div className="flex items-center gap-1.5 lg:gap-2">
