@@ -68,7 +68,7 @@ export async function HomeHero() {
           {/* 본문 카피 — 시안은 모바일에도 노출한다(예전에는 히어로를 압축하려 숨겼다).
               카피는 마스코트 아래에 오므로 폭을 좁히지 않고, 글자만 한 단계 작게 둔다.
               통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
+          <p className="relative z-[1] mb-3 text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? (
