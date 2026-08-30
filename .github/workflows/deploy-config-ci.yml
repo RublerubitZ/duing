@@ -42,3 +42,23 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Assert client IP restoration is configured
+        # api.duings.com 은 Cloudflare 뒤에 있다. 아래 세 가지가 하나라도 빠지면 백엔드가 보는
+        # getRemoteAddr() 이 실제 사용자 IP 가 아니라 Cloudflare 엣지 IP 가 되고, IP 축 레이트리밋
+        # 6종(로그인 실패·가입 발급·조회 비콘 등)이 전부 CF PoP 단위 전역 제한으로 퇴행한다.
+        # 문법 검증(caddy validate)은 이 퇴행을 잡지 못한다 — 셋 다 지워도 문법은 정상이다.
+        # 그래서 어댑트된 JSON 을 직접 단언한다. (2026-08-30, deploy/Caddyfile 주석 참조)
+        run: |
+          docker run --rm -i caddy:2-alpine caddy adapt --config - --adapter caddyfile \
+            < deploy/Caddyfile > /tmp/caddy-adapted.json
+          jq -e '.apps.http.servers.srv0
+                 | (.trusted_proxies.ranges | length > 0)
+                   and (.client_ip_headers == ["Cf-Connecting-Ip"])' /tmp/caddy-adapted.json > /dev/null \
+            || { echo "::error::Caddy 에 Cloudflare 신뢰 프록시 설정이 없습니다 — 클라이언트 IP 가 CF 엣지 IP 로 집계됩니다"; exit 1; }
+          jq -e '[.. | objects | .headers?.request?.set?["X-Forwarded-For"]? // empty]
+                 | flatten | index("{http.vars.client_ip}") != null' /tmp/caddy-adapted.json > /dev/null \
+            || { echo "::error::reverse_proxy 에 X-Forwarded-For 덮어쓰기가 없습니다 — trusted_proxies 만으로는 CF 엣지 IP 가 그대로 남습니다"; exit 1; }
+          grep -qE '^\s*forward-headers-strategy:\s*native\s*$' backend/src/main/resources/application-prod.yml \
+            || { echo "::error::application-prod.yml 에 forward-headers-strategy: native 가 없습니다 — 톰캣이 X-Forwarded-For 를 무시합니다"; exit 1; }
+          echo "클라이언트 IP 복원 설정 확인 완료"

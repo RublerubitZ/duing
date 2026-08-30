@@ -34,6 +34,12 @@ import org.springframework.http.HttpStatus;
  *
  * <p>테스트는 RestAssured 가 127.0.0.1(사설 대역 = 신뢰 프록시)에서 붙으므로 운영의 Caddy 자리를
  * 그대로 재현한다. 레이트리밋 버킷을 오라클로 써서 "무엇이 클라이언트 IP 가 됐는지"를 관측한다.
+ *
+ * <p><b>이 테스트가 지키는 범위를 오해하지 말 것.</b> 여기서 고정하는 것은 톰캣 밸브의 <em>동작</em>
+ * (= 수정의 전제)이지 배포 설정이 아니다. {@code deploy/Caddyfile} 을 읽지 않으므로 거기서
+ * {@code trusted_proxies} 를 지워도 이 테스트는 그린이고, {@code properties} 로 전략을 직접 주입하니
+ * {@code application-prod.yml} 에서 그 줄이 사라져도 그린이다. 그 두 축의 회귀 가드는
+ * {@code .github/workflows/deploy-config-ci.yml} 의 "Assert client IP restoration is configured" 이다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(
