@@ -27,7 +27,8 @@ export const NAV_LINK_UNDERLINE = 'absolute -bottom-1 left-0 right-0 h-[2px] rou
  *
  * <p>상단바 크기는 본문과 같은 축척(콘텐츠 1200 = ×0.815)을 지킨다 — 전체화면(2xl)에서 상단바만 시안 1:1 로 키웠더니
  * 본문 대비 상단바만 커 보여 되돌렸다(#1099 → revert). 시안이 "커 보이는" 건 크기가 아니라 상단바 위 여백(캔버스 66)이라,
- * xl 부터 위 여백만 28 로 둔다(헤더 총 ≈79 ≈ 시안 115×0.667). 아래는 12 그대로 — 상단바→헤드라인 64 는 히어로가 맡는다.
+ * xl 부터 위 여백만 28 로 둔다(헤더 총 ≈79 — 시안 헤더 115 를 뷰포트 캡 비율 1280/1920 로 옮긴 값. 콘텐츠 축척 ×0.815 면
+ * 94 인데 그건 본문 대비 두꺼워 보였다). 아래는 12 그대로 — 상단바→헤드라인 64 는 히어로가 맡는다.
  */
 export const NAV_ROW_BASE =
-  'max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12 xl:pb-3 xl:pt-7';
+  'max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12 xl:pt-7';
