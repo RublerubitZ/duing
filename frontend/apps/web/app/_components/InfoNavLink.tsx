@@ -77,7 +77,7 @@ export function InfoNavLink({
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block rounded-[10px] px-3 py-2 text-[13.5px] font-semibold tracking-tightest text-charcoal-2 transition-colors duration-150 hover:bg-sage-tint hover:text-ink-deep focus-visible:bg-sage-tint focus-visible:text-ink-deep focus-visible:outline-none motion-reduce:transition-none"
+                  className="block rounded-[10px] px-3 py-2 text-[13.5px] font-semibold tracking-tightest text-charcoal-2 transition-colors duration-150 hover:bg-sage-tint hover:text-ink-deep focus-visible:bg-sage-tint focus-visible:text-ink-deep focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none"
                   onClick={() => setQuickMenuOpen(false)}
                 >
                   {item.label}
