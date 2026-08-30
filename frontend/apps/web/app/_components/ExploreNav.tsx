@@ -13,11 +13,12 @@ import {
   NAV_ROW_BASE,
 } from './navLinkStyles';
 import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
-import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 
 import { BrandMark } from '@/components/duing/BrandMark';
 import { NotificationBell } from './NotificationBell';
 import { HomeNavAuthSlot } from './HomeNavAuthSlot';
+import { HomeNavAdminLink } from './HomeNavAdminLink';
+import { InfoNavLink } from './InfoNavLink';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 type NavItem = {
@@ -48,7 +49,6 @@ type Props = {
 export function ExploreNav({ active, floating = false, slimOnMobile = false }: Props) {
   // raw usePathname 은 트레일링 슬래시 URL 에서 프리렌더 셸과 갈린다 — 정규화 훅을 쓴다(#1021).
   const pathname = useRoutePathname();
-  const lastInfoPath = useLastInfoPath(pathname);
 
   // 동아리·공지 상세(/clubs/{id}, /notices/{id})는 자체 상단 액션바를 쓰는 포커스 뷰라 모바일에서 이 브랜드 바를 숨긴다.
   // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 브랜드 바를 유지한다.
@@ -85,12 +85,23 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
         >
           {NAV_ITEMS.map((item) => {
             const on = isActive(item);
-            // match 가 있는 항목(정보)은 고정 href 대신 마지막 방문 허브 경로로 이동한다(getLastInfoPath 단일 정책).
-            const linkHref = item.match ? lastInfoPath : item.href;
+            // match 가 있는 항목(소식)은 HomeNav 와 같은 InfoNavLink — 마지막 방문 허브 경로로 이동하고
+            // PC hover 에 허브 퀵메뉴를 편다(어느 페이지에서든 같은 자리에서 같은 메뉴).
+            if (item.match) {
+              return (
+                <li key={item.label}>
+                  <InfoNavLink
+                    className={on ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
+                    active={on}
+                    underlineClassName={NAV_LINK_UNDERLINE}
+                  />
+                </li>
+              );
+            }
             return (
               <li key={item.label}>
                 <Link
-                  href={linkHref}
+                  href={item.href}
                   // 홈만 프리페치 제외 — 위 브랜드 링크와 같은 이유(P0 Active CPU 조치 유지).
                   prefetch={item.href === '/' ? false : undefined}
                   aria-current={on ? 'page' : undefined}
@@ -104,6 +115,10 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
               </li>
             );
           })}
+          {/* 총동연 콘솔 — ADMIN 에게만 렌더된다(HomeNav 와 동일). 홈이 아닌 페이지에서도 보이도록 여기에도 둔다. */}
+          <li>
+            <HomeNavAdminLink className={NAV_LINK_INACTIVE} />
+          </li>
         </ul>
 
         <div className="ml-auto flex items-center gap-2">

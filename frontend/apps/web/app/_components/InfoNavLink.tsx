@@ -9,14 +9,24 @@ import { useLastInfoPath } from '@/app/_lib/useLastInfoPath';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 /**
- * HomeNav(Server Component)용 "소식" 링크(범위는 정보 섹션 전체) + PC Hover Quick Menu.
+ * 상단바 "소식" 링크(범위는 정보 섹션 전체) + PC Hover Quick Menu. HomeNav(Server Component)와
+ * ExploreNav 가 같이 쓴다 — 예전엔 홈에만 있었는데, 어느 페이지에서든 같은 자리에서 같은 메뉴가
+ * 나와야 한다는 요청으로 전 화면 공통이 됐다(정보 섹션 안에서도 InfoTabs 와 함께 노출).
  * - "소식" 클릭: 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices)로 이동.
- * - hover(또는 키보드 포커스 진입) 시 허브 4개로 직행하는 Quick Menu 를 펼친다 — HomeNav 가
- *   렌더되는 모든 화면에서 동작(스펙 결정 11, 컴포넌트 단위 적용). 터치 기기는 첫 탭이 hover 를
- *   합성할 수 있어 matchMedia('(hover: hover)') 게이트로 막는다 — 탭은 곧바로 클릭 이동.
- * - ExploreNav/정보 섹션 내부에는 이 메뉴를 두지 않는다 — 섹션 내비게이션은 InfoTabs 담당.
+ * - hover(또는 키보드 포커스 진입) 시 허브 4개로 직행하는 Quick Menu 를 펼친다. 터치 기기는 첫 탭이
+ *   hover 를 합성할 수 있어 matchMedia('(hover: hover)') 게이트로 막는다 — 탭은 곧바로 클릭 이동.
+ * - active: 정보 섹션 안에 있을 때 aria-current 와 밑줄 바(ExploreNav 의 다른 항목과 같은 표시).
  */
-export function InfoNavLink({ className }: { className?: string }) {
+export function InfoNavLink({
+  className,
+  active = false,
+  underlineClassName,
+}: {
+  className?: string;
+  active?: boolean;
+  /** active 일 때 링크 안에 얹는 밑줄 바 클래스(navLinkStyles.NAV_LINK_UNDERLINE). */
+  underlineClassName?: string;
+}) {
   // 홈(ISR)에서 렌더되므로 usePathname 이 아니라 정규화 훅을 쓴다 — 재생성 중에는 `/index` 가
   // 넘어오고, 경로로 렌더를 가르는 순간 서버/클라이언트가 갈린다(#950 과 동일 함정).
   const pathname = useRoutePathname();
@@ -48,18 +58,26 @@ export function InfoNavLink({ className }: { className?: string }) {
         if (keyEvent.key === 'Escape') setQuickMenuOpen(false);
       }}
     >
-      <Link href={lastInfoPath} className={className} aria-expanded={quickMenuOpen}>
+      <Link
+        href={lastInfoPath}
+        className={className}
+        aria-expanded={quickMenuOpen}
+        aria-current={active ? 'page' : undefined}
+      >
         소식
+        {active && underlineClassName && <span className={underlineClassName} />}
       </Link>
       {quickMenuOpen && (
-        // pt-2 가 트리거와 패널 사이 hover 브리지 — 마진이면 데드존이 생겨 메뉴가 깜빡인다.
-        <div className="absolute left-1/2 top-full z-50 -translate-x-1/2 pt-2">
-          <ul className="w-[160px] rounded-md border border-line bg-paper py-1 shadow-2">
+        // pt-3 가 트리거와 패널 사이 hover 브리지 — 마진이면 데드존이 생겨 메뉴가 깜빡인다.
+        // 패널은 DESIGN.md 드롭다운 규격(16px 라운드·shadow-3·항목 hover sage-tint)을 따르고, 열릴 때
+        // 150ms 페이드+살짝 내려앉는 진입 모션을 준다 — 즉시 튀어나오면 딱딱하게 보인다(motion-reduce 는 정지).
+        <div className="absolute left-1/2 top-full z-50 -translate-x-1/2 pt-3">
+          <ul className="w-[172px] rounded-[16px] border border-line bg-paper p-1.5 shadow-3 animate-in fade-in-0 slide-in-from-top-1 duration-150 ease-out motion-reduce:animate-none">
             {INFO_MENU_ITEMS.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block px-4 py-2.5 text-[13px] font-medium text-charcoal-2 hover:bg-cream hover:text-ink"
+                  className="block rounded-[10px] px-3 py-2 text-[13.5px] font-semibold tracking-tightest text-charcoal-2 transition-colors duration-150 hover:bg-sage-tint hover:text-ink-deep focus-visible:bg-sage-tint focus-visible:text-ink-deep focus-visible:outline-none motion-reduce:transition-none"
                   onClick={() => setQuickMenuOpen(false)}
                 >
                   {item.label}
