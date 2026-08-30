@@ -12,6 +12,8 @@ vi.mock('../../app/_components/NotificationBell', () => ({
   NotificationBell: () => <button type="button">알림</button>,
 }));
 vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () => <span>인증</span> }));
+// ExploreNav 에 들어간 총동연 링크는 useMeQuery(QueryClient 필요) — 레이아웃 테스트 범위 밖이라 모킹한다.
+vi.mock('../../app/_components/HomeNavAdminLink', () => ({ HomeNavAdminLink: () => null }));
 
 import FaqLayout from '@/app/faq/layout';
 import IntroduceLayout from '@/app/introduce/layout';
