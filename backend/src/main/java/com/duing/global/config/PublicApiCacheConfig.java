@@ -45,6 +45,10 @@ import org.springframework.core.Ordered;
  * 수명을 TTL 의 5/6~1 배 사이에서 무작위로 잡아 만료를 흩는다. 상한은 여전히 TTL 이라 {@code max-age}
  * 정책은 그대로고, 같은 키가 재적재될 때마다 새 난수를 뽑으므로 위상이 다시 굳지 않는다.
  *
+ * <p>대가는 재적재 횟수다. 평균 수명이 TTL 의 11/12(60초면 55초)로 짧아져 인기 키의 DB 재적재가
+ * 약 9% 늘어난다 — 캐시가 이미 걷어내고 남은 몫의 9% 라 절대량은 작지만, 이 캐시의 1차 목적이
+ * Supabase egress 절감이라 적어 둔다. 폭을 더 넓히면(예: 1/2~1) 그 비용이 33% 로 뛴다.
+ *
  * <p>선반영(refresh-ahead)도 후보였지만 택하지 않았다. Spring 이 {@code sync} 조회에 넘겨주는 로더는
  * {@code MethodInvocation.proceed()} 한 번을 감싼 것이고, 그 호출은 인터셉터 인덱스를 되돌리지 않아
  * 재실행하면 남은 어드바이스(트랜잭션 포함)를 건너뛴다. 백그라운드 재적재를 위해 그 로더를 기억해
@@ -86,6 +90,9 @@ public class PublicApiCacheConfig {
      */
     public static final String RECRUITMENT_CALENDAR_CACHE = "publicRecruitmentCalendar";
 
+    /** 지터 하한 비율 — 수명은 TTL 의 5/6(60초면 50초)~1 배. 상한이 TTL 이라 정책을 넘지 않는다. */
+    static final double MIN_TTL_RATIO = 5.0 / 6.0;
+
     private final List<Cache> publicApiCaches;
 
     public PublicApiCacheConfig(
@@ -121,8 +128,8 @@ public class PublicApiCacheConfig {
      */
     static CaffeineCache caffeineCache(String cacheName, int maxEntries, long ttlMs, Ticker ticker) {
         // 프로덕션은 엔트리마다 난수를 뽑아 만료를 흩는다. 단위 테스트는 아래 오버로드로 이 값을 고정한다.
-        // current() 는 적재하는 스레드에서 그때그때 부른다 — 여기서 한 번 묶어 두면 그 스레드의 시드
-        // 초기화만 일어나고, 다른 요청 스레드는 초기화를 건너뛴 채 난수를 뽑게 된다.
+        // ThreadLocalRandom 은 쓰는 자리에서 current() 를 부르는 게 JDK 가 안내하는 관용구다(시드는
+        // 호출 스레드에 있어 인스턴스를 들고 다녀도 되지만, 관용구를 따르는 편이 읽는 사람에게 분명하다).
         return caffeineCache(cacheName, maxEntries, ttlMs, ticker, () -> ThreadLocalRandom.current().nextDouble());
     }
 
@@ -144,7 +151,10 @@ public class PublicApiCacheConfig {
                     @Override
                     public long expireAfterUpdate(
                             Object key, Object value, long currentTime, long currentDuration) {
-                        // 값이 새로 쓰였으니 수명도 새로 뽑는다 — 매번 새 난수라 위상이 다시 굳지 않는다.
+                        // 값이 새로 쓰였으니 수명도 새로 뽑는다. 현재 경로에서는 도달하지 않는다 —
+                        // 두 대상 메서드가 모두 sync 조회라 만료 후 재적재까지 create 로 들어오고,
+                        // 살아 있는 엔트리를 put 으로 덮는 코드가 없다. 나중에 그런 호출이 생겨도
+                        // 수명이 이어붙지 않도록 create 와 같은 규칙을 둔다.
                         return jitteredTtlNanos(ttlMs, jitterFraction.getAsDouble());
                     }
 
@@ -158,9 +168,6 @@ public class PublicApiCacheConfig {
                 .ticker(ticker)
                 .build(), true);
     }
-
-    /** 지터 하한 비율 — 수명은 TTL 의 5/6(60초면 50초)~1 배. 상한이 TTL 이라 정책을 넘지 않는다. */
-    static final double MIN_TTL_RATIO = 5.0 / 6.0;
 
     /** {@code jitterFraction} 0~1 을 TTL 의 {@link #MIN_TTL_RATIO}~1 배 수명(나노초)으로 바꾼다. */
     static long jitteredTtlNanos(long ttlMs, double jitterFraction) {

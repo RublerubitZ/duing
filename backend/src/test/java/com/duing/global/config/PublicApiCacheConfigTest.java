@@ -17,6 +17,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.Cache;
@@ -268,6 +269,29 @@ class PublicApiCacheConfigTest {
         elapsedNanos.addAndGet(Duration.ofMillis(TTL_MS / 6 + 1).toNanos());
 
         assertThat(cache.get(CACHE_KEY)).isNull();
+    }
+
+    @Test
+    @DisplayName("프로덕션 설정(난수 지터)으로 만든 캐시도 함께 적재한 키들의 만료를 흩는다")
+    void productionCacheSpreadsExpiryOfKeysLoadedTogether() {
+        // 지터 공급자를 넘기지 않는 오버로드 = 프로덕션이 쓰는 배선. 지터가 꺼지면(수명이 모두 같아지면)
+        // 아래 두 단언 중 하나는 반드시 깨진다 — 전부 살아 있거나 전부 만료되기 때문이다.
+        CaffeineCache cache = PublicApiCacheConfig.caffeineCache(
+                "프로덕션배선캐시", MAX_ENTRIES, TTL_MS, elapsedNanos::get);
+        int keyCount = 50;
+        for (int keyIndex = 0; keyIndex < keyCount; keyIndex++) {
+            cache.get(keyIndex, () -> "결과");
+        }
+
+        // 수명 구간(50~60초)의 한가운데. 키마다 독립적으로 뽑으므로 절반쯤은 이미 만료돼 있다.
+        elapsedNanos.addAndGet(Duration.ofSeconds(55).toNanos());
+
+        long survivingCount = IntStream.range(0, keyCount)
+                .filter(keyIndex -> cache.get(keyIndex) != null)
+                .count();
+        // 50개가 모두 같은 편에 설 확률은 2 × 2^-50 — 실질적으로 0 이다.
+        assertThat(survivingCount).isPositive();
+        assertThat(survivingCount).isLessThan(keyCount);
     }
 
     /** 지터를 상한(=TTL 그대로)으로 고정한다 — 기존 만료 계약을 흔들지 않고 검증하기 위해. */
