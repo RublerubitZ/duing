@@ -10,7 +10,7 @@ import { NotificationSheet } from './NotificationSheet';
 // 가시성(inline-flex lg:hidden / hidden lg:inline-flex)만 각자 덧붙인다.
 // 히트 영역은 40px 원을 유지한다(시안 슬롯은 PC 34·모바일 24 로 터치 최소 크기에 못 미친다) — 글리프만 시안 크기다.
 const bellButtonClass =
-  'relative h-10 w-10 items-center justify-center rounded-full text-ink-deep hover:bg-graysoft';
+  'relative h-10 w-10 items-center justify-center rounded-full text-ink-deep hover:bg-graysoft 2xl:h-12 2xl:w-12';
 
 export function NotificationBell({
   initialAuthenticated = null,
@@ -72,7 +72,7 @@ function BellIcon() {
   return (
     <svg
       viewBox="0 0 30 30"
-      className="h-[19px] w-[19px] md:h-6 md:w-6"
+      className="h-[19px] w-[19px] md:h-6 md:w-6 2xl:h-[30px] 2xl:w-[30px]"
       aria-hidden="true"
       fill="currentColor"
     >

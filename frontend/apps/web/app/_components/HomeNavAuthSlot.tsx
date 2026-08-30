@@ -21,16 +21,16 @@ export function HomeNavAuthSlot({
       // PC(컴포넌트 210:2824, ×0.815): 높이 42→34·좌우 24→20·글자 Medium 20→16·간격 12→10.
       // 모바일(426:4094, 1:1)은 높이 24·폭 66·글자 13 인데 한 단계 키워 26·70·14 로 둔다 — 13 은 타입 스케일 밖이고
       // 14(Body/Small)가 40px 헤더 행에서 더 또렷하다(사용자 요청). 간격 4. 경계는 상단 네비 링크와 같은 md.
-      <div className="flex items-center gap-1 md:gap-2.5">
+      <div className="flex items-center gap-1 md:gap-2.5 2xl:gap-3">
         <Link
           href="/login"
-          className="grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px] 2xl:h-[42px] 2xl:px-6 2xl:text-[20px]"
         >
           로그인
         </Link>
         <Link
           href="/signup"
-          className="grid h-[26px] w-[70px] place-items-center rounded-full bg-ink-deep text-[14px] font-medium tracking-tightest text-sage-mist transition hover:bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"
+          className="grid h-[26px] w-[70px] place-items-center rounded-full bg-ink-deep text-[14px] font-medium tracking-tightest text-sage-mist transition hover:bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px] 2xl:h-[42px] 2xl:px-6 2xl:text-[20px]"
         >
           회원가입
         </Link>
