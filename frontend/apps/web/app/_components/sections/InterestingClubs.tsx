@@ -114,7 +114,7 @@ function InterestCard({ club }: { club: ClubSummary }) {
     // 기준으로 다시 환산했다(로고 82/30 = 2.733em).
     <Link
       href={`/clubs/${club.id}`}
-      className="group flex h-full min-h-[290px] flex-col rounded-[1.5em] border border-line bg-paper p-[1.375em] text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:min-h-[101.75cqw] lg:text-[5.614cqw]"
+      className="group flex h-full min-h-[290px] flex-col rounded-[1.5em] bg-paper p-[1.375em] forced-colors:border text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:min-h-[101.75cqw] lg:text-[5.614cqw]"
     >
       <div className="flex items-start justify-between gap-[0.75em]">
         <ClubCardLogo club={club} className="h-[2.733em] w-[2.733em] rounded-[0.6em] text-[1.875em]" />
@@ -161,7 +161,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
   return (
     <Link
       href={`/clubs/${club.id}`}
-      className="flex h-[76px] items-center gap-3 rounded-[10px] border border-line bg-paper px-3 transition active:scale-[0.99]"
+      className="flex h-[76px] items-center gap-3 rounded-[10px] bg-paper px-3 forced-colors:border transition active:scale-[0.99]"
     >
       <ClubCardLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">

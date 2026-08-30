@@ -108,10 +108,20 @@ export function BannerCarouselClient({ slides }: Props) {
   }, [slides.length]);
 
   useEffect(() => {
-    // OS '동작 줄이기' 면 자동 넘김을 처음부터 멈춘다(WCAG 2.3.3). 초기 state 에 넣지 않는 이유는
-    // 서버 렌더가 matchMedia 를 모르기 때문 — 마운트 후 한 번만 내려 하이드레이션 불일치를 피한다.
-    // 사용자는 토글로 다시 켤 수 있다. 전환 키프레임은 globals.css 의 같은 미디어 쿼리가 끈다.
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) setIsPlaying(false);
+    // OS '동작 줄이기' 면 자동 넘김을 멈춘다(WCAG 2.3.3). 초기 state 에 넣지 않는 이유는
+    // 서버 렌더가 matchMedia 를 모르기 때문 — 마운트 후에 내려 하이드레이션 불일치를 피한다.
+    // 전환 키프레임은 globals.css 의 같은 미디어 쿼리가 끈다.
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!reducedMotion) return;
+    if (reducedMotion.matches) setIsPlaying(false);
+    // 페이지를 연 채 설정을 켜는 경우도 잡는다. 마운트 시점만 보면 그때부터 새로고침 전까지 계속
+    // 넘어가는데, 모바일은 토글이 없어(sm 부터 노출) 그 상태를 멈출 방법이 아예 없다.
+    const stopWhenReduced = (event: MediaQueryListEvent) => {
+      if (event.matches) setIsPlaying(false);
+    };
+    // 끄는 방향으로는 되살리지 않는다 — 사용자가 토글로 직접 멈춘 것을 설정 변경이 덮으면 안 된다.
+    reducedMotion.addEventListener('change', stopWhenReduced);
+    return () => reducedMotion.removeEventListener('change', stopWhenReduced);
   }, []);
 
   useEffect(() => {
@@ -252,7 +262,7 @@ export function BannerCarouselClient({ slides }: Props) {
       <div className="max-w-layout relative mx-auto">
         {/*
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
-         * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(배너 밖 아래)로 나뉜다.
+         * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(sm+ 배너 밖 아래)로 나뉜다.
          *
          * 높이는 시안 비율로 정한다 — PC 프레임 배너 1472×342(≈4.3:1, 라운드 24→20), 모바일 프레임
          * 배너 361×124(≈2.9:1, 라운드 10). 전환은 화살표·CTA 와 같은 md 다. 예전의 viewport 1차식
@@ -323,15 +333,16 @@ export function BannerCarouselClient({ slides }: Props) {
               누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
               되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
               보이는 문구가 이름 안에 그대로 들어가 눈에 보이는 이름과 갈리지 않는다(2.5.3).
-              보이는 알약은 32px 높이지만 모바일의 유일한 비제스처 이동 수단이라, before 가상요소로
-              히트 영역만 44px 로 넓힌다(레이아웃·높이 예산 불변). */}
+              보이는 알약은 시안(509:9182)대로 모바일 21px·sm 부터 32px 높이지만, 모바일의 유일한
+              비제스처 이동 수단이라 before 가상요소로 히트 영역만 44px 로 넓힌다(레이아웃·높이 예산
+              불변). 알약 높이가 바뀌면 inset 도 같이 바꿔야 44px 이 유지된다 — 21+11.5×2, 32+6×2. */}
           {slides.length > 1 && (
             <button
               type="button"
               data-testid="banner-pager"
               aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
               onClick={goNext}
-              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition before:absolute before:-inset-1.5 hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5"
+              className="btn absolute bottom-3 right-4 z-10 h-[21px] rounded-full bg-black/60 px-1.5 py-0 text-[12px] font-medium tabular-nums text-white transition before:absolute before:-inset-[11.5px] hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5 sm:h-auto sm:px-3.5 sm:py-1.5 sm:text-[13px] sm:font-semibold sm:before:-inset-1.5"
             >
               {activeIndex + 1} / {slides.length}
             </button>
@@ -368,8 +379,15 @@ export function BannerCarouselClient({ slides }: Props) {
             과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
             덮지 않고(덮으면 눈에 보이는 이름과 갈린다 — 2.5.3), aria-pressed 도 두지 않는다.
             이름이 상태를 따라 바뀌는 토글에 눌림 상태까지 붙이면 같은 사실을 두 번 말한다(APG). */}
+        {/* 모바일(<sm)에서는 토글을 감춘다(사용자 결정) — 좁은 화면에서 배너 아래 컨트롤이 시선을
+            끌어서다. 자동 재생은 그대로 두므로 그 폭에서는 멈출 수단이 OS '동작 줄이기' 뿐이고,
+            그만큼 WCAG 2.2.2 를 벗어난다는 것은 알고 있다. display:none 이라 스크린리더·탭 순서에서도
+            빠진다. 되돌리려면 `hidden` 을 지우고 `sm:flex` 를 `flex` 로 되돌린다(둘 다 해야 한다 —
+            hidden 만 지우면 block 이 되어 justify-end 가 먹지 않는다).
+            이 줄이 사라지면 모바일 배너 아래 여백이 44px(행 32 + mt-3 12) 줄어 배너 카드와 다음 섹션
+            사이가 72→28px 이 된다. 다음 섹션이 자기 mt-7 을 갖고 있어 붙지는 않는다(390px 실측). */}
         {slides.length > 1 && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 hidden justify-end sm:flex">
             <button
               type="button"
               onClick={() => setIsPlaying((prev) => !prev)}

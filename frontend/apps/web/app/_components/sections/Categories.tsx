@@ -65,7 +65,7 @@ function CategoryCard({
       aria-label={categoryLinkLabel(category, count)}
       // 네이티브 앵커 드래그가 가로 스크롤 제스처를 끊지 않도록 막는다.
       draggable={false}
-      className="group relative flex h-[194px] w-[264px] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] border border-line bg-paper p-[22px] text-inherit no-underline transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
+      className="group relative flex h-[194px] w-[264px] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] bg-paper p-[22px] forced-colors:border text-inherit no-underline transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
     >
       <div className="flex items-start justify-between">
         <span aria-hidden className="text-[30px] font-semibold leading-none tracking-tightest text-ink">
@@ -118,7 +118,7 @@ function CategoryTile({
       href={`/clubs?category=${category.value}`}
       aria-label={categoryLinkLabel(category, count)}
       draggable={false}
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] border border-line bg-paper p-2.5 text-inherit no-underline transition active:scale-[0.97]"
+      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] bg-paper p-2.5 forced-colors:border text-inherit no-underline transition active:scale-[0.97]"
     >
       <span aria-hidden className="text-[14px] font-semibold leading-none tracking-tightest text-ink">
         {category.label}

@@ -228,6 +228,8 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
 describe('BannerCarouselClient — 오버레이 컨트롤', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    // matchMedia 스텁이 뒤 테스트로 새면 가짜 mql(쿼리 무시·matches 고정)을 물려받는다.
+    vi.unstubAllGlobals();
   });
 
   it('다음·이전 버튼이 배너를 순환 이동시킨다', () => {
@@ -275,6 +277,16 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
   });
 
+  it('자동 재생 토글은 sm 미만에서 감춰진다 — 좁은 화면 시선 분산을 줄이려는 결정', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    // jsdom 은 미디어 쿼리를 평가하지 않아 요소는 그대로 남는다. 표시 여부를 정하는 것은 클래스뿐이라
+    // 그 클래스가 유지되는지로 확인한다(sm 부터 다시 보인다).
+    const toggleRow = screen.getByRole('button', { name: '자동재생 중' }).parentElement;
+
+    expect(toggleRow).toHaveClass('hidden');
+    expect(toggleRow).toHaveClass('sm:flex');
+  });
+
   it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {
     vi.useFakeTimers();
     try {
@@ -287,6 +299,44 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
         vi.advanceTimersByTime(12_000);
       });
       expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("페이지를 연 뒤 '동작 줄이기' 를 켜면 그 시점부터 자동 재생이 멈춘다", () => {
+    // 마운트 시점만 읽으면 새로고침 전까지 계속 넘어가는데, 모바일은 토글이 없어 멈출 방법이 없다.
+    const changeListeners = new Set<(event: MediaQueryListEvent) => void>();
+    const reducedMotionQuery = {
+      matches: false,
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        changeListeners.add(listener);
+      },
+      removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        changeListeners.delete(listener);
+      },
+    };
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => reducedMotionQuery),
+    );
+    vi.useFakeTimers();
+    try {
+      render(<BannerCarouselClient slides={makeSlides(4)} />);
+      act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      // 켜기 전에는 5초 간격으로 넘어간다 — 이 단언이 없으면 아래 정지가 우연일 수 있다.
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+
+      act(() => {
+        changeListeners.forEach((listener) => listener({ matches: true } as MediaQueryListEvent));
+      });
+      act(() => {
+        vi.advanceTimersByTime(12_000);
+      });
+
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
     } finally {
       vi.useRealTimers();
     }
