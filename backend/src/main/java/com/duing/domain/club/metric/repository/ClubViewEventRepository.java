@@ -42,7 +42,9 @@ public interface ClubViewEventRepository extends JpaRepository<ClubViewEvent, Lo
     /**
      * 창 안의 동아리별 관심도 집계.
      * <p>한 행이 곧 "어떤 방문자가 어느 날 이 동아리를 봤다" 이므로, 행마다 그날의 감쇠 가중치를 더하면
-     * 그것이 곧 {@code Σ 일별 순방문자 × 0.5^(경과일/3)} 이다 — 일자별로 먼저 GROUP BY 할 필요가 없다.
+     * 그것이 곧 {@code Σ 일별 조회 × 0.5^(경과일/3)} 이다 — 일자별로 먼저 GROUP BY 할 필요가 없다.
+     * <p>여기서 나오는 두 값은 정렬 점수의 두 축일 뿐이고, 합성은 {@code ClubInterestPolicy} 가 한다 —
+     * 가중치를 SQL 에 박으면 산식이 정책 클래스와 쿼리 문자열 두 곳으로 갈라진다.
      * <p>미래 날짜 행(클라이언트·서버 시계 어긋남)은 감쇠 지수가 음수가 되어 가중치가 1을 넘으므로
      * 상한을 오늘로 막는다. ACTIVE·미삭제 동아리만 집계한다 — 목록도 그것만 노출한다.
      */
@@ -50,7 +52,7 @@ public interface ClubViewEventRepository extends JpaRepository<ClubViewEvent, Lo
             SELECT v.club_id                     AS clubId,
                    COUNT(DISTINCT v.visitor_hash) AS weeklyVisitorCount,
                    SUM(POWER(0.5, (CAST(:today AS date) - v.event_date)
-                                  / CAST(:halfLifeDays AS double precision))) AS interestScore
+                                  / CAST(:halfLifeDays AS double precision))) AS decayedVisitScore
             FROM club_view_event v
             JOIN club c ON c.id = v.club_id
             WHERE v.event_date >= CAST(:windowStart AS date)

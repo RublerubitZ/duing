@@ -42,7 +42,7 @@ public class ClubMetric {
     private double activityScore;
 
     /**
-     * 홈 관심도순 정렬 점수 — 최근 7일 일별 순방문자에 반감기 3일 감쇠를 적용한 합.
+     * 홈 관심도순 정렬 점수 — 최근 7일 조회의 반감기 3일 감쇠 합(65%)과 순방문자 수(35%)를 합성한 값.
      * 산식은 ClubInterestPolicy 참고. 사용자에게 노출하지 않는 내부 정렬값이다.
      */
     @Column(name = "interest_score", nullable = false)

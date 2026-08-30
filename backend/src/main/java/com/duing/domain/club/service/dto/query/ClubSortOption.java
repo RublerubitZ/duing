@@ -41,8 +41,11 @@ public enum ClubSortOption {
     /**
      * 관심도순. 홈 "관심도가 높은 동아리" 섹션 전용.
      * <ol>
-     *   <li>club_metric.interest_score DESC — 최근 7일 순방문자에 반감기 3일 감쇠를 적용한 값
-     *       (산식은 {@code ClubInterestPolicy}). metric 행이 없으면 NULL → NULLS LAST</li>
+     *   <li>club_metric.interest_score DESC — 최근 7일 조회의 반감기 3일 감쇠 합(65%)과 감쇠 없는
+     *       순방문자 수(35%)를 합성한 값(산식은 {@code ClubInterestPolicy}). 같은 날 하루씩만 본
+     *       경우끼리는 오래된 쪽이 사람 약 2배 이상이어야 오늘을 앞선다. 여러 날에 걸친 반복 조회는
+     *       사람 수가 같아도 감쇠 축을 여러 번 쌓으므로, "사람 수가 같으면 최근 쪽이 앞선다"로 읽으면
+     *       안 된다. metric 행이 없으면 coalesce 로 0 점과 같은 자리에 두어 아래 폴백이 순서를 정한다</li>
      *   <li>동점 시 {@link #POPULAR} 티어 전체로 폴백 — 지원자수 → 즐겨찾기수 → 최근 모집 시작일 → 생성일</li>
      * </ol>
      * 폴백을 두는 이유는 콜드 스타트다. 집계 배포 직후·방학처럼 조회가 전무한 구간에서는 전 동아리

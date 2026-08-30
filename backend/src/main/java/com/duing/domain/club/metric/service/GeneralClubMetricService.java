@@ -80,7 +80,8 @@ public class GeneralClubMetricService implements ClubMetricService {
                                     row.getFavoriteCount(), maxFavoriteCount,
                                     row.getApplicationCount(), maxApplicationCount,
                                     row.getLastActivityAt(), now),
-                            interest == null ? 0.0 : interest.getInterestScore(),
+                            interest == null ? 0.0 : ClubInterestPolicy.interestScore(
+                                    interest.getDecayedVisitScore(), interest.getWeeklyVisitorCount()),
                             interest == null ? 0 : interest.getWeeklyVisitorCount(),
                             now);
                 })
