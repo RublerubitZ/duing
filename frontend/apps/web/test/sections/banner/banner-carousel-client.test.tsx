@@ -275,6 +275,16 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
     expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
   });
 
+  it('자동 재생 토글은 sm 미만에서 감춰진다 — 좁은 화면 시선 분산을 줄이려는 결정', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    // jsdom 은 미디어 쿼리를 평가하지 않아 요소는 그대로 남는다. 표시 여부를 정하는 것은 클래스뿐이라
+    // 그 클래스가 유지되는지로 확인한다(sm 부터 다시 보인다).
+    const toggleRow = screen.getByRole('button', { name: '자동재생 중' }).parentElement;
+
+    expect(toggleRow).toHaveClass('hidden');
+    expect(toggleRow).toHaveClass('sm:flex');
+  });
+
   it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {
     vi.useFakeTimers();
     try {

@@ -194,7 +194,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Carousel Controls
 **Role:** 배너 캐러셀 위치 표시·이동.
 
-위치 표시는 도트가 아니라 `1 / N` 알약 버튼 하나 — `btn rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white`(흰 이미지 위 대비 때문에 ink 틴트가 아니라 black). 좁은 폭은 우측 하단, `sm` 부터 우측 상단이며 **누르면 다음 슬라이드로 간다** — 모바일엔 화살표가 없어 스와이프 외 유일한 비제스처 이동 수단이다. 이전·다음 원형 버튼은 `md` 이상에서만 우측 하단(위 Secondary 의 원형 아이콘 버튼), 자동재생 토글(`btn btn-ghost btn-sm`)은 배너 밖 아래에 전 폭 노출. 슬라이드가 1장이면 셋 다 숨긴다. 컨트롤이 슬라이드 CTA 를 가리지 않도록 자리를 비우는 쪽은 슬라이드다(같은 `sm` 경계에서 전환).
+위치 표시는 도트가 아니라 `1 / N` 알약 버튼 하나 — `btn rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white`(흰 이미지 위 대비 때문에 ink 틴트가 아니라 black). 좁은 폭은 우측 하단, `sm` 부터 우측 상단이며 **누르면 다음 슬라이드로 간다** — 모바일엔 화살표가 없어 스와이프 외 유일한 비제스처 이동 수단이다. 이전·다음 원형 버튼은 `md` 이상에서만 우측 하단(위 Secondary 의 원형 아이콘 버튼), 자동재생 토글(`btn btn-ghost btn-sm`)은 배너 밖 아래, **`sm` 부터만 노출**(모바일은 시선 분산을 줄이려 감춘다 — 자동재생 자체는 유지되므로 그 폭에서 멈출 수단은 OS '동작 줄이기' 뿐이라는 접근성 부채를 안고 가는 결정). 감추면 그 행이 차지하던 44px(행 32 + `mt-3` 12)가 함께 빠져 **모바일 배너 카드 → 다음 섹션 간격이 72→28px**(다음 섹션의 `mt-7`)이 된다 — 390px 실측, 의도된 결과다. 슬라이드가 1장이면 셋 다 숨긴다. 컨트롤이 슬라이드 CTA 를 가리지 않도록 자리를 비우는 쪽은 슬라이드다(같은 `sm` 경계에서 전환).
 
 ### Sparkle (장식 모티프)
 **Role:** 브랜드 장식 — 헤딩 옆 스티커, 카드 모서리.
@@ -234,7 +234,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 - 기본은 **색상 전환만**. transform hover 는 Lift Card·원형 버튼 등 의도된 곳에만
 - 무한 마퀴 금지 — 티커도 정적 한 줄 + `overflow-hidden` 클리핑으로 연출
 - 전환 애니메이션은 `key` 에 상태를 넣어 재마운트로 리트리거. 방향별 클래스는 문자열 조립이 아니라 리터럴 분기로 써서 Tailwind 가 추출하게 한다 — `safelist` 는 없다
-- 캐러셀 자동재생 5초, 일시정지 토글 제공
+- 캐러셀 자동재생 5초, 일시정지 토글은 `sm` 이상에서 제공(모바일은 감춤 — 자동재생은 유지)
 
 ## Copywriting
 

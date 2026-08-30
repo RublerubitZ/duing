@@ -252,7 +252,7 @@ export function BannerCarouselClient({ slides }: Props) {
       <div className="max-w-layout relative mx-auto">
         {/*
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
-         * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(배너 밖 아래)로 나뉜다.
+         * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(sm+ 배너 밖 아래)로 나뉜다.
          *
          * 높이는 시안 비율로 정한다 — PC 프레임 배너 1472×342(≈4.3:1, 라운드 24→20), 모바일 프레임
          * 배너 361×124(≈2.9:1, 라운드 10). 전환은 화살표·CTA 와 같은 md 다. 예전의 viewport 1차식
@@ -368,8 +368,15 @@ export function BannerCarouselClient({ slides }: Props) {
             과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
             덮지 않고(덮으면 눈에 보이는 이름과 갈린다 — 2.5.3), aria-pressed 도 두지 않는다.
             이름이 상태를 따라 바뀌는 토글에 눌림 상태까지 붙이면 같은 사실을 두 번 말한다(APG). */}
+        {/* 모바일(<sm)에서는 토글을 감춘다(사용자 결정) — 좁은 화면에서 배너 아래 컨트롤이 시선을
+            끌어서다. 자동 재생은 그대로 두므로 그 폭에서는 멈출 수단이 OS '동작 줄이기' 뿐이고,
+            그만큼 WCAG 2.2.2 를 벗어난다는 것은 알고 있다. display:none 이라 스크린리더·탭 순서에서도
+            빠진다. 되돌리려면 `hidden` 을 지우고 `sm:flex` 를 `flex` 로 되돌린다(둘 다 해야 한다 —
+            hidden 만 지우면 block 이 되어 justify-end 가 먹지 않는다).
+            이 줄이 사라지면 모바일 배너 아래 여백이 44px(행 32 + mt-3 12) 줄어 배너 카드와 다음 섹션
+            사이가 72→28px 이 된다. 다음 섹션이 자기 mt-7 을 갖고 있어 붙지는 않는다(390px 실측). */}
         {slides.length > 1 && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 hidden justify-end sm:flex">
             <button
               type="button"
               onClick={() => setIsPlaying((prev) => !prev)}
