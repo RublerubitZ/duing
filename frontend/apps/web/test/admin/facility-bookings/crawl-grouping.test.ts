@@ -83,6 +83,33 @@ describe('foldReservationContexts — 예약 맥락 접기(수정 3)', () => {
     expect(contextDateLabel(contexts[0]!)).toBe('08/28~08/29');
   });
 
+  it('주체가 다르면 같은 시설·시간·연속 일자여도 맥락을 합치지 않는다 — 시설별 보기(일자→시각 정렬)에서 끼어든 타 주체 행 너머로 같은 주체의 연속 일자는 이어진다', () => {
+    // 서버의 시설별 정렬(일자→시작시각)은 주체를 섞어 내려준다: A 8/28, B 8/28, A 8/29
+    const contexts = foldReservationContexts([
+      reservation({ reservationId: 1, organizationName: 'A동아리', reservationDate: '2026-08-28' }),
+      reservation({ reservationId: 2, organizationName: 'B기관', reservationDate: '2026-08-28' }),
+      reservation({ reservationId: 3, organizationName: 'A동아리', reservationDate: '2026-08-29' }),
+    ]);
+    expect(contexts).toHaveLength(2);
+    expect(contexts[0]?.organizationName).toBe('A동아리');
+    expect(contexts[0]?.reservations.map((row) => row.reservationId)).toEqual([1, 3]);
+    expect(contextDateLabel(contexts[0]!)).toBe('08/28~08/29');
+    expect(contexts[1]?.organizationName).toBe('B기관');
+    expect(contextDateLabel(contexts[1]!)).toBe('08/28');
+  });
+
+  it('주체가 그룹으로 고정된 경우(동아리별·미매칭)는 raw 표기가 달라도(정규화 동일 주체) 연속 일자를 한 맥락으로 접는다', () => {
+    const contexts = foldReservationContexts(
+      [
+        reservation({ reservationId: 1, organizationName: '고정관념', reservationDate: '2026-08-28' }),
+        reservation({ reservationId: 2, organizationName: '고정관념(동아리)', reservationDate: '2026-08-29' }),
+      ],
+      { subjectFixedByGroup: true },
+    );
+    expect(contexts).toHaveLength(1);
+    expect(contextDateLabel(contexts[0]!)).toBe('08/28~08/29');
+  });
+
   it('월 경계 연속(8/31→9/1)도 하나의 맥락으로 이어진다', () => {
     const contexts = foldReservationContexts([
       reservation({ reservationId: 1, reservationDate: '2026-08-31' }),

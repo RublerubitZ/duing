@@ -176,7 +176,10 @@ function groupKeyOf(group: AdminCrawlReservationGroup): string {
 }
 
 function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
-  const contexts = foldReservationContexts(group.reservations);
+  // 동아리별·미매칭 그룹은 제목이 곧 주체라 생략하고, 시설 축 그룹에서만 행마다 주체를 보여준다(수정 3 — 맥락은 주체·시설 단위).
+  const showsOrganization = group.groupType === 'FACILITY' || group.groupType === 'FACILITY_DATE';
+  // 주체가 그룹으로 고정된 경우(동아리별·미매칭)는 raw 표기 변형이 접기를 가르지 않도록 키에서 주체를 뺀다.
+  const contexts = foldReservationContexts(group.reservations, { subjectFixedByGroup: !showsOrganization });
   return (
     <li className="px-5 py-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -205,9 +208,12 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
           const meta = CLASSIFICATION_META[context.classification];
           return (
             <li
-              key={`${context.facilityId}-${context.startDate}-${context.startTime}-${context.endTime}`}
+              key={`${context.organizationName}-${context.facilityId}-${context.startDate}-${context.startTime}-${context.endTime}-${context.classification}`}
               className="flex flex-wrap items-center gap-2 text-[13px]"
             >
+              {showsOrganization && (
+                <span className="font-semibold text-ink-deep">{context.organizationName}</span>
+              )}
               <span className="text-charcoal-2">{context.facilityName ?? '알 수 없는 시설'}</span>
               <span className="tabular-nums text-charcoal-3">{contextDateLabel(context)}</span>
               <span className="tabular-nums font-semibold text-ink">

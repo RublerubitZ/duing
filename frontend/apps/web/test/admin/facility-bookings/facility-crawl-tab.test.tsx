@@ -147,6 +147,40 @@ describe('FacilityCrawlTab', () => {
     expect(facilityRequest?.page).toBe('0');
   });
 
+  it('시설별 보기는 행마다 주체를 표시하고, 주체가 다른 같은 시간대는 한 맥락으로 접지 않는다(수정 3)', async () => {
+    const FACILITY_GROUP: AdminCrawlReservationGroup = {
+      groupType: 'FACILITY',
+      facilityId: 10,
+      title: '공연장',
+      // 서버의 시설별 정렬(일자→시작시각)은 주체를 섞어 내려준다: A 8/28, B 8/28, A 8/29
+      reservations: [
+        { ...CLUB_GROUP.reservations[0]!, reservationId: 11, organizationName: 'A동아리', reservationDate: '2026-08-28' },
+        { ...CLUB_GROUP.reservations[0]!, reservationId: 12, organizationName: 'B기관', reservationDate: '2026-08-28' },
+        { ...CLUB_GROUP.reservations[0]!, reservationId: 13, organizationName: 'A동아리', reservationDate: '2026-08-29' },
+      ],
+    };
+    server.use(
+      http.get('*/admin/facility-crawl/reservations', ({ request }) => {
+        const url = new URL(request.url);
+        requestedParams.push(Object.fromEntries(url.searchParams.entries()));
+        const page = url.searchParams.get('groupBy') === 'FACILITY' ? { ...GROUP_PAGE, content: [FACILITY_GROUP] } : GROUP_PAGE;
+        return HttpResponse.json({ ok: true, data: page, message: null });
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('고정관념');
+
+    await user.click(screen.getByRole('button', { name: '시설별' }));
+
+    // B기관 이 A동아리 사이에 끼어도 A 의 8/28·8/29 는 한 맥락(1행), B 는 별도 행 — 주체가 각 행에 보인다
+    expect(await screen.findByText('B기관')).toBeInTheDocument();
+    expect(screen.getByText('A동아리')).toBeInTheDocument();
+    expect(screen.getByText('08/28~08/29')).toBeInTheDocument();
+    expect(screen.getByText('(2건 연속)')).toBeInTheDocument();
+    expect(screen.getByText('08/28')).toBeInTheDocument();
+  });
+
   it('시설 필터를 고르면 facilityId 파라미터로 재조회한다', async () => {
     const user = userEvent.setup();
     renderPage();
