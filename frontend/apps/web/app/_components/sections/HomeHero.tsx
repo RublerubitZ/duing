@@ -10,8 +10,9 @@ export async function HomeHero() {
   const [stats, activities] = await Promise.all([fetchClubStats(), fetchPublicActivities()]);
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
+  // xl 상단 여백: 시안 환산값 64(77×0.815)에서 사용자 요청으로 한 단계 줄인 48 — 상단바(64)와 헤드라인 사이가 벌어져 보였다.
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-12">
       <div className="bg-grid absolute inset-0 opacity-50" />
       {/* 우상단 세이지 블러 원은 PC 시안 전용 — 모바일 프레임(509:8861)의 배경은 크림 단색이라 md 부터만 그린다. */}
       <div
