@@ -85,15 +85,28 @@ describe('RecruitmentTicker (server component)', () => {
     expect(announced('베타')).toHaveLength(1);
   });
 
-  it('모집이 한 곳뿐이어도 한 카피가 6개가 되도록 채워 마퀴 이음매에 빈 띠가 생기지 않는다', async () => {
+  it('모집이 한 곳뿐이어도 한 카피가 8개가 되도록 채워 마퀴 이음매에 빈 띠가 생기지 않는다', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([makeSummary(1, '외톨이', isoInDays(1))]);
 
     const Component = await RecruitmentTicker();
     render(<>{Component}</>);
 
-    // 한 카피 최소 6개 × seamless 루프용 2배 = 12. 이 수가 줄면 넓은 폭에서 이음매가 벌어진다.
-    expect(screen.getAllByText('외톨이')).toHaveLength(12);
+    // 한 카피 최소 8개 × seamless 루프용 2배 = 16. 이 수가 줄면 넓은 폭에서 이음매가 벌어진다.
+    expect(screen.getAllByText('외톨이')).toHaveLength(16);
     expect(announced('외톨이')).toHaveLength(1);
+  });
+
+  it('모집이 6곳이어도 채움이 걸린다 — 기준을 딱 맞추면 배수가 1 이라 그냥 지나간다', async () => {
+    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce(
+      Array.from({ length: 6 }, (_, index) => makeSummary(index + 1, `여섯${index}`, isoInDays(2))),
+    );
+
+    const Component = await RecruitmentTicker();
+    render(<>{Component}</>);
+
+    // 6곳 × 되풀이 2배 = 12개가 한 카피, 트랙에는 그 두 배가 깔린다.
+    expect(screen.getAllByText('여섯0')).toHaveLength(4);
+    expect(announced('여섯0')).toHaveLength(1);
   });
 
   it('되풀이로 채워도 흐르는 속도는 채우기 전과 같다 — 길이 배수만큼 재생 시간도 늘어난다', async () => {
@@ -101,7 +114,7 @@ describe('RecruitmentTicker (server component)', () => {
     const speedWithoutFill = (clubCount: number) =>
       clubCount / Math.max(12, Math.round(clubCount * 2.6));
 
-    // 1곳(6배로 채워짐)·2곳(3배)·8곳(채움 없음) 모두 자기 기준 속도를 지켜야 한다.
+    // 1곳(8배로 채워짐)·2곳(4배)·8곳(채움 없음) 모두 자기 기준 속도를 지켜야 한다.
     for (const clubCount of [1, 2, 8]) {
       mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce(
         Array.from({ length: clubCount }, (_, index) =>
@@ -111,7 +124,7 @@ describe('RecruitmentTicker (server component)', () => {
       const Component = await RecruitmentTicker();
       const { unmount } = render(<>{Component}</>);
 
-      // 하한(12s)에 채운 길이를 그대로 맡기면 1곳은 6배, 2곳은 3배 빨라진다.
+      // 하한(12s)에 채운 길이를 그대로 맡기면 1곳은 8배, 2곳은 4배 빨라진다.
       expect(itemsPerSecond(clubCount)).toBeCloseTo(speedWithoutFill(clubCount), 5);
       unmount();
     }

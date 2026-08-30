@@ -108,10 +108,20 @@ export function BannerCarouselClient({ slides }: Props) {
   }, [slides.length]);
 
   useEffect(() => {
-    // OS '동작 줄이기' 면 자동 넘김을 처음부터 멈춘다(WCAG 2.3.3). 초기 state 에 넣지 않는 이유는
-    // 서버 렌더가 matchMedia 를 모르기 때문 — 마운트 후 한 번만 내려 하이드레이션 불일치를 피한다.
-    // 사용자는 토글로 다시 켤 수 있다. 전환 키프레임은 globals.css 의 같은 미디어 쿼리가 끈다.
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) setIsPlaying(false);
+    // OS '동작 줄이기' 면 자동 넘김을 멈춘다(WCAG 2.3.3). 초기 state 에 넣지 않는 이유는
+    // 서버 렌더가 matchMedia 를 모르기 때문 — 마운트 후에 내려 하이드레이션 불일치를 피한다.
+    // 전환 키프레임은 globals.css 의 같은 미디어 쿼리가 끈다.
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!reducedMotion) return;
+    if (reducedMotion.matches) setIsPlaying(false);
+    // 페이지를 연 채 설정을 켜는 경우도 잡는다. 마운트 시점만 보면 그때부터 새로고침 전까지 계속
+    // 넘어가는데, 모바일은 토글이 없어(sm 부터 노출) 그 상태를 멈출 방법이 아예 없다.
+    const stopWhenReduced = (event: MediaQueryListEvent) => {
+      if (event.matches) setIsPlaying(false);
+    };
+    // 끄는 방향으로는 되살리지 않는다 — 사용자가 토글로 직접 멈춘 것을 설정 변경이 덮으면 안 된다.
+    reducedMotion.addEventListener('change', stopWhenReduced);
+    return () => reducedMotion.removeEventListener('change', stopWhenReduced);
   }, []);
 
   useEffect(() => {

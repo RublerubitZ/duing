@@ -228,6 +228,8 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
 describe('BannerCarouselClient — 오버레이 컨트롤', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    // matchMedia 스텁이 뒤 테스트로 새면 가짜 mql(쿼리 무시·matches 고정)을 물려받는다.
+    vi.unstubAllGlobals();
   });
 
   it('다음·이전 버튼이 배너를 순환 이동시킨다', () => {
@@ -297,6 +299,44 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
         vi.advanceTimersByTime(12_000);
       });
       expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("페이지를 연 뒤 '동작 줄이기' 를 켜면 그 시점부터 자동 재생이 멈춘다", () => {
+    // 마운트 시점만 읽으면 새로고침 전까지 계속 넘어가는데, 모바일은 토글이 없어 멈출 방법이 없다.
+    const changeListeners = new Set<(event: MediaQueryListEvent) => void>();
+    const reducedMotionQuery = {
+      matches: false,
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        changeListeners.add(listener);
+      },
+      removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        changeListeners.delete(listener);
+      },
+    };
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => reducedMotionQuery),
+    );
+    vi.useFakeTimers();
+    try {
+      render(<BannerCarouselClient slides={makeSlides(4)} />);
+      act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      // 켜기 전에는 5초 간격으로 넘어간다 — 이 단언이 없으면 아래 정지가 우연일 수 있다.
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+
+      act(() => {
+        changeListeners.forEach((listener) => listener({ matches: true } as MediaQueryListEvent));
+      });
+      act(() => {
+        vi.advanceTimersByTime(12_000);
+      });
+
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
     } finally {
       vi.useRealTimers();
     }
