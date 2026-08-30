@@ -23,12 +23,16 @@ export function HomeMobileSearchBar() {
         method="get"
         className="mx-auto flex max-w-layout items-center gap-2 rounded-[10px] bg-paper py-1.5 pl-3.5 pr-1.5 shadow-1 ring-ink/40 focus-within:ring-2"
       >
+        {/* 시안(425:5968)의 플레이스홀더는 13px 이지만, globals.css 의 iOS 포커스 자동 확대 방지가
+            모바일 입력 폰트를 16px !important 로 묶는다. 그 하한이 막는 것은 "작은 글자에 포커스했을 때의
+            자동 확대" 라 입력 자체는 16px 로 두고, 쉬고 있을 때 보이는 의사요소에만 시안 크기를 준다 —
+            의사요소는 상속 대신 자기 선언을 쓰므로 !important 없이도 이 값이 이긴다. */}
         <input
           type="search"
           name="q"
           placeholder="찾으시는 동아리를 검색해주세요."
           aria-label="동아리 검색"
-          className="min-w-0 flex-1 border-none bg-transparent py-1.5 text-[13px] tracking-tightest text-charcoal outline-none placeholder:text-charcoal-3"
+          className="min-w-0 flex-1 border-none bg-transparent py-1.5 tracking-tightest text-charcoal outline-none placeholder:text-[13px] placeholder:text-charcoal-3"
         />
         <button
           type="submit"
