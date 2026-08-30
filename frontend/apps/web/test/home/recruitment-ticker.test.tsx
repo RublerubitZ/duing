@@ -49,7 +49,12 @@ function makeSummary(id: number, name: string, endDate: string | null): ClubSumm
 }
 
 describe('RecruitmentTicker (server component)', () => {
-  it('마감 D-7 이내 모집을 배지로 렌더한다 (seamless 루프용 2배 복제 포함)', async () => {
+  /** 스크린리더에 남는(복제가 아닌) 항목만 골라낸다 — 복제는 조상 span 이 aria-hidden 이다. */
+  function announced(name: string): HTMLElement[] {
+    return screen.getAllByText(name).filter((el) => el.closest('[aria-hidden="true"]') === null);
+  }
+
+  it('마감 D-7 이내 모집을 배지로 렌더하고, 복제본은 스크린리더에서 감춘다', async () => {
     mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([
       makeSummary(1, '알파', isoInDays(2)),
       makeSummary(2, '베타', isoInDays(5)),
@@ -58,9 +63,21 @@ describe('RecruitmentTicker (server component)', () => {
     const Component = await RecruitmentTicker();
     render(<>{Component}</>);
 
-    // 마퀴 seamless 루프를 위해 트랙을 2배 복제하므로 각 이름이 2번 렌더된다.
-    expect(screen.getAllByText('알파')).toHaveLength(2);
-    expect(screen.getAllByText('베타')).toHaveLength(2);
+    expect(screen.getAllByText('알파').length).toBeGreaterThan(1);
+    // 몇 번을 되풀이하든 읽히는 것은 동아리당 한 번뿐이어야 한다.
+    expect(announced('알파')).toHaveLength(1);
+    expect(announced('베타')).toHaveLength(1);
+  });
+
+  it('모집이 한 곳뿐이어도 한 카피가 4개가 되도록 채워 마퀴 이음매에 빈 띠가 생기지 않는다', async () => {
+    mockFetchUpcomingDeadlineClubs.mockResolvedValueOnce([makeSummary(1, '외톨이', isoInDays(1))]);
+
+    const Component = await RecruitmentTicker();
+    render(<>{Component}</>);
+
+    // 한 카피 최소 4개 × seamless 루프용 2배 = 8. 이 수가 줄면 좁은 폭에서 이음매가 벌어진다.
+    expect(screen.getAllByText('외톨이')).toHaveLength(8);
+    expect(announced('외톨이')).toHaveLength(1);
   });
 
   it('섹션 라벨은 "마감 임박 동아리", 전체 보기는 아이콘만 있는 링크라 접근명을 가진다', async () => {

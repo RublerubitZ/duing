@@ -323,15 +323,16 @@ export function BannerCarouselClient({ slides }: Props) {
               누르면 다음으로 넘어간다. 화살표가 없는 모바일에서는 스와이프가 유일한 이동 수단이
               되는데 스와이프는 경로 제스처라 단일 포인터 대안이 따로 있어야 한다(WCAG 2.5.1).
               보이는 문구가 이름 안에 그대로 들어가 눈에 보이는 이름과 갈리지 않는다(2.5.3).
-              보이는 알약은 32px 높이지만 모바일의 유일한 비제스처 이동 수단이라, before 가상요소로
-              히트 영역만 44px 로 넓힌다(레이아웃·높이 예산 불변). */}
+              보이는 알약은 시안(509:9182)대로 모바일 21px·sm 부터 32px 높이지만, 모바일의 유일한
+              비제스처 이동 수단이라 before 가상요소로 히트 영역만 44px 로 넓힌다(레이아웃·높이 예산
+              불변). 알약 높이가 바뀌면 inset 도 같이 바꿔야 44px 이 유지된다 — 21+11.5×2, 32+6×2. */}
           {slides.length > 1 && (
             <button
               type="button"
               data-testid="banner-pager"
               aria-label={`${activeIndex + 1} / ${slides.length} — 다음 배너로 이동`}
               onClick={goNext}
-              className="btn absolute bottom-3 right-4 z-10 rounded-full bg-black/60 px-3.5 py-1.5 text-[13px] font-semibold tabular-nums text-white transition before:absolute before:-inset-1.5 hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5"
+              className="btn absolute bottom-3 right-4 z-10 h-[21px] rounded-full bg-black/60 px-1.5 py-0 text-[12px] font-medium tabular-nums text-white transition before:absolute before:-inset-[11.5px] hover:bg-black/75 sm:bottom-auto sm:right-9 sm:top-5 sm:h-auto sm:px-3.5 sm:py-1.5 sm:text-[13px] sm:font-semibold sm:before:-inset-1.5"
             >
               {activeIndex + 1} / {slides.length}
             </button>
