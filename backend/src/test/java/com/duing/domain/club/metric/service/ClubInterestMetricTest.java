@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 홈 관심도 집계 검증 — 매시 배치가 조회 이벤트를 어떤 두 값으로 접는지 확인한다.
  * <p>표시값(weekly_visitor_count)과 정렬값(interest_score)은 일부러 다른 의미다: 앞은 감쇠 없는
- * "몇 명" 이고 뒤는 최근성 감쇠가 걸린 순위 점수다. 두 값이 함께 움직인다고 가정하면 안 되므로,
- * "사람 수는 같은데 점수만 다른" 경우를 명시적으로 단언한다.
+ * "몇 명" 이고 뒤는 최근성 감쇠 합과 그 사람 수를 합성한 순위 점수다. 두 값이 함께 움직인다고
+ * 가정하면 안 되므로, "사람 수는 같은데 점수만 다른" 경우를 명시적으로 단언한다.
  * <p>점수 절대값은 감쇠 산식에 종속되므로 크기 비교만 하고, 표시값만 정확한 수치로 단언한다.
  */
 @Import(TestcontainersConfiguration.class)
@@ -78,6 +78,54 @@ class ClubInterestMetricTest {
         assertThat(recentMetric.getWeeklyVisitorCount()).isEqualTo(1);
         assertThat(oldMetric.getWeeklyVisitorCount()).isEqualTo(1);
         assertThat(recentMetric.getInterestScore()).isGreaterThan(oldMetric.getInterestScore());
+    }
+
+    @Test
+    @DisplayName("최근성 감쇠 합이 같아도 실제로 본 사람이 더 많은 동아리의 관심도 점수가 더 높다")
+    void moreVisitorsWinWhenDecayedScoresTie() throws Exception {
+        Club fewToday = saveActiveClub("관심도소수최근");
+        Club manySixDaysAgo = saveActiveClub("관심도다수과거");
+        LocalDate today = LocalDate.now(clock);
+        // 오늘 1명(가중치 1.0) vs 6일 전 4명(각 0.25) — 감쇠 축만 보면 둘 다 1.0 으로 정확히 동점이다.
+        insertViewEvent(fewToday.getId(), "visitor-today", today);
+        for (int visitorIndex = 0; visitorIndex < 4; visitorIndex++) {
+            insertViewEvent(manySixDaysAgo.getId(), "visitor-old-" + visitorIndex, today.minusDays(6));
+        }
+
+        clubMetricService.refreshAll();
+
+        ClubMetric fewMetric = findMetric(fewToday);
+        ClubMetric manyMetric = findMetric(manySixDaysAgo);
+        assertThat(fewMetric.getWeeklyVisitorCount()).isEqualTo(1);
+        assertThat(manyMetric.getWeeklyVisitorCount()).isEqualTo(4);
+        // 감쇠 축이 동점이므로 순서를 가르는 것은 합성에 섞인 순방문자 수뿐이다 —
+        // 감쇠만으로 정렬하던 때는 이 둘이 같은 점수라 사실상 임의 순서였다.
+        assertThat(manyMetric.getInterestScore()).isGreaterThan(fewMetric.getInterestScore());
+    }
+
+    @Test
+    @DisplayName("한 사람이 일주일 내내 본 동아리보다 오늘 서로 다른 여러 명이 본 동아리의 관심도 점수가 더 높다")
+    void distinctVisitorsOutweighOnePersonRepeating() throws Exception {
+        Club oneLoyalVisitor = saveActiveClub("관심도충성한명");
+        Club threeDistinctToday = saveActiveClub("관심도오늘세명");
+        LocalDate today = LocalDate.now(clock);
+        // 같은 사람의 7일 연속 조회 — 감쇠 합은 3.89 까지 쌓이지만 사람은 1명뿐이다.
+        for (int dayOffset = 0; dayOffset < ClubInterestPolicy.WINDOW_DAYS; dayOffset++) {
+            insertViewEvent(oneLoyalVisitor.getId(), "visitor-loyal-week", today.minusDays(dayOffset));
+        }
+        for (int visitorIndex = 0; visitorIndex < 3; visitorIndex++) {
+            insertViewEvent(threeDistinctToday.getId(), "visitor-today-" + visitorIndex, today);
+        }
+
+        clubMetricService.refreshAll();
+
+        ClubMetric loyalMetric = findMetric(oneLoyalVisitor);
+        ClubMetric distinctMetric = findMetric(threeDistinctToday);
+        assertThat(loyalMetric.getWeeklyVisitorCount()).isEqualTo(1);
+        assertThat(distinctMetric.getWeeklyVisitorCount()).isEqualTo(3);
+        // 감쇠 축(방문자·일)만으로는 한 명의 반복 조회가 이긴다 — 순방문자 비중이 그 뒤집는 유일한 힘이라,
+        // VISITOR_WEIGHT 를 경계(0.307) 아래로 내리면 이 단언이 깨진다.
+        assertThat(distinctMetric.getInterestScore()).isGreaterThan(loyalMetric.getInterestScore());
     }
 
     @Test
