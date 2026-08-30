@@ -368,8 +368,11 @@ export function BannerCarouselClient({ slides }: Props) {
             과 성격이 다른 컨트롤이 분리된다. 보이는 문구가 곧 상태라 aria-label 로 이름을
             덮지 않고(덮으면 눈에 보이는 이름과 갈린다 — 2.5.3), aria-pressed 도 두지 않는다.
             이름이 상태를 따라 바뀌는 토글에 눌림 상태까지 붙이면 같은 사실을 두 번 말한다(APG). */}
+        {/* 모바일(<sm)에서는 토글을 감춘다(사용자 결정) — 좁은 화면에서 배너 아래 컨트롤이 시선을
+            끌어서다. 자동 재생은 그대로 두므로 그 폭에서는 멈출 수단이 OS '동작 줄이기' 뿐이고,
+            그만큼 WCAG 2.2.2 를 벗어난다는 것은 알고 있다. 되돌리려면 이 한 줄의 hidden 을 지우면 된다. */}
         {slides.length > 1 && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 hidden justify-end sm:flex">
             <button
               type="button"
               onClick={() => setIsPlaying((prev) => !prev)}
