@@ -10,9 +10,10 @@ export async function HomeHero() {
   const [stats, activities] = await Promise.all([fetchClubStats(), fetchPublicActivities()]);
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
-  // xl 상단 여백: 시안 환산값 64(77×0.815)에서 사용자 요청으로 한 단계 줄인 48 — 상단바(64)와 헤드라인 사이가 벌어져 보였다.
+  // xl 세로 리듬은 시안(608:4884, ×0.815) 그대로 — 상단바 아래→헤드라인 63(pt 56 + 그리드 센터링 7),
+  // 헤드라인→본문 14, 본문→검색 32, 검색→배너 46. "넓어 보인다" 의 주범은 상단이 아니라 헤드라인 아래 36 이었다.
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-12">
+    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-14">
       <div className="bg-grid absolute inset-0 opacity-50" />
       {/* 우상단 세이지 블러 원은 PC 시안 전용 — 모바일 프레임(509:8861)의 배경은 크림 단색이라 md 부터만 그린다. */}
       <div
@@ -56,7 +57,7 @@ export async function HomeHero() {
           />
 
           {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
-          <h1 className="type-display relative z-[1] mb-4 text-[34px] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:text-[78px]">
+          <h1 className="type-display relative z-[1] mb-4 text-[34px] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:mb-3.5 xl:text-[78px]">
             오늘,
             <br />
             캠퍼스의
@@ -71,7 +72,7 @@ export async function HomeHero() {
               (둘째 줄 문구는 폭에 맞춰 모바일 전용으로 짧다, 단어 단위로만 꺾인다). 한 번 뺐다가 사용자 판단으로 되돌렸다.
               글자 14px 은 시안(14/1.5)과 같고 행간만 1.6 으로 조금 넉넉하다.
               통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
+          <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9 xl:mb-8">
             대구대학교 동아리 플랫폼.
             <br />
             {/* 모바일(sm 미만)은 둘째 줄을 "N개 동아리가 지금 모집 ing" 한 줄로 — 지금 모집 중인 수를 말하면서
