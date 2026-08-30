@@ -10,7 +10,7 @@
  * 쓰면 다섯 항목이 로고·우측 CTA 와 겹친다.
  */
 export const NAV_LIST_BASE =
-  'items-center gap-6 text-[14px] font-semibold tracking-tightest lg:gap-10 lg:text-[16px] xl:gap-14 2xl:gap-[72px] 2xl:text-[20px]';
+  'items-center gap-6 text-[14px] font-semibold tracking-tightest lg:gap-10 lg:text-[16px] xl:gap-14';
 
 /** 비활성 — 시안 #6C6C6C 에 대응하는 기존 토큰. */
 export const NAV_LINK_INACTIVE = 'relative py-1 text-charcoal-3 hover:text-charcoal';
@@ -24,11 +24,5 @@ export const NAV_LINK_UNDERLINE = 'absolute -bottom-1 left-0 right-0 h-[2px] rou
 /**
  * 로고와 네비 사이 간격 — 시안은 로고가 끝나고 네비가 시작하기까지 여백이 크다.
  * 네비 항목 간격과 같은 단계로 올린다.
- *
- * <p>2xl(≥1536)은 1280 캡 레이아웃이 전체화면에서 작아 보여 상단바만 시안 1:1(1920 캔버스) 수치로 키운다 —
- * 메뉴 20px(시안 24 는 "조금만 줄여" 요청으로 한 단계 아래)·간격 72(88×0.815 가 아니라 20px 에 맞춘 단계)·
- * 로고 40·CTA 42/20·벨 30. 위 여백은 시안 66 이 과해 32, 아래는 12 로 두어 상단바→헤드라인 간격이
- * 히어로 xl 값(64)과 합쳐 시안(77)에 가깝게 떨어진다.
  */
-export const NAV_ROW_BASE =
-  'max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12 2xl:gap-16 2xl:pb-3 2xl:pt-8';
+export const NAV_ROW_BASE = 'max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12';
