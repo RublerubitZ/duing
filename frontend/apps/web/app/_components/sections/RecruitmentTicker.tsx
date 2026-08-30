@@ -94,11 +94,12 @@ export async function RecruitmentTicker() {
         {/* 시안은 캐럿만 — 아이콘 링크라 접근명을 직접 단다. 글리프 우측이 콘텐츠 끝선에 오도록 박스 여백만큼 당긴다.
             모바일 히트 박스는 44×38 이다: 띠가 시안대로 38px 이고 조상이 overflow-hidden 이라 세로로 44px 를 주면
             넘치는 3px 이 잘려 눌리지도, 포커스 링이 보이지도 않는다. 가로만 44px 를 지키고 세로는 띠 높이에 맞춘다
-            (WCAG 2.5.8 AA 24px 상회). 포커스 링 offset 도 같은 이유로 모바일만 0 이다. PC 는 44×44 그대로. */}
+            (WCAG 2.5.8 AA 24px 상회). 포커스 링도 같은 이유로 모바일만 안쪽에 그린다 — offset 0 이어도
+            outline 2px 은 박스 바깥에 얹혀 띠 경계에서 잘리므로 음수 offset 으로 안쪽에 넣는다. PC 는 44×44 에 바깥 링 그대로. */}
         <Link
           href={RECRUITING_CLUBS_HREF}
           aria-label="마감 임박 동아리 전체 보기"
-          className="-mr-[15px] grid h-[38px] w-11 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-sage motion-reduce:transition-none sm:h-11 sm:-mr-2 sm:focus-visible:outline-offset-2"
+          className="-mr-[15px] grid h-[38px] w-11 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sage motion-reduce:transition-none sm:h-11 sm:-mr-2 sm:focus-visible:outline-offset-2"
         >
           <ChevronRight size={14} strokeWidth={2.25} className="sm:size-[28px]" aria-hidden />
         </Link>
