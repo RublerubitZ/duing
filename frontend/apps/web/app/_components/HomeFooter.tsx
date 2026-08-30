@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
+import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
 
@@ -48,6 +49,7 @@ export function HomeFooter() {
           </p>
         </div>
 
+        {/* 상단바·하단 탭(탐색·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>
@@ -55,8 +57,18 @@ export function HomeFooter() {
             </Link>
           </li>
           <li>
+            <Link href="/facilities" className={linkClass}>
+              시설
+            </Link>
+          </li>
+          <li>
             <Link href="/calendar" className={linkClass}>
               일정
+            </Link>
+          </li>
+          <li>
+            <Link href="/notices" className={linkClass}>
+              소식
             </Link>
           </li>
           <li>
@@ -66,18 +78,29 @@ export function HomeFooter() {
           </li>
         </FooterColumn>
 
-        <FooterColumn title="운영자">
-          <li>
-            <Link href="/manage" className={linkClass}>
-              우리 동아리 등록
-            </Link>
-          </li>
-          <li>
-            <Link href="/introduce" className={linkClass}>
-              운영자 가이드
-            </Link>
-          </li>
-        </FooterColumn>
+        <div>
+          <div className="text-xs font-bold tracking-wide06 text-ink-deep">운영자</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <Link href="/manage" className={linkClass}>
+                우리 동아리 등록
+              </Link>
+            </li>
+            <li>
+              <Link href="/introduce" className={linkClass}>
+                운영자 가이드
+              </Link>
+            </li>
+          </ul>
+
+          {/* 동아리 신청 — 등록 플로우가 아니라 총동연 안내(토스트)라 링크가 아닌 버튼. 문의 컬럼의 2단 구조와 같은 모양. */}
+          <div className="mt-6 text-xs font-bold tracking-wide06 text-ink-deep">동아리 신청</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <FooterClubApplyCta className={linkClass} />
+            </li>
+          </ul>
+        </div>
 
         <div>
           {/* 두잉팀(서비스 운영)과 총동연(FAQ·1:1 문의) 은 수신 주체가 다르므로 라벨로 명확히 구분한다.
