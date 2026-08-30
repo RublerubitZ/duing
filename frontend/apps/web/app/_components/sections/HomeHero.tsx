@@ -11,7 +11,7 @@ export async function HomeHero() {
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
   // xl 세로 리듬은 시안(608:4884, ×0.815) 그대로 — 상단바 아래→헤드라인 64, 헤드라인→본문 14, 본문→검색 32,
-  // 검색→배너 46. "넓어 보인다" 의 주범은 상단이 아니라 헤드라인 아래 36 이었다. xl 은 그리드를 위 정렬로 두어
+  // 검색→배너 46(실측 48). "넓어 보인다" 의 주범은 상단이 아니라 헤드라인 아래 36 이었다. xl 은 그리드를 위 정렬로 두어
   // (일러스트 컬럼이 더 길어도) 왼쪽 컬럼이 가운데로 떠내려가 위아래 여백이 불어나지 않게 한다.
   return (
     <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
@@ -148,7 +148,7 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
   return (
     // 모바일(<md)에선 우측 비주얼 전체 숨김. 내부 relative 박스 폭을 일러스트 폭에 맞춰,
     // 토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
-    // xl 은 그리드가 위 정렬이라 시안처럼 일러스트를 헤드라인보다 30px(37×0.815) 위에서 시작시킨다.
+    // xl 은 그리드가 위 정렬이라 시안처럼 일러스트를 헤드라인보다 위에서 시작시킨다(시안 37×0.815≈30 → -mt-8 = 32).
     <div className="hidden md:block xl:-mt-8">
       {/* lg 부터는 박스를 컬럼보다 120px 넓혀 왼쪽으로 당긴다 — 시안(608:4884)의 그림은 콘텐츠 폭의 64%
           (1200 기준 ≈ 770px)로 헤드라인 끝 ~120px 오른쪽에서 시작하는데, 우측 컬럼(≈690)만으로는 그 크기가
