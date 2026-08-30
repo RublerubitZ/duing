@@ -21,8 +21,8 @@ import org.springframework.stereotype.Component;
  * 일일 쿼터({@code MO_DAILY_CALL_LIMIT}, 기본 1,000)를 태우는 시간이 약 17시간에서 약 1.7시간으로
  * 줄어든다. 소진되면 전 사용자의 상태조회가 그날 503 이 된다. 이 창을 좁히면 정상 단체 가입이 먼저
  * 죽으므로 여기서 막을 문제가 아니다 — <b>후속 과제는 엣지 레이트리밋 도입</b>이며, 현재
- * {@code deploy/Caddyfile} 에는 body size 제한만 있고 레이트리밋이 <b>없다</b>(위임할 대상이 아직
- * 배포돼 있지 않다는 뜻이다). 그때까지의 실질적 완화는 벤더 플랜·일일 상한 조정뿐이다. <b>상태조회의 실제 상한은 IP 가 아니라 세션(token) 창(분 30/시 200)이다</b> —
+ * {@code deploy/Caddyfile} 에 레이트리밋이 <b>없다</b> — 스톡 {@code caddy:2-alpine} 에는 해당 모듈이
+ * 없어 엣지 제한은 Cloudflare 쪽에서 걸어야 한다(위임할 대상이 아직 배포돼 있지 않다는 뜻이다). 그때까지의 실질적 완화는 벤더 플랜·일일 상한 조정뿐이다. <b>상태조회의 실제 상한은 IP 가 아니라 세션(token) 창(분 30/시 200)이다</b> —
  * 1인 폴링(3s→5s→8s, [문자를 보냈어요] 이후 40초 뒤 자동정지 = 9회)에 재시도 여유를 더한 값이다.
  * 다중 탭 여유가 근거가 아니다 — 그건 IP 축 시절의 정당화였고, 토큰은 훅 내부 state 로만 살아
  * 새 탭은 새 토큰을 발급받아 이전 토큰을 무효화하며 숨겨진 탭은 폴링 자체를 하지 않는다
@@ -50,6 +50,13 @@ import org.springframework.stereotype.Component;
  * 창 안 타임스탬프가 {@code LocalDateTime} 하나당 ≈ 72바이트씩 더 붙는다. 발급 창 600/시 기준
  * IP당 수백 KB/시). 정상 트래픽에서는 하루 수 MB 이하라 재기동 주기 안에서 무해하다. 정리가 필요해지면
  * {@link MoPollThrottle} 이 같은 토큰 키공간에 이미 쓰는 지연 sweep 패턴을 그대로 붙이면 된다.
+ *
+ * <p>이번 한도 상향으로 <b>IP 맵의 키당 최악값도 함께 커졌다</b> — {@code statusTimesByIp} 는 200 →
+ * 10,000 엔트리(≈720KB, 50배), {@code issueTimesByIp} 는 60 → 600(10배). 일일 벤더 쿼터가 훨씬 먼저
+ * 막으므로 정상 트래픽에서는 도달하지 않는 값이지만, 위 "하루 수 MB" 산정은 토큰 맵 기준이라 이 둘을
+ * 포함하지 않는다. 또 {@link #assertAndRecordWithin} 은 창이 비어도 엔트리를 지우지 않는다(검사 전용
+ * 형제 메서드들과 달리) — 키 공간이 IP 라 자연 유계였던 전제가, 클라이언트 IP 를 지정할 수 있는
+ * 경로가 생기면 무너진다. 그 경로를 닫는 것은 {@code deploy/Caddyfile} 주석의 방화벽 항목이다.
  */
 @Component
 public class PhoneVerificationRateLimiter {

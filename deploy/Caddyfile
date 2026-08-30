@@ -13,9 +13,15 @@
 #  .github/workflows/deploy-config-ci.yml 이 어댑트된 JSON 을 직접 단언한다.)
 #
 # 신뢰 경계: 아래 대역은 Cloudflare 공식 목록(https://www.cloudflare.com/ips-v4 · ips-v6, 2026-08-30
-# 기준)이다. 이 대역에서 온 연결에 한해서만 Cf-Connecting-Ip 를 클라이언트 IP 로 인정한다. Cloudflare 를
-# 우회해 오리진에 직접 붙은 요청은 피어가 목록 밖이라 Cf-Connecting-Ip·X-Forwarded-For 를 아무리 위조해도
-# 무시되고 자기 IP 로 집계된다 — 헤더를 무조건 신뢰하지 않는다는 뜻이다.
+# 기준)이다. 이 대역에서 온 연결에 한해서만 Cf-Connecting-Ip 를 클라이언트 IP 로 인정한다. 그 밖에서
+# 오리진에 직접 붙은 요청은 Cf-Connecting-Ip·X-Forwarded-For 를 아무리 위조해도 무시되고 자기 IP 로
+# 집계된다 — 헤더를 무조건 신뢰하지 않는다는 뜻이다.
+#
+# 다만 이 경계가 "우리 존" 은 아니다. 목록은 Cloudflare 프록시 전체라, 자기 존을 이 오리진 IP 로
+# 겨눠 요청을 이 대역에서 출발시킬 수 있으면 그 요청도 신뢰 피어가 된다 — 그때는 Cf-Connecting-Ip 를
+# 임의로 지정할 수 있어 IP 축 레이트리밋이 무력해진다. 오리진 443 이 전체 개방인 한 이 창은 열려 있고,
+# 닫는 수단은 이 파일이 아니라 방화벽(인바운드 443 을 위 대역으로 제한) 또는 Authenticated Origin
+# Pulls 다. 그 조치 전까지는 "비-CF 직접 접속은 막힌다" 까지만 참이라고 읽을 것.
 #
 # Cf-Connecting-Ip 를 쓰는 이유: Cloudflare 는 이 헤더를 항상 실제 접속자 IP 로 덮어쓴다. 반면
 # X-Forwarded-For 는 클라이언트가 보낸 값을 보존한 채 뒤에 덧붙이므로, XFF 기반 판정은 CF 를 통과해도
@@ -45,7 +51,8 @@ api.duings.com {
 	# forward-headers-strategy=native 로 원 클라이언트 IP/프로토콜을 인식한다.
 	reverse_proxy backend:8080 {
 		# XFF 를 위에서 판정한 클라이언트 IP 한 값으로 덮어쓴다. 이 줄이 없으면 Caddy 는 신뢰한
-		# XFF 뒤에 피어(CF 엣지)를 덧붙여 `실사용자, CF엣지` 를 보내는데, RemoteIpValve 는 오른쪽 끝부터
+		# XFF 뒤에 피어(CF 엣지)를 덧붙여 보내는데(실측: `9.9.9.9, <CF엣지>` — 왼쪽은 실사용자가 아니라
+		# 클라이언트가 위조한 값이다. 운영에서는 CF 가 실 IP 를 덧붙여 `위조, 실사용자, CF엣지`), RemoteIpValve 는 오른쪽 끝부터
 		# 사설 대역이 아닌 첫 값을 고르므로 결국 CF 엣지 IP 가 클라이언트 IP 가 된다.
 		# 즉 trusted_proxies 만으로는 고쳐지지 않는다 — 두 설정이 한 쌍이다.
 		header_up X-Forwarded-For {client_ip}
@@ -56,6 +63,10 @@ api.duings.com {
 		# Cloudflare 는 XFP 를 덮어써서 실제 도달 경로는 없지만, 신뢰 전환으로 새로 열린 통로라
 		# 선언 전 동작으로 되돌려 닫아 둔다. 톰캣은 native 전략에서 두 헤더를 각각 요청 스킴과
 		# getServerName() 에 반영한다.
+		#
+		# 주의: `caddy adapt` 가 이 두 줄에 "Unnecessary header_up — 기본 동작이 헤더를 그대로 넘긴다"
+		# 라고 경고하는데, 신뢰 프록시를 선언한 뒤에는 그 "그대로 넘긴다" 가 바로 위조 통과를 뜻하므로
+		# 경고가 틀렸다. 지우지 말 것 — deploy-config-ci.yml 이 세 헤더 모두 단언한다.
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}

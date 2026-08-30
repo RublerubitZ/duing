@@ -123,8 +123,8 @@ public interface AuthApi {
             HttpServletRequest httpServletRequest);
 
     @Operation(summary = "휴대폰 MO 인증 상태 조회",
-            description = "발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3초 간격 권장) — "
-                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5초 스로틀, 일일 상한 초과 시 503). "
+            description = "발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3s→5s→8s 백오프) — "
+                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5→4.5→7.5초 사다리 스로틀, 일일 상한 초과 시 503). "
                     + "토큰이 URL 에 남지 않도록 body 로 받는 조회용 POST 다(#626).")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
