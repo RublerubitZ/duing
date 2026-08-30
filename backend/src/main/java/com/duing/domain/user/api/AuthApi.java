@@ -129,7 +129,8 @@ public interface AuthApi {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 토큰"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "IP 요청 한도 초과"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429",
+                    description = "세션 토큰 폴링 한도 초과(주 원인) 또는 IP 백스톱 초과"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
                     description = "Octomo 일일 호출 상한 소진 — 잠시 후 재시도")
     })

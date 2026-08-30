@@ -366,7 +366,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP;
 | IP — 상태 조회 | 분 500 / 시 10,000 (남용 백스톱) | 〃 (미존재 토큰 스팸을 세는 유일한 창이라 조회보다 **먼저** 기록) |
 | 세션(token) — 상태 조회 | 분 30 / 시 200 | 〃 (폴링의 실제 상한. 토큰 실재 확인 **뒤** 설치) |
 | 번호 — 재발급 | 60초 쿨다운 | DB 행(`last_issued_at`) — 인스턴스 무관 |
-| 세션 — Octomo 실호출 | 최소 간격 2.5초 | `MoPollThrottle` |
+| 세션 — Octomo 실호출 | 최소 간격 사다리 2.5초(~5콜) → 4.5초(~8콜) → 7.5초 | `MoPollThrottle` |
 | 전역 — Octomo 일일 | 1,000콜 → 503 | 〃 |
 | 학번 — 재설정 시작 | 시간당 3회 | `PhoneVerificationRateLimiter` |
 | 번호+IP — 발급 총량 | 시간당 5회 | 〃 (쿨다운과 별개의 총량 상한) |

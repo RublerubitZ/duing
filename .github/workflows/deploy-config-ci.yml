@@ -10,6 +10,8 @@ on:
     paths:
       - 'deploy/**'
       - '.github/workflows/deploy-config-ci.yml'
+      # 클라이언트 IP 복원 단언이 이 파일의 forward-headers-strategy 를 검사한다(ci-gate.yml 의 판정과 한 쌍).
+      - 'backend/src/main/resources/application-prod.yml'
   # PR 에서는 ci-gate.yml 이 변경 영역을 판정해 이 워크플로를 호출한다(workflow_call).
   # 여기에 pull_request 트리거를 되살리면 게이트 호출분과 이중 실행되므로 두지 않는다.
   # 스택 PR(앞 PR 을 base 로 삼는 후속 PR)도 게이트가 base 브랜치를 가리지 않아 그대로 검사된다.
@@ -54,7 +56,7 @@ jobs:
             < deploy/Caddyfile > /tmp/caddy-adapted.json
           jq -e '.apps.http.servers.srv0
                  | (.trusted_proxies.ranges | length > 0)
-                   and (.client_ip_headers == ["Cf-Connecting-Ip"])' /tmp/caddy-adapted.json > /dev/null \
+                   and (.client_ip_headers | map(ascii_downcase)) == ["cf-connecting-ip"]' /tmp/caddy-adapted.json > /dev/null \
             || { echo "::error::Caddy 에 Cloudflare 신뢰 프록시 설정이 없습니다 — 클라이언트 IP 가 CF 엣지 IP 로 집계됩니다"; exit 1; }
           jq -e '[.. | objects | .headers?.request?.set?["X-Forwarded-For"]? // empty]
                  | flatten | index("{http.vars.client_ip}") != null' /tmp/caddy-adapted.json > /dev/null \
