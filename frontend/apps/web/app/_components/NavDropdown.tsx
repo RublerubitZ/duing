@@ -35,7 +35,7 @@ export function NavDropdown({ name, department, onLogout }: Props) {
     >
       {/* Profile header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-line bg-sage-tint">
-        <div className="w-10 h-10 rounded-[12px] bg-ink text-paper grid place-items-center font-display text-[16px] font-bold">
+        <div className="w-10 h-10 rounded-[12px] bg-ink text-paper grid place-items-center text-[16px] font-bold">
           {initial}
         </div>
         <div className="flex-1 min-w-0">

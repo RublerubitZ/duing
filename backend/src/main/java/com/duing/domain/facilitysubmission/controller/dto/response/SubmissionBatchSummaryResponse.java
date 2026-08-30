@@ -3,13 +3,16 @@ package com.duing.domain.facilitysubmission.controller.dto.response;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchListItem;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
+import java.util.List;
 
 public record SubmissionBatchSummaryResponse(
         Long batchId,
         String submissionNo,
         Long facilityId,
         String facilityName,
+        List<String> facilityNames,
         long bookingCount,
+        List<String> clubNames,
         Instant submittedAt,
         String submittedByName,
         String memo,
@@ -21,8 +24,8 @@ public record SubmissionBatchSummaryResponse(
     public static SubmissionBatchSummaryResponse from(SubmissionBatchListItem listItem) {
         // submittedAt/cancelledAt/completedAt 은 모두 seoulClock(KST wall-clock) 기록값이다.
         return new SubmissionBatchSummaryResponse(listItem.batchId(), listItem.submissionNo(),
-                listItem.facilityId(), listItem.facilityName(), listItem.bookingCount(),
-                TimeMapper.seoulWallClockToInstant(listItem.submittedAt()),
+                listItem.facilityId(), listItem.facilityName(), listItem.facilityNames(), listItem.bookingCount(),
+                listItem.clubNames(), TimeMapper.seoulWallClockToInstant(listItem.submittedAt()),
                 listItem.submittedByName(), listItem.memo(), listItem.cancelled(),
                 TimeMapper.seoulWallClockToInstant(listItem.cancelledAt()),
                 listItem.completed(), TimeMapper.seoulWallClockToInstant(listItem.completedAt()));

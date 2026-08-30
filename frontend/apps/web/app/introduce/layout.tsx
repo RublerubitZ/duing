@@ -13,7 +13,7 @@ import { ExploreNav } from '../_components/ExploreNav';
 // 브라우저 컨트롤 개폐로 하단 탭바가 다른 탭과 달라 보이는 것을 막는다(notices/layout.tsx 참조).
 export default function IntroduceLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="duing min-h-lvh max-md:min-h-[calc(100lvh+3.5rem)] overflow-x-clip bg-cream">
+    <div className="duing min-h-lvh max-md:min-h-[calc(100lvh+60px)] overflow-x-clip bg-cream">
       <ExploreNav slimOnMobile />
       {children}
     </div>

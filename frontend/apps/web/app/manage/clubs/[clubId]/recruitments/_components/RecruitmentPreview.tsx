@@ -77,7 +77,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
                 <span className="text-xl">🔗</span>
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] font-bold text-ink-deep">외부 폼으로 지원해요</div>
-                  <div className="truncate font-mono text-[11px] text-charcoal-3">
+                  <div className="truncate tabular-nums text-[11px] text-charcoal-3">
                     {data.externalFormUrl ? displayUrl(data.externalFormUrl) : '외부 폼 URL을 입력하세요'}
                   </div>
                 </div>

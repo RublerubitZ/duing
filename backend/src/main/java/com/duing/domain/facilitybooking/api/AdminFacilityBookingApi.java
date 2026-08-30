@@ -7,6 +7,7 @@ import com.duing.domain.facilitybooking.controller.dto.response.AdminFacilityBoo
 import com.duing.domain.facilitybooking.controller.dto.response.AdminFacilityBookingDetailResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.AdminFacilityBookingSummaryResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.service.dto.query.AdminBookingQueueSort;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -30,13 +31,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFacilityBookingApi {
 
-    @Operation(summary = "대관 신청 큐 조회", description = "기본 최신순. APPROVED 에 학교 반영 대기 경과일·충돌 의심 플래그 포함.")
+    @Operation(summary = "대관 신청 큐 조회",
+            description = "기본 정렬은 PENDING=오래된 순, 그 외=최신순. sort=USAGE_ASC 면 이용일시 빠른 순. "
+                    + "APPROVED 에 학교 반영 대기 경과일·충돌 의심 플래그 포함.")
     @GetMapping("/admin/facility-bookings")
     ResponseEntity<ApiResponse<PageResponse<AdminFacilityBookingSummaryResponse>>> getQueue(
             @Parameter(description = "상태 필터") @RequestParam(required = false) BookingStatus status,
             @Parameter(description = "시설 필터") @RequestParam(required = false) Long facilityId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @Parameter(description = "정렬 기준. DEFAULT=상태별 기본 순서, USAGE_ASC=이용일시 빠른 순", example = "DEFAULT")
+            @RequestParam(defaultValue = "DEFAULT") AdminBookingQueueSort sort,
             @Parameter(hidden = true) Pageable pageable);
 
     @Operation(summary = "대관 신청 상세", description = "해당 월 온디맨드 재크롤을 시도하고 크롤 신선도·겹침 컨텍스트·이력을 포함한다(§5.2).")

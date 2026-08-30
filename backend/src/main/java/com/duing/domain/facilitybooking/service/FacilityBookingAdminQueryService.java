@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -91,11 +92,17 @@ public class FacilityBookingAdminQueryService {
 
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> roomNames = roomNames(bookings);
-        // (시설,월) 크롤 행은 페이지 내 조합당 1회만 조회한다(N+1 금지).
+        // (시설,월) 크롤 행은 페이지 내 조합당 1회만 조회한다(N+1 금지). 확보 키도 요청당 1회만 조달한다.
         Map<FacilityMonthKey, List<FacilityReservation>> crawlCache = new HashMap<>();
+        // 키를 소비하는 파생(충돌 의심·부분 반영)은 APPROVED 전용이라 페이지에 APPROVED 가 있을 때만 조달한다
+        // — 기본 탭(PENDING)에서 전 동아리 이름 스캔 0회.
+        Set<String> securedOrganizationKeys =
+                bookings.stream().anyMatch(booking -> booking.getStatus() == BookingStatus.APPROVED)
+                        ? availabilityPolicy.securedOrganizationKeys() : Set.of();
         LocalDate today = LocalDate.now(clock);
 
-        return page.map(booking -> toSummary(booking, clubNames, roomNames, crawlCache, today));
+        return page.map(booking ->
+                toSummary(booking, clubNames, roomNames, crawlCache, securedOrganizationKeys, today));
     }
 
     public AdminBookingDetailResult getDetail(Long bookingId) {
@@ -112,10 +119,15 @@ public class FacilityBookingAdminQueryService {
 
         // ② 겹침 컨텍스트.
         List<OverlapContext> overlaps = new ArrayList<>();
-        // 점유행(SCHOOL) — 학교 단체명 그대로 노출.
-        availabilityPolicy.occupiedOverlapping(
-                        facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month),
-                        date, booking.getStartTime(), booking.getEndTime())
+        // 크롤 실예약 행(SCHOOL 표기 고정) — 학교 단체명 그대로 노출. 확보 분류 행은 비차단이라 이 목록에서
+        // 제외된다(SCHOOL 로 계속 내리면 "학교 측이 막는다" 오표기, 2026-08-27). 기본 확보 시간 대상의
+        // 열람은 크롤 현황 화면(§3.6)이 담당한다.
+        List<FacilityReservation> crawlRows =
+                facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month);
+        Set<String> securedOrganizationKeys =
+                crawlRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
+        availabilityPolicy.blockingOverlapping(crawlRows,
+                        date, booking.getStartTime(), booking.getEndTime(), securedOrganizationKeys)
                 .forEach(row -> overlaps.add(new OverlapContext(
                         "SCHOOL", row.getOrganizationName(), row.getStartTime(), row.getEndTime())));
         // 내부 APPROVED/CONFIRMED(자기 제외) — 관리자 화면은 내부용이므로 동아리명을 노출한다.
@@ -209,20 +221,24 @@ public class FacilityBookingAdminQueryService {
         }
         Map<Long, String> clubNames = clubNames(approved);
         Map<FacilityMonthKey, List<FacilityReservation>> crawlCache = new HashMap<>();
+        Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
         return approved.stream()
-                .filter(booking -> hasMismatchedOccupiedOverlap(booking, clubNames, crawlCache))
+                .filter(booking ->
+                        hasMismatchedOccupiedOverlap(booking, clubNames, crawlCache, securedOrganizationKeys))
                 .count();
     }
 
     private AdminBookingSummaryResult toSummary(FacilityBooking booking, Map<Long, String> clubNames,
             Map<Long, String> roomNames, Map<FacilityMonthKey, List<FacilityReservation>> crawlCache,
-            LocalDate today) {
+            Set<String> securedOrganizationKeys, LocalDate today) {
         boolean approved = booking.getStatus() == BookingStatus.APPROVED;
         Integer approvedWaitingDays = approved && booking.getDecidedAt() != null
                 ? (int) ChronoUnit.DAYS.between(booking.getDecidedAt().toLocalDate(), today)
                 : null;
-        boolean conflictSuspected = approved && hasMismatchedOccupiedOverlap(booking, clubNames, crawlCache);
-        boolean partiallyMatched = approved && isPartiallyMatched(booking, clubNames, crawlCache);
+        boolean conflictSuspected = approved
+                && hasMismatchedOccupiedOverlap(booking, clubNames, crawlCache, securedOrganizationKeys);
+        boolean partiallyMatched = approved
+                && isPartiallyMatched(booking, clubNames, crawlCache, securedOrganizationKeys);
         return new AdminBookingSummaryResult(booking.getId(), booking.getClubId(),
                 clubNames.getOrDefault(booking.getClubId(), ""), booking.getFacilityId(),
                 roomNames.getOrDefault(booking.getFacilityId(), ""), booking.getReservationDate(),
@@ -237,16 +253,21 @@ public class FacilityBookingAdminQueryService {
      * 판정은 자동 매칭 서비스(decide)를 그대로 재사용해 스케줄러와 기준을 일치시킨다.
      */
     private boolean isPartiallyMatched(FacilityBooking booking, Map<Long, String> clubNames,
-            Map<FacilityMonthKey, List<FacilityReservation>> crawlCache) {
+            Map<FacilityMonthKey, List<FacilityReservation>> crawlCache, Set<String> securedOrganizationKeys) {
         String clubName = clubNames.getOrDefault(booking.getClubId(), "");
         String normalizedClubName = normalizer.normalize(clubName);
         if (normalizedClubName.isEmpty()) {
             return false;
         }
         List<FacilityReservation> dayRows = dayRows(booking, crawlCache);
-        boolean matchingNameOverlap = availabilityPolicy.occupiedOverlapping(
-                        dayRows, booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
-                .anyMatch(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
+        boolean matchingNameOverlap = availabilityPolicy.blockingOverlapping(
+                        dayRows, booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
+                        securedOrganizationKeys)
+                // decide 와 동일 증거 기준(P2-01) — 확보 표기(물결 꼬리) 행은 동아리 플래그와 무관하게 증거가
+                // 아니다. 차단 분류만으로 거르면 확보 미지정 동아리의 물결 행이 "부분 반영"으로 세어져 오지 않는
+                // 자동 확정을 기다리게 하는 오배지가 난다.
+                .anyMatch(row -> matchingService.isEvidenceRow(row)
+                        && normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
         if (!matchingNameOverlap) {
             return false;
         }
@@ -261,13 +282,17 @@ public class FacilityBookingAdminQueryService {
                 .toList();
     }
 
-    /** (시설,월) 점유행 중 예약 시간과 겹치는데 정규화 이름이 동아리명과 불일치하는 행이 존재하는가. */
+    /**
+     * 충돌 의심 — 차단 점유행(확보 분류 제외) 중 예약 시간과 겹치는데 정규화 이름이 동아리명과 불일치하는 행이
+     * 존재하는가. 판정은 정책 한 곳에 위임한다 — 자동 확정 보류(P2-02)와 같은 메서드라 "큐는 의심 표시하는데
+     * 매칭은 확정해 버리는" 갈림이 구조적으로 없다. 날짜 필터는 정책이 내장하므로 월 단위 행을 그대로 넘긴다.
+     */
     private boolean hasMismatchedOccupiedOverlap(FacilityBooking booking, Map<Long, String> clubNames,
-            Map<FacilityMonthKey, List<FacilityReservation>> crawlCache) {
+            Map<FacilityMonthKey, List<FacilityReservation>> crawlCache, Set<String> securedOrganizationKeys) {
         String normalizedClubName = normalizer.normalize(clubNames.getOrDefault(booking.getClubId(), ""));
-        return availabilityPolicy.occupiedOverlapping(crawlRows(booking, crawlCache),
-                        booking.getReservationDate(), booking.getStartTime(), booking.getEndTime())
-                .anyMatch(row -> !normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName));
+        return availabilityPolicy.hasMismatchedOccupiedOverlap(crawlRows(booking, crawlCache),
+                booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
+                normalizedClubName, securedOrganizationKeys);
     }
 
     private List<FacilityReservation> crawlRows(FacilityBooking booking,

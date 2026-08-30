@@ -3,11 +3,13 @@ package com.duing.domain.club.service;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubFacilitySecuredTimeTargetCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,9 @@ public interface ClubService {
     Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable);
 
     Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable);
+
+    /** 홈 공개 통계 — 총 수·모집중 수·카테고리별 수. 비로그인도 조회한다. */
+    ClubStatsQuery getStats();
 
     ClubDetailQuery getById(Long clubId, ClubViewer viewer);
 
@@ -34,4 +39,7 @@ public interface ClubService {
     void updateStatus(UpdateClubStatusCommand updateClubStatusCommand);
 
     void updateCentralClub(UpdateClubCentralClubCommand updateClubCentralClubCommand);
+
+    /** 총동연(ADMIN) 전용 — 기본 확보 시간 대상 플래그 변경. 실제 변경 시에만 감사 이벤트를 남긴다. */
+    void updateFacilitySecuredTimeTarget(UpdateClubFacilitySecuredTimeTargetCommand updateFacilitySecuredTimeTargetCommand);
 }

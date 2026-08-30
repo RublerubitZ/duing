@@ -35,7 +35,7 @@ export function Faq() {
     <section id="faq" className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-[880px]">
         <FadeIn>
-          <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
+          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             FAQ · 자주 묻는 질문
           </p>
           <h2 className="mb-8" style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>

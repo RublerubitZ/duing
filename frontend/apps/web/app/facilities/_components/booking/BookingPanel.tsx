@@ -82,7 +82,7 @@ export function BookingPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-2">
-        <h3 className="font-display text-base text-ink-deep">{facility.roomName} · {dateLabel}</h3>
+        <h3 className="text-base text-ink-deep">{facility.roomName} · {dateLabel}</h3>
       </div>
 
       <div className="mb-3">
@@ -99,14 +99,14 @@ export function BookingPanel({
       {/* 모바일(<md)은 아래 액션 바가 fixed 로 플로우를 떠나므로 자리 스페이서(BottomNav 전례). */}
       <div aria-hidden className="h-36 md:hidden" />
       {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 패널·시트 공통 흰 계열로 고정.
-          모바일(<md)은 sticky 가 BottomNav(fixed z-40, 3.5rem+safe-area)에 가려진다 — 탭바 위에 fixed 로 띄워
+          모바일(<md)은 sticky 가 BottomNav(fixed z-40, 60px+safe-area)에 가려진다 — 탭바 위에 fixed 로 띄워
           주간 화면 안에서 시간 선택→신청이 이어지는 상시 노출 액션 바로 동작한다(§모바일 주간). */}
       <div
         data-bottom-bar
-        className="sticky bottom-0 bg-paper pt-2 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] max-md:z-40 max-md:border-t max-md:border-line max-md:px-4 max-md:pb-2">
+        className="sticky bottom-0 bg-paper pt-2 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(60px_+_env(safe-area-inset-bottom))] max-md:z-40 max-md:border-t max-md:border-line max-md:px-4 max-md:pb-2">
         {selection && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
-            <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
+            <span className="tabular-nums text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
             <span className="ml-auto rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">
               {Number(selection.end.slice(0, 2)) - Number(selection.start.slice(0, 2))}시간
             </span>

@@ -19,7 +19,7 @@ export function ContactVisibilityField({ phone, value, onChange, disabled }: Pro
   return (
     <div className="space-y-3">
       {phone !== null ? (
-        <div className="flex w-full max-w-[280px] items-center gap-2 rounded-[8px] border border-[#cfcab8] bg-[#f5f3ec] px-3 py-2.5 font-mono text-[14px] font-semibold text-[#2a2f27]">
+        <div className="flex w-full max-w-[280px] items-center gap-2 rounded-[8px] border border-[#cfcab8] bg-[#f5f3ec] px-3 py-2.5 tabular-nums text-[14px] font-semibold text-[#2a2f27]">
           {phone}
           <span className="text-[11.5px] font-normal text-[#8a8f83]">(회장 전화번호)</span>
         </div>

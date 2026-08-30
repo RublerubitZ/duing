@@ -37,9 +37,6 @@ public class SubmissionExportDataAssembler {
     public SubmissionExportData assemble(Long batchId) {
         FacilitySubmissionBatch batch = batchRepository.findById(batchId)
                 .orElseThrow(FacilitySubmissionException.BatchNotFoundException::new);
-        String facilityName = facilityRepository.findById(batch.getFacilityId())
-                .map(Facility::getRoomName)
-                .orElse(null);
         List<Long> bookingIds = itemRepository.findByBatchIdOrderByIdAsc(batchId).stream()
                 .map(FacilitySubmissionItem::getBookingId)
                 .toList();
@@ -48,6 +45,10 @@ public class SubmissionExportDataAssembler {
                         .thenComparing(FacilityBooking::getStartTime)
                         .thenComparing(FacilityBooking::getId))
                 .toList();
+        // 행별 시설명(§3) — 시설이 삭제돼 이름을 못 찾으면 null 로 두어 CSV 에선 빈칸이 된다(기존 규칙 유지).
+        Map<Long, String> facilityNames = facilityRepository.findAllById(
+                        bookings.stream().map(FacilityBooking::getFacilityId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Facility::getId, Facility::getRoomName, (first, second) -> first));
         Map<Long, String> clubNames = clubRepository.findAllById(
                         bookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
                 .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
@@ -60,6 +61,7 @@ public class SubmissionExportDataAssembler {
 
         List<SubmissionExportRow> rows = bookings.stream()
                 .map(booking -> new SubmissionExportRow(
+                        facilityNames.get(booking.getFacilityId()),
                         booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                         clubNames.get(booking.getClubId()), userNames.get(booking.getApplicantId()),
                         blankToNull(booking.getContactPhone()), booking.getAttendeeCount(),
@@ -67,7 +69,7 @@ public class SubmissionExportDataAssembler {
                         booking.getDecidedById() != null ? userNames.get(booking.getDecidedById()) : null,
                         booking.getDecidedAt()))
                 .toList();
-        return new SubmissionExportData(batch.getSubmissionNo(), facilityName, batch.getMemo(),
+        return new SubmissionExportData(batch.getSubmissionNo(), batch.getMemo(),
                 batch.getCsvFileName(), rows);
     }
 

@@ -20,6 +20,7 @@ public record FacilityAvailabilityResponse(
 
     public enum SlotStatus { AVAILABLE, PENDING_HOLD, BLOCKED, PAST }
 
+    /** SCHOOL = 크롤 실예약, INTERNAL = 내부 승인 예약. 기본 확보 시간은 비차단이라 blockedBy 로 내려가지 않는다(2026-08-27). */
     public enum SlotBlockSource { SCHOOL, INTERNAL }
 
     public record DayAvailability(

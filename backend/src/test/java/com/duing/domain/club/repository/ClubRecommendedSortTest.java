@@ -261,7 +261,7 @@ class ClubRecommendedSortTest {
 
     private void saveMetric(Club club, double activityScore) {
         clubMetricRepository.save(ClubMetric.of(
-                club.getId(), 0, 0, null, activityScore, LocalDateTime.now(clock)));
+                club.getId(), 0, 0, null, activityScore, 0.0, 0, LocalDateTime.now(clock)));
         clubMetricRepository.flush();
     }
 

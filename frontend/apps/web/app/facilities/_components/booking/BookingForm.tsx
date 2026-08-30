@@ -203,7 +203,7 @@ export function BookingForm({
         <p className="text-xs font-bold text-charcoal-3">사용 정보</p>
         <div className="rounded-md border border-line bg-cream/60 px-3 py-2 text-sm">
           <p className="font-medium text-ink-deep">{facilityName}</p>
-          <p className="font-mono text-[13px] text-charcoal-2">{date} · {rangeLabel(range)}</p>
+          <p className="tabular-nums text-[13px] text-charcoal-2">{date} · {rangeLabel(range)}</p>
         </div>
       </div>
 

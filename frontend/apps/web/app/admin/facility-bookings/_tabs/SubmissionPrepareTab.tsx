@@ -13,7 +13,7 @@ import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewMode
 import { currentMonthRange } from '../_lib/submissionPeriod';
 import {
   BatchBulkCreateDialog,
-  type BulkCreateFacilityGroup,
+  type BulkCreateClubGroup,
 } from '../submission/_components/BatchBulkCreateDialog';
 import {
   BatchBulkCreateResultDialog,
@@ -23,7 +23,7 @@ import { SubmissionClubGroupList } from '../submission/_components/SubmissionClu
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
 import { SubmissionSummaryCards, type SummaryFilter } from '../submission/_components/SubmissionSummaryCards';
 import { SubmissionTimetable } from '../submission/_components/SubmissionTimetable';
-import { buildFacilitySections, deriveSelectedIds } from '../submission/_lib/submissionSections';
+import { buildClubSections, buildFacilitySections, deriveSelectedIds } from '../submission/_lib/submissionSections';
 
 const MAX_PERIOD_DAYS = 31;
 
@@ -50,8 +50,9 @@ function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilte
 
 /**
  * 학교 제출 준비 탭(스펙 v3 §7.2) — 승인된 예약이 자동 유입되는 준비 큐.
- * 전 시설을 시설별 섹션으로 표시하고, 제출 필요 예약은 기본 전체 선택(선택 = selectable − excluded 파생).
- * 운영자는 제외만 하고 시설 단위 "제출 목록 만들기"를 수행한다.
+ * 목록 뷰는 동아리 최상위(동아리 중심 보기 스펙 §1), 시간표 뷰는 시설별 섹션을 유지하고,
+ * 제출 필요 예약은 기본 전체 선택(선택 = selectable − excluded 파생).
+ * 운영자는 제외만 하고 동아리 단위 "제출 목록 만들기"를 수행한다(v2 스펙 §4).
  */
 export function SubmissionPrepareTab() {
   const defaultRange = currentMonthRange();
@@ -64,9 +65,11 @@ export function SubmissionPrepareTab() {
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>('NEED');
   const { addToast } = useToast();
   // v3 선택 모델 — 제외 집합만 상태로 두고 선택은 파생한다(기본 전체 선택·신규 유입 자동 선택).
-  const [excludedIds, setExcludedIds] = useState<ReadonlySet<number>>(new Set());
+  // 값은 제외 시점의 예약일 — 정리 effect 가 "기간 밖(기간 변경으로 숨겨짐)" 과 "기간 안인데 서버에 없음(실제 소실)" 을 가른다.
+  const [excludedById, setExcludedById] = useState<ReadonlyMap<number, string>>(new Map());
+  const excludedIds: ReadonlySet<number> = new Set(excludedById.keys());
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
-  // 일괄 생성(개편 스펙 §4) — 선택 요약 바 하나로 시설별 배치를 순차 생성한다.
+  // 일괄 생성(v2 스펙 §4) — 선택 요약 바 하나로 동아리별 배치를 순차 생성한다.
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkOutcomes, setBulkOutcomes] = useState<BulkCreateOutcome[] | null>(null);
@@ -92,85 +95,101 @@ export function SubmissionPrepareTab() {
   const visibleBookings = searchedBookings.filter((booking) => matchesFilter(booking, summaryFilter));
   const sections = buildFacilitySections(visibleBookings);
   const selectedIdSet = new Set(deriveSelectedIds(visibleBookings, excludedIds));
-  // 선택 요약 바·일괄 생성용 파생 — 배치=단일 시설 제약이라 시설별로 분해해 둔다.
-  const selectedFacilityGroups: BulkCreateFacilityGroup[] = sections
+  // 배치=동아리 단위(v2 스펙 §4) — 선택 분해도 화면과 같은 동아리 기준. 시설 섹션은 시간표 뷰 전용으로 남는다.
+  const selectedClubGroups: BulkCreateClubGroup[] = buildClubSections(visibleBookings)
     .map((section) => ({
-      facilityId: section.facilityId,
-      facilityName: section.facilityName,
-      bookingIds: deriveSelectedIds(section.bookings, excludedIds),
+      clubId: section.clubId,
+      clubName: section.clubName ?? `동아리 ${section.clubId}`,
+      bookingIds: deriveSelectedIds(
+        section.facilityGroups.flatMap((facilityGroup) => facilityGroup.bookings),
+        excludedIds,
+      ),
     }))
     .filter((group) => group.bookingIds.length > 0);
-  const selectedTotalCount = selectedFacilityGroups.reduce((sum, group) => sum + group.bookingIds.length, 0);
-  const visibleSelectableIds = visibleBookings
+  const selectedTotalCount = selectedClubGroups.reduce((sum, group) => sum + group.bookingIds.length, 0);
+  const visibleSelectableEntries = visibleBookings
     .filter((booking) => booking.selectable)
-    .map((booking) => booking.bookingId);
+    .map((booking): [number, string] => [booking.bookingId, booking.reservationDate]);
+  const reservationDateById = new Map(
+    allBookings.map((booking): [number, string] => [booking.bookingId, booking.reservationDate]),
+  );
 
   // 제출 상태 셀렉트는 필터의 3값(미제출 예약/제출 대기 예약/전체)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
   const statusFilterValue: SubmissionStatusFilter =
     summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
-  // 화면에서 사라진 예약(기간·검색·필터 변경, 재조회)은 excluded 에서도 정리한다 — 세션 상태 누적 방지.
+  // 제외 상태는 검색·상태 필터·기간 변경으로 숨겨져도 유지한다(P2-15/20). 서버 결과에 없고 예약일이
+  // 현재 조회 기간 안인 것만 "실제 사라진 예약"으로 보고 정리한다 — 기간 밖 예약은 기간 변경으로 숨겨진 것.
+  // 새 기간 로딩 중(data 없음)에는 판정하지 않는다 — 빈 결과를 소실로 오판해 기간 안 제외를 지우지 않도록.
   // (레포의 useEffect 금지는 데이터 패칭 한정 — 페이지 클램프 전례와 같은 상태 정리 용도)
-  const visibleSelectableKey = visibleBookings
-    .filter((booking) => booking.selectable)
-    .map((booking) => booking.bookingId)
-    .sort((left, right) => left - right)
-    .join(',');
+  const periodStart = candidatesParams?.startDate ?? null;
+  const periodEnd = candidatesParams?.endDate ?? null;
+  const serverIdsKey = candidatesQuery.isSuccess
+    ? allBookings.map((booking) => booking.bookingId).sort((left, right) => left - right).join(',')
+    : null;
   useEffect(() => {
-    setExcludedIds((previous) => {
-      const visibleIds = new Set(
-        visibleSelectableKey === '' ? [] : visibleSelectableKey.split(',').map(Number),
+    if (serverIdsKey === null || periodStart === null || periodEnd === null) return;
+    const serverIds = new Set(serverIdsKey === '' ? [] : serverIdsKey.split(',').map(Number));
+    setExcludedById((previous) => {
+      const next = new Map(
+        [...previous].filter(
+          ([bookingId, reservationDate]) =>
+            serverIds.has(bookingId) || reservationDate < periodStart || reservationDate > periodEnd,
+        ),
       );
-      const next = new Set([...previous].filter((bookingId) => visibleIds.has(bookingId)));
       return next.size === previous.size ? previous : next;
     });
-  }, [visibleSelectableKey]);
+  }, [serverIdsKey, periodStart, periodEnd]);
 
-  // 재사용 컴포넌트의 선택 콜백을 제외 모델로 반전 연결한다.
+  // 재사용 컴포넌트의 선택 콜백을 제외 모델로 반전 연결한다 — 제외 시 예약일을 함께 기록한다.
+  const exclude = (next: Map<number, string>, bookingId: number) => {
+    const reservationDate = reservationDateById.get(bookingId);
+    if (reservationDate !== undefined) next.set(bookingId, reservationDate);
+  };
   const toggleSelect = (bookingId: number) =>
-    setExcludedIds((previous) => {
-      const next = new Set(previous);
+    setExcludedById((previous) => {
+      const next = new Map(previous);
       if (next.has(bookingId)) next.delete(bookingId);
-      else next.add(bookingId);
+      else exclude(next, bookingId);
       return next;
     });
   const toggleMany = (bookingIds: number[], nextSelected: boolean) =>
-    setExcludedIds((previous) => {
-      const next = new Set(previous);
+    setExcludedById((previous) => {
+      const next = new Map(previous);
       for (const bookingId of bookingIds) {
         if (nextSelected) next.delete(bookingId);
-        else next.add(bookingId);
+        else exclude(next, bookingId);
       }
       return next;
     });
 
-  // 시설별 순차 생성(개편 스펙 §4) — 부분 실패를 시설 단위로 보고한다. 성공한 시설의 예약은
-  // 재조회 후 selectable 에서 빠지고 실패한 시설의 예약은 기본 선택으로 남아 바로 재시도할 수 있다.
+  // 동아리별 순차 생성(v2 스펙 §4) — 부분 실패를 동아리 단위로 보고한다. 성공한 동아리의 예약은
+  // 재조회 후 selectable 에서 빠지고 실패한 동아리의 예약은 기본 선택으로 남아 바로 재시도할 수 있다.
   const handleBulkCreate = async (
-    groups: BulkCreateFacilityGroup[],
-    memoByFacilityId: ReadonlyMap<number, string>,
+    groups: BulkCreateClubGroup[],
+    memoByClubId: ReadonlyMap<number, string>,
   ) => {
     if (groups.length === 0) return;
     setBulkSubmitting(true);
     const outcomes: BulkCreateOutcome[] = [];
     for (const group of groups) {
-      const memo = (memoByFacilityId.get(group.facilityId) ?? '').trim();
+      const memo = (memoByClubId.get(group.clubId) ?? '').trim();
       try {
         const createdBatch = await createMutation.mutateAsync({
           bookingIds: group.bookingIds,
           memo: memo === '' ? undefined : memo,
         });
         outcomes.push({
-          facilityId: group.facilityId,
-          facilityName: group.facilityName,
+          clubId: group.clubId,
+          clubName: group.clubName,
           bookingCount: group.bookingIds.length,
           batch: createdBatch,
           errorMessage: null,
         });
       } catch (error) {
         outcomes.push({
-          facilityId: group.facilityId,
-          facilityName: group.facilityName,
+          clubId: group.clubId,
+          clubName: group.clubName,
           bookingCount: group.bookingIds.length,
           batch: null,
           errorMessage: submissionErrorMessage(error),
@@ -233,17 +252,18 @@ export function SubmissionPrepareTab() {
               )}
             </span>
             {`${selectedTotalCount}건 선택됨${
-              selectedFacilityGroups.length > 0 ? ` · 시설 ${selectedFacilityGroups.length}곳` : ''
+              selectedClubGroups.length > 0 ? ` · 동아리 ${selectedClubGroups.length}곳` : ''
             }`}
           </p>
           <div className="flex gap-1">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedIds(new Set())}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExcludedById(new Map())}>
               전체 선택
             </button>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => setExcludedIds(new Set(visibleSelectableIds))}
+              // 병합 — 검색·필터 밖에 숨은 기존 제외를 덮어쓰지 않는다(P2-15/20 원칙). 전체 선택은 명시적 전체 의도라 Map 비움 유지.
+              onClick={() => setExcludedById((previous) => new Map([...previous, ...visibleSelectableEntries]))}
             >
               전체 해제
             </button>
@@ -257,7 +277,7 @@ export function SubmissionPrepareTab() {
               onClick={() => setBulkDialogOpen(true)}
             >
               제출 목록 만들기
-              {selectedFacilityGroups.length > 1 ? ` (${selectedFacilityGroups.length}개 시설)` : ''}
+              {selectedClubGroups.length > 1 ? ` (${selectedClubGroups.length}개 동아리)` : ''}
             </button>
           </div>
         </div>
@@ -322,38 +342,41 @@ export function SubmissionPrepareTab() {
                 />
               )
             )}
-            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && (
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && view === 'list' && (
+              /* 목록 뷰(동아리 중심 보기 스펙 §1) — 동아리 최상위. 배치=동아리 단위 분해는 selectedClubGroups 파생이 담당해 화면 체크 단위와 일치한다. */
+              <div className="px-2 py-2">
+                <SubmissionClubGroupList
+                  bookings={visibleBookings}
+                  selection={selectedIdSet}
+                  onToggleSelect={toggleSelect}
+                  onToggleMany={toggleMany}
+                  onShowDetail={setDetailBooking}
+                />
+              </div>
+            )}
+            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && view === 'timetable' && (
+              /* 시간표 뷰 — 기존 시설 × 날짜/시간 기준 유지(스펙 §1, 시간 충돌 확인 용도). */
               <ul>
                 {sections.map((section) => {
                   const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
                   const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
                   return (
                     <li key={section.facilityId}>
-                      {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 배치=시설 단위 제약의 시각화. */}
+                      {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 시간 충돌 확인용 시설 축(조회 전용, v2 스펙 §4). */}
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
                         <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
                         <p className="text-xs text-charcoal-3">
                           미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
                         </p>
                       </div>
-                      <div className={view === 'list' ? 'px-2 py-2' : 'px-[18px] py-3'}>
-                        {view === 'list' ? (
-                          <SubmissionClubGroupList
-                            bookings={section.bookings}
-                            selection={selectedIdSet}
-                            onToggleSelect={toggleSelect}
-                            onToggleMany={toggleMany}
-                            onShowDetail={setDetailBooking}
-                          />
-                        ) : (
-                          <SubmissionTimetable
-                            bookings={section.bookings}
-                            facilityName={section.facilityName}
-                            selection={selectedIdSet}
-                            onToggleSelect={toggleSelect}
-                            onShowDetail={setDetailBooking}
-                          />
-                        )}
+                      <div className="px-[18px] py-3">
+                        <SubmissionTimetable
+                          bookings={section.bookings}
+                          facilityName={section.facilityName}
+                          selection={selectedIdSet}
+                          onToggleSelect={toggleSelect}
+                          onShowDetail={setDetailBooking}
+                        />
                       </div>
                     </li>
                   );
@@ -371,12 +394,12 @@ export function SubmissionPrepareTab() {
       />
       {bulkDialogOpen && (
         <BatchBulkCreateDialog
-          groups={selectedFacilityGroups}
+          groups={selectedClubGroups}
           isPending={bulkSubmitting}
           onClose={() => {
             if (!bulkSubmitting) setBulkDialogOpen(false);
           }}
-          onConfirm={(groups, memoByFacilityId) => void handleBulkCreate(groups, memoByFacilityId)}
+          onConfirm={(groups, memoByClubId) => void handleBulkCreate(groups, memoByClubId)}
         />
       )}
       {bulkOutcomes !== null && (

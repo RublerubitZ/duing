@@ -19,6 +19,12 @@ import jakarta.persistence.EntityManagerFactory;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -40,8 +46,8 @@ import org.springframework.http.HttpStatus;
  * 캐시 없이 매번 DB 를 조회해도 통과해 회귀 가드가 공허해진다. 이 캐시가 노리는 절감이 정확히
  * "DB 왕복 제거"이므로 문장 수가 유일하게 의미 있는 지표다.
  *
- * <p>TTL 은 테스트 도중 자동 만료가 끼어들지 않도록 길게 두고, 만료 동작은 스케줄러가 호출하는
- * 비움 메서드를 직접 불러 검증한다(스케줄 대기 없이 결정적).
+ * <p>엔트리별 TTL 은 테스트 도중 자동 만료가 끼어들지 않도록 길게 두고, 만료 후 동작은 리셋용
+ * {@link PublicApiCacheConfig#evictAll()} 을 직접 불러 검증한다(대기 없이 결정적).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -53,6 +59,7 @@ import org.springframework.http.HttpStatus;
 class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
 
     private static final String CLUB_LIST_PATH = "/api/v1/clubs?size=10";
+    private static final int CONCURRENT_CALLERS = 20;
 
     @LocalServerPort int port;
 
@@ -72,7 +79,7 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
     void setUp() {
         RestAssured.port = port;
         // 앞선 테스트가 남긴 엔트리는 DB 를 비운 뒤에도 살아 있어 다음 테스트를 오염시킨다.
-        publicApiCacheConfig.evictAllOnTtlElapsed();
+        publicApiCacheConfig.evictAll();
         User student = userRepository.save(UserFixture.withName("캐시학생"));
         studentToken = jwtTokenProvider.createToken(student.getId(), student.getRole().name());
     }
@@ -158,7 +165,7 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
         saveActiveClub("만료동아리");
         getPublicClubList();
 
-        publicApiCacheConfig.evictAllOnTtlElapsed();
+        publicApiCacheConfig.evictAll();
 
         long statementsBefore = statements();
         getPublicClubList();
@@ -184,10 +191,37 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
         assertThat(statements() - statementsBefore).isZero();
         assertThat(secondBody).isEqualTo(firstBody);
 
-        publicApiCacheConfig.evictAllOnTtlElapsed();
+        publicApiCacheConfig.evictAll();
         statementsBefore = statements();
         getPublicBody(calendarPath);
         assertThat(statements() - statementsBefore).isPositive();
+    }
+
+    @Test
+    @DisplayName("같은 URL 로 동시에 도착한 요청들은 DB 조회 한 번으로 병합되고 모두 같은 본문을 받는다")
+    void concurrentIdenticalRequestsAreCoalescedIntoOneLoad() throws Exception {
+        saveActiveClub("동시요청동아리");
+
+        long statementsBefore = statements();
+        List<String> bodies = new ArrayList<>();
+        ExecutorService callers = Executors.newFixedThreadPool(CONCURRENT_CALLERS);
+        try {
+            List<Future<String>> responses = new ArrayList<>();
+            for (int callerIndex = 0; callerIndex < CONCURRENT_CALLERS; callerIndex++) {
+                responses.add(callers.submit(this::getPublicClubList));
+            }
+            for (Future<String> response : responses) {
+                bodies.add(response.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            callers.shutdownNow();
+        }
+
+        // 캐시가 비워진 상태에서 시작하므로 첫 도착만 로더를 돈다(count + 목록 + 대표 모집 = 3문장).
+        // 병합이 없으면 뒤이은 miss 들이 그대로 DB 로 가 증분이 3을 넘는다 — 이게 매분 스탬피드의 정체였다.
+        assertThat(statements() - statementsBefore).isEqualTo(3);
+        assertThat(bodies).hasSize(CONCURRENT_CALLERS);
+        assertThat(bodies.stream().distinct().toList()).hasSize(1);
     }
 
     @Test

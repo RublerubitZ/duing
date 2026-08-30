@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, createEvent } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
@@ -62,7 +62,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
   });
 
   it('거리 임계를 넘게 우로 드래그하면 이전 배너로 넘어간다(무한 루프: 첫→마지막)', () => {
@@ -73,7 +73,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('04 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('4 / 4');
   });
 
   it('짧지만 빠른 플릭은 거리 미달이어도 다음 배너로 넘어간다(속도 경로)', () => {
@@ -85,7 +85,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -50, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -50, clientY: 0 }), 1020);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('02 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
   });
 
   it('거리·속도 모두 미달인 드래그는 전환 없이 현재 배너를 유지한다(복귀)', () => {
@@ -97,7 +97,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -10, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -10, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
   });
 
   it('세로 우세 제스처는 전환을 일으키지 않는다(스크롤 양보)', () => {
@@ -108,7 +108,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: 0, clientY: -200 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: 0, clientY: -200 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 04');
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
   });
 
   it('드래그 후 발생한 클릭은 억제된다(링크 이동 방지)', () => {
@@ -136,7 +136,7 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     expect(clickEvent.defaultPrevented).toBe(false);
   });
 
-  it('슬라이드가 1장이면 드래그를 무시한다', () => {
+  it('슬라이드가 1장이면 드래그를 무시하고 컨트롤도 두지 않는다', () => {
     render(<BannerCarouselClient slides={makeSlides(1)} />);
     const viewport = mockViewportWidth();
 
@@ -144,7 +144,14 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -400, clientY: 0 }));
     dispatchPointer(viewport, createEvent.pointerUp(viewport, { pointerId: 1, clientX: -400, clientY: 0 }), 3000);
 
-    expect(screen.getByTestId('banner-pager')).toHaveTextContent('01 / 01');
+    // 넘길 곳이 없으면 페이저·이전/다음을 그리지 않는다(시안의 컨트롤은 여러 장 전제).
+    expect(screen.queryByTestId('banner-pager')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다음 배너' })).not.toBeInTheDocument();
+    // 배너 밖 자동 재생 토글도 마찬가지 — 넘어가지 않으니 멈출 것도 없다.
+    expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
+    // 드래그가 무시됐으니 track 이 손가락을 따라가지 않는다(예전에는 페이저 값으로 확인했다).
+    const track = viewport.firstElementChild as HTMLElement;
+    expect(track.style.transform).toBe('translateX(0px)');
   });
 
   it('복귀 중 re-grab 후 탭으로 끝내도 track 이 0으로 복귀한다(어긋남 고정 방지)', () => {
@@ -215,5 +222,83 @@ describe('BannerCarouselClient — 포인터 스와이프', () => {
 
     dispatchPointer(viewport, createEvent.pointerMove(viewport, { pointerId: 1, clientX: -40, clientY: 0 }));
     expect(setPointerCapture).toHaveBeenCalledTimes(1); // 가로 락 시 캡처
+  });
+});
+
+describe('BannerCarouselClient — 오버레이 컨트롤', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('다음·이전 버튼이 배너를 순환 이동시킨다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+
+    fireEvent.click(screen.getByRole('button', { name: '이전 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+
+    // 첫 배너에서 이전 → 마지막으로 감긴다.
+    fireEvent.click(screen.getByRole('button', { name: '이전 배너' }));
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('4 / 4');
+  });
+
+  it('위치 표시를 눌러도 다음으로 넘어간다 — 화살표 없는 모바일의 단일 포인터 대안', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const pager = screen.getByTestId('banner-pager');
+
+    // 스와이프는 경로 제스처라 대안이 없으면 모바일에 이동 수단이 하나도 남지 않는다(WCAG 2.5.1).
+    expect(pager.tagName).toBe('BUTTON');
+    fireEvent.click(pager);
+    expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+  });
+
+  it('위치 표시의 접근 이름이 보이는 문구를 그대로 품는다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const pager = screen.getByTestId('banner-pager');
+
+    // 이름이 보이는 글자를 포함하지 않으면 음성 조작 사용자가 부를 수 없다(WCAG 2.5.3).
+    expect(pager).toHaveTextContent('1 / 4');
+    expect(pager.getAttribute('aria-label')).toContain('1 / 4');
+  });
+
+  it('자동 재생 토글은 보이는 문구로만 상태를 알린다', () => {
+    render(<BannerCarouselClient slides={makeSlides(4)} />);
+    const toggle = screen.getByRole('button', { name: '자동재생 중' });
+
+    // 이름이 상태를 따라 바뀌므로 aria-pressed 를 겹쳐 두지 않는다(APG) — 같은 사실을 두 번 말하게 된다.
+    expect(toggle).not.toHaveAttribute('aria-pressed');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: '정지됨' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '자동재생 중' })).not.toBeInTheDocument();
+  });
+
+  it('자동 재생을 끄면 인터벌이 배너를 넘기지 않는다(WCAG 2.2.2)', () => {
+    vi.useFakeTimers();
+    try {
+      render(<BannerCarouselClient slides={makeSlides(4)} />);
+      fireEvent.click(screen.getByRole('button', { name: '자동재생 중' }));
+
+      // 5초 간격이라 12초면 정지가 안 먹었을 때 3 / 4 가 된다 — 한 바퀴(20초) 를 쓰면
+      // 정지 여부와 무관하게 1 / 4 로 돌아와 단언이 아무것도 못 잡는다.
+      act(() => {
+        vi.advanceTimersByTime(12_000);
+      });
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('BannerCarouselClient — 뷰포트 비율', () => {
+  it('시안 비율을 쓴다 — 모바일 361:124, md 부터 1472:342 — 인라인 높이 없음', () => {
+    render(<BannerCarouselClient slides={makeSlides(2)} />);
+    const viewport = screen.getByTestId('banner-carousel-viewport');
+    // 높이를 다시 vw 식으로 정하면 어느 시안과도 어긋나고 관리자 권장 규격(1472×342)과도 갈린다.
+    expect(viewport).toHaveClass('aspect-[361/124]', 'md:aspect-[1472/342]');
+    expect(viewport.style.height).toBe('');
   });
 });

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
+import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
 
@@ -29,6 +30,10 @@ export function HomeFooter() {
               </a>
             </div>
             <div className="mt-3 text-charcoal-3/80">© DUING · All Rights Reserved</div>
+            {/* 토스페이스 라이선스가 요구하는 출처 표시 — 카테고리 픽토그램에 쓰인다. */}
+            <div className="mt-1 text-charcoal-3/70">
+              이 페이지에는 토스팀에서 제공한 토스페이스가 적용되어 있습니다.
+            </div>
           </div>
         </div>
       </footer>
@@ -37,12 +42,14 @@ export function HomeFooter() {
       <footer className="hidden mt-10 bg-cream-2 px-4 sm:px-6 md:px-10 py-14 md:block">
       <div className="max-w-layout mx-auto grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <BrandMark size={28} />
+          {/* 시안 푸터 로고 120×43(1920 캔버스) → 콘텐츠 폭 1200 기준 ×0.815 ≈ 35px. */}
+          <BrandMark size={35} />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-charcoal-2">
             탐색부터 운영까지, 두잉 하나로.
           </p>
         </div>
 
+        {/* 상단바·하단 탭(탐색·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>
@@ -50,8 +57,18 @@ export function HomeFooter() {
             </Link>
           </li>
           <li>
+            <Link href="/facilities" className={linkClass}>
+              시설
+            </Link>
+          </li>
+          <li>
             <Link href="/calendar" className={linkClass}>
-              캘린더
+              일정
+            </Link>
+          </li>
+          <li>
+            <Link href="/notices" className={linkClass}>
+              소식
             </Link>
           </li>
           <li>
@@ -61,18 +78,29 @@ export function HomeFooter() {
           </li>
         </FooterColumn>
 
-        <FooterColumn title="운영자">
-          <li>
-            <Link href="/manage" className={linkClass}>
-              우리 동아리 등록
-            </Link>
-          </li>
-          <li>
-            <Link href="/introduce" className={linkClass}>
-              운영자 가이드
-            </Link>
-          </li>
-        </FooterColumn>
+        <div>
+          <div className="text-xs font-bold tracking-wide06 text-ink-deep">운영자</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <Link href="/manage" className={linkClass}>
+                우리 동아리 등록
+              </Link>
+            </li>
+            <li>
+              <Link href="/introduce" className={linkClass}>
+                운영자 가이드
+              </Link>
+            </li>
+          </ul>
+
+          {/* 동아리 신청 — 등록 플로우가 아니라 총동연 안내(토스트)라 링크가 아닌 버튼. 문의 컬럼의 2단 구조와 같은 모양. */}
+          <div className="mt-6 text-xs font-bold tracking-wide06 text-ink-deep">동아리 신청</div>
+          <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
+            <li>
+              <FooterClubApplyCta className={linkClass} />
+            </li>
+          </ul>
+        </div>
 
         <div>
           {/* 두잉팀(서비스 운영)과 총동연(FAQ·1:1 문의) 은 수신 주체가 다르므로 라벨로 명확히 구분한다.
@@ -112,7 +140,11 @@ export function HomeFooter() {
         </div>
       </div>
       <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 pt-6 text-xs text-charcoal-3">
-        <div>© DUING · All Rights Reserved</div>
+        <div>
+          <div>© DUING · All Rights Reserved</div>
+          {/* 토스페이스 라이선스가 요구하는 출처 표시 — 카테고리 픽토그램에 쓰인다. */}
+          <div className="mt-1">이 페이지에는 토스팀에서 제공한 토스페이스가 적용되어 있습니다.</div>
+        </div>
         <div className="flex gap-5">
           <Link href="/terms#terms" className={linkClass}>
             이용약관

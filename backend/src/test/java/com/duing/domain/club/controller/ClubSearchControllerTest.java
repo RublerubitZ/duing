@@ -116,7 +116,8 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 // 응답 키 집합 자체를 고정 — 필드가 늘거나 빠지면 실패한다.
                 .body("data.content[0].keySet()", containsInAnyOrder(
                         "id", "name", "category", "division", "college", "department",
-                        "logoUrl", "status", "tags", "tagline", "centralClub", "activeRecruitment"))
+                        "logoUrl", "status", "tags", "tagline", "centralClub",
+                        "weeklyInterestCount", "activeRecruitment"))
                 .body("data.content[0].id", equalTo(saved.getId().intValue()))
                 .body("data.content[0].name", equalTo(saved.getName()))
                 .body("data.content[0].category", equalTo("SPORTS"))
@@ -128,6 +129,8 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 .body("data.content[0].tags", contains("태그하나", "태그둘"))
                 .body("data.content[0].tagline", equalTo("한줄소개값"))
                 .body("data.content[0].centralClub", equalTo(true))
+                // 집계 배치 전이라 지표 행이 없다 — 이 경로에서 null 이 아니라 0 으로 내려가는 것이 계약이다.
+                .body("data.content[0].weeklyInterestCount", equalTo(0))
                 .body("data.content[0].activeRecruitment", nullValue());
     }
 

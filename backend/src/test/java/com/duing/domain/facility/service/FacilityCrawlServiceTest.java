@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,8 @@ import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.parser.ParsedReservation;
+import com.duing.domain.facility.parser.ReservationParseResult;
 import com.duing.domain.facility.parser.ReservationParser;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -27,11 +30,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +51,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -60,6 +68,9 @@ class FacilityCrawlServiceTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-07-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
     final ObjectMapper objectMapper = new ObjectMapper();
     final YearMonth july = YearMonth.of(2026, 7);
+    final YearMonth august = YearMonth.of(2026, 8);
+    /** 200 + [] — 원소 0건이라 부분 실패도 전부 실패도 아닌 정상 결과. */
+    static final ReservationParseResult EMPTY_PARSE = new ReservationParseResult(List.of(), 0, 0);
 
     private FacilityCrawlerProperties props() {
         return propsWithOnDemandDeadline(10);
@@ -82,11 +93,11 @@ class FacilityCrawlServiceTest {
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
         when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any());
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.SUCCESS), any(), any(), any(), any());
         assertThat(summary.failedRooms()).isEmpty();
     }
@@ -101,16 +112,81 @@ class FacilityCrawlServiceTest {
         driftedBody.add(objectMapper.createObjectNode().put("renamed_seq", "18134").put("renamed_time", "19:00~20:00"));
         driftedBody.add(objectMapper.createObjectNode().put("renamed_seq", "18135").put("renamed_time", "20:00~21:00"));
         when(client.fetchReservations(anyInt(), eq(july))).thenReturn(driftedBody);
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(new ReservationParseResult(List.of(), 2, 2));
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
         // 기존 스냅샷을 빈 데이터로 덮어쓰지 않고(§1 fail-safe) 실패 메타만 남긴다.
-        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any());
+        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any(), any());
         verify(snapshotWriter, never()).recordSuccessfulMeta(any(), any(), any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
         assertThat(summary.failedRooms()).containsExactly(4);
         assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("전 원소 파싱에 성공한 월은 모두 삭제 허용 월로 반영돼 학교에서 사라진 예약이 기존처럼 삭제되고, 시설은 두 달 모두 세대 성공 집합에 든다")
+    void fullyParsedMonthsAllowDeletion() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservations(anyInt(), any())).thenReturn(objectMapper.createArrayNode());
+        when(reservationParser.parse(any(), eq(july)))
+                .thenReturn(new ReservationParseResult(List.of(reservation(18134L)), 0, 1));
+        when(reservationParser.parse(any(), eq(august))).thenReturn(EMPTY_PARSE);
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july, august), CrawlSource.SCHEDULER);
+
+        ArgumentCaptor<Set<YearMonth>> deletableMonthsCaptor = ArgumentCaptor.captor();
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), deletableMonthsCaptor.capture(), any());
+        assertThat(deletableMonthsCaptor.getValue()).containsExactlyInAnyOrder(july, august);
+        ArgumentCaptor<List<Long>> syncedFacilityIdsCaptor = ArgumentCaptor.captor();
+        verify(snapshotWriter, times(2)).recordSuccessfulMeta(
+                any(), eq(FetchStatus.SUCCESS), any(), any(), any(), syncedFacilityIdsCaptor.capture());
+        assertThat(syncedFacilityIdsCaptor.getAllValues()).allSatisfy(synced -> assertThat(synced).hasSize(1));
+        assertThat(summary.status()).isEqualTo(FetchStatus.SUCCESS);
+    }
+
+    @Test
+    @DisplayName("일부 원소만 파싱 실패한 월은 성공 행을 반영하되 삭제 허용 월에서 빠지고, PARTIAL·부분 파싱 실패 사유·세대 성공 집합 미포함으로 남아 다음 주기에 재시도된다")
+    void partiallyParsedMonthKeepsStoredRowsAndStaysPartial() {
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
+        when(client.fetchReservations(anyInt(), any())).thenReturn(objectMapper.createArrayNode());
+        // 7월: 원소 2건 중 1건만 파싱 성공(부분 실패) / 8월: 정상.
+        when(reservationParser.parse(any(), eq(july)))
+                .thenReturn(new ReservationParseResult(List.of(reservation(18134L)), 1, 2));
+        when(reservationParser.parse(any(), eq(august))).thenReturn(EMPTY_PARSE);
+
+        CrawlSummary summary = service.crawlAndReplace(List.of(july, august), CrawlSource.SCHEDULER);
+
+        // 성공 행은 그대로 반영(upsert)하되 7월은 삭제 허용 월에서 제외 — 실패 원소가 기존 예약일 수 있어 지우면 슬롯이 열린다.
+        ArgumentCaptor<Map<YearMonth, List<ParsedReservation>>> fetchedByMonthCaptor = ArgumentCaptor.captor();
+        ArgumentCaptor<Set<YearMonth>> deletableMonthsCaptor = ArgumentCaptor.captor();
+        verify(snapshotWriter, times(1)).reconcileReservations(
+                any(), eq(List.of(july, august)), fetchedByMonthCaptor.capture(), deletableMonthsCaptor.capture(), any());
+        assertThat(fetchedByMonthCaptor.getValue().get(july)).extracting(ParsedReservation::scheduleSeq).containsExactly(18134L);
+        assertThat(deletableMonthsCaptor.getValue()).containsExactly(august);
+
+        // 7월 메타: PARTIAL + 부분 파싱 실패 사유, 세대 성공 집합에는 이 시설이 없다(자동 확정 fail-closed).
+        ArgumentCaptor<String> lastErrorCaptor = ArgumentCaptor.captor();
+        ArgumentCaptor<List<Long>> julySyncedCaptor = ArgumentCaptor.captor();
+        verify(snapshotWriter, times(1)).recordSuccessfulMeta(
+                eq(july), eq(FetchStatus.PARTIAL), any(), any(), lastErrorCaptor.capture(), julySyncedCaptor.capture());
+        assertThat(lastErrorCaptor.getValue()).contains("부분 파싱 실패").contains("skipped=1");
+        assertThat(julySyncedCaptor.getValue()).isEmpty();
+        // 8월 메타: 정상 — SUCCESS 이고 시설이 세대 성공 집합에 든다.
+        ArgumentCaptor<List<Long>> augustSyncedCaptor = ArgumentCaptor.captor();
+        verify(snapshotWriter, times(1)).recordSuccessfulMeta(
+                eq(august), eq(FetchStatus.SUCCESS), any(), any(), isNull(), augustSyncedCaptor.capture());
+        assertThat(augustSyncedCaptor.getValue()).hasSize(1);
+        // 부분 파싱은 룸 실패가 아니다 — 성공 행은 영속됐고 룸 격리 재시도 대상도 아니다.
+        assertThat(summary.failedRooms()).isEmpty();
+        assertThat(summary.succeededRooms()).isEqualTo(1);
+    }
+
+    private ParsedReservation reservation(long scheduleSeq) {
+        return new ParsedReservation(scheduleSeq, LocalDate.of(2026, 7, 1), LocalTime.of(19, 0), LocalTime.of(20, 0),
+                "고정관념", false);
     }
 
     @Test
@@ -122,7 +198,7 @@ class FacilityCrawlServiceTest {
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any());
+        verify(snapshotWriter, never()).reconcileReservations(any(), any(), any(), any(), any());
         verify(snapshotWriter, times(1)).recordFailureMeta(eq(july), any(), any());
         assertThat(summary.failedRooms()).containsExactly(6);
         assertThat(summary.status()).isEqualTo(FetchStatus.FAILED);
@@ -136,11 +212,11 @@ class FacilityCrawlServiceTest {
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(ok, bad));
         when(client.fetchReservations(eq(4), eq(july))).thenReturn(objectMapper.createArrayNode());
         when(client.fetchReservations(eq(6), eq(july))).thenThrow(new FacilityFetchException("timeout"));
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
-        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any()); // ok 만
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any(), any()); // ok 만
         verify(snapshotWriter, times(1)).recordSuccessfulMeta(eq(july), eq(FetchStatus.PARTIAL), any(), any(), any(), any());
         assertThat(summary.failedRooms()).containsExactly(6);
         assertThat(summary.succeededRooms()).isEqualTo(1);
@@ -153,9 +229,9 @@ class FacilityCrawlServiceTest {
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
         when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
         doThrow(new org.springframework.dao.DataIntegrityViolationException("schedule_seq 충돌"))
-                .when(snapshotWriter).reconcileReservations(any(), any(), any(), any());
+                .when(snapshotWriter).reconcileReservations(any(), any(), any(), any(), any());
 
         CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
@@ -210,7 +286,7 @@ class FacilityCrawlServiceTest {
             secondReturned.await(3, TimeUnit.SECONDS);   // 둘째가 결과를 확정할 때까지 락을 계속 보유
             return objectMapper.createArrayNode();
         });
-        when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(current))).thenReturn(EMPTY_PARSE);
         doAnswer(invocation -> {
             firstCrawlFinished.set(true); // 크롤 종료(락 해제 직전) 표식 — 둘째가 이 시점 이후에 반환하면 블로킹 회귀다
             return null;
@@ -248,7 +324,7 @@ class FacilityCrawlServiceTest {
                 current, LocalDateTime.now(clock), CrawlSource.SCHEDULER, FetchStatus.PARTIAL, "일부 룸 실패");
         when(snapshotRepository.findByYearMonth(current)).thenReturn(Optional.of(partial));
         when(client.fetchReservationsOnDemand(anyInt(), eq(current))).thenReturn(objectMapper.createArrayNode());
-        when(reservationParser.parse(any(), eq(current))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(current))).thenReturn(EMPTY_PARSE);
 
         DataSource result = service.ensureFresh(current);
 
@@ -281,7 +357,7 @@ class FacilityCrawlServiceTest {
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
         when(client.fetchReservationsOnDemand(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
 
         service.crawlAndReplace(List.of(july), CrawlSource.ON_DEMAND);
 
@@ -295,7 +371,7 @@ class FacilityCrawlServiceTest {
         Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
         when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc()).thenReturn(List.of(facility));
         when(client.fetchReservations(anyInt(), eq(july))).thenReturn(objectMapper.createArrayNode());
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
 
         service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
 
@@ -316,13 +392,13 @@ class FacilityCrawlServiceTest {
             Thread.sleep(1200);
             return objectMapper.createArrayNode();
         });
-        when(reservationParser.parse(any(), eq(july))).thenReturn(List.of());
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
 
         CrawlSummary summary = deadlineService.crawlAndReplace(List.of(july), CrawlSource.ON_DEMAND);
 
         verify(client, times(1)).fetchReservationsOnDemand(eq(4), eq(july));
         verify(client, never()).fetchReservationsOnDemand(eq(6), eq(july)); // 스킵 룸은 시도 자체가 없다
-        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any()); // 완료한 룸만 영속
+        verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any(), any()); // 완료한 룸만 영속
         // 스킵이 있으면 그 달을 신선(SUCCESS)으로 기록하면 안 된다 — PARTIAL(stale=true)로 남아 재시도된다.
         verify(snapshotWriter, times(1)).recordSuccessfulMeta(
                 eq(july), eq(FetchStatus.PARTIAL), any(), any(), eq("온디맨드 데드라인 초과"), any());

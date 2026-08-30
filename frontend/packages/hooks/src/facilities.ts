@@ -5,6 +5,15 @@ import type { BookingStatus, CreateFacilityBookingPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { facilityQueryKeys } from './facilityQueryKeys';
 
+/** 활성 시설 목록(가벼움·공개) — 어드민 크롤 현황의 시설 필터 등에서 사용. */
+export function useFacilityListQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: facilityQueryKeys.list(),
+    queryFn: () => client.facilities.list(),
+  });
+}
+
 export function useFacilityUsageQuery(yearMonth?: string) {
   const client = useApiClient();
   return useQuery({

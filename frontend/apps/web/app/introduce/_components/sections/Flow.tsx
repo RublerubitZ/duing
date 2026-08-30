@@ -20,7 +20,7 @@ export function Flow() {
     <section className="bg-ink-deep px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-layout">
         <FadeIn>
-          <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-cream/70">
+          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-cream/70">
             FLOW · 사용 흐름
           </p>
           <h2 className="mb-3 max-w-[760px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)', color: '#F6F3EC' }}>
@@ -43,13 +43,13 @@ export function Flow() {
           <Stagger className="relative grid grid-cols-6" gap={0.08}>
             {STEPS.map((step) => (
               <StaggerItem key={step.idx} className="flex flex-col items-center px-2 text-center">
-                <span className="relative z-10 grid h-10 w-10 place-items-center rounded-full border border-sage/40 bg-ink-deep font-mono text-[12px] font-bold text-cream">
+                <span className="relative z-10 grid h-10 w-10 place-items-center rounded-full border border-sage/40 bg-ink-deep tabular-nums text-[12px] font-bold text-cream">
                   {step.idx}
                 </span>
                 <div className="mt-4 text-[15px] font-bold" style={{ color: '#F6F3EC' }}>
                   {step.label}
                 </div>
-                <div className="mt-1 font-mono text-[11px] text-cream/55">{step.sub}</div>
+                <div className="mt-1 tabular-nums text-[11px] text-cream/55">{step.sub}</div>
               </StaggerItem>
             ))}
           </Stagger>
@@ -62,14 +62,14 @@ export function Flow() {
               {i < LAST && (
                 <span className="absolute bottom-0 left-5 top-11 w-px bg-paper/15" aria-hidden />
               )}
-              <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-sage/40 bg-ink-deep font-mono text-[12px] font-bold text-cream">
+              <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-sage/40 bg-ink-deep tabular-nums text-[12px] font-bold text-cream">
                 {step.idx}
               </span>
               <div className="pt-1.5">
                 <div className="text-[15px] font-bold" style={{ color: '#F6F3EC' }}>
                   {step.label}
                 </div>
-                <div className="mt-0.5 font-mono text-[11px] text-cream/55">{step.sub}</div>
+                <div className="mt-0.5 tabular-nums text-[11px] text-cream/55">{step.sub}</div>
               </div>
             </StaggerItem>
           ))}

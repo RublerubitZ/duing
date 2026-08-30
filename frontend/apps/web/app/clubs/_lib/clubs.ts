@@ -83,7 +83,7 @@ export const CAT_COLORS: Record<
   '공연': { bg: 'bg-[#FCE2D9]', fg: 'text-[#9A3F23]', text: 'text-[#9A3F23]', bgValue: '#FCE2D9',           fgValue: '#9A3F23',         emoji: '🎭', num: '04' },
   '봉사': { bg: 'bg-[#DDE8F1]', fg: 'text-[#2F557A]', text: 'text-[#2F557A]', bgValue: '#DDE8F1',           fgValue: '#2F557A',         emoji: '🤝', num: '05' },
   '창작': { bg: 'bg-sage-tint', fg: 'text-ink',       text: 'text-[#7E2A45]', bgValue: 'var(--sage-tint)',  fgValue: 'var(--ink)',      emoji: '🎨', num: '06' },
-  // 예술: 홈 카테고리(homeCategories)·인기 동아리(FeaturedClubs) 의 ART 액센트(#7d4f87) 와 맞춘다.
+  // 예술: 홈 카테고리(homeCategories) 의 ART 라벨색(#7D4F87) 과 맞춘다.
   '예술': { bg: 'bg-[#EFE2F1]', fg: 'text-[#7d4f87]', text: 'text-[#7d4f87]', bgValue: '#EFE2F1',           fgValue: '#7d4f87',         emoji: '🎭', num: '07' },
   'IT':   { bg: 'bg-[#E3E9E1]', fg: 'text-ink-deep',  text: 'text-ink-deep',  bgValue: '#E3E9E1',           fgValue: 'var(--ink-deep)', emoji: '💻', num: '08' },
   '창업': { bg: 'bg-[#FBEFD7]', fg: 'text-[#8E6620]', text: 'text-[#8E6620]', bgValue: '#FBEFD7',           fgValue: '#8E6620',         emoji: '🚀', num: '09' },

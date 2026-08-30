@@ -54,7 +54,7 @@ describe('SubmissionClubGroupList', () => {
     makeBooking({ bookingId: 3, clubId: 11, clubName: '방송국', submitted: true, selectable: false, submissionNo: 'SUB-20260801-001' }),
   ];
 
-  it('동아리별 그룹 헤더에 이름·건수·선택 수가 표시된다', () => {
+  it('동아리별 그룹 헤더에 이름·시설 수·건수·선택 수가 표시된다', () => {
     render(
       <SubmissionClubGroupList
         bookings={twoClubs}
@@ -66,9 +66,59 @@ describe('SubmissionClubGroupList', () => {
     );
 
     expect(screen.getByText(/밴드부/)).toBeInTheDocument();
-    expect(screen.getByText(/2건 · 선택 1/)).toBeInTheDocument();
+    expect(screen.getByText(/시설 1곳 · 2건 · 선택 1/)).toBeInTheDocument();
     expect(screen.getByText(/방송국/)).toBeInTheDocument();
-    expect(screen.getByText(/1건/)).toBeInTheDocument();
+    expect(screen.getByText(/시설 1곳 · 1건/)).toBeInTheDocument();
+  });
+
+  it('동아리 헤더 아래 시설 서브헤더가 렌더되고 같은 시설의 여러 날짜가 한 블록에 연속으로 나온다', () => {
+    render(
+      <SubmissionClubGroupList
+        bookings={[
+          makeBooking({ bookingId: 1 }),
+          makeBooking({ bookingId: 2, reservationDate: '2026-08-08' }),
+          makeBooking({ bookingId: 3, facilityId: 2, facilityName: '대운동장', reservationDate: '2026-08-05' }),
+        ]}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    // 날짜 전체 정렬(08-01 < 08-05 < 08-08)이 아니라 시설 블록 단위 — 대운동장(08-05)이 먼저,
+    // 학생회관 세미나실의 08-01·08-08 이 서브헤더 뒤에 연속으로 나와야 한다.
+    const bandGroup = screen.getByRole('group', { name: /밴드부/ });
+    const groupText = bandGroup.textContent ?? '';
+    const tokenIndexes = ['대운동장', '08-05', '학생회관 세미나실', '08-01', '08-08'].map((token) =>
+      groupText.indexOf(token),
+    );
+    expect(tokenIndexes.every((index) => index >= 0)).toBe(true);
+    expect(tokenIndexes).toEqual([...tokenIndexes].sort((left, right) => left - right));
+  });
+
+  it('두 시설을 쓰는 동아리는 시설 서브헤더가 2개다', () => {
+    render(
+      <SubmissionClubGroupList
+        bookings={[
+          makeBooking({ bookingId: 1 }),
+          makeBooking({ bookingId: 2, facilityId: 2, facilityName: '대운동장', reservationDate: '2026-08-05' }),
+          makeBooking({ bookingId: 3, clubId: 11, clubName: '방송국' }),
+        ]}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    const bandGroup = screen.getByRole('group', { name: /밴드부/ });
+    expect(within(bandGroup).getByText('대운동장')).toBeInTheDocument();
+    expect(within(bandGroup).getByText('학생회관 세미나실')).toBeInTheDocument();
+    expect(within(bandGroup).getByText(/시설 2곳 · 2건/)).toBeInTheDocument();
+
+    const broadcastGroup = screen.getByRole('group', { name: /방송국/ });
+    expect(within(broadcastGroup).getAllByText('학생회관 세미나실')).toHaveLength(1);
   });
 
   it('그룹 헤더 체크박스는 그 동아리의 선택 가능 예약 전체를 일괄 토글한다', () => {

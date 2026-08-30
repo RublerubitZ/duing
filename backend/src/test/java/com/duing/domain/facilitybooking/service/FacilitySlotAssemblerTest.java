@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayStatus;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -44,37 +45,98 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("점유행은 겹치는 슬롯만 BLOCKED(SCHOOL·단체명)로 만들고, 운영행은 어떤 슬롯도 막지 않는다")
-    void occupiedBlocksButOperatingDoesNot() {
+    @DisplayName("기본 확보 시간 분류 슬라이스는 차단하지 않고(AVAILABLE), 실예약 분류만 겹치는 슬롯을 차단한다")
+    void basicSecuredSlicesDoNotBlock() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<CrawlSlice> crawl = List.of(
-                // 운영행: 고정관념(09:00~20:00) — 슬롯 마커가 시작·끝 2행으로 내려오는 상황(선행 스펙 §16.1)
-                // → 같은 (단체, 운영시간)이므로 OperatingNote 는 dedupe 되어 1건이어야 한다
-                new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                        CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
-                new CrawlSlice(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "고정관념",
-                        CrawlRowType.OPERATING, LocalTime.of(9, 0), LocalTime.of(20, 0)),
-                // 점유행: 비호응원단 17~18, 18~19
+                // 기본 확보 시간 대상 동아리의 확장 행: 고정관념 [10:00, 17:00) — 비차단(2026-08-27 전환)
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(17, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 실예약(미매칭 단체): 비호응원단 17~18, 18~19 — 지금처럼 차단
                 new CrawlSlice(date, LocalTime.of(17, 0), LocalTime.of(18, 0), "비호응원단",
-                        CrawlRowType.OCCUPIED, null, null),
+                        CrawlRowType.CRAWLED_RESERVATION),
                 new CrawlSlice(date, LocalTime.of(18, 0), LocalTime.of(19, 0), "비호응원단",
-                        CrawlRowType.OCCUPIED, null, null));
+                        CrawlRowType.CRAWLED_RESERVATION));
 
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
         DayAvailability target = day(days, 20);
 
-        assertThat(slotStatus(target, 9)).isEqualTo(SlotStatus.AVAILABLE); // 운영행 마커는 차단 안 함
+        // 확보 구간 [10, 17) 전 구간 AVAILABLE — 다른 동아리가 그 시간대를 신청할 수 있다.
+        for (int hour = 10; hour < 17; hour++) {
+            assertThat(slotStatus(target, hour)).isEqualTo(SlotStatus.AVAILABLE);
+            assertThat(target.slots().get(hour - 9).blockedBy()).isNull();
+            assertThat(target.slots().get(hour - 9).organization()).isNull();
+        }
         assertThat(slotStatus(target, 17)).isEqualTo(SlotStatus.BLOCKED);
-        assertThat(slotStatus(target, 18)).isEqualTo(SlotStatus.BLOCKED);
-        assertThat(slotStatus(target, 19)).isEqualTo(SlotStatus.AVAILABLE);
         assertThat(target.slots().get(17 - 9).blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
         assertThat(target.slots().get(17 - 9).organization()).isEqualTo("비호응원단");
-        assertThat(target.availableSlotCount()).isEqualTo(11);
-        assertThat(target.operatingNotes()).singleElement().satisfies(note -> {
-            assertThat(note.organization()).isEqualTo("고정관념");
-            assertThat(note.start()).isEqualTo("09:00");
-            assertThat(note.end()).isEqualTo("20:00");
-        });
+        assertThat(slotStatus(target, 18)).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(target.availableSlotCount()).isEqualTo(11); // 실예약 2칸(17~19)만 차단
+        // 확보 슬라이스는 표시 전용 operatingNotes 로 내려간다 — 차단 아님(v2 스펙 §3). 실예약 행은 미포함.
+        assertThat(target.operatingNotes()).containsExactly(new OperatingNote("고정관념", "10:00", "17:00"));
+    }
+
+    @Test
+    @DisplayName("확보 슬라이스가 있는 날은 operatingNotes 에 (단체, 시작, 끝)이 중복 없이 담기고, 없는 날은 빈 배열이다")
+    void operatingNotesDedupeSecuredSlicesPerDay() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        List<CrawlSlice> crawl = List.of(
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 같은 단체·같은 구간의 중복 행 — 행 단위 distinct 로 한 건만 남긴다.
+                new CrawlSlice(date, LocalTime.of(10, 0), LocalTime.of(13, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 같은 단체의 인접 구간 — 병합하지 않고 별도 노트로 나열한다(행 단위 distinct).
+                new CrawlSlice(date, LocalTime.of(13, 0), LocalTime.of(15, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                // 실예약 분류는 표시 데이터 소스가 아니다.
+                new CrawlSlice(date, LocalTime.of(17, 0), LocalTime.of(18, 0), "비호응원단",
+                        CrawlRowType.CRAWLED_RESERVATION));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
+
+        assertThat(day(days, 20).operatingNotes()).containsExactly(
+                new OperatingNote("고정관념", "10:00", "13:00"),
+                new OperatingNote("고정관념", "13:00", "15:00"));
+        assertThat(day(days, 21).operatingNotes()).isEmpty(); // 확보 슬라이스가 없는 날은 빈 배열
+    }
+
+    @Test
+    @DisplayName("확보 구간 안에 실예약이 공존하면 그 슬롯만 SCHOOL 로 차단되고 나머지 확보 구간은 AVAILABLE 이다")
+    void crawledReservationStillBlocksInsideSecuredRange() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        List<CrawlSlice> crawl = List.of(
+                new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME),
+                new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), "학생생활상담센터",
+                        CrawlRowType.CRAWLED_RESERVATION));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of());
+        DayAvailability target = day(days, 20);
+
+        assertThat(slotStatus(target, 14)).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(target.slots().get(14 - 9).blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+        assertThat(target.slots().get(14 - 9).organization()).isEqualTo("학생생활상담센터");
+        assertThat(slotStatus(target, 13)).isEqualTo(SlotStatus.AVAILABLE); // 확보 구간은 더 이상 차단 아님
+        assertThat(target.availableSlotCount()).isEqualTo(12); // 실예약 1칸(14~15)만 차단
+    }
+
+    @Test
+    @DisplayName("확보 구간에 내부 PENDING 신청이 겹치면 PENDING_HOLD 로 내려간다 — 동아리명 비노출 유지")
+    void pendingHoldFallsThroughInsideSecuredRange() {
+        LocalDate date = LocalDate.of(2026, 1, 20);
+        List<CrawlSlice> crawl = List.of(
+                new CrawlSlice(date, LocalTime.of(9, 0), LocalTime.of(22, 0), "고정관념",
+                        CrawlRowType.BASIC_SECURED_TIME));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, null));
+
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings);
+        DayAvailability target = day(days, 20);
+
+        assertThat(slotStatus(target, 14)).isEqualTo(SlotStatus.PENDING_HOLD);
+        assertThat(target.slots().get(14 - 9).organization()).isNull(); // 승인 대기 동아리명 비노출(설계 §3.1)
+        assertThat(target.availableSlotCount()).isEqualTo(13); // PENDING_HOLD 도 신청 가능 count 포함
     }
 
     @Test
@@ -135,7 +197,7 @@ class FacilitySlotAssemblerTest {
     void blockedWinsOverPendingHold() {
         LocalDate date = LocalDate.of(2026, 1, 20);
         List<CrawlSlice> crawl = List.of(new CrawlSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0),
-                "총학생회", CrawlRowType.OCCUPIED, null, null));
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
         List<BookingSlice> bookings = List.of(
                 new BookingSlice(date, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.PENDING, null));
 

@@ -14,10 +14,11 @@ import { PurposeNote } from '../_components/PurposeNote';
 import { conflictCardCount } from '../_lib/adminBookingDisplay';
 import { currentMonthRange } from '../_lib/submissionPeriod';
 import { BookingManagementTab } from '../_tabs/BookingManagementTab';
+import { FacilityCrawlTab } from '../_tabs/FacilityCrawlTab';
 import { SubmissionBatchesTab } from '../_tabs/SubmissionBatchesTab';
 import { SubmissionPrepareTab } from '../_tabs/SubmissionPrepareTab';
 
-const TAB_KEYS = ['review', 'prepare', 'ready', 'archive'] as const;
+const TAB_KEYS = ['review', 'prepare', 'ready', 'archive', 'crawl'] as const;
 type FacilityOpsTab = (typeof TAB_KEYS)[number];
 
 const TAB_LABELS: Record<FacilityOpsTab, string> = {
@@ -25,6 +26,7 @@ const TAB_LABELS: Record<FacilityOpsTab, string> = {
   prepare: '제출 준비',
   ready: '제출 대기',
   archive: '제출 이력',
+  crawl: '크롤 예약',
 };
 
 // 탭별 화면 목적 안내(목업 PurposeNote) — 핵심 행위·다음 단계를 굵게 강조한다.
@@ -52,6 +54,13 @@ const TAB_PURPOSE: Record<FacilityOpsTab, ReactNode> = {
       제출을 <strong>마친 목록</strong>이에요. 완료·취소된 목록의 CSV를 다시 받을 수 있어요. 진행 중인 목록은 &lsquo;제출 대기&rsquo;에 있어요.
     </>
   ),
+  crawl: (
+    <>
+      학교에서 수집한 크롤 예약 원본이에요. <strong>크롤 예약</strong>은 해당 시간 예약이 차단되고,{' '}
+      <strong>기본 확보 시간</strong>(동아리 관리의 &lsquo;기본 확보 시간 대상&rsquo; 지정)은 차단 없이 다른
+      동아리도 신청할 수 있어요.
+    </>
+  ),
 };
 
 // 구 URL 호환(개편 스펙 §1) — 북마크·외부 링크의 기존 탭 키를 새 워크플로 탭으로 흡수한다.
@@ -70,7 +79,7 @@ function resolveTab(tabParam: string | null): FacilityOpsTab {
 }
 
 /**
- * 시설 예약 업무 단일 페이지(개편 스펙 §1) — 검토→준비→제출 대기→이력 4단계 워크플로 탭.
+ * 시설 예약 업무 단일 페이지(개편 스펙 §1) — 검토→준비→제출 대기→이력 4단계 워크플로 탭 + 크롤 예약 참조 탭.
  * 스테퍼처럼 보이지만 동작은 자유 이동 탭이다(운영 루프는 선형이 아니라 순환).
  * 탭 상태는 URL(?tab=)과 동기화해 새로고침·뒤로가기·딥링크를 보존한다(ClubExplorePage 전례).
  */
@@ -96,7 +105,8 @@ export function AdminFacilityBookingsPage() {
     router.replace(toRoute(`/admin/facility-bookings?tab=${tab}`), { scroll: false });
   };
 
-  const activeStepIndex = TAB_KEYS.indexOf(activeTab);
+  // 크롤 예약은 워크플로 단계가 아니라 참조 탭 — 단계 진행(✓) 계산에서 제외한다(스펙 §3).
+  const activeStepIndex = activeTab === 'crawl' ? -1 : TAB_KEYS.indexOf(activeTab);
 
   return (
     // 다른 admin 페이지와 동일한 컨테이너 관례(max-w-layout+px+py) — 없으면 사이드바에 붙고 와이드에서 과확장된다.
@@ -107,7 +117,7 @@ export function AdminFacilityBookingsPage() {
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal-3">
             FACILITY BOOKINGS · 학교 제출 워크플로
           </p>
-          <h1 className="mt-1 font-display text-2xl text-ink-deep">시설 예약 관리</h1>
+          <h1 className="mt-1 text-2xl text-ink-deep">시설 예약 관리</h1>
         </div>
         <CrawlFreshnessChip crawledAt={summaryQuery.data?.crawledAt} />
       </div>
@@ -136,7 +146,7 @@ export function AdminFacilityBookingsPage() {
               >
                 <span
                   aria-hidden
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-extrabold ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full tabular-nums text-[13px] font-extrabold ${
                     isActive
                       ? 'bg-sage text-ink-deep'
                       : isDone
@@ -178,7 +188,7 @@ export function AdminFacilityBookingsPage() {
                     <>
                       {' '}
                       <span
-                        className={`mt-0.5 block font-mono text-[11px] ${
+                        className={`mt-0.5 block tabular-nums text-[11px] ${
                           isActive ? 'text-sage' : 'text-charcoal-3'
                         } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
                         title={tab === 'prepare' ? '이번 달 기준' : undefined}
@@ -216,6 +226,7 @@ export function AdminFacilityBookingsPage() {
       {activeTab === 'ready' && <SubmissionBatchesTab statusFilter="REVIEWING" />}
       {/* 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다. */}
       {activeTab === 'archive' && <SubmissionBatchesTab statusFilter="ARCHIVED" />}
+      {activeTab === 'crawl' && <FacilityCrawlTab />}
     </main>
   );
 }

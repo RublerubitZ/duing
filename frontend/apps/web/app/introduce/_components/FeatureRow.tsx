@@ -33,7 +33,7 @@ export function FeatureRow({ index, label, title, desc, items, visual, reverse }
   return (
     <div className="grid items-center gap-10 py-12 md:grid-cols-2 md:gap-16 md:py-16">
       <Reveal x={reverse ? 40 : -40} y={0} className={reverse ? 'md:order-2' : undefined}>
-        <p className="mb-3.5 font-mono text-[11.5px] font-semibold uppercase tracking-[0.2em] text-ink">
+        <p className="mb-3.5 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.2em] text-ink">
           {index} · {label}
         </p>
         <h3 className="mb-4" style={{ fontSize: 'clamp(26px, 3.2vw, 36px)' }}>

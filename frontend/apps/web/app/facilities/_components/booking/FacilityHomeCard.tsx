@@ -42,7 +42,7 @@ export function FacilityHomeCard({ facility, windowLabel, onSelect }: Props) {
         <div className="mt-2">
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="text-charcoal-3">오늘 남은 시간</span>
-            <span className="font-mono font-bold text-ink">
+            <span className="tabular-nums font-bold text-ink">
               {freeCount === null ? '오늘 마감' : freeCount === 0 ? '없음' : `${freeCount}칸`}
             </span>
           </div>

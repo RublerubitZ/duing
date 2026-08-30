@@ -17,11 +17,14 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 가용성 슬롯 계산(설계 §3.1) — 순수 함수. 입력은 서비스가 크롤 엔티티·Booking 을 slice 로 매핑해 넣는다
- * (엔티티에 직접 의존하지 않아 단위 테스트가 쉽고, 판별 정책은 호출부의 FacilityAvailabilityPolicy 가 담당).
+ * 가용성 슬롯 계산(전면 차단 설계 §3.3) — 순수 함수. 입력은 서비스가 크롤 엔티티·Booking 을 slice 로 매핑해
+ * 넣는다(엔티티에 직접 의존하지 않아 단위 테스트가 쉽고, 판별 정책은 호출부의 FacilityAvailabilityPolicy 가 담당).
  *
- * <p>슬롯 판정 우선순위(공존 시 처리 순서): PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL)
- * → PENDING_HOLD → AVAILABLE. 운영행(OPERATING)은 어떤 슬롯도 차단하지 않고 정보 라벨만 만든다.
+ * <p>크롤 slice 는 실예약 분류(CRAWLED_RESERVATION)만 차단한다 — 기본 확보 시간(BASIC_SECURED_TIME)은
+ * 비차단이라 다른 동아리가 그 시간대를 신청할 수 있다(2026-08-27 비차단 전환). 슬롯 판정 우선순위(공존 시 표시 순서):
+ * PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL=CRAWLED_RESERVATION) → PENDING_HOLD → AVAILABLE.
+ * operatingNotes 는 확보(BASIC_SECURED_TIME) 슬라이스의 (단체, 시작, 끝) distinct 나열이다 —
+ * 표시 전용, 차단 아님(v2 스펙 §3).
  */
 public final class FacilitySlotAssembler {
 
@@ -33,9 +36,9 @@ public final class FacilitySlotAssembler {
     private FacilitySlotAssembler() {
     }
 
-    /** 크롤 행 slice — type 은 FacilityAvailabilityPolicy 분류 결과. */
+    /** 크롤 행 slice — type 은 FacilityAvailabilityPolicy 분류 결과(실예약만 차단, 확보 시간은 비차단). */
     public record CrawlSlice(LocalDate date, LocalTime start, LocalTime end, String organization,
-                             CrawlRowType type, LocalTime operatingStart, LocalTime operatingEnd) {}
+                             CrawlRowType type) {}
 
     /**
      * 내부 예약 slice. organization 은 BLOCKED(INTERNAL·APPROVED/CONFIRMED) 슬롯에만 채워지는 동아리명이며
@@ -58,11 +61,12 @@ public final class FacilitySlotAssembler {
 
     private static DayAvailability assembleDay(LocalDate date, LocalDate today, LocalTime nowTime,
                                                List<CrawlSlice> crawlSlices, List<BookingSlice> bookingSlices) {
-        List<CrawlSlice> occupied = crawlSlices.stream()
-                .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.OCCUPIED)
+        List<CrawlSlice> crawledReservations = crawlSlices.stream()
+                .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.CRAWLED_RESERVATION)
                 .toList();
-        List<CrawlSlice> operating = crawlSlices.stream()
-                .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.OPERATING)
+        // 확보 분류는 표시 전용 — 차단 아님(v2 스펙 §3). 슬롯 판정에는 관여하지 않고 operatingNotes 소스로만 쓴다.
+        List<CrawlSlice> basicSecuredTimes = crawlSlices.stream()
+                .filter(slice -> slice.date().equals(date) && slice.type() == CrawlRowType.BASIC_SECURED_TIME)
                 .toList();
         List<BookingSlice> blockedBookings = bookingSlices.stream()
                 .filter(slice -> slice.date().equals(date) && slice.status().blocksSlot())
@@ -77,7 +81,7 @@ public final class FacilitySlotAssembler {
             LocalTime slotStart = OPEN_TIME.plusHours(index);
             LocalTime slotEnd = slotStart.plusHours(1);
             SlotAvailability slot = resolveSlot(date, today, nowTime, slotStart, slotEnd,
-                    occupied, blockedBookings, pendingBookings);
+                    crawledReservations, blockedBookings, pendingBookings);
             if (slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.PENDING_HOLD) {
                 availableCount++;
             }
@@ -87,12 +91,26 @@ public final class FacilitySlotAssembler {
         DayStatus dayStatus = date.isBefore(today) ? DayStatus.PAST
                 : availableCount == 0 ? DayStatus.FULL
                 : DayStatus.AVAILABLE;
-        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(operating), slots);
+        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots);
+    }
+
+    /**
+     * 확보 슬라이스의 (단체, 시작, 끝)을 행 단위 distinct 로 나열한다 — 표시 전용, 차단 아님(v2 스펙 §3).
+     * 인접 구간 병합은 하지 않는다(main 의 다중 노트 나열 동작과 동등).
+     */
+    private static List<OperatingNote> operatingNotes(List<CrawlSlice> basicSecuredTimes) {
+        LinkedHashSet<OperatingNote> notes = new LinkedHashSet<>();
+        for (CrawlSlice slice : basicSecuredTimes) {
+            notes.add(new OperatingNote(slice.organization(),
+                    TIME_FORMAT.format(slice.start()), TIME_FORMAT.format(slice.end())));
+        }
+        return List.copyOf(notes);
     }
 
     private static SlotAvailability resolveSlot(LocalDate date, LocalDate today, LocalTime nowTime,
                                                 LocalTime slotStart, LocalTime slotEnd,
-                                                List<CrawlSlice> occupied, List<BookingSlice> blockedBookings,
+                                                List<CrawlSlice> crawledReservations,
+                                                List<BookingSlice> blockedBookings,
                                                 List<BookingSlice> pendingBookings) {
         String start = TIME_FORMAT.format(slotStart);
         String end = TIME_FORMAT.format(slotEnd);
@@ -110,13 +128,14 @@ public final class FacilitySlotAssembler {
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
                     SlotBlockSource.INTERNAL, internalBlock.get().organization());
         }
-        Optional<CrawlSlice> schoolBlock = occupied.stream()
+        Optional<CrawlSlice> schoolBlock = crawledReservations.stream()
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
                 .findFirst();
         if (schoolBlock.isPresent()) {
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
                     SlotBlockSource.SCHOOL, schoolBlock.get().organization());
         }
+        // 기본 확보 시간(BASIC_SECURED_TIME)은 비차단 — 여기까지 오면 확보 구간이라도 PENDING_HOLD/AVAILABLE 로 내려간다.
         boolean pendingHold = pendingBookings.stream()
                 .anyMatch(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd));
         if (pendingHold) {
@@ -124,18 +143,6 @@ public final class FacilitySlotAssembler {
             return new SlotAvailability(start, end, SlotStatus.PENDING_HOLD, null, null);
         }
         return new SlotAvailability(start, end, SlotStatus.AVAILABLE, null, null);
-    }
-
-    private static List<OperatingNote> operatingNotes(List<CrawlSlice> operating) {
-        // (단체, 운영시간) 단위로 dedupe — 운영행은 슬롯 마커가 여러 행으로 내려올 수 있다(선행 스펙 §16.1)
-        LinkedHashSet<OperatingNote> notes = new LinkedHashSet<>();
-        for (CrawlSlice slice : operating) {
-            LocalTime noteStart = slice.operatingStart() != null ? slice.operatingStart() : slice.start();
-            LocalTime noteEnd = slice.operatingEnd() != null ? slice.operatingEnd() : slice.end();
-            notes.add(new OperatingNote(slice.organization(),
-                    TIME_FORMAT.format(noteStart), TIME_FORMAT.format(noteEnd)));
-        }
-        return List.copyOf(notes);
     }
 
     private static boolean overlaps(LocalTime aStart, LocalTime aEnd, LocalTime bStart, LocalTime bEnd) {

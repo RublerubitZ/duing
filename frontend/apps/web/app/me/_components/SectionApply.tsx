@@ -116,7 +116,7 @@ export function SectionApply({ applications }: Props) {
 
                 {/* Club avatar */}
                 <div
-                  className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] font-mono font-bold"
+                  className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] tabular-nums font-bold"
                   style={{ background: 'rgba(31,74,54,0.08)', color: '#1F4A36' }}
                 >
                   🏛
@@ -164,7 +164,7 @@ export function SectionApply({ applications }: Props) {
                       );
                     })}
                   </div>
-                  <div className="text-[12px] text-charcoal-3 font-mono">
+                  <div className="text-[12px] text-charcoal-3 tabular-nums">
                     {app.interview ? `면접: ${formatDateTimeKst(app.interview.startAt)}` : formatDateTimeKst(app.submittedAt)}
                   </div>
                 </div>

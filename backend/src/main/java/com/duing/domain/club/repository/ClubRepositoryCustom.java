@@ -3,6 +3,7 @@ package com.duing.domain.club.repository;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,4 +14,7 @@ public interface ClubRepositoryCustom {
     Page<ClubSummaryQuery> findByCondition(ClubSearchCondition condition, Pageable pageable);
 
     Page<AdminClubSummaryQuery> findByAdminCondition(AdminClubSearchCondition condition, Pageable pageable);
+
+    /** 홈 공개 통계 — 총 수·모집중 수·카테고리별 수를 한 번에 센다. */
+    ClubStatsQuery countStats();
 }

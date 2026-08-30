@@ -77,7 +77,7 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
                       {INQUIRY_STATUS_LABEL[inquiry.status]}
                     </span>
                   </div>
-                  <div className="mt-1 font-mono text-[12px] text-charcoal-3">
+                  <div className="mt-1 tabular-nums text-[12px] text-charcoal-3">
                     {formatDateKst(inquiry.createdAt)}
                   </div>
                 </div>

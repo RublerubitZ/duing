@@ -50,7 +50,7 @@ export function MyPageHeader({
             <div className="flex gap-[18px] flex-wrap text-[13px] text-white/70">
               <span>🎓 학생</span>
               <span>·</span>
-              <span className="font-mono">{studentId}</span>
+              <span className="tabular-nums">{studentId}</span>
             </div>
             <Link
               href={toRoute('/me/fees')}
@@ -70,7 +70,7 @@ export function MyPageHeader({
               ] as const
             ).map(([count, label]) => (
               <div key={label} className="text-center">
-                <div className="font-display text-[32px] font-bold text-white">{count}</div>
+                <div className="text-[32px] font-bold text-white">{count}</div>
                 <div className="text-[11px] text-white/60 mt-0.5">{label}</div>
               </div>
             ))}

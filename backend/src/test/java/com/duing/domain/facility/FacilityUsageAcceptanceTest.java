@@ -25,6 +25,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,8 +60,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         snapshotRepository.save(FacilityMonthSnapshot.create(
                 current, now, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리",
-                null, null, now));
+                facility.getId(), 90001L, current, today, LocalTime.of(9, 0), LocalTime.of(10, 0), "댄스동아리", false, now));
     }
 
     @Test
@@ -105,31 +105,29 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
 
         Facility facility = facilityRepository.save(Facility.create(5, "테스트연습실", "테스트동", 1));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1",
-                null, null, now));
+                facility.getId(), 90101L, currentMonth, today, LocalTime.of(11, 0), LocalTime.of(12, 0), "기존단체1", false, now));
         reservationRepository.save(FacilityReservation.create(
-                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2",
-                null, null, now));
+                facility.getId(), 90102L, currentMonth, today, LocalTime.of(13, 0), LocalTime.of(14, 0), "기존단체2", false, now));
 
         long newSeq = 90201L;
         snapshotWriter.reconcileReservations(
                 facility.getId(),
                 List.of(currentMonth),
-                Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(10, 0),
-                        "새단체", LocalTime.of(9, 0), LocalTime.of(17, 0)))),
-                now);
+                Map.of(currentMonth, List.of(new ParsedReservation(newSeq, today, LocalTime.of(9, 0), LocalTime.of(17, 0),
+                        "새단체", false))),
+                Set.of(currentMonth), now);
 
         List<FacilityReservation> afterReplace =
                 reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), currentMonth);
         assertThat(afterReplace).hasSize(1);
         assertThat(afterReplace.get(0).getScheduleSeq()).isEqualTo(newSeq);
         assertThat(afterReplace.get(0).getOrganizationName()).isEqualTo("새단체");
-        // 운영시간(§16.1) 라운드트립 — 파서 추출값이 컬럼에 그대로 영속된다.
-        assertThat(afterReplace.get(0).getReservedStartTime()).isEqualTo(LocalTime.of(9, 0));
-        assertThat(afterReplace.get(0).getReservedEndTime()).isEqualTo(LocalTime.of(17, 0));
+        // 확장 범위 라운드트립 — 파서가 확장한 [start, end) 가 행 자체로 영속된다(전면 차단 정책).
+        assertThat(afterReplace.get(0).getStartTime()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(afterReplace.get(0).getEndTime()).isEqualTo(LocalTime.of(17, 0));
 
         snapshotWriter.reconcileReservations(
-                facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), now);
+                facility.getId(), List.of(currentMonth), Map.of(currentMonth, List.of()), Set.of(currentMonth), now);
 
         List<FacilityReservation> afterEmptyReplace =
                 reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), currentMonth);

@@ -11,7 +11,7 @@ function RecruitCard() {
   return (
     <div className="rounded-lg border border-line bg-paper p-4 shadow-3">
       <div className="mb-3 flex items-center justify-between">
-        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+        <span className="tabular-nums text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
           RECRUITING
         </span>
         <span className="pill pill-solid gap-1.5 text-[11px]">
@@ -28,7 +28,7 @@ function RecruitCard() {
         </span>
         <div>
           <div className="text-[15px] font-bold leading-tight text-ink-deep">두잉코드 26기 모집</div>
-          <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">지원자 24 · 마감 D-3</div>
+          <div className="mt-0.5 tabular-nums text-[11px] text-charcoal-3">지원자 24 · 마감 D-3</div>
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@ function StatusCard() {
   return (
     <div className="rounded-lg border border-line bg-paper p-3.5 shadow-3">
       <div className="mb-3 flex items-center justify-between">
-        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+        <span className="tabular-nums text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
           MY APPLICATION
         </span>
         <span className="pill gap-1.5 text-[11px]">
@@ -57,7 +57,7 @@ function StatusCard() {
         </span>
         <div>
           <div className="text-[14.5px] font-bold leading-tight text-ink-deep">트레몰로</div>
-          <div className="mt-0.5 font-mono text-[11px] text-charcoal-3">면접 11.21 토 · 오후 1:30</div>
+          <div className="mt-0.5 tabular-nums text-[11px] text-charcoal-3">면접 11.21 토 · 오후 1:30</div>
         </div>
       </div>
     </div>

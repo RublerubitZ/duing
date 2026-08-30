@@ -41,7 +41,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
           <tr>
             <th className="sticky left-0 z-10 w-16 bg-cream" aria-hidden />
             {SUBMISSION_HOURS.map((hour) => (
-              <th key={hour} className="p-1 font-mono text-[10px] font-medium text-charcoal-3">
+              <th key={hour} className="p-1 tabular-nums text-[10px] font-medium text-charcoal-3">
                 {pad2(hour)}
               </th>
             ))}
@@ -51,7 +51,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
           {rows.map((row) => (
             <tr key={row.dateIso}>
               <td className="sticky left-0 z-10 bg-cream pr-1.5 text-right align-middle">
-                <span className="font-mono text-[11px] font-bold text-charcoal">
+                <span className="tabular-nums text-[11px] font-bold text-charcoal">
                   {row.dateIso.slice(5).replace('-', '/')}
                 </span>
               </td>
@@ -94,7 +94,7 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                             </span>
                           )}
                         </span>
-                        <span className={`truncate font-mono text-[10px] ${selected ? 'text-cream/80' : 'text-charcoal-3'}`}>
+                        <span className={`truncate tabular-nums text-[10px] ${selected ? 'text-cream/80' : 'text-charcoal-3'}`}>
                           {bookingTimeLabel(booking.startTime, booking.endTime)} · {subText}
                         </span>
                       </button>

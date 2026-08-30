@@ -35,8 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FacilityBookingMatchingService {
 
-    private final FacilityAvailabilityPolicy availabilityPolicy;
     private final OrganizationNameNormalizer normalizer;
+    private final FacilityAvailabilityPolicy availabilityPolicy;
     private final FacilityBookingRepository facilityBookingRepository;
     private final FacilityBookingStatusHistoryRepository historyRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
@@ -51,14 +51,26 @@ public class FacilityBookingMatchingService {
         }
     }
 
-    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). */
+    /**
+     * 자동 확정 증거 행 판정 — 물결 꼬리(확보 표기, securedTail) 행은 "학교가 이 예약을 반영했다"는 증거가
+     * 아니므로 동아리 플래그와 무관하게 행 단위로 제외한다(수정 8 의 본래 논리). 저장 플래그만 보므로 사이클
+     * 시작 시점 확보 키 조달과 판정 사이의 시차(TOCTOU)가 없다. {@link #decide} 와 관리자 큐의 부분 반영
+     * (FacilityBookingAdminQueryService.isPartiallyMatched)이 같은 기준을 쓴다(P2-01) — 갈라지면 자동 확정이
+     * 영구 제외하는 행을 큐가 "부분 반영"으로 세는 오배지가 난다. 이름 일치 여부는 호출부 소관이다.
+     */
+    public boolean isEvidenceRow(FacilityReservation row) {
+        return !row.isSecuredTail();
+    }
+
+    /** dayRows = 해당 시설·해당 날짜의 크롤 행 전체(호출부가 필터). 판정 기준은 정규화 이름 일치이며,
+     *  증거 행({@link #isEvidenceRow})만 본다 — 확보 대상 동아리의 무꼬리·하이픈 실예약 행은 정상 증거다. */
     public MatchDecision decide(FacilityBooking booking, String clubName, List<FacilityReservation> dayRows) {
         String normalizedClubName = normalizer.normalize(clubName);
         if (normalizedClubName.isEmpty()) {
             return MatchDecision.none();
         }
         List<FacilityReservation> matchingOccupiedRows = dayRows.stream()
-                .filter(row -> availabilityPolicy.classify(row) == CrawlRowType.OCCUPIED)
+                .filter(this::isEvidenceRow)
                 .filter(row -> normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName))
                 .toList();
 
@@ -98,10 +110,16 @@ public class FacilityBookingMatchingService {
      * <p>confirmByMatching 의 crawlBasisAt·이력 crawlBasisAt 에는 확정 시점(now)이 아니라 판정 근거 세대의
      * 수집 시각(generation)을 남긴다 — "어느 크롤 데이터로 확정했는가"를 기록(승인 경로 관례와 필드 의미 일치).
      *
-     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·미매칭)이면 false
+     * <p>securedOrganizationKeys 는 증거 판정에는 쓰지 않는다(증거 제외는 decide 가 저장 플래그로 행 단위 수행).
+     * 타 단체 겹침 보류의 차단 분류(확보 물결 행 제외)에만 쓰며, 사이클 중 플래그가 바뀌어도 최악은 보류(수동 검토)
+     * 이지 오확정이 아니다(fail-closed).
+     *
+     * @return 이 호출로 CONFIRMED 로 전이했으면 true, 스킵(멱등·아카이브·세대 미신뢰·키 충돌·미매칭·타 단체 겹침
+     *         보류)이면 false
      */
     @Transactional
-    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys) {
+    public boolean verifyAndConfirm(Long bookingId, String clubName, Set<String> ambiguousNormalizedKeys,
+            Set<String> securedOrganizationKeys) {
         FacilityBooking booking = facilityBookingRepository.findById(bookingId).orElse(null);
         // 관리자 전이(취소·충돌 전환)와의 경합은 @Version 낙관 잠금이 차단한다 — 늦은 커밋이 실패·롤백되어
         // 덮어쓰기가 불가능하고, 그 실패는 스케줄러의 per-booking 격리로 다음 사이클에 재판정된다.
@@ -142,12 +160,24 @@ public class FacilityBookingMatchingService {
                 .filter(row -> row.getReservationDate().equals(booking.getReservationDate()))
                 .toList();
         // 정규화 키 충돌 가드 — 2개 이상 동아리가 공유하는 정규화 키의 예약은 오확정 위험이라 자동 확정을 포기한다.
-        if (ambiguousNormalizedKeys.contains(normalizer.normalize(clubName))) {
+        String normalizedClubName = normalizer.normalize(clubName);
+        if (ambiguousNormalizedKeys.contains(normalizedClubName)) {
             log.info("FacilityBooking Matching skip bookingId={} (정규화 키 충돌 — 수동 확정 폴백)", bookingId);
             return false;
         }
+        // 기본 확보 시간 대상 동아리의 동아리 단위 스킵은 행 단위 정밀화(2026-08-27)로 폐지 — 확보 표기 행의
+        // 증거 제외는 decide 가 securedTail 플래그로 행 단위 수행한다(수정 8 의 본래 논리).
         MatchDecision decision = decide(booking, clubName, freshRows);
         if (!decision.confirmed()) {
+            return false;
+        }
+        // 타 단체 겹침 보류(P2-02) — 자기 이름 행이 전 구간을 덮어도 차단 점유행 중 타 단체가 겹치면 확정을 보류한다.
+        // 자동 CONFIRMED 로 닫으면 큐의 conflictSuspected(APPROVED 전용)·markConflict(APPROVED 가드)가 모두
+        // 닫혀 이중 대관 신호가 소실되기 때문이다. 판정은 큐와 같은 정책 메서드 하나를 공유한다.
+        if (availabilityPolicy.hasMismatchedOccupiedOverlap(freshRows, booking.getReservationDate(),
+                booking.getStartTime(), booking.getEndTime(), normalizedClubName, securedOrganizationKeys)) {
+            log.info("FacilityBooking Matching hold bookingId={} (타 단체 겹침 — 자동 확정 보류, 수동 검토 폴백)",
+                    bookingId);
             return false;
         }
         LocalDateTime now = LocalDateTime.now(clock);

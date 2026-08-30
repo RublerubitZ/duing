@@ -52,7 +52,6 @@ public interface AdminFacilitySubmissionApi {
             + "ARCHIVED=완료+취소 이력) 기준.")
     @GetMapping("/admin/facility-bookings/submission")
     ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
-            @Parameter(description = "시설 필터") @RequestParam(required = false) Long facilityId,
             @Parameter(description = "파생 상태 필터(생략 시 전체)") @RequestParam(required = false)
             SubmissionBatchStatusFilter status,
             @Parameter(hidden = true) Pageable pageable);

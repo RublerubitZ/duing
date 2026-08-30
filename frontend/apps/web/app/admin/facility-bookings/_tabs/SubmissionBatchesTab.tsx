@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   formatDateKst,
@@ -29,6 +29,7 @@ import { BatchCompleteResultDialog } from '../submission/_components/BatchComple
 import {
   BATCH_STATUS_META,
   batchAgeDays,
+  batchFacilityLabel,
   batchTitle,
   deriveBatchStatus,
   submissionCsvFileName,
@@ -66,6 +67,15 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
   const batches = batchesQuery.data?.content ?? [];
   const totalPages = batchesQuery.data?.totalPages ?? 0;
+  // 완료/취소로 마지막 페이지의 배치가 사라지면 재조회 totalPages 가 줄어 현재 page 가 범위 밖(빈 화면)이 된다 —
+  // 검토 탭(BookingManagementTab) 전례대로 데이터 도착 후에만 클램프한다(P2-13). 페이지 전환 중엔 data 가 비어
+  // totalPages 0 으로 보이므로, 그때 판단하면 정상 이동까지 page 0 으로 되돌린다. (useEffect 금지는 데이터 패칭 한정)
+  const loadedTotalPages = batchesQuery.data !== undefined ? totalPages : undefined;
+  useEffect(() => {
+    if (loadedTotalPages === undefined) return;
+    if (loadedTotalPages === 0 && page !== 0) setPage(0);
+    else if (loadedTotalPages > 0 && page >= loadedTotalPages) setPage(loadedTotalPages - 1);
+  }, [loadedTotalPages, page]);
   // 에이징 표기 기준 시각 — 렌더당 1회 계산해 전 행이 같은 기준을 공유한다(큐 테이블 전례).
   const now = new Date();
 
@@ -136,10 +146,12 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] text-left text-sm">
+          <table className="w-full min-w-[60rem] text-left text-sm">
             <thead>
               <tr className="bg-graysoft text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3">
                 <th className="px-[18px] py-2.5 font-bold">제출 목록</th>
+                {/* 배치=동아리 단위(v2 §5) — 동아리가 주 식별자라 시설보다 앞에 둔다. */}
+                <th className="py-2.5 pr-3.5 font-bold">동아리</th>
                 <th className="py-2.5 pr-3.5 font-bold">시설</th>
                 <th className="py-2.5 pr-3.5 font-bold">건수</th>
                 <th className="py-2.5 pr-3.5 font-bold">생성일</th>
@@ -151,7 +163,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
               {batches.map((batch) => {
                 const status = deriveBatchStatus(batch);
                 const statusMeta = BATCH_STATUS_META[status];
-                const facilityLabel = batch.facilityName ?? `시설 ${batch.facilityId}`;
+                const facilityLabel = batchFacilityLabel(batch);
                 // 메모=제목 승격(개편 스펙 §5) — 메모 없으면 제출번호가 제목이라 서브에서 번호를 뺀다.
                 const title = batchTitle(batch);
                 const subText =
@@ -172,9 +184,24 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                       </p>
                       <p className="mt-0.5 text-[11.5px] text-charcoal-3">{subText}</p>
                     </td>
-                    <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">{facilityLabel}</td>
-                    <td className="py-3.5 pr-3.5 font-mono text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
-                    <td className="whitespace-nowrap py-3.5 pr-3.5 font-mono text-[12.5px]">
+                    {/* 포함 동아리명(동아리 중심 보기 스펙 §2) — 구버전 응답(결측)·빈 배열은 '-' 폴백. */}
+                    <td className="py-3.5 pr-3.5 text-[13px] text-charcoal-2">
+                      {batch.clubNames === undefined || batch.clubNames.length === 0 ? (
+                        '-'
+                      ) : (
+                        <p className="max-w-[14rem] truncate" title={batch.clubNames.join(', ')}>
+                          {batch.clubNames.join(' · ')}
+                        </p>
+                      )}
+                    </td>
+                    {/* 시설 표기 단일 규칙(v2 §5) — 다시설 목록은 길어질 수 있어 truncate+title. */}
+                    <td className="py-3.5 pr-3.5 text-[13px] font-semibold text-charcoal-2">
+                      <p className="max-w-[14rem] truncate" title={facilityLabel}>
+                        {facilityLabel}
+                      </p>
+                    </td>
+                    <td className="py-3.5 pr-3.5 tabular-nums text-sm font-bold text-ink-deep">{batch.bookingCount}건</td>
+                    <td className="whitespace-nowrap py-3.5 pr-3.5 tabular-nums text-[12.5px]">
                       <p>{formatDateKst(batch.submittedAt)}</p>
                       {/* 진행 중 배치의 방치 감지(3일↑ 경고색) / 완료·취소는 처리일을 함께 보여준다. */}
                       {status === 'REVIEWING' && ageDays !== null && ageDays >= 1 && (

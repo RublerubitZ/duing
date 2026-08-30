@@ -93,7 +93,7 @@ export function SectionArchived({ applications }: Props) {
                       {app.recruitmentTitle}
                     </div>
                     <h3 className="text-[16px] font-bold text-ink-deep">{app.clubName}</h3>
-                    <div className="text-[12px] text-charcoal-3 font-mono mt-1">
+                    <div className="text-[12px] text-charcoal-3 tabular-nums mt-1">
                       {formatDateKst(app.submittedAt)}
                     </div>
                   </div>

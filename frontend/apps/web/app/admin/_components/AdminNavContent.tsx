@@ -323,7 +323,7 @@ function NavBadge({ children, danger }: { children: number; danger?: boolean }) 
   return (
     <span
       className={cn(
-        'shrink-0 rounded-full px-1.5 py-px font-mono text-[10px] font-extrabold leading-none',
+        'shrink-0 rounded-full px-1.5 py-px tabular-nums text-[10px] font-extrabold leading-none',
         danger ? 'bg-coral text-paper' : 'bg-paper text-charcoal-2 ring-1 ring-line',
       )}
     >

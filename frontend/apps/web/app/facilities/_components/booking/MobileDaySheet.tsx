@@ -143,7 +143,7 @@ export function MobileDaySheet({
               className="sticky bottom-0 -mx-5 mt-2 bg-cream px-5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2">
               {selection !== null && (
                 <div className="mb-2 flex items-center gap-2 rounded-lg bg-sage-mist px-3 py-2">
-                  <span className="font-mono text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
+                  <span className="tabular-nums text-base font-bold text-ink-deep">{rangeLabel(selection)}</span>
                   <span className="ml-auto rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-cream">
                     {Number(selection.end.slice(0, 2)) - Number(selection.start.slice(0, 2))}시간
                   </span>

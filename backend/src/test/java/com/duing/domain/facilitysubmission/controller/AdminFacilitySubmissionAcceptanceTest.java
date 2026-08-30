@@ -3,6 +3,7 @@ package com.duing.domain.facilitysubmission.controller;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -244,6 +245,9 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 .when().get(SUBMISSION_PATH + "/" + batchId)
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.batch.bookingCount", equalTo(1))
+                // 동아리 단위 배치(v2 §2) — 배치 레벨 facilityName 은 없고 facilityNames 가 item→booking 파생이다.
+                .body("data.batch.facilityName", nullValue())
+                .body("data.batch.facilityNames", equalTo(List.of(facility.getRoomName())))
                 .body("data.bookings[0].bookingId", equalTo(booking.getId().intValue()));
 
         RestAssured.given()
@@ -343,7 +347,8 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get(SUBMISSION_PATH)
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.content[0].completed", is(true));
+                .body("data.content[0].completed", is(true))
+                .body("data.content[0].facilityNames", equalTo(List.of(facility.getRoomName())));
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get(SUBMISSION_PATH + "/" + batchId)

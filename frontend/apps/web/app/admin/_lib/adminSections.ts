@@ -77,7 +77,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     href: '/admin/facility-bookings',
     title: '시설 예약 관리',
-    description: '대관 예약 검토·학교 제출 준비·제출 이력 관리',
+    description: '대관 예약 검토·학교 제출 준비·제출 이력·크롤 예약 현황',
     group: '동아리',
     icon: Building2,
     pendingCountKey: 'facilityBooking',

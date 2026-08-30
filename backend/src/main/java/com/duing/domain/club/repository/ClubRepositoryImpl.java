@@ -11,6 +11,7 @@ import static com.duing.domain.user.entity.QUser.user;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.metric.entity.QClubMetric;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.ClubRecommendationPolicy;
@@ -18,6 +19,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -40,8 +42,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +58,14 @@ import org.springframework.util.StringUtils;
 public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     /**
+     * 탐색 카드용 club_metric 조인 alias.
+     * <p>정렬(applySort)이 같은 엔티티를 {@code JPAExpressions} 서브쿼리로 참조하므로, 메인 쿼리의
+     * 조인은 반드시 별도 alias 를 써야 한다 — 기본 alias 를 공유하면 서브쿼리 FROM 이 조인 대상을
+     * 가려 엉뚱한 행을 읽는다({@code QUser actor} 와 같은 선례).
+     */
+    private static final QClubMetric SUMMARY_METRIC = new QClubMetric("summaryMetric");
+
+    /**
      * 탐색 카드({@link ClubSummaryQuery})가 쓰는 컬럼 집합.
      * {@link #toSummary} 가 읽는 컬럼은 반드시 여기 있어야 한다 — Tuple 은 SELECT 에 없는 컬럼을
      * 예외 없이 null 로 돌려주므로, 빠뜨리면 그 필드만 조용히 비어서 응답된다.
@@ -61,7 +73,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      */
     private static final Expression<?>[] SUMMARY_COLUMNS = {
             club.id, club.name, club.category, club.division, club.college, club.department,
-            club.logoUrl, club.status, club.tags, club.tagline, club.centralClub
+            club.logoUrl, club.status, club.tags, club.tagline, club.centralClub,
+            SUMMARY_METRIC.weeklyVisitorCount
     };
 
     private final JPAQueryFactory queryFactory;
@@ -90,6 +103,9 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         List<Tuple> rows = queryFactory
                 .select(SUMMARY_COLUMNS)
                 .from(club)
+                // 관심도 표시값(weekly_visitor_count) 한 컬럼을 위한 조인. metric 행이 없는 신규
+                // 동아리도 결과에서 빠지지 않도록 left join 이며, toSummary 가 null 을 0 으로 읽는다.
+                .leftJoin(SUMMARY_METRIC).on(SUMMARY_METRIC.clubId.eq(club.id))
                 .where(predicates)
                 .orderBy(applySort(condition.sortOptionOrDefault()))
                 .offset(pageable.getOffset())
@@ -111,6 +127,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private static ClubSummaryQuery toSummary(Tuple row) {
         String[] tags = row.get(club.tags);
+        Integer weeklyInterestCount = row.get(SUMMARY_METRIC.weeklyVisitorCount);
         return new ClubSummaryQuery(
                 row.get(club.id),
                 row.get(club.name),
@@ -124,6 +141,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 tags == null ? List.of() : Collections.unmodifiableList(Arrays.asList(tags)),
                 row.get(club.tagline),
                 Boolean.TRUE.equals(row.get(club.centralClub)),
+                // metric 행이 없으면(배치 전 신규·조회 이력 없음) null → 0. 화면은 임계값 미만이면 문구를 생략한다.
+                weeklyInterestCount == null ? 0 : weeklyInterestCount,
                 // 대표 모집은 목록 조회 이후 clubIds 로 한 번에 채운다(GeneralClubService.search).
                 null
         );
@@ -186,10 +205,53 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 row.get(user.name),
                 row.get(user.studentId),
                 source.isCentralClub(),
+                source.isFacilitySecuredTimeTarget(),
                 source.getRejectionReason(),
                 source.getStatusChangedAt(),
                 row.get(actor.name)
         );
+    }
+
+    @Override
+    public ClubStatsQuery countStats() {
+        // 카테고리 GROUP BY 1회 + 모집중 COUNT 1회 = 2 쿼리. 총 수는 카테고리 합으로 얻어 3번째 왕복을 없앤다
+        // (FE 가 size=1 목록 조회를 두 번 던져 총계만 뽑던 것을 이 엔드포인트 하나로 대체한다).
+        NumberExpression<Long> clubCount = club.count();
+        List<Tuple> categoryRows = queryFactory
+                .select(club.category, clubCount)
+                .from(club)
+                .where(club.status.eq(ClubStatus.ACTIVE))
+                .groupBy(club.category)
+                .fetch();
+
+        // 동아리가 0곳인 카테고리도 키를 채운다 — 화면은 카테고리 타일을 전 종류 그리므로,
+        // 없는 키를 그대로 흘리면 "0개" 가 아니라 빈칸으로 보인다.
+        Map<ClubCategory, Long> categoryCounts = new EnumMap<>(ClubCategory.class);
+        for (ClubCategory category : ClubCategory.values()) {
+            categoryCounts.put(category, 0L);
+        }
+        long totalCount = 0;
+        for (Tuple categoryRow : categoryRows) {
+            ClubCategory category = categoryRow.get(club.category);
+            Long count = categoryRow.get(clubCount);
+            if (category == null || count == null) {
+                continue;
+            }
+            categoryCounts.put(category, count);
+            totalCount += count;
+        }
+
+        // 모집중 판정은 목록 필터(recruitmentStatus=AVAILABLE)와 같은 술어를 쓴다 —
+        // 두 벌로 갈라지면 홈 문구의 "N곳 모집중" 과 그 링크가 연 목록의 건수가 어긋난다.
+        Long recruitingCount = queryFactory
+                .select(clubCount)
+                .from(club)
+                .where(club.status.eq(ClubStatus.ACTIVE),
+                        recruitmentStatusFilter(RecruitmentStatusFilter.AVAILABLE))
+                .fetchOne();
+
+        return new ClubStatsQuery(totalCount, recruitingCount == null ? 0L : recruitingCount,
+                Collections.unmodifiableMap(categoryCounts));
     }
 
     private BooleanExpression categoryEq(ClubCategory category) {
@@ -407,40 +469,65 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         club.id.asc()
                 };
             }
-            case POPULAR -> {
-                LocalDate today = LocalDate.now(clock);
-
-                // tier 1: 활성 모집들의 application 수 합
-                var applicationCount = JPAExpressions.select(application.count())
-                        .from(application)
-                        .join(application.recruitment, recruitment)
-                        .where(recruitment.club.eq(club),
-                                recruitment.status.eq(RecruitmentStatus.OPEN),
-                                recruitment.startDate.loe(today),
-                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
-
-                // tier 2: 즐겨찾기 수
-                var favoriteCount = JPAExpressions.select(clubFavorite.count())
-                        .from(clubFavorite)
-                        .where(clubFavorite.club.eq(club));
-
-                // tier 3: 가장 최근 활성 모집의 시작일
-                var latestActiveStart = JPAExpressions.select(recruitment.startDate.max())
-                        .from(recruitment)
-                        .where(recruitment.club.eq(club),
-                                recruitment.status.eq(RecruitmentStatus.OPEN),
-                                recruitment.startDate.loe(today),
-                                recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
-
-                // tier 1·2 는 COUNT 가 0 반환 → DESC 정렬 시 자연스럽게 후순위.
-                // tier 3 만 활성 모집 부재 시 NULL 가능 → NULLS LAST 명시.
-                yield new OrderSpecifier<?>[]{
-                        new OrderSpecifier<>(Order.DESC, applicationCount),
-                        new OrderSpecifier<>(Order.DESC, favoriteCount),
-                        new OrderSpecifier<>(Order.DESC, latestActiveStart, OrderSpecifier.NullHandling.NullsLast),
-                        club.createdAt.desc()
-                };
+            case POPULAR -> popularOrderSpecifiers();
+            // 관심도순 — 홈 "관심도가 높은 동아리" 전용. 최근 7일 조회 행동만 보고(회원 수·지원자 수가
+            // 아니다), 동점이면 POPULAR 티어로 내려간다. 배포 직후처럼 관심도가 전 동아리 0 인 구간에서
+            // 정렬이 사실상 club.id 순으로 무너지지 않게 하는 지점이다 — 그때는 기존 인기순 그대로 보인다.
+            case INTEREST -> {
+                // 배치 전 신규 동아리는 metric 행 자체가 없다. NULL 을 NullsLast 로 흘리면 0 점 동아리들보다
+                // 더 뒤로 밀려 인기순 폴백의 구제를 받지 못하고 목록 최하단에 박힌다 — 정각 사이에 ACTIVE 로
+                // 전환된 동아리가 최대 한 시간 동안 그렇게 된다. coalesce 로 0 점과 같은 자리에 두어
+                // 아래 폴백 티어가 순서를 정하게 한다.
+                NumberExpression<Double> interestScore = Expressions.numberTemplate(Double.class,
+                        "coalesce({0}, 0.0)",
+                        JPAExpressions.select(clubMetric.interestScore)
+                                .from(clubMetric)
+                                .where(clubMetric.clubId.eq(club.id)));
+                OrderSpecifier<?>[] popularFallback = popularOrderSpecifiers();
+                OrderSpecifier<?>[] specifiers = new OrderSpecifier<?>[popularFallback.length + 1];
+                specifiers[0] = new OrderSpecifier<>(Order.DESC, interestScore);
+                System.arraycopy(popularFallback, 0, specifiers, 1, popularFallback.length);
+                yield specifiers;
             }
+        };
+    }
+
+    /**
+     * 인기순 티어 — 활성 모집 지원자수 → 즐겨찾기수 → 최근 활성 모집 시작일 → 생성일.
+     * POPULAR 의 본체이자 INTEREST 의 동점 폴백이라 한 곳에 둔다(두 벌로 갈라지면 조용히 어긋난다).
+     */
+    private OrderSpecifier<?>[] popularOrderSpecifiers() {
+        LocalDate today = LocalDate.now(clock);
+
+        // tier 1: 활성 모집들의 application 수 합
+        var applicationCount = JPAExpressions.select(application.count())
+                .from(application)
+                .join(application.recruitment, recruitment)
+                .where(recruitment.club.eq(club),
+                        recruitment.status.eq(RecruitmentStatus.OPEN),
+                        recruitment.startDate.loe(today),
+                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+        // tier 2: 즐겨찾기 수
+        var favoriteCount = JPAExpressions.select(clubFavorite.count())
+                .from(clubFavorite)
+                .where(clubFavorite.club.eq(club));
+
+        // tier 3: 가장 최근 활성 모집의 시작일
+        var latestActiveStart = JPAExpressions.select(recruitment.startDate.max())
+                .from(recruitment)
+                .where(recruitment.club.eq(club),
+                        recruitment.status.eq(RecruitmentStatus.OPEN),
+                        recruitment.startDate.loe(today),
+                        recruitment.endDate.isNull().or(recruitment.endDate.goe(today)));
+
+        // tier 1·2 는 COUNT 가 0 반환 → DESC 정렬 시 자연스럽게 후순위.
+        // tier 3 만 활성 모집 부재 시 NULL 가능 → NULLS LAST 명시.
+        return new OrderSpecifier<?>[]{
+                new OrderSpecifier<>(Order.DESC, applicationCount),
+                new OrderSpecifier<>(Order.DESC, favoriteCount),
+                new OrderSpecifier<>(Order.DESC, latestActiveStart, OrderSpecifier.NullHandling.NullsLast),
+                club.createdAt.desc()
         };
     }
 }

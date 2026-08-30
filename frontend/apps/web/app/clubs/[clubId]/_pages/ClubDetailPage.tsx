@@ -2,10 +2,16 @@
 
 import { useEffect } from 'react';
 
-import { useClubDetailQuery, useClubPhotosQuery, useClubMembershipQuery } from '@duing/hooks';
+import {
+  useApiClient,
+  useClubDetailQuery,
+  useClubPhotosQuery,
+  useClubMembershipQuery,
+} from '@duing/hooks';
 
 import { captureEvent } from '@/app/_lib/analytics';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
+import { getVisitorKey } from '@/app/_lib/visitorKey';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ClubContactCard } from '../_components/ClubContactCard';
@@ -17,12 +23,24 @@ import { ClubRecruitmentCard } from '../_components/ClubRecruitmentCard';
 import { ClubRecruitmentSummary } from '../_components/ClubRecruitmentSummary';
 
 export function ClubDetailPage({ clubId }: { clubId: number }) {
+  const apiClient = useApiClient();
   const detail = useClubDetailQuery(clubId);
   const photos = useClubPhotosQuery(clubId);
 
   useEffect(() => {
     captureEvent('club_detail_viewed', { club_id: clubId });
   }, [clubId]);
+
+  // 홈 "관심도가 높은 동아리" 집계용 조회 기록 — PostHog 이벤트를 대체하는 게 아니라, 서버가 정렬에
+  // 쓸 집계를 따로 확보하는 경로다. 부수 신호라 실패해도 화면이 흔들려선 안 되므로 결과를 기다리지
+  // 않고 삼킨다(오프라인·429·404 모두 조용히 지나간다).
+  // 같은 사람이 같은 날 다시 들어온 경우의 중복 제거는 서버의 유니크 인덱스가 맡는다 —
+  // 여기서 "이미 봤는지" 를 캐싱하면 서버 규칙과 두 벌이 되어 조용히 어긋난다.
+  useEffect(() => {
+    const visitorKey = getVisitorKey();
+    if (!visitorKey) return;
+    void apiClient.clubs.recordView(clubId, { visitorKey }).catch(() => {});
+  }, [apiClient, clubId]);
   // 멤버에게만 공지/일정 탭을 노출한다. 비로그인 시 null 로 비활성화해 불필요한 요청을 막는다.
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);

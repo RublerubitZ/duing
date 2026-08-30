@@ -24,7 +24,6 @@ vi.mock('next/link', () => ({
 const mockUsePathname = vi.fn<() => string>();
 vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
 
-vi.mock('../../app/_components/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
 vi.mock('@/components/duing/BrandMark', () => ({ BrandMark: () => <span>두잉</span> }));
 vi.mock('../../app/_components/NotificationBell', () => ({ NotificationBell: () => <button>알림</button> }));
 vi.mock('../../app/_components/HomeNavAuthSlot', () => ({ HomeNavAuthSlot: () => <span>인증</span> }));
@@ -49,7 +48,7 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
     render(<BottomNav />);
 
     expectPrefetch(screen.getByRole('link', { name: '홈' }), 'false');
-    for (const label of ['탐색', '시설', '캘린더', '정보']) {
+    for (const label of ['탐색', '시설', '일정', '소식']) {
       expectPrefetch(screen.getByRole('link', { name: label }), 'undefined');
     }
   });
@@ -60,7 +59,8 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
 
     expectPrefetch(screen.getByRole('link', { name: '두잉 홈' }), 'false');
     expectPrefetch(screen.getByRole('link', { name: '홈' }), 'false');
-    for (const label of ['탐색', '시설', '캘린더', '정보']) {
+    // 소식은 HomeNav 와 같은 InfoNavLink(위에서 모킹)라 여기서는 제외 — 그쪽 프리페치는 기본 정책(미지정)이다.
+    for (const label of ['탐색', '시설', '일정']) {
       expectPrefetch(screen.getByRole('link', { name: label }), 'undefined');
     }
   });
@@ -70,7 +70,7 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
 
     expectPrefetch(screen.getByRole('link', { name: '두잉 홈' }), 'false');
     expectPrefetch(screen.getByRole('link', { name: '홈' }), 'false');
-    for (const label of ['탐색', '시설', '캘린더']) {
+    for (const label of ['탐색', '시설', '일정']) {
       expectPrefetch(screen.getByRole('link', { name: label }), 'undefined');
     }
   });

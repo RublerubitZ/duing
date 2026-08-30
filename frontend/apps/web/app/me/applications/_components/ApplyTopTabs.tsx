@@ -36,7 +36,7 @@ export function ApplyTopTabs({ active, onToggle, counts }: Props) {
               <span style={{
                 fontSize: 11.5, fontWeight: 700,
                 color: isActive ? 'rgba(255,255,255,0.85)' : 'var(--charcoal-3)',
-                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
               }}>{counts[filterTab.key]}</span>
             </button>
           );

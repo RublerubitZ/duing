@@ -54,7 +54,7 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
                 "정기 연습", null, FacilityBookingFixture.VALID_CONTACT_PHONE));
 
         FacilitySubmissionBatch savedBatch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-001", facility.getId(), admin.getId(), LocalDateTime.now(), "8월 1차 제출"));
+                "SUB-20260801-001", club.getId(), admin.getId(), LocalDateTime.now(), "8월 1차 제출"));
         FacilitySubmissionItem savedItem = itemRepository.save(
                 FacilitySubmissionItem.of(savedBatch.getId(), booking.getId()));
         FacilitySubmissionAudit savedAudit = auditRepository.save(FacilitySubmissionAudit.of(
@@ -62,6 +62,8 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
 
         FacilitySubmissionBatch foundBatch = batchRepository.findById(savedBatch.getId()).orElseThrow();
         assertThat(foundBatch.getSubmissionNo()).isEqualTo("SUB-20260801-001");
+        assertThat(foundBatch.getClubId()).isEqualTo(club.getId());
+        assertThat(foundBatch.getFacilityId()).as("동아리 단위 전환 후 신규 배치는 시설을 갖지 않는다").isNull();
         assertThat(foundBatch.getCsvFileName()).isEqualTo("facility-submission-SUB-20260801-001.csv");
         assertThat(foundBatch.isCancelled()).isFalse();
         assertThat(itemRepository.findById(savedItem.getId()).orElseThrow().getBookingId())
@@ -74,9 +76,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("취소된 Batch 도 조회에서 사라지지 않고 취소 상태로 남는다")
     void cancelledBatchRemainsVisible() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90002, "커뮤니티룸(2)", "1504호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-2", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-002", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-002", club.getId(), admin.getId(), LocalDateTime.now(), null));
 
         batch.cancel(admin.getId(), LocalDateTime.now());
         batchRepository.save(batch);
@@ -90,9 +92,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("이미 취소된 Batch 를 다시 취소하면 예외가 발생한다")
     void cancellingTwiceThrows() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90003, "커뮤니티룸(3)", "1505호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-3", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-003", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-003", club.getId(), admin.getId(), LocalDateTime.now(), null));
         batch.cancel(admin.getId(), LocalDateTime.now());
 
         assertThatThrownBy(() -> batch.cancel(admin.getId(), LocalDateTime.now()))
@@ -103,9 +105,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("501자 User-Agent 로도 Audit 저장이 컬럼 길이 초과 없이 성공한다")
     void oversizedUserAgentIsTruncated() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90004, "커뮤니티룸(4)", "1506호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-4", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-004", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-004", club.getId(), admin.getId(), LocalDateTime.now(), null));
 
         FacilitySubmissionAudit saved = auditRepository.save(FacilitySubmissionAudit.of(
                 batch.getId(), SubmissionAuditAction.VIEWED, admin.getId(), "127.0.0.1", "A".repeat(501)));
@@ -117,9 +119,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("완료 처리된 Batch 는 완료 시각·처리자와 함께 저장되고 감사 detail 도 함께 남는다")
     void completedBatchPersistsWithDetailAudit() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90005, "커뮤니티룸(5)", "1507호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-5", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-005", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-005", club.getId(), admin.getId(), LocalDateTime.now(), null));
 
         batch.complete(admin.getId(), LocalDateTime.now());
         batchRepository.save(batch);
@@ -138,9 +140,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("완료된 Batch 는 취소할 수 없고, 완료·취소는 각각 중복 처리가 거부된다")
     void completionAndCancellationAreMutuallyExclusive() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90006, "커뮤니티룸(6)", "1508호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-6", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch completed = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-006", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-006", club.getId(), admin.getId(), LocalDateTime.now(), null));
         completed.complete(admin.getId(), LocalDateTime.now());
 
         assertThatThrownBy(() -> completed.cancel(admin.getId(), LocalDateTime.now()))
@@ -149,7 +151,7 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
                 .isInstanceOf(FacilitySubmissionException.BatchAlreadyCompletedException.class);
 
         FacilitySubmissionBatch cancelled = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-007", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-007", club.getId(), admin.getId(), LocalDateTime.now(), null));
         cancelled.cancel(admin.getId(), LocalDateTime.now());
         assertThatThrownBy(() -> cancelled.complete(admin.getId(), LocalDateTime.now()))
                 .isInstanceOf(FacilitySubmissionException.BatchAlreadyCancelledException.class);
@@ -159,9 +161,9 @@ class FacilitySubmissionPersistenceIntegrationTest extends IntegrationTestBase {
     @DisplayName("501자 감사 detail 은 500자로 절단되어 저장된다")
     void oversizedAuditDetailIsTruncated() {
         User admin = userRepository.save(UserFixture.admin());
-        Facility facility = facilityRepository.save(Facility.create(90007, "커뮤니티룸(7)", "1509호", 0));
+        Club club = clubRepository.save(Club.create("제출동아리-8", ClubCategory.OTHER, "분과", "설명", null));
         FacilitySubmissionBatch batch = batchRepository.save(FacilitySubmissionBatch.create(
-                "SUB-20260801-008", facility.getId(), admin.getId(), LocalDateTime.now(), null));
+                "SUB-20260801-008", club.getId(), admin.getId(), LocalDateTime.now(), null));
 
         FacilitySubmissionAudit saved = auditRepository.save(FacilitySubmissionAudit.of(
                 batch.getId(), SubmissionAuditAction.COMPLETED, admin.getId(), "127.0.0.1", "JUnit",

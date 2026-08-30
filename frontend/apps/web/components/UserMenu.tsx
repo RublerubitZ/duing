@@ -34,8 +34,8 @@ export function UserMenu({
   if (status !== 'authenticated') return null;
 
   // 시드 직후에는 프로필이 아직 없다 — '회원' 폴백이 SSR·시드 구간을 그대로 받는다(기존 폴백 재사용).
+  // 이름은 /users/me 응답(useMeQuery) 그대로다 — 시안(210:2824 login 변형)의 "두두잉님" 자리.
   const userName = meQuery.data?.name ?? '회원';
-  const initial = userName.slice(-2).charAt(0);
   const isAdmin = meQuery.data?.role === 'ADMIN';
 
   const handleLogout = async () => {
@@ -53,14 +53,14 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* 시안의 로그인 상태 트리거는 아바타 없는 흰 알약 "이름님" — PC 높이 34·좌우 20·SemiBold 16,
+            모바일은 시안 24·66·13 에서 한 단계 키운 26·70·14(로그인/회원가입 알약과 같은 기하).
+            테두리 없이 크림 헤더 위 흰 면으로만 분리된다. */}
         <button
           type="button"
-          className="flex items-center gap-2 rounded-full border border-line bg-paper py-1 pl-3 pr-1.5 text-[13px] font-bold text-ink hover:border-ink"
+          className="flex h-[26px] min-w-[70px] items-center justify-center rounded-full bg-paper px-3 text-[14px] font-semibold tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:px-5 md:text-[16px]"
         >
           {userName}님
-          <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-ink text-[11px] font-bold text-white">
-            {initial}
-          </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-[160px] p-0">

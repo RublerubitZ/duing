@@ -71,7 +71,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
           <ArrowLeft size={15} />
           제출 대기로
         </Link>
-        <h1 className="font-display text-xl text-ink-deep">제출 정보 보기</h1>
+        <h1 className="text-xl text-ink-deep">제출 정보 보기</h1>
       </div>
 
       <div className="rounded-md border border-line bg-sage-tint px-4 py-2.5 text-[13px] text-charcoal-2">
@@ -162,7 +162,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                 <ArrowLeft size={14} />이전
               </button>
               <p className="flex-1 text-center text-[12px] text-charcoal-3">
-                전체 <span className="font-mono font-bold text-ink-deep">{totalDone}/{bookings.length}</span>건 작성 완료
+                전체 <span className="tabular-nums font-bold text-ink-deep">{totalDone}/{bookings.length}</span>건 작성 완료
               </p>
               {written.has(record.bookingId) ? (
                 <button
@@ -209,7 +209,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                     >
                       <span
                         className={cn(
-                          'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full font-mono text-[10px] font-extrabold',
+                          'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full tabular-nums text-[10px] font-extrabold',
                           allDone ? 'bg-ink text-paper' : 'bg-graysoft text-charcoal-3',
                         )}
                       >
@@ -223,7 +223,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                       >
                         {grp.facilityName}
                       </span>
-                      <span className="font-mono text-[11px] text-charcoal-3">
+                      <span className="tabular-nums text-[11px] text-charcoal-3">
                         {doneInGroup}/{grp.items.length}
                       </span>
                     </button>
@@ -273,7 +273,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                         >
                           {item.clubName ?? '—'}
                         </span>
-                        <span className="font-mono text-[10.5px] text-charcoal-3">{item.startTime}</span>
+                        <span className="tabular-nums text-[10.5px] text-charcoal-3">{item.startTime}</span>
                       </button>
                       <button
                         type="button"

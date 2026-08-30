@@ -71,7 +71,7 @@ export function StepNode({ step, showDate = false, dim = false }: StepNodeProps)
         <div style={{
           fontSize: 9.5,
           color: 'var(--charcoal-3)',
-          fontFamily: 'var(--font-mono)',
+          fontVariantNumeric: 'tabular-nums',
           whiteSpace: 'nowrap',
           textAlign: 'center',
         }}>

@@ -7,6 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.crawler.SchoolFacilityClient;
 import com.duing.domain.facility.crawler.exception.FacilityClientException.FacilityFetchException;
 import com.duing.domain.facility.entity.CrawlSource;
@@ -18,6 +21,8 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
+import com.duing.domain.facilitybooking.service.CrawlRowType;
+import com.duing.domain.facilitybooking.service.FacilityAvailabilityPolicy;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +55,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
 
     private static final int ROOM_SEQ = 4;
 
-    /** 꼬리 운영시간이 있는 행과 없는 행(reserved_*=null)을 함께 둬 null 비교까지 회귀에 포함한다. */
+    /** 꼬리 시간표기가 있는 행(전 구간 확장)과 없는 행(마커 유지)을 함께 둬 두 형태 모두 회귀에 포함한다. */
     private static final String BASELINE_PAYLOAD = """
             [{"schedule_seq":"18134","schedule_dept":"고정관념(9:00~20:00)",
               "schedule_date":"01","schedule_time":"19:00~20:00"},
@@ -62,6 +67,8 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository reservationRepository;
     @Autowired FacilityMonthSnapshotRepository snapshotRepository;
+    @Autowired FacilityAvailabilityPolicy availabilityPolicy;
+    @Autowired ClubRepository clubRepository;
     @MockitoBean SchoolFacilityClient schoolFacilityClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -80,8 +87,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
 
     /** 저장 행의 신원(id)·감사 필드·값 전체. equals 비교만으로 "쓰기가 있었는가"를 판정하기 위한 지문이다. */
     private record RowState(long scheduleSeq, Long id, LocalDateTime updatedAt, LocalDateTime crawledAt,
-                            String organizationName, LocalTime startTime, LocalTime endTime,
-                            LocalTime reservedStartTime, LocalTime reservedEndTime) {}
+                            String organizationName, LocalTime startTime, LocalTime endTime, boolean securedTail) {}
 
     private List<RowState> storedRows() {
         return storedRows(targetMonth);
@@ -90,8 +96,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     private List<RowState> storedRows(YearMonth yearMonth) {
         return reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), yearMonth).stream()
                 .map(row -> new RowState(row.getScheduleSeq(), row.getId(), row.getUpdatedAt(), row.getCrawledAt(),
-                        row.getOrganizationName(), row.getStartTime(), row.getEndTime(),
-                        row.getReservedStartTime(), row.getReservedEndTime()))
+                        row.getOrganizationName(), row.getStartTime(), row.getEndTime(), row.isSecuredTail()))
                 .sorted(Comparator.comparingLong(RowState::scheduleSeq))
                 .toList();
     }
@@ -122,6 +127,10 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         crawl();
         List<RowState> baseline = storedRows();
         assertThat(baseline).hasSize(2);
+        // 물결 꼬리(18134)는 확보 표기 신호가, 무꼬리(18135)는 실예약(false)이 저장된다 — 이후 무변경
+        // 회귀(identical/reordered)가 두 상태 모두를 지문으로 잡는다.
+        assertThat(baseline.get(0).securedTail()).isTrue();
+        assertThat(baseline.get(1).securedTail()).isFalse();
         return baseline;
     }
 
@@ -198,6 +207,24 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("securedTail 만 다른 저장 행도 갱신된다 — V118 직후 false 로 남은 물결 행이 재크롤 한 주기로 자연 치유되는 근거")
+    void securedTailOnlyChangeStillUpdatesRow() {
+        // V118 배포 직후 상태 재현: 값은 이미 확장 저장돼 있는데(원본 꼬리 소실) secured_tail 만 DEFAULT false.
+        LocalDateTime beforeMigrationCrawl = LocalDateTime.now().minusDays(1);
+        FacilityReservation legacyRow = reservationRepository.save(FacilityReservation.create(
+                facility.getId(), 18134L, targetMonth, targetMonth.atDay(1),
+                LocalTime.of(9, 0), LocalTime.of(20, 0), "고정관념", false, beforeMigrationCrawl));
+
+        schoolReturns(BASELINE_PAYLOAD); // 18134 = "고정관념(9:00~20:00)" — securedTail 외 전 필드 동일
+        crawl();
+
+        // 무변경 스킵이 securedTail 차이를 못 보면 이 행은 영원히 false 로 남는다(자연 치유 경로의 핵심).
+        FacilityReservation healedRow = reservationRepository.findById(legacyRow.getId()).orElseThrow();
+        assertThat(healedRow.isSecuredTail()).isTrue();
+        assertThat(healedRow.getCrawledAt()).isAfter(beforeMigrationCrawl); // 스킵이 아니라 실제 갱신이었다
+    }
+
+    @Test
     @DisplayName("학교 응답의 순서만 뒤바뀐 경우는 변경이 아니므로 어떤 행도 새로 쓰지 않는다")
     void reorderedCrawlWritesNothing() {
         List<RowState> baseline = crawlBaseline();
@@ -232,6 +259,33 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("기본 확보 시간 대상 분류는 재크롤이 반복되어도 유지된다 — 분류는 저장값이 아니라 플래그 파생값이다")
+    void securedClassificationSurvivesRecrawl() {
+        Club securedClub = clubRepository.save(Club.create("고정관념", ClubCategory.OTHER, "분과", "설명", null));
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        crawlBaseline(); // 18134 = "고정관념(9:00~20:00)" 확장 행
+
+        assertThat(availabilityPolicy.classify(storedRow(18134L), availabilityPolicy.securedOrganizationKeys()))
+                .isEqualTo(CrawlRowType.BASIC_SECURED_TIME);
+
+        crawl(); // 동일 응답 재크롤 — CRAWLED_RESERVATION 으로 초기화되면 안 된다
+
+        assertThat(availabilityPolicy.classify(storedRow(18134L), availabilityPolicy.securedOrganizationKeys()))
+                .isEqualTo(CrawlRowType.BASIC_SECURED_TIME);
+        // 미매칭 행은 재크롤과 무관하게 CRAWLED_RESERVATION(차단 기본값)이다.
+        assertThat(availabilityPolicy.classify(storedRow(18135L), availabilityPolicy.securedOrganizationKeys()))
+                .isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
+    }
+
+    private FacilityReservation storedRow(long scheduleSeq) {
+        return reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), targetMonth).stream()
+                .filter(row -> row.getScheduleSeq() == scheduleSeq)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    @Test
     @DisplayName("크롤이 실패하면 기존 예약 데이터를 그대로 유지하고 월 메타만 실패로 남긴다")
     void failedCrawlKeepsExistingRows() {
         List<RowState> baseline = crawlBaseline();
@@ -243,6 +297,36 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(storedRows()).isEqualTo(baseline); // fail-safe: 빈 스냅샷으로 덮어쓰지 않는다
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
         assertThat(snapshot.getFetchStatus()).isEqualTo(FetchStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("일부 원소만 파싱 실패한 크롤은 파싱 성공 행만 신규 저장·제자리 갱신하고 미반영 저장 행은 지우지 않으며, 그 달은 PARTIAL·세대 성공 집합 미포함으로 남는다")
+    void partiallyParsedCrawlKeepsUnparsedRowsAndUpsertsParsedRows() {
+        List<RowState> baseline = crawlBaseline(); // 18134(확보 표기)·18135(실예약)
+
+        // 18135 는 학교 응답에 여전히 있지만 시간 필드가 깨져 파싱 불가 — 기존 예약이 사라진 것이 아니다.
+        // 18134 는 단체명이 바뀌었고(갱신), 18136 은 새 예약(신규).
+        schoolReturns("""
+                [{"schedule_seq":"18134","schedule_dept":"바뀐고정관념(9:00~20:00)",
+                  "schedule_date":"01","schedule_time":"19:00~20:00"},
+                 {"schedule_seq":"18135","schedule_dept":"동아리연합회",
+                  "schedule_date":"02","schedule_time":"미정"},
+                 {"schedule_seq":"18136","schedule_dept":"신규동아리",
+                  "schedule_date":"03","schedule_time":"14:00~15:00"}]
+                """);
+        crawl();
+
+        List<RowState> afterCrawl = storedRows();
+        assertThat(afterCrawl).extracting(RowState::scheduleSeq).containsExactly(18134L, 18135L, 18136L);
+        assertThat(afterCrawl.get(0).id()).isEqualTo(baseline.get(0).id()); // 파싱 성공 행은 제자리 갱신
+        assertThat(afterCrawl.get(0).organizationName()).isEqualTo("바뀐고정관념");
+        assertThat(afterCrawl.get(1)).isEqualTo(baseline.get(1)); // 파싱 실패 원소의 저장 행은 지문 그대로 유지(삭제 보류)
+        assertThat(afterCrawl.get(2).organizationName()).isEqualTo("신규동아리"); // 신규 행은 정상 저장
+        // 행 집합이 불완전한 달은 신선(SUCCESS)으로 기록하지 않고 세대 결박에서도 뺀다 — 다음 주기 재시도·자동 확정 fail-closed.
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();
+        assertThat(snapshot.getFetchStatus()).isEqualTo(FetchStatus.PARTIAL);
+        assertThat(snapshot.getLastError()).contains("부분 파싱 실패");
+        assertThat(snapshot.isFacilitySynced(facility.getId())).isFalse();
     }
 
     @Test
@@ -272,7 +356,8 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         assertThat(movedRows).hasSize(1);
         assertThat(movedRows.get(0).scheduleSeq()).isEqualTo(18134L);
         assertThat(movedRows.get(0).id()).isNotEqualTo(baseline.get(0).id());
-        assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(19, 0));
+        assertThat(movedRows.get(0).startTime()).isEqualTo(LocalTime.of(9, 0)); // 꼬리 전 구간 확장(전면 차단 정책)
+        assertThat(movedRows.get(0).endTime()).isEqualTo(LocalTime.of(20, 0));
         // unique 충돌 롤백이 없었음의 증명 — 두 달 모두 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
         for (YearMonth crawledMonth : List.of(targetMonth, nextMonth)) {
             FacilityMonthSnapshot monthSnapshot = snapshotRepository.findByYearMonth(crawledMonth).orElseThrow();
@@ -290,8 +375,8 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         YearMonth outsideWindowMonth = targetMonth.minusMonths(2);
         FacilityReservation staleRow = reservationRepository.save(FacilityReservation.create(
                 facility.getId(), 18134L, outsideWindowMonth, outsideWindowMonth.atDay(10),
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념", null, null,
-                LocalDateTime.now().minusDays(30)));
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
+                false, LocalDateTime.now().minusDays(30)));
 
         schoolReturns(BASELINE_PAYLOAD); // 같은 18134 가 당월 1일 예약으로 들어온다
         crawl();
@@ -300,7 +385,7 @@ class FacilityCrawlDiffIntegrationTest extends IntegrationTestBase {
         List<RowState> afterCrawl = storedRows();
         assertThat(afterCrawl).hasSize(2);
         assertThat(afterCrawl.get(0).scheduleSeq()).isEqualTo(18134L);
-        assertThat(afterCrawl.get(0).startTime()).isEqualTo(LocalTime.of(19, 0)); // 옮겨온 새 값으로 반영
+        assertThat(afterCrawl.get(0).startTime()).isEqualTo(LocalTime.of(9, 0)); // 옮겨온 새 값(꼬리 전 구간 확장)으로 반영
         assertThat(reservationRepository.findByFacilityIdAndYearMonth(facility.getId(), outsideWindowMonth)).isEmpty();
         // unique 충돌 롤백이 없었음의 증명 — 월 메타가 SUCCESS 이고 시설이 세대 성공 집합에 들어 있다.
         FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(targetMonth).orElseThrow();

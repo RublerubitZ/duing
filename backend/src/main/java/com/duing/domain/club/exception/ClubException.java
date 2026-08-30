@@ -63,4 +63,13 @@ public class ClubException extends ApplicationException {
         }
     }
 
+    /** 익명 조회 기록의 IP 총량 상한 초과 — 정상 탐색으로는 닿지 않는 한도다(ClubViewRateLimiter 참고). */
+    public static class ClubViewRateLimitedException extends ClubException {
+        private static final String MESSAGE = "잠시 후 다시 시도해주세요.";
+
+        public ClubViewRateLimitedException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
+
 }

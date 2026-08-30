@@ -9,13 +9,18 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubFacilitySecuredTimeTargetCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubDetailQuery;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -56,6 +61,7 @@ public class GeneralClubService implements ClubService {
     private static final String CLUB_NAME_UNIQUE_CONSTRAINT = "uk_club_name_active";
 
     private final ClubRepository clubRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
     private final UserRepository userRepository;
     private final ClubMemberRepository clubMemberRepository;
@@ -115,10 +121,12 @@ public class GeneralClubService implements ClubService {
      * 찜 필터(favoriteUserId != null)는 사용자별 결과이므로 캐시에서 읽지도, 쓰지도 않는다 —
      * 컨트롤러가 같은 이유로 no-store 를 내려보내는 것과 같은 경계다.
      * 캐시 히트 1회당 count·목록·대표모집 3개 쿼리가 사라진다.
+     * 같은 키의 동시 miss 는 로더(이 메서드 본문) 1회로 병합된다 — 엔트리 만료 순간에 몰린 요청이
+     * 전부 DB 로 가던 스탬피드를 막는다.
      */
     @Override
     @Cacheable(cacheNames = PublicApiCacheConfig.CLUB_SEARCH_CACHE,
-            condition = "#condition.favoriteUserId() == null")
+            condition = "#condition.favoriteUserId() == null", sync = true)
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
         Page<ClubSummaryQuery> clubPage = clubRepository.findByCondition(condition, pageable);
         List<ClubSummaryQuery> summaries = clubPage.getContent();
@@ -141,6 +149,11 @@ public class GeneralClubService implements ClubService {
             return summary.withActiveRecruitment(new ClubSummaryQuery.ActiveRecruitmentSummary(
                     row.recruitmentId(), displayStatus, row.startDate(), row.endDate()));
         });
+    }
+
+    @Override
+    public ClubStatsQuery getStats() {
+        return clubRepository.countStats();
     }
 
     @Override
@@ -277,5 +290,21 @@ public class GeneralClubService implements ClubService {
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeCentralClub(command.centralClub());
+    }
+
+    @Override
+    @Transactional
+    public void updateFacilitySecuredTimeTarget(UpdateClubFacilitySecuredTimeTargetCommand command) {
+        Club club = clubRepository.findById(command.clubId())
+                .orElseThrow(ClubException.ClubNotFoundException::new);
+        boolean before = club.isFacilitySecuredTimeTarget();
+        if (before == command.facilitySecuredTimeTarget()) {
+            return; // no-op 은 감사를 남기지 않는다(멱등 재요청이 감사 스트림을 오염시키지 않게).
+        }
+        club.changeFacilitySecuredTimeTarget(command.facilitySecuredTimeTarget());
+        // 감사는 변이와 같은 트랜잭션 — 분류는 조회 시점 파생이라 이 커밋 즉시 기존 크롤 행에도 반영된다.
+        clubAuditEventRepository.save(ClubAuditEvent.securedTargetChanged(club.getId(), command.actorUserId(),
+                AuditDetailJson.of(Map.of(
+                        "before", before, "after", command.facilitySecuredTimeTarget()))));
     }
 }

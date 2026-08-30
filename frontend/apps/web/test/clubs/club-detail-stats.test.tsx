@@ -86,8 +86,8 @@ describe('ClubDetailStats — 모바일 행 리스트 + Desktop 복원', () => {
     // Desktop(md+) 복원: 기존 22px + 상속 line-height(1.5) 복원
     expect(value).toHaveClass('md:text-[22px]');
     expect(value).toHaveClass('md:leading-normal');
-    // 기존 타이포 유지
-    expect(value).toHaveClass('font-display', 'font-bold', 'text-ink-deep');
+    // 기존 타이포 유지 — 서체는 Pretendard 하나라 별도 family 클래스 없이 weight 로만 구분한다.
+    expect(value).toHaveClass('font-bold', 'text-ink-deep');
   });
 
   it('컨테이너는 모바일 세로 리스트(gap-2·py-3), md 이상에서 gap 없는 3열 그리드 + py-5 로 복원한다', () => {

@@ -19,6 +19,8 @@ public record ClubSummaryQuery(
         List<String> tags,
         String tagline,
         boolean centralClub,
+        /** 최근 7일 순방문자 수 — 홈 관심도 카드의 표시값. 집계 전이거나 조회가 없으면 0. */
+        int weeklyInterestCount,
         ActiveRecruitmentSummary activeRecruitment
 ) {
     public record ActiveRecruitmentSummary(
@@ -29,6 +31,7 @@ public record ClubSummaryQuery(
     ) {}
 
     public ClubSummaryQuery withActiveRecruitment(ActiveRecruitmentSummary recruitmentSummary) {
-        return new ClubSummaryQuery(id, name, category, division, college, department, logoUrl, status, tags, tagline, centralClub, recruitmentSummary);
+        return new ClubSummaryQuery(id, name, category, division, college, department, logoUrl, status,
+                tags, tagline, centralClub, weeklyInterestCount, recruitmentSummary);
     }
 }

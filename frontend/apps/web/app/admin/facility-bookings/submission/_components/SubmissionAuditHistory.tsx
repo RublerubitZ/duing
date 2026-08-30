@@ -26,7 +26,7 @@ export function SubmissionAuditHistory({ audits }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-ink-deep">{AUDIT_ACTION_LABELS[audit.action]}</span>
             <span className="text-charcoal-2">{audit.adminName ?? '(탈퇴한 관리자)'}</span>
-            <span className="ml-auto font-mono text-xs text-charcoal-3">{formatDateTimeKst(audit.createdAt)}</span>
+            <span className="ml-auto tabular-nums text-xs text-charcoal-3">{formatDateTimeKst(audit.createdAt)}</span>
           </div>
           {audit.detail !== null && audit.detail.trim() !== '' && (
             <p className="mt-1 text-xs text-charcoal-3">{audit.detail}</p>

@@ -63,10 +63,17 @@ export function useSubmissionBatchDetailQuery(batchId: number) {
 
 export function useCompleteSubmissionBatchMutation() {
   const client = useApiClient();
+  const queryClient = useQueryClient();
   const invalidate = useSubmissionInvalidation();
   return useMutation({
     mutationFn: (input: { batchId: number }) => client.admin.facilitySubmission.complete(input.batchId),
-    onSettled: invalidate,
+    onSettled: () => {
+      invalidate();
+      // 완료는 포함 예약을 APPROVED→CONFIRMED 로 전이한다 — 검토 탭 큐·상세·summary 가 stale 예약을 보이지 않게
+      // 교차 무효화(useAdminBookingInvalidation 이 제출 캐시를 무효화하는 것의 역방향 대칭, P2-14).
+      // 취소는 예약 상태 불변(submitted 플래그만)이라 제출 캐시로 충분 — 불필요 invalidate 는 추가하지 않는다.
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityBookingsAll });
+    },
   });
 }
 

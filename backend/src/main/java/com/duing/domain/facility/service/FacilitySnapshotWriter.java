@@ -40,10 +40,16 @@ public class FacilitySnapshotWriter {
      * DELETE 를 INSERT 보다 먼저 실행해, 한 트랜잭션에서 여러 월을 다룰 때 월 간 이동한 schedule_seq 가
      * 자기 자신과 unique 충돌하지 않게 한다. 반영 범위 밖(윈도우 밖 월·다른 시설)에 남은 같은 seq 행도
      * 같은 DELETE 에 실어 함께 지운다 — {@link #staleRowIdsOutsideScope} 참고.
+     *
+     * <p>{@code deletableMonths} 는 "응답에 없는 저장 행 = 학교에서 사라진 예약"이 성립하는 달(전 원소 파싱 성공)이다.
+     * 일부 원소만 파싱 실패한 달은 여기서 빠져 미반영 행이 유지된다(P2-10) — 성공 행의 INSERT/UPDATE 는 그대로 한다.
+     * 같은 seq 가 다른 위치로 옮겨간 경우의 잔존 행 정리({@link #staleRowIdsOutsideScope})는 INSERT 안전성용이라
+     * 이 게이트와 무관하게 유지된다.
      */
     @Transactional
     public void reconcileReservations(Long facilityId, List<YearMonth> months,
-                                      Map<YearMonth, List<ParsedReservation>> fetchedByMonth, LocalDateTime crawledAt) {
+                                      Map<YearMonth, List<ParsedReservation>> fetchedByMonth,
+                                      Set<YearMonth> deletableMonths, LocalDateTime crawledAt) {
         Map<Long, FacilityReservation> storedByScheduleSeq = new LinkedHashMap<>();
         for (FacilityReservation stored : reservationRepository.findByFacilityIdAndYearMonthIn(facilityId, months)) {
             storedByScheduleSeq.put(stored.getScheduleSeq(), stored);
@@ -59,18 +65,20 @@ public class FacilitySnapshotWriter {
                     toInsert.add(FacilityReservation.create(
                             facilityId, crawled.scheduleSeq(), yearMonth, crawled.reservationDate(),
                             crawled.startTime(), crawled.endTime(), crawled.organizationName(),
-                            crawled.reservedStartTime(), crawled.reservedEndTime(), crawledAt));
+                            crawled.securedTail(), crawledAt));
                     continue;
                 }
                 stored.updateCrawledDetails(crawled.reservationDate(), crawled.startTime(), crawled.endTime(),
-                        crawled.organizationName(), crawled.reservedStartTime(), crawled.reservedEndTime(), crawledAt);
+                        crawled.organizationName(), crawled.securedTail(), crawledAt);
                 reconciledRowIds.add(stored.getId());
             }
         }
 
         Set<Long> removedRowIds = new LinkedHashSet<>();
         for (FacilityReservation stored : storedByScheduleSeq.values()) {
-            if (!reconciledRowIds.contains(stored.getId())) {
+            // 삭제 게이트(P2-10): 삭제 허용 월의 미반영 행만 "학교에서 사라진 예약"이다. 부분 파싱 월의 미반영 행은
+            // 파싱 실패한 원소가 그 예약일 수 있어 지우지 않는다(지우면 슬롯이 열린다) — 다음 주기 재시도에 맡긴다.
+            if (!reconciledRowIds.contains(stored.getId()) && deletableMonths.contains(stored.getYearMonth())) {
                 removedRowIds.add(stored.getId());
             }
         }

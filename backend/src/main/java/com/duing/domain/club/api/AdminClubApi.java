@@ -4,6 +4,7 @@ import com.duing.domain.club.controller.dto.request.AdminUpdateClubRequest;
 import com.duing.domain.club.controller.dto.request.CloseClubRequest;
 import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
+import com.duing.domain.club.controller.dto.request.UpdateClubFacilitySecuredTimeTargetRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
@@ -77,6 +78,17 @@ public interface AdminClubApi {
     ResponseEntity<ApiResponse<Void>> updateClubCentralClub(
             @PathVariable Long clubId,
             @Valid @RequestBody UpdateClubCentralClubRequest updateClubCentralClubRequest
+    );
+
+    @Operation(summary = "기본 확보 시간 대상 토글",
+            description = "ADMIN 이 동아리의 시설 기본 확보 시간 대상 여부를 변경한다. ON 인 동아리의 시설 크롤 예약은 "
+                    + "조회 시점에 BASIC_SECURED_TIME 으로 자동 분류되어 예약 차단에서 제외된다"
+                    + "(다른 동아리가 그 시간대를 신청·승인받을 수 있다, 변경 시 감사 기록).")
+    @PatchMapping("/admin/clubs/{clubId}/facility-secured-time-target")
+    ResponseEntity<ApiResponse<Void>> updateClubFacilitySecuredTimeTarget(
+            @PathVariable Long clubId,
+            @Valid @RequestBody UpdateClubFacilitySecuredTimeTargetRequest updateClubFacilitySecuredTimeTargetRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
     @Operation(summary = "동아리 폐쇄",

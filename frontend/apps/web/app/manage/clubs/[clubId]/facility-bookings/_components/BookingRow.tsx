@@ -42,7 +42,7 @@ export function BookingRow({ booking, onSelect }: Props) {
               <span className="truncate text-[15px] font-bold text-ink-deep">{booking.roomName}</span>
               <BookingStatusBadge status={booking.status} />
             </span>
-            <span className="mt-0.5 block font-mono text-[13px] text-charcoal-2">
+            <span className="mt-0.5 block tabular-nums text-[13px] text-charcoal-2">
               {bookingDateLabel(booking.date)} · {bookingTimeLabel(booking.startTime, booking.endTime)}
             </span>
             <span className="mt-0.5 block truncate text-xs text-charcoal-3">

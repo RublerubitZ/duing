@@ -49,7 +49,23 @@ export type ClubSummary = {
   tags: string[];
   tagline: string | null;
   centralClub: boolean;
+  /**
+   * 최근 7일 순방문자 수 — 홈 "관심도가 높은 동아리" 카드의 표시값.
+   * BE 미배포 전환기에는 필드 자체가 없을 수 있어 옵셔널이다 (department 와 같은 규약).
+   * 정렬에 쓰는 내부 점수는 응답에 실리지 않는다.
+   */
+  weeklyInterestCount?: number;
   activeRecruitment: ClubSummaryRecruitment | null;
+};
+
+/**
+ * 공개 동아리 통계 — 홈 히어로 문구와 카테고리 탐색 카운트가 함께 쓴다.
+ * categoryCounts 는 BE 미배포 전환기에 없을 수 있어 옵셔널이다 — 없으면 화면이 카운트만 생략한다.
+ */
+export type ClubStats = {
+  totalCount: number;
+  recruitingCount: number;
+  categoryCounts?: Partial<Record<ClubCategory, number>>;
 };
 
 export type ContactVisibility = 'PUBLIC' | 'LOGGED_IN_ONLY' | 'PRIVATE';
@@ -134,6 +150,13 @@ export type ClubSearchParams = {
   sort?: string;
 };
 
+/**
+ * 동아리 상세 조회 기록 요청 — 홈 "관심도가 높은 동아리" 집계용.
+ * visitorKey 는 이 브라우저가 보관하는 익명 식별자다(app/_lib/visitorKey.ts).
+ * 같은 키로 같은 동아리를 같은 날 여러 번 보내도 서버가 1건으로 접으므로 중복 호출은 무해하다.
+ */
+export type RecordClubViewPayload = { visitorKey: string };
+
 export type CreateClubPayload = {
   name: string;
   category: ClubCategory;
@@ -157,6 +180,11 @@ export type CloseClubPayload = {
 
 export type UpdateClubCentralClubPayload = {
   centralClub: boolean;
+};
+
+/** 기본 확보 시간 대상(시설 크롤 자동 분류 정책) 토글 — 시간 값이 아니라 분류 정책 플래그다. */
+export type UpdateClubFacilitySecuredTimeTargetPayload = {
+  facilitySecuredTimeTarget: boolean;
 };
 
 export type ClubRole = 'LEADER' | 'OFFICER';

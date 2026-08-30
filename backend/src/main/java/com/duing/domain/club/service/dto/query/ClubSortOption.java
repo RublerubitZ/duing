@@ -35,7 +35,19 @@ public enum ClubSortOption {
      * </ol>
      * 활성 모집이 없는 동아리는 tier 1 = 0 으로 자연 후순위, tier 3 NULL → NULLS LAST.
      * "현재 모집 중인 동아리 중 인기순" 사용 시 {@code recruitmentStatus=AVAILABLE} 와 조합.
-     * 홈 FeaturedClubs 가 사용 — 탐색 추천순(RECOMMENDED)과는 별개 정렬이다.
+     * 탐색 추천순(RECOMMENDED)과는 별개 정렬이다.
      */
-    POPULAR
+    POPULAR,
+    /**
+     * 관심도순. 홈 "관심도가 높은 동아리" 섹션 전용.
+     * <ol>
+     *   <li>club_metric.interest_score DESC — 최근 7일 순방문자에 반감기 3일 감쇠를 적용한 값
+     *       (산식은 {@code ClubInterestPolicy}). metric 행이 없으면 NULL → NULLS LAST</li>
+     *   <li>동점 시 {@link #POPULAR} 티어 전체로 폴백 — 지원자수 → 즐겨찾기수 → 최근 모집 시작일 → 생성일</li>
+     * </ol>
+     * 폴백을 두는 이유는 콜드 스타트다. 집계 배포 직후·방학처럼 조회가 전무한 구간에서는 전 동아리
+     * interest_score 가 0 이라, 폴백이 없으면 정렬이 사실상 무작위로 보인다.
+     * 회원 수는 어떤 티어에서도 쓰지 않는다.
+     */
+    INTEREST
 }

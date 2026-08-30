@@ -89,7 +89,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 }}
               >
                 <ClubLogo logoUrl={club.logoUrl}>
-                  <span className="font-display text-[56px] font-bold leading-none">
+                  <span className="text-[56px] font-bold leading-none">
                     {initial}
                   </span>
                 </ClubLogo>
@@ -184,7 +184,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               }}
             >
               <ClubLogo logoUrl={club.logoUrl}>
-                <span className="font-display text-[34px] font-bold leading-none">{initial}</span>
+                <span className="text-[34px] font-bold leading-none">{initial}</span>
               </ClubLogo>
             </div>
             {/* break-keep+anywhere: 한글은 어절 단위로 접고, 공백 없는 긴 이름(라틴·괄호)은

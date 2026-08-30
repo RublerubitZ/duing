@@ -46,12 +46,12 @@ public class FacilityReservation extends BaseEntity {
     @Column(name = "organization_name", nullable = false, length = 200)
     private String organizationName;
 
-    /** 꼬리 (H:MM~H:MM) 운영시간(§16.1) — 표기 없음/파싱 실패면 null(조회 시 SlotMerger 폴백). */
-    @Column(name = "reserved_start_time")
-    private LocalTime reservedStartTime;
+    /** 물결 꼬리(기본 확보 시간 표기)가 정상 파싱된 행 — 행 단위 정밀 분류의 신호(스펙 §1, V118). */
+    @Column(name = "secured_tail", nullable = false)
+    private boolean securedTail;
 
-    @Column(name = "reserved_end_time")
-    private LocalTime reservedEndTime;
+    // reserved_start_time/reserved_end_time(V72) 컬럼은 DB 에 남아 있으나 매핑하지 않는다 —
+    // 구 "기본 확보 시간" 파생값으로 전면 차단 정책(2026-08-27)에서 폐지됐다(물리 drop 은 후속 마이그레이션).
 
     @Column(name = "crawled_at", nullable = false)
     private LocalDateTime crawledAt;
@@ -59,7 +59,7 @@ public class FacilityReservation extends BaseEntity {
     @Builder(access = AccessLevel.PRIVATE)
     private FacilityReservation(Long facilityId, Long scheduleSeq, YearMonth yearMonth, LocalDate reservationDate,
                                 LocalTime startTime, LocalTime endTime, String organizationName,
-                                LocalTime reservedStartTime, LocalTime reservedEndTime, LocalDateTime crawledAt) {
+                                boolean securedTail, LocalDateTime crawledAt) {
         this.facilityId = facilityId;
         this.scheduleSeq = scheduleSeq;
         this.yearMonth = yearMonth;
@@ -67,15 +67,13 @@ public class FacilityReservation extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.organizationName = organizationName;
-        this.reservedStartTime = reservedStartTime;
-        this.reservedEndTime = reservedEndTime;
+        this.securedTail = securedTail;
         this.crawledAt = crawledAt;
     }
 
     public static FacilityReservation create(Long facilityId, Long scheduleSeq, YearMonth yearMonth,
                                              LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                             String organizationName, LocalTime reservedStartTime,
-                                             LocalTime reservedEndTime, LocalDateTime crawledAt) {
+                                             String organizationName, boolean securedTail, LocalDateTime crawledAt) {
         return FacilityReservation.builder()
                 .facilityId(facilityId)
                 .scheduleSeq(scheduleSeq)
@@ -84,8 +82,7 @@ public class FacilityReservation extends BaseEntity {
                 .startTime(startTime)
                 .endTime(endTime)
                 .organizationName(truncate(organizationName, MAX_ORGANIZATION_NAME_LENGTH))
-                .reservedStartTime(reservedStartTime)
-                .reservedEndTime(reservedEndTime)
+                .securedTail(securedTail)
                 .crawledAt(crawledAt)
                 .build();
     }
@@ -95,23 +92,22 @@ public class FacilityReservation extends BaseEntity {
      * 건드리지 않아 UPDATE 자체가 발생하지 않는다(변경 없는 크롤 = DB 쓰기 0의 근거).
      *
      * <p>비교는 저장 형태 기준이다 — 단체명은 저장 시와 같은 절단을 거친 값으로 비교해, 컬럼 길이를 넘는
-     * 단체명이 매 주기 "변경됨"으로 오판되지 않게 한다. 운영시간(reservedStart/End)은 null 이 정상값이라
-     * {@link Objects#equals} 로 비교한다.
+     * 단체명이 매 주기 "변경됨"으로 오판되지 않게 한다.
      *
      * <p>선비교를 생략하면 안 된다: 나머지 필드는 값이 같으면 Hibernate dirty check 가 UPDATE 를 걸러주지만
      * crawled_at 은 주기마다 새 값이라 무조건 dirty 가 되어, 변경이 없어도 전 행 UPDATE 가 나간다.
      * crawled_at 은 그래서 비교 대상에서 빼고 실제 변경이 있을 때만 함께 갱신한다.
      */
     public void updateCrawledDetails(LocalDate reservationDate, LocalTime startTime, LocalTime endTime,
-                                     String organizationName, LocalTime reservedStartTime,
-                                     LocalTime reservedEndTime, LocalDateTime crawledAt) {
+                                     String organizationName, boolean securedTail, LocalDateTime crawledAt) {
         String normalizedOrganizationName = truncate(organizationName, MAX_ORGANIZATION_NAME_LENGTH);
+        // securedTail 도 무변경 비교에 넣어야 한다: V118 직후 false 로 남은 물결 행은 다른 필드가 전부
+        // 불변이라, 이 비교 없이는 영원히 스킵돼 자연 치유(다음 크롤 1주기 내 true 복원)가 막힌다.
         boolean unchanged = Objects.equals(this.reservationDate, reservationDate)
                 && Objects.equals(this.startTime, startTime)
                 && Objects.equals(this.endTime, endTime)
                 && Objects.equals(this.organizationName, normalizedOrganizationName)
-                && Objects.equals(this.reservedStartTime, reservedStartTime)
-                && Objects.equals(this.reservedEndTime, reservedEndTime);
+                && this.securedTail == securedTail;
         if (unchanged) {
             return;
         }
@@ -119,8 +115,7 @@ public class FacilityReservation extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.organizationName = normalizedOrganizationName;
-        this.reservedStartTime = reservedStartTime;
-        this.reservedEndTime = reservedEndTime;
+        this.securedTail = securedTail;
         this.crawledAt = crawledAt;
     }
 

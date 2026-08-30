@@ -57,9 +57,14 @@ export type CreateSubmissionBatchResult = {
 export type SubmissionBatchSummary = {
   batchId: number;
   submissionNo: string;
-  facilityId: number;
+  // 동아리 단위 배치(v2 §1)는 대표 시설이 없어 null — legacy 시설 단위 배치만 값을 가진다.
+  facilityId: number | null;
   facilityName: string | null;
+  // 배치 포함 시설명 목록(동아리 단위 v2 §5) — BE 배포 전 구응답 호환을 위해 결측 허용(fail-open).
+  facilityNames?: string[];
   bookingCount: number;
+  // 포함 동아리명(동아리 중심 보기 스펙 §2) — BE 배포 전 구응답 호환을 위해 결측 허용(fail-open).
+  clubNames?: string[];
   submittedAt: string; // 생성 시각 — BE 가 Instant(UTC, `…Z`)로 직렬화한다
   submittedByName: string | null; // 탈퇴 관리자 null
   memo: string | null;

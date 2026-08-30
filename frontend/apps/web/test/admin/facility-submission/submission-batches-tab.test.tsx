@@ -40,6 +40,7 @@ function makeBatch(overrides: Partial<SubmissionBatchSummary> = {}): SubmissionB
     facilityId: 100,
     facilityName: '강당',
     bookingCount: 3,
+    clubNames: ['가온', '바람'],
     // BE 는 Instant(UTC) 로 내려준다 — UTC 로는 08-01 이지만 KST 로는 08-02 다.
     submittedAt: '2026-08-01T15:30:00Z',
     submittedByName: '관리자',
@@ -115,6 +116,50 @@ describe('SubmissionBatchesTab', () => {
     // 메모 없음 → 제출번호가 제목으로 승격되고, 서브는 생성자 폴백 '-' 하나만 남는다.
     expect(within(row).getByText('SUB-20260801-001')).toBeInTheDocument();
     expect(within(row).getAllByText('-')).toHaveLength(1);
+  });
+
+  it('다시설 배치는 시설 셀에 facilityNames 목록을, legacy(구응답) 행은 기존 facilityName 을 표기한다', () => {
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch({
+          batchId: 1,
+          submissionNo: 'SUB-MULTI',
+          facilityId: null,
+          facilityName: null,
+          facilityNames: ['공동연습실(1)', '커뮤니티룸(2)'],
+        }),
+        // legacy 시설 단위 배치 — facilityNames 결측(구응답)이면 기존 단일 facilityName 그대로.
+        makeBatch({ batchId: 2, submissionNo: 'SUB-LEGACY' }),
+      ]),
+    );
+    render(<SubmissionBatchesTab />);
+
+    expect(within(rowOf('SUB-MULTI')).getByText('공동연습실(1) · 커뮤니티룸(2)')).toBeInTheDocument();
+    expect(within(rowOf('SUB-LEGACY')).getByText('강당')).toBeInTheDocument();
+  });
+
+  it('동아리 컬럼이 시설 컬럼보다 앞에 온다 (동아리 단위 v2 §5)', () => {
+    render(<SubmissionBatchesTab />);
+
+    const headerLabels = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    expect(headerLabels.indexOf('동아리')).toBeGreaterThanOrEqual(0);
+    expect(headerLabels.indexOf('동아리')).toBeLessThan(headerLabels.indexOf('시설'));
+  });
+
+  it('동아리 컬럼에 포함 동아리명을 표시하고, clubNames 결측(구버전 응답)·빈 배열 행은 - 로 표시한다', () => {
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch(),
+        makeBatch({ batchId: 2, submissionNo: 'SUB-LEGACY', clubNames: undefined }),
+        makeBatch({ batchId: 3, submissionNo: 'SUB-EMPTY', clubNames: [] }),
+      ]),
+    );
+    render(<SubmissionBatchesTab />);
+
+    expect(screen.getByText('동아리')).toBeInTheDocument();
+    expect(within(rowOf('SUB-20260801-001')).getByText('가온 · 바람')).toBeInTheDocument();
+    expect(within(rowOf('SUB-LEGACY')).getByText('-')).toBeInTheDocument();
+    expect(within(rowOf('SUB-EMPTY')).getByText('-')).toBeInTheDocument();
   });
 
   it('진행 중 배치는 생성 후 경과 일수를 표기하고 3일 이상이면 경고색으로 강조한다', () => {
@@ -352,6 +397,90 @@ describe('SubmissionBatchesTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '2' }));
 
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
+  });
+
+  /* ── 페이지 clamp(P2-13) — 완료/취소로 totalPages 가 줄면 범위 밖 page 가 빈 화면을 만든다 ── */
+  const loadingState = {
+    data: undefined,
+    isLoading: true,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  };
+
+  it('마지막 페이지의 마지막 배치를 완료해 totalPages 가 줄면 page 를 이전 페이지로 클램프한다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 1,
+      confirmedCount: 1,
+      skippedCount: 0,
+      completedAt: '2026-08-01T11:00:00',
+      skippedBookings: [],
+    });
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10, status: 'REVIEWING' });
+
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
+    await waitFor(() => expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 1 }));
+
+    // 완료된 배치가 진행 중 목록에서 빠져 재조회 totalPages 가 1 — 2페이지(index 1)는 범위 밖이다.
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 1));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+  });
+
+  it('마지막 페이지의 마지막 배치를 취소해 totalPages 가 줄어도 동일하게 클램프한다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출 목록 취소' }));
+    await waitFor(() => expect(mockCancelMutateAsync).toHaveBeenCalledWith({ batchId: 1 }));
+
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 1));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+  });
+
+  it('재조회 결과 totalPages 가 0 이면 page 0 으로 돌아가 빈 상태를 보여준다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([], 0));
+    rerender(<SubmissionBatchesTab statusFilter="REVIEWING" />);
+
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'REVIEWING' });
+    expect(screen.getByText('진행 중인 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
+  it('페이지 전환 중(데이터 미도착)에는 클램프하지 않아 일반 페이지 이동이 유지된다', () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 2));
+    const { rerender } = render(<SubmissionBatchesTab />);
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    // 새 page 키로 넘어가는 순간 data 가 비는데, 이때 totalPages 0 으로 오인해 page 0 으로 되돌리면 안 된다.
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(loadingState);
+    rerender(<SubmissionBatchesTab />);
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
+
+    // 2페이지 데이터가 도착해도 범위 안이면 그대로 둔다(불필요 setPage 루프 없음).
+    mockBatchesQuery.mockClear();
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 2 })], 2));
+    rerender(<SubmissionBatchesTab />);
+    expect(mockBatchesQuery).toHaveBeenCalledTimes(1);
     expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
   });
 

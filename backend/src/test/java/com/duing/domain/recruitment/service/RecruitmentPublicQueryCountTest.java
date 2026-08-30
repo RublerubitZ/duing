@@ -61,7 +61,7 @@ class RecruitmentPublicQueryCountTest {
     void evictPublicCaches() {
         // 캘린더가 앱 마이크로 캐시(P1-5) 대상이라, 같은 컨텍스트의 다른 테스트가 남긴 엔트리가
         // 캐시 히트(0쿼리)로 이 계측을 오염시킬 수 있다 — 항상 miss 에서 시작하도록 비운다.
-        publicApiCacheConfig.ifAvailable(PublicApiCacheConfig::evictAllOnTtlElapsed);
+        publicApiCacheConfig.ifAvailable(PublicApiCacheConfig::evictAll);
     }
 
     // 시한폭탄 금지 — 절대 날짜 대신 상대 월. 서로 다른 달을 써서 두 데이터셋을 격리한다.

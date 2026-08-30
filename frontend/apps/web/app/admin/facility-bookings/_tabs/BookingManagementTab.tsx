@@ -6,7 +6,7 @@ import {
   useAdminFacilityBookingSummaryQuery,
   useFacilityUsageQuery,
 } from '@duing/hooks';
-import type { AdminBookingQueueParams } from '@duing/types';
+import type { AdminBookingQueueParams, AdminBookingQueueSort } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminBookingDetailModal } from '../_components/AdminBookingDetailModal';
@@ -27,6 +27,11 @@ const TAB_LABELS: Record<AdminQueueTab, string> = {
   ALL: '전체',
 };
 
+const SORT_OPTIONS: { label: string; value: AdminBookingQueueSort }[] = [
+  { label: '기본 정렬', value: 'DEFAULT' },
+  { label: '이용일시 빠른순', value: 'USAGE_ASC' },
+];
+
 function statusParamOf(tab: AdminQueueTab): AdminBookingQueueParams['status'] {
   if (tab === 'PENDING' || tab === 'APPROVED' || tab === 'CONFIRMED') return tab;
   if (tab === 'CONFLICT_ATTENTION') return 'CONFLICT';
@@ -38,6 +43,7 @@ export function BookingManagementTab() {
   const [facilityIdInput, setFacilityIdInput] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sort, setSort] = useState<AdminBookingQueueSort>('DEFAULT');
   const [page, setPage] = useState(0);
   // 모달 대상 + 이웃 스냅샷(개편 스펙 §3) — 열람·탐색 시점의 큐 기준으로 고정한다.
   // 파생 계산이면 액션 성공 → refetch 로 행이 큐에서 빠지는 즉시 이전/다음이 죽어 연속 검토 동선이 끊긴다.
@@ -53,6 +59,8 @@ export function BookingManagementTab() {
     facilityId,
     dateFrom: dateFrom === '' ? undefined : dateFrom,
     dateTo: dateTo === '' ? undefined : dateTo,
+    // 기본 정렬은 파라미터를 보내지 않는다 — 서버의 상태별 기본 순서·기존 쿼리키를 그대로 둔다.
+    sort: sort === 'DEFAULT' ? undefined : sort,
     page,
     size: PAGE_SIZE,
   };
@@ -187,6 +195,16 @@ export function BookingManagementTab() {
               onChange={(event) => { setDateTo(event.target.value); setPage(0); }}
               className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
             />
+            <select
+              aria-label="정렬"
+              className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+              value={sort}
+              onChange={(event) => { setSort(toSort(event.target.value)); setPage(0); }}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -259,4 +277,10 @@ export function BookingManagementTab() {
       )}
     </section>
   );
+}
+
+/** select 는 문자열만 돌려주므로 알려진 정렬 키인지 확인하고 좁힌다(`as` 단언 금지). */
+function toSort(value: string): AdminBookingQueueSort {
+  const matched = SORT_OPTIONS.find((option) => option.value === value);
+  return matched ? matched.value : 'DEFAULT';
 }

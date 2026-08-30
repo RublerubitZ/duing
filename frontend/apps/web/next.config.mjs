@@ -79,6 +79,12 @@ const nextConfig = {
       },
     ];
   },
+  images: {
+    // /_next/image 최적화 결과의 Cache-Control 하한. 기본 60초라 최적화 이미지가 브라우저·CDN 에 남지 않아
+    // 새로고침마다 재검증 왕복이 생기고(실측 x-vercel-cache MISS), 매번 최적화기를 탄다.
+    // 이 앱의 next/image 원본은 public/ 정적 자산뿐(업로드 이미지는 raw <img>)이라 아래 immutable 규칙과 같은 1년.
+    minimumCacheTTL: 31536000,
+  },
   async headers() {
     const headers = [
       // HTTPS 강제 (http://localhost 에는 브라우저가 무시하므로 로컬 개발에 영향 없음).
@@ -105,6 +111,15 @@ const nextConfig = {
       // 기존 방문자에게 최대 1년간 구 폰트가 보인다). globals.css 의 @font-face url 도 함께 갱신할 것.
       {
         source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      // 정적 이미지·favicon 도 같은 이유로 장기 캐시. Vercel 기본(max-age=0)이면 새로고침마다 이미지 10여 건이
+      // 조건부 재검증 왕복을 하고 favicon(27KB)은 통째로 다시 받는다 — 실측 기준.
+      // 확장자 앞의 `.` 은 필수다: Next 문서의 `/:all*(svg|jpg|png)` 그대로 쓰면 마지막 세그먼트가 그 글자로
+      // "끝나기만 하면" 걸려, 초대 코드(`/join/ABCPNG` 같은 Crockford 6자)의 HTML 까지 1년 캐시된다.
+      // 같은 immutable 규약: 이미지를 교체할 때는 파일명을 바꾼다(og-image.png 포함).
+      {
+        source: '/:all*.(png|jpg|jpeg|webp|avif|gif|svg|ico)',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
     ];

@@ -108,9 +108,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 공개 모집 달력 — 개인화가 전혀 없어 앱 마이크로 캐시(60초 TTL) 대상이다. 캐시 값에는
      * displayStatus·effectivelyOpen 이 "조회 시점의 오늘"로 굳어 들어가므로, KST 자정 경계에서
      * 최대 TTL 초 낡은 표시가 가능하다 — 클럽 목록 캐시와 동일하게 수용한 정책이다.
+     * 같은 달의 동시 miss 는 로더(이 메서드 본문) 1회로 병합된다.
      */
     @Override
-    @Cacheable(cacheNames = PublicApiCacheConfig.RECRUITMENT_CALENDAR_CACHE)
+    @Cacheable(cacheNames = PublicApiCacheConfig.RECRUITMENT_CALENDAR_CACHE, sync = true)
     public List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth) {
         LocalDate periodStart = yearMonth.atDay(1);
         LocalDate periodEnd = yearMonth.atEndOfMonth();

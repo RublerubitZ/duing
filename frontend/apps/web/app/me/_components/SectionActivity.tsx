@@ -46,7 +46,7 @@ export function SectionActivity({ stats, timeline }: Props) {
                 {stat.label}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-display text-[34px] font-bold text-ink-deep">{stat.value}</span>
+                <span className="text-[34px] font-bold text-ink-deep">{stat.value}</span>
                 <span className="text-[14px] text-charcoal-2 font-semibold">{stat.unit}</span>
               </div>
               <div className="text-[11.5px] text-charcoal-3 mt-1.5">{stat.hint}</div>
@@ -73,7 +73,7 @@ export function SectionActivity({ stats, timeline }: Props) {
                   borderBottom: index < timeline.length - 1 ? '1px solid var(--gray-line)' : 'none',
                 }}
               >
-                <div className="font-mono text-[12.5px] text-charcoal-3 font-semibold">{entry.date}</div>
+                <div className="tabular-nums text-[12.5px] text-charcoal-3 font-semibold">{entry.date}</div>
                 <span className="pill text-[10.5px]">{entry.club}</span>
                 <div>
                   <div className="text-[13.5px] font-semibold text-ink-deep">{entry.title}</div>

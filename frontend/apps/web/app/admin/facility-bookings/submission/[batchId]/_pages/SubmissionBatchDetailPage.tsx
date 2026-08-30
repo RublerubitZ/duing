@@ -25,8 +25,10 @@ import { SubmissionAuditHistory } from '../../_components/SubmissionAuditHistory
 import { SubmissionDetailSheet } from '../../_components/SubmissionDetailSheet';
 import { SubmissionTimetable } from '../../_components/SubmissionTimetable';
 import { buildClubGroups } from '../../_lib/submissionGroups';
+import { buildFacilitySections } from '../../_lib/submissionSections';
 import {
   BATCH_STATUS_META,
+  batchFacilityLabel,
   batchTitle,
   deriveBatchStatus,
   submissionCsvFileName,
@@ -155,10 +157,12 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
       {detail !== undefined && (() => {
         const status = deriveBatchStatus(detail.batch);
         const statusMeta = BATCH_STATUS_META[status];
-        const facilityLabel = detail.batch.facilityName ?? `시설 ${detail.batch.facilityId}`;
+        const facilityLabel = batchFacilityLabel(detail.batch);
         const memoText =
           detail.batch.memo !== null && detail.batch.memo.trim() !== '' ? detail.batch.memo : '-';
         const groups = buildClubGroups(detail.bookings);
+        // 시간표 뷰 시설 분할(v2 §5) — 다시설 배치가 한 그리드에 뭉개지지 않게 시설별로 나눈다.
+        const facilitySections = buildFacilitySections(detail.bookings);
         // 시간표의 selectable 블록 클릭(onToggleSelect)도 상세 Sheet 로 흘려 전 블록을 읽기 전용화한다.
         const openBookingDetail = (targetBookingId: number) => {
           const booking = detail.bookings.find((item) => item.bookingId === targetBookingId);
@@ -172,7 +176,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 {/* 메모=제목 승격(개편 스펙 §7) — 메모가 있으면 제목, 제출번호는 서브 표기로 내린다. */}
                 <h1 className="text-[22px] font-bold text-ink">{batchTitle(detail.batch)}</h1>
                 {batchTitle(detail.batch) !== detail.batch.submissionNo && (
-                  <span className="font-mono text-xs text-charcoal-3">{detail.batch.submissionNo}</span>
+                  <span className="tabular-nums text-xs text-charcoal-3">{detail.batch.submissionNo}</span>
                 )}
                 <StatusPill label={statusMeta.label} className={statusMeta.badgeClass} />
               </div>
@@ -260,8 +264,8 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                               onClick={() => setDetailBooking(booking)}
                               className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sage-mist/40"
                             >
-                              <span className="font-mono text-xs text-charcoal">{booking.reservationDate}</span>
-                              <span className="font-mono text-xs text-charcoal">
+                              <span className="tabular-nums text-xs text-charcoal">{booking.reservationDate}</span>
+                              <span className="tabular-nums text-xs text-charcoal">
                                 {bookingTimeLabel(booking.startTime, booking.endTime)}
                               </span>
                               <span className="max-w-40 truncate text-charcoal-2">{booking.purpose}</span>
@@ -280,13 +284,24 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 })}
               </ul>
             ) : (
-              <SubmissionTimetable
-                bookings={detail.bookings}
-                facilityName={facilityLabel}
-                selection={EMPTY_SELECTION}
-                onToggleSelect={openBookingDetail}
-                onShowDetail={setDetailBooking}
-              />
+              /* 시설별 섹션 루프(준비 탭 동일 패턴) — legacy 단일 시설 배치는 섹션 1개라
+                 시설 헤더 없이 기존과 같은 단일 그리드로 렌더된다. */
+              <ul className="space-y-4">
+                {facilitySections.map((section) => (
+                  <li key={section.facilityId}>
+                    {facilitySections.length > 1 && (
+                      <h2 className="mb-1 text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
+                    )}
+                    <SubmissionTimetable
+                      bookings={section.bookings}
+                      facilityName={section.facilityName}
+                      selection={EMPTY_SELECTION}
+                      onToggleSelect={openBookingDetail}
+                      onShowDetail={setDetailBooking}
+                    />
+                  </li>
+                ))}
+              </ul>
             )}
 
             <section className="mt-8">

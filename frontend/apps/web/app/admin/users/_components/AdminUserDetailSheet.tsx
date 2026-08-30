@@ -172,7 +172,7 @@ export function AdminUserDetailSheetContent({
                   {/* 동아리 이니셜 블록 — 이름 바로 옆이라 읽어주면 중복이 된다. */}
                   <span
                     aria-hidden
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-ink-deep font-mono text-[13px] font-bold text-paper"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-ink-deep tabular-nums text-[13px] font-bold text-paper"
                   >
                     {club.clubName.slice(0, 1)}
                   </span>

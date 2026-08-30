@@ -239,11 +239,16 @@ export function periodDistribution(slots: BookingAvailabilitySlot[]): PeriodDist
 export type DayBookingEntryKind = 'SCHOOL' | 'INTERNAL' | 'PENDING';
 export type DayBookingEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind };
 
-// 슬롯 → 예약 건(라벨·종류). AVAILABLE·PAST 는 현황 카드에 포함하지 않으므로 null.
-function bookingEntryOf(slot: BookingAvailabilitySlot): Pick<DayBookingEntry, 'label' | 'kind'> | null {
+/**
+ * 슬롯 → 예약 건(라벨·종류). AVAILABLE·PAST 는 현황 카드에 포함하지 않으므로 null.
+ * fail-closed(전면 차단 설계 수정 7): 예약 가능 여부는 status 만이 결정한다 — blockedBy 는 표시 라벨
+ * 전용이며, 미지의 blockedBy 값도 BLOCKED 표시를 유지한다(INTERNAL 계열 '예약됨' 폴백, AVAILABLE 전환 금지).
+ */
+export function bookingEntryOf(
+  slot: BookingAvailabilitySlot,
+): Pick<DayBookingEntry, 'label' | 'kind'> | null {
   if (slot.status === 'BLOCKED') {
-    // organization 이 오면 소스(SCHOOL/INTERNAL) 무관 동아리명 노출(§4⁗.1 정책 반전), 없으면 "예약됨"
-    // 폴백 — 구 백엔드 응답에서도 동작(fail-open). kind 는 소스 구분을 그대로 유지한다.
+    // SCHOOL 은 organization 이 있을 때만(§4⁗.1 정책 반전), 그 외·미지값은 INTERNAL 계열 폴백 — 어느 쪽이든 차단 표시다.
     const kind: DayBookingEntryKind = slot.blockedBy === 'SCHOOL' && slot.organization ? 'SCHOOL' : 'INTERNAL';
     // ||: 빈 문자열 organization(계약상 퇴화 입력)도 폴백 — kind 판정(truthy)과 기준 일치
     return { label: slot.organization || '예약됨', kind };
@@ -278,9 +283,10 @@ export function dayBookingEntries(slots: BookingAvailabilitySlot[]): DayBookingE
 export type DayUsageEntry = { start: string; end: string; label: string; kind: DayBookingEntryKind | 'OPERATING' };
 
 /**
- * 사용 중 행: 운영 노트(기본 확보)는 자르지 않고 통짜 그대로, 예약 건(BLOCKED·PENDING 병합)과 함께
- * 시작 시각순으로 합친다(동률이면 기본 확보를 앞에 — 담는 창을 먼저 읽는다). 구간 겹침은 허용 —
- * 카드가 "기본 확보 창 안의 예약"이라는 계층으로 읽히는 구조라 절단하지 않는다.
+ * 사용 중 행: 확보 노트(기본 확보 — 비차단 정보, 스펙 §3 복원)는 자르지 않고 통짜 그대로,
+ * 예약 건(BLOCKED·PENDING 병합)과 함께 시작 시각순으로 합친다(동률이면 기본 확보를 앞에 —
+ * 담는 창을 먼저 읽는다). 구간 겹침은 허용 — 카드가 "기본 확보 창 안의 예약"이라는 계층으로
+ * 읽히는 구조라 절단하지 않는다.
  */
 export function dayUsageEntries(
   slots: BookingAvailabilitySlot[],
@@ -301,7 +307,7 @@ export function dayUsageEntries(
 export type AvailableRun = { start: string; end: string; slotCount: number };
 
 /**
- * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다 — 기본 확보(운영 노트)
+ * 예약 가능 구간: 하루 전체 시간축 기준으로 AVAILABLE 슬롯을 인접 병합한다 — 기본 확보(확보 노트)
  * 여부와 무관하다(기본 확보 시간도 예약 가능 시간이다). BLOCKED·PENDING_HOLD·PAST 는 구간을 끊는다.
  */
 export function availableRuns(slots: BookingAvailabilitySlot[]): AvailableRun[] {

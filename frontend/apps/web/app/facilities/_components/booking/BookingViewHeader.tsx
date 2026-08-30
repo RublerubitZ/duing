@@ -27,9 +27,9 @@ const MONTH_LEGEND: LegendItem[] = (['HIGH', 'MID', 'LOW', 'FULL'] as const).map
   level,
 }));
 
-// 주간 범례(§2·§10.1) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 기본 확보 시간=sky 점선 가이드 셀, 대기=warm.
+// 주간 범례(§2) — 가능=sage, 예약됨=파스텔 대표 1색(확정 예약 블록), 기본 확보 시간=점선 가이드 셀(비차단), 대기=warm.
 // 예약됨은 파스텔 팔레트를 순환하지만 범례는 대표 1색(mint)으로 "확정 예약" 을 안내한다.
-// 기본 확보 시간 스와치는 그리드 가이드 셀과 정합하도록 점선(border-dashed) + 연한 sky 로 표기한다(§10.1).
+// 기본 확보 시간 스와치는 그리드 가이드 셀과 정합하도록 점선(border-dashed) + sage 로 표기한다(스펙 §3 복원).
 const WEEK_LEGEND: LegendItem[] = [
   { label: '가능', barClass: 'bg-sage-mist' },
   { label: '예약됨', barClass: 'bg-pastel-mint' },
@@ -73,7 +73,7 @@ export function BookingViewHeader({ view, onChangeView, periodLabel, onPrev, onN
           >
             ←
           </button>
-          <h2 className="min-w-[7.5rem] text-center font-display text-lg text-ink-deep">{periodLabel}</h2>
+          <h2 className="min-w-[7.5rem] text-center text-lg text-ink-deep">{periodLabel}</h2>
           <button
             type="button"
             aria-label={view === 'month' ? '다음 달' : '다음 주'}

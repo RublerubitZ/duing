@@ -99,12 +99,12 @@ function expiredSession(path: string) {
 // 첫 렌더부터 그 값으로 그린다. 자리표시가 다시 생기면 metric 2(레이아웃 시프트·깜빡임)가
 // 되살아나므로, DOM 에 존재하지 않음까지 단언한다.
 describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', () => {
-  it('미인증 시드면 즉시 로그인·가입하기이고 확인 중 자리표시는 아예 없다(metric 2)', () => {
+  it('미인증 시드면 즉시 로그인·회원가입이고 확인 중 자리표시는 아예 없다(metric 2)', () => {
     setAuthStatus('unauthenticated');
     renderWithProviders(<HomeNavAuthSlot />);
 
     expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '가입하기' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '회원가입' })).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 

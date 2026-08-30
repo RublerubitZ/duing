@@ -153,7 +153,7 @@ function SideItem({ icon, label, count, active = false, onClick }: SideItemProps
       <span style={{ flex: 1 }}>{label}</span>
       {count !== undefined && (
         <span style={{
-          fontSize: 12, fontFamily: 'var(--font-mono)',
+          fontSize: 12, fontVariantNumeric: 'tabular-nums',
           color: active ? 'var(--ink)' : 'var(--charcoal-3)',
           fontWeight: active ? 700 : 500,
         }}>{count}</span>
@@ -499,7 +499,7 @@ export function NoticePage() {
                               }}>🏛 {n.clubName ?? '동아리 공지'}</span>
                             )}
                             <span style={{
-                              fontSize: 12, fontFamily: 'var(--font-mono)',
+                              fontSize: 12, fontVariantNumeric: 'tabular-nums',
                               color: isDark ? 'rgba(255,255,255,0.5)' : 'var(--charcoal-3)',
                             }}>{formatDate(n.createdAt)}</span>
                             {isNewItem(n.createdAt) && (
@@ -612,7 +612,7 @@ export function NoticePage() {
                   >
                     <span className="nr-no" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
-                      fontFamily: 'var(--font-mono)',
+                      fontVariantNumeric: 'tabular-nums',
                     }}>
                       {String(n.id).padStart(4, '0')}
                     </span>
@@ -647,7 +647,7 @@ export function NoticePage() {
                     </span>
                     <span className="nr-date" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
-                      fontFamily: 'var(--font-mono)',
+                      fontVariantNumeric: 'tabular-nums',
                     }}>{formatDate(n.createdAt)}</span>
                   </Link>
                 ))}

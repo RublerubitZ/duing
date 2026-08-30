@@ -56,6 +56,8 @@ export type FacilityDetailResponse = {
 // ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
 
 export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
+// 기본 확보 시간(총동연 지정 대상)은 비차단(2026-08-27 전환) — 확보 슬롯은 AVAILABLE 로 내려와 blockedBy 가 없다.
+// fail-closed 계약: 예약 가능 여부는 status 만이 결정한다 — 미지의 blockedBy 값도 BLOCKED 표시를 유지한다.
 export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
 export type BookingDayStatus = 'AVAILABLE' | 'FULL' | 'PAST';
 
@@ -69,6 +71,9 @@ export type BookingAvailabilitySlot = {
   organization?: string;
 };
 
+// 기본 확보 시간 정보 행(비차단, 스펙 §3 복원 2026-08-27) — BE 가 BASIC_SECURED_TIME 분류 슬라이스에서
+// (단체, 시작, 끝) distinct 로 채운다. 표시 전용(설명 박스·점선 셀·"(기본 확보)" 표기)이며 예약 가능 여부와 무관.
+// 구응답은 빈 배열 → 표시만 생략(fail-soft).
 export type BookingOperatingNote = {
   organization: string;
   start: string; // HH:mm
@@ -246,11 +251,15 @@ export type FacilityBookingConflictPayload = {
   crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
 };
 
+/** 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다. */
+export type AdminBookingQueueSort = 'DEFAULT' | 'USAGE_ASC';
+
 export type AdminBookingQueueParams = {
   status?: BookingStatus;
   facilityId?: number;
   dateFrom?: string; // yyyy-MM-dd
   dateTo?: string;
+  sort?: AdminBookingQueueSort; // 생략 = DEFAULT
   page?: number;
   size?: number;
 };

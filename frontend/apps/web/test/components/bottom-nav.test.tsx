@@ -19,7 +19,7 @@ describe('BottomNav', () => {
 
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(5);
-    expect(screen.getByRole('link', { name: '정보' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '소식' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
@@ -75,7 +75,7 @@ describe('BottomNav', () => {
   it('공지 목록(/notices)에서는 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/notices');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('개인영역(/me)에서는 렌더링하지 않는다', () => {
@@ -87,13 +87,13 @@ describe('BottomNav', () => {
   it('서비스 소개(/introduce)는 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/introduce');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('자주 묻는 질문(/faq)은 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/faq');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('유사 접두 경로(/notifications)를 공지로 오매칭하지 않는다', () => {
@@ -105,27 +105,27 @@ describe('BottomNav', () => {
   it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/terms');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('정보 탭은 마지막 방문 허브 경로로 이동한다', () => {
     window.localStorage.setItem('duing:info-last-path', '/terms');
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/terms');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/terms');
   });
 
   it('방문 이력이 없으면 정보 탭은 /notices 로 이동한다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/notices');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
   });
 
   it('허브 페이지에서 정보 탭은 직전 허브가 아니라 현재 페이지로 이동한다', () => {
     window.localStorage.setItem('duing:info-last-path', '/terms');
     mockUsePathname.mockReturnValue('/faq');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '정보' })).toHaveAttribute('href', '/faq');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/faq');
   });
 
   // 같은 탭이 활성/비활성에서 서로 다른 아이콘(아웃라인 ↔ 채움)을 그려야 한다.

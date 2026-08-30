@@ -13,8 +13,12 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -63,6 +67,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository facilityReservationRepository;
+    @Autowired FacilityMonthSnapshotRepository snapshotRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
@@ -135,29 +140,117 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("승인 시 크롤 점유행과 겹치면 SchoolConflict 409, 운영행 겹침은 승인된다")
+    @DisplayName("부분 파싱으로 세대 성공 집합에서 빠진 시설의 승인은 크롤 기준 시각을 월 메타 세대가 아니라 실제 보유 행의 최종 반영 시각으로 남긴다")
+    void approveFallsBackToRowCrawledAtWhenFacilityIsNotSyncedInGeneration() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        // 이 시설의 행은 구세대(1시간 전)에 마지막으로 반영됐고, 월 메타는 그 뒤 부분 파싱 세대(PARTIAL)로 갱신됐다.
+        LocalDateTime rowCrawledAt = LocalDateTime.now().withNano(0).minusHours(1);
+        LocalDateTime partialGeneration = rowCrawledAt.plusHours(1);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, rowCrawledAt));
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, partialGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(partialGeneration, CrawlSource.SCHEDULER, FetchStatus.PARTIAL,
+                "예약 부분 파싱 실패: skipped=1", List.of()); // 부분 파싱 시설은 세대 성공 집합에 들지 않는다
+        snapshotRepository.save(snapshot);
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        FacilityBooking approved = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(approved.getStatus()).isEqualTo(BookingStatus.APPROVED);
+        assertThat(approved.getCrawlBasisAt()).isEqualTo(rowCrawledAt); // 스냅샷 세대(partialGeneration)가 아니다
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).get(0).getCrawlBasisAt())
+                .isEqualTo(rowCrawledAt);
+    }
+
+    @Test
+    @DisplayName("승인 시 크롤 실예약 행과 겹치면 SchoolConflict 409, 어떤 행과도 겹치지 않는 신청만 승인된다")
     void approveRevalidatesAgainstSchoolRows() throws Exception {
         Fixture fixture = fixture();
         User admin = saveUser("총동연");
         LocalDate date = bookableDate();
         Long blocked = pendingBooking(fixture, date, 18, 20);
-        // 신청 이후에 학교 점유행(꼬리 없음)이 크롤로 유입된 상황
+        // 신청 이후에 학교 실예약 행(꼬리 없음)이 크롤로 유입된 상황
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", null, null, LocalDateTime.now()));
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", false, LocalDateTime.now()));
 
         assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
                 .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
 
-        // 운영행(꼬리 있음)만 겹치는 다른 신청은 승인된다
-        Long allowed = pendingBooking(fixture, date, 9, 11);
+        // 물결 꼬리에서 확장된 행 — 확보 대상 미지정 이름이라 CRAWLED 폴백, 겹치는 승인은 409 다.
+        Long expandedBlocked = pendingBooking(fixture, date, 9, 11);
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(9, 0), LocalTime.of(10, 0), "고정관념",
-                LocalTime.of(9, 0), LocalTime.of(20, 0), LocalDateTime.now()));
+                LocalTime.of(9, 0), LocalTime.of(12, 0), "고정관념", true, LocalDateTime.now()));
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), expandedBlocked))
+                .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
+
+        // 어떤 크롤 행과도 겹치지 않는 신청은 승인된다.
+        Long allowed = pendingBooking(fixture, date, 13, 15);
         adminService.approve(admin.getId(), allowed);
         assertThat(bookingRepository.findById(allowed).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("확보 행과만 겹치는 승인은 409 없이 성공하고, 실예약 행이 함께 겹치면 conflicts 에 실예약 행만 실린다")
+    void approveIgnoresSecuredRowsAndExcludesThemFromConflictPayload() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+        // 확보 동아리 상시 확보 물결 행 9~22 — 승인 재검증의 차단 대상이 아니다(확보 시간 비차단 전환).
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(9, 0), LocalTime.of(22, 0), securedClub.getName(), true, LocalDateTime.now()));
+
+        Long allowed = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), allowed);
+        assertThat(bookingRepository.findById(allowed).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+
+        // 실예약 행이 함께 겹치면 409 — 승인 불가 사유 목록(conflicts)에 확보 행은 실리지 않는다.
+        Long blocked = pendingBooking(fixture, date, 13, 15);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(13, 0), LocalTime.of(14, 0), "문화팀", false, LocalDateTime.now()));
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
+                .isInstanceOfSatisfying(FacilityBookingException.SchoolConflictException.class,
+                        conflict -> assertThat(conflict.getConflicts())
+                                .extracting(FacilityBookingException.SchoolConflictException.ConflictItem::organization)
+                                .containsExactly("문화팀"));
+    }
+
+    @Test
+    @DisplayName("확보 대상 동아리의 무꼬리 실예약 행과 겹치는 승인은 409 다 — 비차단은 물결 확보 행에만 적용된다")
+    void approveConflictsWithSecuredClubRealReservationRow() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Club securedClub = saveActiveClub("확보동아리");
+        securedClub.changeFacilitySecuredTimeTarget(true);
+        clubRepository.save(securedClub);
+
+        Long blocked = pendingBooking(fixture, date, 18, 20);
+        // 확보 동아리 이름이지만 꼬리 없는 실예약 행 — 행 단위 분류로 CRAWLED(차단 복귀), 승인 재검증에 걸린다.
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), securedClub.getName(), false, LocalDateTime.now()));
+
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
+                .isInstanceOfSatisfying(FacilityBookingException.SchoolConflictException.class,
+                        conflict -> assertThat(conflict.getConflicts())
+                                .extracting(FacilityBookingException.SchoolConflictException.ConflictItem::organization)
+                                .containsExactly(securedClub.getName()));
     }
 
     @Test
@@ -172,7 +265,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         // 이 시나리오에서 학교 점유 재검증을 걸면 수동 확정이 필요한 모든 경우가 409 가 된다(2026-07-17 감사).
         facilityReservationRepository.save(FacilityReservation.create(
                 fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
-                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", null, null, LocalDateTime.now()));
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "두잉 대관동아리(중앙)", false, LocalDateTime.now()));
 
         adminService.confirmManually(admin.getId(), approved);
 

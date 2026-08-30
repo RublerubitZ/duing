@@ -464,7 +464,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             <div className="mb-2.5 rounded-[13px] border border-line bg-cream p-4">
               <div className="text-[12.5px] font-bold text-charcoal-2">외부 폼 URL</div>
               {initialData.externalFormUrl && (
-                <div className="mt-1 break-all font-mono text-xs text-charcoal-3">
+                <div className="mt-1 break-all tabular-nums text-xs text-charcoal-3">
                   {initialData.externalFormUrl}
                 </div>
               )}

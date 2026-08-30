@@ -5,6 +5,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.DataSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
@@ -30,6 +31,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -68,12 +70,16 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
         DataSource source = facilityCrawlService.ensureFresh(targetMonth);
 
-        List<CrawlSlice> crawlSlices = facilityReservationRepository
-                .findByFacilityIdAndYearMonth(facility.getId(), targetMonth).stream()
+        // 분류가 차단 여부를 가른다(실예약만 차단·확보 시간 비차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다.
+        List<FacilityReservation> crawlRows =
+                facilityReservationRepository.findByFacilityIdAndYearMonth(facility.getId(), targetMonth);
+        Set<String> securedOrganizationKeys =
+                crawlRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
+        List<CrawlSlice> crawlSlices = crawlRows.stream()
                 .map(reservation -> new CrawlSlice(
                         reservation.getReservationDate(), reservation.getStartTime(), reservation.getEndTime(),
-                        reservation.getOrganizationName(), availabilityPolicy.classify(reservation),
-                        reservation.getReservedStartTime(), reservation.getReservedEndTime()))
+                        reservation.getOrganizationName(),
+                        availabilityPolicy.classify(reservation, securedOrganizationKeys)))
                 .toList();
 
         List<BookingSlice> bookingSlices = toBookingSlices(facility.getId(), targetMonth);

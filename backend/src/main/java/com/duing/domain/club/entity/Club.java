@@ -137,6 +137,13 @@ public class Club extends BaseEntity {
     @Column(name = "use_generation", nullable = false)
     private boolean useGeneration;
 
+    /**
+     * 시설 크롤 예약을 기본 확보 시간(BASIC_SECURED_TIME)으로 자동 분류할지 여부(총동연 설정, V116).
+     * 시간 값이 아니라 분류 정책이다 — 크롤 행의 실제 시간 범위를 그대로 쓰며, 분류는 조회 시점에 파생된다.
+     */
+    @Column(name = "facility_secured_time_target", nullable = false)
+    private boolean facilitySecuredTimeTarget;
+
     @Column(name = "last_verified_year")
     private Integer lastVerifiedYear;
 
@@ -279,6 +286,10 @@ public class Club extends BaseEntity {
 
     public void changeUseGeneration(boolean next) {
         this.useGeneration = next;
+    }
+
+    public void changeFacilitySecuredTimeTarget(boolean next) {
+        this.facilitySecuredTimeTarget = next;
     }
 
     public void updateLastVerifiedYear(int year) {

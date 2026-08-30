@@ -44,7 +44,7 @@ export function ClubDetailPhotos({ photos }: Props) {
                 className="h-full w-full object-cover"
               />
               {showOverlay && (
-                <div className="absolute inset-0 grid place-items-center rounded-[14px] bg-ink/70 font-display text-[22px] font-bold text-white">
+                <div className="absolute inset-0 grid place-items-center rounded-[14px] bg-ink/70 text-[22px] font-bold text-white">
                   +{remainder}
                 </div>
               )}

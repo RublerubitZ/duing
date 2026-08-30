@@ -30,7 +30,7 @@ export function AdminSlotStrip({ startTime, endTime, overlaps }: Props) {
           const visual = cellVisual(cell);
           return (
             <div key={cell.hour} className="min-w-0 flex-1 text-center">
-              <p className="mb-1 font-mono text-[10px] leading-none text-charcoal-3">{cell.hour}시</p>
+              <p className="mb-1 tabular-nums text-[10px] leading-none text-charcoal-3">{cell.hour}시</p>
               <div
                 title={`${cell.hour}:00${cell.overlapOrganization !== null ? ` · ${cell.overlapOrganization}` : ''}`}
                 className={`flex h-[52px] items-center justify-center overflow-hidden rounded-sm px-0.5 ${visual.tone}`}

@@ -23,7 +23,7 @@ export function BeforeAfter() {
     <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
       <div className="mx-auto max-w-layout">
         <FadeIn>
-          <p className="mb-4 font-mono text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
+          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             FOR LEADERS · 동아리를 운영한다면
           </p>
           <h2 className="mb-3 max-w-[820px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)' }}>
@@ -49,7 +49,7 @@ export function BeforeAfter() {
                     style={{ transform: `rotate(${item.tilt})` }}
                   >
                     <span className="text-[14px] font-semibold text-charcoal-2">{item.tool}</span>
-                    <span className="font-mono text-[11.5px] text-charcoal-3">{item.task}</span>
+                    <span className="tabular-nums text-[11.5px] text-charcoal-3">{item.task}</span>
                   </div>
                 ))}
               </div>

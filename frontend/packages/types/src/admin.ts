@@ -20,9 +20,51 @@ export type AdminClubSummary = {
   leaderName: string | null;
   leaderStudentId: string | null;
   centralClub: boolean;
+  // 기본 확보 시간 대상(시설 크롤 자동 분류 정책) — ON 이면 이 동아리의 크롤 예약이 BASIC_SECURED_TIME 으로
+  // 분류되어 해당 시간대의 예약 차단이 해제된다(비차단 전환 2026-08-27).
+  facilitySecuredTimeTarget: boolean;
   rejectionReason: string | null;
   statusChangedAt: string | null;
   statusChangedByName: string | null;
+};
+
+// === 어드민 크롤 예약 현황(전면 차단 설계 §3.6) — 그룹 단위 페이징 ===
+
+export type AdminCrawlGroupBy = 'CLUB' | 'FACILITY' | 'FACILITY_DATE';
+
+/** 크롤 예약=차단, 기본 확보 시간=비차단(신청 가능) — 배지는 그 구분 표시다(BASIC_SECURED_TIME=총동연 지정 대상). */
+export type AdminCrawlClassification = 'CRAWLED_RESERVATION' | 'BASIC_SECURED_TIME';
+
+export type AdminCrawlReservation = {
+  reservationId: number;
+  facilityId: number;
+  facilityName: string | null;
+  organizationName: string;
+  reservationDate: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  classification: AdminCrawlClassification;
+  matchedClubId?: number;
+  matchedClubName?: string;
+  crawledAt: string; // ISO datetime
+};
+
+export type AdminCrawlReservationGroup = {
+  groupType: 'CLUB' | 'EXTERNAL' | 'FACILITY' | 'FACILITY_DATE';
+  clubId?: number;
+  facilitySecuredTimeTarget?: boolean;
+  facilityId?: number;
+  reservationDate?: string;
+  title: string;
+  reservations: AdminCrawlReservation[];
+};
+
+export type AdminCrawlReservationParams = {
+  yearMonth?: string; // yyyy-MM, 당월·익월만 허용
+  facilityId?: number;
+  groupBy?: AdminCrawlGroupBy;
+  page?: number;
+  size?: number;
 };
 
 export type AdminClubSearchParams = {

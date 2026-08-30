@@ -32,7 +32,7 @@ export function RelatedNotices({ category, currentId }: Props) {
               {NOTICE_CATEGORY_LABEL[item.category]}
             </span>
             <div className="text-[13.5px] font-semibold text-charcoal leading-snug mb-1">{item.title}</div>
-            <div className="font-mono text-[11.5px] text-charcoal-3">{formatPublishedDate(item.createdAt)}</div>
+            <div className="tabular-nums text-[11.5px] text-charcoal-3">{formatPublishedDate(item.createdAt)}</div>
           </Link>
         ))}
       </div>

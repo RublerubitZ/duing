@@ -1,11 +1,14 @@
 package com.duing.domain.club.controller;
 
 import com.duing.domain.club.api.ClubApi;
+import com.duing.domain.club.controller.dto.request.RecordClubViewRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubRequest;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
+import com.duing.domain.club.controller.dto.response.ClubStatsResponse;
 import com.duing.domain.club.controller.dto.response.ClubSummaryResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.metric.service.ClubViewService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
@@ -16,6 +19,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -39,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClubController implements ClubApi {
 
     private final ClubService clubService;
+    private final ClubViewService clubViewService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<ClubSummaryResponse>>> getClubs(
@@ -81,6 +86,30 @@ public class ClubController implements ClubApi {
         return ResponseEntity.ok()
                 .cacheControl(cacheControl)
                 .body(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ClubStatsResponse>> getClubStats() {
+        ClubStatsResponse response = ClubStatsResponse.from(clubService.getStats());
+        // 홈(ISR 10분)과 login/signup 이 함께 쓰는 공개 집계다. 동아리 수·모집 수는 분 단위로 바뀌지
+        // 않으므로 목록 조회와 같은 60초 공유 캐시를 둔다 — 사용자별 필드가 없어 cachePublic 이 안전하다.
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic())
+                .body(ApiResponse.success(response));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> recordClubView(
+            @PathVariable Long clubId,
+            @Valid @RequestBody RecordClubViewRequest recordClubViewRequest,
+            HttpServletRequest httpServletRequest
+    ) {
+        // permitAll 경로 — 로그인 여부와 무관하게 방문자 키로만 집계한다(로그인 사용자도 같은 키를 쓴다).
+        // clientIp 는 익명 경로의 총량 상한 축. 프록시 뒤에서는 forward-headers-strategy=native 가
+        // 신뢰 프록시의 X-Forwarded-For 만 반영하므로 getRemoteAddr() 이 위조 불가한 유일한 출처다.
+        clubViewService.recordView(
+                recordClubViewRequest.toCommand(clubId, httpServletRequest.getRemoteAddr()));
+        return ResponseEntity.noContent().build();
     }
 
     @Override

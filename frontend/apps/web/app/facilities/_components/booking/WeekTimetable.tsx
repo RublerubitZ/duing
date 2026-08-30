@@ -56,27 +56,28 @@ type PlanBlock = {
   rowSpan: number;
   reachesBottom: boolean;
 };
-// operating: 운영 노트 구간에 속한 셀(§8.1 정정) — AVAILABLE 이면 sky 상태색 선택 가능 셀로 렌더.
+// operating: 확보 노트 구간에 완전 포함된 셀(스펙 §3 복원) — AVAILABLE 이면 점선 가이드 셀(선택 가능)로 렌더.
 type PlanCell = { type: 'cell'; slot: BookingAvailabilitySlot; operating: boolean };
 type PlanEmpty = { type: 'empty' };
 type PlanCovered = { type: 'covered' };
 type PlanEntry = PlanBlock | PlanCell | PlanEmpty | PlanCovered;
 
-// 셀 상태(§4·§10.1) — 가능=sage 셀·기본 확보 시간=sky 점선 가이드 셀(둘 다 탭)·PAST=gray·창 밖=gray.
+// 셀 상태(§4) — 가능=sage 셀·기본 확보 시간=sage 점선 가이드 셀(둘 다 탭)·PAST=gray·창 밖=gray.
 // BLOCKED/PENDING 은 블록으로 승격.
 type CellState = { statusText: string; toneClass: string; selectable: boolean };
 
 const hourIndexOf = (time: string) => Number(time.slice(0, 2)) - 9;
 
-// 운영 노트 구간 판정(슬롯이 노트에 완전 포함) — 기본 확보 시간 sky 가이드 셀 판정용.
+// 확보 노트 구간 판정(슬롯이 노트에 완전 포함일 때만 true — 부분 겹침은 일반 가용 셀) — 점선 가이드 셀 판정용.
 function isWithinOperating(slot: BookingAvailabilitySlot, operatingNotes: BookingOperatingNote[]): boolean {
   return operatingNotes.some((note) => slot.start >= note.start && slot.end <= note.end);
 }
 
 /**
- * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을 rowSpan 블록으로,
- * 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 운영 구간은 블록이 아니라 셀의 operating 플래그(2026-07-17 정정
- * — sky 상태색 선택 가능 셀). 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만(기존 게이팅 유지). 길이 13(09~21시).
+ * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을
+ * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
+ * 셀의 operating 플래그(비차단 정보 표시 — 점선 장식, 스펙 §3 복원).
+ * 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만. 길이 13(09~21시).
  */
 function buildColumnPlan(
   day: BookingDayAvailability | undefined,
@@ -115,8 +116,8 @@ function buildColumnPlan(
 
 /**
  * 주간 타임테이블(§4·§8·목업 F3) — 좌측 시간 라벨 열 + 7일 컬럼(월~일) 그리드.
- * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm, PC 비인터랙티브), AVAILABLE 은 선택 가능 셀 —
- * 운영 노트 구간이면 sky 상태색, 밖이면 sage(동작 동일: 탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
+ * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브), AVAILABLE 은 선택 가능 셀 —
+ * 확보 노트 구간이면 점선 sage 가이드, 밖이면 sage(동작 동일: 탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
  * 선택일 컬럼은 ink 프레임 + sage tint 로 강조하고, 블록이 여러 행을 차지해도 컬럼 좌우 보더가 이어진다.
  * 차단·지난·창 밖·데이터 없음은 비활성.
  */
@@ -179,7 +180,7 @@ export function WeekTimetable({
                       {WEEKDAY_LABELS[colIndex]}
                     </span>
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12px] font-bold ${
+                      className={`flex h-6 w-6 items-center justify-center rounded-full tabular-nums text-[12px] font-bold ${
                         isSelectedColumn ? 'bg-ink text-cream' : 'text-charcoal'
                       }`}
                     >
@@ -198,8 +199,8 @@ export function WeekTimetable({
               <tr key={hour}>
                 <td className="pr-1 align-top text-right sm:pr-1.5">
                   {/* 모바일: HH 만(시간열 w-8), PC: HH:00 — §9.1. */}
-                  <span className="font-mono text-[10px] text-charcoal-3 sm:hidden">{pad2(hour)}</span>
-                  <span className="hidden font-mono text-[10px] text-charcoal-3 sm:inline">{pad2(hour)}:00</span>
+                  <span className="tabular-nums text-[10px] text-charcoal-3 sm:hidden">{pad2(hour)}</span>
+                  <span className="hidden tabular-nums text-[10px] text-charcoal-3 sm:inline">{pad2(hour)}:00</span>
                 </td>
                 {columns.map(({ iso, withinWindow, plan }, colIndex) => {
                   const entry = plan[rowIndex];
@@ -237,7 +238,7 @@ export function WeekTimetable({
                           <span className={`truncate text-[10px] font-bold sm:hidden ${visual.name}`}>{abbrev}</span>
                           {/* PC: 풀네임 Bold(1줄 말줄임) + 시간 범위 secondary — 2단계 정보 고정(격자 불변). */}
                           <span className={`hidden truncate text-[11px] font-bold sm:block ${visual.name}`}>{displayName}</span>
-                          <span className="hidden truncate font-mono text-[10px] text-charcoal-3 sm:block">
+                          <span className="hidden truncate tabular-nums text-[10px] text-charcoal-3 sm:block">
                             {entry.start}~{entry.end}
                           </span>
                         </button>
@@ -306,7 +307,7 @@ function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayN
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
-// 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(운영 구간=sky·밖=sage) 순. AVAILABLE 만 탭 가능(§4·§8.1 정정).
+// 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
 // BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
@@ -317,12 +318,13 @@ function cellStateOf(
   if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (status === 'AVAILABLE') {
-    // 운영 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(§10.1) — 색은 일반 가용 셀과 동일(sage),
-    // 점선 보더만 "안내" 신호. 동작(탭 선택·토글·선택 ink+✓)도 일반 가용 셀과 완전 동일.
+    // 확보 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(스펙 §3 복원) — 색은 일반 가용 셀과 동일(sage),
+    // 점선 보더만 "안내" 신호(장식). 동작(탭 선택·토글·선택 ink+✓)은 일반 가용 셀과 완전 동일 — status 단독 판정.
     // hover 는 가용 셀만: 배경 한 톤 진하게 + 보더 sage(선택 가능 어포던스, transition 은 버튼 공통 클래스).
     if (operating) return { statusText: '기본 확보 시간 · 예약 신청 가능', toneClass: 'border-dashed border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
     return { statusText: '가능', toneClass: 'border-sage-soft bg-sage-mist hover:border-sage hover:bg-sage-soft/60', selectable: true };
   }
-  // 방어적 폴백(BLOCKED·PENDING_HOLD 는 블록으로 렌더되어 셀 경로에 도달하지 않음).
+  // 방어적 폴백 — BLOCKED·PENDING_HOLD 는 블록으로 렌더되어 셀 경로에 도달하지 않지만, 도달해도
+  // 선택 불가(차단 유지)다. AVAILABLE 은 명시 status 로만 판정한다(fail-closed, 수정 7).
   return { statusText: '예약됨', toneClass: 'border-line bg-graysoft', selectable: false };
 }

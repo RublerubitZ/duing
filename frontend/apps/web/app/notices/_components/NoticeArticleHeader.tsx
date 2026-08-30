@@ -75,7 +75,7 @@ export function NoticeArticleHeader({
           </>
         ) : (
           <>
-            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 font-mono tracking-[0.08em]">DU</span>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 tabular-nums tracking-[0.08em]">DU</span>
             <div className="flex flex-col">
               <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
               <span className="text-[12px] text-charcoal-3">{NOTICE_CATEGORY_LABEL[category]} 채널</span>
@@ -83,7 +83,7 @@ export function NoticeArticleHeader({
           </>
         )}
         <span className="w-px h-7 bg-line mx-1" />
-        <span className="font-mono text-[12.5px] text-charcoal-3">{formatPublishedDate(createdAt)}</span>
+        <span className="tabular-nums text-[12.5px] text-charcoal-3">{formatPublishedDate(createdAt)}</span>
       </div>
     </header>
   );

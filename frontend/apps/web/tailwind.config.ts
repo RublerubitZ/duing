@@ -109,10 +109,10 @@ const config: Config = {
           foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
         },
       },
+      // 서체는 Pretendard 하나 — 위계는 weight 로 만든다(globals.css 상단 규약 참고).
+      // 숫자 정렬은 모노 서체가 아니라 tabular-nums 로 처리한다.
       fontFamily: {
-        display: ['GmarketSans', 'Pretendard', 'system-ui', 'sans-serif'],
         body: ['Pretendard', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'Menlo', 'monospace'],
       },
       borderRadius: {
         sm: '8px',
@@ -141,6 +141,9 @@ const config: Config = {
       },
       letterSpacing: {
         tightx: '-0.02em',
+        // 시안의 제목·카드 자간. Pretendard 는 큰 사이즈에서 -0.02em 보다 한 단계 더 조여야
+        // 시안과 같은 밀도로 읽힌다(디스플레이 서체를 걷어내면서 함께 맞춘 값).
+        tightest: '-0.03em',
         body: '-0.005em',
         wide04: '0.04em',
         wide06: '0.06em',
@@ -170,16 +173,6 @@ const config: Config = {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(100%)' },
         },
-        // 진입 오버슈트를 8px 로 둔다 — 16px 일 때 카드가 컨테이너 밖으로 잠깐(<0.1s) 새던 현상 완화.
-        // 컨테이너 overflow-hidden 은 프리뷰 버튼 포커스 링까지 잘라 a11y 를 해치므로 오버슈트 축소로 대응.
-        'preview-in': {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        'preview-in-reverse': {
-          '0%': { opacity: '0', transform: 'translateY(-8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
         'accordion-down': {
           from: { height: '0' },
           to: { height: 'var(--radix-accordion-content-height)' },
@@ -199,15 +192,12 @@ const config: Config = {
         'slide-out-left': 'slide-out-to-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
         'slide-in-left': 'slide-in-from-left 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
         'slide-out-right': 'slide-out-to-right 400ms cubic-bezier(0.32, 0, 0.2, 1) both',
-        'preview-in': 'preview-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
-        'preview-in-reverse': 'preview-in-reverse 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         marquee: 'marquee 30s linear infinite',
       },
     },
   },
-  safelist: ['animate-preview-in', 'animate-preview-in-reverse'],
   plugins: [tailwindcssAnimate],
 };
 

@@ -26,15 +26,24 @@ export const AUDIT_ACTION_LABELS: Record<SubmissionAuditEntry['action'], string>
   COMPLETED: '학교 제출 완료',
 };
 
+/** 시설 표기 단일 규칙(v2 §5) — facilityNames 우선, 구응답/legacy 는 facilityName, 둘 다 없으면 '-'. */
+export function batchFacilityLabel(
+  batch: Pick<SubmissionBatchSummary, 'facilityId' | 'facilityName' | 'facilityNames'>,
+): string {
+  if (batch.facilityNames !== undefined && batch.facilityNames.length > 0) return batch.facilityNames.join(' · ');
+  if (batch.facilityName !== null) return batch.facilityName;
+  return batch.facilityId !== null ? `시설 ${batch.facilityId}` : '-';
+}
+
 /** BE 저장 규칙과 동일(FacilitySubmissionBatch: "facility-submission-" + submissionNo + ".csv"). */
 export function submissionCsvFileName(submissionNo: string): string {
   return `facility-submission-${submissionNo}.csv`;
 }
 
-/** 일괄 생성 메모 프리필(개편 스펙 §4) — "M월 N주차 · 시설명". 메모는 목록 이름처럼 쓰인다(수정 가능). */
-export function defaultBatchMemo(facilityName: string, today: Date = new Date()): string {
+/** 일괄 생성 메모 프리필(v2 스펙 §4) — "M월 N주차 · 동아리명". 메모는 목록 이름처럼 쓰인다(수정 가능). */
+export function defaultBatchMemo(groupName: string, today: Date = new Date()): string {
   const weekOfMonth = Math.ceil(today.getDate() / 7);
-  return `${today.getMonth() + 1}월 ${weekOfMonth}주차 · ${facilityName}`;
+  return `${today.getMonth() + 1}월 ${weekOfMonth}주차 · ${groupName}`;
 }
 
 /** 목록 제목 승격(개편 스펙 §5·§7) — 메모가 있으면 제목, 없으면 제출번호가 제목이 된다. */

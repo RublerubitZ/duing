@@ -8,6 +8,7 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.exception.FacilityException;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
@@ -22,6 +23,7 @@ import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -161,14 +163,16 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
     }
 
     /**
-     * 크롤 점유행과의 겹침 차단. 신청 시점 검증은 저장된 스냅샷 기준(온디맨드 재크롤 없음) —
+     * 크롤 점유행과의 겹침 차단(확보 분류 행 제외). 신청 시점 검증은 저장된 스냅샷 기준(온디맨드 재크롤 없음) —
      * 명백히 불가능한 신청만 거르는 1차 게이트이고, 정합성의 최종 게이트는 승인 재검증(PR2)이다(설계 §5.1).
      */
     private void rejectIfBlockedBySchool(CreateFacilityBookingCommand command) {
-        boolean blocked = availabilityPolicy.occupiedOverlapping(
-                        facilityReservationRepository.findByFacilityIdAndYearMonth(
-                                command.facilityId(), YearMonth.from(command.date())),
-                        command.date(), command.startTime(), command.endTime())
+        List<FacilityReservation> crawlRows = facilityReservationRepository.findByFacilityIdAndYearMonth(
+                command.facilityId(), YearMonth.from(command.date()));
+        Set<String> securedOrganizationKeys =
+                crawlRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
+        boolean blocked = availabilityPolicy.blockingOverlapping(crawlRows,
+                        command.date(), command.startTime(), command.endTime(), securedOrganizationKeys)
                 .findAny().isPresent();
         if (blocked) {
             throw new FacilityBookingException.SlotUnavailableException();
