@@ -21,12 +21,18 @@ function nextDateIso(iso: string): string {
 }
 
 /**
- * 예약 맥락(수정 3): 같은 시설·같은 [start, end)·같은 분류의 **연속 일자** 예약을 하나의 맥락으로 접는다.
- * 예: 08/28·08/29·08/30 10:00~17:00 → "08/28~08/30 10:00~17:00" 1맥락, 떨어진 날짜·다른 시간은 별개.
- * 입력은 서버 정렬(시설→일자→시작시각) 그대로를 전제한다. 크롤 행에는 purpose 가 없어(사전 조사)
- * 시설+시간+일자 연속성만으로 맥락을 정의한다 — 신규 컬럼을 만들지 않는다.
+ * 예약 맥락(수정 3): **같은 주체·같은 시설**·같은 [start, end)·같은 분류의 **연속 일자** 예약을 하나의 맥락으로 접는다.
+ * 예: 08/28·08/29·08/30 10:00~17:00 → "08/28~08/30 10:00~17:00" 1맥락, 떨어진 날짜·다른 시간·다른 주체는 별개.
+ * 입력은 서버 정렬(일자 오름차순) 그대로를 전제한다. 시설별 보기는 일자→시각 정렬이라 주체가 섞여 내려오므로
+ * 직전 행이 아니라 같은 키의 마지막 맥락에 이어 붙인다. 크롤 행에는 purpose 가 없어(사전 조사)
+ * 주체+시설+시간+일자 연속성만으로 맥락을 정의한다 — 신규 컬럼을 만들지 않는다.
+ *
+ * 동아리별·미매칭 그룹은 서버가 **정규화된** 이름(꼬리 괄호·공백·대소문자 무시)으로 주체를 묶어 내려주므로
+ * 한 그룹 안에 raw 표기가 다른 행("고정관념"·"고정관념(동아리)")이 섞일 수 있다. 그 그룹은 이미 주체 단위라
+ * `subjectFixedByGroup` 으로 주체를 키에서 빼야 표기 변형 때문에 연속 일자가 갈리지 않는다.
  */
 export type CrawlContext = {
+  organizationName: string;
   facilityId: number;
   facilityName: string | null;
   startDate: string;
@@ -37,26 +43,34 @@ export type CrawlContext = {
   reservations: AdminCrawlReservation[];
 };
 
-export function foldReservationContexts(reservations: AdminCrawlReservation[]): CrawlContext[] {
+export function foldReservationContexts(
+  reservations: AdminCrawlReservation[],
+  options: { subjectFixedByGroup: boolean } = { subjectFixedByGroup: false },
+): CrawlContext[] {
   const contexts: CrawlContext[] = [];
+  const openContextByKey = new Map<string, CrawlContext>();
   for (const reservation of reservations) {
-    const last = contexts[contexts.length - 1];
+    const key = [
+      options.subjectFixedByGroup ? '' : reservation.organizationName,
+      reservation.facilityId,
+      reservation.startTime,
+      reservation.endTime,
+      reservation.classification,
+    ].join('|');
+    const open = openContextByKey.get(key);
     // 같은 날짜의 동일 구간 중복 행(학교가 시작·끝 마커를 별도 행으로 내려 같은 범위로 확장된 쌍)도
     // 하나의 맥락에 흡수한다 — 분리하면 같은 구간이 두 줄로 보이고 React key 도 충돌한다(실데이터 QA).
     const continues =
-      last !== undefined &&
-      last.facilityId === reservation.facilityId &&
-      last.startTime === reservation.startTime &&
-      last.endTime === reservation.endTime &&
-      last.classification === reservation.classification &&
-      (reservation.reservationDate === last.endDate ||
-        nextDateIso(last.endDate) === reservation.reservationDate);
+      open !== undefined &&
+      (reservation.reservationDate === open.endDate ||
+        nextDateIso(open.endDate) === reservation.reservationDate);
     if (continues) {
-      last.endDate = reservation.reservationDate;
-      last.reservations.push(reservation);
+      open.endDate = reservation.reservationDate;
+      open.reservations.push(reservation);
       continue;
     }
-    contexts.push({
+    const context: CrawlContext = {
+      organizationName: reservation.organizationName,
       facilityId: reservation.facilityId,
       facilityName: reservation.facilityName,
       startDate: reservation.reservationDate,
@@ -65,7 +79,9 @@ export function foldReservationContexts(reservations: AdminCrawlReservation[]): 
       endTime: reservation.endTime,
       classification: reservation.classification,
       reservations: [reservation],
-    });
+    };
+    contexts.push(context);
+    openContextByKey.set(key, context);
   }
   return contexts;
 }
