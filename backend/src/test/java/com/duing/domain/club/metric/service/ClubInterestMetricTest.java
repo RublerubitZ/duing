@@ -107,22 +107,27 @@ class ClubInterestMetricTest {
     @DisplayName("한 사람이 일주일 내내 본 동아리보다 오늘 서로 다른 여러 명이 본 동아리의 관심도 점수가 더 높다")
     void distinctVisitorsOutweighOnePersonRepeating() throws Exception {
         Club oneLoyalVisitor = saveActiveClub("관심도충성한명");
-        Club threeDistinctToday = saveActiveClub("관심도오늘세명");
+        Club distinctToday = saveActiveClub("관심도오늘여러명");
         LocalDate today = LocalDate.now(clock);
-        // 같은 사람의 7일 연속 조회 — 감쇠 합은 3.89 까지 쌓이지만 사람은 1명뿐이다.
+        // 같은 사람이 창 전체를 매일 조회 — 감쇠 합은 3.89(창 7일 기준)까지 쌓이지만 사람은 1명뿐이다.
+        double loyalDecayedScore = 0.0;
         for (int dayOffset = 0; dayOffset < ClubInterestPolicy.WINDOW_DAYS; dayOffset++) {
             insertViewEvent(oneLoyalVisitor.getId(), "visitor-loyal-week", today.minusDays(dayOffset));
+            loyalDecayedScore += Math.pow(0.5, (double) dayOffset / ClubInterestPolicy.HALF_LIFE_DAYS);
         }
-        for (int visitorIndex = 0; visitorIndex < 3; visitorIndex++) {
-            insertViewEvent(threeDistinctToday.getId(), "visitor-today-" + visitorIndex, today);
+        // 오늘 n 명이면 두 축 모두 n 이라 점수도 n 이다 — 반복 조회를 이기는 최소 인원을 창 길이에서
+        // 끌어낸다. 3 을 박아 두면 WINDOW_DAYS 를 늘릴 때 산식이 아니라 픽스처 때문에 깨진다.
+        int distinctVisitorCount = (int) Math.floor(ClubInterestPolicy.interestScore(loyalDecayedScore, 1)) + 1;
+        for (int visitorIndex = 0; visitorIndex < distinctVisitorCount; visitorIndex++) {
+            insertViewEvent(distinctToday.getId(), "visitor-today-" + visitorIndex, today);
         }
 
         clubMetricService.refreshAll();
 
         ClubMetric loyalMetric = findMetric(oneLoyalVisitor);
-        ClubMetric distinctMetric = findMetric(threeDistinctToday);
+        ClubMetric distinctMetric = findMetric(distinctToday);
         assertThat(loyalMetric.getWeeklyVisitorCount()).isEqualTo(1);
-        assertThat(distinctMetric.getWeeklyVisitorCount()).isEqualTo(3);
+        assertThat(distinctMetric.getWeeklyVisitorCount()).isEqualTo(distinctVisitorCount);
         // 감쇠 축(방문자·일)만으로는 한 명의 반복 조회가 이긴다 — 순방문자 비중이 그 뒤집는 유일한 힘이라,
         // VISITOR_WEIGHT 를 경계(0.307) 아래로 내리면 이 단언이 깨진다.
         assertThat(distinctMetric.getInterestScore()).isGreaterThan(loyalMetric.getInterestScore());
