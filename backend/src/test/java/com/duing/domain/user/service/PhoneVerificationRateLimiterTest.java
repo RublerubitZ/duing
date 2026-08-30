@@ -18,7 +18,7 @@ class PhoneVerificationRateLimiterTest {
     private final PhoneVerificationRateLimiter rateLimiter = new PhoneVerificationRateLimiter();
 
     @Test
-    @DisplayName("같은 IP 의 발급 요청은 1분에 10회까지 허용하고 11번째는 429 를 던진다")
+    @DisplayName("같은 IP 의 발급 요청은 1분에 60회까지 허용하고 61번째는 429 를 던진다")
     void issueWindowLimitsPerMinute() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
@@ -69,7 +69,8 @@ class PhoneVerificationRateLimiterTest {
     @Test
     @DisplayName("공유 IP 뒤 여러 명이 동시에 폴링해도 서로의 상태조회를 막지 않는다 — 창의 축은 IP 가 아니라 세션 토큰이다")
     void sharedIpDoesNotBlockConcurrentPollers() {
-        // 교내 WiFi(NAT) 뒤 10명이 각자 40초 창에서 10회씩 폴링하는 상황 — 구 IP 창(분 30)이면 3명째에서 막혔다.
+        // 교내 WiFi(NAT) 뒤 10명이 각자 40초 창에서 10회씩 폴링하는 상황 —
+        // 구 IP 창(분 30)이면 3명까지만 통과하고 4명째 첫 폴링이 429 였다.
         for (int poller = 0; poller < 10; poller++) {
             String pollerToken = VERIFICATION_TOKEN + "-" + poller;
             for (int poll = 0; poll < 10; poll++) {

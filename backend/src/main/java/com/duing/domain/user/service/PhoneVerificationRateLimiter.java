@@ -42,8 +42,9 @@ import org.springframework.stereotype.Component;
  * <p>재시작 시 리셋은 수용한다. 만료된 IP·토큰 엔트리 정리(Caffeine expireAfterAccess 등)와 멀티
  * 인스턴스 전환 시 Redis 교체는 백로그다 (spec §11.1). 토큰 창은 실재하는 세션에만 설치되지만 그
  * 상한은 "가입 건수" 가 아니라 <b>발급되어 한 번이라도 폴링된 토큰 수</b>다 — 발급이 permitAll 이고
- * 매번 새 UUID 라 남용 시에도 자란다(엔트리당 ≈ 240바이트, 발급 창 600/시 기준 IP당 ≈ 140KB/시).
- * 정상 트래픽에서는 하루 1MB 미만이라 재기동 주기 안에서 무해하다. 정리가 필요해지면
+ * 매번 새 UUID 라 남용 시에도 자란다(엔트리당 수백 바이트~1KB — 키·deque 만 300바이트 남짓이고
+ * 창 안 타임스탬프가 {@code LocalDateTime} 하나당 ≈ 72바이트씩 더 붙는다. 발급 창 600/시 기준
+ * IP당 수백 KB/시). 정상 트래픽에서는 하루 수 MB 이하라 재기동 주기 안에서 무해하다. 정리가 필요해지면
  * {@link MoPollThrottle} 이 같은 토큰 키공간에 이미 쓰는 지연 sweep 패턴을 그대로 붙이면 된다.
  */
 @Component
