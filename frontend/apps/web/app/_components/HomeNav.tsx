@@ -31,8 +31,7 @@ export function HomeNav({ slimOnMobile = false }: Props) {
             바뀐 뒤에도 복원은 Active CPU 실측 후 별도 판단한다. hover·터치 프리페치까지 꺼져
             첫 클릭 커밋이 RSC 응답 시작까지 지연될 수 있다 — 의도된 트레이드오프. */}
         <Link href="/" prefetch={false} aria-label="두잉 홈" className="translate-y-[3px]">
-          {/* 2xl(≥1536)부터 상단바를 시안 1:1 로 — 로고 40(112×40), 나머지는 navLinkStyles·AuthSlot·Bell 참조. */}
-          <BrandMark size={32} sizeClassName="h-8 2xl:h-10" />
+          <BrandMark size={32} />
         </Link>
         <ul
           className={cn(
