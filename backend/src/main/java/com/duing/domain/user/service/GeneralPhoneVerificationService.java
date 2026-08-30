@@ -126,7 +126,7 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
         // IP 창 '선검사' — 기록은 하지 않는다. 아래 학번 창은 새 학번마다 항상 통과하므로, 이 검사가 없으면
         // 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치돼(8자리 공간 1e8, 만료 정리 없음) 단일 IP 로
         // 힙을 고갈시킬 수 있다. 기록은 아래 issue() 가 단독으로 해 "요청당 IP 예산 1" 을 유지한다
-        // (여기서도 기록하면 열거 오라클이 생기지는 않지만 재설정 실효 예산이 시 60→30 으로 반감된다).
+        // (여기서도 기록하면 열거 오라클이 생기지는 않지만 재설정 실효 예산이 시 600→300 으로 반감된다).
         rateLimiter.assertIssueIpWithinLimit(clientIp, now);
         rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
 
@@ -158,9 +158,12 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     @Override
     public PhoneVerificationStatusResult getStatus(String verificationToken, String clientIp, String userAgent) {
         LocalDateTime now = LocalDateTime.now(clock);
+        // IP 백스톱은 조회보다 먼저 — 실재하지 않는 토큰의 스팸을 세는 창이 이것뿐이다.
         rateLimiter.assertAndRecordStatusIpRequest(clientIp, now);
         PhoneVerification phoneVerification = phoneVerificationRepository.findByToken(verificationToken)
                 .orElseThrow(PhoneVerificationException.PhoneVerificationNotFoundException::new);
+        // 폴링의 실제 상한은 토큰 창이다 — 실재를 확인한 뒤 걸어 랜덤 토큰이 창을 설치하지 못하게 한다.
+        rateLimiter.assertAndRecordStatusTokenRequest(verificationToken, now);
 
         if (phoneVerification.status(now) == PhoneVerificationStatus.PENDING
                 && moPollThrottle.tryAcquire(verificationToken, now)) {

@@ -1,5 +1,41 @@
 # 두잉 API 리버스 프록시 — Let's Encrypt 로 api.duings.com TLS 자동 발급/갱신.
-# 전제: api.duings.com A레코드가 이 서버 고정 IP 를 가리키고, 방화벽에서 80/443 이 열려 있어야 한다.
+# 전제: api.duings.com 이 Cloudflare(프록시 ON)를 거쳐 이 서버 고정 IP 로 오고, 방화벽에서 80/443 이 열려 있어야 한다.
+
+# 전역 옵션 — Cloudflare 를 유일한 신뢰 프록시로 선언한다.
+#
+# 왜 필요한가: Caddy 는 신뢰 프록시로 선언되지 않은 피어가 보낸 X-Forwarded-For 를 폐기하고
+# 피어 IP 로 갈아끼운다(위조 방지 기본값). api.duings.com 은 Cloudflare 뒤에 있으므로 피어는 늘
+# Cloudflare 엣지이고, 이 선언이 없으면 백엔드로 나가는 XFF 가 통째로 Cloudflare 엣지 IP 가 된다.
+# 그러면 톰캣 RemoteIpValve(server.forward-headers-strategy=native)가 그 값을 getRemoteAddr() 로 삼아
+# 전 사용자가 CF PoP 단위로 레이트리밋 버킷을 공유한다 — PhoneVerificationRateLimiter·
+# LoginAttemptRateLimiter·ClubViewRateLimiter·JoinCodeRateLimiter 가 전부 사실상 전역 제한이 된다.
+# (2026-08-30 로컬 컨테이너 재현으로 확인. 이 설정이 지워지는 것은 문법 검증으로는 안 잡히므로
+#  .github/workflows/deploy-config-ci.yml 이 어댑트된 JSON 을 직접 단언한다.)
+#
+# 신뢰 경계: 아래 대역은 Cloudflare 공식 목록(https://www.cloudflare.com/ips-v4 · ips-v6, 2026-08-30
+# 기준)이다. 이 대역에서 온 연결에 한해서만 Cf-Connecting-Ip 를 클라이언트 IP 로 인정한다. 그 밖에서
+# 오리진에 직접 붙은 요청은 Cf-Connecting-Ip·X-Forwarded-For 를 아무리 위조해도 무시되고 자기 IP 로
+# 집계된다 — 헤더를 무조건 신뢰하지 않는다는 뜻이다.
+#
+# 다만 이 경계가 "우리 존" 은 아니다. 목록은 Cloudflare 프록시 전체라, 자기 존을 이 오리진 IP 로
+# 겨눠 요청을 이 대역에서 출발시킬 수 있으면 그 요청도 신뢰 피어가 된다 — 그때는 Cf-Connecting-Ip 를
+# 임의로 지정할 수 있어 IP 축 레이트리밋이 무력해진다. 오리진 443 이 전체 개방인 한 이 창은 열려 있고,
+# 닫는 수단은 이 파일이 아니라 방화벽(인바운드 443 을 위 대역으로 제한) 또는 Authenticated Origin
+# Pulls 다. 그 조치 전까지는 "비-CF 직접 접속은 막힌다" 까지만 참이라고 읽을 것.
+#
+# Cf-Connecting-Ip 를 쓰는 이유: Cloudflare 는 이 헤더를 항상 실제 접속자 IP 로 덮어쓴다. 반면
+# X-Forwarded-For 는 클라이언트가 보낸 값을 보존한 채 뒤에 덧붙이므로, XFF 기반 판정은 CF 를 통과해도
+# 앞쪽 위조값이 클라이언트 IP 로 뽑힐 수 있다(로컬 재현에서 `9.9.9.9, 203.0.113.7` → 9.9.9.9 확인).
+#
+# 대역이 갱신되면 이 목록도 갱신해야 한다(변경은 드물다). 목록이 낡아 실제 CF IP 가 빠지면 그 경로의
+# 요청은 위조가 뚫리는 게 아니라 CF 엣지 IP 로 집계되어 지금과 같은 상태로 되돌아갈 뿐이다.
+{
+	servers {
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers Cf-Connecting-Ip
+	}
+}
+
 api.duings.com {
 	encode zstd gzip
 
@@ -13,5 +49,25 @@ api.duings.com {
 	# 단일 업스트림이라 active health check 로 업스트림을 빼면 DB 일시장애 시 전체 차단이 되므로
 	# 두지 않는다. Caddy 가 Host 헤더를 보존하고 X-Forwarded-* 를 주입하면, 백엔드는
 	# forward-headers-strategy=native 로 원 클라이언트 IP/프로토콜을 인식한다.
-	reverse_proxy backend:8080
+	reverse_proxy backend:8080 {
+		# XFF 를 위에서 판정한 클라이언트 IP 한 값으로 덮어쓴다. 이 줄이 없으면 Caddy 는 신뢰한
+		# XFF 뒤에 피어(CF 엣지)를 덧붙여 보내는데(실측: `9.9.9.9, <CF엣지>` — 왼쪽은 실사용자가 아니라
+		# 클라이언트가 위조한 값이다. 운영에서는 CF 가 실 IP 를 덧붙여 `위조, 실사용자, CF엣지`), RemoteIpValve 는 오른쪽 끝부터
+		# 사설 대역이 아닌 첫 값을 고르므로 결국 CF 엣지 IP 가 클라이언트 IP 가 된다.
+		# 즉 trusted_proxies 만으로는 고쳐지지 않는다 — 두 설정이 한 쌍이다.
+		header_up X-Forwarded-For {client_ip}
+
+		# 나머지 X-Forwarded-* 도 Caddy 판정값으로 고정한다. 신뢰 프록시를 선언하면 Caddy 는 들어온
+		# X-Forwarded-Proto·Host 를 덮어쓰지 않고 통과시키므로, 선언 전에는 Caddy 가 채우던 두 값이
+		# 이제 클라이언트가 보낸 값이 될 수 있다(재현: XFP=gopher, XFH=evil.example 통과).
+		# Cloudflare 는 XFP 를 덮어써서 실제 도달 경로는 없지만, 신뢰 전환으로 새로 열린 통로라
+		# 선언 전 동작으로 되돌려 닫아 둔다. 톰캣은 native 전략에서 두 헤더를 각각 요청 스킴과
+		# getServerName() 에 반영한다.
+		#
+		# 주의: `caddy adapt` 가 이 두 줄에 "Unnecessary header_up — 기본 동작이 헤더를 그대로 넘긴다"
+		# 라고 경고하는데, 신뢰 프록시를 선언한 뒤에는 그 "그대로 넘긴다" 가 바로 위조 통과를 뜻하므로
+		# 경고가 틀렸다. 지우지 말 것 — deploy-config-ci.yml 이 세 헤더 모두 단언한다.
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
 }

@@ -123,13 +123,14 @@ public interface AuthApi {
             HttpServletRequest httpServletRequest);
 
     @Operation(summary = "휴대폰 MO 인증 상태 조회",
-            description = "발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3초 간격 권장) — "
-                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5초 스로틀, 일일 상한 초과 시 503). "
+            description = "발급 토큰으로 인증 상태(PENDING/VERIFIED/EXPIRED)를 조회한다. 프론트 폴링용(3s→5s→8s 백오프) — "
+                    + "PENDING 이면 서버가 Octomo 수신 여부를 확인한다(세션당 2.5→4.5→7.5초 사다리 스로틀, 일일 상한 초과 시 503). "
                     + "토큰이 URL 에 남지 않도록 body 로 받는 조회용 POST 다(#626).")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 토큰"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "IP 요청 한도 초과"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429",
+                    description = "세션 토큰 폴링 한도 초과(주 원인) 또는 IP 백스톱 초과"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
                     description = "Octomo 일일 호출 상한 소진 — 잠시 후 재시도")
     })

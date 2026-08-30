@@ -12,12 +12,13 @@ class PhoneVerificationRateLimiterTest {
 
     private static final String CLIENT_IP = "10.0.0.1";
     private static final String STUDENT_ID = "20251234";
+    private static final String VERIFICATION_TOKEN = "verification-token";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 1, 10, 12, 0);
 
     private final PhoneVerificationRateLimiter rateLimiter = new PhoneVerificationRateLimiter();
 
     @Test
-    @DisplayName("같은 IP 의 발급 요청은 1분에 10회까지 허용하고 11번째는 429 를 던진다")
+    @DisplayName("같은 IP 의 발급 요청은 1분에 60회까지 허용하고 61번째는 429 를 던진다")
     void issueWindowLimitsPerMinute() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
@@ -37,19 +38,20 @@ class PhoneVerificationRateLimiterTest {
     }
 
     @Test
-    @DisplayName("같은 IP 의 발급 요청은 1시간에 60회를 넘을 수 없다")
+    @DisplayName("같은 IP 의 발급 요청은 1시간에 600회를 넘을 수 없다")
     void issueWindowLimitsPerHour() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_HOUR_LIMIT; attempt++) {
-            // 분당 한도(10)에 걸리지 않도록 7초 간격으로 넓게 분산한다 (60회 × 7초 = 7분).
-            rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt * 7L));
+            // 분당 한도(60)에 걸리지 않도록 5초 간격으로 분산한다 (600회 × 5초 = 50분, 분당 12회).
+            rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt * 5L));
         }
-        assertThatThrownBy(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusMinutes(10)))
+        // 51분 시점 — 첫 기록이 아직 1시간 창 안이라 시간당 한도로 거절된다(분당 창은 비어 있다).
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusMinutes(51)))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
     }
 
     @Test
-    @DisplayName("상태조회 창(분 30/시 200)은 발급 창과 독립이다")
-    void statusWindowIsIndependent() {
+    @DisplayName("상태조회 IP 백스톱(분 500)은 발급 창과 독립이며 초과하면 429 를 던진다")
+    void statusIpBackstopIsIndependent() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
         }
@@ -57,11 +59,60 @@ class PhoneVerificationRateLimiterTest {
         assertThatCode(() -> rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(30)))
                 .doesNotThrowAnyException();
 
-        for (int attempt = 1; attempt < PhoneVerificationRateLimiter.STATUS_PER_MINUTE_LIMIT; attempt++) {
+        for (int attempt = 1; attempt < PhoneVerificationRateLimiter.STATUS_IP_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(30).plusNanos(attempt));
         }
         assertThatThrownBy(() -> rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(31)))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("공유 IP 뒤 여러 명이 동시에 폴링해도 서로의 상태조회를 막지 않는다 — 창의 축은 IP 가 아니라 세션 토큰이다")
+    void sharedIpDoesNotBlockConcurrentPollers() {
+        // 교내 WiFi(NAT) 뒤 10명이 각자 40초 창에서 10회씩 폴링하는 상황 —
+        // 구 IP 창(분 30)이면 3명까지만 통과하고 4명째 첫 폴링이 429 였다.
+        for (int poller = 0; poller < 10; poller++) {
+            String pollerToken = VERIFICATION_TOKEN + "-" + poller;
+            for (int poll = 0; poll < 10; poll++) {
+                LocalDateTime polledAt = NOW.plusSeconds(poll * 4L);
+                // 서비스와 같은 순서 — IP 백스톱 기록 뒤 토큰 창.
+                rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, polledAt);
+                assertThatCode(() -> rateLimiter.assertAndRecordStatusTokenRequest(pollerToken, polledAt))
+                        .doesNotThrowAnyException();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("한 세션의 상태조회가 분당 한도(30회)를 넘으면 429 를 던진다 — 폴링 폭주는 토큰 축에서 막는다")
+    void statusTokenWindowLimitsPerMinute() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusNanos(attempt));
+        }
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusSeconds(1)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("한 세션의 상태조회는 1시간에 200회를 넘을 수 없다")
+    void statusTokenWindowLimitsPerHour() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_HOUR_LIMIT; attempt++) {
+            // 분당 한도(30)에 걸리지 않도록 10초 간격으로 분산한다 (200회 × 10초 = 33분, 분당 6회).
+            rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusSeconds(attempt * 10L));
+        }
+        assertThatThrownBy(() ->
+                rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusMinutes(34)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("다른 세션 토큰은 상태조회 제한에 서로 영향을 주지 않는다")
+    void statusTokenLimitsAreIsolatedPerToken() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusNanos(attempt));
+        }
+        assertThatCode(() -> rateLimiter.assertAndRecordStatusTokenRequest("other-token", NOW.plusSeconds(1)))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -88,11 +139,12 @@ class PhoneVerificationRateLimiterTest {
     @Test
     @DisplayName("발급 IP 창 선검사는 한도 안에서 몇 번을 호출해도 예산을 소모하지 않는다 — 기록은 발급 쪽이 단독으로 한다")
     void issueIpPreCheckDoesNotConsumeBudget() {
-        for (int attempt = 0; attempt < 50; attempt++) {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertIssueIpWithinLimit(CLIENT_IP, NOW);
         }
 
-        // 선검사가 기록까지 했다면 여기서 이미 분당 한도(10)를 넘겨 429 가 났어야 한다.
+        // 선검사가 기록까지 했다면 여기서 이미 분당 한도를 채워 429 가 났어야 한다.
+        // 루프 횟수는 반드시 상수를 따라간다 — 리터럴로 두면 한도가 커질 때 가드가 조용히 죽는다.
         assertThatCode(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW))
                 .doesNotThrowAnyException();
     }
@@ -210,8 +262,14 @@ class PhoneVerificationRateLimiterTest {
         for (int issued = 0; issued < PhoneVerificationRateLimiter.ISSUE_PER_PHONE_HOUR_LIMIT; issued++) {
             rateLimiter.recordIssuePhoneRequest("010-1234-5678", CLIENT_IP, NOW.plusMinutes(issued));
         }
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusNanos(attempt));
+        }
         rateLimiter.reset();
         assertThatCode(() -> rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(30)))
+                .doesNotThrowAnyException();
+        assertThatCode(() ->
+                rateLimiter.assertAndRecordStatusTokenRequest(VERIFICATION_TOKEN, NOW.plusSeconds(30)))
                 .doesNotThrowAnyException();
         assertThatCode(() ->
                 rateLimiter.assertIssuePhoneWithinLimit("010-1234-5678", CLIENT_IP, NOW.plusSeconds(30)))

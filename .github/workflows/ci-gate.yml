@@ -65,7 +65,10 @@ jobs:
           if grep -qE '^frontend/|^\.github/workflows/frontend-ci\.yml$' changed.txt; then
             frontend=true
           fi
-          if grep -qE '^deploy/|^\.github/workflows/deploy-config-ci\.yml$' changed.txt; then
+          # application-prod.yml 이 여기 끼는 이유: deploy-config-ci 의 "클라이언트 IP 복원 설정" 단언이
+          # 그 파일의 forward-headers-strategy 를 검사한다. 백엔드 영역으로만 판정하면 그 줄을 지우는 PR 에서
+          # 단언이 아예 돌지 않아, 운영만 조용히 CF 엣지 IP 로 되돌아간다(그 가드가 막으려던 실패 그 자체).
+          if grep -qE '^deploy/|^\.github/workflows/deploy-config-ci\.yml$|^backend/src/main/resources/application-prod\.yml$' changed.txt; then
             deploy=true
           fi
 
