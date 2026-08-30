@@ -7,5 +7,6 @@ public record AdminBookingSearchCondition(
         BookingStatus status,
         Long facilityId,
         LocalDate dateFrom,
-        LocalDate dateTo
+        LocalDate dateTo,
+        AdminBookingQueueSort sort
 ) {}

@@ -10,6 +10,7 @@ import com.duing.domain.facilitybooking.controller.dto.response.AdminFacilityBoo
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminService;
+import com.duing.domain.facilitybooking.service.dto.query.AdminBookingQueueSort;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -36,9 +37,11 @@ public class AdminFacilityBookingController implements AdminFacilityBookingApi {
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminFacilityBookingSummaryResponse>>> getQueue(
-            BookingStatus status, Long facilityId, LocalDate dateFrom, LocalDate dateTo, Pageable pageable) {
+            BookingStatus status, Long facilityId, LocalDate dateFrom, LocalDate dateTo,
+            AdminBookingQueueSort sort, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(
-                queryService.getQueue(new AdminBookingSearchCondition(status, facilityId, dateFrom, dateTo), pageable)
+                queryService.getQueue(
+                                new AdminBookingSearchCondition(status, facilityId, dateFrom, dateTo, sort), pageable)
                         .map(AdminFacilityBookingSummaryResponse::from))));
     }
 

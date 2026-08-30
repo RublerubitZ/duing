@@ -251,11 +251,15 @@ export type FacilityBookingConflictPayload = {
   crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
 };
 
+/** 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다. */
+export type AdminBookingQueueSort = 'DEFAULT' | 'USAGE_ASC';
+
 export type AdminBookingQueueParams = {
   status?: BookingStatus;
   facilityId?: number;
   dateFrom?: string; // yyyy-MM-dd
   dateTo?: string;
+  sort?: AdminBookingQueueSort; // 생략 = DEFAULT
   page?: number;
   size?: number;
 };

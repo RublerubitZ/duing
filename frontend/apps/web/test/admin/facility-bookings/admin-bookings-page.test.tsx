@@ -459,4 +459,41 @@ describe('AdminFacilityBookingsPage', () => {
     // page 가 마지막 페이지(0)로 클램프되어 큐 훅이 page:0 으로 재호출된다
     expect(mockQueueQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', page: 0 }));
   });
+
+  it('기본 정렬은 sort 를 undefined 로 넘긴다 — 서버의 상태별 기본 순서 그대로', () => {
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByRole('combobox', { name: '정렬' })).toHaveValue('DEFAULT');
+    expect(mockQueueQuery).not.toHaveBeenCalledWith(expect.objectContaining({ sort: expect.anything() }));
+  });
+
+  it('이용일시 빠른순을 고르면 sort=USAGE_ASC 로 1페이지부터 다시 조회한다', () => {
+    const threePages = makeQueueSuccess([makeRow({ bookingId: 91 })]);
+    mockQueueQuery.mockReturnValue({
+      ...threePages,
+      data: { ...threePages.data, totalElements: 60, totalPages: 3, hasNext: true },
+    });
+    render(<AdminFacilityBookingsPage />);
+    fireEvent.click(screen.getByRole('button', { name: '3' }));
+    expect(mockQueueQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'PENDING', page: 2 }));
+
+    mockQueueQuery.mockClear();
+    fireEvent.change(screen.getByRole('combobox', { name: '정렬' }), { target: { value: 'USAGE_ASC' } });
+
+    expect(mockQueueQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'PENDING', sort: 'USAGE_ASC', page: 0 }),
+    );
+  });
+
+  it('정렬 선택은 탭을 바꿔도 유지된다 — 시설·기간 필터와 같은 수명', () => {
+    render(<AdminFacilityBookingsPage />);
+    fireEvent.change(screen.getByRole('combobox', { name: '정렬' }), { target: { value: 'USAGE_ASC' } });
+
+    mockQueueQuery.mockClear();
+    fireEvent.click(screen.getByRole('tab', { name: /확정/ }));
+
+    expect(mockQueueQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'CONFIRMED', sort: 'USAGE_ASC', page: 0 }),
+    );
+  });
 });
