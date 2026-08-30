@@ -158,9 +158,12 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     @Override
     public PhoneVerificationStatusResult getStatus(String verificationToken, String clientIp, String userAgent) {
         LocalDateTime now = LocalDateTime.now(clock);
+        // IP 백스톱은 조회보다 먼저 — 실재하지 않는 토큰의 스팸을 세는 창이 이것뿐이다.
         rateLimiter.assertAndRecordStatusIpRequest(clientIp, now);
         PhoneVerification phoneVerification = phoneVerificationRepository.findByToken(verificationToken)
                 .orElseThrow(PhoneVerificationException.PhoneVerificationNotFoundException::new);
+        // 폴링의 실제 상한은 토큰 창이다 — 실재를 확인한 뒤 걸어 랜덤 토큰이 창을 설치하지 못하게 한다.
+        rateLimiter.assertAndRecordStatusTokenRequest(verificationToken, now);
 
         if (phoneVerification.status(now) == PhoneVerificationStatus.PENDING
                 && moPollThrottle.tryAcquire(verificationToken, now)) {

@@ -12,6 +12,7 @@ class PhoneVerificationRateLimiterTest {
 
     private static final String CLIENT_IP = "10.0.0.1";
     private static final String STUDENT_ID = "20251234";
+    private static final String TOKEN = "verification-token";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 1, 10, 12, 0);
 
     private final PhoneVerificationRateLimiter rateLimiter = new PhoneVerificationRateLimiter();
@@ -48,8 +49,8 @@ class PhoneVerificationRateLimiterTest {
     }
 
     @Test
-    @DisplayName("상태조회 창(분 30/시 200)은 발급 창과 독립이다")
-    void statusWindowIsIndependent() {
+    @DisplayName("상태조회 IP 백스톱(분 500)은 발급 창과 독립이며 초과하면 429 를 던진다")
+    void statusIpBackstopIsIndependent() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
         }
@@ -57,11 +58,47 @@ class PhoneVerificationRateLimiterTest {
         assertThatCode(() -> rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(30)))
                 .doesNotThrowAnyException();
 
-        for (int attempt = 1; attempt < PhoneVerificationRateLimiter.STATUS_PER_MINUTE_LIMIT; attempt++) {
+        for (int attempt = 1; attempt < PhoneVerificationRateLimiter.STATUS_IP_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(30).plusNanos(attempt));
         }
         assertThatThrownBy(() -> rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, NOW.plusSeconds(31)))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("공유 IP 뒤 여러 명이 동시에 폴링해도 서로의 상태조회를 막지 않는다 — 창의 축은 IP 가 아니라 세션 토큰이다")
+    void sharedIpDoesNotBlockConcurrentPollers() {
+        // 교내 WiFi(NAT) 뒤 10명이 각자 40초 창에서 10회씩 폴링하는 상황 — 구 IP 창(분 30)이면 3명째에서 막혔다.
+        for (int poller = 0; poller < 10; poller++) {
+            String pollerToken = TOKEN + "-" + poller;
+            for (int poll = 0; poll < 10; poll++) {
+                LocalDateTime polledAt = NOW.plusSeconds(poll * 4L);
+                // 서비스와 같은 순서 — IP 백스톱 기록 뒤 토큰 창.
+                rateLimiter.assertAndRecordStatusIpRequest(CLIENT_IP, polledAt);
+                assertThatCode(() -> rateLimiter.assertAndRecordStatusTokenRequest(pollerToken, polledAt))
+                        .doesNotThrowAnyException();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("한 세션의 상태조회가 분당 한도(30회)를 넘으면 429 를 던진다 — 폴링 폭주는 토큰 축에서 막는다")
+    void statusTokenWindowLimitsPerMinute() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordStatusTokenRequest(TOKEN, NOW.plusNanos(attempt));
+        }
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordStatusTokenRequest(TOKEN, NOW.plusSeconds(1)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("다른 세션 토큰은 상태조회 제한에 서로 영향을 주지 않는다")
+    void statusTokenLimitsAreIsolatedPerToken() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.STATUS_TOKEN_PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordStatusTokenRequest(TOKEN, NOW.plusNanos(attempt));
+        }
+        assertThatCode(() -> rateLimiter.assertAndRecordStatusTokenRequest("other-token", NOW.plusSeconds(1)))
+                .doesNotThrowAnyException();
     }
 
     @Test

@@ -335,14 +335,29 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 IP 의 상태 조회가 분당 한도(30회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다 — 존재하지 않는 토큰이어도 IP 리밋이 404 조회보다 먼저 걸린다")
+    @DisplayName("같은 IP 의 상태 조회가 백스톱 한도를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다 — 존재하지 않는 토큰이어도 IP 리밋이 404 조회보다 먼저 걸린다")
     void statusIpRateLimitReturnsTooManyRequests() {
         // 상태조회는 IP 리밋 기록이 토큰 조회(404)보다 먼저라, 미존재 토큰도 창을 소비한다.
-        for (int attempt = 0; attempt < 30; attempt++) {
+        // (토큰 창은 404 뒤라 설치되지 않는다 — 랜덤 토큰이 맵을 증식시키지 못하게 하는 순서다.)
+        for (int attempt = 0; attempt < 500; attempt++) {
             requestStatus("no-such-token")
                     .then().statusCode(HttpStatus.NOT_FOUND.value());
         }
         requestStatus("no-such-token")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
+    }
+
+    @Test
+    @DisplayName("한 세션의 상태 조회가 분당 한도(30회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
+    void statusTokenRateLimitReturnsTooManyRequests() {
+        IssuedSession session = issue(PHONE);
+
+        for (int attempt = 0; attempt < 30; attempt++) {
+            requestStatus(session.token())
+                    .then().statusCode(HttpStatus.OK.value());
+        }
+        requestStatus(session.token())
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
     }
