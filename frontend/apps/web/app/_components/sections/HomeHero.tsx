@@ -72,23 +72,31 @@ export async function HomeHero() {
           <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9">
             대구대학교 동아리 플랫폼.
             <br />
-            {stats ? (
-              <>
-                {stats.totalCount}개 동아리가 지금도{' '}
-                <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                  ing
-                </em>{' '}
-                중 — 이번 학기 {stats.recruitingCount}곳 모집 중이에요.
-              </>
-            ) : (
-              <>
-                캠퍼스의 모든 동아리가 지금도{' '}
-                <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                  ing
-                </em>{' '}
-                중이에요.
-              </>
-            )}
+            {/* 모바일(sm 미만)은 둘째 줄을 "지금도 ing 중" 까지만 — 190px 에서 세 자리 수여도 166px 이라 두 줄에 그친다.
+                (전체 문장은 세 줄로 꺾여 마스코트 아래까지 내려왔다.) sm 부터는 전체 문장. */}
+            <span className="sm:hidden">
+              {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
+              <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
+            </span>
+            <span className="hidden sm:inline">
+              {stats ? (
+                <>
+                  {stats.totalCount}개 동아리가 지금도{' '}
+                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+                    ing
+                  </em>{' '}
+                  중 — 이번 학기 {stats.recruitingCount}곳 모집 중이에요.
+                </>
+              ) : (
+                <>
+                  캠퍼스의 모든 동아리가 지금도{' '}
+                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
+                    ing
+                  </em>{' '}
+                  중이에요.
+                </>
+              )}
+            </span>
           </p>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3).
