@@ -48,14 +48,17 @@ export async function RecruitmentTicker() {
   if (items.length === 0) return null;
 
   // 트랙을 -50% 옮겨 이어붙이는 마퀴라, 한 카피가 마퀴 폭보다 좁으면 이음매에 빈 띠가 지나간다.
-  // 모바일 항목이 가장 좁아(≈100px, 393 에서 마퀴 가용폭 ≈233px) 2곳 이하면 그렇게 되므로,
-  // 한 카피가 최소 4개가 되도록 목록을 되풀이해 채운다. 4개 이상이면 원본 그대로다.
-  const MIN_CYCLE_ITEMS = 4;
-  const cycle = Array.from({ length: Math.ceil(MIN_CYCLE_ITEMS / items.length) }, () => items).flat();
+  // 빈 띠가 생기는지는 항목 폭이 아니라 "마퀴 폭 ÷ 항목 폭" 이 정하고, 그 비는 모바일보다 PC 가 크다 —
+  // 모바일 393 은 마퀴 ≈225px 에 항목 ≈78~97px(3카피면 충분), PC 1280 은 마퀴 ≈922px 에 항목 ≈173px 라
+  // ≈5.3카피가 필요하다. 넓은 쪽에 맞춰 한 카피가 최소 6개가 되도록 되풀이해 채운다.
+  const MIN_CYCLE_ITEMS = 6;
+  const repeatCount = Math.ceil(MIN_CYCLE_ITEMS / items.length);
+  const cycle = Array.from({ length: repeatCount }, () => items).flat();
 
   // 항목 수에 비례한 길이(개당 약 2.6s, 최소 12s)로 개수와 무관하게 일정한 속도를 유지한다.
-  // 되풀이로 늘어난 길이를 그대로 반영해야 채운 만큼 빨라지지 않는다.
-  const durationSeconds = Math.max(12, Math.round(cycle.length * 2.6));
+  // 되풀이 배수를 그대로 곱해야 속도가 보존된다 — 늘어난 카피 길이를 12s 하한에 그대로 맡기면
+  // 모집이 적을수록 같은 시간에 더 긴 트랙을 지나가 눈에 띄게 빨라진다(1곳이면 6배).
+  const durationSeconds = Math.max(12, Math.round(items.length * 2.6)) * repeatCount;
 
   return (
     // PC(sm+): 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52.
@@ -88,11 +91,14 @@ export async function RecruitmentTicker() {
           </div>
         </div>
 
-        {/* 시안은 캐럿만 — 아이콘 링크라 접근명을 직접 단다. 44px 히트 박스, 글리프 우측이 콘텐츠 끝선에 오도록 박스 여백만큼 당긴다. */}
+        {/* 시안은 캐럿만 — 아이콘 링크라 접근명을 직접 단다. 글리프 우측이 콘텐츠 끝선에 오도록 박스 여백만큼 당긴다.
+            모바일 히트 박스는 44×38 이다: 띠가 시안대로 38px 이고 조상이 overflow-hidden 이라 세로로 44px 를 주면
+            넘치는 3px 이 잘려 눌리지도, 포커스 링이 보이지도 않는다. 가로만 44px 를 지키고 세로는 띠 높이에 맞춘다
+            (WCAG 2.5.8 AA 24px 상회). 포커스 링 offset 도 같은 이유로 모바일만 0 이다. PC 는 44×44 그대로. */}
         <Link
           href={RECRUITING_CLUBS_HREF}
           aria-label="마감 임박 동아리 전체 보기"
-          className="-mr-[15px] grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage motion-reduce:transition-none sm:-mr-2"
+          className="-mr-[15px] grid h-[38px] w-11 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-sage motion-reduce:transition-none sm:h-11 sm:-mr-2 sm:focus-visible:outline-offset-2"
         >
           <ChevronRight size={14} strokeWidth={2.25} className="sm:size-[28px]" aria-hidden />
         </Link>
