@@ -323,9 +323,9 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 IP 의 발급 요청이 분당 한도(10회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
+    @DisplayName("같은 IP 의 발급 요청이 분당 한도(60회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
     void issueIpRateLimitReturnsTooManyRequests() {
-        for (int attempt = 0; attempt < 10; attempt++) {
+        for (int attempt = 0; attempt < 60; attempt++) {
             issue(uniquePhone());
         }
         given().contentType(ContentType.JSON).body(Map.of("phone", uniquePhone()))
@@ -335,31 +335,34 @@ class AuthPhoneVerificationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 IP 의 상태 조회가 백스톱 한도를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다 — 존재하지 않는 토큰이어도 IP 리밋이 404 조회보다 먼저 걸린다")
-    void statusIpRateLimitReturnsTooManyRequests() {
-        // 상태조회는 IP 리밋 기록이 토큰 조회(404)보다 먼저라, 미존재 토큰도 창을 소비한다.
-        // (토큰 창은 404 뒤라 설치되지 않는다 — 랜덤 토큰이 맵을 증식시키지 못하게 하는 순서다.)
-        for (int attempt = 0; attempt < 500; attempt++) {
+    @DisplayName("미존재 토큰은 토큰 창 한도보다 많이 조회해도 전부 404 다 — 토큰 창이 조회 뒤라 랜덤 토큰으로는 설치되지 않는다")
+    void unknownTokenNeverInstallsTokenWindow() {
+        // 토큰 창(분 30)보다 많이, 그리고 반드시 "같은" 토큰 문자열로 부른다. 토큰 창이 findByToken
+        // 앞으로 옮겨지면 31번째가 429 가 되어 이 단언이 깨진다 — 순서 계약의 회귀 잠금이다.
+        // 토큰을 매번 유니크하게 바꾸면 이 가드가 조용히 사라지므로 고정 문자열을 유지할 것.
+        for (int attempt = 0; attempt < 31; attempt++) {
             requestStatus("no-such-token")
                     .then().statusCode(HttpStatus.NOT_FOUND.value());
         }
-        requestStatus("no-such-token")
-                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
-                .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
     }
 
     @Test
-    @DisplayName("한 세션의 상태 조회가 분당 한도(30회)를 넘으면 429 와 VERIFICATION_RATE_LIMITED 를 반환한다")
-    void statusTokenRateLimitReturnsTooManyRequests() {
-        IssuedSession session = issue(PHONE);
+    @DisplayName("한 세션의 상태 조회가 분당 한도(30회)를 넘으면 429 지만 같은 IP 의 다른 세션은 영향받지 않는다")
+    void statusRateLimitIsIsolatedPerSession() {
+        IssuedSession exhaustedSession = issue(PHONE);
 
         for (int attempt = 0; attempt < 30; attempt++) {
-            requestStatus(session.token())
+            requestStatus(exhaustedSession.token())
                     .then().statusCode(HttpStatus.OK.value());
         }
-        requestStatus(session.token())
+        requestStatus(exhaustedSession.token())
                 .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
                 .body("code", equalTo("VERIFICATION_RATE_LIMITED"));
+
+        // 축 전환의 핵심 단언 — 상태조회가 IP 축이던 시절에는 같은 IP 라 이 요청도 429 였다.
+        IssuedSession freshSession = issue(uniquePhone());
+        requestStatus(freshSession.token())
+                .then().statusCode(HttpStatus.OK.value());
     }
 
     @Test

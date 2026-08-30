@@ -264,10 +264,10 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     @DisplayName("가입되지 않은 학번의 재설정 시작도 가입 학번과 같은 만큼만 IP 발급 한도를 소모한다")
     void startPasswordResetConsumesSameIpIssueQuotaForUnknownStudentId() {
         // 매 요청 학번이 서로 달라 학번당 3회 제한엔 걸리지 않는다 — IP 발급 축만 격리 검증한다.
-        // 발급 IP 분당 한도(10)는 서비스 package-private 상수라 형제 테스트처럼 리터럴로 맞춘다.
-        // 미가입 요청이 IP 창을 2회 소모하던 옛 이중 계수가 살아나면 6번째 요청이 429 가 돼 루프가 깨진다 —
+        // 발급 IP 분당 한도(60)는 서비스 package-private 상수라 형제 테스트처럼 리터럴로 맞춘다.
+        // 미가입 요청이 IP 창을 2회 소모하던 옛 이중 계수가 살아나면 31번째 요청이 429 가 돼 루프가 깨진다 —
         // 상태코드를 균일하게 만들어도 "429 가 몇 번째에 뜨는지"로 실계정을 셀 수 있던 오라클의 회귀 잠금이다.
-        for (int attempt = 0; attempt < 10; attempt++) {
+        for (int attempt = 0; attempt < 60; attempt++) {
             startPasswordReset(uniqueStudentId());
         }
         given().contentType(ContentType.JSON).body(Map.of("studentId", uniqueStudentId()))
