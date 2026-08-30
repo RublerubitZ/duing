@@ -175,6 +175,36 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
                 .body("data.content[0].contactPhone", equalTo(FacilityBookingFixture.VALID_CONTACT_PHONE));
     }
 
+    @Test
+    @DisplayName("sort=USAGE_ASC 쿼리 파라미터가 enum 으로 바인딩되어 이용일시 빠른 순으로 응답한다")
+    void queueSortsByUsageAscWhenRequested() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Facility facility = saveFacility();
+        LocalDate earlierDate = BookingWindowFixture.bookableDate();
+        Long earlierDateBooking = bookingService.create(new CreateFacilityBookingCommand(
+                club.getId(), leader.getId(), facility.getId(), earlierDate,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
+        Long laterDateBooking = bookingService.create(new CreateFacilityBookingCommand(
+                club.getId(), leader.getId(), facility.getId(), earlierDate.plusDays(1),
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
+
+        // sort 생략 = 기존 기본(status 무필터는 최신순) → 나중에 신청한 laterDateBooking 이 먼저
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(QUEUE_PATH + "?facilityId=" + facility.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].bookingId", equalTo(laterDateBooking.intValue()));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(QUEUE_PATH + "?facilityId=" + facility.getId() + "&sort=USAGE_ASC")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content[0].bookingId", equalTo(earlierDateBooking.intValue()));
+    }
+
     // ---------- fixtures (FacilityBookingAdminServiceIntegrationTest 와 동일) ----------
 
     private Long pendingBooking() throws Exception {

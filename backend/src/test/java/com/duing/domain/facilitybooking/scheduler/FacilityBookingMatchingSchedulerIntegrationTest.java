@@ -30,6 +30,7 @@ import com.duing.domain.facilitybooking.service.FacilityBookingAdminService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingService;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
+import com.duing.domain.facilitybooking.service.dto.query.AdminBookingQueueSort;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -170,7 +171,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
 
     /** 관리자 큐(APPROVED 탭)에서 해당 예약 행을 찾는다 — 큐 파생 플래그와 매칭 결과의 일치를 단언하기 위한 것. */
     private AdminBookingSummaryResult approvedQueueRow(Long bookingId) {
-        return queryService.getQueue(new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+        return queryService.getQueue(new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null,
+                        AdminBookingQueueSort.DEFAULT),
                         PageRequest.of(0, 20)).getContent().stream()
                 .filter(row -> row.bookingId().equals(bookingId))
                 .findFirst()

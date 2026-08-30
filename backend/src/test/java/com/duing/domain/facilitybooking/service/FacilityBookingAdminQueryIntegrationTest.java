@@ -32,6 +32,7 @@ import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingSummaryCounts;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingSummaryResult;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
+import com.duing.domain.facilitybooking.service.dto.query.AdminBookingQueueSort;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -185,7 +186,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 LocalTime.of(19, 0), LocalTime.of(20, 0), "전혀다른단체", false, LocalDateTime.now()));
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10));
 
         assertThat(queue.getTotalElements()).isEqualTo(1); // PENDING 2건은 상태 필터로 제외
@@ -200,21 +201,21 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
 
         // 시설 필터: 일치 시설은 1건, 미일치 시설은 0건
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
-                        BookingStatus.APPROVED, fixture.facility().getId(), null, null),
+                        BookingStatus.APPROVED, fixture.facility().getId(), null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
-                        BookingStatus.APPROVED, fixture.facility().getId() + 987_654L, null, null),
+                        BookingStatus.APPROVED, fixture.facility().getId() + 987_654L, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isZero();
 
         // 기간 필터 경계(goe/loe — 포함): 예약일 == dateFrom == dateTo 는 포함, 하루라도 벗어나면 제외
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
-                        BookingStatus.APPROVED, null, date, date),
+                        BookingStatus.APPROVED, null, date, date, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
-                        BookingStatus.APPROVED, null, date.plusDays(1), null),
+                        BookingStatus.APPROVED, null, date.plusDays(1), null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isZero();
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
-                        BookingStatus.APPROVED, null, null, date.minusDays(1)),
+                        BookingStatus.APPROVED, null, null, date.minusDays(1), AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isZero();
     }
 
@@ -234,7 +235,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10));
 
         assertThat(queue.getContent().get(0).conflictSuspected()).isFalse();
@@ -257,7 +258,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         adminService.approve(admin.getId(), approved);
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10));
 
         // 이름 불일치 점유행 겹침이지만 확보 행은 충돌 증거에서 제외된다 — 오배지 해소(리뷰 P2 #01).
@@ -277,11 +278,48 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         Long second = pendingBooking(fixture, date, 10, 11);  // 나중 생성
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10));
 
         assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
                 .containsExactly(first, second); // 오래된 순
+    }
+
+    @Test
+    @DisplayName("USAGE_ASC 는 이용일 → 시작 시각 오름차순으로 정렬한다 — 신청 순서와 무관")
+    void usageAscOrdersByReservationDateThenStartTime() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate earlierDate = bookableDate();
+        LocalDate laterDate = earlierDate.plusDays(1);
+        Long laterDateBooking = pendingBooking(fixture, laterDate, 9, 10);       // 가장 먼저 신청
+        Long earlierDateLateSlot = pendingBooking(fixture, earlierDate, 11, 12);
+        Long earlierDateEarlySlot = pendingBooking(fixture, earlierDate, 9, 10); // 가장 나중 신청
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null,
+                        AdminBookingQueueSort.USAGE_ASC),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
+                .containsExactly(earlierDateEarlySlot, earlierDateLateSlot, laterDateBooking);
+    }
+
+    @Test
+    @DisplayName("USAGE_ASC 동일 이용일시는 기존 보조 정렬(PENDING=오래된 순, 그 외=최신순)을 그대로 따른다")
+    void usageAscTieKeepsExistingSecondaryOrder() throws Exception {
+        LocalDate date = bookableDate();
+        Long first = pendingBooking(fixture(), date, 9, 10);  // 서로 다른 동아리·시설이 같은 슬롯을 신청
+        Long second = pendingBooking(fixture(), date, 9, 10);
+
+        assertThat(queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null,
+                        AdminBookingQueueSort.USAGE_ASC),
+                PageRequest.of(0, 10)).getContent())
+                .extracting(AdminBookingSummaryResult::bookingId).containsExactly(first, second);
+        assertThat(queryService.getQueue(
+                new AdminBookingSearchCondition(null, null, null, null, AdminBookingQueueSort.USAGE_ASC),
+                PageRequest.of(0, 10)).getContent())
+                .extracting(AdminBookingSummaryResult::bookingId).containsExactly(second, first);
     }
 
     @Test
@@ -300,7 +338,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         AdminBookingSummaryResult row = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getContent().get(0);
 
         assertThat(row.partiallyMatched()).isTrue();
@@ -323,7 +361,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 LocalTime.of(18, 0), LocalTime.of(19, 0), " " + clubName + " ", false, LocalDateTime.now()));
 
         AdminBookingSummaryResult row = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getContent().get(0);
 
         assertThat(row.partiallyMatched()).isFalse();
@@ -347,7 +385,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 LocalTime.of(18, 0), LocalTime.of(19, 0), clubName, true, LocalDateTime.now()));
 
         AdminBookingSummaryResult row = queryService.getQueue(
-                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null),
+                new AdminBookingSearchCondition(BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getContent().get(0);
 
         assertThat(row.partiallyMatched()).isFalse();
@@ -500,7 +538,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 FacilityBookingFixture.VALID_CONTACT_PHONE));
 
         Page<AdminBookingSummaryResult> queue = queryService.getQueue(
-                new AdminBookingSearchCondition(null, fixture.facility().getId(), null, null),
+                new AdminBookingSearchCondition(null, fixture.facility().getId(), null, null, AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10));
 
         assertThat(queue.getContent())
