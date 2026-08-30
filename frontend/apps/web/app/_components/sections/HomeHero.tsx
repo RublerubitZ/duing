@@ -76,11 +76,12 @@ export async function HomeHero() {
           <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9 xl:mb-8">
             대구대학교 동아리 플랫폼.
             <br />
-            {/* 모바일(sm 미만)은 둘째 줄을 "N개 동아리가 지금 모집 ing" 한 줄로 — 지금 모집 중인 수를 말하면서
+            {/* xl 미만은 둘째 줄을 "N개 동아리가 지금 모집 ing" 한 줄로 — 지금 모집 중인 수를 말하면서
                 워드플레이 ing 를 살린다(시안 예시 "29개 동아리가 부원을 모으는 ing-" 의 결). 190px 에서 세 자리 수여도
                 한 줄에 들어간다. 모집 중이 0곳이면 전체 수로("N개 동아리가 지금도 ing 중"), 통계가 없으면 수 없이.
-                전체 문장은 세 줄로 꺾여 마스코트 아래까지 내려왔다 — sm 부터만 쓴다. */}
-            <span className="sm:hidden">
+                전체 문장은 18px 에서 ≈430px 인데 md·lg 컬럼 하한이 351·374 라 창 폭에 따라 세 줄로 꺾인다(모바일은
+                마스코트 아래까지 내려왔다) — 컬럼이 479 이상인 xl 부터만 쓴다. */}
+            <span className="xl:hidden">
               {stats && stats.recruitingCount > 0 ? (
                 <>
                   {stats.recruitingCount}개 동아리가 지금 모집{' '}
@@ -93,7 +94,7 @@ export async function HomeHero() {
                 </>
               )}
             </span>
-            <span className="hidden sm:inline">
+            <span className="hidden xl:inline">
               {stats ? (
                 <>
                   {stats.totalCount}개 동아리가 지금도{' '}
