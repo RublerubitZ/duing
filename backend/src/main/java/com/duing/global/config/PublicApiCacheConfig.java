@@ -1,9 +1,12 @@
 package com.duing.global.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.Ticker;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.DoubleSupplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
@@ -29,11 +32,23 @@ import org.springframework.core.Ordered;
  * 전체로 잡아 쿼리 파라미터별로 분리한다. 인증 주체는 키에도 값에도 들어가지 않는다 — 인증/비인증
  * 응답이 섞일 수 있는 메서드는 아예 캐시하지 않는다.
  *
- * <p>TTL 은 Caffeine 의 {@code expireAfterWrite} 로 엔트리마다 적용한다. "최대 TTL 초 이상 낡은 응답은
+ * <p>TTL 은 Caffeine 의 엔트리별 만료로 적용한다. "최대 TTL 초 이상 낡은 응답은
  * 없다"는 상한은 예전의 주기적 전량 비움과 같지만, 모든 엔트리가 같은 순간에 함께 사라지지 않는다 —
  * 매분 전량 비움 직후 같은 키의 요청이 한꺼번에 DB 로 몰려 CPU 와 p99 가 튀던 스탬피드(2026-08-29
  * capacity 테스트)가 사라진다. 대신 엔트리의 평균 낡음은 TTL 의 절반(전량 비움은 수명 0~TTL 균등)
  * 수준으로 오르는데, 정책이 "평균"이 아니라 "상한"이므로 그대로 둔다.
+ *
+ * <p><b>TTL 지터</b> — 전량 비움을 없앤 뒤에도 매분 같은 초에 지연이 튀는 잔여 버스트가 남았다
+ * (2026-08-30 Test A, 287 RPS: 그 초의 p99 244 ms vs 다른 초 55 ms). 엔트리별 만료인데도 위상이 겹쳐서다.
+ * 인스턴스 기동 직후 인기 키가 한꺼번에 처음 적재되고, 트래픽이 끊기지 않으면 만료 즉시 재적재되어
+ * 그 위상이 영구히 고정된다 — 결국 같은 초에 여러 키가 함께 만료돼 DB 로 몰린다. 그래서 엔트리마다
+ * 수명을 TTL 의 5/6~1 배 사이에서 무작위로 잡아 만료를 흩는다. 상한은 여전히 TTL 이라 {@code max-age}
+ * 정책은 그대로고, 같은 키가 재적재될 때마다 새 난수를 뽑으므로 위상이 다시 굳지 않는다.
+ *
+ * <p>선반영(refresh-ahead)도 후보였지만 택하지 않았다. Spring 이 {@code sync} 조회에 넘겨주는 로더는
+ * {@code MethodInvocation.proceed()} 한 번을 감싼 것이고, 그 호출은 인터셉터 인덱스를 되돌리지 않아
+ * 재실행하면 남은 어드바이스(트랜잭션 포함)를 건너뛴다. 백그라운드 재적재를 위해 그 로더를 기억해
+ * 두는 구조는 이 계약을 어기게 되므로, 관측된 원인(위상 동기화)만 정확히 없애는 지터를 쓴다.
  *
  * <p>엔트리 수 상한은 {@code maximumSize} 로 잡는다. keyword·tags 처럼 값이 무제한인 질의 파라미터가
  * 캐시 키에 들어가므로 상한이 없으면 비인증 요청만으로 힙을 채울 수 있다. 상한에 닿으면 새 키를
@@ -98,17 +113,58 @@ public class PublicApiCacheConfig {
     }
 
     /**
-     * 엔트리별 TTL({@code expireAfterWrite})과 크기 상한을 가진 캐시. {@code ticker} 는 단위 테스트가
+     * 엔트리별 TTL(지터 적용)과 크기 상한을 가진 캐시. {@code ticker} 는 단위 테스트가
      * 시계를 직접 밀어 만료를 결정적으로 검증하기 위한 이음매이며, 프로덕션은 항상 시스템 시계다.
      *
      * <p>{@code allowNullValues = true} — 대상 메서드가 null 을 돌려줄 일은 없지만, 값이 없다고
      * 캐시가 조용히 매번 로더를 부르는 구성보다 Spring 기본(null 래핑)을 유지하는 쪽이 안전하다.
      */
     static CaffeineCache caffeineCache(String cacheName, int maxEntries, long ttlMs, Ticker ticker) {
+        // 프로덕션은 엔트리마다 난수를 뽑아 만료를 흩는다. 단위 테스트는 아래 오버로드로 이 값을 고정한다.
+        // current() 는 적재하는 스레드에서 그때그때 부른다 — 여기서 한 번 묶어 두면 그 스레드의 시드
+        // 초기화만 일어나고, 다른 요청 스레드는 초기화를 건너뛴 채 난수를 뽑게 된다.
+        return caffeineCache(cacheName, maxEntries, ttlMs, ticker, () -> ThreadLocalRandom.current().nextDouble());
+    }
+
+    /**
+     * {@code jitterFraction} 은 매 적재마다 0(포함)~1(미포함) 사이 값을 주는 이음매다 — 그 값이
+     * 수명을 {@code ttlMs} 의 {@link #MIN_TTL_RATIO}~1 배 사이로 정한다. 테스트는 고정값을 넘겨
+     * 만료 시점을 결정적으로 잡고, 프로덕션은 스레드별 난수를 쓴다.
+     */
+    static CaffeineCache caffeineCache(
+            String cacheName, int maxEntries, long ttlMs, Ticker ticker, DoubleSupplier jitterFraction) {
         return new CaffeineCache(cacheName, Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofMillis(ttlMs))
+                // expireAfterWrite 대신 Expiry 를 쓰는 이유는 엔트리마다 수명을 달리 주기 위해서다.
+                .expireAfter(new Expiry<Object, Object>() {
+                    @Override
+                    public long expireAfterCreate(Object key, Object value, long currentTime) {
+                        return jitteredTtlNanos(ttlMs, jitterFraction.getAsDouble());
+                    }
+
+                    @Override
+                    public long expireAfterUpdate(
+                            Object key, Object value, long currentTime, long currentDuration) {
+                        // 값이 새로 쓰였으니 수명도 새로 뽑는다 — 매번 새 난수라 위상이 다시 굳지 않는다.
+                        return jitteredTtlNanos(ttlMs, jitterFraction.getAsDouble());
+                    }
+
+                    @Override
+                    public long expireAfterRead(Object key, Object value, long currentTime, long currentDuration) {
+                        // 읽기는 수명을 늘리지 않는다 — "적재 후 최대 TTL" 상한을 지킨다.
+                        return currentDuration;
+                    }
+                })
                 .maximumSize(maxEntries)
                 .ticker(ticker)
                 .build(), true);
+    }
+
+    /** 지터 하한 비율 — 수명은 TTL 의 5/6(60초면 50초)~1 배. 상한이 TTL 이라 정책을 넘지 않는다. */
+    static final double MIN_TTL_RATIO = 5.0 / 6.0;
+
+    /** {@code jitterFraction} 0~1 을 TTL 의 {@link #MIN_TTL_RATIO}~1 배 수명(나노초)으로 바꾼다. */
+    static long jitteredTtlNanos(long ttlMs, double jitterFraction) {
+        double ratio = MIN_TTL_RATIO + (1.0 - MIN_TTL_RATIO) * jitterFraction;
+        return Math.max(1L, Duration.ofMillis(Math.round(ttlMs * ratio)).toNanos());
     }
 }
