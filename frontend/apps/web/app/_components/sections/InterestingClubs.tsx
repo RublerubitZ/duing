@@ -24,8 +24,8 @@ export async function InterestingClubs() {
   if (clubs.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 md:px-10 py-7 sm:py-14">
-      <div className="max-w-layout mx-auto">
+    <section className="py-7 sm:py-14">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <div className="mb-5 flex items-center justify-between md:mb-10">
           <h2 className="text-[20px] md:text-[36px]">관심도가 높은 동아리</h2>
           {/* 아이콘만 있는 링크라 접근명을 직접 단다 — 인라인 텍스트가 없으면 스크린리더가 읽을 게 없다.

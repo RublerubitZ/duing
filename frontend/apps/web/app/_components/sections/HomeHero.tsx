@@ -14,7 +14,7 @@ export async function HomeHero() {
   // 검색→배너 46(실측 48). "넓어 보인다" 의 주범은 상단이 아니라 헤드라인 아래 36 이었다. xl 은 그리드를 위 정렬로 두어
   // (일러스트 컬럼이 더 길어도) 왼쪽 컬럼이 가운데로 떠내려가 위아래 여백이 불어나지 않게 한다.
   return (
-    <section className="relative overflow-hidden px-4 sm:px-6 md:px-10 pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
+    <section className="relative overflow-hidden pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
       <div className="bg-grid absolute inset-0 opacity-50" />
       {/* 우상단 세이지 블러 원은 PC 시안 전용 — 모바일 프레임(509:8861)의 배경은 크림 단색이라 md 부터만 그린다. */}
       <div
@@ -24,7 +24,7 @@ export async function HomeHero() {
         }}
       />
 
-      <div className="max-w-layout relative mx-auto grid items-center gap-8 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr] xl:items-start">
+      <div className="max-w-layout relative mx-auto grid items-center gap-8 px-4 sm:px-6 md:px-10 md:grid-cols-[1.15fr_1fr] lg:grid-cols-[0.82fr_1.18fr] xl:items-start">
         {/* 모바일은 헤드라인 옆 마스코트가 헤드라인보다 아래로 내려오므로(시안: 헤드라인 위 +25 → 발 172px,
             다음 요소까지 33px) 컬럼 높이를 184px 로 잡는다 — 없으면 section overflow-hidden 에 발이 잘린다. */}
         <div className="relative min-h-[184px] md:min-h-0">
@@ -63,10 +63,7 @@ export async function HomeHero() {
             <br />
             캠퍼스의
             <br />
-            모든{' '}
-            <span className="text-ink-deep">두</span>
-            <span className="text-ink">잉</span>
-            .
+            모든 두잉
           </h1>
 
           {/* 본문 카피 — 모바일 시안(509:9210)대로 헤드라인 아래, 폭 190 안에서 마스코트 왼쪽에 두 줄로 둔다

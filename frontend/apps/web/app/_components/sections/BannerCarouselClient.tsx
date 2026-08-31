@@ -258,8 +258,8 @@ export function BannerCarouselClient({ slides }: Props) {
   if (!activeSlide) return null;
 
   return (
-    <section className="px-4 pt-2 sm:px-6 md:px-10">
-      <div className="max-w-layout relative mx-auto">
+    <section className="pt-2">
+      <div className="max-w-layout relative mx-auto px-4 sm:px-6 md:px-10">
         {/*
          * 시안은 전체 폭 배너 한 장이다 — 예전의 [메인 + 우측 보조 2장] 그리드를 걷어냈다.
          * 컨트롤은 위치 표시(우측)·이전다음 화살표(md+ 하단)·자동 재생 토글(sm+ 배너 밖 아래)로 나뉜다.
