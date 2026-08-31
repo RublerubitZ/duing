@@ -35,8 +35,18 @@
   }
 }
 
+/* overflow-y: scroll — 세로 스크롤바 자리를 항상 잡아 둔다. 문서가 뷰포트보다 짧은 화면
+   (소식·시설·마이페이지)과 스크롤되는 화면을 오갈 때 막대가 생겼다 사라지며, 가운데 정렬된
+   상단바와 본문이 막대 폭의 절반(≈7.5px)만큼 좌우로 튀었다. 오버레이 스크롤바(맥 기본)에서는
+   아무 효과가 없다.
+   ⚠️ html 이 아니라 body 에 두는 것이 핵심이다. html 의 overflow 가 visible 로 남아 있어야
+   뷰포트가 body 의 값을 물려받고, 모달이 스크롤을 잠글 때(react-remove-scroll-bar 가 body 에
+   overflow:hidden + margin-right 보정) 막대와 보정이 함께 사라져 화면이 안 밀린다. html 에
+   걸면 잠금 중에도 막대가 남아 보정 폭만큼 본문이 왼쪽으로 밀리는 것을 실측했다. scrollbar-gutter: stable 은
+   루트 overflow 가 visible 이라 듣지 않는다(짧은 페이지 거터 0). */
 body {
   @apply bg-white text-slate-900 antialiased;
+  overflow-y: scroll;
 }
 
 /* shadcn/ui 시맨틱 토큰 — 두잉 토큰에 매핑 (두잉 전용 셋업).
@@ -336,9 +346,17 @@ body {
     display: none;
   }
   @media (max-width: 767px) {
+    /* 상단바(px-4 sm:px-6 md:px-10)와 같은 여백 사다리를 지킨다 — 여기는 16, 640~767 은 아래에서 24,
+       768 부터는 인라인 40 이 그대로 산다. 인라인 style 을 덮어야 해서만 !important 다. */
     .cal-section {
       padding-left: 16px !important;
       padding-right: 16px !important;
+    }
+    @media (min-width: 640px) {
+      .cal-section {
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+      }
     }
     .cal-header {
       /* padding-top 은 인라인 var(--page-top) 이 뷰포트별로 해소하므로 여기서 덮지 않는다 */

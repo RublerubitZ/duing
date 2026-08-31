@@ -77,8 +77,8 @@ function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
 
   return (
-    <nav className="px-4 sm:px-6 md:px-10 pt-4">
-      <div className="max-w-layout mx-auto flex gap-6 flex-wrap items-center">
+    <nav className="pt-4">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 flex gap-6 flex-wrap items-center">
         <Link
           href="/me"
           className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px] flex items-center gap-1"

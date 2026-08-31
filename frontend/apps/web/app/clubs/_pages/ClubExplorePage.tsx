@@ -576,7 +576,7 @@ export function ClubExplorePage() {
 
       {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
       <div className="md:hidden">
-        <section className="bg-cream px-4 pt-page-top pb-4">
+        <section className="bg-cream px-4 pt-page-top pb-4 sm:px-6">
           <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
         </section>
@@ -585,7 +585,7 @@ export function ClubExplorePage() {
             sticky 라 자기 자리를 차지하므로 아래 콘텐츠에 별도 패딩 보정이 필요 없고,
             스크롤포트 기준이라 노치와도 겹치지 않는다. 하단 헤어라인은 반투명 배경이
             페이지와 거의 같은 색이라 카드가 바 뒤로 지날 때의 유일한 경계다. */}
-        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur">
+        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur sm:px-6">
           <form
             onSubmit={handleSearchSubmit}
             className="flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
@@ -605,7 +605,7 @@ export function ClubExplorePage() {
             좁을수록 늘어남), 문서에 가로 스크롤이 없어 그 오버스크롤이 상위로 전파된다. iOS 에서는
             viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있어 레일 안에서 끊는다.
             세로축은 auto 로 둔다 — 레일 위에서 시작한 세로 드래그는 페이지가 받아야 한다. */}
-        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
@@ -624,7 +624,7 @@ export function ClubExplorePage() {
           })}
         </nav>
 
-        <div className="flex items-center justify-between px-4 pb-3 pt-4">
+        <div className="flex items-center justify-between px-4 pb-3 pt-4 sm:px-6">
           {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div
@@ -668,7 +668,7 @@ export function ClubExplorePage() {
           </div>
         </div>
 
-        <div className="px-4 pb-8">
+        <div className="px-4 pb-8 sm:px-6">
           {requiresLoginForFavorite ? (
             <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
           ) : (

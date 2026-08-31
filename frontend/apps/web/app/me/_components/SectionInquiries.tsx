@@ -23,9 +23,9 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
     <section
       data-section="inquiries"
       id="sec-inquiries"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="pt-8 pb-6 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title={`내 문의 · ${totalCount}`}
           hint="총동아리연합회에 남긴 1:1 문의 내역입니다."

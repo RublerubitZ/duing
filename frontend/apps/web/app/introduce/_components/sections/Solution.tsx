@@ -23,8 +23,8 @@ const SOLUTIONS: ReadonlyArray<SolutionCard> = [
 
 export function Solution() {
   return (
-    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
-      <div className="mx-auto max-w-layout">
+    <section className="py-20 md:py-28">
+      <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
           <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             SOLUTION · 두잉이 모았어요

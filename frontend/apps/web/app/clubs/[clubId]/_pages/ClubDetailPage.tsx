@@ -47,7 +47,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
 
   if (detail.isLoading) {
     return (
-      <div className="mx-auto max-w-layout px-6 py-10">
+      <div className="mx-auto max-w-layout px-4 py-10 sm:px-6 md:px-10">
         <TextLinesSkeleton lines={8} label="동아리 정보 불러오는 중" />
       </div>
     );
@@ -65,8 +65,8 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
         recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
       />
 
-      <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
-        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
+      <section className="bg-cream pb-16">
+        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 px-4 sm:px-6 md:px-10 lg:grid-cols-[1fr_380px] lg:gap-12">
           <div>
             <div className="mb-6 md:mb-8">
               <ClubDetailStats club={club} />

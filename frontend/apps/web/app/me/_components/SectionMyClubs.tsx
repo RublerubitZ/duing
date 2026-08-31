@@ -35,9 +35,9 @@ export function SectionMyClubs({ myClubs }: Props) {
     <section
       data-section="joined"
       id="sec-joined"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="pt-8 pb-6 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title={`가입한 동아리 · ${myClubs.length}`}
           hint="활동 중인 동아리와 다음 모임 일정을 확인해요."

@@ -28,9 +28,9 @@ export function SectionSaved({ favorites }: Props) {
     <section
       data-section="saved"
       id="sec-saved"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-[260px] scroll-mt-[60px]"
+      className="pt-8 pb-[260px] scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title={`찜한 동아리 · ${favorites.length}`}
           hint="관심 표시한 동아리예요. 모집 마감이 임박하면 알려드려요."

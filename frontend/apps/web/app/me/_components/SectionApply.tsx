@@ -61,9 +61,9 @@ export function SectionApply({ applications }: Props) {
       <section
         data-section="apply"
         id="sec-apply"
-        className="px-4 sm:px-6 md:px-10 pt-10 pb-6 scroll-mt-[60px]"
+        className="pt-10 pb-6 scroll-mt-[60px]"
       >
-        <div className="max-w-layout mx-auto">
+        <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
           <SectionHeader
             title="진행 중인 지원 · 0"
             hint="아직 결과를 기다리고 있는 지원 내역입니다."
@@ -83,9 +83,9 @@ export function SectionApply({ applications }: Props) {
     <section
       data-section="apply"
       id="sec-apply"
-      className="px-4 sm:px-6 md:px-10 pt-10 pb-6 scroll-mt-[60px]"
+      className="pt-10 pb-6 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title={`진행 중인 지원 · ${applications.length}`}
           hint="아직 결과를 기다리고 있는 지원 내역입니다."
