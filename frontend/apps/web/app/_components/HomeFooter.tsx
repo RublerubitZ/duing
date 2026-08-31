@@ -39,8 +39,8 @@ export function HomeFooter() {
       </footer>
 
       {/* 데스크탑 풀 푸터 */}
-      <footer className="hidden mt-10 bg-cream-2 px-4 sm:px-6 md:px-10 py-14 md:block">
-      <div className="max-w-layout mx-auto grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <footer className="hidden mt-10 bg-cream-2 py-14 md:block">
+      <div className="max-w-layout mx-auto grid gap-10 px-4 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:px-10">
         <div>
           {/* 시안 푸터 로고 120×43(1920 캔버스) → 콘텐츠 폭 1200 기준 ×0.815 ≈ 35px. */}
           <BrandMark size={35} />
@@ -139,7 +139,7 @@ export function HomeFooter() {
           </ul>
         </div>
       </div>
-      <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 pt-6 text-xs text-charcoal-3">
+      <div className="max-w-layout mx-auto mt-12 flex flex-wrap items-center justify-between gap-3 px-4 pt-6 text-xs text-charcoal-3 sm:px-6 md:px-10">
         <div>
           <div>© DUING · All Rights Reserved</div>
           {/* 토스페이스 라이선스가 요구하는 출처 표시 — 카테고리 픽토그램에 쓰인다. */}

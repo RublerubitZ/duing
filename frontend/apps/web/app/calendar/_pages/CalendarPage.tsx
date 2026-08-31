@@ -87,6 +87,11 @@ const buildMonth = (year: number, monthIndex: number): MonthCell[] => {
 /* Component                                                            */
 /* ------------------------------------------------------------------ */
 
+// 콘텐츠 폭 — 상단바·홈과 같은 축(레이아웃 상한 1280 안쪽에 좌우 40 여백 = 1200)에 맞춘다.
+// 여기서는 여백이 .cal-section 바깥에 있어 상한을 1280 그대로 두면 전체화면에서만 40px 어긋난다.
+// 1200 이 걸리는 구간은 vw>1280 뿐이고 그 구간의 .cal-section 좌우 여백은 항상 40 이라 값 하나로 족하다.
+const CONTENT_WIDTH = 1200;
+
 export function CalendarPage() {
   const today = new Date();
   const todayIso = fmt(today.getFullYear(), today.getMonth(), today.getDate());
@@ -255,7 +260,7 @@ export function CalendarPage() {
 
       {/* ===== Header ===== */}
       <section className="cal-section cal-header" style={{ padding: 'var(--page-top) 40px 28px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>
@@ -353,7 +358,7 @@ export function CalendarPage() {
 
       {/* ===== Main: month grid + day panel ===== */}
       <section className="cal-section" style={{ padding: '32px 40px 0' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
           {/* Month nav */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -676,7 +681,7 @@ export function CalendarPage() {
 
       {/* ===== Upcoming timeline ===== */}
       <section className="cal-section" style={{ padding: '48px 40px 32px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 6 }}>
