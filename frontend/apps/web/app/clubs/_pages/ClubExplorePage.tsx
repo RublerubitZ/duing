@@ -229,8 +229,8 @@ export function ClubExplorePage() {
     <div>
       {/* ─── 데스크탑 (md+) — 기존 카드형 레이아웃(원본 유지) ─── */}
       <div className="hidden md:block">
-      <section className="bg-cream px-4 sm:px-6 md:px-10 pt-page-top pb-7">
-        <div className="max-w-layout mx-auto">
+      <section className="bg-cream pt-page-top pb-7">
+        <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
           <div className="flex items-end justify-between mb-7">
             <div>
               <div className="text-[13px] font-semibold text-ink tracking-wide08 mb-2.5">
@@ -335,8 +335,8 @@ export function ClubExplorePage() {
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
-        <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
+      <section className="pt-6 pb-20">
+        <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8 px-4 sm:px-6 md:px-10">
           <aside>
             <div className="sticky top-6 bg-paper rounded-[18px] border border-line px-[22px] py-5">
               <div className="flex items-center justify-between mb-1">

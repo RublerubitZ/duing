@@ -68,14 +68,14 @@ export function ClubExploreSkeleton() {
     <div role="status" aria-busy="true" aria-label="동아리 목록 불러오는 중" className="animate-pulse motion-reduce:animate-none">
       {/* 데스크탑 (md+) */}
       <div className="hidden md:block">
-        <section className="bg-cream px-4 sm:px-6 md:px-10 pt-page-top pb-7">
-          <div className="max-w-layout mx-auto space-y-4">
+        <section className="bg-cream pt-page-top pb-7">
+          <div className="max-w-layout mx-auto space-y-4 px-4 sm:px-6 md:px-10">
             <SkeletonBar className="h-8 w-72" />
             <div className="h-12 w-[360px] rounded-[14px] bg-graysoft" />
           </div>
         </section>
-        <section className="px-4 sm:px-6 md:px-10 pt-6 pb-20">
-          <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8">
+        <section className="pt-6 pb-20">
+          <div className="max-w-layout mx-auto grid grid-cols-[256px_1fr] gap-8 px-4 sm:px-6 md:px-10">
             <div className="h-[420px] rounded-[18px] border border-line bg-paper" />
             <ClubListSkeletonItems variant="grid" />
           </div>
