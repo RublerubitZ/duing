@@ -51,6 +51,10 @@ describe('next.config 보안 헤더', () => {
 });
 
 describe('next.config 정적 폰트 캐시', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('/fonts 자산에 1년 immutable 캐시를 내려 재방문마다의 조건부 재검증 왕복을 없앤다', async () => {
     const headersFn = nextConfig.headers;
     if (!headersFn) throw new Error('headers() 가 정의되어야 한다');
@@ -81,8 +85,22 @@ describe('next.config 정적 폰트 캐시', () => {
     for (const ext of ['png', 'webp', 'svg', 'ico']) expect(imageRule.source).toContain(ext);
   });
 
-  it('/_next/image 최적화 결과도 1년 하한으로 캐시한다 — 원본이 public/ 정적 자산뿐이라 immutable 규칙과 같은 값', () => {
+  it('/_next/image 최적화 결과도 1년 하한으로 캐시한다 — 업로드 키가 UUID 라 교체가 곧 새 URL 이어서 원격 원본도 안전', () => {
     expect(nextConfig.images?.minimumCacheTTL).toBe(31536000);
+  });
+
+  it('원격 이미지 최적화는 운영 R2 호스트만 허용한다 — 개발용 r2.dev 와일드카드는 운영 빌드에서 빠진다', async () => {
+    // 와일드카드가 운영까지 새면 남의 r2.dev 버킷 이미지를 우리 최적화기가 중계하게 된다.
+    const hostnames = (nextConfig.images?.remotePatterns ?? []).map((pattern) => pattern.hostname);
+    expect(hostnames).toContain('files.duings.com');
+
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.resetModules();
+    const { default: productionConfig } = await import('../next.config.mjs');
+    const productionHostnames = (productionConfig.images?.remotePatterns ?? []).map(
+      (pattern) => pattern.hostname,
+    );
+    expect(productionHostnames).toEqual(['files.duings.com']);
   });
 
   it('보안 헤더 규칙(/:path*)은 폰트 규칙 추가와 무관하게 유지된다', async () => {

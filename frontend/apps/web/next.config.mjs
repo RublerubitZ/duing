@@ -82,8 +82,21 @@ const nextConfig = {
   images: {
     // /_next/image 최적화 결과의 Cache-Control 하한. 기본 60초라 최적화 이미지가 브라우저·CDN 에 남지 않아
     // 새로고침마다 재검증 왕복이 생기고(실측 x-vercel-cache MISS), 매번 최적화기를 탄다.
-    // 이 앱의 next/image 원본은 public/ 정적 자산뿐(업로드 이미지는 raw <img>)이라 아래 immutable 규칙과 같은 1년.
+    // next/image 원본은 public/ 정적 자산과 아래 remotePatterns 의 업로드 이미지(LCP 요소 2곳 — 홈 배너·
+    // 클럽 상세 커버)뿐이다. 나머지 업로드 이미지는 여전히 raw <img> 라 이 목록에 없어도 된다.
+    // 업로드 키가 UUID 라 덮어쓰기가 없어(교체 = 새 URL) 원격 원본에도 1년 하한이 안전하다 —
+    // 아래 immutable 규칙과 같은 값.
     minimumCacheTTL: 31536000,
+    remotePatterns: [
+      // 운영 R2 공개 호스트(S3_PUBLIC_BASE_URL). CSP img-src 와 같은 호스트다.
+      { protocol: 'https', hostname: 'files.duings.com' },
+      // 로컬 개발 전용. dev 백엔드는 R2 개발 버킷의 기본 공개 호스트(pub-<id>.r2.dev)를 쓰고,
+      // 시드 데이터에도 서로 다른 버킷 호스트가 섞여 있어 와일드카드로 연다. 운영 빌드에서는 빼는데,
+      // 남겨두면 남의 r2.dev 버킷 이미지까지 우리 최적화기가 중계(오픈 이미지 프록시)하게 된다.
+      ...(process.env.NODE_ENV === 'production'
+        ? []
+        : [{ protocol: 'https', hostname: '**.r2.dev' }]),
+    ],
   },
   async headers() {
     const headers = [
