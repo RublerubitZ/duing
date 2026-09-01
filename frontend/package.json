@@ -13,6 +13,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test -- --run",
+    "audit:analytics": "node scripts/audit-analytics-events.mjs",
     "gen:api": "openapi-typescript http://localhost:8080/v3/api-docs -o packages/api/src/generated/schema.d.ts"
   },
   "devDependencies": {

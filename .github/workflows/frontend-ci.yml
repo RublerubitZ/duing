@@ -46,6 +46,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Analytics event audit
+        run: pnpm audit:analytics
+
       - name: Build
         env:
           # 운영 API URL fail-fast(#634) 통과용 CI 전용 https URL — 실서버 아님
