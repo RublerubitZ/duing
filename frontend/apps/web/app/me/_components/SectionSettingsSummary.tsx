@@ -11,9 +11,9 @@ export function SectionSettingsSummary({ onGoToSettings }: Props) {
     <section
       data-section="settings"
       id="sec-settings"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-20 scroll-mt-[60px]"
+      className="pt-8 pb-20 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title="설정"
           hint="프로필 · 알림 · 계정 보안 설정을 한 곳에서 관리해요."

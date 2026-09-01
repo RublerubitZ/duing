@@ -27,9 +27,9 @@ export function SectionActivity({ stats, timeline }: Props) {
     <section
       data-section="activity"
       id="sec-activity"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="pt-8 pb-6 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title="내 활동"
           hint="2025년 2학기 활동 요약과 최근 참여 기록입니다."

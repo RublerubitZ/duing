@@ -17,11 +17,11 @@ type Props = {
 export function MyPageStickyNav({ sections, active, onSelect }: Props) {
   return (
     <div
-      className="sticky z-20 bg-cream px-4 sm:px-6 md:px-10"
+      className="sticky z-20 bg-cream"
       style={{ top: -1, marginTop: -1, boxShadow: '0 -16px 0 var(--cream)' }}
     >
       {/* breadcrumb row */}
-      <div className="max-w-layout mx-auto flex items-center gap-2.5 pt-7 pb-2.5 text-[11.5px] leading-4 font-semibold text-charcoal-3 whitespace-nowrap">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 flex items-center gap-2.5 pt-7 pb-2.5 text-[11.5px] leading-4 font-semibold text-charcoal-3 whitespace-nowrap">
         <span>⌂</span>
         <span>내 두잉</span>
         <span>›</span>
@@ -29,7 +29,7 @@ export function MyPageStickyNav({ sections, active, onSelect }: Props) {
       </div>
 
       {/* tab row */}
-      <div className="max-w-layout mx-auto flex gap-6 flex-wrap">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 flex gap-6 flex-wrap">
         {sections.map((section) => {
           const isActive = section.id === active;
           return (
