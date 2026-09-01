@@ -134,6 +134,33 @@ export default withSentryConfig(nextConfig, {
   project: 'next-duing',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
+  // 쓰지 않는 Sentry 기능 코드를 빌드 시 매직 플래그 치환(__SENTRY_TRACING__ 등)으로 걷어낸다.
+  // 치환은 client·server·edge 세 빌드 모두에 적용된다 — "클라이언트 번들만"이 아니다.
+  //
+  // ⚠ 커플링 1 — excludeTracing 은 instrumentation-client.ts 의 `tracesSampleRate: 0`(성능 추적
+  // 비활성)과 한 쌍이다. 추적을 다시 켤 때(tracesSampleRate > 0) 이 줄을 반드시 함께 지운다.
+  // 안 지우면 샘플링만 올라가고 span 코드는 번들에서 빠진 채라 조용히 아무 것도 수집되지 않는다.
+  // 지금 실제 절감이 나오는 항목도 이것뿐이다 — SDK 는 tracesSampleRate 가 0 이어도
+  // browserTracingIntegration 을 기본 통합에 넣어 왔고(@sentry/nextjs 10.58.0
+  // build/cjs/client/index.js:88, __SENTRY_TRACING__ 가드 안), 그 덩어리가 통째로 빠진다.
+  // instrumentation-client.ts 의 onRouterTransitionStart export 는 그대로 둬도 안전하다:
+  // captureRouterTransitionStart 자체는 가드 밖의 평범한 함수이고, 그 내부 핸들러를 채우는
+  // appRouterInstrumentNavigation 이 위 가드 안이라 추적을 빼면 기존 주석대로 no-op 으로 남는다.
+  //
+  // ⚠ 커플링 2 — excludeReplay* 3종은 세션 리플레이 도입 금지 정책과 한 쌍이다
+  // (사유는 instrumentation-client.ts 의 `tracesSampleRate` 위 주석 — 학생 PII 화면 캡처).
+  // replayIntegration 을 애초에 쓰지 않으므로 절감은 ~0 이고, 누군가 리플레이를 붙이면 곧바로
+  // 무동작으로 드러나게 하는 정책 방어용이다. 도입하기로 뒤집는다면 이 3줄도 같이 지워야 한다.
+  //
+  // excludeDebugStatements 는 __SENTRY_DEBUG__=false 치환 — client·server init 어느 쪽도
+  // Sentry `debug` 를 켜지 않으므로 잃는 관측 정보가 없다.
+  bundleSizeOptimizations: {
+    excludeTracing: true,
+    excludeReplayShadowDom: true,
+    excludeReplayIframe: true,
+    excludeReplayWorker: true,
+    excludeDebugStatements: true,
+  },
   webpack: {
     // 미들웨어 자동 래핑 해제. 켜두면 Sentry 가 middleware.ts 를 wrapMiddlewareWithSentry 로 감싸면서
     // @sentry/core 를 미들웨어 번들에 끌어들이고, 매 요청 isolation scope 복제·요청 헤더 직렬화·span
