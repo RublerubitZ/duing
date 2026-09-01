@@ -89,6 +89,10 @@ describe('next.config 정적 폰트 캐시', () => {
     expect(nextConfig.images?.minimumCacheTTL).toBe(31536000);
   });
 
+  it('변환 품질은 실사용 값 하나로 잠근다 — remotePatterns 개방 후 q 열거형 유료 변환 증폭을 막는다', () => {
+    expect(nextConfig.images?.qualities).toEqual([75]);
+  });
+
   it('원격 이미지 최적화는 운영 R2 호스트만 허용한다 — 개발용 r2.dev 와일드카드는 운영 빌드에서 빠진다', async () => {
     // 와일드카드가 운영까지 새면 남의 r2.dev 버킷 이미지를 우리 최적화기가 중계하게 된다.
     const hostnames = (nextConfig.images?.remotePatterns ?? []).map((pattern) => pattern.hostname);

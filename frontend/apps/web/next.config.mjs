@@ -87,6 +87,12 @@ const nextConfig = {
     // 업로드 키가 UUID 라 덮어쓰기가 없어(교체 = 새 URL) 원격 원본에도 1년 하한이 안전하다 —
     // 아래 immutable 규칙과 같은 값.
     minimumCacheTTL: 31536000,
+    // 변환 품질을 실사용 값 하나로 잠근다. remotePatterns 를 연 순간 /_next/image 는 무인증
+    // 공개 엔드포인트가 되는데, Next 15 는 qualities 미설정 시 q=1~100 을 전부 받아 제3자가
+    // (원본 × 폭 × 품질) 조합 열거로 유료 변환을 증폭시킬 수 있다(적대적 리뷰 실측 — 이론상
+    // 2만+ 고유 변환). 렌더 경로는 기본 q=75 만 쓰므로 잠가도 무손실이고, Next 16 기본값([75])
+    // 을 선취하는 것이기도 하다.
+    qualities: [75],
     remotePatterns: [
       // 운영 R2 공개 호스트(S3_PUBLIC_BASE_URL). CSP img-src 와 같은 호스트다.
       { protocol: 'https', hostname: 'files.duings.com' },
