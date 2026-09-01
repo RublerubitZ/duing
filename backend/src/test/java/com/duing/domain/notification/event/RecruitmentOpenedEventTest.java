@@ -17,6 +17,7 @@ import com.duing.domain.notification.listener.RecruitmentOpenedListener;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
+import com.duing.domain.notification.support.RecruitmentOpenedNotification;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -27,11 +28,14 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManagerFactory;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,6 +76,9 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -269,6 +276,172 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
                 .filter(notification -> notification.getType() == NotificationType.RECRUITMENT_OPENED)
                 .toList();
         assertThat(openedNotifications).isEmpty();
+    }
+
+    @Test
+    @DisplayName("찜한 여러 유저에게 나가는 모집 오픈 알림은 단건 조립 지점 산출과 제목·본문·링크·dedupKey·payload 가 모두 같다")
+    void fanOutMatchesSingleAssemblyPointForEveryFavoritingUser() throws Exception {
+        User favorUser1 = saveUser("정합찜1");
+        User favorUser2 = saveUser("정합찜2");
+        User favorUser3 = saveUser("정합찜3");
+        User nonFavorUser = saveUser("정합비찜");
+        User controlUser = saveUser("정합대조");
+        Club club = saveActiveClub("정합동아리");
+        saveFavorite(favorUser1, club);
+        saveFavorite(favorUser2, club);
+        saveFavorite(favorUser3, club);
+
+        RecruitmentOpenedEvent event = openedEventFor(club, 9101L);
+        // 대조군: 기존 단건 경로(createIfAbsent)로 먼저 1건을 만들어 두고, fan-out 산출물과 DB 값을 직접 비교한다.
+        // 찜하지 않은 유저라 fan-out 대상이 아니고, dedupKey 가 같아도 user_id 가 달라 충돌하지 않는다.
+        notificationService.createIfAbsent(RecruitmentOpenedNotification.commandFor(controlUser.getId(), event));
+        String controlPayload = jdbcTemplate.queryForObject(
+                "SELECT payload::text FROM notification WHERE user_id = ?", String.class, controlUser.getId());
+
+        recruitmentOpenedListener.handle(event);
+
+        for (User favoringUser : List.of(favorUser1, favorUser2, favorUser3)) {
+            CreateNotificationCommand expected =
+                    RecruitmentOpenedNotification.commandFor(favoringUser.getId(), event);
+            Map<String, Object> stored = jdbcTemplate.queryForMap(
+                    "SELECT type, title, body, link_url, dedup_key, payload::text AS payload_text,"
+                            + " jsonb_typeof(payload -> 'recruitmentId') AS recruitment_id_type,"
+                            + " jsonb_typeof(payload -> 'clubId') AS club_id_type"
+                            + " FROM notification WHERE user_id = ?", favoringUser.getId());
+            assertThat(stored.get("type")).isEqualTo(expected.type().name());
+            assertThat(stored.get("title")).isEqualTo(expected.title());
+            assertThat(stored.get("body")).isEqualTo(expected.body());
+            assertThat(stored.get("link_url")).isEqualTo(expected.linkUrl());
+            assertThat(stored.get("dedup_key")).isEqualTo(expected.dedupKey());
+            // payload 는 DB 재조회로 비교한다 — 숫자 키가 JSON 문자열로 굳으면 여기서 걸린다.
+            assertThat(stored.get("payload_text")).isEqualTo(controlPayload);
+            assertThat(stored.get("recruitment_id_type")).isEqualTo("number");
+            assertThat(stored.get("club_id_type")).isEqualTo("number");
+        }
+        assertThat(countNotificationsOf(nonFavorUser)).isZero();
+    }
+
+    @Test
+    @DisplayName("같은 모집 오픈 이벤트가 다시 발화해도 찜한 유저의 알림은 1건씩만 유지된다")
+    void refiredOpenedEventDoesNotDuplicateNotifications() throws Exception {
+        User favorUser1 = saveUser("재발화찜1");
+        User favorUser2 = saveUser("재발화찜2");
+        Club club = saveActiveClub("재발화동아리");
+        saveFavorite(favorUser1, club);
+        saveFavorite(favorUser2, club);
+
+        RecruitmentOpenedEvent event = openedEventFor(club, 9102L);
+        recruitmentOpenedListener.handle(event);
+        recruitmentOpenedListener.handle(event);
+
+        assertThat(countNotificationsWithDedupKey(event)).isEqualTo(2L);
+        assertThat(countNotificationsOf(favorUser1)).isEqualTo(1L);
+        assertThat(countNotificationsOf(favorUser2)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("찜을 해제한 유저는 모집 오픈 알림 대상에서 제외된다")
+    void unfavoritedUserIsExcludedFromFanOut() throws Exception {
+        User keepingUser = saveUser("찜유지");
+        User unfavoritedUser = saveUser("찜해제");
+        Club club = saveActiveClub("찜해제동아리");
+        saveFavorite(keepingUser, club);
+        saveFavorite(unfavoritedUser, club);
+
+        // soft delete(@SQLDelete) — 행은 남고 deleted_at 만 채워진다. 네이티브 fan-out 이 이 행을 걸러야 한다.
+        ClubFavorite removed = favoriteRepository
+                .findByUserIdAndClubId(unfavoritedUser.getId(), club.getId()).orElseThrow();
+        favoriteRepository.delete(removed);
+
+        recruitmentOpenedListener.handle(openedEventFor(club, 9103L));
+
+        assertThat(countNotificationsOf(keepingUser)).isEqualTo(1L);
+        assertThat(countNotificationsOf(unfavoritedUser)).isZero();
+    }
+
+    @Test
+    @DisplayName("일부 찜 유저에게 같은 알림이 이미 있으면 그 알림은 그대로 두고 나머지 유저에게만 새로 생성된다")
+    void existingNotificationsAreKeptAndOnlyMissingRecipientsAreInserted() throws Exception {
+        User alreadyNotifiedUser = saveUser("선재찜");
+        User pendingUser1 = saveUser("미발송찜1");
+        User pendingUser2 = saveUser("미발송찜2");
+        Club club = saveActiveClub("부분선재동아리");
+        saveFavorite(alreadyNotifiedUser, club);
+        saveFavorite(pendingUser1, club);
+        saveFavorite(pendingUser2, club);
+
+        RecruitmentOpenedEvent event = openedEventFor(club, 9104L);
+        notificationService.createIfAbsent(
+                RecruitmentOpenedNotification.commandFor(alreadyNotifiedUser.getId(), event));
+        Long existingId = jdbcTemplate.queryForObject(
+                "SELECT id FROM notification WHERE user_id = ?", Long.class, alreadyNotifiedUser.getId());
+
+        recruitmentOpenedListener.handle(event);
+
+        assertThat(countNotificationsWithDedupKey(event)).isEqualTo(3L);
+        assertThat(countNotificationsOf(alreadyNotifiedUser)).isEqualTo(1L);
+        // 선재 행은 건드리지 않고 스킵된다(행 단위 ON CONFLICT) — 나머지 두 명은 정상 삽입.
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT id FROM notification WHERE user_id = ?", Long.class, alreadyNotifiedUser.getId()))
+                .isEqualTo(existingId);
+        assertThat(countNotificationsOf(pendingUser1)).isEqualTo(1L);
+        assertThat(countNotificationsOf(pendingUser2)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("모집 오픈 알림 fan-out 의 SQL 문 수는 찜한 유저 수와 무관하게 상수다")
+    void fanOutQueryCountIsConstantRegardlessOfFavoriteCount() throws Exception {
+        Club warmUpClub = saveActiveClub("쿼리수예열");
+        saveFavorite(saveUser("예열찜"), warmUpClub);
+        Club smallClub = saveActiveClub("쿼리수소");
+        for (int index = 0; index < 3; index++) {
+            saveFavorite(saveUser("소찜" + index), smallClub);
+        }
+        Club bigClub = saveActiveClub("쿼리수대");
+        for (int index = 0; index < 20; index++) {
+            saveFavorite(saveUser("대찜" + index), bigClub);
+        }
+
+        // SessionFactory 전역 통계라 리스너의 REQUIRES_NEW 트랜잭션에서 나간 문장도 함께 잡힌다.
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        // 예열: 최초 실행의 1회성 준비 비용을 계측에서 배제한다.
+        recruitmentOpenedListener.handle(openedEventFor(warmUpClub, 9105L));
+
+        RecruitmentOpenedEvent smallEvent = openedEventFor(smallClub, 9106L);
+        long beforeSmall = statistics.getPrepareStatementCount();
+        recruitmentOpenedListener.handle(smallEvent);
+        long smallQueries = statistics.getPrepareStatementCount() - beforeSmall;
+
+        RecruitmentOpenedEvent bigEvent = openedEventFor(bigClub, 9107L);
+        long beforeBig = statistics.getPrepareStatementCount();
+        recruitmentOpenedListener.handle(bigEvent);
+        long bigQueries = statistics.getPrepareStatementCount() - beforeBig;
+
+        assertThat(countNotificationsWithDedupKey(smallEvent)).isEqualTo(3L);
+        assertThat(countNotificationsWithDedupKey(bigEvent)).isEqualTo(20L);
+        // 찜 3명과 20명의 문장 수가 같다 = 수신자당 왕복 없음.
+        assertThat(bigQueries).isEqualTo(smallQueries);
+        // ACTIVE 재검증 1 + 벌크 INSERT 1.
+        assertThat(smallQueries).isLessThanOrEqualTo(2);
+    }
+
+    private RecruitmentOpenedEvent openedEventFor(Club club, long recruitmentId) {
+        return new RecruitmentOpenedEvent(
+                recruitmentId, club.getId(), club.getName(), "벌크 fan-out 모집", LocalDate.now().plusDays(10));
+    }
+
+    private long countNotificationsOf(User user) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ?", Long.class, user.getId());
+        return count == null ? 0L : count;
+    }
+
+    private long countNotificationsWithDedupKey(RecruitmentOpenedEvent event) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE dedup_key = ?",
+                Long.class, "RECRUITMENT_OPENED:r=" + event.recruitmentId());
+        return count == null ? 0L : count;
     }
 
     private User saveUser(String name) {
