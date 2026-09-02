@@ -1,6 +1,7 @@
 package com.duing.domain.notification.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -424,6 +425,20 @@ class RecruitmentOpenedEventTest extends IntegrationTestBase {
         assertThat(bigQueries).isEqualTo(smallQueries);
         // ACTIVE 재검증 1 + 벌크 INSERT 1.
         assertThat(smallQueries).isLessThanOrEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("벌크 INSERT 가 DB 오류로 실패해도 리스너는 예외를 밖으로 내지 않는다 — 알림 실패가 모집 등록 요청을 깨지 않는 계약")
+    void bulkInsertFailureDoesNotEscapeListener() throws Exception {
+        Club club = saveActiveClub("실패격리동아리");
+        saveFavorite(saveUser("찜유저"), club);
+        // title VARCHAR(120) 을 넘기는 동아리명 — 수신자가 있어 INSERT 가 실제 행을 만들다 DB 오류로 실패한다.
+        RecruitmentOpenedEvent event = new RecruitmentOpenedEvent(
+                9108L, club.getId(), "긴".repeat(130), "벌크 fan-out 모집", LocalDate.now().plusDays(10));
+
+        // AFTER_COMMIT 리스너의 예외는 원 요청까지 전파된다(원 트랜잭션은 이미 커밋된 뒤) — 여기서 새면 POST 가 500.
+        assertThatCode(() -> recruitmentOpenedListener.handle(event)).doesNotThrowAnyException();
+        assertThat(countNotificationsWithDedupKey(event)).isZero();
     }
 
     private RecruitmentOpenedEvent openedEventFor(Club club, long recruitmentId) {

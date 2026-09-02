@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long>, NotificationRepositoryCustom {
 
@@ -30,7 +32,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * <p>created_at 은 생략해 DB 기본값(NOW())을 쓴다(운영 JVM TZ=UTC 고정 → 엔티티 경로와 같은 값).
      * payload 의 id 값은 bigint 로 캐스팅해 엔티티 경로가 저장하던 JSON 숫자 타입을 그대로 유지한다.
      * ORDER BY 로 삽입 순서를 고정해 동시 fan-out 간 락 순서를 일치시킨다.
+     *
+     * <p>REQUIRES_NEW 는 여기(리포지토리 메서드)에 둔다 — AFTER_COMMIT 리스너 안에서 호출되므로 새 트랜잭션이
+     * 필요하고, 그 커밋 실패까지 리스너의 try/catch 안에서 끝나야 알림 실패가 원 요청을 깨지 않는다.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             INSERT INTO notification (user_id, type, title, body, link_url, payload, dedup_key)
@@ -55,7 +61,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * <p>수신자 술어는 이 벌크 전환으로 삭제된 {@code FeeBillRepository#findIssuedBillRecipients}
      * (JPQL + FeeBill @SQLRestriction)의 실효 조건과 동치다 — 취소·삭제 청구는 대상이 아니다.
      * dedup_key 와 payload 의 billId 는 청구 행에서 직접 끌어와 수신자마다 다른 값을 만든다.
+     *
+     * <p>REQUIRES_NEW 는 여기(리포지토리 메서드)에 둔다 — AFTER_COMMIT 리스너 안에서 호출되므로 새 트랜잭션이
+     * 필요하고, 그 커밋 실패까지 리스너의 try/catch 안에서 끝나야 알림 실패가 원 요청을 깨지 않는다.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             INSERT INTO notification (user_id, type, title, body, link_url, payload, dedup_key)

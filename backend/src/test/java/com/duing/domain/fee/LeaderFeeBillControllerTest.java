@@ -1,6 +1,7 @@
 package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.FixedClockConfig;
@@ -20,6 +21,8 @@ import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
+import com.duing.domain.notification.event.FeeBillsIssuedEvent;
+import com.duing.domain.notification.listener.FeeBillsIssuedListener;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
@@ -72,6 +75,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     JdbcTemplate jdbcTemplate;
     @Autowired
     TransactionTemplate transactionTemplate;
+    @Autowired
+    FeeBillsIssuedListener feeBillsIssuedListener;
 
     private String leaderToken;
     private String memberToken;
@@ -742,6 +747,28 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     }
 
     /** policy 로 발행된 (id, user_id) 청구 목록(비취소·미삭제)을 user_id 순으로 반환한다. */
+    @Test
+    @DisplayName("발행 알림 벌크 INSERT 가 DB 오류로 실패해도 리스너는 예외를 밖으로 내지 않는다 — 알림 실패가 회비 발행 요청을 깨지 않는 계약")
+    void issuedNotificationFailureDoesNotEscapeListener() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value());
+        jdbcTemplate.update("DELETE FROM notification WHERE type = 'FEE_BILL_ISSUED'");
+        LocalDate billingStartDate = jdbcTemplate.queryForObject(
+                "SELECT billing_start_date FROM fee_bill WHERE fee_policy_id = ? LIMIT 1",
+                LocalDate.class, policy.getId());
+
+        // title VARCHAR(120) 을 넘기는 동아리명 — 청구 2건이 있어 INSERT 가 실제 행을 만들다 DB 오류로 실패한다.
+        FeeBillsIssuedEvent event = new FeeBillsIssuedEvent(
+                clubId, "긴".repeat(130), policy.getId(), "2026-07", billingStartDate, billingStartDate.plusDays(14));
+
+        // AFTER_COMMIT 리스너의 예외는 원 요청까지 전파된다(원 트랜잭션은 이미 커밋된 뒤) — 여기서 새면 POST 가 500.
+        assertThatCode(() -> feeBillsIssuedListener.handle(event)).doesNotThrowAnyException();
+        Long remaining = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE type = 'FEE_BILL_ISSUED'", Long.class);
+        assertThat(remaining).isZero();
+    }
+
     private List<Map<String, Object>> issuedBills(Long policyId) {
         return jdbcTemplate.queryForList(
                 "SELECT id, user_id FROM fee_bill WHERE fee_policy_id = ?"
