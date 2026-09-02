@@ -101,6 +101,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             type="font/woff2"
             crossOrigin="anonymous"
           />
+          {/* Google AdSense 사이트 확인·광고 로더. 구글 안내가 "각 페이지의 <head> 안"을 요구하므로
+              next/script(body 주입)가 아니라 head 에 평문 태그로 둔다 — 크롤러가 초기 HTML 에서 읽는다.
+              async 라 렌더 비차단이고, client ID 는 공개 식별자(시크릿 아님). */}
+          <script
+            async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3402309590379365"
+            crossOrigin="anonymous"
+          />
         </head>
         {/* 본문 폰트를 문서 기본값으로 둔다 — Pretendard 는 .duing 스코프 안에서만 적용돼서
             그 밖의 화면(/apply·/join·/notifications·/me/* ·/403)은 시스템 폰트로 렌더됐고,

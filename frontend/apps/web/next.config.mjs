@@ -14,7 +14,11 @@ const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // AdSense 로더(layout.tsx head). 이 정책은 Report-Only 라 빼도 광고는 동작하지만,
+  // 관찰 채널이 애드센스 위반으로 상시 오염되면 "실제 위반 출처 실측"이라는 존재 이유가 죽는다.
+  // 광고가 실제 게재되기 시작하면 후속 리소스 호스트(adtrafficquality 등)가 위반으로 찍힐 것 —
+  // 그때 관찰된 실측 호스트만 추가한다(선제 나열 금지).
+  "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://files.duings.com",
   "font-src 'self' data:",
