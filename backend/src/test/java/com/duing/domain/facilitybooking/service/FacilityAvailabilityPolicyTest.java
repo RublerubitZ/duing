@@ -2,6 +2,8 @@ package com.duing.domain.facilitybooking.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.club.repository.ClubRepository;
@@ -217,5 +219,20 @@ class FacilityAvailabilityPolicyTest {
                 date, startTime, endTime, normalizedClubName, securedKeys)).isTrue();
         assertThat(policy.hasMismatchedOccupiedOverlap(List.of(otherDate),
                 date, startTime, endTime, normalizedClubName, securedKeys)).isFalse();
+    }
+
+    @Test
+    @DisplayName("이미 조회한 동아리 이름 프로젝션으로 확보 대상 키를 파생하면 저장소를 다시 조회하지 않고 무인자 버전과 같은 집합을 낸다")
+    void derivesSecuredKeysFromGivenRowsWithoutRepositoryCall() {
+        List<ClubRepository.ClubSecuredNameProjection> nameRows = List.of(
+                new SecuredNameRow("고정관념", true),
+                new SecuredNameRow("ABC동아리", false));
+        when(clubRepository.findSecuredTargetNameRows()).thenReturn(nameRows);
+
+        Set<String> fromRows = policy.securedOrganizationKeys(nameRows);
+        Set<String> fromRepository = policy.securedOrganizationKeys();
+
+        assertThat(fromRows).isEqualTo(fromRepository).containsExactly(normalizer.normalize("고정관념"));
+        verify(clubRepository, times(1)).findSecuredTargetNameRows(); // 무인자 호출 1회뿐 — 오버로드는 조회하지 않는다
     }
 }

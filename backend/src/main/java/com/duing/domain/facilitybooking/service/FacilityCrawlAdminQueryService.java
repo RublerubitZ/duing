@@ -70,8 +70,10 @@ public class FacilityCrawlAdminQueryService {
         Map<Long, Facility> facilities = facilityRepository.findAllById(
                         rows.stream().map(FacilityReservation::getFacilityId).distinct().toList()).stream()
                 .collect(Collectors.toMap(Facility::getId, Function.identity()));
-        Map<String, MatchedClub> matchedByKey = matchedClubsByNormalizedKey();
-        Set<String> securedKeys = availabilityPolicy.securedOrganizationKeys();
+        // 동아리 이름 프로젝션은 요청당 1회만 스캔한다 — 매칭 맵과 확보 키를 같은 결과에서 파생(P2-05, egress 왕복 절감).
+        List<ClubRepository.ClubSecuredNameProjection> clubNameRows = clubRepository.findSecuredTargetNameRows();
+        Map<String, MatchedClub> matchedByKey = matchedClubsByNormalizedKey(clubNameRows);
+        Set<String> securedKeys = availabilityPolicy.securedOrganizationKeys(clubNameRows);
 
         List<AdminCrawlReservation> reservations = rows.stream()
                 .sorted(Comparator
@@ -93,8 +95,9 @@ public class FacilityCrawlAdminQueryService {
         return new PageImpl<>(groups.subList(fromIndex, toIndex), pageable, groups.size());
     }
 
-    private Map<String, MatchedClub> matchedClubsByNormalizedKey() {
-        Map<String, List<MatchedClub>> byKey = clubRepository.findSecuredTargetNameRows().stream()
+    private Map<String, MatchedClub> matchedClubsByNormalizedKey(
+            List<ClubRepository.ClubSecuredNameProjection> clubNameRows) {
+        Map<String, List<MatchedClub>> byKey = clubNameRows.stream()
                 .map(row -> Map.entry(normalizer.normalize(row.getName()),
                         new MatchedClub(row.getId(), row.getName(), row.isFacilitySecuredTimeTarget())))
                 .filter(entry -> !entry.getKey().isEmpty())
