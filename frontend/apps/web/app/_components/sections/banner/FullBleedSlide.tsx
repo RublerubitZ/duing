@@ -24,8 +24,8 @@ export function FullBleedSlide({ slide, priority = false }: Props) {
       src={slide.bannerImageUrl}
       alt={slide.imageAltText ?? ''}
       fill
-      // 배너는 어느 폭에서도 콘텐츠 폭(=뷰포트)을 가득 채운다.
-      sizes="100vw"
+      // 배너는 콘텐츠 폭을 가득 채운다 — 컨테이너 max-w-layout(1280) 안쪽 px-10 이라 ≥1280 에서는 1200px 고정.
+      sizes="(min-width: 1280px) 1200px, 100vw"
       priority={priority}
       // 네이티브 드래그가 캐러셀 스와이프를 pointercancel 로 끊는 것을 막는다(전환 후에도 필수).
       draggable={false}
