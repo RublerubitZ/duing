@@ -58,7 +58,7 @@ describe('buildSlotStrip', () => {
     expect(cells).toHaveLength(13);
     expect(cells[9]).toEqual({ hour: 18, inRequest: true, overlapSource: 'SCHOOL', overlapOrganization: '문화팀' }); // 18시 칸
     expect(cells[10]).toEqual({ hour: 19, inRequest: true, overlapSource: null, overlapOrganization: null });
-    // organization 빈 문자열(PENDING 겹침)은 표기할 이름이 없으므로 null 로 정규화된다.
+    // organization 빈 문자열은 표기할 이름이 없으므로 null 로 정규화된다. 'PENDING' 은 계약 밖 source — 파생은 값을 그대로 통과시키고 표시(AdminSlotStrip)가 점유로 폴백한다.
     expect(cells[11]).toEqual({ hour: 20, inRequest: false, overlapSource: 'PENDING', overlapOrganization: null });
     expect(cells[0]).toEqual({ hour: 9, inRequest: false, overlapSource: null, overlapOrganization: null });
   });

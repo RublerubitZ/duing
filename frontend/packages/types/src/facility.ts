@@ -203,7 +203,7 @@ export type AdminFacilityBookingSummary = {
 };
 
 export type AdminBookingOverlapItem = {
-  source: string; // 'SCHOOL' | 'INTERNAL' | 'PENDING' 계열 — 검증 컨텍스트 시각화용
+  source: string; // 'SCHOOL' | 'INTERNAL' — 관리자 상세 overlaps 는 이 둘만(대기 겹침은 overlappingPendingCount 숫자). string 유지는 미지 값 파싱 실패 방지(fail-open 가드)
   organization: string;
   startTime: string; // HH:mm
   endTime: string;
