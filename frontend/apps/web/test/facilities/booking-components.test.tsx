@@ -19,6 +19,7 @@ import { DAY_LEVEL_META } from '@/app/facilities/_lib/bookingCalendar';
 import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
 // FacilityHomeCard 는 내부에서 new Date() 로 오늘을 계산하므로 시스템 시각을 고정한다.
+// 픽스처는 오프셋 명시 인스턴트 — 집계가 KST 라 로컬 Date 는 UTC 러너에서 어긋난다(P2-18).
 afterEach(() => vi.useRealTimers());
 
 function makeFacility(overrides?: Partial<FacilityItem>): FacilityItem {
@@ -573,7 +574,7 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
 
 it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date(2026, 6, 20, 23, 30)); // 로컬 23:30 → 영업(09~22) 종료 후
+  vi.setSystemTime(new Date('2026-07-20T23:30:00+09:00')); // KST 23:30 → 영업(09~22) 종료 후
   const onSelect = vi.fn();
   render(<FacilityHomeCard facility={makeFacility()} windowLabel="7.14 ~ 8.31" onSelect={onSelect} />);
 
@@ -587,11 +588,11 @@ it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업
 });
 
 it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다른 날 예약은 무시)', () => {
-  const now = new Date(2026, 6, 20, 9, 0); // 로컬 09:00 → 09~22 전 구간이 후보
+  const now = new Date('2026-07-20T09:00:00+09:00'); // KST 09:00 → 09~22 전 구간이 후보
   vi.useFakeTimers();
   vi.setSystemTime(now);
   const todayIso = seoulDateIso(now);
-  const otherDayIso = seoulDateIso(new Date(2026, 6, 21, 9, 0));
+  const otherDayIso = seoulDateIso(new Date('2026-07-21T09:00:00+09:00'));
   render(
     <FacilityHomeCard
       facility={makeFacility({
