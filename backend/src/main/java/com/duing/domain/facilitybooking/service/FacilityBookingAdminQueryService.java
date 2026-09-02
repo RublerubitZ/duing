@@ -290,6 +290,12 @@ public class FacilityBookingAdminQueryService {
     private boolean hasMismatchedOccupiedOverlap(FacilityBooking booking, Map<Long, String> clubNames,
             Map<FacilityMonthKey, List<FacilityReservation>> crawlCache, Set<String> securedOrganizationKeys) {
         String normalizedClubName = normalizer.normalize(clubNames.getOrDefault(booking.getClubId(), ""));
+        // 동아리 소실(soft-delete → 이름 "")이면 자기 행을 식별할 수 없어 겹치는 모든 행이 "타 단체"로 세어진다 —
+        // 충돌 의심을 세지 않는다(isPartiallyMatched 의 빈 이름 단락·매칭 decide 의 빈 이름 처리와 대칭, P2-06).
+        // 자동 확정도 영구 스킵되는 상태라 조용히 넘기는 쪽이 맞고, 진짜 충돌 의심 건의 신호 대비를 지킨다.
+        if (normalizedClubName.isEmpty()) {
+            return false;
+        }
         return availabilityPolicy.hasMismatchedOccupiedOverlap(crawlRows(booking, crawlCache),
                 booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                 normalizedClubName, securedOrganizationKeys);
