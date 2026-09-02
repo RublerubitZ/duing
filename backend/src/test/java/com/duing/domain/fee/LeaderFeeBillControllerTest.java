@@ -746,7 +746,6 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(distinctUsers).isEqualTo(50L);
     }
 
-    /** policy 로 발행된 (id, user_id) 청구 목록(비취소·미삭제)을 user_id 순으로 반환한다. */
     @Test
     @DisplayName("발행 알림 벌크 INSERT 가 DB 오류로 실패해도 리스너는 예외를 밖으로 내지 않는다 — 알림 실패가 회비 발행 요청을 깨지 않는 계약")
     void issuedNotificationFailureDoesNotEscapeListener() {
@@ -769,6 +768,7 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(remaining).isZero();
     }
 
+    /** policy 로 발행된 (id, user_id) 청구 목록(비취소·미삭제)을 user_id 순으로 반환한다. */
     private List<Map<String, Object>> issuedBills(Long policyId) {
         return jdbcTemplate.queryForList(
                 "SELECT id, user_id FROM fee_bill WHERE fee_policy_id = ?"
