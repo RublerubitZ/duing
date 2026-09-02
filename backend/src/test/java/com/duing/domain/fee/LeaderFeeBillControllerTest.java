@@ -877,4 +877,66 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(newBillId).isNotEqualTo(oldBillId);
         assertThat(issuedNotificationExistsFor(memberUserId, newBillId)).isTrue();
     }
+
+    @Test
+    @DisplayName("취소된 청구는 발행 알림 대상에서 제외되어, 재발행해도 그 청구의 알림은 다시 만들어지지 않는다")
+    void cancelledBillIsExcludedFromIssuedNotificationFanOut() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        FeeBill cancelTarget = feeBillRepository.findAll().stream()
+                .filter(candidate -> candidate.getFeePolicyId().equals(policy.getId()))
+                .findFirst().orElseThrow();
+        Long cancelledBillId = cancelTarget.getId();
+        Long cancelledUserId = cancelTarget.getUserId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/clubs/" + clubId + "/fee-bills/" + cancelledBillId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        // 취소된 청구의 알림을 지워, 재발행 fan-out 이 그 행을 다시 집는지(=CANCELLED 누락) 관찰 가능하게 만든다.
+        jdbcTemplate.update("DELETE FROM notification WHERE dedup_key = ?",
+                "FEE_BILL_ISSUED:b=" + cancelledBillId);
+
+        // 재발행 — 취소된 회원에게 새 청구 1건이 나가고 이벤트가 다시 발화한다.
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+
+        assertThat(issuedNotificationExistsFor(cancelledUserId, cancelledBillId)).isFalse();
+        assertThat(countIssuedNotifications(cancelledUserId)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("일부 회원에게 발행 알림이 이미 있으면 알림이 없는 회원에게만 새로 생성된다")
+    void issuedNotificationFillsOnlyRecipientsWithoutOne() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        List<Map<String, Object>> bills = issuedBills(policy.getId());
+        assertThat(bills).hasSize(2);
+        Long missingBillId = ((Number) bills.get(0).get("id")).longValue();
+        Long missingUserId = ((Number) bills.get(0).get("user_id")).longValue();
+        Long keptUserId = ((Number) bills.get(1).get("user_id")).longValue();
+        // 한 회원의 알림만 지워 '일부만 선재' 상태를 만든다.
+        jdbcTemplate.update("DELETE FROM notification WHERE dedup_key = ?", "FEE_BILL_ISSUED:b=" + missingBillId);
+
+        // 회원 1명 추가 후 재발행 → 같은 회차 이벤트가 다시 발화하며 전체 수신자를 대상으로 fan-out 한다.
+        Long newMemberId = addActiveMembers(1).get(0);
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+
+        // 지운 알림은 다시 채워지고, 남아 있던 알림은 중복 없이 1건 유지된다.
+        assertThat(issuedNotificationExistsFor(missingUserId, missingBillId)).isTrue();
+        assertThat(countIssuedNotifications(missingUserId)).isEqualTo(1L);
+        assertThat(countIssuedNotifications(keptUserId)).isEqualTo(1L);
+        assertThat(countIssuedNotifications(newMemberId)).isEqualTo(1L);
+    }
 }
