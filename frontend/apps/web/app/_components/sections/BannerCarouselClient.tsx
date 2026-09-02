@@ -64,6 +64,11 @@ export function BannerCarouselClient({ slides }: Props) {
   const lockedRef = useRef<LockAxis>('none');
   const didDragRef = useRef(false);
   const dragBaseRef = useRef(0); // re-grab 시 현재 transform 위치(점프 없이 이어받기 위한 기준).
+  // 첫 배너 이미지는 모바일 LCP 후보라 최초 마운트의 진입 슬롯에만 preload 를 준다. 슬라이드 데이터는
+  // 서버 컴포넌트가 ISR HTML 에 박아두므로 이 preload 는 첫 페인트 전에 걸린다.
+  // activeIndex === 0 으로 판정하면 안 된다 — 자동재생이 한 바퀴 돌아 0번이 다시 keyed 재마운트될 때
+  // preload 가 또 붙는다(이미 받아둔 이미지라 이득 없이 우선순위만 뺏는다).
+  const isFirstMountRef = useRef(true);
 
   const slideAt = useCallback(
     (index: number): CarouselSlide | undefined => slides[index % slides.length],
@@ -94,6 +99,12 @@ export function BannerCarouselClient({ slides }: Props) {
     if (currentSlide) startSlideTransition('right', currentSlide);
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
   }, [slides, activeIndex, startSlideTransition]);
+
+  useEffect(() => {
+    // 마운트가 끝나면 preload 자격을 회수한다 — 이후 진입하는 슬라이드는 전부 사용자가 화면을 본 뒤다.
+    // 값 변경만으로는 재렌더가 일어나지 않으므로, 이미 그려진 첫 슬라이드의 preload 는 그대로 남는다.
+    isFirstMountRef.current = false;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -300,6 +311,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   direction === 'left' ? 'animate-slide-out-left' : 'animate-slide-out-right',
                 )}
               >
+                {/* 나가는 슬롯에는 priority 를 주지 않는다(기본값 false) — 이미 받아둔 이미지다. */}
                 {exitingSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
                   <FullBleedSlide slide={exitingSlide} />
                 ) : (
@@ -319,9 +331,9 @@ export function BannerCarouselClient({ slides }: Props) {
               )}
             >
               {activeSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
-                <FullBleedSlide slide={activeSlide} />
+                <FullBleedSlide slide={activeSlide} priority={isFirstMountRef.current} />
               ) : (
-                <SystemComposedSlide slide={activeSlide} />
+                <SystemComposedSlide slide={activeSlide} priority={isFirstMountRef.current} />
               )}
             </div>
           </div>

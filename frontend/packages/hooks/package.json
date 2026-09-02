@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./datetime": "./src/datetime.ts"
   },
+  "sideEffects": false,
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint'",

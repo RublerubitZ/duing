@@ -41,6 +41,15 @@ function eventWith(properties: Record<string, unknown>): CaptureResult {
   return { uuid: 'test-uuid', event: '$pageview', properties };
 }
 
+/** 잎 객체를 `depth` 겹의 plain 객체로 감싼다 — 재귀 깊이 상한의 경계를 정확히 짚기 위한 픽스처. */
+function nestedTimes(depth: number, leaf: Record<string, unknown>): Record<string, unknown> {
+  let wrapped = leaf;
+  for (let level = 0; level < depth; level += 1) {
+    wrapped = { nested: wrapped };
+  }
+  return wrapped;
+}
+
 describe('PostHog 초기화 개인정보 정책', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -102,6 +111,18 @@ describe('PostHog 초기화 개인정보 정책', () => {
   it('예외 캡처를 PostHog 에서 켜지 않는다', async () => {
     const options = await captureInitOptions();
     expect(options.capture_exceptions).toBe(false);
+  });
+
+  // web vitals 는 다른 플래그와 반대 방향이다 — 켜는 쪽을 못박는다. 클라이언트가 boolean 을 주면
+  // SDK 가 원격 설정을 양방향으로 이기므로(WebVitalsAutocapture.isEnabled), 이 줄이 없으면 대시보드에서
+  // 배포 없이 꺼질 수 있다. 메트릭 집합도 원격 우선이라 함께 못박아야 계측이 끊기지 않는다.
+  // 폰트(P1-7)·LCP 이미지(P1-9) 개선의 전/후 비교가 이 네 메트릭에 걸려 있다.
+  it('web vitals 수집과 메트릭 집합을 코드에 못박은 상태로 초기화한다', async () => {
+    const options = await captureInitOptions();
+    expect(options.capture_performance).toEqual({
+      web_vitals: true,
+      web_vitals_allowed_metrics: ['CLS', 'FCP', 'INP', 'LCP'],
+    });
   });
 
   // 이름이 어긋난 이벤트는 대시보드에 새 이름으로 조용히 쌓이고, 발견 시점에는 이미 늦다.
@@ -184,6 +205,86 @@ describe('PostHog 초기화 개인정보 정책', () => {
 
     expect(scrubbed.$set).toMatchObject({ $current_url: 'https://duings.com/clubs' });
     expect(scrubbed.$set_once).toMatchObject({ $initial_current_url: 'https://duings.com/clubs' });
+  });
+
+  // web vitals 는 지표마다 중첩 객체를 하나씩 싣고 그 안에 발화 시점의 주소가 들어간다
+  // ($web_vitals_LCP_event.$current_url). 최상위만 보던 시절에는 관리자 콘솔 검색 상태에서
+  // 지표가 발화하면 검색어가 그대로 나갔다. 지표 값(숫자)은 손대지 않아야 한다.
+  it('중첩 객체에 실린 성능 지표의 주소도 정제한다', async () => {
+    const scrubbed = await sendThroughScrubber({
+      uuid: 'test-uuid',
+      event: '$web_vitals',
+      properties: {
+        $web_vitals_LCP_event: {
+          name: 'LCP',
+          value: 1842.5,
+          $current_url: 'https://duings.com/admin/clubs?q=홍길동&page=2',
+          $session_id: 'session-1',
+        },
+        $web_vitals_LCP_value: 1842.5,
+        $current_url: 'https://duings.com/admin/clubs?q=홍길동&page=2',
+      },
+    });
+
+    expect(scrubbed.properties.$web_vitals_LCP_event).toEqual({
+      name: 'LCP',
+      value: 1842.5,
+      $current_url: 'https://duings.com/admin/clubs',
+      $session_id: 'session-1',
+    });
+    expect(scrubbed.properties.$web_vitals_LCP_value).toBe(1842.5);
+    expect(scrubbed.properties.$current_url).toBe('https://duings.com/admin/clubs');
+  });
+
+  // 중첩은 객체만 타고 오지 않는다 — 배열에 담긴 객체도 같은 판정을 받아야 한다.
+  it('배열 안에 담긴 객체의 주소도 정제한다', async () => {
+    const scrubbed = await sendThroughScrubber(
+      eventWith({
+        recent_views: [{ $current_url: 'https://duings.com/admin/clubs?q=홍길동' }],
+      }),
+    );
+
+    expect(scrubbed.properties.recent_views).toEqual([
+      { $current_url: 'https://duings.com/admin/clubs' },
+    ]);
+  });
+
+  // 사람 속성 경로도 같은 함수를 타므로 중첩 정제가 함께 따라와야 한다 — 한쪽만 덮으면 채널이 옮겨갈 뿐이다.
+  it('사람 속성 안의 중첩 객체도 정제한다', async () => {
+    const scrubbed = await sendThroughScrubber({
+      uuid: 'test-uuid',
+      event: '$identify',
+      properties: {},
+      $set: { last_seen: { $current_url: 'https://duings.com/clubs?q=비밀' } },
+      $set_once: { first_seen: { $initial_current_url: 'https://duings.com/clubs?q=비밀' } },
+    });
+
+    expect(scrubbed.$set).toEqual({ last_seen: { $current_url: 'https://duings.com/clubs' } });
+    expect(scrubbed.$set_once).toEqual({
+      first_seen: { $initial_current_url: 'https://duings.com/clubs' },
+    });
+  });
+
+  // 재귀는 순환 참조나 비정상적으로 깊은 구조를 만나도 스택을 넘기지 않아야 한다 — 상한에서 멈춘다.
+  // 상한 안쪽은 여전히 정제되는지도 함께 본다(상한을 너무 조이면 정작 web vitals 를 놓친다).
+  // init 스파이 호출이 누적되므로 초기화는 한 번만 하고 훅을 두 번 태운다.
+  it('재귀 깊이 상한을 넘어서는 값은 건드리지 않는다', async () => {
+    const options = await captureInitOptions();
+    if (typeof options.before_send !== 'function') throw new Error('before_send 가 배선되어야 한다');
+
+    const withinLimit = options.before_send(
+      eventWith(nestedTimes(6, { $current_url: 'https://duings.com/clubs?q=비밀' })),
+    );
+    const beyondLimit = options.before_send(
+      eventWith(nestedTimes(7, { $current_url: 'https://duings.com/clubs?q=비밀' })),
+    );
+
+    expect(withinLimit?.properties).toEqual(
+      nestedTimes(6, { $current_url: 'https://duings.com/clubs' }),
+    );
+    expect(beyondLimit?.properties).toEqual(
+      nestedTimes(7, { $current_url: 'https://duings.com/clubs?q=비밀' }),
+    );
   });
 
   // $referrer 는 URL 이 아닌 값($direct)도 담는다 — 정제가 값을 망가뜨리면 유입 분석이 깨진다.
