@@ -37,7 +37,11 @@ public class FacilityAvailabilityPolicy {
      * 제외돼도 CRAWLED_RESERVATION 으로 차단은 유지되는 보수 방향). 요청·사이클당 1회 호출을 전제한다.
      */
     public Set<String> securedOrganizationKeys() {
-        List<ClubRepository.ClubSecuredNameProjection> nameRows = clubRepository.findSecuredTargetNameRows();
+        return securedOrganizationKeys(clubRepository.findSecuredTargetNameRows());
+    }
+
+    /** 이미 조회한 이름 프로젝션에서 파생 — 같은 요청 안에서 전 동아리 스캔을 두 번 하지 않도록(P2-05). 판정 규칙 동일. */
+    public Set<String> securedOrganizationKeys(List<ClubRepository.ClubSecuredNameProjection> nameRows) {
         Map<String, Long> keyCounts = nameRows.stream()
                 .map(row -> normalizer.normalize(row.getName()))
                 .filter(key -> !key.isEmpty())

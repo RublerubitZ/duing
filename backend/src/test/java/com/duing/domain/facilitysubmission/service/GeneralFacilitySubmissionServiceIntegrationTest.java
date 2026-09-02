@@ -272,6 +272,35 @@ class GeneralFacilitySubmissionServiceIntegrationTest extends IntegrationTestBas
     }
 
     @Test
+    @DisplayName("완료 처리 시 시설이 아카이브돼 있으면 그 예약은 확정하지 않고 '시설 폐쇄됨' 사유로 스킵하며 APPROVED 로 남긴다")
+    void completeSkipsBookingsOfArchivedFacility() {
+        FacilityBooking first = approvedBooking(9);
+        FacilityBooking second = approvedBooking(11);
+        CreateSubmissionBatchResult created = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(first.getId(), second.getId()), null), actor());
+        // 배치 생성 후 완료 전에 일일 동기화가 시설을 아카이브한 상황(IT 는 비트랜잭션 — 다시 읽어 저장한다).
+        Facility archivedFacility = facilityRepository.findById(facility.getId()).orElseThrow();
+        archivedFacility.archive(LocalDateTime.now());
+        facilityRepository.save(archivedFacility);
+
+        CompleteSubmissionBatchResult result = submissionService.complete(created.batchId(), actor());
+
+        assertThat(result.totalCount()).isEqualTo(2);
+        assertThat(result.confirmedCount()).isZero();
+        assertThat(result.skippedBookings()).hasSize(2).allSatisfy(skipped -> {
+            assertThat(skipped.status()).isEqualTo(BookingStatus.APPROVED); // 예약 자체는 승인 상태 그대로
+            assertThat(skipped.reason()).isEqualTo("시설 폐쇄됨");
+        });
+        assertThat(bookingRepository.findById(first.getId()).orElseThrow().getStatus()).isEqualTo(BookingStatus.APPROVED);
+        assertThat(bookingRepository.findById(second.getId()).orElseThrow().getStatus()).isEqualTo(BookingStatus.APPROVED);
+        assertThat(itemRepository.findByBatchIdOrderByIdAsc(created.batchId()))
+                .allSatisfy(item -> assertThat(item.getSkippedAt()).isNotNull()); // 완료된 배치가 예약을 붙잡지 않는다
+        assertThat(batchRepository.findById(created.batchId()).orElseThrow().isCompleted()).isTrue();
+        List<FacilitySubmissionAudit> audits = auditRepository.findByBatchIdOrderByIdAsc(created.batchId());
+        assertThat(audits.get(1).getDetail()).contains("등록 완료 0건").contains("시설 폐쇄됨");
+    }
+
+    @Test
     @DisplayName("검토 중 상태가 변한 예약은 스킵되고 응답·감사에 사유가 나열된다")
     void completeSkipsChangedBookingsWithReasons() {
         FacilityBooking kept = approvedBooking(9);

@@ -8,7 +8,8 @@ import java.util.List;
 
 /**
  * 어드민 크롤 예약 현황의 그룹 1건(설계 §3.6, 수정 1~4). 페이징 단위 = 그룹이라 같은 주체가 페이지 간
- * 분리되지 않는다. 시간은 "HH:mm" 문자열, crawledAt 은 행 단위 수집 시각(절대시각).
+ * 분리되지 않는다. 시간은 "HH:mm" 문자열, crawledAt 은 행 내용 마지막 변경 시각(차등 반영 — 내용 동일 시
+ * 미갱신, 절대시각). 수집 시각은 스냅샷 crawledAt 이 담당한다.
  */
 public record AdminCrawlReservationGroupResponse(
         GroupType groupType,

@@ -51,13 +51,15 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
         Facility facility = facilityRepository.findByIdForUpdate(booking.getFacilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         rejectIfArchived(facility);
-        // 단일 조회 목록에서 basis·검증·payload 를 함께 계산 — 쿼리 간 크롤 세대 교체로 감사값이 분리되는 것을 차단.
+        // 스냅샷을 행보다 먼저 읽고, 행이 더 새로우면 행 기준으로 basis 를 잡는다 — 두 쿼리 사이의 크롤 세대 교체를
+        // 감사값이 따라간다(P2-04). 검증·payload 는 같은 monthRows 로 계산한다.
         YearMonth month = YearMonth.from(booking.getReservationDate());
+        FacilityMonthSnapshot monthSnapshot = facilityMonthSnapshotRepository.findByYearMonth(month).orElse(null);
         List<FacilityReservation> monthRows =
                 facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month);
         Set<String> securedOrganizationKeys =
                 monthRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
-        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(), month, monthRows);
+        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(), monthSnapshot, monthRows);
         rejectIfSchoolOccupied(booking, monthRows, crawlBasisAt, securedOrganizationKeys);
         rejectIfInternallyBlocked(booking);
 
@@ -94,9 +96,10 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         rejectIfArchived(facility);
         YearMonth month = YearMonth.from(booking.getReservationDate());
+        FacilityMonthSnapshot monthSnapshot = facilityMonthSnapshotRepository.findByYearMonth(month).orElse(null);
         List<FacilityReservation> monthRows =
                 facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month);
-        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(), month, monthRows);
+        LocalDateTime crawlBasisAt = facilityCrawlBasis(booking.getFacilityId(), monthSnapshot, monthRows);
         rejectIfInternallyBlocked(booking);
 
         BookingStatus previousStatus = booking.getStatus();
@@ -138,7 +141,9 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
 
     /** 아카이브 시설 가드 — 시설 잠금 하 재검증이라 일일 동기화의 archive 전이와 직렬화된다(2026-07-17 감사).
      *  자동 매칭(FacilityBookingMatchingService)의 동일 가드와 대칭으로 아카이브 시설에 APPROVED/CONFIRMED
-     *  진입 경로를 전부 닫는다 — 단 실패 표출은 다르다(잡은 로그 후 스킵, 동기 관리자 요청은 409 즉시 응답). */
+     *  진입 경로를 전부 닫는다 — 단 실패 표출은 다르다(잡은 로그 후 스킵, 동기 관리자 요청은 409 즉시 응답).
+     *  제출 배치 완료(GeneralFacilitySubmissionService.complete)는 예약 잠금을 먼저 잡는 경로라 시설 잠금 없이
+     *  아카이브를 확인해 스킵한다 — 시설→예약 잠금 순서 역전(교착) 회피, 창은 일일 동기화 1회뿐(P2-07). */
     private void rejectIfArchived(Facility facility) {
         if (facility.isArchived()) {
             throw new FacilityBookingException.ArchivedFacilityConflictException();
@@ -178,19 +183,20 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     }
 
     /**
-     * 검증에 실제 사용한 크롤 세대(§5.2). 이 시설이 최신 세대에 수집 성공했으면 그 세대의 수집 시각을 남긴다 —
-     * 월 메타가 시설 행보다 새로울 수 있다는 문제(PARTIAL 크롤)는 시설 단위 성공 여부로 판별한다.
-     * 수집이 실패·스킵돼 구세대 행이 잔존하는 시설은 실제로 보유한 행의 최종 반영 시각으로 폴백하고,
-     * 행도 없으면 null 이다. 예약 행은 변경분만 차등 반영되므로 행의 crawledAt 은 "마지막 성공 수집"이
-     * 아니라 "마지막 내용 변경" 시각이라, 최신 세대에서는 스냅샷 세대를 쓰는 쪽이 정확하다.
+     * 검증에 실제 사용한 크롤 세대(§5.2). 스냅샷을 행보다 먼저 읽으므로, 정상 상태(행 crawledAt ≤ 세대 시각)면
+     * 이 시설이 synced 인 스냅샷 세대를 남기고, 행의 최종 반영 시각이 스냅샷보다 새로우면 그 사이 신세대 행이 커밋된
+     * 것이라 행 기준으로 남긴다 — 어느 쪽이든 "검증에 쓴 행"의 세대다(P2-04). 수집이 실패·스킵돼 synced 가 아니면
+     * 행의 최종 반영 시각으로 폴백하고, 행도 없으면 null 이다. 행 crawledAt 은 차등 반영상 "마지막 내용 변경" 시각이라
+     * 최신 세대에서는 스냅샷 세대가 정확하다.
      */
-    private LocalDateTime facilityCrawlBasis(Long facilityId, YearMonth month, List<FacilityReservation> monthRows) {
-        return facilityMonthSnapshotRepository.findByYearMonth(month)
-                .filter(snapshot -> snapshot.isFacilitySynced(facilityId))
-                .map(FacilityMonthSnapshot::getCrawledAt)
-                .orElseGet(() -> monthRows.stream()
-                        .map(FacilityReservation::getCrawledAt)
-                        .max(Comparator.naturalOrder())
-                        .orElse(null));
+    private LocalDateTime facilityCrawlBasis(Long facilityId, FacilityMonthSnapshot monthSnapshot,
+            List<FacilityReservation> monthRows) {
+        LocalDateTime latestRowCrawledAt = monthRows.stream()
+                .map(FacilityReservation::getCrawledAt)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+        boolean snapshotCoversRows = monthSnapshot != null && monthSnapshot.isFacilitySynced(facilityId)
+                && (latestRowCrawledAt == null || !latestRowCrawledAt.isAfter(monthSnapshot.getCrawledAt()));
+        return snapshotCoversRows ? monthSnapshot.getCrawledAt() : latestRowCrawledAt;
     }
 }

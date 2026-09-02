@@ -170,6 +170,60 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("승인 중 스냅샷 조회 뒤에 새 세대 행이 커밋됐으면(행이 스냅샷보다 새로움) 크롤 기준 시각은 스냅샷 세대가 아니라 실제 검증한 행의 반영 시각이다")
+    void approveUsesRowCrawledAtWhenRowsAreNewerThanSnapshot() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        LocalDateTime snapshotGeneration = LocalDateTime.now().withNano(0).minusMinutes(10);
+        LocalDateTime newerRowCrawledAt = snapshotGeneration.plusMinutes(10);
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, snapshotGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(snapshotGeneration, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                List.of(fixture.facility().getId())); // 이 시설은 스냅샷 세대에 synced
+        snapshotRepository.save(snapshot);
+        // 스냅샷 세대보다 새로운 행 — 신세대 크롤이 행을 먼저 커밋한 상태(겹치지 않는 시간대라 승인은 통과한다).
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, newerRowCrawledAt));
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        FacilityBooking approved = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(approved.getCrawlBasisAt()).isEqualTo(newerRowCrawledAt); // 스냅샷 세대(snapshotGeneration)가 아니다
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).get(0).getCrawlBasisAt())
+                .isEqualTo(newerRowCrawledAt);
+    }
+
+    @Test
+    @DisplayName("행이 스냅샷 세대보다 오래된 정상 상태에서는 크롤 기준 시각이 스냅샷 세대다 — 행 crawledAt 은 마지막 변경 시각이라 세대 표식이 아니다")
+    void approveUsesSnapshotGenerationWhenRowsAreNotNewer() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        LocalDateTime snapshotGeneration = LocalDateTime.now().withNano(0).minusMinutes(10);
+        LocalDateTime olderRowCrawledAt = snapshotGeneration.minusMinutes(10);
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, snapshotGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(snapshotGeneration, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                List.of(fixture.facility().getId()));
+        snapshotRepository.save(snapshot);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, olderRowCrawledAt));
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getCrawlBasisAt()).isEqualTo(snapshotGeneration);
+    }
+
+    @Test
     @DisplayName("승인 시 크롤 실예약 행과 겹치면 SchoolConflict 409, 어떤 행과도 겹치지 않는 신청만 승인된다")
     void approveRevalidatesAgainstSchoolRows() throws Exception {
         Fixture fixture = fixture();
