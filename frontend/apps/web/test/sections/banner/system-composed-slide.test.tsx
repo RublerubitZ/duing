@@ -7,6 +7,19 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+// next/image 는 src 를 /_next/image?url=… 로 재작성하므로 원본 URL·속성 단언이 그대로 통하도록
+// prop 을 흘려보내는 목을 쓴다. fill·priority·sizes 는 DOM 속성이 아니라 여기서 걷어낸다.
+vi.mock('next/image', () => ({
+  default: ({
+    fill,
+    priority,
+    sizes,
+    ...imageProps
+  }: React.ComponentProps<'img'> & { fill?: boolean; priority?: boolean }) => (
+    <img {...imageProps} />
+  ),
+}));
+
 import {
   SystemComposedSlide,
   type SystemComposedSlideData,
