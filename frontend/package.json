@@ -11,11 +11,13 @@
     "dev": "pnpm --filter @duing/web dev",
     "build": "pnpm -r --filter=!@duing/web build && pnpm --filter @duing/web build",
     "lint": "pnpm -r lint",
+    "depcruise": "depcruise apps/web packages",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test -- --run",
     "gen:api": "openapi-typescript http://localhost:8080/v3/api-docs -o packages/api/src/generated/schema.d.ts"
   },
   "devDependencies": {
+    "dependency-cruiser": "^16.10.4",
     "openapi-typescript": "^7.4.4",
     "prettier": "^3.3.3",
     "typescript": "^5.6.3"
