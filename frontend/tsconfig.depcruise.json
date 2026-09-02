@@ -1,0 +1,9 @@
+{
+  // dependency-cruiser 전용. apps/web 설정에 baseUrl 만 얹는다 —
+  // tsconfig-paths 는 baseUrl 없이는 `@/*` 를 cwd(frontend/) 기준으로 풀어 전부 미해석이 된다.
+  // apps/web/tsconfig.json 에 baseUrl 을 넣으면 앱의 bare import 해석까지 바뀌므로 여기서만 얹는다.
+  "extends": "./apps/web/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "apps/web"
+  }
+}

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import type { PromotionRenderMode } from '@duing/types';
 import { safeExternalHref, toLinkRoute } from '@/app/_lib/route';
@@ -23,7 +24,13 @@ export type SystemComposedSlideData = {
   imageAltText: string | null;
 };
 
-export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData }) {
+type Props = {
+  slide: SystemComposedSlideData;
+  /** 최초 마운트의 진입 슬롯만 true — 판정은 BannerCarouselClient 가 한다. */
+  priority?: boolean;
+};
+
+export function SystemComposedSlide({ slide, priority = false }: Props) {
   const hasImage = !!slide.bannerImageUrl;
   // 이미지가 깔리면 가독성을 위해 텍스트를 흰색 톤으로 고정한다.
   const isDarkText = hasImage || slide.fg === '#fff';
@@ -43,11 +50,16 @@ export function SystemComposedSlide({ slide }: { slide: SystemComposedSlideData 
     >
       {hasImage && (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 스토리지 URL (Local / Supabase Storage). 깨지면 slide.bg 색만 노출되도록 onError 에서 숨김. */}
-          <img
+          {/* 깨지면 slide.bg 색만 노출되도록 onError 에서 숨긴다(계약 유지). */}
+          <Image
             src={slide.bannerImageUrl ?? ''}
             alt=""
             aria-hidden
+            fill
+            // 배너는 어느 폭에서도 콘텐츠 폭(=뷰포트)을 가득 채운다.
+            sizes="100vw"
+            priority={priority}
+            // 네이티브 드래그가 캐러셀 스와이프를 pointercancel 로 끊는 것을 막는다(전환 후에도 필수).
             draggable={false}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
             onError={(event) => {

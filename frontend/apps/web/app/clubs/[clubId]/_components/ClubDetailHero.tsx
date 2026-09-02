@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
@@ -59,11 +60,20 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         <section className="relative overflow-hidden bg-cream">
           {club.coverUrl && (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. Hero 배경 분위기용. */}
-              <img
+              {/* Hero 배경 분위기용. priority 를 주지 않는다(모바일 배너도 같다) — 세 가지 이유다.
+                  ① coverUrl 은 React Query 가 하이드레이션 이후에 채우는 값이라, preload 를 걸어도
+                     문서 파싱 시점에는 존재하지 않아 구조적으로 이득이 없다.
+                  ② 데스크탑/모바일 커버는 CSS(hidden md:block / md:hidden)로만 갈리고 DOM 에는 둘 다
+                     있어서, 한쪽에 priority 를 주면 그 폭에서 안 보이는 쪽까지 대형 변형을 강제로 받는다.
+                  ③ 기본 lazy 면 display:none 인 쪽은 교차 자체가 없어 아예 받지 않는다 — 지금 raw <img>
+                     가 두 장을 모두 받던 낭비까지 사라진다. 보이는 쪽은 마운트 즉시 교차라 체감 차이 없다. */}
+              <Image
                 src={club.coverUrl}
                 alt=""
                 aria-hidden
+                fill
+                // 히어로 배경은 뷰포트 전체 폭을 채운다(풀블리드).
+                sizes="100vw"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover opacity-50"
               />
@@ -149,8 +159,16 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         <div className="relative">
           {club.coverUrl ? (
             <div className="relative h-[150px] w-full overflow-hidden bg-sage-mist">
-              {/* eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. 모바일 커버 배너. */}
-              <img src={club.coverUrl} alt="" aria-hidden decoding="async" className="h-full w-full object-cover" />
+              {/* 모바일 커버 배너. priority 없음 — 데스크탑 커버와 같은 이유(위 주석 참고). */}
+              <Image
+                src={club.coverUrl}
+                alt=""
+                aria-hidden
+                fill
+                sizes="100vw"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
               {/* 배너 하단을 cream 으로 페이드 — 아래 콘텐츠와 매끄럽게 잇고 겹친 로고를 받쳐준다. */}
               <div
                 className="absolute inset-0 bg-gradient-to-t from-cream via-cream/20 to-transparent"

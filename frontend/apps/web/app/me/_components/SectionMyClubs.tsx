@@ -114,7 +114,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                   ) : (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Link
-                        href={`/clubs/${club.clubId}/member`}
+                        href={`/clubs/${club.clubId}/member/notices`}
                         className="btn btn-ghost btn-sm"
                         aria-label={`${club.clubName} 둘러보기`}
                       >
