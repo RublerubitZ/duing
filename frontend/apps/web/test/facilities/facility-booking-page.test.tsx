@@ -1391,4 +1391,38 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
     expect(screen.getByRole('button', { name: '토요일 2일' })).toBeEnabled();
     await waitFor(() => expect(requestedYearMonths).toContain('2027-01'));
   });
+
+  it('(e) 인접월 가용성 조회만 실패하면 안내·재시도를 노출하고, 재시도 성공 시 인접월이 병합된다(P2-17)', async () => {
+    pinSeoulNoon('2026-07-20'); // 창 [7/16 .. 8/15] — 7/27 주가 8월로 이월
+    let adjacentMonthFails = true;
+    server.use(
+      http.get('*/facilities/booking-window', () =>
+        ok({ bookableFrom: '2026-07-16', bookableUntil: '2026-08-15', availableBookingRanges: null }),
+      ),
+      http.get('*/facilities/1/availability', ({ request }) => {
+        const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? '2026-07';
+        if (yearMonth === '2026-08' && adjacentMonthFails) {
+          return HttpResponse.json({ ok: false, data: null, message: '일시 오류' }, { status: 500 });
+        }
+        return ok(flatAvailability(1, yearMonth, '2026-07-16', '2026-08-15'));
+      }),
+    );
+    mockSearchParams.value = 'facilityId=1&date=2026-07-27'; // 조회 월=7월, 주는 8월로 이월
+
+    renderPage();
+    await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf('2026-07-27')) });
+
+    // 주 쿼리(7월)는 정상이라 타임테이블은 그대로 — 인접월 실패는 안내로 드러난다(수정 전엔 8/1·8/2 가 조용히 비활성).
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '이번 주에 걸친 8월 가용성을 불러오지 못했어요. 해당 날짜는 비어 보일 수 있어요.',
+    );
+    expect(screen.getByRole('button', { name: '월요일 27일 · 선택' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '토요일 1일' })).toBeDisabled();
+
+    adjacentMonthFails = false;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '토요일 1일' })).toBeEnabled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

@@ -487,18 +487,40 @@ export function FacilityBookingPage() {
                     />
                   )}
                   {availability && calendarView === 'week' && selectedDate !== null && (
-                    <WeekTimetable
-                      selectedDate={selectedDate}
-                      daysByIso={daysByIso}
-                      bookableFrom={availability.bookableFrom}
-                      bookableUntil={availability.bookableUntil}
-                      todayIso={todayIso}
-                      selection={selection}
-                      onSelectDate={selectDate}
-                      onTapSlot={tapWeekSlot}
-                      blocksInteractive={isMobileViewport}
-                      onTapBlock={setSheetBlock}
-                    />
+                    <>
+                      {secondMonth !== undefined && secondAvailabilityQuery.isError && (
+                        // 인접월 병합 실패(P2-17) — 주 쿼리 성공분은 그대로 그리되, 그 달 날짜가 "데이터 없음"으로
+                        // 비어 보이는 이유와 재시도 경로를 준다. 인접월은 전월일 수도 있어 "다음 달" 고정 문구를 쓰지 않는다.
+                        <div
+                          role="alert"
+                          className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2"
+                        >
+                          <p>
+                            이번 주에 걸친 {Number(secondMonth.slice(5, 7))}월 가용성을 불러오지 못했어요. 해당 날짜는
+                            비어 보일 수 있어요.
+                          </p>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => void secondAvailabilityQuery.refetch()}
+                          >
+                            다시 시도
+                          </button>
+                        </div>
+                      )}
+                      <WeekTimetable
+                        selectedDate={selectedDate}
+                        daysByIso={daysByIso}
+                        bookableFrom={availability.bookableFrom}
+                        bookableUntil={availability.bookableUntil}
+                        todayIso={todayIso}
+                        selection={selection}
+                        onSelectDate={selectDate}
+                        onTapSlot={tapWeekSlot}
+                        blocksInteractive={isMobileViewport}
+                        onTapBlock={setSheetBlock}
+                      />
+                    </>
                   )}
                 </section>
                 {/* 주간 전용 사이드바(§5) — 데스크탑 우측 sticky, 모바일 그리드 아래 세로 스택(시트 제거). */}
