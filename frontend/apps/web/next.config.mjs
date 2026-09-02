@@ -82,8 +82,27 @@ const nextConfig = {
   images: {
     // /_next/image 최적화 결과의 Cache-Control 하한. 기본 60초라 최적화 이미지가 브라우저·CDN 에 남지 않아
     // 새로고침마다 재검증 왕복이 생기고(실측 x-vercel-cache MISS), 매번 최적화기를 탄다.
-    // 이 앱의 next/image 원본은 public/ 정적 자산뿐(업로드 이미지는 raw <img>)이라 아래 immutable 규칙과 같은 1년.
+    // next/image 원본은 public/ 정적 자산과 아래 remotePatterns 의 업로드 이미지(LCP 요소 2곳 — 홈 배너·
+    // 클럽 상세 커버)뿐이다. 나머지 업로드 이미지는 여전히 raw <img> 라 이 목록에 없어도 된다.
+    // 업로드 키가 UUID 라 덮어쓰기가 없어(교체 = 새 URL) 원격 원본에도 1년 하한이 안전하다 —
+    // 아래 immutable 규칙과 같은 값.
     minimumCacheTTL: 31536000,
+    // 변환 품질을 실사용 값 하나로 잠근다. remotePatterns 를 연 순간 /_next/image 는 무인증
+    // 공개 엔드포인트가 되는데, Next 15 는 qualities 미설정 시 q=1~100 을 전부 받아 제3자가
+    // (원본 × 폭 × 품질) 조합 열거로 유료 변환을 증폭시킬 수 있다(적대적 리뷰 실측 — 이론상
+    // 2만+ 고유 변환). 렌더 경로는 기본 q=75 만 쓰므로 잠가도 무손실이고, Next 16 기본값([75])
+    // 을 선취하는 것이기도 하다.
+    qualities: [75],
+    remotePatterns: [
+      // 운영 R2 공개 호스트(S3_PUBLIC_BASE_URL). CSP img-src 와 같은 호스트다.
+      { protocol: 'https', hostname: 'files.duings.com' },
+      // 로컬 개발 전용. dev 백엔드는 R2 개발 버킷의 기본 공개 호스트(pub-<id>.r2.dev)를 쓰고,
+      // 시드 데이터에도 서로 다른 버킷 호스트가 섞여 있어 와일드카드로 연다. 운영 빌드에서는 빼는데,
+      // 남겨두면 남의 r2.dev 버킷 이미지까지 우리 최적화기가 중계(오픈 이미지 프록시)하게 된다.
+      ...(process.env.NODE_ENV === 'production'
+        ? []
+        : [{ protocol: 'https', hostname: '**.r2.dev' }]),
+    ],
   },
   async headers() {
     const headers = [
@@ -134,6 +153,33 @@ export default withSentryConfig(nextConfig, {
   project: 'next-duing',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
+  // 쓰지 않는 Sentry 기능 코드를 빌드 시 매직 플래그 치환(__SENTRY_TRACING__ 등)으로 걷어낸다.
+  // 치환은 client·server·edge 세 빌드 모두에 적용된다 — "클라이언트 번들만"이 아니다.
+  //
+  // ⚠ 커플링 1 — excludeTracing 은 instrumentation-client.ts 의 `tracesSampleRate: 0`(성능 추적
+  // 비활성)과 한 쌍이다. 추적을 다시 켤 때(tracesSampleRate > 0) 이 줄을 반드시 함께 지운다.
+  // 안 지우면 샘플링만 올라가고 span 코드는 번들에서 빠진 채라 조용히 아무 것도 수집되지 않는다.
+  // 지금 실제 절감이 나오는 항목도 이것뿐이다 — SDK 는 tracesSampleRate 가 0 이어도
+  // browserTracingIntegration 을 기본 통합에 넣어 왔고(@sentry/nextjs 10.58.0
+  // build/cjs/client/index.js:88, __SENTRY_TRACING__ 가드 안), 그 덩어리가 통째로 빠진다.
+  // instrumentation-client.ts 의 onRouterTransitionStart export 는 그대로 둬도 안전하다:
+  // captureRouterTransitionStart 자체는 가드 밖의 평범한 함수이고, 그 내부 핸들러를 채우는
+  // appRouterInstrumentNavigation 이 위 가드 안이라 추적을 빼면 기존 주석대로 no-op 으로 남는다.
+  //
+  // ⚠ 커플링 2 — excludeReplay* 3종은 세션 리플레이 도입 금지 정책과 한 쌍이다
+  // (사유는 instrumentation-client.ts 의 `tracesSampleRate` 위 주석 — 학생 PII 화면 캡처).
+  // replayIntegration 을 애초에 쓰지 않으므로 절감은 ~0 이고, 누군가 리플레이를 붙이면 곧바로
+  // 무동작으로 드러나게 하는 정책 방어용이다. 도입하기로 뒤집는다면 이 3줄도 같이 지워야 한다.
+  //
+  // excludeDebugStatements 는 __SENTRY_DEBUG__=false 치환 — client·server init 어느 쪽도
+  // Sentry `debug` 를 켜지 않으므로 잃는 관측 정보가 없다.
+  bundleSizeOptimizations: {
+    excludeTracing: true,
+    excludeReplayShadowDom: true,
+    excludeReplayIframe: true,
+    excludeReplayWorker: true,
+    excludeDebugStatements: true,
+  },
   webpack: {
     // 미들웨어 자동 래핑 해제. 켜두면 Sentry 가 middleware.ts 를 wrapMiddlewareWithSentry 로 감싸면서
     // @sentry/core 를 미들웨어 번들에 끌어들이고, 매 요청 isolation scope 복제·요청 헤더 직렬화·span
