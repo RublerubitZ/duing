@@ -62,8 +62,9 @@ function makeBooking(overrides: Partial<FacilityBookingSummary>): FacilityBookin
     facilityId: 1,
     roomName: '커뮤니티룸(1)',
     date: DATE_ISO,
-    startTime: '18:00',
-    endTime: '19:00',
+    // 목록 API 는 BE LocalTime 기본 직렬화라 시각이 HH:mm:ss 로 온다 — 픽스처도 실제 계약을 따른다.
+    startTime: '18:00:00',
+    endTime: '19:00:00',
     status: 'PENDING',
     purpose: '정기 합주',
     createdAt: '2026-07-30T10:00:00',
@@ -105,7 +106,7 @@ function renderForm(hasPendingHold: boolean) {
 
 describe('BookingForm — 자기 동아리 중복 사전 경고(P2-19)', () => {
   it('같은 날 시간이 겹치는 자기 동아리 PENDING 이 있으면 "계속 신청 가능" 대신 거부 경고를 보여준다', async () => {
-    clubBookings.push(makeBooking({ startTime: '19:00', endTime: '21:00' })); // 18~20 신청과 19~20 겹침
+    clubBookings.push(makeBooking({ startTime: '19:00:00', endTime: '21:00:00' })); // 18~20 신청과 19~20 겹침
     renderForm(true);
 
     expect(await screen.findByText(OWN_DUPLICATE_MESSAGE)).toBeInTheDocument();
@@ -122,7 +123,7 @@ describe('BookingForm — 자기 동아리 중복 사전 경고(P2-19)', () => {
   it('겹치지 않으면(다른 날·끝==시작 인접) 기존 PENDING_HOLD 안내를 유지한다', async () => {
     clubBookings.push(
       makeBooking({ date: '2026-08-03' }),
-      makeBooking({ bookingId: 2, startTime: '16:00', endTime: '18:00' }), // endTime === range.start 는 비겹침
+      makeBooking({ bookingId: 2, startTime: '16:00:00', endTime: '18:00:00' }), // endTime(HH:mm:ss) === range.start("18:00") 는 비겹침
     );
     const { waitForClubBookings } = renderForm(true);
 
