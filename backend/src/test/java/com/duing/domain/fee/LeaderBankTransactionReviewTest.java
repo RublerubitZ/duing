@@ -29,16 +29,22 @@ import com.duing.domain.fee.repository.BankTransactionRepository;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.repository.PaymentRepository;
+import com.duing.domain.fee.service.BankTransactionReviewService;
+import com.duing.domain.fee.service.dto.query.BankTransactionView;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import jakarta.persistence.EntityManagerFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +52,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -81,8 +90,16 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
     JwtTokenProvider jwtTokenProvider;
     @Autowired
     JdbcTemplate jdbcTemplate;
+    @Autowired
+    BankTransactionReviewService bankTransactionReviewService;
+    @Autowired
+    EntityManagerFactory entityManagerFactory;
 
     private final AtomicInteger hashCounter = new AtomicInteger();
+
+    // 시한폭탄 금지 — 절대 회차 대신 상대 월을 쓴다. 두 회차 사이의 마감일 순서(이른 달 → 늦은 달)만 의미가 있다.
+    private final String earlierPeriod = YearMonth.now().plusMonths(1).toString();
+    private final String laterPeriod = YearMonth.now().plusMonths(2).toString();
 
     private Club club;
     private Long clubId;
@@ -175,6 +192,93 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
                 .body("data.content[0].candidates.feeBillId",
                         contains(july.getId().intValue(), august.getId().intValue()))
                 .body("data.content[0].candidates.billingPeriod", contains("2026-07", "2026-08"));
+    }
+
+    @Test
+    @DisplayName("검토 큐 조회: 같은 금액의 PENDING 입금이 여러 건이면 모든 행에 같은 후보 목록이 같은 정렬로 동봉된다")
+    void listAttachesSameCandidatesToEveryDepositOfSameAmount() {
+        User memberEarlier = joinMember(club);
+        User memberLater = joinMember(club);
+        // 마감일이 더 늦은 회차를 먼저 적재해도 후보는 due_date 오름차순으로 정렬돼야 한다(행마다 동일).
+        FeeBill laterBill = saveBill(clubId, policyId, memberLater.getId(), DEPOSIT_AMOUNT, laterPeriod);
+        FeeBill earlierBill = saveBill(clubId, policyId, memberEarlier.getId(), DEPOSIT_AMOUNT, earlierPeriod);
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT, "김두잉");
+
+        // 두 행의 기대 후보가 같아 거래 정렬(동일 transaction_at)에 의존하지 않는다.
+        authed(leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/bank-transactions")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(2))
+                .body("data.content[0].candidates.feeBillId",
+                        contains(earlierBill.getId().intValue(), laterBill.getId().intValue()))
+                .body("data.content[1].candidates.feeBillId",
+                        contains(earlierBill.getId().intValue(), laterBill.getId().intValue()));
+    }
+
+    @Test
+    @DisplayName("검토 큐 조회: 금액이 다른 PENDING 입금이 섞이면 각 행에 자기 금액의 후보만 동봉된다")
+    void listAttachesOnlyOwnAmountCandidatesWhenAmountsAreMixed() {
+        long otherAmount = DEPOSIT_AMOUNT + 5000L;
+        User memberOfDepositAmount = joinMember(club);
+        User memberOfOtherAmount = joinMember(club);
+        FeeBill billOfDepositAmount =
+                saveBill(clubId, policyId, memberOfDepositAmount.getId(), DEPOSIT_AMOUNT, earlierPeriod);
+        FeeBill billOfOtherAmount =
+                saveBill(clubId, policyId, memberOfOtherAmount.getId(), otherAmount, earlierPeriod);
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+        savePendingDeposit(clubId, otherAmount, "김두잉");
+
+        // 행 순서(동일 transaction_at)에 기대지 않도록 금액으로 행을 찾아 검증한다.
+        authed(leaderToken)
+                .when().get("/api/v1/leader/clubs/" + clubId + "/bank-transactions")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize(2))
+                .body("data.content.find { it.amount == " + DEPOSIT_AMOUNT + " }.candidates.feeBillId",
+                        contains(billOfDepositAmount.getId().intValue()))
+                .body("data.content.find { it.amount == " + otherAmount + " }.candidates.feeBillId",
+                        contains(billOfOtherAmount.getId().intValue()));
+    }
+
+    @Test
+    @DisplayName("검토 큐 조회의 매칭 후보 쿼리는 PENDING 입금 건수와 무관하게 페이지당 1회이고, PENDING 이 없으면 나가지 않는다")
+    void candidateQueryCountIsConstantPerPage() {
+        // HTTP 경유는 서버 스레드의 인증·인가 쿼리가 전역 통계에 섞여 계측이 흔들리므로 서비스를 직접 호출한다.
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        Pageable pageable = PageRequest.of(0, 20);
+        // 워밍업: 세션 최초 쿼리의 1회성 준비 비용을 계측에서 배제한다(RecruitmentPublicQueryCountTest 전례).
+        bankTransactionReviewService.list(clubId, leader.getId(), MatchStatus.PENDING, pageable);
+
+        // 기준선: PENDING 이 0건이면 후보 조회가 아예 나가지 않는다.
+        long beforeEmpty = statistics.getPrepareStatementCount();
+        bankTransactionReviewService.list(clubId, leader.getId(), MatchStatus.PENDING, pageable);
+        long emptyPageQueries = statistics.getPrepareStatementCount() - beforeEmpty;
+
+        User member = joinMember(club);
+        saveBill(clubId, policyId, member.getId(), DEPOSIT_AMOUNT, earlierPeriod);
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+
+        long beforeSingle = statistics.getPrepareStatementCount();
+        Page<BankTransactionView> singlePendingPage =
+                bankTransactionReviewService.list(clubId, leader.getId(), MatchStatus.PENDING, pageable);
+        long singlePendingQueries = statistics.getPrepareStatementCount() - beforeSingle;
+
+        // 금액이 서로 달라야 행마다 후보 조회가 필요했던 옛 경로와 배치 경로가 갈린다.
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT + 1000L, "김두잉");
+        savePendingDeposit(clubId, DEPOSIT_AMOUNT + 2000L, "이두잉");
+
+        long beforeMultiple = statistics.getPrepareStatementCount();
+        Page<BankTransactionView> multiplePendingPage =
+                bankTransactionReviewService.list(clubId, leader.getId(), MatchStatus.PENDING, pageable);
+        long multiplePendingQueries = statistics.getPrepareStatementCount() - beforeMultiple;
+
+        assertThat(singlePendingPage.getContent()).hasSize(1);
+        assertThat(multiplePendingPage.getContent()).hasSize(3);
+        // 서로 다른 금액 3건이어도 후보 조회는 IN 배치 1문 — PENDING 1건일 때와 쿼리 수가 같다.
+        assertThat(multiplePendingQueries).isEqualTo(singlePendingQueries);
+        // PENDING 이 있으면 후보 쿼리 1문이 더해지고, 없으면 더해지지 않는다.
+        assertThat(singlePendingQueries).isEqualTo(emptyPageQueries + 1);
     }
 
     @Test

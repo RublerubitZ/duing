@@ -24,7 +24,13 @@ public interface FeeBillRepositoryCustom {
     long sumActivePaid(Long clubId, FeeBillSummaryQuery query);
 
     // 입금액과 잔액(청구액 − 활성 납부합)이 정확히 일치하는 동아리 내 미납 청구 후보를 마감일 오름차순으로 반환한다.
+    // 쿼리 정의를 한 벌로 유지하려고 아래 배치 조회에 위임한다(단건 호출부는 이 시그니처를 그대로 쓴다).
     List<MatchCandidate> findMatchCandidates(Long clubId, long depositAmount);
+
+    // 위 후보 조회의 배치판 — 여러 입금액을 IN 한 문장으로 훑어 검토 큐 한 페이지의 행당 조회를 없앤다.
+    // 반환 목록에는 금액이 섞여 있으므로 호출부가 MatchCandidate.remaining 으로 금액별 분배한다(금액 내 정렬은 유지).
+    // 입력이 비면 빈 목록(쿼리 생략).
+    List<MatchCandidate> findMatchCandidates(Long clubId, Collection<Long> depositAmounts);
 
     // 매칭 내역 표시용으로, 동아리 내 주어진 청구 id 들의 매칭 회원 이름·회차를 일괄 조회한다(N+1 방지). 입력이 비면 빈 목록.
     List<MatchedBillInfo> findMatchedBillInfo(Long clubId, Collection<Long> feeBillIds);
