@@ -127,6 +127,10 @@ describe('FacilityCrawlTab', () => {
     expect(screen.getByText('학생생활상담센터')).toBeInTheDocument();
     expect(screen.getByText('매칭 없음')).toBeInTheDocument();
     expect(screen.getByText('크롤 예약')).toBeInTheDocument();
+    // 행 crawledAt 은 차등 반영상 "마지막 내용 변경" 시각이다(P2-09) — 수집 시각처럼 읽히는 라벨을 쓰지 않는다.
+    // 픽스처 05:00Z = KST 14:00. 맥락(연속 묶음)마다 1회 표기라 2개 이상.
+    expect(screen.getAllByText('마지막 변경 08/27 14:00').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^수집 \d/)).not.toBeInTheDocument();
     // 기본 요청 파라미터 — 동아리별(CLUB)·그룹 페이징
     await waitFor(() => expect(requestedParams.length).toBeGreaterThan(0));
     expect(requestedParams[0]?.groupBy).toBe('CLUB');

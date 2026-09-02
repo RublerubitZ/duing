@@ -46,7 +46,7 @@ export type AdminCrawlReservation = {
   classification: AdminCrawlClassification;
   matchedClubId?: number;
   matchedClubName?: string;
-  crawledAt: string; // ISO datetime
+  crawledAt: string; // ISO datetime — 행 내용 마지막 변경 시각(차등 반영: 내용 동일 시 미갱신). 수집 시각이 아니다
 };
 
 export type AdminCrawlReservationGroup = {

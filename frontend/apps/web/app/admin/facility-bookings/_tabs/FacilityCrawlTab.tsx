@@ -226,7 +226,7 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
                 <span className="text-[11px] text-charcoal-3">({context.reservations.length}건 연속)</span>
               )}
               <span className="text-[11px] text-charcoal-3">
-                수집 {crawledAtLabel(context.reservations[0]?.crawledAt ?? '')}
+                마지막 변경 {crawledAtLabel(context.reservations[0]?.crawledAt ?? '')}
               </span>
             </li>
           );
