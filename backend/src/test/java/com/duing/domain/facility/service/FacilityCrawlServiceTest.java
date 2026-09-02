@@ -182,6 +182,8 @@ class FacilityCrawlServiceTest {
         // 부분 파싱은 룸 실패가 아니다 — 성공 행은 영속됐고 룸 격리 재시도 대상도 아니다.
         assertThat(summary.failedRooms()).isEmpty();
         assertThat(summary.succeededRooms()).isEqualTo(1);
+        // 월 메타는 PARTIAL 인데 요약이 SUCCESS 면 로그·운영 판독이 어긋난다 — 요약도 PARTIAL(#1069 이연 정합).
+        assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
     }
 
     private ParsedReservation reservation(long scheduleSeq) {
@@ -405,5 +407,36 @@ class FacilityCrawlServiceTest {
         assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
         assertThat(summary.succeededRooms()).isEqualTo(1); // 스킵 룸을 성공으로 오집계하지 않는다
         assertThat(summary.failedRooms()).isEmpty(); // 시도하지 않은 룸은 실패도 아니다
+    }
+
+    @Test
+    @DisplayName("스레드 인터럽트로 중단된 수집은 남은 룸을 스킵으로 집계해 월 메타를 SUCCESS 가 아닌 PARTIAL 로 남기고 성공 룸 수를 과대 집계하지 않는다")
+    void interruptedCrawlSkipsRemainingRoomsAndNeverRecordsSuccess() {
+        Facility processedRoom = Facility.create(4, "공동연습실(1)", "2105", 0);
+        Facility skippedRoom = Facility.create(6, "공동연습실(2)", "2106", 1);
+        when(facilityRepository.findByArchivedAtIsNullOrderBySortOrderAsc())
+                .thenReturn(List.of(processedRoom, skippedRoom));
+        // 첫 룸 fetch 도중 인터럽트(배포 재시작 시그널) — 이 룸은 끝까지 처리·집계되고, 둘째 룸은 진입 직후 중단돼야 한다.
+        when(client.fetchReservations(eq(4), eq(july))).thenAnswer(invocation -> {
+            Thread.currentThread().interrupt();
+            return objectMapper.createArrayNode();
+        });
+        when(reservationParser.parse(any(), eq(july))).thenReturn(EMPTY_PARSE);
+        try {
+            CrawlSummary summary = service.crawlAndReplace(List.of(july), CrawlSource.SCHEDULER);
+
+            verify(client, times(1)).fetchReservations(eq(4), eq(july));
+            verify(client, never()).fetchReservations(eq(6), eq(july)); // 인터럽트 뒤 룸은 시도 자체가 없다
+            verify(snapshotWriter, times(1)).reconcileReservations(any(), any(), any(), any(), any()); // 완료한 룸만 영속
+            // 미수집 룸이 남은 달을 SUCCESS(신선)로 기록하면 그 시설의 구세대 행이 TTL 동안 신선으로 서빙된다 — PARTIAL 이어야 한다.
+            verify(snapshotWriter, times(1)).recordSuccessfulMeta(
+                    eq(july), eq(FetchStatus.PARTIAL), any(), any(), eq("수집 인터럽트 중단"), any());
+            assertThat(summary.status()).isEqualTo(FetchStatus.PARTIAL);
+            assertThat(summary.succeededRooms()).isEqualTo(1); // 스킵 룸을 성공으로 오집계하지 않는다
+            assertThat(summary.failedRooms()).isEmpty(); // 시도하지 않은 룸은 실패도 아니다
+        } finally {
+            // 테스트 스레드의 인터럽트 플래그를 반드시 소거한다 — 남기면 뒤 테스트의 Thread.sleep 이 즉시 InterruptedException 을 던진다.
+            Thread.interrupted();
+        }
     }
 }
