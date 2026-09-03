@@ -430,7 +430,7 @@ export type DuingApiClient = {
     usage(yearMonth?: string): Promise<FacilityUsageResponse>;
     // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
     get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
-    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 당월·익월만 허용(400).
+    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 직전 월·당월·익월만 허용(400). 직전 월은 저장 스냅샷 열람.
     availability(facilityId: number, yearMonth?: string): Promise<FacilityAvailabilityResponse>;
     // GET /api/v1/facilities/booking-purpose-presets — 공개. 사용 목적 Preset(시드).
     purposePresets(): Promise<PurposePreset[]>;

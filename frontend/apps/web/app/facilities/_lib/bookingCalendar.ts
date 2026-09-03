@@ -62,6 +62,20 @@ export function isSelectableSlot(slot: BookingAvailabilitySlot): boolean {
   return slot.status === 'AVAILABLE' || slot.status === 'PENDING_HOLD';
 }
 
+/**
+ * 신청이 닫힌 날 파생 — 서버가 빈 슬롯에 DEADLINE_PASSED 를 내린 날(사용일 전날 12:00 KST 경과). 클라 시계를 쓰지 않는다.
+ * 점유·대기 슬롯은 상태를 유지하므로 마감 슬롯이 하나라도 있으면 그 날 전체가 마감이다. 잔여 한계: 마감된 날의 빈 칸이
+ * 하나도 없으면(전부 점유·대기) 파생이 false 라 대기 행이 선택 가능하게 남는다 — 그 경로는 폼 힌트와 서버 400 이 막는다.
+ */
+export function isDayApplicationClosed(slots: BookingAvailabilitySlot[]): boolean {
+  return slots.some((slot) => slot.status === 'DEADLINE_PASSED');
+}
+
+/** 이 날에 새 신청을 시작할 수 있는 슬롯이 있는가 — 마감된 날은 대기 슬롯이 있어도 false. CTA 문구·행 게이팅 공용. */
+export function hasApplicableSlot(slots: BookingAvailabilitySlot[]): boolean {
+  return !isDayApplicationClosed(slots) && slots.some(isSelectableSlot);
+}
+
 export function slotInRange(slot: BookingAvailabilitySlot, range: SlotRange): boolean {
   return slot.start >= range.start && slot.end <= range.end;
 }

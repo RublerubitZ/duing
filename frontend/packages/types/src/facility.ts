@@ -55,7 +55,8 @@ export type FacilityDetailResponse = {
 
 // ── 시설 대관 신청(P1) — 백엔드 설계 §8 계약과 1:1 ───────────────────────
 
-export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST';
+// DEADLINE_PASSED = 신청 마감(사용일 전날 12:00 KST 경과, 2026-09-03). 서버가 빈 슬롯에만 부여하고 점유(BLOCKED)·대기(PENDING_HOLD)는 유지한다.
+export type BookingSlotStatus = 'AVAILABLE' | 'PENDING_HOLD' | 'BLOCKED' | 'PAST' | 'DEADLINE_PASSED';
 // 기본 확보 시간(총동연 지정 대상)은 비차단(2026-08-27 전환) — 확보 슬롯은 AVAILABLE 로 내려와 blockedBy 가 없다.
 // fail-closed 계약: 예약 가능 여부는 status 만이 결정한다 — 미지의 blockedBy 값도 BLOCKED 표시를 유지한다.
 export type BookingSlotBlockSource = 'SCHOOL' | 'INTERNAL';
@@ -88,6 +89,7 @@ export type BookingDayAvailability = {
   slots: BookingAvailabilitySlot[]; // 항상 13칸(09~22시)
 };
 
+// 조회 월은 직전 월·당월·익월(2026-09-03). 직전 월은 저장 스냅샷 기록 열람이라 지난 날짜에도 BLOCKED 점유 정보가 보존된다.
 export type FacilityAvailabilityResponse = {
   facilityId: number;
   yearMonth: string; // yyyy-MM

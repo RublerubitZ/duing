@@ -8,7 +8,9 @@ import {
   dayBookingEntries,
   dayLevelOf,
   dayUsageEntries,
+  hasApplicableSlot,
   isApplicationDeadlinePassed,
+  isDayApplicationClosed,
   isSelectableSlot,
   isWithinBookable,
   pastelIndexByLabel,
@@ -184,6 +186,13 @@ describe('adjacentMonthToFetch (§12.1 인접월 조회 게이트)', () => {
 
   it('연도 경계에서도 허용 범위 안이면 인접월을 반환한다(월 산술 연도 넘김)', () => {
     expect(adjacentMonthToFetch('2026-12-31', '2026-12', ['2026-12', '2027-01'])).toBe('2027-01');
+  });
+
+  it('직전 월이 허용 범위에 있으면 지난 주의 인접 전월도 반환한다(기록 열람 — 2026-09-03)', () => {
+    // 7/27~8/2 주에서 조회 월=8월이고 허용 범위가 [6,7,8]월이면 7월을 조회한다.
+    expect(adjacentMonthToFetch('2026-08-01', '2026-08', ['2026-06', '2026-07', '2026-08'])).toBe('2026-07');
+    // 6/29~7/5 주에서 조회 월=7월이면 직전 월 6월도 허용 범위라 조회한다.
+    expect(adjacentMonthToFetch('2026-07-01', '2026-07', ['2026-06', '2026-07', '2026-08'])).toBe('2026-06');
   });
 });
 
@@ -468,5 +477,31 @@ describe('isApplicationDeadlinePassed', () => {
     // UTC 7/19 02:59 = KST 7/19 11:59 → 미마감, UTC 7/19 03:01 = KST 7/19 12:01 → 마감
     expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T02:59:00Z'))).toBe(false);
     expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T03:01:00Z'))).toBe(true);
+  });
+});
+
+describe('isDayApplicationClosed / hasApplicableSlot (신청 마감 날 파생 — 서버 DEADLINE_PASSED 만 본다)', () => {
+  it('빈 슬롯이 DEADLINE_PASSED 로 내려온 날은 마감이고, 대기 슬롯이 남아도 신청 가능한 슬롯이 없다', () => {
+    const closed = [slot(9, 'DEADLINE_PASSED'), slot(10, 'BLOCKED'), slot(11, 'PENDING_HOLD')];
+    expect(isDayApplicationClosed(closed)).toBe(true);
+    expect(hasApplicableSlot(closed)).toBe(false);
+  });
+
+  it('DEADLINE_PASSED 가 없는 날은 마감이 아니고, AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다', () => {
+    const open = [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')];
+    expect(isDayApplicationClosed(open)).toBe(false);
+    expect(hasApplicableSlot(open)).toBe(true);
+    expect(hasApplicableSlot([slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')])).toBe(true);
+  });
+
+  it('지난 날짜(PAST·BLOCKED 만)는 마감 표시가 아니지만 신청 가능한 슬롯도 없다', () => {
+    const past = [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')];
+    expect(isDayApplicationClosed(past)).toBe(false);
+    expect(hasApplicableSlot(past)).toBe(false);
+  });
+
+  it('isSelectableSlot 은 DEADLINE_PASSED 를 선택 불가로 본다(fail-closed 무변경)', () => {
+    expect(isSelectableSlot(slot(9, 'DEADLINE_PASSED'))).toBe(false);
+    expect(isSelectableSlot(slot(9, 'PENDING_HOLD'))).toBe(true);
   });
 });

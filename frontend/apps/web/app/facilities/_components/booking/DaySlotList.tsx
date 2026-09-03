@@ -17,6 +17,7 @@ const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
   PENDING_HOLD: 'border-line bg-paper hover:border-sage hover:bg-sage-mist/60',
   BLOCKED: 'border-transparent bg-graysoft/60 text-charcoal-3',
   PAST: 'border-transparent bg-graysoft/60 text-charcoal-3',
+  DEADLINE_PASSED: 'border-transparent bg-graysoft/60 text-charcoal-3',
 };
 
 // 라벨 규칙은 bookingEntryOf(단일 지점) 재사용.
