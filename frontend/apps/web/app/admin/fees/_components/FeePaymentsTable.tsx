@@ -79,87 +79,96 @@ export function FeePaymentsTable({
         </ConsoleCard>
       )}
 
-      {paymentsQuery.isSuccess &&
-        (payments.length === 0 ? (
-          <ConsoleCard>
-            <EmptyState
-              icon="🧾"
-              title="납부 내역이 없습니다"
-              body={'선택한 기간에 기록된 납부가 없어요.\n기간이나 상태 필터를 바꿔보세요.'}
-            />
-          </ConsoleCard>
-        ) : (
-          <ConsoleCard>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[840px] text-[13px]">
-                <thead className="bg-graysoft text-charcoal-2">
-                  <tr>
-                    <Th>입금자</Th>
-                    <Th>회원</Th>
-                    <Th align="right">금액</Th>
-                    <Th>입금일</Th>
-                    <Th>매칭</Th>
-                    <Th>기록자</Th>
-                    <Th>상태</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => {
-                    const voided = payment.status === 'VOIDED';
-                    // 정정된 행은 취소선으로 "이 금액은 집계에서 빠졌다"를 한눈에 알린다.
-                    const cellCls = voided ? 'text-charcoal-3 line-through' : '';
-                    return (
-                      <tr key={payment.paymentId} className="border-t border-line">
-                        <Td className={cellCls}>{payment.counterparty ?? '—'}</Td>
-                        <Td className={cellCls}>{payment.userName ?? '탈퇴 회원'}</Td>
-                        <Td align="right" className={cellCls}>
-                          {formatFeeAmount(payment.amount)}
-                        </Td>
-                        <Td className={cellCls}>
-                          <span className="whitespace-nowrap">
-                            {formatDateTimeKst(payment.paidAt)}
-                          </span>
-                        </Td>
-                        <Td>
-                          <span className="pill-outline inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
-                            {FEE_MATCH_TYPE_LABEL[payment.matchType]}
-                          </span>
-                        </Td>
-                        <Td className={cellCls}>{payment.recordedByName ?? '—'}</Td>
-                        <Td>
-                          <span
-                            className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
-                              voided ? 'pill-coral' : 'bg-sage-mist text-ink'
-                            }`}
-                          >
-                            {FEE_PAYMENT_STATUS_LABEL[payment.status]}
-                          </span>
-                          {voided && (
-                            <span className="mt-1 block whitespace-normal text-[11.5px] leading-snug text-charcoal-2">
-                              {payment.voidReason ?? '사유 없음'}
-                              {payment.voidedByName !== null && ` · ${payment.voidedByName}`}
-                              {payment.voidedAt !== null &&
-                                ` · ${formatDateTimeKst(payment.voidedAt)}`}
+      {/* keepPreviousData 전환 중(정렬·필터·기간 변경)에는 이전 목록이 그대로 남는다 —
+          딤으로 "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. 감사 콘솔이라 이전 조건의
+          미수금·수납액을 새 조건의 결과로 읽으면 안 된다(#906). 툴바는 딤 밖이다. */}
+      {paymentsQuery.isSuccess && (
+        <div
+          aria-busy={paymentsQuery.isPlaceholderData}
+          className={paymentsQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+        >
+          {payments.length === 0 ? (
+            <ConsoleCard>
+              <EmptyState
+                icon="🧾"
+                title="납부 내역이 없습니다"
+                body={'선택한 기간에 기록된 납부가 없어요.\n기간이나 상태 필터를 바꿔보세요.'}
+              />
+            </ConsoleCard>
+          ) : (
+            <ConsoleCard>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[840px] text-[13px]">
+                  <thead className="bg-graysoft text-charcoal-2">
+                    <tr>
+                      <Th>입금자</Th>
+                      <Th>회원</Th>
+                      <Th align="right">금액</Th>
+                      <Th>입금일</Th>
+                      <Th>매칭</Th>
+                      <Th>기록자</Th>
+                      <Th>상태</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => {
+                      const voided = payment.status === 'VOIDED';
+                      // 정정된 행은 취소선으로 "이 금액은 집계에서 빠졌다"를 한눈에 알린다.
+                      const cellCls = voided ? 'text-charcoal-3 line-through' : '';
+                      return (
+                        <tr key={payment.paymentId} className="border-t border-line">
+                          <Td className={cellCls}>{payment.counterparty ?? '—'}</Td>
+                          <Td className={cellCls}>{payment.userName ?? '탈퇴 회원'}</Td>
+                          <Td align="right" className={cellCls}>
+                            {formatFeeAmount(payment.amount)}
+                          </Td>
+                          <Td className={cellCls}>
+                            <span className="whitespace-nowrap">
+                              {formatDateTimeKst(payment.paidAt)}
                             </span>
-                          )}
-                        </Td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <Pagination
-              page={page}
-              totalPages={paymentsQuery.data?.totalPages ?? 0}
-              onChange={setPage}
-              ariaLabel="납부 내역 페이지"
-              totalElements={paymentsQuery.data?.totalElements}
-              pageSize={PAGE_SIZE}
-              className="py-3"
-            />
-          </ConsoleCard>
-        ))}
+                          </Td>
+                          <Td>
+                            <span className="pill-outline inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
+                              {FEE_MATCH_TYPE_LABEL[payment.matchType]}
+                            </span>
+                          </Td>
+                          <Td className={cellCls}>{payment.recordedByName ?? '—'}</Td>
+                          <Td>
+                            <span
+                              className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
+                                voided ? 'pill-coral' : 'bg-sage-mist text-ink'
+                              }`}
+                            >
+                              {FEE_PAYMENT_STATUS_LABEL[payment.status]}
+                            </span>
+                            {voided && (
+                              <span className="mt-1 block whitespace-normal text-[11.5px] leading-snug text-charcoal-2">
+                                {payment.voidReason ?? '사유 없음'}
+                                {payment.voidedByName !== null && ` · ${payment.voidedByName}`}
+                                {payment.voidedAt !== null &&
+                                  ` · ${formatDateTimeKst(payment.voidedAt)}`}
+                              </span>
+                            )}
+                          </Td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                page={page}
+                totalPages={paymentsQuery.data?.totalPages ?? 0}
+                onChange={setPage}
+                ariaLabel="납부 내역 페이지"
+                totalElements={paymentsQuery.data?.totalElements}
+                pageSize={PAGE_SIZE}
+                className="py-3"
+              />
+            </ConsoleCard>
+          )}
+        </div>
+      )}
     </div>
   );
 }

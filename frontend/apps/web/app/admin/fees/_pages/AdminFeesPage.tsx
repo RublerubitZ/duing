@@ -153,19 +153,27 @@ export function AdminFeesPage() {
 
       {clubsQuery.isSuccess && (
         <ConsoleCard>
-          <FeeClubsTable
-            items={clubs}
-            onOpenDetail={(club) => router.push(toRoute(`/admin/fees/${club.clubId}`))}
-          />
-          <Pagination
-            page={query.page}
-            totalPages={totalPages}
-            onChange={(page) => syncQuery({ page })}
-            ariaLabel="동아리 회비 목록 페이지"
-            totalElements={clubsQuery.data?.totalElements}
-            pageSize={PAGE_SIZE}
-            className="py-3"
-          />
+          {/* keepPreviousData 전환 중(정렬·필터·기간 변경)에는 이전 목록이 그대로 남는다 —
+              딤으로 "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. 감사 콘솔이라 이전 조건의
+              미수금·수납액을 새 조건의 결과로 읽으면 안 된다(#906). 툴바는 딤 밖이다. */}
+          <div
+            aria-busy={clubsQuery.isPlaceholderData}
+            className={clubsQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+          >
+            <FeeClubsTable
+              items={clubs}
+              onOpenDetail={(club) => router.push(toRoute(`/admin/fees/${club.clubId}`))}
+            />
+            <Pagination
+              page={query.page}
+              totalPages={totalPages}
+              onChange={(page) => syncQuery({ page })}
+              ariaLabel="동아리 회비 목록 페이지"
+              totalElements={clubsQuery.data?.totalElements}
+              pageSize={PAGE_SIZE}
+              className="py-3"
+            />
+          </div>
         </ConsoleCard>
       )}
     </main>
