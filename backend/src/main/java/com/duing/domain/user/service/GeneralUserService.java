@@ -379,7 +379,9 @@ public class GeneralUserService implements UserService {
         // logout 과 동일하게 행을 잠가 token_version lost update 를 막고, @SQLDelete 로 soft-delete 한다.
         // bumpTokenVersion 으로 발급된 모든 토큰이 즉시 무효화되고, soft-delete 로 이후 인증이 차단된다.
         // 소속 멤버십은 LEFT 이력과 함께 soft-delete 한다 — 회원 수·회비 발행·감사 집계가 같은 기준을 본다(#911).
-        // 행은 deleted_at 으로 남아 가입 이력은 보존되고, 지원서 등 잔여 데이터·PII 물리 파기는 보관기간 파기 잡(PIPA)이 맡는다.
+        // 멤버십 행은 deleted_at 으로 남아 가입 이력이 보존된다. 행 자체엔 PII 가 없어(user_id·club_id·role)
+        // 잔존해도 무방하고, 물리 파기가 필요해지면 PiiRetentionJob 을 확장한다(현재 잡은 club_member 를 다루지 않는다).
+        // 지원서 등 잔여 데이터·PII 물리 파기는 보관기간 파기 잡(PIPA)이 맡는다.
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.bumpTokenVersion();

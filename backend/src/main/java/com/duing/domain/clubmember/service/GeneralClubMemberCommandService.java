@@ -193,7 +193,8 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
                     membership.getClub().getId(), userId, userId,
                     ClubMemberEventType.LEFT, membership.getRole(), null, "회원 탈퇴");
         }
-        // @SQLDelete → deleted_at = NOW(). 행은 남아 가입 이력이 보존되고, 물리 파기는 PIPA 보관기간 잡이 맡는다.
+        // @SQLDelete → 행은 deleted_at 으로 남아 가입 이력이 보존된다. 행 자체엔 PII 가 없어(user_id·club_id·role)
+        // 잔존해도 무방하고, 물리 파기가 필요해지면 PiiRetentionJob 을 확장한다(현재 잡은 club_member 를 다루지 않는다).
         clubMemberRepository.deleteAll(memberships);
     }
 
