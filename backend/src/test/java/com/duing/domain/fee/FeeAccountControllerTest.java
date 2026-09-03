@@ -267,6 +267,14 @@ class FeeAccountControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("회비 계좌 조회는 익명 접근 시 401 로 차단된다 — clubs/** GET permitAll 보다 앞선 URL 레이어 잠금")
+    void anonymousFeeAccountReadIsUnauthorized() {
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + clubId + "/fee-account")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
     @DisplayName("다른 동아리의 운영진이 이 동아리 회비 계좌를 조회하면 403 을 반환한다")
     void otherClubManagerForbidden() {
         upsertAs(leaderToken, accountBody("KB", "999-999-999", "예금주"));
