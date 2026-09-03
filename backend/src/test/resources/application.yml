@@ -121,6 +121,11 @@ duing:
     purge:
       enabled: false
       window: P45D
+  upload:
+    purge:
+      enabled: false
+      delete-enabled: false
+      window: PT24H
   public-activity:
     window-days: 30
     default-limit: 10

@@ -99,6 +99,13 @@ duing:
   federation-inquiry:
     purge:
       enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:true}
+  # 업로드 고아 객체 정리 잡(#791) — 스케줄링은 다른 잡과 같은 관례로 운영 기본 활성. 실삭제(delete-enabled)는
+  # 의도적 예외로 기본 비활성 = 1차 릴리스는 dry-run(후보를 로그로만 기록). 일주일간 로그의 referenced=true 후보가
+  # 0건임을 확인한 뒤 2차 릴리스에서 true 로 바꾼다(DUING_UPLOAD_PURGE_DELETE_ENABLED=true 로 즉시 전환도 가능).
+  upload:
+    purge:
+      enabled: ${DUING_UPLOAD_PURGE_ENABLED:true}
+      delete-enabled: ${DUING_UPLOAD_PURGE_DELETE_ENABLED:false}
   # 추천순 활동점수 집계 잡 — 운영 기본 활성(집계 upsert 만이라 안전, 꺼지면 추천 정렬이 활동점수 0 으로
   # 저하 동작한다). 다른 잡들과 동일한 하드코딩 관례. DUING_CLUB_METRIC_ENABLED=false 로 끌 수 있다.
   club:
