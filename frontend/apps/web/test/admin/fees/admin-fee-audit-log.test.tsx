@@ -240,4 +240,14 @@ describe('관리자 회비 감사 로그 탭', () => {
     // 탭이 상세 훅을 또 부르면 렌더 한 번에 두 건이 찍힌다 = 열람 감사 행 증식.
     expect(mockDetailQuery).toHaveBeenCalledTimes(1);
   });
+
+  it('감사 로그가 이전 목록을 유지 중이면 목록을 딤 처리하고 aria-busy 로 알린다', () => {
+    mockAuditLogsQuery.mockReturnValue({ ...pageSuccess([makeLog()]), isPlaceholderData: true });
+
+    renderAuditTab();
+
+    const wrapper = screen.getByRole('list', { name: '회비 감사 로그' }).closest('[aria-busy]');
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
+    expect(wrapper?.className).toContain('opacity-60');
+  });
 });

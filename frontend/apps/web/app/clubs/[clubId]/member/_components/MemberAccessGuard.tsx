@@ -16,7 +16,9 @@ const DEFAULT_DENIAL_MESSAGE = '회원 전용 페이지입니다.';
 /**
  * 접근 거부면 사용자 안내 문구를, 통과 가능하거나 아직 판정 전이면 null 을 반환한다.
  *
- * 비멤버는 200 + null 로 도착하고(정상 응답), 남는 403 은 실제 거부 사유(예: 운영 종료된 동아리)다.
+ * 비멤버는 200 + null 로 도착하고(정상 응답), 403 은 실제 거부 사유(예: 운영 종료된 동아리),
+ * 401 은 익명 딥링크(URL 레이어 인증, #838)다 — 익명은 hadLiveSession 이 없어 SessionExpiryHandler 가
+ * 이동시키지 않으므로 여기서 거부로 판정해야 안내·리다이렉트가 일어난다.
  * 서버가 내려준 사유가 있으면 그대로 노출하고, 없을 때만 기본 문구로 폴백한다 —
  * 본문 파싱 실패 시 ApiError.message 는 합성 폴백("요청 실패 (403)")이라 사용자에게 보여선 안 된다.
  */
@@ -28,7 +30,10 @@ function resolveDenialMessage(
   if (isLoading) return null;
   // 거부 응답을 캐시된 멤버십보다 먼저 판정한다 — React Query 는 재조회가 실패해도 마지막 성공
   // data 를 남기므로, membership 을 먼저 보면 동아리가 폐쇄된 뒤에도 멤버 화면이 계속 렌더된다.
-  if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+  if (
+    error instanceof ApiError &&
+    (error.status === 401 || error.status === 403 || error.status === 404)
+  ) {
     return error.status === 403 && error.message !== httpFallbackMessage(403)
       ? error.message
       : DEFAULT_DENIAL_MESSAGE;
