@@ -75,14 +75,12 @@ function isWithinOperating(slot: BookingAvailabilitySlot, operatingNotes: Bookin
 
 /**
  * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을
- * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
+ * rowSpan 블록으로, 나머지(AVAILABLE·PAST·DEADLINE_PASSED)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
  * 셀의 operating 플래그(비차단 정보 표시 — 점선 장식, 스펙 §3 복원).
- * 데이터 없는 날·창 밖 날은 블록 없이 1시간 셀만. 길이 13(09~21시).
+ * 데이터가 있는 날은 창 안팎과 무관하게 블록을 그린다(2026-09-03 기록 열람 — 지난 날짜·창 이후 익월 날짜의
+ * "누가 예약했는지"). 빈 셀의 선택 가능 여부는 cellStateOf 가 창·지난·마감으로 게이팅한다. 데이터 없는 날은 empty. 길이 13(09~21시).
  */
-function buildColumnPlan(
-  day: BookingDayAvailability | undefined,
-  withinWindow: boolean,
-): PlanEntry[] {
+function buildColumnPlan(day: BookingDayAvailability | undefined): PlanEntry[] {
   if (day === undefined) {
     return HOURS.map<PlanEntry>(() => ({ type: 'empty' }));
   }
@@ -91,10 +89,6 @@ function buildColumnPlan(
     if (slot === undefined) return { type: 'empty' };
     return { type: 'cell', slot, operating: isWithinOperating(slot, day.operatingNotes) };
   };
-  // 창 밖 날은 블록화하지 않고 1시간 셀(예약 기간 아님)로 둔다 — 기존 게이팅과 일관.
-  if (!withinWindow) {
-    return HOURS.map<PlanEntry>(cellAt);
-  }
   const plan: (PlanEntry | undefined)[] = new Array<PlanEntry | undefined>(HOURS.length).fill(undefined);
   for (const entry of dayBookingEntries(day.slots)) {
     const start = Math.max(0, hourIndexOf(entry.start));
@@ -119,7 +113,7 @@ function buildColumnPlan(
  * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브), AVAILABLE 은 선택 가능 셀 —
  * 확보 노트 구간이면 점선 sage 가이드, 밖이면 sage(동작 동일: 탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
  * 선택일 컬럼은 ink 프레임 + sage tint 로 강조하고, 블록이 여러 행을 차지해도 컬럼 좌우 보더가 이어진다.
- * 차단·지난·창 밖·데이터 없음은 비활성.
+ * 차단·지난·창 밖·신청 마감·데이터 없음은 비활성. 지난 날짜·창 밖 날짜도 점유 블록은 그린다(기록 열람).
  */
 export function WeekTimetable({
   selectedDate,
@@ -136,7 +130,7 @@ export function WeekTimetable({
   const weekDates = weekDatesOf(selectedDate);
   const columns = weekDates.map((iso) => {
     const withinWindow = daysByIso.has(iso) && isWithinBookable(iso, bookableFrom, bookableUntil);
-    return { iso, withinWindow, plan: buildColumnPlan(daysByIso.get(iso), withinWindow) };
+    return { iso, withinWindow, plan: buildColumnPlan(daysByIso.get(iso)) };
   });
   // 확정 블록 라벨 첫 등장 순(월→일·시간순)으로 파스텔을 순환 배정한다(§8.3).
   const pastelMap = pastelIndexByLabel(
@@ -157,7 +151,9 @@ export function WeekTimetable({
             {weekDates.map((iso, colIndex) => {
               const isSelectedColumn = iso === selectedDate;
               const dayNumber = Number(iso.slice(8, 10));
-              const dayEnabled = daysByIso.has(iso) && isWithinBookable(iso, bookableFrom, bookableUntil);
+              // 지난 날짜는 열람용(기록)으로 선택 가능, 창 이후 미래 날짜는 기존대로 비활성(2026-09-03).
+              const dayEnabled =
+                daysByIso.has(iso) && (iso < todayIso || isWithinBookable(iso, bookableFrom, bookableUntil));
               return (
                 <th
                   key={iso}
@@ -272,7 +268,7 @@ export function WeekTimetable({
                           selected ? 'border-sage bg-ink text-cream shadow-sm' : state.toneClass
                         }`}
                       >
-                        {selected ? '✓' : null}
+                        {selected ? '✓' : slot.status === 'DEADLINE_PASSED' ? '마감' : null}
                       </button>
                     </td>
                   );
@@ -307,7 +303,8 @@ function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayN
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
-// 셀 상태 파생 — 창 밖(게이팅) > 지난 > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
+// 셀 상태 파생 — 지난 > 창 밖(게이팅) > 신청 마감 > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
+// 지난 판정이 창 밖보다 앞이다 — bookableFrom 이 오늘이라 지난 날짜는 항상 창 밖인데, 기록 열람에서는 "지난"이 맞다(2026-09-03).
 // BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
@@ -315,8 +312,12 @@ function cellStateOf(
   isPast: boolean,
   operating: boolean,
 ): CellState {
-  if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
+  if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
+  // 신청 마감(서버 DEADLINE_PASSED — 사용일 전날 12:00 KST 경과) — 셀 안에 "마감" 텍스트로 자기 라벨을 가진다.
+  if (status === 'DEADLINE_PASSED') {
+    return { statusText: '신청 마감', toneClass: 'border-line/60 bg-graysoft/40 text-charcoal-3', selectable: false };
+  }
   if (status === 'AVAILABLE') {
     // 확보 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(스펙 §3 복원) — 색은 일반 가용 셀과 동일(sage),
     // 점선 보더만 "안내" 신호(장식). 동작(탭 선택·토글·선택 ink+✓)은 일반 가용 셀과 완전 동일 — status 단독 판정.
