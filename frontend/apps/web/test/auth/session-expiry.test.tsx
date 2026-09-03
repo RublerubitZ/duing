@@ -21,6 +21,12 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushSpy, back: vi.fn(), replace: vi.fn() }),
 }));
 
+const skipSpy = vi.fn();
+// 팩토리는 호이스팅되어 skipSpy 선언보다 먼저 평가될 수 있다 — pushSpy 와 같은 이유로 지연 참조한다.
+vi.mock('@/app/_lib/backDismiss', () => ({
+  skipNextOverlayReclaim: (...args: unknown[]) => skipSpy(...args),
+}));
+
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
 const apiClient = createApiClient({ baseUrl: BASE, authTransport: 'cookie' });
@@ -38,6 +44,7 @@ afterEach(() => {
   registerUnauthorizedHandler(() => {});
   registerUnauthorizedHandler(null);
   pushSpy.mockReset();
+  skipSpy.mockReset();
   // 시드 전 초기 상태로 되돌린다(replace) — 앞선 테스트의 isVerified 가 남으면 다음 테스트가
   // 확정된 종료를 물려받아 중복 가드에 걸린다.
   useAuthStore.setState(useAuthStore.getInitialState(), true);
@@ -176,6 +183,24 @@ describe('SessionExpiryHandler', () => {
     expect(screen.getByText(/세션이 만료/)).toBeInTheDocument();
     expect(pushSpy).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(webLogoutSpy).toHaveBeenCalledTimes(1));
+  });
+
+  it('로그인 이동 직전에 오버레이 회수 스킵을 걸어 열린 시트의 back() 이 이동을 삼키지 않게 한다', () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true });
+
+    act(() => notifyUnauthorized());
+
+    expect(skipSpy).toHaveBeenCalledTimes(1);
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    // push 보다 먼저 걸려야 한다 — 뒤면 회수 back() 이 먼저 나가 이동이 되돌려진다.
+    expect(skipSpy.mock.invocationCallOrder[0]).toBeLessThan(pushSpy.mock.invocationCallOrder[0]);
+  });
+
+  it('이동이 없는 종료 통지(시드 상태·이미 확정된 미인증)에서는 회수 스킵도 걸지 않는다', () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: false });
+    act(() => notifyUnauthorized());
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(skipSpy).not.toHaveBeenCalled();
   });
 
   it('보류 통지 flush 가 시드된 상태에서 일어나도 조용하다 — 부팅 중 만료의 등록 시점 재생', () => {
