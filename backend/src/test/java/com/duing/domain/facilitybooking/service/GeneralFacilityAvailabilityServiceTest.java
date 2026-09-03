@@ -62,8 +62,7 @@ class GeneralFacilityAvailabilityServiceTest {
 
     private GeneralFacilityAvailabilityService serviceAt(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), SEOUL);
-        BookingApplicationPolicy applicationPolicy =
-                new BookingApplicationPolicy(clock, new HalfMonthBookingWindowPolicy(15));
+        BookingApplicationPolicy applicationPolicy = new BookingApplicationPolicy(clock);
         return new GeneralFacilityAvailabilityService(facilityRepository, facilityReservationRepository,
                 facilityMonthSnapshotRepository, facilityBookingRepository, purposePresetRepository,
                 clubRepository, facilityCrawlService, availabilityPolicy, applicationPolicy, clock);

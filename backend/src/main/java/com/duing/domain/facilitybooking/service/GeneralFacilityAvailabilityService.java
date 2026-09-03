@@ -99,7 +99,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 ? isIncompleteRecord(snapshot)
                 : isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
-        BookingWindow window = bookingApplicationPolicy.windowFor(today);
+        BookingWindow window = bookingApplicationPolicy.windowFor(facility, today);
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
@@ -113,8 +113,8 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
 
     @Override
     public BookingWindowResponse getBookingWindow() {
-        LocalDate today = LocalDate.now(clock);
-        return BookingWindowResponse.from(bookingApplicationPolicy.windowFor(today));
+        // 폐기 예정(P8): 구 FE 번들의 월 기본값·주 이동 클램프용 참조 창. 시설별 창은 availability 가 내린다.
+        return BookingWindowResponse.from(bookingApplicationPolicy.referenceWindow(LocalDate.now(clock)));
     }
 
     @Override

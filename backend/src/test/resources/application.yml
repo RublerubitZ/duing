@@ -146,7 +146,3 @@ duing:
       on-demand-retry-max-attempts: 2
       on-demand-deadline-seconds: 10
       room-delay-millis: 1
-    booking:
-      window:
-        mode: HALF_MONTH
-        pivot-day: 15

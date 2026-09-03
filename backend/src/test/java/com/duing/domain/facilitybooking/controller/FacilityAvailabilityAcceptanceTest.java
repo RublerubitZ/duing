@@ -29,8 +29,8 @@ import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabi
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.service.BookingOpenDatePolicy;
 import com.duing.domain.facilitybooking.service.BookingWindow;
-import com.duing.domain.facilitybooking.service.BookingWindowPolicy;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -57,12 +57,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
+    private static final BookingOpenDatePolicy OPEN_DATE_POLICY = new BookingOpenDatePolicy();
+
     @LocalServerPort int port;
 
     @Autowired FacilityAvailabilityService availabilityService;
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository facilityReservationRepository;
-    @Autowired BookingWindowPolicy bookingWindowPolicy;
     @Autowired ClubRepository clubRepository;
     @Autowired FacilityBookingRepository bookingRepository;
     @Autowired UserRepository userRepository;
@@ -88,8 +89,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
-        // bookableFrom·bookableUntil 은 롤링 오픈 정책이 계산한 현재 창과 정확히 일치해야 한다(익월말 고정 아님).
-        BookingWindow window = bookingWindowPolicy.windowFor(LocalDate.now(clock));
+        // bookableFrom·bookableUntil 은 시설 오픈일 정책이 계산한 그 시설의 창과 정확히 일치해야 한다.
+        BookingWindow window = OPEN_DATE_POLICY.windowFor(facility.getBookingOpenDate(), LocalDate.now(clock));
         assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
         assertThat(response.bookableFrom()).isEqualTo(window.from());
         assertThat(response.bookableUntil()).isEqualTo(window.until());
@@ -151,9 +152,9 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("예약 오픈 구간 API 는 비로그인으로 단일 창과 현재·다음 세부 구간 2개를 반환한다")
-    void bookingWindowMatchesAvailabilityWindow() {
-        BookingWindow expected = bookingWindowPolicy.windowFor(LocalDate.now(clock));
+    @DisplayName("폐기 예정 예약 오픈 구간 API 는 비로그인으로 시설 무관 참조 창(오늘~익월 말일) 두 필드만 반환한다")
+    void bookingWindowReturnsReferenceWindow() {
+        BookingWindow expected = OPEN_DATE_POLICY.referenceWindow(LocalDate.now(clock));
 
         BookingWindowResponse response = RestAssured.given()
                 .when().get("/api/v1/facilities/booking-window")
@@ -162,13 +163,6 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
         assertThat(response.bookableFrom()).isEqualTo(expected.from());
         assertThat(response.bookableUntil()).isEqualTo(expected.until());
-        assertThat(response.availableBookingRanges()).hasSize(2);
-        assertThat(response.availableBookingRanges().get(0).startDate()).isEqualTo(expected.openRanges().get(0).from());
-        assertThat(response.availableBookingRanges().get(0).endDate()).isEqualTo(expected.openRanges().get(0).until());
-        assertThat(response.availableBookingRanges().get(0).label()).isEqualTo("현재 예약 가능");
-        assertThat(response.availableBookingRanges().get(1).startDate()).isEqualTo(expected.openRanges().get(1).from());
-        assertThat(response.availableBookingRanges().get(1).endDate()).isEqualTo(expected.openRanges().get(1).until());
-        assertThat(response.availableBookingRanges().get(1).label()).isEqualTo("다음 예약 가능");
     }
 
     @Test
