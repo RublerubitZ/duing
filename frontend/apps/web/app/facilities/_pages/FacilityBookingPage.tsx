@@ -57,6 +57,11 @@ export function FacilityBookingPage() {
   const searchParams = useSearchParams();
   const todayIso = seoulDateIso(new Date());
   const currentMonth = todayIso.slice(0, 7);
+  // 열람 범위(스펙 §3.6, 2026-09-03): 직전 월(기록)·당월·익월. 신청 가능 범위는 별개로 booking-window(반월 창)가 정한다.
+  const prevMonth = shiftYearMonth(currentMonth, -1);
+  const nextMonth = shiftYearMonth(currentMonth, 1);
+  const viewableMonths = [prevMonth, currentMonth, nextMonth];
+  const viewFromIso = `${prevMonth}-01`;
 
   const [facilityId, setFacilityId] = useState<number | null>(() => {
     const raw = searchParams.get('facilityId');
@@ -99,13 +104,11 @@ export function FacilityBookingPage() {
   // 이후 사용자의 월 이동/날짜 선택은 override 로만 갱신한다(창 로딩 전에도 currentMonth 로 폴백).
   const windowMonth = windowQuery.data?.bookableFrom.slice(0, 7) ?? null;
   const [yearMonthOverride, setYearMonthOverride] = useState<string | null>(() => {
-    // 딥링크 date 의 월은 당월/익월(반월 창 범위)일 때만 채용한다. 과거·원거리 월을 그대로
+    // 딥링크 date 의 월은 열람 범위(직전 월·당월·익월)일 때만 채용한다. 과거·원거리 월을 그대로
     // 채용하면 availability 가 무효 월로 400 을 내고 회복이 안 되므로, 범위 밖이면 null(창 월 폴백).
     if (selectedDate === null) return null;
     const deepLinkMonth = selectedDate.slice(0, 7);
-    return deepLinkMonth === currentMonth || deepLinkMonth === shiftYearMonth(currentMonth, 1)
-      ? deepLinkMonth
-      : null;
+    return viewableMonths.includes(deepLinkMonth) ? deepLinkMonth : null;
   });
   const yearMonth = yearMonthOverride ?? windowMonth ?? currentMonth;
 
@@ -125,11 +128,11 @@ export function FacilityBookingPage() {
   const availability = availabilityQuery.data;
 
   // 주간 이월(§12.1) — 표시 주가 두 달에 걸치면 조회 월(yearMonth) 밖의 인접월 가용성도 함께 조회해 병합한다.
-  // 인접월은 availability 가 허용하는 {당월, 익월} 안일 때만(밖이면 창 밖이라 불필요 — 400 방지). 주간이 아니거나
+  // 인접월은 availability 가 허용하는 열람 범위(직전 월·당월·익월) 안일 때만(밖이면 400 방지). 주간이 아니거나
   // 이월이 아니면 undefined → 훅에 facilityId undefined 를 넘겨 비활성화(기존 관례). 같은 queryKey 라 캐시 공유.
   const secondMonth =
     calendarView === 'week' && selectedDate !== null
-      ? adjacentMonthToFetch(selectedDate, yearMonth, [currentMonth, shiftYearMonth(currentMonth, 1)])
+      ? adjacentMonthToFetch(selectedDate, yearMonth, viewableMonths)
       : undefined;
   const secondAvailabilityQuery = useFacilityAvailabilityQuery(
     secondMonth !== undefined ? effectiveFacilityId : undefined,
@@ -161,16 +164,17 @@ export function FacilityBookingPage() {
     setStep((current) => (current === 'form' ? 'slots' : current));
   }, [selectionInvalid]);
 
-  // 딥링크로 들어온 date 가 예약 창(반월) 밖이면 선택을 정리하고 월간으로 복귀하며 안내한다.
-  // 셀 게이팅은 availability 메타로 두되, 창 판정만 windowQuery 로 단일화한다.
+  // 열람 범위 밖 선택 정리 — 창 이후 미래(딥링크) 또는 두 달 이상 전 날짜. 직전 월 이후의 지난 날짜는 기록 열람이라
+  // 정상 선택이다. 두 달 전 딥링크는 월 가드가 그 월을 거부해 조회 월이 창 월로 남는데 selectedDate 만 살아 있으면
+  // 빈 주간 격자에 갇히므로 기존처럼 정리·월간 복귀·토스트로 회복한다. 창 판정은 windowQuery 로 단일화.
   // 성공 화면은 이미 접수된 신청의 확인이므로 보존한다(selectionInvalid 전례 동일).
-  const selectedDateOutOfWindow =
+  const selectedDateOutOfViewable =
     step !== 'success' &&
     selectedDate !== null &&
     windowQuery.data !== undefined &&
-    !isWithinBookable(selectedDate, windowQuery.data.bookableFrom, windowQuery.data.bookableUntil);
+    (selectedDate > windowQuery.data.bookableUntil || selectedDate < viewFromIso);
   useEffect(() => {
-    if (!selectedDateOutOfWindow) return;
+    if (!selectedDateOutOfViewable) return;
     setSelectedDate(null);
     setSelection(null);
     setStep('slots');
@@ -181,7 +185,7 @@ export function FacilityBookingPage() {
     syncUrl(facilityId, null);
     addToast(`현재 예약 가능한 기간이 아니에요${windowLabel ? ` (${windowLabel})` : ''}`, { variant: 'error' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDateOutOfWindow]);
+  }, [selectedDateOutOfViewable]);
 
   // 뷰포트가 sm 경계(640px)를 넘으면(PC 전환) 시트를 닫는다 — PC 는 시트 미사용. 블록 상세 시트(§9.3)는 그냥
   // 닫고, 빠른 예약 시트(§11.1)는 열려 있었다면 PC 동선(주간)으로 승계한다(선택 유지 — WeekBlockSheet 전례 확장).
@@ -291,9 +295,9 @@ export function FacilityBookingPage() {
     setSelection((current) => toggleSlotSelection(current, tapped, selectedDay.slots));
   };
 
-  const changeMonth = (delta: 1 | -1) => {
-    // override 가 null 이어도 파생 yearMonth(창 월 폴백) 를 기준으로 이동한다.
-    setYearMonthOverride(shiftYearMonth(yearMonth, delta));
+  // 월 이동의 단일 진입점 — override 가 null 이어도 파생 yearMonth(창 월 폴백) 를 기준으로 이동한다.
+  const goToMonth = (target: string) => {
+    setYearMonthOverride(target);
     setSelectedDate(null);
     // 주간 뷰에서도 도달 가능(availability 에러 박스의 "이번 달로 돌아가기") —
     // selectedDate 가 null 이 되므로 월간으로 복귀하지 않으면 빈 주간 화면이 남는다.
@@ -301,15 +305,16 @@ export function FacilityBookingPage() {
     resetSelectionFlow();
     syncUrl(effectiveFacilityId ?? null, null);
   };
+  const changeMonth = (delta: 1 | -1) => goToMonth(shiftYearMonth(yearMonth, delta));
 
-  // 주 이동(§1·§4) — selectedDate ±7일. 창 경계로 클램프해 선택일(사이드바 기준)이 항상 창 안에 있게 하고
-  // (§5), 새 선택일의 월로 조회 월을 스위칭한다(selectDate 경로 재사용 — availability 당월·익월 캡 안).
+  // 주 이동(§1·§4) — selectedDate ±7일. 열람 하한(직전 월 1일)~창 상한으로 클램프한다 — 지난 주는 기록 열람,
+  // 창 이후는 신청 불가라 막는다. 새 선택일의 월로 조회 월을 스위칭한다(selectDate 경로 재사용).
   const changeWeek = (delta: 1 | -1) => {
     if (selectedDate === null || windowQuery.data === undefined) return;
     const shifted = shiftDateByDays(selectedDate, delta * 7);
     const clamped =
-      shifted < windowQuery.data.bookableFrom
-        ? windowQuery.data.bookableFrom
+      shifted < viewFromIso
+        ? viewFromIso
         : shifted > windowQuery.data.bookableUntil
           ? windowQuery.data.bookableUntil
           : shifted;
@@ -353,12 +358,13 @@ export function FacilityBookingPage() {
     setSelection({ start: slotStart, end: endLabel });
   };
 
-  // 주간 이동 캡(§2) — 주 월요일이 [창 시작 주 ~ 창 끝 주] 밖이면 비활성. 창 판정은 windowQuery 로 단일화.
+  // 주간 이동 캡(§2) — 이전 주는 열람 하한(직전 월 1일)이 속한 주까지, 다음 주는 창 끝 주까지. 창 판정은 windowQuery 로 단일화.
   const weekMonday = selectedDate !== null ? mondayOf(selectedDate) : null;
-  const windowFromMonday = windowQuery.data ? mondayOf(windowQuery.data.bookableFrom) : null;
+  const viewFromMonday = mondayOf(viewFromIso);
   const windowUntilMonday = windowQuery.data ? mondayOf(windowQuery.data.bookableUntil) : null;
+  // 창 로드 전엔 changeWeek 가 early return 하므로 버튼도 함께 잠근다(로드 전 무동작 클릭 방지).
   const canPrevWeek =
-    weekMonday !== null && windowFromMonday !== null && shiftDateByDays(weekMonday, -7) >= windowFromMonday;
+    windowQuery.data !== undefined && weekMonday !== null && shiftDateByDays(weekMonday, -7) >= viewFromMonday;
   const canNextWeek =
     weekMonday !== null && windowUntilMonday !== null && shiftDateByDays(weekMonday, 7) <= windowUntilMonday;
 
@@ -455,8 +461,8 @@ export function FacilityBookingPage() {
                     periodLabel={periodLabel}
                     onPrev={calendarView === 'month' ? () => changeMonth(-1) : () => changeWeek(-1)}
                     onNext={calendarView === 'month' ? () => changeMonth(1) : () => changeWeek(1)}
-                    canPrev={calendarView === 'month' ? yearMonth !== currentMonth : canPrevWeek}
-                    canNext={calendarView === 'month' ? yearMonth === currentMonth : canNextWeek}
+                    canPrev={calendarView === 'month' ? yearMonth !== prevMonth : canPrevWeek}
+                    canNext={calendarView === 'month' ? yearMonth !== nextMonth : canNextWeek}
                   />
                   {availabilityQuery.isLoading && <CalendarGridSkeleton />}
                   {availabilityQuery.isError && (
@@ -464,7 +470,7 @@ export function FacilityBookingPage() {
                       <p>가용성 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
                       <div className="mt-3 flex justify-center gap-2">
                         {yearMonth !== currentMonth && (
-                          <button type="button" className="btn btn-secondary" onClick={() => changeMonth(-1)}>
+                          <button type="button" className="btn btn-secondary" onClick={() => goToMonth(currentMonth)}>
                             이번 달로 돌아가기
                           </button>
                         )}

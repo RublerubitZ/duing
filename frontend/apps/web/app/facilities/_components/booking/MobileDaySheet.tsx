@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
+import { hasApplicableSlot, rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingForm } from './BookingForm';
 import { BookingSuccess } from './BookingSuccess';
 import type { PanelStep } from './BookingPanel';
@@ -155,7 +155,11 @@ export function MobileDaySheet({
                 disabled={selection === null}
                 onClick={onProceedToForm}
               >
-                {selection !== null ? `${rangeLabel(selection)} 예약 신청` : '시간을 선택해주세요'}
+                {selection !== null
+                  ? `${rangeLabel(selection)} 예약 신청`
+                  : hasApplicableSlot(shownDay)
+                    ? '시간을 선택해주세요'
+                    : '신청 가능한 시간이 없어요'}
               </button>
               {/* "시간표로 보기"는 slots 스텝에서만 노출한다 — 폼·성공 중엔 시트→주간 전환 시 BookingForm id 가
                   주간 사이드바 폼과 이중 마운트될 수 있고, 이미 시간을 확정/신청한 뒤엔 시간표 조회 유도가 맥락에

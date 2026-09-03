@@ -19,7 +19,8 @@ type Props = {
 };
 
 // 월간 탐색 그리드(§3) — 카드형 셀·혼잡도 게이지·오늘 도트. 창 밖 미래 날짜는 문구 없이 비활성 배경으로만
-// 구분한다. 헤더(제목·화살표·범례)는 공용 BookingViewHeader 로 이관됐고, 카드 래퍼도 페이지가 소유한다.
+// 구분한다. 데이터가 있는 지난 날짜는 열람용으로 클릭 가능(muted, 레벨 없음)이고, 데이터 없는 날짜만 disabled 다(2026-09-03).
+// 헤더(제목·화살표·범례)는 공용 BookingViewHeader 로 이관됐고, 카드 래퍼도 페이지가 소유한다.
 // 좁은 모바일(≤375px)에서 "여유/보통/혼잡" 한글이 셀 폭을 넘어 "여/유" 로 분해되던 문제 —
 // 상태 텍스트는 이해에 필요하므로 남기고, 대신 8칸 히트맵 바를 3칸 LevelGauge 로 압축해
 // 폭을 벌어준다(gap·padding·폰트도 모바일만 축소). sm 이상은 기존 표기를 그대로 둔다.
@@ -48,26 +49,31 @@ export function BookingCalendar({
           }
           const day = daysByIso.get(cell.iso);
           const withinRange = isWithinBookable(cell.iso, bookableFrom, bookableUntil);
-          const isPastOrUnknown = day === undefined || day.dayStatus === 'PAST' || cell.iso < todayIso;
-          const outOfWindow = !withinRange && !isPastOrUnknown;
-          const selectable = withinRange && !isPastOrUnknown;
+          const unknown = day === undefined;
+          // 데이터가 있는 지난 날짜는 열람용(기록) — 클릭해 주간/시트로 열 수 있고 혼잡도 라벨은 없다(2026-09-03 스펙 §3.5).
+          const viewablePast = day !== undefined && cell.iso < todayIso;
+          const selectable = withinRange && !unknown && !viewablePast;
+          // 창 이후 미래만 창 밖이다 — 지난 날짜를 창 밖으로 오분류하지 않는다.
+          const outOfWindow = !withinRange && !unknown && !viewablePast;
           const selected = cell.iso === selectedDate;
           const isToday = cell.iso === todayIso;
           const level = selectable && day ? dayLevelOf(day.availableSlotCount) : null;
           const levelMeta = level !== null ? DAY_LEVEL_META[level] : null;
           const ariaLabel = selectable && day && levelMeta
             ? `${cell.day}일 ${levelMeta.label}, 남은 ${day.availableSlotCount}칸`
-            : outOfWindow
-              ? `${cell.day}일 예약 기간 아님`
-              : `${cell.day}일`;
+            : viewablePast
+              ? `${cell.day}일 지난 날짜`
+              : outOfWindow
+                ? `${cell.day}일 예약 기간 아님`
+                : `${cell.day}일`;
           return (
             <button
               key={cell.iso}
               type="button"
-              disabled={isPastOrUnknown}
+              disabled={unknown}
               aria-disabled={outOfWindow || undefined}
               onClick={
-                selectable
+                selectable || viewablePast
                   ? () => onSelectDate(cell.iso)
                   : outOfWindow
                     ? () => onOutOfWindowSelect(cell.iso)
@@ -85,12 +91,14 @@ export function BookingCalendar({
                     ? 'border border-line bg-graysoft'
                     : selectable
                       ? 'cursor-pointer border border-line bg-paper hover:border-sage'
-                      : 'border border-line bg-paper opacity-40'
+                      : viewablePast
+                        ? 'cursor-pointer border border-line bg-paper opacity-60 hover:border-sage'
+                        : 'border border-line bg-paper opacity-40'
               }`}
             >
               <span
                 className={`tabular-nums text-[13px] font-bold sm:text-sm ${
-                  selected ? 'text-cream' : outOfWindow || isPastOrUnknown ? 'text-charcoal-3' : 'text-charcoal'
+                  selected ? 'text-cream' : selectable ? 'text-charcoal' : 'text-charcoal-3'
                 }`}
               >
                 {cell.day}
