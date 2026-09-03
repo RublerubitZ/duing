@@ -41,6 +41,11 @@ export function SessionExpiryHandler() {
       // 일시 장애로 오판한다. 둘을 합치는 정리가 들어오면 이 계약이 조용히 깨진다.
       // isVerified 를 함께 올리는 것도 계약이다 — 빼면 뒤늦은 시드가 확정된 종료를 덮는다.
       useAuthStore.setState({ status: 'unauthenticated', isVerified: true });
+      // 이 auth 플립이 열린 오버레이(알림 시트 등)를 언마운트시키므로, 이동 여부와 무관하게 그 닫힘의 회수 back()
+      // 을 건너뛴다(#860·#1139). 이동은 뒤따르는 push(살아 있던 세션) 또는 회원 가드의 replace(콜드 로드)가 맡고,
+      // 커밋 전 창은 guarded router 의 이동 예약이 닫는다. 열린 오버레이가 없으면 함수 자체가 no-op 이라
+      // 익명 방문자의 페이지 로드마다 불러도 비용이 없다.
+      skipNextOverlayReclaim();
       // catch 필수 — 이 정리는 익명 방문자의 페이지 로드에서도 돈다. clearSession() 은
       // 저장소 접근(clearToken)을 await 하는데 그 경로엔 가드가 없어(token.ts:18),
       // 사파리 프라이빗처럼 저장소를 못 쓰는 환경이면 공개 트래픽마다 unhandled rejection 이 된다.
@@ -54,10 +59,6 @@ export function SessionExpiryHandler() {
       queryClient.clear();
       addToast('세션이 만료되었어요. 다시 로그인해 주세요.', { variant: 'error' });
       const currentPath = toLinkRoute(window.location.pathname + window.location.search) ?? '/';
-      // 오버레이(알림 시트 등)가 열린 채 만료되면 시트가 언마운트되며 회수 back() 을 내보내고, 커밋이
-      // 지연된 이 push 가 그 back 에 되돌려져 홈에 남는다(#860). 닫힘+이동이 겹치는 소비처와 같은 규약으로
-      // 다음 닫힘 1회의 회수를 건너뛴다 — 열린 오버레이가 없거나 오프라인이면 함수 자체가 no-op 이다.
-      skipNextOverlayReclaim();
       router.push(toRoute(`/login?next=${encodeURIComponent(currentPath)}`));
     });
     return () => registerUnauthorizedHandler(null);
