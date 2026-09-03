@@ -13,6 +13,7 @@ import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
+import { clearNavigationPending } from '@/app/_lib/backDismiss';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { SessionExpiryHandler } from '@/app/_components/SessionExpiryHandler';
 
@@ -23,7 +24,10 @@ vi.mock('next/navigation', () => ({
 
 const skipSpy = vi.fn();
 // 팩토리는 호이스팅되어 skipSpy 선언보다 먼저 평가될 수 있다 — pushSpy 와 같은 이유로 지연 참조한다.
-vi.mock('@/app/_lib/backDismiss', () => ({
+// 모듈 전체가 아니라 부분 mock 이다 — useGuardedRouter 가 import 하는 markNavigationPending 등
+// 나머지 export 는 원본을 그대로 써야 push 에서 TypeError 가 나지 않는다.
+vi.mock('@/app/_lib/backDismiss', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/_lib/backDismiss')>()),
   skipNextOverlayReclaim: (...args: unknown[]) => skipSpy(...args),
 }));
 
@@ -49,6 +53,8 @@ afterEach(() => {
   // 확정된 종료를 물려받아 중복 가드에 걸린다.
   useAuthStore.setState(useAuthStore.getInitialState(), true);
   window.history.replaceState({}, '', '/');
+  // 원본 markNavigationPending 이 핸들러 push 마다 실 8s 타이머를 남기므로 드레인한다.
+  clearNavigationPending();
 });
 afterAll(() => server.close());
 

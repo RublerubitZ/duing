@@ -18,6 +18,12 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+const markPendingSpy = vi.fn();
+vi.mock('@/app/_lib/backDismiss', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/_lib/backDismiss')>()),
+  markNavigationPending: (...args: unknown[]) => markPendingSpy(...args),
+}));
+
 function mockNavigatorOnLine(value: boolean) {
   vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(value);
 }
@@ -28,6 +34,7 @@ afterEach(() => {
   replaceSpy.mockClear();
   backSpy.mockClear();
   refreshSpy.mockClear();
+  markPendingSpy.mockClear();
 });
 
 function GuardedCaller({ action }: { action: 'push' | 'replace' | 'back' | 'refresh' }) {
@@ -98,6 +105,34 @@ describe('useGuardedRouter', () => {
       screen.getByText('이동').click();
     });
     expect(replaceSpy).toHaveBeenCalledWith('/clubs/1');
+  });
+
+  it('온라인 push/replace 는 이동 예약을 세운다 — 오버레이 회수가 커밋 전 이동을 삼키지 않게', () => {
+    mockNavigatorOnLine(true);
+    render(
+      <ToastProvider>
+        <GuardedCaller action="push" />
+      </ToastProvider>,
+    );
+    act(() => {
+      screen.getByText('이동').click();
+    });
+    expect(markPendingSpy).toHaveBeenCalledTimes(1);
+    expect(pushSpy).toHaveBeenCalledWith('/clubs/1');
+  });
+
+  it('오프라인 push 는 차단되므로 이동 예약도 세우지 않는다', () => {
+    mockNavigatorOnLine(false);
+    render(
+      <ToastProvider>
+        <GuardedCaller action="push" />
+      </ToastProvider>,
+    );
+    act(() => {
+      screen.getByText('이동').click();
+    });
+    expect(markPendingSpy).not.toHaveBeenCalled();
+    expect(pushSpy).not.toHaveBeenCalled();
   });
 
   it('back 등 나머지 메서드는 오프라인에서도 통과한다 (히스토리/캐시 기반)', () => {
