@@ -77,6 +77,17 @@ PURGING ──(job 재실행: claim)──▶ PURGING                (삭제 미
 PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 ```
 
+엔티티 전이 메서드는 전제조건별로 분리한다 — 한 메서드가 두 전제조건을 겸하면 attach 활성화가 PURGING 을 되살려 §0-5 계약이 깨진다.
+
+| 메서드 | 허용 선행 상태 | 결과 | 호출자 |
+|---|---|---|---|
+| `activate(Instant now)` | `PENDING` 만 | `ACTIVE`, `activatedAt=now` | `UploadedObjectService.activate`(attach). 그 외 상태 판정은 호출자가 먼저 한다(§3.2) |
+| `restoreActive(Instant now)` | `PENDING` 또는 `PURGING` | `ACTIVE`, `activatedAt=now` | 잡의 참조 안전망 치유(§4.3) 전용 |
+| `markPurging(Instant now)` | `PENDING` 또는 `PURGING` | `PURGING` | 잡 claim(§4.1) 전용. PURGING→PURGING 은 재시도 멱등 |
+| `markPurged(Instant now)` | `PURGING` 만 | `PURGED`, `purgedAt=now` | 잡 삭제 확정 후(§4.1) 전용 |
+
+허용되지 않는 상태에서 호출되면 `IllegalStateException`(프로그래밍 오류 — 호출자가 술어를 먼저 검사하므로 정상 경로에서 발생하지 않는다).
+
 `PURGED` 행은 **삭제하지 않고 남긴다.** 행을 지우면 "만료된 업로드"(진짜 파기됨)와 "레거시"(행이 원래 없음)를 구분할 수 없어, 늦은 attach 가 존재하지 않는 객체 URL 을 조용히 저장하게 된다(깨진 이미지). 남겨두면 attach 가 명확한 400 으로 실패한다(§3.2). PURGED 행의 장기 정리는 Out of Scope(§9).
 
 ## 3. 업로드 기록 + 활성화 — `UploadedObjectService` (`global/file/`)
@@ -87,7 +98,7 @@ PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 
 - `FileController.upload` 가 `fileStorageService.upload` 성공 직후 호출. 키 = `toStorageKey(url)`; `null` 이면(자기 스토리지 URL 이 아닌 경우 — 정상 구현에선 발생 불가) warn 후 skip.
 - `UploadedObject.pending(key, purpose, uploaderId, now)` 저장. 컨트롤러는 트랜잭션이 없으므로 이 호출이 자체 tx.
-- 순서를 "스토리지 업로드 → 행 저장" 으로 두는 이유: 행 저장이 실패하면 객체는 레거시처럼 미추적으로 남을 뿐(현재와 동일한 상태) 사용자 요청은 성공한다. 반대 순서면 업로드 실패 시 객체 없는 PENDING 행이 남는데 이것도 delete 멱등(true)으로 무해하지만, 응답 URL 을 못 받는 클라이언트 실패 경로가 더 잦으므로 전자를 택한다.
+- 순서는 "스토리지 업로드 → 행 저장". 행 저장(DB) 예외는 **삼키지 않고 전파**한다(500) — DB 가 죽었으면 다른 요청도 실패하므로 정직하게 드러내는 편이 낫다. 이 경우 객체는 미추적 고아로 남는다(레거시와 같은 상태, 현재와 동일). 반대 순서(행 저장 → 업로드)는 업로드 실패 시 객체 없는 PENDING 행이 남는데 delete 멱등(true)으로 무해하나, 응답 URL 을 못 받는 클라이언트 실패 경로가 더 잦으므로 전자를 택한다.
 
 ### 3.2 `activate(String... fileUrls)` — attach 지점 공통 진입
 
@@ -103,8 +114,8 @@ PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 ### 3.3 `activateReferencedIn(String content)` — NOTICE_BODY
 
 - `content == null` → skip(수정 시 본문 미변경).
-- 포맷(HTML/MARKDOWN)을 파싱하지 않는다. 본문을 `[\s"'<>()]` 경계로 토큰화하고 각 토큰에 `toStorageKey` 를 적용해 non-null 인 것만 `activate`. HTML `<img src="…">`·마크다운 `![](…)`·상대 경로(`/files/…` 로컬) 모두 같은 규칙으로 잡힌다. 외부 URL 은 `toStorageKey` 가 null 이라 자연 제외.
-- 같은 URL 이 여러 번 나와도 잠금 조회는 같은 tx 의 영속성 컨텍스트 히트라 1회만 잠근다. 중복 제거를 위해 토큰을 `LinkedHashSet` 으로 모은다.
+- 포맷(HTML/MARKDOWN)을 파싱하지 않는다. 본문을 `[\s"'<>()\[\],;]` 경계로 토큰화하고(마크다운 문장 끝의 `,`·`;`·`]` 가 URL 에 붙는 것을 막는다) 각 토큰에 `toStorageKey` 를 적용해 non-null 인 것만 `activate`. HTML `<img src="…">`·마크다운 `![](…)`·상대 경로(`/files/…` 로컬) 모두 같은 규칙으로 잡힌다. 외부 URL 은 `toStorageKey` 가 null 이라 자연 제외.
+- 토큰은 **`TreeSet`(사전순)** 으로 모아 중복을 제거하고 **잠금 순서를 결정화**한다 — 같은 키 집합을 두 tx 가 서로 다른 순서로 잠그는 ABBA 데드락(같은 사용자의 중복 제출 등)을 0비용으로 없앤다. 문의 첨부 목록도 같은 이유로 `activate` 호출 전에 정렬한다(§3.4).
 
 ### 3.4 attach 지점 삽입 위치 (§1.1 의 전수)
 
@@ -119,7 +130,7 @@ PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 | `GeneralPromotionService.create` / `update` | `activate(command.bannerImageUrl())` |
 | `GeneralPromotionRequestService.create` | `activate(command.suggestedBannerImageUrl())` |
 | `GeneralGlobalEventService.create` / `update` | `activate(command.coverImageUrl())` |
-| `GeneralFederationInquiryService.buildAttachments` | 루프 안에서 `activate(attachmentUrls.get(index))` — create·update(replace) 둘 다 이 메서드를 지난다 |
+| `GeneralFederationInquiryService.buildAttachments` | 루프 밖에서 `activate(attachmentUrls 를 정렬한 배열)` 1회 — create·update(replace) 둘 다 이 메서드를 지난다. 정렬은 잠금 순서 결정화(§3.3) |
 
 `ClubPhoto` 의 값은 URL 이지만 필드명이 storageKey 인 기존 불일치는 이 스펙에서 손대지 않는다(§9).
 
@@ -143,7 +154,7 @@ run():
           if referenced: log WARN "활성화 지점 누락 의심"
           counters; continue
       if referenced:
-          tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.activate(now) }  -- 안전망 치유
+          tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.restoreActive(now) }  -- 안전망 치유(§2.1)
           log WARN "참조가 남아 있어 삭제하지 않고 ACTIVE 로 치유 — 활성화 지점 누락 의심: key=… purpose=…"
           healed++; continue
       claimed = tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.markPurging(now), true; else false }
@@ -162,6 +173,7 @@ run():
 - **경쟁 정리**: claim 은 `findByIdForUpdate` 로 행을 잠근 뒤 상태 술어를 본다. 활성화(§3.2)가 먼저 잠갔다면 claim 은 도메인 tx 커밋까지 대기했다가 `ACTIVE` 를 보고 skip. claim 이 먼저 커밋됐다면 활성화는 `PURGING` 을 보고 400. 어느 순서든 "삭제된 객체를 가리키는 ACTIVE" 는 생기지 않는다.
 - claim 후 크래시 → `PURGING` 으로 남음 → 다음 실행이 `status IN (PENDING, PURGING)` 으로 다시 집어 delete(멱등)를 재시도한다. 별도 복구 경로 불필요.
 - 후보 조회는 잡 시작 시 1회(500건 스냅샷). 루프 중 상태가 바뀐 행은 claim 술어가 걸러낸다.
+- **중복 실행 가드(이슈 테스트 5)**: 별도 가드를 두지 않는다. Spring 스케줄러는 기본 단일 스레드라 한 인스턴스에서 크론이 겹치지 않고, 겹치더라도(다중 인스턴스·수동 호출) claim 이 잠금+상태 술어로 직렬화되고 스토리지 delete 는 멱등이라 결과가 같다. §8-4 의 "2회 실행 멱등" 테스트가 이 성질을 잠근다.
 
 ### 4.2 로그 정책 (§0-3)
 
@@ -198,7 +210,7 @@ SELECT EXISTS (SELECT 1 FROM club WHERE logo_url LIKE '%/' || :key OR cover_url 
 | `delete-enabled` | `false` | **`false`** (1차 릴리스 = dry-run) | `DUING_UPLOAD_PURGE_DELETE_ENABLED` |
 | `window` | `PT24H` | 상속 | `DUING_UPLOAD_PURGE_WINDOW` |
 
-2차 릴리스(실삭제 전환)는 prod yml 의 `delete-enabled` 기본값을 `true` 로 바꾸는 1줄 PR 이다(env 로도 즉시 전환 가능). 회귀가 보이면 env 로 다시 끈다 — 잡 자체는 계속 돌며 dry-run 로그만 남긴다.
+`delete-enabled` 의 prod `false` 는 "운영 잡은 기본 활성" 관례의 의도적 예외이므로 prod yml 주석에 "1차 릴리스 = dry-run(후보 로그만). 일주일간 `referenced=true` 0건 확인 후 2차 릴리스에서 `true` 로 전환" 을 적는다. 2차 릴리스는 그 기본값을 `true` 로 바꾸는 1줄 PR 이다(env 로도 즉시 전환 가능). 회귀가 보이면 env 로 다시 끈다 — 잡 자체는 계속 돌며 dry-run 로그만 남긴다.
 
 ## 6. 예외 계약
 
@@ -221,6 +233,7 @@ SELECT EXISTS (SELECT 1 FROM club WHERE logo_url LIKE '%/' || :key OR cover_url 
    - 2회 실행 멱등(두 번째 실행 delete 미호출).
    - 상한: 502건 시드 → 1회 500건, 2회 2건.
    - `enabled=false` no-op / `window=PT0S` no-op.
+   - 이슈 테스트 4 "이미 삭제된 객체 처리 멱등성" 은 별도 케이스가 아니다 — S3/Local 구현 계약상 미존재 키 `delete` 가 `true` 이므로 정상 경로(mock `delete→true`)와 동형이다. 테스트 주석으로 이 근거를 남긴다.
 5. `UploadActivationPurgeConcurrencyTest` (실스레드 + `CountDownLatch` startGate, `@RepeatedTest`): 25h PENDING 1건에 대해 T1=`activate` (TransactionTemplate), T2=`job.run()`(delete-enabled, mock delete→true). 순서 무관 불변식: `(ACTIVE ∧ delete 0회 ∧ T1 정상)` xor `(PURGED ∧ delete 1회 ∧ T1 UploadExpiredException)`. 결정적 케이스 2개 추가: (a) 먼저 PURGING 으로 만든 뒤 activate → 예외, (b) 먼저 ACTIVE 로 만든 뒤 run → delete 미호출.
 6. `UploadPurgeSchedulingWiringTest`: `duing.upload.purge.enabled=true` 만으로 JobConfig·Job 빈 등록, 다른 잡 미기동.
 
