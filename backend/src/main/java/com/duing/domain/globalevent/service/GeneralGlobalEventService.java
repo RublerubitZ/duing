@@ -10,6 +10,7 @@ import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminDetailQuer
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.file.UploadedObjectService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,6 +36,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
     private final GlobalEventRepository eventRepository;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -46,7 +48,9 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.coverImageUrl(),
                 command.category(), command.createdBy()
         );
-        return eventRepository.save(event).getId();
+        Long eventId = eventRepository.save(event).getId();
+        uploadedObjectService.activate(command.coverImageUrl());
+        return eventId;
     }
 
     @Override
@@ -59,6 +63,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.location(), command.linkUrl(),
                 command.category(),
                 command.coverImageUrl(), command.clearCoverImage());
+        uploadedObjectService.activate(command.coverImageUrl());
     }
 
     @Override
