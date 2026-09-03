@@ -255,7 +255,6 @@ public class GeneralClubService implements ClubService {
         }
 
         club.update(updateClubCommand.toPayload());
-        uploadedObjectService.activate(updateClubCommand.logoUrl(), updateClubCommand.coverUrl());
         try {
             // UPDATE 를 지금 내보내 개명 경합을 이 자리에서 분류한다 — 커밋 시점 flush 로 미루면
             // 이 catch 밖(커밋 예외 경유 500)으로 새어 나간다.
@@ -266,6 +265,8 @@ public class GeneralClubService implements ClubService {
             }
             throw new ClubException.DuplicateClubNameException();
         }
+        // 개명 경합 분류(flush try/catch) 뒤에 활성화 — 활성화 잠금 조회가 flush 를 유발해도 409 분류를 가로채지 않는다.
+        uploadedObjectService.activate(updateClubCommand.logoUrl(), updateClubCommand.coverUrl());
     }
 
     @Override
