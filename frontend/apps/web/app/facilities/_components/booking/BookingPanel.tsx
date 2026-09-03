@@ -2,7 +2,7 @@
 
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
+import { hasApplicableSlot, rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingForm } from './BookingForm';
 import { BookingSuccess } from './BookingSuccess';
 import { DayBookingOverview } from './DayBookingOverview';
@@ -79,6 +79,9 @@ export function BookingPanel({
     );
   }
 
+  // 선택 가능한 슬롯이 없는 날(마감·지난 날 기록 열람)은 "시간을 선택해주세요" 대신 사실을 말한다.
+  const applicable = hasApplicableSlot(day.slots);
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-2">
@@ -118,7 +121,7 @@ export function BookingPanel({
           disabled={!selection}
           onClick={onProceedToForm}
         >
-          {selection ? `${rangeLabel(selection)} 예약 신청` : '시간을 선택해주세요'}
+          {selection ? `${rangeLabel(selection)} 예약 신청` : applicable ? '시간을 선택해주세요' : '신청 가능한 시간이 없어요'}
         </button>
         <p className="mt-2 text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
       </div>

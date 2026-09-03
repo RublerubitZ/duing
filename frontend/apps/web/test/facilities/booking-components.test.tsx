@@ -331,6 +331,65 @@ it('차단 슬롯 버튼은 비활성이다', () => {
   expect(screen.getByRole('button', { name: /17:00~18:00/ })).toBeDisabled();
 });
 
+// 신청 마감(2026-09-03): 서버가 빈 슬롯을 DEADLINE_PASSED 로 내린 날 — 점유·대기 슬롯은 상태를 유지한다.
+function makeClosedDay(): BookingDayAvailability {
+  return makeDay({
+    availableSlotCount: 0,
+    dayStatus: 'FULL',
+    slots: makeDay().slots.map((slot) => (slot.status === 'AVAILABLE' ? { ...slot, status: 'DEADLINE_PASSED' as const } : slot)),
+  });
+}
+
+it('마감된 날의 슬롯 리스트: 빈 슬롯은 "신청 마감" muted 행으로 비활성이고 점유 슬롯의 단체명은 그대로 보인다', () => {
+  render(<DaySlotList day={makeClosedDay()} selection={null} onToggleSlot={vi.fn()} />);
+  const closedRow = screen.getByRole('button', { name: /09:00~10:00.*신청 마감/ });
+  expect(closedRow).toBeDisabled();
+  expect(closedRow).toHaveClass('bg-graysoft/60');
+  expect(screen.queryByText('예약 가능')).not.toBeInTheDocument();
+  // 점유 정보 보존 — SCHOOL 단체명·INTERNAL 폴백은 마감 표시로 덮이지 않는다.
+  expect(screen.getByRole('button', { name: /17:00~18:00.*비호응원단/ })).toBeDisabled();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  // 날짜 단위 안내 1줄(role=note).
+  expect(screen.getByRole('note')).toHaveTextContent('신청이 마감된 날짜예요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.');
+});
+
+it('마감된 날의 승인 대기 행은 "승인 대기" 라벨을 유지하되 비활성이라 탭해도 onToggleSlot 을 부르지 않는다', () => {
+  const onToggleSlot = vi.fn();
+  render(<DaySlotList day={makeClosedDay()} selection={null} onToggleSlot={onToggleSlot} />);
+  const pendingRow = screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ });
+  expect(pendingRow).toBeDisabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).not.toHaveBeenCalled();
+});
+
+it('마감이 아닌 날은 안내 note 가 없고 승인 대기 행이 여전히 활성이다(무회귀)', () => {
+  render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ })).toBeEnabled();
+});
+
+it('예약 패널 CTA 는 신청 가능한 슬롯이 없는 날(마감·지난 날)엔 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
+  render(
+    <BookingPanel
+      facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
+      day={makeClosedDay()}
+      selection={null}
+      onToggleSlot={vi.fn()}
+      step="slots"
+      onProceedToForm={vi.fn()}
+      onBackToSlots={vi.fn()}
+      submittedResult={null}
+      submittedClubId={null}
+      submittedAt={null}
+      onSubmitted={vi.fn()}
+      onExploreOther={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
+});
+
 it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링크를 관리 목록으로 노출한다', () => {
   render(
     <BookingSuccess
@@ -1034,6 +1093,13 @@ it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌�
 it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
   renderMobileSheet({ open: false, day: null, facility: null });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트: 신청 가능한 슬롯이 없는 날은 CTA 가 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
+  renderMobileSheet({ day: makeClosedDay() });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
+  expect(within(dialog).getByRole('note')).toBeInTheDocument();
 });
 
 // ── 신청 확인 Dialog(BookingConfirmDialog) — §2.2 ─────────────────────────────

@@ -2,7 +2,7 @@
 
 import type { BookingAvailabilitySlot, BookingDayAvailability } from '@duing/types';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { bookingEntryOf, isSelectableSlot, slotInRange } from '../../_lib/bookingCalendar';
+import { bookingEntryOf, isDayApplicationClosed, isSelectableSlot, slotInRange } from '../../_lib/bookingCalendar';
 
 type Props = {
   day: BookingDayAvailability;
@@ -20,15 +20,19 @@ const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
   DEADLINE_PASSED: 'border-transparent bg-graysoft/60 text-charcoal-3',
 };
 
-// 라벨 규칙은 bookingEntryOf(단일 지점) 재사용.
+// 라벨 규칙은 bookingEntryOf(단일 지점) 재사용. DEADLINE_PASSED 는 빈 슬롯의 신청 마감(사용일 전날 12:00 KST 경과).
 function slotStatusLabel(slot: BookingAvailabilitySlot): string {
   const entry = bookingEntryOf(slot);
   if (entry !== null) return entry.label;
   if (slot.status === 'PAST') return '지난 시간';
+  if (slot.status === 'DEADLINE_PASSED') return '신청 마감';
   return '예약 가능';
 }
 
 export function DaySlotList({ day, selection, onToggleSlot }: Props) {
+  // 서버가 빈 슬롯을 DEADLINE_PASSED 로 내린 날 — 대기 슬롯도 새 신청 대상이 아니라 행 전체를 잠근다(스펙 §3.3).
+  // 최종 판단은 서버(신청 400)이며 폼 단계 힌트도 그대로 남는다(이중 방어).
+  const dayClosed = isDayApplicationClosed(day.slots);
   return (
     <div>
       {day.operatingNotes.length > 0 && (
@@ -62,9 +66,14 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
           </p>
         </details>
       )}
+      {dayClosed && (
+        <p role="note" className="mb-2 rounded-lg bg-graysoft/60 px-3 py-2 text-xs text-charcoal-2">
+          신청이 마감된 날짜예요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.
+        </p>
+      )}
       <ul className="flex flex-col gap-1" aria-label="시간대 선택">
         {day.slots.map((slot) => {
-          const selectable = isSelectableSlot(slot);
+          const selectable = isSelectableSlot(slot) && !dayClosed;
           const selected = selection !== null && slotInRange(slot, selection);
           // 승인 대기 강조는 흰 바탕 위 라벨 색으로(§4⁗.2). 선택 행은 cream 톤이 우선한다.
           const labelClass = selected
