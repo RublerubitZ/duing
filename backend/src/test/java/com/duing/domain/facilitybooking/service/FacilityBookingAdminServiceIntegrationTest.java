@@ -95,8 +95,9 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private Facility saveFacility() {
-        return facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
+        // 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다.
+        return facilityRepository.save(BookingWindowFixture.opened(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0)));
     }
 
     private record Fixture(User leader, Club club, Facility facility) {}
@@ -109,7 +110,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         return BookingWindowFixture.bookableDate();
     }
 
@@ -120,6 +121,36 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
                 date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
                 FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
+    }
+
+    @Test
+    @DisplayName("신청 후 시설 오픈일을 미래로 옮기거나 닫아도 접수된 예약의 승인·취소는 그대로 된다 — 관리자 경로는 창을 보지 않는다")
+    void adminActionsIgnoreLaterOpenDateChanges() throws Exception {
+        User admin = saveUser("총동연");
+
+        Fixture movedForward = fixture();
+        Long approvedAfterMove = pendingBooking(movedForward, bookableDate(), 18, 20);
+        Facility movedFacility = facilityRepository.findById(movedForward.facility().getId()).orElseThrow();
+        movedFacility.changeBookingOpenDate(LocalDate.now().plusDays(10));
+        facilityRepository.save(movedFacility);
+
+        adminService.approve(admin.getId(), approvedAfterMove);
+        assertThat(bookingRepository.findById(approvedAfterMove).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+
+        adminService.cancel(admin.getId(), approvedAfterMove, "학교 측 사정으로 예약 취소");
+        assertThat(bookingRepository.findById(approvedAfterMove).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CANCELLED);
+
+        Fixture closed = fixture();
+        Long approvedAfterClose = pendingBooking(closed, bookableDate(), 18, 20);
+        Facility closedFacility = facilityRepository.findById(closed.facility().getId()).orElseThrow();
+        closedFacility.changeBookingOpenDate(null); // 총동연이 시설을 다시 닫음
+        facilityRepository.save(closedFacility);
+
+        adminService.approve(admin.getId(), approvedAfterClose);
+        assertThat(bookingRepository.findById(approvedAfterClose).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
     }
 
     @Test

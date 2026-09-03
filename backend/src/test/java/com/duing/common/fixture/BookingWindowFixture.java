@@ -1,5 +1,6 @@
 package com.duing.common.fixture;
 
+import com.duing.domain.facility.entity.Facility;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -14,7 +15,19 @@ public final class BookingWindowFixture {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    /** 과거 오픈일 — 창 판정이 오늘로 clamp 되므로 실행 시점과 무관하게 "이미 열린 시설" 을 뜻한다. */
+    public static final LocalDate OPEN_SINCE = LocalDate.of(2020, 1, 1);
+
     private BookingWindowFixture() {}
+
+    /**
+     * 예약 신청 경로를 타는 시설 시드에 오픈일을 심는다 — 오픈일 NULL 은 닫힘이라 시드 그대로면 신청이 400 이다.
+     * {@code facilityRepository.save(BookingWindowFixture.opened(Facility.create(...)))} 형태로 쓴다.
+     */
+    public static Facility opened(Facility facility) {
+        facility.changeBookingOpenDate(OPEN_SINCE);
+        return facility;
+    }
 
     /**
      * 시각 무관 항상 신청 가능한 날짜 = 모레(오늘+2).

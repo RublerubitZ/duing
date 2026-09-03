@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.BookingWindowFixture;
 import com.duing.common.fixture.FacilityBookingFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -84,7 +85,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     @Test
     @DisplayName("크롤 데이터가 없는 시설은 예약 오픈 창의 미래 날짜가 종일 AVAILABLE 이다")
     void availabilityForEmptyMonth() {
-        Facility facility = facilityRepository.save(Facility.create(90001, "커뮤니티룸(T)", null, 0));
+        Facility facility = facilityRepository.save(
+                BookingWindowFixture.opened(Facility.create(90001, "커뮤니티룸(T)", null, 0)));
 
         FacilityAvailabilityResponse response =
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
@@ -97,8 +99,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         assertThat(response.stale()).isTrue();
         assertThat(response.days().get(response.days().size() - 1).slots()).hasSize(13);
 
-        // 창의 마지막 날(다음 반월 말일)은 항상 미래이고 크롤·예약이 없으므로 그날 슬롯 13칸이 전부 AVAILABLE 이다.
-        // (창의 첫날은 롤링 전환으로 오늘이라 지난 슬롯이 PAST 가 될 수 있어, 시각 무관 검증에는 미래 날짜를 쓴다.)
+        // 창의 마지막 날(익월 말일)은 항상 미래이고 크롤·예약이 없으므로 그날 슬롯 13칸이 전부 AVAILABLE 이다.
+        // (오픈일이 과거인 시설의 창 첫날은 오늘이라 지난 슬롯이 PAST 가 될 수 있어, 시각 무관 검증에는 미래 날짜를 쓴다.)
         FacilityAvailabilityResponse windowEndMonth =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(window.until()));
         FacilityAvailabilityResponse.DayAvailability lastBookableDay = windowEndMonth.days().stream()
@@ -153,6 +155,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("폐기 예정 예약 오픈 구간 API 는 비로그인으로 시설 무관 참조 창(오늘~익월 말일) 두 필드만 반환한다")
+    @SuppressWarnings("deprecation") // 폐기 예정 응답을 삭제 전까지 고정하는 테스트라 의도된 사용이다
     void bookingWindowReturnsReferenceWindow() {
         BookingWindow expected = OPEN_DATE_POLICY.referenceWindow(LocalDate.now(clock));
 
@@ -348,6 +351,40 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .filter(dayAvailability -> dayAvailability.date().equals(crawlDate))
                 .findFirst().orElseThrow();
         assertThat(crawlDay.operatingNotes()).containsExactly(new OperatingNote("확보정밀", "10:00", "13:00"));
+    }
+
+    @Test
+    @DisplayName("오픈일이 미래인 시설은 그 날이 bookableFrom 이고, 오픈 전 날짜의 슬롯은 그대로 AVAILABLE 이다")
+    void futureOpenDateNarrowsBookableFrom() {
+        LocalDate openDate = LocalDate.now(clock).plusDays(5);
+        Facility facility = facilityRepository.save(Facility.create(90009, "커뮤니티룸(T9)", null, 0));
+        facility.changeBookingOpenDate(openDate);
+        facilityRepository.save(facility);
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
+
+        assertThat(response.bookableFrom()).isEqualTo(openDate);
+        assertThat(response.bookableUntil()).isEqualTo(YearMonth.now(clock).plusMonths(1).atEndOfMonth());
+
+        // 오픈 전 날짜라도 서버는 슬롯을 AVAILABLE 로 내린다(P5) — 선택 불가 처리는 FE 가 창으로 한다.
+        LocalDate beforeOpen = LocalDate.now(clock).plusDays(2);
+        FacilityAvailabilityResponse beforeOpenMonth =
+                availabilityService.getAvailability(facility.getId(), YearMonth.from(beforeOpen));
+        assertThat(slotAt(beforeOpenMonth, beforeOpen, "09:00").status()).isEqualTo(SlotStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("오픈일이 없는 시설의 창은 시작이 익월 말일 + 1 인 빈 창으로 내려간다")
+    void facilityWithoutOpenDateReturnsEmptyWindow() {
+        Facility facility = facilityRepository.save(Facility.create(90010, "커뮤니티룸(T10)", null, 0));
+        LocalDate nextMonthEnd = YearMonth.now(clock).plusMonths(1).atEndOfMonth();
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
+
+        assertThat(response.bookableUntil()).isEqualTo(nextMonthEnd);
+        assertThat(response.bookableFrom()).isEqualTo(nextMonthEnd.plusDays(1));
     }
 
     private SlotAvailability slotAt(FacilityAvailabilityResponse response, LocalDate date, String start) {

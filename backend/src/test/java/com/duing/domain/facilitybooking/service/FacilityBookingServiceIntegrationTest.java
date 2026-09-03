@@ -15,8 +15,13 @@ import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
+import com.duing.domain.facility.entity.FetchStatus;
+import com.duing.domain.facility.exception.FacilityException;
+import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -59,6 +64,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     @Autowired FacilityBookingStatusHistoryRepository historyRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired FacilityReservationRepository facilityReservationRepository;
+    @Autowired FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
@@ -85,9 +91,17 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         return clubRepository.save(club);
     }
 
+    /** 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다. */
     private Facility saveFacility() {
-        return facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
+        return facilityRepository.save(BookingWindowFixture.opened(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0)));
+    }
+
+    private Facility saveFacilityOpenedOn(LocalDate bookingOpenDate) {
+        Facility facility = Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0);
+        facility.changeBookingOpenDate(bookingOpenDate);
+        return facilityRepository.save(facility);
     }
 
     private record Fixture(User leader, Club club, Facility facility) {}
@@ -99,6 +113,13 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
         return new Fixture(leader, club, saveFacility());
     }
 
+    private Fixture fixtureOpenedOn(LocalDate bookingOpenDate) throws Exception {
+        User leader = saveUser("리더");
+        Club club = saveActiveClub("대관동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        return new Fixture(leader, club, saveFacilityOpenedOn(bookingOpenDate));
+    }
+
     private CreateFacilityBookingCommand command(Fixture fixture, LocalDate date, int startHour, int endHour) {
         return new CreateFacilityBookingCommand(fixture.club().getId(), fixture.leader().getId(),
                 fixture.facility().getId(), date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0),
@@ -106,7 +127,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         return BookingWindowFixture.bookableDate();
     }
 
@@ -562,6 +583,63 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
                 .isInstanceOfSatisfying(FacilityBookingException.DeadlinePassedException.class,
                         exception -> assertThat(exception.getCode())
                                 .isEqualTo("FACILITY_BOOKING_DEADLINE_PASSED"));
+    }
+
+    @Test
+    @DisplayName("오픈일 전 날짜의 신청은 창 밖으로 거부되고, 오픈일 당일 이후·과거 오픈일 시설은 접수된다")
+    void facilityOpenDateBoundsApplication() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        Fixture opensLater = fixtureOpenedOn(today.plusDays(5));
+        assertThatThrownBy(() -> bookingService.create(command(opensLater, bookableDate(), 18, 20)))
+                .isInstanceOf(FacilityBookingException.OutOfBookingWindowException.class);
+        assertThat(bookingRepository.findByClubIdOrderByCreatedAtDesc(opensLater.club().getId())).isEmpty();
+
+        Fixture opensTomorrow = fixtureOpenedOn(today.plusDays(1));
+        assertThat(bookingService.create(command(opensTomorrow, bookableDate(), 18, 20)).bookingId()).isNotNull();
+
+        Fixture openedLongAgo = fixtureOpenedOn(today.minusDays(30));
+        assertThat(bookingService.create(command(openedLongAgo, bookableDate(), 18, 20)).bookingId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("오픈일이 없거나 익월 말일을 넘는 시설은 아직 열리지 않았다는 안내로 신청이 거부된다")
+    void closedFacilityRejectsApplicationWithClosedMessage() throws Exception {
+        LocalDate afterWindow = YearMonth.now(ZoneId.of("Asia/Seoul")).plusMonths(1).atEndOfMonth().plusDays(1);
+
+        Fixture neverOpened = fixtureOpenedOn(null);
+        Fixture opensAfterWindow = fixtureOpenedOn(afterWindow);
+
+        for (Fixture closed : List.of(neverOpened, opensAfterWindow)) {
+            assertThatThrownBy(() -> bookingService.create(command(closed, bookableDate(), 18, 20)))
+                    .isInstanceOf(FacilityBookingException.OutOfBookingWindowException.class)
+                    .hasMessage("아직 예약 신청이 열리지 않았어요.");
+            assertThat(bookingRepository.findByClubIdOrderByCreatedAtDesc(closed.club().getId())).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("없는 시설로 창 밖 날짜를 신청하면 창 오류가 아니라 시설 404 가 먼저다")
+    void missingFacilityPrecedesWindowError() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate outOfWindow = LocalDate.now(ZoneId.of("Asia/Seoul")).plusMonths(6);
+
+        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
+                fixture.club().getId(), fixture.leader().getId(), Long.MAX_VALUE, outOfWindow,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
+                FacilityBookingFixture.VALID_CONTACT_PHONE)))
+                .isInstanceOf(FacilityException.FacilityNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("크롤 스냅샷이 FAILED 여도 오픈일이 지난 시설이면 신청은 접수된다 — 창 판정은 크롤과 독립이다")
+    void failedCrawlSnapshotDoesNotBlockApplication() throws Exception {
+        Fixture fixture = fixtureOpenedOn(LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(30));
+        LocalDate date = bookableDate();
+        facilityMonthSnapshotRepository.save(FacilityMonthSnapshot.create(YearMonth.from(date),
+                LocalDateTime.now(), CrawlSource.SCHEDULER, FetchStatus.FAILED, "수집 실패"));
+
+        assertThat(bookingService.create(command(fixture, date, 18, 20)).bookingId()).isNotNull();
     }
 
     private Throwable tryCreate(CreateFacilityBookingCommand command) {

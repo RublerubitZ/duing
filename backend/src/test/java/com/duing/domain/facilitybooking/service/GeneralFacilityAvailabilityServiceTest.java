@@ -50,6 +50,8 @@ class GeneralFacilityAvailabilityServiceTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final long FACILITY_ID = 1L;
+    /** 과거 오픈일 — 창 하한이 오늘로 clamp 되어 "이미 열린 시설" 을 뜻한다. */
+    private static final LocalDate BOOKING_OPEN_SINCE = LocalDate.of(2020, 1, 1);
 
     @Mock FacilityRepository facilityRepository;
     @Mock FacilityReservationRepository facilityReservationRepository;
@@ -69,7 +71,12 @@ class GeneralFacilityAvailabilityServiceTest {
     }
 
     private void stubFacility() {
+        stubFacility(BOOKING_OPEN_SINCE);
+    }
+
+    private void stubFacility(LocalDate bookingOpenDate) {
         Facility facility = Facility.create(90001, "커뮤니티룸(T)", null, 0);
+        facility.changeBookingOpenDate(bookingOpenDate);
         ReflectionTestUtils.setField(facility, "id", FACILITY_ID);
         given(facilityRepository.findById(FACILITY_ID)).willReturn(Optional.of(facility));
     }
@@ -169,5 +176,52 @@ class GeneralFacilityAvailabilityServiceTest {
         service.getAvailability(FACILITY_ID, YearMonth.of(2026, 3));
         then(facilityCrawlService).should().ensureFresh(YearMonth.of(2026, 2));
         then(facilityCrawlService).should().ensureFresh(YearMonth.of(2026, 3));
+    }
+
+    @Test
+    @DisplayName("신청 창은 시설 오픈일에서 나온다 — 미래 오픈일이 bookableFrom 이고 상한은 익월 말일이다")
+    void bookableRangeFollowsFacilityOpenDate() {
+        YearMonth january = YearMonth.of(2026, 1);
+        given(facilityCrawlService.ensureFresh(january)).willReturn(DataSource.CACHE);
+        stubFacility(LocalDate.of(2026, 1, 20)); // 오늘(1/15) + 5일
+
+        FacilityAvailabilityResponse response =
+                serviceAt("2026-01-15T03:00:00Z").getAvailability(FACILITY_ID, january);
+
+        assertThat(response.bookableFrom()).isEqualTo(LocalDate.of(2026, 1, 20));
+        assertThat(response.bookableUntil()).isEqualTo(LocalDate.of(2026, 2, 28));
+        // 오픈 전 날짜의 슬롯 표시는 바뀌지 않는다(P5) — 서버는 AVAILABLE 로 내리고 FE 가 창으로 게이팅한다.
+        assertThat(slotAt(response, LocalDate.of(2026, 1, 17), 9).status()).isEqualTo(SlotStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("오픈일이 없는 시설은 빈 창(시작 = 익월 말일 + 1)으로 내려가고 슬롯은 그대로 AVAILABLE 이다")
+    void facilityWithoutOpenDateReturnsEmptyWindow() {
+        YearMonth january = YearMonth.of(2026, 1);
+        given(facilityCrawlService.ensureFresh(january)).willReturn(DataSource.CACHE);
+        stubFacility(null);
+
+        FacilityAvailabilityResponse response =
+                serviceAt("2026-01-15T03:00:00Z").getAvailability(FACILITY_ID, january);
+
+        assertThat(response.bookableUntil()).isEqualTo(LocalDate.of(2026, 2, 28));
+        assertThat(response.bookableFrom()).isEqualTo(LocalDate.of(2026, 3, 1));
+        assertThat(response.bookableFrom()).isAfter(response.bookableUntil()); // FE 의 "닫힘" 판정 조건
+        assertThat(slotAt(response, LocalDate.of(2026, 1, 17), 9).status()).isEqualTo(SlotStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("크롤 스냅샷이 stale 이어도 신청 창은 시설 오픈일로만 결정된다")
+    void staleCrawlDoesNotChangeWindow() {
+        YearMonth january = YearMonth.of(2026, 1);
+        given(facilityCrawlService.ensureFresh(january)).willReturn(DataSource.STALE_CACHE);
+        stubFacility();
+
+        FacilityAvailabilityResponse response =
+                serviceAt("2026-01-15T03:00:00Z").getAvailability(FACILITY_ID, january);
+
+        assertThat(response.stale()).isTrue();
+        assertThat(response.bookableFrom()).isEqualTo(LocalDate.of(2026, 1, 15));
+        assertThat(response.bookableUntil()).isEqualTo(LocalDate.of(2026, 2, 28));
     }
 }

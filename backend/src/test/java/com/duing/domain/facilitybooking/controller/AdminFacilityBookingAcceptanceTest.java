@@ -212,7 +212,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         LocalDate date = BookingWindowFixture.bookableDate();
         return bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,
@@ -231,7 +231,8 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
     }
 
     private Facility saveFacility() {
-        return facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
+        // 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다.
+        return facilityRepository.save(BookingWindowFixture.opened(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0)));
     }
 }
