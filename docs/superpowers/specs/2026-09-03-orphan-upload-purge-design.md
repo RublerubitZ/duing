@@ -83,7 +83,7 @@ PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 |---|---|---|---|
 | `activate(Instant now)` | `PENDING` 만 | `ACTIVE`, `activatedAt=now` | `UploadedObjectService.activate`(attach). 그 외 상태 판정은 호출자가 먼저 한다(§3.2) |
 | `restoreActive(Instant now)` | `PENDING` 또는 `PURGING` | `ACTIVE`, `activatedAt=now` | 잡의 참조 안전망 치유(§4.3) 전용 |
-| `markPurging(Instant now)` | `PENDING` 또는 `PURGING` | `PURGING` | 잡 claim(§4.1) 전용. PURGING→PURGING 은 재시도 멱등 |
+| `markPurging()` | `PENDING` 또는 `PURGING` | `PURGING` | 잡 claim(§4.1) 전용. PURGING→PURGING 은 재시도 멱등. 별도 시각 컬럼 없음 |
 | `markPurged(Instant now)` | `PURGING` 만 | `PURGED`, `purgedAt=now` | 잡 삭제 확정 후(§4.1) 전용 |
 
 허용되지 않는 상태에서 호출되면 `IllegalStateException`(프로그래밍 오류 — 호출자가 술어를 먼저 검사하므로 정상 경로에서 발생하지 않는다).
@@ -157,7 +157,7 @@ run():
           tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.restoreActive(now) }  -- 안전망 치유(§2.1)
           log WARN "참조가 남아 있어 삭제하지 않고 ACTIVE 로 치유 — 활성화 지점 누락 의심: key=… purpose=…"
           healed++; continue
-      claimed = tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.markPurging(now), true; else false }
+      claimed = tx { findByIdForUpdate → status∈{PENDING,PURGING} 이면 entity.markPurging(), true; else false }
       if !claimed: activatedMeanwhile++; continue                            -- 그 사이 attach 가 이겼다
       confirmed = deleteFromStorage(toFileUrl(key))                          -- tx 밖. false·예외 모두 미확정
       if confirmed:
