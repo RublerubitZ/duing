@@ -1095,7 +1095,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
     // 첫 주(창 시작 주) — 이전 주 비활성, 창 로드 후 다음 주 활성.
     expect(await screen.findByRole('heading', { level: 2, name: WINDOW_FROM_WEEK_LABEL })).toBeInTheDocument();
     // 창 시작 주에서도 이전 주는 활성이다 — 지난 주는 기록 열람 범위(직전 월 1일까지)라 막지 않는다(2026-09-03).
-    expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled());
     await waitFor(() => expect(screen.getByRole('button', { name: '다음 주' })).toBeEnabled());
 
     // 다음 주 이동 → 라벨이 다음 주로 갱신되고 이전 주가 활성화된다.
@@ -1107,12 +1107,13 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(반월 창)', () => {
 
   it('시나리오 22 (뷰 전환 g-끝): 창 마지막 주에서는 다음 주 이동이 비활성이다', async () => {
     mockSearchParams.value = `facilityId=1&date=${WINDOW.until}`;
-    renderPage();
+    const { queryClient } = renderPage();
 
     const lastWeekLabel = weekRangeLabel(mondayOf(WINDOW.until));
     expect(await screen.findByRole('heading', { level: 2, name: lastWeekLabel })).toBeInTheDocument();
-    // 창 로드 확인(이전 주 활성) 후 다음 주 비활성을 단언한다.
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled());
+    // 창 로드를 캐시로 직접 확인한 뒤 다음 주 비활성을 단언한다(이전 주 활성은 더 이상 창 로드의 대리 신호가 아니다).
+    await waitForBookingWindowLoaded(queryClient);
+    expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
   });
 

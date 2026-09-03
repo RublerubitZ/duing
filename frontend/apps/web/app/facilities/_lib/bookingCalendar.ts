@@ -1,6 +1,6 @@
 // 예약 홈의 순수 계산 — 시각/날짜 문자열('HH:mm'·'yyyy-MM-dd')은 사전순 비교가 시간순과 일치한다.
 // Date 파싱은 로컬 필드 생성만 사용한다(new Date('yyyy-MM-dd') 는 UTC 자정 함정).
-import type { BookingAvailabilitySlot, BookingOperatingNote } from '@duing/types';
+import type { BookingAvailabilitySlot, BookingDayAvailability, BookingOperatingNote } from '@duing/types';
 import { seoulDateIso, seoulTimeHHmm } from './facilityTimeline';
 
 export type CalendarCell = { iso: string; day: number; inMonth: boolean };
@@ -63,17 +63,17 @@ export function isSelectableSlot(slot: BookingAvailabilitySlot): boolean {
 }
 
 /**
- * 신청이 닫힌 날 파생 — 서버가 빈 슬롯에 DEADLINE_PASSED 를 내린 날(사용일 전날 12:00 KST 경과). 클라 시계를 쓰지 않는다.
- * 점유·대기 슬롯은 상태를 유지하므로 마감 슬롯이 하나라도 있으면 그 날 전체가 마감이다. 잔여 한계: 마감된 날의 빈 칸이
- * 하나도 없으면(전부 점유·대기) 파생이 false 라 대기 행이 선택 가능하게 남는다 — 그 경로는 폼 힌트와 서버 400 이 막는다.
+ * 신청이 닫힌 날 파생 — 서버 `applicationClosed`(오늘 이후 & 전날 12:00 KST 경과)가 있으면 그것이 진실이고, 구 응답이면
+ * "빈 슬롯에 DEADLINE_PASSED 가 있다" 로 폴백한다. 클라 시계를 쓰지 않는다. 플래그 덕분에 빈 칸이 하나도 없는(전부 점유·대기)
+ * 마감일도 잠긴다(2026-09-03 §9.1).
  */
-export function isDayApplicationClosed(slots: BookingAvailabilitySlot[]): boolean {
-  return slots.some((slot) => slot.status === 'DEADLINE_PASSED');
+export function isDayApplicationClosed(day: Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>): boolean {
+  return day.applicationClosed ?? day.slots.some((slot) => slot.status === 'DEADLINE_PASSED');
 }
 
 /** 이 날에 새 신청을 시작할 수 있는 슬롯이 있는가 — 마감된 날은 대기 슬롯이 있어도 false. CTA 문구·행 게이팅 공용. */
-export function hasApplicableSlot(slots: BookingAvailabilitySlot[]): boolean {
-  return !isDayApplicationClosed(slots) && slots.some(isSelectableSlot);
+export function hasApplicableSlot(day: Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>): boolean {
+  return !isDayApplicationClosed(day) && day.slots.some(isSelectableSlot);
 }
 
 export function slotInRange(slot: BookingAvailabilitySlot, range: SlotRange): boolean {

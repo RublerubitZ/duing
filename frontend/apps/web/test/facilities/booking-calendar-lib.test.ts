@@ -480,22 +480,34 @@ describe('isApplicationDeadlinePassed', () => {
   });
 });
 
-describe('isDayApplicationClosed / hasApplicableSlot (신청 마감 날 파생 — 서버 DEADLINE_PASSED 만 본다)', () => {
-  it('빈 슬롯이 DEADLINE_PASSED 로 내려온 날은 마감이고, 대기 슬롯이 남아도 신청 가능한 슬롯이 없다', () => {
-    const closed = [slot(9, 'DEADLINE_PASSED'), slot(10, 'BLOCKED'), slot(11, 'PENDING_HOLD')];
+describe('isDayApplicationClosed / hasApplicableSlot (신청 마감 날 파생 — 서버 applicationClosed 우선, 없으면 DEADLINE_PASSED 존재)', () => {
+  it('빈 슬롯이 DEADLINE_PASSED 로 내려온 날은 마감이고, 대기 슬롯이 남아도 신청 가능한 슬롯이 없다(플래그 없는 구응답)', () => {
+    const closed = { slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'BLOCKED'), slot(11, 'PENDING_HOLD')] };
     expect(isDayApplicationClosed(closed)).toBe(true);
     expect(hasApplicableSlot(closed)).toBe(false);
   });
 
-  it('DEADLINE_PASSED 가 없는 날은 마감이 아니고, AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다', () => {
-    const open = [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')];
-    expect(isDayApplicationClosed(open)).toBe(false);
-    expect(hasApplicableSlot(open)).toBe(true);
-    expect(hasApplicableSlot([slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')])).toBe(true);
+  it('서버 applicationClosed=true 면 빈 슬롯이 하나도 없어도(전부 점유·대기) 마감이다 — 잔여 한계 해소', () => {
+    const closedNoEmpty = { applicationClosed: true, slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] };
+    expect(isDayApplicationClosed(closedNoEmpty)).toBe(true);
+    expect(hasApplicableSlot(closedNoEmpty)).toBe(false);
   });
 
-  it('지난 날짜(PAST·BLOCKED 만)는 마감 표시가 아니지만 신청 가능한 슬롯도 없다', () => {
-    const past = [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')];
+  it('서버 applicationClosed=false 는 슬롯 파생보다 우선한다(서버가 진실)', () => {
+    const open = { applicationClosed: false, slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'AVAILABLE')] };
+    expect(isDayApplicationClosed(open)).toBe(false);
+    expect(hasApplicableSlot(open)).toBe(true);
+  });
+
+  it('DEADLINE_PASSED 가 없는 날은 마감이 아니고, AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다', () => {
+    const open = { slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')] };
+    expect(isDayApplicationClosed(open)).toBe(false);
+    expect(hasApplicableSlot(open)).toBe(true);
+    expect(hasApplicableSlot({ slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] })).toBe(true);
+  });
+
+  it('지난 날짜(PAST·BLOCKED 만, applicationClosed=false)는 마감 표시가 아니지만 신청 가능한 슬롯도 없다', () => {
+    const past = { applicationClosed: false, slots: [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')] };
     expect(isDayApplicationClosed(past)).toBe(false);
     expect(hasApplicableSlot(past)).toBe(false);
   });

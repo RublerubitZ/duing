@@ -398,6 +398,29 @@ it('마감이 아닌 날은 안내 note 가 없고 승인 대기 행이 여전�
   expect(screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ })).toBeEnabled();
 });
 
+it('서버 applicationClosed=true 인 날은 빈 슬롯이 없어도(전부 점유·대기) 대기 행이 잠기고 안내 note 가 뜬다 — 잔여 한계 해소', () => {
+  const onToggleSlot = vi.fn();
+  const fullyOccupiedClosedDay = makeDay({
+    availableSlotCount: 0,
+    dayStatus: 'FULL',
+    applicationClosed: true,
+    slots: makeDay().slots.map((slot, index) =>
+      slot.status === 'AVAILABLE'
+        ? index % 2 === 0
+          ? { ...slot, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '총학생회' }
+          : { ...slot, status: 'PENDING_HOLD' as const }
+        : slot,
+    ),
+  });
+  render(<DaySlotList day={fullyOccupiedClosedDay} selection={null} onToggleSlot={onToggleSlot} />);
+  expect(screen.queryByText('신청 마감')).not.toBeInTheDocument();
+  expect(screen.getByRole('note')).toBeInTheDocument();
+  const pendingRow = screen.getByRole('button', { name: /10:00~11:00.*승인 대기/ });
+  expect(pendingRow).toBeDisabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).not.toHaveBeenCalled();
+});
+
 it('예약 패널 CTA 는 신청 가능한 슬롯이 없는 날(마감·지난 날)엔 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
   render(
     <BookingPanel

@@ -80,7 +80,7 @@ export function BookingPanel({
   }
 
   // 선택 가능한 슬롯이 없는 날(마감·지난 날 기록 열람)은 "시간을 선택해주세요" 대신 사실을 말한다.
-  const applicable = hasApplicableSlot(day.slots);
+  const applicable = hasApplicableSlot(day);
 
   return (
     <div className="flex h-full flex-col">

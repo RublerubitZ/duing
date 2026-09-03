@@ -157,7 +157,7 @@ export function MobileDaySheet({
               >
                 {selection !== null
                   ? `${rangeLabel(selection)} 예약 신청`
-                  : hasApplicableSlot(shownDay.slots)
+                  : hasApplicableSlot(shownDay)
                     ? '시간을 선택해주세요'
                     : '신청 가능한 시간이 없어요'}
               </button>

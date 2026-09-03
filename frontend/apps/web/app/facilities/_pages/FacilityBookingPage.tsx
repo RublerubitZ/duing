@@ -362,7 +362,9 @@ export function FacilityBookingPage() {
   const weekMonday = selectedDate !== null ? mondayOf(selectedDate) : null;
   const viewFromMonday = mondayOf(viewFromIso);
   const windowUntilMonday = windowQuery.data ? mondayOf(windowQuery.data.bookableUntil) : null;
-  const canPrevWeek = weekMonday !== null && shiftDateByDays(weekMonday, -7) >= viewFromMonday;
+  // 창 로드 전엔 changeWeek 가 early return 하므로 버튼도 함께 잠근다(로드 전 무동작 클릭 방지).
+  const canPrevWeek =
+    windowQuery.data !== undefined && weekMonday !== null && shiftDateByDays(weekMonday, -7) >= viewFromMonday;
   const canNextWeek =
     weekMonday !== null && windowUntilMonday !== null && shiftDateByDays(weekMonday, 7) <= windowUntilMonday;
 

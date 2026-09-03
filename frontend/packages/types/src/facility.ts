@@ -87,6 +87,9 @@ export type BookingDayAvailability = {
   availableSlotCount: number;
   operatingNotes: BookingOperatingNote[];
   slots: BookingAvailabilitySlot[]; // 항상 13칸(09~22시)
+  // 신청 마감된 날(오늘 이후 & 전날 12:00 KST 경과). 빈 슬롯이 없어 DEADLINE_PASSED 가 없는 날도 true — 날짜 단위 게이팅용.
+  // 구 백엔드 응답엔 없다(optional) → FE 는 DEADLINE_PASSED 존재 파생으로 폴백한다(2026-09-03 §9.1).
+  applicationClosed?: boolean;
 };
 
 // 조회 월은 직전 월·당월·익월(2026-09-03). 직전 월은 저장 스냅샷 기록 열람이라 지난 날짜에도 BLOCKED 점유 정보가 보존된다.
