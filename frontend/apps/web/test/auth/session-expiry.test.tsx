@@ -205,11 +205,11 @@ describe('SessionExpiryHandler', () => {
     );
   });
 
-  it('이동이 없는 종료 통지(시드 상태)에서도 회수 스킵은 건다 — auth 플립이 열린 시트를 닫으므로', () => {
+  it('이동이 없는 종료 통지(시드 상태·이미 확정된 미인증)에서는 회수 스킵도 걸지 않는다', () => {
     useAuthStore.setState({ status: 'authenticated', isVerified: false });
     act(() => notifyUnauthorized());
     expect(pushSpy).not.toHaveBeenCalled();
-    expect(skipSpy).toHaveBeenCalledTimes(1);
+    expect(skipSpy).not.toHaveBeenCalled();
   });
 
   it('보류 통지 flush 가 시드된 상태에서 일어나도 조용하다 — 부팅 중 만료의 등록 시점 재생', () => {

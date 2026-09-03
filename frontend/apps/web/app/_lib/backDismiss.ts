@@ -277,11 +277,6 @@ export function installBackDismiss() {
   currentMarkerId = null;
   currentHref = window.location.href;
 
-  // Next 의 HistoryUpdater 는 navigate/refresh/서버액션/server-patch 경로에서 커스텀 history state 를
-  // 보존하지 않는다(preserveCustomHistoryState=false → state 를 {__NA, tree} 로 통째 교체).
-  // 오버레이가 열린 채 router.replace 나 refresh 가 한 번이라도 일어나면 우리 마커가 증발하고,
-  // 그러면 엔트리를 회수할 수도 죽은 엔트리로 인식할 수도 없어 죽은 뒤로가기가 계속 쌓인다.
-  // 우리 엔트리 위에서 일어나는 replace 에 한해 마커를 다시 얹는다.
   // 이동 커밋 관측(#1139) — Next 의 history 패치는 이 래퍼를 original 로 잡는다(providers 모듈 평가가 먼저).
   nativePushState = window.history.pushState.bind(window.history);
   window.history.pushState = (data: unknown, unused: string, url?: string | URL | null) => {
@@ -289,6 +284,11 @@ export function installBackDismiss() {
     if (isNextNavigationCommit(data)) clearNavigationPending();
   };
 
+  // Next 의 HistoryUpdater 는 navigate/refresh/서버액션/server-patch 경로에서 커스텀 history state 를
+  // 보존하지 않는다(preserveCustomHistoryState=false → state 를 {__NA, tree} 로 통째 교체).
+  // 오버레이가 열린 채 router.replace 나 refresh 가 한 번이라도 일어나면 우리 마커가 증발하고,
+  // 그러면 엔트리를 회수할 수도 죽은 엔트리로 인식할 수도 없어 죽은 뒤로가기가 계속 쌓인다.
+  // 우리 엔트리 위에서 일어나는 replace 에 한해 마커를 다시 얹는다.
   nativeReplaceState = window.history.replaceState.bind(window.history);
   window.history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
     // 같은 URL 재이동은 Next 가 replaceState 로 커밋한다 — 여기서도 예약을 푼다.

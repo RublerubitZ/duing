@@ -1,9 +1,16 @@
 import { act, render } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
+import { clearNavigationPending } from '@/app/_lib/backDismiss';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+
+// guarded router 를 쓰는 컴포넌트가 남긴 이동 예약(실 8s 타이머)이 뒤 케이스의 회수 back() 단언을
+// 순서 의존으로 깨뜨리지 않도록 드레인한다 — 이 파일은 backDismiss 를 mock 하지 않는다.
+afterEach(() => {
+  clearNavigationPending();
+});
 
 // jsdom 의 traversal 은 태스크 큐에 실린다(실측 ~3ms) — popstate 발화 자체를 기다린다.
 function nextPopState(): Promise<void> {
