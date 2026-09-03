@@ -214,8 +214,10 @@ public class GeneralPromotionService implements PromotionService {
     }
 
     private PromotionCardQuery.ClubRef resolvePublicClubRef(Long clubId, Club club) {
-        // 공개 응답에서는 삭제 노이즈를 노출하지 않는다 — clubId 가 있어도 row 가 사라졌으면 ref 를 숨김.
-        if (clubId == null || club == null) return null;
+        // 공개 응답에서는 삭제 노이즈와 비공개 상태를 노출하지 않는다 — clubId 가 있어도 row 가 사라졌거나
+        // 공개 경로 은닉 규칙(ClubStatus#isPubliclyVisible: ACTIVE 만)에 걸리면 ref 만 숨긴다(#837).
+        // 배너 자체는 유지한다 — 폐쇄 시에는 removeAllOnClubClosure 가 홍보를 지우므로 남는 경우는 승인 전 연결뿐.
+        if (clubId == null || club == null || !club.getStatus().isPubliclyVisible()) return null;
         return new PromotionCardQuery.ClubRef(club.getId(), club.getName());
     }
 
