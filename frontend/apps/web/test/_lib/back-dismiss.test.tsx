@@ -2,7 +2,15 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isOverlayOnlyTraversal, skipNextOverlayReclaim, useBackDismiss } from '@/app/_lib/backDismiss';
+import {
+  clearNavigationPending,
+  isNavigationPending,
+  isOverlayOnlyTraversal,
+  markNavigationPending,
+  skipNextOverlayReclaim,
+  subscribeNavigationPending,
+  useBackDismiss,
+} from '@/app/_lib/backDismiss';
 
 // jsdom 의 traversal 은 태스크 큐에 실린다(실측 ~3ms · 매크로태스크 2틱). 고정 지연 대신
 // popstate 발화 자체를 기다려야 안정적이다.
@@ -631,5 +639,131 @@ describe('useBackDismiss', () => {
     const popstateRegistrations = addListenerSpy.mock.calls.filter(([type]) => type === 'popstate');
     expect(popstateRegistrations).toHaveLength(0);
     addListenerSpy.mockRestore();
+  });
+});
+
+describe('이동 예약(navigationPending)', () => {
+  beforeEach(() => {
+    closeSpy.mockClear();
+    window.history.replaceState({ marker: 'prev' }, '', '/test-page');
+    window.history.pushState({ marker: 'page' }, '', '/test-page');
+  });
+
+  afterEach(async () => {
+    cleanup();
+    clearNavigationPending();
+    vi.useRealTimers();
+    await settle();
+  });
+
+  function CodeClosed() {
+    const [open, setOpen] = useState(true);
+    useBackDismiss(open, () => setOpen(false));
+    return open ? (
+      <button type="button" onClick={() => setOpen(false)}>
+        닫기
+      </button>
+    ) : null;
+  }
+
+  it('예약 중 코드 닫힘은 회수 back() 을 건너뛰고, Next 이동 커밋이 예약을 풀며, 죽은 엔트리는 뒤로가기 1회에 자동 스킵된다', async () => {
+    const backSpy = vi.spyOn(window.history, 'back');
+    const { getByRole } = render(<CodeClosed />);
+
+    markNavigationPending();
+    expect(isNavigationPending()).toBe(true);
+    await act(async () => {
+      getByRole('button').click();
+    });
+    await settle();
+
+    expect(backSpy).not.toHaveBeenCalled();
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+    backSpy.mockRestore();
+
+    // Next HistoryUpdater 의 이동 커밋 재현 — __NA 를 싣고 우리 마커는 없다(preserveCustomHistoryState=false).
+    window.history.pushState({ __NA: true, tree: ['fake'] }, '', '/test-page-next');
+    expect(isNavigationPending()).toBe(false);
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(window.location.pathname).toBe('/test-page');
+  });
+
+  it('커밋이 끝내 오지 않으면 failsafe(8초)가 예약을 풀고 이후 닫힘은 평소대로 회수한다', async () => {
+    vi.useFakeTimers();
+    render(<CodeClosed />);
+
+    markNavigationPending();
+    expect(isNavigationPending()).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(8_000);
+    });
+    expect(isNavigationPending()).toBe(false);
+    vi.useRealTimers();
+
+    const popped = nextPopState();
+    await act(async () => {
+      cleanup(); // 코드 닫힘 → 예약이 없으니 회수 back() 이 나간다
+      await popped;
+    });
+    await settle();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('popstate(뒤로가기)는 예약을 푼다', async () => {
+    render(<CodeClosed />);
+    markNavigationPending();
+
+    await pressBack(); // 오버레이가 닫히는 뒤로가기
+
+    expect(isNavigationPending()).toBe(false);
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('오프라인이면 예약이 걸리지 않는다', () => {
+    const onLineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    markNavigationPending();
+    expect(isNavigationPending()).toBe(false);
+    onLineSpy.mockRestore();
+  });
+
+  it('같은 URL 재이동(replaceState 커밋)도 예약을 푼다', () => {
+    render(<CodeClosed />);
+    markNavigationPending();
+
+    window.history.replaceState({ __NA: true, tree: ['fake'] }, '');
+
+    expect(isNavigationPending()).toBe(false);
+    // 우리 오버레이 위의 replace 라 마커는 다시 얹혀 있어야 한다(기존 재주입 규약 유지).
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+  });
+
+  it('예약 중 오버레이를 열어도(우리 pushState 는 __NA 를 복사한다) 예약이 풀리지 않는다', () => {
+    markNavigationPending();
+    render(<CodeClosed />);
+
+    expect(window.history.state.__NA).toBeUndefined(); // 기준 엔트리엔 __NA 가 없다 — 아래에서 있는 경우도 본다
+    expect(isNavigationPending()).toBe(true);
+
+    // Next 커밋 위에 오버레이를 여는 경우: 기존 state 의 __NA 가 마커와 함께 복사돼도 커밋으로 오인하지 않는다.
+    cleanup();
+    window.history.replaceState({ __NA: true, tree: ['fake'] }, '');
+    markNavigationPending();
+    render(<CodeClosed />);
+    expect(window.history.state.__NA).toBe(true);
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+    expect(isNavigationPending()).toBe(true);
+  });
+
+  it('구독자는 예약·해제 때 통지받는다', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeNavigationPending(listener);
+    markNavigationPending();
+    clearNavigationPending();
+    unsubscribe();
+    markNavigationPending();
+    expect(listener).toHaveBeenCalledTimes(2);
+    clearNavigationPending();
   });
 });

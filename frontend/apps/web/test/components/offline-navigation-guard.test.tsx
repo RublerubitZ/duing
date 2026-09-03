@@ -4,11 +4,20 @@ import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { OfflineNavigationGuard } from '@/app/_components/OfflineNavigationGuard';
 
+const markPendingSpy = vi.fn();
+vi.mock('@/app/_lib/backDismiss', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/_lib/backDismiss')>()),
+  markNavigationPending: (...args: unknown[]) => markPendingSpy(...args),
+}));
+
 function mockNavigatorOnLine(value: boolean) {
   vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(value);
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  markPendingSpy.mockClear();
+});
 
 function renderWithGuard(anchor: React.ReactNode) {
   return render(
@@ -109,5 +118,42 @@ describe('OfflineNavigationGuard', () => {
     // 가드가 stopPropagation 을 걸지 않았다는 증명 — 오프라인이어도 네 앵커 모두 onClick 이 실행된다.
     expect(clickSpy).toHaveBeenCalledTimes(4);
     expect(screen.queryByText('인터넷 연결을 확인해주세요.')).not.toBeInTheDocument();
+  });
+
+  // React onClick 의 preventDefault 는 jsdom 의 "navigation not implemented" 노이즈를 막기 위한 것 —
+  // capture 리스너는 그보다 먼저 실행되므로 예약 판정에 영향 없다.
+  it('온라인 내부 라우트 앵커 클릭은 이동 예약을 세운다', () => {
+    mockNavigatorOnLine(true);
+    renderWithGuard(
+      <a href="/clubs/1" onClick={(clickEvent) => clickEvent.preventDefault()}>
+        동아리로
+      </a>,
+    );
+    fireEvent.click(screen.getByText('동아리로'));
+    expect(markPendingSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('온라인이어도 외부 링크·수정자 키 클릭은 예약하지 않는다', () => {
+    mockNavigatorOnLine(true);
+    renderWithGuard(
+      <>
+        <a href="https://example.com" onClick={(clickEvent) => clickEvent.preventDefault()}>
+          외부
+        </a>
+        <a href="/clubs/2" onClick={(clickEvent) => clickEvent.preventDefault()}>
+          새탭
+        </a>
+      </>,
+    );
+    fireEvent.click(screen.getByText('외부'));
+    fireEvent.click(screen.getByText('새탭'), { metaKey: true });
+    expect(markPendingSpy).not.toHaveBeenCalled();
+  });
+
+  it('오프라인 내부 앵커는 기존대로 차단되고 예약도 세우지 않는다', () => {
+    mockNavigatorOnLine(false);
+    renderWithGuard(<a href="/clubs/1">동아리로</a>);
+    fireEvent.click(screen.getByText('동아리로'));
+    expect(markPendingSpy).not.toHaveBeenCalled();
   });
 });

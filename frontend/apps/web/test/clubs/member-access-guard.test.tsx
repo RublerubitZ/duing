@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -8,6 +8,26 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider, clubMembershipKeys } from '@duing/hooks';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { clearNavigationPending } from '@/app/_lib/backDismiss';
+
+// 이동 예약은 테스트가 제어한다 — 모듈 전체가 아니라 부분 mock 이라, useGuardedRouter 가 쓰는
+// 나머지 export(markNavigationPending 등)는 원본 그대로다.
+let pendingSnapshot = false;
+const pendingListeners = new Set<() => void>();
+function setPending(value: boolean) {
+  pendingSnapshot = value;
+  pendingListeners.forEach((listener) => listener());
+}
+vi.mock('@/app/_lib/backDismiss', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/_lib/backDismiss')>()),
+  isNavigationPending: () => pendingSnapshot,
+  subscribeNavigationPending: (listener: () => void) => {
+    pendingListeners.add(listener);
+    return () => {
+      pendingListeners.delete(listener);
+    };
+  },
+}));
 
 const replaceMock = vi.fn();
 // 렌더마다 새 객체를 돌려주면 useGuardedRouter 의 memo 가 매번 깨져 가드 effect 가 재실행된다.
@@ -41,11 +61,18 @@ const membership: MyClubMembership = {
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  // 가드가 읽는 플래그는 부분 mock 이라 가짜지만, useGuardedRouter 의 원본 markNavigationPending 이
+  // 실 8s 타이머를 남기므로 드레인한다.
+  clearNavigationPending();
+});
 afterAll(() => server.close());
 
 beforeEach(() => {
   replaceMock.mockClear();
+  pendingSnapshot = false;
+  pendingListeners.clear();
 });
 
 function seedMembership(response: () => Response) {
@@ -56,17 +83,20 @@ function renderGuard() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <ApiClientProvider client={apiClient}>
-        <ToastProvider>
-          <MemberAccessGuard clubId={CLUB_ID}>
-            <p>회원 전용 콘텐츠</p>
-          </MemberAccessGuard>
-        </ToastProvider>
-      </ApiClientProvider>
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <ApiClientProvider client={apiClient}>
+          <ToastProvider>
+            <MemberAccessGuard clubId={CLUB_ID}>
+              <p>회원 전용 콘텐츠</p>
+            </MemberAccessGuard>
+          </ToastProvider>
+        </ApiClientProvider>
+      </QueryClientProvider>,
+    ),
+    queryClient,
+  };
 }
 
 describe('MemberAccessGuard', () => {
@@ -137,6 +167,41 @@ describe('MemberAccessGuard', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.',
     );
+  });
+
+  it('이동 예약 중(세션 만료 핸들러가 로그인 이동을 맡음)에는 401 을 받아도 양보하고 권한 확인 상태를 유지한다', async () => {
+    setPending(true);
+    seedMembership(() =>
+      HttpResponse.json({ ok: false, message: '인증이 필요합니다.', data: null }, { status: 401 }),
+    );
+
+    const { queryClient } = renderGuard();
+
+    // 로딩 중에도 같은 LoadingGate 가 렌더되므로 "401 이 도착했다" 는 쿼리 상태로 기다린다.
+    await waitFor(() =>
+      expect(queryClient.getQueryState(clubMembershipKeys.byClub(CLUB_ID))?.status).toBe('error'),
+    );
+    expect(screen.getByRole('status', { name: '권한 확인 중' })).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('예약이 풀리면(failsafe·커밋 없음) 기존 거부 처리로 수렴해 한 번만 이동한다', async () => {
+    setPending(true);
+    seedMembership(() =>
+      HttpResponse.json({ ok: false, message: '인증이 필요합니다.', data: null }, { status: 401 }),
+    );
+    const { queryClient } = renderGuard();
+    await waitFor(() =>
+      expect(queryClient.getQueryState(clubMembershipKeys.byClub(CLUB_ID))?.status).toBe('error'),
+    );
+    expect(replaceMock).not.toHaveBeenCalled();
+
+    act(() => setPending(false));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
+    expect(replaceMock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('alert')).toHaveTextContent('회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.');
   });
 
   it('서버 오류(500)는 거부가 아니므로 리다이렉트 대신 실패 안내를 보여준다', async () => {

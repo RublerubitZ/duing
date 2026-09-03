@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { isNavigationPending, subscribeNavigationPending } from '@/app/_lib/backDismiss';
 import { ApiError, httpFallbackMessage } from '@duing/api';
 import { useClubMembershipQuery } from '@duing/hooks';
 import type { MyClubMembership } from '@duing/types';
@@ -21,6 +22,7 @@ const DEFAULT_DENIAL_MESSAGE = '회원 전용 페이지입니다.';
  * 이동시키지 않으므로 여기서 거부로 판정해야 안내·리다이렉트가 일어난다.
  * 서버가 내려준 사유가 있으면 그대로 노출하고, 없을 때만 기본 문구로 폴백한다 —
  * 본문 파싱 실패 시 ApiError.message 는 합성 폴백("요청 실패 (403)")이라 사용자에게 보여선 안 된다.
+ * 이동 예약 중(세션 만료 핸들러가 로그인 이동을 맡은 경우)에는 양보한다(#1139).
  */
 function resolveDenialMessage(
   membership: MyClubMembership | null | undefined,
@@ -48,18 +50,25 @@ export function MemberAccessGuard({ clubId, children }: Props) {
   // 안내는 부가 피드백이고 본질은 리다이렉트다 — Provider 가 없어도 가드가 죽지 않도록 optional 접근자를 쓴다.
   const addToast = useOptionalToast();
   const { data: membership, isLoading, error } = useClubMembershipQuery(clubId);
+  // 세션 만료 핸들러의 /login 이동이 커밋되기 전이면 양보한다 — 커밋되면 이 가드는 언마운트되고,
+  // failsafe 로 풀리면 재렌더돼 아래 거부 처리로 수렴한다(토스트는 같은 문구 dedupe, replace 재시도).
+  const navigationPending = useSyncExternalStore(
+    subscribeNavigationPending,
+    isNavigationPending,
+    () => false,
+  );
 
   const denialMessage = resolveDenialMessage(membership, isLoading, error);
 
   useEffect(() => {
-    if (!denialMessage) return;
+    if (!denialMessage || navigationPending) return;
     // ToastProvider 는 라우트 트리보다 위에 있어 이 컴포넌트가 언마운트돼도 안내가 살아남는다.
     // alert 과 달리 스레드를 막지 않고, 임베디드 브라우저에서 억제·throw 될 위험도 없다.
     addToast?.(`${denialMessage} 동아리 소개 페이지로 이동합니다.`, { variant: 'error' });
     router.replace(`/clubs/${clubId}`);
-  }, [denialMessage, addToast, router, clubId]);
+  }, [denialMessage, navigationPending, addToast, router, clubId]);
 
-  if (isLoading) {
+  if (isLoading || (denialMessage && navigationPending)) {
     return <LoadingGate label="권한 확인 중" />;
   }
   // 리다이렉트가 커밋되기 전 한 프레임 — 회원 전용 콘텐츠를 스치듯 노출하지 않도록 비운다.
