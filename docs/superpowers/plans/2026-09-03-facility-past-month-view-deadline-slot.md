@@ -1616,3 +1616,292 @@ git commit -m "feat(frontend): 시설 예약 캘린더 — 직전 월 기록 열
 - **Spec coverage**: §2.1 → B3 / §2.2 → B1 / §2.3 → B2 / §2.4 무변경 확인은 B3 Step 7 전체 스위트 / §3.1·§3.2 → F1 / §3.3·§3.7 → F2 / §3.4·§3.5 → F3 / §3.6 → F4 / §4 계약 → B2·F1 / §5 BE 매트릭스 → B1~B3(KST 경계 ★ B3 단위 테스트·점유 보존 ★ B2·B3) / §5 FE 매트릭스 → F1~F4(시나리오 14 교체·21 조정 포함) / §7 PR 분리 → 브랜치 2개(Global Constraints).
 - **Placeholder scan**: 없음. `… 기존 그대로 …` 표기는 변경하지 않는 기존 코드를 가리키며, 변경 구간은 모두 실제 코드로 적었다.
 - **Type consistency**: `isPassed(LocalDate, LocalDateTime)`(B1) ↔ B2 호출 `BookingDeadlinePolicy.isPassed(date, today.atTime(nowTime))` 일치. `resolveSlot` 9-인자 시그니처 ↔ 호출 일치. FE `isDayApplicationClosed(slots)`/`hasApplicableSlot(slots)` 인자 타입 `BookingAvailabilitySlot[]` 로 F2·F4 호출 일치. `buildColumnPlan(day)` 1-인자 ↔ 컬럼 계산 호출 일치. `GeneralFacilityAvailabilityService` 생성자 인자 순서 = 필드 선언 순서(Lombok `@RequiredArgsConstructor`).
+
+---
+
+## Part C — 후속 (스펙 §9, 2026-09-03 2차 지시)
+
+### Task 8 (B4): `DayAvailability.applicationClosed` 가산 필드 + past 경로 주석
+
+**Files:**
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/FacilityAvailabilityResponse.java` (`DayAvailability` record 맨 뒤 필드)
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/FacilitySlotAssembler.java` (`assembleDay` 반환)
+- Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/GeneralFacilityAvailabilityService.java` (past 경로 `source` 주석 1줄)
+- Test: `backend/src/test/java/com/duing/domain/facilitybooking/service/FacilitySlotAssemblerTest.java`, `GeneralFacilityAvailabilityServiceTest.java`, `backend/src/test/java/com/duing/domain/facilitybooking/controller/FacilityAvailabilityAcceptanceTest.java`
+
+**Interfaces:**
+- Produces: `DayAvailability(LocalDate date, DayStatus dayStatus, int availableSlotCount, List<OperatingNote> operatingNotes, List<SlotAvailability> slots, boolean applicationClosed)` — 맨 뒤 추가. 값 = 오늘 이후이면서 마감 경과(`!date.isBefore(today) && deadlinePassed`). 지난 날짜는 false. Task 9 가 소비.
+
+- [ ] **Step 1: 실패하는 테스트**
+
+`FacilitySlotAssemblerTest.java` 끝에 추가:
+
+```java
+    @Test
+    @DisplayName("applicationClosed — 오늘·마감된 익일은 true, 이틀 뒤와 지난 날짜는 false, 경계는 전날 12:00/12:01")
+    void applicationClosedFlagFollowsDeadlineForTodayAndFuture() {
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), List.of());
+        assertThat(day(days, 15).applicationClosed()).isTrue();  // 오늘 — 당일 신청은 항상 마감
+        assertThat(day(days, 16).applicationClosed()).isTrue();  // 익일 — 12:30 > 12:00 경과
+        assertThat(day(days, 17).applicationClosed()).isFalse(); // 이틀 뒤
+        assertThat(day(days, 10).applicationClosed()).isFalse(); // 지난 날짜는 열람 전용 — 마감 안내 대상 아님
+
+        List<DayAvailability> atNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 0), List.of(), List.of());
+        assertThat(day(atNoon, 16).applicationClosed()).isFalse();
+        List<DayAvailability> afterNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 1), List.of(), List.of());
+        assertThat(day(afterNoon, 16).applicationClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("applicationClosed 는 빈 슬롯이 하나도 없는(전부 점유·대기) 마감된 날에도 true 다 — FE 잔여 한계 해소 근거")
+    void applicationClosedIsTrueEvenWhenNoEmptySlotRemains() {
+        LocalDate tomorrow = LocalDate.of(2026, 1, 16);
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(tomorrow, LocalTime.of(9, 0), LocalTime.of(21, 0),
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(tomorrow, LocalTime.of(21, 0), LocalTime.of(22, 0), BookingStatus.PENDING, null));
+
+        DayAvailability day = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings), 16);
+
+        assertThat(day.slots()).noneMatch(slot -> slot.status() == SlotStatus.DEADLINE_PASSED);
+        assertThat(slotStatus(day, 21)).isEqualTo(SlotStatus.PENDING_HOLD);
+        assertThat(day.applicationClosed()).isTrue();
+        assertThat(day.availableSlotCount()).isZero();
+    }
+```
+
+`GeneralFacilityAvailabilityServiceTest.kstDeadlineBoundaryDrivesSlotStatus` 의 두 단언 뒤에 각각 추가:
+
+```java
+        assertThat(beforeCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isFalse();
+```
+```java
+        assertThat(afterCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isTrue();
+```
+
+`FacilityAvailabilityAcceptanceTest.previousMonthReturnsStoredRecordsWithoutRecrawl` 의 `assertThat(recordDay.availableSlotCount()).isZero();` 뒤에 추가:
+
+```java
+        assertThat(recordDay.applicationClosed()).isFalse(); // 지난 날짜는 열람 전용
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd backend && ./gradlew test --tests 'com.duing.domain.facilitybooking.service.FacilitySlotAssemblerTest'`
+Expected: 컴파일 실패 — `applicationClosed()` 없음.
+
+- [ ] **Step 3: 구현**
+
+`FacilityAvailabilityResponse.DayAvailability` 교체:
+
+```java
+    /**
+     * applicationClosed = 신청 마감된 날(오늘 이후이면서 사용일 전날 12:00 KST 경과). 빈 슬롯이 하나도 없어
+     * DEADLINE_PASSED 슬롯이 없는 날도 true 라 FE 가 날짜 단위로 게이팅한다. 지난 날짜는 false — 열람 전용이라
+     * 마감 안내 대상이 아니고 선택 가능한 슬롯도 없다. 2026-09-03 스펙 §9.1(가산 필드, 맨 뒤).
+     */
+    public record DayAvailability(
+            LocalDate date,
+            DayStatus dayStatus,
+            int availableSlotCount,
+            List<OperatingNote> operatingNotes,
+            List<SlotAvailability> slots,
+            boolean applicationClosed
+    ) {}
+```
+
+`FacilitySlotAssembler.assembleDay` 의 마지막 `return` 교체:
+
+```java
+        DayStatus dayStatus = date.isBefore(today) ? DayStatus.PAST
+                : availableCount == 0 ? DayStatus.FULL
+                : DayStatus.AVAILABLE;
+        // 날짜 단위 마감 플래그 — 오늘 이후 & 마감 경과. 지난 날짜는 열람 전용이라 false(스펙 §9.1).
+        boolean applicationClosed = !date.isBefore(today) && deadlinePassed;
+        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots,
+                applicationClosed);
+```
+
+`GeneralFacilityAvailabilityService.getAvailability` 의 `DataSource source = pastMonth ? DataSource.CACHE : …` 줄 위 주석을 교체:
+
+```java
+        // 직전 월은 크롤 윈도우(당월·익월) 밖이라 온디맨드 재크롤을 걸지 않는다 — 저장된 행을 그대로 보여주는 기록 열람.
+        // past 경로의 CACHE 는 "캐시 서빙" 이라는 사실 표기이며 stale 판정은 아래 isIncompleteRecord 가 한다(source 미참조).
+```
+
+- [ ] **Step 4: 통과 확인**
+
+Run: `cd backend && ./gradlew test --tests 'com.duing.domain.facilitybooking.service.FacilitySlotAssemblerTest' --tests 'com.duing.domain.facilitybooking.service.GeneralFacilityAvailabilityServiceTest' --tests 'com.duing.domain.facilitybooking.controller.FacilityAvailabilityAcceptanceTest' && ./gradlew compileTestJava`
+Expected: 15 + 4 + 9 PASS, 컴파일 성공(다른 `DayAvailability` 생성 호출이 있으면 컴파일에서 드러난다 — 있으면 맨 뒤 인자 `false` 가 아니라 실제 판정값을 넣고 보고에 적는다).
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add backend/src/main/java/com/duing/domain/facilitybooking/controller/dto/response/FacilityAvailabilityResponse.java backend/src/main/java/com/duing/domain/facilitybooking/service/FacilitySlotAssembler.java backend/src/main/java/com/duing/domain/facilitybooking/service/GeneralFacilityAvailabilityService.java backend/src/test/java/com/duing/domain/facilitybooking/service/FacilitySlotAssemblerTest.java backend/src/test/java/com/duing/domain/facilitybooking/service/GeneralFacilityAvailabilityServiceTest.java backend/src/test/java/com/duing/domain/facilitybooking/controller/FacilityAvailabilityAcceptanceTest.java
+git commit -m "feat(backend): 가용성 응답 — 날짜 단위 applicationClosed 플래그 추가(빈 슬롯 없는 마감일도 FE 가 잠글 수 있게)"
+```
+
+---
+
+### Task 9 (F5): FE — `applicationClosed` 우선 파생 + `canPrevWeek` 창 로드 가드 + 시나리오 22 대기 교체
+
+**Files:**
+- Modify: `frontend/packages/types/src/facility.ts` (`BookingDayAvailability`)
+- Modify: `frontend/apps/web/app/facilities/_lib/bookingCalendar.ts` (`isDayApplicationClosed`, `hasApplicableSlot`)
+- Modify: `frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx`, `BookingPanel.tsx`, `MobileDaySheet.tsx` (호출 인자)
+- Modify: `frontend/apps/web/app/facilities/_pages/FacilityBookingPage.tsx` (`canPrevWeek`)
+- Test: `frontend/apps/web/test/facilities/booking-calendar-lib.test.ts`, `booking-components.test.tsx`, `facility-booking-page.test.tsx` (시나리오 22)
+
+**Interfaces:**
+- Consumes: Task 8 의 `applicationClosed`(구 BE 응답엔 없음 → optional).
+- Produces: `isDayApplicationClosed(day: Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>): boolean`, `hasApplicableSlot(day: 동일): boolean`. `isSelectableSlot` 무변경.
+
+- [ ] **Step 1: 실패하는 테스트**
+
+`booking-calendar-lib.test.ts` 의 `isDayApplicationClosed / hasApplicableSlot` describe 를 다음으로 교체:
+
+```ts
+describe('isDayApplicationClosed / hasApplicableSlot (신청 마감 날 파생 — 서버 applicationClosed 우선, 없으면 DEADLINE_PASSED 존재)', () => {
+  it('빈 슬롯이 DEADLINE_PASSED 로 내려온 날은 마감이고, 대기 슬롯이 남아도 신청 가능한 슬롯이 없다(플래그 없는 구응답)', () => {
+    const closed = { slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'BLOCKED'), slot(11, 'PENDING_HOLD')] };
+    expect(isDayApplicationClosed(closed)).toBe(true);
+    expect(hasApplicableSlot(closed)).toBe(false);
+  });
+
+  it('서버 applicationClosed=true 면 빈 슬롯이 하나도 없어도(전부 점유·대기) 마감이다 — 잔여 한계 해소', () => {
+    const closedNoEmpty = { applicationClosed: true, slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] };
+    expect(isDayApplicationClosed(closedNoEmpty)).toBe(true);
+    expect(hasApplicableSlot(closedNoEmpty)).toBe(false);
+  });
+
+  it('서버 applicationClosed=false 는 슬롯 파생보다 우선한다(서버가 진실)', () => {
+    const open = { applicationClosed: false, slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'AVAILABLE')] };
+    expect(isDayApplicationClosed(open)).toBe(false);
+    expect(hasApplicableSlot(open)).toBe(true);
+  });
+
+  it('DEADLINE_PASSED 가 없는 날은 마감이 아니고, AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다', () => {
+    const open = { slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')] };
+    expect(isDayApplicationClosed(open)).toBe(false);
+    expect(hasApplicableSlot(open)).toBe(true);
+    expect(hasApplicableSlot({ slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] })).toBe(true);
+  });
+
+  it('지난 날짜(PAST·BLOCKED 만, applicationClosed=false)는 마감 표시가 아니지만 신청 가능한 슬롯도 없다', () => {
+    const past = { applicationClosed: false, slots: [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')] };
+    expect(isDayApplicationClosed(past)).toBe(false);
+    expect(hasApplicableSlot(past)).toBe(false);
+  });
+
+  it('isSelectableSlot 은 DEADLINE_PASSED 를 선택 불가로 본다(fail-closed 무변경)', () => {
+    expect(isSelectableSlot(slot(9, 'DEADLINE_PASSED'))).toBe(false);
+    expect(isSelectableSlot(slot(9, 'PENDING_HOLD'))).toBe(true);
+  });
+});
+```
+
+`booking-components.test.tsx` 의 `makeClosedDay` 아래에 추가:
+
+```tsx
+it('서버 applicationClosed=true 인 날은 빈 슬롯이 없어도(전부 점유·대기) 대기 행이 잠기고 안내 note 가 뜬다 — 잔여 한계 해소', () => {
+  const onToggleSlot = vi.fn();
+  const fullyOccupiedClosedDay = makeDay({
+    availableSlotCount: 0,
+    dayStatus: 'FULL',
+    applicationClosed: true,
+    slots: makeDay().slots.map((slot, index) =>
+      slot.status === 'AVAILABLE'
+        ? index % 2 === 0
+          ? { ...slot, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '총학생회' }
+          : { ...slot, status: 'PENDING_HOLD' as const }
+        : slot,
+    ),
+  });
+  render(<DaySlotList day={fullyOccupiedClosedDay} selection={null} onToggleSlot={onToggleSlot} />);
+  expect(screen.queryByText('신청 마감')).not.toBeInTheDocument();
+  expect(screen.getByRole('note')).toBeInTheDocument();
+  const pendingRow = screen.getByRole('button', { name: /10:00~11:00.*승인 대기/ });
+  expect(pendingRow).toBeDisabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).not.toHaveBeenCalled();
+});
+```
+
+`facility-booking-page.test.tsx` 시나리오 22 교체:
+
+```tsx
+  it('시나리오 22 (뷰 전환 g-끝): 창 마지막 주에서는 다음 주 이동이 비활성이다', async () => {
+    mockSearchParams.value = `facilityId=1&date=${WINDOW.until}`;
+    const { queryClient } = renderPage();
+
+    const lastWeekLabel = weekRangeLabel(mondayOf(WINDOW.until));
+    expect(await screen.findByRole('heading', { level: 2, name: lastWeekLabel })).toBeInTheDocument();
+    // 창 로드를 캐시로 직접 확인한 뒤 다음 주 비활성을 단언한다(이전 주 활성은 더 이상 창 로드의 대리 신호가 아니다).
+    await waitForBookingWindowLoaded(queryClient);
+    expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '다음 주' })).toBeDisabled();
+  });
+```
+
+시나리오 21 의 `expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled();` 앞에 창 로드 대기를 넣는다(`canPrevWeek` 가 다시 창 로드에 묶이므로):
+
+```tsx
+    await waitFor(() => expect(screen.getByRole('button', { name: '이전 주' })).toBeEnabled());
+```
+(기존 `toBeEnabled()` 동기 단언 줄을 이 `waitFor` 로 교체.)
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && pnpm --filter @duing/web exec vitest run test/facilities/booking-calendar-lib.test.ts test/facilities/booking-components.test.tsx`
+Expected: 타입 오류(`applicationClosed` 없음·인자 형태 불일치) 또는 신규 케이스 FAIL.
+
+- [ ] **Step 3: 구현**
+
+`packages/types/src/facility.ts` 의 `BookingDayAvailability` 에 필드 추가(`slots` 뒤):
+
+```ts
+  // 신청 마감된 날(오늘 이후 & 전날 12:00 KST 경과). 빈 슬롯이 없어 DEADLINE_PASSED 가 없는 날도 true — 날짜 단위 게이팅용.
+  // 구 백엔드 응답엔 없다(optional) → FE 는 DEADLINE_PASSED 존재 파생으로 폴백한다(2026-09-03 §9.1).
+  applicationClosed?: boolean;
+```
+
+`bookingCalendar.ts` 두 함수 교체:
+
+```ts
+/**
+ * 신청이 닫힌 날 파생 — 서버 `applicationClosed`(오늘 이후 & 전날 12:00 KST 경과)가 있으면 그것이 진실이고, 구 응답이면
+ * "빈 슬롯에 DEADLINE_PASSED 가 있다" 로 폴백한다. 클라 시계를 쓰지 않는다. 플래그 덕분에 빈 칸이 하나도 없는(전부 점유·대기)
+ * 마감일도 잠긴다(2026-09-03 §9.1).
+ */
+export function isDayApplicationClosed(day: Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>): boolean {
+  return day.applicationClosed ?? day.slots.some((slot) => slot.status === 'DEADLINE_PASSED');
+}
+
+/** 이 날에 새 신청을 시작할 수 있는 슬롯이 있는가 — 마감된 날은 대기 슬롯이 있어도 false. CTA 문구·행 게이팅 공용. */
+export function hasApplicableSlot(day: Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>): boolean {
+  return !isDayApplicationClosed(day) && day.slots.some(isSelectableSlot);
+}
+```
+(`BookingDayAvailability` 가 이 파일 import 에 없으면 `import type { BookingAvailabilitySlot, BookingDayAvailability, BookingOperatingNote } from '@duing/types';` 로 확장.)
+
+호출부: `DaySlotList.tsx` `isDayApplicationClosed(day.slots)` → `isDayApplicationClosed(day)`; `BookingPanel.tsx` `hasApplicableSlot(day.slots)` → `hasApplicableSlot(day)`; `MobileDaySheet.tsx` `hasApplicableSlot(shownDay.slots)` → `hasApplicableSlot(shownDay)`.
+
+`FacilityBookingPage.tsx` 의 `canPrevWeek` 교체:
+
+```tsx
+  // 창 로드 전엔 changeWeek 가 early return 하므로 버튼도 함께 잠근다(로드 전 무동작 클릭 방지).
+  const canPrevWeek =
+    windowQuery.data !== undefined && weekMonday !== null && shiftDateByDays(weekMonday, -7) >= viewFromMonday;
+```
+
+- [ ] **Step 4: 통과·게이트**
+
+Run: `cd frontend && pnpm --filter @duing/web exec vitest run test/facilities && pnpm -r typecheck && pnpm --filter @duing/web lint`
+Expected: facilities 스위트 전부 PASS, typecheck·lint EXIT 0.
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add frontend/packages/types/src/facility.ts frontend/apps/web/app/facilities/_lib/bookingCalendar.ts frontend/apps/web/app/facilities/_components/booking/DaySlotList.tsx frontend/apps/web/app/facilities/_components/booking/BookingPanel.tsx frontend/apps/web/app/facilities/_components/booking/MobileDaySheet.tsx frontend/apps/web/app/facilities/_pages/FacilityBookingPage.tsx frontend/apps/web/test/facilities/booking-calendar-lib.test.ts frontend/apps/web/test/facilities/booking-components.test.tsx frontend/apps/web/test/facilities/facility-booking-page.test.tsx
+git commit -m "feat(frontend): 시설 예약 — 서버 applicationClosed 로 마감일 게이팅(빈 슬롯 없는 날도 잠금)·이전 주 창 로드 가드 복원"
+```

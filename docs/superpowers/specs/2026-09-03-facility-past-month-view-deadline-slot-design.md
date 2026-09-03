@@ -206,3 +206,33 @@ develop `d9ea5e3d` 기준. 사용자 요청(2026-09-03) 2건을 최소 변경으
 - 지난 시간대 점유 슬롯이 PAST → BLOCKED 로 바뀌는 것은 응답 의미 변화다. 소비처는 `/facilities` 뿐이고(관리자 콘솔은 별도 API), `isSelectableSlot` 이 BLOCKED 를 거부하므로 신청 경로 영향은 없다.
 - 직전 월 스냅샷이 아예 없는 배포 초기(예: 이달 도입)에는 `stale=true` 로 배너가 뜨고 슬롯은 내부 예약만 반영된 채 나머지가 PAST 다. 이는 "저장된 것을 그대로" 원칙의 귀결이며 오표기가 아니다.
 - `availableSlotCount` 의 PENDING_HOLD 조건부 집계로 마감된 날 월간 셀이 "마감" 으로 수렴한다. 대기 신청 자체는 슬롯 상태로 보존된다.
+
+## 9. 후속 (2026-09-03 2차 지시 — 로컬 QA 후 이연 항목 반영)
+
+사용자 지시: 최종 리뷰 후 로컬 QA → 이연 minor 반영 → 잔여 한계 해소 → 머지 → 정리. 이 절은 두 PR(#1133·#1134)에 얹는 추가 커밋의 스펙이다. §0 확정 사항은 그대로 구속한다.
+
+### 9.1 잔여 한계 해소 — 날짜 단위 `applicationClosed` (BE 가산 필드 + FE 파생 우선)
+
+- **문제**: §3.2 파생(`slots.some(DEADLINE_PASSED)`)은 마감된 날의 빈 칸이 0개(전부 점유·대기)면 false 라 대기 행이 선택 가능하게 남았다.
+- **BE**: `FacilityAvailabilityResponse.DayAvailability` 에 `boolean applicationClosed` 추가(가산, `dayStatus` 뒤·`availableSlotCount` 앞이 아니라 **맨 뒤 필드**로 두어 기존 위치 인자 호출을 깨지 않는다). 값 = `!date.isBefore(today) && BookingDeadlinePolicy.isPassed(date, today.atTime(nowTime))` — **오늘 이후이면서 마감 경과한 날만 true**. 지난 날짜는 false(열람 전용이라 "마감 안내" 대상이 아니고, 어차피 선택 가능한 슬롯이 없다). `assembleDay` 가 이미 계산하는 `deadlinePassed` 를 재사용한다. `availableSlotCount` 규칙·슬롯 우선순위 무변경.
+- **FE**: `packages/types` 의 `BookingDayAvailability` 에 `applicationClosed?: boolean`(구 BE 응답엔 없다 → optional). `isDayApplicationClosed(day)` 시그니처를 `Pick<BookingDayAvailability, 'applicationClosed' | 'slots'>` 로 바꾸고 `day.applicationClosed ?? day.slots.some(status === 'DEADLINE_PASSED')` — **서버 플래그가 있으면 그것이 진실, 없으면 기존 파생(fail-soft)**. `hasApplicableSlot(day)` 도 같은 인자. 호출부 3곳(`DaySlotList` `day`, `BookingPanel` `day`, `MobileDaySheet` `shownDay`) 인자만 바뀐다. `isSelectableSlot` 무변경.
+- **테스트**: BE 어셈블러 — 오늘(true)·마감된 익일(true)·이틀 뒤(false)·지난 날짜(false)·경계 12:00/12:01. BE 서비스 단위 — KST 경계 테스트에 익일 `applicationClosed` 단언 추가. BE 인수 — 직전 월 케이스에 `applicationClosed=false` 단언. FE lib — 플래그 true + DEADLINE_PASSED 0개(전부 BLOCKED·PENDING_HOLD) → closed·no applicable ★(잔여 한계 재현), 플래그 undefined → 기존 파생, 플래그 false + DEADLINE_PASSED 있음 → 플래그 우선(false). FE 컴포넌트 — `applicationClosed: true` 이고 빈 칸이 없는 날의 슬롯 리스트: 대기 행 disabled + note 노출.
+
+### 9.2 이연 minor
+
+- **FE `canPrevWeek`**: `windowQuery.data !== undefined && weekMonday !== null && …` 로 창 로드 전 비활성 복원(`changeWeek` 의 early return 과 정합). 페이지 테스트 시나리오 21·14-a 는 창 로드 후 단언이라 영향 없음.
+- **FE 페이지 테스트 시나리오 22**: `waitFor(이전 주 enabled)` 를 `waitForBookingWindowLoaded(queryClient)` 로 교체(`const { queryClient } = renderPage()`), 주석 정정. 단언 의미 불변.
+- **BE `GeneralFacilityAvailabilityService` past 경로 `source = DataSource.CACHE`**: 값은 의미상 정확(직전 월은 캐시 서빙)하고 구조를 바꾸면 `ensureFresh → 행 조회 → 스냅샷` 순서를 흐트러뜨리므로 **리터럴은 유지**하고, 주석 한 줄로 "past 경로의 stale 은 아래 `isIncompleteRecord` 가 판정한다(source 미참조)"를 명시한다. 이것이 이 항목의 처리다.
+- **모바일 "마감" 글리프 실물 확인**: 로컬 QA 에서 390px 뷰포트 스크린샷으로 확인(§9.4 결과 참조). 코드 변경 없음.
+
+### 9.3 Out of Scope (이 절)
+
+- `applicationClosed` 를 월간 셀 라벨("마감" vs FULL)이나 주간 범례에 쓰는 것(현 FULL 수렴으로 충분).
+- 관리자 크롤 탭·두 달 이상 과거·재크롤 정책(§6 그대로).
+
+### 9.4 로컬 QA 결과 (2026-09-03 13:20~ KST, 로컬 BE + 워크트리 FE :3000, dev Supabase)
+
+- 직전 월(8월) 200·stale=false·둥지/CML 점유 6칸 BLOCKED 보존, 7월 400 "조회할 수 있는 기간이 아닙니다.", 9월 DEADLINE_PASSED 22칸(오늘 잔여 9 + 익일 13).
+- PC: 9월→8월 이동·8월에서 이전 달 비활성, 8/14 "지난 날짜" 셀 → 주간 둥지 블록·"지난" 셀·사이드바 둥지 행·CTA "신청 가능한 시간이 없어요"·토스트 없음, 이전 주 반복 → 7/27 주에서 정지(6월 미요청), 9/4 → "신청 마감" 13행·note·"마감" 셀·오늘 지난/마감 분리, 9/5 → 예약 가능 행·CTA 활성(무회귀), 딥링크 8/14 열람·7/15 토스트+월간 복귀·7월 미요청, 8월 500 → "이번 달로 돌아가기" → 9월.
+- 서버: 88888888 로그인 후 POST 9/4·9/3 → 400 `FACILITY_BOOKING_DEADLINE_PASSED`, 8/14 → 400 창 밖, 9/6 20~21 → 201 후 cancel 204(QA 잔여: booking #31 CANCELLED).
+- 모바일 390px: 9/4 탭 → 빠른 예약 시트(제목 "9월 4일 (금)"·note·"신청 마감" 13행·CTA 비활성), "시간표로 보기" → 주간에서 8월 인접월 병합(8/31 "지난" 셀·CML 14:00~16:00 블록·헤더 활성, 요청 월 09·08 만), "마감" 글리프 셀 38×28px·9px `text-charcoal-3` 로 판독 가능, 지난 점유 블록 탭 → 읽기 전용 시트("이미 예약이 확정된 시간이에요."), 8월 → 14일 탭 → 시트에 둥지 행·"지난 시간" 행·note 없음·CTA 비활성·토스트 없음. **QA PASS, 코드 결함 0건.**
