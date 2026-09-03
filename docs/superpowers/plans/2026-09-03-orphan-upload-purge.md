@@ -374,6 +374,8 @@ import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
+import com.duing.common.fixture.UserFixture;
+import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
@@ -398,6 +400,7 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
     @Autowired NoticeRepository noticeRepository;
     @Autowired FederationInquiryRepository federationInquiryRepository;
     @Autowired FederationInquiryAttachmentRepository federationInquiryAttachmentRepository;
+    @Autowired UserRepository userRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
     private final Instant now = Instant.now();
@@ -465,10 +468,11 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         clubPhotoRepository.save(ClubPhoto.create(club, photoRawKey, null, null, null, 1));
 
         String bodyKey = uniqueKey("notice/body");
+        Long authorId = userRepository.save(UserFixture.unique()).getId(); // notice.author_id 는 users FK
         noticeRepository.save(Notice.create("제목", "요약",
                 "<p>본문</p><img src=\"/files/stub/" + bodyKey + "\" alt=\"\"><p>끝</p>",
                 "", null, NoticeCategory.GENERAL, List.of(), NoticeVisibility.PUBLIC, null,
-                false, null, false, null, null, null, null, null, NoticeContentFormat.HTML, 1L));
+                false, null, false, null, null, null, null, null, NoticeContentFormat.HTML, authorId));
 
         assertThat(uploadedObjectRepository.isReferenced(photoUrlKey)).isTrue();
         assertThat(uploadedObjectRepository.isReferenced(photoRawKey)).isTrue();
@@ -478,7 +482,8 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
     @Test
     @DisplayName("참조 스캔은 문의 첨부의 storage_key 정확 일치를 잡는다")
     void detectsFederationInquiryAttachmentReference() {
-        FederationInquiry inquiry = federationInquiryRepository.save(FederationInquiry.create(1L, "제목", "내용"));
+        Long authorId = userRepository.save(UserFixture.unique()).getId(); // federation_inquiry.author_id 는 users FK
+        FederationInquiry inquiry = federationInquiryRepository.save(FederationInquiry.create(authorId, "제목", "내용"));
         String attachmentKey = uniqueKey("federation/inquiry");
         federationInquiryAttachmentRepository.save(FederationInquiryAttachment.create(
                 inquiry, attachmentKey, "첨부 이미지 1", "image/jpeg", 1024L, 0));
@@ -1672,7 +1677,12 @@ Expected: 3건 FAIL(PENDING 그대로).
 
 ```java
         Promotion saved = promotionRepository.save(Promotion.create(
-                /* 기존 인자 그대로 */
+                command.clubId(), command.title(), command.bannerImageUrl(), command.linkUrl(),
+                command.active(), command.displayOrder(), command.createdBy(),
+                command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
+                command.palette(), command.startAt(), command.endAt(),
+                command.renderMode(), command.imageAltText(),
+                command.noticeId()
         ));
         uploadedObjectService.activate(command.bannerImageUrl());
         return saved.getId();
@@ -1995,6 +2005,9 @@ import org.springframework.transaction.PlatformTransactionManager;
  *
  * <p>이슈 #791 테스트 케이스 4 "이미 삭제된 객체 처리 멱등성" 은 별도 케이스가 아니다 — S3/Local 구현 계약상
  * 미존재 키 delete 도 true(삭제 확정)이므로 정상 경로(mock delete→true)와 동형이다.
+ *
+ * <p>컨텍스트는 enabled=true 라 @EnableScheduling 이 켜져 매시 :20 에 실제 크론이 돌 수 있다 — delete-enabled=false
+ * (dry-run)라 로그만 남기므로 테스트 결과에 영향이 없다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = {
