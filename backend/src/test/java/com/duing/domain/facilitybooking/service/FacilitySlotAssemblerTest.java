@@ -296,4 +296,36 @@ class FacilitySlotAssemblerTest {
 
         assertThat(slotStatus(day(days, 20), 14)).isEqualTo(SlotStatus.BLOCKED);
     }
+
+    @Test
+    @DisplayName("applicationClosed — 오늘·마감된 익일은 true, 이틀 뒤와 지난 날짜는 false, 경계는 전날 12:00/12:01")
+    void applicationClosedFlagFollowsDeadlineForTodayAndFuture() {
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), List.of());
+        assertThat(day(days, 15).applicationClosed()).isTrue();  // 오늘 — 당일 신청은 항상 마감
+        assertThat(day(days, 16).applicationClosed()).isTrue();  // 익일 — 12:30 > 12:00 경과
+        assertThat(day(days, 17).applicationClosed()).isFalse(); // 이틀 뒤
+        assertThat(day(days, 10).applicationClosed()).isFalse(); // 지난 날짜는 열람 전용 — 마감 안내 대상 아님
+
+        List<DayAvailability> atNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 0), List.of(), List.of());
+        assertThat(day(atNoon, 16).applicationClosed()).isFalse();
+        List<DayAvailability> afterNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 1), List.of(), List.of());
+        assertThat(day(afterNoon, 16).applicationClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("applicationClosed 는 빈 슬롯이 하나도 없는(전부 점유·대기) 마감된 날에도 true 다 — FE 잔여 한계 해소 근거")
+    void applicationClosedIsTrueEvenWhenNoEmptySlotRemains() {
+        LocalDate tomorrow = LocalDate.of(2026, 1, 16);
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(tomorrow, LocalTime.of(9, 0), LocalTime.of(21, 0),
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(tomorrow, LocalTime.of(21, 0), LocalTime.of(22, 0), BookingStatus.PENDING, null));
+
+        DayAvailability day = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings), 16);
+
+        assertThat(day.slots()).noneMatch(slot -> slot.status() == SlotStatus.DEADLINE_PASSED);
+        assertThat(slotStatus(day, 21)).isEqualTo(SlotStatus.PENDING_HOLD);
+        assertThat(day.applicationClosed()).isTrue();
+        assertThat(day.availableSlotCount()).isZero();
+    }
 }

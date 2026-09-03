@@ -147,6 +147,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .findFirst().orElseThrow();
         assertThat(recordDay.dayStatus()).isEqualTo(FacilityAvailabilityResponse.DayStatus.PAST);
         assertThat(recordDay.availableSlotCount()).isZero();
+        assertThat(recordDay.applicationClosed()).isFalse(); // 지난 날짜는 열람 전용
     }
 
     @Test

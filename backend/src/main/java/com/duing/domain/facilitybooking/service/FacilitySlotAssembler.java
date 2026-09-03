@@ -98,7 +98,10 @@ public final class FacilitySlotAssembler {
         DayStatus dayStatus = date.isBefore(today) ? DayStatus.PAST
                 : availableCount == 0 ? DayStatus.FULL
                 : DayStatus.AVAILABLE;
-        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots);
+        // 날짜 단위 마감 플래그 — 오늘 이후 & 마감 경과. 지난 날짜는 열람 전용이라 false(스펙 §9.1).
+        boolean applicationClosed = !date.isBefore(today) && deadlinePassed;
+        return new DayAvailability(date, dayStatus, availableCount, operatingNotes(basicSecuredTimes), slots,
+                applicationClosed);
     }
 
     /**

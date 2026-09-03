@@ -72,6 +72,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
 
         // 직전 월은 크롤 윈도우(당월·익월) 밖이라 온디맨드 재크롤을 걸지 않는다 — 저장된 행을 그대로 보여주는 기록 열람.
+        // past 경로의 CACHE 는 "캐시 서빙" 이라는 사실 표기이며 stale 판정은 아래 isIncompleteRecord 가 한다(source 미참조).
         DataSource source = pastMonth ? DataSource.CACHE : facilityCrawlService.ensureFresh(targetMonth);
 
         // 분류가 차단 여부를 가른다(실예약만 차단·확보 시간 비차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다.

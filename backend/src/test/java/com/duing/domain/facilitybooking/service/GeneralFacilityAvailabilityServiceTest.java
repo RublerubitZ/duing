@@ -90,10 +90,12 @@ class GeneralFacilityAvailabilityServiceTest {
         FacilityAvailabilityResponse beforeCutoff =
                 serviceAt("2026-01-15T03:00:59Z").getAvailability(FACILITY_ID, january);
         assertThat(slotAt(beforeCutoff, tomorrow, 9).status()).isEqualTo(SlotStatus.AVAILABLE);
+        assertThat(beforeCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isFalse();
 
         FacilityAvailabilityResponse afterCutoff =
                 serviceAt("2026-01-15T03:01:00Z").getAvailability(FACILITY_ID, january);
         assertThat(slotAt(afterCutoff, tomorrow, 9).status()).isEqualTo(SlotStatus.DEADLINE_PASSED);
+        assertThat(afterCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isTrue();
         assertThat(slotAt(afterCutoff, tomorrow.plusDays(1), 9).status()).isEqualTo(SlotStatus.AVAILABLE);
     }
 
