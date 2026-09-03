@@ -193,7 +193,9 @@ describe('SessionExpiryHandler', () => {
     expect(skipSpy).toHaveBeenCalledTimes(1);
     expect(pushSpy).toHaveBeenCalledTimes(1);
     // push 보다 먼저 걸려야 한다 — 뒤면 회수 back() 이 먼저 나가 이동이 되돌려진다.
-    expect(skipSpy.mock.invocationCallOrder[0]).toBeLessThan(pushSpy.mock.invocationCallOrder[0]);
+    expect(skipSpy.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY).toBeLessThan(
+      pushSpy.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY,
+    );
   });
 
   it('이동이 없는 종료 통지(시드 상태·이미 확정된 미인증)에서는 회수 스킵도 걸지 않는다', () => {
