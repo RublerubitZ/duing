@@ -346,7 +346,6 @@ export {
   useFacilityDetailQuery,
   useFacilityAvailabilityQuery,
   usePurposePresetsQuery,
-  useBookingWindowQuery,
   useCreateFacilityBookingMutation,
   useClubFacilityBookingsQuery,
   useFacilityBookingDetailQuery,
@@ -364,6 +363,11 @@ export {
   useCancelFacilityBookingAdminMutation,
 } from './facilityBookingsAdmin';
 export { useAdminCrawlReservationsQuery } from './facilityCrawlAdmin';
+export {
+  useAdminFacilitiesQuery,
+  useUpdateFacilityBookingOpenDateMutation,
+  useUpdateAllFacilityBookingOpenDateMutation,
+} from './facilityAdmin';
 export {
   useSubmissionCandidatesQuery,
   useCreateSubmissionBatchMutation,

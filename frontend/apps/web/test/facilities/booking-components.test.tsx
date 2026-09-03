@@ -684,19 +684,36 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   expect(container).not.toHaveTextContent(/운영 시간/);
 });
 
-it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
+it('홈 카드는 아이콘·위치·오픈일 문구를 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-07-20T23:30:00+09:00')); // KST 23:30 → 영업(09~22) 종료 후
   const onSelect = vi.fn();
-  render(<FacilityHomeCard facility={makeFacility()} windowLabel="7.14 ~ 8.31" onSelect={onSelect} />);
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: '2026-09-16' })} onSelect={onSelect} />);
 
   expect(screen.getByText('🛋')).toBeInTheDocument(); // 커뮤니티룸 아이콘
   expect(screen.getByText('학생회관 2층')).toBeInTheDocument();
-  expect(screen.getByText('7.14 ~ 8.31')).toBeInTheDocument();
+  // 오픈일이 미래 → 카드는 창 범위가 아니라 오픈일만 말한다(D7).
+  expect(screen.getByText('9.16부터 예약 가능')).toBeInTheDocument();
   expect(screen.getByText('오늘 마감')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button'));
   expect(onSelect).toHaveBeenCalledWith(1);
+});
+
+it('홈 카드 오픈일 문구: null(닫힘)은 "예약 준비 중"이다', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-07-20T12:00:00+09:00'));
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: null })} onSelect={vi.fn()} />);
+
+  expect(screen.getByText('예약 준비 중')).toBeInTheDocument();
+});
+
+it('홈 카드 오픈일 문구: 지난 오픈일은 "예약 신청 가능"이다', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-07-20T12:00:00+09:00'));
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: '2026-07-01' })} onSelect={vi.fn()} />);
+
+  expect(screen.getByText('예약 신청 가능')).toBeInTheDocument();
 });
 
 it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다른 날 예약은 무시)', () => {
@@ -717,7 +734,6 @@ it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다�
           { date: otherDayIso, start: '09:00', end: '22:00', organization: '비호응원단', status: 'UPCOMING' },
         ],
       })}
-      windowLabel={null}
       onSelect={vi.fn()}
     />,
   );

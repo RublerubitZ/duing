@@ -98,6 +98,8 @@ import type {
   UpdateFederationInquiryAnswerPayload,
   AdminCrawlReservationGroup,
   AdminCrawlReservationParams,
+  AdminFacility,
+  UpdateFacilityBookingOpenDatePayload,
 } from '@duing/types';
 import { REQUEST_TIMEOUT_MS, cleanParams } from '../http';
 
@@ -266,6 +268,18 @@ export type AdminApi = {
     cancel(bookingId: number, reason: string): Promise<void>;
     // GET .../summary — 대시보드 카드 수치(§9.7)
     summary(): Promise<AdminFacilityBookingCounts>;
+  };
+  // === 시설 관리(총동연) — 시설별 예약 오픈일 ===
+  facilities: {
+    // GET /api/v1/admin/facilities — 활성 시설 + bookingOpenDate(no-store)
+    list(): Promise<AdminFacility[]>;
+    // PATCH /api/v1/admin/facilities/{id}/booking-open-date — null 이면 닫기
+    updateBookingOpenDate(
+      facilityId: number,
+      payload: UpdateFacilityBookingOpenDatePayload,
+    ): Promise<void>;
+    // PATCH /api/v1/admin/facilities/booking-open-date — 활성 시설 전체, 단일 트랜잭션(부분 적용 없음)
+    updateAllBookingOpenDate(payload: UpdateFacilityBookingOpenDatePayload): Promise<void>;
   };
   // === 크롤 예약 현황(전면 차단 설계 §3.6) — 읽기 전용, 그룹 단위 페이징 ===
   facilityCrawl: {
@@ -587,6 +601,13 @@ export function createAdminApi(deps: {
       cancel: (bookingId, reason) =>
         jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
       summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+    },
+    facilities: {
+      list: () => jsonOk<AdminFacility[]>(http.get('admin/facilities')),
+      updateBookingOpenDate: (facilityId, payload) =>
+        jsonVoid(http.patch(`admin/facilities/${facilityId}/booking-open-date`, { json: payload })),
+      updateAllBookingOpenDate: (payload) =>
+        jsonVoid(http.patch('admin/facilities/booking-open-date', { json: payload })),
     },
     facilityCrawl: {
       reservations: (params) =>
