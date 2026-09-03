@@ -32,4 +32,7 @@ public interface JoinRequestService {
 
     /** 일괄 승인 — 건별 독립 트랜잭션. 실패는 사유와 함께 반환한다. */
     BulkApproveJoinRequestsResult bulkApprove(BulkApproveJoinRequestsCommand bulkCommand);
+
+    /** 계정 탈퇴 시 본인의 대기 요청 전부를 자동 거절하고 확보했던 자리를 환급한다(#1142). 호출자가 users 행을 잠근 뒤 부른다. */
+    void rejectAllPendingOnWithdrawal(Long userId);
 }

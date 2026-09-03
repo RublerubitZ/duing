@@ -30,6 +30,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
 import com.duing.global.exception.PostgresConstraintViolations;
+import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -74,6 +75,8 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private final UserRepository userRepository;
     private final JoinCodeRateLimiter joinCodeRateLimiter;
     private final Clock clock;
+    // 탈퇴 경로가 거절한 요청을 영속성 컨텍스트에서 떼어낼 때만 쓴다(rejectAllPendingOnWithdrawal).
+    private final EntityManager entityManager;
 
     /**
      * 일괄 승인의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -327,6 +330,36 @@ public class GeneralJoinRequestService implements JoinRequestService {
             }
         }
         return new BulkApproveJoinRequestsResult(approvedCount, failures);
+    }
+
+    @Override
+    @Transactional
+    public void rejectAllPendingOnWithdrawal(Long userId) {
+        // 탈퇴 뒤 남은 PENDING 은 운영진 상세·일괄 승인에서 여전히 도달 가능하고 초대 자리도 묶여 있다 — 본인을
+        // 처리자로 자동 거절하고 자리를 환급한다(자동 승인이 approve(requester) 로 본인을 처리자로 두는 전례).
+        // 승인과의 경합은 @Version 이 409 로 흡수하므로 요청 행을 잠그지 않는다. 호출자(withdraw)가 users 행을
+        // 이미 잠갔으므로 잠금 순서는 users → club_member → club_join_code 로 승인 경로와 같다.
+        List<ClubJoinRequest> pendingRequests =
+                clubJoinRequestRepository.findAllByUserIdAndStatus(userId, JoinRequestStatus.PENDING);
+        if (pendingRequests.isEmpty()) {
+            return;
+        }
+        User requester = userRepository.findById(userId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (ClubJoinRequest pendingRequest : pendingRequests) {
+            pendingRequest.rejectOnWithdrawal(requester, now);
+            releaseReservedUse(pendingRequest);
+            clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                    ClubAuditEventType.JOIN_REQUEST_REJECTED,
+                    pendingRequest.getClub().getId(), pendingRequest.getJoinCode().getRecruitmentIdOrNull(),
+                    pendingRequest.getJoinCode().getId(), pendingRequest.getId(), userId));
+        }
+        // 이 요청이 user·reviewed_by 로 가리키는 회원을 호출자가 곧 soft-delete 한다. 거절 UPDATE 를 먼저
+        // 내보낸 뒤 요청을 영속성 컨텍스트에서 떼어낸다 — 남겨 두면 커밋 시점 flush 의 to-one 검사가
+        // "삭제된(=transient) User 참조"로 보고 500 을 낸다(멤버십은 자신도 삭제 대상이라 이 검사를 타지 않는다).
+        clubJoinRequestRepository.flush();
+        pendingRequests.forEach(entityManager::detach);
     }
 
     /**
