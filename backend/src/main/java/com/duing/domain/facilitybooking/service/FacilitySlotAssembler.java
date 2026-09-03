@@ -22,7 +22,9 @@ import java.util.Optional;
  *
  * <p>크롤 slice 는 실예약 분류(CRAWLED_RESERVATION)만 차단한다 — 기본 확보 시간(BASIC_SECURED_TIME)은
  * 비차단이라 다른 동아리가 그 시간대를 신청할 수 있다(2026-08-27 비차단 전환). 슬롯 판정 우선순위(공존 시 표시 순서):
- * PAST → BLOCKED(INTERNAL) → BLOCKED(SCHOOL=CRAWLED_RESERVATION) → PENDING_HOLD → AVAILABLE.
+ * BLOCKED(INTERNAL) → BLOCKED(SCHOOL) → PAST → PENDING_HOLD → DEADLINE_PASSED → AVAILABLE.
+ * 점유(BLOCKED)가 PAST 보다 앞이라 지난 시간대·직전 월 날짜에서도 "누가 예약했는지"가 기록으로 보존되고(2026-09-03
+ * 직전 월 열람), DEADLINE_PASSED(사용일 전날 12:00 KST 경과, BookingDeadlinePolicy.isPassed 공유)는 빈 슬롯에만 붙는다.
  * operatingNotes 는 확보(BASIC_SECURED_TIME) 슬라이스의 (단체, 시작, 끝) distinct 나열이다 —
  * 표시 전용, 차단 아님(v2 스펙 §3).
  */
@@ -75,14 +77,19 @@ public final class FacilitySlotAssembler {
                 .filter(slice -> slice.date().equals(date) && slice.status() == BookingStatus.PENDING)
                 .toList();
 
+        // 신청 마감(사용일 전날 12:00 KST) — 날짜당 1회 판정. 신청 생성 검증(BookingApplicationPolicy)과 같은 순수 규칙을 공유한다.
+        boolean deadlinePassed = BookingDeadlinePolicy.isPassed(date, today.atTime(nowTime));
+
         List<SlotAvailability> slots = new ArrayList<>(SLOT_COUNT);
         int availableCount = 0;
         for (int index = 0; index < SLOT_COUNT; index++) {
             LocalTime slotStart = OPEN_TIME.plusHours(index);
             LocalTime slotEnd = slotStart.plusHours(1);
-            SlotAvailability slot = resolveSlot(date, today, nowTime, slotStart, slotEnd,
+            SlotAvailability slot = resolveSlot(date, today, nowTime, deadlinePassed, slotStart, slotEnd,
                     crawledReservations, blockedBookings, pendingBookings);
-            if (slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.PENDING_HOLD) {
+            // 마감된 날의 대기 슬롯은 새 신청 대상이 아니므로 세지 않는다 — 월간 셀이 FULL("마감")로 수렴한다.
+            if (slot.status() == SlotStatus.AVAILABLE
+                    || (slot.status() == SlotStatus.PENDING_HOLD && !deadlinePassed)) {
                 availableCount++;
             }
             slots.add(slot);
@@ -108,15 +115,14 @@ public final class FacilitySlotAssembler {
     }
 
     private static SlotAvailability resolveSlot(LocalDate date, LocalDate today, LocalTime nowTime,
+                                                boolean deadlinePassed,
                                                 LocalTime slotStart, LocalTime slotEnd,
                                                 List<CrawlSlice> crawledReservations,
                                                 List<BookingSlice> blockedBookings,
                                                 List<BookingSlice> pendingBookings) {
         String start = TIME_FORMAT.format(slotStart);
         String end = TIME_FORMAT.format(slotEnd);
-        if (date.isBefore(today) || (date.isEqual(today) && !slotEnd.isAfter(nowTime))) {
-            return new SlotAvailability(start, end, SlotStatus.PAST, null, null);
-        }
+        // 점유 정보가 최우선 — 지난 시간대·마감된 날에도 "누가 예약했는지"는 기록으로 보존한다(직전 월 열람 스펙 §2.3).
         Optional<BookingSlice> internalBlock = blockedBookings.stream()
                 .filter(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd))
                 .findFirst();
@@ -135,12 +141,19 @@ public final class FacilitySlotAssembler {
             return new SlotAvailability(start, end, SlotStatus.BLOCKED,
                     SlotBlockSource.SCHOOL, schoolBlock.get().organization());
         }
+        if (date.isBefore(today) || (date.isEqual(today) && !slotEnd.isAfter(nowTime))) {
+            return new SlotAvailability(start, end, SlotStatus.PAST, null, null);
+        }
         // 기본 확보 시간(BASIC_SECURED_TIME)은 비차단 — 여기까지 오면 확보 구간이라도 PENDING_HOLD/AVAILABLE 로 내려간다.
         boolean pendingHold = pendingBookings.stream()
                 .anyMatch(slice -> overlaps(slice.start(), slice.end(), slotStart, slotEnd));
         if (pendingHold) {
-            // 승인 대기 동아리명은 비노출(설계 §3.1 — 신청 경쟁 정보 최소화)
+            // 승인 대기 동아리명은 비노출(설계 §3.1 — 신청 경쟁 정보 최소화). 마감된 날에도 대기 상태를 유지한다(§0-2).
             return new SlotAvailability(start, end, SlotStatus.PENDING_HOLD, null, null);
+        }
+        // 빈 슬롯만 마감 판정 — 점유·대기 슬롯은 위에서 이미 돌아갔다.
+        if (deadlinePassed) {
+            return new SlotAvailability(start, end, SlotStatus.DEADLINE_PASSED, null, null);
         }
         return new SlotAvailability(start, end, SlotStatus.AVAILABLE, null, null);
     }

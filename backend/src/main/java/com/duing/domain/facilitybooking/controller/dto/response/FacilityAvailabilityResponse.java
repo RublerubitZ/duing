@@ -18,7 +18,11 @@ public record FacilityAvailabilityResponse(
 
     public enum DayStatus { AVAILABLE, FULL, PAST }
 
-    public enum SlotStatus { AVAILABLE, PENDING_HOLD, BLOCKED, PAST }
+    /**
+     * DEADLINE_PASSED = 신청 마감(사용일 전날 12:00 KST 경과, BookingDeadlinePolicy 와 동일 경계). 빈 슬롯에만 부여하며
+     * 점유 슬롯은 BLOCKED·PENDING_HOLD 를 유지한다. PAST 는 이미 지난 시간대(지난 날짜 포함)의 빈 슬롯.
+     */
+    public enum SlotStatus { AVAILABLE, PENDING_HOLD, BLOCKED, PAST, DEADLINE_PASSED }
 
     /** SCHOOL = 크롤 실예약, INTERNAL = 내부 승인 예약. 기본 확보 시간은 비차단이라 blockedBy 로 내려가지 않는다(2026-08-27). */
     public enum SlotBlockSource { SCHOOL, INTERNAL }
