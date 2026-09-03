@@ -4,15 +4,22 @@ import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
+// 더티 플러시가 변경 컬럼만 UPDATE 하게 한다. 학교 목록 동기화(이름·위치·순서·아카이브)와 총동연 오픈일 변경이
+// 서로 다른 컬럼을 쓰는 두 트랜잭션이라, 전 컬럼 UPDATE 면 늦게 커밋한 쪽이 상대 컬럼을 옛 스냅샷으로 되돌린다
+// (User 의 GeneralUserService.updateProfile 주석이 지적한 결함). 같은 컬럼을 두 관리자가 동시에 쓰는 경우는 last-writer-wins 허용.
+// BaseEntity 의 @LastModifiedDate 는 AuditingEntityListener 가 @PreUpdate 에서 더티로 만들어 UPDATE 에 포함된다.
 @Getter
 @Entity
+@DynamicUpdate
 @Table(name = "facility")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Facility extends BaseEntity {
@@ -34,6 +41,10 @@ public class Facility extends BaseEntity {
 
     @Column(name = "archived_at")
     private LocalDateTime archivedAt;
+
+    /** 총동연이 정한 예약 오픈일. NULL = 아직 열지 않음(닫힘). 신청 창 계산은 BookingOpenDatePolicy. */
+    @Column(name = "booking_open_date")
+    private LocalDate bookingOpenDate;
 
     @Builder(access = AccessLevel.PRIVATE)
     private Facility(Integer roomSeq, String roomName, String location, Integer sortOrder) {
@@ -73,6 +84,11 @@ public class Facility extends BaseEntity {
     /** 학교 목록에 재등장한 시설의 아카이브를 해제한다. */
     public void restore() {
         this.archivedAt = null;
+    }
+
+    /** updateDetails(학교 동기화)는 이 값을 건드리지 않는다 — 운영자 설정 보존. null = 닫기. */
+    public void changeBookingOpenDate(LocalDate newBookingOpenDate) {
+        this.bookingOpenDate = newBookingOpenDate;
     }
 
     public boolean isArchived() {

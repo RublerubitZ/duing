@@ -18,6 +18,7 @@ import com.duing.domain.facility.parser.ParsedFacility;
 import com.duing.domain.facility.repository.FacilityRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -75,6 +76,51 @@ class FacilitySyncServiceTest {
 
         assertThat(existing.getLocation()).isEqualTo("2105-1");
         assertThat(existing.isArchived()).isFalse();
+    }
+
+    @Test
+    @DisplayName("총동연이 설정한 예약 오픈일은 학교 목록 동기화가 이름/위치를 갱신해도 보존된다")
+    void preservesBookingOpenDateOnUpdate() {
+        LocalDate bookingOpenDate = LocalDate.now(clock).plusDays(5);
+        Facility existing = Facility.create(4, "공동연습실(1)", "2105", 0);
+        existing.changeBookingOpenDate(bookingOpenDate);
+        when(facilityRepository.findByRoomSeq(4)).thenReturn(Optional.of(existing));
+        when(facilityRepository.findAll()).thenReturn(List.of(existing));
+        when(listParser.parse(any())).thenReturn(List.of(new ParsedFacility(4, "공동연습실(2)", "2105-1", 1)));
+
+        service.sync();
+
+        assertThat(existing.getRoomName()).isEqualTo("공동연습실(2)");
+        assertThat(existing.getBookingOpenDate()).isEqualTo(bookingOpenDate);
+    }
+
+    @Test
+    @DisplayName("아카이브됐던 시설이 학교 목록에 재등장해 복구돼도 예약 오픈일은 보존된다")
+    void preservesBookingOpenDateOnRestore() {
+        LocalDate bookingOpenDate = LocalDate.now(clock).plusDays(5);
+        Facility archived = Facility.create(4, "공동연습실(1)", "2105", 0);
+        archived.changeBookingOpenDate(bookingOpenDate);
+        archived.archive(LocalDateTime.now(clock));
+        when(facilityRepository.findByRoomSeq(4)).thenReturn(Optional.of(archived));
+        when(facilityRepository.findAll()).thenReturn(List.of(archived));
+        when(listParser.parse(any())).thenReturn(List.of(new ParsedFacility(4, "공동연습실(1)", "2105", 0)));
+
+        service.sync();
+
+        assertThat(archived.isArchived()).isFalse();
+        assertThat(archived.getBookingOpenDate()).isEqualTo(bookingOpenDate);
+    }
+
+    @Test
+    @DisplayName("새로 생성된 시설은 예약 오픈일이 비어 있다(총동연이 열기 전까지 닫힘)")
+    void createsFacilityWithoutBookingOpenDate() {
+        when(listParser.parse(any())).thenReturn(List.of(new ParsedFacility(4, "공동연습실(1)", "2105", 0)));
+        when(facilityRepository.findAll()).thenReturn(List.of());
+        when(facilityRepository.findByRoomSeq(4)).thenReturn(Optional.empty());
+
+        service.sync();
+
+        verify(facilityRepository).save(argThat(saved -> saved.getBookingOpenDate() == null));
     }
 
     @Test
