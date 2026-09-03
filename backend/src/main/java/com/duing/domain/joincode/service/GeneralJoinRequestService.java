@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -61,6 +62,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
     // 존재·소속 여부를 알아내는 열거(oracle)를 막는다.
     private static final String BULK_ITEM_GENERIC_FAILURE = "해당 가입 요청을 처리할 권한이 없거나 존재하지 않습니다.";
     private static final String AUTO_REJECTED_FAILURE = "이미 가입된 회원이라 자동 거절 처리되었습니다.";
+    private static final String AUTO_REJECTED_WITHDRAWN_FAILURE = "탈퇴한 회원이라 자동 거절 처리되었습니다.";
 
     private final ClubJoinCodeRepository clubJoinCodeRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
@@ -239,17 +241,26 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     private JoinRequestDecisionResult approveOrAutoReject(ClubJoinRequest joinRequest, User reviewer,
                                                           LocalDateTime now) {
+        // 요청자 생존은 users 행 잠금이 판정한다(#1142) — 목록은 탈퇴자를 숨기지만 상세·일괄 승인은 id 로 도달하고,
+        // 요청자 연관은 미초기화 프록시라 @SQLRestriction 을 거치지 않는다. FOR UPDATE 조회는 탈퇴(users 행 잠금)와
+        // 직렬화되고 탈퇴가 커밋됐으면 빈 결과다. 예외가 아닌 자동 거절이어야 상태 전이가 커밋된다(PENDING 방치 금지).
+        Optional<User> requester = userRepository.findByIdForUpdate(joinRequest.getUser().getId());
+        if (requester.isEmpty()) {
+            joinRequest.rejectOnWithdrawal(reviewer, now);
+            releaseReservedUse(joinRequest);
+            return JoinRequestDecisionResult.AUTO_REJECTED_WITHDRAWN;
+        }
         // 승인 시점에 이미 다른 경로로 활성 회원이 됐다면 자동 거절하고 확보해 둔 자리를 환급한다
         // (PENDING 방치 금지, 스펙 4.3). 예외가 아닌 정상 리턴이어야 상태 전이가 커밋된다.
         if (clubMemberRepository.findByClubIdAndUserId(
-                joinRequest.getClub().getId(), joinRequest.getUser().getId()).isPresent()) {
+                joinRequest.getClub().getId(), requester.get().getId()).isPresent()) {
             joinRequest.rejectAutomatically(reviewer, now);
             releaseReservedUse(joinRequest);
             return JoinRequestDecisionResult.AUTO_REJECTED;
         }
         // 자리는 요청 생성 시점에 이미 확보됐으므로 승인은 차감하지 않는다. 만료·폐기·모집 마감 코드도
         // 승인은 허용한다(요청 생성 시점에 이미 코드 검증을 통과했으므로, 스펙 4.3).
-        clubMemberEnrollmentService.enroll(joinRequest.getClub(), joinRequest.getUser(),
+        clubMemberEnrollmentService.enroll(joinRequest.getClub(), requester.get(),
                 ClubMemberRole.MEMBER, joinRequest.getGeneration());
         joinRequest.approve(reviewer, now);
         return JoinRequestDecisionResult.APPROVED;
@@ -285,9 +296,12 @@ public class GeneralJoinRequestService implements JoinRequestService {
                         bulkCommand.clubId(), joinRequestId, bulkCommand.requesterId(),
                         JoinRequestStatus.APPROVED));
                 // 자동 거절은 커밋된 정상 결과지만 "승인됨"이 아니므로 운영진에게 사유와 함께 알린다.
-                if (decisionResult == JoinRequestDecisionResult.AUTO_REJECTED) {
-                    failures.add(new BulkApproveJoinRequestsResult.Failure(
-                            joinRequestId, AUTO_REJECTED_FAILURE));
+                if (decisionResult == JoinRequestDecisionResult.AUTO_REJECTED
+                        || decisionResult == JoinRequestDecisionResult.AUTO_REJECTED_WITHDRAWN) {
+                    failures.add(new BulkApproveJoinRequestsResult.Failure(joinRequestId,
+                            decisionResult == JoinRequestDecisionResult.AUTO_REJECTED
+                                    ? AUTO_REJECTED_FAILURE
+                                    : AUTO_REJECTED_WITHDRAWN_FAILURE));
                     continue;
                 }
                 approvedCount++;

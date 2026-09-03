@@ -53,6 +53,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -70,6 +71,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -294,6 +296,53 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .as("자동 거절도 수동 거절과 같은 거절 이벤트로 남는다 — 사유는 요청 행이 갖고 있다")
                 .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId)
                 .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId()));
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 대기 요청을 승인하면 자동 거절되고 예약 자리가 환급된다")
+    void approveOnWithdrawnRequesterAutoRejectsAndRefunds() {
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest pending = savePendingRequest(withdrawnStudent);
+        // 계정만 soft-delete 한 잔존 재현 — 탈퇴 서비스 경로는 요청을 미리 거절하므로(결정 2) 승인 경로
+        // 단독 검증엔 jdbc 로 찍는다. 상세 API 는 탈퇴자 연관을 초기화하므로 단언은 저장소로 한다.
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        decide(leaderToken, club.getId(), pending.getId(), "APPROVED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.result", equalTo("AUTO_REJECTED_WITHDRAWN"));
+
+        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), withdrawnStudent.getId()))
+                .as("탈퇴한 계정에 활성 멤버십이 생기지 않는다").isEmpty();
+        ClubJoinRequest rejected = clubJoinRequestRepository.findById(pending.getId()).orElseThrow();
+        assertThat(rejected.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(rejected.getRejectReason()).isEqualTo("탈퇴한 회원");
+        assertThat(usedCountOfCurrentCode()).as("자동 거절은 자리를 환급한다").isZero();
+        assertThat(auditEvents())
+                .as("거절 이벤트로 남는다 — 사유는 요청 행이 갖고 있다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId()));
+    }
+
+    @Test
+    @DisplayName("일괄 승인에 탈퇴한 회원의 요청이 섞이면 전용 문구로 실패 목록에 남는다")
+    void bulkApproveReportsWithdrawnRequester() {
+        ClubJoinRequest approvable = savePendingRequest(saveUser());
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest withdrawn = savePendingRequest(withdrawnStudent);
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        Response response = bulkApprove(leaderToken, club.getId(),
+                List.of(approvable.getId(), withdrawn.getId()));
+
+        response.then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.approvedCount", equalTo(1))
+                .body("data.failures", hasSize(1));
+        assertThat(response.jsonPath().getList("data.failures.reason", String.class))
+                .containsExactly("탈퇴한 회원이라 자동 거절 처리되었습니다.");
+        assertThat(clubJoinRequestRepository.findById(withdrawn.getId()).orElseThrow().getStatus())
+                .as("탈퇴자 요청은 PENDING 으로 방치되지 않는다").isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(usedCountOfCurrentCode()).as("승인 1건은 유지, 탈퇴자 1건은 환급").isEqualTo(1);
     }
 
     @Test

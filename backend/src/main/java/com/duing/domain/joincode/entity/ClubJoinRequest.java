@@ -44,6 +44,9 @@ public class ClubJoinRequest extends BaseEntity {
     /** 승인 시점 이미 다른 경로로 가입된 회원이라 자동 거절된 요청의 사유 (스펙 4.3). */
     private static final String ALREADY_MEMBER_REJECT_REASON = "이미 가입된 회원";
 
+    /** 승인 시점 요청자 계정이 이미 탈퇴(soft-delete)해 자동 거절된 요청의 사유 (#1142). */
+    private static final String WITHDRAWN_REJECT_REASON = "탈퇴한 회원";
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
@@ -113,6 +116,11 @@ public class ClubJoinRequest extends BaseEntity {
     /** 승인 시점 이미 활성 회원이라 인원 차감 없이 거절 처리한다 (스펙 4.3 — PENDING 방치 금지). */
     public void rejectAutomatically(User reviewer, LocalDateTime now) {
         process(JoinRequestStatus.REJECTED, reviewer, now, ALREADY_MEMBER_REJECT_REASON);
+    }
+
+    /** 요청자가 이미 탈퇴한 계정이라 인원 차감 없이 거절 처리한다 (#1142 — PENDING 방치 금지). 탈퇴 경로에서는 본인이 처리자다. */
+    public void rejectOnWithdrawal(User reviewer, LocalDateTime now) {
+        process(JoinRequestStatus.REJECTED, reviewer, now, WITHDRAWN_REJECT_REASON);
     }
 
     public boolean isPending() {
