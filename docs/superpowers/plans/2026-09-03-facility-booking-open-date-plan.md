@@ -4,7 +4,7 @@
 
 **Goal:** 반월(pivot 15) 롤링 창을 완전히 제거하고, 총동연이 시설마다 지정한 `facility.booking_open_date` 부터 익월 말일까지를 신청 창으로 삼는다. 오픈일이 없는 시설은 닫혀 있다. FE 는 가용성 응답의 `bookableFrom/bookableUntil` 만을 단일 진실 공급원으로 쓴다.
 
-**Architecture:** BE 는 `BookingOpenDatePolicy`(순수 판정) 가 `[max(오픈일, 오늘), 익월 말일]`(오픈일 NULL 이면 빈 창) 을 계산하고, `BookingApplicationPolicy` 파사드가 `Facility` 를 받아 신청 검증·가용성 메타 두 소비처에 같은 창을 공급한다. 슬롯 상태·크롤·마감·승인 경로는 창을 참조하지 않으므로 무변경. 오픈일은 `facility` 컬럼 1개(V120)에 저장하고 `PATCH /admin/facilities/{id}/booking-open-date`(시설별) 와 `PATCH /admin/facilities/booking-open-date`(활성 시설 전체, 단일 트랜잭션) 로 바꾼다. 전역 `GET /facilities/booking-window` 는 구 FE 번들의 내비게이션을 위해 한 릴리스 동안 참조 창(오늘~익월 말일)을 내리다가 다음 릴리스에서 삭제한다. FE 는 페이지의 전역 창 사용을 `availability` 값으로 치환하고, 홈 카드는 원시 `bookingOpenDate` 로 "M.d부터 예약 가능 / 예약 신청 가능 / 예약 준비 중" 을 표시하며, 관리자 콘솔 `?tab=open` 탭에서 시설별·전체 오픈일을 저장한다.
+**Architecture:** BE 는 `BookingOpenDatePolicy`(순수 판정) 가 `[max(오픈일, 오늘), 익월 말일]`(오픈일 NULL 이면 빈 창) 을 계산하고, `BookingApplicationPolicy` 파사드가 `Facility` 를 받아 신청 검증·가용성 메타 두 소비처에 같은 창을 공급한다. 슬롯 상태·크롤·마감·승인 경로는 창을 참조하지 않으므로 무변경. 오픈일은 `facility` 컬럼 1개(V121)에 저장하고 `PATCH /admin/facilities/{id}/booking-open-date`(시설별) 와 `PATCH /admin/facilities/booking-open-date`(활성 시설 전체, 단일 트랜잭션) 로 바꾼다. 전역 `GET /facilities/booking-window` 는 구 FE 번들의 내비게이션을 위해 한 릴리스 동안 참조 창(오늘~익월 말일)을 내리다가 다음 릴리스에서 삭제한다. FE 는 페이지의 전역 창 사용을 `availability` 값으로 치환하고, 홈 카드는 원시 `bookingOpenDate` 로 "M.d부터 예약 가능 / 예약 신청 가능 / 예약 준비 중" 을 표시하며, 관리자 콘솔 `?tab=open` 탭에서 시설별·전체 오픈일을 저장한다.
 
 **Tech Stack:** Spring Boot 3.4 / Java 21 / Flyway 10.20.1 / JUnit 5 + Mockito + Testcontainers(인수·경합) · Next.js 15 / React 19 / vitest + testing-library + msw.
 
@@ -31,7 +31,7 @@
 |---|---|---|
 | P1 | 정책 단위 | **시설별.** `facility.booking_open_date DATE NULL`. 정책 이력 테이블은 이번 범위 밖. |
 | P2 | 신청 창 | `bookableFrom = max(today, bookingOpenDate)`, `bookableUntil = YearMonth.from(today).plusMonths(1).atEndOfMonth()`. 크롤 월(당월+익월)·FE 열람 월 `[prev, cur, next]`·스냅샷 TTL(10분/24h)·가용성 월 가드(직전~익월) 무변경. |
-| P3 | NULL 의미 | **NULL = 닫힘(총동연이 아직 열지 않음).** 가용성은 빈 창(`bookableFrom = 익월 말일 + 1 > bookableUntil`), 신청은 400 "아직 예약 신청이 열리지 않았어요.", FE 는 미래 셀 전부 "예약 기간 아님" + 안내줄. V120 백필 없음 → **BE 배포 시점부터 총동연이 오픈일을 넣기 전까지 전 시설 신청 불가**(§8 런북으로 공백을 분 단위로 묶는다). 판단 근거는 아래. |
+| P3 | NULL 의미 | **NULL = 닫힘(총동연이 아직 열지 않음).** 가용성은 빈 창(`bookableFrom = 익월 말일 + 1 > bookableUntil`), 신청은 400 "아직 예약 신청이 열리지 않았어요.", FE 는 미래 셀 전부 "예약 기간 아님" + 안내줄. V121 백필 없음 → **BE 배포 시점부터 총동연이 오픈일을 넣기 전까지 전 시설 신청 불가**(§8 런북으로 공백을 분 단위로 묶는다). 판단 근거는 아래. |
 | P4 | 오픈일 변경 | 미래로 바꾸면 **신규 신청부터** 그 이전 날짜 400. 기존 PENDING 자동 취소 없음. 승인/확정/취소 경로는 창 미참조 그대로. 과거 오픈일 저장 허용, 판정은 오늘로 clamp. `null` 저장 = 닫기. |
 | P5 | 미오픈 슬롯 | BE 슬롯 상태 신설 없음. 슬롯은 AVAILABLE 로 내려가고 FE 가 `bookableFrom/Until` 로 선택 불가 처리(현행 `BookingCalendar`/`WeekTimetable` 게이팅 유지). |
 | P6 | 크롤 분리 | 크롤 범위·신선도·자동 매칭 정책 무변경. 크롤 없음/stale 은 이번 범위 밖(현행: 신청 허용, stale 배너, 자동 확정만 스킵). |
@@ -41,7 +41,7 @@
 **P3 판단 근거(사용자 최종 확인 ①)**
 
 - 요구사항 원문 "운영자가 특정 날짜를 선택하면 **그 날짜부터** 해당 시설의 예약이 열리는 방식" 의 자연스러운 역은 "선택하기 전에는 열리지 않는다" 이다. NULL=오늘부터는 이 역을 깨고 "선택 안 하면 무제한 오픈" 이 된다.
-- 운영 맥락: 반월 잠금은 07-14 스펙 §1.5 에 "**사용자 지시**, 항상 **다음 예약 오픈 구간만** 신청 가능" 으로 도입됐고, 07-18 결정 로그에서 "7일 전" 대안까지 철회하며 유지됐다. 총동연이 접수 시기를 통제하려는 의도가 두 번 확인된 셈이다. NULL=오늘부터는 V120 배포 순간 총동연의 선택 없이 익월 전체(1~15일 시점엔 익월 하반기까지) 를 자동으로 열어 이 의도와 정면충돌한다.
+- 운영 맥락: 반월 잠금은 07-14 스펙 §1.5 에 "**사용자 지시**, 항상 **다음 예약 오픈 구간만** 신청 가능" 으로 도입됐고, 07-18 결정 로그에서 "7일 전" 대안까지 철회하며 유지됐다. 총동연이 접수 시기를 통제하려는 의도가 두 번 확인된 셈이다. NULL=오늘부터는 V121 배포 순간 총동연의 선택 없이 익월 전체(1~15일 시점엔 익월 하반기까지) 를 자동으로 열어 이 의도와 정면충돌한다.
 - 코드 맥락: 학교 목록 동기화(`FacilitySyncService`)가 새 시설을 만들거나 아카이브를 복구하면 오픈일이 NULL 이다. NULL=오늘부터면 총동연이 검토하기 전에 새 방이 즉시 신청 가능 상태가 된다. NULL=닫힘이면 검토 후 열 수 있다.
 - "넓어짐" 자체는 NULL 의미와 무관하게 P2(상한 익월 말일) 의 귀결이다 — 오픈일을 오늘로 넣는 순간 익월 말일까지 열린다. 차이는 **누가 그 결정을 하느냐**뿐이며, NULL=닫힘이면 총동연이 관리자 탭에서 명시적으로 선택한다(예: 배포 당일 "전체 적용 = 오늘" 이면 현행보다 넓게, "= 다음 반월 시작일" 이면 현행과 유사하게).
 - 비용: BE 배포 ~ 오픈일 입력 사이 신청 불가 공백. 실측 이용량(dev DB 두 달 20건)과 저사용 시간대 배포 관례를 고려하면 분 단위 공백은 수용 가능하고, §8 런북이 공백을 묶는다.
@@ -97,7 +97,7 @@ FacilityUsage.bookingOpenDate (이용현황)                    GeneralFacilityB
 
 ## 3. DB migration 계획
 
-**파일**: `backend/src/main/resources/db/migration/V120__facility_booking_open_date.sql` (V119 가 최신, 원격 전 헤드에 V120 없음 — 2026-09-03 확인. 구현 시작 시 `for h in $(git ls-remote --heads origin | cut -f2); do git ls-tree -r --name-only $h -- backend/src/main/resources/db/migration | grep 'V12[0-9]__'; done` 로 재확인.)
+**파일**: `backend/src/main/resources/db/migration/V121__facility_booking_open_date.sql` (V119 가 원격 최신이나 **V121 은 로컬 브랜치 `feat/791-orphan-upload-purge` 의 `V120__create_uploaded_object.sql` 이 예약 — 2026-09-03 사용자 확인** → 이 작업은 V121. 구현 시작 시 `for h in $(git ls-remote --heads origin | cut -f2); do git ls-tree -r --name-only $h -- backend/src/main/resources/db/migration | grep 'V12[0-9]__'; done` 로 재확인.)
 
 ```sql
 -- 시설별 예약 오픈일(총동연 설정). NULL = 아직 열지 않음(신청 불가). 신청 창 [max(오픈일, 오늘), 익월 말일] 은
@@ -127,7 +127,7 @@ ALTER TABLE facility ADD COLUMN booking_open_date DATE NULL;
 - `backend/src/main/resources/application.yml:255-260`(`booking.window` 블록), `backend/src/test/resources/application.yml:150-153`
 
 **신규**
-- `backend/src/main/resources/db/migration/V120__facility_booking_open_date.sql`
+- `backend/src/main/resources/db/migration/V121__facility_booking_open_date.sql`
 - `backend/src/main/java/com/duing/domain/facilitybooking/service/BookingOpenDatePolicy.java`
 - `backend/src/main/java/com/duing/domain/facility/api/AdminFacilityApi.java`
 - `backend/src/main/java/com/duing/domain/facility/controller/AdminFacilityController.java`
@@ -696,9 +696,9 @@ export function bookingWindowNote(bookableFrom: string, bookableUntil: string, t
 
 | 순서 | 단계 | 비고 |
 |---|---|---|
-| 1 | PR-BE1 → develop | V120, 정책 교체, 관리자 API(1건·전체), booking-window 참조 창 유지 |
+| 1 | PR-BE1 → develop | V121, 정책 교체, 관리자 API(1건·전체), booking-window 참조 창 유지 |
 | 2 | PR-FE1 → develop | 소비처 제거·홈 카드·안내줄·관리자 탭. BE1 머지 후 |
-| 3 | 릴리스 N(2주 주기) — **런북** | ① **BE(Lightsail) 먼저** → Flyway V120 로그 확인 → **이 순간부터 전 시설 닫힘**(신청 400 "아직 예약 신청이 열리지 않았어요", 구 FE 셀 "예약 기간 아님"). ② **곧바로 FE(Vercel)**. ③ **총동연이 관리자 탭 "전체 적용"으로 오픈일 입력** — 권장값은 총동연 결정: 배포 당일 = 현행보다 넓게(익월 말일까지), 다음 반월 시작일 = 현행과 유사. ④ 공백을 0 에 가깝게 하려면 ①과 ② 사이에 운영자가 1회성 SQL `UPDATE facility SET booking_open_date = CURRENT_DATE WHERE archived_at IS NULL;` 을 실행해도 된다(멱등, 관리자 탭에서 즉시 재조정 가능). 저사용 시간대 배포. 릴리스 노트: "반월 창 폐지, 시설별 오픈일 도입(오픈일 없는 시설은 신청 불가), 총동연이 관리자 콘솔에서 설정" |
+| 3 | 릴리스 N(2주 주기) — **런북** | ① **BE(Lightsail) 먼저** → Flyway V121 로그 확인 → **이 순간부터 전 시설 닫힘**(신청 400 "아직 예약 신청이 열리지 않았어요", 구 FE 셀 "예약 기간 아님"). ② **곧바로 FE(Vercel)**. ③ **총동연이 관리자 탭 "전체 적용"으로 오픈일 입력** — 권장값은 총동연 결정: 배포 당일 = 현행보다 넓게(익월 말일까지), 다음 반월 시작일 = 현행과 유사. ④ 공백을 0 에 가깝게 하려면 ①과 ② 사이에 운영자가 1회성 SQL `UPDATE facility SET booking_open_date = CURRENT_DATE WHERE archived_at IS NULL;` 을 실행해도 된다(멱등, 관리자 탭에서 즉시 재조정 가능). 저사용 시간대 배포. 릴리스 노트: "반월 창 폐지, 시설별 오픈일 도입(오픈일 없는 시설은 신청 불가), 총동연이 관리자 콘솔에서 설정" |
 | 4 | PR-BE2(`chore/facility-booking-window-removal`) → 릴리스 N+1 | `getBookingWindow`·`BookingWindowResponse`·`referenceWindow`·`FacilityAvailabilityApi` 항목·인수 테스트 삭제 |
 
 **스큐 매트릭스**
@@ -724,7 +724,7 @@ export function bookingWindowNote(bookableFrom: string, bookableUntil: string, t
 | R7 | `FacilityUsageItem`·`BookingApplicationPolicy` 시그니처 변경 → 컴파일 | T12(기계적). 예약 생성 통합 테스트 8파일 시드 `opened(...)`(T11) 누락 시 400 으로 일괄 실패 — 첫 실행에서 드러남. |
 | R8 | 공개 목록/이용현황 60초 캐시로 홈 카드 지연 | 허용(D3). 관리자 화면은 no-store. |
 | R9 | 구 FE 번들 잔존 중 booking-window 삭제 | BE2 를 다음 릴리스로 분리(P8). 참조 창을 내리므로 구 FE 내비 유지. |
-| R10 | Flyway 롤백 | 구 BE 이미지는 V120 을 `*:future` 로 무시(기본값), 컬럼 미매핑 → 기동 정상. 롤백하면 반월 창 복귀·관리자 API 404 → **FE 도 함께 롤백**(신 FE 는 카드 폴백·캘린더 정상이나 관리자 탭 오류). 컬럼은 남겨도 무해(재릴리스 시 값 재사용). |
+| R10 | Flyway 롤백 | 구 BE 이미지는 V121 을 `*:future` 로 무시(기본값), 컬럼 미매핑 → 기동 정상. 롤백하면 반월 창 복귀·관리자 API 404 → **FE 도 함께 롤백**(신 FE 는 카드 폴백·캘린더 정상이나 관리자 탭 오류). 컬럼은 남겨도 무해(재릴리스 시 값 재사용). |
 | R11 | 감사 로그 부재 | MVP 생략(Out of Scope). 변이 지점이 서비스 2메서드라 후속에 `facility_booking_open_policy`(facility_id, open_date, actor, created_at) 행 적재를 그 자리에 추가하면 됨(§9.4). |
 
 **9.4 후속 확장 가능성 점검** — 컬럼 1개 모델에서 이력 테이블로 갈 때: (1) 테이블 신설 + 현재 컬럼 값을 최초 행으로 백필, (2) `GeneralFacilityAdminService` 두 메서드가 행을 추가하고 컬럼도 갱신(컬럼 = "현재 유효값" 캐시), (3) 정책·응답·FE 는 컬럼을 계속 읽으므로 무변경. 주기 오픈(N일마다)도 같은 자리에서 스케줄러가 컬럼을 갱신하는 형태로 얹을 수 있다. 현재 설계가 막는 것 없음.
@@ -739,14 +739,14 @@ export function bookingWindowNote(bookableFrom: string, bookableUntil: string, t
 
 #### Task 1 (B0): 마이그레이션 + 엔티티
 
-**Files:** Create `V120__facility_booking_open_date.sql`; Modify `facility/entity/Facility.java`; Test `FacilitySyncServiceTest.java`(T10).
+**Files:** Create `V121__facility_booking_open_date.sql`; Modify `facility/entity/Facility.java`; Test `FacilitySyncServiceTest.java`(T10).
 
 **Interfaces:** Produces `Facility.getBookingOpenDate(): LocalDate`(nullable), `Facility.changeBookingOpenDate(LocalDate)`, `@DynamicUpdate`.
 
 - [ ] Step 1: T10 테스트 추가 → 실행 실패(메서드 없음)
-- [ ] Step 2: 컬럼·`changeBookingOpenDate`·`@DynamicUpdate` 추가(§4.2), V120 작성(§3)
-- [ ] Step 3: `./gradlew test --tests '*FacilitySyncServiceTest'` 통과, 통합 테스트 부팅으로 V120 적용 로그 확인
-- [ ] Step 4: 커밋 `feat(backend): 시설 예약 오픈일 — facility.booking_open_date(V120)·@DynamicUpdate`
+- [ ] Step 2: 컬럼·`changeBookingOpenDate`·`@DynamicUpdate` 추가(§4.2), V121 작성(§3)
+- [ ] Step 3: `./gradlew test --tests '*FacilitySyncServiceTest'` 통과, 통합 테스트 부팅으로 V121 적용 로그 확인
+- [ ] Step 4: 커밋 `feat(backend): 시설 예약 오픈일 — facility.booking_open_date(V121)·@DynamicUpdate`
 
 #### Task 2 (B1): 정책 코어 교체 — `BookingOpenDatePolicy` + `BookingWindow` + 파사드/검증기
 
