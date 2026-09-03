@@ -16,6 +16,7 @@ import { windowRangeLabel } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
 import {
   adjacentMonthToFetch,
+  isDayApplicationClosed,
   isSelectableSlot,
   isWithinBookable,
   shiftDateByDays,
@@ -150,13 +151,15 @@ export function FacilityBookingPage() {
   const selectedDay = selectedDate !== null ? daysByIso.get(selectedDate) : undefined;
   const selectedFacility = contextFacilities.find((candidate) => candidate.id === effectiveFacilityId);
 
-  // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 선택 범위에 선택 불가 슬롯이 생기면
-  // 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 성공 화면은 이미 접수된 신청의 확인이므로 보존.
+  // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 선택 범위에 선택 불가 슬롯이 생기거나, 그 날이 신청 마감
+  // (서버 applicationClosed)으로 바뀌면 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 대기(PENDING_HOLD)만 고른 선택은
+  // isSelectableSlot 로는 무효가 되지 않으므로 날짜 단위 마감을 함께 본다(2026-09-03 후속). 성공 화면은 보존.
   const selectionInvalid =
     step !== 'success' &&
     selection !== null &&
     selectedDay !== undefined &&
-    selectedDay.slots.some((slot) => slotInRange(slot, selection) && !isSelectableSlot(slot));
+    (isDayApplicationClosed(selectedDay) ||
+      selectedDay.slots.some((slot) => slotInRange(slot, selection) && !isSelectableSlot(slot)));
 
   useEffect(() => {
     if (!selectionInvalid) return;

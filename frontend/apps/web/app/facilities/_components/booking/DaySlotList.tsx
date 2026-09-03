@@ -30,8 +30,8 @@ function slotStatusLabel(slot: BookingAvailabilitySlot): string {
 }
 
 export function DaySlotList({ day, selection, onToggleSlot }: Props) {
-  // 서버가 빈 슬롯을 DEADLINE_PASSED 로 내린 날 — 대기 슬롯도 새 신청 대상이 아니라 행 전체를 잠근다(스펙 §3.3).
-  // 최종 판단은 서버(신청 400)이며 폼 단계 힌트도 그대로 남는다(이중 방어).
+  // 신청이 닫힌 날(서버 applicationClosed 우선, 구응답이면 빈 슬롯의 DEADLINE_PASSED 존재로 폴백) — 대기 슬롯도 새 신청
+  // 대상이 아니라 행 전체를 잠근다(스펙 §3.3·§9.1). 최종 판단은 서버(신청 400)이며 폼 단계 힌트도 그대로 남는다(이중 방어).
   const dayClosed = isDayApplicationClosed(day);
   return (
     <div>
