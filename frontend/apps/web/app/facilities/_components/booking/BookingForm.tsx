@@ -75,12 +75,14 @@ export function BookingForm({
   // 미러링한다. MyBookingsChip 과 같은 queryKey 라 단일 동아리면 캐시를 공유한다. 로딩·실패는 빈 배열 = 경고 없음 —
   // 최종 판단은 서버(409)이므로 제출은 막지 않는다.
   const clubBookingsQuery = useClubFacilityBookingsQuery(effectiveClubId ?? undefined);
+  // 목록 API 는 LocalTime 기본 직렬화라 시각이 "HH:mm:ss" 로 온다 — 앞 5자(HH:mm)로 잘라 비교해야
+  // 인접 시간("10:00:00" > "10:00")을 겹침으로 오판하지 않는다(QA 2026-09-03).
   const ownOverlap = (clubBookingsQuery.data ?? []).some(
     (booking) =>
       OWN_OVERLAP_STATUSES.includes(booking.status) &&
       booking.date === date &&
-      booking.startTime < range.end &&
-      booking.endTime > range.start,
+      booking.startTime.slice(0, 5) < range.end &&
+      booking.endTime.slice(0, 5) > range.start,
   );
 
   // /facilities 는 A′ 라우트가 아니라 SSR/프리렌더 프레임이 스토어 초기값(미인증)으로 그려진다 —

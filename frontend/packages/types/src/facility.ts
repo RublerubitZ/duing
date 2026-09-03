@@ -150,8 +150,8 @@ export type FacilityBookingSummary = {
   facilityId: number;
   roomName: string;
   date: string; // yyyy-MM-dd
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  startTime: string; // HH:mm:ss (BE LocalTime 기본 직렬화) — 표시·비교는 앞 5자(HH:mm)만 쓴다
+  endTime: string; // HH:mm:ss (BE LocalTime 기본 직렬화) — 표시·비교는 앞 5자(HH:mm)만 쓴다
   status: BookingStatus;
   purpose: string;
   createdAt: string; // ISO LocalDateTime
