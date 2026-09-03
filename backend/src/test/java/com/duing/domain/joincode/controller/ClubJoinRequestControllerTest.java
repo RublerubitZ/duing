@@ -311,8 +311,11 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.result", equalTo("AUTO_REJECTED_WITHDRAWN"));
 
-        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), withdrawnStudent.getId()))
-                .as("탈퇴한 계정에 활성 멤버십이 생기지 않는다").isEmpty();
+        // 파생 쿼리는 user 조인에 soft-delete 필터가 붙어 유령 행을 가리므로 jdbc 로 물리 부재를 본다.
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_member WHERE club_id = ? AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId(), withdrawnStudent.getId()))
+                .as("탈퇴한 계정에 활성 멤버십 행이 물리적으로 없다").isZero();
         ClubJoinRequest rejected = clubJoinRequestRepository.findById(pending.getId()).orElseThrow();
         assertThat(rejected.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
         assertThat(rejected.getRejectReason()).isEqualTo("탈퇴한 회원");

@@ -50,8 +50,8 @@ public interface ClubJoinRequestApi {
 
     @Operation(summary = "가입 요청 승인·거절 (LEADER/OFFICER)",
             description = "승인 시 잔여 인원을 차감하고 회원을 생성한다(기수는 요청 생성 시점 스냅샷). "
-                    + "승인 요청이라도 이미 다른 경로로 가입된 회원이면 인원 차감 없이 자동 거절되므로, "
-                    + "요청자가 이미 탈퇴한 계정이어도 같은 방식으로 자동 거절되므로, "
+                    + "승인 요청이라도 이미 다른 경로로 가입된 회원이면 인원 차감 없이 자동 거절되고, "
+                    + "요청자가 이미 탈퇴한 계정이어도 같은 방식으로 처리되므로, "
                     + "그 결과를 운영 콘솔에 전달하기 위해 PATCH 204 규약 대신 200 + result "
                     + "(APPROVED | REJECTED | AUTO_REJECTED | AUTO_REJECTED_WITHDRAWN) 로 응답한다. "
                     + "잔여 인원 부족·이미 처리된 요청·동시 처리 충돌은 409.")

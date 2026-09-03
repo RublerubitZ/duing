@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -59,6 +60,7 @@ class JoinRequestApproveWithdrawalConcurrencyTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
     @Autowired TransactionTemplate transactionTemplate;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -86,8 +88,11 @@ class JoinRequestApproveWithdrawalConcurrencyTest extends IntegrationTestBase {
                 });
 
         assertThat(failures).as("양쪽 다 예외 없이 끝난다 — 승인은 자동 거절이라는 정상 리턴").isEmpty();
-        assertThat(clubMemberRepository.findByClubIdAndUserId(club.getId(), student.getId()))
-                .as("soft-delete 된 계정에 활성 멤버십이 생기지 않는다").isEmpty();
+        // 파생 쿼리는 user 조인에 soft-delete 필터가 붙어 유령 행을 가리므로 jdbc 로 물리 부재를 본다.
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_member WHERE club_id = ? AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId(), student.getId()))
+                .as("탈퇴한 계정에 활성 멤버십 행이 물리적으로 없다").isZero();
         ClubJoinRequest processed = clubJoinRequestRepository.findById(joinRequest.getId()).orElseThrow();
         assertThat(processed.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
         assertThat(processed.getRejectReason()).isEqualTo("탈퇴한 회원");

@@ -250,17 +250,18 @@ public class GeneralJoinRequestService implements JoinRequestService {
             releaseReservedUse(joinRequest);
             return JoinRequestDecisionResult.AUTO_REJECTED_WITHDRAWN;
         }
+        User liveRequester = requester.get();
         // 승인 시점에 이미 다른 경로로 활성 회원이 됐다면 자동 거절하고 확보해 둔 자리를 환급한다
         // (PENDING 방치 금지, 스펙 4.3). 예외가 아닌 정상 리턴이어야 상태 전이가 커밋된다.
         if (clubMemberRepository.findByClubIdAndUserId(
-                joinRequest.getClub().getId(), requester.get().getId()).isPresent()) {
+                joinRequest.getClub().getId(), liveRequester.getId()).isPresent()) {
             joinRequest.rejectAutomatically(reviewer, now);
             releaseReservedUse(joinRequest);
             return JoinRequestDecisionResult.AUTO_REJECTED;
         }
         // 자리는 요청 생성 시점에 이미 확보됐으므로 승인은 차감하지 않는다. 만료·폐기·모집 마감 코드도
         // 승인은 허용한다(요청 생성 시점에 이미 코드 검증을 통과했으므로, 스펙 4.3).
-        clubMemberEnrollmentService.enroll(joinRequest.getClub(), requester.get(),
+        clubMemberEnrollmentService.enroll(joinRequest.getClub(), liveRequester,
                 ClubMemberRole.MEMBER, joinRequest.getGeneration());
         joinRequest.approve(reviewer, now);
         return JoinRequestDecisionResult.APPROVED;
