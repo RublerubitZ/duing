@@ -46,6 +46,19 @@ let overlayOnlyTraversal = false;
 // 메뉴가 안 눌리던 원인). 건너뛴 엔트리는 죽은 엔트리로 남아 이후 뒤로가기에서 자동 스킵된다.
 let suppressNextReclaim = false;
 
+// 진행 중 내비게이션 "예약"(#1139). 진입점(useGuardedRouter push/replace · OfflineNavigationGuard 의 내부 앵커
+// 캡처)이 세우고, Next 이동 커밋(pushState/replaceState 의 __NA, 우리 마커 없음)·popstate·failsafe 가 지운다.
+// 예약 중 닫히는 오버레이는 회수 back() 을 건너뛴다(죽은 엔트리는 자동 스킵) — 커밋 전 창을 소비처 배선 없이
+// 닫는다. skipNextOverlayReclaim 과 다르다: 스킵은 "다음 닫힘 1회" 를 무조건 소진하는 명시 계약이고,
+// 예약은 "커밋될 때까지" 다. 둘 중 하나만 걸려도 회수를 생략하므로 충돌하지 않는다.
+let navigationPending = false;
+let pendingFailsafeTimer: ReturnType<typeof setTimeout> | null = null;
+const pendingListeners = new Set<() => void>();
+// ponytail: RSC 이동엔 상한이 없어 8초는 휴리스틱이다. 초과하면 오늘 동작(회수 back)으로 돌아갈 뿐 악화는 없다.
+// 느린 회선 실측에서 8초를 넘는 커밋이 보이면 상향한다.
+const NAVIGATION_PENDING_FAILSAFE_MS = 8_000;
+let nativePushState: History['pushState'] | null = null;
+
 /**
  * 지금 처리 중인 popstate 가 오버레이만 닫는(=페이지가 바뀌지 않는) 이동인지 알려준다.
  *
@@ -77,6 +90,56 @@ export function skipNextOverlayReclaim(): void {
   suppressNextReclaim = true;
 }
 
+function notifyPendingListeners(): void {
+  pendingListeners.forEach((listener) => listener());
+}
+
+/**
+ * 내비게이션을 시작하는 진입점이 호출한다. 예약 중에는 오버레이 코드 닫힘이 회수 back() 을 건너뛴다.
+ * 오프라인이면 아무것도 하지 않는다 — 이동 자체가 guarded router/앵커 가드에서 거부된다.
+ * 다시 호출하면 failsafe 만 연장한다(예약 상태·통지는 그대로).
+ */
+export function markNavigationPending(): void {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (pendingFailsafeTimer !== null) clearTimeout(pendingFailsafeTimer);
+  pendingFailsafeTimer = setTimeout(clearNavigationPending, NAVIGATION_PENDING_FAILSAFE_MS);
+  if (navigationPending) return;
+  navigationPending = true;
+  notifyPendingListeners();
+}
+
+/** Next 이동 커밋·popstate·failsafe 가 호출한다. 테스트는 afterEach 드레인으로 쓴다. */
+export function clearNavigationPending(): void {
+  if (pendingFailsafeTimer !== null) {
+    clearTimeout(pendingFailsafeTimer);
+    pendingFailsafeTimer = null;
+  }
+  if (!navigationPending) return;
+  navigationPending = false;
+  notifyPendingListeners();
+}
+
+export function isNavigationPending(): boolean {
+  return navigationPending;
+}
+
+/** useSyncExternalStore 용 구독. 예약이 세워지거나 풀릴 때 통지한다. */
+export function subscribeNavigationPending(listener: () => void): () => void {
+  pendingListeners.add(listener);
+  return () => {
+    pendingListeners.delete(listener);
+  };
+}
+
+// Next HistoryUpdater 의 이동 커밋인가 — 항상 __NA:true 를 싣고 preserveCustomHistoryState=false 라 우리 마커가 없다.
+// 우리 오버레이 열기 pushState 는 withMarker 가 기존 state 의 __NA 를 그대로 복사하므로 마커 유무로 구분한다.
+// 앱의 raw history.replaceState(쿼리 동기화 등)도 Next 패치를 거쳐 __NA 를 달고 오므로 커밋으로 읽힌다 —
+// 그 경우 예약이 일찍 풀려 그 닫힘에 한해 오늘 동작(회수 back)으로 돌아갈 뿐 악화는 없다.
+function isNextNavigationCommit(state: unknown): boolean {
+  if (typeof state !== 'object' || state === null) return false;
+  return '__NA' in state && !('__overlayToken' in state);
+}
+
 function readMarker(state: unknown): { token: string | null; id: number | null } {
   if (typeof state !== 'object' || state === null) return { token: null, id: null };
   const rawToken = '__overlayToken' in state ? state.__overlayToken : null;
@@ -104,6 +167,8 @@ function withMarker(marker: { __overlayToken?: string; __overlayId?: number }): 
 }
 
 function handlePopState() {
+  // 사용자 traversal·우리 회수 back() 모두 진행 중 이동 예약을 무효화한다(#1139).
+  clearNavigationPending();
   // 판정은 동기로 끝낸다 — 마이크로태스크 안에서 history.state 를 다시 읽으면 뒤로가기 연타 시
   // 이미 다음 popstate 의 값이라 엉뚱한 대상을 집는다.
   const { token, id } = readMarker(window.history.state);
@@ -217,8 +282,17 @@ export function installBackDismiss() {
   // 오버레이가 열린 채 router.replace 나 refresh 가 한 번이라도 일어나면 우리 마커가 증발하고,
   // 그러면 엔트리를 회수할 수도 죽은 엔트리로 인식할 수도 없어 죽은 뒤로가기가 계속 쌓인다.
   // 우리 엔트리 위에서 일어나는 replace 에 한해 마커를 다시 얹는다.
+  // 이동 커밋 관측(#1139) — Next 의 history 패치는 이 래퍼를 original 로 잡는다(providers 모듈 평가가 먼저).
+  nativePushState = window.history.pushState.bind(window.history);
+  window.history.pushState = (data: unknown, unused: string, url?: string | URL | null) => {
+    nativePushState?.(data, unused, url);
+    if (isNextNavigationCommit(data)) clearNavigationPending();
+  };
+
   nativeReplaceState = window.history.replaceState.bind(window.history);
   window.history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+    // 같은 URL 재이동은 Next 가 replaceState 로 커밋한다 — 여기서도 예약을 푼다.
+    if (isNextNavigationCommit(data)) clearNavigationPending();
     const topEntry = stack.at(-1);
     const { token, id } = readMarker(window.history.state);
     if (topEntry !== undefined && token === DOCUMENT_TOKEN && id === topEntry.id) {
@@ -289,18 +363,17 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
       if (index === -1) return; // popstate 가 이미 소비했다 — 히스토리도 이미 정리됐다.
       const wasTop = index === stack.length - 1;
       stack.splice(index, 1);
-      // 이 닫힘이 내비게이션과 겹친다고 소비처가 표시했으면, 회수 back() 을 건너뛰고 죽은 엔트리로 남긴다
-      // (내비게이션이 우리 엔트리 위에 쌓는 새 엔트리를 back() 이 되돌려 이동을 삼키는 것을 막는다).
-      // 중간 오버레이는 히스토리를 건드리지 않는다 — 그 엔트리는 죽은 엔트리로 남아 나중에 자동 스킵된다.
-      // 이것이 back() 호출을 줄이면서 "죽은 뒤로가기 1회"를 없애는 핵심이다.
-      if (!wasTop || reclaimSuppressed) return;
+      // 이 닫힘이 내비게이션과 겹친다고 소비처가 표시했거나(skip) 진입점이 이동을 예약해 뒀으면(navigationPending),
+      // 회수 back() 을 건너뛰고 죽은 엔트리로 남긴다(내비게이션이 우리 엔트리 위에 쌓는 새 엔트리를 back() 이
+      // 되돌려 이동을 삼키는 것을 막는다). 중간 오버레이는 히스토리를 건드리지 않는다 — 그 엔트리는 죽은
+      // 엔트리로 남아 나중에 자동 스킵된다. 이것이 back() 호출을 줄이면서 "죽은 뒤로가기 1회"를 없애는 핵심이다.
+      if (!wasTop || reclaimSuppressed || navigationPending) return;
 
       queueMicrotask(() => {
         const { token, id } = readMarker(window.history.state);
         // 페이지 이동이 이미 히스토리를 덮었으면 회수하지 않는다 — 여기서 back() 하면 이전 페이지로 튕긴다.
-        // ponytail: 닫기와 페이지 이동이 동시에 일어나는 경로는 커밋 순서가 뒤집히는 좁은 창이 남는다.
-        // Next 의 진행 중 내비게이션을 외부에서 관측할 방법이 없어 0 으로 만들 수 없다. 가드에 걸리면
-        // 엔트리는 죽은 상태로 남았다가 자동 스킵된다.
+        // ponytail: 커밋 전 창은 진입점의 이동 예약(navigationPending)이 닫는다. 진입점 밖 이동(useRouter 를
+        // 직접 쓰는 외부 스크립트 등)은 여전히 창이 남고, 가드에 걸리면 엔트리는 죽은 상태로 남았다가 자동 스킵된다.
         if (token !== DOCUMENT_TOKEN || id !== entry.id) return;
         selfTraversals += 1;
         window.history.back();
