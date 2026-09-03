@@ -134,6 +134,28 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("잡이 먼저 claim(PURGING)한 업로드에 활성화와 실제 잡이 동시에 달려들면 잡이 삭제를 확정하고 활성화는 만료로 실패한다")
+    void purgeWinsWhenJobAlreadyClaimed() throws Exception {
+        stubStorage();
+        String storageKey = seedExpiredPending();
+        UploadedObject claimed = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
+        claimed.markPurging(); // 이전 실행이 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
+        uploadedObjectRepository.save(claimed);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+
+        List<Throwable> failures = runConcurrently(
+                () -> transactionTemplate.executeWithoutResult(status ->
+                        uploadedObjectService.activate(STUB_PREFIX + storageKey)),
+                () -> deleteEnabledJob().run());
+
+        // PURGING 은 활성화 불가·잡의 재claim 대상 — 순서와 무관하게 잡이 이긴다.
+        assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.PURGED);
+        assertThat(failures).hasSize(1);
+        assertThat(failures.get(0)).isInstanceOf(FileException.UploadExpiredException.class);
+        verify(fileStorageService, times(1)).delete(anyString());
+    }
+
+    @Test
     @DisplayName("먼저 연결(ACTIVE)된 업로드는 25시간이 지났어도 잡이 건드리지 않는다")
     void purgeSkipsAlreadyActivated() {
         stubStorage();

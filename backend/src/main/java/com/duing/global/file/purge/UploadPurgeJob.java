@@ -74,12 +74,21 @@ public class UploadPurgeJob {
 
         Counters counters = new Counters();
         for (UploadedObject candidate : candidates) {
-            processCandidate(candidate, deleteEnabled, counters);
+            try {
+                processCandidate(candidate, deleteEnabled, counters);
+            } catch (RuntimeException candidateFailure) {
+                // 참조 스캔·claim/확정 tx(데드락 희생·잠금 대기 초과 등)의 예외가 배치 전체를 1시간 멈추지 않도록
+                // 후보 단위로 격리한다 — 실패한 후보는 상태가 그대로라 다음 실행이 다시 집는다(스펙 §4.1 "개별 실패는 다음 후보로").
+                counters.failed++;
+                log.warn("[업로드 고아 정리] 후보 처리 실패로 건너뜀(다음 실행 재시도) - objectKey={}",
+                        candidate.getStorageKey(), candidateFailure);
+            }
         }
         log.info("[업로드 고아 정리] mode={}, candidates={}, purged={}, healed={}, activatedMeanwhile={}, deleteFailed={}, "
-                        + "referencedInDryRun={}, cutoff={}",
+                        + "failed={}, referencedInDryRun={}, cutoff={}",
                 deleteEnabled ? "delete" : "dry-run", candidates.size(), counters.purged, counters.healed,
-                counters.activatedMeanwhile, counters.deleteFailed, counters.referencedInDryRun, cutoff);
+                counters.activatedMeanwhile, counters.deleteFailed, counters.failed, counters.referencedInDryRun,
+                cutoff);
     }
 
     private void processCandidate(UploadedObject candidate, boolean deleteEnabled, Counters counters) {
@@ -153,6 +162,7 @@ public class UploadPurgeJob {
         int healed;
         int activatedMeanwhile;
         int deleteFailed;
+        int failed;
         int referencedInDryRun;
     }
 }

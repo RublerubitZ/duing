@@ -32,6 +32,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
@@ -54,7 +55,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 class UploadPurgeJobTest extends IntegrationTestBase {
 
     @Autowired UploadPurgeJob dryRunJob; // 컨텍스트 빈 = delete-enabled=false
-    @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @MockitoSpyBean UploadedObjectRepository uploadedObjectRepository; // 실제 리포지토리에 위임 — 참조 스캔 장애만 주입한다
     @Autowired ClubRepository clubRepository;
     @Autowired Clock clock;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -171,6 +172,21 @@ class UploadPurgeJobTest extends IntegrationTestBase {
 
         assertThat(statusOf(throwingKey)).isEqualTo(UploadedObjectStatus.PURGING);
         assertThat(statusOf(nextKey)).isEqualTo(UploadedObjectStatus.PURGED);
+    }
+
+    @Test
+    @DisplayName("참조 스캔이 예외를 던진 후보는 건너뛰고(상태 유지·다음 실행 재시도) 나머지 후보는 계속 파기된다")
+    void skipsCandidateWhenReferenceScanThrowsAndContinuesOthers() {
+        stubStorageDeleteConfirmed();
+        String throwingKey = seed(UploadedObjectStatus.PENDING, 25);
+        String nextKey = seed(UploadedObjectStatus.PENDING, 25);
+        doThrow(new RuntimeException("참조 스캔 장애")).when(uploadedObjectRepository).isReferenced(throwingKey);
+
+        deleteEnabledJob().run();
+
+        assertThat(statusOf(throwingKey)).isEqualTo(UploadedObjectStatus.PENDING);
+        assertThat(statusOf(nextKey)).isEqualTo(UploadedObjectStatus.PURGED);
+        verify(fileStorageService, times(1)).delete(anyString());
     }
 
     @Test

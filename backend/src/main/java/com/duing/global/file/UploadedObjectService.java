@@ -98,6 +98,8 @@ public class UploadedObjectService {
             case PENDING -> uploadedObject.activate(Instant.now(clock));
             case ACTIVE -> { /* 재수정·재사용 — 멱등 */ }
             case PURGING, PURGED -> throw new FileException.UploadExpiredException();
+            // 상태가 추가되면 조용히 no-op 되지 않도록 명시적으로 실패시킨다 — 활성화 누락은 24시간 뒤 파기로 이어진다.
+            default -> throw new IllegalStateException("알 수 없는 업로드 추적 상태: " + uploadedObject.getStatus());
         }
     }
 }
