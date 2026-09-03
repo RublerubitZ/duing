@@ -1,5 +1,6 @@
 package com.duing.domain.facilitybooking.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,5 +58,15 @@ class BookingDeadlinePolicyTest {
                 .isInstanceOfSatisfying(FacilityBookingException.DeadlinePassedException.class,
                         exception -> org.assertj.core.api.Assertions.assertThat(exception.getCode())
                                 .isEqualTo("FACILITY_BOOKING_DEADLINE_PASSED"));
+    }
+
+    @Test
+    @DisplayName("isPassed — 전날 12:00:59 까지 false, 12:01:00 부터 true, 당일은 항상 true, 이틀 전은 false")
+    void isPassedSharesTheSameBoundaryAsValidate() {
+        assertThat(BookingDeadlinePolicy.isPassed(USE_DATE, LocalDateTime.of(2026, 7, 19, 11, 59, 0))).isFalse();
+        assertThat(BookingDeadlinePolicy.isPassed(USE_DATE, LocalDateTime.of(2026, 7, 19, 12, 0, 59))).isFalse();
+        assertThat(BookingDeadlinePolicy.isPassed(USE_DATE, LocalDateTime.of(2026, 7, 19, 12, 1, 0))).isTrue();
+        assertThat(BookingDeadlinePolicy.isPassed(USE_DATE, LocalDateTime.of(2026, 7, 20, 0, 0, 1))).isTrue();
+        assertThat(BookingDeadlinePolicy.isPassed(USE_DATE, LocalDateTime.of(2026, 7, 18, 23, 59, 59))).isFalse();
     }
 }

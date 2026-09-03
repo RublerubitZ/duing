@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.DayStatus;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
+import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotBlockSource;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotStatus;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -181,7 +182,7 @@ class FacilitySlotAssemblerTest {
     }
 
     @Test
-    @DisplayName("지난 날짜는 dayStatus=PAST, 오늘은 end≤now 슬롯만 PAST 다 (now=12:30 → 9~12시 PAST)")
+    @DisplayName("지난 날짜는 dayStatus=PAST, 오늘은 end≤now 슬롯이 PAST 이고 남은 슬롯은 당일 마감이라 DEADLINE_PASSED 다 (now=12:30)")
     void pastDatesAndSlots() {
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), List.of());
 
@@ -189,7 +190,97 @@ class FacilitySlotAssemblerTest {
         DayAvailability today = day(days, 15);
         assertThat(slotStatus(today, 9)).isEqualTo(SlotStatus.PAST);
         assertThat(slotStatus(today, 11)).isEqualTo(SlotStatus.PAST);   // 11~12, end 12:00 ≤ 12:30
-        assertThat(slotStatus(today, 12)).isEqualTo(SlotStatus.AVAILABLE); // 12~13, end 13:00 > 12:30
+        // 12~13 은 아직 지나지 않았지만 당일 사용 신청은 정의상 항상 마감(BookingDeadlinePolicy) → DEADLINE_PASSED
+        assertThat(slotStatus(today, 12)).isEqualTo(SlotStatus.DEADLINE_PASSED);
+        assertThat(today.availableSlotCount()).isZero();
+        assertThat(today.dayStatus()).isEqualTo(DayStatus.FULL);
+    }
+
+    @Test
+    @DisplayName("마감된 익일(전날 12:01 경과): 빈 슬롯만 DEADLINE_PASSED, 점유(SCHOOL·INTERNAL)·대기 슬롯은 상태를 유지하고 availableSlotCount=0·FULL 이다")
+    void deadlinePassedDayKeepsOccupancyAndMarksEmptySlots() {
+        LocalDate tomorrow = LocalDate.of(2026, 1, 16); // 오늘 1/15 12:30 → 1/16 은 마감(12:01 경과)
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(tomorrow, LocalTime.of(10, 0), LocalTime.of(11, 0),
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(tomorrow, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.APPROVED, "두잉밴드"),
+                new BookingSlice(tomorrow, LocalTime.of(16, 0), LocalTime.of(17, 0), BookingStatus.PENDING, null));
+
+        DayAvailability day = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings), 16);
+
+        assertThat(slotStatus(day, 9)).isEqualTo(SlotStatus.DEADLINE_PASSED);
+        SlotAvailability school = day.slots().get(10 - 9);
+        assertThat(school.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(school.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+        assertThat(school.organization()).isEqualTo("총학생회");
+        SlotAvailability internal = day.slots().get(14 - 9);
+        assertThat(internal.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(internal.blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
+        assertThat(internal.organization()).isEqualTo("두잉밴드");
+        assertThat(slotStatus(day, 16)).isEqualTo(SlotStatus.PENDING_HOLD); // 대기 예약은 DEADLINE_PASSED 로 덮지 않는다
+        assertThat(slotStatus(day, 21)).isEqualTo(SlotStatus.DEADLINE_PASSED);
+        // 마감된 날의 대기 슬롯은 새 신청 대상이 아니라 세지 않는다 → 0 → FULL
+        assertThat(day.availableSlotCount()).isZero();
+        assertThat(day.dayStatus()).isEqualTo(DayStatus.FULL);
+    }
+
+    @Test
+    @DisplayName("마감 경계(전날 12:00 KST 벽시계): now=12:00 이면 익일 빈 슬롯 AVAILABLE, now=12:01 이면 DEADLINE_PASSED, 이틀 뒤는 12:01 에도 AVAILABLE")
+    void deadlineBoundaryAtNoonOfPreviousDay() {
+        List<DayAvailability> atNoon = FacilitySlotAssembler.assembleDays(
+                MONTH, TODAY, LocalTime.of(12, 0), List.of(), List.of());
+        assertThat(slotStatus(day(atNoon, 16), 9)).isEqualTo(SlotStatus.AVAILABLE);
+        assertThat(day(atNoon, 16).availableSlotCount()).isEqualTo(13);
+
+        List<DayAvailability> afterNoon = FacilitySlotAssembler.assembleDays(
+                MONTH, TODAY, LocalTime.of(12, 1), List.of(), List.of());
+        assertThat(slotStatus(day(afterNoon, 16), 9)).isEqualTo(SlotStatus.DEADLINE_PASSED);
+        assertThat(day(afterNoon, 16).availableSlotCount()).isZero();
+        assertThat(slotStatus(day(afterNoon, 17), 9)).isEqualTo(SlotStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("지난 날짜(직전 월 기록 열람): 점유 슬롯은 BLOCKED 를 보존하고 빈 슬롯·대기 슬롯은 PAST 다(DEADLINE_PASSED 아님)")
+    void pastDayPreservesOccupancyAndUsesPastForEmptySlots() {
+        LocalDate pastDate = LocalDate.of(2026, 1, 10);
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(pastDate, LocalTime.of(10, 0), LocalTime.of(12, 0),
+                "비호응원단", CrawlRowType.CRAWLED_RESERVATION));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(pastDate, LocalTime.of(14, 0), LocalTime.of(15, 0), BookingStatus.CONFIRMED, "두잉밴드"),
+                new BookingSlice(pastDate, LocalTime.of(17, 0), LocalTime.of(18, 0), BookingStatus.PENDING, null));
+
+        DayAvailability day = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings), 10);
+
+        for (int hour : new int[] {10, 11}) {
+            SlotAvailability slot = day.slots().get(hour - 9);
+            assertThat(slot.status()).isEqualTo(SlotStatus.BLOCKED);
+            assertThat(slot.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+            assertThat(slot.organization()).isEqualTo("비호응원단");
+        }
+        SlotAvailability internal = day.slots().get(14 - 9);
+        assertThat(internal.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(internal.blockedBy()).isEqualTo(SlotBlockSource.INTERNAL);
+        assertThat(internal.organization()).isEqualTo("두잉밴드");
+        assertThat(slotStatus(day, 9)).isEqualTo(SlotStatus.PAST);
+        assertThat(slotStatus(day, 17)).isEqualTo(SlotStatus.PAST); // 지난 시간대의 대기 신청은 홀드 의미가 없다(기존 동작)
+        assertThat(slotStatus(day, 21)).isEqualTo(SlotStatus.PAST);
+        assertThat(day.dayStatus()).isEqualTo(DayStatus.PAST);
+        assertThat(day.availableSlotCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("오늘: 지난 시간대의 점유 슬롯은 BLOCKED 를 보존하고, 지난 빈 슬롯은 PAST, 남은 빈 슬롯은 DEADLINE_PASSED 다")
+    void todayElapsedOccupiedSlotStaysBlocked() {
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(TODAY, LocalTime.of(9, 0), LocalTime.of(10, 0),
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
+
+        DayAvailability today = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, List.of()), 15);
+
+        SlotAvailability elapsedOccupied = today.slots().get(0);
+        assertThat(elapsedOccupied.status()).isEqualTo(SlotStatus.BLOCKED);
+        assertThat(elapsedOccupied.organization()).isEqualTo("총학생회");
+        assertThat(slotStatus(today, 10)).isEqualTo(SlotStatus.PAST);
+        assertThat(slotStatus(today, 13)).isEqualTo(SlotStatus.DEADLINE_PASSED);
     }
 
     @Test
@@ -204,5 +295,37 @@ class FacilitySlotAssemblerTest {
         List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings);
 
         assertThat(slotStatus(day(days, 20), 14)).isEqualTo(SlotStatus.BLOCKED);
+    }
+
+    @Test
+    @DisplayName("applicationClosed — 오늘·마감된 익일은 true, 이틀 뒤와 지난 날짜는 false, 경계는 전날 12:00/12:01")
+    void applicationClosedFlagFollowsDeadlineForTodayAndFuture() {
+        List<DayAvailability> days = FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, List.of(), List.of());
+        assertThat(day(days, 15).applicationClosed()).isTrue();  // 오늘 — 당일 신청은 항상 마감
+        assertThat(day(days, 16).applicationClosed()).isTrue();  // 익일 — 12:30 > 12:00 경과
+        assertThat(day(days, 17).applicationClosed()).isFalse(); // 이틀 뒤
+        assertThat(day(days, 10).applicationClosed()).isFalse(); // 지난 날짜는 열람 전용 — 마감 안내 대상 아님
+
+        List<DayAvailability> atNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 0), List.of(), List.of());
+        assertThat(day(atNoon, 16).applicationClosed()).isFalse();
+        List<DayAvailability> afterNoon = FacilitySlotAssembler.assembleDays(MONTH, TODAY, LocalTime.of(12, 1), List.of(), List.of());
+        assertThat(day(afterNoon, 16).applicationClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("applicationClosed 는 빈 슬롯이 하나도 없는(전부 점유·대기) 마감된 날에도 true 다 — FE 잔여 한계 해소 근거")
+    void applicationClosedIsTrueEvenWhenNoEmptySlotRemains() {
+        LocalDate tomorrow = LocalDate.of(2026, 1, 16);
+        List<CrawlSlice> crawl = List.of(new CrawlSlice(tomorrow, LocalTime.of(9, 0), LocalTime.of(21, 0),
+                "총학생회", CrawlRowType.CRAWLED_RESERVATION));
+        List<BookingSlice> bookings = List.of(
+                new BookingSlice(tomorrow, LocalTime.of(21, 0), LocalTime.of(22, 0), BookingStatus.PENDING, null));
+
+        DayAvailability day = day(FacilitySlotAssembler.assembleDays(MONTH, TODAY, NOW, crawl, bookings), 16);
+
+        assertThat(day.slots()).noneMatch(slot -> slot.status() == SlotStatus.DEADLINE_PASSED);
+        assertThat(slotStatus(day, 21)).isEqualTo(SlotStatus.PENDING_HOLD);
+        assertThat(day.applicationClosed()).isTrue();
+        assertThat(day.availableSlotCount()).isZero();
     }
 }

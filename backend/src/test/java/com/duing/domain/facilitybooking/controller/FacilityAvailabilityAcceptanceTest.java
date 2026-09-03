@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -108,14 +110,44 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("당월·익월 밖의 월 조회는 400 도메인 예외다")
+    @DisplayName("직전 월·당월·익월 밖의 월 조회는 400 도메인 예외다")
     void rejectsMonthOutOfBookingRange() {
         Facility facility = facilityRepository.save(Facility.create(90002, "커뮤니티룸(T2)", null, 0));
 
         assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).plusMonths(2)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
-        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).minusMonths(1)))
+        assertThatThrownBy(() -> availabilityService.getAvailability(facility.getId(), YearMonth.now(clock).minusMonths(2)))
                 .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
+    }
+
+    @Test
+    @DisplayName("직전 월은 온디맨드 재크롤 없이 저장 행을 그대로 내리고, 지난 날짜의 크롤 점유 행이 BLOCKED(SCHOOL)로 보존된다")
+    void previousMonthReturnsStoredRecordsWithoutRecrawl() {
+        Facility facility = facilityRepository.save(Facility.create(90008, "커뮤니티룸(T8)", null, 0));
+        YearMonth previousMonth = YearMonth.now(clock).minusMonths(1);
+        LocalDate recordDate = previousMonth.atDay(10);
+        facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91021L,
+                previousMonth, recordDate, LocalTime.of(10, 0), LocalTime.of(12, 0), "비호응원단", false,
+                LocalDateTime.now(clock)));
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), previousMonth);
+
+        then(facilityCrawlService).should(never()).ensureFresh(previousMonth);
+        assertThat(response.days()).hasSize(previousMonth.lengthOfMonth());
+        for (String start : new String[] {"10:00", "11:00"}) {
+            SlotAvailability slot = slotAt(response, recordDate, start);
+            assertThat(slot.status()).isEqualTo(SlotStatus.BLOCKED);
+            assertThat(slot.blockedBy()).isEqualTo(SlotBlockSource.SCHOOL);
+            assertThat(slot.organization()).isEqualTo("비호응원단");
+        }
+        assertThat(slotAt(response, recordDate, "09:00").status()).isEqualTo(SlotStatus.PAST);
+        FacilityAvailabilityResponse.DayAvailability recordDay = response.days().stream()
+                .filter(dayAvailability -> dayAvailability.date().equals(recordDate))
+                .findFirst().orElseThrow();
+        assertThat(recordDay.dayStatus()).isEqualTo(FacilityAvailabilityResponse.DayStatus.PAST);
+        assertThat(recordDay.availableSlotCount()).isZero();
+        assertThat(recordDay.applicationClosed()).isFalse(); // 지난 날짜는 열람 전용
     }
 
     @Test
@@ -235,7 +267,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
         clubRepository.save(Club.create("ABC동아리", ClubCategory.OTHER, "분과", "설명", null)); // 플래그 OFF 등록 동아리
-        LocalDate crawlDate = LocalDate.now(clock).plusDays(1);
+        // AVAILABLE 을 단언하므로 D+2 — D+1 은 KST 12:01 이후 실행 시 마감(DEADLINE_PASSED)이라 시각 의존 실패가 난다.
+        LocalDate crawlDate = LocalDate.now(clock).plusDays(2);
         LocalDateTime crawledAt = LocalDateTime.now(clock);
         // 파서가 물결 꼬리 범위를 확장 저장한 형태의 행들: 고정관념 [10,13) / 상담센터 [13,15) / ABC동아리 [15,17)
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91001L,
@@ -293,7 +326,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         Club securedClub = clubRepository.save(Club.create("확보정밀", ClubCategory.OTHER, "분과", "설명", null));
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
-        LocalDate crawlDate = LocalDate.now(clock).plusDays(1);
+        // AVAILABLE 을 단언하므로 D+2 — D+1 은 KST 12:01 이후 실행 시 마감(DEADLINE_PASSED)이라 시각 의존 실패가 난다.
+        LocalDate crawlDate = LocalDate.now(clock).plusDays(2);
         LocalDateTime crawledAt = LocalDateTime.now(clock);
         // 같은 확보 동아리의 물결 확보 행 [10,13) 과 무꼬리 실예약 행 [14,16) 이 공존한다 — 행 단위 분류.
         facilityReservationRepository.save(FacilityReservation.create(facility.getId(), 91011L,

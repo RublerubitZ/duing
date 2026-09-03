@@ -26,7 +26,7 @@ public class FacilityBookingException extends ApplicationException {
 
     public static class MonthOutOfBookingRangeException extends FacilityBookingException {
         public MonthOutOfBookingRangeException() {
-            super("예약 가능 기간이 아닙니다. 이번 달과 다음 달만 조회할 수 있습니다.", HttpStatus.BAD_REQUEST);
+            super("조회할 수 있는 기간이 아닙니다.", HttpStatus.BAD_REQUEST);
         }
     }
 
