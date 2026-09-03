@@ -123,6 +123,22 @@ describe('MemberAccessGuard', () => {
     );
   });
 
+  it('익명 딥링크의 401 도 거부로 판정해 기본 안내 후 동아리 소개 페이지로 이동한다', async () => {
+    // BE 가 4경로를 URL 레이어 인증으로 올리면(#838) 익명은 403 대신 401 을 받는다.
+    // 이 테스트 클라이언트는 bearer 모드라 401 이 갱신 시도 없이 그대로 표면화된다 —
+    // 실앱(cookie 모드)은 갱신 401 뒤에 같은 401 이 표면화되므로 가드가 보는 값은 동일하다.
+    seedMembership(() =>
+      HttpResponse.json({ ok: false, message: '인증이 필요합니다.', data: null }, { status: 401 }),
+    );
+
+    renderGuard();
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(`/clubs/${CLUB_ID}`));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '회원 전용 페이지입니다. 동아리 소개 페이지로 이동합니다.',
+    );
+  });
+
   it('서버 오류(500)는 거부가 아니므로 리다이렉트 대신 실패 안내를 보여준다', async () => {
     seedMembership(() => new HttpResponse(null, { status: 500 }));
 
