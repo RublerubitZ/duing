@@ -152,6 +152,25 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     );
   });
 
+  it('요청자가 이미 탈퇴한 계정이라 자동 거절되면 그 사실을 구분해 안내한다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
+        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+      ),
+      http.patch(`*/clubs/${CLUB_ID}/join-requests/1`, () => json({ result: 'AUTO_REJECTED_WITHDRAWN' })),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '홍길동 상세' }));
+    const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
+    await userEvent.click(within(panel).getByRole('button', { name: '승인' }));
+
+    await waitFor(() =>
+      expect(mockAddToast).toHaveBeenCalledWith('탈퇴한 회원이라 자동 거절 처리되었습니다.'),
+    );
+  });
+
   it('처리에 실패하면 상세 패널 안에 서버 메시지를 그대로 보여준다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),

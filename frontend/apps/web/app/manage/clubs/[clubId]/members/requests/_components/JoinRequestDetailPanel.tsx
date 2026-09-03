@@ -30,6 +30,7 @@ const DECISION_MESSAGE: Record<JoinRequestDecisionResult, string> = {
   APPROVED: '가입 요청을 승인했습니다.',
   REJECTED: '가입 요청을 거절했습니다.',
   AUTO_REJECTED: '이미 가입된 회원이라 자동 거절 처리되었습니다.',
+  AUTO_REJECTED_WITHDRAWN: '탈퇴한 회원이라 자동 거절 처리되었습니다.',
 };
 
 export function JoinRequestDetailPanel({
