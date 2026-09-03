@@ -122,7 +122,7 @@ public class AdminFeeAuditQueryRepository {
                 .collect(Collectors.toMap(row -> row.get(feePolicy.clubId), row -> row.get(policyCount)));
     }
 
-    /** 동아리별 활동 회원 수 — 탈퇴(soft delete) 회원은 @SQLRestriction 으로 빠진다. */
+    /** 동아리별 활동 회원 수 — soft-delete 된 멤버십(동아리 탈퇴·계정 탈퇴 모두)은 @SQLRestriction 으로 빠진다. */
     public Map<Long, Long> countMembers(Long clubId) {
         NumberExpression<Long> memberCount = clubMember.count();
         return queryFactory

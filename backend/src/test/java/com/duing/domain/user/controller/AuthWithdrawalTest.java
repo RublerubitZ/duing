@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -20,6 +21,8 @@ import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -102,6 +105,55 @@ class AuthWithdrawalTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(leader))
                 .when().delete("/api/v1/users/me")
                 .then().statusCode(HttpStatus.CONFLICT.value());
+
+        // 409 면 멤버십·이력 모두 손대지 않는다(트랜잭션 원자성).
+        Integer leaderActiveRows = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM club_member WHERE user_id = ? AND deleted_at IS NULL",
+                Integer.class, leader.getId());
+        assertThat(leaderActiveRows).isEqualTo(1);
+        Integer leaderHistoryRows = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM club_member_history WHERE target_user_id = ?",
+                Integer.class, leader.getId());
+        assertThat(leaderHistoryRows).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴하면 소속 멤버십이 LEFT 이력과 함께 soft-delete 되어 활성 회원 수에서 빠진다")
+    void withdrawSoftDeletesMembershipsWithHistory() throws Exception {
+        Club firstClub = saveActiveClub("첫동아리");
+        Club secondClub = saveActiveClub("둘째동아리");
+        User firstLeader = saveUser();
+        User secondLeader = saveUser();
+        User member = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(firstClub, firstLeader));
+        clubMemberRepository.save(ClubMember.asLeader(secondClub, secondLeader));
+        clubMemberRepository.save(ClubMember.of(firstClub, member, ClubMemberRole.MEMBER));
+        clubMemberRepository.save(ClubMember.of(secondClub, member, ClubMemberRole.OFFICER));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(member))
+                .when().delete("/api/v1/users/me")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(clubMemberRepository.countActiveByClubId(firstClub.getId())).isEqualTo(1L);
+        assertThat(clubMemberRepository.countActiveByClubId(secondClub.getId())).isEqualTo(1L);
+        // 행은 deleted_at 이 찍힌 채 남는다(가입 이력 보존) — @SQLRestriction 을 우회하는 jdbc 로 확인.
+        Integer softDeletedRows = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM club_member WHERE user_id = ? AND deleted_at IS NOT NULL",
+                Integer.class, member.getId());
+        assertThat(softDeletedRows).isEqualTo(2);
+        assertThat(clubMemberRepository.findClubMemberUserIdsIncludingDeleted(
+                firstClub.getId(), List.of(member.getId()))).containsExactly(member.getId());
+        List<Map<String, Object>> historyRows = jdbcTemplate.queryForList(
+                "SELECT club_id, event_type, from_role, reason FROM club_member_history "
+                        + "WHERE target_user_id = ? ORDER BY club_id", member.getId());
+        assertThat(historyRows).hasSize(2);
+        assertThat(historyRows).allSatisfy(row -> {
+            assertThat(row.get("event_type")).isEqualTo("LEFT");
+            assertThat(row.get("reason")).isEqualTo("회원 탈퇴");
+        });
+        assertThat(historyRows.get(0).get("from_role")).isEqualTo("MEMBER");
+        assertThat(historyRows.get(1).get("from_role")).isEqualTo("OFFICER");
     }
 
     private User saveUser() {

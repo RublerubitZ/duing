@@ -25,6 +25,7 @@ import com.duing.domain.notification.event.FeeBillsIssuedEvent;
 import com.duing.domain.notification.listener.FeeBillsIssuedListener;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -77,6 +78,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     TransactionTemplate transactionTemplate;
     @Autowired
     FeeBillsIssuedListener feeBillsIssuedListener;
+    @Autowired
+    UserService userService;
 
     private String leaderToken;
     private String memberToken;
@@ -407,6 +410,35 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(created).isZero();
         assertThat(skipped).isZero();
         assertThat(countBills(policy.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원에게는 청구가 발행되지 않고 활성 회원 수·skipped 도 탈퇴자를 세지 않는다")
+    void withdrawnMemberIsExcludedFromIssuance() {
+        Club club = clubRepository.save(ClubFixture.academic("탈퇴검증동아리"));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
+        User leader = userRepository.save(UserFixture.unique());
+        User withdrawnMember = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.asMember(club, withdrawnMember));
+        FeePolicy policy = feePolicyRepository.save(
+                FeePolicyFixture.of(club.getId(), BillingType.MONTHLY, 10000L));
+
+        userService.withdraw(withdrawnMember.getId());
+
+        int created = transactionTemplate.execute(status -> feeBillRepository.bulkInsertBills(
+                club.getId(), policy.getId(), 10000L, "2026-07",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), LocalDate.of(2026, 7, 31)));
+        long activeCount = clubMemberRepository.countActiveByClubId(club.getId());
+        int skipped = (int) Math.max(0L, activeCount - created);
+
+        assertThat(created).isEqualTo(1);
+        assertThat(activeCount).isEqualTo(1L);
+        assertThat(skipped).isZero();
+        Integer withdrawnMemberBills = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM fee_bill WHERE user_id = ? AND fee_policy_id = ?",
+                Integer.class, withdrawnMember.getId(), policy.getId());
+        assertThat(withdrawnMemberBills).isZero();
     }
 
     @Test
