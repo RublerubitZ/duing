@@ -95,8 +95,10 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     @Override
     @Transactional
     public void leave(LeaveClubCommand command) {
+        // 잠금 조회가 유일한 첫 조회다 — 회장 인계가 먼저 이 행을 잡았다면 커밋 뒤의 역할(LEADER)로 재읽혀
+        // 아래 검사가 409 로 막는다. 무잠금으로 읽으면 @SQLDelete 가 인계 커밋 위에 그대로 적용돼 회장이 공석이 된다(#1138).
         ClubMember membership = clubMemberRepository
-                .findByClubIdAndUserId(command.clubId(), command.requesterId())
+                .findByClubIdAndUserIdForUpdate(command.clubId(), command.requesterId())
                 .orElseThrow(ClubMemberException.NotFound::new);
 
         if (membership.getRole() == ClubMemberRole.LEADER) {
@@ -183,9 +185,11 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     @Override
     @Transactional
     public void leaveAllOnWithdrawal(Long userId) {
-        List<ClubMember> memberships = clubMemberRepository.findAllByUserId(userId);
+        // 잠금 조회가 유일한 첫 조회다(id 순) — 회장 인계·승계·지정이 먼저 잡은 행은 커밋 뒤 역할로 재읽힌다(#1138).
+        List<ClubMember> memberships = clubMemberRepository.findAllByUserIdForUpdate(userId);
         for (ClubMember membership : memberships) {
-            // withdraw 가 앞서 회장 검사를 하지만, 이 메서드 단독으로도 "회장 공석" 불변식을 지킨다.
+            // withdraw 의 선검사는 잠금 전이라 창을 못 닫는다(빠른 실패용). 잠금 조회 뒤의 이 검사가
+            // 인계·승계·지정과의 경합을 닫는다 — LEADER 로 재읽히면 409.
             if (membership.getRole() == ClubMemberRole.LEADER) {
                 throw new ClubMemberException.LeaderCannotLeave();
             }

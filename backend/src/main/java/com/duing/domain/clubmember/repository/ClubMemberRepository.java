@@ -36,12 +36,6 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     boolean existsByUserIdAndRole(Long userId, ClubMemberRole role);
 
     /**
-     * 회원의 활성 멤버십 전부(동아리 상태 무관). 계정 탈퇴가 멤버십을 함께 soft-delete 할 때 쓴다 —
-     * findClubIdsByUserId 는 뷰어 스코프(ACTIVE 동아리만)라 INACTIVE 동아리 소속을 놓친다.
-     */
-    List<ClubMember> findAllByUserId(Long userId);
-
-    /**
      * 동아리 멤버 전체 조회. LEADER → OFFICER → MEMBER 순, 그룹 내 createdAt(joinedAt) 오름차순.
      * User 를 JOIN FETCH 해 N+1 을 회피한다.
      */
@@ -99,6 +93,15 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     @Query("SELECT cm FROM ClubMember cm WHERE cm.club.id = :clubId AND cm.user.id = :userId")
     Optional<ClubMember> findByClubIdAndUserIdForUpdate(@Param("clubId") Long clubId,
                                                         @Param("userId") Long userId);
+
+    /**
+     * 회원의 활성 멤버십 전부를 행 잠금 후 조회한다(계정 탈퇴, #1138). 동아리 상태 무관 —
+     * findClubIdsByUserId 는 뷰어 스코프(ACTIVE 동아리만)라 INACTIVE 동아리 소속을 놓친다.
+     * id 순으로 획득해 다중 탈퇴·회장 인계 간 데드락을 피한다. @SQLRestriction 이 JPQL 에 자동 적용된다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cm FROM ClubMember cm WHERE cm.user.id = :userId ORDER BY cm.id")
+    List<ClubMember> findAllByUserIdForUpdate(@Param("userId") Long userId);
 
     /** 공지 뷰어 스코프 전용 — 비 ACTIVE 동아리는 내부 공지 가시성에서 제외한다 (스펙 Part B). */
     @Query("""
