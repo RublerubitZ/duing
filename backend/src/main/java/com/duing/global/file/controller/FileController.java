@@ -4,6 +4,7 @@ import com.duing.global.auth.UserPrincipal;
 import com.duing.global.file.FileStorageService;
 import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.FileUploadRateLimiter;
+import com.duing.global.file.UploadedObjectService;
 import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.controller.dto.FileUploadResponse;
 import com.duing.global.file.exception.FileException;
@@ -32,6 +33,7 @@ public class FileController implements FileApi {
 
     private final FileStorageService fileStorageService;
     private final FileUploadRateLimiter fileUploadRateLimiter;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @PostMapping(consumes = "multipart/form-data")
@@ -43,6 +45,8 @@ public class FileController implements FileApi {
         fileUploadRateLimiter.assertWithinLimit(currentUser.id(), LocalDateTime.now());
         String contentType = validateAndResolveContentType(file, purpose);
         String uploadedUrl = fileStorageService.upload(file, purpose.directory(), contentType);
+        // 추적 행 기록(#791) — 스토리지 업로드 성공 후. DB 예외는 전파해 500 으로 드러낸다(객체는 미추적 고아로 남는다).
+        uploadedObjectService.recordUpload(uploadedUrl, purpose, currentUser.id());
         FileUploadResponse fileUploadResponse = new FileUploadResponse(uploadedUrl, uploadedUrl);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(fileUploadResponse));
     }
