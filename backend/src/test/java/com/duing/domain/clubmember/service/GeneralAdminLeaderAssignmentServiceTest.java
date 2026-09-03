@@ -92,8 +92,9 @@ class GeneralAdminLeaderAssignmentServiceTest {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         clubMemberRepository.save(ClubMember.of(club, withdrawnUser, ClubMemberRole.OFFICER));
 
-        // 탈퇴는 계정만 지우고 비-LEADER 멤버십 행은 남긴다. 잠금 조회는 그 잔존 행도 잡으므로,
-        // 막지 않으면 로그인 불가한 유령 회장이 생기고 현직 회장이 강등된다.
+        // 계정 탈퇴는 이제 멤버십도 soft-delete 하지만(leaveAllOnWithdrawal), 전환 이전 탈퇴자의 잔존 행·
+        // 탈퇴와 지정이 겹치는 경합 창을 재현하기 위해 네이티브 UPDATE 로 users 행만 지운다.
+        // 잠금 조회는 그 잔존 행도 잡으므로, 막지 않으면 로그인 불가한 유령 회장이 생기고 현직 회장이 강등된다.
         entityManager.flush();
         entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
                 .setParameter("userId", withdrawnUser.getId())

@@ -265,7 +265,8 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("탈퇴한 회원의 멤버 id 로 조회하면 404 — 잔존 멤버 행이 500 으로 새지 않는다")
     void withdrawnMemberIsNotFound() {
-        // 탈퇴는 User 만 soft-delete 하고 비-LEADER club_member 행은 남긴다(GeneralUserService.withdraw).
+        // 계정 탈퇴는 이제 멤버십도 soft-delete 하지만(leaveAllOnWithdrawal), 전환 이전 탈퇴자의 잔존 행·
+        // 탈퇴와 명령이 겹치는 경합 창을 재현하기 위해 userRepository.delete 로 User 만 지운다.
         // 그 잔존 행을 findById 로 읽으면 user 프록시 초기화가 실패해 500 이 났다.
         userRepository.delete(memberUser);
 

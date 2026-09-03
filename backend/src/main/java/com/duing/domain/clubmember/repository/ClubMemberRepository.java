@@ -36,6 +36,12 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     boolean existsByUserIdAndRole(Long userId, ClubMemberRole role);
 
     /**
+     * 회원의 활성 멤버십 전부(동아리 상태 무관). 계정 탈퇴가 멤버십을 함께 soft-delete 할 때 쓴다 —
+     * findClubIdsByUserId 는 뷰어 스코프(ACTIVE 동아리만)라 INACTIVE 동아리 소속을 놓친다.
+     */
+    List<ClubMember> findAllByUserId(Long userId);
+
+    /**
      * 동아리 멤버 전체 조회. LEADER → OFFICER → MEMBER 순, 그룹 내 createdAt(joinedAt) 오름차순.
      * User 를 JOIN FETCH 해 N+1 을 회피한다.
      */
@@ -53,7 +59,8 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
      * 원본 연락처 조회와 운영 명령(역할 변경·기수 변경·강퇴·인계 대상 검증)의 공용 조회 —
      * clubId 스코프 검증과 User 로딩을 한 쿼리로 끝낸다. 소비자가 둘이므로 연락처 기준으로만
      * 손대면(필요 컬럼 프로젝션·JOIN FETCH 제거) 탈퇴 회원 조작 차단이 조용히 풀린다.
-     * JOIN FETCH(INNER)라 탈퇴(User soft-delete)로 남은 비-LEADER 잔존 행은 결과에서 빠져 404 로 수렴한다.
+     * 계정 탈퇴는 이제 멤버십도 함께 soft-delete 하지만(leaveAllOnWithdrawal), 그 전환 이전 탈퇴자의 잔존 행은
+     * JOIN FETCH(INNER)라 결과에서 빠져 404 로 수렴한다.
      * findById 로 읽으면 user 프록시 초기화가 실패해 500 이 되므로 이 경로를 반드시 쓴다.
      * 타 동아리 memberId 도 조건 불일치로 빈 Optional 이 돼 미존재와 구분되지 않는다.
      *
@@ -171,14 +178,19 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
             """)
     List<Long> findAllOfficerUserIds(@Param("managerRoles") Collection<ClubMemberRole> managerRoles);
 
-    /** 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다. */
+    /**
+     * 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다.
+     * 계정 탈퇴도 멤버십 soft-delete 를 동반하므로(leaveAllOnWithdrawal) 탈퇴 회원은 여기서 빠진다 —
+     * 잔존 행은 그 전환 이전 탈퇴자(1회성 운영 정리 대상)뿐.
+     */
     @Query("SELECT COUNT(cm) FROM ClubMember cm WHERE cm.club.id = :clubId")
     long countActiveByClubId(@Param("clubId") Long clubId);
 
     /**
      * 청구 대상 검증용: soft-delete(탈퇴) 포함, 이 동아리의 멤버였던 user_id 집합을 반환한다.
      * @SQLRestriction 을 우회하는 네이티브 쿼리라 탈퇴 회원도 포함된다 — 요청 memberIds 중 이 집합에
-     * 없는 id 는 타 동아리/미존재(IDOR)로 400 처리하고, 탈퇴 회원은 발행 단계(활성 join)에서 자연 제외한다.
+     * 없는 id 는 타 동아리/미존재(IDOR)로 400 처리하고, soft-delete 된 멤버십(동아리 탈퇴·계정 탈퇴 모두)은
+     * 발행 단계의 cm.deleted_at IS NULL 로 자연 제외한다.
      */
     @Query(value = """
             SELECT DISTINCT cm.user_id FROM club_member cm

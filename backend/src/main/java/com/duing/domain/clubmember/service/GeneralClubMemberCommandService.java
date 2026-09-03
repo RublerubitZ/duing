@@ -180,11 +180,27 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         clubMemberRepository.deleteAll(members);
     }
 
+    @Override
+    @Transactional
+    public void leaveAllOnWithdrawal(Long userId) {
+        List<ClubMember> memberships = clubMemberRepository.findAllByUserId(userId);
+        for (ClubMember membership : memberships) {
+            // withdraw 가 앞서 회장 검사를 하지만, 이 메서드 단독으로도 "회장 공석" 불변식을 지킨다.
+            if (membership.getRole() == ClubMemberRole.LEADER) {
+                throw new ClubMemberException.LeaderCannotLeave();
+            }
+            historyRecorder.record(
+                    membership.getClub().getId(), userId, userId,
+                    ClubMemberEventType.LEFT, membership.getRole(), null, "회원 탈퇴");
+        }
+        // @SQLDelete → deleted_at = NOW(). 행은 남아 가입 이력이 보존되고, 물리 파기는 PIPA 보관기간 잡이 맡는다.
+        clubMemberRepository.deleteAll(memberships);
+    }
+
     /**
-     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 탈퇴는 계정만 soft-delete 하고 비-LEADER
-     * 멤버십 행은 남기므로(의도된 동작), findById 로 읽으면 목록에서 이미 사라진 회원의 잔존 행에
-     * 조작이 그대로 성공한다 — 운영진 화면에는 보이지도 않는 대상에 이력만 쌓인다(#753).
-     * 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다.
+     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 계정 탈퇴는 이제 멤버십도 함께 soft-delete 하지만
+     * (leaveAllOnWithdrawal), 그 전환 이전 탈퇴자의 잔존 행과 탈퇴·명령이 겹치는 경합 창은 남으므로
+     * findById 대신 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다(#753).
      */
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {
         return clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
