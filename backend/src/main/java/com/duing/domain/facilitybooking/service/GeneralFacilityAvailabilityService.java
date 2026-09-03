@@ -61,14 +61,18 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     public FacilityAvailabilityResponse getAvailability(Long facilityId, YearMonth requestedMonth) {
         YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = requestedMonth != null ? requestedMonth : currentMonth;
-        if (!targetMonth.equals(currentMonth) && !targetMonth.equals(currentMonth.plusMonths(1))) {
+        // 열람 범위 = 직전 월·당월·익월. 직전 월은 기록 열람 전용(저장 스냅샷 그대로, 재크롤 없음 — 2026-09-03 스펙 §2.1).
+        // 신청 가능 범위는 별개로 BookingApplicationPolicy(반월 창·마감)가 판정한다.
+        if (targetMonth.isBefore(currentMonth.minusMonths(1)) || targetMonth.isAfter(currentMonth.plusMonths(1))) {
             throw new FacilityBookingException.MonthOutOfBookingRangeException();
         }
+        boolean pastMonth = targetMonth.isBefore(currentMonth);
         Facility facility = facilityRepository.findById(facilityId)
                 .filter(found -> !found.isArchived())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
 
-        DataSource source = facilityCrawlService.ensureFresh(targetMonth);
+        // 직전 월은 크롤 윈도우(당월·익월) 밖이라 온디맨드 재크롤을 걸지 않는다 — 저장된 행을 그대로 보여주는 기록 열람.
+        DataSource source = pastMonth ? DataSource.CACHE : facilityCrawlService.ensureFresh(targetMonth);
 
         // 분류가 차단 여부를 가른다(실예약만 차단·확보 시간 비차단) — 기본 확보 시간 대상 키는 크롤 행이 있을 때만 요청당 1회 조회한다.
         List<FacilityReservation> crawlRows =
@@ -89,7 +93,10 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         LocalTime nowTime = currentDateTime.toLocalTime();
         FacilityMonthSnapshot snapshot = facilityMonthSnapshotRepository.findByYearMonth(targetMonth).orElse(null);
         LocalDateTime crawledAt = snapshot != null ? snapshot.getCrawledAt() : null;
-        boolean stale = isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
+        // 과거 월 기록은 신선도(TTL)가 아니라 완결성만 본다 — TTL 을 적용하면 항상 stale 이 되어 기록 열람 내내 배너가 붙는다.
+        boolean stale = pastMonth
+                ? isIncompleteRecord(snapshot)
+                : isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
         BookingWindow window = bookingApplicationPolicy.windowFor(today);
         return new FacilityAvailabilityResponse(
@@ -147,10 +154,15 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 .collect(Collectors.toMap(Club::getId, Club::getName, (first, second) -> first));
     }
 
-    /** 예약 홈은 당월·익월 전용이라 고정 10분 TTL(선행 스펙 §5.5의 현재·다음월 TTL 정책 파라미터). */
+    /** 당월·익월은 고정 10분 TTL(선행 스펙 §5.5의 현재·다음월 TTL 정책 파라미터). 직전 월은 isIncompleteRecord 가 대신한다. */
     private boolean isStale(LocalDateTime crawledAt, FetchStatus fetchStatus, DataSource source) {
         return SnapshotFreshnessPolicy.isStale(source, fetchStatus, crawledAt,
                 SnapshotFreshnessPolicy.CURRENT_NEXT_TTL, LocalDateTime.now(clock));
+    }
+
+    /** 과거 월 기록의 stale — 스냅샷이 없거나 SUCCESS 가 아니면(PARTIAL·FAILED) 불완전한 기록이다. */
+    private static boolean isIncompleteRecord(FacilityMonthSnapshot snapshot) {
+        return snapshot == null || snapshot.getFetchStatus() != FetchStatus.SUCCESS;
     }
 
 }
