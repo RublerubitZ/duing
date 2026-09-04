@@ -73,7 +73,7 @@ export function FacilityOpenDateTab() {
             closeDialog();
           },
           onError: (error) =>
-            setDialogError(`${errorMessageOf(error)} 적용되지 않았어요. 다시 시도해 주세요.`),
+            setDialogError(`${errorMessageOf(error)}\n적용되지 않았어요. 다시 시도해 주세요.`),
         },
       );
       return;

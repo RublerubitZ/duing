@@ -193,6 +193,7 @@ describe('FacilityOpenDateTab', () => {
     );
     renderTab();
     await screen.findByText('공연장');
+    const listRequestsBeforeFailure = listRequestCount;
 
     fireEvent.change(screen.getByLabelText('전체 적용 오픈일'), { target: { value: NEXT_OPEN_DATE } });
     await userEvent.click(screen.getByRole('button', { name: '모든 시설에 적용' }));
@@ -204,6 +205,8 @@ describe('FacilityOpenDateTab', () => {
     // 다이얼로그가 떠 있는 동안 뒤 화면은 aria-hidden 이라 role 질의로는 잡히지 않는다 — 텍스트로 확인한다.
     expect(screen.getByText(CURRENT_OPEN_DATE)).toBeInTheDocument();
     expect(screen.getByText('닫힘')).toBeInTheDocument();
+    // 실패 시 무효화가 걸리지 않는다(onSuccess 전용) — 목록 재조회 0회.
+    expect(listRequestCount).toBe(listRequestsBeforeFailure);
   });
 
   it('모든 시설 닫기는 일괄 엔드포인트에 null 을 한 번 보낸다', async () => {
