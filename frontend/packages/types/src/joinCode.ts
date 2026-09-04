@@ -99,9 +99,14 @@ export type JoinRequestDetail = JoinRequestSummary & {
 
 /**
  * 단건 처리 결과. `AUTO_REJECTED` 는 실패가 아니라 "승인하려 했으나 이미 가입된 회원이라
- * 인원 차감 없이 자동 거절된" 정상 경로이므로 화면에서 승인·거절과 구분해 안내한다.
+ * 인원 차감 없이 자동 거절된" 정상 경로이고, `AUTO_REJECTED_WITHDRAWN` 은 요청자가 이미 탈퇴한
+ * 계정이라 같은 방식으로 자동 거절된 경우다 — 화면에서 승인·거절과 구분해 안내한다.
  */
-export type JoinRequestDecisionResult = 'APPROVED' | 'REJECTED' | 'AUTO_REJECTED';
+export type JoinRequestDecisionResult =
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'AUTO_REJECTED'
+  | 'AUTO_REJECTED_WITHDRAWN';
 
 export type DecideJoinRequestPayload = {
   status: Extract<JoinRequestStatus, 'APPROVED' | 'REJECTED'>;

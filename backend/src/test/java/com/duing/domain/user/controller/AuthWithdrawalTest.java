@@ -8,9 +8,16 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.entity.ClubJoinRequest;
+import com.duing.domain.joincode.entity.JoinRequestStatus;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -20,6 +27,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +52,12 @@ class AuthWithdrawalTest extends IntegrationTestBase {
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
+    @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
+    @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -100,6 +112,14 @@ class AuthWithdrawalTest extends IntegrationTestBase {
         User leader = saveUser();
         Club club = saveActiveClub("탈퇴테스트동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Club otherClub = saveActiveClub("다른동아리");
+        ClubJoinCode otherInvite = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                otherClub, codeOf(sequence.getAndIncrement()), 13, 30,
+                LocalDateTime.now(clock).plusDays(7), false, null));
+        otherInvite.tryConsume();
+        clubJoinCodeRepository.save(otherInvite);
+        ClubJoinRequest leaderPending = clubJoinRequestRepository.save(
+                ClubJoinRequest.pending(otherClub, leader, otherInvite));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(leader))
@@ -115,6 +135,8 @@ class AuthWithdrawalTest extends IntegrationTestBase {
                 "SELECT count(*) FROM club_member_history WHERE target_user_id = ?",
                 Integer.class, leader.getId());
         assertThat(leaderHistoryRows).isZero();
+        assertThat(clubJoinRequestRepository.findById(leaderPending.getId()).orElseThrow().getStatus())
+                .as("409 면 가입 요청도 손대지 않는다").isEqualTo(JoinRequestStatus.PENDING);
     }
 
     @Test
@@ -156,6 +178,40 @@ class AuthWithdrawalTest extends IntegrationTestBase {
         assertThat(historyRows.get(1).get("from_role")).isEqualTo("OFFICER");
     }
 
+    @Test
+    @DisplayName("탈퇴하면 본인의 대기 중 가입 요청이 자동 거절되고 예약 자리가 환급된다")
+    void withdrawRejectsOwnPendingJoinRequestsAndRefunds() throws Exception {
+        Club club = saveActiveClub("가입요청동아리");
+        User leader = saveUser();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        User applicant = saveUser();
+        // 초대 링크는 모집 무귀속·절대 만료 — 발급 시점 기준 상대 시각으로 만든다(시한폭탄 금지).
+        ClubJoinCode inviteCode = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                club, codeOf(sequence.getAndIncrement()), 13, 30,
+                LocalDateTime.now(clock).plusDays(7), false, leader.getId()));
+        inviteCode.tryConsume();
+        clubJoinCodeRepository.save(inviteCode);
+        ClubJoinRequest pending = clubJoinRequestRepository.save(
+                ClubJoinRequest.pending(club, applicant, inviteCode));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(applicant))
+                .when().delete("/api/v1/users/me")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        ClubJoinRequest rejected = clubJoinRequestRepository.findById(pending.getId()).orElseThrow();
+        assertThat(rejected.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(rejected.getRejectReason()).isEqualTo("탈퇴한 회원");
+        assertThat(rejected.getReviewedBy().getId()).as("처리자는 탈퇴한 본인").isEqualTo(applicant.getId());
+        assertThat(clubJoinCodeRepository.findById(inviteCode.getId()).orElseThrow().getUsedCount())
+                .as("확보했던 자리가 환급된다").isZero();
+        assertThat(clubAuditEventRepository.findAll().stream()
+                .filter(event -> pending.getId().equals(event.getJoinRequestId()))
+                .map(event -> event.getEventType() + ":" + event.getActorUserId()))
+                .as("거절 감사 이벤트 1건, 행위자는 탈퇴한 본인")
+                .containsExactly(ClubAuditEventType.JOIN_REQUEST_REJECTED + ":" + applicant.getId());
+    }
+
     private User saveUser() {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
@@ -181,5 +237,11 @@ class AuthWithdrawalTest extends IntegrationTestBase {
         statusField.setAccessible(true);
         statusField.set(club, ClubStatus.ACTIVE);
         return clubRepository.save(club);
+    }
+
+    /** code 는 전역 unique 6자 — 시퀀스로 겹치지 않게 만든다(가입 링크 테스트 전례). */
+    private String codeOf(long seq) {
+        String candidate = Long.toString(Math.abs(seq), 32).toUpperCase();
+        return candidate.substring(candidate.length() - 6).replace('0', 'A').replace('1', 'B');
     }
 }

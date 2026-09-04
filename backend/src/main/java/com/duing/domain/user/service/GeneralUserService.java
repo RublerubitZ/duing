@@ -3,6 +3,7 @@ package com.duing.domain.user.service;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
+import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.user.entity.AdminUserAction;
 import com.duing.domain.user.entity.AdminUserActionLog;
 import com.duing.domain.user.entity.PhoneVerification;
@@ -74,6 +75,7 @@ public class GeneralUserService implements UserService {
     // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
     private final ApplicationEventPublisher eventPublisher;
     private final ClubMemberCommandService clubMemberCommandService;
+    private final JoinRequestService joinRequestService;
     private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -388,6 +390,8 @@ public class GeneralUserService implements UserService {
         // 탈퇴도 계정 자격 소멸 계열로 CREDENTIAL_CHANGE 로 묶는다(전용 사유 분리는 감사 수요 생기면 후속).
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
         clubMemberCommandService.leaveAllOnWithdrawal(user.getId());
+        // 본인 PENDING 가입 요청은 자동 거절하고 확보했던 자리를 환급한다(#1142) — 잠금 순서 users → club_member → club_join_code.
+        joinRequestService.rejectAllPendingOnWithdrawal(user.getId());
         userRepository.delete(user);
     }
 

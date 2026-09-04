@@ -37,6 +37,9 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
     /** 학생의 코드 확인 화면이 보여줄 "내 최근 요청 상태" — 재요청 이력이 쌓이므로 최신 1건만 본다. */
     Optional<ClubJoinRequest> findTopByClubIdAndUserIdOrderByIdDesc(Long clubId, Long userId);
 
+    /** 회원의 요청을 상태별로 전부 — 계정 탈퇴가 본인의 대기 요청을 자동 거절할 때 쓴다(#1142). @SQLRestriction 적용. */
+    List<ClubJoinRequest> findAllByUserIdAndStatus(Long userId, JoinRequestStatus status);
+
     /**
      * 운영진 가입 요청 목록(상태별, 최신순). 목록 항목이 학생 정보와 코드 문자열을 함께 보여주므로
      * LAZY 연관 두 개를 fetch join 해 N+1 을 없앤다.

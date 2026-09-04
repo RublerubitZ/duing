@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
+import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.PhoneVerification;
@@ -53,7 +54,8 @@ class SignupPhoneChangeRaceGuardTest {
             // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
             Clock.system(ZoneId.of("Asia/Seoul")),
             mock(ApplicationEventPublisher.class),
-            mock(ClubMemberCommandService.class));
+            mock(ClubMemberCommandService.class),
+            mock(JoinRequestService.class));
 
     @Test
     @DisplayName("재검증을 함께 통과한 동시 가입이 학번 unique 인덱스에 걸리면 사전 검사와 같은 중복 계정 409 로 치환된다")
