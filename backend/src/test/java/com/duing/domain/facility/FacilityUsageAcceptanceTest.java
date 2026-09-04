@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.BookingWindowFixture;
 import com.duing.domain.facility.entity.CrawlSource;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
@@ -55,7 +56,8 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
         LocalDate today = LocalDate.now(KST);
         LocalDateTime now = LocalDateTime.now(KST);
 
-        Facility facility = facilityRepository.save(Facility.create(4, "공동연습실(1)", "2105", 0));
+        Facility facility = facilityRepository.save(
+                BookingWindowFixture.opened(Facility.create(4, "공동연습실(1)", "2105", 0)));
         // 현재월 신선 스냅샷 → ensureFresh 가 CACHE 로 판정해 외부(학교) 호출 없음.
         snapshotRepository.save(FacilityMonthSnapshot.create(
                 current, now, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null));
@@ -92,6 +94,9 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 .body("data.facilities[0].reservations[0].start", equalTo("09:00"))
                 .body("data.facilities[0].reservations[0].organization", equalTo("댄스동아리"))
                 .body("data.facilities[0].id", notNullValue())
+                // 홈 카드가 "M.d부터 예약 가능" 문구를 만드는 원시 오픈일(맨 뒤 가산)
+                .body("data.facilities[0].bookingOpenDate",
+                        equalTo(BookingWindowFixture.OPEN_SINCE.toString()))
                 .extract().asString();
         assertThat(body).doesNotContain("roomSeq").doesNotContain("room_seq");
     }

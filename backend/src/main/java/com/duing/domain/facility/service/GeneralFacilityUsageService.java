@@ -116,7 +116,7 @@ public class GeneralFacilityUsageService implements FacilityUsageService {
                     .min(Comparator.comparing((ReservationSlot slot) -> slot.date().atTime(slot.start())))
                     .orElse(null);
             items.add(new FacilityUsageItem(facility.getId(), facility.getRoomName(), facility.getLocation(),
-                    current != null, current, next, slots));
+                    current != null, current, next, slots, facility.getBookingOpenDate()));
         }
         return items;
     }
