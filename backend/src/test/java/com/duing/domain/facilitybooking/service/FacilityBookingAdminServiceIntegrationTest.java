@@ -34,6 +34,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -131,7 +132,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         Fixture movedForward = fixture();
         Long approvedAfterMove = pendingBooking(movedForward, bookableDate(), 18, 20);
         Facility movedFacility = facilityRepository.findById(movedForward.facility().getId()).orElseThrow();
-        movedFacility.changeBookingOpenDate(LocalDate.now().plusDays(10));
+        movedFacility.changeBookingOpenDate(LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(10));
         facilityRepository.save(movedFacility);
 
         adminService.approve(admin.getId(), approvedAfterMove);

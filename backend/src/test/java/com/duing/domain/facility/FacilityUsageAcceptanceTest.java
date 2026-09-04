@@ -66,7 +66,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("비로그인 GET /api/v1/facilities 는 200 이고 id/roomName/location 만 담고 room_seq 는 없다")
+    @DisplayName("비로그인 GET /api/v1/facilities 는 200 이고 id/roomName/location/bookingOpenDate 를 담고 room_seq 는 없다")
     void listFacilitiesPublicNoRoomSeq() {
         String body = RestAssured.given()
                 .when().get("/api/v1/facilities")
