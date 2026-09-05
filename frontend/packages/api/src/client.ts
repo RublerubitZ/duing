@@ -149,7 +149,6 @@ import type {
   FacilityUsageResponse,
   FacilityDetailResponse,
   FacilityAvailabilityResponse,
-  FacilityBookingWindow,
   PurposePreset,
   CreateFacilityBookingPayload,
   CreateFacilityBookingResult,
@@ -434,8 +433,6 @@ export type DuingApiClient = {
     availability(facilityId: number, yearMonth?: string): Promise<FacilityAvailabilityResponse>;
     // GET /api/v1/facilities/booking-purpose-presets — 공개. 사용 목적 Preset(시드).
     purposePresets(): Promise<PurposePreset[]>;
-    // GET /api/v1/facilities/booking-window — 공개. 현재 예약 오픈 구간(전 시설 공통).
-    bookingWindow(): Promise<FacilityBookingWindow>;
   };
   facilityBookings: {
     // POST /api/v1/clubs/{clubId}/facility-bookings — 운영진 전용(쿠키 세션). 409=슬롯 불가/중복/상한.
@@ -1154,7 +1151,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           }),
         ),
       purposePresets: () => jsonOk<PurposePreset[]>(http.get('facilities/booking-purpose-presets')),
-      bookingWindow: () => jsonOk<FacilityBookingWindow>(http.get('facilities/booking-window')),
     },
     facilityBookings: {
       create: (clubId, payload) =>

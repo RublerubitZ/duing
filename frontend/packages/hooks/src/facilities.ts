@@ -64,16 +64,6 @@ export function usePurposePresetsQuery() {
   });
 }
 
-export function useBookingWindowQuery() {
-  const client = useApiClient();
-  return useQuery({
-    queryKey: facilityQueryKeys.bookingWindow(),
-    queryFn: () => client.facilities.bookingWindow(),
-    // 값은 KST 자정(1일·16일)에만 바뀐다 — 세션 내 재요청 억제
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
 export function useCreateFacilityBookingMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();

@@ -26,6 +26,8 @@ export type FacilityItem = {
   currentReservation: ReservationSlot | null;
   nextReservation: ReservationSlot | null;
   reservations: ReservationSlot[];
+  // 시설별 예약 오픈일(yyyy-MM-dd). null = 아직 열지 않음(닫힘), 필드 부재 = 구 백엔드(신청 가능으로 폴백).
+  bookingOpenDate?: string | null;
 };
 
 // GET /api/v1/facilities (§7.1) — 가벼운 활성 시설 목록.
@@ -33,6 +35,8 @@ export type FacilitySummary = {
   id: number;
   roomName: string;
   location: string | null;
+  // 시설별 예약 오픈일(yyyy-MM-dd). null = 닫힘, 필드 부재 = 구 백엔드.
+  bookingOpenDate?: string | null;
 };
 
 // GET /api/v1/facilities/usage?yearMonth=YYYY-MM (§7.2, 주력).
@@ -98,23 +102,11 @@ export type FacilityAvailabilityResponse = {
   yearMonth: string; // yyyy-MM
   lastUpdatedAt?: string | null; // 서버가 NON_NULL 직렬화 — 콜드 월은 필드 자체가 생략됨
   stale: boolean;
-  bookableFrom: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
-  bookableUntil: string; // yyyy-MM-dd — 예약 오픈 구간(정책 산출)
-  days: BookingDayAvailability[];
-};
-
-// GET /api/v1/facilities/booking-window — 현재 예약 오픈 구간(전 시설 공통, §1.5)
-export type FacilityBookingRange = {
-  startDate: string; // yyyy-MM-dd
-  endDate: string; // yyyy-MM-dd
-  label: string; // 서버 산출 표시 문자열("현재 예약 가능" 등) — FE 재정의 금지
-};
-
-export type FacilityBookingWindow = {
+  // 시설별 신청 창(FE 단일 진실). bookableFrom = max(오픈일, 오늘), bookableUntil = 익월 말일.
+  // 닫힘(오픈일 null)·오픈 전은 bookableFrom > bookableUntil 인 빈 창으로 내려온다(D1).
   bookableFrom: string; // yyyy-MM-dd
-  bookableUntil: string;
-  // BE(Lightsail) 배포 전 FE(Vercel) 선배포 전환기에 구 응답으로도 동작해야 한다 — 부재 시 단일 배지 폴백
-  availableBookingRanges?: FacilityBookingRange[];
+  bookableUntil: string; // yyyy-MM-dd
+  days: BookingDayAvailability[];
 };
 
 export type PurposePreset = {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { facilityIcon } from '@/app/_lib/facilityIcon';
-import { todayFreeSlotCount, windowRangeLabel } from '@/app/facilities/_lib/bookingHome';
+import {
+  bookingWindowNote,
+  bookingWindowToastMessage,
+  openDateLabel,
+  todayFreeSlotCount,
+} from '@/app/facilities/_lib/bookingHome';
 
 describe('facilityIcon', () => {
   it('시설명 패턴으로 아이콘을 매핑하고 미매핑은 기본 아이콘이다', () => {
@@ -13,10 +18,35 @@ describe('facilityIcon', () => {
   });
 });
 
-describe('windowRangeLabel', () => {
-  it('오픈 구간을 M.d ~ M.d 로 표기한다', () => {
-    expect(windowRangeLabel({ bookableFrom: '2026-07-16', bookableUntil: '2026-07-31' })).toBe('7.16 ~ 7.31');
-    expect(windowRangeLabel({ bookableFrom: '2026-08-01', bookableUntil: '2026-08-15' })).toBe('8.1 ~ 8.15');
+// 홈 카드·캘린더 문구는 시설별 오픈일(bookingOpenDate)과 가용성 창(bookableFrom/Until)에서만 파생한다 —
+// 전역 booking-window 는 소비하지 않는다(D7·D9).
+const TODAY = '2026-09-03';
+
+describe('openDateLabel', () => {
+  it('오픈일이 미래면 날짜 문구, 오늘 이하면 신청 가능, null 이면 준비 중이다', () => {
+    expect(openDateLabel('2026-09-16', TODAY)).toBe('9.16부터 예약 가능');
+    expect(openDateLabel(TODAY, TODAY)).toBe('예약 신청 가능');
+    expect(openDateLabel('2026-08-20', TODAY)).toBe('예약 신청 가능');
+    expect(openDateLabel(null, TODAY)).toBe('예약 준비 중');
+  });
+
+  it('필드가 없는 구 백엔드 응답은 신청 가능으로 폴백한다', () => {
+    expect(openDateLabel(undefined, TODAY)).toBe('예약 신청 가능');
+  });
+});
+
+describe('bookingWindowToastMessage', () => {
+  it('정상 창은 기간을 담고, 빈 창(from > until)은 아직 열리지 않았다고 안내한다', () => {
+    expect(bookingWindowToastMessage(TODAY, '2026-10-31')).toBe('현재 예약 가능한 기간이 아니에요 (9.3 ~ 10.31)');
+    expect(bookingWindowToastMessage('2026-11-01', '2026-10-31')).toBe('아직 예약 신청이 열리지 않았어요');
+  });
+});
+
+describe('bookingWindowNote', () => {
+  it('닫힘·오픈 전에만 안내줄을 내고 신청 중인 시설은 null 이다', () => {
+    expect(bookingWindowNote('2026-11-01', '2026-10-31', TODAY)).toBe('아직 예약 신청을 받지 않는 시설이에요');
+    expect(bookingWindowNote('2026-09-16', '2026-10-31', TODAY)).toBe('9.16부터 신청할 수 있어요');
+    expect(bookingWindowNote(TODAY, '2026-10-31', TODAY)).toBeNull();
   });
 });
 

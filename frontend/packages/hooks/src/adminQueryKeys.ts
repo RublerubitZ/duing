@@ -26,6 +26,9 @@ export const adminQueryKeys = {
   // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
   pendingCounts: () => ['admin', 'pending-counts'] as const,
   clubsAll: ['admin', 'clubs'] as const,
+  // 시설 예약 오픈일(총동연) — 오픈일 변경 성공 시 이 접두사 전체를 무효화한다.
+  facilitiesAll: ['admin', 'facilities'] as const,
+  facilities: () => [...adminQueryKeys.facilitiesAll, 'list'] as const,
   // 크롤 예약 현황(전면 차단 설계 §3.6) — 플래그 토글 성공 시 전체 무효화(facilityCrawlAll)
   facilityCrawlAll: ['admin', 'facility-crawl'] as const,
   facilityCrawlReservations: (params: AdminCrawlReservationParams) =>

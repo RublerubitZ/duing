@@ -28,6 +28,19 @@ export type AdminClubSummary = {
   statusChangedByName: string | null;
 };
 
+// === 시설 예약 오픈일(총동연) — 시설별 booking_open_date ===
+
+/** GET /admin/facilities 행. 활성 시설 + 오픈일(null = 닫힘, 아직 신청을 받지 않음). */
+export type AdminFacility = {
+  id: number;
+  roomName: string;
+  location: string | null;
+  bookingOpenDate: string | null; // yyyy-MM-dd, null = 닫힘
+};
+
+/** PATCH /admin/facilities[/{id}]/booking-open-date 바디. null 이면 닫기. */
+export type UpdateFacilityBookingOpenDatePayload = { bookingOpenDate: string | null };
+
 // === 어드민 크롤 예약 현황(전면 차단 설계 §3.6) — 그룹 단위 페이징 ===
 
 export type AdminCrawlGroupBy = 'CLUB' | 'FACILITY' | 'FACILITY_DATE';

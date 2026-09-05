@@ -15,10 +15,12 @@ import { conflictCardCount } from '../_lib/adminBookingDisplay';
 import { currentMonthRange } from '../_lib/submissionPeriod';
 import { BookingManagementTab } from '../_tabs/BookingManagementTab';
 import { FacilityCrawlTab } from '../_tabs/FacilityCrawlTab';
+import { FacilityOpenDateTab } from '../_tabs/FacilityOpenDateTab';
 import { SubmissionBatchesTab } from '../_tabs/SubmissionBatchesTab';
 import { SubmissionPrepareTab } from '../_tabs/SubmissionPrepareTab';
 
-const TAB_KEYS = ['review', 'prepare', 'ready', 'archive', 'crawl'] as const;
+// 'open' 은 반드시 끝에 둔다 — 스테퍼 번호가 TAB_KEYS.indexOf 기반이라 앞에 끼우면 워크플로 단계 번호가 밀린다.
+const TAB_KEYS = ['review', 'prepare', 'ready', 'archive', 'crawl', 'open'] as const;
 type FacilityOpsTab = (typeof TAB_KEYS)[number];
 
 const TAB_LABELS: Record<FacilityOpsTab, string> = {
@@ -27,6 +29,7 @@ const TAB_LABELS: Record<FacilityOpsTab, string> = {
   ready: '제출 대기',
   archive: '제출 이력',
   crawl: '크롤 예약',
+  open: '오픈일 설정',
 };
 
 // 탭별 화면 목적 안내(목업 PurposeNote) — 핵심 행위·다음 단계를 굵게 강조한다.
@@ -59,6 +62,12 @@ const TAB_PURPOSE: Record<FacilityOpsTab, ReactNode> = {
       학교에서 수집한 크롤 예약 원본이에요. <strong>크롤 예약</strong>은 해당 시간 예약이 차단되고,{' '}
       <strong>기본 확보 시간</strong>(동아리 관리의 &lsquo;기본 확보 시간 대상&rsquo; 지정)은 차단 없이 다른
       동아리도 신청할 수 있어요.
+    </>
+  ),
+  open: (
+    <>
+      시설마다 <strong>예약 신청을 여는 날짜</strong>를 정합니다. 비워 두면 닫혀 있고, 정한 날짜부터 다음 달
+      말일까지 신청받습니다.
     </>
   ),
 };
@@ -105,8 +114,8 @@ export function AdminFacilityBookingsPage() {
     router.replace(toRoute(`/admin/facility-bookings?tab=${tab}`), { scroll: false });
   };
 
-  // 크롤 예약은 워크플로 단계가 아니라 참조 탭 — 단계 진행(✓) 계산에서 제외한다(스펙 §3).
-  const activeStepIndex = activeTab === 'crawl' ? -1 : TAB_KEYS.indexOf(activeTab);
+  // 크롤 예약·오픈일 설정은 워크플로 단계가 아니라 참조·설정 탭 — 단계 진행(✓) 계산에서 제외한다(스펙 §3).
+  const activeStepIndex = activeTab === 'crawl' || activeTab === 'open' ? -1 : TAB_KEYS.indexOf(activeTab);
 
   return (
     // 다른 admin 페이지와 동일한 컨테이너 관례(max-w-layout+px+py) — 없으면 사이드바에 붙고 와이드에서 과확장된다.
@@ -227,6 +236,7 @@ export function AdminFacilityBookingsPage() {
       {/* 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다. */}
       {activeTab === 'archive' && <SubmissionBatchesTab statusFilter="ARCHIVED" />}
       {activeTab === 'crawl' && <FacilityCrawlTab />}
+      {activeTab === 'open' && <FacilityOpenDateTab />}
     </main>
   );
 }
