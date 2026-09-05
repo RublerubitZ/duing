@@ -25,13 +25,19 @@ export function bookingWindowToastMessage(bookableFrom: string, bookableUntil: s
   return `현재 예약 가능한 기간이 아니에요 (${rangeDatesLabel(bookableFrom, bookableUntil)})`;
 }
 
-/** 캘린더 상단 안내줄(D9). 닫힘 → 시설 문구, 오픈일 미래 → 날짜 문구, 그 외 null(표시 없음). */
+/**
+ * 캘린더 상단 안내줄(D9·C8). 닫힘 → 시설 문구, 마감일이 상한(익월 말일)보다 앞이면 범위 문구,
+ * 오픈일만 미래면 시작 문구, 그 외 null(표시 없음).
+ * 범위 문구가 시작 문구보다 앞선다 — 둘 다 해당하면 "언제부터 언제까지"를 한 줄로 말하는 편이 낫다.
+ */
 export function bookingWindowNote(
   bookableFrom: string,
   bookableUntil: string,
   todayIso: string,
+  nextMonthEndIso: string,
 ): string | null {
   if (bookableFrom > bookableUntil) return '아직 예약 신청을 받지 않는 시설이에요';
+  if (bookableUntil < nextMonthEndIso) return `${rangeDatesLabel(bookableFrom, bookableUntil)} 신청 가능`;
   if (bookableFrom > todayIso) return `${monthDayLabel(bookableFrom)}부터 신청할 수 있어요`;
   return null;
 }

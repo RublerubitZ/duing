@@ -28,6 +28,8 @@ export type FacilityItem = {
   reservations: ReservationSlot[];
   // 시설별 예약 오픈일(yyyy-MM-dd). null = 아직 열지 않음(닫힘), 필드 부재 = 구 백엔드(신청 가능으로 폴백).
   bookingOpenDate?: string | null;
+  // 시설별 예약 마감일(yyyy-MM-dd). null = 상한 없음(익월 말일까지), 필드 부재 = 구 백엔드.
+  bookingCloseDate?: string | null;
 };
 
 // GET /api/v1/facilities (§7.1) — 가벼운 활성 시설 목록.
@@ -37,6 +39,8 @@ export type FacilitySummary = {
   location: string | null;
   // 시설별 예약 오픈일(yyyy-MM-dd). null = 닫힘, 필드 부재 = 구 백엔드.
   bookingOpenDate?: string | null;
+  // 시설별 예약 마감일(yyyy-MM-dd). null = 상한 없음, 필드 부재 = 구 백엔드.
+  bookingCloseDate?: string | null;
 };
 
 // GET /api/v1/facilities/usage?yearMonth=YYYY-MM (§7.2, 주력).

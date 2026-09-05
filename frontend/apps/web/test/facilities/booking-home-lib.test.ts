@@ -42,11 +42,21 @@ describe('bookingWindowToastMessage', () => {
   });
 });
 
+// 창 상한(익월 말일) — 마감일이 이보다 앞일 때만 안내줄이 범위 문구가 된다(C8).
+const NEXT_MONTH_END = '2026-10-31';
+
 describe('bookingWindowNote', () => {
-  it('닫힘·오픈 전에만 안내줄을 내고 신청 중인 시설은 null 이다', () => {
-    expect(bookingWindowNote('2026-11-01', '2026-10-31', TODAY)).toBe('아직 예약 신청을 받지 않는 시설이에요');
-    expect(bookingWindowNote('2026-09-16', '2026-10-31', TODAY)).toBe('9.16부터 신청할 수 있어요');
-    expect(bookingWindowNote(TODAY, '2026-10-31', TODAY)).toBeNull();
+  it('닫힘·오픈 전에만 안내줄을 내고 상한까지 열린 시설은 null 이다', () => {
+    expect(bookingWindowNote('2026-11-01', '2026-10-31', TODAY, NEXT_MONTH_END)).toBe('아직 예약 신청을 받지 않는 시설이에요');
+    expect(bookingWindowNote('2026-09-16', '2026-10-31', TODAY, NEXT_MONTH_END)).toBe('9.16부터 신청할 수 있어요');
+    expect(bookingWindowNote(TODAY, '2026-10-31', TODAY, NEXT_MONTH_END)).toBeNull();
+  });
+
+  it('마감일이 상한보다 앞이면 범위 문구를 내고, 오픈일이 미래여도 범위 하나로 합친다', () => {
+    expect(bookingWindowNote(TODAY, '2026-09-15', TODAY, NEXT_MONTH_END)).toBe('9.3 ~ 9.15 신청 가능');
+    expect(bookingWindowNote('2026-09-10', '2026-09-15', TODAY, NEXT_MONTH_END)).toBe('9.10 ~ 9.15 신청 가능');
+    // 마감일이 상한과 같으면(= 마감일 미설정과 동일한 창) 알릴 게 없다.
+    expect(bookingWindowNote(TODAY, NEXT_MONTH_END, TODAY, NEXT_MONTH_END)).toBeNull();
   });
 });
 

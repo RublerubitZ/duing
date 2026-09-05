@@ -36,6 +36,7 @@ export type AdminFacility = {
   roomName: string;
   location: string | null;
   bookingOpenDate: string | null; // yyyy-MM-dd, null = 닫힘
+  bookingCloseDate: string | null; // yyyy-MM-dd, null = 상한 없음(익월 말일까지)
 };
 
 /** PATCH /admin/facilities[/{id}]/booking-open-date 바디. null 이면 닫기. */

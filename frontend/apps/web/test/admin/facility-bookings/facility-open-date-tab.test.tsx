@@ -18,8 +18,8 @@ const CURRENT_OPEN_DATE = '2026-08-01';
 const NEXT_OPEN_DATE = '2026-08-20';
 
 const INITIAL_FACILITIES: AdminFacility[] = [
-  { id: 10, roomName: '공연장', location: '학생회관 1층', bookingOpenDate: CURRENT_OPEN_DATE },
-  { id: 11, roomName: '세미나실', location: null, bookingOpenDate: null },
+  { id: 10, roomName: '공연장', location: '학생회관 1층', bookingOpenDate: CURRENT_OPEN_DATE, bookingCloseDate: null },
+  { id: 11, roomName: '세미나실', location: null, bookingOpenDate: null, bookingCloseDate: null },
 ];
 
 let facilities: AdminFacility[] = [];
