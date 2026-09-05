@@ -92,7 +92,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
         // bookableFrom·bookableUntil 은 시설 오픈일 정책이 계산한 그 시설의 창과 정확히 일치해야 한다.
-        BookingWindow window = OPEN_DATE_POLICY.windowFor(facility.getBookingOpenDate(), LocalDate.now(clock));
+        BookingWindow window = OPEN_DATE_POLICY.windowFor(
+                facility.getBookingOpenDate(), facility.getBookingCloseDate(), LocalDate.now(clock));
         assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
         assertThat(response.bookableFrom()).isEqualTo(window.from());
         assertThat(response.bookableUntil()).isEqualTo(window.until());
