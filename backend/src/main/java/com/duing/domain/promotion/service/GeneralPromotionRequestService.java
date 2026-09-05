@@ -54,17 +54,18 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
                     throw new PromotionException.DuplicatePendingPromotionRequestException();
                 });
 
+        Long requestId;
         try {
-            PromotionRequest saved = requestRepository.save(PromotionRequest.create(
+            requestId = requestRepository.save(PromotionRequest.create(
                     command.clubId(), command.requesterUserId(),
                     command.title(), command.description(),
                     command.suggestedBannerImageUrl(), command.suggestedLinkUrl()
-            ));
-            uploadedObjectService.activate(command.suggestedBannerImageUrl());
-            return saved.getId();
+            )).getId();
         } catch (DataIntegrityViolationException race) {
             throw new PromotionException.DuplicatePendingPromotionRequestException();
         }
+        uploadedObjectService.activate(command.suggestedBannerImageUrl());
+        return requestId;
     }
 
     @Override

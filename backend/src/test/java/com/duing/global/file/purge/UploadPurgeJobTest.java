@@ -27,8 +27,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -52,6 +55,7 @@ import org.springframework.transaction.PlatformTransactionManager;
         "duing.upload.purge.delete-enabled=false",
         "duing.upload.purge.window=PT24H"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class UploadPurgeJobTest extends IntegrationTestBase {
 
     @Autowired UploadPurgeJob dryRunJob; // 컨텍스트 빈 = delete-enabled=false
@@ -239,6 +243,26 @@ class UploadPurgeJobTest extends IntegrationTestBase {
                 clock, uploadedObjectRepository, fileStorageService, platformTransactionManager).run();
 
         assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PENDING);
+        verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("dry-run 에서 후보가 상한 500 건을 채우면 표본 절단 경고를 남긴다")
+    void warnsWhenDryRunSampleIsTruncated(CapturedOutput output) {
+        stubStorageDeleteConfirmed();
+        Instant uploadedAt = Instant.now(clock).minus(25, ChronoUnit.HOURS);
+        List<Object[]> rows = new ArrayList<>();
+        for (int index = 0; index < 500; index++) {
+            rows.add(new Object[]{"club/logo/dry-" + sequence.incrementAndGet() + ".jpg", "LOGO", 1L, "PENDING",
+                    java.sql.Timestamp.from(uploadedAt)});
+        }
+        jdbcTemplate.batchUpdate(
+                "INSERT INTO uploaded_object (storage_key, purpose, uploader_id, status, uploaded_at) VALUES (?, ?, ?, ?, ?)",
+                rows);
+
+        dryRunJob.run();
+
+        assertThat(output.getOut()).contains("표본이 절단됨");
         verify(fileStorageService, never()).delete(anyString());
     }
 }

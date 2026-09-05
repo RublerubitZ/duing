@@ -43,7 +43,7 @@ develop `20e88253` 기준. GitHub 이슈 #791 의 "설계 방향(검토 완료)"
 `cashbook_entry.attachment_url` 은 엔티티 필드만 있고 쓰기 경로가 없는 미사용 컬럼 — 대상 아님.
 관리자가 홍보 요청의 제안 배너 URL 을 홍보 배너로 재사용하는 흐름은 같은 키에 대한 활성화 재호출이라 멱등 처리된다(§3.2).
 
-## 2. 데이터 모델 — `V120__create_uploaded_object.sql`
+## 2. 데이터 모델 — `V122__create_uploaded_object.sql`
 
 ```sql
 CREATE TABLE uploaded_object (
@@ -253,5 +253,5 @@ SELECT EXISTS (SELECT 1 FROM club WHERE logo_url LIKE '%/' || :key OR cover_url 
 - **최대 리스크 = 활성화 지점 누락으로 실사용 객체 삭제.** 3중 방어: (1) §1.1 전수 표 + `UploadActivationAttachPointsTest` 로 코드 레벨 고정, (2) 1차 릴리스 dry-run 로그의 `referenced=true` 0건 확인, (3) 실삭제 전환 후에도 §4.3 안전망이 참조 객체를 치유·WARN.
 - 활성화 잠금은 도메인 tx 길이만큼 유지된다 — 잡의 claim 이 그 시간만큼 대기할 뿐 데드락 요소는 없다(활성화는 uploaded_object 만 잠그고 도메인 행은 그 전에 이미 잠겼거나 잠그지 않는다. 잡은 uploaded_object 만 잠근다).
 - `activate` 의 잠금 조회 이전에 같은 tx 에서 `UploadedObject` 를 무잠금으로 읽는 코드가 생기면 잠금이 stale 인스턴스를 돌려준다(잠금 조회 규약). 서비스 외부에서 `UploadedObjectRepository` 를 읽지 않는다 — 주입 지점은 `UploadedObjectService`·잡·테스트뿐.
-- 배포 순서: V120 은 additive 라 구 이미지와 공존. 잡은 prod 기본 dry-run 이므로 첫 릴리스에서 스토리지 삭제는 절대 일어나지 않는다.
+- 배포 순서: V122 은 additive 라 구 이미지와 공존. 잡은 prod 기본 dry-run 이므로 첫 릴리스에서 스토리지 삭제는 절대 일어나지 않는다.
 - 부하: 매시 후보 ≤500 × (EXISTS 1문장 + 잠금 tx ≤2 + 스토리지 DELETE 1). 평시 후보는 수 건 수준으로 예상.

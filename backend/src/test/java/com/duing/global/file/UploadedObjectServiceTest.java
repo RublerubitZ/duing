@@ -119,19 +119,22 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("본문 활성화는 HTML img·마크다운 이미지·쉼표 뒤 URL·중복 URL 을 모두 잡고 외부 URL 은 무시한다")
+    @DisplayName("본문 활성화는 HTML img·마크다운 이미지·쉼표 뒤 URL·따옴표 없는 src 속성·중복 URL 을 모두 잡고 외부 URL 은 무시한다")
     void activatesEveryOwnUrlReferencedInContent() {
         String htmlKey = uniqueKey(FilePurpose.NOTICE_BODY);
         String markdownKey = uniqueKey(FilePurpose.NOTICE_BODY);
         String trailingCommaKey = uniqueKey(FilePurpose.NOTICE_BODY);
+        String unquotedKey = uniqueKey(FilePurpose.NOTICE_BODY);
         String untouchedKey = uniqueKey(FilePurpose.NOTICE_BODY);
         seed(htmlKey, UploadedObjectStatus.PENDING);
         seed(markdownKey, UploadedObjectStatus.PENDING);
         seed(trailingCommaKey, UploadedObjectStatus.PENDING);
+        seed(unquotedKey, UploadedObjectStatus.PENDING);
         seed(untouchedKey, UploadedObjectStatus.PENDING);
         String content = "<p>안내</p><img src=\"" + STUB_PREFIX + htmlKey + "\" alt=\"\">"
                 + "\n![사진](" + STUB_PREFIX + markdownKey + ")"
                 + "\n참고: " + STUB_PREFIX + trailingCommaKey + ", 그리고 " + STUB_PREFIX + htmlKey
+                + "\n<img src=" + STUB_PREFIX + unquotedKey + ">"
                 + "\n<img src=\"https://elsewhere.example.com/ext.png\">";
 
         uploadedObjectService.activateReferencedIn(content);
@@ -139,6 +142,7 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
         assertThat(statusOf(htmlKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(statusOf(markdownKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(statusOf(trailingCommaKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(unquotedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(statusOf(untouchedKey)).isEqualTo(UploadedObjectStatus.PENDING);
     }
 

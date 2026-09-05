@@ -71,6 +71,11 @@ public class UploadPurgeJob {
         boolean deleteEnabled = properties.deleteEnabled();
         List<UploadedObject> candidates = uploadedObjectRepository.findPurgeCandidates(
                 CANDIDATE_STATUSES, cutoff, PageRequest.of(0, BATCH_LIMIT));
+        if (!deleteEnabled && candidates.size() >= BATCH_LIMIT) {
+            // dry-run 은 상태를 바꾸지 않아 매시 같은 상위 BATCH_LIMIT 건만 다시 본다 — 그 밖의 후보는 표본에 없다.
+            // 이 경고가 한 번이라도 나온 주간은 "referenced=true 0건" 만으로 실삭제 전환 판정을 내리지 않는다.
+            log.warn("[업로드 고아 정리][dry-run] 후보가 상한({})을 채워 표본이 절단됨 — 오래된 후보만 관찰 중", BATCH_LIMIT);
+        }
 
         Counters counters = new Counters();
         for (UploadedObject candidate : candidates) {
@@ -116,6 +121,9 @@ public class UploadPurgeJob {
                 counters.healed++;
                 log.warn("[업로드 고아 정리] 참조가 남아 있어 삭제하지 않고 ACTIVE 로 치유 — 활성화 지점 누락 의심: objectKey={}, purpose={}",
                         storageKey, candidate.getPurpose());
+            } else {
+                // 스냅샷 뒤 ACTIVE·PURGED 로 바뀌어 치유 대상이 아니었다 — 요약 합계가 후보 수와 맞도록 집계한다.
+                counters.activatedMeanwhile++;
             }
             return;
         }

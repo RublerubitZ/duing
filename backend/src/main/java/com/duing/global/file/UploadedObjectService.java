@@ -32,9 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class UploadedObjectService {
 
-    // 본문 토큰 경계 — 공백·따옴표·태그 괄호·소괄호·대괄호·쉼표·세미콜론. 마크다운 문장 끝의 구두점이 URL 에
-    // 붙어 키 조회가 빗나가는 것을 막는다(스펙 §3.3).
-    private static final Pattern CONTENT_TOKEN_BOUNDARY = Pattern.compile("[\\s\"'<>()\\[\\],;]+");
+    // 본문 토큰 경계 — 공백·따옴표·태그 괄호·소괄호·대괄호·쉼표·세미콜론·등호. 마크다운 문장 끝의 구두점이 URL 에
+    // 붙어 키 조회가 빗나가는 것을 막고, 따옴표 없는 src=URL 속성도 분리한다(스펙 §3.3).
+    private static final Pattern CONTENT_TOKEN_BOUNDARY = Pattern.compile("[\\s\"'<>()\\[\\],;=]+");
 
     private final UploadedObjectRepository uploadedObjectRepository;
     private final FileStorageService fileStorageService;
