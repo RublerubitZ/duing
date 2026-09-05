@@ -16,10 +16,21 @@ import { FacilityOpenDateTab } from '@/app/admin/facility-bookings/_tabs/Facilit
    이미 지난 고정 날짜라 CI 시한폭탄이 되지 않는다. */
 const CURRENT_OPEN_DATE = '2026-08-01';
 const NEXT_OPEN_DATE = '2026-08-20';
+const CLOSE_DATE = '2026-08-31';
+
+// 행 현재값 셀은 원본 ISO 를 잇고(관리자는 연도까지 확인한다), 다이얼로그는 M.d 로 줄여 보여준다.
+const windowCell = (open: string, close: string | null) => (close === null ? `${open} ~` : `${open} ~ ${close}`);
+const monthDay = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
+function windowLabel(open: string | null, close: string | null): string {
+  if (open === null) return '닫힘';
+  return close === null ? `${monthDay(open)} ~` : `${monthDay(open)} ~ ${monthDay(close)}`;
+}
 
 const INITIAL_FACILITIES: AdminFacility[] = [
   { id: 10, roomName: '공연장', location: '학생회관 1층', bookingOpenDate: CURRENT_OPEN_DATE, bookingCloseDate: null },
   { id: 11, roomName: '세미나실', location: null, bookingOpenDate: null, bookingCloseDate: null },
+  // 마감일까지 설정된 시설 — 한쪽만 바꿔도 나머지가 현재값 그대로 함께 가는지 본다.
+  { id: 12, roomName: '연습실', location: null, bookingOpenDate: CURRENT_OPEN_DATE, bookingCloseDate: CLOSE_DATE },
 ];
 
 let facilities: AdminFacility[] = [];
@@ -36,7 +47,11 @@ const server = setupServer(
   http.patch('*/admin/facilities/booking-open-date', async ({ request }) => {
     const body = (await request.json()) as UpdateFacilityBookingOpenDatePayload;
     bulkPatches.push(body);
-    facilities = facilities.map((facility) => ({ ...facility, bookingOpenDate: body.bookingOpenDate }));
+    facilities = facilities.map((facility) => ({
+      ...facility,
+      bookingOpenDate: body.bookingOpenDate,
+      bookingCloseDate: body.bookingCloseDate,
+    }));
     return new HttpResponse(null, { status: 204 });
   }),
   http.patch('*/admin/facilities/:facilityId/booking-open-date', async ({ request, params }) => {
@@ -44,7 +59,9 @@ const server = setupServer(
     const facilityId = Number(params.facilityId);
     facilityPatches.push({ facilityId, body });
     facilities = facilities.map((facility) =>
-      facility.id === facilityId ? { ...facility, bookingOpenDate: body.bookingOpenDate } : facility,
+      facility.id === facilityId
+        ? { ...facility, bookingOpenDate: body.bookingOpenDate, bookingCloseDate: body.bookingCloseDate }
+        : facility,
     );
     return new HttpResponse(null, { status: 204 });
   }),
@@ -79,12 +96,14 @@ async function confirmDialog() {
 }
 
 describe('FacilityOpenDateTab', () => {
-  it('활성 시설 목록에 현재 오픈일을 보여주고, 오픈일이 없는 시설은 "닫힘"으로 표시한다', async () => {
+  it('활성 시설 목록에 현재 예약 창을 보여주고, 오픈일이 없는 시설은 "닫힘"으로 표시한다', async () => {
     renderTab();
 
     expect(await screen.findByText('공연장')).toBeInTheDocument();
     expect(screen.getByText('학생회관 1층')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: CURRENT_OPEN_DATE })).toBeInTheDocument();
+    // 마감일 없는 시설은 뒤를 비워 "상한(익월 말일)까지" 를 뜻한다.
+    expect(screen.getByRole('cell', { name: windowCell(CURRENT_OPEN_DATE, null) })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: windowCell(CURRENT_OPEN_DATE, CLOSE_DATE) })).toBeInTheDocument();
     expect(screen.getByText('세미나실')).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: '닫힘' })).toBeInTheDocument();
   });
@@ -99,13 +118,16 @@ describe('FacilityOpenDateTab', () => {
     // 다이얼로그가 이전 → 이후를 명시한다
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('공연장')).toBeInTheDocument();
-    expect(within(dialog).getByText(CURRENT_OPEN_DATE)).toBeInTheDocument();
-    expect(within(dialog).getByText(NEXT_OPEN_DATE)).toBeInTheDocument();
+    expect(within(dialog).getByText(windowLabel(CURRENT_OPEN_DATE, null))).toBeInTheDocument();
+    expect(within(dialog).getByText(windowLabel(NEXT_OPEN_DATE, null))).toBeInTheDocument();
 
     await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => expect(facilityPatches).toHaveLength(1));
-    expect(facilityPatches[0]).toEqual({ facilityId: 10, body: { bookingOpenDate: NEXT_OPEN_DATE } });
+    expect(facilityPatches[0]).toEqual({
+      facilityId: 10,
+      body: { bookingOpenDate: NEXT_OPEN_DATE, bookingCloseDate: null },
+    });
     expect(bulkPatches).toHaveLength(0);
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
@@ -120,7 +142,10 @@ describe('FacilityOpenDateTab', () => {
     await confirmDialog();
 
     await waitFor(() => expect(facilityPatches).toHaveLength(1));
-    expect(facilityPatches[0]).toEqual({ facilityId: 10, body: { bookingOpenDate: null } });
+    expect(facilityPatches[0]).toEqual({
+      facilityId: 10,
+      body: { bookingOpenDate: null, bookingCloseDate: null },
+    });
   });
 
   it('저장 버튼은 입력값이 현재 오픈일과 같으면 비활성이다', async () => {
@@ -135,6 +160,11 @@ describe('FacilityOpenDateTab', () => {
 
     fireEvent.change(screen.getByLabelText('공연장 오픈일'), { target: { value: CURRENT_OPEN_DATE } });
     expect(screen.getByRole('button', { name: '공연장 오픈일 저장' })).toBeDisabled();
+
+    // 둘 다 비우는 건 저장이 아니라 닫기다 — 저장은 비활성으로 둔다.
+    fireEvent.change(screen.getByLabelText('연습실 오픈일'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('연습실 마감일'), { target: { value: '' } });
+    expect(screen.getByRole('button', { name: '연습실 오픈일 저장' })).toBeDisabled();
   });
 
   it('시설별 저장이 실패하면 다이얼로그를 닫지 않고 서버 사유를 그 안에 보여준다', async () => {
@@ -168,18 +198,20 @@ describe('FacilityOpenDateTab', () => {
     await userEvent.click(screen.getByRole('button', { name: '모든 시설에 적용' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('활성 시설 2개')).toBeInTheDocument();
+    expect(within(dialog).getByText('활성 시설 3개')).toBeInTheDocument();
     expect(within(dialog).getByText('여러 값')).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => expect(bulkPatches).toHaveLength(1));
-    expect(bulkPatches[0]).toEqual({ bookingOpenDate: NEXT_OPEN_DATE });
+    expect(bulkPatches[0]).toEqual({ bookingOpenDate: NEXT_OPEN_DATE, bookingCloseDate: null });
     // 시설별 PATCH 를 대신 순차 호출하지 않는다(부분 적용 금지)
     expect(facilityPatches).toHaveLength(0);
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // 무효화로 목록이 재조회되어 두 행 모두 새 오픈일을 보여준다
     await waitFor(() => expect(listRequestCount).toBeGreaterThan(listRequestsBeforeApply));
-    await waitFor(() => expect(screen.getAllByRole('cell', { name: NEXT_OPEN_DATE })).toHaveLength(2));
+    await waitFor(() =>
+      expect(screen.getAllByRole('cell', { name: windowCell(NEXT_OPEN_DATE, null) })).toHaveLength(3),
+    );
   });
 
   it('전체 적용이 실패하면 아무 시설도 바뀌지 않았음을 알리고 목록은 그대로 둔다', async () => {
@@ -203,7 +235,7 @@ describe('FacilityOpenDateTab', () => {
     expect(await within(dialog).findByText(/적용되지 않았어요\. 다시 시도해 주세요\./)).toBeInTheDocument();
     // 목록은 바뀌지 않는다 — 단일 트랜잭션이라 부분 적용이 없다.
     // 다이얼로그가 떠 있는 동안 뒤 화면은 aria-hidden 이라 role 질의로는 잡히지 않는다 — 텍스트로 확인한다.
-    expect(screen.getByText(CURRENT_OPEN_DATE)).toBeInTheDocument();
+    expect(screen.getByText(windowCell(CURRENT_OPEN_DATE, null))).toBeInTheDocument();
     expect(screen.getByText('닫힘')).toBeInTheDocument();
     // 실패 시 무효화가 걸리지 않는다(onSuccess 전용) — 목록 재조회 0회.
     expect(listRequestCount).toBe(listRequestsBeforeFailure);
@@ -220,7 +252,84 @@ describe('FacilityOpenDateTab', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => expect(bulkPatches).toHaveLength(1));
-    expect(bulkPatches[0]).toEqual({ bookingOpenDate: null });
+    expect(bulkPatches[0]).toEqual({ bookingOpenDate: null, bookingCloseDate: null });
+    expect(facilityPatches).toHaveLength(0);
+  });
+
+  /* ── 마감일(예약 창) ────────────────────────────────────── */
+
+  it('마감일만 입력해도 오픈일 현재값과 함께 두 키를 보낸다', async () => {
+    renderTab();
+    await screen.findByText('공연장');
+
+    fireEvent.change(screen.getByLabelText('공연장 마감일'), { target: { value: CLOSE_DATE } });
+    await userEvent.click(screen.getByRole('button', { name: '공연장 오픈일 저장' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(windowLabel(CURRENT_OPEN_DATE, CLOSE_DATE))).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
+
+    await waitFor(() => expect(facilityPatches).toHaveLength(1));
+    expect(facilityPatches[0]).toEqual({
+      facilityId: 10,
+      body: { bookingOpenDate: CURRENT_OPEN_DATE, bookingCloseDate: CLOSE_DATE },
+    });
+  });
+
+  it('마감일이 있는 시설은 오픈일만 바꿔도 저장이 활성되고 마감일 현재값이 함께 간다', async () => {
+    renderTab();
+    await screen.findByText('연습실');
+
+    expect(screen.getByRole('button', { name: '연습실 오픈일 저장' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('연습실 오픈일'), { target: { value: NEXT_OPEN_DATE } });
+    expect(screen.getByRole('button', { name: '연습실 오픈일 저장' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: '연습실 오픈일 저장' }));
+    await confirmDialog();
+
+    await waitFor(() => expect(facilityPatches).toHaveLength(1));
+    expect(facilityPatches[0]).toEqual({
+      facilityId: 12,
+      body: { bookingOpenDate: NEXT_OPEN_DATE, bookingCloseDate: CLOSE_DATE },
+    });
+  });
+
+  it('마감일이 오픈일보다 빠르면 서버가 낸 사유를 다이얼로그 안에 보여준다', async () => {
+    server.use(
+      http.patch('*/admin/facilities/:facilityId/booking-open-date', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '예약 마감일은 오픈일보다 빠를 수 없습니다.' },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderTab();
+    await screen.findByText('공연장');
+
+    fireEvent.change(screen.getByLabelText('공연장 마감일'), { target: { value: '2026-07-01' } });
+    await userEvent.click(screen.getByRole('button', { name: '공연장 오픈일 저장' }));
+    await confirmDialog();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText(/예약 마감일은 오픈일보다 빠를 수 없습니다\./),
+    ).toBeInTheDocument();
+  });
+
+  it('전체 적용은 오픈일과 마감일을 한 바디로 함께 보낸다', async () => {
+    renderTab();
+    await screen.findByText('공연장');
+
+    fireEvent.change(screen.getByLabelText('전체 적용 오픈일'), { target: { value: NEXT_OPEN_DATE } });
+    fireEvent.change(screen.getByLabelText('전체 적용 마감일'), { target: { value: CLOSE_DATE } });
+    await userEvent.click(screen.getByRole('button', { name: '모든 시설에 적용' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(windowLabel(NEXT_OPEN_DATE, CLOSE_DATE))).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
+
+    await waitFor(() => expect(bulkPatches).toHaveLength(1));
+    expect(bulkPatches[0]).toEqual({ bookingOpenDate: NEXT_OPEN_DATE, bookingCloseDate: CLOSE_DATE });
     expect(facilityPatches).toHaveLength(0);
   });
 });

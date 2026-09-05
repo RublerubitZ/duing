@@ -3,7 +3,7 @@ import { seoulTimeHHmm } from './facilityTimeline';
 
 /** 두 ISO 날짜(yyyy-MM-dd)를 'M.d ~ M.d' 로 표기. 창 배지·구간 칩이 공유하는 단일 산식. */
 /** ISO 날짜(yyyy-MM-dd)를 'M.d' 로. 창 배지·오픈일·안내줄 문구가 공유하는 단일 산식. */
-const monthDayLabel = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
+export const monthDayLabel = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 
 export function rangeDatesLabel(startIso: string, endIso: string): string {
   return `${monthDayLabel(startIso)} ~ ${monthDayLabel(endIso)}`;

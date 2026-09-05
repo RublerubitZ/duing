@@ -39,8 +39,14 @@ export type AdminFacility = {
   bookingCloseDate: string | null; // yyyy-MM-dd, null = 상한 없음(익월 말일까지)
 };
 
-/** PATCH /admin/facilities[/{id}]/booking-open-date 바디. null 이면 닫기. */
-export type UpdateFacilityBookingOpenDatePayload = { bookingOpenDate: string | null };
+/**
+ * PATCH /admin/facilities[/{id}]/booking-open-date 바디. 부분 갱신이 아니라 바디가 곧 새 상태이므로
+ * 두 키를 항상 함께 보낸다 — 오픈일 null 이면 닫기, 마감일 null 이면 상한 없음(익월 말일까지).
+ */
+export type UpdateFacilityBookingOpenDatePayload = {
+  bookingOpenDate: string | null;
+  bookingCloseDate: string | null;
+};
 
 // === 어드민 크롤 예약 현황(전면 차단 설계 §3.6) — 그룹 단위 페이징 ===
 

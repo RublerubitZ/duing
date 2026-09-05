@@ -13,9 +13,9 @@ import {
 type Props = {
   /** 변경 대상 — 시설명 또는 "활성 시설 N개". */
   title: string;
-  /** 이전 값(날짜 · "닫힘" · 전체 적용이면 "여러 값"). */
+  /** 이전 창("M.d ~ M.d" · 마감일 없으면 "M.d ~" · "닫힘" · 전체 적용이면 "여러 값"). */
   before: string;
-  /** 이후 값(날짜 또는 "닫힘"). */
+  /** 이후 창(같은 표기 또는 "닫힘"). */
   after: string;
   isPending: boolean;
   errorMessage: string | null;
@@ -24,8 +24,8 @@ type Props = {
 };
 
 /**
- * 예약 오픈일 변경 확인 다이얼로그 — AdminClubSecuredTargetToggleDialog 전례를 따른다.
- * 오픈일은 그 시설의 신청 가능 여부를 그대로 바꾸고(닫힘이면 신청 불가), 전체 적용은 활성 시설 전부를
+ * 예약 창(오픈일 ~ 마감일) 변경 확인 다이얼로그 — AdminClubSecuredTargetToggleDialog 전례를 따른다.
+ * 예약 창은 그 시설의 신청 가능 여부를 그대로 바꾸고(닫힘이면 신청 불가), 전체 적용은 활성 시설 전부를
  * 한 트랜잭션으로 덮으므로 이전 → 이후를 눈으로 확인시킨 뒤 보낸다.
  */
 export function FacilityOpenDateConfirmDialog({
@@ -54,7 +54,7 @@ export function FacilityOpenDateConfirmDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            예약 오픈일을 <span className="font-medium text-charcoal-2">{before}</span> →{' '}
+            예약 창을 <span className="font-medium text-charcoal-2">{before}</span> →{' '}
             <span className="font-medium text-charcoal-2">{after}</span> 로 바꿀까요?
           </DialogDescription>
         </DialogHeader>
