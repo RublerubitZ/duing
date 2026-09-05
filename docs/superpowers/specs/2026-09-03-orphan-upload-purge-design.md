@@ -114,7 +114,7 @@ PENDING/PURGING ──(job: 참조 발견 = 안전망)──▶ ACTIVE  (§4.3)
 ### 3.3 `activateReferencedIn(String content)` — NOTICE_BODY
 
 - `content == null` → skip(수정 시 본문 미변경).
-- 포맷(HTML/MARKDOWN)을 파싱하지 않는다. 본문을 `[\s"'<>()\[\],;]` 경계로 토큰화하고(마크다운 문장 끝의 `,`·`;`·`]` 가 URL 에 붙는 것을 막는다) 각 토큰에 `toStorageKey` 를 적용해 non-null 인 것만 `activate`. HTML `<img src="…">`·마크다운 `![](…)`·상대 경로(`/files/…` 로컬) 모두 같은 규칙으로 잡힌다. 외부 URL 은 `toStorageKey` 가 null 이라 자연 제외.
+- 포맷(HTML/MARKDOWN)을 파싱하지 않는다. 본문을 `[\s"'<>()\[\],;=]` 경계로 토큰화하고(마크다운 문장 끝의 `,`·`;`·`]` 가 URL 에 붙는 것과 따옴표 없는 `src=URL` 속성이 한 토큰이 되는 것을 막는다) 각 토큰에 `toStorageKey` 를 적용해 non-null 인 것만 `activate`. HTML `<img src="…">`·마크다운 `![](…)`·상대 경로(`/files/…` 로컬) 모두 같은 규칙으로 잡힌다. 외부 URL 은 `toStorageKey` 가 null 이라 자연 제외.
 - 토큰은 **`TreeSet`(사전순)** 으로 모아 중복을 제거하고 **잠금 순서를 결정화**한다 — 같은 키 집합을 두 tx 가 서로 다른 순서로 잠그는 ABBA 데드락(같은 사용자의 중복 제출 등)을 0비용으로 없앤다. 문의 첨부 목록도 같은 이유로 `activate` 호출 전에 정렬한다(§3.4).
 
 ### 3.4 attach 지점 삽입 위치 (§1.1 의 전수)
