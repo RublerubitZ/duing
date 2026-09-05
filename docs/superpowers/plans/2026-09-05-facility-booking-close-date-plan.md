@@ -14,7 +14,7 @@
 
 - **선행 조건:** PR #1145(BE)·#1146(FE) 가 develop 에 머지된 뒤 develop 에서 분기. BE 브랜치 `feat/facility-booking-close-date-be`, FE 브랜치 `feat/facility-booking-close-date-fe`.
 - 스펙 C1~C10 과 확정 결정(Q1 과거 허용 · Q2 문구 통일 · Q3 카드 미노출 · Q5 상한 익월 말일)을 뒤집지 않는다. 크롤 월·TTL·가용성 월 가드·슬롯 상태·승인 경로·booking-window 참조 창 무변경.
-- 마이그레이션 번호 **V122**(착수 시 `git ls-tree` 로 origin/develop 최신 재확인 — #1143 V120·#1145 V121 이 머지돼 있어야 함).
+- 마이그레이션 번호 **V123**(#1143 이 V123 로 올려 선점 — 2026-09-05 최종 리뷰 정정. 머지 직전 `git ls-tree` 로 원격 전수 재확인).
 - 커밋 메시지 Conventional Commits 한국어 `{type}({scope}): 대상 — 변경점`, **Co-Authored-By / 🤖 Generated / Claude-Session 트레일러 금지**. 구현자는 push·PR·머지 금지. 모든 완료 보고는 실제 명령 출력 근거. EOF newline.
 - BE 는 `backend/` 에서 `./gradlew`, FE 는 `frontend/` 에서 `pnpm test`+`pnpm typecheck`+`pnpm lint` 셋 다 GREEN.
 - 테스트 날짜는 `Clock.fixed(…, Asia/Seoul)` 또는 `LocalDate.now(ZoneId.of("Asia/Seoul"))` 상대값. 과거 고정일 허용. 하드코딩 미래 절대날짜 금지.
@@ -24,10 +24,10 @@
 
 ## Part A — Backend
 
-### Task 1: V122 + `Facility.bookingCloseDate` + 정책 상한
+### Task 1: V123 + `Facility.bookingCloseDate` + 정책 상한
 
 **Files:**
-- Create: `backend/src/main/resources/db/migration/V122__facility_booking_close_date.sql`
+- Create: `backend/src/main/resources/db/migration/V123__facility_booking_close_date.sql`
 - Modify: `backend/src/main/java/com/duing/domain/facility/entity/Facility.java`
 - Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/BookingOpenDatePolicy.java`
 - Modify: `backend/src/main/java/com/duing/domain/facilitybooking/service/BookingApplicationPolicy.java`(`windowFor(Facility, today)` 인자 전달)
@@ -95,7 +95,7 @@
 
 - [ ] **Step 3: 구현**
 
-`V122__facility_booking_close_date.sql`:
+`V123__facility_booking_close_date.sql`:
 ```sql
 -- 시설별 예약 마감일(총동연 설정). NULL = 상한 없음(익월 말일까지). 신청 창 [max(오픈일, 오늘), min(마감일, 익월 말일)] 은
 -- 저장하지 않고 조회 시점에 파생한다(BookingOpenDatePolicy). 학교 목록 동기화는 이 값을 건드리지 않는다(@DynamicUpdate).
@@ -130,7 +130,7 @@ ALTER TABLE facility ADD COLUMN booking_close_date DATE NULL;
 클래스 javadoc 을 "신청 창 = [max(오픈일, 오늘), min(마감일, 익월 말일)]. 오픈일 NULL = 닫힘, 마감일 NULL = 상한 없음" 으로 갱신. `BookingApplicationPolicy.windowFor(Facility, today)` 는 `openDatePolicy.windowFor(facility.getBookingOpenDate(), facility.getBookingCloseDate(), today)`.
 
 - [ ] **Step 4: GREEN** — 같은 명령 통과. `./gradlew compileJava compileTestJava` 클린.
-- [ ] **Step 5: 커밋** — `feat(backend): 시설 예약 마감일 — facility.booking_close_date(V122)·창 상한 min(마감일, 익월 말일)`
+- [ ] **Step 5: 커밋** — `feat(backend): 시설 예약 마감일 — facility.booking_close_date(V123)·창 상한 min(마감일, 익월 말일)`
 
 ### Task 2: 관리자 API 바디 확장 + 검증 2예외 + 응답 가산
 
@@ -152,7 +152,7 @@ ALTER TABLE facility ADD COLUMN booking_close_date DATE NULL;
   - 전체 `{open: D+1, close: D+15}` → 활성 시설 전부 두 값 반영, 아카이브 제외.
   - 전체 `{open: null, close: null}` → 전부 닫힘.
   `FacilityUsageAcceptanceTest`: 이용현황 `bookingOpenDate` 단언 옆에 `bookingCloseDate` 1건 + **공개 `GET /facilities` 목록 응답에 `bookingCloseDate` 가산 단언 1건**(`changeBookingCloseDate` 시드). 기존 `AdminFacilityAcceptanceTest` 8건의 단일 키 바디 `{bookingOpenDate}` 는 새 record 에서 마감일 null(해제) 의미로 그대로 통과 — 주석 1줄로 명시.
-  검증 순서 테스트: `{open: D+10, close: 익월 말일 + 1}`(둘 다 위반) → 400 **"예약 마감일은 오픈일보다 빠를 수 없습니다."**(스펙 C4 ① 순서가 먼저). `FacilityBookingServiceIntegrationTest`: 오픈일 D-30·마감일 D+3 시설에 D+3 신청 → 201, D+4 신청 → 400 "지금은 M월 d일부터 M월 d일까지만…"(until 이 마감일). `FacilityAvailabilityAcceptanceTest`: 마감일 D+5 시설 → `bookableUntil == D+5`.
+  검증 순서 테스트: `{open: 익월 말일 + 10, close: 익월 말일 + 1}`(순서·상한 둘 다 위반, 오픈일은 1년 상한 안) → 400 **"예약 마감일은 오픈일보다 빠를 수 없습니다."**(스펙 C4 ① 순서가 먼저). (구현 시 정정: `open=D+10, close=익월말+1` 은 순서 위반이 아님.) `FacilityBookingServiceIntegrationTest`: 오픈일 D-30·마감일 D+3 시설에 D+3 신청 → 201, D+4 신청 → 400 "지금은 M월 d일부터 M월 d일까지만…"(until 이 마감일). `FacilityAvailabilityAcceptanceTest`: 마감일 D+5 시설 → `bookableUntil == D+5`.
 
 - [ ] **Step 2: RED 확인** — `./gradlew test --tests '*AdminFacilityAcceptanceTest' --tests '*FacilityUsageAcceptanceTest' --tests '*FacilityBookingServiceIntegrationTest' --tests '*FacilityAvailabilityAcceptanceTest'` → 컴파일 실패.
 
