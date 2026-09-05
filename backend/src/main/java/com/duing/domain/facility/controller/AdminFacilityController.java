@@ -46,7 +46,8 @@ public class AdminFacilityController implements AdminFacilityApi {
     public ResponseEntity<ApiResponse<Void>> updateAllBookingOpenDate(
             @Valid @RequestBody UpdateFacilityBookingOpenDateRequest updateFacilityBookingOpenDateRequest
     ) {
-        facilityAdminService.updateAllBookingOpenDate(updateFacilityBookingOpenDateRequest.bookingOpenDate());
+        facilityAdminService.updateAllBookingOpenDate(updateFacilityBookingOpenDateRequest.bookingOpenDate(),
+                updateFacilityBookingOpenDateRequest.bookingCloseDate());
         return ResponseEntity.noContent().build();
     }
 }
