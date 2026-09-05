@@ -376,6 +376,22 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감일이 있는 시설의 창 상한은 익월 말일이 아니라 그 마감일이다")
+    void closeDateNarrowsBookableUntil() {
+        LocalDate closeDate = LocalDate.now(clock).plusDays(5);
+        Facility facility = facilityRepository.save(
+                BookingWindowFixture.opened(Facility.create(90011, "커뮤니티룸(T11)", null, 0)));
+        facility.changeBookingCloseDate(closeDate);
+        facilityRepository.save(facility);
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
+
+        assertThat(response.bookableFrom()).isEqualTo(LocalDate.now(clock));
+        assertThat(response.bookableUntil()).isEqualTo(closeDate);
+    }
+
+    @Test
     @DisplayName("오픈일이 없는 시설의 창은 시작이 익월 말일 + 1 인 빈 창으로 내려간다")
     void facilityWithoutOpenDateReturnsEmptyWindow() {
         Facility facility = facilityRepository.save(Facility.create(90010, "커뮤니티룸(T10)", null, 0));

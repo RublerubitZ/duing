@@ -603,6 +603,24 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감일이 있는 시설은 마감일 당일까지 접수되고, 하루 뒤는 창 상한이 마감일로 찍힌 안내로 거부된다")
+    void facilityCloseDateBoundsApplication() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate closeDate = today.plusDays(3);
+
+        Fixture fixture = fixtureOpenedOn(today.minusDays(30));
+        fixture.facility().changeBookingCloseDate(closeDate);
+        facilityRepository.save(fixture.facility());
+
+        assertThat(bookingService.create(command(fixture, closeDate, 18, 20)).bookingId()).isNotNull();
+        assertThatThrownBy(() -> bookingService.create(command(fixture, closeDate.plusDays(1), 18, 20)))
+                .isInstanceOf(FacilityBookingException.OutOfBookingWindowException.class)
+                .hasMessage("지금은 %d월 %d일부터 %d월 %d일까지만 신청할 수 있어요."
+                        .formatted(today.getMonthValue(), today.getDayOfMonth(),
+                                closeDate.getMonthValue(), closeDate.getDayOfMonth()));
+    }
+
+    @Test
     @DisplayName("오픈일이 없거나 익월 말일을 넘는 시설은 아직 열리지 않았다는 안내로 신청이 거부된다")
     void closedFacilityRejectsApplicationWithClosedMessage() throws Exception {
         LocalDate afterWindow = YearMonth.now(ZoneId.of("Asia/Seoul")).plusMonths(1).atEndOfMonth().plusDays(1);

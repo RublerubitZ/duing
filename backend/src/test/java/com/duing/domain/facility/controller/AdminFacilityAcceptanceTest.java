@@ -19,6 +19,8 @@ import io.restassured.response.Response;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,8 +33,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 /**
- * 총동연 예약 오픈일 관리 API 인수 테스트(플랜 §5 T8) — 권한 3층(익명 401·일반 403·ADMIN 200),
- * 시설별 PATCH 의 설정·닫기·검증·404·no-op, 전체 PATCH 의 활성 시설 한정 적용과 실패 시 전량 롤백.
+ * 총동연 예약 오픈일·마감일 관리 API 인수 테스트(플랜 §5 T8) — 권한 3층(익명 401·일반 403·ADMIN 200),
+ * 시설별 PATCH 의 설정·닫기·검증(오픈일 상한·마감일 순서·마감일 상한)·404·no-op,
+ * 전체 PATCH 의 활성 시설 한정 적용과 실패 시 전량 롤백.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -203,6 +206,131 @@ class AdminFacilityAcceptanceTest extends IntegrationTestBase {
         assertThat(reload(secondFacility).getBookingOpenDate()).isEqualTo(seededOpenDate);
     }
 
+    @Test
+    @DisplayName("오픈일과 마감일을 함께 보내면 204 이고 목록 조회에 두 값이 그대로 반영된다")
+    void patchSetsOpenAndCloseDateAndListReflectsIt() {
+        Facility facility = saveFacility("마감설정연습실", 0);
+        LocalDate openDate = LocalDate.now(clock).plusDays(1);
+        LocalDate closeDate = LocalDate.now(clock).plusDays(10);
+
+        patchFacility(facility.getId(), bodyOf(openDate, closeDate))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(LIST_PATH)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data[0].bookingOpenDate", equalTo(openDate.toString()))
+                .body("data[0].bookingCloseDate", equalTo(closeDate.toString()));
+    }
+
+    @Test
+    @DisplayName("마감일이 오픈일보다 빠르면 400 이고 두 값 모두 저장되지 않는다")
+    void closeBeforeOpenIs400() {
+        Facility facility = saveFacility("역순연습실", 0);
+
+        patchFacility(facility.getId(),
+                bodyOf(LocalDate.now(clock).plusDays(10), LocalDate.now(clock).plusDays(1)))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("예약 마감일은 오픈일보다 빠를 수 없습니다."));
+
+        Facility reloaded = reload(facility);
+        assertThat(reloaded.getBookingOpenDate()).isNull();
+        assertThat(reloaded.getBookingCloseDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("순서와 상한을 동시에 어기면 순서 위반이 먼저 보고된다(스펙 C4 ① → ②)")
+    void orderViolationPrecedesUpperBoundViolation() {
+        Facility facility = saveFacility("검증순서연습실", 0);
+        LocalDate nextMonthEnd = YearMonth.now(clock).plusMonths(1).atEndOfMonth();
+
+        // 마감일 = 익월 말일 + 1(상한 위반)이면서 오픈일 = 익월 말일 + 10(순서 위반) — 둘 다 위반이다.
+        patchFacility(facility.getId(), bodyOf(nextMonthEnd.plusDays(10), nextMonthEnd.plusDays(1)))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("예약 마감일은 오픈일보다 빠를 수 없습니다."));
+    }
+
+    @Test
+    @DisplayName("마감일이 익월 말일을 넘으면 400 이고, 익월 말일 당일은 204 다")
+    void closeBeyondNextMonthEndIs400AndNextMonthEndIsAllowed() {
+        Facility facility = saveFacility("상한연습실", 0);
+        LocalDate openDate = LocalDate.now(clock).plusDays(1);
+        LocalDate nextMonthEnd = YearMonth.now(clock).plusMonths(1).atEndOfMonth();
+
+        patchFacility(facility.getId(), bodyOf(openDate, nextMonthEnd.plusDays(1)))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("예약 마감일은 다음 달 말일까지만 설정할 수 있습니다."));
+        assertThat(reload(facility).getBookingCloseDate()).as("400 이면 아무것도 저장되지 않는다").isNull();
+
+        patchFacility(facility.getId(), bodyOf(openDate, nextMonthEnd))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(reload(facility).getBookingCloseDate()).isEqualTo(nextMonthEnd);
+    }
+
+    @Test
+    @DisplayName("오픈일 없이 마감일만 보내면 204 이고 시설은 닫힌 채로 마감일만 저장된다")
+    void closeWithoutOpenDateKeepsFacilityClosed() {
+        Facility facility = saveFacility("마감만연습실", 0);
+        LocalDate closeDate = LocalDate.now(clock).plusDays(10);
+
+        patchFacility(facility.getId(), bodyOf(null, closeDate))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(LIST_PATH)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data[0].bookingOpenDate", nullValue())
+                .body("data[0].bookingCloseDate", equalTo(closeDate.toString()));
+    }
+
+    @Test
+    @DisplayName("전체 적용은 활성 시설에 오픈일·마감일을 함께 반영하고, 둘 다 null 이면 전부 닫힌다")
+    void updateAllAppliesBothDatesToActiveFacilitiesOnly() {
+        Facility firstFacility = saveFacility("전체마감연습실1", 1);
+        Facility secondFacility = saveFacility("전체마감연습실2", 2);
+        Facility archivedFacility = facilityRepository.save(archived(saveFacility("전체마감아카이브연습실", 3)));
+        LocalDate openDate = LocalDate.now(clock).plusDays(1);
+        LocalDate closeDate = LocalDate.now(clock).plusDays(15);
+
+        patchAll(bodyOf(openDate, closeDate))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(reload(firstFacility).getBookingOpenDate()).isEqualTo(openDate);
+        assertThat(reload(firstFacility).getBookingCloseDate()).isEqualTo(closeDate);
+        assertThat(reload(secondFacility).getBookingOpenDate()).isEqualTo(openDate);
+        assertThat(reload(secondFacility).getBookingCloseDate()).isEqualTo(closeDate);
+        assertThat(reload(archivedFacility).getBookingCloseDate())
+                .as("아카이브 시설은 전체 적용 대상이 아니다").isNull();
+
+        patchAll(bodyOf(null, null))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(reload(firstFacility).getBookingOpenDate()).isNull();
+        assertThat(reload(firstFacility).getBookingCloseDate()).isNull();
+        assertThat(reload(secondFacility).getBookingCloseDate()).isNull();
+    }
+
+    @Test
+    @DisplayName("전체 적용이 순서 위반으로 400 이면 어떤 행의 오픈일·마감일도 바뀌지 않는다")
+    void updateAllRollsBackEveryRowWhenCloseIsBeforeOpen() {
+        Facility firstFacility = saveFacility("마감롤백연습실1", 1);
+        Facility secondFacility = saveFacility("마감롤백연습실2", 2);
+        LocalDate seededOpenDate = LocalDate.now(clock).plusDays(2);
+        LocalDate seededCloseDate = LocalDate.now(clock).plusDays(12);
+        patchAll(bodyOf(seededOpenDate, seededCloseDate))
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        patchAll(bodyOf(LocalDate.now(clock).plusDays(10), LocalDate.now(clock).plusDays(1)))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("예약 마감일은 오픈일보다 빠를 수 없습니다."));
+
+        for (Facility facility : List.of(firstFacility, secondFacility)) {
+            assertThat(reload(facility).getBookingOpenDate()).isEqualTo(seededOpenDate);
+            assertThat(reload(facility).getBookingCloseDate()).isEqualTo(seededCloseDate);
+        }
+    }
+
     private Response patchFacility(Long facilityId, String body) {
         return RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -217,10 +345,20 @@ class AdminFacilityAcceptanceTest extends IntegrationTestBase {
                 .when().patch(ALL_PATCH_PATH);
     }
 
+    /** 단일 키 바디 — 바디가 곧 새 상태라 bookingCloseDate 키 누락은 null(마감 해제)과 같은 의미다(스펙 C5). */
     private String bodyOf(String isoDate) {
         return isoDate == null
                 ? "{\"bookingOpenDate\": null}"
                 : "{\"bookingOpenDate\": \"" + isoDate + "\"}";
+    }
+
+    private String bodyOf(LocalDate bookingOpenDate, LocalDate bookingCloseDate) {
+        return "{\"bookingOpenDate\": %s, \"bookingCloseDate\": %s}"
+                .formatted(jsonDate(bookingOpenDate), jsonDate(bookingCloseDate));
+    }
+
+    private String jsonDate(LocalDate date) {
+        return date == null ? "null" : "\"" + date + "\"";
     }
 
     private Facility reload(Facility facility) {
