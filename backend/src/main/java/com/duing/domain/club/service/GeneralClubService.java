@@ -37,6 +37,7 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.file.UploadedObjectService;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.time.Clock;
@@ -74,6 +75,8 @@ public class GeneralClubService implements ClubService {
     private final Clock clock;
     // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
     private final ApplicationEventPublisher eventPublisher;
+    // 업로드 객체 추적(#791) — 로고·커버 URL 을 저장하는 쓰기 메서드에서 활성화한다.
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -107,6 +110,8 @@ public class GeneralClubService implements ClubService {
             // 동시 등록이 선조회를 함께 통과한 경합 — 사전 검사와 같은 409 로 표면화한다.
             throw new ClubException.DuplicateClubNameException();
         }
+
+        uploadedObjectService.activate(createClubCommand.logoUrl());
 
         // 동아리 생성과 동시에 designated leader 를 ClubMember(LEADER) 로 자동 등록.
         clubMemberRepository.save(ClubMember.asLeader(savedClub, leader));
@@ -260,6 +265,8 @@ public class GeneralClubService implements ClubService {
             }
             throw new ClubException.DuplicateClubNameException();
         }
+        // 개명 경합 분류(flush try/catch) 뒤에 활성화 — 활성화 잠금 조회가 flush 를 유발해도 409 분류를 가로채지 않는다.
+        uploadedObjectService.activate(updateClubCommand.logoUrl(), updateClubCommand.coverUrl());
     }
 
     @Override

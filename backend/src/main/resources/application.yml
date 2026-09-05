@@ -199,6 +199,15 @@ duing:
       # 운영에서 DUING_FEDERATION_INQUIRY_PURGE_ENABLED=true 주입 시 활성화한다.
       enabled: ${DUING_FEDERATION_INQUIRY_PURGE_ENABLED:false}
       window: ${DUING_FEDERATION_INQUIRY_PURGE_WINDOW:P45D}
+  upload:
+    purge:
+      # 업로드 고아 객체 정리 잡(매시 :20 Asia/Seoul, #791). 업로드 후 24시간(PT24H) 넘게 어떤 엔티티에도 연결되지
+      # 않은 객체를 스토리지에서 지운다. enabled 는 스케줄링, delete-enabled 는 실삭제 — 기본 둘 다 비활성.
+      # 운영에서 DUING_UPLOAD_PURGE_ENABLED=true 로 켜고, dry-run(delete-enabled=false)으로 후보 로그를 확인한 뒤
+      # DUING_UPLOAD_PURGE_DELETE_ENABLED=true 로 실삭제를 연다.
+      enabled: ${DUING_UPLOAD_PURGE_ENABLED:false}
+      delete-enabled: ${DUING_UPLOAD_PURGE_DELETE_ENABLED:false}
+      window: ${DUING_UPLOAD_PURGE_WINDOW:PT24H}
   club:
     metric:
       # 추천순 활동점수 집계 잡(매시 정각 Asia/Seoul — bucket 전환과 동기화 + 기동 직후 1회). 기본 비활성 —

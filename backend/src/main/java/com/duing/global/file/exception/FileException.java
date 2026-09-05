@@ -32,4 +32,12 @@ public class FileException extends ApplicationException {
             super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
         }
     }
+
+    /** 파기 잡이 이미 claim/삭제한 업로드를 엔티티에 연결하려 할 때(스펙 §3.2·§6). 재업로드가 유일한 복구다. */
+    public static class UploadExpiredException extends FileException {
+        private static final String MESSAGE = "업로드한 이미지가 만료되었습니다. 다시 업로드해주세요.";
+        public UploadExpiredException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

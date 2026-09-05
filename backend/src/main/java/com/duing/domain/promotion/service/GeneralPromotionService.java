@@ -18,6 +18,7 @@ import com.duing.domain.promotion.service.dto.query.PromotionCardQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.file.UploadedObjectService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class GeneralPromotionService implements PromotionService {
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
     private final NoticeRepository noticeRepository;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -48,14 +50,16 @@ public class GeneralPromotionService implements PromotionService {
         if (command.clubId() != null && clubRepository.findById(command.clubId()).isEmpty()) {
             throw new ClubException.ClubNotFoundException();
         }
-        return promotionRepository.save(Promotion.create(
+        Promotion saved = promotionRepository.save(Promotion.create(
                 command.clubId(), command.title(), command.bannerImageUrl(), command.linkUrl(),
                 command.active(), command.displayOrder(), command.createdBy(),
                 command.tag(), command.subtitle(), command.ctaLabel(), command.emoji(),
                 command.palette(), command.startAt(), command.endAt(),
                 command.renderMode(), command.imageAltText(),
                 command.noticeId()
-        )).getId();
+        ));
+        uploadedObjectService.activate(command.bannerImageUrl());
+        return saved.getId();
     }
 
     @Override
@@ -87,6 +91,7 @@ public class GeneralPromotionService implements PromotionService {
                 command.clearImageAltText(),
                 command.noticeId(), command.clearNoticeId()
         ));
+        uploadedObjectService.activate(command.bannerImageUrl());
     }
 
     @Override

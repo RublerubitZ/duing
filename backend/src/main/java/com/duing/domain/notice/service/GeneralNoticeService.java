@@ -22,6 +22,7 @@ import com.duing.domain.notice.service.dto.query.NoticeAdminSummaryQuery;
 import com.duing.domain.notice.service.dto.query.NoticeSearchCondition;
 import com.duing.domain.notice.service.dto.query.ViewerScope;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.global.file.UploadedObjectService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -50,6 +51,8 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeBroadcaster broadcaster;
     // 만료 판정용 — 운영자가 KST 벽시계로 입력한 expiresAt 과 같은 기준(seoulClock)으로 비교한다.
     private final Clock clock;
+    // 업로드 객체 추적(#791) — 커버 URL 과 본문 안 이미지 URL 을 저장하는 4개 쓰기 메서드에서 활성화한다.
+    private final UploadedObjectService uploadedObjectService;
 
     @Value("${duing.notice.cover-image-url-prefix:}")
     private String coverImageUrlPrefix;
@@ -70,6 +73,8 @@ public class GeneralNoticeService implements NoticeService {
                 command.location(), command.host(), command.audience(), command.contentFormat(),
                 command.authorId()
         ));
+        uploadedObjectService.activate(command.coverImageUrl());
+        uploadedObjectService.activateReferencedIn(command.content());
 
         if (command.visibility() == NoticeVisibility.CLUB_SCOPED) {
             persistTargetClubs(saved.getId(), command.targetClubIds());
@@ -107,6 +112,8 @@ public class GeneralNoticeService implements NoticeService {
                 command.location(), command.host(), command.audience(), command.clearEvent(),
                 command.contentFormat()
         ));
+        uploadedObjectService.activate(command.coverImageUrl());
+        uploadedObjectService.activateReferencedIn(command.content());
 
         if (command.targetClubIds() != null) {
             targetClubRepository.deleteAllByNoticeId(found.getId());
@@ -200,6 +207,8 @@ public class GeneralNoticeService implements NoticeService {
                 command.authorId()
         ));
         saved.assignOwningClub(command.clubId());
+        uploadedObjectService.activate(command.coverImageUrl());
+        uploadedObjectService.activateReferencedIn(command.content());
         persistTargetClubs(saved.getId(), List.of(command.clubId()));
         broadcaster.publish(saved, List.of(command.clubId()));
         return saved.getId();
@@ -226,6 +235,8 @@ public class GeneralNoticeService implements NoticeService {
                 command.title(), command.summary(), command.content(),
                 command.coverImageUrl(), command.clearCoverImage(), command.pinned(), command.expiresAt()
         );
+        uploadedObjectService.activate(command.coverImageUrl());
+        uploadedObjectService.activateReferencedIn(command.content());
     }
 
     @Override

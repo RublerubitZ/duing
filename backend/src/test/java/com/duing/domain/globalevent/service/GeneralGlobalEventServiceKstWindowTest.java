@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.duing.domain.globalevent.repository.GlobalEventRepository;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.file.UploadedObjectService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,7 +39,8 @@ class GeneralGlobalEventServiceKstWindowTest {
         LocalDate kstToday = LocalDate.now(SEOUL).plusYears(1);
         Clock fixedClock = Clock.fixed(kstToday.atStartOfDay(SEOUL).toInstant(), SEOUL);
         GeneralGlobalEventService service =
-                new GeneralGlobalEventService(eventRepository, mock(UserRepository.class), fixedClock);
+                new GeneralGlobalEventService(eventRepository, mock(UserRepository.class), fixedClock,
+                        mock(UploadedObjectService.class));
         when(eventRepository.findWindow(any(), any(), isNull())).thenReturn(List.of());
 
         service.listPublicWindow(null, null, null);

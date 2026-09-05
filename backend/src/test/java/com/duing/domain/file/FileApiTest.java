@@ -1,5 +1,7 @@
 package com.duing.domain.file;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -7,9 +9,14 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.file.FileUploadPolicy;
+import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.entity.UploadedObject;
+import com.duing.global.file.entity.UploadedObjectStatus;
+import com.duing.global.file.repository.UploadedObjectRepository;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,10 +37,12 @@ class FileApiTest extends IntegrationTestBase {
 
     @Autowired UserRepository userRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired UploadedObjectRepository uploadedObjectRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     private String token;
+    private Long userId;
 
     @BeforeEach
     void setUp() {
@@ -50,6 +59,7 @@ class FileApiTest extends IntegrationTestBase {
                 "010-0000-0000",
                 LocalDateTime.now()
         ));
+        userId = user.getId();
         token = jwtTokenProvider.createToken(user.getId(), user.getRole().name());
     }
 
@@ -299,5 +309,43 @@ class FileApiTest extends IntegrationTestBase {
                     .post("/api/v1/files")
                 .then()
                     .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value());
+    }
+
+    @Test
+    @DisplayName("업로드가 성공하면 응답 URL 의 스토리지 키로 PENDING 추적 행이 purpose·업로더와 함께 남는다")
+    void recordsPendingTrackingRowOnSuccessfulUpload() {
+        Response response = RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "tracked.png", pngBytesOfSize(1024), "image/png")
+                    .queryParam("purpose", "GLOBAL_EVENT_COVER")
+                .when()
+                    .post("/api/v1/files");
+        response.then().statusCode(HttpStatus.CREATED.value());
+        String uploadedUrl = response.jsonPath().getString("data.url");
+
+        String storageKey = uploadedUrl.substring("/files/stub/".length());
+        UploadedObject tracked = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
+        assertThat(tracked.getStatus()).isEqualTo(UploadedObjectStatus.PENDING);
+        assertThat(tracked.getPurpose()).isEqualTo(FilePurpose.GLOBAL_EVENT_COVER);
+        assertThat(tracked.getUploaderId()).isEqualTo(userId);
+    }
+
+    @Test
+    @DisplayName("형식 검증에서 거부된 업로드는 추적 행을 남기지 않는다")
+    void leavesNoTrackingRowWhenUploadIsRejected() {
+        long before = uploadedObjectRepository.count();
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "fake.png", bytesOfSize(1024), "image/png")
+                    .queryParam("purpose", "LOGO")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value());
+
+        assertThat(uploadedObjectRepository.count()).isEqualTo(before);
     }
 }

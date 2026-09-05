@@ -22,6 +22,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.file.UploadedObjectService;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.ZoneId;
@@ -52,7 +53,8 @@ class ClubNameRaceGuardTest {
             mock(ApplicationRepository.class),
             // 실제 빈(seoulClock)과 동일한 Asia/Seoul 존 — systemDefaultZone 은 환경 의존.
             Clock.system(ZoneId.of("Asia/Seoul")),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            mock(UploadedObjectService.class));
 
     @Test
     @DisplayName("선조회를 함께 통과한 동시 등록이 uk_club_name_active 에 걸리면 사전 검사와 같은 중복 이름 409 로 표면화된다")

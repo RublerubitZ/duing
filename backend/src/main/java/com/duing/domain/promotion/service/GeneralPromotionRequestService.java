@@ -16,6 +16,7 @@ import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSummary
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.file.UploadedObjectService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
     private final ClubRepository clubRepository;
     private final UserRepository userRepository;
     private final ClubAuthService clubAuthService;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -52,8 +54,9 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
                     throw new PromotionException.DuplicatePendingPromotionRequestException();
                 });
 
+        Long requestId;
         try {
-            return requestRepository.save(PromotionRequest.create(
+            requestId = requestRepository.save(PromotionRequest.create(
                     command.clubId(), command.requesterUserId(),
                     command.title(), command.description(),
                     command.suggestedBannerImageUrl(), command.suggestedLinkUrl()
@@ -61,6 +64,8 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
         } catch (DataIntegrityViolationException race) {
             throw new PromotionException.DuplicatePendingPromotionRequestException();
         }
+        uploadedObjectService.activate(command.suggestedBannerImageUrl());
+        return requestId;
     }
 
     @Override
