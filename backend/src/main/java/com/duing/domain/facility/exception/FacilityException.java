@@ -26,4 +26,13 @@ public class FacilityException extends ApplicationException {
             super(MESSAGE, HttpStatus.NOT_FOUND);
         }
     }
+
+    /** 총동연이 지정한 예약 오픈일이 상한(오늘+1년)을 넘음 — 오탈자로 시설이 사실상 닫히는 것을 막는다. */
+    public static class InvalidBookingOpenDateException extends FacilityException {
+        private static final String MESSAGE = "예약 오픈일은 오늘부터 1년 이내여야 합니다.";
+
+        public InvalidBookingOpenDateException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

@@ -38,10 +38,19 @@ public class FacilityBookingException extends ApplicationException {
 
     public static class OutOfBookingWindowException extends FacilityBookingException {
         public OutOfBookingWindowException(BookingWindow window) {
-            super("지금은 %d월 %d일부터 %d월 %d일까지만 신청할 수 있어요.".formatted(
-                            window.from().getMonthValue(), window.from().getDayOfMonth(),
-                            window.until().getMonthValue(), window.until().getDayOfMonth()),
+            super(window.isEmpty()
+                            ? "아직 예약 신청이 열리지 않았어요."
+                            : "지금은 %d월 %d일부터 %d월 %d일까지만 신청할 수 있어요.".formatted(
+                                    window.from().getMonthValue(), window.from().getDayOfMonth(),
+                                    window.until().getMonthValue(), window.until().getDayOfMonth()),
                     HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** 당일 신청 중 첫 1시간이 완전히 지난 슬롯(기술 검증). create 경로에서는 마감 정책이 선행해 도달하지 않는다. */
+    public static class PastSlotException extends FacilityBookingException {
+        public PastSlotException() {
+            super("이미 지난 시간대는 신청할 수 없어요.", HttpStatus.BAD_REQUEST);
         }
     }
 

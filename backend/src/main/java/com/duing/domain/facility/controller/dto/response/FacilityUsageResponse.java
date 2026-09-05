@@ -17,7 +17,7 @@ public record FacilityUsageResponse(String yearMonth, Instant lastUpdatedAt, boo
 
     public record FacilityUsage(Long id, String roomName, String location, boolean isUsingNow,
                                 Reservation currentReservation, Reservation nextReservation,
-                                List<Reservation> reservations) {}
+                                List<Reservation> reservations, LocalDate bookingOpenDate) {}
 
     public record Reservation(LocalDate date, String start, String end, String organization, ReservationStatus status) {}
 
@@ -36,7 +36,8 @@ public record FacilityUsageResponse(String yearMonth, Instant lastUpdatedAt, boo
         return new FacilityUsage(
                 item.facilityId(), item.roomName(), item.location(), item.isUsingNow(),
                 toReservation(item.currentReservation()), toReservation(item.nextReservation()),
-                item.reservations().stream().map(FacilityUsageResponse::toReservation).toList());
+                item.reservations().stream().map(FacilityUsageResponse::toReservation).toList(),
+                item.bookingOpenDate());
     }
 
     static Reservation toReservation(ReservationSlot slot) {

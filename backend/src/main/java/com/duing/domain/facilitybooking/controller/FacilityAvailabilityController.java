@@ -37,9 +37,10 @@ public class FacilityAvailabilityController implements FacilityAvailabilityApi {
     }
 
     @Override
+    @Deprecated
     public ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow() {
         BookingWindowResponse window = facilityAvailabilityService.getBookingWindow();
-        // 전 시설 공통 정책 값이라 사용자·시설별로 갈리지 않는다 — Preset 과 동일한 짧은 공개 캐시(설계 §10)
+        // 참조 창은 시설·사용자별로 갈리지 않는다 — Preset 과 동일한 짧은 공개 캐시를 그대로 둔다(설계 §10)
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic())
                 .body(ApiResponse.success(window));

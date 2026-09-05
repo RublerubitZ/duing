@@ -62,7 +62,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = requestedMonth != null ? requestedMonth : currentMonth;
         // 열람 범위 = 직전 월·당월·익월. 직전 월은 기록 열람 전용(저장 스냅샷 그대로, 재크롤 없음 — 2026-09-03 스펙 §2.1).
-        // 신청 가능 범위는 별개로 BookingApplicationPolicy(반월 창·마감)가 판정한다.
+        // 신청 가능 범위는 별개로 BookingApplicationPolicy(시설 오픈 창·마감)가 판정한다.
         if (targetMonth.isBefore(currentMonth.minusMonths(1)) || targetMonth.isAfter(currentMonth.plusMonths(1))) {
             throw new FacilityBookingException.MonthOutOfBookingRangeException();
         }
@@ -99,7 +99,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 ? isIncompleteRecord(snapshot)
                 : isStale(crawledAt, snapshot != null ? snapshot.getFetchStatus() : null, source);
 
-        BookingWindow window = bookingApplicationPolicy.windowFor(today);
+        BookingWindow window = bookingApplicationPolicy.windowFor(facility, today);
         return new FacilityAvailabilityResponse(
                 facility.getId(),
                 targetMonth.toString(),
@@ -112,9 +112,10 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
     }
 
     @Override
+    @Deprecated
     public BookingWindowResponse getBookingWindow() {
-        LocalDate today = LocalDate.now(clock);
-        return BookingWindowResponse.from(bookingApplicationPolicy.windowFor(today));
+        // 폐기 예정(P8): 구 FE 번들의 월 기본값·주 이동 클램프용 참조 창. 시설별 창은 availability 가 내린다.
+        return BookingWindowResponse.from(bookingApplicationPolicy.referenceWindow(LocalDate.now(clock)));
     }
 
     @Override
