@@ -31,7 +31,7 @@
 ## 3. 변경 범위
 
 **BE**
-- **V123** `ALTER TABLE facility ADD COLUMN booking_close_date DATE NULL` — 비파괴, 백필 없음(develop V121 까지, 열린 PR #1143 이 V123 선점 → 이 작업은 V123. 2026-09-05 최종 리뷰에서 발견·정정).
+- **V123** `ALTER TABLE facility ADD COLUMN booking_close_date DATE NULL` — 비파괴, 백필 없음(develop V121 까지, 열린 PR #1143 이 V122 선점 → 이 작업은 V123. 2026-09-05 최종 리뷰에서 발견·정정).
 - `Facility`: 필드 + **`changeBookingCloseDate(LocalDate)` 추가, 기존 `changeBookingOpenDate` 유지**(호출처 test 8파일 12곳 보존). `@DynamicUpdate` 그대로라 동기화 경합 대책도 그대로(`FacilitySyncService.updateDetails` 는 마감일을 만지지 않는다).
 - `BookingOpenDatePolicy.windowFor(openDate, closeDate, today)`: 3줄 변경. `referenceWindow` 무변경.
 - `BookingApplicationPolicy.windowFor(Facility, today)`: 인자 전달만.

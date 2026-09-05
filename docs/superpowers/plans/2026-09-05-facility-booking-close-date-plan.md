@@ -14,7 +14,7 @@
 
 - **선행 조건:** PR #1145(BE)·#1146(FE) 가 develop 에 머지된 뒤 develop 에서 분기. BE 브랜치 `feat/facility-booking-close-date-be`, FE 브랜치 `feat/facility-booking-close-date-fe`.
 - 스펙 C1~C10 과 확정 결정(Q1 과거 허용 · Q2 문구 통일 · Q3 카드 미노출 · Q5 상한 익월 말일)을 뒤집지 않는다. 크롤 월·TTL·가용성 월 가드·슬롯 상태·승인 경로·booking-window 참조 창 무변경.
-- 마이그레이션 번호 **V123**(#1143 이 V123 로 올려 선점 — 2026-09-05 최종 리뷰 정정. 머지 직전 `git ls-tree` 로 원격 전수 재확인).
+- 마이그레이션 번호 **V123**(#1143 이 V122 로 올려 선점 — 2026-09-05 최종 리뷰 정정. 머지 직전 `git ls-tree` 로 원격 전수 재확인).
 - 커밋 메시지 Conventional Commits 한국어 `{type}({scope}): 대상 — 변경점`, **Co-Authored-By / 🤖 Generated / Claude-Session 트레일러 금지**. 구현자는 push·PR·머지 금지. 모든 완료 보고는 실제 명령 출력 근거. EOF newline.
 - BE 는 `backend/` 에서 `./gradlew`, FE 는 `frontend/` 에서 `pnpm test`+`pnpm typecheck`+`pnpm lint` 셋 다 GREEN.
 - 테스트 날짜는 `Clock.fixed(…, Asia/Seoul)` 또는 `LocalDate.now(ZoneId.of("Asia/Seoul"))` 상대값. 과거 고정일 허용. 하드코딩 미래 절대날짜 금지.
