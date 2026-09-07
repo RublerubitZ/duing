@@ -7,7 +7,7 @@ import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { FacilityLastUpdated, FacilityStaleNotice } from '../_components/FacilityUpdateBanner';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
-import { seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
+import { daysInMonth, seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
 import { bookingWindowNote, bookingWindowToastMessage } from '../_lib/bookingHome';
 import type { SlotRange } from '../_lib/bookingCalendar';
 import {
@@ -125,8 +125,10 @@ export function FacilityBookingPage() {
   const toastMessage = availability
     ? bookingWindowToastMessage(availability.bookableFrom, availability.bookableUntil)
     : '현재 예약 가능한 기간이 아니에요';
+  // 창 상한(익월 말일) — 마감일이 이보다 앞일 때만 안내줄이 범위 문구가 된다(C8).
+  const nextMonthEndIso = `${nextMonth}-${String(daysInMonth(nextMonth)).padStart(2, '0')}`;
   const windowNote = availability
-    ? bookingWindowNote(availability.bookableFrom, availability.bookableUntil, todayIso)
+    ? bookingWindowNote(availability.bookableFrom, availability.bookableUntil, todayIso, nextMonthEndIso)
     : null;
 
   // 오픈일이 익월이면 당월엔 신청 가능한 날이 하나도 없으므로 익월 격자로 자동 진입한다 — 사용자가 월을 옮기기

@@ -59,10 +59,13 @@ const WINDOW = { from: TODAY_ISO, until: BOOKABLE_UNTIL };
 const FACILITY_B_OPEN_DATE = shiftDateByDays(TODAY_ISO, 5);
 // 시설 3: 오픈일 null(닫힘) → 빈 창(bookableFrom = bookableUntil + 1).
 const CLOSED_WINDOW = { from: shiftDateByDays(BOOKABLE_UNTIL, 1), until: BOOKABLE_UNTIL };
+// 시설 4: 마감일(오늘+7)이 있는 창 → 상한(익월 말일)보다 앞이라 안내줄이 범위 문구가 된다(C8).
+const FACILITY_D_CLOSE_DATE = shiftDateByDays(TODAY_ISO, 7);
 const WINDOW_BY_FACILITY: Record<number, { from: string; until: string }> = {
   1: WINDOW,
   2: { from: FACILITY_B_OPEN_DATE, until: BOOKABLE_UNTIL },
   3: CLOSED_WINDOW,
+  4: { from: TODAY_ISO, until: FACILITY_D_CLOSE_DATE },
 };
 
 const WINDOW_FROM_DAY = Number(WINDOW.from.slice(8, 10));
@@ -96,6 +99,10 @@ const FACILITY_B_TOAST = `현재 예약 가능한 기간이 아니에요 (${rang
 const CLOSED_TOAST = '아직 예약 신청이 열리지 않았어요';
 const FACILITY_B_NOTE = `${labelPart(FACILITY_B_OPEN_DATE)}부터 신청할 수 있어요`;
 const CLOSED_NOTE = '아직 예약 신청을 받지 않는 시설이에요';
+// 시설 4: 마감일 다음 날(오늘+8)은 창 밖이고, 안내줄은 창 전체를 범위로 말한다.
+const AFTER_CLOSE_DATE = shiftDateByDays(TODAY_ISO, 8);
+const AFTER_CLOSE_CELL = `${Number(AFTER_CLOSE_DATE.slice(8, 10))}일 예약 기간 아님`;
+const FACILITY_D_NOTE = `${rangeLabelOf(TODAY_ISO, FACILITY_D_CLOSE_DATE)} 신청 가능`;
 // 홈 카드 오픈일 문구(D7) — 카드는 창 범위가 아니라 오픈일만 말한다.
 const FACILITY_B_CARD_LABEL = `${labelPart(FACILITY_B_OPEN_DATE)}부터 예약 가능`;
 
@@ -236,6 +243,19 @@ const FACILITY_C: FacilityItem = {
   bookingOpenDate: null,
 };
 
+// 마감일이 있는 시설 — 카드는 마감일을 말하지 않지만(D7) usage 응답에는 실려 온다.
+const FACILITY_D: FacilityItem = {
+  id: 4,
+  roomName: '웅지관 강당',
+  location: null,
+  isUsingNow: false,
+  currentReservation: null,
+  nextReservation: null,
+  reservations: [],
+  bookingOpenDate: shiftDateByDays(TODAY_ISO, -30),
+  bookingCloseDate: FACILITY_D_CLOSE_DATE,
+};
+
 const AUTH_USER: User = {
   id: 1,
   studentId: '20200001',
@@ -271,6 +291,7 @@ const server = setupServer(
   availabilityHandlerFor(1),
   availabilityHandlerFor(2),
   availabilityHandlerFor(3),
+  availabilityHandlerFor(4),
   http.get('*/facilities/booking-purpose-presets', () =>
     ok([{ id: 1, label: '동아리 정기 모임' }, { id: 3, label: '정기 합주' }]),
   ),
@@ -1055,6 +1076,26 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     renderPage();
 
     expect(await screen.findByRole('note')).toHaveTextContent(FACILITY_B_NOTE);
+  });
+
+  it('마감일이 있는 시설은 안내줄이 신청 범위를 알리고 마감 다음 날 셀은 창 밖이다', async () => {
+    // 시설 4 는 이 시나리오에서만 usage 에 실어 다른 카드 문구 단언과 섞이지 않게 한다.
+    server.use(
+      http.get('*/facilities/usage', () =>
+        ok({
+          yearMonth: CURRENT_MONTH,
+          lastUpdatedAt: null,
+          stale: false,
+          source: 'CACHE',
+          facilities: [FACILITY_A, FACILITY_B, FACILITY_C, FACILITY_D],
+        }),
+      ),
+    );
+    mockSearchParams.value = 'facilityId=4';
+    renderPage();
+
+    expect(await screen.findByRole('note')).toHaveTextContent(FACILITY_D_NOTE);
+    expect(screen.getByRole('button', { name: AFTER_CLOSE_CELL })).toBeInTheDocument();
   });
 
   it('오픈일이 익월이면 사용자가 월을 옮기기 전에 익월 격자로 자동 진입한다', async () => {
