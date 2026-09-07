@@ -11,7 +11,11 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.recruitment.entity.QuestionChoice;
+import com.duing.domain.recruitment.entity.QuestionType;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentForm;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -23,6 +27,8 @@ import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -54,9 +60,13 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired Clock clock;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired ObjectMapper objectMapper;
 
     /** 관리자 메모는 자유서술 칸이라 실제로 이름·번호가 적힌다 — 익명화 여부를 이 값으로 판정한다. */
     private static final String ADMIN_NOTE = "본인확인 완료 — 김도윤 010-1234-5678";
+
+    /** 자유서술 칸에 실제로 적히는 형태 — 이름·학번·번호. 파기 여부를 이 값으로 판정한다. */
+    private static final String TEXT_ANSWER = "홍길동 20231234 010-1234-5678";
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -171,6 +181,189 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("탈퇴 후 보관기간(window) 미만인 회원의 지원서 자유서술 답변은 유지된다")
+    void keepsAnswersOfRecentlyWithdrawnUser() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        User applicant = saveUser();
+        Application application = saveApplication(fixture, applicant);
+        softDeleteDaysAgo("users", applicant.getId(), 10);
+
+        job.run();
+
+        assertUntouched(application, fixture);
+    }
+
+    @Test
+    @DisplayName("탈퇴 후 보관기간(window)이 지난 회원의 지원서는 TEXT 답변만 파기 문구로 치환되고 선택형 답변은 유지된다")
+    void purgesTextAnswersOfWithdrawnUser() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        User applicant = saveUser();
+        Application application = saveApplication(fixture, applicant);
+        Long versionBefore = applicationVersion(application.getId());
+        softDeleteDaysAgo("users", applicant.getId(), 400);
+
+        job.run();
+
+        assertPurged(application, fixture);
+        // 동시 flush 가 파기 전 answers 를 되살리지 못하도록 version 이 올라간다(스펙 §3.2).
+        assertThat(applicationVersion(application.getId())).isEqualTo(versionBefore + 1);
+    }
+
+    @Test
+    @DisplayName("마감(closed_at) 후 6개월 미만인 모집의 지원서 답변은 유지된다")
+    void keepsAnswersOfRecentlyClosedRecruitment() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+        closeDaysAgo(fixture.id(), 30);
+
+        job.run();
+
+        assertUntouched(application, fixture);
+    }
+
+    @Test
+    @DisplayName("마감(closed_at) 후 6개월이 지난 모집의 지원서는 TEXT 답변이 파기된다")
+    void purgesTextAnswersAfterClosedAtWindow() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertPurged(application, fixture);
+    }
+
+    @Test
+    @DisplayName("end_date 가 지난 뒤 6개월이 넘은 OPEN 모집(만료-OPEN)의 지원서도 파기되며 모집 상태는 OPEN 그대로다")
+    void purgesExpiredOpenRecruitmentWithoutClosingIt() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+        setEndDateDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertPurged(application, fixture);
+        assertThat(recruitmentStatus(fixture.id())).isEqualTo("OPEN");
+    }
+
+    @Test
+    @DisplayName("closed_at 이 없는(V101 이전) CLOSED 모집은 end_date 기준으로 파기된다")
+    void purgesLegacyClosedRecruitmentByEndDate() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+        // start_date 도 함께 과거로 — recruitment 는 end_date >= start_date CHECK(chk_recruitment_period)를 건다.
+        jdbcTemplate.update("UPDATE recruitment SET status = 'CLOSED', closed_at = NULL, "
+                        + "start_date = CURRENT_DATE - 270, end_date = CURRENT_DATE - 240 WHERE id = ?",
+                fixture.id());
+
+        job.run();
+
+        assertPurged(application, fixture);
+    }
+
+    @Test
+    @DisplayName("상시모집이면서 closed_at 이 없는 CLOSED 모집은 마감 앵커가 없어 건너뛴다")
+    void skipsRecruitmentWithoutAnyAnchor() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(null);
+        Application application = saveApplication(fixture, saveUser());
+        jdbcTemplate.update("UPDATE recruitment SET status = 'CLOSED' WHERE id = ?", fixture.id());
+
+        job.run();
+
+        assertUntouched(application, fixture);
+    }
+
+    @Test
+    @DisplayName("아직 마감되지 않은(end_date 미래) OPEN 모집의 지원서는 파기하지 않는다")
+    void keepsAnswersOfOpenRecruitment() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+
+        job.run();
+
+        assertUntouched(application, fixture);
+    }
+
+    @Test
+    @DisplayName("폼에 없는 questionId 와 questionId 가 null 인 답변은 TEXT 로 간주해 파기한다")
+    void treatsUnresolvedAnswersAsText() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = applicationRepository.save(Application.submit(fixture.recruitment(), saveUser(), List.of(
+                new ApplicationAnswer("question-no-longer-in-form", List.of("삭제된 질문의 답 010-2222-3333")),
+                new ApplicationAnswer(null, List.of("V78 잉여 답변")))));
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertThat(answerValues(application.getId(), "question-no-longer-in-form").get(0).asText())
+                .isEqualTo(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER);
+        assertThat(answerValues(application.getId(), null).get(0).asText())
+                .isEqualTo(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER);
+    }
+
+    @Test
+    @DisplayName("무응답([\"\"])·빈([]) TEXT 답변과 답변이 없는 지원서는 내용이 바뀌지 않고 파기 마커만 기록된다")
+    void leavesEmptyAnswersUntouchedButMarksPurged() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application blankAnswer = applicationRepository.save(Application.submit(fixture.recruitment(), saveUser(), List.of(
+                new ApplicationAnswer(fixture.text().id(), List.of("")),
+                new ApplicationAnswer(fixture.single().id(), List.of(fixture.singleChoiceId())))));
+        Application noValues = applicationRepository.save(Application.submit(fixture.recruitment(), saveUser(), List.of(
+                new ApplicationAnswer(fixture.text().id(), List.of()))));
+        Application noAnswers = applicationRepository.save(Application.submit(fixture.recruitment(), saveUser(), List.of()));
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertThat(answerValues(blankAnswer.getId(), fixture.text().id()).get(0).asText()).isEqualTo("");
+        assertThat(answerValues(noValues.getId(), fixture.text().id()).size()).isZero();
+        assertThat(answersText(noAnswers.getId())).isEqualTo("[]");
+        assertThat(answersPurgedAt(blankAnswer.getId())).isNotNull();
+        assertThat(answersPurgedAt(noValues.getId())).isNotNull();
+        assertThat(answersPurgedAt(noAnswers.getId())).isNotNull();
+    }
+
+    @Test
+    @DisplayName("한 번 파기된 지원서는 재실행해도 다시 갱신되지 않는다 (멱등)")
+    void isIdempotentForPurgedAnswers() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application application = saveApplication(fixture, saveUser());
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+        java.sql.Timestamp firstPurgedAt = answersPurgedAt(application.getId());
+        Long firstVersion = applicationVersion(application.getId());
+        job.run();
+
+        assertThat(answersPurgedAt(application.getId())).isEqualTo(firstPurgedAt);
+        assertThat(applicationVersion(application.getId())).isEqualTo(firstVersion);
+        assertPurged(application, fixture);
+    }
+
+    @Test
+    @DisplayName("여러 모집·여러 지원서가 섞여 있어도 각 행이 자기 조건으로만 판정된다")
+    void judgesEachApplicationIndependently() throws Exception {
+        RecruitmentFixture closedLongAgo = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        RecruitmentFixture closedRecently = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        RecruitmentFixture stillOpen = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        Application purgedByClose = saveApplication(closedLongAgo, saveUser());
+        Application keptRecentClose = saveApplication(closedRecently, saveUser());
+        User withdrawnApplicant = saveUser();
+        Application purgedByWithdrawal = saveApplication(closedRecently, withdrawnApplicant);
+        Application keptOpen = saveApplication(stillOpen, saveUser());
+        closeDaysAgo(closedLongAgo.id(), 210);
+        closeDaysAgo(closedRecently.id(), 30);
+        softDeleteDaysAgo("users", withdrawnApplicant.getId(), 400);
+
+        job.run();
+
+        assertPurged(purgedByClose, closedLongAgo);
+        assertUntouched(keptRecentClose, closedRecently);
+        assertPurged(purgedByWithdrawal, closedRecently);
+        assertUntouched(keptOpen, stillOpen);
+    }
+
+    @Test
     @DisplayName("만료 후 1일이 지난 MO 인증 세션은 window(보관기간) 설정과 무관하게 물리 삭제된다")
     void deletesExpiredPhoneVerifications() {
         PhoneVerification staleVerification = phoneVerificationRepository.save(
@@ -274,5 +467,105 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     private void softDeleteDaysAgo(String table, Long id, int days) {
         jdbcTemplate.update(
                 "UPDATE " + table + " SET deleted_at = NOW() - (? * INTERVAL '1 day') WHERE id = ?", days, id);
+    }
+
+    /** TEXT·단일선택·복수선택 질문을 가진 모집 — 파기 대상(TEXT)과 유지 대상(선택형)을 한 지원서에서 함께 검증한다. */
+    private RecruitmentFixture saveRecruitmentWithForm(LocalDate endDate) throws Exception {
+        Club club = saveActiveClub("보관동아리");
+        Recruitment recruitment = Recruitment.create(club, "보관모집", null, LocalDate.now().minusDays(30), endDate, 10);
+        RecruitmentQuestion textQuestion = RecruitmentQuestion.createText("자기소개");
+        RecruitmentQuestion singleQuestion = RecruitmentQuestion.create("학년", QuestionType.SINGLE_CHOICE, true,
+                List.of(QuestionChoice.create("1학년"), QuestionChoice.create("2학년")));
+        RecruitmentQuestion multiQuestion = RecruitmentQuestion.create("관심 분야", QuestionType.MULTIPLE_CHOICE, false,
+                List.of(QuestionChoice.create("프론트"), QuestionChoice.create("백엔드")));
+        recruitment.attachForm(RecruitmentForm.create(recruitment, List.of(textQuestion, singleQuestion, multiQuestion)));
+        return new RecruitmentFixture(recruitmentRepository.save(recruitment), textQuestion, singleQuestion, multiQuestion);
+    }
+
+    private record RecruitmentFixture(Recruitment recruitment, RecruitmentQuestion text,
+                                      RecruitmentQuestion single, RecruitmentQuestion multi) {
+        Long id() {
+            return recruitment.getId();
+        }
+
+        String singleChoiceId() {
+            return single.choices().get(0).id();
+        }
+
+        List<String> multiChoiceIds() {
+            return List.of(multi.choices().get(0).id(), multi.choices().get(1).id());
+        }
+    }
+
+    /** TEXT 에 개인정보, 선택형 두 개에 choiceId 를 채운 지원서. */
+    private Application saveApplication(RecruitmentFixture fixture, User applicant) {
+        return applicationRepository.save(Application.submit(fixture.recruitment(), applicant, List.of(
+                new ApplicationAnswer(fixture.text().id(), List.of(TEXT_ANSWER)),
+                new ApplicationAnswer(fixture.single().id(), List.of(fixture.singleChoiceId())),
+                new ApplicationAnswer(fixture.multi().id(), fixture.multiChoiceIds()))));
+    }
+
+    /** 수동 마감: status=CLOSED + closed_at = N일 전 (seoul 벽시계 컬럼이지만 마진이 커서 DB NOW() 로 충분). */
+    private void closeDaysAgo(Long recruitmentId, int days) {
+        jdbcTemplate.update(
+                "UPDATE recruitment SET status = 'CLOSED', closed_at = NOW() - (? * INTERVAL '1 day') WHERE id = ?",
+                days, recruitmentId);
+    }
+
+    /**
+     * 접수 마감일만 과거로 — status 는 건드리지 않는다(만료-OPEN 재현용).
+     * start_date 도 같이 당긴다: recruitment 에 end_date >= start_date CHECK(chk_recruitment_period)가 걸려 있다.
+     */
+    private void setEndDateDaysAgo(Long recruitmentId, int days) {
+        jdbcTemplate.update(
+                "UPDATE recruitment SET start_date = CURRENT_DATE - ? - 30, end_date = CURRENT_DATE - ? WHERE id = ?",
+                days, days, recruitmentId);
+    }
+
+    private JsonNode answerValues(Long applicationId, String questionId) throws Exception {
+        String answers = jdbcTemplate.queryForObject(
+                "SELECT answers::text FROM application WHERE id = ?", String.class, applicationId);
+        for (JsonNode answer : objectMapper.readTree(answers)) {
+            JsonNode storedQuestionId = answer.get("questionId");
+            // 키 자체가 빠진 원소도 null questionId 로 본다(Hibernate 기본 매퍼는 null 을 쓰지만 방어).
+            boolean storedIsNull = storedQuestionId == null || storedQuestionId.isNull();
+            boolean matches = questionId == null ? storedIsNull
+                    : !storedIsNull && questionId.equals(storedQuestionId.asText());
+            if (matches) {
+                return answer.get("values");
+            }
+        }
+        throw new AssertionError("questionId 에 해당하는 답변이 없습니다: " + questionId);
+    }
+
+    private String answersText(Long applicationId) {
+        return jdbcTemplate.queryForObject("SELECT answers::text FROM application WHERE id = ?", String.class, applicationId);
+    }
+
+    private java.sql.Timestamp answersPurgedAt(Long applicationId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT answers_purged_at FROM application WHERE id = ?", java.sql.Timestamp.class, applicationId);
+    }
+
+    private Long applicationVersion(Long applicationId) {
+        return jdbcTemplate.queryForObject("SELECT version FROM application WHERE id = ?", Long.class, applicationId);
+    }
+
+    private String recruitmentStatus(Long recruitmentId) {
+        return jdbcTemplate.queryForObject("SELECT status FROM recruitment WHERE id = ?", String.class, recruitmentId);
+    }
+
+    private void assertPurged(Application application, RecruitmentFixture fixture) throws Exception {
+        assertThat(answerValues(application.getId(), fixture.text().id()).get(0).asText())
+                .isEqualTo(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER);
+        assertThat(answerValues(application.getId(), fixture.single().id()).get(0).asText())
+                .isEqualTo(fixture.singleChoiceId());
+        assertThat(answerValues(application.getId(), fixture.multi().id()).size()).isEqualTo(2);
+        assertThat(answersPurgedAt(application.getId())).isNotNull();
+    }
+
+    private void assertUntouched(Application application, RecruitmentFixture fixture) throws Exception {
+        assertThat(answerValues(application.getId(), fixture.text().id()).get(0).asText()).isEqualTo(TEXT_ANSWER);
+        assertThat(answersPurgedAt(application.getId())).isNull();
     }
 }

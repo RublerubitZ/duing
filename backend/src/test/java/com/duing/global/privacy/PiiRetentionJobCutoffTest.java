@@ -1,5 +1,7 @@
 package com.duing.global.privacy;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -9,6 +11,7 @@ import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.ZoneId;
@@ -82,6 +85,18 @@ class PiiRetentionJobCutoffTest {
         // expires_at 은 발급 시 now(seoulClock) 으로 기록됐다 — KST 벽시계 2026-09-08T05:00 - 1일.
         LocalDateTime expected = LocalDateTime.ofInstant(NOW, SEOUL).minusDays(1);
         verify(phoneVerificationRepository).deleteExpiredVerifications(expected);
+    }
+
+    @Test
+    @DisplayName("마감 6개월 cutoff 날짜는 JVM 기본 존이 UTC 여도 KST 오늘 기준으로 계산된다")
+    void closedCutoffDateUsesSeoulToday() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+
+        job(Period.ofDays(45), Period.ofMonths(6)).run();
+
+        // NOW 는 UTC 9/7 20:00 = KST 9/8 05:00 → KST 오늘(9/8) - 6개월 = 3/8. UTC 날짜(9/7)로 계산했다면 3/7.
+        verify(applicationRepository).purgeExpiredTextAnswers(
+                eq(LocalDate.of(2026, 3, 8)), any(LocalDateTime.class), eq(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER));
     }
 
     @Test

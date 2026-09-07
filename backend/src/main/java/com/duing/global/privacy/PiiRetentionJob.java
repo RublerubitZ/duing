@@ -18,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * PIPA 제21조(보관기간 종료 시 지체없는 파기) 대응 — 보관기간(window)을 넘긴 개인정보를 비식별화/삭제하는 스케줄 잡.
  *
+ * <p>지원서 자유서술 답변(스펙 docs/superpowers/specs/2026-09-07-application-answer-retention-design.md): 모집 마감
+ * (LEAST(closed_at, end_date)) 후 {@code applicationAnswerWindow}, 또는 회원 탈퇴 후 {@code window} 가 지나면 TEXT 답변만
+ * placeholder 로 치환하고 application.answers_purged_at 에 기록한다. 지원서 행·선택형 답변·모집 상태는 바꾸지 않는다.
+ *
  * <p>기본 비활성(enabled=false)이며 보관기간은 환경변수로 주입한다. 실제 보관기간은 법무/내부 방침
  * 확정 후 운영에서 활성화한다(코드에 하드코딩하지 않음).
  *
@@ -36,6 +40,9 @@ public class PiiRetentionJob {
 
     /** MO 인증 세션은 단명 데이터 — 만료 후 1일이면 파기한다 (보관기간 window 와 별도, spec §9.4). */
     private static final Period PHONE_VERIFICATION_RETENTION = Period.ofDays(1);
+
+    /** 파기된 자유서술 답변 자리에 남기는 문구 — 총동연 문의 파기(FederationInquiryPurgeJob)와 같은 표현(스펙 §3.2). */
+    static final String ANSWER_PURGED_PLACEHOLDER = "(보관기간 경과로 파기되었습니다)";
 
     private final RetentionProperties properties;
     private final Clock clock;
@@ -68,12 +75,15 @@ public class PiiRetentionJob {
 
         int anonymizedUsers = userRepository.anonymizeExpiredUsers(withdrawnCutoff);
         int scrubbedApplications = applicationRepository.scrubExpiredApplicationAnswers(withdrawnCutoff);
+        int purgedApplicationAnswers = applicationRepository.purgeExpiredTextAnswers(
+                closedCutoffDate, withdrawnCutoff, ANSWER_PURGED_PLACEHOLDER);
         int deletedPhoneVerifications = phoneVerificationRepository.deleteExpiredVerifications(phoneVerificationCutoff);
         int deletedPhoneVerificationEvents = phoneVerificationEventRepository.deleteExpiredEvents(withdrawnCutoff);
-        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, "
+        // 건수와 cutoff 만 남긴다 — 답변 내용·사용자 식별자는 로그에 쓰지 않는다(스펙 §3.4).
+        log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, applicationAnswersPurged={}, "
                         + "phoneVerificationsDeleted={}, phoneVerificationEventsDeleted={}, "
                         + "withdrawnCutoff={}, closedCutoffDate={}",
-                anonymizedUsers, scrubbedApplications,
+                anonymizedUsers, scrubbedApplications, purgedApplicationAnswers,
                 deletedPhoneVerifications, deletedPhoneVerificationEvents, withdrawnCutoff, closedCutoffDate);
     }
 
