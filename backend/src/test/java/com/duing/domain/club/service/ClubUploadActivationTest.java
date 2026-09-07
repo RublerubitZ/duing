@@ -18,6 +18,10 @@ import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
+import com.duing.domain.promotion.service.PromotionService;
+import com.duing.domain.promotion.service.dto.command.CreatePromotionCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
@@ -54,6 +58,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubPhotoRepository clubPhotoRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
+    @Autowired PromotionService promotionService;
     @Autowired UserRepository userRepository;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
@@ -225,7 +230,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("총동연이 동아리를 폐쇄하면 로고·커버·살아 있는 활동 사진 업로드가 모두 RELEASED 가 된다")
+    @DisplayName("총동연이 동아리를 폐쇄하면 로고·커버·살아 있는 활동 사진·홍보 배너 업로드가 모두 RELEASED 가 된다")
     void closureReleasesLogoCoverAndPhotos() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         String logoKey = seedActive(FilePurpose.LOGO);
@@ -234,12 +239,18 @@ class ClubUploadActivationTest extends IntegrationTestBase {
         Club club = saveClubWithStatus(ClubStatus.INACTIVE, STUB_PREFIX + logoKey);
         clubService.updateAsAdmin(updateImages(club.getId(), null, null, STUB_PREFIX + coverKey));
         clubPhotoRepository.save(ClubPhoto.create(club, STUB_PREFIX + photoKey, null, null, null, 0));
+        String bannerKey = seedPending(FilePurpose.PROMOTION_BANNER);
+        promotionService.create(new CreatePromotionCommand(club.getId(), "폐쇄 배너", STUB_PREFIX + bannerKey, null, true, 1,
+                admin.getId(), null, null, null, null, PromotionPalette.INK, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
 
         clubClosureService.close(new CloseClubCommand(club.getId(), admin.getId(), "운영 종료"));
 
         assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
         assertThat(statusOf(coverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
         assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 
     @Test
