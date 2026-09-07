@@ -406,13 +406,13 @@ git commit -m "feat(backend): PII 파기 잡 — 마감 보관기간 설정(P6M)
 - Modify: `backend/src/main/java/com/duing/domain/application/repository/ApplicationRepository.java` (`scrubExpiredApplicationAnswers` 바로 뒤)
 - Modify: `backend/src/main/java/com/duing/global/privacy/PiiRetentionJob.java` (상수·호출·로그)
 - Modify: `backend/src/test/java/com/duing/global/privacy/PiiRetentionJobCutoffTest.java` (케이스 1개 추가)
-- Test: `backend/src/test/java/com/duing/global/privacy/PiiRetentionJobTest.java` (지원서 케이스 11개 + 픽스처 헬퍼)
+- Test: `backend/src/test/java/com/duing/global/privacy/PiiRetentionJobTest.java` (지원서 케이스 12개 + 픽스처 헬퍼)
 
 **Interfaces:**
 - Consumes: Task 1 의 `closedCutoffDate`·`withdrawnCutoff`, V126 컬럼.
 - Produces: `int ApplicationRepository.purgeExpiredTextAnswers(LocalDate closedCutoffDate, LocalDateTime withdrawnCutoff, String placeholder)`; `PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER`(package-private `static final String`).
 
-- [ ] **Step 1: 통합 테스트 픽스처 + 11 케이스 작성**
+- [ ] **Step 1: 통합 테스트 픽스처 + 12 케이스 작성**
 
 `PiiRetentionJobTest.java` — import 추가:
 
@@ -490,8 +490,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
                 "SELECT answers::text FROM application WHERE id = ?", String.class, applicationId);
         for (JsonNode answer : objectMapper.readTree(answers)) {
             JsonNode storedQuestionId = answer.get("questionId");
-            boolean matches = questionId == null ? storedQuestionId.isNull()
-                    : !storedQuestionId.isNull() && questionId.equals(storedQuestionId.asText());
+            // 키 자체가 빠진 원소도 null questionId 로 본다(Hibernate 기본 매퍼는 null 을 쓰지만 방어).
+            boolean storedIsNull = storedQuestionId == null || storedQuestionId.isNull();
+            boolean matches = questionId == null ? storedIsNull
+                    : !storedIsNull && questionId.equals(storedQuestionId.asText());
             if (matches) {
                 return answer.get("values");
             }
@@ -521,7 +523,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
                 .isEqualTo(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER);
         assertThat(answerValues(application.getId(), fixture.single().id()).get(0).asText())
                 .isEqualTo(fixture.singleChoiceId());
-        assertThat(answerValues(application.getId(), fixture.multi().id())).hasSize(2);
+        assertThat(answerValues(application.getId(), fixture.multi().id()).size()).isEqualTo(2);
         assertThat(answersPurgedAt(application.getId())).isNotNull();
     }
 
@@ -668,7 +670,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
         job.run();
 
         assertThat(answerValues(blankAnswer.getId(), fixture.text().id()).get(0).asText()).isEqualTo("");
-        assertThat(answerValues(noValues.getId(), fixture.text().id())).isEmpty();
+        assertThat(answerValues(noValues.getId(), fixture.text().id()).size()).isZero();
         assertThat(answersText(noAnswers.getId())).isEqualTo("[]");
         assertThat(answersPurgedAt(blankAnswer.getId())).isNotNull();
         assertThat(answersPurgedAt(noValues.getId())).isNotNull();
@@ -822,7 +824,7 @@ Expected: FAIL — `purgeExpiredTextAnswers`·`ANSWER_PURGED_PLACEHOLDER` 없음
 - [ ] **Step 5: 테스트 통과 확인**
 
 Run: `cd /Users/ksy/orca/workspaces/Duing/hagfish/backend && ./gradlew test --tests 'com.duing.global.privacy.*'`
-Expected: BUILD SUCCESSFUL — `PiiRetentionJobTest` 22건(기존 11 + 신규 11), `PiiRetentionJobCutoffTest` 4건 PASS.
+Expected: BUILD SUCCESSFUL — `PiiRetentionJobTest` 23건(기존 11 + 신규 12), `PiiRetentionJobCutoffTest` 4건 PASS.
 
 Run: `cd /Users/ksy/orca/workspaces/Duing/hagfish/backend && ./gradlew test --tests 'com.duing.domain.application.*' --tests 'com.duing.domain.recruitment.*'`
 Expected: BUILD SUCCESSFUL — 기존 지원·모집 테스트 무회귀.
@@ -1014,7 +1016,7 @@ Expected: FAIL — `deleteExpired` 없음, 생성자 7인자 없음.
 - [ ] **Step 5: 테스트 통과 확인**
 
 Run: `cd /Users/ksy/orca/workspaces/Duing/hagfish/backend && ./gradlew test --tests 'com.duing.global.privacy.*' --tests 'com.duing.domain.draft.*'`
-Expected: BUILD SUCCESSFUL — `PiiRetentionJobTest` 26건, `PiiRetentionJobCutoffTest` 4건, draft 도메인 기존 테스트(`SubmitDiscardsDraftTest` 등) 무회귀.
+Expected: BUILD SUCCESSFUL — `PiiRetentionJobTest` 27건, `PiiRetentionJobCutoffTest` 4건, draft 도메인 기존 테스트(`SubmitDiscardsDraftTest` 등) 무회귀.
 
 - [ ] **Step 6: 백엔드 전체 테스트**
 
@@ -1244,7 +1246,7 @@ git commit -m "docs(frontend): 개인정보 처리방침 — 모집 종료 후 6
 
 - [ ] Task 1~5 각각 spec 리뷰 + quality 리뷰(fork, 별도 dispatch) 통과 확인.
 - [ ] 전체 브랜치 리뷰(fork): 권한·상태전이·동시성(version+1)·데이터 무결성(V126, native UPDATE/DELETE)·타임존 regime 관점 명시.
-- [ ] `cd backend && ./gradlew test` / `cd frontend && pnpm test && pnpm typecheck && pnpm lint && pnpm --filter web build` 전부 GREEN.
+- [ ] `cd backend && ./gradlew test` / `cd frontend && pnpm test && pnpm typecheck && pnpm lint && pnpm --filter @duing/web build` 전부 GREEN.
 - [ ] Self-check 7항목(빌드·범위 일치·타 영역 영향·리뷰 완료·Plan 체크박스 재검증·메모리 규칙·EOF 개행).
 - [ ] 스펙 §9 런북(prod 건수 확인 SQL·첫 실행 로그 확인·시행일 확정·13조 공지는 운영 결정)을 PR 본문 💬 에 옮긴다.
 - [ ] push → `gh pr create` (제목 `feat: 지원서 자유서술 답변 보관·파기 — 탈퇴 45일·마감 6개월 PiiRetentionJob 확장, 안내 문구, 처리방침`, 본문 🚀/🤔/💬). **머지는 하지 않는다.**
