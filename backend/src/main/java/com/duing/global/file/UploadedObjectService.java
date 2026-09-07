@@ -72,7 +72,7 @@ public class UploadedObjectService {
         }
     }
 
-    /** 삭제 — 주어진 URL 을 전부 해제한다. null·빈값·외부 URL·추적 행 없음·ACTIVE 가 아닌 상태는 건너뛴다. */
+    /** 삭제·폐쇄 — 주어진 URL 을 전부 해제한다. null·빈값·외부 URL·추적 행 없음·ACTIVE 가 아닌 상태는 건너뛴다. */
     public void release(String... fileUrls) {
         for (String storageKey : storageKeysOf(fileUrls)) {
             releaseKey(storageKey);

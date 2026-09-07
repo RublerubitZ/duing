@@ -247,6 +247,9 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         PromotionRequest request = promotionRequestRepository.save(PromotionRequest.create(club.getId(), userId,
                 "타이틀", "설명", "https://files.example.com/" + suggestedBannerKey, "https://example.com"));
 
+        assertThat(uploadedObjectRepository.isReferenced(attachmentKey)).isTrue();
+        assertThat(uploadedObjectRepository.isReferenced(suggestedBannerKey)).isTrue();
+
         federationInquiryAttachmentRepository.delete(attachment);
         promotionRequestRepository.delete(request);
 

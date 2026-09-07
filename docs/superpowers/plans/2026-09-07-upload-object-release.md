@@ -780,7 +780,7 @@ public class UploadedObjectService {
 - [ ] **Step 4: 통과 확인**
 
 Run: `cd backend && ./gradlew test --tests "com.duing.global.file.UploadedObjectServiceTest" --tests "com.duing.global.file.purge.UploadActivationPurgeConcurrencyTest"`
-Expected: BUILD SUCCESSFUL(기존 9건 + 신규 5건, 동시성 13건 회귀 없음).
+Expected: BUILD SUCCESSFUL(기존 8건 + 신규 5건 = 13건, 동시성 13건 회귀 없음).
 
 - [ ] **Step 5: 커밋**
 

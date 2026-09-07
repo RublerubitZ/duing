@@ -45,6 +45,7 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
                                              @Param("cutoff") Instant cutoff,
                                              Pageable pageable);
 
+    /** 파생 쿼리 — 직접 쓰지 말고 {@link #findReleasedCandidates} 로. */
     List<UploadedObject> findByStatusAndReleasedAtBeforeOrderByIdAsc(UploadedObjectStatus status, Instant cutoff,
                                                                      Pageable pageable);
 

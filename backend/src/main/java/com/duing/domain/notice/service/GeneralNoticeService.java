@@ -51,7 +51,7 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeBroadcaster broadcaster;
     // 만료 판정용 — 운영자가 KST 벽시계로 입력한 expiresAt 과 같은 기준(seoulClock)으로 비교한다.
     private final Clock clock;
-    // 업로드 객체 추적(#791) — 커버 URL 과 본문 안 이미지 URL 을 저장하는 4개 쓰기 메서드에서 활성화한다.
+    // 업로드 객체 추적(#791·#1153) — 커버 URL 과 본문 안 이미지 URL 을 저장·교체·삭제하는 쓰기 메서드에서 활성화·해제한다.
     private final UploadedObjectService uploadedObjectService;
 
     @Value("${duing.notice.cover-image-url-prefix:}")

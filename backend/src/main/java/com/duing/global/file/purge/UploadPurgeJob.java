@@ -25,14 +25,14 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 회당 상한 {@value #BATCH_LIMIT}은 PENDING·PURGING 을 먼저 채운 뒤 남은 한도만 RELEASED 에 준다. RELEASED 는
  * 비참조 보장이 아니므로 참조가 남아 있으면 경고 없이 ACTIVE 로 복구한다(정상 흐름 — 제안 배너 재사용 등).
  *
- * <p>후보마다: 참조 스캔 안전망(§4.3) → dry-run 이면 로그만 → 참조가 남아 있으면 ACTIVE 로 치유(WARN) →
+ * <p>후보마다: 참조 스캔 안전망(§4.3) → dry-run 이면 로그만 → 참조가 남아 있으면 ACTIVE 로 치유(WARN, RELEASED 는 INFO) →
  * claim(잠금 조회 + 상태 술어, 그 사이 attach 가 이겼으면 skip) → 스토리지 delete(트랜잭션 밖) → 확정 시 PURGED.
  * 미확정(false·예외)은 PURGING 으로 남겨 다음 실행이 재시도한다. 개별 실패는 다음 후보로 계속 진행한다.
  *
  * <p>중복 실행 가드는 두지 않는다 — 스케줄러는 기본 단일 스레드이고, 겹치더라도 claim 이 행 잠금+술어로
  * 직렬화되며 스토리지 delete 는 멱등이라 결과가 같다(§4.1).
  *
- * <p>로그 정책(§4.2): objectKey·uploadedAt·deletedAt·reason 만. 파일명·내용·업로더는 남기지 않는다.
+ * <p>로그 정책(§4.2): objectKey·status·purpose·uploadedAt·releasedAt·deletedAt·reason 만. 파일명·내용·업로더는 남기지 않는다.
  */
 @Slf4j
 @Component

@@ -33,7 +33,7 @@ ALTER TABLE uploaded_object ADD COLUMN IF NOT EXISTS released_at TIMESTAMP WITH 
 CREATE INDEX IF NOT EXISTS idx_uploaded_object_status_released_at ON uploaded_object (status, released_at);
 ```
 
-additive. `status` 는 VARCHAR(20) 라 새 값 `RELEASED` 에 DDL 이 필요 없다. 롤백 시 열은 무시된다(엔티티가 모르면 그만).
+additive. `status` 는 VARCHAR(20) 라 새 값 `RELEASED` 에 DDL 이 필요 없다. **롤백 주의**: `released_at` 열은 구 코드가 무시하지만, `RELEASED` 값은 구 코드의 `@Enumerated(STRING)` 이 읽지 못한다 — 배포 뒤 교체·삭제가 한 번이라도 일어난 상태에서 구 버전으로 롤백하면 그 키를 다시 연결하는 요청(`findByStorageKeyForUpdate` 로드)이 enum 변환 예외로 500 이 된다(잡은 status IN 필터라 영향 없음). 롤백이 필요하면 먼저 `UPDATE uploaded_object SET status = 'ACTIVE', released_at = NULL WHERE status = 'RELEASED';` 를 실행한다.
 
 ### 2.1 상태 전이 (기존 + 추가)
 
@@ -146,3 +146,4 @@ public void release(String... fileUrls);
 - soft-delete 제외로 안전망이 좁아지는 범위는 §4.2 표의 5개 테이블뿐이며 전부 복구 경로가 없다. 새로 restore 기능을 붙이는 쪽이 이 스캔을 되돌려야 한다 — 리포지토리 javadoc 에 명시.
 - 배포: V125 additive(develop 의 V124 `club_active_days_widen`(#1151) 뒤 — 머지 직전 develop·개발 DB flyway_schema_history 를 다시 대조한다, #791 에서 재번호가 실제로 필요했던 함정), 구 코드와 공존. prod 는 dry-run 이라 RELEASED 도 로그만 남고 누적된다. 2차 전환 판정 조건은 변하지 않는다(WARN 은 여전히 PENDING·PURGING 참조 잔존과 PENDING·PURGING 표본 절단에만). 전환 직후 누적 RELEASED 가 시간당 500건씩 지워지는 것은 정상.
 - 부하: RELEASED 는 교체·삭제 빈도만큼(하루 수십 건 이하 예상). 후보 상한·스캔 비용은 기존과 같은 자릿수.
+- **롤백 절차**: 구 버전으로 되돌리기 전 §2 의 UPDATE 로 RELEASED 행을 ACTIVE 로 복귀시킨다(교체·삭제된 객체는 다음 배포 뒤 다시 해제되지 않으므로 그 사이 잔존은 감수).

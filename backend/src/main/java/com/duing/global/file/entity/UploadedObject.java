@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 업로드 객체 추적 행 (#791, 스펙 §2). {@code POST /api/v1/files} 가 저장한 객체 1개당 1행이며
- * 엔티티 연결(activate) 또는 파기(markPurging → markPurged)로만 상태가 바뀐다.
+ * 엔티티 연결(activate)·해제(release) 또는 파기(markPurging → markPurged)로만 상태가 바뀐다.
  *
  * <p>전이 메서드는 전제조건별로 분리돼 있다(스펙 §2.1) — attach 활성화 {@link #activate} 는 PENDING·RELEASED 에서만
  * 성공해야 파기 잡이 claim 한 객체를 되살리지 못한다(TOCTOU 계약). 안전망 치유 {@link #restoreActive} 만
