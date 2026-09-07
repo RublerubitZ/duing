@@ -102,6 +102,7 @@ duing:
   # 업로드 고아 객체 정리 잡(#791) — 스케줄링은 다른 잡과 같은 관례로 운영 기본 활성. 실삭제(delete-enabled)는
   # 의도적 예외로 기본 비활성 = 1차 릴리스는 dry-run(후보를 로그로만 기록). 일주일간 로그의 referenced=true 후보가
   # 0건임을 확인한 뒤 2차 릴리스에서 true 로 바꾼다(DUING_UPLOAD_PURGE_DELETE_ENABLED=true 로 즉시 전환도 가능).
+  # 교체·삭제로 해제된(RELEASED) 객체도 같은 잡이 다룬다(#1153). dry-run 동안은 누적되며 전환 직후 시간당 최대 500건씩 정리된다.
   upload:
     purge:
       enabled: ${DUING_UPLOAD_PURGE_ENABLED:true}

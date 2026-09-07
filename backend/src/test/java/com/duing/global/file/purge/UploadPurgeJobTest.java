@@ -89,6 +89,33 @@ class UploadPurgeJobTest extends IntegrationTestBase {
         return storageKey;
     }
 
+    private String seedReleased(int uploadedHoursAgo, int releasedHoursAgo) {
+        String storageKey = "club/logo/" + sequence.incrementAndGet() + ".jpg";
+        Instant uploadedAt = Instant.now(clock).minus(uploadedHoursAgo, ChronoUnit.HOURS);
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
+        uploadedObject.activate(uploadedAt);
+        uploadedObject.release(Instant.now(clock).minus(releasedHoursAgo, ChronoUnit.HOURS));
+        uploadedObjectRepository.save(uploadedObject);
+        return storageKey;
+    }
+
+    private Instant releasedAtOf(String storageKey) {
+        return uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow().getReleasedAt();
+    }
+
+    // status·released_at 을 지정해 대량 시드 — 상한 테스트 전용
+    private void seedBulk(int count, String status, Instant uploadedAt, Instant releasedAt) {
+        List<Object[]> rows = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            rows.add(new Object[]{"club/logo/bulk-" + sequence.incrementAndGet() + ".jpg", "LOGO", 1L, status,
+                    java.sql.Timestamp.from(uploadedAt),
+                    releasedAt == null ? null : java.sql.Timestamp.from(releasedAt)});
+        }
+        jdbcTemplate.batchUpdate(
+                "INSERT INTO uploaded_object (storage_key, purpose, uploader_id, status, uploaded_at, released_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)", rows);
+    }
+
     private UploadedObjectStatus statusOf(String storageKey) {
         return uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow().getStatus();
     }
@@ -264,5 +291,88 @@ class UploadPurgeJobTest extends IntegrationTestBase {
 
         assertThat(output.getOut()).contains("표본이 절단됨");
         verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("실삭제 모드에서 25시간 전 해제된 RELEASED 는 파기되고, 1시간 전 해제된 것은 업로드가 오래됐어도 보존된다")
+    void purgesReleasedAfterWindowButKeepsRecentlyReleased() {
+        stubStorageDeleteConfirmed();
+        String releasedLongAgo = seedReleased(48, 25);
+        String releasedRecently = seedReleased(48, 1);
+
+        deleteEnabledJob().run();
+
+        assertThat(statusOf(releasedLongAgo)).isEqualTo(UploadedObjectStatus.PURGED);
+        assertThat(statusOf(releasedRecently)).isEqualTo(UploadedObjectStatus.RELEASED);
+        verify(fileStorageService, times(1)).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("실삭제 모드에서 참조가 남아 있는 RELEASED 는 지우지 않고 ACTIVE 로 복구하되 '활성화 지점 누락' 경고는 내지 않는다")
+    void restoresReferencedReleasedWithoutWarning(CapturedOutput output) {
+        stubStorageDeleteConfirmed();
+        String referencedKey = seedReleased(48, 25);
+        clubRepository.save(Club.create("재사용클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, null, "설명",
+                "https://files.example.com/" + referencedKey));
+
+        deleteEnabledJob().run();
+
+        assertThat(statusOf(referencedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(releasedAtOf(referencedKey)).isNull();
+        assertThat(output.getOut()).doesNotContain("활성화 지점 누락 의심");
+        assertThat(output.getOut()).contains("releasedStillReferenced=1");
+        verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("dry-run 에서 RELEASED 후보는 status 를 포함해 로그만 남기고 상태를 바꾸지 않으며, 참조가 남아 있어도 경고하지 않는다")
+    void dryRunLogsReleasedWithoutWarning(CapturedOutput output) {
+        String referencedKey = seedReleased(48, 25);
+        clubRepository.save(Club.create("드라이런클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, null, "설명",
+                "https://files.example.com/" + referencedKey));
+
+        dryRunJob.run();
+
+        assertThat(statusOf(referencedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(output.getOut()).contains("status=RELEASED");
+        assertThat(output.getOut()).doesNotContain("활성화 지점 누락 의심");
+        assertThat(output.getOut()).contains("releasedCandidates=1");
+        verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("상한 500 은 PENDING 을 먼저 채우고 남은 한도만 RELEASED 에 준다")
+    void batchLimitPrefersPendingThenReleased() {
+        stubStorageDeleteConfirmed();
+        Instant old = Instant.now(clock).minus(25, ChronoUnit.HOURS);
+        seedBulk(499, "PENDING", old, null);
+        seedBulk(3, "RELEASED", old, old);
+
+        deleteEnabledJob().run();
+
+        Integer purgedPending = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM uploaded_object WHERE status = 'PURGED' AND released_at IS NULL", Integer.class);
+        Integer purgedReleased = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM uploaded_object WHERE status = 'PURGED' AND released_at IS NOT NULL", Integer.class);
+        Integer remainingReleased = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM uploaded_object WHERE status = 'RELEASED'", Integer.class);
+        assertThat(purgedPending).isEqualTo(499);
+        assertThat(purgedReleased).isEqualTo(1);
+        assertThat(remainingReleased).isEqualTo(2);
+        verify(fileStorageService, times(500)).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("dry-run 에서 RELEASED 만으로 한도를 채우면 '표본이 절단됨' 경고 대신 해제 누적 안내만 남긴다")
+    void releasedOnlyDoesNotTriggerTruncationWarning(CapturedOutput output) {
+        Instant old = Instant.now(clock).minus(25, ChronoUnit.HOURS);
+        seedBulk(500, "RELEASED", old, old);
+
+        dryRunJob.run();
+
+        assertThat(output.getOut()).doesNotContain("표본이 절단됨");
+        assertThat(output.getOut()).contains("해제 후보가 남은 한도");
+        assertThat(output.getOut()).contains("pendingCandidates=0");
+        assertThat(output.getOut()).contains("releasedCandidates=500");
     }
 }
