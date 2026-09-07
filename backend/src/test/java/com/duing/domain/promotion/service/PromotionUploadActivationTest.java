@@ -116,6 +116,21 @@ class PromotionUploadActivationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("홍보 배너를 비우면(clearBannerImageUrl) 기존 배너 업로드가 RELEASED 가 된다")
+    void promotionClearBannerReleasesUpload() {
+        User admin = userRepository.save(UserFixture.admin());
+        String bannerKey = seedPending(FilePurpose.PROMOTION_BANNER);
+        Long promotionId = promotionService.create(createBanner(STUB_PREFIX + bannerKey, admin.getId()));
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        promotionService.update(new UpdatePromotionCommand(promotionId, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                true, null, null, null, null, null, null, null, null, null, null));
+
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
     @DisplayName("동아리 폐쇄로 홍보를 일괄 제거하면 그 동아리 홍보들의 배너 업로드가 RELEASED 가 된다")
     void clubClosureBulkRemovalReleasesBanners() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
