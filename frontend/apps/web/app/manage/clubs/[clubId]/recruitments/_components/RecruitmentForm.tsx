@@ -583,9 +583,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
             {!isLegacyQuestionsBackend && (
               <div>
-                <p className={cn(fieldLabelClass, 'mb-3')}>
+                <p className={cn(fieldLabelClass, 'mb-1')}>
                   지원 질문 <span className="text-coral">*</span>
                   <span className="ml-1 font-normal text-charcoal-3">(최소 1개)</span>
+                </p>
+                {/* 수집 최소화 안내 — 학번·연락처는 지원자 프로필로 운영진에게 이미 보인다. 입력을 막는 장치가 아니라 보관기간 파기와 짝을 이루는 예방책이다. */}
+                <p className="mb-3 text-xs text-charcoal-3">
+                  학번·전화번호 등 개인정보는 지원자 프로필에서 확인할 수 있으니 질문으로 요청하지 않는 것을
+                  권장합니다.
                 </p>
                 <QuestionBuilder questions={questionItems} onChange={setQuestionItems} nextKey={nextKey} />
               </div>

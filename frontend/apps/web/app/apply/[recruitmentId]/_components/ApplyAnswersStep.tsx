@@ -83,8 +83,16 @@ export function ApplyAnswersStep({
     );
   }
 
+  // 수집 최소화 안내는 주관식이 있을 때만 — 선택형만 있는 지원서엔 의미가 없다. 차단 장치가 아니라 보관기간 파기와 짝인 예방책.
+  const hasTextQuestion = questions.some((question) => question.type === 'TEXT');
+
   return (
     <div className="space-y-7">
+      {hasTextQuestion && (
+        <p className="text-sm text-charcoal-3">
+          학번·전화번호 등 개인정보는 꼭 필요한 경우에만 입력해주세요.
+        </p>
+      )}
       {questions.map((question, index) => {
         const controlId = questionControlId(question.id);
         const legendId = questionLegendId(question.id);

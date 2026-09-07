@@ -352,6 +352,20 @@ describe('ApplyForm — 모집 안내문(content)', () => {
   });
 });
 
+describe('ApplyForm — 개인정보 수집 최소화 안내', () => {
+  const PII_HINT = '학번·전화번호 등 개인정보는 꼭 필요한 경우에만 입력해주세요.';
+
+  it('주관식 질문이 있으면 지원서 상단에 안내를 보여준다', () => {
+    renderForm({ questionItems: MIXED_QUESTION_ITEMS });
+    expect(screen.getByText(PII_HINT)).toBeInTheDocument();
+  });
+
+  it('선택형 질문만 있으면 안내를 보여주지 않는다', () => {
+    renderForm({ questionItems: REQUIRED_MULTI_QUESTION_ITEMS });
+    expect(screen.queryByText(PII_HINT)).not.toBeInTheDocument();
+  });
+});
+
 /** 제출 엔드포인트 호출 여부와 body 를 함께 캡처한다 — "요청이 나가지 않는다" 단언용. */
 function captureSubmit(capturedBodies: unknown[], applicationId = 999) {
   return http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async ({ request }) => {
