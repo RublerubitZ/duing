@@ -10,9 +10,9 @@ import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.FileStorageService;
 import com.duing.global.file.UploadedObjectService;
-import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.exception.FileException;

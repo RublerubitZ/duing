@@ -1,4 +1,4 @@
-package com.duing.global.file.controller.dto;
+package com.duing.global.file;
 
 /**
  * 업로드 API 의 용도 — 스토리지 디렉터리를 결정한다.

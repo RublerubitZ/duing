@@ -10,7 +10,7 @@ import com.duing.domain.globalevent.service.dto.command.CreateGlobalEventCommand
 import com.duing.domain.globalevent.service.dto.command.UpdateGlobalEventCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.repository.UploadedObjectRepository;
