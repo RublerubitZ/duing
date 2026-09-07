@@ -117,6 +117,7 @@ duing:
     retention:
       enabled: false
       window: P1Y
+      application-answer-window: P6M
   federation-inquiry:
     purge:
       enabled: false

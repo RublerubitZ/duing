@@ -48,6 +48,15 @@ describe('RecruitmentForm — 4섹션 구조', () => {
     expect(screen.queryByRole('heading', { level: 3, name: '지원서 질문' })).not.toBeInTheDocument();
     expect(screen.queryByText('+ 질문 추가')).not.toBeInTheDocument();
   });
+
+  it('지원서 질문 섹션에 개인정보 수집 최소화 안내를 보여준다', () => {
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
+    expect(
+      screen.getByText(
+        '학번·전화번호 등 개인정보는 지원자 프로필에서 확인할 수 있으니 질문으로 요청하지 않는 것을 권장합니다.',
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('RecruitmentForm — 상시모집 토글', () => {
