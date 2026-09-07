@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +68,28 @@ class ClubMetadataUpdateTest {
         assertThat(detail.location()).isEqualTo("학생회관 405호");
         assertThat(detail.activityFrequency()).isEqualTo(2);
         assertThat(detail.activeDays()).containsExactlyInAnyOrder(DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY);
+    }
+
+    @Test
+    @DisplayName("활동 요일을 7일 전부 골라도 저장되고 그대로 읽힌다 — 영문명 CSV 56자, prod 409(varchar(50) 초과) 회귀 방지")
+    void updateActiveDaysWithAllSevenDays() throws Exception {
+        User leader = saveUser("요일리더");
+        Club club = saveActiveClub("요일동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        Set<DayOfWeek> everyDay = EnumSet.allOf(DayOfWeek.class);
+        clubService.update(new UpdateClubCommand(
+                club.getId(), leader.getId(),
+                null, null, null, null, null, null, null, null, null,  // name~faqs
+                null, null, null, null,                                // foundedYear, cohortNumber, location, activityFrequency
+                everyDay,                                              // activeDays
+                null, null,                                            // tagline, highlights
+                null, null, null, null,                                // contactVisibility, feeCycle, membershipFeeAmount, projects
+                null, null, null, null, null, null, null                           // college~useGeneration, feeNote
+        ));
+
+        ClubDetailQuery detail = clubService.getById(club.getId(), ClubViewer.anonymous());
+        assertThat(detail.activeDays()).containsExactlyInAnyOrderElementsOf(everyDay);
     }
 
     private User saveUser(String name) {
