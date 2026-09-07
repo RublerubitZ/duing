@@ -223,6 +223,9 @@ duing:
       # 기본 비활성 — 운영에서 DUING_PII_RETENTION_ENABLED=true 주입 시 활성화(개인정보 처리방침의 45일 보관과 일치).
       enabled: ${DUING_PII_RETENTION_ENABLED:false}
       window: ${DUING_PII_RETENTION_WINDOW:P45D}
+      # 모집 마감(LEAST(closed_at, end_date)) 후 지원서 자유서술 답변·미제출 초안 보관기간 = 6개월(P6M).
+      # 개인정보 처리방침 3조 "모집 종료 후 6개월" 과 일치. 탈퇴 45일(window)과 같은 잡(PiiRetentionJob)이 처리한다.
+      application-answer-window: ${DUING_PII_APPLICATION_ANSWER_WINDOW:P6M}
   public-activity:
     window-days: ${DUING_PUBLIC_ACTIVITY_WINDOW_DAYS:30}
     default-limit: ${DUING_PUBLIC_ACTIVITY_DEFAULT_LIMIT:10}

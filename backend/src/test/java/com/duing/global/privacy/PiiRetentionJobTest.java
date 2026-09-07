@@ -128,7 +128,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         softDeleteDaysAgo("users", user.getId(), 400);
 
         PiiRetentionJob disabledJob = new PiiRetentionJob(
-                new RetentionProperties(false, Period.ofYears(1)),
+                new RetentionProperties(false, Period.ofYears(1), Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
                 phoneVerificationRepository, phoneVerificationEventRepository);
         disabledJob.run();
@@ -143,7 +143,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         softDeleteDaysAgo("users", user.getId(), 400);
 
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
-                new RetentionProperties(true, Period.ZERO),
+                new RetentionProperties(true, Period.ZERO, Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
                 phoneVerificationRepository, phoneVerificationEventRepository);
         zeroWindowJob.run();
