@@ -1,6 +1,7 @@
 package com.duing.domain.notice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -21,6 +22,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.file.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
+import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -52,12 +54,25 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
         return storageKey;
     }
 
+    private String seedPurged(FilePurpose purpose) {
+        String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
+        uploadedObject.markPurging();
+        uploadedObject.markPurged(Instant.now());
+        uploadedObjectRepository.save(uploadedObject);
+        return storageKey;
+    }
+
     private UploadedObjectStatus statusOf(String storageKey) {
         return uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow().getStatus();
     }
 
     private String bodyWith(String storageKey) {
         return "<p>본문</p><img src=\"" + STUB_PREFIX + storageKey + "\" alt=\"\">";
+    }
+
+    private String bodyWith(String firstKey, String secondKey) {
+        return bodyWith(firstKey) + "<img src=\"" + STUB_PREFIX + secondKey + "\" alt=\"\">";
     }
 
     private Club saveActiveClub() throws Exception {
@@ -72,6 +87,12 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
         return new CreateNoticeCommand("제목", "요약", content, coverUrl, null,
                 NoticeCategory.GENERAL, List.of(), NoticeVisibility.PUBLIC, null, List.of(),
                 false, null, false, null, null, null, null, null, NoticeContentFormat.HTML, authorId);
+    }
+
+    private UpdateNoticeCommand adminUpdate(Long noticeId, String content, String coverUrl) {
+        return new UpdateNoticeCommand(noticeId, null, null, content, coverUrl,
+                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
     }
 
     @Test
@@ -133,5 +154,70 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
 
         assertThat(statusOf(coverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("관리자가 커버를 바꾸고 본문 이미지 하나를 빼면 옛 커버·빠진 이미지는 RELEASED, 남은 이미지·새 커버는 ACTIVE 다")
+    void adminUpdateReleasesReplacedCoverAndRemovedBodyImage() {
+        User admin = userRepository.save(UserFixture.admin());
+        String oldCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+        String removedKey = seedPending(FilePurpose.NOTICE_BODY);
+        String retainedKey = seedPending(FilePurpose.NOTICE_BODY);
+        Long noticeId = noticeService.create(adminCreate(STUB_PREFIX + oldCoverKey, bodyWith(removedKey, retainedKey), admin.getId()));
+        String newCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+
+        noticeService.update(adminUpdate(noticeId, bodyWith(retainedKey), STUB_PREFIX + newCoverKey));
+
+        assertThat(statusOf(oldCoverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(removedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(retainedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(newCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("새 커버가 만료(PURGED)라 400 으로 실패하면 옛 커버는 ACTIVE 그대로다 (해제가 트랜잭션과 함께 롤백)")
+    void adminUpdateWithExpiredCoverKeepsOldCoverActive() {
+        User admin = userRepository.save(UserFixture.admin());
+        String oldCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+        Long noticeId = noticeService.create(adminCreate(STUB_PREFIX + oldCoverKey, "<p>본문</p>", admin.getId()));
+        String expiredCoverKey = seedPurged(FilePurpose.NOTICE_COVER);
+
+        assertThatThrownBy(() -> noticeService.update(adminUpdate(noticeId, null, STUB_PREFIX + expiredCoverKey)))
+                .isInstanceOf(FileException.UploadExpiredException.class);
+
+        assertThat(statusOf(oldCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("관리자가 공지를 삭제하면 커버와 본문 이미지 업로드가 모두 RELEASED 가 된다")
+    void adminDeleteReleasesCoverAndBodyImages() {
+        User admin = userRepository.save(UserFixture.admin());
+        String coverKey = seedPending(FilePurpose.NOTICE_COVER);
+        String bodyKey = seedPending(FilePurpose.NOTICE_BODY);
+        Long noticeId = noticeService.create(adminCreate(STUB_PREFIX + coverKey, bodyWith(bodyKey), admin.getId()));
+
+        noticeService.delete(noticeId);
+
+        assertThat(statusOf(coverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
+    @DisplayName("동아리 공지에서 커버를 비우면 커버 업로드가 RELEASED 가 되고, 삭제하면 본문 이미지도 RELEASED 가 된다")
+    void clubUpdateClearAndDeleteReleaseUploads() throws Exception {
+        User author = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        String coverKey = seedPending(FilePurpose.NOTICE_COVER);
+        String bodyKey = seedPending(FilePurpose.NOTICE_BODY);
+        Long noticeId = noticeService.createForClub(new CreateClubNoticeCommand(club.getId(), author.getId(),
+                "동아리 공지", "요약", bodyWith(bodyKey), STUB_PREFIX + coverKey, false, null));
+
+        noticeService.updateForClub(new UpdateClubNoticeCommand(club.getId(), noticeId,
+                null, null, null, null, true, null, null));
+        assertThat(statusOf(coverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        noticeService.deleteForClub(club.getId(), noticeId);
+        assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 }
