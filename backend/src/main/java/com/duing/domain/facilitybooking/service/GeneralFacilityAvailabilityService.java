@@ -13,7 +13,6 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facility.service.SnapshotFreshnessPolicy;
-import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
@@ -109,13 +108,6 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
                 window.from(),
                 window.until(),
                 FacilitySlotAssembler.assembleDays(targetMonth, today, nowTime, crawlSlices, bookingSlices));
-    }
-
-    @Override
-    @Deprecated
-    public BookingWindowResponse getBookingWindow() {
-        // 폐기 예정(P8): 구 FE 번들의 월 기본값·주 이동 클램프용 참조 창. 시설별 창은 availability 가 내린다.
-        return BookingWindowResponse.from(bookingApplicationPolicy.referenceWindow(LocalDate.now(clock)));
     }
 
     @Override
