@@ -148,4 +148,18 @@ describe('NoticeDetailPage (재설계)', () => {
       expect(mockRouterReplace).toHaveBeenCalledWith('/notices');
     });
   });
+
+  it('startAt 이 null 이어도 크래시 없이 "종료 일시까지" 로 렌더한다(prod 공지 14 재현)', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({
+      linkUrl: 'https://forms.example.com/apply',
+      eventInfo: { startAt: null, endAt: '2026-09-16T23:59:00', location: null, host: null, audience: null },
+    })));
+
+    render(<NoticeDetailPage />);
+
+    // 모바일 요약 + 데스크탑 카드 + 모바일 하단 바가 같은 문구를 쓴다.
+    expect(screen.getAllByText('9.16(수) 23:59까지')).toHaveLength(3);
+    expect(screen.queryByText(/일시적인 오류/)).not.toBeInTheDocument();
+  });
 });
