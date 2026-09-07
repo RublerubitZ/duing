@@ -1,11 +1,11 @@
 package com.duing.global.file.controller;
 
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.FileStorageService;
 import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.FileUploadRateLimiter;
 import com.duing.global.file.UploadedObjectService;
-import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.controller.dto.FileUploadResponse;
 import com.duing.global.file.exception.FileException;
 import com.duing.global.response.ApiResponse;

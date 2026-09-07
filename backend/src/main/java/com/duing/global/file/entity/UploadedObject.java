@@ -1,6 +1,6 @@
 package com.duing.global.file.entity;
 
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.FilePurpose;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

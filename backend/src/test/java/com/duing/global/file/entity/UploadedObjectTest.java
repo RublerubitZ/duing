@@ -3,7 +3,7 @@ package com.duing.global.file.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.FilePurpose;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

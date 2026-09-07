@@ -19,7 +19,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.repository.UploadedObjectRepository;

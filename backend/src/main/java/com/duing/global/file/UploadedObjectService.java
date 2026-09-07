@@ -1,6 +1,5 @@
 package com.duing.global.file;
 
-import com.duing.global.file.controller.dto.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
