@@ -10,7 +10,8 @@ export type NoticeContentFormat = 'MARKDOWN' | 'HTML';
 export type NoticeSource = 'SCHOOL' | 'CLUB';
 
 export type NoticeEventInfo = {
-  startAt: string;
+  // BE 는 시작·종료를 각각 선택으로 둔다(둘 다 있을 때만 순서 검사) — 종료만 있는 '마감' 성격 행사가 실제로 온다.
+  startAt: string | null;
   endAt: string | null;
   location: string | null;
   host: string | null;
