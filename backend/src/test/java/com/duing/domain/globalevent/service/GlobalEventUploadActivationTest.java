@@ -63,4 +63,30 @@ class GlobalEventUploadActivationTest extends IntegrationTestBase {
                 STUB_PREFIX + replacedKey, null));
         assertThat(statusOf(replacedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
     }
+
+    @Test
+    @DisplayName("전체 행사 커버를 바꾸면 옛 커버는 RELEASED, 커버를 비우면 현재 커버도 RELEASED, 삭제하면 커버가 RELEASED 가 된다")
+    void updateClearAndDeleteReleaseCovers() {
+        User admin = userRepository.save(UserFixture.admin());
+        String firstKey = seedPending();
+        String secondKey = seedPending();
+        String deletedEventKey = seedPending();
+        LocalDateTime startAt = LocalDateTime.now().plusDays(7);
+        Long eventId = globalEventService.create(new CreateGlobalEventCommand(admin.getId(), "행사", "설명",
+                startAt, startAt.plusHours(2), "장소", null, STUB_PREFIX + firstKey, GlobalEventCategory.FESTIVAL));
+        Long deletedEventId = globalEventService.create(new CreateGlobalEventCommand(admin.getId(), "행사2", "설명",
+                startAt, startAt.plusHours(2), "장소", null, STUB_PREFIX + deletedEventKey, GlobalEventCategory.FESTIVAL));
+
+        globalEventService.update(new UpdateGlobalEventCommand(eventId, null, null, null, null, null, null, null,
+                STUB_PREFIX + secondKey, null));
+        assertThat(statusOf(firstKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(secondKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        globalEventService.update(new UpdateGlobalEventCommand(eventId, null, null, null, null, null, null, null,
+                null, true));
+        assertThat(statusOf(secondKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+
+        globalEventService.delete(deletedEventId);
+        assertThat(statusOf(deletedEventKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
 }

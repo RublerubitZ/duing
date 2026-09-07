@@ -96,4 +96,42 @@ class PromotionUploadActivationTest extends IntegrationTestBase {
 
         assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
     }
+
+    @Test
+    @DisplayName("홍보 배너를 바꾸면 옛 배너 업로드는 RELEASED 가 되고, 홍보를 삭제하면 현재 배너도 RELEASED 가 된다")
+    void promotionUpdateAndDeleteReleaseBanners() {
+        User admin = userRepository.save(UserFixture.admin());
+        String firstKey = seedPending(FilePurpose.PROMOTION_BANNER);
+        String secondKey = seedPending(FilePurpose.PROMOTION_BANNER);
+        Long promotionId = promotionService.create(createBanner(STUB_PREFIX + firstKey, admin.getId()));
+
+        promotionService.update(new UpdatePromotionCommand(promotionId, null, STUB_PREFIX + secondKey, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null));
+        assertThat(statusOf(firstKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(secondKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        promotionService.delete(promotionId);
+        assertThat(statusOf(secondKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
+    @DisplayName("동아리 폐쇄로 홍보를 일괄 제거하면 그 동아리 홍보들의 배너 업로드가 RELEASED 가 된다")
+    void clubClosureBulkRemovalReleasesBanners() throws Exception {
+        User admin = userRepository.save(UserFixture.admin());
+        Club club = Club.create("폐쇄홍보클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, null, "설명", null);
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(club, ClubStatus.ACTIVE);
+        club = clubRepository.save(club);
+        String bannerKey = seedPending(FilePurpose.PROMOTION_BANNER);
+        promotionService.create(new CreatePromotionCommand(club.getId(), "배너", STUB_PREFIX + bannerKey, null, true, 1,
+                admin.getId(), null, null, null, null, PromotionPalette.INK, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        promotionService.removeAllOnClubClosure(club.getId());
+
+        assertThat(statusOf(bannerKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
 }
