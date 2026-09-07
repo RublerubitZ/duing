@@ -58,12 +58,15 @@ public class GeneralGlobalEventService implements GlobalEventService {
     public void update(UpdateGlobalEventCommand command) {
         GlobalEvent event = eventRepository.findById(command.eventId())
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
+        String previousCoverImageUrl = event.getCoverImageUrl();
         event.update(command.title(), command.description(),
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
                 command.category(),
                 command.coverImageUrl(), command.clearCoverImage());
         uploadedObjectService.activate(command.coverImageUrl());
+        // 교체·비우기로 빠진 옛 커버는 해제(#1153) — 새 값이 확정된 엔티티를 기준으로 비교한다.
+        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, event.getCoverImageUrl());
     }
 
     @Override
@@ -72,6 +75,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
         GlobalEvent event = eventRepository.findById(eventId)
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
         eventRepository.delete(event);
+        uploadedObjectService.release(event.getCoverImageUrl());
     }
 
     @Override

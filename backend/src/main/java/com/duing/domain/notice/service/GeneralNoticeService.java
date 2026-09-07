@@ -51,7 +51,7 @@ public class GeneralNoticeService implements NoticeService {
     private final NoticeBroadcaster broadcaster;
     // 만료 판정용 — 운영자가 KST 벽시계로 입력한 expiresAt 과 같은 기준(seoulClock)으로 비교한다.
     private final Clock clock;
-    // 업로드 객체 추적(#791) — 커버 URL 과 본문 안 이미지 URL 을 저장하는 4개 쓰기 메서드에서 활성화한다.
+    // 업로드 객체 추적(#791·#1153) — 커버 URL 과 본문 안 이미지 URL 을 저장·교체·삭제하는 쓰기 메서드에서 활성화·해제한다.
     private final UploadedObjectService uploadedObjectService;
 
     @Value("${duing.notice.cover-image-url-prefix:}")
@@ -101,6 +101,8 @@ public class GeneralNoticeService implements NoticeService {
             validateScopedTargets(NoticeVisibility.CLUB_SCOPED, nextTargets);
         }
 
+        String previousCoverImageUrl = found.getCoverImageUrl();
+        String previousContent = found.getContent();
         found.update(new Notice.UpdatePayload(
                 command.title(), command.summary(), command.content(),
                 command.coverImageUrl(), command.linkUrl(), command.clearExternalLink(),
@@ -114,6 +116,9 @@ public class GeneralNoticeService implements NoticeService {
         ));
         uploadedObjectService.activate(command.coverImageUrl());
         uploadedObjectService.activateReferencedIn(command.content());
+        // 교체·제거로 빠진 옛 커버·본문 이미지는 해제(#1153) — 새 값을 먼저 확정한 뒤.
+        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, found.getCoverImageUrl());
+        uploadedObjectService.releaseRemovedFrom(previousContent, found.getContent());
 
         if (command.targetClubIds() != null) {
             targetClubRepository.deleteAllByNoticeId(found.getId());
@@ -131,6 +136,9 @@ public class GeneralNoticeService implements NoticeService {
         Notice found = noticeRepository.findById(noticeId)
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
         noticeRepository.delete(found);
+        // 삭제된 공지의 커버·본문 이미지는 해제(#1153) — 잡이 유예 뒤 참조 스캔을 거쳐 지운다.
+        uploadedObjectService.release(found.getCoverImageUrl());
+        uploadedObjectService.releaseRemovedFrom(found.getContent(), null);
     }
 
     @Override
@@ -231,12 +239,17 @@ public class GeneralNoticeService implements NoticeService {
         if (command.coverImageUrl() != null && !command.coverImageUrl().isBlank()) {
             validateCoverImageUrl(command.coverImageUrl());
         }
+        String previousCoverImageUrl = found.getCoverImageUrl();
+        String previousContent = found.getContent();
         found.applyClubScopedUpdate(
                 command.title(), command.summary(), command.content(),
                 command.coverImageUrl(), command.clearCoverImage(), command.pinned(), command.expiresAt()
         );
         uploadedObjectService.activate(command.coverImageUrl());
         uploadedObjectService.activateReferencedIn(command.content());
+        // 교체·제거로 빠진 옛 커버·본문 이미지는 해제(#1153) — 새 값을 먼저 확정한 뒤.
+        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, found.getCoverImageUrl());
+        uploadedObjectService.releaseRemovedFrom(previousContent, found.getContent());
     }
 
     @Override
@@ -252,6 +265,9 @@ public class GeneralNoticeService implements NoticeService {
             throw new NoticeException.NoticeAccessDeniedException();
         }
         noticeRepository.delete(found);
+        // 삭제된 공지의 커버·본문 이미지는 해제(#1153) — 잡이 유예 뒤 참조 스캔을 거쳐 지운다.
+        uploadedObjectService.release(found.getCoverImageUrl());
+        uploadedObjectService.releaseRemovedFrom(found.getContent(), null);
     }
 
     @Override

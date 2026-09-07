@@ -43,9 +43,14 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
     private UploadedObject seed(String storageKey, UploadedObjectStatus status) {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, Instant.now());
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(Instant.now());
+        if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(Instant.now()); uploadedObject.release(Instant.now()); }
         if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
         if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(); uploadedObject.markPurged(Instant.now()); }
         return uploadedObjectRepository.save(uploadedObject);
+    }
+
+    private Instant releasedAtOf(String storageKey) {
+        return uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow().getReleasedAt();
     }
 
     private UploadedObjectStatus statusOf(String storageKey) {
@@ -165,5 +170,104 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
         });
 
         assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("해제는 ACTIVE 만 RELEASED 로 내리고 PENDING·PURGING·PURGED·레거시·외부 URL·null 은 건드리지 않는다")
+    void releasesActiveOnly() {
+        String activeKey = uniqueKey(FilePurpose.LOGO);
+        String pendingKey = uniqueKey(FilePurpose.LOGO);
+        String purgingKey = uniqueKey(FilePurpose.LOGO);
+        String purgedKey = uniqueKey(FilePurpose.LOGO);
+        seed(activeKey, UploadedObjectStatus.ACTIVE);
+        seed(pendingKey, UploadedObjectStatus.PENDING);
+        seed(purgingKey, UploadedObjectStatus.PURGING);
+        seed(purgedKey, UploadedObjectStatus.PURGED);
+
+        assertThatCode(() -> uploadedObjectService.release(
+                STUB_PREFIX + activeKey, STUB_PREFIX + pendingKey, STUB_PREFIX + purgingKey, STUB_PREFIX + purgedKey,
+                STUB_PREFIX + uniqueKey(FilePurpose.LOGO), "https://elsewhere.example.com/x.jpg", null, " "))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> uploadedObjectService.release((String[]) null)).doesNotThrowAnyException();
+
+        assertThat(statusOf(activeKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(releasedAtOf(activeKey)).isNotNull();
+        assertThat(statusOf(pendingKey)).isEqualTo(UploadedObjectStatus.PENDING);
+        assertThat(statusOf(purgingKey)).isEqualTo(UploadedObjectStatus.PURGING);
+        assertThat(statusOf(purgedKey)).isEqualTo(UploadedObjectStatus.PURGED);
+    }
+
+    @Test
+    @DisplayName("이미 RELEASED 인 객체를 다시 해제해도 첫 해제 시각이 유지된다 (유예는 첫 해제 기준)")
+    void releaseAgainKeepsFirstReleasedAt() {
+        String storageKey = uniqueKey(FilePurpose.LOGO);
+        seed(storageKey, UploadedObjectStatus.RELEASED);
+        Instant firstReleasedAt = releasedAtOf(storageKey);
+
+        uploadedObjectService.release(STUB_PREFIX + storageKey);
+
+        assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(releasedAtOf(storageKey)).isEqualTo(firstReleasedAt);
+    }
+
+    @Test
+    @DisplayName("교체 해제는 스토리지 키가 달라졌을 때만 옛 객체를 해제한다 — 같은 키·previous 없음은 no-op, current null/빈 문자열(비우기)은 해제")
+    void releaseIfReplacedComparesStorageKeys() {
+        String keptKey = uniqueKey(FilePurpose.COVER);
+        String replacedKey = uniqueKey(FilePurpose.COVER);
+        String clearedToNullKey = uniqueKey(FilePurpose.COVER);
+        String clearedToBlankKey = uniqueKey(FilePurpose.COVER);
+        String newKey = uniqueKey(FilePurpose.COVER);
+        seed(keptKey, UploadedObjectStatus.ACTIVE);
+        seed(replacedKey, UploadedObjectStatus.ACTIVE);
+        seed(clearedToNullKey, UploadedObjectStatus.ACTIVE);
+        seed(clearedToBlankKey, UploadedObjectStatus.ACTIVE);
+        seed(newKey, UploadedObjectStatus.ACTIVE);
+
+        uploadedObjectService.releaseIfReplaced(STUB_PREFIX + keptKey, STUB_PREFIX + keptKey);
+        uploadedObjectService.releaseIfReplaced(STUB_PREFIX + replacedKey, STUB_PREFIX + newKey);
+        uploadedObjectService.releaseIfReplaced(STUB_PREFIX + clearedToNullKey, null);
+        uploadedObjectService.releaseIfReplaced(STUB_PREFIX + clearedToBlankKey, "");
+        uploadedObjectService.releaseIfReplaced(null, STUB_PREFIX + newKey);
+        uploadedObjectService.releaseIfReplaced("https://elsewhere.example.com/x.jpg", STUB_PREFIX + newKey);
+
+        assertThat(statusOf(keptKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(replacedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(clearedToNullKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(clearedToBlankKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(newKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("본문 해제는 이전 본문에만 남은 자체 스토리지 URL 만 해제하고, 현재 본문이 null 이면 전부 해제한다")
+    void releaseRemovedFromReleasesOnlyMissingKeys() {
+        String removedKey = uniqueKey(FilePurpose.NOTICE_BODY);
+        String retainedKey = uniqueKey(FilePurpose.NOTICE_BODY);
+        seed(removedKey, UploadedObjectStatus.ACTIVE);
+        seed(retainedKey, UploadedObjectStatus.ACTIVE);
+        String previousContent = "<img src=\"" + STUB_PREFIX + removedKey + "\"><img src=\"" + STUB_PREFIX + retainedKey + "\">";
+        String currentContent = "<p>수정</p><img src=\"" + STUB_PREFIX + retainedKey + "\">";
+
+        uploadedObjectService.releaseRemovedFrom(previousContent, currentContent);
+        assertThat(statusOf(removedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(retainedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        uploadedObjectService.releaseRemovedFrom(currentContent, null);
+        assertThat(statusOf(retainedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+
+        assertThatCode(() -> uploadedObjectService.releaseRemovedFrom(null, currentContent)).doesNotThrowAnyException();
+        assertThatCode(() -> uploadedObjectService.releaseRemovedFrom("  ", null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("RELEASED 업로드를 다시 연결하면 ACTIVE 로 돌아오고 해제 시각이 비워진다 (편집 되돌리기·재사용)")
+    void reactivatesReleased() {
+        String storageKey = uniqueKey(FilePurpose.LOGO);
+        seed(storageKey, UploadedObjectStatus.RELEASED);
+
+        uploadedObjectService.activate(STUB_PREFIX + storageKey);
+
+        assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(releasedAtOf(storageKey)).isNull();
     }
 }

@@ -77,6 +77,7 @@ public class GeneralPromotionService implements PromotionService {
             throw new ClubException.ClubNotFoundException();
         }
 
+        String previousBannerImageUrl = promotion.getBannerImageUrl();
         promotion.update(new Promotion.UpdatePayload(
                 command.title(), command.bannerImageUrl(), command.linkUrl(),
                 command.clubId(), command.active(), command.displayOrder(), command.clearClubId(),
@@ -92,6 +93,8 @@ public class GeneralPromotionService implements PromotionService {
                 command.noticeId(), command.clearNoticeId()
         ));
         uploadedObjectService.activate(command.bannerImageUrl());
+        // 교체·비우기로 빠진 옛 배너는 해제(#1153) — 새 값이 확정된 엔티티를 기준으로 비교한다.
+        uploadedObjectService.releaseIfReplaced(previousBannerImageUrl, promotion.getBannerImageUrl());
     }
 
     @Override
@@ -100,6 +103,7 @@ public class GeneralPromotionService implements PromotionService {
         Promotion promotion = promotionRepository.findById(promotionId)
                 .orElseThrow(PromotionException.PromotionNotFoundException::new);
         promotionRepository.delete(promotion);
+        uploadedObjectService.release(promotion.getBannerImageUrl());
     }
 
     @Override
@@ -236,7 +240,10 @@ public class GeneralPromotionService implements PromotionService {
     @Override
     @Transactional
     public void removeAllOnClubClosure(Long clubId) {
-        promotionRepository.deleteAll(promotionRepository.findAllByClubId(clubId));
+        List<Promotion> promotions = promotionRepository.findAllByClubId(clubId);
+        promotionRepository.deleteAll(promotions);
+        // 폐쇄된 동아리 홍보의 배너는 해제(#1153) — 호출자(폐쇄 서비스)의 flush 가 이 변경까지 함께 쓴다.
+        uploadedObjectService.release(promotions.stream().map(Promotion::getBannerImageUrl).toArray(String[]::new));
     }
 
     private PromotionAdminListQuery.UserRef resolveUserRef(Long userId, User user) {

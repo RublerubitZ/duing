@@ -89,6 +89,16 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
         return storageKey;
     }
 
+    private String seedExpiredReleased() {
+        String storageKey = "club/logo/" + sequence.incrementAndGet() + ".jpg";
+        Instant uploadedAt = Instant.now(clock).minus(48, ChronoUnit.HOURS);
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
+        uploadedObject.activate(uploadedAt);
+        uploadedObject.release(Instant.now(clock).minus(25, ChronoUnit.HOURS));
+        uploadedObjectRepository.save(uploadedObject);
+        return storageKey;
+    }
+
     private UploadedObjectStatus statusOf(String storageKey) {
         return uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow().getStatus();
     }
@@ -166,6 +176,66 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
 
         assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @RepeatedTest(10)
+    @DisplayName("25시간 전 해제된 RELEASED 에 재연결과 파기 잡이 동시에 달려들어도 '삭제된 객체를 가리키는 ACTIVE' 는 생기지 않는다")
+    void reactivationAndPurgeOfReleasedNeverProduceActiveOverDeleted() throws Exception {
+        stubStorage();
+        String storageKey = seedExpiredReleased();
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+
+        List<Throwable> failures = runConcurrently(
+                () -> transactionTemplate.executeWithoutResult(status ->
+                        uploadedObjectService.activate(STUB_PREFIX + storageKey)),
+                () -> deleteEnabledJob().run());
+
+        UploadedObjectStatus finalStatus = statusOf(storageKey);
+        if (finalStatus == UploadedObjectStatus.ACTIVE) {
+            // 재연결이 이겼다 — 잡은 claim 에서 ACTIVE 를 보고 건너뛰어야 하며 스토리지는 손대지 않는다.
+            assertThat(failures).isEmpty();
+            verify(fileStorageService, never()).delete(anyString());
+        } else {
+            // 잡이 이겼다 — 재연결은 PURGING/PURGED 를 보고 만료 예외로 실패해야 한다.
+            assertThat(finalStatus).isEqualTo(UploadedObjectStatus.PURGED);
+            assertThat(failures).hasSize(1);
+            assertThat(failures.get(0)).isInstanceOf(FileException.UploadExpiredException.class);
+            verify(fileStorageService, times(1)).delete(anyString());
+        }
+    }
+
+    @Test
+    @DisplayName("해제됐다가 유예 안에 다시 연결된 업로드는 잡이 지나가도 ACTIVE 로 남는다 (편집 되돌리기)")
+    void reactivatedReleasedSurvivesPurge() {
+        stubStorage();
+        String storageKey = seedExpiredReleased();
+        uploadedObjectService.activate(STUB_PREFIX + storageKey);
+
+        deleteEnabledJob().run();
+
+        assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        verify(fileStorageService, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("잡이 먼저 claim(PURGING)한 해제 업로드에 재연결과 실제 잡이 동시에 달려들면 잡이 삭제를 확정하고 재연결은 만료로 실패한다")
+    void purgeWinsWhenJobAlreadyClaimedReleased() throws Exception {
+        stubStorage();
+        String storageKey = seedExpiredReleased();
+        UploadedObject claimed = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
+        claimed.markPurging(); // 해제 후보를 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
+        uploadedObjectRepository.save(claimed);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+
+        List<Throwable> failures = runConcurrently(
+                () -> transactionTemplate.executeWithoutResult(status ->
+                        uploadedObjectService.activate(STUB_PREFIX + storageKey)),
+                () -> deleteEnabledJob().run());
+
+        assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.PURGED);
+        assertThat(failures).hasSize(1);
+        assertThat(failures.get(0)).isInstanceOf(FileException.UploadExpiredException.class);
+        verify(fileStorageService, times(1)).delete(anyString());
     }
 
     private List<Throwable> runConcurrently(Runnable firstTask, Runnable secondTask) throws InterruptedException {
