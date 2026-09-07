@@ -45,6 +45,17 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
                                              @Param("cutoff") Instant cutoff,
                                              Pageable pageable);
 
+    List<UploadedObject> findByStatusAndReleasedAtBeforeOrderByIdAsc(UploadedObjectStatus status, Instant cutoff,
+                                                                     Pageable pageable);
+
+    /**
+     * 해제 후보(#1153) — RELEASED 이면서 released_at 이 cutoff 이전인 행을 id 오름차순으로. 유예 기준이 uploaded_at 이
+     * 아니라 released_at 이라 {@link #findPurgeCandidates} 와 별도 쿼리다 — 각자 (status, *_at) 인덱스를 그대로 탄다.
+     */
+    default List<UploadedObject> findReleasedCandidates(Instant cutoff, Pageable pageable) {
+        return findByStatusAndReleasedAtBeforeOrderByIdAsc(UploadedObjectStatus.RELEASED, cutoff, pageable);
+    }
+
     /**
      * 참조 스캔 안전망(스펙 §4.3) — 스토리지 키가 어떤 엔티티에서든 아직 쓰이고 있으면 true.
      * 활성화 지점 누락을 데이터 손실 대신 WARN 으로 바꾸는 장치이므로 {@code FilePurpose} 에 purpose 가
@@ -53,16 +64,25 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
      * <p>URL 컬럼은 접미 일치({@code LIKE '%/' || key}) — publicBaseUrl 이 무엇이든 맞춘다. 키는
      * {@code {dir}/{UUID}.{ext}} 형식이라 {@code %}·{@code _} 가 없어 LIKE 이스케이프가 필요 없다.
      * club_photo.storage_key 는 실제로 URL 이 저장되지만(프론트가 응답 url 을 그대로 보냄) 키만 저장된
-     * 과거 행도 있을 수 있어 둘 다 본다. soft-delete 된 행도 참조로 센다(보수적).
+     * 과거 행도 있을 수 있어 둘 다 본다.
+     *
+     * <p>soft-delete 행: 이 스캔이 삭제 시 해제(#1153)를 다루는 다섯 곳(club·club_photo(+소속 club)·notice·promotion·
+     * global_event)은 {@code deleted_at IS NULL} 만 참조로 센다 — 복구(undelete) 경로가 없는 테이블만이며, 복구 기능을
+     * 붙이는 쪽이 이 조건을 되돌려야 한다. promotion_request(삭제 경로 없음)·federation_inquiry_attachment(보관기간까지
+     * 첨부가 살아 있어야 함)는 soft-delete 행도 참조로 센다(보수적).
      * ponytail: 후보(≤500/시)에 대해서만 실행되는 접미 LIKE seq scan — 후보가 상한을 상시 채우면 전용 참조 테이블로.
      */
     @Query(value = """
-            SELECT EXISTS (SELECT 1 FROM club WHERE logo_url LIKE '%/' || :key OR cover_url LIKE '%/' || :key)
-                OR EXISTS (SELECT 1 FROM club_photo WHERE storage_key = :key OR storage_key LIKE '%/' || :key)
-                OR EXISTS (SELECT 1 FROM notice WHERE cover_image_url LIKE '%/' || :key OR content LIKE '%/' || :key || '%')
-                OR EXISTS (SELECT 1 FROM promotion WHERE banner_image_url LIKE '%/' || :key)
+            SELECT EXISTS (SELECT 1 FROM club WHERE deleted_at IS NULL
+                           AND (logo_url LIKE '%/' || :key OR cover_url LIKE '%/' || :key))
+                OR EXISTS (SELECT 1 FROM club_photo photo JOIN club owner ON owner.id = photo.club_id
+                           WHERE photo.deleted_at IS NULL AND owner.deleted_at IS NULL
+                           AND (photo.storage_key = :key OR photo.storage_key LIKE '%/' || :key))
+                OR EXISTS (SELECT 1 FROM notice WHERE deleted_at IS NULL
+                           AND (cover_image_url LIKE '%/' || :key OR content LIKE '%/' || :key || '%'))
+                OR EXISTS (SELECT 1 FROM promotion WHERE deleted_at IS NULL AND banner_image_url LIKE '%/' || :key)
                 OR EXISTS (SELECT 1 FROM promotion_request WHERE suggested_banner_image_url LIKE '%/' || :key)
-                OR EXISTS (SELECT 1 FROM global_event WHERE cover_image_url LIKE '%/' || :key)
+                OR EXISTS (SELECT 1 FROM global_event WHERE deleted_at IS NULL AND cover_image_url LIKE '%/' || :key)
                 OR EXISTS (SELECT 1 FROM federation_inquiry_attachment WHERE storage_key = :key)
             """, nativeQuery = true)
     boolean isReferenced(@Param("key") String storageKey);

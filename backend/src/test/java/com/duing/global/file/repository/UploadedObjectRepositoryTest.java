@@ -14,16 +14,26 @@ import com.duing.domain.federation.entity.FederationInquiry;
 import com.duing.domain.federation.entity.FederationInquiryAttachment;
 import com.duing.domain.federation.repository.FederationInquiryAttachmentRepository;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
+import com.duing.domain.globalevent.entity.GlobalEvent;
+import com.duing.domain.globalevent.entity.GlobalEventCategory;
+import com.duing.domain.globalevent.repository.GlobalEventRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
+import com.duing.domain.promotion.entity.Promotion;
+import com.duing.domain.promotion.entity.PromotionPalette;
+import com.duing.domain.promotion.entity.PromotionRenderMode;
+import com.duing.domain.promotion.entity.PromotionRequest;
+import com.duing.domain.promotion.repository.PromotionRepository;
+import com.duing.domain.promotion.repository.PromotionRequestRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.file.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,6 +55,9 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
     @Autowired FederationInquiryRepository federationInquiryRepository;
     @Autowired FederationInquiryAttachmentRepository federationInquiryAttachmentRepository;
     @Autowired UserRepository userRepository;
+    @Autowired PromotionRepository promotionRepository;
+    @Autowired PromotionRequestRepository promotionRequestRepository;
+    @Autowired GlobalEventRepository globalEventRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
     private final Instant now = Instant.now();
@@ -52,8 +65,16 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
     private UploadedObject save(String storageKey, UploadedObjectStatus status, Instant uploadedAt) {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(uploadedAt);
+        if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(uploadedAt); uploadedObject.release(uploadedAt); }
         if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
         if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(); uploadedObject.markPurged(uploadedAt); }
+        return uploadedObjectRepository.save(uploadedObject);
+    }
+
+    private UploadedObject saveReleased(String storageKey, Instant uploadedAt, Instant releasedAt) {
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
+        uploadedObject.activate(uploadedAt);
+        uploadedObject.release(releasedAt);
         return uploadedObjectRepository.save(uploadedObject);
     }
 
@@ -71,6 +92,7 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         save(uniqueKey("club/logo"), UploadedObjectStatus.ACTIVE, old);
         save(uniqueKey("club/logo"), UploadedObjectStatus.PURGED, old);
         save(uniqueKey("club/logo"), UploadedObjectStatus.PENDING, recent);
+        save(uniqueKey("club/logo"), UploadedObjectStatus.RELEASED, old);
         UploadedObject thirdOld = save(uniqueKey("club/logo"), UploadedObjectStatus.PENDING, old);
 
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
@@ -134,5 +156,101 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
                 inquiry, attachmentKey, "첨부 이미지 1", "image/jpeg", 1024L, 0));
 
         assertThat(uploadedObjectRepository.isReferenced(attachmentKey)).isTrue();
+    }
+
+    @Test
+    @DisplayName("해제 후보 조회는 released_at 이 cutoff 이전인 RELEASED 만 id 오름차순으로, 상한까지 돌려준다 (uploaded_at 은 무관)")
+    void findsReleasedCandidatesByReleasedAtCutoff() {
+        Instant old = now.minus(25, ChronoUnit.HOURS);
+        Instant recent = now.minus(1, ChronoUnit.HOURS);
+        Instant longAgo = now.minus(30, ChronoUnit.DAYS);
+        UploadedObject releasedOld = saveReleased(uniqueKey("club/logo"), longAgo, old);
+        saveReleased(uniqueKey("club/logo"), longAgo, recent); // 오래전 업로드지만 방금 해제 — 유예 안
+        save(uniqueKey("club/logo"), UploadedObjectStatus.PENDING, old); // 기존 후보 — 이 쿼리 대상 아님
+        save(uniqueKey("club/logo"), UploadedObjectStatus.ACTIVE, longAgo);
+        UploadedObject releasedOldSecond = saveReleased(uniqueKey("club/logo"), longAgo, old);
+
+        Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+        List<UploadedObject> all = uploadedObjectRepository.findReleasedCandidates(cutoff, PageRequest.of(0, 500));
+        List<UploadedObject> limited = uploadedObjectRepository.findReleasedCandidates(cutoff, PageRequest.of(0, 1));
+
+        assertThat(all).extracting(UploadedObject::getId)
+                .containsExactly(releasedOld.getId(), releasedOldSecond.getId());
+        assertThat(limited).extracting(UploadedObject::getId).containsExactly(releasedOld.getId());
+    }
+
+    @Test
+    @DisplayName("참조 스캔은 soft-delete 된 공지·홍보·전체 행사의 이미지를 참조로 세지 않는다")
+    void ignoresSoftDeletedNoticePromotionAndGlobalEvent() {
+        Long userId = userRepository.save(UserFixture.admin()).getId();
+        String noticeCoverKey = uniqueKey("notice/cover");
+        String bannerKey = uniqueKey("promotion/banner");
+        String eventCoverKey = uniqueKey("global-event/cover");
+        Notice notice = noticeRepository.save(Notice.create("제목", "요약", "<p>본문</p>",
+                "https://files.example.com/" + noticeCoverKey, null, NoticeCategory.GENERAL, List.of(),
+                NoticeVisibility.PUBLIC, null, false, null, false, null, null, null, null, null,
+                NoticeContentFormat.HTML, userId));
+        Promotion promotion = promotionRepository.save(Promotion.create(null, "배너",
+                "https://files.example.com/" + bannerKey, "https://example.com", true, 1, userId,
+                null, null, null, null, PromotionPalette.INK, null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
+        LocalDateTime startAt = LocalDateTime.now().plusDays(7);
+        GlobalEvent event = globalEventRepository.save(GlobalEvent.create("행사", "설명", startAt, startAt.plusHours(2),
+                "장소", null, "https://files.example.com/" + eventCoverKey, GlobalEventCategory.FESTIVAL, userId));
+        assertThat(uploadedObjectRepository.isReferenced(noticeCoverKey)).isTrue();
+        assertThat(uploadedObjectRepository.isReferenced(bannerKey)).isTrue();
+        assertThat(uploadedObjectRepository.isReferenced(eventCoverKey)).isTrue();
+
+        noticeRepository.delete(notice);
+        promotionRepository.delete(promotion);
+        globalEventRepository.delete(event);
+
+        assertThat(uploadedObjectRepository.isReferenced(noticeCoverKey)).isFalse();
+        assertThat(uploadedObjectRepository.isReferenced(bannerKey)).isFalse();
+        assertThat(uploadedObjectRepository.isReferenced(eventCoverKey)).isFalse();
+    }
+
+    @Test
+    @DisplayName("참조 스캔은 soft-delete 된 사진과 폐쇄(soft-delete)된 동아리의 로고·살아 있는 사진을 참조로 세지 않는다")
+    void ignoresSoftDeletedClubPhotoAndImagesOfDeletedClub() {
+        String logoKey = uniqueKey("club/logo");
+        String deletedPhotoKey = uniqueKey("club/photo");
+        String survivingPhotoKey = uniqueKey("club/photo");
+        Club club = clubRepository.save(Club.create("폐쇄클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC,
+                null, "설명", "https://files.example.com/" + logoKey));
+        ClubPhoto deletedPhoto = clubPhotoRepository.save(
+                ClubPhoto.create(club, "/files/stub/" + deletedPhotoKey, null, null, null, 0));
+        clubPhotoRepository.save(ClubPhoto.create(club, "/files/stub/" + survivingPhotoKey, null, null, null, 1));
+        assertThat(uploadedObjectRepository.isReferenced(deletedPhotoKey)).isTrue();
+
+        clubPhotoRepository.delete(deletedPhoto);
+        assertThat(uploadedObjectRepository.isReferenced(deletedPhotoKey)).isFalse();
+        assertThat(uploadedObjectRepository.isReferenced(logoKey)).isTrue();
+        assertThat(uploadedObjectRepository.isReferenced(survivingPhotoKey)).isTrue();
+
+        clubRepository.delete(club);
+        assertThat(uploadedObjectRepository.isReferenced(logoKey)).isFalse();
+        assertThat(uploadedObjectRepository.isReferenced(survivingPhotoKey)).isFalse();
+    }
+
+    @Test
+    @DisplayName("참조 스캔은 soft-delete 된 문의 첨부와 홍보 요청의 제안 배너는 여전히 참조로 센다 (변경 없음 가드)")
+    void keepsSoftDeletedAttachmentAndPromotionRequestReferenced() {
+        Long userId = userRepository.save(UserFixture.unique()).getId();
+        Club club = clubRepository.save(Club.create("요청클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC,
+                null, "설명", null));
+        FederationInquiry inquiry = federationInquiryRepository.save(FederationInquiry.create(userId, "제목", "내용"));
+        String attachmentKey = uniqueKey("federation/inquiry");
+        FederationInquiryAttachment attachment = federationInquiryAttachmentRepository.save(
+                FederationInquiryAttachment.create(inquiry, attachmentKey, "첨부", "image/jpeg", 1024L, 0));
+        String suggestedBannerKey = uniqueKey("promotion-request/banner");
+        PromotionRequest request = promotionRequestRepository.save(PromotionRequest.create(club.getId(), userId,
+                "타이틀", "설명", "https://files.example.com/" + suggestedBannerKey, "https://example.com"));
+
+        federationInquiryAttachmentRepository.delete(attachment);
+        promotionRequestRepository.delete(request);
+
+        assertThat(uploadedObjectRepository.isReferenced(attachmentKey)).isTrue();
+        assertThat(uploadedObjectRepository.isReferenced(suggestedBannerKey)).isTrue();
     }
 }
