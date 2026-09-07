@@ -4,7 +4,7 @@
 
 **Goal:** 수정으로 교체·비워지거나 엔티티가 삭제·폐쇄돼 더는 참조되지 않는 업로드 객체를 ACTIVE 에서 RELEASED 로 내려 기존 파기 잡(#791)이 유예 뒤 지우게 한다.
 
-**Architecture:** `uploaded_object` 에 상태 `RELEASED` 와 `released_at` 을 추가하고(V125), `UploadedObjectService` 에 해제 API 3개(`release`·`releaseIfReplaced`·`releaseRemovedFrom`)를 둔다. 이미지 URL 을 교체·비우기·삭제하는 도메인 쓰기 메서드 11곳이 활성화 뒤에 해제를 호출한다. 파기 잡은 RELEASED 를 두 번째 후보 쿼리(`released_at` 기준)로 집고, 참조 스캔은 이 작업이 삭제를 다루는 5개 테이블의 soft-delete 행을 참조에서 뺀다. 아직 참조가 남은 RELEASED 는 경고 없이 ACTIVE 로 복구된다.
+**Architecture:** `uploaded_object` 에 상태 `RELEASED` 와 `released_at` 을 추가하고(V125), `UploadedObjectService` 에 해제 API 3개(`release`·`releaseIfReplaced`·`releaseRemovedFrom`)를 둔다. 이미지 URL 을 교체·비우기·삭제하는 도메인 쓰기 메서드 12곳이 활성화 뒤에 해제를 호출한다. 파기 잡은 RELEASED 를 두 번째 후보 쿼리(`released_at` 기준)로 집고, 참조 스캔은 이 작업이 삭제를 다루는 5개 테이블의 soft-delete 행을 참조에서 뺀다. 아직 참조가 남은 RELEASED 는 경고 없이 ACTIVE 로 복구된다.
 
 **Tech Stack:** Spring Boot 3.4 / Java 21, Spring Data JPA(PESSIMISTIC_WRITE 잠금 조회), Flyway, PostgreSQL(Testcontainers), Mockito `@MockitoBean`/`@MockitoSpyBean`, Spring Boot `OutputCaptureExtension`.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 브랜치 `feat/1153-upload-object-release` 는 `refactor/1154-file-purpose-package` 위에 스택돼 있다 — `FilePurpose` 는 `com.duing.global.file.FilePurpose` 다(`controller.dto` 아님).
+- 브랜치 `feat/1153-upload-object-release` 는 `refactor/1154-file-purpose-package`(#1154) → `fix/1152-notice-sanitizer-relative-links`(#1152) 위에 스택돼 있다 — `FilePurpose` 는 `com.duing.global.file.FilePurpose` 다(`controller.dto` 아님). **Task 6 는 #1152 수정(`NoticeHtmlSanitizer` 가 baseUri 로 상대경로 `img src` 를 보존)에 의존한다** — 테스트 스토리지 스텁의 URL 이 상대경로(`/files/stub/…`)라, 정제기가 그것을 제거하는 base 에서는 저장 본문에 스텁 키가 남지 않아 본문 해제 테스트가 구현 뒤에도 실패한다. `git log --oneline | grep "공지 HTML 정제기"` 로 그 커밋이 base 에 있는지 먼저 확인한다.
 - 마이그레이션은 **V125** 하나(`V125__uploaded_object_released_at.sql`), additive, `IF NOT EXISTS`. develop 에 V124 가 이미 있다. 기존 마이그레이션은 절대 수정하지 않는다.
 - 모든 상태 전이는 **잠금 조회(`findByStorageKeyForUpdate`/`findByIdForUpdate`) + 엔티티 전이 메서드**. 벌크 JPQL UPDATE 금지. 잠금 조회는 그 tx 안에서 `UploadedObject` 의 유일한 첫 조회여야 한다.
 - 도메인 서비스의 호출 순서는 **activate → release**(새 값 먼저 확정). 해제는 도메인 tx 안(REQUIRES_NEW 금지).
@@ -64,7 +64,7 @@
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`UploadedObjectTest` 상수 두 개를 추가하고(기존 `UPLOADED_AT`·`LATER` 아래), 헬퍼와 테스트 4개를 추가한다. 기존 `activateRejectsNonPending` 의 `@DisplayName` 은 `"연결(activate)은 PENDING·RELEASED 에서만 허용되며 PURGING 객체를 되살리지 못한다 (TOCTOU 계약)"` 로 바꾼다(본문 그대로).
+`UploadedObjectTest` 상수 두 개를 추가하고(기존 `UPLOADED_AT`·`LATER` 아래), 헬퍼와 테스트 4개를 추가한다. 기존 `activateRejectsNonPending` 의 `@DisplayName` 은 `"연결(activate)은 PENDING·RELEASED 에서만 허용되며 PURGING 객체를 되살리지 못한다 (TOCTOU 계약)"` 로, 기존 `restoreActiveFromPendingOrPurging` 의 `@DisplayName` 은 `"안전망 치유(restoreActive)는 PENDING·PURGING·RELEASED 에서 ACTIVE 로 전이하고 PURGED 는 거부한다"` 로 바꾼다(본문 그대로).
 
 ```java
     private static final Instant RELEASED_AT = Instant.parse("2026-09-03T00:00:00Z");
@@ -370,6 +370,9 @@ import java.time.LocalDateTime;
         assertThat(uploadedObjectRepository.isReferenced(logoKey)).isFalse();
         assertThat(uploadedObjectRepository.isReferenced(survivingPhotoKey)).isFalse();
     }
+```
+(detached `Club` 의 `repository.delete` 는 merge 뒤 `@SQLDelete` UPDATE 로 간다 — Club 에 `@Version`·컬렉션 매핑이 없어 통과해야 한다. 만약 merge 에서 실패하면 그 줄만 `jdbcTemplate.update("UPDATE club SET deleted_at = NOW() WHERE id = ?", club.getId())` 로 바꾸고(`@Autowired JdbcTemplate jdbcTemplate` 추가) 리포트에 적는다.)
+```java
 
     @Test
     @DisplayName("참조 스캔은 soft-delete 된 문의 첨부와 홍보 요청의 제안 배너는 여전히 참조로 센다 (변경 없음 가드)")
@@ -396,7 +399,7 @@ import java.time.LocalDateTime;
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd backend && ./gradlew test --tests "com.duing.global.file.repository.UploadedObjectRepositoryTest"`
-Expected: 컴파일 실패(`findReleasedCandidates` 없음). 메서드를 임시로 추가해 돌리면 soft-delete 테스트 3개 중 2개가 `isFalse` 단언에서 실패해야 한다(현재 스캔은 soft-delete 행도 참조로 센다).
+Expected: 컴파일 실패(`findReleasedCandidates` 없음). RED 를 보려면 먼저 리포지토리에 `default List<UploadedObject> findReleasedCandidates(Instant cutoff, Pageable pageable) { return List.of(); }` 만 추가해 컴파일시키고 다시 실행한다 — `findsReleasedCandidatesByReleasedAtCutoff` 와 soft-delete 테스트 2개(`ignoresSoftDeletedNoticePromotionAndGlobalEvent`, `ignoresSoftDeletedClubPhotoAndImagesOfDeletedClub`)가 실패해야 한다(현재 스캔은 soft-delete 행도 참조로 센다). 그 다음 Step 3 에서 임시 구현을 실제 구현으로 바꾼다.
 
 - [ ] **Step 3: 구현**
 
@@ -1150,7 +1153,7 @@ import com.duing.domain.club.photo.entity.ClubPhoto;
         assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 ```
-(`ClubPhotoQuery` 의 id 접근자가 `id()` 가 아니면 파일에서 확인해 맞춘다 — `backend/src/main/java/com/duing/domain/club/service/dto/query/ClubPhotoQuery.java`.)
+(`ClubPhotoQuery` 는 `record(Long id, …)` 라 `.id()` 가 맞다.)
 
 - [ ] **Step 2: 실패 확인**
 
@@ -1321,7 +1324,7 @@ git commit -m "feat(backend): 동아리 업로드 해제 — 로고·커버 교�
 - [ ] **Step 2: 실패 확인**
 
 Run: `cd backend && ./gradlew test --tests "com.duing.domain.notice.service.NoticeUploadActivationTest"`
-Expected: 신규 4건 중 3건 실패(RELEASED 기대가 ACTIVE). `adminUpdateWithExpiredCoverKeepsOldCoverActive` 는 통과(회귀 가드). 기존 4건 통과.
+Expected: 신규 4건 중 3건 실패(RELEASED 기대가 ACTIVE). `adminUpdateWithExpiredCoverKeepsOldCoverActive` 는 통과(회귀 가드). 기존 4건 통과. (base 에 #1152 정제기 수정이 없으면 본문 해제 단언 3건은 구현 뒤에도 실패한다 — 그 경우 프로덕션 코드를 고치지 말고 BLOCKED 로 보고한다. Global Constraints 참고.)
 
 - [ ] **Step 3: 구현**
 

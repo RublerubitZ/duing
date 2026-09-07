@@ -95,7 +95,7 @@ public void release(String... fileUrls);
 - 참조 스캔 결과 참조가 남아 있을 때:
   - PENDING·PURGING(기존): 실삭제 모드 `restoreActive` + **WARN**(활성화 지점 누락 의심), dry-run **WARN** + `referencedInDryRun++` — 그대로.
   - **RELEASED(추가)**: 실삭제 모드 `restoreActive` + **INFO**("다른 참조가 남아 있어 ACTIVE 로 복구", `releasedStillReferenced++`), dry-run INFO 만(`releasedStillReferenced++`). 경고가 아닌 이유: 홍보 요청 제안 배너 재사용·본문 붙여넣기 등 정상 흐름이다. 2차 전환 판정("referenced=true WARN 0건")에 섞이지 않는다.
-- claim·삭제·확정은 기존과 동일(`isPurgeCandidate` 가 RELEASED 를 포함하므로 술어 변경 없음).
+- claim·삭제·확정은 기존과 동일(`isPurgeCandidate` 가 RELEASED 를 포함하므로 술어 변경 없음). 참조 분기의 분류는 후보 스냅샷 상태로 한다 — RELEASED 가 claim 된 뒤 삭제가 실패해 PURGING 으로 남은 행은 다음 실행에서 PENDING 쪽(WARN)으로 분류되는데, 이중 실패의 드문 경우라 받아들인다.
 - 요약 로그에 `releasedStillReferenced={}` 추가. 후보 로그(dry-run)엔 `status` 필드 추가 — PENDING 과 RELEASED 를 구분해 읽을 수 있게.
 
 ### 4.2 참조 스캔 — soft-delete 행 제외
