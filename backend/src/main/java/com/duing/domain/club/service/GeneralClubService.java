@@ -254,6 +254,8 @@ public class GeneralClubService implements ClubService {
             throw new ClubException.DuplicateClubNameException();
         }
 
+        String previousLogoUrl = club.getLogoUrl();
+        String previousCoverUrl = club.getCoverUrl();
         club.update(updateClubCommand.toPayload());
         try {
             // UPDATE 를 지금 내보내 개명 경합을 이 자리에서 분류한다 — 커밋 시점 flush 로 미루면
@@ -267,6 +269,9 @@ public class GeneralClubService implements ClubService {
         }
         // 개명 경합 분류(flush try/catch) 뒤에 활성화 — 활성화 잠금 조회가 flush 를 유발해도 409 분류를 가로채지 않는다.
         uploadedObjectService.activate(updateClubCommand.logoUrl(), updateClubCommand.coverUrl());
+        // 교체·비우기로 빠진 옛 로고·커버는 해제(#1153) — 새 값을 먼저 확정한 뒤.
+        uploadedObjectService.releaseIfReplaced(previousLogoUrl, club.getLogoUrl());
+        uploadedObjectService.releaseIfReplaced(previousCoverUrl, club.getCoverUrl());
     }
 
     @Override

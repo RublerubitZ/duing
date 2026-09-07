@@ -119,9 +119,9 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         if (clubHeroActivityRepository.existsByClubPhotoId(photoId)) {
             throw new ClubPhotoException.ReferencedByHeroActivity();
         }
-        // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
-        // 여기서는 DB 레코드만 soft-delete.
+        // DB 행은 soft-delete, 스토리지 객체는 해제(RELEASED) 뒤 업로드 파기 잡이 유예 후 지운다(#791·#1153).
         clubPhotoRepository.delete(photo);
+        uploadedObjectService.release(photo.getStorageKey());
     }
 
     private ClubPhoto findPhotoInClub(Long photoId, Long clubId) {

@@ -3,6 +3,7 @@ package com.duing.domain.club.service;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CloseClubCommand;
 import com.duing.domain.clubevent.service.ClubEventService;
@@ -14,8 +15,10 @@ import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.domain.promotion.service.PromotionService;
 import com.duing.domain.recruitment.service.RecruitmentService;
+import com.duing.global.file.UploadedObjectService;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import jakarta.persistence.EntityManager;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -40,6 +43,8 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final ClubFavoriteService clubFavoriteService;
     private final EntityManager entityManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final ClubPhotoRepository clubPhotoRepository;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -54,6 +59,12 @@ public class GeneralClubClosureService implements ClubClosureService {
         club.validateClosable();
         // 아래 entityManager.clear() 로 detached 되기 전에 읽어 둔다.
         String clubName = club.getName();
+        // 폐쇄된 동아리의 로고·커버·살아 있는 사진은 더는 어디서도 서빙되지 않는다 — clear() 전에 URL 을 모아 두고
+        // soft-delete 뒤 해제한다(#1153). findByClubId 는 @SQLRestriction 으로 살아 있는 사진만 돌려준다.
+        List<String> imageUrlsToRelease = new ArrayList<>();
+        imageUrlsToRelease.add(club.getLogoUrl());
+        imageUrlsToRelease.add(club.getCoverUrl());
+        clubPhotoRepository.findByClubId(clubId).forEach(photo -> imageUrlsToRelease.add(photo.getStorageKey()));
 
         // 1. 멤버십 · 위임
         clubMemberCommandService.removeAllOnClubClosure(clubId, actorAdminUserId, reason);
@@ -91,6 +102,7 @@ public class GeneralClubClosureService implements ClubClosureService {
         entityManager.clear();
         Club clubToDelete = clubRepository.getReferenceById(club.getId());
         clubRepository.delete(clubToDelete);
+        uploadedObjectService.release(imageUrlsToRelease.toArray(String[]::new));
 
         // 운영 Slack 알림 — soft-delete 까지 커밋된 뒤에만 간다(폐쇄 사유는 싣지 않는다).
         eventPublisher.publishEvent(new ClubClosedEvent(clubId, clubName, actorAdminUserId));

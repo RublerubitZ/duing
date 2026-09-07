@@ -8,10 +8,12 @@ import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.photo.entity.ClubPhoto;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.photo.service.ClubPhotoService;
 import com.duing.domain.club.photo.service.dto.command.CreateClubPhotoCommand;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.dto.command.CloseClubCommand;
 import com.duing.domain.club.service.dto.command.CreateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
@@ -47,6 +49,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
     @Autowired ClubService clubService;
+    @Autowired ClubClosureService clubClosureService;
     @Autowired ClubPhotoService clubPhotoService;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubPhotoRepository clubPhotoRepository;
@@ -65,6 +68,14 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     private String seedPending(FilePurpose purpose) {
         String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         uploadedObjectRepository.save(UploadedObject.pending(storageKey, purpose, 1L, Instant.now()));
+        return storageKey;
+    }
+
+    private String seedActive(FilePurpose purpose) {
+        String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
+        uploadedObject.activate(Instant.now());
+        uploadedObjectRepository.save(uploadedObject);
         return storageKey;
     }
 
@@ -89,14 +100,28 @@ class ClubUploadActivationTest extends IntegrationTestBase {
         return clubRepository.save(club);
     }
 
+    private Club saveClubWithStatus(ClubStatus status, String logoUrl) throws Exception {
+        Club club = Club.create("상태클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC,
+                "분과", "설명", logoUrl);
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(club, status);
+        return clubRepository.save(club);
+    }
+
     private UpdateClubCommand updateImages(Long clubId, Long requesterId, String logoUrl, String coverUrl) {
+        return updateImages(clubId, requesterId, logoUrl, coverUrl, null);
+    }
+
+    private UpdateClubCommand updateImages(Long clubId, Long requesterId, String logoUrl, String coverUrl,
+                                           Boolean clearCoverImage) {
         return new UpdateClubCommand(
                 clubId, requesterId,
                 null, null, null, null, logoUrl, coverUrl,
                 null, null, null,
                 null, null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null, null, null, null);
+                null, null, null, clearCoverImage, null, null, null);
     }
 
     @Test
@@ -149,6 +174,72 @@ class ClubUploadActivationTest extends IntegrationTestBase {
                 club.getId(), leader.getId(), STUB_PREFIX + photoKey, "캡션", 100, 100));
 
         assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("운영진이 로고를 바꾸고 커버를 비우면 옛 로고·커버 업로드는 RELEASED, 새 로고는 ACTIVE 가 된다")
+    void leaderUpdateReleasesReplacedLogoAndClearedCover() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String oldLogoKey = seedPending(FilePurpose.LOGO);
+        String oldCoverKey = seedPending(FilePurpose.COVER);
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + oldLogoKey, STUB_PREFIX + oldCoverKey));
+        String newLogoKey = seedPending(FilePurpose.LOGO);
+
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + newLogoKey, null, true));
+
+        assertThat(statusOf(oldLogoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(oldCoverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(newLogoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("같은 로고 URL 로 다시 수정하면 로고 업로드는 ACTIVE 그대로다 (해제되지 않음)")
+    void leaderUpdateWithSameLogoKeepsActive() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String logoKey = seedPending(FilePurpose.LOGO);
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + logoKey, null));
+
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + logoKey, null));
+
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("활동 사진을 삭제하면 사진 업로드가 RELEASED 가 된다")
+    void photoDeleteReleasesUpload() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String photoKey = seedPending(FilePurpose.PHOTO);
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(club.getId(), leader.getId(),
+                STUB_PREFIX + photoKey, null, null, null)).id();
+        assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+
+        clubPhotoService.delete(club.getId(), leader.getId(), photoId);
+
+        assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
+    @DisplayName("총동연이 동아리를 폐쇄하면 로고·커버·살아 있는 활동 사진 업로드가 모두 RELEASED 가 된다")
+    void closureReleasesLogoCoverAndPhotos() throws Exception {
+        User admin = userRepository.save(UserFixture.admin());
+        String logoKey = seedActive(FilePurpose.LOGO);
+        String coverKey = seedPending(FilePurpose.COVER);
+        String photoKey = seedActive(FilePurpose.PHOTO);
+        Club club = saveClubWithStatus(ClubStatus.INACTIVE, STUB_PREFIX + logoKey);
+        clubService.updateAsAdmin(updateImages(club.getId(), null, null, STUB_PREFIX + coverKey));
+        clubPhotoRepository.save(ClubPhoto.create(club, STUB_PREFIX + photoKey, null, null, null, 0));
+
+        clubClosureService.close(new CloseClubCommand(club.getId(), admin.getId(), "운영 종료"));
+
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(coverKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(photoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 
     @Test
