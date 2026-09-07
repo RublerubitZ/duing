@@ -92,7 +92,8 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
 
         // bookableFrom·bookableUntil 은 시설 오픈일 정책이 계산한 그 시설의 창과 정확히 일치해야 한다.
-        BookingWindow window = OPEN_DATE_POLICY.windowFor(facility.getBookingOpenDate(), LocalDate.now(clock));
+        BookingWindow window = OPEN_DATE_POLICY.windowFor(
+                facility.getBookingOpenDate(), facility.getBookingCloseDate(), LocalDate.now(clock));
         assertThat(response.days()).hasSize(YearMonth.now(clock).lengthOfMonth());
         assertThat(response.bookableFrom()).isEqualTo(window.from());
         assertThat(response.bookableUntil()).isEqualTo(window.until());
@@ -372,6 +373,22 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         FacilityAvailabilityResponse beforeOpenMonth =
                 availabilityService.getAvailability(facility.getId(), YearMonth.from(beforeOpen));
         assertThat(slotAt(beforeOpenMonth, beforeOpen, "09:00").status()).isEqualTo(SlotStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("마감일이 있는 시설의 창 상한은 익월 말일이 아니라 그 마감일이다")
+    void closeDateNarrowsBookableUntil() {
+        LocalDate closeDate = LocalDate.now(clock).plusDays(5);
+        Facility facility = facilityRepository.save(
+                BookingWindowFixture.opened(Facility.create(90011, "커뮤니티룸(T11)", null, 0)));
+        facility.changeBookingCloseDate(closeDate);
+        facilityRepository.save(facility);
+
+        FacilityAvailabilityResponse response =
+                availabilityService.getAvailability(facility.getId(), YearMonth.now(clock));
+
+        assertThat(response.bookableFrom()).isEqualTo(LocalDate.now(clock));
+        assertThat(response.bookableUntil()).isEqualTo(closeDate);
     }
 
     @Test

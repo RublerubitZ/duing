@@ -49,6 +49,8 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
     @Autowired FacilityMonthSnapshotRepository snapshotRepository;
     @Autowired FacilitySnapshotWriter snapshotWriter;
 
+    private LocalDate bookingCloseDate;
+
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
@@ -58,6 +60,9 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
 
         Facility facility = facilityRepository.save(
                 BookingWindowFixture.opened(Facility.create(4, "공동연습실(1)", "2105", 0)));
+        bookingCloseDate = today.plusDays(10);
+        facility.changeBookingCloseDate(bookingCloseDate);
+        facilityRepository.save(facility);
         // 현재월 신선 스냅샷 → ensureFresh 가 CACHE 로 판정해 외부(학교) 호출 없음.
         snapshotRepository.save(FacilityMonthSnapshot.create(
                 current, now, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null));
@@ -75,6 +80,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 .header("Cache-Control", org.hamcrest.Matchers.containsString("max-age=60"))
                 .body("data[0].roomName", equalTo("공동연습실(1)"))
                 .body("data[0].location", equalTo("2105"))
+                .body("data[0].bookingCloseDate", equalTo(bookingCloseDate.toString()))
                 .extract().asString();
         assertThat(body).doesNotContain("roomSeq").doesNotContain("room_seq");
     }
@@ -97,6 +103,7 @@ class FacilityUsageAcceptanceTest extends IntegrationTestBase {
                 // 홈 카드가 "M.d부터 예약 가능" 문구를 만드는 원시 오픈일(맨 뒤 가산)
                 .body("data.facilities[0].bookingOpenDate",
                         equalTo(BookingWindowFixture.OPEN_SINCE.toString()))
+                .body("data.facilities[0].bookingCloseDate", equalTo(bookingCloseDate.toString()))
                 .extract().asString();
         assertThat(body).doesNotContain("roomSeq").doesNotContain("room_seq");
     }

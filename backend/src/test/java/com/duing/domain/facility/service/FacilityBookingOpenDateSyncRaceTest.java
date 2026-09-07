@@ -69,7 +69,7 @@ class FacilityBookingOpenDateSyncRaceTest extends IntegrationTestBase {
 
             assertThat(loaded.await(10, TimeUnit.SECONDS)).as("동기화 트랜잭션이 시설을 로드").isTrue();
             facilityAdminService.updateBookingOpenDate(
-                    new UpdateFacilityBookingOpenDateCommand(facilityId, newOpenDate));
+                    new UpdateFacilityBookingOpenDateCommand(facilityId, newOpenDate, null));
             patched.countDown();
             syncTask.get(10, TimeUnit.SECONDS);
         } finally {

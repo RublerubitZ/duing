@@ -46,6 +46,10 @@ public class Facility extends BaseEntity {
     @Column(name = "booking_open_date")
     private LocalDate bookingOpenDate;
 
+    /** 총동연이 정한 예약 마감일. NULL = 상한 없음(익월 말일). 오픈일과 함께 BookingOpenDatePolicy 가 창을 계산한다. */
+    @Column(name = "booking_close_date")
+    private LocalDate bookingCloseDate;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Facility(Integer roomSeq, String roomName, String location, Integer sortOrder) {
         this.roomSeq = roomSeq;
@@ -89,6 +93,11 @@ public class Facility extends BaseEntity {
     /** updateDetails(학교 동기화)는 이 값을 건드리지 않는다 — 운영자 설정 보존. null = 닫기. */
     public void changeBookingOpenDate(LocalDate newBookingOpenDate) {
         this.bookingOpenDate = newBookingOpenDate;
+    }
+
+    /** updateDetails(학교 동기화)는 이 값을 건드리지 않는다. null = 상한 해제. */
+    public void changeBookingCloseDate(LocalDate newBookingCloseDate) {
+        this.bookingCloseDate = newBookingCloseDate;
     }
 
     public boolean isArchived() {

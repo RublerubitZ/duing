@@ -35,4 +35,22 @@ public class FacilityException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    /** 마감일이 오픈일보다 빠름 — 같은 날은 허용(하루짜리 창)이고 역순만 막는다. */
+    public static class BookingCloseBeforeOpenException extends FacilityException {
+        private static final String MESSAGE = "예약 마감일은 오픈일보다 빠를 수 없습니다.";
+
+        public BookingCloseBeforeOpenException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** 마감일이 상한(익월 말일)을 넘음 — 크롤 수집·열람 범위와 같은 축을 벗어난 창을 막는다. */
+    public static class InvalidBookingCloseDateException extends FacilityException {
+        private static final String MESSAGE = "예약 마감일은 다음 달 말일까지만 설정할 수 있습니다.";
+
+        public InvalidBookingCloseDateException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

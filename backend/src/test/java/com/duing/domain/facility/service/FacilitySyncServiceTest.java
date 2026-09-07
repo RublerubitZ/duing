@@ -95,6 +95,22 @@ class FacilitySyncServiceTest {
     }
 
     @Test
+    @DisplayName("총동연이 설정한 예약 마감일은 학교 목록 동기화가 이름/위치를 갱신해도 보존된다")
+    void preservesBookingCloseDateOnUpdate() {
+        LocalDate bookingCloseDate = LocalDate.now(clock).plusDays(9);
+        Facility existing = Facility.create(4, "공동연습실(1)", "2105", 0);
+        existing.changeBookingCloseDate(bookingCloseDate);
+        when(facilityRepository.findByRoomSeq(4)).thenReturn(Optional.of(existing));
+        when(facilityRepository.findAll()).thenReturn(List.of(existing));
+        when(listParser.parse(any())).thenReturn(List.of(new ParsedFacility(4, "공동연습실(2)", "2105-1", 1)));
+
+        service.sync();
+
+        assertThat(existing.getRoomName()).isEqualTo("공동연습실(2)");
+        assertThat(existing.getBookingCloseDate()).isEqualTo(bookingCloseDate);
+    }
+
+    @Test
     @DisplayName("아카이브됐던 시설이 학교 목록에 재등장해 복구돼도 예약 오픈일은 보존된다")
     void preservesBookingOpenDateOnRestore() {
         LocalDate bookingOpenDate = LocalDate.now(clock).plusDays(5);
