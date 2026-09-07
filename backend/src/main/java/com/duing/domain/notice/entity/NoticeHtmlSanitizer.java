@@ -28,11 +28,15 @@ public final class NoticeHtmlSanitizer {
             // 스킴이 있는 위험 URL(javascript:/data: 등)은 위 프로토콜 제약으로 계속 제거된다.
             .preserveRelativeLinks(true);
 
+    // jsoup 은 preserveRelativeLinks 와 무관하게 URL 을 baseUri 로 절대화한 뒤 프로토콜을 검사한다 — baseUri 가 없으면
+    // 상대경로는 절대화되지 않아 통째로 제거된다. 값은 출력에 나타나지 않으므로(원래 상대값이 보존됨) 실제 도메인일 필요가 없다.
+    private static final String RELATIVE_LINK_BASE_URI = "https://relative-link.invalid/";
+
     public static String sanitize(String content, NoticeContentFormat format) {
         if (content == null || format != NoticeContentFormat.HTML) {
             return content;
         }
-        return Jsoup.clean(content, SAFELIST);
+        return Jsoup.clean(content, RELATIVE_LINK_BASE_URI, SAFELIST);
     }
 
     private NoticeHtmlSanitizer() {

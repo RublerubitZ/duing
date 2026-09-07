@@ -113,8 +113,7 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
 
         String bodyKey = uniqueKey("notice/body");
         Long authorId = userRepository.save(UserFixture.unique()).getId(); // notice.author_id 는 users FK
-        // 본문 이미지는 절대 URL 로 넣는다 — NoticeHtmlSanitizer(jsoup)가 img src 를 http(s) 로만 허용해
-        // 상대경로는 저장 시점에 통째로 제거된다. 실제 저장 본문도 업로드 응답의 절대 URL 이다.
+        // 본문 이미지는 실제 저장 본문과 같이 업로드 응답의 절대 URL 로 넣는다.
         noticeRepository.save(Notice.create("제목", "요약",
                 "<p>본문</p><img src=\"https://files.example.com/" + bodyKey + "\" alt=\"\"><p>끝</p>",
                 "", null, NoticeCategory.GENERAL, List.of(), NoticeVisibility.PUBLIC, null,
