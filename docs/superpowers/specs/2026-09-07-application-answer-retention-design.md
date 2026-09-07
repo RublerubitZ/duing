@@ -39,7 +39,7 @@ develop `b717d625` 기준. 2026-09-07 조사(스크래치 `inv-backend.md`·`inv
 | 열람 권한 | `LeaderApplicationController`·`ApplicationController`·`AdminApplicationController` | 운영진(`requireManager`)·본인·ADMIN 모두 **기간 제한 없음**. `ClosedRecruitmentPolicy` 는 쓰기에만 적용 |
 | 초안 | `application_draft`(V15) `answers jsonb`, soft-delete 없음 | 삭제는 제출 시 `discard` 와 사용자 명시 DELETE 뿐. 마감 후 upsert 는 410 이지만 기존 행 잔존 → **영구 보존(갭)** |
 | 복제 경로 | 상태이력(enum)·`ClubAuditEvent.reason`·`AdminUserActionLog.reason`(운영자 사유)·알림·로그·Sentry(`send-default-pii=false`)·export | **답변 본문 복제 없음(Blocking 없음)** |
-| 타임존 | `TIMEZONE.md`, `TimeMapper.systemNow` | `users.deleted_at`·`application.deleted_at`·`phone_verification_events.created_at`·`phone_verifications.expires_at` = system regime(prod UTC). 기존 잡은 `LocalDateTime.now(clock)`(KST) 로 cutoff → **9시간 조기 발화(금지 패턴)** |
+| 타임존 | `TIMEZONE.md`, `TimeMapper.systemNow` | `users.deleted_at`·`application.deleted_at`·`phone_verification_events.created_at`(`@CreatedDate`) = system regime(prod UTC). 기존 잡은 이 세 컬럼의 cutoff 를 `LocalDateTime.now(clock)`(KST) 로 만들어 → **9시간 조기 발화(금지 패턴)**. 반면 `phone_verifications.expires_at` 은 `GeneralPhoneVerificationService#issue` 의 `now(seoulClock)` 파생 = **seoul regime**(`TIMEZONE.md` 대응표) 이라 기존 KST cutoff 가 정답 |
 | 처리방침 | `frontend/apps/web/app/terms/page.tsx` 단일 위치 | 3조 보유기간 목록에 탈퇴 45일·법령 보관 2항목뿐. 지원서 답변 보관기간 조항 없음. `EFFECTIVE_DATE` 한 상수가 시행일 3곳 동기 |
 | 안내 문구 | `RecruitmentForm`·`ApplyAnswersStep` | 개인정보 관련 안내 없음 |
 
@@ -65,10 +65,10 @@ COMMENT ON COLUMN application.answers_purged_at IS '자유서술 답변 파기 �
 | cutoff | 계산 | 비교 대상 컬럼(regime) |
 |---|---|---|
 | `withdrawnCutoff` | `TimeMapper.systemNow(clock).minus(window)` | `users.deleted_at`, `application.deleted_at`, `phone_verification_events.created_at` (system) |
-| `phoneVerificationCutoff` | `TimeMapper.systemNow(clock).minus(PHONE_VERIFICATION_RETENTION)` | `phone_verifications.expires_at` (system — `PhoneVerification.issue(..., LocalDateTime.now())`) |
+| `phoneVerificationCutoff` | `LocalDateTime.now(clock).minus(PHONE_VERIFICATION_RETENTION)` — **기존 유지** | `phone_verifications.expires_at` (seoul — `GeneralPhoneVerificationService#issue` 가 `now(seoulClock)` 으로 발급·만료 시각을 기록) |
 | `closedCutoffDate` | `LocalDate.now(clock).minus(applicationAnswerWindow)` | `recruitment.closed_at::date`(seoul 벽시계 → KST 날짜), `recruitment.end_date`(KST DATE) |
 
-- 유일한 Clock 빈은 `seoulClock`(Asia/Seoul). 기존 코드의 `LocalDateTime.now(clock)` 두 곳을 `TimeMapper.systemNow(clock)` 으로 바꾼다. 이 정정으로 prod(JVM=UTC)에서 45일 규칙과 MO 세션 1일 유예가 9시간 이르게 발화하던 문제가 사라진다. KST JVM(로컬·CI)에서는 두 값이 같으므로 기존 통합 테스트 결과는 그대로다.
+- 유일한 Clock 빈은 `seoulClock`(Asia/Seoul). 기존 코드에서 system regime 컬럼과 비교하는 `cutoff` 한 곳(`LocalDateTime.now(clock).minus(window)`)만 `TimeMapper.systemNow(clock)` 으로 바꾼다. MO 세션 유예 cutoff 는 seoul regime 컬럼과 비교하므로 **그대로 둔다**(바꾸면 반대 방향으로 9시간 어긋난다). 이 정정으로 prod(JVM=UTC)에서 45일 규칙이 9시간 이르게 발화하던 문제가 사라진다. KST JVM(로컬·CI)에서는 두 값이 같으므로 기존 통합 테스트 결과는 그대로다.
 - `closedCutoffDate` 는 KST "오늘" 기준. `LocalDate.minus(Period.ofMonths(6))` 는 3/31 → 9/30 처럼 월말을 보정한다. 비교는 `<` 배타 — 앵커가 3/7 이면 9/8 04:30 KST 실행부터 파기.
 - 오설정 가드: `window` 또는 `applicationAnswerWindow` 가 0/음수면 기존과 같이 `log.error` 후 **run 전체를 건너뛴다**(부분 실행 없음).
 
@@ -89,7 +89,7 @@ COMMENT ON COLUMN application.answers_purged_at IS '자유서술 답변 파기 �
                             CASE WHEN COALESCE(question.qtype, 'TEXT') = 'TEXT'
                                   AND jsonb_array_length(answer.elem -> 'values') > 0
                                   AND (answer.elem -> 'values' ->> 0) <> ''
-                                 THEN jsonb_set(answer.elem, '{values}', jsonb_build_array(CAST(:placeholder AS text)))
+                                 THEN jsonb_set(answer.elem, ARRAY['values'], jsonb_build_array(CAST(:placeholder AS text)))
                                  ELSE answer.elem END
                             ORDER BY answer.ord), '[]'::jsonb)
                    FROM jsonb_array_elements(a.answers) WITH ORDINALITY AS answer(elem, ord)
@@ -129,7 +129,7 @@ int purgeExpiredTextAnswers(@Param("closedCutoffDate") LocalDate closedCutoffDat
 - placeholder 는 `PiiRetentionJob` 의 상수 `ANSWER_PURGED_PLACEHOLDER = "(보관기간 경과로 파기되었습니다)"`(`FederationInquiryPurgeJob.PLACEHOLDER_CONTENT` 와 같은 문자열, 도메인이 달라 상수는 각자 소유). 바인드 파라미터로 전달한다.
 - `version = version + 1`: `Application` 은 `@Version` 이 있고 `@DynamicUpdate` 가 없어 전 컬럼 UPDATE 를 한다. 04:30 에 마감 후 최종 확정 트랜잭션이 겹치면 파기 전 answers 로 되돌릴 수 있으므로 version 을 올려 상대 flush 가 `ObjectOptimisticLockingFailureException`(409) 으로 실패하게 한다 — 안전 방향(운영진은 새로고침 후 재시도).
 - 모집의 soft-delete 여부는 조건에 넣지 않는다(지원자가 있는 모집은 삭제 불가). `recruitment_form.deleted_at` 도 보지 않는다(질문 정의 조회 목적).
-- 로컬 Postgres 16 픽스처 9행으로 검증한 문장을 그대로 채택했다(스크래치 `inv-scrub-check.sql`; `[]` 대신 placeholder·무응답 제외 조건만 추가).
+- 로컬 Postgres 16 픽스처 9행으로 검증한 문장을 그대로 채택했다(스크래치 `inv-scrub-check.sql`; `[]` 대신 placeholder·무응답 제외 조건만 추가). 경로 인자는 `'{values}'` 대신 `ARRAY['values']` 로 써서 native `@Query` 문자열 안의 중괄호 이스케이프 리스크를 피한다(레포에 `jsonb_set` 전례 없음).
 
 ### 3.3 초안 삭제 — `ApplicationDraftRepository.deleteExpired`
 
@@ -231,7 +231,7 @@ public record RetentionProperties(boolean enabled,
 3조 `List` items 의 법령 보관 항목 뒤에 한 항목 추가. 문체는 기존 "운영팀은 … 합니다" 경어체.
 
 ```tsx
-// 모집 마감 후 지원서 자유서술 답변 파기 잡(PiiRetentionJob application-answer-window)의 실제 보관기간과 일치시킨다.
+// 모집 마감 후 지원서 자유서술 답변 파기 잡(PiiRetentionJob, duing.privacy.retention.application-answer-window)의 실제 보관기간과 일치시킨다.
 const APPLICATION_ANSWER_RETENTION_PERIOD = '모집 종료 후 6개월';
 …
 `모집 지원서의 자유서술형 답변은 해당 ${APPLICATION_ANSWER_RETENTION_PERIOD}간 보관한 뒤 파기합니다. 지원 상태·지원일 등 운영에 필요한 최소 정보는 지원 내역으로 계속 보관합니다.`,
@@ -250,6 +250,8 @@ const APPLICATION_ANSWER_RETENTION_PERIOD = '모집 종료 후 6개월';
 ### 8.1 백엔드 통합 — `PiiRetentionJobTest` 확장 (Testcontainers Postgres 16, `IntegrationTestBase`, 상대 날짜만)
 
 픽스처: `Recruitment.create(...)` + `recruitment.attachForm(RecruitmentForm.create(recruitment, [TEXT q1, SINGLE q2, MULTIPLE q3]))` 저장 후 JdbcTemplate 로 `closed_at`/`end_date`/`status`/`deleted_at` 을 직접 조정(`softDeleteDaysAgo` 전례). 지원서는 `Application.submit(recruitment, user, answers)`.
+
+날짜 마진: `users.deleted_at`·`application.deleted_at` 은 DB `NOW()`(Testcontainers Postgres = UTC) 로 찍히고 JVM 은 KST 라 `systemNow` 와 최대 9시간 어긋날 수 있다. 통합 테스트는 경계값(45일±1일) 대신 **넉넉한 마진**(탈퇴 60일 vs 10일, 마감 7개월 vs 1개월)을 쓴다. 정확한 경계는 §8.2 단위 테스트가 맡는다.
 
 | DisplayName(요구사항 문장) | 기대 |
 |---|---|
@@ -279,7 +281,7 @@ const APPLICATION_ANSWER_RETENTION_PERIOD = '모집 종료 후 6개월';
 | DisplayName | 기대 |
 |---|---|
 | 탈퇴 45일 cutoff 는 JVM 기본 존이 UTC 여도 KST 벽시계가 아니라 저장 존(UTC) 벽시계로 계산된다 | `anonymizeExpiredUsers` 인자 == `LocalDateTime.ofInstant(instant, UTC).minus(P45D)` (KST 로 계산하면 9시간 차이) |
-| MO 세션 1일 유예 cutoff 도 저장 존 벽시계로 계산된다 | `deleteExpiredVerifications` 인자 == `ofInstant(instant, UTC).minus(1d)` |
+| MO 세션 1일 유예 cutoff 는 seoul regime 컬럼과 비교하므로 JVM 기본 존이 UTC 여도 KST 벽시계로 유지된다 | `deleteExpiredVerifications` 인자 == `LocalDateTime.ofInstant(instant, Asia/Seoul).minus(1d)` (system 벽시계로 바꾸면 9시간 차이) |
 | 마감 6개월 cutoff 날짜는 KST "오늘" 기준이다 | instant = `2026-09-07T20:00:00Z`(KST 9/8 05:00) → `closedCutoffDate == 2026-03-08` (UTC 날짜 9/7 이 아님) |
 | 두 보관기간 중 하나라도 0/음수면 어떤 리포지토리도 호출하지 않는다 | `verifyNoInteractions` |
 
@@ -297,13 +299,14 @@ const APPLICATION_ANSWER_RETENTION_PERIOD = '모집 종료 후 6개월';
 
 1. 배포 전 prod DB 에서 첫 실행 규모 확인(읽기 전용):
    ```sql
+   -- 잡과 같은 조건. CURRENT_DATE/NOW() 는 DB 세션 존(UTC) 이라 KST 00~09시에 실행하면 하루 어긋날 수 있다 — 추정 용도라 무해.
    SELECT count(*) FILTER (WHERE LEAST(r.closed_at::date, r.end_date) < CURRENT_DATE - INTERVAL '6 months') AS by_close,
           count(*) FILTER (WHERE u.deleted_at < NOW() - INTERVAL '45 days') AS by_withdrawal,
-          count(*) FILTER (WHERE r.closed_at IS NULL AND r.end_date IS NULL AND r.status = 'CLOSED') AS no_anchor
+          count(*) FILTER (WHERE r.closed_at IS NULL AND r.end_date IS NULL) AS no_anchor  -- 상시 OPEN(정상 스킵) + 상시+pre-V101 CLOSED
      FROM application a JOIN recruitment r ON r.id = a.recruitment_id JOIN users u ON u.id = a.user_id
-    WHERE a.deleted_at IS NULL;
+    WHERE a.deleted_at IS NULL AND a.answers_purged_at IS NULL;
    ```
-   `no_anchor` 가 0 이 아니면 해당 모집 목록을 별도 이슈로 기록한다(이번 범위에서 백필하지 않음).
+   `no_anchor` 중 `r.status = 'CLOSED'` 인 모집이 있으면 목록을 별도 이슈로 기록한다(이번 범위에서 백필하지 않음). 상시 OPEN 은 정상적인 스킵이다.
 2. 배포 → V126 적용 확인 → 다음 04:30 KST 실행 로그에서 `applicationAnswersPurged`·`applicationDraftsDeleted` 건수가 1단계 추정과 맞는지 확인.
 3. 이후 매일 건수가 소량(신규 도래분)으로 떨어지는지 1주일 관찰.
 4. 처리방침 개정 공지(13조) — 운영 결정 후 별도 진행.
@@ -324,7 +327,7 @@ const APPLICATION_ANSWER_RETENTION_PERIOD = '모집 종료 후 6개월';
 
 ## 11. 리스크 / 체크 포인트
 
-- **동시 최종 확정과 version 충돌**: 04:30 에 운영진이 마감 모집의 최종 결과를 확정하는 순간과 겹치면 409. 발생 확률 극히 낮고 재시도로 해결. 반대로 version 을 올리지 않으면 파기가 조용히 되돌아가므로 올리는 쪽이 옳다.
+- **동시 쓰기와 version 충돌**: 04:30 에 운영진의 최종 결과 확정, 또는 지원자의 지원 취소(`@SQLDelete ... WHERE id=? AND version=?`)가 겹치면 409. 발생 확률 극히 낮고 재시도로 해결. 반대로 version 을 올리지 않으면 파기가 조용히 되돌아가므로 올리는 쪽이 옳다.
 - **end_date 연장으로 앵커가 미래로 이동**: 이미 파기된 지원서는 복구되지 않는다(허용). 마커가 있어 재파기도 없다.
 - **폼 질문 유형 변경**: TEXT 판정은 파기 시점의 `recruitment_form.questions` 를 본다. 제출 후 유형이 바뀐 질문은 현재 유형으로 판정된다(질문 편집은 모집 OPEN 중에만 가능하고, 마감 6개월 뒤엔 사실상 고정).
 - **placeholder 가 지원자 본인 화면에도 노출**: 의도된 동작(내 답변이 보관기간 경과로 파기됐음을 알림). 총동연 문의 파기와 같은 문구라 일관된다.
