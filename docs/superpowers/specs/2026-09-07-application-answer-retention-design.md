@@ -25,6 +25,8 @@ develop `b717d625` 기준. 2026-09-07 조사(스크래치 `inv-backend.md`·`inv
 | 4 | `application_draft` | 미제출 초안도 같은 두 앵커 중 먼저 도래하는 기준으로 행 삭제. 기존 PiiRetentionJob 에서 처리, 제출/명시 삭제 흐름 불변 |
 | 5 | Out of Scope | `application_evaluation.memo` 는 별도 정책 대상. 처리방침 13조 공지 수단은 운영 결정 |
 
+앵커 코드 근거(2026-09-07 재확인): `end_date` 는 접수 마감일(당일 포함)이다 — `Recruitment.isEffectivelyOpen(status, endDate, today)` 가 `OPEN ∧ (endDate == null ∨ !today.isAfter(endDate))` 로 판정하고, 지원 제출(`GeneralApplicationService.validateEligibility` → `RecruitmentClosedException`)·임시저장(`GeneralApplicationDraftService.upsert`)·가입코드 발급(`GeneralJoinCodeService`)이 모두 이 판정으로 닫힌다. `closed_at` 은 `Recruitment.close()` 가 찍는 조기 마감·아카이브 시각이며 CLOSED 면 end_date 와 무관하게 접수가 닫힌다. 따라서 `LEAST(closed_at::date, end_date)` = "신규 지원이 더 이상 들어올 수 없게 된 첫 날" = 답변 집합이 고정된 시점이고, 정책이 뜻하는 "실제 모집 종료 기준"과 일치한다. 상시모집의 `stopIntake` 도 end_date 를 어제로 확정하므로 같은 식에 포함된다.
+
 ## 1. 현 상태 (조사 결과 요약)
 
 | 항목 | 위치 | 현 동작 |
