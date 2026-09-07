@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.draft.repository.ApplicationDraftRepository;
 import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -41,6 +42,7 @@ class PiiRetentionJobCutoffTest {
     @Mock ApplicationRepository applicationRepository;
     @Mock PhoneVerificationRepository phoneVerificationRepository;
     @Mock PhoneVerificationEventRepository phoneVerificationEventRepository;
+    @Mock ApplicationDraftRepository applicationDraftRepository;
 
     private TimeZone originalDefaultZone;
 
@@ -58,7 +60,7 @@ class PiiRetentionJobCutoffTest {
         return new PiiRetentionJob(
                 new RetentionProperties(true, window, applicationAnswerWindow),
                 SEOUL_CLOCK, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
     }
 
     @Test
@@ -97,6 +99,7 @@ class PiiRetentionJobCutoffTest {
         // NOW 는 UTC 9/7 20:00 = KST 9/8 05:00 → KST 오늘(9/8) - 6개월 = 3/8. UTC 날짜(9/7)로 계산했다면 3/7.
         verify(applicationRepository).purgeExpiredTextAnswers(
                 eq(LocalDate.of(2026, 3, 8)), any(LocalDateTime.class), eq(PiiRetentionJob.ANSWER_PURGED_PLACEHOLDER));
+        verify(applicationDraftRepository).deleteExpired(eq(LocalDate.of(2026, 3, 8)), any(LocalDateTime.class));
     }
 
     @Test
@@ -106,6 +109,6 @@ class PiiRetentionJobCutoffTest {
         job(Period.ZERO, Period.ofMonths(6)).run();
 
         verifyNoInteractions(userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
     }
 }

@@ -11,6 +11,8 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.draft.entity.ApplicationDraft;
+import com.duing.domain.draft.repository.ApplicationDraftRepository;
 import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.QuestionType;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -56,6 +58,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired ApplicationRepository applicationRepository;
     @Autowired PhoneVerificationRepository phoneVerificationRepository;
     @Autowired PhoneVerificationEventRepository phoneVerificationEventRepository;
+    @Autowired ApplicationDraftRepository applicationDraftRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired Clock clock;
@@ -140,7 +143,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         PiiRetentionJob disabledJob = new PiiRetentionJob(
                 new RetentionProperties(false, Period.ofYears(1), Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
         disabledJob.run();
 
         assertThat(userAnonymizedAt(user.getId())).isNull();
@@ -155,7 +158,7 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
                 new RetentionProperties(true, Period.ZERO, Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
         zeroWindowJob.run();
 
         assertThat(userAnonymizedAt(user.getId())).isNull();
@@ -431,6 +434,62 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         assertThat(phoneVerificationEventRepository.findById(event.getId())).isPresent();
     }
 
+    @Test
+    @DisplayName("마감 6개월이 지난 모집의 미제출 초안은 삭제된다")
+    void deletesDraftsOfRecruitmentClosedLongAgo() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        ApplicationDraft draft = saveDraft(fixture, saveUser());
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertThat(draftCount(draft.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴 후 보관기간(window)이 지난 회원의 미제출 초안은 삭제된다")
+    void deletesDraftsOfWithdrawnUser() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        User withdrawnUser = saveUser();
+        ApplicationDraft draft = saveDraft(fixture, withdrawnUser);
+        softDeleteDaysAgo("users", withdrawnUser.getId(), 400);
+
+        job.run();
+
+        assertThat(draftCount(draft.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("최근 마감한 모집·활성 회원의 미제출 초안은 유지된다")
+    void keepsRecentDrafts() throws Exception {
+        RecruitmentFixture recentlyClosed = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        RecruitmentFixture stillOpen = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        ApplicationDraft recentDraft = saveDraft(recentlyClosed, saveUser());
+        ApplicationDraft openDraft = saveDraft(stillOpen, saveUser());
+        closeDaysAgo(recentlyClosed.id(), 30);
+
+        job.run();
+
+        assertThat(draftCount(recentDraft.getId())).isEqualTo(1);
+        assertThat(draftCount(openDraft.getId())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("초안 삭제는 같은 회원·모집의 제출된 지원서 행을 건드리지 않는다")
+    void draftDeletionLeavesSubmittedApplicationRow() throws Exception {
+        RecruitmentFixture fixture = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        User applicant = saveUser();
+        Application application = saveApplication(fixture, applicant);
+        ApplicationDraft draft = saveDraft(fixture, applicant);
+        closeDaysAgo(fixture.id(), 210);
+
+        job.run();
+
+        assertThat(draftCount(draft.getId())).isZero();
+        assertThat(applicationCount(application.getId())).isEqualTo(1);
+        assertPurged(application, fixture);
+    }
+
     private String userName(Long id) {
         return jdbcTemplate.queryForObject("SELECT name FROM users WHERE id = ?", String.class, id);
     }
@@ -503,6 +562,20 @@ class PiiRetentionJobTest extends IntegrationTestBase {
                 new ApplicationAnswer(fixture.text().id(), List.of(TEXT_ANSWER)),
                 new ApplicationAnswer(fixture.single().id(), List.of(fixture.singleChoiceId())),
                 new ApplicationAnswer(fixture.multi().id(), fixture.multiChoiceIds()))));
+    }
+
+    /** 제출 전 임시 저장 초안 — 자유서술 칸에 개인정보가 그대로 남는다. */
+    private ApplicationDraft saveDraft(RecruitmentFixture fixture, User user) {
+        return applicationDraftRepository.save(ApplicationDraft.create(user.getId(), fixture.id(), List.of(
+                new ApplicationDraft.DraftAnswer(fixture.text().id(), List.of("초안 " + TEXT_ANSWER)))));
+    }
+
+    private int draftCount(Long draftId) {
+        return jdbcTemplate.queryForObject("SELECT count(*) FROM application_draft WHERE id = ?", Integer.class, draftId);
+    }
+
+    private int applicationCount(Long applicationId) {
+        return jdbcTemplate.queryForObject("SELECT count(*) FROM application WHERE id = ?", Integer.class, applicationId);
     }
 
     /** 수동 마감: status=CLOSED + closed_at = N일 전 (seoul 벽시계 컬럼이지만 마진이 커서 DB NOW() 로 충분). */

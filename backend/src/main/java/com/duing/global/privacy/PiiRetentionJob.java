@@ -1,6 +1,7 @@
 package com.duing.global.privacy;
 
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.draft.repository.ApplicationDraftRepository;
 import com.duing.domain.user.repository.PhoneVerificationEventRepository;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
 import com.duing.domain.user.repository.UserRepository;
@@ -50,6 +51,7 @@ public class PiiRetentionJob {
     private final ApplicationRepository applicationRepository;
     private final PhoneVerificationRepository phoneVerificationRepository;
     private final PhoneVerificationEventRepository phoneVerificationEventRepository;
+    private final ApplicationDraftRepository applicationDraftRepository;
 
     @Scheduled(cron = "0 30 4 * * *", zone = "Asia/Seoul")
     @Transactional
@@ -77,13 +79,14 @@ public class PiiRetentionJob {
         int scrubbedApplications = applicationRepository.scrubExpiredApplicationAnswers(withdrawnCutoff);
         int purgedApplicationAnswers = applicationRepository.purgeExpiredTextAnswers(
                 closedCutoffDate, withdrawnCutoff, ANSWER_PURGED_PLACEHOLDER);
+        int deletedApplicationDrafts = applicationDraftRepository.deleteExpired(closedCutoffDate, withdrawnCutoff);
         int deletedPhoneVerifications = phoneVerificationRepository.deleteExpiredVerifications(phoneVerificationCutoff);
         int deletedPhoneVerificationEvents = phoneVerificationEventRepository.deleteExpiredEvents(withdrawnCutoff);
         // 건수와 cutoff 만 남긴다 — 답변 내용·사용자 식별자는 로그에 쓰지 않는다(스펙 §3.4).
         log.info("[PII 보관기간 파기] usersAnonymized={}, applicationsScrubbed={}, applicationAnswersPurged={}, "
-                        + "phoneVerificationsDeleted={}, phoneVerificationEventsDeleted={}, "
+                        + "applicationDraftsDeleted={}, phoneVerificationsDeleted={}, phoneVerificationEventsDeleted={}, "
                         + "withdrawnCutoff={}, closedCutoffDate={}",
-                anonymizedUsers, scrubbedApplications, purgedApplicationAnswers,
+                anonymizedUsers, scrubbedApplications, purgedApplicationAnswers, deletedApplicationDrafts,
                 deletedPhoneVerifications, deletedPhoneVerificationEvents, withdrawnCutoff, closedCutoffDate);
     }
 
