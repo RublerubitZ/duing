@@ -219,6 +219,27 @@ public class ClubAuditEvent extends BaseEntity {
                 .build();
     }
 
+    /** 총동연 동아리 상태 전이 — detail 에 from/to, REJECTED 로의 전이에만 reason 에 거절 사유가 남는다. */
+    public static ClubAuditEvent clubStatusChanged(Long clubId, Long actorUserId, String reason, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_STATUS_CHANGED)
+                .actorUserId(actorUserId)
+                .reason(reason)
+                .detail(detail)
+                .build();
+    }
+
+    /** 총동연 동아리 폐쇄 — reason 에 정규화된 폐쇄 사유. 폐쇄 트랜잭션 안에서 기록돼 폐쇄가 롤백되면 함께 사라진다. */
+    public static ClubAuditEvent clubClosed(Long clubId, Long actorUserId, String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_CLOSED)
+                .actorUserId(actorUserId)
+                .reason(reason)
+                .build();
+    }
+
     /** 총동연 회비 감사 상세 열람 — 개인정보성 재무 데이터 열람 이력이라 진입마다 한 건씩 남는다. */
     public static ClubAuditEvent feeAdminView(Long clubId, Long actorUserId) {
         return ClubAuditEvent.builder()
