@@ -8,7 +8,17 @@ export const metadata: Metadata = {
   description: '두잉(Duing) 서비스 이용약관 및 개인정보 처리방침.',
 };
 
-const EFFECTIVE_DATE = '2026-09-21';
+// "YYYY-MM-DD" + N일. UTC 자정으로 파싱해 타임존 영향 없음. @duing/hooks 의 addDaysIso 와 같은 본문이지만
+// 서버 컴포넌트가 훅 패키지 루트를 import 하는 전례가 없고, 딥 임포트는 dependency-cruiser 가 막아 여기 둔다.
+function addDaysIso(iso: string, days: number): string {
+  const base = new Date(`${iso}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+// 최종 개정일. 시행일은 개정일 + 7일(개정 고지 유예)로 산출한다 — 이 상수 하나만 바꾸면 헤더·약관 부칙·처리방침 13조가 함께 움직인다.
+const REVISED_DATE = '2026-09-08';
+const EFFECTIVE_DATE = addDaysIso(REVISED_DATE, 7);
 const OPERATOR = '두잉(Duing) 운영팀';
 const CONTACT_EMAIL = 'duing.official@gmail.com';
 const PRIVACY_OFFICER = '구승율';
@@ -27,7 +37,7 @@ export default function TermsPage() {
 
       <main className="mx-auto max-w-3xl px-5 pt-page-top pb-10 sm:pb-14">
         <h1 className="text-2xl font-bold text-ink-deep sm:text-3xl">이용약관 · 개인정보 처리방침</h1>
-        <p className="mt-2 text-[13px] text-charcoal-3">시행일 · 최종 개정일: {EFFECTIVE_DATE}</p>
+        <p className="mt-2 text-[13px] text-charcoal-3">최종 개정일: {REVISED_DATE} · 시행일: {EFFECTIVE_DATE}</p>
 
         <div className="mt-5 rounded-lg border border-warm/40 bg-warm/10 px-4 py-3 text-[13px] leading-relaxed text-charcoal-2">
           두잉은 <strong className="font-semibold text-ink">대구대학교 학생들이 운영하는 서비스</strong>입니다.
