@@ -41,8 +41,8 @@
 
 | 타입 | 기록 지점 | `reason` | `detail` |
 |---|---|---|---|
-| `CLUB_STATUS_CHANGED` | `GeneralClubService.updateStatus` — `changeStatus` 검증 통과 직후, Slack 이벤트 발행 앞 | REJECTED 전이면 거절 사유, 아니면 null | `{"from":"PENDING_APPROVAL","to":"ACTIVE"}` |
-| `CLUB_CLOSED` | `GeneralClubClosureService.close` — `validateClosable()` 통과 직후(1단계 앞). `flush(); clear();` 전이라 영속성 컨텍스트가 살아 있고, soft-delete 여도 `club` 행은 남아 FK 가 성립한다 | 폐쇄 사유(정규화된 값) | null |
+| `CLUB_STATUS_CHANGED` | `GeneralClubService.updateStatus` — `changeStatus` 검증 통과 직후, Slack 이벤트 발행 앞 | **`to == REJECTED` 인 전이에서만** 거절 사유(`updateClubStatusCommand.rejectionReason`). 그 외 전이는 null | `{"from":"PENDING_APPROVAL","to":"ACTIVE"}` |
+| `CLUB_CLOSED` | `GeneralClubClosureService.close` — `validateClosable()` 통과 직후, 1단계(멤버십 정리) 앞. **폐쇄와 같은 트랜잭션**이라 이후 연쇄 정리·soft-delete 중 어느 단계가 실패해도 감사 이벤트는 함께 롤백된다(폐쇄 없는 CLUB_CLOSED 행은 생기지 않는다). `flush(); clear();` 전이라 영속성 컨텍스트가 살아 있고, soft-delete 여도 `club` 행은 남아 FK 가 성립한다 | 폐쇄 사유(정규화된 값) | null |
 
 - 팩토리 `ClubAuditEvent.clubStatusChanged(clubId, actorUserId, reason, detail)`, `ClubAuditEvent.clubClosed(clubId, actorUserId, reason)` 추가(기존 `securedTargetChanged` 와 같은 모양).
 - 마이그레이션 **V127**: `club_audit_event_event_type_check` DROP/ADD 로 V116 목록 + `CLUB_STATUS_CHANGED`, `CLUB_CLOSED`. 데이터 변경 없음, 롤백 = 제약만 되돌림.
@@ -70,12 +70,12 @@
 
 | 파라미터 | 의미 |
 |---|---|
-| `types`(선택, 복수) | `ClubAuditEventType` 목록. **허용 집합과 교집합**만 조회한다. 비어 있거나 전부 허용 밖이면 허용 집합 전체 |
+| `types`(선택, 복수) | `ClubAuditEventType` 목록. **미지정 → 허용 5종 전체. 지정 → 허용 집합과 교집합만. 전부 허용 밖 → 빈 결과.** enum 에 없는 문자열은 Spring 변환 실패로 기존 400 |
 | `page`, `size` | 최신순 고정, 기본 20 |
 
 - 기간(`from/to`) 파라미터는 **두지 않는다**. 화면에 기간 UI 가 없고(2.4), 회비 콘솔의 `AdminFeePeriod` 를 재사용하면 `clubaudit → fee` 역의존이 생긴다. 후속에서 필요하면 `TimeMapper.seoulToSystemWallClock(from.atStartOfDay())` 환산을 clubaudit 안에 두고 붙인다. 리포지토리 호출은 `createdFrom/createdTo` 에 null 을 넘긴다(기존 술어가 null 을 무조건으로 처리).
 - **허용 집합** `ACTIVITY_EVENT_TYPES = {CLUB_STATUS_CHANGED, CLUB_CLOSED, JOIN_LINK_CREATED, JOIN_LINK_REGENERATED, JOIN_LINK_REVOKED}`. 회비·가입 요청·열람 타입을 `types` 에 넣어도 무시된다(회비는 회비 콘솔, 가입 요청은 요구 5).
-- `types` 가 전부 허용 밖일 때 **허용 집합 전체**를 돌려주는 것은 회비 선례(`feeTypesOf`: 빈 페이지)와 **의도적으로 다르다** — 이 화면의 칩은 고정값이라 "허용 밖" 은 URL 을 직접 찌른 경우뿐이고, 그때 빈 화면보다 전체 로그가 유용하다.
+- `types` 가 지정됐는데 교집합이 비면 **빈 결과**를 돌려준다(회비 선례 `feeTypesOf` 와 같은 규칙 — 리포지토리가 빈 타입 집합에 `Page.empty` 를 반환하므로 그대로 흐른다). "미지정" 과 "전부 허용 밖" 을 구분하는 것이 핵심이다.
 - 동아리 존재 검사는 하지 않는다 — 폐쇄(soft-delete)된 동아리도 이력은 남아야 읽힌다. 없는 id 는 빈 페이지.
 - 리포지토리: `searchFeeEvents` 를 `searchEvents` 로 **개명**. 영향 범위: 인터페이스·구현·호출자 3곳(`GeneralAdminFeeAuditQueryService` 1, `GeneralAdminFeeAnomalyService` 2)·관련 테스트. 술어·동아리 격리 가드는 그대로. 이유: 비회비 호출자가 생기는 순간 이름이 거짓말이 된다.
 - 응답 `AdminClubActivityEventResponse`: `eventId, eventType, actorUserId, actorName(탈퇴자 null), createdAt(Instant), reason, recruitmentId, joinCodeId, detail(@JsonRawValue)`. 행위자 이름 조인은 회비 콘솔과 같은 방식(`UserRepository.findAllById` 일괄).
@@ -127,16 +127,16 @@
 
 - 감사 기록은 변이와 같은 트랜잭션 — CHECK 누락 시 변이째 실패한다. 2.1 의 전 타입 정합 테스트가 이를 막는다.
 - Slack 발행은 AFTER_COMMIT 이라 롤백된 발급은 알림이 가지 않는다(기존 규약).
-- `types` 에 허용 밖 값이 와도 400 이 아니라 무시한다 — 관리자 화면이 보내는 값은 고정이고, 개발자가 URL 로 찌를 때 회비 타입이 새어 나오지 않게 하는 것이 목적이다. enum 에 없는 문자열은 Spring 변환 실패로 기존 400 처리를 따른다.
+- `types` 에 허용 밖 enum 값이 와도 400 이 아니라 교집합에서 걸러진다 — 회비 타입이 이 API 로 새어 나오지 않게 하는 것이 목적이고, 전부 걸러지면 빈 결과다. enum 에 없는 문자열은 Spring 변환 실패로 기존 400 처리를 따른다.
 
 ## 5. 테스트
 
 **BE**
 - `ClubAuditEventTypesCheckTest`(기존 `ClubAuditEventFeeTypesTest` 를 전 타입으로 확장·개명): `ClubAuditEventType.values()` 전부 `feeAccount` 팩토리로 INSERT 성공, 건수 = `values().length`.
-- `GeneralClubService.updateStatus` 통합: PENDING_APPROVAL→REJECTED(사유 있음) 뒤 REJECTED→PENDING_APPROVAL(전이표상 유일한 복귀 경로) 하면 행 2건, 첫 행 `reason` 보존(엔티티의 `rejectionReason` 은 null 로 지워져도)·detail from/to 정확.
+- `GeneralClubService.updateStatus` 통합: PENDING_APPROVAL→REJECTED(사유 있음) 뒤 REJECTED→PENDING_APPROVAL(전이표상 유일한 복귀 경로) 하면 행 2건, 첫 행 `reason` 보존(엔티티의 `rejectionReason` 은 null 로 지워져도)·둘째 행 `reason` null·detail from/to 정확.
 - `GeneralClubClosureService.close` 통합: 폐쇄 뒤 `CLUB_CLOSED` 1건, `reason` = 정규화된 폐쇄 사유, `club_id` = 폐쇄된 동아리 id.
 - `GeneralJoinCodeService.createClubInvite`: detail JSON 키 4종·값, 재생성 시 REVOKED(detail null) + REGENERATED(detail 있음) 2건. autoApprove true 면 `ClubInviteAutoApproveIssuedEvent` 1회 발행, false 면 0회(`ApplicationEvents` 또는 기존 Slack 통합 테스트 방식).
-- `AdminClubActivityController` 슬라이스/통합: STUDENT 403, ADMIN 200, `types=FEE_POLICY_CREATED` 만 주면 허용 5종 전체 반환(회비 행 미포함), 최신순, `actorName` 조인, 폐쇄 동아리 id 로도 200.
+- `AdminClubActivityController` 슬라이스/통합: STUDENT 403, ADMIN 200, `types` 미지정 → 허용 5종 전체(회비 행 미포함), `types=CLUB_CLOSED,FEE_POLICY_CREATED` → CLUB_CLOSED 만, `types=FEE_POLICY_CREATED` 만 → 빈 페이지, 최신순, `actorName` 조인, 폐쇄 동아리 id 로도 200.
 - `OpsSlackMessageFormatterTest`: 자동승인 초대 메시지 필드·코드 미포함·만료 KST 분 단위, `feeAccountCreated`/`facilityBooking*` 에 동아리명 줄 추가 및 null 이면 생략. 기존 8건 중 시그니처가 바뀐 호출 갱신.
 - `OpsSlackListenerTest`: 생성자 갱신. 동아리명 조회가 예외를 던져도 전송 시도가 예외를 전파하지 않는다.
 - 회비 콘솔·이상징후 기존 테스트: `searchEvents` 개명 반영만.
