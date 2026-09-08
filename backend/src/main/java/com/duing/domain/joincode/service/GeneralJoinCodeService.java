@@ -6,8 +6,10 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.entity.JoinCodeLinkType;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
@@ -19,10 +21,12 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -185,7 +189,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
         recordJoinLinkEvent(replacedCode.isPresent()
                         ? ClubAuditEventType.JOIN_LINK_REGENERATED
                         : ClubAuditEventType.JOIN_LINK_CREATED,
-                createCommand.clubId(), null, issued.getId(), createCommand.requesterId());
+                createCommand.clubId(), null, issued.getId(), createCommand.requesterId(),
+                AuditDetailJson.of(clubInviteDetail(issued)));
         // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
         return JoinCodeQuery.from(issued, 0, 0);
     }
@@ -282,8 +287,25 @@ public class GeneralJoinCodeService implements JoinCodeService {
      */
     private void recordJoinLinkEvent(ClubAuditEventType eventType, Long clubId, Long recruitmentId,
                                      Long joinCodeId, Long actorUserId) {
+        recordJoinLinkEvent(eventType, clubId, recruitmentId, joinCodeId, actorUserId, null);
+    }
+
+    private void recordJoinLinkEvent(ClubAuditEventType eventType, Long clubId, Long recruitmentId,
+                                     Long joinCodeId, Long actorUserId, String detail) {
         clubAuditEventRepository.save(ClubAuditEvent.joinLink(
-                eventType, clubId, recruitmentId, joinCodeId, actorUserId));
+                eventType, clubId, recruitmentId, joinCodeId, actorUserId, detail));
+    }
+
+    /**
+     * 초대 발급 스냅샷(활동 이력 스펙 §2.2). 코드 값은 가입 자격 그 자체라 절대 싣지 않는다.
+     * 만료는 seoulClock 벽시계라 응답 경계(JoinCodeResponse)와 같은 KST 환산으로 절대시각을 남긴다.
+     */
+    private static Map<String, Object> clubInviteDetail(ClubJoinCode issued) {
+        return Map.of(
+                "linkType", JoinCodeLinkType.CLUB_INVITE.name(),
+                "autoApprove", issued.isAutoApprove(),
+                "maxUses", issued.getMaxUses(),
+                "expiresAt", TimeMapper.seoulWallClockToInstant(issued.getInviteExpiresAt()).toString());
     }
 
     /**

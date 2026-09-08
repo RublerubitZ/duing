@@ -98,12 +98,19 @@ public class ClubAuditEvent extends BaseEntity {
     /** 가입 링크 생성·재생성·폐기 이벤트. */
     public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
                                           Long recruitmentId, Long joinCodeId, Long actorUserId) {
+        return joinLink(eventType, clubId, recruitmentId, joinCodeId, actorUserId, null);
+    }
+
+    /** 가입 링크 이벤트 + 발급 스냅샷 — 부원 초대 발급이 자동승인·정원·만료를 detail 에 남긴다(코드 값 금지). */
+    public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
+                                          Long recruitmentId, Long joinCodeId, Long actorUserId, String detail) {
         return ClubAuditEvent.builder()
                 .clubId(clubId)
                 .eventType(eventType)
                 .actorUserId(actorUserId)
                 .recruitmentId(recruitmentId)
                 .joinCodeId(joinCodeId)
+                .detail(detail)
                 .build();
     }
 
