@@ -196,6 +196,7 @@ export {
   useAssignAdminLeaderMutation,
   useAdminClubMemberHistoryQuery,
 } from './leaderSuccession';
+export { useAdminClubActivityEventsQuery } from './adminClubActivity';
 export {
   useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
