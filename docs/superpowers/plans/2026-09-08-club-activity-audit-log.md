@@ -448,6 +448,8 @@ import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.time.TimeMapper;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -497,9 +499,10 @@ class ClubInviteAuditDetailTest extends IntegrationTestBase {
         assertThat(created.get("link_type")).isEqualTo("CLUB_INVITE");
         assertThat(created.get("auto_approve")).isEqualTo("true");
         assertThat(created.get("max_uses")).isEqualTo("30");
-        assertThat(created.get("expires_at"))
+        // detail 은 메모리 값(나노초 가능)으로 만들고 DB 컬럼(timestamp)은 마이크로초로 절단되므로 같은 해상도로 맞춰 비교한다.
+        assertThat(Instant.parse((String) created.get("expires_at")).truncatedTo(ChronoUnit.MICROS))
                 .as("만료는 seoulClock 벽시계라 KST 환산이어야 한다")
-                .isEqualTo(TimeMapper.seoulWallClockToInstant(storedFirst.getInviteExpiresAt()).toString());
+                .isEqualTo(TimeMapper.seoulWallClockToInstant(storedFirst.getInviteExpiresAt()));
         assertThat((String) created.get("detail_text"))
                 .doesNotContain(firstInvite.code(), secondInvite.code());
 
@@ -629,7 +632,7 @@ git commit -m "feat(backend): 부원 초대 발급 감사 — detail 에 자동�
         assertThat(message).contains("⚠️ 자동승인 부원 초대 링크 발급", "이벤트: CLUB_INVITE_AUTO_APPROVE_ISSUED",
                 "동아리: 두잉개발회", "ClubId: 7", "JoinCodeId: 55", "정원: 30",
                 "만료: 2026-09-11 14:00 KST", "발급자 UserId: 3");
-        assertThat(message).doesNotContain("코드", "code");
+        // 이벤트 record 에 코드 값 필드가 없어 포매터가 실을 수 없다 — 실제 코드 미포함은 E2E(Step 5)가 발급된 코드로 검증한다.
     }
 ```
 
@@ -788,7 +791,21 @@ git commit -m "feat(backend): 운영 Slack — 자동승인 부원 초대 발급
 
         String rejected = formatter.facilityBookingRejected(
                 new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"), "두잉개발회");
-        // (이하 cancelled·conflict 도 같은 방식으로 둘째 인자 "두잉개발회" 추가, 기존 단정 유지)
+        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "동아리: 두잉개발회",
+                        "BookingId: 90", "ClubId: 7")
+                .doesNotContain("홍길동", "서류 미비");
+
+        String cancelled = formatter.facilityBookingCancelled(
+                new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"), "두잉개발회");
+        assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED",
+                        "동아리: 두잉개발회", "BookingId: 90")
+                .doesNotContain("홍길동", "010-1234-5678");
+
+        String conflict = formatter.facilityBookingConflict(
+                new FacilityBookingConflictEvent(90L, 7L, 401L, "타 동아리 김철수 중복"), "두잉개발회");
+        assertThat(conflict).contains("⚠️ 시설 예약 충돌", "이벤트: FACILITY_BOOKING_CONFLICT",
+                        "동아리: 두잉개발회", "BookingId: 90")
+                .doesNotContain("김철수");
 ```
 
 - [ ] **Step 2: 리스너 테스트 갱신(실패)**
@@ -1462,7 +1479,7 @@ describe('관리자 동아리 활동 이력 API 클라이언트', () => {
         return HttpResponse.json({
           ok: true,
           message: null,
-          data: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true },
+          data: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, hasNext: false },
         });
       }),
     );
@@ -1628,8 +1645,7 @@ const server = setupServer(
         size: 20,
         totalElements: 1,
         totalPages: 1,
-        first: true,
-        last: true,
+        hasNext: false,
       },
     });
   }),
@@ -1878,6 +1894,8 @@ export function activityActorLabel(event: AdminClubActivityEvent): string {
 
 Run: `pnpm --filter @duing/web test -- --run club-activity-labels && pnpm --filter @duing/web typecheck && pnpm --filter @duing/web lint`
 Expected: PASS. `switch` 가 모든 union 을 다뤄 반환 누락 경고가 없어야 한다(누락 경고가 나면 `default` 없이 union 이 5종인지 타입을 확인).
+typecheck 가 `.next/types/routes.d.ts` 부재로 실패하면(typedRoutes, 새 워크트리) 먼저 한 번 빌드한다 — CI 와 같은 더미 env:
+`NEXT_PUBLIC_API_BASE_URL=https://api.ci.invalid/api/v1 AUTH_HINT_SECRET=ci-only-auth-hint-secret-at-least-32-bytes pnpm --filter @duing/web build`
 
 - [ ] **Step 4: Commit**
 
@@ -2109,8 +2127,10 @@ export default async function Page({ params }: Props) {
             </div>
 ```
 
-- [ ] **Step 4: GREEN 3종**
+- [ ] **Step 4: 빌드(라우트 타입 생성) + GREEN 3종**
 
+새 라우트 `activity-log` 의 `href` 타입은 빌드가 만든다(typedRoutes, CI 도 build → typecheck 순). 먼저 빌드:
+`NEXT_PUBLIC_API_BASE_URL=https://api.ci.invalid/api/v1 AUTH_HINT_SECRET=ci-only-auth-hint-secret-at-least-32-bytes pnpm --filter @duing/web build`
 Run (frontend/): `pnpm --filter @duing/web typecheck && pnpm --filter @duing/web lint && pnpm --filter @duing/web test -- --run`
 Expected: 전부 PASS
 
