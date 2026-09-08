@@ -26,6 +26,7 @@ import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -162,7 +163,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
         clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
         Club club = clubRepository.findById(createCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);   // requireManager 통과라 사실상 도달 불가
-        LocalDateTime now = LocalDateTime.now(clock);
+        // DB timestamp 는 마이크로초로 반올림하므로 여기서 절단해 저장값·감사 detail·Slack 이벤트가 같은 만료 시각을 갖게 한다.
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
         // 잠금 조회가 낡은 인스턴스를 돌려주고(findWithLockByCode 와 같은 함정), 그 사이 커밋된
         // 수동 폐기를 보지 못한 채 최초 폐기 시각·폐기자를 덮어쓴다. 활성 술어를 잠금 조회에

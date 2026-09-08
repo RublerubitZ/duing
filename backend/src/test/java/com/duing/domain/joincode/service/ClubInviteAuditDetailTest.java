@@ -18,7 +18,6 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -68,8 +67,8 @@ class ClubInviteAuditDetailTest extends IntegrationTestBase {
         assertThat(created.get("link_type")).isEqualTo("CLUB_INVITE");
         assertThat(created.get("auto_approve")).isEqualTo("true");
         assertThat(created.get("max_uses")).isEqualTo("30");
-        // detail 은 메모리 값(나노초 가능)으로 만들고 DB 컬럼(timestamp)은 마이크로초로 절단되므로 같은 해상도로 맞춰 비교한다.
-        assertThat(Instant.parse((String) created.get("expires_at")).truncatedTo(ChronoUnit.MICROS))
+        // 서비스가 now 를 마이크로초로 절단하므로 detail 의 만료와 DB 재조회 값은 자리수까지 같다.
+        assertThat(Instant.parse((String) created.get("expires_at")))
                 .as("만료는 seoulClock 벽시계라 KST 환산이어야 한다")
                 .isEqualTo(TimeMapper.seoulWallClockToInstant(storedFirst.getInviteExpiresAt()));
         assertThat((String) created.get("detail_text"))
