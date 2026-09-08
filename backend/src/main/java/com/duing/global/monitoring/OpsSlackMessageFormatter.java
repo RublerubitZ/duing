@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 /**
  * 운영 이벤트 → Slack 평문 메시지. <b>이벤트 record 의 명시 필드만</b> 줄로 조립한다 — 요청 바디·헤더·
  * 자유 텍스트(사유·상세)는 어떤 메서드도 읽지 않는다. 골격: 헤더 / 서비스 / 이벤트 / 도메인 필드 / 환경 / 시간 (/ 부가줄).
+ * 동아리명은 리스너가 id 로 조회해 넘기는 유일한 외부 값이다(이미 다른 이벤트가 싣는 필드).
  *
  * <p>환경 라벨은 {@code sentry.environment} 를 재사용한다(prod=production, 로컬=local) — 환경 이름의 단일 출처.
  * 시간은 seoulClock(Asia/Seoul) 기준 KST — USER_REGISTERED 만 가입 트랜잭션의 시각(event.registeredAt)이고 나머지는
@@ -88,9 +89,11 @@ public class OpsSlackMessageFormatter {
                         field("발급자 UserId", event.actorUserId())));
     }
 
-    public String feeAccountCreated(FeeAccountCreatedEvent event) {
+    /** 동아리명은 이벤트에 없어 리스너가 조회해 넘긴다 — 폐쇄된 동아리면 null 이고 그 줄은 빠진다. */
+    public String feeAccountCreated(FeeAccountCreatedEvent event, String clubName) {
         return compose("🏦 회비 계좌 등록", "FEE_ACCOUNT_CREATED",
-                Arrays.asList(field("ClubId", event.clubId()), field("계좌Id", event.feeAccountId()),
+                Arrays.asList(field("동아리", clubName), field("ClubId", event.clubId()),
+                        field("계좌Id", event.feeAccountId()),
                         field("은행", event.bank() == null ? null : event.bank().name()),
                         field("등록자 UserId", event.actorUserId())));
     }
@@ -108,27 +111,31 @@ public class OpsSlackMessageFormatter {
                         field("마감", event.endDate() == null ? "상시" : event.endDate().toString())));
     }
 
-    public String facilityBookingSubmitted(FacilityBookingSubmittedEvent event) {
+    public String facilityBookingSubmitted(FacilityBookingSubmittedEvent event, String clubName) {
         return compose("🏟️ 시설 예약 신청", "FACILITY_BOOKING_SUBMITTED",
-                Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
+                Arrays.asList(field("동아리", clubName), field("BookingId", event.bookingId()),
+                        field("ClubId", event.clubId())));
     }
 
     /** reason(자유 텍스트)은 읽지 않는다. */
-    public String facilityBookingRejected(FacilityBookingRejectedEvent event) {
+    public String facilityBookingRejected(FacilityBookingRejectedEvent event, String clubName) {
         return compose("🏟️ 시설 예약 거절", "FACILITY_BOOKING_REJECTED",
-                Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
+                Arrays.asList(field("동아리", clubName), field("BookingId", event.bookingId()),
+                        field("ClubId", event.clubId())));
     }
 
     /** 관리자 취소만 이벤트가 있다(동아리 측 취소는 이벤트 미발행). reason(자유 텍스트)은 읽지 않는다. */
-    public String facilityBookingCancelled(FacilityBookingCancelledEvent event) {
+    public String facilityBookingCancelled(FacilityBookingCancelledEvent event, String clubName) {
         return compose("🏟️ 시설 예약 취소(관리자)", "FACILITY_BOOKING_CANCELLED",
-                Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
+                Arrays.asList(field("동아리", clubName), field("BookingId", event.bookingId()),
+                        field("ClubId", event.clubId())));
     }
 
     /** detail(자유 텍스트)은 읽지 않는다. */
-    public String facilityBookingConflict(FacilityBookingConflictEvent event) {
+    public String facilityBookingConflict(FacilityBookingConflictEvent event, String clubName) {
         return compose("⚠️ 시설 예약 충돌", "FACILITY_BOOKING_CONFLICT",
-                Arrays.asList(field("BookingId", event.bookingId()), field("ClubId", event.clubId())));
+                Arrays.asList(field("동아리", clubName), field("BookingId", event.bookingId()),
+                        field("ClubId", event.clubId())));
     }
 
     private String compose(String header, String eventType, List<String> domainLines) {

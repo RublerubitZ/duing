@@ -115,12 +115,14 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("회비 계좌 등록 메시지는 은행 코드와 id 만 싣는다")
+    @DisplayName("회비 계좌 등록 메시지는 동아리명·은행 코드·id 만 싣고, 동아리명이 없으면 그 줄을 뺀다")
     void feeAccountCreatedMessage() {
-        String message = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L));
-
-        assertThat(message).contains("🏦 회비 계좌 등록", "이벤트: FEE_ACCOUNT_CREATED",
+        String message = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L), "두잉개발회");
+        assertThat(message).contains("🏦 회비 계좌 등록", "이벤트: FEE_ACCOUNT_CREATED", "동아리: 두잉개발회",
                 "ClubId: 7", "계좌Id: 21", "은행: KB", "등록자 UserId: 5");
+
+        String withoutName = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L), null);
+        assertThat(withoutName).contains("ClubId: 7").doesNotContain("동아리:");
     }
 
     @Test
@@ -138,22 +140,26 @@ class OpsSlackMessageFormatterTest {
     @Test
     @DisplayName("시설 예약 메시지는 BookingId·ClubId 만 싣고 자유 텍스트(취소 사유·충돌 상세)는 절대 싣지 않는다")
     void facilityBookingMessagesExcludeFreeText() {
-        assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L)))
-                .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "BookingId: 90", "ClubId: 7");
+        assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L), "두잉개발회"))
+                .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "동아리: 두잉개발회",
+                        "BookingId: 90", "ClubId: 7");
 
         String rejected = formatter.facilityBookingRejected(
-                new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"));
-        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "BookingId: 90", "ClubId: 7")
+                new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"), "두잉개발회");
+        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "동아리: 두잉개발회",
+                        "BookingId: 90", "ClubId: 7")
                 .doesNotContain("홍길동", "서류 미비");
 
         String cancelled = formatter.facilityBookingCancelled(
-                new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"));
-        assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED", "BookingId: 90")
+                new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"), "두잉개발회");
+        assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED",
+                        "동아리: 두잉개발회", "BookingId: 90")
                 .doesNotContain("홍길동", "010-1234-5678");
 
         String conflict = formatter.facilityBookingConflict(
-                new FacilityBookingConflictEvent(90L, 7L, 401L, "타 동아리 김철수 중복"));
-        assertThat(conflict).contains("⚠️ 시설 예약 충돌", "이벤트: FACILITY_BOOKING_CONFLICT", "BookingId: 90")
+                new FacilityBookingConflictEvent(90L, 7L, 401L, "타 동아리 김철수 중복"), "두잉개발회");
+        assertThat(conflict).contains("⚠️ 시설 예약 충돌", "이벤트: FACILITY_BOOKING_CONFLICT",
+                        "동아리: 두잉개발회", "BookingId: 90")
                 .doesNotContain("김철수");
     }
 
