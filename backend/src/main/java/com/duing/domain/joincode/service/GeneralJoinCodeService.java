@@ -21,6 +21,7 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
     private final ClubAuthService clubAuthService;
     private final JoinCodeGenerator joinCodeGenerator;
     private final Clock clock;
+    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -191,6 +195,12 @@ public class GeneralJoinCodeService implements JoinCodeService {
                         : ClubAuditEventType.JOIN_LINK_CREATED,
                 createCommand.clubId(), null, issued.getId(), createCommand.requesterId(),
                 AuditDetailJson.of(clubInviteDetail(issued)));
+        if (issued.isAutoApprove()) {
+            // 운영 Slack 신호 — 자동승인 초대는 승인 없이 부원이 되는 경로다. 승인제 초대는 보내지 않는다(스펙 §2.5).
+            eventPublisher.publishEvent(new ClubInviteAutoApproveIssuedEvent(
+                    club.getId(), club.getName(), issued.getId(), issued.getMaxUses(),
+                    issued.getInviteExpiresAt(), createCommand.requesterId()));
+        }
         // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
         return JoinCodeQuery.from(issued, 0, 0);
     }

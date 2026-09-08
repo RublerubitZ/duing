@@ -9,6 +9,7 @@ import com.duing.domain.user.service.MoPollThrottle;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
@@ -76,6 +77,15 @@ public class OpsSlackMessageFormatter {
         return compose("⛔ 동아리 폐쇄", "CLUB_CLOSED",
                 Arrays.asList(field("동아리", event.clubName()), field("ClubId", event.clubId()),
                         field("관리자 UserId", event.actorUserId())));
+    }
+
+    /** 초대 코드 값은 가입 자격 그 자체라 싣지 않는다. 만료는 seoulClock 벽시계라 환산 없이 KST 로 찍는다. */
+    public String clubInviteAutoApproveIssued(ClubInviteAutoApproveIssuedEvent event) {
+        return compose("⚠️ 자동승인 부원 초대 링크 발급", "CLUB_INVITE_AUTO_APPROVE_ISSUED",
+                Arrays.asList(field("동아리", event.clubName()), field("ClubId", event.clubId()),
+                        field("JoinCodeId", event.joinCodeId()), field("정원", event.maxUses()),
+                        field("만료", KST_MINUTE.format(event.expiresAtKst()) + " KST"),
+                        field("발급자 UserId", event.actorUserId())));
     }
 
     public String feeAccountCreated(FeeAccountCreatedEvent event) {

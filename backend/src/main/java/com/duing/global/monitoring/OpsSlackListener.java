@@ -8,6 +8,7 @@ import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
@@ -59,6 +60,12 @@ public class OpsSlackListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onClubClosed(ClubClosedEvent event) {
         notify("CLUB_CLOSED", () -> formatter.clubClosed(event));
+    }
+
+    @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onClubInviteAutoApproveIssued(ClubInviteAutoApproveIssuedEvent event) {
+        notify("CLUB_INVITE_AUTO_APPROVE_ISSUED", () -> formatter.clubInviteAutoApproveIssued(event));
     }
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)

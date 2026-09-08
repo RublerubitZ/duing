@@ -14,6 +14,7 @@ import com.duing.domain.user.service.MoPollThrottle;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
@@ -99,6 +100,18 @@ class OpsSlackMessageFormatterTest {
 
         assertThat(formatter.clubClosed(new ClubClosedEvent(7L, "두잉개발회", 3L)))
                 .contains("⛔ 동아리 폐쇄", "이벤트: CLUB_CLOSED", "동아리: 두잉개발회", "ClubId: 7", "관리자 UserId: 3");
+    }
+
+    @Test
+    @DisplayName("자동승인 초대 발급 메시지는 동아리·id·정원·KST 만료·발급자만 싣고 코드 값은 싣지 않는다")
+    void clubInviteAutoApproveIssuedMessage() {
+        String message = formatter.clubInviteAutoApproveIssued(new ClubInviteAutoApproveIssuedEvent(
+                7L, "두잉개발회", 55L, 30, LocalDateTime.of(2026, 9, 11, 14, 0), 3L));
+
+        assertThat(message).contains("⚠️ 자동승인 부원 초대 링크 발급", "이벤트: CLUB_INVITE_AUTO_APPROVE_ISSUED",
+                "동아리: 두잉개발회", "ClubId: 7", "JoinCodeId: 55", "정원: 30",
+                "만료: 2026-09-11 14:00 KST", "발급자 UserId: 3");
+        // 이벤트 record 에 코드 값 필드가 없어 포매터가 실을 수 없다 — 실제 코드 미포함은 E2E(Step 5)가 발급된 코드로 검증한다.
     }
 
     @Test
