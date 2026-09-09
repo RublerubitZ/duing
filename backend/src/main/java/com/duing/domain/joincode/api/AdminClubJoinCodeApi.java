@@ -31,7 +31,8 @@ public interface AdminClubJoinCodeApi {
                     + "status 는 REVOKED > EXHAUSTED > EXPIRED > ACTIVE 우선순위로 서버가 판정한 값이며, "
                     + "joinExpiresAt 은 모집이 진행 중이라 기한이 아직 정해지지 않았으면 비어 있다. "
                     + "createdByName·revokedByName·recruitmentTitle 은 대상이 탈퇴·삭제됐으면 비어 나온다. "
-                    + "미존재·폐쇄된 동아리는 404.")
+                    + "활동 이력과 같이 폐쇄된 동아리의 링크도 조회된다 — 폐쇄 뒤에도 감사 열람은 열려 있어야 한다. "
+                    + "폐쇄가 활성 링크를 함께 폐기하므로 그 링크들은 REVOKED 로 실리며, 없는 동아리는 빈 목록이다.")
     @GetMapping("/admin/clubs/{clubId}/join-codes")
     ResponseEntity<ApiResponse<List<AdminClubJoinCodeResponse>>> getJoinCodes(
             @Parameter(description = "조회 대상 동아리 ID", required = true)

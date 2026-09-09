@@ -1,7 +1,5 @@
 package com.duing.domain.joincode.service;
 
-import com.duing.domain.club.exception.ClubException;
-import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.joincode.entity.AdminJoinCodeStatus;
@@ -38,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralAdminClubJoinCodeService implements AdminClubJoinCodeService {
 
-    private final ClubRepository clubRepository;
     private final ClubJoinCodeRepository clubJoinCodeRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
@@ -47,13 +44,12 @@ public class GeneralAdminClubJoinCodeService implements AdminClubJoinCodeService
     private final Clock clock;
 
     /**
-     * 활동 이력 조회와 달리 동아리 존재를 확인한다 — 이력은 폐쇄된 동아리도 읽혀야 하지만, 이 목록은
-     * 강제 폐기 대상을 고르는 화면이라 대상이 없는데 빈 목록을 돌려주면 "링크가 없다"로 읽힌다.
+     * 활동 이력 조회와 같이 동아리 존재를 확인하지 않는다 — 폐쇄(soft-delete) 뒤에도 그 동아리가 뿌린
+     * 링크의 감사 열람은 열려 있어야 한다. 미존재·폐쇄 동아리는 빈 목록이거나, 폐쇄가 벌크 폐기한
+     * 링크들이 REVOKED 로 실린다.
      */
     @Override
     public List<AdminClubJoinCodeRow> getJoinCodes(Long clubId) {
-        clubRepository.findById(clubId).orElseThrow(ClubException.ClubNotFoundException::new);
-
         List<AdminJoinCodeProjection> joinCodes = clubJoinCodeRepository.findAllForAdminByClubId(clubId);
         if (joinCodes.isEmpty()) {
             return List.of();

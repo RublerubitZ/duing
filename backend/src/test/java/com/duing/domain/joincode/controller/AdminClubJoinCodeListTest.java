@@ -14,6 +14,7 @@ import com.duing.domain.joincode.entity.ClubJoinCode;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
+import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -26,6 +27,7 @@ import io.restassured.path.json.JsonPath;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +60,7 @@ class AdminClubJoinCodeListTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired JoinCodeService joinCodeService;
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** 폐기·만료 시각은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
@@ -217,22 +220,37 @@ class AdminClubJoinCodeListTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("없는 동아리나 폐쇄된 동아리의 가입 링크를 조회하면 404 를 반환한다")
-    void missingClubReturns404() {
+    @DisplayName("없는 동아리는 404 가 아니라 빈 목록이다 — 활동 이력과 같이 존재 검사를 하지 않는다")
+    void missingClubReturnsEmptyList() {
+        assertThat(list(999_999L).getList("data")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("폐쇄(soft-delete)된 동아리의 링크도 조회된다 — 폐쇄가 벌크 폐기한 링크가 REVOKED 로 실린다")
+    void closedClubJoinCodesStayReadable() {
         Club closedClub = clubRepository.save(ClubFixture.academic("폐쇄동아리"));
+        Long closedClubCodeId = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                closedClub, nextCode(), null, 10, LocalDateTime.now(clock).plusHours(24), false,
+                leaderUser.getId())).getId();
+        // 폐쇄 경로가 링크를 끊는 그 호출 — 딸린 모집이 없으므로 부원 초대 링크만 폐기된다.
+        joinCodeService.revokeActiveOnClubClosure(closedClub.getId(), List.of(), adminUser.getId());
         clubRepository.delete(closedClub);
 
-        RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .when().get(JOIN_CODES_PATH, closedClub.getId())
-                .then().statusCode(HttpStatus.NOT_FOUND.value());
-        RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .when().get(JOIN_CODES_PATH, 999_999L)
-                .then().statusCode(HttpStatus.NOT_FOUND.value());
+        JsonPath response = list(closedClub.getId());
+
+        assertThat(response.getList("data.joinCodeId", Long.class)).containsExactly(closedClubCodeId);
+        assertThat(response.getString(path(closedClubCodeId) + ".status"))
+                .as("폐쇄가 활성 링크를 함께 폐기하므로 남은 상태는 REVOKED 다").isEqualTo("REVOKED");
+        assertThat(response.getLong(path(closedClubCodeId) + ".revokedById")).isEqualTo(adminUser.getId());
     }
 
     private JsonPath list() {
+        return list(club.getId());
+    }
+
+    private JsonPath list(Long clubId) {
         return RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
-                .when().get(JOIN_CODES_PATH, club.getId())
+                .when().get(JOIN_CODES_PATH, clubId)
                 .then().statusCode(HttpStatus.OK.value())
                 .extract().jsonPath();
     }
