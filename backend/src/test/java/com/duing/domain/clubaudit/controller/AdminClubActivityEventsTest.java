@@ -12,11 +12,15 @@ import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubaudit.support.AuditDetailJson;
+import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +47,10 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
+    @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    /** 초대 링크 만료 시각은 프로덕션과 같은 seoulClock 으로 만든다(시스템 존으로 찍으면 KST 로 해석돼 −9h). */
+    @Autowired Clock clock;
 
     private String adminToken;
     private String studentToken;
@@ -52,6 +59,8 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
     private Long statusEventId;
     private Long inviteCreatedEventId;
     private Long revokedInviteLinkEventId;
+    private Long forceRevokedEventId;
+    private Long forceRevokedJoinCodeId;
     private Long closedEventId;
 
     @BeforeEach
@@ -78,6 +87,12 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
         revokedInviteLinkEventId = save(ClubAuditEvent.joinLink(ClubAuditEventType.JOIN_LINK_REVOKED, clubId,
                 null, null, withdrawnLeader.getId()));
         userRepository.delete(withdrawnLeader);
+        // 감사 행의 join_code_id 는 실제 링크를 가리키는 FK 라 링크를 먼저 만든다(초대 링크는 모집이 필요 없다).
+        forceRevokedJoinCodeId = clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(
+                club, "TQ%04d".formatted(System.nanoTime() % 10_000), null, 10,
+                LocalDateTime.now(clock).plusHours(24), false, leader.getId())).getId();
+        forceRevokedEventId = save(ClubAuditEvent.adminJoinLinkForceRevoke(
+                clubId, null, forceRevokedJoinCodeId, adminId, "링크 유출 신고"));
         closedEventId = save(ClubAuditEvent.clubClosed(clubId, adminId, "활동 중단 장기화"));
 
         // 허용 밖 종류(회비·가입 요청)와 다른 동아리의 허용 종류 — 어느 것도 응답에 섞이면 안 된다.
@@ -95,13 +110,14 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("types 미지정이면 허용 5종만 최신순으로, 행위자 이름·사유·detail 원문을 붙여 내려주고 탈퇴자는 이름만 비운다")
+    @DisplayName("types 미지정이면 허용 6종만 최신순으로, 행위자 이름·사유·detail 원문을 붙여 내려주고 탈퇴자는 이름만 비운다")
     void listsAllowedTypesLatestFirst() {
         JsonPath response = search();
 
         assertThat(response.getList("data.content.eventId", Long.class))
-                .containsExactly(closedEventId, revokedInviteLinkEventId, inviteCreatedEventId, statusEventId);
-        assertThat(response.getLong("data.totalElements")).isEqualTo(4L);
+                .containsExactly(closedEventId, forceRevokedEventId, revokedInviteLinkEventId,
+                        inviteCreatedEventId, statusEventId);
+        assertThat(response.getLong("data.totalElements")).isEqualTo(5L);
 
         assertThat(response.getString(path(statusEventId) + ".eventType")).isEqualTo("CLUB_STATUS_CHANGED");
         assertThat(response.getString(path(statusEventId) + ".reason")).isEqualTo("서류 미비");
@@ -120,6 +136,23 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
         assertThat(response.getString(path(revokedInviteLinkEventId) + ".detail")).isNull();
 
         assertThat(response.getString(path(closedEventId) + ".reason")).isEqualTo("활동 중단 장기화");
+    }
+
+    @Test
+    @DisplayName("총동연 가입 링크 강제 폐기는 사유와 함께 실리고, 링크 목록의 해당 행을 찾을 joinCodeId 를 함께 내려준다")
+    void forceRevokedJoinLinkCarriesReasonAndJoinCodeId() {
+        JsonPath response = search("types", "JOIN_LINK_FORCE_REVOKED");
+
+        assertThat(response.getList("data.content.eventId", Long.class))
+                .containsExactly(forceRevokedEventId);
+        assertThat(response.getString(path(forceRevokedEventId) + ".eventType"))
+                .isEqualTo("JOIN_LINK_FORCE_REVOKED");
+        assertThat(response.getString(path(forceRevokedEventId) + ".reason")).isEqualTo("링크 유출 신고");
+        assertThat(response.getLong(path(forceRevokedEventId) + ".joinCodeId"))
+                .as("화면이 이 값으로 가입 링크 목록의 해당 행을 찾는다").isEqualTo(forceRevokedJoinCodeId);
+        assertThat(response.getString(path(forceRevokedEventId) + ".recruitmentId"))
+                .as("부원 초대 링크는 귀속 모집이 없다").isNull();
+        assertThat(response.getLong(path(forceRevokedEventId) + ".actorUserId")).isEqualTo(adminId);
     }
 
     @Test
@@ -144,7 +177,7 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
 
         JsonPath response = search();
 
-        assertThat(response.getLong("data.totalElements")).isEqualTo(4L);
+        assertThat(response.getLong("data.totalElements")).isEqualTo(5L);
     }
 
     private JsonPath search(String... queryParams) {

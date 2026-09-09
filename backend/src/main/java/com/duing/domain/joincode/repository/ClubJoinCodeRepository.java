@@ -27,6 +27,32 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     Optional<ClubJoinCode> findByClubIdAndRecruitmentIsNullAndRevokedAtIsNull(Long clubId);
 
     /**
+     * 총동연 가입 링크 목록 — 동아리의 링크 2종을 폐기·만료·소진까지 전부, 최신순으로 읽는다.
+     * created_at 이 같은 마이크로초에 몰려도 순서가 흔들리지 않도록 id 를 보조 키로 둔다.
+     *
+     * <p>귀속 모집을 fetch join 하지 않고 FK 를 스칼라로 함께 뽑는 이유: 코드 행은 soft-delete 하지
+     * 않으므로 삭제된 모집의 링크도 함께 조회되는데, {@code @SQLRestriction} 이 붙는 fetch join 은 죽은
+     * 모집을 매칭하지 못해 연관을 null 로 채운다 — 그러면 모집 링크가 "귀속 모집 없음"(=부원 초대 링크)으로
+     * 둔갑한다. 또 필드 접근 매핑에서는 LAZY 프록시의 {@code getId()} 조차 초기화를 유발해 죽은 모집이면
+     * 그 자리에서 터진다. 조인 별칭을 만들지 않아야 {@code joinCode.recruitment.id} 가 FK 컬럼
+     * (recruitment_id) 그대로 번역된다(findByCode 주석과 같은 규약). 모집 제목은 호출부가 살아 있는
+     * 모집만 한 번에 모아 해석한다.
+     */
+    @Query("SELECT joinCode AS joinCode, joinCode.recruitment.id AS recruitmentId "
+            + "FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.club.id = :clubId "
+            + "ORDER BY joinCode.createdAt DESC, joinCode.id DESC")
+    List<AdminJoinCodeProjection> findAllForAdminByClubId(@Param("clubId") Long clubId);
+
+    /** 링크 행 + 귀속 모집 FK — 모집이 삭제돼도 FK 는 남으므로 링크 형태 판정이 흔들리지 않는다. */
+    interface AdminJoinCodeProjection {
+
+        ClubJoinCode getJoinCode();
+
+        Long getRecruitmentId();
+    }
+
+    /**
      * 귀속 모집이 삭제될 때 그 모집의 활성 코드를 폐기한다 (스펙 v2 4.2).
      *
      * <p>엔티티 로딩 대신 벌크 UPDATE 를 쓰는 이유: 코드 엔티티를 영속성 컨텍스트에 올려 두면
@@ -154,6 +180,21 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT joinCode FROM ClubJoinCode joinCode WHERE joinCode.id = :joinCodeId")
     Optional<ClubJoinCode> findWithLockById(@Param("joinCodeId") Long joinCodeId);
+
+    /**
+     * 총동연 강제 폐기가 대상 링크를 잠그고 읽는다 — 소속 대조를 조회 술어에 실어, 타 동아리 링크와
+     * 없는 링크가 똑같이 빈 결과가 된다(존재 여부를 알리지 않는 404 로 수렴).
+     *
+     * <p>소속을 {@code joinCode.getClub().getId()} 로 비교하지 않는 이유: 필드 접근 매핑에서는 LAZY
+     * 프록시의 id 접근조차 초기화를 유발하는데, 폐쇄된 동아리의 링크는 폐기된 채 그대로 남아 있어
+     * ({@code revokeActiveClubInviteByClubId}) 그 초기화가 EntityNotFoundException 으로 터진다(#869 계열).
+     * 조인 별칭 없이 FK 컬럼(club_id)으로 비교하면 잠금 조회에 조인이 섞이지도 않는다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT joinCode FROM ClubJoinCode joinCode "
+            + "WHERE joinCode.id = :joinCodeId AND joinCode.club.id = :clubId")
+    Optional<ClubJoinCode> findWithLockByIdAndClubId(@Param("joinCodeId") Long joinCodeId,
+                                                     @Param("clubId") Long clubId);
 
     /**
      * 모집 가입 링크 재생성이 교체 대상(활성 코드)을 잠그고 읽는다 — 발급과 수동 폐기가 같은

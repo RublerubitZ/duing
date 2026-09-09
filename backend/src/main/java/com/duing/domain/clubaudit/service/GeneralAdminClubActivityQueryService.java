@@ -32,7 +32,8 @@ public class GeneralAdminClubActivityQueryService implements AdminClubActivityQu
             ClubAuditEventType.CLUB_CLOSED,
             ClubAuditEventType.JOIN_LINK_CREATED,
             ClubAuditEventType.JOIN_LINK_REGENERATED,
-            ClubAuditEventType.JOIN_LINK_REVOKED);
+            ClubAuditEventType.JOIN_LINK_REVOKED,
+            ClubAuditEventType.JOIN_LINK_FORCE_REVOKED);
 
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final UserRepository userRepository;
@@ -48,7 +49,7 @@ public class GeneralAdminClubActivityQueryService implements AdminClubActivityQu
     }
 
     /**
-     * 미지정 → 허용 5종 전체, 지정 → 허용 집합과 교집합. 전부 허용 밖이면 빈 목록이 되고
+     * 미지정 → 허용 6종 전체, 지정 → 허용 집합과 교집합. 전부 허용 밖이면 빈 목록이 되고
      * 리포지토리가 빈 페이지를 돌려준다 — "미지정" 과 "전부 허용 밖" 을 구분하는 것이 핵심이다.
      */
     private static Collection<ClubAuditEventType> activityTypesOf(List<ClubAuditEventType> requestedTypes) {
