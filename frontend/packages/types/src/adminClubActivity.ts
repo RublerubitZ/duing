@@ -1,6 +1,6 @@
 /**
  * 관리자 동아리 활동 이력(AdminClubActivityEventResponse 미러).
- * 서버 허용 5종만 실린다 — 회비·가입 요청 종류는 이 API 로 오지 않는다.
+ * 서버 허용 6종만 실린다 — 회비·가입 요청 종류는 이 API 로 오지 않는다.
  */
 export const ADMIN_CLUB_ACTIVITY_EVENT_TYPES = [
   'CLUB_STATUS_CHANGED',
@@ -8,6 +8,7 @@ export const ADMIN_CLUB_ACTIVITY_EVENT_TYPES = [
   'JOIN_LINK_CREATED',
   'JOIN_LINK_REGENERATED',
   'JOIN_LINK_REVOKED',
+  'JOIN_LINK_FORCE_REVOKED',
 ] as const;
 
 export type AdminClubActivityEventType = (typeof ADMIN_CLUB_ACTIVITY_EVENT_TYPES)[number];
@@ -31,7 +32,7 @@ export type AdminClubActivityEvent = {
 };
 
 export type AdminClubActivityEventsParams = {
-  /** 복수 지정 가능. 생략하면 허용 5종 전체. */
+  /** 복수 지정 가능. 생략하면 허용 6종 전체. */
   types?: AdminClubActivityEventType[];
   page?: number;
   size?: number;

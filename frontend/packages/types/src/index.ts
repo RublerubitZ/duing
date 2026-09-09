@@ -23,6 +23,7 @@ export * from './dashboard';
 export * from './fee';
 export * from './adminFee';
 export * from './adminClubActivity';
+export * from './adminClubJoinCode';
 export * from './bank';
 export * from './cashbook';
 export * from './publicActivity';

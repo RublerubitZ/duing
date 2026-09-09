@@ -158,6 +158,8 @@ export {
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useAdminUpdateClubMutation,
+  useAdminClubJoinCodesQuery,
+  useForceRevokeAdminClubJoinCodeMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {

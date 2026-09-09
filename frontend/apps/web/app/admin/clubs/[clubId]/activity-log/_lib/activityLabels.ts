@@ -31,6 +31,8 @@ export function activityEventLabel(event: AdminClubActivityEvent): string {
       return `${linkKindLabel(event)} 재발급`;
     case 'JOIN_LINK_REVOKED':
       return `${linkKindLabel(event)} 폐기`;
+    case 'JOIN_LINK_FORCE_REVOKED':
+      return `${linkKindLabel(event)} 강제 폐기`;
   }
 }
 
