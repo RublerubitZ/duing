@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import QRCode from 'react-qr-code';
 import {
   formatDateTimeKst,
@@ -14,6 +14,7 @@ import type { CreateClubInviteCodePayload, JoinCodeSummary } from '@duing/types'
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { CopyButton } from '@/app/_components/CopyButton';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import {
   Dialog,
@@ -35,6 +36,14 @@ type ClubInviteDialogProps = {
   clubId: number;
   /** 기수를 쓰지 않는 동아리에는 기수 입력을 감춘다 — 링크에 붙는 기수 스냅샷도 의미가 없다. */
   useGeneration: boolean;
+};
+
+/**
+ * 발급·재생성 중 닫힘 가드 — 닫히면 구 링크 폐기 사실을 운영진이 못 본다(#920).
+ * 폐기는 ConfirmDialog 의 isPending 이 막는다.
+ */
+type ClubInvitePanelProps = ClubInviteDialogProps & {
+  onBusyChange: (busy: boolean) => void;
 };
 
 // 유효기간 프리셋 2택 (스펙 §3) — 직접 입력은 없고, 프리셋 밖 값은 BE 400 이다.
@@ -72,6 +81,7 @@ function isExhausted(joinCode: JoinCodeSummary): boolean {
 
 export function ClubInviteDialog({ clubId, useGeneration }: ClubInviteDialogProps) {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   return (
     <>
@@ -83,8 +93,15 @@ export function ClubInviteDialog({ clubId, useGeneration }: ClubInviteDialogProp
         부원 초대
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          // 뒤로가기 닫기도 이 경로로 들어온다 — 전송 중에는 막아야 ESC·바깥 클릭 가드와 결과가 같다(#830 규약).
+          if (!nextOpen && busy) return;
+          setOpen(nextOpen);
+        }}
+      >
+        <DialogContent busy={busy} className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>부원 초대</DialogTitle>
             <DialogDescription>
@@ -93,14 +110,18 @@ export function ClubInviteDialog({ clubId, useGeneration }: ClubInviteDialogProp
             </DialogDescription>
           </DialogHeader>
 
-          <ClubInvitePanel clubId={clubId} useGeneration={useGeneration} />
+          <ClubInvitePanel
+            clubId={clubId}
+            useGeneration={useGeneration}
+            onBusyChange={setBusy}
+          />
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-function ClubInvitePanel({ clubId, useGeneration }: ClubInviteDialogProps) {
+function ClubInvitePanel({ clubId, useGeneration, onBusyChange }: ClubInvitePanelProps) {
   const inviteCodeQuery = useClubInviteCodeQuery(clubId);
 
   return (
@@ -116,7 +137,11 @@ function ClubInvitePanel({ clubId, useGeneration }: ClubInviteDialogProps) {
       {/* 활성 링크가 없으면 200 + null 이다 — 에러가 아니라 "아직 안 만듦" 이다. */}
       {inviteCodeQuery.isSuccess &&
         (inviteCodeQuery.data === null ? (
-          <CreateInviteForm clubId={clubId} useGeneration={useGeneration} />
+          <CreateInviteForm
+            clubId={clubId}
+            useGeneration={useGeneration}
+            onBusyChange={onBusyChange}
+          />
         ) : (
           <ActiveInviteCard
             // 재생성으로 링크가 바뀌면 카드를 새로 마운트한다 — 안 그러면 재생성 폼 상태가 남아
@@ -125,13 +150,14 @@ function ClubInvitePanel({ clubId, useGeneration }: ClubInviteDialogProps) {
             clubId={clubId}
             joinCode={inviteCodeQuery.data}
             useGeneration={useGeneration}
+            onBusyChange={onBusyChange}
           />
         ))}
     </div>
   );
 }
 
-function CreateInviteForm({ clubId, useGeneration }: ClubInviteDialogProps) {
+function CreateInviteForm({ clubId, useGeneration, onBusyChange }: ClubInvitePanelProps) {
   const createInvite = useCreateClubInviteCodeMutation(clubId);
   const [maxUses, setMaxUses] = useState('');
   const [expiresInHours, setExpiresInHours] =
@@ -156,6 +182,7 @@ function CreateInviteForm({ clubId, useGeneration }: ClubInviteDialogProps) {
       return;
     }
     setError(null);
+    onBusyChange(true);
     try {
       await createInvite.mutateAsync({
         maxUses: parsedMaxUses,
@@ -167,6 +194,8 @@ function CreateInviteForm({ clubId, useGeneration }: ClubInviteDialogProps) {
     } catch (createFailure) {
       // 409(동시 생성 경쟁)·403·400 등 사유가 여러 갈래라 문구를 프론트에서 짜지 않고 서버 메시지를 쓴다.
       setError(extractErrorMessage(createFailure) ?? '초대 링크를 만들지 못했어요.');
+    } finally {
+      onBusyChange(false);
     }
   }
 
@@ -288,10 +317,12 @@ function ActiveInviteCard({
   clubId,
   joinCode,
   useGeneration,
+  onBusyChange,
 }: {
   clubId: number;
   joinCode: JoinCodeSummary;
   useGeneration: boolean;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const revokeInvite = useRevokeClubInviteCodeMutation(clubId);
   const [confirming, setConfirming] = useState<'revoke' | 'regenerate' | null>(null);
@@ -323,7 +354,13 @@ function ActiveInviteCard({
   }
 
   if (regenerating) {
-    return <CreateInviteForm clubId={clubId} useGeneration={useGeneration} />;
+    return (
+      <CreateInviteForm
+        clubId={clubId}
+        useGeneration={useGeneration}
+        onBusyChange={onBusyChange}
+      />
+    );
   }
 
   return (
@@ -441,43 +478,5 @@ function ActiveInviteCard({
         onCancel={() => setConfirming(null)}
       />
     </div>
-  );
-}
-
-/** 복사 성공은 라벨을 잠깐 "복사됨" 으로 바꿔 알린다(가입 링크 패널·연락처 복사와 동일 규약). */
-function CopyButton({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const resetTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
-    };
-  }, []);
-
-  async function copy() {
-    setFailed(false);
-    try {
-      if (!navigator.clipboard) throw new Error('clipboard unavailable');
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
-      resetTimer.current = window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setFailed(true);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      // 보이는 라벨이 바뀌므로 접근가능 이름도 같이 바꾼다 — 고정이면 스크린리더가 성공을 못 읽는다.
-      aria-label={copied ? `${label}됨` : failed ? `${label} 실패` : label}
-      className="rounded-md px-2 py-1 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink"
-    >
-      {copied ? '복사됨' : failed ? '실패' : label}
-    </button>
   );
 }
