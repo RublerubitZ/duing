@@ -542,9 +542,9 @@ export function NoticePage() {
                             </span>
                           </div>
                           </div>
-                          {/* Cover thumbnail */}
-                          <div style={{
-                            flex: '0 0 140px', alignSelf: 'stretch',
+                          {/* Cover thumbnail — 모바일은 96px·3:4 고정(카드 높이에 따라 크롭 비율이 달라지고
+                              320px 폭에서 본문 칸이 86px 로 눌리던 문제). md+ 는 기존 140px·카드 높이 stretch 유지. */}
+                          <div className="shrink-0 basis-[96px] self-start aspect-[3/4] md:basis-[140px] md:self-stretch md:aspect-auto" style={{
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
@@ -642,7 +642,8 @@ export function NoticePage() {
                           fontSize: 11, fontWeight: 700,
                         }}>🏛 {n.clubName ?? '동아리 공지'}</span>
                       )}
-                      {n.title}
+                      {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
+                      <span className="min-w-0 truncate">{n.title}</span>
                       {isNewItem(n.createdAt) && <NewBadge />}
                     </span>
                     <span className="nr-date" style={{

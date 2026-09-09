@@ -96,7 +96,11 @@ export function NoticeImageLightbox({ image, onClose }: Props) {
               initial={reduceMotion ? false : { opacity: 0.4 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduceMotion ? 0 : 0.15 }}
-              className="max-h-full max-w-full cursor-grab touch-none select-none active:cursor-grabbing"
+              // 래퍼가 max-h 만 가지면 높이가 부정(indefinite)이라 img 의 max-h-full 이 무시돼
+              // 세로가 긴 포스터가 원본 크기로 렌더되고 backdrop 의 overflow-hidden 에 아래가 잘린다.
+              // h-full 로 높이를 확정하고, 빈 여백 클릭이 backdrop 에 닿도록 래퍼는 pointer-events 를 끈다
+              // (img 에서 시작한 포인터 이벤트는 버블링으로 드래그 리스너에 닿는다).
+              className="flex h-full w-full items-center justify-center pointer-events-none touch-none select-none"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- Supabase/R2 Storage URL. */}
               <img
@@ -104,7 +108,7 @@ export function NoticeImageLightbox({ image, onClose }: Props) {
                 alt={shown.alt ?? ''}
                 draggable={false}
                 data-testid="notice-lightbox-image"
-                className="block max-h-full max-w-full object-contain"
+                className="block max-h-full max-w-full object-contain pointer-events-auto cursor-grab active:cursor-grabbing"
               />
             </motion.div>
           </div>
