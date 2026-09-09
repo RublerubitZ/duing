@@ -105,7 +105,7 @@ public class RecruitmentException extends ApplicationException {
     }
 
     public static class DuplicateActiveRecruitmentException extends RecruitmentException {
-        private static final String MESSAGE = "이미 진행 중인 모집이 있습니다. 기존 모집을 마감하거나 교체 endpoint 를 사용하세요.";
+        private static final String MESSAGE = "이미 진행 중인 모집이 있습니다. 기존 모집을 마감한 뒤 새 모집을 등록해 주세요.";
 
         public DuplicateActiveRecruitmentException() {
             super(MESSAGE, HttpStatus.CONFLICT);

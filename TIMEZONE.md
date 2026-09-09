@@ -67,7 +67,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | SuccessionRequest{Detail,Summary}Response.createdAt/handledAt | leader_succession_requests.* | system | BaseEntity / LeaderSuccessionRequest#process 무클럭 now() (승인·거절 공용) |
 | FavoriteClubResponse.favoritedAt | club_favorites.created_at | system | ClubFavorite#create 무클럭 now() |
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
-| RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 5개 writer — #create(만료 OPEN 자동 마감)·#close(수동)·#replaceActive·#closeAllOnClubClosure(폐쇄 시 행별 마감)·#closeAllOnClubDeactivation(벌크 closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다. #stopIntake 는 closed_at 을 쓰지 않는다 |
+| RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 4개 writer — #create(만료 OPEN 자동 마감)·#close(수동)·#closeAllOnClubClosure(폐쇄 시 행별 마감)·#closeAllOnClubDeactivation(벌크 closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다. #stopIntake 는 closed_at 을 쓰지 않는다 |
 | JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode#getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
 | JoinCodeResponse.inviteExpiresAt (V107 부원 초대 링크) | club_join_code.invite_expires_at | **seoul** | GeneralJoinCodeService#createClubInvite 가 now(clock) + expiresInHours 로 계산해 저장. 같은 DTO 의 joinExpiresAt 과 동일 regime 이지만 이쪽은 실제 저장 컬럼이다 |
 | AdminJoinLinkStatusResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | 위 JoinCodeResponse.joinExpiresAt 과 같은 파생·같은 변환(총동연 상세의 가입 링크 현황) |
