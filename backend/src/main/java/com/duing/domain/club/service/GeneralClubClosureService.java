@@ -83,12 +83,10 @@ public class GeneralClubClosureService implements ClubClosureService {
         // 이미 배포된 가입 링크는 회수할 수 없으므로 폐쇄가 서버에서 끊어야 한다 — 폐기하지 않으면
         // 죽은 동아리로 학생이 계속 유입된다(#869).
         //
-        // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠그는데, 학생의 가입 요청 생성은
-        // club_join_code(FOR UPDATE) → club(FK KEY SHARE) 순이라 정확히 역순이다. 두 트랜잭션이
-        // 겹치면 교착이고 폐쇄 쪽이 abort 된다. 겹치지 않는 이유는 잠금이 아니라 상태 게이트다 —
-        // 폐쇄는 커밋된 비 ACTIVE 동아리에서만 시작되고(validateClosable), 코드 행을 잠그는 모든
-        // 경로가 ACTIVE 를 요구한다(요청 생성의 isUsable, 운영진 경로의 requireActiveClub).
-        // ACTIVE 동아리 폐쇄를 허용하거나 그 게이트를 완화하면 이 교착이 곧바로 열린다.
+        // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠근다. 학생의 가입 요청 생성도 같은 순서로 잠그므로(#905)
+        // 겹치면 요청이 club 잠금에서 기다렸다가 폐기된 링크·비 ACTIVE 상태를 보고 409 로 끝난다. 순서를 되돌리면 폐쇄가
+        // 요청의 코드 행 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다 — Hibernate 의 PESSIMISTIC_WRITE 는 PG 에서
+        // FOR NO KEY UPDATE 라 FK 의 KEY SHARE 와 충돌하지 않아 교착까지는 가지 않지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간 진짜 교착이 된다.
         joinCodeService.revokeActiveOnClubClosure(clubId, recruitmentIds, actorAdminUserId);
         applicationService.rejectActiveOnClubClosure(recruitmentIds, actorAdminUserId);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);

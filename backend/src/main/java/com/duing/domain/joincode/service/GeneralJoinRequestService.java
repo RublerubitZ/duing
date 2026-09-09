@@ -1,6 +1,7 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
@@ -66,6 +67,8 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private static final String AUTO_REJECTED_WITHDRAWN_FAILURE = "탈퇴한 회원이라 자동 거절 처리되었습니다.";
 
     private final ClubJoinCodeRepository clubJoinCodeRepository;
+    // 가입 요청 생성이 코드보다 동아리를 먼저 잠그기 위해 쓴다(#905) — createRequest 주석 참조.
+    private final ClubRepository clubRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     // 접수·승인·거절을 본 트랜잭션에 함께 남긴다(스펙 v2 4.1) — 기록 실패는 삼키지 않는다.
     private final ClubAuditEventRepository clubAuditEventRepository;
@@ -117,15 +120,25 @@ public class GeneralJoinRequestService implements JoinRequestService {
     @Transactional
     public void createRequest(CreateJoinRequestCommand createCommand) {
         joinCodeRateLimiter.assertAndRecordRequestCreation(createCommand.clientIp(), LocalDateTime.now(clock));
+        String code = normalizeCode(createCommand.rawCode());
+        // 잠금 순서는 club → code 다(#905). 동아리 폐쇄(GeneralClubClosureService.close)가 같은 순서로 잠근다 —
+        // 코드를 먼저 잠그면 폐쇄가 이 요청 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다
+        // (GeneralClubClosureService.close 주석).
+        // 동아리 id 를 엔티티가 아닌 스칼라로 읽는 이유: 코드 엔티티가 잠금 없이 1차 캐시에 올라오면
+        // 아래 findWithLockByCode 가 낡은 usedCount 를 그대로 돌려준다(그 메서드 주석의 함정).
+        Long clubId = clubJoinCodeRepository.findClubIdByCode(code)
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
+        // 위 조회와 이 잠금 사이에 동아리가 삭제됐으면 코드도 무효다 — 코드 미존재와 같은 404 로 합친다.
+        clubRepository.findByIdForUpdate(clubId)
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         // 사용 인원은 신청 시점에 차감하므로(스펙 4.2) 유효성 판정부터 잠금 하에서 읽는다 —
         // 잠그지 않고 먼저 읽으면 뒤늦은 잠금이 낡은 usedCount 를 그대로 두어 초과 접수가 난다.
-        ClubJoinCode joinCode = clubJoinCodeRepository
-                .findWithLockByCode(normalizeCode(createCommand.rawCode()))
+        ClubJoinCode joinCode = clubJoinCodeRepository.findWithLockByCode(code)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
+        // joinCode.getClub() 은 위에서 잠근 그 영속 인스턴스라, 상태 판정도 잠금 하의 최신 값을 본다.
         if (!isUsable(joinCode)) {
             throw new JoinRequestException.UnusableJoinCodeException();
         }
-        Long clubId = joinCode.getClub().getId();
         if (clubMemberRepository.findByClubIdAndUserId(clubId, createCommand.userId()).isPresent()) {
             throw new JoinRequestException.AlreadyMemberException();
         }
