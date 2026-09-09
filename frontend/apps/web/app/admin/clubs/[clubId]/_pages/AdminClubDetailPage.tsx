@@ -127,12 +127,20 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 </span>
               )}
             </div>
-            <Link
-              href={`/admin/clubs/${clubId}/member-history`}
-              className="ml-auto text-[13px] text-indigo-600 hover:underline"
-            >
-              권한 변경 이력 →
-            </Link>
+            <div className="ml-auto flex items-center gap-3">
+              <Link
+                href={`/admin/clubs/${clubId}/activity-log`}
+                className="text-[13px] text-indigo-600 hover:underline"
+              >
+                활동 이력 →
+              </Link>
+              <Link
+                href={`/admin/clubs/${clubId}/member-history`}
+                className="text-[13px] text-indigo-600 hover:underline"
+              >
+                권한 변경 이력 →
+              </Link>
+            </div>
           </>
         )}
       </header>

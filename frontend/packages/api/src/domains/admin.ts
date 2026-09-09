@@ -4,6 +4,8 @@ import type {
   AdminClubSummary,
   AdminClubMemberHistoryParams,
   AdminClubMemberHistoryRow,
+  AdminClubActivityEvent,
+  AdminClubActivityEventsParams,
   AdminPendingCounts,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
@@ -241,6 +243,9 @@ export type AdminApi = {
     process(requestId: number, payload: ProcessSuccessionPayload): Promise<void>;
     assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
     memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
+  };
+  clubActivity: {
+    events(clubId: number, params: AdminClubActivityEventsParams): Promise<PageResponse<AdminClubActivityEvent>>;
   };
   promotionRequests: {
     list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
@@ -553,6 +558,13 @@ export function createAdminApi(deps: {
       memberHistory: (clubId, params) =>
         jsonOk<PageResponse<AdminClubMemberHistoryRow>>(
           http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
+        ),
+    },
+    clubActivity: {
+      // 배열 파라미터는 cleanParams 가 같은 키 반복(types=A&types=B)으로 직렬화해 Spring List<T> 와 맞는다.
+      events: (clubId, params) =>
+        jsonOk<PageResponse<AdminClubActivityEvent>>(
+          http.get(`admin/clubs/${clubId}/activity-events`, { searchParams: cleanParams(params) }),
         ),
     },
     promotionRequests: {
