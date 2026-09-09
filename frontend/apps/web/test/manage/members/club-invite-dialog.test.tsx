@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, formatDateTimeKst } from '@duing/hooks';
 import type { JoinCodeSummary } from '@duing/types';
@@ -90,6 +90,43 @@ async function openDialog({
   await userEvent.click(screen.getByRole('button', { name: '부원 초대' }));
 }
 
+/**
+ * 뒤로가기 1회. jsdom 의 traversal 은 태스크 큐에 실리므로 popstate 발화 자체를 기다린다
+ * (`test/components/back-dismiss-overlays.test.tsx` 와 같은 하네스).
+ */
+async function pressBack() {
+  // 엔트리를 물지 않은 상태에서 back() 하면 popstate 가 영원히 안 와 타임아웃으로 끝난다 — 먼저 단언한다.
+  expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+  const popped = new Promise<void>((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+  });
+  await act(async () => {
+    window.history.back();
+    await popped;
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
+/** 발급 요청을 보내고 응답 없이 붙잡아 둔다 — 전송 중 가드를 볼 수 있는 유일한 상태다. */
+async function submitAndHang() {
+  server.use(
+    http.post(`*/clubs/${CLUB_ID}/join-codes`, async () => {
+      await delay('infinite');
+      return HttpResponse.json({ ok: true, message: null, data: inviteCode() }, { status: 201 });
+    }),
+  );
+
+  await userEvent.type(await screen.findByRole('spinbutton', { name: '최대 인원' }), '40');
+  await userEvent.click(screen.getByRole('button', { name: '초대 링크 만들기' }));
+  // 전송 중 판정은 폼 입력의 disabled 로 잡는다 — 가드 자체(aria-busy)로 기다리면
+  // busy 배선이 빠졌을 때 닫힘 단언에 닿기도 전에 대기에서 터져 무엇이 깨졌는지 흐려진다.
+  await waitFor(() =>
+    expect(screen.getByRole('spinbutton', { name: '최대 인원' })).toBeDisabled(),
+  );
+}
+
 describe('부원 초대 다이얼로그 — 발급 폼', () => {
   it('활성 링크가 없으면 유효기간 24시간 기본·인원·기수·자동 승인 꺼짐 상태의 폼을 보여준다', async () => {
     await openDialog();
@@ -170,6 +207,29 @@ describe('부원 초대 다이얼로그 — 발급 폼', () => {
     await waitFor(() =>
       expect(created).toEqual({ maxUses: 40, expiresInHours: 24, autoApprove: false }),
     );
+  });
+
+  // 발급 중에 다이얼로그가 닫히면 재생성일 때 구 링크가 이미 폐기됐다는 사실을 운영진이 못 본다(#920).
+  it('초대 링크 발급 요청이 진행 중이면 ESC 로 다이얼로그가 닫히지 않는다', async () => {
+    await openDialog();
+    await submitAndHang();
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  // 뒤로가기는 DialogContent 의 busy 가 아니라 onOpenChange 를 타므로 가드가 따로 필요하다 —
+  // 빠지면 ESC 는 막히는데 뒤로가기로는 닫히는 어긋난 결과가 된다.
+  it('초대 링크 발급 요청이 진행 중이면 뒤로가기로도 다이얼로그가 닫히지 않는다', async () => {
+    await openDialog();
+    await submitAndHang();
+
+    await pressBack();
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
 
