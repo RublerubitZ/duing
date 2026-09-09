@@ -1032,6 +1032,37 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
   });
 
+  it('시나리오 14-f: 마감일이 이미 지난 시설에서도 마감일 이후의 지난 날짜 셀은 토스트 없이 주간 기록으로 열린다', async () => {
+    // 창 상한(bookableUntil)이 PAST_DATE 전날 → 창은 비었고(from=오늘 > until) PAST_DATE 는 상한 밖. 열람 상한은
+    // 창이 아니라 오늘이므로 정리 가드(월간 복귀·토스트)가 걸리면 안 된다.
+    const closeDate = shiftDateByDays(PAST_DATE, -1);
+    server.use(
+      http.get('*/facilities/1/availability', ({ request }) => {
+        const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? CURRENT_MONTH;
+        return ok({ ...makeAvailability(1, yearMonth), bookableFrom: TODAY_ISO, bookableUntil: closeDate });
+      }),
+    );
+    renderPage();
+    await screen.findByRole('heading', { level: 2, name: yearMonthLabel(CURRENT_MONTH) });
+
+    fireEvent.click(await screen.findByRole('button', { name: `${PAST_DAY}일 지난 날짜` }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf(PAST_DATE)) })).toBeInTheDocument();
+    expect(screen.queryByText(/현재 예약 가능한 기간이 아니에요/)).not.toBeInTheDocument();
+    expect(screen.queryByText(CLOSED_TOAST)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `월요일 ${PAST_DAY}일 09:00 지난` })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
+    // 주 이동 상한도 창이 아니라 오늘 — 한 주 전으로 갔다가 "다음 주"로 오늘이 속한 주까지 되돌아올 수 있어야 한다
+    // (창 상한 기준이면 마감일 주(오늘 주보다 앞)에서 잠겨 되돌아오지 못한다).
+    fireEvent.click(screen.getByRole('button', { name: '이전 주' }));
+    const previousWeekMonday = shiftDateByDays(mondayOf(PAST_DATE), -7);
+    expect(await screen.findByRole('heading', { level: 2, name: weekRangeLabel(previousWeekMonday) })).toBeInTheDocument();
+    const nextWeekButton = screen.getByRole('button', { name: '다음 주' });
+    expect(nextWeekButton).toBeEnabled();
+    fireEvent.click(nextWeekButton);
+    expect(await screen.findByRole('heading', { level: 2, name: weekRangeLabel(mondayOf(TODAY_ISO)) })).toBeInTheDocument();
+  });
+
   it('시나리오 14-e: 직전 월 availability 가 실패하면 "이번 달로 돌아가기" 가 현재 월(두 달 전이 아님)로 돌아간다', async () => {
     const lastMonth = shiftYearMonth(CURRENT_MONTH, -1);
     server.use(
@@ -1062,8 +1093,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
 
     // 안내줄(D9) — 닫힌 시설은 기간을 말할 수 없으므로 시설 문구를 낸다.
     expect(await screen.findByRole('note')).toHaveTextContent(CLOSED_NOTE);
-    // 오늘·미래 셀 모두 "예약 기간 아님"(빈 창은 isWithinBookable 이 전부 false).
-    expect(screen.getByRole('button', { name: `${WINDOW_FROM_DAY}일 예약 기간 아님` })).toBeInTheDocument();
+    // 미래 셀은 "예약 기간 아님"(빈 창은 isWithinBookable 이 전부 false). 오늘은 창 밖이어도 기록 열람 셀("마감")이다.
+    expect(screen.getByRole('button', { name: `${WINDOW_FROM_DAY}일 마감` })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: CLOSED_CELL }));
 
     expect(await screen.findByText(CLOSED_TOAST)).toBeInTheDocument();

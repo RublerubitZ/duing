@@ -144,7 +144,7 @@ it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과
   expect(firstWeekday).toHaveTextContent('월');
 });
 
-it('캘린더의 데이터 있는 지난 날짜 셀은 열람용으로 활성이고(레벨 라벨 없음) 클릭 시 onSelectDate 를 부르며, 데이터 없는 셀은 비활성이다', () => {
+it('캘린더의 데이터 있는 지난 날짜 셀은 열람용으로 활성이고 "마감" 라벨을 달며 클릭 시 onSelectDate 를 부르고, 데이터 없는 셀은 비활성이다', () => {
   const onSelectDate = vi.fn();
   const pastDay = makeDay({
     date: '2026-07-10',
@@ -167,11 +167,46 @@ it('캘린더의 데이터 있는 지난 날짜 셀은 열람용으로 활성이
   const pastCell = screen.getByRole('button', { name: '10일 지난 날짜' });
   expect(pastCell).toBeEnabled();
   expect(pastCell).not.toHaveAttribute('aria-disabled');
-  expect(within(pastCell).queryByText(/여유|보통|혼잡|마감/)).toBeNull();
+  // 지난 날짜는 숫자만 있던 빈 칸이 아니라 범례의 "마감"(FULL 메타)으로 읽힌다 — 기록 열람 셀도 상태를 말한다.
+  expect(within(pastCell).getByText('마감')).toBeInTheDocument();
   fireEvent.click(pastCell);
   expect(onSelectDate).toHaveBeenCalledWith('2026-07-10');
   // 데이터 없는 지난 날짜(12일)는 여전히 비활성 — 열람할 기록이 없다.
   expect(screen.getByRole('button', { name: '12일' })).toBeDisabled();
+});
+
+it('캘린더의 오늘 셀은 신청 창 밖(닫힘·내일 오픈)이어도 "마감" 라벨의 열람용 셀로 열리고 창 밖 토스트를 부르지 않는다', () => {
+  const onSelectDate = vi.fn();
+  const onOutOfWindowSelect = vi.fn();
+  // 오늘=7/13: 전날 12:01 마감이 이미 지나 빈 칸은 전부 DEADLINE_PASSED(가용 0) — BE 오늘 응답 미러.
+  const today = makeDay({
+    date: '2026-07-13',
+    dayStatus: 'FULL',
+    availableSlotCount: 0,
+    applicationClosed: true,
+    slots: makeDay().slots.map((slot) => (slot.status === 'AVAILABLE' ? { ...slot, status: 'DEADLINE_PASSED' as const } : slot)),
+  });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[today.date, today], ['2026-07-20', makeDay()]])}
+      bookableFrom="2026-07-14"
+      bookableUntil="2026-08-31"
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={onSelectDate}
+      onOutOfWindowSelect={onOutOfWindowSelect}
+    />,
+  );
+  const todayCell = screen.getByRole('button', { name: '13일 마감' });
+  expect(todayCell).toBeEnabled();
+  expect(todayCell).not.toHaveAttribute('aria-disabled');
+  expect(within(todayCell).getByText('마감')).toBeInTheDocument();
+  fireEvent.click(todayCell);
+  expect(onSelectDate).toHaveBeenCalledWith('2026-07-13');
+  expect(onOutOfWindowSelect).not.toHaveBeenCalled();
+  // 창 안 20일은 기존 레벨 셀 그대로 — 기록 셀 확장이 신청 가능 셀을 건드리지 않는다.
+  expect(screen.getByRole('button', { name: '20일 여유, 남은 11칸' })).toBeEnabled();
 });
 
 it('모바일 캘린더 셀은 가로 3단계 게이지로 표기하고 상태 텍스트를 줄바꿈 없이 유지한다', () => {
@@ -826,6 +861,26 @@ it('주간 그리드: 지난 날짜는 창 밖이어도 빈 셀이 "지난" 이�
   // 창 이후 미래(토25)는 기존대로 헤더·빈 셀 비활성.
   expect(screen.getByRole('button', { name: '토요일 25일' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '토요일 25일 09:00 예약 기간 아님' })).toBeDisabled();
+});
+
+it('주간 그리드: 오늘이 창 밖이어도 헤더는 열람용으로 활성이고 남은 빈 칸은 "신청 마감"(마감 텍스트) 이다', () => {
+  // 오늘=7/22 인데 창=[7/23..7/24](내일 오픈) → 오늘은 창 밖. 지난 칸(09시)은 "지난", 남은 빈 칸은 BE 가 DEADLINE_PASSED 로 내린다.
+  const daysByIso = makeWeekDaysByIso();
+  daysByIso.set('2026-07-22', {
+    date: '2026-07-22',
+    dayStatus: 'FULL',
+    availableSlotCount: 0,
+    operatingNotes: [],
+    applicationClosed: true,
+    slots: makeWeekSlots({ 0: { status: 'PAST' }, 1: { status: 'DEADLINE_PASSED' }, 2: { status: 'DEADLINE_PASSED' } }),
+  });
+  renderWeek({ daysByIso, todayIso: '2026-07-22', bookableFrom: '2026-07-23', bookableUntil: '2026-07-24' });
+  expect(screen.getByRole('button', { name: '수요일 22일' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '수요일 22일 09:00 지난' })).toBeDisabled();
+  const closedCell = screen.getByRole('button', { name: '수요일 22일 10:00 신청 마감' });
+  expect(closedCell).toBeDisabled();
+  expect(within(closedCell).getByText('마감')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '수요일 22일 10:00 예약 기간 아님' })).toBeNull();
 });
 
 it('주간 그리드: 창 이후 미래 날짜도 점유 블록은 렌더하되 빈 셀은 "예약 기간 아님" 으로 남는다', () => {

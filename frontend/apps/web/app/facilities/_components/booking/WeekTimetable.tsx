@@ -151,9 +151,9 @@ export function WeekTimetable({
             {weekDates.map((iso, colIndex) => {
               const isSelectedColumn = iso === selectedDate;
               const dayNumber = Number(iso.slice(8, 10));
-              // 지난 날짜는 열람용(기록)으로 선택 가능, 창 이후 미래 날짜는 기존대로 비활성(2026-09-03).
+              // 지난 날짜·오늘은 열람용(기록)으로 선택 가능, 창 이후 미래 날짜는 기존대로 비활성(2026-09-03, 오늘은 09-09).
               const dayEnabled =
-                daysByIso.has(iso) && (iso < todayIso || isWithinBookable(iso, bookableFrom, bookableUntil));
+                daysByIso.has(iso) && (iso <= todayIso || isWithinBookable(iso, bookableFrom, bookableUntil));
               return (
                 <th
                   key={iso}
@@ -303,8 +303,10 @@ function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayN
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
-// 셀 상태 파생 — 지난 > 창 밖(게이팅) > 신청 마감 > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
+// 셀 상태 파생 — 지난 > 신청 마감 > 창 밖(게이팅) > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
 // 지난 판정이 창 밖보다 앞이다 — bookableFrom 이 오늘이라 지난 날짜는 항상 창 밖인데, 기록 열람에서는 "지난"이 맞다(2026-09-03).
+// 신청 마감도 창 밖보다 앞이다 — 창 밖 오늘(오픈일 NULL·내일 오픈)의 남은 빈 칸은 "예약 기간 아님"보다 "마감"이 사실이고,
+// DEADLINE_PASSED 는 서버가 오늘·마감 지난 익일에만 내리므로 창 이후 미래 셀의 "예약 기간 아님"은 그대로다(2026-09-09).
 // BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
@@ -313,11 +315,11 @@ function cellStateOf(
   operating: boolean,
 ): CellState {
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
-  if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   // 신청 마감(서버 DEADLINE_PASSED — 사용일 전날 12:00 KST 경과) — 셀 안에 "마감" 텍스트로 자기 라벨을 가진다.
   if (status === 'DEADLINE_PASSED') {
     return { statusText: '신청 마감', toneClass: 'border-line/60 bg-graysoft/40 text-charcoal-3', selectable: false };
   }
+  if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (status === 'AVAILABLE') {
     // 확보 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(스펙 §3 복원) — 색은 일반 가용 셀과 동일(sage),
     // 점선 보더만 "안내" 신호(장식). 동작(탭 선택·토글·선택 ink+✓)은 일반 가용 셀과 완전 동일 — status 단독 판정.
