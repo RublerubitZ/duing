@@ -71,8 +71,10 @@ export const adminQueryKeys = {
     [...adminQueryKeys.leaderSuccessionAll, 'detail', requestId] as const,
   clubMemberHistory: (clubId: number, params: AdminClubMemberHistoryParams) =>
     ['admin', 'club-member-history', clubId, params] as const,
+  // 동아리 한 곳의 활동 이력 전체 — 상태 변경·폐쇄 뮤테이션이 이 접두사로 무효화한다.
+  clubActivityEventsAll: (clubId: number) => ['admin', 'club-activity-events', clubId] as const,
   clubActivityEvents: (clubId: number, params: AdminClubActivityEventsParams) =>
-    ['admin', 'club-activity-events', clubId, params] as const,
+    [...adminQueryKeys.clubActivityEventsAll(clubId), params] as const,
   promotionRequestsAll: ['admin', 'promotion-requests'] as const,
   promotionRequestsList: (params: AdminPromotionRequestSearchParams) =>
     [...adminQueryKeys.promotionRequestsAll, 'list', params] as const,

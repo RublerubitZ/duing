@@ -196,6 +196,7 @@ export function useUpdateClubStatusMutation() {
     onSuccess: (_, { clubId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
       // 사이드바 뱃지 — 승인/반려 즉시 승인 대기 수가 줄어야 한다.
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
@@ -212,6 +213,7 @@ export function useCloseClubMutation() {
     onSuccess: (_, { clubId }) => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
     },
   });

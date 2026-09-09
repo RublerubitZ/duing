@@ -76,4 +76,11 @@ describe('useAdminClubActivityEventsQuery', () => {
       { page: 0 },
     ]);
   });
+
+  it('목록 키는 동아리 접두사 키 위에 파생되어 접두사 무효화가 목록을 함께 지운다', () => {
+    const prefix = adminQueryKeys.clubActivityEventsAll(7);
+    const listKey = adminQueryKeys.clubActivityEvents(7, { page: 0 });
+    expect(prefix).toEqual(['admin', 'club-activity-events', 7]);
+    expect(listKey.slice(0, prefix.length)).toEqual([...prefix]);
+  });
 });
