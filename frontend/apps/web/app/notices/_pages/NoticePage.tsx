@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { SVGProps } from 'react';
 import Link from 'next/link';
+import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -182,6 +183,18 @@ function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: str
       <span style={{ flex: 1 }}>{label}</span>
     </Link>
   );
+}
+
+/* 목록 썸네일 — 커버 없으면 아이콘만. ImageWithFallback 의 "이미지 없음" 문구가 40px 칸에서 잘리고 카드에서는 과하게 도드라진다. */
+function CoverThumb({ src }: { src: string }) {
+  if (!src) {
+    return (
+      <div role="img" aria-label="이미지 없음" className="w-full h-full grid place-items-center text-charcoal-3">
+        <ImageOff className="w-4 h-4" aria-hidden />
+      </div>
+    );
+  }
+  return <ImageWithFallback src={src} alt="" className="w-full h-full !bg-transparent" />;
 }
 
 /* ---------- 헬퍼 ---------- */
@@ -548,12 +561,7 @@ export function NoticePage() {
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
-                            <ImageWithFallback
-                              src={n.coverImageUrl}
-                              alt=""
-                              className="w-full h-full !bg-transparent"
-                              emptyMessage="이미지 없음"
-                            />
+                            <CoverThumb src={n.coverImageUrl} />
                           </div>
                         </Link>
                       );
@@ -620,12 +628,7 @@ export function NoticePage() {
                       width: 40, height: 40, borderRadius: 8,
                       overflow: 'hidden',
                     }}>
-                      <ImageWithFallback
-                        src={n.coverImageUrl}
-                        alt=""
-                        className="w-full h-full !bg-transparent"
-                        emptyMessage="이미지 없음"
-                      />
+                      <CoverThumb src={n.coverImageUrl} />
                     </div>
                     <span className="nr-cat"><NTagPill category={n.category} /></span>
                     <span className="nr-title" style={{
