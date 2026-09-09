@@ -184,15 +184,18 @@ export function FacilityBookingPage() {
     setStep((current) => (current === 'form' ? 'slots' : current));
   }, [selectionInvalid]);
 
-  // 열람 범위 밖 선택 정리 — 창 이후 미래(딥링크) 또는 두 달 이상 전 날짜. 직전 월 이후의 지난 날짜는 기록 열람이라
+  // 열람 범위 밖 선택 정리 — 창 이후 미래(딥링크) 또는 두 달 이상 전 날짜. 직전 월 이후의 지난 날짜·오늘은 기록 열람이라
   // 정상 선택이다. 두 달 전 딥링크는 월 가드가 그 월을 거부해 조회 월이 당월로 남는데 selectedDate 만 살아 있으면
-  // 빈 주간 격자에 갇히므로 기존처럼 정리·월간 복귀·토스트로 회복한다. 창 판정은 시설 오픈일 창으로 단일화.
+  // 빈 주간 격자에 갇히므로 기존처럼 정리·월간 복귀·토스트로 회복한다. 창 판정은 시설 오픈일 창으로 단일화하되,
+  // 열람 상한은 max(창 상한, 오늘) — 마감일이 이미 지난 시설(과거 마감일 허용)에서 창 상한이 오늘보다 앞이면
+  // 마감일 이후의 지난 날짜·오늘이 캘린더에선 열리는데 여기서 튕기던 것을 막는다(2026-09-09).
   // 성공 화면은 이미 접수된 신청의 확인이므로 보존한다(selectionInvalid 전례 동일).
+  const viewUntilIso = availability !== undefined && availability.bookableUntil > todayIso ? availability.bookableUntil : todayIso;
   const selectedDateOutOfViewable =
     step !== 'success' &&
     selectedDate !== null &&
     availability !== undefined &&
-    (selectedDate > availability.bookableUntil || selectedDate < viewFromIso);
+    (selectedDate > viewUntilIso || selectedDate < viewFromIso);
   useEffect(() => {
     if (!selectedDateOutOfViewable) return;
     setSelectedDate(null);
@@ -327,16 +330,16 @@ export function FacilityBookingPage() {
   };
   const changeMonth = (delta: 1 | -1) => goToMonth(shiftYearMonth(yearMonth, delta));
 
-  // 주 이동(§1·§4) — selectedDate ±7일. 열람 하한(직전 월 1일)~창 상한으로 클램프한다 — 지난 주는 기록 열람,
-  // 창 이후는 신청 불가라 막는다. 새 선택일의 월로 조회 월을 스위칭한다(selectDate 경로 재사용).
+  // 주 이동(§1·§4) — selectedDate ±7일. 열람 하한(직전 월 1일)~열람 상한(max(창 상한, 오늘))으로 클램프한다 —
+  // 지난 주·오늘은 기록 열람, 창 이후는 신청 불가라 막는다. 새 선택일의 월로 조회 월을 스위칭한다(selectDate 경로 재사용).
   const changeWeek = (delta: 1 | -1) => {
     if (selectedDate === null || availability === undefined) return;
     const shifted = shiftDateByDays(selectedDate, delta * 7);
     const clamped =
       shifted < viewFromIso
         ? viewFromIso
-        : shifted > availability.bookableUntil
-          ? availability.bookableUntil
+        : shifted > viewUntilIso
+          ? viewUntilIso
           : shifted;
     selectDate(clamped);
   };
@@ -380,10 +383,11 @@ export function FacilityBookingPage() {
     setSelection({ start: slotStart, end: endLabel });
   };
 
-  // 주간 이동 캡(§2) — 이전 주는 열람 하한(직전 월 1일)이 속한 주까지, 다음 주는 창 끝 주까지. 창 판정은 availability 로 단일화.
+  // 주간 이동 캡(§2) — 이전 주는 열람 하한(직전 월 1일)이 속한 주까지, 다음 주는 열람 상한(max(창 끝, 오늘))이 속한 주까지.
+  // 창 판정은 availability 로 단일화.
   const weekMonday = selectedDate !== null ? mondayOf(selectedDate) : null;
   const viewFromMonday = mondayOf(viewFromIso);
-  const windowUntilMonday = availability ? mondayOf(availability.bookableUntil) : null;
+  const windowUntilMonday = availability ? mondayOf(viewUntilIso) : null;
   // 창 로드 전엔 changeWeek 가 early return 하므로 버튼도 함께 잠근다(로드 전 무동작 클릭 방지).
   const canPrevWeek =
     availability !== undefined && weekMonday !== null && shiftDateByDays(weekMonday, -7) >= viewFromMonday;
