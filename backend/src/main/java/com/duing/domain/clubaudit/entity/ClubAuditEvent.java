@@ -140,6 +140,23 @@ public class ClubAuditEvent extends BaseEntity {
                 .build();
     }
 
+    /**
+     * 총동연이 가입 링크를 강제 폐기한 이벤트(V129) — 사유는 필수 입력이라 항상 채워진다.
+     * 부원 초대 링크는 귀속 모집이 없어 {@code recruitmentId} 가 비어 있다(V102 컬럼 nullable).
+     */
+    public static ClubAuditEvent adminJoinLinkForceRevoke(Long clubId, Long recruitmentId,
+                                                          Long joinCodeId, Long actorUserId,
+                                                          String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.JOIN_LINK_FORCE_REVOKED)
+                .actorUserId(actorUserId)
+                .recruitmentId(recruitmentId)
+                .joinCodeId(joinCodeId)
+                .reason(reason)
+                .build();
+    }
+
     /** 총동연이 지원서 상세를 열람한 이벤트 — 개인정보 열람 이력이라 열람마다 한 건씩 남는다. */
     public static ClubAuditEvent adminApplicationView(Long clubId, Long recruitmentId,
                                                       Long applicationId, Long actorUserId) {

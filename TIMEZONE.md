@@ -71,6 +71,9 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode#getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
 | JoinCodeResponse.inviteExpiresAt (V107 부원 초대 링크) | club_join_code.invite_expires_at | **seoul** | GeneralJoinCodeService#createClubInvite 가 now(clock) + expiresInHours 로 계산해 저장. 같은 DTO 의 joinExpiresAt 과 동일 regime 이지만 이쪽은 실제 저장 컬럼이다 |
 | AdminJoinLinkStatusResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | 위 JoinCodeResponse.joinExpiresAt 과 같은 파생·같은 변환(총동연 상세의 가입 링크 현황) |
+| AdminClubJoinCodeResponse.joinExpiresAt · inviteExpiresAt | (파생 — 저장 컬럼 없음) / club_join_code.invite_expires_at | **seoul** | 위 JoinCodeResponse 의 두 필드와 같은 파생·같은 컬럼·같은 변환(총동연 가입 링크 목록) |
+| AdminClubJoinCodeResponse.revokedAt | club_join_code.revoked_at | **seoul** | 폐기 writer 전부 now(clock) — GeneralJoinCodeService#revoke·#revokeClubInvite·#create·#createClubInvite(재발급의 자동 폐기)·#revokeActiveByRecruitment(모집 삭제)·#revokeActiveOnClubClosure(동아리 폐쇄), GeneralAdminClubJoinCodeService#forceRevoke(총동연 강제 폐기) |
+| AdminClubJoinCodeResponse.createdAt | club_join_code.created_at | system | BaseEntity 감사 — 같은 응답의 나머지 세 시각(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 closedAt·joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.closedAt | recruitment.closed_at | **seoul** | 위 RecruitmentSummaryResponse.closedAt 과 같은 컬럼·같은 변환(총동연 콘솔이 강제 마감 판단 근거로 쓴다) |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
