@@ -247,6 +247,17 @@ public class ClubAuditEvent extends BaseEntity {
                 .build();
     }
 
+    /** 운영진의 멤버 개인정보 열람(번호 조회·명단 내보내기, V128) — 대상·범위는 detail 에 id·숫자로만 남긴다. */
+    public static ClubAuditEvent memberPiiAccess(ClubAuditEventType eventType, Long clubId,
+                                                 Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
+                .actorUserId(actorUserId)
+                .detail(detail)
+                .build();
+    }
+
     /** 총동연 회비 감사 상세 열람 — 개인정보성 재무 데이터 열람 이력이라 진입마다 한 건씩 남는다. */
     public static ClubAuditEvent feeAdminView(Long clubId, Long actorUserId) {
         return ClubAuditEvent.builder()

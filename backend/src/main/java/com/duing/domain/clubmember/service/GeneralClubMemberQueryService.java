@@ -2,6 +2,10 @@ package com.duing.domain.clubmember.service;
 
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -31,6 +35,7 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final FeeBillRepository feeBillRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
 
     @Override
     public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
@@ -62,7 +67,12 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
                 .toList();
     }
 
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — readOnly 로 두면 실제 PG 에서
+     * INSERT 가 거부된다. 명단 내보내기는 회원 개인정보를 파일로 반출하는 행위라 감사 대상이다.
+     */
     @Override
+    @Transactional
     public List<ClubMemberExportQuery> getMembersForExport(
             Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
         clubAuthService.requireManager(requesterId, clubId);
@@ -81,10 +91,21 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
                 .toList();
         log.info("club member export: clubId={}, actorId={}, includePhone={}, scoped={}, count={}",
                 clubId, requesterId, includePhone, !targetMemberIds.isEmpty(), rows.size());
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.MEMBER_LIST_EXPORTED, clubId, requesterId,
+                AuditDetailJson.of(Map.of(
+                        "includePhone", includePhone,
+                        "scoped", !targetMemberIds.isEmpty(),
+                        "count", rows.size()))));
         return rows;
     }
 
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — readOnly 로 두면 실제 PG 에서
+     * INSERT 가 거부된다. 원본 번호 열람은 그 자체가 감사 대상 행위다.
+     */
     @Override
+    @Transactional
     public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
         // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
@@ -94,6 +115,9 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
         // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
         log.info("member phone view: clubId={}, actorUserId={}, targetMemberId={}, targetUserId={}, action=PHONE_VIEW",
                 clubId, requesterId, memberId, target.getUser().getId());
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.MEMBER_PHONE_VIEWED, clubId, requesterId,
+                AuditDetailJson.of(Map.of("memberId", memberId, "userId", target.getUser().getId()))));
         return target.getUser().getPhone();
     }
 
