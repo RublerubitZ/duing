@@ -42,6 +42,8 @@ vi.mock('@duing/hooks', () => ({
   useLogout: () => logoutSpy,
   // 사이드바가 선택된 모집의 지원 방식을 보고 지원자·통계를 감춘다 — 이 화면은 모집 컨텍스트가 없다.
   useRecruitmentDetailQuery: () => ({ data: undefined }),
+  // ManageNav 의 통계 폴백(진행 중 모집 판정)이 쓴다 — 셸 테스트는 나브 판정을 다루지 않으므로 빈 값.
+  useClubRecruitmentsQuery: () => ({ data: undefined }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';
