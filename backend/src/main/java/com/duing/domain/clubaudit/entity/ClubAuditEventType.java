@@ -3,8 +3,9 @@ package com.duing.domain.clubaudit.entity;
 /**
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
- * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105), 시설 설정 1종(V116), 동아리 상태 2종(V127)이 있다. 값을 추가할 때는
- * {@code club_audit_event.event_type} 의 CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127).
+ * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105), 시설 설정 1종(V116), 동아리 상태 2종(V127),
+ * 회장 경로 개인정보 열람 2종(V128)이 있다. 값을 추가할 때는 {@code club_audit_event.event_type} 의 CHECK 제약도
+ * 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127·V128).
  */
 public enum ClubAuditEventType {
 
@@ -57,7 +58,11 @@ public enum ClubAuditEventType {
      */
     CLUB_STATUS_CHANGED,
     /** 총동연이 동아리를 폐쇄했다(V127) — reason 에 정규화된 폐쇄 사유. 폐쇄와 같은 트랜잭션이라 폐쇄 없는 행은 없다. */
-    CLUB_CLOSED;
+    CLUB_CLOSED,
+    /** 운영진이 멤버 원본 전화번호를 열람했다(V128, #754) — detail {"memberId","userId"}. 열람마다 남긴다(중복 제거 없음). */
+    MEMBER_PHONE_VIEWED,
+    /** 운영진이 멤버 명단을 내보냈다(V128, #754) — detail {"includePhone","scoped","count"}. 번호 포함 여부가 감사의 핵심이다. */
+    MEMBER_LIST_EXPORTED;
 
     /**
      * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.
