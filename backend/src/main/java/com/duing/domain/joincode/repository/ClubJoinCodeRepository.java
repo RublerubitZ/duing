@@ -111,6 +111,23 @@ public interface ClubJoinCodeRepository extends JpaRepository<ClubJoinCode, Long
     Optional<ClubJoinCode> findByCode(@Param("code") String code);
 
     /**
+     * 가입 요청 생성의 잠금 순서(club → code, #905)를 위해 코드가 속한 동아리 id 만 스칼라로 읽는다 —
+     * 엔티티를 잠금 없이 먼저 로딩하면 1차 캐시 때문에 뒤의 {@code findWithLockByCode} 가 낡은
+     * usedCount 를 돌려준다(그 메서드 주석의 함정). id 만 뽑는 스칼라 조회는 1차 캐시를 만들지 않는다.
+     *
+     * <p>필터 조건은 {@code findByCode} 와 동일해야 한다 — 죽은 모집·삭제된 동아리의 코드는 두 경로
+     * 모두에서 "없음"(404)이어야 학생이 보는 판정이 갈리지 않는다.
+     */
+    @Query("SELECT joinCode.club.id FROM ClubJoinCode joinCode "
+            + "JOIN joinCode.club club "
+            + "WHERE joinCode.code = :code "
+            + "AND club.deletedAt IS NULL "
+            + "AND (joinCode.recruitment.id IS NULL "
+            + "OR EXISTS (SELECT 1 FROM Recruitment recruitment "
+            + "WHERE recruitment.id = joinCode.recruitment.id AND recruitment.deletedAt IS NULL))")
+    Optional<Long> findClubIdByCode(@Param("code") String code);
+
+    /**
      * 가입 요청 생성의 잔여 확인·차감({@code tryConsume})이 같은 코드 행에 대해 직렬화되도록
      * 비관적 쓰기 잠금으로 조회한다 — 동시 신청의 이중 차감(max_uses 초과 접수)을 막는다.
      *
