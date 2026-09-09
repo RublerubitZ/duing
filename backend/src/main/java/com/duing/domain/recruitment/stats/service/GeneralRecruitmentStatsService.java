@@ -94,6 +94,12 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         Map<ApplicationStatus, Long> applicationStatusCounts =
                 recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId);
 
-        return StatsFunnelQuery.from(applicationStatusCounts, recruitment.isUseInterview());
+        // 면접을 쓰지 않는 모집은 면접 진입 단계가 응답에서 null 이라 이력 조회가 낭비다.
+        boolean useInterview = recruitment.isUseInterview();
+        long interviewEnteredCount = useInterview
+                ? recruitmentStatsRepository.countInterviewEntered(recruitmentId)
+                : 0L;
+
+        return StatsFunnelQuery.from(applicationStatusCounts, useInterview, interviewEnteredCount);
     }
 }

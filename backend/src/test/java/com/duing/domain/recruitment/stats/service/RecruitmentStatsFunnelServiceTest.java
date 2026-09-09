@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -68,8 +70,8 @@ class RecruitmentStatsFunnelServiceTest {
     }
 
     @Test
-    @DisplayName("useInterview=true 인 모집에서 상태 분포가 있을 때 3단계 카운트가 정확하게 계산된다")
-    void useInterviewTrueRecruitmentReturns3StageFunnelCorrectly() {
+    @DisplayName("useInterview=true 인 모집의 면접 진입은 상태 합이 아니라 이력 기반 집계 결과를 그대로 쓴다")
+    void useInterviewTrueRecruitmentUsesHistoryBasedInterviewEnteredCount() {
         Long recruitmentId = 1L;
         Long clubId = 10L;
         Long currentUserId = 100L;
@@ -78,11 +80,14 @@ class RecruitmentStatsFunnelServiceTest {
         // submitted=5, onHold=3, interviewPending=2, accepted=1, rejected=1
         Map<ApplicationStatus, Long> applicationStatusCounts = buildStatusMap(5, 3, 2, 1, 1);
         when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId)).thenReturn(applicationStatusCounts);
+        // 불합격 1건은 서류에서 곧바로 떨어진 지원이라 면접 진입이 아니다 — 이력 집계는 INTERVIEW_PENDING 2 + ACCEPTED 1 중
+        // 면접을 밟은 2건만 센다.
+        when(recruitmentStatsRepository.countInterviewEntered(recruitmentId)).thenReturn(2L);
 
         StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUserId);
 
         assertThat(statsFunnelQuery.submitted()).isEqualTo(12L);           // 5+3+2+1+1
-        assertThat(statsFunnelQuery.interviewEntered()).isEqualTo(4L);     // 2+1+1
+        assertThat(statsFunnelQuery.interviewEntered()).isEqualTo(2L);
         assertThat(statsFunnelQuery.accepted()).isEqualTo(1L);
     }
 
@@ -103,6 +108,8 @@ class RecruitmentStatsFunnelServiceTest {
         assertThat(statsFunnelQuery.submitted()).isEqualTo(9L);            // 4+2+0+2+1
         assertThat(statsFunnelQuery.interviewEntered()).isNull();
         assertThat(statsFunnelQuery.accepted()).isEqualTo(2L);
+        // 면접 진입 단계가 없는 모집이라 이력 집계 쿼리 자체를 돌리지 않는다.
+        verify(recruitmentStatsRepository, never()).countInterviewEntered(recruitmentId);
     }
 
     @Test
@@ -121,6 +128,7 @@ class RecruitmentStatsFunnelServiceTest {
                 .thenReturn(emptyApplicationStatusCounts);
         when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentIdWithoutInterview))
                 .thenReturn(new EnumMap<>(ApplicationStatus.class));
+        when(recruitmentStatsRepository.countInterviewEntered(recruitmentIdWithInterview)).thenReturn(0L);
 
         StatsFunnelQuery funnelWithInterview = recruitmentStatsService.getFunnel(recruitmentIdWithInterview, currentUserId);
         StatsFunnelQuery funnelWithoutInterview = recruitmentStatsService.getFunnel(recruitmentIdWithoutInterview, currentUserId);
@@ -132,6 +140,7 @@ class RecruitmentStatsFunnelServiceTest {
         assertThat(funnelWithoutInterview.submitted()).isEqualTo(0L);
         assertThat(funnelWithoutInterview.interviewEntered()).isNull();
         assertThat(funnelWithoutInterview.accepted()).isEqualTo(0L);
+        verify(recruitmentStatsRepository, never()).countInterviewEntered(recruitmentIdWithoutInterview);
     }
 
     @Test
@@ -145,6 +154,7 @@ class RecruitmentStatsFunnelServiceTest {
         Map<ApplicationStatus, Long> applicationStatusCounts = new EnumMap<>(ApplicationStatus.class);
         applicationStatusCounts.put(ApplicationStatus.SUBMITTED, 5L);
         when(recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId)).thenReturn(applicationStatusCounts);
+        when(recruitmentStatsRepository.countInterviewEntered(recruitmentId)).thenReturn(0L);
 
         StatsFunnelQuery statsFunnelQuery = recruitmentStatsService.getFunnel(recruitmentId, currentUserId);
 
