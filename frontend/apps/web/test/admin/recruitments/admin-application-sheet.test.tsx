@@ -120,6 +120,22 @@ describe('관리자 지원서 열람 시트', () => {
       expect(onClose).toHaveBeenCalled();
     });
 
+    // 강제 마감 invalidate 뒤 백그라운드 refetch 가 실패해도, 이미 받아둔 상세는 계속 읽혀야 한다.
+    it('이전에 받아둔 상세가 있으면 조회 실패로 본문을 덮지 않는다', () => {
+      mockApplicationDetailQuery.mockReturnValue({
+        data: makeDetail(),
+        isLoading: false,
+        isSuccess: false,
+        isError: true,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminApplicationSheet applicationId={31} onClose={vi.fn()} />);
+
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByText('두잉코드')).toBeInTheDocument();
+    });
+
     it('조회에 실패하면 다시 시도할 수 있게 안내한다', async () => {
       const refetch = vi.fn();
       mockApplicationDetailQuery.mockReturnValue({

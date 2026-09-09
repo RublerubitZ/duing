@@ -85,7 +85,7 @@ function renderExplore() {
       </QueryClientProvider>
     );
   }
-  render(
+  return render(
     <Wrapper>
       <ClubExplorePage />
     </Wrapper>,
@@ -177,5 +177,57 @@ describe('ClubExplorePage — 찜 필터 + 미인증', () => {
       'href',
       '/login?next=%2Fclubs%3Ffavorite%3Dtrue',
     );
+  });
+
+  // 게이트에서는 목록·모집 수 쿼리가 둘 다 꺼져 있어, 카운트를 그리면 0 이거나 직전 화면의 stale 값이다.
+  // 로그인 안내 위에 그런 숫자가 얹히지 않아야 한다(#801).
+  it('로그인 안내 위에 카운트 헤더를 띄우지 않는다', async () => {
+    mockSearchParams.value = 'favorite=true';
+    renderExplore();
+
+    await screen.findAllByText('찜한 동아리를 보려면 로그인해 주세요.');
+    expect(screen.queryAllByText(/현재 페이지/)).toHaveLength(0);
+    expect(screen.queryAllByText(/곳 모집 중/)).toHaveLength(0);
+  });
+});
+
+describe('ClubExplorePage — 찜 해제 직후 빈 상태 플래시', () => {
+  // 찜 해제는 낙관적 ids 교집합으로 목록을 즉시 0건으로 만들고, 곧바로 목록 재검증이 뜬다.
+  // 이 갱신 구간에 전용 문구든 일반 문구든 띄우면 곧 사라질 빈 상태가 번쩍인다(#801).
+  it('찜 해제로 0건이 된 뒤 목록 재검증이 끝나기 전에는 빈 상태 문구가 보이지 않는다', async () => {
+    mockSearchParams.value = 'favorite=true';
+    let favoriteIds = [7];
+    server.use(
+      clubListHandler,
+      // 해제 후 재조회까지 [7] 을 돌려주면 카드가 되살아나 0건 구간 자체가 사라진다 — 서버도 함께 비운다.
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: favoriteIds }, message: null }),
+      ),
+      http.delete(`${BASE}/me/favorites/7`, () => {
+        favoriteIds = [];
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+    const { unmount } = renderExplore();
+
+    await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
+
+    // 재검증 GET 은 끝내 응답하지 않는다 — isFetching 이 계속 true 인 구간을 만든다.
+    server.use(http.get(`${BASE}/clubs`, () => new Promise(() => {})));
+
+    const [heart] = hearts('찜 해제');
+    if (!heart) throw new Error('찜 해제 하트가 렌더되지 않았다');
+    await userEvent.click(heart);
+
+    await waitFor(() => expect(screen.queryAllByText('밴드부')).toHaveLength(0));
+    await waitFor(() => {
+      expect(screen.queryAllByText('아직 찜한 동아리가 없어요.')).toHaveLength(0);
+      expect(screen.queryAllByText('조건에 맞는 동아리가 없어요.')).toHaveLength(0);
+    });
+
+    // 끝내 응답하지 않는 목록 GET 을 띄운 채로 두면, 정리 단계에서 핸들러가 리셋된 뒤 재요청이
+    // 나가 MSW unhandled 로 잡힌다 — 단언이 끝나면 이 테스트가 직접 화면을 내린다.
+    unmount();
   });
 });

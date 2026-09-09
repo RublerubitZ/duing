@@ -475,6 +475,7 @@ export function createAdminApi(deps: {
         jsonOk<AdminApplicantList>(
           http.get(`admin/recruitments/${recruitmentId}/applications`, {
             searchParams: cleanParams(params),
+            timeout: REQUEST_TIMEOUT_MS.search,
           }),
         ),
       applicationDetail: (applicationId) =>
