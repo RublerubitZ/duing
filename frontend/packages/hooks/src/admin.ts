@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminClubSearchParams,
   AdminUpdateClubPayload,
+  ForceRevokeJoinCodePayload,
   AdminUserSearchParams,
   ChangeUserStatusPayload,
   CloseClubPayload,
@@ -261,6 +262,40 @@ export function useAdminUpdateClubMutation(clubId: number) {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+    },
+  });
+}
+
+/**
+ * 총동연이 보는 동아리 가입 링크 이력(모집·부원 초대 2종, 폐기·만료 포함).
+ * 페이지네이션이 없어 파라미터 축도 없다 — 키는 동아리 하나로 끝난다.
+ */
+export function useAdminClubJoinCodesQuery(clubId: number) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.clubJoinCodes(clubId),
+    queryFn: () => client.admin.clubJoinCodes.list(clubId),
+  });
+}
+
+/**
+ * 가입 링크 강제 폐기. 폐기는 링크 목록의 상태를 바꾸고 동시에 활동 이력에
+ * `JOIN_LINK_FORCE_REVOKED` 행을 남기므로 두 곳을 함께 무효화한다.
+ */
+export function useForceRevokeAdminClubJoinCodeMutation(clubId: number) {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      joinCodeId,
+      payload,
+    }: {
+      joinCodeId: number;
+      payload: ForceRevokeJoinCodePayload;
+    }) => client.admin.clubJoinCodes.forceRevoke(clubId, joinCodeId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubJoinCodes(clubId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
     },
   });
 }

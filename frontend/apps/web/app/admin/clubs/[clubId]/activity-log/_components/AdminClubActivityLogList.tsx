@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 
+import Link from 'next/link';
+
 import { useAdminClubActivityEventsQuery } from '@duing/hooks';
 import { formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminClubActivityEventType } from '@duing/types';
 
+import { toRoute } from '@/app/_lib/route';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '@/app/admin/_components/ConsoleCard';
@@ -21,7 +24,12 @@ type ActivityGroup = 'STATUS' | 'LINK';
 /** 유형그룹 → 서버 types. 부원 초대와 모집 링크는 같은 이벤트라 행 라벨로 갈린다(칩으로는 가르지 않는다). */
 const GROUP_TYPES: Record<ActivityGroup, AdminClubActivityEventType[]> = {
   STATUS: ['CLUB_STATUS_CHANGED', 'CLUB_CLOSED'],
-  LINK: ['JOIN_LINK_CREATED', 'JOIN_LINK_REGENERATED', 'JOIN_LINK_REVOKED'],
+  LINK: [
+    'JOIN_LINK_CREATED',
+    'JOIN_LINK_REGENERATED',
+    'JOIN_LINK_REVOKED',
+    'JOIN_LINK_FORCE_REVOKED',
+  ],
 };
 
 const GROUP_OPTIONS: { label: string; value?: ActivityGroup }[] = [
@@ -102,6 +110,17 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
                           {activityEventLabel(event)}
                         </span>
                         <span className="text-charcoal">{activityActorLabel(event)}</span>
+                        {/* 어느 링크의 기록인지는 목록에서만 확인할 수 있다 — 그 행으로 바로 보낸다. */}
+                        {event.joinCodeId !== null && event.eventType.startsWith('JOIN_LINK_') && (
+                          <Link
+                            href={toRoute(
+                              `/admin/clubs/${clubId}/join-codes?joinCodeId=${event.joinCodeId}`,
+                            )}
+                            className="text-[12.5px] text-indigo-600 hover:underline"
+                          >
+                            링크 보기 →
+                          </Link>
+                        )}
                       </div>
                       {note !== '' && (
                         <p className="mt-1 text-[12.5px] leading-snug text-charcoal-2">{note}</p>

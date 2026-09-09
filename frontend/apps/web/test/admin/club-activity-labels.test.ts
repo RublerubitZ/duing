@@ -48,6 +48,14 @@ describe('activityEventLabel', () => {
       '모집 가입 링크 폐기',
     );
   });
+  it('총동연 강제 폐기는 운영진 폐기와 다른 라벨로 갈린다', () => {
+    expect(
+      activityEventLabel(eventOf({ eventType: 'JOIN_LINK_FORCE_REVOKED', recruitmentId: null })),
+    ).toBe('부원 초대 링크 강제 폐기');
+    expect(
+      activityEventLabel(eventOf({ eventType: 'JOIN_LINK_FORCE_REVOKED', recruitmentId: 5 })),
+    ).toBe('모집 가입 링크 강제 폐기');
+  });
 });
 
 describe('activityDetailSummary', () => {

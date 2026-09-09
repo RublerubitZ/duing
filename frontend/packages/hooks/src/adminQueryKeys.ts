@@ -75,6 +75,8 @@ export const adminQueryKeys = {
   clubActivityEventsAll: (clubId: number) => ['admin', 'club-activity-events', clubId] as const,
   clubActivityEvents: (clubId: number, params: AdminClubActivityEventsParams) =>
     [...adminQueryKeys.clubActivityEventsAll(clubId), params] as const,
+  // 동아리 한 곳의 가입 링크 목록 — 페이지네이션·필터가 없어 파라미터 축이 없다.
+  clubJoinCodes: (clubId: number) => ['admin', 'club-join-codes', clubId] as const,
   promotionRequestsAll: ['admin', 'promotion-requests'] as const,
   promotionRequestsList: (params: AdminPromotionRequestSearchParams) =>
     [...adminQueryKeys.promotionRequestsAll, 'list', params] as const,

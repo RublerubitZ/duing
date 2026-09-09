@@ -31,6 +31,11 @@ export function activityEventLabel(event: AdminClubActivityEvent): string {
       return `${linkKindLabel(event)} 재발급`;
     case 'JOIN_LINK_REVOKED':
       return `${linkKindLabel(event)} 폐기`;
+    case 'JOIN_LINK_FORCE_REVOKED':
+      return `${linkKindLabel(event)} 강제 폐기`;
+    default:
+      // 서버가 종류를 먼저 늘리면 빈 칩 대신 원문 코드를 보인다(fail-open).
+      return event.eventType;
   }
 }
 

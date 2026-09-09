@@ -135,6 +135,12 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 활동 이력 →
               </Link>
               <Link
+                href={`/admin/clubs/${clubId}/join-codes`}
+                className="text-[13px] text-indigo-600 hover:underline"
+              >
+                가입 링크 →
+              </Link>
+              <Link
                 href={`/admin/clubs/${clubId}/member-history`}
                 className="text-[13px] text-indigo-600 hover:underline"
               >

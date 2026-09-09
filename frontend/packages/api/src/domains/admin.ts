@@ -6,6 +6,8 @@ import type {
   AdminClubMemberHistoryRow,
   AdminClubActivityEvent,
   AdminClubActivityEventsParams,
+  AdminClubJoinCode,
+  ForceRevokeJoinCodePayload,
   AdminPendingCounts,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
@@ -246,6 +248,17 @@ export type AdminApi = {
   };
   clubActivity: {
     events(clubId: number, params: AdminClubActivityEventsParams): Promise<PageResponse<AdminClubActivityEvent>>;
+  };
+  /** 동아리가 만든 가입 링크 2종(모집·부원 초대) 이력. 총동연은 보고 끊을 수만 있고 발급하지 않는다. */
+  clubJoinCodes: {
+    /** 페이지네이션 없음 — 동아리 한 곳의 링크 이력은 한 화면에 담긴다(createdAt DESC). */
+    list(clubId: number): Promise<AdminClubJoinCode[]>;
+    /** 이미 폐기된 링크에 다시 호출해도 204 다(멱등) — 최초 폐기 시각·이력은 그대로다. */
+    forceRevoke(
+      clubId: number,
+      joinCodeId: number,
+      payload: ForceRevokeJoinCodePayload,
+    ): Promise<void>;
   };
   promotionRequests: {
     list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
@@ -565,6 +578,13 @@ export function createAdminApi(deps: {
       events: (clubId, params) =>
         jsonOk<PageResponse<AdminClubActivityEvent>>(
           http.get(`admin/clubs/${clubId}/activity-events`, { searchParams: cleanParams(params) }),
+        ),
+    },
+    clubJoinCodes: {
+      list: (clubId) => jsonOk<AdminClubJoinCode[]>(http.get(`admin/clubs/${clubId}/join-codes`)),
+      forceRevoke: (clubId, joinCodeId, payload) =>
+        jsonVoid(
+          http.patch(`admin/clubs/${clubId}/join-codes/${joinCodeId}/revoke`, { json: payload }),
         ),
     },
     promotionRequests: {

@@ -105,6 +105,14 @@ describe('AdminClubDetailPage', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('가입 링크 화면으로 건너뛰는 링크가 이력 링크 옆에 있다', async () => {
+    renderPage();
+    expect(await screen.findByRole('link', { name: /가입 링크/ })).toHaveAttribute(
+      'href',
+      '/admin/clubs/1/join-codes',
+    );
+  });
+
   it('회장이 있어도 강제 교체 카드가 현재 회장과 함께 노출된다', async () => {
     renderPage();
     expect(await screen.findByText(/회장 강제 교체 — 현재 회장 홍길동/)).toBeInTheDocument();
