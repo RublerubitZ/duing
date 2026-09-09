@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, draftQueryKeys } from '@duing/hooks';
 
 const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
@@ -794,5 +794,44 @@ describe('ApplyPage — 임시저장 시드', () => {
         { questionId: MULTI_QUESTION_ID, values: [] },
       ],
     });
+  });
+});
+
+describe('ApplyPage — 제출 후 임시저장 캐시', () => {
+  // 서버가 제출과 함께 draft 를 지우므로 재조회는 반드시 exists:false 만 받아오는 낭비된 왕복이다(#985).
+  it('제출에 성공하면 draft 를 다시 조회하지 않고 캐시를 직접 비운다', async () => {
+    let draftGetCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftGetCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-01-01T09:00:00',
+          },
+          message: null,
+        });
+      }),
+      mockSubmitApplication(888),
+    );
+
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    renderApplyPage(queryClient);
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    expect(draftGetCount).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: '제출' }));
+
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toEqual({
+      exists: false,
+      answers: [],
+      updatedAt: null,
+    });
+    expect(draftGetCount).toBe(1);
   });
 });

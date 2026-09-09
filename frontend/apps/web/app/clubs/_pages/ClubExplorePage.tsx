@@ -426,11 +426,17 @@ export function ClubExplorePage() {
 
           <div>
             <div className="flex items-center justify-between mb-4">
+              {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801).
+                  정렬 select·찜 칩의 우측 정렬을 유지하려고 빈 div 는 남긴다. */}
               <div className="text-sm text-charcoal-2">
-                <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
-                <span className="text-charcoal-3">
-                  · 현재 페이지 (전체 {totalElements}개)
-                </span>
+                {!requiresLoginForFavorite && (
+                  <>
+                    <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
+                    <span className="text-charcoal-3">
+                      · 현재 페이지 (전체 {totalElements}개)
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
@@ -524,9 +530,13 @@ export function ClubExplorePage() {
                       : '오류가 발생했습니다.'}
                   </p>
                 )}
+                {/* 찜 필터의 0건은 "찜이 없다"와 "갱신 중"이 겹친다 — 갱신 중에는 전용 문구도 일반
+                    문구도 띄우지 않는다(찜 해제 직후 목록 재검증 사이의 빈 상태 플래시 방지, #801). */}
                 {clubListQuery.data && visibleClubs.length === 0 && (
                   params.favorite && !hasNonFavoriteFilters(params) ? (
-                    <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                    !clubListQuery.isFetching && (
+                      <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                    )
                   ) : (
                     <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
                   )
@@ -633,7 +643,8 @@ export function ClubExplorePage() {
               recruitingCountQuery.isPlaceholderData && 'opacity-60 transition-opacity',
             )}
           >
-            {recruitingTotal !== undefined && (
+            {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801). */}
+            {!requiresLoginForFavorite && recruitingTotal !== undefined && (
               <>
                 지금 <span className="font-bold text-ink">{recruitingTotal}곳</span> 모집 중
               </>
@@ -679,9 +690,12 @@ export function ClubExplorePage() {
                 </div>
               )}
               {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
+              {/* 데스크탑과 같은 규칙 — 갱신 중에는 빈 상태를 아예 띄우지 않는다(#801). */}
               {clubListQuery.data && visibleClubs.length === 0 && (
                 params.favorite && !hasNonFavoriteFilters(params) ? (
-                  <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                  !clubListQuery.isFetching && (
+                    <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                  )
                 ) : (
                   <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
                 )

@@ -76,6 +76,8 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <ApiClientProvider client={apiClient}>
           <ToastProvider>
+            {/* children 보다 먼저 마운트돼야 한다 — 부팅 세션 복원이 먼저 등록돼 하위 화면의
+                /users/me 중복 요청을 흡수한다(#972). 순서를 바꾸면 GET 이 1회 늘어난다. */}
             <AuthSessionBootstrap />
             <SessionExpiryHandler />
             <OfflineBanner />

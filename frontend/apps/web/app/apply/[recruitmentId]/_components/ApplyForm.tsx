@@ -6,6 +6,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import type {
+  ApplicationDraft,
   DraftAnswer,
   RecruitmentDetail,
   RecruitmentQuestionItem,
@@ -130,7 +131,12 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         club_name: recruitment.clubName,
         application_id: applicationId,
       });
-      queryClient.invalidateQueries({ queryKey: draftQueryKeys.byRecruitment(recruitmentId) });
+      // 서버가 제출 시 draft 를 삭제하므로 재조회 대신 캐시를 직접 비운다 — GET 1회 제거(#985).
+      queryClient.setQueryData<ApplicationDraft>(draftQueryKeys.byRecruitment(recruitmentId), {
+        exists: false,
+        answers: [],
+        updatedAt: null,
+      });
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.code === 'RECRUITMENT_CLOSED') {
