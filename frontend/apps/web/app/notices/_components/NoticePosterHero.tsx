@@ -33,7 +33,6 @@ export function NoticePosterHero({ coverImageUrl, title, summary }: Props) {
             src={coverImageUrl}
             alt=""
             className="w-full h-full"
-            emptyMessage="이미지 없음"
           />
         </button>
         {summary ? <p className={summaryClass}>{summary}</p> : <span />}

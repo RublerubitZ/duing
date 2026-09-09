@@ -101,6 +101,20 @@ describe('NoticesPage', () => {
     expect(tableWrapper?.getAttribute('style') ?? '').toBe('');
   });
 
+  it('커버 없는 공지는 목록·고정 카드에 "이미지 없음" 문구 없이 아이콘만 둔다', () => {
+    const items = [
+      makeNoticeItem({ id: 1, title: '고정 공지', pinned: true, coverImageUrl: '' }),
+      makeNoticeItem({ id: 2, title: '일반 공지', coverImageUrl: '' }),
+    ];
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse(items));
+
+    render(<NoticesPage />);
+
+    expect(screen.queryByText('이미지 없음')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '이미지 없음' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /고정 공지/ })).not.toHaveAccessibleName(/이미지 없음/);
+  });
+
   it('카테고리 버튼 클릭 시 category=FESTIVAL, page=0 으로 훅이 호출된다', () => {
     mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
 

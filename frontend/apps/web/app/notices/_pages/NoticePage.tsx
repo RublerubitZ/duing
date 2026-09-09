@@ -189,8 +189,9 @@ function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: str
 function CoverThumb({ src }: { src: string }) {
   if (!src) {
     return (
-      <div role="img" aria-label="이미지 없음" className="w-full h-full grid place-items-center text-charcoal-3">
-        <ImageOff className="w-4 h-4" aria-hidden />
+      // 장식 아이콘 — 링크 접근성 이름에 "이미지 없음" 이 섞이지 않도록 트리에서 숨긴다.
+      <div aria-hidden className="w-full h-full grid place-items-center text-charcoal-3">
+        <ImageOff className="w-4 h-4" />
       </div>
     );
   }
