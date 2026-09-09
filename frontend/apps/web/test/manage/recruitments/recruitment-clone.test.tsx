@@ -67,10 +67,16 @@ function renderPage(searchParams: { cloneFrom?: string }) {
 }
 
 describe('NewRecruitmentPage — 양식 복제', () => {
-  it('cloneFrom 쿼리가 없으면 평소처럼 빈 폼을 연다', () => {
+  it('cloneFrom 쿼리가 없으면 평소처럼 빈 폼을 연다', async () => {
+    // 진행 중 모집이 없어야 폼이 열린다 — 목록을 비워 진입 차단 판정을 명시적으로 통과시킨다.
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/recruitments`, () =>
+        HttpResponse.json({ ok: true, message: null, data: [] }),
+      ),
+    );
     renderPage({});
+    expect(await screen.findByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
     expect(screen.getByText('신규 모집 작성')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
     expect(screen.getAllByRole('button', { name: '모집 시작' }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('link', { name: '취소' })).toHaveAttribute(
       'href',

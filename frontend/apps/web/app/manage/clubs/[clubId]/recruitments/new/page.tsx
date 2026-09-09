@@ -50,9 +50,20 @@ export default function NewRecruitmentPage({
   // 자동 마감 대상은 "마감일이 지난 OPEN"(isRecruitmentExpiredOpen) — 백엔드가 같은 today 기준으로
   // 계산해 내려준 displayStatus 를 쓰므로 FE 날짜 연산이 필요 없다.
   // 활성 모집은 동아리당 1건뿐이라(V38 부분 유니크 인덱스) 자동 마감 대상도 최대 1건이다.
-  // 목록을 못 받았으면(로딩·실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
-  const { data: clubRecruitments } = useClubRecruitmentsQuery(isNaN(clubId) ? undefined : clubId);
-  const closingRecruitment = clubRecruitments?.find(isRecruitmentExpiredOpen);
+  // 목록을 못 받았으면(실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
+  const { data: clubRecruitments, isLoading: isClubRecruitmentsLoading } = useClubRecruitmentsQuery(
+    isNaN(clubId) ? undefined : clubId,
+  );
+  const activeRecruitment = clubRecruitments?.find((recruitment) => recruitment.status !== 'CLOSED');
+  const closingRecruitment =
+    activeRecruitment !== undefined && isRecruitmentExpiredOpen(activeRecruitment)
+      ? activeRecruitment
+      : undefined;
+  // 아직 기간이 남은(또는 상시·예정) 모집이 있으면 백엔드가 생성을 409 로 거부한다. 모집 관리 화면은
+  // 이 조건에서 CTA 를 숨기지만 대시보드 버튼·양식 복제 링크·직접 URL 로도 여기 올 수 있으므로,
+  // 긴 폼을 다 채운 뒤 실패하지 않도록 진입 시점에 막는다(모든 진입 경로가 이 페이지로 모인다).
+  const blockingRecruitment =
+    activeRecruitment !== undefined && closingRecruitment === undefined ? activeRecruitment : undefined;
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 
@@ -84,6 +95,40 @@ export default function NewRecruitmentPage({
 
   if (isValidCloneFromId && isCloneSourceLoading) {
     return <LoadingGate label="복제할 모집 정보 불러오는 중" />;
+  }
+
+  // 폼을 먼저 보여줬다가 차단 안내로 바꾸면 작성 중이던 입력이 사라진다 — 목록 판정이 끝날 때까지 기다린다.
+  if (isClubRecruitmentsLoading) {
+    return <LoadingGate label="모집 정보 불러오는 중" />;
+  }
+
+  if (blockingRecruitment !== undefined) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <h1 className="text-xl font-bold text-ink-deep">신규 모집 작성</h1>
+        <div
+          role="status"
+          className="mt-5 rounded-[13px] border border-line bg-sage-tint px-5 py-4 text-sm leading-relaxed text-charcoal-2"
+        >
+          <p className="font-bold text-ink-deep">진행 중인 모집이 있어요</p>
+          <p className="mt-1">
+            모집은 한 번에 하나씩만 진행할 수 있어요. &apos;{blockingRecruitment.title}&apos; 모집을 마감한
+            뒤 새 모집을 만들 수 있어요.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${blockingRecruitment.id}`)}
+              className="btn btn-primary btn-sm"
+            >
+              진행 중인 모집 보기
+            </Link>
+            <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="btn btn-secondary btn-sm">
+              모집 관리로 이동
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const submitLabel = cloneSource ? '복제하여 모집 시작' : '모집 시작';
