@@ -25,8 +25,6 @@ public interface RecruitmentService {
 
     void delete(Long recruitmentId, Long currentUserId);
 
-    Long replaceActive(CreateRecruitmentCommand createRecruitmentCommand);
-
     List<Long> closeAllOnClubClosure(Long clubId);
 
     /**
