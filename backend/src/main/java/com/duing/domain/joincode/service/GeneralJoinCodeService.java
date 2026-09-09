@@ -80,7 +80,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
             throw new JoinCodeException.OpenRecruitmentRequiredException();
         }
 
-        LocalDateTime now = LocalDateTime.now(clock);
+        // DB timestamp 는 마이크로초로 반올림하므로 여기서 절단해 저장값과 이후 감사 detail 이 같은 해상도를 갖게 한다(createClubInvite 와 동일).
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         Long clubId = recruitment.getClub().getId();
 
         // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼

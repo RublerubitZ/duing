@@ -236,7 +236,7 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
         verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(messageCaptor.capture());
         assertThat(messageCaptor.getValue())
-                .contains("이벤트: FEE_ACCOUNT_CREATED", "ClubId: " + club.getId(), "은행: KB")
+                .contains("이벤트: FEE_ACCOUNT_CREATED", "동아리: " + club.getName(), "ClubId: " + club.getId(), "은행: KB")
                 .doesNotContain("111-222-333333", "홍예금주");
 
         feeAccountService.upsert(new UpsertFeeAccountCommand(club.getId(), leader.getId(), Bank.KB, "111-222-333333", "홍예금주"));

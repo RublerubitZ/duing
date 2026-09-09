@@ -138,7 +138,7 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("시설 예약 메시지는 BookingId·ClubId 만 싣고 자유 텍스트(취소 사유·충돌 상세)는 절대 싣지 않는다")
+    @DisplayName("시설 예약 메시지는 동아리명·BookingId·ClubId 만 싣고 자유 텍스트(취소 사유·충돌 상세)는 절대 싣지 않는다")
     void facilityBookingMessagesExcludeFreeText() {
         assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L), "두잉개발회"))
                 .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "동아리: 두잉개발회",

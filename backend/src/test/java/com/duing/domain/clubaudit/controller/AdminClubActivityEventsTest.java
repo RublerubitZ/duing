@@ -51,7 +51,7 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
     private Long adminId;
     private Long statusEventId;
     private Long inviteCreatedEventId;
-    private Long recruitmentLinkRevokedEventId;
+    private Long revokedInviteLinkEventId;
     private Long closedEventId;
 
     @BeforeEach
@@ -75,7 +75,7 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
                 null, null, leader.getId(), AuditDetailJson.of(Map.of(
                         "linkType", "CLUB_INVITE", "autoApprove", true, "maxUses", 30,
                         "expiresAt", "2026-09-11T05:00:00Z"))));
-        recruitmentLinkRevokedEventId = save(ClubAuditEvent.joinLink(ClubAuditEventType.JOIN_LINK_REVOKED, clubId,
+        revokedInviteLinkEventId = save(ClubAuditEvent.joinLink(ClubAuditEventType.JOIN_LINK_REVOKED, clubId,
                 null, null, withdrawnLeader.getId()));
         userRepository.delete(withdrawnLeader);
         closedEventId = save(ClubAuditEvent.clubClosed(clubId, adminId, "활동 중단 장기화"));
@@ -100,7 +100,7 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
         JsonPath response = search();
 
         assertThat(response.getList("data.content.eventId", Long.class))
-                .containsExactly(closedEventId, recruitmentLinkRevokedEventId, inviteCreatedEventId, statusEventId);
+                .containsExactly(closedEventId, revokedInviteLinkEventId, inviteCreatedEventId, statusEventId);
         assertThat(response.getLong("data.totalElements")).isEqualTo(4L);
 
         assertThat(response.getString(path(statusEventId) + ".eventType")).isEqualTo("CLUB_STATUS_CHANGED");
@@ -115,9 +115,9 @@ class AdminClubActivityEventsTest extends IntegrationTestBase {
         assertThat(response.getInt(path(inviteCreatedEventId) + ".detail.maxUses")).isEqualTo(30);
         assertThat(response.getString(path(inviteCreatedEventId) + ".recruitmentId")).isNull();
 
-        assertThat(response.getString(path(recruitmentLinkRevokedEventId) + ".actorName"))
+        assertThat(response.getString(path(revokedInviteLinkEventId) + ".actorName"))
                 .as("탈퇴한 행위자는 이름만 비운다").isNull();
-        assertThat(response.getString(path(recruitmentLinkRevokedEventId) + ".detail")).isNull();
+        assertThat(response.getString(path(revokedInviteLinkEventId) + ".detail")).isNull();
 
         assertThat(response.getString(path(closedEventId) + ".reason")).isEqualTo("활동 중단 장기화");
     }
