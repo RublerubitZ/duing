@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationAnswer;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.entity.ApplicationStatusHistory;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -37,6 +39,7 @@ class RecruitmentStatsRepositoryTest {
 
     @Autowired RecruitmentStatsRepositoryCustom statsRepository;
     @Autowired ApplicationRepository applicationRepository;
+    @Autowired ApplicationStatusHistoryRepository applicationStatusHistoryRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
@@ -84,6 +87,12 @@ class RecruitmentStatsRepositoryTest {
         statusField.setAccessible(true);
         statusField.set(application, status);
         return applicationRepository.save(application);
+    }
+
+    private void saveStatusHistory(Application application, ApplicationStatus previousStatus,
+                                   ApplicationStatus newStatus, User changedBy) {
+        applicationStatusHistoryRepository.save(
+                ApplicationStatusHistory.record(application, previousStatus, newStatus, changedBy));
     }
 
     @Test
@@ -150,5 +159,40 @@ class RecruitmentStatsRepositoryTest {
 
         assertThat(result.get(ApplicationStatus.SUBMITTED)).isEqualTo(1L);
         assertThat(result.get(ApplicationStatus.ACCEPTED)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("서류에서 바로 불합격한 지원은 면접 진입에 세지 않고, 면접 단계를 거친 지원만 DISTINCT 로 센다")
+    void interviewEnteredCountsOnlyApplicationsThatReachedInterviewStage() throws Exception {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        User manager = saveUser();
+
+        for (int i = 0; i < 4; i++) {
+            saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.SUBMITTED);
+        }
+        for (int i = 0; i < 4; i++) {
+            Application paperRejected =
+                    saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.REJECTED);
+            saveStatusHistory(paperRejected, ApplicationStatus.SUBMITTED, ApplicationStatus.REJECTED, manager);
+        }
+        Application awaitingInterview =
+                saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.INTERVIEW_PENDING);
+        saveStatusHistory(awaitingInterview, ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEW_PENDING, manager);
+        // 이력이 2건인 지원 — 면접까지 갔다가 떨어졌다. DISTINCT 가 없으면 이 한 건이 두 번 세어진다.
+        Application rejectedAfterInterview =
+                saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.REJECTED);
+        saveStatusHistory(rejectedAfterInterview, ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEW_PENDING, manager);
+        saveStatusHistory(rejectedAfterInterview, ApplicationStatus.INTERVIEW_PENDING, ApplicationStatus.REJECTED, manager);
+
+        applicationRepository.flush();
+
+        assertThat(statsRepository.countInterviewEntered(recruitment.getId())).isEqualTo(2L);
+
+        // 상태 이력 도입 전에 처리돼 이력이 없는 레거시 합격자도 현재 상태로 보전된다.
+        saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.ACCEPTED);
+        applicationRepository.flush();
+
+        assertThat(statsRepository.countInterviewEntered(recruitment.getId())).isEqualTo(3L);
     }
 }
