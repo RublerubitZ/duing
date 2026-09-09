@@ -26,12 +26,12 @@ import { ManageNav } from '@/app/manage/_components/ManageNav';
 const CLUB_ID = 1;
 const RECRUITMENT_ID = 10;
 
-describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
-  beforeEach(() => {
-    mockRecruitmentDetail.mockReturnValue({ data: undefined });
-    mockClubRecruitments.mockReturnValue({ data: undefined });
-  });
+beforeEach(() => {
+  mockRecruitmentDetail.mockReturnValue({ data: undefined });
+  mockClubRecruitments.mockReturnValue({ data: undefined });
+});
 
+describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
   it('모집 컨텍스트가 없어도 진행 중 자체 폼 모집이 있으면 통계가 그 모집으로 가는 링크가 된다', () => {
     mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/recruitments`);
     mockClubRecruitments.mockReturnValue({
