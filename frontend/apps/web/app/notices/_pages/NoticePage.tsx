@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { SVGProps } from 'react';
 import Link from 'next/link';
+import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -182,6 +183,19 @@ function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: str
       <span style={{ flex: 1 }}>{label}</span>
     </Link>
   );
+}
+
+/* 목록 썸네일 — 커버 없으면 아이콘만. ImageWithFallback 의 "이미지 없음" 문구가 40px 칸에서 잘리고 카드에서는 과하게 도드라진다. */
+function CoverThumb({ src }: { src: string }) {
+  if (!src) {
+    return (
+      // 장식 아이콘 — 링크 접근성 이름에 "이미지 없음" 이 섞이지 않도록 트리에서 숨긴다.
+      <div aria-hidden className="w-full h-full grid place-items-center text-charcoal-3">
+        <ImageOff className="w-4 h-4" />
+      </div>
+    );
+  }
+  return <ImageWithFallback src={src} alt="" className="w-full h-full !bg-transparent" />;
 }
 
 /* ---------- 헬퍼 ---------- */
@@ -542,18 +556,13 @@ export function NoticePage() {
                             </span>
                           </div>
                           </div>
-                          {/* Cover thumbnail */}
-                          <div style={{
-                            flex: '0 0 140px', alignSelf: 'stretch',
+                          {/* Cover thumbnail — 모바일은 96px·3:4 고정(카드 높이에 따라 크롭 비율이 달라지고
+                              320px 폭에서 본문 칸이 86px 로 눌리던 문제). md+ 는 기존 140px·카드 높이 stretch 유지. */}
+                          <div className="shrink-0 basis-[96px] self-start aspect-[3/4] md:basis-[140px] md:self-stretch md:aspect-auto" style={{
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
-                            <ImageWithFallback
-                              src={n.coverImageUrl}
-                              alt=""
-                              className="w-full h-full !bg-transparent"
-                              emptyMessage="이미지 없음"
-                            />
+                            <CoverThumb src={n.coverImageUrl} />
                           </div>
                         </Link>
                       );
@@ -620,12 +629,7 @@ export function NoticePage() {
                       width: 40, height: 40, borderRadius: 8,
                       overflow: 'hidden',
                     }}>
-                      <ImageWithFallback
-                        src={n.coverImageUrl}
-                        alt=""
-                        className="w-full h-full !bg-transparent"
-                        emptyMessage="이미지 없음"
-                      />
+                      <CoverThumb src={n.coverImageUrl} />
                     </div>
                     <span className="nr-cat"><NTagPill category={n.category} /></span>
                     <span className="nr-title" style={{
@@ -642,7 +646,8 @@ export function NoticePage() {
                           fontSize: 11, fontWeight: 700,
                         }}>🏛 {n.clubName ?? '동아리 공지'}</span>
                       )}
-                      {n.title}
+                      {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
+                      <span className="min-w-0 truncate">{n.title}</span>
                       {isNewItem(n.createdAt) && <NewBadge />}
                     </span>
                     <span className="nr-date" style={{
