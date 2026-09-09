@@ -56,7 +56,7 @@ export default function RecruitmentDetailPage({
   const deleteRecruitment = useDeleteRecruitmentMutation(clubId, recruitmentId);
   // 통계 페이지 진입 전 핵심 지표(지원자·합격·합격률)를 상세에서 미리 보여주기 위한 1회 호출.
   // 통계 페이지와 동일 훅·쿼리키를 공유하므로 통계로 이동 시 캐시가 재사용된다.
-  const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
+  const { data: statsSummary, isPending: isStatsSummaryPending } = useRecruitmentStatsSummaryQuery(
     isNaN(recruitmentId) ? undefined : recruitmentId,
   );
 
@@ -92,8 +92,10 @@ export default function RecruitmentDetailPage({
 
   // 삭제는 마감(CLOSED)된 0지원자 공고만 가능(백엔드가 강제 — OPEN 은 지원 경쟁으로 고아 발생).
   // 진행 중 공고는 먼저 '마감' 후 삭제하면 되고, 그 조건을 만족할 때만 버튼을 노출해 409 를 UX 에서 차단한다.
+  // 지원자 수를 아직 모르는 동안은 자리만 예약(invisible)한다 — 로드 뒤 버튼이 갑자기 나타나거나
+  // 비활성 버튼이 사라지는 깜빡임 둘 다 피한다.
   const canDelete =
-    recruitment.status === 'CLOSED' && statsSummary != null && statsSummary.total === 0;
+    recruitment.status === 'CLOSED' && (isStatsSummaryPending || statsSummary?.total === 0);
 
   async function handleDelete() {
     setDeleteError(null);
@@ -339,8 +341,11 @@ export default function RecruitmentDetailPage({
         {canDelete && (
           <button
             type="button"
+            disabled={isStatsSummaryPending}
             onClick={() => setShowDeleteConfirm(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50"
+            className={`inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50${
+              isStatsSummaryPending ? ' invisible' : ''
+            }`}
           >
             삭제
           </button>

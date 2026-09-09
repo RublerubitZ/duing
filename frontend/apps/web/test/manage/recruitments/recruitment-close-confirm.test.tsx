@@ -46,6 +46,13 @@ function recruitmentSummary(overrides: Partial<RecruitmentSummary>): Recruitment
 const expiredOpenRecruitment = recruitmentSummary({ status: 'OPEN', displayStatus: 'CLOSED' });
 /** 이미 마감된 지난 모집 — 이번 등록이 건드리지 않는다. */
 const alreadyClosedRecruitment = recruitmentSummary({ status: 'CLOSED', displayStatus: 'CLOSED' });
+/** 아직 기간이 남은 진행 중 모집 — 백엔드가 새 등록을 409 로 거부하므로 폼을 열지 않는다. */
+const stillActiveRecruitment = recruitmentSummary({
+  status: 'OPEN',
+  displayStatus: 'ALWAYS_OPEN',
+  endDate: null,
+  effectivelyOpen: true,
+});
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -98,9 +105,9 @@ function localIsoDate(daysFromToday: number): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** 자체 폼 create 모드의 필수 입력을 모두 채운다. */
-function fillCreateForm() {
-  fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+/** 자체 폼 create 모드의 필수 입력을 모두 채운다. 폼은 모집 목록 판정이 끝난 뒤에야 열린다. */
+async function fillCreateForm() {
+  fireEvent.change(await screen.findByPlaceholderText('모집 공고 제목을 입력하세요'), {
     target: { value: '10기 신입 모집' },
   });
   fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: localIsoDate(1) } });
@@ -132,7 +139,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     trackCreateRequests();
     renderPage([expiredOpenRecruitment]);
 
-    fillCreateForm();
+    await fillCreateForm();
     submitForm();
 
     expect(await screen.findByText('기존 모집을 마감하시겠습니까?')).toBeInTheDocument();
@@ -153,7 +160,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     const createdPayloads = trackCreateRequests();
     renderPage([expiredOpenRecruitment]);
 
-    fillCreateForm();
+    await fillCreateForm();
     submitForm();
     fireEvent.click(await screen.findByRole('button', { name: '취소' }));
 
@@ -167,7 +174,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     const createdPayloads = trackCreateRequests();
     renderPage([expiredOpenRecruitment]);
 
-    fillCreateForm();
+    await fillCreateForm();
     submitForm();
     fireEvent.click(await screen.findByRole('button', { name: '등록 및 마감' }));
 
@@ -179,7 +186,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     const createdPayloads = trackCreateRequests();
     renderPage([alreadyClosedRecruitment]);
 
-    fillCreateForm();
+    await fillCreateForm();
     submitForm();
 
     await vi.waitFor(() => expect(createdPayloads).toHaveLength(1));
@@ -194,10 +201,26 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     );
     renderPage();
 
-    fillCreateForm();
+    await fillCreateForm();
     submitForm();
 
     await vi.waitFor(() => expect(createdPayloads).toHaveLength(1));
     expect(screen.queryByText('기존 모집을 마감하시겠습니까?')).not.toBeInTheDocument();
+  });
+
+  it('아직 진행 중인 모집이 있으면 폼 대신 차단 안내와 이동 링크를 보여준다', async () => {
+    renderPage([stillActiveRecruitment]);
+
+    expect(await screen.findByText('진행 중인 모집이 있어요')).toBeInTheDocument();
+    expect(screen.getByText(/'9기 신입 모집' 모집을 마감한 뒤 새 모집을 만들 수 있어요/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '진행 중인 모집 보기' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments/7',
+    );
+    expect(screen.getByRole('link', { name: '모집 관리로 이동' })).toHaveAttribute(
+      'href',
+      '/manage/clubs/1/recruitments',
+    );
+    expect(screen.queryByPlaceholderText('모집 공고 제목을 입력하세요')).not.toBeInTheDocument();
   });
 });
