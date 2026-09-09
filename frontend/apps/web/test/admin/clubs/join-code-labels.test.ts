@@ -38,7 +38,7 @@ function joinCodeOf(overrides: Partial<AdminClubJoinCode> = {}): AdminClubJoinCo
 
 describe('JOIN_CODE_STATUS_LABEL', () => {
   it('네 가지 상태를 한글 표기로 옮긴다', () => {
-    expect(JOIN_CODE_STATUS_LABEL.ACTIVE).toBe('진행 중');
+    expect(JOIN_CODE_STATUS_LABEL.ACTIVE).toBe('활성');
     expect(JOIN_CODE_STATUS_LABEL.EXPIRED).toBe('만료');
     expect(JOIN_CODE_STATUS_LABEL.EXHAUSTED).toBe('소진');
     expect(JOIN_CODE_STATUS_LABEL.REVOKED).toBe('폐기');

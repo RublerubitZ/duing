@@ -112,7 +112,7 @@ describe('총동연 가입 링크 목록', () => {
     renderTable();
 
     await screen.findByText('ACTIVE1');
-    expect(within(bodyRowOf('ACTIVE1')).getByText('진행 중')).toBeInTheDocument();
+    expect(within(bodyRowOf('ACTIVE1')).getByText('활성')).toBeInTheDocument();
     expect(within(bodyRowOf('EXPIRE1')).getByText('만료')).toBeInTheDocument();
     expect(within(bodyRowOf('EXHAUS1')).getByText('소진')).toBeInTheDocument();
     expect(within(bodyRowOf('REVOKE1')).getByText('폐기')).toBeInTheDocument();
@@ -121,11 +121,11 @@ describe('총동연 가입 링크 목록', () => {
     expect(within(bodyRowOf('REVOKE1')).getByText('총동연')).toBeInTheDocument();
   });
 
-  it('강제 폐기 버튼은 진행 중인 링크에만 보인다', async () => {
+  it('강제 폐기 버튼은 활성 링크에만 보인다', async () => {
     listReturns(ALL_STATUS_CODES);
     renderTable();
 
-    await screen.findByText('진행 중');
+    await screen.findByText('활성');
     expect(screen.getAllByRole('button', { name: /강제 폐기/ })).toHaveLength(1);
   });
 
@@ -216,7 +216,7 @@ describe('총동연 가입 링크 목록', () => {
     listReturns(ALL_STATUS_CODES);
     const { container } = renderTable(9999);
 
-    await screen.findByText('진행 중');
+    await screen.findByText('활성');
     expect(container.querySelectorAll('[data-highlighted="true"]')).toHaveLength(0);
   });
 

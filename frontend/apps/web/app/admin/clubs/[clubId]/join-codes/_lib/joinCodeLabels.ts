@@ -1,9 +1,13 @@
 import { formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminClubJoinCode, AdminJoinCodeStatus } from '@duing/types';
 
-/** 상태는 서버가 판정해 내려준 값을 그대로 옮긴다 — 화면에서 만료를 다시 계산하지 않는다. */
+/**
+ * 상태는 서버가 판정해 내려준 값을 그대로 옮긴다 — 화면에서 만료를 다시 계산하지 않는다.
+ * 어휘는 운영진 콘솔의 가입 링크 상태(`JOIN_LINK_STATUS_LABEL`)와 맞춘다. 여기에만 있는 폐기(REVOKED)
+ * 때문에 키 집합이 달라 Record 는 따로 두되, 겹치는 상태는 같은 문구로 부른다.
+ */
 export const JOIN_CODE_STATUS_LABEL: Record<AdminJoinCodeStatus, string> = {
-  ACTIVE: '진행 중',
+  ACTIVE: '활성',
   EXPIRED: '만료',
   EXHAUSTED: '소진',
   REVOKED: '폐기',

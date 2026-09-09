@@ -16,6 +16,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { CopyButton } from '@/app/_components/CopyButton';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { joinLinkUrl } from '@/app/_lib/joinLinkUrl';
 import {
   Dialog,
   DialogContent,
@@ -335,7 +336,7 @@ function ActiveInviteCard({
   const expired = isExpired(joinCode);
   const exhausted = isExhausted(joinCode);
   const expiresIso = expiresAtIso(joinCode);
-  const joinLink = `${window.location.origin}/join/${joinCode.code}`;
+  const joinLink = joinLinkUrl(joinCode.code);
 
   function closeRevokeDialog() {
     setConfirming(null);

@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { CopyButton } from '@/app/_components/CopyButton';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { cn } from '@/app/_lib/cn';
+import { joinLinkUrl } from '@/app/_lib/joinLinkUrl';
 import { ConsoleCard } from '@/app/admin/_components/ConsoleCard';
 import { EmptyState } from '@/app/admin/_components/EmptyState';
 import { ErrorState } from '@/app/admin/_components/ErrorState';
@@ -144,11 +145,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
                       <span className="tabular-nums font-semibold tracking-wide text-ink-deep">
                         {joinCode.code}
                       </span>
-                      {/* 링크 주소는 부원 초대 다이얼로그와 같은 방식으로 만든다(/join/{code}). */}
-                      <CopyButton
-                        label="링크 복사"
-                        value={`${window.location.origin}/join/${joinCode.code}`}
-                      />
+                      <CopyButton label="링크 복사" value={joinLinkUrl(joinCode.code)} />
                     </div>
                   </Td>
                   <Td>
@@ -188,7 +185,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
                     )}
                   </Td>
                   <Td>
-                    {/* 끊을 수 있는 건 진행 중인 링크뿐이다 — 판정은 서버 상태만 본다. */}
+                    {/* 끊을 수 있는 건 활성 링크뿐이다 — 판정은 서버 상태만 본다. */}
                     {joinCode.status === 'ACTIVE' && (
                       <button
                         type="button"

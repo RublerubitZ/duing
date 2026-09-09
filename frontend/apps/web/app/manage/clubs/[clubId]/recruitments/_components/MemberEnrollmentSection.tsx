@@ -18,6 +18,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { CopyButton } from '@/app/_components/CopyButton';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { joinLinkUrl } from '@/app/_lib/joinLinkUrl';
 import { toRoute } from '@/app/_lib/route';
 import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 
@@ -351,7 +352,7 @@ function ActiveCodeCard({
   const [regenerating, setRegenerating] = useState(false);
 
   const expired = isExpired(joinCode);
-  const joinLink = `${window.location.origin}/join/${joinCode.code}`;
+  const joinLink = joinLinkUrl(joinCode.code);
   const requiresTypedConfirm = !canCreate;
 
   function closeRevokeDialog() {
