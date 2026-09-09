@@ -48,12 +48,16 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
   const [revokeTarget, setRevokeTarget] = useState<AdminClubJoinCode | null>(null);
   const [reason, setReason] = useState('');
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+  // 강조 행으로의 스크롤은 첫 도착 때 한 번만 — 강제 폐기 뒤 refetch 마다 다시 튀면 안 된다.
+  const hasScrolledToHighlightRef = useRef(false);
 
   const joinCodes = joinCodesQuery.data ?? [];
 
   useEffect(() => {
     // 목록이 도착한 뒤에야 강조 행이 존재한다. jsdom 에는 scrollIntoView 가 없어 있을 때만 부른다.
-    highlightRowRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    if (hasScrolledToHighlightRef.current || highlightRowRef.current === null) return;
+    hasScrolledToHighlightRef.current = true;
+    highlightRowRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   }, [joinCodesQuery.data, highlightJoinCodeId]);
 
   function closeDialog() {
