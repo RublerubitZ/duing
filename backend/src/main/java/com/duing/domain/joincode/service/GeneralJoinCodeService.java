@@ -6,8 +6,10 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.joincode.entity.ClubJoinCode;
+import com.duing.domain.joincode.entity.JoinCodeLinkType;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.exception.JoinCodeException;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
@@ -19,12 +21,17 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
+import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +53,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
     private final ClubAuthService clubAuthService;
     private final JoinCodeGenerator joinCodeGenerator;
     private final Clock clock;
+    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -71,7 +80,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
             throw new JoinCodeException.OpenRecruitmentRequiredException();
         }
 
-        LocalDateTime now = LocalDateTime.now(clock);
+        // DB timestamp 는 마이크로초로 반올림하므로 여기서 절단해 저장값과 이후 감사 detail 이 같은 해상도를 갖게 한다(createClubInvite 와 동일).
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         Long clubId = recruitment.getClub().getId();
 
         // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
@@ -154,7 +164,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
         clubAuthService.requireManager(createCommand.requesterId(), createCommand.clubId());
         Club club = clubRepository.findById(createCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);   // requireManager 통과라 사실상 도달 불가
-        LocalDateTime now = LocalDateTime.now(clock);
+        // DB timestamp 는 마이크로초로 반올림하므로 여기서 절단해 저장값·감사 detail·Slack 이벤트가 같은 만료 시각을 갖게 한다.
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         // 교체 대상은 이 잠금 조회로 처음 읽는다 — 무잠금 선조회를 앞에 두면 1차 캐시가 오염돼
         // 잠금 조회가 낡은 인스턴스를 돌려주고(findWithLockByCode 와 같은 함정), 그 사이 커밋된
         // 수동 폐기를 보지 못한 채 최초 폐기 시각·폐기자를 덮어쓴다. 활성 술어를 잠금 조회에
@@ -185,7 +196,14 @@ public class GeneralJoinCodeService implements JoinCodeService {
         recordJoinLinkEvent(replacedCode.isPresent()
                         ? ClubAuditEventType.JOIN_LINK_REGENERATED
                         : ClubAuditEventType.JOIN_LINK_CREATED,
-                createCommand.clubId(), null, issued.getId(), createCommand.requesterId());
+                createCommand.clubId(), null, issued.getId(), createCommand.requesterId(),
+                AuditDetailJson.of(clubInviteDetail(issued)));
+        if (issued.isAutoApprove()) {
+            // 운영 Slack 신호 — 자동승인 초대는 승인 없이 부원이 되는 경로다. 승인제 초대는 보내지 않는다(스펙 §2.5).
+            eventPublisher.publishEvent(new ClubInviteAutoApproveIssuedEvent(
+                    club.getId(), club.getName(), issued.getId(), issued.getMaxUses(),
+                    issued.getInviteExpiresAt(), createCommand.requesterId()));
+        }
         // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
         return JoinCodeQuery.from(issued, 0, 0);
     }
@@ -282,8 +300,25 @@ public class GeneralJoinCodeService implements JoinCodeService {
      */
     private void recordJoinLinkEvent(ClubAuditEventType eventType, Long clubId, Long recruitmentId,
                                      Long joinCodeId, Long actorUserId) {
+        recordJoinLinkEvent(eventType, clubId, recruitmentId, joinCodeId, actorUserId, null);
+    }
+
+    private void recordJoinLinkEvent(ClubAuditEventType eventType, Long clubId, Long recruitmentId,
+                                     Long joinCodeId, Long actorUserId, String detail) {
         clubAuditEventRepository.save(ClubAuditEvent.joinLink(
-                eventType, clubId, recruitmentId, joinCodeId, actorUserId));
+                eventType, clubId, recruitmentId, joinCodeId, actorUserId, detail));
+    }
+
+    /**
+     * 초대 발급 스냅샷(활동 이력 스펙 §2.2). 코드 값은 가입 자격 그 자체라 절대 싣지 않는다.
+     * 만료는 seoulClock 벽시계라 응답 경계(JoinCodeResponse)와 같은 KST 환산으로 절대시각을 남긴다.
+     */
+    private static Map<String, Object> clubInviteDetail(ClubJoinCode issued) {
+        return Map.of(
+                "linkType", JoinCodeLinkType.CLUB_INVITE.name(),
+                "autoApprove", issued.isAutoApprove(),
+                "maxUses", issued.getMaxUses(),
+                "expiresAt", TimeMapper.seoulWallClockToInstant(issued.getInviteExpiresAt()).toString());
     }
 
     /**

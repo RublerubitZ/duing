@@ -6,6 +6,8 @@ import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CloseClubCommand;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubevent.service.ClubEventService;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
 import com.duing.domain.clubmember.service.LeaderSuccessionService;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralClubClosureService implements ClubClosureService {
 
     private final ClubRepository clubRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubMemberCommandService clubMemberCommandService;
     private final LeaderSuccessionService leaderSuccessionService;
     private final RecruitmentService recruitmentService;
@@ -57,6 +60,9 @@ public class GeneralClubClosureService implements ClubClosureService {
         Club club = clubRepository.findByIdForUpdate(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.validateClosable();
+        // 폐쇄 감사 — 폐쇄와 같은 트랜잭션이라 아래 어느 단계가 실패해도 함께 롤백된다(폐쇄 없는 CLUB_CLOSED 행은 없다).
+        // flush()/clear() 앞이라 영속성 컨텍스트가 살아 있고, soft-delete 여도 club 행은 남아 FK 가 성립한다(스펙 §2.1).
+        clubAuditEventRepository.save(ClubAuditEvent.clubClosed(clubId, actorAdminUserId, reason));
         // 아래 entityManager.clear() 로 detached 되기 전에 읽어 둔다.
         String clubName = club.getName();
         // 폐쇄된 동아리의 로고·커버·살아 있는 사진은 더는 어디서도 서빙되지 않는다 — clear() 전에 URL 을 모아 두고

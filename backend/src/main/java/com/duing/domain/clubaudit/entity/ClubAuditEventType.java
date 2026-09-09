@@ -3,8 +3,8 @@ package com.duing.domain.clubaudit.entity;
 /**
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
- * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105), 시설 설정 1종(V116)이 있다. 값을 추가할 때는
- * {@code club_audit_event.event_type} 의 CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105).
+ * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105), 시설 설정 1종(V116), 동아리 상태 2종(V127)이 있다. 값을 추가할 때는
+ * {@code club_audit_event.event_type} 의 CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127).
  */
 public enum ClubAuditEventType {
 
@@ -50,7 +50,14 @@ public enum ClubAuditEventType {
     /** 총동연이 회비 CSV 를 내려받았다(P2 예정 — CHECK 재작성을 아끼려 미리 등록). */
     FEE_ADMIN_CSV_DOWNLOADED,
     /** 총동연이 시설 기본 확보 시간 대상 설정을 변경했다(V116) — detail 에 before/after 스냅샷이 남는다. */
-    SECURED_TARGET_CHANGED;
+    SECURED_TARGET_CHANGED,
+    /**
+     * 총동연이 동아리 상태를 전이했다(V127) — detail 에 {"from","to"} 가 남고, REJECTED 로의 전이에만
+     * reason 에 거절 사유가 남는다(그 외 전이는 null). 엔티티의 rejection_reason 은 덮어써지므로 이력은 이 행이 맡는다.
+     */
+    CLUB_STATUS_CHANGED,
+    /** 총동연이 동아리를 폐쇄했다(V127) — reason 에 정규화된 폐쇄 사유. 폐쇄와 같은 트랜잭션이라 폐쇄 없는 행은 없다. */
+    CLUB_CLOSED;
 
     /**
      * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.

@@ -22,39 +22,32 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 /**
- * 회비 이벤트 타입(V105)과 {@code club_audit_event.event_type} CHECK 제약의 정합 가드.
+ * {@link ClubAuditEventType} 전 값과 {@code club_audit_event.event_type} CHECK 제약의 정합 가드.
  *
  * <p>enum 에만 값을 추가하고 마이그레이션의 CHECK 갱신을 빠뜨리면 계측 시점에 INSERT 가 터진다 —
  * 감사 기록은 변이와 같은 트랜잭션이라 변이째 실패하므로, 값 추가 즉시 여기서 잡는다.
+ * 팩토리 종류는 무관하다(CHECK 정합만 본다) — 참조 컬럼이 전부 nullable 인 {@code feeAccount} 로 저장한다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
-class ClubAuditEventFeeTypesTest extends IntegrationTestBase {
+class ClubAuditEventTypesCheckTest extends IntegrationTestBase {
 
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
 
     @Test
-    @DisplayName("회비 이벤트 15종 전부가 event_type CHECK 를 통과해 저장된다 — enum·DDL 정합 가드")
-    void allFeeEventTypesPassCheckConstraint() {
+    @DisplayName("이벤트 타입 전부가 event_type CHECK 를 통과해 저장된다 — enum·DDL 정합 가드")
+    void allEventTypesPassCheckConstraint() {
         User actor = userRepository.save(UserFixture.unique());
         Club club = clubRepository.save(ClubFixture.academic("감사대상"));
 
-        // 참조 id 는 FK 라 실존 행이 필요하므로 null 로 저장한다(컬럼 전부 nullable) —
-        // 이 테스트의 목적은 CHECK 정합뿐이고 참조 채움은 Task 2·3 계측 테스트가 검증한다.
         for (ClubAuditEventType eventType : ClubAuditEventType.values()) {
-            if (!eventType.name().startsWith("FEE_")) {
-                continue;
-            }
             clubAuditEventRepository.save(ClubAuditEvent.feeAccount(
                     eventType, club.getId(), actor.getId(),
                     AuditDetailJson.of(Map.of("probe", eventType.name()))));
         }
 
-        long feeEventCount = clubAuditEventRepository.findAll().stream()
-                .filter(event -> event.getEventType().name().startsWith("FEE_"))
-                .count();
-        assertThat(feeEventCount).isEqualTo(15);
+        assertThat(clubAuditEventRepository.count()).isEqualTo(ClubAuditEventType.values().length);
     }
 }

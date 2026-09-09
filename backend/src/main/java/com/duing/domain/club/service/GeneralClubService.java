@@ -281,16 +281,24 @@ public class GeneralClubService implements ClubService {
         Club club = clubRepository.findByIdForUpdate(updateClubStatusCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         ClubStatus previousStatus = club.getStatus();
+        ClubStatus nextStatus = updateClubStatusCommand.status();
         club.changeStatus(
-                updateClubStatusCommand.status(),
+                nextStatus,
                 updateClubStatusCommand.rejectionReason(),
                 updateClubStatusCommand.actorUserId()
         );
+        // 상태 전이 감사 — 엔티티의 rejection_reason 은 다음 전이에서 덮어써지므로 이력은 이 행이 맡는다.
+        // 거절 사유는 REJECTED 로의 전이에만 싣고, 그 외 전이는 null 이다(스펙 §2.1).
+        clubAuditEventRepository.save(ClubAuditEvent.clubStatusChanged(
+                club.getId(),
+                updateClubStatusCommand.actorUserId(),
+                nextStatus == ClubStatus.REJECTED ? updateClubStatusCommand.rejectionReason() : null,
+                AuditDetailJson.of(Map.of("from", previousStatus.name(), "to", nextStatus.name()))));
         // 운영 Slack 알림 — 전이가 검증을 통과한 뒤에만(거절 사유는 싣지 않는다).
         eventPublisher.publishEvent(new ClubStatusChangedEvent(
-                club.getId(), club.getName(), previousStatus, updateClubStatusCommand.status(),
+                club.getId(), club.getName(), previousStatus, nextStatus,
                 updateClubStatusCommand.actorUserId()));
-        if (updateClubStatusCommand.status() == ClubStatus.INACTIVE) {
+        if (nextStatus == ClubStatus.INACTIVE) {
             // 운영 중단 = 신규 모집 활동 정지. OPEN 모집을 일괄 마감해 공개 표면·알림에 남지 않게 한다 (스펙 Part A).
             recruitmentService.closeAllOnClubDeactivation(club.getId());
         }

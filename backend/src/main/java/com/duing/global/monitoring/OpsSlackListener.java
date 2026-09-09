@@ -1,5 +1,7 @@
 package com.duing.global.monitoring;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
 import com.duing.domain.notification.event.FacilityBookingConflictEvent;
 import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
@@ -8,6 +10,7 @@ import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
@@ -36,6 +39,7 @@ public class OpsSlackListener {
 
     private final OpsSlackMessageFormatter formatter;
     private final SlackNotifier slackNotifier;
+    private final ClubRepository clubRepository;
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -63,8 +67,14 @@ public class OpsSlackListener {
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onClubInviteAutoApproveIssued(ClubInviteAutoApproveIssuedEvent event) {
+        notify("CLUB_INVITE_AUTO_APPROVE_ISSUED", () -> formatter.clubInviteAutoApproveIssued(event));
+    }
+
+    @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFeeAccountCreated(FeeAccountCreatedEvent event) {
-        notify("FEE_ACCOUNT_CREATED", () -> formatter.feeAccountCreated(event));
+        notify("FEE_ACCOUNT_CREATED", () -> formatter.feeAccountCreated(event, clubNameOf(event.clubId())));
     }
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
@@ -82,25 +92,38 @@ public class OpsSlackListener {
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFacilityBookingSubmitted(FacilityBookingSubmittedEvent event) {
-        notify("FACILITY_BOOKING_SUBMITTED", () -> formatter.facilityBookingSubmitted(event));
+        notify("FACILITY_BOOKING_SUBMITTED",
+                () -> formatter.facilityBookingSubmitted(event, clubNameOf(event.clubId())));
     }
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFacilityBookingRejected(FacilityBookingRejectedEvent event) {
-        notify("FACILITY_BOOKING_REJECTED", () -> formatter.facilityBookingRejected(event));
+        notify("FACILITY_BOOKING_REJECTED",
+                () -> formatter.facilityBookingRejected(event, clubNameOf(event.clubId())));
     }
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFacilityBookingCancelled(FacilityBookingCancelledEvent event) {
-        notify("FACILITY_BOOKING_CANCELLED", () -> formatter.facilityBookingCancelled(event));
+        notify("FACILITY_BOOKING_CANCELLED",
+                () -> formatter.facilityBookingCancelled(event, clubNameOf(event.clubId())));
     }
 
     @Async(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onFacilityBookingConflict(FacilityBookingConflictEvent event) {
-        notify("FACILITY_BOOKING_CONFLICT", () -> formatter.facilityBookingConflict(event));
+        notify("FACILITY_BOOKING_CONFLICT",
+                () -> formatter.facilityBookingConflict(event, clubNameOf(event.clubId())));
+    }
+
+    /**
+     * 동아리명은 회비·시설 이벤트 record 에 없어 조회한다(record 는 인앱 알림 리스너도 구독해 필드 불변).
+     * 폐쇄(soft-delete)된 동아리는 @SQLRestriction 으로 빈 결과 → null → 포매터가 줄을 뺀다.
+     * Supplier 안에서 불리므로 조회 실패도 notify 의 try/catch 가 흡수한다.
+     */
+    private String clubNameOf(Long clubId) {
+        return clubRepository.findById(clubId).map(Club::getName).orElse(null);
     }
 
     private void notify(String eventType, Supplier<String> messageSupplier) {

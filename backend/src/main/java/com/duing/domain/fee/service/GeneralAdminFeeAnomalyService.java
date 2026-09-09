@@ -284,7 +284,7 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
      * 이름·마감일만 고친 수정은 detail 에 amount 스냅샷이 없어 빠진다.
      */
     private Optional<FeeAnomaly> detectPolicyAmountChanges(Long clubId, AdminFeePeriod period) {
-        List<ClubAuditEvent> policyUpdates = clubAuditEventRepository.searchFeeEvents(
+        List<ClubAuditEvent> policyUpdates = clubAuditEventRepository.searchEvents(
                 clubId, Set.of(ClubAuditEventType.FEE_POLICY_UPDATED),
                 period.createdFrom(), period.createdTo(),
                 PageRequest.of(0, POLICY_EVENT_SCAN_LIMIT)).getContent();
@@ -314,7 +314,7 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
         LocalDate accountFrom = windowFrom.isBefore(minimumFrom) ? windowFrom : minimumFrom;
         AdminFeePeriod accountPeriod = AdminFeePeriod.of(accountFrom, windowTo);
         // 건수만 필요해 첫 페이지 1건만 읽고 총계를 쓴다.
-        long accountChangeCount = clubAuditEventRepository.searchFeeEvents(
+        long accountChangeCount = clubAuditEventRepository.searchEvents(
                 clubId, ACCOUNT_CHANGE_TYPES, accountPeriod.createdFrom(), accountPeriod.createdTo(),
                 PageRequest.of(0, 1)).getTotalElements();
         if (accountChangeCount < ACCOUNT_CHANGES_CRITICAL) {

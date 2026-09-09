@@ -98,12 +98,19 @@ public class ClubAuditEvent extends BaseEntity {
     /** 가입 링크 생성·재생성·폐기 이벤트. */
     public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
                                           Long recruitmentId, Long joinCodeId, Long actorUserId) {
+        return joinLink(eventType, clubId, recruitmentId, joinCodeId, actorUserId, null);
+    }
+
+    /** 가입 링크 이벤트 + 발급 스냅샷 — 부원 초대 발급이 자동승인·정원·만료를 detail 에 남긴다(코드 값 금지). */
+    public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
+                                          Long recruitmentId, Long joinCodeId, Long actorUserId, String detail) {
         return ClubAuditEvent.builder()
                 .clubId(clubId)
                 .eventType(eventType)
                 .actorUserId(actorUserId)
                 .recruitmentId(recruitmentId)
                 .joinCodeId(joinCodeId)
+                .detail(detail)
                 .build();
     }
 
@@ -216,6 +223,27 @@ public class ClubAuditEvent extends BaseEntity {
                 .eventType(ClubAuditEventType.SECURED_TARGET_CHANGED)
                 .actorUserId(actorUserId)
                 .detail(detail)
+                .build();
+    }
+
+    /** 총동연 동아리 상태 전이 — detail 에 from/to, REJECTED 로의 전이에만 reason 에 거절 사유가 남는다. */
+    public static ClubAuditEvent clubStatusChanged(Long clubId, Long actorUserId, String reason, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_STATUS_CHANGED)
+                .actorUserId(actorUserId)
+                .reason(reason)
+                .detail(detail)
+                .build();
+    }
+
+    /** 총동연 동아리 폐쇄 — reason 에 정규화된 폐쇄 사유. 폐쇄 트랜잭션 안에서 기록돼 폐쇄가 롤백되면 함께 사라진다. */
+    public static ClubAuditEvent clubClosed(Long clubId, Long actorUserId, String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_CLOSED)
+                .actorUserId(actorUserId)
+                .reason(reason)
                 .build();
     }
 
