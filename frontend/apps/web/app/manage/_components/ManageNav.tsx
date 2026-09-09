@@ -15,7 +15,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
-import { useRecruitmentDetailQuery } from '@duing/hooks';
+import { useClubRecruitmentsQuery, useRecruitmentDetailQuery } from '@duing/hooks';
 import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
 
@@ -79,9 +79,18 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
     : activeRecruitmentId
       ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/applicants`)
       : toRoute(`/manage/clubs/${currentClubId}/applicants`);
+  // 통계는 클럽 단위 진입 라우트가 없다 — 모집 컨텍스트가 없으면 진행 중(raw OPEN) 자체 폼 모집의
+  // 통계로 바로 보낸다(지원자 진입 라우트와 같은 판정). 목록은 대시보드·모집 관리와 같은 쿼리키라
+  // 대부분 캐시 재사용이고, 진행 중 모집이 없거나 아직 못 받았으면 비활성 안내를 유지한다.
+  const { data: clubRecruitments } = useClubRecruitmentsQuery(currentClubId);
+  const fallbackStatsRecruitmentId = clubRecruitments?.find(
+    (recruitment) => recruitment.status === 'OPEN' && recruitment.applicationMode === 'SELF',
+  )?.id;
+  const statsRecruitmentId =
+    activeRecruitmentId !== undefined ? activeRecruitmentId : fallbackStatsRecruitmentId;
   const statsPath =
-    activeRecruitmentId && !isExternalRecruitment
-      ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${activeRecruitmentId}/stats`)
+    statsRecruitmentId !== undefined && !isExternalRecruitment
+      ? toRoute(`/manage/clubs/${currentClubId}/recruitments/${statsRecruitmentId}/stats`)
       : null;
   const recruitmentActionHint = isExternalRecruitment ? EXTERNAL_MODE_HINT : NO_RECRUITMENT_HINT;
 

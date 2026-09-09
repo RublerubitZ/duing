@@ -9,8 +9,11 @@ vi.mock('next/navigation', () => ({
 // 선택된 모집의 지원 방식(applicationMode)만 나브 판정에 쓴다 — 도메인 훅 하나만 갈아끼워
 // 로딩(모드 미확인)·자체 폼·외부 폼 세 갈래를 직접 태운다.
 const mockRecruitmentDetail = vi.fn(() => ({ data: undefined }) as { data: unknown });
+// 모집 컨텍스트가 없을 때 통계가 진행 중 모집으로 떨어지는 판정에 클럽 모집 목록을 쓴다.
+const mockClubRecruitments = vi.fn(() => ({ data: undefined }) as { data: unknown });
 vi.mock('@duing/hooks', () => ({
   useRecruitmentDetailQuery: () => mockRecruitmentDetail(),
+  useClubRecruitmentsQuery: () => mockClubRecruitments(),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageNav } from '@/app/manage/_components/ManageNav';
@@ -26,6 +29,35 @@ const RECRUITMENT_ID = 10;
 describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
   beforeEach(() => {
     mockRecruitmentDetail.mockReturnValue({ data: undefined });
+    mockClubRecruitments.mockReturnValue({ data: undefined });
+  });
+
+  it('모집 컨텍스트가 없어도 진행 중 자체 폼 모집이 있으면 통계가 그 모집으로 가는 링크가 된다', () => {
+    mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/recruitments`);
+    mockClubRecruitments.mockReturnValue({
+      data: [
+        { id: 3, status: 'CLOSED', applicationMode: 'SELF' },
+        { id: RECRUITMENT_ID, status: 'OPEN', applicationMode: 'SELF' },
+      ],
+    });
+    render(<ManageNav currentClubId={CLUB_ID} />);
+
+    expect(screen.getByRole('link', { name: '통계' })).toHaveAttribute(
+      'href',
+      `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/stats`,
+    );
+    expect(screen.queryByText('모집을 먼저 선택하세요')).not.toBeInTheDocument();
+  });
+
+  it('진행 중 모집이 외부 폼뿐이면 통계는 비활성 안내로 남는다', () => {
+    mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}/recruitments`);
+    mockClubRecruitments.mockReturnValue({
+      data: [{ id: RECRUITMENT_ID, status: 'OPEN', applicationMode: 'EXTERNAL' }],
+    });
+    render(<ManageNav currentClubId={CLUB_ID} />);
+
+    expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('모집을 먼저 선택하세요')).toHaveLength(1);
   });
 
   it('모집 목록 화면에서는 지원자가 클럽 진입 라우트로, 통계만 비활성 안내로 표시된다', () => {
