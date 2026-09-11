@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useLogout, useMeQuery, useMyClubsQuery } from '@duing/hooks';
@@ -41,15 +42,15 @@ export function UserMenu({
   );
   const consoleItem =
     managedClubs.length === 1
-      ? { label: `운영진 콘솔 · ${managedClubs[0]!.clubName}`, href: `/manage?clubId=${managedClubs[0]!.clubId}` }
+      ? { label: `운영진 콘솔 · ${managedClubs[0]!.clubName}`, href: toRoute(`/manage?clubId=${managedClubs[0]!.clubId}`) }
       : managedClubs.length > 1
-        ? { label: '운영진 콘솔', href: '/manage' }
+        ? { label: '운영진 콘솔', href: toRoute('/manage') }
         : null;
 
-  const menuItems: { label: string; href: string }[] = [
-    { label: '마이페이지', href: '/me' },
+  const menuItems: { label: string; href: Route }[] = [
+    { label: '마이페이지', href: toRoute('/me') },
     ...(consoleItem ? [consoleItem] : []),
-    { label: '설정', href: '/me/settings' },
+    { label: '설정', href: toRoute('/me/settings') },
   ];
 
   const handleLogout = async () => {

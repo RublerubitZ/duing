@@ -17,7 +17,7 @@ export const MAIN_NAV_ITEMS: readonly MainNavItem[] = [
 ];
 
 /** '일정·시설' 한 탭 안의 형제 페이지 — CalendarPage·FacilityBookingPage 의 PageSegment 가 공유한다. */
-export const CALENDAR_FACILITY_SEGMENT_ITEMS = [
+export const CALENDAR_FACILITY_SEGMENT_ITEMS: readonly { label: string; href: `/${string}` }[] = [
   { label: '일정', href: '/calendar' },
   { label: '시설 예약', href: '/facilities' },
 ];

@@ -4,11 +4,12 @@
 import Link from 'next/link';
 
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
-type Item = { label: string; href: string };
+type Item = { label: string; href: `/${string}` };
 
-export function PageSegment({ label, items }: { label: string; items: Item[] }) {
+export function PageSegment({ label, items }: { label: string; items: readonly Item[] }) {
   const pathname = useRoutePathname();
   return (
     <nav aria-label={label} className="mb-4">
@@ -18,7 +19,7 @@ export function PageSegment({ label, items }: { label: string; items: Item[] }) 
           return (
             <li key={item.href}>
               <Link
-                href={item.href}
+                href={toRoute(item.href)}
                 aria-current={on ? 'page' : undefined}
                 className={cn(
                   'inline-flex min-h-[36px] items-center rounded-[9px] px-3.5 text-[13.5px] font-semibold transition-colors',
