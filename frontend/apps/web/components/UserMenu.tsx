@@ -36,7 +36,7 @@ export function UserMenu({
   const userName = meQuery.data?.name ?? '회원';
   const isAdmin = meQuery.data?.role === 'ADMIN';
 
-  // 운영진 콘솔 진입점 — 관리 동아리가 하나면 그 동아리로 바로, 여러 개면 선택 화면(/manage)으로 보낸다.
+  // 운영진 콘솔 진입점 — 관리 동아리가 하나면 그 동아리로 바로, 여러 개면 /manage 가 마지막에 본 동아리로 보낸다(없으면 첫 동아리).
   const managedClubs = (myClubsQuery.data ?? []).filter(
     (club) => (club.myRole === 'LEADER' || club.myRole === 'OFFICER') && club.status === 'ACTIVE',
   );

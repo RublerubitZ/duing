@@ -35,6 +35,7 @@ describe('ManagePage', () => {
     pushSpy.mockReset();
     mockQueryResult = { data: undefined, isLoading: true };
     mockSearchParams = new URLSearchParams();
+    window.localStorage.clear();
   });
 
   const TWO_CLUBS: ManagedClub[] = [
@@ -99,6 +100,24 @@ describe('ManagePage', () => {
   it('clubId 쿼리가 관리 목록에 없으면 첫 동아리로 fallback 한다', async () => {
     mockQueryResult = { data: TWO_CLUBS, isLoading: false };
     mockSearchParams = new URLSearchParams('clubId=999');
+    render(<ManagePage />);
+    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/5'));
+  });
+
+  // 저장 키는 app/manage/_lib/lastClubStorage.ts 의 상수와 같은 값이다(리터럴로 두어 값 변경을 테스트가 잡는다).
+  const LAST_CLUB_STORAGE_KEY = 'duing:manage:last-club';
+
+  it('clubId 쿼리가 없고 저장된 마지막 동아리가 목록에 있으면 첫 동아리가 아니라 그 동아리로 push 한다', async () => {
+    mockQueryResult = { data: TWO_CLUBS, isLoading: false };
+    window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, '12');
+    render(<ManagePage />);
+    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/12'));
+    expect(pushSpy).not.toHaveBeenCalledWith('/manage/clubs/5');
+  });
+
+  it('저장된 마지막 동아리가 목록에 없으면 첫 동아리로 fallback 한다', async () => {
+    mockQueryResult = { data: TWO_CLUBS, isLoading: false };
+    window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, '999');
     render(<ManagePage />);
     await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/5'));
   });

@@ -13,6 +13,7 @@ import { cn } from '@/app/_lib/cn';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { LAST_CLUB_STORAGE_KEY } from '../_lib/lastClubStorage';
 import { ClubSwitcher } from './ClubSwitcher';
 import { ManageGuard } from './ManageGuard';
 import { ManageNav } from './ManageNav';
@@ -193,6 +194,15 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
       // 저장소를 못 쓰는 환경 — 접힘 기억만 포기하고 기본(펼침)으로 둔다.
     }
   }, []);
+
+  useEffect(() => {
+    if (currentClubId === null) return;
+    try {
+      window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, String(currentClubId));
+    } catch {
+      // 저장 실패는 이번 세션의 콘솔 동작을 막지 않는다 — 다음 /manage 진입이 첫 동아리로 갈 뿐이다.
+    }
+  }, [currentClubId]);
 
   // 드로어 안 링크 클릭은 아래 래퍼 onClick 이 닫지만, 미저장 이탈 가드가 capture 단계에서 클릭을
   // 멈추면 그 onClick 이 실행되지 않는다 — 확인 후 router.push 로 이동해도 드로어가 열린 채 새 화면을
