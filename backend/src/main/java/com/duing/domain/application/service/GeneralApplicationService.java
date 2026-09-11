@@ -20,6 +20,10 @@ import com.duing.domain.application.service.dto.query.BulkUpdateApplicationStatu
 import com.duing.domain.application.service.dto.query.MyApplicationDetailQuery;
 import com.duing.domain.applicationEvaluation.entity.ApplicationEvaluation;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
@@ -91,6 +95,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ApplicationEvaluationRepository applicationEvaluationRepository;
     private final InterviewAssignmentQueryService interviewAssignmentQueryService;
     private final Clock clock;
+    private final ClubAuditEventRepository clubAuditEventRepository;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -325,6 +330,31 @@ public class GeneralApplicationService implements ApplicationService {
 
         return ApplicantDetailQuery.fromAll(application, historyRows, evaluations, currentUserId,
                 interviewAvailabilities, assignedSlot, interview, interviewRoundBrief);
+    }
+
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — 클래스 레벨 readOnly 를 메서드에서 덮는다
+     * (readOnly 로 두면 실제 PG 에서 INSERT 가 거부된다. GeneralClubMemberQueryService.getMemberPhone 전례).
+     * 인가 순서는 getApplicantDetail 과 같다 — 경량 clubId 조회 → 운영진 확인 → 그 뒤에야 지원서(개인정보)를 올린다.
+     */
+    @Override
+    @Transactional
+    public String getApplicantPhone(Long applicationId, Long currentUserId) {
+        Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        clubAuthService.requireManager(currentUserId, clubId);
+
+        // 상세 조회와 같은 가시성 쿼리(user JOIN FETCH) — 탈퇴한 지원자의 지원서는 지연 로딩 예외 대신 404 로 답한다.
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        Long applicantUserId = application.getUser().getId();
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
+        log.info("applicant phone view: clubId={}, actorUserId={}, applicationId={}, targetUserId={}",
+                clubId, currentUserId, applicationId, applicantUserId);
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.APPLICANT_PHONE_VIEWED, clubId, currentUserId,
+                AuditDetailJson.of(Map.of("applicationId", applicationId, "userId", applicantUserId))));
+        return application.getUser().getPhone();
     }
 
     @Override

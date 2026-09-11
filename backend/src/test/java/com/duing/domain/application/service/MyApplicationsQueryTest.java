@@ -14,6 +14,7 @@ import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRe
 import com.duing.domain.application.service.dto.query.ApplicationSummaryQuery;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
@@ -58,7 +59,8 @@ class MyApplicationsQueryTest {
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
-            clock);
+            clock,
+            mock(ClubAuditEventRepository.class));
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")
