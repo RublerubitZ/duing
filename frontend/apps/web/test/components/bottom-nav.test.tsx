@@ -13,7 +13,7 @@ describe('BottomNav', () => {
     window.localStorage.clear();
   });
 
-  it('공개 탭 영역(/clubs)에서 5탭(홈·동아리·시설·캘린더·정보)이 노출되고 동아리가 활성이다', () => {
+  it('공개 탭 영역(/clubs)에서 5탭(홈·동아리·일정·시설·소식·MY)이 노출되고 동아리가 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
 
@@ -21,20 +21,30 @@ describe('BottomNav', () => {
     expect(screen.getAllByRole('link')).toHaveLength(5);
     expect(screen.getByRole('link', { name: '소식' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
+    // 시설은 독립 탭에서 빠지고 '일정·시설' 한 탭으로 묶였다.
+    expect(screen.queryByRole('link', { name: '시설' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '일정·시설' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('href', '/me');
     expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
   });
 
-  it('시설 목록(/facilities)에서는 시설 탭이 활성이다', () => {
+  it('시설 목록(/facilities)에서는 일정·시설 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/facilities');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 시설 탭이 활성이다', () => {
+  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 일정·시설 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/facilities/12');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('일정(/calendar)도 같은 일정·시설 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/calendar');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('홈(/)에서는 홈 탭이 정확히 활성이다', () => {
@@ -78,8 +88,20 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('개인영역(/me)에서는 렌더링하지 않는다', () => {
+  it('마이페이지(/me)에서는 탭바가 노출되고 MY 가 활성이다', () => {
     mockUsePathname.mockReturnValue('/me');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('개인영역 하위(/me/fees)에서도 탭바가 노출되고 MY 가 활성이다', () => {
+    mockUsePathname.mockReturnValue('/me/fees');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('인쇄용 영수증(/me/fees/9/receipt)에는 탭바를 두지 않는다', () => {
+    mockUsePathname.mockReturnValue('/me/fees/9/receipt');
     const { container } = render(<BottomNav />);
     expect(container.firstChild).toBeNull();
   });
@@ -96,13 +118,17 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('유사 접두 경로(/notifications)를 공지로 오매칭하지 않는다', () => {
+  // 종 아이콘으로만 들어오는 화면이라 탭바까지 빠지면 모바일에서 되돌아갈 길이 없다 — 개인영역으로 접는다.
+  // /notices 접두 오매칭(소식 활성)을 막는 기존 계약도 함께 지킨다.
+  it('알림(/notifications)은 개인영역으로 접혀 5탭이 노출되고 MY 가 활성이다', () => {
     mockUsePathname.mockReturnValue('/notifications');
-    const { container } = render(<BottomNav />);
-    expect(container.firstChild).toBeNull();
+    render(<BottomNav />);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).not.toHaveAttribute('aria-current');
   });
 
-  it('이용약관(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
+  it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/terms');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');

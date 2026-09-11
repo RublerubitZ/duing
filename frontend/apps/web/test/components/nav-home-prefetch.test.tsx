@@ -48,7 +48,7 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
     render(<BottomNav />);
 
     expectPrefetch(screen.getByRole('link', { name: '홈' }), 'false');
-    for (const label of ['동아리', '시설', '일정', '소식']) {
+    for (const label of ['동아리', '일정·시설', '소식', 'MY']) {
       expectPrefetch(screen.getByRole('link', { name: label }), 'undefined');
     }
   });
@@ -66,6 +66,8 @@ describe('전역 네비 홈 링크 프리페치 가드', () => {
   });
 
   it('HomeNav — 브랜드·홈 링크만 prefetch=false, 나머지는 기본 정책 유지', () => {
+    // HomeNav 도 경로로 활성을 가르는 클라이언트 컴포넌트가 됐다 — 경로를 주지 않으면 훅이 undefined 를 받는다.
+    mockUsePathname.mockReturnValue('/');
     render(<HomeNav />);
 
     expectPrefetch(screen.getByRole('link', { name: '두잉 홈' }), 'false');

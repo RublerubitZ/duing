@@ -30,6 +30,8 @@ vi.mock('next/navigation', async () => {
     ...actual,
     useSearchParams: () => new URLSearchParams(mockSearchParams.value),
     useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+    // 실제 usePathname 은 앱 라우터 컨텍스트 밖에서 null 을 준다 — 페이지 안의 PageSegment 가 경로로 활성을 가른다.
+    usePathname: () => '/facilities',
   };
 });
 

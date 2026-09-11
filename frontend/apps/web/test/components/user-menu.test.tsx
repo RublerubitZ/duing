@@ -11,6 +11,16 @@ const mockRefresh = vi.fn();
 const mockMeData = vi.fn<() => { name: string; role?: UserRole } | undefined>(() => ({
   name: '홍길동',
 }));
+const mockMyClubs = vi.fn<
+  () =>
+    | Array<{
+        clubId: number;
+        clubName: string;
+        myRole: 'LEADER' | 'OFFICER' | 'MEMBER';
+        status: 'ACTIVE' | 'PENDING_APPROVAL';
+      }>
+    | undefined
+>(() => []);
 
 vi.mock('next/link', () => ({
   default: ({
@@ -31,6 +41,7 @@ vi.mock('next/link', () => ({
 // 셀렉터 한 번 호출로 대체되는 가짜 스토어로는 구독 계약이 재현되지 않는다.
 vi.mock('@duing/hooks', () => ({
   useMeQuery: () => ({ data: mockMeData() }),
+  useMyClubsQuery: () => ({ data: mockMyClubs() }),
   useLogout: () => mockLogout,
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('next/navigation', () => ({
@@ -49,6 +60,7 @@ describe('UserMenu', () => {
     mockLogout.mockReset().mockResolvedValue(undefined);
     mockRefresh.mockClear();
     mockMeData.mockReturnValue({ name: '홍길동' });
+    mockMyClubs.mockReturnValue([]);
   });
 
   function renderMenu() {
@@ -139,6 +151,39 @@ describe('UserMenu', () => {
 
     expect(screen.getByRole('menuitem', { name: '마이페이지' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: '총동연 콘솔' })).not.toBeInTheDocument();
+  });
+
+  it('관리 동아리가 1개면 "운영진 콘솔 · 동아리명" 이 그 동아리 콘솔로 연결된다', async () => {
+    setStatus('authenticated');
+    mockMyClubs.mockReturnValue([{ clubId: 7, clubName: '고정관념', myRole: 'LEADER', status: 'ACTIVE' }]);
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /홍길동님/ }));
+    expect(screen.getByRole('menuitem', { name: '운영진 콘솔 · 고정관념' })).toHaveAttribute('href', '/manage?clubId=7');
+  });
+
+  it('관리 동아리가 2개 이상이면 "운영진 콘솔" 이 /manage 로 연결된다', async () => {
+    setStatus('authenticated');
+    mockMyClubs.mockReturnValue([
+      { clubId: 7, clubName: '고정관념', myRole: 'LEADER', status: 'ACTIVE' },
+      { clubId: 8, clubName: '동6', myRole: 'OFFICER', status: 'ACTIVE' },
+    ]);
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /홍길동님/ }));
+    expect(screen.getByRole('menuitem', { name: '운영진 콘솔' })).toHaveAttribute('href', '/manage');
+  });
+
+  it('부원뿐이거나 비활성 동아리만 관리하면 운영진 콘솔 항목이 없다', async () => {
+    setStatus('authenticated');
+    mockMyClubs.mockReturnValue([
+      { clubId: 7, clubName: '고정관념', myRole: 'MEMBER', status: 'ACTIVE' },
+      { clubId: 9, clubName: '대기', myRole: 'LEADER', status: 'PENDING_APPROVAL' },
+    ]);
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /홍길동님/ }));
+    expect(screen.queryByRole('menuitem', { name: /운영진 콘솔/ })).not.toBeInTheDocument();
   });
 
   it('Esc 키로 열린 메뉴가 닫힌다', async () => {
