@@ -68,4 +68,28 @@ describe('RecruitmentForm 오류 표시', () => {
       vi.useRealTimers();
     }
   });
+
+  // 자동 저장의 "초기값으로 돌아왔으면 지운다" 기준선은 마운트 시 시드값이어야 한다. 복원값이 기준선이
+  // 되면 복원 후 한 글자 쳤다 지우는 것만으로 저장본이 사라져 새로고침 시 복원할 내용이 없어진다.
+  it('이어서 쓰기로 복원한 값은 편집을 되돌려도 지워지지 않는다', () => {
+    vi.useFakeTimers();
+    try {
+      saveRecruitmentDraft(7, { title: '복원할 제목' });
+      render(
+        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '이어서 쓰기' }));
+
+      const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+      fireEvent.change(titleInput, { target: { value: '복원할 제목!' } });
+      fireEvent.change(titleInput, { target: { value: '복원할 제목' } });
+
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(7)).not.toBeNull();
+      expect(loadRecruitmentDraft(7)?.values.title).toBe('복원할 제목');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -414,11 +414,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
    *
    * 배너가 떠 있는 동안(draft !== null)은 아무것도 쓰지 않는다 — 배너를 무시하고 타이핑하면 저장본이
    * 새 입력으로 덮여, 뒤늦게 "이어서 쓰기" 를 눌러도 옛 값이 아니라 방금 친 값이 돌아온다.
-   * 스냅샷 기준선은 배너를 치운(이어서 쓰기·새로 쓰기) 직후의 값으로 잡힌다.
+   *
+   * 기준선은 배너 가드보다 **먼저** 잡는다. 배너를 띄운 채 먼저 return 하면 기준선이 비어 있다가
+   * "이어서 쓰기" 직후의 복원값으로 잡히고, 그러면 한 글자 쳤다 지워 복원값으로 돌아오는 것만으로
+   * 아래 clear 가 저장본을 지워버린다. 기준선이 마운트 시드여야 복원본이 그대로 재저장된다
+   * ("새로 쓰기" 는 값이 시드와 같아 clear 로 떨어지는데, 이미 지운 뒤라 no-op 다).
    */
   const initialDraftSnapshot = useRef<string | null>(null);
   useEffect(() => {
-    if (draftClubId === undefined || draft !== null) return;
+    if (draftClubId === undefined) return;
     const values: RecruitmentDraftValues = {
       title,
       content,
@@ -440,6 +444,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       initialDraftSnapshot.current = snapshot;
       return;
     }
+    if (draft !== null) return;
     // 편집을 되돌려 초기값으로 돌아왔으면 남은 저장본도 지운다 — 쓸 내용이 없는데 배너만 뜨는 일을 막는다.
     if (snapshot === initialDraftSnapshot.current) {
       clearRecruitmentDraft(draftClubId);
