@@ -182,7 +182,11 @@ public class GeneralUserService implements UserService {
         // 정지 검사는 반드시 비밀번호 검증 뒤에 둔다 — 앞에 두면 학번만 아는 제3자가 로그인 시도만으로
         // "이 계정은 정지 상태"를 알아낼 수 있다(계정 열거 + 상태 노출).
         if (!user.isActive()) {
-            throw new UserException.AccountSuspendedException();
+            String suspensionReason = adminUserActionLogRepository
+                    .findTopByTargetUserIdAndActionOrderByIdDesc(user.getId(), AdminUserAction.ACCOUNT_SUSPENDED)
+                    .map(AdminUserActionLog::getReason)
+                    .orElse(null);
+            throw new UserException.AccountSuspendedException(suspensionReason);
         }
 
         user.recordSuccessfulLogin(now);

@@ -104,8 +104,13 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             id="status-reason-hint"
             className="mt-1 flex items-center justify-between gap-2 text-[11px] text-charcoal-3"
           >
-            {/* 사유는 관리자 메모가 아니라 감사 로그로 간다 — 둘은 별개의 저장소다. */}
-            <span>입력한 사유는 감사 로그에 기록됩니다.</span>
+            {/* 정지 사유는 로그인 시 당사자에게 그대로 보인다 — 내부용 문구를 쓰지 않도록 여기서 알린다.
+                해제 사유는 감사 로그에만 남는다(관리자 메모와는 별개의 저장소). */}
+            <span>
+              {isSuspending
+                ? '입력한 사유는 감사 로그에 기록되고, 당사자의 로그인 화면에 표시됩니다.'
+                : '입력한 사유는 감사 로그에 기록됩니다.'}
+            </span>
             {/* 입력을 실제로 끊는 건 maxLength 이고 그건 원문 길이를 본다. 공백을 걷어낸 길이를 보여주면
                 앞뒤 공백이 섞였을 때 카운터는 여유가 남았는데 타이핑만 막히는 상태가 된다. */}
             <span>
