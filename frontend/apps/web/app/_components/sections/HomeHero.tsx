@@ -69,14 +69,15 @@ export async function HomeHero() {
           </h1>
 
           {/* 본문 카피 — 원문의 두 줄 리듬("대구대학교 동아리 플랫폼." + ing 워드플레이)을 지키되, 둘째 줄은
-              PC·모바일 공통으로 "전체 N개 동아리가 지금도 ing 중" 한 문장만 둔다. 원문 PC 꼬리("이번 학기 N곳
+              PC·모바일 공통으로 "N개 동아리가 지금도 ing 중" 한 문장만 둔다. 원문 PC 꼬리("이번 학기 N곳
               모집 중이에요")와 모바일 전용 "N개 동아리가 지금 모집 ing" 는 바로 아래 CTA "모집 중 N곳 보기" 가
               같은 말을 하게 되어 뺐다(2026-09-11 사용자 결정). 모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에
-              들어가도록 폭 220 을 넘기지 않고, 통계 미가용(stats=null) 시 숫자 없는 기본형으로 폴백한다. */}
+              들어가도록 폭 220 을 넘기지 않고(폴백 문구도 14px 에서 ≈180px 로 두 줄 안), 통계 미가용(stats=null) 시
+              숫자 없는 기본형으로 폴백한다. */}
           <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
             대구대학교 동아리 플랫폼.
             <br />
-            {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '캠퍼스의 모든 동아리가 지금도 '}
+            {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
             <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
           </p>
 

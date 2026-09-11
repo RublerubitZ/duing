@@ -96,7 +96,7 @@ describe('HomeHero (server component)', () => {
 
     render(<>{await HomeHero()}</>);
 
-    expect(screen.getByText(/캠퍼스의 모든 동아리가 지금도/)).toBeInTheDocument();
+    expect(screen.getByText(/모든 동아리가 지금도/)).toBeInTheDocument();
     expect(screen.getByText('ing')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '동아리 둘러보기' })).toHaveAttribute('href', '/clubs');
   });
