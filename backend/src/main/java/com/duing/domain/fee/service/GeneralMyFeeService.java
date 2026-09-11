@@ -32,6 +32,9 @@ public class GeneralMyFeeService implements MyFeeService {
         // today 를 한 번만 산출해 필터(표기 축)와 응답 displayStatus 파생이 같은 기준일을 쓰게 한다.
         LocalDate today = LocalDate.now(clock);
         List<FeeBill> bills = feeBillRepository.searchMyBills(userId, query, today);
+        if (bills.isEmpty()) {
+            return List.of();
+        }
         Map<Long, Long> paidByBill = paidAmountReader.paidAmountByBillId(
                 bills.stream().map(FeeBill::getId).toList());
         // 청구는 club_id 를 raw FK 로만 들고 있어 이름을 배치 조회로 한 번에 붙인다(N+1 없음).
