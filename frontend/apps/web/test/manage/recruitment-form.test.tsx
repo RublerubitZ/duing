@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
@@ -9,6 +9,11 @@ const futureEndDateSource = new Date();
 futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);
 const FUTURE_END_DATE = `${futureEndDateSource.getFullYear()}-${String(futureEndDateSource.getMonth() + 1).padStart(2, '0')}-${String(futureEndDateSource.getDate()).padStart(2, '0')}`;
 
+
+/** create 모드 제출의 마지막 관문 — 공개 확인 모달에서 공개를 누른다. */
+async function confirmPublish() {
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+}
 
 describe('toBuilderQuestions — undefined(구 BE) 와 [](신 BE 외부 폼) 구분', () => {
   it('빈 배열이면 legacy questions 텍스트로 fallback 하지 않는다', () => {
@@ -93,6 +98,7 @@ describe('RecruitmentForm — 상시모집 토글', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ endDate: null });
@@ -164,6 +170,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '2학년' } });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -193,6 +200,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     expect(requiredCheckbox).not.toBeChecked();
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -215,9 +223,10 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
+    // 요약 카드와 질문 섹션에 같은 문구가 한 번씩 뜬다.
     expect(
-      await screen.findByText('선택형 질문은 선택지를 2개 이상 등록해야 합니다.'),
-    ).toBeInTheDocument();
+      await screen.findAllByText('선택형 질문은 선택지를 2개 이상 등록해야 합니다.'),
+    ).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -234,8 +243,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
-      await screen.findByText('같은 질문 안에서 선택지 내용이 중복될 수 없습니다.'),
-    ).toBeInTheDocument();
+      await screen.findAllByText('같은 질문 안에서 선택지 내용이 중복될 수 없습니다.'),
+    ).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -250,8 +259,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
-      await screen.findByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
-    ).toBeInTheDocument();
+      await screen.findAllByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
+    ).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -277,8 +286,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /수정 저장/ }));
 
     expect(
-      await screen.findByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
-    ).toBeInTheDocument();
+      await screen.findAllByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
+    ).toHaveLength(2);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -412,6 +421,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([

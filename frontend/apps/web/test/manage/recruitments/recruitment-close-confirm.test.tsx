@@ -119,7 +119,7 @@ async function fillCreateForm() {
 }
 
 function submitForm() {
-  fireEvent.click(screen.getAllByRole('button', { name: /모집 시작/ })[0]!);
+  fireEvent.click(screen.getAllByRole('button', { name: /공개하기/ })[0]!);
 }
 
 /** 등록 POST 를 가로채 호출 횟수를 세는 핸들러를 등록한다. */
@@ -151,6 +151,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
         /마감된 모집은 평가와 면접 진행이 멈추고, 남은 지원서는 합격·불합격 확정만 할 수 있습니다\./,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText('등록과 동시에 학생에게 공개돼요.')).toBeInTheDocument();
     expect(screen.getByText('계속하시겠습니까?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '등록 및 마감' })).toBeInTheDocument();
@@ -182,18 +183,19 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
     expect(createdPayloads[0]).toMatchObject({ title: '10기 신입 모집' });
   });
 
-  it('마감될 OPEN 모집이 없으면 다이얼로그 없이 바로 등록한다', async () => {
+  it('마감될 OPEN 모집이 없으면 마감 확인 없이 공개 확인만 거쳐 등록한다', async () => {
     const createdPayloads = trackCreateRequests();
     renderPage([alreadyClosedRecruitment]);
 
     await fillCreateForm();
     submitForm();
+    fireEvent.click(await screen.findByRole('button', { name: '공개' }));
 
     await vi.waitFor(() => expect(createdPayloads).toHaveLength(1));
     expect(screen.queryByText('기존 모집을 마감하시겠습니까?')).not.toBeInTheDocument();
   });
 
-  it('모집 목록을 못 받아 판정할 수 없으면 확인 없이 그대로 등록한다(fail-open)', async () => {
+  it('모집 목록을 못 받아 판정할 수 없으면 마감 확인 없이 공개 확인만 거쳐 등록한다(fail-open)', async () => {
     const createdPayloads = trackCreateRequests();
     // 목록 조회는 실패시켜 캐시가 비어 있는 상태(판정 불가)를 만든다.
     server.use(
@@ -203,6 +205,7 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
 
     await fillCreateForm();
     submitForm();
+    fireEvent.click(await screen.findByRole('button', { name: '공개' }));
 
     await vi.waitFor(() => expect(createdPayloads).toHaveLength(1));
     expect(screen.queryByText('기존 모집을 마감하시겠습니까?')).not.toBeInTheDocument();

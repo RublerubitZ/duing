@@ -131,7 +131,7 @@ export default function NewRecruitmentPage({
     );
   }
 
-  const submitLabel = cloneSource ? '복제하여 모집 시작' : '모집 시작';
+  const submitLabel = cloneSource ? '복제해서 공개하기' : '공개하기';
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9">
@@ -169,6 +169,8 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
+        // 복제 진입은 원본이 곧 초안이라 임시저장을 쓰지 않는다.
+        draftClubId={cloneSource ? undefined : clubId}
         closingRecruitmentTitle={closingRecruitment?.title}
         submitLabel={submitLabel}
         onSubmit={handleSubmit}
