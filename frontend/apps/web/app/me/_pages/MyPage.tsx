@@ -13,6 +13,7 @@ import {
 import { HomeNav } from '@/app/_components/HomeNav';
 
 import { partitionApplications } from '../_lib/partitionApplications';
+import { SECTION_LABEL, resolveSectionOrder, type SectionId } from '../_lib/sectionOrder';
 
 import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
@@ -23,18 +24,7 @@ import { SectionInquiries } from '../_components/SectionInquiries';
 import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
-type SectionId = 'apply' | 'joined' | 'saved' | 'inquiries' | 'archived';
-
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'apply', label: '지원 현황' },
-  { id: 'joined', label: '가입한 동아리' },
-  { id: 'saved', label: '찜한 동아리' },
-  { id: 'inquiries', label: '내 문의' },
-  { id: 'archived', label: '지난 지원' },
-];
-
 export function MyPage() {
-  const [activeTab, setActiveTab] = useState<SectionId>('apply');
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement>>>({});
   const programmaticScroll = useRef(false);
@@ -60,6 +50,12 @@ export function MyPage() {
   const favorites = favoriteListQuery.data?.content ?? [];
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
+
+  /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
+  const order = useMemo(() => resolveSectionOrder(applications.length), [applications.length]);
+  const sections = order.map((id) => ({ id, label: SECTION_LABEL[id] }));
+
+  const [activeTab, setActiveTab] = useState<SectionId>(order[0]!);
 
   /* ── 탭 클릭 → 해당 섹션 헤더로 스무스 스크롤 ── */
   const scrollToSection = useCallback((id: string) => {
@@ -109,21 +105,21 @@ export function MyPage() {
       const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
       const line = rootRect.top + tabsVisualHeight + 16 * scale;
 
-      let nextActive: SectionId = 'apply';
-      for (const section of SECTIONS) {
-        const el = sectionRefs.current[section.id];
+      let nextActive: SectionId = order[0]!;
+      for (const id of order) {
+        const el = sectionRefs.current[id];
         if (!el) continue;
         const top = el.getBoundingClientRect().top;
         if (top - line <= 1) {
-          nextActive = section.id;
+          nextActive = id;
         } else {
           break;
         }
       }
 
-      const lastSection = SECTIONS[SECTIONS.length - 1];
+      const lastSection = order[order.length - 1];
       if (lastSection && root.scrollTop + root.clientHeight >= root.scrollHeight - 4) {
-        nextActive = lastSection.id;
+        nextActive = lastSection;
       }
 
       setActiveTab((prev) => (prev === nextActive ? prev : nextActive));
@@ -144,14 +140,14 @@ export function MyPage() {
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
       clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [order]);
 
   const refFor = (id: SectionId) => (el: HTMLElement | null) => {
     if (el) sectionRefs.current[id] = el;
   };
 
   /* ── Tabs with live count badges ── */
-  const sectionsWithCount = SECTIONS.map((section) => {
+  const sectionsWithCount = sections.map((section) => {
     const count =
       section.id === 'apply'
         ? applications.length
@@ -178,9 +174,11 @@ export function MyPage() {
     >
       <HomeNav slimOnMobile />
 
+      {/* pb — 하단 탭바 스페이서는 root layout(Providers 바깥)에 있어 이 100dvh 스크롤포트에는 닿지 않는다.
+          고정 탭바(60 + 세이프에어리어)가 스크롤 끝을 덮으므로 여기서 직접 여유를 준다(md 부터는 탭바가 없다). */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden"
+        className="flex-1 overflow-y-auto overflow-x-hidden pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0"
       >
         <MyPageHeader
           name={user?.name ?? '—'}
@@ -198,21 +196,17 @@ export function MyPage() {
           onSelect={scrollToSection}
         />
 
-        <div ref={refFor('apply')} data-section="apply">
-          <SectionApply applications={applications} />
-        </div>
-        <div ref={refFor('joined')} data-section="joined">
-          <SectionMyClubs myClubs={myClubs} />
-        </div>
-        <div ref={refFor('saved')} data-section="saved">
-          <SectionSaved favorites={favorites} />
-        </div>
-        <div ref={refFor('inquiries')} data-section="inquiries">
-          <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
-        </div>
-        <div ref={refFor('archived')} data-section="archived">
-          <SectionArchived applications={archivedApplications} />
-        </div>
+        {order.map((id) => (
+          <div key={id} ref={refFor(id)} data-section={id}>
+            {id === 'apply' && <SectionApply applications={applications} />}
+            {id === 'joined' && <SectionMyClubs myClubs={myClubs} />}
+            {id === 'saved' && <SectionSaved favorites={favorites} />}
+            {id === 'inquiries' && (
+              <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
+            )}
+            {id === 'archived' && <SectionArchived applications={archivedApplications} />}
+          </div>
+        ))}
 
         {/* 마지막 섹션이 탭 클릭 시 충분히 스크롤될 수 있도록 하는 스페이서 */}
         <div aria-hidden className="shrink-0" style={{ height: 420 }} />

@@ -118,6 +118,6 @@ describe('ExploreNav — 정보 메뉴', () => {
     mockUsePathname.mockReturnValue('/faq');
     render(<ExploreNav />);
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: '동아리' })).not.toHaveAttribute('aria-current');
   });
 });

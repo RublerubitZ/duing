@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
-import { useLogout, useMeQuery } from '@duing/hooks';
+import { useLogout, useMeQuery, useMyClubsQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -15,11 +15,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const MENU_ITEMS = [
-  { label: '마이페이지', href: '/me' },
-  { label: '설정', href: '/me/settings' },
-] as const;
-
 export function UserMenu({
   initialAuthenticated = null,
 }: {
@@ -27,6 +22,8 @@ export function UserMenu({
 } = {}) {
   const status = useSeededAuthStatus(initialAuthenticated);
   const meQuery = useMeQuery();
+  // 이 메뉴는 전 화면 상단바에 있다 — 게스트에게까지 내 동아리 목록을 묻지 않도록 useMeQuery 와 같은 축으로 막는다.
+  const myClubsQuery = useMyClubsQuery({ enabled: status === 'authenticated' });
   const logout = useLogout();
   const router = useGuardedRouter();
   const { addToast } = useToast();
@@ -37,6 +34,23 @@ export function UserMenu({
   // 이름은 /users/me 응답(useMeQuery) 그대로다 — 시안(210:2824 login 변형)의 "두두잉님" 자리.
   const userName = meQuery.data?.name ?? '회원';
   const isAdmin = meQuery.data?.role === 'ADMIN';
+
+  // 운영진 콘솔 진입점 — 관리 동아리가 하나면 그 동아리로 바로, 여러 개면 선택 화면(/manage)으로 보낸다.
+  const managedClubs = (myClubsQuery.data ?? []).filter(
+    (club) => (club.myRole === 'LEADER' || club.myRole === 'OFFICER') && club.status === 'ACTIVE',
+  );
+  const consoleItem =
+    managedClubs.length === 1
+      ? { label: `운영진 콘솔 · ${managedClubs[0]!.clubName}`, href: `/manage?clubId=${managedClubs[0]!.clubId}` }
+      : managedClubs.length > 1
+        ? { label: '운영진 콘솔', href: '/manage' }
+        : null;
+
+  const menuItems: { label: string; href: string }[] = [
+    { label: '마이페이지', href: '/me' },
+    ...(consoleItem ? [consoleItem] : []),
+    { label: '설정', href: '/me/settings' },
+  ];
 
   const handleLogout = async () => {
     try {
@@ -64,7 +78,7 @@ export function UserMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-[160px] p-0">
-        {MENU_ITEMS.map((item) => (
+        {menuItems.map((item) => (
           <DropdownMenuItem
             key={item.label}
             asChild

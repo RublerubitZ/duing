@@ -110,7 +110,11 @@ describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', (
 
   it('인증 시드면 즉시 유저 메뉴이고 로그인 진입점은 나오지 않는다(metric 1)', async () => {
     // 시드 직후에는 프로필이 아직 없다 — 이름은 '회원' 폴백으로 채워진다.
-    server.use(http.get(`${BASE}/users/me`, () => new Promise(() => {})));
+    // 내 동아리 목록(운영진 콘솔 항목의 근거)도 같이 미도착으로 둔다 — 메뉴는 둘 다 없이도 열려야 한다.
+    server.use(
+      http.get(`${BASE}/users/me`, () => new Promise(() => {})),
+      http.get(`${BASE}/me/clubs`, () => new Promise(() => {})),
+    );
     setAuthStatus('authenticated');
     renderWithProviders(<HomeNavAuthSlot initialAuthenticated />);
 

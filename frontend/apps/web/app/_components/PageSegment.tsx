@@ -1,0 +1,36 @@
+'use client';
+
+// 형제 페이지 간 전환(일정 ↔ 시설 예약) — 페이지 이동이므로 Radix Tabs 가 아니라 nav+Link(InfoTabs 와 같은 정책, VT 제외).
+import Link from 'next/link';
+
+import { cn } from '@/app/_lib/cn';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
+
+type Item = { label: string; href: string };
+
+export function PageSegment({ label, items }: { label: string; items: Item[] }) {
+  const pathname = useRoutePathname();
+  return (
+    <nav aria-label={label} className="mb-4">
+      <ul className="inline-flex gap-1 rounded-[12px] border border-line bg-paper p-1">
+        {items.map((item) => {
+          const on = pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={on ? 'page' : undefined}
+                className={cn(
+                  'inline-flex min-h-[36px] items-center rounded-[9px] px-3.5 text-[13.5px] font-semibold transition-colors',
+                  on ? 'bg-ink text-paper' : 'text-charcoal-2 hover:bg-graysoft',
+                )}
+              >
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}

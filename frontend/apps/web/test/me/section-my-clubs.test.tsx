@@ -4,9 +4,13 @@ import type { MyClubSummary } from '@duing/types';
 
 import { SectionMyClubs } from '../../app/me/_components/SectionMyClubs';
 
+// 카드마다 같은 글자("공지"·"회비"·"일정")를 쓰는 링크가 여러 개라 구분은 aria-label 이 한다 —
+// 스텁이 나머지 props 를 흘리면 접근성 이름이 사라져 단언이 공허해진다.
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -29,11 +33,20 @@ describe('SectionMyClubs', () => {
     expect(link).toHaveAttribute('href', '/manage?clubId=1');
   });
 
-  it('MEMBER 카드는 "부원" pill 과 "둘러보기" 링크 (/clubs/{id}/member/notices) 를 노출한다', () => {
+  it('MEMBER 카드는 "부원" pill 과 공지·회비·일정 링크를 노출한다', () => {
     render(<SectionMyClubs myClubs={[make({ myRole: 'MEMBER', clubId: 42, clubName: '회원동' })]} />);
     expect(screen.getByText('부원')).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: /둘러보기/ });
-    expect(link).toHaveAttribute('href', '/clubs/42/member/notices');
+    expect(screen.getByRole('link', { name: '회원동 공지' })).toHaveAttribute('href', '/clubs/42/member/notices');
+    expect(screen.getByRole('link', { name: '회원동 회비' })).toHaveAttribute('href', '/me/fees');
+    expect(screen.getByRole('link', { name: '회원동 일정' })).toHaveAttribute('href', '/clubs/42/member/events');
+  });
+
+  it('운영진 카드도 "관리" 와 함께 공지·회비·일정 링크를 노출한다', () => {
+    render(<SectionMyClubs myClubs={[make({ myRole: 'LEADER', clubId: 7, clubName: '리더동' })]} />);
+    expect(screen.getByRole('link', { name: /관리/ })).toHaveAttribute('href', '/manage?clubId=7');
+    expect(screen.getByRole('link', { name: '리더동 공지' })).toHaveAttribute('href', '/clubs/7/member/notices');
+    expect(screen.getByRole('link', { name: '리더동 회비' })).toHaveAttribute('href', '/me/fees');
+    expect(screen.getByRole('link', { name: '리더동 일정' })).toHaveAttribute('href', '/clubs/7/member/events');
   });
 
   it('MEMBER 카드는 "탈퇴" 버튼을 노출한다', () => {
@@ -67,14 +80,14 @@ describe('SectionMyClubs', () => {
     expect(screen.getByText(/가입한 동아리 · 2/)).toBeInTheDocument();
   });
 
-  it('INACTIVE 동아리 카드는 관리·둘러보기·탈퇴를 모두 숨기고 "운영 종료된 동아리입니다." 를 노출한다', () => {
+  it('INACTIVE 동아리 카드는 관리·공지·탈퇴를 모두 숨기고 "운영 종료된 동아리입니다." 를 노출한다', () => {
     render(
       <SectionMyClubs
         myClubs={[make({ myRole: 'LEADER', status: 'INACTIVE', clubName: '중단동' })]}
       />,
     );
     expect(screen.queryByRole('link', { name: /관리/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /둘러보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /공지/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /탈퇴/ })).not.toBeInTheDocument();
     expect(screen.getByText('운영 종료된 동아리입니다.')).toBeInTheDocument();
   });
@@ -85,7 +98,7 @@ describe('SectionMyClubs', () => {
         myClubs={[make({ myRole: 'MEMBER', status: 'PENDING_APPROVAL', clubName: '대기동' })]}
       />,
     );
-    expect(screen.queryByRole('link', { name: /둘러보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /공지/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /탈퇴/ })).not.toBeInTheDocument();
     expect(screen.getByText('승인 대기 중인 동아리입니다.')).toBeInTheDocument();
   });

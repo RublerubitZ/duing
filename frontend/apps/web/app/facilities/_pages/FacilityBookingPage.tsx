@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { PageSegment } from '@/app/_components/PageSegment';
 import { FacilityLastUpdated, FacilityStaleNotice } from '../_components/FacilityUpdateBanner';
 import { FacilityUsageGuide } from '../_components/FacilityUsageGuide';
 import { daysInMonth, seoulDateIso, shiftYearMonth, yearMonthLabel } from '../_lib/facilityTimeline';
@@ -443,6 +444,8 @@ export function FacilityBookingPage() {
             // effectiveFacilityId === undefined 는 시설 0개일 때만 참(시설 있으면 첫 시설 자동 선택) —
             // 여기 넣어 캘린더 분기에서 effectiveFacilityId 를 number 로 좁힌다.
             <>
+              <PageSegment label="일정·시설" items={[{ label: '일정', href: '/calendar' }, { label: '시설 예약', href: '/facilities' }]} />
+              <p className="mb-4 text-[12.5px] text-charcoal-3">예약 신청은 중앙동아리 운영진만 할 수 있어요 · 현황은 누구나 볼 수 있어요</p>
               <header>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
                 <h1 className="mt-1 text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
@@ -467,6 +470,8 @@ export function FacilityBookingPage() {
             // ── 캘린더 뷰: 선택 시설 예약(월↔주 전환) ──
             <>
               <div>
+                <PageSegment label="일정·시설" items={[{ label: '일정', href: '/calendar' }, { label: '시설 예약', href: '/facilities' }]} />
+                <p className="mb-4 text-[12.5px] text-charcoal-3">예약 신청은 중앙동아리 운영진만 할 수 있어요 · 현황은 누구나 볼 수 있어요</p>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
                 <h1 className="mb-3 mt-1 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
                 <FacilityContextBar

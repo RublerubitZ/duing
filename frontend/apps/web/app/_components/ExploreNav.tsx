@@ -12,7 +12,7 @@ import {
   NAV_LIST_BASE,
   NAV_ROW_BASE,
 } from './navLinkStyles';
-import { DEFAULT_INFO_PATH, isInfoSection, type InfoPath } from '@/app/_lib/infoMenu';
+import { MAIN_NAV_ITEMS, isMainNavActive, type MainNavItem } from '@/app/_lib/mainNav';
 
 import { BrandMark } from '@/components/duing/BrandMark';
 import { NotificationBell } from './NotificationBell';
@@ -20,23 +20,6 @@ import { HomeNavAuthSlot } from './HomeNavAuthSlot';
 import { HomeNavAdminLink } from './HomeNavAdminLink';
 import { InfoNavLink } from './InfoNavLink';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
-
-type NavItem = {
-  label: string;
-  href: '/' | '/clubs' | '/facilities' | '/calendar' | InfoPath;
-  /** 단일 prefix 로 판정할 수 없는 항목(정보)만 지정 — 있으면 기본 exact+prefix 규칙 대신 사용. */
-  match?: (pathname: string) => boolean;
-};
-
-const NAV_ITEMS: readonly NavItem[] = [
-  { label: '홈', href: '/' },
-  { label: '탐색', href: '/clubs' },
-  { label: '시설', href: '/facilities' },
-  { label: '일정', href: '/calendar' },
-  // 소식: 라벨만 시안을 따른 것이고 범위는 정보 섹션 전체(/notices·/faq·/terms·/introduce)다.
-  // 이동은 마지막 방문 허브 경로(아래 참고).
-  { label: '소식', href: DEFAULT_INFO_PATH, match: isInfoSection },
-];
 
 type Props = {
   /** pathname 대신 레이블로 강제 활성화할 때 사용. */
@@ -54,11 +37,9 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
   // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 브랜드 바를 유지한다.
   const isDetailFocus = /^\/(clubs|notices)\/\d+$/.test(pathname);
 
-  const isActive = (item: NavItem): boolean => {
+  const isActive = (item: MainNavItem): boolean => {
     if (active) return item.label === active;
-    if (item.match) return item.match(pathname);
-    if (item.href === '/') return pathname === '/';
-    return pathname === item.href || pathname.startsWith(item.href + '/');
+    return isMainNavActive(item, pathname);
   };
 
   return (
@@ -83,7 +64,7 @@ export function ExploreNav({ active, floating = false, slimOnMobile = false }: P
             slimOnMobile ? 'hidden md:flex' : 'flex',
           )}
         >
-          {NAV_ITEMS.map((item) => {
+          {MAIN_NAV_ITEMS.map((item) => {
             const on = isActive(item);
             // match 가 있는 항목(소식)은 HomeNav 와 같은 InfoNavLink — 마지막 방문 허브 경로로 이동하고
             // PC hover 에 허브 퀵메뉴를 편다(어느 페이지에서든 같은 자리에서 같은 메뉴).

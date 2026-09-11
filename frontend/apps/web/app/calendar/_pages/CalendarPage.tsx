@@ -10,6 +10,7 @@ import {
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useHydrated } from '@/app/_lib/useHydrated';
+import { PageSegment } from '@/app/_components/PageSegment';
 import { SparkleFull } from '../../_components/Sparkle';
 import { AddEventDispatcher } from '../_components/AddEventDispatcher';
 import { EventDetailModal } from '../_components/EventDetailModal';
@@ -261,6 +262,7 @@ export function CalendarPage() {
       {/* ===== Header ===== */}
       <section className="cal-section cal-header" style={{ padding: 'var(--page-top) 40px 28px' }}>
         <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
+          <PageSegment label="일정·시설" items={[{ label: '일정', href: '/calendar' }, { label: '시설 예약', href: '/facilities' }]} />
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>

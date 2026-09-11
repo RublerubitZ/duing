@@ -13,7 +13,7 @@ describe('BottomNav', () => {
     window.localStorage.clear();
   });
 
-  it('공개 탭 영역(/clubs)에서 5탭(홈·탐색·시설·캘린더·정보)이 노출되고 탐색이 활성이다', () => {
+  it('공개 탭 영역(/clubs)에서 5탭(홈·동아리·일정·시설·소식·MY)이 노출되고 동아리가 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
 
@@ -21,27 +21,37 @@ describe('BottomNav', () => {
     expect(screen.getAllByRole('link')).toHaveLength(5);
     expect(screen.getByRole('link', { name: '소식' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
+    // 시설은 독립 탭에서 빠지고 '일정·시설' 한 탭으로 묶였다.
+    expect(screen.queryByRole('link', { name: '시설' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '일정·시설' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('href', '/me');
+    expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
   });
 
-  it('시설 목록(/facilities)에서는 시설 탭이 활성이다', () => {
+  it('시설 목록(/facilities)에서는 일정·시설 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/facilities');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 시설 탭이 활성이다', () => {
+  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 일정·시설 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/facilities/12');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '시설' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('일정(/calendar)도 같은 일정·시설 탭이 활성이다', () => {
+    mockUsePathname.mockReturnValue('/calendar');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('홈(/)에서는 홈 탭이 정확히 활성이다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '홈' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: '동아리' })).not.toHaveAttribute('aria-current');
   });
 
   // Vercel ISR 재생성 중에는 usePathname 이 공개 경로가 아니라 내부 페이지 경로(/index)를 준다.
@@ -60,10 +70,10 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('상세 단독 경로만 숨기고 하위 경로(/clubs/123/sub)는 탐색이 활성이다', () => {
+  it('상세 단독 경로만 숨기고 하위 경로(/clubs/123/sub)는 동아리가 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs/123/sub');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('공지 상세(/notices/123)도 자체 상단 액션바를 쓰므로 탭바를 미노출한다', () => {
@@ -78,8 +88,20 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('개인영역(/me)에서는 렌더링하지 않는다', () => {
+  it('마이페이지(/me)에서는 탭바가 노출되고 MY 가 활성이다', () => {
     mockUsePathname.mockReturnValue('/me');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('개인영역 하위(/me/fees)에서도 탭바가 노출되고 MY 가 활성이다', () => {
+    mockUsePathname.mockReturnValue('/me/fees');
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('인쇄용 영수증(/me/fees/9/receipt)에는 탭바를 두지 않는다', () => {
+    mockUsePathname.mockReturnValue('/me/fees/9/receipt');
     const { container } = render(<BottomNav />);
     expect(container.firstChild).toBeNull();
   });

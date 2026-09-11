@@ -1,10 +1,11 @@
 'use client';
 
-// 공개 콘텐츠용 모바일 하단 탭바 (md:hidden) — 홈·탐색·시설·일정·소식 5탭.
-// 5탭 모두 공개 라우트라 게스트도 동일 동작. '소식' 탭은 라벨만 시안을 따른 것이고 범위는 그대로
-// 정보 섹션 전체(/notices·/faq·/terms·/introduce)다 — 이동은 마지막 방문 허브 경로
-// (getLastInfoPath 단일 정책, 기본 /notices). 판정 함수 이름이 isInfoSection 인 이유이기도 하다.
-// 개인영역(/me)·도구 콘솔(/manage·/admin)·포커스 플로우(/apply)·인증에서는 미노출(activeHref === null → return null).
+// 모바일 하단 탭바 (md:hidden) — 홈 / 동아리 / 일정·시설 / 소식 / MY 5탭.
+// 앞 4탭은 공개 라우트라 게스트도 동일 동작이고, MY(/me)는 개인영역 진입점이다(미인증 처리는 /me 라우트의 몫).
+// '소식' 탭은 라벨만 시안을 따른 것이고 범위는 그대로 정보 섹션 전체(/notices·/faq·/terms·/introduce)다
+// — 이동은 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices).
+// 판정 함수 이름이 isInfoSection 인 이유이기도 하다.
+// 도구 콘솔(/manage·/admin)·포커스 플로우(/apply)·인증·인쇄용 영수증에서는 미노출(activeHref === null → return null).
 // root(layout.tsx)에 1회 마운트하고 usePathname 으로 가시성/활성을 판단한다.
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
@@ -19,22 +20,23 @@ import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 import {
   BinocularsFill, BinocularsRegular,
-  BuildingFill, BuildingRegular,
   CalendarBlankFill, CalendarBlankRegular,
   HouseFill, HouseRegular,
   MegaphoneFill, MegaphoneRegular,
+  UserFill, UserRegular,
 } from './BottomNavIcons';
 
-// 아이콘은 시안(Figma 491:4527 "네비게이션 바")의 Phosphor 세트를 그대로 쓴다 — 홈 House · 탐색 Binoculars ·
-// 일정 CalendarBlank · 소식 Megaphone, 시설만 시안에서 직접 그린 건물. 비활성은 Regular, 활성은 Fill 한 쌍이라
+// 아이콘은 시안(Figma 491:4527 "네비게이션 바")의 Phosphor 세트를 그대로 쓴다 — 홈 House · 동아리 Binoculars ·
+// 일정·시설 CalendarBlank · 소식 Megaphone · MY User. 비활성은 Regular, 활성은 Fill 한 쌍이라
 // 활성 표현에 억지 fill 이 필요 없다. 패스는 BottomNavIcons 에 시안 export 그대로 담겨 있어 새 의존성이 없다.
 // (예전 Heroicons/lucide 혼용 세트는 시안이 확정되면서 걷어냈다.)
 const TABS = [
   { label: '홈', href: '/', Icon: HouseRegular, ActiveIcon: HouseFill },
-  { label: '탐색', href: '/clubs', Icon: BinocularsRegular, ActiveIcon: BinocularsFill },
-  { label: '시설', href: '/facilities', Icon: BuildingRegular, ActiveIcon: BuildingFill },
-  { label: '일정', href: '/calendar', Icon: CalendarBlankRegular, ActiveIcon: CalendarBlankFill },
+  { label: '동아리', href: '/clubs', Icon: BinocularsRegular, ActiveIcon: BinocularsFill },
+  // 일정·시설 — 시설 예약은 달력 위의 행동이라 한 탭에 묶는다. 활성 판정은 두 prefix 모두.
+  { label: '일정·시설', href: '/calendar', Icon: CalendarBlankRegular, ActiveIcon: CalendarBlankFill },
   { label: '소식', href: DEFAULT_INFO_PATH, Icon: MegaphoneRegular, ActiveIcon: MegaphoneFill },
+  { label: 'MY', href: '/me', Icon: UserRegular, ActiveIcon: UserFill },
 ] as const;
 
 // 현재 경로가 어느 탭에 속하는지 — 홈은 정확히, 소식은 정보 섹션 매칭, 나머지는 prefix(상세/하위 포함). 탭 밖이면 null.
@@ -44,8 +46,12 @@ function matchTabHref(pathname: string): string | null {
   // 시설 상세(/facilities/{id})는 자체 액션바가 없는 유틸리티 뷰라 탭바를 유지한다(포커스 뷰 아님).
   // 정보 섹션 판정보다 먼저 — 공지 상세는 정보 섹션이지만 탭바를 숨기는 기존 정책을 유지한다.
   if (/^\/(clubs|notices)\/\d+$/.test(pathname)) return null;
+  // 인쇄용 영수증은 탭바를 두지 않는다.
+  if (/^\/me\/fees\/\d+\/receipt$/.test(pathname)) return null;
   // 소식 탭은 단일 prefix 가 아니라 정보 섹션 전체에 매칭된다.
   if (isInfoSection(pathname)) return DEFAULT_INFO_PATH;
+  // 시설은 독립 탭이 아니라 '일정·시설' 탭의 두 번째 prefix 다.
+  if (pathname === '/facilities' || pathname.startsWith('/facilities/')) return '/calendar';
   const matched = TABS.find(
     (tab) => tab.href !== '/' && (pathname === tab.href || pathname.startsWith(`${tab.href}/`)),
   );
@@ -92,7 +98,7 @@ export function BottomNav() {
                   // 시안: 아이콘 26 바로 아래 라벨 11px(행간 1.5, 자간 -3%). 비활성 Medium #5A5A5A, 활성 SemiBold 딥그린.
                   // Font Guide 는 500 을 쓰지 않지만 시안이 Medium 이라 따른다 — Pretendard Variable 이라 500 이 실제로 렌더된다.
                   className={cn(
-                    'flex h-[60px] flex-col items-center justify-center text-[11px] leading-[1.5] tracking-tightest motion-safe:transition-colors',
+                    'flex h-[60px] flex-col items-center justify-center whitespace-nowrap text-[11px] leading-[1.5] tracking-tightest motion-safe:transition-colors',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink',
                     on ? 'font-semibold text-ink-deep' : 'font-medium text-[#5A5A5A]',
                   )}
