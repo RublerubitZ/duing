@@ -31,7 +31,7 @@ function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplic
       <span className="text-[#E1E1E1]">{item.name}</span>
       <span
         className={cn(
-          'flex h-3 items-center rounded-full px-2 text-[10px] font-medium leading-none text-ink-deep sm:h-[18px] sm:text-[13px]',
+          'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:text-[13px]',
           CHIP_EMPHASIS[item.emphasis],
         )}
       >
@@ -65,10 +65,11 @@ export async function RecruitmentTicker() {
 
   return (
     // PC(sm+): 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52.
-    // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·라벨 10/사이렌 14·이름 10·칩 12·항목 간격 20·캐럿 14.
+    // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·사이렌 14·항목 간격 20·캐럿 14.
+    // 다만 시안의 10(라벨·이름)·12(칩) 는 본문 최소 12px 에 못 미쳐 12·18 로 올렸다(접근성 하한이 시안보다 우선).
     <section className="relative mt-7 overflow-hidden bg-ink-deep text-white sm:mt-14">
       <div className="max-w-layout mx-auto flex h-[38px] items-center gap-2 px-4 sm:h-16 sm:gap-12 sm:px-6 md:px-10">
-        <div className="flex shrink-0 items-center gap-1 text-[10px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
+        <div className="flex shrink-0 items-center gap-1 text-[12px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
           마감 임박 동아리
           <Siren size={14} className="sm:size-[26px]" />
         </div>
@@ -76,7 +77,7 @@ export async function RecruitmentTicker() {
         {/* 오른쪽→왼쪽 seamless 무한 티커. hover 시 정지(CSS), reduced-motion 시 정지 + 가로 스크롤 폴백. */}
         <div className="group flex-1 overflow-hidden motion-reduce:overflow-x-auto">
           <div
-            className="flex w-max text-[10px] font-medium tracking-tightest animate-marquee group-hover:[animation-play-state:paused] motion-reduce:animate-none sm:text-xl"
+            className="flex w-max text-[12px] font-medium tracking-tightest animate-marquee group-hover:[animation-play-state:paused] motion-reduce:animate-none sm:text-xl"
             style={{ animationDuration: `${durationSeconds}s` }}
           >
             {/* 첫 카피의 원본 구간만 스크린리더에 남기고, 폭을 채우려 되풀이한 뒤쪽은 복제로 처리한다. */}

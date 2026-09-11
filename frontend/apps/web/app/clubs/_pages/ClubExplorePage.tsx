@@ -259,6 +259,7 @@ export function ClubExplorePage() {
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder={CLUB_SEARCH_PLACEHOLDER}
+                  aria-label="동아리 검색"
                   className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
@@ -605,6 +606,7 @@ export function ClubExplorePage() {
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder={CLUB_SEARCH_PLACEHOLDER}
+              aria-label="동아리 검색"
               className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
               style={{ fontFamily: 'inherit' }}
             />
@@ -624,7 +626,7 @@ export function ClubExplorePage() {
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
                 className={cn(
-                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
+                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-[11px] text-[14px] font-semibold transition-colors',
                   on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
                 )}
               >

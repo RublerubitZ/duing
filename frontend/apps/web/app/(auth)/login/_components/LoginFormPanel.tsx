@@ -253,12 +253,12 @@ function LoginForm() {
             </div>
 
             {/* Remember me */}
-            <label className="flex cursor-pointer items-center gap-2.5">
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-2.5">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(changeEvent) => setRememberMe(changeEvent.target.checked)}
-                className="h-4 w-4 cursor-pointer rounded accent-ink"
+                className="h-5 w-5 cursor-pointer rounded accent-ink"
               />
               <span className="text-sm text-charcoal-2">로그인 상태 유지</span>
             </label>

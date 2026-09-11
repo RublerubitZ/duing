@@ -3,6 +3,8 @@ import { BrandMark } from '@/components/duing/BrandMark';
 import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
+/** 두잉팀 오픈채팅 — 모바일 간소 푸터와 데스크탑 풀 푸터가 같은 주소를 쓴다. */
+const KAKAO_OPEN_CHAT_URL = 'https://open.kakao.com/o/s6JruOzi';
 
 export function HomeFooter() {
   return (
@@ -22,6 +24,26 @@ export function HomeFooter() {
               <Link href="/terms" className="hover:text-ink">
                 이용약관 및 개인정보 처리방침
               </Link>
+            </div>
+            <div className="mt-1.5">
+              <Link href="/faq" className="hover:text-ink">
+                자주 묻는 질문
+              </Link>
+            </div>
+            <div className="mt-1.5">
+              <Link href="/me/inquiries/new" className="hover:text-ink">
+                1:1 문의
+              </Link>
+            </div>
+            <div className="mt-1.5">
+              <a
+                href={KAKAO_OPEN_CHAT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-ink"
+              >
+                두잉팀 카카오 문의
+              </a>
             </div>
             <div className="mt-1.5">
               문의사항 :{' '}
@@ -104,7 +126,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <a
-                href="https://open.kakao.com/o/s6JruOzi"
+                href={KAKAO_OPEN_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={linkClass}

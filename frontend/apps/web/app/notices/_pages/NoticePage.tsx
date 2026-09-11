@@ -72,8 +72,8 @@ function NewBadge() {
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
-      background: '#E14A3A', color: '#fff',
-      fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em',
+      background: '#B04A28', color: '#fff',
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
   );
@@ -398,6 +398,7 @@ export function NoticePage() {
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="제목 또는 내용을 검색하세요"
+                  aria-label="소식 검색"
                   style={{
                     flex: 1, minWidth: 0, border: 'none', outline: 'none',
                     fontSize: 13, background: 'transparent', fontFamily: 'inherit',
@@ -407,6 +408,7 @@ export function NoticePage() {
                 <button
                   type="button"
                   onClick={handleSearch}
+                  aria-label="검색"
                   style={{
                     width: 32, height: 32, borderRadius: 8,
                     background: 'var(--ink)', color: '#fff', border: 'none',
