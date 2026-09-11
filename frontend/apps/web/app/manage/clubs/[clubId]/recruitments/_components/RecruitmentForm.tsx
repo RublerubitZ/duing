@@ -19,13 +19,13 @@ import { FormErrorSummary } from './FormErrorSummary';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
-import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 import {
   clearRecruitmentDraft,
   loadRecruitmentDraft,
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import type { RecruitmentDraftValues } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
+import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 
 /** Task 8 의 페이지 헤더 제출 버튼이 `form` 속성으로 이 폼을 원격 제출한다. */
 export const RECRUITMENT_FORM_ID = 'recruitment-form';
