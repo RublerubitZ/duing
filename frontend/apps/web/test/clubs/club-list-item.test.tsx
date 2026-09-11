@@ -132,4 +132,14 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     render(<ClubListItem club={baseClub} />);
     expect(screen.queryByText('추천')).toBeNull();
   });
+
+  // 로고 이미지가 깨지면 ClubLogo 가 이니셜로 폴백하는데, 배경이 없어 흰 네모에 흰 글자였다.
+  it('로고 URL 이 있어도 컨테이너 배경을 시그니처 색으로 칠한다 — 이미지 실패 시 이니셜이 보이도록', () => {
+    render(<ClubListItem club={{ ...baseClub, logoUrl: 'https://cdn.example.com/logo.png' }} />);
+
+    const logoBox = screen.getByLabelText('테스트 동아리 로고');
+    // jsdom 은 hex 를 rgb 로 정규화해 저장한다(#1F4A36 → rgb(31, 74, 54)).
+    expect(logoBox.style.background).toContain('linear-gradient(135deg');
+    expect(logoBox.style.background).toContain('rgb(31, 74, 54)');
+  });
 });

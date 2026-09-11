@@ -99,9 +99,9 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           style={{
             width: logoSize,
             height: logoSize,
-            background: club.logoUrl
-              ? undefined
-              : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
+            // 로고 이미지가 있어도 항상 칠한다 — 이미지가 덮으므로 정상 로드 시 보이지 않고, 로드 실패 폴백(이니셜)에서만
+            // 드러난다. 투명 PNG 는 흰색 대신 이 색이 비친다(허용).
+            background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
             fontSize: size === 'lg' ? 44 : 30,
             letterSpacing: '-0.03em',
             filter: isDimmed ? 'saturate(0.6)' : undefined,

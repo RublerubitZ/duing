@@ -90,9 +90,9 @@ export function ClubListItem({
       <div
         className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-[23px] font-bold leading-none text-white shadow-1"
         style={{
-          background: club.logoUrl
-            ? undefined
-            : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
+          // 로고 이미지가 있어도 항상 칠한다 — 이미지가 덮으므로 정상 로드 시 보이지 않고, 로드 실패 폴백(이니셜)에서만
+          // 드러난다. 투명 PNG 는 흰색 대신 이 색이 비친다(허용).
+          background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
           letterSpacing: '-0.03em',
           filter: isDimmed ? 'saturate(0.6)' : undefined,
           // 공유요소 전환 — 모바일 목록 로고에서 상세 히어로로 모핑(데스크탑 ClubCard 와 동일 규칙).
