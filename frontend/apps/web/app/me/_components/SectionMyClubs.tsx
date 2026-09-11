@@ -88,7 +88,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                 <div
                   key={club.clubId}
                   className={cn(
-                    'bg-paper rounded-[18px] px-5 py-5 flex items-center gap-4',
+                    'bg-paper rounded-[18px] px-5 py-5 flex flex-wrap lg:flex-nowrap items-center gap-x-4 gap-y-3',
                     'transition-[transform,box-shadow] duration-150',
                     'hover:-translate-y-0.5 hover:shadow-2',
                     isManager ? 'border-[1.5px] border-ink' : 'border border-line',
@@ -129,7 +129,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                     <span className="text-[12px] text-charcoal-3 shrink-0">{statusNotice}</span>
                   ) : isManager ? (
                     // 운영진에게도 부원 동선(공지·회비·일정)이 필요하다 — "관리" 앞에 같은 3개를 둔다.
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
                       <MemberQuickLinks club={club} />
                       <Link
                         href={`/manage?clubId=${club.clubId}`}
@@ -141,7 +141,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                       </Link>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
                       <MemberQuickLinks club={club} />
                       <button
                         type="button"
