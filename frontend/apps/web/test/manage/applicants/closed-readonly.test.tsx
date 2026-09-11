@@ -108,7 +108,7 @@ function applicantDetailHandler(
         college: 'IT_ENGINEERING',
         major: '컴퓨터공학과',
         grade: 'JUNIOR',
-        phone: '010-1234-5678',
+        phoneMasked: '010-****-5678',
       },
       answers: [{ question: '지원 동기', answer: '열심히 하겠습니다' }],
       status: applicationStatus,

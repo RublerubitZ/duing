@@ -169,7 +169,8 @@ export type ApplicantDetail = {
     college: College;
     major: string;
     grade: Grade;
-    phone: string;
+    /** 마스킹된 번호(010-****-5678). 원본은 applications.applicantPhone 이 감사 행과 함께 반환한다. */
+    phoneMasked: string | null;
   };
   answers: { question: string; answer: string }[];
   status: ApplicationStatus;
@@ -185,6 +186,14 @@ export type ApplicantDetail = {
   // 면접 라운드 요약 (BE#14) — placement-active 멤버십이 있는 경우에만 채워진다.
   // 대기열 상태(INTERVIEW_PENDING 이지만 미선정)이거나 면접 미사용 모집이면 null.
   interviewRound: InterviewRoundBrief | null;
+};
+
+/**
+ * 운영진이 명시적으로 조회한 지원자의 원본 연락처. 상세(ApplicantDetail)는 phoneMasked 만 제공하며,
+ * 원본은 전용 API 응답으로만 존재한다(부원 ClubMemberPhone 과 같은 규약).
+ */
+export type ApplicantPhone = {
+  phone: string;
 };
 
 // = ApplicantDetailResponse.InterviewRoundBrief (BE#14)

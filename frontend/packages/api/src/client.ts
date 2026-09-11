@@ -50,6 +50,7 @@ import type {
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
+  ApplicantPhone,
   RecruitmentDetail,
   RecruitmentSummary,
   UpdateRecruitmentPayload,
@@ -356,6 +357,8 @@ export type DuingApiClient = {
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
     withdraw(applicationId: number): Promise<void>;
     detail(applicationId: number): Promise<ApplicantDetail>;
+    // 원본 연락처. 운영진 전용이며 호출 자체가 백엔드 감사 행으로 남는다 — 화면에 필요할 때만 부른다.
+    applicantPhone(applicationId: number): Promise<ApplicantPhone>;
     upsertMyApplicationEvaluation(
       applicationId: number,
       payload: UpsertApplicationEvaluationPayload,
@@ -1031,6 +1034,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonVoid(http.delete(`users/me/applications/${applicationId}`)),
       detail: (applicationId) =>
         jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
+      applicantPhone: (applicationId) =>
+        jsonOk<ApplicantPhone>(http.get(`leader/applications/${applicationId}/phone`)),
       upsertMyApplicationEvaluation: (applicationId, payload) =>
         jsonVoid(
           http.put(`leader/applications/${applicationId}/evaluations/me`, { json: payload }),
