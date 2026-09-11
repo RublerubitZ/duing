@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse, delay } from 'msw';
-import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
+import type { ApplicationSummary, MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -16,6 +16,7 @@ const mockAuthStatus = { value: 'unauthenticated' };
 // 지원 흐름은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
 // 흉내 내면 subscribe/getState 가 없어 렌더가 터진다.
 vi.mock('@duing/stores', () => ({
+  selectIsAuthenticated: (state: { status: string }) => state.status === 'authenticated',
   useAuthStore: Object.assign(
     (selector: (state: { status: string }) => unknown) => selector({ status: mockAuthStatus.value }),
     {
@@ -29,7 +30,10 @@ vi.mock('@duing/stores', () => ({
 const mockRouterPush = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockRouterPush }) }));
 
-const server = setupServer();
+// 로그인 상태에서 하단 바가 내 지원 목록(ALL)을 조회한다 — 기본은 지원 없음.
+const server = setupServer(
+  http.get('*/users/me/applications', () => HttpResponse.json({ ok: true, data: [], message: null })),
+);
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -77,6 +81,25 @@ const memberMembership: MyClubMembership = {
     canDeleteEvent: false,
   },
 };
+
+const myApplication: ApplicationSummary = {
+  id: 77,
+  recruitmentId: base.id,
+  recruitmentTitle: base.title,
+  clubId: 7,
+  clubName: '두잉',
+  category: 'ACADEMIC',
+  logoUrl: null,
+  status: 'SUBMITTED',
+  interview: null,
+  submittedAt: '2026-05-02T09:00:00Z',
+};
+
+function mockMyApplications(applications: ApplicationSummary[]) {
+  return http.get('*/users/me/applications', () =>
+    HttpResponse.json({ ok: true, data: applications, message: null }),
+  );
+}
 
 function renderBar(
   recruitment: StudentRecruitmentProjection | undefined,
@@ -233,5 +256,25 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '지원 자격 확인 중' })).toBeDisabled();
     });
+  });
+
+  // 서버는 중복 지원을 상태와 무관하게 409 로 막는다(REJECTED 포함) — 버튼 대신 제출한 지원서로 보낸다.
+  it('이미 지원한 모집이면 지원 버튼 대신 "지원 완료 · 지원서 보기" 링크를 보여준다', async () => {
+    mockAuthStatus.value = 'authenticated';
+    server.use(mockMyApplications([myApplication]));
+    renderBar(base);
+
+    const link = await screen.findByRole('link', { name: '지원 완료 · 지원서 보기' });
+    expect(link).toHaveAttribute('href', '/me/applications/77');
+    expect(screen.queryByRole('button', { name: '지원하기' })).not.toBeInTheDocument();
+  });
+
+  it('이미 지원했어도 부원 모집에 소속이면 소속 잠금 안내가 우선이다', async () => {
+    mockAuthStatus.value = 'authenticated';
+    server.use(mockMyApplications([myApplication]));
+    renderBar({ ...base, targetRole: 'MEMBER' }, memberMembership);
+
+    expect(await screen.findByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
+    await waitFor(() => expect(screen.queryByRole('link', { name: '지원 완료 · 지원서 보기' })).not.toBeInTheDocument());
   });
 });

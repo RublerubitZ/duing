@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import {
   displayStatusLabel,
@@ -7,6 +9,7 @@ import {
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
 import { ddayLabel } from '../../../_lib/dday';
+import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { Spinner } from '@/components/loading/Spinner';
 import { useClubApply } from '../_lib/useClubApply';
@@ -20,7 +23,7 @@ type Props = {
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) {
-  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility } =
+  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
     useClubApply(recruitment);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
@@ -95,22 +98,32 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) 
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={!canApply || isCheckingEligibility || isAlreadyMember}
-          className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isCheckingEligibility ? (
-            <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
-              <Spinner size={14} />
-            </span>
-          ) : isAlreadyMember ? (
-            '이미 소속된 동아리예요'
-          ) : (
-            applyButtonLabel
-          )}
-        </button>
+        {existingApplicationId !== null && !isAlreadyMember ? (
+          // 이미 지원한 모집 — 서버가 409 로 막는 버튼 대신 제출한 지원서로 보낸다. 소속 잠금이 있으면 그 안내가 우선이다.
+          <Link
+            href={toRoute(`/me/applications/${existingApplicationId}`)}
+            className="btn btn-secondary btn-big w-full"
+          >
+            지원 완료 · 지원서 보기
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={!canApply || isCheckingEligibility || isAlreadyMember}
+            className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isCheckingEligibility ? (
+              <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+                <Spinner size={14} />
+              </span>
+            ) : isAlreadyMember ? (
+              '이미 소속된 동아리예요'
+            ) : (
+              applyButtonLabel
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );
