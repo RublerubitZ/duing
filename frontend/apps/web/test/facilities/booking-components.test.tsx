@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@duing/stores';
 import type { BookingAvailabilitySlot, BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
@@ -20,7 +21,11 @@ import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
 // FacilityHomeCard 는 내부에서 new Date() 로 오늘을 계산하므로 시스템 시각을 고정한다.
 // 픽스처는 오프셋 명시 인스턴트 — 집계가 KST 라 로컬 Date 는 UTC 러너에서 어긋난다(P2-18).
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  // 예약 패널이 로그인 여부로 진행 버튼을 가른다 — 테스트 간 상태가 새지 않게 초기값 전체로 되돌린다.
+  act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
+});
 
 function makeFacility(overrides?: Partial<FacilityItem>): FacilityItem {
   return {
@@ -457,6 +462,8 @@ it('서버 applicationClosed=true 인 날은 빈 슬롯이 없어도(전부 점�
 });
 
 it('예약 패널 CTA 는 신청 가능한 슬롯이 없는 날(마감·지난 날)엔 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 테스트는 CTA 자체를 본다.
+  act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
@@ -476,6 +483,36 @@ it('예약 패널 CTA 는 신청 가능한 슬롯이 없는 날(마감·지난 �
   );
   expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
   expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
+});
+
+it('예약 패널은 미인증이면 시간 선택 단계에서 로그인 안내를 보이고 진행 버튼을 숨긴다 — 슬롯 현황은 그대로 본다', () => {
+  render(
+    <BookingPanel
+      facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
+      day={makeDay()}
+      selection={null}
+      onToggleSlot={vi.fn()}
+      step="slots"
+      onProceedToForm={vi.fn()}
+      onBackToSlots={vi.fn()}
+      submittedResult={null}
+      submittedClubId={null}
+      submittedAt={null}
+      onSubmitted={vi.fn()}
+      onExploreOther={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '로그인하기' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('/login?next='),
+  );
+  expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
+  expect(screen.getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  // 캡션만 남은 빈 바가 뜨지 않는다 — 게스트는 버튼·캡션·바 전부 없음(선택 전).
+  expect(screen.queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  expect(document.querySelector('[data-bottom-bar]')).toBeNull();
 });
 
 it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링크를 관리 목록으로 노출한다', () => {
@@ -618,6 +655,8 @@ it('예약 건도 운영행도 없어도 카드를 렌더한다 — 예약 가�
 
 
 it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 테스트는 CTA 자체를 본다.
+  act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
@@ -1180,7 +1219,12 @@ it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는�
 });
 
 // ── 모바일 빠른 예약 바텀시트(MobileDaySheet) — §11.1 월간 날짜 탭 = 빠른 시간 선택 ─────
-function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>) {
+function renderMobileSheet(
+  overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>,
+  options?: { guest?: boolean },
+) {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 기본은 로그인 상태로 렌더한다.
+  if (options?.guest !== true) act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   const props = {
     open: true,
     facility: { id: 1, roomName: '커뮤니티룸(1)' },
@@ -1264,6 +1308,21 @@ it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌�
 it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
   renderMobileSheet({ open: false, day: null, facility: null });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트: 미인증이면 로그인 안내를 보이고 진행 버튼을 숨긴다 — 슬롯 선택·시간표로 보기는 그대로', () => {
+  renderMobileSheet({ selection: { start: '18:00', end: '19:00' } }, { guest: true });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: '로그인하기' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('/login?next='),
+  );
+  expect(within(dialog).queryByRole('button', { name: '18:00~19:00 예약 신청' })).not.toBeInTheDocument();
+  expect(within(dialog).queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  // 시간 선택·시간표 이동은 게스트에게도 열려 있다.
+  expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
 });
 
 it('빠른 예약 시트: 신청 가능한 슬롯이 없는 날은 CTA 가 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
