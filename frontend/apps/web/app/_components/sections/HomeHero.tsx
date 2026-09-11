@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search } from '@/components/duing/Icon';
 import { fetchClubStats } from '@/app/_lib/club-stats';
+import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { HeroActivityToasts } from './HeroActivityToasts';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
@@ -76,11 +77,11 @@ export async function HomeHero() {
 
           {/* 첫 화면의 주 행동 — 검색어가 없는 첫 방문자를 "둘러보기" 로 연다. 배너가 홈 최우선이라 한 줄·작은 버튼으로 높이를 아낀다.
               btn-sm 실제 높이는 36px 이라 시각 크기는 그대로 두고 before 의사요소로만 위아래 4px 씩 넓혀
-              터치 목표 44px 을 맞춘다(상단 로그인·회원가입과 같은 기법). */}
+              터치 목표 44px 을 맞춘다(ImageUploader 의 작은 버튼·배너 페이저와 같은 기법). */}
           <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
             {stats && stats.recruitingCount > 0 ? (
               <Link
-                href="/clubs?recruitment=available"
+                href={RECRUITING_CLUBS_HREF}
                 className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4"
               >
                 모집 중 {stats.recruitingCount}곳 보기
