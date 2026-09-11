@@ -268,7 +268,7 @@ describe('MyFeeList', () => {
     mockUseMemberFeeAccountQuery.mockReturnValue(notFoundAccount);
     render(<MyFeeList />);
 
-    expect(screen.getByText('아직 납부 계좌가 없어요. 운영진이 등록하면 알려드릴게요.')).toBeInTheDocument();
+    expect(screen.getByText('아직 납부 계좌가 없어요. 운영진이 등록하면 여기에 표시돼요.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
   });
 
@@ -283,7 +283,7 @@ describe('MyFeeList', () => {
     render(<MyFeeList />);
 
     expect(screen.getByRole('listitem')).toBeInTheDocument();
-    expect(screen.queryByText('아직 납부 계좌가 없어요. 운영진이 등록하면 알려드릴게요.')).not.toBeInTheDocument();
+    expect(screen.queryByText('아직 납부 계좌가 없어요. 운영진이 등록하면 여기에 표시돼요.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
   });
 

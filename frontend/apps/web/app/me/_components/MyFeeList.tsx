@@ -123,7 +123,7 @@ function FeeAccountNotice({ clubId }: FeeAccountNoticeProps) {
 
   // 미등록(404)은 ApiError 로 surface 되어 data 가 비어 있다 — 에러 UI 가 아니라 옅은 안내로 처리한다.
   if (!account) {
-    return <p className="px-1 text-xs text-charcoal-3">아직 납부 계좌가 없어요. 운영진이 등록하면 알려드릴게요.</p>;
+    return <p className="px-1 text-xs text-charcoal-3">아직 납부 계좌가 없어요. 운영진이 등록하면 여기에 표시돼요.</p>;
   }
 
   const copyAccountNumber = async () => {
