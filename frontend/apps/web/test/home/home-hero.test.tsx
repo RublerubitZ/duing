@@ -96,7 +96,36 @@ describe('HomeHero (server component)', () => {
 
     render(<>{await HomeHero()}</>);
 
-    expect(screen.getByText(/캠퍼스의 모든 동아리가 지금도/)).toBeInTheDocument();
+    expect(screen.getByText(/대구대 학생이면 누구나/)).toBeInTheDocument();
+  });
+
+  it('모집 중 수가 있으면 주 CTA 가 모집 중 필터로 연결된다', async () => {
+    mockFetchClubStats.mockResolvedValueOnce({ totalCount: 164, recruitingCount: 29 });
+    mockFetchPublicActivities.mockResolvedValueOnce([]);
+
+    render(<>{await HomeHero()}</>);
+
+    expect(screen.getByRole('link', { name: '모집 중 29곳 보기' })).toHaveAttribute(
+      'href',
+      '/clubs?recruitment=available',
+    );
+    expect(screen.getByRole('link', { name: '카테고리로 찾기' })).toHaveAttribute(
+      'href',
+      '#categories',
+    );
+    expect(
+      screen.getByText(/대구대 학생이면 누구나 · 학번으로 가입 · 164개 동아리/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('ing')).not.toBeInTheDocument();
+  });
+
+  it('모집 중이 0곳이거나 통계가 없으면 주 CTA 는 동아리 둘러보기다', async () => {
+    mockFetchClubStats.mockResolvedValueOnce({ totalCount: 164, recruitingCount: 0 });
+    mockFetchPublicActivities.mockResolvedValueOnce([]);
+
+    render(<>{await HomeHero()}</>);
+
+    expect(screen.getByRole('link', { name: '동아리 둘러보기' })).toHaveAttribute('href', '/clubs');
   });
 });
 

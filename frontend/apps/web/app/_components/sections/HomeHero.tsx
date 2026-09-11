@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { Search } from '@/components/duing/Icon';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
@@ -66,51 +67,28 @@ export async function HomeHero() {
             모든 두잉
           </h1>
 
-          {/* 본문 카피 — 모바일 시안(509:9210)대로 헤드라인 아래, 폭 190 안에서 마스코트 왼쪽에 두 줄로 둔다
-              (둘째 줄 문구는 폭에 맞춰 모바일 전용으로 짧다, 단어 단위로만 꺾인다). 한 번 뺐다가 사용자 판단으로 되돌렸다.
-              글자 14px 은 시안(14/1.5)과 같고 행간만 1.6 으로 조금 넉넉하다.
-              통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9 xl:mb-8">
-            대구대학교 동아리 플랫폼.
-            <br />
-            {/* xl 미만은 둘째 줄을 "N개 동아리가 지금 모집 ing" 한 줄로 — 지금 모집 중인 수를 말하면서
-                워드플레이 ing 를 살린다(시안 예시 "29개 동아리가 부원을 모으는 ing-" 의 결). 190px 에서 세 자리 수여도
-                한 줄에 들어간다. 모집 중이 0곳이면 전체 수로("N개 동아리가 지금도 ing 중"), 통계가 없으면 수 없이.
-                전체 문장은 18px 에서 ≈430px 인데 md·lg 컬럼 하한이 351·374 라 창 폭에 따라 세 줄로 꺾인다(모바일은
-                마스코트 아래까지 내려왔다) — 컬럼이 479 이상인 xl 부터만 쓴다. */}
-            <span className="xl:hidden">
-              {stats && stats.recruitingCount > 0 ? (
-                <>
-                  {stats.recruitingCount}개 동아리가 지금 모집{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em>
-                </>
-              ) : (
-                <>
-                  {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
-                </>
-              )}
-            </span>
-            <span className="hidden xl:inline">
-              {stats ? (
-                <>
-                  {stats.totalCount}개 동아리가 지금도{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                    ing
-                  </em>{' '}
-                  중 — 이번 학기 {stats.recruitingCount}곳 모집 중이에요.
-                </>
-              ) : (
-                <>
-                  캠퍼스의 모든 동아리가 지금도{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                    ing
-                  </em>{' '}
-                  중이에요.
-                </>
-              )}
-            </span>
+          {/* 본문 카피 — 헤드라인 아래 한 줄. 누가 쓸 수 있는지(대구대 학생·학번 가입)와 규모를 먼저 말한다.
+              모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에 들어가도록 폭 220 을 넘기지 않고, 통계 미가용
+              (stats=null) 시 숫자만 빠진 기본형으로 우아하게 폴백한다. */}
+          <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
+            대구대 학생이면 누구나 · 학번으로 가입{stats ? ` · ${stats.totalCount}개 동아리` : ''}
           </p>
+
+          {/* 첫 화면의 주 행동 — 검색어가 없는 첫 방문자를 "둘러보기" 로 연다. 배너가 홈 최우선이라 한 줄·작은 버튼으로 높이를 아낀다. */}
+          <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
+            {stats && stats.recruitingCount > 0 ? (
+              <Link href="/clubs?recruitment=available" className="btn btn-primary btn-sm rounded-full px-4">
+                모집 중 {stats.recruitingCount}곳 보기
+              </Link>
+            ) : (
+              <Link href="/clubs" className="btn btn-primary btn-sm rounded-full px-4">
+                동아리 둘러보기
+              </Link>
+            )}
+            <a href="#categories" className="btn btn-secondary btn-sm rounded-full px-4">
+              카테고리로 찾기
+            </a>
+          </div>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3).
               시안 PC 프레임(602×78, 모서리 22, 안쪽 좌 23·우 18, 버튼 115×61 '검색 + 돋보기' 22px)을
