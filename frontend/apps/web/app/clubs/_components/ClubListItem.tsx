@@ -56,7 +56,7 @@ function recruitBadge(club: Club): Badge | null {
 
 const BADGE_TONE: Record<Badge['tone'], string> = {
   recruiting: 'bg-ink text-white',
-  urgent: 'bg-coral text-white',
+  urgent: 'bg-danger text-white',
   muted: 'bg-graysoft text-charcoal-3',
 };
 
