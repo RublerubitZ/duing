@@ -102,7 +102,9 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className="w-[248px] border-white/10 bg-[#2A382F] p-1.5 text-white shadow-4"
+        // 운영 동아리가 많으면 뷰포트 아래로 잘린다 — Radix 가 계산한 가용 높이 안에서 스크롤한다.
+        // 공용 dropdown-menu 의 overflow-hidden 과 공존해도 overflow-y 가 y 축을 이긴다.
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[248px] overflow-y-auto border-white/10 bg-[#2A382F] p-1.5 text-white shadow-4"
       >
         <DropdownMenuLabel className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">
           내 동아리 {managedClubs.length}

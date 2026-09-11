@@ -99,4 +99,14 @@ describe('ClubSwitcher', () => {
     expect(menuItems).toHaveLength(1);
     expect(within(menuItems[0]!).getByText('현재 선택됨')).toBeInTheDocument();
   });
+
+  it('열린 목록은 뷰포트 가용 높이 안에서 세로 스크롤된다 — 운영 동아리가 많아도 아래가 잘리지 않는다', async () => {
+    const user = userEvent.setup();
+    render(<ClubSwitcher managedClubs={CLUBS} currentClubId={1} />);
+
+    await user.click(screen.getByRole('button', { name: /동아리 전환/ }));
+    const menu = await screen.findByRole('menu');
+
+    expect(menu).toHaveClass('max-h-[var(--radix-dropdown-menu-content-available-height)]', 'overflow-y-auto');
+  });
 });

@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { LAST_CLUB_STORAGE_KEY } from './_lib/lastClubStorage';
 
 function ManageRedirect() {
   const router = useGuardedRouter();
@@ -14,10 +15,19 @@ function ManageRedirect() {
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
 
   // 마이페이지 "관리" 버튼은 `?clubId=` 로 어떤 동아리를 관리할지 전달한다.
-  // 이 값이 관리 가능한 동아리 목록에 있으면 그 동아리로, 없거나 비어 있으면 첫 동아리로 이동한다.
+  // 우선순위: 쿼리 → 마지막에 본 동아리(ManageShell 이 저장, 목록에 있을 때만) → 첫 동아리.
   const requestedClubId = searchParams.get('clubId');
+  const [lastViewedClubId] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(LAST_CLUB_STORAGE_KEY);
+    } catch {
+      // SSR(window 없음)·저장소 차단 — 기억을 포기하고 첫 동아리로 간다. 마크업에는 영향이 없어 하이드레이션 불일치는 없다.
+      return null;
+    }
+  });
   const targetClub =
     managedClubs?.find((club) => String(club.clubId) === requestedClubId) ??
+    managedClubs?.find((club) => String(club.clubId) === lastViewedClubId) ??
     managedClubs?.[0];
 
   useEffect(() => {
