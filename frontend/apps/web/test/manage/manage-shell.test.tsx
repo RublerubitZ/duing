@@ -86,10 +86,14 @@ describe('ManageShell — 접기·푸터', () => {
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
   });
 
-  it('사이드바 푸터에 도움말 링크가 있다', async () => {
+  it('사이드바 푸터 도움말은 새 창으로 여는 FAQ 링크다', async () => {
     render(<ManageShell currentClubId={1}>본문</ManageShell>);
 
-    expect(await screen.findByRole('link', { name: '도움말' })).toHaveAttribute('href', '/faq');
+    // 콘솔 밖 페이지라 같은 탭으로 보내면 돌아올 길이 없다 — 새 창으로 열고 그 사실을 이름에도 남긴다.
+    const help = await screen.findByRole('link', { name: '도움말 (새 창)' });
+    expect(help).toHaveAttribute('href', '/faq');
+    expect(help).toHaveAttribute('target', '_blank');
+    expect(help).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('로그아웃 클릭 시 logout 후 홈으로 replace 한다', async () => {

@@ -144,10 +144,13 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
           // me 로딩/실패 — 이름 없이 로그아웃만 남긴다 (fail-soft)
           <span aria-hidden className="flex-1" />
         ))}
-      {/* 도움말(FAQ) — 접힘/펼침 모두 같은 아이콘 링크라 분기하지 않는다. */}
+      {/* 도움말(FAQ) — 접힘/펼침 모두 같은 아이콘 링크라 분기하지 않는다.
+          새 창으로 연다 — 콘솔에서 작업하다 도움말을 보면 되돌아올 길이 없어(콘솔 밖 페이지) 이탈이 된다. */}
       <Link
         href="/faq"
-        aria-label="도움말"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="도움말 (새 창)"
         title="도움말"
         className={cn(
           'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/55 outline-none',
@@ -269,12 +272,15 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           <div
             className="contents"
             onClick={(event) => {
-              if (event.target instanceof HTMLElement && event.target.closest('a')) {
+              const anchor =
+                event.target instanceof HTMLElement ? event.target.closest('a') : null;
+              if (anchor) {
                 // 링크 이동과 겹치는 닫힘 — 뒤로가기 흡수 엔트리 회수를 건너뛰어 이동이 삼켜지지 않게 한다.
-                // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
-                if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                  skipNextOverlayReclaim();
-                }
+                // 수정자 키 클릭·target=_blank(도움말)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
+                const opensNewTab =
+                  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
+                  (anchor.target !== '' && anchor.target !== '_self');
+                if (!opensNewTab) skipNextOverlayReclaim();
                 setDrawerOpen(false);
               }
             }}
