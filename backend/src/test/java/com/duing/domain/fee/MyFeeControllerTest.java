@@ -277,6 +277,37 @@ class MyFeeControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("내 회비 응답에는 청구한 동아리의 이름이 함께 실린다")
+    void carriesClubName() {
+        saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
+        String clubName = clubRepository.findById(clubId).orElseThrow().getName();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].clubName", equalTo(clubName));
+    }
+
+    @Test
+    @DisplayName("동아리가 삭제된 뒤에도 청구는 남고 동아리명은 '삭제된 동아리' 로 온다")
+    void deletedClubFallsBackToPlaceholderName() {
+        saveBill(clubId, policyId, userA.getId(), "2026-07", FeeStatus.PENDING);
+        // @SQLDelete 소프트 삭제. HTTP 레벨(비트랜잭션) 테스트라 실제 커밋되고,
+        // @SQLRestriction 때문에 이름 조회에서는 빠진다 — 청구 이력은 그대로 남는다.
+        Club deletedClub = clubRepository.findById(clubId).orElseThrow();
+        clubRepository.delete(deletedClub);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA)
+                .when().get("/api/v1/my/fees")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data", hasSize(1))
+                .body("data[0].clubName", equalTo("삭제된 동아리"));
+    }
+
+    @Test
     @DisplayName("인증 없이 내 회비를 조회하면 401 을 반환한다")
     void unauthenticatedRejected() {
         RestAssured.given()

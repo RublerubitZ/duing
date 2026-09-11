@@ -17,9 +17,11 @@ public record MyFeeResponse(
         // 표기 축 — 조회 시점 기준 파생. status 는 저장 원본(레코드 보존용).
         FeeStatus displayStatus,
         Long paidAmount,
-        Long remainingAmount
+        Long remainingAmount,
+        // 청구가 raw FK 로만 들고 있는 동아리의 이름. 조회 불가(삭제된 동아리)면 폴백 문구가 채워져 항상 non-null.
+        String clubName
 ) {
-    public static MyFeeResponse from(FeeBillQuery query) {
+    public static MyFeeResponse from(FeeBillQuery query, String clubName) {
         return new MyFeeResponse(
                 query.id(),
                 query.clubId(),
@@ -32,6 +34,7 @@ public record MyFeeResponse(
                 query.status(),
                 query.displayStatus(),
                 query.paidAmount(),
-                query.remainingAmount());
+                query.remainingAmount(),
+                clubName);
     }
 }
