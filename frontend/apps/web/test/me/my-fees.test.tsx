@@ -171,6 +171,18 @@ describe('MyFeeList', () => {
     expect(screen.getByRole('heading', { name: '동아리 #99' })).toBeInTheDocument();
   });
 
+  it('청구에 clubName 이 있으면 가입 목록 없이도 동아리명을 쓴다', () => {
+    mockUseMyFeesQuery.mockReturnValue({
+      data: [buildFee({ clubId: 99, clubName: '탈퇴한 동아리' })],
+      isLoading: false,
+    });
+    mockUseMyClubsQuery.mockReturnValue({ data: [] });
+    render(<MyFeeList />);
+
+    expect(screen.getByRole('heading', { level: 2, name: '탈퇴한 동아리' })).toBeInTheDocument();
+    expect(screen.queryByText('동아리 #99')).not.toBeInTheDocument();
+  });
+
   it('취소된 청구도 상태 뱃지를 표시한다', () => {
     mockUseMyFeesQuery.mockReturnValue({
       data: [buildFee({ status: 'CANCELLED' })],
@@ -256,7 +268,7 @@ describe('MyFeeList', () => {
     mockUseMemberFeeAccountQuery.mockReturnValue(notFoundAccount);
     render(<MyFeeList />);
 
-    expect(screen.getByText('납부 계좌가 등록되지 않았어요.')).toBeInTheDocument();
+    expect(screen.getByText('아직 납부 계좌가 없어요. 운영진이 등록하면 알려드릴게요.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
   });
 
@@ -271,7 +283,7 @@ describe('MyFeeList', () => {
     render(<MyFeeList />);
 
     expect(screen.getByRole('listitem')).toBeInTheDocument();
-    expect(screen.queryByText('납부 계좌가 등록되지 않았어요.')).not.toBeInTheDocument();
+    expect(screen.queryByText('아직 납부 계좌가 없어요. 운영진이 등록하면 알려드릴게요.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '계좌번호 복사' })).not.toBeInTheDocument();
   });
 
