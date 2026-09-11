@@ -73,3 +73,37 @@ describe('updateRecruitmentSchema — 만료-OPEN 편집 경로 보호', () => {
     expect(result.success).toBe(true);
   });
 });
+
+// 폼은 경로별 **첫** issue 만 보여준다 — 빈 값에 형식 오류가 먼저 잡히면 "날짜 형식이 올바르지
+// 않습니다" 라는 헛다리 안내가 나간다. min 이 regex 앞에 있어야 하는 이유가 이것뿐이다.
+function firstMessage(issues: { path: PropertyKey[]; message: string }[], field: string) {
+  return issues.find((issue) => issue.path[0] === field)?.message;
+}
+
+describe('빈 날짜 — 형식 오류가 아니라 미입력 안내', () => {
+  it('생성: 시작일·종료일이 비면 입력을 청하는 문구가 먼저 나온다', () => {
+    const result = createRecruitmentSchema.safeParse(createPayload({ startDate: '', endDate: '' }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(firstMessage(result.error.issues, 'startDate')).toBe('시작일을 입력해 주세요.');
+      expect(firstMessage(result.error.issues, 'endDate')).toBe('종료일을 입력해 주세요.');
+    }
+  });
+
+  it('수정: 시작일·종료일이 비면 입력을 청하는 문구가 먼저 나온다', () => {
+    const result = updateRecruitmentSchema.safeParse({
+      title: '제목',
+      startDate: '',
+      endDate: '',
+      capacity: 10,
+      useInterview: false,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(firstMessage(result.error.issues, 'startDate')).toBe('시작일을 입력해 주세요.');
+      expect(firstMessage(result.error.issues, 'endDate')).toBe('종료일을 입력해 주세요.');
+    }
+  });
+});

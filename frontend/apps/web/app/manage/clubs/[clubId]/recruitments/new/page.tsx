@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
@@ -12,6 +12,11 @@ import { toRoute } from '@/app/_lib/route';
 import { isRecruitmentExpiredOpen } from '@/app/_lib/recruitmentDisplay';
 import { captureEvent } from '@/app/_lib/analytics';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import {
+  clearRecruitmentDraft,
+  loadRecruitmentDraft,
+} from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import {
   RecruitmentForm,
   RECRUITMENT_FORM_ID,
@@ -29,6 +34,7 @@ export default function NewRecruitmentPage({
   const { cloneFrom: cloneFromParam } = use(searchParams);
   const clubId = Number(clubIdParam);
   const router = useGuardedRouter();
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
   // 양식 복제 진입 — ?cloneFrom={id} 가 있으면 해당 모집 상세를 새 작성 폼의 초기값으로 쓴다.
   // 별도 Clone API 없이 기존 상세 조회 + 생성 API 를 재사용한다(원본은 절대 수정하지 않음).
@@ -66,6 +72,22 @@ export default function NewRecruitmentPage({
     activeRecruitment !== undefined && closingRecruitment === undefined ? activeRecruitment : undefined;
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
+
+  // 복제 진입은 원본이 곧 초안이라 임시저장을 쓰지 않는다 — 폼과 취소 경로가 같은 판정을 본다.
+  const draftClubId = cloneSource ? undefined : clubId;
+  const recruitmentsHref = toRoute(`/manage/clubs/${clubId}/recruitments`);
+
+  /**
+   * 취소는 임시저장까지 정리해야 한다 — 그냥 나가면 자동 저장본이 남아, 취소했는데도 다음 진입에서
+   * "작성 중이던 내용이 있어요" 배너가 뜬다. 지울 게 있을 때만 묻는다.
+   */
+  function handleCancel() {
+    if (draftClubId !== undefined && loadRecruitmentDraft(draftClubId) !== null) {
+      setIsCancelConfirmOpen(true);
+      return;
+    }
+    router.push(recruitmentsHref);
+  }
 
   async function handleSubmit(values: CreateFormValues) {
     const newRecruitmentId = await createRecruitment.mutateAsync({
@@ -140,9 +162,9 @@ export default function NewRecruitmentPage({
           {cloneSource ? '모집 양식 복제' : '신규 모집 작성'}
         </h1>
         <div className="flex items-center gap-2">
-          <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="btn btn-secondary">
+          <button type="button" onClick={handleCancel} className="btn btn-secondary">
             취소
-          </Link>
+          </button>
           <button
             type="submit"
             form={RECRUITMENT_FORM_ID}
@@ -169,12 +191,24 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
-        // 복제 진입은 원본이 곧 초안이라 임시저장을 쓰지 않는다.
-        draftClubId={cloneSource ? undefined : clubId}
+        draftClubId={draftClubId}
         closingRecruitmentTitle={closingRecruitment?.title}
         submitLabel={submitLabel}
         onSubmit={handleSubmit}
         isPending={createRecruitment.isPending}
+      />
+
+      <ConfirmDialog
+        open={isCancelConfirmOpen}
+        title="작성을 취소할까요?"
+        description="작성 중이던 내용이 지워져요."
+        confirmLabel="취소하고 나가기"
+        onCancel={() => setIsCancelConfirmOpen(false)}
+        onConfirm={() => {
+          if (draftClubId !== undefined) clearRecruitmentDraft(draftClubId);
+          setIsCancelConfirmOpen(false);
+          router.push(recruitmentsHref);
+        }}
       />
     </div>
   );

@@ -17,7 +17,7 @@ import { RecruitmentCloseConfirmDialog } from './RecruitmentCloseConfirmDialog';
 import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 import { FormErrorSummary } from './FormErrorSummary';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import {
   clearRecruitmentDraft,
@@ -55,6 +55,17 @@ const FIELD_LABELS: Record<string, string> = {
   interviewStartDate: '면접 시작일',
   interviewEndDate: '면접 종료일',
 };
+
+/**
+ * 공개 확인 모달의 제목 — 시작일이 미래면 "지금부터" 가 거짓말이 되므로 실제 공개일을 말한다.
+ * startDate 는 `<input type="date">` 가 만든 YYYY-MM-DD 라 조각내 읽는다(bookingDateLabel 과 같은 방식).
+ * 오늘 판정은 폼의 종료일 min 과 같은 로컬 기준(en-CA = YYYY-MM-DD, toISOString 은 UTC 라 어긋난다).
+ */
+function publishConfirmTitle(startDate: string): string {
+  if (startDate <= new Date().toLocaleDateString('en-CA')) return '지금부터 학생에게 공개돼요';
+  const [, month, day] = startDate.split('-').map(Number);
+  return `${month}월 ${day}일부터 학생에게 공개돼요`;
+}
 
 /** 임시저장 배너의 경과 시간 — 분 단위면 충분해 Intl.RelativeTimeFormat 까지 가지 않는다. */
 function formatRelativeMinutes(savedAt: number): string {
@@ -303,6 +314,19 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     }
   }
 
+  /**
+   * 고친 필드의 오류는 그 자리에서 지운다 — 다음 제출까지 붉은 문구와 요약 카드 숫자가 남아 있으면
+   * 이미 고친 곳을 다시 찾아 헤맨다. 남은 오류가 없으면 요약 카드 자체가 사라진다(FormErrorSummary).
+   */
+  function clearFieldError(field: string) {
+    setFieldErrors((previous) => {
+      if (previous[field] === undefined) return previous;
+      const remaining = { ...previous };
+      delete remaining[field];
+      return remaining;
+    });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setFieldErrors({});
@@ -524,7 +548,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const previewData: RecruitmentPreviewData = {
     title,
     startDate,
-    endDate: isAlwaysOpen ? null : endDate || null,
+    // 상시모집 여부는 따로 넘긴다 — "종료일 미입력" 과 "종료일 없는 모집" 은 다른 상태다.
+    isAlwaysOpen,
+    endDate: endDate || null,
     capacity,
     applicationMode: isEditMode ? (initialData?.applicationMode ?? 'SELF') : applicationMode,
     externalFormUrl: isEditMode ? (initialData?.externalFormUrl ?? '') : externalFormUrl,
@@ -598,7 +624,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
               type="text"
               required
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                clearFieldError('title');
+              }}
               className={fieldInputClass}
               placeholder="모집 공고 제목을 입력하세요"
               aria-invalid={fieldErrors.title ? true : undefined}
@@ -623,7 +652,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   type="date"
                   required
                   value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    clearFieldError('startDate');
+                  }}
                   className={fieldInputClass}
                   aria-invalid={fieldErrors.startDate ? true : undefined}
                   aria-describedby={fieldErrors.startDate ? 'rf-start-error' : undefined}
@@ -649,7 +681,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   // en-CA 로케일은 사용자 로컬 기준 YYYY-MM-DD (toISOString 은 UTC 라 자정~09시 KST 에 하루 어긋남).
                   min={isEditMode ? undefined : new Date().toLocaleDateString('en-CA')}
                   value={isAlwaysOpen ? '' : endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
+                  onChange={(event) => {
+                    setEndDate(event.target.value);
+                    clearFieldError('endDate');
+                  }}
                   className={cn(fieldInputClass, isAlwaysOpen && 'bg-graysoft text-charcoal-3')}
                   aria-invalid={fieldErrors.endDate ? true : undefined}
                   aria-describedby={fieldErrors.endDate ? 'rf-end-error' : undefined}
@@ -671,6 +706,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   setIsAlwaysOpen(event.target.checked);
                   if (event.target.checked) {
                     setEndDate('');
+                    // 상시모집으로 바꾸면 종료일 오류는 성립하지 않는다.
+                    clearFieldError('endDate');
                   }
                 }}
                 className="h-4 w-4 rounded border-line"
@@ -701,7 +738,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
               required
               min={1}
               value={capacity}
-              onChange={(event) => setCapacity(Number(event.target.value))}
+              onChange={(event) => {
+                setCapacity(Number(event.target.value));
+                clearFieldError('capacity');
+              }}
               className={cn(fieldInputClass, 'w-32')}
               aria-invalid={fieldErrors.capacity ? true : undefined}
               aria-describedby={fieldErrors.capacity ? 'rf-capacity-error' : undefined}
@@ -765,7 +805,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   type="url"
                   required
                   value={externalFormUrl}
-                  onChange={(event) => setExternalFormUrl(event.target.value)}
+                  onChange={(event) => {
+                    setExternalFormUrl(event.target.value);
+                    clearFieldError('externalFormUrl');
+                  }}
                   className={fieldInputClass}
                   placeholder="https://docs.google.com/forms/..."
                   aria-invalid={fieldErrors.externalFormUrl ? true : undefined}
@@ -813,7 +856,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                       id={FIELD_IDS.interviewStartDate}
                       type="date"
                       value={interviewStartDate}
-                      onChange={(event) => setInterviewStartDate(event.target.value)}
+                      onChange={(event) => {
+                        setInterviewStartDate(event.target.value);
+                        clearFieldError('interviewStartDate');
+                      }}
                       className={fieldInputClass}
                       aria-invalid={fieldErrors.interviewStartDate ? true : undefined}
                       aria-describedby={
@@ -834,7 +880,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                       id={FIELD_IDS.interviewEndDate}
                       type="date"
                       value={interviewEndDate}
-                      onChange={(event) => setInterviewEndDate(event.target.value)}
+                      onChange={(event) => {
+                        setInterviewEndDate(event.target.value);
+                        clearFieldError('interviewEndDate');
+                      }}
                       className={fieldInputClass}
                       aria-invalid={fieldErrors.interviewEndDate ? true : undefined}
                       aria-describedby={
@@ -945,7 +994,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   학번·전화번호 등 개인정보는 지원자 프로필에서 확인할 수 있으니 질문으로 요청하지 않는 것을
                   권장합니다.
                 </p>
-                <QuestionBuilder questions={questionItems} onChange={setQuestionItems} nextKey={nextKey} />
+                <QuestionBuilder
+                  questions={questionItems}
+                  onChange={(next) => {
+                    setQuestionItems(next);
+                    // 질문 오류는 목록 전체에 걸린 하나뿐이라 어느 질문을 고쳐도 같이 지운다.
+                    clearFieldError('questionItems');
+                  }}
+                  nextKey={nextKey}
+                />
                 {fieldErrors.questionItems && (
                   <p id="rf-questions-error" className="mt-2 text-xs text-danger">
                     {fieldErrors.questionItems}
@@ -969,7 +1026,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
         <ConfirmDialog
           open={isPublishConfirmOpen}
-          title="지금부터 학생에게 공개돼요"
+          title={publishConfirmTitle(startDate)}
           description="공개 후에도 안내문·기간은 수정할 수 있어요. 지원 질문은 수정할 수 없어요."
           confirmLabel="공개"
           confirmVariant="primary"
@@ -989,8 +1046,13 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
         {/* xl 미만에서 우측 고정 프리뷰 대신 여는 같은 화면 */}
         <Sheet open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-          <SheetContent side="right" className="w-[92vw] max-w-[420px] overflow-y-auto">
+          {/* pt-12 — 우상단 닫기 버튼 자리를 비운다(그 아래부터 미리보기가 시작한다). */}
+          <SheetContent side="right" className="w-[92vw] max-w-[420px] overflow-y-auto p-4 pt-12">
             <SheetTitle className="sr-only">지원자에게 보이는 화면</SheetTitle>
+            {/* Radix Dialog 는 설명이 없으면 콘솔 경고를 낸다 — 화면에는 미리보기 카드만 보이면 되므로 sr-only. */}
+            <SheetDescription className="sr-only">
+              작성 중인 모집을 지원자 시점으로 미리 봅니다.
+            </SheetDescription>
             <RecruitmentPreview data={previewData} />
           </SheetContent>
         </Sheet>

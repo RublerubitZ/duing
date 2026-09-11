@@ -209,9 +209,15 @@ export const createRecruitmentSchema = z
       .min(1, '제목은 필수 입력값입니다.')
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    // 미입력('')과 형식 오류를 갈라 준다 — min 을 regex 앞에 두어야 빈 값의 첫 issue 가 "입력해 주세요" 가 된다
+    // (폼은 경로별 첫 issue 만 보여준다). 날짜 없는 화면에 "형식이 올바르지 않습니다" 는 헛다리다.
+    startDate: z
+      .string()
+      .min(1, '시작일을 입력해 주세요.')
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
     endDate: z
       .string()
+      .min(1, '종료일을 입력해 주세요.')
       .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
       .nullable(),
     capacity: z
@@ -298,10 +304,15 @@ export const updateRecruitmentSchema = z
       .min(1, '제목은 필수 입력값입니다.')
       .max(200, '제목은 200자 이하여야 합니다.'),
     content: z.string().optional(),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
+    // 생성 스키마와 같은 이유로 min 이 regex 앞에 온다(빈 값 = 미입력 안내).
+    startDate: z
+      .string()
+      .min(1, '시작일을 입력해 주세요.')
+      .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.'),
     // 상시모집(endDate null) 공고는 endDate 를 보내지 않는다(생략=미변경). 기간 모집은 폼 native required 가 빈 값을 차단한다.
     endDate: z
       .string()
+      .min(1, '종료일을 입력해 주세요.')
       .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜 형식이 올바르지 않습니다.')
       .optional(),
     capacity: z
