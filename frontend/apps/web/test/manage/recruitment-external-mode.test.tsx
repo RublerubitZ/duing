@@ -5,6 +5,11 @@ import { EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE } from '@duing/schemas';
 
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 // 고정 날짜는 "종료일은 오늘 이후" 규칙(createRecruitmentSchema)에 만료된다 — 종료일만 상대 미래로 계산한다.
 const futureEndDateSource = new Date();
 futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);

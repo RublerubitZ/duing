@@ -26,6 +26,7 @@ import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { seedEditorHtml } from '../_lib/seedEditorHtml';
+import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 
 type ClubUpdateMutation = {
   mutateAsync: (payload: AdminUpdateClubPayload) => Promise<ClubDetail>;
@@ -147,6 +148,18 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+
+  // 미저장 이탈 가드 — 마지막 저장 시점의 필드 스냅샷과 비교한다. 소개글은 에디터 baseline(onCreate)
+  // 기준이라 buildPayload 와 같은 판정을 쓴다(에디터를 연 것만으로 dirty 가 되지 않게).
+  const currentSnapshot = JSON.stringify({
+    name, category, division, college, department, logoUrl, coverUrl, tags, snsLinks, faqs,
+    foundedYear, cohortNumber, location, activityFrequency, activeDays, tagline, highlights,
+    contactVisibility, feeCycle, feeAmount, feeNote, projects, useGeneration,
+  });
+  const [savedSnapshot, setSavedSnapshot] = useState(currentSnapshot);
+  const descriptionDirty =
+    descriptionBaselineRef.current !== null && description !== descriptionBaselineRef.current;
+  const { leaveDialog } = useUnsavedChangesGuard(currentSnapshot !== savedSnapshot || descriptionDirty);
 
   const nextFeeAmount = feeCycle === 'NONE' ? null : feeAmount === '' ? null : Number(feeAmount);
   const parsedFoundedYear = foundedYear.trim() === '' ? null : Number(foundedYear);
@@ -280,6 +293,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     try {
       await mutation.mutateAsync(payload);
       setSavedAt(new Date());
+      setSavedSnapshot(currentSnapshot);
+      descriptionBaselineRef.current = description;
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -779,6 +794,8 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       <aside className="hidden xl:sticky xl:top-6 xl:block">
         <ClubProfilePreview preview={preview} />
       </aside>
+
+      {leaveDialog}
     </div>
   );
 }

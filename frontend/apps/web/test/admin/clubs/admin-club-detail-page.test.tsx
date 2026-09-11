@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +12,11 @@ import { collegeDisplayName } from '@/app/_lib/college';
 
 import { AdminClubDetailPage } from '@/app/admin/clubs/[clubId]/_pages/AdminClubDetailPage';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+
+// ClubInfoForm 이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 const CLUB_DETAIL: ClubDetail = {
   id: 1,

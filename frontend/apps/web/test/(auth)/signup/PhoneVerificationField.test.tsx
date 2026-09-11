@@ -133,6 +133,9 @@ describe('PhoneVerificationField', () => {
         <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
       );
       expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toBeInTheDocument();
+      // 일러스트는 예시 코드가 아니라 실제 발급 코드를 그린다 — fallback 박스와 일러스트 두 곳에 보인다.
+      expect(screen.getAllByText('7K3M9PXQ').length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText('5WAVK4YZ')).not.toBeInTheDocument();
     } finally {
       restoreUserAgent();
     }

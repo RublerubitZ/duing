@@ -16,6 +16,7 @@ import { ExternalModeConfirmDialog } from './ExternalModeConfirmDialog';
 import { RecruitmentCloseConfirmDialog } from './RecruitmentCloseConfirmDialog';
 import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
+import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 
 /** Task 8 의 페이지 헤더 제출 버튼이 `form` 속성으로 이 폼을 원격 제출한다. */
 export const RECRUITMENT_FORM_ID = 'recruitment-form';
@@ -155,6 +156,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
   // 검증까지 끝났지만 "기존 모집 마감" 확인을 기다리는 create payload. null 이면 확인 대기 없음.
   const [pendingCreateValues, setPendingCreateValues] = useState<CreateFormValues | null>(null);
+
+  // 수정 모드 미저장 이탈 가드 — 저장 성공 시 페이지가 이동하므로 baseline 갱신은 필요 없다.
+  const editSnapshot = JSON.stringify({
+    title, content, startDate, endDate, capacity, useInterview,
+    interviewStartDate, interviewEndDate, showApplicantCount, questionItems,
+  });
+  const [editBaseline] = useState(editSnapshot);
+  const { leaveDialog } = useUnsavedChangesGuard(isEditMode && editSnapshot !== editBaseline);
 
   const isSelfForm = isEditMode ? initialData?.applicationMode === 'SELF' : applicationMode === 'SELF';
 
@@ -631,6 +640,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           onCancel={() => setPendingCreateValues(null)}
         />
       )}
+
+      {leaveDialog}
     </div>
   );
 }

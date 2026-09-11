@@ -1,5 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 vi.mock('@/app/_components/ImageUploader', () => ({
   ImageUploader: (props: { value: string; onChange: (url: string) => void; purpose: string }) => (
@@ -357,6 +363,19 @@ describe('ClubInfoForm', () => {
   it('admin 모드에는 회원 기수 관리 스위치가 렌더되지 않는다', () => {
     render(<ClubInfoForm detail={makeDetail()} mode="admin" mutation={makeMutation()} />);
     expect(screen.queryByRole('switch', { name: '회원 기수 관리 사용' })).toBeNull();
+  });
+
+  it('값을 바꾸면 내부 링크 클릭 시 이탈 확인이 뜬다', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <a href="/manage/clubs/1">대시보드</a>
+        <ClubInfoForm detail={makeDetail()} mode="leader" mutation={makeMutation()} />
+      </>,
+    );
+    await user.type(screen.getByLabelText('동아리방 위치'), '변경');
+    await user.click(screen.getByRole('link', { name: '대시보드' }));
+    expect(screen.getByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).toBeInTheDocument();
   });
 });
 
