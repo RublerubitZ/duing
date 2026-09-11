@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { CircleHelp, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
@@ -180,6 +181,7 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
 export function ManageShell({ currentClubId, children }: ManageShellProps) {
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname();
   // 서버 렌더와 첫 페인트는 항상 펼친 상태로 맞추고 저장값은 마운트 후 반영한다
   // (localStorage 를 초기값으로 읽으면 하이드레이션 불일치가 난다).
   const [collapsed, setCollapsed] = useState(false);
@@ -191,6 +193,15 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
       // 저장소를 못 쓰는 환경 — 접힘 기억만 포기하고 기본(펼침)으로 둔다.
     }
   }, []);
+
+  // 드로어 안 링크 클릭은 아래 래퍼 onClick 이 닫지만, 미저장 이탈 가드가 capture 단계에서 클릭을
+  // 멈추면 그 onClick 이 실행되지 않는다 — 확인 후 router.push 로 이동해도 드로어가 열린 채 새 화면을
+  // 덮는다. 경로가 바뀌면 무조건 닫아 잔존을 막는다.
+  // 회수 back() 은 따로 건너뛰지 않는다 — 이 시점의 히스토리는 이미 이동이 덮었거나(마커 불일치),
+  // 아직 커밋 전이면 이동 예약(navigationPending)이 살아 있어 backDismiss 가 양쪽 다 회수하지 않는다.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   const applyCollapsed = (next: boolean) => {
     setCollapsed(next);

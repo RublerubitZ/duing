@@ -202,7 +202,11 @@ export function PhoneVerificationField({
       {showIssuedFields && isMobile && (
         // 모바일: 일러스트 → CTA 우선 점진 노출 → 직접 보내기 fallback
         <div>
-          <SignupIllustration className="mx-auto w-full max-w-[240px]" />
+          <SignupIllustration
+            className="mx-auto w-full max-w-[240px]"
+            code={code}
+            moNumber={formatMoNumber(moNumber)}
+          />
 
           {!linkOpened ? (
             <>

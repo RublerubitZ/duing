@@ -1,13 +1,17 @@
 type Props = {
   className?: string;
+  /** 발급된 인증 코드. 넘기면 일러스트가 이 코드를 그린다. */
+  code?: string;
+  /** 표시용 수신번호("1666-3538" 형태). */
+  moNumber?: string;
 };
 
 /**
  * 회원가입 Step1 안내 일러스트. `public/duing-signup.svg` 아트워크를 인라인.
  * viewBox 높이를 660 으로 확장해 폰 하단까지 전체가 보이도록 한다.
- * 예시 수신번호(1666-3538)·코드(5WAVK4YZ)는 설명용 고정값이며 실제 값이 아니다.
+ * 수신번호(1666-3538)·코드(5WAVK4YZ)는 값을 넘기지 않으면 설명용 고정값이며 실제 값이 아니다.
  */
-export function SignupIllustration({ className }: Props) {
+export function SignupIllustration({ className, code, moNumber }: Props) {
   return (
     <svg
       className={className}
@@ -37,7 +41,10 @@ export function SignupIllustration({ className }: Props) {
             새로운 메시지
           </text>
           <text x="238" y="178" fontSize="18" fill="#6F7574">
-            받는 사람 :<tspan fill="#1F4A36" fontWeight="800" dx="4">1666-3538</tspan>
+            받는 사람 :
+            <tspan fill="#1F4A36" fontWeight="800" dx="4">
+              {moNumber ?? '1666-3538'}
+            </tspan>
           </text>
         </g>
       </g>
@@ -59,7 +66,7 @@ export function SignupIllustration({ className }: Props) {
         letterSpacing="7"
         fontFamily="ui-monospace, Menlo, monospace"
       >
-        5WAVK4YZ
+        {code ?? '5WAVK4YZ'}
       </text>
 
       <circle cx="628" cy="391" r="42" fill="#E8EEE8" />
