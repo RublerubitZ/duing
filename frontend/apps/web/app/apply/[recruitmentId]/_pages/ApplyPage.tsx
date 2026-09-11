@@ -167,12 +167,19 @@ export function ApplyPage() {
     return { questionId: question.id, values };
   });
 
+  // 임시저장을 실제로 되살렸을 때만 안내한다 — exists 여도 시드 결과가 전부 비었으면(선택지 삭제 등) 알릴 게 없다.
+  const restoredDraft =
+    Boolean(draft?.exists) &&
+    initialAnswers.some((answer) => answer.values.some((value) => value.trim() !== ''));
+
   return (
     <ApplyForm
       recruitment={recruitment}
       recruitmentId={recruitmentId}
       questionItems={questionItems}
       initialAnswers={initialAnswers}
+      restoredDraft={restoredDraft}
+      draftUpdatedAt={draft?.updatedAt ?? null}
     />
   );
 }
