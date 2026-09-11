@@ -3,6 +3,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { FederationInquirySummary } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
+// 페이지가 공통 상단바를 품는다 — 상단바는 hooks 를 쓰므로 이 파일의 hooks mock 과 함께 걸어야 한다.
+vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => <nav data-testid="home-nav" /> }));
+
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
@@ -86,5 +89,11 @@ describe('MyInquiriesPage', () => {
 
     const ctaLink = screen.getByRole('link', { name: '새 문의 작성' });
     expect(ctaLink).toHaveAttribute('href', '/me/inquiries/new');
+  });
+
+  it('공통 상단바를 렌더한다', () => {
+    mockUseMyFederationInquiriesQuery.mockReturnValue(listResponse([]));
+    render(<MyInquiriesPage />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
   });
 });
