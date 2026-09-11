@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
+import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { NoticeDetailTopBar } from '../../_components/NoticeDetailTopBar';
@@ -28,19 +28,12 @@ function getStatus(error: unknown): number | undefined {
 export function NoticeDetailPage() {
   const params = useParams<{ noticeId: string }>();
   const noticeId = params.noticeId ? Number(params.noticeId) : null;
-  const router = useGuardedRouter();
 
   const detailQuery = useNoticeDetailQuery(noticeId);
   const notice = detailQuery.data;
 
-  // 볼 수 없는 공지는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 404·403 을 같은 "목록으로
-  // 돌려보내기"로 처리한다. 403 은 서버 배포 전 잔존 응답과 향후 다른 거부 경로를 위해 남긴다.
-  useEffect(() => {
-    const status = getStatus(detailQuery.error);
-    if (status === 403 || status === 404) {
-      router.replace('/notices');
-    }
-  }, [detailQuery.error, router]);
+  // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
+  useDocumentTitle(notice?.title ?? null);
 
   // 세 분기 모두 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
   // — 로딩 경계 밖에서 유지되도록. ExploreNav 는 상세 경로에서 스스로 모바일 숨김을 판단한다(pathname 기반).
@@ -52,6 +45,24 @@ export function NoticeDetailPage() {
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <TextLinesSkeleton lines={6} label="공지 불러오는 중" />
         </div>
+      </div>
+    );
+  }
+
+  // 볼 수 없는 공지는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 403·404 를 구분하지 않고
+  // 같은 "볼 수 없음" 화면으로 처리한다(403 은 서버 배포 전 잔존 응답과 향후 다른 거부 경로를 위해 남긴다).
+  // 자동 리다이렉트 대신 제자리에 남긴다 — 주소가 유지돼야 사용자가 무슨 일이 일어났는지 알 수 있다.
+  const errorStatus = getStatus(detailQuery.error);
+  if (errorStatus === 403 || errorStatus === 404 || (detailQuery.isSuccess && !notice)) {
+    return (
+      <div>
+        <NoticeDetailTopBar />
+        <ResourceNotFound
+          title="이 소식은 지금 볼 수 없어요"
+          description="삭제됐거나 볼 수 없는 소식이에요."
+          actionHref="/notices"
+          actionLabel="소식 목록으로"
+        />
       </div>
     );
   }

@@ -82,15 +82,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ViewTransitions>
       <html lang="ko" suppressHydrationWarning>
         <head>
-          {/* 검색엔진용 구조화 데이터(JSON-LD) — 사이트 이름/조직 정보를 명시해 검색결과 사이트명을 두잉으로 고정한다.
-              type="application/ld+json" 은 실행 스크립트가 아닌 데이터 블록이며, 정적 상수만 직렬화하고
-              '<' 를 이스케이프해 `</script>` 조기 종료(인젝션)를 차단한다. */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify(STRUCTURED_DATA).replace(/</g, '\\u003c'),
-            }}
-          />
           {/* 폰트는 self-host(/public/fonts) — globals.css 의 @font-face 로 로드한다.
               전역 본문 폰트인 Pretendard 가변본만 preload 해 초기 렌더의 폰트 스왑(FOUT)을 줄인다.
               폰트는 same-origin 이라도 CORS 로 페치되므로 preload 에 crossOrigin 이 필요하다. */}
@@ -114,6 +105,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             그 밖의 화면(/apply·/join·/notifications·/me/* ·/403)은 시스템 폰트로 렌더됐고,
             그 문서들에선 위 preload 를 아무도 소비하지 않아 "preloaded but not used" 경고가 났다. */}
         <body className="font-body">
+          {/* 검색엔진용 구조화 데이터(JSON-LD) — 사이트 이름/조직 정보를 명시해 검색결과 사이트명을 두잉으로 고정한다.
+              type="application/ld+json" 은 실행 스크립트가 아닌 데이터 블록이며, 정적 상수만 직렬화하고
+              '<' 를 이스케이프해 `</script>` 조기 종료(인젝션)를 차단한다.
+              head 가 아니라 body 에 두는 이유: 위 AdSense 로더가 하이드레이션 전에 자기 구현 스크립트를
+              head 맨 앞에 끼워 넣어, head 의 첫 <script> 를 위치로 대조하는 React 가 이 블록과 어긋났다고
+              모든 페이지에서 경고했다(src 없는 인라인 script 는 리소스가 아니라 위치 대조 대상).
+              JSON-LD 는 body 에 있어도 검색엔진이 동일하게 읽는다. */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(STRUCTURED_DATA).replace(/</g, '\\u003c'),
+            }}
+          />
           <Providers>{children}</Providers>
           <BottomNav />
         </body>

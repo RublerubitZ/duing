@@ -67,7 +67,7 @@ body {
     --secondary: 120 15% 92.2%;               /* sage-mist #E8EEE8 */
     --secondary-foreground: 152.1 41% 20.6%;  /* ink */
     --muted: 43.6 26.8% 92%;                  /* graysoft #F0EDE5 */
-    --muted-foreground: 170 2.6% 44.7%;       /* charcoal-3 #6F7574 */
+    --muted-foreground: 142.5 4.2% 37.6%;     /* charcoal-3 #5C645F */
     --accent: 120 16.7% 95.3%;                /* sage-tint #F1F5F1 (hover·선택 배경) */
     --accent-foreground: 152.1 41% 20.6%;     /* ink */
     --destructive: 14.8 63.1% 59.6%;          /* coral  #D97757 (위험·로그아웃) */
@@ -101,7 +101,7 @@ body {
     --sage-tint:  #F1F5F1;
     --charcoal:   #2F3433;
     --charcoal-2: #4A504F;
-    --charcoal-3: #6F7574;
+    --charcoal-3: #5C645F;
     --gray-line:  #E5E2DA;
     --gray-soft:  #F0EDE5;
     --warm:       #E8B968;
