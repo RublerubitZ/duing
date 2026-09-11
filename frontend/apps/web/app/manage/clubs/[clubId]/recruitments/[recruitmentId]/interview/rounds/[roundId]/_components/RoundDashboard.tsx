@@ -67,7 +67,7 @@ function ExcludeDialog({
       open
       title={`${memberName} 제외`}
       description="제외된 지원자는 대기열로 복귀합니다. 계속하시겠습니까?"
-      confirmLabel="확인"
+      confirmLabel="제외하기"
       onConfirm={onConfirm}
       onCancel={onCancel}
       isPending={isPending}
@@ -447,7 +447,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           open
           title="라운드 취소"
           description="라운드를 취소하면 지원자는 대기열로 복귀합니다. 계속하시겠습니까?"
-          confirmLabel="확인"
+          confirmLabel="라운드 취소하기"
           onConfirm={handleCancel}
           onCancel={() => {
             setShowCancelDialog(false);

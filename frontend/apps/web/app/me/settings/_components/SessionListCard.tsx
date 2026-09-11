@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { ApiError } from '@duing/api';
 import {
   formatDateTimeKst,
@@ -9,6 +11,7 @@ import {
 } from '@duing/hooks';
 import type { MySession, SessionPlatform } from '@duing/types';
 
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -80,6 +83,11 @@ export function SessionListCard() {
   const router = useGuardedRouter();
 
   const sessions = sessionsQuery.data;
+  // 로그아웃은 되돌릴 수 없다 — 어느 대상을 확인받는 중인지 한 상태로 들고 있는다.
+  // 'all' = 현재 기기를 포함한 모든 기기, 객체 = 그 기기 하나, null = 확인 중 아님.
+  const [confirmTarget, setConfirmTarget] = useState<
+    'all' | { sessionId: number; label: string } | null
+  >(null);
 
   const handleRevoke = (sessionId: number) => {
     revokeMutation.mutate(sessionId, {
@@ -124,23 +132,54 @@ export function SessionListCard() {
               <SessionRow
                 key={session.sessionId}
                 session={session}
-                onRevoke={handleRevoke}
+                onRevoke={(sessionId) =>
+                  setConfirmTarget({
+                    sessionId,
+                    label:
+                      sessions.find((s) => s.sessionId === sessionId)?.deviceLabel ?? '이 기기',
+                  })
+                }
                 revoking={revokeMutation.isPending && revokeMutation.variables === session.sessionId}
               />
             ))}
             <div className="py-4">
               <button
                 type="button"
-                onClick={handleLogoutAll}
+                onClick={() => setConfirmTarget('all')}
                 disabled={logoutAllMutation.isPending}
                 className="btn btn-ghost btn-sm text-coral"
               >
-                다른 모든 기기에서 로그아웃
+                모든 기기에서 로그아웃
               </button>
             </div>
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        title={
+          confirmTarget === 'all' ? '모든 기기에서 로그아웃할까요?' : '이 기기에서 로그아웃할까요?'
+        }
+        description={
+          confirmTarget === 'all'
+            ? '이 기기를 포함한 모든 기기에서 로그아웃돼요. 다시 로그인해야 해요.'
+            : confirmTarget
+              ? `${confirmTarget.label}에서 로그아웃돼요.`
+              : undefined
+        }
+        confirmLabel={confirmTarget === 'all' ? '모두 로그아웃' : '로그아웃'}
+        isPending={logoutAllMutation.isPending || revokeMutation.isPending}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={() => {
+          if (confirmTarget === 'all') {
+            handleLogoutAll();
+          } else if (confirmTarget) {
+            handleRevoke(confirmTarget.sessionId);
+          }
+          setConfirmTarget(null);
+        }}
+      />
     </section>
   );
 }
