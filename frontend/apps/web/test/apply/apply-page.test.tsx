@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -204,6 +204,12 @@ function renderForm(opts: RecruitmentDetailMockOpts = {}) {
     </Wrapper>,
   );
 }
+/** 제출 버튼 → 확인 다이얼로그의 [제출] 까지 — 검증을 통과한 제출은 이제 확인을 거친다. */
+async function submitAndConfirm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(dialog).getByRole('button', { name: '제출' }));
+}
 
 describe('ApplyForm — 단일 스텝 지원', () => {
   it('useInterview=false 면 다음 버튼 없이 제출 버튼이 바로 노출된다', () => {
@@ -224,7 +230,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     const firstCall = mockRouterPush.mock.calls[0];
@@ -246,8 +252,12 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
+    // 실패는 확인 모달 안에 남는다(공통 규칙). 취소하면 같은 메시지가 인라인 알림으로 이어진다.
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('이미 지원한 모집입니다.');
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('이미 지원한 모집입니다.'),
     );
@@ -272,7 +282,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     // 자동저장 410 과 같은 마감 UI 로 전환된다 — 서버 메시지 대신 배너가 안내를 대체한다.
     expect(await screen.findByRole('alert')).toHaveTextContent(CLOSED_BANNER_TEXT);
@@ -293,8 +303,11 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('지원서 형식이 올바르지 않습니다.');
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('지원서 형식이 올바르지 않습니다.'),
     );
@@ -317,7 +330,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => {
       expect(capturedBody).not.toBeNull();
@@ -511,7 +524,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
 
     await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
     await user.click(screen.getByRole('radio', { name: '월요일' }));
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -535,7 +548,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     // 정의 역순으로 클릭해도 values 는 선택지 정의 순서로 정규화된다(BE 는 중복·순서 무관하나 결정성 확보).
     await user.click(screen.getByRole('checkbox', { name: '백엔드' }));
     await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -561,7 +574,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
     expect(screen.getByRole('checkbox', { name: '프론트엔드' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -765,7 +778,7 @@ describe('ApplyPage — 임시저장 시드', () => {
     expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: '백엔드' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -805,7 +818,7 @@ describe('ApplyPage — 임시저장 시드', () => {
     expect(await screen.findByRole('radio', { name: '월요일' })).toBeChecked();
     expect(screen.getByRole('radio', { name: '화요일' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -845,7 +858,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
     expect(draftGetCount).toBe(1);
 
-    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+    await submitAndConfirm(user);
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toEqual({
@@ -854,5 +867,64 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
       updatedAt: null,
     });
     expect(draftGetCount).toBe(1);
+  });
+});
+
+describe('ApplyPage — 임시저장 복원 안내', () => {
+  it('임시저장 값이 있으면 복원 안내와 저장 시각을 보여주고 닫을 수 있다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            // 오프셋 없는 KST 벽시계 — 러너 TZ 와 무관하게 14:07 로 표시돼야 한다.
+            updatedAt: '2026-03-05T14:07:00',
+          },
+          message: null,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const notice = await screen.findByText('임시저장한 답변을 불러왔어요');
+    expect(notice).toHaveTextContent('3월 5일 14:07 저장');
+    expect(notice.closest('[role="status"]')).not.toBeNull();
+
+    await user.click(screen.getByRole('button', { name: '임시저장 안내 닫기' }));
+    expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
+  });
+
+  it('임시저장이 없으면 복원 안내를 보여주지 않는다', async () => {
+    renderApplyPage(); // 기본 draft 핸들러 = exists:false
+
+    await screen.findByRole('button', { name: '지원서 제출하기' });
+    expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
+  });
+});
+
+describe('ApplyForm — 제출 확인', () => {
+  it('제출을 누르면 확인 다이얼로그가 뜨고, 취소하면 제출하지 않으며 확인하면 한 번만 제출한다', async () => {
+    const capturedBodies: unknown[] = [];
+    server.use(captureSubmit(capturedBodies));
+
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText(/지원 동기/), '열정');
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('지원서를 제출할까요?');
+    expect(dialog).toHaveTextContent('테스트 모집 · 문항 1개 · 제출 후에는 수정할 수 없어요.');
+
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+    expect(capturedBodies).toHaveLength(0);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    await submitAndConfirm(user);
+    await waitFor(() => expect(capturedBodies).toHaveLength(1));
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledTimes(1));
   });
 });

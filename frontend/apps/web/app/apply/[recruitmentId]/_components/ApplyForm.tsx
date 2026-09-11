@@ -12,7 +12,8 @@ import type {
   RecruitmentQuestionItem,
   SubmitApplicationPayload,
 } from '@duing/types';
-import { useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
+import { kstDateTimeFormatter, parseKstInstant, useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { Spinner, ButtonSpinner } from '@/components/loading/Spinner';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import { useAutosaveDraft } from '../_hooks/useAutosaveDraft';
@@ -25,10 +26,34 @@ type Props = {
   recruitmentId: number;
   questionItems: RecruitmentQuestionItem[];
   initialAnswers: DraftAnswer[];
+  /** 임시저장을 되살려 시드했는지 — 안내 배너 노출 조건(ApplyPage 가 판정). */
+  restoredDraft?: boolean;
+  /** 임시저장 시각(오프셋 없는 KST 벽시계). 있으면 배너에 "· M월 D일 HH:mm 저장" 을 병기한다. */
+  draftUpdatedAt?: string | null;
 };
 
 const TEXT_REQUIRED_MESSAGE = '필수 질문입니다. 답변을 입력해주세요.';
 const CHOICE_REQUIRED_MESSAGE = '필수 질문입니다. 항목을 선택해주세요.';
+
+// 임시저장 시각 표시 "M월 D일 HH:mm" — 로케일 패턴 대신 formatToParts 로 조립한다(sv-SE 등 로케일 패턴 함정).
+// 인스턴스 생성 비용이 있어 모듈 레벨에 둔다.
+const DRAFT_SAVED_AT_FORMATTER = kstDateTimeFormatter({
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function draftSavedAtLabelOf(updatedAt: string | null): string | null {
+  if (updatedAt === null) return null;
+  const parsed = parseKstInstant(updatedAt);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const formattedParts = DRAFT_SAVED_AT_FORMATTER.formatToParts(parsed);
+  const partValue = (partType: Intl.DateTimeFormatPartTypes): string =>
+    formattedParts.find((part) => part.type === partType)?.value ?? '';
+  return `${partValue('month')}월 ${partValue('day')}일 ${partValue('hour')}:${partValue('minute')}`;
+}
 
 /**
  * 필수 응답 검증 — 체크박스 그룹은 HTML `required` 로 표현할 수 없으므로
@@ -51,7 +76,7 @@ function collectRequiredViolations(
   return violations;
 }
 
-export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers }: Props) {
+export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers, restoredDraft = false, draftUpdatedAt = null }: Props) {
   const router = useGuardedRouter();
   const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
@@ -61,6 +86,11 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   const [error, setError] = useState<string | null>(null);
   // 제출 시점에 마감된 경우(409 RECRUITMENT_CLOSED) — 자동저장 410 과 같은 마감 UI 로 수렴시킨다.
   const [closedBySubmit, setClosedBySubmit] = useState(false);
+  // 복원 안내는 세션 안에서만 닫힌다(새로고침하면 다시 뜬다 — 다시 시드되기 때문).
+  const [restoredNoticeDismissed, setRestoredNoticeDismissed] = useState(false);
+  const draftSavedAtLabel = draftSavedAtLabelOf(draftUpdatedAt);
+  // 제출 확인 — 제출 후 수정 API 가 없어 되돌릴 수 없는 행동이라 검증 통과 후 한 번 묻는다.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
@@ -105,7 +135,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
   const submitDisabled = submit.isPending || isClosed;
 
-  async function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
@@ -120,6 +150,13 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
       return;
     }
 
+    setConfirmOpen(true);
+  }
+
+  async function submitApplication() {
+    // 확인 버튼의 disabled 는 RQ 알림이 한 태스크 뒤에 전파돼 걸린다 — 같은 틱의 재진입을 동기적으로 막는다.
+    if (submit.isPending) return;
+    setError(null);
     try {
       // 면접 가능시간 응답은 지원 시점이 아니라 선정 후 라운드 발송을 받고 나서 한다 (재설계 §3).
       const payload: SubmitApplicationPayload = {
@@ -137,13 +174,16 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         answers: [],
         updatedAt: null,
       });
+      setConfirmOpen(false);
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.code === 'RECRUITMENT_CLOSED') {
-        // 제출 직전에 마감된 경우 — 인라인 오류 대신 마감 배너·입력 비활성으로 전환한다.
+        // 제출 직전에 마감된 경우 — 모달을 닫고 마감 배너·입력 비활성으로 전환한다.
+        setConfirmOpen(false);
         setClosedBySubmit(true);
         return;
       }
+      // 그 외 실패는 모달 안에 남긴다(공통 규칙) — 취소하면 아래 인라인 알림이 같은 메시지를 이어받는다.
       if (submitError instanceof ApiError) {
         setError(submitError.message || '지원에 실패했습니다.');
         return;
@@ -203,6 +243,27 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           </div>
         )}
 
+        {/* 임시저장 복원 안내 — 답변이 미리 채워진 이유를 알린다. 닫기는 세션 내 useState. */}
+        {restoredDraft && !restoredNoticeDismissed && (
+          <div
+            role="status"
+            className="mb-6 flex items-center justify-between gap-3 rounded-[12px] border border-sage/30 bg-sage-tint px-4 py-3"
+          >
+            <p className="text-sm text-ink">
+              임시저장한 답변을 불러왔어요
+              {draftSavedAtLabel && <span className="text-charcoal-3"> · {draftSavedAtLabel} 저장</span>}
+            </p>
+            <button
+              type="button"
+              onClick={() => setRestoredNoticeDismissed(true)}
+              aria-label="임시저장 안내 닫기"
+              className="btn btn-ghost btn-sm -my-2 min-h-11 shrink-0"
+            >
+              닫기
+            </button>
+          </div>
+        )}
+
         {/* 모집 안내문 — 모집 정보(헤더) → 안내문 → 지원서 질문 순서 정책. content 없으면 미표시 */}
         {recruitment.content && (
           <section aria-label="모집 안내" className="mb-9">
@@ -220,7 +281,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
             disabled={isClosed}
           />
 
-          {error && (
+          {error && !confirmOpen && (
             <p
               role="alert"
               className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral"
@@ -239,6 +300,18 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
             </button>
           </div>
         </form>
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title="지원서를 제출할까요?"
+          description={`${recruitment.title} · 문항 ${questionItems.length}개 · 제출 후에는 수정할 수 없어요.`}
+          confirmLabel="제출"
+          confirmVariant="primary"
+          isPending={submit.isPending}
+          errorMessage={error}
+          onConfirm={submitApplication}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </main>
     </div>
   );
