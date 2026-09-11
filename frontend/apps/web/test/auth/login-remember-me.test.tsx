@@ -68,7 +68,7 @@ function captureLoginBody() {
 async function submitCredentials(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('학번'), '20261234');
   await user.type(screen.getByLabelText('비밀번호'), 'Abcd1234!');
-  await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+  await user.click(screen.getByRole('button', { name: '로그인' }));
 }
 
 describe('로그인 상태 유지 체크박스', () => {

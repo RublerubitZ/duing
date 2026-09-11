@@ -215,7 +215,7 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /가입하고 두잉 시작하기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '가입 완료' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -248,7 +248,7 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
       http.post('*/auth/signup', () => HttpResponse.json({ ok: true, data: 1, message: null })),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /가입하고 두잉 시작하기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '가입 완료' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -284,7 +284,7 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /가입하고 두잉 시작하기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '가입 완료' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });

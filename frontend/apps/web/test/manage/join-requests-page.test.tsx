@@ -133,7 +133,7 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     expect(mockAddToast).toHaveBeenCalledWith('가입 요청을 승인했습니다.');
   });
 
-  it('이미 가입된 회원이라 자동 거절되면 그 사실을 구분해 안내한다', async () => {
+  it('이미 가입된 부원이라 자동 거절되면 그 사실을 구분해 안내한다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
@@ -148,7 +148,7 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     await userEvent.click(within(panel).getByRole('button', { name: '승인' }));
 
     await waitFor(() =>
-      expect(mockAddToast).toHaveBeenCalledWith('이미 가입된 회원이라 자동 거절 처리되었습니다.'),
+      expect(mockAddToast).toHaveBeenCalledWith('이미 가입된 부원이라 자동 거절 처리되었습니다.'),
     );
   });
 
@@ -167,7 +167,7 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     await userEvent.click(within(panel).getByRole('button', { name: '승인' }));
 
     await waitFor(() =>
-      expect(mockAddToast).toHaveBeenCalledWith('탈퇴한 회원이라 자동 거절 처리되었습니다.'),
+      expect(mockAddToast).toHaveBeenCalledWith('탈퇴한 부원이라 자동 거절 처리되었습니다.'),
     );
   });
 

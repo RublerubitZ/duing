@@ -671,7 +671,7 @@ export function ClubExplorePage() {
                 className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
               >
                 <option value="RECOMMENDED">추천순</option>
-                <option value="DEADLINE_SOON">마감순</option>
+                <option value="DEADLINE_SOON">마감 임박순</option>
                 <option value="ALPHABETICAL">가나다순</option>
               </select>
               <Icon.chev className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2" />

@@ -114,7 +114,7 @@ function PolicyRow({ clubId, policy, onEdit, onDelete }: PolicyRowProps) {
           {policy.name}
           {policy.targetType === 'SELECTED_MEMBERS' && (
             <span className="ml-2 rounded bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-ink">
-              특정 회원
+              특정 부원
             </span>
           )}
         </p>

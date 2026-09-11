@@ -127,7 +127,7 @@ describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', (
 // role 은 시드에 실리지 않는다(§9.3) — 판정은 늘 서버 프로필이고, 프로필이 오기 전까지가
 // "확인 중" 이다. 그 사이 거부 문구를 먼저 띄우면 총동연 계정 하드 로드마다 그걸 본다(metric 4).
 describe('AdminRoleGuard — 프로필이 도착하기 전에는 권한을 판정하지 않는다', () => {
-  const adminDenied = '총동연(관리자) 권한이 필요합니다.';
+  const adminDenied = '총동아리연합회(총동연) 관리자 권한이 필요해요.';
   const meUser = (role: 'ADMIN' | 'STUDENT') => ({
     id: 1,
     studentId: '20200001',

@@ -29,7 +29,7 @@ export function ForgotPasswordPanel() {
   async function handleComplete(submitEvent: React.FormEvent) {
     submitEvent.preventDefault();
     if (!passwordSchema.safeParse(newPassword).success) {
-      setError('새 비밀번호는 8~20자이며 영문/숫자/특수문자 중 2종 이상이어야 해요.');
+      setError('새 비밀번호는 8~20자, 영문·숫자·특수문자 중 2가지 이상이어야 해요.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -178,7 +178,7 @@ export function ForgotPasswordPanel() {
                         placeholder="••••••••"
                         className={inputCls}
                       />
-                      <p className="mt-1.5 text-xs text-charcoal-3">영문/숫자/특수문자 중 2종, 8~20자</p>
+                      <p className="mt-1.5 text-xs text-charcoal-3">8~20자, 영문·숫자·특수문자 중 2가지 이상</p>
                     </div>
                     <div>
                       <label
