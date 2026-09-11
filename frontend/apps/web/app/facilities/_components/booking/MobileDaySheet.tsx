@@ -2,7 +2,11 @@
 
 import { useRef } from 'react';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
+import Link from 'next/link';
 import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
+import { toRoute } from '@/app/_lib/route';
+import { useHydrated } from '@/app/_lib/useHydrated';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import {
   Sheet,
@@ -18,6 +22,13 @@ import { BookingSuccess } from './BookingSuccess';
 import type { PanelStep } from './BookingPanel';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
+
+// 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute). BookingPanel 과 같은 규칙.
+function guestLoginHref(): `/${string}` {
+  return typeof window === 'undefined'
+    ? '/login'
+    : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+}
 
 type Facility = { id: number; roomName: string };
 
@@ -60,6 +71,12 @@ export function MobileDaySheet({
   const lastFacilityRef = useRef(facility);
   if (facility !== null) lastFacilityRef.current = facility;
   const shownFacility = facility ?? lastFacilityRef.current;
+
+  // 게스트 안내 — 주간 사이드바(BookingPanel)와 같은 문구·링크를 복제한다(원칙: 공용화 금지).
+  // 하이드레이션 전에는 판정하지 않는다 — SSR 프레임이 스토어 초기값(미인증)이라 로그인한 운영진에게 안내가 플래시된다.
+  const hydrated = useHydrated();
+  const authStatus = useSeededAuthStatus();
+  const isGuest = hydrated && authStatus !== 'authenticated';
 
   return (
     <Sheet
@@ -135,6 +152,12 @@ export function MobileDaySheet({
             <div className="mb-3">
               <PanelStepIndicator step={step} />
             </div>
+            {isGuest && (
+              <div className="mb-3 space-y-3 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
+                <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
+                <Link href={toRoute(guestLoginHref())} className="btn btn-primary inline-flex">로그인하기</Link>
+              </div>
+            )}
             <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
             {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 시트 표면 bg-cream 으로 고정(패널 전례).
                 하단 여백은 푸터 자신의 pb(safe-area 포함)로 — 컨테이너 pb-0 과 짝이라 화면 끝까지 배경이 이어진다. */}
@@ -149,25 +172,30 @@ export function MobileDaySheet({
                   </span>
                 </div>
               )}
-              <button
-                type="button"
-                className="btn btn-primary w-full"
-                disabled={selection === null}
-                onClick={onProceedToForm}
-              >
-                {selection !== null
-                  ? `${rangeLabel(selection)} 예약 신청`
-                  : hasApplicableSlot(shownDay)
-                    ? '시간을 선택해주세요'
-                    : '신청 가능한 시간이 없어요'}
-              </button>
+              {!isGuest && (
+                <button
+                  type="button"
+                  className="btn btn-primary w-full"
+                  disabled={selection === null}
+                  onClick={onProceedToForm}
+                >
+                  {selection !== null
+                    ? `${rangeLabel(selection)} 예약 신청`
+                    : hasApplicableSlot(shownDay)
+                      ? '시간을 선택해주세요'
+                      : '신청 가능한 시간이 없어요'}
+                </button>
+              )}
               {/* "시간표로 보기"는 slots 스텝에서만 노출한다 — 폼·성공 중엔 시트→주간 전환 시 BookingForm id 가
                   주간 사이드바 폼과 이중 마운트될 수 있고, 이미 시간을 확정/신청한 뒤엔 시간표 조회 유도가 맥락에
                   맞지 않는다(§11.1). */}
               <button type="button" className="btn btn-ghost mt-2 w-full" onClick={onViewTimetable}>
                 시간표로 보기
               </button>
-              <p className="mt-1 text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
+              {/* 진행 캡션은 버튼과 한 쌍 — 버튼 없는 게스트에게 남으면 맥락 없는 안내가 된다. */}
+              {!isGuest && (
+                <p className="mt-1 text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
+              )}
             </div>
           </div>
         )}

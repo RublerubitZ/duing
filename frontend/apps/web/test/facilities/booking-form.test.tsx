@@ -141,3 +141,14 @@ describe('BookingForm — 자기 동아리 중복 사전 경고(P2-19)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
+
+// 시나리오 10 재작성으로 패널이 게스트에게 진행 버튼을 숨기면서 폼까지 도달하는 경로가 사라졌다 —
+// 폼 자체의 딥링크 가드(?facilityId=&date= 로 form 스텝 복원)는 여전히 살아 있어야 하므로 직접 덮는다.
+it('미인증이면 신청 폼 대신 로그인 안내와 복귀 next 를 담은 로그인 링크를 보여준다 — 딥링크 가드', async () => {
+  useAuthStore.setState({ status: 'unauthenticated', user: null });
+  renderForm(false);
+
+  expect(await screen.findByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '로그인하기' }).getAttribute('href')).toMatch(/^\/login\?next=/);
+  expect(screen.queryByRole('button', { name: '예약 신청' })).not.toBeInTheDocument();
+});

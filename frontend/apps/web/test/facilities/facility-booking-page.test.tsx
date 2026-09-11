@@ -1427,6 +1427,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   const SHEET_TITLE = bookingDateLabel(WINDOW.from);
 
   it('시나리오 28 (모바일 §11.1 a·b): 월간 날짜 탭은 주간 전환 대신 빠른 예약 시트를 열고, 시트 슬롯 탭이 CTA 를 활성화한다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     setMatchMedia(true);
     mockSearchParams.value = 'facilityId=1';
     renderPage();

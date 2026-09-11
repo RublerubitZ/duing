@@ -510,6 +510,9 @@ it('예약 패널은 미인증이면 시간 선택 단계에서 로그인 안내
   );
   expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
   expect(screen.getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  // 캡션만 남은 빈 바가 뜨지 않는다 — 게스트는 버튼·캡션·바 전부 없음(선택 전).
+  expect(screen.queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  expect(document.querySelector('[data-bottom-bar]')).toBeNull();
 });
 
 it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링크를 관리 목록으로 노출한다', () => {
@@ -1216,7 +1219,12 @@ it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는�
 });
 
 // ── 모바일 빠른 예약 바텀시트(MobileDaySheet) — §11.1 월간 날짜 탭 = 빠른 시간 선택 ─────
-function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>) {
+function renderMobileSheet(
+  overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>,
+  options?: { guest?: boolean },
+) {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 기본은 로그인 상태로 렌더한다.
+  if (options?.guest !== true) act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   const props = {
     open: true,
     facility: { id: 1, roomName: '커뮤니티룸(1)' },
@@ -1300,6 +1308,21 @@ it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌�
 it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
   renderMobileSheet({ open: false, day: null, facility: null });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트: 미인증이면 로그인 안내를 보이고 진행 버튼을 숨긴다 — 슬롯 선택·시간표로 보기는 그대로', () => {
+  renderMobileSheet({ selection: { start: '18:00', end: '19:00' } }, { guest: true });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: '로그인하기' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('/login?next='),
+  );
+  expect(within(dialog).queryByRole('button', { name: '18:00~19:00 예약 신청' })).not.toBeInTheDocument();
+  expect(within(dialog).queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  // 시간 선택·시간표 이동은 게스트에게도 열려 있다.
+  expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
 });
 
 it('빠른 예약 시트: 신청 가능한 슬롯이 없는 날은 CTA 가 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
