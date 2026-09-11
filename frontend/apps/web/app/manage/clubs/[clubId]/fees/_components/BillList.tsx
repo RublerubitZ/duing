@@ -39,7 +39,7 @@ const STATUS_OPTIONS: FeeStatus[] = [
 const inputCls =
   'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
-// 회원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
+// 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
 const MEMBER_SEARCH_LIMIT = 8;
 
 export function BillList({ clubId }: BillListProps) {
@@ -61,8 +61,8 @@ export function BillList({ clubId }: BillListProps) {
   }, [members]);
 
   const memberOf = (userId: number): ClubMember | undefined => memberByUserId.get(userId);
-  // 표시용 라벨 — 회원을 못 찾으면(탈퇴 등) `회원 #id` 로 폴백한다.
-  const memberLabel = (userId: number): string => memberOf(userId)?.name ?? `회원 #${userId}`;
+  // 표시용 라벨 — 부원을 못 찾으면(탈퇴 등) `부원 #id` 로 폴백한다.
+  const memberLabel = (userId: number): string => memberOf(userId)?.name ?? `부원 #${userId}`;
 
   // 이름·학번 부분 일치(대소문자 무시) 검색 결과. 비어 있는 질의는 빈 배열.
   const memberSearchResults = useMemo(() => {
@@ -151,13 +151,13 @@ export function BillList({ clubId }: BillListProps) {
           </select>
         </div>
         <div className="relative flex flex-col gap-1">
-          <span className="text-xs font-semibold text-charcoal-2">회원</span>
+          <span className="text-xs font-semibold text-charcoal-2">부원</span>
           {selectedMember ? (
             <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-graysoft px-3 py-2 text-sm text-ink">
               {selectedMember.name} · {selectedMember.studentId}
               <button
                 type="button"
-                aria-label="회원 필터 해제"
+                aria-label="부원 필터 해제"
                 onClick={clearMember}
                 className="text-charcoal-3 transition-colors hover:text-coral"
               >
@@ -168,8 +168,8 @@ export function BillList({ clubId }: BillListProps) {
             <>
               <input
                 type="text"
-                aria-label="회원 검색"
-                placeholder="회원 이름·학번 검색"
+                aria-label="부원 검색"
+                placeholder="부원 이름·학번 검색"
                 value={memberQuery}
                 onChange={(event) => setMemberQuery(event.target.value)}
                 className={inputCls}
@@ -204,7 +204,7 @@ export function BillList({ clubId }: BillListProps) {
         <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
           <p className="text-sm text-charcoal-2">발행된 청구가 없습니다.</p>
           <p className="mt-1 text-xs text-charcoal-3">
-            {'"청구 발행"'} 버튼으로 활성 회원에게 청구서를 발행하세요.
+            {'"청구 발행"'} 버튼으로 활성 부원에게 청구서를 발행하세요.
           </p>
         </div>
       ) : (
@@ -306,7 +306,7 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold text-ink">
-            {member ? member.name : `회원 #${bill.userId}`}
+            {member ? member.name : `부원 #${bill.userId}`}
             {member && (
               <span className="ml-1.5 text-xs font-normal text-charcoal-3">{member.studentId}</span>
             )}

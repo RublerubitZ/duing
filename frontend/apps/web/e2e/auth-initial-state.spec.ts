@@ -74,7 +74,7 @@ const FAVORITED_CLUB_IDS = [1];
 const HAD_SESSION_KEY = 'duing:had-session';
 const NOTIFICATIONS_LOGIN_TEXT = '알림은 로그인 후 확인할 수 있어요.';
 const NOTIFICATIONS_LOGIN_LINK_SELECTOR = 'a[href="/login?next=/notifications"]';
-const ADMIN_DENIED_TEXT = '총동연(관리자) 권한이 필요합니다.';
+const ADMIN_DENIED_TEXT = '총동아리연합회(총동연) 관리자 권한이 필요해요.';
 const ADMIN_CONSOLE_HEADING = '동아리 관리';
 const ME_GUARD_TEXT = '로그인이 필요한 페이지예요';
 const ME_TAB_LABEL = '지원 현황';
@@ -569,7 +569,7 @@ test.describe('PR-3 인증 초기 상태', () => {
     await context.close();
   });
 
-  test('탐색(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
+  test('동아리(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
     const context = await browser.newContext();
     await seedLoggedInCookies(context);
     await routeApi(context, 'valid', { favoriteIdsDelayMs: 1_500 });

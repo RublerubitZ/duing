@@ -13,7 +13,7 @@ describe('BottomNav', () => {
     window.localStorage.clear();
   });
 
-  it('공개 탭 영역(/clubs)에서 5탭(홈·탐색·시설·캘린더·정보)이 노출되고 탐색이 활성이다', () => {
+  it('공개 탭 영역(/clubs)에서 5탭(홈·동아리·시설·캘린더·정보)이 노출되고 동아리가 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs');
     render(<BottomNav />);
 
@@ -21,7 +21,7 @@ describe('BottomNav', () => {
     expect(screen.getAllByRole('link')).toHaveLength(5);
     expect(screen.getByRole('link', { name: '소식' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '공지' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
   });
 
@@ -41,7 +41,7 @@ describe('BottomNav', () => {
     mockUsePathname.mockReturnValue('/');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '홈' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: '동아리' })).not.toHaveAttribute('aria-current');
   });
 
   // Vercel ISR 재생성 중에는 usePathname 이 공개 경로가 아니라 내부 페이지 경로(/index)를 준다.
@@ -60,10 +60,10 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('상세 단독 경로만 숨기고 하위 경로(/clubs/123/sub)는 탐색이 활성이다', () => {
+  it('상세 단독 경로만 숨기고 하위 경로(/clubs/123/sub)는 동아리가 활성이다', () => {
     mockUsePathname.mockReturnValue('/clubs/123/sub');
     render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '탐색' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('공지 상세(/notices/123)도 자체 상단 액션바를 쓰므로 탭바를 미노출한다', () => {
@@ -102,7 +102,7 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
+  it('이용약관(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/terms');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');

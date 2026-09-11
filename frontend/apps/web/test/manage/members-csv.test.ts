@@ -66,21 +66,21 @@ describe('buildMembersCsv', () => {
 });
 
 describe('buildMembersCsvFilename', () => {
-  it('{동아리명}_멤버목록_{yyyy-MM-dd}.csv 형식으로 만든다', () => {
+  it('{동아리명}_부원목록_{yyyy-MM-dd}.csv 형식으로 만든다', () => {
     expect(buildMembersCsvFilename('AI동아리', new Date(2026, 5, 15))).toBe(
-      'AI동아리_멤버목록_2026-06-15.csv',
+      'AI동아리_부원목록_2026-06-15.csv',
     );
   });
 
   it('파일명 불가 문자를 _ 로 치환한다', () => {
     expect(buildMembersCsvFilename('A/B:동아리', new Date(2026, 5, 15))).toBe(
-      'A_B_동아리_멤버목록_2026-06-15.csv',
+      'A_B_동아리_부원목록_2026-06-15.csv',
     );
   });
 
   it('파일명의 개행·탭 등 제어문자도 _ 로 치환한다', () => {
     expect(buildMembersCsvFilename('A\nB\t동아리', new Date(2026, 5, 15))).toBe(
-      'A_B_동아리_멤버목록_2026-06-15.csv',
+      'A_B_동아리_부원목록_2026-06-15.csv',
     );
   });
 });
