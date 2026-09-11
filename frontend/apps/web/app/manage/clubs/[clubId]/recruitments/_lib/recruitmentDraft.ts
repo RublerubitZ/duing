@@ -42,7 +42,18 @@ export function loadRecruitmentDraft(clubId: number): RecruitmentDraft | null {
     const raw = window.localStorage.getItem(key(clubId));
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !('values' in parsed) || !('savedAt' in parsed)) {
+    // 키 존재만 보면 {values:null, savedAt:'x'} 같은 값이 통과해 배너가 "NaN분 전" 을 띄우고
+    // "이어서 쓰기" 에서 터진다 — 사용자가 고칠 수 있는 저장소라 타입까지 확인한다.
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      !('values' in parsed) ||
+      typeof parsed.values !== 'object' ||
+      parsed.values === null ||
+      !('savedAt' in parsed) ||
+      typeof parsed.savedAt !== 'number' ||
+      !Number.isFinite(parsed.savedAt)
+    ) {
       return null;
     }
     return parsed as RecruitmentDraft;

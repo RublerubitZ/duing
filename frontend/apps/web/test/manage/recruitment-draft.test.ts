@@ -21,4 +21,19 @@ describe('recruitmentDraft', () => {
     window.localStorage.setItem('duing:recruitment-draft:7', '{not json');
     expect(loadRecruitmentDraft(7)).toBeNull();
   });
+
+  // 키만 있으면 통과시키면 배너가 "NaN분 전" 을 띄우고 "이어서 쓰기" 에서 터진다.
+  it('키는 있어도 형태가 어긋나면 null', () => {
+    const setDraft = (value: unknown) =>
+      window.localStorage.setItem('duing:recruitment-draft:7', JSON.stringify(value));
+
+    setDraft({ values: null, savedAt: 'x' });
+    expect(loadRecruitmentDraft(7)).toBeNull();
+
+    setDraft({ values: { title: '제목' }, savedAt: 'x' });
+    expect(loadRecruitmentDraft(7)).toBeNull();
+
+    setDraft({ values: '제목', savedAt: Date.now() });
+    expect(loadRecruitmentDraft(7)).toBeNull();
+  });
 });

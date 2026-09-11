@@ -144,6 +144,23 @@ function addQuestion(text: string) {
   fireEvent.change(screen.getByPlaceholderText('질문 1을 입력하세요'), { target: { value: text } });
 }
 
+describe('RecruitmentForm — 모집 정원 검증', () => {
+  // noValidate 라 브라우저 step 검증이 없어 소수점이 그대로 zod 까지 간다 — 문구가 한글이어야 한다.
+  it('정원에 소수를 넣으면 한글 오류 문구로 제출이 막힌다', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
+
+    fillCreateBasics();
+    addQuestion('지원 동기를 알려주세요');
+    fireEvent.change(screen.getByLabelText(/^모집 정원/), { target: { value: '1.5' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+
+    expect(await screen.findByText('모집 정원은 자연수여야 합니다.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
 describe('RecruitmentForm — 질문 유형 빌더', () => {
   it('질문 유형을 객관식(단일 선택)으로 바꾸면 선택지 입력이 나타난다', () => {
     render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);

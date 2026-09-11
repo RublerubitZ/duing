@@ -412,8 +412,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
    * 임시저장 자동 저장 — 초기값 그대로면 쓰지 않는다(빈 폼을 열기만 해도 배너가 뜨는 일을 막는다).
    * 첫 실행이 곧 초기 스냅샷이고, 이후에는 그와 달라진 순간부터 debounce 뒤 한 번씩 쓴다.
    *
-   * 배너가 떠 있는 동안(draft !== null)은 아무것도 쓰지 않는다 — 배너를 무시하고 타이핑하면 저장본이
-   * 새 입력으로 덮여, 뒤늦게 "이어서 쓰기" 를 눌러도 옛 값이 아니라 방금 친 값이 돌아온다.
+   * 배너가 떠 있어도 폼이 시드 그대로일 때만 보류한다 — 열어만 둔 화면이 저장본을 덮지 않게.
+   * 배너를 무시하고 한 글자라도 치면 그 순간 배너를 접고(setDraft(null)) 자동 저장을 되살린다.
+   * 계속 보류하면 배너를 무시한 채 10분을 쓴 내용이 하나도 저장되지 않아, 옛 저장본 하나를 지키려다
+   * 지금 쓰는 내용을 통째로 잃는다(옛 저장본은 다음 자동 저장이 덮는다).
    *
    * 기준선은 배너 가드보다 **먼저** 잡는다. 배너를 띄운 채 먼저 return 하면 기준선이 비어 있다가
    * "이어서 쓰기" 직후의 복원값으로 잡히고, 그러면 한 글자 쳤다 지워 복원값으로 돌아오는 것만으로
@@ -444,7 +446,12 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       initialDraftSnapshot.current = snapshot;
       return;
     }
-    if (draft !== null) return;
+    if (draft !== null) {
+      // 시드 그대로면 아직 배너에 손대지 않은 상태 — 보류. 첫 편집이 곧 "옛 저장본은 됐다" 는 선택이다.
+      if (snapshot === initialDraftSnapshot.current) return;
+      setDraft(null);
+      return;
+    }
     // 편집을 되돌려 초기값으로 돌아왔으면 남은 저장본도 지운다 — 쓸 내용이 없는데 배너만 뜨는 일을 막는다.
     if (snapshot === initialDraftSnapshot.current) {
       clearRecruitmentDraft(draftClubId);
