@@ -6,6 +6,12 @@ import {
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 
+// 이탈 가드(#1189)가 붙으면 RecruitmentForm 이 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다
+// (recruitment-form.test.tsx 와 같은 스텁, 병합 순서와 무관하게 통과하도록 선반영).
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 describe('RecruitmentForm 오류 표시', () => {
   beforeEach(() => window.localStorage.clear());
 
