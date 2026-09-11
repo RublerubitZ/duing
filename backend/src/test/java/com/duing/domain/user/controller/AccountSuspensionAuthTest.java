@@ -5,10 +5,13 @@ import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.user.entity.AdminUserAction;
+import com.duing.domain.user.entity.AdminUserActionLog;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.LoginAttemptRateLimiter;
 import com.duing.global.auth.JwtTokenProvider;
@@ -35,6 +38,7 @@ class AccountSuspensionAuthTest extends IntegrationTestBase {
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
+    @Autowired AdminUserActionLogRepository adminUserActionLogRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired LoginAttemptRateLimiter loginAttemptRateLimiter;
@@ -49,8 +53,31 @@ class AccountSuspensionAuthTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("정지된 계정으로 로그인하면 403 과 정지 안내 코드가 반환된다")
+    @DisplayName("정지된 계정으로 로그인하면 403 과 정지 안내 코드, 최신 정지 사유와 문의 메일이 반환된다")
     void suspendedAccountCannotLogin() {
+        User user = saveUser();
+        suspend(user);
+        adminUserActionLogRepository.save(AdminUserActionLog.of(
+                user.getId(), user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "예전 사유"));
+        adminUserActionLogRepository.save(AdminUserActionLog.of(
+                user.getId(), user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "커뮤니티 신고 3건 누적"));
+
+        RestAssured.given()
+                .contentType("application/json")
+                .body("""
+                        {"studentId":"%s","password":"%s"}
+                        """.formatted(user.getStudentId(), RAW_PASSWORD))
+                .when().post("/api/v1/auth/login")
+                .then()
+                .statusCode(HttpStatus.FORBIDDEN.value())
+                .body("code", equalTo("ACCOUNT_SUSPENDED"))
+                .body("message", equalTo(
+                        "정지된 계정입니다. 사유: 커뮤니티 신고 3건 누적 — 문의: duing.official@gmail.com"));
+    }
+
+    @Test
+    @DisplayName("정지 로그가 없는 정지 계정은 사유 없이 문의 메일만 안내한다")
+    void suspendedAccountWithoutLogFallsBackToContactOnly() {
         User user = saveUser();
         suspend(user);
 
@@ -62,7 +89,8 @@ class AccountSuspensionAuthTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/login")
                 .then()
                 .statusCode(HttpStatus.FORBIDDEN.value())
-                .body("code", equalTo("ACCOUNT_SUSPENDED"));
+                .body("code", equalTo("ACCOUNT_SUSPENDED"))
+                .body("message", equalTo("정지된 계정입니다. 문의: duing.official@gmail.com"));
     }
 
     @Test
