@@ -77,11 +77,10 @@ describe('NewRecruitmentPage — 양식 복제', () => {
     renderPage({});
     expect(await screen.findByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
     expect(screen.getByText('신규 모집 작성')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '모집 시작' }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('link', { name: '취소' })).toHaveAttribute(
-      'href',
-      '/manage/clubs/1/recruitments',
-    );
+    expect(screen.getAllByRole('button', { name: '공개하기' }).length).toBeGreaterThanOrEqual(1);
+    // 취소는 링크가 아니라 버튼이다 — 남은 임시저장을 확인·정리한 뒤 이동한다
+    // (동작은 recruitment-new-cancel.test.tsx).
+    expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
   });
 
   it('cloneFrom이 있으면 원본을 불러와 제목·질문을 시드하고 안내 배너를 보여준다', async () => {
@@ -92,7 +91,7 @@ describe('NewRecruitmentPage — 양식 복제', () => {
     expect(screen.getByText(/원본 모집은 변경되지 않으며/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('지원 동기를 알려주세요')).toBeInTheDocument();
     expect(
-      screen.getAllByRole('button', { name: '복제하여 모집 시작' }).length,
+      screen.getAllByRole('button', { name: '복제해서 공개하기' }).length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('link', { name: '9기 신입 모집' })).toHaveAttribute(
       'href',

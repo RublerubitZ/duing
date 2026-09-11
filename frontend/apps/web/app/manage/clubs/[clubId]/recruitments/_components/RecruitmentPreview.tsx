@@ -2,11 +2,14 @@
 
 import type { BuilderQuestion } from './QuestionBuilder';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
-import { recruitmentDaysLeft, recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
+import { recruitmentDaysLeft } from '@/app/_lib/recruitmentDisplay';
 
 export type RecruitmentPreviewData = {
   title: string;
   startDate: string;
+  /** 상시모집 토글. 종료일 없는 모집은 이 값으로만 판정한다 — 아직 안 적은 종료일과 구분해야 한다. */
+  isAlwaysOpen: boolean;
+  /** 폼에 적힌 종료일. 미입력이면 null 이고, 그것만으로는 상시모집이 아니다. */
   endDate: string | null;
   capacity: number;
   applicationMode: 'SELF' | 'EXTERNAL';
@@ -18,11 +21,17 @@ export type RecruitmentPreviewData = {
 };
 
 function statusPillLabel(data: RecruitmentPreviewData): string {
-  if (data.endDate === null) return '상시모집';
-  if (!data.startDate || !data.endDate) return '미리보기';
+  if (data.isAlwaysOpen) return '상시모집';
+  if (!data.startDate || !data.endDate) return '기간 미정';
   const daysLeft = recruitmentDaysLeft(data.endDate);
   if (daysLeft === null) return '미리보기';
   return daysLeft >= 0 ? `모집중 · D-${daysLeft}` : '모집마감';
+}
+
+/** 기간 줄 — 학생 화면의 recruitmentPeriodLabel 과 달리 "아직 안 적음(—)" 상태를 표시해야 한다. */
+function periodLabel(data: RecruitmentPreviewData): string {
+  if (data.isAlwaysOpen) return '상시모집';
+  return `${data.startDate || '—'} ~ ${data.endDate ?? '—'}`;
 }
 
 /** URL 표시용 — 프로토콜만 제거해 한 줄로. */
@@ -59,7 +68,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
             {data.title || <span className="font-medium text-charcoal-3">모집명을 입력하세요</span>}
           </div>
           <div className="mb-4 mt-1 text-xs text-charcoal-3">
-            {recruitmentPeriodLabel(data.startDate || '—', data.endDate)} · 정원 {data.capacity}명 · {targetLabel}
+            {periodLabel(data)} · 정원 {data.capacity}명 · {targetLabel}
             {data.useInterview ? ' · 면접 진행' : ''}
           </div>
 
