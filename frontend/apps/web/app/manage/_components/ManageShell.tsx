@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { CircleHelp, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -125,7 +125,8 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
     <div
       className={cn(
         'mt-1 flex shrink-0 items-center gap-2.5 py-3',
-        collapsed ? 'justify-center px-3' : 'px-4',
+        // 접힘 폭(84px)에는 아이콘 두 개(도움말·로그아웃)가 가로로 안 들어간다 — 세로로 쌓는다.
+        collapsed ? 'flex-col justify-center px-3' : 'px-4',
       )}
     >
       {!collapsed &&
@@ -143,6 +144,18 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
           // me 로딩/실패 — 이름 없이 로그아웃만 남긴다 (fail-soft)
           <span aria-hidden className="flex-1" />
         ))}
+      {/* 도움말(FAQ) — 접힘/펼침 모두 같은 아이콘 링크라 분기하지 않는다. */}
+      <Link
+        href="/faq"
+        aria-label="도움말"
+        title="도움말"
+        className={cn(
+          'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/55 outline-none',
+          'hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-sage motion-safe:transition-colors',
+        )}
+      >
+        <CircleHelp size={17} />
+      </Link>
       <button
         type="button"
         onClick={handleLogout}

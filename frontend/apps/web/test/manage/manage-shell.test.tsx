@@ -86,6 +86,12 @@ describe('ManageShell — 접기·푸터', () => {
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
   });
 
+  it('사이드바 푸터에 도움말 링크가 있다', async () => {
+    render(<ManageShell currentClubId={1}>본문</ManageShell>);
+
+    expect(await screen.findByRole('link', { name: '도움말' })).toHaveAttribute('href', '/faq');
+  });
+
   it('로그아웃 클릭 시 logout 후 홈으로 replace 한다', async () => {
     const user = userEvent.setup();
     render(<ManageShell currentClubId={1}>본문</ManageShell>);
