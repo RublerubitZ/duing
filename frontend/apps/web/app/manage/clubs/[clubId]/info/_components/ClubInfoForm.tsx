@@ -287,6 +287,9 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     const payload = buildPayload();
     if (Object.keys(payload).length === 0) {
       setError('변경된 내용이 없습니다.');
+      // 보낼 게 없다 = 정규화(trim·NBSP) 후 저장값과 같다. 스냅샷은 원본 입력이라 공백만 고친 폼은
+      // 여기서 맞춰 주지 않으면 영원히 dirty 로 남아 이탈할 때마다 확인창이 뜬다.
+      setSavedSnapshot(currentSnapshot);
       return;
     }
 

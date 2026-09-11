@@ -37,6 +37,8 @@ export function useUnsavedChangesGuard(isDirty: boolean): { leaveDialog: ReactNo
       // 내부 라우트('/x')만 대상 — 외부·프로토콜 상대('//')·해시·다운로드·새 탭은 통과(toLinkRoute 판별).
       const route = toLinkRoute(anchor.getAttribute('href'));
       if (!route) return;
+      // 지금 보고 있는 화면과 같은 주소(활성 탭·현재 메뉴)면 이탈이 아니다 — 확인 없이 통과시킨다.
+      if (route === window.location.pathname + window.location.search) return;
       if (anchor.target && anchor.target !== '_self') return;
       if (anchor.hasAttribute('download')) return;
       clickEvent.preventDefault();
