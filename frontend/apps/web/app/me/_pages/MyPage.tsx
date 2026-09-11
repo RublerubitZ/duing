@@ -179,22 +179,19 @@ export function MyPage() {
 
   return (
     <div
-      className="duing bg-cream"
-      style={{
-        // body 높이 체인이 없어 height:'100%'는 auto로 붕괴 → 내부 overflow-y-auto가 스크롤포트를 못 잡음. dvh로 뷰포트 높이 고정.
-        height: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      // body 높이 체인이 없어 height:100% 는 auto 로 붕괴 → 내부 overflow-y-auto 가 스크롤포트를 못 잡음. dvh 로 뷰포트 높이 고정.
+      // 모바일에서 탭바 높이를 미리 빼는 이유 — BottomNav 스페이서(h-[calc(60px+env(safe-area-inset-bottom))], md:hidden)가
+      // 이 블록 '뒤'에 붙어서, 100dvh 를 그대로 쓰면 문서가 뷰포트보다 60px 길어진다. 그러면 내부 스크롤이 끝에 닿는 순간
+      // 스크롤 체이닝으로 문서 전체가 밀려 헤더가 올라가고 고정 탭바 뒤에 빈 띠가 보인다.
+      // 두 값은 BottomNav 의 스페이서와 한 쌍이라 한쪽만 바꾸면 어긋난다.
+      className="duing flex h-[calc(100dvh_-_60px_-_env(safe-area-inset-bottom))] flex-col overflow-hidden bg-cream md:h-dvh"
     >
       <HomeNav slimOnMobile />
 
-      {/* pb — 하단 탭바 스페이서는 root layout(Providers 바깥)에 있어 이 100dvh 스크롤포트에는 닿지 않는다.
-          고정 탭바(60 + 세이프에어리어)가 스크롤 끝을 덮으므로 여기서 직접 여유를 준다(md 부터는 탭바가 없다). */}
+      {/* 아래 여유는 두지 않는다 — 바깥 래퍼가 이미 탭바 높이를 뺀 높이라 스크롤 끝이 탭바 바로 위에서 멈춘다. */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden"
       >
         <MyPageHeader
           name={user?.name ?? '—'}

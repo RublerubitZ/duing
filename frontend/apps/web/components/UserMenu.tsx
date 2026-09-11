@@ -86,8 +86,10 @@ export function UserMenu({
             asChild
             className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
           >
-            <Link href={item.href} className="block truncate">
-              {item.label}
+            {/* asChild 라 아이템의 flex 가 이 Link 에 얹힌다 — truncate 는 flex 컨테이너가 아니라
+                안쪽 텍스트 상자에 걸어야 말줄임이 산다. */}
+            <Link href={item.href} className="min-w-0">
+              <span className="truncate">{item.label}</span>
             </Link>
           </DropdownMenuItem>
         ))}
