@@ -84,7 +84,7 @@ export function SessionListCard() {
 
   const sessions = sessionsQuery.data;
   // 로그아웃은 되돌릴 수 없다 — 어느 대상을 확인받는 중인지 한 상태로 들고 있는다.
-  // 'all' = 다른 모든 기기, 객체 = 그 기기 하나, null = 확인 중 아님.
+  // 'all' = 현재 기기를 포함한 모든 기기, 객체 = 그 기기 하나, null = 확인 중 아님.
   const [confirmTarget, setConfirmTarget] = useState<
     'all' | { sessionId: number; label: string } | null
   >(null);
@@ -149,7 +149,7 @@ export function SessionListCard() {
                 disabled={logoutAllMutation.isPending}
                 className="btn btn-ghost btn-sm text-coral"
               >
-                다른 모든 기기에서 로그아웃
+                모든 기기에서 로그아웃
               </button>
             </div>
           </>
@@ -159,16 +159,16 @@ export function SessionListCard() {
       <ConfirmDialog
         open={confirmTarget !== null}
         title={
-          confirmTarget === 'all' ? '다른 모든 기기에서 로그아웃할까요?' : '이 기기에서 로그아웃할까요?'
+          confirmTarget === 'all' ? '모든 기기에서 로그아웃할까요?' : '이 기기에서 로그아웃할까요?'
         }
         description={
           confirmTarget === 'all'
-            ? '이 기기는 유지돼요. 다른 기기에서는 다시 로그인해야 해요.'
+            ? '이 기기를 포함한 모든 기기에서 로그아웃돼요. 다시 로그인해야 해요.'
             : confirmTarget
               ? `${confirmTarget.label}에서 로그아웃돼요.`
               : undefined
         }
-        confirmLabel="로그아웃"
+        confirmLabel={confirmTarget === 'all' ? '모두 로그아웃' : '로그아웃'}
         isPending={logoutAllMutation.isPending || revokeMutation.isPending}
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {

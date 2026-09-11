@@ -142,9 +142,9 @@ describe('SessionListCard', () => {
     renderCard();
 
     await screen.findByText('iPhone 15');
-    await user.click(screen.getByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
+    await user.click(screen.getByRole('button', { name: '모든 기기에서 로그아웃' }));
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+      within(screen.getByRole('dialog')).getByRole('button', { name: '모두 로그아웃' }),
     );
 
     await waitFor(() => expect(logoutAllCalled).toBe(true));
@@ -208,7 +208,7 @@ describe('SessionListCard', () => {
 
     await user.click(await screen.findByRole('button', { name: /모든 기기에서 로그아웃/ }));
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+      within(screen.getByRole('dialog')).getByRole('button', { name: '모두 로그아웃' }),
     );
 
     expect(
@@ -233,7 +233,7 @@ describe('SessionListCard', () => {
   });
 
   // 로그아웃은 되돌릴 수 없다 — 누른 즉시 요청이 나가지 않고 확인 모달을 한 단계 거친다.
-  it('다른 모든 기기에서 로그아웃은 확인 후에만 요청한다', async () => {
+  it('모든 기기에서 로그아웃은 확인 후에만 요청한다', async () => {
     let logoutAllCalled = false;
     stubSessions(SESSIONS);
     server.use(
@@ -244,13 +244,17 @@ describe('SessionListCard', () => {
     );
     const user = userEvent.setup();
     renderCard();
-    await user.click(await screen.findByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
-    const dialog = screen.getByRole('dialog', { name: '다른 모든 기기에서 로그아웃할까요?' });
+    await user.click(await screen.findByRole('button', { name: '모든 기기에서 로그아웃' }));
+    const dialog = screen.getByRole('dialog', { name: '모든 기기에서 로그아웃할까요?' });
+    // 전체 로그아웃은 현재 기기까지 끊는다 — 설명이 그 사실을 감추면 안 된다.
+    expect(
+      within(dialog).getByText('이 기기를 포함한 모든 기기에서 로그아웃돼요. 다시 로그인해야 해요.'),
+    ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
     expect(logoutAllCalled).toBe(false);
 
-    await user.click(screen.getByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }));
+    await user.click(screen.getByRole('button', { name: '모든 기기에서 로그아웃' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '모두 로그아웃' }));
     await waitFor(() => expect(logoutAllCalled).toBe(true));
   });
 
