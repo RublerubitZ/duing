@@ -487,10 +487,10 @@ test.describe('PR-3 인증 초기 상태', () => {
     await expect(page.getByRole('button', { name: /홍길동님/ })).toBeVisible();
     await waitForHeaderFrame(page, 'hasUserMenu');
 
-    // 부팅 복원 me(401) → 갱신 1회 → 재시도 me(200) 3왕복. 세 번째 me 는 하이드레이션 후
-    // 유저 메뉴가 프로필을 채우는 별도 쿼리다(레버 2 미구현 — 부팅분과 공유하지 않는다).
+    // 부팅 복원 me(401) → 갱신 1회 → 재시도 me(200) 2왕복. 상단바가 클라이언트 컴포넌트로 바뀐 뒤(#1187)
+    // 유저 메뉴의 프로필 쿼리가 부팅 복원 조회와 같은 키로 중복 제거되어 별도 me 왕복이 사라졌다(레버 2 달성).
     expect(api.refreshCalls()).toBe(1);
-    expect(api.meCalls()).toBe(3);
+    expect(api.meCalls()).toBe(2);
     const frames = await readAuthFrames(page);
     expect(loginButtonFramesAfterFirstUserMenu(frames)).toHaveLength(0);
     await context.close();
