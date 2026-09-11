@@ -230,7 +230,16 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       <ConfirmDialog
         open={deleteTarget !== null}
         title="이 항목을 삭제할까요?"
-        description="되돌릴 수 없어요."
+        description={
+          deleteTarget && (
+            <>
+              {deleteTarget.entryType === 'INCOME' ? '+' : '−'}
+              {formatWon(deleteTarget.amount)} · {deleteTarget.description}
+              <br />
+              되돌릴 수 없어요.
+            </>
+          )
+        }
         isPending={deleteEntry.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {

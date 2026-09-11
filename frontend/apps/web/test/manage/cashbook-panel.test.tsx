@@ -89,7 +89,10 @@ describe('금전출납부 패널', () => {
     render(<CashbookPanel clubId={1} />);
     await user.click(screen.getByRole('button', { name: '삭제' }));
     expect(mockDeleteMutate).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+    // 무엇을 지우는지 다이얼로그에 남는다 — 금액·내역이 안내에 있어야 한다.
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/−30,000원 · 출금/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
     expect(mockDeleteMutate).toHaveBeenCalledWith(expect.any(Number), expect.anything());
   });
 
