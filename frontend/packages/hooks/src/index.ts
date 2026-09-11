@@ -57,6 +57,7 @@ export {
   useMyApplicationDetailQuery,
   useApplicantsQuery,
   useApplicantDetailQuery,
+  useApplicantPhoneMutation,
   useUpdateApplicationStatusMutation,
   useBulkUpdateApplicationStatusMutation,
   useApplicantNeighborsQuery,

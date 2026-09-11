@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+const mockRevealPhone = vi.fn();
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  // formatDateTimeKst 등 순수 함수는 실제 구현 그대로 — 부분 mock 은 열람 훅만 바꾼다.
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
+  useApplicantPhoneMutation: () => ({ mutateAsync: mockRevealPhone, isPending: false }),
+}));
 
 import { ApplicantProfilePanel } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/applicants/[applicationId]/_components/ApplicantProfilePanel';
 
@@ -18,7 +26,7 @@ const detailFixture: ApplicantDetail = {
     college: 'IT_ENGINEERING',
     major: '컴퓨터정보공학부',
     grade: 'SOPHOMORE',
-    phone: '010-1234-5678',
+    phoneMasked: '010-****-5678',
   },
   answers: [],
   status: 'SUBMITTED',
@@ -31,6 +39,10 @@ const detailFixture: ApplicantDetail = {
   assignedSlot: null,
   interviewRound: null,
 };
+
+beforeEach(() => {
+  mockRevealPhone.mockReset();
+});
 
 describe('ApplicantProfilePanel', () => {
   it('지원자 기본 정보를 렌더한다', () => {
@@ -72,5 +84,37 @@ describe('ApplicantProfilePanel', () => {
     for (const cell of valueCells) {
       expect(cell.className).toContain('break-words');
     }
+  });
+
+  // 휴대폰은 상세 응답에 마스킹으로만 온다 — 원본은 [번호 보기] 를 눌러 열람 API(감사 기록)로만 받는다.
+  it('번호가 없는 지원자(phoneMasked null)는 빈 값만 보이고 [휴대폰 번호 보기] 버튼이 없다', () => {
+    render(
+      <ApplicantProfilePanel
+        detail={{ ...detailFixture, applicant: { ...detailFixture.applicant, phoneMasked: null } }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: '휴대폰 번호 보기' })).not.toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('휴대폰은 마스킹으로 보이고 [휴대폰 번호 보기] 버튼이 있다', () => {
+    render(<ApplicantProfilePanel detail={detailFixture} />);
+
+    expect(screen.getByText('010-****-5678')).toBeInTheDocument();
+    expect(screen.queryByText('010-1234-5678')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '휴대폰 번호 보기' })).toBeInTheDocument();
+  });
+
+  it('[휴대폰 번호 보기]를 누르면 열람 API 로 받은 원본을 표시하고 버튼은 사라진다', async () => {
+    mockRevealPhone.mockResolvedValue({ phone: '010-1234-5678' });
+    const user = userEvent.setup();
+    render(<ApplicantProfilePanel detail={detailFixture} />);
+
+    await user.click(screen.getByRole('button', { name: '휴대폰 번호 보기' }));
+
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument();
+    expect(mockRevealPhone).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole('button', { name: '휴대폰 번호 보기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '연락처 복사' })).toBeInTheDocument();
   });
 });
