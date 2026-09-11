@@ -4,9 +4,12 @@
 // 이 페이지에선 전역 하단 탭바(BottomNav)가 숨고(matchTabHref 가 /clubs/{id} 를 null 처리) 이 바가 그 자리를 차지한다.
 // 지원 동작은 데스크탑 모집 카드와 동일한 useClubApply 로 공유한다. 데스크탑(md+)에선 렌더되지 않는다.
 
+import Link from 'next/link';
+
 import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import { Spinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
@@ -45,7 +48,7 @@ function barLabels(recruitment: StudentRecruitmentProjection | undefined): {
 }
 
 export function ClubDetailApplyBar({ recruitment, membership }: Props) {
-  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility } =
+  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
     useClubApply(recruitment);
   const { top, main } = barLabels(recruitment);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
@@ -62,26 +65,36 @@ export function ClubDetailApplyBar({ recruitment, membership }: Props) {
           <div className="text-[12px] text-charcoal-3">{top}</div>
           <div className="truncate text-sm font-bold text-ink">{main}</div>
         </div>
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={!canApply || isCheckingEligibility || isAlreadyMember}
-          className={cn(
-            'btn btn-primary flex-1 rounded-[14px] py-3.5 text-[15px]',
-            'disabled:cursor-not-allowed disabled:opacity-40',
-          )}
-        >
-          {isCheckingEligibility ? (
-            <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
-              <Spinner size={14} />
-            </span>
-          ) : isAlreadyMember ? (
-            '이미 소속된 동아리예요'
-          ) : (
-            applyButtonLabel
-          )}
-          {canApply && !isCheckingEligibility && !isAlreadyMember && <ArrowRight size={16} />}
-        </button>
+        {existingApplicationId !== null && !isAlreadyMember ? (
+          // 이미 지원한 모집 — 서버가 409 로 막는 버튼 대신 제출한 지원서로 보낸다. 소속 잠금이 있으면 그 안내가 우선이다.
+          <Link
+            href={toRoute(`/me/applications/${existingApplicationId}`)}
+            className="btn btn-secondary flex-1 rounded-[14px] py-3.5 text-[15px]"
+          >
+            지원 완료 · 지원서 보기
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={!canApply || isCheckingEligibility || isAlreadyMember}
+            className={cn(
+              'btn btn-primary flex-1 rounded-[14px] py-3.5 text-[15px]',
+              'disabled:cursor-not-allowed disabled:opacity-40',
+            )}
+          >
+            {isCheckingEligibility ? (
+              <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+                <Spinner size={14} />
+              </span>
+            ) : isAlreadyMember ? (
+              '이미 소속된 동아리예요'
+            ) : (
+              applyButtonLabel
+            )}
+            {canApply && !isCheckingEligibility && !isAlreadyMember && <ArrowRight size={16} />}
+          </button>
+        )}
       </div>
     </>
   );
