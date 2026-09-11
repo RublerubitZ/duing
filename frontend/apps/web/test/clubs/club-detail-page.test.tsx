@@ -98,6 +98,15 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+// 상세만 실패시키는 시드 — 부수 요청(사진·조회 비콘)은 정상이라 분기 판정이 상세 쿼리 하나에만 걸린다.
+function seedDetailStatus(status: number) {
+  server.use(
+    http.get(`*/clubs/${CLUB_ID}`, () => new HttpResponse(null, { status })),
+    http.get(`*/clubs/${CLUB_ID}/photos`, () => envelope([])),
+    http.post(`*/clubs/${CLUB_ID}/views`, () => new HttpResponse(null, { status: 204 })),
+  );
+}
+
 function seed(options: { heroFails?: boolean } = {}) {
   server.use(
     http.get(`*/clubs/${CLUB_ID}`, () => envelope(clubDetail)),
@@ -191,5 +200,28 @@ describe('동아리 상세 page 랜딩 조립', () => {
         screen.queryByRole('status', { name: '대표 활동 불러오는 중' }),
       ).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('동아리 상세 실패 분기', () => {
+  it('404 는 "볼 수 없음" 화면을 띄운다', async () => {
+    seedDetailStatus(404);
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('삭제됐거나 승인 대기 중일 수 있어요.')).toBeInTheDocument();
+  });
+
+  it('500 은 중립 오류 문구를 띄우고 "삭제됐거나" 라고 단정하지 않는다', async () => {
+    seedDetailStatus(500);
+    renderPage();
+
+    expect(await screen.findByText('동아리 정보를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(screen.queryByText(/삭제됐거나/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
+    ).not.toBeInTheDocument();
   });
 });

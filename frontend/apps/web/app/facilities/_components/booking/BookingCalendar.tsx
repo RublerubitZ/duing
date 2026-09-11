@@ -130,7 +130,7 @@ export function BookingCalendar({
                       모바일 전용 클래스는 sm: 로 되돌리지 않고 max-sm: 로 건다 — PC 는 선언 자체가 없어야
                       기존 계산값(.duing line-height 등)에 우연히 기대지 않는다. */}
                   <span
-                    className={`text-[10px] font-bold max-sm:whitespace-nowrap max-sm:leading-none sm:text-[10.5px] ${
+                    className={`text-[11px] font-bold max-sm:whitespace-nowrap max-sm:leading-none sm:text-[11px] ${
                       selected ? 'text-sage' : levelMeta.textClass
                     }`}
                   >

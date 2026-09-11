@@ -341,7 +341,7 @@ export function CalendarPage() {
               const accent = ACCENT[KIND_ACCENT[kind]];
               const active = activeKinds.has(kind);
               return (
-                <button key={kind} onClick={() => toggleKind(kind)} style={{
+                <button key={kind} type="button" onClick={() => toggleKind(kind)} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '8px 14px', borderRadius: 999,
                   background: active ? accent.bg : 'var(--paper)',
@@ -366,7 +366,9 @@ export function CalendarPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <button
+                type="button"
                 onClick={handlePrevMonth}
+                aria-label="이전 달"
                 style={{
                   width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
                   background: 'var(--paper)', color: 'var(--charcoal-2)',
@@ -377,7 +379,9 @@ export function CalendarPage() {
                 {viewYear}<span style={{ color: 'var(--charcoal-3)', fontWeight: 500, margin: '0 8px' }}>·</span>{KR_MONTHS[viewMonth] ?? ''}
               </h2>
               <button
+                type="button"
                 onClick={handleNextMonth}
+                aria-label="다음 달"
                 style={{
                   width: 36, height: 36, borderRadius: 12, border: '1px solid var(--gray-line)',
                   background: 'var(--paper)', color: 'var(--charcoal-2)',
