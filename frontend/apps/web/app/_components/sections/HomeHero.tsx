@@ -68,11 +68,16 @@ export async function HomeHero() {
             모든 두잉
           </h1>
 
-          {/* 본문 카피 — 헤드라인 아래 한 줄. 누가 쓸 수 있는지(대구대 학생·학번 가입)와 규모를 먼저 말한다.
-              모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에 들어가도록 폭 220 을 넘기지 않고, 통계 미가용
-              (stats=null) 시 숫자만 빠진 기본형으로 우아하게 폴백한다. */}
+          {/* 본문 카피 — 원문의 두 줄 리듬("대구대학교 동아리 플랫폼." + ing 워드플레이)을 지키되, 둘째 줄은
+              PC·모바일 공통으로 "전체 N개 동아리가 지금도 ing 중" 한 문장만 둔다. 원문 PC 꼬리("이번 학기 N곳
+              모집 중이에요")와 모바일 전용 "N개 동아리가 지금 모집 ing" 는 바로 아래 CTA "모집 중 N곳 보기" 가
+              같은 말을 하게 되어 뺐다(2026-09-11 사용자 결정). 모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에
+              들어가도록 폭 220 을 넘기지 않고, 통계 미가용(stats=null) 시 숫자 없는 기본형으로 폴백한다. */}
           <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
-            대구대 학생이면 누구나 · 학번으로 가입{stats ? ` · ${stats.totalCount}개 동아리` : ''}
+            대구대학교 동아리 플랫폼.
+            <br />
+            {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '캠퍼스의 모든 동아리가 지금도 '}
+            <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
           </p>
 
           {/* 첫 화면의 주 행동 — 검색어가 없는 첫 방문자를 "둘러보기" 로 연다. 배너가 홈 최우선이라 한 줄·작은 버튼으로 높이를 아낀다.

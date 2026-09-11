@@ -96,7 +96,8 @@ describe('HomeHero (server component)', () => {
 
     render(<>{await HomeHero()}</>);
 
-    expect(screen.getByText(/대구대 학생이면 누구나/)).toBeInTheDocument();
+    expect(screen.getByText(/캠퍼스의 모든 동아리가 지금도/)).toBeInTheDocument();
+    expect(screen.getByText('ing')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '동아리 둘러보기' })).toHaveAttribute('href', '/clubs');
   });
 
@@ -114,10 +115,11 @@ describe('HomeHero (server component)', () => {
       'href',
       '#categories',
     );
-    expect(
-      screen.getByText(/대구대 학생이면 누구나 · 학번으로 가입 · 164개 동아리/),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('ing')).not.toBeInTheDocument();
+    // 둘째 줄은 전체 수만 말한다 — 모집 중 수는 바로 아래 CTA 가 말하므로 문구에서 반복하지 않는다.
+    expect(screen.getByText(/164개 동아리가 지금도/)).toBeInTheDocument();
+    expect(screen.getByText('ing')).toBeInTheDocument();
+    expect(screen.queryByText(/이번 학기 29곳/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/29개 동아리가 지금 모집/)).not.toBeInTheDocument();
   });
 
   it('모집 중이 0곳이거나 통계가 없으면 주 CTA 는 동아리 둘러보기다', async () => {
