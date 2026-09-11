@@ -55,7 +55,7 @@ describe('MemberCsvDownloadPopover', () => {
     const firstCall = downloadTextFile.mock.calls[0];
     expect(firstCall).toBeDefined();
     const [filename, content] = firstCall ?? [];
-    expect(filename).toContain('AI동아리_멤버목록_');
+    expect(filename).toContain('AI동아리_부원목록_');
     expect(filename).toMatch(/\.csv$/);
     expect(content).toContain('이름,학번,학과,역할,회비,가입일');
   });

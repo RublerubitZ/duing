@@ -530,7 +530,7 @@ function ManagementSection({
       {showRemoveDialog && (
         <ConfirmDialog
           open
-          title="회원 탈퇴"
+          title="부원 탈퇴"
           description={
             <>
               <span className="font-medium text-charcoal-2">{member.name}</span> 님을 동아리에서

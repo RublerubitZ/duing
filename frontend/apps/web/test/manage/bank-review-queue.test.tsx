@@ -8,7 +8,7 @@ const mockApproveMutate = vi.fn();
 const mockIgnoreMutate = vi.fn();
 const mockUnmatchMutate = vi.fn();
 
-// ManualMatchDialog(회원 선택 후 매칭)가 쓰는 훅들.
+// ManualMatchDialog(부원 선택 후 매칭)가 쓰는 훅들.
 // 회원 목록은 고정, 청구 목록은 선택된 회원의 userId 로 분기해 돌려준다.
 const manualMatchMembers: ClubMember[] = [
   {
@@ -420,7 +420,7 @@ describe('BankReviewQueue', () => {
     );
   });
 
-  describe('회원 선택 후 매칭(부분 매칭)', () => {
+  describe('부원 선택 후 매칭(부분 매칭)', () => {
     // 입금액(5,000)에 정확히 맞는 후보가 없는 PENDING 거래로 부분 매칭 경로를 검증한다.
     const partialDeposit: BankTransaction = {
       id: 601,
@@ -440,11 +440,11 @@ describe('BankReviewQueue', () => {
       mockPendingContent.mockReturnValue([partialDeposit]);
       render(<BankReviewQueue clubId={1} />);
 
-      await user.click(screen.getByRole('button', { name: '회원 선택 후 매칭' }));
+      await user.click(screen.getByRole('button', { name: '부원 선택 후 매칭' }));
       const dialog = await screen.findByRole('dialog');
 
       // counterparty 로 검색어가 미리 채워져 있으므로 비우고 원하는 회원으로 검색한다.
-      const searchInput = within(dialog).getByRole('textbox', { name: '회원 검색' });
+      const searchInput = within(dialog).getByRole('textbox', { name: '부원 검색' });
       await user.clear(searchInput);
       await user.type(searchInput, memberName);
       await user.click(within(dialog).getByRole('button', { name: new RegExp(memberName) }));

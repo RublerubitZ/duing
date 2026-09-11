@@ -8,14 +8,14 @@ const OLD_WAY: ReadonlyArray<OldTool> = [
   { tool: '카카오톡', task: '공지 전달', tilt: '-1.5deg' },
   { tool: '구글폼', task: '지원서 접수', tilt: '1.2deg' },
   { tool: '엑셀', task: '회비 정산', tilt: '-0.8deg' },
-  { tool: '수기 · 단톡', task: '멤버 · 출석 관리', tilt: '1.6deg' },
+  { tool: '수기 · 단톡', task: '부원 · 출석 관리', tilt: '1.6deg' },
 ];
 
 const NEW_WAY: ReadonlyArray<string> = [
   '모집 공고와 지원 접수',
   '공지 · 일정 전달',
   '회비 청구 · 납부 · 은행 매칭',
-  '멤버 · 권한 관리',
+  '부원 · 권한 관리',
 ];
 
 export function BeforeAfter() {

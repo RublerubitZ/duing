@@ -569,7 +569,7 @@ test.describe('PR-3 인증 초기 상태', () => {
     await context.close();
   });
 
-  test('탐색(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
+  test('동아리(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
     const context = await browser.newContext();
     await seedLoggedInCookies(context);
     await routeApi(context, 'valid', { favoriteIdsDelayMs: 1_500 });

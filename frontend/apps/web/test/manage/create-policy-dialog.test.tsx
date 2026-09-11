@@ -151,25 +151,25 @@ describe('CreatePolicyDialog', () => {
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
-  it('생성 모드에서 전체 회원·특정 회원 청구 대상 라디오를 노출한다', () => {
+  it('생성 모드에서 전체 부원·특정 부원 청구 대상 라디오를 노출한다', () => {
     render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
-    expect(screen.getByRole('radio', { name: '전체 회원' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: '특정 회원' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '전체 부원' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '특정 부원' })).toBeInTheDocument();
   });
 
-  it('특정 회원을 선택하면 자동발행 토글이 사라진다', async () => {
+  it('특정 부원을 선택하면 자동발행 토글이 사라진다', async () => {
     const user = userEvent.setup();
     render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
 
-    // MONTHLY·전체 회원 기본값이라 자동발행 토글이 보인다.
+    // MONTHLY·전체 부원 기본값이라 자동발행 토글이 보인다.
     expect(screen.getByLabelText('매월 자동 발행')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: '특정 회원' }));
+    await user.click(screen.getByRole('radio', { name: '특정 부원' }));
 
     expect(screen.queryByLabelText('매월 자동 발행')).not.toBeInTheDocument();
   });
 
-  it('특정 회원 정책을 생성하면 payload 에 targetType=SELECTED_MEMBERS 가 실린다', async () => {
+  it('특정 부원 정책을 생성하면 payload 에 targetType=SELECTED_MEMBERS 가 실린다', async () => {
     const user = userEvent.setup();
     mockCreateMutate.mockImplementation((_payload: unknown, options: { onSuccess: () => void }) =>
       options.onSuccess(),
@@ -177,7 +177,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), 'MT 참가비');
-    await user.click(screen.getByRole('radio', { name: '특정 회원' }));
+    await user.click(screen.getByRole('radio', { name: '특정 부원' }));
     await user.click(screen.getByRole('button', { name: '추가' }));
 
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
@@ -188,9 +188,9 @@ describe('CreatePolicyDialog', () => {
     });
   });
 
-  it('수정 모드에서 특정 회원 정책은 청구 대상이 읽기 전용으로 표시된다', () => {
+  it('수정 모드에서 특정 부원 정책은 청구 대상이 읽기 전용으로 표시된다', () => {
     render(<CreatePolicyDialog clubId={1} policy={selectedMembersPolicy} onClose={() => {}} />);
-    expect(screen.queryByRole('radio', { name: '전체 회원' })).not.toBeInTheDocument();
-    expect(screen.getByText('특정 회원')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '전체 부원' })).not.toBeInTheDocument();
+    expect(screen.getByText('특정 부원')).toBeInTheDocument();
   });
 });

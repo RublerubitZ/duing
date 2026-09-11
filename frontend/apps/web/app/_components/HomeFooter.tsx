@@ -49,7 +49,7 @@ export function HomeFooter() {
           </p>
         </div>
 
-        {/* 상단바·하단 탭(탐색·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
+        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>

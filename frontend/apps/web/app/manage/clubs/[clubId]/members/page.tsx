@@ -68,12 +68,12 @@ export default function ClubMembersPage({
   const [successionOpen, setSuccessionOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
-    return <LoadingGate label="멤버 목록 불러오는 중" />;
+    return <LoadingGate label="부원 목록 불러오는 중" />;
   }
   // me 쿼리만 실패한 극단 창(인증 만료급)에서 -1 폴백으로 자기 행 보호(isSelf)가 꺼진 채
   // 관리 버튼이 보이는 것을 막는다 — 권한 가드가 아니라 데이터 부재 fail-soft 다.
   if (!me) {
-    return <LoadingGate label="멤버 목록 불러오는 중" />;
+    return <LoadingGate label="부원 목록 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);

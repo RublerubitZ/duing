@@ -60,19 +60,19 @@ describe('PolicyList', () => {
     expect(screen.getByText(/월 회비 · 10,000원/)).toBeInTheDocument();
   });
 
-  it('특정 회원 정책에는 "특정 회원" 배지를 표시한다', () => {
+  it('특정 부원 정책에는 "특정 부원" 배지를 표시한다', () => {
     mockUseClubFeePoliciesQuery.mockReturnValue({
       data: [buildPolicy({ name: 'MT 참가비', targetType: 'SELECTED_MEMBERS' })],
       isLoading: false,
     });
     render(<PolicyList clubId={1} />);
-    expect(screen.getByText('특정 회원')).toBeInTheDocument();
+    expect(screen.getByText('특정 부원')).toBeInTheDocument();
   });
 
-  it('전체 회원 정책에는 "특정 회원" 배지를 표시하지 않는다', () => {
+  it('전체 부원 정책에는 "특정 부원" 배지를 표시하지 않는다', () => {
     mockUseClubFeePoliciesQuery.mockReturnValue({ data: [buildPolicy()], isLoading: false });
     render(<PolicyList clubId={1} />);
-    expect(screen.queryByText('특정 회원')).not.toBeInTheDocument();
+    expect(screen.queryByText('특정 부원')).not.toBeInTheDocument();
   });
 
   it('활성 토글을 누르면 active 를 반전하여 update 뮤테이션을 호출한다', () => {

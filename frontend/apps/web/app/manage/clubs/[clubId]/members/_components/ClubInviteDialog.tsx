@@ -267,7 +267,7 @@ function CreateInviteForm({ clubId, useGeneration, onBusyChange }: ClubInvitePan
             disabled={createInvite.isPending}
             className={fieldCls}
           />
-          <p className="mt-1 text-xs text-charcoal-3">이 링크로 가입한 회원에게 자동으로 찍힙니다.</p>
+          <p className="mt-1 text-xs text-charcoal-3">이 링크로 가입한 부원에게 자동으로 찍힙니다.</p>
         </div>
       )}
 

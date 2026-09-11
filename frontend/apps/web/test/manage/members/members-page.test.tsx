@@ -144,7 +144,7 @@ describe('ClubMembersPage — 기수 표시 전환', () => {
     setupHandlers({ useGeneration: false });
     renderPage();
 
-    // 로드 완료 대기(회원 이름은 표·카드로 2회 등장).
+    // 로드 완료 대기(부원 이름은 표·카드로 2회 등장).
     expect((await screen.findAllByText('홍길동')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('columnheader', { name: '기수' })).not.toBeInTheDocument();
     expect(screen.queryByText('최신 기수')).not.toBeInTheDocument();
@@ -160,14 +160,14 @@ describe('ClubMembersPage — 검색·결과 수', () => {
 
     expect(await screen.findByText('결과 3명')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('회원 검색'), '홍길동');
+    await userEvent.type(screen.getByLabelText('부원 검색'), '홍길동');
 
     expect(await screen.findByText('결과 1명')).toBeInTheDocument();
   });
 });
 
 describe('ClubMembersPage — 상세 열기', () => {
-  it('상세 버튼을 누르면 회원 상세 패널이 열린다', async () => {
+  it('상세 버튼을 누르면 부원 상세 패널이 열린다', async () => {
     setupHandlers({ useGeneration: true });
     renderPage();
 
@@ -187,7 +187,7 @@ describe('ClubMembersPage — 권한 게이트', () => {
     const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
     await userEvent.click(selectYoung!);
 
-    const toolbar = await screen.findByRole('region', { name: '회원 일괄 작업' });
+    const toolbar = await screen.findByRole('region', { name: '부원 일괄 작업' });
     expect(within(toolbar).getByRole('button', { name: /기수 변경/ })).toBeInTheDocument();
     // 승급·강등·탈퇴는 회장 전용 — OFFICER 툴바에는 없다.
     expect(within(toolbar).queryByRole('button', { name: /임원 승급/ })).not.toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('ClubMembersPage — 권한 게이트', () => {
     const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
     await userEvent.click(selectYoung!);
 
-    const toolbar = await screen.findByRole('region', { name: '회원 일괄 작업' });
+    const toolbar = await screen.findByRole('region', { name: '부원 일괄 작업' });
     expect(within(toolbar).getByRole('button', { name: /임원 승급/ })).toBeInTheDocument();
     expect(within(toolbar).getByRole('button', { name: /부원 강등/ })).toBeInTheDocument();
     expect(within(toolbar).getByRole('button', { name: '탈퇴' })).toBeInTheDocument();
@@ -215,11 +215,11 @@ describe('ClubMembersPage — 권한 게이트', () => {
     setupHandlers({ useGeneration: false, myRole: 'OFFICER' });
     renderPage();
 
-    // 로드 완료 대기(회원 이름은 표·카드로 2회 등장).
+    // 로드 완료 대기(부원 이름은 표·카드로 2회 등장).
     expect((await screen.findAllByText('홍길동')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('checkbox', { name: '전체 선택' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '부원 일괄 작업' })).not.toBeInTheDocument();
   });
 });
 
@@ -267,20 +267,20 @@ describe('ClubMembersPage — 상세 패널 최신화', () => {
 });
 
 describe('ClubMembersPage — 선택 정리', () => {
-  it('필터를 바꾸면 화면에서 사라진 회원 선택이 해제된다', async () => {
+  it('필터를 바꾸면 화면에서 사라진 부원 선택이 해제된다', async () => {
     setupHandlers({ useGeneration: true, myRole: 'LEADER' });
     renderPage();
 
     // MEMBER 이영희 를 선택 → 일괄 툴바 노출
     const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
     await userEvent.click(selectYoung!);
-    expect(await screen.findByRole('region', { name: '회원 일괄 작업' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '부원 일괄 작업' })).toBeInTheDocument();
 
     // 역할 필터를 회장으로 좁히면 이영희가 사라지고 선택이 정리되어 툴바가 닫힌다.
     await userEvent.click(screen.getByRole('button', { name: '회장' }));
 
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: '부원 일괄 작업' })).not.toBeInTheDocument(),
     );
   });
 
@@ -293,17 +293,17 @@ describe('ClubMembersPage — 선택 정리', () => {
     expect(await screen.findByText(/선택/)).toBeInTheDocument();
 
     // 이영희가 검색 결과에서 빠지면 툴바 대상에서 빠질 뿐(선택 자체는 보존).
-    await userEvent.type(screen.getByRole('searchbox', { name: '회원 검색' }), '김철수');
+    await userEvent.type(screen.getByRole('searchbox', { name: '부원 검색' }), '김철수');
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: '부원 일괄 작업' })).not.toBeInTheDocument(),
     );
 
     // 검색어를 지우면 선택이 그대로 살아 있어 툴바가 다시 열린다(타이핑에 선택이 소실되지 않는다).
-    await userEvent.clear(screen.getByRole('searchbox', { name: '회원 검색' }));
-    expect(await screen.findByRole('region', { name: '회원 일괄 작업' })).toBeInTheDocument();
+    await userEvent.clear(screen.getByRole('searchbox', { name: '부원 검색' }));
+    expect(await screen.findByRole('region', { name: '부원 일괄 작업' })).toBeInTheDocument();
   });
 
-  it('선택한 기수의 회원이 모두 사라지면 기수 필터가 해제되어 목록이 다시 보인다', async () => {
+  it('선택한 기수의 부원이 모두 사라지면 기수 필터가 해제되어 목록이 다시 보인다', async () => {
     // 이영희만 2기 — 기수를 3으로 바꾸면 2기 옵션 자체가 사라진다.
     let youngGeneration: number | null = 2;
     const membersOf = () =>
@@ -346,7 +346,7 @@ describe('ClubMembersPage — 선택 정리', () => {
 
     // 2기 옵션이 사라진 뒤에도 필터가 남으면 "결과 0명" 으로 굳는다 — 해제되어 전원이 다시 보여야 한다.
     await waitFor(() => expect(screen.getByText('결과 3명')).toBeInTheDocument());
-    expect(screen.queryByText('조건에 맞는 회원이 없어요')).not.toBeInTheDocument();
+    expect(screen.queryByText('조건에 맞는 부원이 없어요')).not.toBeInTheDocument();
   });
 });
 
@@ -358,16 +358,16 @@ describe('ClubMembersPage — 필터 칩 변경과 검색어의 분리', () => {
     // MEMBER 이영희 선택 → 검색어로 가린다.
     const [selectYoung] = await screen.findAllByRole('checkbox', { name: '이영희 선택' });
     await userEvent.click(selectYoung!);
-    await userEvent.type(screen.getByRole('searchbox', { name: '회원 검색' }), '김철수');
+    await userEvent.type(screen.getByRole('searchbox', { name: '부원 검색' }), '김철수');
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: '부원 일괄 작업' })).not.toBeInTheDocument(),
     );
 
     // 이영희가 여전히 부합하는 필터(부원)를 눌러도 선택이 사라지면 안 된다.
     await userEvent.click(screen.getByRole('button', { name: '부원' }));
-    await userEvent.clear(screen.getByRole('searchbox', { name: '회원 검색' }));
+    await userEvent.clear(screen.getByRole('searchbox', { name: '부원 검색' }));
 
-    expect(await screen.findByRole('region', { name: '회원 일괄 작업' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '부원 일괄 작업' })).toBeInTheDocument();
   });
 
   it('필터에서 벗어난 선택은 여전히 정리된다', async () => {
@@ -380,7 +380,7 @@ describe('ClubMembersPage — 필터 칩 변경과 검색어의 분리', () => {
     await userEvent.click(screen.getByRole('button', { name: '임원' }));
     await userEvent.click(screen.getByRole('button', { name: '전체' }));
 
-    expect(screen.queryByRole('region', { name: '회원 일괄 작업' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '부원 일괄 작업' })).not.toBeInTheDocument();
   });
 });
 

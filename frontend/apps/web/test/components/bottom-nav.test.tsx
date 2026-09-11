@@ -102,7 +102,7 @@ describe('BottomNav', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
+  it('이용약관(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/terms');
     render(<BottomNav />);
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
