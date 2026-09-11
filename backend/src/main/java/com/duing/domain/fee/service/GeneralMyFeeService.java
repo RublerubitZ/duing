@@ -1,6 +1,5 @@
 package com.duing.domain.fee.service;
 
-import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.fee.controller.dto.response.MyFeeResponse;
 import com.duing.domain.fee.entity.FeeBill;
@@ -36,11 +35,13 @@ public class GeneralMyFeeService implements MyFeeService {
         Map<Long, Long> paidByBill = paidAmountReader.paidAmountByBillId(
                 bills.stream().map(FeeBill::getId).toList());
         // 청구는 club_id 를 raw FK 로만 들고 있어 이름을 배치 조회로 한 번에 붙인다(N+1 없음).
+        // 이름 하나에 엔티티(TEXT·jsonb 포함 35컬럼)를 읽지 않도록 프로젝션으로 뽑는다(findAllNames 전례).
         // soft-delete 된 동아리는 @SQLRestriction 에 걸려 결과에서 빠지므로 폴백 문구로 채운다
         // — 동아리가 사라져도 본인 청구 이력은 남는다.
-        Map<Long, String> clubNamesById = clubRepository.findAllById(
+        Map<Long, String> clubNamesById = clubRepository.findNameRowsByIdIn(
                         bills.stream().map(FeeBill::getClubId).collect(Collectors.toSet())).stream()
-                .collect(Collectors.toMap(Club::getId, Club::getName));
+                .collect(Collectors.toMap(ClubRepository.ClubNameProjection::getId,
+                        ClubRepository.ClubNameProjection::getName));
         return bills.stream()
                 .map(bill -> MyFeeResponse.from(
                         FeeBillQuery.from(bill, paidByBill.getOrDefault(bill.getId(), 0L), today),
