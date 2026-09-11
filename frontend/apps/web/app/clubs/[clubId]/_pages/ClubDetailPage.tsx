@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { ApiError } from '@duing/api';
 import {
   useApiClient,
   useClubDetailQuery,
@@ -57,7 +58,13 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
       </div>
     );
   }
-  if (!detail.data) {
+  // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만
+  // "볼 수 없음" 화면으로 보낸다. 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
+  // "삭제됐어요" 로 단정해 사용자가 재시도를 포기한다. 소식 상세(NoticeDetailPage)와 같은 분기 구조다.
+  if (
+    (detail.error instanceof ApiError && detail.error.status === 404) ||
+    (detail.isSuccess && !detail.data)
+  ) {
     return (
       <ResourceNotFound
         title="이 동아리는 지금 볼 수 없어요"
@@ -66,6 +73,10 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
         actionLabel="동아리 탐색으로"
       />
     );
+  }
+  // 그 밖의 실패(5xx·네트워크·타임아웃)는 중립 오류 — data 없이 아래로 내려가면 본문이 깨진다.
+  if (!detail.data) {
+    return <p className="p-6 text-sm text-coral">동아리 정보를 불러오지 못했습니다.</p>;
   }
 
   const club = detail.data;

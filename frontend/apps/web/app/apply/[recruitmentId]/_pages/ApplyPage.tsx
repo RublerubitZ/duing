@@ -49,14 +49,21 @@ export function ApplyPage() {
 
   // 없는 모집(404)은 오류가 아니라 "찾을 수 없음" 이다 — 서버 메시지를 그대로 띄우는 아래 오류 패널과
   // 구분해, 전역 404 와 같은 시각 언어로 안내한다.
+  // /apply 에는 레이아웃이 없어 .duing 스코프 밖이다 — 형제 분기와 같은 크림 캔버스를 직접 깔고,
+  // ResourceNotFound 가 기대하는 토큰·Pretendard 를 얻도록 duing 을 함께 붙인다(없으면 흰 배경 + 기본 폰트).
   if (detail.isError && detail.error instanceof ApiError && detail.error.status === 404) {
     return (
-      <ResourceNotFound
-        title="이 모집은 찾을 수 없어요"
-        description="마감 후 정리됐거나 주소가 바뀌었을 수 있어요."
-        actionHref="/clubs"
-        actionLabel="동아리 탐색으로"
-      />
+      <div
+        className="duing min-h-dvh"
+        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      >
+        <ResourceNotFound
+          title="이 모집은 찾을 수 없어요"
+          description="마감 후 정리됐거나 주소가 바뀌었을 수 있어요."
+          actionHref="/clubs"
+          actionLabel="동아리 탐색으로"
+        />
+      </div>
     );
   }
 
