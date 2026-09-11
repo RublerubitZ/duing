@@ -45,6 +45,29 @@ describe('HomeFooter — 모바일 간소 푸터', () => {
       within(mobileFooter).getByRole('link', { name: '이용약관 및 개인정보 처리방침' }),
     ).toHaveAttribute('href', '/terms');
   });
+
+  it('모바일 푸터에도 FAQ·1:1 문의·카카오 문의 링크가 있다', () => {
+    render(<HomeFooter />);
+
+    const mobileFooter = screen
+      .getAllByRole('contentinfo')
+      .find((footer) => footer.classList.contains('md:hidden'));
+    expect(mobileFooter).toBeDefined();
+    if (!mobileFooter) return;
+
+    expect(within(mobileFooter).getByRole('link', { name: '자주 묻는 질문' })).toHaveAttribute(
+      'href',
+      '/faq',
+    );
+    expect(within(mobileFooter).getByRole('link', { name: '1:1 문의' })).toHaveAttribute(
+      'href',
+      '/me/inquiries/new',
+    );
+    expect(within(mobileFooter).getByRole('link', { name: '두잉팀 카카오 문의' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+  });
 });
 
 describe('HomeFooter — 데스크탑 풀 푸터', () => {
