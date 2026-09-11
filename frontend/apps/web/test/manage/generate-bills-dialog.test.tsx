@@ -203,14 +203,14 @@ describe('GenerateBillsDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('ALL_MEMBERS 정책은 회원 선택 UI 없이 그대로 발행한다', async () => {
+  it('ALL_MEMBERS 정책은 부원 선택 UI 없이 그대로 발행한다', async () => {
     const user = userEvent.setup();
     mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
     render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
 
     await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
 
-    expect(screen.queryByText(/청구 대상 회원/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/청구 대상 부원/)).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
     await user.click(screen.getByRole('button', { name: '발행' }));
@@ -229,7 +229,7 @@ describe('GenerateBillsDialog', () => {
 
     await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '4');
 
-    expect(screen.getByText(/청구 대상 회원/)).toBeInTheDocument();
+    expect(screen.getByText(/청구 대상 부원/)).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /김유신/ })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /이순신/ })).toBeInTheDocument();
   });
@@ -243,7 +243,7 @@ describe('GenerateBillsDialog', () => {
     await user.type(screen.getByLabelText(/청구 회차/), '2026-07');
     await user.click(screen.getByRole('button', { name: '발행' }));
 
-    expect(await screen.findByText('청구할 회원을 1명 이상 선택해 주세요.')).toBeInTheDocument();
+    expect(await screen.findByText('청구할 부원을 1명 이상 선택해 주세요.')).toBeInTheDocument();
     expect(mockGenerateMutate).not.toHaveBeenCalled();
   });
 

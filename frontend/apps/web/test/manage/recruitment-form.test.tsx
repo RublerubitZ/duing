@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
@@ -14,6 +14,11 @@ const futureEndDateSource = new Date();
 futureEndDateSource.setDate(futureEndDateSource.getDate() + 30);
 const FUTURE_END_DATE = `${futureEndDateSource.getFullYear()}-${String(futureEndDateSource.getMonth() + 1).padStart(2, '0')}-${String(futureEndDateSource.getDate()).padStart(2, '0')}`;
 
+
+/** create 모드 제출의 마지막 관문 — 공개 확인 모달에서 공개를 누른다. */
+async function confirmPublish() {
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+}
 
 describe('toBuilderQuestions — undefined(구 BE) 와 [](신 BE 외부 폼) 구분', () => {
   it('빈 배열이면 legacy questions 텍스트로 fallback 하지 않는다', () => {
@@ -98,6 +103,7 @@ describe('RecruitmentForm — 상시모집 토글', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ endDate: null });
@@ -143,6 +149,23 @@ function addQuestion(text: string) {
   fireEvent.change(screen.getByPlaceholderText('질문 1을 입력하세요'), { target: { value: text } });
 }
 
+describe('RecruitmentForm — 모집 정원 검증', () => {
+  // noValidate 라 브라우저 step 검증이 없어 소수점이 그대로 zod 까지 간다 — 문구가 한글이어야 한다.
+  it('정원에 소수를 넣으면 한글 오류 문구로 제출이 막힌다', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={onSubmit} isPending={false} />);
+
+    fillCreateBasics();
+    addQuestion('지원 동기를 알려주세요');
+    fireEvent.change(screen.getByLabelText(/^모집 정원/), { target: { value: '1.5' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+
+    expect(await screen.findByText('모집 정원은 정수여야 합니다.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
 describe('RecruitmentForm — 질문 유형 빌더', () => {
   it('질문 유형을 객관식(단일 선택)으로 바꾸면 선택지 입력이 나타난다', () => {
     render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);
@@ -169,6 +192,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.change(screen.getByPlaceholderText('선택지 2'), { target: { value: '2학년' } });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -198,6 +222,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     expect(requiredCheckbox).not.toBeChecked();
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([
@@ -417,6 +442,7 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     expect(screen.queryByPlaceholderText('선택지 1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]?.questionItems).toEqual([

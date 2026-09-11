@@ -209,13 +209,13 @@ describe('ApplyForm — 단일 스텝 지원', () => {
   it('useInterview=false 면 다음 버튼 없이 제출 버튼이 바로 노출된다', () => {
     renderForm({ useInterview: false });
     expect(screen.queryByRole('button', { name: '다음' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
   });
 
   it('useInterview=true 도 다음 버튼 없이 제출 버튼이 바로 노출된다', () => {
     renderForm({ useInterview: true });
     expect(screen.queryByRole('button', { name: '다음' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
   });
 
   it('제출 성공 시 me/applications/[id] 로 navigate 한다', async () => {
@@ -224,7 +224,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     const firstCall = mockRouterPush.mock.calls[0];
@@ -246,7 +246,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('이미 지원한 모집입니다.'),
@@ -272,11 +272,11 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     // 자동저장 410 과 같은 마감 UI 로 전환된다 — 서버 메시지 대신 배너가 안내를 대체한다.
     expect(await screen.findByRole('alert')).toHaveTextContent(CLOSED_BANNER_TEXT);
-    expect(screen.getByRole('button', { name: '제출' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeDisabled();
     expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
@@ -293,13 +293,13 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     const user = userEvent.setup();
     renderForm({ useInterview: false });
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('지원서 형식이 올바르지 않습니다.'),
     );
     expect(screen.queryByText(CLOSED_BANNER_TEXT)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '제출' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeEnabled();
     expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
@@ -317,7 +317,7 @@ describe('ApplyForm — 단일 스텝 지원', () => {
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/지원 동기/), '열정');
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => {
       expect(capturedBody).not.toBeNull();
@@ -403,7 +403,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     const user = userEvent.setup();
     renderForm({ questionItems: MIXED_QUESTION_ITEMS });
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     // 필수 주관식 + 필수 단일 선택 두 건. 복수 선택은 선택 질문이라 위반이 아니다.
     const alerts = await screen.findAllByRole('alert');
@@ -435,7 +435,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     expect(frontendCheckbox).toHaveAttribute('aria-required', 'true');
     expect(frontendCheckbox).toHaveAttribute('aria-invalid', 'false');
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '필수 질문입니다. 항목을 선택해주세요.',
@@ -469,7 +469,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
 
     await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '   ');
     await user.click(screen.getByRole('radio', { name: '월요일' }));
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
@@ -485,14 +485,14 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     const user = userEvent.setup();
     renderForm({ questionItems: MIXED_QUESTION_ITEMS });
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
     expect(await screen.findAllByRole('alert')).toHaveLength(2);
 
     // 주관식을 채우면 그 질문의 에러만 해제된다.
     await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(capturedBodies).toHaveLength(0);
@@ -511,7 +511,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
 
     await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
     await user.click(screen.getByRole('radio', { name: '월요일' }));
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -535,7 +535,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     // 정의 역순으로 클릭해도 values 는 선택지 정의 순서로 정규화된다(BE 는 중복·순서 무관하나 결정성 확보).
     await user.click(screen.getByRole('checkbox', { name: '백엔드' }));
     await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -561,7 +561,7 @@ describe('ApplyForm — 질문 유형별 렌더·검증·구조화 제출', () =
     await user.click(screen.getByRole('checkbox', { name: '프론트엔드' }));
     expect(screen.getByRole('checkbox', { name: '프론트엔드' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -640,7 +640,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
   it('지원 가능하면 기존과 동일하게 지원 폼이 렌더된다', async () => {
     renderApplyPage();
 
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
   });
 
   it('부적격 딥링크 진입은 지원 폼 대신 안내 패널을 보여준다', async () => {
@@ -649,7 +649,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     renderApplyPage();
 
     expect(await screen.findByText('이미 지원한 모집 공고입니다.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
     // makeRecruitment() 의 clubId 고정값(1)에 대응하는 동아리 상세로 돌아가는 링크.
     const backLink = screen.getByRole('link', { name: '동아리 페이지로 돌아가기' });
     expect(backLink).toHaveAttribute('href', '/clubs/1');
@@ -663,7 +663,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
 
     // 1) 적격 상태로 첫 진입 — 폼이 뜨고 '적격' 판정이 캐시에 남는다.
     const firstVisit = renderApplyPage(sharedQueryClient);
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
     firstVisit.unmount();
 
     // gcTime 만료는 setTimeout 으로 스케줄되므로 매크로태스크 한 틱을 흘려보낸다.
@@ -676,14 +676,14 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     renderApplyPage(sharedQueryClient);
 
     // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
-    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
     expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
 
     // 재확인 결과가 도착하면 차단 패널로 확정된다 — 그 사이에도 폼은 등장하지 않는다.
     expect(
       await screen.findByText('마감된 모집 공고에는 지원할 수 없습니다.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
   });
 
   it('모집 상세 조회가 실패하면 무한 로딩 대신 오류 안내와 탐색 복귀 링크를 보여준다', async () => {
@@ -744,7 +744,7 @@ describe('ApplyPage — 임시저장 시드', () => {
     expect(screen.getByRole('checkbox', { name: '프론트엔드' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: '백엔드' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -784,7 +784,7 @@ describe('ApplyPage — 임시저장 시드', () => {
     expect(await screen.findByRole('radio', { name: '월요일' })).toBeChecked();
     expect(screen.getByRole('radio', { name: '화요일' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     expect(capturedBodies[0]).toEqual({
@@ -824,7 +824,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
     expect(draftGetCount).toBe(1);
 
-    await user.click(screen.getByRole('button', { name: '제출' }));
+    await user.click(screen.getByRole('button', { name: '지원서 제출하기' }));
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toEqual({
