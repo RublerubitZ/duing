@@ -58,9 +58,9 @@ class AccountSuspensionAuthTest extends IntegrationTestBase {
         User user = saveUser();
         suspend(user);
         adminUserActionLogRepository.save(AdminUserActionLog.of(
-                1L, user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "예전 사유"));
+                user.getId(), user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "예전 사유"));
         adminUserActionLogRepository.save(AdminUserActionLog.of(
-                1L, user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "커뮤니티 신고 3건 누적"));
+                user.getId(), user.getId(), AdminUserAction.ACCOUNT_SUSPENDED, "커뮤니티 신고 3건 누적"));
 
         RestAssured.given()
                 .contentType("application/json")
