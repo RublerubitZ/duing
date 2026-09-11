@@ -6,6 +6,8 @@
 // — 이동은 마지막 방문 허브 경로(getLastInfoPath 단일 정책, 기본 /notices).
 // 판정 함수 이름이 isInfoSection 인 이유이기도 하다.
 // 도구 콘솔(/manage·/admin)·포커스 플로우(/apply)·인증·인쇄용 영수증에서는 미노출(activeHref === null → return null).
+// 알림(/notifications)은 예외로 개인영역에 접어 MY 활성으로 노출한다 — 모바일에선 종 아이콘으로만 들어오는데
+// 자체 상단 헤더가 없어, 탭바까지 빠지면 뒤로가기 말고는 빠져나갈 길이 없다.
 // root(layout.tsx)에 1회 마운트하고 usePathname 으로 가시성/활성을 판단한다.
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
@@ -48,6 +50,8 @@ function matchTabHref(pathname: string): string | null {
   if (/^\/(clubs|notices)\/\d+$/.test(pathname)) return null;
   // 인쇄용 영수증은 탭바를 두지 않는다.
   if (/^\/me\/fees\/\d+\/receipt$/.test(pathname)) return null;
+  // 알림은 개인영역(MY)의 일부로 접는다 — 탭바를 숨기면 모바일에서 되돌아갈 길이 없다.
+  if (pathname === '/notifications' || pathname.startsWith('/notifications/')) return '/me';
   // 소식 탭은 단일 prefix 가 아니라 정보 섹션 전체에 매칭된다.
   if (isInfoSection(pathname)) return DEFAULT_INFO_PATH;
   // 시설은 독립 탭이 아니라 '일정·시설' 탭의 두 번째 prefix 다.

@@ -118,10 +118,14 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('유사 접두 경로(/notifications)를 공지로 오매칭하지 않는다', () => {
+  // 종 아이콘으로만 들어오는 화면이라 탭바까지 빠지면 모바일에서 되돌아갈 길이 없다 — 개인영역으로 접는다.
+  // /notices 접두 오매칭(소식 활성)을 막는 기존 계약도 함께 지킨다.
+  it('알림(/notifications)은 개인영역으로 접혀 5탭이 노출되고 MY 가 활성이다', () => {
     mockUsePathname.mockReturnValue('/notifications');
-    const { container } = render(<BottomNav />);
-    expect(container.firstChild).toBeNull();
+    render(<BottomNav />);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getByRole('link', { name: 'MY' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).not.toHaveAttribute('aria-current');
   });
 
   it('운영정책(/terms)도 정보 섹션이라 탭바가 노출되고 정보 탭이 활성이다', () => {

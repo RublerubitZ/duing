@@ -52,6 +52,16 @@ function mondayOf(iso: string): string {
   return weekDatesOf(iso)[0] ?? iso;
 }
 
+// 홈 뷰·캘린더 뷰가 함께 쓰는 안내 한 줄. 390px·12.5px 에서 마지막 "요" 한 글자만 떨어져 고아 줄이 생겨,
+// 모바일은 두 줄로 끊고 sm 이상에서만 가운뎃점으로 이어 한 줄로 둔다(래퍼 <p> 의 여백은 호출부 몫).
+const BOOKING_SCOPE_NOTE = (
+  <>
+    <span className="block sm:inline">예약 신청은 중앙동아리 운영진만 할 수 있어요</span>
+    <span className="hidden sm:inline"> · </span>
+    <span className="block sm:inline">현황은 누구나 볼 수 있어요</span>
+  </>
+);
+
 export function FacilityBookingPage() {
   const searchParams = useSearchParams();
   const todayIso = seoulDateIso(new Date());
@@ -449,7 +459,7 @@ export function FacilityBookingPage() {
                   홈 뷰만 간격이 두 배가 되던 것을 막고, 캘린더 뷰와 같은 간격을 쓴다. */}
               <div>
                 <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
-                <p className="text-[12.5px] text-charcoal-3">예약 신청은 중앙동아리 운영진만 할 수 있어요 · 현황은 누구나 볼 수 있어요</p>
+                <p className="break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
               </div>
               <header>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
@@ -476,7 +486,7 @@ export function FacilityBookingPage() {
             <>
               <div>
                 <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
-                <p className="mb-4 text-[12.5px] text-charcoal-3">예약 신청은 중앙동아리 운영진만 할 수 있어요 · 현황은 누구나 볼 수 있어요</p>
+                <p className="mb-4 break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
                 <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
                 <h1 className="mb-3 mt-1 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
                 <FacilityContextBar
