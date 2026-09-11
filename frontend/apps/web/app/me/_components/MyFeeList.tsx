@@ -21,7 +21,8 @@ type ClubGroup = {
   bills: MyFee[];
 };
 
-// 청구를 동아리별로 묶는다. 가입한 동아리명을 우선 사용하고, 매핑이 없으면(탈퇴 등) clubId 를 표기한다.
+// 청구를 동아리별로 묶는다. 응답에 실린 동아리명을 우선 쓰고(탈퇴해도 남는다), 없으면 가입 목록 매핑,
+// 그것도 없으면 clubId 를 표기한다.
 function groupByClub(myFees: MyFee[], clubNameById: Map<number, string>): ClubGroup[] {
   const groups = new Map<number, ClubGroup>();
   for (const bill of myFees) {
@@ -31,7 +32,7 @@ function groupByClub(myFees: MyFee[], clubNameById: Map<number, string>): ClubGr
     } else {
       groups.set(bill.clubId, {
         clubId: bill.clubId,
-        clubName: clubNameById.get(bill.clubId) ?? `동아리 #${bill.clubId}`,
+        clubName: bill.clubName ?? clubNameById.get(bill.clubId) ?? `동아리 #${bill.clubId}`,
         bills: [bill],
       });
     }
@@ -122,7 +123,7 @@ function FeeAccountNotice({ clubId }: FeeAccountNoticeProps) {
 
   // 미등록(404)은 ApiError 로 surface 되어 data 가 비어 있다 — 에러 UI 가 아니라 옅은 안내로 처리한다.
   if (!account) {
-    return <p className="px-1 text-xs text-charcoal-3">납부 계좌가 등록되지 않았어요.</p>;
+    return <p className="px-1 text-xs text-charcoal-3">아직 납부 계좌가 없어요. 운영진이 등록하면 여기에 표시돼요.</p>;
   }
 
   const copyAccountNumber = async () => {
