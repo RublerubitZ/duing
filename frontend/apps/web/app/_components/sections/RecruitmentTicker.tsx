@@ -31,7 +31,7 @@ function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplic
       <span className="text-[#E1E1E1]">{item.name}</span>
       <span
         className={cn(
-          'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:h-[18px] sm:text-[13px]',
+          'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:text-[13px]',
           CHIP_EMPHASIS[item.emphasis],
         )}
       >
