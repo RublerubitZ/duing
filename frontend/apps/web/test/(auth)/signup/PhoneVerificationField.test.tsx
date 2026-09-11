@@ -293,6 +293,23 @@ describe('PhoneVerificationField', () => {
     expect(onReset).toHaveBeenCalled();
   });
 
+  // 번호를 잘못 넣고 발급하면 expired 까지 기다려야 했다 — issued 에서도 idle 로 되돌아갈 길을 둔다.
+  it('issued 에서 [번호 다시 입력]을 누르면 onReset 을 호출한다', async () => {
+    const onReset = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="issued"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        onReset={onReset}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '번호 다시 입력' }));
+    expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
   it('모바일에서 재발급으로 코드가 바뀌면 다시 CTA만 남고 보냈어요는 숨는다', async () => {
     stubUserAgent(IPHONE_UA);
     try {
