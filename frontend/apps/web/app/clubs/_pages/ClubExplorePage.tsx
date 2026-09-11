@@ -259,6 +259,7 @@ export function ClubExplorePage() {
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder={CLUB_SEARCH_PLACEHOLDER}
+                  aria-label="동아리 검색"
                   className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
@@ -605,6 +606,7 @@ export function ClubExplorePage() {
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder={CLUB_SEARCH_PLACEHOLDER}
+              aria-label="동아리 검색"
               className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
               style={{ fontFamily: 'inherit' }}
             />
@@ -615,7 +617,7 @@ export function ClubExplorePage() {
             좁을수록 늘어남), 문서에 가로 스크롤이 없어 그 오버스크롤이 상위로 전파된다. iOS 에서는
             viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있어 레일 안에서 끊는다.
             세로축은 auto 로 둔다 — 레일 위에서 시작한 세로 드래그는 페이지가 받아야 한다. */}
-        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
+        <nav className="flex gap-2 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
@@ -624,7 +626,7 @@ export function ClubExplorePage() {
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
                 className={cn(
-                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
+                  'min-w-[44px] shrink-0 whitespace-nowrap border-b-[2.5px] px-2 py-2.5 text-[14px] font-semibold transition-colors',
                   on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
                 )}
               >

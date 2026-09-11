@@ -170,6 +170,7 @@ export function FaqPage() {
               if (event.key === 'Enter') handleSearch();
             }}
             placeholder="질문을 검색하세요"
+            aria-label="질문 검색"
             className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
             style={{ fontFamily: 'inherit' }}
           />
@@ -254,7 +255,7 @@ export function FaqPage() {
           <p className="text-[14px] font-semibold text-ink-deep">원하는 답을 못 찾으셨나요?</p>
           <Link
             href={toRoute('/me/inquiries/new')}
-            className="rounded-full bg-coral px-5 py-2.5 text-[14px] font-semibold text-paper"
+            className="rounded-full bg-danger px-5 py-2.5 text-[14px] font-semibold text-paper hover:bg-danger-hover"
           >
             1:1 문의하기
           </Link>
