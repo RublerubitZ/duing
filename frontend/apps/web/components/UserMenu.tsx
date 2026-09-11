@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
-import { useLogout, useMeQuery } from '@duing/hooks';
+import { useLogout, useMeQuery, useMyClubsQuery } from '@duing/hooks';
 
 import { toRoute } from '@/app/_lib/route';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -15,11 +16,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const MENU_ITEMS = [
-  { label: '마이페이지', href: '/me' },
-  { label: '설정', href: '/me/settings' },
-] as const;
-
 export function UserMenu({
   initialAuthenticated = null,
 }: {
@@ -27,6 +23,8 @@ export function UserMenu({
 } = {}) {
   const status = useSeededAuthStatus(initialAuthenticated);
   const meQuery = useMeQuery();
+  // 이 메뉴는 전 화면 상단바에 있다 — 게스트에게까지 내 동아리 목록을 묻지 않도록 useMeQuery 와 같은 축으로 막는다.
+  const myClubsQuery = useMyClubsQuery({ enabled: status === 'authenticated' });
   const logout = useLogout();
   const router = useGuardedRouter();
   const { addToast } = useToast();
@@ -37,6 +35,23 @@ export function UserMenu({
   // 이름은 /users/me 응답(useMeQuery) 그대로다 — 시안(210:2824 login 변형)의 "두두잉님" 자리.
   const userName = meQuery.data?.name ?? '회원';
   const isAdmin = meQuery.data?.role === 'ADMIN';
+
+  // 운영진 콘솔 진입점 — 관리 동아리가 하나면 그 동아리로 바로, 여러 개면 선택 화면(/manage)으로 보낸다.
+  const managedClubs = (myClubsQuery.data ?? []).filter(
+    (club) => (club.myRole === 'LEADER' || club.myRole === 'OFFICER') && club.status === 'ACTIVE',
+  );
+  const consoleItem =
+    managedClubs.length === 1
+      ? { label: `운영진 콘솔 · ${managedClubs[0]!.clubName}`, href: toRoute(`/manage?clubId=${managedClubs[0]!.clubId}`) }
+      : managedClubs.length > 1
+        ? { label: '운영진 콘솔', href: toRoute('/manage') }
+        : null;
+
+  const menuItems: { label: string; href: Route }[] = [
+    { label: '마이페이지', href: toRoute('/me') },
+    ...(consoleItem ? [consoleItem] : []),
+    { label: '설정', href: toRoute('/me/settings') },
+  ];
 
   const handleLogout = async () => {
     try {
@@ -63,14 +78,19 @@ export function UserMenu({
           {userName}님
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-[160px] p-0">
-        {MENU_ITEMS.map((item) => (
+      {/* 폭 고정 → 하한만 고정. "운영진 콘솔 · {동아리명}" 은 길이가 제각각이라 240 까지 늘리고 그 너머는 말줄임. */}
+      <DropdownMenuContent align="end" sideOffset={8} className="min-w-[160px] max-w-[240px] p-0">
+        {menuItems.map((item) => (
           <DropdownMenuItem
             key={item.label}
             asChild
             className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
           >
-            <Link href={item.href}>{item.label}</Link>
+            {/* asChild 라 아이템의 flex 가 이 Link 에 얹힌다 — truncate 는 flex 컨테이너가 아니라
+                안쪽 텍스트 상자에 걸어야 말줄임이 산다. */}
+            <Link href={item.href} className="min-w-0">
+              <span className="truncate">{item.label}</span>
+            </Link>
           </DropdownMenuItem>
         ))}
         {isAdmin && (
