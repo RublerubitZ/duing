@@ -227,6 +227,10 @@ export function PhoneVerificationField({
               <p className="mt-2 text-center text-xs text-charcoal-3">
                 버튼을 누르면 문자 앱이 열리고 수신번호·코드가 자동으로 채워져요. 그대로 보내면 끝!
               </p>
+              {/* 문자앱을 열기 전에도 번호를 고칠 길이 있어야 한다 — actionRow 는 탭 후에만 나오므로 여기 따로 둔다. */}
+              <button type="button" onClick={onReset} className="btn btn-ghost btn-sm mt-1 min-h-11 w-full">
+                번호 다시 입력
+              </button>
             </>
           ) : (
             <>
