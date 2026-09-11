@@ -11,6 +11,7 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
@@ -115,6 +116,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 new ApplicationStatusChanger(mock(ApplicationStatusHistoryRepository.class)),
                 mock(ApplicationEvaluationRepository.class),
                 mock(InterviewAssignmentQueryService.class),
-                fixedClock);
+                fixedClock,
+                mock(ClubAuditEventRepository.class));
     }
 }

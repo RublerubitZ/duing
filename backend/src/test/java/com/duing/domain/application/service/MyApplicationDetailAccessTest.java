@@ -14,6 +14,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.ApplicationStatusHistoryRepository;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
@@ -60,7 +61,8 @@ class MyApplicationDetailAccessTest {
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
-            clock);
+            clock,
+            mock(ClubAuditEventRepository.class));
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

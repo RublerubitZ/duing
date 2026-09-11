@@ -15,6 +15,7 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -67,7 +68,8 @@ class ApplicationEligibilityCheckTest {
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
-            clock);
+            clock,
+            mock(ClubAuditEventRepository.class));
 
     @Test
     @DisplayName("존재하지 않는 모집의 지원 가능 여부 확인은 404 로 실패한다")

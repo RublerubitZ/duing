@@ -509,6 +509,56 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
     }
 
+    @Test
+    @DisplayName("지원자 상세 응답은 휴대폰을 마스킹(phoneMasked)해 싣고 원본 phone 필드는 내려주지 않는다")
+    void applicantDetailMasksPhone() {
+        Club club = saveActiveClub("마스킹동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "마스킹모집");
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{applicationId}", application.getId())
+                .then().statusCode(200)
+                .body("data.applicant.phoneMasked", equalTo("010-****-0000"))
+                .body("data.applicant.phone", nullValue());
+    }
+
+    @Test
+    @DisplayName("운영진이 지원자 번호를 조회하면 원본이 no-store 로 내려온다")
+    void leaderCanRevealApplicantPhone() {
+        Club club = saveActiveClub("번호열람동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "번호열람모집");
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
+                .then().statusCode(200)
+                .header(HttpHeaders.CACHE_CONTROL, containsString("no-store"))
+                .body("data.phone", equalTo("010-0000-0000"));
+    }
+
+    @Test
+    @DisplayName("운영진이 아닌 사용자가 지원자 번호를 조회하면 403 이다")
+    void nonManagerCannotRevealApplicantPhone() {
+        Club club = saveActiveClub("번호열람권한동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "번호열람권한모집");
+        Long applicationId = saveApplicationAtTime(recruitment, LocalDateTime.of(2026, 5, 1, 9, 0));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/leader/applications/{applicationId}/phone", applicationId)
+                .then().statusCode(403);
+    }
+
     private Long saveApplicationAtTime(Recruitment recruitment, LocalDateTime createdAt) {
         User applicant = saveUser("지원자", UserRole.STUDENT, College.IT_ENGINEERING, "전자공학");
         Application application = applicationRepository.save(

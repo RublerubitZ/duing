@@ -35,6 +35,9 @@ public interface ApplicationService {
 
     ApplicantDetailQuery getApplicantDetail(Long applicationId, Long currentUserId);
 
+    /** 지원자 원본 연락처 — 열람마다 APPLICANT_PHONE_VIEWED 감사 행을 남긴다. 비운영진은 거부, 없는 지원서는 404. */
+    String getApplicantPhone(Long applicationId, Long currentUserId);
+
     void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand);
 
     BulkUpdateApplicationStatusResult bulkUpdateStatus(BulkUpdateApplicationStatusCommand bulkCommand);
