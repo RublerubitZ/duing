@@ -225,7 +225,7 @@ export function FaqPage() {
           <>
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13px] text-charcoal-3">
-                {params.keyword || params.categoryId !== 'ALL'
+                {params.keyword || params.categoryId !== 'ALL' || params.page > 1
                   ? '검색 결과가 없어요'
                   : '아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'}
               </p>

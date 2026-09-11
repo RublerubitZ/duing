@@ -160,6 +160,18 @@ describe('FaqPage', () => {
     expect(screen.getByText('검색 결과가 없어요')).toBeInTheDocument();
   });
 
+  it('범위 밖 페이지 딥링크(page=99)로 목록이 비면 등록된 질문 없음이 아니라 결과 없음 문구가 노출된다', () => {
+    mockSearchParams = new URLSearchParams('page=99');
+    mockUseFederationFaqListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<FaqPage />);
+
+    expect(screen.getByText('검색 결과가 없어요')).toBeInTheDocument();
+    expect(
+      screen.queryByText('아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'),
+    ).not.toBeInTheDocument();
+  });
+
   it('item 쿼리스트링으로 진입하면 FaqDeepLinkCard 가 렌더되고 해당 id 로 상세 조회 훅이 호출된다', () => {
     mockSearchParams = new URLSearchParams('item=5');
     mockUseFederationFaqDetailQuery.mockReturnValue({
