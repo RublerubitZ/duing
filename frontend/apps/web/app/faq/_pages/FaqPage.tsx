@@ -225,7 +225,11 @@ export function FaqPage() {
         {listQuery.isSuccess && (
           <>
             {items.length === 0 ? (
-              <p className="py-12 text-center text-[13px] text-charcoal-3">검색 결과가 없어요</p>
+              <p className="py-12 text-center text-[13px] text-charcoal-3">
+                {params.keyword || params.categoryId !== 'ALL' || params.page > 1
+                  ? '검색 결과가 없어요'
+                  : '아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'}
+              </p>
             ) : (
               <div
                 // keepPreviousData 전환 중(카테고리·검색·페이지 변경)에는 이전 목록을 딤 처리해 갱신 중임을 알린다.
