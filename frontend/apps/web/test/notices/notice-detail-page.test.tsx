@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { NoticeDetail, NoticeContentFormat } from '@duing/types';
 
@@ -123,30 +123,43 @@ describe('NoticeDetailPage (재설계)', () => {
     expect(screen.getByText(/마감된 공지/)).toBeInTheDocument();
   });
 
-  it('403 에러이면 router.replace("/notices") 가 호출된다', async () => {
+  // 목록으로 자동 리다이렉트하던 것을 제자리 "볼 수 없음" 화면으로 바꿨다 — 주소가 유지돼야
+  // 사용자가 무슨 일이 일어났는지 알 수 있고, 뒤로가기가 리다이렉트에 삼켜지지 않는다.
+  it('403 에러이면 리다이렉트 없이 "볼 수 없음" 화면을 제자리에 보여준다', () => {
     mockRouterReplace.mockReset();
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: false, isSuccess: false, isError: true, error: { status: 403 } });
 
     render(<NoticeDetailPage />);
 
-    await waitFor(() => {
-      expect(mockRouterReplace).toHaveBeenCalledWith('/notices');
-    });
+    expect(screen.getByRole('heading', { level: 1, name: '이 소식은 지금 볼 수 없어요' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '소식 목록으로' })).toHaveAttribute('href', '/notices');
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  // 서버가 "볼 수 없는 공지"를 미존재와 같은 404 로 답하도록 바뀌었다(열거 방지) — 그래도 사용자는
-  // 에러 화면이 아니라 목록으로 돌아가야 한다.
-  it('404 에러여도 router.replace("/notices") 가 호출된다', async () => {
+  // 서버가 "볼 수 없는 공지"를 미존재와 같은 404 로 답하도록 바뀌었다(열거 방지) — 403 과 404 의
+  // 화면이 한 글자라도 달라지면 그 차이가 곧 존재 여부를 알려주므로 완전히 같은 화면이어야 한다.
+  it('404 에러여도 403 과 똑같은 "볼 수 없음" 화면을 보여준다', () => {
     mockRouterReplace.mockReset();
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: false, isSuccess: false, isError: true, error: { status: 404 } });
 
     render(<NoticeDetailPage />);
 
-    await waitFor(() => {
-      expect(mockRouterReplace).toHaveBeenCalledWith('/notices');
-    });
+    expect(screen.getByRole('heading', { level: 1, name: '이 소식은 지금 볼 수 없어요' })).toBeInTheDocument();
+    expect(screen.getByText('삭제됐거나 볼 수 없는 소식이에요.')).toBeInTheDocument();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+  });
+
+  // 403·404 가 아닌 실패(네트워크·5xx)는 "볼 수 없음" 이 아니라 기존 오류 문구로 남는다.
+  it('500 에러는 "볼 수 없음" 이 아니라 오류 문구로 남는다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: false, isSuccess: false, isError: true, error: { status: 500 } });
+
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByText('공지를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: '이 소식은 지금 볼 수 없어요' })).not.toBeInTheDocument();
   });
 
   it('startAt 이 null 이어도 크래시 없이 "종료 일시까지" 로 렌더한다(prod 공지 14 재현)', () => {
