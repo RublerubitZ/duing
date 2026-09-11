@@ -12,6 +12,7 @@ import {
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Notification } from '@duing/types';
+import { HomeNav } from '@/app/_components/HomeNav';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { Spinner } from '@/components/loading/Spinner';
 import { toLinkRoute, toRoute } from '../_lib/route';
@@ -55,15 +56,20 @@ export default function NotificationsPage() {
   // 확인이 끝나지 않았어도 로그인 진입점을 준다 — 갱신이 401 이 아닌 이유(5xx·타임아웃·오프라인)로
   // 실패하면 확정 신호가 영영 서지 않아, 대기 화면만 두면 익명 방문자가 무한 스피너에 갇힌다.
   if (authStatus !== 'authenticated') {
+    // PC 에는 이 페이지들만 상단바가 없었다. 레이아웃이 아니라 페이지에서 감싼다 —
+    // MyPage 의 100dvh 래퍼와 충돌하기 때문(SettingsPage 패턴).
     return (
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <div className="space-y-3 text-sm text-charcoal-2">
-          <p>알림은 로그인 후 확인할 수 있어요.</p>
-          <Link href={toRoute('/login?next=/notifications')} className="btn btn-primary inline-flex">
-            로그인하기
-          </Link>
-        </div>
-      </main>
+      <div className="duing min-h-dvh bg-cream">
+        <HomeNav slimOnMobile />
+        <main className="mx-auto max-w-2xl px-6 py-10">
+          <div className="space-y-3 text-sm text-charcoal-2">
+            <p>알림은 로그인 후 확인할 수 있어요.</p>
+            <Link href={toRoute('/login?next=/notifications')} className="btn btn-primary inline-flex">
+              로그인하기
+            </Link>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -77,58 +83,61 @@ export default function NotificationsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">알림</h1>
-        <button
-          type="button"
-          onClick={() => readAllMutation.mutate()}
-          disabled={readAllMutation.isPending}
-          className="text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50"
-        >
-          모두 읽음
-        </button>
-      </div>
-      <div className="mb-6 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setUnreadOnly(false)}
-          className={`rounded-full px-3 py-1 text-xs ${!unreadOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-        >
-          전체
-        </button>
-        <button
-          type="button"
-          onClick={() => setUnreadOnly(true)}
-          className={`rounded-full px-3 py-1 text-xs ${unreadOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-        >
-          안 읽음
-        </button>
-      </div>
-      {listQuery.isLoading ? (
-        <ListRowsSkeleton rows={6} rowClassName="h-[76px] rounded-xl" label="알림 목록 불러오는 중" />
-      ) : allNotifications.length === 0 ? (
-        <p className="py-12 text-center text-sm text-slate-500">알림이 없어요</p>
-      ) : (
-        <div className="space-y-6">
-          {bucketed.today.length > 0 && (
-            <NotificationGroup title="오늘" items={bucketed.today} onClick={handleClick} />
-          )}
-          {bucketed.thisWeek.length > 0 && (
-            <NotificationGroup title="이번 주" items={bucketed.thisWeek} onClick={handleClick} />
-          )}
-          {bucketed.older.length > 0 && (
-            <NotificationGroup title="이전" items={bucketed.older} onClick={handleClick} />
-          )}
+    <div className="duing min-h-dvh bg-cream">
+      <HomeNav slimOnMobile />
+      <main className="mx-auto max-w-2xl px-6 py-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">알림</h1>
+          <button
+            type="button"
+            onClick={() => readAllMutation.mutate()}
+            disabled={readAllMutation.isPending}
+            className="text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50"
+          >
+            모두 읽음
+          </button>
         </div>
-      )}
-      <div ref={sentinelRef} className="h-8" />
-      {listQuery.isFetchingNextPage && (
-        <div role="status" aria-label="다음 알림 불러오는 중" className="flex justify-center py-4">
-          <Spinner size={18} className="text-charcoal-3" />
+        <div className="mb-6 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setUnreadOnly(false)}
+            className={`rounded-full px-3 py-1 text-xs ${!unreadOnly ? 'bg-slate-900 text-white' : 'bg-graysoft text-charcoal-2'}`}
+          >
+            전체
+          </button>
+          <button
+            type="button"
+            onClick={() => setUnreadOnly(true)}
+            className={`rounded-full px-3 py-1 text-xs ${unreadOnly ? 'bg-slate-900 text-white' : 'bg-graysoft text-charcoal-2'}`}
+          >
+            안 읽음
+          </button>
         </div>
-      )}
-    </main>
+        {listQuery.isLoading ? (
+          <ListRowsSkeleton rows={6} rowClassName="h-[76px] rounded-xl" label="알림 목록 불러오는 중" />
+        ) : allNotifications.length === 0 ? (
+          <p className="py-12 text-center text-sm text-slate-500">알림이 없어요</p>
+        ) : (
+          <div className="space-y-6">
+            {bucketed.today.length > 0 && (
+              <NotificationGroup title="오늘" items={bucketed.today} onClick={handleClick} />
+            )}
+            {bucketed.thisWeek.length > 0 && (
+              <NotificationGroup title="이번 주" items={bucketed.thisWeek} onClick={handleClick} />
+            )}
+            {bucketed.older.length > 0 && (
+              <NotificationGroup title="이전" items={bucketed.older} onClick={handleClick} />
+            )}
+          </div>
+        )}
+        <div ref={sentinelRef} className="h-8" />
+        {listQuery.isFetchingNextPage && (
+          <div role="status" aria-label="다음 알림 불러오는 중" className="flex justify-center py-4">
+            <Spinner size={18} className="text-charcoal-3" />
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
@@ -141,7 +150,8 @@ type GroupProps = {
 function NotificationGroup({ title, items, onClick }: GroupProps) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-xs font-bold tracking-[0.04em] text-charcoal-3">{title}</h2>
+      {/* .duing 스코프가 h2 색·자간을 덮으므로(특이도) 그룹 라벨 스타일은 ! 로 지킨다 — MyPageHeader 전례. */}
+      <h2 className="mb-2 px-1 text-xs font-bold !tracking-[0.04em] !text-charcoal-3">{title}</h2>
       <ul className="space-y-1.5">
         {items.map((notification) => (
           <li key={notification.id}>
