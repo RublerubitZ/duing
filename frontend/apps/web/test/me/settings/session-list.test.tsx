@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -120,6 +120,9 @@ describe('SessionListCard', () => {
 
     await screen.findByText('iPhone 15');
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+    );
 
     await waitFor(() => expect(deletedId).toBe('2'));
     await waitFor(() => expect(screen.queryByText('iPhone 15')).not.toBeInTheDocument());
@@ -140,6 +143,9 @@ describe('SessionListCard', () => {
 
     await screen.findByText('iPhone 15');
     await user.click(screen.getByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+    );
 
     await waitFor(() => expect(logoutAllCalled).toBe(true));
     await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
@@ -177,6 +183,9 @@ describe('SessionListCard', () => {
     renderCard();
 
     await user.click(await screen.findByRole('button', { name: '로그아웃' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+    );
 
     expect(await screen.findByText('이미 만료된 세션입니다.')).toBeInTheDocument();
     expect(
@@ -198,6 +207,9 @@ describe('SessionListCard', () => {
     renderCard();
 
     await user.click(await screen.findByRole('button', { name: /모든 기기에서 로그아웃/ }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+    );
 
     expect(
       await screen.findByText('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'),
@@ -213,7 +225,52 @@ describe('SessionListCard', () => {
     renderCard();
 
     await user.click(await screen.findByRole('button', { name: '로그아웃' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
+    );
 
     expect(await screen.findByText(/로그아웃하지 못했어요|인터넷 연결을 확인해주세요/)).toBeInTheDocument();
+  });
+
+  // 로그아웃은 되돌릴 수 없다 — 누른 즉시 요청이 나가지 않고 확인 모달을 한 단계 거친다.
+  it('다른 모든 기기에서 로그아웃은 확인 후에만 요청한다', async () => {
+    let logoutAllCalled = false;
+    stubSessions(SESSIONS);
+    server.use(
+      http.delete(`${BASE}/users/me/sessions`, () => {
+        logoutAllCalled = true;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(await screen.findByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
+    const dialog = screen.getByRole('dialog', { name: '다른 모든 기기에서 로그아웃할까요?' });
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+    expect(logoutAllCalled).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: '다른 모든 기기에서 로그아웃' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }));
+    await waitFor(() => expect(logoutAllCalled).toBe(true));
+  });
+
+  it('개별 기기 로그아웃도 확인을 거친다', async () => {
+    let revokedId: string | null = null;
+    stubSessions(SESSIONS);
+    server.use(
+      http.delete(`${BASE}/users/me/sessions/:id`, ({ params }) => {
+        revokedId = String(params.id);
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(await screen.findByRole('button', { name: '로그아웃' })); // 현재 기기가 아닌 행(iPhone 15) 하나뿐
+    await user.click(
+      within(screen.getByRole('dialog', { name: '이 기기에서 로그아웃할까요?' })).getByRole('button', {
+        name: '로그아웃',
+      }),
+    );
+    await waitFor(() => expect(revokedId).toBe('2'));
   });
 });

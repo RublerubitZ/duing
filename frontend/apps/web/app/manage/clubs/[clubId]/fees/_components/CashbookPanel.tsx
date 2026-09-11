@@ -11,6 +11,7 @@ import {
 import type { CashbookCategory, CashbookEntry, CashbookEntryType } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { cashbookCategoryLabel, formatWon } from '@/app/_lib/feeLabels';
 
@@ -41,6 +42,8 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
   const [hideExcluded, setHideExcluded] = useState(false);
   const [registerType, setRegisterType] = useState<CashbookEntryType | null>(null);
   const [editTarget, setEditTarget] = useState<CashbookEntry | null>(null);
+  // 삭제는 되돌릴 수 없다 — 확인받는 동안 대상 항목을 들고 있는다.
+  const [deleteTarget, setDeleteTarget] = useState<CashbookEntry | null>(null);
 
   const params = useMemo(
     () => ({
@@ -63,9 +66,14 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
 
   const onDelete = (entry: CashbookEntry) => {
     deleteEntry.mutate(entry.id, {
-      onSuccess: () => addToast('장부 항목을 삭제했습니다.'),
-      onError: (error) =>
-        addToast(error instanceof Error ? error.message : '삭제에 실패했습니다.', { variant: 'error' }),
+      onSuccess: () => {
+        setDeleteTarget(null);
+        addToast('장부 항목을 삭제했습니다.');
+      },
+      onError: (error) => {
+        setDeleteTarget(null);
+        addToast(error instanceof Error ? error.message : '삭제에 실패했습니다.', { variant: 'error' });
+      },
     });
   };
 
@@ -204,7 +212,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                 </button>
                 <button type="button" onClick={() => setEditTarget(entry)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft">수정</button>
                 {entry.source === 'MANUAL' && (
-                  <button type="button" onClick={() => onDelete(entry)} disabled={deleteEntry.isPending} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50">삭제</button>
+                  <button type="button" onClick={() => setDeleteTarget(entry)} disabled={deleteEntry.isPending} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50">삭제</button>
                 )}
               </div>
             </li>
@@ -218,6 +226,17 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
       {editTarget && (
         <CashbookEntryDialog clubId={clubId} entryType={editTarget.entryType} entry={editTarget} onClose={() => setEditTarget(null)} />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="이 항목을 삭제할까요?"
+        description="되돌릴 수 없어요."
+        isPending={deleteEntry.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) onDelete(deleteTarget);
+        }}
+      />
     </div>
   );
 }

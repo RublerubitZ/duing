@@ -899,9 +899,12 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
       expect(screen.getByText('확정')).toBeInTheDocument();
     });
 
-    // 슬롯 삭제 버튼 클릭
+    // 슬롯 삭제 버튼 클릭 → 확인 모달에서 [삭제] 를 눌러야 요청이 나간다
     const deleteButtons = screen.getAllByRole('button', { name: /슬롯 삭제/ });
     await userEvent.click(deleteButtons[0]!);
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }),
+    );
 
     // 409 서버 메시지가 인라인 role="alert" 로 노출된다
     await waitFor(() => {

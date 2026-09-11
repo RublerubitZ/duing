@@ -93,7 +93,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={isPending || confirmDisabled}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}
             {confirmLabel}
