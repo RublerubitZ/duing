@@ -93,6 +93,29 @@ describe('RecruitmentForm 오류 표시', () => {
     }
   });
 
+  // 배너를 무시하고 한 글자 쳤다가 debounce 안에 지우면 이 세션은 아직 아무것도 저장하지 않았다.
+  // 그 상태에서 옛 저장본까지 지우면 배너도 이미 접힌 뒤라 되살릴 길이 없다.
+  it('이 세션에서 저장한 적 없는 초안은 되돌림으로 지워지지 않는다', () => {
+    vi.useFakeTimers();
+    try {
+      saveRecruitmentDraft(7, { title: '옛 저장본', capacity: 5 });
+      render(
+        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+      );
+      const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+      fireEvent.change(titleInput, { target: { value: 'a' } });
+      // 1.5초가 지나기 전에 되돌린다 — 저장은 한 번도 일어나지 않았다.
+      fireEvent.change(titleInput, { target: { value: '' } });
+
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(7)?.values.title).toBe('옛 저장본');
+      expect(loadRecruitmentDraft(7)?.values.capacity).toBe(5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // 자동 저장의 "초기값으로 돌아왔으면 지운다" 기준선은 마운트 시 시드값이어야 한다. 복원값이 기준선이
   // 되면 복원 후 한 글자 쳤다 지우는 것만으로 저장본이 사라져 새로고침 시 복원할 내용이 없어진다.
   it('이어서 쓰기로 복원한 값은 편집을 되돌려도 지워지지 않는다', () => {

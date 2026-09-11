@@ -423,6 +423,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
    * ("새로 쓰기" 는 값이 시드와 같아 clear 로 떨어지는데, 이미 지운 뒤라 no-op 다).
    */
   const initialDraftSnapshot = useRef<string | null>(null);
+  // 되돌림 clear 는 이 세션이 저장했거나 "이어서 쓰기" 로 넘겨받은 저장본에만 적용한다. 배너를 무시하고
+  // 한 글자 쳤다가 debounce 전에 지우면 쓴 것도 없이 옛 저장본만 사라져(배너까지 접힌 뒤라) 되살릴 길이 없다.
+  const hasSavedDraftRef = useRef(false);
   useEffect(() => {
     if (draftClubId === undefined) return;
     const values: RecruitmentDraftValues = {
@@ -454,13 +457,13 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     }
     // 편집을 되돌려 초기값으로 돌아왔으면 남은 저장본도 지운다 — 쓸 내용이 없는데 배너만 뜨는 일을 막는다.
     if (snapshot === initialDraftSnapshot.current) {
-      clearRecruitmentDraft(draftClubId);
+      if (hasSavedDraftRef.current) clearRecruitmentDraft(draftClubId);
       return;
     }
-    const timer = setTimeout(
-      () => saveRecruitmentDraft(draftClubId, values),
-      DRAFT_SAVE_DEBOUNCE_MS,
-    );
+    const timer = setTimeout(() => {
+      saveRecruitmentDraft(draftClubId, values);
+      hasSavedDraftRef.current = true;
+    }, DRAFT_SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [
     draftClubId,
@@ -548,6 +551,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 className="btn btn-primary btn-sm"
                 onClick={() => {
                   restoreDraft(draft.values);
+                  // 복원한 순간부터 이 저장본은 이 세션의 것 — 되돌리면 지워도 된다.
+                  hasSavedDraftRef.current = true;
                   setDraft(null);
                 }}
               >

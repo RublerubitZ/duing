@@ -156,7 +156,7 @@ describe('RecruitmentForm — 모집 정원 검증', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
-    expect(await screen.findByText('모집 정원은 자연수여야 합니다.')).toBeInTheDocument();
+    expect(await screen.findByText('모집 정원은 정수여야 합니다.')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
