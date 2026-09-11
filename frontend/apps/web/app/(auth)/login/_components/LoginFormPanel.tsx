@@ -87,14 +87,6 @@ function IconChevronLeft() {
   );
 }
 
-function IconChevronDown() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function LoginForm() {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
@@ -147,13 +139,7 @@ function LoginForm() {
           <IconChevronLeft />
           홈으로
         </Link>
-        <button
-          type="button"
-          className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal"
-        >
-          한국어
-          <IconChevronDown />
-        </button>
+        <span aria-hidden className="w-[52px]" />
       </nav>
 
       {/* Form content */}
@@ -283,7 +269,7 @@ function LoginForm() {
               disabled={login.isPending}
               className="btn btn-primary btn-big mt-2 w-full disabled:opacity-50"
             >
-              {login.isPending && <ButtonSpinner />}두잉 시작하기 →
+              {login.isPending && <ButtonSpinner />}로그인
             </button>
           </form>
 

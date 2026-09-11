@@ -11,15 +11,15 @@ beforeEach(() => {
 });
 
 describe('InfoTabs', () => {
-  it('탭 4개(공지·자주 묻는 질문·운영정책·서비스 소개)를 기존 URL 로 렌더한다', () => {
+  it('탭 4개(소식·자주 묻는 질문·이용약관·서비스 소개)를 기존 URL 로 렌더한다', () => {
     mockUsePathname.mockReturnValue('/notices');
     render(<InfoTabs />);
 
     expect(screen.getByRole('navigation', { name: '정보' })).toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(4);
-    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
+    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
     expect(screen.getByRole('link', { name: '자주 묻는 질문' })).toHaveAttribute('href', '/faq');
-    expect(screen.getByRole('link', { name: '운영정책' })).toHaveAttribute('href', '/terms');
+    expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
     expect(screen.getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '/introduce');
   });
 
@@ -27,8 +27,8 @@ describe('InfoTabs', () => {
     mockUsePathname.mockReturnValue('/terms');
     render(<InfoTabs />);
 
-    expect(screen.getByRole('link', { name: '운영정책' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: '공지' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '소식' })).not.toHaveAttribute('aria-current');
   });
 
   it('허브 방문 시 마지막 방문 경로를 기록한다', () => {

@@ -85,7 +85,7 @@ export function MemberTable({
     return (
       <div className="card px-6 py-12 text-center">
         <p className="text-sm font-medium text-charcoal-2">
-          {trimmedQuery ? `'${trimmedQuery}' 조건에 맞는 회원이 없어요` : '조건에 맞는 회원이 없어요'}
+          {trimmedQuery ? `'${trimmedQuery}' 조건에 맞는 부원이 없어요` : '조건에 맞는 부원이 없어요'}
         </p>
         <p className="mt-1 text-xs text-charcoal-3">검색어나 필터를 바꿔 보세요.</p>
       </div>
@@ -113,7 +113,7 @@ export function MemberTable({
                   />
                 </th>
               )}
-              <th className="px-4 py-3 font-medium text-charcoal-2">회원</th>
+              <th className="px-4 py-3 font-medium text-charcoal-2">부원</th>
               <th className="px-4 py-3 font-medium text-charcoal-2">역할</th>
               {useGeneration && <th className="px-4 py-3 font-medium text-charcoal-2">기수</th>}
               <th className="px-4 py-3 font-medium text-charcoal-2">회비</th>

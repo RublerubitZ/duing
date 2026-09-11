@@ -163,7 +163,7 @@ export function MemberBulkToolbar({
   return (
     <div
       role="region"
-      aria-label="회원 일괄 작업"
+      aria-label="부원 일괄 작업"
       data-bottom-bar
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]"
     >
@@ -272,7 +272,7 @@ export function MemberBulkToolbar({
           모달을 닫고 목록 위 결과 패널에서 알린다. 단일 오류 문구로는 이 구조를 담을 수 없다. */}
       <ConfirmDialog
         open={showRemoveConfirm}
-        title="선택한 회원을 탈퇴 처리할까요?"
+        title="선택한 부원을 탈퇴 처리할까요?"
         description={`${removeCount}명을 동아리에서 탈퇴 처리합니다. 되돌릴 수 없어요.`}
         confirmLabel="탈퇴"
         isPending={running === 'remove'}

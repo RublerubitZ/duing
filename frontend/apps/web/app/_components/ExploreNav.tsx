@@ -30,7 +30,7 @@ type NavItem = {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { label: '홈', href: '/' },
-  { label: '탐색', href: '/clubs' },
+  { label: '동아리', href: '/clubs' },
   { label: '시설', href: '/facilities' },
   { label: '일정', href: '/calendar' },
   // 소식: 라벨만 시안을 따른 것이고 범위는 정보 섹션 전체(/notices·/faq·/terms·/introduce)다.

@@ -30,7 +30,7 @@ type ManualMatchDialogProps = {
 const inputCls =
   'w-full rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
-// 회원 검색 드롭다운에 한 번에 보여줄 최대 결과 수(BillList 와 동일).
+// 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수(BillList 와 동일).
 const MEMBER_SEARCH_LIMIT = 8;
 
 // 미납으로 간주해 입금을 적용할 수 있는 청구 상태(완납·취소는 제외).
@@ -110,22 +110,22 @@ export function ManualMatchDialog({
     <Dialog open onOpenChange={(open) => !open && !approveMatch.isPending && onClose()}>
       <DialogContent busy={approveMatch.isPending} className="max-w-md">
         <DialogHeader>
-          <DialogTitle>회원 선택 후 매칭</DialogTitle>
+          <DialogTitle>부원 선택 후 매칭</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
-            입금 {formatWon(depositAmount)}을 어느 회원·청구에 적용할지 선택하세요.
+            입금 {formatWon(depositAmount)}을 어느 부원·청구에 적용할지 선택하세요.
             {counterparty && ` (입금자 ${counterparty})`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="relative flex flex-col gap-1">
-            <span className="text-xs font-semibold text-charcoal-2">회원</span>
+            <span className="text-xs font-semibold text-charcoal-2">부원</span>
             {selectedMember ? (
               <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-line bg-graysoft px-3 py-2 text-sm text-ink">
                 {selectedMember.name} · {selectedMember.studentId}
                 <button
                   type="button"
-                  aria-label="회원 선택 해제"
+                  aria-label="부원 선택 해제"
                   onClick={clearMember}
                   className="text-charcoal-3 transition-colors hover:text-coral"
                 >
@@ -136,8 +136,8 @@ export function ManualMatchDialog({
               <>
                 <input
                   type="text"
-                  aria-label="회원 검색"
-                  placeholder="회원 이름·학번 검색"
+                  aria-label="부원 검색"
+                  placeholder="부원 이름·학번 검색"
                   value={memberQuery}
                   onChange={(event) => setMemberQuery(event.target.value)}
                   className={inputCls}
@@ -229,7 +229,7 @@ function ApplicableBills({
   if (applicableBills.length === 0) {
     return (
       <p className="rounded-md bg-graysoft px-3 py-3 text-sm text-charcoal-2">
-        이 회원에게 적용 가능한 미납 청구가 없어요. (잔액이 입금액 {formatWon(depositAmount)} 이상인
+        이 부원에게 적용 가능한 미납 청구가 없어요. (잔액이 입금액 {formatWon(depositAmount)} 이상인
         청구만 적용 가능)
       </p>
     );

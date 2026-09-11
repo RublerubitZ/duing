@@ -147,7 +147,7 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
       items: [
         {
           key: 'members',
-          label: '멤버 관리',
+          label: '부원 관리',
           icon: UsersRound,
           href: membersPath,
           active: pathname.startsWith(membersPath),

@@ -51,7 +51,7 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
         <DialogHeader>
           <DialogTitle>회비 청구 발행</DialogTitle>
           <DialogDescription className="text-sm text-charcoal-2">
-            정책을 선택하고 회차·기간을 입력해 청구서를 발행합니다. 특정 회원 정책은 대상 회원을 선택합니다.
+            정책을 선택하고 회차·기간을 입력해 청구서를 발행합니다. 특정 부원 정책은 대상 부원을 선택합니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -157,7 +157,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
 
   const onSubmit = (formData: GenerateBillsInput) => {
     if (isSelected && selectedUserIds.length === 0) {
-      setMemberError('청구할 회원을 1명 이상 선택해 주세요.');
+      setMemberError('청구할 부원을 1명 이상 선택해 주세요.');
       return;
     }
     const payload: GenerateBillsPayload = {
@@ -202,15 +202,15 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
       {isSelected && (
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-ink">
-            청구 대상 회원 <span className="text-coral">*</span>
+            청구 대상 부원 <span className="text-coral">*</span>
           </span>
           {membersLoading ? (
-            <div role="status" aria-label="회원 목록 불러오는 중" className="delayed-show">
+            <div role="status" aria-label="부원 목록 불러오는 중" className="delayed-show">
               <Spinner size={16} className="text-charcoal-3" />
             </div>
           ) : !members || members.length === 0 ? (
             <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-charcoal-2">
-              활성 회원이 없습니다.
+              활성 부원이 없어요.
             </p>
           ) : (
             <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-line p-2">

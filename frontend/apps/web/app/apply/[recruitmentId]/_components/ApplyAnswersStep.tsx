@@ -78,7 +78,7 @@ export function ApplyAnswersStep({
   if (questions.length === 0) {
     return (
       <p className="text-sm text-charcoal-3">
-        이 모집은 별도 질문이 없습니다. 제출 버튼을 눌러 지원할 수 있습니다.
+        이 모집은 별도 질문이 없습니다. 아래 &apos;지원서 제출하기&apos; 버튼으로 바로 지원할 수 있어요.
       </p>
     );
   }
