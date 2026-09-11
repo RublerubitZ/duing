@@ -97,6 +97,7 @@ describe('HomeHero (server component)', () => {
     render(<>{await HomeHero()}</>);
 
     expect(screen.getByText(/대구대 학생이면 누구나/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '동아리 둘러보기' })).toHaveAttribute('href', '/clubs');
   });
 
   it('모집 중 수가 있으면 주 CTA 가 모집 중 필터로 연결된다', async () => {
