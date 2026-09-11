@@ -1,7 +1,10 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecruitmentForm } from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
-import { saveRecruitmentDraft } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
+import {
+  loadRecruitmentDraft,
+  saveRecruitmentDraft,
+} from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 
 describe('RecruitmentForm 오류 표시', () => {
   beforeEach(() => window.localStorage.clear());
@@ -12,8 +15,11 @@ describe('RecruitmentForm 오류 표시', () => {
     fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
     const summary = await screen.findByRole('alert');
     expect(summary).toHaveTextContent(/곳을 확인해 주세요/);
-    // 같은 문구가 요약 카드와 제목 입력 아래에 한 번씩 — 요약에서 눌러 필드로 이동하는 쌍이다.
-    expect(screen.getAllByText('제목은 필수 입력값입니다.')).toHaveLength(2);
+    expect(screen.getByText('제목은 필수 입력값입니다.')).toBeInTheDocument();
+    // 요약 항목은 필드 라벨을 앞에 달아 같은 문구를 쓰는 필드끼리 구분된다.
+    expect(
+      screen.getByRole('button', { name: '제목 · 제목은 필수 입력값입니다.' }),
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveAttribute('aria-invalid', 'true');
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -41,5 +47,25 @@ describe('RecruitmentForm 오류 표시', () => {
     render(<RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
     fireEvent.click(await screen.findByRole('button', { name: '이어서 쓰기' }));
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('이어쓰기 제목');
+  });
+
+  it('입력을 멈추면 1.5초 뒤 임시저장된다', () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+        target: { value: '자동 저장 제목' },
+      });
+      // debounce 전에는 아직 아무것도 쓰지 않는다.
+      expect(loadRecruitmentDraft(7)).toBeNull();
+
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(7)?.values.title).toBe('자동 저장 제목');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

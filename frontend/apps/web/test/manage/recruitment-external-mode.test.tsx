@@ -192,7 +192,7 @@ describe('RecruitmentForm — 외부 폼 전용 화면', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '모집 시작' }));
 
-    expect(await screen.findAllByText(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE)).toHaveLength(2);
+    expect(await screen.findByText(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
@@ -278,7 +278,7 @@ describe('RecruitmentForm — 외부 폼 모집 복제 시드', () => {
     fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
     fireEvent.click(screen.getByRole('button', { name: '복제하여 모집 시작' }));
 
-    expect(await screen.findAllByText(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE)).toHaveLength(2);
+    expect(await screen.findByText(EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

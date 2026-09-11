@@ -44,6 +44,18 @@ const FIELD_IDS: Record<string, string> = {
   interviewEndDate: 'rf-interview-end',
 };
 
+/** 요약 카드에서 문구 앞에 붙일 필드 이름 — 화면의 입력 라벨과 같은 말을 쓴다. */
+const FIELD_LABELS: Record<string, string> = {
+  title: '제목',
+  startDate: '시작일',
+  endDate: '종료일',
+  capacity: '모집 정원',
+  externalFormUrl: '외부 폼 URL',
+  questionItems: '지원 질문',
+  interviewStartDate: '면접 시작일',
+  interviewEndDate: '면접 종료일',
+};
+
 /** 임시저장 배너의 경과 시간 — 분 단위면 충분해 Intl.RelativeTimeFormat 까지 가지 않는다. */
 function formatRelativeMinutes(savedAt: number): string {
   const minutes = Math.max(0, Math.round((Date.now() - savedAt) / 60000));
@@ -399,10 +411,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   /**
    * 임시저장 자동 저장 — 초기값 그대로면 쓰지 않는다(빈 폼을 열기만 해도 배너가 뜨는 일을 막는다).
    * 첫 실행이 곧 초기 스냅샷이고, 이후에는 그와 달라진 순간부터 debounce 뒤 한 번씩 쓴다.
+   *
+   * 배너가 떠 있는 동안(draft !== null)은 아무것도 쓰지 않는다 — 배너를 무시하고 타이핑하면 저장본이
+   * 새 입력으로 덮여, 뒤늦게 "이어서 쓰기" 를 눌러도 옛 값이 아니라 방금 친 값이 돌아온다.
+   * 스냅샷 기준선은 배너를 치운(이어서 쓰기·새로 쓰기) 직후의 값으로 잡힌다.
    */
   const initialDraftSnapshot = useRef<string | null>(null);
   useEffect(() => {
-    if (draftClubId === undefined) return;
+    if (draftClubId === undefined || draft !== null) return;
     const values: RecruitmentDraftValues = {
       title,
       content,
@@ -424,7 +440,11 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       initialDraftSnapshot.current = snapshot;
       return;
     }
-    if (snapshot === initialDraftSnapshot.current) return;
+    // 편집을 되돌려 초기값으로 돌아왔으면 남은 저장본도 지운다 — 쓸 내용이 없는데 배너만 뜨는 일을 막는다.
+    if (snapshot === initialDraftSnapshot.current) {
+      clearRecruitmentDraft(draftClubId);
+      return;
+    }
     const timer = setTimeout(
       () => saveRecruitmentDraft(draftClubId, values),
       DRAFT_SAVE_DEBOUNCE_MS,
@@ -432,6 +452,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     return () => clearTimeout(timer);
   }, [
     draftClubId,
+    draft,
     title,
     content,
     startDate,
@@ -537,6 +558,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         <FormErrorSummary
           errors={Object.entries(fieldErrors).map(([field, message]) => ({
             fieldId: FIELD_IDS[field]!,
+            label: FIELD_LABELS[field]!,
             message,
           }))}
         />
@@ -891,8 +913,12 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             )}
 
             {!isLegacyQuestionsBackend && (
-              // 질문 오류는 개별 입력이 아니라 빌더 전체에 걸리므로 래퍼를 포커스 대상으로 삼는다.
-              <div id={FIELD_IDS.questionItems} tabIndex={-1}>
+              // 질문 오류는 개별 입력이 아니라 빌더 전체에 걸리므로 래퍼를 포커스·설명 대상으로 삼는다.
+              <div
+                id={FIELD_IDS.questionItems}
+                tabIndex={-1}
+                aria-describedby={fieldErrors.questionItems ? 'rf-questions-error' : undefined}
+              >
                 <p className={cn(fieldLabelClass, 'mb-1')}>
                   지원 질문 <span className="text-coral">*</span>
                   <span className="ml-1 font-normal text-charcoal-3">(최소 1개)</span>
@@ -904,7 +930,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 </p>
                 <QuestionBuilder questions={questionItems} onChange={setQuestionItems} nextKey={nextKey} />
                 {fieldErrors.questionItems && (
-                  <p className="mt-2 text-xs text-danger">{fieldErrors.questionItems}</p>
+                  <p id="rf-questions-error" className="mt-2 text-xs text-danger">
+                    {fieldErrors.questionItems}
+                  </p>
                 )}
               </div>
             )}

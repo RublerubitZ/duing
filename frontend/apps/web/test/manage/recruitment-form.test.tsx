@@ -223,10 +223,9 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
-    // 요약 카드와 질문 섹션에 같은 문구가 한 번씩 뜬다.
     expect(
-      await screen.findAllByText('선택형 질문은 선택지를 2개 이상 등록해야 합니다.'),
-    ).toHaveLength(2);
+      await screen.findByText('선택형 질문은 선택지를 2개 이상 등록해야 합니다.'),
+    ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -243,8 +242,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
-      await screen.findAllByText('같은 질문 안에서 선택지 내용이 중복될 수 없습니다.'),
-    ).toHaveLength(2);
+      await screen.findByText('같은 질문 안에서 선택지 내용이 중복될 수 없습니다.'),
+    ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -259,8 +258,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
     expect(
-      await screen.findAllByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
-    ).toHaveLength(2);
+      await screen.findByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
+    ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -286,8 +285,8 @@ describe('RecruitmentForm — 질문 유형 빌더', () => {
     fireEvent.click(screen.getByRole('button', { name: /수정 저장/ }));
 
     expect(
-      await screen.findAllByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
-    ).toHaveLength(2);
+      await screen.findByText('자체 폼 모집은 질문을 최소 1개 이상 등록해야 합니다.'),
+    ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
