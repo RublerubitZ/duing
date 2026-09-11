@@ -68,12 +68,12 @@ export default function ClubMembersPage({
   const [successionOpen, setSuccessionOpen] = useState(false);
 
   if (isMeLoading || isManagedLoading || isMembersLoading || isDetailLoading) {
-    return <LoadingGate label="멤버 목록 불러오는 중" />;
+    return <LoadingGate label="부원 목록 불러오는 중" />;
   }
   // me 쿼리만 실패한 극단 창(인증 만료급)에서 -1 폴백으로 자기 행 보호(isSelf)가 꺼진 채
   // 관리 버튼이 보이는 것을 막는다 — 권한 가드가 아니라 데이터 부재 fail-soft 다.
   if (!me) {
-    return <LoadingGate label="멤버 목록 불러오는 중" />;
+    return <LoadingGate label="부원 목록 불러오는 중" />;
   }
 
   const managedClub = managedClubs?.find((club) => club.clubId === currentClubId);
@@ -169,11 +169,11 @@ export default function ClubMembersPage({
           md 부터는 사이드바가 280px 을 먹어 오히려 더 좁으므로, 액션이 확실히 들어가는 lg 에서만 한 줄로 둔다. */}
       <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold">회원 관리</h1>
+          <h1 className="text-xl font-bold">부원 관리</h1>
           <p className="mt-1 text-sm text-charcoal-3">
             {useGeneration
-              ? '회원을 검색·필터하고 기수를 정리할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'
-              : '회원을 검색·필터할 수 있습니다. 역할 변경·탈퇴·회장 인계는 회장 전용입니다.'}
+              ? '부원을 검색·필터하고 기수를 정리할 수 있어요. 역할 변경·탈퇴·회장 인계는 회장 전용이에요.'
+              : '부원을 검색·필터할 수 있어요. 역할 변경·탈퇴·회장 인계는 회장 전용이에요.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:shrink-0">

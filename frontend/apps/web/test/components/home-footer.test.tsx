@@ -56,7 +56,7 @@ describe('HomeFooter — 데스크탑 풀 푸터', () => {
     return footer as HTMLElement;
   }
 
-  it('서비스 컬럼은 상단바·하단 탭과 같은 목록(탐색·시설·일정·소식)을 갖는다', () => {
+  it('서비스 컬럼은 상단바·하단 탭과 같은 목록(동아리·시설·일정·소식)을 갖는다', () => {
     render(
       <ToastProvider>
         <HomeFooter />

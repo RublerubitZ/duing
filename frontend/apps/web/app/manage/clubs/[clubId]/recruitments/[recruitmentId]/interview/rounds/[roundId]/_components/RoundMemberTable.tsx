@@ -26,7 +26,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       <div className="px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">면접 대상 멤버</h2>
+        <h2 className="text-sm font-semibold text-slate-700">면접 대상 지원자</h2>
       </div>
       <div className="divide-y divide-slate-100">
         {displayMembers.map((member) => {

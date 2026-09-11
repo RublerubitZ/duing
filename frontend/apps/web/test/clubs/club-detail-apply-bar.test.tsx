@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse, delay } from 'msw';
-import type { StudentRecruitmentProjection } from '@duing/types';
+import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -65,7 +65,23 @@ function mockEligibility(
   );
 }
 
-function renderBar(recruitment: StudentRecruitmentProjection | undefined) {
+const memberMembership: MyClubMembership = {
+  role: 'MEMBER',
+  joinedAt: '2026-01-01T00:00:00Z',
+  permissions: {
+    canPostNotice: false,
+    canEditNotice: false,
+    canDeleteNotice: false,
+    canPostEvent: false,
+    canEditEvent: false,
+    canDeleteEvent: false,
+  },
+};
+
+function renderBar(
+  recruitment: StudentRecruitmentProjection | undefined,
+  membership?: MyClubMembership | null,
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
@@ -85,7 +101,7 @@ function renderBar(recruitment: StudentRecruitmentProjection | undefined) {
 
   return render(
     <Wrapper>
-      <ClubDetailApplyBar recruitment={recruitment} />
+      <ClubDetailApplyBar recruitment={recruitment} membership={membership} />
     </Wrapper>,
   );
 }
@@ -183,6 +199,22 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
 
     expect(await screen.findByText('이미 지원한 모집 공고입니다.')).toBeInTheDocument();
     expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  // 부원 모집은 이미 소속된 사람이 누르면 서버가 409 로 거절한다 — 누르기 전에 이유를 보여준다.
+  it('부원 모집에 이미 소속된 뷰어면 버튼을 잠그고 이유를 보여준다', () => {
+    renderBar({ ...base, targetRole: 'MEMBER' }, memberMembership);
+    expect(screen.getByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
+  });
+
+  it('운영진 모집은 소속이어도 지원 버튼이 열려 있다', () => {
+    renderBar({ ...base, targetRole: 'OFFICER' }, memberMembership);
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
+  });
+
+  it('membership 이 undefined(비로그인·로딩)면 기존대로 열려 있다', () => {
+    renderBar({ ...base, targetRole: 'MEMBER' });
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
   });
 
   it('사전 확인 중에는 지원하기 버튼이 비활성화되고 확인 중 스피너가 표시된다', async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -7,10 +7,11 @@ import type { CashbookEntry } from '@duing/types';
 const mockUseEntries = vi.fn();
 const mockUseSummary = vi.fn();
 const mockToggleMutate = vi.fn();
+const mockDeleteMutate = vi.fn();
 vi.mock('@duing/hooks', () => ({
   useCashbookEntriesQuery: (clubId: number, params: unknown) => mockUseEntries(clubId, params),
   useCashbookSummaryQuery: (clubId: number, params: unknown) => mockUseSummary(clubId, params),
-  useDeleteCashbookEntryMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteCashbookEntryMutation: () => ({ mutate: mockDeleteMutate, isPending: false }),
   useToggleCashbookExclusionMutation: () => ({ mutate: mockToggleMutate, isPending: false }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@/app/_components/toast/ToastProvider', () => ({ useToast: () => ({ addToast: vi.fn() }) }));
@@ -30,6 +31,7 @@ beforeEach(() => {
   mockUseEntries.mockReset();
   mockUseSummary.mockReset();
   mockToggleMutate.mockReset();
+  mockDeleteMutate.mockReset();
 });
 
 describe('금전출납부 패널', () => {
@@ -77,6 +79,21 @@ describe('금전출납부 패널', () => {
       { entryId: 1, excluded: true },
       expect.anything(),
     );
+  });
+
+  // 장부 삭제는 되돌릴 수 없다 — 누른 즉시 mutation 이 나가지 않고 확인 모달을 한 단계 거친다.
+  it('수동 항목 삭제는 확인 다이얼로그를 거친다', async () => {
+    const user = userEvent.setup();
+    mockUseEntries.mockReturnValue({ data: buildPage([buildEntry({ source: 'MANUAL' })]), isLoading: false });
+    mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 30000, bookBalance: -30000 } });
+    render(<CashbookPanel clubId={1} />);
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    expect(mockDeleteMutate).not.toHaveBeenCalled();
+    // 무엇을 지우는지 다이얼로그에 남는다 — 금액·내역이 안내에 있어야 한다.
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/−30,000원 · 출금/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
+    expect(mockDeleteMutate).toHaveBeenCalledWith(expect.any(Number), expect.anything());
   });
 
   it('"제외 항목 숨기기" 토글이 hideExcluded 파라미터를 연결한다', () => {

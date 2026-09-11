@@ -82,7 +82,11 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
           <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
             <div className="hidden md:block">
-              <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
+              <ClubRecruitmentCard
+                recruitment={club.activeRecruitment ?? undefined}
+                clubId={clubId}
+                membership={membership.data}
+              />
             </div>
             <ClubContactCard
               clubName={club.name}
@@ -96,7 +100,10 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
       </section>
 
       {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다. */}
-      <ClubDetailApplyBar recruitment={club.activeRecruitment ?? undefined} />
+      <ClubDetailApplyBar
+        recruitment={club.activeRecruitment ?? undefined}
+        membership={membership.data}
+      />
     </>
   );
 }

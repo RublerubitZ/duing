@@ -36,7 +36,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={new Set([1])} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
 
     expect(await screen.findByText('현재 필터 기준 1명')).toBeInTheDocument();
   });
@@ -47,7 +47,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={allIds} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
     expect(mutateAsync).toHaveBeenCalledWith({ includePhone: false, memberIds: [1, 2] });
@@ -55,7 +55,7 @@ describe('MemberCsvDownloadPopover', () => {
     const firstCall = downloadTextFile.mock.calls[0];
     expect(firstCall).toBeDefined();
     const [filename, content] = firstCall ?? [];
-    expect(filename).toContain('AI동아리_멤버목록_');
+    expect(filename).toContain('AI동아리_부원목록_');
     expect(filename).toMatch(/\.csv$/);
     expect(content).toContain('이름,학번,학과,역할,회비,가입일');
   });
@@ -70,7 +70,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={new Set([1])} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
     expect(mutateAsync).toHaveBeenCalledWith({ includePhone: false, memberIds: [1] });
@@ -85,7 +85,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={allIds} useGeneration />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
     const [, content] = downloadTextFile.mock.calls[0] ?? [];
@@ -98,7 +98,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={allIds} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
     await user.click(await screen.findByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: '다운로드' }));
 
@@ -115,7 +115,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={new Set()} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
 
     expect(await screen.findByRole('button', { name: '다운로드' })).toBeDisabled();
   });
@@ -127,7 +127,7 @@ describe('MemberCsvDownloadPopover', () => {
       <MemberCsvDownloadPopover clubId={1} clubName="AI동아리" memberIds={allIds} useGeneration={false} />,
     );
 
-    await user.click(screen.getByRole('button', { name: '멤버 명단 다운로드' }));
+    await user.click(screen.getByRole('button', { name: '부원 명단 내려받기' }));
     await user.click(await screen.findByRole('button', { name: '다운로드' }));
 
     expect(await screen.findByText('서버 오류')).toBeInTheDocument();

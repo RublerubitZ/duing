@@ -42,7 +42,7 @@ describe('SignupStepProfile', () => {
         studentIdMismatch={false} canSubmit={false} isSubmitting={false} onBack={vi.fn()}
       />,
     );
-    const submitButton = screen.getByRole('button', { name: /가입하고 두잉 시작하기/ });
+    const submitButton = screen.getByRole('button', { name: '가입 완료' });
     expect(submitButton).toBeDisabled();
     expect(submitButton).toHaveAttribute('type', 'submit');
   });
