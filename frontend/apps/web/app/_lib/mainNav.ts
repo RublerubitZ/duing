@@ -16,6 +16,12 @@ export const MAIN_NAV_ITEMS: readonly MainNavItem[] = [
   { label: '소식', href: DEFAULT_INFO_PATH, match: isInfoSection },
 ];
 
+/** '일정·시설' 한 탭 안의 형제 페이지 — CalendarPage·FacilityBookingPage 의 PageSegment 가 공유한다. */
+export const CALENDAR_FACILITY_SEGMENT_ITEMS = [
+  { label: '일정', href: '/calendar' },
+  { label: '시설 예약', href: '/facilities' },
+];
+
 export function isMainNavActive(item: MainNavItem, pathname: string): boolean {
   if (item.match) return item.match(pathname);
   if (item.href === '/') return pathname === '/';

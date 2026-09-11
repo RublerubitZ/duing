@@ -52,7 +52,13 @@ export function MyPage() {
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
 
   /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
-  const order = useMemo(() => resolveSectionOrder(applications.length), [applications.length]);
+  // 로딩 중에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 pending 동안 joined-first 로 그렸다가
+  // 응답이 오는 순간 apply-first 로 뒤집혀 섹션이 통째로 점프한다. 미확정 구간은 1(=기본 apply-first)로 고정하고,
+  // 0건이 확정된 뒤에만 재배치한다.
+  const order = useMemo(
+    () => resolveSectionOrder(applicationsQuery.isPending ? 1 : applications.length),
+    [applicationsQuery.isPending, applications.length],
+  );
   const sections = order.map((id) => ({ id, label: SECTION_LABEL[id] }));
 
   const [activeTab, setActiveTab] = useState<SectionId>(order[0]!);
@@ -140,6 +146,16 @@ export function MyPage() {
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
       clearTimeout(timerRef.current);
     };
+  }, [order]);
+
+  /* ── 순서가 뒤바뀌는 순간의 활성 탭 보정 ── */
+  // 지원 0건이 확정돼 order 가 바뀔 때, 아직 스크롤을 건드리지 않은 사용자는 여전히 맨 위에 있다 —
+  // 그 경우에만 활성 탭을 새 첫 섹션으로 맞춘다. 이미 스크롤을 내렸거나 탭을 눌러 이동 중이면
+  // 위 스크롤 동기화가 실제 위치로 판단하므로 건드리지 않는다(사용자 선택을 덮지 않기 위함).
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root || programmaticScroll.current || root.scrollTop > 0) return;
+    setActiveTab(order[0]!);
   }, [order]);
 
   const refFor = (id: SectionId) => (el: HTMLElement | null) => {

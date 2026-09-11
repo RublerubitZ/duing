@@ -77,14 +77,17 @@ export function UserMenu({
           {userName}님
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-[160px] p-0">
+      {/* 폭 고정 → 하한만 고정. "운영진 콘솔 · {동아리명}" 은 길이가 제각각이라 240 까지 늘리고 그 너머는 말줄임. */}
+      <DropdownMenuContent align="end" sideOffset={8} className="min-w-[160px] max-w-[240px] p-0">
         {menuItems.map((item) => (
           <DropdownMenuItem
             key={item.label}
             asChild
             className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
           >
-            <Link href={item.href}>{item.label}</Link>
+            <Link href={item.href} className="block truncate">
+              {item.label}
+            </Link>
           </DropdownMenuItem>
         ))}
         {isAdmin && (
