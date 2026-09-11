@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import type { Route } from 'next';
 
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { toLinkRoute } from '@/app/_lib/route';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 /**
@@ -16,7 +18,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
  */
 export function useUnsavedChangesGuard(isDirty: boolean): { leaveDialog: ReactNode } {
   const router = useGuardedRouter();
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingHref, setPendingHref] = useState<Route | null>(null);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -32,14 +34,14 @@ export function useUnsavedChangesGuard(isDirty: boolean): { leaveDialog: ReactNo
       if (!(target instanceof Element)) return;
       const anchor = target.closest('a');
       if (!anchor) return;
-      const href = anchor.getAttribute('href');
-      // 내부 라우트('/x')만 대상 — 외부·프로토콜 상대('//')·해시·다운로드·새 탭은 통과.
-      if (!href || !href.startsWith('/') || href.startsWith('//')) return;
+      // 내부 라우트('/x')만 대상 — 외부·프로토콜 상대('//')·해시·다운로드·새 탭은 통과(toLinkRoute 판별).
+      const route = toLinkRoute(anchor.getAttribute('href'));
+      if (!route) return;
       if (anchor.target && anchor.target !== '_self') return;
       if (anchor.hasAttribute('download')) return;
       clickEvent.preventDefault();
       clickEvent.stopPropagation();
-      setPendingHref(href);
+      setPendingHref(route);
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('click', onClick, true);
