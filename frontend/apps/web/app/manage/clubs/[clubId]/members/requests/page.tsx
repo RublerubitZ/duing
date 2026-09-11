@@ -122,7 +122,7 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
           href={toRoute(`/manage/clubs/${clubId}/members`)}
           className="text-sm font-medium text-charcoal-3 hover:text-ink"
         >
-          ← 회원 관리
+          ← 부원 관리
         </Link>
         <h1 className="mt-2 text-xl font-bold">가입 요청</h1>
         <p className="mt-1 text-sm text-charcoal-3">

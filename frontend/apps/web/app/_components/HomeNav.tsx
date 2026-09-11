@@ -47,7 +47,7 @@ export function HomeNav({ slimOnMobile = false }: Props) {
           </li>
           <li>
             <Link href="/clubs" className={NAV_LINK_INACTIVE}>
-              탐색
+              동아리
             </Link>
           </li>
           <li>

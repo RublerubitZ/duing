@@ -30,7 +30,7 @@ async function loginAsAdmin(page: Page) {
   await page.goto('/login');
   await page.getByLabel('학번').fill(STUDENT_ID ?? '');
   await page.getByLabel('비밀번호', { exact: true }).fill(PASSWORD ?? '');
-  await page.getByRole('button', { name: /두잉 시작하기/ }).click();
+  await page.getByRole('button', { name: '로그인' }).click();
   // 로그인 성공은 로그인 화면을 벗어나는 것으로 확인한다(착지 지점은 정책에 따라 달라질 수 있다).
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
 }

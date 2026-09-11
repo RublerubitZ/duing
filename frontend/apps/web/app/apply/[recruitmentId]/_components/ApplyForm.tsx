@@ -235,7 +235,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
               disabled={submitDisabled}
               className="btn btn-primary px-7 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submit.isPending && <ButtonSpinner />}제출
+              {submit.isPending && <ButtonSpinner />}지원서 제출하기
             </button>
           </div>
         </form>

@@ -204,7 +204,7 @@ export function BillList({ clubId }: BillListProps) {
         <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
           <p className="text-sm text-charcoal-2">발행된 청구가 없습니다.</p>
           <p className="mt-1 text-xs text-charcoal-3">
-            {'"청구 발행"'} 버튼으로 활성 회원에게 청구서를 발행하세요.
+            {'"청구 발행"'} 버튼으로 활성 부원에게 청구서를 발행하세요.
           </p>
         </div>
       ) : (

@@ -31,7 +31,7 @@ export function AdminRoleGuard({ children }: { children: React.ReactNode }) {
   if (meQuery.data?.role !== 'ADMIN') {
     return (
       <p className="text-danger px-4 sm:px-6 md:px-10 py-12 text-sm">
-        총동연(관리자) 권한이 필요합니다.
+        총동아리연합회(총동연) 관리자 권한이 필요해요.
       </p>
     );
   }

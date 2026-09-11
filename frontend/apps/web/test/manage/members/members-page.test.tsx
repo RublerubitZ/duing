@@ -194,7 +194,7 @@ describe('ClubMembersPage — 권한 게이트', () => {
     expect(within(toolbar).queryByRole('button', { name: /부원 강등/ })).not.toBeInTheDocument();
     expect(within(toolbar).queryByRole('button', { name: '탈퇴' })).not.toBeInTheDocument();
     // 명단 다운로드는 기존대로 운영진 공통.
-    expect(screen.getByRole('button', { name: '멤버 명단 다운로드' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '부원 명단 내려받기' })).toBeInTheDocument();
   });
 
   it('LEADER 뷰어는 기수 미사용이어도 선택·벌크 툴바(승급·강등·탈퇴)를 유지한다', async () => {

@@ -83,12 +83,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <Link href="/manage" className={linkClass}>
-                우리 동아리 등록
-              </Link>
-            </li>
-            <li>
-              <Link href="/introduce" className={linkClass}>
-                운영자 가이드
+                운영진 콘솔
               </Link>
             </li>
           </ul>

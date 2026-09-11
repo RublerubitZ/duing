@@ -1,6 +1,6 @@
 'use client';
 
-// 공개 콘텐츠용 모바일 하단 탭바 (md:hidden) — 홈·탐색·시설·일정·소식 5탭.
+// 공개 콘텐츠용 모바일 하단 탭바 (md:hidden) — 홈·동아리·시설·일정·소식 5탭.
 // 5탭 모두 공개 라우트라 게스트도 동일 동작. '소식' 탭은 라벨만 시안을 따른 것이고 범위는 그대로
 // 정보 섹션 전체(/notices·/faq·/terms·/introduce)다 — 이동은 마지막 방문 허브 경로
 // (getLastInfoPath 단일 정책, 기본 /notices). 판정 함수 이름이 isInfoSection 인 이유이기도 하다.
@@ -31,7 +31,7 @@ import {
 // (예전 Heroicons/lucide 혼용 세트는 시안이 확정되면서 걷어냈다.)
 const TABS = [
   { label: '홈', href: '/', Icon: HouseRegular, ActiveIcon: HouseFill },
-  { label: '탐색', href: '/clubs', Icon: BinocularsRegular, ActiveIcon: BinocularsFill },
+  { label: '동아리', href: '/clubs', Icon: BinocularsRegular, ActiveIcon: BinocularsFill },
   { label: '시설', href: '/facilities', Icon: BuildingRegular, ActiveIcon: BuildingFill },
   { label: '일정', href: '/calendar', Icon: CalendarBlankRegular, ActiveIcon: CalendarBlankFill },
   { label: '소식', href: DEFAULT_INFO_PATH, Icon: MegaphoneRegular, ActiveIcon: MegaphoneFill },

@@ -47,7 +47,7 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
   if (hasActivity) tabs.push({ key: 'activity', label: '활동' });
   if (hasQna) tabs.push({ key: 'qna', label: 'Q&A' });
   if (hasInfo) tabs.push({ key: 'info', label: '동아리 상세정보' });
-  if (isMember) tabs.push({ key: 'news', label: '소식' });
+  if (isMember) tabs.push({ key: 'news', label: '동아리 소식' });
 
   const firstTab = tabs[0];
   if (!firstTab) return null;
