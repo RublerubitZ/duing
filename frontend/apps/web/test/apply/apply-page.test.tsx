@@ -686,8 +686,10 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
   });
 
-  it('모집 상세 조회가 실패하면 무한 로딩 대신 오류 안내와 탐색 복귀 링크를 보여준다', async () => {
-    // 상세 실패 시 isLoading=false·data=undefined 라, 오류 분기가 없으면 로딩 게이트에 영구 표류한다.
+  // 404 는 "오류" 가 아니라 "없음" 이라, 서버 메시지를 그대로 띄우는 오류 패널 대신 전역 404 와
+  // 같은 시각 언어의 "찾을 수 없음" 화면으로 갈라진다.
+  it('없는 모집(404)이면 무한 로딩 대신 "찾을 수 없음" 화면과 탐색 복귀 링크를 보여준다', async () => {
+    // 상세 실패 시 isLoading=false·data=undefined 라, 탈출 분기가 없으면 로딩 게이트에 영구 표류한다.
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
         HttpResponse.json(
@@ -699,8 +701,27 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
 
     renderApplyPage();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('모집 공고를 찾을 수 없습니다.');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '이 모집은 찾을 수 없어요' }),
+    ).toBeInTheDocument();
     // clubId 를 알 수 없는 실패라 복귀처는 동아리 탐색 목록이다.
+    expect(screen.getByRole('link', { name: '동아리 탐색으로' })).toHaveAttribute('href', '/clubs');
+    expect(screen.queryByRole('status', { name: '불러오는 중' })).not.toBeInTheDocument();
+  });
+
+  it('404 가 아닌 상세 조회 실패는 무한 로딩 대신 오류 안내와 탐색 복귀 링크를 보여준다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '일시적인 오류가 발생했습니다.' },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderApplyPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
     expect(screen.getByRole('link', { name: '동아리 탐색으로 돌아가기' })).toHaveAttribute(
       'href',
       '/clubs',

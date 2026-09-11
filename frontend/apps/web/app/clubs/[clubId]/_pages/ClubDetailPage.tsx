@@ -9,7 +9,9 @@ import {
   useClubMembershipQuery,
 } from '@duing/hooks';
 
+import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { captureEvent } from '@/app/_lib/analytics';
+import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { getVisitorKey } from '@/app/_lib/visitorKey';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
@@ -45,6 +47,9 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
+  // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
+  useDocumentTitle(detail.data?.name ?? null);
+
   if (detail.isLoading) {
     return (
       <div className="mx-auto max-w-layout px-4 py-10 sm:px-6 md:px-10">
@@ -53,7 +58,14 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
     );
   }
   if (!detail.data) {
-    return <p className="p-6 text-sm text-coral">동아리를 찾을 수 없습니다.</p>;
+    return (
+      <ResourceNotFound
+        title="이 동아리는 지금 볼 수 없어요"
+        description="삭제됐거나 승인 대기 중일 수 있어요."
+        actionHref="/clubs"
+        actionLabel="동아리 탐색으로"
+      />
+    );
   }
 
   const club = detail.data;

@@ -1,6 +1,9 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { FacilityBookingPage } from './_pages/FacilityBookingPage';
 import { BookingHomeSkeleton } from './_components/booking/BookingHomeSkeleton';
+
+export const metadata: Metadata = { title: '시설 예약 | 두잉' };
 
 export default function FacilitiesPage() {
   return (
