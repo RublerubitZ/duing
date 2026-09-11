@@ -1,6 +1,10 @@
 'use client';
 
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
+import Link from 'next/link';
+import { toRoute } from '@/app/_lib/route';
+import { useHydrated } from '@/app/_lib/useHydrated';
+import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { SlotRange } from '../../_lib/bookingCalendar';
 import { hasApplicableSlot, rangeContainsPendingHold, rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingForm } from './BookingForm';
@@ -8,6 +12,13 @@ import { BookingSuccess } from './BookingSuccess';
 import { DayBookingOverview } from './DayBookingOverview';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
+
+// 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute). BookingForm 과 같은 규칙.
+function guestLoginHref(): `/${string}` {
+  return typeof window === 'undefined'
+    ? '/login'
+    : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+}
 
 export type PanelStep = 'slots' | 'form' | 'success';
 
@@ -34,6 +45,11 @@ export function BookingPanel({
   step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, submittedAt,
   onSubmitted, onExploreOther, onClose,
 }: Props) {
+  // 게스트 안내 — BookingForm.tsx 의 로그인 가드와 같은 문구·링크를 복제한다(원칙: 공용화 금지). 폼 쪽 가드는 딥링크 방어로 그대로 둔다.
+  // 하이드레이션 전에는 판정하지 않는다 — SSR 프레임이 스토어 초기값(미인증)이라 로그인한 운영진에게 안내가 플래시된다.
+  const hydrated = useHydrated();
+  const authStatus = useSeededAuthStatus();
+  const isGuest = hydrated && authStatus !== 'authenticated';
   const dateLabel = `${Number(day.date.slice(5, 7))}월 ${Number(day.date.slice(8, 10))}일`;
 
   if (step === 'success' && selection && submittedAt !== null) {
@@ -95,6 +111,12 @@ export function BookingPanel({
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         <div className="space-y-3">
           <DayBookingOverview day={day} />
+          {isGuest && (
+            <div className="space-y-3 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
+              <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
+              <Link href={toRoute(guestLoginHref())} className="btn btn-primary inline-flex">로그인하기</Link>
+            </div>
+          )}
           <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
         </div>
       </div>
@@ -115,14 +137,16 @@ export function BookingPanel({
             </span>
           </div>
         )}
-        <button
-          type="button"
-          className="btn btn-primary w-full"
-          disabled={!selection}
-          onClick={onProceedToForm}
-        >
-          {selection ? `${rangeLabel(selection)} 예약 신청` : applicable ? '시간을 선택해주세요' : '신청 가능한 시간이 없어요'}
-        </button>
+        {!isGuest && (
+          <button
+            type="button"
+            className="btn btn-primary w-full"
+            disabled={!selection}
+            onClick={onProceedToForm}
+          >
+            {selection ? `${rangeLabel(selection)} 예약 신청` : applicable ? '시간을 선택해주세요' : '신청 가능한 시간이 없어요'}
+          </button>
+        )}
         <p className="mt-2 text-center text-[11px] text-charcoal-3">신청 후 관리자 승인을 거쳐 확정돼요.</p>
       </div>
     </div>

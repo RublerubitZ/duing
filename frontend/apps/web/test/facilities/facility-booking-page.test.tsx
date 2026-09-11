@@ -448,6 +448,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 4: 연속 슬롯 선택 시 병합 범위 CTA 가 활성화된다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
@@ -630,13 +632,14 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     }
   });
 
-  it('시나리오 10: 비로그인으로 예약을 진행하면 폼 대신 로그인 링크(복귀 next 포함)가 노출된다', async () => {
+  // 게스트는 폼까지 가지 않는다 — 시간 선택 단계에서 안내를 보고 진행 버튼 자체가 없다(폼 쪽 가드는 딥링크 방어로 유지).
+  it('시나리오 10: 비로그인은 시간 선택 단계에서 로그인 링크(복귀 next 포함)를 보고 진행 버튼이 없다', async () => {
     useAuthStore.setState({ status: 'unauthenticated', user: null });
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: WINDOW_FROM_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
-    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
+    expect(screen.queryByRole('button', { name: '18:00~19:00 예약 신청' })).not.toBeInTheDocument();
 
     const loginLink = await screen.findByRole('link', { name: '로그인하기' });
     expect(loginLink.getAttribute('href')).toMatch(/^\/login\?next=/);
@@ -946,6 +949,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 14-a: 직전 월 딥링크는 정리되지 않고 주간(기록 열람)으로 열리며 직전 월 availability 를 요청한다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     const lastMonth = shiftYearMonth(CURRENT_MONTH, -1);
     const deepLinkDate = `${lastMonth}-15`;
     mockSearchParams.value = `facilityId=1&date=${deepLinkDate}`;
@@ -1013,6 +1018,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 14-d: 지난 날짜 셀을 열면 토스트 없이 주간 기록(점유 블록·지난 셀·슬롯 단체명)이 보이고 CTA 는 무신청 문구다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     renderPage();
     await screen.findByRole('heading', { level: 2, name: yearMonthLabel(CURRENT_MONTH) });
 
@@ -1035,6 +1042,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 14-f: 마감일이 이미 지난 시설에서도 마감일 이후의 지난 날짜 셀은 토스트 없이 주간 기록으로 열린다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     // 창 상한(bookableUntil)이 PAST_DATE 전날 → 창은 비었고(from=오늘 > until) PAST_DATE 는 상한 밖. 열람 상한은
     // 창이 아니라 오늘이므로 정리 가드(월간 복귀·토스트)가 걸리면 안 된다.
     const closeDate = shiftDateByDays(PAST_DATE, -1);
@@ -1168,6 +1177,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 17 (뷰 전환 c): 주간에서 [월] 탭 시 월간 복귀·선택 유지(셀 강조)하고 [주] 재탭 시 그 주로 돌아온다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     renderPage();
 
     // 월간 셀 탭 → 주간 진입 후 슬롯(18:00~19:00) 선택.
@@ -1290,6 +1301,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 23 (셀 탭 통합 a): 주간 그리드에서 선택일의 가능 셀을 탭하면 선택이 토글되고 연속 탭으로 범위가 병합된다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
     renderPage();
 
@@ -1309,6 +1322,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 24 (셀 탭 통합 b): 주간 그리드에서 다른 요일의 가능 셀을 탭하면 그 날짜로 전환하고 해당 슬롯을 단일 선택한다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     mockSearchParams.value = `facilityId=1&date=${CROSS_ANCHOR}`;
     renderPage();
 
@@ -1368,6 +1383,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     });
 
   it('시나리오 26 (모바일 블록 시트 §9.3): 모바일 주간에서 가용 셀 탭은 선택, 확정 블록 탭은 라벨·시간·예약됨 배지 바텀시트를 연다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     setMatchMedia(true); // 모바일 — 블록 disabled(PC) ↔ 시트 트리거(모바일) 게이트가 열린다.
     mockSearchParams.value = `facilityId=1&date=${WINDOW.from}`;
     renderPage();
@@ -1437,6 +1454,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 29 (모바일 §11.1 c): 시트의 "시간표로 보기"는 시트를 닫고 주간으로 전환하며 선택을 유지한다', async () => {
+    // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 시나리오는 CTA·선택 동작을 본다.
+    useAuthStore.setState({ status: 'authenticated', user: null });
     setMatchMedia(true);
     mockSearchParams.value = 'facilityId=1';
     renderPage();
