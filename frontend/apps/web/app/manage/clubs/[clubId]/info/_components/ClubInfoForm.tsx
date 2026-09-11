@@ -60,6 +60,16 @@ const LOCKED_NOTICE =
 // 소개글 글자 수 정책 — 텍스트(getText) 기준. HTML 백스톱은 zod(clubProfileBaseSchema.description).
 const DESCRIPTION_TEXT_LIMIT = 1500;
 
+/**
+ * 자유입력 텍스트 정규화 — 서버(Club.normalizeDepartment)와 같은 규칙.
+ * trim() 은 NBSP(U+00A0) 계열을 공백으로 보지 않아, 문서에서 붙여 넣은 "글로벌<NBSP>경영학과" 처럼
+ * 보이지 않는 문자만 남은 값이 그대로 저장된다 — 먼저 일반 공백으로 바꾼 뒤 떨어낸다.
+ * 페이로드 diff 와 dirty 스냅샷이 같은 값을 봐야 공백만 바뀐 입력이 저장으로도 이탈 경고로도 새지 않는다.
+ */
+function normalizeText(value: string): string {
+  return value.replace(/[\u00A0\u2007\u202F]/g, ' ').trim();
+}
+
 function isCategory(value: string): value is ClubCategory {
   return (CATEGORIES as readonly string[]).includes(value);
 }
@@ -149,12 +159,23 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
+  // 자유입력 텍스트는 페이로드 diff·dirty 스냅샷 모두 정규화 값으로 비교한다 — 공백만 바꾼 입력이
+  // PATCH 로 나가거나(서버는 어차피 같은 값으로 수렴) 이탈 경고를 띄우지 않게 한다.
+  const normalizedName = normalizeText(name);
+  const normalizedDivision = normalizeText(division);
+  const normalizedDepartment = normalizeText(department);
+  const normalizedLocation = normalizeText(location);
+  const normalizedTagline = normalizeText(tagline);
+  const normalizedFeeNote = normalizeText(feeNote);
+
   // 미저장 이탈 가드 — 마지막 저장 시점의 필드 스냅샷과 비교한다. 소개글은 에디터 baseline(onCreate)
   // 기준이라 buildPayload 와 같은 판정을 쓴다(에디터를 연 것만으로 dirty 가 되지 않게).
   const currentSnapshot = JSON.stringify({
-    name, category, division, college, department, logoUrl, coverUrl, tags, snsLinks, faqs,
-    foundedYear, cohortNumber, location, activityFrequency, activeDays, tagline, highlights,
-    contactVisibility, feeCycle, feeAmount, feeNote, projects, useGeneration,
+    name: normalizedName, category, division: normalizedDivision, college,
+    department: normalizedDepartment, logoUrl, coverUrl, tags, snsLinks, faqs,
+    foundedYear, cohortNumber, location: normalizedLocation, activityFrequency, activeDays,
+    tagline: normalizedTagline, highlights,
+    contactVisibility, feeCycle, feeAmount, feeNote: normalizedFeeNote, projects, useGeneration,
   });
   const [savedSnapshot, setSavedSnapshot] = useState(currentSnapshot);
   const descriptionDirty =
@@ -165,11 +186,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
   const parsedFoundedYear = foundedYear.trim() === '' ? null : Number(foundedYear);
   const parsedCohortNumber = cohortNumber.trim() === '' ? null : Number(cohortNumber);
   const parsedActivityFrequency = activityFrequency.trim() === '' ? null : Number(activityFrequency);
-  const parsedDivision = division.trim() === '' ? null : division;
-  // 서버 정규화(Club.normalizeDepartment)를 그대로 미러링한다. trim() 만으로는 부족한데,
-  // 서버는 문자열 가운데 NBSP 까지 일반 공백으로 바꾸기 때문이다 — 붙여넣은 "글로벌<NBSP>경영학과"
-  // 를 그대로 보내면 저장값과 폼 값이 영원히 달라 보여 매 저장마다 학과가 실려 나간다.
-  const normalizedDepartment = department.replace(/[\u00A0\u2007\u202F]/g, ' ').trim();
+  const parsedDivision = normalizedDivision === '' ? null : normalizedDivision;
   const descriptionOverLimit = descriptionTextLength > DESCRIPTION_TEXT_LIMIT;
 
   function handleDescriptionChange(html: string, textLength: number) {
@@ -205,12 +222,12 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     if (JSON.stringify(faqs) !== JSON.stringify(detail.faqs)) payload.faqs = faqs;
     if (parsedFoundedYear !== detail.foundedYear) payload.foundedYear = parsedFoundedYear;
     if (parsedCohortNumber !== detail.cohortNumber) payload.cohortNumber = parsedCohortNumber;
-    if (location !== (detail.location ?? '')) payload.location = location;
+    if (normalizedLocation !== (detail.location ?? '')) payload.location = normalizedLocation;
     if (parsedActivityFrequency !== detail.activityFrequency) {
       payload.activityFrequency = parsedActivityFrequency;
     }
     if (JSON.stringify(activeDays) !== JSON.stringify(detail.activeDays)) payload.activeDays = activeDays;
-    if (tagline !== (detail.tagline ?? '')) payload.tagline = tagline;
+    if (normalizedTagline !== (detail.tagline ?? '')) payload.tagline = normalizedTagline;
     if (JSON.stringify(highlights) !== JSON.stringify(detail.highlights)) payload.highlights = highlights;
     if (contactVisibility !== detail.contactVisibility) payload.contactVisibility = contactVisibility;
     if (JSON.stringify(projects) !== JSON.stringify(detail.projects)) payload.projects = projects;
@@ -224,7 +241,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     }
 
     // 회비 안내문은 주기/금액 쌍과 독립 — 비우기는 '' 전송(BE blankToNull) (§clear-intent)
-    if (feeNote !== (detail.feeNote ?? '')) payload.feeNote = feeNote;
+    if (normalizedFeeNote !== (detail.feeNote ?? '')) payload.feeNote = normalizedFeeNote;
 
     // 학과 — 중앙동아리는 입력 자체를 그리지 않으므로 담기지 않는다. 비우기는 '' 전송.
     if (!detail.centralClub && normalizedDepartment !== (detail.department ?? '')) {
@@ -233,7 +250,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
 
     // 잠금 필드 diff 는 adminMode 일 때만 — leader/officer 페이로드엔 절대 들어가지 않는다.
     if (adminMode) {
-      if (name !== detail.name) payload.name = name;
+      if (normalizedName !== detail.name) payload.name = normalizedName;
       if (category !== detail.category) payload.category = category;
       // 비우기는 clear-intent 규약대로 '' 전송 — null 은 BE 부분수정에서 "미변경"이라 no-op 된다.
       if (parsedDivision !== (detail.division ?? null)) payload.division = parsedDivision ?? '';
@@ -263,21 +280,23 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
       faqs,
       foundedYear: parsedFoundedYear,
       cohortNumber: parsedCohortNumber,
-      location: location || null,
+      location: normalizedLocation || null,
       activityFrequency: parsedActivityFrequency,
       activeDays,
-      tagline: tagline || null,
+      tagline: normalizedTagline || null,
       highlights,
       contactVisibility,
       feeCycle,
       // 유료 주기 + 빈 금액은 zod feePairRule 이 잡는다.
       membershipFeeAmount: nextFeeAmount,
-      feeNote: feeNote || null,
+      feeNote: normalizedFeeNote || null,
       projects,
       department: normalizedDepartment || null,
     };
     const parsed = adminMode
-      ? adminUpdateClubSchema.safeParse({ ...baseData, name, category, division: parsedDivision })
+      ? adminUpdateClubSchema.safeParse({
+          ...baseData, name: normalizedName, category, division: parsedDivision,
+        })
       : updateClubSchema.safeParse(baseData);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.');

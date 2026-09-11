@@ -281,6 +281,42 @@ describe('ClubInfoForm', () => {
     expect(screen.queryByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).not.toBeInTheDocument();
   });
 
+  it('동아리방 위치에 공백만 넣으면 저장도 이탈 경고도 일어나지 않는다', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <>
+        {/* 가드가 통과시키면 jsdom 이 미구현 내비게이션 경고를 남기므로 기본 동작만 끈다. */}
+        <a href="/manage/clubs/1" onClick={(event) => event.preventDefault()}>대시보드</a>
+        <ClubInfoForm
+          detail={makeDetail({ location: null })}
+          mode="leader"
+          mutation={{ mutateAsync, isPending: false }}
+        />
+      </>,
+    );
+    // 공백만 바뀐 값은 학과와 같은 규칙으로 정규화돼 미입력과 같아진다 — 보낼 것도 지킬 것도 없다.
+    fireEvent.change(screen.getByLabelText('동아리방 위치'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument());
+    expect(mutateAsync).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('link', { name: '대시보드' }));
+    expect(screen.queryByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).not.toBeInTheDocument();
+  });
+
+  it('동아리방 위치 앞뒤 공백은 떨어내고 보낸다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />,
+    );
+    fireEvent.change(screen.getByLabelText('동아리방 위치'), { target: { value: '  학생회관 405호 ' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ location: '학생회관 405호' });
+  });
+
   it('중앙동아리에는 학과 입력이 나타나지 않는다', () => {
     render(
       <ClubInfoForm
