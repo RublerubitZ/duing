@@ -73,7 +73,7 @@ function NewBadge() {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
       background: '#B04A28', color: '#fff',
-      fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
   );
