@@ -117,6 +117,19 @@ export function CalendarPage() {
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
 
+  // ESC 로도 닫는다 — 뒤로가기 버튼과 같은 경로(setDetailOpen(false))라 히스토리 엔트리 회수는 useBackDismiss 가
+  // 그대로 맡는다(history.back() 을 따로 부르지 않는다). 위에 뜬 모달(행사 추가·일정 상세)이 열려 있으면 그쪽 ESC 가 우선이다.
+  useEffect(() => {
+    if (!detailOpen || addModalOpen || eventDetailOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Radix 레이어(유저 메뉴·모달)가 ESC 를 소비하면 preventDefault 만 하고 전파는 막지 않는다 — 그 이벤트로 시트까지 닫지 않는다.
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      setDetailOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [detailOpen, addModalOpen, eventDetailOpen]);
+
   const calendarCardRef = useRef<HTMLDivElement>(null);
   // ResizeObserver 첫 콜백 전에는 null — 그 동안에는 minHeight fallback 으로 첫 프레임 깜빡임 방지.
   const [calendarCardHeight, setCalendarCardHeight] = useState<number | null>(null);
@@ -576,20 +589,39 @@ export function CalendarPage() {
             </div>
 
             {/* —— Right rail: selected day —— */}
-            <aside className="cal-detail" data-open={detailOpen} style={{
-              width: 360,
-              minWidth: 0,
-              minHeight: 0,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              transform: detailOpen ? 'translateX(0)' : 'translateX(32px)',
-              opacity: detailOpen ? 1 : 0,
-              pointerEvents: detailOpen ? 'auto' : 'none',
-              transition: 'transform .42s cubic-bezier(.22,.61,.36,1), opacity .28s ease',
-            }}>
+            <aside
+              className="cal-detail"
+              data-open={detailOpen}
+              role="dialog"
+              aria-label="선택한 날짜 일정"
+              // 항상 마운트되는 패널이라 닫힌 상태(opacity 0·pointer-events none)에서는 접근성 트리와 탭 순서에서 뺀다.
+              aria-hidden={!detailOpen}
+              inert={!detailOpen}
+              style={{
+                width: 360,
+                minWidth: 0,
+                minHeight: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                transform: detailOpen ? 'translateX(0)' : 'translateX(32px)',
+                opacity: detailOpen ? 1 : 0,
+                pointerEvents: detailOpen ? 'auto' : 'none',
+                transition: 'transform .42s cubic-bezier(.22,.61,.36,1), opacity .28s ease',
+              }}
+            >
               <div className="cal-sheet-handle" aria-hidden />
+              {/* 모바일 시트 닫기 — 핸들·백드롭·뒤로가기 외에 눈에 보이는 닫기 경로. 데스크탑(md+)은 레일의 접기 버튼이 담당.
+                  in-flow(flex item)라 헤더 카드의 장식과 겹치지 않고, -my-2 로 44px 히트만 확보하고 시트 높이는 덜 민다. */}
+              <button
+                type="button"
+                onClick={() => setDetailOpen(false)}
+                aria-label="일정 닫기"
+                className="-my-2 grid h-11 w-11 shrink-0 place-items-center self-end rounded-full text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
+              >
+                <span aria-hidden className="text-2xl leading-none">×</span>
+              </button>
               {/* Day header card */}
               <div style={{
                 background: 'var(--ink)', color: '#fff',
