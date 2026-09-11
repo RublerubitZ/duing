@@ -57,6 +57,8 @@ describe('MyEvaluationCard', () => {
       screen.getByText('메모는 평가 근거 작성에 사용됩니다. 지원자에게는 공개되지 않습니다.'),
     ).toBeInTheDocument();
 
+    // 점수는 이제 기본 미선택이다 — 고르지 않으면 저장이 잠긴다.
+    await userEvent.click(screen.getByRole('radio', { name: '3' }));
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     expect(mockUpsert).toHaveBeenCalledWith({
@@ -119,6 +121,23 @@ describe('MyEvaluationCard', () => {
     expect(mockDelete).not.toHaveBeenCalled();
   });
 
+  // 3점이 기본 선택이면 "안 읽고 저장"이 3점으로 남는다 — 점수는 운영진이 직접 골라야 한다.
+  it('새 평가는 점수가 전부 미선택이라 저장이 비활성이고, 점수를 고르면 활성화된다', async () => {
+    wrap(<MyEvaluationCard applicationId={1} myEvaluation={null} />);
+
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('점수를 선택하면 저장할 수 있어요.');
+
+    await userEvent.click(screen.getByRole('radio', { name: '4' }));
+
+    expect(screen.getByRole('button', { name: '저장' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(mockUpsert).toHaveBeenCalledWith({ applicationId: 1, payload: { score: 4, memo: null } });
+  });
+
   // 히트 영역과 토큰은 jsdom 이 레이아웃을 계산하지 않아 눈으로 볼 수 없다 —
   // BulkActionBar 전례처럼 클래스로 못박는다.
   it('점수 라디오는 44px 히트 영역 라벨로 감싸져 있다', () => {
@@ -170,6 +189,7 @@ describe('MyEvaluationCard', () => {
 
     const textarea = screen.getByRole('textbox', { name: '메모' });
     await userEvent.type(textarea, '작성 중이던 메모');
+    await userEvent.click(screen.getByRole('radio', { name: '3' }));
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('마감된 모집에서는 할 수 없는 작업입니다');
