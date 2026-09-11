@@ -66,7 +66,7 @@ function ExcludeDialog({
     <ConfirmDialog
       open
       title={`${memberName} 제외`}
-      description="제외된 멤버는 대기열로 복귀합니다. 계속하시겠습니까?"
+      description="제외된 지원자는 대기열로 복귀합니다. 계속하시겠습니까?"
       confirmLabel="확인"
       onConfirm={onConfirm}
       onCancel={onCancel}
@@ -446,7 +446,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         <ConfirmDialog
           open
           title="라운드 취소"
-          description="라운드를 취소하면 멤버는 대기열로 복귀합니다. 계속하시겠습니까?"
+          description="라운드를 취소하면 지원자는 대기열로 복귀합니다. 계속하시겠습니까?"
           confirmLabel="확인"
           onConfirm={handleCancel}
           onCancel={() => {
