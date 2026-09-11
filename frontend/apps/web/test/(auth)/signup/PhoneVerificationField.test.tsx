@@ -126,6 +126,28 @@ describe('PhoneVerificationField', () => {
     }
   });
 
+  it('모바일 발급 직후(문자앱 열기 전)에도 번호 다시 입력 버튼이 있어 onReset 으로 되돌아간다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const onReset = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          onReset={onReset}
+        />,
+      );
+      // 딥링크를 아직 안 눌렀어도 되돌아갈 길이 있어야 한다.
+      await user.click(screen.getByRole('button', { name: '번호 다시 입력' }));
+      expect(onReset).toHaveBeenCalledTimes(1);
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
   it('모바일 발급 후에는 상단에 안내 일러스트를 노출한다', () => {
     stubUserAgent(IPHONE_UA);
     try {
