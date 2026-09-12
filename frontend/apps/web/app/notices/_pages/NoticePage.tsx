@@ -431,6 +431,7 @@ export function NoticePage() {
                     key={opt.value}
                     type="button"
                     onClick={() => handleCategoryChange(opt.value)}
+                    className="tap-pill"
                     style={{
                       padding: '7px 14px', borderRadius: 999,
                       border: `1px solid ${isActive ? 'var(--ink)' : 'var(--gray-line)'}`,
