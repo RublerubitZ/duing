@@ -636,7 +636,7 @@ export function ClubExplorePage() {
           })}
         </nav>
 
-        <div className="flex items-center justify-between px-4 pb-3 pt-4 sm:px-6">
+        <div className="flex items-center justify-between px-4 pb-6 pt-4 sm:px-6">
           {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div

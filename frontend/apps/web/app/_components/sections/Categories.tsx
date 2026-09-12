@@ -13,9 +13,9 @@ export async function Categories() {
   const categoryCounts: CategoryCounts = stats?.categoryCounts ?? {};
 
   return (
-    <section id="categories" className="scroll-mt-16 pb-6 pt-8 sm:pb-8 sm:pt-14">
+    <section id="categories" className="scroll-mt-16 pb-12 pt-5 sm:pb-8 sm:pt-14">
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
-        <h2 className="mb-5 text-[20px] md:mb-10 md:text-[36px]">내게 맞는 카테고리</h2>
+        <h2 className="mb-6 text-[20px] md:mb-10 md:text-[36px]">내게 맞는 카테고리</h2>
 
         {/* 모바일: 4×2 타일 */}
         <div className="grid grid-cols-4 gap-2.5 md:hidden">

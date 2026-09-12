@@ -473,7 +473,7 @@ export function NoticePage() {
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
-                  <div className="mb-2.5 grid grid-cols-1 gap-3.5 md:grid-cols-2">
+                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
                     {pinnedItems.slice(0, 2).map((n, i) => {
                       const isDark = i === 0;
                       return (
@@ -572,7 +572,7 @@ export function NoticePage() {
                     })}
                   </div>
 
-                  <div style={{ padding: '10px 0 24px' }} />
+                  <div className="hidden md:block" style={{ padding: '10px 0 24px' }} />
                 </>
               )}
 
