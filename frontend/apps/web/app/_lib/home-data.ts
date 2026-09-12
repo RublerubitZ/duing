@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { createApiClient } from '@duing/api';
 import type { ClubSummary } from '@duing/types';
 import {
@@ -95,8 +97,12 @@ export function applyNewClubSlot(
   return [...top.slice(0, size - 1), newcomer];
 }
 
-/** RecruitmentTicker 용: 마감 임박순 모집 중 동아리, 상시모집(endDate=null) 은 제거. */
-export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSummary[]> {
+/**
+ * RecruitmentTicker 용: 마감 임박순 모집 중 동아리, 상시모집(endDate=null) 은 제거.
+ *
+ * <p>한 렌더에서 두 소비자(티커·모집 요약 타일)가 부르므로 React `cache` 로 감싸 요청을 한 번만 보낸다.
+ */
+export const fetchUpcomingDeadlineClubs = cache(async (size: number): Promise<ClubSummary[]> => {
   try {
     const page = await client().clubs.list({
       sort: 'DEADLINE_SOON',
@@ -109,7 +115,7 @@ export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSumm
     logBackendUnavailable('fetchUpcomingDeadlineClubs', error);
     return [];
   }
-}
+});
 
 /**
  * BannerCarousel 용: 공개 활성 프로모션 슬라이드.

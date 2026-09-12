@@ -26,7 +26,8 @@ export async function HomeRecruitAnchor() {
   }. 모집 중 동아리 보기`;
 
   return (
-    // 히어로 컨테이너와 같은 좌우 여백. 위아래 마진은 두지 않는다 — 히어로 pb-3·검색바 pt-3 가 12px 리듬을 만든다.
+    // 히어로 컨테이너와 같은 좌우 여백. 위아래 마진은 두지 않는다 — 히어로 pb-3·검색바 pt-3 가 12px 리듬을
+    // 만든다(sm 구간은 히어로 pb-8 이라 위 32·아래 12).
     <section className="px-4 sm:px-6 md:hidden">
       <Link
         href={RECRUITING_CLUBS_HREF}
