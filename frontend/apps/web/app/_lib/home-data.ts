@@ -100,7 +100,8 @@ export function applyNewClubSlot(
 /**
  * RecruitmentTicker 용: 마감 임박순 모집 중 동아리, 상시모집(endDate=null) 은 제거.
  *
- * <p>한 렌더에서 두 소비자(티커·모집 요약 타일)가 부르므로 React `cache` 로 감싸 요청을 한 번만 보낸다.
+ * <p>React `cache` 로 감싸 한 렌더 안의 반복 호출을 합친다. 지금 부르는 곳은 티커 하나라 합쳐질 호출이
+ * 없지만, 비용이 없고 나중에 소비자가 늘어도 요청이 한 번만 나가므로 래퍼는 그대로 둔다.
  */
 export const fetchUpcomingDeadlineClubs = cache(async (size: number): Promise<ClubSummary[]> => {
   try {
