@@ -52,6 +52,8 @@ export function BannerCarouselClient({ slides }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const [settleMs, setSettleMs] = useState(SETTLE_DURATION_MS);
+  // 배너가 뷰포트를 벗어났는지 — 자동재생을 쉬게 하는 조건일 뿐, 사용자의 정지(isPlaying)와는 별개 축이다.
+  const [isOffscreen, setIsOffscreen] = useState(false);
 
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,11 +138,25 @@ export function BannerCarouselClient({ slides }: Props) {
   }, []);
 
   useEffect(() => {
+    // 화면 밖으로 스크롤된 배너는 자동으로 넘길 이유가 없다 — 아무도 못 보는 전환에 합성 비용만 든다.
+    // 되돌아오면 재개한다. 사용자가 토글로 멈춘 상태(isPlaying=false)는 여기서 되살리지 않는다 —
+    // 조건을 따로 두고 AND 로 엮을 뿐, isPlaying 을 건드리지 않기 때문이다.
+    // IntersectionObserver 미지원(jsdom·구형 WebView)이면 항상 '화면 안' 으로 둔다(기존 동작 유지).
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setIsOffscreen(!entry.isIntersecting);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     // 드래그/복귀/전환 애니메이션 중에는 오토플레이를 멈춰, 손 뗀 직후 애니메이션이 끝난 뒤 재개한다.
-    if (!isPlaying || isDragging || isSettling || slides.length <= 1) return;
+    if (!isPlaying || isDragging || isSettling || isOffscreen || slides.length <= 1) return;
     const timer = window.setInterval(goNext, AUTOPLAY_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [isPlaying, isDragging, isSettling, goNext, slides.length]);
+  }, [isPlaying, isDragging, isSettling, isOffscreen, goNext, slides.length]);
 
   const releasePointer = useCallback(() => {
     const element = containerRef.current;

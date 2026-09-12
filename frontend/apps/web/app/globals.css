@@ -649,6 +649,12 @@ body {
 /* 홈 카테고리 장식 아이콘의 느린 회전 — transform-only 라 합성 비용만 든다. */
 .animate-spin-slow { animation: spin 6s linear infinite; }
 
+/* 뷰포트 밖 루프 정지 — PauseOffscreen 이 래퍼에 data-offscreen 을 달면 안쪽 마키를 멈춘다.
+   재생/정지를 JS 로 토글하지 않고 CSS 한 줄로 끝내, 스크롤 중 리렌더 없이 합성만 쉬게 한다.
+   유틸리티(.animate-marquee)보다 선택자가 구체적이라 유틸리티 레이어 밖 평문 CSS 로 둔다.
+   기존 group-hover 정지·motion-reduce 정지와는 서로 독립이다. */
+[data-offscreen] .animate-marquee { animation-play-state: paused; }
+
 /* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
    framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
    CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */
