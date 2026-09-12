@@ -11,8 +11,8 @@
 // reduced-motion 은 providers 의 MotionConfig reducedMotion="user" 가 layout 애니메이션까지 끄므로
 // 여기서 따로 분기하지 않는다 — 동작 줄이기 환경에선 인디케이터가 즉시 옮겨간다.
 //
-// 스트립마다 layoutId 를 다르게 준다(club-detail-tab / mypage-tab …) — 한 페이지에 두 스트립이
-// 놓이더라도 서로의 막대를 끌어당기지 않는다.
+// 지금 쓰는 곳은 동아리 상세 탭 하나(layoutId="club-detail-tab")다. 스트립을 더 붙일 때는
+// layoutId 를 스트립마다 다르게 준다 — 같은 값을 쓰면 서로의 막대를 끌어당긴다.
 
 import { LazyMotion, domMax, m } from 'framer-motion';
 

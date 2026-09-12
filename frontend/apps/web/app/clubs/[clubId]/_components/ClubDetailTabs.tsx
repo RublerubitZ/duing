@@ -65,7 +65,14 @@ export function ClubDetailTabs({ club, photos, membership }: Props) {
   const activeTab = tabs.some((tab) => tab.key === selectedTab) ? selectedTab : firstTab.key;
 
   return (
-    <Tabs value={activeTab} onValueChange={(value) => setSelectedTab(value as TabKey)}>
+    <Tabs
+      value={activeTab}
+      // Radix 는 value 를 string 으로 넘긴다 — 단언 대신 지금 목록에서 찾아 좁힌다(없으면 무시).
+      onValueChange={(value) => {
+        const next = tabs.find((tab) => tab.key === value);
+        if (next) setSelectedTab(next.key);
+      }}
+    >
       {/* 모바일에서 탭이 넘치면 가로 스크롤 — 래퍼가 overflow 를 맡는다.
           TabsList 는 w-max+min-w-full 로 평소엔 전체폭 레일, 넘칠 때만 콘텐츠폭. 데스크탑(md+)은 기존 그대로. */}
       <div className="mb-8 overflow-x-auto md:overflow-visible">
