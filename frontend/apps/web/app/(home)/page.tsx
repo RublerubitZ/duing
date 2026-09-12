@@ -8,6 +8,7 @@ import { BannerCarousel } from '../_components/sections/BannerCarousel';
 import { Categories } from '../_components/sections/Categories';
 import { HomeHero } from '../_components/sections/HomeHero';
 import { HomeMobileSearchBar } from '../_components/sections/HomeMobileSearchBar';
+import { HomeRecruitAnchor } from '../_components/sections/HomeRecruitAnchor';
 import { InterestingClubs } from '../_components/sections/InterestingClubs';
 import { RecruitmentTicker } from '../_components/sections/RecruitmentTicker';
 
@@ -45,6 +46,10 @@ export default function HomePage() {
   return (
     <div>
       <HomeHero />
+      {/* 모바일 전용 모집 요약 타일 — 히어로의 "모집 중 N곳" CTA 와 티커의 마감 정보를 모바일에서 대신 받는다.
+          히어로 pb-3·검색바 pt-3 가 위아래 12px 리듬을 만들어 주므로 타일에는 마진을 두지 않는다
+          (sm 구간은 히어로 pb-8 이라 위 32·아래 12). */}
+      <HomeRecruitAnchor />
       {/* 모바일 검색 바는 시안대로 히어로 다음에 온다. sticky 라 이 자리에 있다가 지나치면 상단에 붙는다 —
           히어로 섹션 안에 넣으면 섹션을 벗어나는 순간 함께 사라져 스크롤 중 검색을 잃는다. */}
       <HomeMobileSearchBar />

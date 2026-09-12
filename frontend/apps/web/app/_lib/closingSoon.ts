@@ -9,6 +9,15 @@ export const CLOSING_SOON_WINDOW_DAYS = 7;
 
 export type ClosingSoonEmphasis = 'danger' | 'warning' | 'default';
 
+// 시안(509:7790)의 칩은 밝은 회색 면(Gray/004 #E1E1E1) 위 딥그린 글자 하나뿐이라, 긴급도는 면 색으로만 가른다.
+// 글자는 셋 다 딥그린 — warm 7.8:1, coral 4.5:1 로 셋 다 AA 를 넘고, 기존 반투명 칩(3.5:1)보다 대비가 높다.
+// 티커(마퀴)와 홈 모집 요약 타일이 같은 칩을 쓰므로 선별 로직 옆에 둔다 — 한쪽만 바뀌면 같은 D-day 가 두 색이 된다.
+export const CLOSING_SOON_CHIP_CLASS: Record<ClosingSoonEmphasis, string> = {
+  danger: 'bg-coral',
+  warning: 'bg-warm',
+  default: 'bg-[#E1E1E1]',
+};
+
 export type ClosingSoonItem = {
   id: number;
   name: string;

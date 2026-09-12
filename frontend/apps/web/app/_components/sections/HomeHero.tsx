@@ -70,10 +70,11 @@ export async function HomeHero() {
 
           {/* 본문 카피 — 원문의 두 줄 리듬("대구대학교 동아리 플랫폼." + ing 워드플레이)을 지키되, 둘째 줄은
               PC·모바일 공통으로 "N개 동아리가 지금도 ing 중" 한 문장만 둔다. 원문 PC 꼬리("이번 학기 N곳
-              모집 중이에요")와 모바일 전용 "N개 동아리가 지금 모집 ing" 는 바로 아래 CTA "모집 중 N곳 보기" 가
-              같은 말을 하게 되어 뺐다(2026-09-11 사용자 결정). 모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에
-              들어가도록 폭 220 을 넘기지 않고(폴백 문구도 14px 에서 ≈180px 로 두 줄 안), 통계 미가용(stats=null) 시
-              숫자 없는 기본형으로 폴백한다. */}
+              모집 중이에요")와 모바일 전용 "N개 동아리가 지금 모집 ing" 는 같은 말을 하는 자리가
+              따로 있어 뺐다 — PC 는 바로 아래 CTA "모집 중 N곳 보기", 모바일은 그 CTA 가 md 부터만 보이므로
+              히어로 아래 모집 요약 타일(HomeRecruitAnchor)이 대신한다(2026-09-11 사용자 결정).
+              모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에 들어가도록 폭 220 을 넘기지 않고(폴백 문구도
+              14px 에서 ≈180px 로 두 줄 안), 통계 미가용(stats=null) 시 숫자 없는 기본형으로 폴백한다. */}
           <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
             대구대학교 동아리 플랫폼.
             <br />
@@ -86,9 +87,12 @@ export async function HomeHero() {
               터치 목표 44px 을 맞춘다(ImageUploader 의 작은 버튼·배너 페이저와 같은 기법). */}
           <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
             {stats && stats.recruitingCount > 0 ? (
+              // 모바일에서는 바로 아래 모집 요약 타일(HomeRecruitAnchor)이 같은 숫자·같은 링크를 이미 들고 있어
+              // 이 링크만 md 부터 보인다. 폴백("동아리 둘러보기")은 타일이 렌더되지 않는 상황이라 모바일에도 남긴다.
+              // .btn 의 inline-flex 는 @layer components 라 뒤에 오는 유틸리티(hidden/md:inline-flex)가 이긴다.
               <Link
                 href={RECRUITING_CLUBS_HREF}
-                className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4"
+                className="relative hidden before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4 md:inline-flex"
               >
                 모집 중 {stats.recruitingCount}곳 보기
               </Link>
