@@ -1,9 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ClubDetail } from '@duing/types';
-import { ClubDetailHero } from '../../app/clubs/[clubId]/_components/ClubDetailHero';
+import type { ClubDetail, ClubPhoto } from '@duing/types';
+import {
+  ClubDetailHero,
+  resolveHeroImageUrl,
+} from '../../app/clubs/[clubId]/_components/ClubDetailHero';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }));
+// 커버 배너는 next/image 라 jsdom 에서 로더가 돌지 않는다 — src/alt 만 넘기는 <img> 로 대체한다
+// (전례: test/home/home-hero.test.tsx).
+vi.mock('next/image', () => ({
+  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+}));
 // 찜 버튼은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
 // 흉내 내면 subscribe/getState 가 없어 렌더가 터진다.
 vi.mock('@duing/stores', () => {
@@ -160,5 +168,116 @@ describe('ClubDetailHero — 이름 아래 해시태그', () => {
       />,
     );
     expect(screen.queryByText(/글로벌경영대학/)).toBeNull();
+  });
+});
+function makePhoto(id: number, storageKey: string, displayOrder: number): ClubPhoto {
+  return { id, storageKey, caption: null, width: null, height: null, displayOrder };
+}
+
+// 히어로는 데스크탑·모바일이 같은 트리에 함께 렌더되므로(반응형은 CSS 로만 갈린다) 모바일 블록으로 좁힌다.
+// 배너 유무는 스페이서(safe-area 높이) 와 로고 걸침 마진으로 함께 확인한다.
+function mobileHeroParts(container: HTMLElement) {
+  const mobileHero = container.querySelector('div.md\\:hidden');
+  return {
+    bannerImage: mobileHero?.querySelector('img') ?? null,
+    // 상단 액션바도 safe-area 패딩을 쓰므로 스페이서 고유의 높이 계산식으로 좁힌다.
+    spacer: mobileHero?.querySelector('div[class*="h-[calc(3.25rem"]') ?? null,
+    logoBox: mobileHero?.querySelector('div[class*="h-20"]') ?? null,
+  };
+}
+
+describe('ClubDetailHero — 모바일 히어로 배너 이미지', () => {
+  it('커버가 없으면 활동 사진 첫 장(displayOrder 최소)을 배너로 그린다', () => {
+    const { container } = render(
+      <ClubDetailHero
+        club={{
+          ...baseClub,
+          coverUrl: null,
+          photos: [
+            makePhoto(2, 'https://files.duings.com/second.jpg', 1),
+            makePhoto(1, 'https://files.duings.com/first.jpg', 0),
+          ],
+        }}
+      />,
+    );
+
+    const { bannerImage, spacer, logoBox } = mobileHeroParts(container);
+    expect(bannerImage).toHaveAttribute('src', 'https://files.duings.com/first.jpg');
+    expect(spacer).toBeNull();
+    expect(logoBox?.classList.contains('-mt-6')).toBe(true);
+  });
+
+  it('커버와 활동 사진이 둘 다 있으면 커버가 우선한다', () => {
+    const { container } = render(
+      <ClubDetailHero
+        club={{
+          ...baseClub,
+          coverUrl: 'https://files.duings.com/cover.jpg',
+          photos: [makePhoto(1, 'https://files.duings.com/first.jpg', 0)],
+        }}
+      />,
+    );
+
+    const { bannerImage, spacer } = mobileHeroParts(container);
+    expect(bannerImage).toHaveAttribute('src', 'https://files.duings.com/cover.jpg');
+    expect(spacer).toBeNull();
+  });
+
+  it('커버도 활동 사진도 없으면 배너 없이 스페이서 + 로고 mt-1 을 유지한다', () => {
+    const { container } = render(<ClubDetailHero club={{ ...baseClub, coverUrl: null, photos: [] }} />);
+
+    const { bannerImage, spacer, logoBox } = mobileHeroParts(container);
+    expect(bannerImage).toBeNull();
+    expect(spacer).not.toBeNull();
+    expect(logoBox?.classList.contains('mt-1')).toBe(true);
+  });
+
+  it('활동 사진 배너가 로드에 실패하면 배너를 접고 스페이서 레이아웃으로 돌아간다', () => {
+    const { container } = render(
+      <ClubDetailHero
+        club={{
+          ...baseClub,
+          coverUrl: null,
+          photos: [makePhoto(1, 'http://localhost:8080/broken.jpg', 0)],
+        }}
+      />,
+    );
+
+    const { bannerImage } = mobileHeroParts(container);
+    expect(bannerImage).not.toBeNull();
+    fireEvent.error(bannerImage as HTMLImageElement);
+
+    const afterError = mobileHeroParts(container);
+    expect(afterError.bannerImage).toBeNull();
+    expect(afterError.spacer).not.toBeNull();
+    expect(afterError.logoBox?.classList.contains('mt-1')).toBe(true);
+  });
+});
+
+describe('resolveHeroImageUrl', () => {
+  it('커버 우선 · 사진 없으면 null · 빈 키는 건너뛰고 displayOrder 최소를 고른다', () => {
+    expect(
+      resolveHeroImageUrl({ coverUrl: 'https://files.duings.com/cover.jpg', photos: [] }),
+    ).toBe('https://files.duings.com/cover.jpg');
+
+    expect(resolveHeroImageUrl({ coverUrl: null, photos: [] })).toBeNull();
+
+    expect(
+      resolveHeroImageUrl({
+        coverUrl: null,
+        photos: [makePhoto(1, '   ', 0), makePhoto(2, 'https://files.duings.com/second.jpg', 1)],
+      }),
+    ).toBe('https://files.duings.com/second.jpg');
+
+    expect(
+      resolveHeroImageUrl({
+        coverUrl: null,
+        photos: [
+          makePhoto(1, 'https://files.duings.com/third.jpg', 5),
+          makePhoto(2, 'https://files.duings.com/first.jpg', 2),
+          makePhoto(3, 'https://files.duings.com/second.jpg', 3),
+        ],
+      }),
+    ).toBe('https://files.duings.com/first.jpg');
   });
 });
