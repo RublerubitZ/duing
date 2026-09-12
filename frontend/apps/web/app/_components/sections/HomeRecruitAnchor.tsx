@@ -29,10 +29,11 @@ export async function HomeRecruitAnchor() {
     // 히어로 컨테이너와 같은 좌우 여백. 위아래 마진은 두지 않는다 — 히어로 pb-3·검색바 pt-3 가 12px 리듬을
     // 만든다(sm 구간은 히어로 pb-8 이라 위 32·아래 12).
     <section className="px-4 sm:px-6 md:hidden">
+      {/* 누름 피드백(축소·reduced-motion 해제)은 공용 `tap-card` 클래스가 갖는다(globals.css, 모바일 리듬 PR). */}
       <Link
         href={RECRUITING_CLUBS_HREF}
         aria-label={ariaLabel}
-        className="block rounded-lg bg-ink p-5 text-cream shadow-2 transition-transform duration-150 ease-out active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none motion-reduce:active:scale-100"
+        className="tap-card block rounded-lg bg-ink p-5 text-cream shadow-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

@@ -56,9 +56,9 @@ export async function RecruitmentTicker() {
   const durationSeconds = Math.max(12, Math.round(items.length * 2.6)) * repeatCount;
 
   return (
-    // PC(sm+): 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52.
-    // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·사이렌 14·항목 간격 20·캐럿 14.
-    // 다만 시안의 10(라벨·이름)·12(칩) 는 본문 최소 12px 에 못 미쳐 12·18 로 올렸다(접근성 하한이 시안보다 우선).
+    // md 이상에서만 렌더한다 — 모바일에서는 HomeRecruitAnchor 타일이 "가장 급한 마감" 을 대신 알린다.
+    // 그래서 치수는 PC(sm+) 만 의미가 있다: 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로
+    // 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52·칩 13/높이 18·캐럿 28.
     <section className="relative mt-7 hidden overflow-hidden bg-ink-deep text-white sm:mt-14 md:block">
       <div className="max-w-layout mx-auto flex h-[38px] items-center gap-2 px-4 sm:h-16 sm:gap-12 sm:px-6 md:px-10">
         <div className="flex shrink-0 items-center gap-1 text-[12px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
@@ -88,10 +88,7 @@ export async function RecruitmentTicker() {
         </div>
 
         {/* 시안은 캐럿만 — 아이콘 링크라 접근명을 직접 단다. 글리프 우측이 콘텐츠 끝선에 오도록 박스 여백만큼 당긴다.
-            모바일 히트 박스는 44×38 이다: 띠가 시안대로 38px 이고 조상이 overflow-hidden 이라 세로로 44px 를 주면
-            넘치는 3px 이 잘려 눌리지도, 포커스 링이 보이지도 않는다. 가로만 44px 를 지키고 세로는 띠 높이에 맞춘다
-            (WCAG 2.5.8 AA 24px 상회). 포커스 링도 같은 이유로 모바일만 안쪽에 그린다 — offset 0 이어도
-            outline 2px 은 박스 바깥에 얹혀 띠 경계에서 잘리므로 음수 offset 으로 안쪽에 넣는다. PC 는 44×44 에 바깥 링 그대로. */}
+            히트 박스는 44×44, 포커스 링은 바깥(offset 2)에 그린다. */}
         <Link
           href={RECRUITING_CLUBS_HREF}
           aria-label="마감 임박 동아리 전체 보기"
