@@ -12,9 +12,9 @@ import { useAuthStore } from '@duing/stores';
 import type { ClubSummary, PageResponse } from '@duing/types';
 
 /**
- * 탐색 화면의 첫 로드 스태거와 모바일 카테고리 탭 인디케이터(§PR-4).
- * - 스태거는 첫 데이터가 도착한 1회에만 붙는다. 필터 변경은 반복 액션이라 제외한다.
- * - 카테고리 인디케이터는 활성 항목 안에만 1개 있고, 활성이 바뀌면 그쪽으로 옮겨간다.
+ * 탐색 목록의 첫 로드 스태거(§PR-4).
+ * 스태거는 첫 데이터가 도착한 1회에만 붙는다 — 필터 변경·페이지 이동은 반복 액션이라 제외한다.
+ * (같은 PR 에 있던 카테고리 탭 인디케이터는 번들 비용 때문에 빠졌다.)
  */
 
 // 실제 라우터처럼 replace 가 URL 을 바꾸면 화면이 다시 그려지게 만든다 — 그래야 카테고리 클릭이
@@ -144,25 +144,5 @@ describe('ClubExplorePage — 첫 로드 스태거', () => {
 
     await waitFor(() => expect(screen.getAllByText('연극부').length).toBeGreaterThan(0));
     expect(staggerWrappers()).toHaveLength(0);
-  });
-});
-
-describe('ClubExplorePage — 모바일 카테고리 탭 인디케이터', () => {
-  it('활성 카테고리 안에만 1개 있고 다른 카테고리를 누르면 옮겨간다', async () => {
-    server.use(clubListHandler);
-    renderExplore();
-
-    const rail = within(screen.getByRole('navigation'));
-    const allTab = rail.getByRole('button', { name: '전체' });
-    const artTab = rail.getByRole('button', { name: '예술' });
-
-    expect(document.querySelectorAll('[data-tab-indicator]')).toHaveLength(1);
-    expect(allTab.querySelector('[data-tab-indicator]')).not.toBeNull();
-
-    await userEvent.click(artTab);
-
-    await waitFor(() => expect(artTab.querySelector('[data-tab-indicator]')).not.toBeNull());
-    expect(document.querySelectorAll('[data-tab-indicator]')).toHaveLength(1);
-    expect(allTab.querySelector('[data-tab-indicator]')).toBeNull();
   });
 });

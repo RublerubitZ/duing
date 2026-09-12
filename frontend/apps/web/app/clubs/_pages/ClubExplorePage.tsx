@@ -11,7 +11,6 @@ import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { ClubDayOfWeek, ClubSummary, PageResponse } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { TabIndicator } from '@/components/motion/TabIndicator';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
@@ -660,19 +659,16 @@ export function ClubExplorePage() {
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
-              // 활성 보더 대신 인디케이터가 활성 항목 안에서만 그려진다(상세 탭과 같은 방식).
-              // 보더는 투명으로 남겨 레일 높이와 글자 위치를 그대로 두고, 막대는 그 보더 자리에 겹친다.
               <button
                 key={option.label}
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
                 className={cn(
-                  'relative shrink-0 whitespace-nowrap border-b-[2.5px] border-transparent py-[11px] text-[14px] font-semibold transition-colors',
-                  on ? 'text-ink' : 'text-charcoal-3',
+                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-[11px] text-[14px] font-semibold transition-colors',
+                  on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
                 )}
               >
                 {option.label}
-                {on && <TabIndicator layoutId="explore-category-tab" />}
               </button>
             );
           })}
