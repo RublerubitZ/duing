@@ -86,9 +86,12 @@ export async function HomeHero() {
               터치 목표 44px 을 맞춘다(ImageUploader 의 작은 버튼·배너 페이저와 같은 기법). */}
           <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
             {stats && stats.recruitingCount > 0 ? (
+              // 모바일에서는 바로 아래 모집 요약 타일(HomeRecruitAnchor)이 같은 숫자·같은 링크를 이미 들고 있어
+              // 이 링크만 md 부터 보인다. 폴백("동아리 둘러보기")은 타일이 렌더되지 않는 상황이라 모바일에도 남긴다.
+              // .btn 의 inline-flex 는 @layer components 라 뒤에 오는 유틸리티(hidden/md:inline-flex)가 이긴다.
               <Link
                 href={RECRUITING_CLUBS_HREF}
-                className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4"
+                className="relative hidden before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4 md:inline-flex"
               >
                 모집 중 {stats.recruitingCount}곳 보기
               </Link>

@@ -59,7 +59,7 @@ export async function RecruitmentTicker() {
     // PC(sm+): 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52.
     // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·사이렌 14·항목 간격 20·캐럿 14.
     // 다만 시안의 10(라벨·이름)·12(칩) 는 본문 최소 12px 에 못 미쳐 12·18 로 올렸다(접근성 하한이 시안보다 우선).
-    <section className="relative mt-7 overflow-hidden bg-ink-deep text-white sm:mt-14">
+    <section className="relative mt-7 hidden overflow-hidden bg-ink-deep text-white sm:mt-14 md:block">
       <div className="max-w-layout mx-auto flex h-[38px] items-center gap-2 px-4 sm:h-16 sm:gap-12 sm:px-6 md:px-10">
         <div className="flex shrink-0 items-center gap-1 text-[12px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
           마감 임박 동아리
