@@ -264,6 +264,9 @@ body {
       transform: scale(0.95);
     }
   }
+  /* 퇴장 200ms 는 app/_components/toast/ToastProvider.tsx 의 EXIT_DURATION_MS 와 같은 값이다 —
+     그 타이머가 끝나야 토스트가 DOM 에서 빠지므로, 한쪽만 바꾸면 전이가 잘리거나 빈 채로 남는다.
+     반드시 둘을 함께 바꾼다. */
   .toast-exit {
     opacity: 0;
     transform: scale(0.98);
