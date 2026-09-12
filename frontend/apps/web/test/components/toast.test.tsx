@@ -34,16 +34,27 @@ describe('ToastProvider', () => {
     expect(screen.getByText('저장됐어요')).toBeInTheDocument();
   });
 
-  it('닫기 버튼을 누르면 토스트가 사라진다', async () => {
-    const user = userEvent.setup();
+  it('닫기 버튼을 누르면 퇴장 전이를 거쳐 토스트가 사라진다', () => {
+    vi.useFakeTimers();
     render(
       <ToastProvider>
         <Trigger message="안내 메시지" />
       </ToastProvider>,
     );
 
-    await user.click(screen.getByRole('button', { name: '띄우기' }));
-    await user.click(screen.getByRole('button', { name: '알림 닫기' }));
+    act(() => {
+      screen.getByRole('button', { name: '띄우기' }).click();
+    });
+    act(() => {
+      screen.getByRole('button', { name: '알림 닫기' }).click();
+    });
+
+    // 즉시 언마운트하지 않고 퇴장 표시만 켠다 — CSS 가 200ms 전이를 끝낼 시간을 준다.
+    expect(screen.getByRole('alert')).toHaveAttribute('data-exiting', 'true');
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
     expect(screen.queryByText('안내 메시지')).not.toBeInTheDocument();
   });
 
@@ -62,6 +73,11 @@ describe('ToastProvider', () => {
 
     act(() => {
       vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByRole('alert')).toHaveAttribute('data-exiting', 'true');
+
+    act(() => {
+      vi.advanceTimersByTime(200);
     });
     expect(screen.queryByText('잠깐 알림')).not.toBeInTheDocument();
   });
@@ -135,7 +151,37 @@ describe('ToastProvider', () => {
     act(() => {
       vi.advanceTimersByTime(1);
     });
+    // 3000ms 시점 — 원래 타이머가 제때 퇴장을 시작했다.
+    expect(screen.getByRole('alert')).toHaveAttribute('data-exiting', 'true');
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
     expect(screen.queryByText('잠깐 알림')).not.toBeInTheDocument();
+  });
+
+  it('퇴장 중인 토스트와 같은 문구를 다시 띄우면 새 토스트가 뜬다', () => {
+    vi.useFakeTimers();
+    render(
+      <ToastProvider>
+        <Trigger message="인터넷 연결을 확인해주세요." />
+      </ToastProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: '띄우기' }).click();
+    });
+    act(() => {
+      screen.getByRole('button', { name: '알림 닫기' }).click();
+    });
+    // 퇴장 애니메이션이 끝나기 전(200ms 이내) 같은 문구를 다시 요청 — dedupe 대상이 아니다.
+    act(() => {
+      screen.getByRole('button', { name: '띄우기' }).click();
+    });
+
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts).toHaveLength(2);
+    expect(alerts.filter((alert) => alert.getAttribute('data-exiting') === 'true')).toHaveLength(1);
   });
 });
 

@@ -83,7 +83,7 @@ export function ClubListItem({
     <Link
       href={toRoute(`/clubs/${club.id}`)}
       className={cn(
-        'group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 transition hover:shadow-2',
+        'tap-card group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 hover:shadow-2',
         isDimmed && 'opacity-[0.78]',
       )}
     >

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { FadeIn } from '@/components/motion/FadeIn';
 
 import { HomeFooter } from '../_components/HomeFooter';
+import { PauseOffscreen } from '../_components/PauseOffscreen';
 import { BannerCarousel } from '../_components/sections/BannerCarousel';
 import { Categories } from '../_components/sections/Categories';
 import { HomeHero } from '../_components/sections/HomeHero';
@@ -48,7 +49,12 @@ export default function HomePage() {
           히어로 섹션 안에 넣으면 섹션을 벗어나는 순간 함께 사라져 스크롤 중 검색을 잃는다. */}
       <HomeMobileSearchBar />
       <BannerCarousel />
-      <RecruitmentTicker />
+      {/* 마키는 무한 루프라 화면 밖에서도 합성이 돈다 — 얇은 클라이언트 래퍼가 뷰포트 밖에서 멈춘다.
+          티커 자체는 서버 컴포넌트 그대로다(래퍼의 children 으로 넘어간다).
+          래퍼 div 에는 스타일이 없어 티커 section 의 mt-7 sm:mt-14 가 그대로 collapse 된다. */}
+      <PauseOffscreen>
+        <RecruitmentTicker />
+      </PauseOffscreen>
       {/* 발견 흐름의 중심 섹션 — 탐색·카테고리보다 먼저 두어, 스크롤 초반에 "지금 볼 만한 곳" 을 먼저 만나게 한다.
           모바일 뷰포트 첫 화면에 걸치는 above-the-fold 콘텐츠라 FadeIn(초기 opacity:0)으로 감싸지 않는다. */}
       <InterestingClubs />

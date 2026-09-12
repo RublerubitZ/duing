@@ -26,7 +26,7 @@ export async function InterestingClubs() {
   return (
     <section className="py-7 sm:py-14">
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
-        <div className="mb-5 flex items-center justify-between md:mb-10">
+        <div className="mb-6 flex items-center justify-between md:mb-10">
           <h2 className="text-[20px] md:text-[36px]">관심도가 높은 동아리</h2>
           {/* 아이콘만 있는 링크라 접근명을 직접 단다 — 인라인 텍스트가 없으면 스크린리더가 읽을 게 없다.
               시안은 딥그린 원 안의 캐럿이지만 제목 옆에서 무게가 과해 캐럿만 둔다 — 면 없이 글자색으로만.
@@ -55,7 +55,7 @@ export async function InterestingClubs() {
         </div>
 
         {/* 모바일: 세로 리스트. 홈에 이미 배너·티커라는 가로 이동 요소가 둘 있어 캐러셀을 더 얹지 않는다. */}
-        <div className="flex flex-col gap-2 md:hidden">
+        <div className="flex flex-col gap-3 md:hidden">
           {clubs.map((club) => (
             <InterestRow key={club.id} club={club} />
           ))}
@@ -161,7 +161,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
   return (
     <Link
       href={`/clubs/${club.id}`}
-      className="flex h-[76px] items-center gap-3 rounded-[10px] bg-paper px-3 forced-colors:border transition active:scale-[0.99]"
+      className="tap-card flex h-[76px] items-center gap-3 rounded-[10px] bg-paper px-3 forced-colors:border"
     >
       <ClubCardLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">

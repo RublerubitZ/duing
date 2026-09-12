@@ -636,7 +636,7 @@ export function ClubExplorePage() {
           })}
         </nav>
 
-        <div className="flex items-center justify-between px-4 pb-3 pt-4 sm:px-6">
+        <div className="flex items-center justify-between px-4 pb-6 pt-4 sm:px-6">
           {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div
@@ -656,7 +656,7 @@ export function ClubExplorePage() {
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
+              className="tap-pill inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
             >
               <Icon.sliders className="h-[15px] w-[15px]" />
               필터
@@ -826,7 +826,7 @@ export function ClubExplorePage() {
                       type="button"
                       onClick={() => handleToggleActiveDay(day)}
                       className={cn(
-                        'grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
+                        'tap-pill grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
                         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
                       )}
                     >
@@ -881,7 +881,7 @@ function FavoriteFilterChip({ on, onClick }: { on: boolean; onClick: () => void 
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >
@@ -920,7 +920,7 @@ function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClic
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >

@@ -224,6 +224,61 @@ body {
     @apply bg-paper rounded-lg border border-line;
   }
 
+  /* 프레스 피드백(모바일 탭 대상 전용) — 전이 정의를 이 클래스 한 곳에 모은다.
+     요소에 transition 유틸리티를 같이 붙이면 shorthand 를 통째로 덮어 스케일이 0ms 로 튄다.
+     reduced-motion 은 스케일만 끊고 색·섀도 전이는 남긴다(이동·스케일 제거 규약). */
+  .tap-card {
+    transition: transform 160ms ease-out, box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap-pill {
+    transition:
+      transform 160ms ease-out,
+      color 150ms,
+      background-color 150ms,
+      border-color 150ms;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap-card:active {
+    transform: scale(0.98);
+  }
+  .tap-pill:active {
+    transform: scale(0.96);
+  }
+
+  /* 토스트 진입·퇴장. 진입은 @starting-style 로만 — 옵서버 없이 마운트 1회 재생되고,
+     미지원 브라우저(iOS 16 이하 등)에서는 전이 없이 즉시 표시된다(시작 상태를 박아 두지 않는다).
+     @apply 와 섞지 않는다 — @starting-style 안은 순수 CSS 여야 한다.
+     transform-origin 은 토스트가 뜨는 방향을 따라간다(모바일 하단 / md 이상 상단). */
+  .toast-enter {
+    opacity: 1;
+    transform: scale(1);
+    transform-origin: bottom center;
+    transition:
+      opacity 400ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @starting-style {
+    .toast-enter {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+  .toast-exit {
+    opacity: 0;
+    transform: scale(0.98);
+    transform-origin: bottom center;
+    transition:
+      opacity 200ms ease-out,
+      transform 200ms ease-out;
+  }
+  @media (min-width: 768px) {
+    .toast-enter,
+    .toast-exit {
+      transform-origin: top center;
+    }
+  }
+
   .bg-grid {
     background-image: radial-gradient(circle, rgba(31, 74, 54, 0.05) 1px, transparent 1px);
     background-size: 22px 22px;
@@ -594,6 +649,12 @@ body {
 /* 홈 카테고리 장식 아이콘의 느린 회전 — transform-only 라 합성 비용만 든다. */
 .animate-spin-slow { animation: spin 6s linear infinite; }
 
+/* 뷰포트 밖 루프 정지 — PauseOffscreen 이 래퍼에 data-offscreen 을 달면 안쪽 마키를 멈춘다.
+   재생/정지를 JS 로 토글하지 않고 CSS 한 줄로 끝내, 스크롤 중 리렌더 없이 합성만 쉬게 한다.
+   유틸리티(.animate-marquee)보다 선택자가 구체적이라 유틸리티 레이어 밖 평문 CSS 로 둔다.
+   기존 group-hover 정지·motion-reduce 정지와는 서로 독립이다. */
+[data-offscreen] .animate-marquee { animation-play-state: paused; }
+
 /* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
    framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
    CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */
@@ -607,6 +668,24 @@ body {
   .animate-slide-out-left,
   .animate-slide-out-right {
     animation: none;
+  }
+}
+
+/* 동작 줄이기 — 탭 대상의 눌림 스케일만 제거하고 색·섀도 전이는 그대로 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .tap-card,
+  .tap-pill {
+    transition-property: color, background-color, border-color, box-shadow;
+  }
+  .tap-card:active,
+  .tap-pill:active {
+    transform: none;
+  }
+  /* 토스트도 같은 규약 — 스케일은 끄고 페이드(opacity)만 남긴다. 시간은 그대로. */
+  .toast-enter,
+  .toast-exit {
+    transition-property: opacity;
+    transform: none;
   }
 }
 

@@ -23,7 +23,14 @@ type ToastVariant = 'info' | 'error';
 // 액션 자체가 상황 해소 시도라 남아 있을 이유가 없고, 실패하면 새 토스트가 다시 뜬다.
 type ToastAction = { label: string; onClick: () => void };
 
-type Toast = { id: number; message: string; variant: ToastVariant; action?: ToastAction };
+// exiting — 퇴장 전이가 진행 중인 상태. 카드는 남겨 두고 CSS 전이가 끝난 뒤에 실제로 제거한다.
+type Toast = {
+  id: number;
+  message: string;
+  variant: ToastVariant;
+  action?: ToastAction;
+  exiting?: boolean;
+};
 
 type AddToastOptions = { variant?: ToastVariant; durationMs?: number; action?: ToastAction };
 
@@ -34,6 +41,8 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const DEFAULT_DURATION_MS = 5000;
+// 퇴장 전이 길이 — globals.css 의 `.toast-exit` transition 과 같은 값이어야 한다.
+const EXIT_DURATION_MS = 200;
 
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
@@ -59,15 +68,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // 타이머 등록 같은 부수효과를 두면 타이머가 중복 등록된다. 그래서 판별은 이 ref 로,
   // 부수효과(타이머)는 판별 이후 별도로 수행한다.
   const toastsRef = useRef<Toast[]>([]);
+  // 퇴장 타이머는 자동 닫힘 타이머(timers)와 따로 둔다 — 퇴장 중인 토스트에 dismiss 가
+  // 다시 들어와도 서로의 타이머를 지우지 않게 하려면 두 수명이 구분돼 있어야 한다.
+  const exitTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   const dismissToast = useCallback((id: number) => {
+    const target = toastsRef.current.find((toast) => toast.id === id);
+    // 이미 사라졌거나 퇴장 중이면 아무것도 하지 않는다(퇴장 타이머 중복 등록 방지).
+    if (!target || target.exiting) return;
+
     const timer = timers.current.get(id);
     if (timer) {
       clearTimeout(timer);
       timers.current.delete(id);
     }
-    toastsRef.current = toastsRef.current.filter((toast) => toast.id !== id);
+
+    toastsRef.current = toastsRef.current.map((toast) =>
+      toast.id === id ? { ...toast, exiting: true } : toast,
+    );
     setToasts(toastsRef.current);
+
+    exitTimers.current.set(
+      id,
+      setTimeout(() => {
+        exitTimers.current.delete(id);
+        toastsRef.current = toastsRef.current.filter((toast) => toast.id !== id);
+        setToasts(toastsRef.current);
+      }, EXIT_DURATION_MS),
+    );
   }, []);
 
   const addToast = useCallback(
@@ -76,8 +104,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       // 동일 문구+variant 토스트가 이미 표시 중이면 추가하지 않는다(연타 시 중복 스택 방지).
       // 스킵할 때는 id 발급·타이머 등록 모두 건너뛴다 — 그러지 않으면 이미 떠 있는 토스트를
       // 조기/중복 닫는 타이머가 새로 걸릴 수 있다.
+      // 퇴장 중인 토스트는 곧 사라질 것이므로 중복으로 보지 않는다(같은 문구가 새로 뜬다).
       const isAlreadyShown = toastsRef.current.some(
-        (toast) => toast.message === message && toast.variant === variant,
+        (toast) => !toast.exiting && toast.message === message && toast.variant === variant,
       );
       if (isAlreadyShown) return;
 
@@ -93,12 +122,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismissToast],
   );
 
-  // 언마운트 시 보류 중인 자동 닫기 타이머를 모두 정리한다.
+  // 언마운트 시 보류 중인 타이머(자동 닫기·퇴장)를 모두 정리한다.
   useEffect(() => {
     const pendingTimers = timers.current;
+    const pendingExitTimers = exitTimers.current;
     return () => {
       pendingTimers.forEach(clearTimeout);
       pendingTimers.clear();
+      pendingExitTimers.forEach(clearTimeout);
+      pendingExitTimers.clear();
     };
   }, []);
 
@@ -194,11 +226,13 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
           key={toast.id}
           // role 이 암묵적 live region 을 부여한다(alert=assertive, status=polite). 별도 aria-live 중복 선언은 피한다.
           role={toast.variant === 'error' ? 'alert' : 'status'}
+          data-exiting={toast.exiting || undefined}
           className={cn(
             'pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[14px] px-4 py-3 shadow-3',
-            // 등장 방향도 위치를 따라간다(모바일은 아래에서, md 이상은 위에서).
-            'animate-in slide-in-from-bottom-2 md:slide-in-from-top-2 fade-in-0 motion-reduce:animate-none',
             'bg-ink-deep text-cream',
+            // 진입·퇴장 전이는 globals.css 의 클래스가 갖는다(@starting-style 은 순수 CSS 여야 한다).
+            // 퇴장 중인 카드는 클릭을 받지 않는다 — 사라지는 중에 닫기·액션이 눌리는 걸 막는다.
+            toast.exiting ? 'toast-exit pointer-events-none' : 'toast-enter',
           )}
         >
           <span

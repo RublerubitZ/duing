@@ -10,7 +10,7 @@ export function SectionHeader({ title, hint, extra }: Props) {
   return (
     <div
       data-section-title=""
-      className="flex items-end justify-between mb-5 gap-4 flex-wrap"
+      className="flex items-end justify-between mb-6 md:mb-5 gap-4 flex-wrap"
     >
       <div>
         <h2 className="text-[22px] font-body text-ink-deep">{title}</h2>
