@@ -1,7 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import type { ClubDetail, MyClubMembership, ClubHeroActivity } from '@duing/types';
+import type { ClubDetail, ClubPhoto, MyClubMembership, ClubHeroActivity } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 // ClubDetailTabs 가 소개 탭 안에서 ClubDetailHeroActivities(→ useClubHeroActivitiesQuery)를
@@ -32,6 +33,15 @@ function makeHero(id: number, displayOrder: number): ClubHeroActivity {
     displayOrder,
   };
 }
+
+const photo: ClubPhoto = {
+  id: 1,
+  storageKey: 'photos/1.jpg',
+  caption: null,
+  width: null,
+  height: null,
+  displayOrder: 0,
+};
 
 const memberMembership: MyClubMembership = {
   role: 'MEMBER',
@@ -229,6 +239,45 @@ describe('ClubDetailTabs', () => {
 
     expect(isBefore(heroHeading, introHeading)).toBe(true);
     expect(isBefore(introHeading, aboutText)).toBe(true);
+  });
+
+  it('활성 트리거 안에만 인디케이터가 1개 있고, 탭을 바꾸면 따라 이동한다', async () => {
+    render(
+      <ClubDetailTabs
+        club={{
+          ...baseClub,
+          description: '본문',
+          faqs: [{ question: 'q', answer: 'a', order: 0 }],
+        }}
+        photos={[]}
+      />,
+    );
+    const introTab = screen.getByRole('tab', { name: '소개' });
+    const qnaTab = screen.getByRole('tab', { name: 'Q&A' });
+
+    // 스트립 전체에 인디케이터는 항상 1개 — 활성 트리거 안에만 렌더된다.
+    expect(document.querySelectorAll('[data-tab-indicator]')).toHaveLength(1);
+    expect(introTab.querySelector('[data-tab-indicator]')).not.toBeNull();
+    expect(qnaTab.querySelector('[data-tab-indicator]')).toBeNull();
+
+    // controlled 전환 회귀 가드 — 클릭으로 활성 탭과 인디케이터가 함께 옮겨간다.
+    await userEvent.click(qnaTab);
+    expect(qnaTab).toHaveAttribute('data-state', 'active');
+    expect(document.querySelectorAll('[data-tab-indicator]')).toHaveLength(1);
+    expect(qnaTab.querySelector('[data-tab-indicator]')).not.toBeNull();
+    expect(introTab.querySelector('[data-tab-indicator]')).toBeNull();
+  });
+
+  it('탭이 뒤늦게 생겨도(사진 도착) 활성 탭과 패널이 비지 않는다', () => {
+    // controlled 전환 회귀 가드 — 첫 렌더에 탭이 하나도 없던 동아리에 활동 탭만 늦게 붙는 경우,
+    // 저장된 선택값('intro')이 목록에 없으면 활성 트리거도 패널도 없는 빈 화면이 된다.
+    const { rerender } = render(<ClubDetailTabs club={baseClub} photos={[]} />);
+
+    rerender(<ClubDetailTabs club={baseClub} photos={[photo]} />);
+    const activityTab = screen.getByRole('tab', { name: '활동' });
+    expect(activityTab).toHaveAttribute('data-state', 'active');
+    expect(activityTab.querySelector('[data-tab-indicator]')).not.toBeNull();
+    expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
   });
 
   it('가입한 멤버에게는 소식 탭을 추가로 노출한다', () => {

@@ -133,6 +133,18 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.queryByText('추천')).toBeNull();
   });
 
+  // 찜 하트 프레스 — 켜진 하트만 팝 클래스를 단다(해제·롤백은 색만 바뀐다).
+  it('liked 하트에만 animate-heart-pop 이 붙는다', () => {
+    const { unmount } = render(<ClubListItem club={baseClub} liked />);
+    expect(screen.getByRole('button', { name: '찜 해제' }).querySelector('svg')?.getAttribute('class'))
+      .toContain('animate-heart-pop');
+    unmount();
+
+    render(<ClubListItem club={baseClub} liked={false} />);
+    expect(screen.getByRole('button', { name: '찜 추가' }).querySelector('svg')?.getAttribute('class') ?? '')
+      .not.toContain('animate-heart-pop');
+  });
+
   // 로고 이미지가 깨지면 ClubLogo 가 이니셜로 폴백하는데, 배경이 없어 흰 네모에 흰 글자였다.
   it('로고 URL 이 있어도 컨테이너 배경을 시그니처 색으로 칠한다 — 이미지 실패 시 이니셜이 보이도록', () => {
     render(<ClubListItem club={{ ...baseClub, logoUrl: 'https://cdn.example.com/logo.png' }} />);

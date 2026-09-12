@@ -14,9 +14,10 @@ import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
 import { CAT_COLORS, clubAffiliationLabel, type Club } from '../_lib/clubs';
 
+// 찜이 켜진 하트만 팝 — 호출부에서 key 로 리마운트해 키프레임을 처음부터 재생한다(해제는 색만 바뀐다).
 function HeartIcon({ filled = false }: { filled?: boolean }) {
   return filled ? (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" className="animate-heart-pop" aria-hidden>
       <path d="M12 21s-7.5-4.5-9.5-9.5C1 7 4.5 4 8 5c1.6.4 2.8 1.4 4 3 1.2-1.6 2.4-2.6 4-3 3.5-1 7 2 5.5 6.5C19.5 16.5 12 21 12 21z" />
     </svg>
   ) : (
@@ -144,7 +145,7 @@ export function ClubListItem({
             liked ? 'text-coral' : 'text-charcoal-3',
           )}
         >
-          <HeartIcon filled={liked} />
+          <HeartIcon key={liked ? 'on' : 'off'} filled={liked} />
         </button>
       </div>
     </Link>

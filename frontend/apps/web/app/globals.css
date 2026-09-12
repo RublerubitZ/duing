@@ -649,6 +649,16 @@ body {
 /* 홈 카테고리 장식 아이콘의 느린 회전 — transform-only 라 합성 비용만 든다. */
 .animate-spin-slow { animation: spin 6s linear infinite; }
 
+/* 찜 하트 프레스 — 찜이 켜지는 순간에만 한 번 튄다(해제·실패 롤백은 색만 바뀐다).
+   React 쪽에서 하트 SVG 의 key 를 바꿔 리마운트하는 방식으로 재생하므로, 여기는 1회성 키프레임만 둔다.
+   transform-only 라 레이아웃을 건드리지 않는다. */
+@keyframes heart-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(.85); }
+  100% { transform: scale(1); }
+}
+.animate-heart-pop { animation: heart-pop 200ms cubic-bezier(.2,.7,.2,1); }
+
 /* 뷰포트 밖 루프 정지 — PauseOffscreen 이 래퍼에 data-offscreen 을 달면 안쪽 마키를 멈춘다.
    재생/정지를 JS 로 토글하지 않고 CSS 한 줄로 끝내, 스크롤 중 리렌더 없이 합성만 쉬게 한다.
    유틸리티(.animate-marquee)보다 선택자가 구체적이라 유틸리티 레이어 밖 평문 CSS 로 둔다.
@@ -662,6 +672,8 @@ body {
   .animate-float-a,
   .animate-float-b,
   .animate-spin-slow,
+  /* 찜 하트 팝 — 스케일 이동만 빼고 색 변화(fill/stroke)는 그대로 남는다. */
+  .animate-heart-pop,
   /* 배너 전환 — 나가는 슬라이드가 들어오는 슬라이드 아래에 깔리는 구조라 끄면 즉시 전환이 된다. */
   .animate-slide-in-left,
   .animate-slide-in-right,

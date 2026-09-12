@@ -31,7 +31,9 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
       )}
       disabled={favoriteFlow.isPending || favoriteFlow.isDirectionUnknown}
     >
-      <HeartIcon filled={isFavorited} />
+      {/* 찜이 켜지는 순간에만 팝 — key 가 바뀌며 SVG 가 리마운트돼 키프레임이 처음부터 재생된다.
+          해제(on→off)도 리마운트되지만 그때는 팝 클래스가 없어 색만 바뀐다(낙관적 롤백도 동일). */}
+      <HeartIcon key={isFavorited ? 'on' : 'off'} filled={isFavorited} />
     </button>
   );
 }
@@ -41,7 +43,7 @@ function HeartIcon({ filled }: { filled: boolean }) {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className={cn('h-5 w-5', filled && 'animate-heart-pop')}
       aria-hidden="true"
       fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
