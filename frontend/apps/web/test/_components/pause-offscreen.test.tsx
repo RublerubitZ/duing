@@ -7,15 +7,18 @@ import { PauseOffscreen } from '../../app/_components/PauseOffscreen';
 type ObservedEntry = { isIntersecting: boolean };
 type ObserverCallback = (entries: ObservedEntry[]) => void;
 
-/** 마지막으로 생성된 옵서버의 콜백·disconnect 를 테스트에서 직접 다루기 위한 mock. */
+/** 마지막으로 생성된 옵서버의 콜백·observe·disconnect 를 테스트에서 직접 다루기 위한 mock. */
 let latestCallback: ObserverCallback | null = null;
+const observeMock = vi.fn();
 const disconnectMock = vi.fn();
 
 class MockIntersectionObserver {
   constructor(callback: ObserverCallback) {
     latestCallback = callback;
   }
-  observe() {}
+  observe(target: Element) {
+    observeMock(target);
+  }
   unobserve() {}
   disconnect() {
     disconnectMock();
@@ -24,6 +27,7 @@ class MockIntersectionObserver {
 
 function stubIntersectionObserver() {
   latestCallback = null;
+  observeMock.mockClear();
   disconnectMock.mockClear();
   vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
 }
@@ -53,6 +57,8 @@ describe('PauseOffscreen', () => {
     stubIntersectionObserver();
     const wrapper = renderWrapper();
 
+    // 관측 대상이 래퍼 자신이어야 자식 섹션의 가시성이 아니라 래퍼 기준으로 판정된다.
+    expect(observeMock).toHaveBeenCalledWith(wrapper);
     expect(wrapper).not.toHaveAttribute('data-offscreen');
     emit(false);
     expect(wrapper).toHaveAttribute('data-offscreen');
