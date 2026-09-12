@@ -480,6 +480,7 @@ export function NoticePage() {
                         <Link
                           key={n.id}
                           href={toRoute(`/notices/${n.id}`)}
+                          className="tap-card"
                           style={{
                             background: isDark ? 'var(--ink)' : 'var(--paper)',
                             color: isDark ? '#fff' : 'var(--charcoal)',

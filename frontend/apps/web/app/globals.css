@@ -224,6 +224,20 @@ body {
     @apply bg-paper rounded-lg border border-line;
   }
 
+  /* 프레스 피드백(모바일 탭 대상 전용) — transform 만 전이. hover 는 별개 축(기존 hover:shadow 유지).
+     reduced-motion 은 스케일 자체를 끈다(이동·스케일 제거, 색·페이드만 남기는 규약). */
+  .tap-card,
+  .tap-pill {
+    transition: transform 160ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap-card:active {
+    transform: scale(0.98);
+  }
+  .tap-pill:active {
+    transform: scale(0.96);
+  }
+
   .bg-grid {
     background-image: radial-gradient(circle, rgba(31, 74, 54, 0.05) 1px, transparent 1px);
     background-size: 22px 22px;
@@ -607,6 +621,17 @@ body {
   .animate-slide-out-left,
   .animate-slide-out-right {
     animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-card,
+  .tap-pill {
+    transition: none;
+  }
+  .tap-card:active,
+  .tap-pill:active {
+    transform: none;
   }
 }
 
