@@ -246,6 +246,39 @@ body {
     transform: scale(0.96);
   }
 
+  /* 토스트 진입·퇴장. 진입은 @starting-style 로만 — 옵서버 없이 마운트 1회 재생되고,
+     미지원 브라우저(iOS 16 이하 등)에서는 전이 없이 즉시 표시된다(시작 상태를 박아 두지 않는다).
+     @apply 와 섞지 않는다 — @starting-style 안은 순수 CSS 여야 한다.
+     transform-origin 은 토스트가 뜨는 방향을 따라간다(모바일 하단 / md 이상 상단). */
+  .toast-enter {
+    opacity: 1;
+    transform: scale(1);
+    transform-origin: bottom center;
+    transition:
+      opacity 400ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @starting-style {
+    .toast-enter {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+  .toast-exit {
+    opacity: 0;
+    transform: scale(0.98);
+    transform-origin: bottom center;
+    transition:
+      opacity 200ms ease-out,
+      transform 200ms ease-out;
+  }
+  @media (min-width: 768px) {
+    .toast-enter,
+    .toast-exit {
+      transform-origin: top center;
+    }
+  }
+
   .bg-grid {
     background-image: radial-gradient(circle, rgba(31, 74, 54, 0.05) 1px, transparent 1px);
     background-size: 22px 22px;
@@ -640,6 +673,12 @@ body {
   }
   .tap-card:active,
   .tap-pill:active {
+    transform: none;
+  }
+  /* 토스트도 같은 규약 — 스케일은 끄고 페이드(opacity)만 남긴다. 시간은 그대로. */
+  .toast-enter,
+  .toast-exit {
+    transition-property: opacity;
     transform: none;
   }
 }
