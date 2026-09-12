@@ -8,7 +8,6 @@ import { BannerCarousel } from '../_components/sections/BannerCarousel';
 import { Categories } from '../_components/sections/Categories';
 import { HomeHero } from '../_components/sections/HomeHero';
 import { HomeMobileSearchBar } from '../_components/sections/HomeMobileSearchBar';
-import { HomeRecruitAnchor } from '../_components/sections/HomeRecruitAnchor';
 import { InterestingClubs } from '../_components/sections/InterestingClubs';
 import { RecruitmentTicker } from '../_components/sections/RecruitmentTicker';
 
@@ -56,10 +55,6 @@ export default function HomePage() {
       <PauseOffscreen>
         <RecruitmentTicker />
       </PauseOffscreen>
-      {/* 모바일 전용 모집 요약 타일 — 첫 화면은 배너가 온전히 보여야 해서(배너가 홈 최우선) 배너 위로 올리지 않는다.
-          마감 임박 티커 띠에서 "관심도가 높은 동아리" 목록으로 넘어가는 다리라 띠 바로 아래에 둔다.
-          띠와의 28px 는 타일 자신의 mt-7 이, 아래 목록과의 28px 는 InterestingClubs 의 py-7 이 만든다. */}
-      <HomeRecruitAnchor />
       {/* 발견 흐름의 중심 섹션 — 탐색·카테고리보다 먼저 두어, 스크롤 초반에 "지금 볼 만한 곳" 을 먼저 만나게 한다.
           모바일 뷰포트 첫 화면에 걸치는 above-the-fold 콘텐츠라 FadeIn(초기 opacity:0)으로 감싸지 않는다. */}
       <InterestingClubs />
