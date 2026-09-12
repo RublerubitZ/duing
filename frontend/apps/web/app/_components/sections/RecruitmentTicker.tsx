@@ -6,18 +6,10 @@ import { cn } from '@/app/_lib/cn';
 import { fetchUpcomingDeadlineClubs } from '@/app/_lib/home-data';
 import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import {
+  CLOSING_SOON_CHIP_CLASS,
   selectClosingSoonClubs,
-  type ClosingSoonEmphasis,
   type ClosingSoonItem,
 } from '@/app/_lib/closingSoon';
-
-// 시안(509:7790)의 칩은 밝은 회색 면(Gray/004 #E1E1E1) 위 딥그린 글자 하나뿐이라, 긴급도는 면 색으로만 가른다.
-// 글자는 셋 다 딥그린 — warm 7.8:1, coral 4.5:1 로 셋 다 AA 를 넘고, 기존 반투명 칩(3.5:1)보다 대비가 높다.
-const CHIP_EMPHASIS: Record<ClosingSoonEmphasis, string> = {
-  danger: 'bg-coral',
-  warning: 'bg-warm',
-  default: 'bg-[#E1E1E1]',
-};
 
 function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplicate?: boolean }) {
   return (
@@ -32,7 +24,7 @@ function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplic
       <span
         className={cn(
           'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:text-[13px]',
-          CHIP_EMPHASIS[item.emphasis],
+          CLOSING_SOON_CHIP_CLASS[item.emphasis],
         )}
       >
         {item.label}
