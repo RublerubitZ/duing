@@ -10,7 +10,8 @@ export function FavoriteToggleButton({ clubId, size = 'md', className }: Props) 
   // 방향 가드·로그인 이동·401 처리·PostHog 는 공용 플로우가 담당한다 — useFavoriteToggleFlow 참조.
   const favoriteFlow = useFavoriteToggleFlow();
   const isFavorited = favoriteFlow.isFavorited(clubId);
-  const shouldPop = useHeartPop(isFavorited);
+  // 찜 목록이 오기 전(방향 미확정)에는 하트가 실제와 반대로 보인다 — 그 구간의 반영은 팝하지 않는다.
+  const shouldPop = useHeartPop(isFavorited, !favoriteFlow.isDirectionUnknown);
 
   function handleClick(event: React.MouseEvent) {
     event.preventDefault();

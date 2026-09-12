@@ -149,6 +149,21 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(heartClass()).toContain('animate-heart-pop');
   });
 
+  it('찜 목록 도착 전(isFavoriteStateReady=false) 반영은 팝하지 않고, 그 뒤 토글에만 팝한다', () => {
+    const { rerender } = render(
+      <ClubListItem club={baseClub} liked={false} isFavoriteStateReady={false} />,
+    );
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    // 목록이 도착하며 "사실은 찜한 동아리"로 드러나는 전환 — 사용자가 누른 게 아니라 팝하지 않는다.
+    rerender(<ClubListItem club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} isFavoriteStateReady />);
+    rerender(<ClubListItem club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).toContain('animate-heart-pop');
+  });
+
   it('꺼진 하트로 시작해 찜하면 팝하고, 다시 해제하면 팝 클래스가 사라진다', () => {
     const { rerender } = render(<ClubListItem club={baseClub} liked={false} />);
     expect(heartClass()).not.toContain('animate-heart-pop');

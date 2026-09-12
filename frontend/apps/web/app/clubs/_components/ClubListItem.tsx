@@ -67,6 +67,8 @@ type Props = {
   club: Club;
   liked?: boolean;
   isLikeBusy?: boolean;
+  /** 찜 상태(방향)를 아는지 — 찜 목록 도착 전 반영에는 하트 팝을 재생하지 않는다. */
+  isFavoriteStateReady?: boolean;
   onLikeToggle?: (id: number) => void;
 };
 
@@ -74,6 +76,7 @@ export function ClubListItem({
   club,
   liked = false,
   isLikeBusy = false,
+  isFavoriteStateReady = true,
   onLikeToggle,
 }: Props) {
   const cat = CAT_COLORS[club.cat];
@@ -81,7 +84,7 @@ export function ClubListItem({
   const badge = recruitBadge(club);
   const isDimmed = badge?.tone === 'muted' || club.activeRecruitment === null;
   const initial = (club.name || '?').trim().charAt(0);
-  const shouldPop = useHeartPop(liked);
+  const shouldPop = useHeartPop(liked, isFavoriteStateReady);
 
   return (
     <Link
