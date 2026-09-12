@@ -161,7 +161,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
   return (
     <Link
       href={`/clubs/${club.id}`}
-      className="tap-card flex h-[76px] items-center gap-3 rounded-[10px] bg-paper px-3 forced-colors:border transition"
+      className="tap-card flex h-[76px] items-center gap-3 rounded-[10px] bg-paper px-3 forced-colors:border"
     >
       <ClubCardLogo club={club} className="h-[53px] w-[53px] rounded-[10px] text-[20px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">

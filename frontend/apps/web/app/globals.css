@@ -224,11 +224,19 @@ body {
     @apply bg-paper rounded-lg border border-line;
   }
 
-  /* 프레스 피드백(모바일 탭 대상 전용) — transform 만 전이. hover 는 별개 축(기존 hover:shadow 유지).
-     reduced-motion 은 스케일 자체를 끈다(이동·스케일 제거, 색·페이드만 남기는 규약). */
-  .tap-card,
+  /* 프레스 피드백(모바일 탭 대상 전용) — 전이 정의를 이 클래스 한 곳에 모은다.
+     요소에 transition 유틸리티를 같이 붙이면 shorthand 를 통째로 덮어 스케일이 0ms 로 튄다.
+     reduced-motion 은 스케일만 끊고 색·섀도 전이는 남긴다(이동·스케일 제거 규약). */
+  .tap-card {
+    transition: transform 160ms ease-out, box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
   .tap-pill {
-    transition: transform 160ms ease-out;
+    transition:
+      transform 160ms ease-out,
+      color 150ms,
+      background-color 150ms,
+      border-color 150ms;
     -webkit-tap-highlight-color: transparent;
   }
   .tap-card:active {
@@ -624,10 +632,11 @@ body {
   }
 }
 
+/* 동작 줄이기 — 탭 대상의 눌림 스케일만 제거하고 색·섀도 전이는 그대로 남긴다. */
 @media (prefers-reduced-motion: reduce) {
   .tap-card,
   .tap-pill {
-    transition: none;
+    transition-property: color, background-color, border-color, box-shadow;
   }
   .tap-card:active,
   .tap-pill:active {

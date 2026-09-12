@@ -826,7 +826,7 @@ export function ClubExplorePage() {
                       type="button"
                       onClick={() => handleToggleActiveDay(day)}
                       className={cn(
-                        'tap-pill transition-colors duration-150 grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
+                        'tap-pill grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
                         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
                       )}
                     >
@@ -881,7 +881,7 @@ function FavoriteFilterChip({ on, onClick }: { on: boolean; onClick: () => void 
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors duration-150',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >
@@ -920,7 +920,7 @@ function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClic
       type="button"
       onClick={onClick}
       className={cn(
-        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors duration-150',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >

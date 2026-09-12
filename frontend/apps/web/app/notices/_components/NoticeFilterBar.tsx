@@ -25,7 +25,7 @@ export function NoticeFilterBar({
               key={option.value}
               type="button"
               onClick={() => onCategoryChange(option.value)}
-              className={`tap-pill px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors duration-150 ${
+              className={`tap-pill px-3.5 py-1.5 rounded-full text-[13px] font-semibold ${
                 active
                   ? 'bg-ink text-paper'
                   : 'bg-paper border border-line text-charcoal-2 hover:border-ink'
