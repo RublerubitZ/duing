@@ -8,10 +8,11 @@ import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import { CLOSING_SOON_CHIP_CLASS, selectClosingSoonClubs } from '@/app/_lib/closingSoon';
 
 /**
- * 홈 모바일 전용 모집 요약 타일 — 히어로 바로 아래 잉크 색면 1장.
+ * 홈 모바일 전용 모집 요약 타일 — 마감 임박 티커 띠 바로 아래 잉크 색면 1장.
  *
- * <p>모바일 첫 화면에서 "가장 급한 마감" 을 이 타일이 먼저 보여 준다 — 배너 아래 티커 띠는
- * 모든 폭에서 그대로 남아 마감 임박 동아리 전체를 흘려 보낸다(타일은 그중 첫 곳을 앞당길 뿐이다).
+ * <p>첫 화면은 배너 차지다(배너가 홈 최우선). 이 타일은 그 아래 티커 띠와 "관심도가 높은 동아리"
+ * 목록 사이를 잇는 다리로, 띠가 흘려 보내는 마감 임박 동아리 중 가장 급한 한 곳과 모집 중 총 수를
+ * 멈춘 화면으로 한 번 더 짚어 준다(띠 자체는 모든 폭에서 그대로 남는다).
  * 데이터는 히어로(`fetchClubStats`)·티커(`fetchUpcomingDeadlineClubs` + `selectClosingSoonClubs`)가
  * 이미 쓰는 로더 그대로다 — `fetchClubStats` 는 `cache()` 로 감싸져 있어 히어로와 같은 렌더에서
  * 요청이 한 번만 나가고, 두 로더의 fail-soft·ISR 정책도 그대로 따른다(쿠키·헤더 미사용).
@@ -27,9 +28,9 @@ export async function HomeRecruitAnchor() {
   }. 모집 중 동아리 보기`;
 
   return (
-    // 히어로 컨테이너와 같은 좌우 여백. 위아래 마진은 두지 않는다 — 히어로 pb-3·검색바 pt-3 가 12px 리듬을
-    // 만든다(sm 구간은 히어로 pb-8 이라 위 32·아래 12).
-    <section className="px-4 sm:px-6 md:hidden">
+    // 히어로 컨테이너와 같은 좌우 여백. 위쪽 mt-7(28px)은 티커 띠와의 간격으로, 띠 자신의 mt-7·아래
+    // InterestingClubs 의 py-7 과 같은 사다리를 쓴다. 아래 여백은 그 py-7 이 만들어 주므로 두지 않는다.
+    <section className="px-4 sm:px-6 mt-7 md:hidden">
       {/* 누름 피드백(축소·reduced-motion 해제)은 공용 `tap-card` 클래스가 갖는다(globals.css, 모바일 리듬 PR). */}
       <Link
         href={RECRUITING_CLUBS_HREF}
