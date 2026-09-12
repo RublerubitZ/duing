@@ -3,6 +3,7 @@ package com.duing.domain.facilitybooking.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -21,7 +22,6 @@ import com.duing.domain.facility.entity.FacilityReservation;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
-import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.OperatingNote;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse.SlotAvailability;
@@ -155,18 +155,16 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("폐기 예정 예약 오픈 구간 API 는 비로그인으로 시설 무관 참조 창(오늘~익월 말일) 두 필드만 반환한다")
-    @SuppressWarnings("deprecation") // 폐기 예정 응답을 삭제 전까지 고정하는 테스트라 의도된 사용이다
-    void bookingWindowReturnsReferenceWindow() {
-        BookingWindow expected = OPEN_DATE_POLICY.referenceWindow(LocalDate.now(clock));
-
-        BookingWindowResponse response = RestAssured.given()
+    @DisplayName("폐기된 예약 오픈 구간 API 는 더 이상 창을 내리지 않는다 — 시설별 창은 가용성 응답이 단일 진실이다")
+    void bookingWindowEndpointIsRemoved() {
+        // 매핑이 사라져 남은 GET /facilities/{facilityId} 가 이 경로를 받는다(현재는 facilityId(Long) 변환 실패로 400).
+        // 상태 코드는 상세 라우트 구성에 따라 바뀔 수 있어 "200 이 아니다" 만 고정한다 — 엔드포인트 재도입 시 200 으로 깨진다.
+        String body = RestAssured.given()
                 .when().get("/api/v1/facilities/booking-window")
-                .then().statusCode(HttpStatus.OK.value())
-                .extract().jsonPath().getObject("data", BookingWindowResponse.class);
+                .then().statusCode(not(HttpStatus.OK.value()))
+                .extract().asString();
 
-        assertThat(response.bookableFrom()).isEqualTo(expected.from());
-        assertThat(response.bookableUntil()).isEqualTo(expected.until());
+        assertThat(body).doesNotContain("bookableFrom").doesNotContain("bookableUntil");
     }
 
     @Test
@@ -228,7 +226,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("공개 가용성·예약 오픈 구간 응답은 신청의 대표 연락처(PII)를 노출하지 않는다")
+    @DisplayName("공개 가용성 응답은 신청의 대표 연락처(PII)를 노출하지 않는다")
     void publicEndpointsDoNotExposeContactPhone() {
         Facility facility = facilityRepository.save(Facility.create(90005, "커뮤니티룸(T5)", null, 0));
         Club club = clubRepository.save(Club.create("비공개연락처동아리", ClubCategory.OTHER, "분과", "설명", null));
@@ -249,12 +247,6 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value())
                 .extract().asString();
         assertThat(availabilityBody).doesNotContain(secretContactPhone).doesNotContain("contactPhone");
-
-        String windowBody = RestAssured.given()
-                .when().get("/api/v1/facilities/booking-window")
-                .then().statusCode(HttpStatus.OK.value())
-                .extract().asString();
-        assertThat(windowBody).doesNotContain(secretContactPhone).doesNotContain("contactPhone");
     }
 
     @Test
