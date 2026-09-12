@@ -719,6 +719,8 @@ export function ClubExplorePage() {
                         isFavoriteDirectionUnknown ||
                         (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                       }
+                      // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                      isFavoriteStateReady={!isFavoriteDirectionUnknown}
                       onLikeToggle={handleToggleLike}
                     />
                   ))}

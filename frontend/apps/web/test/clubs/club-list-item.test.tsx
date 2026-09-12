@@ -133,6 +133,48 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.queryByText('추천')).toBeNull();
   });
 
+  // 찜 하트 프레스 — 꺼진 하트를 본 뒤 켜질 때만 팝한다(마운트 시·해제·롤백은 색만 바뀐다).
+  function heartClass() {
+    return screen.getByRole('button', { name: /찜/ }).querySelector('svg')?.getAttribute('class') ?? '';
+  }
+
+  it('이미 찜한 채로 마운트되면 팝하지 않고, 해제 후 다시 찜할 때만 팝한다', () => {
+    const { rerender } = render(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).toContain('animate-heart-pop');
+  });
+
+  it('찜 목록 도착 전(isFavoriteStateReady=false) 반영은 팝하지 않고, 그 뒤 토글에만 팝한다', () => {
+    const { rerender } = render(
+      <ClubListItem club={baseClub} liked={false} isFavoriteStateReady={false} />,
+    );
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    // 목록이 도착하며 "사실은 찜한 동아리"로 드러나는 전환 — 사용자가 누른 게 아니라 팝하지 않는다.
+    rerender(<ClubListItem club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} isFavoriteStateReady />);
+    rerender(<ClubListItem club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).toContain('animate-heart-pop');
+  });
+
+  it('꺼진 하트로 시작해 찜하면 팝하고, 다시 해제하면 팝 클래스가 사라진다', () => {
+    const { rerender } = render(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+  });
+
   // 로고 이미지가 깨지면 ClubLogo 가 이니셜로 폴백하는데, 배경이 없어 흰 네모에 흰 글자였다.
   it('로고 URL 이 있어도 컨테이너 배경을 시그니처 색으로 칠한다 — 이미지 실패 시 이니셜이 보이도록', () => {
     render(<ClubListItem club={{ ...baseClub, logoUrl: 'https://cdn.example.com/logo.png' }} />);
