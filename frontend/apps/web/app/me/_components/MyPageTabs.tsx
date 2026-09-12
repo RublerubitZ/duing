@@ -1,7 +1,6 @@
 'use client';
 
 import { cn } from '@/app/_lib/cn';
-import { TabIndicator } from '@/components/motion/TabIndicator';
 
 type Section = {
   id: string;
@@ -28,14 +27,12 @@ export function MyPageTabs({ sections, active, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(section.id)}
               className={cn(
-                // 활성 표시를 색 보더(border-ink) 대신 인디케이터가 맡는다 — 항목마다 보더를
-                // 토글하면 요소가 달라 layoutId 전환이 성립하지 않는다. 보더 클래스는 기존
-                // 그대로 두되(버튼 리셋 border-none 이 걸려 두께를 잡지 않는다) 색만 뺐다.
-                'relative flex items-center gap-2 py-4 bg-transparent border-none border-b-[2.5px] border-transparent text-[15px] font-semibold cursor-pointer transition-colors duration-150',
-                isActive ? 'text-ink' : 'text-charcoal-3 hover:text-charcoal',
+                'flex items-center gap-2 py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150',
+                isActive
+                  ? 'text-ink border-b-[2.5px] border-ink'
+                  : 'text-charcoal-3 border-b-[2.5px] border-transparent hover:text-charcoal',
               )}
             >
-              {isActive && <TabIndicator layoutId="mypage-tab" />}
               {section.label}
               {section.count != null && (
                 <span

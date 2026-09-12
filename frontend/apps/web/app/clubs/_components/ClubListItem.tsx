@@ -9,15 +9,17 @@ import { CLOSING_SOON_DAYS, daysUntilKst } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
 import { ddayLabel } from '@/app/_lib/dday';
+import { useHeartPop } from '@/app/_lib/useHeartPop';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
 import { CAT_COLORS, clubAffiliationLabel, type Club } from '../_lib/clubs';
 
-// 찜이 켜진 하트만 팝 — 호출부에서 key 로 리마운트해 키프레임을 처음부터 재생한다(해제는 색만 바뀐다).
-function HeartIcon({ filled = false }: { filled?: boolean }) {
+// 꺼진 하트를 본 뒤 켜질 때만 팝 — 호출부에서 key 로 리마운트해 키프레임을 처음부터 재생한다
+// (해제·낙관적 롤백은 색만 바뀌고, 이미 찜한 채로 들어온 화면에서는 튀지 않는다).
+function HeartIcon({ filled = false, pop = false }: { filled?: boolean; pop?: boolean }) {
   return filled ? (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" className="animate-heart-pop" aria-hidden>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" className={pop ? 'animate-heart-pop' : undefined} aria-hidden>
       <path d="M12 21s-7.5-4.5-9.5-9.5C1 7 4.5 4 8 5c1.6.4 2.8 1.4 4 3 1.2-1.6 2.4-2.6 4-3 3.5-1 7 2 5.5 6.5C19.5 16.5 12 21 12 21z" />
     </svg>
   ) : (
@@ -79,6 +81,7 @@ export function ClubListItem({
   const badge = recruitBadge(club);
   const isDimmed = badge?.tone === 'muted' || club.activeRecruitment === null;
   const initial = (club.name || '?').trim().charAt(0);
+  const shouldPop = useHeartPop(liked);
 
   return (
     <Link
@@ -145,7 +148,7 @@ export function ClubListItem({
             liked ? 'text-coral' : 'text-charcoal-3',
           )}
         >
-          <HeartIcon key={liked ? 'on' : 'off'} filled={liked} />
+          <HeartIcon key={liked ? 'on' : 'off'} filled={liked} pop={shouldPop} />
         </button>
       </div>
     </Link>

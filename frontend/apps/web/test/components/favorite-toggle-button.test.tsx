@@ -32,6 +32,28 @@ describe('FavoriteToggleButton — 하트 프레스', () => {
     favoriteState.ids.clear();
   });
 
+  it('이미 찜한 채로 마운트되면 팝하지 않는다 — 아무도 누르지 않았는데 튀지 않도록', () => {
+    favoriteState.ids.add(7);
+    render(<FavoriteToggleButton clubId={7} />);
+
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(heartOf(button)?.getAttribute('class')).not.toContain('animate-heart-pop');
+  });
+
+  it('마운트 후 해제했다가 다시 찜하면 팝한다', async () => {
+    favoriteState.ids.add(7);
+    const { rerender } = render(<FavoriteToggleButton clubId={7} />);
+
+    await userEvent.click(screen.getByRole('button'));
+    rerender(<FavoriteToggleButton clubId={7} />);
+    expect(heartOf(screen.getByRole('button'))?.getAttribute('class')).not.toContain('animate-heart-pop');
+
+    await userEvent.click(screen.getByRole('button'));
+    rerender(<FavoriteToggleButton clubId={7} />);
+    expect(heartOf(screen.getByRole('button'))?.getAttribute('class')).toContain('animate-heart-pop');
+  });
+
   it('찜하지 않은 상태의 하트에는 팝 클래스가 없다', () => {
     render(<FavoriteToggleButton clubId={7} />);
     expect(heartOf(screen.getByRole('button'))?.getAttribute('class')).not.toContain('animate-heart-pop');

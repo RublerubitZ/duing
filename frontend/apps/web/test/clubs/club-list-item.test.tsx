@@ -133,16 +133,31 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(screen.queryByText('추천')).toBeNull();
   });
 
-  // 찜 하트 프레스 — 켜진 하트만 팝 클래스를 단다(해제·롤백은 색만 바뀐다).
-  it('liked 하트에만 animate-heart-pop 이 붙는다', () => {
-    const { unmount } = render(<ClubListItem club={baseClub} liked />);
-    expect(screen.getByRole('button', { name: '찜 해제' }).querySelector('svg')?.getAttribute('class'))
-      .toContain('animate-heart-pop');
-    unmount();
+  // 찜 하트 프레스 — 꺼진 하트를 본 뒤 켜질 때만 팝한다(마운트 시·해제·롤백은 색만 바뀐다).
+  function heartClass() {
+    return screen.getByRole('button', { name: /찜/ }).querySelector('svg')?.getAttribute('class') ?? '';
+  }
 
-    render(<ClubListItem club={baseClub} liked={false} />);
-    expect(screen.getByRole('button', { name: '찜 추가' }).querySelector('svg')?.getAttribute('class') ?? '')
-      .not.toContain('animate-heart-pop');
+  it('이미 찜한 채로 마운트되면 팝하지 않고, 해제 후 다시 찜할 때만 팝한다', () => {
+    const { rerender } = render(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).toContain('animate-heart-pop');
+  });
+
+  it('꺼진 하트로 시작해 찜하면 팝하고, 다시 해제하면 팝 클래스가 사라진다', () => {
+    const { rerender } = render(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked />);
+    expect(heartClass()).toContain('animate-heart-pop');
+
+    rerender(<ClubListItem club={baseClub} liked={false} />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
   });
 
   // 로고 이미지가 깨지면 ClubLogo 가 이니셜로 폴백하는데, 배경이 없어 흰 네모에 흰 글자였다.
