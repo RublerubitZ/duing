@@ -638,6 +638,20 @@ body {
 .animate-float-a   { animation: float-a  6s   ease-in-out infinite; }
 .animate-float-b   { animation: float-b  6.5s ease-in-out infinite; animation-delay: 1.2s; }
 
+/* 탐색 목록 첫 로드 스태거 — 첫 데이터가 도착한 렌더에서만 카드가 차례로 떠오른다.
+   항목당 40ms 씩 미루되 8번째부터는 280ms 로 묶어(min) 뒤쪽 카드가 하염없이 늦어지지 않게 한다.
+   to 키프레임을 비워 두면 요소의 원래 값(opacity 1 · transform none)이 종점이 되므로 both 로 채워도
+   애니메이션이 끝난 뒤 남는 건 transform: none 이다 — 카드 로고의 view-transition-name 위에
+   변환된 조상이 계속 얹혀 있지 않는다.
+   opacity/transform 만 건드려 합성으로 끝나고, pointer-events 는 손대지 않아 재생 중에도 누를 수 있다. */
+@keyframes enter-rise {
+  from { opacity: 0; transform: translateY(8px); }
+}
+.enter-stagger {
+  animation: enter-rise 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(min(var(--i), 7) * 40ms);
+}
+
 /* 스피너 Flicker 방지 — 150ms 안에 끝나는 로딩은 스피너가 아예 보이지 않게 지연 표시한다.
    opacity 만 전이(합성 친화)하고, JS 타이머 없이 CSS 로만 처리해 리렌더 비용이 없다. */
 @keyframes delayed-show {
@@ -758,6 +772,10 @@ body {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  /* 탐색 첫 로드 스태거 — 떠오름과 지연을 모두 없애고 처음부터 그냥 보이게 둔다. */
+  .enter-stagger {
+    animation: none;
   }
 }
 
