@@ -9,7 +9,13 @@ import * as SheetPrimitive from '@radix-ui/react-dialog';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
+import { useSwipeDismiss } from '@/app/_lib/useSwipeDismiss';
 import { X } from '@/components/duing/Icon';
+
+// 닫기 콜백을 루트 Sheet 에서 SheetContent 로 내린다 — 아래로 스와이프해 닫기가 쓴다. Radix 는
+// Content 에 onOpenChange 를 노출하지 않고, 호출부 4곳은 건드리지 않는 게 요구사항이라 컨텍스트로
+// 전달한다. null(닫기 콜백 없는 시트) 이면 스와이프 닫기는 비활성.
+const SheetDismissContext = React.createContext<(() => void) | null>(null);
 
 // 열려 있는 동안 뒤로가기(안드로이드 버튼·제스처, iOS 엣지 스와이프, 브라우저 뒤로가기)를 흡수해
 // 페이지 이동 대신 이 시트만 닫는다. 호출처는 기존과 동일한 props 를 쓴다.
@@ -19,7 +25,15 @@ function Sheet({
   ...props
 }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>) {
   useBackDismiss(open === true, onOpenChange ? () => onOpenChange(false) : null);
-  return <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
+  const dismiss = React.useMemo(
+    () => (onOpenChange ? () => onOpenChange(false) : null),
+    [onOpenChange],
+  );
+  return (
+    <SheetDismissContext.Provider value={dismiss}>
+      <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />
+    </SheetDismissContext.Provider>
+  );
 }
 const SheetTrigger = SheetPrimitive.Trigger;
 const SheetClose = SheetPrimitive.Close;
@@ -61,11 +75,27 @@ const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
 >(function SheetContent({ side = 'left', className, children, hideClose = false, ...props }, ref) {
+  const dismiss = React.useContext(SheetDismissContext);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  // forwardRef 로 받은 ref 와 훅이 쓸 로컬 ref 를 합친다(둘 다 채워야 한다).
+  const composeContentRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      contentRef.current = node;
+      if (typeof ref === 'function') ref(node);
+      else if (ref !== null) ref.current = node;
+    },
+    [ref],
+  );
+  useSwipeDismiss(contentRef, {
+    enabled: side === 'bottom' && dismiss !== null,
+    onDismiss: dismiss ?? (() => undefined),
+  });
+
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
-        ref={ref}
+        ref={composeContentRef}
         className={cn(
           'fixed z-50 overflow-y-auto bg-card font-body tracking-body shadow-3 border-line transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-400',
           SIDE_CLASSES[side],
