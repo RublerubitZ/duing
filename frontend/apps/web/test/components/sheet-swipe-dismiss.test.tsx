@@ -47,17 +47,21 @@ function pointerUp(target: HTMLElement, { y, at }: Step) {
   fireEvent.pointerUp(target, { pointerId: 1, clientX: 100, clientY: y });
 }
 
-function renderSheet(side: 'bottom' | 'right', onOpenChange: (open: boolean) => void) {
-  render(
-    <Sheet open onOpenChange={onOpenChange}>
+function sheetTree(side: 'bottom' | 'right', open: boolean, onOpenChange: (next: boolean) => void) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side={side} aria-describedby={undefined} data-testid="sheet">
         <SheetTitle>테스트 시트</SheetTitle>
         <div data-testid="scroller" className="overflow-y-auto">
           <p data-testid="row">목록 항목</p>
         </div>
       </SheetContent>
-    </Sheet>,
+    </Sheet>
   );
+}
+
+function renderSheet(side: 'bottom' | 'right', onOpenChange: (next: boolean) => void) {
+  render(sheetTree(side, true, onOpenChange));
   const content = screen.getByTestId('sheet');
   mockSheetRect(content);
   return content;
@@ -160,6 +164,32 @@ describe('SheetContent — 아래로 스와이프해 닫기', () => {
 
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(content.style.transform).toBe('');
+  });
+
+  it('닫힌 시트는 document 에 touchmove 리스너를 걸지 않는다', () => {
+    const addEventListener = vi.spyOn(document, 'addEventListener');
+
+    render(sheetTree('bottom', false, vi.fn()));
+
+    // non-passive touchmove 가 남으면 시트를 안 쓰는 페이지의 모든 터치 스크롤이 핸들러를 기다린다.
+    expect(addEventListener.mock.calls.some(([type]) => type === 'touchmove')).toBe(false);
+  });
+
+  it('탭·8px 미만 이동은 아무것도 건드리지 않는다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+
+    // 단순 탭.
+    pointerDown(content, { y: 10, at: 0 });
+    pointerUp(content, { y: 10, at: 80 });
+    // 잠금 임계 미만(5px).
+    pointerDown(content, { y: 10, at: 200 });
+    pointerMove(content, { y: 15, at: 240 });
+    pointerUp(content, { y: 15, at: 280 });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(content.style.transform).toBe('');
+    expect(content.style.transition).toBe('');
   });
 
   it('드래그 중 pointercancel 이 오면 닫지 않고 스냅백한다', async () => {

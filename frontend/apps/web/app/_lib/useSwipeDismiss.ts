@@ -63,11 +63,34 @@ export function useSwipeDismiss(
     // 리스너는 document 에 건다. 시트 DOM 은 Radix Presence 가 열릴 때 마운트·닫힐 때 언마운트해서
     // 콘텐츠 노드에 직접 걸면 훅이 처음 실행될 때(닫힌 상태) 노드가 없고, 이후 열려도 이펙트가
     // 다시 돌지 않아 리스너가 영영 안 붙는다. document 리스너는 포인터가 시트 밖으로 나가도 이어져
-    // setPointerCapture 도 필요 없다.
+    // setPointerCapture 도 필요 없다. 대신 enabled 에 열림 상태가 들어가 있어야 한다 — 안 그러면
+    // 시트가 닫힌 페이지에서도 non-passive touchmove 가 남아 모든 터치 스크롤이 핸들러를 기다린다.
     let snapTimer: ReturnType<typeof setTimeout> | null = null;
+    let clickGuardTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearInlineTransition = (content: HTMLElement) => {
       content.style.transition = '';
+    };
+
+    // 드래그로 끝난 직후의 click 1회를 막는다 — 마우스 드래그를 필터 칩 위에서 놓으면 그 칩이
+    // 눌린다(BannerCarouselClient 의 didDragRef 와 같은 취지). 터치처럼 click 이 아예 안 오는
+    // 경로도 있어, 다음 매크로태스크에 무조건 해제해 엉뚱한 탭까지 삼키지 않게 한다.
+    const suppressClick = (event: MouseEvent) => {
+      event.stopPropagation();
+      event.preventDefault();
+    };
+
+    const disarmClickGuard = () => {
+      if (clickGuardTimer !== null) {
+        clearTimeout(clickGuardTimer);
+        clickGuardTimer = null;
+      }
+      document.removeEventListener('click', suppressClick, true);
+    };
+
+    const armClickGuard = () => {
+      document.addEventListener('click', suppressClick, { capture: true, once: true });
+      clickGuardTimer = setTimeout(disarmClickGuard, 0);
     };
 
     /** 원위치로 되돌린다. reduced-motion 이면 전이 없이 즉시. */
@@ -86,6 +109,7 @@ export function useSwipeDismiss(
     const handlePointerDown = (event: PointerEvent) => {
       const content = contentRef.current;
       const target = event.target;
+      if (event.button !== 0) return; // 주 버튼만 — 우클릭·가운데 클릭은 드래그가 아니다.
       if (content === null || dragRef.current !== null) return;
       if (!(target instanceof Node) || !content.contains(target)) return;
 
@@ -93,9 +117,13 @@ export function useSwipeDismiss(
       const fromHandle = event.clientY - rect.top <= HANDLE_ZONE_PX;
       if (!fromHandle && hasScrolledAncestor(target, content)) return;
 
+      // 스냅백 도중 다시 잡으면 전이를 끊는다. 인라인 transition 도 같이 비운다 — 여기서 잡기만
+      // 하고 드래그가 안 잠기면(단순 탭) 200ms 전이가 인라인으로 영구히 남아 Tailwind 의 transition
+      // 클래스를 덮어쓴다.
       if (snapTimer !== null) {
         clearTimeout(snapTimer);
         snapTimer = null;
+        clearInlineTransition(content);
       }
       dragRef.current = {
         pointerId: event.pointerId,
@@ -153,6 +181,7 @@ export function useSwipeDismiss(
       if (drag === null || event.pointerId !== drag.pointerId) return;
       dragRef.current = null;
       if (!drag.locked || content === null) return;
+      armClickGuard();
 
       const deltaY = event.clientY - drag.startY;
       const shouldDismiss =
@@ -189,6 +218,7 @@ export function useSwipeDismiss(
 
     return () => {
       if (snapTimer !== null) clearTimeout(snapTimer);
+      disarmClickGuard();
       dragRef.current = null;
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('pointermove', handlePointerMove);
