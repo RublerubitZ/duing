@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
@@ -8,7 +8,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
 import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
-import type { ClubDayOfWeek } from '@duing/types';
+import type { ClubDayOfWeek, ClubSummary, PageResponse } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -38,6 +38,15 @@ import {
 } from '../_lib/exploreParams';
 
 const PAGE_SIZE = 20;
+
+/** 첫 로드 스태거 게이트 — 처음 정착한 목록과, 그 뒤로 다른 목록을 본 적이 있는지. */
+type StaggerGate = { firstSettled: PageResponse<ClubSummary> | null; locked: boolean };
+
+/** 카드 순번을 CSS 쪽 지연 계산(`--i`)으로 넘긴다. 커스텀 프로퍼티는 CSSProperties 에 없어 별도 타입이 필요하다. */
+function staggerStyle(index: number): CSSProperties {
+  const style: CSSProperties & { '--i': number } = { '--i': index };
+  return style;
+}
 
 const Icon = {
   search: (props: React.SVGProps<SVGSVGElement>) => (
@@ -137,6 +146,28 @@ export function ClubExplorePage() {
       updateParams({ page: knownTotalPages });
     }
   }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
+
+  // 첫 데이터 도착 1회에만 카드 스태거를 붙인다(필터·정렬·페이지 이동은 반복 액션이라 제외).
+  // keepPreviousData 라 필터 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로,
+  // isPlaceholderData 가 풀린 "정착" 시점을 기준으로 본다.
+  // 불리언 플래그를 렌더 도중 뒤집는 방식은 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은
+  // 두 번째 렌더라, 첫 렌더가 세운 플래그를 보고 클래스를 도로 떨어뜨린다(개발 모드에서만 조용히 사라짐).
+  // 대신 "처음 정착한 목록과 같은 객체인가" 로 판정해 몇 번을 다시 그려도 답이 같게 만든다.
+  // 캐시가 살아 있는 원래 필터로 되돌아오면 같은 객체가 다시 오므로, 다른 목록을 한 번이라도 본 뒤에는
+  // locked 로 잠가 재생을 막는다. effect 없이 렌더 중에 끝나 클래스가 한 박자 늦게 붙는 일도 없다.
+  const staggerGateRef = useRef<StaggerGate>({ firstSettled: null, locked: false });
+  const settledClubList = clubListQuery.isPlaceholderData ? null : clubListQuery.data ?? null;
+  if (!staggerGateRef.current.locked && settledClubList !== null) {
+    if (staggerGateRef.current.firstSettled === null) {
+      staggerGateRef.current.firstSettled = settledClubList;
+    } else if (staggerGateRef.current.firstSettled !== settledClubList) {
+      staggerGateRef.current.locked = true;
+    }
+  }
+  const isFirstSettledRender =
+    !staggerGateRef.current.locked
+    && settledClubList !== null
+    && staggerGateRef.current.firstSettled === settledClubList;
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
@@ -556,17 +587,24 @@ export function ClubExplorePage() {
                       clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                     )}
                   >
-                    {visibleClubs.map((club) => (
-                      <ClubCard
+                    {visibleClubs.map((club, index) => (
+                      // 스태거 래퍼가 그리드 아이템 자리를 대신 받는다 — grid 로 둬야 카드가 행 높이까지
+                      // 늘어나 기존의 mt-auto 하단 정렬(같은 행 카드 높이 맞춤)이 그대로 유지된다.
+                      <div
                         key={club.id}
-                        club={club}
-                        liked={likedIds.has(club.id)}
-                        isLikeBusy={
-                          isFavoriteDirectionUnknown ||
-                          (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
-                        }
-                        onLikeToggle={handleToggleLike}
-                      />
+                        className={cn('grid', isFirstSettledRender && 'enter-stagger')}
+                        style={staggerStyle(index)}
+                      >
+                        <ClubCard
+                          club={club}
+                          liked={likedIds.has(club.id)}
+                          isLikeBusy={
+                            isFavoriteDirectionUnknown ||
+                            (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
+                          }
+                          onLikeToggle={handleToggleLike}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -710,19 +748,25 @@ export function ClubExplorePage() {
                     clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                   )}
                 >
-                  {visibleClubs.map((club) => (
-                    <ClubListItem
+                  {visibleClubs.map((club, index) => (
+                    // 세로 리스트는 래퍼가 플렉스 아이템으로 들어가 폭이 그대로 늘어난다(gap 도 동일).
+                    <div
                       key={club.id}
-                      club={club}
-                      liked={likedIds.has(club.id)}
-                      isLikeBusy={
-                        isFavoriteDirectionUnknown ||
-                        (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
-                      }
-                      // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
-                      isFavoriteStateReady={!isFavoriteDirectionUnknown}
-                      onLikeToggle={handleToggleLike}
-                    />
+                      className={cn(isFirstSettledRender && 'enter-stagger')}
+                      style={staggerStyle(index)}
+                    >
+                      <ClubListItem
+                        club={club}
+                        liked={likedIds.has(club.id)}
+                        isLikeBusy={
+                          isFavoriteDirectionUnknown ||
+                          (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
+                        }
+                        // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                        isFavoriteStateReady={!isFavoriteDirectionUnknown}
+                        onLikeToggle={handleToggleLike}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
