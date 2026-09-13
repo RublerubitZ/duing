@@ -122,6 +122,34 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
     }
   });
 
+  // 찜 목록 도착은 사용자의 클릭이 아니다 — 데스크탑 카드·모바일 행 어느 쪽도 튀면 안 된다.
+  // 호출부가 isFavoriteStateReady 를 안 내려주면(기본 true) 목록이 먼저 뜬 이 순서에서
+  // 꺼진 하트를 본 것으로 기록돼 전환이 곧장 팝으로 샌다.
+  it('목록이 먼저 뜬 뒤 찜 목록이 도착해 하트가 켜져도 팝 애니메이션을 재생하지 않는다', async () => {
+    let sendFavoriteIds: () => void = () => {};
+    const favoriteIdsArrived = new Promise<void>((resolve) => {
+      sendFavoriteIds = resolve;
+    });
+    server.use(
+      clubListHandler,
+      http.get(`${BASE}/me/favorites/ids`, async () => {
+        await favoriteIdsArrived;
+        return HttpResponse.json({ ok: true, data: { clubIds: [7] }, message: null });
+      }),
+    );
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+    renderExplore();
+
+    // 찜 목록 전에는 찜한 동아리도 "찜 안 함"으로 보인다 — 이 상태로 카드가 먼저 마운트된다.
+    await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
+    sendFavoriteIds();
+
+    await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
+    for (const heart of hearts('찜 해제')) {
+      expect(heart.querySelector('svg')?.getAttribute('class') ?? '').not.toContain('animate-heart-pop');
+    }
+  });
+
   // 미인증에는 찜 목록 자체가 없다(쿼리 비활성) — 방향을 못 기다리므로 클릭이 열려 있어야
   // 로그인으로 갈 수 있다.
   it('미인증이면 목록 없이도 하트가 활성이다', async () => {
