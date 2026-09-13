@@ -41,7 +41,7 @@ DUING(apps/web)은 **구조적으로 데스크탑 퍼스트**다 — `md:`(768px
 | `/clubs` 탐색 | Desktop-first | `ClubExplorePage.tsx:166` `w-[360px]` 검색박스 · `:441` `grid-cols-4` 무폴백 |
 | `/clubs/[clubId]` 상세 | Partial | `ClubDetailHero.tsx:87` `text-[44px] md:text-[56px]`(상단만 폴백) · `ClubDetailPhotos.tsx:16`·`ClubDetailStats.tsx:26` `grid-cols-4` 무폴백 |
 | `/apply/[recruitmentId]` 지원서 | Partial | `ApplyAnswersStep` textarea `text-sm`(14px, iOS 줌) · 컨테이너 패딩 타이트하나 단일컬럼이라 사용가능 |
-| `/me` 마이 | Desktop-first | `SectionActivity.tsx:39`·`SectionSaved.tsx:47` `grid-cols-4` 무폴백 |
+| `/me` 마이 | Desktop-first | `SectionActivity.tsx:39`(삭제됨 #1209)·`SectionSaved.tsx:47` `grid-cols-4` 무폴백 |
 | `/me/applications` | Partial | `ApplicationsPage` inline `gridTemplateColumns:'1fr 200px'` 사이드바 무폴백 |
 | `/me/applications/[id]` | Partial | 상세 그리드 고정, 모바일 뷰포트 조정 없음 |
 | `/me/favorites` | **Ready** | `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` ✓ 올바른 반응형 (모범 사례) |
@@ -151,7 +151,7 @@ DUING(apps/web)은 **구조적으로 데스크탑 퍼스트**다 — `md:`(768px
 | **탐색 `/clubs`** | 검색 `w-[360px]`→`w-full`, 카드 `grid-cols-4`→`grid-cols-1 sm:grid-cols-2 md:grid-cols-4`(favorites 모범 사례 차용). |
 | **상세 `/clubs/[clubId]`** | 사진/스탯 `grid-cols-4`→`grid-cols-2 md:grid-cols-4`. 탭(이미 Radix Tabs)은 모바일 가로스크롤 탭리스트 검토. |
 | **지원서 `/apply`** | 입력 16px만 적용하면 사실상 완료(단일 컬럼). |
-| **마이 `/me`** | `SectionActivity`/`SectionSaved` `grid-cols-4`→단계화, `/me/applications` inline `1fr 200px`→모바일 단일 컬럼. |
+| **마이 `/me`** | `SectionActivity`(삭제됨 #1209)/`SectionSaved` `grid-cols-4`→단계화, `/me/applications` inline `1fr 200px`→모바일 단일 컬럼. |
 | **공지 `/notices`** | inline `220px 1fr`·`width:280` → 모바일 단일 컬럼 + 검색 풀폭. |
 | **운영 `/manage`** | `ManageShell` 사이드바→Sheet 드로어, ApplicantTable→카드, 폼 단일컬럼+16px, 터치타겟·BulkActionBar 세이프에어리어. |
 | **관리 `/admin`** | 상단바 햄버거→Sheet 드로어, 누락 테이블 2개 래핑, 폼 단계화+16px+워터마크 모바일 숨김, **나머지 테이블 가로스크롤 허용**. |
