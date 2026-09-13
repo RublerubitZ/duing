@@ -218,7 +218,8 @@ export function useSwipeDismiss(
 
     return () => {
       if (snapTimer !== null) clearTimeout(snapTimer);
-      disarmClickGuard();
+      // 클릭 가드는 여기서 풀지 않는다 — 닫힘 경로에서는 onDismiss 렌더로 이 cleanup 이
+      // 브라우저의 click 디스패치보다 먼저 돌아 가드가 무력화되므로, 해제는 setTimeout(0) 에 맡긴다.
       dragRef.current = null;
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('pointermove', handlePointerMove);
