@@ -27,10 +27,13 @@ export function MyPageTabs({ sections, active, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(section.id)}
               className={cn(
-                'flex items-center gap-2 py-4 bg-transparent border-none text-[15px] font-semibold cursor-pointer transition-colors duration-150',
+                // border-none 은 border-style:none 이라 아래 border-b-[2.5px] 의 두께가 사용값 0 으로
+                // 눌려 활성 탭 밑줄이 아예 그려지지 않았다. 버튼 기본 테두리는 border-0 으로 지우고
+                // 밑줄만 명시적으로 solid 로 되살린다(비활성도 같은 두께의 투명 선이라 전환 시 안 밀린다).
+                'flex items-center gap-2 py-4 bg-transparent border-0 border-b-[2.5px] border-solid text-[15px] font-semibold cursor-pointer transition-colors duration-150',
                 isActive
-                  ? 'text-ink border-b-[2.5px] border-ink'
-                  : 'text-charcoal-3 border-b-[2.5px] border-transparent hover:text-charcoal',
+                  ? 'text-ink border-ink'
+                  : 'text-charcoal-3 border-transparent hover:text-charcoal',
               )}
             >
               {section.label}
