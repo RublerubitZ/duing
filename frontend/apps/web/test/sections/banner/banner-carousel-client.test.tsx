@@ -341,6 +341,43 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
       vi.useRealTimers();
     }
   });
+
+  it('화면 밖으로 스크롤되면 자동 넘김을 쉬고, 돌아오면 다시 넘긴다', () => {
+    // jsdom 에는 IntersectionObserver 가 없어 효과가 일찍 빠진다(항상 화면 안) — render 전에 콜백을 직접 부를 스텁을 건다.
+    const observerCallbacks = new Set<(entries: { isIntersecting: boolean }[]) => void>();
+    class MockIntersectionObserver {
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+        observerCallbacks.add(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+    vi.useFakeTimers();
+    try {
+      render(<BannerCarouselClient slides={makeSlides(4)} />);
+      act(() => {
+        observerCallbacks.forEach((callback) => callback([{ isIntersecting: false }]));
+      });
+      // 5초 간격이라 12초면 쉬지 않았을 때 3 / 4 가 된다.
+      act(() => {
+        vi.advanceTimersByTime(12_000);
+      });
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('1 / 4');
+
+      act(() => {
+        observerCallbacks.forEach((callback) => callback([{ isIntersecting: true }]));
+      });
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+      expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('BannerCarouselClient — 뷰포트 비율', () => {
