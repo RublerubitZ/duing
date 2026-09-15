@@ -196,4 +196,16 @@ describe('NoticesPage', () => {
     expect(root?.className ?? '').not.toMatch(/\b(h-screen|min-h-screen)\b/);
     expect(root?.getAttribute('style') ?? '').not.toContain('100vh');
   });
+
+  it('로딩을 거쳐 성공하면 목록 컨테이너에 enter-content 를 건다', () => {
+    mockUseNoticeListQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, error: null });
+    const { rerender } = render(<NoticesPage />);
+
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]));
+    rerender(<NoticesPage />);
+
+    // 목록 컨테이너 = 표 시트의 부모(필터 전환 중에도 언마운트되지 않는 isSuccess div).
+    const tableWrapper = document.querySelector('.md\\:bg-paper');
+    expect(tableWrapper?.parentElement).toHaveClass('enter-content');
+  });
 });

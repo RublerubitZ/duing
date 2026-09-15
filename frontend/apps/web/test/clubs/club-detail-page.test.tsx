@@ -5,7 +5,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import type { ClubDetail, ClubHeroActivity } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
@@ -122,10 +122,14 @@ function seed(options: { heroFails?: boolean } = {}) {
   );
 }
 
-function renderPage() {
-  const queryClient = new QueryClient({
+function createQueryClient() {
+  return new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+}
+
+// 캐시 재방문은 상세를 미리 채운 QueryClient 를 넘겨 흉내 낸다.
+function renderPage(queryClient: QueryClient = createQueryClient()) {
   return render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
@@ -223,5 +227,40 @@ describe('동아리 상세 실패 분기', () => {
     expect(
       screen.queryByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// 스켈레톤을 거쳐 도착한 콘텐츠만 1회 떠오른다(globals.css .enter-content). 재생 중인 transform 은
+// fixed 자손의 기준이 되므로 하단 고정 지원 바는 애니메이션 래퍼 밖에 있어야 한다.
+describe('동아리 상세 스켈레톤 → 콘텐츠 등장', () => {
+  it('첫 방문은 스켈레톤 래퍼를 지연 표시하고, 도착한 히어로만 enter-content 안에 두며 지원 바는 밖에 둔다', async () => {
+    seed();
+    const { container } = renderPage();
+
+    const skeleton = screen.getByRole('status', { name: '동아리 정보 불러오는 중' });
+    expect(skeleton.parentElement).toHaveClass('delayed-show');
+    // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다.
+    expect(skeleton).not.toHaveClass('delayed-show');
+
+    // jsdom 은 md:hidden 을 무시해 데스크탑·모바일 히어로 제목이 둘 다 렌더된다.
+    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
+    for (const heroTitle of heroTitles) {
+      expect(heroTitle.closest('.enter-content')).not.toBeNull();
+    }
+    const applyBar = container.querySelector('.fixed.bottom-0');
+    expect(applyBar).toHaveAttribute('data-bottom-bar');
+    expect(applyBar?.closest('.enter-content')).toBeNull();
+  });
+
+  it('상세가 캐시에 있어 첫 렌더부터 콘텐츠면 히어로에 enter-content 를 걸지 않는다', async () => {
+    seed();
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(clubQueryKeys.detail(CLUB_ID), clubDetail);
+    renderPage(queryClient);
+
+    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
+    for (const heroTitle of heroTitles) {
+      expect(heroTitle.closest('.enter-content')).toBeNull();
+    }
   });
 });

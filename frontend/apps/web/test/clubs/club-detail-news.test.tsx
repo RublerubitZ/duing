@@ -174,4 +174,20 @@ describe('ClubDetailNews (소식 탭 — 공지+일정 통합)', () => {
     expect(await screen.findByText('등록된 일정이 없어요.')).toBeInTheDocument();
     expect(capturedFrom).toBe(todayKstDateString(new Date()));
   });
+
+  it('스켈레톤 뒤 도착한 공지·일정 목록에 enter-content 를 건다', async () => {
+    serveClubNews(7, { notices: [makeNotice(1)], events: [makeEvent(1)] });
+    renderWithProviders(<ClubDetailNews clubId={7} />);
+
+    expect((await screen.findByText('공지 1')).closest('ul')).toHaveClass('enter-content');
+    expect((await screen.findByText('일정 1')).closest('ul')).toHaveClass('enter-content');
+  });
+
+  it('스켈레톤 뒤 도착한 빈 상태 문구에도 enter-content 를 건다', async () => {
+    serveClubNews(7, { notices: [], events: [] });
+    renderWithProviders(<ClubDetailNews clubId={7} />);
+
+    expect(await screen.findByText('등록된 공지가 없어요.')).toHaveClass('enter-content');
+    expect(await screen.findByText('등록된 일정이 없어요.')).toHaveClass('enter-content');
+  });
 });

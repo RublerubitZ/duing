@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useClubHeroActivitiesQuery } from '@duing/hooks';
+import { cn } from '@/app/_lib/cn';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { Skeleton } from '@/components/loading/Skeleton';
 import { ClubHeroBento } from './ClubHeroBento';
 import { ClubHeroSwipe } from './ClubHeroSwipe';
@@ -15,6 +17,7 @@ type Props = { clubId: number };
  */
 export function ClubDetailHeroActivities({ clubId }: Props) {
   const heroQuery = useClubHeroActivitiesQuery(clubId);
+  const enteredFromSkeleton = useEnteredFromSkeleton(heroQuery.isLoading);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (heroQuery.isLoading) {
@@ -46,7 +49,7 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
   }));
 
   return (
-    <section className="mb-10">
+    <section className={cn('mb-10', enteredFromSkeleton && 'enter-content')}>
       <div className="mb-4 flex items-baseline gap-2.5">
         <h2 className="text-[20px] font-bold text-ink-deep">대표 활동</h2>
         <span className="text-[13px] text-charcoal-3">동아리의 다양한 활동과 분위기를 만나보세요.</span>

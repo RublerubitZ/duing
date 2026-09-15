@@ -175,4 +175,29 @@ describe('NoticeDetailPage (재설계)', () => {
     expect(screen.getAllByText('9.16(수) 23:59까지')).toHaveLength(3);
     expect(screen.queryByText(/일시적인 오류/)).not.toBeInTheDocument();
   });
+
+  it('로딩을 거쳐 성공하면 본문에 enter-content 를 걸고, 이미 보이던 상단 바는 그 밖에 둔다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, error: null });
+    const { rerender } = render(<NoticeDetailPage />);
+
+    const skeleton = screen.getByRole('status', { name: '공지 불러오는 중' });
+    expect(skeleton.parentElement).toHaveClass('delayed-show');
+    // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다.
+    expect(skeleton).not.toHaveClass('delayed-show');
+
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지' })));
+    rerender(<NoticeDetailPage />);
+
+    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).not.toBeNull();
+    expect(screen.getByRole('button', { name: '뒤로' }).closest('.enter-content')).toBeNull();
+  });
+
+  it('처음부터 성공이면(캐시 재방문) enter-content 를 걸지 않는다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지' })));
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).toBeNull();
+  });
 });

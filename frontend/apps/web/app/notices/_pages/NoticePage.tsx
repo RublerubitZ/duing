@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
+import { cn } from '@/app/_lib/cn';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -233,6 +235,9 @@ export function NoticePage() {
     page,
     size: PAGE_SIZE,
   });
+
+  // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
+  const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
 
   const items = listQuery.data?.content ?? [];
   const totalElements = listQuery.data?.totalElements ?? 0;
@@ -467,9 +472,13 @@ export function NoticePage() {
           {listQuery.isSuccess && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
+            // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
             <div
               aria-busy={listQuery.isPlaceholderData}
-              className={listQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+              className={cn(
+                enteredFromSkeleton && 'enter-content',
+                listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+              )}
             >
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (

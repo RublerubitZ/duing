@@ -70,4 +70,21 @@ describe('ClubDetailHeroActivities', () => {
     expect(within(dialog).getByText('활동1')).toBeInTheDocument();
     expect(within(dialog).getByText('설명1')).toBeInTheDocument();
   });
+
+  it('로딩을 거쳐 데이터가 오면 섹션에 enter-content 를 건다', () => {
+    mockHeroQuery({ data: undefined, isLoading: true, isError: false });
+    const { rerender } = render(<ClubDetailHeroActivities clubId={1} />);
+
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false });
+    rerender(<ClubDetailHeroActivities clubId={1} />);
+
+    expect(screen.getByRole('heading', { name: '대표 활동' }).closest('section')).toHaveClass('enter-content');
+  });
+
+  it('처음부터 데이터가 있으면(캐시 재방문) enter-content 를 걸지 않는다', () => {
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false });
+    render(<ClubDetailHeroActivities clubId={1} />);
+
+    expect(screen.getByRole('heading', { name: '대표 활동' }).closest('section')).not.toHaveClass('enter-content');
+  });
 });
