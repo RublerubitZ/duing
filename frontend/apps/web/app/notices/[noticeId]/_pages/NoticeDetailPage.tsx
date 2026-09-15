@@ -2,7 +2,9 @@
 
 import { useParams } from 'next/navigation';
 import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
+import { cn } from '@/app/_lib/cn';
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useNoticeDetailQuery } from '@duing/hooks';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { NoticeDetailTopBar } from '../../_components/NoticeDetailTopBar';
@@ -34,15 +36,19 @@ export function NoticeDetailPage() {
 
   // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
   useDocumentTitle(notice?.title ?? null);
+  // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
+  const enteredFromSkeleton = useEnteredFromSkeleton(detailQuery.isLoading);
 
   // 세 분기 모두 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
   // — 로딩 경계 밖에서 유지되도록. ExploreNav 는 상세 경로에서 스스로 모바일 숨김을 판단한다(pathname 기반).
   // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky 면 라우터 자동 스크롤 기준에서 제외된다.
+  // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다(delayed-show) — 펄스(animate-pulse)와 같은 요소면
+  // animation 축약끼리 덮어써 펄스가 꺼지므로 래퍼에 둔다. 상단 바는 이미 보이는 요소라 지연·등장 모두에서 뺀다.
   if (detailQuery.isLoading) {
     return (
       <div>
         <NoticeDetailTopBar />
-        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
+        <div className="delayed-show max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 py-16">
           <TextLinesSkeleton lines={6} label="공지 불러오는 중" />
         </div>
       </div>
@@ -83,7 +89,7 @@ export function NoticeDetailPage() {
   return (
     <div>
       <NoticeDetailTopBar />
-      <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
+      <div className={cn('max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24', enteredFromSkeleton && 'enter-content')}>
         <NoticeArticleHeader
           category={notice.category}
           title={notice.title}
