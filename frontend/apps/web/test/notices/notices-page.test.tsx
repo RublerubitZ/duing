@@ -201,11 +201,15 @@ describe('NoticesPage', () => {
     mockUseNoticeListQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, error: null });
     const { rerender } = render(<NoticesPage />);
 
-    mockUseNoticeListQuery.mockReturnValue(makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]));
+    // 실제 쿼리처럼 isPlaceholderData 를 false 로 채워야 컨테이너에 aria-busy 속성이 렌더된다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]),
+      isPlaceholderData: false,
+    });
     rerender(<NoticesPage />);
 
-    // 목록 컨테이너 = 표 시트의 부모(필터 전환 중에도 언마운트되지 않는 isSuccess div).
-    const tableWrapper = document.querySelector('.md\\:bg-paper');
-    expect(tableWrapper?.parentElement).toHaveClass('enter-content');
+    // 목록 컨테이너 = aria-busy 를 가진 isSuccess div(필터 전환 중에도 언마운트되지 않는다).
+    const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
+    expect(listContainer).toHaveClass('enter-content');
   });
 });

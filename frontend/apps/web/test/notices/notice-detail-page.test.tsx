@@ -176,21 +176,29 @@ describe('NoticeDetailPage (재설계)', () => {
     expect(screen.queryByText(/일시적인 오류/)).not.toBeInTheDocument();
   });
 
-  it('로딩을 거쳐 성공하면 본문에 enter-content 를 걸고, 이미 보이던 상단 바는 그 밖에 둔다', () => {
+  it('로딩을 거쳐 성공하면 본문에 enter-content 를 걸고, 이미 보이던 상단 바와 하단 고정 링크 바는 그 밖에 둔다', () => {
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     mockUseNoticeDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, error: null });
-    const { rerender } = render(<NoticeDetailPage />);
+    const { container, rerender } = render(<NoticeDetailPage />);
 
     const skeleton = screen.getByRole('status', { name: '공지 불러오는 중' });
     expect(skeleton.parentElement).toHaveClass('delayed-show');
     // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다.
     expect(skeleton).not.toHaveClass('delayed-show');
 
-    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지' })));
+    // 링크 바는 외부 링크가 있는 이벤트 공지에만 렌더된다 — 둘 다 채워 바를 띄운다.
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({
+      title: '봄 축제 공지',
+      linkUrl: 'https://forms.example.com/apply',
+      eventInfo: { startAt: '2026-09-25T10:00:00', endAt: '2026-09-27T18:00:00', location: '중앙광장', host: '학생자치회', audience: '재학생' },
+    })));
     rerender(<NoticeDetailPage />);
 
     expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).not.toBeNull();
     expect(screen.getByRole('button', { name: '뒤로' }).closest('.enter-content')).toBeNull();
+    const linkBar = container.querySelector('[data-bottom-bar]');
+    expect(linkBar).not.toBeNull();
+    expect(linkBar?.closest('.enter-content')).toBeNull();
   });
 
   it('처음부터 성공이면(캐시 재방문) enter-content 를 걸지 않는다', () => {

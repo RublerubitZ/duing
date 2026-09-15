@@ -475,10 +475,12 @@ export function NoticePage() {
             // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
             <div
               aria-busy={listQuery.isPlaceholderData}
-              className={cn(
-                enteredFromSkeleton && 'enter-content',
-                listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
-              )}
+              className={
+                cn(
+                  enteredFromSkeleton && 'enter-content',
+                  listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                ) || undefined
+              }
             >
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (

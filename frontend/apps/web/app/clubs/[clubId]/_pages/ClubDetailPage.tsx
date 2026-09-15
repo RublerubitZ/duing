@@ -12,7 +12,6 @@ import {
 
 import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { captureEvent } from '@/app/_lib/analytics';
-import { cn } from '@/app/_lib/cn';
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -89,7 +88,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
 
   return (
     <>
-      <div className={cn(enteredFromSkeleton && 'enter-content')}>
+      <div className={enteredFromSkeleton ? 'enter-content' : undefined}>
         <ClubDetailHero
           club={club}
           recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
