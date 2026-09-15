@@ -1,6 +1,5 @@
 package com.duing.domain.facilitybooking.api;
 
-import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.global.response.ApiResponse;
@@ -25,14 +24,6 @@ public interface FacilityAvailabilityApi {
     ResponseEntity<ApiResponse<FacilityAvailabilityResponse>> getAvailability(
             @PathVariable Long facilityId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth);
-
-    @Operation(summary = "현재 예약 오픈 구간 (비로그인, 폐기 예정)", deprecated = true,
-            description = "시설 무관 참조 창(오늘 ~ 익월 말일). 시설별 신청 가능 구간은 가용성 응답의 "
-                    + "bookableFrom/bookableUntil 이 단일 진실이며, 이 엔드포인트는 구 FE 호환용으로 "
-                    + "한 릴리스만 유지한 뒤 삭제된다.")
-    @Deprecated
-    @GetMapping("/facilities/booking-window")
-    ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow();
 
     @Operation(summary = "사용 목적 Preset 목록 (비로그인)")
     @GetMapping("/facilities/booking-purpose-presets")

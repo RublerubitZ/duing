@@ -21,9 +21,4 @@ public class BookingOpenDatePolicy {
         LocalDate from = bookingOpenDate.isBefore(today) ? today : bookingOpenDate;
         return new BookingWindow(from, until);
     }
-
-    /** 오픈일과 무관한 참조 창(오늘~익월 말일) — 폐기 예정 booking-window 엔드포인트가 구 FE 내비게이션용으로 쓴다. */
-    public BookingWindow referenceWindow(LocalDate today) {
-        return new BookingWindow(today, YearMonth.from(today).plusMonths(1).atEndOfMonth());
-    }
 }
