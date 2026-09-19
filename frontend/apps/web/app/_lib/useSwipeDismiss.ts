@@ -28,8 +28,9 @@ type Drag = {
   pointerId: number;
   startX: number;
   startY: number;
-  /** 핸들 영역에서 시작했는가 — 아니면 "스크롤 맨 위에서 아래로" 조건을 추가로 요구한다. */
-  fromHandle: boolean;
+  /** 위 방향(저항) 드래그를 허용하는가 — 핸들 영역에서 시작했고 target~콘텐츠 사이에 스크롤 가능한
+   *  요소가 없을 때만 true. 아니면 위로 움직이는 순간 드래그를 포기하고 스크롤에 맡긴다. */
+  allowUpward: boolean;
   height: number;
   locked: boolean;
   samples: Sample[];
@@ -41,7 +42,25 @@ type Drag = {
 function hasScrolledAncestor(target: Node, content: HTMLElement): boolean {
   let node: Node | null = target;
   while (node !== null) {
-    if (node instanceof HTMLElement && node.scrollTop > 0) return true;
+    // 1px 미만은 맨 위로 본다 — 프로그램 스크롤·DPR 반올림이 남긴 0.5 같은 소수점 오프셋이 닫기를 막지 않게.
+    // iOS 러버밴드가 만드는 음수 값도 맨 위다.
+    if (node instanceof HTMLElement && node.scrollTop >= 1) return true;
+    if (node === content) return false;
+    node = node.parentNode;
+  }
+  return false;
+}
+
+/** event.target 에서 시트 콘텐츠까지 올라가며 스크롤 가능한 요소가 있는지 본다 — 위 방향 드래그 허용에만 쓴다.
+ *  스크롤 가능 = 실제로 넘치면서(+1 은 소수점 높이 반올림 오차) overflowY 가 auto·scroll 이다. 넘쳐도
+ *  overflow-hidden 인 요소(말줄임, 탐색 필터 시트의 콘텐츠)는 스크롤되지 않으니 제외한다. */
+function hasScrollableAncestor(target: Node, content: HTMLElement): boolean {
+  let node: Node | null = target;
+  while (node !== null) {
+    if (node instanceof HTMLElement && node.scrollHeight > node.clientHeight + 1) {
+      const { overflowY } = window.getComputedStyle(node);
+      if (overflowY === 'auto' || overflowY === 'scroll') return true;
+    }
     if (node === content) return false;
     node = node.parentNode;
   }
@@ -113,9 +132,15 @@ export function useSwipeDismiss(
       if (content === null || dragRef.current !== null) return;
       if (!(target instanceof Node) || !content.contains(target)) return;
 
+      // 이미 스크롤된 조상이 있으면 어디서 시작했든(핸들·sticky CTA 포함) 드래그를 시작하지 않는다 —
+      // 콘텐츠 자체가 스크롤러인 시트(시설 빠른 예약)에서 상단을 잡고 목록을 되올리려던 플릭이 시트를 닫아
+      // 입력 중인 폼이 사라진다. 이 상태에서는 오버레이 탭·뒤로가기로 닫는다(Vaul 과 같은 선택).
+      if (hasScrolledAncestor(target, content)) return;
+
       const rect = content.getBoundingClientRect();
       const fromHandle = event.clientY - rect.top <= HANDLE_ZONE_PX;
-      if (!fromHandle && hasScrolledAncestor(target, content)) return;
+      // getComputedStyle 은 핸들 영역에서 시작했을 때만 돌린다 — 본문 탭마다 스타일을 읽지 않게.
+      const allowUpward = fromHandle && !hasScrollableAncestor(target, content);
 
       // 스냅백 도중 다시 잡으면 전이를 끊는다. 인라인 transition 도 같이 비운다 — 여기서 잡기만
       // 하고 드래그가 안 잠기면(단순 탭) 200ms 전이가 인라인으로 영구히 남아 Tailwind 의 transition
@@ -129,7 +154,7 @@ export function useSwipeDismiss(
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        fromHandle,
+        allowUpward,
         height: rect.height,
         locked: false,
         samples: [{ time: performance.now(), y: event.clientY }],
@@ -140,6 +165,14 @@ export function useSwipeDismiss(
       const drag = dragRef.current;
       const content = contentRef.current;
       if (drag === null || content === null || event.pointerId !== drag.pointerId) return;
+      // 버튼이 눌리지 않은 마우스 이동 = pointerup 을 놓쳤다(창 밖에서 떼기 등). pointercancel 과 같게 끝낸다 —
+      // 드래그가 남으면 이후 pointerdown 을 모두 무시하고, 버튼을 뗀 채 움직여도 시트가 따라온다.
+      // 마우스만 본다 — 터치·펜은 pointerType 조건으로 제외된다.
+      if (event.pointerType === 'mouse' && event.buttons === 0) {
+        dragRef.current = null;
+        if (drag.locked) snapBack(content);
+        return;
+      }
 
       const deltaY = event.clientY - drag.startY;
       const deltaX = event.clientX - drag.startX;
@@ -147,8 +180,8 @@ export function useSwipeDismiss(
         // 8px 전에는 판정 보류 — 탭과 스크롤을 빼앗지 않는다.
         if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) <= LOCK_PX) return;
         // 수평 우세면 포기(방어용 — 현재 시트 안에 가로 레일은 없다).
-        // 스크롤 맨 위에서 시작했는데 위로 올라가면 스크롤에 맡긴다.
-        if (Math.abs(deltaX) > Math.abs(deltaY) || (!drag.fromHandle && deltaY < 0)) {
+        // 위로 올라가면 스크롤에 맡긴다 — 핸들 영역이고 스크롤할 곳이 없을 때(allowUpward)만 저항으로 따라간다.
+        if (Math.abs(deltaX) > Math.abs(deltaY) || (!drag.allowUpward && deltaY < 0)) {
           dragRef.current = null;
           return;
         }
@@ -206,8 +239,9 @@ export function useSwipeDismiss(
 
     // iOS Safari 는 touchmove 기본 스크롤이 pointer 이벤트와 별개라, 드래그가 잠긴 동안에만
     // preventDefault 로 막는다(잠기기 전에는 그대로 스크롤되어야 한다 → passive:false 필요).
+    // cancelable 이 false 면 네이티브 스크롤이 이미 시작돼 막을 수 없다 — 호출하면 개입 경고만 남는다(안드로이드 Chrome).
     const handleTouchMove = (event: TouchEvent) => {
-      if (dragRef.current?.locked === true) event.preventDefault();
+      if (dragRef.current?.locked === true && event.cancelable) event.preventDefault();
     };
 
     document.addEventListener('pointerdown', handlePointerDown);

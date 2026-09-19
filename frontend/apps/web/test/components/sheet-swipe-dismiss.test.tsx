@@ -140,6 +140,73 @@ describe('SheetContent — 아래로 스와이프해 닫기', () => {
     expect(content.style.transform).toBe('');
   });
 
+  it('콘텐츠 자체가 스크롤러이고 내려가 있으면 상단 56px 에서 빠르게 아래로 플릭해도 닫지 않는다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+    // 시설 빠른 예약 시트처럼 콘텐츠가 곧 스크롤러다 — 목록을 내려 둔 채 위로 되돌리려는 제스처가
+    // 핸들 영역에서 시작했다는 이유로 시트를 닫으면 입력 중인 신청 폼이 사라진다.
+    content.style.overflowY = 'auto';
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 800, writable: true });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 400, writable: true });
+    Object.defineProperty(content, 'scrollTop', { configurable: true, value: 50, writable: true });
+
+    pointerDown(content, { y: 10, at: 0 });
+    pointerMove(content, { y: 30, at: 1000 });
+    pointerMove(content, { y: 70, at: 1040 });
+    pointerUp(content, { y: 70, at: 1040 });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(content.style.transform).toBe('');
+  });
+
+  it('콘텐츠가 스크롤 가능하면 맨 위에서 상단 56px 를 위로 밀어도 잠그지 않고 스크롤에 양보한다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+    // scrollTop 은 jsdom 기본값 0 — 맨 위.
+    content.style.overflowY = 'auto';
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 800, writable: true });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 400, writable: true });
+
+    pointerDown(content, { y: 40, at: 0 });
+    pointerMove(content, { y: 20, at: 500 });
+
+    // 여기서 잠그면 터치에서는 touchmove preventDefault 로 목록 스크롤까지 막힌다.
+    expect(content.style.transform).toBe('');
+  });
+
+  it('콘텐츠가 스크롤러여도 맨 위라면 상단 56px 에서 200px 를 느리게 내리면 닫힌다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+    // 시설 빠른 예약 시트의 기본 닫기 경로 — 스크롤 가능하다는 이유만으로 아래 드래그까지 막으면 안 된다.
+    content.style.overflowY = 'auto';
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 800, writable: true });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 400, writable: true });
+    Object.defineProperty(content, 'scrollTop', { configurable: true, value: 0, writable: true });
+
+    pointerDown(content, { y: 10, at: 0 });
+    pointerMove(content, { y: 30, at: 500 });
+    pointerMove(content, { y: 210, at: 1000 });
+    pointerUp(content, { y: 210, at: 1000 });
+
+    // 200px ≥ 400 × 0.25 — 마지막 100ms 속도는 0 이라 거리로 닫힌다.
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('넘치지만 스크롤러가 아닌 콘텐츠(overflow-y: hidden)는 상단 56px 를 위로 밀면 저항을 두고 따라온다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+    // 탐색 필터 시트처럼 콘텐츠가 overflow-hidden 이면 넘쳐도 스크롤되지 않는다 — 헤더의 저항 드래그는 유지.
+    content.style.overflowY = 'hidden';
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 800, writable: true });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 400, writable: true });
+
+    pointerDown(content, { y: 40, at: 0 });
+    pointerMove(content, { y: 20, at: 500 });
+
+    // 위로 20px ÷ 저항 4.
+    expect(content.style.transform).toBe('translateY(-5px)');
+  });
+
   it('거리가 모자라도 빠른 플릭이면 닫힌다(속도 경로)', () => {
     const onOpenChange = vi.fn();
     const content = renderSheet('bottom', onOpenChange);
@@ -206,5 +273,34 @@ describe('SheetContent — 아래로 스와이프해 닫기', () => {
     await waitFor(() => {
       expect(content.style.transition).toBe('');
     });
+  });
+
+  it('pointerup 을 놓친 마우스가 버튼 없이 움직이면 드래그를 끝내고 스냅백한 뒤 다음 드래그를 받는다', async () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+
+    pointerDown(content, { y: 10, at: 0 });
+    pointerMove(content, { y: 30, at: 500 });
+    expect(content.style.transform).toBe('translateY(20px)');
+
+    // 창 밖에서 버튼을 떼면 pointerup 이 오지 않는다 — 그 뒤의 이동은 buttons 0 으로 들어온다.
+    fireEvent.pointerMove(content, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      buttons: 0,
+      clientX: 100,
+      clientY: 60,
+    });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(content.style.transform).toBe('');
+    await waitFor(() => {
+      expect(content.style.transition).toBe('');
+    });
+
+    // 드래그 상태가 남아 있으면 새 pointerdown 이 무시돼 시트가 다시는 손을 따라오지 않는다.
+    pointerDown(content, { y: 10, at: 2000 });
+    pointerMove(content, { y: 40, at: 2500 });
+    expect(content.style.transform).toBe('translateY(30px)');
   });
 });
