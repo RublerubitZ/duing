@@ -375,7 +375,6 @@ describe('BannerCarouselClient — 오버레이 컨트롤', () => {
       expect(screen.getByTestId('banner-pager')).toHaveTextContent('2 / 4');
     } finally {
       vi.useRealTimers();
-      vi.unstubAllGlobals();
     }
   });
 });

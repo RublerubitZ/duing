@@ -174,6 +174,24 @@ describe('SheetContent — 아래로 스와이프해 닫기', () => {
     expect(content.style.transform).toBe('');
   });
 
+  it('콘텐츠가 스크롤러여도 맨 위라면 상단 56px 에서 200px 를 느리게 내리면 닫힌다', () => {
+    const onOpenChange = vi.fn();
+    const content = renderSheet('bottom', onOpenChange);
+    // 시설 빠른 예약 시트의 기본 닫기 경로 — 스크롤 가능하다는 이유만으로 아래 드래그까지 막으면 안 된다.
+    content.style.overflowY = 'auto';
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 800, writable: true });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 400, writable: true });
+    Object.defineProperty(content, 'scrollTop', { configurable: true, value: 0, writable: true });
+
+    pointerDown(content, { y: 10, at: 0 });
+    pointerMove(content, { y: 30, at: 500 });
+    pointerMove(content, { y: 210, at: 1000 });
+    pointerUp(content, { y: 210, at: 1000 });
+
+    // 200px ≥ 400 × 0.25 — 마지막 100ms 속도는 0 이라 거리로 닫힌다.
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('넘치지만 스크롤러가 아닌 콘텐츠(overflow-y: hidden)는 상단 56px 를 위로 밀면 저항을 두고 따라온다', () => {
     const onOpenChange = vi.fn();
     const content = renderSheet('bottom', onOpenChange);

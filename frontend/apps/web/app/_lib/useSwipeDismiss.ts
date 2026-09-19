@@ -42,7 +42,9 @@ type Drag = {
 function hasScrolledAncestor(target: Node, content: HTMLElement): boolean {
   let node: Node | null = target;
   while (node !== null) {
-    if (node instanceof HTMLElement && node.scrollTop > 0) return true;
+    // 1px 미만은 맨 위로 본다 — 프로그램 스크롤·DPR 반올림이 남긴 0.5 같은 소수점 오프셋이 닫기를 막지 않게.
+    // iOS 러버밴드가 만드는 음수 값도 맨 위다.
+    if (node instanceof HTMLElement && node.scrollTop >= 1) return true;
     if (node === content) return false;
     node = node.parentNode;
   }
@@ -165,7 +167,7 @@ export function useSwipeDismiss(
       if (drag === null || content === null || event.pointerId !== drag.pointerId) return;
       // 버튼이 눌리지 않은 마우스 이동 = pointerup 을 놓쳤다(창 밖에서 떼기 등). pointercancel 과 같게 끝낸다 —
       // 드래그가 남으면 이후 pointerdown 을 모두 무시하고, 버튼을 뗀 채 움직여도 시트가 따라온다.
-      // 터치·펜은 접촉 중 buttons 가 1 이상이라 여기 걸리지 않는다.
+      // 마우스만 본다 — 터치·펜은 pointerType 조건으로 제외된다.
       if (event.pointerType === 'mouse' && event.buttons === 0) {
         dragRef.current = null;
         if (drag.locked) snapBack(content);
