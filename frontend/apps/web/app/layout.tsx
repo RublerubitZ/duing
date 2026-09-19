@@ -52,9 +52,9 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     url: '/',
     locale: 'ko_KR',
-    // 소셜 공유 미리보기 이미지 — public/og-image.png(1731×909, ≈1.9:1 = 1200×630 비율).
+    // 소셜 공유 미리보기 이미지 — public/og-image.png(2856×1416, ≈2:1, 1200×630 권장 비율에 근접).
     // metadataBase 로 절대 URL(https://duings.com/og-image.png) 로 렌더돼 카카오톡/페북이 읽는다.
-    images: [{ url: '/og-image.png', width: 1731, height: 909, alt: SITE_TITLE }],
+    images: [{ url: '/og-image.png', width: 2856, height: 1416, alt: SITE_TITLE }],
   },
   twitter: {
     // 1200×630 비율 이미지가 있으므로 큰 이미지 카드로 노출한다.
