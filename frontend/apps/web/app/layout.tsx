@@ -52,16 +52,17 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     url: '/',
     locale: 'ko_KR',
-    // 소셜 공유 미리보기 이미지 — public/og-image.png(2856×1416, ≈2:1, 1200×630 권장 비율에 근접).
-    // metadataBase 로 절대 URL(https://duings.com/og-image.png) 로 렌더돼 카카오톡/페북이 읽는다.
-    images: [{ url: '/og-image.png', width: 2856, height: 1416, alt: SITE_TITLE }],
+    // 소셜 공유 미리보기 이미지 — public/og-image-2026-09.png(2856×1416, ≈2:1, 1200×630 권장 비율에 근접).
+    // 정적 이미지는 1년 immutable 캐시라 교체 때마다 파일명을 바꾼다(next.config.mjs headers 규약).
+    // metadataBase 로 절대 URL(https://duings.com/og-image-2026-09.png) 로 렌더돼 카카오톡/페북이 읽는다.
+    images: [{ url: '/og-image-2026-09.png', width: 2856, height: 1416, alt: SITE_TITLE }],
   },
   twitter: {
     // 1200×630 비율 이미지가 있으므로 큰 이미지 카드로 노출한다.
     card: 'summary_large_image',
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ['/og-image.png'],
+    images: ['/og-image-2026-09.png'],
   },
 };
 
