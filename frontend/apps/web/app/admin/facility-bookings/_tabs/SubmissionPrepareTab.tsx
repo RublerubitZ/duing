@@ -34,7 +34,19 @@ const PERIOD_PRESETS: { label: string; range: () => { startDate: string; endDate
   { label: '이번+다음 달', range: currentAndNextMonthRange },
 ];
 
-type SubmissionStatusFilter = 'ALL' | 'NEED' | 'SUBMITTED';
+const SUMMARY_FILTER_OPTIONS: { value: SummaryFilter; label: string }[] = [
+  { value: 'ALL', label: '전체' },
+  { value: 'APPROVED', label: '승인 완료' },
+  { value: 'NEED', label: '미제출 예약' },
+  { value: 'SUBMITTED', label: '제출 대기 예약' },
+  { value: 'CONFIRMED', label: '학교 등록 완료' },
+];
+
+/** select 는 문자열만 돌려주므로 알려진 필터 값인지 확인하고 좁힌다(`as` 단언 금지). */
+function toSummaryFilter(value: string): SummaryFilter {
+  const matched = SUMMARY_FILTER_OPTIONS.find((option) => option.value === value);
+  return matched ? matched.value : 'ALL';
+}
 
 function periodDayCount(startDate: string, endDate: string): number {
   const diffMs = new Date(`${endDate}T00:00:00`).getTime() - new Date(`${startDate}T00:00:00`).getTime();
@@ -120,10 +132,6 @@ export function SubmissionPrepareTab() {
   const reservationDateById = new Map(
     allBookings.map((booking): [number, string] => [booking.bookingId, booking.reservationDate]),
   );
-
-  // 제출 상태 셀렉트는 필터의 3값(미제출 예약/제출 대기 예약/전체)만 표현 — 카드 확장값(APPROVED/CONFIRMED)일 땐 '전체' 표시.
-  const statusFilterValue: SubmissionStatusFilter =
-    summaryFilter === 'NEED' || summaryFilter === 'SUBMITTED' ? summaryFilter : 'ALL';
 
   // 제외 상태는 검색·상태 필터·기간 변경으로 숨겨져도 유지한다(P2-15/20). 서버 결과에 없고 예약일이
   // 현재 조회 기간 안인 것만 "실제 사라진 예약"으로 보고 정리한다 — 기간 밖 예약은 기간 변경으로 숨겨진 것.
@@ -326,15 +334,12 @@ export function SubmissionPrepareTab() {
           <select
             aria-label="제출 상태"
             className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
-            value={statusFilterValue}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setSummaryFilter(nextValue === 'NEED' || nextValue === 'SUBMITTED' ? nextValue : 'ALL');
-            }}
+            value={summaryFilter}
+            onChange={(event) => setSummaryFilter(toSummaryFilter(event.target.value))}
           >
-            <option value="NEED">미제출 예약</option>
-            <option value="SUBMITTED">제출 대기 예약</option>
-            <option value="ALL">전체</option>
+            {SUMMARY_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
 

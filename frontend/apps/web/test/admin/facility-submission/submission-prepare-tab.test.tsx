@@ -366,7 +366,7 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByRole('button', { name: /학교 등록 완료/ })).toBeInTheDocument();
   });
 
-  it('제출 상태 셀렉트와 카드 클릭이 같은 필터를 조작한다', () => {
+  it('제출 상태 셀렉트와 카드가 같은 5값 필터를 조작한다 — 카드 클릭이 셀렉트에, 셀렉트가 카드에 반영된다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
@@ -374,8 +374,20 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
 
-    // 제출 대기 예약 카드 재클릭 = 전체 복귀
+    // 제출 대기 예약 카드 재클릭 = 전체 복귀 → 셀렉트도 '전체'
     fireEvent.click(screen.getByRole('button', { name: /제출 대기 예약/ }));
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('제출 상태')).toHaveValue('ALL');
+
+    // 카드 '학교 등록 완료' 클릭 → 셀렉트 CONFIRMED (예전엔 '전체'로 뭉개졌다)
+    fireEvent.click(screen.getByRole('button', { name: /학교 등록 완료/ }));
+    expect(screen.getByLabelText('제출 상태')).toHaveValue('CONFIRMED');
+    expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+
+    // 셀렉트로 '승인 완료' → 카드 aria-pressed
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'APPROVED' } });
+    expect(screen.getByRole('button', { name: /^승인 완료/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
