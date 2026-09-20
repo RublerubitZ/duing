@@ -111,13 +111,14 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                       </div>
                     </div>
                     {/* selectable 블록은 클릭=선택 토글이라 상세로 갈 길이 없었다(hover 툴팁은 터치 불가).
-                        블록 <button> 의 형제로 절대 배치한 상세 버튼(스펙 E2) — 블록 안에 넣으면 button>button 무효 HTML. */}
+                        블록 <button> 의 형제로 절대 배치한 상세 버튼(스펙 E2) — 블록 안에 넣으면 button>button 무효 HTML.
+                        시각 16px 은 유지하고 before:-inset-1 로 히트 영역만 24px(WCAG 2.5.8 최소) — 빗나가면 아래 선택 블록이 토글되므로(ImageUploader 전례). */}
                     {booking.selectable && (
                       <button
                         type="button"
                         aria-label={`${row.dateIso} ${bookingTimeLabel(booking.startTime, booking.endTime)} ${booking.clubName ?? '동아리'} 상세`}
                         onClick={() => onShowDetail(booking)}
-                        className="absolute right-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-paper/90 text-[10px] font-bold leading-none text-charcoal-2 shadow-sm hover:bg-paper hover:text-ink"
+                        className="absolute right-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-paper/90 text-[10px] font-bold leading-none text-charcoal-2 shadow-sm before:absolute before:-inset-1 before:rounded-full before:content-[''] hover:bg-paper hover:text-ink"
                       >
                         i
                       </button>
