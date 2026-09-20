@@ -35,6 +35,10 @@ const TEST_USER: User = {
 };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// 로그인 성공 후 복귀는 window.location.replace(하드 이동)라 jsdom 이 "Not implemented: navigation" 을 낸다 — 전역 스텁으로 막는다.
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: vi.fn() }));
+afterAll(() => vi.unstubAllGlobals());
+
 afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();

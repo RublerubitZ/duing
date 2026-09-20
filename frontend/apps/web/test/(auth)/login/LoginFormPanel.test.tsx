@@ -51,9 +51,16 @@ const TEST_USER: User = {
 };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// 로그인 성공 후 복귀는 window.location.replace(하드 이동)다 — jsdom 의 Location 은 재정의 불가라
+// (spyOn 이 "Cannot redefine property") 전역을 통째로 스텁한다.
+const hardReplaceSpy = vi.fn();
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy }));
+afterAll(() => vi.unstubAllGlobals());
+
 afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
+  hardReplaceSpy.mockClear();
   memoryStore.clear();
   window.localStorage.removeItem('duing.accessToken');
   mockSearchParams = new URLSearchParams();
@@ -148,7 +155,11 @@ describe('LoginFormPanel', () => {
     await user.type(screen.getByLabelText('비밀번호'), 'password1234');
     await user.click(screen.getByRole('button', { name: '로그인' }));
 
-    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/me'));
+    // 복귀는 라우터가 아니라 문서 하드 이동이어야 한다 — 게스트 상태에서 MY 탭 등으로 /me 를
+    // 클라이언트 내비게이션한 뒤엔 미들웨어의 307(→/login) 결과가 라우터 캐시에 남아, 로그인 뒤
+    // router.replace('/me') 가 서버에 묻지 않고 그 캐시로 /login 에 되돌아온다(실기기 재현).
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
+    expect(replaceSpy).not.toHaveBeenCalled();
     expect(capturedBody).toEqual({ studentId: '20240001', password: 'password1234', rememberMe: false });
     expect(useAuthStore.getState()).toMatchObject({ status: 'authenticated', user: TEST_USER });
     expect('accessToken' in useAuthStore.getState()).toBe(false);
@@ -238,6 +249,24 @@ describe('LoginFormPanel', () => {
   // 여기까지 오는 것은 입력 형식 문제이고, 사용자에게는 입력을 다시 보라는 안내가 맞다.
   // 초대 링크(/join/{code})로 들어온 신입생은 계정이 없어 회원가입으로 빠진다 — 그 링크가 복귀 경로를
   // 떨어뜨리면 가입을 마쳐도 원래 목적지로 돌아올 방법이 없다.
+  it('next 가 있으면 로그인 성공 후 그 경로로 하드 이동한다', async () => {
+    mockSearchParams = new URLSearchParams({ next: '/manage' });
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json({ ok: true, data: { user: TEST_USER }, message: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'password1234');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/manage'));
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
   it('next 가 있으면 회원가입 링크에도 같은 복귀 경로를 이어 넘긴다', () => {
     mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234' });
     renderLoginForm();
