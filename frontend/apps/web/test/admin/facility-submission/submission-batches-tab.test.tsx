@@ -521,4 +521,48 @@ describe('SubmissionBatchesTab', () => {
       expect.objectContaining({ status: 'ARCHIVED' }),
     );
   });
+
+  it('검색어·생성일 필터를 입력하면 page 0 으로 q·submittedFrom·submittedTo 를 넘긴다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 3));
+    render(<SubmissionBatchesTab />);
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '8월' } });
+    fireEvent.change(screen.getByLabelText('생성일 시작'), { target: { value: '2026-08-01' } });
+    fireEvent.change(screen.getByLabelText('생성일 종료'), { target: { value: '2026-08-31' } });
+
+    // useDeferredValue 는 다음 렌더에서 따라온다 — waitFor 로 흡수.
+    await waitFor(() => {
+      expect(mockBatchesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 0, q: '8월', submittedFrom: '2026-08-01', submittedTo: '2026-08-31' }),
+      );
+    });
+  });
+
+  it('필터가 걸린 빈 결과는 조건 안내와 초기화 버튼을 보여주고, 초기화하면 필터 키가 빠진다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([]));
+    render(<SubmissionBatchesTab />);
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '없는목록' } });
+
+    expect(await screen.findByText('조건에 맞는 제출 목록이 없어요')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+
+    expect(screen.getByRole('searchbox', { name: '제출 목록 검색' })).toHaveValue('');
+    await waitFor(() => {
+      const lastParams = mockBatchesQuery.mock.calls.at(-1)?.[0];
+      expect(lastParams).toMatchObject({ page: 0, size: 10 });
+      // 빈 값은 undefined 로 넘긴다 — cleanParams 가 생략하고 기존 캐시 키와 같아진다.
+      expect(lastParams).toEqual(expect.not.objectContaining({ q: expect.any(String) }));
+    });
+    expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
+  it('필터 전환 중(placeholder)에는 이전 표를 딤 처리한 채 유지한다', () => {
+    mockBatchesQuery.mockReturnValue({ ...listSuccess([makeBatch()]), isPlaceholderData: true });
+    render(<SubmissionBatchesTab />);
+
+    // keepPreviousData 로 표가 남고, aria-busy 딤으로 "갱신 전 데이터" 신호를 준다(회비 콘솔 #906 전례).
+    expect(screen.getByRole('table').closest('[aria-busy="true"]')).not.toBeNull();
+  });
 });
