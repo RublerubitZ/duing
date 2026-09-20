@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, userQueryKeys } from '@duing/hooks';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -48,6 +48,8 @@ function renderPage(searchParams: { cloneFrom?: string }) {
   // React 19 의 use(thenable) 가 재진입 없이 동기적으로 값을 꺼내가도록 status/value 가 미리
   // 태깅된 thenable 을 전달한다 (상세·목록 페이지 테스트와 동일 패턴). 일반 Promise.resolve 를
   // 넘기면 use 가 한 번 suspend 한 뒤 microtask 가 act 경계를 벗어나 영구 loading 으로 막힌다.
+  // 페이지는 임시저장 주인을 알아야 폼을 띄운다 — me 를 캐시에 심어 네트워크 없이 확정시킨다.
+  queryClient.setQueryData(userQueryKeys.me(), { id: 42, name: '운영진' });
   const paramsValue = { clubId: String(CLUB_ID) };
   const params = Object.assign(Promise.resolve(paramsValue), {
     status: 'fulfilled' as const,

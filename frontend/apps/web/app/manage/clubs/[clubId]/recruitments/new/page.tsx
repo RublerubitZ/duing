@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useClubRecruitmentsQuery,
   useCreateRecruitmentMutation,
+  useMeQuery,
   useRecruitmentDetailQuery,
 } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
@@ -73,8 +74,14 @@ export default function NewRecruitmentPage({
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
 
+  // 임시저장은 사용자·동아리 쌍으로 보관한다 — 기기를 공유한 다른 운영진의 초안이 복원되지 않게.
   // 복제 진입은 원본이 곧 초안이라 임시저장을 쓰지 않는다 — 폼과 취소 경로가 같은 판정을 본다.
-  const draftClubId = cloneSource ? undefined : clubId;
+  // 폼의 자동 저장 useEffect 가 이 값을 의존값으로 쓰므로 참조를 고정한다.
+  const { data: me, isLoading: isMeLoading } = useMeQuery();
+  const draftOwner = useMemo(
+    () => (cloneSource !== undefined || me === undefined ? undefined : { userId: me.id, clubId }),
+    [cloneSource, me, clubId],
+  );
   const recruitmentsHref = toRoute(`/manage/clubs/${clubId}/recruitments`);
 
   /**
@@ -82,7 +89,7 @@ export default function NewRecruitmentPage({
    * "작성 중이던 내용이 있어요" 배너가 뜬다. 지울 게 있을 때만 묻는다.
    */
   function handleCancel() {
-    if (draftClubId !== undefined && loadRecruitmentDraft(draftClubId) !== null) {
+    if (draftOwner !== undefined && loadRecruitmentDraft(draftOwner) !== null) {
       setIsCancelConfirmOpen(true);
       return;
     }
@@ -122,6 +129,12 @@ export default function NewRecruitmentPage({
   // 폼을 먼저 보여줬다가 차단 안내로 바꾸면 작성 중이던 입력이 사라진다 — 목록 판정이 끝날 때까지 기다린다.
   if (isClubRecruitmentsLoading) {
     return <LoadingGate label="모집 정보 불러오는 중" />;
+  }
+
+  // 폼은 마운트 때 한 번만 임시저장을 읽으므로, 작성자 id 가 없는 채로 마운트하면 하드 리로드에서
+  // 복원 배너가 영영 뜨지 않는다 — me 가 올 때까지 폼을 띄우지 않는다.
+  if (isMeLoading || me === undefined) {
+    return <LoadingGate label="작성자 정보 불러오는 중" />;
   }
 
   if (blockingRecruitment !== undefined) {
@@ -191,7 +204,7 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
-        draftClubId={draftClubId}
+        draftOwner={draftOwner}
         closingRecruitmentTitle={closingRecruitment?.title}
         submitLabel={submitLabel}
         onSubmit={handleSubmit}
@@ -205,7 +218,7 @@ export default function NewRecruitmentPage({
         confirmLabel="취소하고 나가기"
         onCancel={() => setIsCancelConfirmOpen(false)}
         onConfirm={() => {
-          if (draftClubId !== undefined) clearRecruitmentDraft(draftClubId);
+          if (draftOwner !== undefined) clearRecruitmentDraft(draftOwner);
           setIsCancelConfirmOpen(false);
           router.push(recruitmentsHref);
         }}

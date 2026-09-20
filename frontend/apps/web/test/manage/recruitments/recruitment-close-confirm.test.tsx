@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys, userQueryKeys } from '@duing/hooks';
 import type { RecruitmentSummary } from '@duing/types';
 
 // 새 모집 등록은 마감일이 지난 채 OPEN 으로 남은 기존 모집을 백엔드가 자동 마감한 뒤 진행된다.
@@ -75,6 +75,8 @@ function renderPage(seededRecruitments?: RecruitmentSummary[]) {
   if (seededRecruitments !== undefined) {
     queryClient.setQueryData(clubQueryKeys.recruitments(CLUB_ID), seededRecruitments);
   }
+  // 페이지는 임시저장 주인을 알아야 폼을 띄운다 — me 를 캐시에 심어 네트워크 없이 확정시킨다.
+  queryClient.setQueryData(userQueryKeys.me(), { id: 42, name: '운영진' });
   // React 19 의 use(thenable) 가 재진입 없이 값을 꺼내가도록 status/value 를 미리 태깅한다
   // (다른 모집 페이지 테스트와 동일 패턴).
   const paramsValue = { clubId: String(CLUB_ID) };

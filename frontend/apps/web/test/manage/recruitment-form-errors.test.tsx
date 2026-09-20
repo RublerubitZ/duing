@@ -6,6 +6,9 @@ import {
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 
+// 임시저장은 사용자·동아리 쌍으로 보관한다 — 프롭으로도 넘기므로 참조가 고정된 상수 하나를 쓴다.
+const DRAFT_OWNER = { userId: 1, clubId: 7 };
+
 // 이탈 가드(#1189)가 붙으면 RecruitmentForm 이 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다
 // (recruitment-form.test.tsx 와 같은 스텁, 병합 순서와 무관하게 통과하도록 선반영).
 vi.mock('@/app/_lib/useGuardedRouter', () => ({
@@ -60,8 +63,8 @@ describe('RecruitmentForm 오류 표시', () => {
   });
 
   it('임시저장이 있으면 배너가 뜨고 이어서 쓰기로 값이 복원된다', async () => {
-    saveRecruitmentDraft(7, { title: '이어쓰기 제목', capacity: 3 });
-    render(<RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
+    saveRecruitmentDraft(DRAFT_OWNER, { title: '이어쓰기 제목', capacity: 3 });
+    render(<RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
     fireEvent.click(await screen.findByRole('button', { name: '이어서 쓰기' }));
     expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('이어쓰기 제목');
   });
@@ -70,17 +73,17 @@ describe('RecruitmentForm 오류 표시', () => {
     vi.useFakeTimers();
     try {
       render(
-        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
       );
       fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
         target: { value: '자동 저장 제목' },
       });
       // debounce 전에는 아직 아무것도 쓰지 않는다.
-      expect(loadRecruitmentDraft(7)).toBeNull();
+      expect(loadRecruitmentDraft(DRAFT_OWNER)).toBeNull();
 
       act(() => vi.advanceTimersByTime(1500));
 
-      expect(loadRecruitmentDraft(7)?.values.title).toBe('자동 저장 제목');
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('자동 저장 제목');
     } finally {
       vi.useRealTimers();
     }
@@ -90,9 +93,9 @@ describe('RecruitmentForm 오류 표시', () => {
   it('배너를 무시하고 입력하면 배너가 사라지고 자동 저장이 다시 돌아간다', () => {
     vi.useFakeTimers();
     try {
-      saveRecruitmentDraft(7, { title: '옛 저장본' });
+      saveRecruitmentDraft(DRAFT_OWNER, { title: '옛 저장본' });
       render(
-        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
       );
       expect(screen.getByRole('button', { name: '이어서 쓰기' })).toBeInTheDocument();
 
@@ -104,7 +107,7 @@ describe('RecruitmentForm 오류 표시', () => {
 
       act(() => vi.advanceTimersByTime(1500));
 
-      expect(loadRecruitmentDraft(7)?.values.title).toBe('배너 무시하고 쓴 제목');
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('배너 무시하고 쓴 제목');
     } finally {
       vi.useRealTimers();
     }
@@ -115,9 +118,9 @@ describe('RecruitmentForm 오류 표시', () => {
   it('이 세션에서 저장한 적 없는 초안은 되돌림으로 지워지지 않는다', () => {
     vi.useFakeTimers();
     try {
-      saveRecruitmentDraft(7, { title: '옛 저장본', capacity: 5 });
+      saveRecruitmentDraft(DRAFT_OWNER, { title: '옛 저장본', capacity: 5 });
       render(
-        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
       );
       const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
       fireEvent.change(titleInput, { target: { value: 'a' } });
@@ -126,8 +129,8 @@ describe('RecruitmentForm 오류 표시', () => {
 
       act(() => vi.advanceTimersByTime(1500));
 
-      expect(loadRecruitmentDraft(7)?.values.title).toBe('옛 저장본');
-      expect(loadRecruitmentDraft(7)?.values.capacity).toBe(5);
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('옛 저장본');
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.capacity).toBe(5);
     } finally {
       vi.useRealTimers();
     }
@@ -138,9 +141,9 @@ describe('RecruitmentForm 오류 표시', () => {
   it('이어서 쓰기로 복원한 값은 편집을 되돌려도 지워지지 않는다', () => {
     vi.useFakeTimers();
     try {
-      saveRecruitmentDraft(7, { title: '복원할 제목' });
+      saveRecruitmentDraft(DRAFT_OWNER, { title: '복원할 제목' });
       render(
-        <RecruitmentForm mode="create" draftClubId={7} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
       );
       fireEvent.click(screen.getByRole('button', { name: '이어서 쓰기' }));
 
@@ -150,8 +153,8 @@ describe('RecruitmentForm 오류 표시', () => {
 
       act(() => vi.advanceTimersByTime(1500));
 
-      expect(loadRecruitmentDraft(7)).not.toBeNull();
-      expect(loadRecruitmentDraft(7)?.values.title).toBe('복원할 제목');
+      expect(loadRecruitmentDraft(DRAFT_OWNER)).not.toBeNull();
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('복원할 제목');
     } finally {
       vi.useRealTimers();
     }

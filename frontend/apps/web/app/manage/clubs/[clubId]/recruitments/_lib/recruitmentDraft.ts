@@ -1,6 +1,6 @@
 /**
  * 신규 모집 작성 폼의 로컬 임시저장 — 작성 중 이탈(새로고침·오탭 닫기)에서 입력을 되살린다.
- * 서버에 저장하지 않으므로 같은 브라우저에서만 유효하고, 동아리별로 한 벌만 둔다.
+ * 서버에 저장하지 않으므로 같은 브라우저에서만 유효하고, 사용자·동아리 쌍마다 한 벌만 둔다.
  */
 export type RecruitmentDraftValues = Partial<{
   title: string;
@@ -21,17 +21,24 @@ export type RecruitmentDraftValues = Partial<{
 
 export type RecruitmentDraft = { values: RecruitmentDraftValues; savedAt: number };
 
-/** 동아리별 임시저장 키의 공통 프리픽스 — 로그아웃 정리(operatorLocalState)가 이 값으로 훑는다. */
+/** 임시저장의 보관 단위 — 동아리만으로는 기기를 공유한 다른 운영진의 초안까지 열린다. */
+export type DraftOwner = { userId: number; clubId: number };
+
+/** 임시저장 키의 공통 프리픽스 — 로그아웃 정리(operatorLocalState)가 이 값으로 훑는다. */
 export const RECRUITMENT_DRAFT_KEY_PREFIX = 'duing:recruitment-draft:';
 
-const key = (clubId: number) => `${RECRUITMENT_DRAFT_KEY_PREFIX}${clubId}`;
+// 사용자 단위로 나누는 이유: 세션 만료로 로그아웃 정리가 돌지 않은 기기에서 같은 동아리의 다른
+// 운영진이 로그인하면, 동아리 키만으로는 남이 쓰던 초안이 복원 배너로 뜬다.
+// 구 키(`{PREFIX}{clubId}`)는 읽지 않는다 — 아직 릴리스되지 않은 기능이라 이관할 초안이 없고,
+// 남은 키는 로그아웃 정리의 프리픽스 스캔이 지운다.
+const key = ({ userId, clubId }: DraftOwner) => `${RECRUITMENT_DRAFT_KEY_PREFIX}${userId}:${clubId}`;
 
 // infoMenu.ts 와 같은 try/catch 정책 — localStorage 차단·손상은 기능 저하(임시저장 없음)로만 남긴다.
-export function saveRecruitmentDraft(clubId: number, values: RecruitmentDraftValues): void {
+export function saveRecruitmentDraft(owner: DraftOwner, values: RecruitmentDraftValues): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(
-      key(clubId),
+      key(owner),
       JSON.stringify({ values, savedAt: Date.now() } satisfies RecruitmentDraft),
     );
   } catch {
@@ -39,10 +46,10 @@ export function saveRecruitmentDraft(clubId: number, values: RecruitmentDraftVal
   }
 }
 
-export function loadRecruitmentDraft(clubId: number): RecruitmentDraft | null {
+export function loadRecruitmentDraft(owner: DraftOwner): RecruitmentDraft | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(key(clubId));
+    const raw = window.localStorage.getItem(key(owner));
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     // 키 존재만 보면 {values:null, savedAt:'x'} 같은 값이 통과해 배너가 "NaN분 전" 을 띄우고
@@ -65,10 +72,10 @@ export function loadRecruitmentDraft(clubId: number): RecruitmentDraft | null {
   }
 }
 
-export function clearRecruitmentDraft(clubId: number): void {
+export function clearRecruitmentDraft(owner: DraftOwner): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(key(clubId));
+    window.localStorage.removeItem(key(owner));
   } catch {
     // 위와 동일 — 지우지 못해도 다음 저장이 덮어쓴다.
   }
