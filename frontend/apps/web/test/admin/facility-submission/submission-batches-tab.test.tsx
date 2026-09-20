@@ -484,7 +484,7 @@ describe('SubmissionBatchesTab', () => {
     expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
   });
 
-  it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏) 링크를 노출하고 상세는 없다', () => {
+  it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏)와 읽기 전용 상세 링크를 모두 노출한다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 55 })]));
     render(<SubmissionBatchesTab />);
 
@@ -492,7 +492,11 @@ describe('SubmissionBatchesTab', () => {
       'href',
       '/admin/facility-bookings/submission/55/transcribe',
     );
-    expect(screen.queryByRole('link', { name: '상세' })).not.toBeInTheDocument();
+    // 운영 기록·시간표는 상세에만 있어 진행 중 배치도 갈 수 있어야 한다(감사 #14).
+    expect(screen.getByRole('link', { name: '상세' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings/submission/55',
+    );
   });
 
   it('완료·취소 행은 읽기 전용 상세 링크를 노출하고 전사 콕핏 링크는 없다', () => {
