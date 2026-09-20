@@ -199,6 +199,21 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("후보 응답의 제출 대기 예약에는 소속 활성 배치 id(submissionBatchId)가 실리고 미제출 예약은 null 이다")
+    void candidatesCarrySubmissionBatchId() {
+        FacilityBooking submitted = approvedBooking(9);
+        approvedBooking(11);
+        Integer batchId = createBatch(submitted);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(candidatesPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.bookings[0].submissionBatchId", equalTo(batchId))
+                .body("data.bookings[1].submissionBatchId", nullValue());
+    }
+
+    @Test
     @DisplayName("facilityId 없이 후보를 조회하면 전 시설이 시설명과 함께 반환된다")
     void candidatesWithoutFacilityReturnAllFacilities() {
         approvedBooking(9);

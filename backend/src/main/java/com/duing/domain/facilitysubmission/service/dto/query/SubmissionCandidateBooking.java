@@ -24,6 +24,8 @@ public record SubmissionCandidateBooking(
         boolean submitted,
         boolean selectable,
         String submissionNo,
+        /** 활성 배치 id(submitted=false 면 null) — 콘솔 UX 스펙 A2. */
+        Long submissionBatchId,
         String decidedByName,
         LocalDateTime decidedAt
 ) {

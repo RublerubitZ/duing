@@ -99,9 +99,11 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         FacilityBooking submitted = savedBooking(13, BookingStatus.APPROVED);
         FacilityBooking confirmed = savedBooking(15, BookingStatus.CONFIRMED);
         savedBooking(17, BookingStatus.REJECTED);
-        String submissionNo = submissionService.create(
+        var createResult = submissionService.create(
                 new CreateSubmissionBatchCommand(List.of(submitted.getId()), null),
-                new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit")).submissionNo();
+                new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit"));
+        String submissionNo = createResult.submissionNo();
+        Long batchId = createResult.batchId();
 
         SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
 
@@ -117,9 +119,12 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThat(submittedRow.submitted()).isTrue();
         assertThat(submittedRow.selectable()).isFalse();
         assertThat(submittedRow.submissionNo()).isEqualTo(submissionNo);
+        assertThat(submittedRow.submissionBatchId()).isEqualTo(batchId);
         SubmissionCandidateBooking pendingRow = result.bookings().get(0);
         assertThat(pendingRow.selectable()).isFalse();
         assertThat(pendingRow.submissionNo()).isNull();
+        assertThat(pendingRow.submissionBatchId()).isNull();
+        assertThat(awaitingRow.submissionBatchId()).isNull();
     }
 
     @Test
@@ -137,6 +142,7 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThat(result.bookings().get(0).selectable()).isTrue();
         assertThat(result.summary().awaitingCount()).isEqualTo(1);
         assertThat(result.summary().submittedCount()).isZero();
+        assertThat(result.bookings().get(0).submissionBatchId()).isNull();
     }
 
     @Test
