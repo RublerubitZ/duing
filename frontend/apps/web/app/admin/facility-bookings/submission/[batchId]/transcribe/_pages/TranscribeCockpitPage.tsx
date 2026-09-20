@@ -13,6 +13,7 @@ import { ConsoleCard } from '../../../../../_components/ConsoleCard';
 import { CopyField } from '../../../_components/CopyField';
 import { ClubRosterAccordion } from '../../../_components/ClubRosterAccordion';
 import { HWP_FIELDS, groupByFacility, toFormBlock, toTabLine } from '../../../_lib/hwpFields';
+import { batchTitle } from '../../../_lib/submissionBatches';
 import { useTranscribeProgress } from '../../../_lib/useTranscribeProgress';
 
 /**
@@ -71,7 +72,13 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
           <ArrowLeft size={15} />
           제출 대기로
         </Link>
-        <h1 className="text-xl text-ink-deep">제출 정보 보기</h1>
+        {/* 메모=제목 승격(개편 스펙 §7, 목록·상세와 동일) — 어느 제출 목록을 옮겨 쓰는지 헤더에서 확인한다(감사 #13). */}
+        <h1 className="text-xl text-ink-deep">
+          {detailQuery.data !== undefined ? batchTitle(detailQuery.data.batch) : '제출 정보 보기'}
+        </h1>
+        {detailQuery.data !== undefined && batchTitle(detailQuery.data.batch) !== detailQuery.data.batch.submissionNo && (
+          <span className="tabular-nums text-xs text-charcoal-3">{detailQuery.data.batch.submissionNo}</span>
+        )}
       </div>
 
       <div className="rounded-md border border-line bg-sage-tint px-4 py-2.5 text-[13px] text-charcoal-2">

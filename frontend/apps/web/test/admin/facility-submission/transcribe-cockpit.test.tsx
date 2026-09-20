@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import type { SubmissionBatchDetail, SubmissionCandidateBooking } from '@duing/types';
+import type { SubmissionBatchDetail, SubmissionBatchSummary, SubmissionCandidateBooking } from '@duing/types';
 
 const mockDetailQuery = vi.fn();
 const mockMembersQuery = vi.fn();
@@ -34,12 +34,28 @@ const BOOKINGS: SubmissionCandidateBooking[] = [
   booking({ bookingId: 2, clubName: '연극부', startTime: '19:00' }),
 ];
 
-function detailSuccess(bookings: SubmissionCandidateBooking[]) {
-  const data: SubmissionBatchDetail = {
-    batch: {} as SubmissionBatchDetail['batch'],
-    bookings,
-    audits: [],
+function makeBatch(overrides: Partial<SubmissionBatchSummary> = {}): SubmissionBatchSummary {
+  return {
+    batchId: 7,
+    submissionNo: 'SUB-20260801-007',
+    facilityId: null,
+    facilityName: null,
+    facilityNames: ['세미나실 A'],
+    bookingCount: 2,
+    clubNames: ['밴드부'],
+    submittedAt: '2026-08-01T15:30:00Z',
+    submittedByName: '관리자',
+    memo: '8월 1주차 · 밴드부',
+    cancelled: false,
+    cancelledAt: null,
+    completed: false,
+    completedAt: null,
+    ...overrides,
   };
+}
+
+function detailSuccess(bookings: SubmissionCandidateBooking[], batchOverrides: Partial<SubmissionBatchSummary> = {}) {
+  const data: SubmissionBatchDetail = { batch: makeBatch(batchOverrides), bookings, audits: [] };
   return { data, isLoading: false, isSuccess: true, isError: false, refetch: vi.fn() };
 }
 
@@ -125,6 +141,25 @@ describe('TranscribeCockpitPage', () => {
     // 동명·동시각 두 건이 날짜로 갈린다 — 날짜가 없으면 둘 다 "밴드부 18:00" 이라 구분 불가.
     expect(screen.getByRole('button', { name: /밴드부\s*08\/10 18:00/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /밴드부\s*08\/17 18:00/ })).toBeInTheDocument();
+  });
+
+  it('제목은 배치 메모(제목 승격)이고 제출번호는 서브로, 메모가 없으면 제출번호가 제목이다', () => {
+    renderCockpit();
+    expect(screen.getByRole('heading', { name: '8월 1주차 · 밴드부' })).toBeInTheDocument();
+    expect(screen.getByText('SUB-20260801-007')).toBeInTheDocument();
+  });
+
+  it('메모 없는 배치는 제출번호가 제목이고 서브 번호는 중복 표기하지 않는다', () => {
+    mockDetailQuery.mockReturnValue(detailSuccess(BOOKINGS, { memo: null }));
+    renderCockpit();
+    expect(screen.getByRole('heading', { name: 'SUB-20260801-007' })).toBeInTheDocument();
+    expect(screen.getAllByText('SUB-20260801-007')).toHaveLength(1);
+  });
+
+  it('데이터 로딩 전에는 제목이 "제출 정보 보기" 다', () => {
+    mockDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, refetch: vi.fn() });
+    renderCockpit();
+    expect(screen.getByRole('heading', { name: '제출 정보 보기' })).toBeInTheDocument();
   });
 
   it('제출 대기로 돌아가는 링크를 제공한다', () => {
