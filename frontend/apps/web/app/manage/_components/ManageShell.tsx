@@ -10,6 +10,7 @@ import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -109,6 +110,7 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
     setLoggingOut(true);
     try {
       await logout();
+      clearOperatorLocalState();
       // 드로어 안에서 로그아웃하면 replace 이동과 시트 언마운트 닫힘이 겹친다 — 회수 back() 이
       // 이동을 되돌려 콘솔로 튕기지 않게 건너뛴다(실측 재현). 데스크탑 aside 경로는 열린 오버레이가
       // 없어 이 호출이 무시된다.

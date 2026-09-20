@@ -21,7 +21,10 @@ export type RecruitmentDraftValues = Partial<{
 
 export type RecruitmentDraft = { values: RecruitmentDraftValues; savedAt: number };
 
-const key = (clubId: number) => `duing:recruitment-draft:${clubId}`;
+/** 동아리별 임시저장 키의 공통 프리픽스 — 로그아웃 정리(operatorLocalState)가 이 값으로 훑는다. */
+export const RECRUITMENT_DRAFT_KEY_PREFIX = 'duing:recruitment-draft:';
+
+const key = (clubId: number) => `${RECRUITMENT_DRAFT_KEY_PREFIX}${clubId}`;
 
 // infoMenu.ts 와 같은 try/catch 정책 — localStorage 차단·손상은 기능 저하(임시저장 없음)로만 남긴다.
 export function saveRecruitmentDraft(clubId: number, values: RecruitmentDraftValues): void {

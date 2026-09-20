@@ -8,6 +8,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
 
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
@@ -141,6 +142,7 @@ export function SettingsPage() {
     setLogoutPending(true);
     try {
       await logout();
+      clearOperatorLocalState();
       router.replace('/');
     } catch {
       addToast(
