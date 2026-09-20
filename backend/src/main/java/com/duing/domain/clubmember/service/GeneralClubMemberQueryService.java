@@ -81,6 +81,13 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     public List<ClubMemberExportQuery> getMembersForExport(
             Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
         clubAuthService.requireManager(requesterId, clubId);
+        if (includePhone) {
+            // 인가 뒤·감사 기록 앞 — 번호 단건 열람과 같은 창을 소모한다(getMemberPhone 과 동일한 순서).
+            // 내보내기 1건 = 열람 1회로 계상한다. 인원수만큼 소모하면 100명 동아리의 정당한 전체 내보내기가
+            // 분 30 한도에 항상 걸려 기능이 죽는다 — 리미터의 목적은 반복 호출 억제이고, 1회의 규모는
+            // 아래 감사 detail 의 count 가 남긴다.
+            phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
+        }
         Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         // 지정된 멤버만 내려보낸다 — 화면에 없는 회원의 전화번호가 브라우저로 나가지 않게 하고,
         // 아래 감사 로그의 count 도 실제 내보낸 인원과 일치시킨다. 요청 크기는 URL 길이 제한이 막는다.

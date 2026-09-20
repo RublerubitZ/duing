@@ -6,6 +6,7 @@ import com.duing.domain.joincode.controller.dto.request.DecideJoinRequestRequest
 import com.duing.domain.joincode.controller.dto.response.BulkApproveJoinRequestsResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDecisionResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDetailResponse;
+import com.duing.domain.joincode.controller.dto.response.JoinRequestPhoneResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestSummaryResponse;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.service.JoinRequestService;
@@ -14,6 +15,7 @@ import com.duing.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -51,6 +53,19 @@ public class ClubJoinRequestController implements ClubJoinRequestApi {
         JoinRequestDetailResponse joinRequest = JoinRequestDetailResponse.from(
                 joinRequestService.getRequest(clubId, joinRequestId, currentUser.id()));
         return ResponseEntity.ok(ApiResponse.success(joinRequest));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<JoinRequestPhoneResponse>> getJoinRequestPhone(
+            @PathVariable Long clubId,
+            @PathVariable Long joinRequestId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        String phone = joinRequestService.getRequestPhone(clubId, joinRequestId, currentUser.id());
+        // 개인정보 응답이 브라우저·중간 캐시에 남지 않게 한다(LeaderApplicationController.getApplicantPhone 전례).
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(JoinRequestPhoneResponse.from(phone)));
     }
 
     @Override
