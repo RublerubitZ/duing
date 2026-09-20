@@ -13,7 +13,12 @@ import {
 import { HomeNav } from '@/app/_components/HomeNav';
 
 import { partitionApplications } from '../_lib/partitionApplications';
-import { SECTION_LABEL, resolveSectionOrder, type SectionId } from '../_lib/sectionOrder';
+import {
+  SECTION_LABEL,
+  SECTION_SHORT_LABEL,
+  resolveSectionOrder,
+  type SectionId,
+} from '../_lib/sectionOrder';
 
 import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
@@ -59,7 +64,11 @@ export function MyPage() {
     () => resolveSectionOrder(applicationsQuery.isPending ? 1 : applications.length),
     [applicationsQuery.isPending, applications.length],
   );
-  const sections = order.map((id) => ({ id, label: SECTION_LABEL[id] }));
+  const sections = order.map((id) => ({
+    id,
+    label: SECTION_LABEL[id],
+    shortLabel: SECTION_SHORT_LABEL[id],
+  }));
 
   const [activeTab, setActiveTab] = useState<SectionId>(order[0]!);
 
@@ -79,7 +88,7 @@ export function MyPage() {
     const titleRect = titleEl.getBoundingClientRect();
 
     const scale = root.offsetWidth ? rootRect.width / root.offsetWidth : 1;
-    // 탭바가 모바일에서 flex-wrap 으로 2줄이 되어 높이가 반응형으로 달라짐 → 상수 대신 sticky 탭바 실측.
+    // 탭바 높이가 뷰포트별로 다름(모바일 1줄 py-3 / PC py-4) → 상수 대신 sticky 탭바 실측.
     // getBoundingClientRect() 는 이미 비주얼(시각) 좌표라 실측 높이엔 scale 을 다시 곱하지 않는다(fallback 만 곱).
     const stickyEl = root.querySelector('[data-mypage-tabs]');
     const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
@@ -106,7 +115,7 @@ export function MyPage() {
 
       const rootRect = root.getBoundingClientRect();
       const scale = root.offsetWidth ? rootRect.width / root.offsetWidth : 1;
-      // 탭바 높이는 모바일 2줄 랩으로 반응형 → 상수(72) 대신 실측(비주얼 좌표)에 여유 16 을 더한 기준선.
+      // 탭바 높이는 뷰포트별로 다름 → 상수(72) 대신 실측(비주얼 좌표)에 여유 16 을 더한 기준선.
       const stickyEl = root.querySelector('[data-mypage-tabs]');
       const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
       const line = rootRect.top + tabsVisualHeight + 16 * scale;
