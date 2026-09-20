@@ -1,6 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.controller.dto.response.AdminCrawlReservationGroupResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.AdminCrawlReservationGroupResponse.GroupType;
+import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -125,5 +127,27 @@ class FacilityCrawlAdminQueryServiceTest {
         Page<AdminCrawlReservationGroupResponse> blank =
                 service.getReservations(month, null, AdminCrawlGroupBy.CLUB, "   ", PageRequest.of(0, 10));
         assertThat(blank.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("직전 월은 저장된 행 그대로 조회되고(재크롤 없음), 2개월 전은 조회 범위 밖 400 이다")
+    void previousMonthIsReadableButTwoMonthsAgoIsNot() {
+        YearMonth previousMonth = YearMonth.now(clock).minusMonths(1);
+        LocalDate date = previousMonth.atDay(20);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        ReflectionTestUtils.setField(facility, "id", 10L);
+        FacilityReservation row = FacilityReservation.create(10L, 100L, previousMonth, date,
+                LocalTime.of(10, 0), LocalTime.of(12, 0), "고정관념", false, LocalDateTime.of(2026, 7, 1, 9, 0));
+        when(facilityReservationRepository.findByYearMonth(previousMonth)).thenReturn(List.of(row));
+        when(facilityRepository.findAllById(any())).thenReturn(List.of(facility));
+        when(clubRepository.findSecuredTargetNameRows()).thenReturn(List.of());
+
+        Page<AdminCrawlReservationGroupResponse> page =
+                service.getReservations(previousMonth, null, AdminCrawlGroupBy.CLUB, null, PageRequest.of(0, 10));
+        assertThat(page.getTotalElements()).isEqualTo(1);
+
+        assertThatThrownBy(() -> service.getReservations(YearMonth.now(clock).minusMonths(2), null,
+                AdminCrawlGroupBy.CLUB, null, PageRequest.of(0, 10)))
+                .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
     }
 }

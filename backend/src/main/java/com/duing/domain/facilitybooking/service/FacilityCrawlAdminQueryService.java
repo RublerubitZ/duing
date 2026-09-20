@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
 /**
  * 어드민 크롤 예약 현황(설계 §3.6, 수정 1~4) — 읽기 전용 조립. 월 범위 행을 메모리 로드 후 주체/시설
  * 단위로 그룹핑하고 **그룹 단위로 페이징**한다(같은 주체가 페이지 간 분리되지 않게, 수정 4).
- * 근거: 크롤 데이터는 당월·익월 한정에 실측 월당 수백 행 — 전수 계산 허용(countConflictSuspected 전례).
+ * 근거: 크롤 데이터는 직전 월·당월·익월 한정에 실측 월당 수백 행 — 전수 계산 허용(countConflictSuspected 전례).
  *
  * <p>분류(classification)는 가용성과 같은 단일 지점({@link FacilityAvailabilityPolicy})에서 파생해
  * /facilities 표기와 어긋날 수 없다. 매칭 동아리 표시는 정규화 정확 일치·충돌 포기(P5) — 충돌·미등록·
@@ -57,7 +57,9 @@ public class FacilityCrawlAdminQueryService {
             AdminCrawlGroupBy groupBy, String keyword, Pageable pageable) {
         YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = requestedMonth != null ? requestedMonth : currentMonth;
-        if (!targetMonth.equals(currentMonth) && !targetMonth.equals(currentMonth.plusMonths(1))) {
+        // 직전 월 열람 허용(콘솔 UX 스펙 A5) — 동아리 측 가용성(GeneralFacilityAvailabilityService)과 같은
+        // -1~+1 창. 직전 월 행은 월 단위 purge 가 없어 저장 그대로이며 재크롤은 하지 않는다.
+        if (targetMonth.isBefore(currentMonth.minusMonths(1)) || targetMonth.isAfter(currentMonth.plusMonths(1))) {
             throw new FacilityBookingException.MonthOutOfBookingRangeException();
         }
         List<FacilityReservation> rows = facilityId != null
