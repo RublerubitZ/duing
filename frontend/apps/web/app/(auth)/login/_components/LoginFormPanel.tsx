@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import { useLoginMutation } from '@duing/hooks';
@@ -88,7 +87,6 @@ function IconChevronLeft() {
 }
 
 function LoginForm() {
-  const router = useGuardedRouter();
   const searchParams = useSearchParams();
   // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
@@ -122,7 +120,12 @@ function LoginForm() {
       const loggedInUser = await login.mutateAsync({ ...parsed.data, rememberMe });
       posthog.identify(String(loggedInUser.id));
       captureEvent('user_logged_in', { remember_me: rememberMe });
-      router.replace(next);
+      // 복귀는 라우터가 아니라 문서 하드 이동이다. 게스트가 MY 탭 등으로 /me·/manage 를 클라이언트
+      // 내비게이션(프리페치·클릭)하면 미들웨어의 307(→/login) 결과가 라우터 캐시에 그 경로 키로 남고
+      // (staleTimes.dynamic 180초), 로그인 뒤 router.replace(next) 는 서버(미들웨어)에 다시 묻지 않고
+      // 그 캐시로 /login 에 되돌아온다 — 로그인이 "안 되는" 것처럼 보이던 원인. 하드 이동은 미들웨어를
+      // 새 쿠키로 다시 태우고 라우터 캐시를 버린다. next 는 위에서 내부 경로로 검증됐다.
+      window.location.replace(next);
     } catch (loginError) {
       setError(loginErrorMessage(loginError));
     }
