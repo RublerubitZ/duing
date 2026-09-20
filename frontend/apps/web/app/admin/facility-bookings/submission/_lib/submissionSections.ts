@@ -1,4 +1,4 @@
-import type { SubmissionCandidateBooking } from '@duing/types';
+import type { SubmissionCandidateBooking, SubmissionSummaryCounts } from '@duing/types';
 
 export type FacilitySection = {
   facilityId: number;
@@ -88,4 +88,17 @@ export function deriveSelectedIds(
   return bookings
     .filter((booking) => booking.selectable && !excludedIds.has(booking.bookingId))
     .map((booking) => booking.bookingId);
+}
+
+/**
+ * 화면 기준 요약(스펙 §2.2 B3) — 검색어로 좁힌 목록의 카드 숫자. BE `summarize`(4규칙)와 동일해야
+ * 검색어가 없을 때 서버 summary 와 같은 값이 나온다: 승인=APPROVED, 미제출=selectable, 제출=submitted, 등록완료=CONFIRMED.
+ */
+export function summarizeCandidates(bookings: SubmissionCandidateBooking[]): SubmissionSummaryCounts {
+  return {
+    approvedCount: bookings.filter((booking) => booking.status === 'APPROVED').length,
+    awaitingCount: bookings.filter((booking) => booking.selectable).length,
+    submittedCount: bookings.filter((booking) => booking.submitted).length,
+    confirmedCount: bookings.filter((booking) => booking.status === 'CONFIRMED').length,
+  };
 }

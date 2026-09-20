@@ -403,6 +403,25 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
   });
 
+  it('검색어가 있으면 카드 숫자를 화면 예약 기준으로 다시 센다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
+    render(<SubmissionPrepareTab />);
+
+    // 카드 값 <p> 만 정확히 잡는다 — toHaveTextContent 부분 일치는 부제에 숫자가 섞이면 오탐한다.
+    const cardValue = (name: RegExp) => within(screen.getByRole('button', { name })).getByText(/^\d+$/);
+    // 서버 summary: approved 4 · awaiting 3 · submitted 1 · confirmed 1
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('4');
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '테니스' } });
+    // 테니스부 예약 1건(APPROVED·selectable)만 남는다.
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('1');
+    expect(cardValue(/^미제출 예약/)).toHaveTextContent('1');
+    expect(cardValue(/제출 대기 예약/)).toHaveTextContent('0');
+    expect(cardValue(/학교 등록 완료/)).toHaveTextContent('0');
+
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('4');
+  });
+
   it('기간이 62일을 넘으면 조회하지 않고 안내를 보여준다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);

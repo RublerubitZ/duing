@@ -23,7 +23,7 @@ import { SubmissionClubGroupList } from '../submission/_components/SubmissionClu
 import { SubmissionDetailSheet } from '../submission/_components/SubmissionDetailSheet';
 import { SubmissionSummaryCards, type SummaryFilter } from '../submission/_components/SubmissionSummaryCards';
 import { SubmissionTimetable } from '../submission/_components/SubmissionTimetable';
-import { buildClubSections, buildFacilitySections, deriveSelectedIds } from '../submission/_lib/submissionSections';
+import { buildClubSections, buildFacilitySections, deriveSelectedIds, summarizeCandidates } from '../submission/_lib/submissionSections';
 
 const MAX_PERIOD_DAYS = 62;
 
@@ -112,6 +112,10 @@ export function SubmissionPrepareTab() {
       ? allBookings
       : allBookings.filter((booking) => (booking.clubName ?? `동아리 ${booking.clubId}`).includes(keyword));
   const visibleBookings = searchedBookings.filter((booking) => matchesFilter(booking, summaryFilter));
+  // 검색 중엔 카드 숫자도 화면 기준(스펙 §2.2 B3) — 검색어 없으면 서버 summary 그대로(같은 4규칙이라 값 동일).
+  const summaryCounts = candidatesQuery.data
+    ? keyword === '' ? candidatesQuery.data.summary : summarizeCandidates(searchedBookings)
+    : null;
   const sections = buildFacilitySections(visibleBookings);
   const selectedIdSet = new Set(deriveSelectedIds(visibleBookings, excludedIds));
   // 배치=동아리 단위(v2 스펙 §4) — 선택 분해도 화면과 같은 동아리 기준. 시설 섹션은 시간표 뷰 전용으로 남는다.
@@ -227,9 +231,9 @@ export function SubmissionPrepareTab() {
 
   return (
     <div className="space-y-4">
-      {candidatesQuery.data && candidatesParams !== null && (
+      {summaryCounts !== null && candidatesParams !== null && (
         <SubmissionSummaryCards
-          counts={candidatesQuery.data.summary}
+          counts={summaryCounts}
           activeFilter={summaryFilter}
           onSelectFilter={setSummaryFilter}
         />
