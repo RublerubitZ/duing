@@ -27,6 +27,7 @@ import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,7 +63,8 @@ class MyApplicationDetailAccessTest {
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
             clock,
-            mock(ClubAuditEventRepository.class));
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

@@ -16,6 +16,9 @@ import com.duing.domain.clubmember.service.dto.query.MemberFeeStatus;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.LatestBillStatusRow;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +39,8 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     private final ClubAuthService clubAuthService;
     private final FeeBillRepository feeBillRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
+    private final PhoneRevealRateLimiter phoneRevealRateLimiter;
+    private final Clock clock;
 
     @Override
     public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
@@ -108,6 +113,9 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     @Transactional
     public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
+        // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다.
+        // 지원자 번호 열람과 같은 창을 공유한다(열람 총량 기준). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
+        phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
         // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
         // 셋 다 404 로 수렴해 존재 여부를 숨긴다.
         ClubMember target = clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)

@@ -49,8 +49,10 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -96,6 +98,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final InterviewAssignmentQueryService interviewAssignmentQueryService;
     private final Clock clock;
     private final ClubAuditEventRepository clubAuditEventRepository;
+    private final PhoneRevealRateLimiter phoneRevealRateLimiter;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -343,6 +346,9 @@ public class GeneralApplicationService implements ApplicationService {
         Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         clubAuthService.requireManager(currentUserId, clubId);
+        // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다.
+        // 부원 번호 열람과 같은 창을 공유한다(열람 총량 기준). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
+        phoneRevealRateLimiter.assertAndRecord(currentUserId, LocalDateTime.now(clock));
 
         // 상세 조회와 같은 가시성 쿼리(user JOIN FETCH) — 탈퇴한 지원자의 지원서는 지연 로딩 예외 대신 404 로 답한다.
         Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)

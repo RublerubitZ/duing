@@ -40,6 +40,7 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -89,7 +90,8 @@ class ApplicationAnswerValidationTest {
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
             clock,
-            mock(ClubAuditEventRepository.class));
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     // ── payload 분기 ─────────────────────────────────────────────────────────
 

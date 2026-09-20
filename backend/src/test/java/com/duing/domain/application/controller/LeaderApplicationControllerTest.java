@@ -1,5 +1,6 @@
 package com.duing.domain.application.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
@@ -18,6 +19,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -79,6 +81,9 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ClubAuditEventRepository clubAuditEventRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -557,6 +562,70 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().get("/api/v1/leader/applications/{applicationId}/phone", applicationId)
                 .then().statusCode(403);
+    }
+
+    @Test
+    @DisplayName("인증 없이 지원자 번호를 조회하면 401 이다")
+    void anonymousCannotRevealApplicantPhone() {
+        Club club = saveActiveClub("번호열람익명동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "번호열람익명모집");
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        RestAssured.given()
+                .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
+                .then().statusCode(401);
+    }
+
+    @Test
+    @DisplayName("다른 동아리 회장이 남의 지원자 번호를 조회하면 403 이다")
+    void foreignManagerCannotRevealApplicantPhone() {
+        Club club = saveActiveClub("번호열람소속동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "번호열람소속모집");
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+        User foreignLeader = saveUser("타동아리회장", UserRole.STUDENT, College.IT_ENGINEERING, "컴퓨터공학");
+        clubMemberRepository.save(ClubMember.asLeader(saveActiveClub("번호열람타동아리"), foreignLeader));
+        String foreignLeaderToken =
+                jwtTokenProvider.createToken(foreignLeader.getId(), foreignLeader.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + foreignLeaderToken)
+                .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
+                .then().statusCode(403);
+    }
+
+    @Test
+    @DisplayName("번호 열람이 분당 한도를 넘으면 429 로 막히고 초과분은 감사 행을 남기지 않는다")
+    void rateLimitedRevealDoesNotWriteAudit() {
+        Club club = saveActiveClub("번호열람한도동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "번호열람한도모집");
+        User applicant = saveUser("지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Application application = applicationRepository.save(
+                Application.submit(recruitment, applicant, List.of()));
+
+        // PhoneRevealRateLimiter.PER_MINUTE_LIMIT = 30. package-private 라 직접 참조할 수 없어 수치를
+        // 옮겨 적는다(같은 상황의 LoginRateLimitAcceptanceTest 와 동일한 방식).
+        int perMinuteRevealLimit = 30;
+        for (int reveal = 0; reveal < perMinuteRevealLimit; reveal++) {
+            RestAssured.given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
+                    .then().statusCode(200);
+        }
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
+                .then().statusCode(429);
+
+        // 429 는 열람이 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다.
+        assertThat(clubAuditEventRepository.count()).isEqualTo(perMinuteRevealLimit);
     }
 
     private Long saveApplicationAtTime(Recruitment recruitment, LocalDateTime createdAt) {
