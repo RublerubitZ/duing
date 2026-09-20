@@ -380,6 +380,18 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
 
                 <ValidationCards overlaps={detail.overlaps} overlappingPendingCount={detail.overlappingPendingCount} />
 
+                {/* 학교 선반영 안내 — 자기 이름 행(OWN)이 있으면 거절이 아니라 승인이 맞는 경로임을 밝힌다.
+                    운영 실태(2026-09): 학교에 먼저 반영된 신청 42건이 "반영 완료" 사유의 거절로 닫혔다.
+                    APPROVED 는 승인 버튼이 없으므로 자동 매칭 대기 안내로 분기한다. */}
+                {(detail.status === 'PENDING' || detail.status === 'APPROVED') &&
+                  detail.overlaps.some((item) => item.source === 'OWN') && (
+                    <p className="rounded-[12px] bg-sage-mist px-3.5 py-2.5 text-xs leading-relaxed text-ink-deep">
+                      {detail.status === 'PENDING'
+                        ? '학교에 이미 동아리 이름으로 반영된 시간이에요. 거절하지 말고 승인하세요 — 전 시간이 반영돼 있으면 승인 후 자동 확정되고, 일부만이면 "부분 반영"으로 남아요.'
+                        : '학교에 동아리 이름으로 반영된 시간이에요 — 전 시간이 반영돼 있으면 다음 자동 매칭 주기(10분 이내)에 확정돼요. 수동 확정은 필요 없어요.'}
+                    </p>
+                  )}
+
                 {/* 승인 409 충돌 패널(목업 FC3) — 409 모노 칩 + 코럴 카드 + 거절 바로가기. */}
                 {conflictPayload && (
                   <div

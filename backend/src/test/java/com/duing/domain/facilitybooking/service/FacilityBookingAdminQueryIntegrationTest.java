@@ -1,6 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
@@ -31,6 +32,7 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingStatusHistoryR
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingDetailResult;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingSummaryCounts;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.AdminBookingSummaryResult;
+import com.duing.domain.facilitybooking.service.FacilityBookingAdminQueryService.OverlapContext;
 import com.duing.domain.facilitybooking.service.dto.command.CreateFacilityBookingCommand;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingQueueSort;
 import com.duing.domain.facilitybooking.service.dto.query.AdminBookingSearchCondition;
@@ -573,5 +575,26 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         assertThat(queue.getContent())
                 .extracting(AdminBookingSummaryResult::attendeeCount)
                 .containsExactly(20);
+    }
+
+    @Test
+    @DisplayName("관리자 상세 — 자기 동아리 이름의 실예약 행은 SCHOOL 겹침이 아니라 OWN(학교 반영)으로 내리고, 타 단체 행만 SCHOOL 이다")
+    void detailTagsOwnClubRowsAsReflection() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        String ownName = fixture.club().getName();
+        Long target = pendingBooking(fixture, date, 18, 20);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), ownName, false, LocalDateTime.now()));
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", false, LocalDateTime.now()));
+
+        AdminBookingDetailResult detail = queryService.getDetail(target);
+
+        assertThat(detail.overlaps())
+                .extracting(OverlapContext::source, OverlapContext::organization)
+                .containsExactlyInAnyOrder(tuple("OWN", ownName), tuple("SCHOOL", "문화팀"));
     }
 }
