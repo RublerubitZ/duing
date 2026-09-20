@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -6,10 +6,26 @@ import type { SubmissionBatchDetail, SubmissionBatchSummary, SubmissionCandidate
 
 const mockDetailQuery = vi.fn();
 const mockMembersQuery = vi.fn();
+const mockCompleteMutateAsync = vi.fn();
+const mockCsvMutateAsync = vi.fn();
+const mockAddToast = vi.fn();
+const mockDownloadBlobFile = vi.fn();
+const mockReplace = vi.fn();
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionBatchDetailQuery: (...args: unknown[]) => mockDetailQuery(...args),
   useAdminClubMembersQuery: (...args: unknown[]) => mockMembersQuery(...args),
+  useCompleteSubmissionBatchMutation: () => ({ mutateAsync: mockCompleteMutateAsync, isPending: false }),
+  useDownloadSubmissionCsvMutation: () => ({ mutateAsync: mockCsvMutateAsync, isPending: false }),
+}));
+vi.mock('@/app/_components/toast/ToastProvider', () => ({
+  useToast: () => ({ addToast: mockAddToast }),
+}));
+vi.mock('@/app/_lib/downloadFile', () => ({
+  downloadBlobFile: (...args: unknown[]) => mockDownloadBlobFile(...args),
+}));
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ replace: mockReplace }),
 }));
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode; [k: string]: unknown }) => (
@@ -71,6 +87,12 @@ beforeEach(() => {
   window.sessionStorage.clear();
   mockDetailQuery.mockReset();
   mockMembersQuery.mockReset();
+  mockCompleteMutateAsync.mockReset();
+  mockCsvMutateAsync.mockReset();
+  mockAddToast.mockReset();
+  mockDownloadBlobFile.mockReset();
+  mockReplace.mockReset();
+  mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   mockDetailQuery.mockReturnValue(detailSuccess(BOOKINGS));
   // 명단 아코디언은 기본 접힘이라 조회하지 않지만, 훅은 호출되므로 안전한 기본값을 준다.
   mockMembersQuery.mockReturnValue({ data: [], isLoading: false, isSuccess: true, isError: false, refetch: vi.fn() });
@@ -169,5 +191,61 @@ describe('TranscribeCockpitPage', () => {
       'href',
       '/admin/facility-bookings?tab=ready',
     );
+  });
+
+  it('헤더 CSV 는 batchId 로 내려받아 제출번호 규칙 파일명으로 저장한다', async () => {
+    renderCockpit();
+    fireEvent.click(screen.getByRole('button', { name: /CSV/ }));
+    await waitFor(() => {
+      expect(mockCsvMutateAsync).toHaveBeenCalledWith({ batchId: 7 });
+      expect(mockDownloadBlobFile).toHaveBeenCalledWith('facility-submission-SUB-20260801-007.csv', expect.any(Blob));
+    });
+  });
+
+  it('헤더 완료 처리 → 확인 Dialog → 확인 시 batchId 로 완료하고 스킵 0 이면 토스트 후 제출 이력 탭으로 이동한다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 2, confirmedCount: 2, skippedCount: 0, completedAt: '2026-08-02T09:00:00', skippedBookings: [],
+    });
+    renderCockpit();
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
+    await waitFor(() => {
+      expect(mockCompleteMutateAsync).toHaveBeenCalledWith({ batchId: 7 });
+      expect(mockAddToast).toHaveBeenCalledWith('학교 제출이 완료되었습니다.');
+      expect(mockReplace).toHaveBeenCalledWith('/admin/facility-bookings?tab=archive');
+    });
+  });
+
+  it('스킵이 있으면 결과 Dialog 에 예약일·동아리로 제외 행을 보여주고, 닫으면 제출 이력 탭으로 이동한다', async () => {
+    mockCompleteMutateAsync.mockResolvedValue({
+      totalCount: 2, confirmedCount: 1, skippedCount: 1, completedAt: '2026-08-02T09:00:00',
+      skippedBookings: [{ bookingId: 2, status: 'CANCELLED', reason: '취소된 예약' }],
+    });
+    renderCockpit();
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
+    const resultDialog = await screen.findByRole('dialog', { name: '학교 제출 완료' });
+    expect(within(resultDialog).getByText('2026-08-10 연극부 · 취소된 예약')).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+    fireEvent.click(within(resultDialog).getByRole('button', { name: '확인' }));
+    expect(mockReplace).toHaveBeenCalledWith('/admin/facility-bookings?tab=archive');
+  });
+
+  it('완료 실패 시 서버 메시지를 토스트로 띄우고 이동하지 않는다', async () => {
+    mockCompleteMutateAsync.mockRejectedValue(new Error('이미 완료된 제출 목록입니다.'));
+    renderCockpit();
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '완료 처리' }));
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('이미 완료된 제출 목록입니다.', { variant: 'error' });
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('완료·취소된 배치에는 완료 처리 버튼이 없고 CSV 는 남는다', () => {
+    mockDetailQuery.mockReturnValue(detailSuccess(BOOKINGS, { completed: true, completedAt: '2026-08-02T09:00:00' }));
+    renderCockpit();
+    expect(screen.queryByRole('button', { name: '완료 처리' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /CSV/ })).toBeInTheDocument();
   });
 });
