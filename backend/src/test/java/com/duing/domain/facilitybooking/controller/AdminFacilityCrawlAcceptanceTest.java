@@ -205,6 +205,22 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
     }
 
+    @Test
+    @DisplayName("q 로 단체명을 검색하면 동아리별 보기에서 매치 그룹만 돌아온다")
+    void keywordSearchNarrowsGroups() {
+        Facility facility = saveFacility("검색연습실");
+        YearMonth currentMonth = YearMonth.now(clock);
+        saveReservation(facility, currentMonth.atDay(10), 13, 15, "학생생활상담센터");
+        saveReservation(facility, currentMonth.atDay(10), 17, 19, "총학생회");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(PATH + "?yearMonth=" + currentMonth + "&facilityId=" + facility.getId() + "&q=상담")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(1))
+                .body("data.content[0].title", equalTo("학생생활상담센터"));
+    }
+
     private Facility saveFacility(String name) {
         return facilityRepository.save(
                 Facility.create((int) (sequence.getAndIncrement() % 1_000_000), name, null, 0));
