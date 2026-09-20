@@ -14,6 +14,7 @@ import {
   crawledAtLabel,
   foldReservationContexts,
   nextYearMonth,
+  previousYearMonth,
   seoulYearMonth,
 } from '../_lib/crawlGrouping';
 
@@ -59,7 +60,7 @@ export function FacilityCrawlTab() {
     size: PAGE_SIZE,
   });
 
-  const monthOptions = [currentMonth, nextYearMonth(currentMonth)];
+  const monthOptions = [previousYearMonth(currentMonth), currentMonth, nextYearMonth(currentMonth)];
   const totalElements = reservationsQuery.data?.totalElements ?? 0;
   const totalPages = reservationsQuery.data?.totalPages ?? 0;
 
@@ -98,7 +99,11 @@ export function FacilityCrawlTab() {
                 yearMonth === month ? 'bg-ink text-cream' : 'text-charcoal-2 hover:bg-graysoft'
               }`}
             >
-              {month === currentMonth ? `이번 달 (${month})` : `다음 달 (${month})`}
+              {month === currentMonth
+                ? `이번 달 (${month})`
+                : month < currentMonth
+                  ? `지난 달 (${month})`
+                  : `다음 달 (${month})`}
             </button>
           ))}
         </div>

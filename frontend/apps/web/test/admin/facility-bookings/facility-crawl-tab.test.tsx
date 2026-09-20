@@ -245,4 +245,19 @@ describe('FacilityCrawlTab', () => {
     expect(screen.queryByRole('navigation', { name: '크롤 예약 페이지' })).not.toBeInTheDocument();
     expect(screen.getByText(/총 \d+개 그룹/)).toBeInTheDocument(); // 한 페이지여도 건수는 남긴다
   });
+
+  it('조회 월은 지난 달·이번 달·다음 달 3개이고, 지난 달을 고르면 직전 월로 재조회한다', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('고정관념');
+
+    const monthGroup = screen.getByRole('group', { name: '조회 월' });
+    expect(within(monthGroup).getAllByRole('button')).toHaveLength(3);
+    const previousMonthButton = within(monthGroup).getByRole('button', { name: /^지난 달 \(\d{4}-\d{2}\)$/ });
+    const previousMonth = previousMonthButton.textContent?.match(/\d{4}-\d{2}/)?.[0];
+    await user.click(previousMonthButton);
+
+    await waitFor(() => expect(requestedParams.some((params) => params.yearMonth === previousMonth)).toBe(true));
+    expect(requestedParams.find((params) => params.yearMonth === previousMonth)?.page).toBe('0');
+  });
 });
