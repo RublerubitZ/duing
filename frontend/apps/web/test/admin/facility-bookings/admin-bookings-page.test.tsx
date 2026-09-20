@@ -515,4 +515,31 @@ describe('AdminFacilityBookingsPage', () => {
       expect.objectContaining({ status: 'CONFIRMED', sort: 'USAGE_ASC', page: 0 }),
     );
   });
+  it('방문한 탭은 hidden 으로 남아 필터가 유지되고, 미방문 탭은 DOM 에 없다 (keep-alive, 스펙 E1)', () => {
+    // 검토 탭 시설 셀렉트에 고를 수 있는 시설을 준다(기본 mock 은 data: undefined → '전체 시설'만).
+    mockUsageQuery.mockReturnValue({ data: { facilities: [{ id: 100, roomName: '세미나실' }] } });
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: '시설 필터' }), { target: { value: '100' } });
+    expect(screen.getByRole('combobox', { name: '시설 필터' })).toHaveValue('100');
+    // 미방문 탭(크롤)은 아직 DOM 에 없다.
+    expect(screen.queryByText('크롤 예약이 없어요')).not.toBeInTheDocument();
+
+    // 크롤 탭으로 이동(URL 변경을 rerender 로 재현) → 검토 패널은 hidden, 크롤 패널은 보임.
+    mockTabParam = 'crawl';
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByText('크롤 예약이 없어요')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: '시설 필터', hidden: true })).not.toBeVisible();
+
+    // 검토 탭 복귀 → 셀렉트 값이 남아 있고, 크롤 패널은 hidden 으로 잔존한다.
+    mockTabParam = null;
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByRole('combobox', { name: '시설 필터' })).toHaveValue('100');
+    expect(screen.getByText('크롤 예약이 없어요')).not.toBeVisible();
+    // 한 번도 안 간 탭(제출 준비)은 여전히 DOM 에 없다.
+    expect(screen.queryByRole('tabpanel', { name: /제출 준비/, hidden: true })).not.toBeInTheDocument();
+    // 탭 버튼 ↔ 패널 연결(접근성).
+    expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-controls', 'facility-ops-panel-review');
+    expect(screen.getByRole('tabpanel', { name: /예약 검토/ })).toHaveAttribute('id', 'facility-ops-panel-review');
+  });
 });

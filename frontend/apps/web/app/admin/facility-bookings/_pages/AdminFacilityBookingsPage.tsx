@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   useAdminFacilityBookingSummaryQuery,
@@ -96,6 +96,13 @@ export function AdminFacilityBookingsPage() {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
   const activeTab = resolveTab(searchParams.get('tab'));
+  // 방문한 탭 집합(스펙 E1 keep-alive) — 한 번 마운트된 탭은 hidden 으로 남겨 필터·페이지·선택·초안을 보존한다.
+  // 활성 탭이 아직 집합에 없으면 렌더 중 파생 갱신(React 공식 "이전 렌더 정보 저장" 패턴, useEffect 불필요).
+  // 딥링크·뒤로가기로 activeTab 이 바뀌어도 같은 경로로 합류한다.
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<FacilityOpsTab>>(() => new Set([activeTab]));
+  if (!visitedTabs.has(activeTab)) {
+    setVisitedTabs(new Set(visitedTabs).add(activeTab));
+  }
 
   // 탭 건수·신선도 칩용 조회 — 준비 탭 건수는 이번 달 기본 기간 기준(준비 탭 기본 조회와 캐시 공유).
   const summaryQuery = useAdminFacilityBookingSummaryQuery();
@@ -112,6 +119,19 @@ export function AdminFacilityBookingsPage() {
 
   const selectTab = (tab: FacilityOpsTab) => {
     router.replace(toRoute(`/admin/facility-bookings?tab=${tab}`), { scroll: false });
+  };
+
+  // 탭 → 콘텐츠 대응표(기존 조건부 렌더 6줄 대체). React 의 리마운트 판정은 key+type 이라 렌더마다 새 엘리먼트여도
+  // 리마운트되지 않는다. 모듈 상수로 빼면 매 렌더 같은 엘리먼트 참조라 React 가 하위 트리 갱신을 건너뛰어(bail-out)
+  // 부모 리렌더가 탭 내부로 전파되지 않는다 — 기존 인라인 조건부 렌더와 같은 의미를 지키려고 컴포넌트 안에 둔다.
+  const tabContent: Record<FacilityOpsTab, ReactNode> = {
+    review: <BookingManagementTab />,
+    prepare: <SubmissionPrepareTab />,
+    ready: <SubmissionBatchesTab statusFilter="REVIEWING" />,
+    // 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다.
+    archive: <SubmissionBatchesTab statusFilter="ARCHIVED" />,
+    crawl: <FacilityCrawlTab />,
+    open: <FacilityOpenDateTab />,
   };
 
   // 크롤 예약·오픈일 설정은 워크플로 단계가 아니라 참조·설정 탭 — 단계 진행(✓) 계산에서 제외한다(스펙 §3).
@@ -147,6 +167,8 @@ export function AdminFacilityBookingsPage() {
               <button
                 type="button"
                 role="tab"
+                id={`facility-ops-tab-${tab}`}
+                aria-controls={`facility-ops-panel-${tab}`}
                 aria-selected={isActive}
                 onClick={() => selectTab(tab)}
                 className={`flex flex-1 items-center gap-2 rounded-[11px] px-2 py-3 text-left motion-safe:transition-colors sm:gap-2.5 sm:px-4 ${
@@ -230,13 +252,19 @@ export function AdminFacilityBookingsPage() {
 
       <PurposeNote>{TAB_PURPOSE[activeTab]}</PurposeNote>
 
-      {activeTab === 'review' && <BookingManagementTab />}
-      {activeTab === 'prepare' && <SubmissionPrepareTab />}
-      {activeTab === 'ready' && <SubmissionBatchesTab statusFilter="REVIEWING" />}
-      {/* 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다. */}
-      {activeTab === 'archive' && <SubmissionBatchesTab statusFilter="ARCHIVED" />}
-      {activeTab === 'crawl' && <FacilityCrawlTab />}
-      {activeTab === 'open' && <FacilityOpenDateTab />}
+      {/* 방문한 탭만 마운트하고, 비활성은 hidden 으로 유지한다(스펙 E1). 첫 진입 요청 수는 활성 탭뿐이라 불변.
+          hidden 탭의 쿼리는 마운트 상태라 invalidate 시 함께 refetch 된다(탭 5개 × 소량 — 허용). */}
+      {TAB_KEYS.filter((tab) => visitedTabs.has(tab)).map((tab) => (
+        <div
+          key={tab}
+          id={`facility-ops-panel-${tab}`}
+          role="tabpanel"
+          aria-labelledby={`facility-ops-tab-${tab}`}
+          hidden={activeTab !== tab}
+        >
+          {tabContent[tab]}
+        </div>
+      ))}
     </main>
   );
 }
