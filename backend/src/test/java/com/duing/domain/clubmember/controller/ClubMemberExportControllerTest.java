@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -18,6 +19,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -51,6 +53,7 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -300,6 +303,52 @@ class ClubMemberExportControllerTest extends IntegrationTestBase {
         } finally {
             serviceLogger.detachAppender(appender);
         }
+    }
+
+    @Test
+    @DisplayName("번호 포함 export 가 분당 열람 한도를 넘으면 429 로 막히고 초과분은 감사 행을 남기지 않는다")
+    void exportWithPhoneIsRateLimited() {
+        // PhoneRevealRateLimiter.PER_MINUTE_LIMIT = 30. package-private 라 직접 참조할 수 없어 수치를
+        // 옮겨 적는다(LeaderApplicationControllerTest 와 동일한 방식).
+        int perMinuteRevealLimit = 30;
+        for (int export = 0; export < perMinuteRevealLimit; export++) {
+            exportMembers(leaderToken, true).then().statusCode(HttpStatus.OK.value());
+        }
+
+        exportMembers(leaderToken, true).then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        assertThat(clubAuditEventRepository.count())
+                .as("429 는 내보내기가 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다")
+                .isEqualTo(perMinuteRevealLimit);
+    }
+
+    @Test
+    @DisplayName("번호 없는 export 는 열람 창을 소모하지 않아 한도를 넘겨 호출해도 200 이다")
+    void exportWithoutPhoneIsNotRateLimited() {
+        int overPerMinuteRevealLimit = 31;
+        for (int export = 0; export < overPerMinuteRevealLimit; export++) {
+            exportMembers(leaderToken, false).then().statusCode(HttpStatus.OK.value());
+        }
+    }
+
+    @Test
+    @DisplayName("export 응답은 번호 포함 여부와 무관하게 캐시되지 않는다 — 학번·이름도 개인정보다")
+    void exportResponseIsNotCacheable() {
+        exportMembers(leaderToken, false).then()
+                .statusCode(HttpStatus.OK.value())
+                .header(HttpHeaders.CACHE_CONTROL, containsString("no-store"));
+        exportMembers(leaderToken, true).then()
+                .statusCode(HttpStatus.OK.value())
+                .header(HttpHeaders.CACHE_CONTROL, containsString("no-store"));
+    }
+
+    private io.restassured.response.Response exportMembers(String token, boolean includePhone) {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .queryParam("includePhone", includePhone)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/export", club.getId());
     }
 
     private User saveUser(String name) {

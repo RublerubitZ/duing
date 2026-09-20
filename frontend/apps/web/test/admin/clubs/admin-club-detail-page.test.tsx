@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +12,11 @@ import { collegeDisplayName } from '@/app/_lib/college';
 
 import { AdminClubDetailPage } from '@/app/admin/clubs/[clubId]/_pages/AdminClubDetailPage';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+
+// ClubInfoForm 이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 const CLUB_DETAIL: ClubDetail = {
   id: 1,
@@ -103,6 +108,14 @@ describe('AdminClubDetailPage', () => {
     expect(
       screen.getAllByText(new RegExp(collegeDisplayName('IT_ENGINEERING'))).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('가입 링크 화면으로 건너뛰는 링크가 이력 링크 옆에 있다', async () => {
+    renderPage();
+    expect(await screen.findByRole('link', { name: /가입 링크/ })).toHaveAttribute(
+      'href',
+      '/admin/clubs/1/join-codes',
+    );
   });
 
   it('회장이 있어도 강제 교체 카드가 현재 회장과 함께 노출된다', async () => {

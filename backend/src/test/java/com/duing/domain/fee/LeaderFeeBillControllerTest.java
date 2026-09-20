@@ -1,6 +1,7 @@
 package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.FixedClockConfig;
@@ -20,8 +21,11 @@ import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
+import com.duing.domain.notification.event.FeeBillsIssuedEvent;
+import com.duing.domain.notification.listener.FeeBillsIssuedListener;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -72,6 +76,10 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     JdbcTemplate jdbcTemplate;
     @Autowired
     TransactionTemplate transactionTemplate;
+    @Autowired
+    FeeBillsIssuedListener feeBillsIssuedListener;
+    @Autowired
+    UserService userService;
 
     private String leaderToken;
     private String memberToken;
@@ -402,6 +410,35 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(created).isZero();
         assertThat(skipped).isZero();
         assertThat(countBills(policy.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원에게는 청구가 발행되지 않고 활성 회원 수·skipped 도 탈퇴자를 세지 않는다")
+    void withdrawnMemberIsExcludedFromIssuance() {
+        Club club = clubRepository.save(ClubFixture.academic("탈퇴검증동아리"));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
+        User leader = userRepository.save(UserFixture.unique());
+        User withdrawnMember = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.asMember(club, withdrawnMember));
+        FeePolicy policy = feePolicyRepository.save(
+                FeePolicyFixture.of(club.getId(), BillingType.MONTHLY, 10000L));
+
+        userService.withdraw(withdrawnMember.getId());
+
+        int created = transactionTemplate.execute(status -> feeBillRepository.bulkInsertBills(
+                club.getId(), policy.getId(), 10000L, "2026-07",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), LocalDate.of(2026, 7, 31)));
+        long activeCount = clubMemberRepository.countActiveByClubId(club.getId());
+        int skipped = (int) Math.max(0L, activeCount - created);
+
+        assertThat(created).isEqualTo(1);
+        assertThat(activeCount).isEqualTo(1L);
+        assertThat(skipped).isZero();
+        Integer withdrawnMemberBills = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM fee_bill WHERE user_id = ? AND fee_policy_id = ?",
+                Integer.class, withdrawnMember.getId(), policy.getId());
+        assertThat(withdrawnMemberBills).isZero();
     }
 
     @Test
@@ -741,6 +778,28 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         assertThat(distinctUsers).isEqualTo(50L);
     }
 
+    @Test
+    @DisplayName("발행 알림 벌크 INSERT 가 DB 오류로 실패해도 리스너는 예외를 밖으로 내지 않는다 — 알림 실패가 회비 발행 요청을 깨지 않는 계약")
+    void issuedNotificationFailureDoesNotEscapeListener() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value());
+        jdbcTemplate.update("DELETE FROM notification WHERE type = 'FEE_BILL_ISSUED'");
+        LocalDate billingStartDate = jdbcTemplate.queryForObject(
+                "SELECT billing_start_date FROM fee_bill WHERE fee_policy_id = ? LIMIT 1",
+                LocalDate.class, policy.getId());
+
+        // title VARCHAR(120) 을 넘기는 동아리명 — 청구 2건이 있어 INSERT 가 실제 행을 만들다 DB 오류로 실패한다.
+        FeeBillsIssuedEvent event = new FeeBillsIssuedEvent(
+                clubId, "긴".repeat(130), policy.getId(), "2026-07", billingStartDate, billingStartDate.plusDays(14));
+
+        // AFTER_COMMIT 리스너의 예외는 원 요청까지 전파된다(원 트랜잭션은 이미 커밋된 뒤) — 여기서 새면 POST 가 500.
+        assertThatCode(() -> feeBillsIssuedListener.handle(event)).doesNotThrowAnyException();
+        Long remaining = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE type = 'FEE_BILL_ISSUED'", Long.class);
+        assertThat(remaining).isZero();
+    }
+
     /** policy 로 발행된 (id, user_id) 청구 목록(비취소·미삭제)을 user_id 순으로 반환한다. */
     private List<Map<String, Object>> issuedBills(Long policyId) {
         return jdbcTemplate.queryForList(
@@ -876,5 +935,67 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
                 .findFirst().orElseThrow();
         assertThat(newBillId).isNotEqualTo(oldBillId);
         assertThat(issuedNotificationExistsFor(memberUserId, newBillId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("취소된 청구는 발행 알림 대상에서 제외되어, 재발행해도 그 청구의 알림은 다시 만들어지지 않는다")
+    void cancelledBillIsExcludedFromIssuedNotificationFanOut() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        FeeBill cancelTarget = feeBillRepository.findAll().stream()
+                .filter(candidate -> candidate.getFeePolicyId().equals(policy.getId()))
+                .findFirst().orElseThrow();
+        Long cancelledBillId = cancelTarget.getId();
+        Long cancelledUserId = cancelTarget.getUserId();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/clubs/" + clubId + "/fee-bills/" + cancelledBillId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        // 취소된 청구의 알림을 지워, 재발행 fan-out 이 그 행을 다시 집는지(=CANCELLED 누락) 관찰 가능하게 만든다.
+        jdbcTemplate.update("DELETE FROM notification WHERE dedup_key = ?",
+                "FEE_BILL_ISSUED:b=" + cancelledBillId);
+
+        // 재발행 — 취소된 회원에게 새 청구 1건이 나가고 이벤트가 다시 발화한다.
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+
+        assertThat(issuedNotificationExistsFor(cancelledUserId, cancelledBillId)).isFalse();
+        assertThat(countIssuedNotifications(cancelledUserId)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("일부 회원에게 발행 알림이 이미 있으면 알림이 없는 회원에게만 새로 생성된다")
+    void issuedNotificationFillsOnlyRecipientsWithoutOne() {
+        FeePolicy policy = savePolicy(BillingType.MONTHLY, 10000L); // 활성 2명(leader+member)
+
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(2));
+
+        List<Map<String, Object>> bills = issuedBills(policy.getId());
+        assertThat(bills).hasSize(2);
+        Long missingBillId = ((Number) bills.get(0).get("id")).longValue();
+        Long missingUserId = ((Number) bills.get(0).get("user_id")).longValue();
+        Long keptUserId = ((Number) bills.get(1).get("user_id")).longValue();
+        // 한 회원의 알림만 지워 '일부만 선재' 상태를 만든다.
+        jdbcTemplate.update("DELETE FROM notification WHERE dedup_key = ?", "FEE_BILL_ISSUED:b=" + missingBillId);
+
+        // 회원 1명 추가 후 재발행 → 같은 회차 이벤트가 다시 발화하며 전체 수신자를 대상으로 fan-out 한다.
+        Long newMemberId = addActiveMembers(1).get(0);
+        generateAs(leaderToken, policy.getId(), monthlyBody("2026-07"))
+                .then().statusCode(HttpStatus.CREATED.value())
+                .body("data.created", equalTo(1));
+
+        // 지운 알림은 다시 채워지고, 남아 있던 알림은 중복 없이 1건 유지된다.
+        assertThat(issuedNotificationExistsFor(missingUserId, missingBillId)).isTrue();
+        assertThat(countIssuedNotifications(missingUserId)).isEqualTo(1L);
+        assertThat(countIssuedNotifications(keptUserId)).isEqualTo(1L);
+        assertThat(countIssuedNotifications(newMemberId)).isEqualTo(1L);
     }
 }

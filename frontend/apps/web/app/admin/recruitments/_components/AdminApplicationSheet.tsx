@@ -155,7 +155,9 @@ export function AdminApplicationSheet({ applicationId, onClose }: Props) {
         {detailQuery.isLoading && (
           <ListRowsSkeleton rows={6} rowClassName="h-12 rounded-md" label="지원서 불러오는 중" />
         )}
-        {detailQuery.isError && (
+        {/* stale 상세가 있으면 그대로 보여준다 — 백그라운드 refetch 실패(강제 마감 invalidate 뒤 등)에
+            에러 배너가 본문 위에 겹치지 않게(지원자 패널과 같은 규칙). */}
+        {detailQuery.isError && !detail && (
           <ErrorState
             message="지원서를 불러오지 못했어요."
             onRetry={() => void detailQuery.refetch()}

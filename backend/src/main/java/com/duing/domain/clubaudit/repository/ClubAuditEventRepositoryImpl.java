@@ -24,9 +24,9 @@ public class ClubAuditEventRepositoryImpl implements ClubAuditEventRepositoryCus
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ClubAuditEvent> searchFeeEvents(Long clubId, Collection<ClubAuditEventType> types,
-                                                LocalDateTime createdFrom, LocalDateTime createdTo,
-                                                Pageable pageable) {
+    public Page<ClubAuditEvent> searchEvents(Long clubId, Collection<ClubAuditEventType> types,
+                                            LocalDateTime createdFrom, LocalDateTime createdTo,
+                                            Pageable pageable) {
         // clubId 는 동아리 격리의 필수 조건이다(FeeBillRepositoryImpl 과 같은 가드).
         // null 이면 where 절에서 격리가 사라져 전 동아리 감사 이력이 한 화면에 쏟아진다.
         Objects.requireNonNull(clubId, "clubId must not be null");

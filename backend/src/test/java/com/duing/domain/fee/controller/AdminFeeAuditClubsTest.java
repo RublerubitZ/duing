@@ -25,6 +25,7 @@ import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.path.json.JsonPath;
@@ -72,6 +73,7 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired UserService userService;
 
     private String adminToken;
     private String studentToken;
@@ -99,6 +101,10 @@ class AdminFeeAuditClubsTest extends IntegrationTestBase {
         User alphaUnpaidMember = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(alphaClub, alphaMember));
         clubMemberRepository.save(ClubMember.asMember(alphaClub, alphaUnpaidMember));
+        // 탈퇴 회원은 회원 수·미납 인원 어디에도 섞이면 안 된다 — 서비스 경로(withdraw)로 탈퇴시켜 멤버십 soft-delete 를 함께 탄다.
+        User alphaWithdrawnMember = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.asMember(alphaClub, alphaWithdrawnMember));
+        userService.withdraw(alphaWithdrawnMember.getId());
 
         Long alphaPolicyId = saveActivePolicy(alphaClubId);
         FeeBill paidBill = saveBill(alphaClubId, alphaMember.getId(), alphaPolicyId, 10_000L,

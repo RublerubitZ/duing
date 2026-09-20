@@ -49,7 +49,7 @@ export function MemberCsvDownloadPopover({
           type="button"
           className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
         >
-          멤버 명단 다운로드
+          부원 명단 내려받기
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-3 p-4">

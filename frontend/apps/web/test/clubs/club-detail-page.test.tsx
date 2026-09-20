@@ -5,7 +5,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import type { ClubDetail, ClubHeroActivity } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
@@ -98,6 +98,15 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+// 상세만 실패시키는 시드 — 부수 요청(사진·조회 비콘)은 정상이라 분기 판정이 상세 쿼리 하나에만 걸린다.
+function seedDetailStatus(status: number) {
+  server.use(
+    http.get(`*/clubs/${CLUB_ID}`, () => new HttpResponse(null, { status })),
+    http.get(`*/clubs/${CLUB_ID}/photos`, () => envelope([])),
+    http.post(`*/clubs/${CLUB_ID}/views`, () => new HttpResponse(null, { status: 204 })),
+  );
+}
+
 function seed(options: { heroFails?: boolean } = {}) {
   server.use(
     http.get(`*/clubs/${CLUB_ID}`, () => envelope(clubDetail)),
@@ -113,10 +122,14 @@ function seed(options: { heroFails?: boolean } = {}) {
   );
 }
 
-function renderPage() {
-  const queryClient = new QueryClient({
+function createQueryClient() {
+  return new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+}
+
+// 캐시 재방문은 상세를 미리 채운 QueryClient 를 넘겨 흉내 낸다.
+function renderPage(queryClient: QueryClient = createQueryClient()) {
   return render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
@@ -191,5 +204,63 @@ describe('동아리 상세 page 랜딩 조립', () => {
         screen.queryByRole('status', { name: '대표 활동 불러오는 중' }),
       ).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('동아리 상세 실패 분기', () => {
+  it('404 는 "볼 수 없음" 화면을 띄운다', async () => {
+    seedDetailStatus(404);
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('삭제됐거나 승인 대기 중일 수 있어요.')).toBeInTheDocument();
+  });
+
+  it('500 은 중립 오류 문구를 띄우고 "삭제됐거나" 라고 단정하지 않는다', async () => {
+    seedDetailStatus(500);
+    renderPage();
+
+    expect(await screen.findByText('동아리 정보를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(screen.queryByText(/삭제됐거나/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+// 스켈레톤을 거쳐 도착한 콘텐츠만 1회 떠오른다(globals.css .enter-content). 재생 중인 transform 은
+// fixed 자손의 기준이 되므로 하단 고정 지원 바는 애니메이션 래퍼 밖에 있어야 한다.
+describe('동아리 상세 스켈레톤 → 콘텐츠 등장', () => {
+  it('첫 방문은 스켈레톤 래퍼를 지연 표시하고, 도착한 히어로만 enter-content 안에 두며 지원 바는 밖에 둔다', async () => {
+    seed();
+    const { container } = renderPage();
+
+    const skeleton = screen.getByRole('status', { name: '동아리 정보 불러오는 중' });
+    expect(skeleton.parentElement).toHaveClass('delayed-show');
+    // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다.
+    expect(skeleton).not.toHaveClass('delayed-show');
+
+    // jsdom 은 md:hidden 을 무시해 데스크탑·모바일 히어로 제목이 둘 다 렌더된다.
+    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
+    for (const heroTitle of heroTitles) {
+      expect(heroTitle.closest('.enter-content')).not.toBeNull();
+    }
+    const applyBar = container.querySelector('.fixed.bottom-0');
+    expect(applyBar).toHaveAttribute('data-bottom-bar');
+    expect(applyBar?.closest('.enter-content')).toBeNull();
+  });
+
+  it('상세가 캐시에 있어 첫 렌더부터 콘텐츠면 히어로에 enter-content 를 걸지 않는다', async () => {
+    seed();
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(clubQueryKeys.detail(CLUB_ID), clubDetail);
+    renderPage(queryClient);
+
+    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
+    for (const heroTitle of heroTitles) {
+      expect(heroTitle.closest('.enter-content')).toBeNull();
+    }
   });
 });

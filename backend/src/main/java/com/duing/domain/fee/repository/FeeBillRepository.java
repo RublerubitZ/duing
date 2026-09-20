@@ -72,17 +72,6 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
                                          @Param("dueDate") LocalDate dueDate,
                                          @Param("memberIds") Collection<Long> memberIds);
 
-    // 한 회차(정책+기간 시작일)로 발행된 비취소 청구의 (billId, userId) — 발행 알림 fan-out 대상.
-    @Query("""
-            SELECT new com.duing.domain.fee.repository.BillRecipient(b.id, b.userId)
-            FROM FeeBill b
-            WHERE b.feePolicyId = :feePolicyId
-              AND b.billingStartDate = :startDate
-              AND b.status <> com.duing.domain.fee.entity.FeeStatus.CANCELLED
-            """)
-    List<BillRecipient> findIssuedBillRecipients(@Param("feePolicyId") Long feePolicyId,
-                                                 @Param("startDate") LocalDate startDate);
-
     // 마감 임박(오늘/오늘+1/오늘+3 등 지정 일자) 미납·부분납부 청구를 리마인더 대상으로 조회한다.
     // Club 을 조인해 동아리명을 함께 싣는다 — FeeBill·Club 모두 @SQLRestriction 으로 soft-delete·폐쇄 동아리는 자동 제외.
     @Query("""

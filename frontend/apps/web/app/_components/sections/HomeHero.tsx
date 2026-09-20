@@ -1,6 +1,8 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { Search } from '@/components/duing/Icon';
 import { fetchClubStats } from '@/app/_lib/club-stats';
+import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { HeroActivityToasts } from './HeroActivityToasts';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
@@ -66,51 +68,39 @@ export async function HomeHero() {
             모든 두잉
           </h1>
 
-          {/* 본문 카피 — 모바일 시안(509:9210)대로 헤드라인 아래, 폭 190 안에서 마스코트 왼쪽에 두 줄로 둔다
-              (둘째 줄 문구는 폭에 맞춰 모바일 전용으로 짧다, 단어 단위로만 꺾인다). 한 번 뺐다가 사용자 판단으로 되돌렸다.
-              글자 14px 은 시안(14/1.5)과 같고 행간만 1.6 으로 조금 넉넉하다.
-              통계 미가용(stats=null) 시 숫자 없는 기본 카피로 우아하게 폴백한다. */}
-          <p className="relative z-[1] mb-3 max-w-[190px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-9 xl:mb-8">
+          {/* 본문 카피 — 원문의 두 줄 리듬("대구대학교 동아리 플랫폼." + ing 워드플레이)을 지키되, 둘째 줄은
+              PC·모바일 공통으로 "N개 동아리가 지금도 ing 중" 한 문장만 둔다. 원문 PC 꼬리("이번 학기 N곳
+              모집 중이에요")와 모바일 전용 "N개 동아리가 지금 모집 ing" 는 바로 아래 CTA "모집 중 N곳 보기" 가
+              같은 말을 하게 되어 뺐다(2026-09-11 사용자 결정). 모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에
+              들어가도록 폭 220 을 넘기지 않고(폴백 문구도 14px 에서 ≈180px 로 두 줄 안), 통계 미가용(stats=null) 시
+              숫자 없는 기본형으로 폴백한다. */}
+          <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
             대구대학교 동아리 플랫폼.
             <br />
-            {/* xl 미만은 둘째 줄을 "N개 동아리가 지금 모집 ing" 한 줄로 — 지금 모집 중인 수를 말하면서
-                워드플레이 ing 를 살린다(시안 예시 "29개 동아리가 부원을 모으는 ing-" 의 결). 190px 에서 세 자리 수여도
-                한 줄에 들어간다. 모집 중이 0곳이면 전체 수로("N개 동아리가 지금도 ing 중"), 통계가 없으면 수 없이.
-                전체 문장은 18px 에서 ≈430px 인데 md·lg 컬럼 하한이 351·374 라 창 폭에 따라 세 줄로 꺾인다(모바일은
-                마스코트 아래까지 내려왔다) — 컬럼이 479 이상인 xl 부터만 쓴다. */}
-            <span className="xl:hidden">
-              {stats && stats.recruitingCount > 0 ? (
-                <>
-                  {stats.recruitingCount}개 동아리가 지금 모집{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em>
-                </>
-              ) : (
-                <>
-                  {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
-                </>
-              )}
-            </span>
-            <span className="hidden xl:inline">
-              {stats ? (
-                <>
-                  {stats.totalCount}개 동아리가 지금도{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                    ing
-                  </em>{' '}
-                  중 — 이번 학기 {stats.recruitingCount}곳 모집 중이에요.
-                </>
-              ) : (
-                <>
-                  캠퍼스의 모든 동아리가 지금도{' '}
-                  <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">
-                    ing
-                  </em>{' '}
-                  중이에요.
-                </>
-              )}
-            </span>
+            {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
+            <em className="border-b-2 border-sage pb-px font-bold not-italic text-ink-deep">ing</em> 중
           </p>
+
+          {/* 첫 화면의 주 행동 — 검색어가 없는 첫 방문자를 "둘러보기" 로 연다. 배너가 홈 최우선이라 한 줄·작은 버튼으로 높이를 아낀다.
+              btn-sm 실제 높이는 36px 이라 시각 크기는 그대로 두고 before 의사요소로만 위아래 4px 씩 넓혀
+              터치 목표 44px 을 맞춘다(ImageUploader 의 작은 버튼·배너 페이저와 같은 기법). */}
+          <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
+            {stats && stats.recruitingCount > 0 ? (
+              <Link
+                href={RECRUITING_CLUBS_HREF}
+                className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4"
+              >
+                모집 중 {stats.recruitingCount}곳 보기
+              </Link>
+            ) : (
+              <Link href="/clubs" className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-primary btn-sm rounded-full px-4">
+                동아리 둘러보기
+              </Link>
+            )}
+            <a href="#categories" className="relative before:absolute before:-inset-y-1 before:inset-x-0 before:content-[''] btn btn-secondary btn-sm rounded-full px-4">
+              카테고리로 찾기
+            </a>
+          </div>
 
           {/* 데스크탑 전용 검색 — 모바일은 상단 고정 검색 바(HomeMobileSearchBar)가 담당 (#3).
               시안 PC 프레임(602×78, 모서리 22, 안쪽 좌 23·우 18, 버튼 115×61 '검색 + 돋보기' 22px)을

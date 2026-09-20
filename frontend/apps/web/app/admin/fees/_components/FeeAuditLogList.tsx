@@ -132,57 +132,66 @@ export function FeeAuditLogList({
         </ConsoleCard>
       )}
 
-      {auditLogsQuery.isSuccess &&
-        (logs.length === 0 ? (
-          <ConsoleCard>
-            <EmptyState
-              icon="🗒️"
-              title="감사 로그가 없습니다"
-              body={
-                '선택한 기간·유형에 기록된 변경이 없어요.\n감사 로그는 계측 배포 이후의 변경부터 기록됩니다.'
-              }
-            />
-          </ConsoleCard>
-        ) : (
-          <ConsoleCard>
-            <ul aria-label="회비 감사 로그">
-              {logs.map((log) => {
-                // 요약과 사유는 둘 다 없을 수 있다 — 없으면 줄 자체를 그리지 않아 빈 여백이 남지 않게 한다.
-                const note = [formatAuditDetail(log.detail), log.reason ? `사유: ${log.reason}` : '']
-                  .filter((part) => part !== '')
-                  .join(' · ');
-                return (
-                  <li key={log.eventId} className="border-t border-line px-4 py-3 first:border-t-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-                      <time
-                        dateTime={log.createdAt}
-                        className="whitespace-nowrap tabular-nums text-charcoal-3"
-                      >
-                        {formatDateTimeKst(log.createdAt)}
-                      </time>
-                      <span className="pill-outline inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
-                        {feeEventTypeLabel(log.eventType)}
-                      </span>
-                      <span className="text-charcoal">{actorLabel(log)}</span>
-                    </div>
-                    {note !== '' && (
-                      <p className="mt-1 text-[12.5px] leading-snug text-charcoal-2">{note}</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            <Pagination
-              page={page}
-              totalPages={auditLogsQuery.data?.totalPages ?? 0}
-              onChange={setPage}
-              ariaLabel="감사 로그 페이지"
-              totalElements={auditLogsQuery.data?.totalElements}
-              pageSize={PAGE_SIZE}
-              className="py-3"
-            />
-          </ConsoleCard>
-        ))}
+      {/* keepPreviousData 전환 중(정렬·필터·기간 변경)에는 이전 목록이 그대로 남는다 —
+          딤으로 "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. 감사 콘솔이라 이전 조건의
+          미수금·수납액을 새 조건의 결과로 읽으면 안 된다(#906). 툴바는 딤 밖이다. */}
+      {auditLogsQuery.isSuccess && (
+        <div
+          aria-busy={auditLogsQuery.isPlaceholderData}
+          className={auditLogsQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+        >
+          {logs.length === 0 ? (
+            <ConsoleCard>
+              <EmptyState
+                icon="🗒️"
+                title="감사 로그가 없습니다"
+                body={
+                  '선택한 기간·유형에 기록된 변경이 없어요.\n감사 로그는 계측 배포 이후의 변경부터 기록됩니다.'
+                }
+              />
+            </ConsoleCard>
+          ) : (
+            <ConsoleCard>
+              <ul aria-label="회비 감사 로그">
+                {logs.map((log) => {
+                  // 요약과 사유는 둘 다 없을 수 있다 — 없으면 줄 자체를 그리지 않아 빈 여백이 남지 않게 한다.
+                  const note = [formatAuditDetail(log.detail), log.reason ? `사유: ${log.reason}` : '']
+                    .filter((part) => part !== '')
+                    .join(' · ');
+                  return (
+                    <li key={log.eventId} className="border-t border-line px-4 py-3 first:border-t-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                        <time
+                          dateTime={log.createdAt}
+                          className="whitespace-nowrap tabular-nums text-charcoal-3"
+                        >
+                          {formatDateTimeKst(log.createdAt)}
+                        </time>
+                        <span className="pill-outline inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
+                          {feeEventTypeLabel(log.eventType)}
+                        </span>
+                        <span className="text-charcoal">{actorLabel(log)}</span>
+                      </div>
+                      {note !== '' && (
+                        <p className="mt-1 text-[12.5px] leading-snug text-charcoal-2">{note}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <Pagination
+                page={page}
+                totalPages={auditLogsQuery.data?.totalPages ?? 0}
+                onChange={setPage}
+                ariaLabel="감사 로그 페이지"
+                totalElements={auditLogsQuery.data?.totalElements}
+                pageSize={PAGE_SIZE}
+                className="py-3"
+              />
+            </ConsoleCard>
+          )}
+        </div>
+      )}
     </div>
   );
 }

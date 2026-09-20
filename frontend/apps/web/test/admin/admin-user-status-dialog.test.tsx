@@ -68,11 +68,11 @@ describe('계정 상태 변경 확인 다이얼로그', () => {
     expect(screen.getByLabelText('정지 사유')).toHaveAttribute('maxlength', '200');
   });
 
-  it('글자 수 제한과 감사 로그 안내를 입력란 설명으로 연결한다 — 라벨만으로는 안 읽힌다', () => {
+  it('글자 수 제한과 사유 노출 안내를 입력란 설명으로 연결한다 — 라벨만으로는 안 읽힌다', () => {
     render(<AdminUserStatusDialog {...props} />);
 
     const reasonInput = screen.getByLabelText('정지 사유');
-    expect(reasonInput).toHaveAccessibleDescription(/감사 로그에 기록됩니다/);
+    expect(reasonInput).toHaveAccessibleDescription(/로그인 화면에 표시됩니다/);
     expect(reasonInput).toHaveAccessibleDescription(/0\/200/);
   });
 
@@ -116,10 +116,16 @@ describe('계정 상태 변경 확인 다이얼로그', () => {
     expect(screen.queryByText(/동아리의 회장/)).not.toBeInTheDocument();
   });
 
-  it('사유는 감사 로그에 기록된다고 안내한다 — 관리자 메모에 남는다고 오해시키지 않는다', () => {
+  it('정지 사유는 당사자 로그인 화면에 보인다고 안내한다 — 내부용 문구로 쓰지 않게 한다', () => {
     render(<AdminUserStatusDialog {...props} />);
-    expect(screen.getByText(/감사 로그에 기록됩니다/)).toBeInTheDocument();
+    expect(screen.getByText(/당사자의 로그인 화면에 표시됩니다/)).toBeInTheDocument();
     expect(screen.queryByText(/관리자 메모에 기록/)).not.toBeInTheDocument();
+  });
+
+  it('해제 사유는 감사 로그에만 남는다고 안내한다', () => {
+    render(<AdminUserStatusDialog {...props} nextStatus="ACTIVE" />);
+    expect(screen.getByText(/감사 로그에 기록됩니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/로그인 화면에 표시/)).not.toBeInTheDocument();
   });
 
   it('해제할 때도 사유를 필수로 받는다', () => {

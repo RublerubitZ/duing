@@ -24,14 +24,6 @@ function IconChevronLeft() {
   );
 }
 
-function IconChevronDown() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function SignupForm() {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
@@ -116,10 +108,7 @@ function SignupForm() {
           <IconChevronLeft />
           홈으로
         </Link>
-        <button type="button" className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal">
-          한국어
-          <IconChevronDown />
-        </button>
+        <span aria-hidden className="w-[52px]" />
       </nav>
 
       <main className="flex flex-1 justify-center px-8 py-10">

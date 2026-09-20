@@ -52,7 +52,7 @@ export function ConfirmRoundDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>미처리 멤버가 있습니다</DialogTitle>
+          <DialogTitle>미처리 지원자가 있습니다</DialogTitle>
           <DialogDescription>강제 확정 시 아래 {totalCount}명이 자동으로 제외됩니다.</DialogDescription>
         </DialogHeader>
 

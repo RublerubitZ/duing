@@ -57,6 +57,7 @@ export {
   useMyApplicationDetailQuery,
   useApplicantsQuery,
   useApplicantDetailQuery,
+  useApplicantPhoneMutation,
   useUpdateApplicationStatusMutation,
   useBulkUpdateApplicationStatusMutation,
   useApplicantNeighborsQuery,
@@ -158,6 +159,8 @@ export {
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useAdminUpdateClubMutation,
+  useAdminClubJoinCodesQuery,
+  useForceRevokeAdminClubJoinCodeMutation,
 } from './admin';
 export { adminQueryKeys } from './adminQueryKeys';
 export {
@@ -196,6 +199,7 @@ export {
   useAssignAdminLeaderMutation,
   useAdminClubMemberHistoryQuery,
 } from './leaderSuccession';
+export { useAdminClubActivityEventsQuery } from './adminClubActivity';
 export {
   useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
@@ -218,6 +222,7 @@ export {
   useRevokeClubInviteCodeMutation,
   useJoinRequestsQuery,
   useJoinRequestDetailQuery,
+  useJoinRequestPhoneMutation,
   useDecideJoinRequestMutation,
   useBulkApproveJoinRequestsMutation,
   useJoinCodeCheckQuery,
@@ -346,7 +351,6 @@ export {
   useFacilityDetailQuery,
   useFacilityAvailabilityQuery,
   usePurposePresetsQuery,
-  useBookingWindowQuery,
   useCreateFacilityBookingMutation,
   useClubFacilityBookingsQuery,
   useFacilityBookingDetailQuery,
@@ -364,6 +368,11 @@ export {
   useCancelFacilityBookingAdminMutation,
 } from './facilityBookingsAdmin';
 export { useAdminCrawlReservationsQuery } from './facilityCrawlAdmin';
+export {
+  useAdminFacilitiesQuery,
+  useUpdateFacilityBookingOpenDateMutation,
+  useUpdateAllFacilityBookingOpenDateMutation,
+} from './facilityAdmin';
 export {
   useSubmissionCandidatesQuery,
   useCreateSubmissionBatchMutation,

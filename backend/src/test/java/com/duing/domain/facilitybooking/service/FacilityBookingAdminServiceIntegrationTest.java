@@ -34,6 +34,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -95,8 +96,9 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private Facility saveFacility() {
-        return facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
+        // 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다.
+        return facilityRepository.save(BookingWindowFixture.opened(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0)));
     }
 
     private record Fixture(User leader, Club club, Facility facility) {}
@@ -109,7 +111,7 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         return BookingWindowFixture.bookableDate();
     }
 
@@ -120,6 +122,36 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
                 fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
                 date, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0), "정기 합주", null,
                 FacilityBookingFixture.VALID_CONTACT_PHONE)).bookingId();
+    }
+
+    @Test
+    @DisplayName("신청 후 시설 오픈일을 미래로 옮기거나 닫아도 접수된 예약의 승인·취소는 그대로 된다 — 관리자 경로는 창을 보지 않는다")
+    void adminActionsIgnoreLaterOpenDateChanges() throws Exception {
+        User admin = saveUser("총동연");
+
+        Fixture movedForward = fixture();
+        Long approvedAfterMove = pendingBooking(movedForward, bookableDate(), 18, 20);
+        Facility movedFacility = facilityRepository.findById(movedForward.facility().getId()).orElseThrow();
+        movedFacility.changeBookingOpenDate(LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(10));
+        facilityRepository.save(movedFacility);
+
+        adminService.approve(admin.getId(), approvedAfterMove);
+        assertThat(bookingRepository.findById(approvedAfterMove).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+
+        adminService.cancel(admin.getId(), approvedAfterMove, "학교 측 사정으로 예약 취소");
+        assertThat(bookingRepository.findById(approvedAfterMove).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.CANCELLED);
+
+        Fixture closed = fixture();
+        Long approvedAfterClose = pendingBooking(closed, bookableDate(), 18, 20);
+        Facility closedFacility = facilityRepository.findById(closed.facility().getId()).orElseThrow();
+        closedFacility.changeBookingOpenDate(null); // 총동연이 시설을 다시 닫음
+        facilityRepository.save(closedFacility);
+
+        adminService.approve(admin.getId(), approvedAfterClose);
+        assertThat(bookingRepository.findById(approvedAfterClose).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
     }
 
     @Test
@@ -167,6 +199,60 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
         assertThat(approved.getCrawlBasisAt()).isEqualTo(rowCrawledAt); // 스냅샷 세대(partialGeneration)가 아니다
         assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).get(0).getCrawlBasisAt())
                 .isEqualTo(rowCrawledAt);
+    }
+
+    @Test
+    @DisplayName("승인 중 스냅샷 조회 뒤에 새 세대 행이 커밋됐으면(행이 스냅샷보다 새로움) 크롤 기준 시각은 스냅샷 세대가 아니라 실제 검증한 행의 반영 시각이다")
+    void approveUsesRowCrawledAtWhenRowsAreNewerThanSnapshot() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        LocalDateTime snapshotGeneration = LocalDateTime.now().withNano(0).minusMinutes(10);
+        LocalDateTime newerRowCrawledAt = snapshotGeneration.plusMinutes(10);
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, snapshotGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(snapshotGeneration, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                List.of(fixture.facility().getId())); // 이 시설은 스냅샷 세대에 synced
+        snapshotRepository.save(snapshot);
+        // 스냅샷 세대보다 새로운 행 — 신세대 크롤이 행을 먼저 커밋한 상태(겹치지 않는 시간대라 승인은 통과한다).
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, newerRowCrawledAt));
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        FacilityBooking approved = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(approved.getCrawlBasisAt()).isEqualTo(newerRowCrawledAt); // 스냅샷 세대(snapshotGeneration)가 아니다
+        assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(bookingId).get(0).getCrawlBasisAt())
+                .isEqualTo(newerRowCrawledAt);
+    }
+
+    @Test
+    @DisplayName("행이 스냅샷 세대보다 오래된 정상 상태에서는 크롤 기준 시각이 스냅샷 세대다 — 행 crawledAt 은 마지막 변경 시각이라 세대 표식이 아니다")
+    void approveUsesSnapshotGenerationWhenRowsAreNotNewer() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        YearMonth month = YearMonth.from(date);
+        LocalDateTime snapshotGeneration = LocalDateTime.now().withNano(0).minusMinutes(10);
+        LocalDateTime olderRowCrawledAt = snapshotGeneration.minusMinutes(10);
+        FacilityMonthSnapshot snapshot = snapshotRepository.findByYearMonth(month)
+                .orElseGet(() -> FacilityMonthSnapshot.create(month, snapshotGeneration,
+                        CrawlSource.SCHEDULER, FetchStatus.FAILED, null));
+        snapshot.recordSuccessful(snapshotGeneration, CrawlSource.SCHEDULER, FetchStatus.SUCCESS, null,
+                List.of(fixture.facility().getId()));
+        snapshotRepository.save(snapshot);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), month, date,
+                LocalTime.of(9, 0), LocalTime.of(10, 0), "문화팀", false, olderRowCrawledAt));
+        Long bookingId = pendingBooking(fixture, date, 18, 20);
+
+        adminService.approve(admin.getId(), bookingId);
+
+        assertThat(bookingRepository.findById(bookingId).orElseThrow().getCrawlBasisAt()).isEqualTo(snapshotGeneration);
     }
 
     @Test

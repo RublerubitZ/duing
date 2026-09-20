@@ -172,7 +172,7 @@ export function SignupStepProfile({
             placeholder="••••••••"
             className={inputCls}
           />
-          <p className="mt-1.5 text-xs text-charcoal-3">영문+숫자 8자 이상</p>
+          <p className="mt-1.5 text-xs text-charcoal-3">8~20자, 영문·숫자·특수문자 중 2가지 이상</p>
         </div>
         <div>
           <label htmlFor="signup-password-confirm" className="mb-1.5 block text-sm font-medium text-charcoal">
@@ -210,7 +210,7 @@ export function SignupStepProfile({
           ← 이전
         </button>
         <button type="submit" disabled={!canSubmit} className="btn btn-primary btn-big flex-1 disabled:opacity-50">
-          {isSubmitting && <ButtonSpinner />}가입하고 두잉 시작하기 →
+          {isSubmitting && <ButtonSpinner />}가입 완료
         </button>
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
 import { HomeNav } from '@/app/_components/HomeNav';
 
 import { partitionApplications } from '../_lib/partitionApplications';
+import { SECTION_LABEL, resolveSectionOrder, type SectionId } from '../_lib/sectionOrder';
 
 import { AcceptanceBanner } from '../_components/AcceptanceBanner';
 import { MyPageHeader } from '../_components/MyPageHeader';
@@ -23,18 +24,7 @@ import { SectionInquiries } from '../_components/SectionInquiries';
 import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
 
-type SectionId = 'apply' | 'joined' | 'saved' | 'inquiries' | 'archived';
-
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'apply', label: '지원 현황' },
-  { id: 'joined', label: '가입한 동아리' },
-  { id: 'saved', label: '찜한 동아리' },
-  { id: 'inquiries', label: '내 문의' },
-  { id: 'archived', label: '지난 지원' },
-];
-
 export function MyPage() {
-  const [activeTab, setActiveTab] = useState<SectionId>('apply');
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement>>>({});
   const programmaticScroll = useRef(false);
@@ -60,6 +50,18 @@ export function MyPage() {
   const favorites = favoriteListQuery.data?.content ?? [];
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
+
+  /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
+  // 로딩 중에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 pending 동안 joined-first 로 그렸다가
+  // 응답이 오는 순간 apply-first 로 뒤집혀 섹션이 통째로 점프한다. 미확정 구간은 1(=기본 apply-first)로 고정하고,
+  // 0건이 확정된 뒤에만 재배치한다.
+  const order = useMemo(
+    () => resolveSectionOrder(applicationsQuery.isPending ? 1 : applications.length),
+    [applicationsQuery.isPending, applications.length],
+  );
+  const sections = order.map((id) => ({ id, label: SECTION_LABEL[id] }));
+
+  const [activeTab, setActiveTab] = useState<SectionId>(order[0]!);
 
   /* ── 탭 클릭 → 해당 섹션 헤더로 스무스 스크롤 ── */
   const scrollToSection = useCallback((id: string) => {
@@ -109,21 +111,21 @@ export function MyPage() {
       const tabsVisualHeight = stickyEl ? stickyEl.getBoundingClientRect().height : 56 * scale;
       const line = rootRect.top + tabsVisualHeight + 16 * scale;
 
-      let nextActive: SectionId = 'apply';
-      for (const section of SECTIONS) {
-        const el = sectionRefs.current[section.id];
+      let nextActive: SectionId = order[0]!;
+      for (const id of order) {
+        const el = sectionRefs.current[id];
         if (!el) continue;
         const top = el.getBoundingClientRect().top;
         if (top - line <= 1) {
-          nextActive = section.id;
+          nextActive = id;
         } else {
           break;
         }
       }
 
-      const lastSection = SECTIONS[SECTIONS.length - 1];
+      const lastSection = order[order.length - 1];
       if (lastSection && root.scrollTop + root.clientHeight >= root.scrollHeight - 4) {
-        nextActive = lastSection.id;
+        nextActive = lastSection;
       }
 
       setActiveTab((prev) => (prev === nextActive ? prev : nextActive));
@@ -144,14 +146,24 @@ export function MyPage() {
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
       clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [order]);
+
+  /* ── 순서가 뒤바뀌는 순간의 활성 탭 보정 ── */
+  // 지원 0건이 확정돼 order 가 바뀔 때, 아직 스크롤을 건드리지 않은 사용자는 여전히 맨 위에 있다 —
+  // 그 경우에만 활성 탭을 새 첫 섹션으로 맞춘다. 이미 스크롤을 내렸거나 탭을 눌러 이동 중이면
+  // 위 스크롤 동기화가 실제 위치로 판단하므로 건드리지 않는다(사용자 선택을 덮지 않기 위함).
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root || programmaticScroll.current || root.scrollTop > 0) return;
+    setActiveTab(order[0]!);
+  }, [order]);
 
   const refFor = (id: SectionId) => (el: HTMLElement | null) => {
     if (el) sectionRefs.current[id] = el;
   };
 
   /* ── Tabs with live count badges ── */
-  const sectionsWithCount = SECTIONS.map((section) => {
+  const sectionsWithCount = sections.map((section) => {
     const count =
       section.id === 'apply'
         ? applications.length
@@ -167,17 +179,16 @@ export function MyPage() {
 
   return (
     <div
-      className="duing bg-cream"
-      style={{
-        // body 높이 체인이 없어 height:'100%'는 auto로 붕괴 → 내부 overflow-y-auto가 스크롤포트를 못 잡음. dvh로 뷰포트 높이 고정.
-        height: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      // body 높이 체인이 없어 height:100% 는 auto 로 붕괴 → 내부 overflow-y-auto 가 스크롤포트를 못 잡음. dvh 로 뷰포트 높이 고정.
+      // 모바일에서 탭바 높이를 미리 빼는 이유 — BottomNav 스페이서(h-[calc(60px+env(safe-area-inset-bottom))], md:hidden)가
+      // 이 블록 '뒤'에 붙어서, 100dvh 를 그대로 쓰면 문서가 뷰포트보다 60px 길어진다. 그러면 내부 스크롤이 끝에 닿는 순간
+      // 스크롤 체이닝으로 문서 전체가 밀려 헤더가 올라가고 고정 탭바 뒤에 빈 띠가 보인다.
+      // 두 값은 BottomNav 의 스페이서와 한 쌍이라 한쪽만 바꾸면 어긋난다.
+      className="duing flex h-[calc(100dvh_-_60px_-_env(safe-area-inset-bottom))] flex-col overflow-hidden bg-cream md:h-dvh"
     >
       <HomeNav slimOnMobile />
 
+      {/* 아래 여유는 두지 않는다 — 바깥 래퍼가 이미 탭바 높이를 뺀 높이라 스크롤 끝이 탭바 바로 위에서 멈춘다. */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto overflow-x-hidden"
@@ -198,21 +209,17 @@ export function MyPage() {
           onSelect={scrollToSection}
         />
 
-        <div ref={refFor('apply')} data-section="apply">
-          <SectionApply applications={applications} />
-        </div>
-        <div ref={refFor('joined')} data-section="joined">
-          <SectionMyClubs myClubs={myClubs} />
-        </div>
-        <div ref={refFor('saved')} data-section="saved">
-          <SectionSaved favorites={favorites} />
-        </div>
-        <div ref={refFor('inquiries')} data-section="inquiries">
-          <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
-        </div>
-        <div ref={refFor('archived')} data-section="archived">
-          <SectionArchived applications={archivedApplications} />
-        </div>
+        {order.map((id) => (
+          <div key={id} ref={refFor(id)} data-section={id}>
+            {id === 'apply' && <SectionApply applications={applications} />}
+            {id === 'joined' && <SectionMyClubs myClubs={myClubs} />}
+            {id === 'saved' && <SectionSaved favorites={favorites} />}
+            {id === 'inquiries' && (
+              <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
+            )}
+            {id === 'archived' && <SectionArchived applications={archivedApplications} />}
+          </div>
+        ))}
 
         {/* 마지막 섹션이 탭 클릭 시 충분히 스크롤될 수 있도록 하는 스페이서 */}
         <div aria-hidden className="shrink-0" style={{ height: 420 }} />

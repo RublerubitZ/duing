@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { FederationInquiryStatus } from '@duing/types';
 import { formatDateKst, useMyFederationInquiriesQuery } from '@duing/hooks';
 
+import { HomeNav } from '@/app/_components/HomeNav';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
@@ -43,96 +44,101 @@ export function MyInquiriesPage() {
     setPage(0);
   };
 
+  // PC 에는 이 페이지들만 상단바가 없었다. 레이아웃이 아니라 페이지에서 감싼다 —
+  // MyPage 의 100dvh 래퍼와 충돌하기 때문(SettingsPage 패턴).
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">내 문의</h1>
-          <p className="mt-1 text-sm text-charcoal-3">
-            총동아리연합회에 궁금한 점을 1:1로 문의할 수 있습니다.
-          </p>
-        </div>
-        <Link href={toRoute('/me/inquiries/new')} className="btn btn-primary btn-sm shrink-0">
-          새 문의
-        </Link>
-      </header>
-
-      <div className="mb-5 flex flex-wrap gap-1">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => handleStatusTabChange(tab)}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors',
-              statusFilter === tab ? 'bg-ink text-paper' : 'text-charcoal-2 hover:bg-graysoft',
-            )}
-          >
-            {tab === 'ALL' ? '전체' : INQUIRY_STATUS_LABEL[tab]}
-          </button>
-        ))}
-      </div>
-
-      {listQuery.isLoading && (
-        <ListRowsSkeleton
-          rows={5}
-          rowClassName="h-[64px] rounded-xl"
-          className="space-y-2"
-          label="문의 목록 불러오는 중"
-        />
-      )}
-      {listQuery.isError && (
-        <p className="py-12 text-center text-[13px] text-coral">문의 목록을 불러오지 못했습니다.</p>
-      )}
-
-      {listQuery.isSuccess && inquiries.length === 0 && (
-        <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
-          <p className="text-sm text-charcoal-2">아직 문의 내역이 없어요.</p>
-          <p className="mt-1 text-xs text-charcoal-3">
-            먼저{' '}
-            <Link href={toRoute('/faq')} className="font-semibold text-ink hover:underline">
-              자주 묻는 질문
-            </Link>
-            에서 답을 찾아보세요.
-          </p>
-          <Link href={toRoute('/me/inquiries/new')} className="btn btn-primary btn-sm mt-4 inline-flex">
-            새 문의 작성
+    <div className="duing min-h-dvh bg-cream">
+      <HomeNav slimOnMobile />
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <header className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-ink">내 문의</h1>
+            <p className="mt-1 text-sm text-charcoal-3">
+              총동아리연합회에 궁금한 점을 1:1로 문의할 수 있습니다.
+            </p>
+          </div>
+          <Link href={toRoute('/me/inquiries/new')} className="btn btn-primary btn-sm shrink-0">
+            새 문의
           </Link>
-        </div>
-      )}
+        </header>
 
-      {listQuery.isSuccess && inquiries.length > 0 && (
-        <ul className="space-y-2">
-          {inquiries.map((inquiry) => (
-            <li key={inquiry.id}>
-              <Link
-                href={toRoute(`/me/inquiries/${inquiry.id}`)}
-                className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3 transition-colors hover:bg-graysoft/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-ink">{inquiry.title}</p>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                        INQUIRY_STATUS_BADGE_CLASS[inquiry.status],
-                      )}
-                    >
-                      {INQUIRY_STATUS_LABEL[inquiry.status]}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-charcoal-3">
-                    작성 {formatDateKst(inquiry.createdAt)}
-                    {inquiry.answeredAt && ` · 답변 ${formatDateKst(inquiry.answeredAt)}`}
-                  </p>
-                </div>
-              </Link>
-            </li>
+        <div className="mb-5 flex flex-wrap gap-1">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => handleStatusTabChange(tab)}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors',
+                statusFilter === tab ? 'bg-ink text-paper' : 'text-charcoal-2 hover:bg-graysoft',
+              )}
+            >
+              {tab === 'ALL' ? '전체' : INQUIRY_STATUS_LABEL[tab]}
+            </button>
           ))}
-        </ul>
-      )}
+        </div>
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="문의 페이지" />
-    </main>
+        {listQuery.isLoading && (
+          <ListRowsSkeleton
+            rows={5}
+            rowClassName="h-[64px] rounded-xl"
+            className="space-y-2"
+            label="문의 목록 불러오는 중"
+          />
+        )}
+        {listQuery.isError && (
+          <p className="py-12 text-center text-[13px] text-coral">문의 목록을 불러오지 못했습니다.</p>
+        )}
+
+        {listQuery.isSuccess && inquiries.length === 0 && (
+          <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
+            <p className="text-sm text-charcoal-2">아직 문의 내역이 없어요.</p>
+            <p className="mt-1 text-xs text-charcoal-3">
+              먼저{' '}
+              <Link href={toRoute('/faq')} className="font-semibold text-ink hover:underline">
+                자주 묻는 질문
+              </Link>
+              에서 답을 찾아보세요.
+            </p>
+            <Link href={toRoute('/me/inquiries/new')} className="btn btn-primary btn-sm mt-4 inline-flex">
+              새 문의 작성
+            </Link>
+          </div>
+        )}
+
+        {listQuery.isSuccess && inquiries.length > 0 && (
+          <ul className="space-y-2">
+            {inquiries.map((inquiry) => (
+              <li key={inquiry.id}>
+                <Link
+                  href={toRoute(`/me/inquiries/${inquiry.id}`)}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3 transition-colors hover:bg-graysoft/40"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-ink">{inquiry.title}</p>
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                          INQUIRY_STATUS_BADGE_CLASS[inquiry.status],
+                        )}
+                      >
+                        {INQUIRY_STATUS_LABEL[inquiry.status]}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-charcoal-3">
+                      작성 {formatDateKst(inquiry.createdAt)}
+                      {inquiry.answeredAt && ` · 답변 ${formatDateKst(inquiry.answeredAt)}`}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="문의 페이지" />
+      </main>
+    </div>
   );
 }

@@ -6,18 +6,10 @@ import { cn } from '@/app/_lib/cn';
 import { fetchUpcomingDeadlineClubs } from '@/app/_lib/home-data';
 import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
 import {
+  CLOSING_SOON_CHIP_CLASS,
   selectClosingSoonClubs,
-  type ClosingSoonEmphasis,
   type ClosingSoonItem,
 } from '@/app/_lib/closingSoon';
-
-// 시안(509:7790)의 칩은 밝은 회색 면(Gray/004 #E1E1E1) 위 딥그린 글자 하나뿐이라, 긴급도는 면 색으로만 가른다.
-// 글자는 셋 다 딥그린 — warm 7.8:1, coral 4.5:1 로 셋 다 AA 를 넘고, 기존 반투명 칩(3.5:1)보다 대비가 높다.
-const CHIP_EMPHASIS: Record<ClosingSoonEmphasis, string> = {
-  danger: 'bg-coral',
-  warning: 'bg-warm',
-  default: 'bg-[#E1E1E1]',
-};
 
 function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplicate?: boolean }) {
   return (
@@ -31,8 +23,8 @@ function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplic
       <span className="text-[#E1E1E1]">{item.name}</span>
       <span
         className={cn(
-          'flex h-3 items-center rounded-full px-2 text-[10px] font-medium leading-none text-ink-deep sm:h-[18px] sm:text-[13px]',
-          CHIP_EMPHASIS[item.emphasis],
+          'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:text-[13px]',
+          CLOSING_SOON_CHIP_CLASS[item.emphasis],
         )}
       >
         {item.label}
@@ -65,10 +57,11 @@ export async function RecruitmentTicker() {
 
   return (
     // PC(sm+): 시안 1920 캔버스의 80px 띠를 콘텐츠 폭 1200 기준(×0.815)으로 환산 — 높이 64·라벨 16/사이렌 26·이름 20·간격 48/52.
-    // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·라벨 10/사이렌 14·이름 10·칩 12·항목 간격 20·캐럿 14.
+    // 모바일: 시안 393 프레임(493:5362)은 1:1 이라 그대로 — 높이 38·사이렌 14·항목 간격 20·캐럿 14.
+    // 다만 시안의 10(라벨·이름)·12(칩) 는 본문 최소 12px 에 못 미쳐 12·18 로 올렸다(접근성 하한이 시안보다 우선).
     <section className="relative mt-7 overflow-hidden bg-ink-deep text-white sm:mt-14">
       <div className="max-w-layout mx-auto flex h-[38px] items-center gap-2 px-4 sm:h-16 sm:gap-12 sm:px-6 md:px-10">
-        <div className="flex shrink-0 items-center gap-1 text-[10px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
+        <div className="flex shrink-0 items-center gap-1 text-[12px] font-semibold tracking-tightest text-cream sm:gap-2 sm:text-base">
           마감 임박 동아리
           <Siren size={14} className="sm:size-[26px]" />
         </div>
@@ -76,7 +69,7 @@ export async function RecruitmentTicker() {
         {/* 오른쪽→왼쪽 seamless 무한 티커. hover 시 정지(CSS), reduced-motion 시 정지 + 가로 스크롤 폴백. */}
         <div className="group flex-1 overflow-hidden motion-reduce:overflow-x-auto">
           <div
-            className="flex w-max text-[10px] font-medium tracking-tightest animate-marquee group-hover:[animation-play-state:paused] motion-reduce:animate-none sm:text-xl"
+            className="flex w-max text-[12px] font-medium tracking-tightest animate-marquee group-hover:[animation-play-state:paused] motion-reduce:animate-none sm:text-xl"
             style={{ animationDuration: `${durationSeconds}s` }}
           >
             {/* 첫 카피의 원본 구간만 스크린리더에 남기고, 폭을 채우려 되풀이한 뒤쪽은 복제로 처리한다. */}

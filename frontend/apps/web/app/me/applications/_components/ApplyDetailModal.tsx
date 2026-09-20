@@ -145,7 +145,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
           position: 'fixed', inset: 0,
           background: 'rgba(20, 48, 37, 0.18)',
           backdropFilter: 'blur(2px)',
-          zIndex: 40,
+          // 41/42 — 하단 탭바(BottomNav z-40)보다 위. 동률이면 문서 순서상 나중인 탭바가 이겨서 모달 위로 클릭이 먹는다.
+          zIndex: 41,
         }}
       />
       <div
@@ -163,7 +164,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
           borderRadius: 18,
           boxShadow: 'var(--shadow-3)',
           border: '1px solid var(--gray-line)',
-          zIndex: 41,
+          zIndex: 42,
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
         }}>

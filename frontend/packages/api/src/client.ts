@@ -33,6 +33,7 @@ import type {
   JoinRequestStatus,
   JoinRequestSummary,
   JoinRequestDetail,
+  JoinRequestPhone,
   DecideJoinRequestPayload,
   JoinRequestDecisionResponse,
   BulkApproveJoinRequestsPayload,
@@ -50,6 +51,7 @@ import type {
   ManagedClub,
   MyApplicationDetail,
   ApplicantDetail,
+  ApplicantPhone,
   RecruitmentDetail,
   RecruitmentSummary,
   UpdateRecruitmentPayload,
@@ -149,7 +151,6 @@ import type {
   FacilityUsageResponse,
   FacilityDetailResponse,
   FacilityAvailabilityResponse,
-  FacilityBookingWindow,
   PurposePreset,
   CreateFacilityBookingPayload,
   CreateFacilityBookingResult,
@@ -306,8 +307,10 @@ export type DuingApiClient = {
     // 이미 폐기된 링크도 204(멱등). 없는 링크·모집 링크·타 동아리 링크는 404(열거 차단).
     revokeClubInvite(clubId: number, joinCodeId: number): Promise<void>;
     listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
-    // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
+    // 전화번호는 마스킹(phoneMasked)으로만 담긴다 — 목록에는 아예 없고, 원본은 getRequestPhone 뿐이다.
     getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
+    // 원본 번호 열람. 서버가 감사 행을 남기고 분당 열람 한도를 소모하므로 사용자가 요청한 순간에만 호출한다.
+    getRequestPhone(clubId: number, joinRequestId: number): Promise<JoinRequestPhone>;
     // 승인 요청이라도 이미 가입된 회원이면 AUTO_REJECTED 로 돌아오므로 204 가 아닌 본문을 읽는다.
     decideRequest(
       clubId: number,
@@ -357,6 +360,8 @@ export type DuingApiClient = {
     myDetail(applicationId: number): Promise<MyApplicationDetail>;
     withdraw(applicationId: number): Promise<void>;
     detail(applicationId: number): Promise<ApplicantDetail>;
+    // 원본 연락처. 운영진 전용이며 호출 자체가 백엔드 감사 행으로 남는다 — 화면에 필요할 때만 부른다.
+    applicantPhone(applicationId: number): Promise<ApplicantPhone>;
     upsertMyApplicationEvaluation(
       applicationId: number,
       payload: UpsertApplicationEvaluationPayload,
@@ -430,12 +435,10 @@ export type DuingApiClient = {
     usage(yearMonth?: string): Promise<FacilityUsageResponse>;
     // GET /api/v1/facilities/{facilityId}?yearMonth=YYYY-MM — 단일 시설 상세(타임라인용).
     get(facilityId: number, yearMonth?: string): Promise<FacilityDetailResponse>;
-    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 당월·익월만 허용(400).
+    // GET /api/v1/facilities/{facilityId}/availability?yearMonth= — 공개. 직전 월·당월·익월만 허용(400). 직전 월은 저장 스냅샷 열람.
     availability(facilityId: number, yearMonth?: string): Promise<FacilityAvailabilityResponse>;
     // GET /api/v1/facilities/booking-purpose-presets — 공개. 사용 목적 Preset(시드).
     purposePresets(): Promise<PurposePreset[]>;
-    // GET /api/v1/facilities/booking-window — 공개. 현재 예약 오픈 구간(전 시설 공통).
-    bookingWindow(): Promise<FacilityBookingWindow>;
   };
   facilityBookings: {
     // POST /api/v1/clubs/{clubId}/facility-bookings — 운영진 전용(쿠키 세션). 409=슬롯 불가/중복/상한.
@@ -954,6 +957,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       getRequestDetail: (clubId, joinRequestId) =>
         jsonOk<JoinRequestDetail>(http.get(`clubs/${clubId}/join-requests/${joinRequestId}`)),
+      getRequestPhone: (clubId, joinRequestId) =>
+        jsonOk<JoinRequestPhone>(
+          http.get(`clubs/${clubId}/join-requests/${joinRequestId}/phone`),
+        ),
       decideRequest: (clubId, joinRequestId, payload) =>
         jsonOk<JoinRequestDecisionResponse>(
           http.patch(`clubs/${clubId}/join-requests/${joinRequestId}`, { json: payload }),
@@ -1034,6 +1041,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonVoid(http.delete(`users/me/applications/${applicationId}`)),
       detail: (applicationId) =>
         jsonOk<ApplicantDetail>(http.get(`leader/applications/${applicationId}`)),
+      applicantPhone: (applicationId) =>
+        jsonOk<ApplicantPhone>(http.get(`leader/applications/${applicationId}/phone`)),
       upsertMyApplicationEvaluation: (applicationId, payload) =>
         jsonVoid(
           http.put(`leader/applications/${applicationId}/evaluations/me`, { json: payload }),
@@ -1154,7 +1163,6 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
           }),
         ),
       purposePresets: () => jsonOk<PurposePreset[]>(http.get('facilities/booking-purpose-presets')),
-      bookingWindow: () => jsonOk<FacilityBookingWindow>(http.get('facilities/booking-window')),
     },
     facilityBookings: {
       create: (clubId, payload) =>

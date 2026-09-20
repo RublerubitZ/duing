@@ -10,6 +10,7 @@ import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminDetailQuer
 import com.duing.domain.globalevent.service.dto.query.GlobalEventAdminSearchCondition;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.file.UploadedObjectService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,6 +36,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
     private final GlobalEventRepository eventRepository;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -46,7 +48,9 @@ public class GeneralGlobalEventService implements GlobalEventService {
                 command.coverImageUrl(),
                 command.category(), command.createdBy()
         );
-        return eventRepository.save(event).getId();
+        Long eventId = eventRepository.save(event).getId();
+        uploadedObjectService.activate(command.coverImageUrl());
+        return eventId;
     }
 
     @Override
@@ -54,11 +58,15 @@ public class GeneralGlobalEventService implements GlobalEventService {
     public void update(UpdateGlobalEventCommand command) {
         GlobalEvent event = eventRepository.findById(command.eventId())
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
+        String previousCoverImageUrl = event.getCoverImageUrl();
         event.update(command.title(), command.description(),
                 command.startAt(), command.endAt(),
                 command.location(), command.linkUrl(),
                 command.category(),
                 command.coverImageUrl(), command.clearCoverImage());
+        uploadedObjectService.activate(command.coverImageUrl());
+        // 교체·비우기로 빠진 옛 커버는 해제(#1153) — 새 값이 확정된 엔티티를 기준으로 비교한다.
+        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, event.getCoverImageUrl());
     }
 
     @Override
@@ -67,6 +75,7 @@ public class GeneralGlobalEventService implements GlobalEventService {
         GlobalEvent event = eventRepository.findById(eventId)
                 .orElseThrow(GlobalEventException.GlobalEventNotFoundException::new);
         eventRepository.delete(event);
+        uploadedObjectService.release(event.getCoverImageUrl());
     }
 
     @Override

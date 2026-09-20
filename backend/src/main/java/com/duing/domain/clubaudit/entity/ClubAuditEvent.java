@@ -98,12 +98,19 @@ public class ClubAuditEvent extends BaseEntity {
     /** 가입 링크 생성·재생성·폐기 이벤트. */
     public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
                                           Long recruitmentId, Long joinCodeId, Long actorUserId) {
+        return joinLink(eventType, clubId, recruitmentId, joinCodeId, actorUserId, null);
+    }
+
+    /** 가입 링크 이벤트 + 발급 스냅샷 — 부원 초대 발급이 자동승인·정원·만료를 detail 에 남긴다(코드 값 금지). */
+    public static ClubAuditEvent joinLink(ClubAuditEventType eventType, Long clubId,
+                                          Long recruitmentId, Long joinCodeId, Long actorUserId, String detail) {
         return ClubAuditEvent.builder()
                 .clubId(clubId)
                 .eventType(eventType)
                 .actorUserId(actorUserId)
                 .recruitmentId(recruitmentId)
                 .joinCodeId(joinCodeId)
+                .detail(detail)
                 .build();
     }
 
@@ -129,6 +136,23 @@ public class ClubAuditEvent extends BaseEntity {
                 .eventType(ClubAuditEventType.RECRUITMENT_FORCE_CLOSED)
                 .actorUserId(actorUserId)
                 .recruitmentId(recruitmentId)
+                .reason(reason)
+                .build();
+    }
+
+    /**
+     * 총동연이 가입 링크를 강제 폐기한 이벤트(V129) — 사유는 필수 입력이라 항상 채워진다.
+     * 부원 초대 링크는 귀속 모집이 없어 {@code recruitmentId} 가 비어 있다(V102 컬럼 nullable).
+     */
+    public static ClubAuditEvent adminJoinLinkForceRevoke(Long clubId, Long recruitmentId,
+                                                          Long joinCodeId, Long actorUserId,
+                                                          String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.JOIN_LINK_FORCE_REVOKED)
+                .actorUserId(actorUserId)
+                .recruitmentId(recruitmentId)
+                .joinCodeId(joinCodeId)
                 .reason(reason)
                 .build();
     }
@@ -214,6 +238,38 @@ public class ClubAuditEvent extends BaseEntity {
         return ClubAuditEvent.builder()
                 .clubId(clubId)
                 .eventType(ClubAuditEventType.SECURED_TARGET_CHANGED)
+                .actorUserId(actorUserId)
+                .detail(detail)
+                .build();
+    }
+
+    /** 총동연 동아리 상태 전이 — detail 에 from/to, REJECTED 로의 전이에만 reason 에 거절 사유가 남는다. */
+    public static ClubAuditEvent clubStatusChanged(Long clubId, Long actorUserId, String reason, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_STATUS_CHANGED)
+                .actorUserId(actorUserId)
+                .reason(reason)
+                .detail(detail)
+                .build();
+    }
+
+    /** 총동연 동아리 폐쇄 — reason 에 정규화된 폐쇄 사유. 폐쇄 트랜잭션 안에서 기록돼 폐쇄가 롤백되면 함께 사라진다. */
+    public static ClubAuditEvent clubClosed(Long clubId, Long actorUserId, String reason) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(ClubAuditEventType.CLUB_CLOSED)
+                .actorUserId(actorUserId)
+                .reason(reason)
+                .build();
+    }
+
+    /** 운영진의 멤버 개인정보 열람(번호 조회·명단 내보내기, V128) — 대상·범위는 detail 에 id·숫자로만 남긴다. */
+    public static ClubAuditEvent memberPiiAccess(ClubAuditEventType eventType, Long clubId,
+                                                 Long actorUserId, String detail) {
+        return ClubAuditEvent.builder()
+                .clubId(clubId)
+                .eventType(eventType)
                 .actorUserId(actorUserId)
                 .detail(detail)
                 .build();

@@ -58,6 +58,10 @@ export function RecruitmentCloseConfirmDialog({
         <p className="text-[13px] leading-relaxed text-charcoal-2">
           마감된 모집은 평가와 면접 진행이 멈추고, 남은 지원서는 합격·불합격 확정만 할 수 있습니다.
         </p>
+        {/* create 경로에서 이 다이얼로그가 뜨면 공개 확인은 생략된다 — 공개 시점 고지를 여기서 대신한다. */}
+        <p className="text-[13px] leading-relaxed text-charcoal-2">
+          등록과 동시에 학생에게 공개돼요.
+        </p>
         <p className="text-[13px] leading-relaxed text-charcoal-2">계속하시겠습니까?</p>
 
         <DialogFooter>

@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
@@ -312,5 +314,36 @@ class GeneralPromotionServiceTest {
                 PromotionRenderMode.SYSTEM_COMPOSED, null,
                 null)))
                 .isInstanceOf(PromotionException.MultipleLinkTargetsException.class);
+    }
+
+    @Test
+    @DisplayName("공개 카드는 승인 전 동아리의 이름을 숨기고, 동아리가 ACTIVE 가 되면 다시 싣는다")
+    void publicCardHidesClubRefUntilClubIsActive() {
+        User admin = saveAdmin();
+        // Club.create 의 기본 상태는 PENDING_APPROVAL — 공개 경로 은닉 규칙(ClubStatus#isPubliclyVisible)의 대상이다.
+        Club pendingClub = clubRepository.save(
+                ClubFixture.academic("승인대기동아리-" + sequence.incrementAndGet()));
+        Long promotionId = promotionService.create(new CreatePromotionCommand(
+                pendingClub.getId(), "동아리 배너", "/files/club.png", null, true, 0, admin.getId(),
+                null, null, null, null, PromotionPalette.INK,
+                null, null,
+                PromotionRenderMode.SYSTEM_COMPOSED, null, null));
+
+        PromotionCardQuery hiddenCard = findPublicCard(promotionId);
+        assertThat(hiddenCard.club()).as("승인 전 동아리는 이름·id 를 싣지 않는다").isNull();
+
+        pendingClub.changeStatus(ClubStatus.ACTIVE, null, admin.getId());
+
+        PromotionCardQuery visibleCard = findPublicCard(promotionId);
+        assertThat(visibleCard.club()).isNotNull();
+        assertThat(visibleCard.club().id()).isEqualTo(pendingClub.getId());
+        assertThat(visibleCard.club().name()).isEqualTo(pendingClub.getName());
+    }
+
+    private PromotionCardQuery findPublicCard(Long promotionId) {
+        return promotionService.findPublicCards(PageRequest.of(0, 50)).getContent().stream()
+                .filter(card -> card.id().equals(promotionId))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("공개 목록에 배너가 없다: " + promotionId));
     }
 }

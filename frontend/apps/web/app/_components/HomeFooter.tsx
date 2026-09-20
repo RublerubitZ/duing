@@ -3,6 +3,8 @@ import { BrandMark } from '@/components/duing/BrandMark';
 import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
+/** 두잉팀 오픈채팅 — 모바일 간소 푸터와 데스크탑 풀 푸터가 같은 주소를 쓴다. */
+const KAKAO_OPEN_CHAT_URL = 'https://open.kakao.com/o/s6JruOzi';
 
 export function HomeFooter() {
   return (
@@ -22,6 +24,26 @@ export function HomeFooter() {
               <Link href="/terms" className="hover:text-ink">
                 이용약관 및 개인정보 처리방침
               </Link>
+            </div>
+            <div className="mt-1.5">
+              <Link href="/faq" className="hover:text-ink">
+                자주 묻는 질문
+              </Link>
+            </div>
+            <div className="mt-1.5">
+              <Link href="/me/inquiries/new" className="hover:text-ink">
+                1:1 문의
+              </Link>
+            </div>
+            <div className="mt-1.5">
+              <a
+                href={KAKAO_OPEN_CHAT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-ink"
+              >
+                두잉팀 카카오 문의
+              </a>
             </div>
             <div className="mt-1.5">
               문의사항 :{' '}
@@ -49,7 +71,7 @@ export function HomeFooter() {
           </p>
         </div>
 
-        {/* 상단바·하단 탭(탐색·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
+        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>
@@ -83,12 +105,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <Link href="/manage" className={linkClass}>
-                우리 동아리 등록
-              </Link>
-            </li>
-            <li>
-              <Link href="/introduce" className={linkClass}>
-                운영자 가이드
+                운영진 콘솔
               </Link>
             </li>
           </ul>
@@ -109,7 +126,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <a
-                href="https://open.kakao.com/o/s6JruOzi"
+                href={KAKAO_OPEN_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={linkClass}

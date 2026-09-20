@@ -9,6 +9,9 @@ const mockCreateMutateAsync = vi.fn();
 // InquiryCreatePage 가 렌더하는 InquiryImageUploader 가 내부에서 사용.
 const mockUploadMutateAsync = vi.fn();
 
+// 페이지가 공통 상단바를 품는다 — 상단바는 hooks 를 쓰므로 이 파일의 hooks mock 과 함께 걸어야 한다.
+vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => <nav data-testid="home-nav" /> }));
+
 vi.mock('@duing/hooks', () => ({
   useCreateFederationInquiryMutation: () => ({ mutateAsync: mockCreateMutateAsync, isPending: false }),
   useFileUploadMutation: () => ({ mutateAsync: mockUploadMutateAsync, isPending: false }),
@@ -104,5 +107,10 @@ describe('InquiryCreatePage', () => {
 
     const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent('처리 대기 중인 문의가 많아 새 문의를 등록할 수 없습니다.');
+  });
+
+  it('공통 상단바를 렌더한다', () => {
+    render(<InquiryCreatePage />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
   });
 });

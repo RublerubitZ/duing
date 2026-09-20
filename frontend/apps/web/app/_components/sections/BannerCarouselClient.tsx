@@ -52,6 +52,8 @@ export function BannerCarouselClient({ slides }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const [settleMs, setSettleMs] = useState(SETTLE_DURATION_MS);
+  // 배너가 뷰포트를 벗어났는지 — 자동재생을 쉬게 하는 조건일 뿐, 사용자의 정지(isPlaying)와는 별개 축이다.
+  const [isOffscreen, setIsOffscreen] = useState(false);
 
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,6 +66,11 @@ export function BannerCarouselClient({ slides }: Props) {
   const lockedRef = useRef<LockAxis>('none');
   const didDragRef = useRef(false);
   const dragBaseRef = useRef(0); // re-grab 시 현재 transform 위치(점프 없이 이어받기 위한 기준).
+  // 첫 배너 이미지는 모바일 LCP 후보라 최초 마운트의 진입 슬롯에만 preload 를 준다. 슬라이드 데이터는
+  // 서버 컴포넌트가 ISR HTML 에 박아두므로 이 preload 는 첫 페인트 전에 걸린다.
+  // activeIndex === 0 으로 판정하면 안 된다 — 자동재생이 한 바퀴 돌아 0번이 다시 keyed 재마운트될 때
+  // preload 가 또 붙는다(이미 받아둔 이미지라 이득 없이 우선순위만 뺏는다).
+  const isFirstMountRef = useRef(true);
 
   const slideAt = useCallback(
     (index: number): CarouselSlide | undefined => slides[index % slides.length],
@@ -96,6 +103,12 @@ export function BannerCarouselClient({ slides }: Props) {
   }, [slides, activeIndex, startSlideTransition]);
 
   useEffect(() => {
+    // 마운트가 끝나면 preload 자격을 회수한다 — 이후 진입하는 슬라이드는 전부 사용자가 화면을 본 뒤다.
+    // 값 변경만으로는 재렌더가 일어나지 않으므로, 이미 그려진 첫 슬라이드의 preload 는 그대로 남는다.
+    isFirstMountRef.current = false;
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
@@ -125,11 +138,25 @@ export function BannerCarouselClient({ slides }: Props) {
   }, []);
 
   useEffect(() => {
+    // 화면 밖으로 스크롤된 배너는 자동으로 넘길 이유가 없다 — 아무도 못 보는 전환에 합성 비용만 든다.
+    // 되돌아오면 재개한다. 사용자가 토글로 멈춘 상태(isPlaying=false)는 여기서 되살리지 않는다 —
+    // 조건을 따로 두고 AND 로 엮을 뿐, isPlaying 을 건드리지 않기 때문이다.
+    // IntersectionObserver 미지원(jsdom·구형 WebView)이면 항상 '화면 안' 으로 둔다(기존 동작 유지).
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setIsOffscreen(!entry.isIntersecting);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     // 드래그/복귀/전환 애니메이션 중에는 오토플레이를 멈춰, 손 뗀 직후 애니메이션이 끝난 뒤 재개한다.
-    if (!isPlaying || isDragging || isSettling || slides.length <= 1) return;
+    if (!isPlaying || isDragging || isSettling || isOffscreen || slides.length <= 1) return;
     const timer = window.setInterval(goNext, AUTOPLAY_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [isPlaying, isDragging, isSettling, goNext, slides.length]);
+  }, [isPlaying, isDragging, isSettling, isOffscreen, goNext, slides.length]);
 
   const releasePointer = useCallback(() => {
     const element = containerRef.current;
@@ -300,6 +327,7 @@ export function BannerCarouselClient({ slides }: Props) {
                   direction === 'left' ? 'animate-slide-out-left' : 'animate-slide-out-right',
                 )}
               >
+                {/* 나가는 슬롯에는 priority 를 주지 않는다(기본값 false) — 이미 받아둔 이미지다. */}
                 {exitingSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
                   <FullBleedSlide slide={exitingSlide} />
                 ) : (
@@ -319,9 +347,9 @@ export function BannerCarouselClient({ slides }: Props) {
               )}
             >
               {activeSlide.renderMode === 'FULL_BLEED_IMAGE' ? (
-                <FullBleedSlide slide={activeSlide} />
+                <FullBleedSlide slide={activeSlide} priority={isFirstMountRef.current} />
               ) : (
-                <SystemComposedSlide slide={activeSlide} />
+                <SystemComposedSlide slide={activeSlide} priority={isFirstMountRef.current} />
               )}
             </div>
           </div>

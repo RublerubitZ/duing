@@ -95,6 +95,10 @@ function listSuccess(rows: AdminFeeClubSummary[]) {
   };
 }
 
+function listPlaceholder(rows: AdminFeeClubSummary[]) {
+  return { ...listSuccess(rows), isPlaceholderData: true };
+}
+
 function rowByClub(clubName: string): HTMLElement {
   return screen.getByRole('row', { name: new RegExp(clubName) });
 }
@@ -229,6 +233,27 @@ describe('관리자 회비 감사 목록', () => {
 
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it('조건 변경으로 이전 목록을 유지 중이면 표를 딤 처리하고 aria-busy 로 알린다', () => {
+    mockClubsQuery.mockReturnValue(listPlaceholder([makeClub()]));
+
+    render(<AdminFeesPage />);
+
+    const busyWrapper = screen.getByRole('table').closest('[aria-busy]');
+    expect(busyWrapper).not.toBeNull();
+    expect(busyWrapper).toHaveAttribute('aria-busy', 'true');
+    expect(busyWrapper?.className).toContain('opacity-60');
+  });
+
+  it('갱신이 끝나면 딤과 aria-busy 가 해제된다', () => {
+    mockClubsQuery.mockReturnValue({ ...listSuccess([makeClub()]), isPlaceholderData: false });
+
+    render(<AdminFeesPage />);
+
+    const wrapper = screen.getByRole('table').closest('[aria-busy]');
+    expect(wrapper).toHaveAttribute('aria-busy', 'false');
+    expect(wrapper?.className ?? '').not.toContain('opacity-60');
   });
 });
 

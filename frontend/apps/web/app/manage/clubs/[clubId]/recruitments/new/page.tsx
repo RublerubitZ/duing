@@ -1,17 +1,23 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import {
   useClubRecruitmentsQuery,
   useCreateRecruitmentMutation,
+  useMeQuery,
   useRecruitmentDetailQuery,
 } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { isRecruitmentExpiredOpen } from '@/app/_lib/recruitmentDisplay';
 import { captureEvent } from '@/app/_lib/analytics';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import {
+  clearRecruitmentDraft,
+  loadRecruitmentDraft,
+} from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import {
   RecruitmentForm,
   RECRUITMENT_FORM_ID,
@@ -29,6 +35,7 @@ export default function NewRecruitmentPage({
   const { cloneFrom: cloneFromParam } = use(searchParams);
   const clubId = Number(clubIdParam);
   const router = useGuardedRouter();
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
   // 양식 복제 진입 — ?cloneFrom={id} 가 있으면 해당 모집 상세를 새 작성 폼의 초기값으로 쓴다.
   // 별도 Clone API 없이 기존 상세 조회 + 생성 API 를 재사용한다(원본은 절대 수정하지 않음).
@@ -50,11 +57,44 @@ export default function NewRecruitmentPage({
   // 자동 마감 대상은 "마감일이 지난 OPEN"(isRecruitmentExpiredOpen) — 백엔드가 같은 today 기준으로
   // 계산해 내려준 displayStatus 를 쓰므로 FE 날짜 연산이 필요 없다.
   // 활성 모집은 동아리당 1건뿐이라(V38 부분 유니크 인덱스) 자동 마감 대상도 최대 1건이다.
-  // 목록을 못 받았으면(로딩·실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
-  const { data: clubRecruitments } = useClubRecruitmentsQuery(isNaN(clubId) ? undefined : clubId);
-  const closingRecruitment = clubRecruitments?.find(isRecruitmentExpiredOpen);
+  // 목록을 못 받았으면(실패) undefined — 확인 없이 기존 제출 그대로 진행한다(fail-open).
+  const { data: clubRecruitments, isLoading: isClubRecruitmentsLoading } = useClubRecruitmentsQuery(
+    isNaN(clubId) ? undefined : clubId,
+  );
+  const activeRecruitment = clubRecruitments?.find((recruitment) => recruitment.status !== 'CLOSED');
+  const closingRecruitment =
+    activeRecruitment !== undefined && isRecruitmentExpiredOpen(activeRecruitment)
+      ? activeRecruitment
+      : undefined;
+  // 아직 기간이 남은(또는 상시·예정) 모집이 있으면 백엔드가 생성을 409 로 거부한다. 모집 관리 화면은
+  // 이 조건에서 CTA 를 숨기지만 대시보드 버튼·양식 복제 링크·직접 URL 로도 여기 올 수 있으므로,
+  // 긴 폼을 다 채운 뒤 실패하지 않도록 진입 시점에 막는다(모든 진입 경로가 이 페이지로 모인다).
+  const blockingRecruitment =
+    activeRecruitment !== undefined && closingRecruitment === undefined ? activeRecruitment : undefined;
 
   const createRecruitment = useCreateRecruitmentMutation(clubId);
+
+  // 임시저장은 사용자·동아리 쌍으로 보관한다 — 기기를 공유한 다른 운영진의 초안이 복원되지 않게.
+  // 복제 진입은 원본이 곧 초안이라 임시저장을 쓰지 않는다 — 폼과 취소 경로가 같은 판정을 본다.
+  // 폼의 자동 저장 useEffect 가 이 값을 의존값으로 쓰므로 참조를 고정한다.
+  const { data: me, isLoading: isMeLoading } = useMeQuery();
+  const draftOwner = useMemo(
+    () => (cloneSource !== undefined || me === undefined ? undefined : { userId: me.id, clubId }),
+    [cloneSource, me, clubId],
+  );
+  const recruitmentsHref = toRoute(`/manage/clubs/${clubId}/recruitments`);
+
+  /**
+   * 취소는 임시저장까지 정리해야 한다 — 그냥 나가면 자동 저장본이 남아, 취소했는데도 다음 진입에서
+   * "작성 중이던 내용이 있어요" 배너가 뜬다. 지울 게 있을 때만 묻는다.
+   */
+  function handleCancel() {
+    if (draftOwner !== undefined && loadRecruitmentDraft(draftOwner) !== null) {
+      setIsCancelConfirmOpen(true);
+      return;
+    }
+    router.push(recruitmentsHref);
+  }
 
   async function handleSubmit(values: CreateFormValues) {
     const newRecruitmentId = await createRecruitment.mutateAsync({
@@ -86,7 +126,47 @@ export default function NewRecruitmentPage({
     return <LoadingGate label="복제할 모집 정보 불러오는 중" />;
   }
 
-  const submitLabel = cloneSource ? '복제하여 모집 시작' : '모집 시작';
+  // 폼을 먼저 보여줬다가 차단 안내로 바꾸면 작성 중이던 입력이 사라진다 — 목록 판정이 끝날 때까지 기다린다.
+  if (isClubRecruitmentsLoading) {
+    return <LoadingGate label="모집 정보 불러오는 중" />;
+  }
+
+  // 폼은 마운트 때 한 번만 임시저장을 읽으므로, 작성자 id 가 없는 채로 마운트하면 하드 리로드에서
+  // 복원 배너가 영영 뜨지 않는다 — me 가 올 때까지 폼을 띄우지 않는다.
+  if (isMeLoading || me === undefined) {
+    return <LoadingGate label="작성자 정보 불러오는 중" />;
+  }
+
+  if (blockingRecruitment !== undefined) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <h1 className="text-xl font-bold text-ink-deep">신규 모집 작성</h1>
+        <div
+          role="status"
+          className="mt-5 rounded-[13px] border border-line bg-sage-tint px-5 py-4 text-sm leading-relaxed text-charcoal-2"
+        >
+          <p className="font-bold text-ink-deep">진행 중인 모집이 있어요</p>
+          <p className="mt-1">
+            모집은 한 번에 하나씩만 진행할 수 있어요. &apos;{blockingRecruitment.title}&apos; 모집을 마감한
+            뒤 새 모집을 만들 수 있어요.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={toRoute(`/manage/clubs/${clubId}/recruitments/${blockingRecruitment.id}`)}
+              className="btn btn-primary btn-sm"
+            >
+              진행 중인 모집 보기
+            </Link>
+            <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="btn btn-secondary btn-sm">
+              모집 관리로 이동
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const submitLabel = cloneSource ? '복제해서 공개하기' : '공개하기';
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9">
@@ -95,9 +175,9 @@ export default function NewRecruitmentPage({
           {cloneSource ? '모집 양식 복제' : '신규 모집 작성'}
         </h1>
         <div className="flex items-center gap-2">
-          <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="btn btn-secondary">
+          <button type="button" onClick={handleCancel} className="btn btn-secondary">
             취소
-          </Link>
+          </button>
           <button
             type="submit"
             form={RECRUITMENT_FORM_ID}
@@ -124,10 +204,24 @@ export default function NewRecruitmentPage({
       <RecruitmentForm
         mode="create"
         cloneSeed={cloneSource}
+        draftOwner={draftOwner}
         closingRecruitmentTitle={closingRecruitment?.title}
         submitLabel={submitLabel}
         onSubmit={handleSubmit}
         isPending={createRecruitment.isPending}
+      />
+
+      <ConfirmDialog
+        open={isCancelConfirmOpen}
+        title="작성을 취소할까요?"
+        description="작성 중이던 내용이 지워져요."
+        confirmLabel="취소하고 나가기"
+        onCancel={() => setIsCancelConfirmOpen(false)}
+        onConfirm={() => {
+          if (draftOwner !== undefined) clearRecruitmentDraft(draftOwner);
+          setIsCancelConfirmOpen(false);
+          router.push(recruitmentsHref);
+        }}
       />
     </div>
   );

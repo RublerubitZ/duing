@@ -28,6 +28,9 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.fee.entity.Bank;
 import com.duing.domain.fee.service.FeeAccountService;
 import com.duing.domain.fee.service.dto.command.UpsertFeeAccountCommand;
+import com.duing.domain.joincode.service.JoinCodeService;
+import com.duing.domain.joincode.service.dto.command.CreateClubInviteCodeCommand;
+import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserStatus;
@@ -94,6 +97,7 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
     @Autowired ClubService clubService;
     @Autowired ClubClosureService clubClosureService;
     @Autowired FeeAccountService feeAccountService;
+    @Autowired JoinCodeService joinCodeService;
     @Autowired @Qualifier(MonitoringAsyncConfig.EXECUTOR_BEAN_NAME) ThreadPoolTaskExecutor monitoringTaskExecutor;
 
     @BeforeEach
@@ -232,7 +236,7 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
         verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(messageCaptor.capture());
         assertThat(messageCaptor.getValue())
-                .contains("이벤트: FEE_ACCOUNT_CREATED", "ClubId: " + club.getId(), "은행: KB")
+                .contains("이벤트: FEE_ACCOUNT_CREATED", "동아리: " + club.getName(), "ClubId: " + club.getId(), "은행: KB")
                 .doesNotContain("111-222-333333", "홍예금주");
 
         feeAccountService.upsert(new UpsertFeeAccountCommand(club.getId(), leader.getId(), Bank.KB, "111-222-333333", "홍예금주"));
@@ -259,5 +263,29 @@ class OpsSlackMonitoringIntegrationTest extends IntegrationTestBase {
         assertThat(messageCaptor.getAllValues())
                 .anySatisfy(message -> assertThat(message).contains("조치: FORCE_LOGOUT", "대상 UserId: " + target.getId()))
                 .allSatisfy(message -> assertThat(message).doesNotContain("욕설 신고", "소명 완료"));
+    }
+
+    @Test
+    @DisplayName("자동승인 부원 초대 발급만 CLUB_INVITE_AUTO_APPROVE_ISSUED 메시지를 내고, 승인제 초대는 내지 않으며 코드 값은 싣지 않는다")
+    void autoApproveInviteNotifiesOnly() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = clubRepository.save(ClubFixture.academic("초대알림동아리"));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        joinCodeService.createClubInvite(
+                new CreateClubInviteCodeCommand(club.getId(), leader.getId(), 20, 24, false, 13));
+        drainMonitoringExecutor();
+        verify(slackNotifier, after(QUIET_WAIT_MS).never()).send(anyString());
+
+        JoinCodeQuery autoApproveInvite = joinCodeService.createClubInvite(
+                new CreateClubInviteCodeCommand(club.getId(), leader.getId(), 30, 72, true, 13));
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(slackNotifier, timeout(ASYNC_WAIT_MS)).send(messageCaptor.capture());
+        assertThat(messageCaptor.getValue())
+                .contains("이벤트: CLUB_INVITE_AUTO_APPROVE_ISSUED", "동아리: 초대알림동아리",
+                        "ClubId: " + club.getId(), "JoinCodeId: " + autoApproveInvite.joinCodeId(),
+                        "정원: 30", "발급자 UserId: " + leader.getId())
+                .doesNotContain(autoApproveInvite.code());
     }
 }

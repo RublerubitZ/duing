@@ -63,7 +63,7 @@
 
 ### P0-3 · 일반 버튼 `hover:-translate` `[위반]`
 - **문제:** 마이페이지 "더 많은 알림 보기"·"설정 이동하기" 버튼이 `hover:-translate-y-px`로 들림. 버튼 hover는 색상 전환만. `SectionSettingsSummary`는 `var(--sage)` 배경까지 써서 **장식 전용 sage를 프라이머리 액션 면적에 사용**하는 2차 문제 동반.
-- **위치:** `app/me/_components/SectionSettingsSummary.tsx:43`, `app/me/_components/SectionNotify.tsx:178`
+- **위치:** `app/me/_components/SectionSettingsSummary.tsx:43`(컴포넌트 삭제됨 #1209), `app/me/_components/SectionNotify.tsx:178`
 - **근거:** `transition-[transform,background] ... hover:-translate-y-px" style={{ background: 'var(--sage)' }}`
 - **관련 규칙:** line 247, line 115, line 246(sage 텍스트/면적 승격 금지)
 - **영향도:** 중간 · **수정 난이도:** 낮음

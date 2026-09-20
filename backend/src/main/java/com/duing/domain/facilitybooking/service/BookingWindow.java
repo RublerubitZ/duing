@@ -1,17 +1,22 @@
 package com.duing.domain.facilitybooking.service;
 
 import java.time.LocalDate;
-import java.util.List;
 
-/** 예약 가능 구간 값 객체 — 경계 포함([from, until]). openRanges 는 라벨링용 세부 구간(롤링: 현재+다음 반월). */
-public record BookingWindow(LocalDate from, LocalDate until, List<OpenRange> openRanges) {
+/**
+ * 예약 가능 구간 값 객체 — 경계 포함([from, until]). from > until 이면 빈 창(닫힘·오픈 전).
+ * 닫힘은 closed(until) 로 만든다: from = until + 1 — 필드는 항상 채워진 채로 "포함 날짜 없음" 을 표현한다(FE 계약: 문자열 2개).
+ */
+public record BookingWindow(LocalDate from, LocalDate until) {
 
-    public enum OpenRangeKind { CURRENT, NEXT }
-
-    /** 세부 오픈 구간 — kind 는 응답 계층이 라벨로 매핑한다(도메인은 한글 문자열을 모른다). */
-    public record OpenRange(LocalDate from, LocalDate until, OpenRangeKind kind) {}
+    public static BookingWindow closed(LocalDate until) {
+        return new BookingWindow(until.plusDays(1), until);
+    }
 
     public boolean contains(LocalDate date) {
         return !date.isBefore(from) && !date.isAfter(until);
+    }
+
+    public boolean isEmpty() {
+        return from.isAfter(until);
     }
 }

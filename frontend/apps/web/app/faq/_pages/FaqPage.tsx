@@ -170,6 +170,7 @@ export function FaqPage() {
               if (event.key === 'Enter') handleSearch();
             }}
             placeholder="질문을 검색하세요"
+            aria-label="질문 검색"
             className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
             style={{ fontFamily: 'inherit' }}
           />
@@ -224,7 +225,11 @@ export function FaqPage() {
         {listQuery.isSuccess && (
           <>
             {items.length === 0 ? (
-              <p className="py-12 text-center text-[13px] text-charcoal-3">검색 결과가 없어요</p>
+              <p className="py-12 text-center text-[13px] text-charcoal-3">
+                {params.keyword || params.categoryId !== 'ALL' || params.page > 1
+                  ? '검색 결과가 없어요'
+                  : '아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'}
+              </p>
             ) : (
               <div
                 // keepPreviousData 전환 중(카테고리·검색·페이지 변경)에는 이전 목록을 딤 처리해 갱신 중임을 알린다.
@@ -254,7 +259,7 @@ export function FaqPage() {
           <p className="text-[14px] font-semibold text-ink-deep">원하는 답을 못 찾으셨나요?</p>
           <Link
             href={toRoute('/me/inquiries/new')}
-            className="rounded-full bg-coral px-5 py-2.5 text-[14px] font-semibold text-paper"
+            className="rounded-full bg-danger px-5 py-2.5 text-[14px] font-semibold text-paper hover:bg-danger-hover"
           >
             1:1 문의하기
           </Link>

@@ -118,20 +118,6 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     }
 
     @Override
-    public Optional<Recruitment> findActiveByClubId(Long clubId) {
-        LocalDate today = LocalDate.now(clock);
-        Recruitment found = queryFactory
-                .selectFrom(recruitment)
-                .where(
-                        recruitment.club.id.eq(clubId),
-                        RecruitmentPredicates.effectivelyOpen(today)
-                )
-                .orderBy(recruitment.startDate.asc(), recruitment.id.asc())
-                .fetchFirst();
-        return Optional.ofNullable(found);
-    }
-
-    @Override
     public Optional<Recruitment> findOpenByClubId(Long clubId) {
         // uk_recruitment_club_active (V38) 로 최대 1건 보장. 비정상 다중 행이면 startDate ASC, id ASC tie-break.
         Recruitment found = queryFactory

@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+
 import { ApiError } from '@duing/api';
 import {
   useInterviewRoundDetailQuery,
   useCreateRoundSlotsMutation,
   useDeleteRoundSlotMutation,
 } from '@duing/hooks';
+import type { InterviewRoundDetailSlot } from '@duing/types';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 import { SlotPatternForm } from '@/components/interview/SlotPatternForm';
 import type { RoundSlotEntry } from '@/components/interview/_utils/generateSlotsFromPattern';
@@ -28,6 +32,8 @@ export function Step3Slots({ roundId, onNext }: Props) {
   const deleteSlotMutation = useDeleteRoundSlotMutation(roundId);
 
   const slots = detailQuery.data?.slots ?? [];
+  // 슬롯 삭제는 되돌릴 수 없다 — 확인받는 동안 대상 슬롯을 들고 있는다.
+  const [deleteTargetSlot, setDeleteTargetSlot] = useState<InterviewRoundDetailSlot | null>(null);
 
   const handleGenerate = async (generated: RoundSlotEntry[]) => {
     await createSlotsMutation.mutateAsync({ slots: generated });
@@ -44,6 +50,8 @@ export function Step3Slots({ roundId, onNext }: Props) {
           ? error.message
           : '슬롯 삭제 중 오류가 발생했습니다.';
       addToast(message, { variant: 'error' });
+    } finally {
+      setDeleteTargetSlot(null);
     }
   };
 
@@ -86,7 +94,7 @@ export function Step3Slots({ roundId, onNext }: Props) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleDelete(slot.slotId)}
+                  onClick={() => setDeleteTargetSlot(slot)}
                   aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 슬롯 삭제`}
                   className="ml-3 rounded-md px-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                 >
@@ -107,6 +115,21 @@ export function Step3Slots({ roundId, onNext }: Props) {
           다음
         </button>
       </div>
+
+      <ConfirmDialog
+        open={deleteTargetSlot !== null}
+        title="이 시간대를 삭제할까요?"
+        description={
+          deleteTargetSlot
+            ? formatSlotRange(deleteTargetSlot.startTime, deleteTargetSlot.endTime)
+            : undefined
+        }
+        isPending={deleteSlotMutation.isPending}
+        onCancel={() => setDeleteTargetSlot(null)}
+        onConfirm={() => {
+          if (deleteTargetSlot) void handleDelete(deleteTargetSlot.slotId);
+        }}
+      />
     </div>
   );
 }

@@ -67,5 +67,5 @@ function sanitizeFilename(name: string): string {
 }
 
 export function buildMembersCsvFilename(clubName: string, today: Date): string {
-  return `${sanitizeFilename(clubName)}_멤버목록_${KST_DATE_FORMATTER.format(today)}.csv`;
+  return `${sanitizeFilename(clubName)}_부원목록_${KST_DATE_FORMATTER.format(today)}.csv`;
 }

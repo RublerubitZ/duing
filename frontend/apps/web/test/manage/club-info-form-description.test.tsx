@@ -53,6 +53,11 @@ vi.mock('@/app/_components/NoticeRichEditorLazy', async () => {
 import { ClubInfoForm } from '../../app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import type { AdminUpdateClubPayload, ClubDetail } from '@duing/types';
 
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 function makeDetail(overrides: Partial<ClubDetail> = {}): ClubDetail {
   return {
     id: 1,

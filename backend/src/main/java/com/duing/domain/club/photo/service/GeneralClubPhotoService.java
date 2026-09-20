@@ -14,6 +14,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.global.file.UploadedObjectService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +33,8 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     private final ClubAuthService clubAuthService;
     private final ClubHeroActivityRepository clubHeroActivityRepository;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
+    // 업로드 객체 추적(#791) — 사진 URL 을 저장하는 쓰기 메서드에서 활성화한다.
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
@@ -55,7 +58,10 @@ public class GeneralClubPhotoService implements ClubPhotoService {
                 club, command.storageKey(), command.caption(),
                 command.width(), command.height(), nextOrder
         );
-        return ClubPhotoQuery.from(clubPhotoRepository.save(photo));
+        ClubPhoto savedPhoto = clubPhotoRepository.save(photo);
+        // 사진 storageKey 는 프론트가 업로드 응답 url 을 그대로 보낸 값(공개 URL)이다 — 업로드 추적 활성화(#791).
+        uploadedObjectService.activate(command.storageKey());
+        return ClubPhotoQuery.from(savedPhoto);
     }
 
     @Override
@@ -113,9 +119,9 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         if (clubHeroActivityRepository.existsByClubPhotoId(photoId)) {
             throw new ClubPhotoException.ReferencedByHeroActivity();
         }
-        // 스펙 §3.2d: Storage 객체 정리는 별도 정리 잡(Phase 5)에서 처리한다.
-        // 여기서는 DB 레코드만 soft-delete.
+        // DB 행은 soft-delete, 스토리지 객체는 해제(RELEASED) 뒤 업로드 파기 잡이 유예 후 지운다(#791·#1153).
         clubPhotoRepository.delete(photo);
+        uploadedObjectService.release(photo.getStorageKey());
     }
 
     private ClubPhoto findPhotoInClub(Long photoId, Long clubId) {

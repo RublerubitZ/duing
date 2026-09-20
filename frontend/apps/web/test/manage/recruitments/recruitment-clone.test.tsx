@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, userQueryKeys } from '@duing/hooks';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -48,6 +48,8 @@ function renderPage(searchParams: { cloneFrom?: string }) {
   // React 19 의 use(thenable) 가 재진입 없이 동기적으로 값을 꺼내가도록 status/value 가 미리
   // 태깅된 thenable 을 전달한다 (상세·목록 페이지 테스트와 동일 패턴). 일반 Promise.resolve 를
   // 넘기면 use 가 한 번 suspend 한 뒤 microtask 가 act 경계를 벗어나 영구 loading 으로 막힌다.
+  // 페이지는 임시저장 주인을 알아야 폼을 띄운다 — me 를 캐시에 심어 네트워크 없이 확정시킨다.
+  queryClient.setQueryData(userQueryKeys.me(), { id: 42, name: '운영진' });
   const paramsValue = { clubId: String(CLUB_ID) };
   const params = Object.assign(Promise.resolve(paramsValue), {
     status: 'fulfilled' as const,
@@ -67,15 +69,20 @@ function renderPage(searchParams: { cloneFrom?: string }) {
 }
 
 describe('NewRecruitmentPage — 양식 복제', () => {
-  it('cloneFrom 쿼리가 없으면 평소처럼 빈 폼을 연다', () => {
-    renderPage({});
-    expect(screen.getByText('신규 모집 작성')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
-    expect(screen.getAllByRole('button', { name: '모집 시작' }).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('link', { name: '취소' })).toHaveAttribute(
-      'href',
-      '/manage/clubs/1/recruitments',
+  it('cloneFrom 쿼리가 없으면 평소처럼 빈 폼을 연다', async () => {
+    // 진행 중 모집이 없어야 폼이 열린다 — 목록을 비워 진입 차단 판정을 명시적으로 통과시킨다.
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/recruitments`, () =>
+        HttpResponse.json({ ok: true, message: null, data: [] }),
+      ),
     );
+    renderPage({});
+    expect(await screen.findByPlaceholderText('모집 공고 제목을 입력하세요')).toHaveValue('');
+    expect(screen.getByText('신규 모집 작성')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '공개하기' }).length).toBeGreaterThanOrEqual(1);
+    // 취소는 링크가 아니라 버튼이다 — 남은 임시저장을 확인·정리한 뒤 이동한다
+    // (동작은 recruitment-new-cancel.test.tsx).
+    expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
   });
 
   it('cloneFrom이 있으면 원본을 불러와 제목·질문을 시드하고 안내 배너를 보여준다', async () => {
@@ -86,7 +93,7 @@ describe('NewRecruitmentPage — 양식 복제', () => {
     expect(screen.getByText(/원본 모집은 변경되지 않으며/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('지원 동기를 알려주세요')).toBeInTheDocument();
     expect(
-      screen.getAllByRole('button', { name: '복제하여 모집 시작' }).length,
+      screen.getAllByRole('button', { name: '복제해서 공개하기' }).length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('link', { name: '9기 신입 모집' })).toHaveAttribute(
       'href',

@@ -96,3 +96,6 @@ coverage/
 /qa-*.png
 /*-banner.png
 /*-screenshot.png
+
+### 루트 스크린샷 (실수 커밋 방지) ###
+/*.png

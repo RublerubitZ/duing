@@ -1,5 +1,7 @@
 package com.duing.domain.facilitysubmission.service;
 
+import com.duing.domain.facility.entity.Facility;
+import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
 import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.entity.FacilityBookingStatusHistory;
@@ -23,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralFacilitySubmissionService implements FacilitySubmissionService {
 
     private final FacilityBookingRepository bookingRepository;
+    private final FacilityRepository facilityRepository;
     private final FacilityBookingStatusHistoryRepository historyRepository;
     private final FacilitySubmissionBatchRepository batchRepository;
     private final FacilitySubmissionItemRepository itemRepository;
@@ -107,6 +111,13 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
         List<Long> bookingIds = itemsByBookingId.keySet().stream().sorted().toList();
         // 생성과 동일한 ID 정렬 행잠금(§4.3-2) — 생성·완료의 교차 실행도 booking 잠금에서 직렬화된다.
         List<FacilityBooking> bookings = bookingRepository.findAllByIdInForUpdate(bookingIds);
+        // 아카이브 시설 가드(P2-07) — 관리자 단건 확정·자동 매칭은 시설 잠금 하에서 아카이브를 재검증하지만, 이 경로는
+        // 예약 행잠금을 먼저 잡으므로 시설 잠금을 뒤에 걸면 "시설→예약" 순으로 잠그는 승인·매칭과 교착할 수 있다.
+        // 잠금 없이 확인해 best-effort 로 스킵한다(창은 04:00 동기화 1회와 완료 클릭의 동시성뿐). 스킵된 예약은
+        // APPROVED 로 남아 시설 복구 후 재제출할 수 있다. 시설 행 소실은 하드삭제 금지 정책상 도달 불가라 같은 사유로 묶는다.
+        Map<Long, Facility> facilitiesById = facilityRepository.findAllById(
+                        bookings.stream().map(FacilityBooking::getFacilityId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Facility::getId, Function.identity()));
 
         List<CompleteSubmissionBatchResult.SkippedBooking> skippedBookings = new ArrayList<>();
         int confirmedCount = 0;
@@ -115,6 +126,13 @@ public class GeneralFacilitySubmissionService implements FacilitySubmissionServi
                 skippedBookings.add(new CompleteSubmissionBatchResult.SkippedBooking(
                         booking.getId(), booking.getStatus(),
                         summaryFormatter.reasonLabel(booking.getStatus())));
+                itemsByBookingId.get(booking.getId()).markSkipped(completedAt);
+                continue;
+            }
+            Facility facility = facilitiesById.get(booking.getFacilityId());
+            if (facility == null || facility.isArchived()) {
+                skippedBookings.add(new CompleteSubmissionBatchResult.SkippedBooking(
+                        booking.getId(), booking.getStatus(), summaryFormatter.archivedFacilityReasonLabel()));
                 itemsByBookingId.get(booking.getId()).markSkipped(completedAt);
                 continue;
             }

@@ -112,7 +112,7 @@ export function RoundStatusBanner({
       {/* SCHEDULED — 일정 변경 가능 안내 */}
       {status === 'SCHEDULED' && (
         <div className="mt-3 rounded-md bg-sky-50 px-4 py-2 text-sm text-sky-700">
-          일정 변경 가능 — 멤버 행의 [일정 변경]을 통해 배정 슬롯을 수정할 수 있습니다
+          일정 변경 가능 — 지원자 행의 [일정 변경]을 통해 배정 슬롯을 수정할 수 있습니다
         </div>
       )}
     </div>

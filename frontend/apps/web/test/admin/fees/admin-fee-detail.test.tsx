@@ -401,4 +401,26 @@ describe('관리자 회비 감사 상세', () => {
     });
     expect(screen.getByLabelText('기간')).toHaveValue('LAST_30D');
   });
+
+  it('청구 탭이 이전 목록을 유지 중이면 표를 딤 처리하고 aria-busy 로 알린다', () => {
+    currentSearch = 'tab=bills';
+    mockBillsQuery.mockReturnValue({ ...pageSuccess([makeBill()]), isPlaceholderData: true });
+
+    renderDetail();
+
+    const wrapper = screen.getByRole('table').closest('[aria-busy]');
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
+    expect(wrapper?.className).toContain('opacity-60');
+  });
+
+  it('납부 탭이 이전 목록을 유지 중이면 표를 딤 처리하고 aria-busy 로 알린다', () => {
+    currentSearch = 'tab=payments';
+    mockPaymentsQuery.mockReturnValue({ ...pageSuccess([makePayment()]), isPlaceholderData: true });
+
+    renderDetail();
+
+    const wrapper = screen.getByRole('table').closest('[aria-busy]');
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
+    expect(wrapper?.className).toContain('opacity-60');
+  });
 });

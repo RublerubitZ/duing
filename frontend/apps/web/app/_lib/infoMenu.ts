@@ -1,9 +1,9 @@
 // 정보(Information) 섹션 단일 정의(SoT) — InfoTabs·ExploreNav·InfoNavLink(HomeNav)·BottomNav 가 공유한다.
 // 새 정보 페이지 추가 = INFO_MENU_ITEMS 에 1줄 추가(탭 노출·GNB/탭바 active·저장값 검증이 함께 따라온다).
 export const INFO_MENU_ITEMS = [
-  { label: '공지', href: '/notices' },
+  { label: '소식', href: '/notices' },
   { label: '자주 묻는 질문', href: '/faq' },
-  { label: '운영정책', href: '/terms' },
+  { label: '이용약관', href: '/terms' },
   { label: '서비스 소개', href: '/introduce' },
 ] as const;
 

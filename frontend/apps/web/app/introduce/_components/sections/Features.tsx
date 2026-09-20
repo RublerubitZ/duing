@@ -6,8 +6,8 @@ import { InterviewMockup } from '../mockups/InterviewMockup';
 
 export function Features() {
   return (
-    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
-      <div className="mx-auto max-w-layout">
+    <section className="py-20 md:py-28">
+      <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
           <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             FOR LEADERS · 운영진을 위한 기능
@@ -68,8 +68,8 @@ export function Features() {
                 한 화면에서
               </>
             }
-            desc="지원자를 검토·일괄 처리하고, 지원에서 합격까지 이어지는 펀넬을 통계로 확인해요. 공지·일정·멤버 관리까지 그대로 쌓여요."
-            items={['지원자 검토·상태 일괄 변경', '지원 → 면접 → 합격 펀넬 통계', '공지·일정·멤버·권한 관리']}
+            desc="지원자를 검토·일괄 처리하고, 지원에서 합격까지 이어지는 펀넬을 통계로 확인해요. 공지·일정·부원 관리까지 그대로 쌓여요."
+            items={['지원자 검토·상태 일괄 변경', '지원 → 면접 → 합격 펀넬 통계', '공지·일정·부원·권한 관리']}
             visual={<AdminMockup />}
           />
         </FadeIn>

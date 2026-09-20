@@ -35,8 +35,18 @@
   }
 }
 
+/* overflow-y: scroll — 세로 스크롤바 자리를 항상 잡아 둔다. 문서가 뷰포트보다 짧은 화면
+   (소식·시설·마이페이지)과 스크롤되는 화면을 오갈 때 막대가 생겼다 사라지며, 가운데 정렬된
+   상단바와 본문이 막대 폭의 절반(≈7.5px)만큼 좌우로 튀었다. 오버레이 스크롤바(맥 기본)에서는
+   아무 효과가 없다.
+   ⚠️ html 이 아니라 body 에 두는 것이 핵심이다. html 의 overflow 가 visible 로 남아 있어야
+   뷰포트가 body 의 값을 물려받고, 모달이 스크롤을 잠글 때(react-remove-scroll-bar 가 body 에
+   overflow:hidden + margin-right 보정) 막대와 보정이 함께 사라져 화면이 안 밀린다. html 에
+   걸면 잠금 중에도 막대가 남아 보정 폭만큼 본문이 왼쪽으로 밀리는 것을 실측했다. scrollbar-gutter: stable 은
+   루트 overflow 가 visible 이라 듣지 않는다(짧은 페이지 거터 0). */
 body {
   @apply bg-white text-slate-900 antialiased;
+  overflow-y: scroll;
 }
 
 /* shadcn/ui 시맨틱 토큰 — 두잉 토큰에 매핑 (두잉 전용 셋업).
@@ -57,7 +67,7 @@ body {
     --secondary: 120 15% 92.2%;               /* sage-mist #E8EEE8 */
     --secondary-foreground: 152.1 41% 20.6%;  /* ink */
     --muted: 43.6 26.8% 92%;                  /* graysoft #F0EDE5 */
-    --muted-foreground: 170 2.6% 44.7%;       /* charcoal-3 #6F7574 */
+    --muted-foreground: 142.5 4.2% 37.6%;     /* charcoal-3 #5C645F */
     --accent: 120 16.7% 95.3%;                /* sage-tint #F1F5F1 (hover·선택 배경) */
     --accent-foreground: 152.1 41% 20.6%;     /* ink */
     --destructive: 14.8 63.1% 59.6%;          /* coral  #D97757 (위험·로그아웃) */
@@ -91,7 +101,7 @@ body {
     --sage-tint:  #F1F5F1;
     --charcoal:   #2F3433;
     --charcoal-2: #4A504F;
-    --charcoal-3: #6F7574;
+    --charcoal-3: #5C645F;
     --gray-line:  #E5E2DA;
     --gray-soft:  #F0EDE5;
     --warm:       #E8B968;
@@ -212,6 +222,64 @@ body {
 
   .card {
     @apply bg-paper rounded-lg border border-line;
+  }
+
+  /* 프레스 피드백(모바일 탭 대상 전용) — 전이 정의를 이 클래스 한 곳에 모은다.
+     요소에 transition 유틸리티를 같이 붙이면 shorthand 를 통째로 덮어 스케일이 0ms 로 튄다.
+     reduced-motion 은 스케일 대신 밝기로 눌림을 알리고 색·섀도 전이는 남긴다(이동·스케일 제거 규약). */
+  .tap-card {
+    transition: transform 160ms ease-out, box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap-pill {
+    transition:
+      transform 160ms ease-out,
+      color 150ms,
+      background-color 150ms,
+      border-color 150ms;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tap-card:active {
+    transform: scale(0.98);
+  }
+  .tap-pill:active {
+    transform: scale(0.96);
+  }
+
+  /* 토스트 진입·퇴장. 진입은 @starting-style 로만 — 옵서버 없이 마운트 1회 재생되고,
+     미지원 브라우저(iOS 16 이하 등)에서는 전이 없이 즉시 표시된다(시작 상태를 박아 두지 않는다).
+     @apply 와 섞지 않는다 — @starting-style 안은 순수 CSS 여야 한다.
+     transform-origin 은 토스트가 뜨는 방향을 따라간다(모바일 하단 / md 이상 상단). */
+  .toast-enter {
+    opacity: 1;
+    transform: scale(1);
+    transform-origin: bottom center;
+    transition:
+      opacity 400ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @starting-style {
+    .toast-enter {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+  /* 퇴장 200ms 는 app/_components/toast/ToastProvider.tsx 의 EXIT_DURATION_MS 와 같은 값이다 —
+     그 타이머가 끝나야 토스트가 DOM 에서 빠지므로, 한쪽만 바꾸면 전이가 잘리거나 빈 채로 남는다.
+     반드시 둘을 함께 바꾼다. */
+  .toast-exit {
+    opacity: 0;
+    transform: scale(0.98);
+    transform-origin: bottom center;
+    transition:
+      opacity 200ms ease-out,
+      transform 200ms ease-out;
+  }
+  @media (min-width: 768px) {
+    .toast-enter,
+    .toast-exit {
+      transform-origin: top center;
+    }
   }
 
   .bg-grid {
@@ -336,9 +404,17 @@ body {
     display: none;
   }
   @media (max-width: 767px) {
+    /* 상단바(px-4 sm:px-6 md:px-10)와 같은 여백 사다리를 지킨다 — 여기는 16, 640~767 은 아래에서 24,
+       768 부터는 인라인 40 이 그대로 산다. 인라인 style 을 덮어야 해서만 !important 다. */
     .cal-section {
       padding-left: 16px !important;
       padding-right: 16px !important;
+    }
+    @media (min-width: 640px) {
+      .cal-section {
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+      }
     }
     .cal-header {
       /* padding-top 은 인라인 var(--page-top) 이 뷰포트별로 해소하므로 여기서 덮지 않는다 */
@@ -562,6 +638,30 @@ body {
 .animate-float-a   { animation: float-a  6s   ease-in-out infinite; }
 .animate-float-b   { animation: float-b  6.5s ease-in-out infinite; animation-delay: 1.2s; }
 
+/* 탐색 목록 첫 로드 스태거 — 첫 데이터가 도착한 렌더에서만 카드가 차례로 떠오른다.
+   항목당 40ms 씩 미루되 8번째부터는 280ms 로 묶어(min) 뒤쪽 카드가 하염없이 늦어지지 않게 한다.
+   fill-mode 는 backwards — 지연 구간에 from(opacity 0 · 8px 아래)을 미리 적용해 차례를 기다리는 카드가
+   먼저 보였다 사라지지 않게 하고, 끝나면 요소에 아무 값도 남기지 않는다(끝난 애니메이션이 in effect 로
+   남지 않는다). 끝난 뒤 카드 로고의 view-transition-name 위에 변환된 조상이 얹혀 있지 않다.
+   opacity/transform 만 건드려 합성으로 끝나고, pointer-events 는 손대지 않아 재생 중에도 누를 수 있다. */
+@keyframes enter-rise {
+  from { opacity: 0; transform: translateY(8px); }
+}
+.enter-stagger {
+  animation: enter-rise 200ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(min(var(--i), 7) * 40ms);
+}
+
+/* 스켈레톤 뒤 콘텐츠 등장 — 스켈레톤 단계를 거쳐 도착한 콘텐츠만 1회 떠오른다.
+   게이트는 useEnteredFromSkeleton(마운트 시점 isLoading 고정): 캐시로 첫 렌더부터 콘텐츠가 나오는 재방문엔
+   붙이지 않는다 — 반복 진입엔 연출하지 않고, 상세 로고 모핑이 8px 아래를 목표로 끝나 튀는 것도 막는다.
+   fill-mode 는 backwards — 지연 0 이라 재생 중엔 both 와 같고, 끝나면 요소에 아무 값도 남기지 않아
+   딤(opacity 전이)·고정·스티키 자손이 지금과 똑같이 동작한다.
+   재생 중인 transform 은 position: fixed 자손의 기준(containing block)이 되므로 하단 고정 바는 이 요소 밖에 둔다. */
+.enter-content {
+  animation: enter-rise 200ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
 /* 스피너 Flicker 방지 — 150ms 안에 끝나는 로딩은 스피너가 아예 보이지 않게 지연 표시한다.
    opacity 만 전이(합성 친화)하고, JS 타이머 없이 CSS 로만 처리해 리렌더 비용이 없다. */
 @keyframes delayed-show {
@@ -576,6 +676,22 @@ body {
 /* 홈 카테고리 장식 아이콘의 느린 회전 — transform-only 라 합성 비용만 든다. */
 .animate-spin-slow { animation: spin 6s linear infinite; }
 
+/* 찜 하트 프레스 — 찜이 켜지는 순간에만 한 번 튄다(해제·실패 롤백은 색만 바뀐다).
+   React 쪽에서 하트 SVG 의 key 를 바꿔 리마운트하는 방식으로 재생하므로, 여기는 1회성 키프레임만 둔다.
+   transform-only 라 레이아웃을 건드리지 않는다. */
+@keyframes heart-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(.85); }
+  100% { transform: scale(1); }
+}
+.animate-heart-pop { animation: heart-pop 200ms cubic-bezier(.2,.7,.2,1); }
+
+/* 뷰포트 밖 루프 정지 — PauseOffscreen 이 래퍼에 data-offscreen 을 달면 안쪽 마키를 멈춘다.
+   재생/정지를 JS 로 토글하지 않고 CSS 한 줄로 끝내, 스크롤 중 리렌더 없이 합성만 쉬게 한다.
+   유틸리티(.animate-marquee)보다 선택자가 구체적이라 유틸리티 레이어 밖 평문 CSS 로 둔다.
+   기존 group-hover 정지·motion-reduce 정지와는 서로 독립이다. */
+[data-offscreen] .animate-marquee { animation-play-state: paused; }
+
 /* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
    framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
    CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */
@@ -583,12 +699,34 @@ body {
   .animate-float-a,
   .animate-float-b,
   .animate-spin-slow,
+  /* 찜 하트 팝 — 스케일 이동만 빼고 색 변화(fill/stroke)는 그대로 남는다. */
+  .animate-heart-pop,
   /* 배너 전환 — 나가는 슬라이드가 들어오는 슬라이드 아래에 깔리는 구조라 끄면 즉시 전환이 된다. */
   .animate-slide-in-left,
   .animate-slide-in-right,
   .animate-slide-out-left,
   .animate-slide-out-right {
     animation: none;
+  }
+}
+
+/* 동작 줄이기 — 탭 대상의 눌림 스케일을 밝기 피드백(brightness)으로 바꾸고 색·섀도 전이는 그대로 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .tap-card,
+  .tap-pill {
+    transition-property: color, background-color, border-color, box-shadow;
+  }
+  .tap-card:active,
+  .tap-pill:active {
+    transform: none;
+    /* 스케일 대신 밝기로 눌림을 알린다 — filter 는 모션이 아니고, 딤 카드의 opacity 를 덮지 않는다. */
+    filter: brightness(0.94);
+  }
+  /* 토스트도 같은 규약 — 스케일은 끄고 페이드(opacity)만 남긴다. 시간은 그대로. */
+  .toast-enter,
+  .toast-exit {
+    transition-property: opacity;
+    transform: none;
   }
 }
 
@@ -646,6 +784,11 @@ body {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  /* 탐색 첫 로드 스태거·스켈레톤 뒤 콘텐츠 등장 — 떠오름과 지연을 모두 없애고 처음부터 그냥 보이게 둔다. */
+  .enter-stagger,
+  .enter-content {
+    animation: none;
   }
 }
 

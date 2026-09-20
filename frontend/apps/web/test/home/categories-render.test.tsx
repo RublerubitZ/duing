@@ -54,6 +54,12 @@ describe('Categories', () => {
     }
   });
 
+  it('섹션 id 가 categories 다 — 히어로의 "카테고리로 찾기"(#categories) 앵커가 닿는 지점', async () => {
+    const { container } = render(await Categories());
+
+    expect(container.querySelector('section#categories')).not.toBeNull();
+  });
+
   it('각 카테고리 링크가 enum 값을 URL 쿼리로 사용한다', async () => {
     const { container } = render(await Categories());
 

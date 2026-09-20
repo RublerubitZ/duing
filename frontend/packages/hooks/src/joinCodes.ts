@@ -142,6 +142,19 @@ export function useJoinRequestDetailQuery(
   });
 }
 
+/**
+ * 가입 요청자 원본 번호 조회. GET 이지만 useQuery 가 아니라 useMutation 을 쓴다 — 쿼리로 받으면 원본 번호가
+ * React Query 캐시에 남아 패널을 닫아도 살아 있다(useApplicantPhoneMutation·useMemberPhoneMutation 과 같은 이유).
+ * gcTime 0 — 결과가 원본 개인정보라 옵저버가 떨어지는 즉시 버린다.
+ */
+export function useJoinRequestPhoneMutation(clubId: number) {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (joinRequestId: number) => client.joinCodes.getRequestPhone(clubId, joinRequestId),
+    gcTime: 0,
+  });
+}
+
 // 처리 한 건이 요청 목록·회원 명단·코드 사용량(usedCount)을 함께 바꾸므로 셋 다 무효화한다.
 // 요청 콘솔은 클럽 단위라 어느 모집의 코드였는지 모른다 — 코드는 클럽 프리픽스로 통째 무효화한다.
 function invalidateAfterDecision(

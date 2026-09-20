@@ -110,7 +110,11 @@ describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', (
 
   it('인증 시드면 즉시 유저 메뉴이고 로그인 진입점은 나오지 않는다(metric 1)', async () => {
     // 시드 직후에는 프로필이 아직 없다 — 이름은 '회원' 폴백으로 채워진다.
-    server.use(http.get(`${BASE}/users/me`, () => new Promise(() => {})));
+    // 내 동아리 목록(운영진 콘솔 항목의 근거)도 같이 미도착으로 둔다 — 메뉴는 둘 다 없이도 열려야 한다.
+    server.use(
+      http.get(`${BASE}/users/me`, () => new Promise(() => {})),
+      http.get(`${BASE}/me/clubs`, () => new Promise(() => {})),
+    );
     setAuthStatus('authenticated');
     renderWithProviders(<HomeNavAuthSlot initialAuthenticated />);
 
@@ -123,7 +127,7 @@ describe('HomeNavAuthSlot — 시드된 값으로 첫 렌더부터 그린다', (
 // role 은 시드에 실리지 않는다(§9.3) — 판정은 늘 서버 프로필이고, 프로필이 오기 전까지가
 // "확인 중" 이다. 그 사이 거부 문구를 먼저 띄우면 총동연 계정 하드 로드마다 그걸 본다(metric 4).
 describe('AdminRoleGuard — 프로필이 도착하기 전에는 권한을 판정하지 않는다', () => {
-  const adminDenied = '총동연(관리자) 권한이 필요합니다.';
+  const adminDenied = '총동아리연합회(총동연) 관리자 권한이 필요해요.';
   const meUser = (role: 'ADMIN' | 'STUDENT') => ({
     id: 1,
     studentId: '20200001',

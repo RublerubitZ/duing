@@ -15,6 +15,7 @@ import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.exception.NoticeException;
 import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.notice.repository.NoticeTargetClubRepository;
+import com.duing.global.file.UploadedObjectService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -86,6 +87,7 @@ class NoticeExpiryKstBoundaryTest {
                 mock(ClubRepository.class),
                 mock(ClubMemberRepository.class),
                 mock(NoticeBroadcaster.class),
-                fixedClock);
+                fixedClock,
+                mock(UploadedObjectService.class));
     }
 }

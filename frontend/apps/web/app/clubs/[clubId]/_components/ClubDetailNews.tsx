@@ -15,7 +15,9 @@ import {
   useClubNoticeListQuery,
 } from '@duing/hooks';
 
+import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { NOTICE_CATEGORY_LABEL } from '@/app/notices/_lib/categoryLabels';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
@@ -53,6 +55,7 @@ function SectionHeader({ title, moreHref }: { title: string; moreHref: `/${strin
 
 function RecentNotices({ clubId }: Props) {
   const { data, isLoading } = useClubNoticeListQuery(clubId, 0);
+  const enteredFromSkeleton = useEnteredFromSkeleton(isLoading);
   const notices = (data?.content ?? []).slice(0, PREVIEW_COUNT);
 
   return (
@@ -67,9 +70,9 @@ function RecentNotices({ clubId }: Props) {
           label="공지 불러오는 중"
         />
       ) : notices.length === 0 ? (
-        <p className={EMPTY_STATE_CLASS}>등록된 공지가 없어요.</p>
+        <p className={cn(EMPTY_STATE_CLASS, enteredFromSkeleton && 'enter-content')}>등록된 공지가 없어요.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className={cn('flex flex-col gap-2', enteredFromSkeleton && 'enter-content')}>
           {notices.map((notice) => (
             <li key={notice.id}>
               <Link href={toRoute(`/clubs/${clubId}/member/notices/${notice.id}`)} className={CARD_CLASS}>
@@ -98,6 +101,7 @@ function UpcomingEvents({ clubId }: Props) {
   // BE 기본 윈도우는 오늘−30일~+180일 + startAt ASC 라 오늘(KST) 기준 from 을 넘겨야
   // "다가오는 일정" 라벨과 데이터가 일치한다(지난 일정 우선 노출 방지).
   const { data, isLoading } = useClubEventListQuery(clubId, { from: todayKstDateString(new Date()) });
+  const enteredFromSkeleton = useEnteredFromSkeleton(isLoading);
   const events = (data ?? []).slice(0, PREVIEW_COUNT);
 
   return (
@@ -112,9 +116,9 @@ function UpcomingEvents({ clubId }: Props) {
           label="일정 불러오는 중"
         />
       ) : events.length === 0 ? (
-        <p className={EMPTY_STATE_CLASS}>등록된 일정이 없어요.</p>
+        <p className={cn(EMPTY_STATE_CLASS, enteredFromSkeleton && 'enter-content')}>등록된 일정이 없어요.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className={cn('flex flex-col gap-2', enteredFromSkeleton && 'enter-content')}>
           {events.map((event) => {
             const { month, day, weekday } = eventDateBox(event.startAt);
             return (

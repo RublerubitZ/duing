@@ -92,16 +92,30 @@ export type JoinRequestSummary = {
 };
 
 export type JoinRequestDetail = JoinRequestSummary & {
-  phone: string;
+  /** 마스킹된 번호(010-****-5678). 번호가 없으면 null이고, 원본은 joinCodes.getRequestPhone 이 감사 행과 함께 반환한다. */
+  phoneMasked: string | null;
   rejectReason: string | null;
   reviewedAt: IsoInstantString | null;
 };
 
 /**
- * 단건 처리 결과. `AUTO_REJECTED` 는 실패가 아니라 "승인하려 했으나 이미 가입된 회원이라
- * 인원 차감 없이 자동 거절된" 정상 경로이므로 화면에서 승인·거절과 구분해 안내한다.
+ * 운영진이 명시적으로 조회한 가입 요청자의 원본 연락처. 상세(JoinRequestDetail)는 phoneMasked 만 제공하며,
+ * 원본은 전용 API 응답으로만 존재한다(지원자 ApplicantPhone·부원 ClubMemberPhone 과 같은 규약).
  */
-export type JoinRequestDecisionResult = 'APPROVED' | 'REJECTED' | 'AUTO_REJECTED';
+export type JoinRequestPhone = {
+  phone: string;
+};
+
+/**
+ * 단건 처리 결과. `AUTO_REJECTED` 는 실패가 아니라 "승인하려 했으나 이미 가입된 회원이라
+ * 인원 차감 없이 자동 거절된" 정상 경로이고, `AUTO_REJECTED_WITHDRAWN` 은 요청자가 이미 탈퇴한
+ * 계정이라 같은 방식으로 자동 거절된 경우다 — 화면에서 승인·거절과 구분해 안내한다.
+ */
+export type JoinRequestDecisionResult =
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'AUTO_REJECTED'
+  | 'AUTO_REJECTED_WITHDRAWN';
 
 export type DecideJoinRequestPayload = {
   status: Extract<JoinRequestStatus, 'APPROVED' | 'REJECTED'>;

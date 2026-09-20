@@ -26,7 +26,13 @@ function parts(iso: string): { date: string; time: string } {
   return { date, time };
 }
 
-export function formatEventRange(startAt: string, endAt: string | null): string {
+// 시작·종료 모두 선택 — 종료만 있으면 "M.d(요일) HH:mm까지", 둘 다 없으면 빈 문자열(호출부가 행을 숨긴다).
+export function formatEventRange(startAt: string | null, endAt: string | null): string {
+  if (!startAt) {
+    if (!endAt) return '';
+    const end = parts(endAt);
+    return `${end.date} ${end.time}까지`;
+  }
   const start = parts(startAt);
   if (!endAt) return `${start.date} ${start.time}`;
   const end = parts(endAt);
@@ -44,11 +50,11 @@ export function formatPublishedDate(iso: string): string {
   return formatDateKst(iso);
 }
 
-// 이벤트 정보 → 라벨/값 행(일시 항상, 장소·주최·대상은 값이 있을 때만). 카드/요약이 공유한다.
+// 이벤트 정보 → 라벨/값 행(일시·장소·주최·대상 모두 값이 있을 때만). 카드/요약이 공유한다.
 export function buildEventRows(eventInfo: NoticeEventInfo): { label: string; value: string }[] {
-  const rows: { label: string; value: string }[] = [
-    { label: '일시', value: formatEventRange(eventInfo.startAt, eventInfo.endAt) },
-  ];
+  const rows: { label: string; value: string }[] = [];
+  const range = formatEventRange(eventInfo.startAt, eventInfo.endAt);
+  if (range) rows.push({ label: '일시', value: range });
   if (eventInfo.location) rows.push({ label: '장소', value: eventInfo.location });
   if (eventInfo.host) rows.push({ label: '주최', value: eventInfo.host });
   if (eventInfo.audience) rows.push({ label: '대상', value: eventInfo.audience });

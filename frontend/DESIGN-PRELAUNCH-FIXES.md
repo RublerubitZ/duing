@@ -14,12 +14,12 @@
 | P0-1 | BulkActionBar 임의 뉴트럴 섀도 | `applicants/_components/BulkActionBar.tsx:31` | line 245·95 | 낮음 | 미미 |
 | P0-2a | ApplyForm 제출 버튼 섀도+transform | `apply/.../ApplyForm.tsx:146` | line 247·268 | 낮음 | 미미 |
 | P0-2b | ClubInfoForm 저장 버튼 섀도+transform+raw-hex | `info/_components/ClubInfoForm.tsx:518` | line 247·268·30 | 낮음 | 소(색 보정) |
-| P0-3a | SettingsSummary 버튼 hover-translate + sage fill | `me/_components/SectionSettingsSummary.tsx:43` | line 247·246 | 낮음 | 결정 필요 |
-| P0-3b | Notify 버튼 hover-translate | `me/_components/SectionNotify.tsx:178` | line 247 | 낮음 | 없음 |
+| P0-3a | SettingsSummary 버튼 hover-translate + sage fill | `me/_components/SectionSettingsSummary.tsx:43` | line 247·246 | 낮음 | 해당 없음(컴포넌트 삭제 — #1209) |
+| P0-3b | Notify 버튼 hover-translate | `me/_components/SectionNotify.tsx:178` | line 247 | 낮음 | 해당 없음(컴포넌트 삭제 — #672) |
 | S-1 | admin 레이아웃 스코프 누락 | `admin/layout.tsx:7` | line 9·236 | 낮음 | **헤딩 QA** |
 | S-2 | manage 콘솔 스코프 누락 | `manage/_components/ManageShell.tsx:20` | line 9·236 | 낮음 | **헤딩 QA** |
 
-총 예상 작업: 파일 7개 · 라인 7곳. **스코프 2건(S-1/S-2)은 자동 헤딩 시각 변화를 동반하므로 반드시 시각 QA** 후 머지.
+총 예상 작업: 파일 5개 · 라인 5곳. **스코프 2건(S-1/S-2)은 자동 헤딩 시각 변화를 동반하므로 반드시 시각 QA** 후 머지.
 
 ---
 
@@ -72,7 +72,7 @@
 
 **위반:** line 247(`버튼 hover는 색상 전환만`), line 246(sage 면적 승격)
 
-### P0-3a · SectionSettingsSummary 버튼
+### P0-3a · SectionSettingsSummary 버튼 — 해당 없음(컴포넌트 삭제 — #1209)
 **파일:** `app/me/_components/SectionSettingsSummary.tsx:43~44`
 
 **필수(P0 — transform 제거):**
@@ -91,7 +91,7 @@
 ```
 > sage 배경(연녹)→ink(딥그린)으로 바뀌므로 **디자이너 확인 후** 채택. 유지하고 싶으면 위 "필수" 버전 + `hover:bg-sage-soft` 같은 색 hover를 별도 정의.
 
-### P0-3b · SectionNotify "더 많은 알림 보기" 버튼
+### P0-3b · SectionNotify "더 많은 알림 보기" 버튼 — 해당 없음(컴포넌트 삭제 — #672)
 **파일:** `app/me/_components/SectionNotify.tsx:178`
 
 ```diff
@@ -152,9 +152,8 @@ pnpm --filter @duing/web lint
 ### 회귀 grep (수정 누락 확인)
 ```bash
 cd frontend/apps/web
-# P0-2/P0-3: 대상 버튼 transform 제거 확인 (해당 라인이 사라져야 함)
+# P0-2: 대상 버튼 transform 제거 확인 (해당 라인이 사라져야 함)
 rg -n 'active:translate-y-px' app/apply app/manage/clubs/'[clubId]'/info
-rg -n 'hover:-translate-y-px' app/me/_components/SectionSettingsSummary.tsx app/me/_components/SectionNotify.tsx
 # P0-1: 뉴트럴 섀도 제거 확인
 rg -n 'shadow-\[0_-4px.*rgba\(0,0,0' app/manage
 # S-1/S-2: duing 래퍼 존재 확인
@@ -165,8 +164,8 @@ rg -n 'duing' app/admin/layout.tsx app/manage/_components/ManageShell.tsx
 - [ ] **P0-1** manage 지원자 목록 → 항목 선택 시 하단 일괄바: 보더 헤어라인 + 잉크틴트(또는 무섀도) 자연스러운지
 - [ ] **P0-2a** apply 지원서 제출 버튼: hover 색만 변화(들림/그림자 없음), 비활성 상태 정상
 - [ ] **P0-2b** manage info 저장 버튼: ink 색으로 정정, hover `bg-ink-deep`, 들림 없음
-- [ ] **P0-3a** me 설정 요약 버튼: hover 피드백 존재(전환 방식 결정 반영), 들림 없음
-- [ ] **P0-3b** me 알림 "더 보기" 버튼: hover 색 전환만, 들림 없음
+- ~~**P0-3a** me 설정 요약 버튼: hover 피드백 존재(전환 방식 결정 반영), 들림 없음~~ 해당 없음(컴포넌트 삭제 — #1209)
+- ~~**P0-3b** me 알림 "더 보기" 버튼: hover 색 전환만, 들림 없음~~ 해당 없음(컴포넌트 삭제 — #672)
 - [ ] **S-1** admin 임의 페이지: 헤딩 GmarketSans 변환 확인, 레이아웃 깨짐 없음
 - [ ] **S-2** manage/clubs/[clubId]/* 임의 페이지: 동일 헤딩 QA, 사이드바/메인 정상
 

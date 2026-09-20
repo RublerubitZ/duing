@@ -21,8 +21,14 @@ public interface JoinRequestService {
     /** 운영진 목록 조회(상태별). 전화번호는 담지 않는다. */
     List<JoinRequestSummaryQuery> getRequests(Long clubId, Long requesterId, JoinRequestStatus status);
 
-    /** 운영진 상세 조회 — 전화번호 포함. 타 동아리 요청은 404. */
+    /** 운영진 상세 조회 — 전화번호는 마스킹해 응답 경계에서 가린다. 타 동아리 요청은 404. */
     JoinRequestDetailQuery getRequest(Long clubId, Long joinRequestId, Long requesterId);
+
+    /**
+     * 가입 요청자의 원본 연락처를 반환한다. 운영진(LEADER/OFFICER) 전용이며 열람 사실을 감사
+     * (JOIN_REQUEST_PHONE_VIEWED)에 남긴다. 상세는 마스킹만 제공하고 원본은 이 경로로만 나간다.
+     */
+    String getRequestPhone(Long clubId, Long joinRequestId, Long requesterId);
 
     /**
      * 단건 승인/거절. 승인 요청이라도 이미 활성 회원이면 자동 거절 결과가 돌아온다(예외 아님).
@@ -32,4 +38,7 @@ public interface JoinRequestService {
 
     /** 일괄 승인 — 건별 독립 트랜잭션. 실패는 사유와 함께 반환한다. */
     BulkApproveJoinRequestsResult bulkApprove(BulkApproveJoinRequestsCommand bulkCommand);
+
+    /** 계정 탈퇴 시 본인의 대기 요청 전부를 자동 거절하고 확보했던 자리를 환급한다(#1142). 호출자가 users 행을 잠근 뒤 부른다. */
+    void rejectAllPendingOnWithdrawal(Long userId);
 }

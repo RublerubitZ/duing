@@ -11,6 +11,7 @@ import com.duing.domain.application.repository.ApplicationStatusHistoryRepositor
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
@@ -22,6 +23,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -115,6 +117,8 @@ class ApplicationDeadlineKstBoundaryTest {
                 new ApplicationStatusChanger(mock(ApplicationStatusHistoryRepository.class)),
                 mock(ApplicationEvaluationRepository.class),
                 mock(InterviewAssignmentQueryService.class),
-                fixedClock);
+                fixedClock,
+                mock(ClubAuditEventRepository.class),
+                new PhoneRevealRateLimiter());
     }
 }

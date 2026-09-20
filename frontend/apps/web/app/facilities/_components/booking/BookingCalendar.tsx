@@ -19,7 +19,9 @@ type Props = {
 };
 
 // 월간 탐색 그리드(§3) — 카드형 셀·혼잡도 게이지·오늘 도트. 창 밖 미래 날짜는 문구 없이 비활성 배경으로만
-// 구분한다. 헤더(제목·화살표·범례)는 공용 BookingViewHeader 로 이관됐고, 카드 래퍼도 페이지가 소유한다.
+// 구분한다. 데이터가 있는 지난 날짜·창 밖 오늘은 열람용(기록)으로 클릭 가능하고 범례의 "마감"(FULL 메타)을 달며(muted),
+// 데이터 없는 날짜만 disabled 다(2026-09-03 → 2026-09-09 오늘·라벨 확장).
+// 헤더(제목·화살표·범례)는 공용 BookingViewHeader 로 이관됐고, 카드 래퍼도 페이지가 소유한다.
 // 좁은 모바일(≤375px)에서 "여유/보통/혼잡" 한글이 셀 폭을 넘어 "여/유" 로 분해되던 문제 —
 // 상태 텍스트는 이해에 필요하므로 남기고, 대신 8칸 히트맵 바를 3칸 LevelGauge 로 압축해
 // 폭을 벌어준다(gap·padding·폰트도 모바일만 축소). sm 이상은 기존 표기를 그대로 둔다.
@@ -48,26 +50,33 @@ export function BookingCalendar({
           }
           const day = daysByIso.get(cell.iso);
           const withinRange = isWithinBookable(cell.iso, bookableFrom, bookableUntil);
-          const isPastOrUnknown = day === undefined || day.dayStatus === 'PAST' || cell.iso < todayIso;
-          const outOfWindow = !withinRange && !isPastOrUnknown;
-          const selectable = withinRange && !isPastOrUnknown;
-          const selected = cell.iso === selectedDate;
+          const unknown = day === undefined;
           const isToday = cell.iso === todayIso;
-          const level = selectable && day ? dayLevelOf(day.availableSlotCount) : null;
+          // 데이터가 있는 지난 날짜·창 밖 오늘은 열람용(기록) — 클릭해 주간/시트로 열 수 있고 라벨은 "마감" 고정이다.
+          // 오늘은 전날 12:01 마감이 항상 지나 신청 대상이 아니지만, 창(오픈일 NULL·내일 오픈)에 따라 "예약 기간 아님"
+          // 으로 잠기던 것을 지난 날짜와 같은 기록 축으로 연다. 창 안 오늘은 기존 레벨 셀("마감, 남은 0칸")로 남는다.
+          const viewableRecord = day !== undefined && cell.iso <= todayIso && !withinRange;
+          const selectable = withinRange && !unknown && !viewableRecord;
+          // 창 이후 미래만 창 밖이다 — 지난 날짜·오늘을 창 밖으로 오분류하지 않는다.
+          const outOfWindow = !withinRange && !unknown && !viewableRecord;
+          const selected = cell.iso === selectedDate;
+          const level = selectable && day ? dayLevelOf(day.availableSlotCount) : viewableRecord ? 'FULL' : null;
           const levelMeta = level !== null ? DAY_LEVEL_META[level] : null;
           const ariaLabel = selectable && day && levelMeta
             ? `${cell.day}일 ${levelMeta.label}, 남은 ${day.availableSlotCount}칸`
-            : outOfWindow
-              ? `${cell.day}일 예약 기간 아님`
-              : `${cell.day}일`;
+            : viewableRecord
+              ? isToday ? `${cell.day}일 마감` : `${cell.day}일 지난 날짜`
+              : outOfWindow
+                ? `${cell.day}일 예약 기간 아님`
+                : `${cell.day}일`;
           return (
             <button
               key={cell.iso}
               type="button"
-              disabled={isPastOrUnknown}
+              disabled={unknown}
               aria-disabled={outOfWindow || undefined}
               onClick={
-                selectable
+                selectable || viewableRecord
                   ? () => onSelectDate(cell.iso)
                   : outOfWindow
                     ? () => onOutOfWindowSelect(cell.iso)
@@ -85,12 +94,14 @@ export function BookingCalendar({
                     ? 'border border-line bg-graysoft'
                     : selectable
                       ? 'cursor-pointer border border-line bg-paper hover:border-sage'
-                      : 'border border-line bg-paper opacity-40'
+                      : viewableRecord
+                        ? 'cursor-pointer border border-line bg-paper opacity-60 hover:border-sage'
+                        : 'border border-line bg-paper opacity-40'
               }`}
             >
               <span
                 className={`tabular-nums text-[13px] font-bold sm:text-sm ${
-                  selected ? 'text-cream' : outOfWindow || isPastOrUnknown ? 'text-charcoal-3' : 'text-charcoal'
+                  selected ? 'text-cream' : selectable ? 'text-charcoal' : 'text-charcoal-3'
                 }`}
               >
                 {cell.day}
@@ -119,7 +130,7 @@ export function BookingCalendar({
                       모바일 전용 클래스는 sm: 로 되돌리지 않고 max-sm: 로 건다 — PC 는 선언 자체가 없어야
                       기존 계산값(.duing line-height 등)에 우연히 기대지 않는다. */}
                   <span
-                    className={`text-[10px] font-bold max-sm:whitespace-nowrap max-sm:leading-none sm:text-[10.5px] ${
+                    className={`text-[11px] font-bold max-sm:whitespace-nowrap max-sm:leading-none sm:text-[11px] ${
                       selected ? 'text-sage' : levelMeta.textClass
                     }`}
                   >

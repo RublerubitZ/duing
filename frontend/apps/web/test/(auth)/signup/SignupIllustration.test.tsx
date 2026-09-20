@@ -22,4 +22,10 @@ describe('SignupIllustration', () => {
     render(<SignupIllustration className="max-w-[360px]" />);
     expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toHaveClass('max-w-[360px]');
   });
+
+  it('code·moNumber 를 주면 예시값 대신 실제 값을 그린다', () => {
+    render(<SignupIllustration code="A5D8PN9S" moNumber="1666-3538" />);
+    expect(screen.getByText('A5D8PN9S')).toBeInTheDocument();
+    expect(screen.queryByText('5WAVK4YZ')).not.toBeInTheDocument();
+  });
 });

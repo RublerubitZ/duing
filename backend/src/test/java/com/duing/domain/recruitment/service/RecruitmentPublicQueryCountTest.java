@@ -65,8 +65,13 @@ class RecruitmentPublicQueryCountTest {
     }
 
     // 시한폭탄 금지 — 절대 날짜 대신 상대 월. 서로 다른 달을 써서 두 데이터셋을 격리한다.
-    private final YearMonth smallMonth = YearMonth.from(LocalDate.now()).minusMonths(2);
-    private final YearMonth bigMonth = YearMonth.from(LocalDate.now()).minusMonths(1);
+    // 먼 과거 월인 이유: 이 클래스는 절대 건수(hasSize)를 단언하는데, TRUNCATE 계열 테스트가
+    // 커밋한 시드는 다음 TRUNCATE 클래스까지 살아남고 대부분 "오늘 ± 며칠" 상대일로 만들어진다.
+    // 인접 과거 월을 쓰면 월초(1~14일)마다 그 시드가 직전 달로 넘어와 결정적으로 실패한다
+    // (실측: RecruitmentDeleteJoinCodePolicyTest 의 [오늘-14, 오늘-1] 시드 — 매월 1~14일 red).
+    // 현재 기준 상대일 시드가 구조적으로 닿을 수 없는 거리로 물러난다.
+    private final YearMonth smallMonth = YearMonth.from(LocalDate.now()).minusMonths(21);
+    private final YearMonth bigMonth = YearMonth.from(LocalDate.now()).minusMonths(20);
 
     @Test
     @DisplayName("공개 모집 캘린더 조회의 쿼리 수는 해당 월 모집 수와 무관하게 상수다")

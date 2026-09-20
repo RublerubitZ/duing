@@ -5,6 +5,7 @@ import com.duing.domain.application.controller.dto.request.BulkUpdateApplication
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantNeighborsResponse;
+import com.duing.domain.application.controller.dto.response.ApplicantPhoneResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -62,6 +64,18 @@ public class LeaderApplicationController implements LeaderApplicationApi {
         ApplicantDetailResponse response = ApplicantDetailResponse.from(
                 applicationService.getApplicantDetail(applicationId, currentUser.id()));
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ApplicantPhoneResponse>> getApplicantPhone(
+            @PathVariable Long applicationId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        String phone = applicationService.getApplicantPhone(applicationId, currentUser.id());
+        // 개인정보 응답이 브라우저·중간 캐시에 남지 않게 한다(ClubMemberController.getMemberPhone 전례).
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(ApplicantPhoneResponse.from(phone)));
     }
 
     @Override

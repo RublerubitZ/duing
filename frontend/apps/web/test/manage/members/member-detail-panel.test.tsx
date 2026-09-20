@@ -512,7 +512,7 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
   it('기수 비우기는 generation=null 을 보낸다', async () => {
     renderPanel({ viewerRole: 'LEADER', viewerUserId: 999, member: member({ generation: 3 }) });
 
-    await userEvent.click(screen.getByRole('button', { name: '비우기' }));
+    await userEvent.click(screen.getByRole('button', { name: '기수 지우기' }));
 
     await waitFor(() => expect(capturedGenerationBody).toEqual({ generation: null }));
   });
@@ -611,12 +611,12 @@ describe('MemberDetailPanel — 기수 비우기 활성 조건', () => {
 
     fireEvent.change(screen.getByLabelText('기수 수정'), { target: { value: '' } });
 
-    expect(screen.getByRole('button', { name: '비우기' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '기수 지우기' })).toBeEnabled();
   });
 
   it('저장된 기수가 없으면 비우기는 비활성이다', () => {
     renderPanel({ member: member({ generation: null }) });
 
-    expect(screen.getByRole('button', { name: '비우기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '기수 지우기' })).toBeDisabled();
   });
 });

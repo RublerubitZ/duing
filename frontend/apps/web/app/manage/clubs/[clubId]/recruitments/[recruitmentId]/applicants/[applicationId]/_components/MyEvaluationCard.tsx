@@ -19,7 +19,7 @@ type Props = {
 
 export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false }: Props) {
   const [isEditing, setIsEditing] = useState(myEvaluation === null);
-  const [score, setScore] = useState<number>(myEvaluation?.score ?? 3);
+  const [score, setScore] = useState<number | null>(myEvaluation?.score ?? null);
   const [memo, setMemo] = useState(myEvaluation?.memo ?? '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -29,6 +29,8 @@ export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false
   const { addToast } = useToast();
 
   const handleSave = async () => {
+    // 점수 미선택은 저장 버튼이 이미 잠그지만, 키보드·연타 경로까지 같은 규칙으로 닫는다.
+    if (score === null) return;
     try {
       await upsertMutation.mutateAsync({
         applicationId,
@@ -47,7 +49,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false
     try {
       await deleteMutation.mutateAsync(applicationId);
       setShowDeleteConfirm(false);
-      setScore(3);
+      setScore(null);
       setMemo('');
       setIsEditing(true);
     } catch (error) {
@@ -157,11 +159,17 @@ export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false
       <p className="mt-1 text-xs text-charcoal-3">
         메모는 평가 근거 작성에 사용됩니다. 지원자에게는 공개되지 않습니다.
       </p>
+      {/* 저장이 왜 잠겨 있는지 알린다 — disabled 버튼은 포커스가 안 돼 키보드·스크린리더 사용자는 단서가 없다. */}
+      {score === null && !readOnly && (
+        <p className="mt-1 text-xs text-charcoal-3" role="status">
+          점수를 선택하면 저장할 수 있어요.
+        </p>
+      )}
       <div className="mt-2 flex gap-2">
         <button
           type="button"
           onClick={handleSave}
-          disabled={upsertMutation.isPending || readOnly}
+          disabled={upsertMutation.isPending || readOnly || score === null}
           className="btn btn-primary btn-sm min-h-11"
         >
           저장

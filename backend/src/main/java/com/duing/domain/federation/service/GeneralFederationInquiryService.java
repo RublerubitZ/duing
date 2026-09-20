@@ -25,10 +25,11 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.FileStorageService;
 import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.StoredFile;
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.UploadedObjectService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,7 @@ public class GeneralFederationInquiryService implements FederationInquiryService
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final FileStorageService fileStorageService;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -145,6 +147,8 @@ public class GeneralFederationInquiryService implements FederationInquiryService
             attachments.add(FederationInquiryAttachment.create(
                     inquiry, storageKey, "첨부 이미지 " + (index + 1), contentType, fileSize, index));
         }
+        // 업로드 추적 활성화(#791) — 잠금 순서 결정화를 위해 서비스가 사전순 정렬해 한 번에 잠근다(스펙 §3.3).
+        uploadedObjectService.activate(attachmentUrls.toArray(String[]::new));
         return attachments;
     }
 

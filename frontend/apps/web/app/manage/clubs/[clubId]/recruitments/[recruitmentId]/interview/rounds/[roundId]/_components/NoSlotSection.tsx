@@ -32,7 +32,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
     <div className="rounded-xl border border-orange-200 bg-orange-50 px-5 py-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-orange-800">
-          가능한 시간이 없는 멤버 ({noSlotMembers.length}명)
+          가능한 시간이 없는 지원자 ({noSlotMembers.length}명)
         </h2>
         {/* 새 폼을 중복 배치하지 않고 슬롯 섹션으로 이동시키는 앵커 버튼 */}
         {canCreateSlots && (

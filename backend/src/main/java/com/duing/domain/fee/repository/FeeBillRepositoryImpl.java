@@ -129,8 +129,18 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
 
     @Override
     public List<MatchCandidate> findMatchCandidates(Long clubId, long depositAmount) {
+        // 단건도 배치 구현에 위임한다 — 잔액(remaining) 정의가 두 벌이 되지 않도록 쿼리는 아래 한 곳에만 둔다.
+        return findMatchCandidates(clubId, List.of(depositAmount));
+    }
+
+    @Override
+    public List<MatchCandidate> findMatchCandidates(Long clubId, Collection<Long> depositAmounts) {
         // clubId 는 동아리 격리의 필수 조건이다(다른 동아리 청구에 입금이 매칭되면 안 됨).
         Objects.requireNonNull(clubId, "clubId must not be null");
+        // 빈 입력이면 IN () 가 비정상 쿼리가 되므로 쿼리를 생략하고 빈 목록을 반환한다(findMatchedBillInfo 와 동일).
+        if (depositAmounts == null || depositAmounts.isEmpty()) {
+            return List.of();
+        }
         // 청구별 활성 납부 합계를 상관 서브쿼리로 산출한다(VOIDED 제외). payment 를 조인하면 1:N fan-out 으로
         // 같은 청구가 납부 건수만큼 중복되므로 서브쿼리로 청구 그레인을 유지한다.
         NumberExpression<Long> activePaidSum = Expressions.asNumber(JPAExpressions
@@ -158,7 +168,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
                 .where(
                         feeBill.clubId.eq(clubId),
                         feeBill.status.in(FeeStatus.unpaidRemainderSet()),
-                        remaining.eq(depositAmount))
+                        remaining.in(depositAmounts))
                 .orderBy(feeBill.dueDate.asc(), feeBill.createdAt.desc(), feeBill.id.asc())
                 .fetch();
     }

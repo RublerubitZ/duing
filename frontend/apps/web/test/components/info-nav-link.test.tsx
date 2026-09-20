@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
@@ -65,23 +65,27 @@ describe('InfoNavLink — Hover Quick Menu', () => {
   it('마우스 hover 시 허브 4개로 직행하는 Quick Menu 를 펼친다', () => {
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    fireEvent.mouseOver(screen.getByRole('link', { name: '소식' }));
+    const trigger = screen.getByRole('link', { name: '소식' });
+    fireEvent.mouseOver(trigger);
 
-    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
-    expect(screen.getByRole('link', { name: '자주 묻는 질문' })).toHaveAttribute('href', '/faq');
-    expect(screen.getByRole('link', { name: '운영정책' })).toHaveAttribute('href', '/terms');
-    expect(screen.getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '/introduce');
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    // 트리거와 퀵메뉴 첫 항목이 모두 "소식" 이라 퀵메뉴 안으로 좁혀 잡는다.
+    const quickMenu = within(screen.getByRole('list'));
+    expect(quickMenu.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
+    expect(quickMenu.getByRole('link', { name: '자주 묻는 질문' })).toHaveAttribute('href', '/faq');
+    expect(quickMenu.getByRole('link', { name: '이용약관' })).toHaveAttribute('href', '/terms');
+    expect(quickMenu.getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '/introduce');
   });
 
   it('Quick Menu 항목은 마지막 방문 경로가 아니라 각자 URL 로 직행한다', () => {
     window.localStorage.setItem('duing:info-last-path', '/terms');
     mockUsePathname.mockReturnValue('/');
     render(<InfoNavLink />);
-    fireEvent.mouseOver(screen.getByRole('link', { name: '소식' }));
+    const trigger = screen.getByRole('link', { name: '소식' });
+    fireEvent.mouseOver(trigger);
 
-    expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('href', '/terms');
-    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
+    expect(trigger).toHaveAttribute('href', '/terms');
+    expect(within(screen.getByRole('list')).getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
   });
 
   it('마우스가 떠나면 Quick Menu 를 닫는다', () => {

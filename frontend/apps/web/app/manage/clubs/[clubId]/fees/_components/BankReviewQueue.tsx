@@ -31,7 +31,7 @@ function normalizeName(name: string): string {
   return name.replace(/\s+/g, '');
 }
 
-// 입금자명이 있고(NH/우리는 비어 있음) 매칭 회원명과 다르면 오매칭 가능성 → 총무가 확인하도록 경고를 띄운다.
+// 입금자명이 있고(NH/우리는 비어 있음) 매칭 부원명과 다르면 오매칭 가능성 → 총무가 확인하도록 경고를 띄운다.
 // 입금자명이 없으면 대조할 대상이 없어 경고하지 않는다(대리 입금처럼 다른 게 정상인 경우도 있어 매칭 로직은 그대로다).
 function hasNameMismatch(counterparty: string | null, matchedMemberName: string | null): boolean {
   if (!counterparty || !matchedMemberName) return false;
@@ -182,7 +182,7 @@ function PendingTransactionCard({ clubId, transaction }: PendingTransactionCardP
             disabled={isPending}
             className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-graysoft disabled:opacity-50"
           >
-            회원 선택 후 매칭
+            부원 선택 후 매칭
           </button>
           <button
             type="button"

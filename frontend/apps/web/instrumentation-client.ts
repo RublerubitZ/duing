@@ -63,9 +63,44 @@ const URL_BEARING_PROPERTY = /url|referrer/i;
 // autocapture 는 클릭한 요소의 링크 주소를 직렬화된 요소 사슬 안에 넣는다 — 속성 이름 기준으로는 안 걸린다.
 // 값 안의 따옴표는 SDK 가 역슬래시로 이스케이프하므로 그 짝을 함께 읽어야 값 경계를 놓치지 않는다.
 const HREF_ATTRIBUTE = /href="((?:\\.|[^"\\])*)"/g;
+// 중첩 정제의 재귀 깊이 상한. 실제로 덮어야 하는 가장 깊은 자리가 web vitals 의 지표별 중첩 객체
+// (속성 → 지표 객체 → 값) 하나뿐이라 여유가 충분하고, 순환 참조·비정상 구조에서 스택을 지킨다.
+const MAX_NESTED_PROPERTY_DEPTH = 6;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+/**
+ * 속성 하나하나를 훑으며 URL 을 담는 이름의 문자열에서 쿼리스트링을 지운다(제자리 수정).
+ * 중첩 객체·배열은 한 단계씩 더 들어가고, 깊이 상한에 닿으면 멈춘다.
+ */
+function stripUrlQueryInPlace(container: Record<string, unknown>, depth: number): void {
+  if (depth > MAX_NESTED_PROPERTY_DEPTH) return;
+  for (const [propertyName, propertyValue] of Object.entries(container)) {
+    if (typeof propertyValue === 'string') {
+      if (URL_BEARING_PROPERTY.test(propertyName)) {
+        container[propertyName] = stripQuery(propertyValue);
+      }
+    } else if (Array.isArray(propertyValue)) {
+      // isRecord 는 배열도 통과시키므로 배열 판정이 먼저다.
+      stripUrlQueryInArrayItems(propertyValue, depth + 1);
+    } else if (isRecord(propertyValue)) {
+      stripUrlQueryInPlace(propertyValue, depth + 1);
+    }
+  }
+}
+
+/** 배열 원소에는 판정 근거가 될 이름이 없다 — 객체·배열 원소만 한 단계 더 들어간다. */
+function stripUrlQueryInArrayItems(items: unknown[], depth: number): void {
+  if (depth > MAX_NESTED_PROPERTY_DEPTH) return;
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      stripUrlQueryInArrayItems(item, depth + 1);
+    } else if (isRecord(item)) {
+      stripUrlQueryInPlace(item, depth + 1);
+    }
+  }
 }
 
 /**
@@ -81,16 +116,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * <p>Sentry 는 같은 이유로 이미 쿼리스트링을 지운다 — 판정을 sentry-scrub 한 곳에 두고 공유한다.
  *
- * <p>범위 한계: 최상위 문자열 속성과 요소 사슬의 링크 주소만 본다. 중첩 객체 안의 주소(성능 지표
- * 상세 등)와 이 훅을 타지 않는 전송 경로(기능 플래그 요청)는 덮지 못하므로, 그런 채널은 수집 자체를
- * 끄거나 SDK 단계 마스킹으로 막는다 — 위 초기화 옵션이 그 역할이다.
+ * <p>중첩 plain 객체·배열 안의 문자열까지 같은 이름 판정으로 덮는다 — web vitals 는 지표마다
+ * 중첩 객체를 싣고 그 안에 발화 시점의 주소($web_vitals_LCP_event.$current_url)를 넣는다.
+ *
+ * <p>범위 한계는 두 가지다. ① 지표 객체의 `entries[]` 는 살아있는 PerformanceEntry 인스턴스라
+ * 속성이 프로토타입 접근자에 있어 Object.entries 에 잡히지 않고 readonly 라 재할당도 안 된다
+ * (전송 시 toJSON 으로만 직렬화된다) — 재귀가 구조적으로 닿지 않는다. 다만 거기 실리는 url 은
+ * LCP 리소스(이미지) 주소이지 문서 주소가 아니라 PII 축이 아니다. ② URL 을 담는 이름 아래의
+ * 문자열 배열(`urls: [...]` 모양)은 덮지 않는다 — 현행 이벤트에 그런 형태가 없다.
+ * 이 훅을 아예 타지 않는 전송 경로(기능 플래그 요청)는 여전히 SDK 단계 마스킹으로 막는다 —
+ * 위 초기화 옵션이 그 역할이다.
  */
 function stripUrlQueryFromProperties(properties: Record<string, unknown>): void {
-  for (const [propertyName, propertyValue] of Object.entries(properties)) {
-    if (typeof propertyValue === 'string' && URL_BEARING_PROPERTY.test(propertyName)) {
-      properties[propertyName] = stripQuery(propertyValue);
-    }
-  }
+  stripUrlQueryInPlace(properties, 0);
 
   // 요소 사슬의 링크 주소. SDK 가 이 값만은 속성 필터·마스킹 뒤에 무조건 다시 넣어서
   // (autocapture 의 attr__href 재할당) 전송 직전인 여기서 지우는 수밖에 없다.
@@ -190,6 +228,16 @@ if (!posthogKey) {
     // 죽은 클릭 수집 금지 — 히트맵과 같은 원격 토글 구조이고, 켜지면 위 자동 수집 속성이
     // 같은 모양으로 한 번 더 실린다.
     capture_dead_clicks: false,
+    // web vitals 는 위 플래그들과 방향만 반대다 — 켜는 쪽을 못박는다. 클라이언트가 boolean 을 주면
+    // SDK 가 원격 설정을 양방향으로 이기므로(WebVitalsAutocapture.isEnabled), 코드에 값이 없으면
+    // 활성 여부가 대시보드에만 달려 배포 없이 꺼질 수 있고 리뷰로는 켜졌는지조차 알 수 없다.
+    // 메트릭 집합도 미지정 시 원격 우선이라 함께 못박아야 계측이 조용히 줄지 않는다.
+    // 네 개를 다 받는 이유는 검증 대상이 그만큼이기 때문이다 — 폰트 개선(P1-7)은 LCP·FCP 로,
+    // LCP 이미지 개선(P1-9)은 LCP 로, 잔존 레이아웃 이동은 CLS 로 전/후를 본다.
+    capture_performance: {
+      web_vitals: true,
+      web_vitals_allowed_metrics: ['CLS', 'FCP', 'INP', 'LCP'],
+    },
     // 설문 스크립트 로드 금지 — 대시보드 토글과 AND 로 묶이지 않는 유일한 예외라 여기서 못박는다.
     // 원격 설정이 surveys:false 여도 SDK 는 그 값을 '비활성 확정'으로 저장한 뒤 그대로
     // loadExternalDependency('surveys') 를 타서 /ingest/static/surveys.js(디코드 약 100KB)를 매 문서

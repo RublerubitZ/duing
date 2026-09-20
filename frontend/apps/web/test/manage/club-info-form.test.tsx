@@ -1,5 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 vi.mock('@/app/_components/ImageUploader', () => ({
   ImageUploader: (props: { value: string; onChange: (url: string) => void; purpose: string }) => (
@@ -250,13 +256,19 @@ describe('ClubInfoForm', () => {
   });
 
   it('학과 끝 공백은 trim 해서 보내 저장 후 폼이 계속 dirty 로 남지 않는다', async () => {
+    const user = userEvent.setup();
     const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
     render(
-      <ClubInfoForm
-        detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '컴퓨터공학과' })}
-        mode="leader"
-        mutation={{ mutateAsync, isPending: false }}
-      />,
+      <>
+        {/* 가드가 통과시키면 jsdom 이 미구현 내비게이션 경고를 남기므로 기본 동작만 끈다
+            (capture 단계의 가드 판정은 이 핸들러보다 먼저 끝난다). */}
+        <a href="/manage/clubs/1" onClick={(event) => event.preventDefault()}>대시보드</a>
+        <ClubInfoForm
+          detail={makeDetail({ centralClub: false, college: 'IT_ENGINEERING', department: '컴퓨터공학과' })}
+          mode="leader"
+          mutation={{ mutateAsync, isPending: false }}
+        />
+      </>,
     );
     // 서버가 strip 해 저장한 값과 같아지므로 "변경 없음" 으로 판정돼야 한다.
     fireEvent.change(screen.getByLabelText('학과'), { target: { value: '컴퓨터공학과  ' } });
@@ -264,6 +276,45 @@ describe('ClubInfoForm', () => {
 
     await waitFor(() => expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument());
     expect(mutateAsync).not.toHaveBeenCalled();
+    // 보낼 게 없다고 판정한 순간 스냅샷도 맞춰야 한다 — 아니면 공백만 고친 폼이 영원히 dirty 로 남는다.
+    await user.click(screen.getByRole('link', { name: '대시보드' }));
+    expect(screen.queryByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).not.toBeInTheDocument();
+  });
+
+  it('동아리방 위치에 공백만 넣으면 저장도 이탈 경고도 일어나지 않는다', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <>
+        {/* 가드가 통과시키면 jsdom 이 미구현 내비게이션 경고를 남기므로 기본 동작만 끈다. */}
+        <a href="/manage/clubs/1" onClick={(event) => event.preventDefault()}>대시보드</a>
+        <ClubInfoForm
+          detail={makeDetail({ location: null })}
+          mode="leader"
+          mutation={{ mutateAsync, isPending: false }}
+        />
+      </>,
+    );
+    // 공백만 바뀐 값은 학과와 같은 규칙으로 정규화돼 미입력과 같아진다 — 보낼 것도 지킬 것도 없다.
+    fireEvent.change(screen.getByLabelText('동아리방 위치'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument());
+    expect(mutateAsync).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('link', { name: '대시보드' }));
+    expect(screen.queryByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).not.toBeInTheDocument();
+  });
+
+  it('동아리방 위치 앞뒤 공백은 떨어내고 보낸다', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />,
+    );
+    fireEvent.change(screen.getByLabelText('동아리방 위치'), { target: { value: '  학생회관 405호 ' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith({ location: '학생회관 405호' });
   });
 
   it('중앙동아리에는 학과 입력이 나타나지 않는다', () => {
@@ -357,6 +408,19 @@ describe('ClubInfoForm', () => {
   it('admin 모드에는 회원 기수 관리 스위치가 렌더되지 않는다', () => {
     render(<ClubInfoForm detail={makeDetail()} mode="admin" mutation={makeMutation()} />);
     expect(screen.queryByRole('switch', { name: '회원 기수 관리 사용' })).toBeNull();
+  });
+
+  it('값을 바꾸면 내부 링크 클릭 시 이탈 확인이 뜬다', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <a href="/manage/clubs/1">대시보드</a>
+        <ClubInfoForm detail={makeDetail()} mode="leader" mutation={makeMutation()} />
+      </>,
+    );
+    await user.type(screen.getByLabelText('동아리방 위치'), '변경');
+    await user.click(screen.getByRole('link', { name: '대시보드' }));
+    expect(screen.getByRole('dialog', { name: '저장하지 않은 변경이 있어요' })).toBeInTheDocument();
   });
 });
 

@@ -162,11 +162,14 @@ public class FacilityCrawlService {
         boolean onDemand = source == CrawlSource.ON_DEMAND;
         long deadlineNanos = startNanos + Duration.ofSeconds(properties.onDemandDeadlineSeconds()).toNanos();
         boolean deadlineExceeded = false;
+        boolean interrupted = false;
+        boolean anyPartialMonth = false;
         int processedRooms = 0;
 
         boolean firstRoom = true;
         for (Facility facility : facilities) {
             if (Thread.currentThread().isInterrupted()) {
+                interrupted = true;
                 log.warn("시설 수집 인터럽트 감지 — 남은 룸 수집 중단");
                 break;
             }
@@ -202,6 +205,7 @@ public class FacilityCrawlService {
                         // 부분 파싱 실패(P2-10 fail-safe): 성공 행은 반영하되 미반영 저장 행을 지우지 않는다 —
                         // 실패 원소가 기존 예약일 수 있어 삭제하면 슬롯이 열린다. 월은 PARTIAL 로 남겨 다음 주기에 재시도.
                         partialMonths.add(month);
+                        anyPartialMonth = true;
                         anyFailure.put(month, true);
                         lastError = "예약 부분 파싱 실패: roomSeq=" + facility.getRoomSeq() + " month=" + month
                                 + " skipped=" + parseResult.skippedCount();
@@ -244,11 +248,13 @@ public class FacilityCrawlService {
             processedRooms++;
         }
 
-        // 데드라인 스킵 룸은 시도 자체가 없었으므로 failedRooms 로 집계하지 않되,
+        // 스킵 룸(데드라인·인터럽트)은 시도 자체가 없었으므로 failedRooms 로 집계하지 않되,
         // 스킵이 있었던 달을 SUCCESS(신선)로 기록하면 안 된다 — anyFailure 를 세워 PARTIAL(stale=true)로 남겨 재시도되게 한다.
-        int deadlineSkippedRooms = deadlineExceeded ? facilities.size() - processedRooms : 0;
-        if (deadlineSkippedRooms > 0) {
-            lastError = "온디맨드 데드라인 초과";
+        // lastError 는 기존 데드라인 관례대로 루프 뒤 덮어쓴다(앞선 부분 파싱·fetch 사유보다 스킵 사유가 이긴다).
+        int skippedRooms = (deadlineExceeded || interrupted) ? facilities.size() - processedRooms : 0;
+        if (skippedRooms > 0) {
+            // 데드라인 문자열은 기존 값을 바이트 그대로 유지한다 — 데드라인 테스트가 eq("온디맨드 데드라인 초과") 로 단언한다.
+            lastError = deadlineExceeded ? "온디맨드 데드라인 초과" : "수집 인터럽트 중단";
             for (YearMonth month : months) {
                 anyFailure.put(month, true);
             }
@@ -269,13 +275,14 @@ public class FacilityCrawlService {
         }
 
         int totalReservations = reservationCount.values().stream().mapToInt(Integer::intValue).sum();
-        // 데드라인 스킵 룸은 성공도 실패도 아니므로 성공 수에서 제외한다 — 스킵을 성공으로 오집계하면
+        // 스킵 룸(데드라인·인터럽트)은 성공도 실패도 아니므로 성공 수에서 제외한다 — 스킵을 성공으로 오집계하면
         // succeededRooms>0 기준(LIVE_FETCH 판정)과 SUCCESS 오기록으로 스테일이 신선으로 둔갑한다.
-        int succeededRoomCount = facilities.size() - failedRooms.size() - deadlineSkippedRooms;
+        int succeededRoomCount = facilities.size() - failedRooms.size() - skippedRooms;
         FetchStatus overall;
         if (facilities.isEmpty()) {
             overall = FetchStatus.FAILED; // 활성 시설이 없으면 수집 대상이 없음(콜드/오설정)
-        } else if (failedRooms.isEmpty() && deadlineSkippedRooms == 0) {
+        } else if (failedRooms.isEmpty() && skippedRooms == 0 && !anyPartialMonth) {
+            // 부분 파싱 월이 있으면 월 메타가 PARTIAL 이므로 요약도 SUCCESS 로 올리지 않는다(#1069 이연 정합).
             overall = FetchStatus.SUCCESS;
         } else if (succeededRoomCount <= 0) {
             overall = FetchStatus.FAILED;

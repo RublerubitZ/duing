@@ -4,7 +4,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ApiError } from '@duing/api';
-import { useCheckEligibilityMutation } from '@duing/hooks';
+import { useCheckEligibilityMutation, useMyApplicationsQuery } from '@duing/hooks';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { safeExternalHref, toRoute } from '../../../_lib/route';
@@ -26,6 +26,13 @@ export function useClubApply(recruitment: StudentRecruitmentProjection | undefin
   const canApply = status === 'OPEN' || status === 'ALWAYS_OPEN';
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
+
+  // 이미 지원한 모집이면 버튼 대신 지원서 보기로 보낸다. 'ALL' 인 이유: REJECTED 도 재지원 불가(BE 중복 검사는 상태 무관).
+  // 미인증이면 훅이 스스로 disabled 라 요청이 나가지 않는다. 카드·하단 바 두 소비처는 이 값만 받는다(직접 쿼리 금지).
+  const myApplications = useMyApplicationsQuery('ALL');
+  const existingApplicationId =
+    myApplications.data?.find((application) => application.recruitmentId === recruitment?.id)?.id ??
+    null;
 
   async function handleApply() {
     if (!recruitment || !canApply || eligibilityCheck.isPending) return;
@@ -65,5 +72,6 @@ export function useClubApply(recruitment: StudentRecruitmentProjection | undefin
     handleApply,
     applyButtonLabel,
     isCheckingEligibility: eligibilityCheck.isPending,
+    existingApplicationId,
   };
 }

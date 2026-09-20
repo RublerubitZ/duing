@@ -14,6 +14,7 @@ import com.duing.domain.user.service.MoPollThrottle;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
+import com.duing.global.monitoring.event.ClubInviteAutoApproveIssuedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
@@ -102,12 +103,26 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("회비 계좌 등록 메시지는 은행 코드와 id 만 싣는다")
-    void feeAccountCreatedMessage() {
-        String message = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L));
+    @DisplayName("자동승인 초대 발급 메시지는 동아리·id·정원·KST 만료·발급자만 싣고 코드 값은 싣지 않는다")
+    void clubInviteAutoApproveIssuedMessage() {
+        String message = formatter.clubInviteAutoApproveIssued(new ClubInviteAutoApproveIssuedEvent(
+                7L, "두잉개발회", 55L, 30, LocalDateTime.of(2026, 9, 11, 14, 0), 3L));
 
-        assertThat(message).contains("🏦 회비 계좌 등록", "이벤트: FEE_ACCOUNT_CREATED",
+        assertThat(message).contains("⚠️ 자동승인 부원 초대 링크 발급", "이벤트: CLUB_INVITE_AUTO_APPROVE_ISSUED",
+                "동아리: 두잉개발회", "ClubId: 7", "JoinCodeId: 55", "정원: 30",
+                "만료: 2026-09-11 14:00 KST", "발급자 UserId: 3");
+        // 이벤트 record 에 코드 값 필드가 없어 포매터가 실을 수 없다 — 실제 코드 미포함은 E2E(Step 5)가 발급된 코드로 검증한다.
+    }
+
+    @Test
+    @DisplayName("회비 계좌 등록 메시지는 동아리명·은행 코드·id 만 싣고, 동아리명이 없으면 그 줄을 뺀다")
+    void feeAccountCreatedMessage() {
+        String message = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L), "두잉개발회");
+        assertThat(message).contains("🏦 회비 계좌 등록", "이벤트: FEE_ACCOUNT_CREATED", "동아리: 두잉개발회",
                 "ClubId: 7", "계좌Id: 21", "은행: KB", "등록자 UserId: 5");
+
+        String withoutName = formatter.feeAccountCreated(new FeeAccountCreatedEvent(7L, 21L, Bank.KB, 5L), null);
+        assertThat(withoutName).contains("ClubId: 7").doesNotContain("동아리:");
     }
 
     @Test
@@ -123,24 +138,28 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("시설 예약 메시지는 BookingId·ClubId 만 싣고 자유 텍스트(취소 사유·충돌 상세)는 절대 싣지 않는다")
+    @DisplayName("시설 예약 메시지는 동아리명·BookingId·ClubId 만 싣고 자유 텍스트(취소 사유·충돌 상세)는 절대 싣지 않는다")
     void facilityBookingMessagesExcludeFreeText() {
-        assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L)))
-                .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "BookingId: 90", "ClubId: 7");
+        assertThat(formatter.facilityBookingSubmitted(new FacilityBookingSubmittedEvent(90L, 7L), "두잉개발회"))
+                .contains("🏟️ 시설 예약 신청", "이벤트: FACILITY_BOOKING_SUBMITTED", "동아리: 두잉개발회",
+                        "BookingId: 90", "ClubId: 7");
 
         String rejected = formatter.facilityBookingRejected(
-                new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"));
-        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "BookingId: 90", "ClubId: 7")
+                new FacilityBookingRejectedEvent(90L, 7L, 399L, "신청자 홍길동 서류 미비"), "두잉개발회");
+        assertThat(rejected).contains("🏟️ 시설 예약 거절", "이벤트: FACILITY_BOOKING_REJECTED", "동아리: 두잉개발회",
+                        "BookingId: 90", "ClubId: 7")
                 .doesNotContain("홍길동", "서류 미비");
 
         String cancelled = formatter.facilityBookingCancelled(
-                new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"));
-        assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED", "BookingId: 90")
+                new FacilityBookingCancelledEvent(90L, 7L, 400L, "학생 홍길동 010-1234-5678 요청"), "두잉개발회");
+        assertThat(cancelled).contains("🏟️ 시설 예약 취소(관리자)", "이벤트: FACILITY_BOOKING_CANCELLED",
+                        "동아리: 두잉개발회", "BookingId: 90")
                 .doesNotContain("홍길동", "010-1234-5678");
 
         String conflict = formatter.facilityBookingConflict(
-                new FacilityBookingConflictEvent(90L, 7L, 401L, "타 동아리 김철수 중복"));
-        assertThat(conflict).contains("⚠️ 시설 예약 충돌", "이벤트: FACILITY_BOOKING_CONFLICT", "BookingId: 90")
+                new FacilityBookingConflictEvent(90L, 7L, 401L, "타 동아리 김철수 중복"), "두잉개발회");
+        assertThat(conflict).contains("⚠️ 시설 예약 충돌", "이벤트: FACILITY_BOOKING_CONFLICT",
+                        "동아리: 두잉개발회", "BookingId: 90")
                 .doesNotContain("김철수");
     }
 

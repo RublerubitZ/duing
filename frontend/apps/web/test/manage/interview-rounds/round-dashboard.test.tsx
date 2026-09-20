@@ -478,8 +478,8 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     });
     expect(screen.getByText(/대기열/)).toBeInTheDocument();
 
-    // 확인 → POST
-    const confirmButton = screen.getByRole('button', { name: /확인/ });
+    // 확인 → POST (확인 버튼은 행동 이름으로 쓴다 — 다이얼로그의 "취소" 와 헷갈리지 않게)
+    const confirmButton = within(screen.getByRole('dialog')).getByRole('button', { name: '제외하기' });
     await userEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -719,7 +719,8 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     });
     expect(screen.getByText(/대기열로 복귀/)).toBeInTheDocument();
 
-    const confirmButton = screen.getByRole('button', { name: /확인/ });
+    // 확인 버튼은 "확인" 이 아니라 행동 이름 — 다이얼로그의 "취소" 와 구분된다.
+    const confirmButton = within(screen.getByRole('dialog')).getByRole('button', { name: '라운드 취소하기' });
     await userEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -899,9 +900,12 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
       expect(screen.getByText('확정')).toBeInTheDocument();
     });
 
-    // 슬롯 삭제 버튼 클릭
+    // 슬롯 삭제 버튼 클릭 → 확인 모달에서 [삭제] 를 눌러야 요청이 나간다
     const deleteButtons = screen.getAllByRole('button', { name: /슬롯 삭제/ });
     await userEvent.click(deleteButtons[0]!);
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }),
+    );
 
     // 409 서버 메시지가 인라인 role="alert" 로 노출된다
     await waitFor(() => {

@@ -11,6 +11,11 @@ import { ApiClientProvider, todayKstDateString } from '@duing/hooks';
 import { CurrentRecruitmentCard } from '../../app/manage/clubs/[clubId]/recruitments/_components/CurrentRecruitmentCard';
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 // 외부 폼 카드가 렌더하는 가입 링크 액션은 자체 쿼리를 가진다 — 접수 마감 검증과 무관하므로 대체한다.
 vi.mock(
   '../../app/manage/clubs/[clubId]/recruitments/_components/ExternalRecruitmentActions',

@@ -20,6 +20,7 @@ import com.duing.domain.application.service.dto.query.ApplicantDetailQuery;
 import com.duing.domain.application.service.dto.query.ApplicantDetailQuery.AvailabilityItem;
 import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRepository;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
@@ -35,6 +36,7 @@ import com.duing.domain.recruitment.entity.RecruitmentQuestion;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -71,7 +73,9 @@ class ApplicantDetailServiceTest {
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
-            clock);
+            clock,
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     @BeforeEach
     void stubClubIdLookup() {

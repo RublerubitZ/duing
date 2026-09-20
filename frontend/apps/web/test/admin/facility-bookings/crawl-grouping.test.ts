@@ -3,6 +3,7 @@ import type { AdminCrawlReservation } from '@duing/types';
 
 import {
   contextDateLabel,
+  crawledAtLabel,
   foldReservationContexts,
   nextYearMonth,
 } from '@/app/admin/facility-bookings/_lib/crawlGrouping';
@@ -117,6 +118,13 @@ describe('foldReservationContexts — 예약 맥락 접기(수정 3)', () => {
     ]);
     expect(contexts).toHaveLength(1);
     expect(contextDateLabel(contexts[0]!)).toBe('08/31~09/01');
+  });
+});
+
+describe('crawledAtLabel', () => {
+  it('로케일 패턴과 무관하게 KST "MM/DD HH:mm" 으로 찍는다 — 자정 넘김 포함', () => {
+    expect(crawledAtLabel('2026-08-27T05:00:00Z')).toBe('08/27 14:00');
+    expect(crawledAtLabel('2026-08-31T15:30:00Z')).toBe('09/01 00:30');
   });
 });
 

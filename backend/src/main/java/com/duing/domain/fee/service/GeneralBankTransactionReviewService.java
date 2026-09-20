@@ -15,6 +15,7 @@ import com.duing.domain.fee.exception.BankMatchingException;
 import com.duing.domain.fee.exception.FeeBillException;
 import com.duing.domain.fee.repository.BankTransactionRepository;
 import com.duing.domain.fee.repository.FeeBillRepository;
+import com.duing.domain.fee.repository.MatchCandidate;
 import com.duing.domain.fee.repository.MatchedBillInfo;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.query.BankTransactionView;
@@ -72,11 +73,23 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
                 feeBillRepository.findMatchedBillInfo(clubId, matchedFeeBillIds).stream()
                         .collect(Collectors.toMap(MatchedBillInfo::feeBillId, Function.identity()));
 
+        // 후보 청구는 입금액이 같으면 결과도 같다 — 페이지의 PENDING 금액을 중복 없이 모아 한 번에 조회한다(N+1 방지).
+        List<Long> pendingAmounts = page.getContent().stream()
+                .filter(BankTransaction::isPending)
+                .map(BankTransaction::getAmount)
+                .distinct()
+                .toList();
+        // 후보의 remaining 은 조회 조건상 입금액과 정확히 같으므로 분배 키로 그대로 쓴다. groupingBy 의 기본
+        // 다운스트림(toList)은 스트림 순서를 보존해 금액 그룹 안의 dueDate 오름차순 정렬이 그대로 유지된다.
+        Map<Long, List<MatchCandidate>> candidatesByAmount =
+                feeBillRepository.findMatchCandidates(clubId, pendingAmounts).stream()
+                        .collect(Collectors.groupingBy(MatchCandidate::remaining));
+
         return page.map(transaction -> {
             if (transaction.isPending()) {
                 // 후보 청구는 검토가 필요한 PENDING 입금에만 동봉한다(이미 매칭·무시된 거래는 후보 없음).
                 return BankTransactionView.pending(
-                        transaction, feeBillRepository.findMatchCandidates(clubId, transaction.getAmount()));
+                        transaction, candidatesByAmount.getOrDefault(transaction.getAmount(), List.of()));
             }
             // 매칭된 거래는 회원 이름·회차를 채운다. IGNORED(matchedFeeBillId=null) 또는 청구가 사라진 경우는
             // get(null)/미스로 matchedInfo 가 null 이라 이름·회차가 null 로 남는다.

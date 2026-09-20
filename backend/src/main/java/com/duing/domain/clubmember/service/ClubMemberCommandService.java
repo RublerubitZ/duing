@@ -20,4 +20,7 @@ public interface ClubMemberCommandService {
     TransferLeaderQuery transferLeader(TransferLeaderCommand command);
 
     void removeAllOnClubClosure(Long clubId, Long actorUserId, String reason);
+
+    /** 계정 탈퇴 시 그 회원의 활성 멤버십 전부를 LEFT 이력과 함께 soft-delete 한다. 회장 멤버십이 남아 있으면 거부. */
+    void leaveAllOnWithdrawal(Long userId);
 }

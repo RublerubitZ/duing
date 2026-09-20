@@ -126,6 +126,28 @@ describe('PhoneVerificationField', () => {
     }
   });
 
+  it('모바일 발급 직후(문자앱 열기 전)에도 번호 다시 입력 버튼이 있어 onReset 으로 되돌아간다', async () => {
+    stubUserAgent(IPHONE_UA);
+    try {
+      const onReset = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <PhoneVerificationField
+          {...baseProps}
+          status="issued"
+          code="7K3M9PXQ"
+          moNumber="16663538"
+          onReset={onReset}
+        />,
+      );
+      // 딥링크를 아직 안 눌렀어도 되돌아갈 길이 있어야 한다.
+      await user.click(screen.getByRole('button', { name: '번호 다시 입력' }));
+      expect(onReset).toHaveBeenCalledTimes(1);
+    } finally {
+      restoreUserAgent();
+    }
+  });
+
   it('모바일 발급 후에는 상단에 안내 일러스트를 노출한다', () => {
     stubUserAgent(IPHONE_UA);
     try {
@@ -133,6 +155,9 @@ describe('PhoneVerificationField', () => {
         <PhoneVerificationField {...baseProps} status="issued" code="7K3M9PXQ" moNumber="16663538" />,
       );
       expect(screen.getByRole('img', { name: /본인 인증하는 방법/ })).toBeInTheDocument();
+      // 일러스트는 예시 코드가 아니라 실제 발급 코드를 그린다 — fallback 박스와 일러스트 두 곳에 보인다.
+      expect(screen.getAllByText('7K3M9PXQ').length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText('5WAVK4YZ')).not.toBeInTheDocument();
     } finally {
       restoreUserAgent();
     }
@@ -288,6 +313,23 @@ describe('PhoneVerificationField', () => {
     render(<PhoneVerificationField {...baseProps} status="expired" onReset={onReset} />);
     await user.click(screen.getByRole('button', { name: '다시 인증' }));
     expect(onReset).toHaveBeenCalled();
+  });
+
+  // 번호를 잘못 넣고 발급하면 expired 까지 기다려야 했다 — issued 에서도 idle 로 되돌아갈 길을 둔다.
+  it('issued 에서 [번호 다시 입력]을 누르면 onReset 을 호출한다', async () => {
+    const onReset = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PhoneVerificationField
+        {...baseProps}
+        status="issued"
+        code="7K3M9PXQ"
+        moNumber="16663538"
+        onReset={onReset}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '번호 다시 입력' }));
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it('모바일에서 재발급으로 코드가 바뀌면 다시 CTA만 남고 보냈어요는 숨는다', async () => {

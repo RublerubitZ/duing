@@ -11,6 +11,7 @@ import type {
   UpdateMemberRolePayload,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { clubMembershipKeys } from './clubMembershipQueryKeys';
 import { clubQueryKeys } from './clubQueryKeys';
 import { CALENDAR_STALE_TIME_MS, PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 import { userQueryKeys } from './userQueryKeys';
@@ -212,6 +213,9 @@ export function useLeaveClubMutation(clubId: number) {
       queryClient.invalidateQueries({ queryKey: userQueryKeys.myClubs() });
       // 회원 전용 뷰가 멤버십 여부에 따라 달라지므로 해당 동아리 상세도 갱신한다.
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
+      // 멤버십 조회는 staleTime 5분이라, 무효화하지 않으면 탈퇴 직후에도 상세가 "이미 소속된
+      // 동아리예요" 를 유지해 재지원이 막힌다.
+      queryClient.invalidateQueries({ queryKey: clubMembershipKeys.byClub(clubId) });
     },
   });
 }

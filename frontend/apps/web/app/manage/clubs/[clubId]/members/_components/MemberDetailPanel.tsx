@@ -530,7 +530,7 @@ function ManagementSection({
       {showRemoveDialog && (
         <ConfirmDialog
           open
-          title="회원 탈퇴"
+          title="부원 탈퇴"
           description={
             <>
               <span className="font-medium text-charcoal-2">{member.name}</span> 님을 동아리에서
@@ -620,7 +620,7 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
           disabled={updateGeneration.isPending || member.generation === null}
           className="rounded-md px-2.5 py-1.5 text-sm text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50"
         >
-          비우기
+          기수 지우기
         </button>
       </div>
       {error && <p className="mt-1.5 text-xs text-coral">{error}</p>}

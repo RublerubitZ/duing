@@ -3,6 +3,7 @@ package com.duing.domain.application.repository;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -104,4 +105,44 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Query(value = "UPDATE application SET answers = '[]'::jsonb WHERE deleted_at < :cutoff AND answers <> '[]'::jsonb",
             nativeQuery = true)
     int scrubExpiredApplicationAnswers(@Param("cutoff") LocalDateTime cutoff);
+
+    /**
+     * 마감 6개월(closedCutoffDate) 또는 탈퇴 45일(withdrawnCutoff)이 지난 지원서의 자유서술(TEXT) 답변을 placeholder 로
+     * 치환한다(스펙 §3.2). 답변 원소에는 유형이 없어 recruitment_form.questions 와 questionId 로 조인한다 — 매칭되지
+     * 않거나 questionId 가 null 인 답변은 자유서술 가능성이 있어 TEXT 로 간주한다. 선택형(choiceId)·무응답([] / [""])은
+     * 유지한다. 이미 파기된 행(answers_purged_at IS NOT NULL)과 soft-delete 행(기존 45일 규칙이 전체를 비움)은 제외한다.
+     * 마감 앵커 LEAST(closed_at::date, end_date) 는 NULL 을 무시하고 둘 다 NULL 이면 NULL 이라 비교가 false(스킵)다.
+     * version+1 은 @DynamicUpdate 가 없는 Application 의 전 컬럼 UPDATE(동시 최종 확정·지원 취소)가 파기 전 answers 를
+     * 되살리지 못하게 한다 — 상대는 OptimisticLock(409)으로 실패한다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE application a
+               SET answers = (
+                     SELECT COALESCE(jsonb_agg(
+                                CASE WHEN COALESCE(question.qtype, 'TEXT') = 'TEXT'
+                                      AND jsonb_array_length(answer.elem -> 'values') > 0
+                                      AND (answer.elem -> 'values' ->> 0) <> ''
+                                     THEN jsonb_set(answer.elem, ARRAY['values'], jsonb_build_array(CAST(:placeholder AS text)))
+                                     ELSE answer.elem END
+                                ORDER BY answer.ord), '[]'::jsonb)
+                       FROM jsonb_array_elements(a.answers) WITH ORDINALITY AS answer(elem, ord)
+                       LEFT JOIN LATERAL (
+                            SELECT question_element ->> 'type' AS qtype
+                              FROM recruitment_form form, jsonb_array_elements(form.questions) question_element
+                             WHERE form.recruitment_id = a.recruitment_id
+                               AND question_element ->> 'id' = answer.elem ->> 'questionId'
+                             LIMIT 1) question ON TRUE),
+                   answers_purged_at = NOW(),
+                   version = version + 1
+              FROM recruitment r, users u
+             WHERE r.id = a.recruitment_id AND u.id = a.user_id
+               AND a.answers_purged_at IS NULL
+               AND a.deleted_at IS NULL
+               AND (LEAST(r.closed_at::date, r.end_date) < :closedCutoffDate
+                    OR u.deleted_at < :withdrawnCutoff)
+            """, nativeQuery = true)
+    int purgeExpiredTextAnswers(@Param("closedCutoffDate") LocalDate closedCutoffDate,
+                                @Param("withdrawnCutoff") LocalDateTime withdrawnCutoff,
+                                @Param("placeholder") String placeholder);
 }

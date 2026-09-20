@@ -96,7 +96,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 throw new RecruitmentException.DuplicateActiveRecruitmentException();
             }
             // 만료된 OPEN — close UPDATE 가 새 INSERT 보다 먼저 DB 에 가도록 명시적 flush.
-            // Hibernate 기본 액션 순서 INSERT→UPDATE 에서 자기 자신과 unique 충돌 차단 (replaceActive 와 동일 패턴).
+            // Hibernate 기본 액션 순서 INSERT→UPDATE 에서 자기 자신과 unique 충돌 차단.
             existingOpen.close(LocalDateTime.now(clock));
             recruitmentRepository.flush();
         });
@@ -388,34 +388,6 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     @Override
     @Transactional
-    public Long replaceActive(CreateRecruitmentCommand command) {
-        // 행 잠금 — 운영 중단 전환(updateStatus, findByIdForUpdate)과 직렬화해
-        // "ACTIVE 확인 통과 후 전환 커밋 → INACTIVE 동아리에 OPEN 모집 INSERT" 경합을 차단한다.
-        Club club = clubRepository.findByIdForUpdate(command.clubId())
-                .orElseThrow(ClubException.ClubNotFoundException::new);
-
-        ClubMember actor = clubAuthService.requireManager(command.currentUserId(), club.getId());
-        requireLeaderForOfficerTarget(actor, command.targetRole());
-
-        requireActiveClubUnderLock(club);
-
-        requireEndDateNotPast(command.endDate());
-
-        // close() 는 메모리상의 status 만 바꾸므로 그 다음 buildAndPersist 의 INSERT 가
-        // flush 될 때 Hibernate 기본 액션 순서(INSERT → UPDATE) 상 UPDATE 가 뒤로 밀려
-        // uk_recruitment_club_active 와 자기 자신이 충돌한다. close 직후 명시적 flush 로
-        // UPDATE 를 먼저 DB 에 반영한 뒤 INSERT 를 진행한다.
-        recruitmentRepository.findActiveByClubId(club.getId())
-                .ifPresent(existingActive -> {
-                    existingActive.close(LocalDateTime.now(clock));
-                    recruitmentRepository.flush();
-                });
-
-        return buildAndPersist(club, command);
-    }
-
-    @Override
-    @Transactional
     public List<Long> closeAllOnClubClosure(Long clubId) {
         List<Recruitment> recruitments =
                 recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
@@ -464,7 +436,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     /**
      * 종료일이 이미 지난 공고는 생성 즉시 만료-OPEN(한 번도 열리지 않는 마감 공고)이 된다 —
-     * 생성 경로(create·replaceActive) 공통 가드. 전임 모집 자동 마감보다 먼저 호출해
+     * 생성 경로 가드. 전임 모집 자동 마감보다 먼저 호출해
      * 잘못된 요청이 기존 모집을 건드리지 못하게 한다.
      */
     private void requireEndDateNotPast(LocalDate endDate) {

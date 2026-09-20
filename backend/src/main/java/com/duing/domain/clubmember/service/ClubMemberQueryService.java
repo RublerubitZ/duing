@@ -13,6 +13,7 @@ public interface ClubMemberQueryService {
     List<MyClubQuery> findMyClubs(Long userId);
 
     // memberIds 가 비어있지 않으면 그 멤버만 내보낸다(화면 필터 결과 범위). null·빈 목록이면 전체.
+    // includePhone=true 면 번호 열람 창을 1회 소모하므로 한도를 넘긴 호출은 429 다(건수가 아니라 내보내기 1건 = 1회).
     List<ClubMemberExportQuery> getMembersForExport(
             Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds);
 

@@ -3,8 +3,11 @@ package com.duing.domain.clubaudit.entity;
 /**
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
- * <p>가입 링크 6종과 총동연 조치 2종, 회비 15종(V105), 시설 설정 1종(V116)이 있다. 값을 추가할 때는
- * {@code club_audit_event.event_type} 의 CHECK 제약도 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105).
+ * <p>가입 링크 6종과 총동연 조치 3종, 회비 15종(V105), 시설 설정 1종(V116), 동아리 상태 2종(V127),
+ * 회장 경로 개인정보 열람 2종(V128), 총동연 강제 폐기 1종(V129), 지원자 번호 열람 1종(V130),
+ * 가입 요청자 번호 열람 1종(V131)이 있다.
+ * 값을 추가할 때는 {@code club_audit_event.event_type} 의 CHECK 제약도
+ * 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127·V128·V129·V130·V131).
  */
 public enum ClubAuditEventType {
 
@@ -50,7 +53,37 @@ public enum ClubAuditEventType {
     /** 총동연이 회비 CSV 를 내려받았다(P2 예정 — CHECK 재작성을 아끼려 미리 등록). */
     FEE_ADMIN_CSV_DOWNLOADED,
     /** 총동연이 시설 기본 확보 시간 대상 설정을 변경했다(V116) — detail 에 before/after 스냅샷이 남는다. */
-    SECURED_TARGET_CHANGED;
+    SECURED_TARGET_CHANGED,
+    /**
+     * 총동연이 동아리 상태를 전이했다(V127) — detail 에 {"from","to"} 가 남고, REJECTED 로의 전이에만
+     * reason 에 거절 사유가 남는다(그 외 전이는 null). 엔티티의 rejection_reason 은 덮어써지므로 이력은 이 행이 맡는다.
+     */
+    CLUB_STATUS_CHANGED,
+    /** 총동연이 동아리를 폐쇄했다(V127) — reason 에 정규화된 폐쇄 사유. 폐쇄와 같은 트랜잭션이라 폐쇄 없는 행은 없다. */
+    CLUB_CLOSED,
+    /** 운영진이 멤버 원본 전화번호를 열람했다(V128, #754) — detail {"memberId","userId"}. 열람마다 남긴다(중복 제거 없음). */
+    MEMBER_PHONE_VIEWED,
+    /** 운영진이 멤버 명단을 내보냈다(V128, #754) — detail {"includePhone","scoped","count"}. 번호 포함 여부가 감사의 핵심이다. */
+    MEMBER_LIST_EXPORTED,
+    /**
+     * 총동연이 가입 링크를 강제로 폐기했다(V129) — reason 에 폐기 사유(필수)가 남는다.
+     * 운영진 수동 폐기({@link #JOIN_LINK_REVOKED})와 종류를 나누는 이유는 "누가 끊었는지"가 이력의 핵심이라
+     * 행위자 id 만으로는 화면이 구분할 수 없기 때문이다. 모집 링크·부원 초대 둘 다 이 종류를 쓴다.
+     */
+    JOIN_LINK_FORCE_REVOKED,
+    /**
+     * 운영진이 지원자 원본 전화번호를 열람했다(V130) — detail {"applicationId","userId"}. 열람마다 남긴다(중복 제거 없음).
+     * 부원 열람({@link #MEMBER_PHONE_VIEWED})과 종류를 나누는 이유는 대상이 지원서(아직 부원이 아님)라 참조 키가 다르기 때문이다.
+     * 화면 라벨: "지원자 휴대폰 열람".
+     */
+    APPLICANT_PHONE_VIEWED,
+    /**
+     * 운영진이 가입 요청자의 원본 전화번호를 열람했다(V131) — detail {"joinRequestId","userId"}.
+     * 열람마다 남긴다(중복 제거 없음). 지원자 열람({@link #APPLICANT_PHONE_VIEWED})·부원
+     * 열람({@link #MEMBER_PHONE_VIEWED})과 종류를 나누는 이유는 대상이 가입 요청이라 참조 키가 다르기 때문이다.
+     * 화면 라벨: "가입 요청자 휴대폰 열람".
+     */
+    JOIN_REQUEST_PHONE_VIEWED;
 
     /**
      * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.

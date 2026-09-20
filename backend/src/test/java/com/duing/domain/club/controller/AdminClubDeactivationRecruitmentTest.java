@@ -138,21 +138,13 @@ class AdminClubDeactivationRecruitmentTest extends IntegrationTestBase {
                  "capacity":5,"applicationMode":"EXTERNAL","externalFormUrl":"https://forms.gle/aBcD1234"}
                 """.formatted(LocalDate.now(), LocalDate.now().plusDays(7));
 
-        // 벌크 마감(Task 1) 이후에도 생성·교체 경로로 새 OPEN 모집을 만들 수 있으면
-        // "운영 중단 = 모집 활동 정지" 불변식이 우회된다 — 두 경로 모두 403 으로 차단돼야 한다.
+        // 벌크 마감(Task 1) 이후에도 생성 경로로 새 OPEN 모집을 만들 수 있으면
+        // "운영 중단 = 모집 활동 정지" 불변식이 우회된다 — 403 으로 차단돼야 한다.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
                 .body(createRecruitmentBody)
                 .when().post("/api/v1/leader/clubs/{clubId}/recruitments", club.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value())
-                .body("ok", equalTo(false));
-
-        RestAssured.given()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                .contentType(ContentType.JSON)
-                .body(createRecruitmentBody)
-                .when().post("/api/v1/leader/clubs/{clubId}/recruitments/replace-active", club.getId())
                 .then().statusCode(HttpStatus.FORBIDDEN.value())
                 .body("ok", equalTo(false));
 

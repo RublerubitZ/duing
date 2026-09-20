@@ -22,8 +22,8 @@ export function MyPageHeader({
   savedCount,
 }: Props) {
   return (
-    <section className="px-4 sm:px-6 md:px-10 pt-page-top pb-6">
-      <div className="max-w-layout mx-auto">
+    <section className="pt-page-top pb-6">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <div
           className="relative overflow-hidden rounded-xl px-6 py-7 sm:px-10 sm:py-8 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 sm:gap-8 items-start sm:items-center"
           style={{

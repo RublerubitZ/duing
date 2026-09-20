@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   formatDateTimeKst,
@@ -16,7 +16,9 @@ import type { JoinCodeSummary } from '@duing/types';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { CopyButton } from '@/app/_components/CopyButton';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
+import { joinLinkUrl } from '@/app/_lib/joinLinkUrl';
 import { toRoute } from '@/app/_lib/route';
 import { MemberEnrollmentStepsCard } from './MemberEnrollmentStepsCard';
 
@@ -301,7 +303,7 @@ function CreateCodeForm({
             disabled={createJoinCode.isPending}
             className={fieldCls}
           />
-          <p className="mt-1 text-xs text-charcoal-3">이 링크로 가입한 회원에게 자동으로 찍힙니다.</p>
+          <p className="mt-1 text-xs text-charcoal-3">이 링크로 가입한 부원에게 자동으로 찍힙니다.</p>
         </div>
       )}
 
@@ -350,7 +352,7 @@ function ActiveCodeCard({
   const [regenerating, setRegenerating] = useState(false);
 
   const expired = isExpired(joinCode);
-  const joinLink = `${window.location.origin}/join/${joinCode.code}`;
+  const joinLink = joinLinkUrl(joinCode.code);
   const requiresTypedConfirm = !canCreate;
 
   function closeRevokeDialog() {
@@ -514,43 +516,5 @@ function ActiveCodeCard({
         onCancel={() => setConfirming(null)}
       />
     </div>
-  );
-}
-
-/** 복사 성공은 라벨을 잠깐 "복사됨" 으로 바꿔 알린다(MemberDetailPanel 연락처 복사와 동일 규약). */
-function CopyButton({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const resetTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
-    };
-  }, []);
-
-  async function copy() {
-    setFailed(false);
-    try {
-      if (!navigator.clipboard) throw new Error('clipboard unavailable');
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
-      resetTimer.current = window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setFailed(true);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      // 보이는 라벨이 바뀌므로 접근가능 이름도 같이 바꾼다 — 고정이면 스크린리더가 성공을 못 읽는다.
-      aria-label={copied ? `${label}됨` : failed ? `${label} 실패` : label}
-      className="rounded-md px-2 py-1 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink"
-    >
-      {copied ? '복사됨' : failed ? '실패' : label}
-    </button>
   );
 }

@@ -1,7 +1,7 @@
 package com.duing.global.file.controller;
 
 import com.duing.global.auth.UserPrincipal;
-import com.duing.global.file.controller.dto.FilePurpose;
+import com.duing.global.file.FilePurpose;
 import com.duing.global.file.controller.dto.FileUploadResponse;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;

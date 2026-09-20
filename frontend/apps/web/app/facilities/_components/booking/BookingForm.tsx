@@ -4,14 +4,16 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import {
+  useClubFacilityBookingsQuery,
   useCreateFacilityBookingMutation,
   useManagedClubsQuery,
   usePurposePresetsQuery,
 } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
-import type { CreateFacilityBookingResult } from '@duing/types';
+import type { BookingStatus, CreateFacilityBookingResult } from '@duing/types';
 import { formatPhone } from '@/app/_components/PhoneInput';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { loginReturnHref } from '@/app/_lib/loginReturnHref';
 import { toRoute } from '@/app/_lib/route';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -24,6 +26,9 @@ const PURPOSE_MAX_LENGTH = 200;
 
 // 대표 연락처 검증 — 서버(@Pattern)와 동일. 하이픈 유무 모두 허용한다(§2.1).
 const CONTACT_PHONE_PATTERN = /^01[016789]-?\d{3,4}-?\d{4}$/;
+
+// BE rejectIfClubDuplicate 의 normalPathStatuses 미러 — 이 상태의 자기 동아리 예약과 겹치면 409 로 거부된다.
+const OWN_OVERLAP_STATUSES: BookingStatus[] = ['PENDING', 'APPROVED', 'CONFIRMED'];
 
 type Props = {
   facilityId: number;
@@ -60,6 +65,27 @@ export function BookingForm({
   const [contactError, setContactError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const managedClubs = managedClubsQuery.data ?? [];
+  // 시설 예약은 중앙동아리만(정책 spec 2026-07-18). centralClub 미탑재 구버전 응답은 숨기지 않는다
+  // (배포 전환기 fail-open — 알려진 false 만 제외). 최종 차단은 서버 403 이 한다.
+  const centralClubs = managedClubs.filter((club) => club.centralClub !== false);
+  // early return 앞에서 파생한다 — 아래 훅(useClubFacilityBookingsQuery)의 enabled 입력이라 rules of hooks 상
+  // 조건부 반환보다 먼저 확정돼야 한다. 목록 로딩·미인증에서는 [] → null → 훅 비활성.
+  const effectiveClubId = clubId ?? centralClubs[0]?.clubId ?? null;
+  // 자기 동아리 중복 사전 경고(P2-19) — BE rejectIfClubDuplicate(동아리·날짜·시간 겹침, 시설 무관)를 같은 목록으로
+  // 미러링한다. MyBookingsChip 과 같은 queryKey 라 단일 동아리면 캐시를 공유한다. 로딩·실패는 빈 배열 = 경고 없음 —
+  // 최종 판단은 서버(409)이므로 제출은 막지 않는다.
+  const clubBookingsQuery = useClubFacilityBookingsQuery(effectiveClubId ?? undefined);
+  // 목록 API 는 LocalTime 기본 직렬화라 시각이 "HH:mm:ss" 로 온다 — 앞 5자(HH:mm)로 잘라 비교해야
+  // 인접 시간("10:00:00" > "10:00")을 겹침으로 오판하지 않는다(QA 2026-09-03).
+  const ownOverlap = (clubBookingsQuery.data ?? []).some(
+    (booking) =>
+      OWN_OVERLAP_STATUSES.includes(booking.status) &&
+      booking.date === date &&
+      booking.startTime.slice(0, 5) < range.end &&
+      booking.endTime.slice(0, 5) > range.start,
+  );
+
   // /facilities 는 A′ 라우트가 아니라 SSR/프리렌더 프레임이 스토어 초기값(미인증)으로 그려진다 —
   // 그 프레임에 로그인 안내를 실으면 로그인한 운영진에게 플래시로 보인다. 하이드레이션 전에는
   // 판정하지 않고 대기 표시만 둔다(상태 분기가 아니라 프레임 정합 — §8.1 과 무관).
@@ -68,11 +94,7 @@ export function BookingForm({
   }
 
   if (authStatus !== 'authenticated') {
-    // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
-    const loginHref: `/${string}` =
-      typeof window === 'undefined'
-        ? '/login'
-        : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    const loginHref = loginReturnHref();
     return (
       <div className="space-y-3 text-sm text-charcoal-2">
         <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
@@ -111,10 +133,6 @@ export function BookingForm({
     );
   }
 
-  const managedClubs = managedClubsQuery.data ?? [];
-  // 시설 예약은 중앙동아리만(정책 spec 2026-07-18). centralClub 미탑재 구버전 응답은 숨기지 않는다
-  // (배포 전환기 fail-open — 알려진 false 만 제외). 최종 차단은 서버 403 이 한다.
-  const centralClubs = managedClubs.filter((club) => club.centralClub !== false);
   if (managedClubsQuery.isSuccess && managedClubs.length === 0) {
     return (
       <p className="text-sm text-charcoal-2">
@@ -130,7 +148,6 @@ export function BookingForm({
     );
   }
 
-  const effectiveClubId = clubId ?? centralClubs[0]?.clubId ?? null;
   const selectedClub = centralClubs.find((club) => club.clubId === effectiveClubId) ?? null;
   const trimmedPurpose = purpose.trim();
   const trimmedContact = contactPhone.trim();
@@ -207,7 +224,12 @@ export function BookingForm({
         </div>
       </div>
 
-      {hasPendingHold && (
+      {ownOverlap && (
+        <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral">
+          이 시간에 이미 접수·승인된 우리 동아리 신청이 있어 중복 신청은 거부돼요. 기존 신청을 취소한 뒤 다시 신청해주세요.
+        </p>
+      )}
+      {!ownOverlap && hasPendingHold && (
         <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral">
           이미 예약 신청이 접수된 시간이 포함돼 있어요. 계속 신청할 수 있지만, 승인은 한 신청에만 됩니다.
         </p>

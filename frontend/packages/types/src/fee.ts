@@ -87,6 +87,8 @@ export type FeeBill = {
 export type MyFee = {
   id: number;
   clubId: number;
+  // 청구 시점의 동아리명(백엔드 배포 후 항상 옴). 배포 전환기 호환을 위해 optional.
+  clubName?: string;
   feePolicyId: number;
   amount: number;
   billingPeriod: string;

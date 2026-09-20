@@ -146,7 +146,7 @@ describe('LoginFormPanel', () => {
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'password1234');
-    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+    await user.click(screen.getByRole('button', { name: '로그인' }));
 
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/me'));
     expect(capturedBody).toEqual({ studentId: '20240001', password: 'password1234', rememberMe: false });
@@ -166,7 +166,7 @@ describe('LoginFormPanel', () => {
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+    await user.click(screen.getByRole('button', { name: '로그인' }));
 
     expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
     expect(replaceSpy).not.toHaveBeenCalled();
@@ -181,7 +181,7 @@ describe('LoginFormPanel', () => {
           {
             ok: false,
             data: null,
-            message: '정지된 계정입니다. 총동아리연합회로 문의해 주세요.',
+            message: '정지된 계정입니다. 사유: 커뮤니티 신고 3건 누적 — 문의: duing.official@gmail.com',
             code: 'ACCOUNT_SUSPENDED',
           },
           { status: 403 },
@@ -193,10 +193,12 @@ describe('LoginFormPanel', () => {
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'correctpassword');
-    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+    await user.click(screen.getByRole('button', { name: '로그인' }));
 
     expect(
-      await screen.findByText('정지된 계정입니다. 총동아리연합회로 문의해 주세요.'),
+      await screen.findByText(
+        '정지된 계정입니다. 사유: 커뮤니티 신고 3건 누적 — 문의: duing.official@gmail.com',
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
     expect(replaceSpy).not.toHaveBeenCalled();
@@ -222,7 +224,7 @@ describe('LoginFormPanel', () => {
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'wrongpassword');
-    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+    await user.click(screen.getByRole('button', { name: '로그인' }));
 
     expect(
       await screen.findByText(
@@ -274,7 +276,7 @@ describe('LoginFormPanel', () => {
 
     await user.type(screen.getByLabelText('학번'), '20240001');
     await user.type(screen.getByLabelText('비밀번호'), 'somepassword');
-    await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+    await user.click(screen.getByRole('button', { name: '로그인' }));
 
     expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
     expect(screen.queryByText(/studentId:/)).not.toBeInTheDocument();

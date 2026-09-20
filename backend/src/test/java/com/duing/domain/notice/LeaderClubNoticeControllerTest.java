@@ -404,4 +404,15 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/clubs/" + clubId + "/notices/" + otherNoticeId)
                 .then().statusCode(HttpStatus.FORBIDDEN.value());
     }
+
+    @Test
+    @DisplayName("동아리 내부 공지 목록·단건은 익명 접근 시 401 로 차단된다 — clubs/** GET permitAll 보다 앞선 URL 레이어 잠금")
+    void anonymousClubNoticeReadIsUnauthorized() {
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + clubId + "/notices")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + clubId + "/notices/1")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
 }

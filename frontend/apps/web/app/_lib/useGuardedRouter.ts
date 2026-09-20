@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { NETWORK_ERROR_MESSAGE } from '@duing/api';
 
+import { markNavigationPending } from '@/app/_lib/backDismiss';
 import { useOptionalToast } from '@/app/_components/toast/ToastProvider';
 
 type AppRouter = ReturnType<typeof useRouter>;
@@ -20,6 +21,7 @@ type AppRouter = ReturnType<typeof useRouter>;
 // 오프라인 동안 호출 화면에 잔류한다. 온라인 복구 자동 재시도가 필요해지면 useOnlineStatus 구독 +
 // 마지막 차단 이동 재실행을 별도 설계할 것(오래된 redirect 재생 위험 검토 필수).
 // 직접 `useRouter` import 는 ESLint(no-restricted-imports)로 금지되어 이 훅이 단일 진입점이 된다.
+// 온라인 push/replace 는 backDismiss 의 이동 예약도 세운다(#1139) — 앵커 클릭은 OfflineNavigationGuard 가 맡는다.
 export function useGuardedRouter(): AppRouter {
   const router = useRouter();
   const addToast = useOptionalToast();
@@ -32,6 +34,8 @@ export function useGuardedRouter(): AppRouter {
           addToast?.(NETWORK_ERROR_MESSAGE, { variant: 'error' });
           return;
         }
+        // 이동 예약(#1139) — 커밋 전 창에서 오버레이 회수 back() 이 이 이동을 삼키지 않게 한다.
+        markNavigationPending();
         router.push(...pushArgs);
       },
       replace: (...replaceArgs: Parameters<AppRouter['replace']>) => {
@@ -39,6 +43,7 @@ export function useGuardedRouter(): AppRouter {
           addToast?.(NETWORK_ERROR_MESSAGE, { variant: 'error' });
           return;
         }
+        markNavigationPending();
         router.replace(...replaceArgs);
       },
       refresh: () => {

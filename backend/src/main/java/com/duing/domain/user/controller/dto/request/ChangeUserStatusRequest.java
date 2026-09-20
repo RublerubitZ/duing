@@ -14,7 +14,8 @@ public record ChangeUserStatusRequest(
         @NotNull(message = "변경할 상태는 필수입니다.")
         UserStatus status,
 
-        @Schema(description = "정지·해제 사유(감사 로그에 기록된다)", example = "커뮤니티 신고 3건 누적")
+        @Schema(description = "정지·해제 사유. 감사 로그에 기록되며, 정지 사유는 당사자의 로그인 안내 화면에 "
+                + "그대로 표시된다 — 내부용 표현을 쓰지 말 것", example = "커뮤니티 신고 3건 누적")
         @NotBlank(message = "사유는 필수입니다.")
         // @NotBlank 의 trim() 은 U+0020 이하만 공백으로 보므로 전각 공백(U+3000)만 담긴 사유가 통과한다.
         // (?U) 로 유니코드 문자 클래스를 켜야 \S 가 전각 공백을 비공백으로 세지 않는다.

@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
+
 describe('RecruitmentForm — 면접 일정', () => {
   it('면접 진행 스위치를 켜면 면접 시작/종료일 입력이 노출된다', () => {
     render(<RecruitmentForm mode="create" submitLabel="모집 시작" onSubmit={vi.fn()} isPending={false} />);

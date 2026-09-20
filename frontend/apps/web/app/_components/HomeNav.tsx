@@ -1,7 +1,11 @@
+'use client';
+
 // GNB 탭 이동은 View Transition 제외(next/link) — ExploreNav·BottomNav 와 동일 정책.
 import Link from 'next/link';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { cn } from '@/app/_lib/cn';
+import { MAIN_NAV_ITEMS, isMainNavActive } from '@/app/_lib/mainNav';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 import {
   NAV_LINK_ACTIVE,
   NAV_LINK_INACTIVE,
@@ -24,6 +28,9 @@ import { NotificationBell } from './NotificationBell';
 type Props = { slimOnMobile?: boolean };
 
 export function HomeNav({ slimOnMobile = false }: Props) {
+  // 홈은 ISR 이라 재생성 중 `/index` 가 넘어온다 — 경로로 렌더를 가르려면 정규화 훅이어야 한다(#950).
+  const pathname = useRoutePathname();
+
   return (
     <header className="relative z-50 bg-cream/90 backdrop-blur">
       <nav className={NAV_ROW_BASE}>
@@ -39,30 +46,36 @@ export function HomeNav({ slimOnMobile = false }: Props) {
             slimOnMobile ? 'hidden md:flex' : 'flex',
           )}
         >
-          <li>
-            <Link href="/" prefetch={false} className={NAV_LINK_ACTIVE}>
-              홈
-              <span className={NAV_LINK_UNDERLINE} />
-            </Link>
-          </li>
-          <li>
-            <Link href="/clubs" className={NAV_LINK_INACTIVE}>
-              탐색
-            </Link>
-          </li>
-          <li>
-            <Link href="/facilities" className={NAV_LINK_INACTIVE}>
-              시설
-            </Link>
-          </li>
-          <li>
-            <Link href="/calendar" className={NAV_LINK_INACTIVE}>
-              일정
-            </Link>
-          </li>
-          <li>
-            <InfoNavLink className={NAV_LINK_INACTIVE} />
-          </li>
+          {MAIN_NAV_ITEMS.map((item) => {
+            const on = isMainNavActive(item, pathname);
+            // match 가 있는 항목(소식)은 ExploreNav 와 같은 InfoNavLink — 마지막 방문 허브 경로로 이동하고
+            // PC hover 에 허브 퀵메뉴를 편다.
+            if (item.match) {
+              return (
+                <li key={item.label}>
+                  <InfoNavLink
+                    className={on ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
+                    active={on}
+                    underlineClassName={NAV_LINK_UNDERLINE}
+                  />
+                </li>
+              );
+            }
+            return (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  // 홈만 프리페치 제외 — 위 브랜드 링크와 같은 이유(P0 Active CPU 조치 유지).
+                  prefetch={item.href === '/' ? false : undefined}
+                  aria-current={on ? 'page' : undefined}
+                  className={on ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
+                >
+                  {item.label}
+                  {on && <span className={NAV_LINK_UNDERLINE} />}
+                </Link>
+              </li>
+            );
+          })}
           <li>
             <HomeNavAdminLink className={NAV_LINK_INACTIVE} />
           </li>

@@ -450,7 +450,8 @@ describe('AuthSessionBootstrap', () => {
 
     await waitFor(() => expect(useAuthStore.getState().status).toBe('authenticated'));
     expect(useAuthStore.getState().user).toEqual(TEST_USER);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // 토스트는 퇴장 전이(200ms)를 거쳐 사라지므로 즉시가 아니라 잠시 뒤에 없어진다.
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     expect(requestCount).toBe(2);
   });
 });

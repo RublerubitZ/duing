@@ -8,20 +8,20 @@ const OLD_WAY: ReadonlyArray<OldTool> = [
   { tool: '카카오톡', task: '공지 전달', tilt: '-1.5deg' },
   { tool: '구글폼', task: '지원서 접수', tilt: '1.2deg' },
   { tool: '엑셀', task: '회비 정산', tilt: '-0.8deg' },
-  { tool: '수기 · 단톡', task: '멤버 · 출석 관리', tilt: '1.6deg' },
+  { tool: '수기 · 단톡', task: '부원 · 출석 관리', tilt: '1.6deg' },
 ];
 
 const NEW_WAY: ReadonlyArray<string> = [
   '모집 공고와 지원 접수',
   '공지 · 일정 전달',
   '회비 청구 · 납부 · 은행 매칭',
-  '멤버 · 권한 관리',
+  '부원 · 권한 관리',
 ];
 
 export function BeforeAfter() {
   return (
-    <section className="px-4 py-20 sm:px-6 md:px-10 md:py-28">
-      <div className="mx-auto max-w-layout">
+    <section className="py-20 md:py-28">
+      <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
           <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
             FOR LEADERS · 동아리를 운영한다면

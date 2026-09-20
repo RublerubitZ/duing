@@ -62,13 +62,14 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         // 비회원은 기존과 동일하게 NotAMember. 조회·취소 경로는 requireManager 유지(설계 spec Out of Scope).
         ClubMember applicant = clubAuthService.resolveMembership(command.actorId(), command.clubId());
         requireActiveClubUnderLock(club);
-        // 신청 비즈니스 정책 4종(반월→마감→중앙→역할) — 단일 진입점. 첫 실패만 반환한다.
-        bookingApplicationPolicy.validateApplication(club, applicant, command.date());
+        // 창 판정이 시설별 오픈일을 읽으므로 시설 로드·아카이브 검사가 정책보다 앞선다 — 없는 시설·중단 시설은 창 오류보다 먼저다.
         Facility facility = facilityRepository.findById(command.facilityId())
                 .orElseThrow(FacilityException.FacilityNotFoundException::new);
         if (facility.isArchived()) {
             throw new FacilityBookingException.ArchivedFacilityException();
         }
+        // 신청 비즈니스 정책 4종(시설 오픈 창→마감→중앙→역할) — 단일 진입점. 첫 실패만 반환한다.
+        bookingApplicationPolicy.validateApplication(facility, club, applicant, command.date());
 
         bookingPolicyValidator.validateSlotRange(command.date(), command.startTime(), command.endTime());
         bookingPolicyValidator.validateActiveCap(facilityBookingRepository.countByClubIdAndStatusIn(

@@ -1,5 +1,8 @@
+import type { Metadata } from 'next';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { SignupFormPanel } from './_components/SignupFormPanel';
+
+export const metadata: Metadata = { title: '회원가입 | 두잉' };
 
 const BENEFITS = [
   {

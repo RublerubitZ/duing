@@ -8,6 +8,7 @@ import { useLogout } from '@duing/hooks';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { cn } from '@/app/_lib/cn';
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { AdminNavContent } from './AdminNavContent';
@@ -101,6 +102,7 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     setLoggingOut(true);
     try {
       await logout();
+      clearOperatorLocalState();
       router.replace('/');
     } catch {
       addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {

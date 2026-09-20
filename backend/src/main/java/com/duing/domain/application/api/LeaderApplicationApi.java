@@ -4,6 +4,7 @@ import com.duing.domain.application.controller.dto.request.BulkUpdateApplication
 import com.duing.domain.application.controller.dto.request.UpdateApplicationStatusRequest;
 import com.duing.domain.application.controller.dto.response.ApplicantDetailResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantNeighborsResponse;
+import com.duing.domain.application.controller.dto.response.ApplicantPhoneResponse;
 import com.duing.domain.application.controller.dto.response.ApplicantResponse;
 import com.duing.domain.application.controller.dto.response.BulkUpdateApplicationStatusResponse;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -58,6 +59,16 @@ public interface LeaderApplicationApi {
     ResponseEntity<ApiResponse<ApplicantDetailResponse>> getApplicantDetail(
             @PathVariable Long applicationId,
             @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "지원자 원본 연락처 조회",
+            description = "운영진(LEADER/OFFICER) 전용. 상세 응답은 마스킹(phoneMasked)만 싣고 원본은 이 API 로만 반환한다. "
+                    + "조회 사실(조회자·대상·시각)을 club_audit_event(APPLICANT_PHONE_VIEWED)에 남기며 응답은 캐시하지 않는다(no-store). "
+                    + "운영진이 아니면 403, 없는 지원서면 404.")
+    @GetMapping("/leader/applications/{applicationId}/phone")
+    ResponseEntity<ApiResponse<ApplicantPhoneResponse>> getApplicantPhone(
+            @PathVariable Long applicationId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
     @Operation(summary = "지원자 상태 변경", description = "ACCEPTED 또는 REJECTED 로만 변경 가능. SUBMITTED 로 되돌릴 수 없다. 운영진 대상(targetRole=OFFICER) 모집의 합격 처리는 동아리 회장만 할 수 있다.")

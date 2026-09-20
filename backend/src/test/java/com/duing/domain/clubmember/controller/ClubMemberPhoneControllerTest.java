@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -48,6 +49,7 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired ClubAuditEventRepository clubAuditEventRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -265,7 +267,8 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("탈퇴한 회원의 멤버 id 로 조회하면 404 — 잔존 멤버 행이 500 으로 새지 않는다")
     void withdrawnMemberIsNotFound() {
-        // 탈퇴는 User 만 soft-delete 하고 비-LEADER club_member 행은 남긴다(GeneralUserService.withdraw).
+        // 계정 탈퇴는 이제 멤버십도 soft-delete 하지만(leaveAllOnWithdrawal), 전환 이전 탈퇴자의 잔존 행·
+        // 탈퇴와 명령이 겹치는 경합 창을 재현하기 위해 userRepository.delete 로 User 만 지운다.
         // 그 잔존 행을 findById 로 읽으면 user 프록시 초기화가 실패해 500 이 났다.
         userRepository.delete(memberUser);
 
@@ -277,6 +280,36 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
                             club.getId(), memberMembership.getId())
                 .then()
                     .statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("번호 열람이 분당 한도를 넘으면 429 로 막히고 초과분은 감사 행을 남기지 않는다")
+    void rateLimitedRevealIsRejected() {
+        // PhoneRevealRateLimiter.PER_MINUTE_LIMIT = 30. package-private 라 직접 참조할 수 없어 수치를
+        // 옮겨 적는다(같은 상황의 LoginRateLimitAcceptanceTest 와 동일한 방식).
+        int perMinuteRevealLimit = 30;
+        for (int reveal = 0; reveal < perMinuteRevealLimit; reveal++) {
+            RestAssured
+                    .given()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .when()
+                        .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
+                                club.getId(), memberMembership.getId())
+                    .then()
+                        .statusCode(HttpStatus.OK.value());
+        }
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        // 429 는 열람이 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다.
+        assertThat(clubAuditEventRepository.count()).isEqualTo(perMinuteRevealLimit);
     }
 
     private User saveUser(String name) {

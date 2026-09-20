@@ -28,6 +28,31 @@ type Props = {
   myClubs: MyClubSummary[];
 };
 
+/** 부원 카드·운영진 카드가 함께 쓰는 동아리 안 동선 — 공지·회비·일정. */
+function MemberQuickLinks({ club }: { club: MyClubSummary }) {
+  return (
+    <>
+      <Link
+        href={`/clubs/${club.clubId}/member/notices`}
+        className="btn btn-ghost btn-sm"
+        aria-label={`${club.clubName} 공지`}
+      >
+        공지
+      </Link>
+      <Link href="/me/fees" className="btn btn-ghost btn-sm" aria-label={`${club.clubName} 회비`}>
+        회비
+      </Link>
+      <Link
+        href={`/clubs/${club.clubId}/member/events`}
+        className="btn btn-ghost btn-sm"
+        aria-label={`${club.clubName} 일정`}
+      >
+        일정
+      </Link>
+    </>
+  );
+}
+
 export function SectionMyClubs({ myClubs }: Props) {
   const [leaveTarget, setLeaveTarget] = useState<MyClubSummary | null>(null);
 
@@ -35,9 +60,9 @@ export function SectionMyClubs({ myClubs }: Props) {
     <section
       data-section="joined"
       id="sec-joined"
-      className="px-4 sm:px-6 md:px-10 pt-8 pb-6 scroll-mt-[60px]"
+      className="pt-6 pb-6 md:pt-8 scroll-mt-[60px]"
     >
-      <div className="max-w-layout mx-auto">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
           title={`가입한 동아리 · ${myClubs.length}`}
           hint="활동 중인 동아리와 다음 모임 일정을 확인해요."
@@ -63,7 +88,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                 <div
                   key={club.clubId}
                   className={cn(
-                    'bg-paper rounded-[18px] px-5 py-5 flex items-center gap-4',
+                    'bg-paper rounded-[18px] px-5 py-5 flex flex-wrap lg:flex-nowrap items-center gap-x-4 gap-y-3',
                     'transition-[transform,box-shadow] duration-150',
                     'hover:-translate-y-0.5 hover:shadow-2',
                     isManager ? 'border-[1.5px] border-ink' : 'border border-line',
@@ -103,24 +128,21 @@ export function SectionMyClubs({ myClubs }: Props) {
                   {statusNotice ? (
                     <span className="text-[12px] text-charcoal-3 shrink-0">{statusNotice}</span>
                   ) : isManager ? (
-                    <Link
-                      href={`/manage?clubId=${club.clubId}`}
-                      className="btn btn-primary btn-sm"
-                      title="동아리 운영자 콘솔로 이동"
-                    >
-                      관리
-                      <ArrowRight size={14} />
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    // 운영진에게도 부원 동선(공지·회비·일정)이 필요하다 — "관리" 앞에 같은 3개를 둔다.
+                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
+                      <MemberQuickLinks club={club} />
                       <Link
-                        href={`/clubs/${club.clubId}/member`}
-                        className="btn btn-ghost btn-sm"
-                        aria-label={`${club.clubName} 둘러보기`}
+                        href={`/manage?clubId=${club.clubId}`}
+                        className="btn btn-primary btn-sm"
+                        title="동아리 운영자 콘솔로 이동"
                       >
-                        둘러보기
+                        관리
                         <ArrowRight size={14} />
                       </Link>
+                    </div>
+                  ) : (
+                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
+                      <MemberQuickLinks club={club} />
                       <button
                         type="button"
                         onClick={() => setLeaveTarget(club)}

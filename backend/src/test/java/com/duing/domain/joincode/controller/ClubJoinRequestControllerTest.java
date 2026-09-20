@@ -2,6 +2,7 @@ package com.duing.domain.joincode.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -30,6 +31,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.support.PhoneMasker;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -53,6 +55,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -70,6 +73,7 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** closed_at·revoked_at 은 프로덕션과 같은 seoulClock 으로 만든다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 −9h 가 된다. */
     @Autowired Clock clock;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -157,8 +161,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("상세 조회에서만 전화번호를 확인할 수 있고 미처리 요청은 처리 정보가 비어 있다")
-    void detailExposesPhoneAndEmptyReviewFieldsWhilePending() {
+    @DisplayName("상세 조회는 전화번호를 마스킹해 싣고 원본 phone 필드는 내려주지 않으며 미처리 요청은 처리 정보가 비어 있다")
+    void detailMasksPhoneAndEmptyReviewFieldsWhilePending() {
         User student = saveUser();
         ClubJoinRequest pending = savePendingRequest(student);
 
@@ -168,11 +172,105 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .body("data.userName", equalTo(student.getName()))
                 .body("data.studentId", equalTo(student.getStudentId()))
                 .body("data.major", equalTo(student.getMajor()))
-                .body("data.phone", equalTo(student.getPhone()))
+                .body("data.phoneMasked", equalTo(PhoneMasker.mask(student.getPhone())))
+                .body("data.phoneMasked", containsString("****"))
+                .body("data.phone", nullValue())
                 .body("data.code", equalTo(joinCode.getCode()))
                 .body("data.status", equalTo("PENDING"))
                 .body("data.rejectReason", nullValue())
                 .body("data.reviewedAt", nullValue());
+    }
+
+    @Test
+    @DisplayName("운영진이 가입 요청자 번호를 조회하면 원본이 no-store 로 내려오고 열람 사실이 감사에 남는다")
+    void leaderRevealsJoinRequestPhoneWithNoStore() {
+        User student = saveUser();
+        ClubJoinRequest pending = savePendingRequest(student);
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId()).then()
+                .statusCode(HttpStatus.OK.value())
+                .header(HttpHeaders.CACHE_CONTROL, containsString("no-store"))
+                .body("data.phone", equalTo(student.getPhone()));
+
+        assertThat(auditEvents())
+                .as("번호 열람은 조회자를 주체로 감사 이벤트 한 건을 남긴다")
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventType())
+                            .isEqualTo(ClubAuditEventType.JOIN_REQUEST_PHONE_VIEWED);
+                    assertThat(event.getClubId()).isEqualTo(club.getId());
+                    assertThat(event.getActorUserId()).isEqualTo(leaderUser.getId());
+                    // jsonb 는 키 순서·공백을 PG 가 다시 찍으므로 공백을 지우고 본다.
+                    assertThat(event.getDetail().replace(" ", ""))
+                            .as("대상은 요청 id 와 사용자 id 로만 남기고 번호 값은 남기지 않는다")
+                            .contains("\"joinRequestId\":" + pending.getId())
+                            .contains("\"userId\":" + student.getId())
+                            .doesNotContain(student.getPhone());
+                });
+    }
+
+    @Test
+    @DisplayName("비로그인 상태에서는 가입 요청자 번호 조회가 401 로 막힌다")
+    void anonymousCannotRevealJoinRequestPhone() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}/phone",
+                        club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("일반 회원과 타 동아리 운영진은 가입 요청자 번호를 조회할 수 없다")
+    void nonManagerCannotRevealJoinRequestPhone() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        getRequestPhone(memberToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+        getRequestPhone(otherClubLeaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+        assertThat(auditEvents()).as("거절된 조회는 감사 행을 남기지 않는다").isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 동아리의 가입 요청 번호를 자기 동아리 경로로 조회하면 존재를 알리지 않고 404 를 반환한다")
+    void otherClubRequestPhoneReturns404() {
+        ClubJoinRequest otherClubRequest = saveOtherClubPendingRequest();
+
+        getRequestPhone(leaderToken, club.getId(), otherClubRequest.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 신청자의 번호를 조회하면 5xx 대신 404 를 반환한다")
+    void withdrawnRequesterPhoneReturns404() {
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest pending = savePendingRequest(withdrawnStudent);
+        // 계정만 soft-delete 한 잔존 재현 — 요청의 user 는 LAZY 프록시라 초기화 시점에 @SQLRestriction 에 걸린다.
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("번호 열람이 분당 한도를 넘으면 429 로 막히고 초과분은 감사 행을 남기지 않는다")
+    void rateLimitedPhoneRevealDoesNotWriteAudit() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        // PhoneRevealRateLimiter.PER_MINUTE_LIMIT = 30. package-private 라 직접 참조할 수 없어 수치를
+        // 옮겨 적는다(LeaderApplicationControllerTest 와 동일한 방식).
+        int perMinuteRevealLimit = 30;
+        for (int reveal = 0; reveal < perMinuteRevealLimit; reveal++) {
+            getRequestPhone(leaderToken, club.getId(), pending.getId())
+                    .then().statusCode(HttpStatus.OK.value());
+        }
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        // 429 는 열람이 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다.
+        assertThat(auditEvents()).hasSize(perMinuteRevealLimit);
     }
 
     @Test
@@ -294,6 +392,56 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .as("자동 거절도 수동 거절과 같은 거절 이벤트로 남는다 — 사유는 요청 행이 갖고 있다")
                 .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId)
                 .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId()));
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원의 대기 요청을 승인하면 자동 거절되고 예약 자리가 환급된다")
+    void approveOnWithdrawnRequesterAutoRejectsAndRefunds() {
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest pending = savePendingRequest(withdrawnStudent);
+        // 계정만 soft-delete 한 잔존 재현 — 탈퇴 서비스 경로는 요청을 미리 거절하므로(결정 2) 승인 경로
+        // 단독 검증엔 jdbc 로 찍는다. 상세 API 는 탈퇴자 연관을 초기화하므로 단언은 저장소로 한다.
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        decide(leaderToken, club.getId(), pending.getId(), "APPROVED").then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.result", equalTo("AUTO_REJECTED_WITHDRAWN"));
+
+        // 파생 쿼리는 user 조인에 soft-delete 필터가 붙어 유령 행을 가리므로 jdbc 로 물리 부재를 본다.
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_member WHERE club_id = ? AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId(), withdrawnStudent.getId()))
+                .as("탈퇴한 계정에 활성 멤버십 행이 물리적으로 없다").isZero();
+        ClubJoinRequest rejected = clubJoinRequestRepository.findById(pending.getId()).orElseThrow();
+        assertThat(rejected.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(rejected.getRejectReason()).isEqualTo("탈퇴한 회원");
+        assertThat(usedCountOfCurrentCode()).as("자동 거절은 자리를 환급한다").isZero();
+        assertThat(auditEvents())
+                .as("거절 이벤트로 남는다 — 사유는 요청 행이 갖고 있다")
+                .extracting(ClubAuditEvent::getEventType, ClubAuditEvent::getJoinRequestId)
+                .containsExactly(tuple(ClubAuditEventType.JOIN_REQUEST_REJECTED, pending.getId()));
+    }
+
+    @Test
+    @DisplayName("일괄 승인에 탈퇴한 회원의 요청이 섞이면 전용 문구로 실패 목록에 남는다")
+    void bulkApproveReportsWithdrawnRequester() {
+        ClubJoinRequest approvable = savePendingRequest(saveUser());
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest withdrawn = savePendingRequest(withdrawnStudent);
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        Response response = bulkApprove(leaderToken, club.getId(),
+                List.of(approvable.getId(), withdrawn.getId()));
+
+        response.then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.approvedCount", equalTo(1))
+                .body("data.failures", hasSize(1));
+        assertThat(response.jsonPath().getList("data.failures.reason", String.class))
+                .containsExactly("탈퇴한 회원이라 자동 거절 처리되었습니다.");
+        assertThat(clubJoinRequestRepository.findById(withdrawn.getId()).orElseThrow().getStatus())
+                .as("탈퇴자 요청은 PENDING 으로 방치되지 않는다").isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(usedCountOfCurrentCode()).as("승인 1건은 유지, 탈퇴자 1건은 환급").isEqualTo(1);
     }
 
     @Test
@@ -519,6 +667,14 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when()
                 .get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}", targetClubId, joinRequestId);
+    }
+
+    private Response getRequestPhone(String token, Long targetClubId, Long joinRequestId) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when()
+                .get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}/phone",
+                        targetClubId, joinRequestId);
     }
 
     private Response decide(String token, Long targetClubId, Long joinRequestId, String status) {

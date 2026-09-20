@@ -113,19 +113,26 @@ export function PhoneVerificationField({
       </button>
     );
 
-  // 주 액션 + [재발급] 행 (데스크톱 상시 / 모바일 탭 후).
+  // 주 액션 + [재발급] 행 (데스크톱 상시 / 모바일 탭 후) + [번호 다시 입력].
   const actionRow = (
-    <div className="mt-3 flex gap-2">
-      {primaryAction}
-      <button
-        type="button"
-        disabled={!canIssue}
-        onClick={() => onIssue(!isMobile)}
-        className="btn shrink-0 whitespace-nowrap"
-      >
-        재발급{resendCooldownSeconds > 0 ? ` (${resendCooldownSeconds}s)` : ''}
+    <>
+      <div className="mt-3 flex gap-2">
+        {primaryAction}
+        <button
+          type="button"
+          disabled={!canIssue}
+          onClick={() => onIssue(!isMobile)}
+          className="btn shrink-0 whitespace-nowrap"
+        >
+          재발급{resendCooldownSeconds > 0 ? ` (${resendCooldownSeconds}s)` : ''}
+        </button>
+      </div>
+      {/* 번호를 잘못 넣고 발급한 경우 — idle 로 되돌린다(입력값은 부모 state 라 남는다).
+          공용 필드라 프로필 번호 변경·비밀번호 재설정에도 같은 경로가 열린다(의도). */}
+      <button type="button" onClick={onReset} className="btn btn-ghost btn-sm mt-1 min-h-11">
+        번호 다시 입력
       </button>
-    </div>
+    </>
   );
 
   return (
@@ -202,7 +209,11 @@ export function PhoneVerificationField({
       {showIssuedFields && isMobile && (
         // 모바일: 일러스트 → CTA 우선 점진 노출 → 직접 보내기 fallback
         <div>
-          <SignupIllustration className="mx-auto w-full max-w-[240px]" />
+          <SignupIllustration
+            className="mx-auto w-full max-w-[240px]"
+            code={code}
+            moNumber={formatMoNumber(moNumber)}
+          />
 
           {!linkOpened ? (
             <>
@@ -216,6 +227,10 @@ export function PhoneVerificationField({
               <p className="mt-2 text-center text-xs text-charcoal-3">
                 버튼을 누르면 문자 앱이 열리고 수신번호·코드가 자동으로 채워져요. 그대로 보내면 끝!
               </p>
+              {/* 문자앱을 열기 전에도 번호를 고칠 길이 있어야 한다 — actionRow 는 탭 후에만 나오므로 여기 따로 둔다. */}
+              <button type="button" onClick={onReset} className="btn btn-ghost btn-sm mt-1 min-h-11 w-full">
+                번호 다시 입력
+              </button>
             </>
           ) : (
             <>

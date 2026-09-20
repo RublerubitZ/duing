@@ -17,8 +17,8 @@ const LAST = STEPS.length - 1;
 
 export function Flow() {
   return (
-    <section className="bg-ink-deep px-4 py-20 sm:px-6 md:px-10 md:py-28">
-      <div className="mx-auto max-w-layout">
+    <section className="bg-ink-deep py-20 md:py-28">
+      <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
           <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-cream/70">
             FLOW · 사용 흐름

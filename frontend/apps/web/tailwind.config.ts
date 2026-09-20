@@ -29,7 +29,7 @@ const config: Config = {
         charcoal: {
           DEFAULT: '#2F3433',
           2: '#4A504F',
-          3: '#6F7574',
+          3: '#5C645F',
         },
         line: '#E5E2DA',
         graysoft: '#F0EDE5',

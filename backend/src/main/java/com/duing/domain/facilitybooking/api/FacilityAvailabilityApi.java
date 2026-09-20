@@ -18,15 +18,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface FacilityAvailabilityApi {
 
     @Operation(summary = "월 단위 슬롯 가용성 (비로그인)",
-            description = "yearMonth 생략 시 현재월. 이번 달·다음 달만 조회 가능(월 조회 범위 — 실제 신청 가능 구간은 bookableFrom/bookableUntil).")
+            description = "yearMonth 생략 시 현재월. 직전 달·이번 달·다음 달만 조회 가능(월 조회 범위). "
+                    + "실제 신청 가능 구간은 시설별 오픈일이 정하는 bookableFrom/bookableUntil 이며, "
+                    + "bookableFrom > bookableUntil 이면 아직 열리지 않은(닫힌) 시설이다.")
     @GetMapping("/facilities/{facilityId}/availability")
     ResponseEntity<ApiResponse<FacilityAvailabilityResponse>> getAvailability(
             @PathVariable Long facilityId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth);
 
-    @Operation(summary = "현재 예약 오픈 구간 (비로그인)",
-            description = "롤링 오픈 정책(현재 진행 중인 반월 + 다음 반월) 기준 신청 가능한 날짜 구간. "
-                    + "단일 창(bookableFrom/bookableUntil)과 라벨링된 세부 구간(availableBookingRanges)을 함께 반환. 전 시설 공통.")
+    @Operation(summary = "현재 예약 오픈 구간 (비로그인, 폐기 예정)", deprecated = true,
+            description = "시설 무관 참조 창(오늘 ~ 익월 말일). 시설별 신청 가능 구간은 가용성 응답의 "
+                    + "bookableFrom/bookableUntil 이 단일 진실이며, 이 엔드포인트는 구 FE 호환용으로 "
+                    + "한 릴리스만 유지한 뒤 삭제된다.")
+    @Deprecated
     @GetMapping("/facilities/booking-window")
     ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow();
 

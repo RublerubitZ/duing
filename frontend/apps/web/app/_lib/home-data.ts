@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { createApiClient } from '@duing/api';
 import type { ClubSummary } from '@duing/types';
 import {
@@ -95,8 +97,13 @@ export function applyNewClubSlot(
   return [...top.slice(0, size - 1), newcomer];
 }
 
-/** RecruitmentTicker 용: 마감 임박순 모집 중 동아리, 상시모집(endDate=null) 은 제거. */
-export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSummary[]> {
+/**
+ * RecruitmentTicker 용: 마감 임박순 모집 중 동아리, 상시모집(endDate=null) 은 제거.
+ *
+ * <p>React `cache` 로 감싸 한 렌더 안의 반복 호출을 합친다. 지금 부르는 곳은 티커 하나라 합쳐질 호출이
+ * 없지만, 비용이 없고 나중에 소비자가 늘어도 요청이 한 번만 나가므로 래퍼는 그대로 둔다.
+ */
+export const fetchUpcomingDeadlineClubs = cache(async (size: number): Promise<ClubSummary[]> => {
   try {
     const page = await client().clubs.list({
       sort: 'DEADLINE_SOON',
@@ -109,7 +116,7 @@ export async function fetchUpcomingDeadlineClubs(size: number): Promise<ClubSumm
     logBackendUnavailable('fetchUpcomingDeadlineClubs', error);
     return [];
   }
-}
+});
 
 /**
  * BannerCarousel 용: 공개 활성 프로모션 슬라이드.

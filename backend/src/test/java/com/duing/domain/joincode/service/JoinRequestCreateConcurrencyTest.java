@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -36,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -47,6 +49,8 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
+    @Autowired JoinCodeService joinCodeService;
+    @Autowired TransactionTemplate transactionTemplate;
     @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -118,6 +122,106 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
                 "SELECT COUNT(*) FROM club_join_request WHERE club_id = ? AND deleted_at IS NULL",
                 Integer.class, club.getId());
         assertThat(requestCount).as("접수된 요청도 1건").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("폐쇄가 동아리를 잠근 채 링크를 폐기하는 동안 들어온 가입 요청은 교착 없이 상태 게이트로 거절되고 폐쇄는 커밋된다")
+    void closureHoldingClubLockRejectsJoinRequestWithoutDeadlock() throws Exception {
+        User student = userRepository.save(UserFixture.unique());
+        User admin = userRepository.save(UserFixture.admin());
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveOpenExternalRecruitment(club);
+        ClubJoinCode joinCode = clubJoinCodeRepository.save(ClubJoinCode.issue(
+                club, recruitment, "IJ56KL", 12, 30, 7, null));
+
+        CountDownLatch clubLocked = new CountDownLatch(1);
+        CountDownLatch requestStarted = new CountDownLatch(1);
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<Future<Throwable>> outcomes = List.of(
+                pool.submit(() -> closeHoldingClubLock(club.getId(), recruitment.getId(), admin.getId(),
+                        clubLocked, requestStarted)),
+                pool.submit(() -> {
+                    clubLocked.await();
+                    requestStarted.countDown();
+                    return tryCreate(joinCode.getCode(), student.getId());
+                }));
+        pool.shutdown();
+        // 옛 순서(code → club)였다면 요청이 club 잠금에 걸리지 않고 통과해 아래 대기 가드가 타임아웃하고,
+        // 폐쇄 중인 동아리로 요청이 접수된다 — 이 테스트는 그 경로를 잠금 대기 진입과 409 로 고정한다.
+        assertThat(pool.awaitTermination(15, TimeUnit.SECONDS))
+                .as("폐쇄와 가입 요청이 시간 내에 완료").isTrue();
+
+        assertThat(quietGet(outcomes.get(0)))
+                .as("폐쇄는 교착으로 abort 되지 않고 커밋된다").isNull();
+        assertThat(quietGet(outcomes.get(1)))
+                .as("가입 요청은 잠금 대기 뒤 폐기된 링크를 보고 409 로 거절된다")
+                .isInstanceOf(JoinRequestException.UnusableJoinCodeException.class);
+
+        Integer revokedCodeCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_join_code WHERE id = ? AND revoked_at IS NOT NULL",
+                Integer.class, joinCode.getId());
+        assertThat(revokedCodeCount).as("폐쇄가 링크를 실제로 폐기했다").isEqualTo(1);
+        Integer requestCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_join_request WHERE club_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId());
+        assertThat(requestCount).as("폐쇄된 동아리로는 요청이 접수되지 않는다").isEqualTo(0);
+        assertThat(usedCountOf(joinCode)).as("자리도 차감되지 않는다").isEqualTo(0);
+    }
+
+    /**
+     * 동아리 폐쇄의 잠금 순서(club FOR UPDATE → 코드 행 벌크 UPDATE)만 재현한다 — 서비스 close 는
+     * 커밋 시점을 붙잡을 수 없다. club 을 잠근 뒤 경쟁 스레드가 잠금 대기에 들어갈 때까지 기다리고
+     * 나서 운영 중단으로 바꾸고 링크를 폐기한다(폐쇄는 비 ACTIVE 동아리에서만 시작된다).
+     */
+    private Throwable closeHoldingClubLock(Long clubId, Long recruitmentId, Long adminId,
+                                           CountDownLatch clubLocked, CountDownLatch requestStarted) {
+        try {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                Club lockedClub = clubRepository.findByIdForUpdate(clubId).orElseThrow();
+                clubLocked.countDown();
+                awaitRequestBlockedOnLock(requestStarted);
+                lockedClub.changeStatus(ClubStatus.INACTIVE, null, adminId);
+                joinCodeService.revokeActiveOnClubClosure(clubId, List.of(recruitmentId), adminId);
+            });
+            return null;
+        } catch (Throwable failure) {
+            return failure;
+        }
+    }
+
+    /**
+     * 경쟁 가입 요청이 실제로 잠금 대기에 들어간 뒤에 폐쇄를 진행시킨다. 대기 진입 전에 커밋하면
+     * 요청이 이미 폐기된 링크를 그냥 읽어, 검증하려는 잠금 경로가 한 번도 행사되지 않은 채 통과한다.
+     */
+    private void awaitRequestBlockedOnLock(CountDownLatch requestStarted) {
+        try {
+            if (!requestStarted.await(2, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("경쟁 가입 요청 스레드가 시작되지 않았다.");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("경쟁 스레드 대기가 중단되었다.", interrupted);
+        }
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Integer blocked = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM pg_locks WHERE NOT granted", Integer.class);
+            if (blocked != null && blocked > 0) {
+                return;
+            }
+            sleepBriefly();
+        }
+        throw new IllegalStateException("경쟁 가입 요청이 제한 시간 안에 잠금 대기에 진입하지 않았다.");
+    }
+
+    private void sleepBriefly() {
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("잠금 대기 폴링이 중단되었다.", interrupted);
+        }
     }
 
     private int usedCountOf(ClubJoinCode joinCode) {

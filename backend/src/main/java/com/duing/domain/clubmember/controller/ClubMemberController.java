@@ -56,7 +56,10 @@ public class ClubMemberController implements ClubMemberApi {
                 .getMembersForExport(clubId, currentUser.id(), includePhone, memberIds).stream()
                 .map(ClubMemberExportResponse::from)
                 .toList();
-        return ResponseEntity.ok(ApiResponse.success(members));
+        // 번호 포함 여부와 무관하게 캐시에 남기지 않는다 — 학번·이름도 개인정보다(getMemberPhone 과 동일 규약).
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(members));
     }
 
     @Override

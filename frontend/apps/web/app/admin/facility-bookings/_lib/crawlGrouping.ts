@@ -86,17 +86,21 @@ export function foldReservationContexts(
   return contexts;
 }
 
-/** 크롤 수집 시각(ISO 절대시각) → "MM/DD HH:mm"(KST) — §13 확인 목록의 "크롤링 시각" 표기용. */
+/** 행 crawledAt(ISO 절대시각) → "MM/DD HH:mm"(KST). 행 crawled_at 은 차등 반영상 내용이 같으면 갱신되지 않는
+ *  "마지막 내용 변경" 시각이다 — 크롤 현황 탭의 맥락 행 "마지막 변경" 표기용(수집 시각은 헤더 신선도 칩이 담당). */
 export function crawledAtLabel(iso: string): string {
-  const formatted = new Intl.DateTimeFormat('sv-SE', {
+  // 로케일 날짜 패턴(sv-SE 는 월·일만 찍으면 dd/MM)에 기대지 않고 부품을 직접 조립한다 — 같은 행의
+  // contextDateLabel(MM/DD)과 표기를 맞춘다.
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Seoul',
+    hourCycle: 'h23',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(iso));
-  // sv-SE: "MM-DD HH:mm" — 구분자만 표기 관례(/)로 바꾼다.
-  return formatted.replace('-', '/');
+  }).formatToParts(new Date(iso));
+  const read = (type: string): string => parts.find((part) => part.type === type)?.value ?? '';
+  return `${read('month')}/${read('day')} ${read('hour')}:${read('minute')}`;
 }
 
 /** "08/28~08/30" 또는 단일 일자 "08/28" — 맥락 표기용. */

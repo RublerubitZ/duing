@@ -1,0 +1,19 @@
+-- 회장 경로 개인정보 열람을 감사 이벤트로 남긴다(#754). 지금까지 애플리케이션 로그에만 남아
+-- 컨테이너 재생성(배포) 때 사라졌다.
+-- MEMBER_PHONE_VIEWED: detail {"memberId","userId"}. 열람마다 남긴다(중복 제거 없음).
+-- MEMBER_LIST_EXPORTED: detail {"includePhone","scoped","count"}. 번호 포함 여부가 감사의 핵심이다.
+-- 이벤트 종류를 늘릴 때는 CHECK 도 함께 갱신한다(V102 절차 주석, V104·V105·V116·V127 선례).
+ALTER TABLE club_audit_event DROP CONSTRAINT club_audit_event_event_type_check;
+ALTER TABLE club_audit_event ADD CONSTRAINT club_audit_event_event_type_check CHECK (event_type IN (
+    'JOIN_LINK_CREATED', 'JOIN_LINK_REGENERATED', 'JOIN_LINK_REVOKED',
+    'JOIN_REQUEST_CREATED', 'JOIN_REQUEST_APPROVED', 'JOIN_REQUEST_REJECTED',
+    'RECRUITMENT_FORCE_CLOSED', 'APPLICATION_VIEWED',
+    'FEE_POLICY_CREATED', 'FEE_POLICY_UPDATED', 'FEE_POLICY_DELETED',
+    'FEE_BILL_ISSUED', 'FEE_BILL_CANCELLED',
+    'FEE_PAYMENT_RECORDED', 'FEE_PAYMENT_VOIDED',
+    'FEE_TX_MANUAL_MATCHED', 'FEE_TX_IGNORED', 'FEE_TX_UNMATCHED',
+    'FEE_ACCOUNT_REGISTERED', 'FEE_ACCOUNT_UPDATED', 'FEE_ACCOUNT_DELETED',
+    'FEE_ADMIN_DETAIL_VIEWED', 'FEE_ADMIN_CSV_DOWNLOADED',
+    'SECURED_TARGET_CHANGED',
+    'CLUB_STATUS_CHANGED', 'CLUB_CLOSED',
+    'MEMBER_PHONE_VIEWED', 'MEMBER_LIST_EXPORTED'));

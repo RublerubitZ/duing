@@ -2,6 +2,10 @@ package com.duing.domain.clubmember.service;
 
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -12,6 +16,9 @@ import com.duing.domain.clubmember.service.dto.query.MemberFeeStatus;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.LatestBillStatusRow;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +38,9 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final FeeBillRepository feeBillRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
+    private final PhoneRevealRateLimiter phoneRevealRateLimiter;
+    private final Clock clock;
 
     @Override
     public List<ClubMemberQuery> getMembers(Long clubId, Long requesterId) {
@@ -62,10 +72,22 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
                 .toList();
     }
 
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — readOnly 로 두면 실제 PG 에서
+     * INSERT 가 거부된다. 명단 내보내기는 회원 개인정보를 파일로 반출하는 행위라 감사 대상이다.
+     */
     @Override
+    @Transactional
     public List<ClubMemberExportQuery> getMembersForExport(
             Long clubId, Long requesterId, boolean includePhone, List<Long> memberIds) {
         clubAuthService.requireManager(requesterId, clubId);
+        if (includePhone) {
+            // 인가 뒤·감사 기록 앞 — 번호 단건 열람과 같은 창을 소모한다(getMemberPhone 과 동일한 순서).
+            // 내보내기 1건 = 열람 1회로 계상한다. 인원수만큼 소모하면 100명 동아리의 정당한 전체 내보내기가
+            // 분 30 한도에 항상 걸려 기능이 죽는다 — 리미터의 목적은 반복 호출 억제이고, 1회의 규모는
+            // 아래 감사 detail 의 count 가 남긴다.
+            phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
+        }
         Map<Long, MemberFeeStatus> feeStatusByUser = feeStatusByUser(clubId);
         // 지정된 멤버만 내려보낸다 — 화면에 없는 회원의 전화번호가 브라우저로 나가지 않게 하고,
         // 아래 감사 로그의 count 도 실제 내보낸 인원과 일치시킨다. 요청 크기는 URL 길이 제한이 막는다.
@@ -81,12 +103,26 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
                 .toList();
         log.info("club member export: clubId={}, actorId={}, includePhone={}, scoped={}, count={}",
                 clubId, requesterId, includePhone, !targetMemberIds.isEmpty(), rows.size());
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.MEMBER_LIST_EXPORTED, clubId, requesterId,
+                AuditDetailJson.of(Map.of(
+                        "includePhone", includePhone,
+                        "scoped", !targetMemberIds.isEmpty(),
+                        "count", rows.size()))));
         return rows;
     }
 
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — readOnly 로 두면 실제 PG 에서
+     * INSERT 가 거부된다. 원본 번호 열람은 그 자체가 감사 대상 행위다.
+     */
     @Override
+    @Transactional
     public String getMemberPhone(Long clubId, Long memberId, Long requesterId) {
         clubAuthService.requireManager(requesterId, clubId);
+        // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다.
+        // 지원자 번호 열람과 같은 창을 공유한다(열람 총량 기준). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
+        phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
         // clubId 스코프(타 동아리 id 로 남의 번호를 긁는 경로 차단)와 탈퇴 회원 잔존 행 제외를 쿼리가 함께 처리한다.
         // 셋 다 404 로 수렴해 존재 여부를 숨긴다.
         ClubMember target = clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)
@@ -94,6 +130,9 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
         // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
         log.info("member phone view: clubId={}, actorUserId={}, targetMemberId={}, targetUserId={}, action=PHONE_VIEW",
                 clubId, requesterId, memberId, target.getUser().getId());
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.MEMBER_PHONE_VIEWED, clubId, requesterId,
+                AuditDetailJson.of(Map.of("memberId", memberId, "userId", target.getUser().getId()))));
         return target.getUser().getPhone();
     }
 

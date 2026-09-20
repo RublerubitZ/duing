@@ -95,8 +95,10 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     @Override
     @Transactional
     public void leave(LeaveClubCommand command) {
+        // 잠금 조회가 유일한 첫 조회다 — 회장 인계가 먼저 이 행을 잡았다면 커밋 뒤의 역할(LEADER)로 재읽혀
+        // 아래 검사가 409 로 막는다. 무잠금으로 읽으면 @SQLDelete 가 인계 커밋 위에 그대로 적용돼 회장이 공석이 된다(#1138).
         ClubMember membership = clubMemberRepository
-                .findByClubIdAndUserId(command.clubId(), command.requesterId())
+                .findByClubIdAndUserIdForUpdate(command.clubId(), command.requesterId())
                 .orElseThrow(ClubMemberException.NotFound::new);
 
         if (membership.getRole() == ClubMemberRole.LEADER) {
@@ -180,11 +182,30 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
         clubMemberRepository.deleteAll(members);
     }
 
+    @Override
+    @Transactional
+    public void leaveAllOnWithdrawal(Long userId) {
+        // 잠금 조회가 유일한 첫 조회다(id 순) — 회장 인계·승계·지정이 먼저 잡은 행은 커밋 뒤 역할로 재읽힌다(#1138).
+        List<ClubMember> memberships = clubMemberRepository.findAllByUserIdForUpdate(userId);
+        for (ClubMember membership : memberships) {
+            // withdraw 의 선검사는 잠금 전이라 창을 못 닫는다(빠른 실패용). 잠금 조회 뒤의 이 검사가
+            // 인계·승계·지정과의 경합을 닫는다 — LEADER 로 재읽히면 409.
+            if (membership.getRole() == ClubMemberRole.LEADER) {
+                throw new ClubMemberException.LeaderCannotLeave();
+            }
+            historyRecorder.record(
+                    membership.getClub().getId(), userId, userId,
+                    ClubMemberEventType.LEFT, membership.getRole(), null, "회원 탈퇴");
+        }
+        // @SQLDelete → 행은 deleted_at 으로 남아 가입 이력이 보존된다. 행 자체엔 PII 가 없어(user_id·club_id·role)
+        // 잔존해도 무방하고, 물리 파기가 필요해지면 PiiRetentionJob 을 확장한다(현재 잡은 club_member 를 다루지 않는다).
+        clubMemberRepository.deleteAll(memberships);
+    }
+
     /**
-     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 탈퇴는 계정만 soft-delete 하고 비-LEADER
-     * 멤버십 행은 남기므로(의도된 동작), findById 로 읽으면 목록에서 이미 사라진 회원의 잔존 행에
-     * 조작이 그대로 성공한다 — 운영진 화면에는 보이지도 않는 대상에 이력만 쌓인다(#753).
-     * 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다.
+     * 운영 명령(역할 변경·기수 변경·강퇴)의 대상 조회. 계정 탈퇴는 이제 멤버십도 함께 soft-delete 하지만
+     * (leaveAllOnWithdrawal), 그 전환 이전 탈퇴자의 잔존 행과 탈퇴·명령이 겹치는 경합 창은 남으므로
+     * findById 대신 원본 연락처 조회와 같은 경로를 써서 탈퇴 회원 행은 404 로 수렴시킨다(#753).
      */
     private ClubMember findMembershipInClub(Long memberId, Long clubId) {
         return clubMemberRepository.findByClubIdAndIdWithUser(clubId, memberId)

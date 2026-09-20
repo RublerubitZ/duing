@@ -3,15 +3,18 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { CircleHelp, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { LAST_CLUB_STORAGE_KEY } from '../_lib/lastClubStorage';
 import { ClubSwitcher } from './ClubSwitcher';
 import { ManageGuard } from './ManageGuard';
 import { ManageNav } from './ManageNav';
@@ -107,6 +110,7 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
     setLoggingOut(true);
     try {
       await logout();
+      clearOperatorLocalState();
       // 드로어 안에서 로그아웃하면 replace 이동과 시트 언마운트 닫힘이 겹친다 — 회수 back() 이
       // 이동을 되돌려 콘솔로 튕기지 않게 건너뛴다(실측 재현). 데스크탑 aside 경로는 열린 오버레이가
       // 없어 이 호출이 무시된다.
@@ -125,7 +129,8 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
     <div
       className={cn(
         'mt-1 flex shrink-0 items-center gap-2.5 py-3',
-        collapsed ? 'justify-center px-3' : 'px-4',
+        // 접힘 폭(84px)에는 아이콘 두 개(도움말·로그아웃)가 가로로 안 들어간다 — 세로로 쌓는다.
+        collapsed ? 'flex-col justify-center px-3' : 'px-4',
       )}
     >
       {!collapsed &&
@@ -143,6 +148,21 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
           // me 로딩/실패 — 이름 없이 로그아웃만 남긴다 (fail-soft)
           <span aria-hidden className="flex-1" />
         ))}
+      {/* 도움말(FAQ) — 접힘/펼침 모두 같은 아이콘 링크라 분기하지 않는다.
+          새 창으로 연다 — 콘솔에서 작업하다 도움말을 보면 되돌아올 길이 없어(콘솔 밖 페이지) 이탈이 된다. */}
+      <Link
+        href="/faq"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="도움말 (새 창)"
+        title="도움말"
+        className={cn(
+          'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white/55 outline-none',
+          'hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-sage motion-safe:transition-colors',
+        )}
+      >
+        <CircleHelp size={17} />
+      </Link>
       <button
         type="button"
         onClick={handleLogout}
@@ -164,6 +184,7 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
 export function ManageShell({ currentClubId, children }: ManageShellProps) {
   const { data: managedClubs, isLoading } = useManagedClubsQuery();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname();
   // 서버 렌더와 첫 페인트는 항상 펼친 상태로 맞추고 저장값은 마운트 후 반영한다
   // (localStorage 를 초기값으로 읽으면 하이드레이션 불일치가 난다).
   const [collapsed, setCollapsed] = useState(false);
@@ -175,6 +196,24 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
       // 저장소를 못 쓰는 환경 — 접힘 기억만 포기하고 기본(펼침)으로 둔다.
     }
   }, []);
+
+  useEffect(() => {
+    if (currentClubId === null) return;
+    try {
+      window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, String(currentClubId));
+    } catch {
+      // 저장 실패는 이번 세션의 콘솔 동작을 막지 않는다 — 다음 /manage 진입이 첫 동아리로 갈 뿐이다.
+    }
+  }, [currentClubId]);
+
+  // 드로어 안 링크 클릭은 아래 래퍼 onClick 이 닫지만, 미저장 이탈 가드가 capture 단계에서 클릭을
+  // 멈추면 그 onClick 이 실행되지 않는다 — 확인 후 router.push 로 이동해도 드로어가 열린 채 새 화면을
+  // 덮는다. 경로가 바뀌면 무조건 닫아 잔존을 막는다.
+  // 회수 back() 은 따로 건너뛰지 않는다 — 이 시점의 히스토리는 이미 이동이 덮었거나(마커 불일치),
+  // 아직 커밋 전이면 이동 예약(navigationPending)이 살아 있어 backDismiss 가 양쪽 다 회수하지 않는다.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   const applyCollapsed = (next: boolean) => {
     setCollapsed(next);
@@ -256,12 +295,15 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
           <div
             className="contents"
             onClick={(event) => {
-              if (event.target instanceof HTMLElement && event.target.closest('a')) {
+              const anchor =
+                event.target instanceof HTMLElement ? event.target.closest('a') : null;
+              if (anchor) {
                 // 링크 이동과 겹치는 닫힘 — 뒤로가기 흡수 엔트리 회수를 건너뛰어 이동이 삼켜지지 않게 한다.
-                // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
-                if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                  skipNextOverlayReclaim();
-                }
+                // 수정자 키 클릭·target=_blank(도움말)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
+                const opensNewTab =
+                  event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
+                  (anchor.target !== '' && anchor.target !== '_self');
+                if (!opensNewTab) skipNextOverlayReclaim();
                 setDrawerOpen(false);
               }
             }}

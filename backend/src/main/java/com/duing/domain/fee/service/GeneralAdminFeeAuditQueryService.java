@@ -222,7 +222,7 @@ public class GeneralAdminFeeAuditQueryService implements AdminFeeAuditQueryServi
     public Page<AdminFeeAuditLogRow> getAuditLogs(Long clubId, List<ClubAuditEventType> types,
                                                   AdminFeePeriod period, Pageable pageable) {
         requireExistingClub(clubId);
-        Page<ClubAuditEvent> events = clubAuditEventRepository.searchFeeEvents(
+        Page<ClubAuditEvent> events = clubAuditEventRepository.searchEvents(
                 clubId, feeTypesOf(types), period.createdFrom(), period.createdTo(), pageable);
         Map<Long, String> actorNames = actorNamesOf(events.getContent());
         return events.map(event -> toLogRow(event, actorNames));

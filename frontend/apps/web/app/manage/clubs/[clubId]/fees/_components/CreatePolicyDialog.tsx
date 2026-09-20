@@ -74,7 +74,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         },
   });
 
-  // 자동발행은 전체 회원 MONTHLY 정책만. 생성 모드는 선택 중인 값, 수정 모드는 (잠긴) 기존 값을 본다.
+  // 자동발행은 전체 부원 MONTHLY 정책만. 생성 모드는 선택 중인 값, 수정 모드는 (잠긴) 기존 값을 본다.
   const watchedBillingType = watch('billingType');
   const watchedAutoIssue = watch('autoIssue');
   const watchedTargetType = watch('targetType');
@@ -217,7 +217,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                 className="rounded-md border border-line bg-graysoft px-4 py-3 text-sm text-charcoal-2"
                 aria-readonly="true"
               >
-                {policy.targetType === 'SELECTED_MEMBERS' ? '특정 회원' : '전체 회원'}
+                {policy.targetType === 'SELECTED_MEMBERS' ? '특정 부원' : '전체 부원'}
                 <span className="ml-2 text-xs text-charcoal-3">
                   (청구 대상은 변경할 수 없습니다. 변경하려면 새 정책을 만드세요.)
                 </span>
@@ -237,7 +237,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                     })}
                     className="accent-ink"
                   />
-                  전체 회원
+                  전체 부원
                 </label>
                 <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm">
                   <input
@@ -252,12 +252,12 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                     })}
                     className="accent-ink"
                   />
-                  특정 회원
+                  특정 부원
                 </label>
               </div>
             )}
             <p className="mt-1 text-xs text-charcoal-3">
-              특정 회원은 발행할 때마다 대상 회원을 선택합니다(MT·행사 참가비 등).
+              특정 부원은 발행할 때마다 대상 부원을 선택합니다(MT·행사 참가비 등).
             </p>
             {errors.targetType && <p className="mt-1 text-xs text-coral">{errors.targetType.message}</p>}
           </div>
@@ -269,7 +269,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                 매월 자동 발행
               </label>
               <p className="mt-1 text-xs text-charcoal-3">
-                매월 발행일이 되면 활성 회원에게 이 정책의 청구를 자동으로 발행합니다.
+                매월 발행일이 되면 활성 부원에게 이 정책의 청구를 자동으로 발행합니다.
               </p>
               {watchedAutoIssue && (
                 <div className="mt-3 grid grid-cols-2 gap-3">

@@ -4,6 +4,10 @@ import type {
   AdminClubSummary,
   AdminClubMemberHistoryParams,
   AdminClubMemberHistoryRow,
+  AdminClubActivityEvent,
+  AdminClubActivityEventsParams,
+  AdminClubJoinCode,
+  ForceRevokeJoinCodePayload,
   AdminPendingCounts,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
@@ -98,6 +102,8 @@ import type {
   UpdateFederationInquiryAnswerPayload,
   AdminCrawlReservationGroup,
   AdminCrawlReservationParams,
+  AdminFacility,
+  UpdateFacilityBookingOpenDatePayload,
 } from '@duing/types';
 import { REQUEST_TIMEOUT_MS, cleanParams } from '../http';
 
@@ -240,6 +246,20 @@ export type AdminApi = {
     assignLeader(clubId: number, payload: AssignAdminLeaderPayload): Promise<void>;
     memberHistory(clubId: number, params: AdminClubMemberHistoryParams): Promise<PageResponse<AdminClubMemberHistoryRow>>;
   };
+  clubActivity: {
+    events(clubId: number, params: AdminClubActivityEventsParams): Promise<PageResponse<AdminClubActivityEvent>>;
+  };
+  /** 동아리가 만든 가입 링크 2종(모집·부원 초대) 이력. 총동연은 보고 끊을 수만 있고 발급하지 않는다. */
+  clubJoinCodes: {
+    /** 페이지네이션 없음 — 동아리 한 곳의 링크 이력은 한 화면에 담긴다(createdAt DESC). */
+    list(clubId: number): Promise<AdminClubJoinCode[]>;
+    /** 이미 폐기된 링크에 다시 호출해도 204 다(멱등) — 최초 폐기 시각·이력은 그대로다. */
+    forceRevoke(
+      clubId: number,
+      joinCodeId: number,
+      payload: ForceRevokeJoinCodePayload,
+    ): Promise<void>;
+  };
   promotionRequests: {
     list(params: AdminPromotionRequestSearchParams): Promise<PageResponse<AdminPromotionRequestSummary>>;
     get(requestId: number): Promise<AdminPromotionRequestDetail>;
@@ -266,6 +286,18 @@ export type AdminApi = {
     cancel(bookingId: number, reason: string): Promise<void>;
     // GET .../summary — 대시보드 카드 수치(§9.7)
     summary(): Promise<AdminFacilityBookingCounts>;
+  };
+  // === 시설 관리(총동연) — 시설별 예약 오픈일 ===
+  facilities: {
+    // GET /api/v1/admin/facilities — 활성 시설 + bookingOpenDate(no-store)
+    list(): Promise<AdminFacility[]>;
+    // PATCH /api/v1/admin/facilities/{id}/booking-open-date — null 이면 닫기
+    updateBookingOpenDate(
+      facilityId: number,
+      payload: UpdateFacilityBookingOpenDatePayload,
+    ): Promise<void>;
+    // PATCH /api/v1/admin/facilities/booking-open-date — 활성 시설 전체, 단일 트랜잭션(부분 적용 없음)
+    updateAllBookingOpenDate(payload: UpdateFacilityBookingOpenDatePayload): Promise<void>;
   };
   // === 크롤 예약 현황(전면 차단 설계 §3.6) — 읽기 전용, 그룹 단위 페이징 ===
   facilityCrawl: {
@@ -461,6 +493,7 @@ export function createAdminApi(deps: {
         jsonOk<AdminApplicantList>(
           http.get(`admin/recruitments/${recruitmentId}/applications`, {
             searchParams: cleanParams(params),
+            timeout: REQUEST_TIMEOUT_MS.search,
           }),
         ),
       applicationDetail: (applicationId) =>
@@ -540,6 +573,20 @@ export function createAdminApi(deps: {
           http.get(`admin/clubs/${clubId}/member-history`, { searchParams: cleanParams(params) }),
         ),
     },
+    clubActivity: {
+      // 배열 파라미터는 cleanParams 가 같은 키 반복(types=A&types=B)으로 직렬화해 Spring List<T> 와 맞는다.
+      events: (clubId, params) =>
+        jsonOk<PageResponse<AdminClubActivityEvent>>(
+          http.get(`admin/clubs/${clubId}/activity-events`, { searchParams: cleanParams(params) }),
+        ),
+    },
+    clubJoinCodes: {
+      list: (clubId) => jsonOk<AdminClubJoinCode[]>(http.get(`admin/clubs/${clubId}/join-codes`)),
+      forceRevoke: (clubId, joinCodeId, payload) =>
+        jsonVoid(
+          http.patch(`admin/clubs/${clubId}/join-codes/${joinCodeId}/revoke`, { json: payload }),
+        ),
+    },
     promotionRequests: {
       list: (params) =>
         jsonOk<PageResponse<AdminPromotionRequestSummary>>(
@@ -587,6 +634,13 @@ export function createAdminApi(deps: {
       cancel: (bookingId, reason) =>
         jsonVoid(http.post(`admin/facility-bookings/${bookingId}/cancel`, { json: { reason } })),
       summary: () => jsonOk<AdminFacilityBookingCounts>(http.get('admin/facility-bookings/summary')),
+    },
+    facilities: {
+      list: () => jsonOk<AdminFacility[]>(http.get('admin/facilities')),
+      updateBookingOpenDate: (facilityId, payload) =>
+        jsonVoid(http.patch(`admin/facilities/${facilityId}/booking-open-date`, { json: payload })),
+      updateAllBookingOpenDate: (payload) =>
+        jsonVoid(http.patch('admin/facilities/booking-open-date', { json: payload })),
     },
     facilityCrawl: {
       reservations: (params) =>

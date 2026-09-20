@@ -44,7 +44,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
       return;
     }
     if (!passwordSchema.safeParse(newPassword).success) {
-      setError('새 비밀번호는 8~20자이며 영문/숫자/특수문자 중 2종 이상이어야 해요.');
+      setError('새 비밀번호는 8~20자, 영문·숫자·특수문자 중 2가지 이상이어야 해요.');
       return;
     }
     if (newPassword !== confirmPassword) {

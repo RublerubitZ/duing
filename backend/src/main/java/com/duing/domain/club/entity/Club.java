@@ -97,8 +97,9 @@ public class Club extends BaseEntity {
 
     /**
      * 활동 요일 CSV. 예: "MONDAY,WEDNESDAY,FRIDAY". 외부 노출은 {@link #getActiveDays()} 의 Set 뷰로 한다.
+     * 7일 전부면 56자 — 컬럼 폭 60(V124)은 이 최대값 기준이다.
      */
-    @Column(name = "active_days", length = 50)
+    @Column(name = "active_days", length = 60)
     private String activeDays;
 
     @Column(name = "tagline", length = 60)

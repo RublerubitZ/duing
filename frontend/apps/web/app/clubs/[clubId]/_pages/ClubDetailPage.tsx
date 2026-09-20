@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { ApiError } from '@duing/api';
 import {
   useApiClient,
   useClubDetailQuery,
@@ -9,7 +10,10 @@ import {
   useClubMembershipQuery,
 } from '@duing/hooks';
 
+import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { captureEvent } from '@/app/_lib/analytics';
+import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { getVisitorKey } from '@/app/_lib/visitorKey';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
@@ -45,58 +49,92 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
+  // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
+  useDocumentTitle(detail.data?.name ?? null);
+  // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
+  const enteredFromSkeleton = useEnteredFromSkeleton(detail.isLoading);
+
+  // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다(delayed-show). 펄스(animate-pulse)와 같은
+  // 요소에 걸면 animation 축약끼리 덮어써 펄스가 꺼지므로 래퍼에 둔다.
   if (detail.isLoading) {
     return (
-      <div className="mx-auto max-w-layout px-6 py-10">
+      <div className="delayed-show mx-auto max-w-layout px-4 py-10 sm:px-6 md:px-10">
         <TextLinesSkeleton lines={8} label="동아리 정보 불러오는 중" />
       </div>
     );
   }
+  // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만
+  // "볼 수 없음" 화면으로 보낸다. 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
+  // "삭제됐어요" 로 단정해 사용자가 재시도를 포기한다. 소식 상세(NoticeDetailPage)와 같은 분기 구조다.
+  if (
+    (detail.error instanceof ApiError && detail.error.status === 404) ||
+    (detail.isSuccess && !detail.data)
+  ) {
+    return (
+      <ResourceNotFound
+        title="이 동아리는 지금 볼 수 없어요"
+        description="삭제됐거나 승인 대기 중일 수 있어요."
+        actionHref="/clubs"
+        actionLabel="동아리 탐색으로"
+      />
+    );
+  }
+  // 그 밖의 실패(5xx·네트워크·타임아웃)는 중립 오류 — data 없이 아래로 내려가면 본문이 깨진다.
   if (!detail.data) {
-    return <p className="p-6 text-sm text-coral">동아리를 찾을 수 없습니다.</p>;
+    return <p className="p-6 text-sm text-coral">동아리 정보를 불러오지 못했습니다.</p>;
   }
 
   const club = detail.data;
 
   return (
     <>
-      <ClubDetailHero
-        club={club}
-        recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
+      <div className={enteredFromSkeleton ? 'enter-content' : undefined}>
+        <ClubDetailHero
+          club={club}
+          recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
+        />
+
+        <section className="bg-cream pb-16">
+          <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 px-4 sm:px-6 md:px-10 lg:grid-cols-[1fr_380px] lg:gap-12">
+            <div>
+              <div className="mb-6 md:mb-8">
+                <ClubDetailStats club={club} />
+              </div>
+              {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
+              <div className="mb-4 md:hidden">
+                <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
+              </div>
+              <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
+            </div>
+
+            {/* lg:self-start 는 필수 — grid 기본 stretch 가 sticky 를 무력화한다(self-start 로 컬럼을 콘텐츠 높이로). */}
+            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+              {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
+              <div className="hidden md:block">
+                <ClubRecruitmentCard
+                  recruitment={club.activeRecruitment ?? undefined}
+                  clubId={clubId}
+                  membership={membership.data}
+                />
+              </div>
+              <ClubContactCard
+                clubName={club.name}
+                snsLinks={club.snsLinks}
+                location={club.location}
+                contactPhone={club.contactPhone}
+                contactVisibility={club.contactVisibility}
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다.
+          등장 래퍼 밖에 둔다 — 재생 중인 transform 은 fixed 자손의 기준을 뷰포트에서 래퍼로 바꾼다. */}
+      <ClubDetailApplyBar
+        recruitment={club.activeRecruitment ?? undefined}
+        membership={membership.data}
       />
-
-      <section className="bg-cream px-4 sm:px-6 md:px-10 pb-16">
-        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-          <div>
-            <div className="mb-6 md:mb-8">
-              <ClubDetailStats club={club} />
-            </div>
-            {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
-            <div className="mb-4 md:hidden">
-              <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
-            </div>
-            <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
-          </div>
-
-          {/* lg:self-start 는 필수 — grid 기본 stretch 가 sticky 를 무력화한다(self-start 로 컬럼을 콘텐츠 높이로). */}
-          <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
-            <div className="hidden md:block">
-              <ClubRecruitmentCard recruitment={club.activeRecruitment ?? undefined} clubId={clubId} />
-            </div>
-            <ClubContactCard
-              clubName={club.name}
-              snsLinks={club.snsLinks}
-              location={club.location}
-              contactPhone={club.contactPhone}
-              contactVisibility={club.contactVisibility}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다. */}
-      <ClubDetailApplyBar recruitment={club.activeRecruitment ?? undefined} />
     </>
   );
 }

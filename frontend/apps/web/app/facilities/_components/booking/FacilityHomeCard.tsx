@@ -2,16 +2,15 @@
 
 import type { FacilityItem } from '@duing/types';
 import { facilityIcon } from '@/app/_lib/facilityIcon';
-import { todayFreeSlotCount } from '../../_lib/bookingHome';
+import { openDateLabel, todayFreeSlotCount } from '../../_lib/bookingHome';
 import { seoulDateIso } from '../../_lib/facilityTimeline';
 
 type Props = {
   facility: FacilityItem;
-  windowLabel: string | null;
   onSelect: (facilityId: number) => void;
 };
 
-export function FacilityHomeCard({ facility, windowLabel, onSelect }: Props) {
+export function FacilityHomeCard({ facility, onSelect }: Props) {
   // reservations 는 월 전체 예약이므로 오늘 남은 칸 계산 전에 오늘 것만 걸러낸다(§Task2 계약).
   const now = new Date();
   const todayIso = seoulDateIso(now);
@@ -34,11 +33,8 @@ export function FacilityHomeCard({ facility, windowLabel, onSelect }: Props) {
       <div className="flex flex-1 flex-col gap-1 p-4">
         <h3 className="text-base font-bold text-ink-deep">{facility.roomName}</h3>
         {facility.location && <p className="text-xs text-charcoal-3">{facility.location}</p>}
-        {windowLabel && (
-          <p className="text-xs text-charcoal-2">
-            예약 가능 <span className="font-bold text-ink">{windowLabel}</span>
-          </p>
-        )}
+        {/* 창 범위가 아니라 시설별 오픈일만 말한다(D7) — 창 산출은 캘린더(availability)가 맡는다. */}
+        <p className="text-xs font-bold text-ink">{openDateLabel(facility.bookingOpenDate, todayIso)}</p>
         <div className="mt-2">
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="text-charcoal-3">오늘 남은 시간</span>

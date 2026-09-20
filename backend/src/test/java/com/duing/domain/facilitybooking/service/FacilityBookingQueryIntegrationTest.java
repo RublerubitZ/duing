@@ -66,7 +66,9 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
         created.changeCentralClub(true); // 시설 예약 신청은 중앙동아리만 가능(설계 spec 2026-07-18)
         club = clubRepository.save(created);
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        facility = facilityRepository.save(Facility.create((int) (unique % 100_000), "커뮤니티룸(Q)", null, 0));
+        // 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다.
+        facility = facilityRepository.save(BookingWindowFixture.opened(
+                Facility.create((int) (unique % 100_000), "커뮤니티룸(Q)", null, 0)));
     }
 
     private Long createBooking(int startHour, int endHour) {

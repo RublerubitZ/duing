@@ -63,7 +63,7 @@ describe('RecordPaymentDialog', () => {
     const amountInput = screen.getByLabelText(/납부 금액/);
     expect(amountInput).toHaveValue(6000);
     expect(screen.getByText(/남은 미납액 6,000원/)).toBeInTheDocument();
-    // 설명에 `회원 #id` 대신 전달받은 이름이 노출된다.
+    // 설명에 `부원 #id` 대신 전달받은 이름이 노출된다.
     expect(screen.getByText(/김민지 · 2026-07 청구에 납부 내역을 기록합니다\./)).toBeInTheDocument();
   });
 

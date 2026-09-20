@@ -223,6 +223,17 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동아리 일정 목록·단건은 익명 접근 시 401 로 차단된다 — clubs/** GET permitAll 보다 앞선 URL 레이어 잠금")
+    void anonymousEventReadIsUnauthorized() {
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + clubId + "/events")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+        RestAssured.given()
+                .when().get("/api/v1/clubs/" + clubId + "/events/1")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
     @DisplayName("LEADER 가 삭제하면 회원 조회 결과에서 사라진다 (soft delete)")
     void leaderDelete() {
         LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);

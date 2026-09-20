@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
@@ -30,8 +30,10 @@ describe('ExploreNav — 홈 상단바와 같은 소식 퀵메뉴·총동연 슬
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.mouseOver(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('link', { name: '공지' })).toHaveAttribute('href', '/notices');
-    expect(screen.getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '/introduce');
+    // 트리거와 퀵메뉴 첫 항목이 모두 "소식" 이라 퀵메뉴(중첩 목록) 안으로 좁혀 잡는다.
+    const quickMenu = screen.getAllByRole('list')[1] as HTMLElement;
+    expect(within(quickMenu).getByRole('link', { name: '소식' })).toHaveAttribute('href', '/notices');
+    expect(within(quickMenu).getByRole('link', { name: '서비스 소개' })).toHaveAttribute('href', '/introduce');
   });
 
   it('총동연 콘솔 링크 자리가 홈 상단바처럼 여기에도 있다', () => {
@@ -118,6 +120,6 @@ describe('ExploreNav — 정보 메뉴', () => {
     mockUsePathname.mockReturnValue('/faq');
     render(<ExploreNav />);
     expect(screen.getByRole('link', { name: '소식' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: '탐색' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: '동아리' })).not.toHaveAttribute('aria-current');
   });
 });

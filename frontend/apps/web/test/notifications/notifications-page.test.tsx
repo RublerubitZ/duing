@@ -5,6 +5,9 @@ import { useAuthStore } from '@duing/stores';
 const mockReplace = vi.fn();
 const mockListQuery = vi.fn();
 
+// 페이지가 공통 상단바를 품는다 — 상단바는 hooks 를 쓰므로 이 파일의 hooks mock 과 함께 걸어야 한다.
+vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => <nav data-testid="home-nav" /> }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: mockReplace }),
 }));
@@ -78,5 +81,15 @@ describe('NotificationsPage — 렌더는 status, 이동은 확정 신호', () =
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { name: '알림' })).toBeInTheDocument();
     expect(mockListQuery).toHaveBeenCalledWith(false, true);
+  });
+
+  it('로그인 여부와 무관하게 공통 상단바를 렌더한다', () => {
+    const { unmount } = render(<NotificationsPage />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
+    unmount();
+
+    useAuthStore.getState().seedSession('authenticated');
+    render(<NotificationsPage />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
   });
 });

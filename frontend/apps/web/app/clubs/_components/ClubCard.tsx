@@ -2,15 +2,18 @@
 
 import { Link } from 'next-view-transitions';
 
+import { useHeartPop } from '@/app/_lib/useHeartPop';
 import { ClubLogo } from '../../_components/ClubLogo';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
 import { CAT_COLORS, clubAffiliationLabel, type Club } from '../_lib/clubs';
 import type { RecruitmentDisplayStatus } from '@duing/types';
 
-function HeartIcon({ filled = false }: { filled?: boolean }) {
+// 꺼진 하트를 본 뒤 켜질 때만 팝 — 호출부에서 key 로 리마운트해 키프레임을 처음부터 재생한다
+// (해제·낙관적 롤백은 색만 바뀌고, 이미 찜한 채로 들어온 화면에서는 튀지 않는다). 모바일 ClubListItem 과 같은 규칙.
+function HeartIcon({ filled = false, pop = false }: { filled?: boolean; pop?: boolean }) {
   return filled ? (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className={pop ? 'animate-heart-pop' : undefined} aria-hidden>
       <path d="M12 21s-7.5-4.5-9.5-9.5C1 7 4.5 4 8 5c1.6.4 2.8 1.4 4 3 1.2-1.6 2.4-2.6 4-3 3.5-1 7 2 5.5 6.5C19.5 16.5 12 21 12 21z" />
     </svg>
   ) : (
@@ -25,6 +28,8 @@ type Props = {
   size?: 'md' | 'lg';
   liked?: boolean;
   isLikeBusy?: boolean;
+  /** 찜 상태(방향)를 아는지 — 찜 목록 도착 전 반영에는 하트 팝을 재생하지 않는다. */
+  isFavoriteStateReady?: boolean;
   onLikeToggle?: (id: number) => void;
 };
 
@@ -41,8 +46,8 @@ const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
   // 우측 기간 영역이 "상시모집"을 표기하므로 칩은 모집 가능 상태만 말한다(중복 제거).
   ALWAYS_OPEN: { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
   UPCOMING:    { label: '모집예정',  dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
-  CLOSED:      { label: '모집마감',  dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
-  NONE:        { label: '모집 없음', dotColor: '#6F7574', chipClass: 'bg-graysoft text-charcoal-2' },
+  CLOSED:      { label: '모집마감',  dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
+  NONE:        { label: '모집 없음', dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
 };
 
 /** "2026-08-08" → "8.8" — 앞자리 0 을 떼 달력 표기처럼 읽히게 한다. */
@@ -79,7 +84,14 @@ function renderPeriod(club: Club): React.ReactNode {
   }
 }
 
-export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false, onLikeToggle }: Props) {
+export function ClubCard({
+  club,
+  size = 'md',
+  liked = false,
+  isLikeBusy = false,
+  isFavoriteStateReady = true,
+  onLikeToggle,
+}: Props) {
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
   const statusKey: StatusKey = club.activeRecruitment?.displayStatus ?? 'NONE';
@@ -87,6 +99,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
   const isDimmed = statusKey === 'CLOSED' || statusKey === 'NONE';
   const logoSize = size === 'lg' ? 96 : 64;
   const initial = (club.name || '?').trim().charAt(0);
+  const shouldPop = useHeartPop(liked, isFavoriteStateReady);
 
   return (
     <Link
@@ -99,9 +112,9 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
           style={{
             width: logoSize,
             height: logoSize,
-            background: club.logoUrl
-              ? undefined
-              : `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
+            // 로고 이미지가 있어도 항상 칠한다 — 이미지가 덮으므로 정상 로드 시 보이지 않고, 로드 실패 폴백(이니셜)에서만
+            // 드러난다. 투명 PNG 는 흰색 대신 이 색이 비친다(허용).
+            background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
             fontSize: size === 'lg' ? 44 : 30,
             letterSpacing: '-0.03em',
             filter: isDimmed ? 'saturate(0.6)' : undefined,
@@ -128,7 +141,7 @@ export function ClubCard({ club, size = 'md', liked = false, isLikeBusy = false,
             }}
             className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-[#FFE8E5] text-coral' : 'bg-transparent text-charcoal-3'}`}
           >
-            <HeartIcon filled={liked} />
+            <HeartIcon key={liked ? 'on' : 'off'} filled={liked} pop={shouldPop} />
           </button>
         </div>
       </div>

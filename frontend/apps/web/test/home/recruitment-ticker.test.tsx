@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClubSummary } from '@duing/types';
 
@@ -18,14 +19,13 @@ vi.mock('../../app/_lib/home-data', () => ({
 
 import { RecruitmentTicker } from '../../app/_components/sections/RecruitmentTicker';
 
-// 티커는 서버에서 new Date() 를 쓰므로, 실제 오늘 기준 상대 날짜(로컬 달력)로 픽스처를 만든다.
+// 티커는 서버에서 new Date() 를 쓰므로, 실제 오늘 기준 상대 날짜로 픽스처를 만든다.
+// 픽스처 날짜는 KST 달력 기준으로 만든다 — 컴포넌트의 D-day 계산(recruitmentDaysLeft → daysUntilKst)이
+// KST 달력으로 세는데 러너 로컬 달력으로 만들면 둘이 어긋난다. CI 는 UTC 라 15~24시 UTC(=KST 00~09시)
+// 구간에서 로컬 날짜가 KST 보다 하루 뒤져, isoInDays(1) 이 KST 로는 오늘이 되어 D-1 이 D-day 로 렌더됐다.
+// 로컬 setDate 대신 24h 밀리초를 더한다 — KST 는 DST 가 없어 정확히 N 일 뒤 KST 날짜가 된다.
 function isoInDays(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return todayKstDateString(new Date(Date.now() + days * 86_400_000));
 }
 
 function makeSummary(id: number, name: string, endDate: string | null): ClubSummary {

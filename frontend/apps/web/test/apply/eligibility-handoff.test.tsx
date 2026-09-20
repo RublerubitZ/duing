@@ -185,7 +185,7 @@ describe('지원 자격 확인 — 클릭 → 지원 페이지 핸드오프', ()
     clickHook.unmount();
     renderApplyPage(queryClient);
 
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
     expect(eligibilityRequests).toHaveLength(1);
   });
 
@@ -231,7 +231,7 @@ describe('지원 자격 확인 — 클릭 → 지원 페이지 핸드오프', ()
     renderApplyPage(queryClient);
 
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '제출' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
     expect(eligibilityRequests).toHaveLength(2);
   });
 });
@@ -243,7 +243,7 @@ describe('지원 자격 확인 — 지원 페이지 단독 진입', () => {
     // 새로고침은 QueryClient 가 새로 만들어지는 하드 로드다 — 캐시 없이 한 번 확인한다.
     renderApplyPage(makeQueryClient());
 
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
     expect(eligibilityRequests).toHaveLength(1);
   });
 
@@ -253,7 +253,7 @@ describe('지원 자격 확인 — 지원 페이지 단독 진입', () => {
     const queryClient = makeQueryClient();
 
     const firstVisit = renderApplyPage(queryClient);
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
     firstVisit.unmount();
 
     // gcTime 만료는 setTimeout 으로 스케줄되므로 매크로태스크 한 틱을 흘려보낸다.
@@ -261,7 +261,7 @@ describe('지원 자격 확인 — 지원 페이지 단독 진입', () => {
 
     renderApplyPage(queryClient);
 
-    expect(await screen.findByRole('button', { name: '제출' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '지원서 제출하기' })).toBeInTheDocument();
     expect(eligibilityRequests).toHaveLength(2);
   });
 });

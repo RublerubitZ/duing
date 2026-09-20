@@ -1,7 +1,10 @@
+import type { Metadata } from 'next';
 import { HomeNav } from '../_components/HomeNav';
 import { AdminRoleGuard } from './_components/AdminRoleGuard';
 import { AdminSidebar } from './_components/AdminSidebar';
 import { AdminMobileBar } from './_components/AdminMobileBar';
+
+export const metadata: Metadata = { title: '총동연 콘솔 | 두잉' };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (

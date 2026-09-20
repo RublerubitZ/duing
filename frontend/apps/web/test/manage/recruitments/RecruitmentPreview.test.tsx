@@ -7,6 +7,7 @@ function previewData(over: Partial<RecruitmentPreviewData> = {}): RecruitmentPre
   return {
     title: '10기 신입 모집',
     startDate: '2026-09-15',
+    isAlwaysOpen: false,
     endDate: '2026-09-27',
     capacity: 20,
     applicationMode: 'SELF',
@@ -62,8 +63,18 @@ describe('RecruitmentPreview', () => {
   });
 
   it('상시모집이면 상시모집 라벨, 제목 미입력이면 플레이스홀더를 보여준다', () => {
-    render(<RecruitmentPreview data={previewData({ title: '', endDate: null })} />);
-    expect(screen.getByText('상시모집')).toBeInTheDocument();
+    render(<RecruitmentPreview data={previewData({ title: '', isAlwaysOpen: true, endDate: null })} />);
+    // 상태 칩과 기간 줄 둘 다 상시모집으로 말한다.
+    expect(screen.getAllByText(/상시모집/)).not.toHaveLength(0);
     expect(screen.getByText('모집명을 입력하세요')).toBeInTheDocument();
+  });
+
+  // 종료일을 아직 안 적은 것과 "종료일 없는 모집(상시)" 은 다른 상태다 — 전자를 상시모집이라 부르면
+  // 작성자가 상시모집으로 공개된다고 오해한다.
+  it('상시모집이 아닌데 종료일이 비어 있으면 기간 미정으로 표기한다', () => {
+    render(<RecruitmentPreview data={previewData({ isAlwaysOpen: false, endDate: null })} />);
+    expect(screen.getByText('기간 미정')).toBeInTheDocument();
+    expect(screen.queryByText('상시모집')).not.toBeInTheDocument();
+    expect(screen.getByText(/2026-09-15 ~ —/)).toBeInTheDocument();
   });
 });

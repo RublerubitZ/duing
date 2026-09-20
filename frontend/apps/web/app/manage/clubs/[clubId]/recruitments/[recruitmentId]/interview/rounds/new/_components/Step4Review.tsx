@@ -121,7 +121,7 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
             {hasMembers ? '✓' : '✗'}{' '}
             {hasMembers
               ? `면접 대상 ${detail?.counts.totalMemberCount ?? 0}명`
-              : '면접 대상 멤버가 1명 이상이어야 합니다'}
+              : '면접 대상 지원자가 1명 이상이어야 합니다'}
           </li>
           <li className={hasDeadline ? 'text-emerald-700' : 'text-rose-600'}>
             {hasDeadline ? '✓' : '✗'}{' '}

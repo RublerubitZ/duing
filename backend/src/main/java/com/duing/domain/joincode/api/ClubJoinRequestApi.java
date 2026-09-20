@@ -5,6 +5,7 @@ import com.duing.domain.joincode.controller.dto.request.DecideJoinRequestRequest
 import com.duing.domain.joincode.controller.dto.response.BulkApproveJoinRequestsResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDecisionResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDetailResponse;
+import com.duing.domain.joincode.controller.dto.response.JoinRequestPhoneResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestSummaryResponse;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.global.auth.UserPrincipal;
@@ -39,7 +40,8 @@ public interface ClubJoinRequestApi {
     );
 
     @Operation(summary = "가입 요청 상세 조회 (LEADER/OFFICER)",
-            description = "명단 대조에 필요한 전화번호를 포함한다. 다른 동아리의 요청은 존재를 알리지 않고 404 를 반환한다.")
+            description = "명단 대조에 필요한 학생 정보를 담되 전화번호는 마스킹(phoneMasked)해 내려준다 — 원본은 전용 API 로만 나간다. "
+                    + "다른 동아리의 요청은 존재를 알리지 않고 404 를 반환한다.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/clubs/{clubId}/join-requests/{joinRequestId}")
     ResponseEntity<ApiResponse<JoinRequestDetailResponse>> getJoinRequest(
@@ -48,11 +50,24 @@ public interface ClubJoinRequestApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
+    @Operation(summary = "가입 요청자 원본 연락처 조회 (LEADER/OFFICER)",
+            description = "운영진(LEADER/OFFICER) 전용. 상세 응답은 마스킹(phoneMasked)만 싣고 원본은 이 API 로만 반환한다. "
+                    + "조회 사실(조회자·대상·시각)을 club_audit_event(JOIN_REQUEST_PHONE_VIEWED)에 남기며 응답은 캐시하지 않는다(no-store). "
+                    + "운영진이 아니면 403, 다른 동아리의 요청이거나 없는 요청이면 404. 열람 한도(분 30·시 300)를 넘으면 429.")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/clubs/{clubId}/join-requests/{joinRequestId}/phone")
+    ResponseEntity<ApiResponse<JoinRequestPhoneResponse>> getJoinRequestPhone(
+            @PathVariable Long clubId,
+            @PathVariable Long joinRequestId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
     @Operation(summary = "가입 요청 승인·거절 (LEADER/OFFICER)",
             description = "승인 시 잔여 인원을 차감하고 회원을 생성한다(기수는 요청 생성 시점 스냅샷). "
-                    + "승인 요청이라도 이미 다른 경로로 가입된 회원이면 인원 차감 없이 자동 거절되므로, "
+                    + "승인 요청이라도 이미 다른 경로로 가입된 회원이면 인원 차감 없이 자동 거절되고, "
+                    + "요청자가 이미 탈퇴한 계정이어도 같은 방식으로 처리되므로, "
                     + "그 결과를 운영 콘솔에 전달하기 위해 PATCH 204 규약 대신 200 + result "
-                    + "(APPROVED | REJECTED | AUTO_REJECTED) 로 응답한다. "
+                    + "(APPROVED | REJECTED | AUTO_REJECTED | AUTO_REJECTED_WITHDRAWN) 로 응답한다. "
                     + "잔여 인원 부족·이미 처리된 요청·동시 처리 충돌은 409.")
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/clubs/{clubId}/join-requests/{joinRequestId}")

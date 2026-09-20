@@ -55,13 +55,24 @@ public class UserException extends ApplicationException {
         }
     }
 
-    /** 관리자가 이용 정지한 계정. 잠금(AccountLocked, 자동 해제)과 달리 관리자 해제 전까지 풀리지 않는다. */
+    /**
+     * 관리자가 이용 정지한 계정. 잠금(AccountLocked, 자동 해제)과 달리 관리자 해제 전까지 풀리지 않는다.
+     * 정지 사유는 감사 로그에만 있으므로 호출부가 최신 정지 로그의 사유를 넘긴다 — 로그가 없으면(옛 데이터·
+     * DB 직접 정지) 사유 없이 문의처만 안내한다.
+     */
     public static class AccountSuspendedException extends UserException {
 
-        private static final String MESSAGE = "정지된 계정입니다. 총동아리연합회로 문의해 주세요.";
+        private static final String CONTACT = "문의: duing.official@gmail.com";
 
-        public AccountSuspendedException() {
-            super(MESSAGE, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED");
+        public AccountSuspendedException(String reason) {
+            super(buildMessage(reason), HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED");
+        }
+
+        private static String buildMessage(String reason) {
+            if (reason == null || reason.isBlank()) {
+                return "정지된 계정입니다. " + CONTACT;
+            }
+            return "정지된 계정입니다. 사유: " + reason + " — " + CONTACT;
         }
     }
 

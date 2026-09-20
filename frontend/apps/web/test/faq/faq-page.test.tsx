@@ -139,14 +139,37 @@ describe('FaqPage', () => {
     expect(mockRouterReplace).toHaveBeenCalledWith(`/faq?${expectedQuery}`, { scroll: false });
   });
 
-  it('검색 결과가 없으면 안내 문구와 1:1 문의 CTA 가 노출된다', () => {
+  it('검색어·카테고리 없이 목록이 비면 등록된 질문이 없다는 안내와 1:1 문의 CTA 가 노출된다', () => {
+    mockUseFederationFaqListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<FaqPage />);
+
+    expect(
+      screen.getByText('아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'),
+    ).toBeInTheDocument();
+    const inquiryLink = screen.getByRole('link', { name: '1:1 문의하기' });
+    expect(inquiryLink).toHaveAttribute('href', '/me/inquiries/new');
+  });
+
+  it('검색어가 있는데 결과가 없으면 검색 결과 없음 문구가 노출된다', () => {
+    mockSearchParams = new URLSearchParams('keyword=회비');
     mockUseFederationFaqListQuery.mockReturnValue(makeListResponse([]));
 
     render(<FaqPage />);
 
     expect(screen.getByText('검색 결과가 없어요')).toBeInTheDocument();
-    const inquiryLink = screen.getByRole('link', { name: '1:1 문의하기' });
-    expect(inquiryLink).toHaveAttribute('href', '/me/inquiries/new');
+  });
+
+  it('범위 밖 페이지 딥링크(page=99)로 목록이 비면 등록된 질문 없음이 아니라 결과 없음 문구가 노출된다', () => {
+    mockSearchParams = new URLSearchParams('page=99');
+    mockUseFederationFaqListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<FaqPage />);
+
+    expect(screen.getByText('검색 결과가 없어요')).toBeInTheDocument();
+    expect(
+      screen.queryByText('아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'),
+    ).not.toBeInTheDocument();
   });
 
   it('item 쿼리스트링으로 진입하면 FaqDeepLinkCard 가 렌더되고 해당 id 로 상세 조회 훅이 호출된다', () => {

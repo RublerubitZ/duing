@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -18,6 +18,15 @@ import { AdminNavContent, resolveActiveSectionHref } from './AdminNavContent';
 export function AdminMobileBar() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // 드로어 안 링크 클릭은 아래 래퍼 onClick 이 닫지만, 미저장 이탈 가드가 capture 단계에서 클릭을
+  // 멈추면 그 onClick 이 실행되지 않는다 — 확인 후 router.push 로 이동해도 드로어가 열린 채 새 화면을
+  // 덮는다. 경로가 바뀌면 무조건 닫아 잔존을 막는다.
+  // 회수 back() 은 따로 건너뛰지 않는다 — 이 시점의 히스토리는 이미 이동이 덮었거나(마커 불일치),
+  // 아직 커밋 전이면 이동 예약(navigationPending)이 살아 있어 backDismiss 가 양쪽 다 회수하지 않는다.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   const activeHref = resolveActiveSectionHref(pathname);
   const activeTitle = ADMIN_SECTIONS.find((section) => section.href === activeHref)?.title;

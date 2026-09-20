@@ -21,6 +21,10 @@ type Props = {
    */
   description?: ReactNode;
   confirmLabel?: string;
+  /**
+   * 확인 버튼의 색. 기본은 파괴적 액션용 danger — 공개처럼 되돌릴 수 있는 확인에는 primary 를 쓴다.
+   */
+  confirmVariant?: 'danger' | 'primary';
   isPending?: boolean;
   /**
    * 확인 액션이 실패했을 때의 안내. 넘기면 모달을 닫지 말고 이 값을 채운다 — 소비처가 오류를
@@ -48,6 +52,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = '삭제',
+  confirmVariant = 'danger',
   isPending = false,
   errorMessage = null,
   children,
@@ -93,7 +98,11 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={isPending || confirmDisabled}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className={
+              confirmVariant === 'primary'
+                ? 'btn btn-sm btn-primary disabled:opacity-50'
+                : 'btn btn-sm btn-danger disabled:opacity-50'
+            }
           >
             {isPending && <ButtonSpinner />}
             {confirmLabel}

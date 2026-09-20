@@ -13,6 +13,8 @@ export function useAdminRecruitmentsQuery(params: AdminRecruitmentSearchParams) 
   return useQuery({
     queryKey: adminQueryKeys.recruitmentsList(params),
     queryFn: () => client.admin.recruitments.list(params),
+    // 검색어·필터가 바뀔 때마다 로딩으로 리셋되면 표가 스켈레톤으로 깜빡인다 — 이전 목록을 유지한 채 갱신한다.
+    placeholderData: keepPreviousData,
   });
 }
 

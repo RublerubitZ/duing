@@ -6,6 +6,9 @@ import type { FederationInquiryDetail } from '@duing/types';
 import { ApiError } from '@duing/api';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
+// 페이지가 공통 상단바를 품는다 — 상단바는 hooks 를 쓰므로 이 파일의 hooks mock 과 함께 걸어야 한다.
+vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => <nav data-testid="home-nav" /> }));
+
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
@@ -243,5 +246,21 @@ describe('InquiryDetailPage', () => {
     expect(
       screen.getByText('새 첨부가 없어 저장하면 기존 첨부가 모두 삭제됩니다'),
     ).toBeInTheDocument();
+  });
+
+  it('성공·로딩·오류 분기 모두 공통 상단바를 렌더한다', () => {
+    mockUseFederationInquiryDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
+    const success = render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
+    success.unmount();
+
+    mockUseFederationInquiryDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null, refetch: vi.fn() });
+    const loading = render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
+    loading.unmount();
+
+    mockUseFederationInquiryDetailQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: null, refetch: vi.fn() });
+    render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
+    expect(screen.getByTestId('home-nav')).toBeInTheDocument();
   });
 });

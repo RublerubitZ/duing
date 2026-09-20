@@ -191,12 +191,10 @@ class ClubMembershipControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("미인증 호출은 401 또는 403 (SecurityConfig 정책)")
+    @DisplayName("미인증 호출은 URL 레이어에서 401 로 차단된다 — clubs/** GET permitAll 보다 앞선 규칙 잠금")
     void unauthenticated() {
-        int actual = RestAssured.given()
+        RestAssured.given()
                 .when().get("/api/v1/clubs/" + clubId + "/membership")
-                .then().extract().statusCode();
-        assert actual == HttpStatus.UNAUTHORIZED.value() || actual == HttpStatus.FORBIDDEN.value()
-                : "expected 401 or 403, got " + actual;
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
     }
 }

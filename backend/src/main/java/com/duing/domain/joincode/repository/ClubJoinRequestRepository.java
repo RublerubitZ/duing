@@ -2,6 +2,7 @@ package com.duing.domain.joincode.repository;
 
 import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,11 +32,30 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
     /** 상태 카드의 "승인 대기" — 위 누적과 같은 링크 기준이라 두 수치의 출처가 어긋나지 않는다. */
     long countByJoinCodeIdAndStatus(Long joinCodeId, JoinRequestStatus status);
 
+    /**
+     * 총동연 가입 링크 목록의 누적·대기 수치를 링크 목록 전체에 대해 한 번에 센다 — 링크마다
+     * {@code countByJoinCodeId} 를 부르면 목록 길이만큼 왕복한다(N+1). 두 수치의 의미는 위 두 메서드와 같다.
+     *
+     * <p>요청이 하나도 없는 링크는 GROUP BY 결과에 아예 없다 — 호출부가 0 으로 채운다.
+     */
+    @Query("SELECT joinRequest.joinCode.id AS joinCodeId, COUNT(joinRequest) AS totalCount, "
+            + "SUM(CASE WHEN joinRequest.status "
+            + "= com.duing.domain.joincode.entity.JoinRequestStatus.PENDING THEN 1L ELSE 0L END) "
+            + "AS pendingCount "
+            + "FROM ClubJoinRequest joinRequest "
+            + "WHERE joinRequest.joinCode.id IN :joinCodeIds "
+            + "GROUP BY joinRequest.joinCode.id")
+    List<JoinCodeRequestCountProjection> countByJoinCodeIdIn(
+            @Param("joinCodeIds") Collection<Long> joinCodeIds);
+
     /** 운영진 상세 조회 — 타 동아리 요청은 조회되지 않아야 하므로 clubId 를 조건에 포함한다. */
     Optional<ClubJoinRequest> findByIdAndClubId(Long joinRequestId, Long clubId);
 
     /** 학생의 코드 확인 화면이 보여줄 "내 최근 요청 상태" — 재요청 이력이 쌓이므로 최신 1건만 본다. */
     Optional<ClubJoinRequest> findTopByClubIdAndUserIdOrderByIdDesc(Long clubId, Long userId);
+
+    /** 회원의 요청을 상태별로 전부 — 계정 탈퇴가 본인의 대기 요청을 자동 거절할 때 쓴다(#1142). @SQLRestriction 적용. */
+    List<ClubJoinRequest> findAllByUserIdAndStatus(Long userId, JoinRequestStatus status);
 
     /**
      * 운영진 가입 요청 목록(상태별, 최신순). 목록 항목이 학생 정보와 코드 문자열을 함께 보여주므로
@@ -48,4 +68,14 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
             + "ORDER BY joinRequest.id DESC")
     List<ClubJoinRequest> findAllByClubIdAndStatusOrderByIdDesc(@Param("clubId") Long clubId,
                                                                @Param("status") JoinRequestStatus status);
+
+    /** 링크별 가입 요청 집계 — 누적(전 상태)과 승인 대기 두 수치를 한 행으로 돌려준다. */
+    interface JoinCodeRequestCountProjection {
+
+        Long getJoinCodeId();
+
+        long getTotalCount();
+
+        long getPendingCount();
+    }
 }

@@ -101,6 +101,20 @@ describe('NoticesPage', () => {
     expect(tableWrapper?.getAttribute('style') ?? '').toBe('');
   });
 
+  it('커버 없는 공지는 목록·고정 카드에 "이미지 없음" 문구 없이 아이콘만 둔다', () => {
+    const items = [
+      makeNoticeItem({ id: 1, title: '고정 공지', pinned: true, coverImageUrl: '' }),
+      makeNoticeItem({ id: 2, title: '일반 공지', coverImageUrl: '' }),
+    ];
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse(items));
+
+    render(<NoticesPage />);
+
+    expect(screen.queryByText('이미지 없음')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '이미지 없음' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /고정 공지/ })).not.toHaveAccessibleName(/이미지 없음/);
+  });
+
   it('카테고리 버튼 클릭 시 category=FESTIVAL, page=0 으로 훅이 호출된다', () => {
     mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
 
@@ -181,5 +195,21 @@ describe('NoticesPage', () => {
     // h-screen·min-h-screen 은 Tailwind 에서 100vh 로 컴파일된다 — 재도입의 현실적 벡터.
     expect(root?.className ?? '').not.toMatch(/\b(h-screen|min-h-screen)\b/);
     expect(root?.getAttribute('style') ?? '').not.toContain('100vh');
+  });
+
+  it('로딩을 거쳐 성공하면 목록 컨테이너에 enter-content 를 건다', () => {
+    mockUseNoticeListQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false, error: null });
+    const { rerender } = render(<NoticesPage />);
+
+    // 실제 쿼리처럼 isPlaceholderData 를 false 로 채워야 컨테이너에 aria-busy 속성이 렌더된다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]),
+      isPlaceholderData: false,
+    });
+    rerender(<NoticesPage />);
+
+    // 목록 컨테이너 = aria-busy 를 가진 isSuccess div(필터 전환 중에도 언마운트되지 않는다).
+    const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
+    expect(listContainer).toHaveClass('enter-content');
   });
 });

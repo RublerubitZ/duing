@@ -8,7 +8,9 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
 
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { ArrowRight } from '@/components/duing/Icon';
@@ -77,8 +79,8 @@ function SettingsPageTabs() {
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]>('프로필 정보');
 
   return (
-    <nav className="px-4 sm:px-6 md:px-10 pt-4">
-      <div className="max-w-layout mx-auto flex gap-6 flex-wrap items-center">
+    <nav className="pt-4">
+      <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 flex gap-6 flex-wrap items-center">
         <Link
           href="/me"
           className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px] flex items-center gap-1"
@@ -131,16 +133,26 @@ export function SettingsPage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // 계정 카드의 안내("한 번 더 확인 후 진행")대로 확인 모달을 거친다. 헤더 사용자 메뉴의
+  // 로그아웃은 관례대로 즉시 실행이라 이 경로만 확인을 받는다.
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
 
   const handleLogout = async () => {
+    setLogoutPending(true);
     try {
       await logout();
+      clearOperatorLocalState();
       router.replace('/');
     } catch {
       addToast(
         '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
         { variant: 'error' },
       );
+    } finally {
+      setLogoutPending(false);
+      // 실패 안내는 토스트라 모달을 닫아야 오버레이·aria-hidden 뒤에 갇히지 않는다.
+      setLogoutConfirmOpen(false);
     }
   };
 
@@ -234,7 +246,7 @@ export function SettingsPage() {
             <div className="py-5 flex gap-3">
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => setLogoutConfirmOpen(true)}
                 className="btn btn-secondary btn-big flex-1 rounded-[14px] justify-center"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -298,6 +310,15 @@ export function SettingsPage() {
       <PasswordChangeDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <PhoneChangeDialog open={phoneOpen} onClose={() => setPhoneOpen(false)} />
       <WithdrawAccountDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        title="로그아웃할까요?"
+        description="이 기기에서 로그아웃돼요."
+        confirmLabel="로그아웃"
+        isPending={logoutPending}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }

@@ -1,9 +1,14 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecruitmentDetail } from '@duing/types';
 import { EXTERNAL_FORM_URL_NOT_ALLOWED_MESSAGE } from '@duing/schemas';
 
 import { RecruitmentForm } from '../../app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
+
+// 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
+vi.mock('@/app/_lib/useGuardedRouter', () => ({
+  useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 // 고정 날짜는 "종료일은 오늘 이후" 규칙(createRecruitmentSchema)에 만료된다 — 종료일만 상대 미래로 계산한다.
 const futureEndDateSource = new Date();
@@ -21,6 +26,11 @@ function renderCreateForm(onSubmit = vi.fn().mockResolvedValue(undefined)) {
 }
 
 /** 지원 방식 세그먼트에서 외부 폼을 고른다 — 전환은 아직 일어나지 않고 확인 다이얼로그만 열린다. */
+/** create 모드 제출의 마지막 관문 — 공개 확인 모달에서 공개를 누른다. */
+async function confirmPublish() {
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+}
+
 function chooseExternalMode() {
   fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
 }
@@ -125,6 +135,7 @@ describe('RecruitmentForm — 외부 폼 전환 확인 다이얼로그', () => {
       target: { value: 'https://forms.gle/aBcD1234' },
     });
     fireEvent.click(screen.getByRole('button', { name: '모집 시작' }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
@@ -239,6 +250,7 @@ describe('RecruitmentForm — 외부 폼 모집 복제 시드', () => {
     fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-05-01' } });
     fireEvent.change(screen.getByLabelText(/^종료일/), { target: { value: FUTURE_END_DATE } });
     fireEvent.click(screen.getByRole('button', { name: '복제하여 모집 시작' }));
+    await confirmPublish();
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({

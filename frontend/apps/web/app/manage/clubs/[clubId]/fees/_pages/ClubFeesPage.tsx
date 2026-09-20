@@ -42,7 +42,7 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
       <header>
         <h1 className="text-xl font-bold">회비 관리</h1>
         <p className="mt-1 text-sm text-charcoal-2">
-          회비 정책을 만들고, 회원에게 청구서를 발행합니다.
+          회비 정책을 만들고, 부원에게 청구서를 발행해요.
         </p>
       </header>
 

@@ -6,6 +6,7 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
+import com.duing.domain.user.support.PhoneMasker;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -30,8 +31,9 @@ public record ApplicantDetailResponse(
         InterviewRoundBrief interviewRound
 ) {
 
+    /** phoneMasked 만 싣는다 — 원본은 GET /leader/applications/{id}/phone 이 감사 행과 함께 반환한다(부원 ClubMemberResponse 와 동일). */
     public record ApplicantInfo(Long userId, String name, String studentId,
-                                College college, String major, Grade grade, String phone) {}
+                                College college, String major, Grade grade, String phoneMasked) {}
 
     public record QuestionAnswer(String question, String answer) {}
 
@@ -81,7 +83,7 @@ public record ApplicantDetailResponse(
                 detailQuery.applicant().college(),
                 detailQuery.applicant().major(),
                 detailQuery.applicant().grade(),
-                detailQuery.applicant().phone()
+                PhoneMasker.mask(detailQuery.applicant().phone())
         );
 
         List<QuestionAnswer> questionAnswers = detailQuery.answers().stream()

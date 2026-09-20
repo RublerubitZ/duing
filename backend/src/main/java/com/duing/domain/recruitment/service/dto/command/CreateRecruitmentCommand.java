@@ -16,9 +16,8 @@ import java.util.List;
  * - 유형별 질문 정의(선택형 선택지 2개 이상·주관식 선택지 금지·id/라벨 중복 금지)는
  *   {@link RecruitmentQuestion#validateDefinitions(List)} 가 검사한다.
  *
- * <p>EXTERNAL 제약을 서비스가 아니라 이 compact constructor 에 두는 이유는, 생성 경로가
- * {@code create} 와 {@code replaceActive} 둘인데 두 경로가 모두 이 명령을 받기 때문이다 —
- * 여기 한 곳에 세우면 두 경로가 자동으로 같은 불변식을 갖는다.
+ * <p>EXTERNAL 제약을 서비스가 아니라 이 compact constructor 에 두는 이유는, 이 명령을 받는
+ * 모든 생성 경로가 여기 한 곳의 불변식을 자동으로 공유하게 하기 위해서다.
  */
 public record CreateRecruitmentCommand(
         Long clubId,

@@ -10,6 +10,13 @@ services:
       - "no-new-privileges:true"
     cap_drop:
       - ALL
+    # 컨테이너 로그 회전 — 기본 json-file 드라이버는 크기·보관 상한이 없어 디스크가 무한히 는다(#754).
+    # 감사 기록의 원천은 club_audit_event·admin_user_action_log 이고, 이 로그는 단기 디버깅용 흔적일 뿐이다.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     env_file:
       - .env
     expose:

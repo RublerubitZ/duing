@@ -1,9 +1,11 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -30,12 +32,17 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -61,8 +68,11 @@ public class GeneralJoinRequestService implements JoinRequestService {
     // 존재·소속 여부를 알아내는 열거(oracle)를 막는다.
     private static final String BULK_ITEM_GENERIC_FAILURE = "해당 가입 요청을 처리할 권한이 없거나 존재하지 않습니다.";
     private static final String AUTO_REJECTED_FAILURE = "이미 가입된 회원이라 자동 거절 처리되었습니다.";
+    private static final String AUTO_REJECTED_WITHDRAWN_FAILURE = "탈퇴한 회원이라 자동 거절 처리되었습니다.";
 
     private final ClubJoinCodeRepository clubJoinCodeRepository;
+    // 가입 요청 생성이 코드보다 동아리를 먼저 잠그기 위해 쓴다(#905) — createRequest 주석 참조.
+    private final ClubRepository clubRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     // 접수·승인·거절을 본 트랜잭션에 함께 남긴다(스펙 v2 4.1) — 기록 실패는 삼키지 않는다.
     private final ClubAuditEventRepository clubAuditEventRepository;
@@ -71,7 +81,11 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private final ClubMemberEnrollmentService clubMemberEnrollmentService;
     private final UserRepository userRepository;
     private final JoinCodeRateLimiter joinCodeRateLimiter;
+    // 원본 번호 열람 창 — 지원자·부원 열람과 같은 창을 공유한다(한 사람이 긁어갈 수 있는 번호 총량 기준).
+    private final PhoneRevealRateLimiter phoneRevealRateLimiter;
     private final Clock clock;
+    // 탈퇴 경로가 거절한 요청을 영속성 컨텍스트에서 떼어낼 때만 쓴다(rejectAllPendingOnWithdrawal).
+    private final EntityManager entityManager;
 
     /**
      * 일괄 승인의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -112,15 +126,25 @@ public class GeneralJoinRequestService implements JoinRequestService {
     @Transactional
     public void createRequest(CreateJoinRequestCommand createCommand) {
         joinCodeRateLimiter.assertAndRecordRequestCreation(createCommand.clientIp(), LocalDateTime.now(clock));
+        String code = normalizeCode(createCommand.rawCode());
+        // 잠금 순서는 club → code 다(#905). 동아리 폐쇄(GeneralClubClosureService.close)가 같은 순서로 잠근다 —
+        // 코드를 먼저 잠그면 폐쇄가 이 요청 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다
+        // (GeneralClubClosureService.close 주석).
+        // 동아리 id 를 엔티티가 아닌 스칼라로 읽는 이유: 코드 엔티티가 잠금 없이 1차 캐시에 올라오면
+        // 아래 findWithLockByCode 가 낡은 usedCount 를 그대로 돌려준다(그 메서드 주석의 함정).
+        Long clubId = clubJoinCodeRepository.findClubIdByCode(code)
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
+        // 위 조회와 이 잠금 사이에 동아리가 삭제됐으면 코드도 무효다 — 코드 미존재와 같은 404 로 합친다.
+        clubRepository.findByIdForUpdate(clubId)
+                .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         // 사용 인원은 신청 시점에 차감하므로(스펙 4.2) 유효성 판정부터 잠금 하에서 읽는다 —
         // 잠그지 않고 먼저 읽으면 뒤늦은 잠금이 낡은 usedCount 를 그대로 두어 초과 접수가 난다.
-        ClubJoinCode joinCode = clubJoinCodeRepository
-                .findWithLockByCode(normalizeCode(createCommand.rawCode()))
+        ClubJoinCode joinCode = clubJoinCodeRepository.findWithLockByCode(code)
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
+        // joinCode.getClub() 은 위에서 잠근 그 영속 인스턴스라, 상태 판정도 잠금 하의 최신 값을 본다.
         if (!isUsable(joinCode)) {
             throw new JoinRequestException.UnusableJoinCodeException();
         }
-        Long clubId = joinCode.getClub().getId();
         if (clubMemberRepository.findByClubIdAndUserId(clubId, createCommand.userId()).isPresent()) {
             throw new JoinRequestException.AlreadyMemberException();
         }
@@ -187,6 +211,38 @@ public class GeneralJoinRequestService implements JoinRequestService {
                 .orElseThrow(JoinRequestException.JoinRequestNotFoundException::new));
     }
 
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — 클래스 기본 readOnly 로 두면
+     * 실제 PG 에서 INSERT 가 거부된다. 원본 번호 열람은 그 자체가 감사 대상 행위다.
+     */
+    @Override
+    @Transactional
+    public String getRequestPhone(Long clubId, Long joinRequestId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다
+        // (#1197 지원자 경로와 동일). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
+        phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
+        // clubId 를 조건에 포함해 타 동아리 요청은 조회 자체가 되지 않게 한다(IDOR 차단, 불일치는 404).
+        ClubJoinRequest joinRequest = clubJoinRequestRepository
+                .findByIdAndClubId(joinRequestId, clubId)
+                .orElseThrow(JoinRequestException.JoinRequestNotFoundException::new);
+        Long targetUserId = joinRequest.getUser().getId();
+        String targetPhone;
+        try {
+            targetPhone = joinRequest.getUser().getPhone();
+        } catch (EntityNotFoundException withdrawnRequester) {
+            // 탈퇴자의 user 는 @SQLRestriction 에 막혀 프록시 초기화가 터진다(#869 계열) — 5xx 대신 404 로 답한다.
+            throw new JoinRequestException.JoinRequestNotFoundException();
+        }
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
+        log.info("join request phone view: clubId={}, actorUserId={}, joinRequestId={}, targetUserId={}",
+                clubId, requesterId, joinRequestId, targetUserId);
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.JOIN_REQUEST_PHONE_VIEWED, clubId, requesterId,
+                AuditDetailJson.of(Map.of("joinRequestId", joinRequestId, "userId", targetUserId))));
+        return targetPhone;
+    }
+
     @Override
     @Transactional
     public JoinRequestDecisionResult decide(DecideJoinRequestCommand decideCommand) {
@@ -239,17 +295,27 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     private JoinRequestDecisionResult approveOrAutoReject(ClubJoinRequest joinRequest, User reviewer,
                                                           LocalDateTime now) {
+        // 요청자 생존은 users 행 잠금이 판정한다(#1142) — 목록은 탈퇴자를 숨기지만 상세·일괄 승인은 id 로 도달하고,
+        // 요청자 연관은 미초기화 프록시라 @SQLRestriction 을 거치지 않는다. FOR UPDATE 조회는 탈퇴(users 행 잠금)와
+        // 직렬화되고 탈퇴가 커밋됐으면 빈 결과다. 예외가 아닌 자동 거절이어야 상태 전이가 커밋된다(PENDING 방치 금지).
+        Optional<User> requester = userRepository.findByIdForUpdate(joinRequest.getUser().getId());
+        if (requester.isEmpty()) {
+            joinRequest.rejectOnWithdrawal(reviewer, now);
+            releaseReservedUse(joinRequest);
+            return JoinRequestDecisionResult.AUTO_REJECTED_WITHDRAWN;
+        }
+        User liveRequester = requester.get();
         // 승인 시점에 이미 다른 경로로 활성 회원이 됐다면 자동 거절하고 확보해 둔 자리를 환급한다
         // (PENDING 방치 금지, 스펙 4.3). 예외가 아닌 정상 리턴이어야 상태 전이가 커밋된다.
         if (clubMemberRepository.findByClubIdAndUserId(
-                joinRequest.getClub().getId(), joinRequest.getUser().getId()).isPresent()) {
+                joinRequest.getClub().getId(), liveRequester.getId()).isPresent()) {
             joinRequest.rejectAutomatically(reviewer, now);
             releaseReservedUse(joinRequest);
             return JoinRequestDecisionResult.AUTO_REJECTED;
         }
         // 자리는 요청 생성 시점에 이미 확보됐으므로 승인은 차감하지 않는다. 만료·폐기·모집 마감 코드도
         // 승인은 허용한다(요청 생성 시점에 이미 코드 검증을 통과했으므로, 스펙 4.3).
-        clubMemberEnrollmentService.enroll(joinRequest.getClub(), joinRequest.getUser(),
+        clubMemberEnrollmentService.enroll(joinRequest.getClub(), liveRequester,
                 ClubMemberRole.MEMBER, joinRequest.getGeneration());
         joinRequest.approve(reviewer, now);
         return JoinRequestDecisionResult.APPROVED;
@@ -285,9 +351,12 @@ public class GeneralJoinRequestService implements JoinRequestService {
                         bulkCommand.clubId(), joinRequestId, bulkCommand.requesterId(),
                         JoinRequestStatus.APPROVED));
                 // 자동 거절은 커밋된 정상 결과지만 "승인됨"이 아니므로 운영진에게 사유와 함께 알린다.
-                if (decisionResult == JoinRequestDecisionResult.AUTO_REJECTED) {
-                    failures.add(new BulkApproveJoinRequestsResult.Failure(
-                            joinRequestId, AUTO_REJECTED_FAILURE));
+                if (decisionResult == JoinRequestDecisionResult.AUTO_REJECTED
+                        || decisionResult == JoinRequestDecisionResult.AUTO_REJECTED_WITHDRAWN) {
+                    failures.add(new BulkApproveJoinRequestsResult.Failure(joinRequestId,
+                            decisionResult == JoinRequestDecisionResult.AUTO_REJECTED
+                                    ? AUTO_REJECTED_FAILURE
+                                    : AUTO_REJECTED_WITHDRAWN_FAILURE));
                     continue;
                 }
                 approvedCount++;
@@ -312,6 +381,36 @@ public class GeneralJoinRequestService implements JoinRequestService {
             }
         }
         return new BulkApproveJoinRequestsResult(approvedCount, failures);
+    }
+
+    @Override
+    @Transactional
+    public void rejectAllPendingOnWithdrawal(Long userId) {
+        // 탈퇴 뒤 남은 PENDING 은 운영진 상세·일괄 승인에서 여전히 도달 가능하고 초대 자리도 묶여 있다 — 본인을
+        // 처리자로 자동 거절하고 자리를 환급한다(자동 승인이 approve(requester) 로 본인을 처리자로 두는 전례).
+        // 승인과의 경합은 @Version 이 409 로 흡수하므로 요청 행을 잠그지 않는다. 호출자(withdraw)가 users 행을
+        // 이미 잠갔으므로 잠금 순서는 users → club_member → club_join_code 로 승인 경로와 같다.
+        List<ClubJoinRequest> pendingRequests =
+                clubJoinRequestRepository.findAllByUserIdAndStatus(userId, JoinRequestStatus.PENDING);
+        if (pendingRequests.isEmpty()) {
+            return;
+        }
+        User requester = userRepository.findById(userId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (ClubJoinRequest pendingRequest : pendingRequests) {
+            pendingRequest.rejectOnWithdrawal(requester, now);
+            releaseReservedUse(pendingRequest);
+            clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                    ClubAuditEventType.JOIN_REQUEST_REJECTED,
+                    pendingRequest.getClub().getId(), pendingRequest.getJoinCode().getRecruitmentIdOrNull(),
+                    pendingRequest.getJoinCode().getId(), pendingRequest.getId(), userId));
+        }
+        // 이 요청이 user·reviewed_by 로 가리키는 회원을 호출자가 곧 soft-delete 한다. 거절 UPDATE 를 먼저
+        // 내보낸 뒤 요청을 영속성 컨텍스트에서 떼어낸다 — 남겨 두면 커밋 시점 flush 의 to-one 검사가
+        // "삭제된(=transient) User 참조"로 보고 500 을 낸다(멤버십은 자신도 삭제 대상이라 이 검사를 타지 않는다).
+        clubJoinRequestRepository.flush();
+        pendingRequests.forEach(entityManager::detach);
     }
 
     /**

@@ -48,9 +48,9 @@ describe('computeMemberKpis — 4종 구성', () => {
     expect(computeMemberKpis([], false, NOW)).toHaveLength(4);
   });
 
-  it('① 재적 회원은 전체 수다', () => {
+  it('① 재적 부원은 전체 수다', () => {
     const members = [member({ memberId: 1 }), member({ memberId: 2 }), member({ memberId: 3 })];
-    const kpi = kpiByLabel(members, true, '재적 회원');
+    const kpi = kpiByLabel(members, true, '재적 부원');
     expect(kpi.value).toBe('3');
   });
 

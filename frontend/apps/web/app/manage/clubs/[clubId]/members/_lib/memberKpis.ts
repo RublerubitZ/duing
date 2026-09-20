@@ -9,7 +9,7 @@ export type Kpi = {
 };
 
 // 회원 명단 요약 KPI 4종을 계산하는 순수 함수. now 를 주입하면 "최근 가입" 판정을 결정적으로 테스트할 수 있다.
-// ① 재적 회원(전체 수) ② 임원(회장+임원 합계, 서브에 분해) ③ 회비 미납(UNPAID 수)
+// ① 재적 부원(전체 수) ② 임원(회장+임원 합계, 서브에 분해) ③ 회비 미납(UNPAID 수)
 // ④ useGeneration=true → 최신 기수(최고 generation·보유자 수, 전원 null 이면 "—")
 //    useGeneration=false → 최근 가입(RECENT_JOIN_DAYS 이내, filterMembers 의 RECENT 와 동일 기준)
 export function computeMemberKpis(
@@ -22,7 +22,7 @@ export function computeMemberKpis(
   const unpaidCount = members.filter((member) => member.feeStatus === 'UNPAID').length;
 
   return [
-    { label: '재적 회원', value: String(members.length) },
+    { label: '재적 부원', value: String(members.length) },
     {
       label: '임원',
       value: String(leaderCount + officerCount),

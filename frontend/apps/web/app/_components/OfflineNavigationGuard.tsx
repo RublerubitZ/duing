@@ -3,8 +3,11 @@
 import { useEffect } from 'react';
 import { NETWORK_ERROR_MESSAGE } from '@duing/api';
 
+import { markNavigationPending } from '@/app/_lib/backDismiss';
+
 import { useToast } from './toast/ToastProvider';
 
+// 오프라인 차단에 더해, 온라인 내부 앵커 클릭에는 backDismiss 의 이동 예약을 세운다(#1139).
 // 오프라인 상태의 내부 라우트 이동 시도를 원천 차단한다.
 // 오프라인에서 클릭 시점 RSC fetch 가 실패하면 Next 라우터가 하드 내비게이션으로 폴백해
 // 브라우저 오류 페이지로 앱을 이탈시킨다(재현 실험으로 확인) — 라우터 내부 동작이라
@@ -21,8 +24,7 @@ export function OfflineNavigationGuard() {
   const { addToast } = useToast();
 
   useEffect(() => {
-    function blockOfflineNavigation(clickEvent: MouseEvent) {
-      if (navigator.onLine) return;
+    function trackOrBlockNavigation(clickEvent: MouseEvent) {
       if (clickEvent.defaultPrevented) return;
       // 수정자 키 클릭(새 탭 등)은 브라우저 기본 동작에 맡긴다.
       if (clickEvent.metaKey || clickEvent.ctrlKey || clickEvent.shiftKey || clickEvent.altKey) return;
@@ -31,18 +33,26 @@ export function OfflineNavigationGuard() {
       const anchor = eventTarget.closest('a');
       if (!anchor) return;
       const href = anchor.getAttribute('href');
-      // 내부 라우트('/x')만 차단 — 외부·프로토콜 상대('//')·해시·다운로드·새 탭은 통과.
+      // 내부 라우트('/x')만 대상 — 외부·프로토콜 상대('//')·해시·다운로드·새 탭은 통과.
       if (!href || !href.startsWith('/') || href.startsWith('//')) return;
       if (anchor.target && anchor.target !== '_self') return;
       if (anchor.hasAttribute('download')) return;
+
+      if (navigator.onLine) {
+        // 내부 라우트 클릭은 Link 가 곧 이동을 시작한다 — 커밋 전 창에서 오버레이 회수 back() 이 이동을
+        // 삼키지 않게 예약한다(#1139). capture 단계라 React onClick 의 preventDefault 는 아직 안 보인다 —
+        // 그런 앵커(이동 없음)는 예약만 남고 failsafe 로 풀린다(그 사이 닫힘은 죽은 엔트리 → 자동 스킵).
+        markNavigationPending();
+        return;
+      }
 
       clickEvent.preventDefault();
       clickEvent.stopPropagation();
       addToast(NETWORK_ERROR_MESSAGE, { variant: 'error' });
     }
 
-    document.addEventListener('click', blockOfflineNavigation, true);
-    return () => document.removeEventListener('click', blockOfflineNavigation, true);
+    document.addEventListener('click', trackOrBlockNavigation, true);
+    return () => document.removeEventListener('click', trackOrBlockNavigation, true);
   }, [addToast]);
 
   return null;

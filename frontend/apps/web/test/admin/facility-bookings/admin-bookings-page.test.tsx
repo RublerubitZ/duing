@@ -48,6 +48,10 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
     refetch: vi.fn(),
   }),
   useFacilityListQuery: () => ({ data: [] }),
+  // open 탭(FacilityOpenDateTab)이 마운트되면 호출되는 훅 — 빈 목록 성공(탭 내부는 facility-open-date-tab.test 가 격리 검증).
+  useAdminFacilitiesQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
+  useUpdateFacilityBookingOpenDateMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateAllFacilityBookingOpenDateMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 // 탭 셸은 URL(?tab=)로 상태를 관리한다 — searchParams 로 상태 주입, 탭 전환은 replace 호출 인자로 단언(ClubExplorePage 계약).
@@ -209,6 +213,21 @@ describe('AdminFacilityBookingsPage', () => {
     // 워크플로 단계 진행 계산에서 제외(스펙 §3) — 1~4 단계가 ✓ 로 바뀌지 않고 번호를 유지한다.
     const stepper = screen.getByRole('tablist', { name: '시설 예약 업무 단계' });
     for (const stepNumber of ['1', '2', '3', '4', '5']) {
+      expect(within(stepper).getByText(stepNumber)).toBeInTheDocument();
+    }
+  });
+
+  it('?tab=open 딥링크는 오픈일 설정 탭을 렌더하고, 참조 탭이라 앞 단계에 완료(✓) 표시가 붙지 않는다', () => {
+    mockTabParam = 'open';
+    render(<AdminFacilityBookingsPage />);
+
+    expect(screen.getByRole('tab', { name: /오픈일 설정/ })).toHaveAttribute('aria-selected', 'true');
+    // 오픈일 탭 콘텐츠(빈 상태)가 실제로 렌더된다 — 검토 화면은 렌더되지 않는다.
+    expect(screen.getByText('시설이 없어요')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /오늘 접수/ })).not.toBeInTheDocument();
+    // 워크플로 단계 진행 계산에서 제외(스펙 §3) — 1~5 단계가 ✓ 로 바뀌지 않고 번호를 유지한다.
+    const stepper = screen.getByRole('tablist', { name: '시설 예약 업무 단계' });
+    for (const stepNumber of ['1', '2', '3', '4', '5', '6']) {
       expect(within(stepper).getByText(stepNumber)).toBeInTheDocument();
     }
   });

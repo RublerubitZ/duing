@@ -111,8 +111,9 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     private Facility saveFacility() {
-        return facilityRepository.save(Facility.create(
-                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0));
+        // 오픈일 NULL = 닫힘이라 신청 경로가 400 이 된다 — 예약을 만드는 시드는 열린 시설이어야 한다.
+        return facilityRepository.save(BookingWindowFixture.opened(Facility.create(
+                (int) (sequence.getAndIncrement() % 100_000), "커뮤니티룸(1)", "1503호", 0)));
     }
 
     private record Fixture(User leader, Club club, Facility facility) {}
@@ -125,7 +126,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(내일) — 롤링 창은 오늘을 포함하나 고정 슬롯 시각 타임밤을 피해 내일을 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         return BookingWindowFixture.bookableDate();
     }
 
@@ -217,6 +218,34 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         assertThat(queryService.getQueue(new AdminBookingSearchCondition(
                         BookingStatus.APPROVED, null, null, date.minusDays(1), AdminBookingQueueSort.DEFAULT),
                 PageRequest.of(0, 10)).getTotalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("동아리가 삭제(soft-delete)된 APPROVED 예약은 겹치는 점유행이 있어도 충돌 의심으로 세지 않는다 — 자기 행을 식별할 수 없는 상태는 부분 반영과 같이 조용히 넘긴다")
+    void deletedClubBookingIsNotConflictSuspected() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        Long approved = pendingBooking(fixture, date, 18, 20);
+        adminService.approve(admin.getId(), approved);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(19, 0), LocalTime.of(20, 0), "전혀다른단체", false, LocalDateTime.now()));
+        AdminBookingSearchCondition approvedOnly = new AdminBookingSearchCondition(
+                BookingStatus.APPROVED, null, null, null, AdminBookingQueueSort.DEFAULT);
+        // 대조: 동아리가 살아 있을 때는 이름 불일치 점유행 겹침 → 충돌 의심이다.
+        assertThat(queryService.getQueue(approvedOnly, PageRequest.of(0, 10)).getContent().get(0).conflictSuspected())
+                .isTrue();
+        assertThat(queryService.getSummary().conflictSuspectedCount()).isEqualTo(1);
+
+        clubRepository.delete(clubRepository.findById(fixture.club().getId()).orElseThrow()); // @SQLDelete soft-delete — IT 는 비트랜잭션이라 즉시 커밋
+
+        AdminBookingSummaryResult row = queryService.getQueue(approvedOnly, PageRequest.of(0, 10)).getContent().get(0);
+        assertThat(row.bookingId()).isEqualTo(approved); // 예약 자체는 큐에 남는다
+        assertThat(row.clubName()).isEmpty(); // 삭제된 동아리는 @SQLRestriction 으로 이름 조회에서 빠진다
+        assertThat(row.conflictSuspected()).isFalse();
+        assertThat(row.partiallyMatched()).isFalse();
+        assertThat(queryService.getSummary().conflictSuspectedCount()).isZero();
     }
 
     @Test

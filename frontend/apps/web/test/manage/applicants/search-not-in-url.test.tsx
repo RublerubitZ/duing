@@ -111,7 +111,7 @@ const applicantDetailHandler = http.get(`*/leader/applications/${APPLICATION_ID}
       college: 'IT_ENGINEERING',
       major: '컴퓨터공학과',
       grade: 'JUNIOR',
-      phone: '010-1234-5678',
+      phoneMasked: '010-****-5678',
     },
     answers: [],
     status: 'SUBMITTED',

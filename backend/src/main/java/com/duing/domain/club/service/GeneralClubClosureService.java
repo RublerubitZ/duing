@@ -3,8 +3,11 @@ package com.duing.domain.club.service;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.exception.ClubException;
+import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.dto.command.CloseClubCommand;
+import com.duing.domain.clubaudit.entity.ClubAuditEvent;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubevent.service.ClubEventService;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
 import com.duing.domain.clubmember.service.LeaderSuccessionService;
@@ -14,8 +17,10 @@ import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.domain.promotion.service.PromotionService;
 import com.duing.domain.recruitment.service.RecruitmentService;
+import com.duing.global.file.UploadedObjectService;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import jakarta.persistence.EntityManager;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralClubClosureService implements ClubClosureService {
 
     private final ClubRepository clubRepository;
+    private final ClubAuditEventRepository clubAuditEventRepository;
     private final ClubMemberCommandService clubMemberCommandService;
     private final LeaderSuccessionService leaderSuccessionService;
     private final RecruitmentService recruitmentService;
@@ -40,6 +46,8 @@ public class GeneralClubClosureService implements ClubClosureService {
     private final ClubFavoriteService clubFavoriteService;
     private final EntityManager entityManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final ClubPhotoRepository clubPhotoRepository;
+    private final UploadedObjectService uploadedObjectService;
 
     @Override
     @Transactional
@@ -52,8 +60,17 @@ public class GeneralClubClosureService implements ClubClosureService {
         Club club = clubRepository.findByIdForUpdate(clubId)
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.validateClosable();
+        // 폐쇄 감사 — 폐쇄와 같은 트랜잭션이라 아래 어느 단계가 실패해도 함께 롤백된다(폐쇄 없는 CLUB_CLOSED 행은 없다).
+        // flush()/clear() 앞이라 영속성 컨텍스트가 살아 있고, soft-delete 여도 club 행은 남아 FK 가 성립한다(스펙 §2.1).
+        clubAuditEventRepository.save(ClubAuditEvent.clubClosed(clubId, actorAdminUserId, reason));
         // 아래 entityManager.clear() 로 detached 되기 전에 읽어 둔다.
         String clubName = club.getName();
+        // 폐쇄된 동아리의 로고·커버·살아 있는 사진은 더는 어디서도 서빙되지 않는다 — clear() 전에 URL 을 모아 두고
+        // soft-delete 뒤 해제한다(#1153). findByClubId 는 @SQLRestriction 으로 살아 있는 사진만 돌려준다.
+        List<String> imageUrlsToRelease = new ArrayList<>();
+        imageUrlsToRelease.add(club.getLogoUrl());
+        imageUrlsToRelease.add(club.getCoverUrl());
+        clubPhotoRepository.findByClubId(clubId).forEach(photo -> imageUrlsToRelease.add(photo.getStorageKey()));
 
         // 1. 멤버십 · 위임
         clubMemberCommandService.removeAllOnClubClosure(clubId, actorAdminUserId, reason);
@@ -66,12 +83,10 @@ public class GeneralClubClosureService implements ClubClosureService {
         // 이미 배포된 가입 링크는 회수할 수 없으므로 폐쇄가 서버에서 끊어야 한다 — 폐기하지 않으면
         // 죽은 동아리로 학생이 계속 유입된다(#869).
         //
-        // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠그는데, 학생의 가입 요청 생성은
-        // club_join_code(FOR UPDATE) → club(FK KEY SHARE) 순이라 정확히 역순이다. 두 트랜잭션이
-        // 겹치면 교착이고 폐쇄 쪽이 abort 된다. 겹치지 않는 이유는 잠금이 아니라 상태 게이트다 —
-        // 폐쇄는 커밋된 비 ACTIVE 동아리에서만 시작되고(validateClosable), 코드 행을 잠그는 모든
-        // 경로가 ACTIVE 를 요구한다(요청 생성의 isUsable, 운영진 경로의 requireActiveClub).
-        // ACTIVE 동아리 폐쇄를 허용하거나 그 게이트를 완화하면 이 교착이 곧바로 열린다.
+        // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠근다. 학생의 가입 요청 생성도 같은 순서로 잠그므로(#905)
+        // 겹치면 요청이 club 잠금에서 기다렸다가 폐기된 링크·비 ACTIVE 상태를 보고 409 로 끝난다. 순서를 되돌리면 폐쇄가
+        // 요청의 코드 행 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다 — Hibernate 의 PESSIMISTIC_WRITE 는 PG 에서
+        // FOR NO KEY UPDATE 라 FK 의 KEY SHARE 와 충돌하지 않아 교착까지는 가지 않지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간 진짜 교착이 된다.
         joinCodeService.revokeActiveOnClubClosure(clubId, recruitmentIds, actorAdminUserId);
         applicationService.rejectActiveOnClubClosure(recruitmentIds, actorAdminUserId);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);
@@ -91,6 +106,7 @@ public class GeneralClubClosureService implements ClubClosureService {
         entityManager.clear();
         Club clubToDelete = clubRepository.getReferenceById(club.getId());
         clubRepository.delete(clubToDelete);
+        uploadedObjectService.release(imageUrlsToRelease.toArray(String[]::new));
 
         // 운영 Slack 알림 — soft-delete 까지 커밋된 뒤에만 간다(폐쇄 사유는 싣지 않는다).
         eventPublisher.publishEvent(new ClubClosedEvent(clubId, clubName, actorAdminUserId));

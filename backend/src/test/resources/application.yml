@@ -117,10 +117,16 @@ duing:
     retention:
       enabled: false
       window: P1Y
+      application-answer-window: P6M
   federation-inquiry:
     purge:
       enabled: false
       window: P45D
+  upload:
+    purge:
+      enabled: false
+      delete-enabled: false
+      window: PT24H
   public-activity:
     window-days: 30
     default-limit: 10
@@ -146,7 +152,3 @@ duing:
       on-demand-retry-max-attempts: 2
       on-demand-deadline-seconds: 10
       room-delay-millis: 1
-    booking:
-      window:
-        mode: HALF_MONTH
-        pivot-day: 15

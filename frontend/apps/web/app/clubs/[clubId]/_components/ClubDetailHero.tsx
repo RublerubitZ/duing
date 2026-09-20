@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
@@ -39,6 +40,13 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
   const [reportOpen, setReportOpen] = useState(false);
 
+  // 모바일 배너 이미지 — 커버가 없으면 활동 사진 첫 장이 같은 자리를 채운다.
+  // 로드 실패한 URL 만 파생 상태로 기억해(ClubLogo 의 errorSrc 관례, useEffect 없음)
+  // 실패하면 배너 자체를 접고 커버·사진이 모두 없는 동아리와 같은 화면으로 돌아간다.
+  const [failedHeroImageUrl, setFailedHeroImageUrl] = useState<string | null>(null);
+  const resolvedHeroImageUrl = resolveHeroImageUrl(club);
+  const heroImageUrl = resolvedHeroImageUrl === failedHeroImageUrl ? null : resolvedHeroImageUrl;
+
   // 모바일 이름 뒤 중앙동아리 아이콘용 — 마지막 글자와 아이콘을 한 덩어리로 묶어야
   // 이름이 여러 줄로 접힐 때 아이콘만 다음 줄에 남는 것을 막을 수 있다.
   const nameChars = Array.from(club.name);
@@ -59,11 +67,20 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         <section className="relative overflow-hidden bg-cream">
           {club.coverUrl && (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. Hero 배경 분위기용. */}
-              <img
+              {/* Hero 배경 분위기용. priority 를 주지 않는다(모바일 배너도 같다) — 세 가지 이유다.
+                  ① coverUrl 은 React Query 가 하이드레이션 이후에 채우는 값이라, preload 를 걸어도
+                     문서 파싱 시점에는 존재하지 않아 구조적으로 이득이 없다.
+                  ② 데스크탑/모바일 커버는 CSS(hidden md:block / md:hidden)로만 갈리고 DOM 에는 둘 다
+                     있어서, 한쪽에 priority 를 주면 그 폭에서 안 보이는 쪽까지 대형 변형을 강제로 받는다.
+                  ③ 기본 lazy 면 display:none 인 쪽은 교차 자체가 없어 아예 받지 않는다 — 지금 raw <img>
+                     가 두 장을 모두 받던 낭비까지 사라진다. 보이는 쪽은 마운트 즉시 교차라 체감 차이 없다. */}
+              <Image
                 src={club.coverUrl}
                 alt=""
                 aria-hidden
+                fill
+                // 히어로 배경은 뷰포트 전체 폭을 채운다(풀블리드).
+                sizes="100vw"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover opacity-50"
               />
@@ -147,10 +164,31 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
       <div className="md:hidden">
         {/* 커버 배너(있으면) + 상단 액션바(오버레이). 부모 relative. */}
         <div className="relative">
-          {club.coverUrl ? (
+          {heroImageUrl ? (
             <div className="relative h-[150px] w-full overflow-hidden bg-sage-mist">
-              {/* eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. 모바일 커버 배너. */}
-              <img src={club.coverUrl} alt="" aria-hidden decoding="async" className="h-full w-full object-cover" />
+              {club.coverUrl ? (
+                /* 모바일 커버 배너. priority 없음 — 데스크탑 커버와 같은 이유(위 주석 참고). */
+                <Image
+                  src={club.coverUrl}
+                  alt=""
+                  aria-hidden
+                  fill
+                  sizes="100vw"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- 활동 사진 storageKey 는 도메인 화이트리스트 밖 호스트·상대 경로가 섞여 있어 next/image 면 런타임 throw 로 상세 페이지 전체가 죽는다. raw <img> 는 깨진 그림 한 장으로 끝난다(활동 사진 탭과 동일 관례).
+                <img
+                  src={heroImageUrl}
+                  alt=""
+                  aria-hidden
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                  onError={() => setFailedHeroImageUrl(heroImageUrl)}
+                />
+              )}
               {/* 배너 하단을 cream 으로 페이드 — 아래 콘텐츠와 매끄럽게 잇고 겹친 로고를 받쳐준다. */}
               <div
                 className="absolute inset-0 bg-gradient-to-t from-cream via-cream/20 to-transparent"
@@ -172,7 +210,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               // 시작해 이름이 몇 줄이든 아래로만 자라고, 로고 걸침 폭은 줄 수와 무관하게 일정하다.
               className={cn(
                 'relative grid h-20 w-20 shrink-0 self-start place-items-center overflow-hidden rounded-[22px] border-[3px] border-white text-white shadow-lg',
-                club.coverUrl ? '-mt-6' : 'mt-1',
+                heroImageUrl ? '-mt-6' : 'mt-1',
               )}
               style={{
                 // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
@@ -251,6 +289,24 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
         />
       )}
     </>
+  );
+}
+
+/**
+ * 히어로 배너 이미지 — 운영진 커버가 우선, 없으면 활동 사진 첫 장(displayOrder 최소). 둘 다 없으면 null.
+ *
+ * 대표 활동(heroActivities)은 쓰지 않는다 — 별도 쿼리라 히어로가 두 번 그려지고(스켈레톤→사진)
+ * 정적 셸 규약상 이득 없이 레이아웃만 흔들린다. photos 는 상세 응답에 이미 실려 와 추가 요청이 0 이다.
+ * 서버가 displayOrder 오름차순으로 주지만 방어적으로 정렬한다(표시 8장 이내, 비용 무시 가능).
+ * 공백뿐인 storageKey 는 건너뛴다. 형식 검증은 하지 않는다 — 잘못된 URL 은 <img onError> 가 흡수한다.
+ */
+export function resolveHeroImageUrl(club: Pick<ClubDetail, 'coverUrl' | 'photos'>): string | null {
+  if (club.coverUrl) return club.coverUrl;
+  return (
+    [...club.photos]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((photo) => photo.storageKey.trim())
+      .find((storageKey) => storageKey.length > 0) ?? null
   );
 }
 

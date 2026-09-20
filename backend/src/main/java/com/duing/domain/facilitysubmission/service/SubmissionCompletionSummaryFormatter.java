@@ -20,6 +20,13 @@ public class SubmissionCompletionSummaryFormatter {
             BookingStatus.PENDING, "승인 대기",
             BookingStatus.REJECTED, "반려됨");
 
+    /** 아카이브(폐쇄)된 시설의 예약 — 학교에 등록할 수 없어 완료 대상에서 제외한다(P2-07). 예약 상태와 무관한 사유라 별도 라벨. */
+    private static final String ARCHIVED_FACILITY_LABEL = "시설 폐쇄됨";
+
+    public String archivedFacilityReasonLabel() {
+        return ARCHIVED_FACILITY_LABEL;
+    }
+
     public String reasonLabel(BookingStatus status) {
         return SKIP_REASON_LABELS.getOrDefault(status, status.name());
     }

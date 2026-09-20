@@ -74,7 +74,7 @@ const FAVORITED_CLUB_IDS = [1];
 const HAD_SESSION_KEY = 'duing:had-session';
 const NOTIFICATIONS_LOGIN_TEXT = '알림은 로그인 후 확인할 수 있어요.';
 const NOTIFICATIONS_LOGIN_LINK_SELECTOR = 'a[href="/login?next=/notifications"]';
-const ADMIN_DENIED_TEXT = '총동연(관리자) 권한이 필요합니다.';
+const ADMIN_DENIED_TEXT = '총동아리연합회(총동연) 관리자 권한이 필요해요.';
 const ADMIN_CONSOLE_HEADING = '동아리 관리';
 const ME_GUARD_TEXT = '로그인이 필요한 페이지예요';
 const ME_TAB_LABEL = '지원 현황';
@@ -487,10 +487,10 @@ test.describe('PR-3 인증 초기 상태', () => {
     await expect(page.getByRole('button', { name: /홍길동님/ })).toBeVisible();
     await waitForHeaderFrame(page, 'hasUserMenu');
 
-    // 부팅 복원 me(401) → 갱신 1회 → 재시도 me(200) 3왕복. 세 번째 me 는 하이드레이션 후
-    // 유저 메뉴가 프로필을 채우는 별도 쿼리다(레버 2 미구현 — 부팅분과 공유하지 않는다).
+    // 부팅 복원 me(401) → 갱신 1회 → 재시도 me(200) 2왕복. 상단바가 클라이언트 컴포넌트로 바뀐 뒤(#1187)
+    // 유저 메뉴의 프로필 쿼리가 부팅 복원 조회와 같은 키로 중복 제거되어 별도 me 왕복이 사라졌다(레버 2 달성).
     expect(api.refreshCalls()).toBe(1);
-    expect(api.meCalls()).toBe(3);
+    expect(api.meCalls()).toBe(2);
     const frames = await readAuthFrames(page);
     expect(loginButtonFramesAfterFirstUserMenu(frames)).toHaveLength(0);
     await context.close();
@@ -569,7 +569,7 @@ test.describe('PR-3 인증 초기 상태', () => {
     await context.close();
   });
 
-  test('탐색(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
+  test('동아리(/clubs) — 찜 목록 도착 전 하트 비활성, 도착 후 방향 정확', async ({ browser }) => {
     const context = await browser.newContext();
     await seedLoggedInCookies(context);
     await routeApi(context, 'valid', { favoriteIdsDelayMs: 1_500 });

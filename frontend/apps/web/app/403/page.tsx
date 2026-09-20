@@ -12,7 +12,7 @@ export default function ForbiddenPage() {
         <p className="text-charcoal-3 text-sm font-semibold">403 Forbidden</p>
         <h1 className="mt-2 text-2xl font-bold text-ink">접근 권한이 없어요.</h1>
         <p className="text-charcoal-2 mt-3 text-sm">
-          요청한 페이지는 총동연(관리자) 권한이 필요합니다.
+          요청한 페이지는 총동아리연합회(총동연) 관리자 권한이 필요해요.
         </p>
         <Link
           href="/"

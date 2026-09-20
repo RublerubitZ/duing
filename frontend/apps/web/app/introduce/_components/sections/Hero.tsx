@@ -104,7 +104,7 @@ export function Hero() {
               <span aria-hidden>→</span>
             </Link>
             <Link href={toRoute('/signup')} className="btn btn-secondary rounded-full">
-              우리 동아리 등록
+              회원가입하고 시작하기
             </Link>
           </div>
 

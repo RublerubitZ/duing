@@ -66,7 +66,7 @@ describe('PaymentHistory', () => {
     mockUseBillPaymentsQuery.mockReturnValue({ data: [], isLoading: false });
     render(<PaymentHistory clubId={1} bill={bill} memberName="김민지" onClose={() => {}} />);
     expect(screen.getByText('기록된 납부가 없습니다.')).toBeInTheDocument();
-    // 제목에 `회원 #id` 대신 전달받은 이름이 노출된다.
+    // 제목에 `부원 #id` 대신 전달받은 이름이 노출된다.
     expect(screen.getByText('납부 내역 · 김민지')).toBeInTheDocument();
   });
 

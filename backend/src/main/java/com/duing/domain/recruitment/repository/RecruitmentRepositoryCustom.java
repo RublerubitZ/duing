@@ -27,12 +27,6 @@ public interface RecruitmentRepositoryCustom {
     List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
 
     /**
-     * 활성 모집({@link RecruitmentPredicates#effectivelyOpen}) 1건 조회.
-     * 비정상 케이스로 여러 건이면 startDate ASC, id ASC tie-break.
-     */
-    Optional<Recruitment> findActiveByClubId(Long clubId);
-
-    /**
      * status=OPEN 인 모집 1건 조회. endDate 필터를 적용하지 않으므로 endDate 가 지난 OPEN 행도 반환된다.
      * uk_recruitment_club_active 인덱스는 endDate 와 무관하게 status='OPEN' 만 보므로,
      * 새 모집을 만들기 전 만료된 OPEN 행을 자동 마감 처리하기 위해 사용한다.
@@ -60,8 +54,7 @@ public interface RecruitmentRepositoryCustom {
      * <p>엔티티가 아니라 행({@link RepresentativeRecruitmentRow})을 반환한다 — 호출처(동아리 상세)가
      * 읽기 전용이고, 엔티티 로드는 form eager +1 쿼리·content TEXT 전송을 동반하기 때문이다.
      *
-     * <p>{@link #findActiveByClubId} 와 달리 마감 모집도 반환한다. 진행 중인 모집만 필요한 쓰기
-     * 경로(모집 교체 등)는 그쪽을 계속 쓴다.
+     * <p>마감 모집도 반환한다 — 대표 모집은 "가장 최근 모집"이지 진행 중 모집이 아니다.
      */
     Optional<RepresentativeRecruitmentRow> findRepresentativeByClubId(Long clubId, LocalDate today);
 

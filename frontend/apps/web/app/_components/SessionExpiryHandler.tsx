@@ -13,6 +13,7 @@ import { registerUnauthorizedHandler } from '@duing/api';
 import { useApiClient } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { toLinkRoute, toRoute } from '@/app/_lib/route';
 import { useToast } from './toast/ToastProvider';
 
@@ -53,6 +54,10 @@ export function SessionExpiryHandler() {
       queryClient.clear();
       addToast('세션이 만료되었어요. 다시 로그인해 주세요.', { variant: 'error' });
       const currentPath = toLinkRoute(window.location.pathname + window.location.search) ?? '/';
+      // 오버레이(알림 시트 등)가 열린 채 만료되면 시트가 언마운트되며 회수 back() 을 내보내고, 커밋이
+      // 지연된 이 push 가 그 back 에 되돌려져 홈에 남는다(#860). 닫힘+이동이 겹치는 소비처와 같은 규약으로
+      // 다음 닫힘 1회의 회수를 건너뛴다 — 열린 오버레이가 없거나 오프라인이면 함수 자체가 no-op 이다.
+      skipNextOverlayReclaim();
       router.push(toRoute(`/login?next=${encodeURIComponent(currentPath)}`));
     });
     return () => registerUnauthorizedHandler(null);

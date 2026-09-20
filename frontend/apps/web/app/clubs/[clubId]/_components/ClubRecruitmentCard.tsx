@@ -1,12 +1,15 @@
 'use client';
 
-import type { StudentRecruitmentProjection } from '@duing/types';
+import Link from 'next/link';
+
+import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import {
   displayStatusLabel,
   recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
 import { ddayLabel } from '../../../_lib/dday';
+import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { Spinner } from '@/components/loading/Spinner';
 import { useClubApply } from '../_lib/useClubApply';
@@ -15,11 +18,15 @@ type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
   recruitment: StudentRecruitmentProjection | undefined;
   clubId: number;
+  /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
+  membership?: MyClubMembership | null;
 };
 
-export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
-  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility } =
+export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) {
+  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
     useClubApply(recruitment);
+  // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
+  const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
 
   const status = recruitment?.displayStatus;
   const daysLeft = recruitment ? recruitmentDaysLeft(recruitment.endDate) : null;
@@ -91,20 +98,32 @@ export function ClubRecruitmentCard({ recruitment, clubId }: Props) {
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={!canApply || isCheckingEligibility}
-          className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isCheckingEligibility ? (
-            <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
-              <Spinner size={14} />
-            </span>
-          ) : (
-            applyButtonLabel
-          )}
-        </button>
+        {existingApplicationId !== null && !isAlreadyMember ? (
+          // 이미 지원한 모집 — 서버가 409 로 막는 버튼 대신 제출한 지원서로 보낸다. 소속 잠금이 있으면 그 안내가 우선이다.
+          <Link
+            href={toRoute(`/me/applications/${existingApplicationId}`)}
+            className="btn btn-secondary btn-big w-full"
+          >
+            지원 완료 · 지원서 보기
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={!canApply || isCheckingEligibility || isAlreadyMember}
+            className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isCheckingEligibility ? (
+              <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+                <Spinner size={14} />
+              </span>
+            ) : isAlreadyMember ? (
+              '이미 소속된 동아리예요'
+            ) : (
+              applyButtonLabel
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );

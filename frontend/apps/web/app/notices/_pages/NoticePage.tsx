@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import type { SVGProps } from 'react';
 import Link from 'next/link';
+import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
+import { cn } from '@/app/_lib/cn';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -71,8 +74,8 @@ function NewBadge() {
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
-      background: '#E14A3A', color: '#fff',
-      fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em',
+      background: '#B04A28', color: '#fff',
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
   );
@@ -184,6 +187,19 @@ function SideLinkItem({ icon, label, href }: { icon: React.ReactNode; label: str
   );
 }
 
+/* 목록 썸네일 — 커버 없으면 아이콘만. ImageWithFallback 의 "이미지 없음" 문구가 40px 칸에서 잘리고 카드에서는 과하게 도드라진다. */
+function CoverThumb({ src }: { src: string }) {
+  if (!src) {
+    return (
+      // 장식 아이콘 — 링크 접근성 이름에 "이미지 없음" 이 섞이지 않도록 트리에서 숨긴다.
+      <div aria-hidden className="w-full h-full grid place-items-center text-charcoal-3">
+        <ImageOff className="w-4 h-4" />
+      </div>
+    );
+  }
+  return <ImageWithFallback src={src} alt="" className="w-full h-full !bg-transparent" />;
+}
+
 /* ---------- 헬퍼 ---------- */
 const isNewItem = (createdAt: string): boolean =>
   parseKstInstant(createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -219,6 +235,9 @@ export function NoticePage() {
     page,
     size: PAGE_SIZE,
   });
+
+  // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
+  const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
 
   const items = listQuery.data?.content ?? [];
   const totalElements = listQuery.data?.totalElements ?? 0;
@@ -384,6 +403,7 @@ export function NoticePage() {
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="제목 또는 내용을 검색하세요"
+                  aria-label="소식 검색"
                   style={{
                     flex: 1, minWidth: 0, border: 'none', outline: 'none',
                     fontSize: 13, background: 'transparent', fontFamily: 'inherit',
@@ -393,6 +413,7 @@ export function NoticePage() {
                 <button
                   type="button"
                   onClick={handleSearch}
+                  aria-label="검색"
                   style={{
                     width: 32, height: 32, borderRadius: 8,
                     background: 'var(--ink)', color: '#fff', border: 'none',
@@ -415,6 +436,7 @@ export function NoticePage() {
                     key={opt.value}
                     type="button"
                     onClick={() => handleCategoryChange(opt.value)}
+                    className="tap-pill"
                     style={{
                       padding: '7px 14px', borderRadius: 999,
                       border: `1px solid ${isActive ? 'var(--ink)' : 'var(--gray-line)'}`,
@@ -450,20 +472,27 @@ export function NoticePage() {
           {listQuery.isSuccess && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
+            // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
             <div
               aria-busy={listQuery.isPlaceholderData}
-              className={listQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}
+              className={
+                cn(
+                  enteredFromSkeleton && 'enter-content',
+                  listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                ) || undefined
+              }
             >
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
-                  <div className="mb-2.5 grid grid-cols-1 gap-3.5 md:grid-cols-2">
+                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
                     {pinnedItems.slice(0, 2).map((n, i) => {
                       const isDark = i === 0;
                       return (
                         <Link
                           key={n.id}
                           href={toRoute(`/notices/${n.id}`)}
+                          className="tap-card"
                           style={{
                             background: isDark ? 'var(--ink)' : 'var(--paper)',
                             color: isDark ? '#fff' : 'var(--charcoal)',
@@ -542,25 +571,20 @@ export function NoticePage() {
                             </span>
                           </div>
                           </div>
-                          {/* Cover thumbnail */}
-                          <div style={{
-                            flex: '0 0 140px', alignSelf: 'stretch',
+                          {/* Cover thumbnail — 모바일은 96px·3:4 고정(카드 높이에 따라 크롭 비율이 달라지고
+                              320px 폭에서 본문 칸이 86px 로 눌리던 문제). md+ 는 기존 140px·카드 높이 stretch 유지. */}
+                          <div className="shrink-0 basis-[96px] self-start aspect-[3/4] md:basis-[140px] md:self-stretch md:aspect-auto" style={{
                             borderRadius: 12, overflow: 'hidden',
                             background: isDark ? 'rgba(255,255,255,0.06)' : 'var(--gray-soft)',
                           }}>
-                            <ImageWithFallback
-                              src={n.coverImageUrl}
-                              alt=""
-                              className="w-full h-full !bg-transparent"
-                              emptyMessage="이미지 없음"
-                            />
+                            <CoverThumb src={n.coverImageUrl} />
                           </div>
                         </Link>
                       );
                     })}
                   </div>
 
-                  <div style={{ padding: '10px 0 24px' }} />
+                  <div className="hidden md:block" style={{ padding: '10px 0 24px' }} />
                 </>
               )}
 
@@ -620,12 +644,7 @@ export function NoticePage() {
                       width: 40, height: 40, borderRadius: 8,
                       overflow: 'hidden',
                     }}>
-                      <ImageWithFallback
-                        src={n.coverImageUrl}
-                        alt=""
-                        className="w-full h-full !bg-transparent"
-                        emptyMessage="이미지 없음"
-                      />
+                      <CoverThumb src={n.coverImageUrl} />
                     </div>
                     <span className="nr-cat"><NTagPill category={n.category} /></span>
                     <span className="nr-title" style={{
@@ -642,7 +661,8 @@ export function NoticePage() {
                           fontSize: 11, fontWeight: 700,
                         }}>🏛 {n.clubName ?? '동아리 공지'}</span>
                       )}
-                      {n.title}
+                      {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
+                      <span className="min-w-0 truncate">{n.title}</span>
                       {isNewItem(n.createdAt) && <NewBadge />}
                     </span>
                     <span className="nr-date" style={{

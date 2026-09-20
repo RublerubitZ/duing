@@ -14,6 +14,7 @@ import com.duing.domain.applicationEvaluation.repository.ApplicationEvaluationRe
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -28,6 +29,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -65,7 +67,9 @@ class ApplicationSubmitGuardsTest {
             new ApplicationStatusChanger(applicationStatusHistoryRepository),
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
-            clock);
+            clock,
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

@@ -158,6 +158,19 @@ export function useApplicantDetailQuery(applicationId: number | undefined) {
   });
 }
 
+/**
+ * 지원자 원본 번호 조회. GET 이지만 useQuery 가 아니라 useMutation 을 쓴다 — 쿼리로 받으면 원본 번호가
+ * React Query 캐시에 남아 패널을 닫아도 살아 있다(useMemberPhoneMutation·useAdminUserPhoneMutation 과 같은 이유).
+ * gcTime 0 — 결과가 원본 개인정보라 옵저버가 떨어지는 즉시 버린다(admin.ts useAdminUserPhoneMutation 전례).
+ */
+export function useApplicantPhoneMutation() {
+  const client = useApiClient();
+  return useMutation({
+    mutationFn: (applicationId: number) => client.applications.applicantPhone(applicationId),
+    gcTime: 0,
+  });
+}
+
 export function useUpdateApplicationStatusMutation(recruitmentId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();

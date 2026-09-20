@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@duing/stores';
 import type { BookingAvailabilitySlot, BookingDayAvailability, FacilityItem } from '@duing/types';
 import { FacilityContextBar } from '@/app/facilities/_components/booking/FacilityContextBar';
 import { BookingCalendar } from '@/app/facilities/_components/booking/BookingCalendar';
@@ -19,7 +20,12 @@ import { DAY_LEVEL_META } from '@/app/facilities/_lib/bookingCalendar';
 import { seoulDateIso } from '@/app/facilities/_lib/facilityTimeline';
 
 // FacilityHomeCard 는 내부에서 new Date() 로 오늘을 계산하므로 시스템 시각을 고정한다.
-afterEach(() => vi.useRealTimers());
+// 픽스처는 오프셋 명시 인스턴트 — 집계가 KST 라 로컬 Date 는 UTC 러너에서 어긋난다(P2-18).
+afterEach(() => {
+  vi.useRealTimers();
+  // 예약 패널이 로그인 여부로 진행 버튼을 가른다 — 테스트 간 상태가 새지 않게 초기값 전체로 되돌린다.
+  act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
+});
 
 function makeFacility(overrides?: Partial<FacilityItem>): FacilityItem {
   return {
@@ -141,6 +147,71 @@ it('캘린더 셀은 레벨 라벨(여유/마감)을 표시하고 창 이전 과
   expect(weekdayHeaders).toHaveLength(7);
   const [firstWeekday] = weekdayHeaders;
   expect(firstWeekday).toHaveTextContent('월');
+});
+
+it('캘린더의 데이터 있는 지난 날짜 셀은 열람용으로 활성이고 "마감" 라벨을 달며 클릭 시 onSelectDate 를 부르고, 데이터 없는 셀은 비활성이다', () => {
+  const onSelectDate = vi.fn();
+  const pastDay = makeDay({
+    date: '2026-07-10',
+    dayStatus: 'PAST',
+    availableSlotCount: 0,
+    slots: makeDay().slots.map((slot) => (slot.status === 'AVAILABLE' ? { ...slot, status: 'PAST' as const } : slot)),
+  });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[pastDay.date, pastDay], ['2026-07-20', makeDay()]])}
+      bookableFrom="2026-07-13"
+      bookableUntil="2026-08-31"
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={onSelectDate}
+      onOutOfWindowSelect={vi.fn()}
+    />,
+  );
+  const pastCell = screen.getByRole('button', { name: '10일 지난 날짜' });
+  expect(pastCell).toBeEnabled();
+  expect(pastCell).not.toHaveAttribute('aria-disabled');
+  // 지난 날짜는 숫자만 있던 빈 칸이 아니라 범례의 "마감"(FULL 메타)으로 읽힌다 — 기록 열람 셀도 상태를 말한다.
+  expect(within(pastCell).getByText('마감')).toBeInTheDocument();
+  fireEvent.click(pastCell);
+  expect(onSelectDate).toHaveBeenCalledWith('2026-07-10');
+  // 데이터 없는 지난 날짜(12일)는 여전히 비활성 — 열람할 기록이 없다.
+  expect(screen.getByRole('button', { name: '12일' })).toBeDisabled();
+});
+
+it('캘린더의 오늘 셀은 신청 창 밖(닫힘·내일 오픈)이어도 "마감" 라벨의 열람용 셀로 열리고 창 밖 토스트를 부르지 않는다', () => {
+  const onSelectDate = vi.fn();
+  const onOutOfWindowSelect = vi.fn();
+  // 오늘=7/13: 전날 12:01 마감이 이미 지나 빈 칸은 전부 DEADLINE_PASSED(가용 0) — BE 오늘 응답 미러.
+  const today = makeDay({
+    date: '2026-07-13',
+    dayStatus: 'FULL',
+    availableSlotCount: 0,
+    applicationClosed: true,
+    slots: makeDay().slots.map((slot) => (slot.status === 'AVAILABLE' ? { ...slot, status: 'DEADLINE_PASSED' as const } : slot)),
+  });
+  render(
+    <BookingCalendar
+      yearMonth="2026-07"
+      daysByIso={new Map([[today.date, today], ['2026-07-20', makeDay()]])}
+      bookableFrom="2026-07-14"
+      bookableUntil="2026-08-31"
+      todayIso="2026-07-13"
+      selectedDate={null}
+      onSelectDate={onSelectDate}
+      onOutOfWindowSelect={onOutOfWindowSelect}
+    />,
+  );
+  const todayCell = screen.getByRole('button', { name: '13일 마감' });
+  expect(todayCell).toBeEnabled();
+  expect(todayCell).not.toHaveAttribute('aria-disabled');
+  expect(within(todayCell).getByText('마감')).toBeInTheDocument();
+  fireEvent.click(todayCell);
+  expect(onSelectDate).toHaveBeenCalledWith('2026-07-13');
+  expect(onOutOfWindowSelect).not.toHaveBeenCalled();
+  // 창 안 20일은 기존 레벨 셀 그대로 — 기록 셀 확장이 신청 가능 셀을 건드리지 않는다.
+  expect(screen.getByRole('button', { name: '20일 여유, 남은 11칸' })).toBeEnabled();
 });
 
 it('모바일 캘린더 셀은 가로 3단계 게이지로 표기하고 상태 텍스트를 줄바꿈 없이 유지한다', () => {
@@ -330,6 +401,120 @@ it('차단 슬롯 버튼은 비활성이다', () => {
   expect(screen.getByRole('button', { name: /17:00~18:00/ })).toBeDisabled();
 });
 
+// 신청 마감(2026-09-03): 서버가 빈 슬롯을 DEADLINE_PASSED 로 내린 날 — 점유·대기 슬롯은 상태를 유지한다.
+function makeClosedDay(): BookingDayAvailability {
+  return makeDay({
+    availableSlotCount: 0,
+    dayStatus: 'FULL',
+    slots: makeDay().slots.map((slot) => (slot.status === 'AVAILABLE' ? { ...slot, status: 'DEADLINE_PASSED' as const } : slot)),
+  });
+}
+
+it('마감된 날의 슬롯 리스트: 빈 슬롯은 "신청 마감" muted 행으로 비활성이고 점유 슬롯의 단체명은 그대로 보인다', () => {
+  render(<DaySlotList day={makeClosedDay()} selection={null} onToggleSlot={vi.fn()} />);
+  const closedRow = screen.getByRole('button', { name: /09:00~10:00.*신청 마감/ });
+  expect(closedRow).toBeDisabled();
+  expect(closedRow).toHaveClass('bg-graysoft/60');
+  expect(screen.queryByText('예약 가능')).not.toBeInTheDocument();
+  // 점유 정보 보존 — SCHOOL 단체명·INTERNAL 폴백은 마감 표시로 덮이지 않는다.
+  expect(screen.getByRole('button', { name: /17:00~18:00.*비호응원단/ })).toBeDisabled();
+  expect(screen.getByText('예약됨')).toBeInTheDocument();
+  // 날짜 단위 안내 1줄(role=note).
+  expect(screen.getByRole('note')).toHaveTextContent('신청이 마감된 날짜예요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.');
+});
+
+it('마감된 날의 승인 대기 행은 "승인 대기" 라벨을 유지하되 비활성이라 탭해도 onToggleSlot 을 부르지 않는다', () => {
+  const onToggleSlot = vi.fn();
+  render(<DaySlotList day={makeClosedDay()} selection={null} onToggleSlot={onToggleSlot} />);
+  const pendingRow = screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ });
+  expect(pendingRow).toBeDisabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).not.toHaveBeenCalled();
+});
+
+it('마감이 아닌 날은 안내 note 가 없고 승인 대기 행이 여전히 활성이다(무회귀)', () => {
+  render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
+  expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ })).toBeEnabled();
+});
+
+it('서버 applicationClosed=true 인 날은 빈 슬롯이 없어도(전부 점유·대기) 대기 행이 잠기고 안내 note 가 뜬다 — 잔여 한계 해소', () => {
+  const onToggleSlot = vi.fn();
+  const fullyOccupiedClosedDay = makeDay({
+    availableSlotCount: 0,
+    dayStatus: 'FULL',
+    applicationClosed: true,
+    slots: makeDay().slots.map((slot, index) =>
+      slot.status === 'AVAILABLE'
+        ? index % 2 === 0
+          ? { ...slot, status: 'BLOCKED' as const, blockedBy: 'SCHOOL' as const, organization: '총학생회' }
+          : { ...slot, status: 'PENDING_HOLD' as const }
+        : slot,
+    ),
+  });
+  render(<DaySlotList day={fullyOccupiedClosedDay} selection={null} onToggleSlot={onToggleSlot} />);
+  expect(screen.queryByText('신청 마감')).not.toBeInTheDocument();
+  expect(screen.getByRole('note')).toBeInTheDocument();
+  const pendingRow = screen.getByRole('button', { name: /10:00~11:00.*승인 대기/ });
+  expect(pendingRow).toBeDisabled();
+  fireEvent.click(pendingRow);
+  expect(onToggleSlot).not.toHaveBeenCalled();
+});
+
+it('예약 패널 CTA 는 신청 가능한 슬롯이 없는 날(마감·지난 날)엔 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 테스트는 CTA 자체를 본다.
+  act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
+  render(
+    <BookingPanel
+      facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
+      day={makeClosedDay()}
+      selection={null}
+      onToggleSlot={vi.fn()}
+      step="slots"
+      onProceedToForm={vi.fn()}
+      onBackToSlots={vi.fn()}
+      submittedResult={null}
+      submittedClubId={null}
+      submittedAt={null}
+      onSubmitted={vi.fn()}
+      onExploreOther={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
+});
+
+it('예약 패널은 미인증이면 시간 선택 단계에서 로그인 안내를 보이고 진행 버튼을 숨긴다 — 슬롯 현황은 그대로 본다', () => {
+  render(
+    <BookingPanel
+      facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
+      day={makeDay()}
+      selection={null}
+      onToggleSlot={vi.fn()}
+      step="slots"
+      onProceedToForm={vi.fn()}
+      onBackToSlots={vi.fn()}
+      submittedResult={null}
+      submittedClubId={null}
+      submittedAt={null}
+      onSubmitted={vi.fn()}
+      onExploreOther={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '로그인하기' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('/login?next='),
+  );
+  expect(screen.queryByRole('button', { name: '시간을 선택해주세요' })).not.toBeInTheDocument();
+  expect(screen.getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  // 캡션만 남은 빈 바가 뜨지 않는다 — 게스트는 버튼·캡션·바 전부 없음(선택 전).
+  expect(screen.queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  expect(document.querySelector('[data-bottom-bar]')).toBeNull();
+});
+
 it('예약 성공 화면은 manageHref 전달 시 "내 예약에서 확인" 링크를 관리 목록으로 노출한다', () => {
   render(
     <BookingSuccess
@@ -470,6 +655,8 @@ it('예약 건도 운영행도 없어도 카드를 렌더한다 — 예약 가�
 
 
 it('예약 패널(일간 콘텐츠 전용)은 통합 예약 현황 카드·시간 선택 순서로 렌더하고 뷰 토글은 없다', () => {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 이 테스트는 CTA 자체를 본다.
+  act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   render(
     <BookingPanel
       facility={{ id: 1, roomName: '커뮤니티룸(1)' }}
@@ -571,27 +758,44 @@ it('BookingViewHeader 는 [월|주] 토글·기간 라벨·이동 화살표·범
   expect(container).not.toHaveTextContent(/운영 시간/);
 });
 
-it('홈 카드는 아이콘·위치·예약 가능 라벨을 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
+it('홈 카드는 아이콘·위치·오픈일 문구를 렌더하고 영업 종료 후엔 "오늘 마감"을 표시하며 탭 시 onSelect 를 부른다', () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date(2026, 6, 20, 23, 30)); // 로컬 23:30 → 영업(09~22) 종료 후
+  vi.setSystemTime(new Date('2026-07-20T23:30:00+09:00')); // KST 23:30 → 영업(09~22) 종료 후
   const onSelect = vi.fn();
-  render(<FacilityHomeCard facility={makeFacility()} windowLabel="7.14 ~ 8.31" onSelect={onSelect} />);
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: '2026-09-16' })} onSelect={onSelect} />);
 
   expect(screen.getByText('🛋')).toBeInTheDocument(); // 커뮤니티룸 아이콘
   expect(screen.getByText('학생회관 2층')).toBeInTheDocument();
-  expect(screen.getByText('7.14 ~ 8.31')).toBeInTheDocument();
+  // 오픈일이 미래 → 카드는 창 범위가 아니라 오픈일만 말한다(D7).
+  expect(screen.getByText('9.16부터 예약 가능')).toBeInTheDocument();
   expect(screen.getByText('오늘 마감')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button'));
   expect(onSelect).toHaveBeenCalledWith(1);
 });
 
+it('홈 카드 오픈일 문구: null(닫힘)은 "예약 준비 중"이다', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-07-20T12:00:00+09:00'));
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: null })} onSelect={vi.fn()} />);
+
+  expect(screen.getByText('예약 준비 중')).toBeInTheDocument();
+});
+
+it('홈 카드 오픈일 문구: 지난 오픈일은 "예약 신청 가능"이다', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-07-20T12:00:00+09:00'));
+  render(<FacilityHomeCard facility={makeFacility({ bookingOpenDate: '2026-07-01' })} onSelect={vi.fn()} />);
+
+  expect(screen.getByText('예약 신청 가능')).toBeInTheDocument();
+});
+
 it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다른 날 예약은 무시)', () => {
-  const now = new Date(2026, 6, 20, 9, 0); // 로컬 09:00 → 09~22 전 구간이 후보
+  const now = new Date('2026-07-20T09:00:00+09:00'); // KST 09:00 → 09~22 전 구간이 후보
   vi.useFakeTimers();
   vi.setSystemTime(now);
   const todayIso = seoulDateIso(now);
-  const otherDayIso = seoulDateIso(new Date(2026, 6, 21, 9, 0));
+  const otherDayIso = seoulDateIso(new Date('2026-07-21T09:00:00+09:00'));
   render(
     <FacilityHomeCard
       facility={makeFacility({
@@ -604,7 +808,6 @@ it('홈 카드는 오늘 예약만 반영해 남은 칸 수를 계산한다(다�
           { date: otherDayIso, start: '09:00', end: '22:00', organization: '비호응원단', status: 'UPCOMING' },
         ],
       })}
-      windowLabel={null}
       onSelect={vi.fn()}
     />,
   );
@@ -665,6 +868,73 @@ function renderWeek(props?: Partial<Parameters<typeof WeekTimetable>[0]>) {
   );
   return { onSelectDate, onTapSlot };
 }
+
+it('주간 그리드: DEADLINE_PASSED 셀은 "신청 마감" aria·"마감" 텍스트로 비활성이고, 점유 블록은 그대로다(2026-09-03)', () => {
+  const daysByIso = makeWeekDaysByIso();
+  daysByIso.set('2026-07-21', {
+    date: '2026-07-21',
+    dayStatus: 'AVAILABLE',
+    availableSlotCount: 11,
+    operatingNotes: [],
+    slots: makeWeekSlots({ 3: { status: 'DEADLINE_PASSED' }, 4: { status: 'BLOCKED', blockedBy: 'SCHOOL', organization: '총학생회' } }),
+  });
+  const { onTapSlot } = renderWeek({ daysByIso });
+  const closedCell = screen.getByRole('button', { name: '화요일 21일 12:00 신청 마감' });
+  expect(closedCell).toBeDisabled();
+  expect(within(closedCell).getByText('마감')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '화요일 21일 13:00~14:00 총학생회 예약됨' })).toBeDisabled();
+  // 마감 셀은 선택 가능 셀이 아니다 — 탭해도 onTapSlot 이 불리지 않는다.
+  fireEvent.click(closedCell);
+  expect(onTapSlot).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: '화요일 21일 14:00 가능' })).toBeEnabled();
+});
+
+it('주간 그리드: 지난 날짜는 창 밖이어도 빈 셀이 "지난" 이고 점유 블록이 렌더되며 헤더가 열람용으로 활성이다(직전 월 기록 열람)', () => {
+  // 오늘=7/22, 창=[7/22..7/24] → 월20·화21 은 지난 날짜(창 밖). 월20 의 10시 BLOCKED 블록이 보여야 한다.
+  renderWeek({ todayIso: '2026-07-22', bookableFrom: '2026-07-22', bookableUntil: '2026-07-24' });
+  expect(screen.getByRole('button', { name: '월요일 20일 10:00~11:00 예약됨' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '월요일 20일 12:00 지난' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: '월요일 20일 12:00 예약 기간 아님' })).toBeNull();
+  expect(screen.getByRole('button', { name: '월요일 20일 · 선택' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '화요일 21일' })).toBeEnabled();
+  // 창 이후 미래(토25)는 기존대로 헤더·빈 셀 비활성.
+  expect(screen.getByRole('button', { name: '토요일 25일' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '토요일 25일 09:00 예약 기간 아님' })).toBeDisabled();
+});
+
+it('주간 그리드: 오늘이 창 밖이어도 헤더는 열람용으로 활성이고 남은 빈 칸은 "신청 마감"(마감 텍스트) 이다', () => {
+  // 오늘=7/22 인데 창=[7/23..7/24](내일 오픈) → 오늘은 창 밖. 지난 칸(09시)은 "지난", 남은 빈 칸은 BE 가 DEADLINE_PASSED 로 내린다.
+  const daysByIso = makeWeekDaysByIso();
+  daysByIso.set('2026-07-22', {
+    date: '2026-07-22',
+    dayStatus: 'FULL',
+    availableSlotCount: 0,
+    operatingNotes: [],
+    applicationClosed: true,
+    slots: makeWeekSlots({ 0: { status: 'PAST' }, 1: { status: 'DEADLINE_PASSED' }, 2: { status: 'DEADLINE_PASSED' } }),
+  });
+  renderWeek({ daysByIso, todayIso: '2026-07-22', bookableFrom: '2026-07-23', bookableUntil: '2026-07-24' });
+  expect(screen.getByRole('button', { name: '수요일 22일' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '수요일 22일 09:00 지난' })).toBeDisabled();
+  const closedCell = screen.getByRole('button', { name: '수요일 22일 10:00 신청 마감' });
+  expect(closedCell).toBeDisabled();
+  expect(within(closedCell).getByText('마감')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '수요일 22일 10:00 예약 기간 아님' })).toBeNull();
+});
+
+it('주간 그리드: 창 이후 미래 날짜도 점유 블록은 렌더하되 빈 셀은 "예약 기간 아님" 으로 남는다', () => {
+  const daysByIso = makeWeekDaysByIso();
+  daysByIso.set('2026-07-25', {
+    date: '2026-07-25',
+    dayStatus: 'AVAILABLE',
+    availableSlotCount: 12,
+    operatingNotes: [],
+    slots: makeWeekSlots({ 2: { status: 'BLOCKED', blockedBy: 'SCHOOL', organization: '총학생회' } }),
+  });
+  renderWeek({ daysByIso });
+  expect(screen.getByRole('button', { name: '토요일 25일 11:00~12:00 총학생회 예약됨' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '토요일 25일 09:00 예약 기간 아님' })).toBeDisabled();
+});
 
 it('주간 그리드는 선택일 컬럼을 ink 원형 숫자·(PC) sage tint 프레임으로만 강조하고 "선택" 텍스트는 없다', () => {
   renderWeek();
@@ -949,7 +1219,12 @@ it('블록 상세 시트(§9.3): block 이 null 이면 시트를 열지 않는�
 });
 
 // ── 모바일 빠른 예약 바텀시트(MobileDaySheet) — §11.1 월간 날짜 탭 = 빠른 시간 선택 ─────
-function renderMobileSheet(overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>) {
+function renderMobileSheet(
+  overrides?: Partial<Parameters<typeof MobileDaySheet>[0]>,
+  options?: { guest?: boolean },
+) {
+  // 진행 버튼은 로그인한 운영진에게만 있다(게스트 안내 도입) — 기본은 로그인 상태로 렌더한다.
+  if (options?.guest !== true) act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
   const props = {
     open: true,
     facility: { id: 1, roomName: '커뮤니티룸(1)' },
@@ -1033,6 +1308,28 @@ it('빠른 예약 시트(§11.1): success 스텝은 승인 타임라인을 렌�
 it('빠른 예약 시트(§11.1): open=false 면 시트를 열지 않는다', () => {
   renderMobileSheet({ open: false, day: null, facility: null });
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('빠른 예약 시트: 미인증이면 로그인 안내를 보이고 진행 버튼을 숨긴다 — 슬롯 선택·시간표로 보기는 그대로', () => {
+  renderMobileSheet({ selection: { start: '18:00', end: '19:00' } }, { guest: true });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.')).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: '로그인하기' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('/login?next='),
+  );
+  expect(within(dialog).queryByRole('button', { name: '18:00~19:00 예약 신청' })).not.toBeInTheDocument();
+  expect(within(dialog).queryByText('신청 후 관리자 승인을 거쳐 확정돼요.')).not.toBeInTheDocument();
+  // 시간 선택·시간표 이동은 게스트에게도 열려 있다.
+  expect(within(dialog).getByRole('list', { name: '시간대 선택' })).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: '시간표로 보기' })).toBeInTheDocument();
+});
+
+it('빠른 예약 시트: 신청 가능한 슬롯이 없는 날은 CTA 가 "신청 가능한 시간이 없어요" 로 비활성이다', () => {
+  renderMobileSheet({ day: makeClosedDay() });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
+  expect(within(dialog).getByRole('note')).toBeInTheDocument();
 });
 
 // ── 신청 확인 Dialog(BookingConfirmDialog) — §2.2 ─────────────────────────────

@@ -63,7 +63,7 @@ async function submitValidCredentials() {
 
   await user.type(screen.getByLabelText('학번'), '20251234');
   await user.type(screen.getByLabelText('비밀번호'), 'Test1234!@');
-  await user.click(screen.getByRole('button', { name: /두잉 시작하기/ }));
+  await user.click(screen.getByRole('button', { name: '로그인' }));
 }
 
 describe('LoginFormPanel 네트워크 오류 안내', () => {
@@ -90,7 +90,7 @@ describe('LoginFormPanel 네트워크 오류 안내', () => {
     expect(screen.queryByText('학번 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument();
     // 버튼이 "로그인 중…"에 묶이지 않고 복구된다.
     expect(screen.queryByRole('button', { name: /로그인 중/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /두잉 시작하기/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '로그인' })).toBeEnabled();
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 

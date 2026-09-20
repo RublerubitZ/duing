@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedClub, User } from '@duing/types';
@@ -9,8 +9,10 @@ vi.mock('@/app/_lib/useGuardedRouter', () => ({
   useGuardedRouter: () => ({ push: pushSpy, replace: replaceSpy }),
 }));
 
+// 경로 변경을 테스트에서 흉내 내려고 가변 값으로 둔다(vi.mock 은 호이스팅되므로 vi.hoisted).
+const nav = vi.hoisted(() => ({ pathname: '/manage/clubs/1' }));
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/manage/clubs/1',
+  usePathname: () => nav.pathname,
 }));
 
 vi.mock('@/components/duing/BrandMark', () => ({
@@ -42,6 +44,8 @@ vi.mock('@duing/hooks', () => ({
   useLogout: () => logoutSpy,
   // 사이드바가 선택된 모집의 지원 방식을 보고 지원자·통계를 감춘다 — 이 화면은 모집 컨텍스트가 없다.
   useRecruitmentDetailQuery: () => ({ data: undefined }),
+  // ManageNav 의 통계 폴백(진행 중 모집 판정)이 쓴다 — 셸 테스트는 나브 판정을 다루지 않으므로 빈 값.
+  useClubRecruitmentsQuery: () => ({ data: undefined }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';
@@ -49,6 +53,7 @@ import { ManageShell } from '@/app/manage/_components/ManageShell';
 describe('ManageShell — 접기·푸터', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    nav.pathname = '/manage/clubs/1';
     pushSpy.mockReset();
     replaceSpy.mockReset();
     logoutSpy.mockClear();
@@ -84,6 +89,16 @@ describe('ManageShell — 접기·푸터', () => {
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
   });
 
+  it('사이드바 푸터 도움말은 새 창으로 여는 FAQ 링크다', async () => {
+    render(<ManageShell currentClubId={1}>본문</ManageShell>);
+
+    // 콘솔 밖 페이지라 같은 탭으로 보내면 돌아올 길이 없다 — 새 창으로 열고 그 사실을 이름에도 남긴다.
+    const help = await screen.findByRole('link', { name: '도움말 (새 창)' });
+    expect(help).toHaveAttribute('href', '/faq');
+    expect(help).toHaveAttribute('target', '_blank');
+    expect(help).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
   it('로그아웃 클릭 시 logout 후 홈으로 replace 한다', async () => {
     const user = userEvent.setup();
     render(<ManageShell currentClubId={1}>본문</ManageShell>);
@@ -92,6 +107,23 @@ describe('ManageShell — 접기·푸터', () => {
 
     expect(logoutSpy).toHaveBeenCalledTimes(1);
     expect(replaceSpy).toHaveBeenCalledWith('/');
+  });
+
+  // 드로어 안 링크를 미저장 이탈 가드가 capture 에서 멈추면 래퍼 onClick 이 실행되지 않아 드로어가
+  // 열린 채 남는다 — 확인 후 이동한 새 화면을 드로어가 덮지 않도록 경로 변경으로도 닫혀야 한다.
+  it('경로가 바뀌면 모바일 드로어가 닫힌다', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<ManageShell currentClubId={1}>본문</ManageShell>);
+
+    await user.click(screen.getByRole('button', { name: '메뉴 열기' }));
+    expect(await screen.findByRole('dialog', { name: '운영진 콘솔 메뉴' })).toBeInTheDocument();
+
+    nav.pathname = '/manage/clubs/1/info';
+    rerender(<ManageShell currentClubId={1}>본문</ManageShell>);
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '운영진 콘솔 메뉴' })).not.toBeInTheDocument(),
+    );
   });
 
   // ManageGuard 자체 단위 테스트와 별개로, ManageShell 이 currentClubId 를 가드에 실제로 넘기는지

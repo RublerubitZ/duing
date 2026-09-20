@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
@@ -8,7 +8,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
 import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
-import type { ClubDayOfWeek } from '@duing/types';
+import type { ClubDayOfWeek, ClubSummary, PageResponse } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -38,6 +38,15 @@ import {
 } from '../_lib/exploreParams';
 
 const PAGE_SIZE = 20;
+
+/** 첫 로드 스태거 게이트 — 처음 정착한 목록과, 그 뒤로 다른 목록을 본 적이 있는지. */
+type StaggerGate = { firstSettled: PageResponse<ClubSummary> | null; locked: boolean };
+
+/** 카드 순번을 CSS 쪽 지연 계산(`--i`)으로 넘긴다. 커스텀 프로퍼티는 CSSProperties 에 없어 별도 타입이 필요하다. */
+function staggerStyle(index: number): CSSProperties {
+  const style: CSSProperties & { '--i': number } = { '--i': index };
+  return style;
+}
 
 const Icon = {
   search: (props: React.SVGProps<SVGSVGElement>) => (
@@ -137,6 +146,28 @@ export function ClubExplorePage() {
       updateParams({ page: knownTotalPages });
     }
   }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
+
+  // 첫 데이터 도착 1회에만 카드 스태거를 붙인다(필터·정렬·페이지 이동은 반복 액션이라 제외).
+  // keepPreviousData 라 필터 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로,
+  // isPlaceholderData 가 풀린 "정착" 시점을 기준으로 본다.
+  // 불리언 플래그를 렌더 도중 뒤집는 방식은 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은
+  // 두 번째 렌더라, 첫 렌더가 세운 플래그를 보고 클래스를 도로 떨어뜨린다(개발 모드에서만 조용히 사라짐).
+  // 대신 "처음 정착한 목록과 같은 객체인가" 로 판정해 몇 번을 다시 그려도 답이 같게 만든다.
+  // 캐시가 살아 있는 원래 필터로 되돌아오면 같은 객체가 다시 오므로, 다른 목록을 한 번이라도 본 뒤에는
+  // locked 로 잠가 재생을 막는다. effect 없이 렌더 중에 끝나 클래스가 한 박자 늦게 붙는 일도 없다.
+  const staggerGateRef = useRef<StaggerGate>({ firstSettled: null, locked: false });
+  const settledClubList = clubListQuery.isPlaceholderData ? null : clubListQuery.data ?? null;
+  if (!staggerGateRef.current.locked && settledClubList !== null) {
+    if (staggerGateRef.current.firstSettled === null) {
+      staggerGateRef.current.firstSettled = settledClubList;
+    } else if (staggerGateRef.current.firstSettled !== settledClubList) {
+      staggerGateRef.current.locked = true;
+    }
+  }
+  const isFirstSettledRender =
+    !staggerGateRef.current.locked
+    && settledClubList !== null
+    && staggerGateRef.current.firstSettled === settledClubList;
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
@@ -259,6 +290,7 @@ export function ClubExplorePage() {
                   value={keywordDraft}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder={CLUB_SEARCH_PLACEHOLDER}
+                  aria-label="동아리 검색"
                   className="flex-1 border-none outline-none text-sm bg-transparent"
                   style={{ fontFamily: 'inherit' }}
                 />
@@ -426,11 +458,17 @@ export function ClubExplorePage() {
 
           <div>
             <div className="flex items-center justify-between mb-4">
+              {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801).
+                  정렬 select·찜 칩의 우측 정렬을 유지하려고 빈 div 는 남긴다. */}
               <div className="text-sm text-charcoal-2">
-                <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
-                <span className="text-charcoal-3">
-                  · 현재 페이지 (전체 {totalElements}개)
-                </span>
+                {!requiresLoginForFavorite && (
+                  <>
+                    <span className="font-bold text-ink">{visibleClubs.length}개</span>{' '}
+                    <span className="text-charcoal-3">
+                      · 현재 페이지 (전체 {totalElements}개)
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <FavoriteFilterChip on={params.favorite} onClick={handleFavoriteFilterToggle} />
@@ -524,9 +562,13 @@ export function ClubExplorePage() {
                       : '오류가 발생했습니다.'}
                   </p>
                 )}
+                {/* 찜 필터의 0건은 "찜이 없다"와 "갱신 중"이 겹친다 — 갱신 중에는 전용 문구도 일반
+                    문구도 띄우지 않는다(찜 해제 직후 목록 재검증 사이의 빈 상태 플래시 방지, #801). */}
                 {clubListQuery.data && visibleClubs.length === 0 && (
                   params.favorite && !hasNonFavoriteFilters(params) ? (
-                    <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                    !clubListQuery.isFetching && (
+                      <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                    )
                   ) : (
                     <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
                   )
@@ -545,17 +587,26 @@ export function ClubExplorePage() {
                       clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                     )}
                   >
-                    {visibleClubs.map((club) => (
-                      <ClubCard
+                    {visibleClubs.map((club, index) => (
+                      // 스태거 래퍼가 그리드 아이템 자리를 대신 받는다 — grid 로 둬야 카드가 행 높이까지
+                      // 늘어나 기존의 mt-auto 하단 정렬(같은 행 카드 높이 맞춤)이 그대로 유지된다.
+                      <div
                         key={club.id}
-                        club={club}
-                        liked={likedIds.has(club.id)}
-                        isLikeBusy={
-                          isFavoriteDirectionUnknown ||
-                          (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
-                        }
-                        onLikeToggle={handleToggleLike}
-                      />
+                        className={cn('grid', isFirstSettledRender && 'enter-stagger')}
+                        style={staggerStyle(index)}
+                      >
+                        <ClubCard
+                          club={club}
+                          liked={likedIds.has(club.id)}
+                          isLikeBusy={
+                            isFavoriteDirectionUnknown ||
+                            (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
+                          }
+                          // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                          isFavoriteStateReady={!isFavoriteDirectionUnknown}
+                          onLikeToggle={handleToggleLike}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -576,7 +627,7 @@ export function ClubExplorePage() {
 
       {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
       <div className="md:hidden">
-        <section className="bg-cream px-4 pt-page-top pb-4">
+        <section className="bg-cream px-4 pt-page-top pb-4 sm:px-6">
           <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
           <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
         </section>
@@ -585,7 +636,7 @@ export function ClubExplorePage() {
             sticky 라 자기 자리를 차지하므로 아래 콘텐츠에 별도 패딩 보정이 필요 없고,
             스크롤포트 기준이라 노치와도 겹치지 않는다. 하단 헤어라인은 반투명 배경이
             페이지와 거의 같은 색이라 카드가 바 뒤로 지날 때의 유일한 경계다. */}
-        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur">
+        <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur sm:px-6">
           <form
             onSubmit={handleSearchSubmit}
             className="flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
@@ -595,6 +646,7 @@ export function ClubExplorePage() {
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder={CLUB_SEARCH_PLACEHOLDER}
+              aria-label="동아리 검색"
               className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
               style={{ fontFamily: 'inherit' }}
             />
@@ -605,7 +657,7 @@ export function ClubExplorePage() {
             좁을수록 늘어남), 문서에 가로 스크롤이 없어 그 오버스크롤이 상위로 전파된다. iOS 에서는
             viewport rubber-band 나 edge-swipe 탐색 제스처로 이어질 수 있어 레일 안에서 끊는다.
             세로축은 auto 로 둔다 — 레일 위에서 시작한 세로 드래그는 페이지가 받아야 한다. */}
-        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex gap-5 overflow-x-auto overscroll-x-contain bg-cream px-4 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
           {[{ value: null, label: '전체' }, ...CATEGORY_OPTIONS].map((option) => {
             const on = params.category === option.value;
             return (
@@ -614,7 +666,7 @@ export function ClubExplorePage() {
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
                 className={cn(
-                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-2.5 text-[14px] font-semibold transition-colors',
+                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-[11px] text-[14px] font-semibold transition-colors',
                   on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
                 )}
               >
@@ -624,7 +676,7 @@ export function ClubExplorePage() {
           })}
         </nav>
 
-        <div className="flex items-center justify-between px-4 pb-3 pt-4">
+        <div className="flex items-center justify-between px-4 pb-6 pt-4 sm:px-6">
           {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div
@@ -633,7 +685,8 @@ export function ClubExplorePage() {
               recruitingCountQuery.isPlaceholderData && 'opacity-60 transition-opacity',
             )}
           >
-            {recruitingTotal !== undefined && (
+            {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801). */}
+            {!requiresLoginForFavorite && recruitingTotal !== undefined && (
               <>
                 지금 <span className="font-bold text-ink">{recruitingTotal}곳</span> 모집 중
               </>
@@ -643,7 +696,7 @@ export function ClubExplorePage() {
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
+              className="tap-pill inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
             >
               <Icon.sliders className="h-[15px] w-[15px]" />
               필터
@@ -660,7 +713,7 @@ export function ClubExplorePage() {
                 className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
               >
                 <option value="RECOMMENDED">추천순</option>
-                <option value="DEADLINE_SOON">마감순</option>
+                <option value="DEADLINE_SOON">마감 임박순</option>
                 <option value="ALPHABETICAL">가나다순</option>
               </select>
               <Icon.chev className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2" />
@@ -668,7 +721,7 @@ export function ClubExplorePage() {
           </div>
         </div>
 
-        <div className="px-4 pb-8">
+        <div className="px-4 pb-8 sm:px-6">
           {requiresLoginForFavorite ? (
             <FavoriteLoginPrompt loginHref={favoriteLoginHref} />
           ) : (
@@ -679,9 +732,12 @@ export function ClubExplorePage() {
                 </div>
               )}
               {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
+              {/* 데스크탑과 같은 규칙 — 갱신 중에는 빈 상태를 아예 띄우지 않는다(#801). */}
               {clubListQuery.data && visibleClubs.length === 0 && (
                 params.favorite && !hasNonFavoriteFilters(params) ? (
-                  <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                  !clubListQuery.isFetching && (
+                    <FavoriteEmptyState onBrowse={() => updateParams({ favorite: false, page: 1 })} />
+                  )
                 ) : (
                   <p className="text-sm text-charcoal-2">조건에 맞는 동아리가 없어요.</p>
                 )
@@ -694,17 +750,25 @@ export function ClubExplorePage() {
                     clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                   )}
                 >
-                  {visibleClubs.map((club) => (
-                    <ClubListItem
+                  {visibleClubs.map((club, index) => (
+                    // 세로 리스트는 래퍼가 플렉스 아이템으로 들어가 폭이 그대로 늘어난다(gap 도 동일).
+                    <div
                       key={club.id}
-                      club={club}
-                      liked={likedIds.has(club.id)}
-                      isLikeBusy={
-                        isFavoriteDirectionUnknown ||
-                        (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
-                      }
-                      onLikeToggle={handleToggleLike}
-                    />
+                      className={cn(isFirstSettledRender && 'enter-stagger')}
+                      style={staggerStyle(index)}
+                    >
+                      <ClubListItem
+                        club={club}
+                        liked={likedIds.has(club.id)}
+                        isLikeBusy={
+                          isFavoriteDirectionUnknown ||
+                          (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
+                        }
+                        // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                        isFavoriteStateReady={!isFavoriteDirectionUnknown}
+                        onLikeToggle={handleToggleLike}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -810,7 +874,7 @@ export function ClubExplorePage() {
                       type="button"
                       onClick={() => handleToggleActiveDay(day)}
                       className={cn(
-                        'grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
+                        'tap-pill grid aspect-square flex-1 place-items-center rounded-full border-[1.5px] text-[13px] font-bold',
                         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
                       )}
                     >
@@ -865,7 +929,7 @@ function FavoriteFilterChip({ on, onClick }: { on: boolean; onClick: () => void 
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >
@@ -904,7 +968,7 @@ function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClic
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-colors',
+        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
         on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
       )}
     >
