@@ -1,7 +1,14 @@
 package com.duing.global.privacy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.application.entity.Application;
@@ -41,10 +48,13 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = {
@@ -58,11 +68,13 @@ class PiiRetentionJobTest extends IntegrationTestBase {
     @Autowired ApplicationRepository applicationRepository;
     @Autowired PhoneVerificationRepository phoneVerificationRepository;
     @Autowired PhoneVerificationEventRepository phoneVerificationEventRepository;
-    @Autowired ApplicationDraftRepository applicationDraftRepository;
+    // 한 단계만 터뜨려 나머지 단계의 커밋을 확인하기 위한 spy — 스텁 없는 호출은 실제 리포지토리로 위임된다.
+    @MockitoSpyBean ApplicationDraftRepository applicationDraftRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired Clock clock;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired PlatformTransactionManager platformTransactionManager;
     @Autowired ObjectMapper objectMapper;
 
     /** 관리자 메모는 자유서술 칸이라 실제로 이름·번호가 적힌다 — 익명화 여부를 이 값으로 판정한다. */
@@ -143,7 +155,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         PiiRetentionJob disabledJob = new PiiRetentionJob(
                 new RetentionProperties(false, Period.ofYears(1), Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository,
+                platformTransactionManager);
         disabledJob.run();
 
         assertThat(userAnonymizedAt(user.getId())).isNull();
@@ -158,7 +171,8 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         PiiRetentionJob zeroWindowJob = new PiiRetentionJob(
                 new RetentionProperties(true, Period.ZERO, Period.ofMonths(6)),
                 clock, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository,
+                platformTransactionManager);
         zeroWindowJob.run();
 
         assertThat(userAnonymizedAt(user.getId())).isNull();
@@ -488,6 +502,37 @@ class PiiRetentionJobTest extends IntegrationTestBase {
         assertThat(draftCount(draft.getId())).isZero();
         assertThat(applicationCount(application.getId())).isEqualTo(1);
         assertPurged(application, fixture);
+    }
+
+    @Test
+    @DisplayName("한 단계가 실패해도 나머지 단계의 파기는 커밋되고 실패한 단계 이름이 WARN 로그에 남는다")
+    void keepsOtherStepsCommittedWhenOneStepFails() throws Exception {
+        User withdrawnUser = saveUser();
+        softDeleteDaysAgo("users", withdrawnUser.getId(), 400);
+        RecruitmentFixture closedLongAgo = saveRecruitmentWithForm(LocalDate.now().plusDays(30));
+        ApplicationDraft draft = saveDraft(closedLongAgo, saveUser());
+        closeDaysAgo(closedLongAgo.id(), 210);
+        doThrow(new RuntimeException("초안 삭제 단계 실패 재현"))
+                .when(applicationDraftRepository).deleteExpired(any(), any());
+
+        Logger jobLogger = (Logger) LoggerFactory.getLogger(PiiRetentionJob.class);
+        ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
+        logAppender.start();
+        jobLogger.addAppender(logAppender);
+        try {
+            assertThatCode(() -> job.run()).doesNotThrowAnyException();
+        } finally {
+            jobLogger.detachAppender(logAppender);
+        }
+
+        // 앞 단계(사용자 비식별화)는 별도 트랜잭션으로 이미 커밋돼 있어야 한다 — 뒤 단계 실패에 끌려가지 않는다.
+        assertThat(userAnonymizedAt(withdrawnUser.getId())).isNotNull();
+        // 실패한 단계만 미처리로 남아 다음 실행이 자연 재시도한다.
+        assertThat(draftCount(draft.getId())).isEqualTo(1);
+        assertThat(logAppender.list).anySatisfy(summaryEvent -> {
+            assertThat(summaryEvent.getLevel()).isEqualTo(Level.WARN);
+            assertThat(summaryEvent.getFormattedMessage()).contains("failedSteps=[applicationDrafts]");
+        });
     }
 
     private String userName(Long id) {
