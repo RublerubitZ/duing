@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -215,5 +215,34 @@ describe('FacilityCrawlTab', () => {
       expect(lastRequest).toBeDefined();
       expect(lastRequest?.q).toBeUndefined();
     });
+  });
+
+  it('그룹이 두 페이지 이상이면 공용 페이지네이션이 뜨고 "다음"이 page=1 로 재조회하며, 한 페이지면 뜨지 않는다', async () => {
+    server.use(
+      http.get('*/admin/facility-crawl/reservations', ({ request }) => {
+        const url = new URL(request.url);
+        requestedParams.push(Object.fromEntries(url.searchParams.entries()));
+        return HttpResponse.json({
+          ok: true,
+          data: { ...GROUP_PAGE, totalElements: 12, totalPages: 2, hasNext: true },
+          message: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+    await screen.findByText('고정관념');
+
+    const pagination = screen.getByRole('navigation', { name: '크롤 예약 페이지' });
+    expect(within(pagination).getByText('1–10 / 12건')).toBeInTheDocument();
+    await user.click(within(pagination).getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(requestedParams.some((params) => params.page === '1')).toBe(true));
+    unmount();
+
+    server.resetHandlers();
+    renderPage();
+    await screen.findByText('고정관념');
+    expect(screen.queryByRole('navigation', { name: '크롤 예약 페이지' })).not.toBeInTheDocument();
+    expect(screen.getByText(/총 \d+개 그룹/)).toBeInTheDocument(); // 한 페이지여도 건수는 남긴다
   });
 });
