@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import type { AdminCrawlGroupBy, AdminCrawlReservationGroup } from '@duing/types';
 import { useAdminCrawlReservationsQuery, useFacilityListQuery } from '@duing/hooks';
 
@@ -43,12 +43,17 @@ export function FacilityCrawlTab() {
   const [groupBy, setGroupBy] = useState<AdminCrawlGroupBy>('CLUB');
   const [facilityId, setFacilityId] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(0);
+  const [keyword, setKeyword] = useState('');
+  // 타이핑마다 재조회하지 않도록 지연값으로 요청한다(React 19 내장). 공백만이면 파라미터를 생략한다.
+  const deferredKeyword = useDeferredValue(keyword).trim();
+  const q = deferredKeyword === '' ? undefined : deferredKeyword;
 
   const facilitiesQuery = useFacilityListQuery();
   const reservationsQuery = useAdminCrawlReservationsQuery({
     yearMonth,
     facilityId,
     groupBy,
+    q,
     page,
     size: PAGE_SIZE,
   });
@@ -115,6 +120,17 @@ export function FacilityCrawlTab() {
             ))}
           </select>
         </label>
+        <input
+          type="search"
+          aria-label="단체명 검색"
+          placeholder="단체명 검색"
+          value={keyword}
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            setPage(0);
+          }}
+          className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
+        />
       </div>
 
       <ConsoleCard>

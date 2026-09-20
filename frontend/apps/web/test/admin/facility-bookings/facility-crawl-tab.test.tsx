@@ -196,4 +196,24 @@ describe('FacilityCrawlTab', () => {
       expect(requestedParams.some((params) => params.facilityId === '10')).toBe(true),
     );
   });
+
+  it('단체명 검색어를 입력하면 q 파라미터로 재조회하고 페이지가 0으로 돌아가며, 지우면 q 를 보내지 않는다', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('고정관념');
+
+    const searchInput = screen.getByRole('searchbox', { name: '단체명 검색' });
+    await user.type(searchInput, ' 고정 ');
+
+    await waitFor(() => expect(requestedParams.some((params) => params.q === '고정')).toBe(true));
+    const searchedRequest = requestedParams.find((params) => params.q === '고정');
+    expect(searchedRequest?.page).toBe('0');
+
+    await user.clear(searchInput);
+    await waitFor(() => {
+      const lastRequest = requestedParams[requestedParams.length - 1];
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest?.q).toBeUndefined();
+    });
+  });
 });
