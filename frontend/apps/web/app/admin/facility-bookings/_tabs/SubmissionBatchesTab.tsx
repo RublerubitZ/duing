@@ -305,19 +305,22 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                             완료 처리
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          disabled={csvMutation.isPending}
-                          onClick={() => void handleDownloadCsv(batch)}
-                        >
-                          {/* 동일 batchId 중복 발사·CSV_DOWNLOADED 중복 기록 방지 — 뮤테이션 하나를 표 전체 CSV 버튼이 공유하므로 비활성은 전역이되,
-                              스피너는 실제 내려받는 행에만 둔다(모든 행이 함께 도는 것처럼 보이지 않게). */}
-                          {csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId && (
-                            <ButtonSpinner />
-                          )}
-                          CSV
-                        </button>
+                        {/* 같은 batchId 중복 발사·CSV_DOWNLOADED 중복 기록만 막으면 되므로 비활성·스피너 모두 해당 행에만(감사 #16). */}
+                        {(() => {
+                          const downloadingThisRow =
+                            csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId;
+                          return (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              disabled={downloadingThisRow}
+                              onClick={() => void handleDownloadCsv(batch)}
+                            >
+                              {downloadingThisRow && <ButtonSpinner />}
+                              CSV
+                            </button>
+                          );
+                        })()}
                         {/* 진행 중(REVIEWING)은 전사 콕핏(제출 정보 보기)이 주 진입점이고, 운영 기록·시간표를 보는
                             읽기 전용 상세도 함께 연다(감사 #14). 완료·취소는 상세만. */}
                         {status === 'REVIEWING' && (

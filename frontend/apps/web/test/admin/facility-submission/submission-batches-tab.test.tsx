@@ -205,12 +205,23 @@ describe('SubmissionBatchesTab', () => {
     });
   });
 
-  it('CSV 다운로드 진행 중이면 CSV 버튼이 비활성화된다', () => {
-    mockCsvMutation.mockReturnValue({ mutateAsync: mockCsvMutateAsync, isPending: true });
-    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+  it('CSV 다운로드 진행 중이면 그 행의 CSV 만 비활성이고 다른 행은 클릭할 수 있다', () => {
+    mockCsvMutation.mockReturnValue({
+      mutateAsync: mockCsvMutateAsync,
+      isPending: true,
+      variables: { batchId: 2 },
+    });
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch({ batchId: 1, submissionNo: 'SUB-OTHER' }),
+        makeBatch({ batchId: 2, submissionNo: 'SUB-DOWNLOADING' }),
+      ]),
+    );
     render(<SubmissionBatchesTab />);
 
-    expect(screen.getByRole('button', { name: /CSV/ })).toBeDisabled();
+    // 뮤테이션 하나를 표 전체가 공유하지만 다른 배치의 CSV 까지 막을 이유는 없다(감사 #16).
+    expect(within(rowOf('SUB-DOWNLOADING')).getByRole('button', { name: /CSV/ })).toBeDisabled();
+    expect(within(rowOf('SUB-OTHER')).getByRole('button', { name: /CSV/ })).toBeEnabled();
   });
 
   it('CSV 진행 중 스피너는 실제 내려받는 행에만 붙는다', () => {
