@@ -273,7 +273,10 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                         >
                           {item.clubName ?? '—'}
                         </span>
-                        <span className="tabular-nums text-[10.5px] text-charcoal-3">{item.startTime}</span>
+                        {/* 배치=동아리 단위라 전 행이 같은 이름 — 날짜(MM/DD)+시간이 유일한 구분자다(감사 #4). */}
+                        <span className="tabular-nums text-[10.5px] text-charcoal-3">
+                          {item.reservationDate.slice(5).replace('-', '/')} {item.startTime}
+                        </span>
                       </button>
                       <button
                         type="button"

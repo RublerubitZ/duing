@@ -108,9 +108,23 @@ describe('TranscribeCockpitPage', () => {
     renderCockpit();
 
     // 우측 건 리스트에서 연극부 건(19:00) 클릭 → 좌측 현재 건이 연극부로 바뀐다.
-    fireEvent.click(screen.getByRole('button', { name: /연극부\s*19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: /연극부\s*08\/10 19:00/ }));
     // 좌측 헤더의 현재 시설·건 위치가 2/2 로 바뀐다(연극부는 두 번째 건).
     expect(screen.getByText(/세미나실 A · 2 \/ 2건/)).toBeInTheDocument();
+  });
+
+  it('우측 건 목록은 같은 동아리라도 날짜·시간으로 구분된다(배치=동아리 단위)', () => {
+    mockDetailQuery.mockReturnValue(
+      detailSuccess([
+        booking({ bookingId: 1, clubName: '밴드부', reservationDate: '2026-08-10', startTime: '18:00' }),
+        booking({ bookingId: 2, clubName: '밴드부', reservationDate: '2026-08-17', startTime: '18:00' }),
+      ]),
+    );
+    renderCockpit();
+
+    // 동명·동시각 두 건이 날짜로 갈린다 — 날짜가 없으면 둘 다 "밴드부 18:00" 이라 구분 불가.
+    expect(screen.getByRole('button', { name: /밴드부\s*08\/10 18:00/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /밴드부\s*08\/17 18:00/ })).toBeInTheDocument();
   });
 
   it('제출 대기로 돌아가는 링크를 제공한다', () => {
