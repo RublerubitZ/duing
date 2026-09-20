@@ -37,8 +37,10 @@ import {
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
 import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
-// 완료·취소 배치 상세에서도 돌아갈 수 있게 전체 이력 탭으로 복귀한다(제출 대기 탭엔 진행 중만 있음).
-const BATCH_LIST_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
+// 진행 중(REVIEWING) 배치는 '제출 대기' 탭에서 들어오므로 그리로, 완료·취소는 '제출 이력' 탭으로 돌아간다(감사 #5).
+// 상태를 모르는 로딩 전·404 와 취소 직후(취소됐으므로 이력)는 archive 폴백.
+const ARCHIVE_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
+const READY_ROUTE = toRoute('/admin/facility-bookings?tab=ready');
 /**
  * 상세 Sheet 가 제출번호를 소개하는 문구 — 예약의 업무 상태가 아니라 "이 목록과의 관계"를 말한다.
  * 취소된 목록은 학교에 실제 제출된 것이 아니므로 '제출됨'으로 읽히지 않게 관계로만 서술한다.
@@ -87,6 +89,9 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
 
   const detail = detailQuery.data;
+  const backToReady = detail !== undefined && deriveBatchStatus(detail.batch) === 'REVIEWING';
+  const backRoute = backToReady ? READY_ROUTE : ARCHIVE_ROUTE;
+  const backLabel = backToReady ? '← 제출 대기' : '← 제출 이력';
 
   // 완료 결과 Dialog(제외 목록)의 예약일·동아리 라벨 소스 — 페이지 레벨에서 유지한다(데이터 없으면 null → 예약번호 폴백).
   const bookingsById = useMemo<ReadonlyMap<number, SubmissionCandidateBooking> | null>(
@@ -113,7 +118,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
       setCancelOpen(false);
       addToast('제출 목록이 취소되었어요.');
       // 취소된 배치는 이 화면에 더 머물 이유가 없어 목록 탭으로 되돌린다(가드 라우터로 오프라인 방어).
-      router.replace(BATCH_LIST_ROUTE);
+      router.replace(ARCHIVE_ROUTE);
     } catch (error) {
       addToast(cancelErrorMessage(error), { variant: 'error' });
     }
@@ -134,8 +139,8 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 py-10 sm:px-6 md:px-10">
       <div className="mb-6">
-        <Link href={BATCH_LIST_ROUTE} className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 제출 이력
+        <Link href={backRoute} className="text-[13px] text-charcoal-2 hover:text-ink">
+          {backLabel}
         </Link>
       </div>
 
@@ -146,7 +151,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
         <div role="alert" className="py-12 text-center text-sm text-charcoal-2">
           <p>제출 목록을 찾을 수 없어요.</p>
           <Link
-            href={BATCH_LIST_ROUTE}
+            href={ARCHIVE_ROUTE}
             className="mt-2 inline-block text-charcoal-2 hover:text-ink hover:underline"
           >
             제출 이력으로 돌아가기
