@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SubmissionCandidatesResponse } from '@duing/types';
+import type { SubmissionCandidatesParams, SubmissionCandidatesResponse } from '@duing/types';
 
 const mockCandidatesQuery = vi.fn();
 const mockCreateMutation = vi.fn();
@@ -247,7 +247,11 @@ describe('SubmissionPrepareTab', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
 
     // 9월로 이동 — 서버 결과에 예약 1 이 없지만 예약일(08-01)이 기간 밖이라 "기간 변경으로 숨겨진 것".
-    mockCandidatesQuery.mockReturnValue(querySuccess(makeSeptemberResponse()));
+    // 응답은 기간(쿼리 키)별로 돌려준다 — 시작일만 먼저 바뀐 역순 중간 입력 동안엔 마지막 유효 기간(8월)으로
+    // 계속 조회하므로(B6), 실제 React Query 처럼 8월 키엔 8월 결과가 그대로 와야 정리 규칙이 오판하지 않는다.
+    mockCandidatesQuery.mockImplementation((params: SubmissionCandidatesParams) =>
+      params.startDate === '2026-09-01' ? querySuccess(makeSeptemberResponse()) : querySuccess(makeResponse()),
+    );
     setPeriod('2026-09-01', '2026-09-30');
     expect(screen.getByRole('group', { name: /테니스부/ })).toBeInTheDocument();
 
@@ -421,25 +425,36 @@ describe('SubmissionPrepareTab', () => {
     expect(cardValue(/^승인 완료/)).toHaveTextContent('4');
   });
 
-  it('기간이 62일을 넘으면 조회하지 않고 안내를 보여준다', () => {
+  it('기간이 62일을 넘으면 안내를 띄우되 마지막 유효 기간의 결과(카드·목록)는 그대로 둔다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
+    setPeriod('2026-08-01', '2026-08-31');
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-08-31' });
 
-    fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-08-01' } });
     fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-10-05' } });
 
     expect(screen.getByRole('alert')).toHaveTextContent(/62일/);
-    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
+    // 새 인자로 재조회하지 않는다 — 마지막 유효 기간 유지.
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-08-31' });
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
+
+    // 유효한 값으로 되돌리면 경고가 사라지고 그 기간으로 조회한다.
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-15' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-09-15' });
   });
 
-  it('시작일이 빈 값이면(NaN 일수) 조회하지 않고 안내를 보여준다', () => {
+  it('시작일이 빈 값이면(NaN 일수) 안내를 띄우고 마지막 유효 기간으로 계속 조회한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
+    const defaultRange = defaultSubmissionRange();
 
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(defaultRange);
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
   it('시간표 토글 시 시설 섹션 헤더와 시간표가 렌더된다 — 시간표 뷰는 시설 기준 유지', () => {

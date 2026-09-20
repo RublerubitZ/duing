@@ -10,7 +10,13 @@ import { toRoute } from '../../../_lib/route';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
-import { currentAndNextMonthRange, currentMonthRange, defaultSubmissionRange, nextMonthRange } from '../_lib/submissionPeriod';
+import {
+  currentAndNextMonthRange,
+  currentMonthRange,
+  defaultSubmissionRange,
+  nextMonthRange,
+  type SubmissionDateRange,
+} from '../_lib/submissionPeriod';
 import {
   BatchBulkCreateDialog,
   type BulkCreateClubGroup,
@@ -53,6 +59,12 @@ function periodDayCount(startDate: string, endDate: string): number {
   return Math.round(diffMs / 86_400_000) + 1;
 }
 
+function isValidPeriod(startDate: string, endDate: string): boolean {
+  // 빈 값이면 periodDayCount 가 NaN — 범위 비교(NaN >= 1)는 항상 false 라 NaN·역순·초과·0일을 한 식으로 차단한다.
+  const days = periodDayCount(startDate, endDate);
+  return days >= 1 && days <= MAX_PERIOD_DAYS;
+}
+
 /** 서버 메시지 우선(제출 중복·상태 위반 등 사용자 안내형), 없으면 폴백. */
 function submissionErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message !== '') return error.message;
@@ -77,6 +89,16 @@ export function SubmissionPrepareTab() {
   const defaultRange = defaultSubmissionRange();
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
+  // 마지막 유효 기간(스펙 §2.2 B6) — 입력이 잘못돼도 카드·목록은 이 기간의 결과를 유지한다.
+  // 갱신은 아래 applyPeriod(onChange·프리셋 핸들러)에서만 한다(useEffect 없음).
+  const [lastValidRange, setLastValidRange] = useState<SubmissionDateRange>(defaultRange);
+  const applyPeriod = (nextStartDate: string, nextEndDate: string) => {
+    setStartDate(nextStartDate);
+    setEndDate(nextEndDate);
+    if (isValidPeriod(nextStartDate, nextEndDate)) {
+      setLastValidRange({ startDate: nextStartDate, endDate: nextEndDate });
+    }
+  };
   const [clubKeyword, setClubKeyword] = useState('');
   const [view, setView] = useState<SubmissionViewMode>('list');
   // 제출 준비 탭은 "아직 제출 목록에 담지 않은 예약"만 관리하는 공간이라 기본을 미제출(NEED)로 둔다.
@@ -94,12 +116,9 @@ export function SubmissionPrepareTab() {
   const [bulkOutcomes, setBulkOutcomes] = useState<BulkCreateOutcome[] | null>(null);
   const createMutation = useCreateSubmissionBatchMutation();
 
-  // startDate/endDate 가 빈 값이면 periodDayCount 가 NaN 을 반환 — 범위 비교(NaN >= 1)는 항상 false 라 아래 한 식으로 NaN·역순·초과·0일을 함께 차단한다.
-  const periodDays = periodDayCount(startDate, endDate);
-  const periodInvalid = !(periodDays >= 1 && periodDays <= MAX_PERIOD_DAYS);
-  // 전 시설 조회 — facilityId 는 생략(BE §5.1 v3).
-  const candidatesParams: SubmissionCandidatesParams | null =
-    periodInvalid ? null : { startDate, endDate };
+  const periodInvalid = !isValidPeriod(startDate, endDate);
+  // 전 시설 조회 — facilityId 는 생략(BE §5.1 v3). 항상 마지막 유효 기간으로 조회한다.
+  const candidatesParams: SubmissionCandidatesParams = lastValidRange;
   const candidatesQuery = useSubmissionCandidatesQuery(candidatesParams);
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
@@ -141,13 +160,13 @@ export function SubmissionPrepareTab() {
   // 현재 조회 기간 안인 것만 "실제 사라진 예약"으로 보고 정리한다 — 기간 밖 예약은 기간 변경으로 숨겨진 것.
   // 새 기간 로딩 중(data 없음)에는 판정하지 않는다 — 빈 결과를 소실로 오판해 기간 안 제외를 지우지 않도록.
   // (레포의 useEffect 금지는 데이터 패칭 한정 — 페이지 클램프 전례와 같은 상태 정리 용도)
-  const periodStart = candidatesParams?.startDate ?? null;
-  const periodEnd = candidatesParams?.endDate ?? null;
+  const periodStart = candidatesParams.startDate;
+  const periodEnd = candidatesParams.endDate;
   const serverIdsKey = candidatesQuery.isSuccess
     ? allBookings.map((booking) => booking.bookingId).sort((left, right) => left - right).join(',')
     : null;
   useEffect(() => {
-    if (serverIdsKey === null || periodStart === null || periodEnd === null) return;
+    if (serverIdsKey === null) return;
     const serverIds = new Set(serverIdsKey === '' ? [] : serverIdsKey.split(',').map(Number));
     setExcludedById((previous) => {
       const next = new Map(
@@ -231,18 +250,12 @@ export function SubmissionPrepareTab() {
 
   return (
     <div className="space-y-4">
-      {summaryCounts !== null && candidatesParams !== null && (
+      {summaryCounts !== null && (
         <SubmissionSummaryCards
           counts={summaryCounts}
           activeFilter={summaryFilter}
           onSelectFilter={setSummaryFilter}
         />
-      )}
-
-      {periodInvalid && (
-        <div role="alert" className="rounded-[12px] border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
-          조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 62일까지 조회할 수 있어요.
-        </div>
       )}
 
       {/* 목업 CCard — 선택 툴바(A) + 필터 행(B) + 시설별 그룹(B)을 한 카드가 감싼다. */}
@@ -305,13 +318,13 @@ export function SubmissionPrepareTab() {
         <div className="flex flex-wrap items-center gap-2 px-[18px] py-3">
           <input
             type="date" aria-label="시작일" value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
+            onChange={(event) => applyPeriod(event.target.value, endDate)}
             className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <span aria-hidden className="text-xs text-charcoal-3">–</span>
           <input
             type="date" aria-label="종료일" value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
+            onChange={(event) => applyPeriod(startDate, event.target.value)}
             className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <div role="group" aria-label="기간 프리셋" className="flex gap-1">
@@ -322,8 +335,7 @@ export function SubmissionPrepareTab() {
                 className="btn btn-ghost btn-sm"
                 onClick={() => {
                   const range = preset.range();
-                  setStartDate(range.startDate);
-                  setEndDate(range.endDate);
+                  applyPeriod(range.startDate, range.endDate);
                 }}
               >
                 {preset.label}
@@ -346,76 +358,77 @@ export function SubmissionPrepareTab() {
             ))}
           </select>
         </div>
+        {periodInvalid && (
+          <p role="alert" className="px-[18px] pb-3 text-xs text-danger">
+            조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 62일까지 조회할 수 있어요. 아래는 마지막으로 유효했던 기간({lastValidRange.startDate} ~ {lastValidRange.endDate})의 결과예요.
+          </p>
+        )}
 
-        {candidatesParams !== null && (
-          <>
-            {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 목록 불러오는 중" />}
-            {!candidatesQuery.isLoading && candidatesQuery.isError && (
-              <div role="alert" className="px-[18px] py-8 text-sm text-charcoal-2">
-                <p>예약 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
-                <button type="button" className="btn btn-ghost mt-2" onClick={() => void candidatesQuery.refetch()}>
-                  다시 시도
-                </button>
-              </div>
-            )}
-            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
-              summaryFilter !== 'ALL' || keyword !== '' ? (
-                <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
-              ) : (
-                <EmptyState
-                  icon="✅"
-                  title="미제출 예약이 없어요"
-                  body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
-                  action={
-                    <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
-                      예약 검토로 이동
-                    </Link>
-                  }
-                />
-              )
-            )}
-            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && view === 'list' && (
-              /* 목록 뷰(동아리 중심 보기 스펙 §1) — 동아리 최상위. 배치=동아리 단위 분해는 selectedClubGroups 파생이 담당해 화면 체크 단위와 일치한다. */
-              <div className="px-2 py-2">
-                <SubmissionClubGroupList
-                  bookings={visibleBookings}
-                  selection={selectedIdSet}
-                  onToggleSelect={toggleSelect}
-                  onToggleMany={toggleMany}
-                  onShowDetail={setDetailBooking}
-                />
-              </div>
-            )}
-            {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && view === 'timetable' && (
-              /* 시간표 뷰 — 기존 시설 × 날짜/시간 기준 유지(스펙 §1, 시간 충돌 확인 용도). */
-              <ul>
-                {sections.map((section) => {
-                  const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
-                  const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
-                  return (
-                    <li key={section.facilityId}>
-                      {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 시간 충돌 확인용 시설 축(조회 전용, v2 스펙 §4). */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
-                        <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
-                        <p className="text-xs text-charcoal-3">
-                          미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
-                        </p>
-                      </div>
-                      <div className="px-[18px] py-3">
-                        <SubmissionTimetable
-                          bookings={section.bookings}
-                          facilityName={section.facilityName}
-                          selection={selectedIdSet}
-                          onToggleSelect={toggleSelect}
-                          onShowDetail={setDetailBooking}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </>
+        {candidatesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="예약 목록 불러오는 중" />}
+        {!candidatesQuery.isLoading && candidatesQuery.isError && (
+          <div role="alert" className="px-[18px] py-8 text-sm text-charcoal-2">
+            <p>예약 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+            <button type="button" className="btn btn-ghost mt-2" onClick={() => void candidatesQuery.refetch()}>
+              다시 시도
+            </button>
+          </div>
+        )}
+        {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
+          summaryFilter !== 'ALL' || keyword !== '' ? (
+            <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
+          ) : (
+            <EmptyState
+              icon="✅"
+              title="미제출 예약이 없어요"
+              body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
+              action={
+                <Link href={toRoute('/admin/facility-bookings?tab=review')} className="btn btn-secondary btn-sm">
+                  예약 검토로 이동
+                </Link>
+              }
+            />
+          )
+        )}
+        {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length > 0 && view === 'list' && (
+          /* 목록 뷰(동아리 중심 보기 스펙 §1) — 동아리 최상위. 배치=동아리 단위 분해는 selectedClubGroups 파생이 담당해 화면 체크 단위와 일치한다. */
+          <div className="px-2 py-2">
+            <SubmissionClubGroupList
+              bookings={visibleBookings}
+              selection={selectedIdSet}
+              onToggleSelect={toggleSelect}
+              onToggleMany={toggleMany}
+              onShowDetail={setDetailBooking}
+            />
+          </div>
+        )}
+        {!candidatesQuery.isLoading && candidatesQuery.isSuccess && sections.length > 0 && view === 'timetable' && (
+          /* 시간표 뷰 — 기존 시설 × 날짜/시간 기준 유지(스펙 §1, 시간 충돌 확인 용도). */
+          <ul>
+            {sections.map((section) => {
+              const sectionSelectedCount = deriveSelectedIds(section.bookings, excludedIds).length;
+              const sectionNeedCount = section.bookings.filter((booking) => booking.selectable).length;
+              return (
+                <li key={section.facilityId}>
+                  {/* 시설 그룹 헤더(목업 B) — sage-tint 밴드, 시간 충돌 확인용 시설 축(조회 전용, v2 스펙 §4). */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-sage-tint px-[18px] py-[13px]">
+                    <h2 className="text-[14.5px] font-extrabold text-ink-deep">{section.facilityName}</h2>
+                    <p className="text-xs text-charcoal-3">
+                      미제출 예약 {sectionNeedCount}건 · 선택 {sectionSelectedCount}건
+                    </p>
+                  </div>
+                  <div className="px-[18px] py-3">
+                    <SubmissionTimetable
+                      bookings={section.bookings}
+                      facilityName={section.facilityName}
+                      selection={selectedIdSet}
+                      onToggleSelect={toggleSelect}
+                      onShowDetail={setDetailBooking}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </ConsoleCard>
 
