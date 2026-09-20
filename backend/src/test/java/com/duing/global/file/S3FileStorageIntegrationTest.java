@@ -18,6 +18,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -43,9 +44,13 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 @Import(TestcontainersConfiguration.class)
 class S3FileStorageIntegrationTest extends IntegrationTestBase {
 
+    // Docker Hub 의 minio/minio 저장소가 2026-09 에 사라져(pull access denied) quay.io 공식 미러를 쓴다 —
+    // 같은 태그·같은 매니페스트 다이제스트. 기본 이미지명이 아니라 asCompatibleSubstituteFor 로 호환 선언이 필요하다.
+    // CI 의 사전 pull(backend-ci.yml)도 같은 참조를 써야 한다.
     @Container
     static final MinIOContainer MINIO =
-            new MinIOContainer("minio/minio:RELEASE.2025-09-07T16-13-09Z")
+            new MinIOContainer(DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+                    .asCompatibleSubstituteFor("minio/minio"))
                     .withUserName("minioadmin")
                     .withPassword("minioadmin");
 
