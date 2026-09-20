@@ -2,11 +2,13 @@ package com.duing.domain.joincode.controller.dto.response;
 
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.service.dto.query.JoinRequestDetailQuery;
+import com.duing.domain.user.support.PhoneMasker;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
 /**
- * 운영 콘솔의 가입 요청 상세 — 전화번호는 이 응답에서만 내려간다.
+ * 운영 콘솔의 가입 요청 상세 — 전화번호는 마스킹({@code phoneMasked})만 싣고, 원본은 전용 API
+ * (GET /clubs/{clubId}/join-requests/{joinRequestId}/phone)가 감사 행과 함께 반환한다(지원자 ApplicantDetailResponse 와 동일 규약).
  *
  * <p>시각 두 개는 writer 가 달라 변환도 다르다(TIMEZONE.md):
  * {@code requestedAt} 은 BaseEntity 감사 필드(JVM 존 벽시계) → system,
@@ -20,7 +22,7 @@ public record JoinRequestDetailResponse(
         String userName,
         String studentId,
         String major,
-        String phone,
+        String phoneMasked,
         String code,
         Integer generation,
         JoinRequestStatus status,
@@ -35,7 +37,7 @@ public record JoinRequestDetailResponse(
                 joinRequestDetailQuery.userName(),
                 joinRequestDetailQuery.studentId(),
                 joinRequestDetailQuery.major(),
-                joinRequestDetailQuery.phone(),
+                PhoneMasker.mask(joinRequestDetailQuery.phone()),
                 joinRequestDetailQuery.code(),
                 joinRequestDetailQuery.generation(),
                 joinRequestDetailQuery.status(),

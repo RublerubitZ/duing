@@ -5,6 +5,7 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.entity.ClubAuditEvent;
 import com.duing.domain.clubaudit.entity.ClubAuditEventType;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
+import com.duing.domain.clubaudit.support.AuditDetailJson;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -31,13 +32,16 @@ import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.exception.ApplicationException;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -77,6 +81,8 @@ public class GeneralJoinRequestService implements JoinRequestService {
     private final ClubMemberEnrollmentService clubMemberEnrollmentService;
     private final UserRepository userRepository;
     private final JoinCodeRateLimiter joinCodeRateLimiter;
+    // 원본 번호 열람 창 — 지원자·부원 열람과 같은 창을 공유한다(한 사람이 긁어갈 수 있는 번호 총량 기준).
+    private final PhoneRevealRateLimiter phoneRevealRateLimiter;
     private final Clock clock;
     // 탈퇴 경로가 거절한 요청을 영속성 컨텍스트에서 떼어낼 때만 쓴다(rejectAllPendingOnWithdrawal).
     private final EntityManager entityManager;
@@ -203,6 +209,38 @@ public class GeneralJoinRequestService implements JoinRequestService {
         return JoinRequestDetailQuery.from(clubJoinRequestRepository
                 .findByIdAndClubId(joinRequestId, clubId)
                 .orElseThrow(JoinRequestException.JoinRequestNotFoundException::new));
+    }
+
+    /**
+     * 열람 감사를 같은 트랜잭션에 남기므로 조회지만 쓰기 트랜잭션이다 — 클래스 기본 readOnly 로 두면
+     * 실제 PG 에서 INSERT 가 거부된다. 원본 번호 열람은 그 자체가 감사 대상 행위다.
+     */
+    @Override
+    @Transactional
+    public String getRequestPhone(Long clubId, Long joinRequestId, Long requesterId) {
+        clubAuthService.requireManager(requesterId, clubId);
+        // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다
+        // (#1197 지원자 경로와 동일). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
+        phoneRevealRateLimiter.assertAndRecord(requesterId, LocalDateTime.now(clock));
+        // clubId 를 조건에 포함해 타 동아리 요청은 조회 자체가 되지 않게 한다(IDOR 차단, 불일치는 404).
+        ClubJoinRequest joinRequest = clubJoinRequestRepository
+                .findByIdAndClubId(joinRequestId, clubId)
+                .orElseThrow(JoinRequestException.JoinRequestNotFoundException::new);
+        Long targetUserId = joinRequest.getUser().getId();
+        String targetPhone;
+        try {
+            targetPhone = joinRequest.getUser().getPhone();
+        } catch (EntityNotFoundException withdrawnRequester) {
+            // 탈퇴자의 user 는 @SQLRestriction 에 막혀 프록시 초기화가 터진다(#869 계열) — 5xx 대신 404 로 답한다.
+            throw new JoinRequestException.JoinRequestNotFoundException();
+        }
+        // 개인정보 원본 열람은 그 자체가 감사 대상 행위다. 번호 값은 절대 남기지 않는다.
+        log.info("join request phone view: clubId={}, actorUserId={}, joinRequestId={}, targetUserId={}",
+                clubId, requesterId, joinRequestId, targetUserId);
+        clubAuditEventRepository.save(ClubAuditEvent.memberPiiAccess(
+                ClubAuditEventType.JOIN_REQUEST_PHONE_VIEWED, clubId, requesterId,
+                AuditDetailJson.of(Map.of("joinRequestId", joinRequestId, "userId", targetUserId))));
+        return targetPhone;
     }
 
     @Override

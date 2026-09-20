@@ -2,6 +2,7 @@ package com.duing.domain.joincode.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -30,6 +31,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.support.PhoneMasker;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -159,8 +161,8 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("상세 조회에서만 전화번호를 확인할 수 있고 미처리 요청은 처리 정보가 비어 있다")
-    void detailExposesPhoneAndEmptyReviewFieldsWhilePending() {
+    @DisplayName("상세 조회는 전화번호를 마스킹해 싣고 원본 phone 필드는 내려주지 않으며 미처리 요청은 처리 정보가 비어 있다")
+    void detailMasksPhoneAndEmptyReviewFieldsWhilePending() {
         User student = saveUser();
         ClubJoinRequest pending = savePendingRequest(student);
 
@@ -170,11 +172,105 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .body("data.userName", equalTo(student.getName()))
                 .body("data.studentId", equalTo(student.getStudentId()))
                 .body("data.major", equalTo(student.getMajor()))
-                .body("data.phone", equalTo(student.getPhone()))
+                .body("data.phoneMasked", equalTo(PhoneMasker.mask(student.getPhone())))
+                .body("data.phoneMasked", containsString("****"))
+                .body("data.phone", nullValue())
                 .body("data.code", equalTo(joinCode.getCode()))
                 .body("data.status", equalTo("PENDING"))
                 .body("data.rejectReason", nullValue())
                 .body("data.reviewedAt", nullValue());
+    }
+
+    @Test
+    @DisplayName("운영진이 가입 요청자 번호를 조회하면 원본이 no-store 로 내려오고 열람 사실이 감사에 남는다")
+    void leaderRevealsJoinRequestPhoneWithNoStore() {
+        User student = saveUser();
+        ClubJoinRequest pending = savePendingRequest(student);
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId()).then()
+                .statusCode(HttpStatus.OK.value())
+                .header(HttpHeaders.CACHE_CONTROL, containsString("no-store"))
+                .body("data.phone", equalTo(student.getPhone()));
+
+        assertThat(auditEvents())
+                .as("번호 열람은 조회자를 주체로 감사 이벤트 한 건을 남긴다")
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.getEventType())
+                            .isEqualTo(ClubAuditEventType.JOIN_REQUEST_PHONE_VIEWED);
+                    assertThat(event.getClubId()).isEqualTo(club.getId());
+                    assertThat(event.getActorUserId()).isEqualTo(leaderUser.getId());
+                    // jsonb 는 키 순서·공백을 PG 가 다시 찍으므로 공백을 지우고 본다.
+                    assertThat(event.getDetail().replace(" ", ""))
+                            .as("대상은 요청 id 와 사용자 id 로만 남기고 번호 값은 남기지 않는다")
+                            .contains("\"joinRequestId\":" + pending.getId())
+                            .contains("\"userId\":" + student.getId())
+                            .doesNotContain(student.getPhone());
+                });
+    }
+
+    @Test
+    @DisplayName("비로그인 상태에서는 가입 요청자 번호 조회가 401 로 막힌다")
+    void anonymousCannotRevealJoinRequestPhone() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        RestAssured.given()
+                .when().get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}/phone",
+                        club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("일반 회원과 타 동아리 운영진은 가입 요청자 번호를 조회할 수 없다")
+    void nonManagerCannotRevealJoinRequestPhone() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        getRequestPhone(memberToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+        getRequestPhone(otherClubLeaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+        assertThat(auditEvents()).as("거절된 조회는 감사 행을 남기지 않는다").isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 동아리의 가입 요청 번호를 자기 동아리 경로로 조회하면 존재를 알리지 않고 404 를 반환한다")
+    void otherClubRequestPhoneReturns404() {
+        ClubJoinRequest otherClubRequest = saveOtherClubPendingRequest();
+
+        getRequestPhone(leaderToken, club.getId(), otherClubRequest.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 신청자의 번호를 조회하면 5xx 대신 404 를 반환한다")
+    void withdrawnRequesterPhoneReturns404() {
+        User withdrawnStudent = saveUser();
+        ClubJoinRequest pending = savePendingRequest(withdrawnStudent);
+        // 계정만 soft-delete 한 잔존 재현 — 요청의 user 는 LAZY 프록시라 초기화 시점에 @SQLRestriction 에 걸린다.
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnStudent.getId());
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("번호 열람이 분당 한도를 넘으면 429 로 막히고 초과분은 감사 행을 남기지 않는다")
+    void rateLimitedPhoneRevealDoesNotWriteAudit() {
+        ClubJoinRequest pending = savePendingRequest(saveUser());
+
+        // PhoneRevealRateLimiter.PER_MINUTE_LIMIT = 30. package-private 라 직접 참조할 수 없어 수치를
+        // 옮겨 적는다(LeaderApplicationControllerTest 와 동일한 방식).
+        int perMinuteRevealLimit = 30;
+        for (int reveal = 0; reveal < perMinuteRevealLimit; reveal++) {
+            getRequestPhone(leaderToken, club.getId(), pending.getId())
+                    .then().statusCode(HttpStatus.OK.value());
+        }
+
+        getRequestPhone(leaderToken, club.getId(), pending.getId())
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        // 429 는 열람이 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다.
+        assertThat(auditEvents()).hasSize(perMinuteRevealLimit);
     }
 
     @Test
@@ -571,6 +667,14 @@ class ClubJoinRequestControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .when()
                 .get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}", targetClubId, joinRequestId);
+    }
+
+    private Response getRequestPhone(String token, Long targetClubId, Long joinRequestId) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .when()
+                .get("/api/v1/clubs/{clubId}/join-requests/{joinRequestId}/phone",
+                        targetClubId, joinRequestId);
     }
 
     private Response decide(String token, Long targetClubId, Long joinRequestId, String status) {

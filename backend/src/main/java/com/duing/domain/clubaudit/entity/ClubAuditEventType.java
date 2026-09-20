@@ -4,9 +4,10 @@ package com.duing.domain.clubaudit.entity;
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
  * <p>가입 링크 6종과 총동연 조치 3종, 회비 15종(V105), 시설 설정 1종(V116), 동아리 상태 2종(V127),
- * 회장 경로 개인정보 열람 2종(V128), 총동연 강제 폐기 1종(V129), 지원자 번호 열람 1종(V130)이 있다.
+ * 회장 경로 개인정보 열람 2종(V128), 총동연 강제 폐기 1종(V129), 지원자 번호 열람 1종(V130),
+ * 가입 요청자 번호 열람 1종(V131)이 있다.
  * 값을 추가할 때는 {@code club_audit_event.event_type} 의 CHECK 제약도
- * 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127·V128·V129·V130).
+ * 마이그레이션으로 함께 갱신해야 한다(V102·V104·V105·V116·V127·V128·V129·V130·V131).
  */
 public enum ClubAuditEventType {
 
@@ -75,7 +76,14 @@ public enum ClubAuditEventType {
      * 부원 열람({@link #MEMBER_PHONE_VIEWED})과 종류를 나누는 이유는 대상이 지원서(아직 부원이 아님)라 참조 키가 다르기 때문이다.
      * 화면 라벨: "지원자 휴대폰 열람".
      */
-    APPLICANT_PHONE_VIEWED;
+    APPLICANT_PHONE_VIEWED,
+    /**
+     * 운영진이 가입 요청자의 원본 전화번호를 열람했다(V131) — detail {"joinRequestId","userId"}.
+     * 열람마다 남긴다(중복 제거 없음). 지원자 열람({@link #APPLICANT_PHONE_VIEWED})·부원
+     * 열람({@link #MEMBER_PHONE_VIEWED})과 종류를 나누는 이유는 대상이 가입 요청이라 참조 키가 다르기 때문이다.
+     * 화면 라벨: "가입 요청자 휴대폰 열람".
+     */
+    JOIN_REQUEST_PHONE_VIEWED;
 
     /**
      * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.

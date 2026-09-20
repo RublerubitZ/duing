@@ -5,6 +5,7 @@ import com.duing.domain.joincode.controller.dto.request.DecideJoinRequestRequest
 import com.duing.domain.joincode.controller.dto.response.BulkApproveJoinRequestsResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDecisionResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestDetailResponse;
+import com.duing.domain.joincode.controller.dto.response.JoinRequestPhoneResponse;
 import com.duing.domain.joincode.controller.dto.response.JoinRequestSummaryResponse;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.global.auth.UserPrincipal;
@@ -39,10 +40,23 @@ public interface ClubJoinRequestApi {
     );
 
     @Operation(summary = "가입 요청 상세 조회 (LEADER/OFFICER)",
-            description = "명단 대조에 필요한 전화번호를 포함한다. 다른 동아리의 요청은 존재를 알리지 않고 404 를 반환한다.")
+            description = "명단 대조에 필요한 학생 정보를 담되 전화번호는 마스킹(phoneMasked)해 내려준다 — 원본은 전용 API 로만 나간다. "
+                    + "다른 동아리의 요청은 존재를 알리지 않고 404 를 반환한다.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/clubs/{clubId}/join-requests/{joinRequestId}")
     ResponseEntity<ApiResponse<JoinRequestDetailResponse>> getJoinRequest(
+            @PathVariable Long clubId,
+            @PathVariable Long joinRequestId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "가입 요청자 원본 연락처 조회 (LEADER/OFFICER)",
+            description = "운영진(LEADER/OFFICER) 전용. 상세 응답은 마스킹(phoneMasked)만 싣고 원본은 이 API 로만 반환한다. "
+                    + "조회 사실(조회자·대상·시각)을 club_audit_event(JOIN_REQUEST_PHONE_VIEWED)에 남기며 응답은 캐시하지 않는다(no-store). "
+                    + "운영진이 아니면 403, 다른 동아리의 요청이거나 없는 요청이면 404. 열람 한도(분 30·시 300)를 넘으면 429.")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/clubs/{clubId}/join-requests/{joinRequestId}/phone")
+    ResponseEntity<ApiResponse<JoinRequestPhoneResponse>> getJoinRequestPhone(
             @PathVariable Long clubId,
             @PathVariable Long joinRequestId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
