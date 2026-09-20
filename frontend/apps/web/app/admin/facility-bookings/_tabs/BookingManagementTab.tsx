@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   useAdminFacilityBookingQueueQuery,
   useAdminFacilityBookingSummaryQuery,
-  useFacilityUsageQuery,
+  useFacilityListQuery,
 } from '@duing/hooks';
 import type { AdminBookingQueueParams, AdminBookingQueueSort } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
@@ -72,7 +72,8 @@ export function BookingManagementTab() {
     { ...baseParams, status: 'APPROVED' },
     { enabled: activeTab === 'CONFLICT_ATTENTION' },
   );
-  const usageQuery = useFacilityUsageQuery();
+  // 활성 시설 목록(가벼움) — 크롤 탭과 같은 훅. 세 관리자 엔드포인트는 같은 활성·정렬 목록을 돌려주므로 가장 작은 응답을 쓴다(#20).
+  const facilitiesQuery = useFacilityListQuery();
 
   const selectTab = (tab: AdminQueueTab) => {
     setActiveTab(tab);
@@ -181,7 +182,7 @@ export function BookingManagementTab() {
               onChange={(event) => { setFacilityIdInput(event.target.value); setPage(0); }}
             >
               <option value="">전체 시설</option>
-              {(usageQuery.data?.facilities ?? []).map((facility) => (
+              {(facilitiesQuery.data ?? []).map((facility) => (
                 <option key={facility.id} value={String(facility.id)}>{facility.roomName}</option>
               ))}
             </select>
