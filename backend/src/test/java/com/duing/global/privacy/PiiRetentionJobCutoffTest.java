@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * cutoff 의 타임존 regime 을 고정한다(스펙 §3.1·§8.2). 드리프트는 JVM 기본 존이 KST 가 아닐 때만 드러나므로
@@ -43,6 +44,8 @@ class PiiRetentionJobCutoffTest {
     @Mock PhoneVerificationRepository phoneVerificationRepository;
     @Mock PhoneVerificationEventRepository phoneVerificationEventRepository;
     @Mock ApplicationDraftRepository applicationDraftRepository;
+    // mock 트랜잭션 매니저면 TransactionTemplate 이 콜백을 그대로 실행하므로 단계 호출 인자 단언은 그대로 유효하다.
+    @Mock PlatformTransactionManager platformTransactionManager;
 
     private TimeZone originalDefaultZone;
 
@@ -60,7 +63,8 @@ class PiiRetentionJobCutoffTest {
         return new PiiRetentionJob(
                 new RetentionProperties(true, window, applicationAnswerWindow),
                 SEOUL_CLOCK, userRepository, applicationRepository,
-                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository);
+                phoneVerificationRepository, phoneVerificationEventRepository, applicationDraftRepository,
+                platformTransactionManager);
     }
 
     @Test

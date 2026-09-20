@@ -1,5 +1,6 @@
 package com.duing.common;
 
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,12 +48,18 @@ public abstract class IntegrationTestBase {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private PhoneRevealRateLimiter phoneRevealRateLimiter;
+
     @BeforeEach
     void cleanDatabase() {
         if (truncateStatement == null) {
             truncateStatement = buildTruncateStatement();
         }
         jdbcTemplate.execute(truncateStatement);
+        // RESTART IDENTITY 로 userId 가 매 테스트 1·2… 로 되돌아오는데 번호 열람 리미터는 in-memory 라 창이
+        // 클래스를 넘어 누적된다 — 앞 테스트의 열람이 뒤 테스트를 429 로 떨어뜨리지 않도록 함께 비운다.
+        phoneRevealRateLimiter.reset();
     }
 
     private String buildTruncateStatement() {

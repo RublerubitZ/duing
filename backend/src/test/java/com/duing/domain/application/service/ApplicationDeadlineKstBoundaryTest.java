@@ -23,6 +23,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -117,6 +118,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 mock(ApplicationEvaluationRepository.class),
                 mock(InterviewAssignmentQueryService.class),
                 fixedClock,
-                mock(ClubAuditEventRepository.class));
+                mock(ClubAuditEventRepository.class),
+                new PhoneRevealRateLimiter());
     }
 }

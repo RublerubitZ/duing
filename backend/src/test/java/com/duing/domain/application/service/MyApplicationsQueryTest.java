@@ -25,6 +25,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -60,7 +61,8 @@ class MyApplicationsQueryTest {
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
             clock,
-            mock(ClubAuditEventRepository.class));
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")

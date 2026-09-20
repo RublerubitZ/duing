@@ -31,6 +31,7 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.exception.UserException;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -69,7 +70,8 @@ class ApplicationEligibilityCheckTest {
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
             clock,
-            mock(ClubAuditEventRepository.class));
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     @Test
     @DisplayName("존재하지 않는 모집의 지원 가능 여부 확인은 404 로 실패한다")

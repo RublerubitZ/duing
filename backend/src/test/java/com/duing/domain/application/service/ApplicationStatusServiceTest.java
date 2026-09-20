@@ -32,6 +32,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,8 @@ class ApplicationStatusServiceTest {
             applicationEvaluationRepository,
             interviewAssignmentQueryService,
             clock,
-            mock(ClubAuditEventRepository.class));
+            mock(ClubAuditEventRepository.class),
+            new PhoneRevealRateLimiter());
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
