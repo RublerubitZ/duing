@@ -199,7 +199,9 @@ describe('FacilityOpenDateTab', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('활성 시설 3개')).toBeInTheDocument();
-    expect(within(dialog).getByText('여러 값')).toBeInTheDocument();
+    // 픽스처: 공연장(열림·마감 없음)·세미나실(닫힘)·연습실(열림·마감 지정) → 무엇을 덮어쓰는지 집계로 보여준다(#21).
+    expect(within(dialog).getByText('열림 2 · 닫힘 1 (마감 지정 1)')).toBeInTheDocument();
+    expect(within(dialog).queryByText('여러 값')).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: '확인' }));
 
     await waitFor(() => expect(bulkPatches).toHaveLength(1));

@@ -43,6 +43,16 @@ function windowLabel({ open, close }: WindowValue): string {
   return close === null ? `${monthDayLabel(open)} ~` : `${monthDayLabel(open)} ~ ${monthDayLabel(close)}`;
 }
 
+/** 전체 적용 확인창의 "이전" — 시설마다 값이 달라 한 창으로 못 적으니 무엇을 덮어쓰는지 집계로 보여준다(#21). */
+function windowSummary(facilities: AdminFacility[]): string {
+  const openCount = facilities.filter((facility) => facility.bookingOpenDate !== null).length;
+  const closeSpecifiedCount = facilities.filter(
+    (facility) => facility.bookingOpenDate !== null && facility.bookingCloseDate !== null,
+  ).length;
+  const base = `열림 ${openCount} · 닫힘 ${facilities.length - openCount}`;
+  return closeSpecifiedCount > 0 ? `${base} (마감 지정 ${closeSpecifiedCount})` : base;
+}
+
 const toWindowValue = (draft: WindowDraft): WindowValue => ({
   open: draft.open === '' ? null : draft.open,
   close: draft.close === '' ? null : draft.close,
@@ -318,7 +328,7 @@ export function FacilityOpenDateTab() {
               ? `활성 시설 ${pendingChange.facilityCount}개`
               : pendingChange.roomName
           }
-          before={pendingChange.scope === 'all' ? '여러 값' : windowLabel(pendingChange.before)}
+          before={pendingChange.scope === 'all' ? windowSummary(facilities) : windowLabel(pendingChange.before)}
           after={windowLabel(pendingChange.after)}
           isPending={
             pendingChange.scope === 'all' ? allMutation.isPending : facilityMutation.isPending
