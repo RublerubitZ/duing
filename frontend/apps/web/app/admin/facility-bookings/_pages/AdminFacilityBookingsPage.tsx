@@ -12,7 +12,7 @@ import { toRoute } from '../../../_lib/route';
 import { CrawlFreshnessChip } from '../_components/CrawlFreshnessChip';
 import { PurposeNote } from '../_components/PurposeNote';
 import { conflictCardCount } from '../_lib/adminBookingDisplay';
-import { currentMonthRange } from '../_lib/submissionPeriod';
+import { defaultSubmissionRange } from '../_lib/submissionPeriod';
 import { BookingManagementTab } from '../_tabs/BookingManagementTab';
 import { FacilityCrawlTab } from '../_tabs/FacilityCrawlTab';
 import { FacilityOpenDateTab } from '../_tabs/FacilityOpenDateTab';
@@ -97,9 +97,9 @@ export function AdminFacilityBookingsPage() {
   const searchParams = useSearchParams();
   const activeTab = resolveTab(searchParams.get('tab'));
 
-  // 탭 건수·신선도 칩용 조회 — 준비 탭 건수는 이번 달 기본 기간 기준(준비 탭 기본 조회와 캐시 공유).
+  // 탭 건수·신선도 칩용 조회 — 준비 탭 건수는 기본 기간(오늘~다음 달 말일) 기준(준비 탭 기본 조회와 캐시 공유).
   const summaryQuery = useAdminFacilityBookingSummaryQuery();
-  const candidatesQuery = useSubmissionCandidatesQuery(currentMonthRange());
+  const candidatesQuery = useSubmissionCandidatesQuery(defaultSubmissionRange());
   const readyBatchCountQuery = useSubmissionBatchesQuery({ page: 0, size: 1, status: 'REVIEWING' });
 
   const tabCountOf = (tab: FacilityOpsTab): number | undefined => {
@@ -200,7 +200,7 @@ export function AdminFacilityBookingsPage() {
                         className={`mt-0.5 block tabular-nums text-[11px] ${
                           isActive ? 'text-sage' : 'text-charcoal-3'
                         } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
-                        title={tab === 'prepare' ? '이번 달 기준' : undefined}
+                        title={tab === 'prepare' ? '오늘~다음 달 말일 기준' : undefined}
                       >
                         {tabCount}건
                       </span>

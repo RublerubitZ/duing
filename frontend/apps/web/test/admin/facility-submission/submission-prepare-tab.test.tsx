@@ -24,6 +24,12 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
 }));
 
+import {
+  currentAndNextMonthRange,
+  currentMonthRange,
+  defaultSubmissionRange,
+  nextMonthRange,
+} from '../../../app/admin/facility-bookings/_lib/submissionPeriod';
 import { SubmissionPrepareTab } from '../../../app/admin/facility-bookings/_tabs/SubmissionPrepareTab';
 
 function makeResponse(): SubmissionCandidatesResponse {
@@ -110,13 +116,29 @@ describe('SubmissionPrepareTab', () => {
     mockAddToast.mockReset();
   });
 
-  it('진입 즉시 시설 없이 전 시설 후보를 조회한다', () => {
+  it('진입 즉시 시설 없이 오늘~다음 달 말일 기간으로 전 시설 후보를 조회한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     const lastParams = mockCandidatesQuery.mock.calls.at(-1)?.[0];
     expect(lastParams.facilityId).toBeUndefined();
-    expect(lastParams.startDate.endsWith('-01')).toBe(true);
+    expect(lastParams).toEqual(defaultSubmissionRange());
+  });
+
+  it('기간 프리셋(이번 달·다음 달·이번+다음 달)이 두 날짜를 함께 바꾸고 그 기간으로 재조회한다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+    expect(screen.getByLabelText('시작일')).toHaveValue(nextMonthRange().startDate);
+    expect(screen.getByLabelText('종료일')).toHaveValue(nextMonthRange().endDate);
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(nextMonthRange());
+
+    fireEvent.click(screen.getByRole('button', { name: '이번+다음 달' }));
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(currentAndNextMonthRange());
+
+    fireEvent.click(screen.getByRole('button', { name: '이번 달' }));
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(currentMonthRange());
   });
 
   it('기본은 미제출 예약만 보여주고, 제출 대기(submitted)로 이동한 예약은 숨긴다', () => {
@@ -369,14 +391,14 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
   });
 
-  it('기간이 31일을 넘으면 조회하지 않고 안내를 보여준다', () => {
+  it('기간이 62일을 넘으면 조회하지 않고 안내를 보여준다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-08-01' } });
-    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-05' } });
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-10-05' } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/31일/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/62일/);
     expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
   });
 

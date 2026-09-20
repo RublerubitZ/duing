@@ -10,7 +10,7 @@ import { toRoute } from '../../../_lib/route';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
 import { ViewModeToggle, type SubmissionViewMode } from '../_components/ViewModeToggle';
-import { currentMonthRange } from '../_lib/submissionPeriod';
+import { currentAndNextMonthRange, currentMonthRange, defaultSubmissionRange, nextMonthRange } from '../_lib/submissionPeriod';
 import {
   BatchBulkCreateDialog,
   type BulkCreateClubGroup,
@@ -25,7 +25,14 @@ import { SubmissionSummaryCards, type SummaryFilter } from '../submission/_compo
 import { SubmissionTimetable } from '../submission/_components/SubmissionTimetable';
 import { buildClubSections, buildFacilitySections, deriveSelectedIds } from '../submission/_lib/submissionSections';
 
-const MAX_PERIOD_DAYS = 31;
+const MAX_PERIOD_DAYS = 62;
+
+// 기간 프리셋(스펙 §2.2 B1) — 클릭 = 두 date 입력을 동시에 세팅. 라벨이 접근성 이름이다.
+const PERIOD_PRESETS: { label: string; range: () => { startDate: string; endDate: string } }[] = [
+  { label: '이번 달', range: currentMonthRange },
+  { label: '다음 달', range: nextMonthRange },
+  { label: '이번+다음 달', range: currentAndNextMonthRange },
+];
 
 type SubmissionStatusFilter = 'ALL' | 'NEED' | 'SUBMITTED';
 
@@ -55,7 +62,7 @@ function matchesFilter(booking: SubmissionCandidateBooking, filter: SummaryFilte
  * 운영자는 제외만 하고 동아리 단위 "제출 목록 만들기"를 수행한다(v2 스펙 §4).
  */
 export function SubmissionPrepareTab() {
-  const defaultRange = currentMonthRange();
+  const defaultRange = defaultSubmissionRange();
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [clubKeyword, setClubKeyword] = useState('');
@@ -85,7 +92,7 @@ export function SubmissionPrepareTab() {
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
   const keyword = clubKeyword.trim();
-  // 동아리명 부분 검색·제출 상태 필터는 클라이언트 가공(31일 상한 소량).
+  // 동아리명 부분 검색·제출 상태 필터는 클라이언트 가공(62일 상한 소량).
   // clubName 이 null 인 예약은 그룹 라벨이 `동아리 {clubId}` 로 합성되므로(SubmissionClubGroupList),
   // 검색도 같은 폴백 문자열로 매칭해야 라벨 그대로 검색된다.
   const searchedBookings =
@@ -222,7 +229,7 @@ export function SubmissionPrepareTab() {
 
       {periodInvalid && (
         <div role="alert" className="rounded-[12px] border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
-          조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 31일까지 조회할 수 있어요.
+          조회 기간을 확인해주세요 — 종료일이 시작일보다 앞설 수 없고, 시작일부터 최대 62일까지 조회할 수 있어요.
         </div>
       )}
 
@@ -295,6 +302,22 @@ export function SubmissionPrepareTab() {
             onChange={(event) => setEndDate(event.target.value)}
             className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
+          <div role="group" aria-label="기간 프리셋" className="flex gap-1">
+            {PERIOD_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  const range = preset.range();
+                  setStartDate(range.startDate);
+                  setEndDate(range.endDate);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <input
             type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
             onChange={(event) => setClubKeyword(event.target.value)}
