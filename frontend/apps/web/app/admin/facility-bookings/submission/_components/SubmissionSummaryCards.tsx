@@ -10,13 +10,13 @@ type Props = {
   onSelectFilter: (filter: SummaryFilter) => void;
 };
 
-/** Summary 4카드(스펙 v2 §7.1) — 운영자가 월간 현황을 숫자로 먼저 파악. 클릭=필터 토글(재클릭 시 전체). */
+/** Summary 4카드(스펙 v2 §7.1) — 운영자가 월간 현황을 숫자로 먼저 파악. 클릭=필터 토글(재클릭 시 전체). 부제는 카드 사이 포함 관계(승인 ⊇ 미제출 ∪ 제출 대기)를 드러낸다(스펙 §2.2 B4). */
 export function SubmissionSummaryCards({ counts, activeFilter, onSelectFilter }: Props) {
   const cards: { filter: Exclude<SummaryFilter, 'ALL'>; label: string; value: number; sub: string }[] = [
-    { filter: 'APPROVED', label: '승인 완료', value: counts.approvedCount, sub: '총동연 승인이 끝난 예약' },
-    { filter: 'NEED', label: '미제출 예약', value: counts.awaitingCount, sub: '아직 제출 목록에 포함되지 않은 예약' },
-    { filter: 'SUBMITTED', label: '제출 대기 예약', value: counts.submittedCount, sub: '제출 목록에 포함되어 학교 제출을 기다리는 예약' },
-    { filter: 'CONFIRMED', label: '학교 등록 완료', value: counts.confirmedCount, sub: '학교 시스템에 등록된 예약' },
+    { filter: 'APPROVED', label: '승인 완료', value: counts.approvedCount, sub: '미제출 + 제출 대기(승인 상태)' },
+    { filter: 'NEED', label: '미제출 예약', value: counts.awaitingCount, sub: '승인 완료 중 아직 목록에 없는 예약' },
+    { filter: 'SUBMITTED', label: '제출 대기 예약', value: counts.submittedCount, sub: '목록에 담겨 학교 제출을 기다림' },
+    { filter: 'CONFIRMED', label: '학교 등록 완료', value: counts.confirmedCount, sub: '학교 시스템 반영 확인(확정)' },
   ];
   return (
     <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">

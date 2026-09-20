@@ -354,16 +354,15 @@ describe('SubmissionPrepareTab', () => {
     expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3]]);
   });
 
-  it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여준다', () => {
+  it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여주고 부제가 카드 사이 포함 관계를 드러낸다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     // 카드 라벨은 상태 배지·셀렉트 옵션·섹션 헤더와 문자열이 겹쳐 role=button(aria-pressed 카드)으로 조회.
-    // '미제출 예약'은 셀렉트 옵션·섹션 헤더와 겹쳐 카드 sub 문구로 고정 조회.
-    expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /아직 제출 목록에 포함되지 않은 예약/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /제출 대기 예약/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /학교 등록 완료/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^승인 완료.*미제출 \+ 제출 대기\(승인 상태\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^미제출 예약.*승인 완료 중 아직 목록에 없는 예약/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^제출 대기 예약.*목록에 담겨 학교 제출을 기다림/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^학교 등록 완료.*학교 시스템 반영 확인\(확정\)/ })).toBeInTheDocument();
   });
 
   it('제출 상태 셀렉트와 카드가 같은 5값 필터를 조작한다 — 카드 클릭이 셀렉트에, 셀렉트가 카드에 반영된다', () => {
