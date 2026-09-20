@@ -13,10 +13,14 @@ const ALLOWED_PREFIXES = [
   '/terms',
 ] as const;
 
+/** 동아리 부원 전용 영역(공지·일정) — `/clubs` 허용 프리픽스 안에 있지만 MemberAccessGuard 뒤 회원 전용이다. */
+const MEMBER_AREA_PATTERN = /^\/clubs\/[^/]+\/member(\/|$)/;
+
 /**
  * 공개 탐색 화면인지 판정한다 — 프리픽스는 세그먼트 경계까지 맞아야 한다(`/clubsecret` 은 거부).
  */
 export function isAdSenseAllowedPath(pathname: string): boolean {
+  if (MEMBER_AREA_PATTERN.test(pathname)) return false;
   if (pathname === '/') return true;
   return ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -27,7 +31,7 @@ export function isAdSenseAllowedPath(pathname: string): boolean {
  * Google AdSense 사이트 확인·광고 로더.
  *
  * <p>공개 탐색 화면에서만 싣는다 — 개인정보가 보이는 화면(`/me`·`/manage`·`/admin`·`/apply`·
- * `/notifications`·인증·`/join`)의 문서에는 광고 스크립트를 붙이지 않는다.
+ * `/notifications`·인증·`/join`·`/clubs/{id}/member/**`)의 문서에는 광고 스크립트를 붙이지 않는다.
  *
  * <p>구글 안내가 "각 페이지의 &lt;head&gt; 안"을 요구하므로 next/script(body 주입)가 아니라 평문
  * 태그를 그대로 반환한다. React 19 는 `<script async src>` 를 어디서 렌더하든 head 로 호이스팅하고

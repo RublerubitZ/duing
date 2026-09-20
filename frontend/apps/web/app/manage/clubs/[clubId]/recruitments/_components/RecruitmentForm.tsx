@@ -24,7 +24,10 @@ import {
   loadRecruitmentDraft,
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
-import type { RecruitmentDraftValues } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
+import type {
+  DraftOwner,
+  RecruitmentDraftValues,
+} from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 
 /** Task 8 의 페이지 헤더 제출 버튼이 `form` 속성으로 이 폼을 원격 제출한다. */
@@ -122,10 +125,11 @@ type CreateMode = {
    */
   closingRecruitmentTitle?: string;
   /**
-   * 로컬 임시저장의 보관 단위(동아리 id). 값이 있을 때만 자동 저장·복원 배너가 동작한다.
+   * 로컬 임시저장의 보관 단위(작성자 id + 동아리 id). 값이 있을 때만 자동 저장·복원 배너가 동작한다.
    * 복제 진입은 이미 원본이 시드라 임시저장을 쓰지 않는다 — 페이지가 undefined 를 넘긴다.
+   * 아래 자동 저장 useEffect 의 의존값이라 페이지가 참조 안정성을 지켜 넘겨야 한다(useMemo).
    */
-  draftClubId?: number;
+  draftOwner?: DraftOwner;
   onSubmit: (values: CreateFormValues) => Promise<void>;
   isPending: boolean;
 };
@@ -184,8 +188,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const createSubmit = props.mode === 'create' ? props.onSubmit : null;
   const closingRecruitmentTitle = props.mode === 'create' ? props.closingRecruitmentTitle : undefined;
   // 복제 시드가 있으면 임시저장을 쓰지 않는다 — 시드된 값이 곧 초안이라 배너가 오히려 방해가 된다.
-  const draftClubId =
-    props.mode === 'create' && props.cloneSeed === undefined ? props.draftClubId : undefined;
+  const draftOwner =
+    props.mode === 'create' && props.cloneSeed === undefined ? props.draftOwner : undefined;
   // 기간 필드를 제외한 값들의 단일 시드 소스 — edit 모드면 상세, create+복제 모드면 원본 모집.
   const seed = initialData ?? cloneSeed;
 
@@ -257,7 +261,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const [isPublishConfirmOpen, setIsPublishConfirmOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [draft, setDraft] = useState(() =>
-    draftClubId === undefined ? null : loadRecruitmentDraft(draftClubId),
+    draftOwner === undefined ? null : loadRecruitmentDraft(draftOwner),
   );
 
   // 수정 모드 미저장 이탈 가드 — 저장 성공 시 페이지가 이동하므로 baseline 갱신은 필요 없다.
@@ -435,7 +439,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     try {
       await createSubmit(values);
       // 여기까지 왔으면 서버가 받았다 — 남은 임시저장은 다음 작성에 끼어들 뿐이라 지운다.
-      if (draftClubId !== undefined) clearRecruitmentDraft(draftClubId);
+      if (draftOwner !== undefined) clearRecruitmentDraft(draftOwner);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
     }
@@ -460,7 +464,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   // 한 글자 쳤다가 debounce 전에 지우면 쓴 것도 없이 옛 저장본만 사라져(배너까지 접힌 뒤라) 되살릴 길이 없다.
   const hasSavedDraftRef = useRef(false);
   useEffect(() => {
-    if (draftClubId === undefined) return;
+    if (draftOwner === undefined) return;
     const values: RecruitmentDraftValues = {
       title,
       content,
@@ -490,16 +494,16 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     }
     // 편집을 되돌려 초기값으로 돌아왔으면 남은 저장본도 지운다 — 쓸 내용이 없는데 배너만 뜨는 일을 막는다.
     if (snapshot === initialDraftSnapshot.current) {
-      if (hasSavedDraftRef.current) clearRecruitmentDraft(draftClubId);
+      if (hasSavedDraftRef.current) clearRecruitmentDraft(draftOwner);
       return;
     }
     const timer = setTimeout(() => {
-      saveRecruitmentDraft(draftClubId, values);
+      saveRecruitmentDraft(draftOwner, values);
       hasSavedDraftRef.current = true;
     }, DRAFT_SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [
-    draftClubId,
+    draftOwner,
     draft,
     title,
     content,
@@ -574,7 +578,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
       {/* noValidate — 검증은 zod 한 곳에서만 판정하고, 브라우저 기본 말풍선이 요약 카드와 겹치지 않게 한다. */}
       <form id={RECRUITMENT_FORM_ID} noValidate className="min-w-0" onSubmit={handleSubmit}>
-        {draft !== null && draftClubId !== undefined && (
+        {draft !== null && draftOwner !== undefined && (
           <div
             role="status"
             className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[13px] border border-line bg-sage-tint px-4 py-3 text-sm text-charcoal-2"
@@ -597,7 +601,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
-                  clearRecruitmentDraft(draftClubId);
+                  clearRecruitmentDraft(draftOwner);
                   setDraft(null);
                 }}
               >

@@ -50,6 +50,14 @@ describe('AdSenseLoader — 공개 화면에서만 광고 로더를 싣는다', 
     expect(isAdSenseAllowedPath(pathname)).toBe(false);
   });
 
+  // 부원 전용 공지·일정은 MemberAccessGuard 뒤 회원 전용 화면이다 — /clubs 허용 프리픽스에 묻히면 안 된다.
+  it('동아리 부원 전용 영역은 /clubs 허용 판정보다 먼저 거부된다', () => {
+    expect(isAdSenseAllowedPath('/clubs/1/member')).toBe(false);
+    expect(isAdSenseAllowedPath('/clubs/1/member/notices')).toBe(false);
+    // 세그먼트 경계 — 'member' 로 시작만 하는 다른 하위 경로까지 막지는 않는다.
+    expect(isAdSenseAllowedPath('/clubs/1/membership-x')).toBe(true);
+  });
+
   it('허용 프리픽스와 글자만 겹치는 경로는 세그먼트가 달라 거부된다', () => {
     // startsWith('/clubs') 만으로 판정하면 이런 경로까지 광고가 붙는다.
     expect(isAdSenseAllowedPath('/clubsecret')).toBe(false);
