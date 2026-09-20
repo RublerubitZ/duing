@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { JoinRequestDecisionResult } from '@duing/types';
 import {
   formatDateTimeKst,
   useDecideJoinRequestMutation,
   useJoinRequestDetailQuery,
+  useJoinRequestPhoneMutation,
 } from '@duing/hooks';
 
 import { ButtonSpinner } from '@/components/loading/Spinner';
@@ -100,9 +101,13 @@ export function JoinRequestDetailPanel({
           <dl className="divide-y divide-line/60">
             <Field label="학번">{joinRequest.studentId || EMPTY}</Field>
             <Field label="학과">{joinRequest.major || EMPTY}</Field>
-            {/* 전화번호는 상세 응답에만 담긴다 — 명단 대조용이라 목록에는 내려오지 않는다. */}
+            {/* 상세 응답은 마스킹만 싣는다 — 원본은 열람 API 가 감사 행과 함께 내준다. */}
             <Field label="연락처">
-              <span className="tabular-nums">{joinRequest.phone || EMPTY}</span>
+              <JoinRequestPhoneValue
+                clubId={clubId}
+                joinRequestId={joinRequestId}
+                phoneMasked={joinRequest.phoneMasked}
+              />
             </Field>
             <Field label="사용 코드">
               <span className="tabular-nums">{joinRequest.code}</span>
@@ -148,6 +153,94 @@ export function JoinRequestDetailPanel({
         </div>
       )}
     </aside>
+  );
+}
+
+/**
+ * 기본은 마스킹. 운영진이 [번호 보기]를 누른 경우에만 원본을 조회해 표시하고, 그때만 복사를 연다.
+ * ApplicantProfilePanel.ApplicantPhoneValue 와 같은 구조를 복제했다(스펙 원칙: 공용화 금지) — 대상이
+ * 지원서가 아니라 가입 요청(clubId + joinRequestId)이라 훅·응답 타입이 다르다. 노출 상태는 이 컴포넌트
+ * 로컬이라 패널을 닫거나 다른 요청으로 넘어가면 사라진다.
+ * 클립보드에 들어가는 값은 조회한 원본뿐이다 — 마스킹 문자열을 복사하는 경로는 만들지 않는다.
+ */
+function JoinRequestPhoneValue({
+  clubId,
+  joinRequestId,
+  phoneMasked,
+}: {
+  clubId: number;
+  joinRequestId: number;
+  phoneMasked: string | null;
+}) {
+  const revealPhone = useJoinRequestPhoneMutation(clubId);
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyResetTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+    };
+  }, []);
+
+  async function reveal() {
+    setRevealError(null);
+    try {
+      const result = await revealPhone.mutateAsync(joinRequestId);
+      setRevealed(result.phone);
+    } catch (revealFailure) {
+      // 열람 한도(429)·권한(403) 문구가 상황마다 다르다 — 서버 메시지를 그대로 남긴다.
+      setRevealError(extractErrorMessage(revealFailure) ?? '연락처를 불러오지 못했어요');
+    }
+  }
+
+  async function copy() {
+    if (revealed === null) return;
+    setRevealError(null);
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(revealed);
+      setCopied(true);
+      if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setRevealError('복사에 실패했어요');
+    }
+  }
+
+  // 번호가 없는 요청자는 서버가 phoneMasked 를 null 로 내린다 — 열람 버튼 없이 빈 값만.
+  if (!phoneMasked) return <span className="text-charcoal-3">{EMPTY}</span>;
+
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <span className="inline-flex flex-wrap items-center justify-end gap-2">
+        <span className="tabular-nums">{revealed ?? phoneMasked}</span>
+        {revealed === null && (
+          // 44px 히트는 -my-2 로 되돌려 dl 행 높이 증가를 최소화한다(ApplicantPhoneValue 전례).
+          <button
+            type="button"
+            onClick={reveal}
+            disabled={revealPhone.isPending}
+            className="-my-2 inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink disabled:opacity-60"
+          >
+            {revealPhone.isPending && <ButtonSpinner />}번호 보기
+          </button>
+        )}
+        {revealed !== null && (
+          <button
+            type="button"
+            onClick={copy}
+            // 보이는 라벨이 복사 ↔ 복사됨 으로 바뀌므로 접근가능 이름도 같이 바꾼다.
+            aria-label={copied ? '연락처 복사됨' : '연락처 복사'}
+            className="-my-2 inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-charcoal-2 transition-colors hover:bg-sage-tint hover:text-ink"
+          >
+            {copied ? '복사됨' : '복사'}
+          </button>
+        )}
+      </span>
+      {revealError && <span className="text-xs text-coral">{revealError}</span>}
+    </span>
   );
 }
 
