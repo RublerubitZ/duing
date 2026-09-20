@@ -13,6 +13,7 @@ import { useAuthStore } from '@duing/stores';
 import type { BookingStatus, CreateFacilityBookingResult } from '@duing/types';
 import { formatPhone } from '@/app/_components/PhoneInput';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { loginReturnHref } from '@/app/_lib/loginReturnHref';
 import { toRoute } from '@/app/_lib/route';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -93,11 +94,7 @@ export function BookingForm({
   }
 
   if (authStatus !== 'authenticated') {
-    // 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute).
-    const loginHref: `/${string}` =
-      typeof window === 'undefined'
-        ? '/login'
-        : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    const loginHref = loginReturnHref();
     return (
       <div className="space-y-3 text-sm text-charcoal-2">
         <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>

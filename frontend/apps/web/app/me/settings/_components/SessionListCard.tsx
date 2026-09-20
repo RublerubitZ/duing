@@ -13,6 +13,7 @@ import type { MySession, SessionPlatform } from '@duing/types';
 
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
@@ -101,7 +102,10 @@ export function SessionListCard() {
 
   const handleLogoutAll = () => {
     logoutAllMutation.mutate(undefined, {
-      onSuccess: () => router.replace('/'),
+      onSuccess: () => {
+        clearOperatorLocalState();
+        router.replace('/');
+      },
       onError: (logoutError) =>
         addToast(sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'), { variant: 'error' }),
     });

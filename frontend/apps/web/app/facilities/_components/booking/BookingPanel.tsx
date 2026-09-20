@@ -2,6 +2,7 @@
 
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import Link from 'next/link';
+import { loginReturnHref } from '@/app/_lib/loginReturnHref';
 import { toRoute } from '@/app/_lib/route';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -16,13 +17,6 @@ import { BookingSuccess } from './BookingSuccess';
 import { DayBookingOverview } from './DayBookingOverview';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
-
-// 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute). BookingForm 과 같은 규칙.
-function guestLoginHref(): `/${string}` {
-  return typeof window === 'undefined'
-    ? '/login'
-    : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-}
 
 export type PanelStep = 'slots' | 'form' | 'success';
 
@@ -130,7 +124,7 @@ export function BookingPanel({
           {isGuest && (
             <div className="border-line bg-paper text-charcoal-2 space-y-3 rounded-lg border px-4 py-3 text-sm">
               <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
-              <Link href={toRoute(guestLoginHref())} className="btn btn-primary inline-flex">
+              <Link href={toRoute(loginReturnHref())} className="btn btn-primary inline-flex">
                 로그인하기
               </Link>
             </div>
