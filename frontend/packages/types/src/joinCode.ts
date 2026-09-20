@@ -92,9 +92,18 @@ export type JoinRequestSummary = {
 };
 
 export type JoinRequestDetail = JoinRequestSummary & {
-  phone: string;
+  /** 마스킹된 번호(010-****-5678). 번호가 없으면 null이고, 원본은 joinCodes.getRequestPhone 이 감사 행과 함께 반환한다. */
+  phoneMasked: string | null;
   rejectReason: string | null;
   reviewedAt: IsoInstantString | null;
+};
+
+/**
+ * 운영진이 명시적으로 조회한 가입 요청자의 원본 연락처. 상세(JoinRequestDetail)는 phoneMasked 만 제공하며,
+ * 원본은 전용 API 응답으로만 존재한다(지원자 ApplicantPhone·부원 ClubMemberPhone 과 같은 규약).
+ */
+export type JoinRequestPhone = {
+  phone: string;
 };
 
 /**

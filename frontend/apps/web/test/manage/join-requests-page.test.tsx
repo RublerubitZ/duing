@@ -108,13 +108,15 @@ describe('가입 요청 페이지 — 목록', () => {
 });
 
 describe('가입 요청 페이지 — 상세와 단건 처리', () => {
-  it('상세를 열면 전화번호가 노출되고 승인하면 목록이 갱신된다', async () => {
+  // 상세 응답에는 마스킹만 담긴다 — 원본은 [번호 보기] 로 열람 API(감사 기록)를 거쳐야 나온다.
+  it('상세를 열면 마스킹만 보이고 번호 보기로 원본을 받아오며 승인하면 목록이 갱신된다', async () => {
     let remaining = [...pendingFixture];
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(remaining)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
-        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
       ),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1/phone`, () => json({ phone: '010-1234-5678' })),
       http.patch(`*/clubs/${CLUB_ID}/join-requests/1`, () => {
         remaining = remaining.filter((each) => each.joinRequestId !== 1);
         return json({ result: 'APPROVED' });
@@ -125,7 +127,13 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     await userEvent.click(await screen.findByRole('button', { name: '홍길동 상세' }));
 
     const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
-    expect(within(panel).getByText('010-1234-5678')).toBeInTheDocument();
+    expect(within(panel).getByText('010-****-5678')).toBeInTheDocument();
+    expect(within(panel).queryByText('010-1234-5678')).not.toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole('button', { name: '번호 보기' }));
+
+    expect(await within(panel).findByText('010-1234-5678')).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
 
     await userEvent.click(within(panel).getByRole('button', { name: '승인' }));
 
@@ -133,11 +141,53 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     expect(mockAddToast).toHaveBeenCalledWith('가입 요청을 승인했습니다.');
   });
 
+  it('번호 열람이 한도를 넘으면 서버 문구를 그대로 보여주고 마스킹을 유지한다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
+      ),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1/phone`, () =>
+        HttpResponse.json(
+          { ok: false, message: '전화번호 열람이 너무 잦습니다. 잠시 후 다시 시도해주세요.', data: null },
+          { status: 429 },
+        ),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '홍길동 상세' }));
+    const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
+    await userEvent.click(within(panel).getByRole('button', { name: '번호 보기' }));
+
+    expect(
+      await within(panel).findByText('전화번호 열람이 너무 잦습니다. 잠시 후 다시 시도해주세요.'),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText('010-****-5678')).toBeInTheDocument();
+  });
+
+  // 번호 없는 요청자는 서버가 phoneMasked 를 null 로 내린다 — 열람 버튼 없이 빈 값만.
+  it('번호가 없는 요청(phoneMasked null)은 빈 값만 보이고 번호 보기 버튼이 없다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
+      http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
+        json({ ...pendingFixture[0], phoneMasked: null, rejectReason: null, reviewedAt: null }),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '홍길동 상세' }));
+
+    const panel = await screen.findByRole('complementary', { name: '홍길동 상세' });
+    expect(within(panel).getByText('—')).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: '번호 보기' })).not.toBeInTheDocument();
+  });
+
   it('이미 가입된 부원이라 자동 거절되면 그 사실을 구분해 안내한다', async () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
-        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
       ),
       http.patch(`*/clubs/${CLUB_ID}/join-requests/1`, () => json({ result: 'AUTO_REJECTED' })),
     );
@@ -156,7 +206,7 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
-        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
       ),
       http.patch(`*/clubs/${CLUB_ID}/join-requests/1`, () => json({ result: 'AUTO_REJECTED_WITHDRAWN' })),
     );
@@ -175,7 +225,7 @@ describe('가입 요청 페이지 — 상세와 단건 처리', () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
-        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
       ),
       http.patch(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
         HttpResponse.json(
@@ -206,7 +256,7 @@ describe('가입 요청 페이지 — 자동 승인 표시', () => {
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
         json({
           ...autoApproved,
-          phone: '010-1234-5678',
+          phoneMasked: '010-****-5678',
           rejectReason: null,
           reviewedAt: '2026-08-01T02:00:05Z',
         }),
@@ -228,7 +278,7 @@ describe('가입 요청 페이지 — 자동 승인 표시', () => {
     server.use(
       http.get(`*/clubs/${CLUB_ID}/join-requests`, () => json(pendingFixture)),
       http.get(`*/clubs/${CLUB_ID}/join-requests/1`, () =>
-        json({ ...pendingFixture[0], phone: '010-1234-5678', rejectReason: null, reviewedAt: null }),
+        json({ ...pendingFixture[0], phoneMasked: '010-****-5678', rejectReason: null, reviewedAt: null }),
       ),
     );
     renderPage();

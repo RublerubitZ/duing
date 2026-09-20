@@ -17,6 +17,7 @@ import {
   useCreateJoinRequestMutation,
   useDecideJoinRequestMutation,
   useJoinRequestDetailQuery,
+  useJoinRequestPhoneMutation,
   useJoinRequestsQuery,
   useRevokeClubInviteCodeMutation,
   useRevokeJoinCodeMutation,
@@ -116,8 +117,16 @@ const server = setupServer(
     HttpResponse.json({
       ok: true,
       message: null,
-      data: { ...pendingRequest, phone: '010-1234-5678', rejectReason: null, reviewedAt: null },
+      data: {
+        ...pendingRequest,
+        phoneMasked: '010-****-5678',
+        rejectReason: null,
+        reviewedAt: null,
+      },
     }),
+  ),
+  http.get('*/clubs/10/join-requests/41/phone', () =>
+    HttpResponse.json({ ok: true, message: null, data: { phone: '010-1234-5678' } }),
   ),
   http.patch('*/clubs/10/join-requests/bulk-approve', async ({ request }) => {
     lastBulkBody = await request.json();
@@ -330,14 +339,32 @@ describe('가입 요청 훅', () => {
     expect(queryClient.getQueryData(clubQueryKeys.joinRequests(10, 'PENDING'))).toBeUndefined();
   });
 
-  it('상세 조회는 전화번호를 포함한다', async () => {
+  it('상세 조회는 마스킹된 번호만 담는다 — 원본은 전용 열람 API 뿐이다', async () => {
     const queryClient = newQueryClient();
     const { result } = renderHook(() => useJoinRequestDetailQuery(10, 41), {
       wrapper: makeWrapper(queryClient),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.phone).toBe('010-1234-5678');
+    expect(result.current.data?.phoneMasked).toBe('010-****-5678');
+  });
+
+  // 원본 번호가 쿼리 캐시에 남지 않도록 mutation 으로 받는다 — 캐시에 들어갔는지 키로 확인한다.
+  it('번호 열람은 원본을 반환하고 쿼리 캐시에 남기지 않는다', async () => {
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useJoinRequestPhoneMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    let revealed: string | undefined;
+    await act(async () => {
+      revealed = (await result.current.mutateAsync(41)).phone;
+    });
+
+    expect(revealed).toBe('010-1234-5678');
+    expect(
+      queryClient.getQueryCache().getAll().some((query) => JSON.stringify(query.queryKey).includes('phone')),
+    ).toBe(false);
   });
 
   it('joinRequestId 가 없으면 상세를 조회하지 않는다', () => {

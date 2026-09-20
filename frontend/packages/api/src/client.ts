@@ -33,6 +33,7 @@ import type {
   JoinRequestStatus,
   JoinRequestSummary,
   JoinRequestDetail,
+  JoinRequestPhone,
   DecideJoinRequestPayload,
   JoinRequestDecisionResponse,
   BulkApproveJoinRequestsPayload,
@@ -306,8 +307,10 @@ export type DuingApiClient = {
     // 이미 폐기된 링크도 204(멱등). 없는 링크·모집 링크·타 동아리 링크는 404(열거 차단).
     revokeClubInvite(clubId: number, joinCodeId: number): Promise<void>;
     listRequests(clubId: number, status: JoinRequestStatus): Promise<JoinRequestSummary[]>;
-    // 전화번호는 이 상세 응답에만 담긴다(목록에는 없음).
+    // 전화번호는 마스킹(phoneMasked)으로만 담긴다 — 목록에는 아예 없고, 원본은 getRequestPhone 뿐이다.
     getRequestDetail(clubId: number, joinRequestId: number): Promise<JoinRequestDetail>;
+    // 원본 번호 열람. 서버가 감사 행을 남기고 분당 열람 한도를 소모하므로 사용자가 요청한 순간에만 호출한다.
+    getRequestPhone(clubId: number, joinRequestId: number): Promise<JoinRequestPhone>;
     // 승인 요청이라도 이미 가입된 회원이면 AUTO_REJECTED 로 돌아오므로 204 가 아닌 본문을 읽는다.
     decideRequest(
       clubId: number,
@@ -954,6 +957,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       getRequestDetail: (clubId, joinRequestId) =>
         jsonOk<JoinRequestDetail>(http.get(`clubs/${clubId}/join-requests/${joinRequestId}`)),
+      getRequestPhone: (clubId, joinRequestId) =>
+        jsonOk<JoinRequestPhone>(
+          http.get(`clubs/${clubId}/join-requests/${joinRequestId}/phone`),
+        ),
       decideRequest: (clubId, joinRequestId, payload) =>
         jsonOk<JoinRequestDecisionResponse>(
           http.patch(`clubs/${clubId}/join-requests/${joinRequestId}`, { json: payload }),

@@ -222,6 +222,7 @@ export {
   useRevokeClubInviteCodeMutation,
   useJoinRequestsQuery,
   useJoinRequestDetailQuery,
+  useJoinRequestPhoneMutation,
   useDecideJoinRequestMutation,
   useBulkApproveJoinRequestsMutation,
   useJoinCodeCheckQuery,
