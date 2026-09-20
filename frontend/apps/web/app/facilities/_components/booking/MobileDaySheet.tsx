@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import Link from 'next/link';
 import { bookingDateLabel } from '@/app/_lib/bookingDisplay';
+import { loginReturnHref } from '@/app/_lib/loginReturnHref';
 import { toRoute } from '@/app/_lib/route';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -22,13 +23,6 @@ import { BookingSuccess } from './BookingSuccess';
 import type { PanelStep } from './BookingPanel';
 import { DaySlotList } from './DaySlotList';
 import { PanelStepIndicator } from './PanelStepIndicator';
-
-// 로그인 후 현재 딥링크(?facilityId=&date=)로 복귀시킨다(next 검증은 로그인 쪽 toLinkRoute). BookingPanel 과 같은 규칙.
-function guestLoginHref(): `/${string}` {
-  return typeof window === 'undefined'
-    ? '/login'
-    : `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-}
 
 type Facility = { id: number; roomName: string };
 
@@ -155,7 +149,7 @@ export function MobileDaySheet({
             {isGuest && (
               <div className="mb-3 space-y-3 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2">
                 <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
-                <Link href={toRoute(guestLoginHref())} className="btn btn-primary inline-flex">로그인하기</Link>
+                <Link href={toRoute(loginReturnHref())} className="btn btn-primary inline-flex">로그인하기</Link>
               </div>
             )}
             <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
