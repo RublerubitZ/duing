@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFacilitySubmissionApi {
 
-    @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 31일.")
+    @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 62일.")
     @GetMapping("/admin/facility-bookings/submission/candidates")
     ResponseEntity<ApiResponse<SubmissionCandidatesResponse>> getCandidates(
             @Parameter(description = "시설(생략 시 전 시설)") @RequestParam(required = false) Long facilityId,

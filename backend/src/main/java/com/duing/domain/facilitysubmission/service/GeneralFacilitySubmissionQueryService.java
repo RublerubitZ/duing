@@ -52,7 +52,8 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     private static final List<BookingStatus> CANDIDATE_STATUSES = List.of(
             BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED,
             BookingStatus.CONFLICT, BookingStatus.CANCELLED);
-    private static final int MAX_PERIOD_DAYS = 31;
+    /** 제출 준비 기본 기간 "오늘~다음 달 말일"(최대 62일)을 한 번에 조회할 수 있어야 한다(콘솔 UX 스펙 A1). */
+    private static final int MAX_PERIOD_DAYS = 62;
 
     private final FacilityBookingRepository bookingRepository;
     private final FacilitySubmissionItemRepository itemRepository;

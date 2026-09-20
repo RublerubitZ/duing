@@ -177,24 +177,24 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
     }
 
     @Test
-    @DisplayName("조회 기간이 31일을 넘거나 역순이면 400 예외가 발생한다")
+    @DisplayName("조회 기간이 62일을 넘거나 역순이면 400 예외가 발생하고, 62일(이번 달 1일~다음 달 말일 최대)은 허용된다")
     void invalidPeriodRejects() {
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                facility.getId(), baseDate, baseDate.plusDays(31), null)))
+                facility.getId(), baseDate, baseDate.plusDays(62), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
                 facility.getId(), baseDate, baseDate.minusDays(1), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
         assertThatCode(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                facility.getId(), baseDate, baseDate.plusDays(30), null)))
+                facility.getId(), baseDate, baseDate.plusDays(61), null)))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("전 시설 조회에서도 기간 상한 검증이 동일하게 적용된다")
+    @DisplayName("전 시설 조회에서도 기간 상한(62일) 검증이 동일하게 적용된다")
     void invalidPeriodRejectsWhenFacilityOmitted() {
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                null, baseDate, baseDate.plusDays(31), null)))
+                null, baseDate, baseDate.plusDays(62), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
     }
 
