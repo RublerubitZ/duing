@@ -67,6 +67,7 @@ export function PurposeNote({ children }: { children: ReactNode }) {
       {collapsed ? (
         <button
           type="button"
+          aria-expanded={!collapsed}
           className="flex-1 text-left font-semibold text-ink underline-offset-2 hover:underline"
           onClick={() => writeCollapsed(false)}
         >
@@ -77,6 +78,7 @@ export function PurposeNote({ children }: { children: ReactNode }) {
           <div className="flex-1">{children}</div>
           <button
             type="button"
+            aria-expanded={!collapsed}
             className="shrink-0 text-xs font-semibold text-charcoal-3 hover:text-ink"
             onClick={() => writeCollapsed(true)}
           >

@@ -17,9 +17,11 @@ describe('PurposeNote', () => {
     const { rerender, unmount } = render(<PurposeNote>예약을 검토해 승인 또는 거절해요.</PurposeNote>);
 
     expect(screen.getByText('예약을 검토해 승인 또는 거절해요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '접기' })).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(screen.getByRole('button', { name: '접기' }));
 
     expect(screen.queryByText('예약을 검토해 승인 또는 거절해요.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '화면 안내 보기' })).toHaveAttribute('aria-expanded', 'false');
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('1');
 
     rerender(<PurposeNote>다른 탭 안내</PurposeNote>);
