@@ -19,11 +19,13 @@ const NEXT_OPEN_DATE = '2026-08-20';
 const CLOSE_DATE = '2026-08-31';
 
 // 행 현재값 셀은 원본 ISO 를 잇고(관리자는 연도까지 확인한다), 다이얼로그는 M.d 로 줄여 보여준다.
-const windowCell = (open: string, close: string | null) => (close === null ? `${open} ~` : `${open} ~ ${close}`);
+// 마감일이 없으면 상한(익월 말일)까지라는 뜻을 글자로 적는다(#22) — 신규 운영진이 "~" 만 보고 헤매지 않게.
+const windowCell = (open: string, close: string | null) =>
+  close === null ? `${open} ~ 익월 말일` : `${open} ~ ${close}`;
 const monthDay = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 function windowLabel(open: string | null, close: string | null): string {
   if (open === null) return '닫힘';
-  return close === null ? `${monthDay(open)} ~` : `${monthDay(open)} ~ ${monthDay(close)}`;
+  return close === null ? `${monthDay(open)} ~ 익월 말일` : `${monthDay(open)} ~ ${monthDay(close)}`;
 }
 
 const INITIAL_FACILITIES: AdminFacility[] = [
@@ -101,7 +103,7 @@ describe('FacilityOpenDateTab', () => {
 
     expect(await screen.findByText('공연장')).toBeInTheDocument();
     expect(screen.getByText('학생회관 1층')).toBeInTheDocument();
-    // 마감일 없는 시설은 뒤를 비워 "상한(익월 말일)까지" 를 뜻한다.
+    // 마감일 없는 시설은 "익월 말일" 로 상한을 글자로 보여준다.
     expect(screen.getByRole('cell', { name: windowCell(CURRENT_OPEN_DATE, null) })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: windowCell(CURRENT_OPEN_DATE, CLOSE_DATE) })).toBeInTheDocument();
     expect(screen.getByText('세미나실')).toBeInTheDocument();

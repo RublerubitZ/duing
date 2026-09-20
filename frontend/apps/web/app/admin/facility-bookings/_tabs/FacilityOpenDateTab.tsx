@@ -37,10 +37,12 @@ type PendingChange =
     }
   | { scope: 'all'; facilityCount: number; after: WindowValue };
 
-/** 다이얼로그용 창 표기 — 마감일이 없으면 뒤를 비워 "상한(익월 말일)까지"를 뜻한다. */
+const OPEN_ENDED_CLOSE_LABEL = '익월 말일';
+
+/** 창 표기 — 마감일이 없으면 상한(익월 말일)까지라는 뜻을 글자로 적는다(#22). */
 function windowLabel({ open, close }: WindowValue): string {
   if (open === null) return CLOSED_LABEL;
-  return close === null ? `${monthDayLabel(open)} ~` : `${monthDayLabel(open)} ~ ${monthDayLabel(close)}`;
+  return `${monthDayLabel(open)} ~ ${close === null ? OPEN_ENDED_CLOSE_LABEL : monthDayLabel(close)}`;
 }
 
 /** 전체 적용 확인창의 "이전" — 시설마다 값이 달라 한 창으로 못 적으니 무엇을 덮어쓰는지 집계로 보여준다(#21). */
@@ -238,7 +240,7 @@ export function FacilityOpenDateTab() {
                   const currentText =
                     current.open === null
                       ? CLOSED_LABEL
-                      : `${current.open} ~${current.close === null ? '' : ` ${current.close}`}`;
+                      : `${current.open} ~ ${current.close ?? OPEN_ENDED_CLOSE_LABEL}`;
                   const changed =
                     draft.open !== (current.open ?? '') || draft.close !== (current.close ?? '');
                   return (
