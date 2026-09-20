@@ -54,6 +54,12 @@ public interface AdminFacilitySubmissionApi {
     ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
             @Parameter(description = "파생 상태 필터(생략 시 전체)") @RequestParam(required = false)
             SubmissionBatchStatusFilter status,
+            @Parameter(description = "제출번호·메모·동아리명 부분 일치(대소문자 무시, 공백만이면 무필터)")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "생성일 하한(YYYY-MM-DD, KST, 포함)") @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @Parameter(description = "생성일 상한(YYYY-MM-DD, KST, 당일 포함)") @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
             @Parameter(hidden = true) Pageable pageable);
 
     @Operation(summary = "Batch 상세", description = "취소된 Batch 도 조회 가능. 조회 감사(VIEWED)를 남긴다.")

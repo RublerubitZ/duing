@@ -1,7 +1,10 @@
 package com.duing.domain.facilitysubmission.controller;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -28,6 +31,7 @@ import io.restassured.http.ContentType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -126,6 +130,34 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 .when().get(SUBMISSION_PATH)
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.content", notNullValue());
+    }
+
+    @Test
+    @DisplayName("배치 목록은 q(메모 키워드)와 submittedFrom/To(생성일 범위) 쿼리 파라미터로 걸러진다")
+    void batchListSupportsKeywordAndDateRangeParams() {
+        FacilityBooking memoTarget = approvedBooking(9);
+        Integer memoBatchId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("bookingIds", List.of(memoTarget.getId()), "memo", "인수 KEYWORD 메모"))
+                .when().post(SUBMISSION_PATH)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().path("data.batchId");
+        FacilityBooking plainTarget = approvedBooking(11);
+        Integer plainBatchId = createBatch(plainTarget);
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?q=keyword")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", hasItem(memoBatchId))
+                .body("data.content.batchId", not(hasItem(plainBatchId)));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?submittedFrom=" + today + "&submittedTo=" + today)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", hasItems(memoBatchId, plainBatchId));
     }
 
     @Test
