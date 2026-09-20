@@ -569,6 +569,20 @@ describe('SubmissionBatchesTab', () => {
     expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
   });
 
+  it('공백만 입력하면 q 를 보내지 않고 조건 빈 상태 문구도 쓰지 않는다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([]));
+    render(<SubmissionBatchesTab />);
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '   ' } });
+
+    // BE 가 trim 해 무필터가 되는 요청이라 FE 도 필터 없음으로 본다 — q 결측·일반 빈 상태 문구.
+    await waitFor(() => {
+      const lastParams = mockBatchesQuery.mock.calls.at(-1)?.[0];
+      expect(lastParams).toEqual(expect.not.objectContaining({ q: expect.any(String) }));
+    });
+    expect(screen.queryByText('조건에 맞는 제출 목록이 없어요')).not.toBeInTheDocument();
+    expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
   it('필터 전환 중(placeholder)에는 이전 표를 딤 처리한 채 유지한다', () => {
     mockBatchesQuery.mockReturnValue({ ...listSuccess([makeBatch()]), isPlaceholderData: true });
     render(<SubmissionBatchesTab />);

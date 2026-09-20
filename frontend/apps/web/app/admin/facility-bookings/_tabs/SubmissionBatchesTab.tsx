@@ -61,8 +61,9 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
   const [keyword, setKeyword] = useState('');
   const [submittedFrom, setSubmittedFrom] = useState('');
   const [submittedTo, setSubmittedTo] = useState('');
-  const deferredKeyword = useDeferredValue(keyword);
-  const hasFilter = keyword !== '' || submittedFrom !== '' || submittedTo !== '';
+  // 공백만 친 검색어는 BE 가 trim 해 무필터가 되므로 FE 도 필터 없음으로 본다(크롤 탭 동일) — q 결측·일반 빈 상태.
+  const deferredKeyword = useDeferredValue(keyword).trim();
+  const hasFilter = keyword.trim() !== '' || submittedFrom !== '' || submittedTo !== '';
   const orUndefined = (value: string) => (value === '' ? undefined : value);
   const resetFilters = () => {
     setKeyword('');
