@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -37,10 +37,16 @@ vi.mock('@/app/me/settings/_components/SessionListCard', () => ({ SessionListCar
 
 import { SettingsPage } from '@/app/me/settings/_pages/SettingsPage';
 
+// 로그아웃 후 이동은 window.location.replace(하드 이동)다 — jsdom 은 Location 을 재정의할 수 없어 전역을 스텁한다.
+const hardReplaceSpy = vi.fn();
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy }));
+afterAll(() => vi.unstubAllGlobals());
+
 describe('SettingsPage logout', () => {
   beforeEach(() => {
     mockLogout.mockReset();
     mockReplace.mockReset();
+    hardReplaceSpy.mockClear();
   });
 
   // 계정 카드는 "한 번 더 확인 후 진행"이라고 안내한다 — 버튼이 바로 세션을 끊으면 안내와 어긋난다.
@@ -59,7 +65,7 @@ describe('SettingsPage logout', () => {
 
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
     expect(mockLogout).not.toHaveBeenCalled();
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
     // 취소는 설정 화면을 그대로 둔다.
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
 
@@ -68,7 +74,7 @@ describe('SettingsPage logout', () => {
       within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }),
     );
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 
@@ -91,10 +97,10 @@ describe('SettingsPage logout', () => {
     await confirmLogout();
 
     expect(await screen.findByText(/로그아웃하지 못했습니다/)).toBeInTheDocument();
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
 
     await confirmLogout();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
     expect(mockLogout).toHaveBeenCalledTimes(2);
   });
 });
