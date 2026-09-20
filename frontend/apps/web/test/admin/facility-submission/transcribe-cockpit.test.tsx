@@ -135,6 +135,16 @@ describe('TranscribeCockpitPage', () => {
     expect(screen.getByText((_, el) => el?.textContent === '전체 0/2건 작성 완료')).toBeInTheDocument();
   });
 
+  it('완료 확인 Dialog 가 열린 동안 Enter 는 작성 완료를 토글하지 않는다', () => {
+    renderCockpit();
+    fireEvent.click(screen.getByRole('button', { name: '완료 처리' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Dialog 본문(비버튼)에 포커스가 있어도 배경의 현재 건이 작성 완료로 바뀌면 안 된다.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
+    expect(screen.getByText((_, el) => el?.textContent === '전체 0/2건 작성 완료')).toBeInTheDocument();
+  });
+
   it('sessionStorage 에 진행이 남아 있으면 재진입 시 복원한다', () => {
     window.sessionStorage.setItem('duing:transcribe:7', JSON.stringify([1, 2]));
     renderCockpit();

@@ -73,6 +73,8 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Enter') return;
+      // 완료 확인·결과 Dialog 가 열려 있으면 Enter 는 Dialog 의 몫 — 배경의 현재 건을 작성 완료로 바꾸지 않는다.
+      if (batchActions.completeOpen || batchActions.completeResult !== null) return;
       const target = event.target;
       if (
         target instanceof HTMLElement &&
