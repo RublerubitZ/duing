@@ -73,8 +73,8 @@ jobs:
       - name: Build (test 결과 재사용)
         run: ./gradlew build -x test --no-daemon
 
-      - name: Upload test + build reports on failure
-        if: failure()
+      - name: Upload test + build reports
+        if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: backend-build-reports
