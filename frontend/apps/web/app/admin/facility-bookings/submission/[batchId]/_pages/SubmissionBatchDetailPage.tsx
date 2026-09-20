@@ -5,16 +5,13 @@ import Link from 'next/link';
 import {
   formatDateKst,
   useCancelSubmissionBatchMutation,
-  useCompleteSubmissionBatchMutation,
-  useDownloadSubmissionCsvMutation,
   useSubmissionBatchDetailQuery,
 } from '@duing/hooks';
-import type { CompleteSubmissionBatchResult, SubmissionCandidateBooking } from '@duing/types';
+import type { SubmissionCandidateBooking } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { StatusPill } from '@/app/_components/StatusPill';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { toRoute } from '@/app/_lib/route';
-import { downloadBlobFile } from '@/app/_lib/downloadFile';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ViewModeToggle, type SubmissionViewMode } from '../../../_components/ViewModeToggle';
 import { ButtonSpinner } from '@/components/loading/Spinner';
@@ -31,9 +28,9 @@ import {
   batchFacilityLabel,
   batchTitle,
   deriveBatchStatus,
-  submissionCsvFileName,
   type SubmissionBatchStatus,
 } from '../../_lib/submissionBatches';
+import { useSubmissionBatchActions } from '../../_lib/useSubmissionBatchActions';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
 import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 
@@ -64,12 +61,6 @@ function cancelErrorMessage(error: unknown): string {
   return '제출 목록 취소에 실패했어요. 잠시 후 다시 시도해 주세요.';
 }
 
-/** 완료 실패도 서버 메시지 우선(409 기취소·기완료 안내), 없으면 폴백. */
-function completeErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message !== '') return error.message;
-  return '학교 제출 완료에 실패했어요. 잠시 후 다시 시도해 주세요.';
-}
-
 /**
  * 제출 목록 상세(스펙 v3 §7.3) — 한 배치의 포함 예약(동아리별 그룹·시간표)과 운영 기록을 읽기 전용으로 보여주고,
  * REVIEWING 배치에 한해 완료/취소 액션을 노출한다(CSV 는 전 상태). 취소 성공 시 목록 탭으로 돌아간다.
@@ -77,15 +68,12 @@ function completeErrorMessage(error: unknown): string {
 export function SubmissionBatchDetailPage({ batchId }: Props) {
   const detailQuery = useSubmissionBatchDetailQuery(batchId);
   const cancelMutation = useCancelSubmissionBatchMutation();
-  const completeMutation = useCompleteSubmissionBatchMutation();
-  const csvMutation = useDownloadSubmissionCsvMutation();
   const { addToast } = useToast();
+  const batchActions = useSubmissionBatchActions();
   const router = useGuardedRouter();
 
   const [view, setView] = useState<SubmissionViewMode>('list');
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [completeOpen, setCompleteOpen] = useState(false);
-  const [completeResult, setCompleteResult] = useState<CompleteSubmissionBatchResult | null>(null);
   const [detailBooking, setDetailBooking] = useState<SubmissionCandidateBooking | null>(null);
 
   const detail = detailQuery.data;
@@ -102,16 +90,6 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
     [detail],
   );
 
-  const handleDownloadCsv = async () => {
-    if (detail === undefined) return;
-    try {
-      const csvBlob = await csvMutation.mutateAsync({ batchId });
-      downloadBlobFile(submissionCsvFileName(detail.batch.submissionNo), csvBlob);
-    } catch {
-      addToast('CSV 다운로드에 실패했어요. 잠시 후 다시 시도해 주세요.', { variant: 'error' });
-    }
-  };
-
   const handleCancelConfirm = async () => {
     try {
       await cancelMutation.mutateAsync({ batchId });
@@ -121,18 +99,6 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
       router.replace(ARCHIVE_ROUTE);
     } catch (error) {
       addToast(cancelErrorMessage(error), { variant: 'error' });
-    }
-  };
-
-  const handleCompleteConfirm = async () => {
-    try {
-      const result = await completeMutation.mutateAsync({ batchId });
-      setCompleteOpen(false);
-      // 스킵 0 은 토스트로 마무리, 스킵 있으면 결과 Dialog(제외 목록)를 연다 — 목록 탭 동일 분기.
-      if (result.skippedCount === 0) addToast('학교 제출이 완료되었습니다.');
-      else setCompleteResult(result);
-    } catch (error) {
-      addToast(completeErrorMessage(error), { variant: 'error' });
     }
   };
 
@@ -215,10 +181,10 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  disabled={csvMutation.isPending}
-                  onClick={() => void handleDownloadCsv()}
+                  disabled={batchActions.isDownloading}
+                  onClick={() => void batchActions.downloadCsv(detail.batch)}
                 >
-                  {csvMutation.isPending && <ButtonSpinner />}
+                  {batchActions.isDownloading && <ButtonSpinner />}
                   CSV
                 </button>
                 {status === 'REVIEWING' && (
@@ -226,7 +192,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    onClick={() => setCompleteOpen(true)}
+                    onClick={() => batchActions.setCompleteOpen(true)}
                   >
                     완료 처리
                   </button>
@@ -338,15 +304,15 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
         onClose={() => setCancelOpen(false)}
       />
       <BatchCompleteDialog
-        batch={completeOpen && detail !== undefined ? detail.batch : null}
-        isPending={completeMutation.isPending}
-        onConfirm={() => void handleCompleteConfirm()}
-        onClose={() => setCompleteOpen(false)}
+        batch={batchActions.completeOpen && detail !== undefined ? detail.batch : null}
+        isPending={batchActions.isCompleting}
+        onConfirm={() => void batchActions.confirmComplete(batchId)}
+        onClose={() => batchActions.setCompleteOpen(false)}
       />
       <BatchCompleteResultDialog
-        result={completeResult}
+        result={batchActions.completeResult}
         bookingsById={bookingsById}
-        onClose={() => setCompleteResult(null)}
+        onClose={() => batchActions.setCompleteResult(null)}
       />
     </main>
   );
