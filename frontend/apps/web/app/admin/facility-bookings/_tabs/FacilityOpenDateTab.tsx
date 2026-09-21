@@ -10,7 +10,6 @@ import {
 import type { AdminFacility } from '@duing/types';
 
 import { Skeleton } from '@/components/loading/Skeleton';
-import { monthDayLabel } from '@/app/facilities/_lib/bookingHome';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
 import { ErrorState } from '../../_components/ErrorState';
@@ -37,10 +36,25 @@ type PendingChange =
     }
   | { scope: 'all'; facilityCount: number; after: WindowValue };
 
-/** 다이얼로그용 창 표기 — 마감일이 없으면 뒤를 비워 "상한(익월 말일)까지"를 뜻한다. */
+const OPEN_ENDED_CLOSE_LABEL = '익월 말일';
+
+/** 창 표기 — 표 셀과 확인창이 같은 ISO 표기를 쓴다(관리자는 연도까지 확인한다). 마감일이 없으면 상한(익월 말일)까지라는 뜻을 글자로 적는다(#22). */
 function windowLabel({ open, close }: WindowValue): string {
   if (open === null) return CLOSED_LABEL;
-  return close === null ? `${monthDayLabel(open)} ~` : `${monthDayLabel(open)} ~ ${monthDayLabel(close)}`;
+  return `${open} ~ ${close ?? OPEN_ENDED_CLOSE_LABEL}`;
+}
+
+/** 전체 적용 확인창의 "이전" — 시설마다 값이 달라 한 창으로 못 적으니 무엇을 덮어쓰는지 집계로 보여준다(#21). */
+function windowSummary(facilities: AdminFacility[]): string {
+  let openCount = 0;
+  let closeSpecifiedCount = 0;
+  for (const facility of facilities) {
+    if (facility.bookingOpenDate === null) continue;
+    openCount += 1;
+    if (facility.bookingCloseDate !== null) closeSpecifiedCount += 1;
+  }
+  const base = `열림 ${openCount} · 닫힘 ${facilities.length - openCount}`;
+  return closeSpecifiedCount > 0 ? `${base} (마감 지정 ${closeSpecifiedCount})` : base;
 }
 
 const toWindowValue = (draft: WindowDraft): WindowValue => ({
@@ -224,11 +238,6 @@ export function FacilityOpenDateTab() {
                     open: facility.bookingOpenDate,
                     close: facility.bookingCloseDate,
                   };
-                  // 현재값 셀만 원본 ISO 를 잇는다 — 관리자는 연도까지 확인한다(다이얼로그는 M.d 로 줄인다).
-                  const currentText =
-                    current.open === null
-                      ? CLOSED_LABEL
-                      : `${current.open} ~${current.close === null ? '' : ` ${current.close}`}`;
                   const changed =
                     draft.open !== (current.open ?? '') || draft.close !== (current.close ?? '');
                   return (
@@ -240,7 +249,7 @@ export function FacilityOpenDateTab() {
                         {facility.location ?? '—'}
                       </td>
                       <td className="whitespace-nowrap py-[13px] pr-3.5 tabular-nums text-[13px] text-charcoal">
-                        {currentText}
+                        {windowLabel(current)}
                       </td>
                       <td className="py-[13px] pr-3.5">
                         <div className="flex items-center gap-1.5">
@@ -318,7 +327,7 @@ export function FacilityOpenDateTab() {
               ? `활성 시설 ${pendingChange.facilityCount}개`
               : pendingChange.roomName
           }
-          before={pendingChange.scope === 'all' ? '여러 값' : windowLabel(pendingChange.before)}
+          before={pendingChange.scope === 'all' ? windowSummary(facilities) : windowLabel(pendingChange.before)}
           after={windowLabel(pendingChange.after)}
           isPending={
             pendingChange.scope === 'all' ? allMutation.isPending : facilityMutation.isPending

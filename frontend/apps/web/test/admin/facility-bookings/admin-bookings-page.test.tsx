@@ -11,7 +11,7 @@ const mockRefetch = vi.fn();
 const mockSummaryRefetch = vi.fn();
 const mockQueueQuery = vi.fn();
 const mockSummaryQuery = vi.fn();
-const mockUsageQuery = vi.fn();
+const mockFacilityListQuery = vi.fn();
 const mockReplace = vi.fn();
 let mockTabParam: string | null = null;
 
@@ -23,7 +23,6 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminFacilityBookingQueueQuery: (...args: unknown[]) => mockQueueQuery(...args),
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
-  useFacilityUsageQuery: () => mockUsageQuery(),
   // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
   useSubmissionCandidatesQuery: (...args: unknown[]) => {
     mockCandidatesQuery(...args);
@@ -51,7 +50,8 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
     isError: false,
     refetch: vi.fn(),
   }),
-  useFacilityListQuery: () => ({ data: [] }),
+  // 검토 탭 시설 필터·크롤 탭 시설 셀렉트가 함께 쓰는 활성 시설 목록(#20 통일).
+  useFacilityListQuery: () => mockFacilityListQuery(),
   // open 탭(FacilityOpenDateTab)이 마운트되면 호출되는 훅 — 빈 목록 성공(탭 내부는 facility-open-date-tab.test 가 격리 검증).
   useAdminFacilitiesQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
   useUpdateFacilityBookingOpenDateMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -161,9 +161,9 @@ describe('AdminFacilityBookingsPage', () => {
     mockSummaryRefetch.mockReset();
     mockQueueQuery.mockReset();
     mockSummaryQuery.mockReset();
-    mockUsageQuery.mockReset();
+    mockFacilityListQuery.mockReset();
     mockSummaryQuery.mockReturnValue({ data: makeCounts(), isError: false, refetch: mockSummaryRefetch });
-    mockUsageQuery.mockReturnValue({ data: undefined });
+    mockFacilityListQuery.mockReturnValue({ data: undefined });
     mockQueueQuery.mockReturnValue(makeQueueSuccess([]));
   });
 
@@ -186,6 +186,20 @@ describe('AdminFacilityBookingsPage', () => {
   it('스테퍼 "제출 준비" 건수는 준비 탭 기본 기간(오늘~다음 달 말일)으로 조회한다', () => {
     render(<AdminFacilityBookingsPage />);
     expect(mockCandidatesQuery).toHaveBeenCalledWith(defaultSubmissionRange());
+  });
+
+  it('검토 탭 시설 필터는 활성 시설 목록 훅의 응답으로 옵션을 만든다', () => {
+    mockFacilityListQuery.mockReturnValue({
+      data: [
+        { id: 100, roomName: '세미나실', location: null },
+        { id: 101, roomName: '공연장', location: '학생회관' },
+      ],
+    });
+    render(<AdminFacilityBookingsPage />);
+
+    const facilitySelect = screen.getByRole('combobox', { name: '시설 필터' });
+    expect(within(facilitySelect).getByRole('option', { name: '세미나실' })).toHaveValue('100');
+    expect(within(facilitySelect).getByRole('option', { name: '공연장' })).toHaveValue('101');
   });
 
   it('탭 클릭은 URL 을 replace 로 동기화한다', () => {
@@ -527,7 +541,8 @@ describe('AdminFacilityBookingsPage', () => {
   });
   it('방문한 탭은 hidden 으로 남아 필터가 유지되고, 미방문 탭은 DOM 에 없다 (keep-alive, 스펙 E1)', () => {
     // 검토 탭 시설 셀렉트에 고를 수 있는 시설을 준다(기본 mock 은 data: undefined → '전체 시설'만).
-    mockUsageQuery.mockReturnValue({ data: { facilities: [{ id: 100, roomName: '세미나실' }] } });
+    // #1231(D) 이 검토 탭 시설 필터를 usage → useFacilityListQuery 로 교체해 목록 훅을 시드한다.
+    mockFacilityListQuery.mockReturnValue({ data: [{ id: 100, roomName: '세미나실', location: null }] });
     const { rerender } = render(<AdminFacilityBookingsPage />);
 
     fireEvent.change(screen.getByRole('combobox', { name: '시설 필터' }), { target: { value: '100' } });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -195,5 +195,71 @@ describe('FacilityCrawlTab', () => {
     await waitFor(() =>
       expect(requestedParams.some((params) => params.facilityId === '10')).toBe(true),
     );
+  });
+
+  it('단체명 검색어를 입력하면 q 파라미터로 재조회하고 페이지가 0으로 돌아가며, 지우면 q 를 보내지 않는다', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('고정관념');
+
+    const searchInput = screen.getByRole('searchbox', { name: '단체명 검색' });
+    await user.type(searchInput, ' 고정 ');
+
+    await waitFor(() => expect(requestedParams.some((params) => params.q === '고정')).toBe(true));
+    const searchedRequest = requestedParams.find((params) => params.q === '고정');
+    expect(searchedRequest?.page).toBe('0');
+
+    await user.clear(searchInput);
+    await waitFor(() => {
+      const lastRequest = requestedParams[requestedParams.length - 1];
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest?.q).toBeUndefined();
+    });
+  });
+
+  it('그룹이 두 페이지 이상이면 공용 페이지네이션이 뜨고 "다음"이 page=1 로 재조회하며, 한 페이지면 뜨지 않는다', async () => {
+    server.use(
+      http.get('*/admin/facility-crawl/reservations', ({ request }) => {
+        const url = new URL(request.url);
+        requestedParams.push(Object.fromEntries(url.searchParams.entries()));
+        return HttpResponse.json({
+          ok: true,
+          data: { ...GROUP_PAGE, totalElements: 12, totalPages: 2, hasNext: true },
+          message: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+    // 로딩 중에는 응답 전이라 건수(총 0개 그룹)를 그리지 않는다
+    expect(screen.queryByText(/총 \d+개 그룹/)).not.toBeInTheDocument();
+    await screen.findByText('고정관념');
+
+    const pagination = screen.getByRole('navigation', { name: '크롤 예약 페이지' });
+    expect(within(pagination).getByText('1–10 / 12건')).toBeInTheDocument();
+    await user.click(within(pagination).getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(requestedParams.some((params) => params.page === '1')).toBe(true));
+    unmount();
+
+    server.resetHandlers();
+    renderPage();
+    await screen.findByText('고정관념');
+    expect(screen.queryByRole('navigation', { name: '크롤 예약 페이지' })).not.toBeInTheDocument();
+    expect(screen.getByText(/총 \d+개 그룹/)).toBeInTheDocument(); // 한 페이지여도 건수는 남긴다
+  });
+
+  it('조회 월은 지난 달·이번 달·다음 달 3개이고, 지난 달을 고르면 직전 월로 재조회한다', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('고정관념');
+
+    const monthGroup = screen.getByRole('group', { name: '조회 월' });
+    expect(within(monthGroup).getAllByRole('button')).toHaveLength(3);
+    const previousMonthButton = within(monthGroup).getByRole('button', { name: /^지난 달 \(\d{4}-\d{2}\)$/ });
+    const previousMonth = previousMonthButton.textContent?.match(/\d{4}-\d{2}/)?.[0];
+    await user.click(previousMonthButton);
+
+    await waitFor(() => expect(requestedParams.some((params) => params.yearMonth === previousMonth)).toBe(true));
+    expect(requestedParams.find((params) => params.yearMonth === previousMonth)?.page).toBe('0');
   });
 });
