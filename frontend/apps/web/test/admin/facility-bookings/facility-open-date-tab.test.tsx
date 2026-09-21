@@ -18,14 +18,12 @@ const CURRENT_OPEN_DATE = '2026-08-01';
 const NEXT_OPEN_DATE = '2026-08-20';
 const CLOSE_DATE = '2026-08-31';
 
-// 행 현재값 셀은 원본 ISO 를 잇고(관리자는 연도까지 확인한다), 다이얼로그는 M.d 로 줄여 보여준다.
-// 마감일이 없으면 상한(익월 말일)까지라는 뜻을 글자로 적는다(#22) — 신규 운영진이 "~" 만 보고 헤매지 않게.
+// 행 현재값 셀과 다이얼로그가 같은 원본 ISO 표기를 쓴다(관리자는 연도까지 확인한다) — 다이얼로그만 M.d 로
+// 줄이던 표기는 표와 어긋나 보여 ISO 로 통일했다. 마감일이 없으면 상한(익월 말일)까지라는 뜻을 글자로 적는다(#22).
 const windowCell = (open: string, close: string | null) =>
   close === null ? `${open} ~ 익월 말일` : `${open} ~ ${close}`;
-const monthDay = (iso: string) => `${Number(iso.slice(5, 7))}.${Number(iso.slice(8, 10))}`;
 function windowLabel(open: string | null, close: string | null): string {
-  if (open === null) return '닫힘';
-  return close === null ? `${monthDay(open)} ~ 익월 말일` : `${monthDay(open)} ~ ${monthDay(close)}`;
+  return open === null ? '닫힘' : windowCell(open, close);
 }
 
 const INITIAL_FACILITIES: AdminFacility[] = [
