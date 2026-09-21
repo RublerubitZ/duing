@@ -62,6 +62,5 @@ export function useSubmissionBatchActions({ onCompleted }: Options = {}) {
     downloadCsv,
     isCompleting: completeMutation.isPending,
     isDownloading: csvMutation.isPending,
-    downloadingBatchId: csvMutation.variables?.batchId ?? null,
   };
 }

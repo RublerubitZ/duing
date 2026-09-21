@@ -241,6 +241,8 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                     ? (batch.submittedByName ?? '-')
                     : `${batch.submissionNo} · ${batch.submittedByName ?? '-'}`;
                 const ageDays = status === 'REVIEWING' ? batchAgeDays(batch.submittedAt, now) : null;
+                const downloadingThisRow =
+                  csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId;
                 return (
                   <tr
                     key={batch.batchId}
@@ -307,21 +309,15 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                           </button>
                         )}
                         {/* 같은 batchId 중복 발사·CSV_DOWNLOADED 중복 기록만 막으면 되므로 비활성·스피너 모두 해당 행에만(감사 #16). */}
-                        {(() => {
-                          const downloadingThisRow =
-                            csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId;
-                          return (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              disabled={downloadingThisRow}
-                              onClick={() => void handleDownloadCsv(batch)}
-                            >
-                              {downloadingThisRow && <ButtonSpinner />}
-                              CSV
-                            </button>
-                          );
-                        })()}
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={downloadingThisRow}
+                          onClick={() => void handleDownloadCsv(batch)}
+                        >
+                          {downloadingThisRow && <ButtonSpinner />}
+                          CSV
+                        </button>
                         {/* 진행 중(REVIEWING)은 전사 콕핏(제출 정보 보기)이 주 진입점이고, 운영 기록·시간표를 보는
                             읽기 전용 상세도 함께 연다(감사 #14). 완료·취소는 상세만. */}
                         {status === 'REVIEWING' && (
