@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   formatDateKst,
@@ -56,10 +56,32 @@ function batchCompleteErrorMessage(error: unknown): string {
  */
 export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: SubmissionBatchStatusFilter }) {
   const [page, setPage] = useState(0);
+  // 검색(감사 #15) — 제출번호·메모·동아리명 부분 일치 + 생성일 범위. 검색어는 useDeferredValue 로 타이핑 중
+  // 요청을 늦추고(React 19 내장, 별도 디바운스 훅 불필요), 빈 값은 undefined 로 넘겨 쿼리키·쿼리스트링에서 뺀다.
+  const [keyword, setKeyword] = useState('');
+  const [submittedFrom, setSubmittedFrom] = useState('');
+  const [submittedTo, setSubmittedTo] = useState('');
+  // 공백만 친 검색어는 BE 가 trim 해 무필터가 되므로 FE 도 필터 없음으로 본다(크롤 탭 동일) — q 결측·일반 빈 상태.
+  const deferredKeyword = useDeferredValue(keyword).trim();
+  const hasFilter = keyword.trim() !== '' || submittedFrom !== '' || submittedTo !== '';
+  const orUndefined = (value: string) => (value === '' ? undefined : value);
+  const resetFilters = () => {
+    setKeyword('');
+    setSubmittedFrom('');
+    setSubmittedTo('');
+    setPage(0);
+  };
   const [cancelTarget, setCancelTarget] = useState<SubmissionBatchSummary | null>(null);
   const [completeTarget, setCompleteTarget] = useState<SubmissionBatchSummary | null>(null);
   const [completeResult, setCompleteResult] = useState<CompleteSubmissionBatchResult | null>(null);
-  const batchesQuery = useSubmissionBatchesQuery({ page, size: PAGE_SIZE, status: statusFilter });
+  const batchesQuery = useSubmissionBatchesQuery({
+    page,
+    size: PAGE_SIZE,
+    status: statusFilter,
+    q: orUndefined(deferredKeyword),
+    submittedFrom: orUndefined(submittedFrom),
+    submittedTo: orUndefined(submittedTo),
+  });
   const cancelMutation = useCancelSubmissionBatchMutation();
   const completeMutation = useCompleteSubmissionBatchMutation();
   const csvMutation = useDownloadSubmissionCsvMutation();
@@ -120,6 +142,45 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
     <div className="space-y-4">
       {/* 목업 CCard — 테이블·빈 상태·페이지네이션을 한 카드가 감싼다. */}
       <ConsoleCard>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
+        <input
+          type="search"
+          aria-label="제출 목록 검색"
+          placeholder="제출번호·메모·동아리명"
+          value={keyword}
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            setPage(0);
+          }}
+          className="w-full max-w-xs rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+        />
+        <input
+          type="date"
+          aria-label="생성일 시작"
+          value={submittedFrom}
+          onChange={(event) => {
+            setSubmittedFrom(event.target.value);
+            setPage(0);
+          }}
+          className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+        />
+        <input
+          type="date"
+          aria-label="생성일 종료"
+          value={submittedTo}
+          onChange={(event) => {
+            setSubmittedTo(event.target.value);
+            setPage(0);
+          }}
+          className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+        />
+        {hasFilter && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>
+            필터 초기화
+          </button>
+        )}
+      </div>
+
       {batchesQuery.isLoading && <LoadingGate className="min-h-0 py-8" label="제출 목록 불러오는 중" />}
 
       {!batchesQuery.isLoading && batchesQuery.isError && (
@@ -132,20 +193,29 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
       )}
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length === 0 && (
-        <EmptyState
-          icon="📄"
-          title={statusFilter === 'REVIEWING' ? '진행 중인 제출 목록이 없어요' : '아직 만든 제출 목록이 없어요'}
-          body="'제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
-          action={
-            <Link href={toRoute('/admin/facility-bookings?tab=prepare')} className="btn btn-secondary btn-sm">
-              제출 준비로 이동
-            </Link>
-          }
-        />
+        hasFilter ? (
+          // 초기화 버튼은 바로 위 필터 행에 이미 있다(같은 카드) — 여기서 한 번 더 두면 같은 이름 버튼이 둘이 된다.
+          <EmptyState icon="🔍" title="조건에 맞는 제출 목록이 없어요" body="검색어·생성일 범위를 넓혀보세요." />
+        ) : (
+          <EmptyState
+            icon="📄"
+            title={statusFilter === 'REVIEWING' ? '진행 중인 제출 목록이 없어요' : '아직 만든 제출 목록이 없어요'}
+            body="'제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
+            action={
+              <Link href={toRoute('/admin/facility-bookings?tab=prepare')} className="btn btn-secondary btn-sm">
+                제출 준비로 이동
+              </Link>
+            }
+          />
+        )
       )}
 
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length > 0 && (
-        <div className="overflow-x-auto">
+        /* keepPreviousData 전환 중(검색·기간·페이지 변경)에는 이전 목록이 남는다 — 딤으로 "갱신 전 데이터" 신호(회비 콘솔 #906 전례). 필터 행은 딤 밖. */
+        <div
+          aria-busy={batchesQuery.isPlaceholderData}
+          className={`overflow-x-auto ${batchesQuery.isPlaceholderData ? 'opacity-60 transition-opacity' : ''}`}
+        >
           <table className="w-full min-w-[60rem] text-left text-sm">
             <thead>
               <tr className="bg-graysoft text-[11.5px] font-bold tracking-[0.03em] text-charcoal-3">
@@ -171,6 +241,8 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                     ? (batch.submittedByName ?? '-')
                     : `${batch.submissionNo} · ${batch.submittedByName ?? '-'}`;
                 const ageDays = status === 'REVIEWING' ? batchAgeDays(batch.submittedAt, now) : null;
+                const downloadingThisRow =
+                  csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId;
                 return (
                   <tr
                     key={batch.batchId}
@@ -236,36 +308,32 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                             완료 처리
                           </button>
                         )}
+                        {/* 같은 batchId 중복 발사·CSV_DOWNLOADED 중복 기록만 막으면 되므로 비활성·스피너 모두 해당 행에만(감사 #16). */}
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          disabled={csvMutation.isPending}
+                          disabled={downloadingThisRow}
                           onClick={() => void handleDownloadCsv(batch)}
                         >
-                          {/* 동일 batchId 중복 발사·CSV_DOWNLOADED 중복 기록 방지 — 뮤테이션 하나를 표 전체 CSV 버튼이 공유하므로 비활성은 전역이되,
-                              스피너는 실제 내려받는 행에만 둔다(모든 행이 함께 도는 것처럼 보이지 않게). */}
-                          {csvMutation.isPending && csvMutation.variables?.batchId === batch.batchId && (
-                            <ButtonSpinner />
-                          )}
+                          {downloadingThisRow && <ButtonSpinner />}
                           CSV
                         </button>
-                        {/* 진행 중(REVIEWING)은 전사 콕핏(제출 정보 보기)으로, 완료·취소는 읽기 전용 상세로 진입한다.
-                            콕핏은 학교 양식 전사 화면이라 진행 중 배치의 주 업무 진입점이다. */}
-                        {status === 'REVIEWING' ? (
+                        {/* 진행 중(REVIEWING)은 전사 콕핏(제출 정보 보기)이 주 진입점이고, 운영 기록·시간표를 보는
+                            읽기 전용 상세도 함께 연다(감사 #14). 완료·취소는 상세만. */}
+                        {status === 'REVIEWING' && (
                           <Link
                             href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}/transcribe`)}
                             className="btn btn-ghost btn-sm"
                           >
                             제출 정보 보기
                           </Link>
-                        ) : (
-                          <Link
-                            href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
-                            className="btn btn-ghost btn-sm"
-                          >
-                            상세
-                          </Link>
                         )}
+                        <Link
+                          href={toRoute(`/admin/facility-bookings/submission/${batch.batchId}`)}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          상세
+                        </Link>
                         {status === 'REVIEWING' && (
                           <>
                             {/* 파괴적 동작(취소)은 구분선으로 갈라 낮은 위계로 둔다 — 주 흐름 버튼과 섞이지 않게. */}
