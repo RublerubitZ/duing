@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCreateSubmissionBatchMutation, useSubmissionCandidatesQuery } from '@duing/hooks';
-import type { SubmissionCandidateBooking, SubmissionCandidatesParams } from '@duing/types';
+import type { SubmissionCandidateBooking, SubmissionSummaryCounts } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { toRoute } from '../../../_lib/route';
@@ -34,7 +34,7 @@ import { buildClubSections, buildFacilitySections, deriveSelectedIds, summarizeC
 const MAX_PERIOD_DAYS = 62;
 
 // 기간 프리셋(스펙 §2.2 B1) — 클릭 = 두 date 입력을 동시에 세팅. 라벨이 접근성 이름이다.
-const PERIOD_PRESETS: { label: string; range: () => { startDate: string; endDate: string } }[] = [
+const PERIOD_PRESETS: { label: string; range: () => SubmissionDateRange }[] = [
   { label: '이번 달', range: currentMonthRange },
   { label: '다음 달', range: nextMonthRange },
   { label: '이번+다음 달', range: currentAndNextMonthRange },
@@ -118,8 +118,7 @@ export function SubmissionPrepareTab() {
 
   const periodInvalid = !isValidPeriod(startDate, endDate);
   // 전 시설 조회 — facilityId 는 생략(BE §5.1 v3). 항상 마지막 유효 기간으로 조회한다.
-  const candidatesParams: SubmissionCandidatesParams = lastValidRange;
-  const candidatesQuery = useSubmissionCandidatesQuery(candidatesParams);
+  const candidatesQuery = useSubmissionCandidatesQuery(lastValidRange);
 
   const allBookings = candidatesQuery.data?.bookings ?? [];
   const keyword = clubKeyword.trim();
@@ -132,9 +131,10 @@ export function SubmissionPrepareTab() {
       : allBookings.filter((booking) => (booking.clubName ?? `동아리 ${booking.clubId}`).includes(keyword));
   const visibleBookings = searchedBookings.filter((booking) => matchesFilter(booking, summaryFilter));
   // 검색 중엔 카드 숫자도 화면 기준(스펙 §2.2 B3) — 검색어 없으면 서버 summary 그대로(같은 4규칙이라 값 동일).
-  const summaryCounts = candidatesQuery.data
-    ? keyword === '' ? candidatesQuery.data.summary : summarizeCandidates(searchedBookings)
-    : null;
+  let summaryCounts: SubmissionSummaryCounts | null = null;
+  if (candidatesQuery.data) {
+    summaryCounts = keyword === '' ? candidatesQuery.data.summary : summarizeCandidates(searchedBookings);
+  }
   const sections = buildFacilitySections(visibleBookings);
   const selectedIdSet = new Set(deriveSelectedIds(visibleBookings, excludedIds));
   // 배치=동아리 단위(v2 스펙 §4) — 선택 분해도 화면과 같은 동아리 기준. 시설 섹션은 시간표 뷰 전용으로 남는다.
@@ -160,8 +160,8 @@ export function SubmissionPrepareTab() {
   // 현재 조회 기간 안인 것만 "실제 사라진 예약"으로 보고 정리한다 — 기간 밖 예약은 기간 변경으로 숨겨진 것.
   // 새 기간 로딩 중(data 없음)에는 판정하지 않는다 — 빈 결과를 소실로 오판해 기간 안 제외를 지우지 않도록.
   // (레포의 useEffect 금지는 데이터 패칭 한정 — 페이지 클램프 전례와 같은 상태 정리 용도)
-  const periodStart = candidatesParams.startDate;
-  const periodEnd = candidatesParams.endDate;
+  const periodStart = lastValidRange.startDate;
+  const periodEnd = lastValidRange.endDate;
   const serverIdsKey = candidatesQuery.isSuccess
     ? allBookings.map((booking) => booking.bookingId).sort((left, right) => left - right).join(',')
     : null;
