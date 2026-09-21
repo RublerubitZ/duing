@@ -49,7 +49,8 @@ public interface AdminFacilitySubmissionApi {
 
     @Operation(summary = "제출 이력", description = "취소된 Batch 포함 최신순 페이지네이션. "
             + "status 필터는 파생 상태(REVIEWING=진행 중, COMPLETED=완료, CANCELLED=취소, "
-            + "ARCHIVED=완료+취소 이력) 기준.")
+            + "ARCHIVED=완료+취소 이력) 기준. q 는 제출번호·메모·동아리명 부분 일치, "
+            + "submittedFrom/submittedTo 는 생성일(KST 일 단위, 종료일 포함) 범위.")
     @GetMapping("/admin/facility-bookings/submission")
     ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
             @Parameter(description = "파생 상태 필터(생략 시 전체)") @RequestParam(required = false)
