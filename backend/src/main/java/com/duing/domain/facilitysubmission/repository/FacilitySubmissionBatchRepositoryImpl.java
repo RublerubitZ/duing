@@ -25,22 +25,26 @@ public class FacilitySubmissionBatchRepositoryImpl implements FacilitySubmission
     @Override
     public Page<FacilitySubmissionBatch> search(SubmissionBatchSearchCondition condition, Pageable pageable) {
         List<FacilitySubmissionBatch> content = queryFactory.selectFrom(facilitySubmissionBatch)
-                .where(statusMatches(condition.status()),
-                        keywordMatches(condition.q()),
-                        submittedOnOrAfter(condition.submittedFrom()),
-                        submittedBefore(condition.submittedTo()))
+                .where(searchPredicates(condition))
                 .orderBy(facilitySubmissionBatch.id.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
         Long total = queryFactory.select(facilitySubmissionBatch.count())
                 .from(facilitySubmissionBatch)
-                .where(statusMatches(condition.status()),
-                        keywordMatches(condition.q()),
-                        submittedOnOrAfter(condition.submittedFrom()),
-                        submittedBefore(condition.submittedTo()))
+                .where(searchPredicates(condition))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    /** 목록·카운트 쿼리 공용 검색 술어 — null 항목은 QueryDSL where 가 무시한다. */
+    private BooleanExpression[] searchPredicates(SubmissionBatchSearchCondition condition) {
+        return new BooleanExpression[] {
+                statusMatches(condition.status()),
+                keywordMatches(condition.q()),
+                submittedOnOrAfter(condition.submittedFrom()),
+                submittedBefore(condition.submittedTo())
+        };
     }
 
     /**
