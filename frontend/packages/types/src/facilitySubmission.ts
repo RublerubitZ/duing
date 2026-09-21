@@ -26,6 +26,8 @@ export type SubmissionCandidateBooking = {
   submitted: boolean;
   selectable: boolean;
   submissionNo: string | null;
+  // 활성 배치 id(BE §5.1 additive, 2026-09-21) — 제출번호를 배치 상세 링크로 만든다. 구 응답 결측·미제출 null 은 평문 폴백.
+  submissionBatchId?: number | null;
   decidedByName: string | null;
   decidedAt: string | null;
 };

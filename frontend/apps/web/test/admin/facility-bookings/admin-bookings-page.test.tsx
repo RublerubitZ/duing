@@ -16,6 +16,7 @@ const mockReplace = vi.fn();
 let mockTabParam: string | null = null;
 
 const mockBatchesListQuery = vi.fn();
+const mockCandidatesQuery = vi.fn();
 
 // 큐 테이블이 쓰는 formatDateTimeKst 등 순수 유틸은 실제 구현을 유지한다(batches-tab 테스트 동일 패턴).
 vi.mock('@duing/hooks', async (importOriginal) => ({
@@ -24,7 +25,10 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
   useFacilityUsageQuery: () => mockUsageQuery(),
   // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
-  useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
+  useSubmissionCandidatesQuery: (...args: unknown[]) => {
+    mockCandidatesQuery(...args);
+    return { data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() };
+  },
   useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // batches 탭·셸 건수 조회가 호출하는 훅 — 인자를 스파이로 남기고 빈 목록 성공을 돌려준다.
   useSubmissionBatchesQuery: (...args: unknown[]) => {
@@ -84,6 +88,7 @@ vi.mock('@/app/admin/facility-bookings/_components/AdminBookingDetailModal', () 
 }));
 
 /* ── 대상 ───────────────────────────────────────────────────── */
+import { defaultSubmissionRange } from '../../../app/admin/facility-bookings/_lib/submissionPeriod';
 import { AdminFacilityBookingsPage } from '../../../app/admin/facility-bookings/_pages/AdminFacilityBookingsPage';
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
@@ -176,6 +181,11 @@ describe('AdminFacilityBookingsPage', () => {
     expect(mockBatchesListQuery).toHaveBeenCalledWith({ page: 0, size: 1, status: 'REVIEWING' });
     // 기본 탭 = 기존 관리 화면(요약 카드 렌더) — '오늘 접수'는 승인 대기 카드에만 있어 큐 필터 탭 라벨과 겹치지 않는다.
     expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
+  });
+
+  it('스테퍼 "제출 준비" 건수는 준비 탭 기본 기간(오늘~다음 달 말일)으로 조회한다', () => {
+    render(<AdminFacilityBookingsPage />);
+    expect(mockCandidatesQuery).toHaveBeenCalledWith(defaultSubmissionRange());
   });
 
   it('탭 클릭은 URL 을 replace 로 동기화한다', () => {
