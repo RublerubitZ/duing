@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { formatDateKst } from '@duing/hooks';
 import type { SubmissionCandidateBooking } from '@duing/types';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submissionTimetable';
 import { buildClubSections } from '../_lib/submissionSections';
 import { bookingTimeLabel, slotTimeLabel } from '@/app/_lib/bookingDisplay';
+import { toRoute } from '@/app/_lib/route';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -114,7 +116,16 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                             </span>
                           </span>
                           {booking.submitted && booking.submissionNo !== null && (
-                            <span className="tabular-nums text-[10px] text-charcoal-3">{booking.submissionNo}</span>
+                            booking.submissionBatchId !== undefined && booking.submissionBatchId !== null ? (
+                              <Link
+                                href={toRoute(`/admin/facility-bookings/submission/${booking.submissionBatchId}`)}
+                                className="tabular-nums text-[10px] text-charcoal-3 underline underline-offset-2 hover:text-ink-deep"
+                              >
+                                {booking.submissionNo}
+                              </Link>
+                            ) : (
+                              <span className="tabular-nums text-[10px] text-charcoal-3">{booking.submissionNo}</span>
+                            )
                           )}
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShowDetail(booking)}>
                             상세

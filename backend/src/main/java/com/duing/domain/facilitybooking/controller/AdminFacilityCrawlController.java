@@ -30,10 +30,11 @@ public class AdminFacilityCrawlController implements AdminFacilityCrawlApi {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth,
             @RequestParam(required = false) Long facilityId,
             @RequestParam(required = false, defaultValue = "CLUB") AdminCrawlGroupBy groupBy,
+            @RequestParam(required = false) String q,
             Pageable pageable
     ) {
         Page<AdminCrawlReservationGroupResponse> page =
-                crawlAdminQueryService.getReservations(yearMonth, facilityId, groupBy, pageable);
+                crawlAdminQueryService.getReservations(yearMonth, facilityId, groupBy, q, pageable);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 }

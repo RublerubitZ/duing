@@ -122,6 +122,54 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getByText('비호응원단')).toBeInTheDocument();
   });
 
+  it('학교 선반영(OWN): 자기 동아리 이름의 학교 행은 충돌이 아니라 "반영" 칸으로 그리고 승인 안내를 보여준다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      overlaps: [{ source: 'OWN', organization: '재즈동아리', startTime: '18:00', endTime: '20:00' }],
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getAllByText('없음')).toHaveLength(3);
+    expect(screen.queryByText('충돌')).not.toBeInTheDocument();
+    expect(screen.getAllByText('반영')).toHaveLength(2); // 18시·19시 칸
+    expect(screen.getByText(/학교에 이미 동아리 이름으로 반영된 시간이에요/)).toBeInTheDocument();
+  });
+
+  it('학교 선반영(OWN): APPROVED 는 승인 버튼이 없으므로 자동 매칭 대기 안내로 바꿔 보여준다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      status: 'APPROVED',
+      overlaps: [{ source: 'OWN', organization: '재즈동아리', startTime: '18:00', endTime: '20:00' }],
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getByText(/다음 자동 매칭 주기\(10분 이내\)에 확정돼요/)).toBeInTheDocument();
+    expect(screen.queryByText(/거절하지 말고 승인하세요/)).not.toBeInTheDocument();
+  });
+
+  it('학교 선반영(OWN)과 타 단체(SCHOOL) 행이 같은 시각에 겹치면 그 칸은 "반영"이 아니라 "충돌"이다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      overlaps: [
+        { source: 'OWN', organization: '재즈동아리', startTime: '18:00', endTime: '20:00' },
+        { source: 'SCHOOL', organization: '문화팀', startTime: '19:00', endTime: '20:00' },
+      ],
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getByText('반영')).toBeInTheDocument(); // 18시
+    expect(screen.getByText('충돌')).toBeInTheDocument(); // 19시
+    expect(screen.getByText('⚠ 1건')).toBeInTheDocument(); // 학교 일정 겹침
+  });
+
+  it('학교 선반영(OWN): 확정 건은 안내 없이 "반영" 칸만 그린다', () => {
+    mockDetailQuery.current.data = makeDetail({
+      status: 'CONFIRMED',
+      overlaps: [{ source: 'OWN', organization: '재즈동아리', startTime: '18:00', endTime: '20:00' }],
+    });
+    render(<AdminBookingDetailModal bookingId={42} onClose={vi.fn()} />);
+
+    expect(screen.getAllByText('반영')).toHaveLength(2);
+    expect(screen.queryByText(/학교에 이미 동아리 이름으로 반영된 시간이에요/)).not.toBeInTheDocument();
+  });
+
   it('이전/다음 탐색: 이웃이 없으면 비활성, 있으면 onNavigate 로 이웃 예약을 연다', () => {
     mockDetailQuery.current.data = makeDetail();
     const onNavigate = vi.fn();

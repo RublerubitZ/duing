@@ -22,13 +22,15 @@ public interface AdminFacilityCrawlApi {
     @Operation(summary = "크롤 예약 현황 조회",
             description = "학교 크롤 예약을 정리 기준(동아리별 기본/시설별/시설+날짜별)에 따라 그룹 단위로 페이징 조회한다. "
                     + "동아리별 보기에도 미매칭 주체(학교 행사·부서·기관)가 별도 그룹으로 반드시 포함된다. "
-                    + "yearMonth 는 당월·익월만 허용(기본 당월). 차단 여부는 분류를 따른다 — "
+                    + "yearMonth 는 직전 월·당월·익월만 허용(기본 당월). q 로 단체명 검색. 차단 여부는 분류를 따른다 — "
                     + "CRAWLED_RESERVATION 은 차단, BASIC_SECURED_TIME 은 비차단(신청 가능)이다.")
     @GetMapping("/admin/facility-crawl/reservations")
     ResponseEntity<ApiResponse<PageResponse<AdminCrawlReservationGroupResponse>>> getCrawlReservations(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth,
             @RequestParam(required = false) Long facilityId,
             @RequestParam(required = false, defaultValue = "CLUB") AdminCrawlGroupBy groupBy,
+            @Parameter(description = "단체명 검색(정규화 부분 일치, 공백만이면 무필터). 동아리별 보기는 그룹 단위, 시설 보기는 행 단위로 거른다")
+            @RequestParam(required = false) String q,
             @Parameter(hidden = true) Pageable pageable
     );
 }

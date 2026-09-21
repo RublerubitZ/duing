@@ -235,4 +235,28 @@ class FacilityAvailabilityPolicyTest {
         assertThat(fromRows).isEqualTo(fromRepository).containsExactly(normalizer.normalize("고정관념"));
         verify(clubRepository, times(1)).findSecuredTargetNameRows(); // 무인자 호출 1회뿐 — 오버로드는 조회하지 않는다
     }
+
+    @Test
+    @DisplayName("자기 반영 행 — 예약 동아리와 정규화 이름이 같은 무꼬리 행만 자기 행이고, 물결 꼬리·타 단체·충돌 키(2개 이상 동아리 공유)·빈 이름은 자기 행이 아니다")
+    void ownReflectionRowRequiresExactNameAndUniqueKey() {
+        LocalDate date = LocalDate.of(2026, 1, 15);
+        FacilityReservation ownRow = crawlRow(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "고정 관념", false);
+        FacilityReservation tailRow = crawlRow(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "고정관념", true);
+        FacilityReservation otherRow = crawlRow(date, LocalTime.of(19, 0), LocalTime.of(20, 0), "문화팀", false);
+        String ownKey = normalizer.normalize("고정관념");
+
+        assertThat(policy.isOwnReflectionRow(ownRow, ownKey, Set.of())).isTrue();
+        assertThat(policy.isOwnReflectionRow(tailRow, ownKey, Set.of())).isFalse();
+        assertThat(policy.isOwnReflectionRow(otherRow, ownKey, Set.of())).isFalse();
+        assertThat(policy.isOwnReflectionRow(ownRow, ownKey, Set.of(ownKey))).isFalse();
+        assertThat(policy.isOwnReflectionRow(ownRow, "", Set.of())).isFalse();
+    }
+
+    @Test
+    @DisplayName("충돌 키 — 정규화 후 2개 이상 동아리가 공유하는 키만 모은다(빈 키 제외)")
+    void collidingClubKeysCollectsSharedNormalizedKeys() {
+        when(clubRepository.findAllNames()).thenReturn(List.of("밴드부", "밴드부(중앙)", "고정관념", "  "));
+
+        assertThat(policy.collidingClubKeys()).containsExactly("밴드부");
+    }
 }

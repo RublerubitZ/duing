@@ -5,15 +5,25 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, Copy } from 'lucide-react';
 
 import { useSubmissionBatchDetailQuery } from '@duing/hooks';
+import type { SubmissionCandidateBooking } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
+import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ConsoleCard } from '../../../../../_components/ConsoleCard';
+import { BatchCompleteDialog } from '../../../_components/BatchCompleteDialog';
+import { BatchCompleteResultDialog } from '../../../_components/BatchCompleteResultDialog';
 import { CopyField } from '../../../_components/CopyField';
 import { ClubRosterAccordion } from '../../../_components/ClubRosterAccordion';
 import { HWP_FIELDS, groupByFacility, toFormBlock, toTabLine } from '../../../_lib/hwpFields';
+import { batchTitle, deriveBatchStatus } from '../../../_lib/submissionBatches';
+import { useSubmissionBatchActions } from '../../../_lib/useSubmissionBatchActions';
 import { useTranscribeProgress } from '../../../_lib/useTranscribeProgress';
+
+// 완료 처리 후 복귀지 — 완료된 배치는 제출 이력 탭에 있다.
+const ARCHIVE_ROUTE = toRoute('/admin/facility-bookings?tab=archive');
 
 /**
  * HWP 전사 콕핏(항목 1·5) — 총동연 담당자가 승인된 예약을 학교 「시설물 사용 신청서」에 그대로 옮겨 쓰는 화면.
@@ -25,6 +35,22 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
   const bookings = useMemo(() => detailQuery.data?.bookings ?? [], [detailQuery.data]);
   const groups = useMemo(() => groupByFacility(bookings), [bookings]);
   const { written, markWritten, toggleWritten } = useTranscribeProgress(batchId);
+  const router = useGuardedRouter();
+  // 콕핏은 전 건 작성 후 바로 완료 처리까지 이어지는 화면이다(감사 #12) — 상세 페이지와 같은 훅.
+  // 스킵 0 은 즉시 이력 탭으로, 스킵 있으면 결과 Dialog 를 보여준 뒤 닫을 때 이동한다.
+  const batchActions = useSubmissionBatchActions({
+    onCompleted: (result) => {
+      if (result.skippedCount === 0) router.replace(ARCHIVE_ROUTE);
+    },
+  });
+
+  const batch = detailQuery.data?.batch;
+  const isReviewing = batch !== undefined && deriveBatchStatus(batch) === 'REVIEWING';
+  // 완료 결과 Dialog(제외 목록)의 예약일·동아리 라벨 소스 — 상세 페이지와 동일 규칙.
+  const bookingsById = useMemo<ReadonlyMap<number, SubmissionCandidateBooking> | null>(
+    () => (detailQuery.data === undefined ? null : new Map(bookings.map((booking) => [booking.bookingId, booking]))),
+    [detailQuery.data, bookings],
+  );
 
   const [facIdx, setFacIdx] = useState(0);
   const [cursor, setCursor] = useState(0);
@@ -47,6 +73,8 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Enter') return;
+      // 완료 확인·결과 Dialog 가 열려 있으면 Enter 는 Dialog 의 몫 — 배경의 현재 건을 작성 완료로 바꾸지 않는다.
+      if (batchActions.completeOpen || batchActions.completeResult !== null) return;
       const target = event.target;
       if (
         target instanceof HTMLElement &&
@@ -66,12 +94,39 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
 
   return (
     <main className="max-w-layout mx-auto space-y-4 px-4 py-8 sm:px-6 md:px-10">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Link href={backHref} className="btn btn-ghost btn-sm">
           <ArrowLeft size={15} />
           제출 대기로
         </Link>
-        <h1 className="text-xl text-ink-deep">제출 정보 보기</h1>
+        {/* 메모=제목 승격(개편 스펙 §7, 목록·상세와 동일) — 어느 제출 목록을 옮겨 쓰는지 헤더에서 확인한다(감사 #13). */}
+        <h1 className="text-xl text-ink-deep">{batch !== undefined ? batchTitle(batch) : '제출 정보 보기'}</h1>
+        {batch !== undefined && batchTitle(batch) !== batch.submissionNo && (
+          <span className="tabular-nums text-xs text-charcoal-3">{batch.submissionNo}</span>
+        )}
+        {/* 헤더 액션(감사 #12) — 작업 순서대로 CSV → 완료 처리. 완료는 REVIEWING 전용, CSV 는 전 상태(감사용 재다운로드). */}
+        {batch !== undefined && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={batchActions.isDownloading}
+              onClick={() => void batchActions.downloadCsv(batch)}
+            >
+              {batchActions.isDownloading && <ButtonSpinner />}
+              CSV
+            </button>
+            {isReviewing && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm bg-ink-deep hover:bg-ink"
+                onClick={() => batchActions.setCompleteOpen(true)}
+              >
+                완료 처리
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-md border border-line bg-sage-tint px-4 py-2.5 text-[13px] text-charcoal-2">
@@ -273,7 +328,10 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
                         >
                           {item.clubName ?? '—'}
                         </span>
-                        <span className="tabular-nums text-[10.5px] text-charcoal-3">{item.startTime}</span>
+                        {/* 배치=동아리 단위라 전 행이 같은 이름 — 날짜(MM/DD)+시간이 유일한 구분자다(감사 #4). */}
+                        <span className="tabular-nums text-[10.5px] text-charcoal-3">
+                          {item.reservationDate.slice(5).replace('-', '/')} {item.startTime}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -294,6 +352,22 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
           </ConsoleCard>
         </div>
       )}
+
+      {/* Dialog 는 쿼리 게이트 밖(페이지 레벨) — 완료 후 onSettled refetch 가 실패해도 결과 Dialog 가 사라지지 않게(상세 페이지 동일). */}
+      <BatchCompleteDialog
+        batch={batchActions.completeOpen && batch !== undefined ? batch : null}
+        isPending={batchActions.isCompleting}
+        onConfirm={() => void batchActions.confirmComplete(batchId)}
+        onClose={() => batchActions.setCompleteOpen(false)}
+      />
+      <BatchCompleteResultDialog
+        result={batchActions.completeResult}
+        bookingsById={bookingsById}
+        onClose={() => {
+          batchActions.setCompleteResult(null);
+          router.replace(ARCHIVE_ROUTE);
+        }}
+      />
     </main>
   );
 }

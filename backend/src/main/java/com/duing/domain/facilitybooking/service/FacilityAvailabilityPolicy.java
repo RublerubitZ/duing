@@ -87,6 +87,37 @@ public class FacilityAvailabilityPolicy {
     }
 
     /**
+     * 전체 동아리명 정규화 키 중 2개 이상 동아리가 공유하는 키 집합. "밴드부"·"밴드부(중앙)"이 정규화 후 같은
+     * 키로 붕괴하면 다른 단체 행을 자기 행으로 오인할 수 있어, 이런 키의 예약은 자동 확정(스케줄러)과
+     * 자기 반영 판정({@link #isOwnReflectionRow}) 모두 포기한다(fail-closed).
+     */
+    public Set<String> collidingClubKeys() {
+        Map<String, Long> keyCounts = clubRepository.findAllNames().stream()
+                .map(normalizer::normalize)
+                .filter(key -> !key.isEmpty())
+                .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
+        return keyCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() >= 2)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * 자기 반영 행 — 학교가 이 동아리 이름으로 등록한 실예약 행은 "타 단체가 막는다"가 아니라 "학교가 우리 예약을
+     * 반영했다"는 증거다(자동 확정 decide 와 같은 증거 기준: 정규화 이름 일치 + 물결 꼬리 제외). 승인 재검증과
+     * 관리자 상세가 이 행을 충돌로 세면, 학교에 먼저 제출·반영된 뒤 두잉 신청을 처리하는 운영 순서에서 승인이
+     * 409 로 막혀 거절로만 닫히게 된다(2026-09 운영 실태: 거절 58건 중 42건이 "학교 반영 완료" 사유).
+     * 충돌 키(2개 이상 동아리 공유)는 타 단체 행일 수 있어 자기 행으로 보지 않는다.
+     */
+    public boolean isOwnReflectionRow(FacilityReservation row, String normalizedClubName,
+            Set<String> collidingClubKeys) {
+        return !normalizedClubName.isEmpty()
+                && !row.isSecuredTail()
+                && !collidingClubKeys.contains(normalizedClubName)
+                && normalizer.normalize(row.getOrganizationName()).equals(normalizedClubName);
+    }
+
+    /**
      * 차단 점유행({@link #blockingOverlapping}) 중 정규화 이름이 {@code normalizedClubName} 과 불일치하는 행이
      * 있는가 — "타 단체가 같은 슬롯을 실제로 점유 중"이라는 이중 대관 신호. 관리자 큐의 conflictSuspected 와
      * 자동 확정 보류(FacilityBookingMatchingService.verifyAndConfirm)가 공유하는 단일 판정이다(P2-02) —

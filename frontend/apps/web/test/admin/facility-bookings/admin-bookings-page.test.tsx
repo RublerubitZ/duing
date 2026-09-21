@@ -16,6 +16,7 @@ const mockReplace = vi.fn();
 let mockTabParam: string | null = null;
 
 const mockBatchesListQuery = vi.fn();
+const mockCandidatesQuery = vi.fn();
 
 // 큐 테이블이 쓰는 formatDateTimeKst 등 순수 유틸은 실제 구현을 유지한다(batches-tab 테스트 동일 패턴).
 vi.mock('@duing/hooks', async (importOriginal) => ({
@@ -23,7 +24,10 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   useAdminFacilityBookingQueueQuery: (...args: unknown[]) => mockQueueQuery(...args),
   useAdminFacilityBookingSummaryQuery: () => mockSummaryQuery(),
   // prepare 탭(SubmissionPrepareTab)이 마운트되면 호출되는 훅 — 기본 탭 테스트에선 미사용이나 모킹을 채워둔다.
-  useSubmissionCandidatesQuery: () => ({ data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() }),
+  useSubmissionCandidatesQuery: (...args: unknown[]) => {
+    mockCandidatesQuery(...args);
+    return { data: undefined, isLoading: false, isSuccess: false, isError: false, refetch: vi.fn() };
+  },
   useCreateSubmissionBatchMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // batches 탭·셸 건수 조회가 호출하는 훅 — 인자를 스파이로 남기고 빈 목록 성공을 돌려준다.
   useSubmissionBatchesQuery: (...args: unknown[]) => {
@@ -84,6 +88,7 @@ vi.mock('@/app/admin/facility-bookings/_components/AdminBookingDetailModal', () 
 }));
 
 /* ── 대상 ───────────────────────────────────────────────────── */
+import { defaultSubmissionRange } from '../../../app/admin/facility-bookings/_lib/submissionPeriod';
 import { AdminFacilityBookingsPage } from '../../../app/admin/facility-bookings/_pages/AdminFacilityBookingsPage';
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
@@ -176,6 +181,11 @@ describe('AdminFacilityBookingsPage', () => {
     expect(mockBatchesListQuery).toHaveBeenCalledWith({ page: 0, size: 1, status: 'REVIEWING' });
     // 기본 탭 = 기존 관리 화면(요약 카드 렌더) — '오늘 접수'는 승인 대기 카드에만 있어 큐 필터 탭 라벨과 겹치지 않는다.
     expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
+  });
+
+  it('스테퍼 "제출 준비" 건수는 준비 탭 기본 기간(오늘~다음 달 말일)으로 조회한다', () => {
+    render(<AdminFacilityBookingsPage />);
+    expect(mockCandidatesQuery).toHaveBeenCalledWith(defaultSubmissionRange());
   });
 
   it('검토 탭 시설 필터는 활성 시설 목록 훅의 응답으로 옵션을 만든다', () => {
@@ -528,5 +538,52 @@ describe('AdminFacilityBookingsPage', () => {
     expect(mockQueueQuery).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'CONFIRMED', sort: 'USAGE_ASC', page: 0 }),
     );
+  });
+  it('방문한 탭은 hidden 으로 남아 필터가 유지되고, 미방문 탭은 DOM 에 없다 (keep-alive, 스펙 E1)', () => {
+    // 검토 탭 시설 셀렉트에 고를 수 있는 시설을 준다(기본 mock 은 data: undefined → '전체 시설'만).
+    // #1231(D) 이 검토 탭 시설 필터를 usage → useFacilityListQuery 로 교체해 목록 훅을 시드한다.
+    mockFacilityListQuery.mockReturnValue({ data: [{ id: 100, roomName: '세미나실', location: null }] });
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: '시설 필터' }), { target: { value: '100' } });
+    expect(screen.getByRole('combobox', { name: '시설 필터' })).toHaveValue('100');
+    // 미방문 탭(크롤)은 아직 DOM 에 없다.
+    expect(screen.queryByText('크롤 예약이 없어요')).not.toBeInTheDocument();
+
+    // 크롤 탭으로 이동(URL 변경을 rerender 로 재현) → 검토 패널은 hidden, 크롤 패널은 보임.
+    mockTabParam = 'crawl';
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByText('크롤 예약이 없어요')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: '시설 필터', hidden: true })).not.toBeVisible();
+
+    // 검토 탭 복귀 → 셀렉트 값이 남아 있고, 크롤 패널은 hidden 으로 잔존한다.
+    mockTabParam = null;
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByRole('combobox', { name: '시설 필터' })).toHaveValue('100');
+    expect(screen.getByText('크롤 예약이 없어요')).not.toBeVisible();
+    // 한 번도 안 간 탭(제출 준비)은 여전히 DOM 에 없다.
+    expect(screen.queryByRole('tabpanel', { name: /제출 준비/, hidden: true })).not.toBeInTheDocument();
+    // 탭 버튼 ↔ 패널 연결(접근성).
+    expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-controls', 'facility-ops-panel-review');
+    expect(screen.getByRole('tabpanel', { name: /예약 검토/ })).toHaveAttribute('id', 'facility-ops-panel-review');
+  });
+
+  it('검토 모달이 열린 채 히스토리로 탭이 바뀌면 모달이 닫힌다 — 포털이라 hidden 패널에 갇히지 않는다', () => {
+    mockQueueQuery.mockReturnValue(makeQueueSuccess([makeRow({ bookingId: 55 })]));
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    fireEvent.click(screen.getByText('두잉동아리'));
+    expect(screen.getByText('검토 모달 55')).toBeInTheDocument();
+
+    // 뒤로가기·딥링크로 ?tab=crawl 이 된 상황(URL 변경을 rerender 로 재현) → 검토 탭은 hidden, 모달은 사라진다.
+    mockTabParam = 'crawl';
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByText('크롤 예약이 없어요')).toBeVisible();
+    expect(screen.queryByText('검토 모달 55')).not.toBeInTheDocument();
+
+    // 검토 탭 복귀 후에도 모달은 다시 열리지 않는다(선택이 비워졌으므로).
+    mockTabParam = null;
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.queryByText('검토 모달 55')).not.toBeInTheDocument();
   });
 });

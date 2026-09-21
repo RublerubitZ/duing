@@ -26,6 +26,8 @@ export type SubmissionCandidateBooking = {
   submitted: boolean;
   selectable: boolean;
   submissionNo: string | null;
+  // 활성 배치 id(BE §5.1 additive, 2026-09-21) — 제출번호를 배치 상세 링크로 만든다. 구 응답 결측·미제출 null 은 평문 폴백.
+  submissionBatchId?: number | null;
   decidedByName: string | null;
   decidedAt: string | null;
 };
@@ -78,7 +80,16 @@ export type SubmissionBatchSummary = {
 // ARCHIVED = 완료+취소(제출 이력). 진행 중(REVIEWING)을 뺀 지난 배치만 한 목록으로 받는다.
 export type SubmissionBatchStatusFilter = 'REVIEWING' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED';
 
-export type SubmissionBatchListParams = { page: number; size: number; status?: SubmissionBatchStatusFilter };
+// 배치 목록 검색(감사 #15, BE PR-A A3) — q 는 제출번호·메모·동아리명 부분 일치, 생성일은 YYYY-MM-DD(KST 일 단위).
+// 빈 값은 호출부가 undefined 로 넣고 API client 의 cleanParams 가 쿼리스트링에서 생략한다.
+export type SubmissionBatchListParams = {
+  page: number;
+  size: number;
+  status?: SubmissionBatchStatusFilter;
+  q?: string;
+  submittedFrom?: string;
+  submittedTo?: string;
+};
 
 export type SubmissionAuditEntry = {
   action: 'CREATED' | 'CANCELLED' | 'CSV_DOWNLOADED' | 'VIEWED' | 'COMPLETED';

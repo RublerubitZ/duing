@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SubmissionCandidatesResponse } from '@duing/types';
+import type { SubmissionCandidatesParams, SubmissionCandidatesResponse } from '@duing/types';
 
 const mockCandidatesQuery = vi.fn();
 const mockCreateMutation = vi.fn();
@@ -24,6 +24,12 @@ vi.mock('@/app/_components/toast/ToastProvider', () => ({
   useToast: () => ({ addToast: mockAddToast }),
 }));
 
+import {
+  currentAndNextMonthRange,
+  currentMonthRange,
+  defaultSubmissionRange,
+  nextMonthRange,
+} from '../../../app/admin/facility-bookings/_lib/submissionPeriod';
 import { SubmissionPrepareTab } from '../../../app/admin/facility-bookings/_tabs/SubmissionPrepareTab';
 
 function makeResponse(): SubmissionCandidatesResponse {
@@ -110,13 +116,29 @@ describe('SubmissionPrepareTab', () => {
     mockAddToast.mockReset();
   });
 
-  it('진입 즉시 시설 없이 전 시설 후보를 조회한다', () => {
+  it('진입 즉시 시설 없이 오늘~다음 달 말일 기간으로 전 시설 후보를 조회한다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     const lastParams = mockCandidatesQuery.mock.calls.at(-1)?.[0];
     expect(lastParams.facilityId).toBeUndefined();
-    expect(lastParams.startDate.endsWith('-01')).toBe(true);
+    expect(lastParams).toEqual(defaultSubmissionRange());
+  });
+
+  it('기간 프리셋(이번 달·다음 달·이번+다음 달)이 두 날짜를 함께 바꾸고 그 기간으로 재조회한다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+    expect(screen.getByLabelText('시작일')).toHaveValue(nextMonthRange().startDate);
+    expect(screen.getByLabelText('종료일')).toHaveValue(nextMonthRange().endDate);
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(nextMonthRange());
+
+    fireEvent.click(screen.getByRole('button', { name: '이번+다음 달' }));
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(currentAndNextMonthRange());
+
+    fireEvent.click(screen.getByRole('button', { name: '이번 달' }));
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(currentMonthRange());
   });
 
   it('기본은 미제출 예약만 보여주고, 제출 대기(submitted)로 이동한 예약은 숨긴다', () => {
@@ -225,7 +247,11 @@ describe('SubmissionPrepareTab', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /밴드부 2026-08-01 18:00 선택/ }));
 
     // 9월로 이동 — 서버 결과에 예약 1 이 없지만 예약일(08-01)이 기간 밖이라 "기간 변경으로 숨겨진 것".
-    mockCandidatesQuery.mockReturnValue(querySuccess(makeSeptemberResponse()));
+    // 응답은 기간(쿼리 키)별로 돌려준다 — 시작일만 먼저 바뀐 역순 중간 입력 동안엔 마지막 유효 기간(8월)으로
+    // 계속 조회하므로(B6), 실제 React Query 처럼 8월 키엔 8월 결과가 그대로 와야 정리 규칙이 오판하지 않는다.
+    mockCandidatesQuery.mockImplementation((params: SubmissionCandidatesParams) =>
+      params.startDate === '2026-09-01' ? querySuccess(makeSeptemberResponse()) : querySuccess(makeResponse()),
+    );
     setPeriod('2026-09-01', '2026-09-30');
     expect(screen.getByRole('group', { name: /테니스부/ })).toBeInTheDocument();
 
@@ -332,19 +358,18 @@ describe('SubmissionPrepareTab', () => {
     expect(createMutateAsync.mock.calls.map(([payload]) => payload.bookingIds)).toEqual([[3]]);
   });
 
-  it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여준다', () => {
+  it('전 시설 합산 Summary 4카드를 v2.2 라벨로 보여주고 부제가 카드 사이 포함 관계를 드러낸다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
     // 카드 라벨은 상태 배지·셀렉트 옵션·섹션 헤더와 문자열이 겹쳐 role=button(aria-pressed 카드)으로 조회.
-    // '미제출 예약'은 셀렉트 옵션·섹션 헤더와 겹쳐 카드 sub 문구로 고정 조회.
-    expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /아직 제출 목록에 포함되지 않은 예약/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /제출 대기 예약/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /학교 등록 완료/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^승인 완료.*미제출 \+ 제출 대기\(승인 상태\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^미제출 예약.*승인 완료 중 아직 목록에 없는 예약/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^제출 대기 예약.*목록에 담겨 학교 제출을 기다림/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^학교 등록 완료.*학교 시스템 반영 확인\(확정\)/ })).toBeInTheDocument();
   });
 
-  it('제출 상태 셀렉트와 카드 클릭이 같은 필터를 조작한다', () => {
+  it('제출 상태 셀렉트와 카드가 같은 5값 필터를 조작한다 — 카드 클릭이 셀렉트에, 셀렉트가 카드에 반영된다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
 
@@ -352,8 +377,20 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
 
-    // 제출 대기 예약 카드 재클릭 = 전체 복귀
+    // 제출 대기 예약 카드 재클릭 = 전체 복귀 → 셀렉트도 '전체'
     fireEvent.click(screen.getByRole('button', { name: /제출 대기 예약/ }));
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('제출 상태')).toHaveValue('ALL');
+
+    // 카드 '학교 등록 완료' 클릭 → 셀렉트 CONFIRMED (예전엔 '전체'로 뭉개졌다)
+    fireEvent.click(screen.getByRole('button', { name: /학교 등록 완료/ }));
+    expect(screen.getByLabelText('제출 상태')).toHaveValue('CONFIRMED');
+    expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /밴드부/ })).not.toBeInTheDocument();
+
+    // 셀렉트로 '승인 완료' → 카드 aria-pressed
+    fireEvent.change(screen.getByLabelText('제출 상태'), { target: { value: 'APPROVED' } });
+    expect(screen.getByRole('button', { name: /^승인 완료/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
@@ -369,25 +406,55 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByRole('group', { name: /방송국/ })).toBeInTheDocument();
   });
 
-  it('기간이 31일을 넘으면 조회하지 않고 안내를 보여준다', () => {
-    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+  it('검색어가 있으면 카드 숫자를 화면 예약 기준으로 다시 센다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeMultiClubResponse()));
     render(<SubmissionPrepareTab />);
 
-    fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-08-01' } });
-    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-05' } });
+    // 카드 값 <p> 만 정확히 잡는다 — toHaveTextContent 부분 일치는 부제에 숫자가 섞이면 오탐한다.
+    const cardValue = (name: RegExp) => within(screen.getByRole('button', { name })).getByText(/^\d+$/);
+    // 서버 summary: approved 4 · awaiting 3 · submitted 1 · confirmed 1
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('4');
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '테니스' } });
+    // 테니스부 예약 1건(APPROVED·selectable)만 남는다.
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('1');
+    expect(cardValue(/^미제출 예약/)).toHaveTextContent('1');
+    expect(cardValue(/제출 대기 예약/)).toHaveTextContent('0');
+    expect(cardValue(/학교 등록 완료/)).toHaveTextContent('0');
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/31일/);
-    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
+    fireEvent.change(screen.getByLabelText('동아리 검색'), { target: { value: '' } });
+    expect(cardValue(/^승인 완료/)).toHaveTextContent('4');
   });
 
-  it('시작일이 빈 값이면(NaN 일수) 조회하지 않고 안내를 보여준다', () => {
+  it('기간이 62일을 넘으면 안내를 띄우되 마지막 유효 기간의 결과(카드·목록)는 그대로 둔다', () => {
     mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
     render(<SubmissionPrepareTab />);
+    setPeriod('2026-08-01', '2026-08-31');
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-08-31' });
+
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-10-05' } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/62일/);
+    // 새 인자로 재조회하지 않는다 — 마지막 유효 기간 유지.
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-08-31' });
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^승인 완료/ })).toBeInTheDocument();
+
+    // 유효한 값으로 되돌리면 경고가 사라지고 그 기간으로 조회한다.
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-15' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith({ startDate: '2026-08-01', endDate: '2026-09-15' });
+  });
+
+  it('시작일이 빈 값이면(NaN 일수) 안내를 띄우고 마지막 유효 기간으로 계속 조회한다', () => {
+    mockCandidatesQuery.mockReturnValue(querySuccess(makeResponse()));
+    render(<SubmissionPrepareTab />);
+    const defaultRange = defaultSubmissionRange();
 
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(null);
+    expect(mockCandidatesQuery).toHaveBeenLastCalledWith(defaultRange);
+    expect(screen.getByRole('group', { name: /밴드부/ })).toBeInTheDocument();
   });
 
   it('시간표 토글 시 시설 섹션 헤더와 시간표가 렌더된다 — 시간표 뷰는 시설 기준 유지', () => {

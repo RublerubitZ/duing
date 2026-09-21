@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateSubmissionBatchPayload,
   SubmissionBatchListParams,
@@ -50,6 +50,8 @@ export function useSubmissionBatchesQuery(params: SubmissionBatchListParams) {
   return useQuery({
     queryKey: adminQueryKeys.facilitySubmissionBatches(params),
     queryFn: () => client.admin.facilitySubmission.list(params),
+    // 검색·페이지 전환 중 표가 LoadingGate 로 사라지지 않게 이전 목록을 유지한다(회비 콘솔 전례, 감사 #15).
+    placeholderData: keepPreviousData,
   });
 }
 

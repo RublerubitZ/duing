@@ -204,7 +204,7 @@ export type AdminFacilityBookingSummary = {
 };
 
 export type AdminBookingOverlapItem = {
-  source: string; // 'SCHOOL' | 'INTERNAL' — 관리자 상세 overlaps 는 이 둘만(대기 겹침은 overlappingPendingCount 숫자). string 유지는 미지 값 파싱 실패 방지(fail-open 가드)
+  source: string; // 'SCHOOL' | 'INTERNAL' | 'OWN'(학교가 이 동아리 이름으로 등록한 행=반영 증거) — 대기 겹침은 overlappingPendingCount 숫자. string 유지는 미지 값 파싱 실패 방지(fail-open 가드)
   organization: string;
   startTime: string; // HH:mm
   endTime: string;

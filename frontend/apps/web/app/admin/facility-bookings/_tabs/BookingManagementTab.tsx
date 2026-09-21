@@ -38,7 +38,12 @@ function statusParamOf(tab: AdminQueueTab): AdminBookingQueueParams['status'] {
   return undefined;
 }
 
-export function BookingManagementTab() {
+type BookingManagementTabProps = {
+  /** keep-alive 로 hidden 인 동안 false — 포털 모달이 다른 탭 위에 남지 않도록 선택을 비운다. */
+  isActive?: boolean;
+};
+
+export function BookingManagementTab({ isActive = true }: BookingManagementTabProps) {
   const [activeTab, setActiveTab] = useState<AdminQueueTab>('PENDING');
   const [facilityIdInput, setFacilityIdInput] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -52,6 +57,11 @@ export function BookingManagementTab() {
     previous: number | null;
     next: number | null;
   } | null>(null);
+  // 탭이 hidden 으로 바뀌면(뒤로가기·딥링크) 열린 모달을 닫는다 — 탭 버튼은 오버레이에 가려 클릭할 수 없으므로 히스토리 이동만 해당.
+  // 렌더 중 파생 갱신(페이지의 visitedTabs 와 같은 패턴, useEffect 불필요).
+  if (!isActive && selectedBooking !== null) {
+    setSelectedBooking(null);
+  }
 
   const facilityId = facilityIdInput === '' ? undefined : Number(facilityIdInput);
   const hasQueueFilter = facilityIdInput !== '' || dateFrom !== '' || dateTo !== '';
