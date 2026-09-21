@@ -209,13 +209,10 @@ public class FacilityCrawlAdminQueryService {
                     .toList();
         }
         return groups.stream()
-                .map(group -> new AdminCrawlReservationGroupResponse(group.groupType(), group.clubId(),
-                        group.facilitySecuredTimeTarget(), group.facilityId(), group.reservationDate(),
-                        group.title(),
-                        group.reservations().stream()
-                                .filter(reservation -> normalizer.normalize(reservation.organizationName())
-                                        .contains(normalizedKeyword))
-                                .toList()))
+                .map(group -> group.withReservations(group.reservations().stream()
+                        .filter(reservation -> normalizer.normalize(reservation.organizationName())
+                                .contains(normalizedKeyword))
+                        .toList()))
                 .filter(group -> !group.reservations().isEmpty())
                 .toList();
     }
