@@ -231,6 +231,8 @@ describe('FacilityCrawlTab', () => {
     );
     const user = userEvent.setup();
     const { unmount } = renderPage();
+    // 로딩 중에는 응답 전이라 건수(총 0개 그룹)를 그리지 않는다
+    expect(screen.queryByText(/총 \d+개 그룹/)).not.toBeInTheDocument();
     await screen.findByText('고정관념');
 
     const pagination = screen.getByRole('navigation', { name: '크롤 예약 페이지' });

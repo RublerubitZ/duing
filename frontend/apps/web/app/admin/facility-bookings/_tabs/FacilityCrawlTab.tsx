@@ -61,8 +61,6 @@ export function FacilityCrawlTab() {
   });
 
   const monthOptions = [previousYearMonth(currentMonth), currentMonth, nextYearMonth(currentMonth)];
-  const totalElements = reservationsQuery.data?.totalElements ?? 0;
-  const totalPages = reservationsQuery.data?.totalPages ?? 0;
 
   return (
     <div className="space-y-4">
@@ -162,20 +160,20 @@ export function FacilityCrawlTab() {
             ))}
           </ul>
         )}
-        <div className="px-[18px] pb-4">
-          <p className="text-xs text-charcoal-3">총 {totalElements}개 그룹</p>
-          {totalPages > 1 && (
+        {reservationsQuery.data && (
+          <div className="px-[18px] pb-4">
+            <p className="text-xs text-charcoal-3">총 {reservationsQuery.data.totalElements}개 그룹</p>
             <Pagination
               page={page}
-              totalPages={totalPages}
+              totalPages={reservationsQuery.data.totalPages}
               onChange={setPage}
               ariaLabel="크롤 예약 페이지"
-              totalElements={totalElements}
+              totalElements={reservationsQuery.data.totalElements}
               pageSize={PAGE_SIZE}
               className="mt-2"
             />
-          )}
-        </div>
+          </div>
+        )}
       </ConsoleCard>
     </div>
   );
