@@ -51,9 +51,11 @@ export function buildSlotStrip(input: {
   const requestEnd = Number(input.endTime.slice(0, 2));
   return Array.from({ length: 13 }, (_, index) => {
     const hour = 9 + index;
-    const overlap = input.overlaps.find(
+    // 같은 시각에 OWN(자기 반영)과 타 겹침이 함께 있으면 타 겹침을 우선한다 — 충돌 칸이 '반영'으로 가려지면 안 된다.
+    const covering = input.overlaps.filter(
       (item) => Number(item.startTime.slice(0, 2)) <= hour && hour < Number(item.endTime.slice(0, 2)),
     );
+    const overlap = covering.find((item) => item.source !== 'OWN') ?? covering[0];
     return {
       hour,
       inRequest: requestStart <= hour && hour < requestEnd,
