@@ -31,6 +31,7 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
             boolean submitted,
             boolean selectable,
             String submissionNo,
+            Long submissionBatchId,
             String decidedByName,
             Instant decidedAt
     ) {
@@ -40,6 +41,7 @@ public record SubmissionCandidatesResponse(Summary summary, List<Booking> bookin
                     candidate.applicantName(), candidate.contactPhone(), candidate.reservationDate(),
                     candidate.startTime(), candidate.endTime(), candidate.purpose(), candidate.attendeeCount(),
                     candidate.status(), candidate.submitted(), candidate.selectable(), candidate.submissionNo(),
+                    candidate.submissionBatchId(),
                     // decided_at 은 seoulClock(KST wall-clock) 기록값 — seoul 변환.
                     candidate.decidedByName(), TimeMapper.seoulWallClockToInstant(candidate.decidedAt()));
         }

@@ -34,7 +34,7 @@ import org.springframework.http.HttpStatus;
 
 /**
  * 어드민 크롤 예약 현황 인수 테스트(설계 §3.6, 수정 1~4) — 권한, 동아리별 그룹핑(미매칭 주체 포함),
- * 그룹 단위 페이징(주체 페이지 간 비분리), 시설별·시설+날짜별 모드, 당월·익월 밖 400.
+ * 그룹 단위 페이징(주체 페이지 간 비분리), 시설별·시설+날짜별 모드, 직전 월·당월·익월 밖 400.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -197,12 +197,36 @@ class AdminFacilityCrawlAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("크롤 창(당월·익월) 밖 월 조회는 400 이다")
+    @DisplayName("크롤 창(직전 월·당월·익월) 밖 월 조회는 400 이고 직전 월은 200 이다")
     void monthOutOfCrawlWindowIs400() {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .when().get(PATH + "?yearMonth=" + YearMonth.now(clock).plusMonths(2))
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(PATH + "?yearMonth=" + YearMonth.now(clock).minusMonths(2))
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(PATH + "?yearMonth=" + YearMonth.now(clock).minusMonths(1))
+                .then().statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("q 로 단체명을 검색하면 동아리별 보기에서 매치 그룹만 돌아온다")
+    void keywordSearchNarrowsGroups() {
+        Facility facility = saveFacility("검색연습실");
+        YearMonth currentMonth = YearMonth.now(clock);
+        saveReservation(facility, currentMonth.atDay(10), 13, 15, "학생생활상담센터");
+        saveReservation(facility, currentMonth.atDay(10), 17, 19, "총학생회");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(PATH + "?yearMonth=" + currentMonth + "&facilityId=" + facility.getId() + "&q=상담")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(1))
+                .body("data.content[0].title", equalTo("학생생활상담센터"));
     }
 
     private Facility saveFacility(String name) {

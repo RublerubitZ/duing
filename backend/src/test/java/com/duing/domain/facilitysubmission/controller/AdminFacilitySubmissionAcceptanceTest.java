@@ -1,7 +1,10 @@
 package com.duing.domain.facilitysubmission.controller;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -28,6 +31,7 @@ import io.restassured.http.ContentType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -129,6 +133,34 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("배치 목록은 q(메모 키워드)와 submittedFrom/To(생성일 범위) 쿼리 파라미터로 걸러진다")
+    void batchListSupportsKeywordAndDateRangeParams() {
+        FacilityBooking memoTarget = approvedBooking(9);
+        Integer memoBatchId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("bookingIds", List.of(memoTarget.getId()), "memo", "인수 KEYWORD 메모"))
+                .when().post(SUBMISSION_PATH)
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().path("data.batchId");
+        FacilityBooking plainTarget = approvedBooking(11);
+        Integer plainBatchId = createBatch(plainTarget);
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?q=keyword")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", hasItem(memoBatchId))
+                .body("data.content.batchId", not(hasItem(plainBatchId)));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(SUBMISSION_PATH + "?submittedFrom=" + today + "&submittedTo=" + today)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.batchId", hasItems(memoBatchId, plainBatchId));
+    }
+
+    @Test
     @DisplayName("status 파라미터가 파생 상태로 이력을 필터링하고, 잘못된 값은 400 을 반환한다")
     void batchStatusFilterBindsAndRejectsInvalidValue() {
         FacilityBooking booking = approvedBooking(9);
@@ -196,6 +228,21 @@ class AdminFacilitySubmissionAcceptanceTest extends IntegrationTestBase {
                 .body("data.summary.awaitingCount", equalTo(1))
                 .body("data.bookings[0].selectable", is(true))
                 .body("data.bookings[0].clubName", equalTo(club.getName()));
+    }
+
+    @Test
+    @DisplayName("후보 응답의 제출 대기 예약에는 소속 활성 배치 id(submissionBatchId)가 실리고 미제출 예약은 null 이다")
+    void candidatesCarrySubmissionBatchId() {
+        FacilityBooking submitted = approvedBooking(9);
+        approvedBooking(11);
+        Integer batchId = createBatch(submitted);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when().get(candidatesPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.bookings[0].submissionBatchId", equalTo(batchId))
+                .body("data.bookings[1].submissionBatchId", nullValue());
     }
 
     @Test

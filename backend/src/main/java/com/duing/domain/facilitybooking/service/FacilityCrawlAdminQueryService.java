@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
 /**
  * 어드민 크롤 예약 현황(설계 §3.6, 수정 1~4) — 읽기 전용 조립. 월 범위 행을 메모리 로드 후 주체/시설
  * 단위로 그룹핑하고 **그룹 단위로 페이징**한다(같은 주체가 페이지 간 분리되지 않게, 수정 4).
- * 근거: 크롤 데이터는 당월·익월 한정에 실측 월당 수백 행 — 전수 계산 허용(countConflictSuspected 전례).
+ * 근거: 크롤 데이터는 직전 월·당월·익월 한정에 실측 월당 수백 행 — 전수 계산 허용(countConflictSuspected 전례).
  *
  * <p>분류(classification)는 가용성과 같은 단일 지점({@link FacilityAvailabilityPolicy})에서 파생해
  * /facilities 표기와 어긋날 수 없다. 매칭 동아리 표시는 정규화 정확 일치·충돌 포기(P5) — 충돌·미등록·
@@ -54,10 +54,12 @@ public class FacilityCrawlAdminQueryService {
     private record MatchedClub(Long id, String name, boolean securedTarget) {}
 
     public Page<AdminCrawlReservationGroupResponse> getReservations(YearMonth requestedMonth, Long facilityId,
-            AdminCrawlGroupBy groupBy, Pageable pageable) {
+            AdminCrawlGroupBy groupBy, String keyword, Pageable pageable) {
         YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = requestedMonth != null ? requestedMonth : currentMonth;
-        if (!targetMonth.equals(currentMonth) && !targetMonth.equals(currentMonth.plusMonths(1))) {
+        // 직전 월 열람 허용(콘솔 UX 스펙 A5) — 동아리 측 가용성(GeneralFacilityAvailabilityService)과 같은
+        // -1~+1 창. 직전 월 행은 월 단위 purge 가 없어 저장 그대로이며 재크롤은 하지 않는다.
+        if (targetMonth.isBefore(currentMonth.minusMonths(1)) || targetMonth.isAfter(currentMonth.plusMonths(1))) {
             throw new FacilityBookingException.MonthOutOfBookingRangeException();
         }
         List<FacilityReservation> rows = facilityId != null
@@ -89,6 +91,7 @@ public class FacilityCrawlAdminQueryService {
             case FACILITY -> groupByFacility(reservations);
             case FACILITY_DATE -> groupByFacilityDate(reservations);
         };
+        groups = filterByKeyword(groups, groupBy, keyword);
 
         int fromIndex = (int) Math.min(pageable.getOffset(), groups.size());
         int toIndex = Math.min(fromIndex + pageable.getPageSize(), groups.size());
@@ -184,6 +187,33 @@ public class FacilityCrawlAdminQueryService {
                 .map(groupRows -> new AdminCrawlReservationGroupResponse(GroupType.FACILITY_DATE, null, null,
                         groupRows.get(0).facilityId(), groupRows.get(0).reservationDate(),
                         groupRows.get(0).facilityName(), groupRows))
+                .toList();
+    }
+
+    /**
+     * 단체명 검색(콘솔 UX 스펙 A4) — 그룹 생성 후·페이징 전. 양쪽을 정규화(공백·끝 괄호 제거·소문자)해
+     * contains 로 비교하므로 "고정 관념"·"고정관념(중앙)" 표기 차이를 흡수한다. 동아리별 보기(CLUB·EXTERNAL
+     * 그룹)는 제목 매치 시 그룹 전체를 유지하고, 장소 보기(FACILITY·FACILITY_DATE)는 제목이 시설명이라
+     * 행 단체명으로 걸러 매치 행만 남긴다(남는 행이 없으면 그룹 제거). totalElements 는 필터 후 그룹 수.
+     */
+    private List<AdminCrawlReservationGroupResponse> filterByKeyword(List<AdminCrawlReservationGroupResponse> groups,
+            AdminCrawlGroupBy groupBy, String keyword) {
+        String normalizedKeyword = normalizer.normalize(keyword);
+        if (normalizedKeyword.isEmpty()) {
+            return groups;
+        }
+        // 정규화는 끝 괄호 그룹을 떼므로 q="(중앙)" 은 빈 키(무필터), q="고정관념(중앙)" 은 "고정관념" 으로 매치된다 — 표기 차이 흡수 의도.
+        if (groupBy == AdminCrawlGroupBy.CLUB) {
+            return groups.stream()
+                    .filter(group -> normalizer.normalize(group.title()).contains(normalizedKeyword))
+                    .toList();
+        }
+        return groups.stream()
+                .map(group -> group.withReservations(group.reservations().stream()
+                        .filter(reservation -> normalizer.normalize(reservation.organizationName())
+                                .contains(normalizedKeyword))
+                        .toList()))
+                .filter(group -> !group.reservations().isEmpty())
                 .toList();
     }
 

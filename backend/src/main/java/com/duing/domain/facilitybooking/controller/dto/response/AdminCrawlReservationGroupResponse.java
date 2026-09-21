@@ -21,6 +21,12 @@ public record AdminCrawlReservationGroupResponse(
         List<AdminCrawlReservation> reservations
 ) {
 
+    /** reservations 만 바꾼 복사본 — 그룹 메타는 그대로(키워드 필터 등 행 부분집합 재구성용). */
+    public AdminCrawlReservationGroupResponse withReservations(List<AdminCrawlReservation> reservations) {
+        return new AdminCrawlReservationGroupResponse(groupType, clubId, facilitySecuredTimeTarget, facilityId,
+                reservationDate, title, reservations);
+    }
+
     /** CLUB=매칭 동아리 / EXTERNAL=미매칭 주체(행사·부서·기관·미등록) / FACILITY·FACILITY_DATE=장소 기준. */
     public enum GroupType { CLUB, EXTERNAL, FACILITY, FACILITY_DATE }
 
