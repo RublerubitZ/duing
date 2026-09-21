@@ -19,6 +19,7 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
@@ -99,7 +100,7 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         FacilityBooking submitted = savedBooking(13, BookingStatus.APPROVED);
         FacilityBooking confirmed = savedBooking(15, BookingStatus.CONFIRMED);
         savedBooking(17, BookingStatus.REJECTED);
-        var createResult = submissionService.create(
+        CreateSubmissionBatchResult createResult = submissionService.create(
                 new CreateSubmissionBatchCommand(List.of(submitted.getId()), null),
                 new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit"));
         String submissionNo = createResult.submissionNo();

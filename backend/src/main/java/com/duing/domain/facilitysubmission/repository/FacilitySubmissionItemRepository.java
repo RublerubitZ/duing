@@ -11,7 +11,7 @@ public interface FacilitySubmissionItemRepository extends JpaRepository<Facility
 
     List<FacilitySubmissionItem> findByBatchIdOrderByIdAsc(Long batchId);
 
-    /** 활성(미취소 batch 소속 · 완료 시 미제외) 제출의 bookingId→submissionNo — 후보 표시·중복 제출 검증 공용(§4·§5.1).
+    /** 활성(미취소 batch 소속 · 완료 시 미제외) 제출의 bookingId→submissionNo·batchId — 후보 표시·중복 제출 검증 공용(§4·§5.1).
      *  완료 시 제외된 item 은 예약을 붙잡지 않으므로 후보 목록에서 다시 선택 가능해진다. */
     @Query("SELECT i.bookingId AS bookingId, b.submissionNo AS submissionNo, b.id AS batchId "
             + "FROM FacilitySubmissionItem i JOIN FacilitySubmissionBatch b ON i.batchId = b.id "
