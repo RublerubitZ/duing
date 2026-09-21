@@ -125,7 +125,8 @@ export function AdminFacilityBookingsPage() {
   // 리마운트되지 않는다. 모듈 상수로 빼면 매 렌더 같은 엘리먼트 참조라 React 가 하위 트리 갱신을 건너뛰어(bail-out)
   // 부모 리렌더가 탭 내부로 전파되지 않는다 — 기존 인라인 조건부 렌더와 같은 의미를 지키려고 컴포넌트 안에 둔다.
   const tabContent: Record<FacilityOpsTab, ReactNode> = {
-    review: <BookingManagementTab />,
+    // 검토 탭만 비활성을 알린다 — 상세 모달은 포털이라 hidden 패널에 갇히지 않아, 히스토리로 탭이 바뀌면 새 탭 위에 남는다.
+    review: <BookingManagementTab isActive={activeTab === 'review'} />,
     prepare: <SubmissionPrepareTab />,
     ready: <SubmissionBatchesTab statusFilter="REVIEWING" />,
     // 이력 탭은 완료·취소만(ARCHIVED) — 진행 중 배치는 '제출 대기' 탭에서만 보이도록 단계를 가른다.

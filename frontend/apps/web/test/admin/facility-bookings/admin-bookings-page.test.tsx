@@ -542,4 +542,23 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.getByRole('tab', { name: /예약 검토/ })).toHaveAttribute('aria-controls', 'facility-ops-panel-review');
     expect(screen.getByRole('tabpanel', { name: /예약 검토/ })).toHaveAttribute('id', 'facility-ops-panel-review');
   });
+
+  it('검토 모달이 열린 채 히스토리로 탭이 바뀌면 모달이 닫힌다 — 포털이라 hidden 패널에 갇히지 않는다', () => {
+    mockQueueQuery.mockReturnValue(makeQueueSuccess([makeRow({ bookingId: 55 })]));
+    const { rerender } = render(<AdminFacilityBookingsPage />);
+
+    fireEvent.click(screen.getByText('두잉동아리'));
+    expect(screen.getByText('검토 모달 55')).toBeInTheDocument();
+
+    // 뒤로가기·딥링크로 ?tab=crawl 이 된 상황(URL 변경을 rerender 로 재현) → 검토 탭은 hidden, 모달은 사라진다.
+    mockTabParam = 'crawl';
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.getByText('크롤 예약이 없어요')).toBeVisible();
+    expect(screen.queryByText('검토 모달 55')).not.toBeInTheDocument();
+
+    // 검토 탭 복귀 후에도 모달은 다시 열리지 않는다(선택이 비워졌으므로).
+    mockTabParam = null;
+    rerender(<AdminFacilityBookingsPage />);
+    expect(screen.queryByText('검토 모달 55')).not.toBeInTheDocument();
+  });
 });
