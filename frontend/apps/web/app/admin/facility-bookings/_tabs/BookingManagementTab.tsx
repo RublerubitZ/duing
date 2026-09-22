@@ -29,7 +29,10 @@ const TAB_LABELS: Record<AdminQueueTab, string> = {
 
 const SORT_OPTIONS: { label: string; value: AdminBookingQueueSort }[] = [
   { label: '기본 정렬', value: 'DEFAULT' },
-  { label: '이용일시 빠른순', value: 'USAGE_ASC' },
+  { label: '최근 신청순', value: 'CREATED_DESC' },
+  { label: '동아리별', value: 'CLUB' },
+  { label: '이용일시 오름차순', value: 'USAGE_ASC' },
+  { label: '이용일시 내림차순', value: 'USAGE_DESC' },
 ];
 
 function statusParamOf(tab: AdminQueueTab): AdminBookingQueueParams['status'] {
