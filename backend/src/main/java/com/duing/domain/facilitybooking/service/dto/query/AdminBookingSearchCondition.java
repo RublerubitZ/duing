@@ -12,8 +12,6 @@ public record AdminBookingSearchCondition(
 ) {
     /** sort 는 switch 로 분기하므로 null 을 DEFAULT 로 접는다(컨트롤러 defaultValue 와 같은 뜻). */
     public AdminBookingSearchCondition {
-        if (sort == null) {
-            sort = AdminBookingQueueSort.DEFAULT;
-        }
+        sort = sort == null ? AdminBookingQueueSort.DEFAULT : sort;
     }
 }

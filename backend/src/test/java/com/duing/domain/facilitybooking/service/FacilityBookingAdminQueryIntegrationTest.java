@@ -127,7 +127,7 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         return new Fixture(leader, club, saveFacility());
     }
 
-    /** 같은 시설을 나눠 쓰는 동아리 픽스처 — 시설 필터로 다른 테스트의 잔여 데이터를 걸러낸다. */
+    /** 같은 시설을 나눠 쓰는 동아리 픽스처 — 동아리별 정렬을 한 시설 안에서 비교하기 위해 시설을 공유한다. */
     private Fixture fixtureOn(String clubName, Facility facility) throws Exception {
         User leader = saveUser("리더");
         Club club = saveActiveClub(clubName);
