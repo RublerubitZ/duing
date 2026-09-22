@@ -252,8 +252,11 @@ export type FacilityBookingConflictPayload = {
   crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
 };
 
-/** 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다. */
-export type AdminBookingQueueSort = 'DEFAULT' | 'USAGE_ASC';
+/**
+ * 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다.
+ * CREATED_DESC=최근 신청순, CLUB=동아리 이름순(안에서는 이용일시 오름차순), USAGE_ASC/USAGE_DESC=이용일시 오름/내림차순.
+ */
+export type AdminBookingQueueSort = 'DEFAULT' | 'CREATED_DESC' | 'CLUB' | 'USAGE_ASC' | 'USAGE_DESC';
 
 export type AdminBookingQueueParams = {
   status?: BookingStatus;

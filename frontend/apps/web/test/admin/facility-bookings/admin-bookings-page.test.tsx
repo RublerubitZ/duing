@@ -510,7 +510,31 @@ describe('AdminFacilityBookingsPage', () => {
     expect(mockQueueQuery).not.toHaveBeenCalledWith(expect.objectContaining({ sort: expect.anything() }));
   });
 
-  it('이용일시 빠른순을 고르면 sort=USAGE_ASC 로 1페이지부터 다시 조회한다', () => {
+  it('정렬 셀렉트는 기본·최근 신청순·동아리별·이용일시 오름/내림차순 다섯 가지를 값과 함께 노출한다', () => {
+    render(<AdminFacilityBookingsPage />);
+
+    const options = within(screen.getByRole('combobox', { name: '정렬' })).getAllByRole('option');
+    expect(options.map((option) => [option.textContent, option.getAttribute('value')])).toEqual([
+      ['기본 정렬', 'DEFAULT'],
+      ['최근 신청순', 'CREATED_DESC'],
+      ['동아리별', 'CLUB'],
+      ['이용일시 오름차순', 'USAGE_ASC'],
+      ['이용일시 내림차순', 'USAGE_DESC'],
+    ]);
+  });
+
+  it('동아리별을 고르면 sort=CLUB 으로 1페이지부터 다시 조회한다', () => {
+    render(<AdminFacilityBookingsPage />);
+    mockQueueQuery.mockClear();
+
+    fireEvent.change(screen.getByRole('combobox', { name: '정렬' }), { target: { value: 'CLUB' } });
+
+    expect(mockQueueQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'PENDING', sort: 'CLUB', page: 0 }),
+    );
+  });
+
+  it('이용일시 오름차순을 고르면 sort=USAGE_ASC 로 1페이지부터 다시 조회한다', () => {
     const threePages = makeQueueSuccess([makeRow({ bookingId: 91 })]);
     mockQueueQuery.mockReturnValue({
       ...threePages,
