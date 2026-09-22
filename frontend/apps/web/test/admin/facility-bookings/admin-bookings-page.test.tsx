@@ -514,7 +514,7 @@ describe('AdminFacilityBookingsPage', () => {
     render(<AdminFacilityBookingsPage />);
 
     const options = within(screen.getByRole('combobox', { name: '정렬' })).getAllByRole('option');
-    expect(options.map((option) => [option.textContent, (option as HTMLOptionElement).value])).toEqual([
+    expect(options.map((option) => [option.textContent, option.getAttribute('value')])).toEqual([
       ['기본 정렬', 'DEFAULT'],
       ['최근 신청순', 'CREATED_DESC'],
       ['동아리별', 'CLUB'],
