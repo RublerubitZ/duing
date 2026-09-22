@@ -127,6 +127,14 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
         return new Fixture(leader, club, saveFacility());
     }
 
+    /** 같은 시설을 나눠 쓰는 동아리 픽스처 — 시설 필터로 다른 테스트의 잔여 데이터를 걸러낸다. */
+    private Fixture fixtureOn(String clubName, Facility facility) throws Exception {
+        User leader = saveUser("리더");
+        Club club = saveActiveClub(clubName);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        return new Fixture(leader, club, facility);
+    }
+
     private LocalDate bookableDate() {
         // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
         return BookingWindowFixture.bookableDate();
@@ -351,6 +359,65 @@ class FacilityBookingAdminQueryIntegrationTest extends IntegrationTestBase {
                 new AdminBookingSearchCondition(null, null, null, null, AdminBookingQueueSort.USAGE_ASC),
                 PageRequest.of(0, 10)).getContent())
                 .extracting(AdminBookingSummaryResult::bookingId).containsExactly(second, first);
+    }
+
+    @Test
+    @DisplayName("CREATED_DESC 는 PENDING 탭에서도 기본 오래된 순을 뒤집어 최근 신청을 앞에 둔다")
+    void createdDescPutsLatestFirstEvenInPendingQueue() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate date = bookableDate();
+        Long first = pendingBooking(fixture, date, 9, 10);   // 먼저 생성
+        Long second = pendingBooking(fixture, date, 10, 11);  // 나중 생성
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null,
+                        AdminBookingQueueSort.CREATED_DESC),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
+                .containsExactly(second, first);
+    }
+
+    @Test
+    @DisplayName("CLUB 은 동아리 이름 가나다순 뒤 같은 동아리 안에서 이용일시 오름차순이다 — 동아리 생성·신청 순서와 무관")
+    void clubSortOrdersByClubNameThenUsage() throws Exception {
+        // 이름 순서(가 < 나)와 id 순서(나 먼저 저장)를 엇갈리게 해 이름 정렬임을 증명한다.
+        Facility facility = saveFacility();
+        Fixture na = fixtureOn("나동아리", facility);
+        Fixture ga = fixtureOn("가동아리", facility);
+        LocalDate date = bookableDate();
+        Long naEarly = pendingBooking(na, date, 9, 10);
+        Long gaLate = pendingBooking(ga, date.plusDays(1), 9, 10); // 가동아리 중 나중 이용일을 먼저 신청
+        Long gaEarly = pendingBooking(ga, date, 11, 12);
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, facility.getId(), null, null,
+                        AdminBookingQueueSort.CLUB),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
+                .containsExactly(gaEarly, gaLate, naEarly);
+        assertThat(queue.getTotalElements()).isEqualTo(3); // 정렬용 조인이 count 를 부풀리지 않는다
+    }
+
+    @Test
+    @DisplayName("USAGE_DESC 는 이용일 → 시작 시각 내림차순이고 동일 이용일시는 기본 보조 정렬을 따른다")
+    void usageDescOrdersLatestUsageFirst() throws Exception {
+        Fixture fixture = fixture();
+        LocalDate earlierDate = bookableDate();
+        LocalDate laterDate = earlierDate.plusDays(1);
+        Long earlierDateEarlySlot = pendingBooking(fixture, earlierDate, 9, 10);
+        Long earlierDateLateSlot = pendingBooking(fixture, earlierDate, 11, 12);
+        Long laterDateBooking = pendingBooking(fixture, laterDate, 9, 10);
+        Long sameSlotOtherClub = pendingBooking(fixture(), laterDate, 9, 10); // 동일 이용일시, 나중 신청
+
+        Page<AdminBookingSummaryResult> queue = queryService.getQueue(
+                new AdminBookingSearchCondition(BookingStatus.PENDING, null, null, null,
+                        AdminBookingQueueSort.USAGE_DESC),
+                PageRequest.of(0, 10));
+
+        assertThat(queue.getContent()).extracting(AdminBookingSummaryResult::bookingId)
+                .containsExactly(laterDateBooking, sameSlotOtherClub, earlierDateLateSlot, earlierDateEarlySlot);
     }
 
     @Test
