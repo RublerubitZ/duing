@@ -84,4 +84,13 @@ public class FeeBillException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
+
+    // 활성 납부가 남은 청구 취소 — 취소하면 납부가 집계·영수증·재발행 멱등에서 빠진다. 납부를 먼저 정정(무효화)해야 한다(409).
+    public static class CancelWithActivePaymentsException extends FeeBillException {
+        private static final String MESSAGE = "납부 기록이 있는 청구는 취소할 수 없어요. 납부를 먼저 정정하세요.";
+
+        public CancelWithActivePaymentsException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
 }
