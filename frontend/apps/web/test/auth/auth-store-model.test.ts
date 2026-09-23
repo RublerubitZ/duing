@@ -57,6 +57,17 @@ describe('auth-store 상태 모델 (§8)', () => {
     });
   });
 
+  it('setSession 은 세션 개시 시각을 기록하고 clearSession 은 지운다 (#845)', async () => {
+    expect(useAuthStore.getState().sessionOpenedAt).toBeNull();
+    const beforeOpen = performance.now();
+    useAuthStore.getState().setSession(TEST_USER);
+    const { sessionOpenedAt } = useAuthStore.getState();
+    expect(sessionOpenedAt).not.toBeNull();
+    expect(sessionOpenedAt).toBeGreaterThanOrEqual(beforeOpen);
+    await useAuthStore.getState().clearSession();
+    expect(useAuthStore.getState().sessionOpenedAt).toBeNull();
+  });
+
   it('selectIsAuthenticated 는 시드·확정을 구분하지 않는다 (§10 게이트 술어)', () => {
     expect(selectIsAuthenticated(useAuthStore.getState())).toBe(false);
     useAuthStore.getState().seedSession('authenticated');

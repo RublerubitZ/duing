@@ -18,6 +18,12 @@ type AuthState = {
   status: AuthStatus;
   /** 서버 응답으로 확인된 값인가. 되돌릴 수 없는 동작·만료 처리 발동에만 함께 본다 — 화면 분기 금지. */
   isVerified: boolean;
+  /**
+   * 서버 확인으로 세션이 열린 시각. 이보다 먼저 시작한 갱신의 종료 통지는 이 세션과 무관하다(#845).
+   * 벽시계가 아니라 문서 단조 시각(performance.now())이다 — 벽시계가 OS 시각 보정으로 역행하면 이후 모든
+   * 정당한 만료 통지가 "개시 이전" 으로 걸러져 401 만 받는 상태가 고착된다. 인메모리라 문서마다 새로 잡힌다.
+   */
+  sessionOpenedAt: number | null;
   /** 부팅 시드(로컬 이력·A′ 서버 힌트). 서버로 확인된 상태는 덮지 않는다. */
   seedSession(status: AuthStatus): void;
   setSession(user: User): void;
@@ -31,17 +37,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 적용된다. 초기값을 환경(localStorage·쿠키)에서 계산하면 하이드레이션 불일치(React #419)다.
   status: 'unauthenticated',
   isVerified: false,
+  sessionOpenedAt: null,
   seedSession(status) {
     if (get().isVerified) return;
     set({ status });
   },
   setSession(user) {
-    set({ user, status: 'authenticated', isVerified: true });
+    set({ user, status: 'authenticated', isVerified: true, sessionOpenedAt: performance.now() });
   },
   async clearSession() {
     await clearToken();
     // 호출부(로그아웃·전체 로그아웃·탈퇴·만료 확정)는 전부 서버가 확인한 종료 경로다.
-    set({ user: null, status: 'unauthenticated', isVerified: true });
+    set({ user: null, status: 'unauthenticated', isVerified: true, sessionOpenedAt: null });
   },
 }));
 
