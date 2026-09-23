@@ -175,6 +175,35 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("옛 커버 URL 을 새 본문에 붙여넣으면 그 업로드는 RELEASED 로 가지 않고 ACTIVE 를 유지한다")
+    void adminUpdateKeepsOldCoverActiveWhenMovedIntoBody() {
+        User admin = userRepository.save(UserFixture.admin());
+        String oldCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+        Long noticeId = noticeService.create(adminCreate(STUB_PREFIX + oldCoverKey, "<p>본문</p>", admin.getId()));
+        String newCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+
+        noticeService.update(adminUpdate(noticeId, bodyWith(oldCoverKey), STUB_PREFIX + newCoverKey));
+
+        assertThat(statusOf(oldCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(newCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("본문에서 뺀 이미지를 새 커버로 쓰면 그 업로드는 RELEASED 로 가지 않고 ACTIVE 를 유지한다")
+    void clubUpdateKeepsBodyImageActiveWhenMovedToCover() throws Exception {
+        User author = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        String bodyKey = seedPending(FilePurpose.NOTICE_BODY);
+        Long noticeId = noticeService.createForClub(new CreateClubNoticeCommand(club.getId(), author.getId(),
+                "동아리 공지", "요약", bodyWith(bodyKey), null, false, null));
+
+        noticeService.updateForClub(new UpdateClubNoticeCommand(club.getId(), noticeId,
+                null, null, "<p>본문</p>", STUB_PREFIX + bodyKey, null, null, null));
+
+        assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
     @DisplayName("새 커버가 만료(PURGED)라 400 으로 실패하면 옛 커버는 ACTIVE 그대로다 (해제가 트랜잭션과 함께 롤백)")
     void adminUpdateWithExpiredCoverKeepsOldCoverActive() {
         User admin = userRepository.save(UserFixture.admin());
