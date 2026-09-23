@@ -45,6 +45,10 @@ const DialogOverlay = React.forwardRef<
 /**
  * `busy` 는 "요청이 나갔고 아직 안 끝났다"를 뜻한다 — true 면 ESC·바깥 클릭 닫기를 막는다.
  *
+ * <p>닫힘 정책(#912): 유휴 시 ESC·바깥 클릭 모두 닫힘 허용, busy 중만 차단. 호출처가 인라인
+ * `onPointerDownOutside={(e) => e.preventDefault()}` 를 복붙하지 말고 `busy` 를 넘긴다(예외: 양자택일
+ * 모달 DraftResumeDialog 1곳만 항상 차단).
+ *
  * <p>취소 버튼만 `disabled={isPending}` 로 막고 ESC·바깥 클릭은 열어두면 같은 모달에서
  * 버튼으로는 못 닫는데 키보드로는 닫힌다. 사용자는 "취소됐다"고 이해하지만 요청은 그대로 진행돼,
  * 회원 탈퇴처럼 되돌릴 수 없는 작업에서는 모달이 사라진 뒤 결과만 뒤늦게 나타난다.
