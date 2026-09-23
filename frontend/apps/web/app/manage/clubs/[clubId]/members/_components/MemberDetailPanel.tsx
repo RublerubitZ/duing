@@ -540,6 +540,7 @@ function ManagementSection({
             </>
           }
           confirmLabel="탈퇴"
+          busyLabel="부원 탈퇴 처리 중"
           isPending={removeMember.isPending}
           errorMessage={dialogError}
           onConfirm={doRemove}
