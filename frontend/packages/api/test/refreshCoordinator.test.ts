@@ -115,4 +115,14 @@ describe('refresh coordinator', () => {
     expect(lockTrace).toEqual(['enter', 'exit']);
     expect(executeRefresh).toHaveBeenCalledTimes(1);
   });
+  it('force 면 10초 안의 최근 갱신 기록이 있어도 실행하고, 성공 시 시각을 갱신한다', async () => {
+    const executeRefresh = vi.fn<() => Promise<RefreshOutcome>>().mockResolvedValue('refreshed');
+    const coordinator = createRefreshCoordinator(executeRefresh);
+    const previousRefreshedAt = Date.now() - 5_000;
+    store.set(LAST_REFRESH_STORAGE_KEY, String(previousRefreshedAt));
+
+    await expect(coordinator.ensureFreshSession({ force: true })).resolves.toBe('refreshed');
+    expect(executeRefresh).toHaveBeenCalledTimes(1);
+    expect(Number(store.get(LAST_REFRESH_STORAGE_KEY))).toBeGreaterThan(previousRefreshedAt);
+  });
 });
