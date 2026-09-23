@@ -85,15 +85,18 @@ class RecruitmentPublicQueryCountTest {
 
         Statistics statistics = statistics();
         // 워밍업: 세션 최초 쿼리의 1회성 준비 비용을 계측에서 배제한다.
-        recruitmentService.getCalendar(YearMonth.from(LocalDate.now()).minusMonths(6));
+        YearMonth warmupMonth = YearMonth.from(LocalDate.now()).minusMonths(6);
+        recruitmentService.getCalendar(warmupMonth.atDay(1), warmupMonth.atEndOfMonth());
 
         long beforeSmall = statistics.getPrepareStatementCount();
-        List<RecruitmentSummaryQuery> smallResult = recruitmentService.getCalendar(smallMonth);
+        List<RecruitmentSummaryQuery> smallResult = recruitmentService.getCalendar(
+                smallMonth.atDay(1), smallMonth.atEndOfMonth());
         long smallQueries = statistics.getPrepareStatementCount() - beforeSmall;
 
         entityManager.clear();
         long beforeBig = statistics.getPrepareStatementCount();
-        List<RecruitmentSummaryQuery> bigResult = recruitmentService.getCalendar(bigMonth);
+        List<RecruitmentSummaryQuery> bigResult = recruitmentService.getCalendar(
+                bigMonth.atDay(1), bigMonth.atEndOfMonth());
         long bigQueries = statistics.getPrepareStatementCount() - beforeBig;
 
         assertThat(smallResult).hasSize(1);

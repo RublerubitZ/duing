@@ -4,14 +4,18 @@ import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
-import java.time.YearMonth;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface RecruitmentService {
 
     Long create(CreateRecruitmentCommand createRecruitmentCommand);
 
-    List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth);
+    /**
+     * [from, to] 와 기간이 겹치는 공개 모집을 시작일순으로 반환한다. 양끝 포함, 창은 최대
+     * {@code 92}일 — from 이 to 보다 늦거나 창이 넘치면 InvalidCalendarRangeException(400).
+     */
+    List<RecruitmentSummaryQuery> getCalendar(LocalDate from, LocalDate to);
 
     RecruitmentDetailQuery getById(Long recruitmentId);
 
