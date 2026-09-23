@@ -5,6 +5,7 @@ import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ApiError } from '@duing/api';
 import { useCheckEligibilityMutation, useMyApplicationsQuery } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { safeExternalHref, toRoute } from '../../../_lib/route';
@@ -50,15 +51,14 @@ export function useClubApply(recruitment: StudentRecruitmentProjection | undefin
     try {
       // 지원서 작성 전에 제출과 동일한 정책으로 차단 사유를 미리 알려준다.
       // 아직 서버로 확인되지 않은 시드된 인증도 그대로 물어본다 — 만료된 access 는 API 레이어가
-      // 갱신해 주고, 정말 미인증이면 401 로 답이 온다. 시드를 못 믿고 로그인 화면으로 먼저 보내면
+      // 갱신해 주고, 만료가 확정되면 전역 핸들러가 로그인으로 이동시킨다(여기서 이중 push 를 만들지
+      // 않는다). 세션이 살아 있는 401 은 일시 장애다. 시드를 못 믿고 로그인 화면으로 먼저 보내면
       // 로그인한 사용자가 하드 로드 직후 지원을 시도할 때마다 튕긴다.
       await eligibilityCheck.mutateAsync(recruitment.id);
       router.push(toRoute(applyPath));
     } catch (checkError) {
-      if (checkError instanceof ApiError && checkError.status === 401) {
-        router.push(loginPath);
-        return;
-      }
+      // 만료 확정이면 핸들러가 통지 시점에 동기로 스토어를 먼저 내리고 이동까지 맡는다.
+      if (useAuthStore.getState().status === 'unauthenticated') return;
       const message =
         checkError instanceof ApiError
           ? checkError.message

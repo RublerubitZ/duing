@@ -258,7 +258,7 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     await waitFor(() => expect(toggleMethods).toEqual(['DELETE']));
   });
 
-  it('확인 후 access 가 만료돼 401 이 오면 로그인으로 보내고 찜 캐시를 남기지 않는다', async () => {
+  it('확인 후 access 가 만료돼 401 이 오면 전역 핸들러만 로그인으로 보내고 찜 캐시를 남기지 않는다', async () => {
     setAuthStatus('authenticated');
     window.history.replaceState(null, '', '/clubs?favorite=true&page=2');
     server.use(
@@ -267,17 +267,25 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
       ),
       ...expiredSession('/me/favorites/7'),
     );
+    // SessionExpiryHandler 의 계약을 재현한다 — 종료 확정은 동기 setState 가 먼저, 이어서 이동.
+    // 소비자가 401 을 보고 또 push 하면 /login 이 히스토리에 두 번 쌓인다.
+    registerUnauthorizedHandler(() => {
+      useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
+      mockRouterPush('/login');
+    });
 
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
     await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
 
-    // 복귀 주소에 쿼리스트링까지 실려야 필터·페이지가 걸린 목록으로 되돌아온다.
-    await waitFor(() =>
-      expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fclubs%3Ffavorite%3Dtrue%26page%3D2'),
-    );
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(requestedPaths).toContain('/api/v1/me/favorites/7');
-    // 이전 값이 있으면 그 값으로 되돌린다(하트가 채워진 채 남지 않는다).
-    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toEqual({ clubIds: [] });
+    // 종료가 확정됐으니 낙관적 갱신은 이전 값으로 되돌리지 않고 지운다(하트가 채워진 채 남지 않는다).
+    await waitFor(() =>
+      expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined(),
+    );
+    // 호출자 onError 는 훅의 롤백 뒤에 돈다 — 한 틱 흘려 소비자의 이중 push 까지 센다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mockRouterPush).toHaveBeenCalledTimes(1);
   });
 
   // 되돌릴 이전 값이 없는 실패의 캐시 계약. 낙관적 갱신이 만든 목록을 그대로 두면 비로그인
@@ -317,6 +325,7 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
       // 이게 빠지면 시드된 미인증과 구분되지 않는다.
       useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
       latestQueryClient.clear();
+      mockRouterPush('/login');
     });
 
     renderWithProviders(<FavoriteToggleButton clubId={7} />);
@@ -327,7 +336,9 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
     await userEvent.click(screen.getByRole('button', { name: '찜 추가' }));
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
-    expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined();
+    await waitFor(() =>
+      expect(latestQueryClient.getQueryData(favoriteQueryKeys.ids())).toBeUndefined(),
+    );
   });
 
   // 미인증에서는 클릭이 "로그인으로 이동" 이라 방향과 무관하다 — 목록이 없다고 막으면
@@ -362,7 +373,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
   };
 
   // 시드된 인증은 아직 서버로 확인되지 않았다 — 그래도 미인증으로 단정하지 않고 그대로 물어본다.
-  // 만료된 access 는 API 계층이 갱신하고, 정말 미인증이면 401 로 답이 온다.
+  // 만료된 access 는 API 계층이 갱신하고, 만료가 확정되면 전역 핸들러가 이동시킨다.
   it('시드된 인증이면 지원 자격 확인을 거쳐 지원 페이지로 이동한다', async () => {
     setAuthStatus('authenticated');
     server.use(
@@ -378,15 +389,21 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
     expect(mockRouterPush).toHaveBeenCalledWith('/apply/3');
   });
 
-  it('시드된 인증의 클릭이 401 로 돌아오면 요청을 보낸 뒤 로그인으로 보낸다', async () => {
+  // 이동은 전역 핸들러 몫이다 — 여기서도 push 하면 /login 이 히스토리에 두 번 쌓이고,
+  // 토스트를 띄우면 로그인 화면으로 넘어가는 순간 "인증이 필요합니다" 가 겹쳐 뜬다.
+  it('만료 확정(스토어 unauthenticated) 401 은 토스트·push 없이 조용히 끝난다', async () => {
     setAuthStatus('authenticated');
     server.use(...expiredSession('/recruitments/3/applications/eligibility'));
+    registerUnauthorizedHandler(() => {
+      useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
+    });
 
     const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
-    expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fapply%2F3');
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.queryByText('인증이 필요합니다.')).not.toBeInTheDocument();
   });
 
   it('미인증이 확정되면 자격 확인 없이 즉시 로그인으로 보낸다', async () => {
