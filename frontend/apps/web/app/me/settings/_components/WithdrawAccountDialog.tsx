@@ -30,8 +30,9 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
   const handleWithdraw = () => {
     setError(null);
     withdrawMutation.mutate(undefined, {
-      onSuccess: async () => {
-        await clearSession();
+      onSuccess: () => {
+        // 상태는 동기적으로 먼저 내려가고 저장소 정리는 best-effort — 실패해도 이동·안내는 진행한다.
+        void clearSession().catch(() => {});
         queryClient.clear();
         addToast('탈퇴가 완료되었어요. 그동안 이용해 주셔서 감사합니다.');
         router.replace(toRoute('/'));

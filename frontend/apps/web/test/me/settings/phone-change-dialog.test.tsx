@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 
 // 인메모리 storage 주입(account-dialogs 하네스 동일) — api client·clearSession 의 세션 접근을 결정적으로 만든다.
 const memoryStore = new Map<string, string>();
-setStorage({
+const memoryStorage: Parameters<typeof setStorage>[0] = {
   getItem: (key) => Promise.resolve(memoryStore.get(key) ?? null),
   setItem: (key, value) => {
     memoryStore.set(key, value);
@@ -31,7 +31,13 @@ setStorage({
     memoryStore.delete(key);
     return Promise.resolve();
   },
-});
+};
+setStorage(memoryStorage);
+// 사파리 프라이빗처럼 저장소 접근이 거부되는 환경 — 세션 정리의 clearToken 이 reject 된다.
+const failingRemoveStorage: Parameters<typeof setStorage>[0] = {
+  ...memoryStorage,
+  removeItem: () => Promise.reject(new Error('storage unavailable')),
+};
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -58,6 +64,7 @@ beforeEach(() => {
 afterEach(() => {
   server.resetHandlers();
   memoryStore.clear();
+  setStorage(memoryStorage);
   mockRouterReplace.mockReset();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
   vi.useRealTimers();
@@ -124,7 +131,7 @@ async function issueAndVerify() {
   });
 }
 
-// 성공 onSuccess(await clearSession → clear → toast → replace)의 마이크로태스크까지 흘려준다.
+// 성공 onSuccess(clearSession → clear → toast → replace)의 마이크로태스크까지 흘려준다.
 async function flush() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);
@@ -178,6 +185,26 @@ describe('PhoneChangeDialog', () => {
     expect(screen.getByText('전화번호가 변경되었어요. 다시 로그인해 주세요.')).toBeInTheDocument();
     expect(mockRouterReplace).toHaveBeenCalledWith('/login');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('저장소 정리가 실패해도 안내 토스트를 띄우고 로그인으로 보낸다', async () => {
+    vi.useFakeTimers();
+    server.use(
+      http.patch(`${BASE}/users/me/phone`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+    );
+    renderWithProviders(<PhoneChangeDialog open onClose={vi.fn()} />);
+
+    await issueAndVerify();
+    setStorage(failingRemoveStorage);
+    fireEvent.change(screen.getByLabelText('현재 비밀번호'), { target: { value: CURRENT_PASSWORD } });
+    fireEvent.click(screen.getByRole('button', { name: '번호 변경하기' }));
+    await flush();
+
+    expect(screen.getByText('전화번호가 변경되었어요. 다시 로그인해 주세요.')).toBeInTheDocument();
+    expect(mockRouterReplace).toHaveBeenCalledWith('/login');
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
   });
 
   it('현재 비밀번호가 틀리면(400) 에러를 보여주고 인증 상태를 유지한 채 재시도할 수 있다', async () => {
