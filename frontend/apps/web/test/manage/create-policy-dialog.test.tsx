@@ -67,6 +67,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
     await user.click(screen.getByRole('button', { name: '추가' }));
     expect(await screen.findByText('정책 이름은 필수입니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/정책 이름/)).toHaveAccessibleDescription('정책 이름은 필수입니다.');
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
@@ -158,6 +159,7 @@ describe('CreatePolicyDialog', () => {
     await user.click(screen.getByRole('button', { name: '추가' }));
 
     expect(await screen.findByText('마감일은 발행일과 같거나 이후여야 합니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText('마감일(1~28)')).toHaveAccessibleDescription('마감일은 발행일과 같거나 이후여야 합니다.');
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
