@@ -130,7 +130,7 @@ public class Recruitment extends BaseEntity {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
         if (capacity <= 0) {
-            throw new IllegalArgumentException("모집 정원은 1명 이상이어야 합니다.");
+            throw new IllegalArgumentException("모집 인원은 1명 이상이어야 합니다.");
         }
         if (interviewStartDate != null && interviewEndDate != null
                 && interviewEndDate.isBefore(interviewStartDate)) {
