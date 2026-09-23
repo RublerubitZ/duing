@@ -16,7 +16,8 @@ const RECENT_REFRESH_SKIP_MS = 10_000;
 export type RefreshOutcome = 'refreshed' | 'skipped' | 'session-expired' | 'unavailable';
 
 export type RefreshCoordinator = {
-  ensureFreshSession(): Promise<RefreshOutcome>;
+  // force: 최근 갱신 기록(10초 생략 창)을 무시하고 실행한다 — skip 후 재시도가 다시 401 인 경우(#844).
+  ensureFreshSession(options?: { force?: boolean }): Promise<RefreshOutcome>;
 };
 
 // 크로스탭 직렬화 락 어댑터. 미등록이면 탭 내 in-flight 공유만으로 동작한다(락 없이 즉시 실행).
@@ -33,8 +34,8 @@ export function createRefreshCoordinator(
 ): RefreshCoordinator {
   let inFlight: Promise<RefreshOutcome> | null = null;
 
-  async function refreshUnderLock(): Promise<RefreshOutcome> {
-    if (await wasRefreshedRecently()) {
+  async function refreshUnderLock(force: boolean): Promise<RefreshOutcome> {
+    if (!force && (await wasRefreshedRecently())) {
       return 'skipped';
     }
     const outcome = await executeRefresh();
@@ -53,9 +54,12 @@ export function createRefreshCoordinator(
   }
 
   return {
-    ensureFreshSession() {
+    ensureFreshSession(options) {
+      const force = options?.force === true;
+      // ponytail: force 가 진행 중인 non-force 실행을 공유하면 skipped 를 받을 수 있다(다음 요청이 자가 치유).
+      // 필요해지면 force && inFlight 시 결과를 기다린 뒤 skipped 면 force 로 1회 재실행한다.
       if (inFlight === null) {
-        inFlight = withCrossTabLock(refreshUnderLock).finally(() => {
+        inFlight = withCrossTabLock(() => refreshUnderLock(force)).finally(() => {
           inFlight = null;
         });
       }

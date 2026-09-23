@@ -76,8 +76,6 @@ export function AuthSessionBootstrap() {
         // 오프라인으로 실패)의 예외 객체가 완전히 동일해, 반환 채널만으로는 구분할 근거가 없다.
         // 종료 판정은 SessionExpiryHandler 한 곳에 있고, 확정됐다면 그쪽이 이 catch 보다 먼저
         // (동기 setState 로) 스토어를 내려둔다 — 여기서는 그 결과만 읽는다.
-        // TODO(후속 #844): 다른 탭이 10초 내 갱신해 'skipped' 로 재시도된 요청이 다시 401 이면
-        // 사이드 채널이 울리지 않아, 서버측 세션 폐기가 일시 장애로 오분류된다.
         const settled = useAuthStore.getState();
         if (settled.isVerified && settled.status === 'unauthenticated') return;
         if (!hadSession()) return;
