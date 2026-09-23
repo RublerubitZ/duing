@@ -46,9 +46,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user, status: 'authenticated', isVerified: true, sessionOpenedAt: performance.now() });
   },
   async clearSession() {
-    await clearToken();
     // 호출부(로그아웃·전체 로그아웃·탈퇴·만료 확정)는 전부 서버가 확인한 종료 경로다.
+    // 상태를 먼저 내린다 — 저장소 정리를 기다리는 사이 들어온 로그인(setSession)을 늦은 set 이
+    // 덮지 않고, 저장소 접근 실패에도 종료 상태는 반영된다. clearToken 은 뒤따르는 로그인의
+    // writeToken 보다 먼저 큐잉되므로(client.ts bearer 로그인) 새 토큰을 지우지 않는다.
     set({ user: null, status: 'unauthenticated', isVerified: true, sessionOpenedAt: null });
+    await clearToken();
   },
 }));
 
