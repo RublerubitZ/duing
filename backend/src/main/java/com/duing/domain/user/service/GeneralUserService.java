@@ -259,9 +259,8 @@ public class GeneralUserService implements UserService {
     @Transactional
     public void updateProfile(UpdateProfileCommand updateProfileCommand) {
         reservedNamePolicy.validate(updateProfileCommand.name());
-        // 행잠금 — User 에는 @Version 도 @DynamicUpdate 도 없어 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 낸다.
-        // 잠그지 않고 읽으면 읽은 뒤 커밋된 계정 조치(status·token_version)까지 옛 스냅샷 값으로 되돌려 써,
-        // 계정은 멀쩡히 살아 있는데 감사 로그에는 "정지했다"만 남는다(관리자 메모 저장 경로와 동일한 결함).
+        // 행잠금 — @DynamicUpdate 가 교차 컬럼 되돌림은 막지만, 같은 행에 대한 정지·토큰 폐기와의 순서
+        // (감사 로그와 실제 상태 일치)는 잠금이 보장한다.
         User user = userRepository.findByIdForUpdate(updateProfileCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
         user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),

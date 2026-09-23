@@ -77,9 +77,8 @@ public class GeneralAdminUserCommandService implements AdminUserCommandService {
     @Override
     @Transactional
     public void updateAdminNote(UpdateAdminNoteCommand updateAdminNoteCommand) {
-        // 메모 한 줄 바꾸는 데도 행을 잠근다 — 지우지 마라. User 에는 @Version 도 @DynamicUpdate 도 없어서
-        // 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 낸다. 잠금 없이 읽으면 그 사이 다른 트랜잭션이 커밋한
-        // status·token_version 까지 옛 스냅샷 값으로 되돌려 써, 계정 정지가 감사 로그만 남긴 채 사라진다.
+        // 메모 한 줄 바꾸는 데도 행을 잠근다 — 지우지 마라. @DynamicUpdate 가 교차 컬럼 되돌림은 막지만,
+        // 같은 행에 대한 정지·토큰 폐기와의 순서(감사 로그와 실제 상태 일치)는 잠금이 보장한다.
         // 비관적 잠금은 쓰기 경로가 전부 잡아야 성립하므로 이 경로만 빠져도 changeStatus 의 보호가 뚫린다.
         User target = userRepository.findByIdForUpdate(updateAdminNoteCommand.targetUserId())
                 .orElseThrow(UserException.UserNotFoundException::new);
