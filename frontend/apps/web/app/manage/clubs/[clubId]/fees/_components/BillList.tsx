@@ -295,6 +295,9 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
   // 이미 완납(remainingAmount<=0)이거나 취소된 청구는 추가 납부 기록 불가(백엔드 400) — 버튼 비활성화.
   const isFullyPaid = bill.remainingAmount <= 0;
   const recordDisabled = isCancelled || isFullyPaid;
+  // 활성 납부가 있는 청구는 취소 불가(백엔드 409) — 납부를 먼저 정정해야 한다.
+  const hasPayments = bill.paidAmount > 0;
+  const cancelDisabled = isCancelled || hasPayments;
 
   // 진행률 = paidAmount / amount(0 나눔 방지), 0~100% 로 클램프.
   const progressPercent =
@@ -372,10 +375,11 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
         <button
           type="button"
           onClick={onCancel}
-          disabled={isCancelled}
+          disabled={cancelDisabled}
+          title={!isCancelled && hasPayments ? '납부 기록이 있으면 취소할 수 없어요' : undefined}
           className={cn(
             'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
-            isCancelled
+            cancelDisabled
               ? 'cursor-not-allowed border-line text-charcoal-3 opacity-50'
               : 'border-line text-coral hover:bg-coral/5',
           )}
