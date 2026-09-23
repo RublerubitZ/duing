@@ -81,6 +81,7 @@ export function ExtendDeadlineModal({
             {isPending && <ButtonSpinner />}저장
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '마감 연장 저장 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

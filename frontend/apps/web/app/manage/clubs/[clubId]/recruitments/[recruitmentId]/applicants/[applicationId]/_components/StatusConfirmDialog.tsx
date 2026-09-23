@@ -81,6 +81,7 @@ export function StatusConfirmDialog({ targetStatus, isPending, onConfirm, onCanc
             {CONFIRM_LABEL[targetStatus]}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '지원 상태 변경 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -111,6 +111,7 @@ export function ConfirmRoundDialog({
             {isPending && <ButtonSpinner />}강제 확정 (미처리 {totalCount}명 제외)
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '라운드 확정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

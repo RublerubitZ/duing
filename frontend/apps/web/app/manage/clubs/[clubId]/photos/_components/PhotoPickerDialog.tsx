@@ -139,6 +139,7 @@ export function PhotoPickerDialog({
             닫기
           </button>
         </div>
+        <span role="status" className="sr-only">{busy ? '사진 올리는 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

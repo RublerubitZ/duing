@@ -96,6 +96,7 @@ export function MemberAssignModal({
             {isPending && <ButtonSpinner />}배정
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '수동 배정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );
