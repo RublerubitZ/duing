@@ -74,8 +74,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
             throw new JoinCodeException.ExternalRecruitmentRequiredException();
         }
         // 지원서 제출과 같은 기준(isEffectivelyOpen)을 쓴다 — 마감일이 지났는데 마감 처리만 안 된
-        // 모집에서 새 링크가 발급되는 비대칭을 없앤다. 이미 발급된 링크의 사용 판정은 status 기준이라
-        // 이 경우에도 계속 유효하다(의도된 비대칭 — 상시 운영과 실질이 같다).
+        // 모집에서 새 링크가 발급되는 비대칭을 없앤다.
         if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
             throw new JoinCodeException.OpenRecruitmentRequiredException();
         }
@@ -111,7 +110,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
                             : ClubAuditEventType.JOIN_LINK_CREATED,
                     clubId, createCommand.recruitmentId(), issued.getId(), createCommand.requesterId());
             // 방금 발급된 링크라 접수된 가입 신청이 아직 없다(상태 카드 초기값, 스펙 v2 7.2).
-            return JoinCodeQuery.from(issued, 0, 0);
+            return JoinCodeQuery.from(issued, 0, 0, now);
         } catch (DataIntegrityViolationException concurrentIssue) {
             // 동시 재생성: partial unique 충돌 → 409 로 변환해 재시도 유도
             throw new JoinCodeException.ConcurrentJoinCodeOperationException();
@@ -126,7 +125,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
                 .map(activeCode -> JoinCodeQuery.from(activeCode,
                         clubJoinRequestRepository.countByJoinCodeId(activeCode.getId()),
                         clubJoinRequestRepository.countByJoinCodeIdAndStatus(
-                                activeCode.getId(), JoinRequestStatus.PENDING)));
+                                activeCode.getId(), JoinRequestStatus.PENDING),
+                        LocalDateTime.now(clock)));
     }
 
     @Override
@@ -205,7 +205,7 @@ public class GeneralJoinCodeService implements JoinCodeService {
                     issued.getInviteExpiresAt(), createCommand.requesterId()));
         }
         // 방금 발급된 링크라 접수된 가입 신청이 아직 없다.
-        return JoinCodeQuery.from(issued, 0, 0);
+        return JoinCodeQuery.from(issued, 0, 0, now);
     }
 
     @Override
@@ -215,7 +215,8 @@ public class GeneralJoinCodeService implements JoinCodeService {
                 .map(activeCode -> JoinCodeQuery.from(activeCode,
                         clubJoinRequestRepository.countByJoinCodeId(activeCode.getId()),
                         clubJoinRequestRepository.countByJoinCodeIdAndStatus(
-                                activeCode.getId(), JoinRequestStatus.PENDING)));
+                                activeCode.getId(), JoinRequestStatus.PENDING),
+                        LocalDateTime.now(clock)));
     }
 
     @Override

@@ -34,7 +34,8 @@ public record JoinCodeQuery(
         LocalDateTime inviteExpiresAt,
         boolean autoApprove
 ) {
-    public static JoinCodeQuery from(ClubJoinCode joinCode, long totalRequestCount, long pendingCount) {
+    public static JoinCodeQuery from(ClubJoinCode joinCode, long totalRequestCount, long pendingCount,
+                                     LocalDateTime now) {
         return new JoinCodeQuery(
                 joinCode.getId(),
                 joinCode.getCode(),
@@ -42,7 +43,7 @@ public record JoinCodeQuery(
                 joinCode.getMaxUses(),
                 joinCode.getUsedCount(),
                 joinCode.getJoinWindowDays(),
-                joinCode.getJoinExpiresAt(),
+                joinCode.getJoinExpiresAt(now),
                 totalRequestCount,
                 pendingCount,
                 joinCode.isClubInvite() ? JoinCodeLinkType.CLUB_INVITE : JoinCodeLinkType.RECRUITMENT,

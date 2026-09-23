@@ -173,28 +173,42 @@ public class ClubJoinCode extends BaseEntity {
     }
 
     /**
-     * 가입 가능 기한 = 실제 종료 시각 + 프리셋(스펙 v2 4.3). 모집이 진행 중이거나 종료 스탬프가 없으면
-     * 기한이 정해지지 않아 null 이다 — 운영 화면은 이 값이 없을 때 "모집 종료 후 N일까지"로 안내한다.
+     * 가입 가능 기한 = 실제 종료 시각 + 프리셋(스펙 v2 4.3). 실제 종료 시각은 마감 스탬프(closedAt)와
+     * 마감일(endDate) 종료(다음날 00:00) 중 이른 쪽이다 — 마감 처리를 안 한 만료-OPEN 모집은 마감일 종료가
+     * 기준이 되고, 마감일 뒤에 늦게 찍힌 스탬프가 기한을 늘리지도 않는다.
+     *
+     * <p>진행 중({@code isEffectivelyOpen})이면 기한이 정해지지 않아 null 이다 — 운영 화면은 이 값이 없을 때
+     * "모집 종료 후 N일까지"로 안내한다. CLOSED 인데 종료 스탬프가 없는 비정상 데이터도 null 이다(fail-closed).
      *
      * <p>부원 초대 링크(V107)는 파생이 아니라 발급 시 정한 절대 만료 시각이 곧 기한이다.
      */
-    public LocalDateTime getJoinExpiresAt() {
+    public LocalDateTime getJoinExpiresAt(LocalDateTime now) {
         if (isClubInvite()) {
             return inviteExpiresAt;
         }
-        if (recruitment.getStatus() == RecruitmentStatus.OPEN || recruitment.getClosedAt() == null) {
+        if (recruitment.isEffectivelyOpen(now.toLocalDate())) {
             return null;
         }
-        return recruitment.getClosedAt().plusDays(joinWindowDays);
+        LocalDateTime closedAt = recruitment.getClosedAt();
+        if (recruitment.getStatus() == RecruitmentStatus.CLOSED && closedAt == null) {
+            return null;
+        }
+        // 여기 도달한 OPEN 은 마감일이 지난 경우뿐이라 endDate 가 있다. CLOSED 는 closedAt 이 있다.
+        LocalDateTime endOfEndDate = recruitment.getEndDate() == null
+                ? null
+                : recruitment.getEndDate().plusDays(1).atStartOfDay();
+        LocalDateTime actualEnd = closedAt == null ? endOfEndDate
+                : endOfEndDate == null || closedAt.isBefore(endOfEndDate) ? closedAt
+                : endOfEndDate;
+        return actualEnd.plusDays(joinWindowDays);
     }
 
     /**
      * 신규 가입 요청을 받을 수 있는 코드인지 판정한다 — 미폐기·미소진 + 가입 가능 기간 안(스펙 v2 4.3).
      *
-     * <p>기간은 모집 상태에서 파생된다: OPEN 이면 계속 유효하고(상시모집·기간 연장도 자연히 커버),
-     * 종료 뒤에는 실제 종료 시각 + 프리셋까지만 유효하다. 설정 마감일(endDate)이 지나도 운영진이
-     * 마감하지 않았다면 링크는 계속 유효하다 — 상시 운영과 실질이 같고, 신규 <b>발급</b>만
-     * {@code isEffectivelyOpen} 으로 따로 막는다(의도된 비대칭).
+     * <p>기간은 지원 제출·발급과 같은 축({@code isEffectivelyOpen})에서 파생된다: 진행 중이면 계속 유효하고
+     * (상시모집·기간 연장도 자연히 커버), 종료 뒤에는 실제 종료 시각 + 프리셋까지만 유효하다. 마감 처리를
+     * 안 해도 endDate 가 지나면 endDate 종료(다음날 00:00) + 프리셋까지만 유효하다(#1256).
      *
      * <p>CLOSED 인데 종료 스탬프가 없는 비정상 데이터는 사용 불가로 본다(fail-closed).
      * 이미 접수된 요청의 승인·거절은 이 판정을 쓰지 않으므로 기간이 지나도 계속 처리할 수 있다.
@@ -213,10 +227,10 @@ public class ClubJoinCode extends BaseEntity {
         if (isClubInvite()) {
             return !now.isAfter(inviteExpiresAt);
         }
-        if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
+        if (recruitment.isEffectivelyOpen(now.toLocalDate())) {
             return true;
         }
-        LocalDateTime joinExpiresAt = getJoinExpiresAt();
+        LocalDateTime joinExpiresAt = getJoinExpiresAt(now);
         return joinExpiresAt != null && !now.isAfter(joinExpiresAt);
     }
 

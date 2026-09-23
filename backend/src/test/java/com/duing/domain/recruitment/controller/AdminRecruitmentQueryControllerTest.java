@@ -329,6 +329,22 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감일이 지났는데 마감 처리만 안 된 모집의 링크도 마감일 종료 + 가입 가능 기간이 지나면 만료로 드러난다")
+    void expiredOpenRecruitmentLinkIsExpiredAfterEndDatePlusWindow() {
+        Club zetaClub = clubRepository.save(ClubFixture.academic("제타동아리-" + sequence.incrementAndGet()));
+        LocalDate today = LocalDate.now(clock);
+        Recruitment expiredOpenRecruitment = saveRecruitment(zetaClub, "방치된 외부 폼 모집",
+                ApplicationMode.EXTERNAL, today.minusDays(30), today.minusDays(10));
+        saveJoinCode(zetaClub, expiredOpenRecruitment, null, 10, 7);
+
+        getDetail(adminToken, expiredOpenRecruitment.getId()).then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.status", equalTo("OPEN"))
+                .body("data.joinLink.linkStatus", equalTo("EXPIRED"))
+                .body("data.joinLink.joinExpiresAt", notNullValue());
+    }
+
+    @Test
     @DisplayName("활성 가입 링크가 없는 외부 폼 모집 상세는 링크 현황 없이 내려온다")
     void externalRecruitmentWithoutActiveJoinCodeHasNoJoinLink() {
         getDetail(adminToken, externalRecruitment.getId()).then()
