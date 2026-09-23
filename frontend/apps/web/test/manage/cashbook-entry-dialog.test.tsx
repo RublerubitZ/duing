@@ -64,6 +64,19 @@ describe('금전출납부 등록 다이얼로그', () => {
     });
   });
 
+  it('설명이 비면 검증 오류를 설명 입력에 연결하고 등록하지 않는다', async () => {
+    const user = userEvent.setup();
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('금액(원)'), '30000');
+    await user.click(screen.getByRole('button', { name: '등록' }));
+
+    expect(await screen.findByText('설명은 필수입니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText('설명')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('설명')).toHaveAccessibleDescription('설명은 필수입니다.');
+    expect(mockCreateMutate).not.toHaveBeenCalled();
+  });
+
   it('카테고리가 기타일 때만 직접입력이 보인다', async () => {
     const user = userEvent.setup();
     render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
