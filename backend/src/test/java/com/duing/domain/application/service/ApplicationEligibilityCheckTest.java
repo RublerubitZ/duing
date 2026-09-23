@@ -129,6 +129,7 @@ class ApplicationEligibilityCheckTest {
         Recruitment externalRecruitment = mock(Recruitment.class);
         when(externalRecruitment.getClub()).thenReturn(activeClub);
         when(externalRecruitment.isEffectivelyOpen(any())).thenReturn(true);
+        when(externalRecruitment.getStartDate()).thenReturn(LocalDate.now().minusDays(7));
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
@@ -209,6 +210,7 @@ class ApplicationEligibilityCheckTest {
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(RECRUITMENT_ID);
         when(recruitment.isEffectivelyOpen(any())).thenReturn(true);
+        when(recruitment.getStartDate()).thenReturn(LocalDate.now().minusDays(7));
         when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
         when(recruitment.getTargetRole()).thenReturn(targetRole);
         when(recruitment.getClub()).thenReturn(club);

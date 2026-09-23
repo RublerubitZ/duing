@@ -169,8 +169,15 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         // 마감 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 자정~09시 사이 하루 늦게 마감된다.
-        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
+        LocalDate today = LocalDate.now(clock);
+        if (!recruitment.isEffectivelyOpen(today)) {
             throw new ApplicationDomainException.RecruitmentClosedException();
+        }
+
+        // 시작일 도래 검사 — isEffectivelyOpen 은 진행 중 그룹 축(startDate 무관)이라 모집예정(UPCOMING)을 통과시킨다.
+        // 두 검사를 합치면 RecruitmentPredicates.availableToday 와 같은 "오늘 지원 가능" 축이 된다.
+        if (recruitment.getStartDate().isAfter(today)) {
+            throw new RecruitmentException.RecruitmentNotStartedException();
         }
 
         if (recruitment.getApplicationMode() == ApplicationMode.EXTERNAL) {

@@ -27,6 +27,7 @@ import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -58,6 +59,8 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
     @Autowired private RecruitmentRepository recruitmentRepository;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
+    // 시작일 판정은 KST(seoulClock) 기준 — JVM 기본존 now() 는 UTC CI 에서 하루 어긋날 수 있다.
+    @Autowired private Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -135,6 +138,56 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.CONFLICT.value())
                 .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집 공고에는 지원할 수 없습니다."));
+    }
+
+    @Test
+    @DisplayName("시작일이 내일인 OPEN 모집에 지원서를 제출하면 409 + RECRUITMENT_NOT_STARTED 를 반환한다")
+    void notStartedRecruitmentSubmitReturnsConflictWithCode() {
+        Club club = saveActiveClub("시작전제출동아리");
+        Recruitment recruitment = saveOpenRecruitmentStartingAt(club, "시작전제출모집", LocalDate.now(clock).plusDays(1));
+        User applicant = saveUser("시작전제출자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("answerItems", List.of(Map.of("questionId", "q1", "values", List.of("답변")))))
+                .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_NOT_STARTED"))
+                .body("message", equalTo("아직 모집이 시작되지 않았어요."));
+    }
+
+    @Test
+    @DisplayName("시작일이 내일인 OPEN 모집의 사전 확인도 409 + RECRUITMENT_NOT_STARTED 를 반환한다")
+    void notStartedRecruitmentEligibilityReturnsConflictWithCode() {
+        Club club = saveActiveClub("시작전확인동아리");
+        Recruitment recruitment = saveOpenRecruitmentStartingAt(club, "시작전확인모집", LocalDate.now(clock).plusDays(1));
+        User applicant = saveUser("시작전확인자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/recruitments/{recruitmentId}/applications/eligibility", recruitment.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("RECRUITMENT_NOT_STARTED"))
+                .body("message", equalTo("아직 모집이 시작되지 않았어요."));
+    }
+
+    @Test
+    @DisplayName("시작일이 오늘인 OPEN 모집은 기존대로 지원서 제출이 201 로 성공한다")
+    void startsTodayRecruitmentSubmitReturnsCreated() {
+        Club club = saveActiveClub("오늘시작동아리");
+        Recruitment recruitment = saveOpenRecruitmentStartingAt(club, "오늘시작모집", LocalDate.now(clock));
+        User applicant = saveUser("오늘시작지원자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("answerItems", List.of()))
+                .when().post("/api/v1/recruitments/{recruitmentId}/applications", recruitment.getId())
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test
@@ -269,6 +322,12 @@ class ApplicationEligibilityControllerTest extends IntegrationTestBase {
         LocalDate today = LocalDate.now();
         Recruitment recruitment = Recruitment.create(club, title + "-" + sequence.incrementAndGet(),
                 null, today.minusDays(1), today.plusDays(7), 10);
+        return recruitmentRepository.save(recruitment);
+    }
+
+    private Recruitment saveOpenRecruitmentStartingAt(Club club, String title, LocalDate startDate) {
+        Recruitment recruitment = Recruitment.create(club, title + "-" + sequence.incrementAndGet(),
+                null, startDate, startDate.plusDays(7), 10);
         return recruitmentRepository.save(recruitment);
     }
 
