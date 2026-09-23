@@ -70,8 +70,10 @@ public class InterviewRoundAccessor {
     public void requireManagerForWriteBySlotId(Long slotId, Long currentUserId) {
         Long roundId = interviewSlotRepository.findRoundIdById(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        // 비멤버는 슬롯 미존재와 같은 SlotNotFound 로 — RoundNotFound 로 답하면 문구 차이가 슬롯 존재를 드러낸다.
-        requireManagerForWrite(resolveRecruitment(findRecruitmentIdOrThrow(roundId)), currentUserId,
+        // 비멤버·소속 라운드 미존재 모두 슬롯 미존재와 같은 SlotNotFound 로 — RoundNotFound 로 답하면 문구 차이가 슬롯 존재를 드러낸다.
+        Long recruitmentId = interviewRoundRepository.findRecruitmentIdById(roundId)
+                .orElseThrow(InterviewException.SlotNotFound::new);
+        requireManagerForWrite(resolveRecruitment(recruitmentId), currentUserId,
                 InterviewException.SlotNotFound::new);
     }
 

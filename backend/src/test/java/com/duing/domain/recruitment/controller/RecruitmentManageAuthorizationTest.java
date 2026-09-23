@@ -121,7 +121,8 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
     void otherClubLeaderCannotUpdateRecruitment() {
         updateRecruitment(otherLeaderToken, targetRecruitmentId)
                 .then().statusCode(HttpStatus.NOT_FOUND.value())
-                .body("ok", equalTo(false));
+                .body("ok", equalTo(false))
+                .body("message", equalTo("모집 공고를 찾을 수 없습니다."));
     }
 
     @Test
