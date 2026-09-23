@@ -30,7 +30,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -111,9 +110,8 @@ class InterviewLockAfterAuthorizationTest extends InterviewControllerTestSupport
                         awaitOrThrow(probeDone);
                     }
                 });
-            } catch (UnexpectedRollbackException expectedRollback) {
-                // 서비스가 참여 트랜잭션을 rollback-only 로 표시한 뒤 테스트 트랜잭션 커밋 시도에서 난다.
             } catch (Throwable deniedCallFailure) {
+                // 콜백이 던진 NotAMember 를 TransactionTemplate 이 롤백 후 그대로 재던진다(UnexpectedRollback 은 콜백이 삼켰을 때만).
                 denial = deniedCallFailure;
             }
             return denial;

@@ -54,7 +54,7 @@ public class InterviewRoundAccessor {
         clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
     }
 
-    /** 잠금 전 인가(쓰기용) — {@link #requireManagerForWrite} 와 같은 의미를 라운드 id 로 본다. */
+    /** 잠금 전 인가(쓰기용) — 권한 확인과 모집 마감 정책 검사를 라운드 id 만으로 수행한다. */
     public void requireManagerForWriteByRoundId(Long roundId, Long currentUserId) {
         requireManagerForWrite(resolveRecruitment(findRecruitmentIdOrThrow(roundId)), currentUserId);
     }
