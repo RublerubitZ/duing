@@ -59,10 +59,7 @@ export function AdminPromotionRequestProcessDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>홍보 요청 처리</DialogTitle>

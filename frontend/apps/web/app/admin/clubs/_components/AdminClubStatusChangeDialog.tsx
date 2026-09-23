@@ -64,10 +64,7 @@ export function AdminClubStatusChangeDialog({
       }}
     >
       <DialogContent
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{action.label}</DialogTitle>

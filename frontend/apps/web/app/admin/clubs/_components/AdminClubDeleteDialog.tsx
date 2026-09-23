@@ -48,10 +48,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
       }}
     >
       <DialogContent
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>동아리 삭제</DialogTitle>
