@@ -18,6 +18,7 @@ import com.duing.domain.fee.exception.FeePolicyException;
 import com.duing.domain.fee.controller.dto.response.FeeBillResponse;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
+import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.command.GenerateBillsCommand;
 import com.duing.domain.fee.service.dto.query.BillSearchQuery;
 import com.duing.domain.fee.service.dto.query.FeeBillQuery;
@@ -48,6 +49,7 @@ public class GeneralFeeBillService implements FeeBillService {
 
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillRepository feeBillRepository;
+    private final PaymentRepository paymentRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
@@ -181,11 +183,16 @@ public class GeneralFeeBillService implements FeeBillService {
     @Transactional
     public void cancel(Long clubId, Long actorId, Long billId) {
         clubAuthService.requireManager(actorId, clubId);
-        // bill 조회는 Read Committed 일반 SELECT 라 행 락을 남기지 않는다(정책 id 만 얻는 용도).
-        FeeBill bill = feeBillRepository.findByIdAndClubId(billId, clubId)
+        // 청구 행을 record()/void() 와 같은 비관적 잠금으로 읽어 납부 기록과 직렬화한다 — 무잠금이면 동시 record
+        // 커밋 직후 그 위에 CANCELLED 를 덮어써 활성 납부가 취소 청구에 고아로 남는다.
+        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(billId, clubId)
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
-        // 그 직후 generate() 와 동일하게 '정책 행'만 비관적 잠금해 취소·재발행을 직렬화한다. cancel 이
-        // 잡는 유일한 락이 정책 락이므로 두 메서드의 락 순서가 동일(policy-only)해 데드락이 없다.
+        // 활성 납부가 있으면 취소 금지 — 납부가 집계·영수증에서 빠지고 같은 회차 재발행이 열린다. 정정(무효화)이 먼저다.
+        if (bill.getStatus() != FeeStatus.CANCELLED && paymentRepository.sumActiveByFeeBillId(billId) > 0) {
+            throw new FeeBillException.CancelWithActivePaymentsException();
+        }
+        // 잠금 순서 bill→policy: generate(policy만)·record/void(bill만)·매칭(tx→bill) 어느 쪽도 policy→bill 로 잡지 않아 사이클이 없다.
+        // 그 뒤 generate() 와 동일하게 '정책 행'을 비관적 잠금해 취소·재발행을 직렬화한다.
         // 락이 없으면 진행 중 취소 + 동시 재발행이 ON CONFLICT DO NOTHING 으로 서로 비껴가 활성 청구가
         // 0건이 되는 lost-charge 경합이 가능하다.
         // 청구가 있는 정책은 삭제될 수 없어(DeleteForbidden) 정상적으로는 항상 조회되지만,
