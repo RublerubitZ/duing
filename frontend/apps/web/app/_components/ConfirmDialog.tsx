@@ -69,10 +69,7 @@ export function ConfirmDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
