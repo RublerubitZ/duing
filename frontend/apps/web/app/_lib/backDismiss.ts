@@ -208,24 +208,30 @@ function handlePopState() {
   const canSkipForward = landedOnDeadEntry && arrivedFromBelow && skipBudget > 0;
   const canSkipBack = landedOnDeadEntry && !canSkipForward && !wentForward && skipBudget > 0;
   const canSkip = canSkipForward || canSkipBack;
+  // 라이브 오버레이 위의 기억되지 않은 죽은 마커에 forward 로 올라와 앉는 착지 — 닫지도 건너뛰지도 않는다.
+  const satOnForwardDeadEntry = landedOnDeadEntry && wentForward;
 
   // 먼저 스택에서 제거한다 — 재진입 popstate 가 같은 오버레이를 두 번 집지 못하게 하는 장치는
   // 게이트 플래그가 아니라 이 순서다(게이트를 두면 아래 자동 스킵 연쇄가 끊긴다).
   //
   // 주인 없는 엔트리에 착지했으면 아무것도 닫지 않는다 — 그 엔트리 **아래**에 있던 오버레이는
   // 여전히 열려 있어야 하고, 어느 것이 그런지는 한 칸 더 내려간 다음 위치에서만 알 수 있다.
+  // 마커 없는 페이지 엔트리(id 없음) 착지는 오버레이 영역을 벗어난 것이라 전부 닫는다.
   // forward 로 올라온 착지면 라이브 엔트리는 전부 그 아래에 있으므로 하나도 닫지 않는다.
   // (스킵 예산이 바닥나 더 내려갈 수 없을 때만 안전망으로 전부 닫는다.)
   const dismissed = landedOnLiveEntry
     ? stack.splice(landedIndex + 1)
-    : canSkip || wentForward
+    : canSkip || satOnForwardDeadEntry
       ? []
       : stack.splice(0);
 
   // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면, 뒤이어 실행될
   // next-view-transitions 의 popstate 핸들러가 전환을 시작하지 못하게 막는다(끝나지 않는 전환 방지).
   // 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가 제때 보인다. 같은 태스크가 끝나면 해제한다.
-  const overlayTraversal = dismissed.length > 0 || isSelfTraversal || canSkip;
+  // forward 로 죽은 마커에 앉는 착지도 아래 페이지와 URL 이 같아 전환이 끝나지 않으므로 포함한다.
+  // 아래 leftHref 복원도 함께 켜지는데, back 방향 착지와 대칭이라 의도된 동작이다.
+  const overlayTraversal =
+    dismissed.length > 0 || isSelfTraversal || canSkip || satOnForwardDeadEntry;
   const stayedOnSamePage = isSamePageAs(leftHref);
   overlayOnlyTraversal = overlayTraversal && stayedOnSamePage;
   if (overlayOnlyTraversal) {

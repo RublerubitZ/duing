@@ -637,7 +637,14 @@ describe('useBackDismiss', () => {
     expect(window.history.state.__overlayId).toBe(liveId);
 
     // 위로 올라온 착지라 되돌려 보내면 B 에 영원히 못 간다 — 앉아야 한다.
+    const observed: boolean[] = [];
+    // 모듈 리스너보다 나중에 등록되므로 모듈이 판정을 마친 뒤에 실행된다.
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
     await pressForward();
+    window.removeEventListener('popstate', probe);
+    // 죽은 마커는 아래 페이지와 URL 이 같다 — 전환을 시작하면 끝나지 않으므로 억제해야 한다.
+    expect(observed).toEqual([true]);
     // 죽은 엔트리 아래의 라이브 오버레이 a 는 여전히 열려 있어야 한다 — forward 착지는 안전망으로 닫지 않는다.
     expect(window.history.state.__overlayId).toBe(deadId);
     expect(closeSpy).not.toHaveBeenCalled();
