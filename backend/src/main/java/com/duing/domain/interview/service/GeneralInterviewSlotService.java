@@ -95,9 +95,11 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void updateSlot(UpdateInterviewSlotCommand updateCommand) {
+        // 인가를 잠금 앞에 둔다 — 뒤에 두면 권한 없는 요청도 슬롯 행을 트랜잭션 동안 잠근다 (#839).
+        interviewRoundAccessor.requireManagerForWriteBySlotId(updateCommand.slotId(), updateCommand.currentUserId());
         InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(updateCommand.slotId())
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        InterviewRound round = getRoundForWrite(slot.getRoundId(), updateCommand.currentUserId());
+        InterviewRound round = getRound(slot.getRoundId());
         requireSlotChangeablePhase(round);
 
         boolean startTimeGiven = updateCommand.startTime() != null;
@@ -134,9 +136,10 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
     @Override
     @Transactional
     public void deleteSlot(Long slotId, Long currentUserId) {
+        interviewRoundAccessor.requireManagerForWriteBySlotId(slotId, currentUserId);
         InterviewSlot slot = interviewSlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        InterviewRound round = getRoundForWrite(slot.getRoundId(), currentUserId);
+        InterviewRound round = getRound(slot.getRoundId());
         requireSlotChangeablePhase(round);
 
         if (interviewAvailabilityRepository.countBySlotId(slot.getId()) > 0) {
@@ -159,6 +162,12 @@ public class GeneralInterviewSlotService implements InterviewSlotService {
 
     private InterviewRound getRoundForWrite(Long roundId, Long currentUserId) {
         return interviewRoundAccessor.getForWrite(roundId, currentUserId);
+    }
+
+    /** 인가를 이미 마친 경로용 — phase 가드에 쓸 라운드만 읽는다. */
+    private InterviewRound getRound(Long roundId) {
+        return interviewRoundRepository.findById(roundId)
+                .orElseThrow(InterviewException.RoundNotFound::new);
     }
 
     /**
