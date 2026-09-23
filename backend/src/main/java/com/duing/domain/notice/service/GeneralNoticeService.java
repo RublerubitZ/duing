@@ -117,8 +117,9 @@ public class GeneralNoticeService implements NoticeService {
         uploadedObjectService.activate(command.coverImageUrl());
         uploadedObjectService.activateReferencedIn(command.content());
         // 교체·제거로 빠진 옛 커버·본문 이미지는 해제(#1153) — 새 값을 먼저 확정한 뒤.
-        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, found.getCoverImageUrl());
-        uploadedObjectService.releaseRemovedFrom(previousContent, found.getContent());
+        // 커버·본문을 한 차집합으로 — 커버↔본문 교차 재사용이 RELEASED 로 왕복하지 않는다.
+        uploadedObjectService.releaseRemovedFrom(coverAndContent(previousCoverImageUrl, previousContent),
+                coverAndContent(found.getCoverImageUrl(), found.getContent()));
 
         if (command.targetClubIds() != null) {
             targetClubRepository.deleteAllByNoticeId(found.getId());
@@ -248,8 +249,9 @@ public class GeneralNoticeService implements NoticeService {
         uploadedObjectService.activate(command.coverImageUrl());
         uploadedObjectService.activateReferencedIn(command.content());
         // 교체·제거로 빠진 옛 커버·본문 이미지는 해제(#1153) — 새 값을 먼저 확정한 뒤.
-        uploadedObjectService.releaseIfReplaced(previousCoverImageUrl, found.getCoverImageUrl());
-        uploadedObjectService.releaseRemovedFrom(previousContent, found.getContent());
+        // 커버·본문을 한 차집합으로 — 커버↔본문 교차 재사용이 RELEASED 로 왕복하지 않는다.
+        uploadedObjectService.releaseRemovedFrom(coverAndContent(previousCoverImageUrl, previousContent),
+                coverAndContent(found.getCoverImageUrl(), found.getContent()));
     }
 
     @Override
@@ -292,6 +294,11 @@ public class GeneralNoticeService implements NoticeService {
             throw new NoticeException.NoticeAccessDeniedException();
         }
         return found;
+    }
+
+    // 본문 토큰 경계에 공백이 포함되고 커버는 스토리지 prefix 로 강제되므로 " " 결합이 키를 섞지 않는다.
+    private static String coverAndContent(String coverImageUrl, String content) {
+        return (coverImageUrl == null ? "" : coverImageUrl) + " " + (content == null ? "" : content);
     }
 
     private void validateCoverImageUrl(String url) {
