@@ -40,7 +40,9 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    mem_limit: 128m     # alpine Caddy 정상 사용량은 수십 MB — 폭주 시 backend 를 밀어내지 않게 상한
+    # 평시 수십 MB 지만 1,000 동접에 +60MB, 1,500 동접이면 TLS 세션으로 수백 MB 까지 간다(부하테스트 실측).
+    # 128m 이면 그 구간에서 Caddy 가 죽어 TLS 종단 전체가 내려가므로 256m. backend 1400 + 256 = 1656MB, OS 여유 ~250MB.
+    mem_limit: 256m
     security_opt:
       - "no-new-privileges:true"
     depends_on:
