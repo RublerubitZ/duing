@@ -4,8 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+let mockCreatePending = false;
 vi.mock('@duing/hooks', () => ({
-  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: null }),
+  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: mockCreatePending, error: null }),
   useUpdateFeePolicyMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -38,6 +39,7 @@ const selectedMembersPolicy = {
 describe('CreatePolicyDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreatePending = false;
   });
 
   it('생성 모드에서는 회비 유형 select 를 노출한다', () => {
@@ -192,5 +194,12 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} policy={selectedMembersPolicy} onClose={() => {}} />);
     expect(screen.queryByRole('radio', { name: '전체 부원' })).not.toBeInTheDocument();
     expect(screen.getByText('특정 부원')).toBeInTheDocument();
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('저장 요청이 진행 중이면 보조기술에 "회비 정책 저장 중" 상태를 알린다', () => {
+    mockCreatePending = true;
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('회비 정책 저장 중');
   });
 });

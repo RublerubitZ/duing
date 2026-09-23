@@ -158,6 +158,7 @@ export function ProfileEditDialog({
               {updateMutation.isPending && <ButtonSpinner />}저장
             </button>
           </div>
+          <span role="status" className="sr-only">{updateMutation.isPending ? '프로필 저장 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

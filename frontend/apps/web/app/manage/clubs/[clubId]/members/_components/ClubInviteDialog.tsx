@@ -310,6 +310,7 @@ function CreateInviteForm({ clubId, useGeneration, onBusyChange }: ClubInvitePan
       >
         {(createInvite.isPending || createInvite.isSuccess) && <ButtonSpinner />}초대 링크 만들기
       </button>
+      <span role="status" className="sr-only">{(createInvite.isPending || createInvite.isSuccess) ? '초대 링크 만드는 중' : null}</span>
     </div>
   );
 }

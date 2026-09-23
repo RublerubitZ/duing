@@ -191,6 +191,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
               {isEditMode ? '수정' : '등록'}
             </button>
           </div>
+          <span role="status" className="sr-only">{activeMutation.isPending ? '장부 항목 저장 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

@@ -119,4 +119,17 @@ describe('RecordPaymentDialog', () => {
 
     expect(mockRecordMutate).not.toHaveBeenCalled();
   });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  // 리전은 상시 마운트해 두고 텍스트만 바꾼다 — 유휴 시에는 비어 있어야 낭독되지 않는다.
+  it('유휴 상태에서는 전송 중 통지 리전이 비어 있다', () => {
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('기록 요청이 진행 중이면 보조기술에 "납부 기록 중" 상태를 알린다', () => {
+    mockRecordPending = true;
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('납부 기록 중');
+  });
 });
