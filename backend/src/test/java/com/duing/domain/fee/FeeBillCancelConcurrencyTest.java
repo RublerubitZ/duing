@@ -2,7 +2,6 @@ package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -27,6 +26,7 @@ import com.duing.domain.fee.service.dto.command.RecordPaymentCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,7 +48,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>sleep 대신 pg_blocking_pids 로 "취소가 record 트랜잭션에 막혀 대기 중"임을 확인한 뒤 record 를 커밋시킨다.
  */
-@Import({TestcontainersConfiguration.class, FixedClockConfig.class})
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class FeeBillCancelConcurrencyTest extends IntegrationTestBase {
 
@@ -71,10 +71,12 @@ class FeeBillCancelConcurrencyTest extends IntegrationTestBase {
         User leader = userRepository.save(UserFixture.unique());
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         FeePolicy policy = feePolicyRepository.save(FeePolicyFixture.of(club.getId(), BillingType.MONTHLY, 10000L));
-        LocalDate start = LocalDate.parse("2026-07-01");
-        LocalDate end = LocalDate.parse("2026-07-31");
-        FeeBill bill = feeBillRepository.save(
-                FeeBill.issue(club.getId(), leader.getId(), policy.getId(), 10000L, "2026-07", start, end, end));
+        // 고정 시계 없이 이번 달 회차(마감=말일, 오늘 이후)로 둬 부분 납부 후 PARTIAL_PAID 가 결정적이다.
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate start = today.withDayOfMonth(1);
+        LocalDate end = today.withDayOfMonth(today.lengthOfMonth());
+        FeeBill bill = feeBillRepository.save(FeeBill.issue(club.getId(), leader.getId(), policy.getId(),
+                10000L, start.toString().substring(0, 7), start, end, end));
 
         CountDownLatch recorded = new CountDownLatch(1);
         CountDownLatch releaseCommit = new CountDownLatch(1);
@@ -84,7 +86,7 @@ class FeeBillCancelConcurrencyTest extends IntegrationTestBase {
             // record 트랜잭션: 청구 잠금 + 납부 INSERT 까지 마치고 커밋 직전에 멈춘다.
             Future<?> recordFuture = pool.submit(() -> transactionTemplate.executeWithoutResult(status -> {
                 paymentService.record(new RecordPaymentCommand(club.getId(), leader.getId(), bill.getId(),
-                        4000L, PaymentMethod.CASH, LocalDate.parse("2026-06-10"), null));
+                        4000L, PaymentMethod.CASH, today, null));
                 recordBackendPid.set(jdbcTemplate.queryForObject("SELECT pg_backend_pid()", Integer.class));
                 recorded.countDown();
                 try {
@@ -109,7 +111,7 @@ class FeeBillCancelConcurrencyTest extends IntegrationTestBase {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
             while (!isBlockedBy(recordBackendPid.get())) {
                 assertThat(System.nanoTime()).as("취소가 record 잠금 대기에 들어가야 한다").isLessThan(deadline);
-                Thread.onSpinWait();
+                Thread.sleep(20); // 폴링 간격 — 러너 부하에서 커넥션 풀·DB 를 연속 조회로 때리지 않는다
             }
             releaseCommit.countDown();
             recordFuture.get(20, TimeUnit.SECONDS);
