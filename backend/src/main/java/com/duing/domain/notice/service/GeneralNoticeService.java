@@ -296,7 +296,8 @@ public class GeneralNoticeService implements NoticeService {
         return found;
     }
 
-    // 본문 토큰 경계에 공백이 포함되고 커버는 스토리지 prefix 로 강제되므로 " " 결합이 키를 섞지 않는다.
+    // 본문 토큰 경계에 공백이 포함되고, 자기 스토리지 키는 "디렉터리/UUID.확장자" 라 경계 문자를 담지 않으므로
+    // " " 결합이 키를 섞지 않는다(외부 URL 은 prefix 불일치로 종전처럼 건너뛴다).
     private static String coverAndContent(String coverImageUrl, String content) {
         return (coverImageUrl == null ? "" : coverImageUrl) + " " + (content == null ? "" : content);
     }
