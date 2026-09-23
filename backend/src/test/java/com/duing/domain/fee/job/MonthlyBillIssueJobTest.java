@@ -17,13 +17,16 @@ import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
+import com.duing.domain.fee.service.FeeBillService;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +49,7 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
     @Autowired FeeBillRepository feeBillRepository;
     @Autowired NotificationRepository notificationRepository;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired FeeBillService feeBillService;
 
     private Long clubId;
 
@@ -69,6 +73,13 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
         FeePolicy policy = feePolicyRepository.save(FeePolicyFixture.autoIssue(clubId, issueDay, dueDay));
         jdbcTemplate.update("UPDATE fee_policy SET created_at = ? WHERE id = ?", createdAt, policy.getId());
         return policy;
+    }
+
+    // 캐치업은 월초 CATCH_UP_WINDOW_DAYS 일 이내에만 돈다 — 공용 고정 시계(6/15) 대신 해당 날짜의 잡을 직접 만든다.
+    private MonthlyBillIssueJob jobOn(LocalDate today) {
+        ZoneId seoul = ZoneId.of("Asia/Seoul");
+        return new MonthlyBillIssueJob(feePolicyRepository, feeBillService,
+                Clock.fixed(today.atStartOfDay(seoul).toInstant(), seoul));
     }
 
     private List<String> billingPeriods() {
@@ -156,7 +167,7 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
     void catchesUpPreviousMonth() {
         saveAutoIssuePolicyCreatedAt(5, 25, LocalDateTime.of(2026, 4, 10, 9, 0));
 
-        job.run();
+        jobOn(LocalDate.of(2026, 6, 7)).run();
 
         assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-05", "2026-05", "2026-06", "2026-06");
         assertThat(feeBillRepository.findAll())
@@ -173,7 +184,7 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
     void skipsPreviousMonthForPolicyCreatedThisMonth() {
         saveAutoIssuePolicyCreatedAt(5, 25, LocalDateTime.of(2026, 6, 3, 9, 0));
 
-        job.run();
+        jobOn(LocalDate.of(2026, 6, 7)).run();
 
         assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-06", "2026-06");
     }
@@ -187,9 +198,27 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
                     "2026-05", LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), LocalDate.of(2026, 5, 25)));
         }
 
-        job.run();
+        jobOn(LocalDate.of(2026, 6, 7)).run();
 
         assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-05", "2026-05", "2026-06", "2026-06");
         assertThat(issuedNotificationCount()).isEqualTo(2); // 이번 달 발행분만 알림
+    }
+
+    @Test
+    @DisplayName("월초 캐치업 창(7일)이 지나면 전월 청구가 빠져 있어도 캐치업하지 않는다")
+    void skipsCatchUpAfterWindow() {
+        saveAutoIssuePolicyCreatedAt(5, 25, LocalDateTime.of(2026, 4, 10, 9, 0));
+
+        job.run(); // 고정 시계 2026-06-15
+
+        assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-06", "2026-06");
+    }
+
+    @Test
+    @DisplayName("UTC 벽시계 created_at 은 KST 날짜로 정규화된다(5/31 15:30 UTC == 6/1 00:30 KST)")
+    void normalizesCreatedAtToJobZone() {
+        assertThat(MonthlyBillIssueJob.createdDateInJobZone(
+                LocalDateTime.of(2026, 5, 31, 15, 30), ZoneId.of("UTC"), ZoneId.of("Asia/Seoul")))
+                .isEqualTo(LocalDate.of(2026, 6, 1));
     }
 }

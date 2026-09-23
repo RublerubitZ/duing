@@ -657,7 +657,7 @@ const optionalDay = (label: string) =>
       .optional(),
   );
 
-// 정책 생성: CreateFeePolicyRequest(@NotBlank name/@Size(100), @NotNull @PositiveOrZero amount, @NotNull billingType,
+// 정책 생성: CreateFeePolicyRequest(@NotBlank name/@Size(100), @NotNull @Positive amount, @NotNull billingType,
 //   autoIssue, issueDay, dueDay) 미러. autoIssue=true 면 MONTHLY 강제·발행일/마감일 필수·마감일≥발행일.
 export const createFeePolicySchema = z
   .object({
@@ -665,7 +665,7 @@ export const createFeePolicySchema = z
     amount: z.coerce
       .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
       .int('금액은 정수여야 합니다.')
-      .min(0, '금액은 0 이상이어야 합니다.'),
+      .min(1, '금액은 1원 이상이어야 합니다.'),
     billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
       errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
     }),
