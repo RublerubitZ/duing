@@ -16,10 +16,10 @@ import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
-// 더티 플러시가 변경 컬럼만 UPDATE 한다(#776). 무잠금 조회 뒤 한 컬럼을 고쳐도 그 사이 커밋된 status·token_version 이 옛 값으로 돌아가지 않는다(#760 전례).
-// 잠금은 같은 컬럼의 읽고-올리기(token_version·failed_login_attempts) 직렬화용으로 남는다.
 @Getter
 @Entity
+// 더티 플러시가 변경 컬럼만 UPDATE 한다(#776). 무잠금 조회 뒤 한 컬럼을 고쳐도 그 사이 커밋된 status·token_version 이 옛 값으로 돌아가지 않는다(#760 전례).
+// 잠금은 같은 컬럼의 읽고-올리기(token_version·failed_login_attempts) 직렬화용으로 남는다.
 @DynamicUpdate
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
