@@ -14,6 +14,10 @@ public interface InterviewSlotRepository extends JpaRepository<InterviewSlot, Lo
 
     long countByRoundId(Long roundId);
 
+    /** 인가 전용 스칼라 조회 — 엔티티를 1차 캐시에 올리지 않고 소속 라운드만 읽는다 (#839). */
+    @Query("SELECT s.roundId FROM InterviewSlot s WHERE s.id = :id")
+    Optional<Long> findRoundIdById(@Param("id") Long id);
+
     List<InterviewSlot> findByRoundIdOrderByStartTimeAsc(Long roundId);
 
     /**

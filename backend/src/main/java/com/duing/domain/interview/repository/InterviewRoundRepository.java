@@ -36,6 +36,13 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
     @Query("SELECT r FROM InterviewRound r WHERE r.id = :id")
     Optional<InterviewRound> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * 인가 전용 스칼라 조회 — 잠금 앞에서 엔티티를 읽으면 1차 캐시에 올라가 뒤이은 FOR UPDATE 조회가
+     * stale 스냅샷을 돌려준다. 소속 모집 id 만 읽어 인가를 먼저 끝내고 잠금은 그 뒤에 잡는다 (#839).
+     */
+    @Query("SELECT r.recruitmentId FROM InterviewRound r WHERE r.id = :id")
+    Optional<Long> findRecruitmentIdById(@Param("id") Long id);
+
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 
     List<InterviewRound> findByRecruitmentIdOrderByCreatedAtDesc(Long recruitmentId);

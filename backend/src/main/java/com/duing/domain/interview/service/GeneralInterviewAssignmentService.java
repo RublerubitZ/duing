@@ -61,10 +61,11 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     @Override
     @Transactional
     public AutoAssignResult autoAssign(Long roundId, Long currentUserId) {
-        // round writer(자동배정·확정·취소) 간 직렬화 — 잠금 조회가 404 를 먼저 판정한다 (스펙 §7).
+        // round writer(자동배정·확정·취소) 간 직렬화 (스펙 §7). 인가 projection 이 404 를 먼저 판정하고
+        // 잠금은 인가 뒤에 잡는다(#839) — projection 은 무잠금 SELECT 라 아래 잠금 순서에 들지 않는다.
+        interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
 
         if (round.getStatus() == RoundStatus.COLLECTING) {
             round.openAssigning();
@@ -118,9 +119,9 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     @Transactional
     public void assignSchedule(Long roundId, Long memberId, Long slotId, Long currentUserId) {
         // 잠금 순서 §16-7-4: round → slot → member.
+        interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
         // SCHEDULED 재배정 성공 시 INTERVIEW_UPDATED 알림 발행 (메서드 마지막).
         if (!ASSIGNABLE_ROUND_STATUSES.contains(round.getStatus())) {
             throw new InterviewException.RoundTransitionNotAllowed();
@@ -155,9 +156,9 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     @Override
     @Transactional
     public void unassignSchedule(Long roundId, Long memberId, Long currentUserId) {
+        interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
         if (round.getStatus() != RoundStatus.ASSIGNING) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
@@ -178,9 +179,9 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     public void excludeMember(Long roundId, Long memberId, Long currentUserId) {
         // 잠금 순서 §16-7-4: round → member. round 잠금이 자동배정 재실행·향후 확정/취소와
         // 직렬화하고, 멤버 잠금(§16-7-2)이 동시 "배정 vs 제외" 의 잔존 배정을 차단한다.
+        interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
         if (!EXCLUDABLE_ROUND_STATUSES.contains(round.getStatus())) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
@@ -207,9 +208,9 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     @Transactional
     public ConfirmResult confirmRound(Long roundId, boolean force, Long currentUserId) {
         // 잠금 순서 §16-7-4: round → members(전체). slot 잠금은 불요 — capacity 검증 없이 읽기만.
+        interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        interviewRoundAccessor.requireManagerForWrite(round, currentUserId);
         if (round.getStatus() != RoundStatus.ASSIGNING) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
