@@ -638,10 +638,34 @@ describe('useBackDismiss', () => {
 
     // 위로 올라온 착지라 되돌려 보내면 B 에 영원히 못 간다 — 앉아야 한다.
     await pressForward();
-    // (죽은 엔트리에 앉으면 아래 라이브 오버레이는 기존 안전망 stack.splice(0) 으로 닫힌다 — 여기선 위치만 본다.)
+    // 죽은 엔트리 아래의 라이브 오버레이 a 는 여전히 열려 있어야 한다 — forward 착지는 안전망으로 닫지 않는다.
     expect(window.history.state.__overlayId).toBe(deadId);
+    expect(closeSpy).not.toHaveBeenCalled();
+    // 마커 없는 페이지 엔트리 B 에 닿으면 오버레이 영역을 벗어난 것이라 그때 a 가 닫힌다.
     await pressForward();
     expect(window.history.state).toEqual({ marker: 'B' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledWith('a');
+  });
+
+  it('forward 로 앉은 죽은 마커에서 뒤로가기는 아래 라이브 오버레이에 닿고 닫지 않는다', async () => {
+    // [page][라이브 a][죽은 b][B] — b 에 forward 로 앉은 뒤 back 하면 a 엔트리로 돌아와 a 는 계속 열려 있다.
+    render(<Overlay name="a" />);
+    const liveId: unknown = window.history.state.__overlayId;
+    const { unmount } = render(<Overlay name="b" />);
+    const deadId: unknown = window.history.state.__overlayId;
+    skipNextOverlayReclaim();
+    unmount();
+    await settle();
+    window.history.pushState({ marker: 'B' }, '', '/b');
+
+    await jump(-2);
+    await pressForward();
+    expect(window.history.state.__overlayId).toBe(deadId);
+
+    await pressBack();
+    expect(window.history.state.__overlayId).toBe(liveId);
+    expect(closeSpy).not.toHaveBeenCalled();
   });
 
   it('onClose 가 열린 뒤에 붙어도 엔트리를 등록한다', async () => {

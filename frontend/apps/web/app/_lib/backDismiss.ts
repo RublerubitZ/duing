@@ -214,10 +214,11 @@ function handlePopState() {
   //
   // 주인 없는 엔트리에 착지했으면 아무것도 닫지 않는다 — 그 엔트리 **아래**에 있던 오버레이는
   // 여전히 열려 있어야 하고, 어느 것이 그런지는 한 칸 더 내려간 다음 위치에서만 알 수 있다.
+  // forward 로 올라온 착지면 라이브 엔트리는 전부 그 아래에 있으므로 하나도 닫지 않는다.
   // (스킵 예산이 바닥나 더 내려갈 수 없을 때만 안전망으로 전부 닫는다.)
   const dismissed = landedOnLiveEntry
     ? stack.splice(landedIndex + 1)
-    : canSkip
+    : canSkip || wentForward
       ? []
       : stack.splice(0);
 
