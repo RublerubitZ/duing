@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockUseClubFeePoliciesQuery = vi.fn();
 const mockUseClubMembersQuery = vi.fn();
 const mockGenerateMutate = vi.fn();
+let mockGenerateError: Error | null = null;
 let mockGeneratePending = false;
 vi.mock('@duing/hooks', () => ({
   useClubFeePoliciesQuery: (clubId: number) => mockUseClubFeePoliciesQuery(clubId),
@@ -12,7 +13,7 @@ vi.mock('@duing/hooks', () => ({
   useGenerateBillsMutation: () => ({
     mutate: mockGenerateMutate,
     isPending: mockGeneratePending,
-    error: null,
+    error: mockGenerateError,
   }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -78,8 +79,20 @@ const members = [
 describe('GenerateBillsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGenerateError = null;
     mockGeneratePending = false;
     mockUseClubMembersQuery.mockReturnValue({ data: members, isLoading: false });
+  });
+
+  it('발행 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', async () => {
+    const user = userEvent.setup();
+    mockGenerateError = new MockApiError(400, '청구서 발행에 실패했습니다.');
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('청구서 발행에 실패했습니다.');
   });
 
   it('활성 정책만 선택지로 노출한다', () => {
@@ -246,6 +259,7 @@ describe('GenerateBillsDialog', () => {
     await user.click(screen.getByRole('button', { name: '발행' }));
 
     expect(await screen.findByText('청구할 부원을 1명 이상 선택해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('청구할 부원을 1명 이상 선택해 주세요.');
     expect(mockGenerateMutate).not.toHaveBeenCalled();
   });
 

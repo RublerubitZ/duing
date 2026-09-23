@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+let mockCreateError: Error | null = null;
 let mockCreatePending = false;
 vi.mock('@duing/hooks', () => ({
-  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: mockCreatePending, error: null }),
+  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: mockCreatePending, error: mockCreateError }),
   useUpdateFeePolicyMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -39,7 +40,14 @@ const selectedMembersPolicy = {
 describe('CreatePolicyDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateError = null;
     mockCreatePending = false;
+  });
+
+  it('생성 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    mockCreateError = new Error('정책 생성에 실패했습니다.');
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('정책 생성에 실패했습니다.');
   });
 
   it('생성 모드에서는 회비 유형 select 를 노출한다', () => {

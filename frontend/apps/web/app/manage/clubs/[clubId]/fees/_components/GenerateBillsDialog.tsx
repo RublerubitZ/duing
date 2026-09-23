@@ -234,7 +234,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
           {selectedUserIds.length > 0 && (
             <p className="mt-1 text-xs text-charcoal-3">{selectedUserIds.length}명 선택됨</p>
           )}
-          {memberError && <p className="mt-1 text-xs text-coral">{memberError}</p>}
+          {memberError && <p role="alert" className="mt-1 text-xs text-coral">{memberError}</p>}
         </div>
       )}
 
@@ -385,7 +385,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
       )}
 
       {submitErrorMessage && (
-        <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+        <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
       )}
 
       <div className="flex gap-2 pt-1">

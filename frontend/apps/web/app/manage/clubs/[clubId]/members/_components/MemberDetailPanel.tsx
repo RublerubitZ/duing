@@ -623,7 +623,7 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
           기수 지우기
         </button>
       </div>
-      {error && <p className="mt-1.5 text-xs text-coral">{error}</p>}
+      {error && <p role="alert" className="mt-1.5 text-xs text-coral">{error}</p>}
     </div>
   );
 }

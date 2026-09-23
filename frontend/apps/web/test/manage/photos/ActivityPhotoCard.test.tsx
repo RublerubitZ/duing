@@ -141,6 +141,7 @@ describe('ActivityPhotoCard', () => {
     // 에러는 다이얼로그 내부에 표시(T8 교훈 — 전역 조회 금지)되고, 다이얼로그는 열린 채 유지된다.
     const dialog = screen.getByRole('dialog');
     expect(await within(dialog).findByText('캡션 저장 서버 오류')).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('캡션 저장 서버 오류');
     expect(screen.getByLabelText('캡션')).toBeInTheDocument();
   });
 

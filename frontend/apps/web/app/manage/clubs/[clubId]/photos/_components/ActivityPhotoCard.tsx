@@ -199,7 +199,7 @@ export function ActivityPhotoCard({
           <p className="text-right text-[11px] text-charcoal-3">
             {captionDraft.length}/{CAPTION_MAX}
           </p>
-          {captionError && <p className="text-[12px] text-coral">{captionError}</p>}
+          {captionError && <p role="alert" className="text-[12px] text-coral">{captionError}</p>}
           <DialogFooter>
             <button
               type="button"

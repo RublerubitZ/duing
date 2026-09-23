@@ -96,4 +96,18 @@ describe('AdminClubStatusChangeDialog', () => {
 
     expect(onConfirm.mock.calls[0]?.[0]).toBeUndefined();
   });
+
+  it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    render(
+      <AdminClubStatusChangeDialog
+        club={makeClub()}
+        action={makeAction()}
+        isPending={false}
+        errorMessage="상태 변경에 실패했습니다."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('상태 변경에 실패했습니다.');
+  });
 });

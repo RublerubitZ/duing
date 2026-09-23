@@ -524,6 +524,7 @@ describe('MemberDetailPanel — 관리 액션 배선', () => {
     await userEvent.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('기수는 1 이상의 정수여야 해요')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('기수는 1 이상의 정수여야 해요');
     expect(capturedGenerationBody).toBeNull();
   });
 

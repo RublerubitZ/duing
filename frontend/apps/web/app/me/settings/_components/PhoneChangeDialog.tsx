@@ -124,7 +124,7 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
             </label>
           )}
 
-          {error && <p className="text-[12.5px] text-coral">{error}</p>}
+          {error && <p role="alert" className="text-[12.5px] text-coral">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-1">
             <button
