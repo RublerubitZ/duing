@@ -228,7 +228,11 @@ function VoidPaymentConfirm({
             disabled={voidPayment.isPending}
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
           >
-            {voidPayment.isPending && <ButtonSpinner />}기록 취소
+            {voidPayment.isPending && (
+              <span role="status" aria-label="납부 기록 취소 중" className="inline-flex items-center">
+                <ButtonSpinner />
+              </span>
+            )}기록 취소
           </button>
         </div>
       </div>

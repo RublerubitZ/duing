@@ -84,7 +84,11 @@ export function LeaveClubDialog({ club, onClose }: Props) {
             disabled={!nameMatches || isPending}
             className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
           >
-            {isPending && <ButtonSpinner />}동아리 탈퇴
+            {isPending && (
+              <span role="status" aria-label="동아리 탈퇴 중" className="inline-flex items-center">
+                <ButtonSpinner />
+              </span>
+            )}동아리 탈퇴
           </button>
         </div>
       </DialogContent>

@@ -308,7 +308,11 @@ function CreateInviteForm({ clubId, useGeneration, onBusyChange }: ClubInvitePan
         disabled={createInvite.isPending || createInvite.isSuccess}
         className="btn btn-primary btn-sm w-full"
       >
-        {(createInvite.isPending || createInvite.isSuccess) && <ButtonSpinner />}초대 링크 만들기
+        {(createInvite.isPending || createInvite.isSuccess) && (
+          <span role="status" aria-label="초대 링크 만드는 중" className="inline-flex items-center">
+            <ButtonSpinner />
+          </span>
+        )}초대 링크 만들기
       </button>
     </div>
   );

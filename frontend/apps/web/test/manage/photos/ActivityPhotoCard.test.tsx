@@ -6,10 +6,11 @@ import type { ClubPhoto } from '@duing/types';
 
 const mockUpdateMutateAsync = vi.fn();
 const mockDeleteMutateAsync = vi.fn();
+let mockUpdatePending = false;
 
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
-  useUpdatePhotoMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: false }),
+  useUpdatePhotoMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: mockUpdatePending }),
   useDeletePhotoMutation: () => ({ mutateAsync: mockDeleteMutateAsync, isPending: false }),
 }));
 
@@ -52,6 +53,7 @@ function renderCard(props: {
 beforeEach(() => {
   mockUpdateMutateAsync.mockReset().mockResolvedValue(undefined);
   mockDeleteMutateAsync.mockReset().mockResolvedValue(undefined);
+  mockUpdatePending = false;
 });
 
 describe('ActivityPhotoCard', () => {
@@ -118,6 +120,14 @@ describe('ActivityPhotoCard', () => {
         payload: { caption: '봄 나들이' },
       }),
     );
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  it('캡션 저장이 진행 중이면 보조기술에 "캡션 저장 중" 상태를 알린다', () => {
+    mockUpdatePending = true;
+    renderCard({});
+    fireEvent.click(screen.getByRole('button', { name: '캡션 편집' }));
+    expect(screen.getByRole('status', { name: '캡션 저장 중' })).toBeInTheDocument();
   });
 
   it('캡션 저장 실패 시 다이얼로그 안에 에러를 표시하고 다이얼로그를 유지한다', async () => {

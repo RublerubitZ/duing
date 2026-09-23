@@ -35,7 +35,11 @@ export function BatchCancelDialog({ batch, isPending, onConfirm, onClose }: Prop
             disabled={isPending}
             onClick={onConfirm}
           >
-            {isPending && <ButtonSpinner />}제출 목록 취소
+            {isPending && (
+              <span role="status" aria-label="제출 목록 취소 중" className="inline-flex items-center">
+                <ButtonSpinner />
+              </span>
+            )}제출 목록 취소
           </button>
         </div>
       </DialogContent>

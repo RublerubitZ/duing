@@ -163,7 +163,11 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
                 isPending && 'cursor-not-allowed opacity-60',
               )}
             >
-              {syncTransactions.isPending && <ButtonSpinner />}동기화
+              {syncTransactions.isPending && (
+                <span role="status" aria-label="거래내역 동기화 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}동기화
             </button>
           </div>
         </form>

@@ -215,6 +215,8 @@ describe('부원 초대 다이얼로그 — 발급 폼', () => {
     await submitAndHang();
 
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+    // aria-busy 는 억제 힌트일 뿐이라, 전송 중 통지는 스피너를 감싼 role="status" 가 맡는다(#914).
+    expect(screen.getByRole('status', { name: '초대 링크 만드는 중' })).toBeInTheDocument();
 
     await userEvent.keyboard('{Escape}');
 

@@ -187,7 +187,11 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} disabled={isSubmitting || activeMutation.isPending} className="flex-1 rounded-md border border-line py-3 text-sm font-semibold text-charcoal-2 transition-colors hover:bg-graysoft disabled:opacity-50">취소</button>
             <button type="submit" disabled={isSubmitting || activeMutation.isPending} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md py-3 text-sm font-semibold text-paper transition-colors bg-ink hover:bg-ink-deep', (isSubmitting || activeMutation.isPending) && 'cursor-not-allowed opacity-60')}>
-              {activeMutation.isPending && <ButtonSpinner />}
+              {activeMutation.isPending && (
+                <span role="status" aria-label="장부 항목 저장 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}
               {isEditMode ? '수정' : '등록'}
             </button>
           </div>

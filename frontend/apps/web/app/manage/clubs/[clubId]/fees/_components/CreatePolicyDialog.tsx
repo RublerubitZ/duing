@@ -333,7 +333,11 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                 (isSubmitting || activeMutation.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {activeMutation.isPending && <ButtonSpinner />}
+              {activeMutation.isPending && (
+                <span role="status" aria-label="회비 정책 저장 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}
               {isEditMode ? '수정' : '추가'}
             </button>
           </div>

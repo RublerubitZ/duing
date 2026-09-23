@@ -203,7 +203,11 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
                 (isSubmitting || submitPromotion.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {submitPromotion.isPending && <ButtonSpinner />}홍보 요청 제출
+              {submitPromotion.isPending && (
+                <span role="status" aria-label="홍보 요청 보내는 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}홍보 요청 제출
             </button>
           </div>
         </form>

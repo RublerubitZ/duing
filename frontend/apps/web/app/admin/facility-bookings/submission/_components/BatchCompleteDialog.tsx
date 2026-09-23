@@ -57,7 +57,11 @@ export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Pr
             disabled={isPending}
             onClick={onConfirm}
           >
-            {isPending && <ButtonSpinner />}완료 처리
+            {isPending && (
+              <span role="status" aria-label="제출 완료 처리 중" className="inline-flex items-center">
+                <ButtonSpinner />
+              </span>
+            )}완료 처리
           </button>
         </div>
       </DialogContent>

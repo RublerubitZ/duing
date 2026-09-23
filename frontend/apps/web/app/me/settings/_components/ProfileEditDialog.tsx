@@ -155,7 +155,11 @@ export function ProfileEditDialog({
               취소
             </button>
             <button type="submit" disabled={updateMutation.isPending} className="btn btn-primary btn-sm">
-              {updateMutation.isPending && <ButtonSpinner />}저장
+              {updateMutation.isPending && (
+                <span role="status" aria-label="프로필 저장 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}저장
             </button>
           </div>
         </form>

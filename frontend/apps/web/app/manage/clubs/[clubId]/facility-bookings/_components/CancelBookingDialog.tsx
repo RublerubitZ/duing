@@ -32,7 +32,11 @@ export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabe
             disabled={isPending}
             onClick={onConfirm}
           >
-            {isPending && <ButtonSpinner />}신청 취소
+            {isPending && (
+              <span role="status" aria-label="예약 신청 취소 중" className="inline-flex items-center">
+                <ButtonSpinner />
+              </span>
+            )}신청 취소
           </button>
         </div>
       </DialogContent>

@@ -114,8 +114,9 @@ describe('BookingDetailModal', () => {
     render(<BookingDetailModal clubId={7} bookingId={31} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '신청 취소' }));
     // 파괴 버튼은 '신청 취소' 라벨을 유지한 채 disabled — 항상 활성인 열기 버튼과 disabled 여부로 구분한다.
+    // 스피너를 감싼 role="status" 의 aria-label 이 접근 이름 앞에 붙으므로 끝 일치로 찾는다(#914).
     const disabledCancelButtons = screen
-      .getAllByRole('button', { name: '신청 취소', hidden: true })
+      .getAllByRole('button', { name: /신청 취소$/, hidden: true })
       .filter((cancelButton) => cancelButton.hasAttribute('disabled'));
     expect(disabledCancelButtons).toHaveLength(1);
     expect(screen.getByRole('button', { name: '돌아가기', hidden: true })).toBeDisabled();

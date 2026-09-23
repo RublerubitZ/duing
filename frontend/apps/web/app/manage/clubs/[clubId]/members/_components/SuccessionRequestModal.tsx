@@ -134,7 +134,11 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
                 (isSubmitting || submitSuccession.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {submitSuccession.isPending && <ButtonSpinner />}승계 요청
+              {submitSuccession.isPending && (
+                <span role="status" aria-label="승계 요청 보내는 중" className="inline-flex items-center">
+                  <ButtonSpinner />
+                </span>
+              )}승계 요청
             </button>
           </div>
         </form>

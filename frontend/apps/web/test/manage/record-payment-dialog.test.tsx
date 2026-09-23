@@ -119,4 +119,11 @@ describe('RecordPaymentDialog', () => {
 
     expect(mockRecordMutate).not.toHaveBeenCalled();
   });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  it('기록 요청이 진행 중이면 보조기술에 "납부 기록 중" 상태를 알린다', () => {
+    mockRecordPending = true;
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
+    expect(screen.getByRole('status', { name: '납부 기록 중' })).toBeInTheDocument();
+  });
 });
