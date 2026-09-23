@@ -127,13 +127,10 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               취소
             </button>
             <button type="submit" disabled={changeMutation.isPending} className="btn btn-primary btn-sm">
-              {changeMutation.isPending && (
-                <span role="status" aria-label="비밀번호 변경 중" className="inline-flex items-center">
-                  <ButtonSpinner />
-                </span>
-              )}변경하기
+              {changeMutation.isPending && <ButtonSpinner />}변경하기
             </button>
           </div>
+          <span role="status" className="sr-only">{changeMutation.isPending ? '비밀번호 변경 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

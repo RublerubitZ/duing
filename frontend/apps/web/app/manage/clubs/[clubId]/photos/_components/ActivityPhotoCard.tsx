@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/app/_lib/cn';
-import { ButtonSpinner } from '@/components/loading/Spinner';
 
 const CAPTION_MAX = 200;
 
@@ -216,14 +215,10 @@ export function ActivityPhotoCard({
               disabled={updatePhoto.isPending}
               className="btn btn-primary btn-sm disabled:opacity-50"
             >
-              {updatePhoto.isPending && (
-                <span role="status" aria-label="캡션 저장 중" className="inline-flex items-center">
-                  <ButtonSpinner />
-                </span>
-              )}
               저장
             </button>
           </DialogFooter>
+          <span role="status" className="sr-only">{updatePhoto.isPending ? '캡션 저장 중' : null}</span>
         </DialogContent>
       </Dialog>
 

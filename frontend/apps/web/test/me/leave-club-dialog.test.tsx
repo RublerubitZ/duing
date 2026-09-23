@@ -92,7 +92,7 @@ describe('LeaveClubDialog — 동아리명 확인 후 탈퇴', () => {
     expect(screen.getByRole('button', { name: '동아리 탈퇴' })).toBeEnabled();
   });
 
-  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
   it('탈퇴 요청이 진행 중이면 보조기술에 "동아리 탈퇴 중" 상태를 알린다', async () => {
     server.use(
       http.delete(`*/clubs/${CLUB.clubId}/members/me`, async () => {
@@ -106,6 +106,6 @@ describe('LeaveClubDialog — 동아리명 확인 후 탈퇴', () => {
     await user.type(screen.getByLabelText('탈퇴 확인 동아리명 입력'), CLUB.clubName);
     await user.click(screen.getByRole('button', { name: '동아리 탈퇴' }));
 
-    expect(await screen.findByRole('status', { name: '동아리 탈퇴 중' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('동아리 탈퇴 중'));
   });
 });

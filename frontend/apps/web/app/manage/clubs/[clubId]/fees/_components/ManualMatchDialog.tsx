@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
-import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
+import { Spinner } from '@/components/loading/Spinner';
 
 type ManualMatchDialogProps = {
   clubId: number;
@@ -171,7 +171,6 @@ export function ManualMatchDialog({
               member={selectedMember}
               depositAmount={depositAmount}
               isApplying={approveMatch.isPending}
-              applyingBillId={approveMatch.isPending ? approveMatch.variables?.feeBillId : undefined}
               onApply={applyToBill}
             />
           )}
@@ -187,6 +186,7 @@ export function ManualMatchDialog({
             닫기
           </button>
         </div>
+        <span role="status" className="sr-only">{approveMatch.isPending ? '입금 적용 중' : null}</span>
       </DialogContent>
     </Dialog>
   );
@@ -197,8 +197,6 @@ type ApplicableBillsProps = {
   member: ClubMember;
   depositAmount: number;
   isApplying: boolean;
-  /** 적용 요청이 진행 중인 청구 — 그 행의 버튼에만 스피너를 붙여 라이브 리전이 하나만 생기게 한다. */
-  applyingBillId: number | undefined;
   onApply: (bill: FeeBill) => void;
 };
 
@@ -207,7 +205,6 @@ function ApplicableBills({
   member,
   depositAmount,
   isApplying,
-  applyingBillId,
   onApply,
 }: ApplicableBillsProps) {
   const { data: billsPage, isLoading } = useClubFeeBillsQuery(clubId, {
@@ -261,14 +258,9 @@ function ApplicableBills({
               onClick={() => onApply(bill)}
               disabled={isApplying}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-paper transition-colors hover:bg-ink-deep disabled:opacity-50',
+                'shrink-0 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-paper transition-colors hover:bg-ink-deep disabled:opacity-50',
               )}
             >
-              {applyingBillId === bill.id && (
-                <span role="status" aria-label="입금 적용 중" className="inline-flex items-center">
-                  <ButtonSpinner />
-                </span>
-              )}
               이 청구에 적용
             </button>
           </li>

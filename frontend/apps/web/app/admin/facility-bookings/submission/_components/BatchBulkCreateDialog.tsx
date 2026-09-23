@@ -79,14 +79,11 @@ export function BatchBulkCreateDialog({ groups, isPending, onClose, onConfirm }:
             disabled={isPending}
             onClick={() => onConfirm(groupsSnapshot, memoByClubId)}
           >
-            {isPending && (
-              <span role="status" aria-label="제출 목록 만드는 중" className="inline-flex items-center">
-                <ButtonSpinner />
-              </span>
-            )}
+            {isPending && <ButtonSpinner />}
             목록 만들기
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '제출 목록 만드는 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

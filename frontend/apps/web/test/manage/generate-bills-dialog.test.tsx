@@ -291,7 +291,7 @@ describe('GenerateBillsDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
   it('발행 요청이 진행 중이면 보조기술에 "청구 발행 중" 상태를 알린다', async () => {
     const user = userEvent.setup();
     mockGeneratePending = true;
@@ -299,6 +299,6 @@ describe('GenerateBillsDialog', () => {
     render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
 
     await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
-    expect(screen.getByRole('status', { name: '청구 발행 중' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('청구 발행 중');
   });
 });

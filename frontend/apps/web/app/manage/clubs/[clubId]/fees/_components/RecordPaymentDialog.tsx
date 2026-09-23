@@ -165,13 +165,10 @@ export function RecordPaymentDialog({
                 isPending && 'cursor-not-allowed opacity-60',
               )}
             >
-              {recordPayment.isPending && (
-                <span role="status" aria-label="납부 기록 중" className="inline-flex items-center">
-                  <ButtonSpinner />
-                </span>
-              )}기록
+              {recordPayment.isPending && <ButtonSpinner />}기록
             </button>
           </div>
+          <span role="status" className="sr-only">{recordPayment.isPending ? '납부 기록 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

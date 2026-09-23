@@ -406,13 +406,10 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
             (isSubmitting || generateBills.isPending) && 'cursor-not-allowed opacity-60',
           )}
         >
-          {generateBills.isPending && (
-            <span role="status" aria-label="청구 발행 중" className="inline-flex items-center">
-              <ButtonSpinner />
-            </span>
-          )}발행
+          {generateBills.isPending && <ButtonSpinner />}발행
         </button>
       </div>
+      <span role="status" className="sr-only">{generateBills.isPending ? '청구 발행 중' : null}</span>
     </form>
   );
 }

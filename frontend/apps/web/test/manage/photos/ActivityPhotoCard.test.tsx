@@ -122,12 +122,13 @@ describe('ActivityPhotoCard', () => {
     );
   });
 
-  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
   it('캡션 저장이 진행 중이면 보조기술에 "캡션 저장 중" 상태를 알린다', () => {
     mockUpdatePending = true;
     renderCard({});
     fireEvent.click(screen.getByRole('button', { name: '캡션 편집' }));
-    expect(screen.getByRole('status', { name: '캡션 저장 중' })).toBeInTheDocument();
+    // DndContext 의 드래그 안내 라이브 리전(role="status")과 구분하려고 캡션 다이얼로그 안으로 좁힌다.
+    expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('캡션 저장 중');
   });
 
   it('캡션 저장 실패 시 다이얼로그 안에 에러를 표시하고 다이얼로그를 유지한다', async () => {

@@ -143,13 +143,10 @@ export function PhoneChangeDialog({ open, onClose }: Props) {
               }
               className="btn btn-primary btn-sm"
             >
-              {changePhoneMutation.isPending && (
-                <span role="status" aria-label="전화번호 변경 중" className="inline-flex items-center">
-                  <ButtonSpinner />
-                </span>
-              )}번호 변경하기
+              {changePhoneMutation.isPending && <ButtonSpinner />}번호 변경하기
             </button>
           </div>
+          <span role="status" className="sr-only">{changePhoneMutation.isPending ? '전화번호 변경 중' : null}</span>
         </div>
       </DialogContent>
     </Dialog>

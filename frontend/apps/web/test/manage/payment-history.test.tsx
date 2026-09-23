@@ -111,7 +111,7 @@ describe('PaymentHistory', () => {
     expect(mockAddToast).toHaveBeenCalledWith('납부 기록을 취소했습니다.');
   });
 
-  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
   it('취소 요청이 진행 중이면 보조기술에 "납부 기록 취소 중" 상태를 알린다', () => {
     mockVoidPending = true;
     mockUseBillPaymentsQuery.mockReturnValue({ data: [activePayment], isLoading: false });
@@ -119,6 +119,6 @@ describe('PaymentHistory', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '취소' }));
     const confirm = screen.getByRole('alertdialog', { name: '납부 기록 취소 확인' });
-    expect(within(confirm).getByRole('status', { name: '납부 기록 취소 중' })).toBeInTheDocument();
+    expect(within(confirm).getByRole('status')).toHaveTextContent('납부 기록 취소 중');
   });
 });

@@ -5,10 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { BankTransaction, ClubMember, FeeBill } from '@duing/types';
 
 const mockApproveMutate = vi.fn();
-// 승인 뮤테이션 진행 상태 — 부분 매칭 다이얼로그의 전송 중 표시를 검증할 때만 바꾼다.
-let mockApproveState: { isPending: boolean; variables?: { txId: number; feeBillId: number } } = {
-  isPending: false,
-};
+// 승인 뮤테이션 진행 여부 — 부분 매칭 다이얼로그의 전송 중 통지를 검증할 때만 바꾼다.
+let mockApprovePending = false;
 const mockIgnoreMutate = vi.fn();
 const mockUnmatchMutate = vi.fn();
 
@@ -77,7 +75,7 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
       error: null,
     };
   },
-  useApproveMatchMutation: () => ({ mutate: mockApproveMutate, ...mockApproveState, error: null }),
+  useApproveMatchMutation: () => ({ mutate: mockApproveMutate, isPending: mockApprovePending, error: null }),
   useIgnoreTransactionMutation: () => ({ mutate: mockIgnoreMutate, isPending: false, error: null }),
   useUnmatchTransactionMutation: () => ({ mutate: mockUnmatchMutate, isPending: false, error: null }),
   useClubMembersQuery: (clubId: number) => {
@@ -185,7 +183,7 @@ describe('BankReviewQueue', () => {
     mockManualMatchedContent.mockReturnValue([]);
     mockPendingError.mockReturnValue(null);
     mockFeeBillsByUserId.mockReturnValue([]);
-    mockApproveState = { isPending: false };
+    mockApprovePending = false;
   });
 
   it('검토 대기 입금과 후보 청구 행을 렌더링한다', () => {
@@ -508,31 +506,20 @@ describe('BankReviewQueue', () => {
       expect(within(dialog).queryByRole('button', { name: '이 청구에 적용' })).not.toBeInTheDocument();
     });
 
-    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
-    // 적용 중인 청구 행에만 붙어 라이브 리전이 하나만 생긴다.
-    it('적용 요청이 진행 중이면 그 청구 행에서만 보조기술에 "입금 적용 중" 상태를 알린다', async () => {
-      mockFeeBillsByUserId.mockImplementation((userId) =>
-        userId === 42
-          ? [
-              buildFeeBill({ id: 700, billingPeriod: '2026-06', remainingAmount: 10000 }),
-              buildFeeBill({ id: 703, billingPeriod: '2026-07', remainingAmount: 10000 }),
-            ]
-          : [],
-      );
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    it('적용 요청이 진행 중이면 보조기술에 "입금 적용 중" 상태를 알린다', async () => {
       const user = userEvent.setup();
       mockPendingContent.mockReturnValue([partialDeposit]);
       render(<BankReviewQueue clubId={1} />);
       await user.click(screen.getByRole('button', { name: '부원 선택 후 매칭' }));
       const dialog = await screen.findByRole('dialog');
+      // 열기 버튼은 승인 진행 중에 막히므로, 다이얼로그가 열린 뒤 진행 중으로 바꾸고 입력으로 다시 렌더한다.
+      expect(within(dialog).getByRole('status')).toBeEmptyDOMElement();
 
-      // 다이얼로그가 열린 뒤 700 번 청구 적용이 진행 중인 상태로 바꾼다(다음 렌더부터 반영).
-      mockApproveState = { isPending: true, variables: { txId: 601, feeBillId: 700 } };
-      const searchInput = within(dialog).getByRole('textbox', { name: '부원 검색' });
-      await user.clear(searchInput);
-      await user.type(searchInput, '구승율');
-      await user.click(within(dialog).getByRole('button', { name: /구승율/ }));
+      mockApprovePending = true;
+      await user.type(within(dialog).getByRole('textbox', { name: '부원 검색' }), '구');
 
-      expect(within(dialog).getAllByRole('status', { name: '입금 적용 중' })).toHaveLength(1);
+      expect(within(dialog).getByRole('status')).toHaveTextContent('입금 적용 중');
     });
   });
 });

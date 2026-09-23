@@ -80,10 +80,10 @@ describe('금전출납부 등록 다이얼로그', () => {
     expect(payload).not.toHaveProperty('transactionDate');
   });
 
-  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
   it('등록 요청이 진행 중이면 보조기술에 "장부 항목 저장 중" 상태를 알린다', () => {
     mockCreatePending = true;
     render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
-    expect(screen.getByRole('status', { name: '장부 항목 저장 중' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('장부 항목 저장 중');
   });
 });

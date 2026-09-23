@@ -259,8 +259,8 @@ describe('ProfileEditDialog', () => {
     // 전송 중 판정은 취소 버튼의 disabled 로 잡는다 — 가드 자체(aria-busy)로 기다리면
     // 배선이 빠졌을 때 ESC 단언에 닿기도 전에 대기에서 터져 무엇이 깨졌는지 흐려진다.
     await waitFor(() => expect(screen.getByRole('button', { name: '취소' })).toBeDisabled());
-    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 감싸는 role="status" 가 맡는다(#914).
-    expect(screen.getByRole('status', { name: '프로필 저장 중' })).toBeInTheDocument();
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    expect(screen.getByRole('status')).toHaveTextContent('프로필 저장 중');
 
     await user.keyboard('{Escape}');
 
@@ -313,7 +313,7 @@ describe('PasswordChangeDialog', () => {
     await user.type(screen.getByLabelText('새 비밀번호 확인'), 'New5678!');
     await user.click(screen.getByRole('button', { name: '변경하기' }));
 
-    expect(await screen.findByRole('status', { name: '비밀번호 변경 중' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('비밀번호 변경 중'));
   });
 });
 
@@ -360,6 +360,6 @@ describe('WithdrawAccountDialog', () => {
 
     await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
 
-    expect(await screen.findByRole('status', { name: '회원 탈퇴 중' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('회원 탈퇴 중'));
   });
 });
