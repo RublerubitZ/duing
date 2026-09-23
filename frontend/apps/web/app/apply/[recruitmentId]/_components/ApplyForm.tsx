@@ -93,9 +93,10 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   // 제출 확인 — 제출 후 수정 API 가 없어 되돌릴 수 없는 행동이라 검증 통과 후 한 번 묻는다.
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // 제출로 지원 불가가 확정되면 끈다 — enabled 가 effect deps 라 cleanup 이 보류 중인 debounce 타이머까지 취소한다.
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: true,
+    enabled: blockedBySubmit === null,
   });
 
   const isClosed = autosaveStatus.kind === 'closed' || blockedBySubmit !== null;

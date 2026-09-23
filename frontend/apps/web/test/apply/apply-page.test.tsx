@@ -291,7 +291,12 @@ describe('ApplyForm — 단일 스텝 지원', () => {
   });
 
   it('제출이 RECRUITMENT_NOT_STARTED 로 실패하면 시작 전 안내 배너가 뜨고 제출이 비활성화된다', async () => {
+    let draftPutCount = 0;
     server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
       http.post('*/recruitments/:recruitmentId/applications', () =>
         HttpResponse.json(
           {
@@ -316,7 +321,10 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     expect(screen.getByText(/모집 시작 전 — 임시저장 및 제출 불가/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeDisabled();
     expect(mockRouterPush).not.toHaveBeenCalled();
-  });
+    // 입력 직후 debounce 창 안에서 차단됐다 — 보류 중이던 자동저장 타이머(2초)도 취소돼 초안 PUT 이 나가지 않는다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftPutCount).toBe(0);
+  }, 10_000);
 
   it('code 없는 제출 실패는 기존처럼 서버 메시지를 인라인 알림으로 보여준다', async () => {
     server.use(
