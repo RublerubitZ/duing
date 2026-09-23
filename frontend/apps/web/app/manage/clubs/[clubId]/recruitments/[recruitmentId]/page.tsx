@@ -203,7 +203,7 @@ export default function RecruitmentDetailPage({
           <dd className="text-sm text-slate-900">{targetRoleLabel}</dd>
         </div>
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 정원</dt>
+          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 인원</dt>
           <dd className="text-sm text-slate-900">{recruitment.capacity}명</dd>
         </div>
         <div className="flex gap-4">
@@ -265,7 +265,7 @@ export default function RecruitmentDetailPage({
               </span>
             </div>
           )}
-          <span className="ml-auto text-xs text-slate-400">정원 {statsSummary.capacity}명</span>
+          <span className="ml-auto text-xs text-slate-400">모집 인원 {statsSummary.capacity}명</span>
         </div>
       )}
 

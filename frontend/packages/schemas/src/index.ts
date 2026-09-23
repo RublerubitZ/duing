@@ -222,8 +222,8 @@ export const createRecruitmentSchema = z
       .nullable(),
     capacity: z
       .number()
-      .int('모집 정원은 정수여야 합니다.')
-      .min(1, '모집 정원은 1명 이상이어야 합니다.'),
+      .int('모집 인원은 정수여야 합니다.')
+      .min(1, '모집 인원은 1명 이상이어야 합니다.'),
     applicationMode: z.enum(['SELF', 'EXTERNAL']).default('SELF'),
     externalFormUrl: z.string().optional(),
     useInterview: z.boolean().default(false),
@@ -317,8 +317,8 @@ export const updateRecruitmentSchema = z
       .optional(),
     capacity: z
       .number()
-      .int('모집 정원은 정수여야 합니다.')
-      .min(1, '모집 정원은 1명 이상이어야 합니다.'),
+      .int('모집 인원은 정수여야 합니다.')
+      .min(1, '모집 인원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     // 수정에서는 applicationMode 를 받지 않는다. 자체 폼일 때만 호출부가 questionItems 를 채우므로
     // "제공되었다면 최소 1개" 로 백엔드의 400(자체 폼 모집은 최소 1개 이상의 질문이 필요합니다.)을 선제 차단한다.

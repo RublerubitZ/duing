@@ -37,7 +37,7 @@ describe('RecruitmentPreview', () => {
   it('자체 폼: 모집 정보 → 질문 목록 → 제출하기 순으로 렌더한다', () => {
     render(<RecruitmentPreview data={previewData()} />);
     expect(screen.getByText('10기 신입 모집')).toBeInTheDocument();
-    expect(screen.getByText(/정원 20명/)).toBeInTheDocument();
+    expect(screen.getByText(/모집 인원 20명/)).toBeInTheDocument();
     expect(screen.getByText('지원서 · 2문항')).toBeInTheDocument();
     expect(screen.getByText('지원 동기를 알려주세요')).toBeInTheDocument();
     expect(screen.getByText('웹')).toBeInTheDocument();
