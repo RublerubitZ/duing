@@ -79,6 +79,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
             {withdrawMutation.isPending && <ButtonSpinner />}탈퇴하기
           </button>
         </div>
+        <span role="status" className="sr-only">{withdrawMutation.isPending ? '회원 탈퇴 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

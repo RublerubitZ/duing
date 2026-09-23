@@ -330,6 +330,8 @@ describe('PhoneChangeDialog', () => {
     });
     // 요청이 pending — 라벨은 유지되고 버튼이 비활성화된다(스피너 표시).
     expect(screen.getByRole('button', { name: '번호 변경하기' })).toBeDisabled();
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    expect(screen.getByRole('status')).toHaveTextContent('전화번호 변경 중');
 
     // pending 구간에 ESC 를 눌러도 닫히지 않는다(오버레이/ESC 닫힘 경로 가드).
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });

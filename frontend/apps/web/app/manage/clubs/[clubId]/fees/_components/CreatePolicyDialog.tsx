@@ -337,6 +337,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               {isEditMode ? '수정' : '추가'}
             </button>
           </div>
+          <span role="status" className="sr-only">{activeMutation.isPending ? '회비 정책 저장 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

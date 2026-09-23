@@ -218,6 +218,7 @@ export function ActivityPhotoCard({
               저장
             </button>
           </DialogFooter>
+          <span role="status" className="sr-only">{updatePhoto.isPending ? '캡션 저장 중' : null}</span>
         </DialogContent>
       </Dialog>
 

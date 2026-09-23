@@ -104,4 +104,11 @@ describe('BankSyncDialog', () => {
     expect(screen.getByText('은행 연동에 일시적으로 실패했습니다')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('은행 연동에 일시적으로 실패했습니다');
   });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('동기화 요청이 진행 중이면 보조기술에 "거래내역 동기화 중" 상태를 알린다', () => {
+    mockSyncPending = true;
+    render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('거래내역 동기화 중');
+  });
 });

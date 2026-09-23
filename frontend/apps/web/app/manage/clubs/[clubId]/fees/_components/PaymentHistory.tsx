@@ -231,6 +231,7 @@ function VoidPaymentConfirm({
             {voidPayment.isPending && <ButtonSpinner />}기록 취소
           </button>
         </div>
+        <span role="status" className="sr-only">{voidPayment.isPending ? '납부 기록 취소 중' : null}</span>
       </div>
     </div>
   );

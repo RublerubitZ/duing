@@ -35,6 +35,7 @@ export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabe
             {isPending && <ButtonSpinner />}신청 취소
           </button>
         </div>
+        <span role="status" className="sr-only">{isPending ? '예약 신청 취소 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

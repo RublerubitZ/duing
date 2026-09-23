@@ -260,6 +260,8 @@ describe('ProfileEditDialog', () => {
     // 전송 중 판정은 취소 버튼의 disabled 로 잡는다 — 가드 자체(aria-busy)로 기다리면
     // 배선이 빠졌을 때 ESC 단언에 닿기도 전에 대기에서 터져 무엇이 깨졌는지 흐려진다.
     await waitFor(() => expect(screen.getByRole('button', { name: '취소' })).toBeDisabled());
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    expect(screen.getByRole('status')).toHaveTextContent('프로필 저장 중');
 
     await user.keyboard('{Escape}');
 
@@ -297,6 +299,24 @@ describe('PasswordChangeDialog', () => {
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/login'));
     expect(useAuthStore.getState().status).toBe('unauthenticated');
   });
+
+  it('변경 요청이 진행 중이면 보조기술에 "비밀번호 변경 중" 상태를 알린다', async () => {
+    server.use(
+      http.patch(`${BASE}/users/me/password`, async () => {
+        await delay('infinite');
+        return ok204();
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PasswordChangeDialog open onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('현재 비밀번호'), 'Old1234!');
+    await user.type(screen.getByLabelText('새 비밀번호'), 'New5678!');
+    await user.type(screen.getByLabelText('새 비밀번호 확인'), 'New5678!');
+    await user.click(screen.getByRole('button', { name: '변경하기' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('비밀번호 변경 중'));
+  });
 });
 
 describe('WithdrawAccountDialog', () => {
@@ -329,5 +349,20 @@ describe('WithdrawAccountDialog', () => {
     expect(await screen.findByText(/회장직을 인계/)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/회장직을 인계/);
     expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('탈퇴 요청이 진행 중이면 보조기술에 "회원 탈퇴 중" 상태를 알린다', async () => {
+    server.use(
+      http.delete(`${BASE}/users/me`, async () => {
+        await delay('infinite');
+        return ok204();
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawAccountDialog open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('회원 탈퇴 중'));
   });
 });

@@ -5,8 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 let mockCreateError: Error | null = null;
+let mockCreatePending = false;
 vi.mock('@duing/hooks', () => ({
-  useCreateCashbookEntryMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: mockCreateError }),
+  useCreateCashbookEntryMutation: () => ({ mutate: mockCreateMutate, isPending: mockCreatePending, error: mockCreateError }),
   useUpdateCashbookEntryMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@duing/api', () => ({
@@ -32,6 +33,7 @@ beforeEach(() => {
   mockCreateMutate.mockReset();
   mockUpdateMutate.mockReset();
   mockCreateError = null;
+  mockCreatePending = false;
 });
 
 describe('금전출납부 등록 다이얼로그', () => {
@@ -91,5 +93,12 @@ describe('금전출납부 등록 다이얼로그', () => {
     expect(payload).not.toHaveProperty('amount');
     expect(payload).not.toHaveProperty('description');
     expect(payload).not.toHaveProperty('transactionDate');
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('등록 요청이 진행 중이면 보조기술에 "장부 항목 저장 중" 상태를 알린다', () => {
+    mockCreatePending = true;
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent('장부 항목 저장 중');
   });
 });

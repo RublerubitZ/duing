@@ -6,12 +6,13 @@ const mockUseClubFeePoliciesQuery = vi.fn();
 const mockUseClubMembersQuery = vi.fn();
 const mockGenerateMutate = vi.fn();
 let mockGenerateError: Error | null = null;
+let mockGeneratePending = false;
 vi.mock('@duing/hooks', () => ({
   useClubFeePoliciesQuery: (clubId: number) => mockUseClubFeePoliciesQuery(clubId),
   useClubMembersQuery: (clubId: number | undefined) => mockUseClubMembersQuery(clubId),
   useGenerateBillsMutation: () => ({
     mutate: mockGenerateMutate,
-    isPending: false,
+    isPending: mockGeneratePending,
     error: mockGenerateError,
   }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
@@ -79,6 +80,7 @@ describe('GenerateBillsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGenerateError = null;
+    mockGeneratePending = false;
     mockUseClubMembersQuery.mockReturnValue({ data: members, isLoading: false });
   });
 
@@ -301,5 +303,16 @@ describe('GenerateBillsDialog', () => {
     await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
     expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 1 · 제외 1)');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('발행 요청이 진행 중이면 보조기술에 "청구 발행 중" 상태를 알린다', async () => {
+    const user = userEvent.setup();
+    mockGeneratePending = true;
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+    expect(screen.getByRole('status')).toHaveTextContent('청구 발행 중');
   });
 });

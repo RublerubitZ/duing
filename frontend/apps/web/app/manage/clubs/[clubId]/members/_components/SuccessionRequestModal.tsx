@@ -137,6 +137,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
               {submitSuccession.isPending && <ButtonSpinner />}승계 요청
             </button>
           </div>
+          <span role="status" className="sr-only">{submitSuccession.isPending ? '승계 요청 보내는 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

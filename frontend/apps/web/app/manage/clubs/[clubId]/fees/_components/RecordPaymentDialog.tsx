@@ -168,6 +168,7 @@ export function RecordPaymentDialog({
               {recordPayment.isPending && <ButtonSpinner />}기록
             </button>
           </div>
+          <span role="status" className="sr-only">{recordPayment.isPending ? '납부 기록 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

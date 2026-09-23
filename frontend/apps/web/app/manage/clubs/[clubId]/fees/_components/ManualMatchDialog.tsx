@@ -186,6 +186,7 @@ export function ManualMatchDialog({
             닫기
           </button>
         </div>
+        <span role="status" className="sr-only">{approveMatch.isPending ? '입금 적용 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -166,6 +166,7 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
               {syncTransactions.isPending && <ButtonSpinner />}동기화
             </button>
           </div>
+          <span role="status" className="sr-only">{syncTransactions.isPending ? '거래내역 동기화 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>
