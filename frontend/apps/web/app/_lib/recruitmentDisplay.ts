@@ -46,10 +46,10 @@ export function isRecruitmentExpiredOpen(
 export const RECRUITMENT_EXPIRED_OPEN_LABEL = '기간 종료';
 
 /**
- * 만료-OPEN 칩 색. displayStatus 는 CLOSED 지만 모집은 아직 열려 있어 마감(slate)과 구분하고,
- * 운영진의 처리가 남았음을 알리는 주의색을 쓴다.
+ * 만료-OPEN 칩 색. displayStatus 는 CLOSED 지만 모집은 아직 열려 있어 마감(outline)과 구분하고,
+ * 운영진의 처리가 남았음을 알리도록 warm 변형(테두리)으로 예정과 구분한다.
  */
-export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'bg-amber-100 text-amber-700';
+export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'pill pill-warm-outline';
 
 /** 만료-OPEN 안내 문구 — 지금 상태와 다음 행동(심사·가입 처리 후 마감)을 함께 알려준다. */
 export function recruitmentExpiredOpenNotice(applicationMode: ApplicationMode): string {
@@ -68,10 +68,10 @@ export const RECRUITMENT_DISPLAY_STATUS_LABEL: Record<RecruitmentDisplayStatus, 
 };
 
 export const RECRUITMENT_DISPLAY_STATUS_BADGE: Record<RecruitmentDisplayStatus, string> = {
-  UPCOMING: 'bg-amber-100 text-amber-700',
-  OPEN: 'bg-emerald-100 text-emerald-700',
-  ALWAYS_OPEN: 'bg-sky-100 text-sky-700',
-  CLOSED: 'bg-slate-100 text-slate-600',
+  UPCOMING: 'pill pill-warm',
+  OPEN: 'pill',
+  ALWAYS_OPEN: 'pill pill-sky',
+  CLOSED: 'pill pill-outline',
 };
 
 /**

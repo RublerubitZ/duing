@@ -17,7 +17,7 @@ import {
   isRecruitmentExpiredOpen,
   recruitmentExpiredOpenNotice,
   recruitmentPeriodLabel,
-  RECRUITMENT_EXPIRED_OPEN_BADGE,
+  recruitmentStatusChip,
   RECRUITMENT_EXPIRED_OPEN_LABEL,
 } from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
@@ -171,15 +171,9 @@ export default function RecruitmentDetailPage({
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
-        {/* 상태 칩. 라벨(displayStatusLabel)·색 규칙이 운영 콘솔 칩(recruitmentStatusChip)과 다른 어휘라
-            그 헬퍼를 쓰지 않는다 — 통합하면 예정/상시/마감 표기가 바뀌므로 디자인 판단이 먼저다. */}
         <span
           className={`mt-1 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-            isClosed
-              ? 'bg-slate-100 text-slate-500'
-              : isExpiredOpen
-                ? RECRUITMENT_EXPIRED_OPEN_BADGE
-                : 'bg-emerald-100 text-emerald-700'
+            recruitmentStatusChip(recruitment).badgeClass
           }`}
         >
           {/* 제목 옆 맨 텍스트라 스크린리더에서 무엇의 상태인지 알 수 없다 */}
