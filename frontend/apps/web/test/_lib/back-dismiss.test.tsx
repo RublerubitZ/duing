@@ -622,6 +622,28 @@ describe('useBackDismiss', () => {
     expect(closeSpy).not.toHaveBeenCalled();
   });
 
+  it('라이브 오버레이 위의 기억되지 않은 죽은 마커에 forward 로 올라오면 앉는다(wentForward)', async () => {
+    // [page][라이브 a][죽은 b][B] — B 에서 a 로 점프하면 b 는 back 스킵을 거치지 않아 기억되지 않는다.
+    render(<Overlay name="a" />);
+    const liveId: unknown = window.history.state.__overlayId;
+    const { unmount } = render(<Overlay name="b" />);
+    const deadId: unknown = window.history.state.__overlayId;
+    skipNextOverlayReclaim();
+    unmount();
+    await settle();
+    window.history.pushState({ marker: 'B' }, '', '/b');
+
+    await jump(-2);
+    expect(window.history.state.__overlayId).toBe(liveId);
+
+    // 위로 올라온 착지라 되돌려 보내면 B 에 영원히 못 간다 — 앉아야 한다.
+    await pressForward();
+    // (죽은 엔트리에 앉으면 아래 라이브 오버레이는 기존 안전망 stack.splice(0) 으로 닫힌다 — 여기선 위치만 본다.)
+    expect(window.history.state.__overlayId).toBe(deadId);
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+  });
+
   it('onClose 가 열린 뒤에 붙어도 엔트리를 등록한다', async () => {
     function LateClose({ ready }: { ready: boolean }) {
       useBackDismiss(true, ready ? () => closeSpy('late') : null);

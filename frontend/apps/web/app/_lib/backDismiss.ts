@@ -21,6 +21,8 @@ import { useEffect, useRef, useState } from 'react';
 // A 로 되돌려 B 에 재진입할 수 없었다. 그래서 back 으로 건너뛴 죽은 엔트리를 "내 위쪽" 으로 기억하고, 그
 // 엔트리에 A 와 같은 페이지에서 올라왔으면 forward 로 건너뛴다(마커 URL 이 A 라 B 에서 내려오면 다른 페이지다).
 // B 가 A 와 같은 URL 이면 판정이 어긋날 수 있지만 forward 스킵 때 기억을 지우므로 최악이 "뒤로가기 2회" 다.
+// 기억 없이(점프로) 연속 죽은 엔트리 n개 아래로 내려왔으면 B 까지 forward n+1회다 — 첫 착지는 back 스킵되며 기억되고,
+// 중간 엔트리는 wentForward 로 앉는다.
 //
 // 설계·엣지 케이스 근거: docs/superpowers/specs/2026-08-03-overlay-back-close-design.md
 
@@ -41,13 +43,15 @@ let installed = false;
 // 지금 앉아 있는 엔트리의 오버레이 ID(우리 것이 아니면 null) — 앞으로 가기 판별에 쓴다.
 // ID 는 단조 증가라 "착지 ID > 직전 ID" 면 위로 올라간 것, 즉 forward 다.
 let currentMarkerId: number | null = null;
+// 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
+let currentHref: string | null = null;
 // back 자동 스킵으로 건너뛴 죽은 엔트리("토큰:ID") — "지금 내 위쪽에 있다". 앞으로 가기 방향 판별에 쓴다(#857).
 // 토큰까지 키로 잡는다 — 이전 문서가 남긴 마커는 ID 가 1 부터 다시 시작해 ID 만으로는 겹친다.
 // pushState 로 잘려 나간 멤버는 다시 착지할 수 없고 ID 는 문서 내 단조 증가라 재사용되지 않아, 비우지 않아도 무해하다.
-// 멤버는 위에서 내려오며 건너뛴 엔트리라 그 위에 엔트리가 반드시 있다 — forward() 가 no-op 으로 새지 않는다.
+// 멤버는 대개 그 위에 엔트리가 있지만, 아래에서 forward 로 착지해 back 스킵된 죽은 엔트리도 멤버가 되므로 최상단일 수 있다.
+// ponytail: 커밋 전 창(skip 닫힘 뒤 Next 커밋 전)에서 forward 연타 시 forward() 가 no-op 이 되어 selfTraversals 1 이
+// 새고 다음 사용자 traversal 이 예산 회복만 건너뛴다. 감지 수단이 없어(history.length 불신) 허용한다.
 const deadEntriesAbove = new Set<string>();
-// 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
-let currentHref: string | null = null;
 let nativeReplaceState: History['replaceState'] | null = null;
 // 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. View Transition 억제에 쓴다.
 let overlayOnlyTraversal = false;
@@ -249,6 +253,7 @@ function handlePopState() {
     skipBudget -= 1;
     // 지워 두어야 B 가 A 와 같은 URL 일 때 오판된 forward 스킵이 한 번으로 끝난다(다음 착지는 back 스킵).
     deadEntriesAbove.delete(landedEntryKey);
+    // 최상단 멤버면 no-op 이라 popstate 가 없다 — 상한은 deadEntriesAbove 선언부 주석 참조.
     queueMicrotask(() => {
       selfTraversals += 1;
       window.history.forward();
