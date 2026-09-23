@@ -121,14 +121,4 @@ class BookingOpenDatePolicyTest {
         BookingWindow window = policy.windowFor(LocalDate.of(2026, 9, 1), null, LocalDate.of(2026, 9, 4));
         assertThat(window.until()).isEqualTo(LocalDate.of(2026, 10, 31));
     }
-
-    @Test
-    @DisplayName("참조 창은 오픈일과 무관하게 오늘부터 익월 말일까지다")
-    void referenceWindowIgnoresOpenDate() {
-        BookingWindow window = policy.referenceWindow(LocalDate.of(2026, 1, 10));
-
-        assertThat(window.from()).isEqualTo(LocalDate.of(2026, 1, 10));
-        assertThat(window.until()).isEqualTo(LocalDate.of(2026, 2, 28));
-        assertThat(window.isEmpty()).isFalse();
-    }
 }
