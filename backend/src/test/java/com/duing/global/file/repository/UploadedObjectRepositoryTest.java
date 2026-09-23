@@ -32,6 +32,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.file.FilePurpose;
 import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -58,6 +59,7 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
     @Autowired PromotionRepository promotionRepository;
     @Autowired PromotionRequestRepository promotionRequestRepository;
     @Autowired GlobalEventRepository globalEventRepository;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
     private final Instant now = Instant.now();
@@ -66,8 +68,8 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(uploadedAt);
         if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(uploadedAt); uploadedObject.release(uploadedAt); }
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now());
-        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(Instant.now()); uploadedObject.markPurged(uploadedAt); }
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now(clock));
+        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(Instant.now(clock)); uploadedObject.markPurged(uploadedAt); }
         return uploadedObjectRepository.save(uploadedObject);
     }
 
@@ -96,15 +98,38 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         UploadedObject thirdOld = save(uniqueKey("club/logo"), UploadedObjectStatus.PENDING, old);
 
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+        Instant graceCutoff = Instant.now(clock); // grace 0 — claim 시각 필터가 이 케이스엔 영향이 없게
         List<UploadedObject> all = uploadedObjectRepository.findPurgeCandidates(
-                List.of(UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING), cutoff, PageRequest.of(0, 500));
+                List.of(UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING), cutoff, graceCutoff,
+                PageRequest.of(0, 500));
         List<UploadedObject> limited = uploadedObjectRepository.findPurgeCandidates(
-                List.of(UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING), cutoff, PageRequest.of(0, 2));
+                List.of(UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING), cutoff, graceCutoff,
+                PageRequest.of(0, 2));
 
         assertThat(all).extracting(UploadedObject::getId)
                 .containsExactly(oldPending.getId(), oldPurging.getId(), thirdOld.getId());
         assertThat(limited).extracting(UploadedObject::getId)
                 .containsExactly(oldPending.getId(), oldPurging.getId());
+    }
+
+    @Test
+    @DisplayName("파기 후보 조회는 claim 시각이 graceCutoff 뒤인(유예 중) PURGING 을 빼고, 유예 경과·claim 전 행은 돌려준다")
+    void excludesPurgingWithinGraceFromPurgeCandidates() {
+        Instant old = now.minus(48, ChronoUnit.HOURS);
+        UploadedObject pending = save(uniqueKey("club/logo"), UploadedObjectStatus.PENDING, old);
+        UploadedObject withinGrace = UploadedObject.pending(uniqueKey("club/logo"), FilePurpose.LOGO, 1L, old);
+        withinGrace.markPurging(now.minus(1, ChronoUnit.HOURS));
+        uploadedObjectRepository.save(withinGrace);
+        UploadedObject graceElapsed = UploadedObject.pending(uniqueKey("club/logo"), FilePurpose.LOGO, 1L, old);
+        graceElapsed.markPurging(now.minus(25, ChronoUnit.HOURS));
+        uploadedObjectRepository.save(graceElapsed);
+
+        List<UploadedObject> candidates = uploadedObjectRepository.findPurgeCandidates(
+                List.of(UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING),
+                now.minus(24, ChronoUnit.HOURS), now.minus(24, ChronoUnit.HOURS), PageRequest.of(0, 500));
+
+        assertThat(candidates).extracting(UploadedObject::getId)
+                .containsExactly(pending.getId(), graceElapsed.getId());
     }
 
     @Test

@@ -90,7 +90,7 @@ class UploadPurgeJobTest extends IntegrationTestBase {
         Instant uploadedAt = Instant.now(clock).minus(hoursAgo, ChronoUnit.HOURS);
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(uploadedAt);
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now());
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now(clock));
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;
     }
@@ -221,6 +221,23 @@ class UploadPurgeJobTest extends IntegrationTestBase {
         graceDeleteJob(Clock.offset(clock, Duration.ofHours(24))).run();
         assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PURGED);
         verify(fileStorageService, times(1)).delete("resolved:" + expiredKey);
+    }
+
+    @Test
+    @DisplayName("유예 중인 PURGING 은 후보 조회에서 빠져 배치를 점유하지 않고, 같은 실행에서 다른 PENDING·RELEASED 가 처리된다")
+    void excludesPurgingWithinGraceFromCandidates() {
+        stubStorageDeleteConfirmed();
+        String withinGraceKey = seed(UploadedObjectStatus.PURGING, 25); // 방금 claim — 유예 24시간 중
+        String pendingKey = seed(UploadedObjectStatus.PENDING, 25);
+        String releasedKey = seedReleased(48, 25);
+
+        graceDeleteJob(clock).run();
+
+        verify(uploadedObjectRepository, never()).isReferenced(withinGraceKey);
+        verify(uploadedObjectRepository).isReferenced(pendingKey);
+        verify(uploadedObjectRepository).isReferenced(releasedKey);
+        assertThat(statusOf(withinGraceKey)).isEqualTo(UploadedObjectStatus.PURGING);
+        verify(fileStorageService, never()).delete(anyString());
     }
 
     @Test

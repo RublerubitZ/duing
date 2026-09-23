@@ -32,6 +32,7 @@ import com.duing.global.file.repository.UploadedObjectRepository;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     @Autowired PromotionService promotionService;
     @Autowired UserRepository userRepository;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @Autowired Clock clock;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -87,7 +89,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     private String seedPurged(FilePurpose purpose) {
         String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
-        uploadedObject.markPurging(Instant.now());
+        uploadedObject.markPurging(Instant.now(clock));
         uploadedObject.markPurged(Instant.now());
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;

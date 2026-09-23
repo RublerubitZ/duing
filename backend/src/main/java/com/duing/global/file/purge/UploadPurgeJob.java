@@ -73,10 +73,13 @@ public class UploadPurgeJob {
             log.error("[업로드 고아 정리] 유예(window={})가 유효하지 않아 실행을 건너뜁니다.", window);
             return;
         }
-        Instant cutoff = Instant.now(clock).minus(window);
+        Instant runStartedAt = Instant.now(clock);
+        Instant cutoff = runStartedAt.minus(window);
+        // 유예 중인 PURGING 이 매시 상한을 점유해 RELEASED 후보가 굶지 않도록 조회 단계에서 뺀다(루프의 grace 비교는 방어선).
+        Instant graceCutoff = runStartedAt.minus(properties.grace());
         boolean deleteEnabled = properties.deleteEnabled();
         List<UploadedObject> pendingCandidates = uploadedObjectRepository.findPurgeCandidates(
-                CANDIDATE_STATUSES, cutoff, PageRequest.of(0, BATCH_LIMIT));
+                CANDIDATE_STATUSES, cutoff, graceCutoff, PageRequest.of(0, BATCH_LIMIT));
         int remainingLimit = BATCH_LIMIT - pendingCandidates.size();
         List<UploadedObject> releasedCandidates = remainingLimit > 0
                 ? uploadedObjectRepository.findReleasedCandidates(cutoff, PageRequest.of(0, remainingLimit))
