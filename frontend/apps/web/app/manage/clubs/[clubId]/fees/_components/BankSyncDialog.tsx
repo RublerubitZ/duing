@@ -142,7 +142,7 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
           </p>
 
           {submitErrorMessage && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
           )}
 
           <div className="flex gap-2 pt-1">

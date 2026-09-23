@@ -102,5 +102,6 @@ describe('BankSyncDialog', () => {
     mockSyncError = new MockApiError(502, 'bad gateway');
     render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
     expect(screen.getByText('은행 연동에 일시적으로 실패했습니다')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('은행 연동에 일시적으로 실패했습니다');
   });
 });

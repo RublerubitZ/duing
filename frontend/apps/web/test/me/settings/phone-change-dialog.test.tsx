@@ -212,6 +212,10 @@ describe('PhoneChangeDialog', () => {
 
     // 서버 메시지를 그대로 보여주고, 인증 상태(verified)는 유지된다 — 재인증 없이 재시도 가능.
     expect(screen.getByText('현재 비밀번호가 일치하지 않습니다.')).toBeInTheDocument();
+    // PhoneVerificationField 의 alert 와 공존할 수 있어 전체 alert 중 문구로 확인한다.
+    expect(
+      screen.getAllByRole('alert').some((node) => node.textContent === '현재 비밀번호가 일치하지 않습니다.'),
+    ).toBe(true);
     expect(screen.getByLabelText('현재 비밀번호')).toBeInTheDocument();
     expect(mockRouterReplace).not.toHaveBeenCalled();
 

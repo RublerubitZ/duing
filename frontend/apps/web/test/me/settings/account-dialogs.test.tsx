@@ -185,6 +185,7 @@ describe('ProfileEditDialog', () => {
     await user.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('이름은 한글 2~7자만 입력할 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('이름은 한글 2~7자만 입력할 수 있습니다.');
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -278,6 +279,7 @@ describe('PasswordChangeDialog', () => {
     await user.click(screen.getByRole('button', { name: '변경하기' }));
 
     expect(screen.getByText(/일치하지 않/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/일치하지 않/);
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
@@ -325,6 +327,7 @@ describe('WithdrawAccountDialog', () => {
     await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
 
     expect(await screen.findByText(/회장직을 인계/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/회장직을 인계/);
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 });

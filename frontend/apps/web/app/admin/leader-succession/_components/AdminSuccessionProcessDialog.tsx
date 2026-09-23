@@ -94,7 +94,7 @@ export function AdminSuccessionProcessDialog({ succession, isPending, errorMessa
           </p>
         </label>
 
-        {errorMessage && <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">

@@ -60,7 +60,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
         <DialogDescription className="text-[13.5px] leading-relaxed text-charcoal-2">
           정말 탈퇴하시겠어요? 계정과 활동 정보가 정리되며 되돌릴 수 없어요.
         </DialogDescription>
-        {error && <p className="text-[12.5px] text-coral">{error}</p>}
+        {error && <p role="alert" className="text-[12.5px] text-coral">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"

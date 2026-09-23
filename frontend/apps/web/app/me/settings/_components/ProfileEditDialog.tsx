@@ -144,7 +144,7 @@ export function ProfileEditDialog({
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
             />
           </label>
-          {error && <p className="text-[12.5px] text-coral">{error}</p>}
+          {error && <p role="alert" className="text-[12.5px] text-coral">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"

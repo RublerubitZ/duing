@@ -4,12 +4,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+let mockCreateError: Error | null = null;
 vi.mock('@duing/hooks', () => ({
-  useCreateCashbookEntryMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: null }),
+  useCreateCashbookEntryMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: mockCreateError }),
   useUpdateCashbookEntryMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
-vi.mock('@duing/api', () => ({ ApiError: class extends Error {} }));
+vi.mock('@duing/api', () => ({
+  ApiError: class extends Error {
+    constructor(_status: number, message: string) {
+      super(message);
+    }
+  },
+}));
 
+import { ApiError } from '@duing/api';
 import type { CashbookEntry } from '@duing/types';
 
 import { CashbookEntryDialog } from '@/app/manage/clubs/[clubId]/fees/_components/CashbookEntryDialog';
@@ -23,9 +31,16 @@ const buildEntry = (over: Partial<CashbookEntry> = {}): CashbookEntry => ({
 beforeEach(() => {
   mockCreateMutate.mockReset();
   mockUpdateMutate.mockReset();
+  mockCreateError = null;
 });
 
 describe('금전출납부 등록 다이얼로그', () => {
+  it('등록 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    mockCreateError = new ApiError(400, '등록에 실패했습니다.');
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('등록에 실패했습니다.');
+  });
+
   it('지출을 등록하면 payload 에 유형·카테고리·금액이 실린다', async () => {
     const user = userEvent.setup();
     mockCreateMutate.mockImplementation((_p: unknown, options?: { onSuccess?: () => void }) =>

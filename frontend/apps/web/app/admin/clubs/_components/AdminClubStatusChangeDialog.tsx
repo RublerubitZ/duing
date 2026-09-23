@@ -101,7 +101,7 @@ export function AdminClubStatusChangeDialog({
         )}
 
         {errorMessage && (
-          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
         <DialogFooter>

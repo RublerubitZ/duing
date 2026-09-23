@@ -99,6 +99,7 @@ describe('RecordPaymentDialog', () => {
     mockRecordError = new MockApiError(400, '납부 금액이 남은 미납액을 초과합니다.');
     render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
     expect(screen.getByText('납부 금액이 남은 미납액을 초과합니다.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('납부 금액이 남은 미납액을 초과합니다.');
   });
 
   it('금액이 0/음수면 검증에서 막히고 뮤테이션을 호출하지 않는다', async () => {

@@ -99,4 +99,17 @@ describe('AdminClubDeleteDialog', () => {
     fireEvent.change(screen.getByLabelText('동아리명 입력 확인'), { target: { value: '삭제 동아리' } });
     expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled();
   });
+
+  it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    render(
+      <AdminClubDeleteDialog
+        club={makeClub()}
+        isPending={false}
+        errorMessage="삭제에 실패했습니다."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('삭제에 실패했습니다.');
+  });
 });

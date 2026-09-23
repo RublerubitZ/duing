@@ -36,4 +36,18 @@ describe('AdminClubCentralClubToggleDialog', () => {
 
     expect(container.firstChild).toBeNull();
   });
+
+  it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    render(
+      <AdminClubCentralClubToggleDialog
+        clubName="X"
+        currentValue={false}
+        isPending={false}
+        errorMessage="변경에 실패했습니다."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('변경에 실패했습니다.');
+  });
 });
