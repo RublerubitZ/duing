@@ -43,9 +43,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       뒤에 커밋되어 덮어쓴다 → 최종 1.</li>
  * </ul>
  *
- * <p>bumpTokenVersion 경로(현재 8곳): GeneralUserService.logout(:227) · logoutAll(:236) · forceLogout(:247) ·
- * changePassword(:284) · changePhone(:316) · resetPassword(:372) · withdraw(:392) ·
- * GeneralAdminUserCommandService.changeStatus(:56).
+ * <p>bumpTokenVersion 경로(현재 8곳): GeneralUserService.logout · logoutAll · forceLogout · changePassword ·
+ * changePhone · resetPassword · withdraw · GeneralAdminUserCommandService.changeStatus.
  * 이 테스트는 잠금 규약을 logoutAll ↔ changeStatus 두 경로에서 실증한다. 나머지 경로의 규약은 각 메서드의
  * "행을 잠그고 조회한다" 주석이 지킨다 — 경로를 추가할 때 이 목록을 갱신한다.
  *
