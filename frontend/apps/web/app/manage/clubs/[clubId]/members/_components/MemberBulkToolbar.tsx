@@ -276,6 +276,7 @@ export function MemberBulkToolbar({
         description={`${removeCount}명을 동아리에서 탈퇴 처리합니다. 되돌릴 수 없어요.`}
         confirmLabel="탈퇴"
         isPending={running === 'remove'}
+        busyLabel="부원 탈퇴 처리 중"
         onConfirm={confirmRemove}
         onCancel={() => setShowRemoveConfirm(false)}
       />

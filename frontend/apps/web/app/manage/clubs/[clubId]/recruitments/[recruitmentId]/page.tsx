@@ -402,6 +402,7 @@ export default function RecruitmentDetailPage({
         title="모집 공고를 삭제할까요?"
         description="지원자가 없는 공고만 삭제할 수 있으며, 삭제하면 되돌릴 수 없습니다."
         isPending={deleteRecruitment.isPending}
+        busyLabel="모집 공고 삭제 중"
         errorMessage={deleteError}
         onConfirm={handleDelete}
         onCancel={() => {

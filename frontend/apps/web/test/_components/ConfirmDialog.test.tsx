@@ -58,6 +58,21 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('처리 중에만 status 리전에 busyLabel 을 싣고, 미전달 시 기본 문구를 쓴다', () => {
+    const { rerender } = render(
+      <ConfirmDialog open title="삭제할까요?" isPending busyLabel="공지 삭제 중" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('공지 삭제 중');
+
+    rerender(
+      <ConfirmDialog open title="삭제할까요?" isPending={false} busyLabel="공지 삭제 중" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+
+    rerender(<ConfirmDialog open title="삭제할까요?" isPending onConfirm={() => {}} onCancel={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('처리 중');
+  });
+
   it('errorMessage 를 넘기지 않으면 오류 노드를 만들지 않는다', () => {
     // 아직 전환하지 않은 소비처는 이 prop 을 넘기지 않는다 — DOM 이 그대로여야 무영향이다.
     render(<ConfirmDialog open title="삭제할까요?" onConfirm={() => {}} onCancel={() => {}} />);

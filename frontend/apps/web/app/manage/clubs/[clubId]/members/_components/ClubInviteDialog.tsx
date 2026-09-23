@@ -463,6 +463,7 @@ function ActiveInviteCard({
         description="폐기하면 이 링크로는 더 이상 가입할 수 없습니다. 이미 접수된 요청은 그대로 남습니다."
         confirmLabel="폐기"
         isPending={revokeInvite.isPending}
+        busyLabel="초대 링크 폐기 중"
         errorMessage={dialogError}
         onConfirm={revoke}
         onCancel={closeRevokeDialog}

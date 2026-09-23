@@ -227,6 +227,7 @@ export function ActivityPhotoCard({
         title="이 사진을 삭제할까요?"
         description="삭제한 사진은 복구할 수 없습니다."
         isPending={deletePhoto.isPending}
+        busyLabel="사진 삭제 중"
         errorMessage={deleteError}
         onConfirm={runDelete}
         onCancel={() => {

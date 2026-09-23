@@ -316,6 +316,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           confirmLabel="제출"
           confirmVariant="primary"
           isPending={submit.isPending}
+          busyLabel="지원서 제출 중"
           errorMessage={error}
           onConfirm={submitApplication}
           onCancel={() => setConfirmOpen(false)}
