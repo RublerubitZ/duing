@@ -403,13 +403,22 @@ describe('세션 종료 사이드 채널', () => {
   it('늦게 등록된 핸들러가 refresh 시작 시각을 받는다', async () => {
     registerUnauthorizedHandler(null);
     givenExpiredSession();
+    // 이 경로의 문서 시각 호출은 실행기의 refresh 시작 캡처 1회뿐이다 — 첫 호출만 고정값을 주고
+    // 이후는 더 큰 값을 돌려, 통지가 기본값("지금")이 아니라 캡처된 시각을 싣는지 가려낸다.
+    const performanceNowSpy = vi
+      .spyOn(performance, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValue(5000);
 
-    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    try {
+      await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
 
-    const lateHandler = vi.fn();
-    registerUnauthorizedHandler(lateHandler);
-    expect(lateHandler).toHaveBeenCalledWith(expect.any(Number));
-    expect(lateHandler.mock.calls[0]?.[0]).toBeLessThanOrEqual(Date.now());
+      const lateHandler = vi.fn();
+      registerUnauthorizedHandler(lateHandler);
+      expect(lateHandler).toHaveBeenCalledWith(1000);
+    } finally {
+      performanceNowSpy.mockRestore();
+    }
   });
 
   it('등록된 핸들러가 있으면 즉시 전달하고 보류를 남기지 않는다', async () => {

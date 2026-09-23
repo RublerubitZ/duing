@@ -317,6 +317,19 @@ describe('SessionExpiryHandler', () => {
       expect(webLogoutSpy).not.toHaveBeenCalled();
     });
 
+    // 경계는 개시 이전으로 본다(`<=`) — `<` 로 풀리면 같은 시각의 늦은 통지가 새 세션을 내린다.
+    it('세션 개시와 같은 시각에 시작한 갱신의 통지도 무시한다', () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt));
+
+      expect(useAuthStore.getState().status).toBe('authenticated');
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    });
+
     it('세션 개시 이후에 시작한 갱신의 통지는 기존 만료 경로를 모두 탄다', async () => {
       useAuthStore.getState().setSession(LOGGED_IN_USER);
       const { sessionOpenedAt } = useAuthStore.getState();

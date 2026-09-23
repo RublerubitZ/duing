@@ -59,7 +59,7 @@ describe('auth-store 상태 모델 (§8)', () => {
 
   it('setSession 은 세션 개시 시각을 기록하고 clearSession 은 지운다 (#845)', async () => {
     expect(useAuthStore.getState().sessionOpenedAt).toBeNull();
-    const beforeOpen = Date.now();
+    const beforeOpen = performance.now();
     useAuthStore.getState().setSession(TEST_USER);
     const { sessionOpenedAt } = useAuthStore.getState();
     expect(sessionOpenedAt).not.toBeNull();
