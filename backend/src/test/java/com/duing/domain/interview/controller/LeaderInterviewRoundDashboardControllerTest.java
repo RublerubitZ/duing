@@ -116,7 +116,7 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
     }
 
     @Test
-    @DisplayName("해당 동아리 운영진이 아니면 라운드 목록을 볼 수 없다")
+    @DisplayName("동아리 비멤버가 라운드 목록을 보면 모집 미존재와 같은 404 다")
     void nonManagerCannotListRounds() {
         User outsider = saveUser("외부인");
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
@@ -124,7 +124,7 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().get(LIST_PATH, recruitment.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test
@@ -267,7 +267,7 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
     }
 
     @Test
-    @DisplayName("존재하지 않는 라운드의 상세는 404, 타 동아리 운영진은 403 을 받는다")
+    @DisplayName("존재하지 않는 라운드의 상세와 타 동아리 사용자의 조회는 똑같이 404 다")
     void detailGuards() {
         InterviewRound round = saveRound(RoundStatus.DRAFT, LocalDateTime.now().plusDays(3));
         User outsider = saveUser("타인");
@@ -281,7 +281,7 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().get(DETAIL_PATH, round.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────

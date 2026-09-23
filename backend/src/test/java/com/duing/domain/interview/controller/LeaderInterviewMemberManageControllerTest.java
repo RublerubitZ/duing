@@ -292,7 +292,7 @@ class LeaderInterviewMemberManageControllerTest extends InterviewControllerTestS
     }
 
     @Test
-    @DisplayName("존재하지 않는 라운드는 404, 타 동아리 운영진은 403 을 받는다")
+    @DisplayName("존재하지 않는 라운드와 타 동아리 사용자의 요청은 똑같이 404 다")
     void notFoundAndForbiddenGuards() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING);
         InterviewRoundMember member = saveMember(round,
@@ -304,7 +304,7 @@ class LeaderInterviewMemberManageControllerTest extends InterviewControllerTestS
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
         RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().post(EXCLUDE_PATH, round.getId(), member.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -89,7 +90,7 @@ class ApplicationStatusServiceTest {
     private void stubActorRole(ClubMemberRole role) {
         ClubMember actor = mock(ClubMember.class);
         when(actor.getRole()).thenReturn(role);
-        when(clubAuthService.requireManager(any(), any())).thenReturn(actor);
+        when(clubAuthService.requireManagerOrHidden(any(), any(), any())).thenReturn(actor);
     }
 
     private Application stubApplication(Long clubId, Long applicantId, TargetRole targetRole) {
@@ -131,7 +132,7 @@ class ApplicationStatusServiceTest {
 
         // 3번째 인자는 "마감 정리 전이인지" — 진행 중 모집이므로 false.
         verify(application).transitionTo(ApplicationStatus.ON_HOLD, false, false);
-        verify(clubAuthService).requireManager(managerId, clubId);
+        verify(clubAuthService).requireManagerOrHidden(eq(managerId), eq(clubId), any());
     }
 
     // ────────────────────────────────────────────────────────────
@@ -318,7 +319,7 @@ class ApplicationStatusServiceTest {
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
-                .when(clubAuthService).requireManager(nonManagerUserId, clubId);
+                .when(clubAuthService).requireManagerOrHidden(eq(nonManagerUserId), eq(clubId), any());
 
         assertThatThrownBy(() -> applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.ON_HOLD)))
@@ -353,7 +354,7 @@ class ApplicationStatusServiceTest {
                 .isInstanceOf(ApplicationDomainException.ConcurrentStatusUpdateException.class);
 
         // 권한 확인 및 도메인 전이는 충돌 검출 이전에 호출되었어야 한다
-        verify(clubAuthService).requireManager(managerId, clubId);
+        verify(clubAuthService).requireManagerOrHidden(eq(managerId), eq(clubId), any());
         verify(application).transitionTo(ApplicationStatus.REJECTED, false, false);
     }
 }

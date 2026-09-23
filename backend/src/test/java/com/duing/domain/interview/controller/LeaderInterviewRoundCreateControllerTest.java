@@ -301,7 +301,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
     }
 
     @Test
-    @DisplayName("해당 동아리 운영진이 아니면 라운드를 만들 수 없다")
+    @DisplayName("동아리 비멤버가 라운드를 만들면 모집 미존재와 같은 404 다")
     void nonManagerCannotCreateRound() {
         User outsider = saveUser("외부인");
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
@@ -312,7 +312,7 @@ class LeaderInterviewRoundCreateControllerTest extends InterviewControllerTestSu
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", "1차 면접", "applicationIds", List.of(candidate.getId())))
                 .when().post(CREATE_PATH, recruitment.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test

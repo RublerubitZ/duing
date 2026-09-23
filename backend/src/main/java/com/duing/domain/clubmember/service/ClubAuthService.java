@@ -10,6 +10,7 @@ import com.duing.domain.clubmember.service.dto.query.ManagedClubQuery;
 import com.duing.domain.user.entity.UserRole;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,22 @@ public class ClubAuthService {
         }
         requireActiveClub(clubId);
         return clubMember;
+    }
+
+    /**
+     * 리소스 id 로 스코프된 경로(모집·라운드·슬롯·지원서 id 로 진입해 clubId 를 역추적하는 {@code /leader/**}
+     * 단건 경로)는 이 메서드를 쓴다 — 비멤버의 {@code NotAMember}(403)를 {@code hiddenAs}(그 리소스의 404)로
+     * 수렴해, 미존재 404 와 타 동아리 403 의 차이로 id 범위·존재 여부를 열거하는 오라클을 막는다(#835).
+     * 같은 동아리 일반 회원의 역할 부족(AccessDenied)과 비 ACTIVE 안내(NotActiveClub)는 존재를 이미 아는
+     * 소속 멤버에게만 나가므로 그대로 둔다. clubId 를 직접 받는 경로는 은닉이 무의미하므로 {@link #requireManager}.
+     */
+    public ClubMember requireManagerOrHidden(Long userId, Long clubId,
+                                             Supplier<? extends RuntimeException> hiddenAs) {
+        try {
+            return requireManager(userId, clubId);
+        } catch (ClubMemberException.NotAMember notAMember) {
+            throw hiddenAs.get();
+        }
     }
 
     /**

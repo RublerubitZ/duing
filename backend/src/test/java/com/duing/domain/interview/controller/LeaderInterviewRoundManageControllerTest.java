@@ -274,7 +274,7 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     }
 
     @Test
-    @DisplayName("존재하지 않는 라운드는 404, 타 동아리 운영진은 403 을 받는다")
+    @DisplayName("존재하지 않는 라운드와 타 동아리 사용자의 요청은 똑같이 404 다")
     void notFoundAndForbiddenGuards() {
         InterviewRound round = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
         User outsider = saveUser("타인");
@@ -291,7 +291,7 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", "남의 라운드"))
                 .when().patch(ROUND_PATH, round.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────

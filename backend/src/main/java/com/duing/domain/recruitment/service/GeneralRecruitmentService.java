@@ -170,7 +170,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
+        clubAuthService.requireManagerOrHidden(updateRecruitmentCommand.currentUserId(), clubId,
+                RecruitmentException.RecruitmentNotFoundException::new);
 
         // 종료일을 과거로 "변경"하는 것만 차단 — 만료-OPEN 공고의 다른 필드 편집(기존 과거 종료일 재전송)은 허용.
         // CLOSED(409)와 상시모집 전환 금지(전용 400)는 기존 예외가 더 정확하므로 그쪽 판정에 양보한다.
@@ -330,7 +331,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.close(LocalDateTime.now(clock));
     }
@@ -344,7 +345,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.stopIntake(LocalDate.now(clock));
     }
@@ -359,7 +360,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         // 마감(CLOSED)된 공고만 삭제할 수 있다. OPEN 공고는 지원이 동시에 들어올 수 있어
         // "지원자 0명 확인 → soft-delete" 사이에 INSERT 된 지원서가 고아가 되는 경쟁이 생긴다.

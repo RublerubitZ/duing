@@ -138,6 +138,36 @@ class ClubAuthServiceTest {
     }
 
     @Test
+    @DisplayName("requireManagerOrHidden — 비멤버는 NotAMember 대신 호출부가 준 리소스 미존재 예외로 수렴한다 (#835)")
+    void nonMemberHiddenAsResourceNotFound() {
+        when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.requireManagerOrHidden(10L, 1L, HiddenResourceNotFound::new))
+                .isInstanceOf(HiddenResourceNotFound.class);
+    }
+
+    @Test
+    @DisplayName("requireManagerOrHidden — 같은 동아리 일반 회원(MEMBER)은 존재를 아는 사람이라 403 을 유지한다")
+    void memberStillDeniedByRoleWhenHidden() {
+        ClubMember regularMember = memberWithRole(ClubMemberRole.MEMBER);
+        when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(regularMember));
+        assertThatThrownBy(() -> service.requireManagerOrHidden(10L, 1L, HiddenResourceNotFound::new))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("requireManagerOrHidden — 소속 운영진의 비 ACTIVE 동아리 안내(NotActiveClub)는 그대로 나간다")
+    void nonActiveClubStillReportedWhenHidden() {
+        ClubMember officerMember = memberWithRole(ClubMemberRole.OFFICER);
+        when(repository.findByClubIdAndUserId(1L, 10L)).thenReturn(Optional.of(officerMember));
+        stubClubStatus(ClubStatus.PENDING_APPROVAL);
+        assertThatThrownBy(() -> service.requireManagerOrHidden(10L, 1L, HiddenResourceNotFound::new))
+                .isInstanceOf(ClubMemberException.NotActiveClub.class);
+    }
+
+    private static final class HiddenResourceNotFound extends RuntimeException {
+    }
+
+    @Test
     @DisplayName("프로필 보완 게이트는 승인대기·거절·운영중 운영진의 접근을 허용한다")
     void editableManagerAllowsPendingRejectedActive() {
         ClubMember officerMember = memberWithRole(ClubMemberRole.OFFICER);

@@ -6,11 +6,11 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
-import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.interview.controller.InterviewControllerTestSupport;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.exception.InterviewException;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewSlotCommand;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -79,7 +79,8 @@ class InterviewLockAfterAuthorizationTest extends InterviewControllerTestSupport
     void deniedExcludeMemberDoesNotHoldRoundLock() throws Exception {
         assertDeniedCallLeavesRowUnlocked(
                 () -> assignmentService.excludeMember(round.getId(), Long.MAX_VALUE, outsider.getId()),
-                () -> interviewRoundRepository.findByIdForUpdate(round.getId()).isPresent());
+                () -> interviewRoundRepository.findByIdForUpdate(round.getId()).isPresent(),
+                InterviewException.RoundNotFound.class);
     }
 
     @Test
@@ -91,11 +92,13 @@ class InterviewLockAfterAuthorizationTest extends InterviewControllerTestSupport
         assertDeniedCallLeavesRowUnlocked(
                 () -> slotService.updateSlot(
                         new UpdateInterviewSlotCommand(slot.getId(), outsider.getId(), null, null, 2)),
-                () -> interviewSlotRepository.findByIdForUpdate(slot.getId()).isPresent());
+                () -> interviewSlotRepository.findByIdForUpdate(slot.getId()).isPresent(),
+                InterviewException.SlotNotFound.class);
     }
 
-    private void assertDeniedCallLeavesRowUnlocked(Runnable deniedCall, Supplier<Boolean> lockProbe)
-            throws Exception {
+    // 비멤버 거부는 미존재와 같은 리소스 404 로 수렴한다(#835) — 슬롯 경로는 SlotNotFound, 라운드 경로는 RoundNotFound.
+    private void assertDeniedCallLeavesRowUnlocked(Runnable deniedCall, Supplier<Boolean> lockProbe,
+                                                   Class<? extends Throwable> expectedDenial) throws Exception {
         CountDownLatch denied = new CountDownLatch(1);
         CountDownLatch probeDone = new CountDownLatch(1);
 
@@ -111,7 +114,7 @@ class InterviewLockAfterAuthorizationTest extends InterviewControllerTestSupport
                     }
                 });
             } catch (Throwable deniedCallFailure) {
-                // 콜백이 던진 NotAMember 를 TransactionTemplate 이 롤백 후 그대로 재던진다(UnexpectedRollback 은 콜백이 삼켰을 때만).
+                // 콜백이 던진 거부 예외를 TransactionTemplate 이 롤백 후 그대로 재던진다(UnexpectedRollback 은 콜백이 삼켰을 때만).
                 denial = deniedCallFailure;
             }
             return denial;
@@ -132,7 +135,7 @@ class InterviewLockAfterAuthorizationTest extends InterviewControllerTestSupport
         assertThat(probeOutcome.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
                 .as("거부된 요청이 행잠금을 쥐고 있으면 탐침이 lock_timeout 으로 실패한다").isTrue();
         assertThat(deniedOutcome.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                .isInstanceOf(ClubMemberException.NotAMember.class);
+                .isInstanceOf(expectedDenial);
     }
 
     private static void awaitOrThrow(CountDownLatch latch) {

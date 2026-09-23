@@ -35,7 +35,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         Map<ApplicationStatus, Long> statusCountMap =
                 recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId);
@@ -55,7 +55,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         LocalDate startDate = recruitment.getStartDate();
         // 상시모집(endDate=null)은 종료일이 없으므로 구간의 끝을 따로 정해야 한다. 마감된 뒤에는
@@ -89,7 +89,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         Map<ApplicationStatus, Long> applicationStatusCounts =
                 recruitmentStatsRepository.findSummaryByRecruitmentId(recruitmentId);

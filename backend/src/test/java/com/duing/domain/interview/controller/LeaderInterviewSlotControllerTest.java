@@ -206,7 +206,7 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
     }
 
     @Test
-    @DisplayName("해당 동아리 운영진이 아니면 슬롯을 만들 수 없다")
+    @DisplayName("동아리 비멤버가 슬롯을 만들면 라운드 미존재와 같은 404 다")
     void nonManagerCannotCreateSlots() {
         InterviewRound round = saveRound(RoundStatus.DRAFT, LocalDateTime.now().plusDays(7));
         User outsider = saveUser("외부인");
@@ -217,7 +217,7 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
                 .contentType(ContentType.JSON)
                 .body(Map.of("slots", List.of(slotItem("2026-06-20T14:00:00", "2026-06-20T14:30:00", 1))))
                 .when().post(CREATE_SLOTS_PATH, round.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test
@@ -318,6 +318,23 @@ class LeaderInterviewSlotControllerTest extends InterviewControllerTestSupport {
                 .body(Map.of("capacity", 2))
                 .when().patch(SLOT_PATH, 999_999L)
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("동아리 비멤버가 남의 슬롯을 수정하면 슬롯 미존재와 같은 404·문구다 — 라운드 문구로 새지 않는다")
+    void nonManagerSlotUpdateLooksLikeUnknownSlot() {
+        InterviewSlot slot = saveSlot(saveRound(RoundStatus.DRAFT, LocalDateTime.now().plusDays(7)),
+                "2026-06-20T14:00:00");
+        User outsider = saveUser("외부인");
+        String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("capacity", 2))
+                .when().patch(SLOT_PATH, slot.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value())
+                .body("message", equalTo("면접 슬롯을 찾을 수 없습니다."));
     }
 
     // ── 삭제 ─────────────────────────────────────────────────────────────────
