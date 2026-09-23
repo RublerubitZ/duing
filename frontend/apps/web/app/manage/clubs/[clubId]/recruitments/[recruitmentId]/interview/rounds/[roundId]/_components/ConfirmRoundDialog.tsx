@@ -44,12 +44,7 @@ export function ConfirmRoundDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>미처리 지원자가 있습니다</DialogTitle>

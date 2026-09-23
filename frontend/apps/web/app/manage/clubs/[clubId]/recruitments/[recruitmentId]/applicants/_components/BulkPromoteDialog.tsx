@@ -54,12 +54,7 @@ export function BulkPromoteDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           confirmRef.current?.focus();

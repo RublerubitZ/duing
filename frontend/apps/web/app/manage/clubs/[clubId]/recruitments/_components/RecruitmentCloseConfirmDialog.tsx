@@ -41,12 +41,7 @@ export function RecruitmentCloseConfirmDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>기존 모집을 마감하시겠습니까?</DialogTitle>

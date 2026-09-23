@@ -48,12 +48,7 @@ export function AutoAssignDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
