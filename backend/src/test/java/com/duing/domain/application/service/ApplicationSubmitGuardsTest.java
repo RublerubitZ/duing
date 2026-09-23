@@ -31,6 +31,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -79,6 +80,7 @@ class ApplicationSubmitGuardsTest {
         Recruitment externalRecruitment = mock(Recruitment.class);
         when(externalRecruitment.getClub()).thenReturn(activeClub);
         when(externalRecruitment.isEffectivelyOpen(any())).thenReturn(true);
+        when(externalRecruitment.getStartDate()).thenReturn(LocalDate.now().minusDays(7));
         when(externalRecruitment.getApplicationMode()).thenReturn(ApplicationMode.EXTERNAL);
         when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(externalRecruitment));
 
@@ -211,6 +213,7 @@ class ApplicationSubmitGuardsTest {
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(RECRUITMENT_ID);
         when(recruitment.isEffectivelyOpen(any())).thenReturn(true);
+        when(recruitment.getStartDate()).thenReturn(LocalDate.now().minusDays(7));
         when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
         when(recruitment.getTargetRole()).thenReturn(targetRole);
         when(recruitment.getClub()).thenReturn(club);

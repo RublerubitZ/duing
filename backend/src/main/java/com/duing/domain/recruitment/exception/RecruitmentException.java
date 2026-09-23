@@ -57,6 +57,18 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /**
+     * 시작일이 아직 오지 않은(모집예정) 공고에 지원·사전 확인을 시도한 경우.
+     * 프론트는 code 로 마감과 같은 "지원 불가" 화면에 수렴하되 문구만 구분한다.
+     */
+    public static class RecruitmentNotStartedException extends RecruitmentException {
+        private static final String MESSAGE = "아직 모집이 시작되지 않았어요.";
+
+        public RecruitmentNotStartedException() {
+            super(MESSAGE, HttpStatus.CONFLICT, "RECRUITMENT_NOT_STARTED");
+        }
+    }
+
     /** 모집 달력 조회 파라미터(yearMonth 또는 from·to 범위)가 올바르지 않은 경우. */
     public static class InvalidCalendarRangeException extends RecruitmentException {
         public InvalidCalendarRangeException(String message) {

@@ -42,6 +42,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -430,6 +431,7 @@ class ApplicationAnswerValidationTest {
         Recruitment recruitment = mock(Recruitment.class);
         when(recruitment.getId()).thenReturn(RECRUITMENT_ID);
         when(recruitment.isEffectivelyOpen(any())).thenReturn(true);
+        when(recruitment.getStartDate()).thenReturn(LocalDate.now().minusDays(7));
         when(recruitment.getApplicationMode()).thenReturn(ApplicationMode.SELF);
         when(recruitment.getTargetRole()).thenReturn(TargetRole.MEMBER);
         when(recruitment.getClub()).thenReturn(club);
