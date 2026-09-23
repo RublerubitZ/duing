@@ -47,7 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 그대로 소진한 뒤 최신 값을 다시 읽고 정지한다. 잠금이 없으면 정지가 먼저 커밋되고 뒤이어 커밋되는
  * 메모가 그 정지를 덮어썼다(#776 이전).
  * ponytail: @DynamicUpdate 뒤로 이 테스트는 잠금 제거를 잡지 못한다(교차 컬럼 되돌림이 구조적으로 없음).
- * 잠금 제거를 잡으려면 token_version 을 올리는 경로끼리의 경합 테스트가 필요하다.
+ * 잠금 제거는 TokenVersionLockRaceTest(logoutAll ↔ changeStatus) 가 잡는다.
  *
  * <p>@DirtiesContext 는 두지 않는다 — IntegrationTestBase.cleanDatabase() 가 매 실행 전 DB 를
  * 초기화하고, 동시성 테스트는 별도 트랜잭션에서 동작하므로 truncate 전략을 쓴다
