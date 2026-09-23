@@ -16,6 +16,12 @@ import { useEffect, useRef, useState } from 'react';
 // __NA 가 유실돼 그 엔트리로 되돌아올 때 Next 가 location.reload() 를 부른다.
 // Next 업그레이드 시 이 전제를 재확인할 것.
 //
+// 앞으로 가기 방향(#857) — 오버레이를 닫으며 이동하면 [A][죽은 마커(URL=A)][B] 가 남는다. 뒤로가기는 죽은
+// 마커를 back 으로 건너 A 에 닿는데, A 에서 앞으로 가기로 그 마커에 착지하면 방향을 모르는 back 스킵이 다시
+// A 로 되돌려 B 에 재진입할 수 없었다. 그래서 back 으로 건너뛴 죽은 엔트리를 "내 위쪽" 으로 기억하고, 그
+// 엔트리에 A 와 같은 페이지에서 올라왔으면 forward 로 건너뛴다(마커 URL 이 A 라 B 에서 내려오면 다른 페이지다).
+// B 가 A 와 같은 URL 이면 판정이 어긋날 수 있지만 forward 스킵 때 기억을 지우므로 최악이 "뒤로가기 2회" 다.
+//
 // 설계·엣지 케이스 근거: docs/superpowers/specs/2026-08-03-overlay-back-close-design.md
 
 type OverlayEntry = { id: number; close: () => void };
@@ -35,6 +41,11 @@ let installed = false;
 // 지금 앉아 있는 엔트리의 오버레이 ID(우리 것이 아니면 null) — 앞으로 가기 판별에 쓴다.
 // ID 는 단조 증가라 "착지 ID > 직전 ID" 면 위로 올라간 것, 즉 forward 다.
 let currentMarkerId: number | null = null;
+// back 자동 스킵으로 건너뛴 죽은 엔트리("토큰:ID") — "지금 내 위쪽에 있다". 앞으로 가기 방향 판별에 쓴다(#857).
+// 토큰까지 키로 잡는다 — 이전 문서가 남긴 마커는 ID 가 1 부터 다시 시작해 ID 만으로는 겹친다.
+// pushState 로 잘려 나간 멤버는 다시 착지할 수 없고 ID 는 문서 내 단조 증가라 재사용되지 않아, 비우지 않아도 무해하다.
+// 멤버는 위에서 내려오며 건너뛴 엔트리라 그 위에 엔트리가 반드시 있다 — forward() 가 no-op 으로 새지 않는다.
+const deadEntriesAbove = new Set<string>();
 // 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
 let currentHref: string | null = null;
 let nativeReplaceState: History['replaceState'] | null = null;
@@ -186,7 +197,13 @@ function handlePopState() {
   // 앞으로 가기로 죽은 엔트리에 올라온 경우까지 건너뛰면 그 위 엔트리에 영원히 도달할 수 없다.
   const wentForward = id !== null && currentMarkerId !== null && id > currentMarkerId;
 
-  const canSkip = landedOnDeadEntry && !wentForward && skipBudget > 0;
+  // 위쪽으로 기억한 죽은 엔트리에 같은 페이지(=그 아래 A)에서 올라왔으면 앞으로 가기다. 집합만 보면 히스토리
+  // 메뉴로 여러 칸 건너 B 로 간 뒤 뒤로가기로 착지한 경우를 앞으로로 오판해 뒤로가기가 바운스한다.
+  const landedEntryKey = `${token}:${id}`;
+  const arrivedFromBelow = deadEntriesAbove.has(landedEntryKey) && isSamePageAs(leftHref);
+  const canSkipForward = landedOnDeadEntry && arrivedFromBelow && skipBudget > 0;
+  const canSkipBack = landedOnDeadEntry && !canSkipForward && !wentForward && skipBudget > 0;
+  const canSkip = canSkipForward || canSkipBack;
 
   // 먼저 스택에서 제거한다 — 재진입 popstate 가 같은 오버레이를 두 번 집지 못하게 하는 장치는
   // 게이트 플래그가 아니라 이 순서다(게이트를 두면 아래 자동 스킵 연쇄가 끊긴다).
@@ -219,11 +236,22 @@ function handlePopState() {
     });
   }
 
-  if (canSkip) {
+  if (canSkipBack) {
     skipBudget -= 1;
+    deadEntriesAbove.add(landedEntryKey);
     queueMicrotask(() => {
       selfTraversals += 1;
       window.history.back();
+    });
+  }
+
+  if (canSkipForward) {
+    skipBudget -= 1;
+    // 지워 두어야 B 가 A 와 같은 URL 일 때 오판된 forward 스킵이 한 번으로 끝난다(다음 착지는 back 스킵).
+    deadEntriesAbove.delete(landedEntryKey);
+    queueMicrotask(() => {
+      selfTraversals += 1;
+      window.history.forward();
     });
   }
 
