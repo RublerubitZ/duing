@@ -66,8 +66,8 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(uploadedAt);
         if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(uploadedAt); uploadedObject.release(uploadedAt); }
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
-        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(); uploadedObject.markPurged(uploadedAt); }
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now());
+        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(Instant.now()); uploadedObject.markPurged(uploadedAt); }
         return uploadedObjectRepository.save(uploadedObject);
     }
 

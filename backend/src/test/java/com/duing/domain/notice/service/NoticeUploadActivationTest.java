@@ -57,7 +57,7 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     private String seedPurged(FilePurpose purpose) {
         String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
-        uploadedObject.markPurging();
+        uploadedObject.markPurging(Instant.now());
         uploadedObject.markPurged(Instant.now());
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;

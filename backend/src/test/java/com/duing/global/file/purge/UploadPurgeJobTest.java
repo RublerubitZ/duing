@@ -69,8 +69,14 @@ class UploadPurgeJobTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     private UploadPurgeJob deleteEnabledJob() {
-        return new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ofHours(24)),
+        return new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ofHours(24), Duration.ZERO),
                 clock, uploadedObjectRepository, fileStorageService, platformTransactionManager);
+    }
+
+    // 운영 기본값(grace 24시간)을 쓰는 실삭제 잡 — jobClock 으로 "다음 실행" 시각을 앞당긴다.
+    private UploadPurgeJob graceDeleteJob(Clock jobClock) {
+        return new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ofHours(24), Duration.ofHours(24)),
+                jobClock, uploadedObjectRepository, fileStorageService, platformTransactionManager);
     }
 
     private void stubStorageDeleteConfirmed() {
@@ -84,7 +90,7 @@ class UploadPurgeJobTest extends IntegrationTestBase {
         Instant uploadedAt = Instant.now(clock).minus(hoursAgo, ChronoUnit.HOURS);
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, uploadedAt);
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(uploadedAt);
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now());
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;
     }
@@ -190,6 +196,34 @@ class UploadPurgeJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("claim 뒤 유예(grace)가 지나지 않았으면 PURGING 으로만 두고 스토리지는 지우지 않는다 (deferred)")
+    void defersStorageDeleteWithinGrace(CapturedOutput output) {
+        stubStorageDeleteConfirmed();
+        String expiredKey = seed(UploadedObjectStatus.PENDING, 25);
+
+        graceDeleteJob(clock).run();
+
+        assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PURGING);
+        assertThat(uploadedObjectRepository.findByStorageKey(expiredKey).orElseThrow().getPurgingAt()).isNotNull();
+        verify(fileStorageService, never()).delete(anyString());
+        assertThat(output.getOut()).contains("deferred=1");
+    }
+
+    @Test
+    @DisplayName("유예가 지난 뒤의 실행은 PURGING 후보를 스토리지에서 지우고 PURGED 로 확정한다")
+    void deletesAfterGraceElapsedOnLaterRun() {
+        stubStorageDeleteConfirmed();
+        String expiredKey = seed(UploadedObjectStatus.PENDING, 25);
+
+        graceDeleteJob(clock).run();
+        assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PURGING);
+
+        graceDeleteJob(Clock.offset(clock, Duration.ofHours(24))).run();
+        assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PURGED);
+        verify(fileStorageService, times(1)).delete("resolved:" + expiredKey);
+    }
+
+    @Test
     @DisplayName("스토리지 delete 가 예외를 던져도(방어 경로) 그 후보는 PURGING 으로 남고 나머지 후보는 계속 파기된다")
     void keepsPurgingOnStorageExceptionAndContinuesOthers() {
         when(fileStorageService.toFileUrl(anyString()))
@@ -264,9 +298,9 @@ class UploadPurgeJobTest extends IntegrationTestBase {
         stubStorageDeleteConfirmed();
         String expiredKey = seed(UploadedObjectStatus.PENDING, 25);
 
-        new UploadPurgeJob(new UploadPurgeProperties(false, true, Duration.ofHours(24)),
+        new UploadPurgeJob(new UploadPurgeProperties(false, true, Duration.ofHours(24), Duration.ZERO),
                 clock, uploadedObjectRepository, fileStorageService, platformTransactionManager).run();
-        new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ZERO),
+        new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ZERO, Duration.ZERO),
                 clock, uploadedObjectRepository, fileStorageService, platformTransactionManager).run();
 
         assertThat(statusOf(expiredKey)).isEqualTo(UploadedObjectStatus.PENDING);

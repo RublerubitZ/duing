@@ -208,6 +208,8 @@ duing:
       enabled: ${DUING_UPLOAD_PURGE_ENABLED:false}
       delete-enabled: ${DUING_UPLOAD_PURGE_DELETE_ENABLED:false}
       window: ${DUING_UPLOAD_PURGE_WINDOW:PT24H}
+      # claim(PURGING) 뒤 실삭제까지 유예(#1258) — 그 사이 참조가 생기면 다음 실행이 ACTIVE 로 되돌린다.
+      grace: ${DUING_UPLOAD_PURGE_GRACE:PT24H}
   club:
     metric:
       # 추천순 활동점수 집계 잡(매시 정각 Asia/Seoul — bucket 전환과 동기화 + 기동 직후 1회). 기본 비활성 —

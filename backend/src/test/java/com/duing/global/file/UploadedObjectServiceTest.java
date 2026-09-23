@@ -44,8 +44,8 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, Instant.now());
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(Instant.now());
         if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(Instant.now()); uploadedObject.release(Instant.now()); }
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
-        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(); uploadedObject.markPurged(Instant.now()); }
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now());
+        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(Instant.now()); uploadedObject.markPurged(Instant.now()); }
         return uploadedObjectRepository.save(uploadedObject);
     }
 
