@@ -31,7 +31,7 @@ public class GeneralApplicationEvaluationService implements ApplicationEvaluatio
         Application application = applicationRepository.findById(command.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         Long clubId = application.getRecruitment().getClub().getId();
-        clubAuthService.requireManager(command.evaluatorId(), clubId);
+        clubAuthService.requireManagerOrHidden(command.evaluatorId(), clubId, ApplicationDomainException.ApplicationNotFoundException::new);
         requireNotClosed(application);
 
         evaluationRepository.findByApplicationIdAndEvaluatorId(command.applicationId(), command.evaluatorId())
@@ -50,7 +50,8 @@ public class GeneralApplicationEvaluationService implements ApplicationEvaluatio
     public void deleteMine(Long applicationId, Long evaluatorId) {
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManager(evaluatorId, application.getRecruitment().getClub().getId());
+        clubAuthService.requireManagerOrHidden(evaluatorId, application.getRecruitment().getClub().getId(),
+                ApplicationDomainException.ApplicationNotFoundException::new);
         requireNotClosed(application);
 
         evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, evaluatorId)

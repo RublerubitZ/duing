@@ -77,7 +77,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                                                         boolean includeUndecided) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(),
+                RecruitmentException.RecruitmentNotFoundException::new);
 
         if (!recruitment.isUseInterview()) {
             throw new InterviewException.InterviewNotUsed();
@@ -95,7 +96,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         // 않으므로 두 경로 사이에 사이클이 없다.
         Recruitment recruitment = recruitmentRepository.findByIdForUpdate(createCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(createCommand.currentUserId(), recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(createCommand.currentUserId(), recruitment.getClub().getId(),
+                RecruitmentException.RecruitmentNotFoundException::new);
         // 마감된 모집은 아카이브 — 새 면접 라운드를 열 수 없다. 판정은 raw status 기준이라
         // 마감일이 지나도 수동 마감 전(심사 진행 중)인 모집에서는 라운드 생성이 그대로 열려 있다.
         ClosedRecruitmentPolicy.requireOpen(recruitment);
@@ -277,7 +279,8 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
     public List<RoundSummaryQuery> getRounds(Long recruitmentId, Long currentUserId) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(),
+                RecruitmentException.RecruitmentNotFoundException::new);
         if (!recruitment.isUseInterview()) {
             throw new InterviewException.InterviewNotUsed();
         }

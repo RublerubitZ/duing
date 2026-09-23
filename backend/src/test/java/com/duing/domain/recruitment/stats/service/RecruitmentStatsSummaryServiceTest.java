@@ -2,6 +2,8 @@ package com.duing.domain.recruitment.stats.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -186,7 +188,7 @@ class RecruitmentStatsSummaryServiceTest {
     }
 
     @Test
-    @DisplayName("다른 동아리의 운영진이 조회하면 AccessDeniedException 이 발생한다")
+    @DisplayName("운영진 권한 검증에 실패한 사용자가 조회하면 AccessDeniedException 이 발생한다")
     void differentClubManagerThrowsAccessDeniedException() {
         Long recruitmentId = 6L;
         Long clubId = 10L;
@@ -194,7 +196,7 @@ class RecruitmentStatsSummaryServiceTest {
 
         mockRecruitmentWithCapacity(recruitmentId, clubId, 5);
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
-                .when(clubAuthService).requireManager(outsiderUserId, clubId);
+                .when(clubAuthService).requireManagerOrHidden(eq(outsiderUserId), eq(clubId), any());
 
         assertThatThrownBy(() -> recruitmentStatsService.getSummary(recruitmentId, outsiderUserId))
                 .isInstanceOf(AccessDeniedException.class);

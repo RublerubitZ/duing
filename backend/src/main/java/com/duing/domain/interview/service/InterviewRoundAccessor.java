@@ -9,6 +9,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.ClosedRecruitmentPolicy;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,9 @@ import org.springframework.stereotype.Component;
  * <p><b>잠금 조회가 필요한 경로는 {@code ...ByRoundId}/{@code ...BySlotId} 로 인가를 먼저 끝낸 뒤 잠근다</b> —
  * 잠금 뒤에 인가하면 인증만 된 사용자가 임의 라운드·슬롯 행을 트랜잭션 동안 잠글 수 있다(#839).
  * 이 메서드들은 스칼라 projection 만 읽어 잠금 대상 엔티티를 1차 캐시에 올리지 않는다.
+ *
+ * <p>비멤버는 {@code requireManagerOrHidden} 으로 진입 리소스의 404(라운드 경로는 RoundNotFound, 슬롯 경로는
+ * SlotNotFound)로 수렴한다 — 미존재와 같은 응답이어야 id 열거 오라클이 되지 않는다(#835).
  */
 @Component
 @RequiredArgsConstructor
@@ -45,25 +49,30 @@ public class InterviewRoundAccessor {
      * 조회용 — 권한만 본다. 마감된 모집의 라운드도 열람은 계속 허용한다(아카이브).
      */
     public void requireManager(InterviewRound round, Long currentUserId) {
-        clubAuthService.requireManager(currentUserId, resolveRecruitment(round.getRecruitmentId()).getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId,
+                resolveRecruitment(round.getRecruitmentId()).getClub().getId(), InterviewException.RoundNotFound::new);
     }
 
     /** 잠금 전 인가(조회·정리 쓰기용) — {@link #requireManager} 와 같은 의미를 라운드 id 로 본다. */
     public void requireManagerByRoundId(Long roundId, Long currentUserId) {
         Recruitment recruitment = resolveRecruitment(findRecruitmentIdOrThrow(roundId));
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(),
+                InterviewException.RoundNotFound::new);
     }
 
     /** 잠금 전 인가(쓰기용) — 권한 확인과 모집 마감 정책 검사를 라운드 id 만으로 수행한다. */
     public void requireManagerForWriteByRoundId(Long roundId, Long currentUserId) {
-        requireManagerForWrite(resolveRecruitment(findRecruitmentIdOrThrow(roundId)), currentUserId);
+        requireManagerForWrite(resolveRecruitment(findRecruitmentIdOrThrow(roundId)), currentUserId,
+                InterviewException.RoundNotFound::new);
     }
 
     /** 잠금 전 인가(슬롯 쓰기용) — 슬롯의 소속 라운드를 projection 으로 찾아 쓰기 인가한다. */
     public void requireManagerForWriteBySlotId(Long slotId, Long currentUserId) {
         Long roundId = interviewSlotRepository.findRoundIdById(slotId)
                 .orElseThrow(InterviewException.SlotNotFound::new);
-        requireManagerForWriteByRoundId(roundId, currentUserId);
+        // 비멤버는 슬롯 미존재와 같은 SlotNotFound 로 — RoundNotFound 로 답하면 문구 차이가 슬롯 존재를 드러낸다.
+        requireManagerForWrite(resolveRecruitment(findRecruitmentIdOrThrow(roundId)), currentUserId,
+                InterviewException.SlotNotFound::new);
     }
 
     /**
@@ -73,8 +82,9 @@ public class InterviewRoundAccessor {
      * 거기 포함되지 않는다. 가드가 없으면 마감 후에도 일정을 바꾸고 라운드를 확정해 <b>학생에게 면접
      * 알림이 계속 나간다</b> — 정작 그 면접 결과를 반영하려는 순간에야 막히던 모순을 없앤다.
      */
-    private void requireManagerForWrite(Recruitment recruitment, Long currentUserId) {
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+    private void requireManagerForWrite(Recruitment recruitment, Long currentUserId,
+                                        Supplier<? extends RuntimeException> hiddenAs) {
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(), hiddenAs);
         ClosedRecruitmentPolicy.requireOpen(recruitment);
     }
 
@@ -82,7 +92,8 @@ public class InterviewRoundAccessor {
     public InterviewRound getForWrite(Long roundId, Long currentUserId) {
         InterviewRound round = interviewRoundRepository.findById(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
-        requireManagerForWrite(resolveRecruitment(round.getRecruitmentId()), currentUserId);
+        requireManagerForWrite(resolveRecruitment(round.getRecruitmentId()), currentUserId,
+                InterviewException.RoundNotFound::new);
         return round;
     }
 
