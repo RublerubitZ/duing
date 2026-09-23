@@ -110,7 +110,9 @@ public class GeneralAuthSessionService implements AuthSessionService {
             throw new AuthSessionException.SessionExpiredException();
         }
         // 연관 아닌 명시 조회 — 탈퇴(soft-delete) 사용자는 @SQLRestriction 으로 미발견 → 401
+        // 정지·탈퇴 계정은 세션이 살아 있어도 갱신을 거부한다(심층 방어)
         User user = userRepository.findById(session.getUserId())
+                .filter(User::isActive)
                 .orElseThrow(AuthSessionException.SessionExpiredException::new);
 
         switch (presentedToken.getStatus()) {

@@ -168,6 +168,21 @@ class AuthRefreshControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("정지된 계정은 세션이 살아 있어도 웹 refresh 가 세션 만료 401 로 거부된다")
+    void webRefreshRejectsSuspendedUserWithLiveSession() {
+        User user = saveUser();
+        String refreshCookie = webLogin(user, true).getCookie(WebAuthCookieService.REFRESH_COOKIE_NAME);
+        // revokeAll 없이 상태만 정지 — 정지와 세션 폐기가 분리된 경로를 재현한다
+        jdbcTemplate.update("UPDATE users SET status = 'SUSPENDED' WHERE id = ?", user.getId());
+
+        given().cookie(WebAuthCookieService.REFRESH_COOKIE_NAME, refreshCookie)
+                .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                .when().post("/api/v1/auth/web/refresh")
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("code", equalTo("AUTH_SESSION_EXPIRED"));
+    }
+
+    @Test
     @DisplayName("모바일 refresh 의 401 응답에는 Set-Cookie 가 내려가지 않는다")
     void mobileRefreshFailureDoesNotTouchCookies() {
         Response refreshResponse = given().contentType(ContentType.JSON)
