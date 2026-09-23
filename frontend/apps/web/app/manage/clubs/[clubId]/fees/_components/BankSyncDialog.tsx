@@ -9,6 +9,7 @@ import { syncBankTransactionsSchema } from '@duing/schemas';
 import type { SyncBankTransactionsInput } from '@duing/schemas';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   Dialog,
@@ -170,25 +171,5 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-type FieldProps = {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-};
-
-function Field({ id, label, required, error, children }: FieldProps) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-ink">
-        {label} {required && <span className="text-coral">*</span>}
-      </label>
-      {children}
-      {error && <p className="mt-1 text-xs text-coral">{error}</p>}
-    </div>
   );
 }

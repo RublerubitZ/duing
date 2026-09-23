@@ -149,6 +149,7 @@ describe('GenerateBillsDialog', () => {
     await user.click(screen.getByRole('button', { name: '발행' }));
 
     expect(await screen.findByText('회차(YYYY-MM)는 필수입니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/청구 회차/)).toHaveAccessibleDescription('회차(YYYY-MM)는 필수입니다.');
     expect(mockGenerateMutate).not.toHaveBeenCalled();
   });
 

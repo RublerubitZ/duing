@@ -57,6 +57,7 @@ describe('BankSyncDialog', () => {
     await user.click(screen.getByRole('button', { name: '동기화' }));
 
     expect(await screen.findByText('주민등록번호 앞 6자리를 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/주민등록번호 앞 6자리/)).toHaveAccessibleDescription('주민등록번호 앞 6자리를 입력해 주세요.');
     expect(mockSyncMutate).not.toHaveBeenCalled();
   });
 

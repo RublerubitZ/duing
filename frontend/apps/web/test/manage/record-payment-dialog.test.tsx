@@ -112,6 +112,7 @@ describe('RecordPaymentDialog', () => {
     await user.click(screen.getByRole('button', { name: '기록' }));
 
     expect(await screen.findByText('납부 금액은 1원 이상이어야 합니다.')).toBeInTheDocument();
+    expect(amountInput).toHaveAccessibleDescription('납부 금액은 1원 이상이어야 합니다.');
     expect(mockRecordMutate).not.toHaveBeenCalled();
 
     await user.clear(amountInput);

@@ -10,6 +10,7 @@ import type { RecordPaymentInput } from '@duing/schemas';
 import type { FeeBill } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   Dialog,
@@ -98,16 +99,23 @@ export function RecordPaymentDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <Field id="payment-amount" label="납부 금액" required error={errors.amount?.message}>
+          <Field
+            id="payment-amount"
+            label="납부 금액"
+            required
+            error={errors.amount?.message}
+            hint={
+              <p className="mt-1 text-xs text-charcoal-3">
+                남은 미납액 {formatWon(bill.remainingAmount)}
+              </p>
+            }
+          >
             <input
               id="payment-amount"
               type="number"
               {...register('amount')}
               className={cn(inputCls, errors.amount && errorInputCls)}
             />
-            <p className="mt-1 text-xs text-charcoal-3">
-              남은 미납액 {formatWon(bill.remainingAmount)}
-            </p>
           </Field>
 
           <Field id="payment-method" label="납부 수단" required error={errors.method?.message}>
@@ -172,25 +180,5 @@ export function RecordPaymentDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-type FieldProps = {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-};
-
-function Field({ id, label, required, error, children }: FieldProps) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-ink">
-        {label} {required && <span className="text-coral">*</span>}
-      </label>
-      {children}
-      {error && <p className="mt-1 text-xs text-coral">{error}</p>}
-    </div>
   );
 }
