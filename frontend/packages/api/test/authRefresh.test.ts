@@ -8,6 +8,7 @@ import { createApiClient } from '../src/client';
 import { registerUnauthorizedHandler } from '../src/unauthorized-context';
 
 const BASE_URL = 'http://localhost:8080/api/v1';
+const LAST_REFRESH_STORAGE_KEY = 'duing:auth:web-refreshed-at';
 const server = setupServer();
 const unauthorizedHandler = vi.fn();
 
@@ -299,7 +300,7 @@ describe('쿠키 모드 401 자동 갱신', () => {
   // #844 — 10초 skip 창 안에서 서버측 세션이 폐기되면(강제 로그아웃 등) skip 후 재시도가 401 이 된다.
   // 이때 skip 캐시를 무시하고 갱신을 1회 강제해 진짜 만료와 일시 장애를 다시 가른다.
   it('최근 갱신 기록으로 생략된 뒤 재시도가 401 이면 갱신을 1회 강제하고 다시 재시도한다', async () => {
-    store.set('duing:auth:web-refreshed-at', String(Date.now() - 5_000));
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
     let refreshCallCount = 0;
     let meCallCount = 0;
     server.use(
@@ -329,7 +330,7 @@ describe('쿠키 모드 401 자동 갱신', () => {
   });
 
   it('생략 후 재시도 401 에서 강제 갱신도 401 이면 세션 종료를 알리고 원 401 을 표면화한다', async () => {
-    store.set('duing:auth:web-refreshed-at', String(Date.now() - 5_000));
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
     let meCallCount = 0;
     server.use(
       http.get(`${BASE_URL}/users/me`, () => {
@@ -343,6 +344,29 @@ describe('쿠키 모드 401 자동 갱신', () => {
     await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
     expect(meCallCount).toBe(2); // 원요청 + skip 재시도, 강제 갱신 실패 뒤 추가 재시도 없음
+  });
+
+  it('생략 후 재시도 401 → 강제 갱신 뒤 재재시도에서도 요청 바디가 보존된다', async () => {
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
+    const receivedBodies: unknown[] = [];
+    let patchCallCount = 0;
+    server.use(
+      http.patch(`${BASE_URL}/users/me`, async ({ request }) => {
+        patchCallCount += 1;
+        receivedBodies.push(await request.json());
+        if (patchCallCount <= 2) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    await cookieClient().users.updateProfile({ name: '새이름', grade: 'SENIOR' });
+
+    expect(patchCallCount).toBe(3); // 원요청 401 + skip 재시도 401 + 강제 갱신 후 재시도 200
+    expect(receivedBodies[1]).toEqual(receivedBodies[0]);
+    expect(receivedBodies[2]).toEqual(receivedBodies[0]);
   });
 });
 

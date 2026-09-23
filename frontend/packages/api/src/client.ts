@@ -701,12 +701,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             // 원 요청의 per-request timeout(업로드 60s·facilityOnDemand 18s 등)을 물려준다 —
             // 훅 2번째 인자 options 는 런타임엔 정규화된 timeout(number | false, 기본 10s)을 담지만
             // ky 타입엔 빠져 있어 Reflect.get + 런타임 가드로 as 없이 추출한다.
+            // 매 호출 request.clone() — new Request(사용된 Request) 는 바디 소비 TypeError 라, 두 번째
+            // 재시도(skip→401→강제 갱신)에서 바디 있는 요청이 네트워크 오류로 둔갑한다.
             const retryOriginalRequest = () => {
               const preservedTimeout = Reflect.get(options, 'timeout');
               if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
-                return ky(request, { retry: 0, timeout: preservedTimeout });
+                return ky(request.clone(), { retry: 0, timeout: preservedTimeout });
               }
-              return ky(request, { retry: 0 });
+              return ky(request.clone(), { retry: 0 });
             };
             const outcome = await refreshCoordinator.ensureFreshSession();
             if (outcome === 'refreshed') {
@@ -727,6 +729,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
                 if (forcedOutcome === 'refreshed') {
                   return retryOriginalRequest();
                 }
+                // 'skipped' 는 조율기 ponytail 주석의 공유 창(진행 중 non-force 실행 공유) — 다음 요청이 치유한다.
                 throw retryError;
               }
             }
