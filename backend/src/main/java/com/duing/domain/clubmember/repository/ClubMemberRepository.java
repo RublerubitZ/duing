@@ -189,6 +189,10 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     @Query("SELECT COUNT(cm) FROM ClubMember cm WHERE cm.club.id = :clubId")
     long countActiveByClubId(@Param("clubId") Long clubId);
 
+    /** 선택 회원 청구 대상 검증용: 이 동아리 활성 회원(soft-delete 제외, @SQLRestriction) 중 요청 user_id 집합. */
+    @Query("SELECT cm.user.id FROM ClubMember cm WHERE cm.club.id = :clubId AND cm.user.id IN :userIds")
+    List<Long> findActiveClubMemberUserIds(@Param("clubId") Long clubId, @Param("userIds") Collection<Long> userIds);
+
     /**
      * 청구 대상 검증용: soft-delete(탈퇴) 포함, 이 동아리의 멤버였던 user_id 집합을 반환한다.
      * @SQLRestriction 을 우회하는 네이티브 쿼리라 탈퇴 회원도 포함된다 — 요청 memberIds 중 이 집합에

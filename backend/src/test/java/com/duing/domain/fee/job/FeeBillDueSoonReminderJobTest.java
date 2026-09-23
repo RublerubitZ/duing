@@ -9,6 +9,8 @@ import com.duing.common.fixture.FeePolicyFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
@@ -43,6 +45,9 @@ class FeeBillDueSoonReminderJobTest extends IntegrationTestBase {
     private UserRepository userRepository;
 
     @Autowired
+    private ClubMemberRepository clubMemberRepository;
+
+    @Autowired
     private FeePolicyRepository feePolicyRepository;
 
     @Autowired
@@ -68,9 +73,18 @@ class FeeBillDueSoonReminderJobTest extends IntegrationTestBase {
         return userRepository.save(UserFixture.unique()).getId();
     }
 
+    /** 리마인더는 활성 멤버십이 있는 회원만 대상이므로, 청구를 저장할 때 해당 동아리 소속을 보장한다. */
+    private ClubMember ensureMembership(Long targetClubId, Long userId) {
+        return clubMemberRepository.findByClubIdAndUserId(targetClubId, userId)
+                .orElseGet(() -> clubMemberRepository.save(ClubMember.asMember(
+                        clubRepository.findById(targetClubId).orElseThrow(),
+                        userRepository.findById(userId).orElseThrow())));
+    }
+
     /** 지정 동아리/정책/회원에 마감일·상태를 가진 청구를 저장한다(회차별 시작일을 달리해 멱등 유니크 인덱스를 분리한다). */
     private FeeBill saveBill(Long targetClubId, Long targetPolicyId, Long userId, String period,
                              LocalDate dueDate, FeeStatus status) {
+        ensureMembership(targetClubId, userId);
         LocalDate start = LocalDate.parse(period + "-01");
         LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
         FeeBill bill = FeeBill.issue(targetClubId, userId, targetPolicyId, 10000L, period, start, end, dueDate);
@@ -191,6 +205,22 @@ class FeeBillDueSoonReminderJobTest extends IntegrationTestBase {
         job.run();
 
         assertThat(dueSoonNotifications()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("동아리를 탈퇴(멤버십 soft-delete)한 회원의 미납 청구는 리마인더 대상에서 제외된다")
+    void excludesBillsOfWithdrawnMember() {
+        LocalDate today = LocalDate.now(clock);
+        Long activeMember = saveBillRecipient();
+        Long withdrawnMember = saveBillRecipient();
+        FeeBill activeBill = saveBill(clubId, policyId, activeMember, "2026-01", today.plusDays(1), FeeStatus.PENDING);
+        saveBill(clubId, policyId, withdrawnMember, "2026-01", today.plusDays(1), FeeStatus.PENDING);
+        clubMemberRepository.delete(ensureMembership(clubId, withdrawnMember)); // @SQLDelete → deleted_at 설정
+
+        job.run();
+
+        assertThat(dueSoonNotifications()).extracting(Notification::getDedupKey)
+                .containsExactly("FEE_BILL_DUE_SOON:b=" + activeBill.getId() + ":d=1");
     }
 
     @Test

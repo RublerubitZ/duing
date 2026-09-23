@@ -105,7 +105,7 @@ public class GeneralFeeBillService implements FeeBillService {
         }
         List<Long> memberIds = requested.stream().distinct().toList();
         Set<Long> clubMemberIds = new HashSet<>(
-                clubMemberRepository.findClubMemberUserIdsIncludingDeleted(command.clubId(), memberIds));
+                clubMemberRepository.findActiveClubMemberUserIds(command.clubId(), memberIds));
         if (!clubMemberIds.containsAll(memberIds)) {
             throw FeeBillException.InvalidBillRecipientsException.notClubMembers();
         }
