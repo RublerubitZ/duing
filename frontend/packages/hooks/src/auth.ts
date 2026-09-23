@@ -47,7 +47,12 @@ export function useLogout() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return async () => {
-    await client.auth.logout();
+    useAuthStore.setState({ isLoggingOut: true });
+    try {
+      await client.auth.logout();
+    } finally {
+      useAuthStore.setState({ isLoggingOut: false });
+    }
     await clearSession();
     queryClient.clear();
   };
@@ -90,10 +95,19 @@ export function useLogoutAllMutation() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => client.users.logoutAllSessions(),
-    onSuccess: async () => {
-      await clearSession();
+    mutationFn: () => {
+      useAuthStore.setState({ isLoggingOut: true });
+      return client.users.logoutAllSessions();
+    },
+    // clearSession 은 상태를 동기로 먼저 내리므로(저장소 정리만 비동기) onSuccess 가 동기로 끝나 onSettled
+    // 순서와 무관하게 창이 없다 — await 하면 clearToken 실패가 onSuccess 를 거절시키는 unhandled 구조가 된다.
+    onSuccess: () => {
+      void clearSession().catch(() => {});
       queryClient.clear();
+    },
+    // 플래그는 onSuccess·onError 뒤에 내린다 — mutationFn 의 finally 로 내리면 세션 정리 전 마이크로태스크 창이 남는다(#845).
+    onSettled: () => {
+      useAuthStore.setState({ isLoggingOut: false });
     },
   });
 }

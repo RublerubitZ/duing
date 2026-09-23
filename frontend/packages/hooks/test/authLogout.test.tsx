@@ -75,6 +75,7 @@ describe('useLogout', () => {
     });
 
     expect(capturedAuth).toBeNull();
+    expect(useAuthStore.getState().isLoggingOut).toBe(false);
     expect(useAuthStore.getState().status).toBe('unauthenticated');
     expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
     // 로그인·부팅 복원이 심어 둔 사용자 정보도 함께 사라진다(공용 단말 노출 방지).
@@ -82,10 +83,21 @@ describe('useLogout', () => {
   });
 
   it('서버 로그아웃이 실패하면 오류를 전파하고 로컬 세션과 캐시를 유지한다', async () => {
+    // 응답을 붙잡아 진행 중 구간을 관측한다 — 이 사이의 지연 401 만료 통지는 안내·이동을 내지 않아야 한다(#845).
+    let releaseResponse: () => void = () => {};
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    let requestArrived: () => void = () => {};
+    const arrived = new Promise<void>((resolve) => {
+      requestArrived = resolve;
+    });
     server.use(
-      http.post('*/auth/web/logout', () =>
-        HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
-      ),
+      http.post('*/auth/web/logout', async () => {
+        requestArrived();
+        await responseGate;
+        return HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 });
+      }),
     );
 
     const queryClient = newQueryClient();
@@ -94,9 +106,14 @@ describe('useLogout', () => {
     queryClient.setQueryData(['users', 'me'], { id: 1 });
 
     await act(async () => {
-      await expect(result.current()).rejects.toMatchObject({ status: 500 });
+      const logoutPromise = result.current();
+      await arrived;
+      expect(useAuthStore.getState().isLoggingOut).toBe(true);
+      releaseResponse();
+      await expect(logoutPromise).rejects.toMatchObject({ status: 500 });
     });
 
+    expect(useAuthStore.getState().isLoggingOut).toBe(false);
     expect(useAuthStore.getState().status).toBe('authenticated');
     expect(await memoryStorage.getItem(TOKEN_STORAGE_KEY)).toBe('tok-123');
     expect(queryClient.getQueryData(['users', 'me'])).toEqual({ id: 1 });
