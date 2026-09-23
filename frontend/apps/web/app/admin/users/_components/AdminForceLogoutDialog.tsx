@@ -61,6 +61,7 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
             {isPending && <ButtonSpinner />}강제 로그아웃
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '강제 로그아웃 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

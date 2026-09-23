@@ -78,6 +78,7 @@ export function BookingActionDialog({
             {title}
           </button>
         </div>
+        <span role="status" className="sr-only">{isPending ? `${title} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -136,6 +136,7 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             {confirmLabel}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? (isSuspending ? '계정 정지 중' : '정지 해제 중') : null}</span>
       </DialogContent>
     </Dialog>
   );

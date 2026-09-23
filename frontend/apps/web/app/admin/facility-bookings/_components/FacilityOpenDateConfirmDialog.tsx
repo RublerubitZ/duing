@@ -73,6 +73,7 @@ export function FacilityOpenDateConfirmDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '오픈일 저장 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

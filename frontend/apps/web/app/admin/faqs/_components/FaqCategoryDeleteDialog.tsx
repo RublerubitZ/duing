@@ -110,6 +110,7 @@ export function FaqCategoryDeleteDialog({
             {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '카테고리 삭제 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

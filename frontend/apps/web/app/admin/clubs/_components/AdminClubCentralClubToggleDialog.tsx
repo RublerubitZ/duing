@@ -65,6 +65,7 @@ export function AdminClubCentralClubToggleDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `중앙동아리 ${action} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

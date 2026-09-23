@@ -105,6 +105,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '동아리 삭제 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

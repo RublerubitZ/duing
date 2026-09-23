@@ -73,6 +73,7 @@ export function AdminClubSecuredTargetToggleDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `확보 시간 대상 ${action} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );
