@@ -288,10 +288,7 @@ export function MemberBulkToolbar({
       >
         <DialogContent
           className="max-w-sm"
-          onPointerDownOutside={(event) => event.preventDefault()}
-          onEscapeKeyDown={(event) => {
-            if (running === 'generation') event.preventDefault();
-          }}
+          busy={running === 'generation'}
         >
           <DialogHeader>
             <DialogTitle>기수 일괄 변경</DialogTitle>

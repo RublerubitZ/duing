@@ -39,10 +39,7 @@ export function AdminClubCentralClubToggleDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>중앙동아리 {action}</DialogTitle>

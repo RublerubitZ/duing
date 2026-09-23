@@ -250,6 +250,32 @@ describe('MemberBulkToolbar — 기수 변경 조건부 노출', () => {
   });
 });
 
+describe('MemberBulkToolbar — 기수 변경 전송 중 표기', () => {
+  it('기수 변경이 진행되는 동안 다이얼로그를 전송 중(aria-busy)으로 표기한다', async () => {
+    const user = userEvent.setup();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.patch(`${BASE}/clubs/${CLUB_ID}/members/:memberId/generation`, async () => {
+        await gate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderToolbar({ members: [M2], selectedIds: new Set([2]) });
+
+    await user.click(screen.getByRole('button', { name: /기수 변경/ }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('기수'), '5');
+    await user.click(within(dialog).getByRole('button', { name: '변경' }));
+
+    await waitFor(() => expect(dialog).toHaveAttribute('aria-busy', 'true'));
+    release();
+    expect(await screen.findByText(/기수 5기로 변경 — 1명 처리/)).toBeInTheDocument();
+  });
+});
+
 describe('MemberBulkToolbar — 탈퇴 확인 경유', () => {
   it('확인 다이얼로그를 거쳐야 탈퇴가 실행되고 회장은 제외한다', async () => {
     const user = userEvent.setup();

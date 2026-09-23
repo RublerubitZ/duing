@@ -41,12 +41,7 @@ export function ExtendDeadlineModal({
       <DialogContent
         className="max-w-sm"
         aria-describedby={undefined}
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>마감 연장</DialogTitle>

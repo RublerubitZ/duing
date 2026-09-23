@@ -59,10 +59,7 @@ export function AdminForceCloseDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>모집을 강제로 마감할까요?</DialogTitle>

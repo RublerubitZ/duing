@@ -43,12 +43,7 @@ export function BookingActionDialog({
     >
       <DialogContent
         className="w-[calc(100%-2rem)] rounded-[22px]"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
         aria-describedby={undefined}
       >
         <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">{title}</DialogTitle>

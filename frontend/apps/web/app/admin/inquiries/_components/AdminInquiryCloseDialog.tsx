@@ -40,10 +40,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>문의를 종료할까요?</DialogTitle>

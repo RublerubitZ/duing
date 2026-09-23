@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from '../../app/_components/ConfirmDialog';
@@ -99,5 +99,23 @@ describe('ConfirmDialog', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '취소' }));
     await userEvent.tab();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '삭제' }));
+  });
+  // Radix 는 바깥 감지 리스너를 setTimeout(0) 안에서 등록한다 — 한 틱을 흘려야 실제 경로를 탄다.
+  it('유휴 시 바깥 클릭으로 닫히고, 처리 중이면 닫히지 않는다', async () => {
+    const onCancel = vi.fn();
+    const { rerender } = render(
+      <ConfirmDialog open title="삭제할까요?" isPending onConfirm={() => {}} onCancel={onCancel} />,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    });
+
+    fireEvent.pointerDown(document.body);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+
+    rerender(<ConfirmDialog open title="삭제할까요?" onConfirm={() => {}} onCancel={onCancel} />);
+    fireEvent.pointerDown(document.body);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

@@ -49,10 +49,7 @@ export function AdminReportProcessDialog({ report, isPending, errorMessage, onCo
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>신고 처리</DialogTitle>

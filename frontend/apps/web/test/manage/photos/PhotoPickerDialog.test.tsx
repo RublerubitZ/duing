@@ -29,4 +29,19 @@ describe('PhotoPickerDialog', () => {
     rerender(<PhotoPickerDialog open {...props} />);
     expect(screen.queryByText(/지원하지 않는 이미지 형식입니다/)).not.toBeInTheDocument();
   });
+  it('busy 면 다이얼로그를 전송 중(aria-busy)으로 표기한다', () => {
+    render(
+      <PhotoPickerDialog
+        open
+        busy
+        photos={[makePhoto(10)]}
+        usedPhotoIds={[]}
+        onPick={() => {}}
+        onUploadNew={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+  });
 });
