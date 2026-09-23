@@ -57,6 +57,13 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /** 모집 달력 조회 파라미터(yearMonth 또는 from·to 범위)가 올바르지 않은 경우. */
+    public static class InvalidCalendarRangeException extends RecruitmentException {
+        public InvalidCalendarRangeException(String message) {
+            super(message, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     public static class InvalidApplicationModeException extends RecruitmentException {
         public InvalidApplicationModeException(String message) {
             super(message, HttpStatus.BAD_REQUEST);
