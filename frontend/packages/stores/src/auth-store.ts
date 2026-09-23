@@ -24,6 +24,8 @@ type AuthState = {
    * 정당한 만료 통지가 "개시 이전" 으로 걸러져 401 만 받는 상태가 고착된다. 인메모리라 문서마다 새로 잡힌다.
    */
   sessionOpenedAt: number | null;
+  /** 의도적 로그아웃 진행 중 — 만료 통지의 안내·이동 부수효과를 막는다(#845). */
+  isLoggingOut: boolean;
   /** 부팅 시드(로컬 이력·A′ 서버 힌트). 서버로 확인된 상태는 덮지 않는다. */
   seedSession(status: AuthStatus): void;
   setSession(user: User): void;
@@ -38,6 +40,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'unauthenticated',
   isVerified: false,
   sessionOpenedAt: null,
+  isLoggingOut: false,
   seedSession(status) {
     if (get().isVerified) return;
     set({ status });

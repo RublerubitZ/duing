@@ -294,6 +294,20 @@ describe('SessionExpiryHandler', () => {
 
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
   });
+  // 의도적 로그아웃이 서버 응답을 기다리는 사이 in-flight 요청의 401 → refresh 401 통지가 오면
+  // 만료 안내·로그인 이동은 오탐이다(#845). 상태 정리도 로그아웃 흐름에 맡긴다.
+  it('로그아웃 진행 중의 만료 통지는 안내·이동·서버 정리를 하지 않는다', async () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, isLoggingOut: true });
+
+    act(() => notifyUnauthorized());
+
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(webLogoutSpy).not.toHaveBeenCalled();
+  });
+
   // 콜드 부팅의 느린 만료 체인이 로그인 완료와 겹치면, 세션 개시 이전에 시작한 갱신의 늦은
   // 통지가 방금 연 새 세션을 내릴 수 있다(#845). 통지의 갱신 시작 시각으로 가려낸다.
   describe('세션 개시 시각 가드 (#845)', () => {

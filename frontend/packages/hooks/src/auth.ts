@@ -47,7 +47,12 @@ export function useLogout() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return async () => {
-    await client.auth.logout();
+    useAuthStore.setState({ isLoggingOut: true });
+    try {
+      await client.auth.logout();
+    } finally {
+      useAuthStore.setState({ isLoggingOut: false });
+    }
     await clearSession();
     queryClient.clear();
   };
@@ -90,7 +95,14 @@ export function useLogoutAllMutation() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => client.users.logoutAllSessions(),
+    mutationFn: async () => {
+      useAuthStore.setState({ isLoggingOut: true });
+      try {
+        return await client.users.logoutAllSessions();
+      } finally {
+        useAuthStore.setState({ isLoggingOut: false });
+      }
+    },
     onSuccess: async () => {
       await clearSession();
       queryClient.clear();
