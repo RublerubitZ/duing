@@ -636,6 +636,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     authTransport === 'cookie'
       ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
           try {
+            // 결과를 가르는 건 refresh 가 전송된 시점의 쿠키라 원 요청 시각이 아니라 이 시각을 싣는다.
+            const refreshStartedAt = Date.now();
             const refreshResponse = await ky.post(`${normalizedBaseUrl}/auth/web/refresh`, {
               credentials: 'include',
               retry: 0,
@@ -644,7 +646,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             });
             if (refreshResponse.status === 204) return 'refreshed';
             if (refreshResponse.status === 401 || refreshResponse.status === 404) {
-              notifyUnauthorized();
+              notifyUnauthorized(refreshStartedAt);
               return 'session-expired';
             }
             return 'unavailable';

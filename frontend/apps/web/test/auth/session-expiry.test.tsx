@@ -12,6 +12,7 @@ import {
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
+import type { User } from '@duing/types';
 
 import { clearNavigationPending } from '@/app/_lib/backDismiss';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -292,5 +293,41 @@ describe('SessionExpiryHandler', () => {
     act(() => notifyUnauthorized());
 
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
+  });
+  // 콜드 부팅의 느린 만료 체인이 로그인 완료와 겹치면, 세션 개시 이전에 시작한 갱신의 늦은
+  // 통지가 방금 연 새 세션을 내릴 수 있다(#845). 통지의 갱신 시작 시각으로 가려낸다.
+  describe('세션 개시 시각 가드 (#845)', () => {
+    const LOGGED_IN_USER: User = {
+      id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
+      grade: 'FRESHMAN', role: 'STUDENT',
+    };
+
+    it('세션 개시 이전에 시작한 갱신의 통지는 새 세션을 내리지 않는다', async () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt - 1));
+
+      expect(useAuthStore.getState().status).toBe('authenticated');
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+      // logout 은 비동기 요청이라 한 틱 흘려 발사되지 않았음을 확인한다.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(webLogoutSpy).not.toHaveBeenCalled();
+    });
+
+    it('세션 개시 이후에 시작한 갱신의 통지는 기존 만료 경로를 모두 탄다', async () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt + 1));
+
+      expect(useAuthStore.getState().status).toBe('unauthenticated');
+      expect(pushSpy).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(/세션이 만료/)).toBeInTheDocument();
+      await waitFor(() => expect(webLogoutSpy).toHaveBeenCalledTimes(1));
+    });
   });
 });
