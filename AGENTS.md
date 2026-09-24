@@ -8,7 +8,7 @@ duing/
 ├── backend/          Spring Boot 3.4 / Java 21
 │   ├── AGENTS.md     백엔드 작업 규칙 (DDD·Flyway·QueryDSL·테스트 등)
 │   └── AGENTS.md     백엔드 아키텍처·구현 패턴 레퍼런스
-├── frontend/         Next.js 15 + React 19 / pnpm workspaces
+├── frontend/         Next.js 16 + React 19 / pnpm workspaces
 │   ├── AGENTS.md     프론트 작업 규칙 (App Router·React Query·Zustand 등)
 │   └── AGENTS.md     프론트 구조·패턴 레퍼런스
 ├── REQUIREMENTS.md   MVP 요구사항 정의서 (4도메인 · 15개 API)

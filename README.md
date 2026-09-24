@@ -8,7 +8,7 @@
 ```
 duing/
 ├── backend/    Spring Boot 3.4 + Java 21 + PostgreSQL/JPA/QueryDSL/Flyway/JWT
-├── frontend/   Next.js 15 + React 19 + TypeScript (pnpm workspaces 모노레포, RN 호환 설계)
+├── frontend/   Next.js 16 + React 19 + TypeScript (pnpm workspaces 모노레포, RN 호환 설계)
 │   ├── apps/web/       Next.js App Router + Tailwind
 │   └── packages/       types · api · schemas · stores · hooks · storage (RN 재사용)
 ├── docs/             설계 명세 · 구현 plan (docs/superpowers/specs)
@@ -49,7 +49,7 @@ pnpm dev                    # http://localhost:3000
 | 영역 | 백엔드 | 프론트엔드 |
 |---|---|---|
 | 언어 | Java 21 | TypeScript 5 |
-| 프레임워크 | Spring Boot 3.4 | Next.js 15 (App Router) + React 19 |
+| 프레임워크 | Spring Boot 3.4 | Next.js 16 (App Router) + React 19 |
 | 빌드/패키지 | Gradle (Kotlin DSL) | pnpm 9 workspaces |
 | 데이터 | PostgreSQL (Supabase), JPA, QueryDSL, Flyway | TanStack Query (서버 상태) + Zustand (클라이언트 상태) |
 | 인증 | Spring Security + JWT (HS256), 웹 HttpOnly Cookie·모바일 Bearer | 웹 Cookie 세션, 모바일 Bearer용 `@duing/storage` 추상화 |
@@ -134,7 +134,7 @@ pnpm dev                    # http://localhost:3000
 |---|---|---|
 | **JDK 21** | Temurin 21 | `brew install --cask temurin@21` |
 | **Docker (또는 OrbStack)** | 최신 | `brew install --cask orbstack` (권장) |
-| **Node.js / pnpm** | Node 20+ / pnpm 9+ | `brew install node pnpm` |
+| **Node.js / pnpm** | Node 20.9+ / pnpm 9+ | `brew install node pnpm` |
 | **Git** | 2.30+ | macOS 기본 |
 | **IntelliJ IDEA** | 2024.2+ | Lombok 기본 내장, EnvFile 플러그인 권장 |
 
