@@ -146,6 +146,13 @@ describe('middleware auth_hint UX', () => {
     );
   });
 
+  it('경로형 세그먼트 프리페치 요청은 접미(.segments/…)를 뗀 페이지 경로로 복귀시킨다', async () => {
+    const response = await middleware(createRequest('/me.segments/_tree.segment.rsc'));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://duings.com/login?next=%2Fme');
+  });
+
   it('development에서 AUTH_HINT_SECRET이 없으면 hint를 무효로 처리한다', async () => {
     vi.stubEnv('AUTH_HINT_SECRET', '');
     vi.stubEnv('NODE_ENV', 'development');

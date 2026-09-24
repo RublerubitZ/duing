@@ -70,6 +70,12 @@ const STUDENT_PREFIXES = ['/apply', '/me'];
 const MANAGE_PREFIX = '/manage';
 const ADMIN_PREFIX = '/admin';
 
+// Next 16 라우터의 경로형 세그먼트 프리페치(`/me.segments/_tree.segment.rsc`)가 복귀 경로에 섞이면 로그인 후 404 로 튄다.
+// 실사용 라우터는 보호 경로에 쿼리형 `?_rsc=` 만 써서 조작 요청에만 도달하지만, 복귀 경로는 항상 실제 페이지 경로로 둔다.
+function returnPathOf(request: NextRequest): string {
+  return request.nextUrl.pathname.replace(/\.segments\/.*$/, '') + request.nextUrl.search;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authHint = request.cookies.get(AUTH_HINT_COOKIE_NAME)?.value ?? null;
@@ -84,7 +90,7 @@ export async function middleware(request: NextRequest) {
     if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
       next.pathname = '/login';
-      next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+      next.search = `?next=${encodeURIComponent(returnPathOf(request))}`;
       return NextResponse.redirect(next);
     }
     return NextResponse.next();
@@ -94,7 +100,7 @@ export async function middleware(request: NextRequest) {
     if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
       next.pathname = '/login';
-      next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+      next.search = `?next=${encodeURIComponent(returnPathOf(request))}`;
       return NextResponse.redirect(next);
     }
     return NextResponse.next();
@@ -104,7 +110,7 @@ export async function middleware(request: NextRequest) {
     if (!hasValidAuthHint) {
       const next = request.nextUrl.clone();
       next.pathname = '/login';
-      next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+      next.search = `?next=${encodeURIComponent(returnPathOf(request))}`;
       return NextResponse.redirect(next);
     }
     if (claims.role !== 'ADMIN') {
