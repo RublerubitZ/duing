@@ -89,6 +89,11 @@ jobs:
       - name: Prepare vanilla Postgres
         run: |
           set -euo pipefail
+          # 서비스 컨테이너의 서버 로그는 잡 종료 시("Stop containers") 러너가 통째로 출력한다. COPY 실패 시 서버가
+          # CONTEXT 로 행 원문을 로그에 남기므로 ERROR 이하를 서버 로그에서 끈다(psql 쪽 마스킹만으론 부족).
+          psql -q -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET log_min_messages = 'fatal'" -c "ALTER SYSTEM SET log_min_error_statement = 'fatal'" -c "SELECT pg_reload_conf()" >/dev/null
+          # DB-RESTORE.md §4: schema.sql 은 extensions·vault 스키마를 만들지 않고 전제한다(1차 실행 실측: schema "extensions" does not exist).
+          psql -q -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS "extensions"' -c 'CREATE SCHEMA IF NOT EXISTS "vault"'
           # 필요한 롤 = roles.sql 의 ALTER ROLE 대상 ∪ schema.sql 의 OWNER TO·GRANT/REVOKE 대상.
           # 그중 roles.sql 이 스스로 CREATE ROLE 하는(주석 아닌) 롤은 뺀다 — 미리 만들면 roles.sql 이 already exists 로 롤백된다.
           {
