@@ -14,7 +14,7 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
-          version: latest
+          version: 2.117.0   # 메이저 변경 시 덤프 옵션이 조용히 깨지지 않게 핀(2026-09-24 latest). 올릴 때 workflow_dispatch 로 수동 실행해 확인
 
       - name: Dump database
         env:
