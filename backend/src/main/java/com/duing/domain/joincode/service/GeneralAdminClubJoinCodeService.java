@@ -157,7 +157,7 @@ public class GeneralAdminClubJoinCodeService implements AdminClubJoinCodeService
                 requestCount == null ? 0L : requestCount.getPendingCount(),
                 joinCode.isAutoApprove(),
                 joinCode.getJoinWindowDays(),
-                recruitmentReadable ? joinCode.getJoinExpiresAt() : null,
+                recruitmentReadable ? joinCode.getJoinExpiresAt(now) : null,
                 joinCode.getInviteExpiresAt(),
                 resolveStatus(joinCode, recruitmentReadable, now),
                 joinCode.getCreatedAt(),
