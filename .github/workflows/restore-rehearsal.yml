@@ -22,7 +22,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17
+        # 태그는 움직인다 — 리허설 재현성을 위해 다이제스트로 고정(갱신 시 태그 다이제스트 재조회)
+        image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
         env:
           POSTGRES_PASSWORD: rehearsal
         ports:
