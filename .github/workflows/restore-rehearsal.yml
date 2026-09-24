@@ -1,0 +1,230 @@
+name: DB Restore Rehearsal
+
+# R2 에 올라간 논리 백업(roles/schema/data)이 실제로 복원되는지를 잡 안의 바닐라 Postgres 로 검증한다(#1258).
+# 수동 실행 전용 — 외부 DB 는 절대 건드리지 않는다(시크릿은 R2 읽기 4종뿐, SUPABASE_DB_URL 미사용).
+# 검증 범위와 한계는 deploy/DB-RESTORE.md "복원 리허설" 절 참고(Supabase Pooler 경유·3파일 단일 트랜잭션 원형은 미검증).
+#
+# ⚠️ 공개 레포라 이 로그도 공개다. psql 출력은 파일로 받고 `ERROR:` 줄만 내보낸다 — COPY 실패 시 psql 이
+# CONTEXT 로 행 원문(학번·전화번호)을 찍기 때문. set -x, psql -a/-e, artifact 업로드, 행 표본 출력 전부 금지.
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'R2 스냅샷 폴더 (KST, YYYY/MM/DD). 비우면 가장 최근 폴더'
+        required: false
+        type: string
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: rehearsal
+      PGDATABASE: postgres
+      # AWS CLI v2.23+ 기본 체크섬을 R2 가 거부 — 다운로드에도 필요(backup.yml 과 동일)
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+
+    steps:
+      - name: Select snapshot
+        id: snapshot
+        env:
+          SNAPSHOT_INPUT: ${{ inputs.snapshot }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SNAPSHOT_INPUT" ]; then
+            [[ "$SNAPSHOT_INPUT" =~ ^[0-9]{4}/[0-9]{2}/[0-9]{2}$ ]] || { echo "::error::snapshot 형식은 YYYY/MM/DD"; exit 1; }
+            SNAPSHOT="$SNAPSHOT_INPUT"
+          else
+            LAST_KEY="$(aws s3 ls "s3://$R2_BUCKET/" --recursive --endpoint-url "$R2_ENDPOINT" | awk '{print $4}' | grep -E '^[0-9]{4}/[0-9]{2}/[0-9]{2}/' | sort | tail -1)"
+            [ -n "$LAST_KEY" ] || { echo "::error::R2 버킷에 스냅샷이 없습니다"; exit 1; }
+            SNAPSHOT="$(dirname "$LAST_KEY")"
+          fi
+          echo "snapshot=$SNAPSHOT" >> "$GITHUB_OUTPUT"
+          echo "스냅샷: $SNAPSHOT"
+
+      - name: Download snapshot
+        env:
+          SNAPSHOT: ${{ steps.snapshot.outputs.snapshot }}
+        run: |
+          set -euo pipefail
+          mkdir -p restore
+          date +%s > restore/started-at
+          aws s3 cp "s3://$R2_BUCKET/$SNAPSHOT/" restore/ --recursive --endpoint-url "$R2_ENDPOINT" >/dev/null
+          for f in roles schema data; do
+            [ -f "restore/$f.sql.gz" ] || { echo "::error::restore/$f.sql.gz 없음 — 스냅샷 폴더가 불완전합니다"; exit 1; }
+          done
+          gzip -t restore/*.sql.gz
+          gunzip restore/*.sql.gz
+          ls -l restore/*.sql | awk '{n=$NF; sub(/^restore\//, "", n); print n, $5 " bytes"}' | tee restore/sizes.txt
+          # Supabase CLI 덤프는 pg_dump 머리(Dumped from database version)를 떼어 낸다 — 있으면 찍고 없으면 그렇게 적는다.
+          grep -m1 -oE 'Dumped from database version [0-9.]+' restore/schema.sql > restore/source-version.txt || echo "덤프 헤더에 원본 버전 없음" > restore/source-version.txt
+
+      # 바닐라 PG 함정(DB-RESTORE.md §4): roles.sql 은 Supabase 예약 롤의 CREATE 를 주석 처리하고 ALTER 만 남기므로
+      # 없는 롤을 먼저 만든다. 이름은 덤프에서 도출하고 [A-Za-z0-9_] 만 허용한다(psql -v 로 전달, 문자열 조립 없음).
+      - name: Prepare vanilla Postgres
+        run: |
+          set -euo pipefail
+          # 서비스 컨테이너의 서버 로그는 잡 종료 시("Stop containers") 러너가 통째로 출력한다. COPY 실패 시 서버가
+          # CONTEXT 로 행 원문을 로그에 남기므로 ERROR 이하를 서버 로그에서 끈다(psql 쪽 마스킹만으론 부족).
+          psql -q -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET log_min_messages = 'fatal'" -c "ALTER SYSTEM SET log_min_error_statement = 'fatal'" -c "SELECT pg_reload_conf()" >/dev/null
+          # DB-RESTORE.md §4: schema.sql 은 extensions·vault 스키마를 만들지 않고 전제한다(1차 실행 실측: schema "extensions" does not exist).
+          psql -q -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS "extensions"' -c 'CREATE SCHEMA IF NOT EXISTS "vault"'
+          # 필요한 롤 = roles.sql 의 ALTER ROLE 대상 ∪ schema.sql 의 OWNER TO·GRANT/REVOKE 대상.
+          # 그중 roles.sql 이 스스로 CREATE ROLE 하는(주석 아닌) 롤은 뺀다 — 미리 만들면 roles.sql 이 already exists 로 롤백된다.
+          {
+            grep -oE '^ALTER ROLE "[A-Za-z0-9_]+"' restore/roles.sql | sed -E 's/^ALTER ROLE "(.*)"/\1/'
+            grep -oE 'OWNER TO "[A-Za-z0-9_]+"' restore/schema.sql | sed -E 's/^OWNER TO "(.*)"/\1/'
+            grep -oE '^(GRANT|REVOKE) .* (TO|FROM) "[A-Za-z0-9_]+"' restore/schema.sql | sed -E 's/.* (TO|FROM) "(.*)"/\2/'
+          } | sort -u > restore/role-needed.txt
+          grep -oE '^CREATE ROLE "[A-Za-z0-9_]+"' restore/roles.sql | sed -E 's/^CREATE ROLE "(.*)"/\1/' | sort -u > restore/role-created.txt || true
+          comm -23 restore/role-needed.txt restore/role-created.txt > restore/role-names.txt
+          while read -r role; do
+            psql -q -v ON_ERROR_STOP=1 -v role="$role" <<'SQL'
+          SELECT format('CREATE ROLE %I NOLOGIN', :'role')
+          WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') \gexec
+          SQL
+          done < restore/role-names.txt
+          echo "선생성 롤 $(wc -l < restore/role-names.txt | tr -d ' ')개: $(paste -sd' ' restore/role-names.txt) (roles.sql 이 직접 만드는 롤 $(wc -l < restore/role-created.txt | tr -d ' ')개 제외)"
+
+      - name: Apply roles
+        run: |
+          set -euo pipefail
+          # ERROR 줄만, 따옴표 안 값(COPY 셀 원문일 수 있음)은 마스킹해서 출력한다.
+          show_errors() { grep -E '(^|: )ERROR:' "$1" | sed -E 's/^psql:[^:]*:[0-9]+: //; s/"[^"]*"/"…"/g' | sort -u || true; }
+          if ! psql -q --single-transaction -v ON_ERROR_STOP=1 -f restore/roles.sql >/dev/null 2>restore/roles.err; then
+            show_errors restore/roles.err
+            echo "::error::roles.sql 적용 실패"; exit 1
+          fi
+          echo "roles.sql 적용 완료"
+
+      # schema.sql 은 바닐라 이미지에 없는 확장(supabase_vault 등) 때문에 단일 트랜잭션이면 전부 롤백된다.
+      # 이 단계만 오류를 허용하되, 허용 패턴 밖의 ERROR 가 하나라도 있으면 실패한다.
+      - name: Apply schema (tolerant)
+        run: |
+          set -euo pipefail
+          ALLOWED='extension "[a-z_]+" is not available|publication "supabase_realtime"'
+          psql -q -v ON_ERROR_STOP=0 -f restore/schema.sql >/dev/null 2>restore/schema.err || true
+          # 접속 자체가 실패하면 오류 0건으로 통과해 버린다 — psql 클라이언트 오류는 여기서 바로 실패.
+          if grep -qE '^psql: error' restore/schema.err; then grep -E '^psql: error' restore/schema.err | sed -E 's/"[^"]*"/"…"/g'; echo "::error::schema.sql 실행 자체가 실패했습니다"; exit 1; fi
+          grep -E '(^|: )ERROR:' restore/schema.err | sed -E 's/^psql:[^:]*:[0-9]+: //' | sort -u > restore/schema-errors.txt || true
+          grep -E "$ALLOWED" restore/schema-errors.txt > restore/schema-allowed.txt || true
+          grep -vE "$ALLOWED" restore/schema-errors.txt | sed -E 's/"[^"]*"/"…"/g' > restore/schema-unexpected.txt || true
+          echo "허용된 오류 $(wc -l < restore/schema-allowed.txt | tr -d ' ')건:"; cat restore/schema-allowed.txt
+          if [ -s restore/schema-unexpected.txt ]; then
+            echo "허용 목록 밖 오류(값 마스킹):"; cat restore/schema-unexpected.txt
+            echo "::error::schema.sql 에 허용되지 않은 오류가 있습니다"; exit 1
+          fi
+
+      # data.sql 은 auth.*·storage.* COPY 블록을 포함한다 → public 만 남긴다. 본문 줄은 파일→파일로만 흐른다.
+      # 같은 패스에서 테이블별 기대 행수를 뽑아 복원 후 count(*) 와 대조한다(잘린 COPY·조용한 누락 탐지).
+      - name: Filter data to public schema
+        run: |
+          set -euo pipefail
+          awk '
+            /^COPY "[a-z_]+"\."[A-Za-z0-9_]+" .*FROM stdin;$/ {
+              schema = $2; sub(/^"/, "", schema); sub(/"\..*$/, "", schema)
+              table = $2; sub(/^"[a-z_]+"\."/, "", table); sub(/"$/, "", table)
+              if (schema != "public") { skip = 1; skipped++; next }
+              inblk = 1; cur = table; rows = 0; kept++; print; next
+            }
+            skip && $0 == "\\." { skip = 0; next }
+            skip { next }
+            inblk && $0 == "\\." { printf("%s\t%d\n", cur, rows) >> "restore/expected-counts.tsv"; inblk = 0; print; next }
+            inblk { rows++; print; next }
+            /^SELECT pg_catalog\.setval\(."[a-z_]+"\./ && $0 !~ /setval\(."public"\./ { next }
+            { print }
+            END { printf("public COPY 블록 %d개 유지, 비-public 블록 %d개 제외\n", kept, skipped) > "/dev/stderr" }
+          ' restore/data.sql > restore/data.public.sql 2> restore/filter-stats.txt
+          cat restore/filter-stats.txt
+          [ -s restore/expected-counts.tsv ] || { echo "::error::public COPY 블록이 하나도 없습니다 — 덤프 형식 확인"; exit 1; }
+          echo "기대 행수 기록 테이블 $(wc -l < restore/expected-counts.tsv | tr -d " ")개"
+
+      # DB-RESTORE.md §3 의 조합 그대로(덤프가 SET session_replication_role 을 이미 포함하므로 --command 는 중복·무해).
+      - name: Apply data
+        run: |
+          set -euo pipefail
+          # ERROR 줄만, 따옴표 안 값(COPY 셀 원문일 수 있음)은 마스킹해서 출력한다.
+          show_errors() { grep -E '(^|: )ERROR:' "$1" | sed -E 's/^psql:[^:]*:[0-9]+: //; s/"[^"]*"/"…"/g' | sort -u || true; }
+          if ! psql -q --single-transaction -v ON_ERROR_STOP=1 \
+               --command 'SET session_replication_role = replica' \
+               -f restore/data.public.sql >/dev/null 2>restore/data.err; then
+            show_errors restore/data.err
+            echo "::error::data.sql 적용 실패(행 원문·셀 값은 의도적으로 마스킹 — 로컬에서 재현)"; exit 1
+          fi
+          echo "data.public.sql 적용 완료"
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          FLYWAY="$(psql -tA -c "SELECT version || ' (' || CASE WHEN success THEN 'success' ELSE 'FAILED' END || ')' FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1")"
+          echo "flyway 최신: $FLYWAY"; echo "$FLYWAY" > restore/flyway.txt
+          [[ "$FLYWAY" == *"(success)"* ]] || { echo "::error::flyway_schema_history 최신 행이 success 가 아닙니다"; exit 1; }
+          : > restore/mismatch.txt
+          while IFS=$'\t' read -r table expected; do
+            actual="$(psql -tA -c "SELECT count(*) FROM public.\"$table\"")"
+            [ "$actual" = "$expected" ] || echo "$table expected=$expected actual=$actual" >> restore/mismatch.txt
+          done < restore/expected-counts.tsv
+          if [ -s restore/mismatch.txt ]; then
+            echo "행수 불일치:"; cat restore/mismatch.txt
+            echo "::error::덤프 COPY 행수와 복원 결과가 다릅니다"; exit 1
+          fi
+          echo "행수 일치: $(wc -l < restore/expected-counts.tsv | tr -d " ")개 테이블 전부"
+          : > restore/core-counts.txt
+          for t in users club recruitment application facility_booking uploaded_object; do
+            n="$(psql -tA -c "SELECT count(*) FROM public.\"$t\"")"; echo "$t=$n" >> restore/core-counts.txt
+          done
+          cat restore/core-counts.txt
+          for t in users club; do
+            n="$(grep "^$t=" restore/core-counts.txt | cut -d= -f2)"
+            [ "${n:-0}" -gt 0 ] || { echo "::error::$t 가 0건 — 스냅샷이 비었거나 필터가 잘못됐습니다"; exit 1; }
+          done
+
+      - name: Summary
+        env:
+          SNAPSHOT: ${{ steps.snapshot.outputs.snapshot }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## DB 복원 리허설 — $SNAPSHOT"
+            echo
+            echo "| 항목 | 값 |"; echo "|---|---|"
+            echo "| 원본 | $(cat restore/source-version.txt) → postgres:17 (바닐라) |"
+            echo "| 파일 | $(paste -sd',' restore/sizes.txt | sed 's/,/, /g') |"
+            echo "| flyway 최신 | $(cat restore/flyway.txt) |"
+            echo "| 행수 대조 | $(wc -l < restore/expected-counts.tsv | tr -d " ")개 public 테이블 전부 일치 |"
+            echo "| 핵심 건수 | $(paste -sd',' restore/core-counts.txt | sed 's/,/, /g') |"
+            echo "| 선생성 롤 | $(paste -sd' ' restore/role-names.txt) |"
+            echo "| schema 허용 오류 | $(wc -l < restore/schema-allowed.txt | tr -d " ")건 |"
+            echo "| data 필터 | $(cat restore/filter-stats.txt) |"
+            echo "| 소요 | $(( $(date +%s) - $(cat restore/started-at) ))초 (다운로드~검증) |"
+            echo
+            if [ -s restore/schema-allowed.txt ]; then echo '```'; cat restore/schema-allowed.txt; echo '```'; fi
+            echo
+            echo "다른 스냅샷으로 돌리려면: gh workflow run restore-rehearsal.yml -f snapshot=YYYY/MM/DD"
+            echo
+            echo "검증 범위: data 단계는 DB-RESTORE.md §3 조합 그대로. Supabase Pooler 경유·3파일 단일 트랜잭션 원형은 이 리허설 밖."
+          } >> "$GITHUB_STEP_SUMMARY"
