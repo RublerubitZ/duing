@@ -11,9 +11,9 @@ public interface FacilitySubmissionItemRepository extends JpaRepository<Facility
 
     List<FacilitySubmissionItem> findByBatchIdOrderByIdAsc(Long batchId);
 
-    /** 활성(미취소 batch 소속 · 완료 시 미제외) 제출의 bookingId→submissionNo — 후보 표시·중복 제출 검증 공용(§4·§5.1).
+    /** 활성(미취소 batch 소속 · 완료 시 미제외) 제출의 bookingId→submissionNo·batchId — 후보 표시·중복 제출 검증 공용(§4·§5.1).
      *  완료 시 제외된 item 은 예약을 붙잡지 않으므로 후보 목록에서 다시 선택 가능해진다. */
-    @Query("SELECT i.bookingId AS bookingId, b.submissionNo AS submissionNo "
+    @Query("SELECT i.bookingId AS bookingId, b.submissionNo AS submissionNo, b.id AS batchId "
             + "FROM FacilitySubmissionItem i JOIN FacilitySubmissionBatch b ON i.batchId = b.id "
             + "WHERE i.bookingId IN :bookingIds AND b.cancelledAt IS NULL AND i.skippedAt IS NULL")
     List<ActiveSubmissionProjection> findActiveByBookingIdIn(@Param("bookingIds") Collection<Long> bookingIds);
@@ -33,6 +33,9 @@ public interface FacilitySubmissionItemRepository extends JpaRepository<Facility
         Long getBookingId();
 
         String getSubmissionNo();
+
+        /** 활성 배치 id — 후보 화면의 제출번호를 배치 상세 링크로 만들기 위한 필드(콘솔 UX 스펙 A2). */
+        Long getBatchId();
     }
 
     interface BatchItemCountProjection {

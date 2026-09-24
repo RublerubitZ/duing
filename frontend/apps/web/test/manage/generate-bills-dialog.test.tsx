@@ -5,13 +5,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockUseClubFeePoliciesQuery = vi.fn();
 const mockUseClubMembersQuery = vi.fn();
 const mockGenerateMutate = vi.fn();
+let mockGenerateError: Error | null = null;
+let mockGeneratePending = false;
 vi.mock('@duing/hooks', () => ({
   useClubFeePoliciesQuery: (clubId: number) => mockUseClubFeePoliciesQuery(clubId),
   useClubMembersQuery: (clubId: number | undefined) => mockUseClubMembersQuery(clubId),
   useGenerateBillsMutation: () => ({
     mutate: mockGenerateMutate,
-    isPending: false,
-    error: null,
+    isPending: mockGeneratePending,
+    error: mockGenerateError,
   }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -77,7 +79,20 @@ const members = [
 describe('GenerateBillsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGenerateError = null;
+    mockGeneratePending = false;
     mockUseClubMembersQuery.mockReturnValue({ data: members, isLoading: false });
+  });
+
+  it('발행 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', async () => {
+    const user = userEvent.setup();
+    mockGenerateError = new MockApiError(400, '청구서 발행에 실패했습니다.');
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('청구서 발행에 실패했습니다.');
   });
 
   it('활성 정책만 선택지로 노출한다', () => {
@@ -134,6 +149,7 @@ describe('GenerateBillsDialog', () => {
     await user.click(screen.getByRole('button', { name: '발행' }));
 
     expect(await screen.findByText('회차(YYYY-MM)는 필수입니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/청구 회차/)).toHaveAccessibleDescription('회차(YYYY-MM)는 필수입니다.');
     expect(mockGenerateMutate).not.toHaveBeenCalled();
   });
 
@@ -244,6 +260,7 @@ describe('GenerateBillsDialog', () => {
     await user.click(screen.getByRole('button', { name: '발행' }));
 
     expect(await screen.findByText('청구할 부원을 1명 이상 선택해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('청구할 부원을 1명 이상 선택해 주세요.');
     expect(mockGenerateMutate).not.toHaveBeenCalled();
   });
 
@@ -287,5 +304,16 @@ describe('GenerateBillsDialog', () => {
     await waitFor(() => expect(mockAddToast).toHaveBeenCalled());
     expect(mockAddToast).toHaveBeenCalledWith('발행 완료 (신규 1 · 제외 1)');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('발행 요청이 진행 중이면 보조기술에 "청구 발행 중" 상태를 알린다', async () => {
+    const user = userEvent.setup();
+    mockGeneratePending = true;
+    mockUseClubFeePoliciesQuery.mockReturnValue({ data: [monthlyPolicy], isLoading: false });
+    render(<GenerateBillsDialog clubId={1} onClose={() => {}} />);
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '회비 정책 선택' }), '1');
+    expect(screen.getByRole('status')).toHaveTextContent('청구 발행 중');
   });
 });

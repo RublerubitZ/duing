@@ -30,8 +30,9 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
   const handleWithdraw = () => {
     setError(null);
     withdrawMutation.mutate(undefined, {
-      onSuccess: async () => {
-        await clearSession();
+      onSuccess: () => {
+        // 상태는 동기적으로 먼저 내려가고 저장소 정리는 best-effort — 실패해도 이동·안내는 진행한다.
+        void clearSession().catch(() => {});
         queryClient.clear();
         addToast('탈퇴가 완료되었어요. 그동안 이용해 주셔서 감사합니다.');
         router.replace(toRoute('/'));
@@ -60,7 +61,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
         <DialogDescription className="text-[13.5px] leading-relaxed text-charcoal-2">
           정말 탈퇴하시겠어요? 계정과 활동 정보가 정리되며 되돌릴 수 없어요.
         </DialogDescription>
-        {error && <p className="text-[12.5px] text-coral">{error}</p>}
+        {error && <p role="alert" className="text-[12.5px] text-coral">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"
@@ -79,6 +80,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
             {withdrawMutation.isPending && <ButtonSpinner />}탈퇴하기
           </button>
         </div>
+        <span role="status" className="sr-only">{withdrawMutation.isPending ? '회원 탈퇴 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

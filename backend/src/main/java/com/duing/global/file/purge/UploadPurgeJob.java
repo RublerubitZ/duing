@@ -26,7 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 비참조 보장이 아니므로 참조가 남아 있으면 경고 없이 ACTIVE 로 복구한다(정상 흐름 — 제안 배너 재사용 등).
  *
  * <p>후보마다: 참조 스캔 안전망(§4.3) → dry-run 이면 로그만 → 참조가 남아 있으면 ACTIVE 로 치유(WARN, RELEASED 는 INFO) →
- * claim(잠금 조회 + 상태 술어, 그 사이 attach 가 이겼으면 skip) → 스토리지 delete(트랜잭션 밖) → 확정 시 PURGED.
+ * claim(잠금 조회 + 상태 술어, 그 사이 attach 가 이겼으면 skip) → 첫 claim 뒤 {@code grace} 미경과면 PURGING 으로 보류
+ * (#1258) → 스토리지 delete(트랜잭션 밖) → 확정 시 PURGED.
  * 미확정(false·예외)은 PURGING 으로 남겨 다음 실행이 재시도한다. 개별 실패는 다음 후보로 계속 진행한다.
  *
  * <p>중복 실행 가드는 두지 않는다 — 스케줄러는 기본 단일 스레드이고, 겹치더라도 claim 이 행 잠금+술어로
@@ -72,10 +73,13 @@ public class UploadPurgeJob {
             log.error("[업로드 고아 정리] 유예(window={})가 유효하지 않아 실행을 건너뜁니다.", window);
             return;
         }
-        Instant cutoff = Instant.now(clock).minus(window);
+        Instant runStartedAt = Instant.now(clock);
+        Instant cutoff = runStartedAt.minus(window);
+        // 유예 중인 PURGING 이 매시 상한을 점유해 RELEASED 후보가 굶지 않도록 조회 단계에서 뺀다(루프의 grace 비교는 방어선).
+        Instant graceCutoff = runStartedAt.minus(properties.grace());
         boolean deleteEnabled = properties.deleteEnabled();
         List<UploadedObject> pendingCandidates = uploadedObjectRepository.findPurgeCandidates(
-                CANDIDATE_STATUSES, cutoff, PageRequest.of(0, BATCH_LIMIT));
+                CANDIDATE_STATUSES, cutoff, graceCutoff, PageRequest.of(0, BATCH_LIMIT));
         int remainingLimit = BATCH_LIMIT - pendingCandidates.size();
         List<UploadedObject> releasedCandidates = remainingLimit > 0
                 ? uploadedObjectRepository.findReleasedCandidates(cutoff, PageRequest.of(0, remainingLimit))
@@ -106,10 +110,11 @@ public class UploadPurgeJob {
             }
         }
         log.info("[업로드 고아 정리] mode={}, candidates={}, pendingCandidates={}, releasedCandidates={}, purged={}, healed={}, "
-                        + "releasedStillReferenced={}, activatedMeanwhile={}, deleteFailed={}, failed={}, referencedInDryRun={}, cutoff={}",
+                        + "releasedStillReferenced={}, activatedMeanwhile={}, deferred={}, deleteFailed={}, failed={}, referencedInDryRun={}, "
+                        + "cutoff={}",
                 deleteEnabled ? "delete" : "dry-run", candidates.size(), pendingCandidates.size(), releasedCandidates.size(),
                 counters.purged, counters.healed, counters.releasedStillReferenced, counters.activatedMeanwhile,
-                counters.deleteFailed, counters.failed, counters.referencedInDryRun, cutoff);
+                counters.deferred, counters.deleteFailed, counters.failed, counters.referencedInDryRun, cutoff);
     }
 
     private void processCandidate(UploadedObject candidate, boolean deleteEnabled, Counters counters) {
@@ -154,13 +159,21 @@ public class UploadPurgeJob {
             return;
         }
 
-        boolean claimed = Boolean.TRUE.equals(transactionTemplate.execute(status ->
+        Instant now = Instant.now(clock);
+        Instant purgingAt = transactionTemplate.execute(status ->
                 uploadedObjectRepository.findByIdForUpdate(candidate.getId())
                         .filter(UploadedObject::isPurgeCandidate)
-                        .map(locked -> { locked.markPurging(); return true; })
-                        .orElse(false)));
-        if (!claimed) {
+                        .map(locked -> { locked.markPurging(now); return locked.getPurgingAt(); })
+                        .orElse(null));
+        if (purgingAt == null) {
             counters.activatedMeanwhile++; // 후보 조회와 claim 사이에 attach 가 이겼다
+            return;
+        }
+
+        // #1258: R2 는 버전 관리가 없어 오판 삭제를 되돌릴 수 없다 — 첫 claim 뒤 grace 가 지날 때까지 PURGING 으로만
+        // 둔다. 그 사이 참조가 생기면 다음 실행의 참조 스캔이 restoreActive(PURGING 에서도 허용)로 ACTIVE 로 되돌린다.
+        if (purgingAt.plus(properties.grace()).isAfter(now)) {
+            counters.deferred++;
             return;
         }
 
@@ -196,6 +209,7 @@ public class UploadPurgeJob {
         int healed;
         int releasedStillReferenced;
         int activatedMeanwhile;
+        int deferred;
         int deleteFailed;
         int failed;
         int referencedInDryRun;

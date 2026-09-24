@@ -305,6 +305,7 @@ export function AdminFaqListPage() {
         title="FAQ를 삭제할까요?"
         description={deleteTarget ? `"${deleteTarget.question}" 항목이 더 이상 노출되지 않습니다.` : undefined}
         isPending={deleteMutation.isPending}
+        busyLabel="FAQ 삭제 중"
         errorMessage={deleteError}
         onCancel={() => {
           setDeleteTarget(null);

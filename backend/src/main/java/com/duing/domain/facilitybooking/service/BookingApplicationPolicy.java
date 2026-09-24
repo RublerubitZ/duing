@@ -48,9 +48,4 @@ public class BookingApplicationPolicy {
     public BookingWindow windowFor(Facility facility, LocalDate today) {
         return openDatePolicy.windowFor(facility.getBookingOpenDate(), facility.getBookingCloseDate(), today);
     }
-
-    /** 폐기 예정 booking-window 엔드포인트 전용(다음 릴리스에 삭제). 닫힘을 내리면 구 FE 가 월 기본값·주 이동을 잃으므로 참조 창을 준다. */
-    public BookingWindow referenceWindow(LocalDate today) {
-        return openDatePolicy.referenceWindow(today);
-    }
 }

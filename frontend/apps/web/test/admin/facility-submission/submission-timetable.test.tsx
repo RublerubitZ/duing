@@ -70,7 +70,8 @@ describe('SubmissionTimetable', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /합주부/ });
+    // 상세 버튼(E2)도 동아리명을 포함하므로 상태 구분자(" · ")가 있는 블록만 잡는다.
+    const block = screen.getByRole('button', { name: /합주부 · / });
     expect(block).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(block);
     expect(onToggleSelect).toHaveBeenCalledWith(1);
@@ -121,5 +122,37 @@ describe('SubmissionTimetable', () => {
     );
 
     expect(screen.getByText('등록완료')).toBeInTheDocument();
+  });
+  it('선택 가능한 블록에도 상세 버튼이 있어 클릭하면 선택 토글 없이 상세를 연다 (스펙 E2)', () => {
+    const onToggleSelect = vi.fn();
+    const onShowDetail = vi.fn();
+    const booking = makeBooking();
+    render(
+      <SubmissionTimetable
+        bookings={[booking]}
+        facilityName="커뮤니티룸(1)"
+        selection={new Set()}
+        onToggleSelect={onToggleSelect}
+        onShowDetail={onShowDetail}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '2026-08-01 18:00~21:00 합주부 상세' }));
+    expect(onShowDetail).toHaveBeenCalledWith(booking);
+    expect(onToggleSelect).not.toHaveBeenCalled();
+  });
+
+  it('선택 불가 블록(제출함)에는 별도 상세 버튼이 없다 — 블록 클릭이 이미 상세다', () => {
+    render(
+      <SubmissionTimetable
+        bookings={[makeBooking({ submitted: true, selectable: false, submissionNo: 'SUB-20260801-001' })]}
+        facilityName="커뮤니티룸(1)"
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /상세$/ })).not.toBeInTheDocument();
   });
 });

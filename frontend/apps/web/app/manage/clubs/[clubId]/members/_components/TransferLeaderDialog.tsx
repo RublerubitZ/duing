@@ -46,10 +46,7 @@ export function TransferLeaderDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>회장 인계</DialogTitle>
@@ -112,6 +109,7 @@ export function TransferLeaderDialog({
             </DialogFooter>
           </>
         )}
+        <span role="status" className="sr-only">{isPending ? '회장 인계 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -96,4 +96,33 @@ describe('AdminClubStatusChangeDialog', () => {
 
     expect(onConfirm.mock.calls[0]?.[0]).toBeUndefined();
   });
+
+  it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    render(
+      <AdminClubStatusChangeDialog
+        club={makeClub()}
+        action={makeAction()}
+        isPending={false}
+        errorMessage="상태 변경에 실패했습니다."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('상태 변경에 실패했습니다.');
+  });
+
+  it('처리 중에만 status 리전에 동작별 문구를 싣는다', () => {
+    const props = {
+      club: makeClub(),
+      action: makeAction({ label: '승인', nextStatus: 'ACTIVE', tone: 'primary' }),
+      errorMessage: null,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+    } as const;
+    const { rerender } = render(<AdminClubStatusChangeDialog {...props} isPending />);
+    expect(screen.getByRole('status')).toHaveTextContent('승인 중');
+
+    rerender(<AdminClubStatusChangeDialog {...props} isPending={false} />);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
 });

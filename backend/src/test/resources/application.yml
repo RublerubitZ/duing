@@ -127,6 +127,7 @@ duing:
       enabled: false
       delete-enabled: false
       window: PT24H
+      grace: PT24H
   public-activity:
     window-days: 30
     default-limit: 10

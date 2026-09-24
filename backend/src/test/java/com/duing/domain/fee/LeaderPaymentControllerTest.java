@@ -1,6 +1,7 @@
 package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
@@ -165,6 +166,23 @@ class LeaderPaymentControllerTest extends IntegrationTestBase {
 
         assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.PAID);
         assertThat(paymentRepository.sumActiveByFeeBillId(bill.getId())).isEqualTo(10000L);
+    }
+
+    @Test
+    @DisplayName("납부 기록이 있는 청구는 취소할 수 없고 청구 상태와 납부가 그대로 남는다")
+    void cancelBillWithActivePaymentIsRejected() {
+        FeeBill bill = saveBill(10000L, "2026-07");
+        recordAs(leaderToken, bill.getId(), paymentBody(4000L, "CASH", "2026-06-10"))
+                .then().statusCode(HttpStatus.CREATED.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/leader/clubs/" + clubId + "/fee-bills/" + bill.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo("납부 기록이 있는 청구는 취소할 수 없어요. 납부를 먼저 정정하세요."));
+
+        assertThat(billStatus(bill.getId())).isEqualTo(FeeStatus.PARTIAL_PAID);
+        assertThat(paymentRepository.sumActiveByFeeBillId(bill.getId())).isEqualTo(4000L);
     }
 
     @Test

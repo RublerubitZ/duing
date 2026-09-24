@@ -48,12 +48,7 @@ export function AutoAssignDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -74,6 +69,7 @@ export function AutoAssignDialog({
             {isRerun ? '재실행' : '배정 실행'}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '자동 배정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

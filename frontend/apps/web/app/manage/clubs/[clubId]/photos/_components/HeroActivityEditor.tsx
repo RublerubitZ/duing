@@ -240,6 +240,7 @@ export function HeroActivityEditor({
           description="사진과 문구가 삭제됩니다. 다른 활동의 순서는 자동으로 당겨지지 않아요."
           confirmLabel="비우기"
           isPending={deleteMutation.isPending}
+          busyLabel="대표 활동 비우는 중"
           errorMessage={deleteError}
           onConfirm={handleDelete}
           onCancel={() => {

@@ -54,12 +54,7 @@ export function BulkPromoteDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           confirmRef.current?.focus();
@@ -91,6 +86,7 @@ export function BulkPromoteDialog({
             {isPending && <ButtonSpinner />}선정
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '면접 대상자 선정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

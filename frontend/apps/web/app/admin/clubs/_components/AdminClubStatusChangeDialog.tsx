@@ -64,10 +64,7 @@ export function AdminClubStatusChangeDialog({
       }}
     >
       <DialogContent
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{action.label}</DialogTitle>
@@ -101,7 +98,7 @@ export function AdminClubStatusChangeDialog({
         )}
 
         {errorMessage && (
-          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
         <DialogFooter>
@@ -112,6 +109,7 @@ export function AdminClubStatusChangeDialog({
             {isPending && <ButtonSpinner />}{action.label}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `${action.label} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

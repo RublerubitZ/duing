@@ -19,6 +19,7 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitysubmission.exception.FacilitySubmissionException;
 import com.duing.domain.facilitysubmission.service.dto.command.CreateSubmissionBatchCommand;
 import com.duing.domain.facilitysubmission.service.dto.command.SubmissionActorContext;
+import com.duing.domain.facilitysubmission.service.dto.query.CreateSubmissionBatchResult;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidateBooking;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesQuery;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionCandidatesResult;
@@ -99,9 +100,11 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         FacilityBooking submitted = savedBooking(13, BookingStatus.APPROVED);
         FacilityBooking confirmed = savedBooking(15, BookingStatus.CONFIRMED);
         savedBooking(17, BookingStatus.REJECTED);
-        String submissionNo = submissionService.create(
+        CreateSubmissionBatchResult createResult = submissionService.create(
                 new CreateSubmissionBatchCommand(List.of(submitted.getId()), null),
-                new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit")).submissionNo();
+                new SubmissionActorContext(admin.getId(), "127.0.0.1", "JUnit"));
+        String submissionNo = createResult.submissionNo();
+        Long batchId = createResult.batchId();
 
         SubmissionCandidatesResult result = queryService.getCandidates(periodQuery());
 
@@ -117,9 +120,12 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThat(submittedRow.submitted()).isTrue();
         assertThat(submittedRow.selectable()).isFalse();
         assertThat(submittedRow.submissionNo()).isEqualTo(submissionNo);
+        assertThat(submittedRow.submissionBatchId()).isEqualTo(batchId);
         SubmissionCandidateBooking pendingRow = result.bookings().get(0);
         assertThat(pendingRow.selectable()).isFalse();
         assertThat(pendingRow.submissionNo()).isNull();
+        assertThat(pendingRow.submissionBatchId()).isNull();
+        assertThat(awaitingRow.submissionBatchId()).isNull();
     }
 
     @Test
@@ -137,6 +143,7 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
         assertThat(result.bookings().get(0).selectable()).isTrue();
         assertThat(result.summary().awaitingCount()).isEqualTo(1);
         assertThat(result.summary().submittedCount()).isZero();
+        assertThat(result.bookings().get(0).submissionBatchId()).isNull();
     }
 
     @Test
@@ -177,24 +184,24 @@ class GeneralFacilitySubmissionQueryServiceIntegrationTest extends IntegrationTe
     }
 
     @Test
-    @DisplayName("조회 기간이 31일을 넘거나 역순이면 400 예외가 발생한다")
+    @DisplayName("조회 기간이 62일을 넘거나 역순이면 400 예외가 발생하고, 62일(이번 달 1일~다음 달 말일 최대)은 허용된다")
     void invalidPeriodRejects() {
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                facility.getId(), baseDate, baseDate.plusDays(31), null)))
+                facility.getId(), baseDate, baseDate.plusDays(62), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
                 facility.getId(), baseDate, baseDate.minusDays(1), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
         assertThatCode(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                facility.getId(), baseDate, baseDate.plusDays(30), null)))
+                facility.getId(), baseDate, baseDate.plusDays(61), null)))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("전 시설 조회에서도 기간 상한 검증이 동일하게 적용된다")
+    @DisplayName("전 시설 조회에서도 기간 상한(62일) 검증이 동일하게 적용된다")
     void invalidPeriodRejectsWhenFacilityOmitted() {
         assertThatThrownBy(() -> queryService.getCandidates(new SubmissionCandidatesQuery(
-                null, baseDate, baseDate.plusDays(31), null)))
+                null, baseDate, baseDate.plusDays(62), null)))
                 .isInstanceOf(FacilitySubmissionException.InvalidCandidatePeriodException.class);
     }
 

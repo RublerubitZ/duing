@@ -12,6 +12,7 @@ import {
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
+import type { User } from '@duing/types';
 
 import { clearNavigationPending } from '@/app/_lib/backDismiss';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -292,5 +293,68 @@ describe('SessionExpiryHandler', () => {
     act(() => notifyUnauthorized());
 
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined();
+  });
+  // 의도적 로그아웃이 서버 응답을 기다리는 사이 in-flight 요청의 401 → refresh 401 통지가 오면
+  // 만료 안내·로그인 이동은 오탐이다(#845). 상태 정리도 로그아웃 흐름에 맡긴다.
+  it('로그아웃 진행 중의 만료 통지는 안내·이동·서버 정리를 하지 않는다', async () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, isLoggingOut: true });
+
+    act(() => notifyUnauthorized());
+
+    expect(useAuthStore.getState().status).toBe('authenticated');
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(webLogoutSpy).not.toHaveBeenCalled();
+  });
+
+  // 콜드 부팅의 느린 만료 체인이 로그인 완료와 겹치면, 세션 개시 이전에 시작한 갱신의 늦은
+  // 통지가 방금 연 새 세션을 내릴 수 있다(#845). 통지의 갱신 시작 시각으로 가려낸다.
+  describe('세션 개시 시각 가드 (#845)', () => {
+    const LOGGED_IN_USER: User = {
+      id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
+      grade: 'FRESHMAN', role: 'STUDENT',
+    };
+
+    it('세션 개시 이전에 시작한 갱신의 통지는 새 세션을 내리지 않는다', async () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt - 1));
+
+      expect(useAuthStore.getState().status).toBe('authenticated');
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+      // logout 은 비동기 요청이라 한 틱 흘려 발사되지 않았음을 확인한다.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(webLogoutSpy).not.toHaveBeenCalled();
+    });
+
+    // 경계는 개시 이전으로 본다(`<=`) — `<` 로 풀리면 같은 시각의 늦은 통지가 새 세션을 내린다.
+    it('세션 개시와 같은 시각에 시작한 갱신의 통지도 무시한다', () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt));
+
+      expect(useAuthStore.getState().status).toBe('authenticated');
+      expect(pushSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText(/세션이 만료/)).not.toBeInTheDocument();
+    });
+
+    it('세션 개시 이후에 시작한 갱신의 통지는 기존 만료 경로를 모두 탄다', async () => {
+      useAuthStore.getState().setSession(LOGGED_IN_USER);
+      const { sessionOpenedAt } = useAuthStore.getState();
+      if (sessionOpenedAt === null) throw new Error('setSession 이 세션 개시 시각을 남기지 않았다');
+
+      act(() => notifyUnauthorized(sessionOpenedAt + 1));
+
+      expect(useAuthStore.getState().status).toBe('unauthenticated');
+      expect(pushSpy).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(/세션이 만료/)).toBeInTheDocument();
+      await waitFor(() => expect(webLogoutSpy).toHaveBeenCalledTimes(1));
+    });
   });
 });

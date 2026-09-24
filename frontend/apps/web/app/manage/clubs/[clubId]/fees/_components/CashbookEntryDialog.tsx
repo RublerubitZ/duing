@@ -16,6 +16,7 @@ import type {
 } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import {
   Dialog,
   DialogContent,
@@ -138,50 +139,38 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           <input type="hidden" {...register('entryType')} />
 
-          <div>
-            <label htmlFor="cb-category" className="mb-1.5 block text-sm font-semibold text-ink">카테고리</label>
+          <Field id="cb-category" label="카테고리" error={errors.categoryCode?.message}>
             <select id="cb-category" {...register('categoryCode')} className={cn(inputCls, errors.categoryCode && errorInputCls)}>
               {codes.map((code) => (
                 <option key={code} value={code}>{cashbookCategoryLabel(code)}</option>
               ))}
             </select>
-            {errors.categoryCode && <p className="mt-1 text-xs text-coral">{errors.categoryCode.message}</p>}
-          </div>
+          </Field>
 
           {watchedCategory === 'OTHER' && (
-            <div>
-              <label htmlFor="cb-custom" className="mb-1.5 block text-sm font-semibold text-ink">직접입력</label>
+            <Field id="cb-custom" label="직접입력" error={errors.customCategory?.message}>
               <input id="cb-custom" type="text" placeholder="예: 현수막 제작" {...register('customCategory')} className={cn(inputCls, errors.customCategory && errorInputCls)} />
-              {errors.customCategory && <p className="mt-1 text-xs text-coral">{errors.customCategory.message}</p>}
-            </div>
+            </Field>
           )}
 
-          <div>
-            <label htmlFor="cb-amount" className="mb-1.5 block text-sm font-semibold text-ink">금액(원)</label>
+          <Field id="cb-amount" label="금액(원)" error={errors.amount?.message}>
             <input id="cb-amount" type="number" min={1} step={1} {...register('amount')} disabled={isBankApi} className={cn(inputCls, errors.amount && errorInputCls, isBankApi && 'bg-graysoft text-charcoal-3')} />
-            {errors.amount && <p className="mt-1 text-xs text-coral">{errors.amount.message}</p>}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="cb-desc" className="mb-1.5 block text-sm font-semibold text-ink">설명</label>
+          <Field id="cb-desc" label="설명" error={errors.description?.message}>
             <input id="cb-desc" type="text" placeholder="예: MT 버스비" {...register('description')} disabled={isBankApi} className={cn(inputCls, errors.description && errorInputCls, isBankApi && 'bg-graysoft text-charcoal-3')} />
-            {errors.description && <p className="mt-1 text-xs text-coral">{errors.description.message}</p>}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="cb-date" className="mb-1.5 block text-sm font-semibold text-ink">거래일</label>
+          <Field id="cb-date" label="거래일" error={errors.transactionDate?.message}>
             <input id="cb-date" type="date" {...register('transactionDate')} disabled={isBankApi} className={cn(inputCls, errors.transactionDate && errorInputCls, isBankApi && 'bg-graysoft text-charcoal-3')} />
-            {errors.transactionDate && <p className="mt-1 text-xs text-coral">{errors.transactionDate.message}</p>}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="cb-memo" className="mb-1.5 block text-sm font-semibold text-ink">메모(선택)</label>
+          <Field id="cb-memo" label="메모(선택)" error={errors.memo?.message}>
             <input id="cb-memo" type="text" {...register('memo')} className={inputCls} />
-            {errors.memo && <p className="mt-1 text-xs text-coral">{errors.memo.message}</p>}
-          </div>
+          </Field>
 
           {submitErrorMessage && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
           )}
 
           <div className="flex gap-2 pt-1">
@@ -191,6 +180,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
               {isEditMode ? '수정' : '등록'}
             </button>
           </div>
+          <span role="status" className="sr-only">{activeMutation.isPending ? '장부 항목 저장 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

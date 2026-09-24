@@ -71,6 +71,7 @@ function ExcludeDialog({
       onConfirm={onConfirm}
       onCancel={onCancel}
       isPending={isPending}
+      busyLabel="제외 처리 중"
       errorMessage={errorMessage}
     />
   );
@@ -454,6 +455,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             setConfirmActionError(null);
           }}
           isPending={cancelMutation.isPending}
+          busyLabel="라운드 취소 중"
           errorMessage={confirmActionError}
         />
       )}

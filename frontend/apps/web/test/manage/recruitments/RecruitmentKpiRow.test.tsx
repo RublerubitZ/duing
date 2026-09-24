@@ -58,7 +58,7 @@ describe('RecruitmentKpiRow', () => {
 
     expect(screen.getByText('지원자')).toBeInTheDocument();
     expect(screen.getByText('34')).toBeInTheDocument();
-    expect(screen.getByText('정원 20명')).toBeInTheDocument();
+    expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
     expect(screen.getByText('검토 대기')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('면접 대기')).toBeInTheDocument();
@@ -83,6 +83,6 @@ describe('RecruitmentKpiRow', () => {
     render(<RecruitmentKpiRow recruitment={recruitment()} />);
 
     expect(screen.getAllByText('—')).toHaveLength(4);
-    expect(screen.getByText('정원 20명')).toBeInTheDocument();
+    expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
   });
 });

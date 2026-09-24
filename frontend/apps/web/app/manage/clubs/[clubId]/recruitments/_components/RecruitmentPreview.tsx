@@ -68,7 +68,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
             {data.title || <span className="font-medium text-charcoal-3">모집명을 입력하세요</span>}
           </div>
           <div className="mb-4 mt-1 text-xs text-charcoal-3">
-            {periodLabel(data)} · 정원 {data.capacity}명 · {targetLabel}
+            {periodLabel(data)} · 모집 인원 {data.capacity}명 · {targetLabel}
             {data.useInterview ? ' · 면접 진행' : ''}
           </div>
 

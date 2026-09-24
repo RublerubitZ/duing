@@ -214,7 +214,7 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
     }
 
     @Test
-    @DisplayName("해당 동아리 운영진이 아니면 후보를 조회할 수 없다")
+    @DisplayName("동아리 비멤버가 후보를 조회하면 모집 미존재와 같은 404 다")
     void nonManagerCannotQueryCandidates() {
         User outsider = saveUser("외부인");
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
@@ -222,7 +222,7 @@ class LeaderInterviewRoundCandidateControllerTest extends InterviewControllerTes
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().get(CANDIDATES_PATH, recruitment.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test

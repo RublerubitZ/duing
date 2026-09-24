@@ -9,6 +9,7 @@ import com.duing.domain.fee.job.MonthlyBillIssueJob;
 import com.duing.domain.fee.job.OverdueBillJob;
 import com.duing.domain.notification.job.DeadlineNotificationJob;
 import com.duing.global.privacy.PiiRetentionJobConfig;
+import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,15 @@ class UploadPurgeSchedulingWiringTest extends IntegrationTestBase {
 
     @Autowired
     private ApplicationContext applicationContext;
+
+    @Autowired
+    private UploadPurgeProperties uploadPurgeProperties;
+
+    @Test
+    @DisplayName("claim 뒤 실삭제 유예(grace)가 설정에서 바인딩된다")
+    void bindsGrace() {
+        assertThat(uploadPurgeProperties.grace()).isEqualTo(Duration.ofHours(24));
+    }
 
     @Test
     @DisplayName("upload.purge 만 켜도 스케줄 설정이 활성화되며 UploadPurgeJob 은 등록되고, 비활성 문의 파기·PII·알림·회비 잡은 함께 깨우지 않는다")

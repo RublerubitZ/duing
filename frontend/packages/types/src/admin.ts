@@ -80,9 +80,10 @@ export type AdminCrawlReservationGroup = {
 };
 
 export type AdminCrawlReservationParams = {
-  yearMonth?: string; // yyyy-MM, 당월·익월만 허용
+  yearMonth?: string; // yyyy-MM, 직전 월·당월·익월만 허용
   facilityId?: number;
   groupBy?: AdminCrawlGroupBy;
+  q?: string; // 단체명 부분 일치(공백·꼬리 괄호 무시, BE 가 정규화) — 빈 값은 보내지 않는다
   page?: number;
   size?: number;
 };

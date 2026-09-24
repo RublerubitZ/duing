@@ -41,7 +41,6 @@ public class FacilityBookingMatchingScheduler {
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityBookingMatchingService matchingService;
     private final FacilityAvailabilityPolicy availabilityPolicy;
-    private final OrganizationNameNormalizer normalizer;
     private final ClubRepository clubRepository;
     private final Clock clock;
 
@@ -65,7 +64,7 @@ public class FacilityBookingMatchingScheduler {
         YearMonth currentMonth = YearMonth.now(clock);
         // 사이클당 1회 — 정규화 후 2개 이상 동아리가 공유하는 키(오확정 위험)를 미리 모아 verifyAndConfirm 에 넘긴다.
         // 기본 확보 시간 증거 제외는 행 단위 정밀화(2026-08-27)로 decide 가 securedTail 플래그로 수행한다.
-        Set<String> collidingClubKeys = collidingClubKeys();
+        Set<String> collidingClubKeys = availabilityPolicy.collidingClubKeys();
         // 확보 키도 사이클당 1회 — 증거 판정이 아니라 타 단체 겹침 보류의 차단 분류(확보 물결 행 제외) 전용이다.
         // 사이클 중 플래그가 바뀌는 시차(TOCTOU)의 최악은 보류(수동 검토)이지 오확정이 아니다(fail-closed).
         Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
@@ -79,21 +78,6 @@ public class FacilityBookingMatchingScheduler {
             confirmedCount += matchMonth(month, collidingClubKeys, securedOrganizationKeys);
         }
         log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
-    }
-
-    /**
-     * 전체 동아리명 정규화 키 중 2개 이상 동아리가 공유하는 키 집합. "밴드부"·"밴드부(중앙)"이 정규화 후 같은
-     * 키로 붕괴하면 다른 단체 행으로 오확정될 수 있어, 이런 키의 예약은 자동 확정을 포기하고 수동 확정으로 넘긴다.
-     */
-    private Set<String> collidingClubKeys() {
-        Map<String, Long> keyCounts = clubRepository.findAllNames().stream()
-                .map(normalizer::normalize)
-                .filter(key -> !key.isEmpty())
-                .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
-        return keyCounts.entrySet().stream()
-                .filter(entry -> entry.getValue() >= 2)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
     }
 
     /** 신뢰 가능(SUCCESS·PARTIAL) 월 스냅샷 존재 여부(빠른 스킵 게이트) — PARTIAL 의 안전성은 세대 결박이

@@ -1,5 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
+import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.entity.FacilityMonthSnapshot;
 import com.duing.domain.facility.entity.FacilityReservation;
@@ -40,6 +42,8 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
     private final FacilityReservationRepository facilityReservationRepository;
     private final FacilityMonthSnapshotRepository facilityMonthSnapshotRepository;
     private final FacilityAvailabilityPolicy availabilityPolicy;
+    private final OrganizationNameNormalizer normalizer;
+    private final ClubRepository clubRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -154,13 +158,26 @@ public class GeneralFacilityBookingAdminService implements FacilityBookingAdminS
      * 크롤 점유행 겹침 — 승인 불가(§5.2-2c-①). 판별은 정책 경유(컬럼 접근 금지 계약).
      * 겹치는 점유행 전부를 payload(§8.3 data.conflicts[])로 실어 던져 FE 가 충돌 상세를 렌더할 수 있게 한다 —
      * 확보 분류 행은 비차단이라 승인 불가 사유가 아니므로 판정·payload 양쪽에서 제외된다(2026-08-27).
-     * 수동 확정은 자기 등록 행을 구분할 수 없어 이 검증을 걸지 않는다(관리자 오버라이드, 2026-07-17 감사).
+     * 자기 반영 행(학교가 이 동아리 이름으로 등록한 행, {@link FacilityAvailabilityPolicy#isOwnReflectionRow})은
+     * 승인 불가 사유가 아니라 판정·payload 양쪽에서 제외된다 — 학교에 먼저 반영된 신청이 거절로만 닫히던 문제.
+     * 수동 확정은 이 검증을 걸지 않는다(관리자 오버라이드, 2026-07-17 감사).
      */
     private void rejectIfSchoolOccupied(FacilityBooking booking, List<FacilityReservation> monthRows,
             LocalDateTime crawlBasisAt, Set<String> securedOrganizationKeys) {
-        List<FacilityBookingException.SchoolConflictException.ConflictItem> conflicts =
-                availabilityPolicy.blockingOverlapping(monthRows, booking.getReservationDate(),
-                                booking.getStartTime(), booking.getEndTime(), securedOrganizationKeys)
+        List<FacilityReservation> blockingRows = availabilityPolicy.blockingOverlapping(monthRows,
+                        booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
+                        securedOrganizationKeys)
+                .toList();
+        if (blockingRows.isEmpty()) {
+            return;
+        }
+        // 자기 반영 행(학교가 이 동아리 이름으로 등록한 행)은 승인 불가 사유가 아니다 — 승인 뒤 자동 매칭이
+        // 같은 행을 증거로 확정한다. 충돌 키 조회는 겹침이 있을 때만 한다.
+        String normalizedClubName = normalizer.normalize(
+                clubRepository.findById(booking.getClubId()).map(Club::getName).orElse(""));
+        Set<String> collidingClubKeys = availabilityPolicy.collidingClubKeys();
+        List<FacilityBookingException.SchoolConflictException.ConflictItem> conflicts = blockingRows.stream()
+                        .filter(row -> !availabilityPolicy.isOwnReflectionRow(row, normalizedClubName, collidingClubKeys))
                         .map(reservation -> new FacilityBookingException.SchoolConflictException.ConflictItem(
                                 reservation.getOrganizationName(),
                                 reservation.getStartTime(), reservation.getEndTime()))

@@ -5,6 +5,10 @@ services:
   backend:
     image: ${BACKEND_IMAGE}
     restart: unless-stopped
+    # 메모리 상한 — 없으면 JVM 의 MaxRAMPercentage=75 가 호스트 전체 RAM(1.9GB 실측) 기준으로 힙을 잡아
+    # Caddy·OS 몫을 침식하고, 호스트 OOM 킬러는 ExitOnOutOfMemoryError 가 막지 못한다. 1400m 이면 힙 상한 ≈1.05GB
+    # (부하테스트 권고 -Xmx≈1GB 와 일치), 나머지 ~500MB 가 Caddy·OS 여유. 한도 초과 시 컨테이너만 재시작된다.
+    mem_limit: 1400m
     # 비루트(Dockerfile)에 더해 권한 상승 차단 + 모든 리눅스 capability 제거(8080 바인딩은 cap 불필요).
     security_opt:
       - "no-new-privileges:true"
@@ -36,6 +40,9 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # 평시 수십 MB 지만 1,000 동접에 +60MB, 1,500 동접이면 TLS 세션으로 수백 MB 까지 간다(부하테스트 실측).
+    # 128m 이면 그 구간에서 Caddy 가 죽어 TLS 종단 전체가 내려가므로 256m. backend 1400 + 256 = 1656MB, OS 여유 ~250MB.
+    mem_limit: 256m
     security_opt:
       - "no-new-privileges:true"
     depends_on:

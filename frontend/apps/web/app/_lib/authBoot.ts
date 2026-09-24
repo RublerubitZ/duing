@@ -37,6 +37,8 @@ export function seedAuthFromLocalHistory(): void {
 // 레버 1(§4) — 세션 복원 요청을 모듈 평가 시점(하이드레이션 전)에 선점한다.
 // 일반 클라이언트 경로를 그대로 탄다: 401 이면 afterResponse 훅이 refresh 조율기
 // (ensureFreshSession)를 경유해 갱신 후 재시도한다 — 조율기 우회 없음.
+// 통지는 refresh 시작 시각을 싣고, 세션 개시 이전에 시작한 갱신의 통지는 무시한다(#845) — 이 느린 체인이
+// 로그인 완료와 겹쳐도 새 세션을 내리지 않는다.
 // me 만 쓰므로 구조적 타입으로 받는다(테스트에서 전체 클라이언트 불필요).
 type BootRestoreClient = { users: { me(): Promise<User> } };
 

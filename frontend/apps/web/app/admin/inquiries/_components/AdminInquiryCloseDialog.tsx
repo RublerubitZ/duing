@@ -40,10 +40,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>문의를 종료할까요?</DialogTitle>
@@ -63,7 +60,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
           </p>
         </label>
 
-        {errorMessage && <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
@@ -78,6 +75,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
             {isPending && <ButtonSpinner />}종료
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '문의 종료 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -4,8 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+let mockCreateError: Error | null = null;
+let mockCreatePending = false;
 vi.mock('@duing/hooks', () => ({
-  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: false, error: null }),
+  useCreateFeePolicyMutation: () => ({ mutate: mockCreateMutate, isPending: mockCreatePending, error: mockCreateError }),
   useUpdateFeePolicyMutation: () => ({ mutate: mockUpdateMutate, isPending: false, error: null }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -38,6 +40,14 @@ const selectedMembersPolicy = {
 describe('CreatePolicyDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateError = null;
+    mockCreatePending = false;
+  });
+
+  it('생성 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
+    mockCreateError = new Error('정책 생성에 실패했습니다.');
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('정책 생성에 실패했습니다.');
   });
 
   it('생성 모드에서는 회비 유형 select 를 노출한다', () => {
@@ -57,6 +67,17 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
     await user.click(screen.getByRole('button', { name: '추가' }));
     expect(await screen.findByText('정책 이름은 필수입니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/정책 이름/)).toHaveAccessibleDescription('정책 이름은 필수입니다.');
+    expect(mockCreateMutate).not.toHaveBeenCalled();
+  });
+
+  it('금액이 0원이면 검증 에러를 표시하고 제출하지 않는다', async () => {
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '0');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+    expect(await screen.findByText('금액은 1원 이상이어야 합니다.')).toBeInTheDocument();
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
@@ -69,6 +90,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={onClose} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByRole('button', { name: '추가' }));
 
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
@@ -102,6 +124,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '5');
     await user.type(screen.getByLabelText('마감일(1~28)'), '20');
@@ -123,6 +146,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '5');
     await user.type(screen.getByLabelText('마감일(1~28)'), '20');
@@ -142,12 +166,14 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '20');
     await user.type(screen.getByLabelText('마감일(1~28)'), '5');
     await user.click(screen.getByRole('button', { name: '추가' }));
 
     expect(await screen.findByText('마감일은 발행일과 같거나 이후여야 합니다.')).toBeInTheDocument();
+    expect(screen.getByLabelText('마감일(1~28)')).toHaveAccessibleDescription('마감일은 발행일과 같거나 이후여야 합니다.');
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
@@ -177,6 +203,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), 'MT 참가비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByRole('radio', { name: '특정 부원' }));
     await user.click(screen.getByRole('button', { name: '추가' }));
 
@@ -192,5 +219,12 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} policy={selectedMembersPolicy} onClose={() => {}} />);
     expect(screen.queryByRole('radio', { name: '전체 부원' })).not.toBeInTheDocument();
     expect(screen.getByText('특정 부원')).toBeInTheDocument();
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('저장 요청이 진행 중이면 보조기술에 "회비 정책 저장 중" 상태를 알린다', () => {
+    mockCreatePending = true;
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('회비 정책 저장 중');
   });
 });

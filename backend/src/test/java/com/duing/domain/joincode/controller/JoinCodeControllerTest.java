@@ -305,6 +305,25 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("마감일이 지났는데 마감 처리만 안 된 모집의 코드는 마감일 종료 + 가입 가능 기간이 지나면 사용할 수 없다")
+    void expiredOpenRecruitmentCodeEndsAtEndDatePlusJoinWindow() throws Exception {
+        Club expiredOpenClub = saveClub("만료OPEN동아리", ClubStatus.ACTIVE);
+        // 마감일 10일 전 + 프리셋 7일 → 마감일 다음날 00:00 기준 2일 전에 이미 창이 닫혔다. 상태는 OPEN 그대로다.
+        LocalDate today = LocalDate.now(clock);
+        Recruitment expiredOpenRecruitment = recruitmentRepository.save(Recruitment.createWithOptions(
+                expiredOpenClub, "방치모집-" + sequence.getAndIncrement(), "내용",
+                today.minusDays(30), today.minusDays(10), 10,
+                ApplicationMode.EXTERNAL, "https://forms.example.com/duing", false,
+                TargetRole.MEMBER, null, null, false));
+        clubJoinCodeRepository.save(ClubJoinCode.issue(expiredOpenClub, expiredOpenRecruitment,
+                "STALEO", 12, 30, DEFAULT_WINDOW_DAYS, null));
+
+        assertUnusableAndRequestRejected("STALEO");
+        assertThat(clubJoinRequestRepository.count())
+                .as("마감 처리를 안 했어도 기한이 지난 링크로는 요청 행이 만들어지지 않는다").isZero();
+    }
+
+    @Test
     @DisplayName("마감일이 없는 상시모집은 진행 중인 동안 코드를 계속 쓸 수 있다")
     void alwaysOpenRecruitmentKeepsCodeUsable() throws Exception {
         Club alwaysOpenClub = saveClub("상시모집동아리", ClubStatus.ACTIVE);

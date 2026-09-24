@@ -55,12 +55,7 @@ export function StatusConfirmDialog({ targetStatus, isPending, onConfirm, onCanc
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{TITLE[targetStatus]}</DialogTitle>
@@ -86,6 +81,7 @@ export function StatusConfirmDialog({ targetStatus, isPending, onConfirm, onCanc
             {CONFIRM_LABEL[targetStatus]}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '지원 상태 변경 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

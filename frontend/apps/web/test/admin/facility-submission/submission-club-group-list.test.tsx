@@ -258,6 +258,33 @@ describe('SubmissionClubGroupList', () => {
     expect(onShowDetail).toHaveBeenCalledWith(twoClubs[0]);
   });
 
+  it('제출번호는 submissionBatchId 가 있으면 배치 상세 링크, 없으면(구 응답·null) 평문이다', () => {
+    const linked = makeBooking({
+      bookingId: 7, clubId: 11, clubName: '방송국', submitted: true, selectable: false,
+      submissionNo: 'SUB-20260801-007', submissionBatchId: 42,
+    });
+    const plain = makeBooking({
+      bookingId: 8, clubId: 12, clubName: '테니스부', submitted: true, selectable: false,
+      submissionNo: 'SUB-20260801-008', submissionBatchId: null,
+    });
+    render(
+      <SubmissionClubGroupList
+        bookings={[linked, plain]}
+        selection={new Set()}
+        onToggleSelect={vi.fn()}
+        onToggleMany={vi.fn()}
+        onShowDetail={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'SUB-20260801-007' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/admin/facility-bookings/submission/42'),
+    );
+    expect(screen.getByText('SUB-20260801-008')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'SUB-20260801-008' })).not.toBeInTheDocument();
+  });
+
   it('상태 배지는 제출 여부보다 예약 상태 우선순위를 따른다 — 완료 배치의 등록완료·취소 예약은 「제출 대기」로 뭉개지지 않는다', () => {
     // 배치를 완료하면 승인 예약은 CONFIRMED 로 넘어가지만 제출 항목은 유지되어 submitted=true 로 남는다.
     // 그래도 목록 상태 배지는 취소>충돌>등록완료>제출 대기 순서를 지켜야 한다.

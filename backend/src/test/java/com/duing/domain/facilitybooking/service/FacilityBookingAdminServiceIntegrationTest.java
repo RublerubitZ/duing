@@ -286,6 +286,60 @@ class FacilityBookingAdminServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("학교 선반영 — 자기 동아리 이름의 실예약 행과만 겹치는 신청은 승인되고, 타 단체 행이 함께 겹치면 409 payload 에 타 단체 행만 실린다")
+    void approveTreatsOwnClubRowsAsReflectionNotConflict() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String ownName = fixture.club().getName();
+
+        // 운영 실태(2026-09): 학교에 먼저 제출·반영된 뒤 두잉 신청을 처리하면 자기 행이 409 를 내 거절로만 닫혔다.
+        Long reflected = pendingBooking(fixture, date, 18, 20);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), ownName, false, LocalDateTime.now()));
+        adminService.approve(admin.getId(), reflected);
+        assertThat(bookingRepository.findById(reflected).orElseThrow().getStatus())
+                .isEqualTo(BookingStatus.APPROVED);
+
+        Long mixed = pendingBooking(fixture, date, 13, 15);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(13, 0), LocalTime.of(14, 0), ownName, false, LocalDateTime.now()));
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(14, 0), LocalTime.of(15, 0), "문화팀", false, LocalDateTime.now()));
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), mixed))
+                .isInstanceOfSatisfying(FacilityBookingException.SchoolConflictException.class,
+                        conflict -> assertThat(conflict.getConflicts())
+                                .extracting(FacilityBookingException.SchoolConflictException.ConflictItem::organization)
+                                .containsExactly("문화팀"));
+    }
+
+    @Test
+    @DisplayName("정규화 키 충돌 — 같은 키를 쓰는 동아리가 둘이면 자기 이름 행도 타 단체 행일 수 있어 승인은 409 로 유지된다")
+    void approveKeepsSchoolConflictWhenClubKeyCollides() throws Exception {
+        Fixture fixture = fixture();
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        String ownName = fixture.club().getName();
+        // 공백만 다른 이름 — 정규화 후 같은 키로 붕괴한다(자동 확정도 같은 이유로 포기하는 케이스).
+        Club collidingClub = Club.create(ownName.replace("-", " -"), ClubCategory.OTHER, "분과", "설명", null);
+        Field statusField = Club.class.getDeclaredField("status");
+        statusField.setAccessible(true);
+        statusField.set(collidingClub, ClubStatus.ACTIVE);
+        clubRepository.save(collidingClub);
+
+        Long blocked = pendingBooking(fixture, date, 18, 20);
+        facilityReservationRepository.save(FacilityReservation.create(
+                fixture.facility().getId(), sequence.getAndIncrement(), YearMonth.from(date), date,
+                LocalTime.of(18, 0), LocalTime.of(20, 0), ownName, false, LocalDateTime.now()));
+
+        assertThatThrownBy(() -> adminService.approve(admin.getId(), blocked))
+                .isInstanceOf(FacilityBookingException.SchoolConflictException.class);
+    }
+
+    @Test
     @DisplayName("확보 행과만 겹치는 승인은 409 없이 성공하고, 실예약 행이 함께 겹치면 conflicts 에 실예약 행만 실린다")
     void approveIgnoresSecuredRowsAndExcludesThemFromConflictPayload() throws Exception {
         Fixture fixture = fixture();

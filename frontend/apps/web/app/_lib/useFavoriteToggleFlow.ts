@@ -1,7 +1,7 @@
 'use client';
 
-import { ApiError } from '@duing/api';
 import { useFavoriteIdsQuery, useFavoriteToggleMutation } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 
 import { captureEvent } from '@/app/_lib/analytics';
 import { toRoute } from '@/app/_lib/route';
@@ -17,8 +17,9 @@ import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
  *    (§8.1 되돌릴 수 없는 동작). 미인증은 클릭이 로그인 이동이라 이 제약을 받지 않는다.
  * ② 미인증이면 현재 URL(쿼리스트링 포함)을 next 로 실어 로그인 이동 — 필터·페이지가 걸린
  *    화면에서 눌러도 로그인 후 그 자리로 돌아온다.
- * ③ 시드된 인증은 그대로 요청한다 — 만료된 access 는 API 계층이 갱신하고, 정말 미인증이면
- *    401 응답을 받은 뒤 로그인으로 보낸다.
+ * ③ 시드된 인증은 그대로 요청한다 — 만료된 access 는 API 계층이 갱신하고, 만료가 확정되면
+ *    전역 핸들러(SessionExpiryHandler)가 로그인으로 이동시킨다(여기서 이중 push 를 만들지 않는다).
+ *    세션이 살아 있는 401 은 갱신 일시 장애라 일반 실패로 다룬다.
  * ④ 성공 시 PostHog 이벤트(club_favorited/club_unfavorited) 발화 — 플로우에 내장해 진입
  *    경로(버튼/탐색 카드)와 무관하게 항상 잡힌다. 탐색 페이지 사본에서 이 이벤트가 누락돼
  *    찜 지표가 과소집계됐던 드리프트의 재발 방지.
@@ -53,10 +54,8 @@ export function useFavoriteToggleFlow() {
           });
         },
         onError: (toggleError) => {
-          if (toggleError instanceof ApiError && toggleError.status === 401) {
-            router.push(loginPath);
-            return;
-          }
+          // 만료 확정이면 핸들러가 통지 시점에 동기로 스토어를 먼저 내리고 이동까지 맡는다.
+          if (useAuthStore.getState().status === 'unauthenticated') return;
           console.error('찜 토글 실패:', toggleError);
         },
       },

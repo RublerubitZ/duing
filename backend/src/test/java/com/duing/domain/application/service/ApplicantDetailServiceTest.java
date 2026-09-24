@@ -2,7 +2,9 @@ package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -179,11 +181,11 @@ class ApplicantDetailServiceTest {
     }
 
     @Test
-    @DisplayName("다른 동아리의 운영진이 조회를 시도하면 AccessDeniedException 이 발생한다")
+    @DisplayName("운영진 권한 검증에 실패한 사용자가 조회를 시도하면 AccessDeniedException 이 발생한다")
     void differentClubOfficerCannotReadApplicantDetail() {
-        // @BeforeEach 가 경량 조회로 clubId=5 를 돌려준다. 다른 동아리 운영진(userId=777)은 권한이 없어 거부된다.
+        // @BeforeEach 가 경량 조회로 clubId=5 를 돌려준다. 권한 없는 사용자(userId=777)의 인가 예외가 그대로 전파된다(비멤버 404 수렴은 ClubAuthServiceTest).
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
-                .when(clubAuthService).requireManager(777L, 5L);
+                .when(clubAuthService).requireManagerOrHidden(eq(777L), eq(5L), any());
 
         assertThatThrownBy(() -> applicationService.getApplicantDetail(1L, 777L))
                 .isInstanceOf(AccessDeniedException.class);
@@ -194,7 +196,7 @@ class ApplicantDetailServiceTest {
     void unauthorizedRequestDoesNotFetchApplicantDetail() {
         when(applicationRepository.findClubIdByApplicationId(1L)).thenReturn(Optional.of(5L));
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
-                .when(clubAuthService).requireManager(777L, 5L);
+                .when(clubAuthService).requireManagerOrHidden(eq(777L), eq(5L), any());
 
         assertThatThrownBy(() -> applicationService.getApplicantDetail(1L, 777L))
                 .isInstanceOf(AccessDeniedException.class);

@@ -122,6 +122,35 @@ describe('SubmissionBatchDetailPage', () => {
     mockCsvMutateAsync.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   });
 
+  // ⓪ 뒤로가기 — 진행 중 배치는 제출 대기 탭으로, 완료·취소는 제출 이력 탭으로 돌아간다(감사 #5).
+  it('REVIEWING 배치의 뒤로가기는 제출 대기 탭, 완료 배치는 제출 이력 탭으로 향한다', () => {
+    mockDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
+    const { unmount } = render(<SubmissionBatchDetailPage batchId={1} />);
+    expect(screen.getByRole('link', { name: '← 제출 대기' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings?tab=ready',
+    );
+    unmount();
+
+    mockDetailQuery.mockReturnValue(
+      detailSuccess(makeDetail({ batch: makeBatch({ completed: true, completedAt: '2026-08-02T09:00:00' }) })),
+    );
+    render(<SubmissionBatchDetailPage batchId={1} />);
+    expect(screen.getByRole('link', { name: '← 제출 이력' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings?tab=archive',
+    );
+  });
+
+  it('상세 로딩 전에는 뒤로가기가 제출 이력 탭을 가리킨다(상태를 모를 때의 폴백)', () => {
+    mockDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false });
+    render(<SubmissionBatchDetailPage batchId={1} />);
+    expect(screen.getByRole('link', { name: '← 제출 이력' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings?tab=archive',
+    );
+  });
+
   // ① 헤더
   it('헤더 제목은 메모, 제출번호는 서브 표기·탈퇴한 생성자는 - 로 표기된다', () => {
     mockDetailQuery.mockReturnValue(

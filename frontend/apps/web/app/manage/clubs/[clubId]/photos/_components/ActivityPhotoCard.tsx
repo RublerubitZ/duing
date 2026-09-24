@@ -199,7 +199,7 @@ export function ActivityPhotoCard({
           <p className="text-right text-[11px] text-charcoal-3">
             {captionDraft.length}/{CAPTION_MAX}
           </p>
-          {captionError && <p className="text-[12px] text-coral">{captionError}</p>}
+          {captionError && <p role="alert" className="text-[12px] text-coral">{captionError}</p>}
           <DialogFooter>
             <button
               type="button"
@@ -218,6 +218,7 @@ export function ActivityPhotoCard({
               저장
             </button>
           </DialogFooter>
+          <span role="status" className="sr-only">{updatePhoto.isPending ? '캡션 저장 중' : null}</span>
         </DialogContent>
       </Dialog>
 
@@ -226,6 +227,7 @@ export function ActivityPhotoCard({
         title="이 사진을 삭제할까요?"
         description="삭제한 사진은 복구할 수 없습니다."
         isPending={deletePhoto.isPending}
+        busyLabel="사진 삭제 중"
         errorMessage={deleteError}
         onConfirm={runDelete}
         onCancel={() => {

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from '../../app/_components/ConfirmDialog';
@@ -58,6 +58,21 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('처리 중에만 status 리전에 busyLabel 을 싣고, 미전달 시 기본 문구를 쓴다', () => {
+    const { rerender } = render(
+      <ConfirmDialog open title="삭제할까요?" isPending busyLabel="공지 삭제 중" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('공지 삭제 중');
+
+    rerender(
+      <ConfirmDialog open title="삭제할까요?" isPending={false} busyLabel="공지 삭제 중" onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+
+    rerender(<ConfirmDialog open title="삭제할까요?" isPending onConfirm={() => {}} onCancel={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('처리 중');
+  });
+
   it('errorMessage 를 넘기지 않으면 오류 노드를 만들지 않는다', () => {
     // 아직 전환하지 않은 소비처는 이 prop 을 넘기지 않는다 — DOM 이 그대로여야 무영향이다.
     render(<ConfirmDialog open title="삭제할까요?" onConfirm={() => {}} onCancel={() => {}} />);
@@ -99,5 +114,23 @@ describe('ConfirmDialog', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '취소' }));
     await userEvent.tab();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '삭제' }));
+  });
+  // Radix 는 바깥 감지 리스너를 setTimeout(0) 안에서 등록한다 — 한 틱을 흘려야 실제 경로를 탄다.
+  it('유휴 시 바깥 클릭으로 닫히고, 처리 중이면 닫히지 않는다', async () => {
+    const onCancel = vi.fn();
+    const { rerender } = render(
+      <ConfirmDialog open title="삭제할까요?" isPending onConfirm={() => {}} onCancel={onCancel} />,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    });
+
+    fireEvent.pointerDown(document.body);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+
+    rerender(<ConfirmDialog open title="삭제할까요?" onConfirm={() => {}} onCancel={onCancel} />);
+    fireEvent.pointerDown(document.body);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

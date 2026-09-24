@@ -41,12 +41,7 @@ export function ExtendDeadlineModal({
       <DialogContent
         className="max-w-sm"
         aria-describedby={undefined}
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>마감 연장</DialogTitle>
@@ -86,6 +81,7 @@ export function ExtendDeadlineModal({
             {isPending && <ButtonSpinner />}저장
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '마감 연장 저장 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

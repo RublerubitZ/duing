@@ -117,50 +117,51 @@ class RecruitmentManageAuthorizationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("타 동아리 회장이 URL 의 recruitmentId 만 바꿔 남의 모집을 수정하면 403 이다")
+    @DisplayName("타 동아리 회장이 URL 의 recruitmentId 만 바꿔 남의 모집을 수정하면 미존재와 같은 404 다")
     void otherClubLeaderCannotUpdateRecruitment() {
         updateRecruitment(otherLeaderToken, targetRecruitmentId)
-                .then().statusCode(HttpStatus.FORBIDDEN.value())
-                .body("ok", equalTo(false));
+                .then().statusCode(HttpStatus.NOT_FOUND.value())
+                .body("ok", equalTo(false))
+                .body("message", equalTo("모집 공고를 찾을 수 없습니다."));
     }
 
     @Test
-    @DisplayName("타 동아리 운영진(OFFICER)도 남의 모집을 마감·접수 마감·삭제할 수 없다")
+    @DisplayName("타 동아리 운영진(OFFICER)이 남의 모집을 마감·접수 마감·삭제하면 미존재와 같은 404 다(열거 방지)")
     void otherClubOfficerCannotCloseOrDeleteRecruitment() {
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherOfficerToken)
                 .when()
                     .patch("/api/v1/leader/recruitments/{recruitmentId}/close", targetRecruitmentId)
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.NOT_FOUND.value());
 
         stopIntake(otherOfficerToken, targetRecruitmentId)
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
 
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherOfficerToken)
                 .when()
                     .delete("/api/v1/leader/recruitments/{recruitmentId}", targetRecruitmentId)
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test
-    @DisplayName("타 동아리 회장은 남의 모집 지원자 목록·통계를 조회할 수 없다")
+    @DisplayName("타 동아리 회장이 남의 모집 지원자 목록·통계를 조회하면 미존재와 같은 404 다")
     void otherClubLeaderCannotReadApplicantsOrStats() {
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherLeaderToken)
                 .when()
                     .get("/api/v1/leader/recruitments/{recruitmentId}/applications", targetRecruitmentId)
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.NOT_FOUND.value());
 
         RestAssured.given()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherLeaderToken)
                 .when()
                     .get("/api/v1/leader/recruitments/{recruitmentId}/stats/summary", targetRecruitmentId)
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test

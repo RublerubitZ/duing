@@ -25,6 +25,7 @@ import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,6 +46,7 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -57,7 +59,7 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     private String seedPurged(FilePurpose purpose) {
         String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
-        uploadedObject.markPurging();
+        uploadedObject.markPurging(Instant.now(clock));
         uploadedObject.markPurged(Instant.now());
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;
@@ -172,6 +174,35 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
         assertThat(statusOf(removedKey)).isEqualTo(UploadedObjectStatus.RELEASED);
         assertThat(statusOf(retainedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(statusOf(newCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("옛 커버 URL 을 새 본문에 붙여넣으면 그 업로드는 RELEASED 로 가지 않고 ACTIVE 를 유지한다")
+    void adminUpdateKeepsOldCoverActiveWhenMovedIntoBody() {
+        User admin = userRepository.save(UserFixture.admin());
+        String oldCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+        Long noticeId = noticeService.create(adminCreate(STUB_PREFIX + oldCoverKey, "<p>본문</p>", admin.getId()));
+        String newCoverKey = seedPending(FilePurpose.NOTICE_COVER);
+
+        noticeService.update(adminUpdate(noticeId, bodyWith(oldCoverKey), STUB_PREFIX + newCoverKey));
+
+        assertThat(statusOf(oldCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(newCoverKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("본문에서 뺀 이미지를 새 커버로 쓰면 그 업로드는 RELEASED 로 가지 않고 ACTIVE 를 유지한다")
+    void clubUpdateKeepsBodyImageActiveWhenMovedToCover() throws Exception {
+        User author = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClub();
+        String bodyKey = seedPending(FilePurpose.NOTICE_BODY);
+        Long noticeId = noticeService.createForClub(new CreateClubNoticeCommand(club.getId(), author.getId(),
+                "동아리 공지", "요약", bodyWith(bodyKey), null, false, null));
+
+        noticeService.updateForClub(new UpdateClubNoticeCommand(club.getId(), noticeId,
+                null, null, "<p>본문</p>", STUB_PREFIX + bodyKey, null, null, null));
+
+        assertThat(statusOf(bodyKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
     }
 
     @Test

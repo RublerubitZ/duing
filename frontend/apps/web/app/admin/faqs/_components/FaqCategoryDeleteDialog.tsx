@@ -52,12 +52,7 @@ export function FaqCategoryDeleteDialog({
     >
       <DialogContent
         className="max-w-sm"
-        // 파괴적 다이얼로그는 외부 클릭으로 dismiss 하지 않는다(admin 파괴 다이얼로그 공통 관례) —
-        // 닫기는 명시 취소 버튼/ESC 로만.
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>카테고리를 삭제할까요?</DialogTitle>
@@ -115,6 +110,7 @@ export function FaqCategoryDeleteDialog({
             {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '카테고리 삭제 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -276,6 +276,7 @@ export function MemberBulkToolbar({
         description={`${removeCount}명을 동아리에서 탈퇴 처리합니다. 되돌릴 수 없어요.`}
         confirmLabel="탈퇴"
         isPending={running === 'remove'}
+        busyLabel="부원 탈퇴 처리 중"
         onConfirm={confirmRemove}
         onCancel={() => setShowRemoveConfirm(false)}
       />
@@ -288,10 +289,7 @@ export function MemberBulkToolbar({
       >
         <DialogContent
           className="max-w-sm"
-          onPointerDownOutside={(event) => event.preventDefault()}
-          onEscapeKeyDown={(event) => {
-            if (running === 'generation') event.preventDefault();
-          }}
+          busy={running === 'generation'}
         >
           <DialogHeader>
             <DialogTitle>기수 일괄 변경</DialogTitle>

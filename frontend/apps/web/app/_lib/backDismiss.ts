@@ -16,6 +16,14 @@ import { useEffect, useRef, useState } from 'react';
 // __NA 가 유실돼 그 엔트리로 되돌아올 때 Next 가 location.reload() 를 부른다.
 // Next 업그레이드 시 이 전제를 재확인할 것.
 //
+// 앞으로 가기 방향(#857) — 오버레이를 닫으며 이동하면 [A][죽은 마커(URL=A)][B] 가 남는다. 뒤로가기는 죽은
+// 마커를 back 으로 건너 A 에 닿는데, A 에서 앞으로 가기로 그 마커에 착지하면 방향을 모르는 back 스킵이 다시
+// A 로 되돌려 B 에 재진입할 수 없었다. 그래서 back 으로 건너뛴 죽은 엔트리를 "내 위쪽" 으로 기억하고, 그
+// 엔트리에 A 와 같은 페이지에서 올라왔으면 forward 로 건너뛴다(마커 URL 이 A 라 B 에서 내려오면 다른 페이지다).
+// B 가 A 와 같은 URL 이면 판정이 어긋날 수 있지만 forward 스킵 때 기억을 지우므로 최악이 "뒤로가기 2회" 다.
+// 기억 없이(점프로) 연속 죽은 엔트리 n개 아래로 내려왔으면 B 까지 forward n+1회다 — 첫 착지는 back 스킵되며 기억되고,
+// 중간 엔트리는 wentForward 로 앉는다.
+//
 // 설계·엣지 케이스 근거: docs/superpowers/specs/2026-08-03-overlay-back-close-design.md
 
 type OverlayEntry = { id: number; close: () => void };
@@ -37,6 +45,13 @@ let installed = false;
 let currentMarkerId: number | null = null;
 // 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
 let currentHref: string | null = null;
+// back 자동 스킵으로 건너뛴 죽은 엔트리("토큰:ID") — "지금 내 위쪽에 있다". 앞으로 가기 방향 판별에 쓴다(#857).
+// 토큰까지 키로 잡는다 — 이전 문서가 남긴 마커는 ID 가 1 부터 다시 시작해 ID 만으로는 겹친다.
+// pushState 로 잘려 나간 멤버는 다시 착지할 수 없고 ID 는 문서 내 단조 증가라 재사용되지 않아, 비우지 않아도 무해하다.
+// 멤버는 대개 그 위에 엔트리가 있지만, 아래에서 forward 로 착지해 back 스킵된 죽은 엔트리도 멤버가 되므로 최상단일 수 있다.
+// ponytail: 커밋 전 창(skip 닫힘 뒤 Next 커밋 전)에서 forward 연타 시 forward() 가 no-op 이 되어 selfTraversals 1 이
+// 새고 다음 사용자 traversal 이 예산 회복만 건너뛴다. 감지 수단이 없어(history.length 불신) 허용한다.
+const deadEntriesAbove = new Set<string>();
 let nativeReplaceState: History['replaceState'] | null = null;
 // 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. View Transition 억제에 쓴다.
 let overlayOnlyTraversal = false;
@@ -186,24 +201,37 @@ function handlePopState() {
   // 앞으로 가기로 죽은 엔트리에 올라온 경우까지 건너뛰면 그 위 엔트리에 영원히 도달할 수 없다.
   const wentForward = id !== null && currentMarkerId !== null && id > currentMarkerId;
 
-  const canSkip = landedOnDeadEntry && !wentForward && skipBudget > 0;
+  // 위쪽으로 기억한 죽은 엔트리에 같은 페이지(=그 아래 A)에서 올라왔으면 앞으로 가기다. 집합만 보면 히스토리
+  // 메뉴로 여러 칸 건너 B 로 간 뒤 뒤로가기로 착지한 경우를 앞으로로 오판해 뒤로가기가 바운스한다.
+  const landedEntryKey = `${token}:${id}`;
+  const arrivedFromBelow = deadEntriesAbove.has(landedEntryKey) && isSamePageAs(leftHref);
+  const canSkipForward = landedOnDeadEntry && arrivedFromBelow && skipBudget > 0;
+  const canSkipBack = landedOnDeadEntry && !canSkipForward && !wentForward && skipBudget > 0;
+  const canSkip = canSkipForward || canSkipBack;
+  // 라이브 오버레이 위의 기억되지 않은 죽은 마커에 forward 로 올라와 앉는 착지 — 닫지도 건너뛰지도 않는다.
+  const satOnForwardDeadEntry = landedOnDeadEntry && wentForward;
 
   // 먼저 스택에서 제거한다 — 재진입 popstate 가 같은 오버레이를 두 번 집지 못하게 하는 장치는
   // 게이트 플래그가 아니라 이 순서다(게이트를 두면 아래 자동 스킵 연쇄가 끊긴다).
   //
   // 주인 없는 엔트리에 착지했으면 아무것도 닫지 않는다 — 그 엔트리 **아래**에 있던 오버레이는
   // 여전히 열려 있어야 하고, 어느 것이 그런지는 한 칸 더 내려간 다음 위치에서만 알 수 있다.
+  // 마커 없는 페이지 엔트리(id 없음) 착지는 오버레이 영역을 벗어난 것이라 전부 닫는다.
+  // forward 로 올라온 착지면 라이브 엔트리는 전부 그 아래에 있으므로 하나도 닫지 않는다.
   // (스킵 예산이 바닥나 더 내려갈 수 없을 때만 안전망으로 전부 닫는다.)
   const dismissed = landedOnLiveEntry
     ? stack.splice(landedIndex + 1)
-    : canSkip
+    : canSkip || satOnForwardDeadEntry
       ? []
       : stack.splice(0);
 
   // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면, 뒤이어 실행될
   // next-view-transitions 의 popstate 핸들러가 전환을 시작하지 못하게 막는다(끝나지 않는 전환 방지).
   // 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가 제때 보인다. 같은 태스크가 끝나면 해제한다.
-  const overlayTraversal = dismissed.length > 0 || isSelfTraversal || canSkip;
+  // forward 로 죽은 마커에 앉는 착지도 아래 페이지와 URL 이 같아 전환이 끝나지 않으므로 포함한다.
+  // 아래 leftHref 복원도 함께 켜지는데, back 방향 착지와 대칭이라 의도된 동작이다.
+  const overlayTraversal =
+    dismissed.length > 0 || isSelfTraversal || canSkip || satOnForwardDeadEntry;
   const stayedOnSamePage = isSamePageAs(leftHref);
   overlayOnlyTraversal = overlayTraversal && stayedOnSamePage;
   if (overlayOnlyTraversal) {
@@ -219,11 +247,23 @@ function handlePopState() {
     });
   }
 
-  if (canSkip) {
+  if (canSkipBack) {
     skipBudget -= 1;
+    deadEntriesAbove.add(landedEntryKey);
     queueMicrotask(() => {
       selfTraversals += 1;
       window.history.back();
+    });
+  }
+
+  if (canSkipForward) {
+    skipBudget -= 1;
+    // 지워 두어야 B 가 A 와 같은 URL 일 때 오판된 forward 스킵이 한 번으로 끝난다(다음 착지는 back 스킵).
+    deadEntriesAbove.delete(landedEntryKey);
+    // 최상단 멤버면 no-op 이라 popstate 가 없다 — 상한은 deadEntriesAbove 선언부 주석 참조.
+    queueMicrotask(() => {
+      selfTraversals += 1;
+      window.history.forward();
     });
   }
 

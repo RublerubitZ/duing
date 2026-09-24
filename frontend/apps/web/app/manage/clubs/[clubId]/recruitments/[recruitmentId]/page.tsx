@@ -17,7 +17,7 @@ import {
   isRecruitmentExpiredOpen,
   recruitmentExpiredOpenNotice,
   recruitmentPeriodLabel,
-  RECRUITMENT_EXPIRED_OPEN_BADGE,
+  recruitmentStatusChip,
   RECRUITMENT_EXPIRED_OPEN_LABEL,
 } from '../../../../../_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
@@ -171,15 +171,9 @@ export default function RecruitmentDetailPage({
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
-        {/* 상태 칩. 라벨(displayStatusLabel)·색 규칙이 운영 콘솔 칩(recruitmentStatusChip)과 다른 어휘라
-            그 헬퍼를 쓰지 않는다 — 통합하면 예정/상시/마감 표기가 바뀌므로 디자인 판단이 먼저다. */}
         <span
           className={`mt-1 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-            isClosed
-              ? 'bg-slate-100 text-slate-500'
-              : isExpiredOpen
-                ? RECRUITMENT_EXPIRED_OPEN_BADGE
-                : 'bg-emerald-100 text-emerald-700'
+            recruitmentStatusChip(recruitment).badgeClass
           }`}
         >
           {/* 제목 옆 맨 텍스트라 스크린리더에서 무엇의 상태인지 알 수 없다 */}
@@ -209,7 +203,7 @@ export default function RecruitmentDetailPage({
           <dd className="text-sm text-slate-900">{targetRoleLabel}</dd>
         </div>
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 정원</dt>
+          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 인원</dt>
           <dd className="text-sm text-slate-900">{recruitment.capacity}명</dd>
         </div>
         <div className="flex gap-4">
@@ -271,7 +265,7 @@ export default function RecruitmentDetailPage({
               </span>
             </div>
           )}
-          <span className="ml-auto text-xs text-slate-400">정원 {statsSummary.capacity}명</span>
+          <span className="ml-auto text-xs text-slate-400">모집 인원 {statsSummary.capacity}명</span>
         </div>
       )}
 
@@ -375,6 +369,7 @@ export default function RecruitmentDetailPage({
         title="접수를 마감할까요?"
         description={<StopIntakeConfirmDescription applicationMode={recruitment.applicationMode} />}
         confirmLabel="접수 마감"
+        busyLabel="접수 마감 중"
         isPending={stopIntake.isPending}
         errorMessage={stopIntakeError}
         onConfirm={handleStopIntake}
@@ -394,6 +389,7 @@ export default function RecruitmentDetailPage({
           />
         }
         confirmLabel="마감"
+        busyLabel="모집 마감 중"
         isPending={closeRecruitment.isPending}
         errorMessage={closeError}
         onConfirm={handleClose}
@@ -408,6 +404,7 @@ export default function RecruitmentDetailPage({
         title="모집 공고를 삭제할까요?"
         description="지원자가 없는 공고만 삭제할 수 있으며, 삭제하면 되돌릴 수 없습니다."
         isPending={deleteRecruitment.isPending}
+        busyLabel="모집 공고 삭제 중"
         errorMessage={deleteError}
         onConfirm={handleDelete}
         onCancel={() => {

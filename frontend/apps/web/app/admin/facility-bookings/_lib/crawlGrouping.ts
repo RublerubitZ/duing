@@ -1,16 +1,24 @@
-// 크롤 예약 현황의 순수 파생 — 예약 맥락 접기(수정 3)와 당월·익월 계산.
+// 크롤 예약 현황의 순수 파생 — 예약 맥락 접기(수정 3)와 직전 월·당월·익월 계산.
 import type { AdminCrawlReservation } from '@duing/types';
 
-/** Asia/Seoul 기준 현재 yyyy-MM — 크롤 데이터는 당월·익월만 존재한다. */
+/** Asia/Seoul 기준 현재 yyyy-MM — 크롤 데이터는 직전 월·당월·익월을 열람한다(직전 월은 재크롤 없이 보관분). */
 export function seoulYearMonth(now: Date): string {
   // sv-SE 로케일은 yyyy-MM-dd 형식이라 슬라이스만으로 안전하다.
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(now).slice(0, 7);
 }
 
-export function nextYearMonth(yearMonth: string): string {
+function shiftYearMonth(yearMonth: string, monthDelta: number): string {
   const [year, month] = yearMonth.split('-').map(Number);
-  const date = new Date(year ?? 1970, (month ?? 1) - 1 + 1, 1);
+  const date = new Date(year ?? 1970, (month ?? 1) - 1 + monthDelta, 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function nextYearMonth(yearMonth: string): string {
+  return shiftYearMonth(yearMonth, 1);
+}
+
+export function previousYearMonth(yearMonth: string): string {
+  return shiftYearMonth(yearMonth, -1);
 }
 
 function nextDateIso(iso: string): string {

@@ -56,6 +56,11 @@ const SESSIONS: MySession[] = [
   },
 ];
 
+// 로그아웃 후 이동은 window.location.replace(하드 이동)다 — jsdom 은 Location 을 재정의할 수 없어 전역을 스텁한다.
+const hardReplaceSpy = vi.fn();
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy }));
+afterAll(() => vi.unstubAllGlobals());
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
   useAuthStore.setState({ status: 'authenticated', user: null });
@@ -63,6 +68,7 @@ beforeEach(() => {
 afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
+    hardReplaceSpy.mockClear();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
 });
 afterAll(() => server.close());
@@ -149,7 +155,8 @@ describe('SessionListCard', () => {
 
     await waitFor(() => expect(logoutAllCalled).toBe(true));
     await waitFor(() => expect(useAuthStore.getState().status).toBe('unauthenticated'));
-    expect(replaceSpy).toHaveBeenCalledWith('/');
+    expect(useAuthStore.getState().isLoggingOut).toBe(false);
+    expect(hardReplaceSpy).toHaveBeenCalledWith('/');
   });
 
   it('deviceLabel 이 없으면 플랫폼 한글 라벨로 표시한다', async () => {
@@ -214,7 +221,8 @@ describe('SessionListCard', () => {
     expect(
       await screen.findByText('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'),
     ).toBeInTheDocument();
-    expect(replaceSpy).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isLoggingOut).toBe(false);
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 
   // 서버 응답이 아닌 실패(네트워크 끊김 등)에는 보여줄 서버 문구가 없다 — 그때만 기본 안내로 떨어진다.

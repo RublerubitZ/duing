@@ -434,3 +434,21 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
   });
 });
+
+// #943: 상태 칩 색은 공용 맵(house pill)에서 받는다 — 직접 지정 팔레트가 섞이지 않게 고정.
+describe('RecruitmentDetailPage — 상태 칩 house pill', () => {
+  it.each([
+    { status: 'OPEN', displayStatus: 'OPEN', badge: ['pill'], absent: 'pill-outline' },
+    { status: 'CLOSED', displayStatus: 'CLOSED', badge: ['pill', 'pill-outline'], absent: 'bg-slate-100' },
+    { status: 'OPEN', displayStatus: 'CLOSED', badge: ['pill', 'pill-warm-outline'], absent: 'pill-outline' },
+  ] as const)('$status/$displayStatus → $badge', async ({ status, displayStatus, badge, absent }) => {
+    server.use(mockRecruitmentDetail(false, { status, displayStatus }), EMPTY_ROUNDS_HANDLER);
+
+    renderPage();
+
+    const chip = (await screen.findByText('모집 상태')).parentElement!;
+    expect(chip).toHaveClass(...badge);
+    expect(chip).not.toHaveClass(absent);
+    expect(chip.className).not.toMatch(/bg-(emerald|slate|amber)-/);
+  });
+});

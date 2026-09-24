@@ -6,10 +6,11 @@ import type { ClubPhoto } from '@duing/types';
 
 const mockUpdateMutateAsync = vi.fn();
 const mockDeleteMutateAsync = vi.fn();
+let mockUpdatePending = false;
 
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
-  useUpdatePhotoMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: false }),
+  useUpdatePhotoMutation: () => ({ mutateAsync: mockUpdateMutateAsync, isPending: mockUpdatePending }),
   useDeletePhotoMutation: () => ({ mutateAsync: mockDeleteMutateAsync, isPending: false }),
 }));
 
@@ -52,6 +53,7 @@ function renderCard(props: {
 beforeEach(() => {
   mockUpdateMutateAsync.mockReset().mockResolvedValue(undefined);
   mockDeleteMutateAsync.mockReset().mockResolvedValue(undefined);
+  mockUpdatePending = false;
 });
 
 describe('ActivityPhotoCard', () => {
@@ -120,6 +122,15 @@ describe('ActivityPhotoCard', () => {
     );
   });
 
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('캡션 저장이 진행 중이면 보조기술에 "캡션 저장 중" 상태를 알린다', () => {
+    mockUpdatePending = true;
+    renderCard({});
+    fireEvent.click(screen.getByRole('button', { name: '캡션 편집' }));
+    // DndContext 의 드래그 안내 라이브 리전(role="status")과 구분하려고 캡션 다이얼로그 안으로 좁힌다.
+    expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('캡션 저장 중');
+  });
+
   it('캡션 저장 실패 시 다이얼로그 안에 에러를 표시하고 다이얼로그를 유지한다', async () => {
     mockUpdateMutateAsync.mockRejectedValueOnce(new Error('캡션 저장 서버 오류'));
     renderCard({ photo: makePhoto({ id: 9, caption: '' }) });
@@ -130,6 +141,7 @@ describe('ActivityPhotoCard', () => {
     // 에러는 다이얼로그 내부에 표시(T8 교훈 — 전역 조회 금지)되고, 다이얼로그는 열린 채 유지된다.
     const dialog = screen.getByRole('dialog');
     expect(await within(dialog).findByText('캡션 저장 서버 오류')).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('캡션 저장 서버 오류');
     expect(screen.getByLabelText('캡션')).toBeInTheDocument();
   });
 

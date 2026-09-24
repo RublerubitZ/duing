@@ -196,6 +196,19 @@ describe('BillList', () => {
     expect(screen.getAllByText('취소됨').length).toBeGreaterThan(0);
   });
 
+  it('납부 기록이 있는 청구는 취소 버튼이 비활성화되고 사유를 안내한다', () => {
+    mockUseClubFeeBillsQuery.mockReturnValue({
+      data: buildPage([
+        buildBill({ status: 'PARTIAL_PAID', paidAmount: 4000, remainingAmount: 6000 }),
+      ]),
+      isLoading: false,
+    });
+    render(<BillList clubId={1} />);
+    const cancelButton = screen.getByRole('button', { name: '취소' });
+    expect(cancelButton).toBeDisabled();
+    expect(cancelButton).toHaveAttribute('title', '납부 기록이 있으면 취소할 수 없어요');
+  });
+
   it('상태 필터를 바꾸면 status 파라미터로 재조회한다', () => {
     mockUseClubFeeBillsQuery.mockReturnValue({ data: buildPage([buildBill()]), isLoading: false });
     render(<BillList clubId={1} />);

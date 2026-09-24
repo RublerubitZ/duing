@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 
 // 인메모리 storage 주입(account-dialogs 하네스 동일) — api client·clearSession 의 세션 접근을 결정적으로 만든다.
 const memoryStore = new Map<string, string>();
-setStorage({
+const memoryStorage: Parameters<typeof setStorage>[0] = {
   getItem: (key) => Promise.resolve(memoryStore.get(key) ?? null),
   setItem: (key, value) => {
     memoryStore.set(key, value);
@@ -31,7 +31,13 @@ setStorage({
     memoryStore.delete(key);
     return Promise.resolve();
   },
-});
+};
+setStorage(memoryStorage);
+// 사파리 프라이빗처럼 저장소 접근이 거부되는 환경 — 세션 정리의 clearToken 이 reject 된다.
+const failingRemoveStorage: Parameters<typeof setStorage>[0] = {
+  ...memoryStorage,
+  removeItem: () => Promise.reject(new Error('storage unavailable')),
+};
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -58,6 +64,7 @@ beforeEach(() => {
 afterEach(() => {
   server.resetHandlers();
   memoryStore.clear();
+  setStorage(memoryStorage);
   mockRouterReplace.mockReset();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
   vi.useRealTimers();
@@ -124,7 +131,7 @@ async function issueAndVerify() {
   });
 }
 
-// 성공 onSuccess(await clearSession → clear → toast → replace)의 마이크로태스크까지 흘려준다.
+// 성공 onSuccess(clearSession → clear → toast → replace)의 마이크로태스크까지 흘려준다.
 async function flush() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);
@@ -180,6 +187,26 @@ describe('PhoneChangeDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('저장소 정리가 실패해도 안내 토스트를 띄우고 로그인으로 보낸다', async () => {
+    vi.useFakeTimers();
+    server.use(
+      http.patch(`${BASE}/users/me/phone`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+    );
+    renderWithProviders(<PhoneChangeDialog open onClose={vi.fn()} />);
+
+    await issueAndVerify();
+    setStorage(failingRemoveStorage);
+    fireEvent.change(screen.getByLabelText('현재 비밀번호'), { target: { value: CURRENT_PASSWORD } });
+    fireEvent.click(screen.getByRole('button', { name: '번호 변경하기' }));
+    await flush();
+
+    expect(screen.getByText('전화번호가 변경되었어요. 다시 로그인해 주세요.')).toBeInTheDocument();
+    expect(mockRouterReplace).toHaveBeenCalledWith('/login');
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+
   it('현재 비밀번호가 틀리면(400) 에러를 보여주고 인증 상태를 유지한 채 재시도할 수 있다', async () => {
     vi.useFakeTimers();
     let patchCallCount = 0;
@@ -212,6 +239,10 @@ describe('PhoneChangeDialog', () => {
 
     // 서버 메시지를 그대로 보여주고, 인증 상태(verified)는 유지된다 — 재인증 없이 재시도 가능.
     expect(screen.getByText('현재 비밀번호가 일치하지 않습니다.')).toBeInTheDocument();
+    // PhoneVerificationField 의 alert 와 공존할 수 있어 전체 alert 중 문구로 확인한다.
+    expect(
+      screen.getAllByRole('alert').some((node) => node.textContent === '현재 비밀번호가 일치하지 않습니다.'),
+    ).toBe(true);
     expect(screen.getByLabelText('현재 비밀번호')).toBeInTheDocument();
     expect(mockRouterReplace).not.toHaveBeenCalled();
 
@@ -326,6 +357,8 @@ describe('PhoneChangeDialog', () => {
     });
     // 요청이 pending — 라벨은 유지되고 버튼이 비활성화된다(스피너 표시).
     expect(screen.getByRole('button', { name: '번호 변경하기' })).toBeDisabled();
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    expect(screen.getByRole('status')).toHaveTextContent('전화번호 변경 중');
 
     // pending 구간에 ESC 를 눌러도 닫히지 않는다(오버레이/ESC 닫힘 경로 가드).
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });

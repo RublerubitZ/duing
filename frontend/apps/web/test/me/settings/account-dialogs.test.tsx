@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 
 // clearSession 이 토큰을 정리할 수 있도록 인메모리 storage 주입.
 const memoryStore = new Map<string, string>();
-setStorage({
+const memoryStorage: Parameters<typeof setStorage>[0] = {
   getItem: (key) => Promise.resolve(memoryStore.get(key) ?? null),
   setItem: (key, value) => {
     memoryStore.set(key, value);
@@ -31,7 +31,13 @@ setStorage({
     memoryStore.delete(key);
     return Promise.resolve();
   },
-});
+};
+setStorage(memoryStorage);
+// 사파리 프라이빗처럼 저장소 접근이 거부되는 환경 — 세션 정리의 clearToken 이 reject 된다.
+const failingRemoveStorage: Parameters<typeof setStorage>[0] = {
+  ...memoryStorage,
+  removeItem: () => Promise.reject(new Error('storage unavailable')),
+};
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -43,6 +49,7 @@ afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
   memoryStore.clear();
+  setStorage(memoryStorage);
   useAuthStore.setState(useAuthStore.getInitialState(), true);
 });
 afterAll(() => server.close());
@@ -185,6 +192,7 @@ describe('ProfileEditDialog', () => {
     await user.click(screen.getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('이름은 한글 2~7자만 입력할 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('이름은 한글 2~7자만 입력할 수 있습니다.');
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -259,6 +267,8 @@ describe('ProfileEditDialog', () => {
     // 전송 중 판정은 취소 버튼의 disabled 로 잡는다 — 가드 자체(aria-busy)로 기다리면
     // 배선이 빠졌을 때 ESC 단언에 닿기도 전에 대기에서 터져 무엇이 깨졌는지 흐려진다.
     await waitFor(() => expect(screen.getByRole('button', { name: '취소' })).toBeDisabled());
+    // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+    expect(screen.getByRole('status')).toHaveTextContent('프로필 저장 중');
 
     await user.keyboard('{Escape}');
 
@@ -278,6 +288,7 @@ describe('PasswordChangeDialog', () => {
     await user.click(screen.getByRole('button', { name: '변경하기' }));
 
     expect(screen.getByText(/일치하지 않/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/일치하지 않/);
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
@@ -295,6 +306,41 @@ describe('PasswordChangeDialog', () => {
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/login'));
     expect(useAuthStore.getState().status).toBe('unauthenticated');
   });
+
+  it('저장소 정리가 실패해도 안내 토스트를 띄우고 로그인으로 보낸다', async () => {
+    server.use(http.patch(`${BASE}/users/me/password`, ok204));
+    setStorage(failingRemoveStorage);
+    useAuthStore.setState({ status: 'authenticated' });
+    const user = userEvent.setup();
+    renderWithProviders(<PasswordChangeDialog open onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('현재 비밀번호'), 'Old1234!');
+    await user.type(screen.getByLabelText('새 비밀번호'), 'New5678!');
+    await user.type(screen.getByLabelText('새 비밀번호 확인'), 'New5678!');
+    await user.click(screen.getByRole('button', { name: '변경하기' }));
+
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/login'));
+    expect(screen.getByText('비밀번호가 변경되었어요. 다시 로그인해 주세요.')).toBeInTheDocument();
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+
+  it('변경 요청이 진행 중이면 보조기술에 "비밀번호 변경 중" 상태를 알린다', async () => {
+    server.use(
+      http.patch(`${BASE}/users/me/password`, async () => {
+        await delay('infinite');
+        return ok204();
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PasswordChangeDialog open onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('현재 비밀번호'), 'Old1234!');
+    await user.type(screen.getByLabelText('새 비밀번호'), 'New5678!');
+    await user.type(screen.getByLabelText('새 비밀번호 확인'), 'New5678!');
+    await user.click(screen.getByRole('button', { name: '변경하기' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('비밀번호 변경 중'));
+  });
 });
 
 describe('WithdrawAccountDialog', () => {
@@ -307,6 +353,20 @@ describe('WithdrawAccountDialog', () => {
     await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
 
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/'));
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+
+  it('저장소 정리가 실패해도 안내 토스트를 띄우고 홈으로 보낸다', async () => {
+    server.use(http.delete(`${BASE}/users/me`, ok204));
+    setStorage(failingRemoveStorage);
+    useAuthStore.setState({ status: 'authenticated' });
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawAccountDialog open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
+
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/'));
+    expect(screen.getByText('탈퇴가 완료되었어요. 그동안 이용해 주셔서 감사합니다.')).toBeInTheDocument();
     expect(useAuthStore.getState().status).toBe('unauthenticated');
   });
 
@@ -325,6 +385,22 @@ describe('WithdrawAccountDialog', () => {
     await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
 
     expect(await screen.findByText(/회장직을 인계/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/회장직을 인계/);
     expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('탈퇴 요청이 진행 중이면 보조기술에 "회원 탈퇴 중" 상태를 알린다', async () => {
+    server.use(
+      http.delete(`${BASE}/users/me`, async () => {
+        await delay('infinite');
+        return ok204();
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawAccountDialog open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('회원 탈퇴 중'));
   });
 });

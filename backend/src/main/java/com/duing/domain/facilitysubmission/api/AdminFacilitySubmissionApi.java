@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @SecurityRequirement(name = "BearerAuth")
 public interface AdminFacilitySubmissionApi {
 
-    @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 31일.")
+    @Operation(summary = "제출 대상 조회", description = "기간 내 전체 예약(REJECTED 제외) + submitted/selectable 파생 + Summary 4종. 기간 최대 62일.")
     @GetMapping("/admin/facility-bookings/submission/candidates")
     ResponseEntity<ApiResponse<SubmissionCandidatesResponse>> getCandidates(
             @Parameter(description = "시설(생략 시 전 시설)") @RequestParam(required = false) Long facilityId,
@@ -49,11 +49,18 @@ public interface AdminFacilitySubmissionApi {
 
     @Operation(summary = "제출 이력", description = "취소된 Batch 포함 최신순 페이지네이션. "
             + "status 필터는 파생 상태(REVIEWING=진행 중, COMPLETED=완료, CANCELLED=취소, "
-            + "ARCHIVED=완료+취소 이력) 기준.")
+            + "ARCHIVED=완료+취소 이력) 기준. q 는 제출번호·메모·동아리명 부분 일치, "
+            + "submittedFrom/submittedTo 는 생성일(KST 일 단위, 종료일 포함) 범위.")
     @GetMapping("/admin/facility-bookings/submission")
     ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
             @Parameter(description = "파생 상태 필터(생략 시 전체)") @RequestParam(required = false)
             SubmissionBatchStatusFilter status,
+            @Parameter(description = "제출번호·메모·동아리명 부분 일치(대소문자 무시, 공백만이면 무필터)")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "생성일 하한(YYYY-MM-DD, KST, 포함)") @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedFrom,
+            @Parameter(description = "생성일 상한(YYYY-MM-DD, KST, 당일 포함)") @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate submittedTo,
             @Parameter(hidden = true) Pageable pageable);
 
     @Operation(summary = "Batch 상세", description = "취소된 Batch 도 조회 가능. 조회 감사(VIEWED)를 남긴다.")

@@ -74,6 +74,8 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
 
     // 마감 임박(오늘/오늘+1/오늘+3 등 지정 일자) 미납·부분납부 청구를 리마인더 대상으로 조회한다.
     // Club 을 조인해 동아리명을 함께 싣는다 — FeeBill·Club 모두 @SQLRestriction 으로 soft-delete·폐쇄 동아리는 자동 제외.
+    // 활성 멤버십이 없는(동아리 탈퇴·강퇴·계정 탈퇴) 회원은 EXISTS 로 제외한다 — ClubMember @SQLRestriction 이 soft-delete 를 거른다.
+    // 연체 전환·연체 알림은 탈퇴 여부와 무관하게 현행 유지(미수금 추적 대상).
     @Query("""
             SELECT new com.duing.domain.fee.repository.FeeBillDueSoonRow(
                        b.id, b.userId, b.clubId, c.name, b.billingPeriod, b.dueDate)
@@ -81,6 +83,7 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
             WHERE b.status IN (com.duing.domain.fee.entity.FeeStatus.PENDING,
                                com.duing.domain.fee.entity.FeeStatus.PARTIAL_PAID)
               AND b.dueDate IN :dueDates
+              AND EXISTS (SELECT 1 FROM ClubMember cm WHERE cm.club.id = b.clubId AND cm.user.id = b.userId)
             ORDER BY b.id
             """)
     List<FeeBillDueSoonRow> findDueSoonUnpaidBills(@Param("dueDates") Collection<LocalDate> dueDates);

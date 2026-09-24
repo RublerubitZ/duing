@@ -36,6 +36,7 @@ import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -120,7 +121,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         submissionService.cancel(olderBatchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 20));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).extracting(SubmissionBatchListItem::batchId)
                 .containsExactly(newerBatchId, olderBatchId);
@@ -144,7 +145,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
                 List.of(roomBooking.getId(), hallBooking.getId()), null), actor()).batchId();
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().get(0);
         assertThat(row.facilityNames()).containsExactly("가온홀", "커뮤니티룸(1)");
@@ -164,7 +165,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         turnIntoLegacyFacilityBatch(batchId, facility.getId());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().get(0);
         assertThat(row.facilityId()).isEqualTo(facility.getId());
@@ -198,8 +199,62 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
     }
 
     private List<Long> batchIdsOf(SubmissionBatchStatusFilter status) {
-        return queryService.getBatches(new SubmissionBatchSearchCondition(status),
+        return queryService.getBatches(new SubmissionBatchSearchCondition(status, null, null, null),
                         PageRequest.of(0, 20)).getContent().stream()
+                .map(SubmissionBatchListItem::batchId)
+                .toList();
+    }
+
+    @Test
+    @DisplayName("배치 검색 q 는 제출번호·메모·동아리명 부분 일치(대소문자 무시)로 걸리고, 공백만이면 무필터다")
+    void keywordSearchMatchesSubmissionNoMemoAndClubName() {
+        Club namedClub = clubRepository.save(Club.create("검색밴드부-" + sequence.getAndIncrement(),
+                ClubCategory.OTHER, "분과", "설명", null));
+        FacilityBooking memoTarget = approvedBooking(9);
+        FacilityBooking clubTarget = approvedBooking(namedClub, 11);
+        Long memoBatchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(memoTarget.getId()), "가을 학기 MEMO 제출"), actor()).batchId();
+        Long clubBatchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(clubTarget.getId()), null), actor()).batchId();
+        String clubSubmissionNo = queryService.getBatches(
+                        new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 20))
+                .getContent().stream()
+                .filter(item -> item.batchId().equals(clubBatchId))
+                .findFirst().orElseThrow().submissionNo();
+
+        assertThat(batchIdsMatching("memo")).containsExactly(memoBatchId);
+        assertThat(batchIdsMatching("검색밴드부")).containsExactly(clubBatchId);
+        assertThat(batchIdsMatching(clubSubmissionNo.substring(clubSubmissionNo.length() - 3)))
+                .contains(clubBatchId);
+        assertThat(batchIdsMatching("   ")).contains(memoBatchId, clubBatchId);
+        assertThat(batchIdsMatching("없는키워드zzz")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("submittedFrom·submittedTo 는 KST 일 단위로 생성일 범위를 거르고 to 당일은 포함, 다음날 0시는 제외한다")
+    void submittedDateRangeFiltersBatches() {
+        FacilityBooking target = approvedBooking(9);
+        Long batchId = submissionService.create(
+                new CreateSubmissionBatchCommand(List.of(target.getId()), null), actor()).batchId();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        assertThat(batchIdsBetween(today, today)).contains(batchId);
+        assertThat(batchIdsBetween(today.minusDays(3), today.minusDays(1))).doesNotContain(batchId);
+        assertThat(batchIdsBetween(today.plusDays(1), null)).doesNotContain(batchId);
+        assertThat(batchIdsBetween(null, today)).contains(batchId);
+    }
+
+    /** 기존 batchIdsOf(SubmissionBatchStatusFilter) 와 오버로드하면 batchIdsOf(null) 이 모호해져 이름을 달리 둔다. */
+    private List<Long> batchIdsMatching(String keyword) {
+        return queryService.getBatches(new SubmissionBatchSearchCondition(null, keyword, null, null),
+                        PageRequest.of(0, 50)).getContent().stream()
+                .map(SubmissionBatchListItem::batchId)
+                .toList();
+    }
+
+    private List<Long> batchIdsBetween(LocalDate from, LocalDate to) {
+        return queryService.getBatches(new SubmissionBatchSearchCondition(null, null, from, to),
+                        PageRequest.of(0, 50)).getContent().stream()
                 .map(SubmissionBatchListItem::batchId)
                 .toList();
     }
@@ -288,7 +343,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         submissionService.complete(batchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 20));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent().get(0).completed()).isTrue();
         assertThat(page.getContent().get(0).completedAt()).isNotNull();
@@ -311,7 +366,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         turnIntoLegacyFacilityBatch(batchId, facility.getId());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().stream()
                 .filter(listItem -> listItem.batchId().equals(batchId))
@@ -339,7 +394,7 @@ class GeneralFacilitySubmissionHistoryQueryIntegrationTest extends IntegrationTe
         submissionService.complete(batchId, actor());
 
         Page<SubmissionBatchListItem> page = queryService.getBatches(
-                new SubmissionBatchSearchCondition(null), PageRequest.of(0, 10));
+                new SubmissionBatchSearchCondition(null, null, null, null), PageRequest.of(0, 10));
 
         SubmissionBatchListItem row = page.getContent().stream()
                 .filter(listItem -> listItem.batchId().equals(batchId))

@@ -13,7 +13,7 @@ import {
 type Props = {
   /** 변경 대상 — 시설명 또는 "활성 시설 N개". */
   title: string;
-  /** 이전 창("M.d ~ M.d" · 마감일 없으면 "M.d ~" · "닫힘" · 전체 적용이면 "여러 값"). */
+  /** 이전 창("YYYY-MM-DD ~ YYYY-MM-DD" · 마감일 없으면 "YYYY-MM-DD ~ 익월 말일" · "닫힘" · 전체 적용이면 집계). */
   before: string;
   /** 이후 창(같은 표기 또는 "닫힘"). */
   after: string;
@@ -46,10 +46,7 @@ export function FacilityOpenDateConfirmDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -76,6 +73,7 @@ export function FacilityOpenDateConfirmDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '오픈일 저장 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

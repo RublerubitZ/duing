@@ -1,4 +1,4 @@
-import ky, { type KyInstance, type ResponsePromise } from 'ky';
+import ky, { HTTPError, type KyInstance, type ResponsePromise } from 'ky';
 import { notifyUnauthorized } from './unauthorized-context';
 import type {
   InterviewRoundCandidate,
@@ -636,6 +636,9 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     authTransport === 'cookie'
       ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
           try {
+            // 결과를 가르는 건 refresh 가 전송된 시점의 쿠키라 원 요청 시각이 아니라 이 시각을 싣는다.
+            // 벽시계 역행에 흔들리지 않게 문서 단조 시각을 쓴다(세션 개시 시각과 같은 축).
+            const refreshStartedAt = performance.now();
             const refreshResponse = await ky.post(`${normalizedBaseUrl}/auth/web/refresh`, {
               credentials: 'include',
               retry: 0,
@@ -644,7 +647,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             });
             if (refreshResponse.status === 204) return 'refreshed';
             if (refreshResponse.status === 401 || refreshResponse.status === 404) {
-              notifyUnauthorized();
+              notifyUnauthorized(refreshStartedAt);
               return 'session-expired';
             }
             return 'unavailable';
@@ -695,20 +698,43 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             if (isAuthPath) {
               return;
             }
-            const outcome = await refreshCoordinator.ensureFreshSession();
-            if (outcome === 'refreshed' || outcome === 'skipped') {
-              // ky 공식 재시도 패턴 — bare ky 는 이 훅을 다시 타지 않아 루프가 없고,
-              // 재시도가 다시 401 이어도 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
-              // retry:0 명시 — bare ky 기본값은 GET 계열 5xx 에 2회 자동 재시도라, 비워두면
-              // "재시도 단일 진실원=RQ(retry:0)" 정책(전역 http 훅 주석 참조)이 이 경로에서만 깨진다.
-              // 원 요청의 per-request timeout(업로드 60s·facilityOnDemand 18s 등)을 물려준다 —
-              // 훅 2번째 인자 options 는 런타임엔 정규화된 timeout(number | false, 기본 10s)을 담지만
-              // ky 타입엔 빠져 있어 Reflect.get + 런타임 가드로 as 없이 추출한다.
+            // ky 공식 재시도 패턴 — bare ky 는 이 훅을 다시 타지 않아 루프가 없다.
+            // retry:0 명시 — bare ky 기본값은 GET 계열 5xx 에 2회 자동 재시도라, 비워두면
+            // "재시도 단일 진실원=RQ(retry:0)" 정책(전역 http 훅 주석 참조)이 이 경로에서만 깨진다.
+            // 원 요청의 per-request timeout(업로드 60s·facilityOnDemand 18s 등)을 물려준다 —
+            // 훅 2번째 인자 options 는 런타임엔 정규화된 timeout(number | false, 기본 10s)을 담지만
+            // ky 타입엔 빠져 있어 Reflect.get + 런타임 가드로 as 없이 추출한다.
+            // 매 호출 request.clone() — new Request(사용된 Request) 는 바디 소비 TypeError 라, 두 번째
+            // 재시도(skip→401→강제 갱신)에서 바디 있는 요청이 네트워크 오류로 둔갑한다.
+            const retryOriginalRequest = () => {
               const preservedTimeout = Reflect.get(options, 'timeout');
               if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
-                return ky(request, { retry: 0, timeout: preservedTimeout });
+                return ky(request.clone(), { retry: 0, timeout: preservedTimeout });
               }
-              return ky(request, { retry: 0 });
+              return ky(request.clone(), { retry: 0 });
+            };
+            const outcome = await refreshCoordinator.ensureFreshSession();
+            if (outcome === 'refreshed') {
+              // 방금 갱신했는데도 재시도가 401 이면 그대로 표면화된다(다음 요청이 새 갱신 사이클을 연다).
+              return retryOriginalRequest();
+            }
+            if (outcome === 'skipped') {
+              // 10초 생략 창 안에 서버측 세션이 폐기되면(강제 로그아웃·전체 로그아웃·재사용 탐지)
+              // 재시도가 다시 401 이다 — 생략 기록을 무시하고 갱신을 요청당 1회만 강제해(#844)
+              // 진짜 만료(세션 종료 알림)와 일시 장애를 다시 가른다. 강제 갱신 뒤에는 루프가 없다.
+              try {
+                return await retryOriginalRequest();
+              } catch (retryError) {
+                if (!(retryError instanceof HTTPError) || retryError.response.status !== 401) {
+                  throw retryError;
+                }
+                const forcedOutcome = await refreshCoordinator.ensureFreshSession({ force: true });
+                if (forcedOutcome === 'refreshed') {
+                  return retryOriginalRequest();
+                }
+                // 'skipped' 는 조율기 ponytail 주석의 공유 창(진행 중 non-force 실행 공유) — 다음 요청이 치유한다.
+                throw retryError;
+              }
             }
             // 'session-expired'(알림은 실행기가 1회 발화) · 'unavailable' — 원 401 표면화 (§17)
             return;

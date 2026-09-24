@@ -149,7 +149,7 @@ function addQuestion(text: string) {
   fireEvent.change(screen.getByPlaceholderText('질문 1을 입력하세요'), { target: { value: text } });
 }
 
-describe('RecruitmentForm — 모집 정원 검증', () => {
+describe('RecruitmentForm — 모집 인원 검증', () => {
   // noValidate 라 브라우저 step 검증이 없어 소수점이 그대로 zod 까지 간다 — 문구가 한글이어야 한다.
   it('정원에 소수를 넣으면 한글 오류 문구로 제출이 막힌다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -157,11 +157,11 @@ describe('RecruitmentForm — 모집 정원 검증', () => {
 
     fillCreateBasics();
     addQuestion('지원 동기를 알려주세요');
-    fireEvent.change(screen.getByLabelText(/^모집 정원/), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByLabelText(/^모집 인원/), { target: { value: '1.5' } });
 
     fireEvent.click(screen.getByRole('button', { name: /모집 시작/ }));
 
-    expect(await screen.findByText('모집 정원은 정수여야 합니다.')).toBeInTheDocument();
+    expect(await screen.findByText('모집 인원은 정수여야 합니다.')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

@@ -54,7 +54,7 @@ class ClubJoinCodeTest {
                 .as("종료 후 7일째 정각까지는 유효 — 경계는 포함").isTrue();
         assertThat(joinCode.isUsable(NOW.plusDays(7).plusSeconds(1)))
                 .as("프리셋을 1초라도 넘기면 사용 불가").isFalse();
-        assertThat(joinCode.getJoinExpiresAt())
+        assertThat(joinCode.getJoinExpiresAt(NOW))
                 .as("기한은 설정 마감일이 아니라 실제 종료 시각 기준이다").isEqualTo(NOW.plusDays(7));
     }
 
@@ -77,7 +77,7 @@ class ClubJoinCodeTest {
 
         assertThat(joinCode.isUsable(NOW.plusYears(1)))
                 .as("종료 시점이 없으므로 OPEN 동안은 기간 제한이 없다").isTrue();
-        assertThat(joinCode.getJoinExpiresAt()).as("진행 중에는 기한이 정해지지 않는다").isNull();
+        assertThat(joinCode.getJoinExpiresAt(NOW.plusYears(1))).as("진행 중에는 기한이 정해지지 않는다").isNull();
     }
 
     @Test
@@ -89,7 +89,47 @@ class ClubJoinCodeTest {
 
         assertThat(joinCode.isUsable(NOW))
                 .as("기준점이 없으면 기간을 계산할 수 없다 — 무기한 사용 대신 막는다(fail-closed)").isFalse();
-        assertThat(joinCode.getJoinExpiresAt()).isNull();
+        assertThat(joinCode.getJoinExpiresAt(NOW)).isNull();
+    }
+
+    @Test
+    @DisplayName("마감일이 지났는데 마감 처리만 안 된 모집의 코드는 마감일 종료 + 프리셋까지만 쓸 수 있다")
+    void expiredOpenRecruitmentWindowStartsFromEndOfEndDate() {
+        LocalDate endDate = NOW.toLocalDate().minusDays(1);
+        ClubJoinCode joinCode = issue(recruitment(endDate), 5, DEFAULT_WINDOW_DAYS);
+        LocalDateTime expectedExpiry = endDate.plusDays(1).atStartOfDay().plusDays(DEFAULT_WINDOW_DAYS);
+
+        assertThat(joinCode.getJoinExpiresAt(NOW))
+                .as("상태가 OPEN 이어도 마감일이 지났으면 마감일 다음날 00:00 + 프리셋이 기한이다")
+                .isEqualTo(expectedExpiry);
+        assertThat(joinCode.isUsable(expectedExpiry)).as("경계는 포함").isTrue();
+        assertThat(joinCode.isUsable(expectedExpiry.plusSeconds(1)))
+                .as("마감 처리를 안 해도 기한을 1초라도 넘기면 사용 불가").isFalse();
+    }
+
+    @Test
+    @DisplayName("프리셋 0일이면 만료-OPEN 모집의 코드는 마감일 다음날 00:00 까지만 쓸 수 있다")
+    void expiredOpenRecruitmentWithZeroWindowEndsAtEndOfEndDate() {
+        LocalDate endDate = NOW.toLocalDate().minusDays(1);
+        ClubJoinCode joinCode = issue(recruitment(endDate), 5, 0);
+        LocalDateTime endOfEndDate = endDate.plusDays(1).atStartOfDay();
+
+        assertThat(joinCode.getJoinExpiresAt(NOW)).isEqualTo(endOfEndDate);
+        assertThat(joinCode.isUsable(endOfEndDate)).isTrue();
+        assertThat(joinCode.isUsable(endOfEndDate.plusSeconds(1))).isFalse();
+    }
+
+    @Test
+    @DisplayName("마감일 뒤에 늦게 마감 처리해도 가입 기한은 마감일 종료 기준으로 잡혀 늘어나지 않는다")
+    void lateCloseStampDoesNotExtendWindowPastEndDate() {
+        LocalDate endDate = NOW.toLocalDate().minusDays(2);   // 픽스처 시작일(8/1)보다 앞설 수 없다
+        Recruitment recruitment = recruitment(endDate);
+        ClubJoinCode joinCode = issue(recruitment, 5, DEFAULT_WINDOW_DAYS);
+        recruitment.close(NOW);
+
+        assertThat(joinCode.getJoinExpiresAt(NOW))
+                .as("closedAt(=NOW) 보다 이른 마감일 다음날 00:00 이 실제 종료 시각이다")
+                .isEqualTo(endDate.plusDays(1).atStartOfDay().plusDays(DEFAULT_WINDOW_DAYS));
     }
 
     @Test
@@ -137,7 +177,7 @@ class ClubJoinCodeTest {
         @Test
         @DisplayName("부원 초대 링크의 가입 가능 기한은 모집이 아닌 절대 만료 시각에서 나온다")
         void joinExpiresAtIsInviteExpiresAt() {
-            assertThat(inviteCode(issuedAt.plusHours(72)).getJoinExpiresAt())
+            assertThat(inviteCode(issuedAt.plusHours(72)).getJoinExpiresAt(issuedAt))
                     .isEqualTo(issuedAt.plusHours(72));
         }
 

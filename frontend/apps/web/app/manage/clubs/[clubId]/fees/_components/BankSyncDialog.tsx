@@ -9,6 +9,7 @@ import { syncBankTransactionsSchema } from '@duing/schemas';
 import type { SyncBankTransactionsInput } from '@duing/schemas';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   Dialog,
@@ -142,7 +143,7 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
           </p>
 
           {submitErrorMessage && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
           )}
 
           <div className="flex gap-2 pt-1">
@@ -166,28 +167,9 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
               {syncTransactions.isPending && <ButtonSpinner />}동기화
             </button>
           </div>
+          <span role="status" className="sr-only">{syncTransactions.isPending ? '거래내역 동기화 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-type FieldProps = {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-};
-
-function Field({ id, label, required, error, children }: FieldProps) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-ink">
-        {label} {required && <span className="text-coral">*</span>}
-      </label>
-      {children}
-      {error && <p className="mt-1 text-xs text-coral">{error}</p>}
-    </div>
   );
 }

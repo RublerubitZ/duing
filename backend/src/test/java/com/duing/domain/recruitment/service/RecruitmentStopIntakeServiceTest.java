@@ -2,6 +2,8 @@ package com.duing.domain.recruitment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -235,7 +237,7 @@ class RecruitmentStopIntakeServiceTest {
         Recruitment recruitment = alwaysOpenRecruitment(LocalDate.now(KST).minusDays(10));
         when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
-                .when(clubAuthService).requireManager(MEMBER_USER_ID, CLUB_ID);
+                .when(clubAuthService).requireManagerOrHidden(eq(MEMBER_USER_ID), eq(CLUB_ID), any());
 
         assertThatThrownBy(() -> recruitmentService.stopIntake(RECRUITMENT_ID, MEMBER_USER_ID))
                 .isInstanceOf(AccessDeniedException.class);

@@ -206,6 +206,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               {submitPromotion.isPending && <ButtonSpinner />}홍보 요청 제출
             </button>
           </div>
+          <span role="status" className="sr-only">{submitPromotion.isPending ? '홍보 요청 보내는 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

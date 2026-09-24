@@ -87,6 +87,7 @@ export function LeaveClubDialog({ club, onClose }: Props) {
             {isPending && <ButtonSpinner />}동아리 탈퇴
           </button>
         </div>
+        <span role="status" className="sr-only">{isPending ? '동아리 탈퇴 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -62,12 +62,7 @@ export function BulkConfirmDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>
@@ -87,6 +82,7 @@ export function BulkConfirmDialog({
             {LABEL[targetStatus]}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '일괄 상태 변경 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -1,15 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setStorage } from '@duing/storage';
 import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import type { User } from '@duing/types';
 
 // clearSession() 은 clearToken() 을 거치고, storage 미주입이면 getStorage() 가 throw 한다.
 // 스토어 상태 전이만 보는 테스트이므로 빈 저장소를 주입한다(session-judgment.test.tsx 와 동일).
-setStorage({
+const EMPTY_STORAGE = {
   getItem: () => Promise.resolve(null),
   setItem: () => Promise.resolve(),
   removeItem: () => Promise.resolve(),
-});
+};
+setStorage(EMPTY_STORAGE);
 
 const TEST_USER: User = {
   id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
@@ -18,6 +19,10 @@ const TEST_USER: User = {
 
 beforeEach(() => {
   useAuthStore.setState(useAuthStore.getInitialState(), true);
+});
+
+afterEach(() => {
+  setStorage(EMPTY_STORAGE);
 });
 
 describe('auth-store 상태 모델 (§8)', () => {
@@ -55,6 +60,49 @@ describe('auth-store 상태 모델 (§8)', () => {
     expect(useAuthStore.getState()).toMatchObject({
       status: 'unauthenticated', isVerified: true, user: null,
     });
+  });
+
+  it('setSession 은 세션 개시 시각을 기록하고 clearSession 은 지운다 (#845)', async () => {
+    expect(useAuthStore.getState().sessionOpenedAt).toBeNull();
+    const beforeOpen = performance.now();
+    useAuthStore.getState().setSession(TEST_USER);
+    const { sessionOpenedAt } = useAuthStore.getState();
+    expect(sessionOpenedAt).not.toBeNull();
+    expect(sessionOpenedAt).toBeGreaterThanOrEqual(beforeOpen);
+    await useAuthStore.getState().clearSession();
+    expect(useAuthStore.getState().sessionOpenedAt).toBeNull();
+  });
+
+  it('저장소 정리를 기다리는 사이 들어온 로그인을 늦은 set 이 덮지 않는다', async () => {
+    let release!: () => void;
+    setStorage({
+      getItem: () => Promise.resolve(null),
+      setItem: () => Promise.resolve(),
+      removeItem: () => new Promise<void>((resolve) => { release = resolve; }),
+    });
+    const NEXT_USER: User = { ...TEST_USER, id: 2, studentId: '20240002' };
+    useAuthStore.getState().setSession(TEST_USER);
+    const pending = useAuthStore.getState().clearSession();
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+    useAuthStore.getState().setSession(NEXT_USER);
+    release();
+    await pending;
+    const finalState = useAuthStore.getState();
+    expect(finalState.user).toBe(NEXT_USER);
+    expect(finalState.status).toBe('authenticated');
+    expect(finalState.sessionOpenedAt).not.toBeNull();
+  });
+
+  it('저장소 정리가 실패해도 종료 상태는 반영된다', async () => {
+    setStorage({
+      getItem: () => Promise.resolve(null),
+      setItem: () => Promise.resolve(),
+      removeItem: () => Promise.reject(new Error('storage unavailable')),
+    });
+    useAuthStore.getState().setSession(TEST_USER);
+    await expect(useAuthStore.getState().clearSession()).rejects.toThrow('storage unavailable');
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+    expect(useAuthStore.getState().user).toBeNull();
   });
 
   it('selectIsAuthenticated 는 시드·확정을 구분하지 않는다 (§10 게이트 술어)', () => {

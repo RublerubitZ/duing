@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
 import type { ManagedClub, User } from '@duing/types';
 
 const pushSpy = vi.fn();
@@ -50,12 +50,18 @@ vi.mock('@duing/hooks', () => ({
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';
 
+// 로그아웃 후 이동은 window.location.replace(하드 이동)다 — jsdom 은 Location 을 재정의할 수 없어 전역을 스텁한다.
+const hardReplaceSpy = vi.fn();
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy }));
+afterAll(() => vi.unstubAllGlobals());
+
 describe('ManageShell — 접기·푸터', () => {
   beforeEach(() => {
     window.localStorage.clear();
     nav.pathname = '/manage/clubs/1';
     pushSpy.mockReset();
     replaceSpy.mockReset();
+    hardReplaceSpy.mockClear();
     logoutSpy.mockClear();
   });
 
@@ -106,7 +112,7 @@ describe('ManageShell — 접기·푸터', () => {
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
 
     expect(logoutSpy).toHaveBeenCalledTimes(1);
-    expect(replaceSpy).toHaveBeenCalledWith('/');
+    expect(hardReplaceSpy).toHaveBeenCalledWith('/');
   });
 
   // 드로어 안 링크를 미저장 이탈 가드가 capture 에서 멈추면 래퍼 onClick 이 실행되지 않아 드로어가

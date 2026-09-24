@@ -3,11 +3,11 @@
 import { useState } from 'react';
 
 import Link from 'next/link';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
 
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
@@ -121,7 +121,6 @@ export function SettingsPage() {
   const managedClubsQuery = useManagedClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const logout = useLogout();
-  const router = useGuardedRouter();
   const { addToast } = useToast();
 
   const user = meQuery.data;
@@ -143,7 +142,13 @@ export function SettingsPage() {
     try {
       await logout();
       clearOperatorLocalState();
-      router.replace('/');
+      // 문서 하드 이동 — 라우터 캐시에 남은 인증 트리(/me·/manage, staleTimes.dynamic 180초)를 버리고
+      // 메모리 상태를 통째로 비운다(공용 단말). router.replace 는 캐시를 남겨 로그아웃 직후 MY 탭이
+      // 미들웨어 대신 옛 셸을 재생했다(#1225 의 반대 방향).
+      // 하드 이동은 응답이 커밋될 때까지 문서가 살아 있다 — 그 사이 확인 모달·드로어가 닫히며 내보내는 회수
+      // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
+      skipNextOverlayReclaim();
+      window.location.replace('/');
     } catch {
       addToast(
         '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
@@ -316,6 +321,7 @@ export function SettingsPage() {
         description="이 기기에서 로그아웃돼요."
         confirmLabel="로그아웃"
         isPending={logoutPending}
+        busyLabel="로그아웃 중"
         onCancel={() => setLogoutConfirmOpen(false)}
         onConfirm={handleLogout}
       />

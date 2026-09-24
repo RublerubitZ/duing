@@ -41,7 +41,7 @@ export function RecruitmentKpiRow({ recruitment }: Props) {
       <KpiTile
         label="지원자"
         value={summary ? String(summary.total) : '—'}
-        sub={`정원 ${recruitment.capacity}명`}
+        sub={`모집 인원 ${recruitment.capacity}명`}
       />
       <KpiTile label="검토 대기" value={summary ? String(summary.submitted + summary.onHold) : '—'} />
       <KpiTile label="면접 대기" value={interviewPendingValue} />

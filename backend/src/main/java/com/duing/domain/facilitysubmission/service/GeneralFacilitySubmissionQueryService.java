@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +53,8 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     private static final List<BookingStatus> CANDIDATE_STATUSES = List.of(
             BookingStatus.PENDING, BookingStatus.APPROVED, BookingStatus.CONFIRMED,
             BookingStatus.CONFLICT, BookingStatus.CANCELLED);
-    private static final int MAX_PERIOD_DAYS = 31;
+    /** 제출 준비 기본 기간 "오늘~다음 달 말일"(최대 62일)을 한 번에 조회할 수 있어야 한다(콘솔 UX 스펙 A1). */
+    private static final int MAX_PERIOD_DAYS = 62;
 
     private final FacilityBookingRepository bookingRepository;
     private final FacilitySubmissionItemRepository itemRepository;
@@ -77,13 +79,14 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                         .thenComparing(FacilityBooking::getId))
                 .toList();
 
-        Map<Long, String> submissionNoByBookingId = activeSubmissionNos(bookings);
+        Map<Long, FacilitySubmissionItemRepository.ActiveSubmissionProjection> activeSubmissionByBookingId =
+                activeSubmissions(bookings);
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
         Map<Long, String> facilityNames = bookingFacilityNames(bookings);
 
         List<SubmissionCandidateBooking> candidateBookings = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
+                .map(booking -> toCandidate(booking, activeSubmissionByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         return new SubmissionCandidatesResult(summarize(candidateBookings), candidateBookings);
     }
@@ -131,15 +134,15 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         // 상세의 submitted/submissionNo 는 "지금 어느 활성 제출에 묶여 있나"(후보 조회의 질문)가 아니라
         // 조회 중인 이 배치 기준이어야 한다 — 교차 배치를 물으면 스킵 후 다른 배치에 재제출된 예약이
         // 이 배치 상세에서 남의 제출번호를 달고 나와 감사 화면을 오독하게 만든다.
-        Map<Long, String> submissionNoByBookingId = items.stream()
+        Map<Long, FacilitySubmissionItemRepository.ActiveSubmissionProjection> thisBatchByBookingId = items.stream()
                 .filter(item -> item.getSkippedAt() == null)
                 .collect(Collectors.toMap(FacilitySubmissionItem::getBookingId,
-                        item -> batch.getSubmissionNo()));
+                        item -> new BatchBoundSubmission(item.getBookingId(), batch.getSubmissionNo(), batch.getId())));
         Map<Long, String> clubNames = clubNames(bookings);
         Map<Long, String> userNames = userNames(bookings);
         Map<Long, String> facilityNames = bookingFacilityNames(bookings);
         List<SubmissionCandidateBooking> bookingRows = bookings.stream()
-                .map(booking -> toCandidate(booking, submissionNoByBookingId, clubNames, userNames, facilityNames))
+                .map(booking -> toCandidate(booking, thisBatchByBookingId, clubNames, userNames, facilityNames))
                 .toList();
         SubmissionBatchListItem header = toListItem(batch, bookingIds.size(),
                 batch.getFacilityId() == null ? null : facilityNames(List.of(batch)).get(batch.getFacilityId()),
@@ -238,7 +241,9 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
         }
     }
 
-    private Map<Long, String> activeSubmissionNos(List<FacilityBooking> bookings) {
+    /** bookingId → 활성 제출(번호·배치 id). 후보 목록에서 제출번호와 배치 링크를 함께 내린다(콘솔 UX 스펙 A2). */
+    private Map<Long, FacilitySubmissionItemRepository.ActiveSubmissionProjection> activeSubmissions(
+            List<FacilityBooking> bookings) {
         if (bookings.isEmpty()) {
             return Map.of();
         }
@@ -246,7 +251,7 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                         bookings.stream().map(FacilityBooking::getId).toList()).stream()
                 .collect(Collectors.toMap(
                         FacilitySubmissionItemRepository.ActiveSubmissionProjection::getBookingId,
-                        FacilitySubmissionItemRepository.ActiveSubmissionProjection::getSubmissionNo,
+                        Function.identity(),
                         (first, second) -> first));
     }
 
@@ -269,9 +274,11 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     }
 
     private SubmissionCandidateBooking toCandidate(FacilityBooking booking,
-            Map<Long, String> submissionNoByBookingId, Map<Long, String> clubNames, Map<Long, String> userNames,
-            Map<Long, String> facilityNames) {
-        boolean submitted = submissionNoByBookingId.containsKey(booking.getId());
+            Map<Long, FacilitySubmissionItemRepository.ActiveSubmissionProjection> activeSubmissionByBookingId,
+            Map<Long, String> clubNames, Map<Long, String> userNames, Map<Long, String> facilityNames) {
+        FacilitySubmissionItemRepository.ActiveSubmissionProjection activeSubmission =
+                activeSubmissionByBookingId.get(booking.getId());
+        boolean submitted = activeSubmission != null;
         boolean selectable = booking.getStatus() == BookingStatus.APPROVED && !submitted;
         return new SubmissionCandidateBooking(
                 booking.getId(), booking.getFacilityId(), facilityNames.get(booking.getFacilityId()),
@@ -279,7 +286,9 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
                 userNames.get(booking.getApplicantId()), blankToNull(booking.getContactPhone()),
                 booking.getReservationDate(), booking.getStartTime(), booking.getEndTime(),
                 booking.getPurpose(), booking.getAttendeeCount(), booking.getStatus(),
-                submitted, selectable, submissionNoByBookingId.get(booking.getId()),
+                submitted, selectable,
+                submitted ? activeSubmission.getSubmissionNo() : null,
+                submitted ? activeSubmission.getBatchId() : null,
                 booking.getDecidedById() != null ? userNames.get(booking.getDecidedById()) : null,
                 booking.getDecidedAt());
     }
@@ -299,5 +308,24 @@ public class GeneralFacilitySubmissionQueryService implements FacilitySubmission
     /** V85 하위호환 — 기존 행의 빈 연락처는 null 로 노출한다(관리자 상세 응답과 동일 규칙). */
     private String blankToNull(String text) {
         return (text == null || text.isBlank()) ? null : text;
+    }
+
+    /** 배치 상세용 — 이 배치에 묶인 item 을 프로젝션 계약으로 감싼다(후보 조회와 toCandidate 를 공유). */
+    private record BatchBoundSubmission(Long bookingId, String submissionNo, Long batchId)
+            implements FacilitySubmissionItemRepository.ActiveSubmissionProjection {
+        @Override
+        public Long getBookingId() {
+            return bookingId;
+        }
+
+        @Override
+        public String getSubmissionNo() {
+            return submissionNo;
+        }
+
+        @Override
+        public Long getBatchId() {
+            return batchId;
+        }
     }
 }

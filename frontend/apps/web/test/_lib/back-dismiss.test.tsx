@@ -36,6 +36,25 @@ async function pressBack() {
   await settle();
 }
 
+async function pressForward() {
+  const popped = nextPopState();
+  await act(async () => {
+    window.history.forward();
+    await popped;
+  });
+  await settle();
+}
+
+// 히스토리 메뉴 롱프레스처럼 여러 칸을 한 번에 이동한다(중간 엔트리에는 착지하지 않는다).
+async function jump(delta: number) {
+  const popped = nextPopState();
+  await act(async () => {
+    window.history.go(delta);
+    await popped;
+  });
+  await settle();
+}
+
 describe('jsdom 히스토리 가정', () => {
   it('pushState 후 back() 이 popstate 를 발화하고 이전 state 로 되돌린다', async () => {
     window.history.replaceState({ marker: 'base' }, '');
@@ -545,30 +564,115 @@ describe('useBackDismiss', () => {
     expect(window.history.state.__overlayId).toBeUndefined();
   });
 
-  it('앞으로 가기로 죽은 엔트리에 올라오면 되돌려 보내지 않는다', async () => {
+  // 이동과 겹치는 닫힘(skip)으로 [/test-page][죽은 마커(URL=/test-page)][nextPath] 를 만든다(#857).
+  async function stackDeadEntryUnder(nextPath: string) {
     const { unmount } = render(<Overlay name="a" />);
-    // 시트를 연 채 언마운트 — 주인 없는 엔트리가 남는다(페이지 이동 상황과 동일).
+    skipNextOverlayReclaim();
     unmount();
     await settle();
-    // 그 위에 다음 페이지 엔트리를 쌓는다.
-    window.history.pushState({ marker: 'next-page' }, '');
+    // Next 내비게이션 커밋 흉내 — 죽은 엔트리 위에 다음 페이지 엔트리를 쌓는다.
+    window.history.pushState({ marker: 'B' }, '', nextPath);
+  }
 
-    const backPopped = nextPopState();
-    await act(async () => {
-      window.history.back();
-      await backPopped;
-    });
+  it('죽은 엔트리를 건너 뒤로 온 뒤 앞으로 가기는 다음 페이지로 재진입한다', async () => {
+    await stackDeadEntryUnder('/b');
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 앞으로 가기가 죽은 엔트리에서 back 으로 되감기면 제자리 바운스로 다음 페이지에 영원히 못 간다.
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+    expect(window.location.pathname).toBe('/b');
+  });
+
+  it('죽은 엔트리를 사이에 둔 뒤로·앞으로 왕복이 양방향 모두 한 번에 닿는다', async () => {
+    await stackDeadEntryUnder('/b');
+
+    await pressBack();
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it('다음 페이지가 같은 URL 이어도 뒤로가기는 바운스 루프 없이 이전 페이지에 닿는다', async () => {
+    // 같은 URL 이면 "같은 페이지에서 왔다" 판정이 방향을 가르지 못한다 — 집합 제거가 안전장치다.
+    await stackDeadEntryUnder('/test-page');
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 죽은 엔트리가 "위쪽" 으로 기억된 채 그 위로 건너뛴다.
+    await jump(2);
+    expect(window.history.state).toEqual({ marker: 'B' });
+
+    // 첫 뒤로가기는 앞으로 오판돼 B 로 1회 바운스할 수 있지만, 두 번째는 반드시 이전 페이지다.
+    await pressBack();
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it('라이브 오버레이 위의 기억되지 않은 죽은 마커에 forward 로 올라오면 앉는다(wentForward)', async () => {
+    // [page][라이브 a][죽은 b][B] — B 에서 a 로 점프하면 b 는 back 스킵을 거치지 않아 기억되지 않는다.
+    render(<Overlay name="a" />);
+    const liveId: unknown = window.history.state.__overlayId;
+    const { unmount } = render(<Overlay name="b" />);
+    const deadId: unknown = window.history.state.__overlayId;
+    skipNextOverlayReclaim();
+    unmount();
     await settle();
+    window.history.pushState({ marker: 'B' }, '', '/b');
 
-    const forwardPopped = nextPopState();
-    await act(async () => {
-      window.history.forward();
-      await forwardPopped;
-    });
+    await jump(-2);
+    expect(window.history.state.__overlayId).toBe(liveId);
+
+    // 위로 올라온 착지라 되돌려 보내면 B 에 영원히 못 간다 — 앉아야 한다.
+    const observed: boolean[] = [];
+    // 모듈 리스너보다 나중에 등록되므로 모듈이 판정을 마친 뒤에 실행된다.
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
+    await pressForward();
+    window.removeEventListener('popstate', probe);
+    // 죽은 마커는 아래 페이지와 URL 이 같다 — 전환을 시작하면 끝나지 않으므로 억제해야 한다.
+    expect(observed).toEqual([true]);
+    // 죽은 엔트리 아래의 라이브 오버레이 a 는 여전히 열려 있어야 한다 — forward 착지는 안전망으로 닫지 않는다.
+    expect(window.history.state.__overlayId).toBe(deadId);
+    expect(closeSpy).not.toHaveBeenCalled();
+    // 마커 없는 페이지 엔트리 B 에 닿으면 오버레이 영역을 벗어난 것이라 그때 a 가 닫힌다.
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledWith('a');
+  });
+
+  it('forward 로 앉은 죽은 마커에서 뒤로가기는 아래 라이브 오버레이에 닿고 닫지 않는다', async () => {
+    // [page][라이브 a][죽은 b][B] — b 에 forward 로 앉은 뒤 back 하면 a 엔트리로 돌아와 a 는 계속 열려 있다.
+    render(<Overlay name="a" />);
+    const liveId: unknown = window.history.state.__overlayId;
+    const { unmount } = render(<Overlay name="b" />);
+    const deadId: unknown = window.history.state.__overlayId;
+    skipNextOverlayReclaim();
+    unmount();
     await settle();
+    window.history.pushState({ marker: 'B' }, '', '/b');
 
-    // 앞으로 가기가 자동 스킵에 되감기면 다음 페이지에 영원히 도달할 수 없다.
-    expect(window.history.state).toEqual({ marker: 'next-page' });
+    await jump(-2);
+    await pressForward();
+    expect(window.history.state.__overlayId).toBe(deadId);
+
+    await pressBack();
+    expect(window.history.state.__overlayId).toBe(liveId);
+    expect(closeSpy).not.toHaveBeenCalled();
   });
 
   it('onClose 가 열린 뒤에 붙어도 엔트리를 등록한다', async () => {

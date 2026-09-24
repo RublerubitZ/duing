@@ -43,10 +43,7 @@ export function AdminClubSecuredTargetToggleDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>기본 확보 시간 대상 {action}</DialogTitle>
@@ -76,6 +73,7 @@ export function AdminClubSecuredTargetToggleDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `확보 시간 대상 ${action} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

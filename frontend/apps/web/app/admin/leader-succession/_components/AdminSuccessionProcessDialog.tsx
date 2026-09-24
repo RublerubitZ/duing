@@ -49,10 +49,7 @@ export function AdminSuccessionProcessDialog({ succession, isPending, errorMessa
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>승계 요청 처리</DialogTitle>
@@ -94,7 +91,7 @@ export function AdminSuccessionProcessDialog({ succession, isPending, errorMessa
           </p>
         </label>
 
-        {errorMessage && <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
@@ -114,6 +111,7 @@ export function AdminSuccessionProcessDialog({ succession, isPending, errorMessa
             {`${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'REJECTED' ? '로' : '으로'} 처리`}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '승계 요청 처리 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

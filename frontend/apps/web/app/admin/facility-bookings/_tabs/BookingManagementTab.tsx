@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   useAdminFacilityBookingQueueQuery,
   useAdminFacilityBookingSummaryQuery,
-  useFacilityUsageQuery,
+  useFacilityListQuery,
 } from '@duing/hooks';
 import type { AdminBookingQueueParams, AdminBookingQueueSort } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
@@ -29,7 +29,10 @@ const TAB_LABELS: Record<AdminQueueTab, string> = {
 
 const SORT_OPTIONS: { label: string; value: AdminBookingQueueSort }[] = [
   { label: '기본 정렬', value: 'DEFAULT' },
-  { label: '이용일시 빠른순', value: 'USAGE_ASC' },
+  { label: '최근 신청순', value: 'CREATED_DESC' },
+  { label: '동아리별', value: 'CLUB' },
+  { label: '이용일시 오름차순', value: 'USAGE_ASC' },
+  { label: '이용일시 내림차순', value: 'USAGE_DESC' },
 ];
 
 function statusParamOf(tab: AdminQueueTab): AdminBookingQueueParams['status'] {
@@ -38,7 +41,12 @@ function statusParamOf(tab: AdminQueueTab): AdminBookingQueueParams['status'] {
   return undefined;
 }
 
-export function BookingManagementTab() {
+type BookingManagementTabProps = {
+  /** keep-alive 로 hidden 인 동안 false — 포털 모달이 다른 탭 위에 남지 않도록 선택을 비운다. */
+  isActive?: boolean;
+};
+
+export function BookingManagementTab({ isActive = true }: BookingManagementTabProps) {
   const [activeTab, setActiveTab] = useState<AdminQueueTab>('PENDING');
   const [facilityIdInput, setFacilityIdInput] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -52,6 +60,11 @@ export function BookingManagementTab() {
     previous: number | null;
     next: number | null;
   } | null>(null);
+  // 탭이 hidden 으로 바뀌면(뒤로가기·딥링크) 열린 모달을 닫는다 — 탭 버튼은 오버레이에 가려 클릭할 수 없으므로 히스토리 이동만 해당.
+  // 렌더 중 파생 갱신(페이지의 visitedTabs 와 같은 패턴, useEffect 불필요).
+  if (!isActive && selectedBooking !== null) {
+    setSelectedBooking(null);
+  }
 
   const facilityId = facilityIdInput === '' ? undefined : Number(facilityIdInput);
   const hasQueueFilter = facilityIdInput !== '' || dateFrom !== '' || dateTo !== '';
@@ -72,7 +85,8 @@ export function BookingManagementTab() {
     { ...baseParams, status: 'APPROVED' },
     { enabled: activeTab === 'CONFLICT_ATTENTION' },
   );
-  const usageQuery = useFacilityUsageQuery();
+  // 활성 시설 목록(가벼움) — 크롤 탭과 같은 훅. 세 관리자 엔드포인트는 같은 활성·정렬 목록을 돌려주므로 가장 작은 응답을 쓴다(#20).
+  const facilitiesQuery = useFacilityListQuery();
 
   const selectTab = (tab: AdminQueueTab) => {
     setActiveTab(tab);
@@ -181,7 +195,7 @@ export function BookingManagementTab() {
               onChange={(event) => { setFacilityIdInput(event.target.value); setPage(0); }}
             >
               <option value="">전체 시설</option>
-              {(usageQuery.data?.facilities ?? []).map((facility) => (
+              {(facilitiesQuery.data ?? []).map((facility) => (
                 <option key={facility.id} value={String(facility.id)}>{facility.roomName}</option>
               ))}
             </select>

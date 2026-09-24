@@ -49,3 +49,45 @@ describe('MyPageTabs — 활성 탭 언더라인', () => {
     expect(tab('찜').querySelector('.bg-coral')).not.toBeNull();
   });
 });
+
+describe('MyPageTabs — 모바일 1줄(짧은 라벨·인라인 카운트), PC 는 원래 라벨·배지', () => {
+  const withShort = [
+    { id: 'joined', label: '가입한 동아리', shortLabel: '가입', count: 2 },
+    { id: 'archived', label: '지난 지원', shortLabel: '지난 지원', count: 1 },
+  ];
+
+  it('탭 행은 모바일에서 줄바꿈하지 않고 PC 에서만 wrap 한다', () => {
+    const { container } = render(
+      <MyPageTabs sections={withShort} active="joined" onSelect={vi.fn()} />,
+    );
+    const row = container.querySelector('[data-mypage-tabs] > div')!;
+    expect(row.className).not.toMatch(/(^|\s)flex-wrap(\s|$)/);
+    expect(row.className).toContain('sm:flex-wrap');
+  });
+
+  it('짧은 라벨은 모바일 전용, 원래 라벨은 PC 전용으로 나란히 둔다', () => {
+    render(<MyPageTabs sections={withShort} active="joined" onSelect={vi.fn()} />);
+    const short = screen.getByText('가입');
+    const full = screen.getByText('가입한 동아리');
+    expect(short.className).toContain('sm:hidden');
+    expect(full.className).toMatch(/(^|\s)hidden(\s|$)/);
+    expect(full.className).toContain('sm:inline');
+  });
+
+  it('shortLabel 이 없으면 라벨 하나만 그린다', () => {
+    render(<MyPageTabs sections={sections} active="apply" onSelect={vi.fn()} />);
+    expect(screen.getAllByText('지원 현황')).toHaveLength(1);
+  });
+
+  it('카운트는 모바일 인라인 텍스트, PC 에서만 pill(배경·둥근 모서리)', () => {
+    render(<MyPageTabs sections={withShort} active="joined" onSelect={vi.fn()} />);
+    const activeCount = screen.getByText('2');
+    const inactiveCount = screen.getByText('1');
+    // 기본(모바일)엔 pill 클래스가 없고 sm: 접두로만 붙는다.
+    expect(activeCount.className).not.toMatch(/(^|\s)(rounded-full|bg-ink|px-2)(\s|$)/);
+    expect(activeCount.className).toContain('sm:rounded-full');
+    expect(activeCount.className).toContain('sm:bg-ink');
+    expect(activeCount.className).toContain('sm:text-paper');
+    expect(inactiveCount.className).toContain('sm:bg-graysoft');
+  });
+});

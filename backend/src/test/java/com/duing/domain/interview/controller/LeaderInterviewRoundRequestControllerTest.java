@@ -169,7 +169,7 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
     }
 
     @Test
-    @DisplayName("해당 동아리 운영진이 아니면 발송할 수 없다")
+    @DisplayName("동아리 비멤버가 발송하면 라운드 미존재와 같은 404 다")
     void nonManagerCannotRequest() {
         InterviewRound round = saveDraftRound(LocalDateTime.now().plusDays(7));
         User outsider = saveUser("외부인");
@@ -178,7 +178,7 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
                 .when().post(REQUEST_PATH, round.getId())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
     }
 
     @Test

@@ -15,6 +15,7 @@ import type { GenerateBillsInput } from '@duing/schemas';
 import type { FeePolicy, GenerateBillsPayload } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import {
   Dialog,
@@ -234,7 +235,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
           {selectedUserIds.length > 0 && (
             <p className="mt-1 text-xs text-charcoal-3">{selectedUserIds.length}명 선택됨</p>
           )}
-          {memberError && <p className="mt-1 text-xs text-coral">{memberError}</p>}
+          {memberError && <p role="alert" className="mt-1 text-xs text-coral">{memberError}</p>}
         </div>
       )}
 
@@ -385,7 +386,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
       )}
 
       {submitErrorMessage && (
-        <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+        <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -409,27 +410,8 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
           {generateBills.isPending && <ButtonSpinner />}발행
         </button>
       </div>
+      <span role="status" className="sr-only">{generateBills.isPending ? '청구 발행 중' : null}</span>
     </form>
-  );
-}
-
-type FieldProps = {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-};
-
-function Field({ id, label, required, error, children }: FieldProps) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-ink">
-        {label} {required && <span className="text-coral">*</span>}
-      </label>
-      {children}
-      {error && <p className="mt-1 text-xs text-coral">{error}</p>}
-    </div>
   );
 }
 

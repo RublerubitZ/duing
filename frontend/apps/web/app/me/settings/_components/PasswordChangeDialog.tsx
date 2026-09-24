@@ -55,9 +55,10 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
     changeMutation.mutate(
       { currentPassword, newPassword },
       {
-        onSuccess: async () => {
+        onSuccess: () => {
           // 변경 후 모든 토큰이 무효화되므로 세션을 정리하고 재로그인으로 보낸다.
-          await clearSession();
+          // 상태는 동기적으로 먼저 내려가고 저장소 정리는 best-effort — 실패해도 이동·안내는 진행한다.
+          void clearSession().catch(() => {});
           queryClient.clear();
           addToast('비밀번호가 변경되었어요. 다시 로그인해 주세요.');
           router.replace(toRoute('/login'));
@@ -116,7 +117,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
             />
           </label>
-          {error && <p className="text-[12.5px] text-coral">{error}</p>}
+          {error && <p role="alert" className="text-[12.5px] text-coral">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -130,6 +131,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               {changeMutation.isPending && <ButtonSpinner />}변경하기
             </button>
           </div>
+          <span role="status" className="sr-only">{changeMutation.isPending ? '비밀번호 변경 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

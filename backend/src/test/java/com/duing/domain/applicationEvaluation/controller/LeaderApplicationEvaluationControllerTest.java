@@ -240,7 +240,7 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진이 아닌 사용자가 PUT/DELETE 호출 시 403")
+    @DisplayName("동아리 비멤버가 PUT/DELETE 를 호출하면 지원서 미존재와 같은 404 다")
     void nonManagerRejected() {
         Long applicationId = createApplicationForApplicant(sharedClub);
 
@@ -249,12 +249,12 @@ class LeaderApplicationEvaluationControllerTest extends IntegrationTestBase {
                 .contentType(ContentType.JSON)
                 .body(Map.of("score", 3))
                 .when().put("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
-                .then().statusCode(403);
+                .then().statusCode(404);
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().delete("/api/v1/leader/applications/{id}/evaluations/me", applicationId)
-                .then().statusCode(403);
+                .then().statusCode(404);
     }
 
     @Test

@@ -32,7 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * 회원 본인의 프로필 수정과 관리자의 계정 정지가 같은 회원 행을 동시에 건드릴 때의 직렬화를 검증한다.
  *
- * <p>User 에는 @Version 도 @DynamicUpdate 도 없어 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 낸다.
+ * <p>@DynamicUpdate(#776) 이전의 User 는 더티 플러시가 모든 컬럼을 쓰는 UPDATE 를 냈다.
  * 프로필 수정이 행을 잠그지 않고 읽으면, 읽은 뒤 커밋된 정지(status·token_version)까지 옛 스냅샷 값으로
  * 되돌려 쓴다. 그러면 계정이 정지에서 풀리고 토큰 무효화도 함께 되돌아가 이미 발급된 액세스 토큰이
  * 되살아나는데, 감사 로그에는 "정지했다"만 남아 이력이 사실과 달라진다.
@@ -48,7 +48,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>행잠금이 있으면 정지 스레드는 프로필 트랜잭션이 커밋할 때까지 잠금 대기에 묶여, 커밋 지연 시간을
  * 그대로 소진한 뒤 최신 값을 다시 읽고 정지한다. 잠금이 없으면 정지가 먼저 커밋되고 뒤이어 커밋되는
- * 프로필 수정이 그 정지를 덮어쓴다 — 즉 findByIdForUpdate 를 findById 로 되돌리면 이 테스트는 실패한다.
+ * 프로필 수정이 그 정지를 덮어썼다(#776 이전).
+ * ponytail: @DynamicUpdate 뒤로 이 테스트는 잠금 제거를 잡지 못한다(교차 컬럼 되돌림이 구조적으로 없음).
+ * 잠금 제거는 TokenVersionLockRaceTest(logoutAll ↔ changeStatus) 가 잡는다.
  *
  * <p>@DirtiesContext 는 두지 않는다 — IntegrationTestBase.cleanDatabase() 가 매 실행 전 DB 를
  * 초기화하고, 동시성 테스트는 별도 트랜잭션에서 동작하므로 truncate 전략을 쓴다

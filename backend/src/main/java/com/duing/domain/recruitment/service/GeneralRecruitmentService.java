@@ -32,7 +32,7 @@ import com.duing.global.exception.PostgresConstraintViolations;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +54,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     // V38 partial unique 인덱스. (club_id) WHERE status='OPEN' AND deleted_at IS NULL.
     private static final String RECRUITMENT_ACTIVE_UNIQUE_CONSTRAINT = "uk_recruitment_club_active";
+    // 모집 달력 범위 조회 창 상한 — 석 달(최장 92일)을 한 번에 덮고, 캐시 키 공간과 응답 크기를 묶는다.
+    private static final int MAX_CALENDAR_WINDOW_DAYS = 92;
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
@@ -108,13 +110,19 @@ public class GeneralRecruitmentService implements RecruitmentService {
      * 공개 모집 달력 — 개인화가 전혀 없어 앱 마이크로 캐시(60초 TTL) 대상이다. 캐시 값에는
      * displayStatus·effectivelyOpen 이 "조회 시점의 오늘"로 굳어 들어가므로, KST 자정 경계에서
      * 최대 TTL 초 낡은 표시가 가능하다 — 클럽 목록 캐시와 동일하게 수용한 정책이다.
-     * 같은 달의 동시 miss 는 로더(이 메서드 본문) 1회로 병합된다.
+     * 캐시 키는 (from, to) 쌍이다 — 같은 창의 동시 miss 는 로더(이 메서드 본문) 1회로 병합된다.
+     * 창 검증이 로더 안에 있어 잘못된 범위는 예외로 끝나고 캐시에 올라가지 않는다.
      */
     @Override
     @Cacheable(cacheNames = PublicApiCacheConfig.RECRUITMENT_CALENDAR_CACHE, sync = true)
-    public List<RecruitmentSummaryQuery> getCalendar(YearMonth yearMonth) {
-        LocalDate periodStart = yearMonth.atDay(1);
-        LocalDate periodEnd = yearMonth.atEndOfMonth();
+    public List<RecruitmentSummaryQuery> getCalendar(LocalDate periodStart, LocalDate periodEnd) {
+        if (periodEnd.isBefore(periodStart)) {
+            throw new RecruitmentException.InvalidCalendarRangeException("조회 시작일은 종료일보다 늦을 수 없습니다.");
+        }
+        if (ChronoUnit.DAYS.between(periodStart, periodEnd) > MAX_CALENDAR_WINDOW_DAYS) {
+            throw new RecruitmentException.InvalidCalendarRangeException(
+                    "조회 기간은 " + MAX_CALENDAR_WINDOW_DAYS + "일 이내여야 합니다.");
+        }
         LocalDate today = LocalDate.now(clock);
 
         // 스칼라 projection — 엔티티로 읽으면 행마다 form eager +1 쿼리와 full Club 로드가 붙는다.
@@ -162,7 +170,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(updateRecruitmentCommand.currentUserId(), clubId);
+        clubAuthService.requireManagerOrHidden(updateRecruitmentCommand.currentUserId(), clubId,
+                RecruitmentException.RecruitmentNotFoundException::new);
 
         // 종료일을 과거로 "변경"하는 것만 차단 — 만료-OPEN 공고의 다른 필드 편집(기존 과거 종료일 재전송)은 허용.
         // CLOSED(409)와 상시모집 전환 금지(전용 400)는 기존 예외가 더 정확하므로 그쪽 판정에 양보한다.
@@ -322,7 +331,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.close(LocalDateTime.now(clock));
     }
@@ -336,7 +345,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.stopIntake(LocalDate.now(clock));
     }
@@ -351,7 +360,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         // 마감(CLOSED)된 공고만 삭제할 수 있다. OPEN 공고는 지원이 동시에 들어올 수 있어
         // "지원자 0명 확인 → soft-delete" 사이에 INSERT 된 지원서가 고아가 되는 경쟁이 생긴다.

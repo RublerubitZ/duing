@@ -361,6 +361,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
           title="문의를 삭제할까요?"
           description="받은 답변도 함께 볼 수 없게 되며 복구할 수 없습니다."
           isPending={deleteMutation.isPending}
+          busyLabel="문의 삭제 중"
           errorMessage={deleteError}
           onConfirm={handleDelete}
           onCancel={() => {

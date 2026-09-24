@@ -78,7 +78,7 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
     }
 
     private UploadPurgeJob deleteEnabledJob() {
-        return new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ofHours(24)),
+        return new UploadPurgeJob(new UploadPurgeProperties(true, true, Duration.ofHours(24), Duration.ZERO),
                 clock, uploadedObjectRepository, fileStorageService, platformTransactionManager);
     }
 
@@ -135,7 +135,7 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
         stubStorage();
         String storageKey = seedExpiredPending();
         UploadedObject claimed = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
-        claimed.markPurging();
+        claimed.markPurging(Instant.now(clock));
         uploadedObjectRepository.save(claimed);
 
         assertThatThrownBy(() -> uploadedObjectService.activate(STUB_PREFIX + storageKey))
@@ -149,7 +149,7 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
         stubStorage();
         String storageKey = seedExpiredPending();
         UploadedObject claimed = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
-        claimed.markPurging(); // 이전 실행이 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
+        claimed.markPurging(Instant.now(clock)); // 이전 실행이 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
         uploadedObjectRepository.save(claimed);
         TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
 
@@ -223,7 +223,7 @@ class UploadActivationPurgeConcurrencyTest extends IntegrationTestBase {
         stubStorage();
         String storageKey = seedExpiredReleased();
         UploadedObject claimed = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
-        claimed.markPurging(); // 해제 후보를 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
+        claimed.markPurging(Instant.now(clock)); // 해제 후보를 claim 만 하고 삭제를 확정하지 못한 상태를 재현한다
         uploadedObjectRepository.save(claimed);
         TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
 

@@ -99,6 +99,7 @@ export function AdminGlobalEventsListPage() {
           ) : undefined
         }
         isPending={deleteMutation.isPending}
+        busyLabel="이벤트 삭제 중"
         errorMessage={deleteError}
         onCancel={() => {
           setDeleteTarget(null);

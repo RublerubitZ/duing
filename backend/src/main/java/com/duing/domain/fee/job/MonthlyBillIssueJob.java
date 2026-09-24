@@ -5,6 +5,8 @@ import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.service.FeeBillService;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,9 @@ import org.springframework.stereotype.Component;
  * 매일 00:20(Asia/Seoul)에 실행되는 회비 자동 월발행 크론.
  * 활성 MONTHLY auto_issue 정책 중 발행일이 오늘 일자 이하인(today.day >= issue_day, 캐치업) 정책의
  * 그 달 청구를 멱등 발행한다(ON CONFLICT DO NOTHING — 이미 발행이면 재발행·재알림 없음).
+ * 이어서 전월 캐치업(월초 {@link #CATCH_UP_WINDOW_DAYS}일 이내만): 월 넘김 구간에 잡이 멈춰 전월 청구가 빠진 경우를
+ * 복구한다 — 전월 이전에 만든 정책만 대상(이번 달에 만든 정책이 소급 청구되지 않게), 기발행 회차는 멱등 키로
+ * created=0·알림 없음.
  * {@code duing.fee.auto-issue.enabled=true} 가 설정된 환경에서만 빈이 등록된다.
  */
 @Component
@@ -23,6 +28,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @ConditionalOnProperty(prefix = "duing.fee.auto-issue", name = "enabled", havingValue = "true")
 public class MonthlyBillIssueJob {
+
+    /**
+     * 전월 캐치업이 도는 월초 일수. 이번 달 발행은 발행일 이후 매일 재실행되므로 캐치업이 필요한 건 월말 발행일에 잡이 월 넘김 구간에 죽은 경우뿐이다.
+     * 창을 좁혀 자동발행을 이번 달에 켠 옛 정책의 전월 소급 발행·이번 달 가입 회원의 전월 청구 노출을 월초로 한정한다.
+     */
+    static final int CATCH_UP_WINDOW_DAYS = 7;
 
     private final FeePolicyRepository feePolicyRepository;
     private final FeeBillService feeBillService;
@@ -34,6 +45,11 @@ public class MonthlyBillIssueJob {
     @Scheduled(cron = "0 20 0 * * *", zone = "Asia/Seoul")
     public void run() {
         LocalDate today = LocalDate.now(clock);
+        issueCurrentMonth(today);
+        catchUpPreviousMonth(today);
+    }
+
+    private void issueCurrentMonth(LocalDate today) {
         int dayOfMonth = today.getDayOfMonth();
         List<FeePolicy> duePolicies = feePolicyRepository.findAutoIssueDue(dayOfMonth);
         if (duePolicies.isEmpty()) {
@@ -51,5 +67,34 @@ public class MonthlyBillIssueJob {
             }
         }
         log.info("MonthlyBillIssueJob: 대상 {}건 중 {}건 처리", duePolicies.size(), succeeded);
+    }
+
+    private void catchUpPreviousMonth(LocalDate today) {
+        if (today.getDayOfMonth() > CATCH_UP_WINDOW_DAYS) {
+            return;
+        }
+        LocalDate previousMonth = today.minusMonths(1);
+        LocalDate thisMonthStart = today.withDayOfMonth(1);
+        // 전월은 이미 끝났으므로 issue_day 와 무관하게 전 정책이 대상(issue_day 상한 28 ≤ 31).
+        List<FeePolicy> catchUpPolicies = feePolicyRepository.findAutoIssueDue(31).stream()
+                .filter(policy -> createdDateInJobZone(policy.getCreatedAt(), ZoneId.systemDefault(), clock.getZone())
+                        .isBefore(thisMonthStart))
+                .toList();
+        int succeeded = 0;
+        for (FeePolicy policy : catchUpPolicies) {
+            try {
+                feeBillService.autoIssueMonthly(policy, previousMonth);
+                succeeded++;
+            } catch (Exception policyIssueFailure) {
+                log.warn("MonthlyBillIssueJob: 전월 캐치업 실패 clubId={}, policyId={}",
+                        policy.getClubId(), policy.getId(), policyIssueFailure);
+            }
+        }
+        log.info("MonthlyBillIssueJob: 전월 캐치업 대상 {}건 중 {}건 처리", catchUpPolicies.size(), succeeded);
+    }
+
+    // created_at 은 서버 벽시계(컨테이너 TZ=UTC) LocalDateTime 이라 잡 기준 시간대(Asia/Seoul) 날짜로 옮겨 비교한다.
+    static LocalDate createdDateInJobZone(LocalDateTime createdAt, ZoneId systemZone, ZoneId jobZone) {
+        return createdAt.atZone(systemZone).withZoneSameInstant(jobZone).toLocalDate();
     }
 }

@@ -1,12 +1,15 @@
 package com.duing.domain.facilitysubmission.repository;
 
+import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.facilitysubmission.entity.QFacilitySubmissionBatch.facilitySubmissionBatch;
 
 import com.duing.domain.facilitysubmission.entity.FacilitySubmissionBatch;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchSearchCondition;
 import com.duing.domain.facilitysubmission.service.dto.query.SubmissionBatchStatusFilter;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,16 +25,26 @@ public class FacilitySubmissionBatchRepositoryImpl implements FacilitySubmission
     @Override
     public Page<FacilitySubmissionBatch> search(SubmissionBatchSearchCondition condition, Pageable pageable) {
         List<FacilitySubmissionBatch> content = queryFactory.selectFrom(facilitySubmissionBatch)
-                .where(statusMatches(condition.status()))
+                .where(searchPredicates(condition))
                 .orderBy(facilitySubmissionBatch.id.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
         Long total = queryFactory.select(facilitySubmissionBatch.count())
                 .from(facilitySubmissionBatch)
-                .where(statusMatches(condition.status()))
+                .where(searchPredicates(condition))
                 .fetchOne();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    /** 목록·카운트 쿼리 공용 검색 술어 — null 항목은 QueryDSL where 가 무시한다. */
+    private BooleanExpression[] searchPredicates(SubmissionBatchSearchCondition condition) {
+        return new BooleanExpression[] {
+                statusMatches(condition.status()),
+                keywordMatches(condition.q()),
+                submittedOnOrAfter(condition.submittedFrom()),
+                submittedBefore(condition.submittedTo())
+        };
     }
 
     /**
@@ -53,5 +66,30 @@ public class FacilitySubmissionBatchRepositoryImpl implements FacilitySubmission
             case ARCHIVED -> facilitySubmissionBatch.completedAt.isNotNull()
                     .or(facilitySubmissionBatch.cancelledAt.isNotNull());
         };
+    }
+
+    /**
+     * 키워드(콘솔 UX 스펙 A3) — 제출번호·메모·동아리명 부분 일치 OR. 동아리명은 배치의 club_id 서브쿼리로
+     * 조인 없이 건다(Club 은 @SQLRestriction 으로 삭제 동아리가 자동 제외됨). 공백만이면 무필터.
+     */
+    private BooleanExpression keywordMatches(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return facilitySubmissionBatch.submissionNo.containsIgnoreCase(trimmed)
+                .or(facilitySubmissionBatch.memo.containsIgnoreCase(trimmed))
+                .or(facilitySubmissionBatch.clubId.in(
+                        JPAExpressions.select(club.id).from(club).where(club.name.containsIgnoreCase(trimmed))));
+    }
+
+    /** submittedAt 은 KST 벽시계(seoulClock) 기록 — 일 단위 하한은 그 날 00:00 포함. */
+    private BooleanExpression submittedOnOrAfter(LocalDate from) {
+        return from == null ? null : facilitySubmissionBatch.submittedAt.goe(from.atStartOfDay());
+    }
+
+    /** 상한은 to 다음날 00:00 미만 — to 당일 23:59:59 까지 포함. */
+    private BooleanExpression submittedBefore(LocalDate to) {
+        return to == null ? null : facilitySubmissionBatch.submittedAt.lt(to.plusDays(1).atStartOfDay());
     }
 }

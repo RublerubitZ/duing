@@ -7,7 +7,6 @@ import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.dto.query.JoinCodeQuery;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
-import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentDetailQuery;
@@ -77,7 +76,8 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
                 .map(activeCode -> JoinCodeQuery.from(activeCode,
                         clubJoinRequestRepository.countByJoinCodeId(activeCode.getId()),
                         clubJoinRequestRepository.countByJoinCodeIdAndStatus(
-                                activeCode.getId(), JoinRequestStatus.PENDING)))
+                                activeCode.getId(), JoinRequestStatus.PENDING),
+                        LocalDateTime.now(clock)))
                 .orElse(null);
     }
 
@@ -90,7 +90,7 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
         if (joinCodeQuery.usedCount() >= joinCodeQuery.maxUses()) {
             return LINK_STATUS_EXHAUSTED;
         }
-        if (recruitment.getStatus() == RecruitmentStatus.OPEN) {
+        if (recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
             return LINK_STATUS_ACTIVE;
         }
         LocalDateTime joinExpiresAt = joinCodeQuery.joinExpiresAt();

@@ -3,6 +3,7 @@ import {
   displayStatusLabel,
   recruitmentPeriodLabel,
   recruitmentDaysLeft,
+  recruitmentStatusChip,
 } from '../app/_lib/recruitmentDisplay';
 
 describe('displayStatusLabel', () => {
@@ -38,5 +39,24 @@ describe('recruitmentDaysLeft', () => {
   });
   it('endDate 가 과거면 음수', () => {
     expect(recruitmentDaysLeft('2026-05-10', today)).toBe(-8);
+  });
+});
+
+describe('recruitmentStatusChip', () => {
+  it('상태별 배지는 house pill 어휘를 쓴다', () => {
+    const badges = {
+      UPCOMING: recruitmentStatusChip({ status: 'OPEN', displayStatus: 'UPCOMING' }).badgeClass,
+      OPEN: recruitmentStatusChip({ status: 'OPEN', displayStatus: 'OPEN' }).badgeClass,
+      ALWAYS_OPEN: recruitmentStatusChip({ status: 'OPEN', displayStatus: 'ALWAYS_OPEN' }).badgeClass,
+      CLOSED: recruitmentStatusChip({ status: 'CLOSED', displayStatus: 'CLOSED' }).badgeClass,
+      EXPIRED_OPEN: recruitmentStatusChip({ status: 'OPEN', displayStatus: 'CLOSED' }).badgeClass,
+    };
+    expect(badges).toEqual({
+      UPCOMING: 'pill pill-warm',
+      OPEN: 'pill',
+      ALWAYS_OPEN: 'pill pill-sky',
+      CLOSED: 'pill pill-outline',
+      EXPIRED_OPEN: 'pill pill-warm-outline',
+    });
   });
 });

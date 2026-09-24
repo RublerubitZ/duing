@@ -1,6 +1,7 @@
 package com.duing.domain.facilitybooking.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.controller.dto.response.AdminCrawlReservationGroupResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.AdminCrawlReservationGroupResponse.GroupType;
+import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -71,7 +73,7 @@ class FacilityCrawlAdminQueryServiceTest {
                 new SecuredNameRow(8L, "ABC동아리", false)));
 
         Page<AdminCrawlReservationGroupResponse> page =
-                service.getReservations(month, null, AdminCrawlGroupBy.CLUB, PageRequest.of(0, 10));
+                service.getReservations(month, null, AdminCrawlGroupBy.CLUB, null, PageRequest.of(0, 10));
 
         verify(clubRepository, times(1)).findSecuredTargetNameRows(); // 매칭 맵·확보 키를 한 번의 조회에서 함께 파생
         assertThat(page.getContent()).hasSize(1);
@@ -82,5 +84,70 @@ class FacilityCrawlAdminQueryServiceTest {
         // 무꼬리 실예약 행은 확보 대상 동아리라도 확보 표기가 아니다 — 분류 규칙은 그대로(행 단위 securedTail).
         assertThat(group.reservations().get(0).classification()).isEqualTo(CrawlRowType.CRAWLED_RESERVATION);
         assertThat(group.reservations().get(0).matchedClubName()).isEqualTo("고정관념");
+    }
+
+    @Test
+    @DisplayName("q 는 동아리별 보기에서 그룹 제목 정규화 부분 일치로 그룹을 남기고, 시설별 보기에서는 매치 행만 남기며, 공백만이면 무필터다")
+    void keywordFiltersGroupsByNormalizedTitleOrRows() {
+        YearMonth month = YearMonth.now(clock);
+        LocalDate date = month.atDay(15);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        ReflectionTestUtils.setField(facility, "id", 10L);
+        FacilityReservation clubRow = FacilityReservation.create(10L, 100L, month, date,
+                LocalTime.of(10, 0), LocalTime.of(12, 0), "고정 관념", false, LocalDateTime.of(2026, 8, 1, 9, 0));
+        FacilityReservation externalRow = FacilityReservation.create(10L, 101L, month, date,
+                LocalTime.of(13, 0), LocalTime.of(15, 0), "학생생활상담센터", false, LocalDateTime.of(2026, 8, 1, 9, 0));
+        when(facilityReservationRepository.findByYearMonth(month)).thenReturn(List.of(clubRow, externalRow));
+        when(facilityRepository.findAllById(any())).thenReturn(List.of(facility));
+        when(clubRepository.findSecuredTargetNameRows()).thenReturn(List.of(new SecuredNameRow(7L, "고정관념", false)));
+
+        Page<AdminCrawlReservationGroupResponse> clubView =
+                service.getReservations(month, null, AdminCrawlGroupBy.CLUB, "고정", PageRequest.of(0, 10));
+        assertThat(clubView.getTotalElements()).isEqualTo(1);
+        assertThat(clubView.getContent().get(0).title()).isEqualTo("고정관념");
+        assertThat(clubView.getContent().get(0).reservations()).hasSize(1);
+
+        Page<AdminCrawlReservationGroupResponse> externalView =
+                service.getReservations(month, null, AdminCrawlGroupBy.CLUB, "상담 센터", PageRequest.of(0, 10));
+        assertThat(externalView.getContent()).extracting(AdminCrawlReservationGroupResponse::title)
+                .containsExactly("학생생활상담센터"); // 공백 차이는 정규화가 흡수
+
+        Page<AdminCrawlReservationGroupResponse> facilityView =
+                service.getReservations(month, null, AdminCrawlGroupBy.FACILITY, "고정", PageRequest.of(0, 10));
+        assertThat(facilityView.getTotalElements()).isEqualTo(1);
+        assertThat(facilityView.getContent().get(0).title()).isEqualTo("공동연습실(1)");
+        assertThat(facilityView.getContent().get(0).reservations())
+                .extracting(AdminCrawlReservationGroupResponse.AdminCrawlReservation::organizationName)
+                .containsExactly("고정 관념");
+
+        Page<AdminCrawlReservationGroupResponse> noMatch =
+                service.getReservations(month, null, AdminCrawlGroupBy.FACILITY, "없는단체", PageRequest.of(0, 10));
+        assertThat(noMatch.getTotalElements()).isZero();
+
+        Page<AdminCrawlReservationGroupResponse> blank =
+                service.getReservations(month, null, AdminCrawlGroupBy.CLUB, "   ", PageRequest.of(0, 10));
+        assertThat(blank.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("직전 월은 저장된 행 그대로 조회되고(재크롤 없음), 2개월 전은 조회 범위 밖 400 이다")
+    void previousMonthIsReadableButTwoMonthsAgoIsNot() {
+        YearMonth previousMonth = YearMonth.now(clock).minusMonths(1);
+        LocalDate date = previousMonth.atDay(20);
+        Facility facility = Facility.create(4, "공동연습실(1)", "2105", 0);
+        ReflectionTestUtils.setField(facility, "id", 10L);
+        FacilityReservation row = FacilityReservation.create(10L, 100L, previousMonth, date,
+                LocalTime.of(10, 0), LocalTime.of(12, 0), "고정관념", false, LocalDateTime.of(2026, 7, 1, 9, 0));
+        when(facilityReservationRepository.findByYearMonth(previousMonth)).thenReturn(List.of(row));
+        when(facilityRepository.findAllById(any())).thenReturn(List.of(facility));
+        when(clubRepository.findSecuredTargetNameRows()).thenReturn(List.of());
+
+        Page<AdminCrawlReservationGroupResponse> page =
+                service.getReservations(previousMonth, null, AdminCrawlGroupBy.CLUB, null, PageRequest.of(0, 10));
+        assertThat(page.getTotalElements()).isEqualTo(1);
+
+        assertThatThrownBy(() -> service.getReservations(YearMonth.now(clock).minusMonths(2), null,
+                AdminCrawlGroupBy.CLUB, null, PageRequest.of(0, 10)))
+                .isInstanceOf(FacilityBookingException.MonthOutOfBookingRangeException.class);
     }
 }

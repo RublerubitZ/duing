@@ -478,6 +478,7 @@ function ActiveCodeCard({
         }
         confirmLabel="폐기"
         isPending={revokeJoinCode.isPending}
+        busyLabel="가입 링크 폐기 중"
         errorMessage={dialogError}
         confirmDisabled={requiresTypedConfirm && revokeConfirmInput.trim() !== REVOKE_CONFIRM_WORD}
         onConfirm={revoke}

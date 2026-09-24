@@ -48,10 +48,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
       }}
     >
       <DialogContent
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>동아리 삭제</DialogTitle>
@@ -92,7 +89,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
         </label>
 
         {errorMessage && (
-          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
         <DialogFooter>
@@ -108,6 +105,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             {isPending && <ButtonSpinner />}삭제
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '동아리 삭제 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

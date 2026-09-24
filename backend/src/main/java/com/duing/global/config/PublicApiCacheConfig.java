@@ -84,8 +84,9 @@ public class PublicApiCacheConfig {
     public static final String CLUB_SEARCH_CACHE = "publicClubSearch";
 
     /**
-     * 모집 달력({@code GET /api/v1/recruitments?yearMonth=}) — 개인화가 전혀 없고 키 공간이
-     * 월 단위(십수 개)라 히트율이 가장 높다. 캐시 히트 시 projection 쿼리 1개와 readOnly 트랜잭션의
+     * 모집 달력({@code GET /api/v1/recruitments?yearMonth=} 또는 {@code ?from=&to=}) — 개인화가 전혀 없고
+     * 키는 (from, to) 쌍이다. yearMonth 는 월 경계 쌍으로 풀려 같은 키를 쓰고, 범위 조회는 창 상한(92일)과
+     * maxEntries 로 키 공간이 묶인다. 캐시 히트 시 projection 쿼리 1개와 readOnly 트랜잭션의
      * 커넥션 획득까지 사라진다(성능 감사 P1-5).
      */
     public static final String RECRUITMENT_CALENDAR_CACHE = "publicRecruitmentCalendar";

@@ -38,6 +38,7 @@ export function BatchCancelDialog({ batch, isPending, onConfirm, onClose }: Prop
             {isPending && <ButtonSpinner />}제출 목록 취소
           </button>
         </div>
+        <span role="status" className="sr-only">{isPending ? '제출 목록 취소 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

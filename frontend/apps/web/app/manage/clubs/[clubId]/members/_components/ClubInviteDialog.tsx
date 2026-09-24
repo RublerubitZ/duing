@@ -310,6 +310,7 @@ function CreateInviteForm({ clubId, useGeneration, onBusyChange }: ClubInvitePan
       >
         {(createInvite.isPending || createInvite.isSuccess) && <ButtonSpinner />}초대 링크 만들기
       </button>
+      <span role="status" className="sr-only">{(createInvite.isPending || createInvite.isSuccess) ? '초대 링크 만드는 중' : null}</span>
     </div>
   );
 }
@@ -462,6 +463,7 @@ function ActiveInviteCard({
         description="폐기하면 이 링크로는 더 이상 가입할 수 없습니다. 이미 접수된 요청은 그대로 남습니다."
         confirmLabel="폐기"
         isPending={revokeInvite.isPending}
+        busyLabel="초대 링크 폐기 중"
         errorMessage={dialogError}
         onConfirm={revoke}
         onCancel={closeRevokeDialog}

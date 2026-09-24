@@ -204,7 +204,7 @@ export type AdminFacilityBookingSummary = {
 };
 
 export type AdminBookingOverlapItem = {
-  source: string; // 'SCHOOL' | 'INTERNAL' — 관리자 상세 overlaps 는 이 둘만(대기 겹침은 overlappingPendingCount 숫자). string 유지는 미지 값 파싱 실패 방지(fail-open 가드)
+  source: string; // 'SCHOOL' | 'INTERNAL' | 'OWN'(학교가 이 동아리 이름으로 등록한 행=반영 증거) — 대기 겹침은 overlappingPendingCount 숫자. string 유지는 미지 값 파싱 실패 방지(fail-open 가드)
   organization: string;
   startTime: string; // HH:mm
   endTime: string;
@@ -252,8 +252,11 @@ export type FacilityBookingConflictPayload = {
   crawlBasisAt: string | null; // OffsetDateTime(+09:00) 또는 null
 };
 
-/** 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다. */
-export type AdminBookingQueueSort = 'DEFAULT' | 'USAGE_ASC';
+/**
+ * 관리자 큐 정렬. DEFAULT 는 서버의 상태별 기본(PENDING=오래된 순, 그 외=최신순)이며 파라미터를 보내지 않는다.
+ * CREATED_DESC=최근 신청순, CLUB=동아리 이름순(안에서는 이용일시 오름차순), USAGE_ASC/USAGE_DESC=이용일시 오름/내림차순.
+ */
+export type AdminBookingQueueSort = 'DEFAULT' | 'CREATED_DESC' | 'CLUB' | 'USAGE_ASC' | 'USAGE_DESC';
 
 export type AdminBookingQueueParams = {
   status?: BookingStatus;

@@ -205,12 +205,23 @@ describe('SubmissionBatchesTab', () => {
     });
   });
 
-  it('CSV 다운로드 진행 중이면 CSV 버튼이 비활성화된다', () => {
-    mockCsvMutation.mockReturnValue({ mutateAsync: mockCsvMutateAsync, isPending: true });
-    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()]));
+  it('CSV 다운로드 진행 중이면 그 행의 CSV 만 비활성이고 다른 행은 클릭할 수 있다', () => {
+    mockCsvMutation.mockReturnValue({
+      mutateAsync: mockCsvMutateAsync,
+      isPending: true,
+      variables: { batchId: 2 },
+    });
+    mockBatchesQuery.mockReturnValue(
+      listSuccess([
+        makeBatch({ batchId: 1, submissionNo: 'SUB-OTHER' }),
+        makeBatch({ batchId: 2, submissionNo: 'SUB-DOWNLOADING' }),
+      ]),
+    );
     render(<SubmissionBatchesTab />);
 
-    expect(screen.getByRole('button', { name: /CSV/ })).toBeDisabled();
+    // 뮤테이션 하나를 표 전체가 공유하지만 다른 배치의 CSV 까지 막을 이유는 없다(감사 #16).
+    expect(within(rowOf('SUB-DOWNLOADING')).getByRole('button', { name: /CSV/ })).toBeDisabled();
+    expect(within(rowOf('SUB-OTHER')).getByRole('button', { name: /CSV/ })).toBeEnabled();
   });
 
   it('CSV 진행 중 스피너는 실제 내려받는 행에만 붙는다', () => {
@@ -484,7 +495,7 @@ describe('SubmissionBatchesTab', () => {
     expect(mockBatchesQuery).toHaveBeenLastCalledWith({ page: 1, size: 10 });
   });
 
-  it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏) 링크를 노출하고 상세는 없다', () => {
+  it('진행 중(REVIEWING) 행은 제출 정보 보기(전사 콕핏)와 읽기 전용 상세 링크를 모두 노출한다', () => {
     mockBatchesQuery.mockReturnValue(listSuccess([makeBatch({ batchId: 55 })]));
     render(<SubmissionBatchesTab />);
 
@@ -492,7 +503,11 @@ describe('SubmissionBatchesTab', () => {
       'href',
       '/admin/facility-bookings/submission/55/transcribe',
     );
-    expect(screen.queryByRole('link', { name: '상세' })).not.toBeInTheDocument();
+    // 운영 기록·시간표는 상세에만 있어 진행 중 배치도 갈 수 있어야 한다(감사 #14).
+    expect(screen.getByRole('link', { name: '상세' })).toHaveAttribute(
+      'href',
+      '/admin/facility-bookings/submission/55',
+    );
   });
 
   it('완료·취소 행은 읽기 전용 상세 링크를 노출하고 전사 콕핏 링크는 없다', () => {
@@ -516,5 +531,63 @@ describe('SubmissionBatchesTab', () => {
     expect(mockBatchesQuery).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'ARCHIVED' }),
     );
+  });
+
+  it('검색어·생성일 필터를 입력하면 page 0 으로 q·submittedFrom·submittedTo 를 넘긴다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([makeBatch()], 3));
+    render(<SubmissionBatchesTab />);
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    expect(mockBatchesQuery).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '8월' } });
+    fireEvent.change(screen.getByLabelText('생성일 시작'), { target: { value: '2026-08-01' } });
+    fireEvent.change(screen.getByLabelText('생성일 종료'), { target: { value: '2026-08-31' } });
+
+    // useDeferredValue 는 다음 렌더에서 따라온다 — waitFor 로 흡수.
+    await waitFor(() => {
+      expect(mockBatchesQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 0, q: '8월', submittedFrom: '2026-08-01', submittedTo: '2026-08-31' }),
+      );
+    });
+  });
+
+  it('필터가 걸린 빈 결과는 조건 안내와 초기화 버튼을 보여주고, 초기화하면 필터 키가 빠진다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([]));
+    render(<SubmissionBatchesTab />);
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '없는목록' } });
+
+    expect(await screen.findByText('조건에 맞는 제출 목록이 없어요')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+
+    expect(screen.getByRole('searchbox', { name: '제출 목록 검색' })).toHaveValue('');
+    await waitFor(() => {
+      const lastParams = mockBatchesQuery.mock.calls.at(-1)?.[0];
+      expect(lastParams).toMatchObject({ page: 0, size: 10 });
+      // 빈 값은 undefined 로 넘긴다 — cleanParams 가 생략하고 기존 캐시 키와 같아진다.
+      expect(lastParams).toEqual(expect.not.objectContaining({ q: expect.any(String) }));
+    });
+    expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
+  it('공백만 입력하면 q 를 보내지 않고 조건 빈 상태 문구도 쓰지 않는다', async () => {
+    mockBatchesQuery.mockReturnValue(listSuccess([]));
+    render(<SubmissionBatchesTab />);
+    fireEvent.change(screen.getByRole('searchbox', { name: '제출 목록 검색' }), { target: { value: '   ' } });
+
+    // BE 가 trim 해 무필터가 되는 요청이라 FE 도 필터 없음으로 본다 — q 결측·일반 빈 상태 문구.
+    await waitFor(() => {
+      const lastParams = mockBatchesQuery.mock.calls.at(-1)?.[0];
+      expect(lastParams).toEqual(expect.not.objectContaining({ q: expect.any(String) }));
+    });
+    expect(screen.queryByText('조건에 맞는 제출 목록이 없어요')).not.toBeInTheDocument();
+    expect(screen.getByText('아직 만든 제출 목록이 없어요')).toBeInTheDocument();
+  });
+
+  it('필터 전환 중(placeholder)에는 이전 표를 딤 처리한 채 유지한다', () => {
+    mockBatchesQuery.mockReturnValue({ ...listSuccess([makeBatch()]), isPlaceholderData: true });
+    render(<SubmissionBatchesTab />);
+
+    // keepPreviousData 로 표가 남고, aria-busy 딤으로 "갱신 전 데이터" 신호를 준다(회비 콘솔 #906 전례).
+    expect(screen.getByRole('table').closest('[aria-busy="true"]')).not.toBeNull();
   });
 });

@@ -38,6 +38,7 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
 - `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(운영에서 누락하거나 다른 값을 쓰면 기동 실패)
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)
+- `DB_POOL_MAX_SIZE=10`(**10 을 넘기지 말 것** — Supabase 세션 풀러 한도 15 에서 백업·관리도구 몫 5 를 남긴다. 15 로 올리면 04:15 백업이 실패한다, 2026-09-20 실사고)
 - `BACKEND_IMAGE=ghcr.io/rublerubitz/duing-backend:<tag>`
 
 Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SECRET`은 백엔드 전용이므로 Vercel에

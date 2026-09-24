@@ -14,7 +14,7 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
-          version: latest
+          version: 2.117.0   # 메이저 변경 시 덤프 옵션이 조용히 깨지지 않게 핀(2026-09-24 latest). 올릴 때 workflow_dispatch 로 수동 실행해 확인
 
       - name: Dump database
         env:
@@ -44,3 +44,35 @@ jobs:
         run: |
           aws s3 cp backup/ "s3://${{ secrets.R2_BUCKET }}/$(TZ=Asia/Seoul date +%Y/%m/%d)/" \
             --recursive --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+
+      # 백업 실패는 사람이 며칠 뒤에야 알아채는 사고였다(2026-09-20 풀러 한도 점유). 서드파티 액션 없이
+      # curl+jq 로 실패·취소 시에만 알린다 — 채널·형식은 deploy-backend.yml 의 배포 알림과 동일(deploy/MONITORING.md).
+      # 알림 실패는 잡 결과를 바꾸지 않는다(항상 exit 0).
+      - name: Notify Slack (backup failure)
+        if: failure() || cancelled()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL 미설정 — 백업 실패 알림 생략"
+            exit 0
+          fi
+          case "$JOB_STATUS" in
+            cancelled) ICON="⚪"; STATUS="CANCELLED" ;;
+            *)         ICON="🔴"; STATUS="FAILURE (오늘 백업 없음 — 실행 로그 확인, 풀러 한도·시크릿·R2 순으로 점검)" ;;
+          esac
+          TEXT="$(printf '%s\n' \
+            "${ICON} Database Backup" \
+            "서비스: Duing" \
+            "status: ${STATUS}" \
+            "시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST" \
+            "실행: ${RUN_URL}")"
+          PAYLOAD="$(jq -cn --arg text "$TEXT" '{text: $text}')"
+          if ! curl -sS -o /dev/null --max-time 10 -X POST -H 'Content-Type: application/json' \
+               --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" 2>/dev/null; then
+            echo "::warning::Slack 백업 실패 알림 전송 실패(잡 결과와 무관)"
+          fi
+          exit 0

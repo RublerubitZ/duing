@@ -83,6 +83,7 @@ export function BatchBulkCreateDialog({ groups, isPending, onClose, onConfirm }:
             목록 만들기
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '제출 목록 만드는 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -13,8 +13,8 @@ import type { MySession, SessionPlatform } from '@duing/types';
 
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 /**
@@ -81,7 +81,6 @@ export function SessionListCard() {
   const revokeMutation = useRevokeSessionMutation();
   const logoutAllMutation = useLogoutAllMutation();
   const { addToast } = useToast();
-  const router = useGuardedRouter();
 
   const sessions = sessionsQuery.data;
   // 로그아웃은 되돌릴 수 없다 — 어느 대상을 확인받는 중인지 한 상태로 들고 있는다.
@@ -104,7 +103,13 @@ export function SessionListCard() {
     logoutAllMutation.mutate(undefined, {
       onSuccess: () => {
         clearOperatorLocalState();
-        router.replace('/');
+        // 문서 하드 이동 — 라우터 캐시에 남은 인증 트리(/me·/manage, staleTimes.dynamic 180초)를 버리고
+        // 메모리 상태를 통째로 비운다(공용 단말). router.replace 는 캐시를 남겨 로그아웃 직후 MY 탭이
+        // 미들웨어 대신 옛 셸을 재생했다(#1225 의 반대 방향).
+        // 하드 이동은 응답이 커밋될 때까지 문서가 살아 있다 — 그 사이 확인 모달·드로어가 닫히며 내보내는 회수
+        // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
+        skipNextOverlayReclaim();
+        window.location.replace('/');
       },
       onError: (logoutError) =>
         addToast(sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'), { variant: 'error' }),
@@ -174,6 +179,7 @@ export function SessionListCard() {
         }
         confirmLabel={confirmTarget === 'all' ? '모두 로그아웃' : '로그아웃'}
         isPending={logoutAllMutation.isPending || revokeMutation.isPending}
+        busyLabel="로그아웃 중"
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {
           if (confirmTarget === 'all') {

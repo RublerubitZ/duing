@@ -219,6 +219,29 @@ class LeaderFeePolicyControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("0원 금액으로 회비 정책을 생성·수정하면 400 을 반환한다")
+    void zeroAmountRejected() {
+        Map<String, Object> zeroCreate = monthlyBody();
+        zeroCreate.put("amount", 0);
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(zeroCreate)
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-policies")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("amount: 금액은 1원 이상이어야 합니다."));
+
+        Long policyId = createPolicyAs(leaderToken, monthlyBody());
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("amount", 0))
+                .when().patch("/api/v1/leader/clubs/" + clubId + "/fee-policies/" + policyId)
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("amount: 금액은 1원 이상이어야 합니다."));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 회비 정책을 수정하면 404 를 반환한다")
     void updateNotFound() {
         RestAssured.given()

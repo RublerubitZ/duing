@@ -1,7 +1,6 @@
 package com.duing.domain.facilitybooking.controller;
 
 import com.duing.domain.facilitybooking.api.FacilityAvailabilityApi;
-import com.duing.domain.facilitybooking.controller.dto.response.BookingWindowResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.FacilityAvailabilityResponse;
 import com.duing.domain.facilitybooking.controller.dto.response.PurposePresetResponse;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityService;
@@ -34,16 +33,6 @@ public class FacilityAvailabilityController implements FacilityAvailabilityApi {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(ApiResponse.success(availability));
-    }
-
-    @Override
-    @Deprecated
-    public ResponseEntity<ApiResponse<BookingWindowResponse>> getBookingWindow() {
-        BookingWindowResponse window = facilityAvailabilityService.getBookingWindow();
-        // 참조 창은 시설·사용자별로 갈리지 않는다 — Preset 과 동일한 짧은 공개 캐시를 그대로 둔다(설계 §10)
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic())
-                .body(ApiResponse.success(window));
     }
 
     @Override

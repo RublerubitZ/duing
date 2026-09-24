@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import type { AdminCrawlGroupBy, AdminCrawlReservationGroup } from '@duing/types';
 import { useAdminCrawlReservationsQuery, useFacilityListQuery } from '@duing/hooks';
 
@@ -8,11 +8,13 @@ import { ConsoleCard } from '../../_components/ConsoleCard';
 import { EmptyState } from '../../_components/EmptyState';
 import { ErrorState } from '../../_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
+import { Pagination } from '@/components/Pagination';
 import {
   contextDateLabel,
   crawledAtLabel,
   foldReservationContexts,
   nextYearMonth,
+  previousYearMonth,
   seoulYearMonth,
 } from '../_lib/crawlGrouping';
 
@@ -43,20 +45,22 @@ export function FacilityCrawlTab() {
   const [groupBy, setGroupBy] = useState<AdminCrawlGroupBy>('CLUB');
   const [facilityId, setFacilityId] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(0);
+  const [keyword, setKeyword] = useState('');
+  // 타이핑마다 재조회하지 않도록 지연값으로 요청한다(React 19 내장). 공백만이면 파라미터를 생략한다.
+  const deferredKeyword = useDeferredValue(keyword).trim();
+  const q = deferredKeyword === '' ? undefined : deferredKeyword;
 
   const facilitiesQuery = useFacilityListQuery();
   const reservationsQuery = useAdminCrawlReservationsQuery({
     yearMonth,
     facilityId,
     groupBy,
+    q,
     page,
     size: PAGE_SIZE,
   });
 
-  const monthOptions = [currentMonth, nextYearMonth(currentMonth)];
-  const totalElements = reservationsQuery.data?.totalElements ?? 0;
-  const totalPages = reservationsQuery.data?.totalPages ?? 0;
-  const hasNext = page + 1 < totalPages;
+  const monthOptions = [previousYearMonth(currentMonth), currentMonth, nextYearMonth(currentMonth)];
 
   return (
     <div className="space-y-4">
@@ -93,7 +97,11 @@ export function FacilityCrawlTab() {
                 yearMonth === month ? 'bg-ink text-cream' : 'text-charcoal-2 hover:bg-graysoft'
               }`}
             >
-              {month === currentMonth ? `이번 달 (${month})` : `다음 달 (${month})`}
+              {month === currentMonth
+                ? `이번 달 (${month})`
+                : month < currentMonth
+                  ? `지난 달 (${month})`
+                  : `다음 달 (${month})`}
             </button>
           ))}
         </div>
@@ -115,6 +123,17 @@ export function FacilityCrawlTab() {
             ))}
           </select>
         </label>
+        <input
+          type="search"
+          aria-label="단체명 검색"
+          placeholder="단체명 검색"
+          value={keyword}
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            setPage(0);
+          }}
+          className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
+        />
       </div>
 
       <ConsoleCard>
@@ -141,32 +160,21 @@ export function FacilityCrawlTab() {
             ))}
           </ul>
         )}
+        {reservationsQuery.data && (
+          <div className="px-[18px] pb-4">
+            <p className="text-xs text-charcoal-3">총 {reservationsQuery.data.totalElements}개 그룹</p>
+            <Pagination
+              page={page}
+              totalPages={reservationsQuery.data.totalPages}
+              onChange={setPage}
+              ariaLabel="크롤 예약 페이지"
+              totalElements={reservationsQuery.data.totalElements}
+              pageSize={PAGE_SIZE}
+              className="mt-2"
+            />
+          </div>
+        )}
       </ConsoleCard>
-
-      <footer className="flex items-center justify-between text-xs text-charcoal-3">
-        <span>총 {totalElements}개 그룹</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.max(0, current - 1))}
-            disabled={page === 0}
-            className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
-          >
-            이전
-          </button>
-          <span>
-            {page + 1} / {Math.max(1, totalPages)}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((current) => current + 1)}
-            disabled={!hasNext}
-            className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
-          >
-            다음
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }

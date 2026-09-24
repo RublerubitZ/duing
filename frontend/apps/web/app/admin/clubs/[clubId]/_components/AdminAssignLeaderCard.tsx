@@ -120,6 +120,7 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
         }
         confirmLabel={actionLabel}
         isPending={mutation.isPending}
+        busyLabel={`회장 ${actionLabel} 중`}
         errorMessage={confirmError}
         onConfirm={handleConfirm}
         onCancel={() => {

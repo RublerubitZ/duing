@@ -44,12 +44,7 @@ export function ConfirmRoundDialog({
     >
       <DialogContent
         className="max-w-md"
-        onPointerDownOutside={(event) => {
-          if (isPending) event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>미처리 지원자가 있습니다</DialogTitle>
@@ -116,6 +111,7 @@ export function ConfirmRoundDialog({
             {isPending && <ButtonSpinner />}강제 확정 (미처리 {totalCount}명 제외)
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '라운드 확정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

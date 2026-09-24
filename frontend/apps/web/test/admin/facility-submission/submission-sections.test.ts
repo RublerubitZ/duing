@@ -4,6 +4,7 @@ import {
   buildClubSections,
   buildFacilitySections,
   deriveSelectedIds,
+  summarizeCandidates,
 } from '../../../app/admin/facility-bookings/submission/_lib/submissionSections';
 
 function makeBooking(overrides: Partial<SubmissionCandidateBooking> = {}): SubmissionCandidateBooking {
@@ -122,5 +123,21 @@ describe('deriveSelectedIds', () => {
   it('재조회로 유입된 신규 예약은 자동으로 선택에 포함된다', () => {
     const withNewBooking = [...bookings, makeBooking({ bookingId: 9 })];
     expect(deriveSelectedIds(withNewBooking, new Set([2]))).toEqual([1, 9]);
+  });
+});
+
+describe('summarizeCandidates', () => {
+  it('BE summarize 와 같은 4규칙 — 승인=APPROVED, 미제출=selectable, 제출=submitted, 등록완료=CONFIRMED', () => {
+    const counts = summarizeCandidates([
+      makeBooking({ bookingId: 1, status: 'APPROVED', submitted: false, selectable: true }),
+      makeBooking({ bookingId: 2, status: 'APPROVED', submitted: true, selectable: false }),
+      makeBooking({ bookingId: 3, status: 'CONFIRMED', submitted: true, selectable: false }),
+      makeBooking({ bookingId: 4, status: 'CANCELLED', submitted: false, selectable: false }),
+    ]);
+    expect(counts).toEqual({ approvedCount: 2, awaitingCount: 1, submittedCount: 2, confirmedCount: 1 });
+  });
+
+  it('빈 입력은 전부 0', () => {
+    expect(summarizeCandidates([])).toEqual({ approvedCount: 0, awaitingCount: 0, submittedCount: 0, confirmedCount: 0 });
   });
 });

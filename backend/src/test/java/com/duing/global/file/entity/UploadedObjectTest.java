@@ -54,7 +54,7 @@ class UploadedObjectTest {
     @DisplayName("연결(activate)은 PENDING·RELEASED 에서만 허용되며 PURGING 객체를 되살리지 못한다 (TOCTOU 계약)")
     void activateRejectsNonPending() {
         UploadedObject purging = pending();
-        purging.markPurging();
+        purging.markPurging(Instant.now());
 
         assertThatThrownBy(() -> purging.activate(LATER)).isInstanceOf(IllegalStateException.class);
         assertThat(purging.getStatus()).isEqualTo(UploadedObjectStatus.PURGING);
@@ -69,12 +69,12 @@ class UploadedObjectTest {
         assertThat(fromPending.getActivatedAt()).isEqualTo(LATER);
 
         UploadedObject fromPurging = pending();
-        fromPurging.markPurging();
+        fromPurging.markPurging(Instant.now());
         fromPurging.restoreActive(LATER);
         assertThat(fromPurging.getStatus()).isEqualTo(UploadedObjectStatus.ACTIVE);
 
         UploadedObject purged = pending();
-        purged.markPurging();
+        purged.markPurging(Instant.now());
         purged.markPurged(LATER);
         assertThatThrownBy(() -> purged.restoreActive(LATER)).isInstanceOf(IllegalStateException.class);
     }
@@ -83,13 +83,13 @@ class UploadedObjectTest {
     @DisplayName("claim(markPurging)은 PENDING·PURGING 에서 허용되고(재시도 멱등) ACTIVE 는 거부한다")
     void markPurgingFromPendingOrPurging() {
         UploadedObject uploadedObject = pending();
-        uploadedObject.markPurging();
-        uploadedObject.markPurging();
+        uploadedObject.markPurging(Instant.now());
+        uploadedObject.markPurging(Instant.now());
         assertThat(uploadedObject.getStatus()).isEqualTo(UploadedObjectStatus.PURGING);
 
         UploadedObject active = pending();
         active.activate(LATER);
-        assertThatThrownBy(active::markPurging).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> active.markPurging(Instant.now())).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -98,7 +98,7 @@ class UploadedObjectTest {
         UploadedObject uploadedObject = pending();
         assertThatThrownBy(() -> uploadedObject.markPurged(LATER)).isInstanceOf(IllegalStateException.class);
 
-        uploadedObject.markPurging();
+        uploadedObject.markPurging(Instant.now());
         uploadedObject.markPurged(LATER);
 
         assertThat(uploadedObject.getStatus()).isEqualTo(UploadedObjectStatus.PURGED);
@@ -121,9 +121,9 @@ class UploadedObjectTest {
     @DisplayName("해제(release)는 ACTIVE 에서만 허용된다 — PENDING·PURGING·PURGED 는 거부")
     void releaseRejectsNonActive() {
         UploadedObject purging = pending();
-        purging.markPurging();
+        purging.markPurging(Instant.now());
         UploadedObject purged = pending();
-        purged.markPurging();
+        purged.markPurging(Instant.now());
         purged.markPurged(LATER);
 
         assertThatThrownBy(() -> pending().release(RELEASED_AT)).isInstanceOf(IllegalStateException.class);
@@ -150,7 +150,7 @@ class UploadedObjectTest {
     void releasedIsClaimableAndRestorable() {
         UploadedObject claimed = active();
         claimed.release(RELEASED_AT);
-        claimed.markPurging();
+        claimed.markPurging(Instant.now());
         assertThat(claimed.getStatus()).isEqualTo(UploadedObjectStatus.PURGING);
 
         UploadedObject restored = active();

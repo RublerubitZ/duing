@@ -32,10 +32,11 @@ vi.mock('@/app/_components/ImageUploader', () => ({
 }));
 
 const mockSubmit = vi.fn();
+let mockSubmitPending = false;
 vi.mock('@duing/hooks', () => ({
   useSubmitPromotionRequestMutation: () => ({
     mutate: mockSubmit,
-    isPending: false,
+    isPending: mockSubmitPending,
   }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
@@ -46,6 +47,7 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
   beforeEach(() => {
     mockImageUploaderCalls.length = 0;
     mockSubmit.mockReset();
+    mockSubmitPending = false;
   });
 
   it('배너 이미지 영역에 ImageUploader 가 purpose=PROMOTION_REQUEST_BANNER + aspectRatio=16/9 로 렌더된다', () => {
@@ -102,5 +104,16 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       '홍보 요청이 접수되었습니다. 총동연 검토 후 처리됩니다.',
     );
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('요청 제출이 진행 중이면 보조기술에 "홍보 요청 보내는 중" 상태를 알린다', () => {
+    mockSubmitPending = true;
+    render(
+      <ToastProvider>
+        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('홍보 요청 보내는 중');
   });
 });

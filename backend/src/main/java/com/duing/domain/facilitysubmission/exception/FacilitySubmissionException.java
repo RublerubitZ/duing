@@ -73,7 +73,7 @@ public class FacilitySubmissionException extends ApplicationException {
     }
 
     public static class InvalidCandidatePeriodException extends FacilitySubmissionException {
-        private static final String MESSAGE = "조회 기간은 시작일부터 최대 31일까지 선택할 수 있습니다.";
+        private static final String MESSAGE = "조회 기간은 시작일부터 최대 62일까지 선택할 수 있습니다.";
 
         public InvalidCandidatePeriodException() {
             super(MESSAGE, HttpStatus.BAD_REQUEST);

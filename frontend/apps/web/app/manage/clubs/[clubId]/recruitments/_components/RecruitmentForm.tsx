@@ -53,7 +53,7 @@ const FIELD_LABELS: Record<string, string> = {
   title: '제목',
   startDate: '시작일',
   endDate: '종료일',
-  capacity: '모집 정원',
+  capacity: '모집 인원',
   externalFormUrl: '외부 폼 URL',
   questionItems: '지원 질문',
   interviewStartDate: '면접 시작일',
@@ -743,7 +743,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
           <label className="mt-4 block">
             <span className={fieldLabelClass}>
-              모집 정원 <span className="text-coral">*</span>
+              모집 인원 <span className="text-coral">*</span>
             </span>
             <input
               id={FIELD_IDS.capacity}
@@ -1044,6 +1044,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           confirmLabel="공개"
           confirmVariant="primary"
           isPending={props.isPending}
+          busyLabel="모집 공개 중"
           onCancel={() => {
             setIsPublishConfirmOpen(false);
             setPendingPublishValues(null);

@@ -202,8 +202,8 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("SELECTED 발행에서 탈퇴한 회원은 거부 없이 제외되어 skippedUserIds 로 보고된다")
-    void selectedExcludesDeletedMember() {
+    @DisplayName("SELECTED 발행에 탈퇴한 회원이 섞이면 400 을 반환하고 청구를 만들지 않는다")
+    void selectedRejectsDeletedMember() {
         List<Long> added = addActiveMembers(2);
         Long activeUser = added.get(0);
         Long leftUser = added.get(1);
@@ -211,9 +211,10 @@ class LeaderFeeBillControllerTest extends IntegrationTestBase {
         clubMemberRepository.delete(target);
         FeePolicy policy = saveSelectedPolicy(BillingType.ONE_TIME, 50000L);
         generateAs(leaderToken, policy.getId(), selectedBody("MT", List.of(activeUser, leftUser)))
-                .then().statusCode(HttpStatus.CREATED.value())
-                .body("data.created", equalTo(1))
-                .body("data.skippedUserIds", org.hamcrest.Matchers.contains(leftUser.intValue()));
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("code", equalTo("INVALID_BILL_RECIPIENTS"))
+                .body("message", org.hamcrest.Matchers.containsString("탈퇴한 회원"));
+        assertThat(countBills(policy.getId())).isZero();
     }
 
     @Test

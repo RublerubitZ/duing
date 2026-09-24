@@ -65,9 +65,11 @@ public class AdminFacilitySubmissionController implements AdminFacilitySubmissio
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<SubmissionBatchSummaryResponse>>> getBatches(
-            SubmissionBatchStatusFilter status, Pageable pageable) {
+            SubmissionBatchStatusFilter status, String q, LocalDate submittedFrom, LocalDate submittedTo,
+            Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(
-                queryService.getBatches(new SubmissionBatchSearchCondition(status), pageable)
+                queryService.getBatches(new SubmissionBatchSearchCondition(status, q, submittedFrom, submittedTo),
+                                pageable)
                         .map(SubmissionBatchSummaryResponse::from))));
     }
 

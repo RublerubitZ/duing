@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AdminFacilityBookingApi {
 
     @Operation(summary = "대관 신청 큐 조회",
-            description = "기본 정렬은 PENDING=오래된 순, 그 외=최신순. sort=USAGE_ASC 면 이용일시 빠른 순. "
+            description = "기본 정렬은 PENDING=오래된 순, 그 외=최신순. sort 로 최근 신청순·동아리별·이용일시 오름/내림차순 선택. "
                     + "APPROVED 에 학교 반영 대기 경과일·충돌 의심 플래그 포함.")
     @GetMapping("/admin/facility-bookings")
     ResponseEntity<ApiResponse<PageResponse<AdminFacilityBookingSummaryResponse>>> getQueue(
@@ -40,7 +40,8 @@ public interface AdminFacilityBookingApi {
             @Parameter(description = "시설 필터") @RequestParam(required = false) Long facilityId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
-            @Parameter(description = "정렬 기준. DEFAULT=상태별 기본 순서, USAGE_ASC=이용일시 빠른 순", example = "DEFAULT")
+            @Parameter(description = "정렬 기준. DEFAULT=상태별 기본 순서, CREATED_DESC=최근 신청순, CLUB=동아리 이름순, "
+                    + "USAGE_ASC=이용일시 오름차순, USAGE_DESC=이용일시 내림차순", example = "DEFAULT")
             @RequestParam(defaultValue = "DEFAULT") AdminBookingQueueSort sort,
             @Parameter(hidden = true) Pageable pageable);
 

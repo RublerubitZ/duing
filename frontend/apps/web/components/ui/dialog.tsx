@@ -45,6 +45,10 @@ const DialogOverlay = React.forwardRef<
 /**
  * `busy` 는 "요청이 나갔고 아직 안 끝났다"를 뜻한다 — true 면 ESC·바깥 클릭 닫기를 막는다.
  *
+ * <p>닫힘 정책(#912): 유휴 시 ESC·바깥 클릭 모두 닫힘 허용, busy 중만 차단. 호출처가 인라인
+ * `onPointerDownOutside={(e) => e.preventDefault()}` 를 복붙하지 말고 `busy` 를 넘긴다(예외: 양자택일
+ * 모달 DraftResumeDialog 1곳만 항상 차단).
+ *
  * <p>취소 버튼만 `disabled={isPending}` 로 막고 ESC·바깥 클릭은 열어두면 같은 모달에서
  * 버튼으로는 못 닫는데 키보드로는 닫힌다. 사용자는 "취소됐다"고 이해하지만 요청은 그대로 진행돼,
  * 회원 탈퇴처럼 되돌릴 수 없는 작업에서는 모달이 사라진 뒤 결과만 뒤늦게 나타난다.
@@ -74,8 +78,9 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         // 전송 중임을 영역 상태로 표기한다. 이 속성은 "갱신 중이니 노출을 미뤄도 된다"는 억제 힌트라
-        // 상태 변화를 읽어 주지는 않는다 — 진행 중임을 실제로 알리려면 호출처의 스피너를
-        // role="status" 로 감싸야 한다(레포의 기존 패턴). 여기서는 표기까지만 한다.
+        // 상태 변화를 읽어 주지는 않는다 — 진행 중임을 실제로 알리려면 호출처가 버튼 밖에 sr-only
+        // role="status" 리전을 두고 전송 중 문구를 넣는다(#914). 버튼 안에 감싸면 button 자식은
+        // presentational 이라 리전이 무효이고 접근 이름까지 오염된다. 여기서는 표기까지만 한다.
         aria-busy={busy}
         onEscapeKeyDown={(event) => {
           if (busy) event.preventDefault();

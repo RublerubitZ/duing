@@ -39,10 +39,7 @@ export function AdminClubCentralClubToggleDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>중앙동아리 {action}</DialogTitle>
@@ -52,7 +49,7 @@ export function AdminClubCentralClubToggleDialog({
         </DialogHeader>
 
         {errorMessage && (
-          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
         )}
 
         <DialogFooter>
@@ -68,6 +65,7 @@ export function AdminClubCentralClubToggleDialog({
             {isPending && <ButtonSpinner />}확인
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `중앙동아리 ${action} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

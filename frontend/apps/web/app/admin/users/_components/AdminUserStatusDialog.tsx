@@ -49,10 +49,7 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
       }}
     >
       <DialogContent
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         {/* 아이콘 뱃지 — 제목을 읽기 전에 무슨 성격의 확인인지 먼저 알린다(장식이라 aria-hidden). */}
         <div
@@ -139,6 +136,7 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             {confirmLabel}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? (isSuspending ? '계정 정지 중' : '정지 해제 중') : null}</span>
       </DialogContent>
     </Dialog>
   );

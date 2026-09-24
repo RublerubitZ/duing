@@ -15,6 +15,7 @@ import type {
 } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { Field } from '@/app/_components/Field';
 import {
   Dialog,
   DialogContent,
@@ -65,7 +66,8 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         }
       : {
           name: '',
-          amount: 0,
+          // 0원 정책은 서버가 거부하므로 빈 칸으로 시작해 금액 입력을 요구한다.
+          amount: undefined,
           billingType: 'MONTHLY',
           targetType: 'ALL_MEMBERS',
           autoIssue: false,
@@ -138,10 +140,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <div>
-            <label htmlFor="policy-name" className="mb-1.5 block text-sm font-semibold text-ink">
-              정책 이름 <span className="text-coral">*</span>
-            </label>
+          <Field id="policy-name" label="정책 이름" required error={errors.name?.message}>
             <input
               id="policy-name"
               type="text"
@@ -149,27 +148,29 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               {...register('name')}
               className={cn(inputCls, errors.name && errorInputCls)}
             />
-            {errors.name && <p className="mt-1 text-xs text-coral">{errors.name.message}</p>}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="policy-amount" className="mb-1.5 block text-sm font-semibold text-ink">
-              금액(원) <span className="text-coral">*</span>
-            </label>
+          <Field
+            id="policy-amount"
+            label="금액(원)"
+            required
+            error={errors.amount?.message}
+            hint={
+              isEditMode && (
+                <p className="mt-1 text-xs text-charcoal-3">기존 발행 청구액은 바뀌지 않습니다.</p>
+              )
+            }
+          >
             <input
               id="policy-amount"
               type="number"
-              min={0}
+              min={1}
               step={1}
               placeholder="10000"
               {...register('amount')}
               className={cn(inputCls, errors.amount && errorInputCls)}
             />
-            {isEditMode && (
-              <p className="mt-1 text-xs text-charcoal-3">기존 발행 청구액은 바뀌지 않습니다.</p>
-            )}
-            {errors.amount && <p className="mt-1 text-xs text-coral">{errors.amount.message}</p>}
-          </div>
+          </Field>
 
           <div>
             <span className="mb-1.5 block text-sm font-semibold text-ink">회비 유형</span>
@@ -196,6 +197,8 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                     }
                   },
                 })}
+                aria-invalid={errors.billingType ? true : undefined}
+                aria-describedby={errors.billingType ? 'policy-billing-type-error' : undefined}
                 className={cn(inputCls, errors.billingType && errorInputCls)}
               >
                 {BILLING_TYPE_OPTIONS.map((option) => (
@@ -206,7 +209,9 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               </select>
             )}
             {errors.billingType && (
-              <p className="mt-1 text-xs text-coral">{errors.billingType.message}</p>
+              <p id="policy-billing-type-error" className="mt-1 text-xs text-coral">
+                {errors.billingType.message}
+              </p>
             )}
           </div>
 
@@ -265,7 +270,13 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
           {showAutoIssue && (
             <div className="rounded-md border border-line p-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <input type="checkbox" {...register('autoIssue')} className="h-4 w-4 accent-ink" />
+                <input
+                  type="checkbox"
+                  {...register('autoIssue')}
+                  aria-invalid={errors.autoIssue ? true : undefined}
+                  aria-describedby={errors.autoIssue ? 'policy-auto-issue-error' : undefined}
+                  className="h-4 w-4 accent-ink"
+                />
                 매월 자동 발행
               </label>
               <p className="mt-1 text-xs text-charcoal-3">
@@ -273,10 +284,12 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               </p>
               {watchedAutoIssue && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="policy-issue-day" className="mb-1 block text-xs font-semibold text-charcoal-2">
-                      발행일(1~28)
-                    </label>
+                  <Field
+                    id="policy-issue-day"
+                    label="발행일(1~28)"
+                    labelClassName="mb-1 block text-xs font-semibold text-charcoal-2"
+                    error={errors.issueDay?.message}
+                  >
                     <input
                       id="policy-issue-day"
                       type="number"
@@ -286,14 +299,13 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                       {...register('issueDay')}
                       className={cn(inputCls, errors.issueDay && errorInputCls)}
                     />
-                    {errors.issueDay && (
-                      <p className="mt-1 text-xs text-coral">{errors.issueDay.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="policy-due-day" className="mb-1 block text-xs font-semibold text-charcoal-2">
-                      마감일(1~28)
-                    </label>
+                  </Field>
+                  <Field
+                    id="policy-due-day"
+                    label="마감일(1~28)"
+                    labelClassName="mb-1 block text-xs font-semibold text-charcoal-2"
+                    error={errors.dueDay?.message}
+                  >
                     <input
                       id="policy-due-day"
                       type="number"
@@ -303,16 +315,19 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                       {...register('dueDay')}
                       className={cn(inputCls, errors.dueDay && errorInputCls)}
                     />
-                    {errors.dueDay && <p className="mt-1 text-xs text-coral">{errors.dueDay.message}</p>}
-                  </div>
+                  </Field>
                 </div>
               )}
-              {errors.autoIssue && <p className="mt-1 text-xs text-coral">{errors.autoIssue.message}</p>}
+              {errors.autoIssue && (
+                <p id="policy-auto-issue-error" className="mt-1 text-xs text-coral">
+                  {errors.autoIssue.message}
+                </p>
+              )}
             </div>
           )}
 
           {submitErrorMessage && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
           )}
 
           <div className="flex gap-2 pt-1">
@@ -337,6 +352,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               {isEditMode ? '수정' : '추가'}
             </button>
           </div>
+          <span role="status" className="sr-only">{activeMutation.isPending ? '회비 정책 저장 중' : null}</span>
         </form>
       </DialogContent>
     </Dialog>

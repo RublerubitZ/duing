@@ -4,6 +4,7 @@
 // API 클라이언트가 registerUnauthorizedHandler 로 등록한 이 콜백을 호출한다 —
 // 개별 요청의 401 은 "이 요청이 401 이었다"는 뜻일 뿐이라 종료 판정에 쓰지 않는다.
 // 상태 정리는 어느 시점의 통지든 수행하고, 안내·이동·서버 정리는 세션이 살아 있던 경우에만 한다.
+// 통지는 refresh 시작 시각을 싣고, 세션 개시 이전에 시작한 갱신의 통지는 무시한다(#845).
 
 import { useEffect } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
@@ -24,8 +25,20 @@ export function SessionExpiryHandler() {
   const { addToast } = useToast();
 
   useEffect(() => {
-    registerUnauthorizedHandler(() => {
-      const { status, isVerified, clearSession } = useAuthStore.getState();
+    registerUnauthorizedHandler((refreshStartedAt) => {
+      const { status, isVerified, clearSession, sessionOpenedAt, isLoggingOut } =
+        useAuthStore.getState();
+      // 세션 개시 이전에 시작한 갱신의 통지는 그 이전 세션(콜드 부팅의 느린 만료 체인)의 판정이다.
+      // 로그인 완료와 겹쳐 늦게 도착하면 방금 연 새 세션을 서버 logout 까지 내리므로(#845) 상태 정리까지
+      // 건너뛴다. 같은 ms 는 개시 이전으로 본다 — 새 세션의 쿠키로 보낸 갱신은 개시 뒤에야 시작된다.
+      // ponytail: 부트스트랩 me() 성공 직후, 그보다 먼저 시작한 refresh 의 401(refresh 계열만 폐기·access
+      // 잔존) 통지도 무시된다 — access 만료 뒤 다음 401 이 새 사이클을 열어 자가 치유한다.
+      // ponytail: 무시된 통지를 유발한 원 요청(콜드 부팅 me)은 여전히 401 로 실패해 부트스트랩 catch
+      // 토스트가 뜨지만, 구 문서가 곧 하드 이동으로 버려져 웹에선 보이지 않는다(RN 소프트 전환 시 재검토).
+      if (sessionOpenedAt !== null && refreshStartedAt <= sessionOpenedAt) return;
+      // 의도적 로그아웃 진행 중의 지연 401 통지는 만료가 아니다 — 상태 정리도 로그아웃 흐름에 맡긴다
+      // (성공하면 clearSession 이 내리고, 실패하면 세션이 유지돼 다음 401 이 정상 만료 경로를 탄다).
+      if (isLoggingOut) return;
       // 이미 종료가 확정(검증된 미인증)됐으면 중복 통지다. 동시다발 401 의 중복 토스트/이동을
       // 막기 위해 상태를 동기적으로 먼저 내려, 이후 호출은 이 가드에서 걸러지게 한다.
       // 미검증 미인증(시드 전 초기 상태)은 확정이 아니라 "아직 모른다" 라 여기서 걸리지 않는다.

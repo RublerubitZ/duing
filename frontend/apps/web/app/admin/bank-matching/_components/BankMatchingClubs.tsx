@@ -30,8 +30,9 @@ function overviewErrorMessage(error: unknown): string {
     return error.message;
   }
   if (error.status === 401) {
-    // 전역 세션 만료 안내(SessionExpiryHandler)와 같은 문장을 쓴다 — 같은 사건에 두 문구를 두지 않는다.
-    return '세션이 만료되었어요. 다시 로그인해 주세요.';
+    // 진짜 만료면 전역 핸들러가 이미 이동시켰으므로 여기 도달한 401 은 일시 장애다. 분기를 지우면
+    // 아래 폴백이 서버 문구("인증이 필요합니다.")를 그대로 노출한다.
+    return OVERVIEW_FALLBACK_MESSAGE;
   }
   if (error.status === 403) {
     return '총동연 계정으로만 볼 수 있는 화면이에요.';

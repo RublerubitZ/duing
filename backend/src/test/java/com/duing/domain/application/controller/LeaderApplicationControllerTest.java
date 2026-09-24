@@ -412,7 +412,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진이 아닌 사용자가 neighbor 조회 시 403 을 반환한다")
+    @DisplayName("동아리 비멤버가 neighbor 를 조회하면 모집 미존재와 같은 404 다")
     void nonManagerCannotAccessNeighbors() {
         Club club = saveActiveClub("권한이웃동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -423,7 +423,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().get("/api/v1/leader/recruitments/{recruitmentId}/applications/{applicationId}/neighbors",
                         recruitment.getId(), applicationId)
-                .then().statusCode(403);
+                .then().statusCode(404);
     }
 
     @Test
@@ -551,7 +551,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진이 아닌 사용자가 지원자 번호를 조회하면 403 이다")
+    @DisplayName("동아리 비멤버가 지원자 번호를 조회하면 지원서 미존재와 같은 404 다")
     void nonManagerCannotRevealApplicantPhone() {
         Club club = saveActiveClub("번호열람권한동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -561,7 +561,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
                 .when().get("/api/v1/leader/applications/{applicationId}/phone", applicationId)
-                .then().statusCode(403);
+                .then().statusCode(404);
     }
 
     @Test
@@ -580,7 +580,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("다른 동아리 회장이 남의 지원자 번호를 조회하면 403 이다")
+    @DisplayName("다른 동아리 회장이 남의 지원자 번호를 조회하면 지원서 미존재와 같은 404 다")
     void foreignManagerCannotRevealApplicantPhone() {
         Club club = saveActiveClub("번호열람소속동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -596,7 +596,7 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + foreignLeaderToken)
                 .when().get("/api/v1/leader/applications/{applicationId}/phone", application.getId())
-                .then().statusCode(403);
+                .then().statusCode(404);
     }
 
     @Test

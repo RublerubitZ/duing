@@ -203,13 +203,12 @@ class BookingApplicationPolicyTest {
     }
 
     @Test
-    @DisplayName("windowFor 는 시설 오픈일 창을, referenceWindow 는 오픈일과 무관한 참조 창을 준다")
-    void windowForUsesFacilityOpenDateWhileReferenceWindowDoesNot() {
+    @DisplayName("windowFor 는 시설 오픈일이 정하는 창을 준다")
+    void windowForUsesFacilityOpenDate() {
         BookingApplicationPolicy policy = policyAt(AFTERNOON);
         Facility facility = facilityWithOpenDate(TODAY.plusDays(5));
 
         assertThat(policy.windowFor(facility, TODAY))
                 .isEqualTo(new BookingWindow(TODAY.plusDays(5), NEXT_MONTH_END));
-        assertThat(policy.referenceWindow(TODAY)).isEqualTo(new BookingWindow(TODAY, NEXT_MONTH_END));
     }
 }

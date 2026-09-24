@@ -84,20 +84,23 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  // 제출 시점에 마감된 경우(409 RECRUITMENT_CLOSED) — 자동저장 410 과 같은 마감 UI 로 수렴시킨다.
-  const [closedBySubmit, setClosedBySubmit] = useState(false);
+  // 제출 시점에 마감(409 RECRUITMENT_CLOSED)·시작 전(409 RECRUITMENT_NOT_STARTED)이면 자동저장 410 과 같은
+  // 지원 불가 UI 로 수렴시킨다 — 문구만 사유별로 다르다. 시작 전은 폼을 연 뒤 운영진이 시작일을 미룬 경우다.
+  const [blockedBySubmit, setBlockedBySubmit] = useState<'closed' | 'notStarted' | null>(null);
   // 복원 안내는 세션 안에서만 닫힌다(새로고침하면 다시 뜬다 — 다시 시드되기 때문).
   const [restoredNoticeDismissed, setRestoredNoticeDismissed] = useState(false);
   const draftSavedAtLabel = draftSavedAtLabelOf(draftUpdatedAt);
   // 제출 확인 — 제출 후 수정 API 가 없어 되돌릴 수 없는 행동이라 검증 통과 후 한 번 묻는다.
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // 제출로 지원 불가가 확정되면 끈다 — enabled 가 effect deps 라 cleanup 이 보류 중인 debounce 타이머까지 취소한다.
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: true,
+    enabled: blockedBySubmit === null,
   });
 
-  const isClosed = autosaveStatus.kind === 'closed' || closedBySubmit;
+  const isClosed = autosaveStatus.kind === 'closed' || blockedBySubmit !== null;
+  const isNotStarted = blockedBySubmit === 'notStarted';
 
   function formatTime(date: Date): string {
     return date.toLocaleTimeString('ko-KR', {
@@ -177,10 +180,13 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
       setConfirmOpen(false);
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
-      if (submitError instanceof ApiError && submitError.code === 'RECRUITMENT_CLOSED') {
-        // 제출 직전에 마감된 경우 — 모달을 닫고 마감 배너·입력 비활성으로 전환한다.
+      if (
+        submitError instanceof ApiError &&
+        (submitError.code === 'RECRUITMENT_CLOSED' || submitError.code === 'RECRUITMENT_NOT_STARTED')
+      ) {
+        // 제출 직전에 지원 불가가 된 경우 — 모달을 닫고 배너·입력 비활성으로 전환한다.
         setConfirmOpen(false);
-        setClosedBySubmit(true);
+        setBlockedBySubmit(submitError.code === 'RECRUITMENT_CLOSED' ? 'closed' : 'notStarted');
         return;
       }
       // 그 외 실패는 모달 안에 남긴다(공통 규칙) — 취소하면 아래 인라인 알림이 같은 메시지를 이어받는다.
@@ -211,7 +217,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           {/* 자동저장 상태 */}
           {isClosed ? (
             <span className="tabular-nums text-[12.5px] tracking-wide text-coral">
-              모집 마감 — 임시저장 및 제출 불가
+              {isNotStarted ? '모집 시작 전' : '모집 마감'} — 임시저장 및 제출 불가
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] tracking-wide text-charcoal-3">
@@ -238,7 +244,9 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           // 제출 실패로 동적 삽입되는 경로가 있어 role="alert" 로 스크린리더에 알린다.
           <div role="alert" className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">
             <p className="text-sm text-coral">
-              모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.
+              {isNotStarted
+                ? '아직 모집이 시작되지 않았어요. 제출할 수 없습니다.'
+                : '모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.'}
             </p>
           </div>
         )}
@@ -308,6 +316,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           confirmLabel="제출"
           confirmVariant="primary"
           isPending={submit.isPending}
+          busyLabel="지원서 제출 중"
           errorMessage={error}
           onConfirm={submitApplication}
           onCancel={() => setConfirmOpen(false)}

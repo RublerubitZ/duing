@@ -169,8 +169,15 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         // 마감 판정은 KST(seoulClock) 기준 — prod JVM 은 UTC 라 무클럭 now() 는 자정~09시 사이 하루 늦게 마감된다.
-        if (!recruitment.isEffectivelyOpen(LocalDate.now(clock))) {
+        LocalDate today = LocalDate.now(clock);
+        if (!recruitment.isEffectivelyOpen(today)) {
             throw new ApplicationDomainException.RecruitmentClosedException();
+        }
+
+        // 시작일 도래 검사 — isEffectivelyOpen 은 진행 중 그룹 축(startDate 무관)이라 모집예정(UPCOMING)을 통과시킨다.
+        // 두 검사를 합치면 RecruitmentPredicates.availableToday 와 같은 "오늘 지원 가능" 축이 된다.
+        if (recruitment.getStartDate().isAfter(today)) {
+            throw new RecruitmentException.RecruitmentNotStartedException();
         }
 
         if (recruitment.getApplicationMode() == ApplicationMode.EXTERNAL) {
@@ -275,7 +282,8 @@ public class GeneralApplicationService implements ApplicationService {
     public List<ApplicantQuery> getApplicants(Long recruitmentId, Long currentUserId, ApplicantSearchCondition condition) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(),
+                RecruitmentException.RecruitmentNotFoundException::new);
 
         // 객관식 답변은 jsonb 에 choiceId(UUID) 로 저장되므로, 목록 미리보기도 상세와 동일하게
         // 폼 질문을 통해 라벨로 해석해야 한다. 폼이 없는 모집(EXTERNAL 등)은 빈 목록이라 답변도 비어 나간다.
@@ -291,7 +299,7 @@ public class GeneralApplicationService implements ApplicationService {
         // 메모리에 올리지 않도록, 소속 동아리 ID 만 가볍게 조회해 운영진 권한을 먼저 확인한 뒤 전체를 페치한다.
         Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, ApplicationDomainException.ApplicationNotFoundException::new);
 
         // 경량 조회→인가 사이에 동시 soft-delete 가 일어난 경우에만 비어 있을 수 있으며, 404 응답이 안전하다.
         Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
@@ -345,7 +353,7 @@ public class GeneralApplicationService implements ApplicationService {
     public String getApplicantPhone(Long applicationId, Long currentUserId) {
         Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, clubId);
+        clubAuthService.requireManagerOrHidden(currentUserId, clubId, ApplicationDomainException.ApplicationNotFoundException::new);
         // 인가 뒤·감사 기록 앞 — 권한 없는 요청은 창을 소모하지 않고, 429 는 열람이 없었으므로 감사 행도 남기지 않는다.
         // 부원 번호 열람과 같은 창을 공유한다(열람 총량 기준). 창 비교만 하므로 clock 의 regime 은 결과에 영향이 없다.
         phoneRevealRateLimiter.assertAndRecord(currentUserId, LocalDateTime.now(clock));
@@ -369,9 +377,10 @@ public class GeneralApplicationService implements ApplicationService {
         Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 반환된 ClubMember 를 그대로 받아 아래 운영진 승급 게이트의 역할 판정에 쓴다 — 추가 조회 없음.
-        ClubMember actor = clubAuthService.requireManager(
+        ClubMember actor = clubAuthService.requireManagerOrHidden(
                 updateApplicationStatusCommand.currentUserId(),
-                application.getRecruitment().getClub().getId());
+                application.getRecruitment().getClub().getId(),
+                ApplicationDomainException.ApplicationNotFoundException::new);
         // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
         // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
         // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
@@ -509,7 +518,8 @@ public class GeneralApplicationService implements ApplicationService {
                                                  ApplicantSearchCondition condition) {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
-        clubAuthService.requireManager(currentUserId, recruitment.getClub().getId());
+        clubAuthService.requireManagerOrHidden(currentUserId, recruitment.getClub().getId(),
+                RecruitmentException.RecruitmentNotFoundException::new);
         return applicationRepository.findNeighbors(recruitmentId, applicationId, condition);
     }
 

@@ -99,6 +99,7 @@ describe('RecordPaymentDialog', () => {
     mockRecordError = new MockApiError(400, '납부 금액이 남은 미납액을 초과합니다.');
     render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
     expect(screen.getByText('납부 금액이 남은 미납액을 초과합니다.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('납부 금액이 남은 미납액을 초과합니다.');
   });
 
   it('금액이 0/음수면 검증에서 막히고 뮤테이션을 호출하지 않는다', async () => {
@@ -111,6 +112,7 @@ describe('RecordPaymentDialog', () => {
     await user.click(screen.getByRole('button', { name: '기록' }));
 
     expect(await screen.findByText('납부 금액은 1원 이상이어야 합니다.')).toBeInTheDocument();
+    expect(amountInput).toHaveAccessibleDescription('납부 금액은 1원 이상이어야 합니다.');
     expect(mockRecordMutate).not.toHaveBeenCalled();
 
     await user.clear(amountInput);
@@ -118,5 +120,18 @@ describe('RecordPaymentDialog', () => {
     await user.click(screen.getByRole('button', { name: '기록' }));
 
     expect(mockRecordMutate).not.toHaveBeenCalled();
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  // 리전은 상시 마운트해 두고 텍스트만 바꾼다 — 유휴 시에는 비어 있어야 낭독되지 않는다.
+  it('유휴 상태에서는 전송 중 통지 리전이 비어 있다', () => {
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('기록 요청이 진행 중이면 보조기술에 "납부 기록 중" 상태를 알린다', () => {
+    mockRecordPending = true;
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('납부 기록 중');
   });
 });

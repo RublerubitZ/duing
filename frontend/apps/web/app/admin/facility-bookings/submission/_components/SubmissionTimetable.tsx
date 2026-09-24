@@ -22,7 +22,7 @@ type Props = {
 
 /**
  * 학교 제출 시간표(스펙 v2 §7.1 — 보조 뷰) — 세로=날짜·가로=시간(09~22 13칸), 예약=colSpan 병합 블록.
- * 용도: 시설 충돌·특정 날짜 집중 예약 확인. selectable 블록 클릭=선택 토글(상세는 hover 툴팁),
+ * 용도: 시설 충돌·특정 날짜 집중 예약 확인. selectable 블록 클릭=선택 토글, 상세는 우측 상단 상세 버튼(터치 가능) + hover 툴팁,
  * 그 외 블록 클릭=우측 Sheet 상세. 모바일은 가로 스크롤 + 날짜 열 sticky.
  */
 export function SubmissionTimetable({ bookings, facilityName, selection, onToggleSelect, onShowDetail }: Props) {
@@ -110,6 +110,19 @@ export function SubmissionTimetable({ bookings, facilityName, selection, onToggl
                         <p>승인 {booking.decidedByName ?? '-'}{booking.decidedAt !== null ? ` · ${formatDateKst(booking.decidedAt)}` : ''}</p>
                       </div>
                     </div>
+                    {/* selectable 블록은 클릭=선택 토글이라 상세로 갈 길이 없었다(hover 툴팁은 터치 불가).
+                        블록 <button> 의 형제로 절대 배치한 상세 버튼(스펙 E2) — 블록 안에 넣으면 button>button 무효 HTML.
+                        시각 16px 은 유지하고 before:-inset-1 로 히트 영역만 24px(WCAG 2.5.8 최소) — 빗나가면 아래 선택 블록이 토글되므로(ImageUploader 전례). */}
+                    {booking.selectable && (
+                      <button
+                        type="button"
+                        aria-label={`${row.dateIso} ${bookingTimeLabel(booking.startTime, booking.endTime)} ${booking.clubName ?? '동아리'} 상세`}
+                        onClick={() => onShowDetail(booking)}
+                        className="absolute right-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-paper/90 text-[10px] font-bold leading-none text-charcoal-2 shadow-sm before:absolute before:-inset-1 before:rounded-full before:content-[''] hover:bg-paper hover:text-ink"
+                      >
+                        i
+                      </button>
+                    )}
                   </td>
                 );
               })}

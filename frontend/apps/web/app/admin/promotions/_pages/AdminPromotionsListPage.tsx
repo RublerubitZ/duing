@@ -83,6 +83,7 @@ export function AdminPromotionsListPage() {
         title="배너를 삭제할까요?"
         description={deleteTarget ? `"${deleteTarget.title}" 배너가 더 이상 노출되지 않습니다.` : undefined}
         isPending={deleteMutation.isPending}
+        busyLabel="배너 삭제 중"
         errorMessage={deleteError}
         onCancel={() => {
           setDeleteTarget(null);

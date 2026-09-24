@@ -57,6 +57,7 @@ describe('BankSyncDialog', () => {
     await user.click(screen.getByRole('button', { name: '동기화' }));
 
     expect(await screen.findByText('주민등록번호 앞 6자리를 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/주민등록번호 앞 6자리/)).toHaveAccessibleDescription('주민등록번호 앞 6자리를 입력해 주세요.');
     expect(mockSyncMutate).not.toHaveBeenCalled();
   });
 
@@ -102,5 +103,13 @@ describe('BankSyncDialog', () => {
     mockSyncError = new MockApiError(502, 'bad gateway');
     render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
     expect(screen.getByText('은행 연동에 일시적으로 실패했습니다')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('은행 연동에 일시적으로 실패했습니다');
+  });
+
+  // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
+  it('동기화 요청이 진행 중이면 보조기술에 "거래내역 동기화 중" 상태를 알린다', () => {
+    mockSyncPending = true;
+    render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('거래내역 동기화 중');
   });
 });

@@ -68,6 +68,7 @@ public class FacilityBookingAdminQueryService {
             LocalDateTime createdAt,
             Integer approvedWaitingDays, boolean conflictSuspected, boolean partiallyMatched) {}
 
+    /** source = SCHOOL(타 단체 크롤 행) · INTERNAL(내부 승인·확정 예약) · OWN(학교가 이 동아리 이름으로 등록한 행). */
     public record OverlapContext(String source, String organization, LocalTime startTime, LocalTime endTime) {}
 
     public record AdminBookingDetailResult(Long bookingId, Long clubId, String clubName,
@@ -119,17 +120,24 @@ public class FacilityBookingAdminQueryService {
 
         // ② 겹침 컨텍스트.
         List<OverlapContext> overlaps = new ArrayList<>();
-        // 크롤 실예약 행(SCHOOL 표기 고정) — 학교 단체명 그대로 노출. 확보 분류 행은 비차단이라 이 목록에서
-        // 제외된다(SCHOOL 로 계속 내리면 "학교 측이 막는다" 오표기, 2026-08-27). 기본 확보 시간 대상의
-        // 열람은 크롤 현황 화면(§3.6)이 담당한다.
+        // 크롤 실예약 행 — 학교 단체명 그대로 노출. 확보 분류 행은 비차단이라 이 목록에서 제외된다(SCHOOL 로
+        // 계속 내리면 "학교 측이 막는다" 오표기, 2026-08-27). 기본 확보 시간 대상의 열람은 크롤 현황 화면(§3.6)이
+        // 담당한다. 자기 반영 행(이 동아리 이름으로 학교가 등록한 행)은 SCHOOL 이 아니라 OWN 으로 구분해 내린다 —
+        // 승인 재검증과 같은 기준(FacilityAvailabilityPolicy.isOwnReflectionRow). 자동 확정된 건이 자기 매칭 행을
+        // "학교 일정 겹침 1건"으로 보이던 오표기의 원인이다.
+        String clubName = clubRepository.findById(booking.getClubId()).map(Club::getName).orElse("");
         List<FacilityReservation> crawlRows =
                 facilityReservationRepository.findByFacilityIdAndYearMonth(booking.getFacilityId(), month);
         Set<String> securedOrganizationKeys =
                 crawlRows.isEmpty() ? Set.of() : availabilityPolicy.securedOrganizationKeys();
-        availabilityPolicy.blockingOverlapping(crawlRows,
+        List<FacilityReservation> blockingRows = availabilityPolicy.blockingOverlapping(crawlRows,
                         date, booking.getStartTime(), booking.getEndTime(), securedOrganizationKeys)
-                .forEach(row -> overlaps.add(new OverlapContext(
-                        "SCHOOL", row.getOrganizationName(), row.getStartTime(), row.getEndTime())));
+                .toList();
+        String normalizedClubName = normalizer.normalize(clubName);
+        Set<String> collidingClubKeys = blockingRows.isEmpty() ? Set.of() : availabilityPolicy.collidingClubKeys();
+        blockingRows.forEach(row -> overlaps.add(new OverlapContext(
+                availabilityPolicy.isOwnReflectionRow(row, normalizedClubName, collidingClubKeys) ? "OWN" : "SCHOOL",
+                row.getOrganizationName(), row.getStartTime(), row.getEndTime())));
         // 내부 APPROVED/CONFIRMED(자기 제외) — 관리자 화면은 내부용이므로 동아리명을 노출한다.
         List<FacilityBooking> internalOverlaps = facilityBookingRepository.findOverlapping(
                         booking.getFacilityId(), date,
@@ -155,7 +163,6 @@ public class FacilityBookingAdminQueryService {
                         entry.getNewStatus(), entry.getReason(), entry.getCreatedAt()))
                 .toList();
 
-        String clubName = clubRepository.findById(booking.getClubId()).map(Club::getName).orElse("");
         String roomName = facilityRepository.findById(booking.getFacilityId())
                 .map(Facility::getRoomName).orElse("");
 

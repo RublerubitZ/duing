@@ -8,6 +8,7 @@ import { createApiClient } from '../src/client';
 import { registerUnauthorizedHandler } from '../src/unauthorized-context';
 
 const BASE_URL = 'http://localhost:8080/api/v1';
+const LAST_REFRESH_STORAGE_KEY = 'duing:auth:web-refreshed-at';
 const server = setupServer();
 const unauthorizedHandler = vi.fn();
 
@@ -295,6 +296,78 @@ describe('쿠키 모드 401 자동 갱신', () => {
     expect(results.every((result) => result.status === 'rejected')).toBe(true);
     expect(unauthorizedHandler).toHaveBeenCalledTimes(1); // notify 는 single-flight 실행기에서 1회
   });
+
+  // #844 — 10초 skip 창 안에서 서버측 세션이 폐기되면(강제 로그아웃 등) skip 후 재시도가 401 이 된다.
+  // 이때 skip 캐시를 무시하고 갱신을 1회 강제해 진짜 만료와 일시 장애를 다시 가른다.
+  it('최근 갱신 기록으로 생략된 뒤 재시도가 401 이면 갱신을 1회 강제하고 다시 재시도한다', async () => {
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
+    let refreshCallCount = 0;
+    let meCallCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meCallCount += 1;
+        if (meCallCount <= 2) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        return HttpResponse.json({
+          ok: true,
+          data: { id: 1, studentId: '20261234', name: '테스터', phone: '010-0000-0000', grade: 'FRESHMAN', role: 'STUDENT' },
+          message: null,
+        });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => {
+        refreshCallCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const me = await cookieClient().users.me();
+
+    expect(me.studentId).toBe('20261234');
+    expect(meCallCount).toBe(3);      // 원요청 401 + skip 재시도 401 + 강제 갱신 후 재시도 200
+    expect(refreshCallCount).toBe(1); // 강제 갱신 1회
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('생략 후 재시도 401 에서 강제 갱신도 401 이면 세션 종료를 알리고 원 401 을 표면화한다', async () => {
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
+    let meCallCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meCallCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료', code: 'AUTH_SESSION_EXPIRED' }, { status: 401 })),
+    );
+
+    await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedHandler).toHaveBeenCalledTimes(1);
+    expect(meCallCount).toBe(2); // 원요청 + skip 재시도, 강제 갱신 실패 뒤 추가 재시도 없음
+  });
+
+  it('생략 후 재시도 401 → 강제 갱신 뒤 재재시도에서도 요청 바디가 보존된다', async () => {
+    store.set(LAST_REFRESH_STORAGE_KEY, String(Date.now() - 5_000));
+    const receivedBodies: unknown[] = [];
+    let patchCallCount = 0;
+    server.use(
+      http.patch(`${BASE_URL}/users/me`, async ({ request }) => {
+        patchCallCount += 1;
+        receivedBodies.push(await request.json());
+        if (patchCallCount <= 2) {
+          return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+        }
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    await cookieClient().users.updateProfile({ name: '새이름', grade: 'SENIOR' });
+
+    expect(patchCallCount).toBe(3); // 원요청 401 + skip 재시도 401 + 강제 갱신 후 재시도 200
+    expect(receivedBodies[1]).toEqual(receivedBodies[0]);
+    expect(receivedBodies[2]).toEqual(receivedBodies[0]);
+  });
 });
 
 describe('세션 종료 사이드 채널', () => {
@@ -323,6 +396,29 @@ describe('세션 종료 사이드 채널', () => {
     const laterHandler = vi.fn();
     registerUnauthorizedHandler(laterHandler);
     expect(laterHandler).not.toHaveBeenCalled();
+  });
+
+  // 보류된 통지도 갱신 시작 시각을 잃지 않아야 한다 — 앱 레이어가 세션 개시 이전에 시작한
+  // 갱신의 늦은 통지를 가려낼 근거다(#845).
+  it('늦게 등록된 핸들러가 refresh 시작 시각을 받는다', async () => {
+    registerUnauthorizedHandler(null);
+    givenExpiredSession();
+    // 이 경로의 문서 시각 호출은 실행기의 refresh 시작 캡처 1회뿐이다 — 첫 호출만 고정값을 주고
+    // 이후는 더 큰 값을 돌려, 통지가 기본값("지금")이 아니라 캡처된 시각을 싣는지 가려낸다.
+    const performanceNowSpy = vi
+      .spyOn(performance, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValue(5000);
+
+    try {
+      await expect(cookieClient().users.me()).rejects.toMatchObject({ status: 401 });
+
+      const lateHandler = vi.fn();
+      registerUnauthorizedHandler(lateHandler);
+      expect(lateHandler).toHaveBeenCalledWith(1000);
+    } finally {
+      performanceNowSpy.mockRestore();
+    }
   });
 
   it('등록된 핸들러가 있으면 즉시 전달하고 보류를 남기지 않는다', async () => {

@@ -6,6 +6,7 @@ import {
   crawledAtLabel,
   foldReservationContexts,
   nextYearMonth,
+  previousYearMonth,
 } from '@/app/admin/facility-bookings/_lib/crawlGrouping';
 
 function reservation(overrides: Partial<AdminCrawlReservation>): AdminCrawlReservation {
@@ -132,5 +133,12 @@ describe('nextYearMonth', () => {
   it('연 경계를 안전하게 넘는다', () => {
     expect(nextYearMonth('2026-08')).toBe('2026-09');
     expect(nextYearMonth('2026-12')).toBe('2027-01');
+  });
+});
+
+describe('previousYearMonth', () => {
+  it('연 경계를 안전하게 넘는다', () => {
+    expect(previousYearMonth('2026-09')).toBe('2026-08');
+    expect(previousYearMonth('2026-01')).toBe('2025-12');
   });
 });

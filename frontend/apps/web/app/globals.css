@@ -154,6 +154,12 @@ body {
     background: #fbefd7;
     color: #8e6620;
   }
+  /* 만료-OPEN 전용 — 예정(warm)과 테두리로 구분, 경고 의미 유지 */
+  .pill-warm-outline {
+    background: #fbefd7;
+    color: #8e6620;
+    box-shadow: inset 0 0 0 1px #8e6620;
+  }
   .pill-coral {
     background: #fce2d9;
     color: #9a3f23;

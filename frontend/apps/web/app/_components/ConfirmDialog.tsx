@@ -26,6 +26,8 @@ type Props = {
    */
   confirmVariant?: 'danger' | 'primary';
   isPending?: boolean;
+  /** 전송 중 보조기술 안내 문구('○○ 중'). 처리 중에만 status 리전에 실린다. */
+  busyLabel?: string;
   /**
    * 확인 액션이 실패했을 때의 안내. 넘기면 모달을 닫지 말고 이 값을 채운다 — 소비처가 오류를
    * 화면 본문에 그리면 모달이 열려 있는 동안 오버레이·aria-hidden 뒤에 갇힌다.
@@ -54,6 +56,7 @@ export function ConfirmDialog({
   confirmLabel = '삭제',
   confirmVariant = 'danger',
   isPending = false,
+  busyLabel = '처리 중',
   errorMessage = null,
   children,
   confirmDisabled = false,
@@ -69,10 +72,7 @@ export function ConfirmDialog({
     >
       <DialogContent
         className="max-w-sm"
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          if (isPending) event.preventDefault();
-        }}
+        busy={isPending}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -108,6 +108,7 @@ export function ConfirmDialog({
             {confirmLabel}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? busyLabel : null}</span>
       </DialogContent>
     </Dialog>
   );
