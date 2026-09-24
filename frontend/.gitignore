@@ -4,6 +4,8 @@ node_modules
 
 # build outputs
 .next
+# Next 16 은 build/dev 가 이 파일을 번갈아 재생성한다 — 공식 권고대로 추적하지 않는다
+next-env.d.ts
 out
 dist
 build
