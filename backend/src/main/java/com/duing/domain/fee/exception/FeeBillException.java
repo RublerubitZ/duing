@@ -72,7 +72,7 @@ public class FeeBillException extends ApplicationException {
 
         public static InvalidBillRecipientsException notClubMembers() {
             return new InvalidBillRecipientsException(
-                    "청구 대상에 이 동아리 회원이 아닌 사용자가 포함되어 있습니다.", "INVALID_BILL_RECIPIENTS");
+                    "청구 대상에 이 동아리 회원이 아니거나 탈퇴한 회원이 포함되어 있습니다.", "INVALID_BILL_RECIPIENTS");
         }
     }
 

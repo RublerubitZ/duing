@@ -66,7 +66,8 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         }
       : {
           name: '',
-          amount: 0,
+          // 0원 정책은 서버가 거부하므로 빈 칸으로 시작해 금액 입력을 요구한다.
+          amount: undefined,
           billingType: 'MONTHLY',
           targetType: 'ALL_MEMBERS',
           autoIssue: false,
@@ -163,7 +164,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
             <input
               id="policy-amount"
               type="number"
-              min={0}
+              min={1}
               step={1}
               placeholder="10000"
               {...register('amount')}

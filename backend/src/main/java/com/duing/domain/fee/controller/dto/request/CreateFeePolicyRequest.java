@@ -7,12 +7,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CreateFeePolicyRequest(
         @NotBlank(message = "정책 이름은 필수입니다.") @Size(max = 100, message = "정책 이름은 100자 이하여야 합니다.") String name,
-        @NotNull(message = "금액은 필수입니다.") @PositiveOrZero(message = "금액은 0 이상이어야 합니다.") Long amount,
+        @NotNull(message = "금액은 필수입니다.") @Positive(message = "금액은 1원 이상이어야 합니다.") Long amount,
         @NotNull(message = "회비 유형은 필수입니다.") BillingType billingType,
         @NotNull(message = "청구 대상은 필수입니다.") FeeTargetType targetType,
         Boolean autoIssue,

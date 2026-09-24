@@ -71,6 +71,16 @@ describe('CreatePolicyDialog', () => {
     expect(mockCreateMutate).not.toHaveBeenCalled();
   });
 
+  it('금액이 0원이면 검증 에러를 표시하고 제출하지 않는다', async () => {
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '0');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+    expect(await screen.findByText('금액은 1원 이상이어야 합니다.')).toBeInTheDocument();
+    expect(mockCreateMutate).not.toHaveBeenCalled();
+  });
+
   it('유효한 입력을 제출하면 생성 뮤테이션을 호출하고 성공 시 닫는다', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -80,6 +90,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={onClose} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByRole('button', { name: '추가' }));
 
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
@@ -113,6 +124,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '5');
     await user.type(screen.getByLabelText('마감일(1~28)'), '20');
@@ -134,6 +146,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '5');
     await user.type(screen.getByLabelText('마감일(1~28)'), '20');
@@ -153,6 +166,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByLabelText('매월 자동 발행'));
     await user.type(screen.getByLabelText('발행일(1~28)'), '20');
     await user.type(screen.getByLabelText('마감일(1~28)'), '5');
@@ -189,6 +203,7 @@ describe('CreatePolicyDialog', () => {
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/정책 이름/), 'MT 참가비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
     await user.click(screen.getByRole('radio', { name: '특정 부원' }));
     await user.click(screen.getByRole('button', { name: '추가' }));
 
