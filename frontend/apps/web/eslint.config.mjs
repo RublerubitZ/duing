@@ -24,7 +24,7 @@ export default defineConfig([
       'react-hooks/purity': 'off',
       'react-hooks/static-components': 'off',
       // `_` 접두 인자는 의도된 미사용(exhaustive check `((_: never) => {})(x)` 등). `next lint` 15 에서는
-      // 경고가 아니었고, 16 의 typescript 프리셋만 두면 ApplicantInterviewScheduleCard.tsx:231 이 경고로 뜬다.
+      // 경고가 아니었고, 16 의 typescript 프리셋만 두면 그런 인자가 no-unused-vars 경고로 뜬다.
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-restricted-globals': [
         'error',

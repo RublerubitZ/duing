@@ -190,4 +190,6 @@ export default withSentryConfig(nextConfig, {
   },
   // 미들웨어 Sentry 자동 래핑은 끈 상태를 유지한다 — Turbopack 빌드(Next 16 기본)는 미들웨어를 감싸지
   // 않으므로 별도 옵션이 필요 없다(webpack 전용이던 `webpack.autoInstrumentMiddleware: false` 는 제거).
+  // 이 전제는 @sentry/nextjs 10.x 빌드 산출(edge 청크에 wrapMiddlewareWithSentry 0건)로 확인한 것이라,
+  // Sentry 메이저를 올릴 때 같은 방법으로 다시 확인한다.
 });
