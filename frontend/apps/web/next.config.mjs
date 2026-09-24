@@ -36,10 +36,11 @@ const CONTENT_SECURITY_POLICY_REPORT_ONLY = [
 // 노출하고 런타임에서 뺀 경우는 못 잡는다. 그쪽은 uptime 모니터 5번(deploy/UPTIME.md)이 맡는다.
 //
 // 조건을 NODE_ENV 가 아니라 VERCEL_ENV 로 잡은 이유(되돌리지 말 것): next.config 는 `next build` 뿐
-// 아니라 `next lint`·`next start` 도 로드하고, 그때 NODE_ENV 는 전부 'production' 이다. NODE_ENV 로
-// 걸면 CI 의 Lint 스텝(AUTH_HINT_SECRET 미주입)이 깨져 Gate 가 영구 red 가 되고, Preview 환경에 이
-// 변수를 등록하지 않았다면 프리뷰 배포까지 전부 깨진다. VERCEL_ENV 는 Vercel 빌드에서만 정의되므로
-// 실제로 막고 싶은 지점 — 운영 배포 빌드 — 에만 걸린다. 실패하면 직전 배포가 그대로 유지된다.
+// 아니라 `next start` 도 로드하고(NODE_ENV='production'), Vercel 의 Preview 배포 빌드도 NODE_ENV 가
+// 'production' 이다. 그런데 Vercel 프로젝트는 AUTH_HINT_SECRET 을 Production 환경에만 등록해 두었으므로,
+// NODE_ENV 로 걸면 이 변수 없이 돌리는 로컬 `next start` 와 모든 Preview 빌드가 깨진다. VERCEL_ENV 는
+// Vercel 빌드에서만 정의되므로 실제로 막고 싶은 지점 — 운영 배포 빌드 — 에만 걸린다. 실패하면 직전
+// 배포가 그대로 유지된다.
 if (process.env.VERCEL_ENV === 'production' && !process.env.AUTH_HINT_SECRET) {
   throw new Error(
     'AUTH_HINT_SECRET 이 없습니다. 운영 배포 빌드에 필수입니다 — Vercel 프로젝트 환경변수(Production)에 ' +
@@ -65,6 +66,33 @@ const nextConfig = {
   // 자동 생성한다. 에이전트 지침은 frontend/AGENTS.md·frontend/CLAUDE.md 로 직접 관리하므로 끈다 — 켜 두면
   // apps/web/CLAUDE.md 가 중첩 지침으로 로드되고 untracked 파일 2개가 매번 생긴다.
   agentRules: false,
+  compiler: {
+    // Sentry 번들 축소 플래그. 예전엔 withSentryConfig 의 bundleSizeOptimizations 로 줬는데 그 옵션은
+    // Sentry 의 webpack DefinePlugin 으로만 구현돼 있어 Turbopack 빌드(Next 16 기본)에서는 조용히 무효가
+    // 된다 — 실측으로 클라이언트 번들에 browserTracingIntegration 이 되살아났다. Next 의 define 은 Turbopack·
+    // webpack 양쪽에 적용되므로 같은 매직 플래그를 여기서 직접 치환한다. `define` 은 client·server·edge 세 빌드
+    // 모두에 들어간다(next/dist/build/define-env.js) — 같은 키를 `defineServer` 에 또 쓰면 빌드가 E689 로 깨진다.
+    //
+    // ⚠ 커플링 1 — __SENTRY_TRACING__=false 는 instrumentation-client.ts 의 `tracesSampleRate: 0`(성능 추적
+    // 비활성)과 한 쌍이다. 추적을 다시 켤 때(tracesSampleRate > 0) 이 플래그를 반드시 함께 지운다. 안 지우면
+    // 샘플링만 올라가고 span 코드는 번들에서 빠진 채라 조용히 아무 것도 수집되지 않는다. 실제 절감이 나오는
+    // 항목도 이것뿐이다(SDK 는 tracesSampleRate 가 0 이어도 browserTracingIntegration 을 기본 통합에 넣는다).
+    // instrumentation-client.ts 의 onRouterTransitionStart export 는 그대로 둬도 안전하다 — 내부 핸들러를
+    // 채우는 appRouterInstrumentNavigation 이 이 가드 안이라 no-op 으로 남는다.
+    //
+    // ⚠ 커플링 2 — __RRWEB_* / __SENTRY_EXCLUDE_REPLAY_WORKER__ 3종은 세션 리플레이 도입 금지 정책과 한 쌍이다
+    // (사유는 instrumentation-client.ts 의 `tracesSampleRate` 위 주석 — 학생 PII 화면 캡처). replayIntegration 을
+    // 쓰지 않으므로 절감은 ~0 이고, 누군가 리플레이를 붙이면 곧바로 무동작으로 드러나게 하는 정책 방어용이다.
+    //
+    // __SENTRY_DEBUG__=false — client·server init 어느 쪽도 Sentry `debug` 를 켜지 않으므로 잃는 정보가 없다.
+    define: {
+      __SENTRY_TRACING__: false,
+      __SENTRY_DEBUG__: false,
+      __RRWEB_EXCLUDE_IFRAME__: true,
+      __RRWEB_EXCLUDE_SHADOW_DOM__: true,
+      __SENTRY_EXCLUDE_REPLAY_WORKER__: true,
+    },
+  },
   experimental: {
     // 클라이언트 라우터 캐시 — 동적 세그먼트(로그인·콘솔 등)도 3분간 재사용한다.
     // 기본값 0 이면 하단 탭 재방문마다 풀 RSC 재페치가 돌아 로딩 폴백이 번쩍인다(모바일 깜빡임).
@@ -161,33 +189,6 @@ export default withSentryConfig(nextConfig, {
   project: 'next-duing',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
-  // 쓰지 않는 Sentry 기능 코드를 빌드 시 매직 플래그 치환(__SENTRY_TRACING__ 등)으로 걷어낸다.
-  // 치환은 client·server·edge 세 빌드 모두에 적용된다 — "클라이언트 번들만"이 아니다.
-  //
-  // ⚠ 커플링 1 — excludeTracing 은 instrumentation-client.ts 의 `tracesSampleRate: 0`(성능 추적
-  // 비활성)과 한 쌍이다. 추적을 다시 켤 때(tracesSampleRate > 0) 이 줄을 반드시 함께 지운다.
-  // 안 지우면 샘플링만 올라가고 span 코드는 번들에서 빠진 채라 조용히 아무 것도 수집되지 않는다.
-  // 지금 실제 절감이 나오는 항목도 이것뿐이다 — SDK 는 tracesSampleRate 가 0 이어도
-  // browserTracingIntegration 을 기본 통합에 넣어 왔고(@sentry/nextjs 10.58.0
-  // build/cjs/client/index.js:88, __SENTRY_TRACING__ 가드 안), 그 덩어리가 통째로 빠진다.
-  // instrumentation-client.ts 의 onRouterTransitionStart export 는 그대로 둬도 안전하다:
-  // captureRouterTransitionStart 자체는 가드 밖의 평범한 함수이고, 그 내부 핸들러를 채우는
-  // appRouterInstrumentNavigation 이 위 가드 안이라 추적을 빼면 기존 주석대로 no-op 으로 남는다.
-  //
-  // ⚠ 커플링 2 — excludeReplay* 3종은 세션 리플레이 도입 금지 정책과 한 쌍이다
-  // (사유는 instrumentation-client.ts 의 `tracesSampleRate` 위 주석 — 학생 PII 화면 캡처).
-  // replayIntegration 을 애초에 쓰지 않으므로 절감은 ~0 이고, 누군가 리플레이를 붙이면 곧바로
-  // 무동작으로 드러나게 하는 정책 방어용이다. 도입하기로 뒤집는다면 이 3줄도 같이 지워야 한다.
-  //
-  // excludeDebugStatements 는 __SENTRY_DEBUG__=false 치환 — client·server init 어느 쪽도
-  // Sentry `debug` 를 켜지 않으므로 잃는 관측 정보가 없다.
-  bundleSizeOptimizations: {
-    excludeTracing: true,
-    excludeReplayShadowDom: true,
-    excludeReplayIframe: true,
-    excludeReplayWorker: true,
-    excludeDebugStatements: true,
-  },
   // 미들웨어 Sentry 자동 래핑은 끈 상태를 유지한다 — Turbopack 빌드(Next 16 기본)는 미들웨어를 감싸지
   // 않으므로 별도 옵션이 필요 없다(webpack 전용이던 `webpack.autoInstrumentMiddleware: false` 는 제거).
   // 이 전제는 @sentry/nextjs 10.x 빌드 산출(edge 청크에 wrapMiddlewareWithSentry 0건)로 확인한 것이라,
