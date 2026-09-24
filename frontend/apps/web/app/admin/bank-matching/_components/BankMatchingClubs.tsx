@@ -44,11 +44,14 @@ function overviewErrorMessage(error: unknown): string {
   return error.message.trim() || OVERVIEW_FALLBACK_MESSAGE;
 }
 
+// data 가 없을 때 매 렌더 새 [] 를 만들면 useMemo 의존성이 매번 바뀐다 — 모듈 상수로 고정.
+const EMPTY_CLUBS: ReadonlyArray<BankMatchingClub> = [];
+
 export function BankMatchingClubs() {
   const { data, isLoading, isError, error, refetch } = useAdminBankMatchingQuery();
   const [search, setSearch] = useState('');
 
-  const clubs = data?.clubs ?? [];
+  const clubs = data?.clubs ?? EMPTY_CLUBS;
   // 숫자일 때만 현황을 노출한다 — 구버전 백엔드(필드 없음)와 붙었을 때 `?? 0` 이 "0개" 라고
   // 단정해 실제 등록 수를 거짓 표시하는 것을 막는다(배포 전환기 가드).
   const registeredCount = typeof data?.registeredCount === 'number' ? data.registeredCount : null;
