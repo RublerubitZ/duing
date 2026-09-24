@@ -22,10 +22,5 @@
     "openapi-typescript": "^7.4.4",
     "prettier": "^3.3.3",
     "typescript": "^5.6.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "next>postcss": "^8.5.28"
-    }
   }
 }
