@@ -14,9 +14,6 @@ on:
         description: 'R2 스냅샷 폴더 (KST, YYYY/MM/DD). 비우면 가장 최근 폴더'
         required: false
         type: string
-  # 임시(머지 전 제거): 기본 브랜치에 없는 워크플로는 dispatch 가 안 돼 첫 실행을 push 로 트리거한다.
-  push:
-    branches: [chore/restore-rehearsal-workflow]
 
 jobs:
   rehearsal:
@@ -82,7 +79,8 @@ jobs:
           gzip -t restore/*.sql.gz
           gunzip restore/*.sql.gz
           ls -l restore/*.sql | awk '{n=$NF; sub(/^restore\//, "", n); print n, $5 " bytes"}' | tee restore/sizes.txt
-          grep -m1 -oE 'Dumped from database version [0-9.]+' restore/schema.sql | tee restore/source-version.txt || echo "unknown" > restore/source-version.txt
+          # Supabase CLI 덤프는 pg_dump 머리(Dumped from database version)를 떼어 낸다 — 있으면 찍고 없으면 그렇게 적는다.
+          grep -m1 -oE 'Dumped from database version [0-9.]+' restore/schema.sql > restore/source-version.txt || echo "덤프 헤더에 원본 버전 없음" > restore/source-version.txt
 
       # 바닐라 PG 함정(DB-RESTORE.md §4): roles.sql 은 Supabase 예약 롤의 CREATE 를 주석 처리하고 ALTER 만 남기므로
       # 없는 롤을 먼저 만든다. 이름은 덤프에서 도출하고 [A-Za-z0-9_] 만 허용한다(psql -v 로 전달, 문자열 조립 없음).
