@@ -219,6 +219,8 @@ jobs:
             echo "| 핵심 건수 | $(paste -sd',' restore/core-counts.txt | sed 's/,/, /g') |"
             echo "| 선생성 롤 | $(paste -sd' ' restore/role-names.txt) |"
             echo "| schema 허용 오류 | $(wc -l < restore/schema-allowed.txt | tr -d " ")건 |"
+            echo "| data 필터 | $(cat restore/filter-stats.txt) |"
+            echo "| 소요 | $(( $(date +%s) - $(cat restore/started-at) ))초 (다운로드~검증) |"
             echo
             if [ -s restore/schema-allowed.txt ]; then echo '```'; cat restore/schema-allowed.txt; echo '```'; fi
             echo
