@@ -128,7 +128,7 @@ Supabase 가 아니라 일반 Postgres(로컬 검증용 등)에 되살릴 때만
 
 - `roles.sql` 에는 `ALTER ROLE … SET` 만 들어 있다(예약 롤의 CREATE 는 CLI 가 주석 처리) → `anon` / `authenticated` /
   `service_role` / `authenticator` 롤과 `extensions` · `vault` 스키마를 **미리 만들어 둬야** 한다. 리허설 워크플로는
-  롤 이름을 덤프에서 도출해(`ALTER ROLE` · `OWNER TO` · `GRANT` 대상 − 덤프가 직접 `CREATE ROLE` 하는 롤) 없는 것만 만든다.
+  롤 이름을 덤프에서 도출해(`ALTER ROLE` · `OWNER TO` · `GRANT`/`REVOKE` 대상 − 덤프가 직접 `CREATE ROLE` 하는 롤) 없는 것만 만든다.
   2026-09-24 실측 선생성 롤 5개: `anon` `authenticated` `authenticator` `postgres`(컨테이너에 이미 있어 건너뜀) `service_role`.
 - `schema.sql` 적용 중 `supabase_vault` 확장 없음, `supabase_realtime` publication 없음 오류 2건은 무해하다
   (Supabase 플랫폼 전용). 2026-09-24 실측에서도 이 2건뿐이었다. 단 `--single-transaction` 이면 이 오류가 전체를

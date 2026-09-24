@@ -72,6 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p restore
+          date +%s > restore/started-at
           aws s3 cp "s3://$R2_BUCKET/$SNAPSHOT/" restore/ --recursive --endpoint-url "$R2_ENDPOINT" >/dev/null
           for f in roles schema data; do
             [ -f "restore/$f.sql.gz" ] || { echo "::error::restore/$f.sql.gz 없음 — 스냅샷 폴더가 불완전합니다"; exit 1; }
@@ -127,6 +128,8 @@ jobs:
           set -euo pipefail
           ALLOWED='extension "[a-z_]+" is not available|publication "supabase_realtime"'
           psql -q -v ON_ERROR_STOP=0 -f restore/schema.sql >/dev/null 2>restore/schema.err || true
+          # 접속 자체가 실패하면 오류 0건으로 통과해 버린다 — psql 클라이언트 오류는 여기서 바로 실패.
+          if grep -qE '^psql: error' restore/schema.err; then grep -E '^psql: error' restore/schema.err | sed -E 's/"[^"]*"/"…"/g'; echo "::error::schema.sql 실행 자체가 실패했습니다"; exit 1; fi
           grep -E '(^|: )ERROR:' restore/schema.err | sed -E 's/^psql:[^:]*:[0-9]+: //' | sort -u > restore/schema-errors.txt || true
           grep -E "$ALLOWED" restore/schema-errors.txt > restore/schema-allowed.txt || true
           grep -vE "$ALLOWED" restore/schema-errors.txt | sed -E 's/"[^"]*"/"…"/g' > restore/schema-unexpected.txt || true
@@ -155,7 +158,8 @@ jobs:
             /^SELECT pg_catalog\.setval\(."[a-z_]+"\./ && $0 !~ /setval\(."public"\./ { next }
             { print }
             END { printf("public COPY 블록 %d개 유지, 비-public 블록 %d개 제외\n", kept, skipped) > "/dev/stderr" }
-          ' restore/data.sql > restore/data.public.sql
+          ' restore/data.sql > restore/data.public.sql 2> restore/filter-stats.txt
+          cat restore/filter-stats.txt
           [ -s restore/expected-counts.tsv ] || { echo "::error::public COPY 블록이 하나도 없습니다 — 덤프 형식 확인"; exit 1; }
           echo "기대 행수 기록 테이블 $(wc -l < restore/expected-counts.tsv | tr -d " ")개"
 
