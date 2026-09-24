@@ -14,6 +14,9 @@ on:
         description: 'R2 스냅샷 폴더 (KST, YYYY/MM/DD). 비우면 가장 최근 폴더'
         required: false
         type: string
+  # 임시(머지 전 제거): 기본 브랜치에 없는 워크플로는 dispatch 가 안 돼 첫 실행을 push 로 트리거한다.
+  push:
+    branches: [chore/restore-rehearsal-workflow]
 
 jobs:
   rehearsal:
