@@ -25,6 +25,7 @@ import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,6 +46,7 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -57,7 +59,7 @@ class NoticeUploadActivationTest extends IntegrationTestBase {
     private String seedPurged(FilePurpose purpose) {
         String storageKey = purpose.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, purpose, 1L, Instant.now());
-        uploadedObject.markPurging();
+        uploadedObject.markPurging(Instant.now(clock));
         uploadedObject.markPurged(Instant.now());
         uploadedObjectRepository.save(uploadedObject);
         return storageKey;

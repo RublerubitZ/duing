@@ -37,12 +37,16 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
     /**
      * 파기 후보 — 주어진 상태(PENDING·PURGING)이면서 cutoff 이전에 업로드된 행을 id 오름차순으로.
      * ORDER BY id 로 처리 순서를 결정화해 "개별 실패 후 다음 후보 계속 처리" 계약을 테스트 가능하게 한다.
+     * claim 시각(purging_at)이 graceCutoff 보다 뒤인 행(#1258 유예 중)은 빼서 상한을 점유하지 못하게 한다 —
+     * purging_at 이 NULL 인 행(아직 claim 전, V132 이전 PURGING)은 통과한다.
      */
     @Query("SELECT uploadedObject FROM UploadedObject uploadedObject "
             + "WHERE uploadedObject.status IN :statuses AND uploadedObject.uploadedAt < :cutoff "
+            + "AND (uploadedObject.purgingAt IS NULL OR uploadedObject.purgingAt <= :graceCutoff) "
             + "ORDER BY uploadedObject.id ASC")
     List<UploadedObject> findPurgeCandidates(@Param("statuses") Collection<UploadedObjectStatus> statuses,
                                              @Param("cutoff") Instant cutoff,
+                                             @Param("graceCutoff") Instant graceCutoff,
                                              Pageable pageable);
 
     /** 파생 쿼리 — 직접 쓰지 말고 {@link #findReleasedCandidates} 로. */

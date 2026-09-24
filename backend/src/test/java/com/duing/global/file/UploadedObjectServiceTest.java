@@ -10,6 +10,7 @@ import com.duing.global.file.entity.UploadedObject;
 import com.duing.global.file.entity.UploadedObjectStatus;
 import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,7 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
 
     @Autowired UploadedObjectService uploadedObjectService;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @Autowired Clock clock;
     @Autowired PlatformTransactionManager platformTransactionManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -44,8 +46,8 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
         UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, Instant.now());
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(Instant.now());
         if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(Instant.now()); uploadedObject.release(Instant.now()); }
-        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging();
-        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(); uploadedObject.markPurged(Instant.now()); }
+        if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now(clock));
+        if (status == UploadedObjectStatus.PURGED) { uploadedObject.markPurging(Instant.now(clock)); uploadedObject.markPurged(Instant.now()); }
         return uploadedObjectRepository.save(uploadedObject);
     }
 

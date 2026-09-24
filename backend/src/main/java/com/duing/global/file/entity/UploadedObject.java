@@ -65,6 +65,10 @@ public class UploadedObject {
     @Column(name = "released_at")
     private Instant releasedAt;
 
+    /** 파기 잡이 처음 claim 한 시각(#1258) — 실삭제는 이 시각 + grace 이후 실행에서만. 치유되면 비운다. */
+    @Column(name = "purging_at")
+    private Instant purgingAt;
+
     private UploadedObject(String storageKey, FilePurpose purpose, Long uploaderId, Instant uploadedAt) {
         this.storageKey = storageKey;
         this.purpose = purpose;
@@ -92,6 +96,7 @@ public class UploadedObject {
         this.status = UploadedObjectStatus.ACTIVE;
         this.activatedAt = now;
         this.releasedAt = null;
+        this.purgingAt = null;
     }
 
     /** 교체·비우기·삭제로 참조를 놓음(#1153) — ACTIVE 에서만. 그 외 상태는 호출자가 no-op 으로 거른다. */
@@ -101,11 +106,17 @@ public class UploadedObject {
         this.releasedAt = now;
     }
 
-    /** 파기 잡 claim — PENDING·PURGING·RELEASED 에서. PURGING→PURGING 은 삭제 미확정 재시도(멱등). */
-    public void markPurging() {
+    /**
+     * 파기 잡 claim — PENDING·PURGING·RELEASED 에서. PURGING→PURGING 은 삭제 미확정·유예 대기 재시도(멱등) —
+     * {@code purgingAt} 은 첫 claim 시각을 유지해 유예가 재시도마다 밀리지 않는다.
+     */
+    public void markPurging(Instant now) {
         requireStatus("markPurging",
                 UploadedObjectStatus.PENDING, UploadedObjectStatus.PURGING, UploadedObjectStatus.RELEASED);
         this.status = UploadedObjectStatus.PURGING;
+        if (this.purgingAt == null) {
+            this.purgingAt = now;
+        }
     }
 
     /** 스토리지 삭제 확정 후 — PURGING 에서만. 행은 보존한다(스펙 §2.1). */
