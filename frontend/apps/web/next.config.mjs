@@ -61,6 +61,10 @@ const nextConfig = {
     '@duing/types',
   ],
   typedRoutes: true,
+  // Next 16 은 AI 코딩 에이전트 환경(Claude Code·Cursor 등)에서 `next dev` 가 이 디렉터리에 AGENTS.md·CLAUDE.md 를
+  // 자동 생성한다. 에이전트 지침은 frontend/AGENTS.md·frontend/CLAUDE.md 로 직접 관리하므로 끈다 — 켜 두면
+  // apps/web/CLAUDE.md 가 중첩 지침으로 로드되고 untracked 파일 2개가 매번 생긴다.
+  agentRules: false,
   experimental: {
     // 클라이언트 라우터 캐시 — 동적 세그먼트(로그인·콘솔 등)도 3분간 재사용한다.
     // 기본값 0 이면 하단 탭 재방문마다 풀 RSC 재페치가 돌아 로딩 폴백이 번쩍인다(모바일 깜빡임).
@@ -184,13 +188,6 @@ export default withSentryConfig(nextConfig, {
     excludeReplayWorker: true,
     excludeDebugStatements: true,
   },
-  webpack: {
-    // 미들웨어 자동 래핑 해제. 켜두면 Sentry 가 middleware.ts 를 wrapMiddlewareWithSentry 로 감싸면서
-    // @sentry/core 를 미들웨어 번들에 끌어들이고, 매 요청 isolation scope 복제·요청 헤더 직렬화·span
-    // 생성·flush 예약을 돌린다. 미들웨어가 하는 일은 auth_hint 검증 한 번뿐이라 관측 이득 대비
-    // Active CPU 비용이 크다. 서버·클라이언트 계측과 소스맵 업로드는 그대로 유지된다.
-    // webpack 빌드(`next build`) 전용 옵션이다 — 빌드를 turbopack 으로 옮기면 이 줄은 무효가 된다.
-    // (다만 Sentry 는 turbopack 에서 애초에 미들웨어를 감싸지 못하므로 그때도 래핑은 없다.)
-    autoInstrumentMiddleware: false,
-  },
+  // 미들웨어 Sentry 자동 래핑은 끈 상태를 유지한다 — Turbopack 빌드(Next 16 기본)는 미들웨어를 감싸지
+  // 않으므로 별도 옵션이 필요 없다(webpack 전용이던 `webpack.autoInstrumentMiddleware: false` 는 제거).
 });
