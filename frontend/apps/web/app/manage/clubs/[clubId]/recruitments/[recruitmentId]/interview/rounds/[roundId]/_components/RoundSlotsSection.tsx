@@ -207,6 +207,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
             : undefined
         }
         isPending={deleteSlotMutation.isPending}
+        busyLabel="시간대 삭제 중"
         onCancel={() => setDeleteTargetSlot(null)}
         onConfirm={() => {
           if (deleteTargetSlot) void handleDelete(deleteTargetSlot.slotId);

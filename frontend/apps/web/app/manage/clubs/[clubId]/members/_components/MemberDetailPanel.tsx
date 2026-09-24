@@ -438,6 +438,7 @@ function ManagementSection({
               description="탈퇴하면 이 동아리에서 빠지며, 되돌리려면 다시 가입해야 합니다."
               confirmLabel="탈퇴"
               isPending={leaveClub.isPending}
+              busyLabel="동아리 탈퇴 중"
               errorMessage={dialogError}
               onConfirm={confirmLeave}
               onCancel={() => {
@@ -494,6 +495,7 @@ function ManagementSection({
             title={`${member.name} 님을 ${roleChangeVerb(pendingRole)}할까요?`}
             confirmLabel={pendingRole === 'OFFICER' ? '승급' : '강등'}
             isPending={updateRole.isPending}
+            busyLabel={`${pendingRole === 'OFFICER' ? '승급' : '강등'} 중`}
             errorMessage={dialogError}
             onConfirm={confirmRoleChange}
             onCancel={() => {
@@ -538,6 +540,7 @@ function ManagementSection({
             </>
           }
           confirmLabel="탈퇴"
+          busyLabel="부원 탈퇴 처리 중"
           isPending={removeMember.isPending}
           errorMessage={dialogError}
           onConfirm={doRemove}

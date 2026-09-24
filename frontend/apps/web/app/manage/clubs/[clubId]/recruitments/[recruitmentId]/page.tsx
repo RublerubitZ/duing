@@ -369,6 +369,7 @@ export default function RecruitmentDetailPage({
         title="접수를 마감할까요?"
         description={<StopIntakeConfirmDescription applicationMode={recruitment.applicationMode} />}
         confirmLabel="접수 마감"
+        busyLabel="접수 마감 중"
         isPending={stopIntake.isPending}
         errorMessage={stopIntakeError}
         onConfirm={handleStopIntake}
@@ -388,6 +389,7 @@ export default function RecruitmentDetailPage({
           />
         }
         confirmLabel="마감"
+        busyLabel="모집 마감 중"
         isPending={closeRecruitment.isPending}
         errorMessage={closeError}
         onConfirm={handleClose}
@@ -402,6 +404,7 @@ export default function RecruitmentDetailPage({
         title="모집 공고를 삭제할까요?"
         description="지원자가 없는 공고만 삭제할 수 있으며, 삭제하면 되돌릴 수 없습니다."
         isPending={deleteRecruitment.isPending}
+        busyLabel="모집 공고 삭제 중"
         errorMessage={deleteError}
         onConfirm={handleDelete}
         onCancel={() => {

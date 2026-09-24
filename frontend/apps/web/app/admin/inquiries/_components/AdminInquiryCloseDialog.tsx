@@ -75,6 +75,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
             {isPending && <ButtonSpinner />}종료
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '문의 종료 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

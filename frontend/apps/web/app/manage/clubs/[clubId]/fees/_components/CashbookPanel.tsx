@@ -241,6 +241,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
           )
         }
         isPending={deleteEntry.isPending}
+        busyLabel="항목 삭제 중"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (deleteTarget) onDelete(deleteTarget);

@@ -106,6 +106,7 @@ export function ClubEventList({ clubId }: Props) {
         title="일정을 삭제할까요?"
         description={deleting ? `"${deleting.title}" 일정이 더 이상 노출되지 않습니다.` : undefined}
         isPending={removeMutation.isPending}
+        busyLabel="일정 삭제 중"
         errorMessage={deleteError}
         onConfirm={confirmDelete}
         onCancel={() => {

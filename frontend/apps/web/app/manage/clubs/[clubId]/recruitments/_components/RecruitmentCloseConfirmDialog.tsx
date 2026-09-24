@@ -78,6 +78,7 @@ export function RecruitmentCloseConfirmDialog({
             등록 및 마감
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '기존 모집 마감 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

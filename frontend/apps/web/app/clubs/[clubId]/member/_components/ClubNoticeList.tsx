@@ -135,6 +135,7 @@ export function ClubNoticeList({ clubId }: Props) {
         title="공지를 삭제할까요?"
         description={deleting ? `"${deleting.title}" 공지가 더 이상 노출되지 않습니다.` : undefined}
         isPending={removeMutation.isPending}
+        busyLabel="공지 삭제 중"
         errorMessage={deleteError}
         onConfirm={confirmDelete}
         onCancel={() => {

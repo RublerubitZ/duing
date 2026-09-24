@@ -121,6 +121,7 @@ export function AdminPromotionRequestProcessDialog({
             {`${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'REJECTED' ? '로' : '으로'} 처리`}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '홍보 요청 처리 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

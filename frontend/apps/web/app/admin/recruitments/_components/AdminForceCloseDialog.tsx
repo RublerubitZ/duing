@@ -124,6 +124,7 @@ export function AdminForceCloseDialog({
             마감하기
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '모집 강제 마감 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

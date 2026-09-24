@@ -217,6 +217,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
         }
         confirmLabel="강제 폐기"
         isPending={forceRevoke.isPending}
+        busyLabel="가입 링크 폐기 중"
         confirmDisabled={reason.trim() === ''}
         onConfirm={confirmRevoke}
         onCancel={closeDialog}

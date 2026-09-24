@@ -111,6 +111,7 @@ export function AdminReportProcessDialog({ report, isPending, errorMessage, onCo
             {`${STATUS_LABEL_MAP[selectedStatus]}${selectedStatus === 'RESOLVED' ? '로' : '으로'} 처리`}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '신고 처리 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

@@ -109,6 +109,7 @@ export function AdminClubStatusChangeDialog({
             {isPending && <ButtonSpinner />}{action.label}
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? `${action.label} 중` : null}</span>
       </DialogContent>
     </Dialog>
   );

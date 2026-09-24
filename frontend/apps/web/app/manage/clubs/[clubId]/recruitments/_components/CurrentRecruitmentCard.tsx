@@ -169,6 +169,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
         description={<StopIntakeConfirmDescription applicationMode={recruitment.applicationMode} />}
         confirmLabel="접수 마감"
         isPending={stopIntake.isPending}
+        busyLabel="접수 마감 중"
         errorMessage={stopIntakeError}
         onConfirm={handleStopIntake}
         onCancel={() => {
@@ -188,6 +189,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
         }
         confirmLabel="마감"
         isPending={closeRecruitment.isPending}
+        busyLabel="모집 마감 중"
         errorMessage={closeError}
         onConfirm={handleClose}
         onCancel={() => {

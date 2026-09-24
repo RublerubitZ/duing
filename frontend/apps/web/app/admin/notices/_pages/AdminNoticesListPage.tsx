@@ -79,6 +79,7 @@ export function AdminNoticesListPage() {
         title="공지를 삭제할까요?"
         description={deleteTarget ? `"${deleteTarget.title}" 항목이 더 이상 노출되지 않습니다.` : undefined}
         isPending={deleteMutation.isPending}
+        busyLabel="공지 삭제 중"
         errorMessage={deleteError}
         onCancel={() => {
           setDeleteTarget(null);

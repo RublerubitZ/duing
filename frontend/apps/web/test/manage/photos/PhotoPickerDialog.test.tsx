@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { ClubPhoto } from '@duing/types';
 import { PhotoPickerDialog } from '../../../app/manage/clubs/[clubId]/photos/_components/PhotoPickerDialog';
@@ -43,5 +43,20 @@ describe('PhotoPickerDialog', () => {
     );
 
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+  });
+  it('busy 동안만 다이얼로그 안 status 리전에 업로드 중 안내를 싣는다', () => {
+    const props = {
+      photos: [makePhoto(10)],
+      usedPhotoIds: [],
+      onPick: () => {},
+      onUploadNew: () => {},
+      onClose: () => {},
+    };
+    const { rerender } = render(<PhotoPickerDialog open busy {...props} />);
+    // dnd-kit 등 다른 status 리전과 섞이지 않게 다이얼로그 안으로 한정한다.
+    expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('사진 올리는 중');
+
+    rerender(<PhotoPickerDialog open busy={false} {...props} />);
+    expect(within(screen.getByRole('dialog')).getByRole('status')).toBeEmptyDOMElement();
   });
 });

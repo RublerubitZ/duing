@@ -1371,6 +1371,8 @@ it('신청 확인 Dialog(§2.2): 시설·일시·동아리·목적·인원·연�
   expect(onCancel).toHaveBeenCalledTimes(1);
   fireEvent.click(within(dialog).getByRole('button', { name: '예약 신청' }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
+  // 유휴 시 status 리전은 마운트돼 있되 비어 있다.
+  expect(within(dialog).getByRole('status')).toBeEmptyDOMElement();
 });
 
 it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하고 제출 중이면 신청 버튼이 비활성된다', () => {
@@ -1394,6 +1396,8 @@ it('신청 확인 Dialog(§2.2): 사용 인원이 있으면 "N명" 을 노출하
   // 제출 중: 신청 버튼 비활성 — 라벨은 유지하고 ButtonSpinner 만 붙는다(중복 제출 방지 + 폭 고정)
   const submitButton = within(dialog).getByRole('button', { name: '예약 신청' });
   expect(submitButton).toBeDisabled();
+  // 제출 중 안내는 다이얼로그 안 sr-only status 리전으로 보조기술에 전달된다.
+  expect(within(dialog).getByRole('status')).toHaveTextContent('예약 신청 중');
 });
 
 it('신청 확인 Dialog(§2.2): open=false 면 다이얼로그를 열지 않는다', () => {

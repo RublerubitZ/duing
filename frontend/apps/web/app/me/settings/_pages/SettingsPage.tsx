@@ -321,6 +321,7 @@ export function SettingsPage() {
         description="이 기기에서 로그아웃돼요."
         confirmLabel="로그아웃"
         isPending={logoutPending}
+        busyLabel="로그아웃 중"
         onCancel={() => setLogoutConfirmOpen(false)}
         onConfirm={handleLogout}
       />

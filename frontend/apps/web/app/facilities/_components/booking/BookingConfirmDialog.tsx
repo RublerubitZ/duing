@@ -105,6 +105,7 @@ export function BookingConfirmDialog({
             {isSubmitting && <ButtonSpinner />}예약 신청
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isSubmitting ? '예약 신청 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

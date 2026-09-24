@@ -100,6 +100,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false
           title="내 평가를 삭제할까요?"
           description="삭제하면 작성한 점수와 메모가 사라집니다."
           isPending={deleteMutation.isPending}
+          busyLabel="평가 삭제 중"
           errorMessage={deleteError}
           onConfirm={confirmDelete}
           onCancel={() => {

@@ -86,6 +86,7 @@ export function BulkPromoteDialog({
             {isPending && <ButtonSpinner />}선정
           </button>
         </DialogFooter>
+        <span role="status" className="sr-only">{isPending ? '면접 대상자 선정 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

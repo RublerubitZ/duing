@@ -1044,6 +1044,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           confirmLabel="공개"
           confirmVariant="primary"
           isPending={props.isPending}
+          busyLabel="모집 공개 중"
           onCancel={() => {
             setIsPublishConfirmOpen(false);
             setPendingPublishValues(null);

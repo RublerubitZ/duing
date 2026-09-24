@@ -109,6 +109,7 @@ export function TransferLeaderDialog({
             </DialogFooter>
           </>
         )}
+        <span role="status" className="sr-only">{isPending ? '회장 인계 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

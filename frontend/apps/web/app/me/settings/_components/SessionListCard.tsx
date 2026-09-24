@@ -179,6 +179,7 @@ export function SessionListCard() {
         }
         confirmLabel={confirmTarget === 'all' ? '모두 로그아웃' : '로그아웃'}
         isPending={logoutAllMutation.isPending || revokeMutation.isPending}
+        busyLabel="로그아웃 중"
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {
           if (confirmTarget === 'all') {
