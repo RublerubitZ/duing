@@ -31,7 +31,7 @@ describe('ClubRecruitmentSummary — 모바일 모집 요약 카드', () => {
   it('applicantCount 가 있으면 지원자 진행 표시', () => {
     render(<ClubRecruitmentSummary recruitment={base} />);
     expect(screen.getByText('현재 지원자')).toBeInTheDocument();
-    expect(screen.getByText('34 / 55명')).toBeInTheDocument();
+    expect(screen.getByText('34명 지원 · 모집 인원 55명')).toBeInTheDocument();
   });
 
   it('applicantCount 가 null 이면 지원자 진행을 숨긴다', () => {

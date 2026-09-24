@@ -14,7 +14,7 @@ type CardDefinition = {
 
 export function SummaryCards({ statsSummary }: SummaryCardsProps) {
   const acceptanceRatio = statsSummary.capacity > 0
-    ? `합격률 ${(statsSummary.ratio * 100).toFixed(1)}% / 정원 ${statsSummary.capacity}`
+    ? `합격률 ${(statsSummary.ratio * 100).toFixed(1)}% / 모집 인원 ${statsSummary.capacity}`
     : undefined;
 
   const cards: CardDefinition[] = [
