@@ -101,11 +101,13 @@ const nextConfig = {
   },
   // 레거시 시설 상세 주소(/facilities/{id}, #639 이전)를 쿼리 방식으로 영구 이동한다. 예전엔 페이지 안의
   // redirect() 였는데, 루트 loading 경계가 셸을 먼저 스트리밍해 200 + meta refresh(1초)로 나갔다 — 검색엔진이
-  // 영구 이동으로 보지 않고 매번 셸을 렌더했다. id 는 숫자뿐이라 (\\d+) 로 좁혀 이후 /facilities/* 정적 라우트를 가리지 않는다.
+  // 영구 이동으로 보지 않고 매번 셸을 렌더했다. 예전 페이지처럼 한 세그먼트 값은 모두 목록으로 넘기고 숫자 판정은 목록 페이지가 한다.
+  // 이 규칙은 파일 라우트보다 먼저 돌아 /facilities/ 아래에 정적 라우트를 새로 만들면 가로챈다 — 그때 source 를 좁힐 것.
+  // 영구(308) 이동은 브라우저가 캐시하므로, 상세 페이지를 되살리면 이 규칙을 지우는 것만으로는 재방문자에게 반영되지 않는다.
   async redirects() {
     return [
       {
-        source: '/facilities/:facilityId(\\d+)',
+        source: '/facilities/:facilityId',
         destination: '/facilities?facilityId=:facilityId',
         permanent: true,
       },
