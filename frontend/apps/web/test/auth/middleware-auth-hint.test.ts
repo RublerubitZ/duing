@@ -207,6 +207,74 @@ describe('middleware auth_hint UX', () => {
 
     expect(response.headers.get('location')).toBeNull();
   });
+
+  // loading 경계 안에서 페이지가 notFound() 를 부르면 이미 200 이 나간 뒤라 소프트 404 가 된다 —
+  // 형식이 틀린 ID 는 미들웨어가 인증·권한 판정 뒤에 not-found 라우트로 넘겨 실제 404 를 낸다.
+  describe('형식이 틀린 ID 주소는 not-found 로 넘긴다', () => {
+    const createRoleHint = (role: 'STUDENT' | 'ADMIN') =>
+      createAuthHint({ typ: 'AUTH_HINT', role, exp: Math.floor(Date.now() / 1000) + 60 });
+
+    it.each([
+      '/me/applications/abc',
+      '/me/applications/0',
+      '/me/applications/012',
+      '/me/applications/%31%32',
+      '/manage/clubs/abc',
+      '/manage/clubs/abc/fees',
+      '/manage/clubs/-1/info',
+      '/manage/clubs/1.5/members/requests',
+      '/admin/facility-bookings/submission/abc',
+      '/admin/facility-bookings/submission/0/transcribe',
+      '/me/applications/abc?tab=x',
+    ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
+      const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
+
+      expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+    });
+
+    it.each([
+      '/me/applications/12',
+      '/me/applications/12/',
+      '/me/applications',
+      '/me/applications/',
+      '/manage/clubs/12/fees',
+      '/manage/clubs/12/',
+      '/manage',
+      '/admin/facility-bookings/submission/3/transcribe',
+      '/admin/facility-bookings',
+      '/me/applications/12?tab=x',
+    ])('ADMIN hint의 %s 는 그대로 통과시킨다', async (path) => {
+      const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
+
+      expect(response.headers.get('x-middleware-next')).toBe('1');
+      expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+    });
+
+    it('hint가 없으면 형식과 무관하게 원래 주소를 담아 로그인으로 redirect한다', async () => {
+      const response = await middleware(createRequest('/me/applications/abc'));
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe(
+        'https://duings.com/login?next=%2Fme%2Fapplications%2Fabc',
+      );
+    });
+
+    it('STUDENT hint의 관리자 경로는 형식이 틀려도 404 가 아니라 /403 으로 rewrite한다', async () => {
+      const response = await middleware(
+        createRequest('/admin/facility-bookings/submission/abc', createRoleHint('STUDENT')),
+      );
+
+      expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/403');
+    });
+
+    it('STUDENT hint의 /me 경로는 형식이 틀리면 not-found 로 rewrite한다', async () => {
+      const response = await middleware(
+        createRequest('/me/applications/abc', createRoleHint('STUDENT')),
+      );
+
+      expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+    });
+  });
 });
 
 describe('middleware matcher 정책', () => {

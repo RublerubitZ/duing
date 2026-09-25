@@ -70,6 +70,31 @@ const STUDENT_PREFIXES = ['/apply', '/me'];
 const MANAGE_PREFIX = '/manage';
 const ADMIN_PREFIX = '/admin';
 
+// 동적 ID 세그먼트 형식 검사(양의 정수). 루트 app/loading.tsx 등 loading 경계 안에서 페이지가 notFound() 를 부르면
+// 상태 코드가 이미 200 으로 나간 뒤라 소프트 404(200 + noindex)가 된다. 형식이 틀린 주소는 여기서 not-found 라우트로
+// 넘겨 실제 404 를 낸다. `/_not-found` 는 Next 가 not-found 진입점에 쓰는 예약 이름이다
+// (next/dist/shared/lib/entry-constants.js UNDERSCORE_NOT_FOUND_ROUTE) — 임의의 매칭 안 되는 경로는 나중에 루트
+// catch-all 이 생기면 거기 걸린다. 각 패턴은 비어 있지 않은 ID 세그먼트 하나를 잡으므로 목록 경로는 대상이 아니다.
+// 퍼센트 인코딩(%31%32)·공백 섞인 값은 pathname 에 인코딩된 채로 오므로 404 가 된다(링크 생성처가 만들지 않는 형태).
+const ID_SEGMENT_PATTERNS: readonly RegExp[] = [
+  /^\/me\/applications\/([^/]+)/,
+  /^\/manage\/clubs\/([^/]+)/,
+  /^\/admin\/facility-bookings\/submission\/([^/]+)/,
+];
+const POSITIVE_INTEGER = /^[1-9]\d*$/;
+
+// 인증·권한 판정을 통과한 요청만 여기 온다 — 권한 없는 사용자는 형식과 무관하게 로그인/403 을 먼저 받는다.
+function passOrNotFound(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+  for (const pattern of ID_SEGMENT_PATTERNS) {
+    const id = pattern.exec(pathname)?.[1];
+    if (id !== undefined && !POSITIVE_INTEGER.test(id)) {
+      return NextResponse.rewrite(new URL('/_not-found', request.url));
+    }
+  }
+  return NextResponse.next();
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authHint = request.cookies.get(AUTH_HINT_COOKIE_NAME)?.value ?? null;
@@ -87,7 +112,7 @@ export async function middleware(request: NextRequest) {
       next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(next);
     }
-    return NextResponse.next();
+    return passOrNotFound(request);
   }
 
   if (pathname.startsWith(MANAGE_PREFIX)) {
@@ -97,7 +122,7 @@ export async function middleware(request: NextRequest) {
       next.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(next);
     }
-    return NextResponse.next();
+    return passOrNotFound(request);
   }
 
   if (pathname.startsWith(ADMIN_PREFIX)) {
@@ -113,7 +138,7 @@ export async function middleware(request: NextRequest) {
       next.search = '';
       return NextResponse.rewrite(next);
     }
-    return NextResponse.next();
+    return passOrNotFound(request);
   }
 
   return NextResponse.next();
