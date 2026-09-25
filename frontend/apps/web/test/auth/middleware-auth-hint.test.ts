@@ -333,31 +333,61 @@ describe('middleware auth_hint UX', () => {
       expect(middlewareVerdicts).toEqual(helperVerdicts);
     });
 
-    // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트 폴더가 생기면
-    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_) 폴더만 허용한다. 그룹(()은 URL 에 나타나지
-    // 않아 그 안의 폴더가 같은 자리 세그먼트가 되므로 건너뛰지 않고 들어가 같은 기준으로 본다(중첩은 재귀).
-    // 병렬 슬롯(@x) 안의 폴더도 같은 URL 층에 라우트를 만든다.
-    const findStaticRouteDirs = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && !/^[[_]/.test(entry.name))
-        .flatMap((entry) =>
-          /^[(@]/.test(entry.name)
-            ? findStaticRouteDirs(join(dir, entry.name)).map((childName) => `${entry.name}/${childName}`)
-            : [entry.name],
-        );
+    // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트가 생기면 미들웨어가 그 페이지를
+    // 404 로 가린다. 폴더를 어디에 두든(상위 경로의 그룹·슬롯, 가로채기 폴더 포함) 걸리도록 app 전체의 페이지·route
+    // 핸들러를 실제 URL 로 바꿔 미들웨어에 넣어 본다. 그룹 (x)·슬롯 @x 는 URL 에서 빠지고, 비공개 _x 는 라우트가
+    // 아니며, 가로채기 폴더 (.)x·(..)x·(...)x 는 가로채는 대상 URL 이 되고, 동적 세그먼트는 유효한 id '1' 로 채운다.
+    const INTERCEPT_FOLDER = /^(\(\.\.\.\)|(?:\(\.\.\))+|\(\.\))(.+)$/;
+    const toUrlSegment = (folderName: string) => (folderName.startsWith('[') ? '1' : folderName);
 
-    it.each(['app/me/applications', 'app/manage/clubs', 'app/admin/facility-bookings/submission'])(
-      '%s 바로 아래에 정적 라우트 폴더가 없다',
-      (routeDir) => {
-        const webRoot = resolve(__dirname, '../..');
-        const staticRouteDirs = findStaticRouteDirs(join(webRoot, routeDir));
+    const collectRouteUrls = (dir: string, urlSegments: string[]): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        if (!entry.isDirectory()) {
+          return /^(?:page|route)\.[jt]sx?$/.test(entry.name) ? [`/${urlSegments.join('/')}`] : [];
+        }
+        const childDir = join(dir, entry.name);
+        const intercept = INTERCEPT_FOLDER.exec(entry.name);
+        if (intercept) {
+          const [, marker = '', target = ''] = intercept;
+          const baseSegments =
+            marker === '(...)'
+              ? []
+              : marker === '(.)'
+                ? urlSegments
+                : urlSegments.slice(0, urlSegments.length - marker.length / 4);
+          return collectRouteUrls(childDir, [...baseSegments, toUrlSegment(target)]);
+        }
+        if (entry.name.startsWith('_')) return [];
+        if (/^[(@]/.test(entry.name)) return collectRouteUrls(childDir, urlSegments);
+        return collectRouteUrls(childDir, [...urlSegments, toUrlSegment(entry.name)]);
+      });
 
-        expect(
-          staticRouteDirs,
-          '미들웨어 ID_SEGMENT 가 이 정적 라우트를 404 로 가립니다 — middleware.ts 정규식을 먼저 고치세요',
-        ).toEqual([]);
-      },
-    );
+    it('app 의 어떤 페이지·route 핸들러도 미들웨어 ID 판정에 404 로 가려지지 않는다', async () => {
+      const routeUrls = collectRouteUrls(resolve(__dirname, '../../app'), []);
+      // 걷기가 틀려 목록이 비면 아무것도 검사하지 않고 통과하므로, 세 ID 경로가 실제로 걷혔는지 먼저 본다.
+      expect(routeUrls).toEqual(
+        expect.arrayContaining([
+          '/me/applications/1',
+          '/manage/clubs/1/fees',
+          '/admin/facility-bookings/submission/1/transcribe',
+        ]),
+      );
+
+      const adminHint = createRoleHint('ADMIN');
+      const hiddenUrls = (
+        await Promise.all(
+          routeUrls.map(async (url) => {
+            const response = await middleware(createRequest(url, adminHint));
+            return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '') ? [url] : [];
+          }),
+        )
+      ).flat();
+
+      expect(
+        hiddenUrls,
+        '미들웨어 ID_SEGMENT 가 이 정적 라우트를 404 로 가립니다 — middleware.ts 정규식을 먼저 고치세요',
+      ).toEqual([]);
+    });
   });
 });
 
