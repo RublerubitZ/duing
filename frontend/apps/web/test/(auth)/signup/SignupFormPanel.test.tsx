@@ -142,7 +142,7 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
     );
   });
 
-  // 미들웨어가 담은 전송 경로(세그먼트 프리페치 등)는 접미를 떼어 실제 페이지로 이어 넘긴다.
+  // 조작된 링크 등으로 들어온 전송 경로(세그먼트 프리페치 등)는 접미를 떼어 실제 페이지로 이어 넘긴다.
   it('next 의 전송 경로 접미는 떼고 로그인 링크에 이어 붙인다', () => {
     mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234.segments/_tree.segment.rsc' });
     renderPanel();
