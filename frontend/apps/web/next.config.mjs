@@ -114,7 +114,8 @@ const nextConfig = {
       },
       // 관리자 옛 경로 — 탭으로 흡수된 URL 의 북마크 호환. 관리자 전용이라 검색 노출 이득이 없고 경로를 다시
       // 쓸 수 있게 임시(307)로 둔다(308 은 브라우저가 캐시해 되돌리기 어렵다). /submission/{batchId} 같은 하위
-      // 경로는 source 가 정확히 일치할 때만 걸리므로 영향이 없다.
+      // 경로는 source 가 정확히 일치할 때만 걸리므로 영향이 없다. 설정 리다이렉트는 파일 라우트보다 먼저 돈다 —
+      // 이 두 경로에 페이지를 새로 만들면 이 규칙을 먼저 지울 것(안 지우면 새 페이지가 렌더되지 않는다).
       {
         source: '/admin/facility-crawl',
         destination: '/admin/facility-bookings?tab=crawl',
@@ -125,7 +126,8 @@ const nextConfig = {
         destination: '/admin/facility-bookings?tab=prepare',
         permanent: false,
       },
-      // 멤버 영역 루트는 공지 탭으로 보낸다. 멤버 홈이 생길 수 있어 임시(307).
+      // 멤버 영역 루트는 공지 탭으로 보낸다. 멤버 홈이 생길 수 있어 임시(307). 설정 리다이렉트는 파일 라우트보다
+      // 먼저 돌므로, 멤버 홈 페이지를 만들면 이 규칙을 먼저 지울 것(안 지우면 새 페이지가 렌더되지 않는다).
       {
         source: '/clubs/:clubId/member',
         destination: '/clubs/:clubId/member/notices',
