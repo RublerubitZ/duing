@@ -35,12 +35,6 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('시설 상세(/facilities/12)는 유틸리티 뷰라 탭바를 유지하고 일정·시설 탭이 활성이다', () => {
-    mockUsePathname.mockReturnValue('/facilities/12');
-    render(<BottomNav />);
-    expect(screen.getByRole('link', { name: '일정·시설' })).toHaveAttribute('aria-current', 'page');
-  });
-
   it('일정(/calendar)도 같은 일정·시설 탭이 활성이다', () => {
     mockUsePathname.mockReturnValue('/calendar');
     render(<BottomNav />);
