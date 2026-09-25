@@ -7,7 +7,7 @@ import { ApiError } from '@duing/api';
 import { useLoginMutation } from '@duing/hooks';
 import { loginSchema } from '@duing/schemas';
 import { cn } from '@/app/_lib/cn';
-import { toLinkRoute, toRoute } from '@/app/_lib/route';
+import { toReturnRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { captureEvent } from '@/app/_lib/analytics';
 import posthog from 'posthog-js';
@@ -90,7 +90,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // next 는 공격자가 조작할 수 있는 값이므로 내부 절대경로만 허용한다 — toLinkRoute 가 프로토콜
   // 상대경로(//host)·역슬래시(/\host)처럼 브라우저가 오프-오리진으로 해석하는 값을 걸러내 open redirect 를 막는다.
-  const validatedNext = toLinkRoute(searchParams.get('next'));
+  // 전송 경로 접미도 떼어 실제 페이지로 복귀한다.
+  const validatedNext = toReturnRoute(searchParams.get('next'));
   const next = validatedNext ?? toRoute('/me');
   // 초대 링크로 들어온 신입생은 계정이 없어 이 화면에서 회원가입으로 빠진다 — 복귀 경로를 이어
   // 넘기지 않으면 가입을 마쳐도 원래 가려던 곳(/join/{code})으로 돌아올 방법이 없다.
