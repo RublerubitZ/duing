@@ -2,6 +2,17 @@ import { defineConfig } from 'eslint/config';
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 
+// 옛 리다이렉트 주소 가드(맨 아래 블록)의 정규식 조각과 메시지. esquery 정규식 안의 '/' 는 문자 클래스 안에서도
+// 이스케이프해야 선택자 파서가 끊지 않는다(JS 문자열이라 백슬래시 두 번).
+const AUTHORITY = '\\/\\/[^\\/?#]+'; // //호스트
+const ORIGIN = `https?:${AUTHORITY}`;
+const FACILITY_DETAIL = '\\/facilities\\/';
+const ADMIN_LEGACY = '\\/admin\\/(facility-crawl|facility-bookings\\/submission)([?#].*)?$';
+const FACILITY_DETAIL_MESSAGE =
+  '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.';
+const ADMIN_LEGACY_MESSAGE =
+  '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.';
+
 export default defineConfig([
   {
     // 검사 범위: app·components + 루트 설정·계측 파일(instrumentation*.ts·middleware.ts·*.config.*·sentry*.ts).
@@ -106,44 +117,38 @@ export default defineConfig([
   {
     // 옛 리다이렉트 주소로의 링크 금지 — typedRoutes 는 next.config redirects() 의 source 를 유효 라우트로
     // 취급해서(설정으로 끌 수 없다), 페이지를 지운 옛 주소로 링크해도 타입 검사를 통과하고 리다이렉트를 한 번 더 탄다.
-    // 옛 주소를 redirects() 에 추가할 때 여기에도 같이 추가할 것.
-    // 경로 비교용 접두 문자열('/facilities/' — 탭 판정 등)은 링크가 아니라 허용한다(슬래시 뒤 한 글자 이상만 금지).
-    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    // 경로 비교용 빈 접두('/facilities/' — 탭 판정의 startsWith 등)는 링크가 아니라 허용한다(슬래시 뒤 한 글자 이상만 금지).
+    // 같은 문자열의 백엔드 API 경로도 걸리지만, app 코드는 API 를 @duing/api 로 부르므로 여기 올 일이 없다.
+    // 관리자 옛 경로와의 비교(p === '/admin/facility-crawl')도 걸리지만, 그 페이지는 렌더되지 않으니 죽은 비교다.
+    // next.config redirects() 에 옛 주소를 추가하면 여기도 추가 — test/lint/legacy-redirect-links.test.ts 의
+    // 동기화 테스트가 누락을 잡는다.
+    files: ['**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'Literal[value=/^\\/facilities\\/./]',
-          message:
-            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+          selector: `Literal[value=/^(${ORIGIN})?${FACILITY_DETAIL}[^?#]/]`,
+          message: FACILITY_DETAIL_MESSAGE,
         },
         {
-          selector: 'TemplateLiteral > TemplateElement:first-child[value.raw=/^\\/facilities\\//]',
-          message:
-            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+          selector: `TemplateElement[tail=false][value.raw=/${FACILITY_DETAIL}$/]`,
+          message: FACILITY_DETAIL_MESSAGE,
         },
         {
-          selector: "BinaryExpression[operator='+'] > Literal.left[value=/^\\/facilities\\/$/]",
-          message:
-            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+          selector: `TemplateElement[value.raw=/(^|${AUTHORITY})${FACILITY_DETAIL}[^?#]/]`,
+          message: FACILITY_DETAIL_MESSAGE,
         },
         {
-          selector:
-            'Literal[value=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
-          message:
-            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+          selector: `BinaryExpression[operator='+'] > Literal[value=/(^|${AUTHORITY})${FACILITY_DETAIL}$/]`,
+          message: FACILITY_DETAIL_MESSAGE,
         },
         {
-          selector:
-            'TemplateLiteral[expressions.length=0] > TemplateElement[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
-          message:
-            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+          selector: `Literal[value=/^(${ORIGIN})?${ADMIN_LEGACY}/]`,
+          message: ADMIN_LEGACY_MESSAGE,
         },
         {
-          selector:
-            'TemplateLiteral[expressions.length>0] > TemplateElement:first-child[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?[?#]/]',
-          message:
-            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+          selector: `TemplateLiteral > TemplateElement:first-child[value.raw=/^(${ORIGIN})?${ADMIN_LEGACY}/]`,
+          message: ADMIN_LEGACY_MESSAGE,
         },
       ],
     },
