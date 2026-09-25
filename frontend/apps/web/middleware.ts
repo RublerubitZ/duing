@@ -83,8 +83,9 @@ const ADMIN_PREFIX = '/admin';
 // — 둘의 드리프트는 test/auth/middleware-auth-hint.test.ts 의 대조 테스트가 잡는다.
 const ID_SEGMENT = /^\/(?:me\/applications|manage\/clubs|admin\/facility-bookings\/submission)\/([^/]+)/;
 const POSITIVE_ID = /^[1-9]\d*$/;
-// Next 16 은 `.rsc` 만 미들웨어 앞에서 떼므로 캡처에 `12.segments`·`12.prefetch` 같은 전송 접미가 붙어 올 수 있다.
-const TRANSPORT_SUFFIX = /\.(?:segments|prefetch|rsc|json)$/;
+// Next 16 의 경로형 전송 접미는 세그먼트 프리페치(`.segments/…`)뿐이다 — Next 가 그 경로를 정상 id 페이지로
+// 정규화하므로 그 모양만 뗀다(`.rsc` 는 미들웨어 전에 이미 떼어진다).
+const TRANSPORT_SUFFIX = /\.segments$/;
 
 // 미들웨어의 인증(힌트)·관리자 역할 판정을 통과한 요청만 여기 온다 — /admin 비관리자는 형식과 무관하게 403 을 먼저 받는다.
 // /manage 의 동아리별 권한은 클라이언트 ManageGuard 가 보므로 형식이 틀린 주소는 그보다 먼저 404 다(동아리 id 는 공개 값).

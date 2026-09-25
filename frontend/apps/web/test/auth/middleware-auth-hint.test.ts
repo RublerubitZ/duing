@@ -230,6 +230,9 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/0/transcribe',
       '/admin/facility-bookings/submission/9007199254740993',
       '/me/applications/abc?tab=x',
+      // .prefetch·.json 은 전송 형태가 아니라 페이지가 원문 그대로 받아 notFound() 한다 — 판정을 맞춰 404.
+      '/manage/clubs/12.prefetch',
+      '/me/applications/12.json',
     ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
@@ -247,9 +250,9 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/3/transcribe',
       '/admin/facility-bookings',
       '/me/applications/12?tab=x',
-      // Next 16 은 .rsc 만 미들웨어 앞에서 떼므로 정상 id 에 전송 접미가 붙어 온다.
+      // Next 16 의 경로형 전송 접미는 세그먼트 프리페치(.segments/…)뿐이다 — Next 가 그 경로를 정상 id 페이지로
+      // 정규화하므로 미들웨어도 통과시킨다(.rsc 는 미들웨어 전에 이미 떼어진다).
       '/me/applications/12.segments/_tree.segment',
-      '/manage/clubs/12.prefetch',
       // ID 검사 대상 경로가 아니다.
       '/apply/abc',
     ])('ADMIN hint의 %s 는 그대로 통과시킨다', async (path) => {
@@ -304,6 +307,7 @@ describe('middleware auth_hint UX', () => {
       '%31%32',
       'abc',
       '9007199254740992',
+      '12.prefetch',
     ];
 
     // id 를 경로 끝에 두면 URL 파서가 문자열 끝 공백을 잘라 '12 ' 가 '12' 로 도착한다 — 세 모양 모두 id 뒤에
