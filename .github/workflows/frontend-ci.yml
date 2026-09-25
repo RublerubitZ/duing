@@ -43,6 +43,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 런타임(prod) 의존성의 high·critical 취약점은 머지 전에 막는다. dev 의존성은 배포 번들에 들어가지 않아
+      # 제외하고, moderate 이하는 정기 의존성 정리 PR 로 다룬다. 레지스트리 장애로 Gate 전체가 막히지 않도록
+      # 레지스트리 오류만은 통과시킨다(--ignore-registry-errors — 취약점 판정은 그대로 실패).
+      # 수정 버전이 없는 권고를 받아들여야 하면 frontend/package.json 의 pnpm.auditConfig.ignoreGhsas 에 GHSA ID 를 사유와 함께 추가한다.
+      - name: Dependency audit (prod)
+        run: pnpm audit --prod --audit-level=high --ignore-registry-errors
+
       - name: Lint
         run: pnpm lint
 
