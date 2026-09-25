@@ -354,7 +354,7 @@ describe('middleware auth_hint UX', () => {
               ? []
               : marker === '(.)'
                 ? urlSegments
-                : urlSegments.slice(0, urlSegments.length - marker.length / 4);
+                : urlSegments.slice(0, urlSegments.length - marker.length / 4); // '(..)' 한 개(4글자)당 한 단계 위
           return collectRouteUrls(childDir, [...baseSegments, toUrlSegment(target)]);
         }
         if (entry.name.startsWith('_')) return [];
@@ -378,7 +378,9 @@ describe('middleware auth_hint UX', () => {
         await Promise.all(
           routeUrls.map(async (url) => {
             const response = await middleware(createRequest(url, adminHint));
-            return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '') ? [url] : [];
+            return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '')
+              ? [url]
+              : [];
           }),
         )
       ).flat();
