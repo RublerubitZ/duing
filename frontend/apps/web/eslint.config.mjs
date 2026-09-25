@@ -123,6 +123,11 @@ export default defineConfig([
             '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
         },
         {
+          selector: "BinaryExpression[operator='+'] > Literal.left[value=/^\\/facilities\\/$/]",
+          message:
+            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+        },
+        {
           selector:
             'Literal[value=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
           message:
@@ -131,6 +136,12 @@ export default defineConfig([
         {
           selector:
             'TemplateLiteral[expressions.length=0] > TemplateElement[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
+          message:
+            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+        },
+        {
+          selector:
+            'TemplateLiteral > TemplateElement:first-child[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?[?#]/]',
           message:
             '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
         },
