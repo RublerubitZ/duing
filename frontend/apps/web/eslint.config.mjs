@@ -7,6 +7,7 @@ import nextTypescript from 'eslint-config-next/typescript';
 const AUTHORITY = '\\/\\/[^\\/?#]+'; // //호스트
 const ORIGIN = `https?:${AUTHORITY}`;
 const FACILITY_DETAIL = '\\/facilities\\/';
+// 끝 앵커($) 포함 — 선택자에서 이 조각 뒤에 덧붙이지 말 것.
 const ADMIN_LEGACY = '\\/admin\\/(facility-crawl|facility-bookings\\/submission)([?#].*)?$';
 const FACILITY_DETAIL_MESSAGE =
   '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.';
@@ -118,8 +119,9 @@ export default defineConfig([
     // 옛 리다이렉트 주소로의 링크 금지 — typedRoutes 는 next.config redirects() 의 source 를 유효 라우트로
     // 취급해서(설정으로 끌 수 없다), 페이지를 지운 옛 주소로 링크해도 타입 검사를 통과하고 리다이렉트를 한 번 더 탄다.
     // 경로 비교용 빈 접두('/facilities/' — 탭 판정의 startsWith 등)는 링크가 아니라 허용한다(슬래시 뒤 한 글자 이상만 금지).
-    // 같은 문자열의 백엔드 API 경로도 걸리지만, app 코드는 API 를 @duing/api 로 부르므로 여기 올 일이 없다.
-    // 관리자 옛 경로와의 비교(p === '/admin/facility-crawl')도 걸리지만, 그 페이지는 렌더되지 않으니 죽은 비교다.
+    // 앞에 식이 붙은 `${…}/facilities/${id}` 는 API 주소여도 걸린다 — app 코드는 API 를 @duing/api 로 부른다.
+    // 관리자 옛 경로와의 비교(p === '/admin/facility-crawl')도 걸린다 — 관리자 옛 경로는 리다이렉트로만 남는 주소라
+    // 비교 대상이 될 일이 없어 함께 막는다.
     // next.config redirects() 에 옛 주소를 추가하면 여기도 추가 — test/lint/legacy-redirect-links.test.ts 의
     // 동기화 테스트가 누락을 잡는다.
     files: ['**/*.{ts,tsx}'],
@@ -131,7 +133,7 @@ export default defineConfig([
           message: FACILITY_DETAIL_MESSAGE,
         },
         {
-          selector: `TemplateElement[tail=false][value.raw=/${FACILITY_DETAIL}$/]`,
+          selector: `TemplateElement[tail=false][value.raw=/(^|${AUTHORITY})${FACILITY_DETAIL}$/]`,
           message: FACILITY_DETAIL_MESSAGE,
         },
         {

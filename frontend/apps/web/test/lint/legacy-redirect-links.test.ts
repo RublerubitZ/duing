@@ -41,6 +41,7 @@ describe('옛 리다이렉트 주소 링크 린트 가드', () => {
     '`https://duings.com/facilities/1`',
     '`/facilities/${id}`',
     '`${SITE_URL}/facilities/${id}`',
+    '`https://duings.com/facilities/${id}`',
     '`/facilities/1`',
     "'/facilities/' + id",
     "origin + '/facilities/' + id",
@@ -70,6 +71,7 @@ describe('옛 리다이렉트 주소 링크 린트 가드', () => {
     '`/admin/facility-bookings/submission/${batchId}`',
     "'/admin/facility-bookings/submission/' + batchId",
     "'/admin/facility-crawl/reservations'",
+    '`/api/v1/facilities/${id}/slots`',
     "'/admin/facility-bookings?tab=crawl'",
   ])('현행 주소·경로 비교용 접두·하위 라우트·API 경로 %s 는 걸리지 않는다', async (expression) => {
     expect(await countLegacyLinkErrors(expression)).toBe(0);
