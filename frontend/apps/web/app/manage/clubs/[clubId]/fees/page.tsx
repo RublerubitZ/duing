@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 
+import { parsePositiveIdParam } from '@/app/_lib/idParam';
+
 import { ClubFeesPage } from './_pages/ClubFeesPage';
 
 export default async function FeesPage({
@@ -8,8 +10,8 @@ export default async function FeesPage({
   params: Promise<{ clubId: string }>;
 }) {
   const { clubId: clubIdParam } = await params;
-  const currentClubId = Number(clubIdParam);
-  if (Number.isNaN(currentClubId)) {
+  const currentClubId = parsePositiveIdParam(clubIdParam);
+  if (currentClubId === null) {
     notFound();
   }
 

@@ -7,6 +7,7 @@ import type { BulkApproveResult, JoinRequestStatus } from '@duing/types';
 import { useBulkApproveJoinRequestsMutation, useJoinRequestsQuery } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -28,8 +29,8 @@ export default function JoinRequestsPage({
   params: Promise<{ clubId: string }>;
 }) {
   const { clubId: clubIdParam } = use(params);
-  const currentClubId = Number(clubIdParam);
-  if (isNaN(currentClubId)) {
+  const currentClubId = parsePositiveIdParam(clubIdParam);
+  if (currentClubId === null) {
     notFound();
   }
 
