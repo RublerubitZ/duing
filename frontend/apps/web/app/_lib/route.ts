@@ -44,8 +44,8 @@ const TRANSPORT_SUFFIX = /(?:\.(?:prefetch|rsc|json))+$/;
  * 를 떼어 실제 페이지 경로만 남긴다. 미들웨어는 요청 경로를 그대로 next 에 담으므로 전송 경로로 들어온
  * 요청(조작된 링크 포함)이 복귀 경로가 되면 로그인 뒤 404 가 난다. next 를 만드는 곳은 여럿이지만 소비하는
  * 곳은 로그인·가입 화면 두 곳이라 여기서 한 번에 막는다. 세그먼트 접미는 Next 정규화기가 인정하는
- * `<page>.segments/<segment>.segment[.rsc]` 모양일 때만 마지막 `.segments/` 기준으로 자른다. 결과는 한 번 더
- * 적용해도 같아(멱등) 가입↔로그인 왕복으로 여러 번 거쳐도 경로가 더 줄지 않는다.
+ * `<page>.segments/<segment>.segment[.rsc]` 모양일 때만 마지막 `.segments/` 기준으로 자른다. Next 가 만드는
+ * 전송 경로에 대해서는 한 번 더 적용해도 결과가 같아(멱등) 가입↔로그인 왕복으로 여러 번 거쳐도 경로가 더 줄지 않는다.
  */
 export function toReturnRoute(url: string | null): Route | null {
   const route = toLinkRoute(url);

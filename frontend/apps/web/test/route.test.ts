@@ -93,7 +93,7 @@ describe('toReturnRoute', () => {
   });
 
   it('줄 구분자(U+2028)가 끼어도 세그먼트 접미를 끝까지 본다', () => {
-    expect(toReturnRoute('/me.segments/x y.segment')).toBe('/me');
+    expect(toReturnRoute('/me.segments/x\u2028y.segment')).toBe('/me');
   });
 
   it('두 번 적용해도 결과가 같다(멱등)', () => {
@@ -116,7 +116,7 @@ describe('toReturnRoute', () => {
       '/me/x.prefetch.json',
       '/me/x.rsc.rsc',
       '/me/foo.segments/bar',
-      '/me.segments/x y.segment',
+      '/me.segments/x\u2028y.segment',
     ];
     for (const input of inputs) {
       const once = toReturnRoute(input);
