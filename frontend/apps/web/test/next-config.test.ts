@@ -125,6 +125,21 @@ describe('next.config 레거시 시설 상세 리다이렉트', () => {
         destination: '/facilities?facilityId=:facilityId',
         permanent: true,
       },
+      {
+        source: '/admin/facility-crawl',
+        destination: '/admin/facility-bookings?tab=crawl',
+        permanent: false,
+      },
+      {
+        source: '/admin/facility-bookings/submission',
+        destination: '/admin/facility-bookings?tab=prepare',
+        permanent: false,
+      },
+      {
+        source: '/clubs/:clubId/member',
+        destination: '/clubs/:clubId/member/notices',
+        permanent: false,
+      },
     ]);
   });
 });
