@@ -334,13 +334,14 @@ describe('middleware auth_hint UX', () => {
     });
 
     // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트 폴더가 생기면
-    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_)·병렬(@) 폴더만 허용한다. 그룹(()은 URL 에 나타나지
-    // 않아 그 안의 폴더가 같은 자리 세그먼트가 되므로 건너뛰지 않고 들어가 같은 기준으로 본다(중첩 그룹은 재귀).
+    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_) 폴더만 허용한다. 그룹(()은 URL 에 나타나지
+    // 않아 그 안의 폴더가 같은 자리 세그먼트가 되므로 건너뛰지 않고 들어가 같은 기준으로 본다(중첩은 재귀).
+    // 병렬 슬롯(@x) 안의 폴더도 같은 URL 층에 라우트를 만든다.
     const findStaticRouteDirs = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && !/^[[_@]/.test(entry.name))
+        .filter((entry) => entry.isDirectory() && !/^[[_]/.test(entry.name))
         .flatMap((entry) =>
-          entry.name.startsWith('(')
+          /^[(@]/.test(entry.name)
             ? findStaticRouteDirs(join(dir, entry.name)).map((childName) => `${entry.name}/${childName}`)
             : [entry.name],
         );
