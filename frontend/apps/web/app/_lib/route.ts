@@ -33,6 +33,28 @@ export function toLinkRoute(url: string | null): Route | null {
 }
 
 /**
+ * 로그인·가입 뒤 복귀 경로(`?next=`) 전용. toLinkRoute 의 open redirect 검사를 통과한 값에서 Next 의
+ * RSC 전송용 경로 접미 — 세그먼트 프리페치 `.segments/…`, `.prefetch`, `.rsc`, 페이지 라우터 데이터 `.json` —
+ * 를 떼어 실제 페이지 경로만 남긴다. 미들웨어는 요청 경로를 그대로 next 에 담으므로 전송 경로로 들어온
+ * 요청(조작된 링크 포함)이 복귀 경로가 되면 로그인 뒤 404 가 난다. next 를 만드는 곳은 여럿이지만 소비하는
+ * 곳은 로그인·가입 화면 두 곳이라 여기서 한 번에 막는다. 세그먼트 접미는 Next 의 정규화기와 같게 마지막
+ * `.segments/` 기준으로 자른다.
+ */
+export function toReturnRoute(url: string | null): Route | null {
+  const route = toLinkRoute(url);
+  if (!route) return null;
+  const splitAt = route.search(/[?#]/);
+  const path = splitAt === -1 ? route : route.slice(0, splitAt);
+  const rest = splitAt === -1 ? '' : route.slice(splitAt);
+  const pagePath = path
+    .replace(/^(.*)\.segments\/.*$/, '$1')
+    .replace(/(\.prefetch)?\.rsc$/, '')
+    .replace(/\.prefetch$/, '')
+    .replace(/\.json$/, '');
+  return `${pagePath || '/'}${rest}` as Route;
+}
+
+/**
  * 백엔드/사용자 입력 URL 을 외부 링크 anchor(href)로 안전하게 변환한다.
  * http(s) 스킴만 허용하고, javascript:/data:/vbscript: 등 스크립트 실행이 가능한
  * 값이나 내부 상대경로는 null 을 반환해 호출 측이 비-링크로 렌더하도록 한다.

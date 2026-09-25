@@ -36,12 +36,14 @@ const TEST_USER: User = {
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 // 로그인 성공 후 복귀는 window.location.replace(하드 이동)라 jsdom 이 "Not implemented: navigation" 을 낸다 — 전역 스텁으로 막는다.
-beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: vi.fn() }));
+const hardReplaceSpy = vi.fn();
+beforeAll(() => vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy }));
 afterAll(() => vi.unstubAllGlobals());
 
 afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockReset();
+  hardReplaceSpy.mockClear();
   mockSearchParams = new URLSearchParams();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
 });
@@ -97,5 +99,20 @@ describe('로그인 상태 유지 체크박스', () => {
 
     await waitFor(() => expect(captured.value).not.toBeNull());
     expect(captured.value).toMatchObject({ rememberMe: true });
+  });
+});
+
+describe('로그인 뒤 복귀 경로', () => {
+  // 미들웨어는 요청 경로를 그대로 next 에 담아 세그먼트 프리페치 같은 전송 경로가 들어올 수 있다 —
+  // 그대로 복귀하면 로그인 뒤 404 라 실제 페이지 경로로 돌아가야 한다.
+  it('next 에 전송 경로 접미가 붙어 있으면 떼어 낸 페이지 경로로 하드 이동한다', async () => {
+    mockSearchParams = new URLSearchParams({ next: '/me.segments/_tree.segment.rsc' });
+    captureLoginBody();
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await submitCredentials(user);
+
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
   });
 });

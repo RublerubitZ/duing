@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeExternalHref, toLinkRoute } from '../app/_lib/route';
+import { safeExternalHref, toLinkRoute, toReturnRoute } from '../app/_lib/route';
 
 describe('toLinkRoute', () => {
   it('내부 절대경로는 그대로 통과시킨다', () => {
@@ -38,6 +38,43 @@ describe('toLinkRoute', () => {
     expect(toLinkRoute('me')).toBeNull();
     expect(toLinkRoute('')).toBeNull();
     expect(toLinkRoute(null)).toBeNull();
+  });
+});
+
+describe('toReturnRoute', () => {
+  it('세그먼트 프리페치 접미(.segments/…)를 떼어 페이지 경로만 남긴다', () => {
+    expect(toReturnRoute('/me.segments/_tree.segment.rsc')).toBe('/me');
+    // Next 가 .rsc 를 뗀 뒤 미들웨어가 보는 실제 형태.
+    expect(toReturnRoute('/me.segments/_tree.segment')).toBe('/me');
+    expect(toReturnRoute('/manage/clubs/3.segments/manage/clubs/3/_index.segment')).toBe('/manage/clubs/3');
+  });
+
+  it('접미를 떼도 쿼리는 보존한다', () => {
+    expect(toReturnRoute('/admin/users.segments/_tree.segment.rsc?tab=a')).toBe('/admin/users?tab=a');
+  });
+
+  it('.prefetch·.rsc·.json 접미를 뗀다', () => {
+    expect(toReturnRoute('/me/profile.prefetch.rsc')).toBe('/me/profile');
+    expect(toReturnRoute('/me/profile.prefetch')).toBe('/me/profile');
+    expect(toReturnRoute('/me.rsc')).toBe('/me');
+    expect(toReturnRoute('/me.json')).toBe('/me');
+  });
+
+  it('세그먼트 접미는 Next 정규화기와 같게 마지막 .segments/ 기준으로 자른다', () => {
+    expect(toReturnRoute('/manage/clubs/x.segments.segments/a.segment.rsc')).toBe('/manage/clubs/x.segments');
+  });
+
+  it('전송 접미가 없는 경로는 그대로 통과시킨다', () => {
+    expect(toReturnRoute('/me?tab=security')).toBe('/me?tab=security');
+    expect(toReturnRoute('/join/ABC123')).toBe('/join/ABC123');
+    expect(toReturnRoute('/')).toBe('/');
+  });
+
+  it('toLinkRoute 의 open redirect 차단을 그대로 유지한다', () => {
+    expect(toReturnRoute('//evil.com')).toBeNull();
+    expect(toReturnRoute('/\\evil.com')).toBeNull();
+    expect(toReturnRoute('https://evil.com')).toBeNull();
+    expect(toReturnRoute(null)).toBeNull();
   });
 });
 

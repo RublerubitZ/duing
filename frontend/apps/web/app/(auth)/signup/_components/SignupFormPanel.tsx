@@ -9,7 +9,7 @@ import { signupSchema } from '@duing/schemas';
 import { ApiError } from '@duing/api';
 import { initialSignupState, signupReducer, type SignupFormState } from '../_lib/signup-state';
 import { usePhoneVerification } from '@/app/_lib/use-phone-verification';
-import { toLinkRoute, toRoute } from '@/app/_lib/route';
+import { toReturnRoute, toRoute } from '@/app/_lib/route';
 import { SignupStepIndicator } from './SignupStepIndicator';
 import { SignupStepVerify } from './SignupStepVerify';
 import { SignupStepProfile } from './SignupStepProfile';
@@ -30,7 +30,7 @@ function SignupForm() {
   // 로그인 화면이 이어 넘긴 복귀 경로. 여기서 떨어뜨리면 초대 링크로 들어온 신입생이 가입을 마치고도
   // 원래 목적지(/join/{code})로 돌아가지 못한다. next 는 조작 가능한 값이라 toLinkRoute 로 내부
   // 절대경로만 통과시킨다(open redirect 차단).
-  const next = toLinkRoute(searchParams.get('next')) ?? toRoute('/me');
+  const next = toReturnRoute(searchParams.get('next')) ?? toRoute('/me');
   // 가입을 마친 뒤에도, 계정이 있어 로그인으로 되돌아갈 때도 같은 복귀 경로를 이어 넘긴다.
   const loginHref = toRoute(`/login?next=${encodeURIComponent(next)}`);
   const signup = useSignupMutation();
