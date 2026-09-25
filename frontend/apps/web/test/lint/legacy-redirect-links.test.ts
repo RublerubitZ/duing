@@ -39,7 +39,8 @@ describe('옛 리다이렉트 주소 링크 린트 가드', () => {
     "'/admin/facility-bookings/submission?x=1'",
     "'/facilities/' + id",
     '`/admin/facility-crawl?x=${y}`',
-  ])('옛 주소 %s 는 걸린다', async (expression) => {
+    '`/admin/facility-crawl?x=1`',
+  ])('옛 주소 %s 는 걸린다(정확히 1회)', async (expression) => {
     expect(await countLegacyLinkErrors(expression)).toBe(1);
   });
 

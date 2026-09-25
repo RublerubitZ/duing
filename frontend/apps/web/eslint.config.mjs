@@ -141,7 +141,7 @@ export default defineConfig([
         },
         {
           selector:
-            'TemplateLiteral > TemplateElement:first-child[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?[?#]/]',
+            'TemplateLiteral[expressions.length>0] > TemplateElement:first-child[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?[?#]/]',
           message:
             '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
         },
