@@ -99,9 +99,10 @@ const nextConfig = {
     // 홈은 ISR(#925) 전환으로 static 분류(기본 staleTimes.static 5분)를 받는다.
     staleTimes: { dynamic: 180 },
   },
-  // 레거시 시설 상세 주소(/facilities/{id}, #639 이전)를 쿼리 방식으로 영구 이동한다. 예전엔 페이지 안의
-  // redirect() 였는데, 루트 loading 경계가 셸을 먼저 스트리밍해 200 + meta refresh(1초)로 나갔다 — 검색엔진이
-  // 영구 이동으로 보지 않고 매번 셸을 렌더했다. 예전 페이지처럼 한 세그먼트 값은 모두 목록으로 넘기고 숫자 판정은 목록 페이지가 한다.
+  // 리다이렉트만 하는 페이지는 루트 loading 경계가 셸을 먼저 스트리밍해 200 + 클라이언트 이동으로 늦게 나가므로,
+  // 페이지의 redirect() 대신 여기서 HTTP 리다이렉트로 처리한다.
+  // 레거시 시설 상세 주소(/facilities/{id}, #639 이전)를 쿼리 방식으로 영구 이동한다.
+  // 예전 페이지처럼 한 세그먼트 값은 모두 목록으로 넘기고 숫자 판정은 목록 페이지가 한다.
   // 이 규칙은 파일 라우트보다 먼저 돌아 /facilities/ 아래에 정적 라우트를 새로 만들면 가로챈다 — 그때 source 를 좁힐 것.
   // 영구(308) 이동은 브라우저가 캐시하므로, 상세 페이지를 되살리면 이 규칙을 지우는 것만으로는 재방문자에게 반영되지 않는다.
   async redirects() {
@@ -110,6 +111,27 @@ const nextConfig = {
         source: '/facilities/:facilityId',
         destination: '/facilities?facilityId=:facilityId',
         permanent: true,
+      },
+      // 관리자 옛 경로 — 탭으로 흡수된 URL 의 북마크 호환. 관리자 전용이라 검색 노출 이득이 없고 경로를 다시
+      // 쓸 수 있게 임시(307)로 둔다(308 은 브라우저가 캐시해 되돌리기 어렵다). /submission/{batchId} 같은 하위
+      // 경로는 source 가 정확히 일치할 때만 걸리므로 영향이 없다. 설정 리다이렉트는 파일 라우트보다 먼저 돈다 —
+      // 이 두 경로에 페이지를 새로 만들면 이 규칙을 먼저 지울 것(안 지우면 새 페이지가 렌더되지 않는다).
+      {
+        source: '/admin/facility-crawl',
+        destination: '/admin/facility-bookings?tab=crawl',
+        permanent: false,
+      },
+      {
+        source: '/admin/facility-bookings/submission',
+        destination: '/admin/facility-bookings?tab=prepare',
+        permanent: false,
+      },
+      // 멤버 영역 루트는 공지 탭으로 보낸다. 멤버 홈이 생길 수 있어 임시(307). 설정 리다이렉트는 파일 라우트보다
+      // 먼저 돌므로, 멤버 홈 페이지를 만들면 이 규칙을 먼저 지울 것(안 지우면 새 페이지가 렌더되지 않는다).
+      {
+        source: '/clubs/:clubId/member',
+        destination: '/clubs/:clubId/member/notices',
+        permanent: false,
       },
     ];
   },

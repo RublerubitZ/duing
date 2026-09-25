@@ -114,8 +114,8 @@ describe('next.config 정적 폰트 캐시', () => {
   });
 });
 
-describe('next.config 레거시 시설 상세 리다이렉트', () => {
-  it('/facilities/{한 세그먼트} 를 쿼리 방식으로 308 영구 이동한다 — 페이지 redirect() 는 loading 경계 탓에 200 + meta refresh 로 나갔다', async () => {
+describe('next.config 옛 경로 리다이렉트(시설 상세·관리자 옛 경로·멤버 루트)', () => {
+  it('시설 상세는 쿼리 방식으로 308, 관리자 옛 경로·멤버 루트는 307 로 보낸다 — 페이지 redirect() 는 loading 경계 탓에 200 + 클라이언트 이동으로 늦게 나갔다', async () => {
     const redirectsFn = nextConfig.redirects;
     if (!redirectsFn) throw new Error('redirects() 가 정의되어야 한다');
 
@@ -124,6 +124,21 @@ describe('next.config 레거시 시설 상세 리다이렉트', () => {
         source: '/facilities/:facilityId',
         destination: '/facilities?facilityId=:facilityId',
         permanent: true,
+      },
+      {
+        source: '/admin/facility-crawl',
+        destination: '/admin/facility-bookings?tab=crawl',
+        permanent: false,
+      },
+      {
+        source: '/admin/facility-bookings/submission',
+        destination: '/admin/facility-bookings?tab=prepare',
+        permanent: false,
+      },
+      {
+        source: '/clubs/:clubId/member',
+        destination: '/clubs/:clubId/member/notices',
+        permanent: false,
       },
     ]);
   });
