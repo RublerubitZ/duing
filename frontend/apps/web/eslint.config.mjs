@@ -103,4 +103,38 @@ export default defineConfig([
       'no-restricted-imports': 'off',
     },
   },
+  {
+    // 옛 리다이렉트 주소로의 링크 금지 — typedRoutes 는 next.config redirects() 의 source 를 유효 라우트로
+    // 취급해서(설정으로 끌 수 없다), 페이지를 지운 옛 주소로 링크해도 타입 검사를 통과하고 리다이렉트를 한 번 더 탄다.
+    // 옛 주소를 redirects() 에 추가할 때 여기에도 같이 추가할 것.
+    // 경로 비교용 접두 문자열('/facilities/' — 탭 판정 등)은 링크가 아니라 허용한다(슬래시 뒤 한 글자 이상만 금지).
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/^\\/facilities\\/./]',
+          message:
+            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+        },
+        {
+          selector: 'TemplateLiteral > TemplateElement:first-child[value.raw=/^\\/facilities\\//]',
+          message:
+            '옛 시설 상세 주소(/facilities/{id})는 없어졌습니다. /facilities?facilityId={id} 로 링크하세요.',
+        },
+        {
+          selector:
+            'Literal[value=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
+          message:
+            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+        },
+        {
+          selector:
+            'TemplateLiteral[expressions.length=0] > TemplateElement[value.raw=/^\\/admin\\/(facility-crawl|facility-bookings\\/submission)\\/?([?#].*)?$/]',
+          message:
+            '관리자 옛 경로입니다. /admin/facility-bookings?tab=crawl 또는 ?tab=prepare 로 링크하세요.',
+        },
+      ],
+    },
+  },
 ]);
