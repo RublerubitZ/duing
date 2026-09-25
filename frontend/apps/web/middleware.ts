@@ -83,7 +83,8 @@ const ID_SEGMENT_PATTERNS: readonly RegExp[] = [
 ];
 const POSITIVE_INTEGER = /^[1-9]\d*$/;
 
-// 인증·권한 판정을 통과한 요청만 여기 온다 — 권한 없는 사용자는 형식과 무관하게 로그인/403 을 먼저 받는다.
+// 미들웨어의 인증(힌트)·관리자 역할 판정을 통과한 요청만 여기 온다 — /admin 비관리자는 형식과 무관하게 403 을 먼저 받는다.
+// /manage 의 동아리별 권한은 클라이언트 ManageGuard 가 보므로 형식이 틀린 주소는 그보다 먼저 404 다(동아리 id 는 공개 값).
 function passOrNotFound(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   for (const pattern of ID_SEGMENT_PATTERNS) {
