@@ -106,13 +106,13 @@ describe('로그인 뒤 복귀 경로', () => {
   // 미들웨어는 요청 경로를 그대로 next 에 담아 세그먼트 프리페치 같은 전송 경로가 들어올 수 있다 —
   // 그대로 복귀하면 로그인 뒤 404 라 실제 페이지 경로로 돌아가야 한다.
   it('next 에 전송 경로 접미가 붙어 있으면 떼어 낸 페이지 경로로 하드 이동한다', async () => {
-    mockSearchParams = new URLSearchParams({ next: '/me.segments/_tree.segment.rsc' });
+    mockSearchParams = new URLSearchParams({ next: '/me/applications.segments/_tree.segment.rsc' });
     captureLoginBody();
     const user = userEvent.setup();
     renderLoginForm();
 
     await submitCredentials(user);
 
-    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me/applications'));
   });
 });

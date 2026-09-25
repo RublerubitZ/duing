@@ -51,7 +51,7 @@ export function toReturnRoute(url: string | null): Route | null {
     .replace(/(\.prefetch)?\.rsc$/, '')
     .replace(/\.prefetch$/, '')
     .replace(/\.json$/, '');
-  return `${pagePath || '/'}${rest}` as Route;
+  return `${pagePath}${rest}` as Route;
 }
 
 /**

@@ -61,7 +61,7 @@ describe('toReturnRoute', () => {
   });
 
   it('세그먼트 접미는 Next 정규화기와 같게 마지막 .segments/ 기준으로 자른다', () => {
-    expect(toReturnRoute('/manage/clubs/x.segments.segments/a.segment.rsc')).toBe('/manage/clubs/x.segments');
+    expect(toReturnRoute('/manage/clubs/x.segments/y.segments/_tree.segment.rsc')).toBe('/manage/clubs/x.segments/y');
   });
 
   it('전송 접미가 없는 경로는 그대로 통과시킨다', () => {
