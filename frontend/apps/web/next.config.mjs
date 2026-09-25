@@ -99,6 +99,18 @@ const nextConfig = {
     // 홈은 ISR(#925) 전환으로 static 분류(기본 staleTimes.static 5분)를 받는다.
     staleTimes: { dynamic: 180 },
   },
+  // 레거시 시설 상세 주소(/facilities/{id}, #639 이전)를 쿼리 방식으로 영구 이동한다. 예전엔 페이지 안의
+  // redirect() 였는데, 루트 loading 경계가 셸을 먼저 스트리밍해 200 + meta refresh(1초)로 나갔다 — 검색엔진이
+  // 영구 이동으로 보지 않고 매번 셸을 렌더했다. id 는 숫자뿐이라 (\\d+) 로 좁혀 이후 /facilities/* 정적 라우트를 가리지 않는다.
+  async redirects() {
+    return [
+      {
+        source: '/facilities/:facilityId(\\d+)',
+        destination: '/facilities?facilityId=:facilityId',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
