@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { TranscribeCockpitPage } from './_pages/TranscribeCockpitPage';
 
 type Props = {
@@ -7,9 +8,8 @@ type Props = {
 
 export default async function Page({ params }: Props) {
   const { batchId } = await params;
-  const parsedBatchId = Number(batchId);
+  const parsedBatchId = parsePositiveIdParam(batchId);
   // 숫자가 아니거나 양의 정수가 아니면(빈 값·소수·음수 포함) 존재하지 않는 배치로 취급한다.
-  // 형식 검사는 미들웨어가 먼저 실제 404 로 끊는다(loading 경계 안의 notFound 는 200 소프트 404) — 여기는 매처가 바뀌었을 때의 방어선.
-  if (!Number.isInteger(parsedBatchId) || parsedBatchId <= 0) notFound();
+  if (parsedBatchId === null) notFound();
   return <TranscribeCockpitPage batchId={parsedBatchId} />;
 }

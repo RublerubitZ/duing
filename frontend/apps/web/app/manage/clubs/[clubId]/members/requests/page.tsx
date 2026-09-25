@@ -7,6 +7,7 @@ import type { BulkApproveResult, JoinRequestStatus } from '@duing/types';
 import { useBulkApproveJoinRequestsMutation, useJoinRequestsQuery } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
+import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -28,9 +29,8 @@ export default function JoinRequestsPage({
   params: Promise<{ clubId: string }>;
 }) {
   const { clubId: clubIdParam } = use(params);
-  const currentClubId = Number(clubIdParam);
-  // 형식 검사는 미들웨어가 먼저 실제 404 로 끊는다(loading 경계 안의 notFound 는 200 소프트 404) — 여기는 매처가 바뀌었을 때의 방어선.
-  if (isNaN(currentClubId)) {
+  const currentClubId = parsePositiveIdParam(clubIdParam);
+  if (currentClubId === null) {
     notFound();
   }
 

@@ -1,9 +1,12 @@
 import { createHmac } from 'node:crypto';
+import { readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { verifyAuthHint as verifyAuthHintForApp } from '../../app/_lib/auth-hint';
+import { parsePositiveIdParam } from '../../app/_lib/idParam';
 import { config, middleware, verifyAuthHint } from '../../middleware';
 
 const AUTH_HINT_SECRET = 'test-auth-hint-secret-at-least-32-bytes';
@@ -225,6 +228,7 @@ describe('middleware auth_hint UX', () => {
       '/manage/clubs/1.5/members/requests',
       '/admin/facility-bookings/submission/abc',
       '/admin/facility-bookings/submission/0/transcribe',
+      '/admin/facility-bookings/submission/9007199254740993',
       '/me/applications/abc?tab=x',
     ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
@@ -243,6 +247,11 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/3/transcribe',
       '/admin/facility-bookings',
       '/me/applications/12?tab=x',
+      // Next 16 은 .rsc 만 미들웨어 앞에서 떼므로 정상 id 에 전송 접미가 붙어 온다.
+      '/me/applications/12.segments/_tree.segment',
+      '/manage/clubs/12.prefetch',
+      // ID 검사 대상 경로가 아니다.
+      '/apply/abc',
     ])('ADMIN hint의 %s 는 그대로 통과시킨다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
@@ -267,13 +276,74 @@ describe('middleware auth_hint UX', () => {
       expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/403');
     });
 
-    it('STUDENT hint의 /me 경로는 형식이 틀리면 not-found 로 rewrite한다', async () => {
-      const response = await middleware(
-        createRequest('/me/applications/abc', createRoleHint('STUDENT')),
-      );
+    it.each(['/me/applications/abc', '/manage/clubs/abc'])(
+      'STUDENT hint의 %s 는 형식이 틀리면 not-found 로 rewrite한다',
+      async (path) => {
+        const response = await middleware(createRequest(path, createRoleHint('STUDENT')));
 
-      expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+        expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+      },
+    );
+
+    // 미들웨어는 앱 코드를 import 못 해 판정 정규식을 따로 든다 — 페이지 방어선(parsePositiveIdParam)과
+    // 기준이 갈라지면 한쪽은 404, 다른 쪽은 통과가 되므로 같은 입력 표로 두 판정의 일치를 강제한다.
+    // 빈 값은 경로 모양이 목록 주소로 바뀌어 대조에서 뺀다(목록 통과 케이스가 따로 있다).
+    const ID_SAMPLES = [
+      '1',
+      '12',
+      '9007199254740991',
+      '0',
+      '012',
+      '-1',
+      '1.5',
+      '1e1',
+      '0x1f',
+      '+12',
+      ' 12',
+      '12 ',
+      '%31%32',
+      'abc',
+      '9007199254740992',
+    ];
+
+    // id 를 경로 끝에 두면 URL 파서가 문자열 끝 공백을 잘라 '12 ' 가 '12' 로 도착한다 — 세 모양 모두 id 뒤에
+    // 세그먼트를 둬서 공백이 %20 으로 인코딩된 채 미들웨어에 닿게 한다. nextUrl.clone() 은 원 주소의 끝 슬래시를
+    // 물려받으므로(skipTrailingSlashRedirect 라 이런 요청도 미들웨어에 온다) rewrite 대상의 끝 슬래시는 판정에서 무시한다.
+    it.each([
+      (id: string) => `/me/applications/${id}/`,
+      (id: string) => `/manage/clubs/${id}/fees`,
+      (id: string) => `/admin/facility-bookings/submission/${id}/transcribe`,
+    ])('미들웨어와 parsePositiveIdParam 의 판정이 일치한다 (%#)', async (toPath) => {
+      const middlewareVerdicts = await Promise.all(
+        ID_SAMPLES.map(async (id) => {
+          const response = await middleware(createRequest(toPath(id), createRoleHint('ADMIN')));
+          const sentToNotFound = /^https:\/\/duings\.com\/_not-found\/?$/.test(
+            response.headers.get('x-middleware-rewrite') ?? '',
+          );
+          return [id, sentToNotFound];
+        }),
+      );
+      const helperVerdicts = ID_SAMPLES.map((id) => [id, parsePositiveIdParam(id) === null]);
+
+      expect(middlewareVerdicts).toEqual(helperVerdicts);
     });
+
+    // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트 폴더가 생기면
+    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_)·그룹(()·병렬(@) 폴더만 허용한다.
+    it.each(['app/me/applications', 'app/manage/clubs', 'app/admin/facility-bookings/submission'])(
+      '%s 바로 아래에 정적 라우트 폴더가 없다',
+      (routeDir) => {
+        const webRoot = resolve(__dirname, '../..');
+        const staticRouteDirs = readdirSync(join(webRoot, routeDir), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory() && !/^[[_(@]/.test(entry.name))
+          .map((entry) => entry.name);
+
+        expect(
+          staticRouteDirs,
+          '미들웨어 ID_SEGMENT 가 이 정적 라우트를 404 로 가립니다 — middleware.ts 정규식을 먼저 고치세요',
+        ).toEqual([]);
+      },
+    );
   });
 });
 
