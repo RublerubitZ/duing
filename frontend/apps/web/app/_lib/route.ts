@@ -35,13 +35,15 @@ export function toLinkRoute(url: string | null): Route | null {
 // 세그먼트 프리페치 경로 `<page>.segments/<segment>.segment[.rsc]` — Next 정규화기와 같은 모양만 인정하고
 // 마지막 `.segments/` 기준으로 자른다. s 플래그: 줄 구분자(U+2028·U+2029)가 끼어도 끝까지 본다.
 const TRANSPORT_SEGMENT = /^(.*)\.segments\/.*\.segment(?:\.rsc)?$/s;
-// 그 밖의 전송 접미(`.prefetch`·`.rsc`·페이지 라우터 데이터 `.json`) — 겹쳐 붙어도 한 번에 떼어 결과가 멱등이 된다.
+// 그 밖의 접미 — Next 전송 형태 `.rsc` 와, Next 16 이 만들지 않지만 조작된 링크 대비로 함께 떼는 `.prefetch`·`.json`
+// (아래 JSDoc 참고). 겹쳐 붙어도 한 번에 떼어 결과가 멱등이 된다.
 const TRANSPORT_SUFFIX = /(?:\.(?:prefetch|rsc|json))+$/;
 
 /**
- * 로그인·가입 뒤 복귀 경로(`?next=`) 전용. toLinkRoute 의 open redirect 검사를 통과한 값에서 Next 의
- * RSC 전송용 경로 접미 — 세그먼트 프리페치 `.segments/…`, `.prefetch`, `.rsc`, 페이지 라우터 데이터 `.json` —
- * 를 떼어 실제 페이지 경로만 남긴다. 미들웨어는 요청 경로를 그대로 next 에 담으므로 전송 경로로 들어온
+ * 로그인·가입 뒤 복귀 경로(`?next=`) 전용. toLinkRoute 의 open redirect 검사를 통과한 값에서 경로 접미를 떼어
+ * 실제 페이지 경로만 남긴다. 세그먼트 프리페치(`.segments/…`)와 `.rsc` 는 Next 의 전송 형태이고, `.prefetch`·`.json` 은
+ * Next 16 이 만들지 않지만 조작된 링크의 복귀 경로를 실제 페이지로 돌려놓으려고 함께 뗀다(복귀 경로에서는 더 떼어도
+ * 무해 — 미들웨어의 형식 판정은 이들을 404 로 본다). 미들웨어는 요청 경로를 그대로 next 에 담으므로 전송 경로로 들어온
  * 요청(조작된 링크 포함)이 복귀 경로가 되면 로그인 뒤 404 가 난다. next 를 만드는 곳은 여럿이지만 소비하는
  * 곳은 로그인·가입 화면 두 곳이라 여기서 한 번에 막는다. 세그먼트 접미는 Next 정규화기가 인정하는
  * `<page>.segments/<segment>.segment[.rsc]` 모양일 때만 마지막 `.segments/` 기준으로 자른다. Next 가 만드는

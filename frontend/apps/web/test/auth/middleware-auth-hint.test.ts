@@ -230,9 +230,12 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/0/transcribe',
       '/admin/facility-bookings/submission/9007199254740993',
       '/me/applications/abc?tab=x',
-      // .prefetch·.json 은 전송 형태가 아니라 페이지가 원문 그대로 받아 notFound() 한다 — 판정을 맞춰 404.
+      // 전송 접미(.segments·.prefetch·.json)가 붙은 세그먼트는 페이지가 원문 그대로 받아 notFound() 한다 — 판정을
+      // 맞춰 404. Next 16 은 동적 라우트에 경로형 프리페치를 만들지 않는다.
       '/manage/clubs/12.prefetch',
       '/me/applications/12.json',
+      '/me/applications/12.segments/_tree.segment',
+      '/manage/clubs/12.segments/fees',
     ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
@@ -250,9 +253,6 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/3/transcribe',
       '/admin/facility-bookings',
       '/me/applications/12?tab=x',
-      // Next 16 의 경로형 전송 접미는 세그먼트 프리페치(.segments/…)뿐이다 — Next 가 그 경로를 정상 id 페이지로
-      // 정규화하므로 미들웨어도 통과시킨다(.rsc 는 미들웨어 전에 이미 떼어진다).
-      '/me/applications/12.segments/_tree.segment',
       // ID 검사 대상 경로가 아니다.
       '/apply/abc',
     ])('ADMIN hint의 %s 는 그대로 통과시킨다', async (path) => {
@@ -308,6 +308,7 @@ describe('middleware auth_hint UX', () => {
       'abc',
       '9007199254740992',
       '12.prefetch',
+      '12.segments',
     ];
 
     // id 를 경로 끝에 두면 URL 파서가 문자열 끝 공백을 잘라 '12 ' 가 '12' 로 도착한다 — 세 모양 모두 id 뒤에
@@ -333,14 +334,22 @@ describe('middleware auth_hint UX', () => {
     });
 
     // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트 폴더가 생기면
-    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_)·그룹(()·병렬(@) 폴더만 허용한다.
+    // 미들웨어가 그 페이지를 404 로 가린다. 동적([)·비공개(_)·병렬(@) 폴더만 허용한다. 그룹(()은 URL 에 나타나지
+    // 않아 그 안의 폴더가 같은 자리 세그먼트가 되므로 건너뛰지 않고 들어가 같은 기준으로 본다(중첩 그룹은 재귀).
+    const findStaticRouteDirs = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && !/^[[_@]/.test(entry.name))
+        .flatMap((entry) =>
+          entry.name.startsWith('(')
+            ? findStaticRouteDirs(join(dir, entry.name)).map((childName) => `${entry.name}/${childName}`)
+            : [entry.name],
+        );
+
     it.each(['app/me/applications', 'app/manage/clubs', 'app/admin/facility-bookings/submission'])(
       '%s 바로 아래에 정적 라우트 폴더가 없다',
       (routeDir) => {
         const webRoot = resolve(__dirname, '../..');
-        const staticRouteDirs = readdirSync(join(webRoot, routeDir), { withFileTypes: true })
-          .filter((entry) => entry.isDirectory() && !/^[[_(@]/.test(entry.name))
-          .map((entry) => entry.name);
+        const staticRouteDirs = findStaticRouteDirs(join(webRoot, routeDir));
 
         expect(
           staticRouteDirs,

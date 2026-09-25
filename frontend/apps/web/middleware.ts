@@ -77,22 +77,20 @@ const ADMIN_PREFIX = '/admin';
 // catch-all 이 생기면 거기 걸린다. 비어 있지 않은 ID 세그먼트 하나를 잡으므로 목록 경로는 대상이 아니다.
 // 퍼센트 인코딩(%31%32)·공백 섞인 값은 인코딩된 채로 오면 404, 앞단이 정규화해 숫자로 오면 통과 — 어느 쪽도 링크
 // 생성처가 만들지 않는 형태라 무해하다.
+// 전송 접미(`.segments`·`.prefetch`·`.json`)가 붙은 세그먼트도 형식 위반으로 404 — Next 16 은 동적 라우트에 경로형
+// 프리페치를 만들지 않고, 떼면 페이지가 원문을 받아 다시 소프트 404 가 된다.
 // 주의: 이 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 본다. 같은 자리에 정적 페이지(예: /manage/clubs/new)를 만들면
 // 여기서 404 로 가려지므로 이 정규식을 먼저 고칠 것 — test 의 라우트 폴더 가드가 잡는다.
 // 판정 기준은 app/_lib/idParam.ts 의 parsePositiveIdParam 과 같다(이 파일은 앱 코드를 import 못 해 정규식을 따로 둔다)
 // — 둘의 드리프트는 test/auth/middleware-auth-hint.test.ts 의 대조 테스트가 잡는다.
 const ID_SEGMENT = /^\/(?:me\/applications|manage\/clubs|admin\/facility-bookings\/submission)\/([^/]+)/;
 const POSITIVE_ID = /^[1-9]\d*$/;
-// Next 16 의 경로형 전송 접미는 세그먼트 프리페치(`.segments/…`)뿐이다 — Next 가 그 경로를 정상 id 페이지로
-// 정규화하므로 그 모양만 뗀다(`.rsc` 는 미들웨어 전에 이미 떼어진다).
-const TRANSPORT_SUFFIX = /\.segments$/;
 
 // 미들웨어의 인증(힌트)·관리자 역할 판정을 통과한 요청만 여기 온다 — /admin 비관리자는 형식과 무관하게 403 을 먼저 받는다.
 // /manage 의 동아리별 권한은 클라이언트 ManageGuard 가 보므로 형식이 틀린 주소는 그보다 먼저 404 다(동아리 id 는 공개 값).
 function passOrNotFound(request: NextRequest): NextResponse {
-  const rawId = ID_SEGMENT.exec(request.nextUrl.pathname)?.[1];
-  if (rawId !== undefined) {
-    const id = rawId.replace(TRANSPORT_SUFFIX, '');
+  const id = ID_SEGMENT.exec(request.nextUrl.pathname)?.[1];
+  if (id !== undefined) {
     if (!POSITIVE_ID.test(id) || !Number.isSafeInteger(Number(id))) {
       const notFoundUrl = request.nextUrl.clone();
       notFoundUrl.pathname = '/_not-found';
