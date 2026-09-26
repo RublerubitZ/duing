@@ -1,7 +1,7 @@
 # CLAUDE.md — du-ing-be
 
 프로젝트 개요, 구조, 명령어, 핵심 패턴은 @backend/AGENTS.md 참조.
-모노레포 구조: `backend/` (Spring Boot 3.4 / Java 21), `frontend/` (Next.js 16 + React 19).
+모노레포 구조: `backend/` (Spring Boot 3.4 / Java 21), `frontend/` (Next.js 15 + React 19).
 프론트엔드 작업 규칙은 [`../frontend/CLAUDE.md`](../frontend/CLAUDE.md), 루트 공통 규칙은 [`../CLAUDE.md`](../CLAUDE.md) 참조.
 
 ---
