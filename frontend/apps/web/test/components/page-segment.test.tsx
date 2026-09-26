@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn();
-vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
+vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname(), useSelectedLayoutSegment: () => null }));
 
 import { PageSegment } from '@/app/_components/PageSegment';
 
