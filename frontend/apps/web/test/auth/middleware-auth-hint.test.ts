@@ -231,7 +231,7 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/9007199254740993',
       '/me/applications/abc?tab=x',
       // 전송 접미(.segments·.prefetch·.json)가 붙은 세그먼트는 페이지가 원문 그대로 받아 notFound() 한다 — 판정을
-      // 맞춰 404. Next 16 은 동적 라우트에 경로형 프리페치를 만들지 않는다.
+      // 맞춰 404. 서버 모드의 프리페치는 페이지 URL 에 헤더로 요청하고 경로형은 output: export 전용이다.
       '/manage/clubs/12.prefetch',
       '/me/applications/12.json',
       '/me/applications/12.segments/_tree.segment',
