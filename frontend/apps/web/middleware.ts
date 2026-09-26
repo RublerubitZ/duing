@@ -71,10 +71,11 @@ const MANAGE_PREFIX = '/manage';
 const ADMIN_PREFIX = '/admin';
 
 // 동적 ID 세그먼트 형식 검사(양의 정수). 루트 app/loading.tsx 등 loading 경계 안에서 페이지가 notFound() 를 부르면
-// 상태 코드가 이미 200 으로 나간 뒤라 소프트 404(200 + noindex)가 된다. 형식이 틀린 주소는 여기서 not-found 라우트로
-// 넘겨 실제 404 를 낸다. `/_not-found` 는 Next 가 not-found 진입점에 쓰는 예약 이름이다
-// (next/dist/shared/lib/entry-constants.js UNDERSCORE_NOT_FOUND_ROUTE) — 임의의 매칭 안 되는 경로는 나중에 루트
-// catch-all 이 생기면 거기 걸린다.
+// 상태 코드가 이미 200 으로 나간 뒤라 소프트 404(200 + noindex)가 된다. 형식이 틀린 주소는 여기서 어떤 라우트와도
+// 맞지 않는 경로(`/_not-found` + 원래 경로)로 rewrite 해 플랫폼의 404(상태 404 + noindex)를 받는다. `/_not-found` 자체로
+// 보내지 않는 이유: Next 16 빌드를 Vercel 이 서빙하면 그 경로는 정적 프리렌더라 200(noindex 없음)이 된다(2026-09-26 프리뷰
+// 실측, 로컬 next start 는 404 라 로컬 QA 로는 안 보인다). `_` 로 시작하는 폴더는 라우트가 될 수 없고 앱 루트에 동적
+// 세그먼트가 없어 이 경로는 매칭되지 않는다 — 루트 동적·catch-all 라우트가 생기면 test 의 가드가 실패한다.
 // 보호 경로(/apply·/me·/manage·/admin) 아래 동적 세그먼트는 전부 숫자 id 다 — 아래 목록이 그 자리를 전수로 든다(캡처 그룹
 // 하나 = id 세그먼트 하나). 빈 세그먼트는 잡지 않으므로 목록 경로는 대상이 아니다. 같은 자리의 정적 페이지 `new` 는 부정
 // 전방 탐색으로 뺀다 — 정적 페이지는 빌드에 경로형 세그먼트 파일(`new.segments/_tree.segment.rsc`)이 생기고 Next 가 `.rsc`
@@ -111,7 +112,7 @@ function passOrNotFound(request: NextRequest): NextResponse {
   );
   if (hasMalformedId) {
     const notFoundUrl = request.nextUrl.clone();
-    notFoundUrl.pathname = '/_not-found';
+    notFoundUrl.pathname = `/_not-found${pathname}`;
     notFoundUrl.search = '';
     return NextResponse.rewrite(notFoundUrl);
   }
