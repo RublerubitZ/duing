@@ -216,6 +216,10 @@ describe('middleware auth_hint UX', () => {
   describe('형식이 틀린 ID 주소는 not-found 로 넘긴다', () => {
     const createRoleHint = (role: 'STUDENT' | 'ADMIN') =>
       createAuthHint({ typ: 'AUTH_HINT', role, exp: Math.floor(Date.now() / 1000) + 60 });
+    // 형식이 틀린 id 는 `/_not-found` 아래 원래 경로(쿼리 제외)로 rewrite 한다 — 어떤 라우트와도 맞지 않아 플랫폼 404 를 받는다.
+    const notFoundRewriteFor = (path: string) =>
+      `https://duings.com/_not-found${new URL(path, 'https://duings.com').pathname}`;
+    const NOT_FOUND_REWRITE = /^https:\/\/duings\.com\/_not-found\//;
 
     it.each([
       '/me/applications/abc',
@@ -252,7 +256,7 @@ describe('middleware auth_hint UX', () => {
     ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
-      expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+      expect(response.headers.get('x-middleware-rewrite')).toBe(notFoundRewriteFor(path));
     });
 
     it.each([
@@ -304,7 +308,7 @@ describe('middleware auth_hint UX', () => {
       async (path) => {
         const response = await middleware(createRequest(path, createRoleHint('STUDENT')));
 
-        expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/_not-found');
+        expect(response.headers.get('x-middleware-rewrite')).toBe(notFoundRewriteFor(path));
       },
     );
 
@@ -346,7 +350,7 @@ describe('middleware auth_hint UX', () => {
       const middlewareVerdicts = await Promise.all(
         ID_SAMPLES.map(async (id) => {
           const response = await middleware(createRequest(toPath(id), createRoleHint('ADMIN')));
-          const sentToNotFound = /^https:\/\/duings\.com\/_not-found\/?$/.test(
+          const sentToNotFound = NOT_FOUND_REWRITE.test(
             response.headers.get('x-middleware-rewrite') ?? '',
           );
           return [id, sentToNotFound];
@@ -390,7 +394,7 @@ describe('middleware auth_hint UX', () => {
       `/${segments.map(fill).join('/')}`;
     const isSentToNotFound = async (url: string, authHint: string) => {
       const response = await middleware(createRequest(url, authHint));
-      return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '');
+      return NOT_FOUND_REWRITE.test(response.headers.get('x-middleware-rewrite') ?? '');
     };
     // 미들웨어가 id 를 판정하는 보호 접두사 — matcher(`/apply/:path*` 등)에서 파생해 새 접두사가 조용히 빠지지 않게 한다.
     const PROTECTED_ROOTS = config.matcher.map((pattern) => pattern.split('/')[1]);
@@ -457,6 +461,17 @@ describe('middleware auth_hint UX', () => {
       expect(
         passedUrls,
         '보호 접두사 아래 동적 세그먼트는 양의 정수 id 만 허용합니다 — 새 id 라우트면 middleware.ts ID_ROUTE_PATTERNS 에 자리를 더하고, 숫자가 아닌 값이 필요하면 보호 접두사 밖이나 쿼리로 옮기세요',
+      ).toEqual([]);
+    });
+
+    it('앱 루트에는 동적 세그먼트 라우트가 없다 — 미들웨어가 넘기는 /_not-found/… 경로가 어떤 라우트에도 걸리지 않게', () => {
+      const rootDynamicRoutes = collectAppRoutes().filter(([firstSegment = '']) =>
+        isDynamicSegment(firstSegment),
+      );
+
+      expect(
+        rootDynamicRoutes.map((segments) => `/${segments.join('/')}`),
+        '루트 동적·catch-all 라우트가 생기면 middleware.ts 의 404 rewrite 대상이 그 라우트에 걸립니다 — 대상 경로를 먼저 바꾸세요',
       ).toEqual([]);
     });
   });

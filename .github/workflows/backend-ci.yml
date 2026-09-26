@@ -48,7 +48,7 @@ jobs:
         # 이미지 확보를 테스트 실행과 분리하고, 일시 장애는 백오프 재시도로 흡수하며,
         # 최종 실패 시 어떤 이미지가 문제인지 명확히 드러낸다.
         # 이미지 태그 출처: postgres → TestcontainersConfiguration.java, minio → S3FileStorageIntegrationTest.java
-        # minio 는 Docker Hub 저장소가 사라져(2026-09, pull access denied) quay.io 공식 미러를 쓴다 — 테스트 쪽 참조와 함께 바꿀 것.
+        # minio 는 공식 배포가 끊겨(Docker Hub 저장소 소멸, quay.io 도 2026-09-26 기준 401) Chainguard 빌드를 다이제스트로 고정해 쓴다 — 테스트 쪽 참조와 함께 바꿀 것.
         run: |
           set -euo pipefail
           pull_with_retry() {
@@ -62,7 +62,7 @@ jobs:
             return 1
           }
           pull_with_retry postgres:16-alpine
-          pull_with_retry quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+          pull_with_retry cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
 
       - name: Test (TestContainers — ubuntu-latest 내장 Docker 데몬 사용)
         env:
