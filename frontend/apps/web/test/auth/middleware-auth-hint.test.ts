@@ -231,11 +231,24 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/9007199254740993',
       '/me/applications/abc?tab=x',
       // 전송 접미(.segments·.prefetch·.json)가 붙은 세그먼트는 페이지가 원문 그대로 받아 notFound() 한다 — 판정을
-      // 맞춰 404. Next 16 은 동적 라우트에 경로형 프리페치를 만들지 않는다.
+      // 맞춰 404. 서버 모드의 프리페치는 페이지 URL 에 헤더로 요청하고 경로형은 output: export 전용이다.
       '/manage/clubs/12.prefetch',
       '/me/applications/12.json',
       '/me/applications/12.segments/_tree.segment',
       '/manage/clubs/12.segments/fees',
+      // 보호 경로의 다른 id 자리(중첩 포함)도 같은 기준이다. 정적 `new` 와 비슷하기만 한 값은 id 로 판정한다.
+      '/apply/abc',
+      '/me/fees/abc/receipt',
+      '/me/inquiries/1e1',
+      '/admin/clubs/abc/activity-log',
+      '/admin/clubs/newfoo',
+      '/admin/clubs/new.foo',
+      '/admin/faqs/0/edit',
+      '/admin/reports/-1',
+      '/manage/clubs/12/fees/abc/receipt',
+      '/manage/clubs/12/recruitments/abc/stats',
+      '/manage/clubs/12/recruitments/12/applicants/abc',
+      '/manage/clubs/12/recruitments/12/interview/rounds/abc',
     ])('ADMIN hint의 %s 를 not-found 로 rewrite한다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
@@ -253,8 +266,15 @@ describe('middleware auth_hint UX', () => {
       '/admin/facility-bookings/submission/3/transcribe',
       '/admin/facility-bookings',
       '/me/applications/12?tab=x',
-      // ID 검사 대상 경로가 아니다.
-      '/apply/abc',
+      '/apply/5',
+      // 같은 자리의 정적 페이지와 그 세그먼트 전송 형태는 id 판정에서 뺀다.
+      '/me/inquiries/new',
+      '/admin/clubs/new',
+      '/admin/clubs/new/',
+      '/admin/clubs/new.segments/_tree.segment',
+      '/admin/clubs/12/join-codes',
+      '/manage/clubs/12/recruitments/new',
+      '/manage/clubs/12/recruitments/12/interview/rounds/new',
     ])('ADMIN hint의 %s 는 그대로 통과시킨다', async (path) => {
       const response = await middleware(createRequest(path, createRoleHint('ADMIN')));
 
@@ -279,7 +299,7 @@ describe('middleware auth_hint UX', () => {
       expect(response.headers.get('x-middleware-rewrite')).toBe('https://duings.com/403');
     });
 
-    it.each(['/me/applications/abc', '/manage/clubs/abc'])(
+    it.each(['/me/applications/abc', '/manage/clubs/abc', '/apply/abc', '/me/inquiries/abc'])(
       'STUDENT hint의 %s 는 형식이 틀리면 not-found 로 rewrite한다',
       async (path) => {
         const response = await middleware(createRequest(path, createRoleHint('STUDENT')));
@@ -311,13 +331,17 @@ describe('middleware auth_hint UX', () => {
       '12.segments',
     ];
 
-    // id 를 경로 끝에 두면 URL 파서가 문자열 끝 공백을 잘라 '12 ' 가 '12' 로 도착한다 — 세 모양 모두 id 뒤에
-    // 세그먼트를 둬서 공백이 %20 으로 인코딩된 채 미들웨어에 닿게 한다. nextUrl.clone() 은 원 주소의 끝 슬래시를
+    // id 를 경로 끝에 두면 URL 파서가 문자열 끝 공백을 잘라 '12 ' 가 '12' 로 도착한다 — 모든 모양이 id 뒤에
+    // 세그먼트나 끝 슬래시를 둬서 공백이 %20 으로 인코딩된 채 미들웨어에 닿게 한다. nextUrl.clone() 은 원 주소의 끝 슬래시를
     // 물려받으므로(skipTrailingSlashRedirect 라 이런 요청도 미들웨어에 온다) rewrite 대상의 끝 슬래시는 판정에서 무시한다.
     it.each([
       (id: string) => `/me/applications/${id}/`,
       (id: string) => `/manage/clubs/${id}/fees`,
       (id: string) => `/admin/facility-bookings/submission/${id}/transcribe`,
+      (id: string) => `/apply/${id}/`,
+      (id: string) => `/admin/clubs/${id}/activity-log`,
+      (id: string) => `/manage/clubs/1/recruitments/${id}/applicants`,
+      (id: string) => `/manage/clubs/1/recruitments/1/interview/rounds/${id}/`,
     ])('미들웨어와 parsePositiveIdParam 의 판정이 일치한다 (%#)', async (toPath) => {
       const middlewareVerdicts = await Promise.all(
         ID_SAMPLES.map(async (id) => {
@@ -333,17 +357,16 @@ describe('middleware auth_hint UX', () => {
       expect(middlewareVerdicts).toEqual(helperVerdicts);
     });
 
-    // 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 판정된다 — 같은 자리에 정적 라우트가 생기면 미들웨어가 그 페이지를
-    // 404 로 가린다. 폴더를 어디에 두든(상위 경로의 그룹·슬롯, 가로채기 폴더 포함) 걸리도록 app 전체의 페이지·route
-    // 핸들러를 실제 URL 로 바꿔 미들웨어에 넣어 본다. 그룹 (x)·슬롯 @x 는 URL 에서 빠지고, 비공개 _x 는 라우트가
-    // 아니며, 가로채기 폴더 (.)x·(..)x·(...)x 는 가로채는 대상 URL 이 되고, 동적 세그먼트는 유효한 id '1' 로 채운다.
+    // 라우트 가드 두 개가 쓰는 수집기 — app 전체의 페이지·route 핸들러마다 URL 세그먼트 목록을 낸다. 그룹 (x)·슬롯 @x 는
+    // URL 에서 빠지고, 비공개 _x 는 라우트가 아니며, 가로채기 폴더 (.)x·(..)x·(...)x 는 가로채는 대상 URL 이 된다.
+    // 동적 세그먼트는 폴더 이름 그대로(`[x]`) 남기고 각 가드가 채울 값을 정한다.
     const INTERCEPT_FOLDER = /^(\(\.\.\.\)|(?:\(\.\.\))+|\(\.\))(.+)$/;
-    const toUrlSegment = (folderName: string) => (folderName.startsWith('[') ? '1' : folderName);
+    const isDynamicSegment = (segment: string) => segment.startsWith('[');
 
-    const collectRouteUrls = (dir: string, urlSegments: string[]): string[] =>
+    const collectRouteSegments = (dir: string, urlSegments: string[]): string[][] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         if (!entry.isDirectory()) {
-          return /^(?:page|route)\.[jt]sx?$/.test(entry.name) ? [`/${urlSegments.join('/')}`] : [];
+          return /^(?:page|route)\.[jt]sx?$/.test(entry.name) ? [urlSegments] : [];
         }
         const childDir = join(dir, entry.name);
         const intercept = INTERCEPT_FOLDER.exec(entry.name);
@@ -355,39 +378,85 @@ describe('middleware auth_hint UX', () => {
               : marker === '(.)'
                 ? urlSegments
                 : urlSegments.slice(0, urlSegments.length - marker.length / 4); // '(..)' 한 개(4글자)당 한 단계 위
-          return collectRouteUrls(childDir, [...baseSegments, toUrlSegment(target)]);
+          return collectRouteSegments(childDir, [...baseSegments, target]);
         }
         if (entry.name.startsWith('_')) return [];
-        if (/^[(@]/.test(entry.name)) return collectRouteUrls(childDir, urlSegments);
-        return collectRouteUrls(childDir, [...urlSegments, toUrlSegment(entry.name)]);
+        if (/^[(@]/.test(entry.name)) return collectRouteSegments(childDir, urlSegments);
+        return collectRouteSegments(childDir, [...urlSegments, entry.name]);
       });
 
+    const collectAppRoutes = () => collectRouteSegments(resolve(__dirname, '../../app'), []);
+    const toUrl = (segments: string[], fill: (segment: string, index: number) => string) =>
+      `/${segments.map(fill).join('/')}`;
+    const isSentToNotFound = async (url: string, authHint: string) => {
+      const response = await middleware(createRequest(url, authHint));
+      return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '');
+    };
+    // 미들웨어가 id 를 판정하는 보호 접두사 — matcher(`/apply/:path*` 등)에서 파생해 새 접두사가 조용히 빠지지 않게 한다.
+    const PROTECTED_ROOTS = config.matcher.map((pattern) => pattern.split('/')[1]);
+
     it('app 의 어떤 페이지·route 핸들러도 미들웨어 ID 판정에 404 로 가려지지 않는다', async () => {
-      const routeUrls = collectRouteUrls(resolve(__dirname, '../../app'), []);
-      // 걷기가 틀려 목록이 비면 아무것도 검사하지 않고 통과하므로, 세 ID 경로가 실제로 걷혔는지 먼저 본다.
+      const routeUrls = collectAppRoutes().map((segments) =>
+        toUrl(segments, (segment) => (isDynamicSegment(segment) ? '1' : segment)),
+      );
+      // 걷기가 틀려 목록이 비면 아무것도 검사하지 않고 통과하므로, id 경로와 같은 자리의 정적 `new` 가 실제로 걷혔는지 먼저 본다.
       expect(routeUrls).toEqual(
         expect.arrayContaining([
           '/me/applications/1',
           '/manage/clubs/1/fees',
           '/admin/facility-bookings/submission/1/transcribe',
+          '/admin/clubs/new',
+          '/manage/clubs/1/recruitments/1/interview/rounds/new',
         ]),
       );
 
       const adminHint = createRoleHint('ADMIN');
       const hiddenUrls = (
         await Promise.all(
-          routeUrls.map(async (url) => {
-            const response = await middleware(createRequest(url, adminHint));
-            return /\/_not-found\/?$/.test(response.headers.get('x-middleware-rewrite') ?? '')
-              ? [url]
-              : [];
-          }),
+          routeUrls.map(async (url) => ((await isSentToNotFound(url, adminHint)) ? [url] : [])),
         )
       ).flat();
 
       expect(
         hiddenUrls,
-        '미들웨어 ID_SEGMENT 가 이 정적 라우트를 404 로 가립니다 — middleware.ts 정규식을 먼저 고치세요',
+        '미들웨어 ID_ROUTE_PATTERNS 가 이 정적 라우트를 404 로 가립니다 — middleware.ts 정규식을 먼저 고치세요',
+      ).toEqual([]);
+    });
+
+    it('보호 경로의 모든 동적 세그먼트는 형식이 틀리면 not-found 로 rewrite한다', async () => {
+      const probeUrls = collectAppRoutes()
+        .filter(([root = '']) => PROTECTED_ROOTS.includes(root))
+        .flatMap((segments) =>
+          segments.flatMap((segment, index) =>
+            isDynamicSegment(segment)
+              ? [
+                  toUrl(segments, (other, otherIndex) =>
+                    otherIndex === index ? 'abc' : isDynamicSegment(other) ? '1' : other,
+                  ),
+                ]
+              : [],
+          ),
+        );
+      // 수집이 비어 통과하는 일이 없게 네 접두사의 대표 자리가 실제로 만들어졌는지 먼저 본다.
+      expect(probeUrls).toEqual(
+        expect.arrayContaining([
+          '/apply/abc',
+          '/me/inquiries/abc',
+          '/admin/clubs/abc/activity-log',
+          '/manage/clubs/1/recruitments/1/interview/rounds/abc',
+        ]),
+      );
+
+      const adminHint = createRoleHint('ADMIN');
+      const passedUrls = (
+        await Promise.all(
+          probeUrls.map(async (url) => ((await isSentToNotFound(url, adminHint)) ? [] : [url])),
+        )
+      ).flat();
+
+      expect(
+        passedUrls,
+        '보호 접두사 아래 동적 세그먼트는 양의 정수 id 만 허용합니다 — 새 id 라우트면 middleware.ts ID_ROUTE_PATTERNS 에 자리를 더하고, 숫자가 아닌 값이 필요하면 보호 접두사 밖이나 쿼리로 옮기세요',
       ).toEqual([]);
     });
   });

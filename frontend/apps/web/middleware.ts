@@ -74,29 +74,46 @@ const ADMIN_PREFIX = '/admin';
 // 상태 코드가 이미 200 으로 나간 뒤라 소프트 404(200 + noindex)가 된다. 형식이 틀린 주소는 여기서 not-found 라우트로
 // 넘겨 실제 404 를 낸다. `/_not-found` 는 Next 가 not-found 진입점에 쓰는 예약 이름이다
 // (next/dist/shared/lib/entry-constants.js UNDERSCORE_NOT_FOUND_ROUTE) — 임의의 매칭 안 되는 경로는 나중에 루트
-// catch-all 이 생기면 거기 걸린다. 비어 있지 않은 ID 세그먼트 하나를 잡으므로 목록 경로는 대상이 아니다.
+// catch-all 이 생기면 거기 걸린다.
+// 보호 경로(/apply·/me·/manage·/admin) 아래 동적 세그먼트는 전부 숫자 id 다 — 아래 목록이 그 자리를 전수로 든다(캡처 그룹
+// 하나 = id 세그먼트 하나). 빈 세그먼트는 잡지 않으므로 목록 경로는 대상이 아니다. 같은 자리의 정적 페이지 `new` 는 부정
+// 전방 탐색으로 뺀다 — 정적 페이지는 빌드에 경로형 세그먼트 파일(`new.segments/_tree.segment.rsc`)이 생기고 Next 가 `.rsc`
+// 를 떼고 넘기므로 `new.segments/…` 도 뺀다. `newfoo`·`new.foo` 는 id 로 판정한다.
 // 퍼센트 인코딩(%31%32)·공백 섞인 값은 인코딩된 채로 오면 404, 앞단이 정규화해 숫자로 오면 통과 — 어느 쪽도 링크
 // 생성처가 만들지 않는 형태라 무해하다.
-// 전송 접미(`.segments`·`.prefetch`·`.json`)가 붙은 세그먼트도 형식 위반으로 404 — Next 16 은 동적 라우트에 경로형
-// 프리페치를 만들지 않고, 떼면 페이지가 원문을 받아 다시 소프트 404 가 된다.
-// 주의: 이 세 경로 바로 아래 첫 세그먼트는 언제나 id 로 본다. 같은 자리에 정적 페이지(예: /manage/clubs/new)를 만들면
-// 여기서 404 로 가려지므로 이 정규식을 먼저 고칠 것 — test 의 라우트 폴더 가드가 잡는다.
+// 전송 접미(`.segments`·`.prefetch`·`.json`)가 붙은 id 도 형식 위반으로 404 — 서버 모드의 클라이언트 프리페치는 페이지 URL 에
+// 헤더(Next-Router-Segment-Prefetch)로 요청하고 경로형은 output: export 전용이다(next/dist/client/components/segment-cache/
+// cache.js). 떼면 페이지가 원문을 받아 다시 소프트 404 가 된다.
+// 새 id 라우트를 만들면 이 목록부터 고칠 것 — test 의 커버리지 가드가 빠진 자리를, 라우트 가드가 가려진 정적 페이지를 잡는다.
 // 판정 기준은 app/_lib/idParam.ts 의 parsePositiveIdParam 과 같다(이 파일은 앱 코드를 import 못 해 정규식을 따로 둔다)
 // — 둘의 드리프트는 test/auth/middleware-auth-hint.test.ts 의 대조 테스트가 잡는다.
-const ID_SEGMENT = /^\/(?:me\/applications|manage\/clubs|admin\/facility-bookings\/submission)\/([^/]+)/;
+const ID_ROUTE_PATTERNS = [
+  /^\/apply\/([^/]+)/,
+  /^\/me\/(?:applications|fees)\/([^/]+)/,
+  /^\/me\/inquiries\/(?!new(?:$|\/|\.segments\/))([^/]+)/,
+  /^\/admin\/(?:fees|inquiries|leader-succession|promotion-requests|recruitments|reports|facility-bookings\/submission)\/([^/]+)/,
+  /^\/admin\/(?:clubs|faqs|global-events|notices|promotions)\/(?!new(?:$|\/|\.segments\/))([^/]+)/,
+  /^\/manage\/clubs\/([^/]+)(?:\/fees\/([^/]+)|\/recruitments\/(?!new(?:$|\/|\.segments\/))([^/]+)(?:\/applicants\/([^/]+)|\/interview\/rounds\/(?!new(?:$|\/|\.segments\/))([^/]+))?)?/,
+];
 const POSITIVE_ID = /^[1-9]\d*$/;
 
 // 미들웨어의 인증(힌트)·관리자 역할 판정을 통과한 요청만 여기 온다 — /admin 비관리자는 형식과 무관하게 403 을 먼저 받는다.
 // /manage 의 동아리별 권한은 클라이언트 ManageGuard 가 보므로 형식이 틀린 주소는 그보다 먼저 404 다(동아리 id 는 공개 값).
 function passOrNotFound(request: NextRequest): NextResponse {
-  const id = ID_SEGMENT.exec(request.nextUrl.pathname)?.[1];
-  if (id !== undefined) {
-    if (!POSITIVE_ID.test(id) || !Number.isSafeInteger(Number(id))) {
-      const notFoundUrl = request.nextUrl.clone();
-      notFoundUrl.pathname = '/_not-found';
-      notFoundUrl.search = '';
-      return NextResponse.rewrite(notFoundUrl);
-    }
+  const { pathname } = request.nextUrl;
+  // 접두사가 서로 겹치지 않아 맞는 패턴은 많아야 하나다. 선택 그룹이 안 맞으면 그 자리는 undefined 로 온다 — TS 는
+  // exec 결과를 string[] 로 보지만 런타임엔 undefined 가 섞이므로 타입으로 못 박는다(가드를 지우면 목록 주소가 404).
+  const idSegments: (string | undefined)[] = ID_ROUTE_PATTERNS.flatMap(
+    (pattern) => pattern.exec(pathname)?.slice(1) ?? [],
+  );
+  const hasMalformedId = idSegments.some(
+    (id) => id !== undefined && (!POSITIVE_ID.test(id) || !Number.isSafeInteger(Number(id))),
+  );
+  if (hasMalformedId) {
+    const notFoundUrl = request.nextUrl.clone();
+    notFoundUrl.pathname = '/_not-found';
+    notFoundUrl.search = '';
+    return NextResponse.rewrite(notFoundUrl);
   }
   return NextResponse.next();
 }

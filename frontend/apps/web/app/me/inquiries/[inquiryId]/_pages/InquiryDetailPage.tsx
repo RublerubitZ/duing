@@ -30,7 +30,7 @@ const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;
 
 type Props = {
-  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parseInquiryId 참조)
+  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parsePositiveIdParam 참조)
   inquiryId: number | null;
 };
 
