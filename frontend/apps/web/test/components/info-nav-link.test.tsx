@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn<() => string>();
-vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname() }));
+vi.mock('next/navigation', () => ({ usePathname: () => mockUsePathname(), useSelectedLayoutSegment: () => null }));
 
 import { InfoNavLink } from '../../app/_components/InfoNavLink';
 

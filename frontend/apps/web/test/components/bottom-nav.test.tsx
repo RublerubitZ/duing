@@ -2,8 +2,10 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUsePathname = vi.fn();
+const mockUseSelectedLayoutSegment = vi.fn<() => string | null>(() => null);
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
+  useSelectedLayoutSegment: () => mockUseSelectedLayoutSegment(),
 }));
 
 import { BottomNav } from '../../app/_components/BottomNav';
@@ -11,6 +13,7 @@ import { BottomNav } from '../../app/_components/BottomNav';
 describe('BottomNav', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    mockUseSelectedLayoutSegment.mockReturnValue(null);
   });
 
   it('공개 탭 영역(/clubs)에서 5탭(홈·동아리·일정·시설·소식·MY)이 노출되고 동아리가 활성이다', () => {
@@ -166,5 +169,12 @@ describe('BottomNav', () => {
     expect(outlineHome).toBeTruthy();
     expect(filledHome).toBeTruthy();
     expect(filledHome).not.toBe(outlineHome);
+  });
+
+  it('전역 404 렌더에서는 탭 경로 주소(/me/no-such)여도 탭바를 그리지 않는다 — 서버 프리렌더와 같게', () => {
+    mockUsePathname.mockReturnValue('/me/no-such');
+    mockUseSelectedLayoutSegment.mockReturnValue('/_not-found');
+    const { container } = render(<BottomNav />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

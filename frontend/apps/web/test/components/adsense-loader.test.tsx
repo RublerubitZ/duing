@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockUsePathname = vi.fn();
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
+  useSelectedLayoutSegment: () => null,
 }));
 
 import { AdSenseLoader, isAdSenseAllowedPath } from '@/app/_components/AdSenseLoader';
@@ -45,6 +46,8 @@ describe('AdSenseLoader — 공개 화면에서만 광고 로더를 싣는다', 
     '/signup',
     '/join/ABCD1234',
     '/403',
+    // 전역 404 렌더 — useRoutePathname 이 서버 프리렌더와 같은 '/_not-found' 로 접는다(404 화면엔 광고를 싣지 않는다).
+    '/_not-found',
   ])('개인정보·인증 화면 %s 는 거부된다', (pathname) => {
     expect(isAdSenseAllowedPath(pathname)).toBe(false);
   });

@@ -13,6 +13,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/calendar',
   useSearchParams: () => new URLSearchParams(),
+  useSelectedLayoutSegment: () => null,
 }));
 // jsdom 에는 ResizeObserver 가 없다 — 캘린더 카드 높이 관측만 무력화한다.
 vi.stubGlobal(
