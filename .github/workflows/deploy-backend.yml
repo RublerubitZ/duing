@@ -39,6 +39,10 @@ on:
       # 그 순단 창에 홈 ISR 재생성이 502 를 맞아 Sentry 에 5건이 찍혔다(사용자 영향은 stale 서빙으로 없었음).
       # `deploy/**` 자체는 남겨둔다 — 새 배포 파일이 추가돼도 자동으로 잡히는 fail-safe 가 낫다.
       - '!deploy/**.md'
+      # backend/ 아래 문서와 테스트 소스도 배포 산출물에 들어가지 않는다(Dockerfile 은 bootJar -x test) — 2026-09 에는
+      # CLAUDE.md 한 줄·테스트용 MinIO 이미지 교체만으로 프론트 중심 릴리스가 백엔드 재기동을 부르게 됐다.
+      - '!backend/**.md'
+      - '!backend/src/test/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: {}
 
