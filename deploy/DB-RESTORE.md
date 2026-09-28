@@ -7,6 +7,19 @@
 > **복원 전에 반드시 읽을 것**: 이 DB 에는 재실행하면 데이터를 망가뜨리는 **비멱등 마이그레이션**(V112·V113)이
 > 적용돼 있다. 스냅샷 시점에 따라 조치가 갈리므로 맨 아래 **부록 A** 를 먼저 확인한다.
 
+## 목표 (RTO/RPO)
+
+2026-07-24 승인 수치다(#749 에서 옮김). 아래 백업 주기·복원 리허설과 맞물려 있으니 한쪽을 바꾸면 이 표도 같이 고친다.
+
+| 항목 | 목표 | 근거 |
+|---|---|---|
+| **RPO** (허용 데이터 손실) | **최대 24시간** | 일일 백업 주기(04:15 KST)와 같다. 지원서·회비 데이터 특성상 수용 가능하다고 판단 |
+| **RTO** (허용 복구 시간) | **최대 4시간** | 2026-07-17 로컬 바닐라 PG 복원 실측(수십 분)에 새 프로젝트 생성·연결 전환·검증 시간을 더한 여유치 |
+| 리허설 주기 | **분기 1회** | `restore-rehearsal.yml` 수동 실행(바닐라 PG 경로 — Supabase→Supabase 경로는 아직 미검증, 아래 리허설 절). 스키마를 크게 바꾸는 마이그레이션 뒤에는 1회 추가 |
+| 책임자 | 운영 계정 보유자(현재 1인 운영) | Supabase·R2·GitHub Secrets 접근 권한이 필요하다 |
+
+- RPO 를 분 단위로 줄여야 할 때(결제·실시간 데이터 도입 등)는 Supabase PITR(7일 보존 기준 월 약 $100, 2026-07 시점)을 다시 검토한다.
+
 ## 백업 파이프라인
 
 `.github/workflows/backup.yml` — `schedule` + `workflow_dispatch`.
@@ -19,6 +32,7 @@
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
 | 시크릿 | `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT` |
+| 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
 
 - `SUPABASE_DB_URL` 은 **Session Pooler** 주소를 쓴다. Supabase Direct 연결은 IPv6 이고 GitHub 러너는
   IPv4 전용이라 접속 자체가 되지 않는다.
@@ -155,6 +169,8 @@ curl -s https://api.duings.com/actuator/health
 ```
 
 마지막으로 회비·면접 화면에서 시각 표기가 맞는지, 최근 지원·결제가 보이는지 눈으로 확인한다.
+쓰기 경로도 한 번 확인한다 — 운영진 콘솔에서 공지 1건을 작성했다가 지운다. 외부 모니터([`UPTIME.md`](./UPTIME.md) 에서 운영 중인 것)가
+전부 Up 으로 돌아왔는지까지 보고 복구 완료로 기록한다.
 
 ## 부록 A — V112/V113 비멱등 백필
 
