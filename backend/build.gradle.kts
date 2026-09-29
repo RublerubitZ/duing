@@ -96,7 +96,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("software.amazon.awssdk:bom:2.34.0")            // 운영
-        mavenBom("org.testcontainers:testcontainers-bom:1.20.4") // 테스트
+        mavenBom("org.testcontainers:testcontainers-bom:1.21.4") // 테스트 — 1.21.4 미만은 Docker 29(최소 API 1.40)에서 컨테이너 기동 실패
     }
 }
 
