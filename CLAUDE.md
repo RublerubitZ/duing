@@ -12,7 +12,8 @@ duing/
 │   ├── CLAUDE.md     프론트 작업 규칙 (App Router·React Query·Zustand 등)
 │   └── AGENTS.md     프론트 구조·패턴 레퍼런스
 ├── REQUIREMENTS.md   MVP 요구사항 정의서 (4도메인 · 15개 API)
-├── README.md         빠른 시작·전체 개요
+├── README.md         서비스 소개 · 사용자/운영진/총동연 가이드
+├── DEVELOPMENT.md    빠른 시작 · 기술 스택 · 협업 규칙 · 환경변수
 └── .claude/          전역 에이전트 + 스킬 (현재 백엔드 위주)
 ```
 
