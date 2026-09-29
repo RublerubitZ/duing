@@ -27,7 +27,8 @@ frontend/
 ## 사전 설치
 
 ```bash
-brew install node          # Node 20 LTS
+brew install node@24       # Vercel·CI 와 같은 메이저(24). brew 의 `node` 는 26 이라 쓰지 않는다
+echo 'export PATH="/opt/homebrew/opt/node@24/bin:$PATH"' >> ~/.zshrc   # node@24 는 keg-only — 새 셸부터 적용
 brew install pnpm          # 9.x
 # 또는 corepack 사용: corepack enable && corepack prepare pnpm@9 --activate
 ```
