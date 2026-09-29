@@ -12,13 +12,29 @@ jobs:
 
     steps:
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
-        with:
-          version: 2.117.0   # 메이저 변경 시 덤프 옵션이 조용히 깨지지 않게 핀(2026-09-24 latest). 올릴 때 workflow_dispatch 로 수동 실행해 확인
+        # 서드파티 액션 없이 공식 릴리스를 직접 받는다 — 운영 DB 자격을 쥔 잡에 들어오는 외부 코드를 CLI 하나로 줄이고,
+        # 액션 런타임(Node) 폐기와 무관하게 둔다. 같은 릴리스의 checksums.txt 로 sha256 을 대조한 뒤 푼다.
+        env:
+          SUPABASE_CLI_VERSION: 2.117.0   # 메이저 변경 시 덤프 옵션이 조용히 깨지지 않게 핀(2026-09-24 latest). 올릴 때 workflow_dispatch 로 수동 실행해 확인
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          asset="supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}"
+          curl -fsSL --retry 3 -o "$asset" "$base/$asset"
+          curl -fsSL --retry 3 "$base/checksums.txt" | awk -v a="$asset" '$2 == a' > supabase.sha256
+          sha256sum -c supabase.sha256   # 해당 줄이 없어 빈 파일이면 여기서 실패한다
+          mkdir -p supabase-cli && tar -xzf "$asset" -C supabase-cli   # supabase·supabase-go 둘 다 필요 — 통째로 푼다
+          echo "$RUNNER_TEMP/supabase-cli" >> "$GITHUB_PATH"
+          supabase-cli/supabase --version
 
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # 덤프용 postgres 이미지를 GHCR 에서 받는다 — 예전 setup-cli(v1.7.1)가 넣어 주던 값을 직접 설치로 바꾸며 명시로 옮겼다.
+          # db dump 는 레지스트리 폴백 없이 이 주소 하나만 쓴다(폴백은 supabase start 전용). GHCR 스로틀로 pull 이 실패하면
+          # 이 줄을 지워 CLI 기본 레지스트리(public.ecr.aws)로 옮긴다.
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
         run: |
           mkdir -p backup
           supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f backup/roles.sql
