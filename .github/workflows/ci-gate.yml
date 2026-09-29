@@ -24,7 +24,7 @@ permissions:
 jobs:
   changes:
     name: Detect changed areas
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
@@ -97,7 +97,7 @@ jobs:
     needs: [changes, backend, frontend, deploy-config]
     # 앞선 잡이 실패·스킵돼도 반드시 실행돼 결론을 낸다 — 이 잡이 브랜치 보호의 단일 필수 체크다.
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Aggregate results
