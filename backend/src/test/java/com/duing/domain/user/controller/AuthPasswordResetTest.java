@@ -6,7 +6,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
-import com.duing.domain.user.BcryptPasswordLengthFixtures;
+import com.duing.common.fixture.PasswordFixture;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
@@ -406,7 +406,7 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     }
 
     @ParameterizedTest
-    @MethodSource("com.duing.domain.user.BcryptPasswordLengthFixtures#overLimit")
+    @MethodSource("com.duing.common.fixture.PasswordFixture#overLimit")
     @DisplayName("새 비밀번호가 UTF-8 72바이트를 넘으면 재설정은 400 과 안내 메시지를 반환하고 기존 비밀번호가 유지된다")
     void completePasswordResetRejectsPasswordOverBcryptLimit(String tooLongPassword) {
         String studentId = uniqueStudentId();
@@ -430,10 +430,10 @@ class AuthPasswordResetTest extends IntegrationTestBase {
 
         given().contentType(ContentType.JSON)
                 .body(Map.of("verificationToken", token,
-                        "newPassword", BcryptPasswordLengthFixtures.PASSWORD_72_BYTES))
+                        "newPassword", PasswordFixture.PASSWORD_72_BYTES))
                 .when().post("/api/v1/auth/password-resets/complete")
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
-        login(studentId, BcryptPasswordLengthFixtures.PASSWORD_72_BYTES);
+        login(studentId, PasswordFixture.PASSWORD_72_BYTES);
     }
 
     /**

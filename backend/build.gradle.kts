@@ -63,7 +63,8 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine")
 
     // HTML sanitizer(공지 본문 서버측 XSS 정제) + 시설 목록 크롤러(SchoolFacilityClient 의 Jsoup.connect).
-    // 1.23 의 HTTP 전송은 JDK HttpClient 다(1.18 은 HttpURLConnection) — 크롤이 깨지면 jsoup.useHttpClient=false 로 되돌린다.
+    // 1.23 의 HTTP 전송은 JDK HttpClient 다(1.18 은 HttpURLConnection) — 크롤이 깨지면 JVM 프로퍼티 -Djsoup.useHttpClient=false 로
+    // 되돌린다(운영은 서버 .env 에 JAVA_TOOL_OPTIONS=-Djsoup.useHttpClient=false 를 넣고 백엔드만 재기동, 재빌드 불필요).
     implementation("org.jsoup:jsoup:1.23.2")
 
     // 파일 스토리지 — 동기 S3Client(apache-client)만 쓰므로 비동기 전용 netty-nio-client(netty 일체)를 뺀다.

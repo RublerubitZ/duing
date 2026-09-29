@@ -7,7 +7,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
-import com.duing.domain.user.BcryptPasswordLengthFixtures;
+import com.duing.common.fixture.PasswordFixture;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -102,7 +102,7 @@ class AuthStudentIdLoginTest extends IntegrationTestBase {
     @DisplayName("72바이트를 넘는 비밀번호로 로그인해도 500 이 아니라 401 이다 — 가입 학번·미가입 학번 모두")
     void loginWithPasswordOverBcryptLimitReturns401() {
         String studentId = saveUserWithPassword();
-        String tooLongPassword = BcryptPasswordLengthFixtures.PASSWORD_74_BYTES;
+        String tooLongPassword = PasswordFixture.PASSWORD_74_BYTES;
 
         given().contentType(ContentType.JSON)
                 .body(Map.of("studentId", studentId, "password", tooLongPassword))

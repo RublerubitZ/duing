@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
-import com.duing.domain.user.BcryptPasswordLengthFixtures;
+import com.duing.common.fixture.PasswordFixture;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -119,7 +119,7 @@ class GeneralUserServiceAccountTest {
     }
 
     @ParameterizedTest
-    @MethodSource("com.duing.domain.user.BcryptPasswordLengthFixtures#overLimit")
+    @MethodSource("com.duing.common.fixture.PasswordFixture#overLimit")
     @DisplayName("새 비밀번호가 UTF-8 72바이트를 넘으면 PasswordTooLongException")
     void changePasswordOverBcryptLimitThrows(String tooLongPassword) {
         assertThat(tooLongPassword.getBytes(StandardCharsets.UTF_8).length).isGreaterThan(72);
@@ -134,7 +134,7 @@ class GeneralUserServiceAccountTest {
     @Test
     @DisplayName("새 비밀번호가 UTF-8 로 정확히 72바이트면 바뀐다")
     void changePasswordAtBcryptLimitSucceeds() {
-        String boundaryPassword = BcryptPasswordLengthFixtures.PASSWORD_72_BYTES;
+        String boundaryPassword = PasswordFixture.PASSWORD_72_BYTES;
         assertThat(boundaryPassword.getBytes(StandardCharsets.UTF_8)).hasSize(72);
         User user = saveUserWithPassword("Old1234!");
 
