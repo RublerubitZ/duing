@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.domain.user.BcryptPasswordLengthFixtures;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.repository.PhoneVerificationRepository;
@@ -24,6 +25,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -400,6 +403,37 @@ class AuthPasswordResetTest extends IntegrationTestBase {
                 .body(Map.of("verificationToken", "any-token", "newPassword", "short"))
                 .when().post("/api/v1/auth/password-resets/complete")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.duing.domain.user.BcryptPasswordLengthFixtures#overLimit")
+    @DisplayName("새 비밀번호가 UTF-8 72바이트를 넘으면 재설정은 400 과 안내 메시지를 반환하고 기존 비밀번호가 유지된다")
+    void completePasswordResetRejectsPasswordOverBcryptLimit(String tooLongPassword) {
+        String studentId = uniqueStudentId();
+        signupUser(uniquePhone(), studentId);
+        String token = issueAndVerifyResetSession(studentId);
+
+        given().contentType(ContentType.JSON)
+                .body(Map.of("verificationToken", token, "newPassword", tooLongPassword))
+                .when().post("/api/v1/auth/password-resets/complete")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("비밀번호가 너무 깁니다. 이모지 등 일부 문자는 더 많은 공간을 차지합니다."));
+        login(studentId, ORIGINAL_PASSWORD);
+    }
+
+    @Test
+    @DisplayName("새 비밀번호가 UTF-8 로 정확히 72바이트면 재설정되고 그 비밀번호로 로그인된다")
+    void completePasswordResetAcceptsPasswordAtBcryptLimit() {
+        String studentId = uniqueStudentId();
+        signupUser(uniquePhone(), studentId);
+        String token = issueAndVerifyResetSession(studentId);
+
+        given().contentType(ContentType.JSON)
+                .body(Map.of("verificationToken", token,
+                        "newPassword", BcryptPasswordLengthFixtures.PASSWORD_72_BYTES))
+                .when().post("/api/v1/auth/password-resets/complete")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        login(studentId, BcryptPasswordLengthFixtures.PASSWORD_72_BYTES);
     }
 
     /**

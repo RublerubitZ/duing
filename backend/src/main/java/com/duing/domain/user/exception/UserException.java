@@ -100,6 +100,18 @@ public class UserException extends ApplicationException {
         }
     }
 
+    /**
+     * 새 비밀번호가 BCrypt 한도(UTF-8 72바이트)를 넘는다. DTO 규칙(8~20자)은 문자 수만 보므로 이모지 같은 4바이트
+     * 문자가 많으면 20자 안에서도 넘는다 — 화면 입력(최대 56바이트)으로는 닿지 않고 API 직접 호출에서만 생긴다.
+     */
+    public static class PasswordTooLongException extends UserException {
+        private static final String MESSAGE = "비밀번호가 너무 깁니다. 이모지 등 일부 문자는 더 많은 공간을 차지합니다.";
+
+        public PasswordTooLongException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     /** 재설정 완료 단계의 대상 계정 소실(미존재·탈퇴·번호 변경) — 사유 미특정 단일 400 (spec §7.8). */
     public static class PasswordResetNotAllowedException extends UserException {
         private static final String MESSAGE = "등록된 정보를 확인할 수 없습니다.";

@@ -35,6 +35,7 @@ import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
 import com.duing.global.persistence.LikeEscapes;
 import com.duing.global.web.SortWhitelist;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -80,6 +81,9 @@ public class GeneralUserService implements UserService {
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
+    // BCrypt 는 앞 72바이트(UTF-8)만 해시에 반영하고, Spring Security 6.4.4+ 는 이를 넘는 값의 encode 를
+    // IllegalArgumentException(→ 500)으로 거부한다(CVE-2025-22228). encodePassword 가 그 전에 400 으로 거른다.
+    private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
 
     // 존재하지 않는 학번 분기의 BCrypt 타이밍 평탄화용 더미 해시 (지연 초기화, 비밀 아님).
     private volatile String dummyPasswordHash;
@@ -109,7 +113,7 @@ public class GeneralUserService implements UserService {
         }
         // 위 재검증조차 함께 통과한 진짜 동시 가입은 아래 save 의 로컬 catch 가 같은 409 로 수렴시킨다.
 
-        String passwordHash = passwordEncoder.encode(signupCommand.rawPassword());
+        String passwordHash = encodePassword(signupCommand.rawPassword());
         User user = User.create(
                 signupCommand.studentId(),
                 signupCommand.name(),
@@ -209,6 +213,14 @@ public class GeneralUserService implements UserService {
         passwordEncoder.matches(rawPassword, hash);
     }
 
+    /** 비밀번호를 해시한다. BCrypt 한도를 넘으면 encode 예외(500) 대신 400 으로 거부한다. */
+    private String encodePassword(String rawPassword) {
+        if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_PASSWORD_BYTES) {
+            throw new UserException.PasswordTooLongException();
+        }
+        return passwordEncoder.encode(rawPassword);
+    }
+
     @Override
     @Transactional
     public void logout(Long userIdOrNull, String rawRefreshTokenOrNull, Long sessionIdOrNull) {
@@ -279,7 +291,7 @@ public class GeneralUserService implements UserService {
         if (passwordEncoder.matches(changePasswordCommand.newPassword(), user.getPasswordHash())) {
             throw new UserException.SamePasswordException();
         }
-        user.changePassword(passwordEncoder.encode(changePasswordCommand.newPassword()));
+        user.changePassword(encodePassword(changePasswordCommand.newPassword()));
         // 변경 후 재로그인 강제 — 발급된 모든 토큰을 무효화한다(탈취된 세션 차단).
         user.bumpTokenVersion();
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
@@ -367,7 +379,7 @@ public class GeneralUserService implements UserService {
             throw new UserException.SamePasswordException();
         }
 
-        user.changePassword(passwordEncoder.encode(resetPasswordCommand.newPassword()));
+        user.changePassword(encodePassword(resetPasswordCommand.newPassword()));
         // 재설정 = 계정 탈취 대응 경로일 수 있다 — 발급된 모든 토큰을 무효화한다(전 기기 로그아웃).
         user.bumpTokenVersion();
         authSessionService.revokeAll(user.getId(), SessionRevokeReason.CREDENTIAL_CHANGE);
