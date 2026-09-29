@@ -379,6 +379,25 @@ class FileApiTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("종료 boundary 없이 끊긴 멀티파트 본문은 500 이 아니라 400 이다")
+    void rejectsTruncatedMultipartBody() {
+        postRawMultipart("multipart/form-data; boundary=duing-test",
+                rawMultipartBody("duing-test", "sample.png", pngBytesOfSize(1024), false))
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.equalTo("업로드 요청 형식이 올바르지 않습니다."));
+    }
+
+    @Test
+    @DisplayName("boundary 파라미터가 없는 멀티파트 요청은 500 이 아니라 400 이다")
+    void rejectsMultipartWithoutBoundary() {
+        postRawMultipart("multipart/form-data", "garbage".getBytes(StandardCharsets.UTF_8))
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.equalTo("업로드 요청 형식이 올바르지 않습니다."));
+    }
+
+    @Test
     @DisplayName("업로드가 성공하면 응답 URL 의 스토리지 키로 PENDING 추적 행이 purpose·업로더와 함께 남는다")
     void recordsPendingTrackingRowOnSuccessfulUpload() {
         Response response = RestAssured
