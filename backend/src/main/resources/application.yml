@@ -5,6 +5,11 @@ server:
     # (2MB) 로는 커넥션을 끊어버려 413 대신 네트워크 오류로 보인다. 엣지 캡(deploy/Caddyfile 의
     # request_body max_size 11MB)이 스왈로 상한을 잡아주므로 그 값에 맞춘다 — 두 값은 함께 움직여야 한다.
     max-swallow-size: 11MB
+    # Boot 3.5 부터 멀티파트 파트 헤더 기본 한도가 512B 다. 파트 헤더는 약 70B + 파일명 바이트라, 한글 파일명이
+    # NFC 약 145자·macOS(NFD) 약 50~70자를 넘으면 413(크기 초과)으로 거부된다. 4KB 는 Windows 최대 파일명
+    # (한글 255자 ≈ 835B)을 넉넉히 덮고, 최악 메모리(4KB × 파트 50 × 스레드 200 × 2)도 약 80MB 다.
+    # Caddy(엣지)에는 파트 헤더 한도가 없어 이 값이 유일한 상한이다. 테스트 application.yml 에 같은 값이 있다 — 함께 바꾼다.
+    max-part-header-size: 4KB
 
 spring:
   config:
