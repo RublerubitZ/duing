@@ -27,7 +27,7 @@
 | 항목 | 값 |
 |---|---|
 | 주기 | cron `15 19 * * *` (UTC) = **매일 04:15 KST** |
-| 도구 | Supabase CLI(`supabase/setup-cli`, version `2.117.0` 핀 — 올릴 때 수동 실행으로 확인) |
+| 도구 | Supabase CLI(공식 릴리스 tarball 직접 설치 — 같은 릴리스 `checksums.txt` 로 sha256 대조, `SUPABASE_CLI_VERSION` `2.117.0` 핀 — 올릴 때 수동 실행으로 확인) |
 | 산출물 | `roles.sql`(`--role-only`) · `schema.sql`(기본) · `data.sql`(`--data-only --use-copy`, storage 벡터 테이블 2개 제외) — 전부 gzip |
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
