@@ -10,7 +10,7 @@
 
 ## 기술 스택
 
-- **언어/프레임워크**: Java 21, Spring Boot 3.4.x, Gradle
+- **언어/프레임워크**: Java 21, Spring Boot 3.5.x, Gradle
 - **데이터**: PostgreSQL (Supabase 공유 인스턴스), Flyway, Spring Data JPA, QueryDSL
 - **인증**: Spring Security, JWT (auth0 java-jwt)
 - **파일 저장**: 로컬 파일 시스템 → `FileStorageService` 인터페이스로 추상화 (추후 S3 교체 가능)
