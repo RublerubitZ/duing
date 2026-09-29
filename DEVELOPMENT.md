@@ -22,7 +22,7 @@ duing/
 |---|---|---|
 | **JDK 21** | Temurin 21 | `brew install --cask temurin@21` |
 | **Docker (또는 OrbStack)** | 최신 | `brew install --cask orbstack` (권장) |
-| **Node.js / pnpm** | Node 20.9+ / pnpm 9+ | `brew install node pnpm` |
+| **Node.js / pnpm** | Node 24 / pnpm 9+ | `brew install node@24 pnpm` (node@24 는 keg-only — PATH 추가는 [frontend/README.md](./frontend/README.md)) |
 | **Git** | 2.30+ | macOS 기본 |
 | **IntelliJ IDEA** | 2024.2+ | Lombok 기본 내장, EnvFile 플러그인 권장 |
 
