@@ -69,6 +69,9 @@
 - 단순 단일 조건 조회 → JPA Repository 메서드
 - 복수 조건 동적 필터 → QueryDSL `BooleanExpression`
 - QueryDSL 구현체는 반드시 `{Domain}RepositoryCustom` 인터페이스를 구현한다
+- 합계는 `sumAggregate()` 로 쓴다 — 6.x 는 `sumLong()`·`sumDouble()` 등과 같은 경로의 캐시를 공유해, 한 경로에 섞으면 먼저 부른 타입이 굳는다
+- `CaseBuilder` 의 `then`/`otherwise` 에 상수를 넣을 때는 숫자·불리언 코드 상수만 쓴다(경로·식은 그대로 된다) — 6.x 는 CASE 상수를 SQL 리터럴로 인라인한다. 문자열은 `'…'`, enum 은 `'NAME'` 문자열이 돼 5.x 와 의미가 다르다. 사용자 입력은 넣지 않는다
+- `in`/`notIn` 의 오른쪽에 `@Converter`(또는 basic)로 매핑한 컬렉션 경로를 두지 않는다 — 6.x 는 `QueryException` 을 던진다
 
 ### 테스트
 - 코드 작성 후 `./gradlew test`로 검증한다
