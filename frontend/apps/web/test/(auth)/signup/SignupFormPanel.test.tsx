@@ -142,6 +142,17 @@ describe('SignupFormPanel — 2-step 오케스트레이터', () => {
     );
   });
 
+  // 조작된 링크 등으로 들어온 전송 경로(세그먼트 프리페치 등)는 접미를 떼어 실제 페이지로 이어 넘긴다.
+  it('next 의 전송 경로 접미는 떼고 로그인 링크에 이어 붙인다', () => {
+    mockSearchParams = new URLSearchParams({ next: '/join/ABCD1234.segments/_tree.segment.rsc' });
+    renderPanel();
+
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      `/login?next=${encodeURIComponent('/join/ABCD1234')}`,
+    );
+  });
+
   it('처음에는 Step1(휴대폰 인증)만 보이고 기본정보 필드는 없다', () => {
     renderPanel();
 

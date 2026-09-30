@@ -17,6 +17,8 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,6 +92,31 @@ class FileApiTest extends IntegrationTestBase {
         byte[] signature = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
         System.arraycopy(signature, 0, bytes, 0, signature.length);
         return bytes;
+    }
+
+    // 브라우저처럼 파일명을 UTF-8 원시 바이트로 싣는 멀티파트 본문. RestAssured multiPart() 는 비ASCII 파일명을
+    // '?' 로 바꿔 보내 한글 파일명을 재현하지 못한다. closeBoundary=false 면 종료 boundary 없이 끊긴 본문이 된다.
+    private byte[] rawMultipartBody(String boundary, String filename, byte[] content, boolean closeBoundary) {
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.writeBytes(("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: image/png\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        body.writeBytes(content);
+        if (closeBoundary) {
+            body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        }
+        return body.toByteArray();
+    }
+
+    private Response postRawMultipart(String contentType, byte[] body) {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(contentType)
+                    .body(body)
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files");
     }
 
     @Test
@@ -309,6 +336,65 @@ class FileApiTest extends IntegrationTestBase {
                     .post("/api/v1/files")
                 .then()
                     .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value());
+    }
+
+    @Test
+    @DisplayName("파일명이 600자여도 업로드된다 — 파트 헤더가 Boot 3.5 기본 한도(512B)를 넘는 크기")
+    void uploadsWithLongAsciiFilename() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "a".repeat(600) + ".png", pngBytesOfSize(1024), "image/png")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
+    @DisplayName("브라우저처럼 UTF-8 로 실은 한글 200자 파일명도 업로드된다")
+    void uploadsWithLongKoreanFilenameSentAsRawUtf8() {
+        // 200자 = 600B → 파트 헤더 687B
+        String koreanFilename = "한글파일명".repeat(40) + ".png";
+
+        postRawMultipart("multipart/form-data; boundary=duing-test",
+                rawMultipartBody("duing-test", koreanFilename, pngBytesOfSize(1024), true))
+                .then()
+                    .statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
+    @DisplayName("파트 헤더가 4KB 를 넘으면 여전히 413 이다 — 한도는 없앤 것이 아니라 올린 것")
+    void rejectsPartHeaderBeyond4Kb() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .multiPart("file", "a".repeat(5000) + ".png", pngBytesOfSize(1024), "image/png")
+                    .queryParam("purpose", "NOTICE_COVER")
+                .when()
+                    .post("/api/v1/files")
+                .then()
+                    .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value());
+    }
+
+    @Test
+    @DisplayName("종료 boundary 없이 끊긴 멀티파트 본문은 500 이 아니라 400 이다")
+    void rejectsTruncatedMultipartBody() {
+        postRawMultipart("multipart/form-data; boundary=duing-test",
+                rawMultipartBody("duing-test", "sample.png", pngBytesOfSize(1024), false))
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.equalTo("업로드 요청 형식이 올바르지 않습니다."));
+    }
+
+    @Test
+    @DisplayName("boundary 파라미터가 없는 멀티파트 요청은 500 이 아니라 400 이다")
+    void rejectsMultipartWithoutBoundary() {
+        postRawMultipart("multipart/form-data", "garbage".getBytes(StandardCharsets.UTF_8))
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("message", org.hamcrest.Matchers.equalTo("업로드 요청 형식이 올바르지 않습니다."));
     }
 
     @Test

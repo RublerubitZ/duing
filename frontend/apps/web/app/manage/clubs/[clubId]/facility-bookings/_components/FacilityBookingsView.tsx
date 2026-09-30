@@ -21,6 +21,9 @@ function seoulTodayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
 }
 
+// data 가 없을 때 매 렌더 새 [] 를 만들면 useMemo 의존성이 매번 바뀐다 — 모듈 상수로 고정.
+const EMPTY_BOOKINGS: ReadonlyArray<FacilityBookingSummary> = [];
+
 export function FacilityBookingsView({ clubId }: { clubId: number }) {
   const [activeTab, setActiveTab] = useState<ManageTabKey>('ACTIVE');
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
@@ -28,7 +31,7 @@ export function FacilityBookingsView({ clubId }: { clubId: number }) {
   // 여기서는 항상 유효한 clubId 만 받는다.
   const bookingsQuery = useClubFacilityBookingsQuery(clubId);
 
-  const bookings = bookingsQuery.data ?? [];
+  const bookings = bookingsQuery.data ?? EMPTY_BOOKINGS;
   const grouped = useMemo(() => {
     const active: FacilityBookingSummary[] = [];
     const past: FacilityBookingSummary[] = [];

@@ -31,7 +31,7 @@ const ANSWER_MAX_LENGTH = 4000;
 const VERSION_CONFLICT_MESSAGE = '문의가 수정되었습니다. 내용을 다시 확인해 주세요.';
 
 type Props = {
-  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parseInquiryId 참조)
+  // 라우트 세그먼트가 유효한 양의 안전 정수가 아니면 null (parsePositiveIdParam 참조)
   inquiryId: number | null;
 };
 

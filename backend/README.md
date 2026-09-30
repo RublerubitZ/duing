@@ -1,6 +1,6 @@
 # Du-ing Backend
 
-Spring Boot 기반 백엔드. 모노레포 전체 개요는 [루트 README](../README.md) 참조.
+Spring Boot 기반 백엔드. 모노레포 개발 개요(빠른 시작·기술 스택·협업 규칙)는 [DEVELOPMENT.md](../DEVELOPMENT.md) 참조.
 
 > 본 문서는 백엔드 개발자가 **클론 → 실행 → 첫 PR** 까지 자력으로 도달하기 위한 가이드다.
 > 컨벤션·아키텍처는 [`AGENTS.md`](./AGENTS.md), 작업 규칙은 [`../CLAUDE.md`](../CLAUDE.md), 요구사항은 [`../REQUIREMENTS.md`](../REQUIREMENTS.md), 반복 패턴은 [`SKILL.md`](./SKILL.md) 참조.
@@ -13,7 +13,7 @@ Spring Boot 기반 백엔드. 모노레포 전체 개요는 [루트 README](../R
 | 영역 | 기술 |
 |---|---|
 | 언어 / 런타임 | Java 21 (Temurin) |
-| 프레임워크 | Spring Boot 3.4.x |
+| 프레임워크 | Spring Boot 3.5.x |
 | 빌드 | Gradle (Kotlin DSL) |
 | DB | PostgreSQL (Supabase 공유 인스턴스) |
 | ORM | Spring Data JPA + Hibernate 6, QueryDSL 5 (jakarta) |

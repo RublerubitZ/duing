@@ -7,6 +7,19 @@
 > **복원 전에 반드시 읽을 것**: 이 DB 에는 재실행하면 데이터를 망가뜨리는 **비멱등 마이그레이션**(V112·V113)이
 > 적용돼 있다. 스냅샷 시점에 따라 조치가 갈리므로 맨 아래 **부록 A** 를 먼저 확인한다.
 
+## 목표 (RTO/RPO)
+
+2026-07-24 승인 수치다(#749 에서 옮김). 아래 백업 주기·복원 리허설과 맞물려 있으니 한쪽을 바꾸면 이 표도 같이 고친다.
+
+| 항목 | 목표 | 근거 |
+|---|---|---|
+| **RPO** (허용 데이터 손실) | **최대 24시간** | 일일 백업 주기(04:15 KST)와 같다. 지원서·회비 데이터 특성상 수용 가능하다고 판단 |
+| **RTO** (허용 복구 시간) | **최대 4시간** | 2026-07-17 로컬 바닐라 PG 복원 실측(수십 분)에 새 프로젝트 생성·연결 전환·검증 시간을 더한 여유치 |
+| 리허설 주기 | **분기 1회** | `restore-rehearsal.yml` 수동 실행(바닐라 PG 경로 — Supabase→Supabase 경로는 아직 미검증, 아래 리허설 절). 스키마를 크게 바꾸는 마이그레이션 뒤에는 1회 추가 |
+| 책임자 | 운영 계정 보유자(현재 1인 운영) | Supabase·R2·GitHub Secrets 접근 권한이 필요하다 |
+
+- RPO 를 분 단위로 줄여야 할 때(결제·실시간 데이터 도입 등)는 Supabase PITR(7일 보존 기준 월 약 $100, 2026-07 시점)을 다시 검토한다.
+
 ## 백업 파이프라인
 
 `.github/workflows/backup.yml` — `schedule` + `workflow_dispatch`.
@@ -14,11 +27,12 @@
 | 항목 | 값 |
 |---|---|
 | 주기 | cron `15 19 * * *` (UTC) = **매일 04:15 KST** |
-| 도구 | Supabase CLI(`supabase/setup-cli`, version `latest`) |
+| 도구 | Supabase CLI(공식 릴리스 tarball 직접 설치 — 같은 릴리스 `checksums.txt` 로 sha256 대조, `SUPABASE_CLI_VERSION` `2.117.0` 핀 — 올릴 때 수동 실행으로 확인) |
 | 산출물 | `roles.sql`(`--role-only`) · `schema.sql`(기본) · `data.sql`(`--data-only --use-copy`, storage 벡터 테이블 2개 제외) — 전부 gzip |
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
 | 시크릿 | `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT` |
+| 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
 
 - `SUPABASE_DB_URL` 은 **Session Pooler** 주소를 쓴다. Supabase Direct 연결은 IPv6 이고 GitHub 러너는
   IPv4 전용이라 접속 자체가 되지 않는다.
@@ -33,6 +47,32 @@
 gh workflow run backup.yml            # Actions → Database Backup → Run workflow 와 동일
 gh run watch                          # 성공 확인 후 릴리스 진행
 ```
+
+## 복원 리허설 (`restore-rehearsal.yml`)
+
+"백업이 있다" 와 "백업이 복원된다" 는 다른 문장이다. `.github/workflows/restore-rehearsal.yml` 은 R2 의 스냅샷을
+잡 안의 **바닐라 `postgres:17` 컨테이너**에 실제로 되먹여 아래를 판정한다. 수동 실행 전용이고 외부 DB 는 건드리지
+않는다(시크릿은 R2 읽기 4종뿐).
+
+```bash
+gh workflow run restore-rehearsal.yml                          # 가장 최근 스냅샷
+gh workflow run restore-rehearsal.yml -f snapshot=2026/09/24   # 특정 폴더(KST)
+```
+
+| 판정 | 기준 |
+|---|---|
+| 덤프 완전성 | roles/schema/data 3파일 존재 + `gzip -t` |
+| schema | 허용 오류(바닐라에 없는 `supabase_vault` 확장, `supabase_realtime` publication) **외** ERROR 가 하나라도 있으면 실패 |
+| data | §3 조합 그대로(`--single-transaction` · `ON_ERROR_STOP=1` · `session_replication_role = replica`) 끝까지 적용 |
+| 정합 | `flyway_schema_history` 최신 행 `success` · **모든 public 테이블의 COPY 행수 = 복원 후 `count(*)`** · `users`·`club` 0건이면 실패 |
+
+결과는 실행 요약(Job Summary)에 표로 남는다. **2026-09-24 첫 실행 실측**: 스냅샷 `2026/09/24`(data 4.4MB) → flyway v132,
+public 테이블 69개 행수 전부 일치, users 780 · club 173 · recruitment 124 · application 540. 실행 로그는 공개이므로
+psql 출력은 ERROR 줄만 값 마스킹해 내보내고 서버 로그의 ERROR 도 꺼 둔다(COPY 실패 시 행 원문이 CONTEXT 로 찍히는 경로 차단).
+
+**이 리허설이 답하지 않는 것**: Supabase → Supabase 복원의 Pooler 경유 적재 가능 여부, 그리고 §3 원형처럼 3파일을 한
+트랜잭션에 넣는 조합(리허설은 schema 단계를 오류 허용으로 따로 돌린다). 스크래치 Supabase 프로젝트가 생기면 같은
+워크플로에 그 경로를 추가한다.
 
 ## 표준 복원 절차 (Supabase → Supabase)
 
@@ -88,9 +128,11 @@ psql \
 - `session_replication_role = replica` 는 데이터 적재 동안 트리거·FK 검사를 비활성화한다. 덤프의 COPY 순서가
   FK 위상을 따르지 않기 때문에 이게 없으면 참조 오류로 멈춘다.
 - `--single-transaction` + `ON_ERROR_STOP=1` 이라 중간 실패 시 전부 롤백된다 — 반쯤 복원된 DB 가 남지 않는다.
-- ⚠️ **이 명령 조합은 아직 실복원으로 검증되지 않았다**(덤프 3파일 구성에 맞춘 표준형이다). 특히
-  `SET session_replication_role = replica` 는 접속 계정의 권한에 따라 거부될 수 있다 — 장애 한복판에서
-  처음 시도하지 말고, **첫 실복원 전에 별도 DB 로 리허설을 한 번 돌려** 이 절 전체를 실측으로 갱신한다.
+- ✅ **data 단계는 리허설 워크플로로 검증됐다**(2026-09-24, 바닐라 PG 17, v132 스냅샷, 69개 테이블 행수 일치 —
+  위 "복원 리허설" 절). 덤프 `data.sql` 은 Supabase CLI 가 맨 앞에 `SET session_replication_role = replica;`, 맨 뒤에
+  `RESET ALL;` 을 이미 넣어 두므로 위 `--command` 는 중복이며 무해하다. 남은 미검증은 둘이다: Supabase Pooler 계정에서
+  `session_replication_role` 이 허용되는지(superuser 가 아니면 거부될 수 있다), 그리고 roles→schema→data 3파일을
+  **한 트랜잭션**에 넣는 원형(리허설은 schema 를 오류 허용으로 따로 돌린다). 장애 한복판에서 처음 확인하지 말 것.
 - 대상이 **비어 있지 않다면** 먼저 비운다. 기존 데이터 위에 덧씌우는 복원은 PK 충돌로 실패하거나,
   통과하더라도 두 시점의 행이 섞인다.
 
@@ -98,11 +140,15 @@ psql \
 
 Supabase 가 아니라 일반 Postgres(로컬 검증용 등)에 되살릴 때만 해당한다. 함정이 네 가지다.
 
-- `roles.sql` 에는 `ALTER` 만 들어 있다 → `anon` / `authenticated` / `service_role` / `authenticator` 롤과
-  `extensions` · `vault` 스키마를 **미리 만들어 둬야** 한다.
+- `roles.sql` 에는 `ALTER ROLE … SET` 만 들어 있다(예약 롤의 CREATE 는 CLI 가 주석 처리) → `anon` / `authenticated` /
+  `service_role` / `authenticator` 롤과 `extensions` · `vault` 스키마를 **미리 만들어 둬야** 한다. 리허설 워크플로는
+  롤 이름을 덤프에서 도출해(`ALTER ROLE` · `OWNER TO` · `GRANT`/`REVOKE` 대상 − 덤프가 직접 `CREATE ROLE` 하는 롤) 없는 것만 만든다.
+  2026-09-24 실측 선생성 롤 5개: `anon` `authenticated` `authenticator` `postgres`(컨테이너에 이미 있어 건너뜀) `service_role`.
 - `schema.sql` 적용 중 `supabase_vault` 확장 없음, `supabase_realtime` publication 없음 오류 2건은 무해하다
-  (Supabase 플랫폼 전용).
-- `data.sql` 에는 `auth.*` · `storage.*` COPY 블록이 들어 있다 → 바닐라 PG 에서는 `public` 스키마만 남기고 걸러낸다.
+  (Supabase 플랫폼 전용). 2026-09-24 실측에서도 이 2건뿐이었다. 단 `--single-transaction` 이면 이 오류가 전체를
+  롤백시키므로 바닐라 PG 에서는 schema 단계를 트랜잭션 없이 돌리고 오류 목록을 대조한다.
+- `data.sql` 에는 `auth.*` · `storage.*` COPY 블록이 들어 있다(2026-09-24 실측: 비-public 31블록) → 바닐라 PG 에서는
+  `public` 스키마만 남기고 걸러낸다. 식별자는 전부 따옴표 형식(`COPY "auth"."users" (…) FROM stdin;`)이다.
 - Supabase → Supabase 복원이면 위 셋 다 해당 없이 그대로 쓴다.
 
 ### 5. 복원 후 확인
@@ -123,6 +169,8 @@ curl -s https://api.duings.com/actuator/health
 ```
 
 마지막으로 회비·면접 화면에서 시각 표기가 맞는지, 최근 지원·결제가 보이는지 눈으로 확인한다.
+쓰기 경로도 한 번 확인한다 — 운영진 콘솔에서 공지 1건을 작성했다가 지운다. 외부 모니터([`UPTIME.md`](./UPTIME.md) 에서 운영 중인 것)가
+전부 Up 으로 돌아왔는지까지 보고 복구 완료로 기록한다.
 
 ## 부록 A — V112/V113 비멱등 백필
 

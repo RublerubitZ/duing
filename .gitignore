@@ -59,10 +59,10 @@ src/main/generated/
 
 ### Local agent / MCP / skill configuration (사용자별, 커밋 금지) ###
 .agents/
-.claude/settings.json
-.claude/settings.local.json
-.claude/skills/
-.claude/scheduled_tasks.lock
+**/.claude/settings.json
+**/.claude/settings.local.json
+**/.claude/skills/
+**/.claude/scheduled_tasks.lock
 .mcp.json
 skills-lock.json
 .coderabbit.yaml
@@ -84,7 +84,7 @@ handoff/
 node_modules/
 
 ### Claude 에이전트 git worktree (로컬 작업 격리본, 커밋 금지) ###
-.claude/worktrees/
+**/.claude/worktrees/
 
 ### 빌드 캐시·배포·커버리지·증분빌드 정보 (로컬, 커밋 금지) ###
 .turbo/

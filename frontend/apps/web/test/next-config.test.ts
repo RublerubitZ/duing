@@ -114,6 +114,36 @@ describe('next.config 정적 폰트 캐시', () => {
   });
 });
 
+describe('next.config 옛 경로 리다이렉트(시설 상세·관리자 옛 경로·멤버 루트)', () => {
+  it('시설 상세는 쿼리 방식으로 308, 관리자 옛 경로·멤버 루트는 307 로 보낸다 — 페이지 redirect() 는 loading 경계 탓에 200 + 클라이언트 이동으로 늦게 나갔다', async () => {
+    const redirectsFn = nextConfig.redirects;
+    if (!redirectsFn) throw new Error('redirects() 가 정의되어야 한다');
+
+    expect(await redirectsFn()).toEqual([
+      {
+        source: '/facilities/:facilityId',
+        destination: '/facilities?facilityId=:facilityId',
+        permanent: true,
+      },
+      {
+        source: '/admin/facility-crawl',
+        destination: '/admin/facility-bookings?tab=crawl',
+        permanent: false,
+      },
+      {
+        source: '/admin/facility-bookings/submission',
+        destination: '/admin/facility-bookings?tab=prepare',
+        permanent: false,
+      },
+      {
+        source: '/clubs/:clubId/member',
+        destination: '/clubs/:clubId/member/notices',
+        permanent: false,
+      },
+    ]);
+  });
+});
+
 describe('next.config 클라이언트 라우터 캐시', () => {
   it('동적 세그먼트 staleTime 을 둬 탭 재방문(로그인·콘솔 등 동적 라우트)이 RSC 재페치·로딩 플래시 없이 복원되게 한다', () => {
     expect(nextConfig.experimental?.staleTimes).toEqual({ dynamic: 180 });

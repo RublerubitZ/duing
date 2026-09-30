@@ -44,12 +44,14 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 @Import(TestcontainersConfiguration.class)
 class S3FileStorageIntegrationTest extends IntegrationTestBase {
 
-    // Docker Hub 의 minio/minio 저장소가 2026-09 에 사라져(pull access denied) quay.io 공식 미러를 쓴다 —
-    // 같은 태그·같은 매니페스트 다이제스트. 기본 이미지명이 아니라 asCompatibleSubstituteFor 로 호환 선언이 필요하다.
-    // CI 의 사전 pull(backend-ci.yml)도 같은 참조를 써야 한다.
+    // 공식 minio/minio 배포가 끊겼다 — Docker Hub 저장소가 2026-09 초에 사라졌고, 대신 쓰던 quay.io/minio/minio 도
+    // 2026-09-26 기준 인증을 요구한다(401). 공개로 받을 수 있는 Chainguard 빌드(amd64·arm64, 진입점이 minio 바이너리라
+    // Testcontainers 의 `server /data` 명령이 그대로 동작)를 다이제스트로 고정해 쓴다. 무료 티어는 latest 태그만 제공하므로
+    // 태그 대신 다이제스트로 핀하고, 이 다이제스트가 사라지면 같은 방법으로 새 다이제스트를 받아 교체한다.
+    // 기본 이미지명이 아니라 asCompatibleSubstituteFor 로 호환 선언이 필요하다. CI 의 사전 pull(backend-ci.yml)도 같은 참조를 써야 한다.
     @Container
     static final MinIOContainer MINIO =
-            new MinIOContainer(DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+            new MinIOContainer(DockerImageName.parse("cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1")
                     .asCompatibleSubstituteFor("minio/minio"))
                     .withUserName("minioadmin")
                     .withPassword("minioadmin");

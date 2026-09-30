@@ -37,7 +37,7 @@ const routerMock = { push: vi.fn(), replace: replaceMock, back: vi.fn(), refresh
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMock,
-  usePathname: () => '/clubs/1/member',
+  usePathname: () => '/clubs/1/member/notices',
   useSearchParams: () => new URLSearchParams(),
 }));
 

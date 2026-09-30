@@ -5,14 +5,15 @@
 
 ```
 duing/
-├── backend/          Spring Boot 3.4 / Java 21
+├── backend/          Spring Boot 3.5 / Java 21
 │   ├── AGENTS.md     백엔드 작업 규칙 (DDD·Flyway·QueryDSL·테스트 등)
 │   └── AGENTS.md     백엔드 아키텍처·구현 패턴 레퍼런스
-├── frontend/         Next.js 15 + React 19 / pnpm workspaces
+├── frontend/         Next.js 16 + React 19 / pnpm workspaces
 │   ├── AGENTS.md     프론트 작업 규칙 (App Router·React Query·Zustand 등)
 │   └── AGENTS.md     프론트 구조·패턴 레퍼런스
 ├── REQUIREMENTS.md   MVP 요구사항 정의서 (4도메인 · 15개 API)
-├── README.md         빠른 시작·전체 개요
+├── README.md         서비스 소개 · 사용자/운영진/총동연 가이드
+├── DEVELOPMENT.md    빠른 시작 · 기술 스택 · 협업 규칙 · 환경변수
 └── .Codex/          전역 에이전트 + 스킬 (현재 백엔드 위주)
 ```
 

@@ -39,6 +39,10 @@ on:
       # 그 순단 창에 홈 ISR 재생성이 502 를 맞아 Sentry 에 5건이 찍혔다(사용자 영향은 stale 서빙으로 없었음).
       # `deploy/**` 자체는 남겨둔다 — 새 배포 파일이 추가돼도 자동으로 잡히는 fail-safe 가 낫다.
       - '!deploy/**.md'
+      # backend/ 아래 문서와 테스트 소스도 배포 산출물에 들어가지 않는다(Dockerfile 은 bootJar -x test) — 2026-09 에는
+      # CLAUDE.md 한 줄·테스트용 MinIO 이미지 교체만으로 프론트 중심 릴리스가 백엔드 재기동을 부르게 됐다.
+      - '!backend/**.md'
+      - '!backend/src/test/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: {}
 
@@ -63,17 +67,17 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./backend
           file: ./backend/Dockerfile

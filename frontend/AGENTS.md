@@ -1,7 +1,7 @@
 # AGENTS.md — du-ing-fe
 
 대구대학교 동아리 통합 플랫폼 **Du-ing(두잉)** 프론트엔드.
-Next.js 15 + React 19 (App Router) 기반, pnpm workspaces 모노레포.
+Next.js 16 + React 19 (App Router) 기반, pnpm workspaces 모노레포.
 RN 호환을 위해 비즈니스 로직은 `packages/*` 로 분리되어 있으며, 추후 `apps/mobile`(Expo) 추가 시 그대로 재사용한다.
 
 ---
@@ -10,7 +10,7 @@ RN 호환을 위해 비즈니스 로직은 `packages/*` 로 분리되어 있으�
 
 | 영역 | 선택 |
 |---|---|
-| Framework | Next.js 15 (App Router) + React 19 |
+| Framework | Next.js 16 (App Router) + React 19 |
 | 언어 | TypeScript 5 |
 | 빌드 / 패키지 | pnpm 9 workspaces |
 | 서버 상태 | TanStack Query 5 |
@@ -44,7 +44,7 @@ pnpm gen:api      # 백엔드 /v3/api-docs → packages/api 의 TS 타입 자동
 ```
 frontend/
 ├── apps/
-│   └── web/                          # Next.js 15 앱
+│   └── web/                          # Next.js 16 앱
 │       ├── app/                      # App Router (src/ 없이 루트 위치)
 │       │   ├── (main)/
 │       │   │   ├── _components/

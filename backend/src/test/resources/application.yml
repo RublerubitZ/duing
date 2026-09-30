@@ -4,6 +4,9 @@ server:
     # 클라이언트에 도달하려면 Tomcat 이 잔여 본문을 흘려보낼 수 있어야 한다(기본 2MB 로는 유실).
     # FileApiTest 의 한도 초과 케이스가 이 값에 의존한다.
     max-swallow-size: 11MB
+    # main 의 application.yml 과 동일한 값 — Boot 3.5 기본 512B 는 긴 한글 파일명을 413 으로 거부한다.
+    # FileApiTest 의 긴 파일명 케이스가 이 값에 의존한다.
+    max-part-header-size: 4KB
 
 spring:
   config:
