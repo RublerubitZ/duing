@@ -55,7 +55,9 @@ public interface FederationInquiryApi {
     );
 
     @Operation(summary = "문의 수정", description = "접수(RECEIVED) 상태에서만 — 답변 작성 시작 후 409. "
-            + "attachmentUrls 를 생략하면 기존 첨부 유지, 빈 배열이면 전체 삭제, 값을 담으면 전체 교체(PUT 의미론).")
+            + "attachmentUrls 를 생략하면 기존 첨부 유지, 빈 배열이면 전체 삭제, 값을 담으면 전체 교체(PUT 의미론). "
+            + "attachmentUrls 는 본인이 POST /api/v1/files(purpose=FEDERATION_INQUIRY) 로 업로드한 URL 만 허용(최대 5개) — "
+            + "그 외 목적이거나 남이 올린 URL 이면 400.")
     @PatchMapping("/federation/inquiries/{inquiryId}")
     ResponseEntity<ApiResponse<Void>> updateInquiry(
             @PathVariable Long inquiryId,

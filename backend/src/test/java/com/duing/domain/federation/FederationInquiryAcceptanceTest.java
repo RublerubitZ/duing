@@ -795,6 +795,8 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .body("message", equalTo(INVALID_ATTACHMENT_MESSAGE))
                 .body("code", nullValue());
 
+        // 문의 INSERT 는 첨부 검증보다 먼저 실행된다 — 문의 행까지 함께 롤백돼야 부분 쓰기가 남지 않는다.
+        assertThat(federationInquiryRepository.count()).isZero();
         assertThat(federationInquiryAttachmentRepository.count()).isZero();
         assertThat(uploadStatusOf(othersAttachmentUrl)).isEqualTo(UploadedObjectStatus.PENDING);
     }

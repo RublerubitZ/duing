@@ -141,6 +141,18 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("본인 확인 연결은 상태보다 소유를 먼저 본다 — 다른 사용자의 PURGING 업로드는 만료가 아닌 소유 불일치 예외이고 상태는 그대로다")
+    void activateOwnedByChecksOwnershipBeforeStatus() {
+        String othersPurgingKey = uniqueKey(FilePurpose.LOGO);
+        seed(othersPurgingKey, UploadedObjectStatus.PURGING);
+
+        assertThatThrownBy(() -> uploadedObjectService.activateOwnedBy(SEED_UPLOADER_ID + 1,
+                STUB_PREFIX + othersPurgingKey))
+                .isInstanceOf(FileException.UploadNotOwnedException.class);
+        assertThat(statusOf(othersPurgingKey)).isEqualTo(UploadedObjectStatus.PURGING);
+    }
+
+    @Test
     @DisplayName("업로더가 비어 있는 추적 행은 소유 불일치로 보고 예외를 던지며 상태를 바꾸지 않는다")
     void activateOwnedByTreatsMissingUploaderAsMismatch() {
         // uploader_id 는 NOT NULL(V122)이라 DB 로는 만들 수 없는 방어 분기 — 잠금 조회 결과만 목으로 대신한다.
