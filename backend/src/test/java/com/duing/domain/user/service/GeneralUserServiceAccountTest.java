@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.PasswordFixture;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -14,10 +15,13 @@ import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
 import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -112,5 +116,32 @@ class GeneralUserServiceAccountTest {
         assertThatThrownBy(() -> userService.changePassword(
                 new ChangePasswordCommand(user.getId(), "Old1234!", "Old1234!")))
                 .isInstanceOf(UserException.SamePasswordException.class);
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.duing.common.fixture.PasswordFixture#overLimit")
+    @DisplayName("새 비밀번호가 UTF-8 72바이트를 넘으면 PasswordTooLongException")
+    void changePasswordOverBcryptLimitThrows(String tooLongPassword) {
+        assertThat(tooLongPassword.getBytes(StandardCharsets.UTF_8).length).isGreaterThan(72);
+        User user = saveUserWithPassword("Old1234!");
+
+        assertThatThrownBy(() -> userService.changePassword(
+                new ChangePasswordCommand(user.getId(), "Old1234!", tooLongPassword)))
+                .isInstanceOf(UserException.PasswordTooLongException.class)
+                .hasMessage("비밀번호가 너무 깁니다. 이모지 등 일부 문자는 더 많은 공간을 차지합니다.");
+    }
+
+    @Test
+    @DisplayName("새 비밀번호가 UTF-8 로 정확히 72바이트면 바뀐다")
+    void changePasswordAtBcryptLimitSucceeds() {
+        String boundaryPassword = PasswordFixture.PASSWORD_72_BYTES;
+        assertThat(boundaryPassword.getBytes(StandardCharsets.UTF_8)).hasSize(72);
+        User user = saveUserWithPassword("Old1234!");
+
+        userService.changePassword(new ChangePasswordCommand(user.getId(), "Old1234!", boundaryPassword));
+        flushAndClear();
+
+        User reloaded = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches(boundaryPassword, reloaded.getPasswordHash())).isTrue();
     }
 }

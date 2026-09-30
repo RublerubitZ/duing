@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
 import org.hibernate.query.sqm.PathElementException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.dao.PessimisticLockingFailureException;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -93,6 +95,25 @@ public class GlobalExceptionHandler {
         log.warn("업로드 크기 초과 (413 변환): {}", exception.getMessage());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(ApiResponse.error("업로드 가능한 최대 크기를 초과했습니다."));
+    }
+
+    /**
+     * 멀티파트 본문을 해석할 수 없는 경우(종료 boundary 누락·boundary 파라미터 누락 등). 브라우저가 만들지 않는
+     * 형태라 클라이언트 입력 오류로 보고, catch-all 의 500 + Sentry ERROR 대신 400 으로 응답한다. 크기 초과
+     * (MaxUploadSizeExceededException)도 이 타입의 하위지만 Spring 이 더 구체적인 위 핸들러를 고르므로 413 은 그대로다.
+     * 업로드 도중 클라이언트가 끊긴 경우(원인에 ClientAbortException)는 Tomcat 이 이미 400/408 로 전환해 응답 본문이
+     * 버려지므로, 연결 종료 정책과 같게 응답을 쓰지 않고 debug 로만 남긴다(끊길 때마다 WARN 이 쌓이지 않게). 임시 디스크
+     * 부족 같은 서버측 원인도 여기로 오므로 원인 예외의 타입과 메시지를 warn 으로 남긴다 — 이 로그가 유일한 단서다.
+     */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMalformedMultipart(MultipartException exception) {
+        if (hasCause(exception, ClientAbortException.class)) {
+            handleClientDisconnect(exception);
+            return null; // 응답 미기록 — void 핸들러(handleClientDisconnect)와 같은 효과
+        }
+        log.warn("멀티파트 본문 해석 실패 (400 변환): {}", NestedExceptionUtils.getMostSpecificCause(exception).toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("업로드 요청 형식이 올바르지 않습니다."));
     }
 
     // 아래 4종은 Spring MVC 표준 요청 오류(필수 파라미터·요청 항목 누락, 미지원 메서드·미디어 타입)로,

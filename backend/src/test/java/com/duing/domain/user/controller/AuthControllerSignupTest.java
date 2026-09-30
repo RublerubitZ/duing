@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.PasswordFixture;
 import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.PhoneVerificationEvent;
 import com.duing.domain.user.entity.PhoneVerificationEventType;
@@ -36,6 +37,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -130,6 +133,31 @@ class AuthControllerSignupTest extends IntegrationTestBase {
                 .when().post("/api/v1/auth/signup")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("message", equalTo("사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요."));
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.duing.common.fixture.PasswordFixture#overLimit")
+    @DisplayName("비밀번호가 20자 이내여도 UTF-8 72바이트를 넘으면 가입은 400 과 안내 메시지를 반환한다")
+    void signupRejectsPasswordOverBcryptLimit(String tooLongPassword) {
+        Map<String, Object> body = new HashMap<>(validBody(prepareVerifiedPhone("010-1234-5678")));
+        body.put("password", tooLongPassword);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("비밀번호가 너무 깁니다. 이모지 등 일부 문자는 더 많은 공간을 차지합니다."));
+        assertThat(userRepository.findByStudentId("20240001")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("UTF-8 로 정확히 72바이트인 비밀번호로는 가입할 수 있다")
+    void signupAcceptsPasswordAtBcryptLimit() {
+        Map<String, Object> body = new HashMap<>(validBody(prepareVerifiedPhone("010-1234-5678")));
+        body.put("password", PasswordFixture.PASSWORD_72_BYTES);
+
+        given().contentType(ContentType.JSON).body(body)
+                .when().post("/api/v1/auth/signup")
+                .then().statusCode(HttpStatus.CREATED.value());
     }
 
     @Test

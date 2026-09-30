@@ -235,7 +235,7 @@
 | 문서 | 내용 |
 |---|---|
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | 빠른 시작 · 기술 스택 · 권한 모델 · 협업 규칙 · 환경변수/시크릿 |
-| [`backend/README.md`](./backend/README.md) | 백엔드 (Spring Boot 3.4 · Java 21) |
+| [`backend/README.md`](./backend/README.md) | 백엔드 (Spring Boot 3.5 · Java 21) |
 | [`frontend/README.md`](./frontend/README.md) | 프론트엔드 (Next.js 16 · React 19) |
 | [`deploy/README.md`](./deploy/README.md) | 배포 순서 · 롤백 런북 |
 | [`REQUIREMENTS.md`](./REQUIREMENTS.md) | 요구사항 정의서 |

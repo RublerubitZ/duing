@@ -13,7 +13,7 @@ Spring Boot 기반 백엔드. 모노레포 개발 개요(빠른 시작·기술 �
 | 영역 | 기술 |
 |---|---|
 | 언어 / 런타임 | Java 21 (Temurin) |
-| 프레임워크 | Spring Boot 3.4.x |
+| 프레임워크 | Spring Boot 3.5.x |
 | 빌드 | Gradle (Kotlin DSL) |
 | DB | PostgreSQL (Supabase 공유 인스턴스) |
 | ORM | Spring Data JPA + Hibernate 6, QueryDSL 5 (jakarta) |

@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.multipart.MultipartException;
 
 /**
  * 클라이언트 단절(브라우저 타임아웃·요청 취소) 시 응답 재작성·500 변환 없이 조용히 종료되는지 검증.
@@ -46,6 +47,13 @@ class GlobalExceptionHandlerClientAbortTest {
     }
 
     @Test
+    @DisplayName("업로드 도중 끊겨 멀티파트 해석이 ClientAbortException 으로 실패해도 400 을 쓰지 않고 조용히 끝난다")
+    void multipartParseAbortedByClientIsHandledQuietlyWithoutBody() throws Exception {
+        mockMvc.perform(get("/client-abort/multipart-upload"))
+                .andExpect(content().string(""));
+    }
+
+    @Test
     @DisplayName("클라이언트 단절이 아닌 일반 예외는 여전히 catch-all 이 500 과 오류 바디로 응답한다")
     void otherExceptionsStillGoToCatchAll() throws Exception {
         mockMvc.perform(get("/client-abort/real-error"))
@@ -65,6 +73,12 @@ class GlobalExceptionHandlerClientAbortTest {
         @GetMapping("/client-abort/broken-pipe")
         String brokenPipe() throws IOException {
             throw new ClientAbortException(new IOException("Broken pipe"));
+        }
+
+        @GetMapping("/client-abort/multipart-upload")
+        String multipartUploadAborted() {
+            throw new MultipartException("Failed to parse multipart servlet request",
+                    new ClientAbortException(new IOException("Connection reset by peer")));
         }
 
         @GetMapping("/client-abort/real-error")
