@@ -35,10 +35,11 @@ class FederationInquiryUploadActivationTest extends IntegrationTestBase {
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
-    private String seedPending() {
+    // 첨부 연결은 업로더 본인만 가능하다(#1314) — 작성자가 올린 업로드로 시드한다.
+    private String seedPending(Long uploaderId) {
         String storageKey = FilePurpose.FEDERATION_INQUIRY.directory() + "/" + sequence.incrementAndGet() + ".jpg";
         uploadedObjectRepository.save(
-                UploadedObject.pending(storageKey, FilePurpose.FEDERATION_INQUIRY, 1L, Instant.now()));
+                UploadedObject.pending(storageKey, FilePurpose.FEDERATION_INQUIRY, uploaderId, Instant.now()));
         return storageKey;
     }
 
@@ -50,9 +51,9 @@ class FederationInquiryUploadActivationTest extends IntegrationTestBase {
     @DisplayName("문의를 첨부와 함께 만들면 첨부 업로드가 전부 ACTIVE 가 되고, 수정으로 교체하면 새 첨부 업로드가 ACTIVE 가 된다")
     void createAndReplaceActivateAttachments() {
         User author = userRepository.save(UserFixture.unique());
-        String firstKey = seedPending();
-        String secondKey = seedPending();
-        String replacementKey = seedPending();
+        String firstKey = seedPending(author.getId());
+        String secondKey = seedPending(author.getId());
+        String replacementKey = seedPending(author.getId());
 
         Long inquiryId = federationInquiryService.create(new CreateFederationInquiryCommand(author.getId(),
                 "제목", "내용", List.of(STUB_PREFIX + secondKey, STUB_PREFIX + firstKey)));

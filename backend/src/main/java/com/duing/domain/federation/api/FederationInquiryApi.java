@@ -30,8 +30,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface FederationInquiryApi {
 
     @Operation(summary = "문의 작성", description = "열린 문의 5건·24시간 10건 초과 시 409. "
-            + "attachmentUrls 는 POST /api/v1/files(purpose=FEDERATION_INQUIRY) 로 업로드한 URL 만 허용(최대 5개) — "
-            + "그 외 목적의 URL 이면 400.")
+            + "attachmentUrls 는 본인이 POST /api/v1/files(purpose=FEDERATION_INQUIRY) 로 업로드한 URL 만 허용(최대 5개) — "
+            + "그 외 목적이거나 남이 올린 URL 이면 400.")
     @PostMapping("/federation/inquiries")
     ResponseEntity<ApiResponse<Long>> createInquiry(
             @Valid @RequestBody CreateFederationInquiryRequest request,

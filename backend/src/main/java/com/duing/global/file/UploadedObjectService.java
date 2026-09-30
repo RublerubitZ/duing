@@ -65,6 +65,16 @@ public class UploadedObjectService {
         }
     }
 
+    /**
+     * 본인 전용 첨부의 attach(#1314) — {@link #activate} 와 같되, 추적 행이 없거나(레거시 포함) 업로더가 requesterId 가
+     * 아니면 {@link FileException.UploadNotOwnedException}. 남이 올린 키를 자기 엔티티에 붙이는 것을 막는다.
+     */
+    public void activateOwnedBy(Long requesterId, String... fileUrls) {
+        for (String storageKey : storageKeysOf(fileUrls)) {
+            activateOwnedKey(storageKey, requesterId);
+        }
+    }
+
     /** 공지 본문(HTML·마크다운 불문)에 등장하는 자기 스토리지 URL 을 전부 활성화한다(스펙 §3.3). */
     public void activateReferencedIn(String content) {
         for (String storageKey : storageKeysIn(content)) {
@@ -135,7 +145,18 @@ public class UploadedObjectService {
         if (tracked.isEmpty()) {
             return; // 추적 이전 레거시 객체 — grandfather
         }
-        UploadedObject uploadedObject = tracked.get();
+        transitionToActive(tracked.get());
+    }
+
+    // 소유 확인도 잠근 그 인스턴스로 한다(위 첫 조회 규칙). 업로더가 null 인 행은 불일치로 본다.
+    private void activateOwnedKey(String storageKey, Long requesterId) {
+        UploadedObject uploadedObject = uploadedObjectRepository.findByStorageKeyForUpdate(storageKey)
+                .filter(tracked -> tracked.getUploaderId() != null && tracked.getUploaderId().equals(requesterId))
+                .orElseThrow(FileException.UploadNotOwnedException::new);
+        transitionToActive(uploadedObject);
+    }
+
+    private void transitionToActive(UploadedObject uploadedObject) {
         switch (uploadedObject.getStatus()) {
             case PENDING, RELEASED -> uploadedObject.activate(Instant.now(clock)); // RELEASED = 편집 되돌리기·재사용
             case ACTIVE -> { /* 재수정·재사용 — 멱등 */ }

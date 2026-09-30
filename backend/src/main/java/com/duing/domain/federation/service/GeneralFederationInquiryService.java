@@ -30,6 +30,7 @@ import com.duing.global.file.FileStorageService;
 import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.StoredFile;
 import com.duing.global.file.UploadedObjectService;
+import com.duing.global.file.exception.FileException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -148,7 +149,13 @@ public class GeneralFederationInquiryService implements FederationInquiryService
                     inquiry, storageKey, "첨부 이미지 " + (index + 1), contentType, fileSize, index));
         }
         // 업로드 추적 활성화(#791) — 잠금 순서 결정화를 위해 서비스가 사전순 정렬해 한 번에 잠근다(스펙 §3.3).
-        uploadedObjectService.activate(attachmentUrls.toArray(String[]::new));
+        // 업로더 본인 확인(#1314) — 추적 행이 없거나 남이 올린 키면 다른 무효 첨부와 같은 400 으로 거부한다.
+        // 남의 비밀 첨부를 자기 문의에 붙여 다운로드 프록시로 받아 가는 경로를 막고, 키의 존재·소유자도 드러내지 않는다.
+        try {
+            uploadedObjectService.activateOwnedBy(inquiry.getAuthorId(), attachmentUrls.toArray(String[]::new));
+        } catch (FileException.UploadNotOwnedException notOwnedUpload) {
+            throw new FederationInquiryException.InvalidInquiryException();
+        }
         return attachments;
     }
 
