@@ -64,7 +64,7 @@ duing/
   - 배포 액션(`docker/*`·`appleboy/*`)은 `actions-deploy` 로 따로 묶는다
   - 세 생태계 모두 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다
   - 보안 업데이트 PR(저장소 설정으로 켬)은 이 제약 없이 알림이 생길 때마다 온다. BOM 이 관리하는 전이 의존성은 PR 없이 알림만 온다 — 오버라이드로 대응
-  - QueryDSL 보안 PR 이 7.x 를 제안하면 머지하지 않고 닫는다 — 7.x 는 Hibernate 7(Boot 4) 전용이다. 알림은 노출 경로를 평가해 남겨 두고, 필요하면 Boot 4 전환을 앞당긴다
+  - QueryDSL 보안 PR 이 7.x 를 제안하면 머지하지 않고 닫는다 — 7.x 는 Hibernate 7(Boot 4) 전용이다. 알림은 dismiss 하지 않고 노출 경로를 평가해, 필요하면 Boot 4 전환을 앞당긴다
 - 백엔드 의존성은 `dependency-submission.yml` 이 develop 의 빌드 파일 변경 때 dependency graph 에 제출한다(운영 runtimeClasspath 만)
 - **squash 머지 때 제목을 한국어 Conventional Commits 로 고친다** — 예: `chore(backend): 의존성 월간 업데이트 — jsoup 1.23.3 외 2건 (#N)`. 봇 PR 본문은 그대로 둔다
 - **Dependabot PR 은 90일 안에 머지하거나 닫는다** — 무반응이 90일을 넘으면 Dependabot 이 버전·보안 업데이트를 모두 멈춘다

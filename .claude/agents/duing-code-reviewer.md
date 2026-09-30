@@ -64,7 +64,7 @@ model: sonnet
 - [ ] `where` 절에 `deletedAt.isNull()` 이 포함됐는가? (`@SQLRestriction` 으로 자동 적용되지만 명시 권장)
 - [ ] 합계에 `sumAggregate()` 를 쓰는가? (6.x 에는 `.sum()` 이 없고, `sumLong()`·`sumDouble()` 등을 같은 경로에 섞으면 먼저 부른 타입이 캐시에 굳는다)
 - [ ] `CaseBuilder` 의 `then`/`otherwise` 에 넣은 상수가 숫자·불리언 코드 상수뿐인가? (6.x 는 CASE 상수를 SQL 리터럴로 인라인한다 — 문자열·enum·사용자 입력은 위반, 경로·식은 무관)
-- [ ] `in`/`notIn` 의 오른쪽에 `@Converter`(또는 basic)로 매핑한 컬렉션 경로가 없는가? (6.x 는 `QueryException` 을 던진다)
+- [ ] `in`/`notIn` 의 오른쪽에 basic 으로 매핑한 컬렉션 경로가 없는가? (`@JdbcTypeCode(SqlTypes.JSON)`·`@Convert` 로 매핑한 `List`/`Set` 필드 — 6.x 는 `QueryException` 을 던진다. `@ElementCollection`·연관 컬렉션은 `member of` 로 그대로 된다)
 
 ### Flyway
 - [ ] 새 마이그레이션 파일명이 `V{버전}__{설명}.sql` 형식이고 언더스코어가 두 개인가?
