@@ -53,8 +53,6 @@ dependencies {
     annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:${queryDslVersion}:jpa") {
         exclude(group = "io.projectreactor", module = "reactor-core")
     }
-    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
-    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
     // JWT
     implementation("com.auth0:java-jwt:4.4.0")
