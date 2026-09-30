@@ -61,7 +61,8 @@ duing/
 
 ### Dependabot
 - `.github/dependabot.yml` 이 월 1회(09:00 KST) 생태계별 묶음 PR 을 연다 — GitHub Actions·프론트 npm·백엔드 Gradle
-  - 배포 액션(`docker/*`·`appleboy/*`)은 `actions-deploy` 로 따로 묶는다. 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다
+  - 배포 액션(`docker/*`·`appleboy/*`)은 `actions-deploy` 로 따로 묶는다
+  - 세 생태계 모두 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다
   - 보안 업데이트 PR(저장소 설정으로 켬)은 이 제약 없이 알림이 생길 때마다 온다. BOM 이 관리하는 전이 의존성은 PR 없이 알림만 온다 — 오버라이드로 대응
 - 백엔드 의존성은 `dependency-submission.yml` 이 develop 의 빌드 파일 변경 때 dependency graph 에 제출한다(운영 runtimeClasspath 만)
 - **squash 머지 때 제목을 한국어 Conventional Commits 로 고친다** — 예: `chore(backend): 의존성 월간 업데이트 — jsoup 1.23.3 외 2건 (#N)`. 봇 PR 본문은 그대로 둔다
