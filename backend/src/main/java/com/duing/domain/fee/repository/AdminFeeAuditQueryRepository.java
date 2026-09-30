@@ -67,7 +67,7 @@ public class AdminFeeAuditQueryRepository {
     /** 동아리별 청구 집계(CANCELLED 제외) — 건수와 청구액 합계. */
     public Map<Long, AdminFeeBillAggregate> aggregateBills(AdminFeePeriod period, Long clubId) {
         NumberExpression<Long> billCount = feeBill.count();
-        NumberExpression<Long> totalBilled = feeBill.amount.sum().coalesce(0L);
+        NumberExpression<Long> totalBilled = feeBill.amount.sumAggregate().coalesce(0L);
         return queryFactory
                 .select(feeBill.clubId, billCount, totalBilled)
                 .from(feeBill)
@@ -84,7 +84,7 @@ public class AdminFeeAuditQueryRepository {
      * 납부 시점이 기간을 벗어나도 포함한다(스펙 §7.0) — 기간 경계에서 수납률·미수금이 자기모순 나지 않게 하기 위해서다.
      */
     public Map<Long, AdminFeePaymentAggregate> aggregatePayments(AdminFeePeriod period, Long clubId) {
-        NumberExpression<Long> totalPaid = payment.amount.sum().coalesce(0L);
+        NumberExpression<Long> totalPaid = payment.amount.sumAggregate().coalesce(0L);
         DateTimeExpression<Instant> lastPaidAt = payment.paidAt.max();
         return queryFactory
                 .select(feeBill.clubId, totalPaid, lastPaidAt)
@@ -185,7 +185,7 @@ public class AdminFeeAuditQueryRepository {
                 .select(Projections.constructor(AdminFeeBillRow.class,
                         feeBill.id, feeBill.userId, user.name, user.studentId,
                         clubMember.generation, feePolicy.name, feeBill.billingPeriod,
-                        feeBill.amount, payment.amount.sum().coalesce(0L), feeBill.status,
+                        feeBill.amount, payment.amount.sumAggregate().coalesce(0L), feeBill.status,
                         overdueFlag(today),
                         feeBill.createdAt, feeBill.dueDate, payment.paidAt.max()))
                 .from(feeBill)
@@ -290,7 +290,7 @@ public class AdminFeeAuditQueryRepository {
     public AdminFeeMatchAggregate countMatchedTransactions(Long clubId, AdminFeePeriod period) {
         NumberExpression<Long> manualCount = new CaseBuilder()
                 .when(bankTransaction.matchStatus.eq(MatchStatus.MANUAL_MATCHED)).then(1L).otherwise(0L)
-                .sum().coalesce(0L);
+                .sumAggregate().coalesce(0L);
         AdminFeeMatchAggregate aggregate = queryFactory
                 .select(Projections.constructor(AdminFeeMatchAggregate.class,
                         bankTransaction.count(), manualCount))
@@ -402,13 +402,13 @@ public class AdminFeeAuditQueryRepository {
     private NumberExpression<Long> remainderCount(BooleanExpression dueDateCondition) {
         return new CaseBuilder()
                 .when(unpaidRemainder().and(dueDateCondition)).then(1L).otherwise(0L)
-                .sum().coalesce(0L);
+                .sumAggregate().coalesce(0L);
     }
 
     private NumberExpression<Long> statusCount(FeeStatus status) {
         return new CaseBuilder()
                 .when(feeBill.status.eq(status)).then(1L).otherwise(0L)
-                .sum().coalesce(0L);
+                .sumAggregate().coalesce(0L);
     }
 
     private BooleanExpression clubNameContains(String q) {

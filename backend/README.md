@@ -16,7 +16,7 @@ Spring Boot 기반 백엔드. 모노레포 개발 개요(빠른 시작·기술 �
 | 프레임워크 | Spring Boot 3.5.x |
 | 빌드 | Gradle (Kotlin DSL) |
 | DB | PostgreSQL (Supabase 공유 인스턴스) |
-| ORM | Spring Data JPA + Hibernate 6, QueryDSL 5 (jakarta) |
+| ORM | Spring Data JPA + Hibernate 6, QueryDSL 6 (OpenFeign 포크) |
 | 마이그레이션 | Flyway |
 | 인증 | Spring Security + JWT (auth0 java-jwt) |
 | API 문서 | springdoc-openapi (Swagger UI) |

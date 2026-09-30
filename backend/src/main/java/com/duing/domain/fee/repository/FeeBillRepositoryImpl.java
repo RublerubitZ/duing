@@ -88,7 +88,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
         // 납부 합계는 sumActivePaid 의 별도 쿼리에서 산출한다.
         FeeBillSummaryProjection projection = queryFactory
                 .select(Projections.constructor(FeeBillSummaryProjection.class,
-                        feeBill.amount.sum().coalesce(0L),
+                        feeBill.amount.sumAggregate().coalesce(0L),
                         feeBill.count(),
                         // 카운트도 표기 축 — displayStatusEq 와 동일한 동치 근거(위 주석). paid/cancelled 는 저장=표기.
                         displayCount(FeeStatus.PENDING, today),
@@ -113,7 +113,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
         // 같은 청구 필터(동아리·회차·정책·비취소)에 걸린 청구의 활성 납부만 합산한다.
         // VOIDED 납부는 payment.status.eq(ACTIVE) 로, soft-delete 청구·납부는 @SQLRestriction 으로 제외된다.
         Long total = queryFactory
-                .select(payment.amount.sum().coalesce(0L))
+                .select(payment.amount.sumAggregate().coalesce(0L))
                 .from(payment)
                 .join(feeBill).on(payment.feeBillId.eq(feeBill.id))
                 .where(
@@ -144,7 +144,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
         // 청구별 활성 납부 합계를 상관 서브쿼리로 산출한다(VOIDED 제외). payment 를 조인하면 1:N fan-out 으로
         // 같은 청구가 납부 건수만큼 중복되므로 서브쿼리로 청구 그레인을 유지한다.
         NumberExpression<Long> activePaidSum = Expressions.asNumber(JPAExpressions
-                .select(payment.amount.sum().coalesce(0L))
+                .select(payment.amount.sumAggregate().coalesce(0L))
                 .from(payment)
                 .where(payment.feeBillId.eq(feeBill.id), payment.status.eq(PaymentStatus.ACTIVE)));
         // FeeBill.remainingAfter() 의 SQL 미러 — 후보 필터(where)와 표시값(select) 양쪽에 쓰여 스칼라 호출로 뺄 수 없다.
@@ -201,7 +201,7 @@ public class FeeBillRepositoryImpl implements FeeBillRepositoryCustom {
     private NumberExpression<Long> displayCount(FeeStatus displayStatus, LocalDate today) {
         return new CaseBuilder()
                 .when(displayStatusEq(displayStatus, today)).then(1L).otherwise(0L)
-                .sum().coalesce(0L);
+                .sumAggregate().coalesce(0L);
     }
 
     private BooleanExpression feePolicyIdEq(Long feePolicyId) {

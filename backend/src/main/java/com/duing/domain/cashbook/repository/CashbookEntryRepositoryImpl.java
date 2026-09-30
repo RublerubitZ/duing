@@ -65,7 +65,7 @@ public class CashbookEntryRepositoryImpl implements CashbookEntryRepositoryCusto
     private NumberExpression<Long> sumByType(CashbookEntryType entryType) {
         return new CaseBuilder()
                 .when(cashbookEntry.entryType.eq(entryType)).then(cashbookEntry.amount).otherwise(0L)
-                .sum().coalesce(0L);
+                .sumAggregate().coalesce(0L);
     }
 
     private BooleanExpression clubIdEq(Long clubId) {

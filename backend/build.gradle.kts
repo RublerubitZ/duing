@@ -29,7 +29,7 @@ repositories {
     mavenCentral()
 }
 
-val queryDslVersion = "5.0.0"
+val queryDslVersion = "6.12"
 
 dependencies {
     // Spring Boot starters
@@ -44,9 +44,15 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
 
-    // QueryDSL (jakarta)
-    implementation("com.querydsl:querydsl-jpa:${queryDslVersion}:jakarta")
-    annotationProcessor("com.querydsl:querydsl-apt:${queryDslVersion}:jakarta")
+    // QueryDSL — OpenFeign 포크. 원본 com.querydsl 은 휴면이고 CVE-2024-49203 수정판이 없다.
+    // 6.x 가 Hibernate 6.6·JPA 3.1 줄이다(7.x 는 Hibernate 7 용 — Boot 4 전환 때 함께 올린다).
+    // querydsl-core 6.x 의 reactor-core 는 Reactive API 용이라 JPA 경로가 쓰지 않는다 — 런타임·컴파일 어디에도 들이지 않는다.
+    implementation("io.github.openfeign.querydsl:querydsl-jpa:${queryDslVersion}") {
+        exclude(group = "io.projectreactor", module = "reactor-core")
+    }
+    annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:${queryDslVersion}:jpa") {
+        exclude(group = "io.projectreactor", module = "reactor-core")
+    }
     annotationProcessor("jakarta.annotation:jakarta.annotation-api")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
