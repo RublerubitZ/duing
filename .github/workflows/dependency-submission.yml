@@ -1,0 +1,68 @@
+name: Dependency Submission
+
+# 백엔드(Gradle) 운영 런타임 의존성을 GitHub dependency graph 에 제출해 Dependabot 보안 알림을 받는다.
+# GitHub 는 Gradle 전이 의존성을 빌드 파일만으로 해석하지 못해, 빌드를 돌려 해석 결과를 올려야 한다.
+# 새 권고는 GitHub 가 저장된 그래프에 계속 대조하므로, 의존성이 바뀔 때(빌드 파일 변경)만 다시 제출한다.
+#
+# ⚠️ 아래 GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR 값을 바꾸지 말 것 — 스냅샷 식별자다. 바꾸면 옛 스냅샷이 새 스냅샷과
+# 병합돼 남는다(예: QueryDSL 을 포크로 바꾼 뒤에도 querydsl 5.0.0 알림이 남는다). 되돌리려면 옛 식별자로 빈 스냅샷을
+# 제출 API 에 직접 보내야 한다(삭제 API 는 없다).
+# 값을 env 로 고정했으므로 워크플로·잡 이름은 바꿔도 된다(기본값은 이름에서 만들어진다).
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'backend/build.gradle.kts'
+      - 'backend/settings.gradle.kts'
+      - 'backend/gradle.properties'
+      - 'backend/gradle/**'
+      - '.github/workflows/dependency-submission.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  submit:
+    name: Submit backend dependency graph
+    # 알림은 기본 브랜치(develop) 그래프 기준이다 — 다른 브랜치 dispatch 로 스냅샷을 만들지 않는다.
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # dependency submission API
+    concurrency:
+      group: dependency-submission-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # 쓰기 토큰을 .git/config 에 남기지 않는다(파일 경로 차단). 토큰 자체는 아래 제출 스텝이 env 로 빌드에 넘긴다 — 그 주석 참고.
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Generate and submit dependency graph
+        # v6 부터 캐싱 컴포넌트가 상용 라이선스(이용약관 동의 필요)로 바뀌었다 — setup-gradle 과 같은 v5.0.2 커밋에 머문다.
+        # 이 액션은 Gradle 에 환경을 그대로 넘겨 쓰기 토큰(INPUT_GITHUB-TOKEN)이 빌드에서 보인다. develop 의 우리 빌드와
+        # 신뢰하는 플러그인(Spring Boot·dependency-management)만 도는 잡이라 수용한다. 외부 코드를 빌드하게 되면
+        # 생성(generate-and-upload, 읽기 권한)과 제출(download-and-submit, 쓰기 권한)을 두 잡으로 나눌 것.
+        uses: gradle/actions/dependency-submission@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        env:
+          # 스냅샷 correlator 고정(파일 머리 주석 참고). 액션은 이미 설정된 값을 덮지 않는다.
+          GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR: backend-runtime-dependency-graph
+          # 제출 의존성의 scope 를 runtime 으로 표시한다(지정하지 않으면 scope 가 비어 알림에서 구분되지 않는다).
+          DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: '^runtimeClasspath$'
+        with:
+          dependency-graph: generate-and-submit
+          build-root-directory: backend
+          # 운영 런타임만 제출한다 — 테스트·빌드 전용 구성은 운영과 무관해 알림 소음만 늘린다.
+          # 정규식은 전체 일치(플러그인 Regex.matches)라 testRuntimeClasspath 는 걸리지 않는다.
+          dependency-graph-include-configurations: '^runtimeClasspath$'
+          validate-wrappers: true
