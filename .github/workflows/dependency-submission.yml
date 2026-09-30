@@ -5,7 +5,8 @@ name: Dependency Submission
 # 새 권고는 GitHub 가 저장된 그래프에 계속 대조하므로, 의존성이 바뀔 때(빌드 파일 변경)만 다시 제출한다.
 #
 # ⚠️ 아래 GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR 값을 바꾸지 말 것 — 스냅샷 식별자다. 바꾸면 옛 스냅샷이 새 스냅샷과
-# 병합돼 영구히 남는다(스냅샷 삭제 API 없음). 예: QueryDSL 을 포크로 바꾼 뒤에도 querydsl 5.0.0 알림이 남는다.
+# 병합돼 남는다(예: QueryDSL 을 포크로 바꾼 뒤에도 querydsl 5.0.0 알림이 남는다). 되돌리려면 옛 식별자로 빈 스냅샷을
+# 제출 API 에 직접 보내야 한다(삭제 API 는 없다).
 # 값을 env 로 고정했으므로 워크플로·잡 이름은 바꿔도 된다(기본값은 이름에서 만들어진다).
 
 on:
@@ -38,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          # 쓰기 토큰을 .git/config 에 남기지 않는다 — 이어지는 Gradle 빌드가 읽을 수 없게.
+          # 쓰기 토큰을 .git/config 에 남기지 않는다(파일 경로 차단). 토큰 자체는 아래 제출 스텝이 env 로 빌드에 넘긴다 — 그 주석 참고.
           persist-credentials: false
 
       - name: Set up JDK 21

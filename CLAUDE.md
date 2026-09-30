@@ -60,14 +60,20 @@ duing/
 검사가 돌지 않았는데 통과하는 경로는 없다. 게이트 자신이 바뀌면 전 영역 CI 를 모두 돌린다.
 
 ### Dependabot
-- `.github/dependabot.yml` 이 월 1회(09:00 KST) 생태계별 묶음 PR 을 연다 — GitHub Actions(배포 액션은 `actions-deploy` 로 따로)·프론트 npm·백엔드 Gradle. 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다. 보안 업데이트 PR 은 이 제약 없이 알림이 생길 때마다 온다(BOM 이 관리하는 전이 의존성은 PR 없이 알림만 온다 — 오버라이드로 대응)
+- `.github/dependabot.yml` 이 월 1회(09:00 KST) 생태계별 묶음 PR 을 연다 — GitHub Actions·프론트 npm·백엔드 Gradle
+  - 배포 액션(`docker/*`·`appleboy/*`)은 `actions-deploy` 로 따로 묶는다. 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다
+  - 보안 업데이트 PR(저장소 설정으로 켬)은 이 제약 없이 알림이 생길 때마다 온다. BOM 이 관리하는 전이 의존성은 PR 없이 알림만 온다 — 오버라이드로 대응
 - 백엔드 의존성은 `dependency-submission.yml` 이 develop 의 빌드 파일 변경 때 dependency graph 에 제출한다(운영 runtimeClasspath 만)
 - **squash 머지 때 제목을 한국어 Conventional Commits 로 고친다** — 예: `chore(backend): 의존성 월간 업데이트 — jsoup 1.23.3 외 2건 (#N)`. 봇 PR 본문은 그대로 둔다
-- **Dependabot PR 은 90일 안에 머지하거나 닫는다** — 무반응이 90일을 넘으면 Dependabot 이 버전·보안 업데이트를 모두 멈춘다(닫은 버전은 다음 달 묶음으로 다시 온다)
-- Dependabot PR 이 `deploy-backend.yml` 을 바꾸면(배포 액션 묶음 `actions-deploy`, 또는 `actions/checkout` 갱신) 그 워크플로는 게이트 영역 밖이라 PR 에서 검증되지 않는다 — 머지 뒤 첫 main 배포에서 `deploy-backend` 실행을 지켜보고, 실패하면 해당 액션을 되돌리는 PR 을 낸다(운영은 기존 이미지로 남는다)
+- **Dependabot PR 은 90일 안에 머지하거나 닫는다** — 무반응이 90일을 넘으면 Dependabot 이 버전·보안 업데이트를 모두 멈춘다
+  - 닫은 PR 의 버전은 다시 오지 않는다. 그 뒤 새 버전이 나오면 다음 묶음에 실린다
+- Dependabot PR 이 `deploy-backend.yml` 을 바꾸면(`actions-deploy` 묶음, 또는 `actions/checkout` 갱신) 그 워크플로는 게이트 영역 밖이라 PR 에서 검증되지 않는다
+  - 머지 뒤 첫 main 배포에서 `deploy-backend` 실행을 지켜보고, 실패하면 해당 액션을 되돌리는 PR 을 낸다(운영은 기존 이미지로 남는다)
 - PR 에서 도는 워크플로(`ci-gate` 와 그 호출 대상)의 `permissions` 는 read 로 유지한다 — Dependabot PR 도 워크플로에 적힌 권한을 그대로 받는다
-- Dependabot 브랜치(`dependabot/**`)는 Vercel 프리뷰를 만들지 않는다(`frontend/apps/web/vercel.json`) — 비밀값이 있는 빌드 환경에서 검증 전 패키지가 설치·실행되지 않게 한다. 프론트 빌드 검증은 CI 가 한다
-- `dependency-submission.yml` 의 `GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR` 값은 바꾸지 않는다 — 스냅샷 식별자라 바꾸면 옛 그래프가 병합돼 남는다. 저장소 설정의 Automatic dependency submission 은 켜지 않는다(중복 제출)
+- Dependabot 브랜치(`dependabot/**`)는 Vercel 프리뷰를 만들지 않는다(`frontend/apps/web/vercel.json`)
+  - 비밀값이 있는 빌드 환경에서 검증 전 패키지가 설치·실행되지 않게 한다. 프론트 빌드 검증은 CI 가 한다
+- `dependency-submission.yml` 의 `GITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR` 값은 바꾸지 않는다 — 스냅샷 식별자라 바꾸면 옛 그래프가 병합돼 남는다(되돌리려면 옛 식별자로 빈 스냅샷을 직접 제출해야 한다)
+- 저장소 설정의 Automatic dependency submission 은 켜지 않는다(중복 제출)
 
 ### 에이전트 & 스킬 자동 사용
 모든 에이전트(`.claude/agents/`)와 스킬(`.claude/skills/`)은 사용자가 명시적으로 요청하지 않아도
