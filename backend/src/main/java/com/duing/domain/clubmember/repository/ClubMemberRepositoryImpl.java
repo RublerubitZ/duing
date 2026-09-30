@@ -39,7 +39,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                         club.logoUrl,
                         clubMember.role,
                         club.centralClub,
-                        activeRecruitmentFlag.sum().longValue().coalesce(0L)
+                        activeRecruitmentFlag.sumAggregate().longValue().coalesce(0L)
                 ))
                 .from(clubMember)
                 .join(clubMember.club, club)
@@ -68,7 +68,7 @@ public class ClubMemberRepositoryImpl implements ClubMemberRepositoryCustom {
                         club.logoUrl,
                         club.status,
                         clubMember.role,
-                        activeRecruitmentFlag.sum().longValue().coalesce(0L),
+                        activeRecruitmentFlag.sumAggregate().longValue().coalesce(0L),
                         clubMember.createdAt
                 ))
                 .from(clubMember)
