@@ -7,11 +7,13 @@ plugins {
 group = "com.duing"
 version = "0.0.1-SNAPSHOT"
 
-// Boot 3.5.16(3.x 마지막 OSS 패치) BOM 관리 버전 중 GHSA CRITICAL/HIGH 가 남는 것만 같은 패치 라인 안에서 올린다.
+// Boot 3.5.16(3.x 마지막 OSS 패치) BOM 관리 버전 중 알려진 취약점(GHSA·Dependabot 알림)이 남는 것만 같은 패치 라인 안에서(그 라인에 수정판이 없으면 다음 마이너로) 올린다.
 // 다음 Boot 상향 때 BOM 관리 버전이 여기 값 이상이 되면 해당 줄을 지운다.
 extra["tomcat.version"] = "10.1.60"        // BOM 10.1.55: CVE-2026-68525·65905·65182(CRITICAL). 10.1.58 은 Central 미공개
-extra["jackson-bom.version"] = "2.21.7"    // BOM 2.21.4: CVE-2026-68497(HIGH)
+extra["jackson-bom.version"] = "2.21.7"    // BOM 2.21.4: CVE-2026-68497·91776·91777(HIGH). 91776·91777 은 2.21.7 이 첫 수정판
 extra["postgresql.version"] = "42.7.13"    // BOM 42.7.11: CVE-2026-54291(HIGH)
+extra["commons-lang3.version"] = "3.18.0"  // BOM 3.17.0: CVE-2025-48924(MODERATE, Dependabot 알림 #2). springdoc 전이
+extra["log4j2.version"] = "2.25.5"         // BOM 2.24.3: CVE-2026-49844(MODERATE, Dependabot 알림 #3). log4j-to-slf4j 전이
 
 java {
     toolchain {
