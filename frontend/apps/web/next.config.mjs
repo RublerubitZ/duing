@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs';
+import { withSentryConfig } from '@sentry/nextjs/config';
 
 // 강제(enforce) CSP 는 frame-ancestors 'none'(클릭재킹) 만 유지하고, script/style/img/connect 까지 포함한
 // "후보 전체 정책" 은 운영(prod)에서만 Report-Only 로 내보낸다(headers() 참고) — 차단하지 않고 위반만
