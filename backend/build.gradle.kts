@@ -76,7 +76,7 @@ dependencies {
     // 되돌린다(운영은 서버 .env 에 JAVA_TOOL_OPTIONS=-Djsoup.useHttpClient=false 를 넣고 백엔드만 재기동, 재빌드 불필요).
     implementation("org.jsoup:jsoup:1.23.2")
 
-    // 파일 스토리지 — 동기 S3Client(apache-client)만 쓰므로 비동기 전용 netty-nio-client(netty 일체)를 뺀다.
+    // 파일 스토리지 — 동기 S3Client(기본 HTTP 클라이언트는 apache5-client)만 쓰므로 비동기 전용 netty-nio-client(netty 일체)를 뺀다.
     // S3AsyncClient 가 필요해지면 exclude 를 지우고 netty 버전을 관리할 것.
     implementation("software.amazon.awssdk:s3") {
         exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
