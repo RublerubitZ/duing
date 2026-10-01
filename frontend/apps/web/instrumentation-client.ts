@@ -237,6 +237,9 @@ if (!posthogKey) {
     capture_performance: {
       web_vitals: true,
       web_vitals_allowed_metrics: ['CLS', 'FCP', 'INP', 'LCP'],
+      // 귀속(attribution)은 끄는 쪽을 못박는다 — 1.419 부터 기본 켜짐이라 INP·LCP 에 요소 셀렉터·LCP url 이
+      // 새로 실리고 web-vitals 스크립트가 약 11KB→27KB 로 커진다. 1.418 까지의 기본값(끔)을 그대로 유지한다.
+      web_vitals_attribution: false,
     },
     // 설문 스크립트 로드 금지 — 대시보드 토글과 AND 로 묶이지 않는 유일한 예외라 여기서 못박는다.
     // 원격 설정이 surveys:false 여도 SDK 는 그 값을 '비활성 확정'으로 저장한 뒤 그대로

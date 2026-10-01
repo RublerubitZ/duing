@@ -122,6 +122,8 @@ describe('PostHog 초기화 개인정보 정책', () => {
     expect(options.capture_performance).toEqual({
       web_vitals: true,
       web_vitals_allowed_metrics: ['CLS', 'FCP', 'INP', 'LCP'],
+      // 귀속은 반대로 끈 쪽을 못박는다 — 1.419 부터 기본 켜짐이라 이 줄이 빠지면 요소 셀렉터·LCP url 이 실린다.
+      web_vitals_attribution: false,
     });
   });
 
