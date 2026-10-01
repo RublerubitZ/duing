@@ -33,6 +33,9 @@ spring:
       # "too many clients already" 로 무관한 통합테스트가 컨텍스트 로드에 실패한다. 유휴 점유를 1로
       # 낮춰 컨텍스트당 상시 점유를 최소화하고, 버스트는 max(20)까지 온디맨드로 확장한다.
       minimum-idle: 1
+      # main 의 application.yml 과 동일한 값 — 통합 테스트도 운영과 같은 드라이버 오류 메시지(서버 Detail 제외)를 본다.
+      data-source-properties:
+        logServerErrorDetail: false
   servlet:
     multipart:
       max-file-size: 6MB
