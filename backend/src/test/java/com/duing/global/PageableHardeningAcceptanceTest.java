@@ -32,8 +32,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * 페이지네이션 하드닝 검증 — (1) 공개 목록 API 의 size 가 전역 상한(100)으로 클램프되는지,
- * (2) 정렬(sort) 파라미터가 존재하지 않는 속성이거나 대소문자 무시(ignorecase)면 500 이 아니라 400 으로 응답하는지,
- * (3) 오프셋(page × size)이 int 범위를 넘는 page 가 500 이 아니라 400 으로 응답하는지.
+ * (2) 정렬(sort) 파라미터가 존재하지 않는 속성이면 500 이 아니라 400 으로 응답하는지,
+ * (3) 오프셋(page × size)이 int 범위를 넘는 page 가 500 이 아니라 400 으로 응답하는지,
+ * (4) 대소문자 무시 정렬(ignorecase)은 허용된 속성이어도 고정 문구의 400 으로 거부하는지 — 관리자 회원 검색의
+ * createdAt 은 500 이던 입력이고, 나머지는 200 이던 입력을 의도적으로 막는다(#1322).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -125,7 +127,7 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
 
     @ParameterizedTest(name = "sort={0} 은 400")
     @ValueSource(strings = {"createdAt,ignorecase", "name,desc,ignorecase"})
-    @DisplayName("관리자 회원 검색은 대소문자 무시 정렬(ignorecase)을 500 이 아니라 고정 문구의 400 으로 거부한다")
+    @DisplayName("관리자 회원 검색은 대소문자 무시 정렬(ignorecase)을 고정 문구의 400 으로 거부한다")
     void adminUserSearchRejectsIgnoreCaseSort(String sort) {
         // JPQL @Query 정렬은 속성 타입과 무관하게 lower(...) 로 감싸져 createdAt 이면 Hibernate 가 거부해 500 이 났다.
         // name 은 lower(u.name) 가 통하지만 정책을 하나로 두려고 함께 거부한다.
