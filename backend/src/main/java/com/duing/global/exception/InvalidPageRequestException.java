@@ -9,7 +9,9 @@ import org.springframework.http.HttpStatus;
  */
 public class InvalidPageRequestException extends ApplicationException {
 
+    private static final String MESSAGE = "요청한 페이지가 범위를 벗어났습니다.";
+
     public InvalidPageRequestException() {
-        super("요청한 페이지가 범위를 벗어났습니다.", HttpStatus.BAD_REQUEST);
+        super(MESSAGE, HttpStatus.BAD_REQUEST);
     }
 }

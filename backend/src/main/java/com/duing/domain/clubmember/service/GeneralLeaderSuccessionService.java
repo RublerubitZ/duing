@@ -43,8 +43,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
 
-    // 권한 변경 이력에서 정렬 가능한 필드. 클라이언트 sort 가 파생 쿼리의 ORDER BY 로 그대로 들어가므로, 허용 목록
-    // 밖 속성은 SortWhitelist 가 400 으로 거부한다(응답에 없는 컬럼 정렬·오류 쿼리 차단).
+    // 클라이언트 sort 는 파생 쿼리의 ORDER BY 에 덧붙으므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다
+    // (응답에 없는 컬럼 정렬·오류 쿼리 차단). 고정 정렬(OrderByCreatedAtDesc)이 앞에 오므로 createdAt 을 보내도
+    // 순서는 바뀌지 않는다 — 허용 값은 기존 클라이언트 호환용으로만 남긴다.
     private static final Set<String> ALLOWED_MEMBER_HISTORY_SORT = Set.of("createdAt");
 
     private final LeaderSuccessionRequestRepository requestRepository;

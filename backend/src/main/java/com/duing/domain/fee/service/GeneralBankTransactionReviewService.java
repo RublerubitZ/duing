@@ -43,8 +43,9 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
 
     private static final String UNMATCH_REASON = "매칭취소";
 
-    // 검토 큐에서 정렬 가능한 필드. 클라이언트 sort 가 파생 쿼리의 ORDER BY 로 그대로 들어가므로, 허용 목록 밖
-    // 속성은 SortWhitelist 가 400 으로 거부한다(응답에 없는 컬럼 정렬·오류 쿼리 차단).
+    // 클라이언트 sort 는 파생 쿼리의 ORDER BY 에 덧붙으므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다
+    // (응답에 없는 컬럼 정렬·오류 쿼리 차단). 고정 정렬(OrderByTransactionAtDesc)이 앞에 오므로 transactionAt 을
+    // 보내도 순서는 바뀌지 않는다 — 허용 값은 기존 클라이언트 호환용으로만 남긴다.
     private static final Set<String> ALLOWED_BANK_TRANSACTION_SORT = Set.of("transactionAt");
 
     private final BankTransactionRepository bankTransactionRepository;

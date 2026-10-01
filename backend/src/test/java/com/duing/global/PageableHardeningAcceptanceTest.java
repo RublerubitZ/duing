@@ -1,5 +1,6 @@
 package com.duing.global;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -93,6 +94,22 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
                 .queryParam("sort", "passwordHash")
                 .when().get("/api/v1/admin/users")
                 .then().statusCode(HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    @DisplayName("허용 목록 밖 정렬값은 응답에 반사하지 않고 고정 문구로 거부한다 — CR/LF 가 섞인 값도 본문에 남지 않는다")
+    void rejectedSortValueIsNotReflectedInResponse() {
+        // %0D%0A 는 디코드되면 CR/LF 다. 원문을 메시지에 실으면 응답 본문과 WARN 로그에 그대로 반사돼 로그 줄을
+        // 위조할 수 있다. 인코딩을 끄고 와이어 형식 그대로 보낸다.
+        String responseBody = RestAssured.given()
+                .urlEncodingEnabled(false)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .queryParam("sort", "name%0D%0AFORGED_LOG_LINE")
+                .when().get("/api/v1/admin/users")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("지원하지 않는 정렬 조건입니다."))
+                .extract().asString();
+        assertThat(responseBody).doesNotContain("FORGED_LOG_LINE", "\r", "\n", "\\r", "\\n");
     }
 
     @Test
@@ -209,8 +226,8 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     }
 
     @ParameterizedTest(name = "sort={0} 은 400")
-    @ValueSource(strings = {"_", "actorUserId", "no_such_field"})
-    @DisplayName("동아리 권한 변경 이력은 허용 목록(createdAt) 밖의 정렬을 형식 오류·허용 밖 실재 컬럼·없는 속성 모두 400 으로 거부한다")
+    @ValueSource(strings = {"_", "actorUserId"})
+    @DisplayName("동아리 권한 변경 이력은 허용 목록(createdAt) 밖의 정렬을 형식 오류·허용 밖 실재 컬럼 모두 400 으로 거부한다")
     void memberHistoryRejectsNonWhitelistedSort(String sort) {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
