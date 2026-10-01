@@ -4,10 +4,14 @@ import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
 import org.hibernate.query.sqm.PathElementException;
+import org.hibernate.query.sqm.produce.function.FunctionArgumentException;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
@@ -31,6 +35,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.util.UriUtils;
 
 @Slf4j
 @RestControllerAdvice
@@ -182,6 +187,12 @@ public class GlobalExceptionHandler {
                 || hasCause(exception, PathElementException.class)) {
             return invalidSortOrServerError(exception, request);
         }
+        // 문자열이 아닌 속성에 대소문자 무시 정렬(sort=속성,ignorecase)을 걸면 JPQL @Query 는 lower(...) 인자 타입
+        // 오류(FunctionArgumentException)로 올라온다. 클라이언트 sort 가 lower() 를 만드는 경로는 ignorecase 뿐이라
+        // 그 토큰이 있을 때만 400 으로 본다 — sort 를 정렬 enum 으로 쓰는 목록의 서버측 lower() 버그는 500 으로 남긴다.
+        if (hasCause(exception, FunctionArgumentException.class) && hasIgnoreCaseSort(request)) {
+            return invalidSortOrServerError(exception, request);
+        }
         log.error("Invalid data access API usage", exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("서버 오류가 발생했습니다."));
@@ -202,6 +213,45 @@ public class GlobalExceptionHandler {
         log.error("정렬 파라미터 없이 발생한 쿼리 경로 오류 — 서버측 회귀로 간주(500)", exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
+    private boolean hasIgnoreCaseSort(HttpServletRequest request) {
+        String[] sortValues = request.getParameterValues("sort");
+        return sortValues != null && Arrays.stream(sortValues)
+                .anyMatch(sortValue -> sortValue.toLowerCase(Locale.ROOT).contains("ignorecase"));
+    }
+
+    /**
+     * 정렬(sort) 값을 Spring Data 가 한 번 더 디코딩하다 실패한 경우. 정렬 리졸버는 서블릿이 이미 디코딩한 값을
+     * UriUtils.decode 로 다시 디코딩하므로, '%' 뒤에 16진수 두 자리가 오지 않는 값(예: 요청상 x%25 → x%)이면
+     * 핸들러 실행 전에 IllegalArgumentException 이 난다. 같은 디코딩이 실패하는 요청만 400 으로 바꾸고, 그 밖의
+     * IllegalArgumentException 은 서버측 결함이므로 catch-all 과 같이 500 + 스택트레이스로 남긴다.
+     * 디코딩 오류 메시지에는 입력이 그대로 실려 로그 줄을 위조할 수 있으므로 남기지 않는다.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
+            IllegalArgumentException exception, HttpServletRequest request) {
+        if (hasUndecodableSort(request)) {
+            log.warn("정렬 값 재디코딩 실패 (400 변환)");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
+        }
+        return handleUnexpected(exception);
+    }
+
+    private boolean hasUndecodableSort(HttpServletRequest request) {
+        String[] sortValues = request.getParameterValues("sort");
+        if (sortValues == null) {
+            return false;
+        }
+        for (String sortValue : sortValues) {
+            try {
+                UriUtils.decode(sortValue, StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException decodeFailure) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

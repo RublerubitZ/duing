@@ -35,7 +35,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * (2) 정렬(sort) 파라미터가 존재하지 않는 속성이면 500 이 아니라 400 으로 응답하는지,
  * (3) 오프셋(page × size)이 int 범위를 넘는 page 가 500 이 아니라 400 으로 응답하는지,
  * (4) 대소문자 무시 정렬(ignorecase)은 허용된 속성이어도 고정 문구의 400 으로 거부하는지 — 관리자 회원 검색의
- * createdAt 은 500 이던 입력이고, 나머지는 200 이던 입력을 의도적으로 막는다(#1322).
+ * createdAt 은 500 이던 입력이고, 나머지는 200 이던 입력을 의도적으로 막는다(#1322),
+ * (5) 리터럴 % 가 든 정렬 값처럼 Spring Data 가 다시 디코딩하지 못하는 sort 가 500 이 아니라 400 으로 응답하는지.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -112,6 +113,19 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
                 .body("message", equalTo("지원하지 않는 정렬 조건입니다."))
                 .extract().asString();
         assertThat(responseBody).doesNotContain("FORGED_LOG_LINE", "\r", "\n", "\\r", "\\n");
+    }
+
+    @Test
+    @DisplayName("정렬 값에 리터럴 % 가 있어 Spring Data 가 다시 디코딩하지 못해도 500 이 아니라 고정 문구의 400 으로 응답한다 — 비로그인 공개 목록")
+    void undecodableSortValueReturns400() {
+        // %25 는 서블릿이 % 로 디코딩하고, Spring Data 정렬 리졸버가 그 값을 한 번 더 디코딩하다 실패하던 입력이다.
+        // 인코딩을 끄고 와이어 형식 그대로 보낸다.
+        RestAssured.given()
+                .urlEncodingEnabled(false)
+                .queryParam("sort", "x%25")
+                .when().get("/api/v1/promotions")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("지원하지 않는 정렬 조건입니다."));
     }
 
     @Test

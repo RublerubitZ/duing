@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 import org.hibernate.query.sqm.PathElementException;
+import org.hibernate.query.sqm.produce.function.FunctionArgumentException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 정렬(sort) 파라미터가 존재하지 않는 속성을 가리켜 데이터 접근 계층이 예외를 던질 때, 화이트리스트가
- * 없는(전역 백스톱만 있는) 엔드포인트에서도 500 이 아니라 400 으로 응답하는지 검증한다. 파생 쿼리는
- * PropertyReferenceException, JPQL @Query 는 Hibernate PathElementException 으로 각각 다르게 올라온다.
+ * 클라이언트 정렬(sort) 때문에 데이터 접근 계층이나 Spring Data 정렬 리졸버가 예외를 던질 때, 화이트리스트가
+ * 없는(전역 백스톱만 있는) 엔드포인트에서도 500 이 아니라 400 으로 응답하는지, 그리고 sort 와 무관한 결함은
+ * 500 을 유지하는지 검증한다. 존재하지 않는 속성은 파생 쿼리에서 PropertyReferenceException, JPQL @Query 에서
+ * Hibernate PathElementException 으로, 문자열이 아닌 속성의 대소문자 무시 정렬은 FunctionArgumentException 으로,
+ * 다시 디코딩되지 않는 sort 값(리터럴 %)은 정렬 리졸버의 IllegalArgumentException 으로 올라온다.
  */
 class GlobalExceptionHandlerSortTest {
 
@@ -67,6 +70,48 @@ class GlobalExceptionHandlerSortTest {
                 .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
     }
 
+    @Test
+    @DisplayName("sort 파라미터가 있는 요청의 JPQL @Query lower() 인자 타입 오류(FunctionArgumentException 래핑)는 400 으로 응답한다")
+    void functionArgumentExceptionWithSortParamMapsTo400() throws Exception {
+        mockMvc.perform(get("/sort-stub/jpql-lower").param("sort", "createdAt,ignorecase"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("지원하지 않는 정렬 조건입니다."));
+    }
+
+    @Test
+    @DisplayName("sort 파라미터 없이 발생한 lower() 인자 타입 오류는 서버측 회귀로 보고 500 을 유지한다")
+    void functionArgumentExceptionWithoutSortParamStays500() throws Exception {
+        mockMvc.perform(get("/sort-stub/jpql-lower"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
+    }
+
+    @Test
+    @DisplayName("sort 를 정렬 enum 으로 쓰는 요청의 lower() 인자 타입 오류는 서버측 결함으로 보고 500 을 유지한다")
+    void functionArgumentExceptionWithEnumSortParamStays500() throws Exception {
+        // 클라이언트 sort 가 lower() 를 만드는 경로는 ignorecase 뿐이다 — 그 토큰이 없으면 런타임 쿼리의 서버측 버그다.
+        mockMvc.perform(get("/sort-stub/jpql-lower").param("sort", "INTEREST"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
+    }
+
+    @Test
+    @DisplayName("다시 디코딩되지 않는 sort 값(리터럴 %)이 있는 요청의 IllegalArgumentException 은 400 으로 응답한다")
+    void illegalArgumentWithUndecodableSortMapsTo400() throws Exception {
+        // MockMvc 의 param 은 URL 디코딩을 거치지 않아, 서블릿이 %25 를 디코딩한 뒤의 값(x%)이 그대로 들어간다.
+        mockMvc.perform(get("/sort-stub/illegal-argument").param("sort", "x%"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("지원하지 않는 정렬 조건입니다."));
+    }
+
+    @Test
+    @DisplayName("sort 값이 정상 디코딩되는 요청(%2C 포함)의 IllegalArgumentException 은 서버측 결함으로 보고 500 을 유지한다")
+    void illegalArgumentWithDecodableSortStays500() throws Exception {
+        mockMvc.perform(get("/sort-stub/illegal-argument").param("sort", "createdAt%2Cdesc"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
+    }
+
     @RestController
     static class SortStubController {
 
@@ -84,6 +129,17 @@ class GlobalExceptionHandlerSortTest {
         @GetMapping("/sort-stub/generic-misuse")
         String genericMisuse() {
             throw new InvalidDataAccessApiUsageException("real misuse", new IllegalStateException("bug"));
+        }
+
+        @GetMapping("/sort-stub/jpql-lower")
+        String jpqlLower() {
+            throw new InvalidDataAccessApiUsageException("invalid sort", new IllegalArgumentException(
+                    new FunctionArgumentException("Parameter 1 of function 'lower()' requires a string argument")));
+        }
+
+        @GetMapping("/sort-stub/illegal-argument")
+        String illegalArgument() {
+            throw new IllegalArgumentException("bug");
         }
     }
 }
