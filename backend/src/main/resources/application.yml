@@ -36,8 +36,9 @@ spring:
   datasource:
     hikari:
       data-source-properties:
-        # pgjdbc 는 기본으로 서버 오류 Detail 을 예외 메시지에 붙인다. 제약 위반이면 키·행 값(전화번호·학번 등)이
-        # Hibernate ERROR 로그를 거쳐 Sentry 로 나가므로 끈다(#1317). 제약명은 메시지 본문에 남아 409 매핑은 그대로다.
+        # pgjdbc 는 기본으로 모든 서버 오류의 Detail(unique·FK 키 값, NOT NULL/CHECK 위반 행, 교착 상세 등)을 예외 메시지에
+        # 붙여, 전화번호·학번 등이 Hibernate ERROR 로그를 거쳐 Sentry 로 나간다(#1317). 끄면 Detail 은 DB 서버(Supabase) 로그에서만
+        # 보이고, 제약명은 메시지 본문에 남아 409 매핑은 그대로다. DB_URL 쿼리 파라미터가 이 값보다 우선하니 DB_URL 에는 넣지 않는다.
         # 테스트 application.yml 에 같은 값이 있다 — 함께 바꾼다.
         logServerErrorDetail: false
   jpa:

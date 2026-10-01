@@ -54,9 +54,10 @@ class DbServerErrorDetailIntegrationTest extends IntegrationTestBase {
         try {
             assertThatThrownBy(() -> phoneVerificationRepository.saveAndFlush(newSessionForSamePhone()))
                     .isInstanceOfSatisfying(DataIntegrityViolationException.class, duplicatePhone -> {
+                        // Detail 라벨은 pgjdbc 가 JVM 로케일로 번역한다 — 한국어 로케일이면 "세부 정보" 로 찍힌다.
                         assertThat(duplicatePhone.getMostSpecificCause().getMessage())
                                 .contains(PHONE_UNIQUE_CONSTRAINT)
-                                .doesNotContain(PHONE, "Detail", "Key (");
+                                .doesNotContain(PHONE, "Detail", "세부 정보", "Key (");
                         assertThat(PostgresConstraintViolations.isUniqueViolationOf(
                                 duplicatePhone, PHONE_UNIQUE_CONSTRAINT)).isTrue();
                     });
