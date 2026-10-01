@@ -1,10 +1,12 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.joincode.exception.JoinRequestException;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,7 +25,8 @@ import org.springframework.stereotype.Component;
  * NAT·CGNAT 에서 시간당 60명이 실효 가입 상한이다. 한도 조정은 별건으로 다룬다. 각 창은 독립이며 <b>허용된 요청만</b> 기록한다
  * (거절 미기록 — 메모리 고갈 방지).
  *
- * <p>재시작 시 리셋은 수용한다. 만료 IP 엔트리 정리와 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
+ * <p>재시작 시 리셋은 수용한다. 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}).
+ * 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
 public class JoinCodeRateLimiter {
@@ -33,9 +36,13 @@ public class JoinCodeRateLimiter {
     static final int REQUEST_CREATION_PER_MINUTE_LIMIT = 10;
     static final int REQUEST_CREATION_PER_HOUR_LIMIT = 60;
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> checkTimesByIp = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> requestCreationTimesByIp =
-            new ConcurrentHashMap<>();
+    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 두 맵 모두 시간 창이다. 창을 바꾸면 함께 바꾼다.
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<String, Deque<LocalDateTime>> checkTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
+    private final ConcurrentMap<String, Deque<LocalDateTime>> requestCreationTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /** 코드 확인 IP 윈도우(분 30/시 200)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordCodeCheck(String clientIp, LocalDateTime now) {
@@ -52,7 +59,7 @@ public class JoinCodeRateLimiter {
      * 슬라이딩 윈도우 공통 로직 — 경계 exclusive(정각은 창 밖), 거절된 요청은 미기록.
      * compute 콜백이라 검사+기록이 키 단위로 원자적이다.
      */
-    private void assertAndRecordWithin(ConcurrentHashMap<String, Deque<LocalDateTime>> timesByKey,
+    private void assertAndRecordWithin(ConcurrentMap<String, Deque<LocalDateTime>> timesByKey,
                                        String windowKey, LocalDateTime now,
                                        int perMinuteLimit, int perHourLimit) {
         LocalDateTime hourAgo = now.minusHours(1);

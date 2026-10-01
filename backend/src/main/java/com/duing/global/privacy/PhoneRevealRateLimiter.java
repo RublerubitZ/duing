@@ -1,9 +1,11 @@
 package com.duing.global.privacy;
 
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,8 +21,9 @@ import org.springframework.stereotype.Component;
  * 아니라 1건을 1회로 계상한다(대규모 정상 내보내기를 막지 않기 위해 — 규모는 감사 detail 의 count 가 남긴다).
  *
  * <p>슬라이딩 윈도우 본문은 기존 리미터 4개가 각자 복제해 온 코드를 그대로 옮긴 것이다 — 리미터마다 한도·예외가
- * 달라 공용 추상화를 만들지 않는 것이 이 레포의 관례다. 재시작 시 카운터 리셋은 수용하며, 만료 엔트리 정리와
- * 멀티 인스턴스 전환 시 Redis 교체는 다른 리미터들과 함께 묶인 백로그다.
+ * 달라 공용 추상화를 만들지 않는 것이 이 레포의 관례다. 기록 맵만은 다른 리미터들과 같은 {@link RateLimitMaps} 를
+ * 써서 마지막 기록 1시간 뒤 키째 만료된다. 재시작 시 카운터 리셋은 수용하며, 멀티 인스턴스 전환 시 Redis 교체는
+ * 다른 리미터들과 함께 묶인 백로그다.
  */
 @Component
 public class PhoneRevealRateLimiter {
@@ -28,7 +31,11 @@ public class PhoneRevealRateLimiter {
     static final int PER_MINUTE_LIMIT = 30;
     static final int PER_HOUR_LIMIT = 300;
 
-    private final ConcurrentHashMap<Long, Deque<LocalDateTime>> revealTimesByUserId = new ConcurrentHashMap<>();
+    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<Long, Deque<LocalDateTime>> revealTimesByUserId =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * 열람자 창(분 30/시 300)을 검사하고 허용이면 이번 열람을 기록한다. 초과 시 429.

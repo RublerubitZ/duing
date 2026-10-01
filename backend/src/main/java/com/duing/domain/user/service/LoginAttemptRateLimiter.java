@@ -1,10 +1,12 @@
 package com.duing.domain.user.service;
 
 import com.duing.domain.user.exception.UserException;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,7 +44,11 @@ public class LoginAttemptRateLimiter {
     static final int PER_MINUTE_LIMIT = 10;
     static final int PER_HOUR_LIMIT = 100;
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> failureTimesByIp = new ConcurrentHashMap<>();
+    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<String, Deque<LocalDateTime>> failureTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * IP 의 최근 실패 횟수가 한도(분당·시간당)를 초과했는지 검사한다. 초과 시 429. 기록하지는 않는다.

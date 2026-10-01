@@ -1,9 +1,11 @@
 package com.duing.domain.federation.service;
 
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -29,7 +31,7 @@ import org.springframework.util.StringUtils;
  * 요청 생성)과 같은 수치다.
  *
  * <p><b>허용된 요청만</b> 기록한다(거절 미기록 — 메모리 고갈 방지). 재시작 시 리셋은 수용한다.
- * 만료 IP 엔트리 정리와 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
+ * 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
 public class FederationFaqSearchMissRateLimiter {
@@ -37,10 +39,14 @@ public class FederationFaqSearchMissRateLimiter {
     static final int PER_MINUTE_LIMIT = 10;
     static final int PER_HOUR_LIMIT = 60;
 
+    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> recordTimesByIp = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Deque<LocalDateTime>> recordTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * 무결과 기록 IP 윈도우(분 10/시 60)를 검사하고 허용이면 기록한다.

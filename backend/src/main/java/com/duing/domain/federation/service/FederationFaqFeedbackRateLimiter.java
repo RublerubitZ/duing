@@ -1,10 +1,12 @@
 package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.exception.FederationFaqException;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -19,7 +21,7 @@ import org.springframework.util.StringUtils;
  *
  * <p><b>왜 IP 단일 축인가</b>: 키를 (IP, FAQ) 복합으로 잡으면 공격자가 faqId 를 순회해
  * {@code 한도 × 발행 FAQ 수} 만큼 뚫려 상한이 FAQ 수에 비례해 커지고, 맵 엔트리도 FAQ 수배로 늘어난다
- * (만료 엔트리 정리는 아직 백로그라 그 자체가 메모리 부채다). IP 단일 축이면 상한이 정확히 한도다.
+ * (맵에는 키 상한이 있어, 늘어난 만큼 다른 IP 의 카운터가 먼저 밀려난다). IP 단일 축이면 상한이 정확히 한도다.
  * 분 30/시 200 은 레포의 관대한 공개 창(코드 확인·MO 상태조회·파일 업로드)과 같은 수치 — 한 화면
  * 20건(공개 FAQ 페이지 크기) 전량 제출에 마음 바꾸기를 더해도 정상 UX 는 넉넉히 통과한다.
  *
@@ -28,7 +30,7 @@ import org.springframework.util.StringUtils;
  * 학생이 집단 차단되는 자해가 된다({@code LoginAttemptRateLimiter} 가 문서화한 사고와 같은 형태).
  *
  * <p>각 창은 <b>허용된 요청만</b> 기록한다(거절 미기록 — 메모리 고갈 방지). 재시작 시 리셋은 수용한다.
- * 만료 IP 엔트리 정리와 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
+ * 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
 public class FederationFaqFeedbackRateLimiter {
@@ -36,10 +38,14 @@ public class FederationFaqFeedbackRateLimiter {
     static final int PER_MINUTE_LIMIT = 30;
     static final int PER_HOUR_LIMIT = 200;
 
+    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> feedbackTimesByIp = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Deque<LocalDateTime>> feedbackTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * 익명 피드백 제출 IP 윈도우(분 30/시 200)를 검사하고 허용이면 기록한다. 초과 시 429.
