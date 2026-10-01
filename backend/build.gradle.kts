@@ -58,7 +58,7 @@ dependencies {
     }
 
     // JWT
-    implementation("com.auth0:java-jwt:4.4.0")
+    implementation("com.auth0:java-jwt:4.6.1")
 
     // spring-retry — SchoolFacilityClient 룸 단위 재시도(@Retryable, 총 4회 / 0.5·1·2초 / 5xx·네트워크·타임아웃만).
     // @Retryable 은 AOP 프록시로 동작하므로 spring-boot-starter-aop 가 필요하다. 버전은 Spring Boot BOM 이 관리한다.
@@ -84,7 +84,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
 
     // Sentry — 에러 모니터링 (SENTRY_DSN 없으면 자동 비활성). logback ERROR 레벨을 이벤트로 전송.
-    implementation(platform("io.sentry:sentry-bom:8.43.0"))
+    implementation(platform("io.sentry:sentry-bom:8.58.0"))
     implementation("io.sentry:sentry-spring-boot-starter-jakarta")
     implementation("io.sentry:sentry-logback")
 
@@ -101,8 +101,8 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.rest-assured:rest-assured")
-    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.7")
-    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.1.7")
+    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.2.3")
+    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.2.3")
 
     // MinIO Testcontainer — 파일 스토리지 통합 테스트용
     testImplementation("org.testcontainers:minio")
@@ -113,7 +113,7 @@ dependencies {
 // AWS SDK BOM. Testcontainers 는 Boot 3.5.16 BOM 이 1.21.4 를 관리한다(1.21.4 미만은 Docker 29 에서 컨테이너 기동 실패).
 dependencyManagement {
     imports {
-        mavenBom("software.amazon.awssdk:bom:2.34.0")
+        mavenBom("software.amazon.awssdk:bom:2.55.4")
     }
 }
 
