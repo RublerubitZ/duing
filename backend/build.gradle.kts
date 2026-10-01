@@ -15,6 +15,8 @@ extra["jackson-bom.version"] = "2.21.7"    // BOM 2.21.4: CVE-2026-68497·91776�
 extra["postgresql.version"] = "42.7.13"    // BOM 42.7.11: CVE-2026-54291(HIGH)
 extra["commons-lang3.version"] = "3.18.0"  // BOM 3.17.0: CVE-2025-48924(MODERATE, Dependabot 알림 #2). springdoc 전이
 extra["log4j2.version"] = "2.25.5"         // BOM 2.24.3: CVE-2026-49844(MODERATE, Dependabot 알림 #3). log4j-to-slf4j 전이
+extra["httpclient5.version"] = "5.6.4"     // BOM 5.5.2: GHSA-hjcp-jmpx-g3qm(CVE-2026-64607). AWS SDK 2.55 apache5-client 전이
+extra["httpcore5.version"] = "5.4.3"       // BOM 5.3.6: GHSA-hf6x-8p5f-cgmf·GHSA-v3jc-474w-2wm6(h2). httpclient5 전이
 
 java {
     toolchain {
