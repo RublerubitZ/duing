@@ -37,6 +37,9 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Radix 는 터치 드롭다운 클릭 관통 회귀로 보류 중이다(#1331). 해결하면 이 항목을 지운다.
+      - dependency-name: "@radix-ui/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
     commit-message:
       prefix: chore
       include: scope
