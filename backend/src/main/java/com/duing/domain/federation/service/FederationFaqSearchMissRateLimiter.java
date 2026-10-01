@@ -1,5 +1,6 @@
 package com.duing.domain.federation.service;
 
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -57,7 +58,7 @@ public class FederationFaqSearchMissRateLimiter {
     public boolean allowAndRecord(String clientIp, LocalDateTime now) {
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        String windowKey = StringUtils.hasText(clientIp) ? clientIp : UNKNOWN_CLIENT_IP;
+        String windowKey = StringUtils.hasText(clientIp) ? ClientIpKeys.normalize(clientIp) : UNKNOWN_CLIENT_IP;
         // compute 콜백은 값(Deque)만 반환할 수 있어 허용 여부를 홀더로 꺼낸다. 콜백이 키 단위로
         // 원자 실행되므로 이 홀더에는 경합이 없다.
         AtomicBoolean allowed = new AtomicBoolean(false);

@@ -1,6 +1,7 @@
 package com.duing.domain.joincode.service;
 
 import com.duing.domain.joincode.exception.JoinRequestException;
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -46,12 +47,13 @@ public class JoinCodeRateLimiter {
 
     /** 코드 확인 IP 윈도우(분 30/시 200)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordCodeCheck(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(checkTimesByIp, clientIp, now, CHECK_PER_MINUTE_LIMIT, CHECK_PER_HOUR_LIMIT);
+        assertAndRecordWithin(checkTimesByIp, ClientIpKeys.normalize(clientIp), now,
+                CHECK_PER_MINUTE_LIMIT, CHECK_PER_HOUR_LIMIT);
     }
 
     /** 가입 요청 생성 IP 윈도우(분 10/시 60)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordRequestCreation(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(requestCreationTimesByIp, clientIp, now,
+        assertAndRecordWithin(requestCreationTimesByIp, ClientIpKeys.normalize(clientIp), now,
                 REQUEST_CREATION_PER_MINUTE_LIMIT, REQUEST_CREATION_PER_HOUR_LIMIT);
     }
 

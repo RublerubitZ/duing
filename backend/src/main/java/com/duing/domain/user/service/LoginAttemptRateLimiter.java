@@ -1,6 +1,7 @@
 package com.duing.domain.user.service;
 
 import com.duing.domain.user.exception.UserException;
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -60,7 +61,7 @@ public class LoginAttemptRateLimiter {
         }
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        failureTimesByIp.compute(clientIp, (ip, failureTimes) -> {
+        failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             if (failureTimes == null) {
                 return null;
             }
@@ -90,7 +91,7 @@ public class LoginAttemptRateLimiter {
         }
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        failureTimesByIp.compute(clientIp, (ip, failureTimes) -> {
+        failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             Deque<LocalDateTime> window = failureTimes == null ? new ArrayDeque<>() : failureTimes;
             pruneOlderThan(window, hourAgo);
             long lastMinuteFailures = window.stream()

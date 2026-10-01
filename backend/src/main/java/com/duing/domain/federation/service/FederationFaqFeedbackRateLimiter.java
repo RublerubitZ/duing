@@ -1,6 +1,7 @@
 package com.duing.domain.federation.service;
 
 import com.duing.domain.federation.exception.FederationFaqException;
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -54,7 +55,7 @@ public class FederationFaqFeedbackRateLimiter {
     public void assertAndRecordAnonymousFeedback(String clientIp, LocalDateTime now) {
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        String windowKey = StringUtils.hasText(clientIp) ? clientIp : UNKNOWN_CLIENT_IP;
+        String windowKey = StringUtils.hasText(clientIp) ? ClientIpKeys.normalize(clientIp) : UNKNOWN_CLIENT_IP;
         feedbackTimesByIp.compute(windowKey, (key, submissionTimes) -> {
             Deque<LocalDateTime> windowTimes = submissionTimes == null ? new ArrayDeque<>() : submissionTimes;
             while (!windowTimes.isEmpty() && !windowTimes.peekFirst().isAfter(hourAgo)) {

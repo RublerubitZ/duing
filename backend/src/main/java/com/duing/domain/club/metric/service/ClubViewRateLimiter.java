@@ -1,6 +1,7 @@
 package com.duing.domain.club.metric.service;
 
 import com.duing.domain.club.exception.ClubException;
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -51,7 +52,7 @@ public class ClubViewRateLimiter {
     public void assertAndRecordView(String clientIp, LocalDateTime now) {
         LocalDateTime hourAgo = now.minusHours(1);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        String windowKey = StringUtils.hasText(clientIp) ? clientIp : UNKNOWN_CLIENT_IP;
+        String windowKey = StringUtils.hasText(clientIp) ? ClientIpKeys.normalize(clientIp) : UNKNOWN_CLIENT_IP;
         viewTimesByIp.compute(windowKey, (key, viewTimes) -> {
             Deque<LocalDateTime> windowTimes = viewTimes == null ? new ArrayDeque<>() : viewTimes;
             while (!windowTimes.isEmpty() && !windowTimes.peekFirst().isAfter(hourAgo)) {

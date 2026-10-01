@@ -1,6 +1,7 @@
 package com.duing.domain.user.service;
 
 import com.duing.domain.user.exception.PhoneVerificationException;
+import com.duing.global.ratelimit.ClientIpKeys;
 import com.duing.global.ratelimit.RateLimitMaps;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -95,7 +96,8 @@ public class PhoneVerificationRateLimiter {
 
     /** 발급 IP 윈도우(분 60/시 600)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordIssueIpRequest(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(issueTimesByIp, clientIp, now, ISSUE_PER_MINUTE_LIMIT, ISSUE_PER_HOUR_LIMIT);
+        assertAndRecordWithin(issueTimesByIp, ClientIpKeys.normalize(clientIp), now,
+                ISSUE_PER_MINUTE_LIMIT, ISSUE_PER_HOUR_LIMIT);
     }
 
     /**
@@ -103,7 +105,7 @@ public class PhoneVerificationRateLimiter {
      * 토큰의 스팸을 세는 창이 이것뿐이기 때문이다(토큰 창은 404 이후라 설치되지 않는다). 초과 시 429.
      */
     public void assertAndRecordStatusIpRequest(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(statusTimesByIp, clientIp, now,
+        assertAndRecordWithin(statusTimesByIp, ClientIpKeys.normalize(clientIp), now,
                 STATUS_IP_PER_MINUTE_LIMIT, STATUS_IP_PER_HOUR_LIMIT);
     }
 
@@ -139,7 +141,7 @@ public class PhoneVerificationRateLimiter {
      */
     public void assertIssueIpWithinLimit(String clientIp, LocalDateTime now) {
         boolean[] limitExceeded = {false};
-        issueTimesByIp.compute(clientIp, (key, issueTimes) -> {
+        issueTimesByIp.compute(ClientIpKeys.normalize(clientIp), (key, issueTimes) -> {
             if (issueTimes == null) {
                 return null;
             }
@@ -193,7 +195,7 @@ public class PhoneVerificationRateLimiter {
     }
 
     private static String phoneIpKey(String phone, String clientIp) {
-        return clientIp + "|" + phone;
+        return ClientIpKeys.normalize(clientIp) + "|" + phone;
     }
 
     /**
