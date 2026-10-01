@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  * NAT·CGNAT 에서 시간당 60명이 실효 가입 상한이다. 한도 조정은 별건으로 다룬다. 각 창은 독립이며 <b>허용된 요청만</b> 기록한다
  * (거절 미기록 — 메모리 고갈 방지).
  *
- * <p>재시작 시 리셋은 수용한다. 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}).
+ * <p>재시작 시 리셋은 수용한다. 기록 맵은 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료된다({@link RateLimitMaps}).
  * 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
@@ -37,7 +37,7 @@ public class JoinCodeRateLimiter {
     static final int REQUEST_CREATION_PER_MINUTE_LIMIT = 10;
     static final int REQUEST_CREATION_PER_HOUR_LIMIT = 60;
 
-    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 두 맵 모두 시간 창이다. 창을 바꾸면 함께 바꾼다.
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 두 맵의 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
     private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
 
     private final ConcurrentMap<String, Deque<LocalDateTime>> checkTimesByIp =
@@ -64,7 +64,7 @@ public class JoinCodeRateLimiter {
     private void assertAndRecordWithin(ConcurrentMap<String, Deque<LocalDateTime>> timesByKey,
                                        String windowKey, LocalDateTime now,
                                        int perMinuteLimit, int perHourLimit) {
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         timesByKey.compute(windowKey, (key, requestTimes) -> {
             Deque<LocalDateTime> windowTimes = requestTimes == null ? new ArrayDeque<>() : requestTimes;

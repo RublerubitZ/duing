@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 public final class ClientIpKeys {
 
     private static final Pattern IPV6_LITERAL_CHARS = Pattern.compile("[0-9A-Fa-f:.]+");
+    // ponytail: /64 단위 — /48·/56 보유자는 /64 수만큼 창을 얻는다. 문제가 되면 /56·/48 상위 창 또는 Cloudflare 엣지 레이트리밋으로
     private static final int PREFIX_BYTES = 8;
 
     private ClientIpKeys() {

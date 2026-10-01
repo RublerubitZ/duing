@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component;
  * 검증 통과 직전에 시도를 기록한다.
  *
  * <p>{@link com.duing.domain.user.service.PhoneVerificationRateLimiter} 의 IP 윈도우와 동일한 전략.
- * 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}). 재시작 시 카운터 리셋은 수용하며,
- * 멀티 인스턴스(Redis) 대응은 백로그다.
+ * 기록 맵은 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료된다({@link RateLimitMaps}).
+ * 재시작 시 카운터 리셋은 수용하며, 멀티 인스턴스(Redis) 대응은 백로그다.
  */
 @Component
 public class FileUploadRateLimiter {
@@ -26,7 +26,7 @@ public class FileUploadRateLimiter {
     static final int PER_MINUTE_LIMIT = 30;
     static final int PER_HOUR_LIMIT = 200;
 
-    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
     private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
 
     private final ConcurrentMap<Long, Deque<LocalDateTime>> uploadTimesByUser =
@@ -40,7 +40,7 @@ public class FileUploadRateLimiter {
         if (userId == null) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         uploadTimesByUser.compute(userId, (id, uploadTimes) -> {
             Deque<LocalDateTime> windowTimes = uploadTimes == null ? new ArrayDeque<>() : uploadTimes;

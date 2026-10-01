@@ -46,8 +46,8 @@ import org.springframework.stereotype.Component;
  * IP 를 섞으면 정당 소유자의 창은 남고, 단일 IP 의 남용만 캡된다(분산 공격은 일일 벤더 쿼터가 백스톱).
  * 각 창은 독립이며 <b>허용된 요청만</b> 기록한다 (거절 미기록 — 메모리 고갈 방지).
  *
- * <p>재시작 시 리셋은 수용한다. 기록 맵 다섯 개는 마지막 기록 1시간 뒤 키째 만료되고 키 수에도 상한이
- * 있다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다 (spec §11.1). 토큰 창은
+ * <p>재시작 시 리셋은 수용한다. 기록 맵 다섯 개는 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료되고
+ * 키 수에도 상한이 있다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다 (spec §11.1). 토큰 창은
  * 실재하는 세션에만 설치되지만 그 수는 "가입 건수" 가 아니라 <b>발급되어 한 번이라도 폴링된 토큰 수</b>다
  * — 발급이 permitAll 이고 매번 새 UUID 라 남용 시에도 자란다(엔트리당 수백 바이트~1KB — 키·deque 만
  * 300바이트 남짓이고 창 안 타임스탬프가 {@code LocalDateTime} 하나당 ≈ 72바이트씩 더 붙는다). 그 크기는
@@ -80,7 +80,7 @@ public class PhoneVerificationRateLimiter {
     static final int RESET_START_PER_HOUR_LIMIT = 3;
     static final int ISSUE_PER_PHONE_HOUR_LIMIT = 5;
 
-    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 다섯 맵 모두 시간 창이다. 창을 바꾸면 함께 바꾼다.
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 다섯 맵의 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
     private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
 
     private final ConcurrentMap<String, Deque<LocalDateTime>> issueTimesByIp =
@@ -145,7 +145,7 @@ public class PhoneVerificationRateLimiter {
             if (issueTimes == null) {
                 return null;
             }
-            LocalDateTime hourAgo = now.minusHours(1);
+            LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
             LocalDateTime minuteAgo = now.minusMinutes(1);
             while (!issueTimes.isEmpty() && !issueTimes.peekFirst().isAfter(hourAgo)) {
                 issueTimes.pollFirst();
@@ -173,7 +173,7 @@ public class PhoneVerificationRateLimiter {
             if (issueTimes == null) {
                 return null;
             }
-            LocalDateTime hourAgo = now.minusHours(1);
+            LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
             while (!issueTimes.isEmpty() && !issueTimes.peekFirst().isAfter(hourAgo)) {
                 issueTimes.pollFirst();
             }
@@ -206,7 +206,7 @@ public class PhoneVerificationRateLimiter {
      */
     private void assertAndRecordWithin(ConcurrentMap<String, Deque<LocalDateTime>> timesByKey,
                                        String windowKey, LocalDateTime now, int perMinuteLimit, int perHourLimit) {
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         timesByKey.compute(windowKey, (key, requestTimes) -> {
             Deque<LocalDateTime> windowTimes = requestTimes == null ? new ArrayDeque<>() : requestTimes;

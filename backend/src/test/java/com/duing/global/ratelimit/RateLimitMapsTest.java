@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 class RateLimitMapsTest {
 
     private static final Duration TTL = Duration.ofHours(1);
+    private static final Duration EXPIRY = TTL.plus(RateLimitMaps.EXPIRY_MARGIN);
     private static final String CLIENT_IP = "203.0.113.7";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 1, 12, 0);
 
@@ -24,15 +25,18 @@ class RateLimitMapsTest {
     private final AtomicLong elapsedNanos = new AtomicLong();
 
     @Test
-    @DisplayName("마지막 기록 뒤 창 길이가 지나면 키가 만료돼 맵이 빈다")
-    void keysExpireOnceTtlElapsesAfterLastRecord() {
+    @DisplayName("키는 마지막 기록 뒤 창 길이와 여유가 다 지나기 직전까지 남고, 지나면 만료돼 맵이 빈다")
+    void keysExpireOnlyAfterTtlPlusMargin() {
         Cache<String, Deque<LocalDateTime>> cache = RateLimitMaps.expiringCache(TTL, elapsedNanos::get);
         recordRequest(cache, CLIENT_IP);
         recordRequest(cache, "198.51.100.9");
 
-        elapsedNanos.addAndGet(TTL.plusNanos(1).toNanos());
+        elapsedNanos.set(EXPIRY.minusNanos(1).toNanos());
         cache.cleanUp();
+        assertThat(cache.asMap()).hasSize(2);
 
+        elapsedNanos.set(EXPIRY.plusNanos(1).toNanos());
+        cache.cleanUp();
         assertThat(cache.asMap()).isEmpty();
     }
 
@@ -44,12 +48,27 @@ class RateLimitMapsTest {
         elapsedNanos.addAndGet(TTL.minusMinutes(1).toNanos());
         recordRequest(cache, CLIENT_IP);
 
-        // 첫 기록으로부터는 ttl 이 지났지만 마지막 기록으로부터는 2분뿐이다.
-        elapsedNanos.addAndGet(Duration.ofMinutes(2).toNanos());
+        // 첫 기록으로부터는 만료 시점(ttl + 여유)이 지났지만 마지막 기록으로부터는 여유 + 2분뿐이다.
+        elapsedNanos.addAndGet(RateLimitMaps.EXPIRY_MARGIN.plusMinutes(2).toNanos());
         cache.cleanUp();
 
         assertThat(cache.asMap()).containsKey(CLIENT_IP);
         assertThat(cache.asMap().get(CLIENT_IP)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("직전 기록 1초 안에 다시 기록해도 키는 마지막 기록 뒤 창 길이가 지날 때까지 남는다")
+    void keySurvivesTtlAfterLastRecordEvenWithinWriteTolerance() {
+        Cache<String, Deque<LocalDateTime>> cache = RateLimitMaps.expiringCache(TTL, elapsedNanos::get);
+        recordRequest(cache, CLIENT_IP);
+        // Caffeine 은 직전 쓰기 1초 안의 재기록엔 쓰기 시각을 갱신하지 않는다 — 만료는 첫 기록 기준으로 남는다.
+        elapsedNanos.addAndGet(Duration.ofMillis(500).toNanos());
+        recordRequest(cache, CLIENT_IP);
+
+        elapsedNanos.addAndGet(TTL.toNanos());
+        cache.cleanUp();
+
+        assertThat(cache.asMap()).containsKey(CLIENT_IP);
     }
 
     @Test

@@ -31,7 +31,8 @@ import org.springframework.util.StringUtils;
  * 학생이 집단 차단되는 자해가 된다({@code LoginAttemptRateLimiter} 가 문서화한 사고와 같은 형태).
  *
  * <p>각 창은 <b>허용된 요청만</b> 기록한다(거절 미기록 — 메모리 고갈 방지). 재시작 시 리셋은 수용한다.
- * 기록 맵은 마지막 기록 1시간 뒤 키째 만료된다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
+ * 기록 맵은 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료된다({@link RateLimitMaps}).
+ * 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
 public class FederationFaqFeedbackRateLimiter {
@@ -39,7 +40,7 @@ public class FederationFaqFeedbackRateLimiter {
     static final int PER_MINUTE_LIMIT = 30;
     static final int PER_HOUR_LIMIT = 200;
 
-    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
     private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
 
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
@@ -53,7 +54,7 @@ public class FederationFaqFeedbackRateLimiter {
      * 경계는 exclusive(정각은 창 밖)이고, compute 콜백이라 검사+기록이 키 단위로 원자적이다.
      */
     public void assertAndRecordAnonymousFeedback(String clientIp, LocalDateTime now) {
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         String windowKey = StringUtils.hasText(clientIp) ? ClientIpKeys.normalize(clientIp) : UNKNOWN_CLIENT_IP;
         feedbackTimesByIp.compute(windowKey, (key, submissionTimes) -> {

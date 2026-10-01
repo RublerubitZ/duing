@@ -45,7 +45,7 @@ public class LoginAttemptRateLimiter {
     static final int PER_MINUTE_LIMIT = 10;
     static final int PER_HOUR_LIMIT = 100;
 
-    // 판정에 쓰는 가장 긴 창 = 기록 맵 ttl(근거는 RateLimitMaps). 창을 바꾸면 함께 바꾼다.
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
     private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
 
     private final ConcurrentMap<String, Deque<LocalDateTime>> failureTimesByIp =
@@ -59,7 +59,7 @@ public class LoginAttemptRateLimiter {
         if (clientIp == null || clientIp.isBlank()) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             if (failureTimes == null) {
@@ -89,7 +89,7 @@ public class LoginAttemptRateLimiter {
         if (clientIp == null || clientIp.isBlank()) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             Deque<LocalDateTime> window = failureTimes == null ? new ArrayDeque<>() : failureTimes;
