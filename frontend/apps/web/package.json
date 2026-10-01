@@ -40,7 +40,7 @@
     "framer-motion": "^12.43.0",
     "import-in-the-middle": "^3.5.1",
     "ky": "^1.7.2",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.48.0",
     "marked": "^18.0.14",
     "next": "^16.3.6",
     "next-view-transitions": "^0.3.5",
