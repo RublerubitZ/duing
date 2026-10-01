@@ -19,10 +19,13 @@ import com.duing.domain.fee.repository.MatchCandidate;
 import com.duing.domain.fee.repository.MatchedBillInfo;
 import com.duing.domain.fee.repository.PaymentRepository;
 import com.duing.domain.fee.service.dto.query.BankTransactionView;
+import com.duing.global.web.PageRequestGuard;
+import com.duing.global.web.SortWhitelist;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneralBankTransactionReviewService implements BankTransactionReviewService {
 
     private static final String UNMATCH_REASON = "매칭취소";
+
+    // 검토 큐에서 정렬 가능한 필드. 클라이언트 sort 가 파생 쿼리의 ORDER BY 로 그대로 들어가므로, 허용 목록 밖
+    // 속성은 SortWhitelist 가 400 으로 거부한다(응답에 없는 컬럼 정렬·오류 쿼리 차단).
+    private static final Set<String> ALLOWED_BANK_TRANSACTION_SORT = Set.of("transactionAt");
 
     private final BankTransactionRepository bankTransactionRepository;
     private final FeeBillRepository feeBillRepository;
@@ -59,6 +66,8 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
     @Override
     public Page<BankTransactionView> list(Long clubId, Long actorId, MatchStatus status, Pageable pageable) {
         clubAuthService.requireManager(actorId, clubId);
+        SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_BANK_TRANSACTION_SORT);
+        PageRequestGuard.assertOffsetWithinInt(pageable);
         Page<BankTransaction> page =
                 bankTransactionRepository.findByClubIdAndMatchStatusOrderByTransactionAtDesc(clubId, status, pageable);
 
