@@ -3,6 +3,8 @@ package com.duing.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,42 +17,57 @@ import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.FileSystemResource;
 
 /**
- * 운영 프로파일 설정 가드(#1324) — 운영에서 꺼져 있어야 하는 설정이 base 변경이나 prod yml 정리로 조용히 켜지지 않게 한다.
+ * 운영 프로파일 설정 가드(#1324) — 운영에서 꺼져 있어야 하는 설정이 yml 정리로 조용히 켜지지 않게 한다.
  *
  * <p>yml 은 소스 트리에서 직접 읽는다: 테스트 클래스패스의 application.yml 은 src/test/resources 사본이 섀도잉하므로
- * 통합 테스트로는 운영 설정을 검증할 수 없다(전례: {@link DbServerErrorDetailPolicyTest}). 운영은 SPRING_PROFILES_ACTIVE=prod 라
- * application-prod.yml 이 base application.yml 을 덮으므로, 같은 순서로 쌓아 런타임과 같은 Binder 로 읽는다.
- * 플레이스홀더는 풀지 않으므로 {@code ${…}} 값은 불리언 변환에서 실패한다 — 이 키들은 리터럴로 고정한다.
+ * 통합 테스트로는 운영 설정을 검증할 수 없다(전례: {@link DbServerErrorDetailPolicyTest}). 런타임의 ConfigData 병합
+ * (다중 문서 순서·프로파일 그룹·import)은 재현하지 않으므로 운영 값은 application-prod.yml 단일 문서에 리터럴로 고정한다.
+ * 서버 .env 로 들어오는 환경변수 덮어쓰기(예: SPRINGDOC_API_DOCS_ENABLED)는 이 가드 밖이다.
  */
 class ProdProfileConfigPolicyTest {
 
-    private static final Path BASE_YML = Path.of("src/main/resources/application.yml");
-    private static final Path PROD_YML = Path.of("src/main/resources/application-prod.yml");
+    private static final Path MAIN_RESOURCES = Path.of("src/main/resources");
+    private static final Path PROD_YML = MAIN_RESOURCES.resolve("application-prod.yml");
 
     @Test
-    @DisplayName("운영에서 API 문서(OpenAPI JSON·Swagger UI)는 꺼져 있다 — 키가 없으면 springdoc 기본값(켜짐)으로 본다")
+    @DisplayName("운영 yml 은 API 문서(OpenAPI JSON·Swagger UI)를 정확히 false 로 끈다 — springdoc 은 키가 없거나 off 여도 켠다")
     void prodDisablesApiDocs() throws IOException {
-        Binder prod = prodBinder();
+        List<PropertySource<?>> prodDocuments = load(PROD_YML);
+        assertThat(prodDocuments).as("application-prod.yml 이 다중 문서(---)가 되면 병합 순서를 재현하도록 이 가드부터 고친다")
+                .hasSize(1);
+        Binder prod = new Binder(ConfigurationPropertySources.from(prodDocuments));
 
         // SecurityConfig 가 /v3/api-docs/**·/swagger-ui/** 를 permitAll 로 열어 두므로, 켜지면 전체 API 스키마가 인증 없이 공개된다.
-        assertThat(prod.bind("springdoc.api-docs.enabled", Boolean.class).orElse(true))
-                .as("springdoc.api-docs.enabled").isFalse();
-        assertThat(prod.bind("springdoc.swagger-ui.enabled", Boolean.class).orElse(true))
-                .as("springdoc.swagger-ui.enabled").isFalse();
+        // springdoc 의 @ConditionalOnProperty(matchIfMissing = true) 는 값이 정확히 "false" 일 때만 끈다.
+        assertThat(prod.bind("springdoc.api-docs.enabled", String.class).orElse(null))
+                .as("springdoc.api-docs.enabled").isEqualToIgnoringCase("false");
+        assertThat(prod.bind("springdoc.swagger-ui.enabled", String.class).orElse(null))
+                .as("springdoc.swagger-ui.enabled").isEqualToIgnoringCase("false");
     }
 
     @Test
-    @DisplayName("운영에서 Flyway baseline-on-migrate 는 켜지지 않는다 — 이력 테이블이 없으면 baseline 을 찍지 말고 멈춰야 한다")
-    void prodDoesNotBaselineOnMigrate() throws IOException {
-        assertThat(prodBinder().bind("spring.flyway.baseline-on-migrate", Boolean.class).orElse(false))
-                .as("spring.flyway.baseline-on-migrate").isFalse();
+    @DisplayName("어느 설정 yml 도 Flyway baseline-on-migrate 를 켜지 않는다 — 이력 테이블이 없으면 baseline 을 찍지 말고 멈춰야 한다")
+    void noConfigEnablesBaselineOnMigrate() throws IOException {
+        List<Path> configYmls = configYmls();
+        assertThat(configYmls).as("설정 yml 을 못 찾았다 — 경로 확인")
+                .contains(MAIN_RESOURCES.resolve("application.yml"), PROD_YML);
+
+        // 파일·문서마다 따로 본다 — 어느 프로파일(local 포함)이나 어느 문서에서든 켜면 실패한다.
+        for (Path configYml : configYmls) {
+            for (PropertySource<?> document : load(configYml)) {
+                assertThat(new Binder(ConfigurationPropertySources.from(document))
+                        .bind("spring.flyway.baseline-on-migrate", Boolean.class).orElse(false))
+                        .as("%s 의 spring.flyway.baseline-on-migrate", configYml).isFalse();
+            }
+        }
     }
 
-    /** prod 문서를 앞에 둬 base 보다 우선하게 쌓는다 — 런타임의 프로파일 yml 우선순위와 같다. */
-    private Binder prodBinder() throws IOException {
-        List<PropertySource<?>> ymlDocuments = new ArrayList<>(load(PROD_YML));
-        ymlDocuments.addAll(load(BASE_YML));
-        return new Binder(ConfigurationPropertySources.from(ymlDocuments));
+    private List<Path> configYmls() throws IOException {
+        List<Path> configYmls = new ArrayList<>();
+        try (DirectoryStream<Path> matchedFiles = Files.newDirectoryStream(MAIN_RESOURCES, "application*.yml")) {
+            matchedFiles.forEach(configYmls::add);
+        }
+        return configYmls;
     }
 
     private List<PropertySource<?>> load(Path ymlPath) throws IOException {
