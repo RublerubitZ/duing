@@ -11,6 +11,9 @@ import org.springframework.data.domain.Sort;
  * 않거나 의도치 않은 속성이 지정되면 Spring Data/Hibernate 가 예외를 던진다. 허용 목록으로 미리 걸러
  * 허용되지 않은 속성은 {@link InvalidSortException}(400)으로 명확히 거부하고, 쿼리에는 안전한 정렬만
  * 도달하게 한다. (공개 목록 API 는 서버 고정 정렬만 쓰므로 이 검증이 필요 없다.)
+ *
+ * <p>대소문자 무시 정렬({@code sort=속성,ignorecase})도 거부한다 — JPQL {@code @Query} 정렬은 속성 타입과 무관하게
+ * {@code lower(...)} 로 감싸져, 문자열이 아닌 속성(createdAt 등)이면 Hibernate 가 거부해 500 이 난다(#1322).
  */
 public final class SortWhitelist {
 
@@ -19,7 +22,7 @@ public final class SortWhitelist {
 
     public static void assertAllowed(Sort sort, Set<String> allowedProperties) {
         for (Sort.Order order : sort) {
-            if (!allowedProperties.contains(order.getProperty())) {
+            if (!allowedProperties.contains(order.getProperty()) || order.isIgnoreCase()) {
                 throw new InvalidSortException(order.getProperty());
             }
         }
