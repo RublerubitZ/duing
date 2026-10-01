@@ -22,6 +22,8 @@ import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSumma
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.web.PageRequestGuard;
+import com.duing.global.web.SortWhitelist;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
+
+    // 클라이언트 sort 는 파생 쿼리의 ORDER BY 에 덧붙으므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다
+    // (응답에 없는 컬럼 정렬·오류 쿼리 차단). 고정 정렬(OrderByCreatedAtDesc)이 앞에 오므로 createdAt 을 보내도
+    // 순서는 바뀌지 않는다 — 허용 값은 기존 클라이언트 호환용으로만 남긴다.
+    private static final Set<String> ALLOWED_MEMBER_HISTORY_SORT = Set.of("createdAt");
 
     private final LeaderSuccessionRequestRepository requestRepository;
     private final ClubMemberRepository clubMemberRepository;
@@ -231,6 +238,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         if (!clubRepository.existsById(clubId)) {
             throw new ClubException.ClubNotFoundException();
         }
+        SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_MEMBER_HISTORY_SORT);
+        PageRequestGuard.assertOffsetWithinInt(pageable);
 
         Page<ClubMemberHistory> page =
                 historyRepository.findByClubIdOrderByCreatedAtDesc(clubId, pageable);

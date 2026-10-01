@@ -19,6 +19,7 @@ import com.duing.domain.federation.service.dto.query.FaqFeedbackCount;
 import com.duing.domain.federation.service.dto.query.FederationFaqAdminSearchCondition;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.web.PageRequestGuard;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -254,6 +255,7 @@ public class GeneralFederationFaqService implements FederationFaqService {
 
     @Override
     public Page<FederationFaqSearchMiss> getSearchMisses(Pageable pageable) {
+        PageRequestGuard.assertOffsetWithinInt(pageable);
         // 클라이언트가 보낸 sort는 무시하고 정렬을 서버가 고정한다 — 갭 신호의 우선순위는 검색 횟수(miss_count)이고,
         // admin 화면 계약을 단순화하기 위해 정렬 파라미터 자체를 지원하지 않는다(YAGNI).
         Pageable fixedSortPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
