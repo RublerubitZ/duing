@@ -33,6 +33,13 @@ spring:
       # 받아 한국어 413 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
       max-file-size: 10MB
       max-request-size: 10MB
+  datasource:
+    hikari:
+      data-source-properties:
+        # pgjdbc 는 기본으로 서버 오류 Detail 을 예외 메시지에 붙인다. 제약 위반이면 키·행 값(전화번호·학번 등)이
+        # Hibernate ERROR 로그를 거쳐 Sentry 로 나가므로 끈다(#1317). 제약명은 메시지 본문에 남아 409 매핑은 그대로다.
+        # 테스트 application.yml 에 같은 값이 있다 — 함께 바꾼다.
+        logServerErrorDetail: false
   jpa:
     open-in-view: false
     hibernate:
