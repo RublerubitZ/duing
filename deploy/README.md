@@ -34,7 +34,7 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 `.env` 핵심값:
 - `CORS_ALLOWED_ORIGINS=https://duings.com,https://www.duings.com`
 - `JWT_SECRET=...`(Access Token 서명용, 최소 32바이트)
-- `JWT_EXPIRY_MS=3600000`(Access JWT/Cookie/auth_hint의 고정 1시간 계약, 다른 값은 기동 실패)
+- `JWT_EXPIRY_MS` 는 넣지 않는다 — Access JWT 수명은 코드가 30분(1800000)으로 고정 검증하고 다른 값이면 기동이 실패한다. 남아 있으면 지운다(같은 값이라도 고정값이 다른 이미지로 롤백하면 부팅이 깨진다)
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
 - `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(운영에서 누락하거나 다른 값을 쓰면 기동 실패)
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)
@@ -44,7 +44,9 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SECRET`은 백엔드 전용이므로 Vercel에
 등록하거나 프론트 빌드 환경에 노출하면 안 된다. 실제 Access Token은 백엔드가
 `__Host-duing_access_token` host-only Cookie로 발급하며 Domain을 지정하지 않고
-`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600`을 적용한다. `.duings.com` Domain을 사용하는
+`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=1800`을 적용한다(Refresh Token Cookie
+`__Secure-duing_refresh_token`은 `Path=/api/v1/auth`, 30일 — 로그인 상태 유지를 끄면 둘 다
+세션 Cookie). `.duings.com` Domain을 사용하는
 `auth_hint`는 Next.js Middleware의 로그인·역할별 리다이렉트 UX 전용이며 API 인증·권한 자료가 아니다.
 
 ## 웹 인증 지원 환경
@@ -59,11 +61,13 @@ Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SEC
 - 일반 `*.vercel.app` Preview: 인증 미지원. 인증 검증이 필요하면 `preview.duings.com`처럼 API와
   동일 사이트인 커스텀 도메인을 연결한다.
 
-현재 웹 인증에는 Refresh Token이나 디바이스별 세션이 없다. 로그아웃은 사용자 단위 `token_version`을
-증가시키므로 웹 또는 모바일 한 곳에서 로그아웃하면 기존 웹 Cookie와 모든 모바일 Bearer Token이 함께
-무효화된다.
+웹 인증은 디바이스별 세션과 Refresh Token(30일, 갱신마다 연장)을 쓴다. 로그아웃은 현재 기기의 세션만
+끊고, 모든 기기 로그아웃(`DELETE /api/v1/users/me/sessions`)은 `token_version`을 올려 모든 Access Token을
+즉시 무효화한다.
 
 ## 웹 인증 배포 순서
+
+> 2026-07 웹 Cookie 전환 때의 1회성 절차다(당시 Access Token 수명은 1시간이었다).
 
 1. 백엔드를 먼저 배포한다. 새 백엔드는 기존 모바일·이전 웹의 Bearer 인증과 새 웹 Cookie 인증을 함께
    지원한다.
