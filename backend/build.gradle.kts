@@ -15,6 +15,8 @@ extra["jackson-bom.version"] = "2.21.7"    // BOM 2.21.4: CVE-2026-68497·91776�
 extra["postgresql.version"] = "42.7.13"    // BOM 42.7.11: CVE-2026-54291(HIGH)
 extra["commons-lang3.version"] = "3.18.0"  // BOM 3.17.0: CVE-2025-48924(MODERATE, Dependabot 알림 #2). springdoc 전이
 extra["log4j2.version"] = "2.25.5"         // BOM 2.24.3: CVE-2026-49844(MODERATE, Dependabot 알림 #3). log4j-to-slf4j 전이
+extra["httpclient5.version"] = "5.6.4"     // BOM 5.5.2: GHSA-hjcp-jmpx-g3qm(CVE-2026-64607). AWS SDK 2.55 apache5-client 전이
+extra["httpcore5.version"] = "5.4.3"       // BOM 5.3.6: GHSA-hf6x-8p5f-cgmf·GHSA-v3jc-474w-2wm6(h2). httpclient5 전이
 
 java {
     toolchain {
@@ -58,7 +60,7 @@ dependencies {
     }
 
     // JWT
-    implementation("com.auth0:java-jwt:4.4.0")
+    implementation("com.auth0:java-jwt:4.6.1")
 
     // spring-retry — SchoolFacilityClient 룸 단위 재시도(@Retryable, 총 4회 / 0.5·1·2초 / 5xx·네트워크·타임아웃만).
     // @Retryable 은 AOP 프록시로 동작하므로 spring-boot-starter-aop 가 필요하다. 버전은 Spring Boot BOM 이 관리한다.
@@ -74,7 +76,7 @@ dependencies {
     // 되돌린다(운영은 서버 .env 에 JAVA_TOOL_OPTIONS=-Djsoup.useHttpClient=false 를 넣고 백엔드만 재기동, 재빌드 불필요).
     implementation("org.jsoup:jsoup:1.23.2")
 
-    // 파일 스토리지 — 동기 S3Client(apache-client)만 쓰므로 비동기 전용 netty-nio-client(netty 일체)를 뺀다.
+    // 파일 스토리지 — 동기 S3Client(기본 HTTP 클라이언트는 apache5-client)만 쓰므로 비동기 전용 netty-nio-client(netty 일체)를 뺀다.
     // S3AsyncClient 가 필요해지면 exclude 를 지우고 netty 버전을 관리할 것.
     implementation("software.amazon.awssdk:s3") {
         exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
@@ -84,7 +86,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
 
     // Sentry — 에러 모니터링 (SENTRY_DSN 없으면 자동 비활성). logback ERROR 레벨을 이벤트로 전송.
-    implementation(platform("io.sentry:sentry-bom:8.43.0"))
+    implementation(platform("io.sentry:sentry-bom:8.58.0"))
     implementation("io.sentry:sentry-spring-boot-starter-jakarta")
     implementation("io.sentry:sentry-logback")
 
@@ -101,8 +103,8 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.rest-assured:rest-assured")
-    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.7")
-    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.1.7")
+    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-starter:1.2.3")
+    testImplementation("com.navercorp.fixturemonkey:fixture-monkey-jakarta-validation:1.2.3")
 
     // MinIO Testcontainer — 파일 스토리지 통합 테스트용
     testImplementation("org.testcontainers:minio")
@@ -113,7 +115,7 @@ dependencies {
 // AWS SDK BOM. Testcontainers 는 Boot 3.5.16 BOM 이 1.21.4 를 관리한다(1.21.4 미만은 Docker 29 에서 컨테이너 기동 실패).
 dependencyManagement {
     imports {
-        mavenBom("software.amazon.awssdk:bom:2.34.0")
+        mavenBom("software.amazon.awssdk:bom:2.55.4")
     }
 }
 

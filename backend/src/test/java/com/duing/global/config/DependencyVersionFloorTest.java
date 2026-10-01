@@ -37,6 +37,13 @@ class DependencyVersionFloorTest {
         String pgjdbcVersion = (String) Class.forName("org.postgresql.util.DriverInfo")
                 .getField("DRIVER_VERSION")
                 .get(null);
+        // httpclient5·httpcore5 는 AWS SDK apache5-client 의 런타임 전이라 테스트 컴파일 클래스패스에 없다.
+        String httpClient5Version = Class.forName("org.apache.hc.client5.http.impl.classic.HttpClients")
+                .getPackage()
+                .getImplementationVersion();
+        String httpCore5Version = Class.forName("org.apache.hc.core5.http.HttpVersion")
+                .getPackage()
+                .getImplementationVersion();
         return Stream.of(
                 Arguments.of("commons-lang3", "3.18.0", "StringUtils 패키지 Implementation-Version",
                         StringUtils.class.getPackage().getImplementationVersion()),
@@ -46,7 +53,11 @@ class DependencyVersionFloorTest {
                         ServerInfo.getServerNumber()),
                 Arguments.of("Jackson", "2.21.7", "jackson-databind PackageVersion.VERSION",
                         PackageVersion.VERSION.toString()),
-                Arguments.of("pgjdbc", "42.7.13", "DriverInfo.DRIVER_VERSION", pgjdbcVersion));
+                Arguments.of("pgjdbc", "42.7.13", "DriverInfo.DRIVER_VERSION", pgjdbcVersion),
+                Arguments.of("httpclient5", "5.6.4", "HttpClients 패키지 Implementation-Version",
+                        httpClient5Version),
+                Arguments.of("httpcore5", "5.4.3", "HttpVersion 패키지 Implementation-Version",
+                        httpCore5Version));
     }
 
     @ParameterizedTest(name = "{0} {1} 이상이 로드된다")
