@@ -18,8 +18,15 @@ import org.junit.jupiter.params.provider.MethodSource;
  * 반영됐는지 각 라이브러리가 스스로 밝히는 버전으로 확인한다.
  *
  * <p>오버라이드 줄이 지워지거나, Boot 를 올리면서 BOM 관리 버전이 하한 아래로 내려가면 막아 둔 알려진 취약점이
- * 조용히 되살아난다. 이 테스트가 그 회귀를 잡는다. Boot 상향으로 BOM 관리 버전이 하한 이상이 되면
- * build.gradle.kts 의 오버라이드 줄과 함께 여기 행도 정리한다.
+ * 조용히 되살아난다. 이 테스트가 그 회귀를 잡는다.
+ *
+ * <p>하한은 숫자만 비교하므로 같은 릴리스 라인(10.1.x·2.21.x 처럼) 안에서만 의미가 있다. 수정판의 패치 번호는
+ * 라인마다 달라서, 라인이 바뀌면(예: Boot 4 의 Tomcat 11) 숫자로는 하한보다 높지만 수정이 빠진 버전도 통과한다.
+ * <ul>
+ *   <li>같은 라인에서 BOM 관리 버전이 하한 이상이 되면 build.gradle.kts 의 오버라이드 줄과 여기 행을 함께 지운다.</li>
+ *   <li>라인이 바뀌면 새 버전에 수정이 들어 있는지 OSV 에서 먼저 확인한다. 들어 있으면 둘 다 지우고, 빠져 있으면
+ *       새 라인의 수정판으로 오버라이드와 이 행의 하한을 함께 올린다.</li>
+ * </ul>
  *
  * <p>jar 의 버전 정보만 읽으므로 Spring 컨텍스트·Testcontainers 없이 순수 JUnit 으로 돈다.
  */
@@ -53,8 +60,14 @@ class DependencyVersionFloorTest {
                 .isGreaterThanOrEqualTo(0);
     }
 
-    /** "10.1.60.0" 같은 점 구분 숫자 버전을 세그먼트 배열로 바꾼다. 비교는 Arrays.compare 의 사전순이다. */
+    /**
+     * "10.1.60.0"·"2.21.7-1" 같은 버전에서 숫자 묶음만 뽑는다. "-SNAPSHOT" 같은 한정어 문자는 버린다.
+     * 비교는 Arrays.compare 의 사전순이다.
+     */
     private static int[] numericSegments(String version) {
-        return Arrays.stream(version.split("\\.")).mapToInt(Integer::parseInt).toArray();
+        return Arrays.stream(version.split("\\D+"))
+                .filter(segment -> !segment.isEmpty())
+                .mapToInt(Integer::parseInt)
+                .toArray();
     }
 }
