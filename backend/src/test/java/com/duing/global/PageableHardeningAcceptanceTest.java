@@ -32,7 +32,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * 페이지네이션 하드닝 검증 — (1) 공개 목록 API 의 size 가 전역 상한(100)으로 클램프되는지,
- * (2) 정렬(sort) 파라미터가 존재하지 않는 속성이면 500 이 아니라 400 으로 응답하는지,
+ * (2) 정렬(sort) 파라미터가 존재하지 않는 속성이거나 대소문자 무시(ignorecase)면 500 이 아니라 400 으로 응답하는지,
  * (3) 오프셋(page × size)이 int 범위를 넘는 page 가 500 이 아니라 400 으로 응답하는지.
  */
 @Import(TestcontainersConfiguration.class)
@@ -123,6 +123,20 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value());
     }
 
+    @ParameterizedTest(name = "sort={0} 은 400")
+    @ValueSource(strings = {"createdAt,ignorecase", "name,desc,ignorecase"})
+    @DisplayName("관리자 회원 검색은 대소문자 무시 정렬(ignorecase)을 500 이 아니라 고정 문구의 400 으로 거부한다")
+    void adminUserSearchRejectsIgnoreCaseSort(String sort) {
+        // JPQL @Query 정렬은 속성 타입과 무관하게 lower(...) 로 감싸져 createdAt 이면 Hibernate 가 거부해 500 이 났다.
+        // name 은 lower(u.name) 가 통하지만 정책을 하나로 두려고 함께 거부한다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .queryParam("sort", sort)
+                .when().get("/api/v1/admin/users")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("지원하지 않는 정렬 조건입니다."));
+    }
+
     @Test
     @DisplayName("클라이언트 sort 를 받는 실제 쿼리 엔드포인트도, 존재하지 않는 정렬 속성이면 500 이 아니라 400 을 반환한다")
     void realQueryEndpointInvalidSortReturns400() {
@@ -199,15 +213,16 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     }
 
     @ParameterizedTest(name = "sort={0} 은 400")
-    @ValueSource(strings = {"_", "rawPayload", "no_such_field"})
-    @DisplayName("은행 거래 검토 목록은 허용 목록(transactionAt) 밖의 정렬을 형식 오류·응답에 없는 실재 컬럼·없는 속성 모두 400 으로 거부한다")
+    @ValueSource(strings = {"_", "rawPayload", "no_such_field", "transactionAt,ignorecase"})
+    @DisplayName("은행 거래 검토 목록은 허용 목록(transactionAt) 밖의 정렬(형식 오류·응답에 없는 실재 컬럼·없는 속성)과 대소문자 무시 정렬(ignorecase)을 모두 400 으로 거부한다")
     void bankTransactionListRejectsNonWhitelistedSort(String sort) {
         BankTransactionListAccess access = bankTransactionListAccessAsLeader();
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + access.leaderToken())
                 .queryParam("sort", sort)
                 .when().get(access.path())
-                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("지원하지 않는 정렬 조건입니다."));
     }
 
     @Test
@@ -226,14 +241,15 @@ class PageableHardeningAcceptanceTest extends IntegrationTestBase {
     }
 
     @ParameterizedTest(name = "sort={0} 은 400")
-    @ValueSource(strings = {"_", "actorUserId"})
-    @DisplayName("동아리 권한 변경 이력은 허용 목록(createdAt) 밖의 정렬을 형식 오류·허용 밖 실재 컬럼 모두 400 으로 거부한다")
+    @ValueSource(strings = {"_", "actorUserId", "createdAt,ignorecase"})
+    @DisplayName("동아리 권한 변경 이력은 허용 목록(createdAt) 밖의 정렬(형식 오류·허용 밖 실재 컬럼)과 대소문자 무시 정렬(ignorecase)을 모두 400 으로 거부한다")
     void memberHistoryRejectsNonWhitelistedSort(String sort) {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                 .queryParam("sort", sort)
                 .when().get("/api/v1/admin/clubs/" + savedClubId() + "/member-history")
-                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("지원하지 않는 정렬 조건입니다."));
     }
 
     @Test

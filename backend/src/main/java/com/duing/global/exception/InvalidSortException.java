@@ -3,7 +3,7 @@ package com.duing.global.exception;
 import org.springframework.http.HttpStatus;
 
 /**
- * 허용되지 않은 정렬 필드가 요청된 경우(정렬 화이트리스트 위반). 클라이언트 입력 오류이므로 400.
+ * 허용되지 않은 정렬 조건이 요청된 경우(허용 목록 밖 속성·대소문자 무시 정렬). 클라이언트 입력 오류이므로 400.
  * {@link GlobalExceptionHandler#handleApplicationException} 가 상태코드·메시지를 그대로 응답한다.
  *
  * <p>메시지는 고정 문구다 — 요청한 속성값을 실으면 응답 본문과 WARN 로그에 그대로 반사되고, CR/LF 가 섞이면
