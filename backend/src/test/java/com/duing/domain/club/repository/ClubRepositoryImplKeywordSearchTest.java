@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -152,6 +154,16 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         saveActiveClub("이름A", "소개A", List.of("백엔드"));
 
         assertSearch("백__").isEmpty();
+    }
+
+    @ParameterizedTest(name = "태그 {0}")
+    @ValueSource(strings = {"100%", "a_b", "x!y"})
+    @DisplayName("키워드의 %·_·! 는 리터럴이라 그 글자가 든 태그를 찾는다")
+    void keywordWithLikeSpecialCharactersMatchesTagLiterally(String tag) {
+        Long target = saveActiveClub("이름A", "소개A", List.of(tag)).getId();
+        saveActiveClub("이름B", "소개B", List.of("봉사"));
+
+        assertSearch(tag).containsExactly(target);
     }
 
     private org.assertj.core.api.AbstractListAssert<?, java.util.List<? extends Long>, Long,
