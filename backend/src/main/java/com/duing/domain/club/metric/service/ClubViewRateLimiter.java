@@ -1,10 +1,13 @@
 package com.duing.domain.club.metric.service;
 
 import com.duing.domain.club.exception.ClubException;
+import com.duing.global.ratelimit.ClientIpKeys;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -24,7 +27,8 @@ import org.springframework.util.StringUtils;
  *
  * <p>한도는 교내 NAT 를 넉넉히 통과하도록 잡았다 — 한 IP 뒤 40명이 시간당 각 25개 동아리를 열어도
  * 통과한다. 각 창은 <b>허용된 요청만</b> 기록한다(거절 미기록 — 메모리 고갈 방지).
- * 재시작 시 리셋은 수용한다. 만료 IP 엔트리 정리와 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
+ * 재시작 시 리셋은 수용한다. 기록 맵은 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료된다({@link RateLimitMaps}).
+ * 멀티 인스턴스 전환 시 Redis 교체는 백로그다.
  */
 @Component
 public class ClubViewRateLimiter {
@@ -32,19 +36,23 @@ public class ClubViewRateLimiter {
     static final int PER_MINUTE_LIMIT = 100;
     static final int PER_HOUR_LIMIT = 1000;
 
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> viewTimesByIp = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Deque<LocalDateTime>> viewTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * 조회 기록 IP 윈도우(분 100/시 1000)를 검사하고 허용이면 기록한다. 초과 시 429.
      * 경계는 exclusive(정각은 창 밖)이고, compute 콜백이라 검사+기록이 키 단위로 원자적이다.
      */
     public void assertAndRecordView(String clientIp, LocalDateTime now) {
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        String windowKey = StringUtils.hasText(clientIp) ? clientIp : UNKNOWN_CLIENT_IP;
+        String windowKey = StringUtils.hasText(clientIp) ? ClientIpKeys.normalize(clientIp) : UNKNOWN_CLIENT_IP;
         viewTimesByIp.compute(windowKey, (key, viewTimes) -> {
             Deque<LocalDateTime> windowTimes = viewTimes == null ? new ArrayDeque<>() : viewTimes;
             while (!windowTimes.isEmpty() && !windowTimes.peekFirst().isAfter(hourAgo)) {

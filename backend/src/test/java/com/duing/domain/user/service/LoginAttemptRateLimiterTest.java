@@ -71,6 +71,36 @@ class LoginAttemptRateLimiterTest {
     }
 
     @Test
+    @DisplayName("같은 /64 안에서 IPv6 주소를 바꿔 가며 실패해도 한 창으로 세어, 분당 한도를 넘는 실패는 429로 차단된다")
+    void ipv6AddressesInSameSlash64ShareOneWindow() {
+        for (int attempt = 0; attempt < LoginAttemptRateLimiter.PER_MINUTE_LIMIT; attempt++) {
+            // 압축·비압축·대소문자 표기를 섞는다.
+            String rotatedIp = attempt % 2 == 0
+                    ? "2001:db8:abcd:12::" + Integer.toHexString(attempt + 1)
+                    : "2001:0DB8:ABCD:0012:0:0:0:" + Integer.toHexString(attempt + 1).toUpperCase();
+            rateLimiter.recordFailureOrThrow(rotatedIp, NOW);
+        }
+
+        assertThatThrownBy(() -> rateLimiter.recordFailureOrThrow("2001:db8:abcd:12:ffff:ffff:ffff:ffff", NOW))
+                .isInstanceOf(UserException.TooManyLoginAttemptsException.class);
+        assertThatThrownBy(() -> rateLimiter.assertWithinLimit("2001:db8:abcd:12::beef", NOW))
+                .isInstanceOf(UserException.TooManyLoginAttemptsException.class);
+    }
+
+    @Test
+    @DisplayName("한 /64 의 창이 가득 차도 다른 /64 와 IPv4 주소는 각자의 창으로 센다")
+    void otherSlash64AndIpv4AreCountedSeparately() {
+        for (int attempt = 0; attempt < LoginAttemptRateLimiter.PER_MINUTE_LIMIT; attempt++) {
+            rateLimiter.recordFailureOrThrow("2001:db8:abcd:12::" + Integer.toHexString(attempt + 1), NOW);
+        }
+
+        assertThatCode(() -> rateLimiter.recordFailureOrThrow("2001:db8:abcd:13::1", NOW))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> rateLimiter.recordFailureOrThrow(IP, NOW))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("clientIp 가 비어 있으면(획득 불가) 검사·기록 모두 제한을 적용하지 않는다")
     void skipsWhenIpMissing() {
         for (int attempt = 0; attempt < LoginAttemptRateLimiter.PER_MINUTE_LIMIT + 5; attempt++) {

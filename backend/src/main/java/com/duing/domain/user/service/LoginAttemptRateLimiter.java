@@ -1,10 +1,13 @@
 package com.duing.domain.user.service;
 
 import com.duing.domain.user.exception.UserException;
+import com.duing.global.ratelimit.ClientIpKeys;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,7 +45,11 @@ public class LoginAttemptRateLimiter {
     static final int PER_MINUTE_LIMIT = 10;
     static final int PER_HOUR_LIMIT = 100;
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> failureTimesByIp = new ConcurrentHashMap<>();
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<String, Deque<LocalDateTime>> failureTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * IP 의 최근 실패 횟수가 한도(분당·시간당)를 초과했는지 검사한다. 초과 시 429. 기록하지는 않는다.
@@ -52,9 +59,9 @@ public class LoginAttemptRateLimiter {
         if (clientIp == null || clientIp.isBlank()) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        failureTimesByIp.compute(clientIp, (ip, failureTimes) -> {
+        failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             if (failureTimes == null) {
                 return null;
             }
@@ -82,9 +89,9 @@ public class LoginAttemptRateLimiter {
         if (clientIp == null || clientIp.isBlank()) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
-        failureTimesByIp.compute(clientIp, (ip, failureTimes) -> {
+        failureTimesByIp.compute(ClientIpKeys.normalize(clientIp), (ip, failureTimes) -> {
             Deque<LocalDateTime> window = failureTimes == null ? new ArrayDeque<>() : failureTimes;
             pruneOlderThan(window, hourAgo);
             long lastMinuteFailures = window.stream()
