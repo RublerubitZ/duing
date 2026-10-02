@@ -67,8 +67,10 @@ export default async function Page({ params }: Props) {
   const { clubId, content } = await loadClub(rawClubId);
   const page = <ClubDetailPage clubId={Number(rawClubId)} />;
   if (content.status !== 'found' || clubId === null) return page;
+  // 연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML·RSC 페이로드에 박히면 회장이 공개 범위를 줄여도 최대 24시간
+  // 캐시에 남고 원문 HTML 을 읽는 수집기가 번호를 가져간다. 마운트 때 재요청(updatedAt 0)이 뷰어 권한대로 채운다.
   return (
-    <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={content.data}>
+    <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
       {page}
     </SeededQuery>
   );

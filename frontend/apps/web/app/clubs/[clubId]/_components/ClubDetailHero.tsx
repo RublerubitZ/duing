@@ -68,8 +68,9 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
           {club.coverUrl && (
             <>
               {/* Hero 배경 분위기용. priority 를 주지 않는다(모바일 배너도 같다) — 세 가지 이유다.
-                  ① 배경 분위기용(불투명도 50%)이라 첫 화면의 핵심 콘텐츠가 아니다 — 공개 동아리는 서버
-                     렌더로 coverUrl 이 초기 HTML 에 있지만 preload 로 앞당길 이유가 없다.
+                  ① 배경 분위기용(불투명도 50%)이라 지금은 priority 를 두지 않는다 — 공개 동아리는 서버
+                     렌더로 coverUrl 이 초기 HTML 에 있으므로, LCP 요소가 되는지는 배포 뒤
+                     CWV 계측(#1116)으로 확인한다.
                   ② 데스크탑/모바일 커버는 CSS(hidden md:block / md:hidden)로만 갈리고 DOM 에는 둘 다
                      있어서, 한쪽에 priority 를 주면 그 폭에서 안 보이는 쪽까지 대형 변형을 강제로 받는다.
                   ③ 기본 lazy 면 display:none 인 쪽은 교차 자체가 없어 아예 받지 않는다 — 지금 raw <img>

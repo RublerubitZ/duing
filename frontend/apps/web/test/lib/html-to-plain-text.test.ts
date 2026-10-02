@@ -26,6 +26,14 @@ describe('htmlToPlainText', () => {
     expect(htmlToPlainText('<p>&#65;&#x1F600; &unknown;</p>')).toBe('A😀 &unknown;');
   });
 
+  it('이름 참조는 표에 직접 있는 키만 — &constructor; 같은 Object.prototype 키는 원문 그대로 둔다', () => {
+    expect(htmlToPlainText('<p>&constructor; 모집</p>')).toBe('&constructor; 모집');
+  });
+
+  it('숫자 참조가 서로게이트·0·U+10FFFF 초과면 브라우저 HTML 파서처럼 U+FFFD 로 바꾼다', () => {
+    expect(htmlToPlainText('<p>a&#xD800;b&#0;c&#x110000;d</p>')).toBe('a\uFFFDb\uFFFDc\uFFFDd');
+  });
+
   it('< 바로 뒤가 ASCII 글자가 아니면 태그로 보지 않는다 — 레거시 평문 보존', () => {
     expect(htmlToPlainText('<신입부원 모집>\n\n본문')).toBe('<신입부원 모집>\n\n본문');
     expect(htmlToPlainText('3 < 5 이고 7 > 2')).toBe('3 < 5 이고 7 > 2');

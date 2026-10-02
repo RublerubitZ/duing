@@ -55,6 +55,19 @@ describe('동아리 상세 라우트 — 24시간 ISR', () => {
     expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
   });
 
+  it('연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML 에 번호가 24시간 굳지 않게', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({
+      status: 'found',
+      data: club({ contactPhone: '010-1234-5678', contactVisibility: 'PUBLIC' }),
+    });
+    const queryClient = new QueryClient();
+
+    await renderRoute('4', queryClient);
+    const seededClub = queryClient.getQueryData<ClubDetail>(['clubs', 4]);
+    expect(seededClub?.name).toBe('비호상록회');
+    expect(seededClub?.contactPhone).toBeNull();
+  });
+
   // HydrationBoundary 는 기존 키를 렌더 뒤 이펙트에서 덮으므로 렌더 중 탐침만으로는 못 잡는다 — 이펙트 뒤 캐시까지 본다.
   it('캐시에 이미 있는 상세는 덮어쓰지 않는다', async () => {
     fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club({ name: '옛 이름' }) });

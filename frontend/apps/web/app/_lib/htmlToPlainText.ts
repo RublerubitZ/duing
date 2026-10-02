@@ -35,13 +35,21 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
 const MAX_CODE_POINT = 0x10ffff;
 
 // 한 번의 치환 콜백으로 해제한다 — 결과를 다시 훑지 않으므로 `&amp;lt;` 는 `&lt;` 까지만 벗겨진다.
+// 숫자 참조가 0·서로게이트(U+D800–U+DFFF)·U+10FFFF 초과면 브라우저 HTML 파서처럼 U+FFFD 로 바꾼다.
 function decodeEntity(match: string, body: string): string {
   if (body.startsWith('#')) {
     const isHex = body[1] === 'x' || body[1] === 'X';
     const codePoint = Number.parseInt(body.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-    return codePoint >= 0 && codePoint <= MAX_CODE_POINT ? String.fromCodePoint(codePoint) : match;
+    const isSurrogate = codePoint >= 0xd800 && codePoint <= 0xdfff;
+    return codePoint === 0 || codePoint > MAX_CODE_POINT || isSurrogate
+      ? '\uFFFD'
+      : String.fromCodePoint(codePoint);
   }
-  return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+  const key = body.toLowerCase();
+  // 자기 키만 본다 — `&constructor;` 가 Object.prototype 값을 꺼내지 않게. `??` 는 noUncheckedIndexedAccess 타입용.
+  return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key)
+    ? (NAMED_ENTITIES[key] ?? match)
+    : match;
 }
 
 function truncateInput(html: string): string {
