@@ -70,7 +70,7 @@ describe('소식 목록 트리 — 하이드레이션(ISR HTML 회귀)', () => {
     expect(recoverableErrors).toEqual([]);
     expect(hydrationWarnings).toEqual([]);
     expect(unhandledRequests).toEqual([]);
-    // 서버 HTML 에서 뺀 NEW 배지가 하이드레이션 뒤 막 올라온 소식에 붙는다.
-    expect(hydratedHtml).toContain('>NEW<');
+    // 서버 HTML 에서 뺀 NEW 배지가 하이드레이션 뒤 고정 카드·행 목록 두 곳에 붙는다 — 30일 전 소식은 대조군이라 붙지 않는다.
+    expect(hydratedHtml.match(/>NEW</g) ?? []).toHaveLength(2);
   });
 });
