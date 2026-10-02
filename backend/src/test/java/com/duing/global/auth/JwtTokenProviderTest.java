@@ -27,7 +27,6 @@ class JwtTokenProviderTest {
     private JwtTokenProvider providerWithSecret(String secret) {
         JwtTokenProvider provider = new JwtTokenProvider();
         ReflectionTestUtils.setField(provider, "secret", secret);
-        ReflectionTestUtils.setField(provider, "expiryMs", 1_800_000L);
         return provider;
     }
 
@@ -99,16 +98,5 @@ class JwtTokenProviderTest {
         String token = providerWithMultibyteSecret.createToken(2L, "STUDENT");
 
         assertThat(providerWithMultibyteSecret.parse(token).userId()).isEqualTo(2L);
-    }
-
-    @Test
-    @DisplayName("Access JWT 만료가 30분(1,800,000ms)이 아니면 기동 시점에 즉시 실패한다")
-    void rejectsAccessTokenLifetimeOtherThanExactlyThirtyMinutes() {
-        JwtTokenProvider provider = providerWithSecret(SECRET);
-        ReflectionTestUtils.setField(provider, "expiryMs", 1_800_001L);
-
-        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(provider, "init"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("1,800,000");
     }
 }

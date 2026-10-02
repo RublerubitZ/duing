@@ -34,7 +34,7 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 `.env` 핵심값:
 - `CORS_ALLOWED_ORIGINS=https://duings.com,https://www.duings.com`
 - `JWT_SECRET=...`(Access Token 서명용, 최소 32바이트)
-- `JWT_EXPIRY_MS` 는 넣지 않는다 — Access JWT 수명은 코드가 30분(1800000)으로 고정 검증하고 다른 값이면 기동이 실패한다. 남아 있으면 **줄째 지운다**(`JWT_EXPIRY_MS=` 처럼 값만 비워도 기동이 실패하고, 같은 `.env` 를 쓰는 자동 롤백 이미지도 함께 실패한다. 같은 값이라도 고정값이 다른 이미지로 롤백하면 부팅이 깨진다)
+- `JWT_EXPIRY_MS` 는 넣지 않는다 — Access JWT 수명은 코드 상수 30분이라 이 버전부터는 읽지 않는다. 다만 롤백 대상인 이전 이미지(main `9cfc99659` 등)는 이 값을 읽어 30분(1800000)이 아니거나 빈 값(`JWT_EXPIRY_MS=`)이면 기동이 실패하고, 같은 `.env` 를 쓰는 자동 롤백도 함께 실패한다. 남아 있으면 **줄째 지운다**
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
 - `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(운영에서 누락하거나 다른 값을 쓰면 기동 실패)
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)

@@ -100,7 +100,6 @@ bank-api:
 
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
-  expiry-ms: 1800000
 
 web-auth:
   hint-secret: duing-test-auth-hint-secret-key-that-is-different-from-jwt

@@ -85,7 +85,6 @@ management:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiry-ms: ${JWT_EXPIRY_MS:1800000}
 
 web-auth:
   hint-secret: ${AUTH_HINT_SECRET}
