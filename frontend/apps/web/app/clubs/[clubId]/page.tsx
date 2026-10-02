@@ -33,8 +33,10 @@ function describeClub(club: ClubDetail): string {
   const source = club.tagline?.trim() || (club.description ? descriptionToPlainText(club.description) : '');
   const normalized = source.replace(/\s+/g, ' ').trim();
   if (!normalized) return `${club.name} — 대구대학교 동아리`;
-  return normalized.length > DESCRIPTION_MAX_LENGTH
-    ? `${normalized.slice(0, DESCRIPTION_MAX_LENGTH - 1)}…`
+  // 코드 포인트 단위로 자른다 — UTF-16 단위로 자르면 이모지(서로게이트 쌍)가 반으로 잘려 U+FFFD 로 깨진다.
+  const characters = Array.from(normalized);
+  return characters.length > DESCRIPTION_MAX_LENGTH
+    ? `${characters.slice(0, DESCRIPTION_MAX_LENGTH - 1).join('')}…`
     : normalized;
 }
 

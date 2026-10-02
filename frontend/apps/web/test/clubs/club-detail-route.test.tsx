@@ -55,12 +55,15 @@ describe('동아리 상세 라우트 — 24시간 ISR', () => {
     expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
   });
 
+  // HydrationBoundary 는 기존 키를 렌더 뒤 이펙트에서 덮으므로 렌더 중 탐침만으로는 못 잡는다 — 이펙트 뒤 캐시까지 본다.
   it('캐시에 이미 있는 상세는 덮어쓰지 않는다', async () => {
     fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club({ name: '옛 이름' }) });
     const queryClient = new QueryClient();
-    queryClient.setQueryData(['clubs', 4], club({ name: '최신 이름' }));
+    // 기존 항목은 1분 전 시각 — 시드와 같은 ms 면 hydrate 가 덮지 않아 '지금' 찍힌 시드 회귀를 놓친다.
+    queryClient.setQueryData(['clubs', 4], club({ name: '최신 이름' }), { updatedAt: Date.now() - 60_000 });
 
     await expect(renderRoute('4', queryClient)).resolves.toMatch(/^최신 이름\|/);
+    expect(queryClient.getQueryData<ClubDetail>(['clubs', 4])?.name).toBe('최신 이름');
   });
 
   it.each(['notFound', 'unavailable'] as const)('%s 면 시드 없이 지금 셸을 그린다', async (status) => {
@@ -95,6 +98,16 @@ describe('동아리 상세 메타데이터', () => {
 
     const metadata = await generateMetadata(params('4'));
     expect(metadata.description).toBe(`${'가'.repeat(149)}…`);
+  });
+
+  it('소개를 자를 때 이모지를 반으로 가르지 않는다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({
+      status: 'found',
+      data: club({ tagline: null, description: `${'가'.repeat(148)}😀😀😀` }),
+    });
+
+    const metadata = await generateMetadata(params('4'));
+    expect(metadata.description).toBe(`${'가'.repeat(148)}😀…`);
   });
 
   it('한줄소개·소개가 모두 없으면 이름으로 만든다', async () => {
