@@ -76,8 +76,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
             <div className="h-[420px] rounded-[18px] border border-line bg-paper animate-pulse motion-reduce:animate-none" />
 
             <div>
-              {/* ClubExplorePage 의 같은 행과 맞춘다 — 카운트 문구·찜 칩·정렬. 칩·정렬은 같은 패딩·보더의 span 이다
-                  (value 만 준 select 는 onChange 없음 경고가 난다). */}
+              {/* ClubExplorePage 의 같은 행과 맞춘다 — 카운트 문구·찜 칩(같은 클래스의 span)·정렬 */}
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-charcoal-2">
                   <span className="font-bold text-ink">{clubs.length}개</span>{' '}
@@ -92,10 +91,15 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
                     </svg>
                     찜한 동아리
                   </span>
-                  {/* 줄높이 18px = select 상자 높이 36px(크롬 실측) — 기본 줄높이면 칩보다 커져 행이 높아지고 교체 때 카드가 밀린다. */}
-                  <span className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] leading-[18px] font-semibold text-charcoal-2">
-                    추천순
-                  </span>
+                  {/* 하이드레이션되지 않는 fallback 이라 비제어 select 는 onChange 가 필요 없다 — 실제 컨트롤로 교체된다. */}
+                  <select
+                    defaultValue="RECOMMENDED"
+                    className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-2"
+                  >
+                    <option value="RECOMMENDED">추천순</option>
+                    <option value="DEADLINE_SOON">마감 임박순</option>
+                    <option value="ALPHABETICAL">가나다순</option>
+                  </select>
                 </div>
               </div>
 
@@ -144,7 +148,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
           })}
         </nav>
 
-        {/* ClubExplorePage 의 같은 행과 맞춘다 — 모집 중 카운트(미로딩처럼 빈 자리)·필터 버튼·정렬(span) */}
+        {/* ClubExplorePage 의 같은 행과 맞춘다 — 모집 중 카운트(미로딩처럼 빈 자리)·필터 버튼·정렬 */}
         <div className="flex items-center justify-between px-4 pb-6 pt-4 sm:px-6">
           <div className="text-[13.5px] text-charcoal-2" />
           <div className="flex items-center gap-2">
@@ -160,8 +164,15 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
               필터
             </button>
             <div className="relative inline-flex items-center">
-              {/* 실제는 select 라 모바일 폼 글자 16px 하한(globals.css, iOS 확대 방지)을 받는다 — span 은 그 밖이라 16px 로 적는다. */}
-              <span className="pr-4 text-[16px] font-semibold text-charcoal-2">추천순</span>
+              {/* 하이드레이션되지 않는 fallback 이라 비제어 select 는 onChange 가 필요 없다 — 실제 컨트롤로 교체된다. */}
+              <select
+                defaultValue="RECOMMENDED"
+                className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
+              >
+                <option value="RECOMMENDED">추천순</option>
+                <option value="DEADLINE_SOON">마감 임박순</option>
+                <option value="ALPHABETICAL">가나다순</option>
+              </select>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
