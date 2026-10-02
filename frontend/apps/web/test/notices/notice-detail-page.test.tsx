@@ -175,6 +175,40 @@ describe('NoticeDetailPage (재설계)', () => {
     expect(screen.queryByRole('heading', { level: 1, name: '이 소식은 지금 볼 수 없어요' })).not.toBeInTheDocument();
   });
 
+  // ISR 시드(updatedAt 0) 때문에 마운트 재요청이 항상 나가고, 재요청이 실패해도 TanStack Query 는 data 를 남긴 채
+  // error 가 된다 — 서버가 그린 본문을 오류 문구로 지우면 백엔드 순단·오프라인 때 이미 보이던 소식이 사라진다.
+  it('데이터가 있으면 재요청이 500 으로 실패해도 본문을 그대로 보여준다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: makeDetail({ title: '봄 축제 공지' }), isLoading: false, isSuccess: false, isError: true, error: { status: 500 } });
+
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ })).toBeInTheDocument();
+    expect(screen.queryByText(/공지를 불러오지 못했습니다/)).not.toBeInTheDocument();
+  });
+
+  // 백엔드는 이 경로에 403 을 주지 않는다(볼 수 없으면 404) — 데이터가 있는데 온 403 은 WAF·엣지 차단 같은 일시 장애다.
+  it('데이터가 있으면 재요청 403 은 "볼 수 없음" 으로 바꾸지 않는다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: makeDetail({ title: '봄 축제 공지' }), isLoading: false, isSuccess: false, isError: true, error: { status: 403 } });
+
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ })).toBeInTheDocument();
+    expect(screen.queryByText('이 소식은 지금 볼 수 없어요')).not.toBeInTheDocument();
+  });
+
+  // 404 는 ISR 시드 뒤 삭제·비공개 전환이다 — 데이터가 있어도 재요청 결과대로 "볼 수 없음" 으로 바뀐다.
+  it('데이터가 있어도 재요청 404 면 "볼 수 없음" 화면으로 바꾼다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue({ data: makeDetail({ title: '봄 축제 공지' }), isLoading: false, isSuccess: false, isError: true, error: { status: 404 } });
+
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByRole('heading', { level: 1, name: '이 소식은 지금 볼 수 없어요' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: /봄 축제 공지/ })).not.toBeInTheDocument();
+  });
+
   it('startAt 이 null 이어도 크래시 없이 "종료 일시까지" 로 렌더한다(prod 공지 14 재현)', () => {
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({

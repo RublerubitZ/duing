@@ -59,11 +59,12 @@ export function NoticeDetailPage() {
     );
   }
 
-  // 볼 수 없는 공지는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 403·404 를 구분하지 않고
-  // 같은 "볼 수 없음" 화면으로 처리한다(403 은 서버 배포 전 잔존 응답과 향후 다른 거부 경로를 위해 남긴다).
+  // 볼 수 없는 공지는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 404 는 데이터가 있어도 "볼 수 없음"이다
+  // (ISR 시드 뒤 삭제·비공개 전환이 재요청에서 드러난다). 403 은 데이터가 없을 때만 같은 화면으로 보낸다 —
+  // 백엔드는 이 경로에 403 을 주지 않아 WAF·엣지 차단일 수 있다(서버 로더도 403 을 장애로 본다).
   // 자동 리다이렉트 대신 제자리에 남긴다 — 주소가 유지돼야 사용자가 무슨 일이 일어났는지 알 수 있다.
   const errorStatus = getStatus(detailQuery.error);
-  if (errorStatus === 403 || errorStatus === 404 || (detailQuery.isSuccess && !notice)) {
+  if (errorStatus === 404 || (errorStatus === 403 && !notice) || (detailQuery.isSuccess && !notice)) {
     return (
       <div>
         <NoticeDetailTopBar />
@@ -77,7 +78,9 @@ export function NoticeDetailPage() {
     );
   }
 
-  if (detailQuery.isError || !notice) {
+  // 그 밖의 실패(5xx·네트워크·타임아웃·403 차단)는 데이터가 없을 때만 오류 — 재요청이 실패해도 서버가 그린
+  // 본문(시드)은 지우지 않는다(동아리 상세와 같은 구조).
+  if (!notice) {
     return (
       <div>
         <NoticeDetailTopBar />
