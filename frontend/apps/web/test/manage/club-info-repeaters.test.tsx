@@ -23,6 +23,11 @@ function ControlledSnsLinks({ initial }: { initial: ClubSnsLink[] }) {
   return <SnsLinksRepeater value={links} onChange={setLinks} readOnly={false} />;
 }
 
+function ControlledTags({ initial }: { initial: string[] }) {
+  const [tags, setTags] = useState(initial);
+  return <TagsInput value={tags} onChange={setTags} />;
+}
+
 describe('HighlightsRepeater (재작성)', () => {
   it('강조 항목이 7개면 추가 버튼이 비활성화되고 7/7 카운터가 보인다', () => {
     render(
@@ -179,6 +184,29 @@ describe('TagsInput (쉼표 구분)', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(['a', 'b', 'c', 'd', '가']);
+  });
+
+  it('한도를 채우면 남은 조각도 버려, 칩을 지워 입력란이 다시 나타날 때 숨은 글자가 없다', () => {
+    render(<ControlledTags initial={['a', 'b', 'c', 'd']} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,나,다' } });
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '태그 a 삭제' }));
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
+  it('쉼표 뒤 공백은 지워 다음 태그가 5자 칸을 온전히 쓴다 — 쉼표가 없으면 그대로 둔다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: ' 축' } });
+    expect(input).toHaveValue(' 축');
+
+    fireEvent.change(input, { target: { value: ' 축구, 풋' } });
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+    expect(input).toHaveValue('풋');
   });
 });
 

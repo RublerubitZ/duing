@@ -31,9 +31,15 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
   // 한글 IME 조합·keyCode 229 모바일 키보드는 onKeyDown 의 ',' 분기를 건너뛰어 쉼표가 값으로 들어온다(#1338).
   // 쉼표 앞 조각은 태그로 넣고(넣을 수 없는 조각은 버린다) 마지막 쉼표 뒤만 입력란에 남긴다.
   function splitOnComma(nextDraft: string) {
+    if (!nextDraft.includes(',')) {
+      setDraft(nextDraft);
+      return;
+    }
     const tokens = nextDraft.split(',');
-    setDraft(tokens.pop() ?? '');
+    const tail = tokens.pop() ?? '';
     const next = tokens.reduce(appendTag, value);
+    // 쉼표 뒤 공백이 5자 칸을 차지하지 않게 지운다. 한도를 채워 입력란이 사라지면 꼬리도 버린다 — 칩을 지울 때 숨은 글자가 되살아나지 않게.
+    setDraft(next.length >= maxTags ? '' : tail.trimStart());
     if (next !== value) onChange(next);
   }
 
