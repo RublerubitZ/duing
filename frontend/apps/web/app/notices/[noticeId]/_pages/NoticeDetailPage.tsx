@@ -5,7 +5,8 @@ import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { cn } from '@/app/_lib/cn';
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
-import { useNoticeDetailQuery } from '@duing/hooks';
+import { useHydrated } from '@/app/_lib/useHydrated';
+import { parseKstInstant, useNoticeDetailQuery } from '@duing/hooks';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { NoticeDetailTopBar } from '../../_components/NoticeDetailTopBar';
 import { NoticeArticleHeader } from '../../_components/NoticeArticleHeader';
@@ -38,6 +39,8 @@ export function NoticeDetailPage() {
   useDocumentTitle(notice?.title ?? null);
   // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
   const enteredFromSkeleton = useEnteredFromSkeleton(detailQuery.isLoading);
+  // 만료 배너는 하이드레이션 뒤에만 — 서버가 판정한 만료 여부는 ISR HTML 이 묵는 동안 달라진다(#418).
+  const hydrated = useHydrated();
 
   // 세 분기 모두 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 notices/layout.tsx 가 렌더한다
   // — 로딩 경계 밖에서 유지되도록. ExploreNav 는 상세 경로에서 스스로 모바일 숨김을 판단한다(pathname 기반).
@@ -84,7 +87,9 @@ export function NoticeDetailPage() {
     );
   }
 
-  const expiredAndPast = notice.expiresAt !== null && new Date(notice.expiresAt) <= new Date();
+  // expiresAt 은 오프셋 없는 KST 벽시계 — new Date() 로 읽으면 실행 환경 시간대(UTC 서버 등)만큼 어긋난다.
+  const expiredAndPast =
+    hydrated && notice.expiresAt !== null && parseKstInstant(notice.expiresAt).getTime() <= Date.now();
 
   return (
     <div>

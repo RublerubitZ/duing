@@ -24,7 +24,9 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockRouterReplace, back: vi.fn(), push: vi.fn() }),
 }));
 
-import NoticeDetailPage from '../../app/notices/[noticeId]/page';
+import { NoticeDetailPage } from '../../app/notices/[noticeId]/_pages/NoticeDetailPage';
+
+import { kstWallClock } from './kst-wall-clock';
 
 const DEFAULT_CONTENT_FORMAT: NoticeContentFormat = 'MARKDOWN';
 
@@ -117,6 +119,17 @@ describe('NoticeDetailPage (재설계)', () => {
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     const pastDate = new Date(Date.now() - 86_400_000).toISOString();
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ expiresAt: pastDate })));
+
+    render(<NoticeDetailPage />);
+
+    expect(screen.getByText(/마감된 공지/)).toBeInTheDocument();
+  });
+
+  // expiresAt 은 오프셋 없는 KST 벽시계다 — new Date() 로 읽으면 UTC 환경(Vercel 서버·CI)에서 9시간 늦게 읽혀
+  // 막 지난 마감을 아직 진행 중으로 본다.
+  it('KST 벽시계로 막 지난 마감도 "마감된 공지" 배너를 보인다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ expiresAt: kstWallClock(-2 * 3_600_000) })));
 
     render(<NoticeDetailPage />);
 
