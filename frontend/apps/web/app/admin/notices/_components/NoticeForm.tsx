@@ -20,6 +20,7 @@ type Props = {
 
 export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, errorMessage }: Props) {
   const [state, setState] = useState<NoticeFormState>(initialState);
+  const tagInputId = useId();
 
   const update = <K extends keyof NoticeFormState>(key: K, value: NoticeFormState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -152,9 +153,13 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         </select>
       </Field>
 
-      <FieldGroup label="태그 (최대 8개)">
-        <NoticeTagInput value={state.tags} onChange={(next) => update('tags', next)} />
-      </FieldGroup>
+      {/* 라벨을 텍스트 입력란에만 묶는다(htmlFor) — 묶음 전체를 <label> 로 감싸면 라벨 글자 클릭이 첫 태그 × 를 누른다. */}
+      <div>
+        <label htmlFor={tagInputId} className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">
+          태그 (최대 8개)
+        </label>
+        <NoticeTagInput inputId={tagInputId} value={state.tags} onChange={(next) => update('tags', next)} />
+      </div>
 
       <FieldGroup label="노출 범위">
         <VisibilityPicker
@@ -225,8 +230,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// 버튼이 든 입력 묶음(태그·노출 범위)용 — <label> 로 감싸면 라벨 글자를 누를 때 안의 첫 버튼이 눌린다
-// (태그 × 로 태그가 지워지고, 노출 범위 첫 항목인 전체 공개로 바뀐다).
+// 버튼이 든 입력 묶음(노출 범위)용 — <label> 로 감싸면 라벨 글자를 누를 때 안의 첫 버튼이 눌린다
+// (노출 범위 첫 항목인 전체 공개로 바뀐다).
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   const labelId = useId();
   return (

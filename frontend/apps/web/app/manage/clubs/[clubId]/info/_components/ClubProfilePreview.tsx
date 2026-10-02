@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import type { ClubDayOfWeek, FeeCycle } from '@duing/types';
 import { formatClubFee } from '@/app/_lib/clubFee';
+import { tagLabel } from '@/app/_lib/tags';
 
 export type ClubPreviewData = {
   name: string;
@@ -72,7 +73,7 @@ export function ClubProfilePreview({ preview }: { preview: ClubPreviewData }) {
           {preview.tags.length > 0 && (
             <div className="mb-4 mt-3 flex flex-wrap gap-1.5">
               {preview.tags.map((tag) => (
-                <span key={tag} className="text-[11px] font-bold text-[#3e5b34]">#{tag}</span>
+                <span key={tag} className="text-[11px] font-bold text-[#3e5b34]">{tagLabel(tag)}</span>
               ))}
             </div>
           )}

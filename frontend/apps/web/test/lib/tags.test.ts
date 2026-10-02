@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendTag, normalizeTag } from '../../app/_lib/tags';
+import { appendTag, normalizeTag, tagLabel } from '../../app/_lib/tags';
 
 // 서버 TagRules.normalize 와 같은 정리 — 칩에 보이는 값이 저장되는 값과 같아야 한다.
 describe('normalizeTag', () => {
@@ -14,6 +14,20 @@ describe('normalizeTag', () => {
     expect(normalizeTag('\u1100\u1161\u11BC')).toBe('강');
   });
 
+  it('앞의 # 는 지운다 — 화면이 태그 앞에 # 를 붙여 보여 준다', () => {
+    expect(normalizeTag('#축구')).toBe('축구');
+    expect(normalizeTag('##축구')).toBe('축구');
+    expect(normalizeTag('# 축구')).toBe('축구');
+    expect(normalizeTag('C#')).toBe('C#');
+    expect(normalizeTag('#')).toBe('');
+  });
+
+  it('공백처럼 보이는 한글 채움 문자·점자 공백은 지운다', () => {
+    expect(normalizeTag('\u3164')).toBe('');
+    expect(normalizeTag('농\u3164구')).toBe('농구');
+    expect(normalizeTag('\u2800\u115F\u1160\uFFA0')).toBe('');
+  });
+
   it('이모지 조합에 쓰는 ZWJ 는 지우지 않는다', () => {
     expect(normalizeTag('코딩👨\u200D💻')).toBe('코딩👨\u200D💻');
   });
@@ -24,5 +38,19 @@ describe('appendTag', () => {
     const tags = ['축구'];
 
     expect(appendTag(tags, '축\u200B구', { maxTags: 5, maxTagLength: 5 })).toBe(tags);
+  });
+
+  it('# 만 다른 태그는 이미 있는 태그로 본다', () => {
+    const tags = ['축구'];
+
+    expect(appendTag(tags, '#축구', { maxTags: 5, maxTagLength: 5 })).toBe(tags);
+  });
+});
+
+describe('tagLabel', () => {
+  it('태그 앞에 # 를 하나만 붙인다 — 예전에 # 를 붙여 저장한 태그도 ## 로 보이지 않는다', () => {
+    expect(tagLabel('밴드')).toBe('#밴드');
+    expect(tagLabel('#밴드')).toBe('#밴드');
+    expect(tagLabel('##밴드')).toBe('#밴드');
   });
 });

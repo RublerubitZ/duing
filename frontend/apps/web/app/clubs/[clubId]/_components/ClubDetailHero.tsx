@@ -13,6 +13,7 @@ import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 import { divisionLabelOrNull } from '../../_lib/clubs';
 import { pickColor } from '../../_lib/clubAdapter';
 import { ClubDetailTopBar } from './ClubDetailTopBar';
+import { tagLabel } from '@/app/_lib/tags';
 
 type Props = {
   club: ClubDetail;
@@ -138,7 +139,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <div className="flex max-w-[580px] flex-wrap gap-1.5">
                     {club.tags.map((tagName) => (
                       <span key={tagName} className="pill pill-outline bg-paper/60 text-[12px]">
-                        #{tagName.replace(/^#+/, '')}
+                        {tagLabel(tagName)}
                       </span>
                     ))}
                   </div>
@@ -272,7 +273,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {club.tags.map((tagName) => (
                 <span key={tagName} className="pill pill-outline bg-paper/60 text-[11px]">
-                  #{tagName.replace(/^#+/, '')}
+                  {tagLabel(tagName)}
                 </span>
               ))}
             </div>

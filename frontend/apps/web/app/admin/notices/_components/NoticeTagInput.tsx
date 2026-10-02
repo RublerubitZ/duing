@@ -1,19 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { appendTag, normalizeTag } from '../../../_lib/tags';
+import { appendTag, normalizeTag, tagLabel } from '../../../_lib/tags';
 
 type Props = {
   value: string[];
   onChange: (next: string[]) => void;
   max?: number;
+  // 바깥 <label htmlFor> 가 입력란에 이름을 붙일 때 쓴다.
+  inputId?: string;
 };
 
 // 서버 CreateNoticeRequest·UpdateNoticeRequest 의 태그 길이 상한(@Size(max = 20))과 같다. 입력란 maxLength 로는
 // 걸지 않는다 — 쉼표로 여러 태그를 한 번에 붙여넣으면 잘려 뒤 태그가 사라진다. 태그를 넣을 때 검사한다.
 const MAX_TAG_LENGTH = 20;
 
-export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
+export function NoticeTagInput({ value, onChange, max = 8, inputId }: Props) {
   const [draft, setDraft] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
@@ -38,7 +40,7 @@ export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
       <div className="flex flex-wrap gap-1.5">
         {value.map((tag) => (
           <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-graysoft text-charcoal-2 text-[12px]">
-            #{tag}
+            {tagLabel(tag)}
             <button
               type="button"
               onClick={() => removeTag(tag)}
@@ -66,7 +68,7 @@ export function NoticeTagInput({ value, onChange, max = 8 }: Props) {
               addTag();
             }
           }}
-          aria-label="태그 입력"
+          id={inputId}
           placeholder={`태그 입력 후 Enter (최대 ${max}개, ${MAX_TAG_LENGTH}자 이하)`}
           className="flex-1 px-3 py-2 rounded-md border border-line bg-paper text-[13px]"
         />

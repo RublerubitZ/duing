@@ -27,6 +27,20 @@ class TagRulesTest {
     }
 
     @Test
+    @DisplayName("태그 앞의 '#' 는 지운다 — 화면이 태그 앞에 '#' 를 붙여 보여 준다")
+    void foldsLeadingHash() {
+        assertThat(TagRules.normalize(Arrays.asList("#축구", "##축구", "# 축구", "C#", "#", "밴드")))
+                .containsExactly("축구", "C#", "밴드");
+    }
+
+    @Test
+    @DisplayName("공백처럼 보이는 한글 채움 문자·점자 공백은 지운다")
+    void dropsBlankLookingLetters() {
+        assertThat(TagRules.normalize(Arrays.asList("\u3164", "\u2800\u2800", "농\u3164구", "\u115F\u1160", "\uFFA0")))
+                .containsExactly("농구");
+    }
+
+    @Test
     @DisplayName("이모지 조합에 쓰는 ZWJ 는 지우지 않는다")
     void keepsZeroWidthJoinerInEmoji() {
         assertThat(TagRules.normalize(Arrays.asList("코딩👨\u200D💻"))).containsExactly("코딩👨\u200D💻");

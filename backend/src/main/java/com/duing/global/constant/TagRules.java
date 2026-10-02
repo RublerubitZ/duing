@@ -13,8 +13,8 @@ import java.util.regex.Pattern;
  * 공지 작성·수정({@code CreateNoticeRequest}·{@code UpdateNoticeRequest}).
  *
  * <p>{@link #normalize} 는 엔티티가 태그를 저장하기 직전에 부른다({@code Club.update},
- * {@code Notice.create}·{@code update}). 검증을 통과한 값도 보이지 않는 문자·앞뒤 공백을 지우고 빈 값·중복을 버려,
- * 같아 보이는 태그가 따로 저장되지 않게 한다.
+ * {@code Notice.create}·{@code update}). 검증을 통과한 값도 보이지 않는 문자·앞뒤 공백·앞의 '#' 를 지우고 빈 값·중복을
+ * 버려, 같아 보이는 태그가 따로 저장되지 않게 한다.
  * 제어문자(유니코드 Cc, U+001F 포함)는 직접 칠 수는 없지만 붙여넣기·API 로 들어올 수 있고, 키워드 검색이 태그를
  * U+001F 로 이어 붙이므로(#1340) 남겨 두면 그 태그를 찾을 수 없다. 탭·개행도 제어문자라 지우면 앞뒤 글자가 붙는다.
  */
@@ -28,14 +28,20 @@ public final class TagRules {
     // 이모지 조합에 쓰는 ZWJ(U+200D)·ZWNJ(U+200C)는 남긴다.
     private static final Pattern INVISIBLE_CHARACTERS = Pattern.compile("[\\p{Cc}\\p{Cf}&&[^\\u200C\\u200D]]");
 
+    // 공백처럼 보이는 한글 채움 문자(U+115F·U+1160·U+3164·U+FFA0)와 점자 공백(U+2800) — 범주가 글자라 strip() 이 못 지운다.
+    private static final Pattern BLANK_LOOKING_LETTERS = Pattern.compile("[\\u115F\\u1160\\u3164\\uFFA0\\u2800]");
+
     // strip() 이 공백으로 보지 않는 줄바꿈 없는 공백 — Club.normalizeDepartment 처럼 일반 공백으로 바꾼 뒤 자른다.
     private static final Pattern NO_BREAK_SPACES = Pattern.compile("[\\u00A0\\u2007\\u202F]");
+
+    // 화면이 태그 앞에 '#' 를 붙여 보여 주므로 저장값에서는 앞의 '#' 를 뗀다(키워드 검색도 앞 '#' 를 뗀다).
+    private static final Pattern LEADING_HASHES = Pattern.compile("^#+");
 
     private TagRules() {
         // 상수·정적 메서드 모음 — 인스턴스화 금지
     }
 
-    /** null·보이지 않는 문자·앞뒤 공백을 지우고(한글은 NFC 로 합친다) 빈 값과 중복을 버린다(처음 나온 순서 유지). */
+    /** null·보이지 않는 문자·앞뒤 공백·앞의 '#' 를 지우고(한글은 NFC 로 합친다) 빈 값과 중복을 버린다(처음 나온 순서 유지). */
     public static String[] normalize(Collection<String> tags) {
         return tags.stream()
                 .filter(Objects::nonNull)
@@ -48,6 +54,8 @@ public final class TagRules {
     private static String normalizeTag(String tag) {
         String composed = Normalizer.normalize(tag, Normalizer.Form.NFC);
         String visible = INVISIBLE_CHARACTERS.matcher(composed).replaceAll("");
-        return NO_BREAK_SPACES.matcher(visible).replaceAll(" ").strip();
+        String letters = BLANK_LOOKING_LETTERS.matcher(visible).replaceAll("");
+        String trimmed = NO_BREAK_SPACES.matcher(letters).replaceAll(" ").strip();
+        return LEADING_HASHES.matcher(trimmed).replaceFirst("").strip();
     }
 }

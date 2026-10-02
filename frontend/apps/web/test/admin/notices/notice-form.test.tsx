@@ -171,7 +171,8 @@ describe('NoticeForm', () => {
     fireEvent.click(screen.getByText('태그 (최대 8개)'));
 
     expect(screen.getAllByRole('button', { name: /태그 제거/ })).toHaveLength(2);
-    expect(screen.getByRole('group', { name: '태그 (최대 8개)' })).toBeInTheDocument();
+    // 라벨은 텍스트 입력란에만 묶여 있어 누르면 입력란으로 간다(태그 × 버튼이 눌리지 않는다).
+    expect(screen.getByLabelText('태그 (최대 8개)')).toBe(screen.getByPlaceholderText(/태그 입력 후 Enter/));
   });
 
   it('노출 범위 라벨 글자를 눌러도 노출 범위가 바뀌지 않는다', () => {

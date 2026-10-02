@@ -187,6 +187,18 @@ describe('AdminClubDetailPage', () => {
     expect(screen.queryByText((content) => content.includes('<strong>'))).toBeNull();
   });
 
+  it('예전에 # 를 붙여 저장한 태그도 # 하나로 보여준다', async () => {
+    server.use(
+      http.get('*/admin/clubs/1', () =>
+        HttpResponse.json({ ok: true, data: { ...CLUB_DETAIL, tags: ['#밴드'] }, message: null }),
+      ),
+    );
+    renderPage();
+    await screen.findByText('홍길동');
+    expect(screen.getByText('#밴드')).toBeInTheDocument();
+    expect(screen.queryByText('##밴드')).toBeNull();
+  });
+
   it('설명이 레거시 plain 이면 pre-wrap 텍스트로 그대로 보여준다', async () => {
     renderPage();
     await screen.findByText('홍길동');

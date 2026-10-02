@@ -21,6 +21,7 @@ import { cn } from '../../../../_lib/cn';
 import { ClubLogo } from '../../../../_components/ClubLogo';
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from '../../_lib/clubStatus';
 import { AdminAssignLeaderCard } from '../_components/AdminAssignLeaderCard';
+import { tagLabel } from '@/app/_lib/tags';
 
 type Props = {
   clubId: number;
@@ -199,7 +200,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                           key={tag}
                           className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
                         >
-                          #{tag}
+                          {tagLabel(tag)}
                         </span>
                       ))}
                     </dd>
