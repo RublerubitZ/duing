@@ -1,14 +1,14 @@
 import type { MetadataRoute } from 'next';
 
-import { fetchActiveClubIds } from '@/app/_lib/public-content';
+import { fetchActiveClubIds, fetchPublicNoticeIds } from '@/app/_lib/public-content';
 import { SITE_URL } from '@/app/_lib/site';
 
 /**
  * 검색엔진 색인용 sitemap.xml 생성 (App Router 규약: app/sitemap.ts → /sitemap.xml).
  *
- * 공개 정적 라우트와 공개(ACTIVE) 동아리 상세를 담는다. 동아리 상세는 24시간 ISR 로 본문이 초기 HTML 에
- * 들어가므로 색인 대상으로 제출한다 — 상세 URL 은 그 상세가 서버 렌더될 때만 넣는다(빈 셸을 제출하면 얇은
- * 콘텐츠 신호가 강해진다). 소식 상세는 아직 셸이라 넣지 않는다.
+ * 공개 정적 라우트, 공개(ACTIVE) 동아리 상세, 공개 소식 상세(익명 기준 PUBLIC·미만료)를 담는다. 두 상세는
+ * 24시간 ISR 로 본문이 초기 HTML 에 들어가므로 색인 대상으로 제출한다 — 상세 URL 은 그 상세가 서버 렌더될 때만
+ * 넣는다(빈 셸을 제출하면 얇은 콘텐츠 신호가 강해진다).
  * 재생성 주기는 24시간이다 — 주기가 지난 뒤 첫 요청은 직전 사이트맵을 받고 재생성은 백그라운드에서
  * 일어난다(새 동아리는 그다음 요청부터 보인다). 빌드 국면 장애면 정적 경로만 담긴 사이트맵이 다음 재생성
  * 때까지 남고, 런타임 재생성 장애는 throw 해 직전 사이트맵을 유지한다(public-content.ts).
@@ -36,11 +36,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
-  const clubIds = (await fetchActiveClubIds()) ?? [];
-  const clubEntries = clubIds.map((clubId) => ({
+  const [clubIds, noticeIds] = await Promise.all([fetchActiveClubIds(), fetchPublicNoticeIds()]);
+  const clubEntries = (clubIds ?? []).map((clubId) => ({
     url: `${SITE_URL}/clubs/${clubId}`,
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
-  return [...staticEntries, ...clubEntries];
+  const noticeEntries = (noticeIds ?? []).map((noticeId) => ({
+    url: `${SITE_URL}/notices/${noticeId}`,
+    changeFrequency: 'weekly' as const,
+    priority: 0.5,
+  }));
+  return [...staticEntries, ...clubEntries, ...noticeEntries];
 }
