@@ -154,4 +154,47 @@ describe('NoticeForm', () => {
     expect(screen.getByText('대상')).toBeInTheDocument();
     expect(screen.getByTestId('rich-editor')).toBeInTheDocument();
   });
+
+  // 버튼이 든 입력 묶음을 <label> 로 감싸면 라벨 글자 클릭이 안의 첫 버튼 클릭이 된다.
+  it('태그 라벨 글자를 눌러도 태그가 지워지지 않는다', () => {
+    mockUseAdminClubsQuery.mockReturnValue(makeClubsResponse());
+
+    render(
+      <NoticeForm
+        initialState={{ ...EMPTY_NOTICE_FORM, tags: ['학사', '장학'] }}
+        submitLabel="저장"
+        isSubmitting={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('태그 (최대 8개)'));
+
+    expect(screen.getAllByRole('button', { name: /태그 제거/ })).toHaveLength(2);
+  });
+
+  it('노출 범위 라벨 글자를 눌러도 노출 범위가 바뀌지 않는다', () => {
+    mockUseAdminClubsQuery.mockReturnValue(makeClubsResponse());
+    const onSubmit = vi.fn();
+
+    render(
+      <NoticeForm
+        initialState={{
+          ...EMPTY_NOTICE_FORM,
+          title: '임원 공지',
+          summary: '요약',
+          coverImageUrl: 'https://files.duings.com/cover.png',
+          visibility: 'OFFICERS_ALL',
+        }}
+        submitLabel="저장"
+        isSubmitting={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('노출 범위'));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'OFFICERS_ALL' }));
+  });
 });

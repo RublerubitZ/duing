@@ -1,4 +1,4 @@
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NoticeTagInput } from '../../../app/admin/notices/_components/NoticeTagInput';
@@ -62,65 +62,53 @@ describe('NoticeTagInput', () => {
   });
 });
 
-// 쉼표는 태그 필터의 구분자라 태그에 넣지 않는다(#1338).
+// 쉼표는 태그 필터의 구분자라 태그에 넣지 않는다(#1338) — 공지 태그는 Enter·추가 때 쉼표로 나눠 넣는다.
 describe('NoticeTagInput (쉼표 구분)', () => {
-  it('값으로 들어온 쉼표 앞은 태그로 넣고 뒤만 입력란에 남긴다', () => {
+  it('입력 중에는 나누지 않고 Enter 때 쉼표로 나눠 여러 태그를 한 번에 넣는다', () => {
     const onChange = vi.fn();
     render(<NoticeTagInput value={[]} onChange={onChange} />);
 
     const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
-    fireEvent.change(input, { target: { value: '학사,장' } });
-
-    expect(onChange).toHaveBeenCalledWith(['학사']);
-    expect(input).toHaveValue('장');
-  });
-
-  it('조합 중에는 나누지 않고 조합이 끝날 때 나눈다', () => {
-    const onChange = vi.fn();
-    render(<NoticeTagInput value={[]} onChange={onChange} />);
-
-    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
-    act(() => input.focus());
-    fireEvent.compositionStart(input);
-    fireEvent.change(input, { target: { value: '학사,장' } });
+    fireEvent.change(input, { target: { value: '학사, 장학,학사' } });
     expect(onChange).not.toHaveBeenCalled();
-    expect(input).toHaveValue('학사,장');
 
-    fireEvent.compositionEnd(input);
-    expect(onChange).toHaveBeenCalledWith(['학사']);
-    expect(input).toHaveValue('장');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['학사', '장학']);
+    expect(input).toHaveValue('');
   });
 
-  it('한 번에 들어온 여러 조각은 중복을 빼고 한 번에 넘긴다', () => {
+  it('추가 버튼도 쉼표로 나눠 넣는다', () => {
     const onChange = vi.fn();
     render(<NoticeTagInput value={[]} onChange={onChange} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/태그 입력 후 Enter/), { target: { value: '가,가,나' } });
-
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith(['가']);
-  });
-
-  it('여러 조각이 들어와도 태그는 8개를 넘지 않는다', () => {
-    const onChange = vi.fn();
-    render(<NoticeTagInput value={['a', 'b', 'c', 'd', 'e', 'f', 'g']} onChange={onChange} />);
-
-    fireEvent.change(screen.getByPlaceholderText(/태그 입력 후 Enter/), { target: { value: '가,나,' } });
-
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith(['a', 'b', 'c', 'd', 'e', 'f', 'g', '가']);
-  });
-
-  it('조합이 끝나기 전에 추가 버튼이 눌려 쉼표가 남은 입력도 쉼표로 나눠 넣는다', () => {
-    const onChange = vi.fn();
-    render(<NoticeTagInput value={[]} onChange={onChange} />);
-
-    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
-    act(() => input.focus());
-    fireEvent.compositionStart(input);
-    fireEvent.change(input, { target: { value: '학사,장학' } });
+    fireEvent.change(screen.getByPlaceholderText(/태그 입력 후 Enter/), { target: { value: '학사,장학' } });
     fireEvent.click(screen.getByRole('button', { name: '추가' }));
 
     expect(onChange).toHaveBeenCalledWith(['학사', '장학']);
+  });
+
+  it('넣지 못한 조각(20자 초과·8개 한도)은 지우지 않고 입력란에 남긴다', () => {
+    const onChange = vi.fn();
+    render(<NoticeTagInput value={['a', 'b', 'c', 'd', 'e', 'f', 'g']} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
+    const tooLong = '가'.repeat(21);
+    fireEvent.change(input, { target: { value: `학사,${tooLong},장학` } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledWith(['a', 'b', 'c', 'd', 'e', 'f', 'g', '학사']);
+    expect(input).toHaveValue(`${tooLong}, 장학`);
+  });
+
+  it('붙여넣은 탭 같은 제어문자는 지운다 — 서버 정규화와 같아 저장 뒤에도 칩이 그대로다', () => {
+    const onChange = vi.fn();
+    render(<NoticeTagInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
+    fireEvent.change(input, { target: { value: '학사\t장학' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledWith(['학사장학']);
   });
 });

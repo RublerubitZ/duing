@@ -152,11 +152,11 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         </select>
       </Field>
 
-      <Field label="태그 (최대 8개)">
+      <FieldGroup label="태그 (최대 8개)">
         <NoticeTagInput value={state.tags} onChange={(next) => update('tags', next)} />
-      </Field>
+      </FieldGroup>
 
-      <Field label="노출 범위">
+      <FieldGroup label="노출 범위">
         <VisibilityPicker
           visibility={state.visibility}
           clubScopeRole={state.clubScopeRole}
@@ -165,7 +165,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           onClubScopeRoleChange={(next) => update('clubScopeRole', next)}
           onTargetClubIdsChange={(next) => update('targetClubIds', next)}
         />
-      </Field>
+      </FieldGroup>
 
       <Field label="만료일 (선택)">
         <input
@@ -222,5 +222,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">{label}</span>
       {children}
     </label>
+  );
+}
+
+// 버튼이 든 입력 묶음(태그·노출 범위)용 — <label> 로 감싸면 라벨 글자를 누를 때 안의 첫 버튼이 눌린다
+// (태그 × 로 태그가 지워지고, 노출 범위 첫 항목인 전체 공개로 바뀐다).
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">{label}</span>
+      {children}
+    </div>
   );
 }

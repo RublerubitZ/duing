@@ -22,7 +22,8 @@ public record CreateNoticeRequest(
         @Size(max = 2000)
         @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE) String linkUrl,
         @NotNull NoticeCategory category,
-        @Size(max = 8) List<@Size(max = 20)
+        @Size(max = 8, message = "태그는 최대 8개까지 가능합니다.")
+        List<@Size(max = 20, message = "각 태그는 20자 이하여야 합니다.")
                 @Pattern(regexp = TagRules.NO_COMMA_PATTERN, message = TagRules.NO_COMMA_MESSAGE) String> tags,
         @NotNull NoticeVisibility visibility,
         NoticeClubScopeRole clubScopeRole,

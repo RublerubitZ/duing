@@ -22,7 +22,7 @@ class NoticeTagsTest {
         notice.update(new Notice.UpdatePayload(
                 null, null, null, null, null,    // title, summary, content, coverImageUrl, linkUrl
                 null,                            // clearExternalLink
-                null, Arrays.asList(" 행사 ", "행사", "   "), // category, tags
+                null, Arrays.asList(" 행사 ", "행사", "   ", null, "축\u001F제"), // category, tags
                 null, null,                      // visibility, clubScopeRole
                 null, null, null,                // pinned, expiresAt, clearExpiresAt
                 null,                            // notifyOnPublish
@@ -30,6 +30,6 @@ class NoticeTagsTest {
                 null, null, null, null,          // location, host, audience, clearEvent
                 null));                          // contentFormat
 
-        assertThat(notice.getTags()).containsExactly("행사");
+        assertThat(notice.getTags()).containsExactly("행사", "축제");
     }
 }

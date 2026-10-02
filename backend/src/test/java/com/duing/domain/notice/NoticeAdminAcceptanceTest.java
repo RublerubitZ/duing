@@ -337,6 +337,46 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("공지 태그의 길이·개수 초과는 한국어 메시지로 400 을 반환한다")
+    void tagSizeViolationsReturnKoreanMessages() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "학사 안내", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "tags": ["가나다라마바사아자차카타파하가나다라마바사"]
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("각 태그는 20자 이하여야 합니다."));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "학사 안내", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("태그는 최대 8개까지 가능합니다."));
+    }
+
+    @Test
     @DisplayName("공지 수정 시 태그에 쉼표가 있으면 400 을 반환한다")
     void updateNoticeWithCommaTagReturnsBadRequest() {
         Long noticeId = RestAssured.given()
