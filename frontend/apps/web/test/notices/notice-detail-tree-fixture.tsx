@@ -39,6 +39,18 @@ export const noticeDetail: NoticeDetail = {
 /** 마감이 2시간 지난 같은 소식 — 만료 배너가 서버 HTML 에 없고 하이드레이션 뒤에만 붙는지 본다. */
 export const expiredNoticeDetail: NoticeDetail = { ...noticeDetail, expiresAt: kstWallClock(-2 * 3_600_000) };
 
+/** 행사 정보가 있는 같은 소식 — 서버에서 행사 일시(Intl 조립)·외부 링크 바를 그리는 경로를 덮는다. */
+export const eventNoticeDetail: NoticeDetail = {
+  ...noticeDetail,
+  eventInfo: {
+    startAt: '2026-09-25T10:00:00',
+    endAt: '2026-09-25T12:00:00',
+    location: '중앙광장',
+    host: '총동아리연합회',
+    audience: '재학생',
+  },
+};
+
 /** page.tsx 처럼 상세를 updatedAt 0 으로 시드한 상세 트리 전체 — 부를 때마다 새 캐시라 서버·브라우저 렌더를 따로 흉내 낸다. */
 export function seededNoticeDetailTree(notice: NoticeDetail = noticeDetail) {
   const queryClient = new QueryClient();

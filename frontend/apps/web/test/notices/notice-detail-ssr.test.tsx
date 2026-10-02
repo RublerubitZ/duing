@@ -22,7 +22,11 @@ vi.mock('next/navigation', () => ({
   useSelectedLayoutSegment: () => null,
 }));
 
-import { expiredNoticeDetail, seededNoticeDetailTree } from './notice-detail-tree-fixture';
+import {
+  eventNoticeDetail,
+  expiredNoticeDetail,
+  seededNoticeDetailTree,
+} from './notice-detail-tree-fixture';
 
 describe('소식 상세 트리 — 서버 렌더(ISR 정적 생성 회귀)', () => {
   it('HTML 본문·마감 있는 소식을 throw 없이 그리고, 본문은 담고 시각 의존 표시는 뺀다', () => {
@@ -47,7 +51,21 @@ describe('소식 상세 트리 — 서버 렌더(ISR 정적 생성 회귀)', () 
   it('마감이 지난 소식도 서버 HTML 에 만료 배너를 넣지 않는다 — 배너는 하이드레이션 뒤에만', () => {
     const html = renderToString(seededNoticeDetailTree(expiredNoticeDetail));
 
+    // 경계 안 렌더가 죽으면 배너 부재 단언이 공허하게 통과한다 — 본문이 실제로 그려졌는지 먼저 본다.
+    expect(html).not.toContain('<!--$!-->');
     expect(html).toContain('2026 가을 동아리 박람회 안내');
     expect(html).not.toContain('마감된 공지');
+  });
+
+  it('행사 소식은 행사 일시(Intl 조립)·외부 링크 바까지 throw 없이 그린다', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const html = renderToString(seededNoticeDetailTree(eventNoticeDetail));
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+    expect(html).not.toContain('<!--$!-->');
+    // 2026-09-25 는 금요일 — 같은 날 행사는 "M.d(요일) HH:mm–HH:mm"(en dash).
+    expect(html).toContain('9.25(금) 10:00–12:00');
   });
 });

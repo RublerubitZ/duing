@@ -64,7 +64,7 @@ const ID_MAX_PAGES = 50;
 
 /**
  * 사이트맵용 — 목록 API 를 hasNext 가 끝날 때까지 순회해 id 를 모은다.
- * 빌드 국면 장애면 null(정적 경로만), 런타임 장애는 throw(직전 사이트맵 유지).
+ * 빌드 국면 장애면 null(사이트맵에서 그 목록만 빠짐), 런타임 장애는 throw(직전 사이트맵 유지).
  */
 async function collectIds(
   loadPage: (page: number) => Promise<PageResponse<{ id: number }>>,

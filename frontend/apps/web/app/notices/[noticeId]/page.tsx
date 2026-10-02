@@ -31,8 +31,10 @@ export function generateStaticParams() {
 
 function describeNotice(notice: NoticeDetail): string {
   // MARKDOWN 원문은 기호(##·**)가 설명에 남는다 — 운영 공개 소식은 모두 HTML 이고 summary 가 먼저라 그대로 둔다.
-  const bodyText = notice.contentFormat === 'MARKDOWN' ? notice.content : htmlToPlainText(notice.content);
-  return toMetaDescription(notice.summary.trim() || bodyText, `${notice.title} — 두잉 소식`);
+  const source =
+    notice.summary.trim() ||
+    (notice.contentFormat === 'MARKDOWN' ? notice.content : htmlToPlainText(notice.content));
+  return toMetaDescription(source, `${notice.title} — 두잉 소식`);
 }
 
 async function loadNotice(

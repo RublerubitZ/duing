@@ -23,7 +23,11 @@ describe('NoticeContent — 서버 렌더', () => {
   });
 
   it('형식이 없으면(구 백엔드) HTML 로 보고 같은 폴백을 쓴다', () => {
-    expect(renderToString(<NoticeContent content="<p>본문</p>" />)).toContain('본문');
+    const html = renderToString(<NoticeContent content="<p>본문</p>" />);
+
+    // '본문' 포함만 보면 태그가 그대로 새도 통과한다 — 폴백 문단으로 그렸고 원문 태그가 없는지 본다.
+    expect(html).toContain('whitespace-pre-wrap');
+    expect(html).not.toContain('<p>본문</p>');
   });
 
   it('빈 문단뿐인 본문(<p></p>)도 throw 없이 렌더한다', () => {

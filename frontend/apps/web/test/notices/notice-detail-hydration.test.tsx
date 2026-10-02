@@ -28,7 +28,12 @@ vi.mock('framer-motion', async (importOriginal) => ({
   useReducedMotion: () => null,
 }));
 
-import { expiredNoticeDetail, noticeDetail, seededNoticeDetailTree } from './notice-detail-tree-fixture';
+import {
+  eventNoticeDetail,
+  expiredNoticeDetail,
+  noticeDetail,
+  seededNoticeDetailTree,
+} from './notice-detail-tree-fixture';
 
 // RTL 을 거치지 않고 hydrateRoot 를 직접 쓰므로 act 환경 플래그를 직접 켠다(없으면 act 경고가 stderr 로 샌다).
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -112,5 +117,17 @@ describe('소식 상세 트리 — 하이드레이션(ISR HTML 회귀)', () => {
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);
     expect(result.hydratedText).toContain('마감된 공지');
+  });
+
+  it('행사 소식(Intl 로 조립한 일시·외부 링크 바)도 불일치 없이 하이드레이션한다', async () => {
+    // 마운트 재요청도 같은 행사 소식을 돌려줘야 행사 블록이 재요청 결과로 사라지지 않는다.
+    server.use(http.get('*/notices/42', () => envelope(eventNoticeDetail)));
+
+    const result = await hydrateSeededTree(eventNoticeDetail);
+
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydrationWarnings).toEqual([]);
+    expect(result.unhandledRequests).toEqual([]);
+    expect(result.hydratedText).toContain('9.25(금) 10:00–12:00');
   });
 });
