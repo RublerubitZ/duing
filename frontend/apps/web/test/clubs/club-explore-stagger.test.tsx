@@ -7,7 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { ClubSummary, PageResponse } from '@duing/types';
 
@@ -50,6 +50,7 @@ vi.mock('next/navigation', async () => {
 vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }));
 
 import { ClubExplorePage } from '@/app/clubs/_pages/ClubExplorePage';
+import { DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE, toApiParams } from '@/app/clubs/_lib/exploreParams';
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -98,10 +99,11 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-function renderExplore() {
+function renderExplore(seed?: (queryClient: QueryClient) => void) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  seed?.(queryClient);
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -144,5 +146,21 @@ describe('ClubExplorePage — 첫 로드 스태거', () => {
 
     await waitFor(() => expect(screen.getAllByText('연극부').length).toBeGreaterThan(0));
     expect(staggerWrappers()).toHaveLength(0);
+  });
+
+  it('마운트 때 목록이 이미 캐시에 있으면(서버 시드) 스태거를 붙이지 않는다 — 서버가 그린 카드를 이어받을 때 다시 떠오르지 않게', async () => {
+    server.use(clubListHandler);
+    renderExplore((queryClient) => {
+      queryClient.setQueryData(
+        clubQueryKeys.list(toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE)),
+        toPage(ALL_CLUBS),
+        { updatedAt: 0 },
+      );
+    });
+
+    await waitFor(() => expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0));
+    expect(staggerWrappers()).toHaveLength(0);
+    // 시드가 있으면 스켈레톤도 뜨지 않는다 — TanStack 은 data 가 없을 때만 pending 이다(라이브러리 의미 변화 감지).
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });
