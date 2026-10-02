@@ -29,7 +29,14 @@ vi.mock('@/app/notices/_pages/NoticePage', async () => {
 
 import NoticesRoute, { metadata, revalidate } from '@/app/notices/page';
 
-const listPage = { content: [], page: 0, size: 20, totalElements: 3, totalPages: 1, hasNext: false } as PageResponse<NoticeCardItem>;
+const listPage: PageResponse<NoticeCardItem> = {
+  content: [],
+  page: 0,
+  size: 20,
+  totalElements: 3,
+  totalPages: 1,
+  hasNext: false,
+};
 
 async function renderRoute() {
   const element = await NoticesRoute();
