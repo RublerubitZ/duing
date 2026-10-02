@@ -41,33 +41,18 @@ class ClubUpdateTest {
     }
 
     @Test
-    @DisplayName("update 는 tags 중복을 제거한다")
+    @DisplayName("동아리 수정은 태그의 앞뒤 공백·제어문자를 지우고 빈 태그와 중복을 버린다")
     void dedupesTags() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
 
         club.update(new Club.UpdatePayload(
                 null, null, null, null, null, null,
-                List.of("코딩", "스터디", "코딩"), null, null,
+                List.of("코딩", " 스터디 ", "코딩", "개\u001F발", "   "), null, null,
                 null, null, null, null, null, null, null,   // B
                 null, null, null, null,                     // C
                 null, null, null, null, null, null, null));             // D
 
-        assertThat(club.getTags()).containsExactly("코딩", "스터디");
-    }
-
-    @Test
-    @DisplayName("update 는 태그의 앞뒤 공백·제어문자를 지우고 빈 태그를 버린다")
-    void normalizesTags() {
-        Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
-
-        club.update(new Club.UpdatePayload(
-                null, null, null, null, null, null,
-                List.of(" 축구 ", "축구", "개\u001F발", "   "), null, null,
-                null, null, null, null, null, null, null,   // B
-                null, null, null, null,                     // C
-                null, null, null, null, null, null, null));             // D
-
-        assertThat(club.getTags()).containsExactly("축구", "개발");
+        assertThat(club.getTags()).containsExactly("코딩", "스터디", "개발");
     }
 
     @Test

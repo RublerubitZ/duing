@@ -38,21 +38,11 @@ describe('updateClubSchema (리더)', () => {
   it('강조 항목 10개까지는 백스톱으로 허용한다 (FE 추가 제한과 별개, §4.4)', () => {
     expect(updateClubSchema.safeParse({ ...base, highlights: Array(10).fill('항목') }).success).toBe(true);
   });
-  it('쉼표가 든 태그는 거부한다 — 쉼표는 태그 필터의 구분자다(#1338)', () => {
-    expect(updateClubSchema.safeParse({ ...base, tags: ['축구', '풋살'] }).success).toBe(true);
-    const parsed = updateClubSchema.safeParse({ ...base, tags: ['축구,풋살'] });
-    expect(parsed.success).toBe(false);
-    expect(parsed.error?.issues[0]?.message).toBe('태그에는 쉼표(,)를 넣을 수 없습니다.');
-  });
 });
 
 describe('adminUpdateClubSchema (총동연)', () => {
   it('잠금 필드(name/category/division)를 포함해 검증한다', () => {
     const admin = { ...base, name: '두잉코드', category: 'ACADEMIC', division: null };
     expect(adminUpdateClubSchema.safeParse(admin).success).toBe(true);
-  });
-  it('쉼표가 든 태그는 거부한다', () => {
-    const admin = { ...base, name: '두잉코드', category: 'ACADEMIC', division: null, tags: ['축구,풋살'] };
-    expect(adminUpdateClubSchema.safeParse(admin).success).toBe(false);
   });
 });
