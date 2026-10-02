@@ -171,6 +171,7 @@ describe('NoticeForm', () => {
     fireEvent.click(screen.getByText('태그 (최대 8개)'));
 
     expect(screen.getAllByRole('button', { name: /태그 제거/ })).toHaveLength(2);
+    expect(screen.getByRole('group', { name: '태그 (최대 8개)' })).toBeInTheDocument();
   });
 
   it('노출 범위 라벨 글자를 눌러도 노출 범위가 바뀌지 않는다', () => {
