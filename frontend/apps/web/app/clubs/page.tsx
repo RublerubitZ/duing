@@ -23,14 +23,16 @@ export const revalidate = 3600;
 export default async function Page() {
   const listParams = toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE);
   const content = await fetchPublicClubList(listParams);
+  // 빈 목록은 기본 목록으로 쓰지 않는다 — DB 복구 중 같은 순간의 빈 200 이 1시간 굳지 않게 장애 때처럼 스켈레톤·시드 없이.
+  const defaultList = content.status === 'found' && content.data.content.length > 0 ? content.data : null;
   const page = (
-    <Suspense fallback={<ClubExploreFallback page={content.status === 'found' ? content.data : null} />}>
+    <Suspense fallback={<ClubExploreFallback page={defaultList} />}>
       <ClubExplorePage />
     </Suspense>
   );
-  if (content.status !== 'found') return page;
+  if (defaultList === null) return page;
   return (
-    <SeededQuery queryKey={clubQueryKeys.list(listParams)} data={content.data}>
+    <SeededQuery queryKey={clubQueryKeys.list(listParams)} data={defaultList}>
       {page}
     </SeededQuery>
   );
