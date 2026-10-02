@@ -36,14 +36,13 @@ public class WebAuthCookieService {
             @Value("${web-auth.hint-cookie-domain:}") String hintCookieDomain,
             @Value("${duing.auth.refresh.ttl-days:30}") int refreshTtlDays,
             Environment environment) {
-        if (environment.acceptsProfiles(Profiles.of("prod"))
-                && !PRODUCTION_HINT_COOKIE_DOMAIN.equals(hintCookieDomain)) {
-            throw new IllegalStateException(
-                    "운영 AUTH_HINT_COOKIE_DOMAIN은 정확히 .duings.com이어야 합니다.");
-        }
         this.authHintTokenProvider = authHintTokenProvider;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.hintCookieDomain = hintCookieDomain;
+        // 운영 Domain 은 합법값이 .duings.com 하나뿐이라 설정으로 받지 않는다 — 비거나 틀린 .env 값이 기동을 막지 않게 한다.
+        // 설정(AUTH_HINT_COOKIE_DOMAIN)은 로컬·개발용이다(빈 값 = host-only).
+        this.hintCookieDomain = environment.acceptsProfiles(Profiles.of("prod"))
+                ? PRODUCTION_HINT_COOKIE_DOMAIN
+                : hintCookieDomain;
         this.refreshMaxAgeSeconds = refreshTtlDays * 86_400L;
     }
 

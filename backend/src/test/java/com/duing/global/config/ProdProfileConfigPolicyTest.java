@@ -62,6 +62,16 @@ class ProdProfileConfigPolicyTest {
         }
     }
 
+    @Test
+    @DisplayName("운영 yml 은 인증 힌트 Cookie Domain 을 설정으로 받지 않는다 — 운영 값은 코드 상수라 환경변수가 없어도 기동한다")
+    void prodDoesNotRequireHintCookieDomain() throws IOException {
+        Binder prod = new Binder(ConfigurationPropertySources.from(load(PROD_YML)));
+
+        // 합법값이 .duings.com 하나뿐인데 설정으로 받으면, 값이 비거나 틀린 .env 가 새 이미지와 자동 롤백 이미지를 함께 멈춘다(#1347 과 같은 함정).
+        assertThat(prod.bind("web-auth.hint-cookie-domain", String.class).isBound())
+                .as("web-auth.hint-cookie-domain").isFalse();
+    }
+
     private List<Path> configYmls() throws IOException {
         List<Path> configYmls = new ArrayList<>();
         try (DirectoryStream<Path> matchedFiles = Files.newDirectoryStream(MAIN_RESOURCES, "application*.yml")) {
