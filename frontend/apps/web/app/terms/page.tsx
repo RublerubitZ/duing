@@ -17,7 +17,7 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 // 최종 개정일. 시행일은 개정일 + 7일(개정 고지 유예)로 산출한다 — 이 상수 하나만 바꾸면 헤더·약관 부칙·처리방침 13조가 함께 움직인다.
-const REVISED_DATE = '2026-09-08';
+const REVISED_DATE = '2026-10-02';
 const EFFECTIVE_DATE = addDaysIso(REVISED_DATE, 7);
 const OPERATOR = '두잉(Duing) 운영팀';
 const CONTACT_EMAIL = 'duing.official@gmail.com';
@@ -252,9 +252,58 @@ export default function TermsPage() {
             />
           </Article>
 
-          <Article title="10. 쿠키 등 자동 수집 장치">
+          <Article title="10. 쿠키 등 자동 수집 장치와 행태정보">
             운영팀은 서비스 제공을 위해 인증 토큰 등 필요한 정보를 이용자 기기에 저장할 수 있습니다. 이용자는 브라우저
             설정을 통해 저장을 거부할 수 있으나, 이 경우 로그인 등 일부 기능 이용이 제한될 수 있습니다.
+            <p className="mt-3">
+              서비스의 공개 화면에는 Google 애드센스 광고가 게재될 수 있습니다. Google과 Google이 인증한 제3자 광고
+              네트워크는 쿠키를 사용해 이용자가 이 사이트나 다른 사이트를 방문한 기록을 바탕으로 광고를 게재합니다. 이
+              과정에서 제3자가 이용자 브라우저에 쿠키를 저장하거나 읽고, 웹 비콘이나 IP 주소를 이용해 정보를 수집할 수
+              있습니다.
+            </p>
+            <div className="mt-2">
+              <List
+                items={[
+                  '행태정보를 수집·이용하는 사업자: Google 및 Google이 인증한 제3자 광고 네트워크',
+                  '수집 방법: 광고가 게재된 화면을 열 때 쿠키, 웹 비콘, IP 주소를 통해 자동으로 수집',
+                  '수집 항목: 웹사이트 방문 기록, 광고 노출·클릭 기록, 쿠키 식별자, IP 주소, 브라우저·기기 정보',
+                  '수집 목적: 광고 게재, 이용자의 관심사에 맞춘 광고 제공, 광고 성과 측정 및 부정 클릭 방지',
+                  '보유·이용 기간: 각 사업자의 개인정보 처리방침에서 정한 기간 동안 보관한 뒤 그 방침에 따라 파기하며, 운영팀은 이 정보를 직접 수집하거나 보관하지 않습니다.',
+                  '운영팀은 회원의 학번, 이름, 연락처 등 개인정보를 광고 사업자에게 제공하지 않습니다.',
+                ]}
+              />
+            </div>
+            <p className="mt-3">
+              이용자는{' '}
+              <a
+                href="https://www.google.com/settings/ads"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-ink"
+              >
+                Google 광고 설정
+              </a>
+              에서 Google의 맞춤 광고를,{' '}
+              <a
+                href="https://www.aboutads.info/choices/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-ink"
+              >
+                aboutads.info
+              </a>
+              에서 참여 중인 제3자 광고 네트워크의 맞춤 광고를 끌 수 있고, 브라우저 설정에서 쿠키 저장을 거부할 수
+              있습니다. 맞춤 광고를 꺼도 맞춤형이 아닌 광고는 표시될 수 있습니다. Google의 데이터 처리 방식은{' '}
+              <a
+                href="https://policies.google.com/technologies/partner-sites?hl=ko"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-ink"
+              >
+                Google이 파트너 사이트·앱에서 데이터를 사용하는 방식
+              </a>
+              에서 확인할 수 있고, 행태정보 관련 문의는 아래 개인정보 보호책임자 연락처로 할 수 있습니다.
+            </p>
           </Article>
 
           <Article title="11. 개인정보 보호책임자 및 문의">
