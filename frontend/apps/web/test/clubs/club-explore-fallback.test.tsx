@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { ClubExploreFallback } from '@/app/clubs/_components/ClubExploreFallback';
+import { SCOPE_SEGMENT_CLASS } from '@/app/clubs/_lib/exploreUi';
 
 import { clubListPage } from './club-explore-fallback-fixture';
 
@@ -18,16 +19,25 @@ describe('ClubExploreFallback — 구조', () => {
     for (const placeholder of pulsing) expect(placeholder).toBeEmptyDOMElement();
   });
 
-  it('카드 위 행을 실제 페이지 문구로 그린다 — 제목·카운트/정렬 행·필터 버튼·카테고리 레일', () => {
+  it('카드 위 행을 실제 페이지 문구로 그린다 — 제목·스코프 세그먼트·카운트/정렬 행·필터 버튼·카테고리 레일', () => {
     render(<ClubExploreFallback page={clubListPage} />);
 
     expect(screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)).toEqual([
       '166개 동아리를 둘러보세요',
       '동아리 탐색',
     ]);
+    // 데스크탑 스코프 세그먼트 — 3개(전체·중앙·단과대 순), '전체' 만 선택(선택 클래스 + 힌트).
+    const scopeButtons = within(screen.getByRole('button', { name: '중앙동아리' }).parentElement!).getAllByRole('button');
+    expect(scopeButtons.map((button) => button.textContent)).toEqual(['전체· 모든 동아리', '중앙동아리', '단과대 동아리']);
+    expect(scopeButtons.map((button) => button.className)).toEqual([
+      SCOPE_SEGMENT_CLASS(true),
+      SCOPE_SEGMENT_CLASS(false),
+      SCOPE_SEGMENT_CLASS(false),
+    ]);
     expect(screen.getByText('2개')).toBeInTheDocument();
     expect(screen.getByText('· 현재 페이지 (전체 166개)')).toBeInTheDocument();
-    expect(screen.getByText('찜한 동아리')).toBeInTheDocument();
+    // 찜 칩은 실제처럼 토글 버튼(aria-pressed) — 꺼진 상태.
+    expect(screen.getByRole('button', { name: '찜한 동아리' })).toHaveAttribute('aria-pressed', 'false');
     // 정렬은 데스크탑·모바일 모두 실제와 같은 select(비제어) — 추천순 선택, 옵션도 같다.
     const sortSelects = screen.getAllByRole('combobox');
     expect(sortSelects).toHaveLength(2);

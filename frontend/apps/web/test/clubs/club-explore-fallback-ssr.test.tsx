@@ -2,11 +2,14 @@
  * @vitest-environment node
  */
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ClubExploreFallback } from '@/app/clubs/_components/ClubExploreFallback';
 
 import { clubListPage } from './club-explore-fallback-fixture';
+
+// 단언이 실패해도 console.error 가 막힌 채 남지 않게 매 테스트 뒤 되돌린다.
+afterEach(() => vi.restoreAllMocks());
 
 // 빌드·재생성 중 서버에서 그려진다 — throw 하면 빌드가 깨지거나 재생성이 실패한다.
 describe('ClubExploreFallback — 서버 렌더', () => {
@@ -16,7 +19,6 @@ describe('ClubExploreFallback — 서버 렌더', () => {
     const html = renderToString(<ClubExploreFallback page={clubListPage} />);
 
     expect(consoleErrorSpy).not.toHaveBeenCalled();
-    consoleErrorSpy.mockRestore();
     expect(html).toContain('모션케어');
     expect(html).toContain('함께 운동해요');
     expect(html).toContain('href="/clubs/1"');
