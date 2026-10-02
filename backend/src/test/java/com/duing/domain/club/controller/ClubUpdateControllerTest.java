@@ -277,6 +277,23 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("공백뿐인 태그는 길이 검증을 통과해도 저장 전에 버려지고, 앞뒤 공백은 지워진다")
+    void blankTagIsDroppedBeforeSave() {
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("tags", new String[] {" 축구 ", "   "}))
+                .when()
+                    .patch("/api/v1/clubs/{clubId}", club.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value());
+
+        Club reloaded = clubRepository.findById(club.getId()).orElseThrow();
+        assertThat(reloaded.getTags()).containsExactly("축구");
+    }
+
+    @Test
     @DisplayName("리더가 요청 바디에 동아리명을 실어 보내도 무시되고 이름은 바뀌지 않는다")
     void lockedFieldIgnored() {
         String originalName = club.getName();

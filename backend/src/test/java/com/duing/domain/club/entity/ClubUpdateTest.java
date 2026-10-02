@@ -56,6 +56,21 @@ class ClubUpdateTest {
     }
 
     @Test
+    @DisplayName("update 는 태그의 앞뒤 공백·제어문자를 지우고 빈 태그를 버린다")
+    void normalizesTags() {
+        Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
+
+        club.update(new Club.UpdatePayload(
+                null, null, null, null, null, null,
+                List.of(" 축구 ", "축구", "개\u001F발", "   "), null, null,
+                null, null, null, null, null, null, null,   // B
+                null, null, null, null,                     // C
+                null, null, null, null, null, null, null));             // D
+
+        assertThat(club.getTags()).containsExactly("축구", "개발");
+    }
+
+    @Test
     @DisplayName("update 는 모든 인자가 null 이면 기존 값을 유지한다")
     void keepsExistingValuesWhenAllArgsNull() {
         Club club = Club.create("두잉", ClubCategory.ACADEMIC, "중앙", "설명", "https://logo");
