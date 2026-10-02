@@ -1,7 +1,7 @@
 import { cache } from 'react';
 
 import { ApiError, createApiClient } from '@duing/api';
-import type { ClubDetail, NoticeDetail, PageResponse } from '@duing/types';
+import type { ClubDetail, NoticeCardItem, NoticeDetail, NoticeSource, PageResponse } from '@duing/types';
 
 import { resolveApiBaseUrl } from './apiBaseUrl';
 import { shouldRethrowBackendFailure } from './fail-soft';
@@ -56,6 +56,18 @@ export const fetchPublicNoticeDetail = cache(
   (noticeId: number): Promise<PublicContent<NoticeDetail>> =>
     loadPublicContent(() => client().notices.detail(noticeId)),
 );
+
+/**
+ * 공개 소식 목록 한 페이지 — 익명이라 백엔드가 PUBLIC·미만료만 준다. 목록 화면이 첫 진입 키로 시드한다.
+ * 목록에는 "없음"이 없다(404 는 공용 정책대로 notFound 로 오지만 페이지는 셸만 그린다).
+ */
+export function fetchPublicNoticeList(params: {
+  source: NoticeSource;
+  page: number;
+  size: number;
+}): Promise<PublicContent<PageResponse<NoticeCardItem>>> {
+  return loadPublicContent(() => client().notices.list(params));
+}
 
 // 백엔드 페이지 크기 상한(PageableConfig max 100).
 const ID_PAGE_SIZE = 100;

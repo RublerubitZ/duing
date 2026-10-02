@@ -17,6 +17,7 @@ import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
 import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
+import { NOTICE_LIST_PAGE_SIZE } from '../_lib/noticeListDefaults';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
 type IconProps = SVGProps<SVGSVGElement>;
@@ -207,8 +208,6 @@ const isNewItem = (createdAt: string): boolean =>
 const formatDate = (isoString: string): string => formatDateKst(isoString);
 
 /* ---------- 페이지 ---------- */
-const PAGE_SIZE = 20;
-
 type SidebarItem = {
   icon: React.ReactNode;
   label: string;
@@ -233,7 +232,7 @@ export function NoticePage() {
     category: activeSource === 'SCHOOL' && category !== 'ALL' ? category : undefined,
     keyword: keyword || undefined,
     page,
-    size: PAGE_SIZE,
+    size: NOTICE_LIST_PAGE_SIZE,
   });
 
   // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
