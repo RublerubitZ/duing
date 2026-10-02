@@ -79,6 +79,14 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("키워드는 태그와 같은 규칙으로 정리한다 — 앞의 # 와 공백이 섞여도 태그 매치가 동작한다")
+    void keywordNormalizedLikeTagMatchesTag() {
+        Long target = saveActiveClub("이름A", "소개A", List.of("개발")).getId();
+
+        assertSearch("# #개발").containsExactly(target);
+    }
+
+    @Test
     @DisplayName("학과에 키워드가 포함되면 검색 결과에 노출된다")
     void keywordMatchesDepartment() {
         Long target = saveDepartmentClub("이름A", "회계학과").getId();

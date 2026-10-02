@@ -6,6 +6,7 @@ import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
+import { tagLabel } from '@/app/_lib/tags';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { collegeDisplayName } from '../../../_lib/college';
@@ -138,7 +139,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <div className="flex max-w-[580px] flex-wrap gap-1.5">
                     {club.tags.map((tagName) => (
                       <span key={tagName} className="pill pill-outline bg-paper/60 text-[12px]">
-                        #{tagName.replace(/^#+/, '')}
+                        {tagLabel(tagName)}
                       </span>
                     ))}
                   </div>
@@ -272,7 +273,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {club.tags.map((tagName) => (
                 <span key={tagName} className="pill pill-outline bg-paper/60 text-[11px]">
-                  #{tagName.replace(/^#+/, '')}
+                  {tagLabel(tagName)}
                 </span>
               ))}
             </div>

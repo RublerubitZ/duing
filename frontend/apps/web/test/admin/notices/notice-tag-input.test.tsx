@@ -60,6 +60,28 @@ describe('NoticeTagInput', () => {
 
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('예전에 # 를 붙여 저장한 태그와 같은 태그는 넣지 않고 입력란을 비운다', () => {
+    const onChange = vi.fn();
+    render(<NoticeTagInput value={['#학사']} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText(/태그 입력 후 Enter/);
+    fireEvent.change(input, { target: { value: '학사' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue('');
+  });
+});
+
+describe('NoticeTagInput (칩 표시)', () => {
+  it('예전에 # 를 붙여 저장한 태그도 칩에 # 하나로 보여준다', () => {
+    render(<NoticeTagInput value={['#학사']} onChange={vi.fn()} />);
+
+    expect(screen.getByText(/^#학사/)).toBeInTheDocument();
+    expect(screen.queryByText(/##학사/)).toBeNull();
+    expect(screen.getByRole('button', { name: '학사 태그 제거' })).toBeInTheDocument();
+  });
 });
 
 // 쉼표는 태그 필터의 구분자라 태그에 넣지 않는다(#1338) — 공지 태그는 Enter·추가 때 쉼표로 나눠 넣는다.

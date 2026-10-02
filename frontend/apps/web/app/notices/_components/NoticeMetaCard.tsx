@@ -3,6 +3,7 @@ import type { NoticeCategory } from '@duing/types';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
 import { formatPublishedDate, formatDdayLabel } from '../_lib/eventFormat';
 import { safeExternalHref } from '../../_lib/route';
+import { tagLabel } from '../../_lib/tags';
 
 type Props = {
   category: NoticeCategory;
@@ -35,7 +36,7 @@ export function NoticeMetaCard({ category, createdAt, expiresAt, tags, linkUrl }
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-4 pt-4">
           {tags.map((tag) => (
-            <span key={tag} className="px-2 py-1 rounded-full bg-sage-mist text-ink text-[11.5px] font-semibold">#{tag}</span>
+            <span key={tag} className="px-2 py-1 rounded-full bg-sage-mist text-ink text-[11.5px] font-semibold">{tagLabel(tag)}</span>
           ))}
         </div>
       )}
