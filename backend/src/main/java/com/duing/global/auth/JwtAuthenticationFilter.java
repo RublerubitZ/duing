@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 JwtTokenProvider.TokenClaims claims = jwtTokenProvider.parse(candidate.token());
                 // 사용자(DB)를 조회해 (a) soft-deleted 탈퇴 계정은 @SQLRestriction 으로 미발견 → 거부하고,
-                // (b) token_version 이 불일치(로그아웃·강제 폐기로 증가)면 거부한다. 권한은 토큰의 role
+                // (b) token_version 이 불일치(로그아웃·자격 변경·탈퇴·관리자 조치로 증가)면 거부한다. 권한은 토큰의 role
                 // 클레임이 아니라 DB 의 현재 role 로 구성해 역할 변경(예: 관리자 강등)도 즉시 반영한다.
                 // (c) 이용 정지(SUSPENDED) 계정은 유효한 토큰이라도 거부한다.
                 userRepository.findById(claims.userId())

@@ -62,9 +62,11 @@ Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SEC
   동일 사이트인 커스텀 도메인을 연결한다.
 
 웹 인증은 디바이스별 세션과 Refresh Token(30일, 갱신마다 연장)을 쓴다. 로그아웃과 개별 세션 폐기는 그
-세션만 끊는다 — 그 기기에서 이미 발급된 Access Token은 만료(최대 30분)까지 서버에서 유효하다. 모든 Access
-Token의 즉시 무효화는 `token_version`을 올리는 경로가 한다 — 사용자의 모든 기기 로그아웃
-(`DELETE /api/v1/users/me/sessions`)·비밀번호 변경·재설정·전화번호 변경·탈퇴, 관리자의 강제 로그아웃·계정 정지.
+세션만 끊는다 — 그 기기에서 이미 발급된 Access Token은 만료(최대 30분)까지 서버에서 유효하다. 모든 기기를
+즉시 끊는 경로는 사용자의 모든 기기 로그아웃(`DELETE /api/v1/users/me/sessions`)과
+비밀번호 변경·재설정·전화번호 변경·탈퇴, 관리자의 강제 로그아웃·계정 정지다. 이 경로들은 `token_version`을
+올려 발급된 Access Token을 즉시 무효화하고, 모든 세션·Refresh Token도 함께 폐기한다 — `token_version`만
+올리면 다음 갱신에서 새 Access Token이 발급된다.
 
 ## 웹 인증 배포 순서
 
