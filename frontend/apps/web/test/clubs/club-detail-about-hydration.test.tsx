@@ -23,4 +23,22 @@ describe('ClubDetailAbout — 하이드레이션', () => {
     expect(recoverableErrors).toEqual([]);
     expect(container.querySelector('strong')?.textContent).toBe('운동');
   });
+
+  it('< 로 시작하는 레거시 평문은 하이드레이션 전과 뒤의 텍스트가 같고 불일치가 없다', async () => {
+    const element = <ClubDetailAbout description={'<신입부원 모집>\n\n본문'} highlights={[]} />;
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(element);
+    const serverText = container.textContent;
+    expect(serverText).toContain('<신입부원 모집>');
+
+    const recoverableErrors: unknown[] = [];
+    const root = await act(async () =>
+      hydrateRoot(container, element, { onRecoverableError: (error) => recoverableErrors.push(error) }),
+    );
+
+    expect(recoverableErrors).toEqual([]);
+    expect(container.textContent).toBe(serverText);
+
+    act(() => root.unmount());
+  });
 });

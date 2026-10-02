@@ -42,8 +42,9 @@ function AboutDescription({ description }: { description: string }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
 
-  // 서버 렌더·하이드레이션 첫 프레임에는 DOM(DOMParser·DOMPurify)이 없어 HTML 소개를 정화·분할할 수 없다 —
-  // 태그를 걷어낸 텍스트를 평문 경로로 보여 주고(크롤러가 읽는 본문), 하이드레이션 뒤 정화된 HTML 로 바꾼다.
+  // 서버에는 DOM(DOMParser·DOMPurify)이 없어 HTML 소개를 정화·분할할 수 없다 —
+  // 서버 렌더와 하이드레이션 첫 프레임(서버 HTML 과 글자까지 같아야 한다)은 태그를 걷어낸 텍스트를 평문 경로로
+  // 보여 주고(크롤러가 읽는 본문), 하이드레이션 뒤 정화된 HTML 로 바꾼다. 첫 프레임에 HTML 경로를 쓰면 #418 불일치가 난다.
   // 폴백은 DOM 이 필요한 splitDescription 을 부르지 않는다(텍스트가 '<' 로 시작해도 HTML 로 다시 판정되지 않게).
   const hydrated = useHydrated();
 
