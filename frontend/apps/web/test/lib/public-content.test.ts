@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClubDetail, ClubSummary, PageResponse } from '@duing/types';
+import type { ClubDetail, ClubSummary, NoticeCardItem, NoticeDetail, PageResponse } from '@duing/types';
 
 // createApiClient 만 모킹하고 ApiError 는 실제 클래스를 쓴다 — 실패 정책이 instanceof 로 상태를 가른다.
-const { createApiClientMock, clubsDetailMock, clubsListMock } = vi.hoisted(() => ({
-  createApiClientMock: vi.fn(),
-  clubsDetailMock: vi.fn(),
-  clubsListMock: vi.fn(),
-}));
+const { createApiClientMock, clubsDetailMock, clubsListMock, noticesDetailMock, noticesListMock } = vi.hoisted(
+  () => ({
+    createApiClientMock: vi.fn(),
+    clubsDetailMock: vi.fn(),
+    clubsListMock: vi.fn(),
+    noticesDetailMock: vi.fn(),
+    noticesListMock: vi.fn(),
+  }),
+);
 
 vi.mock('@duing/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@duing/api')>();
@@ -15,7 +19,12 @@ vi.mock('@duing/api', async (importOriginal) => {
 
 import { ApiError } from '@duing/api';
 
-import { fetchActiveClubIds, fetchPublicClubDetail } from '@/app/_lib/public-content';
+import {
+  fetchActiveClubIds,
+  fetchPublicClubDetail,
+  fetchPublicNoticeDetail,
+  fetchPublicNoticeIds,
+} from '@/app/_lib/public-content';
 
 /** 실패 정책 분기의 입력인 두 환경변수만 고정한다. */
 function stubPhase(nodeEnv: string, nextPhase?: string) {
@@ -34,11 +43,27 @@ function clubPage(ids: number[], hasNext: boolean, page: number): PageResponse<C
   };
 }
 
+function noticePage(ids: number[], hasNext: boolean, page: number): PageResponse<NoticeCardItem> {
+  return {
+    content: ids.map((id) => ({ id }) as NoticeCardItem),
+    page,
+    size: 100,
+    totalElements: ids.length,
+    totalPages: 1,
+    hasNext,
+  };
+}
+
 beforeEach(() => {
   createApiClientMock.mockReset();
   clubsDetailMock.mockReset();
   clubsListMock.mockReset();
-  createApiClientMock.mockReturnValue({ clubs: { detail: clubsDetailMock, list: clubsListMock } });
+  noticesDetailMock.mockReset();
+  noticesListMock.mockReset();
+  createApiClientMock.mockReturnValue({
+    clubs: { detail: clubsDetailMock, list: clubsListMock },
+    notices: { detail: noticesDetailMock, list: noticesListMock },
+  });
 });
 
 afterEach(() => {
@@ -134,5 +159,54 @@ describe('fetchActiveClubIds', () => {
     clubsListMock.mockRejectedValue(error);
 
     await expect(fetchActiveClubIds()).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicNoticeDetail', () => {
+  it('공개 소식은 found 로 돌려준다', async () => {
+    const notice = { id: 42, title: '봄 축제 공지' } as NoticeDetail;
+    noticesDetailMock.mockResolvedValue(notice);
+
+    await expect(fetchPublicNoticeDetail(42)).resolves.toEqual({ status: 'found', data: notice });
+    expect(noticesDetailMock).toHaveBeenCalledWith(42);
+  });
+
+  // 백엔드는 비로그인에게 동아리 공지(CLUB_SCOPED)와 없는 소식을 똑같이 404 로 준다(열거 방지).
+  it('404 는 notFound — 동아리 공지도 여기로 온다', async () => {
+    stubPhase('production');
+    noticesDetailMock.mockRejectedValue(new ApiError(404, '없음'));
+
+    await expect(fetchPublicNoticeDetail(42)).resolves.toEqual({ status: 'notFound' });
+  });
+
+  it('403 은 장애 — 런타임에 throw 해 직전 캐시본을 지킨다(WAF 챌린지일 수 있다)', async () => {
+    stubPhase('production');
+    const error = new ApiError(403, '차단');
+    noticesDetailMock.mockRejectedValue(error);
+
+    await expect(fetchPublicNoticeDetail(42)).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicNoticeIds', () => {
+  it('100개씩 hasNext 가 끝날 때까지 순회해 id 를 모으고 겹친 id 는 한 번만 돌려준다', async () => {
+    noticesListMock
+      .mockResolvedValueOnce(noticePage([17, 16], true, 0))
+      .mockResolvedValueOnce(noticePage([16, 15], false, 1));
+
+    await expect(fetchPublicNoticeIds()).resolves.toEqual([17, 16, 15]);
+    expect(noticesListMock).toHaveBeenNthCalledWith(1, { page: 0, size: 100 });
+    expect(noticesListMock).toHaveBeenNthCalledWith(2, { page: 1, size: 100 });
+  });
+
+  it('빌드 국면 장애면 null, 런타임 장애면 throw', async () => {
+    const error = new ApiError(503, '점검');
+    noticesListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicNoticeIds()).resolves.toBeNull();
+
+    stubPhase('production');
+    await expect(fetchPublicNoticeIds()).rejects.toBe(error);
   });
 });

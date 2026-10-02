@@ -1,7 +1,7 @@
 import { cache } from 'react';
 
 import { ApiError, createApiClient } from '@duing/api';
-import type { ClubDetail } from '@duing/types';
+import type { ClubDetail, NoticeDetail, PageResponse } from '@duing/types';
 
 import { resolveApiBaseUrl } from './apiBaseUrl';
 import { shouldRethrowBackendFailure } from './fail-soft';
@@ -48,28 +48,53 @@ export const fetchPublicClubDetail = cache(
     loadPublicContent(() => client().clubs.detail(clubId)),
 );
 
+/**
+ * 공개 소식 상세 — 동아리 상세와 같은 정책. 익명 조회라 동아리 공지(CLUB_SCOPED)는 404(notFound)가 되고,
+ * 만료된 공개 소식은 200 이라 그대로 렌더한다(만료 표시는 하이드레이션 뒤).
+ */
+export const fetchPublicNoticeDetail = cache(
+  (noticeId: number): Promise<PublicContent<NoticeDetail>> =>
+    loadPublicContent(() => client().notices.detail(noticeId)),
+);
+
 // 백엔드 페이지 크기 상한(PageableConfig max 100).
-const CLUB_ID_PAGE_SIZE = 100;
-// 순회 상한(100 × 50 = 5,000곳) — 응답 이상으로 hasNext 가 끝나지 않을 때의 안전장치. 동아리는 현재 166곳.
-const CLUB_ID_MAX_PAGES = 50;
+const ID_PAGE_SIZE = 100;
+// 순회 상한(100 × 50 = 5,000건) — 응답 이상으로 hasNext 가 끝나지 않을 때의 안전장치.
+const ID_MAX_PAGES = 50;
 
 /**
- * 사이트맵용 공개(ACTIVE) 동아리 id 전부. 이름순으로 순회한다 — 기본 추천순은 시간 단위로 바뀌어 페이지를
- * 넘기는 동안 순서가 흔들릴 수 있다. 빌드 국면 장애면 null(정적 경로만), 런타임 장애는 throw.
+ * 사이트맵용 — 목록 API 를 hasNext 가 끝날 때까지 순회해 id 를 모은다.
+ * 빌드 국면 장애면 null(정적 경로만), 런타임 장애는 throw(직전 사이트맵 유지).
  */
-export async function fetchActiveClubIds(): Promise<number[] | null> {
+async function collectIds(
+  loadPage: (page: number) => Promise<PageResponse<{ id: number }>>,
+): Promise<number[] | null> {
   try {
-    const api = client();
-    const clubIds: number[] = [];
-    for (let page = 0; page < CLUB_ID_MAX_PAGES; page += 1) {
-      const result = await api.clubs.list({ sort: 'ALPHABETICAL', size: CLUB_ID_PAGE_SIZE, page });
-      clubIds.push(...result.content.map((club) => club.id));
+    const ids: number[] = [];
+    for (let page = 0; page < ID_MAX_PAGES; page += 1) {
+      const result = await loadPage(page);
+      ids.push(...result.content.map((item) => item.id));
       if (!result.hasNext) break;
     }
-    // 순회 도중 이름이 바뀌면 이름순 경계가 밀려 같은 id 가 두 번 잡힐 수 있다 — 사이트맵 중복 URL 방지
-    return [...new Set(clubIds)];
+    // 순회 도중 정렬 경계가 밀리면 같은 id 가 두 번 잡힐 수 있다 — 사이트맵 중복 URL 방지
+    return [...new Set(ids)];
   } catch (error) {
     if (shouldRethrowBackendFailure()) throw error;
     return null;
   }
+}
+
+/**
+ * 사이트맵용 공개(ACTIVE) 동아리 id 전부. 이름순으로 순회한다 — 기본 추천순은 시간 단위로 바뀌어 페이지를
+ * 넘기는 동안 순서가 흔들릴 수 있다. 동아리는 현재 166곳.
+ */
+export function fetchActiveClubIds(): Promise<number[] | null> {
+  const api = client();
+  return collectIds((page) => api.clubs.list({ sort: 'ALPHABETICAL', size: ID_PAGE_SIZE, page }));
+}
+
+/** 사이트맵용 공개 소식 id 전부 — 익명 목록은 백엔드가 PUBLIC·미만료만 준다(동아리 공지·만료 소식 제외). */
+export function fetchPublicNoticeIds(): Promise<number[] | null> {
+  const api = client();
+  return collectIds((page) => api.notices.list({ page, size: ID_PAGE_SIZE }));
 }
