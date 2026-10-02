@@ -1,5 +1,6 @@
 package com.duing.domain.notice;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -311,6 +312,60 @@ class NoticeAdminAcceptanceTest extends IntegrationTestBase {
             .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("data.contentFormat", equalTo("MARKDOWN"));
+    }
+
+    @Test
+    @DisplayName("공지 작성 시 태그에 쉼표가 있으면 400 을 반환한다 — 쉼표는 태그 필터의 구분자다")
+    void createNoticeWithCommaTagReturnsBadRequest() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "학사 안내", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "tags": ["학사,장학"]
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("태그에는 쉼표(,)를 넣을 수 없습니다."));
+    }
+
+    @Test
+    @DisplayName("공지 수정 시 태그에 쉼표가 있으면 400 을 반환한다")
+    void updateNoticeWithCommaTagReturnsBadRequest() {
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    {
+                      "title": "학사 안내", "summary": "요약", "content": "본문",
+                      "coverImageUrl": "https://example.com/c.png",
+                      "category": "GENERAL", "visibility": "PUBLIC",
+                      "pinned": false, "notifyOnPublish": false,
+                      "tags": ["학사"]
+                    }
+                    """)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body("{ \"tags\": [\"학사,장학\"] }")
+            .when()
+                .patch("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", containsString("태그에는 쉼표(,)를 넣을 수 없습니다."));
     }
 
     private User saveUser(UserRole role) {
