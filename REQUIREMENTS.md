@@ -60,14 +60,14 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 | ID | 기능 | 입력 | 출력 | 예외 |
 |---|---|---|---|---|
 | U-1 | 회원가입 | `studentId`(8자리 숫자), `name`(≤50), `password`(8~20자·2종 조합), `grade`, `college`, `major`, `verificationToken`(MO 인증 세션), 약관 동의 2종 | 생성된 `userId` (201) | 미인증·만료·용도 불일치 토큰 403(`PHONE_NOT_VERIFIED`), 중복 학번·전화번호 409, 입력 검증 실패 400 |
-| U-2 | 로그인 | `studentId`(8자리 숫자), `password` | `accessToken`, `tokenType="Bearer"`, `user` (200) | 자격 증명 실패 401 |
+| U-2 | 로그인 | `studentId`(8자리 숫자), `password` | `accessToken`, `tokenType="Bearer"`, `refreshToken`, `user` (200) | 자격 증명 실패 401 |
 | U-3 | 내 정보 조회 | (JWT) | `id`, `studentId`, `name`, `phone`, `role`, `grade` (200) | 미인증 401 |
 | U-4 | 휴대폰 MO 인증 시작 | `phone`, `?qr=true` | `verificationToken`, `code`, `moNumber`, `qrCode?`, 만료 정보 (201) | 가입된 번호 409, 쿨다운·IP 한도·번호+IP당 시간당 한도(5회) 429 |
 | U-5 | 휴대폰 MO 인증 상태 조회 | `verificationToken` (body — `POST /auth/phone-verifications/status`, 토큰이 URL에 남지 않도록 조회용 POST) | `status`(PENDING/VERIFIED/EXPIRED), `expiresInSeconds`, `maskedPhone` (200) | 빈 토큰 400, 미존재 토큰 404, 세션 토큰 폴링 한도(주 원인)·IP 백스톱 429, 일일 쿼터 초과 503 |
 
 **비기능 요구사항**
 - 비밀번호는 `BCryptPasswordEncoder` 로 해싱 후 저장 (평문 저장 금지).
-- JWT 는 `HS256`, 만료 시간은 `JWT_EXPIRY_MS` 환경변수로 제어.
+- JWT 는 `HS256`. Access Token 수명은 30분이고 Refresh Token(30일, 갱신마다 연장)으로 갱신한다. 30분은 코드(`JwtTokenProvider`)가 고정 검증하므로 `JWT_EXPIRY_MS` 는 설정하지 않는다(다른 값이나 빈 값이면 기동 실패).
 - 가입 시 기본 role 은 `STUDENT`. `LEADER` / `ADMIN` 승격은 별도 admin API 로만 가능(현재 미구현).
 - 가입 진위 확인은 휴대폰 MO 인증(Octomo, 대표번호 1666-3538)으로만 수행한다 — 전화번호는 인증 세션에서 확정된 값이 저장되고, 사용된 세션은 즉시 소비된다. 이메일 필드·이메일 인증은 제거됨(물리 컬럼 drop 은 안정화 후). 상세는 docs/superpowers/specs/2026-07-09-student-id-login-mo-auth-design.md
 

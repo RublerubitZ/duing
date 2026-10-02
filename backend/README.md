@@ -150,8 +150,8 @@ src/main/resources/
 
 | ID | 기능 | 핵심 규칙 |
 |---|---|---|
-| U-1 | 회원가입 | 학번(7~10자리 숫자)·이메일·비번(8~72자) 검증, BCrypt 해싱, 기본 role `STUDENT` |
-| U-2 | 로그인 | 이메일+비번 → JWT(HS256) 발급, 만료 `JWT_EXPIRY_MS` |
+| U-1 | 회원가입 | 학번(8자리 숫자)·비번(8~20자, 영문/숫자/특수문자 2종 이상) 검증, 휴대폰 MO 인증, BCrypt 해싱, 기본 role `STUDENT` |
+| U-2 | 로그인 | 학번+비번 → Access JWT(HS256, 30분)·Refresh 토큰(30일, 갱신마다 연장) 발급 |
 | U-3 | 내 정보 조회 | `@AuthenticationPrincipal UserPrincipal` 로 현재 사용자 식별 |
 
 ### Club (동아리) ✅ 구현완료
