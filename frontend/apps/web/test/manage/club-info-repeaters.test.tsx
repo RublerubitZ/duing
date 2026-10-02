@@ -209,6 +209,17 @@ describe('TagsInput (쉼표 구분)', () => {
     expect(onChange).toHaveBeenCalledWith(['축']);
     expect(input).toHaveValue('풋');
   });
+
+  it('붙여넣은 탭 같은 제어문자는 지운다 — 서버 정규화와 같아 저장 뒤에도 칩이 그대로다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '축\t구' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+  });
 });
 
 // 조합 중 포커스가 빠질 때 — Chromium 은 조합을 먼저 끝내고 blur 를 보낸다.

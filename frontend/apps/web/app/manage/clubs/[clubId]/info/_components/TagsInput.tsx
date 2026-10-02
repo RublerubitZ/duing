@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { appendTag } from '../../../../../_lib/tags';
 
 type TagsInputProps = {
   value: string[];
@@ -13,16 +14,10 @@ type TagsInputProps = {
 export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxTagLength = 5 }: TagsInputProps) {
   const [draft, setDraft] = useState('');
   const [isComposing, setIsComposing] = useState(false);
-
-  // 넣을 수 있는 태그면 붙인 목록을, 아니면 받은 목록을 그대로 돌려준다.
-  function appendTag(tags: string[], token: string) {
-    const trimmed = token.trim();
-    if (!trimmed || trimmed.length > maxTagLength || tags.includes(trimmed) || tags.length >= maxTags) return tags;
-    return [...tags, trimmed];
-  }
+  const limits = { maxTags, maxTagLength };
 
   function add(token: string) {
-    const next = appendTag(value, token);
+    const next = appendTag(value, token, limits);
     if (next === value) return;
     onChange(next);
     setDraft('');
@@ -37,7 +32,7 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
     }
     const tokens = nextDraft.split(',');
     const tail = tokens.pop() ?? '';
-    const next = tokens.reduce(appendTag, value);
+    const next = tokens.reduce((tags, token) => appendTag(tags, token, limits), value);
     // 쉼표 뒤 공백이 5자 칸을 차지하지 않게 지운다. 한도를 채워 입력란이 사라지면 꼬리도 버린다 — 칩을 지울 때 숨은 글자가 되살아나지 않게.
     setDraft(next.length >= maxTags ? '' : tail.trimStart());
     if (next !== value) onChange(next);
