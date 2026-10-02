@@ -24,6 +24,7 @@ import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
 import {
   CATEGORY_OPTIONS,
   DEFAULT_EXPLORE_PARAMS,
+  EXPLORE_PAGE_SIZE,
   RECRUITMENT_LABEL,
   categoryLabel,
   hasNonFavoriteFilters,
@@ -36,8 +37,6 @@ import {
   type Scope,
   type SortKey,
 } from '../_lib/exploreParams';
-
-const PAGE_SIZE = 20;
 
 /** 첫 로드 스태거 게이트 — 처음 정착한 목록과, 그 뒤로 다른 목록을 본 적이 있는지. */
 type StaggerGate = { firstSettled: PageResponse<ClubSummary> | null; locked: boolean };
@@ -117,7 +116,7 @@ export function ClubExplorePage() {
   /** 찜 필터 + 미인증 — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
       플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
-  const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
+  const clubListQuery = useClubListQuery(toApiParams(params, EXPLORE_PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
   // 찜 필터 교집합(likedIds)용으로만 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
