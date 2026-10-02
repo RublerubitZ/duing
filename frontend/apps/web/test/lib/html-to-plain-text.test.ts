@@ -44,6 +44,10 @@ describe('htmlToPlainText', () => {
   it('입력은 앞 20,000자까지만 처리한다 — 길이 제한 없는 본문이 서버 렌더 시간을 잡아먹지 않게', () => {
     expect(htmlToPlainText(`<p>${'가'.repeat(30_000)}</p>`).length).toBeLessThanOrEqual(20_000);
   });
+
+  it('상한 경계가 서로게이트 쌍 가운데면 한 글자 앞에서 잘라 짝 없는 서로게이트를 남기지 않는다', () => {
+    expect(htmlToPlainText(`${'가'.repeat(20_000 - 1)}😀끝`)).not.toMatch(/[\uD800-\uDBFF]$/);
+  });
 });
 
 describe('splitPlainText', () => {

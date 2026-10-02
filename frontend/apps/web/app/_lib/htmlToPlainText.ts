@@ -16,8 +16,10 @@ const BLOCK_END = /<\/(?:p|h[1-6]|ul|ol|blockquote|pre|div)\s*>/gi;
 // 긴 입력이 ISR 생성 시간을 잡아먹지 않게 앞부분만 처리한다(하이드레이션 뒤 정화 경로는 전체를 그린다).
 const MAX_INPUT_LENGTH = 20_000;
 // Tiptap 목록은 항목마다 <li><p>…</p></li> — 항목 문단 끝을 빈 줄로 만들면 목록이 문단 여러 개로 쪼개진다.
+// 항목 안 문단이 여럿이거나 중첩 목록이면 접힘 지점이 클라이언트와 다를 수 있다(근사).
 const LIST_ITEM_PARAGRAPH_END = /<\/p\s*>\s*<\/li\s*>/gi;
 // [^<>] — 닫는 > 가 없는 '<a<a<a…' 에서도 다음 '<' 에서 멈춰 길이에 선형이다.
+// 속성값 안의 `<`·`>` 는 근사 처리한다(조각이 텍스트로 남을 수 있다).
 const TAG = /<\/?[A-Za-z][^<>]*>/g;
 // 공백 덩어리의 시작에서만 매치를 시도해 선형이다.
 const TRAILING_SPACE = /(?<![ \t])[ \t]+\n/g;
@@ -42,9 +44,18 @@ function decodeEntity(match: string, body: string): string {
   return NAMED_ENTITIES[body.toLowerCase()] ?? match;
 }
 
+function truncateInput(html: string): string {
+  if (html.length <= MAX_INPUT_LENGTH) return html;
+  const lastCode = html.charCodeAt(MAX_INPUT_LENGTH - 1);
+  // 경계가 서로게이트 쌍 가운데면 한 글자 앞에서 자른다 — 짝 없는 서로게이트는 직렬화에서 U+FFFD 로 바뀌어 하이드레이션 텍스트가 어긋날 수 있다.
+  return html.slice(
+    0,
+    lastCode >= 0xd800 && lastCode <= 0xdbff ? MAX_INPUT_LENGTH - 1 : MAX_INPUT_LENGTH,
+  );
+}
+
 export function htmlToPlainText(html: string): string {
-  return html
-    .slice(0, MAX_INPUT_LENGTH)
+  return truncateInput(html)
     .replace(SCRIPT_OR_STYLE, '')
     .replace(COMMENT, '')
     .replace(LIST_ITEM_PARAGRAPH_END, '</li>')

@@ -3,9 +3,6 @@ import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 
 import { isHtmlDescription } from './descriptionText';
 
-// 판정은 DOM 이 필요 없어 descriptionText 로 옮겼다 — 기존 호출처 호환을 위해 여기서도 내보낸다.
-export { isHtmlDescription } from './descriptionText';
-
 export type SplitDescription = {
   isHtml: boolean;
   /** 첫 블록(HTML outerHTML) 또는 첫 문단(plain) */
