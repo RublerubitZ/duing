@@ -204,8 +204,8 @@ describe('TagsInput (쉼표 구분)', () => {
     fireEvent.change(input, { target: { value: ' 축' } });
     expect(input).toHaveValue(' 축');
 
-    fireEvent.change(input, { target: { value: ' 축구, 풋' } });
-    expect(onChange).toHaveBeenCalledWith(['축구']);
+    fireEvent.change(input, { target: { value: ' 축, 풋' } });
+    expect(onChange).toHaveBeenCalledWith(['축']);
     expect(input).toHaveValue('풋');
   });
 });
