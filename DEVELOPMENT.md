@@ -127,7 +127,8 @@ pnpm dev                    # http://localhost:3000
 
 - 백엔드는 Access Token 서명용 `JWT_SECRET`, Middleware 힌트 서명용 `AUTH_HINT_SECRET`을 사용한다. 두
   Secret은 각각 최소 32바이트이며 반드시 서로 다른 값이어야 한다. 운영 힌트 Cookie 범위(`.duings.com`)는
-  코드 상수라 설정하지 않는다(#1350 부터 운영은 `AUTH_HINT_COOKIE_DOMAIN`을 읽지 않는다).
+  #1350 부터 코드 상수라 앱이 `AUTH_HINT_COOKIE_DOMAIN`을 쓰지 않는다. 다만 운영 `.env` 의
+  `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 줄은 이전 이미지 롤백에 대비해 그대로 둔다(deploy/README.md).
 - Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
   `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
 

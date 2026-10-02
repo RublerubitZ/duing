@@ -38,7 +38,7 @@ public class WebAuthCookieService {
             Environment environment) {
         this.authHintTokenProvider = authHintTokenProvider;
         this.jwtTokenProvider = jwtTokenProvider;
-        // 운영 Domain 은 합법값이 .duings.com 하나뿐이라 설정으로 받지 않는다(#1350) — 비거나 틀린 .env 값이 기동을 막지 않게 한다.
+        // 운영 Domain 은 합법값이 .duings.com 하나뿐이라 설정값을 쓰지 않는다(#1350) — 비거나 틀린 .env 값이 기동을 막지 않게 한다.
         // 설정(AUTH_HINT_COOKIE_DOMAIN)은 로컬·개발용이다(빈 값 = host-only).
         this.hintCookieDomain = environment.acceptsProfiles(Profiles.of("prod"))
                 ? PRODUCTION_HINT_COOKIE_DOMAIN
