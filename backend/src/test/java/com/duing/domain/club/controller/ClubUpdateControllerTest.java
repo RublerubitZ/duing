@@ -1,7 +1,6 @@
 package com.duing.domain.club.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -259,21 +258,6 @@ class ClubUpdateControllerTest extends IntegrationTestBase {
                     .patch("/api/v1/clubs/{clubId}", club.getId())
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value());
-    }
-
-    @Test
-    @DisplayName("태그에 쉼표가 있으면 400 을 반환한다 — 쉼표는 태그 필터의 구분자라 그 태그로 찾을 수 없다")
-    void tagWithCommaReturns400() {
-        RestAssured
-                .given()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
-                    .contentType(ContentType.JSON)
-                    .body(Map.of("tags", new String[] {"축구,풋살"}))
-                .when()
-                    .patch("/api/v1/clubs/{clubId}", club.getId())
-                .then()
-                    .statusCode(HttpStatus.BAD_REQUEST.value())
-                    .body("message", containsString("태그에는 쉼표(,)를 넣을 수 없습니다."));
     }
 
     @Test

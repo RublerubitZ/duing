@@ -67,7 +67,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     /**
      * 키워드 검색에서 태그를 이어 붙일 때의 구분자 — 화면에서 입력할 수 없는 단위 구분자(U+001F)다.
      * 쉼표로 이으면 [개발, 봉사] 가 "개발,봉사" 가 되어 키워드 ","·"발,봉" 이 태그 경계를 넘어 걸린다(#1338).
-     * API 로 U+001F 를 일부러 넣은 키워드는 경계를 넘을 수 있지만 결과가 넓어질 뿐이다.
+     * API 로 이 문자를 넣은 키워드도 경계를 넘지 못하게 키워드에서는 지운다.
      */
     private static final String TAG_SEPARATOR = "\u001F";
 
@@ -274,7 +274,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        String normalized = keyword.replaceFirst("^#+", "").trim();
+        String normalized = keyword.replaceFirst("^#+", "").replace(TAG_SEPARATOR, "").trim();
         if (normalized.isEmpty()) return null;
 
         // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로

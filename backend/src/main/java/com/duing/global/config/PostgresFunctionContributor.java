@@ -23,8 +23,7 @@ import org.hibernate.type.StandardBasicTypes;
  * <p>
  * 호출 예: {@code function('array_overlap_text', club.tags, '축구,러닝')}
  * 호출 예: {@code function('array_overlap_csv', club.activeDays, 'MONDAY,WEDNESDAY')}
- * 호출 예: {@code function('array_to_string', club.tags, separator)} — 동아리 키워드 검색은 화면에서 입력할 수 없는
- * U+001F 로 잇는다(ClubRepositoryImpl.TAG_SEPARATOR, #1338).
+ * 호출 예: {@code function('array_to_string', club.tags, separator)}
  * 호출 예: {@code hourly_shuffle(club.id, '2026081109')} — 산술 컨텍스트에서 반환 타입이 필요하므로
  * JPA {@code function('...')} 문법이 아닌 직접 호출로 쓴다(전자는 등록된 반환 타입을 무시한다).
  */
