@@ -133,6 +133,55 @@ describe('TagsInput (maxTagLength)', () => {
   });
 });
 
+// 한글 IME 조합·keyCode 229 모바일 키보드는 ',' keydown 분기를 건너뛰어 쉼표가 값으로만 들어온다(#1338).
+describe('TagsInput (쉼표 구분)', () => {
+  it('keydown 없이 값으로 들어온 쉼표 앞은 태그로 넣고 뒤만 입력란에 남긴다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '축구,풋' } });
+
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+    expect(input).toHaveValue('풋');
+  });
+
+  it('조합 중에는 나누지 않고 조합이 끝날 때 나눈다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '축구,풋' } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue('축구,풋');
+
+    fireEvent.compositionEnd(input);
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+    expect(input).toHaveValue('풋');
+  });
+
+  it('한 번에 들어온 여러 조각은 중복을 빼고 한 번에 넘긴다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,가,나' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['가']);
+  });
+
+  it('여러 조각이 들어와도 태그는 5개를 넘지 않는다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={['a', 'b', 'c', 'd']} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,나,' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['a', 'b', 'c', 'd', '가']);
+  });
+});
+
 describe('ContactVisibilityField', () => {
   it('공개 범위 라디오에서 비공개를 선택하면 onChange 가 PRIVATE 로 호출된다', () => {
     const onChange = vi.fn();

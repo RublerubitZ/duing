@@ -29,6 +29,9 @@ public final class ClubProfileValidationRules {
     public static final int TAGS_MAX = 20;
     public static final int TAG_LENGTH_MIN = 1;
     public static final int TAG_LENGTH_MAX = 20;
+    /** 쉼표는 태그 필터({@code tags=a,b})의 구분자라, 쉼표가 든 태그는 그 태그로 찾을 수 없다(#1338). */
+    public static final String TAG_PATTERN = "[^,]*";
+    public static final String TAG_PATTERN_MESSAGE = "태그에는 쉼표(,)를 넣을 수 없습니다.";
 
     public static final int SNS_LINKS_MAX = 10;
     public static final int FAQS_MAX = 20;

@@ -388,7 +388,9 @@ const clubProfileBaseSchema = z.object({
   logoUrl: z.string().max(500, '로고 URL은 500자 이하여야 합니다.').nullable(),
   coverUrl: z.string().max(500, '커버 URL은 500자 이하여야 합니다.').nullable(),
   tags: z.array(
-    z.string().min(1, '각 태그는 1~20자여야 합니다.').max(20, '각 태그는 1~20자여야 합니다.'),
+    z.string().min(1, '각 태그는 1~20자여야 합니다.').max(20, '각 태그는 1~20자여야 합니다.')
+      // 쉼표는 태그 필터(tags=a,b)의 구분자라 쉼표가 든 태그는 그 태그로 찾을 수 없다 — BE TAG_PATTERN 과 같은 규칙(#1338).
+      .regex(/^[^,]*$/, '태그에는 쉼표(,)를 넣을 수 없습니다.'),
   ).max(20, '태그는 최대 20개까지 가능합니다.'),
   snsLinks: z.array(clubSnsLinkSchema).max(10, 'SNS 링크는 최대 10개까지 가능합니다.'),
   faqs: z.array(
