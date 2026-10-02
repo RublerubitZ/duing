@@ -7,6 +7,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,9 +21,8 @@ public class JwtTokenProvider {
     // HS256 은 RFC 7518 §3.2 상 해시 출력 크기(256비트=32바이트) 이상의 키를 요구한다.
     // 더 짧은 키는 그만큼 보안 강도가 떨어지므로 기동 단계에서 막는다.
     private static final int MIN_SECRET_BYTES = 32;
-    // Access JWT 수명 30분 — 웹 Access Cookie Max-Age(1800초)와 같은 계약이라 설정으로 받지 않는다.
-    // 예전에는 jwt.expiry-ms(JWT_EXPIRY_MS)로 받아 이 값이 아니면 기동을 막았다. 롤백 대상인 이전 이미지는 아직 그 값을 읽는다.
-    private static final long ACCESS_TOKEN_EXPIRY_MS = 1_800_000L;
+    // Access JWT 수명 — 웹 Access Cookie Max-Age 와 같은 계약이라 설정으로 받지 않는다(#1347 부터 JWT_EXPIRY_MS 를 읽지 않는다).
+    private static final Duration ACCESS_TOKEN_LIFETIME = Duration.ofMinutes(30);
 
     @Value("${jwt.secret}")
     private String secret;
@@ -66,7 +66,7 @@ public class JwtTokenProvider {
                 .withClaim("role", role)
                 .withClaim("tokenVersion", tokenVersion)
                 .withIssuedAt(now)
-                .withExpiresAt(new Date(now.getTime() + ACCESS_TOKEN_EXPIRY_MS));
+                .withExpiresAt(new Date(now.getTime() + ACCESS_TOKEN_LIFETIME.toMillis()));
         if (sessionId != null) {
             jwtBuilder.withClaim("sid", sessionId);
         }
@@ -88,6 +88,6 @@ public class JwtTokenProvider {
 
     /** 웹 access 쿠키 Max-Age 정렬용 — 토큰 수명(초). */
     public long expirySeconds() {
-        return ACCESS_TOKEN_EXPIRY_MS / 1000;
+        return ACCESS_TOKEN_LIFETIME.toSeconds();
     }
 }
