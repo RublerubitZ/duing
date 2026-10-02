@@ -148,8 +148,8 @@ API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명은 코드(`JwtTokenProvider`)가 30분
 (1,800,000ms)으로 고정 검증하므로 `JWT_EXPIRY_MS`는 설정하지 않는다 — 다른 값이면 기동에 실패한다.
 로그아웃과 개별 세션 폐기는 그 세션만 끊는다 — 그 기기에서 이미 발급된 Access Token은 만료(최대 30분)까지
-서버에서 유효하다. 즉시 차단은 모든 기기 로그아웃(`DELETE /api/v1/users/me/sessions`)뿐이며, `token_version`을
-올려 모든 Access Token을 즉시 무효화한다.
+서버에서 유효하다. 모든 Access Token의 즉시 무효화는 `token_version`을 올리는 경로가 한다 — 사용자의 모든 기기
+로그아웃(`DELETE /api/v1/users/me/sessions`)·비밀번호 변경·재설정·전화번호 변경·탈퇴, 관리자의 강제 로그아웃·계정 정지.
 
 배포 순서와 롤백 절차는 [`deploy/README.md`](./deploy/README.md)를 따른다.
 

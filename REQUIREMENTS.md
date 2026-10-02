@@ -67,7 +67,7 @@ ClubMember 운영(승급/강등·추방·탈퇴·정상 인계)은 이미 제공
 
 **비기능 요구사항**
 - 비밀번호는 `BCryptPasswordEncoder` 로 해싱 후 저장 (평문 저장 금지).
-- JWT 는 `HS256`, 만료 시간은 `JWT_EXPIRY_MS` 환경변수로 제어.
+- JWT 는 `HS256`. Access Token 수명은 코드(`JwtTokenProvider`)가 30분으로 고정 검증한다 — `JWT_EXPIRY_MS` 는 설정하지 않는다(다른 값이면 기동 실패).
 - 가입 시 기본 role 은 `STUDENT`. `LEADER` / `ADMIN` 승격은 별도 admin API 로만 가능(현재 미구현).
 - 가입 진위 확인은 휴대폰 MO 인증(Octomo, 대표번호 1666-3538)으로만 수행한다 — 전화번호는 인증 세션에서 확정된 값이 저장되고, 사용된 세션은 즉시 소비된다. 이메일 필드·이메일 인증은 제거됨(물리 컬럼 drop 은 안정화 후). 상세는 docs/superpowers/specs/2026-07-09-student-id-login-mo-auth-design.md
 
