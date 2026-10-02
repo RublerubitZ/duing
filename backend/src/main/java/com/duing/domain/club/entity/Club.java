@@ -2,6 +2,7 @@ package com.duing.domain.club.entity;
 
 import com.duing.domain.club.exception.ClubException;
 import com.duing.domain.user.entity.College;
+import com.duing.global.constant.TagRules;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -344,7 +345,7 @@ public class Club extends BaseEntity {
         } else if (payload.coverUrl() != null) {
             this.coverUrl = payload.coverUrl();
         }
-        if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
+        if (payload.tags() != null) this.tags = TagRules.normalize(payload.tags());
         if (payload.snsLinks() != null) {
             this.snsLinks = payload.snsLinks().stream()
                     .map(ClubSnsLink::normalized)
