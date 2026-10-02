@@ -17,6 +17,7 @@ const WORKSPACE_DEPENDENCIES = {
 const PACKAGE_ENTRIES = [
   '^packages/[^/]+/src/index[.]ts$',
   '^packages/hooks/src/datetime[.]ts$', // exports "./datetime"
+  '^packages/hooks/src/query-keys[.]ts$', // exports "./query-keys"
   '^packages/storage/src/(web|native)[.]ts$', // exports "./web", "./native"
 ];
 
