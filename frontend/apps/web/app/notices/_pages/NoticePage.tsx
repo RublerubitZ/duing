@@ -8,6 +8,7 @@ import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -237,6 +238,9 @@ export function NoticePage() {
 
   // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
   const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
+  // NEW 배지(작성 7일 이내)는 하이드레이션 뒤에만 — 목록은 24시간 ISR 이라 서버가 계산한 값이 보는 시각과 달라
+  // 하이드레이션 불일치(#418)가 난다. 서버·첫 프레임에는 그리지 않는다.
+  const hydrated = useHydrated();
 
   const items = listQuery.data?.content ?? [];
   const totalElements = listQuery.data?.totalElements ?? 0;
@@ -530,7 +534,7 @@ export function NoticePage() {
                               fontSize: 12, fontVariantNumeric: 'tabular-nums',
                               color: isDark ? 'rgba(255,255,255,0.5)' : 'var(--charcoal-3)',
                             }}>{formatDate(n.createdAt)}</span>
-                            {isNewItem(n.createdAt) && (
+                            {hydrated && isNewItem(n.createdAt) && (
                               <span style={{ marginLeft: 'auto' }}>
                                 <NewBadge />
                               </span>
@@ -662,7 +666,7 @@ export function NoticePage() {
                       )}
                       {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
                       <span className="min-w-0 truncate">{n.title}</span>
-                      {isNewItem(n.createdAt) && <NewBadge />}
+                      {hydrated && isNewItem(n.createdAt) && <NewBadge />}
                     </span>
                     <span className="nr-date" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
