@@ -35,7 +35,8 @@ public final class TagRules {
     private static final Pattern NO_BREAK_SPACES = Pattern.compile("[\\u00A0\\u2007\\u202F]");
 
     // 화면이 태그 앞에 '#' 를 붙여 보여 주므로 저장값에서는 앞의 '#' 를 뗀다(키워드 검색도 앞 '#' 를 뗀다).
-    private static final Pattern LEADING_HASHES = Pattern.compile("^#+");
+    // 키캡 이모지(U+0023 U+FE0F U+20E3)의 '#' 는 떼지 않는다.
+    private static final Pattern LEADING_HASHES = Pattern.compile("^#+(?![\\uFE0F\\u20E3])");
 
     private TagRules() {
         // 상수·정적 메서드 모음 — 인스턴스화 금지
@@ -52,10 +53,15 @@ public final class TagRules {
     }
 
     private static String normalizeTag(String tag) {
-        String composed = Normalizer.normalize(tag, Normalizer.Form.NFC);
-        String visible = INVISIBLE_CHARACTERS.matcher(composed).replaceAll("");
+        // 보이지 않는 문자를 먼저 지워야 그 사이에 끼어 있던 분해된 한글도 NFC 로 합쳐진다.
+        String visible = INVISIBLE_CHARACTERS.matcher(tag).replaceAll("");
         String letters = BLANK_LOOKING_LETTERS.matcher(visible).replaceAll("");
-        String trimmed = NO_BREAK_SPACES.matcher(letters).replaceAll(" ").strip();
-        return LEADING_HASHES.matcher(trimmed).replaceFirst("").strip();
+        String composed = Normalizer.normalize(letters, Normalizer.Form.NFC);
+        String result = NO_BREAK_SPACES.matcher(composed).replaceAll(" ").strip();
+        // "# #축구" 처럼 '#' 와 공백이 섞여 있어도 끝까지 뗀다.
+        while (LEADING_HASHES.matcher(result).find()) {
+            result = LEADING_HASHES.matcher(result).replaceFirst("").strip();
+        }
+        return result;
     }
 }

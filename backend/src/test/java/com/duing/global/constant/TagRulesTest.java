@@ -34,6 +34,20 @@ class TagRulesTest {
     }
 
     @Test
+    @DisplayName("'#' 와 공백이 섞여 있어도 앞의 '#' 를 끝까지 지우고, 키캡 이모지의 '#' 는 남긴다")
+    void foldsRepeatedLeadingHashButKeepsKeycap() {
+        assertThat(TagRules.normalize(Arrays.asList("# #축구", "#\u3000#축구", "# #", "#\uFE0F\u20E3번호")))
+                .containsExactly("축구", "#\uFE0F\u20E3번호");
+    }
+
+    @Test
+    @DisplayName("지운 문자 사이에 끼어 있던 분해된 한글도 합쳐진다")
+    void composesHangulAfterRemovingInvisibleLetters() {
+        assertThat(TagRules.normalize(Arrays.asList("\u1100\u1160\u1161", "\u1100\u200B\u1161", "가")))
+                .containsExactly("가");
+    }
+
+    @Test
     @DisplayName("공백처럼 보이는 한글 채움 문자·점자 공백은 지운다")
     void dropsBlankLookingLetters() {
         assertThat(TagRules.normalize(Arrays.asList("\u3164", "\u2800\u2800", "농\u3164구", "\u115F\u1160", "\uFFA0")))

@@ -22,6 +22,18 @@ describe('normalizeTag', () => {
     expect(normalizeTag('#')).toBe('');
   });
 
+  it('# 와 공백이 섞여 있어도 앞의 # 를 끝까지 지우고, 키캡 이모지의 # 는 남긴다', () => {
+    expect(normalizeTag('# #축구')).toBe('축구');
+    expect(normalizeTag('#\u3000#축구')).toBe('축구');
+    expect(normalizeTag('# #')).toBe('');
+    expect(normalizeTag('#\uFE0F\u20E3번호')).toBe('#\uFE0F\u20E3번호');
+  });
+
+  it('지운 문자 사이에 끼어 있던 분해된 한글도 합쳐진다', () => {
+    expect(normalizeTag('\u1100\u1160\u1161')).toBe('가');
+    expect(normalizeTag('\u1100\u200B\u1161')).toBe('가');
+  });
+
   it('공백처럼 보이는 한글 채움 문자·점자 공백은 지운다', () => {
     expect(normalizeTag('\u3164')).toBe('');
     expect(normalizeTag('농\u3164구')).toBe('농구');
@@ -38,6 +50,12 @@ describe('appendTag', () => {
     const tags = ['축구'];
 
     expect(appendTag(tags, '축\u200B구', { maxTags: 5, maxTagLength: 5 })).toBe(tags);
+  });
+
+  it('예전에 # 를 붙여 저장한 태그와도 중복을 판정한다', () => {
+    const tags = ['#밴드'];
+
+    expect(appendTag(tags, '밴드', { maxTags: 5, maxTagLength: 5 })).toBe(tags);
   });
 
   it('# 만 다른 태그는 이미 있는 태그로 본다', () => {

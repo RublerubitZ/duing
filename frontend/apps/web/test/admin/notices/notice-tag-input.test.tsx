@@ -63,6 +63,15 @@ describe('NoticeTagInput', () => {
 });
 
 // 쉼표는 태그 필터의 구분자라 태그에 넣지 않는다(#1338) — 공지 태그는 Enter·추가 때 쉼표로 나눠 넣는다.
+describe('NoticeTagInput (칩 표시)', () => {
+  it('예전에 # 를 붙여 저장한 태그도 칩에 # 하나로 보여준다', () => {
+    render(<NoticeTagInput value={['#학사']} onChange={vi.fn()} />);
+
+    expect(screen.getByText(/^#학사/)).toBeInTheDocument();
+    expect(screen.queryByText(/##학사/)).toBeNull();
+  });
+});
+
 describe('NoticeTagInput (쉼표 구분)', () => {
   it('입력 중에는 나누지 않고 Enter 때 쉼표로 나눠 여러 태그를 한 번에 넣는다', () => {
     const onChange = vi.fn();

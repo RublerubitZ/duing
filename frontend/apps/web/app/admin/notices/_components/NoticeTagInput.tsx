@@ -69,6 +69,8 @@ export function NoticeTagInput({ value, onChange, max = 8, inputId }: Props) {
             }
           }}
           id={inputId}
+          // 바깥 라벨이 없으면 입력란에 직접 이름을 붙인다.
+          aria-label={inputId ? undefined : '태그 입력'}
           placeholder={`태그 입력 후 Enter (최대 ${max}개, ${MAX_TAG_LENGTH}자 이하)`}
           className="flex-1 px-3 py-2 rounded-md border border-line bg-paper text-[13px]"
         />
