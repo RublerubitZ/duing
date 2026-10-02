@@ -163,4 +163,22 @@ describe('ClubExplorePage — 첫 로드 스태거', () => {
     // 시드가 있으면 스켈레톤도 뜨지 않는다 — TanStack 은 data 가 없을 때만 pending 이다(라이브러리 의미 변화 감지).
     expect(screen.queryByRole('status')).toBeNull();
   });
+
+  it('찜 필터 딥링크가 인증 대기로 마운트했다가 인증 뒤 첫 목록이 도착하면 스태거를 붙인다 — 쿼리가 꺼진 채 데이터 없이 시작한 첫 도착이다', async () => {
+    server.use(
+      clubListHandler,
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [1, 2] }, message: null }),
+      ),
+    );
+    navStore.search = 'favorite=true';
+    renderExplore();
+    // 마운트 때는 미인증이라 목록 쿼리가 꺼져 있다(로딩이 아닌 대기) — 로그인 안내만 보인다.
+    expect(screen.getAllByText('찜한 동아리를 보려면 로그인해 주세요.')).toHaveLength(2);
+
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+
+    await waitFor(() => expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0));
+    expect(staggerWrappers()).toHaveLength(4);
+  });
 });

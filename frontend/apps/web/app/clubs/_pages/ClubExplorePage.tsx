@@ -120,9 +120,10 @@ export function ClubExplorePage() {
   const clubListQuery = useClubListQuery(toApiParams(params, EXPLORE_PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
-  // 스태거는 로딩을 거쳐 도착한 첫 목록에만 — 서버가 그린 기본 목록(시드)을 JS 가 이어받을 때 같은 카드가 다시
-  // 떠오르지 않게 한다(useEnteredFromSkeleton 관례). 마운트 때 값으로 고정된다.
-  const enteredFromLoading = useEnteredFromSkeleton(clubListQuery.isLoading);
+  // 스태거는 데이터 없이 마운트한 경우(로딩·대기)에만 — 서버가 그린 기본 목록(시드)을 JS 가 이어받을 때 같은 카드가
+  // 다시 떠오르지 않게 한다(useEnteredFromSkeleton 관례). isLoading 이 아닌 isPending 이라, 인증을 기다리며 꺼져 있던
+  // 찜 필터 쿼리도 첫 목록이 오면 연출한다. 마운트 때 값으로 고정된다.
+  const enteredFromLoading = useEnteredFromSkeleton(clubListQuery.isPending);
   // 찜 필터 교집합(likedIds)용으로만 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
   const favoriteIdsQuery = useFavoriteIdsQuery();
   // 토글 동작(방향 가드·로그인 이동·401 처리·PostHog)은 하트 버튼과 공용 플로우로 공유한다.
@@ -151,7 +152,7 @@ export function ClubExplorePage() {
   }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
 
   // 첫 데이터 도착 1회에만 카드 스태거를 붙인다(필터·정렬·페이지 이동은 반복 액션이라 제외).
-  // 그것도 마운트 때 로딩을 거친 경우만이다(enteredFromLoading) — 시드·캐시로 첫 렌더부터 목록이 있으면 붙이지 않는다.
+  // 그것도 데이터 없이 마운트한 경우만이다(enteredFromLoading) — 시드·캐시로 첫 렌더부터 목록이 있으면 붙이지 않는다.
   // keepPreviousData 라 필터 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로,
   // isPlaceholderData 가 풀린 "정착" 시점을 기준으로 본다.
   // 불리언 플래그를 렌더 도중 뒤집는 방식은 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은
