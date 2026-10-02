@@ -4,6 +4,7 @@ import type { ClubDetail } from '@duing/types';
 import { clubQueryKeys } from '@duing/hooks/query-keys';
 
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
+import { toMetaDescription } from '@/app/_lib/metaDescription';
 import { fetchPublicClubDetail, type PublicContent } from '@/app/_lib/public-content';
 import { SeededQuery } from '@/app/_lib/SeededQuery';
 
@@ -27,17 +28,9 @@ export function generateStaticParams() {
   return [];
 }
 
-const DESCRIPTION_MAX_LENGTH = 150;
-
 function describeClub(club: ClubDetail): string {
   const source = club.tagline?.trim() || (club.description ? descriptionToPlainText(club.description) : '');
-  const normalized = source.replace(/\s+/g, ' ').trim();
-  if (!normalized) return `${club.name} — 대구대학교 동아리`;
-  // 코드 포인트 단위로 자른다 — UTF-16 단위로 자르면 이모지(서로게이트 쌍)가 반으로 잘려 U+FFFD 로 깨진다.
-  const characters = Array.from(normalized);
-  return characters.length > DESCRIPTION_MAX_LENGTH
-    ? `${characters.slice(0, DESCRIPTION_MAX_LENGTH - 1).join('')}…`
-    : normalized;
+  return toMetaDescription(source, `${club.name} — 대구대학교 동아리`);
 }
 
 async function loadClub(

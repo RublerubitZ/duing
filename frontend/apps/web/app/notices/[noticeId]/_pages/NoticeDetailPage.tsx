@@ -35,7 +35,8 @@ export function NoticeDetailPage() {
   const detailQuery = useNoticeDetailQuery(noticeId);
   const notice = detailQuery.data;
 
-  // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
+  // 공개 소식은 서버 metadata 가 제목을 붙인다. 동아리 공지(익명 404 → noindex 셸)는 서버가 제목을 모르므로
+  // 회원 데이터가 도착한 뒤 탭 제목을 여기서 맞춘다.
   useDocumentTitle(notice?.title ?? null);
   // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
   const enteredFromSkeleton = useEnteredFromSkeleton(detailQuery.isLoading);
