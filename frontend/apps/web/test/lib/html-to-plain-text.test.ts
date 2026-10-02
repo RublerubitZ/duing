@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { htmlToPlainText, splitPlainText } from '../../app/_lib/htmlToPlainText';
+import { descriptionToPlainText } from '../../app/clubs/[clubId]/_lib/descriptionText';
 
 // 서버 렌더·하이드레이션 첫 프레임에서 HTML 본문을 텍스트로 보여 줄 때 쓴다 — DOM 이 없는 node 환경에서 돈다.
 describe('htmlToPlainText', () => {
@@ -33,6 +34,16 @@ describe('htmlToPlainText', () => {
   it('빈 줄은 2개까지로 줄이고 앞뒤 공백을 지운다', () => {
     expect(htmlToPlainText('  <p>a</p><p></p><p></p><p>b</p>  ')).toBe('a\n\nb');
   });
+
+  it('Tiptap 목록(<li><p>…</p></li>)은 항목 사이를 줄바꿈 하나로 둬 목록 전체가 한 문단이 된다', () => {
+    expect(htmlToPlainText('<ul><li><p>스트레칭</p></li><li><p>테이핑</p></li></ul><p>끝</p>')).toBe(
+      '스트레칭\n테이핑\n\n끝',
+    );
+  });
+
+  it('입력은 앞 20,000자까지만 처리한다 — 길이 제한 없는 본문이 서버 렌더 시간을 잡아먹지 않게', () => {
+    expect(htmlToPlainText(`<p>${'가'.repeat(30_000)}</p>`).length).toBeLessThanOrEqual(20_000);
+  });
 });
 
 describe('splitPlainText', () => {
@@ -42,5 +53,17 @@ describe('splitPlainText', () => {
 
   it('나머지가 없으면 rest 는 null', () => {
     expect(splitPlainText('한 문단뿐')).toEqual({ lead: '한 문단뿐', rest: null });
+  });
+});
+
+describe('descriptionToPlainText', () => {
+  it('Tiptap HTML 은 태그를 걷어낸 텍스트로 바꾼다', () => {
+    expect(descriptionToPlainText('<p>함께 <strong>운동</strong>해요</p>')).toBe('함께 운동해요');
+  });
+
+  it('블록 마크업이 없거나 < 로 시작하지 않으면 원문 그대로 둔다 — 하이드레이션 뒤 평문 폴백과 같은 텍스트', () => {
+    expect(descriptionToPlainText('<AI 스터디> 소개\n\n본문')).toBe('<AI 스터디> 소개\n\n본문');
+    expect(descriptionToPlainText('<공지> R&amp;D')).toBe('<공지> R&amp;D');
+    expect(descriptionToPlainText('평문 <p>태그</p>')).toBe('평문 <p>태그</p>');
   });
 });
