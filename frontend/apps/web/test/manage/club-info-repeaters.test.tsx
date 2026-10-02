@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClubProject, ClubSnsLink } from '@duing/types';
@@ -156,6 +156,7 @@ describe('TagsInput (쉼표 구분)', () => {
     render(<TagsInput value={[]} onChange={onChange} />);
 
     const input = screen.getByRole('textbox');
+    act(() => input.focus()); // 조합은 포커스가 있을 때만 일어난다
     fireEvent.compositionStart(input);
     fireEvent.change(input, { target: { value: '축구,풋' } });
     expect(onChange).not.toHaveBeenCalled();
@@ -207,6 +208,41 @@ describe('TagsInput (쉼표 구분)', () => {
     fireEvent.change(input, { target: { value: ' 축, 풋' } });
     expect(onChange).toHaveBeenCalledWith(['축']);
     expect(input).toHaveValue('풋');
+  });
+});
+
+// 조합 중 포커스가 빠질 때 blur 가 compositionend 보다 먼저 올 수 있다 — 그때 onBlur 는 조합 중이라 건너뛴다.
+describe('TagsInput (조합 중 포커스 이탈)', () => {
+  it('blur 가 먼저 오면 조합이 끝날 때 남은 입력을 태그로 넣는다', () => {
+    const onChange = vi.fn();
+    render(<><TagsInput value={[]} onChange={onChange} /><button type="button">저장</button></>);
+
+    const input = screen.getByRole('textbox');
+    act(() => input.focus());
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '풋살' } });
+    act(() => screen.getByRole('button', { name: '저장' }).focus());
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['풋살']);
+  });
+
+  it('조합이 먼저 끝나면 그때는 넣지 않고 이어지는 blur 에서 한 번만 넣는다', () => {
+    const onChange = vi.fn();
+    render(<><TagsInput value={[]} onChange={onChange} /><button type="button">저장</button></>);
+
+    const input = screen.getByRole('textbox');
+    act(() => input.focus());
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '풋살' } });
+    fireEvent.compositionEnd(input);
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => screen.getByRole('button', { name: '저장' }).focus());
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['풋살']);
   });
 });
 

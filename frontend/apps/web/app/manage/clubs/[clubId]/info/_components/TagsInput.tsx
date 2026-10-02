@@ -79,7 +79,9 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={(event) => {
             setIsComposing(false);
-            splitOnComma(event.currentTarget.value);
+            // 조합 중 포커스가 빠질 때 blur 가 먼저 오면 onBlur 는 조합 중이라 건너뛴다 — 포커스가 이미 떠났으면 남은 입력까지 태그로 넣는다.
+            const focusLeft = document.activeElement !== event.currentTarget;
+            splitOnComma(focusLeft ? `${event.currentTarget.value},` : event.currentTarget.value);
           }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
