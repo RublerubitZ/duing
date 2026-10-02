@@ -66,7 +66,8 @@ export async function fetchActiveClubIds(): Promise<number[] | null> {
       clubIds.push(...result.content.map((club) => club.id));
       if (!result.hasNext) break;
     }
-    return clubIds;
+    // 순회 도중 이름이 바뀌면 이름순 경계가 밀려 같은 id 가 두 번 잡힐 수 있다 — 사이트맵 중복 URL 방지
+    return [...new Set(clubIds)];
   } catch (error) {
     if (shouldRethrowBackendFailure()) throw error;
     return null;

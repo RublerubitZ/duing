@@ -82,6 +82,24 @@ describe('fetchPublicClubDetail', () => {
 
     await expect(fetchPublicClubDetail(4)).resolves.toEqual({ status: 'unavailable' });
   });
+
+  it('빌드 국면에서도 404 는 notFound — 장애 폴백(unavailable)으로 흐리지 않는다', async () => {
+    stubPhase('production', 'phase-production-build');
+    clubsDetailMock.mockRejectedValue(new ApiError(404, '없음'));
+
+    await expect(fetchPublicClubDetail(4)).resolves.toEqual({ status: 'notFound' });
+  });
+
+  it('ApiError 가 아닌 예외도 장애 — 런타임은 같은 객체로 rethrow, 빌드 국면은 unavailable', async () => {
+    const error = new TypeError('boom');
+    clubsDetailMock.mockRejectedValue(error);
+
+    stubPhase('production');
+    await expect(fetchPublicClubDetail(4)).rejects.toBe(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubDetail(4)).resolves.toEqual({ status: 'unavailable' });
+  });
 });
 
 describe('fetchActiveClubIds', () => {
@@ -93,6 +111,14 @@ describe('fetchActiveClubIds', () => {
     await expect(fetchActiveClubIds()).resolves.toEqual([1, 2, 3]);
     expect(clubsListMock).toHaveBeenNthCalledWith(1, { sort: 'ALPHABETICAL', size: 100, page: 0 });
     expect(clubsListMock).toHaveBeenNthCalledWith(2, { sort: 'ALPHABETICAL', size: 100, page: 1 });
+  });
+
+  it('페이지가 겹쳐 같은 id 가 두 번 와도 한 번만 돌려준다', async () => {
+    clubsListMock
+      .mockResolvedValueOnce(clubPage([1, 2], true, 0))
+      .mockResolvedValueOnce(clubPage([2, 3], false, 1));
+
+    await expect(fetchActiveClubIds()).resolves.toEqual([1, 2, 3]);
   });
 
   it('빌드 국면 장애면 null — 사이트맵은 정적 경로만 낸다', async () => {
