@@ -265,7 +265,7 @@ export default function TermsPage() {
               <List
                 items={[
                   '행태정보를 수집·이용하는 사업자: Google 및 Google이 인증한 제3자 광고 네트워크',
-                  '수집 방법: 광고가 게재된 화면을 열 때 쿠키, 웹 비콘, IP 주소를 통해 자동으로 수집',
+                  '수집 방법: 광고 코드가 실린 공개 화면을 열 때 쿠키, 웹 비콘, IP 주소를 통해 자동으로 수집',
                   '수집 항목: 웹사이트 방문 기록, 광고 노출·클릭 기록, 쿠키 식별자, IP 주소, 브라우저·기기 정보',
                   '수집 목적: 광고 게재, 이용자의 관심사에 맞춘 광고 제공, 광고 성과 측정 및 부정 클릭 방지',
                   '보유·이용 기간: 각 사업자의 개인정보 처리방침에서 정한 기간 동안 보관한 뒤 그 방침에 따라 파기하며, 운영팀은 이 정보를 직접 수집하거나 보관하지 않습니다.',
@@ -282,6 +282,7 @@ export default function TermsPage() {
                 className="underline underline-offset-2 hover:text-ink"
               >
                 Google 광고 설정
+                <span aria-hidden="true"> ↗</span>
               </a>
               에서 Google의 맞춤 광고를,{' '}
               <a
@@ -291,6 +292,7 @@ export default function TermsPage() {
                 className="underline underline-offset-2 hover:text-ink"
               >
                 aboutads.info
+                <span aria-hidden="true"> ↗</span>
               </a>
               에서 참여 중인 제3자 광고 네트워크의 맞춤 광고를 끌 수 있고, 브라우저 설정에서 쿠키 저장을 거부할 수
               있습니다. 맞춤 광고를 꺼도 맞춤형이 아닌 광고는 표시될 수 있습니다. Google의 데이터 처리 방식은{' '}
@@ -301,6 +303,7 @@ export default function TermsPage() {
                 className="underline underline-offset-2 hover:text-ink"
               >
                 Google이 파트너 사이트·앱에서 데이터를 사용하는 방식
+                <span aria-hidden="true"> ↗</span>
               </a>
               에서 확인할 수 있고, 행태정보 관련 문의는 아래 개인정보 보호책임자 연락처로 할 수 있습니다.
             </p>

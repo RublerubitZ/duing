@@ -36,8 +36,12 @@ describe('TermsPage 광고 쿠키·행태정보 고지', () => {
     expect(
       screen.getByRole('heading', { name: '10. 쿠키 등 자동 수집 장치와 행태정보' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Google과 Google이 인증한 제3자 광고 네트워크는 쿠키를 사용해/)).toBeInTheDocument();
-    expect(screen.getByText(/웹 비콘이나 IP 주소를 이용해 정보를 수집할 수 있습니다/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Google과 Google이 인증한 제3자 광고 네트워크는 쿠키를 사용해/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/웹 비콘이나 IP 주소를 이용해 정보를 수집할 수 있습니다/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/개인정보를 광고 사업자에게 제공하지 않습니다/)).toBeInTheDocument();
   });
 
