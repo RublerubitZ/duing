@@ -74,4 +74,16 @@ class TagRulesTest {
         assertThat(TagRules.normalize(Arrays.asList("\u200D", "\u200C\u200D", "\uFE0F", "\u034F", "\u20E3", "밴드")))
                 .containsExactly("밴드");
     }
+
+    @Test
+    @DisplayName("사용자 정의 글자처럼 범주로는 보이는지 알 수 없는 글자는 남긴다")
+    void keepsPrivateUseCharacter() {
+        assertThat(TagRules.normalize(Arrays.asList("\uE000"))).containsExactly("\uE000");
+    }
+
+    @Test
+    @DisplayName("아주 긴 '#' 도 스택이 넘치지 않고 지운다 — 키워드 검색어는 길이 제한이 없다")
+    void foldsVeryLongLeadingHashRun() {
+        assertThat(TagRules.normalizeTag("#".repeat(100_000) + "a")).isEqualTo("a");
+    }
 }

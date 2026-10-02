@@ -80,6 +80,7 @@ describe('NoticeTagInput (칩 표시)', () => {
 
     expect(screen.getByText(/^#학사/)).toBeInTheDocument();
     expect(screen.queryByText(/##학사/)).toBeNull();
+    expect(screen.getByRole('button', { name: '학사 태그 제거' })).toBeInTheDocument();
   });
 });
 

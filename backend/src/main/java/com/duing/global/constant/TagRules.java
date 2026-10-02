@@ -36,10 +36,12 @@ public final class TagRules {
 
     // 화면이 태그 앞에 '#' 를 붙여 보여 주므로 저장값에서는 앞의 '#' 를 뗀다.
     // 키캡 이모지('#' + 변형 선택자(없거나 U+FE0E·U+FE0F) + U+20E3)의 '#' 는 남기고, 떼는 '#' 뒤의 변형 선택자는 함께 뗀다.
-    private static final Pattern LEADING_HASHES = Pattern.compile("^(?:#(?![\\uFE0E\\uFE0F]?\\u20E3)[\\uFE0E\\uFE0F]?)+");
+    // 반복은 소유 수량자(++)로 둔다 — 길이가 일정하지 않은 그룹의 반복은 글자마다 재귀해, 길이 제한이 없는 키워드 검색어의
+    // 긴 '#' 에서 스택이 넘친다.
+    private static final Pattern LEADING_HASHES = Pattern.compile("^(?:#(?![\\uFE0E\\uFE0F]?\\u20E3)[\\uFE0E\\uFE0F]?)++");
 
-    // 결합 문자·서식 문자·공백만 남은 태그(홀로 남은 ZWJ·변형 선택자 등)는 빈 칩으로 보인다. 범주를 모르는 글자(미지정)는
-    // 보이는 글자로 친다 — 브라우저와 서버의 유니코드 버전이 달라도 판정이 같다.
+    // 결합 문자·서식 문자·공백만 남은 태그(홀로 남은 ZWJ·변형 선택자 등)는 빈 칩으로 보인다. 범주를 모르는 글자(미지정)·사용자 정의
+    // 글자는 보이는 글자로 친다 — 브라우저와 서버의 유니코드 버전이 달라도 새로 생긴 글자의 판정이 같다(새로 생긴 결합 문자만 다르다).
     private static final Pattern VISIBLE_CHARACTER = Pattern.compile("[^\\p{M}\\p{Cf}\\p{Z}]");
 
     private TagRules() {

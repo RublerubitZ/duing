@@ -7,8 +7,8 @@ const BLANK_LOOKING_LETTERS = /[\u115F\u1160\u3164\uFFA0\u2800]/g;
 const NO_BREAK_SPACES = /[\u00A0\u2007\u202F]/g;
 // 키캡 이모지('#' + 변형 선택자(없거나 U+FE0E·U+FE0F) + U+20E3)의 '#' 는 남기고, 떼는 '#' 뒤의 변형 선택자는 함께 뗀다.
 const LEADING_HASHES = /^(?:#(?![\uFE0E\uFE0F]?\u20E3)[\uFE0E\uFE0F]?)+/;
-// 결합 문자·서식 문자·공백만 남은 태그(홀로 남은 ZWJ·변형 선택자 등)는 빈 칩으로 보인다. 범주를 모르는 글자(미지정)는
-// 보이는 글자로 친다 — 브라우저와 서버의 유니코드 버전이 달라도 판정이 같다.
+// 결합 문자·서식 문자·공백만 남은 태그(홀로 남은 ZWJ·변형 선택자 등)는 빈 칩으로 보인다. 범주를 모르는 글자(미지정)·사용자 정의
+// 글자는 보이는 글자로 친다 — 브라우저와 서버의 유니코드 버전이 달라도 새로 생긴 글자의 판정이 같다(새로 생긴 결합 문자만 다르다).
 const VISIBLE_CHARACTER = /[^\p{M}\p{Cf}\p{Z}]/u;
 
 export type TagLimits = { maxTags: number; maxTagLength: number };

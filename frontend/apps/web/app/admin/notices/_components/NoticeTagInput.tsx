@@ -29,8 +29,8 @@ export function NoticeTagInput({ value, onChange, max = 8, inputId }: Props) {
     );
     if (next !== value) onChange(next);
     // 예전에 '#' 를 붙여 저장한 태그와 같은 조각도 이미 있는 조각으로 보고 지운다.
-    const added = new Set(next.map(normalizeTag));
-    setDraft(fragments.filter((tag) => tag && !added.has(tag)).join(', '));
+    const presentTags = new Set(next.map(normalizeTag));
+    setDraft(fragments.filter((tag) => tag && !presentTags.has(tag)).join(', '));
   };
 
   const removeTag = (target: string) => {
@@ -47,7 +47,7 @@ export function NoticeTagInput({ value, onChange, max = 8, inputId }: Props) {
               type="button"
               onClick={() => removeTag(tag)}
               className="text-charcoal-3 hover:text-ink"
-              aria-label={`${tag} 태그 제거`}
+              aria-label={`${normalizeTag(tag)} 태그 제거`}
             >×</button>
           </span>
         ))}

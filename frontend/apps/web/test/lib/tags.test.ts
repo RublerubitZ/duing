@@ -59,6 +59,10 @@ describe('normalizeTag', () => {
     expect(normalizeTag('\u034F')).toBe('');
     expect(normalizeTag('\u20E3')).toBe('');
   });
+
+  it('사용자 정의 글자처럼 범주로는 보이는지 알 수 없는 글자는 남긴다', () => {
+    expect(normalizeTag('\uE000')).toBe('\uE000');
+  });
 });
 
 describe('appendTag', () => {
