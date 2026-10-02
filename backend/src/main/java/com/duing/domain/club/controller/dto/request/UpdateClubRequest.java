@@ -39,7 +39,9 @@ public record UpdateClubRequest(
         List<@NotNull(message = "태그는 비어 있을 수 없습니다.")
                 @Size(min = ClubProfileValidationRules.TAG_LENGTH_MIN,
                         max = ClubProfileValidationRules.TAG_LENGTH_MAX,
-                        message = "각 태그는 1~20자여야 합니다.") String> tags,
+                        message = "각 태그는 1~20자여야 합니다.")
+                @Pattern(regexp = ClubProfileValidationRules.TAG_PATTERN,
+                        message = ClubProfileValidationRules.TAG_PATTERN_MESSAGE) String> tags,
 
         @Size(max = ClubProfileValidationRules.SNS_LINKS_MAX, message = "SNS 링크는 최대 10개까지 가능합니다.")
         List<@NotNull(message = "SNS 링크는 비어 있을 수 없습니다.") @Valid ClubSnsLink> snsLinks,
