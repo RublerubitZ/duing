@@ -11,7 +11,8 @@ export function isHtmlDescription(description: string): boolean {
 }
 
 // Tiptap HTML 의 블록 마크업 — '<' 로 시작해도 이게 없으면 레거시 평문(`<AI 스터디> …`)으로 본다.
-// hr·img 는 <p> 없이 단독 블록으로 나온다 — 빠지면 `<hr>` 만 있는 소개가 평문으로 판정돼 태그 글자가 노출된다.
+// hr 은 Tiptap 이 <p> 없이 단독 블록으로 낸다 — 빠지면 `<hr>` 만 있는 소개가 평문으로 판정돼 태그 글자가 노출된다.
+// img 는 소개 에디터가 내지 않지만 정화기 허용 태그라, 하이드레이션 뒤 판정과 맞추려고 함께 둔다.
 const BLOCK_MARKUP = /<\/?(?:p|h[1-6]|ul|ol|li|blockquote|pre|div|br|hr|img)\b/i;
 
 /**

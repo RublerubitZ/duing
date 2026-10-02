@@ -79,7 +79,7 @@ describe('descriptionToPlainText', () => {
     expect(descriptionToPlainText('평문 <p>태그</p>')).toBe('평문 <p>태그</p>');
   });
 
-  it('<p> 없이 단독으로 오는 Tiptap 블록(hr·img)도 HTML 로 본다 — 서버 텍스트·메타 설명에 태그 글자가 남지 않게', () => {
+  it('<p> 없이 단독으로 오는 hr·img 도 HTML 로 본다 — 서버 텍스트·메타 설명에 태그 글자가 남지 않게', () => {
     expect(descriptionToPlainText('<hr>')).toBe('');
     expect(descriptionToPlainText('<img src="https://files.duings.com/a.jpg">')).toBe('');
     expect(descriptionToPlainText('<p>a</p><hr><p>b</p>')).toBe('a\n\nb');
