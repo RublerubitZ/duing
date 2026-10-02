@@ -28,7 +28,7 @@ export function isAdSenseAllowedPath(pathname: string): boolean {
  * Google AdSense 사이트 확인·광고 로더.
  *
  * <p>게시자 콘텐츠가 있는 공개 화면에서만 싣는다 — 개인정보가 보이는 화면(`/me`·`/manage`·`/admin`·`/apply`·
- * `/notifications`·인증·`/join`·`/clubs/{id}/member/**`)과 콘텐츠가 없는 도구 화면의 문서에는 광고 스크립트를 붙이지 않는다.
+ * `/notifications`·인증·`/join`·`/clubs/{id}/member/**`)과 콘텐츠가 없는 도구·빈 화면의 문서에는 광고 스크립트를 붙이지 않는다.
  *
  * <p>구글 안내가 "각 페이지의 &lt;head&gt; 안"을 요구하므로 next/script(body 주입)가 아니라 평문
  * 태그를 그대로 반환한다. React 19 는 `<script async src>` 를 어디서 렌더하든 head 로 호이스팅하고
