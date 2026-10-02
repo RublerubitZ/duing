@@ -1,3 +1,4 @@
+import { splitPlainText } from '@/app/_lib/htmlToPlainText';
 import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 
 export type SplitDescription = {
@@ -10,13 +11,16 @@ export type SplitDescription = {
 
 // 콘솔이 Tiptap HTML 로 저장하기 시작하면 소개글은 '<' 로 시작한다(레거시는 전부 plain text).
 const HTML_LEADING = /^\s*</;
-// plain text 문단 구분 — 빈 줄(사이 공백 허용)
-const BLANK_LINE = /\n\s*\n/;
 
-// DOMParser 사용 — 클럽 상세는 클라이언트 쿼리로만 렌더되므로(SSR 은 스켈레톤) 이 함수는
-// 브라우저/jsdom 에서만 호출된다. 서버 컴포넌트에서 직접 호출 금지.
+/** HTML(Tiptap) 소개인지 — '<' 로 시작하면 HTML 로 본다. `<신입부원 모집>` 같은 레거시 평문도 걸리지만 아래가 평문으로 폴백한다. */
+export function isHtmlDescription(description: string): boolean {
+  return HTML_LEADING.test(description);
+}
+
+// HTML 분기는 DOMParser·DOMPurify 를 쓰므로 브라우저(하이드레이션 이후)에서만 호출한다 — 서버 렌더와
+// 하이드레이션 첫 프레임에서는 ClubDetailAbout 이 htmlToPlainText + splitPlainText 폴백을 쓴다.
 export function splitDescription(description: string): SplitDescription {
-  if (HTML_LEADING.test(description)) {
+  if (isHtmlDescription(description)) {
     const doc = new DOMParser().parseFromString(sanitizeNoticeHtml(description), 'text/html');
     const [first, ...remaining] = Array.from(doc.body.children);
     // 첫 블록이 없으면 '<신입부원 모집>' 처럼 '<' 로 시작하는 레거시 plain 텍스트가 태그로 오인식돼
@@ -30,10 +34,6 @@ export function splitDescription(description: string): SplitDescription {
     }
   }
 
-  const [firstParagraph, ...remainingParagraphs] = description.split(BLANK_LINE);
-  return {
-    isHtml: false,
-    lead: firstParagraph ?? '',
-    rest: remainingParagraphs.length > 0 ? remainingParagraphs.join('\n\n') : null,
-  };
+  const { lead, rest } = splitPlainText(description);
+  return { isHtml: false, lead, rest };
 }
