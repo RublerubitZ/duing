@@ -9,10 +9,10 @@ import type { StudentRecruitmentProjection } from '@duing/types';
 import { Sparkle } from '../../../_components/Sparkle';
 import {
   displayStatusLabel,
-  recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
 import { ddayLabel } from '../../../_lib/dday';
+import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). */
@@ -28,10 +28,11 @@ function endLabel(endDate: string | null): string | null {
 }
 
 export function ClubRecruitmentSummary({ recruitment }: Props) {
+  // 훅은 조기 반환보다 먼저 — 모집이 없을 때도 같은 순서로 호출한다.
+  const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
   if (!recruitment) return null;
 
   const status = recruitment.displayStatus;
-  const daysLeft = recruitmentDaysLeft(recruitment.endDate);
   // 마감 당일은 'D-day'(ddayLabel SSOT). 음수(서버가 아직 OPEN 인 stale·시계 편차 구간)는
   // 카운트다운을 접고 상태 라벨로 폴백한다 — 표기 판정은 displayStatus 가 유일 소스(#896).
   const header =

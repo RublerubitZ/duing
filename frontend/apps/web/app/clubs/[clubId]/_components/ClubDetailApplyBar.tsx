@@ -13,7 +13,7 @@ import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import { Spinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
-import { recruitmentDaysLeft } from '../../../_lib/recruitmentDisplay';
+import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { useClubApply } from '../_lib/useClubApply';
 
 type Props = {
@@ -24,14 +24,13 @@ type Props = {
 };
 
 // 바 좌측 2줄 라벨 — 상단은 상태/카운트다운, 하단은 강조 문구.
-function barLabels(recruitment: StudentRecruitmentProjection | undefined): {
+function barLabels(recruitment: StudentRecruitmentProjection | undefined, daysLeft: number | null): {
   top: string;
   main: string;
 } {
   if (!recruitment) return { top: '모집 정보', main: '현재 모집이 없어요' };
   switch (recruitment.displayStatus) {
     case 'OPEN': {
-      const daysLeft = recruitmentDaysLeft(recruitment.endDate);
       // 마감 당일은 'D-day'(ddayLabel SSOT). 음수 구간은 카운트다운 없이 '모집중' 으로 폴백한다.
       return {
         top: daysLeft !== null && daysLeft >= 0 ? `모집중 · ${ddayLabel(daysLeft)}` : '모집중',
@@ -50,7 +49,8 @@ function barLabels(recruitment: StudentRecruitmentProjection | undefined): {
 export function ClubDetailApplyBar({ recruitment, membership }: Props) {
   const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
     useClubApply(recruitment);
-  const { top, main } = barLabels(recruitment);
+  const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
+  const { top, main } = barLabels(recruitment, daysLeft);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
 
