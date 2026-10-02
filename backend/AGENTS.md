@@ -367,7 +367,7 @@ DB_URL=jdbc:postgresql://{supabase-host}:5432/postgres
 DB_USERNAME=postgres
 DB_PASSWORD=****
 JWT_SECRET=****
-# JWT_EXPIRY_MS 는 설정하지 않는다 — access 토큰 수명은 코드가 30분(1800000)으로 고정 검증(다른 값이면 기동 실패, refresh 토큰 도입으로 3600000→1800000)
+# access 토큰 수명은 코드 상수 30분(1800000, JwtTokenProvider) — 설정 없음(refresh 토큰 도입으로 3600000→1800000)
 # DUING_AUTH_* — refresh TTL(30일)·재사용 grace(30초)·동시 세션 상한(5)·cleanup 잡 토글. 전부 기본값으로 충분해 운영 env 미주입 가능(prod cleanup 만 application-prod.yml 에서 자동 활성).
 SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 비움/미설정=비활성(시작 로그 WARN), 운영은 주입 권장. deploy/MONITORING.md
 

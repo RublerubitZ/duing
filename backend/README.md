@@ -60,7 +60,7 @@ cp .env.example .env
 | `DB_URL` | Supabase Postgres JDBC URL (`jdbc:postgresql://...`) |
 | `DB_USERNAME` / `DB_PASSWORD` | DB 자격 증명 (팀 공유 채널에서 확인) |
 | `JWT_SECRET` | 32자 이상 임의 문자열 (`openssl rand -hex 32`) |
-| `JWT_EXPIRY_MS` | 설정하지 않는다 — Access JWT 수명은 코드가 30분(1,800,000ms)으로 고정 검증하고, 다른 값이면 기동 실패 |
+| `JWT_EXPIRY_MS` | 어떤 값이든 넣지 않는다 — #1347 부터 앱은 읽지 않지만(Access 30분은 코드 상수), #1347 이전 이미지로 롤백하면 이 값 때문에 기동이 실패할 수 있다 |
 | `FILE_UPLOAD_DIR` | 로컬 파일 저장 경로 (기본 `/tmp/duing/uploads`) |
 
 IntelliJ 의 Run Configuration → Environment variables 에 등록하거나, EnvFile 플러그인으로 `.env` 를 연결해 사용한다.

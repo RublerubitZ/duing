@@ -145,8 +145,8 @@ API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 `__Secure-duing_refresh_token` Cookie(`Path=/api/v1/auth`)로 발급하고 수명은 30일
 (`DUING_AUTH_REFRESH_TTL_DAYS`, 갱신마다 연장)이며, `auth_hint`도 같은 수명을 따른다. 로그인 상태 유지를
 끄면 세 Cookie 모두 Max-Age 없는 세션 Cookie가 된다. `auth_hint`는 로그인·역할별 리다이렉트 UX에만 쓰며
-API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명은 코드(`JwtTokenProvider`)가 30분
-(1,800,000ms)으로 고정 검증하므로 `JWT_EXPIRY_MS`는 설정하지 않는다 — 다른 값이면 기동에 실패한다.
+API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명은 코드(`JwtTokenProvider`)의 상수 30분이고
+설정으로 바꾸지 않는다.
 로그아웃·세션 폐기의 범위와 모든 기기를 즉시 끊는 경로, 배포 순서와 롤백 절차는
 [`deploy/README.md`](./deploy/README.md)를 따른다.
 
