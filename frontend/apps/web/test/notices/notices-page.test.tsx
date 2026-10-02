@@ -41,7 +41,7 @@ vi.mock('@duing/stores', async (importOriginal) => ({
 }));
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
-import NoticesPage from '../../app/notices/page';
+import { NoticePage as NoticesPage } from '../../app/notices/_pages/NoticePage';
 
 function makeNoticeItem(overrides: Partial<NoticeCardItem> = {}): NoticeCardItem {
   return {
