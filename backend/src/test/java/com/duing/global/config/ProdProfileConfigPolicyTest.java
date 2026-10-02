@@ -23,6 +23,8 @@ import org.springframework.core.io.FileSystemResource;
  * 통합 테스트로는 운영 설정을 검증할 수 없다(전례: {@link DbServerErrorDetailPolicyTest}). 런타임의 ConfigData 병합
  * (다중 문서 순서·프로파일 그룹·import)은 재현하지 않으므로 운영 값은 application-prod.yml 단일 문서에 리터럴로 고정한다.
  * 서버 .env 로 들어오는 환경변수 덮어쓰기(예: SPRINGDOC_API_DOCS_ENABLED)는 이 가드 밖이다.
+ *
+ * <p>합법값이 하나뿐인 운영 값(인증 힌트 Cookie Domain)을 운영 yml 이 다시 필수 환경변수로 받지 않게도 한다(#1350).
  */
 class ProdProfileConfigPolicyTest {
 
@@ -60,6 +62,16 @@ class ProdProfileConfigPolicyTest {
                         .as("%s 의 spring.flyway.baseline-on-migrate", configYml).isFalse();
             }
         }
+    }
+
+    @Test
+    @DisplayName("운영 yml 은 인증 힌트 Cookie Domain 을 설정으로 받지 않는다 — 운영 값은 코드 상수다")
+    void prodDoesNotRequireHintCookieDomain() throws IOException {
+        Binder prod = new Binder(ConfigurationPropertySources.from(load(PROD_YML)));
+
+        // 합법값이 .duings.com 하나뿐인데 다시 필수 설정으로 받으면, 줄이 빠진 .env 에서 기동이 실패한다(#1347 과 같은 함정).
+        assertThat(prod.bind("web-auth.hint-cookie-domain", String.class).isBound())
+                .as("web-auth.hint-cookie-domain").isFalse();
     }
 
     private List<Path> configYmls() throws IOException {

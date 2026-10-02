@@ -10,9 +10,6 @@ server:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
-web-auth:
-  hint-cookie-domain: ${AUTH_HINT_COOKIE_DOMAIN}
-
 spring:
   datasource:
     url: ${DB_URL}
