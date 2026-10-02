@@ -166,6 +166,23 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         assertSearch(tag).containsExactly(target);
     }
 
+    @ParameterizedTest(name = "키워드 {0}")
+    @ValueSource(strings = {",", "발,봉", "발봉", "발 봉", "발\u001F봉"})
+    @DisplayName("키워드는 태그 경계를 넘어 매치되지 않는다 — 태그 [개발, 봉사] 의 앞 태그 끝과 뒤 태그 앞을 잇는 키워드에 걸리지 않는다")
+    void keywordDoesNotMatchAcrossTagBoundary(String keyword) {
+        saveActiveClub("이름A", "소개A", List.of("개발", "봉사"));
+
+        assertSearch(keyword).isEmpty();
+    }
+
+    @Test
+    @DisplayName("태그가 여러 개여도 두 번째 이후 태그 안의 키워드로 찾는다")
+    void keywordMatchesLaterTagOfMultiTagClub() {
+        Long target = saveActiveClub("이름A", "소개A", List.of("개발", "봉사")).getId();
+
+        assertSearch("봉사").containsExactly(target);
+    }
+
     private org.assertj.core.api.AbstractListAssert<?, java.util.List<? extends Long>, Long,
             org.assertj.core.api.ObjectAssert<Long>> assertSearch(String keyword) {
         ClubSearchCondition condition = new ClubSearchCondition(

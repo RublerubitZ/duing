@@ -65,6 +65,13 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     private static final QClubMetric SUMMARY_METRIC = new QClubMetric("summaryMetric");
 
     /**
+     * 키워드 검색에서 태그를 이어 붙일 때의 구분자 — 화면에서 입력할 수 없는 단위 구분자(U+001F)다.
+     * 쉼표로 이으면 [개발, 봉사] 가 "개발,봉사" 가 되어 키워드 ","·"발,봉" 이 태그 경계를 넘어 걸린다(#1338).
+     * API 로 이 문자를 넣은 키워드도 경계를 넘지 못하게 키워드에서는 지운다.
+     */
+    private static final String TAG_SEPARATOR = "\u001F";
+
+    /**
      * 탐색 카드({@link ClubSummaryQuery})가 쓰는 컬럼 집합.
      * {@link #toSummary} 가 읽는 컬럼은 반드시 여기 있어야 한다 — Tuple 은 SELECT 에 없는 컬럼을
      * 예외 없이 null 로 돌려주므로, 빠뜨리면 그 필드만 조용히 비어서 응답된다.
@@ -267,7 +274,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        String normalized = keyword.replaceFirst("^#+", "").trim();
+        String normalized = keyword.replaceFirst("^#+", "").replace(TAG_SEPARATOR, "").trim();
         if (normalized.isEmpty()) return null;
 
         // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로
@@ -280,7 +287,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         BooleanExpression tagMatch = Expressions.stringTemplate(
                 "lower(function('array_to_string', {0}, {1}))",
                 club.tags,
-                ","
+                TAG_SEPARATOR
         ).contains(normalized.toLowerCase(Locale.ROOT));
 
         // 학과는 단과대 동아리를 찾는 실제 단서라 검색 대상에 넣는다("회계학과" 로 찾기).
