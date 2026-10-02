@@ -56,12 +56,28 @@ describe('sitemap.xml', () => {
     expect(entries.every((entry) => entry.lastModified === undefined)).toBe(true);
   });
 
-  it('빌드 국면 장애(null)면 그 목록만 빼고 낸다', async () => {
+  it('빌드 국면에서 두 목록이 모두 실패하면 정적 경로만 낸다', async () => {
     fetchActiveClubIdsMock.mockResolvedValue(null);
     fetchPublicNoticeIdsMock.mockResolvedValue(null);
 
     const entries = await sitemap();
     expect(entries.map((entry) => entry.url)).toEqual(STATIC_URLS);
+  });
+
+  it('빌드 국면에서 한 목록만 실패하면 그 목록만 빠진다', async () => {
+    fetchActiveClubIdsMock.mockResolvedValue(null);
+    fetchPublicNoticeIdsMock.mockResolvedValue([17]);
+    expect((await sitemap()).map((entry) => entry.url)).toEqual([
+      ...STATIC_URLS,
+      `${SITE_URL}/notices/17`,
+    ]);
+
+    fetchActiveClubIdsMock.mockResolvedValue([1]);
+    fetchPublicNoticeIdsMock.mockResolvedValue(null);
+    expect((await sitemap()).map((entry) => entry.url)).toEqual([
+      ...STATIC_URLS,
+      `${SITE_URL}/clubs/1`,
+    ]);
   });
 
   it('런타임 장애는 그대로 던진다 — 직전 사이트맵을 유지한다', async () => {
