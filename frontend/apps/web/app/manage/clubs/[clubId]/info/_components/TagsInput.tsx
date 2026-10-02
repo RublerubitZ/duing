@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { appendTag } from '../../../../../_lib/tags';
+import { appendTag, normalizeTag } from '../../../../../_lib/tags';
 
 type TagsInputProps = {
   value: string[];
@@ -49,12 +49,12 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
           key={`${tag}-${idx}`}
           className="inline-flex items-center gap-1.5 bg-[#e7ebd9] text-[#3e5b34] border border-[#cfd6b3] rounded-full py-[3px] pl-[11px] pr-2.5 text-[12.5px] font-medium"
         >
-          {tag}
+          {normalizeTag(tag)}
           {!readOnly && (
             <button
               type="button"
               onClick={() => remove(idx)}
-              aria-label={`태그 ${tag} 삭제`}
+              aria-label={`태그 ${normalizeTag(tag)} 삭제`}
               className="text-[#4a6b3f] text-[13px] leading-none opacity-70 hover:opacity-100 cursor-pointer"
             >
               ×

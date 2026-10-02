@@ -28,7 +28,9 @@ export function NoticeTagInput({ value, onChange, max = 8, inputId }: Props) {
       value,
     );
     if (next !== value) onChange(next);
-    setDraft(fragments.filter((tag) => tag && !next.includes(tag)).join(', '));
+    // 예전에 '#' 를 붙여 저장한 태그와 같은 조각도 이미 있는 조각으로 보고 지운다.
+    const added = new Set(next.map(normalizeTag));
+    setDraft(fragments.filter((tag) => tag && !added.has(tag)).join(', '));
   };
 
   const removeTag = (target: string) => {

@@ -59,4 +59,19 @@ class TagRulesTest {
     void keepsZeroWidthJoinerInEmoji() {
         assertThat(TagRules.normalize(Arrays.asList("코딩👨\u200D💻"))).containsExactly("코딩👨\u200D💻");
     }
+
+    @Test
+    @DisplayName("키캡 이모지의 '#' 는 변형 선택자가 없거나 U+FE0E 여도 남기고, 키캡이 아닌 '#' 는 뒤의 변형 선택자와 함께 지운다")
+    void keepsKeycapHashAndFoldsHashWithVariationSelector() {
+        assertThat(TagRules.normalize(Arrays.asList(
+                "#\uFE0E\u20E3", "#\u20E3", "##\uFE0F\u20E3", "#\uFE0F밴드", "#\uFE0E#\uFE0F축구")))
+                .containsExactly("#\uFE0E\u20E3", "#\u20E3", "#\uFE0F\u20E3", "밴드", "축구");
+    }
+
+    @Test
+    @DisplayName("보이는 글자가 하나도 없는 태그는 버린다 — 빈 칩으로 보인다")
+    void dropsTagsWithoutVisibleCharacter() {
+        assertThat(TagRules.normalize(Arrays.asList("\u200D", "\u200C\u200D", "\uFE0F", "\u034F", "\u20E3", "밴드")))
+                .containsExactly("밴드");
+    }
 }

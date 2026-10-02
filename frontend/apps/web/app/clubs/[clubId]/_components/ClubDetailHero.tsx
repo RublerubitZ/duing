@@ -6,6 +6,7 @@ import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
+import { tagLabel } from '@/app/_lib/tags';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { collegeDisplayName } from '../../../_lib/college';
@@ -13,7 +14,6 @@ import { clubCategoryLabel } from '../_lib/clubCategoryLabel';
 import { divisionLabelOrNull } from '../../_lib/clubs';
 import { pickColor } from '../../_lib/clubAdapter';
 import { ClubDetailTopBar } from './ClubDetailTopBar';
-import { tagLabel } from '@/app/_lib/tags';
 
 type Props = {
   club: ClubDetail;

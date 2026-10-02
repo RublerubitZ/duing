@@ -138,6 +138,15 @@ describe('TagsInput (maxTagLength)', () => {
   });
 });
 
+describe('TagsInput (칩 표시)', () => {
+  it('예전에 # 를 붙여 저장한 태그도 저장 규칙대로 # 없이 보여 준다', () => {
+    render(<TagsInput value={['#밴드']} onChange={vi.fn()} />);
+
+    expect(screen.getByText('밴드')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '태그 밴드 삭제' })).toBeInTheDocument();
+  });
+});
+
 // 한글 IME 조합·keyCode 229 모바일 키보드는 ',' keydown 분기를 건너뛰어 쉼표가 값으로만 들어온다(#1338).
 describe('TagsInput (쉼표 구분)', () => {
   it('keydown 없이 값으로 들어온 쉼표 앞은 태그로 넣고 뒤만 입력란에 남긴다', () => {

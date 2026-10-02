@@ -25,6 +25,7 @@ import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentPredicates;
+import com.duing.global.constant.TagRules;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Order;
@@ -274,7 +275,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression keywordContains(String keyword) {
         if (!StringUtils.hasText(keyword)) return null;
-        String normalized = keyword.replaceFirst("^#+", "").replace(TAG_SEPARATOR, "").trim();
+        // 태그와 같은 규칙으로 정리한다 — 앞의 '#'·보이지 않는 문자(태그 구분자 U+001F 포함)를 지우고 한글을 NFC 로 합친다.
+        String normalized = TagRules.normalizeTag(keyword);
         if (normalized.isEmpty()) return null;
 
         // Hibernate HQL semantic 분석이 function() 의 String 반환 타입을 like 의 피연산자로

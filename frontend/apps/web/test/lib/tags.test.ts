@@ -27,6 +27,14 @@ describe('normalizeTag', () => {
     expect(normalizeTag('#\u3000#축구')).toBe('축구');
     expect(normalizeTag('# #')).toBe('');
     expect(normalizeTag('#\uFE0F\u20E3번호')).toBe('#\uFE0F\u20E3번호');
+    expect(normalizeTag('#\uFE0E\u20E3')).toBe('#\uFE0E\u20E3');
+    expect(normalizeTag('#\u20E3')).toBe('#\u20E3');
+    expect(normalizeTag('##\uFE0F\u20E3')).toBe('#\uFE0F\u20E3');
+  });
+
+  it('키캡이 아닌 # 는 뒤에 붙은 변형 선택자와 함께 지운다', () => {
+    expect(normalizeTag('#\uFE0F밴드')).toBe('밴드');
+    expect(normalizeTag('#\uFE0E#\uFE0F밴드')).toBe('밴드');
   });
 
   it('지운 문자 사이에 끼어 있던 분해된 한글도 합쳐진다', () => {
@@ -42,6 +50,14 @@ describe('normalizeTag', () => {
 
   it('이모지 조합에 쓰는 ZWJ 는 지우지 않는다', () => {
     expect(normalizeTag('코딩👨\u200D💻')).toBe('코딩👨\u200D💻');
+  });
+
+  it('보이는 글자가 하나도 없는 태그는 버린다 — 빈 칩으로 보인다', () => {
+    expect(normalizeTag('\u200D')).toBe('');
+    expect(normalizeTag('\u200C\u200D')).toBe('');
+    expect(normalizeTag('\uFE0F')).toBe('');
+    expect(normalizeTag('\u034F')).toBe('');
+    expect(normalizeTag('\u20E3')).toBe('');
   });
 });
 
@@ -70,5 +86,7 @@ describe('tagLabel', () => {
     expect(tagLabel('밴드')).toBe('#밴드');
     expect(tagLabel('#밴드')).toBe('#밴드');
     expect(tagLabel('##밴드')).toBe('#밴드');
+    expect(tagLabel('# 밴드')).toBe('#밴드');
+    expect(tagLabel('# #밴드')).toBe('#밴드');
   });
 });
