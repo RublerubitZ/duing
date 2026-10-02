@@ -36,7 +36,7 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 - `JWT_SECRET=...`(Access Token 서명용, 최소 32바이트)
 - `JWT_EXPIRY_MS` 는 어떤 값이든 넣지 않는다 — #1347 부터 Access JWT 수명은 코드 상수 30분이라 앱이 읽지 않는다. 그러나 #1347 이전 이미지는 이 값을 읽으므로(빈 값은 물론, 30분 값도 이미지에 따라 실패), 줄이 남아 있으면 그 이미지로의 롤백(같은 `.env` 를 쓰는 자동 롤백 포함)이 기동에 실패할 수 있다. 남아 있으면 **줄째 지운다**
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
-- `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 은 그대로 둔다 — #1350 부터 운영 힌트 Cookie Domain 은 코드 상수라 앱이 이 값을 쓰지 않는다. 그러나 #1350 이전 이미지는 이 값을 기본값 없이 읽고 정확히 `.duings.com` 인지 검사하므로, 줄이 없거나 값이 다르면 그 이미지로의 롤백(같은 `.env` 를 쓰는 자동 롤백 포함)이 기동에 실패한다. **지우거나 바꾸지 않는다**
+- `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(`.env.example` 는 빈 값이니 새 서버에도 이 값을 넣는다) — #1350 부터 운영 힌트 Cookie Domain 은 코드 상수라 앱이 이 값을 쓰지 않는다. 그러나 #1350 이전 이미지는 이 값을 기본값 없이 읽고 정확히 `.duings.com` 인지 검사하므로, 줄이 없거나 값이 다르면 그 이미지로의 롤백(같은 `.env` 를 쓰는 자동 롤백 포함)이 기동에 실패한다. **지우거나 바꾸지 않는다**
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)
 - `DB_POOL_MAX_SIZE=10`(**10 을 넘기지 말 것** — Supabase 세션 풀러 한도 15 에서 백업·관리도구 몫 5 를 남긴다. 15 로 올리면 04:15 백업이 실패한다, 2026-09-20 실사고)
 - `BACKEND_IMAGE=ghcr.io/rublerubitz/duing-backend:<tag>`
