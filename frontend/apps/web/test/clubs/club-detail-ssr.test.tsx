@@ -20,7 +20,13 @@ vi.mock('next/navigation', () => ({
     prefetch: vi.fn(),
   }),
   usePathname: () => '/clubs/1',
-  useSearchParams: () => new URLSearchParams(),
+  // 정적 렌더 중 클라이언트 컴포넌트가 useSearchParams 를 부르면 가장 가까운 Suspense 경계([clubId]/loading.tsx)까지
+  // 클라이언트 렌더로 넘어가 크롤러가 받는 HTML 에서 본문이 사라진다 — 상세 트리에 들어오면 여기서 깨지게 한다.
+  useSearchParams: () => {
+    throw new Error(
+      '동아리 상세 정적 렌더 트리에서 useSearchParams 금지 — ISR HTML 이 로딩 셸로 바뀐다(CSR bailout)',
+    );
+  },
   useParams: () => ({ clubId: '1' }),
   useSelectedLayoutSegment: () => null,
 }));
@@ -65,7 +71,8 @@ const clubDetail: ClubDetail = {
   foundedYear: 2026,
   cohortNumber: null,
   location: null,
-  contactPhone: '010-1234-5678',
+  // page.tsx 가 시드하는 모양 그대로 — 연락처(회장 휴대전화)는 시드에서 빠진다(라우트 테스트가 고정).
+  contactPhone: null,
   contactVisibility: 'PUBLIC',
   activityFrequency: 1,
   activeDays: ['TUESDAY'],
@@ -125,7 +132,6 @@ describe('동아리 상세 트리 — 서버 렌더(ISR 정적 생성 회귀)', 
     expect(html).toContain('학기당 30,000원');
     expect(html).toContain('재활 스트레칭 세션');
     expect(html).toContain('꾸준히 운동하고 싶은 분');
-    expect(html).toContain('010-1234-5678');
     expect(html).toContain('모션케어 인스타그램');
   });
 });
