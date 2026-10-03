@@ -21,7 +21,8 @@ export const revalidate = 86400;
 export default async function Page() {
   const content = await fetchPublicNoticeList(DEFAULT_NOTICE_LIST_PARAMS);
   const page = <NoticePage />;
-  if (content.status !== 'found') return page;
+  // 빈 목록은 시드하지 않는다 — 복구 중 같은 순간의 빈 200 이 24시간 박제되지 않게(동아리 탐색과 같은 규칙).
+  if (content.status !== 'found' || content.data.content.length === 0) return page;
   return (
     <SeededQuery queryKey={noticeQueryKeys.list(DEFAULT_NOTICE_LIST_PARAMS)} data={content.data}>
       {page}

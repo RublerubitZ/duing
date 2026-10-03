@@ -29,12 +29,14 @@ vi.mock('@/app/notices/_pages/NoticePage', async () => {
 
 import NoticesRoute, { metadata, revalidate } from '@/app/notices/page';
 
-const listPage: PageResponse<NoticeCardItem> = {
+import { noticeListPage } from './notice-list-tree-fixture';
+
+const emptyListPage: PageResponse<NoticeCardItem> = {
   content: [],
   page: 0,
   size: 20,
-  totalElements: 3,
-  totalPages: 1,
+  totalElements: 0,
+  totalPages: 0,
   hasNext: false,
 };
 
@@ -54,10 +56,16 @@ describe('소식 목록 라우트 — 24시간 ISR', () => {
   });
 
   it('첫 진입 키(학교 공지·첫 페이지·20건)로 조회해 dataUpdatedAt 0 으로 시드한다', async () => {
-    fetchPublicNoticeListMock.mockResolvedValue({ status: 'found', data: listPage });
+    fetchPublicNoticeListMock.mockResolvedValue({ status: 'found', data: noticeListPage });
 
-    await expect(renderRoute()).resolves.toBe('3|0');
+    await expect(renderRoute()).resolves.toBe(`${noticeListPage.totalElements}|0`);
     expect(fetchPublicNoticeListMock).toHaveBeenCalledWith({ source: 'SCHOOL', page: 0, size: 20 });
+  });
+
+  it('빈 목록(found·0건)은 시드하지 않는다 — 복구 중 같은 순간의 빈 200 이 24시간 박제되지 않게', async () => {
+    fetchPublicNoticeListMock.mockResolvedValue({ status: 'found', data: emptyListPage });
+
+    await expect(renderRoute()).resolves.toBe('no-seed');
   });
 
   it.each(['notFound', 'unavailable'] as const)('%s 면 시드 없이 지금 셸을 그린다', async (status) => {
