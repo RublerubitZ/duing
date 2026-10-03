@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   addDaysIso,
   monthsInRange,
@@ -10,6 +10,7 @@ import {
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
 import { useHydrated } from '@/app/_lib/useHydrated';
+import { useSwipeDismiss } from '@/app/_lib/useSwipeDismiss';
 import { PageSegment } from '@/app/_components/PageSegment';
 import { CALENDAR_FACILITY_SEGMENT_ITEMS } from '@/app/_lib/mainNav';
 import { SparkleFull } from '../../_components/Sparkle';
@@ -94,6 +95,15 @@ const buildMonth = (year: number, monthIndex: number): MonthCell[] => {
 // 1200 이 걸리는 구간은 vw>1280 뿐이고 그 구간의 .cal-section 좌우 여백은 항상 40 이라 값 하나로 족하다.
 const CONTENT_WIDTH = 1200;
 
+// 상세 패널이 바텀시트가 되는 구간 — globals.css 의 .cal-detail 모바일 미디어쿼리와 같은 경계.
+const SHEET_VIEWPORT_QUERY = '(max-width: 767px)';
+
+function subscribeToSheetViewport(onChange: () => void) {
+  const mediaQueryList = window.matchMedia(SHEET_VIEWPORT_QUERY);
+  mediaQueryList.addEventListener('change', onChange);
+  return () => mediaQueryList.removeEventListener('change', onChange);
+}
+
 export function CalendarPage() {
   const today = new Date();
   const todayIso = fmt(today.getFullYear(), today.getMonth(), today.getDate());
@@ -116,6 +126,28 @@ export function CalendarPage() {
 
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
+
+  // 모바일 시트는 아래로 스와이프해 닫는다 — 시설 바텀시트(공용 Sheet)와 같은 훅·임계값.
+  // 데스크탑 사이드 패널에서는 끈다(마우스 드래그로 레일이 끌려 내려가지 않게). SSR 초기값은 데스크탑.
+  const isSheetViewport = useSyncExternalStore(
+    subscribeToSheetViewport,
+    () => window.matchMedia(SHEET_VIEWPORT_QUERY).matches,
+    () => false,
+  );
+  const detailPanelRef = useRef<HTMLElement | null>(null);
+  useSwipeDismiss(detailPanelRef, {
+    enabled: detailOpen && isSheetViewport,
+    onDismiss: () => {
+      // 훅은 닫힐 때 인라인 transform 을 남겨 둔다(공용 Sheet 는 퇴장 애니메이션이 그 위치에서 이어 받는다).
+      // 이 패널은 CSS 전이로 닫히므로 인라인 값을 비워야 내려간 자리에서 translateY(110%) 로 이어진다.
+      const detailPanel = detailPanelRef.current;
+      if (detailPanel !== null) {
+        detailPanel.style.transform = '';
+        detailPanel.style.transition = '';
+      }
+      setDetailOpen(false);
+    },
+  });
 
   // ESC 로도 닫는다 — 뒤로가기 버튼과 같은 경로(setDetailOpen(false))라 히스토리 엔트리 회수는 useBackDismiss 가
   // 그대로 맡는다(history.back() 을 따로 부르지 않는다). 위에 뜬 모달(행사 추가·일정 상세)이 열려 있으면 그쪽 ESC 가 우선이다.
@@ -589,7 +621,17 @@ export function CalendarPage() {
             </div>
 
             {/* —— Right rail: selected day —— */}
+            {/* 모바일 바텀시트 백드롭 — 탭하면 닫는다. 패널 바로 앞에 두고 같은 z-50 이라 문서 순서로 헤더(z-50)·
+                하단 탭바(z-40)는 덮고 패널 아래에 깔린다. 패널 위로 뜨는 일정 상세·행사 추가 모달(포털 z-50)도 그대로 위다. */}
+            {detailOpen && (
+              <div
+                className="fixed inset-0 z-50 bg-ink/45 md:hidden"
+                onClick={() => setDetailOpen(false)}
+                aria-hidden
+              />
+            )}
             <aside
+              ref={detailPanelRef}
               className="cal-detail"
               data-open={detailOpen}
               role="dialog"
@@ -605,10 +647,9 @@ export function CalendarPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 16,
-                transform: detailOpen ? 'translateX(0)' : 'translateX(32px)',
+                // 슬라이드(transform·transition)는 globals.css 에 있다 — 모바일 스와이프 닫기가 인라인으로 덮어야 해서.
                 opacity: detailOpen ? 1 : 0,
                 pointerEvents: detailOpen ? 'auto' : 'none',
-                transition: 'transform .42s cubic-bezier(.22,.61,.36,1), opacity .28s ease',
               }}
             >
               <div className="cal-sheet-handle" aria-hidden />
@@ -750,15 +791,6 @@ export function CalendarPage() {
           )}
         </div>
       </section>
-
-      {/* 모바일 바텀시트 백드롭 — 상세 패널(cal-detail)이 모바일 시트로 뜰 때 뒤를 덮고 탭하면 닫는다. */}
-      {detailOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-ink/45 md:hidden"
-          onClick={() => setDetailOpen(false)}
-          aria-hidden
-        />
-      )}
 
       {/* ===== 모달 ===== */}
       <AddEventDispatcher open={addModalOpen} onClose={() => setAddModalOpen(false)} />
