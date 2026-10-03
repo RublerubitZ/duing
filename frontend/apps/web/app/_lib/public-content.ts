@@ -57,14 +57,6 @@ export const fetchPublicClubDetail = cache(
 );
 
 /**
- * 공개 동아리 목록 한 페이지 — 익명이라 백엔드가 공개(ACTIVE) 동아리만 준다. 탐색 화면이 쿼리 없는 첫 진입 키로
- * 시드하고, 같은 데이터로 서버 렌더 기본 목록(Suspense fallback)을 그린다.
- */
-export function fetchPublicClubList(params: ClubSearchParams): Promise<PublicContent<PageResponse<ClubSummary>>> {
-  return loadPublicContent(() => client().clubs.list(params));
-}
-
-/**
  * 공개 소식 상세 — 동아리 상세와 같은 정책. 익명 조회라 동아리 공지(CLUB_SCOPED)는 404(notFound)가 되고,
  * 만료된 공개 소식은 200 이라 그대로 렌더한다(만료 표시는 하이드레이션 뒤).
  */
@@ -82,6 +74,14 @@ async function loadPublicList<T>(load: () => Promise<T>): Promise<PublicContent<
     if (shouldRethrowBackendFailure()) throw error;
     return { status: 'unavailable' };
   }
+}
+
+/**
+ * 공개 동아리 목록 한 페이지 — 익명이라 백엔드가 공개(ACTIVE) 동아리만 준다. 탐색 화면이 쿼리 없는 첫 진입 키로
+ * 시드하고, 같은 데이터로 서버 렌더 기본 목록(Suspense fallback)을 그린다.
+ */
+export function fetchPublicClubList(params: ClubSearchParams): Promise<PublicContent<PageResponse<ClubSummary>>> {
+  return loadPublicList(() => client().clubs.list(params));
 }
 
 /**

@@ -271,4 +271,15 @@ describe('fetchPublicClubList', () => {
     stubPhase('production');
     await expect(fetchPublicClubList({ page: 0, size: 20 })).rejects.toBe(error);
   });
+
+  it('목록에는 "없음"이 없다 — 404 도 빌드 국면이면 unavailable, 런타임이면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(404, 'Not Found');
+    clubsListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).rejects.toBe(error);
+  });
 });
