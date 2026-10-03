@@ -130,6 +130,8 @@ describe('POST /api/internal/revalidate', () => {
   });
 
   describe('삭제 전 사전 확인 — 그릴 수 없으면 지우지 않는다', () => {
+    const PROBE_WARNING = '[revalidate] /clubs 사전 확인 실패 — 재검증 건너뜀';
+
     afterEach(() => {
       vi.restoreAllMocks();
     });
@@ -149,9 +151,9 @@ describe('POST /api/internal/revalidate', () => {
       expect(response.status).toBe(502);
       await expect(response.json()).resolves.toEqual({ error: 'upstream unavailable', reason });
       expect(revalidatePath).not.toHaveBeenCalled();
+      // 사유 말고는 아무것도 싣지 않는다 — 오류 객체·메시지·URL·비밀값이 런타임 로그에 남지 않게.
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(warn.mock.calls)).toContain(reason);
-      expect(JSON.stringify(warn.mock.calls)).not.toContain(SECRET);
+      expect(warn).toHaveBeenCalledWith(PROBE_WARNING, { reason });
     });
 
     it.each([
@@ -167,6 +169,7 @@ describe('POST /api/internal/revalidate', () => {
       await expect(response.json()).resolves.toEqual({ error: 'upstream unavailable', reason });
       expect(revalidatePath).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(PROBE_WARNING, { reason });
     });
   });
 
