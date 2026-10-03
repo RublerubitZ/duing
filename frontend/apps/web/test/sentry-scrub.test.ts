@@ -36,6 +36,9 @@ describe('scrubEvent', () => {
         'x-vercel-protection-bypass': 'test-only-bypass',
         'x-prerender-revalidate': 'test-only-preview-id',
         'x-vercel-sc-headers': '{"Authorization":"Bearer test-only-sc"}',
+        'x-vercel-ip-country': 'KR',
+        'x-vercel-ip-city': 'Daegu',
+        'x-vercel-ip-latitude': '35.8',
       }),
     );
 
@@ -49,6 +52,23 @@ describe('scrubEvent', () => {
       'x-vercel-protection-bypass': '[Filtered]',
       'x-prerender-revalidate': '[Filtered]',
       'x-vercel-sc-headers': '[Filtered]',
+      'x-vercel-ip-country': '[Filtered]',
+      'x-vercel-ip-city': '[Filtered]',
+      'x-vercel-ip-latitude': '[Filtered]',
+    });
+  });
+
+  it('referer 헤더는 이전 주소의 쿼리스트링만 지운다(대소문자 무관)', () => {
+    const scrubbed = scrubEvent(
+      serverErrorEvent({
+        referer: 'https://duings.com/manage/clubs/1/applicants?q=20261234',
+        Referer: 'https://duings.com/admin/users?q=홍길동',
+      }),
+    );
+
+    expect(scrubbed.request?.headers).toEqual({
+      referer: 'https://duings.com/manage/clubs/1/applicants',
+      Referer: 'https://duings.com/admin/users',
     });
   });
 
@@ -59,7 +79,6 @@ describe('scrubEvent', () => {
       host: 'duings.com',
       'content-type': 'application/json',
       'x-vercel-id': 'icn1::test-only',
-      'x-vercel-ip-country': 'KR',
       'x-matched-path': '/admin/users',
       'x-forwarded-host': 'duings.com',
       'x-middleware-prefetch': '1',
