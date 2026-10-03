@@ -54,7 +54,7 @@ Vercel에는 동아리 탐색 정각 재생성 트리거용 `REVALIDATE_SECRET` 
 `.env` 의 `DUING_FRONTEND_REVALIDATE_SECRET` 과 같은 값이다(생성: `openssl rand -base64 48`). Vercel 환경변수는
 다음 배포부터 반영되므로 등록 뒤 재배포한다. 인증 없이
 `curl -s -o /dev/null -w '%{http_code}' -X POST https://duings.com/api/internal/revalidate` 를 보내면 미설정이면
-503, 설정됐으면 401 이다.
+503, 설정됐으면 401 이다. 유출이 의심되면 두 곳을 같은 새 값으로 함께 바꾸고, Vercel 재배포와 백엔드 재기동(`docker compose up -d`)으로 반영한다.
 
 ## 웹 인증 지원 환경
 
