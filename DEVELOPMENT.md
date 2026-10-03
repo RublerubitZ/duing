@@ -153,7 +153,7 @@ API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명�
 동아리 탐색(`/clubs`) 정각 재생성 트리거는 Vercel `REVALIDATE_SECRET` 과 백엔드
 `DUING_FRONTEND_REVALIDATE_SECRET` 에 같은 값(32바이트 이상)을 넣어 켠다. 매시 정각 백엔드 잡이 이 값으로
 `POST /api/internal/revalidate` 를 불러 `/clubs` 를 다시 만들게 한다. 둘 중 하나라도 비면 기능이 꺼지고
-`/clubs` 는 자체 재생성 주기로만 갱신된다.
+`/clubs` 는 배포 때나 자체 재생성 주기로만 갱신된다.
 
 ---
 
