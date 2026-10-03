@@ -25,8 +25,8 @@ vi.mock('@/app/clubs/[clubId]/_pages/ClubDetailPage', async () => {
 
 import ClubDetailRoute, { generateMetadata, revalidate } from '@/app/clubs/[clubId]/page';
 
-function club(overrides: Partial<ClubDetail> = {}): ClubDetail {
-  return { id: 4, name: '비호상록회', tagline: '지역사회와 함께하는 따뜻한 봉사동아리', description: null, ...overrides } as ClubDetail;
+function club(overrides: Partial<ClubDetail> = {}): Partial<ClubDetail> {
+  return { id: 4, name: '비호상록회', tagline: '지역사회와 함께하는 따뜻한 봉사동아리', description: null, ...overrides };
 }
 
 function params(clubId: string) {

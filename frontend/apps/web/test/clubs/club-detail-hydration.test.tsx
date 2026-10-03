@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 import { clubDetail, seededClubDetailTree } from './club-detail-tree-fixture';
 
 // RTL 을 거치지 않고 hydrateRoot 를 직접 쓰므로 act 환경 플래그를 직접 켠다(없으면 act 경고가 stderr 로 샌다).
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 function envelope(data: unknown) {
   return HttpResponse.json({ ok: true, message: null, data });
@@ -39,49 +39,72 @@ afterAll(() => server.close());
 
 // jsdom 에는 window·document 가 있다 — 지우지 않으면 typeof window 분기가 서버 렌더에서도 브라우저 쪽을 타
 // 불일치를 못 잡는다. 모듈 로드 때 굳는 판정(라이브러리의 isServer 등)까지 서버로 돌리지는 못한다.
-function renderAsServer(): string {
+// serverNow 를 주면 서버 렌더만 그 시각으로 돌린다 — 가짜로 두는 건 Date 뿐이고 끝나면 실제 시계로 되돌린다.
+function renderAsServer(serverNow?: number): string {
   vi.stubGlobal('window', undefined);
   vi.stubGlobal('document', undefined);
   try {
+    if (serverNow !== undefined) {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(serverNow);
+    }
     return renderToString(seededClubDetailTree());
   } finally {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   }
 }
 
+/** 서버 흉내 렌더 → 하이드레이션 뒤 텍스트와 불일치·미처리 요청 신호를 모은다. 하이드레이션은 실제 시계로 돈다. */
+async function hydrateSeededTree(serverNow?: number) {
+  const serverHtml = renderAsServer(serverNow);
+  const container = document.createElement('div');
+  container.innerHTML = serverHtml;
+  document.body.appendChild(container);
+  // 속성 불일치는 복구 없이 console.error 경고로만 남는다(React 19) — 텍스트 불일치는 onRecoverableError 로 온다.
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const recoverableErrors: unknown[] = [];
+
+  const root = await act(async () =>
+    hydrateRoot(container, seededClubDetailTree(), {
+      onRecoverableError: (error) => recoverableErrors.push(error),
+    }),
+  );
+  const hydratedText = container.textContent ?? '';
+  const hydrationWarnings = consoleErrorSpy.mock.calls.filter((args) =>
+    /hydrat/i.test(args.map(String).join(' ')),
+  );
+  // msw 의 onUnhandledRequest:'error' 는 console.error 로만 알린다 — 위 스파이가 삼키므로 여기서 직접 본다.
+  const unhandledRequests = consoleErrorSpy.mock.calls.filter((args) =>
+    /matching request handler/.test(args.map(String).join(' ')),
+  );
+  act(() => root.unmount());
+  consoleErrorSpy.mockRestore();
+  container.remove();
+  return { serverHtml, hydratedText, recoverableErrors, hydrationWarnings, unhandledRequests };
+}
+
 describe('동아리 상세 트리 — 하이드레이션(ISR HTML 회귀)', () => {
   it('운영형 시드로 그린 서버 HTML 을 불일치 없이 하이드레이션한다', async () => {
-    const serverHtml = renderAsServer();
-    expect(serverHtml).toContain('함께 운동해요');
+    const result = await hydrateSeededTree();
 
-    const container = document.createElement('div');
-    container.innerHTML = serverHtml;
-    document.body.appendChild(container);
-    // 속성 불일치는 복구 없이 console.error 경고로만 남는다(React 19) — 텍스트 불일치는 onRecoverableError 로 온다.
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const recoverableErrors: unknown[] = [];
-
-    const root = await act(async () =>
-      hydrateRoot(container, seededClubDetailTree(), {
-        onRecoverableError: (error) => recoverableErrors.push(error),
-      }),
-    );
-    const hydratedText = container.textContent;
-    const hydrationWarnings = consoleErrorSpy.mock.calls.filter((args) =>
-      /hydrat/i.test(args.map(String).join(' ')),
-    );
-    // msw 의 onUnhandledRequest:'error' 는 console.error 로만 알린다 — 위 스파이가 삼키므로 여기서 직접 본다.
-    const unhandledRequests = consoleErrorSpy.mock.calls.filter((args) =>
-      /matching request handler/.test(args.map(String).join(' ')),
-    );
-    act(() => root.unmount());
-    consoleErrorSpy.mockRestore();
-    container.remove();
-
-    expect(recoverableErrors).toEqual([]);
-    expect(hydrationWarnings).toEqual([]);
-    expect(unhandledRequests).toEqual([]);
+    expect(result.serverHtml).toContain('함께 운동해요');
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydrationWarnings).toEqual([]);
+    expect(result.unhandledRequests).toEqual([]);
     // 서버 HTML 에서 뺀 D-day 가 하이드레이션 뒤에 붙는다 — 첫 프레임 다음 렌더까지 실제로 돌았다는 표지.
-    expect(hydratedText).toContain('모집중 · D-3');
+    expect(result.hydratedText).toContain('모집중 · D-3');
+  });
+
+  // 운영 ISR HTML 은 최대 24시간 묵는다. 같은 시각 렌더로는 모집 D-day 의 하이드레이션 게이트를 되돌려도 글자가 같아
+  // 못 잡는다. 25시간은 KST 자정을 반드시 넘어 D-day 가 달라진다.
+  // 픽스처 시각은 import 때 실제 시계로 굳은 모듈 상수다 — 픽스처를 가짜 시계 안에서 만들면 서버·클라이언트가
+  // 같이 밀려 판별력이 사라진다.
+  it('25시간 묵은 ISR HTML(어제 시각으로 렌더)도 불일치 없이 하이드레이션한다', async () => {
+    const result = await hydrateSeededTree(Date.now() - 25 * 60 * 60 * 1000);
+
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydrationWarnings).toEqual([]);
+    expect(result.unhandledRequests).toEqual([]);
   });
 });
