@@ -172,6 +172,32 @@ describe('캘린더 날짜 시트 — 아래로 스와이프해 닫기', () => {
     expect(sheet.style.transition).toBe('');
   });
 
+  it('조금 끌다 놓은 직후(스냅백 중) 백드롭으로 닫아도 인라인 transition 이 남지 않는다', async () => {
+    sheetViewport = true;
+    const sheet = await openSheet();
+
+    // 속도 판정이 플릭으로 닫지 않게 시각을 고정해 천천히(1초에 걸쳐) 끈다.
+    let currentTime = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
+    fireEvent.pointerDown(sheet, { pointerId: 1, clientX: 100, clientY: 10 });
+    currentTime = 500;
+    fireEvent.pointerMove(sheet, { pointerId: 1, clientX: 100, clientY: 25 });
+    currentTime = 1000;
+    fireEvent.pointerMove(sheet, { pointerId: 1, clientX: 100, clientY: 40 });
+    fireEvent.pointerUp(sheet, { pointerId: 1, clientX: 100, clientY: 40 });
+    // 30px 는 25% 미만이라 스냅백 — 200ms 전이가 인라인으로 걸려 있다.
+    expect(sheet.style.transition).not.toBe('');
+
+    const backdrop = sheet.previousElementSibling;
+    if (!(backdrop instanceof HTMLElement)) throw new Error('expected a backdrop element');
+    // 드래그 직후 같은 태스크의 click 은 클릭 가드가 삼킨다(setTimeout(0) 에 해제) — 한 틱 흘린 뒤의 탭.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    fireEvent.click(backdrop);
+
+    expect(sheet).toHaveAttribute('data-open', 'false');
+    expect(sheet.style.transition).toBe('');
+  });
+
   it('데스크탑 사이드 패널은 드래그해도 움직이지도 닫히지도 않는다', async () => {
     const sheet = await openSheet();
 

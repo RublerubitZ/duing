@@ -85,6 +85,8 @@ export function useSwipeDismiss(
     // setPointerCapture 도 필요 없다. 대신 enabled 에 열림 상태가 들어가 있어야 한다 — 안 그러면
     // 시트가 닫힌 페이지에서도 non-passive touchmove 가 남아 모든 터치 스크롤이 핸들러를 기다린다.
     let snapTimer: ReturnType<typeof setTimeout> | null = null;
+    /** 스냅백 전이를 인라인으로 걸어 둔 노드 — cleanup 이 ref 대신 이걸 비운다. */
+    let snappingContent: HTMLElement | null = null;
     let clickGuardTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearInlineTransition = (content: HTMLElement) => {
@@ -119,8 +121,10 @@ export function useSwipeDismiss(
         : SNAP_MS;
       content.style.transition = `transform ${duration}ms ${SNAP_EASING}`;
       content.style.transform = '';
+      snappingContent = content;
       snapTimer = setTimeout(() => {
         snapTimer = null;
+        snappingContent = null;
         clearInlineTransition(content);
       }, duration);
     };
@@ -251,7 +255,12 @@ export function useSwipeDismiss(
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
-      if (snapTimer !== null) clearTimeout(snapTimer);
+      // 스냅백 도중 다른 경로(백드롭·×·ESC·뒤로가기)로 닫히면 타이머만 지우지 말고 인라인 transition 도 비운다 —
+      // 항상 마운트된 패널(/calendar)에 200ms 전이가 남아 이후 CSS 전이를 덮는다. 공용 Sheet 는 곧 언마운트라 무해.
+      if (snapTimer !== null) {
+        clearTimeout(snapTimer);
+        if (snappingContent !== null) clearInlineTransition(snappingContent);
+      }
       // 클릭 가드는 여기서 풀지 않는다 — 닫힘 경로에서는 onDismiss 렌더로 이 cleanup 이
       // 브라우저의 click 디스패치보다 먼저 돌아 가드가 무력화되므로, 해제는 setTimeout(0) 에 맡긴다.
       dragRef.current = null;
