@@ -12,6 +12,8 @@ import type { NoticeContentFormat } from '@duing/types';
 import { NoticeMarkdown } from './NoticeMarkdown';
 import { NoticeImageLightbox, type NoticeImage } from './NoticeImageLightbox';
 import { sanitizeNoticeHtml } from '../_lib/sanitizeHtml';
+import { htmlToPlainText } from '@/app/_lib/htmlToPlainText';
+import { useHydrated } from '@/app/_lib/useHydrated';
 
 // 공지 본문 리치 렌더용 prose 스타일. 동아리 소개(ClubDetailAbout)도 재사용해 리치 텍스트 렌더를 일치시킨다.
 export const PROSE_CLASS = 'text-[16px] leading-[1.85] text-charcoal [&_p]:mb-4 [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2 [&_h2]:text-[21px] [&_h2]:font-bold [&_h2]:text-ink-deep [&_h2]:mt-9 [&_h2]:mb-3 [&_h2]:pl-3 [&_h2]:border-l-[3px] [&_h2]:border-sage [&_h3]:text-[17px] [&_h3]:font-bold [&_h3]:text-ink-deep [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4 [&_li]:mb-1.5 [&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-4 [&_blockquote]:text-charcoal-2';
@@ -31,8 +33,23 @@ type Props = {
 // memo 로 감싸 content 가 바뀔 때만 innerHTML 을 교체하도록 한다.
 type BodyProps = { content: string; format?: NoticeContentFormat };
 const NoticeBody = memo(function NoticeBody({ content, format }: BodyProps) {
+  // 서버에는 DOM 이 없어 정화기(DOMPurify)를 못 쓴다 — 서버 렌더와 하이드레이션 첫 프레임(서버 HTML 과 글자까지
+  // 같아야 한다)은 태그를 걷어낸 텍스트를 문단으로 보여 주고(크롤러가 읽는 본문), 하이드레이션 뒤 정화된 HTML 로 바꾼다.
+  const hydrated = useHydrated();
   if (format === 'MARKDOWN') {
     return <NoticeMarkdown content={content} />;
+  }
+  if (!hydrated) {
+    const paragraphs = htmlToPlainText(content).split(/\n{2,}/).filter(Boolean);
+    return (
+      <div className={PROSE_CLASS}>
+        {paragraphs.map((paragraph, index) => (
+          <p key={index} className="whitespace-pre-wrap">
+            {paragraph}
+          </p>
+        ))}
+      </div>
+    );
   }
   return (
     <div
