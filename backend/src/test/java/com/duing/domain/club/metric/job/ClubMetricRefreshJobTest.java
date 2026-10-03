@@ -1,5 +1,6 @@
 package com.duing.domain.club.metric.job;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -18,10 +19,12 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class ClubMetricRefreshJobTest {
 
     @Mock ClubMetricService clubMetricService;
@@ -56,16 +59,16 @@ class ClubMetricRefreshJobTest {
     }
 
     @Test
-    @DisplayName("재집계가 실패해도 정각 셔플은 바뀌었으므로 캐시를 비우고 재생성을 요청한다")
-    void refreshFailureStillEvictsAndRevalidates() {
+    @DisplayName("재집계가 실패하면 캐시는 비우되 /clubs 재생성은 요청하지 않는다 — 요청은 캐시 삭제라 재생성이 실패하면 직전 페이지가 없다")
+    void refreshFailureEvictsButSkipsRevalidate(CapturedOutput output) {
         givenClubSearchCache();
         doThrow(new IllegalStateException("db down")).when(clubMetricService).refreshAll();
 
         assertThatCode(() -> job.refresh()).doesNotThrowAnyException();
 
-        InOrder inOrder = inOrder(clubSearchCache, frontendRevalidator);
-        inOrder.verify(clubSearchCache).clear();
-        inOrder.verify(frontendRevalidator).revalidate("/clubs");
+        verify(clubSearchCache).clear();
+        verifyNoInteractions(frontendRevalidator);
+        assertThat(output).contains("/clubs 재생성 요청 건너뜀");
     }
 
     @Test
