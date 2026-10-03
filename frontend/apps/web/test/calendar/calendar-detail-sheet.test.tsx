@@ -198,6 +198,19 @@ describe('캘린더 날짜 시트 — 아래로 스와이프해 닫기', () => {
     expect(sheet.style.transition).toBe('');
   });
 
+  it('끌고 있는 도중 ESC 로 닫혀도 내려간 위치·전이가 패널에 남지 않는다', async () => {
+    sheetViewport = true;
+    const sheet = await openSheet();
+
+    dragDown(sheet);
+    expect(sheet.style.transform).toBe('translateY(200px)');
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(sheet).toHaveAttribute('data-open', 'false');
+    expect(sheet.style.transform).toBe('');
+    expect(sheet.style.transition).toBe('');
+  });
+
   it('데스크탑 사이드 패널은 드래그해도 움직이지도 닫히지도 않는다', async () => {
     const sheet = await openSheet();
 

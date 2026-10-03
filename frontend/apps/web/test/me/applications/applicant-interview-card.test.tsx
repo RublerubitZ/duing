@@ -93,6 +93,8 @@ describe('ApplicantInterviewCard', () => {
     const dialog = screen.getByRole('dialog');
     expect(container).not.toContainElement(dialog);
     expect(dialog.parentElement?.parentElement).toBe(document.body);
+    // body 는 .duing 스코프 밖이라 디자인 토큰(--paper 등)을 쓰려면 포털 루트가 스코프를 다시 열어야 한다.
+    expect(dialog.parentElement).toHaveClass('duing');
   });
 
   it('응답 요청 단계에서는 마감과 함께 시간 선택 버튼이 보인다', async () => {
