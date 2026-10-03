@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 
-// 바텀시트를 아래로 스와이프해 닫는 제스처. 공용 Sheet(side="bottom") 한 곳에서만 쓴다.
+// 바텀시트를 아래로 스와이프해 닫는 제스처. 공용 Sheet(side="bottom")와 /calendar 모바일 상세 시트가 쓴다.
 // 설계: docs/superpowers/specs/2026-09-13-bottom-sheet-swipe-dismiss-design.md
 //
 // 임계값은 Vaul(바텀시트 사실상 표준 구현)의 기본값을 그대로 채택했다 — 손맛이 이미 검증된 수치라

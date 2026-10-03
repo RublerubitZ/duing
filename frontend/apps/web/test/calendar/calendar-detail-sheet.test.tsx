@@ -1,6 +1,6 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -39,8 +39,29 @@ const server = setupServer(
 );
 const apiClient = createApiClient({ baseUrl: BASE, authTransport: 'cookie' });
 
+/** 상세 패널이 바텀시트가 되는 뷰포트(max-width: 767px)인지. jsdom 에는 matchMedia 가 없어 직접 스텁한다. */
+let sheetViewport = false;
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeEach(() => {
+  sheetViewport = false;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: query === '(max-width: 767px)' && sheetViewport,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+});
 afterEach(() => {
+  vi.restoreAllMocks();
   server.resetHandlers();
   act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 });
@@ -95,5 +116,69 @@ describe('캘린더 날짜 시트 — 대화상자 역할·ESC·닫기 버튼', 
     await user.click(screen.getByRole('button', { name: '일정 닫기' }));
     expect(sheet).toHaveAttribute('data-open', 'false');
     expect(sheet).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+describe('캘린더 날짜 시트 — 백드롭이 상단바를 덮는다', () => {
+  it('백드롭은 z-50 이고 패널 바로 앞 형제다(문서 순서로 상단바 위·패널 아래)', async () => {
+    const user = userEvent.setup();
+    const { container } = renderCalendar();
+    await user.click(firstDayCell(container));
+
+    const sheet = screen.getByRole('dialog', { name: '선택한 날짜 일정' });
+    const backdrop = sheet.previousElementSibling;
+    expect(backdrop).toHaveClass('fixed', 'inset-0', 'z-50', 'md:hidden');
+
+    // 백드롭을 누르면 닫힌다.
+    if (!(backdrop instanceof HTMLElement)) throw new Error('expected a backdrop element');
+    await user.click(backdrop);
+    expect(sheet).toHaveAttribute('data-open', 'false');
+  });
+});
+
+describe('캘린더 날짜 시트 — 아래로 스와이프해 닫기', () => {
+  const SHEET_HEIGHT = 400;
+
+  async function openSheet() {
+    const user = userEvent.setup();
+    const { container } = renderCalendar();
+    await user.click(firstDayCell(container));
+    const sheet = screen.getByRole('dialog', { name: '선택한 날짜 일정' });
+    vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue({
+      width: 390, height: SHEET_HEIGHT, top: 0, left: 0, right: 390, bottom: SHEET_HEIGHT, x: 0, y: 0,
+      toJSON: () => ({}),
+    });
+    return sheet;
+  }
+
+  /** 핸들 영역(y=10)에서 시작해 천천히 200px 내린다 — 400px 의 25% 이상이라 거리로 닫히는 제스처. */
+  function dragDown(sheet: HTMLElement) {
+    fireEvent.pointerDown(sheet, { pointerId: 1, clientX: 100, clientY: 10 });
+    fireEvent.pointerMove(sheet, { pointerId: 1, clientX: 100, clientY: 30 });
+    fireEvent.pointerMove(sheet, { pointerId: 1, clientX: 100, clientY: 210 });
+  }
+
+  it('모바일에서는 끌어내리는 동안 따라오고, 놓으면 닫히며 인라인 transform 을 비운다', async () => {
+    sheetViewport = true;
+    const sheet = await openSheet();
+
+    dragDown(sheet);
+    expect(sheet.style.transform).toBe('translateY(200px)');
+    fireEvent.pointerUp(sheet, { pointerId: 1, clientX: 100, clientY: 210 });
+
+    expect(sheet).toHaveAttribute('data-open', 'false');
+    // 인라인 값이 남으면 CSS 의 닫힘 위치(translateY(110%))를 덮어 시트가 중간에 멈춘다.
+    expect(sheet.style.transform).toBe('');
+    expect(sheet.style.transition).toBe('');
+  });
+
+  it('데스크탑 사이드 패널은 드래그해도 움직이지도 닫히지도 않는다', async () => {
+    const sheet = await openSheet();
+
+    dragDown(sheet);
+    fireEvent.pointerUp(sheet, { pointerId: 1, clientX: 100, clientY: 210 });
+
+    expect(sheet.style.transform).not.toContain('translateY');
+    expect(sheet).toHaveAttribute('data-open', 'true');
   });
 });

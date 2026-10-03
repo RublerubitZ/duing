@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ApiError } from '@duing/api';
 import { useRespondAvailabilityMutation } from '@duing/hooks';
 import type { ApplicantInterviewSelectableSlot } from '@duing/types';
@@ -105,7 +106,9 @@ export function RespondAvailabilityModal({
     });
   }
 
-  return (
+  // body 로 포털한다 — 지원 상세 모달(transform 이 걸린 대화상자) 안에서 열리는데, 그 안에 그리면 fixed 가
+  // 대화상자 기준이 돼 백드롭이 대화상자 박스만 덮고 상단바·하단 탭바가 원래 색으로 남는다.
+  return createPortal(
     <div
       onClick={onClose}
       style={{
@@ -304,6 +307,7 @@ export function RespondAvailabilityModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
