@@ -55,19 +55,25 @@ afterAll(() => server.close());
 
 // jsdom 에는 window·document 가 있다 — 지우지 않으면 typeof window 분기가 서버 렌더에서도 브라우저 쪽을 타
 // 불일치를 못 잡는다. 모듈 로드 때 굳는 판정(라이브러리의 isServer 등)까지 서버로 돌리지는 못한다.
-function renderAsServer(notice: NoticeDetail): string {
+// serverNow 를 주면 서버 렌더만 그 시각으로 돌린다 — 가짜로 두는 건 Date 뿐이고 끝나면 실제 시계로 되돌린다.
+function renderAsServer(notice: NoticeDetail, serverNow?: number): string {
   vi.stubGlobal('window', undefined);
   vi.stubGlobal('document', undefined);
   try {
+    if (serverNow !== undefined) {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(serverNow);
+    }
     return renderToString(seededNoticeDetailTree(notice));
   } finally {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   }
 }
 
-/** 서버 흉내 렌더 → 하이드레이션 뒤 텍스트와 불일치·미처리 요청 신호를 모은다. */
-async function hydrateSeededTree(notice: NoticeDetail) {
-  const serverHtml = renderAsServer(notice);
+/** 서버 흉내 렌더 → 하이드레이션 뒤 텍스트와 불일치·미처리 요청 신호를 모은다. 하이드레이션은 실제 시계로 돈다. */
+async function hydrateSeededTree(notice: NoticeDetail, serverNow?: number) {
+  const serverHtml = renderAsServer(notice, serverNow);
   const container = document.createElement('div');
   container.innerHTML = serverHtml;
   document.body.appendChild(container);
@@ -129,5 +135,24 @@ describe('소식 상세 트리 — 하이드레이션(ISR HTML 회귀)', () => {
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);
     expect(result.hydratedText).toContain('9.25(금) 10:00–12:00');
+  });
+
+  // 운영 ISR HTML 은 최대 24시간 묵는다. 같은 시각 렌더로는 시각 의존 표시의 하이드레이션 게이트를 되돌려도 글자가 같아
+  // 못 잡는다. 25시간은 KST 자정을 반드시 넘어 D-day 가 달라지고, 마감 지남 소식은 서버 시각엔 아직 마감 전이다.
+  // 픽스처 시각은 import 때 실제 시계로 굳은 모듈 상수다 — 픽스처를 가짜 시계 안에서 만들면 서버·클라이언트가
+  // 같이 밀려 판별력이 사라진다.
+  it.each([
+    ['일반', noticeDetail],
+    ['마감 지남', expiredNoticeDetail],
+    ['행사', eventNoticeDetail],
+  ])('25시간 묵은 ISR HTML(어제 시각으로 렌더)도 불일치 없이 하이드레이션한다 — %s 소식', async (_label, notice) => {
+    // 마운트 재요청도 같은 소식을 돌려줘야 시각 의존 표시가 재요청 결과로 바뀌지 않는다.
+    server.use(http.get('*/notices/42', () => envelope(notice)));
+
+    const result = await hydrateSeededTree(notice, Date.now() - 25 * 60 * 60 * 1000);
+
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydrationWarnings).toEqual([]);
+    expect(result.unhandledRequests).toEqual([]);
   });
 });
