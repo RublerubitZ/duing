@@ -1,7 +1,15 @@
 import { cache } from 'react';
 
 import { ApiError, createApiClient } from '@duing/api';
-import type { ClubDetail, NoticeCardItem, NoticeDetail, NoticeSource, PageResponse } from '@duing/types';
+import type {
+  ClubDetail,
+  ClubSearchParams,
+  ClubSummary,
+  NoticeCardItem,
+  NoticeDetail,
+  NoticeSource,
+  PageResponse,
+} from '@duing/types';
 
 import { resolveApiBaseUrl } from './apiBaseUrl';
 import { shouldRethrowBackendFailure } from './fail-soft';
@@ -14,11 +22,12 @@ function client() {
 }
 
 /**
- * 서버 렌더(24시간 ISR)용 공개 콘텐츠 조회 결과.
+ * 서버 렌더(ISR)용 공개 콘텐츠 조회 결과.
  * - found: 공개 데이터
  * - notFound: 없거나 공개되지 않은 자원(삭제·승인 대기 등) — 페이지는 noindex 셸을 낸다
  * - unavailable: 빌드 국면의 일시 장애 — 셸만 렌더하고 색인 신호는 건드리지 않는다
- * 런타임(재생성)의 일시 장애는 결과로 돌려주지 않고 throw 한다 — Next 가 직전 캐시본을 계속 서빙한다(fail-soft.ts).
+ * 런타임(재생성)의 일시 장애는 결과로 돌려주지 않고 throw 한다 — 주기 만료 재생성이면 Next 가 직전 캐시본을 계속
+ * 서빙한다(fail-soft.ts). 즉시 만료(revalidatePath) 뒤의 첫 렌더는 직전본이 없다(clubs/page.tsx).
  */
 export type PublicContent<T> =
   | { status: 'found'; data: T }
@@ -66,6 +75,14 @@ async function loadPublicList<T>(load: () => Promise<T>): Promise<PublicContent<
     if (shouldRethrowBackendFailure()) throw error;
     return { status: 'unavailable' };
   }
+}
+
+/**
+ * 공개 동아리 목록 한 페이지 — 익명이라 백엔드가 공개(ACTIVE) 동아리만 준다. 탐색 화면이 쿼리 없는 첫 진입 키로
+ * 시드하고, 같은 데이터로 서버 렌더 기본 목록(Suspense fallback)을 그린다.
+ */
+export function fetchPublicClubList(params: ClubSearchParams): Promise<PublicContent<PageResponse<ClubSummary>>> {
+  return loadPublicList(() => client().clubs.list(params));
 }
 
 /**

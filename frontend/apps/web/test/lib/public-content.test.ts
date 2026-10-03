@@ -22,6 +22,7 @@ import { ApiError } from '@duing/api';
 import {
   fetchActiveClubIds,
   fetchPublicClubDetail,
+  fetchPublicClubList,
   fetchPublicNoticeDetail,
   fetchPublicNoticeIds,
   fetchPublicNoticeList,
@@ -248,5 +249,37 @@ describe('fetchPublicNoticeList', () => {
 
     stubPhase('production');
     await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicClubList', () => {
+  it('받은 조건 그대로 한 페이지를 조회해 found 로 돌려준다', async () => {
+    const page = clubPage([1, 4], true, 0);
+    clubsListMock.mockResolvedValue(page);
+
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).resolves.toEqual({ status: 'found', data: page });
+    expect(clubsListMock).toHaveBeenCalledWith({ page: 0, size: 20 });
+  });
+
+  it('빌드 국면 장애면 unavailable(스켈레톤), 런타임 장애면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(503, '점검');
+    clubsListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).rejects.toBe(error);
+  });
+
+  it('목록에는 "없음"이 없다 — 404 도 빌드 국면이면 unavailable, 런타임이면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(404, 'Not Found');
+    clubsListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicClubList({ page: 0, size: 20 })).rejects.toBe(error);
   });
 });

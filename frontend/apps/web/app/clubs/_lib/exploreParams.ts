@@ -23,6 +23,9 @@ export type ExploreParams = {
   page: number;
 };
 
+/** 탐색 목록 한 페이지 크기 — 화면(ClubExplorePage)과 서버 시드(page.tsx)가 같은 키를 만들도록 한곳에 둔다. */
+export const EXPLORE_PAGE_SIZE = 20;
+
 export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   scope: '전체',
   division: '전체',
