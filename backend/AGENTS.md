@@ -370,6 +370,7 @@ JWT_SECRET=****
 # access 토큰 수명은 코드 상수 30분(1800000, JwtTokenProvider) — 설정 없음(refresh 토큰 도입으로 3600000→1800000)
 # DUING_AUTH_* — refresh TTL(30일)·재사용 grace(30초)·동시 세션 상한(5)·cleanup 잡 토글. 전부 기본값으로 충분해 운영 env 미주입 가능(prod cleanup 만 application-prod.yml 에서 자동 활성).
 SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 비움/미설정=비활성(시작 로그 WARN), 운영은 주입 권장. deploy/MONITORING.md
+DUING_FRONTEND_REVALIDATE_SECRET=      # 동아리 탐색(/clubs) 정각 재생성 트리거. Vercel REVALIDATE_SECRET 과 같은 값(32바이트+). 비움=비활성(시작 로그 WARN)
 
 # 로컬 전용
 FILE_UPLOAD_DIR=/tmp/duing/uploads    # 로컬 파일 저장 경로

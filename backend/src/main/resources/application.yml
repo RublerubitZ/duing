@@ -233,6 +233,12 @@ duing:
       # 8일 초과분 삭제)도 겸한다 — 비활성 환경에서는 관심도가 0 으로 고정되고 조회 이벤트가 쌓이기만
       # 한다. 운영에서 이 플래그를 끄면 보존 기간 약속이 지켜지지 않으므로 끄지 말 것.
       enabled: ${DUING_CLUB_METRIC_ENABLED:false}
+  # 프론트 정각 재생성 트리거 — 매시 정각 ClubMetricRefreshJob 이 /clubs 재생성을 요청한다(FrontendRevalidator).
+  # 비밀값이 비면 비활성(로컬·CI 기본). 운영 값은 서버 .env 의 DUING_FRONTEND_REVALIDATE_SECRET
+  # (= Vercel REVALIDATE_SECRET)로만 주입한다.
+  frontend:
+    base-url: ${DUING_FRONTEND_BASE_URL:http://localhost:3000}
+    revalidate-secret: ${DUING_FRONTEND_REVALIDATE_SECRET:}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
