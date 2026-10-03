@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             type="font/woff2"
             crossOrigin="anonymous"
           />
-          {/* Google AdSense 로더 — 공개 탐색 화면에서만 head 에 평문 태그를 싣는다(판정·사유는 컴포넌트 주석). */}
+          {/* Google AdSense 로더 — 게시자 콘텐츠가 있는 공개 화면에서만 head 에 평문 태그를 싣는다(판정·사유는 컴포넌트 주석). */}
           <AdSenseLoader />
         </head>
         {/* 본문 폰트를 문서 기본값으로 둔다 — Pretendard 는 .duing 스코프 안에서만 적용돼서
