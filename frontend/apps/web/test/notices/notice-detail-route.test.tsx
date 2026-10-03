@@ -25,7 +25,7 @@ vi.mock('@/app/notices/[noticeId]/_pages/NoticeDetailPage', async () => {
 
 import NoticeDetailRoute, { generateMetadata, revalidate } from '@/app/notices/[noticeId]/page';
 
-function notice(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
+function notice(overrides: Partial<NoticeDetail> = {}): Partial<NoticeDetail> {
   return {
     id: 42,
     title: '가을 동아리 박람회 안내',
@@ -33,7 +33,7 @@ function notice(overrides: Partial<NoticeDetail> = {}): NoticeDetail {
     content: '<p>본문</p>',
     contentFormat: 'HTML',
     ...overrides,
-  } as NoticeDetail;
+  };
 }
 
 function params(noticeId: string) {

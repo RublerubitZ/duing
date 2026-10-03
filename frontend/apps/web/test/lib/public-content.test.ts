@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClubDetail, ClubSummary, NoticeCardItem, NoticeDetail, PageResponse } from '@duing/types';
+import type { ClubSummary, NoticeCardItem, PageResponse } from '@duing/types';
 
 // createApiClient 만 모킹하고 ApiError 는 실제 클래스를 쓴다 — 실패 정책이 instanceof 로 상태를 가른다.
 const { createApiClientMock, clubsDetailMock, clubsListMock, noticesDetailMock, noticesListMock } = vi.hoisted(
@@ -32,9 +32,9 @@ function stubPhase(nodeEnv: string, nextPhase?: string) {
   vi.stubEnv('NEXT_PHASE', nextPhase);
 }
 
-function clubPage(ids: number[], hasNext: boolean, page: number): PageResponse<ClubSummary> {
+function clubPage(ids: number[], hasNext: boolean, page: number): PageResponse<Pick<ClubSummary, 'id'>> {
   return {
-    content: ids.map((id) => ({ id }) as ClubSummary),
+    content: ids.map((id) => ({ id })),
     page,
     size: 100,
     totalElements: ids.length,
@@ -43,9 +43,9 @@ function clubPage(ids: number[], hasNext: boolean, page: number): PageResponse<C
   };
 }
 
-function noticePage(ids: number[], hasNext: boolean, page: number): PageResponse<NoticeCardItem> {
+function noticePage(ids: number[], hasNext: boolean, page: number): PageResponse<Pick<NoticeCardItem, 'id'>> {
   return {
-    content: ids.map((id) => ({ id }) as NoticeCardItem),
+    content: ids.map((id) => ({ id })),
     page,
     size: 100,
     totalElements: ids.length,
@@ -72,7 +72,7 @@ afterEach(() => {
 
 describe('fetchPublicClubDetail', () => {
   it('공개 동아리는 found 로 돌려준다', async () => {
-    const club = { id: 4, name: '비호상록회' } as ClubDetail;
+    const club = { id: 4, name: '비호상록회' };
     clubsDetailMock.mockResolvedValue(club);
 
     await expect(fetchPublicClubDetail(4)).resolves.toEqual({ status: 'found', data: club });
@@ -164,7 +164,7 @@ describe('fetchActiveClubIds', () => {
 
 describe('fetchPublicNoticeDetail', () => {
   it('공개 소식은 found 로 돌려준다', async () => {
-    const notice = { id: 42, title: '봄 축제 공지' } as NoticeDetail;
+    const notice = { id: 42, title: '봄 축제 공지' };
     noticesDetailMock.mockResolvedValue(notice);
 
     await expect(fetchPublicNoticeDetail(42)).resolves.toEqual({ status: 'found', data: notice });

@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 import { clubDetail, seededClubDetailTree } from './club-detail-tree-fixture';
 
 // RTL 을 거치지 않고 hydrateRoot 를 직접 쓰므로 act 환경 플래그를 직접 켠다(없으면 act 경고가 stderr 로 샌다).
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 function envelope(data: unknown) {
   return HttpResponse.json({ ok: true, message: null, data });
