@@ -131,6 +131,26 @@ describe('ForgotPasswordPanel — 문자 인증 기반 비밀번호 재설정', 
     expect(screen.getByText('7K3M9PXQ')).toBeInTheDocument();
   });
 
+  it('미가입 학번에도 같은 안내가 나가므로 번호를 단정하지 않고, [학번 다시 입력]으로 학번 단계에 돌아간다', async () => {
+    vi.useFakeTimers();
+    renderPanel();
+    mockIssue();
+
+    fireEvent.change(screen.getByLabelText('학번'), { target: { value: '20240001' } });
+    fireEvent.click(screen.getByRole('button', { name: '인증 시작' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText(/내 번호가 아니라면 학번을 다시 확인해주세요/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '번호 다시 입력' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '학번 다시 입력' }));
+
+    // 입력한 학번은 남아 있어 한 자리만 고쳐 다시 시작할 수 있다.
+    expect(screen.getByLabelText('학번')).toHaveValue('20240001');
+  });
+
   it('인증이 완료되면 새 비밀번호 입력 폼이 나타난다', async () => {
     vi.useFakeTimers();
     renderPanel();

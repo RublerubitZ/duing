@@ -134,9 +134,12 @@ export function ForgotPasswordPanel() {
           ) : (
             <div className="space-y-4">
               {verification.maskedPhone && !verification.verified && (
+                // 미가입 학번에도 파생 번호로 같은 안내가 나가므로(계정 열거 차단, spec §7.6) 단정하지 않고,
+                // 뒤 4자리가 낯설면 학번 오입력임을 사용자가 스스로 알아차리게 한다.
                 <p className="rounded-md border border-line bg-paper px-3.5 py-2.5 text-sm text-charcoal-2">
-                  등록된 번호 <strong className="text-ink">{verification.maskedPhone}</strong> 로 아래 코드를
-                  문자 전송해주세요.
+                  이 학번으로 가입된 계정이라면 등록된 번호{' '}
+                  <strong className="text-ink">{verification.maskedPhone}</strong> 로 아래 코드를 문자
+                  전송해주세요. 내 번호가 아니라면 학번을 다시 확인해주세요.
                 </p>
               )}
 
@@ -159,6 +162,7 @@ export function ForgotPasswordPanel() {
                 onSent={verification.markSent}
                 onReset={verification.reset}
                 onRecheck={verification.recheck}
+                resetLabel="학번 다시 입력"
               />
 
               {verification.verified && (
