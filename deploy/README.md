@@ -38,16 +38,23 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 - `AUTH_HINT_SECRET=...`(웹 Middleware UX 힌트 서명용, 최소 32바이트이며 `JWT_SECRET`과 다른 값)
 - `AUTH_HINT_COOKIE_DOMAIN=.duings.com`(`.env.example` 는 빈 값이니 새 서버에도 이 값을 넣는다) — #1350 부터 운영 힌트 Cookie Domain 은 코드 상수라 앱이 이 값을 쓰지 않는다. 그러나 #1350 이전 이미지는 이 값을 기본값 없이 읽고 정확히 `.duings.com` 인지 검사하므로, 줄이 없거나 값이 다르면 그 이미지로의 롤백(같은 `.env` 를 쓰는 자동 롤백 포함)이 기동에 실패한다. **지우거나 바꾸지 않는다**
 - `SENTRY_DSN=...`(운영 필수 — 빈 값이면 Sentry 비활성)
+- `DUING_FRONTEND_REVALIDATE_SECRET=...`(동아리 탐색 정각 재생성 트리거, 32바이트 이상 — Vercel `REVALIDATE_SECRET` 과 같은 값. 비우면 트리거만 꺼지고 부팅은 정상)
 - `DB_POOL_MAX_SIZE=10`(**10 을 넘기지 말 것** — Supabase 세션 풀러 한도 15 에서 백업·관리도구 몫 5 를 남긴다. 15 로 올리면 04:15 백업이 실패한다, 2026-09-20 실사고)
 - `BACKEND_IMAGE=ghcr.io/rublerubitz/duing-backend:<tag>`
 
-Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SECRET`은 백엔드 전용이므로 Vercel에
+웹 인증 시크릿 중 Vercel에는 백엔드와 동일한 `AUTH_HINT_SECRET`만 등록한다. `JWT_SECRET`은 백엔드 전용이므로 Vercel에
 등록하거나 프론트 빌드 환경에 노출하면 안 된다. 실제 Access Token은 백엔드가
 `__Host-duing_access_token` host-only Cookie로 발급하며 Domain을 지정하지 않고
 `Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=1800`을 적용한다(Refresh Token Cookie
 `__Secure-duing_refresh_token`은 `Path=/api/v1/auth`, 30일 — 로그인 상태 유지를 끄면 `auth_hint`까지
 셋 다 세션 Cookie). `.duings.com` Domain을 사용하는
 `auth_hint`는 Next.js Middleware의 로그인·역할별 리다이렉트 UX 전용이며 API 인증·권한 자료가 아니다.
+
+Vercel에는 동아리 탐색 정각 재생성 트리거용 `REVALIDATE_SECRET` 도 Production 환경변수로 등록한다. 백엔드
+`.env` 의 `DUING_FRONTEND_REVALIDATE_SECRET` 과 같은 값이다(생성: `openssl rand -base64 48`). Vercel 환경변수는
+다음 배포부터 반영되므로 등록 뒤 재배포한다. 인증 없이
+`curl -s -o /dev/null -w '%{http_code}' -X POST https://duings.com/api/internal/revalidate` 를 보내면 미설정이거나
+32바이트 미만이면 503, 설정됐으면 401 이다. 유출이 의심되면 두 곳을 같은 새 값으로 함께 바꾸고, Vercel 재배포와 백엔드 재기동(`docker compose up -d`)으로 반영한다.
 
 ## 웹 인증 지원 환경
 
