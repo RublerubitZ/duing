@@ -2,6 +2,7 @@ package com.duing.global.frontend;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -19,13 +20,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "duing.frontend")
 public record FrontendRevalidationProperties(String baseUrl, String revalidateSecret) {
 
+    /** 프론트 재검증 라우트의 503 규칙과 같다 — 트림한 비밀값이 UTF-8 32바이트 미만이면 거절하므로 그보다 짧으면 비활성이다. */
+    static final int MIN_SECRET_BYTES = 32;
+
     public FrontendRevalidationProperties {
         baseUrl = baseUrl == null ? null : baseUrl.strip();
         revalidateSecret = revalidateSecret == null ? null : revalidateSecret.strip();
     }
 
     public boolean enabled() {
-        return revalidateSecret != null && !revalidateSecret.isEmpty() && isAbsoluteHttpUrl(baseUrl);
+        return revalidateSecret != null
+                && revalidateSecret.getBytes(StandardCharsets.UTF_8).length >= MIN_SECRET_BYTES
+                && isAbsoluteHttpUrl(baseUrl);
     }
 
     private static boolean isAbsoluteHttpUrl(String url) {

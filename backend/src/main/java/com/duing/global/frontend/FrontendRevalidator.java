@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpHeaders;
@@ -20,9 +21,10 @@ import org.springframework.web.client.RestClientException;
  * 지금 호출부는 추천순 정각 셔플에 맞춘 동아리 탐색({@code /clubs}) 하나다({@code ClubMetricRefreshJob}).
  *
  * <p>흐름: {@code POST /api/internal/revalidate}(Bearer 비밀값) → 2xx 면 1초 뒤 그 페이지를 GET(warm-up).
- * 무효화 뒤 첫 요청이 재생성을 일으키므로 그 요청을 백엔드가 대신 맞는다 — 실제 사용자는 새 HTML 을 받는다.
- * 1초는 CDN 무효화가 전 지역에 퍼지는 시간(약 300ms)의 여유다. warm-up 응답의 캐시 상태 헤더를 INFO 로 남겨
- * 운영에서 확인한다 — 옛 엔트리를 그대로 받은 HIT 이 반복되면 대기를 늘린다.
+ * 무효화 뒤 첫 요청이 재생성을 일으키므로 그 요청을 백엔드가 먼저 보내 실제 사용자 요청보다 앞서 재생성을 시작시킨다.
+ * 1초는 CDN 무효화가 전 지역에 퍼지는 시간(약 300ms)의 여유다. Vercel 에서 재검증 2xx 는 무효화가 접수됐다는 뜻일 뿐
+ * 재생성 완료가 아니다 — 실제로 새로 만들어졌는지는 warm-up 응답의 캐시 상태·{@code age} 헤더로만 드러나므로 INFO 로
+ * 남겨 운영에서 확인한다. 옛 엔트리를 그대로 받은 HIT 이 반복되면 대기를 늘린다.
  *
  * <p>격리가 계약이다: {@link #revalidate} 는 어떤 경우에도 예외를 던지지 않고 재시도하지 않는다 — 다음 정각에
  * 다시 돌고, 프론트는 자체 재생성 주기를 안전망으로 둔다. 성공 판정은 2xx 만이다 — RestClient 기본 오류 판정은
@@ -48,8 +50,10 @@ public class FrontendRevalidator {
     private final RestClient frontendRevalidationRestClient;
     private final ObjectMapper objectMapper;
 
+    // RestClient 빈이 여럿이라 이름으로 고정한다 — 파라미터 이름 폴백은 @Primary RestClient 가 생기면 밀려 비밀값이 다른 호스트로 간다.
     public FrontendRevalidator(FrontendRevalidationProperties frontendRevalidationProperties,
-            RestClient frontendRevalidationRestClient, ObjectMapper objectMapper) {
+            @Qualifier("frontendRevalidationRestClient") RestClient frontendRevalidationRestClient,
+            ObjectMapper objectMapper) {
         this.enabled = frontendRevalidationProperties.enabled();
         this.authorization = enabled ? "Bearer " + frontendRevalidationProperties.revalidateSecret() : null;
         this.frontendRevalidationRestClient = frontendRevalidationRestClient;
@@ -59,9 +63,10 @@ public class FrontendRevalidator {
     @EventListener(ApplicationReadyEvent.class)
     public void logStatus() {
         if (enabled) {
-            log.info("[프론트 재생성 트리거] 활성 — 매시 정각 /clubs 재생성을 요청한다.");
+            log.info("[프론트 재생성 트리거] 활성 — 정각 잡(DUING_CLUB_METRIC_ENABLED, 운영 기본 활성)이 켜져 있으면 "
+                    + "매시 정각 /clubs 재생성을 요청한다.");
         } else {
-            log.warn("[프론트 재생성 트리거] 비활성 — DUING_FRONTEND_REVALIDATE_SECRET 미설정이거나 "
+            log.warn("[프론트 재생성 트리거] 비활성 — DUING_FRONTEND_REVALIDATE_SECRET 미설정·32바이트 미만이거나 "
                     + "DUING_FRONTEND_BASE_URL 이 비었거나 절대 http(s) 주소가 아니다. "
                     + "로컬·CI 는 정상이며, 운영이라면 서버 .env 를 확인하라.");
         }
@@ -125,11 +130,11 @@ public class FrontendRevalidator {
             WarmUpResult warmUpResult = frontendRevalidationRestClient.get()
                     .uri(path)
                     .header(HttpHeaders.USER_AGENT, USER_AGENT)
-                    .exchange((request, response) ->
-                            new WarmUpResult(response.getStatusCode(), cacheStatus(response.getHeaders())));
+                    .exchange((request, response) -> new WarmUpResult(response.getStatusCode(),
+                            cacheStatus(response.getHeaders()), response.getHeaders().getFirst("age")));
             if (warmUpResult.status().is2xxSuccessful()) {
-                log.info("프론트 재생성 완료 — path={}, warmUp=HTTP_{}, cache={}",
-                        path, warmUpResult.status().value(), warmUpResult.cacheStatus());
+                log.info("프론트 재생성 warm-up 응답 — path={}, status=HTTP_{}, cache={}, age={}",
+                        path, warmUpResult.status().value(), warmUpResult.cacheStatus(), warmUpResult.age());
             } else {
                 log.warn("프론트 재생성 warm-up 실패 — path={}, reason=HTTP_{}", path, warmUpResult.status().value());
             }
@@ -145,6 +150,6 @@ public class FrontendRevalidator {
         return vercelCache != null ? vercelCache : headers.getFirst("x-nextjs-cache");
     }
 
-    private record WarmUpResult(HttpStatusCode status, String cacheStatus) {
+    private record WarmUpResult(HttpStatusCode status, String cacheStatus, String age) {
     }
 }

@@ -66,12 +66,28 @@ class FrontendRevalidatorTest {
         mockServer.expect(once(), requestTo(BASE_URL + "/clubs"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header(HttpHeaders.USER_AGENT, FrontendRevalidator.USER_AGENT))
-                .andRespond(withSuccess("<html></html>", MediaType.TEXT_HTML).header("x-vercel-cache", "STALE"));
+                .andRespond(withSuccess("<html></html>", MediaType.TEXT_HTML)
+                        .header("x-vercel-cache", "STALE")
+                        .header("age", "0"));
 
         revalidator.revalidate("/clubs");
 
         mockServer.verify();
-        assertThat(output).contains("cache=STALE").doesNotContain(SECRET);
+        assertThat(output).contains("cache=STALE, age=0").doesNotContain(SECRET);
+    }
+
+    @Test
+    @DisplayName("x-vercel-cache 없이 x-nextjs-cache 만 오면(로컬 next start) 그 값을 캐시 상태로 남긴다")
+    void fallsBackToNextjsCacheHeader(CapturedOutput output) {
+        mockServer.expect(once(), requestTo(REVALIDATE_URL))
+                .andRespond(withSuccess("{\"revalidated\":[\"/clubs\"]}", MediaType.APPLICATION_JSON));
+        mockServer.expect(once(), requestTo(BASE_URL + "/clubs"))
+                .andRespond(withSuccess("<html></html>", MediaType.TEXT_HTML).header("x-nextjs-cache", "MISS"));
+
+        revalidator.revalidate("/clubs");
+
+        mockServer.verify();
+        assertThat(output).contains("cache=MISS");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -131,14 +147,15 @@ class FrontendRevalidatorTest {
             "https://frontend.test, ''",
             "https://frontend.test, null",
             "https://frontend.test, '  '",
+            "https://frontend.test, test-only-31-byte-secret-012345",
             "'', test-only-revalidate-secret-0123456789",
             "null, test-only-revalidate-secret-0123456789",
             "frontend.test, test-only-revalidate-secret-0123456789",
             "'https://frontend.test:abc', test-only-revalidate-secret-0123456789",
             "ftp://frontend.test, test-only-revalidate-secret-0123456789"
     }, nullValues = "null")
-    @DisplayName("비밀값이 비었거나 주소가 비었거나 절대 http(s) 주소가 아니면 비활성 — 어떤 요청도 보내지 않는다")
-    void disabledWhenBaseUrlOrSecretBlank(String baseUrl, String secret) {
+    @DisplayName("비밀값이 비었거나 32바이트 미만이거나, 주소가 비었거나 절대 http(s) 주소가 아니면 비활성 — 어떤 요청도 보내지 않는다")
+    void disabledWhenBaseUrlOrSecretInvalid(String baseUrl, String secret) {
         FrontendRevalidator disabledRevalidator = revalidatorWith(new FrontendRevalidationProperties(baseUrl, secret));
 
         disabledRevalidator.revalidate("/clubs");
