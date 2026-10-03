@@ -24,6 +24,7 @@ import {
   fetchPublicClubDetail,
   fetchPublicNoticeDetail,
   fetchPublicNoticeIds,
+  fetchPublicNoticeList,
 } from '@/app/_lib/public-content';
 
 /** 실패 정책 분기의 입력인 두 환경변수만 고정한다. */
@@ -208,5 +209,44 @@ describe('fetchPublicNoticeIds', () => {
 
     stubPhase('production');
     await expect(fetchPublicNoticeIds()).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicNoticeList', () => {
+  it('받은 조건 그대로 한 페이지를 조회해 found 로 돌려준다', async () => {
+    const page = noticePage([17, 16], false, 0);
+    noticesListMock.mockResolvedValue(page);
+
+    await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).resolves.toEqual({
+      status: 'found',
+      data: page,
+    });
+    expect(noticesListMock).toHaveBeenCalledWith({ source: 'SCHOOL', page: 0, size: 20 });
+  });
+
+  it('빌드 국면 장애면 unavailable(셸), 런타임 장애면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(503, '점검');
+    noticesListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).resolves.toEqual({
+      status: 'unavailable',
+    });
+
+    stubPhase('production');
+    await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).rejects.toBe(error);
+  });
+
+  it('목록에는 "없음"이 없다 — 404 도 빌드 국면이면 unavailable, 런타임이면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(404, 'Not Found');
+    noticesListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).resolves.toEqual({
+      status: 'unavailable',
+    });
+
+    stubPhase('production');
+    await expect(fetchPublicNoticeList({ source: 'SCHOOL', page: 0, size: 20 })).rejects.toBe(error);
   });
 });

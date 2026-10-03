@@ -1,7 +1,7 @@
 import { cache } from 'react';
 
 import { ApiError, createApiClient } from '@duing/api';
-import type { ClubDetail, NoticeDetail, PageResponse } from '@duing/types';
+import type { ClubDetail, NoticeCardItem, NoticeDetail, NoticeSource, PageResponse } from '@duing/types';
 
 import { resolveApiBaseUrl } from './apiBaseUrl';
 import { shouldRethrowBackendFailure } from './fail-soft';
@@ -56,6 +56,28 @@ export const fetchPublicNoticeDetail = cache(
   (noticeId: number): Promise<PublicContent<NoticeDetail>> =>
     loadPublicContent(() => client().notices.detail(noticeId)),
 );
+
+// 목록 로더 — 목록에는 "없음"이 없어 404 를 포함한 모든 실패를 장애로 본다. 상세처럼 404 를 notFound 로 받으면
+// 페이지가 셸을 그리고 재생성이 성공한 것으로 처리돼 직전 정상본을 잃는다(셸이 재생성 주기만큼 캐시된다).
+async function loadPublicList<T>(load: () => Promise<T>): Promise<PublicContent<T>> {
+  try {
+    return { status: 'found', data: await load() };
+  } catch (error) {
+    if (shouldRethrowBackendFailure()) throw error;
+    return { status: 'unavailable' };
+  }
+}
+
+/**
+ * 공개 소식 목록 한 페이지 — 익명이라 백엔드가 PUBLIC·미만료만 준다. 목록 화면이 첫 진입 키로 시드한다.
+ */
+export function fetchPublicNoticeList(params: {
+  source: NoticeSource;
+  page: number;
+  size: number;
+}): Promise<PublicContent<PageResponse<NoticeCardItem>>> {
+  return loadPublicList(() => client().notices.list(params));
+}
 
 // 백엔드 페이지 크기 상한(PageableConfig max 100).
 const ID_PAGE_SIZE = 100;
