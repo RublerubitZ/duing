@@ -129,7 +129,7 @@ pnpm dev                    # http://localhost:3000
   Secret은 각각 최소 32바이트이며 반드시 서로 다른 값이어야 한다. 운영 힌트 Cookie 범위(`.duings.com`)는
   #1350 부터 코드 상수라 앱이 `AUTH_HINT_COOKIE_DOMAIN`을 쓰지 않는다. 다만 운영 `.env` 의
   `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 줄은 이전 이미지 롤백에 대비해 그대로 둔다(deploy/README.md).
-- Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
+- 웹 인증 시크릿 중 Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
   `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
 
 운영 웹 `duings.com`/`api.duings.com`과 로컬 `localhost:3000`/`localhost:8080`을 지원한다. 로컬에서는
@@ -149,6 +149,11 @@ API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명�
 설정으로 바꾸지 않는다.
 로그아웃·세션 폐기의 범위와 모든 기기를 즉시 끊는 경로, 배포 순서와 롤백 절차는
 [`deploy/README.md`](./deploy/README.md)를 따른다.
+
+동아리 탐색(`/clubs`) 정각 재생성 트리거는 Vercel `REVALIDATE_SECRET` 과 백엔드
+`DUING_FRONTEND_REVALIDATE_SECRET` 에 같은 값(32바이트 이상)을 넣어 켠다. 매시 정각 백엔드 잡이 이 값으로
+`POST /api/internal/revalidate` 를 불러 `/clubs` 를 다시 만들게 한다. 둘 중 하나라도 비면 기능이 꺼지고
+`/clubs` 는 자체 재생성 주기로만 갱신된다.
 
 ---
 
