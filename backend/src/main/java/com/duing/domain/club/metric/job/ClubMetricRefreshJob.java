@@ -26,8 +26,11 @@ import org.springframework.stereotype.Component;
  * <p>정각 실행은 재집계 뒤 두 가지를 더 한다 — 정각에 바뀐 추천순을 화면에 바로 반영하기 위해서다.
  * 먼저 공개 동아리 목록 캐시({@code publicClubSearch})를 비운다: 키에 hour bucket 이 없어 정각 직전 적재분이
  * 최대 60초 동안 직전 시간대 순서를 돌려준다. 그다음 프론트에 {@code /clubs} 재생성을 요청한다: 캐시를 비운 뒤라야
- * 재생성이 새 순서를 받는다(순서가 바뀌면 직전 순서가 서버 HTML 에 한 시간 박제된다). 재집계가 실패해도
- * bucket 은 바뀌었으므로 둘 다 한다. 남는 틈: 비우는 순간 적재 중이던 조회는 {@code clear()} 에 잡히지 않아,
+ * 재생성이 새 순서를 받는다(순서가 바뀌면 직전 순서가 서버 HTML 에 한 시간 박제된다). 재집계가 실패하면
+ * 캐시는 비우되(bucket 은 바뀌었다 — 건너뛴 시간의 주기 재생성도 새 순서를 받아야 한다) 재생성 요청은 건너뛴다:
+ * 요청은 캐시 삭제라 Vercel 도 직전본 없이 그 자리에서 다시 만들고(cache-status REVALIDATED), 재집계 실패는
+ * 대개 DB 장애라 그 재생성이 실패하면 회복까지 {@code /clubs} 가 오류 화면이 된다. 건너뛰면 1시간 주기 만료가
+ * 직전 페이지를 유지하며 다시 시도한다. 남는 틈: 비우는 순간 적재 중이던 조회는 {@code clear()} 에 잡히지 않아,
  * 재집계 커밋 전에 시작한 조회가 그 뒤에 끝나면 옛 점수로 다시 들어갈 수 있다 — 같은 목록 요청이 그 몇십 ms 안에
  * 겹쳐야 해 드물고, 다음 정각에 저절로 바로잡힌다. 기동 직후 실행은 재집계만 한다 — 기동 리스너는 readiness 전에
  * 동기로 돌아, 외부 HTTP 왕복이 배포 직후 준비 신호를 늦춘다.
@@ -53,17 +56,24 @@ public class ClubMetricRefreshJob {
     // 메서드 이름 refresh 는 ClubMetricScheduleRegistrationTest 가 크론 등록 대상으로 확인한다.
     @Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
     public void refresh() {
-        refreshMetrics();
+        boolean metricsRefreshed = refreshMetrics();
         evictClubSearchCache();
-        frontendRevalidator.revalidate(CLUB_LIST_PAGE_PATH);
+        if (metricsRefreshed) {
+            frontendRevalidator.revalidate(CLUB_LIST_PAGE_PATH);
+        } else {
+            log.warn("ClubMetricRefreshJob: {} 재생성 요청 건너뜀 — 재집계 실패(DB 장애일 수 있음), 직전 페이지는 1시간 주기 만료로 유지·갱신",
+                    CLUB_LIST_PAGE_PATH);
+        }
     }
 
-    private void refreshMetrics() {
+    private boolean refreshMetrics() {
         try {
             clubMetricService.refreshAll();
             log.info("ClubMetricRefreshJob: 동아리 활동 지표 재집계 완료");
+            return true;
         } catch (Exception refreshError) {
             log.error("ClubMetricRefreshJob: 재집계 실패 — 추천 정렬은 기존/0 점수로 동작", refreshError);
+            return false;
         }
     }
 
