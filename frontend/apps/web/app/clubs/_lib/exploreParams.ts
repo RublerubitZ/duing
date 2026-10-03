@@ -184,6 +184,9 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
   };
 }
 
+/** 쿼리 없는 첫 진입의 기본 목록 키 — 서버 렌더·시드(page.tsx)와 재검증 라우트의 사전 확인이 같은 값을 쓴다. */
+export const DEFAULT_CLUB_LIST_PARAMS: ClubSearchParams = toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE);
+
 /**
  * favorite·page·sort 를 제외한 나머지 필터 중 하나라도 기본값이 아니면 true.
  * 찜 필터 빈 결과가 "찜이 없어서"인지 "조합 조건이 걸러서"인지 빈 상태 문구를 가른다.

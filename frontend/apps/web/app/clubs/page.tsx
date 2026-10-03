@@ -7,7 +7,7 @@ import { fetchPublicClubList } from '@/app/_lib/public-content';
 import { SeededQuery } from '@/app/_lib/SeededQuery';
 
 import { ClubExploreFallback } from './_components/ClubExploreFallback';
-import { DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE, toApiParams } from './_lib/exploreParams';
+import { DEFAULT_CLUB_LIST_PARAMS } from './_lib/exploreParams';
 import { ClubExplorePage } from './_pages/ClubExplorePage';
 
 export const metadata: Metadata = { title: '동아리 탐색 | 두잉', alternates: { canonical: '/clubs' } };
@@ -23,8 +23,7 @@ export const metadata: Metadata = { title: '동아리 탐색 | 두잉', alternat
 export const revalidate = 3600;
 
 export default async function Page() {
-  const listParams = toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE);
-  const content = await fetchPublicClubList(listParams);
+  const content = await fetchPublicClubList(DEFAULT_CLUB_LIST_PARAMS);
   // 빈 목록은 기본 목록으로 쓰지 않는다 — DB 복구 중 같은 순간의 빈 200 이 1시간 굳지 않게 장애 때처럼 스켈레톤·시드 없이.
   const defaultList = content.status === 'found' && content.data.content.length > 0 ? content.data : null;
   const page = (
@@ -34,7 +33,7 @@ export default async function Page() {
   );
   if (defaultList === null) return page;
   return (
-    <SeededQuery queryKey={clubQueryKeys.list(listParams)} data={defaultList}>
+    <SeededQuery queryKey={clubQueryKeys.list(DEFAULT_CLUB_LIST_PARAMS)} data={defaultList}>
       {page}
     </SeededQuery>
   );

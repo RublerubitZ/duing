@@ -30,6 +30,7 @@ vi.mock('@/app/clubs/_pages/ClubExplorePage', async () => {
   };
 });
 
+import { DEFAULT_CLUB_LIST_PARAMS } from '@/app/clubs/_lib/exploreParams';
 import ClubsRoute, { metadata, revalidate } from '@/app/clubs/page';
 
 import { clubListPage } from './club-explore-fallback-fixture';
@@ -54,9 +55,7 @@ describe('동아리 탐색 라우트 — 1시간 ISR', () => {
 
     const html = await renderRouteHtml();
 
-    expect(fetchPublicClubListMock).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 0, size: 20 }),
-    );
+    expect(fetchPublicClubListMock).toHaveBeenCalledWith(DEFAULT_CLUB_LIST_PARAMS);
     expect(seedProbe.value).toBe('166|0');
     expect(html).toContain('모션케어');
     expect(html).toContain('href="/clubs/1"');
