@@ -22,11 +22,12 @@ function client() {
 }
 
 /**
- * 서버 렌더(24시간 ISR)용 공개 콘텐츠 조회 결과.
+ * 서버 렌더(ISR)용 공개 콘텐츠 조회 결과.
  * - found: 공개 데이터
  * - notFound: 없거나 공개되지 않은 자원(삭제·승인 대기 등) — 페이지는 noindex 셸을 낸다
  * - unavailable: 빌드 국면의 일시 장애 — 셸만 렌더하고 색인 신호는 건드리지 않는다
- * 런타임(재생성)의 일시 장애는 결과로 돌려주지 않고 throw 한다 — Next 가 직전 캐시본을 계속 서빙한다(fail-soft.ts).
+ * 런타임(재생성)의 일시 장애는 결과로 돌려주지 않고 throw 한다 — 주기 만료 재생성이면 Next 가 직전 캐시본을 계속
+ * 서빙한다(fail-soft.ts). 즉시 만료(revalidatePath) 뒤의 첫 렌더는 직전본이 없다(clubs/page.tsx).
  */
 export type PublicContent<T> =
   | { status: 'found'; data: T }
