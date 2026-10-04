@@ -69,11 +69,11 @@ class FrontendRevalidationAsyncConfigTest {
     }
 
     // 운영 종료는 컨텍스트 종료 경로다 — executor.shutdown() 직접 호출은 waitForTasksToCompleteOnShutdown(false) 에서도
-    // shutdownNow() 인터럽트로 즉시 끝나 그 설정을 고정하지 못한다(플랜 리뷰 I-2). false 면 정지 단계가 진행 중 작업을
-    // 기다려(아래 작업은 5초 뒤 스스로 풀림) 4초 상한을 넘는다.
+    // shutdownNow() 인터럽트로 즉시 끝나 그 설정을 고정하지 못한다. false 면 정지 단계가 진행 중 작업을
+    // 기다려(아래 작업은 5초 뒤 스스로 풀림) 4초 상한을 넘는다. 대기를 0 으로 바꾸면 타임아웃 WARN 이 나지 않는다.
     @Test
-    @DisplayName("컨텍스트 종료 때 진행 중 요청이 끝나지 않아도 오래 기다리지 않는다 — 대기 상한 2초")
-    void contextCloseDoesNotWaitLongForRunningRequest() throws InterruptedException {
+    @DisplayName("컨텍스트 종료 때 끝나지 않는 진행 중 요청은 잠시 기다리다 포기하고, 종료는 4초 안에 끝난다")
+    void contextCloseDoesNotWaitLongForRunningRequest(CapturedOutput output) throws InterruptedException {
         AnnotationConfigApplicationContext context =
                 new AnnotationConfigApplicationContext(FrontendRevalidationAsyncConfig.class);
         ThreadPoolTaskExecutor contextExecutor = context.getBean(
@@ -81,5 +81,8 @@ class FrontendRevalidationAsyncConfigTest {
         occupyWorkerThread(contextExecutor);
 
         assertTimeoutPreemptively(Duration.ofSeconds(4), context::close);
+
+        assertThat(output).contains("Timed out while waiting for executor '"
+                + FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME + "' to terminate");
     }
 }
