@@ -67,7 +67,10 @@ type Props = {
   club: Club;
   liked?: boolean;
   isLikeBusy?: boolean;
-  /** 찜 상태(방향)를 아는지 — 찜 목록 도착 전 반영에는 하트 팝을 재생하지 않는다. */
+  /**
+   * 찜 상태(방향)를 아는지 — 모르는 동안 하트는 겉모습 그대로 aria-disabled 로 두고 클릭해도 토글하지 않는다
+   * (disabled 의 반투명 깜빡임 방지, #1360). 찜 목록 도착 전 반영에는 하트 팝도 재생하지 않는다.
+   */
   isFavoriteStateReady?: boolean;
   onLikeToggle?: (id: number) => void;
 };
@@ -140,11 +143,13 @@ export function ClubListItem({
           type="button"
           aria-label={liked ? '찜 해제' : '찜 추가'}
           aria-pressed={liked}
+          aria-disabled={!isFavoriteStateReady || undefined}
           disabled={isLikeBusy}
           onClick={(event) => {
+            // 준비 전에도 카드 링크 이동은 막는다 — 토글만 건너뛴다.
             event.preventDefault();
             event.stopPropagation();
-            onLikeToggle?.(club.id);
+            if (isFavoriteStateReady) onLikeToggle?.(club.id);
           }}
           className={cn(
             'grid h-[30px] w-[30px] place-items-center rounded-full disabled:opacity-50',
