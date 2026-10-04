@@ -135,11 +135,14 @@ export function ClubExplorePage() {
   // 다시 떠오르지 않게 한다(useEnteredFromSkeleton 관례). isLoading 이 아닌 isPending 이라, 인증을 기다리며 꺼져 있던
   // 찜 필터 쿼리도 첫 목록이 오면 연출한다. 마운트 때 값으로 고정된다.
   const mountedWithoutData = useEnteredFromSkeleton(clubListQuery.isPending);
-  // 찜 필터 교집합(likedIds)용으로만 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
+  // 찜 필터 교집합(likedIds)과 조회 실패 판정용으로 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
   const favoriteIdsQuery = useFavoriteIdsQuery();
   // 토글 동작(방향 가드·로그인 이동·401 처리·PostHog)은 하트 버튼과 공용 플로우로 공유한다.
   const favoriteFlow = useFavoriteToggleFlow();
   const isFavoriteDirectionUnknown = favoriteFlow.isDirectionUnknown;
+  // 찜 목록 조회가 실패해 방향을 끝내 모를 때만 하트를 반투명(disabled)으로 둔다. 응답을 기다리는 동안은
+  // 겉모습을 바꾸지 않는다(정상 → 반투명 → 정상 깜빡임, #1360) — 그 사이 클릭은 카드가 aria-disabled 로 막는다.
+  const isFavoriteDirectionUnavailable = isFavoriteDirectionUnknown && favoriteIdsQuery.isError;
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
@@ -610,10 +613,10 @@ export function ClubExplorePage() {
                           club={club}
                           liked={likedIds.has(club.id)}
                           isLikeBusy={
-                            isFavoriteDirectionUnknown ||
+                            isFavoriteDirectionUnavailable ||
                             (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                           }
-                          // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                          // 방향을 모르는 동안 — 카드가 클릭만 막고(aria-disabled) 하트 팝도 재생하지 않는다.
                           isFavoriteStateReady={!isFavoriteDirectionUnknown}
                           onLikeToggle={handleToggleLike}
                         />
@@ -769,10 +772,10 @@ export function ClubExplorePage() {
                         club={club}
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
-                          isFavoriteDirectionUnknown ||
+                          isFavoriteDirectionUnavailable ||
                           (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                         }
-                        // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                        // 방향을 모르는 동안 — 카드가 클릭만 막고(aria-disabled) 하트 팝도 재생하지 않는다.
                         isFavoriteStateReady={!isFavoriteDirectionUnknown}
                         onLikeToggle={handleToggleLike}
                       />

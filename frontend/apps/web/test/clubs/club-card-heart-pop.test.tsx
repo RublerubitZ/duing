@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Club } from '../../app/clubs/_lib/clubs';
@@ -65,5 +65,27 @@ describe('ClubCard — 찜 하트 팝', () => {
 
     rerender(<ClubCard club={baseClub} liked={false} />);
     expect(heartClass()).not.toContain('animate-heart-pop');
+  });
+});
+
+// 찜 상태 확인 중 — disabled 를 쓰면 disabled:opacity-50 반투명으로 깜빡인다(#1360). aria-disabled 로만 알린다.
+describe('ClubCard — 찜 상태 확인 중 하트', () => {
+  it('준비 전에는 disabled 없이 aria-disabled 이고, 눌러도 카드 이동·토글 없이 삼킨다', () => {
+    const onLikeToggle = vi.fn();
+    const { rerender } = render(
+      <ClubCard club={baseClub} isFavoriteStateReady={false} onLikeToggle={onLikeToggle} />,
+    );
+    const heart = screen.getByRole('button', { name: '찜 추가' });
+
+    expect(heart).not.toHaveAttribute('disabled');
+    expect(heart).toHaveAttribute('aria-disabled', 'true');
+    // 하트는 카드 링크 안이다 — 기본 동작(상세 이동)은 준비 전에도 막혀야 한다.
+    expect(fireEvent.click(heart)).toBe(false);
+    expect(onLikeToggle).not.toHaveBeenCalled();
+
+    rerender(<ClubCard club={baseClub} isFavoriteStateReady onLikeToggle={onLikeToggle} />);
+    expect(heart).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(heart);
+    expect(onLikeToggle).toHaveBeenCalledWith(baseClub.id);
   });
 });

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,7 +15,8 @@ import type { ClubSummary, PageResponse } from '@duing/types';
  * 탐색 화면의 인증 소비 두 축(§8.1).
  * - 목록·안내는 시드된 status 로 첫 렌더부터 그린다(대기 자리표시 없음).
  * - 찜 하트만 예외다: 방향(추가/해제)이 찜 목록에 달려 있어, 목록이 오기 전 클릭은 반대 방향으로
- *   나가 409 로 조용히 실패한다. 그 사이만 비활성으로 막는다.
+ *   나가 409 로 조용히 실패한다. 그 사이만 클릭을 막는다 — 겉모습은 그대로 두고(반투명 깜빡임 #1360)
+ *   aria-disabled 로만 알린다. 반투명(disabled)은 토글 진행 중인 카드와 찜 목록 조회 실패에만 쓴다.
  */
 const mockSearchParams = { value: '' };
 vi.mock('next/navigation', () => ({
@@ -65,14 +66,27 @@ const clubListHandler = http.get(`${BASE}/clubs`, () =>
   HttpResponse.json({ ok: true, data: clubPage, message: null }),
 );
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+/** 이 스위트에서 나간 API 요청 경로 — 준비 전 클릭이 토글 요청 없이 삼켜졌는지 단언한다. */
+const requestedPaths: string[] = [];
+const trackRequest = ({ request }: { request: Request }) => {
+  requestedPaths.push(new URL(request.url).pathname);
+};
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  server.events.on('request:start', trackRequest);
+});
 afterEach(() => {
   server.resetHandlers();
+  requestedPaths.length = 0;
   mockSearchParams.value = '';
   mockPosthogCapture.mockReset();
   act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 });
-afterAll(() => server.close());
+afterAll(() => {
+  server.events.removeListener('request:start', trackRequest);
+  server.close();
+});
 
 function renderExplore() {
   const queryClient = new QueryClient({
@@ -96,13 +110,52 @@ function renderExplore() {
 const hearts = (name: '찜 추가' | '찜 해제') => screen.getAllByRole('button', { name });
 
 describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
-  it('시드된 인증에서 찜 목록이 오기 전에는 하트가 비활성이다', async () => {
-    server.use(clubListHandler, http.get(`${BASE}/me/favorites/ids`, () => new Promise(() => {})));
+  // disabled 면 disabled:opacity-50 이 붙어 "정상 → 반투명 → 정상"으로 깜빡인다(#1360) — 클릭만 막는다.
+  it('시드된 인증에서 찜 목록이 오기 전에는 하트가 반투명 없이 aria-disabled 로만 막히고, 눌러도 토글이 나가지 않는다', async () => {
+    let sendFavoriteIds: () => void = () => {};
+    const favoriteIdsArrived = new Promise<void>((resolve) => {
+      sendFavoriteIds = resolve;
+    });
+    server.use(
+      clubListHandler,
+      http.get(`${BASE}/me/favorites/ids`, async () => {
+        await favoriteIdsArrived;
+        return HttpResponse.json({ ok: true, data: { clubIds: [7] }, message: null });
+      }),
+    );
     act(() => useAuthStore.setState({ status: 'authenticated' }));
     renderExplore();
 
     await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
-    for (const heart of hearts('찜 추가')) expect(heart).toBeDisabled();
+    for (const heart of hearts('찜 추가')) {
+      expect(heart).not.toHaveAttribute('disabled');
+      expect(heart).toHaveAttribute('aria-disabled', 'true');
+      await userEvent.click(heart);
+    }
+
+    sendFavoriteIds();
+    await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
+    for (const heart of hearts('찜 해제')) {
+      expect(heart).not.toHaveAttribute('aria-disabled');
+      expect(heart).toHaveAttribute('aria-pressed', 'true');
+    }
+    // 응답 뒤에 확인한다 — 준비 전 클릭이 늦게라도 토글로 나갔다면 여기서 잡힌다.
+    expect(requestedPaths).not.toContain('/api/v1/me/favorites/7');
+  });
+
+  // 조회가 실패하면 방향을 끝내 알 수 없다 — 이때만 "지금은 쓸 수 없음"을 반투명으로 보인다.
+  it('찜 목록 조회가 실패하면 하트를 반투명(disabled)으로 둔다', async () => {
+    server.use(
+      clubListHandler,
+      http.get(`${BASE}/me/favorites/ids`, () => new HttpResponse(null, { status: 500 })),
+    );
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+    renderExplore();
+
+    await waitFor(() => {
+      expect(hearts('찜 추가')).toHaveLength(2);
+      for (const heart of hearts('찜 추가')) expect(heart).toBeDisabled();
+    });
   });
 
   it('찜 목록이 도착하면 활성화되고 이미 찜한 동아리는 해제 방향으로 표시된다', async () => {
@@ -117,7 +170,7 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
 
     await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
     for (const heart of hearts('찜 해제')) {
-      expect(heart).toBeEnabled();
+      expect(heart).not.toHaveAttribute('aria-disabled');
       expect(heart).toHaveAttribute('aria-pressed', 'true');
     }
   });
@@ -157,7 +210,53 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
     renderExplore();
 
     await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
-    for (const heart of hearts('찜 추가')) expect(heart).toBeEnabled();
+    for (const heart of hearts('찜 추가')) expect(heart).not.toHaveAttribute('aria-disabled');
+  });
+});
+
+describe('ClubExplorePage — 찜 토글이 진행 중인 하트', () => {
+  // 반투명(disabled)은 사용자가 누른 카드의 진행 표시로만 남는다 — 다른 카드 하트는 그대로다.
+  it('토글이 진행 중인 카드의 하트만 disabled 다', async () => {
+    const otherClub: ClubSummary = { ...CLUB, id: 8, name: '축구부' };
+    server.use(
+      http.get(`${BASE}/clubs`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: { ...clubPage, content: [CLUB, otherClub], totalElements: 2 },
+          message: null,
+        }),
+      ),
+      http.get(`${BASE}/me/favorites/ids`, () =>
+        HttpResponse.json({ ok: true, data: { clubIds: [] }, message: null }),
+      ),
+      // 응답하지 않아 토글이 진행 중인 채로 남는다.
+      http.post(`${BASE}/me/favorites/7`, () => new Promise(() => {})),
+    );
+    act(() => useAuthStore.setState({ status: 'authenticated' }));
+    renderExplore();
+
+    // 동아리마다 데스크탑 카드·모바일 행이 하나씩 — 카드 링크 안에서 하트를 찾는다.
+    const heartsOf = (clubName: string) =>
+      screen
+        .getAllByRole('link', { name: new RegExp(clubName) })
+        .map((card) => within(card).getByRole('button', { name: /찜/ }));
+
+    await waitFor(() => {
+      expect(heartsOf('밴드부')).toHaveLength(2);
+      for (const heart of heartsOf('밴드부')) expect(heart).not.toHaveAttribute('aria-disabled');
+    });
+    const [bandHeart] = heartsOf('밴드부');
+    if (!bandHeart) throw new Error('밴드부 하트가 렌더되지 않았다');
+    await userEvent.click(bandHeart);
+
+    await waitFor(() => {
+      for (const heart of heartsOf('밴드부')) expect(heart).toBeDisabled();
+    });
+    expect(heartsOf('축구부')).toHaveLength(2);
+    for (const heart of heartsOf('축구부')) {
+      expect(heart).not.toBeDisabled();
+      expect(heart).not.toHaveAttribute('aria-disabled');
+    }
   });
 });
 
@@ -182,7 +281,8 @@ describe('ClubExplorePage — 찜 토글 관측 이벤트', () => {
       if (!heart) throw new Error('찜 추가 하트가 렌더되지 않았다');
       return heart;
     };
-    await waitFor(() => expect(firstAddHeart()).toBeEnabled());
+    // 준비 신호는 aria-disabled 다 — 하트는 찜 목록 전에도 disabled 가 아니라 toBeEnabled 로는 못 기다린다.
+    await waitFor(() => expect(firstAddHeart()).not.toHaveAttribute('aria-disabled'));
     await userEvent.click(firstAddHeart());
 
     await waitFor(() =>
