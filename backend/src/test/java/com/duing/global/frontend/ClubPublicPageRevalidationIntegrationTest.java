@@ -17,10 +17,17 @@ import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.photo.service.ClubPhotoService;
+import com.duing.domain.club.photo.service.dto.command.CreateClubPhotoCommand;
+import com.duing.domain.club.photo.service.dto.command.ReorderClubPhotosCommand;
+import com.duing.domain.club.photo.service.dto.command.ReorderClubPhotosCommand.PhotoOrder;
+import com.duing.domain.club.photo.service.dto.command.UpdateClubPhotoCommand;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubClosureService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.command.CloseClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
+import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -29,6 +36,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +51,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -71,6 +80,8 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired ClubService clubService;
     @Autowired ClubClosureService clubClosureService;
+    @Autowired ClubPhotoService clubPhotoService;
+    @Autowired JdbcTemplate jdbcTemplate;
     @Autowired @Qualifier(FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME)
     ThreadPoolTaskExecutor frontendRevalidationTaskExecutor;
 
@@ -92,6 +103,23 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
     private static String detailPathOf(Club club) {
         return "/clubs/" + club.getId();
+    }
+
+    /** 리더가 있는 공개(ACTIVE) 동아리 — 상태는 멤버십 저장 뒤 JDBC 로 바꾼다(OpsSlackMonitoringIntegrationTest 전례). */
+    private Club saveActiveClubLedBy(User leader, String clubName) {
+        Club club = clubRepository.save(ClubFixture.academic(clubName));
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
+        return club;
+    }
+
+    /** 한 줄 소개(tagline)만 바꾸는 수정 커맨드 — 나머지 필드는 null(변경 없음)이다. */
+    private static UpdateClubCommand taglineUpdate(Long clubId, Long requesterId, String tagline) {
+        return new UpdateClubCommand(
+                clubId, requesterId, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
+                tagline, null, null, null, null, null, null, null,
+                null, null, null, null, null);
     }
 
     @Test
@@ -174,5 +202,62 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         // 상태 전이·폐쇄 핸들러도 전용 실행기에서 돈다 — @Async 가 빠지면 총동연 요청 스레드가 HTTP 대기를 떠안는다.
         assertThat(callingThreadNames).hasSize(3)
                 .allSatisfy(threadName -> assertThat(threadName).startsWith("frontend-revalidate-"));
+    }
+
+    @Test
+    @DisplayName("동아리 정보 수정은 리더 수정·총동연 수정 모두 그 동아리 상세 재생성을 요청한다")
+    void profileUpdatesByLeaderAndAdminRequestDetailRevalidation() {
+        User admin = userRepository.save(UserFixture.admin());
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClubLedBy(leader, "상세재생성수정동아리");
+
+        clubService.update(taglineUpdate(club.getId(), leader.getId(), "리더가 고친 소개"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+
+        clubService.updateAsAdmin(taglineUpdate(club.getId(), admin.getId(), "총동연이 고친 소개"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
+        verify(frontendRevalidator, never()).revalidate(anyString());
+    }
+
+    @Test
+    @DisplayName("승인 대기 동아리의 정보 수정도 상세 재생성을 요청한다 — 페이지는 같은 셸을 다시 그릴 뿐이지만 거르지 않는다")
+    void pendingClubProfileUpdateStillRequestsDetailRevalidation() {
+        User leader = userRepository.save(UserFixture.unique());
+        Club pendingClub = clubRepository.save(ClubFixture.academic("상세재생성대기동아리"));
+        clubMemberRepository.save(ClubMember.asLeader(pendingClub, leader));
+
+        clubService.update(taglineUpdate(pendingClub.getId(), leader.getId(), "보완한 소개"));
+
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(pendingClub));
+    }
+
+    @Test
+    @DisplayName("중앙·학과 전환은 그 동아리 상세 재생성을 요청한다")
+    void centralClubChangeRequestsDetailRevalidation() {
+        Club club = clubRepository.save(ClubFixture.academic("상세재생성중앙동아리"));
+
+        clubService.updateCentralClub(new UpdateClubCentralClubCommand(club.getId(), true));
+
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+    }
+
+    @Test
+    @DisplayName("사진 등록·순서 변경·삭제·캡션 수정은 같은 동아리라도 하나씩 상세 재생성을 요청한다")
+    void photoChangesIncludingCaptionRequestEach() {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClubLedBy(leader, "상세재생성사진동아리");
+
+        Long firstPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "first.jpg", "첫 사진", 100, 100)).id();
+        Long secondPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "second.jpg", "둘째 사진", 100, 100)).id();
+        clubPhotoService.reorder(new ReorderClubPhotosCommand(club.getId(), leader.getId(), List.of(
+                new PhotoOrder(secondPhotoId, 0), new PhotoOrder(firstPhotoId, 1))));
+        clubPhotoService.delete(club.getId(), leader.getId(), firstPhotoId);
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(4)).revalidateWithoutAlert(detailPathOf(club));
+
+        clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
+                club.getId(), leader.getId(), secondPhotoId, "고친 캡션"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
     }
 }

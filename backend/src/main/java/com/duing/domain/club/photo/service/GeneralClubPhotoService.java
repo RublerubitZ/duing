@@ -15,11 +15,13 @@ import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.club.service.dto.query.ClubPhotoQuery;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.global.file.UploadedObjectService;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,9 @@ public class GeneralClubPhotoService implements ClubPhotoService {
     private final ClubVisibilityPolicy clubVisibilityPolicy;
     // 업로드 객체 추적(#791) — 사진 URL 을 저장하는 쓰기 메서드에서 활성화한다.
     private final UploadedObjectService uploadedObjectService;
+    // 공개 상세 재생성 이벤트(#1356) — 사진 목록은 상세 응답에 실리고, 커버가 없으면 첫 사진이 히어로가 된다.
+    // 캡션은 화면엔 안 그려지지만 상세 응답 시드(ISR HTML)에 실려 캡션 수정도 발행한다.
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<ClubPhotoQuery> getPhotosByClubId(Long clubId) {
@@ -61,6 +66,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         ClubPhoto savedPhoto = clubPhotoRepository.save(photo);
         // 사진 storageKey 는 프론트가 업로드 응답 url 을 그대로 보낸 값(공개 URL)이다 — 업로드 추적 활성화(#791).
         uploadedObjectService.activate(command.storageKey());
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
         return ClubPhotoQuery.from(savedPhoto);
     }
 
@@ -70,6 +76,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         clubAuthService.requireEditableClubManager(command.requesterId(), command.clubId());
         ClubPhoto photo = findPhotoInClub(command.photoId(), command.clubId());
         photo.updateCaption(command.caption());
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
     }
 
     @Override
@@ -102,6 +109,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         Map<Long, ClubPhoto> byId = current.stream().collect(Collectors.toMap(ClubPhoto::getId, p -> p));
         command.orders().forEach(order ->
                 byId.get(order.photoId()).changeDisplayOrder(order.displayOrder()));
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
 
         return clubPhotoRepository.findByClubIdOrderByDisplayOrderAsc(command.clubId()).stream()
                 .map(ClubPhotoQuery::from)
@@ -122,6 +130,7 @@ public class GeneralClubPhotoService implements ClubPhotoService {
         // DB 행은 soft-delete, 스토리지 객체는 해제(RELEASED) 뒤 업로드 파기 잡이 유예 후 지운다(#791·#1153).
         clubPhotoRepository.delete(photo);
         uploadedObjectService.release(photo.getStorageKey());
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     private ClubPhoto findPhotoInClub(Long photoId, Long clubId) {
