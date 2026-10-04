@@ -323,6 +323,51 @@ class FrontendRevalidatorTest {
     }
 
     @Test
+    @DisplayName("상세용 재생성은 실패가 몇 번이어도 세지도 알리지도 않고 WARN 만 남긴다 — 프론트가 상세 경로를 아직 모르는 400(배포 순서)도 같다")
+    void detailRevalidationFailuresNeverAlert(CapturedOutput output) {
+        mockServer.expect(ExpectedCount.times(3), requestTo(REVALIDATE_URL))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            revalidator.revalidateWithoutAlert("/clubs/7");
+        }
+
+        mockServer.verify();
+        verifyNoInteractions(formatter, slackNotifier);
+        assertThat(output).contains("프론트 재생성 요청 실패 — path=/clubs/7, reason=HTTP_400")
+                .doesNotContain("프론트 재생성 연속 실패");
+    }
+
+    @Test
+    @DisplayName("상세용 재생성은 같은 경로의 연속 실패 카운트를 늘리지도 0 으로 되돌리지도 않는다")
+    void detailRevalidationLeavesFailureStreakUntouched() {
+        expectRevalidationRejected(3);
+        expectSuccessfulAttempt();
+        expectRevalidationRejected(1);
+
+        revalidateClubs(2);
+        revalidator.revalidateWithoutAlert("/clubs"); // 실패 — 셌다면 여기서 3회째 알림이 나갔다
+        revalidator.revalidateWithoutAlert("/clubs"); // 성공(warm-up 포함) — 0 으로 되돌렸다면 다음 실패가 1회째다
+        verifyNoInteractions(slackNotifier);
+        revalidateClubs(1);
+
+        mockServer.verify();
+        verify(formatter).frontendRevalidationFailing("/clubs", 3, "HTTP_401");
+        verify(slackNotifier).send(FAILING_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("비활성이면 상세용 재생성도 요청을 보내지 않는다 — 테스트·로컬 컨텍스트에서 실제 호출이 나가지 않는다")
+    void disabledRevalidatorSkipsDetailRevalidation() {
+        revalidator = revalidatorWith(new FrontendRevalidationProperties(BASE_URL, ""));
+
+        revalidator.revalidateWithoutAlert("/clubs/7");
+
+        mockServer.verify();
+        verifyNoInteractions(formatter, slackNotifier);
+    }
+
+    @Test
     @DisplayName("경로가 null 이어도(호출 오류) 예외 없이 끝내고 요청을 보내지 않는다")
     void nullPathDoesNotThrow() {
         assertThatCode(() -> revalidator.revalidate(null)).doesNotThrowAnyException();
