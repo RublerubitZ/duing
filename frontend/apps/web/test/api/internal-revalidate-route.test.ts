@@ -124,6 +124,17 @@ describe('POST /api/internal/revalidate', () => {
     );
   });
 
+  it('상한(10개)까지는 받는다 — 서로 다른 상세 10개를 모두 확인한 뒤 모두 재검증한다', async () => {
+    const tenDetailPaths = Array.from({ length: 10 }, (_, index) => `/clubs/${index + 1}`);
+
+    const response = await routeModule.POST(revalidateRequest(JSON.stringify({ paths: tenDetailPaths }), BEARER));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ revalidated: tenDetailPaths });
+    expect(fetchPublicClubDetail).toHaveBeenCalledTimes(10);
+    expect(revalidatePath).toHaveBeenCalledTimes(10);
+  });
+
   it('환경변수 앞뒤 공백·개행은 무시한다(대시보드 붙여넣기 실수 방지)', async () => {
     vi.stubEnv('REVALIDATE_SECRET', `  ${SECRET}\n`);
 
@@ -209,6 +220,8 @@ describe('POST /api/internal/revalidate', () => {
     ['음수', '/clubs/-1'],
     ['쿼리 붙음', '/clubs/4?preview=1'],
     ['목록에 쿼리 붙음', '/clubs?page=1'],
+    ['슬래시 없는 접두사', '/clubs4'],
+    ['대소문자 변형', '/Clubs/4'],
     ['안전 정수 초과', '/clubs/9007199254740992'],
   ])('경로가 %s(%s) 이면 400 이고 조회·재검증하지 않는다', async (_label, path) => {
     const response = await routeModule.POST(revalidateRequest(JSON.stringify({ paths: [path] }), BEARER));

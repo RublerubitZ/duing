@@ -8,8 +8,8 @@ import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { fetchPublicClubDetail, fetchPublicClubList } from '@/app/_lib/public-content';
 import { DEFAULT_CLUB_LIST_PARAMS } from '@/app/clubs/_lib/exploreParams';
 
-// 백엔드가 부르는 내부 재검증 경로. /clubs 는 정각 잡(ClubMetricRefreshJob)이 추천순 셔플 직후,
-// /clubs/<id> 는 동아리 상세의 숨김·삭제·수정을 서버 HTML 에 바로 반영할 때(#1356) 부른다.
+// 백엔드가 부르는 내부 재검증 경로. /clubs 는 정각 잡(ClubMetricRefreshJob)이 추천순 셔플 직후 부른다.
+// /clubs/<id> 는 동아리 상세의 공개 상태·정보 변경을 서버 HTML 에 바로 반영하는 용도다(#1356).
 // 공개 주소라 서버 전용 비밀값(REVALIDATE_SECRET — NEXT_PUBLIC_ 금지)이 유일한 보호막이다.
 // 허용 목록 밖 경로는 받지 않는다 — 비밀값이 새도 피해를 이 목록의 재생성으로 묶는다.
 // 지우기 전에 경로마다 페이지가 다시 그릴 수 있는지 확인하고, 하나라도 그릴 수 없으면 아무것도 지우지 않는다.
@@ -42,15 +42,14 @@ function parsePaths(body: unknown): string[] | null {
   const { paths } = body;
   if (!Array.isArray(paths) || paths.length === 0 || paths.length > MAX_PATHS) return null;
   const allowed = paths.filter(
-    (path: unknown): path is string =>
-      typeof path === 'string' && (path === CLUB_LIST_PATH || clubDetailId(path) !== null),
+    (path: unknown): path is string => typeof path === 'string' && probeFor(path) !== null,
   );
   return allowed.length === paths.length ? allowed : null;
 }
 
 // 삭제 직전 사전 확인 — revalidatePath 는 캐시 삭제라 다음 요청이 직전본 없이 그 자리에서 다시 그리고, 그 렌더가
 // 실패하면 그 요청이 오류다(Vercel cache-status REVALIDATED). 페이지와 같은 키·로더로 받아 보고 그릴 수 없으면
-// 지우지 않는다. 주기 만료(목록 1시간·상세 24시간)가 직전본을 지킨다.
+// 지우지 않는다 — 그러면 각 페이지의 주기 만료(revalidate)가 직전본을 지킨다.
 // ⚠️ 로더·fetch 에 cache: 'no-store' 를 붙이지 말 것 — 재생성이 동적 렌더로 바뀌어 ISR 이 깨진다.
 // probe* 는 그릴 수 있으면 null, 아니면 사유. 조회가 던진 오류의 사유는 목록·상세가 이 분류를 함께 쓴다.
 function probeErrorReason(error: unknown): string {
@@ -83,6 +82,14 @@ async function probeClubDetailFailure(clubId: number): Promise<string | null> {
   }
 }
 
+// 경로별 사전 확인, 허용 목록 밖이면 null. 허용 판정(parsePaths)도 이 함수로 한다 — 경로를 늘리려면 확인부터
+// 적어야 하므로, 확인 없이 지우는 경로가 생기지 않는다.
+function probeFor(path: string): (() => Promise<string | null>) | null {
+  if (path === CLUB_LIST_PATH) return probeClubListFailure;
+  const clubId = clubDetailId(path);
+  return clubId === null ? null : () => probeClubDetailFailure(clubId);
+}
+
 export async function POST(request: Request): Promise<Response> {
   // 대시보드 붙여넣기·echo 로 붙은 앞뒤 공백·개행은 비밀값이 아니다.
   const secret = (process.env.REVALIDATE_SECRET ?? '').trim();
@@ -103,10 +110,10 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'invalid paths' }, { status: 400 });
   }
   const revalidated = [...new Set(paths)];
-  // 전부 또는 무 — 고유 경로를 순차로 확인하고 첫 실패에서 멈춘다. 허용 경로는 /clubs 와 상세뿐이다(parsePaths).
+  // 전부 또는 무 — 고유 경로를 순차로 확인하고 첫 실패에서 멈춘다. parsePaths 를 거친 경로라 확인이 늘 있지만,
+  // 없으면 지우지 않는 쪽으로 닫는다.
   for (const path of revalidated) {
-    const clubId = clubDetailId(path);
-    const probeFailure = await (clubId === null ? probeClubListFailure() : probeClubDetailFailure(clubId));
+    const probeFailure = await (probeFor(path)?.() ?? 'unsupported');
     if (probeFailure) {
       console.warn(`[revalidate] ${path} 사전 확인 실패 — 재검증 건너뜀`, { reason: probeFailure });
       return Response.json({ error: 'upstream unavailable', reason: probeFailure }, { status: 502 });
