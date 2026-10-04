@@ -9,6 +9,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
@@ -17,7 +18,9 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import jakarta.persistence.EntityManagerFactory;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -70,6 +74,7 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
     @Autowired CacheManager cacheManager;
     @Autowired PublicApiCacheConfig publicApiCacheConfig;
     @Autowired EntityManagerFactory entityManagerFactory;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -157,6 +162,22 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
         statementsBefore = statements();
         getPublicBody("/api/v1/clubs?size=10&keyword=파라미터");
         assertThat(statements() - statementsBefore).isZero();
+    }
+
+    @Test
+    @DisplayName("동아리 목록 캐시 키에 조회 시점의 KST 시간대가 들어간다")
+    void clubSearchCacheKeyCarriesTheKstHourBucketOfTheRequest() throws Exception {
+        saveActiveClub("시간대동아리");
+
+        String hourBucketBeforeRequest = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
+        getPublicClubList();
+        String hourBucketAfterRequest = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
+
+        // 요청 도중 정각을 넘겼다면 키를 만든 순간의 시간대는 요청 전후 둘 중 하나다(ClubRecommendedSortTest 의 정각 경계 가드).
+        CaffeineCache clubSearchCache = (CaffeineCache) cacheManager.getCache(PublicApiCacheConfig.CLUB_SEARCH_CACHE);
+        assertThat(clubSearchCache.getNativeCache().asMap().keySet())
+                .singleElement().asString()
+                .containsAnyOf(hourBucketBeforeRequest, hourBucketAfterRequest);
     }
 
     @Test

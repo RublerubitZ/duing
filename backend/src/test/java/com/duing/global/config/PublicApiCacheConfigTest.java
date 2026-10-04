@@ -3,8 +3,15 @@ package com.duing.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.duing.domain.club.service.GeneralClubService;
+import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import java.lang.reflect.Method;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -22,14 +29,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCache;
+import org.springframework.cache.interceptor.KeyGenerator;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.util.ReflectionUtils;
 
 /**
- * 공개 API 마이크로 캐시의 만료·상한·동시성 계약 단위 테스트.
+ * 공개 API 마이크로 캐시의 만료·상한·동시성·키 계약 단위 테스트.
  *
  * <p>만료는 벽시계 대기 없이 가짜 {@code Ticker} 의 나노초를 직접 밀어 확인하고, 동시성은 래치로
- * 스레드 진입 순서를 고정해 확인한다 — 두 축 모두 sleep 이 없어 결정적이다.
+ * 스레드 진입 순서를 고정해 확인하고, 동아리 목록 키의 시간대는 고정 시계({@code Clock.fixed})로
+ * 확인한다 — 어느 축도 벽시계를 기다리지 않아 결정적이다.
  */
 class PublicApiCacheConfigTest {
 
@@ -40,6 +52,19 @@ class PublicApiCacheConfigTest {
     // ConcurrentHashMap 의 해시 빈이 갈라지는 값 — 서로 다른 키의 로더가 직렬화되지 않음을 결정적으로 본다.
     private static final Object FIRST_BIN_KEY = 0;
     private static final Object SECOND_BIN_KEY = 1;
+
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final LocalDateTime LAST_MILLI_OF_NINE_O_CLOCK_HOUR = LocalDateTime.of(2026, 10, 4, 9, 59, 59, 999_000_000);
+    private static final LocalDateTime TEN_O_CLOCK = LocalDateTime.of(2026, 10, 4, 10, 0);
+    private static final LocalDateTime LAST_MILLI_OF_TEN_O_CLOCK_HOUR = LocalDateTime.of(2026, 10, 4, 10, 59, 59, 999_000_000);
+    private static final ClubSearchCondition RECOMMENDED_CONDITION = new ClubSearchCondition(
+            null, null, null, null, null, null, null, null, null, ClubSortOption.RECOMMENDED, null);
+    private static final ClubSearchCondition KEYWORD_CONDITION = new ClubSearchCondition(
+            null, null, "밴드", null, null, null, null, null, null, ClubSortOption.RECOMMENDED, null);
+    private static final Pageable FIRST_PAGE = PageRequest.of(0, 20);
+    private static final Pageable SECOND_PAGE = PageRequest.of(1, 20);
+    private static final Method CLUB_SEARCH_METHOD = ReflectionUtils.findMethod(
+            GeneralClubService.class, "search", ClubSearchCondition.class, Pageable.class);
 
     /** 테스트가 직접 미는 가짜 시계. */
     private final AtomicLong elapsedNanos = new AtomicLong();
@@ -294,8 +319,49 @@ class PublicApiCacheConfigTest {
         assertThat(survivingCount).isLessThan(keyCount);
     }
 
+    /*
+     * ── 동아리 목록 캐시 키 ──
+     * 추천순 셔플은 조회 시점의 KST 시간대(hour bucket)로 정해진다. 키에 시간대를 넣어, 정각을 넘긴 조회가
+     * 직전 시간대 순서로 적재된 엔트리를 받지 않게 한다(#1362).
+     */
+
+    @Test
+    @DisplayName("같은 조건·페이지라도 KST 정각을 넘기면 동아리 목록 캐시 키가 달라진다")
+    void clubSearchKeyChangesAcrossTheKstHourBoundary() {
+        Object keyJustBeforeTen = clubSearchKeyAt(LAST_MILLI_OF_NINE_O_CLOCK_HOUR, RECOMMENDED_CONDITION, FIRST_PAGE);
+        Object keyAtTen = clubSearchKeyAt(TEN_O_CLOCK, RECOMMENDED_CONDITION, FIRST_PAGE);
+
+        assertThat(keyAtTen).isNotEqualTo(keyJustBeforeTen);
+    }
+
+    @Test
+    @DisplayName("같은 시간대 안에서는 같은 조건·페이지의 동아리 목록 캐시 키가 같아 한 엔트리를 공유한다")
+    void clubSearchKeyIsStableWithinTheSameHour() {
+        Object keyAtHourStart = clubSearchKeyAt(TEN_O_CLOCK, RECOMMENDED_CONDITION, FIRST_PAGE);
+        Object keyAtHourEnd = clubSearchKeyAt(LAST_MILLI_OF_TEN_O_CLOCK_HOUR, RECOMMENDED_CONDITION, FIRST_PAGE);
+
+        assertThat(keyAtHourEnd).isEqualTo(keyAtHourStart).hasSameHashCodeAs(keyAtHourStart);
+    }
+
+    @Test
+    @DisplayName("같은 시간대라도 검색 조건이나 페이지가 다르면 동아리 목록 캐시 키가 달라진다")
+    void clubSearchKeyDiffersByConditionOrPage() {
+        Object recommendedFirstPageKey = clubSearchKeyAt(TEN_O_CLOCK, RECOMMENDED_CONDITION, FIRST_PAGE);
+
+        assertThat(clubSearchKeyAt(TEN_O_CLOCK, KEYWORD_CONDITION, FIRST_PAGE)).isNotEqualTo(recommendedFirstPageKey);
+        assertThat(clubSearchKeyAt(TEN_O_CLOCK, RECOMMENDED_CONDITION, SECOND_PAGE)).isNotEqualTo(recommendedFirstPageKey);
+    }
+
     /** 지터를 상한(=TTL 그대로)으로 고정한다 — 기존 만료 계약을 흔들지 않고 검증하기 위해. */
     private CaffeineCache cacheWithFakeTicker(int maxEntries) {
         return PublicApiCacheConfig.caffeineCache("테스트캐시", maxEntries, TTL_MS, elapsedNanos::get, () -> 1.0);
+    }
+
+    /** 프로덕션과 같은 빈 메서드로 만든 생성기에 KST 벽시계를 고정해 목록 조회 인자의 캐시 키를 만든다. */
+    private Object clubSearchKeyAt(LocalDateTime seoulWallClock, ClubSearchCondition condition, Pageable pageable) {
+        Clock fixedSeoulClock = Clock.fixed(seoulWallClock.atZone(SEOUL).toInstant(), SEOUL);
+        KeyGenerator clubSearchKeyGenerator =
+                new PublicApiCacheConfig(MAX_ENTRIES, TTL_MS).clubSearchCacheKeyGenerator(fixedSeoulClock);
+        return clubSearchKeyGenerator.generate(this, CLUB_SEARCH_METHOD, condition, pageable);
     }
 }
