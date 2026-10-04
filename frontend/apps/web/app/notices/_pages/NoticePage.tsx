@@ -247,6 +247,9 @@ export function NoticePage() {
   const totalPages = listQuery.data?.totalPages ?? 0;
   const pinnedItems = items.filter((n) => n.pinned);
   const restItems = items.filter((n) => !n.pinned);
+  // 강조 카드는 고정 공지 앞 2건 — 넘친 고정 공지는 일반 목록 맨 앞에 "고정" 표시로 둔다(3건째부터 사라지던 결함).
+  const highlightedPinnedItems = pinnedItems.slice(0, 2);
+  const listRowItems = [...pinnedItems.slice(2), ...restItems];
 
   const handleCategoryChange = (next: NoticeCategory | 'ALL') => {
     setCategory(next);
@@ -489,7 +492,7 @@ export function NoticePage() {
               {pinnedItems.length > 0 && (
                 <>
                   <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
-                    {pinnedItems.slice(0, 2).map((n, i) => {
+                    {highlightedPinnedItems.map((n, i) => {
                       const isDark = i === 0;
                       return (
                         <Link
@@ -608,6 +611,8 @@ export function NoticePage() {
                   짧은 진입 뷰포트에서 흰 라운드 시트의 상단 엣지가 하단 탭바 바로 위에 정지하면
                   반투명 탭바와 병합돼 "두 겹 탭바"처럼 보인다(실기기 스크린샷으로 확인된 착시).
                   크림 위 텍스트 행은 어느 높이에 걸쳐도 다른 탭 진입 화면과 같은 구도로 읽힌다. */}
+              {/* 고정 카드만 있는 페이지(일반·넘친 고정 0건)는 표를 그리지 않는다 — 데스크탑에 머리글만 남은 빈 시트가 된다. */}
+              {(listRowItems.length > 0 || items.length === 0) && (
               <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
                 {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
                 <div className="hidden md:grid" style={{
@@ -625,14 +630,14 @@ export function NoticePage() {
                   <span style={{ textAlign: 'center' }}>등록일</span>
                 </div>
 
-                {restItems.map((n, i) => (
+                {listRowItems.map((n, i) => (
                   <Link
                     key={n.id}
                     href={toRoute(`/notices/${n.id}`)}
                     className="notice-row"
                     style={{
                       // 패딩은 .notice-row(globals.css)가 소유 — 모바일(시트 없음)은 좌우 0, md+ 는 시트 내부 22px.
-                      borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
+                      borderBottom: i < listRowItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
                       fontSize: 13.5, cursor: 'pointer',
                       color: 'var(--charcoal)', textDecoration: 'none',
                     }}
@@ -655,6 +660,16 @@ export function NoticePage() {
                       display: 'inline-flex', alignItems: 'center',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
+                      {n.pinned && (
+                        // 넘친 고정 공지 표시 — 동아리 칩(sage)과 구분되는 진한 pill. display 를 인라인 style 로 둬야
+                        // 접근성 이름에서 "고정"과 제목이 띄어진다(클래스만이면 테스트 환경이 붙여 읽는다).
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center',
+                          padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginRight: 7,
+                          background: 'var(--ink)', color: '#fff',
+                          fontSize: 11, fontWeight: 700,
+                        }}>고정</span>
+                      )}
                       {n.owningClubId != null && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -675,7 +690,7 @@ export function NoticePage() {
                   </Link>
                 ))}
 
-                {restItems.length === 0 && (
+                {items.length === 0 && (
                   <p style={{ padding: '32px 22px', textAlign: 'center', color: 'var(--charcoal-3)', fontSize: 13 }}>
                     {keyword
                       ? '검색 결과가 없습니다.'
@@ -683,6 +698,7 @@ export function NoticePage() {
                   </p>
                 )}
               </div>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
