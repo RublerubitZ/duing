@@ -30,7 +30,16 @@ import com.duing.domain.club.service.dto.command.UpdateClubCentralClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubCommand;
 import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.entity.SuccessionStatus;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.service.AdminLeaderAssignmentService;
+import com.duing.domain.clubmember.service.ClubMemberCommandService;
+import com.duing.domain.clubmember.service.LeaderSuccessionService;
+import com.duing.domain.clubmember.service.dto.command.AssignLeaderByAdminCommand;
+import com.duing.domain.clubmember.service.dto.command.CreateSuccessionCommand;
+import com.duing.domain.clubmember.service.dto.command.ProcessSuccessionCommand;
+import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
@@ -82,6 +91,9 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     @Autowired ClubClosureService clubClosureService;
     @Autowired ClubPhotoService clubPhotoService;
     @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired ClubMemberCommandService clubMemberCommandService;
+    @Autowired LeaderSuccessionService leaderSuccessionService;
+    @Autowired AdminLeaderAssignmentService adminLeaderAssignmentService;
     @Autowired @Qualifier(FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME)
     ThreadPoolTaskExecutor frontendRevalidationTaskExecutor;
 
@@ -272,6 +284,52 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
                 club.getId(), leader.getId(), secondPhotoId, "고친 캡션"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("회장 인계·승계 승인·총동연 지정은 각각 상세 재생성을 요청하고, 회장이 그대로인 승계 접수·거절은 요청하지 않는다")
+    void leaderChangesRequestDetailRevalidation() throws InterruptedException {
+        User admin = userRepository.save(UserFixture.admin());
+        User leader = userRepository.save(UserFixture.unique());
+        User officer = userRepository.save(UserFixture.unique());
+        User member = userRepository.save(UserFixture.unique());
+        // 동아리 id 를 회원·멤버십·승계 요청 id 와 떼어 놓는다 — 테스트마다 id 가 1 부터라, 동아리 대신 다른 id 로
+        // 발행하는 변이가 같은 경로로 가려진다.
+        for (int decoy = 1; decoy <= 4; decoy++) {
+            clubRepository.save(ClubFixture.academic("상세재생성회장미끼동아리" + decoy));
+        }
+        Club club = saveActiveClubLedBy(leader, "상세재생성회장동아리");
+        ClubMember officerMembership =
+                clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        clubMemberRepository.save(ClubMember.asMember(club, member));
+        assertThat(club.getId()).isNotIn(
+                admin.getId(), leader.getId(), officer.getId(), member.getId(), officerMembership.getId());
+
+        // 인계 — 회장(leader)이 운영진(officer)에게 넘기고 OFFICER 로 내려간다.
+        clubMemberCommandService.transferLeader(
+                new TransferLeaderCommand(club.getId(), officerMembership.getId(), leader.getId()));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+
+        // 승계 — 이제 OFFICER 인 옛 회장이 요청한다. 접수·거절은 회장이 그대로라 요청하지 않는다.
+        Long rejectedRequestId = leaderSuccessionService.create(
+                new CreateSuccessionCommand(club.getId(), leader.getId(), "회장 복귀 요청"));
+        leaderSuccessionService.process(new ProcessSuccessionCommand(
+                rejectedRequestId, admin.getId(), SuccessionStatus.REJECTED, "반려"));
+        verify(frontendRevalidator, after(QUIET_WAIT_MS).times(1)).revalidateWithoutAlert(detailPathOf(club));
+
+        Long approvedRequestId = leaderSuccessionService.create(
+                new CreateSuccessionCommand(club.getId(), leader.getId(), "회장 복귀 재요청"));
+        leaderSuccessionService.process(new ProcessSuccessionCommand(
+                approvedRequestId, admin.getId(), SuccessionStatus.APPROVED, "승인"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
+
+        // 총동연 지정 — 일반 부원을 회장으로 세운다.
+        adminLeaderAssignmentService.assign(
+                new AssignLeaderByAdminCommand(club.getId(), member.getId(), admin.getId(), "직권 지정"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(3)).revalidateWithoutAlert(detailPathOf(club));
+        // 실행기를 비운 뒤 "정확히 3회, 그 밖의 호출 없음" 을 고정한다 — 중복 발행·목록 동반 요청을 잡는다.
         drainRevalidationExecutor();
         verifyNoMoreInteractions(frontendRevalidator);
     }
