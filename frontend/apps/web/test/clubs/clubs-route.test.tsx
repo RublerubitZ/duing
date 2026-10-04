@@ -82,7 +82,11 @@ describe('동아리 탐색 라우트 — 1시간 ISR', () => {
     expect(html).toContain('동아리 목록 불러오는 중');
   });
 
-  it('제목은 그대로, canonical 은 쿼리 없는 /clubs', () => {
-    expect(metadata).toEqual({ title: '동아리 탐색 | 두잉', alternates: { canonical: '/clubs' } });
+  it('제목은 그대로, 화면 설명을 두고 canonical 은 쿼리 없는 /clubs', () => {
+    expect(metadata).toEqual({
+      title: '동아리 탐색 | 두잉',
+      description: '대구대학교 동아리를 분야·모집 상태별로 찾아보세요.',
+      alternates: { canonical: '/clubs' },
+    });
   });
 });

@@ -39,19 +39,20 @@ const STRUCTURED_DATA = {
 };
 
 export const metadata: Metadata = {
-  // 상대 경로 메타데이터(canonical·og:url)를 절대 URL 로 해석하는 기준 도메인.
+  // 상대 경로 메타데이터(canonical·og:image)를 절대 URL 로 해석하는 기준 도메인.
   metadataBase: new URL(SITE_URL),
   // 각 페이지가 이미 제목에 "두잉" 을 직접 포함하는 컨벤션이라(예: /terms, /introduce),
   // title.template 으로 "| 두잉" 을 덧붙이면 접미사가 중복된다 → 평문 제목을 기본값으로만 둔다.
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  // 공유 미리보기(og·twitter)에는 제목·설명·url 을 두지 않는다 — Next 가 각 페이지의 title·description 으로 채운다
+  // (자기 값이 없는 페이지는 위 사이트 기본값). 여기 고정하면 모든 페이지 미리보기가 홈이 되고, og:url '/' 는 카카오·
+  // 페이스북이 그 주소(홈)의 메타를 다시 읽게 만든다. 페이지에서 openGraph·twitter 를 일부만 주면 얕은 병합이라
+  // og:image·site_name 이 사라지고 twitter:card 가 summary 로 떨어지니 주지 말 것(test/metadata 가 최종값을 확인).
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    url: '/',
     locale: 'ko_KR',
     // 소셜 공유 미리보기 이미지 — public/og-image-2026-09.png(2856×1416, ≈2:1, 1200×630 권장 비율에 근접).
     // 정적 이미지는 1년 immutable 캐시라 교체 때마다 파일명을 바꾼다(next.config.mjs headers 규약).
@@ -61,8 +62,6 @@ export const metadata: Metadata = {
   twitter: {
     // 1200×630 비율 이미지가 있으므로 큰 이미지 카드로 노출한다.
     card: 'summary_large_image',
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
     images: ['/og-image-2026-09.png'],
   },
 };
