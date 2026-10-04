@@ -16,6 +16,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * <p>커밋 뒤(AFTER_COMMIT)에만 받아 롤백된 변경은 요청하지 않고, {@code @Async} 전용 실행기라 커밋한 요청 스레드를
  * 막지 않는다({@link FrontendRevalidationAsyncConfig}). 연속 실패 집계·Slack 알림 없이 보낸다 — 실패는 요청기의 WARN
  * 뿐이고, 상세는 자체 24시간 주기가 상한이다. 요청기는 던지지 않으므로 비동기 예외 핸들러(ERROR→Sentry)로 새지 않는다.
+ * 세 이벤트 모두 발행은 반드시 {@code @Transactional} 안에서 한다 — 밖이면 {@code fallbackExecution=false} 라 로그 없이
+ * 버려진다(알림·카운터도 없어 드러나지 않는다).
  *
  * <p>목록({@code /clubs})은 함께 부르지 않는다 — 정각 재생성이 1시간 안에 반영하고, 변경마다 목록까지 다시 만들면 정각
  * 정렬 흐름과 섞인다. 공개 여부로 거르지 않는다 — 비공개(승인 대기·거절) 동아리는 페이지가 같은 셸을 다시 그릴 뿐이라

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -26,11 +27,17 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
+import com.duing.global.monitoring.event.ClubClosedEvent;
+import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -98,8 +105,10 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
                 eventPublisher.publishEvent(new ClubPublicPageChangedEvent(7L)));
 
         assertThat(callingThreadName.get(ASYNC_WAIT_MS, TimeUnit.MILLISECONDS)).startsWith("frontend-revalidate-");
+        // 리스너가 끝날 때까지 기다린 뒤 "상세 한 번, 그 밖의 호출 없음" 을 고정한다 — 목록(/clubs)·집계 경로 동반 호출을 잡는다.
+        drainRevalidationExecutor();
         verify(frontendRevalidator).revalidateWithoutAlert("/clubs/7");
-        verify(frontendRevalidator, never()).revalidate(anyString());
+        verifyNoMoreInteractions(frontendRevalidator);
     }
 
     @Test
@@ -113,13 +122,23 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         verify(frontendRevalidator, after(QUIET_WAIT_MS).never()).revalidateWithoutAlert(anyString());
     }
 
+    /** 리스너가 구독하는 세 이벤트 — 핸들러마다 phase 를 따로 고정한다. 운영 이벤트 record 는 그대로 쓴다. */
+    static Stream<Object> detailRevalidationEvents() {
+        return Stream.of(
+                new ClubPublicPageChangedEvent(7L),
+                new ClubStatusChangedEvent(7L, "상세재생성동아리", ClubStatus.PENDING_APPROVAL, ClubStatus.ACTIVE, 1L),
+                new ClubClosedEvent(7L, "상세재생성동아리", 1L));
+    }
+
     // setRollbackOnly() 롤백은 beforeCommit 을 아예 부르지 않아 BEFORE_COMMIT 리스너도 안 불린다 — phase 를 고정하려면
     // 커밋 직전 단계에서 실패시킨다. 리스너 동기화가 먼저 등록되므로 BEFORE_COMMIT 이었다면 요청이 이미 나간다.
-    @Test
-    @DisplayName("커밋 직전 단계에서 실패해 롤백되면 재생성을 요청하지 않는다 — 커밋 전 발행이었다면 이미 나갔다")
-    void failureBeforeCommitDoesNotRequest() {
+    // 롤백으로 끝나므로 AFTER_COMPLETION·AFTER_ROLLBACK 이었어도 요청이 나가 실패한다.
+    @ParameterizedTest
+    @MethodSource("detailRevalidationEvents")
+    @DisplayName("커밋 직전 단계에서 실패해 롤백되면 세 이벤트 모두 재생성을 요청하지 않는다 — 커밋 전 발행이었다면 이미 나갔다")
+    void failureBeforeCommitDoesNotRequest(Object detailRevalidationEvent) {
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(transactionStatus -> {
-            eventPublisher.publishEvent(new ClubPublicPageChangedEvent(7L));
+            eventPublisher.publishEvent(detailRevalidationEvent);
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void beforeCommit(boolean readOnly) {
@@ -133,7 +152,10 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("상태 전이(승인·운영중단)와 폐쇄는 기존 운영 이벤트로 그 동아리 상세 재생성을 각각 요청하고, 목록(/clubs)은 부르지 않는다")
-    void statusChangesAndClosureRequestDetailRevalidation() {
+    void statusChangesAndClosureRequestDetailRevalidation() throws InterruptedException {
+        ConcurrentLinkedQueue<String> callingThreadNames = new ConcurrentLinkedQueue<>();
+        doAnswer(invocation -> callingThreadNames.add(Thread.currentThread().getName()))
+                .when(frontendRevalidator).revalidateWithoutAlert(anyString());
         User admin = userRepository.save(UserFixture.admin());
         User leader = userRepository.save(UserFixture.unique());
         Club club = clubRepository.save(ClubFixture.academic("상세재생성상태동아리"));
@@ -147,7 +169,10 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
         clubClosureService.close(new CloseClubCommand(club.getId(), admin.getId(), "해체"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(3)).revalidateWithoutAlert(detailPathOf(club));
-        verify(frontendRevalidator, never()).revalidate(anyString());
-        verify(frontendRevalidator, never()).revalidateWithoutAlert("/clubs");
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+        // 상태 전이·폐쇄 핸들러도 전용 실행기에서 돈다 — @Async 가 빠지면 총동연 요청 스레드가 HTTP 대기를 떠안는다.
+        assertThat(callingThreadNames).hasSize(3)
+                .allSatisfy(threadName -> assertThat(threadName).startsWith("frontend-revalidate-"));
     }
 }
