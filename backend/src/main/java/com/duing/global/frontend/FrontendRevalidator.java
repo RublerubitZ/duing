@@ -72,7 +72,10 @@ public class FrontendRevalidator {
     private final ObjectMapper objectMapper;
     private final OpsSlackMessageFormatter opsSlackMessageFormatter;
     private final SlackNotifier slackNotifier;
-    /** 실패 중인 경로만 남는다(성공하면 지운다). 정각 잡만 센다 — 상세 재생성은 이 맵을 건드리지 않는다. 원자 연산(merge·remove)은 그대로 둔다. */
+    /**
+     * 실패 중인 경로만 남는다(성공하면 지운다). 정각 잡만 센다 — 상세 재생성은 이 맵을 건드리지 않는다.
+     * 쓰는 쪽이 하나여도 비용이 같아 원자 연산(merge·remove)을 쓴다.
+     */
     private final ConcurrentHashMap<String, Integer> consecutiveFailuresByPath = new ConcurrentHashMap<>();
 
     // RestClient 빈이 여럿이라 이름으로 고정한다 — 파라미터 이름 폴백은 @Primary RestClient 가 생기면 밀려 비밀값이 다른 호스트로 간다.
@@ -100,7 +103,11 @@ public class FrontendRevalidator {
         }
     }
 
-    /** {@code path} 페이지 재생성을 요청하고 warm-up 한다. 비활성이면 즉시 반환. 절대 예외를 던지지 않는다. */
+    /**
+     * {@code path} 페이지 재생성을 요청하고 warm-up 한다. 경로별 연속 실패를 세어 임계에서 Slack 으로 알린다 — 정각 잡
+     * 전용(시간당 1회 전제)이고, 드물게 부르는 경로는 {@link #revalidateWithoutAlert} 를 쓴다. 비활성이면 즉시 반환.
+     * 절대 예외를 던지지 않는다.
+     */
     public void revalidate(String path) {
         if (isRequestable(path)) {
             // 기록은 시도 밖에서 한 번만 한다 — 시도 안의 어느 분기도 카운터를 직접 만지지 않는다.
@@ -139,7 +146,8 @@ public class FrontendRevalidator {
             }
             return waitForPurge() ? warmUp(path) : AttemptOutcome.SKIPPED;
         } catch (RuntimeException unexpected) {
-            // 아래 catch 들이 못 잡는 나머지(연결 시점의 인자 오류 등) — 여기서 끊어 정각 잡으로 새지 않게 하고 실패로 센다.
+            // 아래 catch 들이 못 잡는 나머지(연결 시점의 인자 오류 등) — 여기서 끊어 호출부(정각 잡·상세 실행기)로 새지 않게
+            // 하고 실패로 돌려준다. 상세 리스너는 "요청기가 던지지 않는다" 에 기대므로 이 catch 를 좁히지 말 것.
             return requestFailed(path, unexpected.getClass().getSimpleName());
         }
     }
