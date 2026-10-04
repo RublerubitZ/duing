@@ -164,6 +164,34 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
+    @DisplayName("프론트 재생성 연속 실패 메시지는 경로·연속 실패 횟수·마지막 사유와 런북 위치만 싣는다")
+    void frontendRevalidationFailingMessage() {
+        assertThat(formatter.frontendRevalidationFailing("/clubs", 3, "warm-up HTTP_500")).isEqualTo(String.join("\n",
+                "⚠️ 프론트 재생성 트리거 연속 실패",
+                "서비스: Duing",
+                "이벤트: FRONTEND_REVALIDATION_FAILING",
+                "경로: /clubs",
+                "연속 실패: 3회",
+                "마지막 사유: warm-up HTTP_500",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                "런북: deploy/MONITORING.md"));
+    }
+
+    @Test
+    @DisplayName("프론트 재생성 복구 메시지는 경로와 복구 전까지의 연속 실패 횟수를 싣는다")
+    void frontendRevalidationRecoveredMessage() {
+        assertThat(formatter.frontendRevalidationRecovered("/clubs", 4)).isEqualTo(String.join("\n",
+                "✅ 프론트 재생성 트리거 복구",
+                "서비스: Duing",
+                "이벤트: FRONTEND_REVALIDATION_RECOVERED",
+                "경로: /clubs",
+                "연속 실패: 4회 뒤 성공",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
     @DisplayName("시간은 주입된 시계(Asia/Seoul) 기준으로 KST 로 표기한다 — UTC 시계를 넣어도 변환되지 않는 raw now 가 아니다")
     void timeUsesInjectedClock() {
         Clock utcMidnight = Clock.fixed(LocalDateTime.of(2026, 8, 22, 15, 0).toInstant(ZoneOffset.UTC), SEOUL);

@@ -28,10 +28,11 @@ import org.springframework.stereotype.Component;
  * 운영 이벤트 → Slack 평문 메시지. <b>이벤트 record 의 명시 필드만</b> 줄로 조립한다 — 요청 바디·헤더·
  * 자유 텍스트(사유·상세)는 어떤 메서드도 읽지 않는다. 골격: 헤더 / 서비스 / 이벤트 / 도메인 필드 / 환경 / 시간 (/ 부가줄).
  * 동아리명은 리스너가 id 로 조회해 넘기는 유일한 외부 값이다(이미 다른 이벤트가 싣는 필드).
+ * 프론트 재생성 트리거 알림만 이벤트 없이 요청기({@code FrontendRevalidator})가 명시 값(경로·횟수·사유 토큰)으로 부른다.
  *
  * <p>환경 라벨은 {@code sentry.environment} 를 재사용한다(prod=production, 로컬=local) — 환경 이름의 단일 출처.
- * 시간은 seoulClock(Asia/Seoul) 기준 KST — USER_REGISTERED 만 가입 트랜잭션의 시각(event.registeredAt)이고 나머지는
- * 리스너 수신 시각이다(비동기 지연은 ms 단위). Octomo 줄은 {@link MoPollThrottle#dailyUsage} 의 <b>자체 집계</b>다 —
+ * 시간은 seoulClock(Asia/Seoul) 기준 KST — USER_REGISTERED 만 가입 트랜잭션의 시각(event.registeredAt)이고, 프론트 재생성
+ * 트리거 알림은 요청기의 판정 시각, 나머지는 리스너 수신 시각이다(비동기 지연은 ms 단위). Octomo 줄은 {@link MoPollThrottle#dailyUsage} 의 <b>자체 집계</b>다 —
  * Octomo 는 잔여 쿼터 조회 API 를 제공하지 않는다(벤더 월 쿼터는 Octomo 마이페이지에서만 확인).
  */
 @Component
@@ -136,6 +137,22 @@ public class OpsSlackMessageFormatter {
         return compose("⚠️ 시설 예약 충돌", "FACILITY_BOOKING_CONFLICT",
                 Arrays.asList(field("동아리", clubName), field("BookingId", event.bookingId()),
                         field("ClubId", event.clubId())));
+    }
+
+    /**
+     * 정각 재생성 트리거 연속 실패 — 사유는 상태 코드·예외 클래스명 토큰이다(비밀값·URL·응답 본문 없음).
+     * 사유별 조치는 런북 줄이 가리키는 문서에 둔다.
+     */
+    public String frontendRevalidationFailing(String path, int consecutiveFailures, String lastFailureReason) {
+        return compose("⚠️ 프론트 재생성 트리거 연속 실패", "FRONTEND_REVALIDATION_FAILING",
+                Arrays.asList(field("경로", path), field("연속 실패", consecutiveFailures + "회"),
+                        field("마지막 사유", lastFailureReason)),
+                "시간", LocalDateTime.now(clock), List.of("런북: deploy/MONITORING.md"));
+    }
+
+    public String frontendRevalidationRecovered(String path, int failuresBeforeRecovery) {
+        return compose("✅ 프론트 재생성 트리거 복구", "FRONTEND_REVALIDATION_RECOVERED",
+                Arrays.asList(field("경로", path), field("연속 실패", failuresBeforeRecovery + "회 뒤 성공")));
     }
 
     private String compose(String header, String eventType, List<String> domainLines) {
