@@ -1,9 +1,13 @@
 package com.duing.global.config;
 
+import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.Ticker;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.DoubleSupplier;
@@ -13,6 +17,8 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCache;
+import org.springframework.cache.interceptor.KeyGenerator;
+import org.springframework.cache.interceptor.SimpleKey;
 import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,7 +35,8 @@ import org.springframework.core.Ordered;
  * Supabase egress 가 줄어든다.
  *
  * <p>캐시 대상은 개인화가 전혀 없는 서비스 메서드로 한정하고, 키는 메서드 인자(= 질의 조건 + 페이지)
- * 전체로 잡아 쿼리 파라미터별로 분리한다. 인증 주체는 키에도 값에도 들어가지 않는다 — 인증/비인증
+ * 전체로 잡아 쿼리 파라미터별로 분리한다 — 동아리 목록은 여기에 조회 시점의 KST 시간대를 더한다
+ * ({@link #clubSearchCacheKeyGenerator}). 인증 주체는 키에도 값에도 들어가지 않는다 — 인증/비인증
  * 응답이 섞일 수 있는 메서드는 아예 캐시하지 않는다.
  *
  * <p>TTL 은 Caffeine 의 엔트리별 만료로 적용한다. "최대 TTL 초 이상 낡은 응답은
@@ -91,6 +98,12 @@ public class PublicApiCacheConfig {
      */
     public static final String RECRUITMENT_CALENDAR_CACHE = "publicRecruitmentCalendar";
 
+    /**
+     * 동아리 목록 캐시의 키 생성기 빈 이름 — {@code @Cacheable(keyGenerator = …)} 가 문자열 대신 이 상수를 참조한다.
+     * 생성기는 호출 시점에 이름으로 찾으므로, 이름이 어긋나면 기동이 아니라 첫 목록 조회가 500 으로 실패한다.
+     */
+    public static final String CLUB_SEARCH_KEY_GENERATOR = "clubSearchCacheKeyGenerator";
+
     /** 지터 하한 비율 — 수명은 TTL 의 5/6(60초면 50초)~1 배. 상한이 TTL 이라 정책을 넘지 않는다. */
     static final double MIN_TTL_RATIO = 5.0 / 6.0;
 
@@ -110,6 +123,29 @@ public class PublicApiCacheConfig {
         // 이름을 고정 목록으로 등록한다 — 오타난 캐시명은 기동/호출 시점에 바로 드러난다.
         cacheManager.setCaches(publicApiCaches);
         return cacheManager;
+    }
+
+    /**
+     * 동아리 목록 캐시 키 = 메서드 인자(검색 조건 + 페이지) + 조회 시점의 KST 시간대(hour bucket).
+     *
+     * <p>추천순 셔플은 조회 시점의 시간대로 정해지는데 인자만으로 된 키에는 시간대가 없어, 정각 직전에 적재된
+     * 엔트리가 정각을 넘겨서도 직전 시간대 순서를 돌려줄 수 있었다. 정각 잡의 비우기({@code clear()})는 그 순간
+     * 적재 중이던 엔트리를 보지 못한다(#1362). 키에 시간대가 있으면 정각을 넘긴 조회는 키가 달라 새로 조회한다.
+     * 재집계 직후의 점수 변경 반영은 여전히 정각 잡의 비우기가 맡는다({@code ClubMetricRefreshJob}).
+     *
+     * <p>추천순만 가리지 않고 모든 정렬에 넣는다 — 다른 정렬은 시간대마다 엔트리가 한 번 더 적재될 뿐이고,
+     * 대표 모집의 표시 상태(오늘 기준)도 자정에 시간대와 함께 갈려 날짜가 바뀐 뒤 어제 기준 엔트리를 내주지 않는다.
+     *
+     * <p>시계는 타입으로 주입한다 — 쿼리의 셔플과 같은 시계를 읽어야 두 시간대가 어긋나지 않는다(테스트가
+     * {@code @Primary} 고정 시계를 두면 키와 쿼리에 함께 걸린다).
+     */
+    @Bean(CLUB_SEARCH_KEY_GENERATOR)
+    public KeyGenerator clubSearchCacheKeyGenerator(Clock clock) {
+        return (target, method, params) -> {
+            Object[] keyParts = Arrays.copyOf(params, params.length + 1);
+            keyParts[params.length] = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
+            return new SimpleKey(keyParts);
+        };
     }
 
     /**
