@@ -109,18 +109,20 @@ EOF
 
 1. **영향**: 서비스 장애는 아니다. 그동안 `/clubs` 는 자체 1시간 주기로만 다시 만들어져, 정각에 바뀐 추천순이 늦게 보인다.
    단, 사유가 `warm-up …` 이면 지운 뒤 다시 그리지 못한 것이라 그 시각 `/clubs` 요청이 오류 화면을 받았을 수 있다 — 먼저 본다.
-2. **사유 → 조치** — 메시지의 `마지막 사유` 는 백엔드 WARN(`프론트 재생성 요청 실패`/`warm-up 실패 — reason=…`)과 같은 값이다.
+2. **사유 → 조치** — 메시지의 `마지막 사유` 는 백엔드 WARN(`프론트 재생성 요청 실패`/`warm-up 실패 — reason=…`)의 `reason` 과 같고,
+   warm-up 실패만 앞에 `warm-up` 이 붙는다(WARN `reason=HTTP_500` → 사유 `warm-up HTTP_500`).
 
 | 마지막 사유 | 뜻 | 조치 |
 |---|---|---|
 | `HTTP_401` | 비밀값 짝 불일치 | 서버 `.env` `DUING_FRONTEND_REVALIDATE_SECRET` 과 Vercel `REVALIDATE_SECRET` 을 같은 값으로 맞춘다(한쪽만 바꾼 경우). 서버는 재기동, Vercel 은 재배포해야 반영된다 |
-| `HTTP_503` | Vercel `REVALIDATE_SECRET` 미설정·32바이트 미만 | Vercel 환경변수를 넣고 재배포 |
+| `HTTP_503` | Vercel `REVALIDATE_SECRET` 미설정·32바이트 미만 | Vercel 환경변수를 넣고 재배포. 사이트 전체가 503 이고 Better Stack 프론트 다운 알림이 함께 왔다면 프로젝트 일시정지(Hobby 사용량 초과)일 수 있다 — Vercel Usage 를 먼저 본다 |
 | `HTTP_403` | 방화벽 차단 | 앞단 방화벽(Vercel Firewall 등) 규칙이 백엔드 요청(UA `DuingBackend-Revalidator/1.0`)을 막는지 확인 |
 | `HTTP_400` | 허용 목록 밖 경로 | 프론트 `app/api/internal/revalidate/route.ts` 의 허용 목록과 백엔드가 보낸 경로를 대조 |
 | `HTTP_3xx` | `DUING_FRONTEND_BASE_URL` 리다이렉트(apex↔www) | 서버 `.env` 를 리다이렉트 없는 최종 주소로 고치고 재기동 |
-| `HTTP_502` | 프론트 사전 확인 실패 — 지우기 전에 기본 목록을 못 받아 재검증을 건너뜀 | Vercel 로그 `[revalidate] /clubs 사전 확인 실패` 의 `reason`(timeout·network·http-5xx·empty 등)으로 백엔드 목록 API 상태 확인 |
+| `HTTP_502` | 프론트 사전 확인 실패 — 지우기 전에 기본 목록을 못 받아 재검증을 건너뜀 | Vercel 로그 `[revalidate] /clubs 사전 확인 실패` 의 `reason`(timeout·network·http-5xx·empty 등)으로 백엔드 목록 API 상태 확인. 그 로그가 없으면 Vercel 플랫폼 오류(함수 무응답 등)다 |
 | `warm-up HTTP_5xx`·`warm-up <예외>` | `/clubs` 재생성(렌더) 오류 | Vercel 함수 로그에서 `/clubs` 렌더 오류 확인 |
 | 예외 클래스명(`ResourceAccessException` 등) | 연결 실패·타임아웃 | 프론트 가용성(Better Stack)·DNS·서버 아웃바운드 확인 |
+| 그 밖의 `HTTP_4xx`·`HTTP_5xx`(404·429·500·504 등) | 라우트 미배포·경로 오류·라우트 예외·함수 타임아웃 | Vercel 함수 로그에서 `/api/internal/revalidate` 요청 확인 |
 
 3. 고친 뒤에는 기다린다 — 재시도는 없고 다음 정각에 다시 시도한다. 성공하면 `FRONTEND_REVALIDATION_RECOVERED` 가 한 번 온다.
 4. **복구 알림이 안 올 때**: 카운터는 메모리라 알림 뒤 재기동(배포)하면 복구 알림이 오지 않는다. 다음 정각 백엔드 INFO

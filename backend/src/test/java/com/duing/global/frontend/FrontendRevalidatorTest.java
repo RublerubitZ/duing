@@ -277,11 +277,14 @@ class FrontendRevalidatorTest {
 
         revalidateClubs(2);
         Thread.currentThread().interrupt();
+        boolean interruptRestored;
         try {
             revalidator.revalidate("/clubs");
         } finally {
-            Thread.interrupted(); // 인터럽트 상태를 다음 시도·다른 테스트로 넘기지 않는다
+            // 요청기가 인터럽트 상태를 되살렸는지 보면서, 다음 시도·다른 테스트로는 넘기지 않게 지운다.
+            interruptRestored = Thread.interrupted();
         }
+        assertThat(interruptRestored).isTrue();
         verifyNoInteractions(slackNotifier); // 실패로 셌다면 여기서 3회째 알림이 나갔다
         revalidateClubs(1);
 

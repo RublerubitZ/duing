@@ -59,7 +59,8 @@ public class FrontendRevalidator {
     /**
      * 정각 잡이 {@code /clubs} 를 시간당 한 번 부른다는 전제의 값이다 — 10·11·12시가 실패하면 12시에 알린다(재집계
      * 실패로 요청을 건너뛴 시간은 카운터를 그대로 둔다). #1356(상세 즉시 재생성)이 호출을 더하면 호출 빈도·경로별 알림
-     * 중복·묶음 요청의 502 전파를 보고 다시 정한다. 그 비동기 실행에 {@code monitoringTaskExecutor} 를 쓰지 않는다 —
+     * 중복·묶음 요청의 502 전파와, 같은 경로의 실패·성공이 겹칠 때 Slack 의 "복구" 가 "연속 실패" 보다 먼저 도착할 수
+     * 있는 순서 문제를 보고 다시 정한다. 그 비동기 실행에 {@code monitoringTaskExecutor} 를 쓰지 않는다 —
      * Slack 알림 전용 작은 풀이라 1초 대기·10초 타임아웃 작업이 알림을 밀어낸다.
      */
     private static final int FAILURE_ALERT_THRESHOLD = 3;
