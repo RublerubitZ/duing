@@ -31,8 +31,9 @@ Better Stack 이 이미 보내는 운영 채널이 따로 있으면 새 채널�
 | `ADMIN_USER_ACTION` | 계정 정지/해제/강제 로그아웃 | 조치·대상 UserId·관리자 UserId (사유 제외) |
 | `RECRUITMENT_OPENED` | 모집 생성·교체 시점에 **이미 OPEN 이고 시작일이 지난 경우만**(예정→날짜 도래 오픈·수정 경유는 이벤트 자체가 없음) | 동아리명·ClubId·모집 제목(공개 게시물 — 자유 텍스트 예외)·RecruitmentId·마감 |
 | `FACILITY_BOOKING_SUBMITTED` / `_REJECTED` / `_CANCELLED`(관리자) / `_CONFLICT` | 시설 예약 | BookingId·ClubId (거절·취소 사유·충돌 상세 제외) |
+| `FRONTEND_REVALIDATION_FAILING` / `_RECOVERED` | 정각 `/clubs` 재생성 트리거가 **3회 연속 실패한 순간 한 번**(이어지는 실패는 조용) / 그 뒤 첫 성공 한 번 | 경로·연속 실패 횟수·마지막 사유(상태 코드·예외 클래스명 — 비밀값·URL·응답 본문 제외)·런북 줄. 조치는 아래 [런북](#런북--프론트-재생성-트리거-연속-실패) |
 
-시간 줄: `USER_REGISTERED` 만 가입 트랜잭션 시각(가입시간), 나머지는 리스너 수신 시각(발행과 ms 차이).
+시간 줄: `USER_REGISTERED` 만 가입 트랜잭션 시각(가입시간), 나머지는 리스너 수신 시각(발행과 ms 차이), `FRONTEND_REVALIDATION_*` 은 판정 시각.
 
 의도적으로 싣는 개인정보: **이름·학번·UserId**(회원가입). 절대 싣지 않는 것: 이메일(수집 안 함)·전화번호·비밀번호·JWT/refresh/cookie/Authorization·요청 바디·계좌번호·예금주·자유 텍스트 사유.
 
@@ -47,6 +48,8 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 - `SlackNotifier`: connect 3s / read 5s. **5xx·429 에만 1회 재시도**(서버 거절 = 미반영 확정), 타임아웃·네트워크 오류는 재시도 안 함(중복 게시 방지).
   최종 실패는 ERROR 로그(스택·URL·응답 바디 없음) → Sentry 이슈 `Slack 운영 알림 전송 실패`.
 - 큐(100) 포화 시 알림 폐기 + warn. 알림은 손실 허용, 서비스는 비손실.
+- 예외: `FRONTEND_REVALIDATION_*` 은 이벤트 없이 정각 잡 스레드(`FrontendRevalidator`)가 직접 보낸다 — 스케줄러 스레드엔
+  트랜잭션이 없어 AFTER_COMMIT 리스너로는 버려진다. 전송 지연은 정각 잡에만 걸리고, 전송 실패는 재전송하지 않는다.
 
 ## 설정
 
@@ -97,3 +100,29 @@ EOF
 1. 서비스 영향은 없다(격리 설계). 급하지 않다.
 2. Sentry 에 `Slack 운영 알림 전송 실패 — reason=HTTP_4xx/5xx/…` 이슈가 있으면: 4xx(특히 404/410) = webhook 폐기됨 → 재발급 후 `.env` 교체·재기동. 5xx/타임아웃 = Slack 측 장애, 자연 복구.
 3. 이슈가 없고 조용하면: 컨테이너 시작 로그에 `[Slack 운영 알림] 비활성` WARN 이 있는지(= 서버 `.env` 의 `SLACK_WEBHOOK_URL` 미설정) 확인.
+
+## 런북 — 프론트 재생성 트리거 연속 실패
+
+`FRONTEND_REVALIDATION_FAILING` 이 오면 본다. 매시 정각 `ClubMetricRefreshJob` 이 프론트에 `/clubs` 재생성을 요청한다
+(`POST /api/internal/revalidate` → 2xx 면 1초 뒤 warm-up GET). 재검증 2xx 와 warm-up 2xx 가 둘 다여야 성공이고,
+연속 실패가 3회(정각 기준 3시간)에 닿으면 한 번 알린다. 재집계 실패로 요청을 건너뛴 시간은 세지도 0 으로 되돌리지도 않는다.
+
+1. **영향**: 서비스 장애는 아니다. 그동안 `/clubs` 는 자체 1시간 주기로만 다시 만들어져, 정각에 바뀐 추천순이 늦게 보인다.
+   단, 사유가 `warm-up …` 이면 지운 뒤 다시 그리지 못한 것이라 그 시각 `/clubs` 요청이 오류 화면을 받았을 수 있다 — 먼저 본다.
+2. **사유 → 조치** — 메시지의 `마지막 사유` 는 백엔드 WARN(`프론트 재생성 요청 실패`/`warm-up 실패 — reason=…`)과 같은 값이다.
+
+| 마지막 사유 | 뜻 | 조치 |
+|---|---|---|
+| `HTTP_401` | 비밀값 짝 불일치 | 서버 `.env` `DUING_FRONTEND_REVALIDATE_SECRET` 과 Vercel `REVALIDATE_SECRET` 을 같은 값으로 맞춘다(한쪽만 바꾼 경우). 서버는 재기동, Vercel 은 재배포해야 반영된다 |
+| `HTTP_503` | Vercel `REVALIDATE_SECRET` 미설정·32바이트 미만 | Vercel 환경변수를 넣고 재배포 |
+| `HTTP_403` | 방화벽 차단 | 앞단 방화벽(Vercel Firewall 등) 규칙이 백엔드 요청(UA `DuingBackend-Revalidator/1.0`)을 막는지 확인 |
+| `HTTP_400` | 허용 목록 밖 경로 | 프론트 `app/api/internal/revalidate/route.ts` 의 허용 목록과 백엔드가 보낸 경로를 대조 |
+| `HTTP_3xx` | `DUING_FRONTEND_BASE_URL` 리다이렉트(apex↔www) | 서버 `.env` 를 리다이렉트 없는 최종 주소로 고치고 재기동 |
+| `HTTP_502` | 프론트 사전 확인 실패 — 지우기 전에 기본 목록을 못 받아 재검증을 건너뜀 | Vercel 로그 `[revalidate] /clubs 사전 확인 실패` 의 `reason`(timeout·network·http-5xx·empty 등)으로 백엔드 목록 API 상태 확인 |
+| `warm-up HTTP_5xx`·`warm-up <예외>` | `/clubs` 재생성(렌더) 오류 | Vercel 함수 로그에서 `/clubs` 렌더 오류 확인 |
+| 예외 클래스명(`ResourceAccessException` 등) | 연결 실패·타임아웃 | 프론트 가용성(Better Stack)·DNS·서버 아웃바운드 확인 |
+
+3. 고친 뒤에는 기다린다 — 재시도는 없고 다음 정각에 다시 시도한다. 성공하면 `FRONTEND_REVALIDATION_RECOVERED` 가 한 번 온다.
+4. **복구 알림이 안 올 때**: 카운터는 메모리라 알림 뒤 재기동(배포)하면 복구 알림이 오지 않는다. 다음 정각 백엔드 INFO
+   `프론트 재생성 warm-up 응답 — path=/clubs, status=HTTP_200` 으로 확인한다.
+5. Slack 이 비활성이거나 전송이 실패해도(재전송 없음) 백엔드 로그에 WARN `프론트 재생성 연속 실패 — path=…, streak=3, reason=…` 이 한 줄 남는다.
