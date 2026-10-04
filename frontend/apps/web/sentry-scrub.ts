@@ -50,7 +50,7 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
 
 // fetch/xhr/navigation 브레드크럼의 URL 쿼리스트링을 제거한다(에러 이벤트에 함께 실리는 PII 차단).
 // 서버 http 브레드크럼(외부 호출)은 URL 의 쿼리를 이미 떼지만 http.query 에 키 필터만 거친 쿼리를 따로 남긴다
-// (@sentry/node-core) — 값이 그대로라 그 키와 프래그먼트도 지운다.
+// (서버 SDK — node:http·fetch 공통) — SDK 는 민감 키 이름만 가려 값이 그대로 남으므로 그 키와 프래그먼트도 지운다.
 export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   const data = breadcrumb.data;
   if (!data) {

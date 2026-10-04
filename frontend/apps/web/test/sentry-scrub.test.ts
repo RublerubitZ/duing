@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { scrubBreadcrumb, scrubEvent } from '@/sentry-scrub';
 
-// 서버 설정 배선 확인용 — 실제 초기화·전송이 붙지 않게 init 을 막는다(scrubEvent 는 타입만 가져와 영향 없음).
+// 서버 설정 배선 확인용 — 실제 초기화·전송이 붙지 않게 init 을 막는다(sentry-scrub 은 @sentry/nextjs 에서 타입만 가져와 영향 없음).
 vi.mock('@sentry/nextjs', () => ({ init: vi.fn() }));
 
 // 서버 오류 이벤트(onRequestError)가 beforeSend 에 도착하는 모양 — 값은 전부 테스트 전용 더미다.
@@ -111,16 +111,17 @@ describe('scrubEvent', () => {
   });
 });
 
-describe('scrubBreadcrumb — 서버 http 브레드크럼', () => {
-  it('외부 호출 브레드크럼의 쿼리·프래그먼트를 지운다 — 키 필터만 거친 http.query 가 값을 그대로 남기므로', () => {
-    // 서버 SDK 가 외부 fetch 마다 남기는 모양(@sentry/node-core outgoingFetchRequest) — 값은 테스트 전용 더미다.
+describe('scrubBreadcrumb', () => {
+  it('외부 호출(http) 브레드크럼의 http.query·http.fragment 를 지운다 — SDK 는 민감 키 이름만 가려 q 같은 값이 그대로 남으므로', () => {
+    // 서버 SDK 가 외부 호출마다 남기는 모양(node:http·fetch 공통) — url 은 SDK 가 이미 쿼리를 떼고 http.query 는 '?' 를
+    // 붙여 따로 남긴다. 값은 테스트 전용 더미다.
     const breadcrumb: Breadcrumb = {
       category: 'http',
       type: 'http',
       data: {
-        url: 'https://api.duings.com/api/v1/clubs?keyword=20261234',
+        url: 'https://api.duings.com/api/v1/clubs',
         'http.method': 'GET',
-        'http.query': 'keyword=20261234',
+        'http.query': '?q=20261234',
         'http.fragment': '#section',
         status_code: 200,
       },
@@ -133,6 +134,21 @@ describe('scrubBreadcrumb — 서버 http 브레드크럼', () => {
       'http.method': 'GET',
       status_code: 200,
     });
+  });
+
+  it.each(['fetch', 'xhr', 'http'])('%s 브레드크럼 URL 의 쿼리스트링을 지운다(http 는 SDK 가 이미 뗀 경우의 방어)', (category) => {
+    const scrubbed = scrubBreadcrumb({ category, data: { url: '/api/v1/users?studentId=20261234' } });
+
+    expect(scrubbed.data?.url).toBe('/api/v1/users');
+  });
+
+  it('navigation 브레드크럼의 이전·다음 주소에서 쿼리스트링을 지운다', () => {
+    const scrubbed = scrubBreadcrumb({
+      category: 'navigation',
+      data: { from: '/admin/users?q=20261234', to: '/clubs?keyword=20261234' },
+    });
+
+    expect(scrubbed.data).toEqual({ from: '/admin/users', to: '/clubs' });
   });
 
   it('데이터 없는 http 브레드크럼도 예외 없이 지나간다', () => {
