@@ -6,6 +6,7 @@ import type { Metadata, ResolvedMetadata } from 'next';
 import { describe, expect, it } from 'vitest';
 
 import { metadata as loginMetadata } from '@/app/(auth)/login/page';
+import { SITE_URL } from '@/app/_lib/site';
 import { metadata as clubsMetadata } from '@/app/clubs/page';
 import { metadata as rootMetadata } from '@/app/layout';
 import { metadata as noticesMetadata } from '@/app/notices/page';
@@ -16,7 +17,7 @@ import { metadata as noticesMetadata } from '@/app/notices/page';
 const requireFromTest = createRequire(import.meta.url);
 // Next dist 의 require('server-only') 를 Next 번들러와 같은 빈 모듈로 돌린다 — 일반 Node 에서 해석기를 부르기 위해.
 const emptyServerOnlyUrl = pathToFileURL(requireFromTest.resolve('next/dist/compiled/server-only/empty.js')).href;
-registerHooks({
+const serverOnlyRedirect = registerHooks({
   resolve: (specifier, context, nextResolve) =>
     specifier === 'server-only' ? { url: emptyServerOnlyUrl, shortCircuit: true } : nextResolve(specifier, context),
 });
@@ -33,6 +34,8 @@ function isAccumulateMetadata(value: unknown): value is AccumulateMetadata {
 }
 
 const resolveMetadataModule: unknown = requireFromTest('next/dist/lib/metadata/resolve-metadata.js');
+// 훅은 모듈을 불러올 때만 필요하다 — 같은 워커의 다른 테스트 파일로 새지 않게 바로 푼다.
+serverOnlyRedirect.deregister();
 const accumulateMetadata =
   typeof resolveMetadataModule === 'object' &&
   resolveMetadataModule !== null &&
@@ -49,10 +52,10 @@ async function resolveFor(pathname: string, pageMetadata: Metadata) {
   });
 }
 
-// 해석된 og 이미지는 타입상 문자열이거나 { url } 이다(런타임은 URL 객체) — 문자열로 맞춰 비교한다.
+// 해석된 og 이미지는 타입상 문자열이거나 { url } 이다(병합 때 URL 이 문자열로 바뀐다).
 function imageUrl(image: string | { url: string } | undefined): string | undefined {
   if (image === undefined) return undefined;
-  return typeof image === 'string' ? image : String(image.url);
+  return typeof image === 'string' ? image : image.url;
 }
 
 function socialSummary(resolved: ResolvedMetadata) {
@@ -68,14 +71,14 @@ function socialSummary(resolved: ResolvedMetadata) {
   };
 }
 
-const SHARED_IMAGE = 'https://duings.com/og-image-2026-09.png';
+const SHARED_IMAGE = `${SITE_URL}/og-image-2026-09.png`;
 
 describe('공유 미리보기 메타데이터 — 페이지 제목·설명이 og·twitter 로 이어진다', () => {
   it.each([
     ['/clubs', clubsMetadata],
     ['/notices', noticesMetadata],
     ['/login', loginMetadata],
-  ])('%s 는 자기 제목·설명을 og·twitter 에 쓰고, og:url 은 홈을 가리키지 않는다', async (pathname, pageMetadata) => {
+  ])('%s 화면은 자기 제목·설명을 og·twitter 에 쓰고, og:url 은 홈을 가리키지 않는다', async (pathname, pageMetadata) => {
     const resolved = await resolveFor(pathname, pageMetadata);
 
     expect(typeof pageMetadata.title).toBe('string');
@@ -110,7 +113,7 @@ describe('공유 미리보기 메타데이터 — 페이지 제목·설명이 og
   });
 
   it('자기 제목·설명이 없는 페이지는 사이트 기본값을 그대로 받는다', async () => {
-    const resolved = await resolveFor('/faq-like', {});
+    const resolved = await resolveFor('/page-without-own-metadata', {});
 
     expect(socialSummary(resolved)).toMatchObject({
       ogTitle: rootMetadata.title,

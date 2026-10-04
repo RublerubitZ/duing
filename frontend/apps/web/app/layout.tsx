@@ -48,8 +48,9 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   // 공유 미리보기(og·twitter)에는 제목·설명·url 을 두지 않는다 — Next 가 각 페이지의 title·description 으로 채운다
   // (자기 값이 없는 페이지는 위 사이트 기본값). 여기 고정하면 모든 페이지 미리보기가 홈이 되고, og:url '/' 는 카카오·
-  // 페이스북이 그 주소(홈)의 메타를 다시 읽게 만든다. 페이지에서 openGraph·twitter 를 일부만 주면 얕은 병합이라
-  // og:image·site_name 이 사라지고 twitter:card 가 summary 로 떨어지니 주지 말 것(test/metadata 가 최종값을 확인).
+  // 페이스북이 그 주소(홈)의 메타를 다시 읽게 만들 수 있다. 페이지에서 openGraph·twitter 를 일부만 주면 얕은 병합이라
+  // og:image·site_name 이 사라지고 twitter:card 가 summary 로 떨어지니 주지 말 것(test/metadata 가 목록·로그인 화면의
+  // 최종값으로 확인).
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
