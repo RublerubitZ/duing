@@ -65,7 +65,8 @@ export function useFavoriteToggleFlow() {
   return {
     /**
      * 방향(찜/해제) 미확정 — 이 동안 하트 클릭을 막는다(하트 버튼은 disabled, 탐색 카드는 반투명 없이
-     * aria-disabled). toggle 자체도 이 동안은 무시된다.
+     * aria-disabled 로 알리고 핸들러가 토글을 건너뛴다 — 단 찜 목록 조회가 실패하면 탐색 카드도 disabled·반투명).
+     * toggle 자체도 이 동안은 무시된다.
      */
     isDirectionUnknown,
     isFavorited,

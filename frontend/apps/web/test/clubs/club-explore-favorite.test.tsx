@@ -136,6 +136,7 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
     sendFavoriteIds();
     await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
     for (const heart of hearts('찜 해제')) {
+      expect(heart).toBeEnabled();
       expect(heart).not.toHaveAttribute('aria-disabled');
       expect(heart).toHaveAttribute('aria-pressed', 'true');
     }
@@ -170,6 +171,7 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
 
     await waitFor(() => expect(hearts('찜 해제')).toHaveLength(2));
     for (const heart of hearts('찜 해제')) {
+      expect(heart).toBeEnabled();
       expect(heart).not.toHaveAttribute('aria-disabled');
       expect(heart).toHaveAttribute('aria-pressed', 'true');
     }
@@ -210,7 +212,11 @@ describe('ClubExplorePage — 찜 방향이 확정되기 전의 하트', () => {
     renderExplore();
 
     await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
-    for (const heart of hearts('찜 추가')) expect(heart).not.toHaveAttribute('aria-disabled');
+    // 활성(disabled 아님)이어야 눌러서 로그인으로 간다 — aria-disabled 도 없어야 한다.
+    for (const heart of hearts('찜 추가')) {
+      expect(heart).toBeEnabled();
+      expect(heart).not.toHaveAttribute('aria-disabled');
+    }
   });
 });
 

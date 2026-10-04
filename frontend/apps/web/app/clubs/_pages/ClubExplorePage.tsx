@@ -141,7 +141,8 @@ export function ClubExplorePage() {
   const favoriteFlow = useFavoriteToggleFlow();
   const isFavoriteDirectionUnknown = favoriteFlow.isDirectionUnknown;
   // 찜 목록 조회가 실패해 방향을 끝내 모를 때만 하트를 반투명(disabled)으로 둔다. 응답을 기다리는 동안은
-  // 겉모습을 바꾸지 않는다(정상 → 반투명 → 정상 깜빡임, #1360) — 그 사이 클릭은 카드가 aria-disabled 로 막는다.
+  // 겉모습을 바꾸지 않는다(정상 → 반투명 → 정상 깜빡임, #1360) — 그 사이 카드는 aria-disabled 로 알리고 클릭 핸들러가
+  // 토글을 건너뛴다(플로우의 toggle 도 무시).
   const isFavoriteDirectionUnavailable = isFavoriteDirectionUnknown && favoriteIdsQuery.isError;
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
@@ -616,7 +617,7 @@ export function ClubExplorePage() {
                             isFavoriteDirectionUnavailable ||
                             (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                           }
-                          // 방향을 모르는 동안 — 카드가 클릭만 막고(aria-disabled) 하트 팝도 재생하지 않는다.
+                          // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                           isFavoriteStateReady={!isFavoriteDirectionUnknown}
                           onLikeToggle={handleToggleLike}
                         />
@@ -775,7 +776,7 @@ export function ClubExplorePage() {
                           isFavoriteDirectionUnavailable ||
                           (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                         }
-                        // 방향을 모르는 동안 — 카드가 클릭만 막고(aria-disabled) 하트 팝도 재생하지 않는다.
+                        // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                         isFavoriteStateReady={!isFavoriteDirectionUnknown}
                         onLikeToggle={handleToggleLike}
                       />
