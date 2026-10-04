@@ -105,12 +105,15 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         return "/clubs/" + club.getId();
     }
 
-    /** 리더가 있는 공개(ACTIVE) 동아리 — 상태는 멤버십 저장 뒤 JDBC 로 바꾼다(OpsSlackMonitoringIntegrationTest 전례). */
+    /**
+     * 리더가 있는 공개(ACTIVE) 동아리 — 상태는 멤버십 저장 뒤 JDBC 로 바꾸고(OpsSlackMonitoringIntegrationTest 전례),
+     * 바뀐 상태로 다시 읽어 돌려준다.
+     */
     private Club saveActiveClubLedBy(User leader, String clubName) {
         Club club = clubRepository.save(ClubFixture.academic(clubName));
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", club.getId());
-        return club;
+        return clubRepository.findById(club.getId()).orElseThrow();
     }
 
     /** 한 줄 소개(tagline)만 바꾸는 수정 커맨드 — 나머지 필드는 null(변경 없음)이다. */
@@ -206,7 +209,7 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("동아리 정보 수정은 리더 수정·총동연 수정 모두 그 동아리 상세 재생성을 요청한다")
-    void profileUpdatesByLeaderAndAdminRequestDetailRevalidation() {
+    void profileUpdatesByLeaderAndAdminRequestDetailRevalidation() throws InterruptedException {
         User admin = userRepository.save(UserFixture.admin());
         User leader = userRepository.save(UserFixture.unique());
         Club club = saveActiveClubLedBy(leader, "상세재생성수정동아리");
@@ -216,12 +219,13 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
         clubService.updateAsAdmin(taglineUpdate(club.getId(), admin.getId(), "총동연이 고친 소개"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
-        verify(frontendRevalidator, never()).revalidate(anyString());
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
     }
 
     @Test
     @DisplayName("승인 대기 동아리의 정보 수정도 상세 재생성을 요청한다 — 페이지는 같은 셸을 다시 그릴 뿐이지만 거르지 않는다")
-    void pendingClubProfileUpdateStillRequestsDetailRevalidation() {
+    void pendingClubProfileUpdateStillRequestsDetailRevalidation() throws InterruptedException {
         User leader = userRepository.save(UserFixture.unique());
         Club pendingClub = clubRepository.save(ClubFixture.academic("상세재생성대기동아리"));
         clubMemberRepository.save(ClubMember.asLeader(pendingClub, leader));
@@ -229,28 +233,37 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         clubService.update(taglineUpdate(pendingClub.getId(), leader.getId(), "보완한 소개"));
 
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(pendingClub));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
     }
 
     @Test
     @DisplayName("중앙·학과 전환은 그 동아리 상세 재생성을 요청한다")
-    void centralClubChangeRequestsDetailRevalidation() {
+    void centralClubChangeRequestsDetailRevalidation() throws InterruptedException {
         Club club = clubRepository.save(ClubFixture.academic("상세재생성중앙동아리"));
 
         clubService.updateCentralClub(new UpdateClubCentralClubCommand(club.getId(), true));
 
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
     }
 
     @Test
     @DisplayName("사진 등록·순서 변경·삭제·캡션 수정은 같은 동아리라도 하나씩 상세 재생성을 요청한다")
-    void photoChangesIncludingCaptionRequestEach() {
+    void photoChangesIncludingCaptionRequestEach() throws InterruptedException {
         User leader = userRepository.save(UserFixture.unique());
+        // 동아리 id 를 회장·사진 id 와 떼어 놓는다 — 테스트마다 id 가 1 부터라, 동아리 대신 요청자·사진 id 로 발행하는 변이가
+        // 같은 경로(/clubs/1)로 가려진다.
+        clubRepository.save(ClubFixture.academic("상세재생성미끼동아리1"));
+        clubRepository.save(ClubFixture.academic("상세재생성미끼동아리2"));
         Club club = saveActiveClubLedBy(leader, "상세재생성사진동아리");
 
         Long firstPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
                 club.getId(), leader.getId(), "first.jpg", "첫 사진", 100, 100)).id();
         Long secondPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
                 club.getId(), leader.getId(), "second.jpg", "둘째 사진", 100, 100)).id();
+        assertThat(club.getId()).isNotIn(leader.getId(), firstPhotoId, secondPhotoId);
         clubPhotoService.reorder(new ReorderClubPhotosCommand(club.getId(), leader.getId(), List.of(
                 new PhotoOrder(secondPhotoId, 0), new PhotoOrder(firstPhotoId, 1))));
         clubPhotoService.delete(club.getId(), leader.getId(), firstPhotoId);
@@ -259,5 +272,7 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
                 club.getId(), leader.getId(), secondPhotoId, "고친 캡션"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
     }
 }
