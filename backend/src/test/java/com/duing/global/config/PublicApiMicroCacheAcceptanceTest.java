@@ -165,7 +165,7 @@ class PublicApiMicroCacheAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("동아리 목록 캐시 키에는 조회 시점의 KST 시간대가 들어가 정각을 넘긴 조회는 직전 시간대 엔트리를 받지 않는다")
+    @DisplayName("동아리 목록 캐시 키에 조회 시점의 KST 시간대가 들어간다")
     void clubSearchCacheKeyCarriesTheKstHourBucketOfTheRequest() throws Exception {
         saveActiveClub("시간대동아리");
 

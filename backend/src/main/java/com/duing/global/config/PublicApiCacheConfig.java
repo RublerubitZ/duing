@@ -100,7 +100,7 @@ public class PublicApiCacheConfig {
 
     /**
      * 동아리 목록 캐시의 키 생성기 빈 이름 — {@code @Cacheable(keyGenerator = …)} 가 문자열 대신 이 상수를 참조한다.
-     * 생성기는 호출 시점에 이름으로 찾으므로, 이름이 어긋나면 기동이 아니라 첫 목록 조회가 500 으로 실패한다.
+     * 생성기는 호출 시점에 이름으로 찾으므로, 이름이 어긋나면 기동이 아니라 목록 조회(찜 필터 포함)가 매번 500 으로 실패한다.
      */
     public static final String CLUB_SEARCH_KEY_GENERATOR = "clubSearchCacheKeyGenerator";
 
