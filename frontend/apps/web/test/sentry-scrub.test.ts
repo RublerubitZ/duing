@@ -1,9 +1,9 @@
 // @vitest-environment node
-import type { ErrorEvent } from '@sentry/nextjs';
+import type { Breadcrumb, ErrorEvent } from '@sentry/nextjs';
 import * as Sentry from '@sentry/nextjs';
 import { describe, expect, it, vi } from 'vitest';
 
-import { scrubEvent } from '@/sentry-scrub';
+import { scrubBreadcrumb, scrubEvent } from '@/sentry-scrub';
 
 // 서버 설정 배선 확인용 — 실제 초기화·전송이 붙지 않게 init 을 막는다(scrubEvent 는 타입만 가져와 영향 없음).
 vi.mock('@sentry/nextjs', () => ({ init: vi.fn() }));
@@ -111,12 +111,41 @@ describe('scrubEvent', () => {
   });
 });
 
+describe('scrubBreadcrumb — 서버 http 브레드크럼', () => {
+  it('외부 호출 브레드크럼의 쿼리·프래그먼트를 지운다 — 키 필터만 거친 http.query 가 값을 그대로 남기므로', () => {
+    // 서버 SDK 가 외부 fetch 마다 남기는 모양(@sentry/node-core outgoingFetchRequest) — 값은 테스트 전용 더미다.
+    const breadcrumb: Breadcrumb = {
+      category: 'http',
+      type: 'http',
+      data: {
+        url: 'https://api.duings.com/api/v1/clubs?keyword=20261234',
+        'http.method': 'GET',
+        'http.query': 'keyword=20261234',
+        'http.fragment': '#section',
+        status_code: 200,
+      },
+    };
+
+    const scrubbed = scrubBreadcrumb(breadcrumb);
+
+    expect(scrubbed.data).toEqual({
+      url: 'https://api.duings.com/api/v1/clubs',
+      'http.method': 'GET',
+      status_code: 200,
+    });
+  });
+
+  it('데이터 없는 http 브레드크럼도 예외 없이 지나간다', () => {
+    expect(scrubBreadcrumb({ category: 'http' })).toEqual({ category: 'http' });
+  });
+});
+
 describe('sentry.server.config', () => {
-  it('서버 Sentry 를 scrubEvent·sendDefaultPii:false 로 초기화한다 — 가림 배선이 빠지면 실패한다', async () => {
+  it('서버 Sentry 를 scrubEvent·scrubBreadcrumb·sendDefaultPii:false 로 초기화한다 — 가림 배선이 빠지면 실패한다', async () => {
     await import('@/sentry.server.config');
 
     expect(vi.mocked(Sentry.init)).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeSend: scrubEvent, sendDefaultPii: false }),
+      expect.objectContaining({ beforeSend: scrubEvent, beforeBreadcrumb: scrubBreadcrumb, sendDefaultPii: false }),
     );
   });
 });
