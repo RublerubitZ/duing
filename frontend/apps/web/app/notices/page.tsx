@@ -8,7 +8,12 @@ import { SeededQuery } from '@/app/_lib/SeededQuery';
 import { DEFAULT_NOTICE_LIST_PARAMS } from './_lib/noticeListDefaults';
 import { NoticePage } from './_pages/NoticePage';
 
-export const metadata: Metadata = { title: '소식 | 두잉', alternates: { canonical: '/notices' } };
+export const metadata: Metadata = {
+  title: '소식 | 두잉',
+  // 화면 머리 문구와 같은 결 — 비로그인·크롤러에게는 학교 공지가 보인다.
+  description: '두잉과 대구대 동아리에서 전하는 공지·모집·행사·혜택 소식입니다.',
+  alternates: { canonical: '/notices' },
+};
 
 // 24시간 ISR — 공개 소식 목록의 첫 진입 화면(학교 공지·첫 페이지)을 초기 HTML 에 담아 크롤러가 목록과 상세 링크를
 // 읽게 한다. 시드는 첫 진입 키 하나뿐이다 — 카테고리·검색·페이지·출처를 바꾸면 지금처럼 클라이언트가 받는다.

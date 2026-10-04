@@ -10,7 +10,11 @@ import { ClubExploreFallback } from './_components/ClubExploreFallback';
 import { DEFAULT_CLUB_LIST_PARAMS } from './_lib/exploreParams';
 import { ClubExplorePage } from './_pages/ClubExplorePage';
 
-export const metadata: Metadata = { title: '동아리 탐색 | 두잉', alternates: { canonical: '/clubs' } };
+export const metadata: Metadata = {
+  title: '동아리 탐색 | 두잉',
+  description: '대구대학교 동아리를 분야·모집 상태별로 찾아보세요.',
+  alternates: { canonical: '/clubs' },
+};
 
 // 1시간 ISR — 탐색 화면은 필터를 URL 에서 읽어(useSearchParams) 정적 렌더가 Suspense 경계까지 클라이언트 렌더로
 // 넘어간다. 그래서 fallback 자리에 쿼리 없는 첫 진입의 기본 목록(추천순 첫 페이지)을 서버가 그려 크롤러가 읽게 하고,
