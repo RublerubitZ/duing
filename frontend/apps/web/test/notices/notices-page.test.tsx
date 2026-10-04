@@ -247,6 +247,29 @@ describe('NoticesPage — 고정 공지 3건 이상·빈 상태', () => {
     expect(screen.getByRole('link', { name: /고정 핀D/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /일반A/ })).not.toHaveAccessibleName(/고정/);
     expect(screen.getByRole('link', { name: /핀A/ })).not.toHaveAccessibleName(/고정/);
+    // 구분선은 마지막 행만 뺀다 — 합친 목록 기준(넘친 고정 + 일반). jsdom 은 'none' 을 'medium' 으로 바꿔 내놓는다.
+    const rowBorders = rows.map((row) => (row instanceof HTMLElement ? row.style.borderBottom : ''));
+    expect(rowBorders).toEqual([
+      '1px solid var(--gray-line)',
+      '1px solid var(--gray-line)',
+      expect.not.stringContaining('gray-line'),
+    ]);
+  });
+
+  it('넘친 고정 공지가 동아리 공지면 "고정" 표시가 제목 칸 첫 요소로 동아리 칩보다 앞선다', () => {
+    mockAuthStatus.value = 'authenticated';
+    mockUseNoticeListQuery.mockReturnValue(
+      makeListResponse([
+        makeNoticeItem({ id: 11, title: '핀A', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+        makeNoticeItem({ id: 12, title: '핀B', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+        makeNoticeItem({ id: 13, title: '핀C', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+      ]),
+    );
+
+    const { container } = render(<NoticesPage />);
+    fireEvent.click(screen.getByRole('button', { name: '내 동아리' }));
+
+    expect(container.querySelector('.notice-row .nr-title')?.firstElementChild).toHaveTextContent('고정');
   });
 
   it('고정 공지만 있고 일반 공지가 없으면 빈 상태 문구도, 머리글만 남은 목록 표도 그리지 않는다', () => {
