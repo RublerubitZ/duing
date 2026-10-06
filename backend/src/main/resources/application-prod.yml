@@ -110,7 +110,7 @@ duing:
   club:
     metric:
       enabled: ${DUING_CLUB_METRIC_ENABLED:true}
-  # 프론트 정각 재생성 트리거 — 다른 운영 잡과 달리 켜는 조건이 비밀값 존재다(하드코딩 활성 관례의 의도적 예외).
+  # 프론트 재생성 트리거(정각 /clubs·상세 /clubs/<id>) — 다른 운영 잡과 달리 켜는 조건이 비밀값 존재다(하드코딩 활성 관례의 의도적 예외).
   # 비밀값이 비면 비활성으로 부팅하고 시작 로그에 WARN 한 줄. 값은 서버 .env 에만 둔다.
   frontend:
     base-url: ${DUING_FRONTEND_BASE_URL:https://duings.com}
