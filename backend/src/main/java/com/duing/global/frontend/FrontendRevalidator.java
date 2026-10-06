@@ -95,7 +95,8 @@ public class FrontendRevalidator {
     public void logStatus() {
         if (enabled) {
             log.info("[프론트 재생성 트리거] 활성 — 정각 잡(DUING_CLUB_METRIC_ENABLED, 운영 기본 활성)이 켜져 있으면 "
-                    + "매시 정각 /clubs 재생성을 요청한다.");
+                    + "매시 정각 /clubs 재생성을 요청한다. 동아리 상세가 바뀐 커밋 뒤에는 정각 잡과 무관하게 "
+                    + "/clubs/<id> 재생성을 요청한다.");
         } else {
             log.warn("[프론트 재생성 트리거] 비활성 — DUING_FRONTEND_REVALIDATE_SECRET 미설정·32바이트 미만이거나 "
                     + "DUING_FRONTEND_BASE_URL 이 비었거나 절대 http(s) 주소가 아니다. "
