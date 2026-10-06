@@ -15,9 +15,13 @@ import { useState } from 'react';
  * `ready` 는 찜 상태(방향)를 아는지다. 찜 목록이 도착하기 전에는 찜한 동아리도 "찜 안 함"으로
  * 보이므로, 목록이 도착하며 false → true 로 뒤집히는 첫 반영을 사용자의 클릭과 구분할 수 없다.
  * 그래서 준비 전에는 "꺼진 하트를 봤다"고 기록하지도, 팝하지도 않는다 — 준비된 뒤의 전환만 재생한다.
+ *
+ * 준비됐다가 다시 준비 안 됨이 되면 앞서 본 "꺼진 하트"도 잊는다. 대표 사례: 로그인 이력 표시 없이 세션이 복원되는
+ * 첫 진입은 미인증(준비됨·꺼짐)으로 그린 뒤 인증되며 찜 목록을 기다린다 — 그 "꺼짐" 은 실제 상태가 아니었다.
  */
 export function useHeartPop(filled: boolean, ready = true): boolean {
   const [seenUnfilled, setSeenUnfilled] = useState(ready && !filled);
   if (ready && !filled && !seenUnfilled) setSeenUnfilled(true);
+  if (!ready && seenUnfilled) setSeenUnfilled(false);
   return ready && filled && seenUnfilled;
 }
