@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, facilityQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type {
   BookingAvailabilitySlot,
@@ -1711,6 +1711,65 @@ describe('FacilityBookingPage — 주간 이월(두 달 걸침) 게이팅(§12)'
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: '토요일 1일' })).toBeEnabled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('FacilityBookingPage — 이용현황 불러오기 실패', () => {
+  const failUsage = () =>
+    server.use(
+      http.get('*/facilities/usage', () =>
+        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류' }, { status: 500 }),
+      ),
+    );
+
+  it('이용현황을 다시 불러오다 실패해도 보이던 캘린더는 그대로 두고, 위에 다시 시도 안내를 띄운다', async () => {
+    const { queryClient } = renderPage();
+    expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
+
+    // TanStack Query v5 는 데이터가 있는 상태에서 재요청이 실패하면 isSuccess 를 내리되 data 는 남긴다
+    // (재방문 때 캐시로 그린 뒤 마운트·재연결 재요청이 실패하는 경우).
+    failUsage();
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: facilityQueryKeys.usage() });
+    });
+
+    const staleNotice = await screen.findByRole('alert');
+    expect(staleNotice).toHaveTextContent('최신 시설 정보를 불러오지 못했어요');
+    expect(screen.getByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
+
+    // 재시도 응답을 잠깐 붙잡는다 — 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로라,
+    // 그동안 버튼을 막아 진행 중임을 알리고 연타가 진행 중 요청을 취소·재시작하지 않게 한다.
+    server.use(
+      http.get('*/facilities/usage', async () => {
+        await delay(150);
+        return ok({
+          yearMonth: CURRENT_MONTH,
+          lastUpdatedAt: null,
+          stale: false,
+          source: 'CACHE',
+          facilities: [FACILITY_A, FACILITY_B, FACILITY_C],
+        });
+      }),
+    );
+    fireEvent.click(within(staleNotice).getByRole('button', { name: '다시 시도' }));
+
+    expect(await within(staleNotice).findByRole('button', { name: '다시 불러오는 중…' })).toBeDisabled();
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
+  });
+
+  it('이용현황을 처음부터 불러오지 못하면 오류 안내와 다시 시도 버튼을 보여 주고, 다시 시도로 회복한다', async () => {
+    failUsage();
+    renderPage();
+
+    const loadError = await screen.findByRole('alert');
+    expect(loadError).toHaveTextContent('시설 정보를 불러오지 못했어요');
+
+    server.resetHandlers();
+    fireEvent.click(within(loadError).getByRole('button', { name: '다시 시도' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

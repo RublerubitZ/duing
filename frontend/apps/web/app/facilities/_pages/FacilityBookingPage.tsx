@@ -444,11 +444,38 @@ export function FacilityBookingPage() {
   return (
     <main className="mx-auto max-w-layout px-4 pb-16 pt-page-top sm:px-6 md:px-10">
       {usageQuery.isLoading && <BookingHomeSkeleton />}
-      {usageQuery.isError && (
-        <p role="alert" className="text-sm text-charcoal-2">시설 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+      {usageQuery.isError && !usageQuery.data && (
+        <div role="alert" className="rounded-lg border border-line bg-paper p-6 text-center text-sm text-charcoal-2">
+          <p>시설 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+          <div className="mt-3 flex justify-center">
+            <button type="button" className="btn btn-primary" onClick={() => void usageQuery.refetch()}>
+              다시 시도
+            </button>
+          </div>
+        </div>
+      )}
+      {/* 재요청이 실패해도 이미 받은 이용현황은 남긴다 — TanStack Query 는 이때 isSuccess 를 내리지만 data 는 유지한다.
+          재방문 때 캐시로 그린 캘린더가 마운트·재연결 재요청의 실패로 통째로 오류 문구 한 줄로 바뀌던 결함이다. */}
+      {usageQuery.isError && usageQuery.data && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2"
+        >
+          <span>최신 시설 정보를 불러오지 못했어요. 지금 보이는 현황은 이전 내용일 수 있어요.</span>
+          {/* 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로다 — 버튼으로 진행 중임을 알리고,
+              연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={usageQuery.isFetching}
+            onClick={() => void usageQuery.refetch()}
+          >
+            {usageQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
+          </button>
+        </div>
       )}
 
-      {usageQuery.isSuccess && (
+      {usageQuery.data && (
         <div className="space-y-4">
           {homeView || effectiveFacilityId === undefined || usageQuery.data.facilities.length === 0 ? (
             // ── 홈 뷰: 시설 선택 카드 그리드 ── (명시적 홈 요청 또는 시설 0개)
