@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { LoginFormPanel } from './_components/LoginFormPanel';
 
-export const metadata: Metadata = { title: '로그인 | 두잉' };
+// 설명은 공유 미리보기용 — 비로그인 수집기는 보호 경로(/apply 등) 링크에서 이 페이지로 리다이렉트된다.
+export const metadata: Metadata = {
+  title: '로그인 | 두잉',
+  description: '로그인하고 동아리 지원·활동을 이어가세요.',
+};
 
 // 통계는 홈과 같은 600초 ISR — force-dynamic 은 요청(·`?next=` 리다이렉트 복귀)마다 백엔드
 // COUNT 2발을 만들었다. 빌드 시점 API 실패 폴백(null → 통계 문구 생략)이 박혀도, TTL 만료 후

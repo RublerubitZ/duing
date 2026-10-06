@@ -74,7 +74,11 @@ describe('소식 목록 라우트 — 24시간 ISR', () => {
     await expect(renderRoute()).resolves.toBe('no-seed');
   });
 
-  it('제목은 그대로, canonical 은 쿼리 없는 /notices', () => {
-    expect(metadata).toEqual({ title: '소식 | 두잉', alternates: { canonical: '/notices' } });
+  it('제목은 그대로, 화면 설명을 두고 canonical 은 쿼리 없는 /notices', () => {
+    expect(metadata).toEqual({
+      title: '소식 | 두잉',
+      description: '두잉과 대구대 동아리에서 전하는 공지·모집·행사·혜택 소식입니다.',
+      alternates: { canonical: '/notices' },
+    });
   });
 });
