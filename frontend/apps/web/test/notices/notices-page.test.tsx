@@ -351,6 +351,23 @@ describe('NoticesPage — 불러오기 실패', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('목록을 다시 불러오는 동안에는 안내의 버튼을 막고 진행 중임을 알린다 — 연타가 진행 중 요청을 취소·재시작하지 않게', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    // 데이터가 있는 상태의 재요청은 진행 중에도 status 가 error 로 남는다 — 화면이 바뀌지 않으니 버튼으로 알린다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '이미 보이던 공지' })]),
+      isSuccess: false,
+      isError: true,
+      isFetching: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch: vi.fn(),
+    });
+
+    render(<NoticesPage />);
+
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: '다시 불러오는 중…' })).toBeDisabled();
+  });
+
   it('처음 불러오기가 실패해 보여 줄 목록이 없으면 오류 안내와 다시 시도 버튼을 보여 준다', () => {
     mockAuthStatus.value = 'unauthenticated';
     const refetch = vi.fn();

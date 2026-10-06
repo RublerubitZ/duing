@@ -488,8 +488,15 @@ export function NoticePage() {
               className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3 text-[13px] text-charcoal-2"
             >
               <span>최신 공지를 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.</span>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => void listQuery.refetch()}>
-                다시 시도
+              {/* 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로다 — 버튼으로 진행 중임을 알리고,
+                  연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={listQuery.isFetching}
+                onClick={() => void listQuery.refetch()}
+              >
+                {listQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
               </button>
             </div>
           )}
