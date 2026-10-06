@@ -38,6 +38,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
 import com.duing.global.file.UploadedObjectService;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.time.Clock;
@@ -73,7 +74,7 @@ public class GeneralClubService implements ClubService {
     private final ApplicationRepository applicationRepository;
     // 모집 표시 상태(today) 판정용 — KST(seoulClock) 기준.
     private final Clock clock;
-    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    // 운영 Slack 알림·프론트 상세 재생성용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring·global/frontend).
     private final ApplicationEventPublisher eventPublisher;
     // 업로드 객체 추적(#791) — 로고·커버 URL 을 저장하는 쓰기 메서드에서 활성화한다.
     private final UploadedObjectService uploadedObjectService;
@@ -275,6 +276,8 @@ public class GeneralClubService implements ClubService {
         // 교체·비우기로 빠진 옛 로고·커버는 해제(#1153) — 새 값을 먼저 확정한 뒤.
         uploadedObjectService.releaseIfReplaced(previousLogoUrl, club.getLogoUrl());
         uploadedObjectService.releaseIfReplaced(previousCoverUrl, club.getCoverUrl());
+        // 공개 상세 재생성(#1356) — 리더 수정·총동연 수정이 모두 이 지점을 지난다(로고·커버·태그·연락처 공개 범위 포함).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
     }
 
     @Override
@@ -313,6 +316,8 @@ public class GeneralClubService implements ClubService {
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeCentralClub(command.centralClub());
+        // 중앙동아리 배지·소속 표기가 바뀐다 — 공개 상세 재생성(#1356).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSumma
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.web.PageRequestGuard;
 import com.duing.global.web.SortWhitelist;
 import jakarta.persistence.EntityManager;
@@ -31,6 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +58,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     private final UserRepository userRepository;
     private final ClubMemberHistoryRecorder historyRecorder;
     private final EntityManager entityManager;
+    // 승인으로 회장이 바뀌면 공개 상세의 "동아리 회장" 줄이 바뀐다 — 커밋 뒤 상세 재생성 이벤트(#1356).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -145,6 +149,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         } catch (ObjectOptimisticLockingFailureException concurrentProcess) {
             throw new ClubMemberException.ConcurrentSuccessionUpdateException();
         }
+        // 거절(REJECTED)은 위에서 이미 반환했다 — 회장이 바뀐 승인만 발행한다.
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     @Override
