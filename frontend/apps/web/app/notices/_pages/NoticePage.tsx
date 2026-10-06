@@ -469,13 +469,39 @@ export function NoticePage() {
               label="공지 목록 불러오는 중"
             />
           )}
-          {listQuery.isError && (
-            <p style={{ padding: '48px 0', textAlign: 'center', color: '#E14A3A', fontSize: 13 }}>
-              공지를 불러오지 못했습니다.
-            </p>
+          {/* 보여 줄 목록이 없는 실패 — 첫 요청뿐 아니라 탭·필터·페이지를 바꾼 직후의 실패도 여기로 온다(새 조건엔 아직
+              data 가 없다). 다른 조건의 목록을 "이전 내용" 으로 남기면 결과를 오해하므로 전체 오류로 둔다. */}
+          {listQuery.isError && !listQuery.data && (
+            <div role="alert" style={{ padding: '48px 0', textAlign: 'center' }}>
+              <p style={{ color: '#E14A3A', fontSize: 13 }}>공지를 불러오지 못했습니다.</p>
+              <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => void listQuery.refetch()}>
+                다시 시도
+              </button>
+            </div>
           )}
 
-          {listQuery.isSuccess && (
+          {/* 재요청이 실패해도 이미 받은 목록은 남긴다 — TanStack Query 는 이때 isSuccess 를 내리지만 data 는 유지한다.
+              24시간 ISR 시드로 그린 첫 화면이 마운트 재요청의 시간 초과로 통째로 오류 문구로 바뀌던 결함이다. */}
+          {listQuery.isError && listQuery.data && (
+            <div
+              role="alert"
+              className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3 text-[13px] text-charcoal-2"
+            >
+              <span>최신 공지를 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.</span>
+              {/* 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로다 — 버튼으로 진행 중임을 알리고,
+                  연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={listQuery.isFetching}
+                onClick={() => void listQuery.refetch()}
+              >
+                {listQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
+              </button>
+            </div>
+          )}
+
+          {listQuery.data && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
             // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
