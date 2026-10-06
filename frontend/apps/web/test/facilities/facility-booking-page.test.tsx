@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '@duing/api';
@@ -1738,9 +1738,23 @@ describe('FacilityBookingPage — 이용현황 불러오기 실패', () => {
     expect(staleNotice).toHaveTextContent('최신 시설 정보를 불러오지 못했어요');
     expect(screen.getByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
 
-    server.resetHandlers();
+    // 재시도 응답을 잠깐 붙잡는다 — 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로라,
+    // 그동안 버튼을 막아 진행 중임을 알리고 연타가 진행 중 요청을 취소·재시작하지 않게 한다.
+    server.use(
+      http.get('*/facilities/usage', async () => {
+        await delay(150);
+        return ok({
+          yearMonth: CURRENT_MONTH,
+          lastUpdatedAt: null,
+          stale: false,
+          source: 'CACHE',
+          facilities: [FACILITY_A, FACILITY_B, FACILITY_C],
+        });
+      }),
+    );
     fireEvent.click(within(staleNotice).getByRole('button', { name: '다시 시도' }));
 
+    expect(await within(staleNotice).findByRole('button', { name: '다시 불러오는 중…' })).toBeDisabled();
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
   });

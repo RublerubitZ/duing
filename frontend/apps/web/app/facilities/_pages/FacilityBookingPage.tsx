@@ -462,8 +462,15 @@ export function FacilityBookingPage() {
           className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-charcoal-2"
         >
           <span>최신 시설 정보를 불러오지 못했어요. 지금 보이는 현황은 이전 내용일 수 있어요.</span>
-          <button type="button" className="btn btn-secondary" onClick={() => void usageQuery.refetch()}>
-            다시 시도
+          {/* 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로다 — 버튼으로 진행 중임을 알리고,
+              연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={usageQuery.isFetching}
+            onClick={() => void usageQuery.refetch()}
+          >
+            {usageQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
           </button>
         </div>
       )}
