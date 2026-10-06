@@ -321,6 +321,7 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
 
         Long approvedRequestId = leaderSuccessionService.create(
                 new CreateSuccessionCommand(club.getId(), leader.getId(), "회장 복귀 재요청"));
+        assertThat(List.of(rejectedRequestId, approvedRequestId)).doesNotContain(club.getId());
         leaderSuccessionService.process(new ProcessSuccessionCommand(
                 approvedRequestId, admin.getId(), SuccessionStatus.APPROVED, "승인"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
