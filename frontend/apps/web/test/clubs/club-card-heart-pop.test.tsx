@@ -56,6 +56,19 @@ describe('ClubCard — 찜 하트 팝', () => {
     expect(heartClass()).toContain('animate-heart-pop');
   });
 
+  // 로그인 이력 표시 없이 세션이 복원되는 첫 진입 — 미인증(준비됨·꺼짐)으로 그린 뒤 인증되며 찜 목록을 기다리고
+  // (준비 안 됨), 목록이 도착하며 찜한 동아리가 켜진다. 앞서 본 "꺼진 하트" 는 실제 상태가 아니었으므로 팝하지 않는다.
+  it('미인증으로 그린 뒤 세션 복원으로 찜 목록이 도착해 켜지는 전환은 팝하지 않는다', () => {
+    const { rerender } = render(<ClubCard club={baseClub} liked={false} isFavoriteStateReady />);
+    rerender(<ClubCard club={baseClub} liked={false} isFavoriteStateReady={false} />);
+    rerender(<ClubCard club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).not.toContain('animate-heart-pop');
+
+    rerender(<ClubCard club={baseClub} liked={false} isFavoriteStateReady />);
+    rerender(<ClubCard club={baseClub} liked isFavoriteStateReady />);
+    expect(heartClass()).toContain('animate-heart-pop');
+  });
+
   it('꺼진 하트로 시작해 찜하면 팝하고, 다시 해제하면 팝 클래스가 사라진다', () => {
     const { rerender } = render(<ClubCard club={baseClub} liked={false} />);
     expect(heartClass()).not.toContain('animate-heart-pop');
