@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { NoticeCardItem } from '@duing/types';
 
@@ -324,5 +324,50 @@ describe('NoticesPage — 고정 공지 3건 이상·빈 상태', () => {
     fireEvent.click(screen.getByRole('button', { name: '내 동아리' }));
 
     expect(screen.getByText('가입한 동아리의 공지가 없습니다')).toBeInTheDocument();
+  });
+});
+
+describe('NoticesPage — 불러오기 실패', () => {
+  it('다시 불러오기가 실패해도 이미 보이던 목록은 그대로 두고, 위에 다시 시도 안내를 띄운다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    const refetch = vi.fn();
+    // TanStack Query v5 는 데이터가 있는 상태에서 재요청이 실패하면 status 를 error(isSuccess false)로 바꾸되 data 는 남긴다.
+    // 24시간 ISR 시드로 첫 화면을 그린 뒤 마운트 재요청이 시간 초과로 끝나는 경우가 이 상태다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '이미 보이던 공지' })]),
+      isSuccess: false,
+      isError: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch,
+    });
+
+    render(<NoticesPage />);
+
+    expect(screen.getByText('이미 보이던 공지')).toBeInTheDocument();
+    expect(screen.queryByText('공지를 불러오지 못했습니다.')).not.toBeInTheDocument();
+    const staleNotice = screen.getByRole('alert');
+    expect(staleNotice).toHaveTextContent('최신 공지를 불러오지 못했습니다');
+    fireEvent.click(within(staleNotice).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('처음 불러오기가 실패해 보여 줄 목록이 없으면 오류 안내와 다시 시도 버튼을 보여 준다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    const refetch = vi.fn();
+    mockUseNoticeListQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isSuccess: false,
+      isError: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch,
+    });
+
+    render(<NoticesPage />);
+
+    const loadError = screen.getByRole('alert');
+    expect(loadError).toHaveTextContent('공지를 불러오지 못했습니다.');
+    fireEvent.click(within(loadError).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
