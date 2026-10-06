@@ -110,6 +110,10 @@ security:
     encryption-key: ZHVpbmctdGVzdC1mZWUtYWNjb3VudC1hZXMyNTYta2U=
 
 duing:
+  frontend:
+    # 동아리 상세 재생성 간격(운영 기본 60초)을 끈다 — 통합 테스트가 발행 지점마다 요청이 나가는지를 그대로 센다.
+    # 간격으로 합치는 규칙은 ClubPublicPageRevalidationListenerTest 가 고정한다.
+    club-detail-min-interval: 0s
   notification:
     jobs:
       enabled: false
