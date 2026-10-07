@@ -7,7 +7,7 @@ import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
-import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
@@ -236,8 +236,8 @@ export function NoticePage() {
     size: NOTICE_LIST_PAGE_SIZE,
   });
 
-  // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
-  const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
+  // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 첫 목록이 떠오른다(뒤로·앞으로 가기는 그대로).
+  const playsEntrance = useEntranceMotion(listQuery.isLoading);
   // NEW 배지(작성 7일 이내)는 하이드레이션 뒤에만 — 목록은 24시간 ISR 이라 서버가 계산한 값이 보는 시각과 달라
   // 하이드레이션 불일치(#418)가 난다. 서버·첫 프레임에는 그리지 않는다.
   const hydrated = useHydrated();
@@ -504,12 +504,12 @@ export function NoticePage() {
           {listQuery.data && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
-            // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
+            // 앞으로 들어오거나 스켈레톤을 거친 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
             <div
               aria-busy={listQuery.isPlaceholderData}
               className={
                 cn(
-                  enteredFromSkeleton && 'enter-content',
+                  playsEntrance && 'enter-content',
                   listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                 ) || undefined
               }
