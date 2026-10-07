@@ -13,9 +13,9 @@
 # 거쳐 나가는 정상 사용자(WARP 등)도 있을 수 있다. 그 연결은 그 IP 로 집계될 뿐이다.
 #
 # ⚠ 비상 모드(Cloudflare 프록시 다시 켜기)로 돌아갈 때는 프록시를 켜기 "전에" 신뢰 블록부터 복원·배포한다.
-#   복원할 내용 = `git show 1d960e0d4:deploy/Caddyfile`(#1112) 의 전역 옵션 블록 그대로 — servers 안의
-#   trusted_proxies static <CF 대역> 줄과 client_ip_headers Cf-Connecting-Ip 줄
-#   (대역은 https://www.cloudflare.com/ips 최신본). 복원 없이 프록시를 켜면 모든 연결의 피어가 CF 엣지라 전 사용자가
+#   복원할 내용 = 아래 전역 `servers {` 블록 안에 두 줄만 더한다(timeouts·protocols 는 그대로 둔다 — 블록째 바꾸면 사라진다):
+#   trusted_proxies static <CF 대역> 줄과 client_ip_headers Cf-Connecting-Ip 줄(#1112 `1d960e0d4` 에서 넣었던 두 줄,
+#   대역은 https://www.cloudflare.com/ips 최신본). 복원 없이 프록시를 켜면 모든 연결의 피어가 CF 엣지라 전 사용자가
 #   CF PoP 단위로 레이트리밋 버킷을 공유한다(#1112 이전 상태). 복원할 때 .github/workflows/deploy-config-ci.yml 의 부재
 #   단언도 #1112 의 존재 단언으로 함께 되돌린다. 그 상태에서 남는 다른 CF 존 경유 위조(#1329)는 존 전용
 #   Authenticated Origin Pulls 로 닫는다.
