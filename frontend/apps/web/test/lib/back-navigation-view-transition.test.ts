@@ -178,6 +178,8 @@ describe('installBackNavigationViewTransitionGuard', () => {
 
     expect(nativeStart).not.toHaveBeenCalled();
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    // popstate 가 건 안전장치 타이머도 마커와 함께 취소됐다(목 backDismiss 는 타이머를 걸지 않는다).
+    expect(vi.getTimerCount()).toBe(0);
 
     // 시트를 닫자마자 카드를 눌러 앞으로 이동 — 마커가 없으니 전환이 그대로(애니메이션 유지) 시작된다.
     overlayOnly = false;
@@ -187,6 +189,29 @@ describe('installBackNavigationViewTransitionGuard', () => {
 
     // 안전장치 타이머도 함께 취소됐다 — 시간이 지나도 아무 일이 없다.
     vi.advanceTimersByTime(2000);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('앞선 뒤로가기 전환이 마커를 들고 있는 동안의 오버레이 hop 은 마커를 내리지 않는다 — 죽은 엔트리 스킵의 두 번째 hop', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const deferred = createDeferred<void>();
+    document.startViewTransition = () => createViewTransitionMock(deferred.promise);
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 1: 실제 전환이 마커 인수
+    document.startViewTransition(() => undefined);
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 2: 같은 URL 스킵 착지
+    document.startViewTransition(() => undefined);
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    // 세대가 바뀌어 hop 1 의 finished 는 마커를 내리지 못한다.
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
+    await vi.advanceTimersByTimeAsync(2000); // hop 2 안전장치가 내린다
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
   });
 });
@@ -205,6 +230,7 @@ describe('isBackNavigationPending', () => {
     vi.resetModules();
     const { isBackNavigationPending } = await import('@/app/_lib/backNavigationViewTransition');
 
+    document.documentElement.setAttribute('data-back-navigation', '');
     vi.stubGlobal('document', undefined);
     try {
       expect(isBackNavigationPending()).toBe(false);

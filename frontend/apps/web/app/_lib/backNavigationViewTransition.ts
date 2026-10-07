@@ -17,7 +17,10 @@ let installed = false;
  * 서버 렌더(문서 없음)에서는 거짓이다.
  */
 export function isBackNavigationPending(): boolean {
-  return typeof document !== 'undefined' && document.documentElement.hasAttribute(BACK_NAVIGATION_ATTRIBUTE);
+  return (
+    typeof document !== 'undefined' &&
+    document.documentElement.hasAttribute(BACK_NAVIGATION_ATTRIBUTE)
+  );
 }
 
 export function installBackNavigationViewTransitionGuard() {
@@ -30,6 +33,9 @@ export function installBackNavigationViewTransitionGuard() {
   // 마커 세대 — 연속 popstate 에서 이전(스킵된) 전환의 finished 가 최신 마커를 지우지 못하게 한다.
   let markerGeneration = 0;
   let failsafeTimer: number | null = null;
+  // 마커를 인수해 finished 를 기다리는 전환 수 — 죽은 엔트리 스킵의 두 번째 hop 처럼 앞선 popstate 의
+  // 전환이 진행 중일 때 뒤따르는 오버레이 분기가 마커를 내리면 그 전환의 억제가 풀린다.
+  let markerHolders = 0;
 
   const cancelFailsafe = () => {
     if (failsafeTimer !== null) {
@@ -71,10 +77,12 @@ export function installBackNavigationViewTransitionGuard() {
       // 프라미스(라이브러리가 pathname 변경 때 resolve)는 기다리지 않는다 — 그게 멈춤의 원인이다.
       const update = typeof callback === 'function' ? callback : callback?.update;
       void Promise.resolve(update?.()).catch(() => undefined);
-      // 전환을 시작하지 않으니 마커가 필요 없다 — 바로 내린다(안전장치 타이머도 함께 취소). 남겨 두면 2초 안에
-      // 이어지는 앞으로 전환(카드 → 상세)이 마커를 "뒤로 가기"로 인수해 애니메이션(로고 모핑 포함)이 꺼지고,
-      // 그 화면의 등장 연출도 빠진다. 필터 시트·라이트박스·모달을 뒤로 가기로 닫고 바로 카드를 누르는 흔한 경로다.
-      clearMarker(markerGeneration);
+      // 이 분기는 전환을 시작하지 않는다. 시트·라이트박스·모달을 닫는 한 번짜리 뒤로 가기에서는 마커가 할 일이 없으니
+      // 바로 내린다(안전장치 타이머도 함께 취소). 남겨 두면 2초 안에 이어지는 앞으로 전환(카드 → 상세)이 마커를
+      // "뒤로 가기"로 인수해 애니메이션(로고 모핑 포함)이 꺼지고, 그 화면의 등장 연출도 빠진다 — 닫고 바로 카드를 누르는 흔한 경로다.
+      // 앞선 전환이 마커를 들고 있으면 내리지 않는다. 죽은 엔트리 스킵의 두 번째 hop(같은 URL 착지)이 그 경우로, 여기서
+      // 내리면 첫 hop 의 실제 페이지 전환이 억제를 잃어 크로스페이드가 재생된다. 그때는 이 세대의 안전장치가 2초 안에 내린다.
+      if (markerHolders === 0) clearMarker(markerGeneration);
       const settled = Promise.resolve();
       return {
         ready: settled,
@@ -93,7 +101,13 @@ export function installBackNavigationViewTransitionGuard() {
       // 해제는 이 전환의 finished(현 세대 한정)가 담당한다.
       cancelFailsafe();
       const generation = markerGeneration;
-      transition.finished.catch(() => undefined).finally(() => clearMarker(generation));
+      markerHolders += 1;
+      transition.finished
+        .catch(() => undefined)
+        .finally(() => {
+          markerHolders -= 1;
+          clearMarker(generation);
+        });
     }
     return transition;
   };
