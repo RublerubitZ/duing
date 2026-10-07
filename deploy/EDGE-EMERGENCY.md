@@ -50,7 +50,7 @@
 
 - Cloudflare·Lightsail 콘솔에 바로 로그인할 수 있는 사람이 최소 1명(2단계 인증 포함).
 - 서버 SSH: `ssh ubuntu@<서버 IP>` → 배포 디렉터리 `/home/ubuntu/duing`(저장소 시크릿 `DEPLOY_DIR` 이 있으면 그 값).
-- `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다(2026-10-07 기준 자동 = 5분 — 아직 안 바꿈).
+- `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다(2026-10-07 2분으로 바꿈 — 권한 네임서버 응답 TTL 120 확인).
 - Cloudflare SSL/TLS 암호화 모드가 **전체(Full)** 이상인지 가끔 확인한다(2026-10-07 부터 **전체(엄격)**).
 - 분기마다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 가 최신인지 https://www.cloudflare.com/ips-v4 · ips-v6 와 대조한다.
 
