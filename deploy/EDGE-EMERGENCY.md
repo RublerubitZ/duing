@@ -9,11 +9,11 @@
 > ⚠️ **과도기(2026-10-07 기준)**: DNS 전환은 **10:40 에 끝났다(직결)**. develop 은 #1395 로 Cloudflare 신뢰 블록을 지웠지만, 그것이 실린
 > main 릴리스 전까지 **main·운영 서버 Caddyfile 에는 신뢰 블록이 남아 있다**(연결 시간 상한 #1394 도 아직 develop 에만 있다). 그동안 배포(Deploy
 > Backend)는 main push 로만 돌아 신뢰 블록이 유지되므로, 비상 모드에서 1-1 은 확인만 하고 넘어가며 2-5 는 하지 않는다. 1-5·2-6 은 아래
-> 되돌림 릴리스를 했을 때만 따른다.
+> "꼭 릴리스해야 할 때" 에만 따른다.
 > **수동 실행(Actions 의 Run workflow, `gh workflow run deploy-backend.yml`)은 기본 브랜치가 develop 이라, 과도기에는 ref 를 반드시 main 으로
 > 고른다**(`--ref main`). 지금까지 실행은 전부 main push 라 직전 성공 실행의 re-run 은 무해하다.
 > **비상 모드(프록시 ON) 중에는 develop→main 릴리스를 하지 않는다** — 릴리스가 서버의 신뢰 블록을 지워 #1112 회귀(전원이 CF 엣지 IP 로 집계)가 난다.
-> 그 사이 꼭 릴리스해야 하면 1-5 첫 항목대로 develop 에서 #1395 를 되돌리는 PR 부터 머지한다. 그렇게 릴리스했다면 비상 모드가 끝난 뒤 2-6 대로 그 되돌림을 다시
+> 그 사이 꼭 릴리스해야 하면 1-5 대로 develop 에 신뢰 블록을 다시 넣는 PR 부터 머지한다. 그렇게 릴리스했다면 비상 모드가 끝난 뒤 2-6 대로 그 PR 을
 > 되돌려 릴리스한다. 릴리스 뒤 관리 API 되읽기로 `client_ip_headers` 0건을 확인하고 이 문단을 지운다.
 
 ## 한눈에 보기
@@ -180,10 +180,11 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 1-1 은 서버 파일만 바꿨다. Deploy Backend 가 한 번이라도 돌면 저장소 파일로 덮어써 신뢰 블록이 사라지고 #1112 회귀가 난다. 저장소에도 같은 상태를 넣는다.
 
-- **develop 에 아직 릴리스하지 않은 변경이 없으면**: develop 에 신뢰 블록을 지운 커밋(#1395 의 squash 커밋)을 `git revert` 하는 PR 을 낸다.
-  Caddyfile 신뢰 블록과 `deploy-config-ci.yml` 의 존재 단언이 함께 돌아온다. 머지한 뒤 main 으로 승격한다.
-- **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 revert 만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
-- Cloudflare 대역이 #1112 때와 달라졌으면 revert 뒤 최신 대역으로 맞춘다.
+- 저장소에 넣을 것은 두 가지다. ① `deploy/Caddyfile` 전역 `servers {` 블록에 1-1 과 같은 두 줄(최신 Cloudflare 대역)
+  ② `.github/workflows/deploy-config-ci.yml` 첫 단언을 #1112(`1d960e0d4`)의 존재 단언으로 되돌리기. 이 두 파일만 바꾼다 — 신뢰 블록을 지운
+  #1395 의 squash 커밋을 통째로 `git revert` 하지 않는다(그 커밋에는 이 런북의 과도기 안내도 들어 있어, 되돌리면 이 절차를 끝내는 안내까지 사라진다).
+- **develop 에 아직 릴리스하지 않은 변경이 없으면**: 위 두 변경을 develop PR 로 머지한 뒤 main 으로 승격한다.
+- **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 두 변경만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
 - 핫픽스 배포(Deploy Backend)는 백엔드 컨테이너도 다시 만들어 수십 초 끊긴다. 공격이 잦아든 틈에 한다.
 
 ### 1-6. (최후) 고정 IP 교체
@@ -241,8 +242,8 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
    - `0` 이 아니면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
    - "조회 실패" 가 찍히면 관리 API 를 못 읽은 것이다(`0` 이 함께 나와도 믿지 않는다). `docker compose ps caddy` 부터 본다.
-6. **저장소**(과도기에는 맨 위 과도기 문단의 되돌림 릴리스를 했을 때만)
-   - 1-5 핫픽스를 했다면 그 revert 를 다시 되돌리는 PR(신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
+6. **저장소**(과도기에는 맨 위 과도기 문단대로 신뢰 블록을 다시 넣어 릴리스했을 때만)
+   - 1-5 핫픽스를 했다면 그 PR 을 되돌리는 PR(`git revert` — 두 파일만 바뀐다: 신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
    - 핫픽스를 하지 않았다면 5번 결과가 이미 저장소 파일과 같다.
 7. **사후 기록**: 타임라인(감지 → 전환 → 복구), 공격 형태, 다음에 바꿀 점을 남긴다. `UPTIME.md` 런북 5번과 같은 방식이다.
 
