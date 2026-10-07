@@ -99,7 +99,9 @@ export function NoticeDetailPage() {
   return (
     <div>
       <NoticeDetailTopBar />
-      <div className={cn('max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24', playsEntrance && 'enter-content')}>
+      {/* 제목 머리·표지(포스터)는 연출 밖 — 첫 화면 LCP 요소(제목 텍스트·표지 이미지)가 투명도 0 에서 시작하면 LCP 가 늦게
+          잡힌다(QA 실측: 제목이 연출 안일 때 중앙값 +212ms). 동아리 상세 히어로와 같은 원칙으로 그 아래 본문·옆 카드만 떠오른다. */}
+      <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
         <NoticeArticleHeader
           category={notice.category}
           title={notice.title}
@@ -123,14 +125,16 @@ export function NoticeDetailPage() {
               title={notice.title}
               summary={notice.summary}
             />
-            {/* 모바일: 한눈에 보기(이벤트)를 본문 위로 끌어올림. 데스크탑은 우측 카드를 쓴다. */}
-            {notice.eventInfo && (
-              <NoticeEventSummary eventInfo={notice.eventInfo} className="mb-8 md:hidden" />
-            )}
-            <NoticeContent content={notice.content} format={notice.contentFormat} />
+            <div className={playsEntrance ? 'enter-content' : undefined}>
+              {/* 모바일: 한눈에 보기(이벤트)를 본문 위로 끌어올림. 데스크탑은 우측 카드를 쓴다. */}
+              {notice.eventInfo && (
+                <NoticeEventSummary eventInfo={notice.eventInfo} className="mb-8 md:hidden" />
+              )}
+              <NoticeContent content={notice.content} format={notice.contentFormat} />
+            </div>
           </article>
 
-          <aside className="lg:sticky lg:top-24 flex flex-col gap-4 min-w-0">
+          <aside className={cn('lg:sticky lg:top-24 flex flex-col gap-4 min-w-0', playsEntrance && 'enter-content')}>
             {notice.eventInfo ? (
               <div className="hidden md:block">
                 <NoticeEventCard eventInfo={notice.eventInfo} linkUrl={notice.linkUrl} />
