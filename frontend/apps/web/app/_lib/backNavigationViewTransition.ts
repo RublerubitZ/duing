@@ -71,10 +71,15 @@ export function installBackNavigationViewTransitionGuard() {
   let settlePendingUpdate: ((updateDone: Promise<unknown>) => void) | null = null;
 
   const withSettleableUpdate = (callback: ViewTransitionUpdateCallback | StartViewTransitionOptions | undefined) => {
-    let settle: (updateDone: Promise<unknown>) => void = () => undefined;
+    let release!: (value: unknown) => void;
     const settled = new Promise<unknown>((resolve) => {
-      settle = resolve;
+      release = resolve;
     });
+    // 넘겨받은 프라미스 중 먼저 끝나는 쪽이 업데이트를 끝낸다(여러 번 넘겨도 된다) — 죽은 엔트리가 둘 이상이면 라이브러리는
+    // 마지막 hop 프라미스만 resolve 하므로, 처음 받은 것에 묶어 두면 다시 고아가 된다. 오류로 끝나도 업데이트는 끝낸다.
+    const settle = (updateDone: Promise<unknown>) => {
+      void updateDone.then(release, release);
+    };
     settlePendingUpdate = settle;
     const settleable = (update: ViewTransitionUpdateCallback | null | undefined) => () =>
       Promise.race([Promise.resolve(update?.()), settled]).finally(() => {
@@ -97,8 +102,8 @@ export function installBackNavigationViewTransitionGuard() {
       const update = typeof callback === 'function' ? callback : callback?.update;
       const updateDone = Promise.resolve(update?.());
       updateDone.catch(() => undefined);
-      // 앞선 실제 전환(죽은 엔트리 스킵의 첫 hop)이 업데이트를 기다리면, 그 끝을 이 hop 프라미스에 묶는다 — 라이브러리가 그
-      // 전환의 프라미스를 이 hop 것으로 갈아 끼웠고, 이 hop 프라미스가 그 이동의 커밋(pathname 변경)에서 resolve 된다.
+      // 앞선 실제 전환(죽은 엔트리 스킵의 첫 hop)이 업데이트를 기다리면, 이 hop 프라미스를 넘긴다 — 라이브러리가 그 전환의
+      // 프라미스를 hop 마다 새것으로 갈아 끼우고, 마지막 hop 프라미스가 그 이동의 커밋(pathname 변경)에서 resolve 된다.
       settlePendingUpdate?.(updateDone);
       // 이 분기는 전환을 시작하지 않는다. 시트·라이트박스·모달을 닫는 한 번짜리 뒤로 가기에서는 마커가 할 일이 없으니
       // 바로 내린다(안전장치 타이머도 함께 취소). 남겨 두면 2초 안에 이어지는 앞으로 전환(카드 → 상세)이 마커를
