@@ -18,7 +18,7 @@ function addDaysIso(iso: string, days: number): string {
 
 // 최종 개정일. 시행일은 개정일 + 7일(개정 고지 유예)로 산출한다 — 이 상수 하나만 바꾸면 헤더·약관 부칙·처리방침 13조가 함께 움직인다.
 // 릴리스 PR 에서 prod 반영일로 바꾼다(develop 머지일이 아니다) — test/terms/terms-page.test.tsx 의 날짜 기대값 3곳도 함께 바꿔야 CI 가 통과한다.
-const REVISED_DATE = '2026-10-02';
+const REVISED_DATE = '2026-10-07';
 const EFFECTIVE_DATE = addDaysIso(REVISED_DATE, 7);
 const OPERATOR = '두잉(Duing) 운영팀';
 const CONTACT_EMAIL = 'duing.official@gmail.com';
