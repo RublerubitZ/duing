@@ -654,8 +654,11 @@ body {
 .animate-float-a   { animation: float-a  6s   ease-in-out infinite; }
 .animate-float-b   { animation: float-b  6.5s ease-in-out infinite; animation-delay: 1.2s; }
 
-/* 탐색 목록 첫 로드 스태거 — 첫 데이터가 도착한 렌더에서만 카드가 차례로 떠오른다.
-   항목당 40ms 씩 미루되 8번째부터는 280ms 로 묶어(min) 뒤쪽 카드가 하염없이 늦어지지 않게 한다.
+/* 탐색 목록 등장 스태거 — 앞으로 들어오거나(첫 로드·앱 안 이동) 스켈레톤을 거친 첫 목록이 정착할 때 카드가 차례로 떠오른다.
+   첫 로드에서는 서버 목록(ClubExploreFallback)에 달려 JS 를 기다리지 않고 재생되고, 그것을 바꿔 끼우는 실제 화면은 다시
+   재생하지 않는다. 뒤로·앞으로 가기로 다시 그려진 목록, 필터·정렬·페이지 변경에는 붙지 않는다(ClubExplorePage 게이트).
+   항목당 40ms 씩 미루되 8번째부터는 280ms 로 묶어(min) 뒤쪽 카드가 하염없이 늦어지지 않게 한다 — 이 값을 바꾸면
+   exploreUi 의 STAGGER_WINDOW_MS(재생 시간)도 함께 바꾼다.
    fill-mode 는 backwards — 지연 구간에 from(opacity 0 · 8px 아래)을 미리 적용해 차례를 기다리는 카드가
    먼저 보였다 사라지지 않게 하고, 끝나면 요소에 아무 값도 남기지 않는다(끝난 애니메이션이 in effect 로
    남지 않는다). 끝난 뒤 카드 로고의 view-transition-name 위에 변환된 조상이 얹혀 있지 않다.

@@ -4,6 +4,8 @@
 // 문구·클래스로 그린다 — 컨트롤·행·그리드 클래스와 스코프·정렬 선택지는 exploreUi 공용 상수가 양쪽을 묶고, 나머지
 // (섹션·제목 블록·검색 자리 틀·레일 틀·목록 래퍼)는 손으로 맞춘다(저쪽을 고치면 여기도). 깜빡이는 것은 회색 자리
 // (검색·사이드바)뿐이다. 데이터가 없으면(빌드 국면 장애) 지금 스켈레톤을 그대로 그린다.
+// 카드 래퍼에는 등장 스태거(.enter-stagger)를 달아 JS 를 기다리지 않고 첫 화면에서 CSS 로 떠오르게 한다. 최상위의
+// data-explore-server-list(SERVER_LIST_ATTRIBUTE)를 실제 화면이 마운트 때 보고, 바꿔 끼울 때는 다시 재생하지 않는다.
 
 import type { ClubSummary, PageResponse } from '@duing/types';
 
@@ -21,6 +23,7 @@ import {
   SCOPE_SEGMENT_CLASS,
   SORT_OPTIONS,
   SORT_SELECT_CLASS,
+  staggerStyle,
 } from '../_lib/exploreUi';
 import { ClubCard } from './ClubCard';
 import { ClubExploreSkeleton } from './ClubExploreSkeleton';
@@ -32,7 +35,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
   const { totalElements } = page;
 
   return (
-    <div>
+    <div data-explore-server-list="">
       {/* ─── 데스크탑 (md+) ─── */}
       <div className="hidden md:block">
         <section className="bg-cream pt-page-top pb-7">
@@ -109,8 +112,8 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
 
               {/* ClubExplorePage 의 같은 그리드 — CARD_GRID_CLASS 공용. 카드마다 grid 래퍼(같은 행 카드 높이 맞춤) */}
               <div className={CARD_GRID_CLASS}>
-                {clubs.map((club) => (
-                  <div key={club.id} className="grid">
+                {clubs.map((club, index) => (
+                  <div key={club.id} className="grid enter-stagger" style={staggerStyle(index)}>
                     <ClubCard club={club} />
                   </div>
                 ))}
@@ -172,8 +175,11 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
         {/* ClubExplorePage 의 같은 목록 래퍼와 맞춘다(손으로 맞춤) */}
         <div className="px-4 pb-8 sm:px-6">
           <div className="flex flex-col gap-3">
-            {clubs.map((club) => (
-              <ClubListItem key={club.id} club={club} />
+            {clubs.map((club, index) => (
+              // 실제 화면과 같은 행 래퍼 — 세로 플렉스 아이템이라 폭·간격이 그대로다. 스태거는 래퍼에 단다.
+              <div key={club.id} className="enter-stagger" style={staggerStyle(index)}>
+                <ClubListItem club={club} />
+              </div>
             ))}
           </div>
         </div>

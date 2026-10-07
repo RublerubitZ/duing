@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
@@ -12,9 +12,11 @@ import { useAuthStore } from '@duing/stores';
 import type { ClubSummary, PageResponse } from '@duing/types';
 
 /**
- * 탐색 목록의 첫 로드 스태거(§PR-4).
- * 스태거는 첫 데이터가 도착한 1회에만 붙는다 — 필터 변경·페이지 이동은 반복 액션이라 제외한다.
- * (같은 PR 에 있던 카테고리 탭 인디케이터는 번들 비용 때문에 빠졌다.)
+ * 탐색 목록의 등장 스태거.
+ * 앞으로 들어온 마운트(첫 로드·앱 안 이동)거나 데이터 없이 마운트해 스켈레톤을 거친 첫 목록이 정착할 때 붙는다.
+ * 뒤로·앞으로 가기(마커)로 그려진 마운트와, 서버 목록(fallback)을 바꿔 끼우는 교체 마운트는 제외한다.
+ * 붙은 뒤에는 재생 시간(STAGGER_WINDOW_MS) 동안 같은 조건의 재요청에도 유지되고, 시간이 지나면 떨어진다.
+ * 필터·정렬·페이지 변경은 반복 액션이라 붙지 않는다.
  */
 
 // 실제 라우터처럼 replace 가 URL 을 바꾸면 화면이 다시 그려지게 만든다 — 그래야 카테고리 클릭이
@@ -51,6 +53,7 @@ vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }));
 
 import { ClubExplorePage } from '@/app/clubs/_pages/ClubExplorePage';
 import { DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE, toApiParams } from '@/app/clubs/_lib/exploreParams';
+import { STAGGER_WINDOW_MS } from '@/app/clubs/_lib/exploreUi';
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -75,6 +78,7 @@ function makeClub(id: number, name: string, category: ClubSummary['category']): 
 
 const ALL_CLUBS = [makeClub(1, '밴드부', 'ART'), makeClub(2, '등산부', 'SPORTS')];
 const ART_CLUBS = [makeClub(3, '연극부', 'ART')];
+const DEFAULT_LIST_KEY = clubQueryKeys.list(toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE));
 
 function toPage(content: ClubSummary[]): PageResponse<ClubSummary> {
   return { content, page: 1, size: 20, totalElements: content.length, totalPages: 1, hasNext: false };
@@ -96,6 +100,9 @@ afterEach(() => {
   navStore.search = '';
   navStore.listeners.clear();
   act(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
+  document.documentElement.removeAttribute('data-back-navigation');
+  document.querySelectorAll('[data-explore-server-list]').forEach((element) => element.remove());
+  vi.useRealTimers();
 });
 afterAll(() => server.close());
 
@@ -111,17 +118,24 @@ function renderExplore(seed?: (queryClient: QueryClient) => void) {
       </QueryClientProvider>
     );
   }
-  return render(
-    <Wrapper>
-      <ClubExplorePage />
-    </Wrapper>,
-  );
+  return {
+    queryClient,
+    ...render(
+      <Wrapper>
+        <ClubExplorePage />
+      </Wrapper>,
+    ),
+  };
 }
+
+/** 서버가 시드한 첫 진입 키 — updatedAt 0 이라 마운트 때 곧바로 다시 받는다(운영과 같음). */
+const seedDefaultList = (queryClient: QueryClient) =>
+  queryClient.setQueryData(DEFAULT_LIST_KEY, toPage(ALL_CLUBS), { updatedAt: 0 });
 
 // PC 그리드와 모바일 리스트가 같은 트리에 함께 렌더된다(CSS 로만 감춘다) — 래퍼는 항상 동아리 수 × 2 다.
 const staggerWrappers = () => Array.from(document.querySelectorAll<HTMLElement>('.enter-stagger'));
 
-describe('ClubExplorePage — 첫 로드 스태거', () => {
+describe('ClubExplorePage — 등장 스태거', () => {
   it('첫 데이터가 도착하면 카드 래퍼에 스태거와 순번(--i)이 붙는다', async () => {
     server.use(clubListHandler);
     renderExplore();
@@ -148,20 +162,84 @@ describe('ClubExplorePage — 첫 로드 스태거', () => {
     expect(staggerWrappers()).toHaveLength(0);
   });
 
-  it('마운트 때 목록이 이미 캐시에 있으면(서버 시드) 스태거를 붙이지 않는다 — 서버가 그린 카드를 이어받을 때 다시 떠오르지 않게', async () => {
+  it('시드·캐시로 첫 렌더부터 목록이 있어도 앞으로 들어온 마운트면 스태거를 붙인다', async () => {
     server.use(clubListHandler);
-    renderExplore((queryClient) => {
-      queryClient.setQueryData(
-        clubQueryKeys.list(toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE)),
-        toPage(ALL_CLUBS),
-        { updatedAt: 0 },
-      );
-    });
+    const { queryClient } = renderExplore(seedDefaultList);
 
-    await waitFor(() => expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0));
-    expect(staggerWrappers()).toHaveLength(0);
-    // 시드가 있으면 스켈레톤도 뜨지 않는다 — TanStack 은 data 가 없을 때만 pending 이다(라이브러리 의미 변화 감지).
+    expect(staggerWrappers()).toHaveLength(4);
+    // 시드가 있으면 스켈레톤은 뜨지 않는다 — TanStack 은 data 가 없을 때만 pending 이다(라이브러리 의미 변화 감지).
     expect(screen.queryByRole('status')).toBeNull();
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  });
+
+  it('마운트 순간 서버 목록(fallback)이 문서에 있으면 스태거를 붙이지 않는다 — 첫 화면에서 이미 떠오른 카드를 바꿔 끼우는 교체다', async () => {
+    const serverList = document.createElement('div');
+    serverList.setAttribute('data-explore-server-list', '');
+    document.body.appendChild(serverList);
+    server.use(clubListHandler);
+    const { queryClient } = renderExplore(seedDefaultList);
+
+    expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0);
+    expect(staggerWrappers()).toHaveLength(0);
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  });
+
+  it('뒤로·앞으로 가기로 그려지는 마운트(마커)는 시드·캐시가 있으면 스태거를 붙이지 않는다', async () => {
+    document.documentElement.setAttribute('data-back-navigation', '');
+    server.use(clubListHandler);
+    const { queryClient } = renderExplore(seedDefaultList);
+
+    expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0);
+    expect(staggerWrappers()).toHaveLength(0);
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  });
+
+  it('마커가 서 있어도 데이터 없이 마운트했다면 첫 목록 도착 때 스태거를 붙인다 — 기다림을 거친 도착이다', async () => {
+    document.documentElement.setAttribute('data-back-navigation', '');
+    server.use(clubListHandler);
+    renderExplore();
+
+    await waitFor(() => expect(staggerWrappers()).toHaveLength(4));
+  });
+
+  it('재생 시간 안에 같은 조건의 재요청이 다른 목록 객체를 돌려줘도 스태거를 떼지 않는다', async () => {
+    server.use(clubListHandler);
+    // 시드는 역순, 마운트 재요청(msw)은 원래 순서 — 같은 조건에 다른 객체가 도착한다(운영의 "시드보다 새 순서·수치").
+    const { queryClient } = renderExplore((client) =>
+      client.setQueryData(DEFAULT_LIST_KEY, toPage([...ALL_CLUBS].reverse()), { updatedAt: 0 }),
+    );
+    expect(staggerWrappers()).toHaveLength(4);
+
+    // React Query 는 옵저버 통지를 setTimeout(0) 으로 미룬다 — act 만으로는 리렌더 전 DOM 을 본다. 재요청 응답이
+    // 화면에 반영될 때까지 기다린 뒤 본다. 목록 객체 동일성 게이트였다면 여기서 클래스가 떨어져 [0] 이 없어 실패한다.
+    await waitFor(() => expect(staggerWrappers()[0]).toHaveTextContent('밴드부'));
+    expect(staggerWrappers()).toHaveLength(4);
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  });
+
+  it('재생 시간이 지나면 스태거를 떼고, 그 뒤 같은 조건의 재요청이 순서를 바꿔도 다시 붙이지 않는다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // 마운트 재요청 응답을 재생 시간 뒤(700ms)로 못 박는다 — 시드와 순서가 다른(다른 객체) 응답이다.
+    server.use(
+      http.get(`${BASE}/clubs`, async () => {
+        await delay(700);
+        return HttpResponse.json({ ok: true, data: toPage([...ALL_CLUBS].reverse()), message: null });
+      }),
+    );
+    const { queryClient } = renderExplore(seedDefaultList);
+    expect(staggerWrappers()).toHaveLength(4);
+
+    act(() => {
+      vi.advanceTimersByTime(STAGGER_WINDOW_MS);
+    });
+    expect(staggerWrappers()).toHaveLength(0);
+
+    // 응답 지연(700ms)을 넘겨 재요청을 끝내고, 통지(setTimeout 0)까지 흘린다.
+    await act(() => vi.advanceTimersByTimeAsync(200));
+    // 데스크탑 그리드(aria-busy 컨테이너)의 첫 카드 래퍼 — 역순 응답이 화면에 반영됐다.
+    await waitFor(() => expect(document.querySelector('[aria-busy] > div')).toHaveTextContent('등산부'));
+    expect(staggerWrappers()).toHaveLength(0);
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   });
 
   it('찜 필터 딥링크가 인증 대기로 마운트했다가 인증 뒤 첫 목록이 도착하면 스태거를 붙인다 — 쿼리가 꺼진 채 데이터 없이 시작한 첫 도착이다', async () => {

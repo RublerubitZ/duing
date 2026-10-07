@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
+import { isBackNavigationPending } from '@/app/_lib/backNavigationViewTransition';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
-import type { ClubDayOfWeek, ClubSummary, PageResponse } from '@duing/types';
+import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -48,16 +49,13 @@ import {
   SCOPE_SEGMENT_CLASS,
   SORT_OPTIONS,
   SORT_SELECT_CLASS,
+  STAGGER_WINDOW_MS,
+  isServerExploreListOnScreen,
+  staggerStyle,
 } from '../_lib/exploreUi';
 
-/** 첫 로드 스태거 게이트 — 처음 정착한 목록과, 그 뒤로 다른 목록을 본 적이 있는지. */
-type StaggerGate = { firstSettled: PageResponse<ClubSummary> | null; locked: boolean };
-
-/** 카드 순번을 CSS 쪽 지연 계산(`--i`)으로 넘긴다. 커스텀 프로퍼티는 CSSProperties 에 없어 별도 타입이 필요하다. */
-function staggerStyle(index: number): CSSProperties {
-  const style: CSSProperties & { '--i': number } = { '--i': index };
-  return style;
-}
+/** 등장 스태거 게이트 — 처음 정착한 목록의 조건(직렬화한 탐색 파라미터)과, 그 뒤로 조건이 바뀐 적이 있는지. */
+type StaggerGate = { firstSettledCondition: string | null; locked: boolean };
 
 const Icon = {
   search: (props: React.SVGProps<SVGSVGElement>) => (
@@ -131,10 +129,15 @@ export function ClubExplorePage() {
   const clubListQuery = useClubListQuery(toApiParams(params, EXPLORE_PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
-  // 스태거는 데이터 없이 마운트한 경우(로딩·대기)에만 — 서버가 그린 기본 목록(시드)을 JS 가 이어받을 때 같은 카드가
-  // 다시 떠오르지 않게 한다(useEnteredFromSkeleton 관례). isLoading 이 아닌 isPending 이라, 인증을 기다리며 꺼져 있던
-  // 찜 필터 쿼리도 첫 목록이 오면 연출한다. 마운트 때 값으로 고정된다.
+  // 스태거를 재생하는 마운트 — 마운트 때 값으로 고정된다. 둘 중 하나면 재생한다.
+  // ① 데이터 없이 마운트(로딩·대기) — 스켈레톤을 거친 첫 도착이다. isLoading 이 아닌 isPending 이라, 인증을 기다리며
+  //    꺼져 있던 찜 필터 쿼리도 첫 목록이 오면 연출한다. 뒤로 가기여도 기다림을 거친 도착이라 재생한다.
+  // ② 앞으로 들어왔고(뒤로·앞으로 가기 아님) 서버 목록을 바꿔 끼우는 교체가 아님 — 시드·캐시가 있어도 앱 안 이동은
+  //    떠오른다. 첫 로드에서는 서버 목록(ClubExploreFallback)이 이미 첫 화면에서 떠올랐으므로, 그것을 바꿔 끼우는 이
+  //    마운트는 다시 재생하지 않는다(같은 카드가 두 번 떠오르지 않게).
   const mountedWithoutData = useEnteredFromSkeleton(clubListQuery.isPending);
+  const [entersForward] = useState(() => !isBackNavigationPending() && !isServerExploreListOnScreen());
+  const playsStaggerOnFirstSettle = mountedWithoutData || entersForward;
   // 찜 필터 교집합(likedIds)과 조회 실패 판정용으로 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
   const favoriteIdsQuery = useFavoriteIdsQuery();
   // 토글 동작(방향 가드·로그인 이동·401 처리·PostHog)은 하트 버튼과 공용 플로우로 공유한다.
@@ -166,29 +169,38 @@ export function ClubExplorePage() {
     }
   }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
 
-  // 첫 데이터 도착 1회에만 카드 스태거를 붙인다(필터·정렬·페이지 이동은 반복 액션이라 제외).
-  // 그것도 데이터 없이 마운트한 경우만이다(mountedWithoutData) — 시드·캐시로 첫 렌더부터 목록이 있으면 붙이지 않는다.
-  // keepPreviousData 라 필터 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로,
-  // isPlaceholderData 가 풀린 "정착" 시점을 기준으로 본다.
-  // 불리언 플래그를 렌더 도중 뒤집는 방식은 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은
-  // 두 번째 렌더라, 첫 렌더가 세운 플래그를 보고 클래스를 도로 떨어뜨린다(개발 모드에서만 조용히 사라짐).
-  // 대신 "처음 정착한 목록과 같은 객체인가" 로 판정해 몇 번을 다시 그려도 답이 같게 만든다.
-  // 캐시가 살아 있는 원래 필터로 되돌아오면 같은 객체가 다시 오므로, 다른 목록을 한 번이라도 본 뒤에는
-  // locked 로 잠가 재생을 막는다. effect 없이 렌더 중에 끝나 클래스가 한 박자 늦게 붙는 일도 없다.
-  const staggerGateRef = useRef<StaggerGate>({ firstSettled: null, locked: false });
-  const settledClubList = clubListQuery.isPlaceholderData ? null : clubListQuery.data ?? null;
-  if (!staggerGateRef.current.locked && settledClubList !== null) {
-    if (staggerGateRef.current.firstSettled === null) {
-      staggerGateRef.current.firstSettled = settledClubList;
-    } else if (staggerGateRef.current.firstSettled !== settledClubList) {
-      staggerGateRef.current.locked = true;
+  // 첫 목록이 정착한 뒤 재생 시간 동안만 카드 래퍼에 스태거를 둔다(필터·정렬·페이지 이동은 반복 액션이라 제외).
+  // keepPreviousData 라 조건 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로, isPlaceholderData 가 풀린
+  // "정착" 시점을 기준으로 본다.
+  // 판정은 목록 객체가 아니라 조건(직렬화한 탐색 파라미터)으로 한다 — 시드·캐시 마운트는 곧바로 다시 받아오는데
+  // (updatedAt 0·30초 stale), 같은 조건의 응답이 다른 객체로 와도 재생 중인 카드를 끊지 않게. 첫 정착 뒤 조건이 바뀌면
+  // 새 목록이 정착하기 전(이전 목록 딤 구간)이라도 바로 잠근다(지금과 같다). 불리언 플래그를 렌더 도중 뒤집는 방식은
+  // 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은 두 번째 렌더라, 첫 렌더가 세운 플래그를 보고 클래스를 도로
+  // 떨어뜨린다. 조건 비교는 몇 번을 다시 그려도 답이 같다.
+  // 재생 시간이 지나면 클래스를 뗀다 — 그 뒤 같은 조건의 재요청이 카드 순서를 바꿔 React 가 노드를 옮겨도, 옮겨진
+  // 노드에 클래스가 남아 애니메이션이 처음부터 다시 도는 일이 없게.
+  const listCondition = serializeExploreParams(params);
+  const staggerGateRef = useRef<StaggerGate>({ firstSettledCondition: null, locked: false });
+  const staggerGate = staggerGateRef.current;
+  const isListSettled = clubListQuery.data !== undefined && !clubListQuery.isPlaceholderData;
+  if (!staggerGate.locked) {
+    if (staggerGate.firstSettledCondition === null) {
+      if (isListSettled) staggerGate.firstSettledCondition = listCondition;
+    } else if (staggerGate.firstSettledCondition !== listCondition) {
+      staggerGate.locked = true;
     }
   }
-  const isFirstSettledRender =
-    mountedWithoutData
-    && !staggerGateRef.current.locked
-    && settledClubList !== null
-    && staggerGateRef.current.firstSettled === settledClubList;
+  const [staggerWindowOver, setStaggerWindowOver] = useState(false);
+  const isStaggering =
+    playsStaggerOnFirstSettle
+    && !staggerGate.locked
+    && !staggerWindowOver
+    && staggerGate.firstSettledCondition !== null;
+  useEffect(() => {
+    if (!isStaggering) return;
+    const timer = window.setTimeout(() => setStaggerWindowOver(true), STAGGER_WINDOW_MS);
+    return () => window.clearTimeout(timer);
+  }, [isStaggering]);
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
@@ -607,7 +619,7 @@ export function ClubExplorePage() {
                       // 늘어나 기존의 mt-auto 하단 정렬(같은 행 카드 높이 맞춤)이 그대로 유지된다.
                       <div
                         key={club.id}
-                        className={cn('grid', isFirstSettledRender && 'enter-stagger')}
+                        className={cn('grid', isStaggering && 'enter-stagger')}
                         style={staggerStyle(index)}
                       >
                         <ClubCard
@@ -766,7 +778,7 @@ export function ClubExplorePage() {
                     // 세로 리스트는 래퍼가 플렉스 아이템으로 들어가 폭이 그대로 늘어난다(gap 도 동일).
                     <div
                       key={club.id}
-                      className={cn(isFirstSettledRender && 'enter-stagger')}
+                      className={cn(isStaggering && 'enter-stagger')}
                       style={staggerStyle(index)}
                     >
                       <ClubListItem

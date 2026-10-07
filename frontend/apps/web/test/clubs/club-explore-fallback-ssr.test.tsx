@@ -24,6 +24,10 @@ describe('ClubExploreFallback — 서버 렌더', () => {
     expect(html).toContain('href="/clubs/1"');
     expect(html).toContain('166개 동아리를 둘러보세요');
     expect(html).toContain('동아리 탐색');
+    // 첫 화면에서 CSS 로 떠오르는 카드 래퍼와, 실제 화면이 교체 때 다시 재생하지 않도록 보는 표시 속성.
+    expect(html).toContain('data-explore-server-list');
+    expect(html).toContain('enter-stagger');
+    expect(html).toContain('--i:0');
   });
 
   it('데이터가 없으면 지금 스켈레톤을 그린다', () => {
@@ -31,5 +35,6 @@ describe('ClubExploreFallback — 서버 렌더', () => {
 
     expect(html).toContain('동아리 목록 불러오는 중');
     expect(html).not.toContain('href="/clubs/');
+    expect(html).not.toContain('data-explore-server-list');
   });
 });
