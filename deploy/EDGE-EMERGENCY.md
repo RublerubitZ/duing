@@ -15,9 +15,9 @@
 | 순서 | 비상 모드로 | 평상시(직결)로 되돌리기 |
 |---|---|---|
 | 1 | 서버 Caddy 에 신뢰 블록 복원 — **프록시 켜기 전에** | (AOP 를 켰다면) Caddy 클라이언트 인증서 요구 해제 |
-| 2 | SSL/TLS 모드가 전체(Full) 이상인지 확인 → `api` 레코드 프록시 켜기 | Lightsail 방화벽 80·443 다시 전체 개방 |
+| 2 | SSL/TLS 모드가 전체(Full) 이상인지 확인 → `api` 레코드 프록시 켜기 → Slack 알림 | Lightsail 방화벽 80·443 다시 전체 개방 |
 | 3 | **바꾸기 전 TTL 이상**(0절을 안 했으면 자동 = 5분) 지나 DNS 가 바뀐 뒤 Lightsail 방화벽 80·443 을 Cloudflare 대역만 | WAF 규칙 정리 → `api` 레코드 프록시 끄기(DNS 전용), TTL 2분 |
-| 4 | (필요 시) Cloudflare WAF 차단 규칙 | **5분 이상** 지나 DNS 가 바뀐 뒤 서버 Caddy 신뢰 블록 제거 |
+| 4 | (필요 시) Cloudflare WAF 차단 규칙 | **5분 이상** 지나 DNS 가 바뀐 뒤 Slack 알림 → 서버 Caddy 신뢰 블록 제거 |
 | 5 | (하루 이상 가면) 저장소 핫픽스 | 핫픽스 되돌리기 |
 | 6 | (최후) 고정 IP 교체 | — |
 | 7 | (며칠 이상) 원본 인증(AOP) — **아직 준비 안 됨** | — |
@@ -75,7 +75,7 @@ CF_RANGES="$( { curl -fsS https://www.cloudflare.com/ips-v4; echo; curl -fsS htt
 echo "$CF_RANGES" | wc -w    # 20 이상이어야 한다(2026-10 기준 22)
 awk -v ranges="$CF_RANGES" '{ print } $0 == "\tservers {" && !done { print "\t\ttrusted_proxies static " ranges; print "\t\tclient_ip_headers Cf-Connecting-Ip"; done = 1 }' Caddyfile > /tmp/Caddyfile.emergency
 grep -cE '^[[:space:]]+client_ip_headers Cf-Connecting-Ip$' /tmp/Caddyfile.emergency    # 1 이어야 한다
-docker run --rm -i caddy:2-alpine caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.emergency
+docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.emergency
 cp /tmp/Caddyfile.emergency Caddyfile
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]'
@@ -85,6 +85,8 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
   - 안 나오면 컨테이너가 옛 파일(inode)을 보고 있는 것이다(2026-08-30 사례). `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
     인증서는 `caddy_data` 볼륨에 있어 재발급되지 않고, 끊김은 수 초다.
 - **`cp` 로 덮어쓴다.** Caddyfile 은 단일 파일 bind mount 라 inode 가 바뀌면 컨테이너가 옛 파일을 계속 본다. `mv` 나 편집기로 직접 저장하지 않는다.
+- 검증은 **지금 돌고 있는 Caddy** 로 한다. 따로 받아 둔 이미지는 운영과 버전이 다를 수 있다(2026-10 기준 운영 2.11.4 — 버전마다 받는 옵션이 다르다).
+  caddy 컨테이너가 죽어 있으면 `docker run --rm -i <docker-compose.yml 의 caddy 이미지> caddy validate --config - --adapter caddyfile < …` 로 대신한다.
 - `wc -w` 가 20 미만이면(Cloudflare 목록을 못 받음) [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4·IPv6 22개를 공백으로 이어 `CF_RANGES` 에 직접 넣는다.
 - `grep -c` 가 1 이 아니면 자동 삽입이 안 된 것이다. `cp Caddyfile /tmp/Caddyfile.emergency` 로 사본을 다시 만들어 편집기로 고친 뒤, 위 명령의 `docker run … validate` 줄부터 이어서 실행한다.
   - 전역 블록의 `servers {` 바로 아래에 두 줄을 넣는다.
@@ -114,6 +116,17 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 3. 확인 — 적어 둔 TTL 이 지난 뒤, 로컬에서:
    - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` · `dig @168.126.63.1 +short api.duings.com`(KT) → 모두 Cloudflare IP(104.21.x·172.67.x 등)
    - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 값이 있다
+4. **Slack 에 알린다**(서버에서). 운영 알림 웹훅(`.env` 의 `SLACK_WEBHOOK_URL`, `#duing-monitoring`)으로 보낸다.
+
+   ```bash
+   cd /home/ubuntu/duing
+   SLACK_WEBHOOK_URL="$(grep -E '^SLACK_WEBHOOK_URL=' .env | cut -d= -f2- | tr -d '"')"
+   MESSAGE="🛡️ [api 비상 모드 진입] Cloudflare 프록시를 켰다 — 사유: <한 줄> / 담당: <이름> / 런북: deploy/EDGE-EMERGENCY.md"
+   curl -fsS -X POST -H 'Content-Type: application/json' --data "$(python3 -c 'import json,sys; print(json.dumps({"text": sys.argv[1]}))' "$MESSAGE")" "$SLACK_WEBHOOK_URL"; echo
+   ```
+
+   - `ok` 가 찍히면 보내진 것이다. 웹훅 주소는 비밀값이라 화면 공유·채팅에 붙여 넣지 않는다.
+   - 사유·담당에는 큰따옴표(")를 쓰지 않는다. 셸 문자열이 끊긴다(JSON 변환은 python3 가 처리한다).
 
 ### 1-3. 원본 잠금 — Lightsail 방화벽을 Cloudflare 대역만
 
@@ -203,13 +216,15 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 4. **바꾸기 전 TTL(자동 = 300초)이 지나 DNS 가 바뀐 뒤 확인한다.** 끈 뒤 **5분 이상** 기다린다.
    - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` · `dig @168.126.63.1 +short api.duings.com`(KT) → 모두 서버 IP
    - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 빈 출력
+   - 확인되면 Slack 에 알린다. 1-2 의 4번 명령에서 `MESSAGE` 만 바꿔 실행한다.
+     예: `MESSAGE="✅ [api 직결 복귀] Cloudflare 프록시를 껐다 — 비상 모드 기간: <시작~끝> / 담당: <이름>"`
 5. **서버 Caddy 에서 신뢰 블록 제거**(과도기에는 하지 않는다)
 
    ```bash
    cd /home/ubuntu/duing
    cp Caddyfile Caddyfile.before-revert
    grep -vE '^[[:space:]]+(trusted_proxies static |client_ip_headers Cf-Connecting-Ip$)' Caddyfile > /tmp/Caddyfile.direct
-   docker run --rm -i caddy:2-alpine caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.direct
+   docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.direct
    cp /tmp/Caddyfile.direct Caddyfile
    docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
    servers_json=$(docker compose exec -T caddy curl -sf localhost:2019/config/apps/http/servers) || echo "조회 실패"
