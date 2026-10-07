@@ -270,7 +270,7 @@ describe('동아리 상세 본문 등장', () => {
     expectBodyAnimatedWithoutHero(container);
   });
 
-  // 회귀 가드 — 지금도 통과한다(지금은 시드 마운트면 무조건 클래스가 없다). 판정을 바꾼 뒤에도 마커 분기가 지켜지는지 본다.
+  // 마커가 선 마운트는 시드·캐시여도 본문에 클래스를 걸지 않는다 — useEntranceMotion 의 뒤로·앞으로 가기 분기 가드.
   it('뒤로·앞으로 가기로 그려지는 마운트(마커)는 본문에 enter-content 를 걸지 않는다', async () => {
     seed();
     document.documentElement.setAttribute('data-back-navigation', '');

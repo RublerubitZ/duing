@@ -131,7 +131,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
       </section>
 
       {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다.
-          등장 래퍼 밖에 둔다 — 재생 중인 transform 은 fixed 자손의 기준을 뷰포트에서 래퍼로 바꾼다. */}
+          등장 섹션 밖에 둔다 — 재생 중인 transform 은 fixed 자손의 기준을 뷰포트에서 그 섹션으로 바꾼다. */}
       <ClubDetailApplyBar
         recruitment={club.activeRecruitment ?? undefined}
         membership={membership.data}

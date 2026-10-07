@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -96,6 +96,7 @@ const clubListHandler = http.get(`${BASE}/clubs`, ({ request }) => {
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
+  cleanup();
   server.resetHandlers();
   navStore.search = '';
   navStore.listeners.clear();
@@ -203,18 +204,25 @@ describe('ClubExplorePage — 등장 스태거', () => {
   });
 
   it('재생 시간 안에 같은 조건의 재요청이 다른 목록 객체를 돌려줘도 스태거를 떼지 않는다', async () => {
+    vi.useFakeTimers();
     server.use(clubListHandler);
     // 시드는 역순, 마운트 재요청(msw)은 원래 순서 — 같은 조건에 다른 객체가 도착한다(운영의 "시드보다 새 순서·수치").
     const { queryClient } = renderExplore((client) =>
       client.setQueryData(DEFAULT_LIST_KEY, toPage([...ALL_CLUBS].reverse()), { updatedAt: 0 }),
     );
     expect(staggerWrappers()).toHaveLength(4);
+    expect(staggerWrappers()[0]).toHaveTextContent('등산부');
 
-    // React Query 는 옵저버 통지를 setTimeout(0) 으로 미룬다 — act 만으로는 리렌더 전 DOM 을 본다. 재요청 응답이
-    // 화면에 반영될 때까지 기다린 뒤 본다. 목록 객체 동일성 게이트였다면 여기서 클래스가 떨어져 [0] 이 없어 실패한다.
-    await waitFor(() => expect(staggerWrappers()[0]).toHaveTextContent('밴드부'));
+    // 가짜 시계를 재생 시간 직전까지만 돌린다 — 재요청 응답과 React Query 통지(setTimeout 0)는 그 안에 흘러 화면에
+    // 반영되지만 재생 시간 타이머는 아직이다. 실제 시간과 무관해 느린 러너에서도 같다.
+    await act(() => vi.advanceTimersByTimeAsync(STAGGER_WINDOW_MS - 1));
+    expect(queryClient.isFetching()).toBe(0);
+    // 목록 객체 동일성 게이트였다면 여기서 클래스가 떨어져 [0] 이 없어 실패한다.
+    expect(staggerWrappers()[0]).toHaveTextContent('밴드부');
     expect(staggerWrappers()).toHaveLength(4);
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(staggerWrappers()).toHaveLength(0);
   });
 
   it('재생 시간이 지나면 스태거를 떼고, 그 뒤 같은 조건의 재요청이 순서를 바꿔도 다시 붙이지 않는다', async () => {

@@ -43,6 +43,8 @@ describe('useEntranceMotion — 마운트 시점에 등장 연출 재생 여부�
   });
 
   it('서버 렌더(문서 없음)에서는 참이다 — 서버 HTML 에 연출 클래스가 실린다', () => {
+    // 마커를 세운 채 문서를 지운다 — stub 이 먹지 않으면 마커가 보여 거짓이 나와 이 테스트가 실패한다(자기검증).
+    document.documentElement.setAttribute('data-back-navigation', '');
     vi.stubGlobal('window', undefined);
     vi.stubGlobal('document', undefined);
     try {

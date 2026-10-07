@@ -214,6 +214,28 @@ describe('installBackNavigationViewTransitionGuard', () => {
     await vi.advanceTimersByTimeAsync(2000); // hop 2 안전장치가 내린다
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
   });
+
+  it('실제 뒤로가기 전환이 끝난 뒤의 오버레이 hop 은 마커를 바로 내린다 — 끝난 전환은 보유 수에서 빠져야 한다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const deferred = createDeferred<void>();
+    document.startViewTransition = () => createViewTransitionMock(deferred.promise);
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // 실제 뒤로가기 — 전환이 마커 인수
+    document.startViewTransition(() => undefined);
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0); // finished → 보유 수 감소·마커 해제
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // 이어서 시트를 뒤로가기로 닫음(단일 hop)
+    document.startViewTransition(() => undefined);
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
 
 describe('isBackNavigationPending', () => {

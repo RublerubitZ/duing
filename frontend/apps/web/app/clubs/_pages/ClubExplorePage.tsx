@@ -135,6 +135,8 @@ export function ClubExplorePage() {
   // ② 앞으로 들어왔고(뒤로·앞으로 가기 아님) 서버 목록을 바꿔 끼우는 교체가 아님 — 시드·캐시가 있어도 앱 안 이동은
   //    떠오른다. 첫 로드에서는 서버 목록(ClubExploreFallback)이 이미 첫 화면에서 떠올랐으므로, 그것을 바꿔 끼우는 이
   //    마운트는 다시 재생하지 않는다(같은 카드가 두 번 떠오르지 않게).
+  //    마운트 순간 문서를 읽어도 하이드레이션 불일치가 없다 — 이 화면은 useSearchParams 로 Suspense 경계까지 클라이언트
+  //    렌더라 서버에서 그려지지 않는다(서버 HTML 은 ClubExploreFallback). cacheComponents 를 켜면 이 전제를 다시 본다.
   const mountedWithoutData = useEnteredFromSkeleton(clubListQuery.isPending);
   const [entersForward] = useState(() => !isBackNavigationPending() && !isServerExploreListOnScreen());
   const playsStaggerOnFirstSettle = mountedWithoutData || entersForward;
@@ -174,11 +176,11 @@ export function ClubExplorePage() {
   // "정착" 시점을 기준으로 본다.
   // 판정은 목록 객체가 아니라 조건(직렬화한 탐색 파라미터)으로 한다 — 시드·캐시 마운트는 곧바로 다시 받아오는데
   // (updatedAt 0·30초 stale), 같은 조건의 응답이 다른 객체로 와도 재생 중인 카드를 끊지 않게. 첫 정착 뒤 조건이 바뀌면
-  // 새 목록이 정착하기 전(이전 목록 딤 구간)이라도 바로 잠근다(지금과 같다). 불리언 플래그를 렌더 도중 뒤집는 방식은
+  // 새 목록이 정착하기 전(이전 목록 딤 구간)이라도 바로 잠근다. 불리언 플래그를 렌더 도중 뒤집는 방식은
   // 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은 두 번째 렌더라, 첫 렌더가 세운 플래그를 보고 클래스를 도로
   // 떨어뜨린다. 조건 비교는 몇 번을 다시 그려도 답이 같다.
-  // 재생 시간이 지나면 클래스를 뗀다 — 그 뒤 같은 조건의 재요청이 카드 순서를 바꿔 React 가 노드를 옮겨도, 옮겨진
-  // 노드에 클래스가 남아 애니메이션이 처음부터 다시 도는 일이 없게.
+  // 재생 시간이 지나면 클래스를 뗀다 — 그 뒤 같은 조건의 재요청이 카드 순서를 바꿔 React 가 노드를 옮길 때, 옮겨진
+  // 노드에 클래스가 남아 있으면 애니메이션이 처음부터 다시 돌 수 있어 그 가능성을 없앤다.
   const listCondition = serializeExploreParams(params);
   const staggerGateRef = useRef<StaggerGate>({ firstSettledCondition: null, locked: false });
   const staggerGate = staggerGateRef.current;
