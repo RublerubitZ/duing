@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.nullValue;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.domain.federation.entity.FederationInquiry;
+import com.duing.domain.federation.repository.FederationInquiryAttachmentRepository;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
@@ -19,12 +20,15 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.file.FileStorageService;
+import com.duing.global.file.entity.UploadedObjectStatus;
+import com.duing.global.file.repository.UploadedObjectRepository;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.hamcrest.Matchers;
@@ -46,13 +50,18 @@ import org.springframework.http.HttpStatus;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class FederationInquiryAcceptanceTest extends IntegrationTestBase {
 
+    // 기존 잘못된 첨부(InvalidInquiryException)의 응답 메시지 — 타인·미추적 키 거부도 같은 본문이어야 한다.
+    private static final String INVALID_ATTACHMENT_MESSAGE = "유효하지 않은 첨부 파일입니다.";
+
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired FederationInquiryRepository federationInquiryRepository;
+    @Autowired FederationInquiryAttachmentRepository federationInquiryAttachmentRepository;
     @Autowired NotificationRepository notificationRepository;
     @Autowired FileStorageService fileStorageService;
+    @Autowired UploadedObjectRepository uploadedObjectRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -767,6 +776,89 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("다른 학생이 업로드한 첨부 URL로 문의를 등록하면 잘못된 첨부와 같은 400을 받고, 첨부 행은 생기지 않으며 그 업로드는 PENDING으로 남는다")
+    void rejectsAttachmentUploadedByAnotherUserOnCreate() {
+        User otherStudent = saveUser(UserRole.STUDENT);
+        String otherStudentToken = jwtTokenProvider.createToken(otherStudent.getId(), otherStudent.getRole().name());
+        String othersAttachmentUrl = uploadAttachment(otherStudentToken, "others.jpg");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(othersAttachmentUrl))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo(INVALID_ATTACHMENT_MESSAGE))
+                .body("code", nullValue());
+
+        // 문의 INSERT 는 첨부 검증보다 먼저 실행된다 — 문의 행까지 함께 롤백돼야 부분 쓰기가 남지 않는다.
+        assertThat(federationInquiryRepository.count()).isZero();
+        assertThat(federationInquiryAttachmentRepository.count()).isZero();
+        assertThat(uploadStatusOf(othersAttachmentUrl)).isEqualTo(UploadedObjectStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("접수 상태 문의를 다른 학생이 업로드한 첨부 URL로 수정하면 잘못된 첨부와 같은 400을 받고 기존 첨부가 그대로 유지된다")
+    void rejectsAttachmentUploadedByAnotherUserOnUpdate() {
+        String ownAttachmentUrl = uploadAttachment(studentToken, "own.jpg");
+        Long inquiryId = createInquiryWithAttachments(studentToken, "제목", "내용", List.of(ownAttachmentUrl));
+        Long ownAttachmentId = firstAttachmentId(studentToken, inquiryId);
+        User otherStudent = saveUser(UserRole.STUDENT);
+        String otherStudentToken = jwtTokenProvider.createToken(otherStudent.getId(), otherStudent.getRole().name());
+        String othersAttachmentUrl = uploadAttachment(otherStudentToken, "others.jpg");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(othersAttachmentUrl))
+            .when()
+                .patch("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo(INVALID_ATTACHMENT_MESSAGE))
+                .body("code", nullValue());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/federation/inquiries/" + inquiryId)
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.attachments.size()", equalTo(1));
+        assertThat(firstAttachmentId(studentToken, inquiryId)).isEqualTo(ownAttachmentId);
+        assertThat(uploadStatusOf(othersAttachmentUrl)).isEqualTo(UploadedObjectStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("스토리지에는 있지만 업로드 추적 기록이 없는 문의 첨부 키는 잘못된 첨부와 같은 400을 받는다")
+    void rejectsUntrackedAttachmentKey() {
+        // 업로드 API 를 거치지 않은 키 — 스토리지 실체 확인(sizeOf)은 통과하고 추적 행만 없다.
+        String untrackedUrl = "/files/stub/federation/inquiry/" + UUID.randomUUID() + ".jpg";
+        assertThat(fileStorageService.sizeOf(fileStorageService.toStorageKey(untrackedUrl))).isNotNull();
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .contentType(ContentType.JSON)
+                .body("""
+                    { "title": "제목", "content": "내용", "attachmentUrls": ["%s"] }
+                    """.formatted(untrackedUrl))
+            .when()
+                .post("/api/v1/federation/inquiries")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo(INVALID_ATTACHMENT_MESSAGE))
+                .body("code", nullValue());
+
+        assertThat(federationInquiryAttachmentRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("접수 상태에서 첨부를 빈 배열로 수정하면 비워지고, 이후 새 배열로 수정하면 전체 교체된다")
     void receivedUpdateClearsThenReplacesAttachments() {
         String attachmentUrl1 = uploadAttachment(studentToken, "before1.jpg");
@@ -1020,6 +1112,11 @@ class FederationInquiryAcceptanceTest extends IntegrationTestBase {
                 .patch("/api/v1/federation/inquiries/" + inquiryId)
             .then()
                 .statusCode(expectedStatus.value());
+    }
+
+    private UploadedObjectStatus uploadStatusOf(String attachmentUrl) {
+        return uploadedObjectRepository.findByStorageKey(fileStorageService.toStorageKey(attachmentUrl))
+                .orElseThrow().getStatus();
     }
 
     private String toJsonArray(List<String> values) {

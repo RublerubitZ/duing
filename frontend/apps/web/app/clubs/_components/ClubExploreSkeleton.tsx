@@ -2,6 +2,8 @@
 // ClubExplorePage 의 React Query 로딩 상태 양쪽에서 쓴다. 서버 렌더 가능한 순수 마크업이라
 // 'use client' 가 필요 없다. 색은 기존 토큰(bg-paper·border-line·bg-graysoft)만 사용한다.
 
+import { CARD_GRID_CLASS } from '../_lib/exploreUi';
+
 const DESKTOP_CARD_COUNT = 8;
 const MOBILE_ROW_COUNT = 6;
 
@@ -22,8 +24,8 @@ type ClubListSkeletonItemsProps = {
 export function ClubListSkeletonItems({ variant }: ClubListSkeletonItemsProps) {
   if (variant === 'grid') {
     return (
-      // 실제 카드 그리드(ClubExplorePage)와 동일한 auto-fill 트랙 — 열 수 불일치로 스켈레톤→실카드 점프 방지.
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]">
+      // 실제 카드 그리드(ClubExplorePage)와 같은 공용 클래스(CARD_GRID_CLASS) — 열 수 불일치로 스켈레톤→실카드 점프 방지.
+      <div className={CARD_GRID_CLASS}>
         {Array.from({ length: DESKTOP_CARD_COUNT }).map((_, index) => (
           <div
             key={index}

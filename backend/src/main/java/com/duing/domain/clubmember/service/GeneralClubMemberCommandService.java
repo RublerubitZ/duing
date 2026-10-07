@@ -12,9 +12,11 @@ import com.duing.domain.clubmember.service.dto.command.UpdateMemberGenerationCom
 import com.duing.domain.clubmember.service.dto.command.UpdateMemberRoleCommand;
 import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.TransferLeaderQuery;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,8 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
     private final ClubAuthService clubAuthService;
     private final EntityManager entityManager;
     private final ClubMemberHistoryRecorder historyRecorder;
+    // 회장이 바뀌면 공개 상세의 "동아리 회장" 줄이 바뀐다 — 커밋 뒤 상세 재생성 이벤트(#1356).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -163,6 +167,7 @@ public class GeneralClubMemberCommandService implements ClubMemberCommandService
                 command.clubId(), target.getUser().getId(), command.requesterId(),
                 ClubMemberEventType.LEADER_TRANSFERRED,
                 previousTargetRole, ClubMemberRole.LEADER, null);
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
 
         return new TransferLeaderQuery(
                 ClubMemberQuery.from(currentLeader),

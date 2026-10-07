@@ -125,11 +125,11 @@ pnpm dev                    # http://localhost:3000
 
 웹 인증 운영에서는 시크릿 소유권을 다음과 같이 분리한다.
 
-- 백엔드는 Access Token 서명용 `JWT_SECRET`, Middleware 힌트 서명용 `AUTH_HINT_SECRET`, 운영 힌트
-  Cookie 범위용 `AUTH_HINT_COOKIE_DOMAIN=.duings.com`을 사용한다. 두 Secret은 각각 최소 32바이트이며
-  반드시 서로 다른 값이어야 한다. 운영 프로필에서 Cookie Domain이 누락되거나 정확히 `.duings.com`이
-  아니면 기동에 실패한다.
-- Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
+- 백엔드는 Access Token 서명용 `JWT_SECRET`, Middleware 힌트 서명용 `AUTH_HINT_SECRET`을 사용한다. 두
+  Secret은 각각 최소 32바이트이며 반드시 서로 다른 값이어야 한다. 운영 힌트 Cookie 범위(`.duings.com`)는
+  #1350 부터 코드 상수라 앱이 `AUTH_HINT_COOKIE_DOMAIN`을 쓰지 않는다. 다만 운영 `.env` 의
+  `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 줄은 이전 이미지 롤백에 대비해 그대로 둔다(deploy/README.md).
+- 웹 인증 시크릿 중 Vercel에는 백엔드와 같은 `AUTH_HINT_SECRET`만 주입한다. Access Token을 서명할 수 있는
   `JWT_SECRET`은 Vercel 환경변수로 등록하면 안 된다.
 
 운영 웹 `duings.com`/`api.duings.com`과 로컬 `localhost:3000`/`localhost:8080`을 지원한다. 로컬에서는
@@ -141,13 +141,19 @@ host-only Cookie로 발급하고, 프론트와 백엔드의 호스트 문자열�
 API와 동일 사이트가 되는 커스텀 도메인을 사용한다.
 
 웹 Access Token은 백엔드가 `__Host-duing_access_token` host-only Cookie로만 발급한다
-(`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600`, Domain 미지정). `auth_hint`는 로그인·역할별
-리다이렉트 UX에만 쓰며 API 인증이나 권한 판정에는 사용하지 않는다. Refresh Token은 아직 사용하지
-않는다. `JWT_EXPIRY_MS`는 Access JWT, Cookie, `auth_hint`가 모두 정확히 1시간을 유지하도록
-`3600000`만 허용하며 다른 값이면 기동에 실패한다. 현재 로그아웃은 사용자 단위 `token_version`을 증가시키므로 웹이나 모바일 한 곳에서
-로그아웃하면 해당 사용자의 모든 디바이스 세션이 무효화된다.
+(`Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=1800`, Domain 미지정). Refresh Token은
+`__Secure-duing_refresh_token` Cookie(`Path=/api/v1/auth`)로 발급하고 수명은 30일
+(`DUING_AUTH_REFRESH_TTL_DAYS`, 갱신마다 연장)이며, `auth_hint`도 같은 수명을 따른다. 로그인 상태 유지를
+끄면 세 Cookie 모두 Max-Age 없는 세션 Cookie가 된다. `auth_hint`는 로그인·역할별 리다이렉트 UX에만 쓰며
+API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명은 코드(`JwtTokenProvider`)의 상수 30분이고
+설정으로 바꾸지 않는다.
+로그아웃·세션 폐기의 범위와 모든 기기를 즉시 끊는 경로, 배포 순서와 롤백 절차는
+[`deploy/README.md`](./deploy/README.md)를 따른다.
 
-배포 순서와 롤백 절차는 [`deploy/README.md`](./deploy/README.md)를 따른다.
+동아리 탐색(`/clubs`)·상세(`/clubs/<id>`) 재생성 트리거는 Vercel `REVALIDATE_SECRET` 과 백엔드
+`DUING_FRONTEND_REVALIDATE_SECRET` 에 같은 값(32바이트 이상)을 넣어 켠다. 매시 정각 백엔드 잡이 이 값으로
+`POST /api/internal/revalidate` 를 불러 `/clubs` 를 다시 만들게 하고, 동아리 상세가 바뀐 커밋 뒤에는 그 상세를 다시
+만들게 한다. 둘 중 하나라도 비면 기능이 꺼지고 두 페이지는 배포 때나 자체 재생성 주기로만 갱신된다.
 
 ---
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { NOTICE_CATEGORY_OPTIONS } from '../../../notices/_lib/categoryLabels';
@@ -20,6 +20,7 @@ type Props = {
 
 export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, errorMessage }: Props) {
   const [state, setState] = useState<NoticeFormState>(initialState);
+  const tagInputId = useId();
 
   const update = <K extends keyof NoticeFormState>(key: K, value: NoticeFormState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -152,11 +153,15 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
         </select>
       </Field>
 
-      <Field label="태그 (최대 8개)">
-        <NoticeTagInput value={state.tags} onChange={(next) => update('tags', next)} />
-      </Field>
+      {/* 라벨을 텍스트 입력란에만 묶는다(htmlFor) — 묶음 전체를 <label> 로 감싸면 라벨 글자 클릭이 첫 태그 × 를 누른다. */}
+      <div>
+        <label htmlFor={tagInputId} className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">
+          태그 (최대 8개)
+        </label>
+        <NoticeTagInput inputId={tagInputId} value={state.tags} onChange={(next) => update('tags', next)} />
+      </div>
 
-      <Field label="노출 범위">
+      <FieldGroup label="노출 범위">
         <VisibilityPicker
           visibility={state.visibility}
           clubScopeRole={state.clubScopeRole}
@@ -165,7 +170,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           onClubScopeRoleChange={(next) => update('clubScopeRole', next)}
           onTargetClubIdsChange={(next) => update('targetClubIds', next)}
         />
-      </Field>
+      </FieldGroup>
 
       <Field label="만료일 (선택)">
         <input
@@ -222,5 +227,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">{label}</span>
       {children}
     </label>
+  );
+}
+
+// 버튼이 든 입력 묶음(노출 범위)용 — <label> 로 감싸면 라벨 글자를 누를 때 안의 첫 버튼이 눌린다
+// (노출 범위 첫 항목인 전체 공개로 바뀐다).
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  const labelId = useId();
+  return (
+    <div role="group" aria-labelledby={labelId}>
+      <span id={labelId} className="block text-[12.5px] font-semibold text-charcoal-2 mb-1.5">{label}</span>
+      {children}
+    </div>
   );
 }

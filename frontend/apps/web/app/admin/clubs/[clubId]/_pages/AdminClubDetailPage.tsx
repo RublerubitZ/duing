@@ -15,6 +15,7 @@ import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 import { STORED_RICH_HTML_LEADING } from '@/app/manage/clubs/[clubId]/info/_lib/seedEditorHtml';
 import { collegeDisplayName } from '@/app/_lib/college';
 import { clubMemberRoleLabel } from '@/app/_lib/clubMemberRoleLabel';
+import { tagLabel } from '@/app/_lib/tags';
 import { useDebouncedValue } from '@/app/admin/_hooks/useDebouncedValue';
 import { ClubInfoForm } from '@/app/manage/clubs/[clubId]/info/_components/ClubInfoForm';
 import { cn } from '../../../../_lib/cn';
@@ -199,7 +200,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                           key={tag}
                           className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
                         >
-                          #{tag}
+                          {tagLabel(tag)}
                         </span>
                       ))}
                     </dd>

@@ -8,6 +8,7 @@ import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -17,6 +18,7 @@ import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
 import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
+import { NOTICE_LIST_PAGE_SIZE } from '../_lib/noticeListDefaults';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
 type IconProps = SVGProps<SVGSVGElement>;
@@ -207,8 +209,6 @@ const isNewItem = (createdAt: string): boolean =>
 const formatDate = (isoString: string): string => formatDateKst(isoString);
 
 /* ---------- 페이지 ---------- */
-const PAGE_SIZE = 20;
-
 type SidebarItem = {
   icon: React.ReactNode;
   label: string;
@@ -233,17 +233,23 @@ export function NoticePage() {
     category: activeSource === 'SCHOOL' && category !== 'ALL' ? category : undefined,
     keyword: keyword || undefined,
     page,
-    size: PAGE_SIZE,
+    size: NOTICE_LIST_PAGE_SIZE,
   });
 
   // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
   const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
+  // NEW 배지(작성 7일 이내)는 하이드레이션 뒤에만 — 목록은 24시간 ISR 이라 서버가 계산한 값이 보는 시각과 달라
+  // 하이드레이션 불일치(#418)가 난다. 서버·첫 프레임에는 그리지 않는다.
+  const hydrated = useHydrated();
 
   const items = listQuery.data?.content ?? [];
   const totalElements = listQuery.data?.totalElements ?? 0;
   const totalPages = listQuery.data?.totalPages ?? 0;
   const pinnedItems = items.filter((n) => n.pinned);
   const restItems = items.filter((n) => !n.pinned);
+  // 강조 카드는 고정 공지 앞 2건 — 넘친 고정 공지는 일반 목록 맨 앞에 "고정" 표시로 둔다(3건째부터 사라지던 결함).
+  const highlightedPinnedItems = pinnedItems.slice(0, 2);
+  const listRowItems = [...pinnedItems.slice(2), ...restItems];
 
   const handleCategoryChange = (next: NoticeCategory | 'ALL') => {
     setCategory(next);
@@ -463,13 +469,39 @@ export function NoticePage() {
               label="공지 목록 불러오는 중"
             />
           )}
-          {listQuery.isError && (
-            <p style={{ padding: '48px 0', textAlign: 'center', color: '#E14A3A', fontSize: 13 }}>
-              공지를 불러오지 못했습니다.
-            </p>
+          {/* 보여 줄 목록이 없는 실패 — 첫 요청뿐 아니라 탭·필터·페이지를 바꾼 직후의 실패도 여기로 온다(새 조건엔 아직
+              data 가 없다). 다른 조건의 목록을 "이전 내용" 으로 남기면 결과를 오해하므로 전체 오류로 둔다. */}
+          {listQuery.isError && !listQuery.data && (
+            <div role="alert" style={{ padding: '48px 0', textAlign: 'center' }}>
+              <p style={{ color: '#E14A3A', fontSize: 13 }}>공지를 불러오지 못했습니다.</p>
+              <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => void listQuery.refetch()}>
+                다시 시도
+              </button>
+            </div>
           )}
 
-          {listQuery.isSuccess && (
+          {/* 재요청이 실패해도 이미 받은 목록은 남긴다 — TanStack Query 는 이때 isSuccess 를 내리지만 data 는 유지한다.
+              24시간 ISR 시드로 그린 첫 화면이 마운트 재요청의 시간 초과로 통째로 오류 문구로 바뀌던 결함이다. */}
+          {listQuery.isError && listQuery.data && (
+            <div
+              role="alert"
+              className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3 text-[13px] text-charcoal-2"
+            >
+              <span>최신 공지를 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.</span>
+              {/* 데이터가 있는 재요청은 진행 중에도 status 가 error 로 남아 화면이 그대로다 — 버튼으로 진행 중임을 알리고,
+                  연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={listQuery.isFetching}
+                onClick={() => void listQuery.refetch()}
+              >
+                {listQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
+              </button>
+            </div>
+          )}
+
+          {listQuery.data && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
             // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
@@ -486,7 +518,7 @@ export function NoticePage() {
               {pinnedItems.length > 0 && (
                 <>
                   <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
-                    {pinnedItems.slice(0, 2).map((n, i) => {
+                    {highlightedPinnedItems.map((n, i) => {
                       const isDark = i === 0;
                       return (
                         <Link
@@ -531,7 +563,7 @@ export function NoticePage() {
                               fontSize: 12, fontVariantNumeric: 'tabular-nums',
                               color: isDark ? 'rgba(255,255,255,0.5)' : 'var(--charcoal-3)',
                             }}>{formatDate(n.createdAt)}</span>
-                            {isNewItem(n.createdAt) && (
+                            {hydrated && isNewItem(n.createdAt) && (
                               <span style={{ marginLeft: 'auto' }}>
                                 <NewBadge />
                               </span>
@@ -605,6 +637,8 @@ export function NoticePage() {
                   짧은 진입 뷰포트에서 흰 라운드 시트의 상단 엣지가 하단 탭바 바로 위에 정지하면
                   반투명 탭바와 병합돼 "두 겹 탭바"처럼 보인다(실기기 스크린샷으로 확인된 착시).
                   크림 위 텍스트 행은 어느 높이에 걸쳐도 다른 탭 진입 화면과 같은 구도로 읽힌다. */}
+              {/* 고정 카드만 있는 페이지(일반·넘친 고정 0건)는 표를 그리지 않는다 — 데스크탑에 머리글만 남은 빈 시트가 된다. */}
+              {(listRowItems.length > 0 || items.length === 0) && (
               <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
                 {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
                 <div className="hidden md:grid" style={{
@@ -622,14 +656,14 @@ export function NoticePage() {
                   <span style={{ textAlign: 'center' }}>등록일</span>
                 </div>
 
-                {restItems.map((n, i) => (
+                {listRowItems.map((n, i) => (
                   <Link
                     key={n.id}
                     href={toRoute(`/notices/${n.id}`)}
                     className="notice-row"
                     style={{
                       // 패딩은 .notice-row(globals.css)가 소유 — 모바일(시트 없음)은 좌우 0, md+ 는 시트 내부 22px.
-                      borderBottom: i < restItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
+                      borderBottom: i < listRowItems.length - 1 ? '1px solid var(--gray-line)' : 'none',
                       fontSize: 13.5, cursor: 'pointer',
                       color: 'var(--charcoal)', textDecoration: 'none',
                     }}
@@ -652,6 +686,16 @@ export function NoticePage() {
                       display: 'inline-flex', alignItems: 'center',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
+                      {n.pinned && (
+                        // 넘친 고정 공지 표시 — 동아리 칩(sage)과 구분되는 진한 pill. display 를 인라인 style 로 둬야
+                        // 접근성 이름에서 "고정"과 제목이 띄어진다(클래스만이면 테스트 환경이 붙여 읽는다).
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center',
+                          padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginRight: 7,
+                          background: 'var(--ink)', color: '#fff',
+                          fontSize: 11, fontWeight: 700,
+                        }}>고정</span>
+                      )}
                       {n.owningClubId != null && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -663,7 +707,7 @@ export function NoticePage() {
                       )}
                       {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
                       <span className="min-w-0 truncate">{n.title}</span>
-                      {isNewItem(n.createdAt) && <NewBadge />}
+                      {hydrated && isNewItem(n.createdAt) && <NewBadge />}
                     </span>
                     <span className="nr-date" style={{
                       fontSize: 12, color: 'var(--charcoal-3)',
@@ -672,7 +716,7 @@ export function NoticePage() {
                   </Link>
                 ))}
 
-                {restItems.length === 0 && (
+                {items.length === 0 && (
                   <p style={{ padding: '32px 22px', textAlign: 'center', color: 'var(--charcoal-3)', fontSize: 13 }}>
                     {keyword
                       ? '검색 결과가 없습니다.'
@@ -680,6 +724,7 @@ export function NoticePage() {
                   </p>
                 )}
               </div>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (

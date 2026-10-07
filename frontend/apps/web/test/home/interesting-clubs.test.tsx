@@ -64,6 +64,15 @@ describe('InterestingClubs', () => {
     expect(container.querySelector('a[href="/clubs/2"]')).not.toBeNull();
   });
 
+  it('소개 문구가 없으면 태그를 이어 보여 주고, 예전에 # 를 붙여 저장한 태그도 # 없이 보여 준다', async () => {
+    fetchInterestingClubsMock.mockResolvedValue([club({ id: 1, tags: ['#밴드', '공연'] })]);
+
+    render(await InterestingClubs());
+
+    expect(screen.getAllByText('밴드 · 공연').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/#밴드/)).toBeNull();
+  });
+
   it('주간 관심 인원이 임계값 이상이면 "이번 주에 N명" 문구가 표시된다', async () => {
     fetchInterestingClubsMock.mockResolvedValue([club({ id: 1, weeklyInterestCount: 24 })]);
 

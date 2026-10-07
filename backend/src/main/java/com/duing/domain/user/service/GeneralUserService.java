@@ -34,6 +34,7 @@ import com.duing.global.exception.PostgresConstraintViolations;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
 import com.duing.global.persistence.LikeEscapes;
+import com.duing.global.web.PageRequestGuard;
 import com.duing.global.web.SortWhitelist;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -429,6 +430,7 @@ public class GeneralUserService implements UserService {
     public Page<UserSearchResultQuery> searchForAdmin(String queryOrNull, UserStatus statusOrNull,
                                                       Pageable pageable) {
         SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_ADMIN_USER_SORT);
+        PageRequestGuard.assertOffsetWithinInt(pageable);
         // 검색어는 선택이다 — 상태 필터만으로 목록을 훑는 경로(정지 회원 찾기)가 필요하다.
         // 리포지토리가 CONCAT 으로 LIKE 패턴을 조립하므로 여기서 와일드카드를 죽여 넘긴다(ESCAPE '!' 와 한 쌍).
         String normalizedQuery = StringUtils.hasText(queryOrNull)

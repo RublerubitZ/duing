@@ -16,7 +16,7 @@ Spring Boot 기반 백엔드. 모노레포 개발 개요(빠른 시작·기술 �
 | 프레임워크 | Spring Boot 3.5.x |
 | 빌드 | Gradle (Kotlin DSL) |
 | DB | PostgreSQL (Supabase 공유 인스턴스) |
-| ORM | Spring Data JPA + Hibernate 6, QueryDSL 5 (jakarta) |
+| ORM | Spring Data JPA + Hibernate 6, QueryDSL 6 (OpenFeign 포크) |
 | 마이그레이션 | Flyway |
 | 인증 | Spring Security + JWT (auth0 java-jwt) |
 | API 문서 | springdoc-openapi (Swagger UI) |
@@ -60,7 +60,7 @@ cp .env.example .env
 | `DB_URL` | Supabase Postgres JDBC URL (`jdbc:postgresql://...`) |
 | `DB_USERNAME` / `DB_PASSWORD` | DB 자격 증명 (팀 공유 채널에서 확인) |
 | `JWT_SECRET` | 32자 이상 임의 문자열 (`openssl rand -hex 32`) |
-| `JWT_EXPIRY_MS` | JWT 만료 ms (기본 3,600,000 = 1시간) |
+| `JWT_EXPIRY_MS` | 어떤 값이든 넣지 않는다 — #1347 부터 앱은 읽지 않지만(Access 30분은 코드 상수), #1347 이전 이미지로 롤백하면 이 값 때문에 기동이 실패할 수 있다 |
 | `FILE_UPLOAD_DIR` | 로컬 파일 저장 경로 (기본 `/tmp/duing/uploads`) |
 
 IntelliJ 의 Run Configuration → Environment variables 에 등록하거나, EnvFile 플러그인으로 `.env` 를 연결해 사용한다.
@@ -150,8 +150,8 @@ src/main/resources/
 
 | ID | 기능 | 핵심 규칙 |
 |---|---|---|
-| U-1 | 회원가입 | 학번(7~10자리 숫자)·이메일·비번(8~72자) 검증, BCrypt 해싱, 기본 role `STUDENT` |
-| U-2 | 로그인 | 이메일+비번 → JWT(HS256) 발급, 만료 `JWT_EXPIRY_MS` |
+| U-1 | 회원가입 | 학번(8자리 숫자)·비번(8~20자, 영문/숫자/특수문자 2종 이상) 검증, 휴대폰 MO 인증, BCrypt 해싱, 기본 role `STUDENT` |
+| U-2 | 로그인 | 학번+비번 → Access JWT(HS256, 30분)·Refresh 토큰(30일, 갱신마다 연장) 발급 |
 | U-3 | 내 정보 조회 | `@AuthenticationPrincipal UserPrincipal` 로 현재 사용자 식별 |
 
 ### Club (동아리) ✅ 구현완료

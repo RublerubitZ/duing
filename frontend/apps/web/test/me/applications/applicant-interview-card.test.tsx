@@ -76,6 +76,27 @@ function renderCard() {
 }
 
 describe('ApplicantInterviewCard', () => {
+  it('시간 선택 모달은 카드 밖 body 로 포털된다(지원 상세 모달의 transform 에 갇히지 않게)', async () => {
+    const user = userEvent.setup();
+    mockView({
+      phase: 'AVAILABILITY_REQUESTED',
+      availabilityDeadline: FUTURE_DEADLINE,
+      slots: BASE_SLOTS,
+      myAlternativeText: null,
+      scheduledInterview: null,
+    });
+
+    const { container } = renderCard();
+    await user.click(await screen.findByRole('button', { name: '시간 선택하기' }));
+
+    // 카드는 transform 이 걸린 지원 상세 모달 안에 그려진다 — 안에 두면 fixed 백드롭이 그 박스만 덮는다.
+    const dialog = screen.getByRole('dialog');
+    expect(container).not.toContainElement(dialog);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+    // body 는 .duing 스코프 밖이라 디자인 토큰(--paper 등)을 쓰려면 포털 루트가 스코프를 다시 열어야 한다.
+    expect(dialog.parentElement).toHaveClass('duing');
+  });
+
   it('응답 요청 단계에서는 마감과 함께 시간 선택 버튼이 보인다', async () => {
     mockView({
       phase: 'AVAILABILITY_REQUESTED',

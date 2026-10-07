@@ -33,6 +33,14 @@ spring:
       # 받아 한국어 413 메시지를 내려준다. ClubPhoto 등 향후 다른 업로드까지 감안해 10MB.
       max-file-size: 10MB
       max-request-size: 10MB
+  datasource:
+    hikari:
+      data-source-properties:
+        # pgjdbc 는 기본으로 모든 서버 오류의 Detail(unique·FK 키 값, NOT NULL/CHECK 위반 행, 교착 상세 등)을 예외 메시지에
+        # 붙여, 전화번호·학번 등이 Hibernate ERROR 로그를 거쳐 Sentry 로 나간다(#1317). 끄면 Detail 은 DB 서버(Supabase) 로그에서만
+        # 보이고, 제약명은 메시지 본문에 남아 409 매핑은 그대로다. DB_URL 쿼리 파라미터가 이 값보다 우선하니 DB_URL 에는 넣지 않는다.
+        # 테스트 application.yml 에 같은 값이 있다 — 함께 바꾼다.
+        logServerErrorDetail: false
   jpa:
     open-in-view: false
     hibernate:
@@ -43,7 +51,8 @@ spring:
         default_batch_fetch_size: 100
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    # baseline-on-migrate 는 켜지 않는다 — 이력 없는 비어 있지 않은 스키마를 만나면 V1 을 baseline 으로 기록한 뒤 V2 부터
+    # 다시 적용하려다 곧바로 실패해 가짜 baseline 행이 남는다. 꺼 두면 아무것도 쓰지 않고 오류로 멈춘다(ProdProfileConfigPolicyTest).
     locations: classpath:db/migration
     placeholders:
       # V112(타임존 2단계 -9h 백필) 가드. +9h 왜곡은 JVM=UTC 인 운영에만 쌓였으므로 기본은 no-op 이고,
@@ -76,10 +85,10 @@ management:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiry-ms: ${JWT_EXPIRY_MS:1800000}
 
 web-auth:
   hint-secret: ${AUTH_HINT_SECRET}
+  # 로컬·개발용(빈 값 = host-only Cookie). 운영은 코드 상수 .duings.com 을 써서 이 값을 쓰지 않는다(WebAuthCookieService).
   hint-cookie-domain: ${AUTH_HINT_COOKIE_DOMAIN:}
 
 # 회비 계좌번호 AES-256-GCM 암호화 키. base64 인코딩된 32바이트(256bit) 값을 FEE_ACCOUNT_ENC_KEY 환경변수로 주입한다.
@@ -224,6 +233,13 @@ duing:
       # 8일 초과분 삭제)도 겸한다 — 비활성 환경에서는 관심도가 0 으로 고정되고 조회 이벤트가 쌓이기만
       # 한다. 운영에서 이 플래그를 끄면 보존 기간 약속이 지켜지지 않으므로 끄지 말 것.
       enabled: ${DUING_CLUB_METRIC_ENABLED:false}
+  # 프론트 재생성 트리거(FrontendRevalidator) — 매시 정각 ClubMetricRefreshJob 이 /clubs 재생성을, 동아리 상세가 바뀐
+  # 커밋 뒤에는 ClubPublicPageRevalidationListener 가 /clubs/<id> 재생성을 요청한다.
+  # 비밀값이 비면 비활성(로컬·CI 기본). 운영 값은 서버 .env 의 DUING_FRONTEND_REVALIDATE_SECRET
+  # (= Vercel REVALIDATE_SECRET)로만 주입한다.
+  frontend:
+    base-url: ${DUING_FRONTEND_BASE_URL:http://localhost:3000}
+    revalidate-secret: ${DUING_FRONTEND_REVALIDATE_SECRET:}
   privacy:
     retention:
       # 탈퇴/폐쇄로 soft-delete 된 PII 의 보관기간 = 45일(P45D). 이후 파기 잡이 비식별화/삭제한다.
@@ -271,6 +287,15 @@ duing:
         # APPROVED → CONFIRMED 자동 매칭 잡(10분, 크롤 잡과 3분 오프셋). 로컬/테스트 기본 비활성 —
         # 운영에서 DUING_FACILITY_BOOKING_MATCHING_ENABLED=true(application-prod.yml)로 활성화한다.
         enabled: ${DUING_FACILITY_BOOKING_MATCHING_ENABLED:false}
+  monitoring:
+    traffic-surge:
+      # api 트래픽 이상 감지(TrafficSurgeMonitor) — 분당 요청이나 분당 429 가 기준 이상인 집계가 2회 이어지면 Slack 으로
+      # 한 번, 5회 연속 정상이면 정상화를 한 번 알린다(deploy/MONITORING.md). 기본 비활성 — 운영은 application-prod.yml
+      # 에서 기본 활성. 기준값은 추정치라 일간 요약(Slack, 매일 09:00)과 매시 요약 로그로 맞춘다. Slack 전송 설정(webhook)은 최상위
+      # monitoring.slack 이고, 이건 잡 플래그라 다른 잡처럼 duing.* 아래에 둔다.
+      enabled: ${DUING_TRAFFIC_SURGE_ENABLED:false}
+      requests-per-minute: ${DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE:3000}
+      rejections-per-minute: ${DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE:300}
 
 # 기본은 안전값(warn). bind 파라미터 로깅(org.hibernate.orm.jdbc.bind=trace)은 이메일·인증코드·학번 등
 # PII 를 평문으로 남기므로 base 를 warn 으로 둔다. local 프로파일만 개발 편의로 trace 를 다시 켜고

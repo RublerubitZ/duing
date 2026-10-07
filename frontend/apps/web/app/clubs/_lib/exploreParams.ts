@@ -23,6 +23,9 @@ export type ExploreParams = {
   page: number;
 };
 
+/** 탐색 목록 한 페이지 크기 — 화면(ClubExplorePage)과 서버 시드(page.tsx)가 같은 키를 만들도록 한곳에 둔다. */
+export const EXPLORE_PAGE_SIZE = 20;
+
 export const DEFAULT_EXPLORE_PARAMS: ExploreParams = {
   scope: '전체',
   division: '전체',
@@ -180,6 +183,9 @@ export function toApiParams(params: ExploreParams, pageSize: number): ClubSearch
     size: pageSize,
   };
 }
+
+/** 쿼리 없는 첫 진입의 기본 목록 키 — 서버 렌더·시드(page.tsx)와 재검증 라우트의 사전 확인이 같은 값을 쓴다. */
+export const DEFAULT_CLUB_LIST_PARAMS: ClubSearchParams = toApiParams(DEFAULT_EXPLORE_PARAMS, EXPLORE_PAGE_SIZE);
 
 /**
  * favorite·page·sort 를 제외한 나머지 필터 중 하나라도 기본값이 아니면 true.

@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -74,6 +76,14 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         Long target = saveActiveClub("이름A", "소개A", List.of("개발")).getId();
 
         assertSearch("##개발").containsExactly(target);
+    }
+
+    @Test
+    @DisplayName("키워드는 태그와 같은 규칙으로 정리한다 — 앞의 # 와 공백이 섞여도 태그 매치가 동작한다")
+    void keywordNormalizedLikeTagMatchesTag() {
+        Long target = saveActiveClub("이름A", "소개A", List.of("개발")).getId();
+
+        assertSearch("# #개발").containsExactly(target);
     }
 
     @Test
@@ -152,6 +162,33 @@ class ClubRepositoryImplKeywordSearchTest extends IntegrationTestBase {
         saveActiveClub("이름A", "소개A", List.of("백엔드"));
 
         assertSearch("백__").isEmpty();
+    }
+
+    @ParameterizedTest(name = "태그 {0}")
+    @ValueSource(strings = {"100%", "a_b", "x!y"})
+    @DisplayName("키워드의 %·_·! 는 리터럴이라 그 글자가 든 태그를 찾는다")
+    void keywordWithLikeSpecialCharactersMatchesTagLiterally(String tag) {
+        Long target = saveActiveClub("이름A", "소개A", List.of(tag)).getId();
+        saveActiveClub("이름B", "소개B", List.of("봉사"));
+
+        assertSearch(tag).containsExactly(target);
+    }
+
+    @ParameterizedTest(name = "키워드 {0}")
+    @ValueSource(strings = {",", "발,봉", "발봉", "발 봉", "발\u001F봉"})
+    @DisplayName("키워드는 태그 경계를 넘어 매치되지 않는다 — 태그 [개발, 봉사] 의 앞 태그 끝과 뒤 태그 앞을 잇는 키워드에 걸리지 않는다")
+    void keywordDoesNotMatchAcrossTagBoundary(String keyword) {
+        saveActiveClub("이름A", "소개A", List.of("개발", "봉사"));
+
+        assertSearch(keyword).isEmpty();
+    }
+
+    @Test
+    @DisplayName("태그가 여러 개여도 두 번째 이후 태그 안의 키워드로 찾는다")
+    void keywordMatchesLaterTagOfMultiTagClub() {
+        Long target = saveActiveClub("이름A", "소개A", List.of("개발", "봉사")).getId();
+
+        assertSearch("봉사").containsExactly(target);
     }
 
     private org.assertj.core.api.AbstractListAssert<?, java.util.List<? extends Long>, Long,

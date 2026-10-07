@@ -2,6 +2,7 @@ package com.duing.domain.club.controller.dto.request;
 
 import com.duing.domain.club.entity.FeeCycle;
 import com.duing.global.constant.LinkUrlPatterns;
+import com.duing.global.constant.TagRules;
 
 /**
  * 동아리 프로필 입력 규칙. 리더 수정({@link UpdateClubRequest})·총동연 수정({@link AdminUpdateClubRequest})·
@@ -29,6 +30,9 @@ public final class ClubProfileValidationRules {
     public static final int TAGS_MAX = 20;
     public static final int TAG_LENGTH_MIN = 1;
     public static final int TAG_LENGTH_MAX = 20;
+    /** 쉼표 금지 — 쉼표는 태그 필터의 구분자다(#1338). 태그 공통 규칙 {@link TagRules} 를 따른다. */
+    public static final String TAG_PATTERN = TagRules.NO_COMMA_PATTERN;
+    public static final String TAG_PATTERN_MESSAGE = TagRules.NO_COMMA_MESSAGE;
 
     public static final int SNS_LINKS_MAX = 10;
     public static final int FAQS_MAX = 20;

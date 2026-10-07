@@ -37,6 +37,9 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Radix 는 터치 드롭다운 클릭 관통 회귀로 보류 중이다(#1331). 해결하면 이 항목을 지운다.
+      - dependency-name: "@radix-ui/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
     commit-message:
       prefix: chore
       include: scope
@@ -59,6 +62,8 @@ updates:
       prefix: chore
       include: scope
     groups:
-      # Gradle wrapper 도 이 묶음으로 온다. BOM 관리 버전·extra["…version"] 오버라이드·classifier 붙은 QueryDSL 은 갱신 대상이 아니다.
+      # Gradle wrapper 도 이 묶음으로 온다. BOM 관리 버전·extra["…version"] 오버라이드는 갱신 대상이 아니다.
+      # QueryDSL 포크 6.x 줄은 6.12 에서 끝났다. 버전 업데이트로는 7.x 가 오지 않는다(메이저 제외).
+      # 보안 업데이트는 이 제약이 없어 7.x 를 제안할 수 있다 — 7.x 는 Hibernate 7 전용이라 그 PR 은 머지하지 않고 닫는다(Boot 4 전환 때 함께 올린다).
       backend:
         patterns: ["*"]

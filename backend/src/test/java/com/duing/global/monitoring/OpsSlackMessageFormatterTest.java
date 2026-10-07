@@ -164,11 +164,115 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
+    @DisplayName("프론트 재생성 연속 실패 메시지는 경로·연속 실패 횟수·마지막 사유와 런북 위치만 싣는다")
+    void frontendRevalidationFailingMessage() {
+        assertThat(formatter.frontendRevalidationFailing("/clubs", 3, "warm-up HTTP_500")).isEqualTo(String.join("\n",
+                "⚠️ 프론트 재생성 트리거 연속 실패",
+                "서비스: Duing",
+                "이벤트: FRONTEND_REVALIDATION_FAILING",
+                "경로: /clubs",
+                "연속 실패: 3회",
+                "마지막 사유: warm-up HTTP_500",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                "런북: deploy/MONITORING.md"));
+    }
+
+    @Test
+    @DisplayName("프론트 재생성 복구 메시지는 경로와 복구 전까지의 연속 실패 횟수를 싣는다")
+    void frontendRevalidationRecoveredMessage() {
+        assertThat(formatter.frontendRevalidationRecovered("/clubs", 4)).isEqualTo(String.join("\n",
+                "✅ 프론트 재생성 트리거 복구",
+                "서비스: Duing",
+                "이벤트: FRONTEND_REVALIDATION_RECOVERED",
+                "경로: /clubs",
+                "연속 실패: 4회 뒤 성공",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
     @DisplayName("시간은 주입된 시계(Asia/Seoul) 기준으로 KST 로 표기한다 — UTC 시계를 넣어도 변환되지 않는 raw now 가 아니다")
     void timeUsesInjectedClock() {
         Clock utcMidnight = Clock.fixed(LocalDateTime.of(2026, 8, 22, 15, 0).toInstant(ZoneOffset.UTC), SEOUL);
         OpsSlackMessageFormatter seoulFormatter = new OpsSlackMessageFormatter("production", moPollThrottle, utcMidnight);
 
         assertThat(seoulFormatter.clubClosed(new ClubClosedEvent(1L, "x", 1L))).contains("시간: 2026-08-23 00:00 KST");
+    }
+
+    @Test
+    @DisplayName("트래픽 이상 감지 메시지는 이상 구간 최대치·기준·판정·확인 안내·런북 줄만 싣는다")
+    void trafficSurgeDetectedMessageCarriesAggregatesOnly() {
+        String message = formatter.trafficSurgeDetected(10_000, 12, 2, 3_000, 300);
+
+        assertThat(message).isEqualTo(String.join("\n",
+                "🚨 api 트래픽 이상 — 비상 모드 검토",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_SURGE_DETECTED",
+                "최대 분당 요청: 10,000 (기준 3,000)",
+                "최대 분당 429: 12 (기준 300)",
+                "판정: 집계 2회 연속 기준 이상",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                "정상 사용자가 몰린 것(가두모집 등)일 수 있다 — 서버 부하·오류부터 확인",
+                "런북: deploy/MONITORING.md (공격이면 deploy/EDGE-EMERGENCY.md)"));
+    }
+
+    @Test
+    @DisplayName("트래픽 정상화 메시지는 이상 구간 최대치와 판정 줄(연속 미만 횟수)을 싣는다")
+    void trafficSurgeRecoveredMessageCarriesPeaks() {
+        String message = formatter.trafficSurgeRecovered(12_345, 678, 5);
+
+        assertThat(message).isEqualTo(String.join("\n",
+                "✅ api 트래픽 정상화",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_SURGE_RECOVERED",
+                "이상 구간 최대 분당 요청: 12,345",
+                "이상 구간 최대 분당 429: 678",
+                "판정: 집계 5회 연속 기준 미만",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
+    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·감지 횟수·기준을 싣는다")
+    void trafficDailySummaryMessageCarriesAggregates() {
+        TrafficDailySummary summary = new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300);
+
+        assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
+                "📊 api 트래픽 일간 요약",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                "기간: 2026-10-06 09:00 ~ 2026-10-07 09:00 KST",
+                "총 요청: 12,345 (429 1,234)",
+                "최대 분당 요청: 2,345 (2026-10-06 21:14)",
+                "최대 분당 429: 1,010",
+                "이상 감지: 2회",
+                "기준: 분당 요청 3,000 · 분당 429 300",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
+    @DisplayName("재기동 뒤부터 센 기간은 표시하고, 요청이 없으면 최대 분당 요청의 시각 괄호를 뺀다")
+    void trafficDailySummaryMarksRestartAndOmitsMissingPeakTime() {
+        TrafficDailySummary summary = new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 7, 8, 57), LocalDateTime.of(2026, 10, 7, 9, 0), true,
+                0, 0, 0, null, 0, 0, 3_000, 300);
+
+        assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
+                "📊 api 트래픽 일간 요약",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                "기간: 2026-10-07 08:57 ~ 2026-10-07 09:00 KST (재기동 뒤부터)",
+                "총 요청: 0 (429 0)",
+                "최대 분당 요청: 0",
+                "최대 분당 429: 0",
+                "이상 감지: 0회",
+                "기준: 분당 요청 3,000 · 분당 429 300",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
     }
 }

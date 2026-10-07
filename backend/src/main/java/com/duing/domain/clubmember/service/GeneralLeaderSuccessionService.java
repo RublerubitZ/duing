@@ -22,6 +22,9 @@ import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSumma
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
+import com.duing.global.web.PageRequestGuard;
+import com.duing.global.web.SortWhitelist;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +45,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
 
+    // 클라이언트 sort 는 파생 쿼리의 ORDER BY 에 덧붙으므로, 허용 목록 밖 속성은 SortWhitelist 가 400 으로 거부한다
+    // (응답에 없는 컬럼 정렬·오류 쿼리 차단). 고정 정렬(OrderByCreatedAtDesc)이 앞에 오므로 createdAt 을 보내도
+    // 순서는 바뀌지 않는다 — 허용 값은 기존 클라이언트 호환용으로만 남긴다.
+    private static final Set<String> ALLOWED_MEMBER_HISTORY_SORT = Set.of("createdAt");
+
     private final LeaderSuccessionRequestRepository requestRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubAuthService clubAuthService;
@@ -49,6 +58,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     private final UserRepository userRepository;
     private final ClubMemberHistoryRecorder historyRecorder;
     private final EntityManager entityManager;
+    // 승인으로 회장이 바뀌면 공개 상세의 "동아리 회장" 줄이 바뀐다 — 커밋 뒤 상세 재생성 이벤트(#1356).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -138,6 +149,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         } catch (ObjectOptimisticLockingFailureException concurrentProcess) {
             throw new ClubMemberException.ConcurrentSuccessionUpdateException();
         }
+        // 거절(REJECTED)은 위에서 이미 반환했다 — 회장이 바뀐 승인만 발행한다.
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     @Override
@@ -231,6 +244,8 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
         if (!clubRepository.existsById(clubId)) {
             throw new ClubException.ClubNotFoundException();
         }
+        SortWhitelist.assertAllowed(pageable.getSort(), ALLOWED_MEMBER_HISTORY_SORT);
+        PageRequestGuard.assertOffsetWithinInt(pageable);
 
         Page<ClubMemberHistory> page =
                 historyRepository.findByClubIdOrderByCreatedAtDesc(clubId, pageable);

@@ -1,10 +1,13 @@
 package com.duing.domain.user.service;
 
 import com.duing.domain.user.exception.PhoneVerificationException;
+import com.duing.global.ratelimit.ClientIpKeys;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -43,20 +46,19 @@ import org.springframework.stereotype.Component;
  * IP 를 섞으면 정당 소유자의 창은 남고, 단일 IP 의 남용만 캡된다(분산 공격은 일일 벤더 쿼터가 백스톱).
  * 각 창은 독립이며 <b>허용된 요청만</b> 기록한다 (거절 미기록 — 메모리 고갈 방지).
  *
- * <p>재시작 시 리셋은 수용한다. 만료된 IP·토큰 엔트리 정리(Caffeine expireAfterAccess 등)와 멀티
- * 인스턴스 전환 시 Redis 교체는 백로그다 (spec §11.1). 토큰 창은 실재하는 세션에만 설치되지만 그
- * 상한은 "가입 건수" 가 아니라 <b>발급되어 한 번이라도 폴링된 토큰 수</b>다 — 발급이 permitAll 이고
- * 매번 새 UUID 라 남용 시에도 자란다(엔트리당 수백 바이트~1KB — 키·deque 만 300바이트 남짓이고
- * 창 안 타임스탬프가 {@code LocalDateTime} 하나당 ≈ 72바이트씩 더 붙는다. 발급 창 600/시 기준
- * IP당 수백 KB/시). 정상 트래픽에서는 하루 수 MB 이하라 재기동 주기 안에서 무해하다. 정리가 필요해지면
- * {@link MoPollThrottle} 이 같은 토큰 키공간에 이미 쓰는 지연 sweep 패턴을 그대로 붙이면 된다.
+ * <p>재시작 시 리셋은 수용한다. 기록 맵 다섯 개는 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료되고
+ * 키 수에도 상한이 있다({@link RateLimitMaps}). 멀티 인스턴스 전환 시 Redis 교체는 백로그다 (spec §11.1). 토큰 창은
+ * 실재하는 세션에만 설치되지만 그 수는 "가입 건수" 가 아니라 <b>발급되어 한 번이라도 폴링된 토큰 수</b>다
+ * — 발급이 permitAll 이고 매번 새 UUID 라 남용 시에도 자란다(엔트리당 수백 바이트~1KB — 키·deque 만
+ * 300바이트 남짓이고 창 안 타임스탬프가 {@code LocalDateTime} 하나당 ≈ 72바이트씩 더 붙는다). 그 크기는
+ * 위 만료와 키 상한이 묶는다.
  *
  * <p>이번 한도 상향으로 <b>IP 맵의 키당 최악값도 함께 커졌다</b> — {@code statusTimesByIp} 는 200 →
  * 10,000 엔트리(≈720KB, 50배), {@code issueTimesByIp} 는 60 → 600(10배). 일일 벤더 쿼터가 훨씬 먼저
- * 막으므로 정상 트래픽에서는 도달하지 않는 값이지만, 위 "하루 수 MB" 산정은 토큰 맵 기준이라 이 둘을
- * 포함하지 않는다. 또 {@link #assertAndRecordWithin} 은 창이 비어도 엔트리를 지우지 않는다(검사 전용
- * 형제 메서드들과 달리) — 키 공간이 IP 라 자연 유계였던 전제가, 클라이언트 IP 를 지정할 수 있는
- * 경로가 생기면 무너진다. 그 경로를 닫는 것은 {@code deploy/Caddyfile} 주석의 방화벽 항목이다.
+ * 막으므로 정상 트래픽에서는 도달하지 않는 값이다. 또 {@link #assertAndRecordWithin} 은 창이 비어도
+ * 엔트리를 바로 지우지 않는다(검사 전용 형제 메서드들과 달리) — 그 키는 만료로 지워지고 키 수는 상한이
+ * 묶지만, 클라이언트 IP 를 지정할 수 있는 경로가 있으면 고유 키를 마구 만들어 정상 키의 카운터를 밀어낼 수
+ * 있다. 그 경로를 닫는 것은 {@code deploy/Caddyfile} 주석의 방화벽 항목이다.
  */
 @Component
 public class PhoneVerificationRateLimiter {
@@ -78,17 +80,24 @@ public class PhoneVerificationRateLimiter {
     static final int RESET_START_PER_HOUR_LIMIT = 3;
     static final int ISSUE_PER_PHONE_HOUR_LIMIT = 5;
 
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> issueTimesByIp = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> statusTimesByIp = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> statusTimesByToken = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> resetStartTimesByStudentId =
-            new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Deque<LocalDateTime>> issueTimesByPhoneAndIp =
-            new ConcurrentHashMap<>();
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 다섯 맵의 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<String, Deque<LocalDateTime>> issueTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
+    private final ConcurrentMap<String, Deque<LocalDateTime>> statusTimesByIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
+    private final ConcurrentMap<String, Deque<LocalDateTime>> statusTimesByToken =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
+    private final ConcurrentMap<String, Deque<LocalDateTime>> resetStartTimesByStudentId =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
+    private final ConcurrentMap<String, Deque<LocalDateTime>> issueTimesByPhoneAndIp =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /** 발급 IP 윈도우(분 60/시 600)를 검사하고 허용이면 기록한다. 초과 시 429. */
     public void assertAndRecordIssueIpRequest(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(issueTimesByIp, clientIp, now, ISSUE_PER_MINUTE_LIMIT, ISSUE_PER_HOUR_LIMIT);
+        assertAndRecordWithin(issueTimesByIp, ClientIpKeys.normalize(clientIp), now,
+                ISSUE_PER_MINUTE_LIMIT, ISSUE_PER_HOUR_LIMIT);
     }
 
     /**
@@ -96,13 +105,13 @@ public class PhoneVerificationRateLimiter {
      * 토큰의 스팸을 세는 창이 이것뿐이기 때문이다(토큰 창은 404 이후라 설치되지 않는다). 초과 시 429.
      */
     public void assertAndRecordStatusIpRequest(String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(statusTimesByIp, clientIp, now,
+        assertAndRecordWithin(statusTimesByIp, ClientIpKeys.normalize(clientIp), now,
                 STATUS_IP_PER_MINUTE_LIMIT, STATUS_IP_PER_HOUR_LIMIT);
     }
 
     /**
      * 상태조회 토큰 윈도우(분 30/시 200) — 폴링의 실제 상한. 호출부는 <b>토큰 실재를 확인한 뒤</b>
-     * 부른다: 랜덤 토큰마다 창이 설치되면 만료 엔트리 미정리와 겹쳐 힙이 샌다
+     * 부른다: 랜덤 토큰마다 창이 설치되면 키 상한을 채워 정상 토큰의 카운터를 밀어낸다
      * ({@link #assertIssueIpWithinLimit} 가 학번 창에 대해 문서화한 것과 같은 경로). 초과 시 429.
      */
     public void assertAndRecordStatusTokenRequest(String verificationToken, LocalDateTime now) {
@@ -121,22 +130,22 @@ public class PhoneVerificationRateLimiter {
      *
      * <p>재설정 시작의 <b>선검사</b> 전용이다. 그 경로는 학번 키 창({@link #assertAndRecordPasswordResetStart})을
      * 먼저 설치한 뒤 issue() 안에서야 IP 창을 만나는데, 학번 창은 새 키마다 항상 통과(시간당 3회)라
-     * 선검사가 없으면 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치된다 — 8자리 학번 공간(1e8)과
-     * 만료 엔트리 미정리가 겹쳐 단일 IP 로 힙을 고갈시킬 수 있다.
+     * 선검사가 없으면 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치된다 — 8자리 학번 공간(1e8)이라
+     * 단일 IP 로 키 상한을 채워 다른 학번의 카운터를 밀어낼 수 있다.
      *
      * <p>여기서 <b>기록하지 않는</b> 것은 "요청당 IP 예산 1 소모" 계약을 지키기 위해서다. 재설정 시작은
      * 모든 분기(미가입·탈퇴·placeholder·정상)가 예외 없이 issue() 를 타므로 양쪽에서 기록해도 소모량은
      * 균일하게 2가 되어 계정 열거 오라클이 생기지는 않지만, 재설정에 걸리는 실효 IP 예산이
      * 시간당 600에서 300으로 반감된다. 이 메서드가 지탱하는 방어는 계정 열거가 아니라 <b>학번 창 설치 전 게이트</b>
-     * 하나뿐이라는 점을 혼동하지 말 것 — 지우면 열거가 아니라 힙이 샌다.
+     * 하나뿐이라는 점을 혼동하지 말 것 — 지우면 열거가 아니라 키 상한 밀어내기가 열린다.
      */
     public void assertIssueIpWithinLimit(String clientIp, LocalDateTime now) {
         boolean[] limitExceeded = {false};
-        issueTimesByIp.compute(clientIp, (key, issueTimes) -> {
+        issueTimesByIp.compute(ClientIpKeys.normalize(clientIp), (key, issueTimes) -> {
             if (issueTimes == null) {
                 return null;
             }
-            LocalDateTime hourAgo = now.minusHours(1);
+            LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
             LocalDateTime minuteAgo = now.minusMinutes(1);
             while (!issueTimes.isEmpty() && !issueTimes.peekFirst().isAfter(hourAgo)) {
                 issueTimes.pollFirst();
@@ -164,7 +173,7 @@ public class PhoneVerificationRateLimiter {
             if (issueTimes == null) {
                 return null;
             }
-            LocalDateTime hourAgo = now.minusHours(1);
+            LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
             while (!issueTimes.isEmpty() && !issueTimes.peekFirst().isAfter(hourAgo)) {
                 issueTimes.pollFirst();
             }
@@ -186,7 +195,7 @@ public class PhoneVerificationRateLimiter {
     }
 
     private static String phoneIpKey(String phone, String clientIp) {
-        return clientIp + "|" + phone;
+        return ClientIpKeys.normalize(clientIp) + "|" + phone;
     }
 
     /**
@@ -195,9 +204,9 @@ public class PhoneVerificationRateLimiter {
      * 콜백 안에서 이미 수행한 만료 엔트리 트리밍(pollFirst)은 Deque 내부 상태라 그대로 반영된다 —
      * 만료분 제거는 수락/거절과 무관하게 항상 옳은 동작이므로 카운트 정확성에 영향이 없다.
      */
-    private void assertAndRecordWithin(ConcurrentHashMap<String, Deque<LocalDateTime>> timesByKey,
+    private void assertAndRecordWithin(ConcurrentMap<String, Deque<LocalDateTime>> timesByKey,
                                        String windowKey, LocalDateTime now, int perMinuteLimit, int perHourLimit) {
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         timesByKey.compute(windowKey, (key, requestTimes) -> {
             Deque<LocalDateTime> windowTimes = requestTimes == null ? new ArrayDeque<>() : requestTimes;

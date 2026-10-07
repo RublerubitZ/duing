@@ -40,4 +40,12 @@ public class FileException extends ApplicationException {
             super(MESSAGE, HttpStatus.BAD_REQUEST);
         }
     }
+
+    /** 추적 행이 없거나 다른 사용자가 올린 업로드를 본인 전용 첨부에 연결하려 할 때(#1314). 호출 도메인이 자기 400 으로 바꾼다. */
+    public static class UploadNotOwnedException extends FileException {
+        private static final String MESSAGE = "본인이 업로드한 이미지만 첨부할 수 있습니다.";
+        public UploadNotOwnedException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
 }

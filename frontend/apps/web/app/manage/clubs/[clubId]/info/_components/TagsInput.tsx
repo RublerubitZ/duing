@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { appendTag, normalizeTag } from '../../../../../_lib/tags';
 
 type TagsInputProps = {
   value: string[];
@@ -13,15 +14,28 @@ type TagsInputProps = {
 export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxTagLength = 5 }: TagsInputProps) {
   const [draft, setDraft] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const limits = { maxTags, maxTagLength };
 
   function add(token: string) {
-    const trimmed = token.trim();
-    if (!trimmed) return;
-    if (trimmed.length > maxTagLength) return;
-    if (value.includes(trimmed)) return;
-    if (value.length >= maxTags) return;
-    onChange([...value, trimmed]);
+    const next = appendTag(value, token, limits);
+    if (next === value) return;
+    onChange(next);
     setDraft('');
+  }
+
+  // 한글 IME 조합·keyCode 229 모바일 키보드는 onKeyDown 의 ',' 분기를 건너뛰어 쉼표가 값으로 들어온다(#1338).
+  // 쉼표 앞 조각은 태그로 넣고(넣을 수 없는 조각은 버린다) 마지막 쉼표 뒤만 입력란에 남긴다.
+  function splitOnComma(nextDraft: string) {
+    if (!nextDraft.includes(',')) {
+      setDraft(nextDraft);
+      return;
+    }
+    const tokens = nextDraft.split(',');
+    const tail = tokens.pop() ?? '';
+    const next = tokens.reduce((tags, token) => appendTag(tags, token, limits), value);
+    // 쉼표 뒤 공백이 5자 칸을 차지하지 않게 지운다. 한도를 채워 입력란이 사라지면 꼬리도 버린다 — 칩을 지울 때 숨은 글자가 되살아나지 않게.
+    setDraft(next.length >= maxTags ? '' : tail.trimStart());
+    if (next !== value) onChange(next);
   }
 
   function remove(idx: number) {
@@ -35,12 +49,12 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
           key={`${tag}-${idx}`}
           className="inline-flex items-center gap-1.5 bg-[#e7ebd9] text-[#3e5b34] border border-[#cfd6b3] rounded-full py-[3px] pl-[11px] pr-2.5 text-[12.5px] font-medium"
         >
-          {tag}
+          {normalizeTag(tag)}
           {!readOnly && (
             <button
               type="button"
               onClick={() => remove(idx)}
-              aria-label={`태그 ${tag} 삭제`}
+              aria-label={`태그 ${normalizeTag(tag)} 삭제`}
               className="text-[#4a6b3f] text-[13px] leading-none opacity-70 hover:opacity-100 cursor-pointer"
             >
               ×
@@ -52,9 +66,16 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
         <input
           type="text"
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            // 조합 중에 값을 바꾸면 IME 가 글자를 다시 넣을 수 있어, 쉼표는 조합이 끝난 뒤에 나눈다.
+            if (isComposing) setDraft(event.target.value);
+            else splitOnComma(event.target.value);
+          }}
           onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={() => setIsComposing(false)}
+          onCompositionEnd={(event) => {
+            setIsComposing(false);
+            splitOnComma(event.currentTarget.value);
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
             if (isComposing) return;

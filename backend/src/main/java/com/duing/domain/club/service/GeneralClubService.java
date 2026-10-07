@@ -38,6 +38,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
 import com.duing.global.file.UploadedObjectService;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.time.Clock;
@@ -73,7 +74,7 @@ public class GeneralClubService implements ClubService {
     private final ApplicationRepository applicationRepository;
     // 모집 표시 상태(today) 판정용 — KST(seoulClock) 기준.
     private final Clock clock;
-    // 운영 Slack 알림용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring).
+    // 운영 Slack 알림·프론트 상세 재생성용 이벤트 발행 — 커밋 후(AFTER_COMMIT) 비동기로 소비된다(global/monitoring·global/frontend).
     private final ApplicationEventPublisher eventPublisher;
     // 업로드 객체 추적(#791) — 로고·커버 URL 을 저장하는 쓰기 메서드에서 활성화한다.
     private final UploadedObjectService uploadedObjectService;
@@ -122,7 +123,9 @@ public class GeneralClubService implements ClubService {
 
     /**
      * 공개 목록 조회 — 응답이 요청자와 무관하므로(찜 필터 제외) 결과를 짧게 공유 캐시한다.
-     * 캐시 키는 검색 조건 + 페이지 전체라 쿼리 파라미터가 하나라도 다르면 다른 엔트리가 된다.
+     * 캐시 키는 검색 조건 + 페이지 전체 + 조회 시점의 KST 시간대라, 쿼리 파라미터가 하나라도 다르거나
+     * 정각을 넘기면 다른 엔트리가 된다 — 시간대마다 바뀌는 추천순 셔플을 정각 직후에 직전 시간대 순서로
+     * 돌려주지 않는다(PublicApiCacheConfig#clubSearchCacheKeyGenerator).
      * 찜 필터(favoriteUserId != null)는 사용자별 결과이므로 캐시에서 읽지도, 쓰지도 않는다 —
      * 컨트롤러가 같은 이유로 no-store 를 내려보내는 것과 같은 경계다.
      * 캐시 히트 1회당 count·목록·대표모집 3개 쿼리가 사라진다.
@@ -131,6 +134,7 @@ public class GeneralClubService implements ClubService {
      */
     @Override
     @Cacheable(cacheNames = PublicApiCacheConfig.CLUB_SEARCH_CACHE,
+            keyGenerator = PublicApiCacheConfig.CLUB_SEARCH_KEY_GENERATOR,
             condition = "#condition.favoriteUserId() == null", sync = true)
     public Page<ClubSummaryQuery> search(ClubSearchCondition condition, Pageable pageable) {
         Page<ClubSummaryQuery> clubPage = clubRepository.findByCondition(condition, pageable);
@@ -272,6 +276,8 @@ public class GeneralClubService implements ClubService {
         // 교체·비우기로 빠진 옛 로고·커버는 해제(#1153) — 새 값을 먼저 확정한 뒤.
         uploadedObjectService.releaseIfReplaced(previousLogoUrl, club.getLogoUrl());
         uploadedObjectService.releaseIfReplaced(previousCoverUrl, club.getCoverUrl());
+        // 공개 상세 재생성(#1356) — 리더 수정·총동연 수정이 모두 이 지점을 지난다(로고·커버·태그·연락처 공개 범위 포함).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
     }
 
     @Override
@@ -310,6 +316,8 @@ public class GeneralClubService implements ClubService {
         Club club = clubRepository.findById(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeCentralClub(command.centralClub());
+        // 중앙동아리 배지·소속 표기가 바뀐다 — 공개 상세 재생성(#1356).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
     }
 
     @Override

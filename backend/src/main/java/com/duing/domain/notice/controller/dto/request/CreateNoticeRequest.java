@@ -6,6 +6,7 @@ import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.service.dto.command.CreateNoticeCommand;
 import com.duing.global.constant.LinkUrlPatterns;
+import com.duing.global.constant.TagRules;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -21,7 +22,9 @@ public record CreateNoticeRequest(
         @Size(max = 2000)
         @Pattern(regexp = LinkUrlPatterns.HTTP_LINK_OR_EMPTY, message = LinkUrlPatterns.HTTP_LINK_MESSAGE) String linkUrl,
         @NotNull NoticeCategory category,
-        @Size(max = 8) List<@Size(max = 20) String> tags,
+        @Size(max = 8, message = "태그는 최대 8개까지 가능합니다.")
+        List<@Size(max = 20, message = "각 태그는 20자 이하여야 합니다.")
+                @Pattern(regexp = TagRules.NO_COMMA_PATTERN, message = TagRules.NO_COMMA_MESSAGE) String> tags,
         @NotNull NoticeVisibility visibility,
         NoticeClubScopeRole clubScopeRole,
         List<Long> targetClubIds,

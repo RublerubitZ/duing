@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClubProject, ClubSnsLink } from '@duing/types';
@@ -21,6 +21,11 @@ function ControlledProjects({ initial }: { initial: ClubProject[] }) {
 function ControlledSnsLinks({ initial }: { initial: ClubSnsLink[] }) {
   const [links, setLinks] = useState(initial);
   return <SnsLinksRepeater value={links} onChange={setLinks} readOnly={false} />;
+}
+
+function ControlledTags({ initial }: { initial: string[] }) {
+  const [tags, setTags] = useState(initial);
+  return <TagsInput value={tags} onChange={setTags} />;
 }
 
 describe('HighlightsRepeater (재작성)', () => {
@@ -130,6 +135,118 @@ describe('TagsInput (maxTagLength)', () => {
     fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('TagsInput (칩 표시)', () => {
+  it('예전에 # 를 붙여 저장한 태그도 저장 규칙대로 # 없이 보여 준다', () => {
+    render(<TagsInput value={['#밴드']} onChange={vi.fn()} />);
+
+    expect(screen.getByText('밴드')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '태그 밴드 삭제' })).toBeInTheDocument();
+  });
+});
+
+// 한글 IME 조합·keyCode 229 모바일 키보드는 ',' keydown 분기를 건너뛰어 쉼표가 값으로만 들어온다(#1338).
+describe('TagsInput (쉼표 구분)', () => {
+  it('keydown 없이 값으로 들어온 쉼표 앞은 태그로 넣고 뒤만 입력란에 남긴다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '축구,풋' } });
+
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+    expect(input).toHaveValue('풋');
+  });
+
+  it('조합 중에는 나누지 않고 조합이 끝날 때 나눈다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    act(() => input.focus()); // 조합은 포커스가 있을 때만 일어난다
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '축구,풋' } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue('축구,풋');
+
+    fireEvent.compositionEnd(input);
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+    expect(input).toHaveValue('풋');
+  });
+
+  it('한 번에 들어온 여러 조각은 중복을 빼고 한 번에 넘긴다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,가,나' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['가']);
+  });
+
+  it('여러 조각이 들어와도 태그는 5개를 넘지 않는다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={['a', 'b', 'c', 'd']} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,나,' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['a', 'b', 'c', 'd', '가']);
+  });
+
+  it('한도를 채우면 남은 조각도 버려, 칩을 지워 입력란이 다시 나타날 때 숨은 글자가 없다', () => {
+    render(<ControlledTags initial={['a', 'b', 'c', 'd']} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '가,나,다' } });
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '태그 a 삭제' }));
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
+  it('쉼표 뒤 공백은 지워 다음 태그가 5자 칸을 온전히 쓴다 — 쉼표가 없으면 그대로 둔다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: ' 축' } });
+    expect(input).toHaveValue(' 축');
+
+    fireEvent.change(input, { target: { value: ' 축, 풋' } });
+    expect(onChange).toHaveBeenCalledWith(['축']);
+    expect(input).toHaveValue('풋');
+  });
+
+  it('붙여넣은 탭 같은 제어문자는 지운다 — 서버 정규화와 같아 저장 뒤에도 칩이 그대로다', () => {
+    const onChange = vi.fn();
+    render(<TagsInput value={[]} onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '축\t구' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledWith(['축구']);
+  });
+});
+
+// 조합 중 포커스가 빠질 때 — Chromium 은 조합을 먼저 끝내고 blur 를 보낸다.
+describe('TagsInput (조합 중 포커스 이탈)', () => {
+  it('조합이 먼저 끝나면 그때는 넣지 않고 이어지는 blur 에서 한 번만 넣는다', () => {
+    const onChange = vi.fn();
+    render(<><TagsInput value={[]} onChange={onChange} /><button type="button">저장</button></>);
+
+    const input = screen.getByRole('textbox');
+    act(() => input.focus());
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '풋살' } });
+    fireEvent.compositionEnd(input);
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => screen.getByRole('button', { name: '저장' }).focus());
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(['풋살']);
   });
 });
 

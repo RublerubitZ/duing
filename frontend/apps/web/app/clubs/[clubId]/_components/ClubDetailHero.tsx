@@ -6,6 +6,7 @@ import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
+import { tagLabel } from '@/app/_lib/tags';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
 import { collegeDisplayName } from '../../../_lib/college';
@@ -68,8 +69,9 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
           {club.coverUrl && (
             <>
               {/* Hero 배경 분위기용. priority 를 주지 않는다(모바일 배너도 같다) — 세 가지 이유다.
-                  ① coverUrl 은 React Query 가 하이드레이션 이후에 채우는 값이라, preload 를 걸어도
-                     문서 파싱 시점에는 존재하지 않아 구조적으로 이득이 없다.
+                  ① 배경 분위기용(불투명도 50%)이라 지금은 priority 를 두지 않는다 — 공개 동아리는 서버
+                     렌더로 coverUrl 이 초기 HTML 에 있으므로, LCP 요소가 되는지는 배포 뒤
+                     CWV 계측(#1116)으로 확인한다.
                   ② 데스크탑/모바일 커버는 CSS(hidden md:block / md:hidden)로만 갈리고 DOM 에는 둘 다
                      있어서, 한쪽에 priority 를 주면 그 폭에서 안 보이는 쪽까지 대형 변형을 강제로 받는다.
                   ③ 기본 lazy 면 display:none 인 쪽은 교차 자체가 없어 아예 받지 않는다 — 지금 raw <img>
@@ -138,7 +140,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <div className="flex max-w-[580px] flex-wrap gap-1.5">
                     {club.tags.map((tagName) => (
                       <span key={tagName} className="pill pill-outline bg-paper/60 text-[12px]">
-                        #{tagName.replace(/^#+/, '')}
+                        {tagLabel(tagName)}
                       </span>
                     ))}
                   </div>
@@ -272,7 +274,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {club.tags.map((tagName) => (
                 <span key={tagName} className="pill pill-outline bg-paper/60 text-[11px]">
-                  #{tagName.replace(/^#+/, '')}
+                  {tagLabel(tagName)}
                 </span>
               ))}
             </div>
@@ -295,8 +297,8 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 /**
  * 히어로 배너 이미지 — 운영진 커버가 우선, 없으면 활동 사진 첫 장(displayOrder 최소). 둘 다 없으면 null.
  *
- * 대표 활동(heroActivities)은 쓰지 않는다 — 별도 쿼리라 히어로가 두 번 그려지고(스켈레톤→사진)
- * 정적 셸 규약상 이득 없이 레이아웃만 흔들린다. photos 는 상세 응답에 이미 실려 와 추가 요청이 0 이다.
+ * 대표 활동(heroActivities)은 쓰지 않는다 — 별도 쿼리라 서버 렌더에 실리지 않고 히어로가 두 번 그려져(스켈레톤→사진)
+ * 레이아웃만 흔들린다. photos 는 상세 응답에 이미 실려 와 추가 요청이 0 이다.
  * 서버가 displayOrder 오름차순으로 주지만 방어적으로 정렬한다(표시 8장 이내, 비용 무시 가능).
  * 공백뿐인 storageKey 는 건너뛴다. 형식 검증은 하지 않는다 — 잘못된 URL 은 <img onError> 가 흡수한다.
  */

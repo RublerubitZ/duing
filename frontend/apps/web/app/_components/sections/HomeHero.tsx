@@ -12,11 +12,13 @@ export async function HomeHero() {
   const [stats, activities] = await Promise.all([fetchClubStats(), fetchPublicActivities()]);
   const now = new Date();
   const toasts = resolveHeroToasts(activities, now);
-  // xl 세로 리듬은 시안(608:4884, ×0.815) 그대로 — 상단바 아래→헤드라인 64, 헤드라인→본문 14, 본문→검색 32,
-  // 검색→배너 46(실측 48). "넓어 보인다" 의 주범은 상단이 아니라 헤드라인 아래 36 이었다. xl 은 그리드를 위 정렬로 두어
-  // (일러스트 컬럼이 더 길어도) 왼쪽 컬럼이 가운데로 떠내려가 위아래 여백이 불어나지 않게 한다.
+  // 세로 리듬은 시안(608:4884, ×0.815) 기준 — 헤드라인→본문 14, 검색→배너 40(시안 46). 시안엔 CTA 줄이 없어
+  // 그대로 끼우면 상단바→배너가 시안(579)보다 48 길어져 PC 첫 화면에서 배너가 잘렸다. 그 초과분을 시안이 아닌 값에서 덜어낸다 —
+  // xl 상단바→헤드라인 64(시안 63)→40, 본문→CTA 16, CTA→검색 20 → 총 587. 헤드라인→본문 14 는 lg 부터 적용한다(sm·md 는 36 그대로, 이전엔 lg 도 36).
+  // 배너까지의 거리(40·579·587)는 배너 섹션의 pt-2 안쪽, 즉 눈에 보이는 배너 윗변 기준이다 — 섹션 모서리로 재면 8 작게 나온다.
+  // xl 은 그리드를 위 정렬로 두어 (일러스트 컬럼이 더 길어도) 왼쪽 컬럼이 가운데로 떠내려가 위아래 여백이 불어나지 않게 한다.
   return (
-    <section className="relative overflow-hidden pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-16">
+    <section className="relative overflow-hidden pb-3 pt-3 sm:pb-8 sm:pt-6 xl:pt-10">
       <div className="bg-grid absolute inset-0 opacity-50" />
       {/* 우상단 세이지 블러 원은 PC 시안 전용 — 모바일 프레임(509:8861)의 배경은 크림 단색이라 md 부터만 그린다. */}
       <div
@@ -60,7 +62,7 @@ export async function HomeHero() {
           />
 
           {/* 시안의 히어로는 헤드라인부터 시작한다 — 'DU + ING' 배지는 PC·모바일 모두 두지 않는다. */}
-          <h1 className="type-display relative z-[1] mb-4 text-[34px] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:text-[64px] xl:mb-3.5 xl:text-[78px]">
+          <h1 className="type-display relative z-[1] mb-4 text-[34px] tracking-tightest sm:mb-9 sm:text-[44px] md:text-[56px] lg:mb-3.5 lg:text-[64px] xl:text-[78px]">
             오늘,
             <br />
             캠퍼스의
@@ -74,7 +76,7 @@ export async function HomeHero() {
               같은 말을 하게 되어 뺐다(2026-09-11 사용자 결정). 모바일 마스코트(right-5 top-6, 폭 177) 왼쪽에
               들어가도록 폭 220 을 넘기지 않고(폴백 문구도 14px 에서 ≈180px 로 두 줄 안), 통계 미가용(stats=null) 시
               숫자 없는 기본형으로 폴백한다. */}
-          <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5">
+          <p className="relative z-[1] mb-3 max-w-[220px] break-keep text-pretty text-[14px] leading-[1.6] text-charcoal-2 sm:max-w-[500px] sm:text-lg md:mb-5 lg:mb-4">
             대구대학교 동아리 플랫폼.
             <br />
             {stats ? `${stats.totalCount}개 동아리가 지금도 ` : '모든 동아리가 지금도 '}
@@ -84,7 +86,7 @@ export async function HomeHero() {
           {/* 첫 화면의 주 행동 — 검색어가 없는 첫 방문자를 "둘러보기" 로 연다. 배너가 홈 최우선이라 한 줄·작은 버튼으로 높이를 아낀다.
               btn-sm 실제 높이는 36px 이라 시각 크기는 그대로 두고 before 의사요소로만 위아래 4px 씩 넓혀
               터치 목표 44px 을 맞춘다(ImageUploader 의 작은 버튼·배너 페이저와 같은 기법). */}
-          <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8">
+          <div className="relative z-[1] mb-4 flex flex-wrap items-center gap-2 md:mb-8 lg:mb-5">
             {stats && stats.recruitingCount > 0 ? (
               <Link
                 href={RECRUITING_CLUBS_HREF}
@@ -137,6 +139,7 @@ export function HeroRightVisual({ toasts }: { toasts: HeroToast[] }) {
     // 모바일(<md)에선 우측 비주얼 전체 숨김. 내부 relative 박스 폭을 일러스트 폭에 맞춰,
     // 토스트가 일러스트 가장자리에 자연스럽게 겹쳐 뜨도록 한다(의도된 겹침).
     // xl 은 그리드가 위 정렬이라 시안처럼 일러스트를 헤드라인보다 위에서 시작시킨다(시안 37×0.815≈30 → -mt-8 = 32).
+    // 상단바→헤드라인이 40 이라 그림은 상단바 아래 8 에서 시작한다(시안 33) — 그림 위쪽 투명 여백이 그 차이를 메운다.
     <div className="hidden md:block xl:-mt-8">
       {/* lg 부터는 박스를 컬럼보다 120px 넓혀 왼쪽으로 당긴다 — 시안(608:4884)의 그림은 콘텐츠 폭의 64%
           (1200 기준 ≈ 770px)로 헤드라인 끝 ~120px 오른쪽에서 시작하는데, 우측 컬럼(≈690)만으로는 그 크기가

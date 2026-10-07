@@ -1,10 +1,12 @@
 package com.duing.global.file;
 
 import com.duing.global.file.exception.FileException;
+import com.duing.global.ratelimit.RateLimitMaps;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,7 +17,8 @@ import org.springframework.stereotype.Component;
  * 검증 통과 직전에 시도를 기록한다.
  *
  * <p>{@link com.duing.domain.user.service.PhoneVerificationRateLimiter} 의 IP 윈도우와 동일한 전략.
- * 재시작 시 카운터 리셋·멀티 인스턴스(Redis)·만료 엔트리 정리(Caffeine)는 백로그다.
+ * 기록 맵은 마지막 기록 뒤 1시간(+1분 여유)이 지나면 키째 만료된다({@link RateLimitMaps}).
+ * 재시작 시 카운터 리셋은 수용하며, 멀티 인스턴스(Redis) 대응은 백로그다.
  */
 @Component
 public class FileUploadRateLimiter {
@@ -23,7 +26,11 @@ public class FileUploadRateLimiter {
     static final int PER_MINUTE_LIMIT = 30;
     static final int PER_HOUR_LIMIT = 200;
 
-    private final ConcurrentHashMap<Long, Deque<LocalDateTime>> uploadTimesByUser = new ConcurrentHashMap<>();
+    // 가장 긴 창(시간 창)이자 기록 맵 ttl — 판정과 만료가 이 값 하나를 쓴다(근거는 RateLimitMaps).
+    private static final Duration LONGEST_WINDOW = Duration.ofHours(1);
+
+    private final ConcurrentMap<Long, Deque<LocalDateTime>> uploadTimesByUser =
+            RateLimitMaps.expiringMap(LONGEST_WINDOW);
 
     /**
      * 사용자 윈도우를 검사하고 허용이면 이번 업로드를 기록한다. 초과 시 429.
@@ -33,7 +40,7 @@ public class FileUploadRateLimiter {
         if (userId == null) {
             return;
         }
-        LocalDateTime hourAgo = now.minusHours(1);
+        LocalDateTime hourAgo = now.minus(LONGEST_WINDOW);
         LocalDateTime minuteAgo = now.minusMinutes(1);
         uploadTimesByUser.compute(userId, (id, uploadTimes) -> {
             Deque<LocalDateTime> windowTimes = uploadTimes == null ? new ArrayDeque<>() : uploadTimes;

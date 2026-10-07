@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Validate docker-compose.yml
         # 서버의 운영 .env 는 CI 에 없으므로, 파일 문법 검증에 필요한 최소 더미값만 주입한다.
@@ -39,31 +39,51 @@ jobs:
           touch deploy/.env
           docker compose -f deploy/docker-compose.yml config --quiet
 
+      - name: Assert Caddy image tag is pinned and consistent
+        # Caddy 는 버전마다 시간 상한 동작이 달라(docker-compose.yml 주석) 운영 이미지를 X.Y.Z 태그로 고정하고, 이 워크플로와
+        # deploy-backend.yml 의 검증 이미지도 같은 태그를 쓴다. 어긋나면 CI 와 서버가 서로 다른 버전으로 검증한다.
+        # deploy-backend.yml 만 바꾼 PR 은 게이트의 deploy 영역 밖이라 이 단계가 돌지 않는다 — 다음 deploy/** 변경 때 잡힌다.
+        run: |
+          compose_image=$(grep -oE 'image: caddy:[^[:space:]]+' deploy/docker-compose.yml | cut -d' ' -f2)
+          echo "docker-compose.yml: ${compose_image}"
+          echo "$compose_image" | grep -qE '^caddy:[0-9]+\.[0-9]+\.[0-9]+-alpine$' \
+            || { echo "::error::docker-compose.yml 의 caddy 이미지가 버전 고정 태그(caddy:X.Y.Z-alpine)가 아닙니다: ${compose_image}"; exit 1; }
+          for workflow in .github/workflows/deploy-config-ci.yml .github/workflows/deploy-backend.yml; do
+            for used_image in $(grep -oE 'caddy:[0-9a-z][0-9a-z.-]*' "$workflow" | sort -u); do
+              [ "$used_image" = "$compose_image" ] \
+                || { echo "::error::${workflow} 가 ${used_image} 로 검증합니다 — docker-compose.yml(${compose_image})과 같은 태그여야 합니다"; exit 1; }
+            done
+          done
+
       - name: Validate Caddyfile
-        # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 동일 버전을 유지해야 한다(현재 caddy:2-alpine).
+        # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 같은 고정 태그를 쓴다(위 단계가 어긋남을 막는다).
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Assert client IP restoration is configured
-        # api.duings.com 은 Cloudflare 뒤에 있다. 아래 세 가지가 하나라도 빠지면 백엔드가 보는
-        # getRemoteAddr() 이 실제 사용자 IP 가 아니라 Cloudflare 엣지 IP 가 되고, IP 축 레이트리밋
-        # 6종(로그인 실패·가입 발급·조회 비콘 등)이 전부 CF PoP 단위 전역 제한으로 퇴행한다.
-        # 문법 검증(caddy validate)은 이 퇴행을 잡지 못한다 — 셋 다 지워도 문법은 정상이다.
-        # 그래서 어댑트된 JSON 을 직접 단언한다. (2026-08-30, deploy/Caddyfile 주석 참조)
+        # api.duings.com 은 Cloudflare DNS only(프록시 OFF)로 직결된다. 백엔드가 보는 getRemoteAddr() 은 Caddy 가
+        # TCP 피어 IP 로 채운 X-Forwarded-For 에서 나온다. 신뢰 프록시 부재가 깨지면 IP 축 레이트리밋 6종(로그인 실패·
+        # 가입 발급·조회 비콘 등)이 위조값으로 집계되고, native 가 빠지면 톰캣이 XFF 를 무시해 엉뚱한 키로 집계된다.
+        # X-Forwarded-For·Proto·Host 덮어쓰기 단언은 비상 모드에서 신뢰 블록을 복원할 때 필요한 짝이라 함께 지킨다.
+        # 문법 검증(caddy validate)은 이 중 어느 것도 잡지 못한다 — 전부 어긋나도 문법은 정상이다. 그래서 어댑트된
+        # JSON 을 직접 단언한다. (deploy/Caddyfile 주석 참조)
         run: |
-          docker run --rm -i caddy:2-alpine caddy adapt --config - --adapter caddyfile \
+          docker run --rm -i caddy:2.11.4-alpine caddy adapt --config - --adapter caddyfile \
             < deploy/Caddyfile > /tmp/caddy-adapted.json
-          jq -e '.apps.http.servers.srv0
-                 | (.trusted_proxies.ranges | length > 0)
-                   and (.client_ip_headers | map(ascii_downcase)) == ["cf-connecting-ip"]' /tmp/caddy-adapted.json > /dev/null \
-            || { echo "::error::Caddy 에 Cloudflare 신뢰 프록시 설정이 없습니다 — 클라이언트 IP 가 CF 엣지 IP 로 집계됩니다"; exit 1; }
+          # 신뢰 프록시가 없어야 한다. 직결에서 Cloudflare 대역을 믿으면 다른 CF 존을 이 오리진으로 겨눠 Cf-Connecting-Ip 를
+          # 임의로 정할 수 있다(#1329). 비상 모드(프록시 ON)로 돌아가며 Caddyfile 의 신뢰 블록을 복원할 때는 이 단언도
+          # #1112 의 존재 단언으로 함께 되돌린다(어댑트된 설정의 모든 서버를 본다).
+          jq -e '[.apps.http.servers[] | .trusted_proxies, .client_ip_headers] | all(. == null)' \
+            /tmp/caddy-adapted.json > /dev/null \
+            || { echo "::error::Caddy 에 신뢰 프록시 설정이 있습니다 — 직결(DNS only)에서 Cloudflare 대역을 믿으면 다른 CF 존 경유로 Cf-Connecting-Ip 를 위조할 수 있습니다(#1329). 비상 모드(프록시 ON) 전환이라면 Caddyfile 신뢰 블록과 함께 이 단언도 #1112 의 존재 단언으로 되돌리세요"; exit 1; }
           jq -e '[.. | objects | .headers?.request?.set?["X-Forwarded-For"]? // empty]
                  | flatten | index("{http.vars.client_ip}") != null' /tmp/caddy-adapted.json > /dev/null \
-            || { echo "::error::reverse_proxy 에 X-Forwarded-For 덮어쓰기가 없습니다 — trusted_proxies 만으로는 CF 엣지 IP 가 그대로 남습니다"; exit 1; }
+            || { echo "::error::reverse_proxy 에 X-Forwarded-For 덮어쓰기가 없습니다 — 비상 모드에서 신뢰 블록을 복원하면 CF 엣지 IP 가 클라이언트 IP 가 됩니다(trusted_proxies 와 한 쌍)"; exit 1; }
           # X-Forwarded-Proto·Host 도 함께 지킨다. 신뢰 프록시를 선언하면 Caddy 가 이 둘을 덮어쓰지 않고
           # 통과시키므로, 지워지면 클라이언트가 보낸 값이 그대로 톰캣의 스킴·getServerName() 이 된다.
-          # caddy adapt 가 이 두 줄을 "Unnecessary" 라고 잘못 경고해 지워지기 쉬운 자리라 단언으로 못박는다.
+          # caddy adapt 가 이 두 줄을 "Unnecessary" 라고 경고해(직결인 지금은 맞는 말이지만 신뢰를 복원하면 틀린다)
+          # 지워지기 쉬운 자리라 단언으로 못박는다.
           for forwarded_header in X-Forwarded-Proto X-Forwarded-Host; do
             jq -e --arg h "$forwarded_header" \
                '[.. | objects | .headers?.request?.set?[$h]? // empty] | flatten | length > 0' \

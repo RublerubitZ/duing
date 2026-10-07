@@ -176,7 +176,7 @@ public class User extends BaseEntity {
         this.adminNote = note;
     }
 
-    /** 토큰 버전을 올려 기존에 발급된 모든 액세스 토큰을 무효화한다(로그아웃·강제 폐기). */
+    /** 토큰 버전을 올려 기존에 발급된 모든 액세스 토큰을 무효화한다(로그아웃·자격 변경·탈퇴·관리자 조치). */
     public void bumpTokenVersion() {
         this.tokenVersion += 1;
     }

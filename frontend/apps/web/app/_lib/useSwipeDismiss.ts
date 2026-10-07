@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 
-// 바텀시트를 아래로 스와이프해 닫는 제스처. 공용 Sheet(side="bottom") 한 곳에서만 쓴다.
+// 바텀시트를 아래로 스와이프해 닫는 제스처. 공용 Sheet(side="bottom")와 /calendar 모바일 상세 시트가 쓴다.
 // 설계: docs/superpowers/specs/2026-09-13-bottom-sheet-swipe-dismiss-design.md
 //
 // 임계값은 Vaul(바텀시트 사실상 표준 구현)의 기본값을 그대로 채택했다 — 손맛이 이미 검증된 수치라
@@ -85,6 +85,8 @@ export function useSwipeDismiss(
     // setPointerCapture 도 필요 없다. 대신 enabled 에 열림 상태가 들어가 있어야 한다 — 안 그러면
     // 시트가 닫힌 페이지에서도 non-passive touchmove 가 남아 모든 터치 스크롤이 핸들러를 기다린다.
     let snapTimer: ReturnType<typeof setTimeout> | null = null;
+    /** 드래그·스냅백으로 인라인 transform·transition 을 건 노드 — cleanup 이 ref 대신 이걸 비운다. */
+    let styledContent: HTMLElement | null = null;
     let clickGuardTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearInlineTransition = (content: HTMLElement) => {
@@ -119,8 +121,10 @@ export function useSwipeDismiss(
         : SNAP_MS;
       content.style.transition = `transform ${duration}ms ${SNAP_EASING}`;
       content.style.transform = '';
+      styledContent = content;
       snapTimer = setTimeout(() => {
         snapTimer = null;
+        styledContent = null;
         clearInlineTransition(content);
       }, duration);
     };
@@ -186,6 +190,7 @@ export function useSwipeDismiss(
           return;
         }
         drag.locked = true;
+        styledContent = content;
         content.style.transition = 'none';
       }
 
@@ -251,7 +256,14 @@ export function useSwipeDismiss(
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
+      // 드래그·스냅백 도중 다른 경로(백드롭·×·ESC·뒤로가기·767px 경계)로 꺼지면 인라인 값도 비운다 — 항상 마운트된
+      // 패널(/calendar)에 내려간 위치·전이가 남아 이후 CSS 를 덮는다. 공용 Sheet 는 곧 언마운트라 무해하고,
+      // 스와이프로 닫힌 경우는 pointerup 이 드래그를 먼저 비워 여기 오지 않는다(퇴장 애니메이션이 위치를 이어받는다).
       if (snapTimer !== null) clearTimeout(snapTimer);
+      if ((snapTimer !== null || dragRef.current?.locked === true) && styledContent !== null) {
+        styledContent.style.transform = '';
+        clearInlineTransition(styledContent);
+      }
       // 클릭 가드는 여기서 풀지 않는다 — 닫힘 경로에서는 onDismiss 렌더로 이 cleanup 이
       // 브라우저의 click 디스패치보다 먼저 돌아 가드가 무력화되므로, 해제는 setTimeout(0) 에 맡긴다.
       dragRef.current = null;

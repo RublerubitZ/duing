@@ -1,6 +1,7 @@
 package com.duing.domain.notice.entity;
 
 import com.duing.domain.notice.exception.NoticeException;
+import com.duing.global.constant.TagRules;
 import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -110,7 +111,7 @@ public class Notice extends BaseEntity {
         boolean normalizedNotify = (visibility != NoticeVisibility.PUBLIC) || notifyOnPublish;
         String[] tagArray = tags == null
                 ? new String[0]
-                : tags.stream().distinct().toArray(String[]::new);
+                : TagRules.normalize(tags);
         return Notice.builder()
                 .title(title).summary(summary).content(content)
                 .coverImageUrl(coverImageUrl).linkUrl(linkUrl)
@@ -156,7 +157,7 @@ public class Notice extends BaseEntity {
         if (Boolean.TRUE.equals(payload.clearExternalLink())) this.linkUrl = null;
         else if (payload.linkUrl() != null) this.linkUrl = payload.linkUrl();
         if (payload.category() != null) this.category = payload.category();
-        if (payload.tags() != null) this.tags = payload.tags().stream().distinct().toArray(String[]::new);
+        if (payload.tags() != null) this.tags = TagRules.normalize(payload.tags());
         if (payload.visibility() != null) {
             this.visibility = nextVisibility;
             this.clubScopeRole = nextRole;

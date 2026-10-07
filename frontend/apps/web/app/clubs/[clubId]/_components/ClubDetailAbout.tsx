@@ -4,8 +4,11 @@ import { Check, ChevronDown } from 'lucide-react';
 import { memo, useId, useMemo, useState } from 'react';
 
 import { cn } from '@/app/_lib/cn';
+import { splitPlainText } from '@/app/_lib/htmlToPlainText';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
 
+import { descriptionToPlainText, isHtmlDescription } from '../_lib/descriptionText';
 import { splitDescription } from '../_lib/splitDescription';
 
 type Props = {
@@ -39,13 +42,28 @@ function AboutDescription({ description }: { description: string }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
 
+  // 서버에는 DOM(DOMParser·DOMPurify)이 없어 HTML 소개를 정화·분할할 수 없다 —
+  // 서버 렌더와 하이드레이션 첫 프레임(서버 HTML 과 글자까지 같아야 한다)은 태그를 걷어낸 텍스트를 평문 경로로
+  // 보여 주고(크롤러가 읽는 본문), 하이드레이션 뒤 정화된 HTML 로 바꾼다. 첫 프레임에 HTML 경로를 쓰면 #418 불일치가 난다.
+  // 폴백은 DOM 이 필요한 splitDescription 을 부르지 않는다(텍스트가 '<' 로 시작해도 HTML 로 다시 판정되지 않게).
+  const hydrated = useHydrated();
+
   const { isHtml, lead, rest, clampLead } = useMemo(() => {
+    if (!hydrated && isHtmlDescription(description)) {
+      const plain = splitPlainText(descriptionToPlainText(description));
+      return {
+        isHtml: false,
+        lead: plain.lead,
+        rest: plain.rest,
+        clampLead: plain.rest === null && plain.lead.length > CLAMP_THRESHOLD,
+      };
+    }
     const split = splitDescription(description);
     return {
       ...split,
       clampLead: split.rest === null && leadTextLength(split.isHtml, split.lead) > CLAMP_THRESHOLD,
     };
-  }, [description]);
+  }, [description, hydrated]);
 
   const showToggle = rest !== null || clampLead;
   const clampClass = clampLead && !expanded ? 'line-clamp-4' : undefined;

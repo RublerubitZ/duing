@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
+import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { ClubDayOfWeek, ClubSummary, PageResponse } from '@duing/types';
@@ -24,6 +25,7 @@ import { dayLabel, ORDER as DAY_ORDER } from '../_lib/activeDaysLabel';
 import {
   CATEGORY_OPTIONS,
   DEFAULT_EXPLORE_PARAMS,
+  EXPLORE_PAGE_SIZE,
   RECRUITMENT_LABEL,
   categoryLabel,
   hasNonFavoriteFilters,
@@ -36,8 +38,17 @@ import {
   type Scope,
   type SortKey,
 } from '../_lib/exploreParams';
-
-const PAGE_SIZE = 20;
+import {
+  CARD_GRID_CLASS,
+  CATEGORY_TAB_CLASS,
+  FAVORITE_CHIP_CLASS,
+  FILTER_BUTTON_CLASS,
+  LIST_TOOLBAR_CLASS,
+  SCOPE_SEGMENTS,
+  SCOPE_SEGMENT_CLASS,
+  SORT_OPTIONS,
+  SORT_SELECT_CLASS,
+} from '../_lib/exploreUi';
 
 /** 첫 로드 스태거 게이트 — 처음 정착한 목록과, 그 뒤로 다른 목록을 본 적이 있는지. */
 type StaggerGate = { firstSettled: PageResponse<ClubSummary> | null; locked: boolean };
@@ -117,14 +128,22 @@ export function ClubExplorePage() {
   /** 찜 필터 + 미인증 — 목록 쿼리를 보내지 않는다. 비로그인 401 은 전역 리프레시
       플로우를 깨우므로 요청 차단이 1차 방어다(스펙 §비로그인 처리). */
   const requiresLoginForFavorite = params.favorite && authStatus !== 'authenticated';
-  const clubListQuery = useClubListQuery(toApiParams(params, PAGE_SIZE), {
+  const clubListQuery = useClubListQuery(toApiParams(params, EXPLORE_PAGE_SIZE), {
     enabled: !requiresLoginForFavorite,
   });
-  // 찜 필터 교집합(likedIds)용으로만 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
+  // 스태거는 데이터 없이 마운트한 경우(로딩·대기)에만 — 서버가 그린 기본 목록(시드)을 JS 가 이어받을 때 같은 카드가
+  // 다시 떠오르지 않게 한다(useEnteredFromSkeleton 관례). isLoading 이 아닌 isPending 이라, 인증을 기다리며 꺼져 있던
+  // 찜 필터 쿼리도 첫 목록이 오면 연출한다. 마운트 때 값으로 고정된다.
+  const mountedWithoutData = useEnteredFromSkeleton(clubListQuery.isPending);
+  // 찜 필터 교집합(likedIds)과 조회 실패 판정용으로 ids 를 직접 구독한다 — 같은 쿼리 키라 플로우 훅과 캐시를 공유한다.
   const favoriteIdsQuery = useFavoriteIdsQuery();
   // 토글 동작(방향 가드·로그인 이동·401 처리·PostHog)은 하트 버튼과 공용 플로우로 공유한다.
   const favoriteFlow = useFavoriteToggleFlow();
   const isFavoriteDirectionUnknown = favoriteFlow.isDirectionUnknown;
+  // 찜 목록 조회가 실패해 방향을 끝내 모를 때만 하트를 반투명(disabled)으로 둔다. 응답을 기다리는 동안은
+  // 겉모습을 바꾸지 않는다(정상 → 반투명 → 정상 깜빡임, #1360) — 그 사이 카드는 aria-disabled 로 알리고 클릭 핸들러가
+  // 토글을 건너뛴다(플로우의 toggle 도 무시).
+  const isFavoriteDirectionUnavailable = isFavoriteDirectionUnknown && favoriteIdsQuery.isError;
 
   const likedIds = useMemo(() => new Set(favoriteIdsQuery.data ?? []), [favoriteIdsQuery.data]);
 
@@ -148,6 +167,7 @@ export function ClubExplorePage() {
   }, [clubListQuery.data, clubListQuery.isPlaceholderData, params.page, updateParams]);
 
   // 첫 데이터 도착 1회에만 카드 스태거를 붙인다(필터·정렬·페이지 이동은 반복 액션이라 제외).
+  // 그것도 데이터 없이 마운트한 경우만이다(mountedWithoutData) — 시드·캐시로 첫 렌더부터 목록이 있으면 붙이지 않는다.
   // keepPreviousData 라 필터 변경 중에도 data 는 이전 목록으로 truthy 하게 남으므로,
   // isPlaceholderData 가 풀린 "정착" 시점을 기준으로 본다.
   // 불리언 플래그를 렌더 도중 뒤집는 방식은 쓰지 않는다 — StrictMode 의 이중 렌더에서 커밋되는 쪽은
@@ -165,13 +185,14 @@ export function ClubExplorePage() {
     }
   }
   const isFirstSettledRender =
-    !staggerGateRef.current.locked
+    mountedWithoutData
+    && !staggerGateRef.current.locked
     && settledClubList !== null
     && staggerGateRef.current.firstSettled === settledClubList;
 
   const totalElements = clubListQuery.data?.totalElements ?? 0;
   const totalPages = clubListQuery.data?.totalPages ?? 0;
-  /** 모바일 "지금 N곳 모집 중" — 현재 페이지 20개가 아니라 현재 필터 조건 전체에서 모집중인
+  /** 모바일 "지금 N곳 모집 중" — 현재 페이지(EXPLORE_PAGE_SIZE개)가 아니라 현재 필터 조건 전체에서 모집중인
       동아리 수를 서버 count(totalElements)로 센다. size=1 이라 목록 페이로드는 최소. */
   const recruitingCountQuery = useClubListQuery(
     toApiParams({ ...params, recruitment: 'available', page: 1 }, 1),
@@ -258,6 +279,9 @@ export function ClubExplorePage() {
 
   return (
     <div>
+      {/* 데스크탑·모바일 모두 카드 위 행은 서버 기본 목록(ClubExploreFallback)이 그대로 따라 그린다 — 컨트롤·행 클래스는
+          exploreUi 공용 상수로 묶여 있고, 그 밖의 행(섹션·제목 블록 등)을 고치면 fallback 도 맞춘다. 어긋나면 교체 순간
+          카드가 움직인다. */}
       {/* ─── 데스크탑 (md+) — 기존 카드형 레이아웃(원본 유지) ─── */}
       <div className="hidden md:block">
       <section className="bg-cream pt-page-top pb-7">
@@ -300,20 +324,14 @@ export function ClubExplorePage() {
           </div>
 
           <div className="flex gap-1.5 mb-4">
-            {(
-              [
-                { key: '전체', hint: '모든 동아리' },
-                { key: '중앙', hint: '5개 분과' },
-                { key: '학과', hint: '단과대 산하' },
-              ] as const
-            ).map((segment) => {
+            {SCOPE_SEGMENTS.map((segment) => {
               const on = segment.key === params.scope;
               return (
                 <button
                   key={segment.key}
                   type="button"
                   onClick={() => handleScopeChange(segment.key)}
-                  className={`inline-flex items-center gap-2.5 px-[18px] py-2.5 rounded-[12px] text-sm font-bold border-[1.5px] ${on ? 'bg-ink text-white border-ink' : 'bg-paper text-charcoal-2 border-line'}`}
+                  className={SCOPE_SEGMENT_CLASS(on)}
                 >
                   {segment.key === '전체' ? '전체' : SCOPE_CLUB_LABEL[segment.key]}
                   {on && (
@@ -457,7 +475,7 @@ export function ClubExplorePage() {
           </aside>
 
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className={LIST_TOOLBAR_CLASS.desktop}>
               {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801).
                   정렬 select·찜 칩의 우측 정렬을 유지하려고 빈 div 는 남긴다. */}
               <div className="text-sm text-charcoal-2">
@@ -477,11 +495,11 @@ export function ClubExplorePage() {
                   onChange={(event) =>
                     updateParams({ sort: event.target.value as SortKey, page: 1 })
                   }
-                  className="px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-2"
+                  className={SORT_SELECT_CLASS.desktop}
                 >
-                  <option value="RECOMMENDED">추천순</option>
-                  <option value="DEADLINE_SOON">마감 임박순</option>
-                  <option value="ALPHABETICAL">가나다순</option>
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -582,10 +600,7 @@ export function ClubExplorePage() {
                   <div
                     // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
                     aria-busy={clubListQuery.isPlaceholderData}
-                    className={cn(
-                      'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]',
-                      clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
-                    )}
+                    className={cn(CARD_GRID_CLASS, clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity')}
                   >
                     {visibleClubs.map((club, index) => (
                       // 스태거 래퍼가 그리드 아이템 자리를 대신 받는다 — grid 로 둬야 카드가 행 높이까지
@@ -599,10 +614,10 @@ export function ClubExplorePage() {
                           club={club}
                           liked={likedIds.has(club.id)}
                           isLikeBusy={
-                            isFavoriteDirectionUnknown ||
+                            isFavoriteDirectionUnavailable ||
                             (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                           }
-                          // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                          // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                           isFavoriteStateReady={!isFavoriteDirectionUnknown}
                           onLikeToggle={handleToggleLike}
                         />
@@ -665,10 +680,7 @@ export function ClubExplorePage() {
                 key={option.label}
                 type="button"
                 onClick={() => updateParams({ category: option.value, page: 1 })}
-                className={cn(
-                  'shrink-0 whitespace-nowrap border-b-[2.5px] py-[11px] text-[14px] font-semibold transition-colors',
-                  on ? 'border-ink text-ink' : 'border-transparent text-charcoal-3',
-                )}
+                className={CATEGORY_TAB_CLASS(on)}
               >
                 {option.label}
               </button>
@@ -676,7 +688,7 @@ export function ClubExplorePage() {
           })}
         </nav>
 
-        <div className="flex items-center justify-between px-4 pb-6 pt-4 sm:px-6">
+        <div className={LIST_TOOLBAR_CLASS.mobile}>
           {/* count 미로딩(첫 진입 순간)에는 빈 자리 유지 — 0 으로 거짓말하지 않는다.
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div
@@ -696,7 +708,7 @@ export function ClubExplorePage() {
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="tap-pill inline-flex items-center gap-1.5 rounded-full border border-ink bg-ink px-3 py-1.5 text-[12.5px] font-bold text-white"
+              className={FILTER_BUTTON_CLASS}
             >
               <Icon.sliders className="h-[15px] w-[15px]" />
               필터
@@ -710,11 +722,11 @@ export function ClubExplorePage() {
               <select
                 value={params.sort}
                 onChange={(event) => handleSortChange(event.target.value)}
-                className="appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2"
+                className={SORT_SELECT_CLASS.mobile}
               >
-                <option value="RECOMMENDED">추천순</option>
-                <option value="DEADLINE_SOON">마감 임박순</option>
-                <option value="ALPHABETICAL">가나다순</option>
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
               <Icon.chev className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2" />
             </div>
@@ -761,10 +773,10 @@ export function ClubExplorePage() {
                         club={club}
                         liked={likedIds.has(club.id)}
                         isLikeBusy={
-                          isFavoriteDirectionUnknown ||
+                          isFavoriteDirectionUnavailable ||
                           (favoriteFlow.isPending && favoriteFlow.pendingClubId === club.id)
                         }
-                        // 하트 팝 가드용 — isLikeBusy 는 사용자의 토글 중에도 참이라 쓸 수 없다.
+                        // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                         isFavoriteStateReady={!isFavoriteDirectionUnknown}
                         onLikeToggle={handleToggleLike}
                       />
@@ -928,10 +940,7 @@ function FavoriteFilterChip({ on, onClick }: { on: boolean; onClick: () => void 
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={cn(
-        'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
-        on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
-      )}
+      className={FAVORITE_CHIP_CLASS(on)}
     >
       <Icon.heart className={cn('h-3.5 w-3.5', on && 'text-coral')} />
       찜한 동아리

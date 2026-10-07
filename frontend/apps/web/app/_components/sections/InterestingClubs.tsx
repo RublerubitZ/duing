@@ -6,6 +6,7 @@ import { ClubLogo } from '@/app/_components/ClubLogo';
 import { fetchInterestingClubs } from '@/app/_lib/home-data';
 import { HOME_CATEGORY_BY_VALUE } from '@/app/_lib/homeCategories';
 import { displayStatusLabel } from '@/app/_lib/recruitmentDisplay';
+import { normalizeTag } from '@/app/_lib/tags';
 import { cn } from '@/app/_lib/cn';
 
 /**
@@ -140,7 +141,7 @@ function InterestCard({ club }: { club: ClubSummary }) {
         </span>
       </div>
       <p className="mt-[0.25em] line-clamp-2 text-[1em] font-normal leading-[1.5] tracking-tightest text-charcoal-2">
-        {club.tagline ?? (club.tags.length > 0 ? club.tags.join(' · ') : '소개 준비중')}
+        {club.tagline ?? (club.tags.length > 0 ? club.tags.map(normalizeTag).join(' · ') : '소개 준비중')}
       </p>
 
       {/* 임계값 미만이면 이 줄만 빠진다 — 카드 최소 높이는 유지돼 그리드가 흔들리지 않는다. */}
@@ -189,7 +190,7 @@ function InterestRow({ club }: { club: ClubSummary }) {
           )}
         </div>
         <p className="truncate text-[14px] font-normal tracking-tightest text-charcoal-2">
-          {club.tagline ?? (club.tags.length > 0 ? club.tags.join(' · ') : '소개 준비중')}
+          {club.tagline ?? (club.tags.length > 0 ? club.tags.map(normalizeTag).join(' · ') : '소개 준비중')}
         </p>
       </div>
     </Link>

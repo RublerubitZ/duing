@@ -8,7 +8,9 @@ import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.dto.command.AssignLeaderByAdminCommand;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,8 @@ public class GeneralAdminLeaderAssignmentService implements AdminLeaderAssignmen
     private final ClubRepository clubRepository;
     private final ClubMemberRepository clubMemberRepository;
     private final ClubMemberHistoryRecorder historyRecorder;
+    // 지정으로 회장이 바뀌면 공개 상세의 "동아리 회장" 줄이 바뀐다 — 커밋 뒤 상세 재생성 이벤트(#1356).
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -73,5 +77,6 @@ public class GeneralAdminLeaderAssignmentService implements AdminLeaderAssignmen
                 command.clubId(), candidate.getUser().getId(), command.actorAdminId(),
                 ClubMemberEventType.ADMIN_LEADER_ASSIGNED,
                 previousRole, ClubMemberRole.LEADER, command.reason());
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
     }
 }

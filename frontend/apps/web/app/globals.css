@@ -403,6 +403,14 @@ body {
   .cal-sheet-handle {
     display: none;
   }
+  /* 데스크탑 사이드 패널 슬라이드 — 인라인 style 이 아니라 여기 둔다. 모바일 바텀시트 규칙이 !important 없이
+     덮어야 스와이프 닫기의 인라인 transform 이 이긴다(같은 특이도라 아래 미디어쿼리가 순서로 이긴다). */
+  .cal-detail {
+    transition: transform .42s cubic-bezier(.22,.61,.36,1), opacity .28s ease;
+  }
+  .cal-detail[data-open='false'] {
+    transform: translateX(32px);
+  }
   /* Upcoming 타임라인은 모바일 전용 — 데스크탑에서는 카드 그리드가 대신한다.
      둘 다 렌더하고 CSS 로 전환한다(JS 분기는 SSR 첫 프레임 깜빡임·하이드레이션 불일치를 만든다).
      주의: 감춰진 쪽도 React 렌더와 effect 는 돈다 — 행에 옵서버·이미지가 붙는 날이 오면 재검토할 것. */
@@ -619,14 +627,16 @@ body {
       background: var(--cream) !important;
       box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.2) !important;
       padding: 8px 14px calc(16px + env(safe-area-inset-bottom)) !important;
-      transform: translateY(0) !important;
       opacity: 1 !important;
       pointer-events: auto !important;
       overflow-y: auto !important;
-      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+      /* transform·transition 은 !important 를 두지 않는다 — 아래로 스와이프해 닫기(useSwipeDismiss)가
+         드래그 중 인라인으로 덮어써야 한다. 덮을 인라인 값도 없다(데스크탑 슬라이드는 위 CSS 로 옮김). */
+      transform: translateY(0);
+      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
     }
     .cal-detail[data-open='false'] {
-      transform: translateY(110%) !important;
+      transform: translateY(110%);
       pointer-events: none !important;
     }
   }

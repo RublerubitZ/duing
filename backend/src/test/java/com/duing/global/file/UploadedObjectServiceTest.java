@@ -3,6 +3,8 @@ package com.duing.global.file;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -12,6 +14,7 @@ import com.duing.global.file.exception.FileException;
 import com.duing.global.file.repository.UploadedObjectRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,9 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 class UploadedObjectServiceTest extends IntegrationTestBase {
 
     private static final String STUB_PREFIX = "/files/stub/";
+    private static final Long SEED_UPLOADER_ID = 1L;
 
     @Autowired UploadedObjectService uploadedObjectService;
     @Autowired UploadedObjectRepository uploadedObjectRepository;
+    @Autowired FileStorageService fileStorageService;
     @Autowired Clock clock;
     @Autowired PlatformTransactionManager platformTransactionManager;
 
@@ -43,7 +48,7 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
     }
 
     private UploadedObject seed(String storageKey, UploadedObjectStatus status) {
-        UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, 1L, Instant.now());
+        UploadedObject uploadedObject = UploadedObject.pending(storageKey, FilePurpose.LOGO, SEED_UPLOADER_ID, Instant.now());
         if (status == UploadedObjectStatus.ACTIVE) uploadedObject.activate(Instant.now());
         if (status == UploadedObjectStatus.RELEASED) { uploadedObject.activate(Instant.now()); uploadedObject.release(Instant.now()); }
         if (status == UploadedObjectStatus.PURGING) uploadedObject.markPurging(Instant.now(clock));
@@ -94,6 +99,73 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
 
         assertThatCode(() -> uploadedObjectService.activate(STUB_PREFIX + storageKey)).doesNotThrowAnyException();
         assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("본인 확인 연결은 업로더가 요청자와 같으면 PENDING·RELEASED 업로드를 ACTIVE 로 바꾸고, 이미 ACTIVE 인 업로드의 재제출은 멱등이다")
+    void activateOwnedByActivatesUploaderOwnUploads() {
+        String pendingKey = uniqueKey(FilePurpose.LOGO);
+        String releasedKey = uniqueKey(FilePurpose.LOGO);
+        String activeKey = uniqueKey(FilePurpose.LOGO);
+        seed(pendingKey, UploadedObjectStatus.PENDING);
+        seed(releasedKey, UploadedObjectStatus.RELEASED);
+        seed(activeKey, UploadedObjectStatus.ACTIVE);
+
+        uploadedObjectService.activateOwnedBy(SEED_UPLOADER_ID,
+                STUB_PREFIX + pendingKey, STUB_PREFIX + releasedKey, STUB_PREFIX + activeKey);
+
+        assertThat(statusOf(pendingKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(releasedKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(activeKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("본인 확인 연결에 다른 사용자의 업로드나 추적 행이 없는 키가 섞이면 예외가 나고, 함께 보낸 본인 업로드까지 PENDING 으로 남는다")
+    void activateOwnedByRejectsOthersOrUntrackedUploadsWithoutChangingState() {
+        Long requesterId = SEED_UPLOADER_ID + 1;
+        // 본인 키를 먼저 만들어 사전순으로 먼저 잠기게 한다 — 활성화된 뒤 예외로 함께 롤백되는 경로를 탄다.
+        String ownKey = uniqueKey(FilePurpose.LOGO);
+        String othersKey = uniqueKey(FilePurpose.LOGO);
+        uploadedObjectRepository.save(UploadedObject.pending(ownKey, FilePurpose.LOGO, requesterId, Instant.now()));
+        seed(othersKey, UploadedObjectStatus.PENDING);
+
+        assertThatThrownBy(() -> uploadedObjectService.activateOwnedBy(requesterId,
+                STUB_PREFIX + ownKey, STUB_PREFIX + othersKey))
+                .isInstanceOf(FileException.UploadNotOwnedException.class);
+        assertThatThrownBy(() -> uploadedObjectService.activateOwnedBy(requesterId,
+                STUB_PREFIX + ownKey, STUB_PREFIX + uniqueKey(FilePurpose.LOGO)))
+                .isInstanceOf(FileException.UploadNotOwnedException.class);
+
+        assertThat(statusOf(ownKey)).isEqualTo(UploadedObjectStatus.PENDING);
+        assertThat(statusOf(othersKey)).isEqualTo(UploadedObjectStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("본인 확인 연결은 상태보다 소유를 먼저 본다 — 다른 사용자의 PURGING 업로드는 만료가 아닌 소유 불일치 예외이고 상태는 그대로다")
+    void activateOwnedByChecksOwnershipBeforeStatus() {
+        String othersPurgingKey = uniqueKey(FilePurpose.LOGO);
+        seed(othersPurgingKey, UploadedObjectStatus.PURGING);
+
+        assertThatThrownBy(() -> uploadedObjectService.activateOwnedBy(SEED_UPLOADER_ID + 1,
+                STUB_PREFIX + othersPurgingKey))
+                .isInstanceOf(FileException.UploadNotOwnedException.class);
+        assertThat(statusOf(othersPurgingKey)).isEqualTo(UploadedObjectStatus.PURGING);
+    }
+
+    @Test
+    @DisplayName("업로더가 비어 있는 추적 행은 소유 불일치로 보고 예외를 던지며 상태를 바꾸지 않는다")
+    void activateOwnedByTreatsMissingUploaderAsMismatch() {
+        // uploader_id 는 NOT NULL(V122)이라 DB 로는 만들 수 없는 방어 분기 — 잠금 조회 결과만 목으로 대신한다.
+        String storageKey = uniqueKey(FilePurpose.LOGO);
+        UploadedObject uploaderlessRow = UploadedObject.pending(storageKey, FilePurpose.LOGO, null, Instant.now());
+        UploadedObjectRepository mockedRepository = mock(UploadedObjectRepository.class);
+        when(mockedRepository.findByStorageKeyForUpdate(storageKey)).thenReturn(Optional.of(uploaderlessRow));
+        UploadedObjectService serviceOverMockedRepository =
+                new UploadedObjectService(mockedRepository, fileStorageService, clock);
+
+        assertThatThrownBy(() -> serviceOverMockedRepository.activateOwnedBy(SEED_UPLOADER_ID, STUB_PREFIX + storageKey))
+                .isInstanceOf(FileException.UploadNotOwnedException.class);
+        assertThat(uploaderlessRow.getStatus()).isEqualTo(UploadedObjectStatus.PENDING);
     }
 
     @Test

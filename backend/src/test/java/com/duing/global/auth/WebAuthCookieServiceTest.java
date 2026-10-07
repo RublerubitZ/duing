@@ -13,6 +13,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.env.MockEnvironment;
@@ -163,36 +165,29 @@ class WebAuthCookieServiceTest {
                 .hasMessageContaining("HTTPS");
     }
 
-    @Test
-    @DisplayName("운영 환경에서 인증 힌트 Cookie Domain이 비어 있으면 기동을 거부한다")
-    void rejectsBlankHintCookieDomainInProduction() {
+    @ParameterizedTest
+    @ValueSource(strings = {"", ".example.com"})
+    @DisplayName("운영 환경에서는 설정값과 상관없이 인증 힌트 Cookie를 .duings.com Domain으로 발급한다 — 빈 값·다른 값으로 기동이 막히지 않는다")
+    void usesProductionHintCookieDomainRegardlessOfConfiguration(String configuredDomain) {
         MockEnvironment productionEnvironment = new MockEnvironment();
         productionEnvironment.setActiveProfiles("prod");
+        WebAuthCookieService productionCookieService = new WebAuthCookieService(
+                new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
+                jwtTokenProvider,
+                configuredDomain,
+                REFRESH_TTL_DAYS,
+                productionEnvironment);
 
-        assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
-                        jwtTokenProvider,
-                        "",
-                        REFRESH_TTL_DAYS,
-                        productionEnvironment))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(".duings.com");
-    }
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSecure(true);
+        request.setServerName("api.duings.com");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        productionCookieService.issue(request, response, "access.jwt", "refresh.token", "STUDENT", true);
 
-    @Test
-    @DisplayName("운영 환경에서 인증 힌트 Cookie Domain이 .duings.com이 아니면 기동을 거부한다")
-    void rejectsArbitraryHintCookieDomainInProduction() {
-        MockEnvironment productionEnvironment = new MockEnvironment();
-        productionEnvironment.setActiveProfiles("prod");
-
-        assertThatThrownBy(() -> new WebAuthCookieService(
-                        new AuthHintTokenProvider(HINT_SECRET, JWT_SECRET, REFRESH_TTL_DAYS),
-                        jwtTokenProvider,
-                        ".example.com",
-                        REFRESH_TTL_DAYS,
-                        productionEnvironment))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(".duings.com");
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).anySatisfy(cookie -> {
+            assertThat(cookie).startsWith("auth_hint=");
+            assertThat(cookie).contains("Domain=.duings.com");
+        });
     }
 
     @Test

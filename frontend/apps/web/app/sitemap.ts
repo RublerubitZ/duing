@@ -1,37 +1,51 @@
 import type { MetadataRoute } from 'next';
 
+import { fetchActiveClubIds, fetchPublicNoticeIds } from '@/app/_lib/public-content';
 import { SITE_URL } from '@/app/_lib/site';
 
 /**
  * 검색엔진 색인용 sitemap.xml 생성 (App Router 규약: app/sitemap.ts → /sitemap.xml).
  *
- * 공개·정적 라우트만 명시한다. 동아리/공지 상세(`/clubs/[id]`, `/notices/[id]`)는
- * 빌드 시점에 백엔드 목록 fetch 가 필요한데, 운영에서 Cloudflare 가 Vercel 서버(데이터센터)
- * 요청을 봇 챌린지로 막아 403 이 날 수 있어 sitemap 생성이 불안정해진다. 대신 검색엔진이
- * `/clubs`·`/notices` 목록 페이지에서 링크를 따라 상세를 크롤링하도록 둔다(내부 링크 기반 발견).
+ * 공개 정적 라우트, 공개(ACTIVE) 동아리 상세, 공개 소식 상세(익명 기준 PUBLIC·미만료)를 담는다. 두 상세는
+ * 24시간 ISR 로 본문이 초기 HTML 에 들어가므로 색인 대상으로 제출한다 — 상세 URL 은 그 상세가 서버 렌더될 때만
+ * 넣는다(빈 셸을 제출하면 얇은 콘텐츠 신호가 강해진다).
+ * 재생성 주기는 24시간이다 — 주기가 지난 뒤 첫 요청은 직전 사이트맵을 받고 재생성은 백그라운드에서
+ * 일어난다(새 동아리·소식은 그다음 요청부터 보인다). 빌드 국면 장애면 실패한 목록만 빠진 사이트맵이 다음
+ * 재생성 때까지 남고, 런타임 재생성 장애는 한 목록만 실패해도 throw 해 직전 사이트맵을 유지한다(public-content.ts).
+ * 갱신 시각(lastModified)은 넣지 않는다 — 정확한 값이 없고, 재생성 시각을 넣으면 매일 바뀐 것처럼 보인다.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
-  // 모든 정적 페이지의 lastModified 는 마지막 배포 시각으로 통일한다(빌드 시 1회 평가).
-  const lastModified = new Date();
+export const revalidate = 86400;
 
-  const routes: Array<{
-    path: string;
-    changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'];
-    priority: number;
-  }> = [
-    { path: '/', changeFrequency: 'daily', priority: 1 },
-    { path: '/clubs', changeFrequency: 'daily', priority: 0.9 },
-    { path: '/notices', changeFrequency: 'weekly', priority: 0.7 },
-    { path: '/faq', changeFrequency: 'monthly', priority: 0.5 },
-    { path: '/calendar', changeFrequency: 'weekly', priority: 0.6 },
-    { path: '/introduce', changeFrequency: 'monthly', priority: 0.6 },
-    { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
-  ];
+const STATIC_ROUTES: ReadonlyArray<{
+  path: string;
+  changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'];
+  priority: number;
+}> = [
+  { path: '/', changeFrequency: 'daily', priority: 1 },
+  { path: '/clubs', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/notices', changeFrequency: 'weekly', priority: 0.7 },
+  { path: '/faq', changeFrequency: 'monthly', priority: 0.5 },
+  { path: '/calendar', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/introduce', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
+];
 
-  return routes.map((route) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticEntries = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,
-    lastModified,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
+  const [clubIds, noticeIds] = await Promise.all([fetchActiveClubIds(), fetchPublicNoticeIds()]);
+  const clubEntries = (clubIds ?? []).map((clubId) => ({
+    url: `${SITE_URL}/clubs/${clubId}`,
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }));
+  const noticeEntries = (noticeIds ?? []).map((noticeId) => ({
+    url: `${SITE_URL}/notices/${noticeId}`,
+    changeFrequency: 'weekly' as const,
+    priority: 0.5,
+  }));
+  return [...staticEntries, ...clubEntries, ...noticeEntries];
 }

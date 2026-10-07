@@ -33,6 +33,9 @@ spring:
       # "too many clients already" 로 무관한 통합테스트가 컨텍스트 로드에 실패한다. 유휴 점유를 1로
       # 낮춰 컨텍스트당 상시 점유를 최소화하고, 버스트는 max(20)까지 온디맨드로 확장한다.
       minimum-idle: 1
+      # main 의 application.yml 과 동일한 값 — 통합 테스트도 운영과 같은 드라이버 오류 메시지(서버 Detail 제외)를 본다.
+      data-source-properties:
+        logServerErrorDetail: false
   servlet:
     multipart:
       max-file-size: 6MB
@@ -97,7 +100,6 @@ bank-api:
 
 jwt:
   secret: duing-test-jwt-secret-key-that-is-long-enough-for-hs256-algorithm
-  expiry-ms: 1800000
 
 web-auth:
   hint-secret: duing-test-auth-hint-secret-key-that-is-different-from-jwt
@@ -108,6 +110,10 @@ security:
     encryption-key: ZHVpbmctdGVzdC1mZWUtYWNjb3VudC1hZXMyNTYta2U=
 
 duing:
+  frontend:
+    # 동아리 상세 재생성 간격(운영 기본 60초)을 끈다 — 통합 테스트가 발행 지점마다 요청이 나가는지를 그대로 센다.
+    # 간격으로 합치는 규칙은 ClubPublicPageRevalidationListenerTest 가 고정한다.
+    club-detail-min-interval: 0s
   notification:
     jobs:
       enabled: false

@@ -119,11 +119,9 @@ function stripUrlQueryInArrayItems(items: unknown[], depth: number): void {
  * <p>중첩 plain 객체·배열 안의 문자열까지 같은 이름 판정으로 덮는다 — web vitals 는 지표마다
  * 중첩 객체를 싣고 그 안에 발화 시점의 주소($web_vitals_LCP_event.$current_url)를 넣는다.
  *
- * <p>범위 한계는 두 가지다. ① 지표 객체의 `entries[]` 는 살아있는 PerformanceEntry 인스턴스라
- * 속성이 프로토타입 접근자에 있어 Object.entries 에 잡히지 않고 readonly 라 재할당도 안 된다
- * (전송 시 toJSON 으로만 직렬화된다) — 재귀가 구조적으로 닿지 않는다. 다만 거기 실리는 url 은
- * LCP 리소스(이미지) 주소이지 문서 주소가 아니라 PII 축이 아니다. ② URL 을 담는 이름 아래의
- * 문자열 배열(`urls: [...]` 모양)은 덮지 않는다 — 현행 이벤트에 그런 형태가 없다.
+ * <p>범위 한계: URL 을 담는 이름 아래의 문자열 배열(`urls: [...]` 모양)은 덮지 않는다 — 현행 이벤트에
+ * 그런 형태가 없다. (지표 객체의 `entries[]` 는 재귀가 닿지 않는 PerformanceEntry 였지만, posthog-js 1.419 부터
+ * SDK 가 버퍼에 담기 전에 지워 더는 전송되지 않는다.)
  * 이 훅을 아예 타지 않는 전송 경로(기능 플래그 요청)는 여전히 SDK 단계 마스킹으로 막는다 —
  * 위 초기화 옵션이 그 역할이다.
  */
@@ -237,6 +235,10 @@ if (!posthogKey) {
     capture_performance: {
       web_vitals: true,
       web_vitals_allowed_metrics: ['CLS', 'FCP', 'INP', 'LCP'],
+      // 귀속(attribution)은 끄는 쪽을 못박는다 — 1.419 부터 기본 켜짐이라 INP·LCP 에 요소 셀렉터·LCP url 이
+      // 새로 실리고 web-vitals 스크립트가 약 11KB→27KB 로 커진다. 1.418 까지의 기본값(끔)을 그대로 유지한다.
+      // INP 원인 진단이 필요해지면 ['INP'] 로 좁혀 켠다(27KB 번들을 받는다).
+      web_vitals_attribution: false,
     },
     // 설문 스크립트 로드 금지 — 대시보드 토글과 AND 로 묶이지 않는 유일한 예외라 여기서 못박는다.
     // 원격 설정이 surveys:false 여도 SDK 는 그 값을 '비활성 확정'으로 저장한 뒤 그대로

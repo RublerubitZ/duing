@@ -194,3 +194,11 @@ describe('exploreParams — hasNonFavoriteFilters', () => {
     expect(hasNonFavoriteFilters({ ...DEFAULT_EXPLORE_PARAMS, activeDays: ['MONDAY'] })).toBe(true);
   });
 });
+
+describe('exploreParams — 빈 쿼리 해석 = 서버 시드 기본값', () => {
+  // 서버는 DEFAULT_EXPLORE_PARAMS 로 기본 목록 키를 시드하고, 화면은 빈 쿼리를 해석해 키를 만든다. 어긋나면 시드가
+  // 버려져 기본 목록 → 스켈레톤 → 목록으로 깜빡인다.
+  it('빈 쿼리를 해석하면 DEFAULT_EXPLORE_PARAMS 와 같다', () => {
+    expect(parseExploreParams(new URLSearchParams(''))).toEqual(DEFAULT_EXPLORE_PARAMS);
+  });
+});

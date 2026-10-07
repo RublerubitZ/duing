@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { NoticeCardItem } from '@duing/types';
 
@@ -41,7 +41,7 @@ vi.mock('@duing/stores', async (importOriginal) => ({
 }));
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
-import NoticesPage from '../../app/notices/page';
+import { NoticePage as NoticesPage } from '../../app/notices/_pages/NoticePage';
 
 function makeNoticeItem(overrides: Partial<NoticeCardItem> = {}): NoticeCardItem {
   return {
@@ -211,5 +211,180 @@ describe('NoticesPage', () => {
     // 목록 컨테이너 = aria-busy 를 가진 isSuccess div(필터 전환 중에도 언마운트되지 않는다).
     const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
     expect(listContainer).toHaveClass('enter-content');
+  });
+});
+
+describe('NoticesPage — 고정 공지 3건 이상·빈 상태', () => {
+  function searchFor(keyword: string) {
+    const input = screen.getByRole('textbox', { name: '소식 검색' });
+    fireEvent.change(input, { target: { value: keyword } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  }
+
+  it('고정 공지가 3건 이상이면 앞 2건은 강조 카드, 나머지는 일반 목록 맨 앞에 "고정" 표시와 함께 보인다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    mockUseNoticeListQuery.mockReturnValue(
+      makeListResponse([
+        makeNoticeItem({ id: 11, title: '핀A', pinned: true }),
+        makeNoticeItem({ id: 12, title: '핀B', pinned: true }),
+        makeNoticeItem({ id: 13, title: '핀C', pinned: true }),
+        makeNoticeItem({ id: 14, title: '핀D', pinned: true }),
+        makeNoticeItem({ id: 21, title: '일반A' }),
+      ]),
+    );
+
+    const { container } = render(<NoticesPage />);
+
+    // 강조 카드 2장 + 목록 행 3개(넘친 고정 2건이 백엔드 순서대로 맨 앞) — 어떤 고정 공지도 사라지지 않는다.
+    expect(container.querySelectorAll('.tap-card')).toHaveLength(2);
+    const rows = Array.from(container.querySelectorAll('.notice-row'));
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent('핀C');
+    expect(rows[1]).toHaveTextContent('핀D');
+    expect(rows[2]).toHaveTextContent('일반A');
+    // "고정" 표시는 접근성 이름에 제목과 띄어서 들어간다 — 일반 행·강조 카드에는 없다(대조군).
+    expect(screen.getByRole('link', { name: /고정 핀C/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /고정 핀D/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /일반A/ })).not.toHaveAccessibleName(/고정/);
+    expect(screen.getByRole('link', { name: /핀A/ })).not.toHaveAccessibleName(/고정/);
+    // 구분선은 마지막 행만 뺀다 — 합친 목록 기준(넘친 고정 + 일반). jsdom 은 'none' 을 'medium' 으로 바꿔 내놓는다.
+    const rowBorders = rows.map((row) => (row instanceof HTMLElement ? row.style.borderBottom : ''));
+    expect(rowBorders).toEqual([
+      '1px solid var(--gray-line)',
+      '1px solid var(--gray-line)',
+      expect.not.stringContaining('gray-line'),
+    ]);
+  });
+
+  it('넘친 고정 공지가 동아리 공지면 "고정" 표시가 제목 칸 첫 요소로 동아리 칩보다 앞선다', () => {
+    mockAuthStatus.value = 'authenticated';
+    mockUseNoticeListQuery.mockReturnValue(
+      makeListResponse([
+        makeNoticeItem({ id: 11, title: '핀A', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+        makeNoticeItem({ id: 12, title: '핀B', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+        makeNoticeItem({ id: 13, title: '핀C', pinned: true, owningClubId: 5, clubName: '알고리즘 동아리' }),
+      ]),
+    );
+
+    const { container } = render(<NoticesPage />);
+    fireEvent.click(screen.getByRole('button', { name: '내 동아리' }));
+
+    expect(container.querySelector('.notice-row .nr-title')?.firstElementChild).toHaveTextContent('고정');
+  });
+
+  it('고정 공지만 있고 일반 공지가 없으면 빈 상태 문구도, 머리글만 남은 목록 표도 그리지 않는다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    mockUseNoticeListQuery.mockReturnValue(
+      makeListResponse([
+        makeNoticeItem({ id: 11, title: '핀A', pinned: true }),
+        makeNoticeItem({ id: 12, title: '핀B', pinned: true }),
+      ]),
+    );
+
+    const { container } = render(<NoticesPage />);
+
+    expect(container.querySelectorAll('.tap-card')).toHaveLength(2);
+    expect(screen.queryByText('아직 공지가 없습니다')).not.toBeInTheDocument();
+    expect(container.querySelector('.md\\:bg-paper')).toBeNull();
+  });
+
+  it('검색 결과가 고정 공지 3건뿐이면 카드 2장 + 행 1개이고 "검색 결과가 없습니다." 는 없다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    mockUseNoticeListQuery.mockReturnValue(
+      makeListResponse([
+        makeNoticeItem({ id: 11, title: '핀A', pinned: true }),
+        makeNoticeItem({ id: 12, title: '핀B', pinned: true }),
+        makeNoticeItem({ id: 13, title: '핀C', pinned: true }),
+      ]),
+    );
+
+    const { container } = render(<NoticesPage />);
+    searchFor('핀');
+
+    expect(container.querySelectorAll('.tap-card')).toHaveLength(2);
+    expect(container.querySelectorAll('.notice-row')).toHaveLength(1);
+    expect(screen.queryByText('검색 결과가 없습니다.')).not.toBeInTheDocument();
+  });
+
+  it('검색 결과가 0건이면 "검색 결과가 없습니다." 를 보인다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+    searchFor('없는검색어');
+
+    expect(screen.getByText('검색 결과가 없습니다.')).toBeInTheDocument();
+  });
+
+  it('내 동아리 공지가 0건이면 "가입한 동아리의 공지가 없습니다" 를 보인다', () => {
+    mockAuthStatus.value = 'authenticated';
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+    fireEvent.click(screen.getByRole('button', { name: '내 동아리' }));
+
+    expect(screen.getByText('가입한 동아리의 공지가 없습니다')).toBeInTheDocument();
+  });
+});
+
+describe('NoticesPage — 불러오기 실패', () => {
+  it('다시 불러오기가 실패해도 이미 보이던 목록은 그대로 두고, 위에 다시 시도 안내를 띄운다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    const refetch = vi.fn();
+    // TanStack Query v5 는 데이터가 있는 상태에서 재요청이 실패하면 status 를 error(isSuccess false)로 바꾸되 data 는 남긴다.
+    // 24시간 ISR 시드로 첫 화면을 그린 뒤 마운트 재요청이 시간 초과로 끝나는 경우가 이 상태다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '이미 보이던 공지' })]),
+      isSuccess: false,
+      isError: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch,
+    });
+
+    render(<NoticesPage />);
+
+    expect(screen.getByText('이미 보이던 공지')).toBeInTheDocument();
+    expect(screen.queryByText('공지를 불러오지 못했습니다.')).not.toBeInTheDocument();
+    const staleNotice = screen.getByRole('alert');
+    expect(staleNotice).toHaveTextContent('최신 공지를 불러오지 못했습니다');
+    fireEvent.click(within(staleNotice).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('목록을 다시 불러오는 동안에는 안내의 버튼을 막고 진행 중임을 알린다 — 연타가 진행 중 요청을 취소·재시작하지 않게', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    // 데이터가 있는 상태의 재요청은 진행 중에도 status 가 error 로 남는다 — 화면이 바뀌지 않으니 버튼으로 알린다.
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '이미 보이던 공지' })]),
+      isSuccess: false,
+      isError: true,
+      isFetching: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch: vi.fn(),
+    });
+
+    render(<NoticesPage />);
+
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: '다시 불러오는 중…' })).toBeDisabled();
+  });
+
+  it('처음 불러오기가 실패해 보여 줄 목록이 없으면 오류 안내와 다시 시도 버튼을 보여 준다', () => {
+    mockAuthStatus.value = 'unauthenticated';
+    const refetch = vi.fn();
+    mockUseNoticeListQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isSuccess: false,
+      isError: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch,
+    });
+
+    render(<NoticesPage />);
+
+    const loadError = screen.getByRole('alert');
+    expect(loadError).toHaveTextContent('공지를 불러오지 못했습니다.');
+    fireEvent.click(within(loadError).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

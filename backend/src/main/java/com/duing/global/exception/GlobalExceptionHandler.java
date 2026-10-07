@@ -4,6 +4,8 @@ import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
@@ -31,6 +33,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.util.UriUtils;
 
 @Slf4j
 @RestControllerAdvice
@@ -196,12 +199,54 @@ public class GlobalExceptionHandler {
             Throwable exception, HttpServletRequest request) {
         if (request.getParameter("sort") != null) {
             log.warn("잘못된 정렬 속성 (400 변환): {}", rootCauseMessage(exception));
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
+            return invalidSortResponse();
         }
         log.error("정렬 파라미터 없이 발생한 쿼리 경로 오류 — 서버측 회귀로 간주(500)", exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("서버 오류가 발생했습니다."));
+    }
+
+    /**
+     * 정렬(sort) 값을 Spring Data 가 한 번 더 디코딩하다 실패한 경우. 정렬 리졸버는 서블릿이 이미 디코딩한 값을
+     * UriUtils.decode 로 다시 디코딩하므로, '%' 뒤에 16진수 두 자리가 오지 않는 값(예: 요청상 x%25 → x%)이면
+     * 핸들러 실행 전에 IllegalArgumentException 이 난다. 그 디코딩 예외일 때만 400 으로 바꾸고, 같은 요청이라도
+     * 다른 곳에서 난 IllegalArgumentException 은 서버측 결함이므로 catch-all 과 같이 500 + 스택트레이스로 남긴다.
+     * 디코딩 오류 메시지에는 입력이 그대로 실려 로그 줄을 위조할 수 있으므로 남기지 않는다.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
+            IllegalArgumentException exception, HttpServletRequest request) {
+        if (isSortDecodingFailure(exception, request)) {
+            log.warn("정렬 값 재디코딩 실패 (400 변환)");
+            return invalidSortResponse();
+        }
+        return handleUnexpected(exception);
+    }
+
+    /**
+     * 처리 중인 예외가 sort 값 재디코딩의 실패인지 — 같은 값을 같은 방식으로 디코딩해 같은 메시지의 예외가 나는지로
+     * 가린다(디코딩은 결정적이다). 디코딩 안 되는 sort 가 붙은 요청이라도 업무 코드의 예외는 메시지가 달라 걸리지 않는다.
+     */
+    private boolean isSortDecodingFailure(IllegalArgumentException exception, HttpServletRequest request) {
+        String[] sortValues = request.getParameterValues("sort");
+        if (sortValues == null) {
+            return false;
+        }
+        for (String sortValue : sortValues) {
+            try {
+                UriUtils.decode(sortValue, StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException decodeFailure) {
+                if (Objects.equals(decodeFailure.getMessage(), exception.getMessage())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private ResponseEntity<ApiResponse<Void>> invalidSortResponse() {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("지원하지 않는 정렬 조건입니다."));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

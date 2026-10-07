@@ -16,7 +16,7 @@
   "dependencies": {
     "@duing/api": "workspace:*",
     "@duing/types": "workspace:*",
-    "zustand": "^5.0.0"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

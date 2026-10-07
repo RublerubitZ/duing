@@ -49,7 +49,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
-  // 정적 셸이라 서버가 제목을 못 붙인다(generateMetadata 금지) — 데이터 도착 후 탭 제목만 갱신.
+  // 공개 동아리는 서버 메타데이터가 제목을 붙인다 — 서버가 데이터를 못 받은 렌더(셸)에서도 같은 형식이 되도록 데이터 도착 후 맞춘다.
   useDocumentTitle(detail.data?.name ?? null);
   // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
   const enteredFromSkeleton = useEnteredFromSkeleton(detail.isLoading);

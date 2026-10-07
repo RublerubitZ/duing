@@ -26,6 +26,8 @@ type Props = {
   onSent: () => void;
   onReset: () => void;
   onRecheck: () => void;
+  /** 발급 후 idle 로 되돌리는 버튼 문구 — 비밀번호 재설정은 번호가 아니라 학번을 다시 입력한다. */
+  resetLabel?: string;
 };
 
 /** moNumber(8자리 숫자 문자열)를 "1666-3538" 형태로 표시한다. 형식이 다르면 원본을 그대로 보여준다. */
@@ -53,6 +55,7 @@ export function PhoneVerificationField({
   onSent,
   onReset,
   onRecheck,
+  resetLabel = '번호 다시 입력',
 }: Props) {
   const isMobile = typeof navigator !== 'undefined' && isMobileUserAgent(navigator.userAgent);
   const isIos = typeof navigator !== 'undefined' && isIosUserAgent(navigator.userAgent);
@@ -130,7 +133,7 @@ export function PhoneVerificationField({
       {/* 번호를 잘못 넣고 발급한 경우 — idle 로 되돌린다(입력값은 부모 state 라 남는다).
           공용 필드라 프로필 번호 변경·비밀번호 재설정에도 같은 경로가 열린다(의도). */}
       <button type="button" onClick={onReset} className="btn btn-ghost btn-sm mt-1 min-h-11">
-        번호 다시 입력
+        {resetLabel}
       </button>
     </>
   );
@@ -229,7 +232,7 @@ export function PhoneVerificationField({
               </p>
               {/* 문자앱을 열기 전에도 번호를 고칠 길이 있어야 한다 — actionRow 는 탭 후에만 나오므로 여기 따로 둔다. */}
               <button type="button" onClick={onReset} className="btn btn-ghost btn-sm mt-1 min-h-11 w-full">
-                번호 다시 입력
+                {resetLabel}
               </button>
             </>
           ) : (

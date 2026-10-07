@@ -1,0 +1,89 @@
+package com.duing.global.constant;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Arrays;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class TagRulesTest {
+
+    @Test
+    @DisplayName("태그는 저장 전에 null·제어문자·앞뒤 공백이 지워지고 빈 값과 중복이 버려진다(처음 나온 순서 유지)")
+    void normalizesTags() {
+        String[] normalized = TagRules.normalize(Arrays.asList(
+                null, " 축구 ", "축구", "개\u001F발", "   ", "풋\t살", "", "모\u0085집"));
+
+        assertThat(normalized).containsExactly("축구", "개발", "풋살", "모집");
+    }
+
+    @Test
+    @DisplayName("같아 보이는 태그는 하나로 합쳐진다 — 줄바꿈 없는 공백·보이지 않는 서식 문자·분해된 한글")
+    void foldsLookAlikeTags() {
+        String[] normalized = TagRules.normalize(Arrays.asList(
+                "축구", "\u00A0축구\u202F", "\uFEFF축구", "축\u200B구", "\u1100\u1161\u11BC", "강"));
+
+        assertThat(normalized).containsExactly("축구", "강");
+    }
+
+    @Test
+    @DisplayName("태그 앞의 '#' 는 지운다 — 화면이 태그 앞에 '#' 를 붙여 보여 준다")
+    void foldsLeadingHash() {
+        assertThat(TagRules.normalize(Arrays.asList("#축구", "##축구", "# 축구", "C#", "#", "밴드")))
+                .containsExactly("축구", "C#", "밴드");
+    }
+
+    @Test
+    @DisplayName("'#' 와 공백이 섞여 있어도 앞의 '#' 를 끝까지 지우고, 키캡 이모지의 '#' 는 남긴다")
+    void foldsRepeatedLeadingHashButKeepsKeycap() {
+        assertThat(TagRules.normalize(Arrays.asList("# #축구", "#\u3000#축구", "# #", "#\uFE0F\u20E3번호")))
+                .containsExactly("축구", "#\uFE0F\u20E3번호");
+    }
+
+    @Test
+    @DisplayName("지운 문자 사이에 끼어 있던 분해된 한글도 합쳐진다")
+    void composesHangulAfterRemovingInvisibleLetters() {
+        assertThat(TagRules.normalize(Arrays.asList("\u1100\u1160\u1161", "\u1100\u200B\u1161", "가")))
+                .containsExactly("가");
+    }
+
+    @Test
+    @DisplayName("공백처럼 보이는 한글 채움 문자·점자 공백은 지운다")
+    void dropsBlankLookingLetters() {
+        assertThat(TagRules.normalize(Arrays.asList("\u3164", "\u2800\u2800", "농\u3164구", "\u115F\u1160", "\uFFA0")))
+                .containsExactly("농구");
+    }
+
+    @Test
+    @DisplayName("이모지 조합에 쓰는 ZWJ 는 지우지 않는다")
+    void keepsZeroWidthJoinerInEmoji() {
+        assertThat(TagRules.normalize(Arrays.asList("코딩👨\u200D💻"))).containsExactly("코딩👨\u200D💻");
+    }
+
+    @Test
+    @DisplayName("키캡 이모지의 '#' 는 변형 선택자가 없거나 U+FE0E 여도 남기고, 키캡이 아닌 '#' 는 뒤의 변형 선택자와 함께 지운다")
+    void keepsKeycapHashAndFoldsHashWithVariationSelector() {
+        assertThat(TagRules.normalize(Arrays.asList(
+                "#\uFE0E\u20E3", "#\u20E3", "##\uFE0F\u20E3", "#\uFE0F밴드", "#\uFE0E#\uFE0F축구")))
+                .containsExactly("#\uFE0E\u20E3", "#\u20E3", "#\uFE0F\u20E3", "밴드", "축구");
+    }
+
+    @Test
+    @DisplayName("보이는 글자가 하나도 없는 태그는 버린다 — 빈 칩으로 보인다")
+    void dropsTagsWithoutVisibleCharacter() {
+        assertThat(TagRules.normalize(Arrays.asList("\u200D", "\u200C\u200D", "\uFE0F", "\u034F", "\u20E3", "밴드")))
+                .containsExactly("밴드");
+    }
+
+    @Test
+    @DisplayName("사용자 정의 글자처럼 범주로는 보이는지 알 수 없는 글자는 남긴다")
+    void keepsPrivateUseCharacter() {
+        assertThat(TagRules.normalize(Arrays.asList("\uE000"))).containsExactly("\uE000");
+    }
+
+    @Test
+    @DisplayName("아주 긴 '#' 도 스택이 넘치지 않고 지운다 — 키워드 검색어는 길이 제한이 없다")
+    void foldsVeryLongLeadingHashRun() {
+        assertThat(TagRules.normalizeTag("#".repeat(100_000) + "a")).isEqualTo("a");
+    }
+}

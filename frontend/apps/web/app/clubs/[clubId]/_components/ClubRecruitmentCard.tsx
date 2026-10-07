@@ -5,10 +5,10 @@ import Link from 'next/link';
 import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import {
   displayStatusLabel,
-  recruitmentDaysLeft,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
 import { ddayLabel } from '../../../_lib/dday';
+import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { Spinner } from '@/components/loading/Spinner';
@@ -29,7 +29,7 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) 
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
 
   const status = recruitment?.displayStatus;
-  const daysLeft = recruitment ? recruitmentDaysLeft(recruitment.endDate) : null;
+  const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
 
   const header = (() => {
     if (!recruitment) return '모집 없음';
