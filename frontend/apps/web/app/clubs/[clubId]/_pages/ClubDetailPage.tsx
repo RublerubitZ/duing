@@ -17,11 +17,11 @@ import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { getVisitorKey } from '@/app/_lib/visitorKey';
-import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 
 import { ClubContactCard } from '../_components/ClubContactCard';
 import { ClubDetailApplyBar } from '../_components/ClubDetailApplyBar';
 import { ClubDetailHero } from '../_components/ClubDetailHero';
+import { ClubDetailSkeleton } from '../_components/ClubDetailSkeleton';
 import { ClubDetailStats } from '../_components/ClubDetailStats';
 import { ClubDetailTabs } from '../_components/ClubDetailTabs';
 import { ClubRecruitmentCard } from '../_components/ClubRecruitmentCard';
@@ -56,14 +56,9 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   // early return 보다 위에서 잡는다. 서버 HTML 에도 실려 첫 화면에서 CSS 로 재생된다.
   const playsEntrance = useEntranceMotion(detail.isLoading);
 
-  // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다(delayed-show). 펄스(animate-pulse)와 같은
-  // 요소에 걸면 animation 축약끼리 덮어써 펄스가 꺼지므로 래퍼에 둔다.
+  // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다 — 경로 로딩 경계(loading.tsx)와 같은 스켈레톤이다.
   if (detail.isLoading) {
-    return (
-      <div className="delayed-show mx-auto max-w-layout px-4 py-10 sm:px-6 md:px-10">
-        <TextLinesSkeleton lines={8} label="동아리 정보 불러오는 중" />
-      </div>
-    );
+    return <ClubDetailSkeleton />;
   }
   // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만
   // "볼 수 없음" 화면으로 보낸다. 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
