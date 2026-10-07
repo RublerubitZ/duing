@@ -199,4 +199,38 @@ class OpsSlackMessageFormatterTest {
 
         assertThat(seoulFormatter.clubClosed(new ClubClosedEvent(1L, "x", 1L))).contains("시간: 2026-08-23 00:00 KST");
     }
+
+    @Test
+    @DisplayName("트래픽 이상 감지 메시지는 이상 구간 최대치·기준·판정·확인 안내·런북 줄만 싣는다")
+    void trafficSurgeDetectedMessageCarriesAggregatesOnly() {
+        String message = formatter.trafficSurgeDetected(10_000, 12, 2, 3_000, 300);
+
+        assertThat(message).isEqualTo(String.join("\n",
+                "🚨 api 트래픽 이상 — 비상 모드 검토",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_SURGE_DETECTED",
+                "최대 분당 요청: 10,000 (기준 3,000)",
+                "최대 분당 429: 12 (기준 300)",
+                "판정: 집계 2회 연속 기준 이상",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                "정상 사용자가 몰린 것(가두모집 등)일 수 있다 — 서버 부하·오류부터 확인",
+                "런북: deploy/MONITORING.md (공격이면 deploy/EDGE-EMERGENCY.md)"));
+    }
+
+    @Test
+    @DisplayName("트래픽 정상화 메시지는 이상 구간 최대치와 판정 줄(연속 미만 횟수)을 싣는다")
+    void trafficSurgeRecoveredMessageCarriesPeaks() {
+        String message = formatter.trafficSurgeRecovered(12_345, 678, 5);
+
+        assertThat(message).isEqualTo(String.join("\n",
+                "✅ api 트래픽 정상화",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_SURGE_RECOVERED",
+                "이상 구간 최대 분당 요청: 12,345",
+                "이상 구간 최대 분당 429: 678",
+                "판정: 집계 5회 연속 기준 미만",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
 }
