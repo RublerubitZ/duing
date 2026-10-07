@@ -5,16 +5,6 @@
 > 대신 평소에는 Cloudflare 의 대량 트래픽 흡수(DDoS)·WAF 가 없다. 이 문서는 공격·트래픽 폭증 때 그 보호를
 > 몇 분 안에 다시 켜고(**비상 모드**), 끝나면 직결로 되돌리는 절차다. 장애 일반 대응은 [`UPTIME.md`](./UPTIME.md) 의
 > "장애 대응 런북" 을 먼저 본다. 모든 단계는 무료 플랜·무료 한도 안에서 한다 — 유료 플랜·유료 WAF·고급 속도 제한은 쓰지 않는다(추가 비용 0원).
->
-> ⚠️ **과도기(2026-10-07 기준)**: DNS 전환은 **10:40 에 끝났다(직결)**. develop 은 #1395 로 Cloudflare 신뢰 블록을 지웠지만, 그것이 실린
-> main 릴리스 전까지 **main·운영 서버 Caddyfile 에는 신뢰 블록이 남아 있다**(연결 시간 상한 #1394 도 아직 develop 에만 있다). 그동안 배포(Deploy
-> Backend)는 main push 로만 돌아 신뢰 블록이 유지되므로, 비상 모드에서 1-1 은 확인만 하고 넘어가며 2-5 는 하지 않는다. 1-5·2-6 은 아래
-> "꼭 릴리스해야 할 때" 에만 따른다.
-> **수동 실행(Actions 의 Run workflow, `gh workflow run deploy-backend.yml`)은 기본 브랜치가 develop 이라, 과도기에는 ref 를 반드시 main 으로
-> 고른다**(`--ref main`). 지금까지 실행은 전부 main push 라 직전 성공 실행의 re-run 은 무해하다.
-> **비상 모드(프록시 ON) 중에는 develop→main 릴리스를 하지 않는다** — 릴리스가 서버의 신뢰 블록을 지워 #1112 회귀(전원이 CF 엣지 IP 로 집계)가 난다.
-> 그 사이 꼭 릴리스해야 하면 1-5 대로 develop 에 신뢰 블록을 다시 넣는 PR 부터 머지한다. 그렇게 릴리스했다면 비상 모드가 끝난 뒤 2-6 대로 그 PR 을
-> 되돌려 릴리스한다. 릴리스 뒤 관리 API 되읽기로 `client_ip_headers` 0건을 확인하고 이 문단과 1-1·2-5·2-6 의 "(과도기에는 …)" 괄호를 함께 지운다.
 
 ## 한눈에 보기
 
@@ -52,7 +42,7 @@
   - Lightsail 콘솔 지표 — CPU·NetworkIn 급증
 - 백엔드 로그에 여러 IP 의 429 가 쏟아지거나 Sentry 5xx 가 급증한다.
 
-정상 사용자가 몰린 것(가두모집 등)이라면 비상 모드가 해법이 아니다. 느린 연결은 Caddy 연결 시간 상한(#1394, 다음 릴리스부터 운영 반영)이 끊는다.
+정상 사용자가 몰린 것(가두모집 등)이라면 비상 모드가 해법이 아니다. 느린 연결은 Caddy 연결 시간 상한(#1394)이 끊는다.
 
 ## 0. 평시에 해 둘 것
 
@@ -74,7 +64,7 @@ docker compose ps caddy    # caddy 가 Up 인지 먼저 본다
 docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]' || echo "신뢰 블록 없음(또는 조회 실패)"
 ```
 
-`"client_ip_headers":["Cf-Connecting-Ip"]` 가 나오면 이미 있다. 1-2 로 넘어간다(과도기에는 여기서 넘어간다). 없으면 아래를 그대로 실행한다.
+`"client_ip_headers":["Cf-Connecting-Ip"]` 가 나오면 이미 있다. 1-2 로 넘어간다. 없으면 아래를 그대로 실행한다.
 
 ```bash
 cd /home/ubuntu/duing
@@ -111,7 +101,8 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
   - 이미 신뢰 줄이 있는데 또 넣으면 `caddy validate` 가 "specified more than once" 로 막는다.
 - 이제 서버 파일만 바뀌었다. 저장소 파일로 서버를 덮어쓰는 **Deploy Backend 실행을 1-5 핫픽스 전까지 하지 않는다.**
-  - main push, 지난 실행의 re-run, 수동 실행 모두 해당한다.
+  - main push, 지난 실행의 re-run, 수동 실행 모두 해당한다. 수동 실행(Run workflow)은 기본 브랜치가 develop 이라, 실행할 때는 ref 를
+    반드시 main 으로 고른다.
   - `UPTIME.md` 의 롤백(직전 성공 실행 re-run)도 마찬가지다. 롤백이 필요하면 1-5 핫픽스를 먼저 한다.
 
 ### 1-2. Cloudflare 프록시 켜기
@@ -182,7 +173,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 - 저장소에 넣을 것은 두 가지다. ① `deploy/Caddyfile` 전역 `servers {` 블록에 1-1 과 같은 두 줄(최신 Cloudflare 대역)
   ② `.github/workflows/deploy-config-ci.yml` 첫 단언을 #1112(`1d960e0d4`)의 존재 단언으로 되돌리기. 이 두 파일만 바꾼다 — 신뢰 블록을 지운
-  #1395 의 squash 커밋을 통째로 `git revert` 하지 않는다(그 커밋에는 이 런북의 과도기 안내도 들어 있어, 되돌리면 이 절차를 끝내는 안내까지 사라진다).
+  #1395 의 squash 커밋을 통째로 `git revert` 하지 않는다(그 커밋에는 이 런북의 1-5·2-6 안내도 들어 있어, 되돌리면 이 절차 안내까지 함께 되돌아간다).
 - **develop 에 아직 릴리스하지 않은 변경이 없으면**: 위 두 변경을 develop PR 로 머지한 뒤 main 으로 승격한다.
 - **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 두 변경만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
 - 핫픽스 배포(Deploy Backend)는 백엔드 컨테이너도 다시 만들어 수십 초 끊긴다. 공격이 잦아든 틈에 한다.
@@ -227,7 +218,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 빈 출력
    - 확인되면 Slack 에 알린다. 1-2 의 4번 명령에서 `MESSAGE` 만 바꿔 실행한다.
      예: `MESSAGE="✅ [api 직결 복귀] Cloudflare 프록시를 껐다 — 비상 모드 기간: <시작~끝> / 담당: <이름>"`
-5. **서버 Caddy 에서 신뢰 블록 제거**(과도기에는 하지 않는다)
+5. **서버 Caddy 에서 신뢰 블록 제거**
 
    ```bash
    cd /home/ubuntu/duing
@@ -242,7 +233,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
    - `0` 이 아니면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
    - "조회 실패" 가 찍히면 관리 API 를 못 읽은 것이다(`0` 이 함께 나와도 믿지 않는다). `docker compose ps caddy` 부터 본다.
-6. **저장소**(과도기에는 맨 위 과도기 문단대로 신뢰 블록을 다시 넣어 릴리스했을 때만)
+6. **저장소**
    - 1-5 핫픽스를 했다면 그 PR 을 되돌리는 PR(`git revert` — 두 파일만 바뀐다: 신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
    - 핫픽스를 하지 않았다면 5번 결과가 이미 저장소 파일과 같다.
 7. **사후 기록**: 타임라인(감지 → 전환 → 복구), 공격 형태, 다음에 바꿀 점을 남긴다. `UPTIME.md` 런북 5번과 같은 방식이다.
