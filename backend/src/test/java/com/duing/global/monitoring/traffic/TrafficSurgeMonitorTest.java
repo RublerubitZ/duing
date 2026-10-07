@@ -2,6 +2,7 @@ package com.duing.global.monitoring.traffic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
+import com.duing.global.monitoring.TrafficDailySummary;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Duration;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -40,6 +43,7 @@ class TrafficSurgeMonitorTest {
     private static final long REJECTION_THRESHOLD = 300;
     private static final String DETECTED_MESSAGE = "formatted-detected";
     private static final String RECOVERED_MESSAGE = "formatted-recovered";
+    private static final String DAILY_MESSAGE = "formatted-daily";
 
     private final Clock clock = Clock.fixed(START, SEOUL);
     private final TrafficCountingFilter trafficCountingFilter = new TrafficCountingFilter();
@@ -53,6 +57,7 @@ class TrafficSurgeMonitorTest {
         when(formatter.trafficSurgeDetected(anyLong(), anyLong(), anyInt(), anyLong(), anyLong()))
                 .thenReturn(DETECTED_MESSAGE);
         when(formatter.trafficSurgeRecovered(anyLong(), anyLong(), anyInt())).thenReturn(RECOVERED_MESSAGE);
+        when(formatter.trafficDailySummary(any())).thenReturn(DAILY_MESSAGE);
         monitor = monitorWithThresholds(REQUEST_THRESHOLD, REJECTION_THRESHOLD);
     }
 
@@ -178,12 +183,12 @@ class TrafficSurgeMonitorTest {
     }
 
     @Test
-    @DisplayName("시계가 거꾸로 가 흐른 시간이 1초 미만이면 기본 주기 1분으로 본다 — 한 번의 집계가 60배로 부풀지 않는다")
+    @DisplayName("시계가 거꾸로 가 흐른 시간이 1초 미만이면 기본 주기 1분으로 환산한다 — 부풀지도, 음수로 사라지지도 않는다")
     void clockGoingBackwardsCountsAsRegularInterval() {
-        run(Duration.ofMinutes(-2), 2_000, 0);
-        run(Duration.ofMinutes(-2), 2_000, 0);
+        run(Duration.ofMinutes(-2), 3_000, 0);
+        run(Duration.ofMinutes(-2), 3_000, 0);
 
-        verifyNoInteractions(slackNotifier);
+        verify(formatter).trafficSurgeDetected(3_000, 0, 2, REQUEST_THRESHOLD, REJECTION_THRESHOLD);
     }
 
     @Test
@@ -263,6 +268,79 @@ class TrafficSurgeMonitorTest {
 
         verify(formatter).trafficSurgeDetected(2, 0, 2, 1, 300);
         assertThat(trafficCountingFilter.drain()).isEqualTo(new TrafficCountingFilter.Window(0, 0));
+    }
+
+    @Test
+    @DisplayName("09:00 을 넘는 첫 집계에서 직전 기간 요약을 한 번 보낸다 — 생성 직후 기간은 재기동 뒤부터로 표시한다")
+    void sendsDailySummaryAtFirstRunPastNine(CapturedOutput output) {
+        run(Duration.ofHours(18).plusMinutes(2), 541_000, 2_164);
+        verify(formatter, never()).trafficDailySummary(any());
+
+        minute(300, 1);
+
+        verify(formatter).trafficDailySummary(new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 7, 14, 57), LocalDateTime.of(2026, 10, 8, 9, 0), true,
+                541_000, 2_164, 500, LocalDateTime.of(2026, 10, 8, 8, 59), 2, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
+        verify(slackNotifier).send(DAILY_MESSAGE);
+        assertThat(output).contains("트래픽 일간 요약 — 기간 시작 2026-10-07T14:57, 총 요청 541000, 최대 분당 요청 500");
+    }
+
+    @Test
+    @DisplayName("다음 기간은 09:00 ~ 09:00 이고 경계 집계부터 0 에서 다시 쌓는다")
+    void nextPeriodRunsNineToNineWithFreshTotals() {
+        run(Duration.ofHours(18).plusMinutes(2), 541_000, 2_164);
+        minute(300, 1);
+
+        run(Duration.ofHours(24).minusMinutes(1), 14_390, 0);
+        run(Duration.ofMinutes(1), 10, 0);
+
+        verify(formatter).trafficDailySummary(new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
+                14_690, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
+    }
+
+    @Test
+    @DisplayName("일간 요약은 그 기간의 이상 감지 횟수를 싣는다 — 09:00 경계 집계에서 난 감지는 새 기간 몫이다")
+    void dailySummaryCountsSurgeAlerts() {
+        minute(5_000, 0);
+        minute(5_000, 0);
+        calmRuns(5);
+        run(Duration.ofHours(17).plusMinutes(54), 0, 0);
+        minute(5_000, 0);
+        minute(5_000, 0);
+
+        ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
+        verify(formatter).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getValue().surgeAlerts()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("시계가 09:00 을 거꾸로 되넘어도 요약을 다시 보내지 않고 기간도 되돌리지 않는다")
+    void clockGoingBackwardsAcrossNineDoesNotResendSummary() {
+        run(Duration.ofHours(18).plusMinutes(2), 541_000, 2_164);
+        minute(300, 1);
+
+        run(Duration.ofMinutes(-2), 100, 0);
+        minute(100, 0);
+        minute(100, 0);
+
+        verify(formatter, times(1)).trafficDailySummary(any());
+    }
+
+    @Test
+    @DisplayName("일간 요약 메시지 조립이 실패해도 판정은 이어진다 — 이벤트명과 예외 클래스명만 남긴다")
+    void dailySummaryFailureIsIsolated(CapturedOutput output) {
+        when(formatter.trafficDailySummary(any())).thenThrow(new IllegalStateException("summary exploded"));
+
+        assertThatCode(() -> {
+            run(Duration.ofHours(18).plusMinutes(2), 541_000, 2_164);
+            minute(5_000, 0);
+            minute(5_000, 0);
+        }).doesNotThrowAnyException();
+
+        verify(slackNotifier).send(DETECTED_MESSAGE);
+        assertThat(output).contains("event=TRAFFIC_DAILY_SUMMARY, reason=IllegalStateException")
+                .doesNotContain("summary exploded");
     }
 
     private TrafficSurgeMonitor monitorWithThresholds(long requestThreshold, long rejectionThreshold) {

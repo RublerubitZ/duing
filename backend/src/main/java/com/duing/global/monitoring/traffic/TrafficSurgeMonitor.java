@@ -2,9 +2,11 @@ package com.duing.global.monitoring.traffic;
 
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
+import com.duing.global.monitoring.TrafficDailySummary;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -22,7 +24,9 @@ import org.springframework.stereotype.Component;
  * 매분 {@link TrafficCountingFilter} 의 요청·429 수를 분당 값으로 바꿔, 어느 한쪽이라도 기준 이상인 집계가
  * {@value #SURGE_RUNS_TO_ALERT}회 이어지면 Slack 으로 한 번 알리고(TRAFFIC_SURGE_DETECTED), 그 뒤
  * {@value #CALM_RUNS_TO_RECOVER}회 연속 기준 미만이면 정상화를 한 번 알린다(TRAFFIC_SURGE_RECOVERED).
- * 두 메시지의 수치는 이상 구간(감지 전 연속 이상 집계부터)의 최대치다. 런북: deploy/MONITORING.md
+ * 두 메시지의 수치는 이상 구간(감지 전 연속 이상 집계부터)의 최대치다. 매일 09:00 KST 를 넘는 첫 집계에서는 직전 기간
+ * (전날 09:00~) 일간 요약을 한 번 보낸다(TRAFFIC_DAILY_SUMMARY) — 기준 조정 근거이자 이 잡의 생존 신호다.
+ * 런북: deploy/MONITORING.md
  *
  * <p>환산: 실행이 늦어져도(스케줄러 풀 공유) 실제로 흐른 시간으로 나눈다. fixedDelay 라 밀린 실행을 몰아서 돌지 않는다.
  * 흐른 시간이 1초 미만이면(시계 역행) 기본 주기로 본다.
@@ -30,7 +34,7 @@ import org.springframework.stereotype.Component;
  * 와 같음). 알림은 이 스레드에서 직접 보낸다 — 트랜잭션 없는 스케줄러 스레드라 AFTER_COMMIT 리스너는 버린다. 전송 실패는
  * 재전송하지 않는다(알림은 손실 허용).
  *
- * <p>기준값은 평소 수치를 모르는 상태의 추정치다 — 매시 요약을 INFO 로 남겨 그 로그로 맞춘다.
+ * <p>기준값은 평소 수치를 모르는 상태의 추정치다 — 일간 요약(Slack)과 매시 요약(INFO 로그)으로 맞춘다.
  * 집계 수치만 다룬다 — IP·경로는 세지도 남기지도 않는다.
  */
 @Slf4j
@@ -42,6 +46,7 @@ public class TrafficSurgeMonitor {
     static final int CALM_RUNS_TO_RECOVER = 5;
     private static final long RUN_INTERVAL_MILLIS = 60_000;
     private static final DateTimeFormatter SUMMARY_HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd HH'시'");
+    private static final int DAILY_SUMMARY_HOUR = 9;
 
     private final TrafficCountingFilter trafficCountingFilter;
     private final OpsSlackMessageFormatter opsSlackMessageFormatter;
@@ -61,6 +66,14 @@ public class TrafficSurgeMonitor {
     private long hourPeakRequestsPerMinute;
     private long hourPeakRejectionsPerMinute;
     private long hourTotalRequests;
+    private LocalDate dailyPeriodDate;
+    private LocalDateTime dailyPeriodStartedAt;
+    private long dailyTotalRequests;
+    private long dailyTotalRejections;
+    private long dailyPeakRequestsPerMinute;
+    private LocalDateTime dailyPeakRequestsAt;
+    private long dailyPeakRejectionsPerMinute;
+    private int dailySurgeAlerts;
 
     public TrafficSurgeMonitor(TrafficCountingFilter trafficCountingFilter,
                                OpsSlackMessageFormatter opsSlackMessageFormatter,
@@ -77,6 +90,7 @@ public class TrafficSurgeMonitor {
         this.requestsPerMinuteThreshold = requestsPerMinuteThreshold;
         this.rejectionsPerMinuteThreshold = rejectionsPerMinuteThreshold;
         this.lastEvaluatedAt = clock.instant();
+        this.dailyPeriodStartedAt = LocalDateTime.ofInstant(lastEvaluatedAt, clock.getZone());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -101,6 +115,7 @@ public class TrafficSurgeMonitor {
         long requestsPerMinute = requests * 60 / elapsedSeconds;
         long rejectionsPerMinute = rejections * 60 / elapsedSeconds;
         recordHourlySummary(now, requests, requestsPerMinute, rejectionsPerMinute);
+        recordDailySummary(now, requests, rejections, requestsPerMinute, rejectionsPerMinute);
 
         boolean surge = requestsPerMinute >= requestsPerMinuteThreshold
                 || rejectionsPerMinute >= rejectionsPerMinuteThreshold;
@@ -117,6 +132,7 @@ public class TrafficSurgeMonitor {
 
         if (!alerting && consecutiveSurgeRuns >= SURGE_RUNS_TO_ALERT) {
             alerting = true;
+            dailySurgeAlerts++;
             notifyDetected(peakRequestsPerMinute, peakRejectionsPerMinute);
         } else if (alerting && consecutiveCalmRuns >= CALM_RUNS_TO_RECOVER) {
             alerting = false;
@@ -156,6 +172,45 @@ public class TrafficSurgeMonitor {
         hourPeakRequestsPerMinute = Math.max(hourPeakRequestsPerMinute, requestsPerMinute);
         hourPeakRejectionsPerMinute = Math.max(hourPeakRejectionsPerMinute, rejectionsPerMinute);
         hourTotalRequests += requests;
+    }
+
+    // 09:00(KST) 경계를 넘은 첫 집계에서 직전 기간을 보낸다. 키가 앞으로 갈 때만 넘긴다 — 시계가 거꾸로 가 키가 뒤로 가면
+    // 그대로 둔다(그러지 않으면 되돌아왔다 다시 넘을 때 요약이 두 번 간다). 경계 집계의 값은 새 기간에 넣는다.
+    private void recordDailySummary(Instant now, long requests, long rejections,
+                                    long requestsPerMinute, long rejectionsPerMinute) {
+        LocalDateTime localNow = LocalDateTime.ofInstant(now, clock.getZone());
+        LocalDate periodDate = localNow.minusHours(DAILY_SUMMARY_HOUR).toLocalDate();
+        if (dailyPeriodDate == null) {
+            dailyPeriodDate = periodDate;
+        } else if (periodDate.isAfter(dailyPeriodDate)) {
+            notifyDailySummary(dailyPeriodDate.plusDays(1).atTime(DAILY_SUMMARY_HOUR, 0));
+            dailyPeriodDate = periodDate;
+            dailyPeriodStartedAt = periodDate.atTime(DAILY_SUMMARY_HOUR, 0);
+            dailyTotalRequests = 0;
+            dailyTotalRejections = 0;
+            dailyPeakRequestsPerMinute = 0;
+            dailyPeakRequestsAt = null;
+            dailyPeakRejectionsPerMinute = 0;
+            dailySurgeAlerts = 0;
+        }
+        dailyTotalRequests += requests;
+        dailyTotalRejections += rejections;
+        if (requestsPerMinute > dailyPeakRequestsPerMinute) {
+            dailyPeakRequestsPerMinute = requestsPerMinute;
+            dailyPeakRequestsAt = localNow;
+        }
+        dailyPeakRejectionsPerMinute = Math.max(dailyPeakRejectionsPerMinute, rejectionsPerMinute);
+    }
+
+    private void notifyDailySummary(LocalDateTime periodEnd) {
+        boolean startedAfterRestart = !dailyPeriodStartedAt.equals(dailyPeriodDate.atTime(DAILY_SUMMARY_HOUR, 0));
+        TrafficDailySummary summary = new TrafficDailySummary(dailyPeriodStartedAt, periodEnd, startedAfterRestart,
+                dailyTotalRequests, dailyTotalRejections, dailyPeakRequestsPerMinute, dailyPeakRequestsAt,
+                dailyPeakRejectionsPerMinute, dailySurgeAlerts, requestsPerMinuteThreshold, rejectionsPerMinuteThreshold);
+        log.info("트래픽 일간 요약 — 기간 시작 {}, 총 요청 {}, 최대 분당 요청 {}",
+                dailyPeriodStartedAt, dailyTotalRequests, dailyPeakRequestsPerMinute);
+        // 동기 HTTP(재시도 포함 최대 십여 초)라 이번 판정이 그만큼 늦어지지만, 창과 lastEvaluatedAt 은 이미 잡혀 무해하다.
+        notifySafely("TRAFFIC_DAILY_SUMMARY", () -> opsSlackMessageFormatter.trafficDailySummary(summary));
     }
 
     // 전송기는 던지지 않지만 포매터까지 감싸 알림 실패가 판정으로 새지 않게 한다(FrontendRevalidator 관례).

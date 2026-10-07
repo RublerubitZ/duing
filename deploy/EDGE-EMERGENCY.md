@@ -36,6 +36,8 @@
 
 아래가 지속되면 공격·폭증으로 보고 전환을 검토한다.
 
+- `#duing-monitoring` 에 `🚨 api 트래픽 이상 — 비상 모드 검토`(`TRAFFIC_SURGE_DETECTED`)가 왔다 — 정상 몰림인지부터
+  [MONITORING.md 런북](./MONITORING.md#런북--api-트래픽-이상) 순서로 확인한다.
 - Better Stack 1·2번(api) 다운·지연 알림이 반복되는데, `UPTIME.md` 분류상 DB·앱 문제가 아니라 VM/Caddy 쪽이다.
 - 서버 부하가 치솟는다. SSH 접속 뒤:
   - `docker stats --no-stream` — caddy·backend CPU·메모리
