@@ -39,11 +39,27 @@ jobs:
           touch deploy/.env
           docker compose -f deploy/docker-compose.yml config --quiet
 
+      - name: Assert Caddy image tag is pinned and consistent
+        # Caddy 는 버전마다 시간 상한 동작이 달라(docker-compose.yml 주석) 운영 이미지를 X.Y.Z 태그로 고정하고, 이 워크플로와
+        # deploy-backend.yml 의 검증 이미지도 같은 태그를 쓴다. 어긋나면 CI 와 서버가 서로 다른 버전으로 검증한다.
+        # deploy-backend.yml 만 바꾼 PR 은 게이트의 deploy 영역 밖이라 이 단계가 돌지 않는다 — 다음 deploy/** 변경 때 잡힌다.
+        run: |
+          compose_image=$(grep -oE 'image: caddy:[^[:space:]]+' deploy/docker-compose.yml | cut -d' ' -f2)
+          echo "docker-compose.yml: ${compose_image}"
+          echo "$compose_image" | grep -qE '^caddy:[0-9]+\.[0-9]+\.[0-9]+-alpine$' \
+            || { echo "::error::docker-compose.yml 의 caddy 이미지가 버전 고정 태그(caddy:X.Y.Z-alpine)가 아닙니다: ${compose_image}"; exit 1; }
+          for workflow in .github/workflows/deploy-config-ci.yml .github/workflows/deploy-backend.yml; do
+            for used_image in $(grep -oE 'caddy:[0-9a-z][0-9a-z.-]*' "$workflow" | sort -u); do
+              [ "$used_image" = "$compose_image" ] \
+                || { echo "::error::${workflow} 가 ${used_image} 로 검증합니다 — docker-compose.yml(${compose_image})과 같은 태그여야 합니다"; exit 1; }
+            done
+          done
+
       - name: Validate Caddyfile
-        # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 동일 버전을 유지해야 한다(현재 caddy:2-alpine).
+        # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 같은 고정 태그를 쓴다(위 단계가 어긋남을 막는다).
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Assert client IP restoration is configured
         # api.duings.com 은 Cloudflare 뒤에 있다. 아래 세 가지가 하나라도 빠지면 백엔드가 보는
@@ -52,7 +68,7 @@ jobs:
         # 문법 검증(caddy validate)은 이 퇴행을 잡지 못한다 — 셋 다 지워도 문법은 정상이다.
         # 그래서 어댑트된 JSON 을 직접 단언한다. (2026-08-30, deploy/Caddyfile 주석 참조)
         run: |
-          docker run --rm -i caddy:2-alpine caddy adapt --config - --adapter caddyfile \
+          docker run --rm -i caddy:2.11.4-alpine caddy adapt --config - --adapter caddyfile \
             < deploy/Caddyfile > /tmp/caddy-adapted.json
           jq -e '.apps.http.servers.srv0
                  | (.trusted_proxies.ranges | length > 0)
