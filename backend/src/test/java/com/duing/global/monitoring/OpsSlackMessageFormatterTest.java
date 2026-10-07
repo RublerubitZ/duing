@@ -233,4 +233,46 @@ class OpsSlackMessageFormatterTest {
                 "환경: production",
                 "시간: 2026-08-22 23:41 KST"));
     }
+
+    @Test
+    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·감지 횟수·기준을 싣는다")
+    void trafficDailySummaryMessageCarriesAggregates() {
+        TrafficDailySummary summary = new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300);
+
+        assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
+                "📊 api 트래픽 일간 요약",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                "기간: 2026-10-06 09:00 ~ 2026-10-07 09:00 KST",
+                "총 요청: 12,345 (429 1,234)",
+                "최대 분당 요청: 2,345 (2026-10-06 21:14)",
+                "최대 분당 429: 1,010",
+                "이상 감지: 2회",
+                "기준: 분당 요청 3,000 · 분당 429 300",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
+    @DisplayName("재기동 뒤부터 센 기간은 표시하고, 요청이 없으면 최대 분당 요청의 시각 괄호를 뺀다")
+    void trafficDailySummaryMarksRestartAndOmitsMissingPeakTime() {
+        TrafficDailySummary summary = new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 7, 8, 57), LocalDateTime.of(2026, 10, 7, 9, 0), true,
+                0, 0, 0, null, 0, 0, 3_000, 300);
+
+        assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
+                "📊 api 트래픽 일간 요약",
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                "기간: 2026-10-07 08:57 ~ 2026-10-07 09:00 KST (재기동 뒤부터)",
+                "총 요청: 0 (429 0)",
+                "최대 분당 요청: 0",
+                "최대 분당 429: 0",
+                "이상 감지: 0회",
+                "기준: 분당 요청 3,000 · 분당 429 300",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST"));
+    }
 }
