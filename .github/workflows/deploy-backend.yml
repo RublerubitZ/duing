@@ -143,9 +143,9 @@ jobs:
               exit 1
             fi
             rm -f incoming/.env
-            # Caddyfile 검증: 서버에 이미 존재하는 caddy 이미지로 stdin 검증(컨테이너 상태와 무관하게 동작).
-            if ! docker run --rm -i caddy:2-alpine caddy validate --config - --adapter caddyfile < incoming/Caddyfile; then
-              echo "::error::새 Caddyfile 검증 실패 — 기존 설정 유지·배포 중단"
+            # Caddyfile 검증: docker-compose.yml 과 같은 고정 태그의 caddy 이미지로 stdin 검증(컨테이너 상태와 무관, 없으면 받아 온다).
+            if ! docker run --rm -i caddy:2.11.4-alpine caddy validate --config - --adapter caddyfile < incoming/Caddyfile; then
+              echo "::error::새 Caddyfile 검증 실패(검증 이미지 pull 실패일 수도 있음) — 기존 설정 유지·배포 중단"
               exit 1
             fi
             # 둘 다 통과: 기존 정상본 백업 후 반영.
