@@ -101,9 +101,14 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
   - 이미 신뢰 줄이 있는데 또 넣으면 `caddy validate` 가 "specified more than once" 로 막는다.
 - 이제 서버 파일만 바뀌었다. 저장소 파일로 서버를 덮어쓰는 **Deploy Backend 실행을 1-5 핫픽스 전까지 하지 않는다.**
-  - main push, 지난 실행의 re-run, 수동 실행 모두 해당한다. 수동 실행(Run workflow)은 기본 브랜치가 develop 이라, 실행할 때는 ref 를
-    반드시 main 으로 고른다.
-  - `UPTIME.md` 의 롤백(직전 성공 실행 re-run)도 마찬가지다. 롤백이 필요하면 1-5 핫픽스를 먼저 한다.
+  - main push(릴리스 포함), 지난 실행의 re-run, 수동 실행 모두 해당한다. 릴리스·배포가 필요하면 1-5 핫픽스를 먼저 한다.
+  - 1-5 뒤 수동 실행할 때는 ref 를 반드시 main 으로 고른다 — 저장소 기본 브랜치가 develop 이다(`gh workflow run deploy-backend.yml --ref main`).
+  - **비상 모드 중 백엔드 롤백은 지난 실행 re-run 으로 하지 않는다.** re-run 은 그 실행 당시 커밋의 Caddyfile 을 다시 올리므로, 1-5 핫픽스
+    이전 실행이면 신뢰 블록이 없는 파일이 내려가 #1112 회귀가 난다. 대신 서버 `.env` 의 `BACKEND_IMAGE` 만 직전 태그로 되돌리고
+    `docker compose up -d backend` 한다(Caddyfile 은 건드리지 않는다 — `deploy/README.md` 의 롤백 절차).
+    - 직전 태그(커밋 SHA)는 서버에 남아 있는 이미지에서 찾는다 — 배포 때 정리는 태그 없는 이미지만 지운다.
+      `docker images ghcr.io/rublerubitz/duing-backend --format '{{.Tag}}\t{{.CreatedAt}}'` 에서 지금 `.env` 값 바로 다음 줄이 직전 태그다.
+    - 롤백 뒤 `docker compose ps backend` 가 healthy 인지 보고, 위 관리 API 되읽기 줄로 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 그대로인지 확인한다.
 
 ### 1-2. Cloudflare 프록시 켜기
 
