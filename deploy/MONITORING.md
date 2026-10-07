@@ -32,10 +32,12 @@ Better Stack 이 이미 보내는 운영 채널이 따로 있으면 새 채널�
 | `RECRUITMENT_OPENED` | 모집 생성·교체 시점에 **이미 OPEN 이고 시작일이 지난 경우만**(예정→날짜 도래 오픈·수정 경유는 이벤트 자체가 없음) | 동아리명·ClubId·모집 제목(공개 게시물 — 자유 텍스트 예외)·RecruitmentId·마감 |
 | `FACILITY_BOOKING_SUBMITTED` / `_REJECTED` / `_CANCELLED`(관리자) / `_CONFLICT` | 시설 예약 | BookingId·ClubId (거절·취소 사유·충돌 상세 제외) |
 | `FRONTEND_REVALIDATION_FAILING` / `_RECOVERED` | 정각 `/clubs` 재생성 트리거가 **3회 연속 실패한 순간 한 번**(이어지는 실패는 조용) / 그 뒤 첫 성공 한 번 | 경로·연속 실패 횟수·마지막 사유(상태 코드·예외 클래스명 — 비밀값·URL·응답 본문 제외)·런북 줄. 조치는 아래 [런북](#런북--프론트-재생성-트리거-연속-실패) |
+| `TRAFFIC_SURGE_DETECTED` / `_RECOVERED` | api 분당 요청(기준 3,000)이나 분당 429(기준 300)가 기준 이상인 1분 집계가 **2회 이어진 순간 한 번**(이어지는 이상은 조용) / 그 뒤 **5회 연속 기준 미만**일 때 한 번 | 이상 구간 최대 분당 요청·429 와 기준·판정 줄·확인 안내·런북 줄 / 이상 구간 최대치·판정 줄. 집계 수치만 — IP·경로 없음. 조치는 아래 [런북](#런북--api-트래픽-이상) |
+| `TRAFFIC_DAILY_SUMMARY` | 매일 09:00 KST 를 넘는 첫 1분 집계에서 한 번 — 전날 09:00 ~ 당일 09:00 | 기간(재기동 뒤부터면 표시)·총 요청(429)·최대 분당 요청(시각)·최대 분당 429·이상 감지 횟수·기준. 집계 수치만. "즉시 알아야 하는 것" 원칙의 예외다 — **감지 잡이 살아 있다는 신호**이자 기준 조정 근거라 하루 한 번만 보낸다 |
 
-시간 줄: `USER_REGISTERED` 만 가입 트랜잭션 시각(가입시간), 나머지는 리스너 수신 시각(발행과 ms 차이), `FRONTEND_REVALIDATION_*` 은 판정 시각.
+시간 줄: `USER_REGISTERED` 만 가입 트랜잭션 시각(가입시간), 나머지는 리스너 수신 시각(발행과 ms 차이), `FRONTEND_REVALIDATION_*`·`TRAFFIC_SURGE_*`·`TRAFFIC_DAILY_SUMMARY` 은 판정(발송) 시각.
 
-의도적으로 싣는 개인정보: **이름·학번·UserId**(회원가입). 절대 싣지 않는 것: 이메일(수집 안 함)·전화번호·비밀번호·JWT/refresh/cookie/Authorization·요청 바디·계좌번호·예금주·자유 텍스트 사유.
+의도적으로 싣는 개인정보: **이름·학번·UserId**(회원가입). 절대 싣지 않는 것: 이메일(수집 안 함)·전화번호·비밀번호·JWT/refresh/cookie/Authorization·요청 바디·계좌번호·예금주·자유 텍스트 사유·접속 IP.
 
 ### Octomo 줄에 대하여
 Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**(공개 엔드포인트는 `message/exists`·`qr-code` 둘뿐, 한도 초과는 429 로만 드러남).
@@ -50,6 +52,7 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 - 큐(100) 포화 시 알림 폐기 + warn. 알림은 손실 허용, 서비스는 비손실.
 - 예외: `FRONTEND_REVALIDATION_*` 은 이벤트 없이 정각 잡 스레드(`FrontendRevalidator`)가 직접 보낸다 — 스케줄러 스레드엔
   트랜잭션이 없어 AFTER_COMMIT 리스너로는 버려진다. 전송 지연은 정각 잡에만 걸리고, 전송 실패는 재전송하지 않는다.
+- `TRAFFIC_SURGE_*`·`TRAFFIC_DAILY_SUMMARY` 도 같다 — 1분 간격 잡(`TrafficSurgeMonitor`)이 직접 보낸다. 상태·카운터는 메모리라 재기동하면 처음부터 센다.
 
 ## 설정
 
@@ -58,6 +61,9 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 | 서버 `deploy/.env` | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL. 미설정/빈 값이면 **비활성으로 부팅**하고 시작 로그에 `[Slack 운영 알림] 비활성` WARN 한 줄(부팅 실패 아님 — 모니터링이 배포를 깨지 않게) |
 | GitHub Secrets | `SLACK_WEBHOOK_URL` | 배포 결과 알림용(선택 — 없으면 스텝 생략) |
 | 로컬 `backend/.env` | `SLACK_WEBHOOK_URL` | 비워 둔다. 운영 webhook 을 로컬에서 쓰지 말 것 |
+| 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_ENABLED` | 트래픽 이상 감지. 운영 기본 `true` — 끌 때만 `false`. 켜져 있으면 시작 로그에 `[트래픽 이상 감지] 활성 — 기준 …` 한 줄 |
+| 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE` | 분당 요청 기준. 기본 3000. 정수만 — 숫자가 아니면 부팅이 실패한다 |
+| 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE` | 분당 429 기준. 기본 300. 정수만 — 숫자가 아니면 부팅이 실패한다 |
 
 Webhook 발급: Slack → 앱 디렉터리 "Incoming Webhooks" → 채널 `#duing-monitoring` 선택 → URL 복사.
 **릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. ①을 빼먹어도 배포는 성공하지만 앱 알림이 조용히 꺼진다 — 릴리스 후 컨테이너 시작 로그에서 `[Slack 운영 알림] 활성` 을 확인한다.
@@ -145,3 +151,23 @@ EOF
 - **배포 순서**: 백엔드가 프론트(상세 경로 허용 — #1356 프론트)보다 먼저 배포되면 상세 요청은 `HTTP_400`(허용 목록 밖)이다.
   같은 릴리스로 함께 나가면 프론트 배포가 끝날 때까지 400 WARN 이 잠시 날 수 있고 저절로 풀린다. 프론트 없이 백엔드만
   나가면 모든 상세 요청이 400 이므로 프론트를 먼저(또는 같은 릴리스로) 배포한다.
+
+## 런북 — api 트래픽 이상
+
+`TRAFFIC_SURGE_DETECTED` 가 오면 본다. 백엔드가 받은 전체 요청(헬스체크 포함)과 429 응답을 1분마다 세어, 분당 값이 기준
+이상인 집계가 2회 이어지면 한 번 알린다. Caddy·Tomcat 단계에서 거절된 요청은 세지 못한다.
+
+1. **정상 몰림인지 먼저 본다** — 가두모집·모집 마감일처럼 사용자가 몰릴 일이 있었는지, 서버가 버티는지(`docker stats`,
+   Sentry 5xx, Better Stack) 확인한다. 정상 몰림이고 서버가 버티면 지켜본다.
+2. **공격이면** 비상 모드로 간다 — [EDGE-EMERGENCY.md](./EDGE-EMERGENCY.md). 429 축만 높으면 특정 기능 남용(인증 코드 등)일
+   가능성이 크다. 레이트리미터가 막고 있는지 Sentry·로그로 본다.
+3. **정상화 알림**(`TRAFFIC_SURGE_RECOVERED`)은 5회 연속 기준 미만일 때 온다. 상태는 메모리라 알림 뒤 재기동(배포)하면
+   오지 않는다 — 그때는 재기동 뒤 2회 집계(약 2분) 안에 감지 알림이 다시 오는지 본다. 오지 않으면 가라앉은 것이다.
+4. **기준 조정** — 매일 09:00 일간 요약(`TRAFFIC_DAILY_SUMMARY`)의 최대 분당 요청·429 를 1~2주 모아 본다. 평시 최대치의
+   몇 배로 기준을 잡아 서버 `.env` 에 넣고 재기동한다. 매시 백엔드 INFO `트래픽 시간 요약 — <날짜> <시>, …` 은 보조 자료다
+   (`docker compose logs backend | grep '트래픽 시간 요약'`, 배포 때 사라진다).
+5. Slack 이 비활성이거나 전송이 실패해도 백엔드 로그에 WARN `api 트래픽 이상 감지 — …` 가 한 줄 남는다.
+6. **09:00 일간 요약이 안 오면** 감지 잡이나 백엔드가 멈췄을 수 있다. 백엔드가 살아 있는지(Better Stack), 시작 로그
+   `[트래픽 이상 감지] 활성`·`[Slack 운영 알림] 활성` 이 있는지, 09:00 을 걸친 배포가 있었는지(그날 요약은 없다) 본다.
+   백엔드 INFO `트래픽 일간 요약 — …` 이 그 시각에 있으면 잡은 살아 있고 전송만 실패한 것이다(타임아웃·네트워크 오류는
+   재시도하지 않는다) — [Slack 알림이 안 올 때](#런북--slack-알림이-안-올-때)로 간다.
