@@ -291,7 +291,8 @@ duing:
     traffic-surge:
       # api 트래픽 이상 감지(TrafficSurgeMonitor) — 분당 요청이나 분당 429 가 기준 이상인 집계가 2회 이어지면 Slack 으로
       # 한 번, 5회 연속 정상이면 정상화를 한 번 알린다(deploy/MONITORING.md). 기본 비활성 — 운영은 application-prod.yml
-      # 에서 기본 활성. 기준값은 추정치라 매시 요약 로그(트래픽 시간 요약)로 맞춘다.
+      # 에서 기본 활성. 기준값은 추정치라 매시 요약 로그(트래픽 시간 요약)로 맞춘다. Slack 전송 설정(webhook)은 최상위
+      # monitoring.slack 이고, 이건 잡 플래그라 다른 잡처럼 duing.* 아래에 둔다.
       enabled: ${DUING_TRAFFIC_SURGE_ENABLED:false}
       requests-per-minute: ${DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE:3000}
       rejections-per-minute: ${DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE:300}

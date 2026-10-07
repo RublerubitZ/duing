@@ -17,13 +17,14 @@ class TrafficCountingFilterTest {
     private final TrafficCountingFilter filter = new TrafficCountingFilter();
 
     @Test
-    @DisplayName("모든 요청을 세고, 최종 응답이 429 면 거절로도 센다")
+    @DisplayName("헬스체크를 포함한 모든 요청을 세고, 최종 응답이 429 면 거절로도 센다")
     void countsRequestsAndRejections() throws Exception {
-        respondWith(HttpStatus.OK);
-        respondWith(HttpStatus.UNAUTHORIZED);
-        respondWith(HttpStatus.TOO_MANY_REQUESTS);
+        respondWith("/api/v1/clubs", HttpStatus.OK);
+        respondWith("/actuator/health", HttpStatus.OK);
+        respondWith("/api/v1/clubs", HttpStatus.UNAUTHORIZED);
+        respondWith("/api/v1/clubs", HttpStatus.TOO_MANY_REQUESTS);
 
-        assertThat(filter.drain()).isEqualTo(new TrafficCountingFilter.Window(3, 1));
+        assertThat(filter.drain()).isEqualTo(new TrafficCountingFilter.Window(4, 1));
     }
 
     @Test
@@ -34,7 +35,8 @@ class TrafficCountingFilterTest {
         };
 
         assertThatThrownBy(() -> filter.doFilter(new MockHttpServletRequest(), new MockHttpServletResponse(), failingChain))
-                .isInstanceOf(ServletException.class);
+                .isInstanceOf(ServletException.class)
+                .hasMessage("boom");
 
         assertThat(filter.drain()).isEqualTo(new TrafficCountingFilter.Window(1, 0));
     }
@@ -42,15 +44,14 @@ class TrafficCountingFilterTest {
     @Test
     @DisplayName("drain 은 센 값을 돌려주고 0 으로 되돌린다")
     void drainResetsCounters() throws Exception {
-        respondWith(HttpStatus.TOO_MANY_REQUESTS);
+        respondWith("/api/v1/clubs", HttpStatus.TOO_MANY_REQUESTS);
 
-        filter.drain();
-
+        assertThat(filter.drain()).isEqualTo(new TrafficCountingFilter.Window(1, 1));
         assertThat(filter.drain()).isEqualTo(new TrafficCountingFilter.Window(0, 0));
     }
 
-    private void respondWith(HttpStatus status) throws Exception {
+    private void respondWith(String requestUri, HttpStatus status) throws Exception {
         FilterChain chain = (request, response) -> ((HttpServletResponse) response).setStatus(status.value());
-        filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/clubs"), new MockHttpServletResponse(), chain);
+        filter.doFilter(new MockHttpServletRequest("GET", requestUri), new MockHttpServletResponse(), chain);
     }
 }

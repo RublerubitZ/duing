@@ -219,7 +219,7 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("트래픽 정상화 메시지는 이상 구간 최대치와 판정 기준을 싣는다")
+    @DisplayName("트래픽 정상화 메시지는 이상 구간 최대치와 판정 줄(연속 미만 횟수)을 싣는다")
     void trafficSurgeRecoveredMessageCarriesPeaks() {
         String message = formatter.trafficSurgeRecovered(12_345, 678, 5);
 

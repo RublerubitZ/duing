@@ -122,7 +122,7 @@ class TrafficSurgeMonitorTest {
 
     @Test
     @DisplayName("감지 뒤 기준 미만이 5회 연속이면 이상 구간 최대치로 정상화를 한 번 알린다")
-    void recoversOnceAfterFiveCalmRuns() {
+    void recoversOnceAfterFiveCalmRuns(CapturedOutput output) {
         minute(3_200, 10);
         minute(9_000, 400);
         minute(6_000, 900);
@@ -133,6 +133,7 @@ class TrafficSurgeMonitorTest {
 
         verify(formatter).trafficSurgeRecovered(9_000, 900, 5);
         verify(slackNotifier, times(1)).send(RECOVERED_MESSAGE);
+        assertThat(output).contains("api 트래픽 정상화 — 이상 구간 최대 분당 요청 9000, 최대 분당 429 900");
     }
 
     @Test
@@ -177,6 +178,15 @@ class TrafficSurgeMonitorTest {
     }
 
     @Test
+    @DisplayName("시계가 거꾸로 가 흐른 시간이 1초 미만이면 기본 주기 1분으로 본다 — 한 번의 집계가 60배로 부풀지 않는다")
+    void clockGoingBackwardsCountsAsRegularInterval() {
+        run(Duration.ofMinutes(-2), 2_000, 0);
+        run(Duration.ofMinutes(-2), 2_000, 0);
+
+        verifyNoInteractions(slackNotifier);
+    }
+
+    @Test
     @DisplayName("알림 전송이 예외를 던져도 판정은 이어진다 — 예외 메시지는 로그에 싣지 않는다")
     void notifierFailureIsIsolated(CapturedOutput output) {
         doThrow(new IllegalStateException("slack down")).when(slackNotifier).send(anyString());
@@ -217,7 +227,7 @@ class TrafficSurgeMonitorTest {
         minute(5_000, 0);
         minute(5_000, 0);
 
-        assertThat(output).contains("api 트래픽 이상 감지 — 최대 분당 요청 5000, 최대 분당 429 0");
+        assertThat(output.getOut()).containsPattern("WARN.*api 트래픽 이상 감지 — 최대 분당 요청 5000, 최대 분당 429 0");
     }
 
     @Test
@@ -242,16 +252,16 @@ class TrafficSurgeMonitorTest {
 
     @Test
     @DisplayName("매분 실행은 필터에서 센 값을 비워 판정한다")
-    void tickDrainsFilterCounts() throws Exception {
-        // 고정 시계라 흐른 시간이 하한 1초로 잡혀 2건이 분당 120 이 된다.
-        TrafficSurgeMonitor tickMonitor = monitorWithThresholds(100, 300);
+    void runDrainsFilterCounts() throws Exception {
+        // 고정 시계라 흐른 시간이 0 — 기본 주기(1분)로 보아 2건이 분당 2 다.
+        TrafficSurgeMonitor scheduledMonitor = monitorWithThresholds(1, 300);
 
         for (int run = 0; run < 2; run++) {
             passRequests(2);
-            tickMonitor.tick();
+            scheduledMonitor.run();
         }
 
-        verify(formatter).trafficSurgeDetected(120, 0, 2, 100, 300);
+        verify(formatter).trafficSurgeDetected(2, 0, 2, 1, 300);
         assertThat(trafficCountingFilter.drain()).isEqualTo(new TrafficCountingFilter.Window(0, 0));
     }
 

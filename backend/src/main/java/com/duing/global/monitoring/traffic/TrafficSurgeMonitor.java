@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
  * 두 메시지의 수치는 이상 구간(감지 전 연속 이상 집계부터)의 최대치다. 런북: deploy/MONITORING.md
  *
  * <p>환산: 실행이 늦어져도(스케줄러 풀 공유) 실제로 흐른 시간으로 나눈다. fixedDelay 라 밀린 실행을 몰아서 돌지 않는다.
+ * 흐른 시간이 1초 미만이면(시계 역행) 기본 주기로 본다.
  * 상태는 메모리라 재기동하면 정상 상태부터다 — 알림 중 재기동(배포)하면 정상화 알림이 오지 않는다({@code FrontendRevalidator}
  * 와 같음). 알림은 이 스레드에서 직접 보낸다 — 트랜잭션 없는 스케줄러 스레드라 AFTER_COMMIT 리스너는 버린다. 전송 실패는
  * 재전송하지 않는다(알림은 손실 허용).
@@ -39,6 +40,7 @@ public class TrafficSurgeMonitor {
 
     static final int SURGE_RUNS_TO_ALERT = 2;
     static final int CALM_RUNS_TO_RECOVER = 5;
+    private static final long RUN_INTERVAL_MILLIS = 60_000;
     private static final DateTimeFormatter SUMMARY_HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd HH'시'");
 
     private final TrafficCountingFilter trafficCountingFilter;
@@ -83,14 +85,18 @@ public class TrafficSurgeMonitor {
                 requestsPerMinuteThreshold, rejectionsPerMinuteThreshold);
     }
 
-    @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
-    public void tick() {
+    @Scheduled(fixedDelay = RUN_INTERVAL_MILLIS, initialDelay = RUN_INTERVAL_MILLIS)
+    public void run() {
         TrafficCountingFilter.Window window = trafficCountingFilter.drain();
         evaluate(window.requests(), window.rejections(), clock.instant());
     }
 
     void evaluate(long requests, long rejections, Instant now) {
-        long elapsedSeconds = Math.max(1, Duration.between(lastEvaluatedAt, now).toSeconds());
+        long elapsedSeconds = Duration.between(lastEvaluatedAt, now).toSeconds();
+        if (elapsedSeconds < 1) {
+            // 시계 역행(NTP 보정 등) — 건수는 실행 간격만큼 쌓였으므로 기본 주기로 본다(작은 값으로 나누면 몇십 배로 부푼다).
+            elapsedSeconds = RUN_INTERVAL_MILLIS / 1000;
+        }
         lastEvaluatedAt = now;
         long requestsPerMinute = requests * 60 / elapsedSeconds;
         long rejectionsPerMinute = rejections * 60 / elapsedSeconds;

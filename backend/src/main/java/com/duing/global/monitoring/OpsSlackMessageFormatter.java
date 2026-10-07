@@ -160,7 +160,7 @@ public class OpsSlackMessageFormatter {
      * api 트래픽 이상 — 분당 요청이나 분당 429 가 기준 이상인 집계가 이어졌다({@code TrafficSurgeMonitor}). 수치는 이번 이상
      * 구간의 최대치다. 집계 수치만 싣는다(IP·경로 없음). 정상 사용자 몰림일 수도 있어 확인 순서를 먼저 적는다.
      */
-    public String trafficSurgeDetected(long peakRequestsPerMinute, long peakRejectionsPerMinute, int consecutiveRuns,
+    public String trafficSurgeDetected(long peakRequestsPerMinute, long peakRejectionsPerMinute, int surgeRuns,
                                        long requestThreshold, long rejectionThreshold) {
         return compose("🚨 api 트래픽 이상 — 비상 모드 검토", "TRAFFIC_SURGE_DETECTED",
                 Arrays.asList(
@@ -168,13 +168,13 @@ public class OpsSlackMessageFormatter {
                                 String.format(Locale.ROOT, "%,d (기준 %,d)", peakRequestsPerMinute, requestThreshold)),
                         field("최대 분당 429",
                                 String.format(Locale.ROOT, "%,d (기준 %,d)", peakRejectionsPerMinute, rejectionThreshold)),
-                        field("판정", "집계 " + consecutiveRuns + "회 연속 기준 이상")),
+                        field("판정", "집계 " + surgeRuns + "회 연속 기준 이상")),
                 "시간", LocalDateTime.now(clock),
                 List.of("정상 사용자가 몰린 것(가두모집 등)일 수 있다 — 서버 부하·오류부터 확인",
                         "런북: deploy/MONITORING.md (공격이면 deploy/EDGE-EMERGENCY.md)"));
     }
 
-    /** 이상 구간(감지 전 연속 이상 집계부터 정상화까지)의 최대치다. 지속 시간은 두 메시지의 시간 줄로 안다. */
+    /** 수치는 이상 구간(감지 전 연속 이상 집계부터 정상화까지)의 최대치다. 지속 시간은 두 메시지의 시간 줄로 안다. */
     public String trafficSurgeRecovered(long peakRequestsPerMinute, long peakRejectionsPerMinute, int calmRuns) {
         return compose("✅ api 트래픽 정상화", "TRAFFIC_SURGE_RECOVERED",
                 Arrays.asList(
