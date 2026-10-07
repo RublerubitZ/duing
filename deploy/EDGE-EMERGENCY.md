@@ -6,9 +6,9 @@
 > 몇 분 안에 다시 켜고(**비상 모드**), 끝나면 직결로 되돌리는 절차다. 장애 일반 대응은 [`UPTIME.md`](./UPTIME.md) 의
 > "장애 대응 런북" 을 먼저 본다. 모든 단계는 무료 플랜·무료 한도 안에서 한다 — 유료 플랜·유료 WAF·고급 속도 제한은 쓰지 않는다(추가 비용 0원).
 >
-> ⚠️ **과도기(작성 시점 2026-10-07)**: DNS 전환, Caddy 신뢰 블록 제거(#1395), 연결 시간 상한(#1394)이 아직 운영에 나가기 전이다.
-> 저장소·서버 Caddyfile 에 신뢰 블록이 남아 있는 동안에는 1-1 은 확인만 하고 넘어가며, 1-5·2-5·2-6 은 해당 없다.
-> **저장소에 신뢰 블록이 있는 동안 서버에서 지우지 않는다.**
+> ⚠️ **과도기(2026-10-07 기준)**: DNS 전환은 **10:40 에 끝났다(직결)**. 하지만 운영 서버·저장소 Caddyfile 에는 Cloudflare 신뢰 블록이
+> 아직 남아 있고(#1395 미머지), 연결 시간 상한(#1394)은 develop 에만 있다. 그동안에는 1-1 은 확인만 하고 넘어가며, 1-5·2-5·2-6 은 해당 없다.
+> **저장소에 신뢰 블록이 있는 동안 서버에서 지우지 않는다. 비상 모드(프록시 ON) 중에는 #1395 를 머지·릴리스하지 않는다.**
 
 ## 한눈에 보기
 
@@ -16,7 +16,7 @@
 |---|---|---|
 | 1 | 서버 Caddy 에 신뢰 블록 복원 — **프록시 켜기 전에** | (AOP 를 켰다면) Caddy 클라이언트 인증서 요구 해제 |
 | 2 | SSL/TLS 모드가 전체(Full) 이상인지 확인 → `api` 레코드 프록시 켜기 | Lightsail 방화벽 80·443 다시 전체 개방 |
-| 3 | **2분 이상** 지나 DNS 가 바뀐 뒤 Lightsail 방화벽 80·443 을 Cloudflare 대역만 | WAF 규칙 정리 → `api` 레코드 프록시 끄기(DNS 전용), TTL 2분 |
+| 3 | **바꾸기 전 TTL 이상**(0절을 안 했으면 자동 = 5분) 지나 DNS 가 바뀐 뒤 Lightsail 방화벽 80·443 을 Cloudflare 대역만 | WAF 규칙 정리 → `api` 레코드 프록시 끄기(DNS 전용), TTL 2분 |
 | 4 | (필요 시) Cloudflare WAF 차단 규칙 | **5분 이상** 지나 DNS 가 바뀐 뒤 서버 Caddy 신뢰 블록 제거 |
 | 5 | (하루 이상 가면) 저장소 핫픽스 | 핫픽스 되돌리기 |
 | 6 | (최후) 고정 IP 교체 | — |
@@ -39,7 +39,8 @@
 - Better Stack 1·2번(api) 다운·지연 알림이 반복되는데, `UPTIME.md` 분류상 DB·앱 문제가 아니라 VM/Caddy 쪽이다.
 - 서버 부하가 치솟는다. SSH 접속 뒤:
   - `docker stats --no-stream` — caddy·backend CPU·메모리
-  - `ss -s` — TCP 연결 수 급증
+  - `docker compose exec -T caddy netstat -tn | grep -c ESTABLISHED` — Caddy 의 연결 수 급증
+    (호스트의 `ss` 는 Caddy 컨테이너의 연결을 보지 못한다 — Docker 가 80·443 을 컨테이너로 넘겨 소켓이 컨테이너 안에 있다)
   - Lightsail 콘솔 지표 — CPU·NetworkIn 급증
 - 백엔드 로그에 여러 IP 의 429 가 쏟아지거나 Sentry 5xx 가 급증한다.
 
@@ -49,8 +50,8 @@
 
 - Cloudflare·Lightsail 콘솔에 바로 로그인할 수 있는 사람이 최소 1명(2단계 인증 포함).
 - 서버 SSH: `ssh ubuntu@<서버 IP>` → 배포 디렉터리 `/home/ubuntu/duing`(저장소 시크릿 `DEPLOY_DIR` 이 있으면 그 값).
-- `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다.
-- Cloudflare SSL/TLS 암호화 모드가 **전체(Full)** 이상인지 가끔 확인한다(2026-10 기준 전체).
+- `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다(2026-10-07 기준 자동 = 5분 — 아직 안 바꿈).
+- Cloudflare SSL/TLS 암호화 모드가 **전체(Full)** 이상인지 가끔 확인한다(2026-10-07 부터 **전체(엄격)**).
 - 분기마다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 가 최신인지 https://www.cloudflare.com/ips-v4 · ips-v6 와 대조한다.
 
 ## 1. 비상 모드로 전환
@@ -107,18 +108,25 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 1. 대시보드 → `duings.com` → **SSL/TLS** → 개요: 암호화 모드가 **전체(Full)** 또는 **전체(엄격)** 인지 확인한다.
    - 유연(Flexible)·끔이면 먼저 전체로 올린다. 그대로 프록시를 켜면 리다이렉트 루프로 api 가 전부 멈춘다.
-   - 원본 인증서(Let's Encrypt, Caddy 자동 갱신)가 정상이라 전체(엄격)도 된다. 다만 존 전체 설정이라 `duings.com`·`files` 에도 함께 적용된다.
-2. **DNS** → 레코드 → `api` 편집 → 프록시 상태를 켠다(주황 구름) → 저장. TTL 은 "자동(300초)" 으로 바뀐다.
+   - 원본 인증서(Let's Encrypt, Caddy 자동 갱신)가 정상이라 전체(엄격)도 된다. 이 모드는 프록시를 타는 호스트(지금은 `files`)에만 적용되고, 필요하면 구성 규칙(Configuration Rules, 무료)으로 api 에만 따로 지정할 수 있다.
+2. **DNS** → 레코드 → `api` 편집 → **켜기 직전 편집 화면의 TTL 값을 적어 둔다**(1-3 은 그 시간 이상 지난 뒤에 한다 — 자동이면 5분) → 프록시 상태를 켠다(주황 구름) → 저장. TTL 은 "자동(300초)" 으로 바뀐다.
    - 다른 레코드(`duings.com`·`files`)는 건드리지 않는다.
-3. 확인 — 바꾸기 전 TTL(2분)이 지난 뒤, 로컬에서:
-   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` → 둘 다 Cloudflare IP(104.21.x·172.67.x 등)
+3. 확인 — 적어 둔 TTL 이 지난 뒤, 로컬에서:
+   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` · `dig @168.126.63.1 +short api.duings.com`(KT) → 모두 Cloudflare IP(104.21.x·172.67.x 등)
    - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 값이 있다
 
 ### 1-3. 원본 잠금 — Lightsail 방화벽을 Cloudflare 대역만
 
 1. 먼저 직결 손님이 빠졌는지 본다.
-   - 1-2 의 `dig` 두 개가 모두 Cloudflare IP 를 돌려줘야 한다.
-   - 서버에서 `sudo ss -tn state established '( sport = :443 )'` 를 실행해 Peer Address 가 거의 다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 대역인지 본다.
+   - 1-2 의 `dig` 세 개가 모두 Cloudflare IP 를 돌려줘야 한다.
+   - 서버에서 아래를 실행해 나오는 연결 상대 주소가 거의 다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 대역인지 본다.
+     호스트의 `ss` 로는 Caddy 컨테이너의 연결이 보이지 않아(빈 출력) "직결 손님 없음" 으로 잘못 읽게 된다.
+
+     ```bash
+     cd /home/ubuntu/duing
+     docker compose exec -T caddy netstat -tn | awk '$4 ~ /:443$/ && $6 == "ESTABLISHED" {print $5}'
+     ```
+
    - 아니면 1~2분 더 기다린다. 먼저 잠그면 아직 직결로 오는 사용자가 막힌다.
 2. Lightsail 콘솔 → 인스턴스 → **네트워킹** → **IPv4 방화벽**
    - HTTPS(443): "IP 주소로 제한" → [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4 15개 대역.
@@ -142,7 +150,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
   - 며칠 이상 둘 규칙에는 `and not starts_with(http.request.uri.path, "/.well-known/acme-challenge/")` 를 붙인다.
     프록시 중에는 인증서 갱신 확인(HTTP-01)이 Cloudflare 를 거쳐 여러 지점에서 들어와, 국가·ASN 차단에 걸릴 수 있다.
 - **속도 제한 규칙**(무료 1개)
-  - 무료 플랜은 조건에 경로(Path)만 쓸 수 있고 호스트로는 못 거른다. IP 기준이고, 집계·차단 시간은 10초로 고정이다.
+  - 무료 플랜은 조건에 경로(Path)와 검증된 봇 여부만 쓸 수 있고 호스트로는 못 거른다. IP 기준이고, 집계·차단 시간은 10초로 고정이다.
   - 경로로 건다(예: 로그인·인증 발송 경로). 존의 다른 프록시 호스트에 같은 경로가 있으면 함께 걸린다는 점을 감안한다.
 - 국가 차단은 신중히 한다. Vercel 서버 렌더와 Better Stack 모니터가 해외에서 올 수 있다.
 - WAF 규칙은 프록시가 켜져 있을 때만 적용된다.
@@ -155,6 +163,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
   Caddyfile 신뢰 블록과 `deploy-config-ci.yml` 의 존재 단언이 함께 돌아온다. 머지한 뒤 main 으로 승격한다.
 - **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 revert 만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
 - Cloudflare 대역이 #1112 때와 달라졌으면 revert 뒤 최신 대역으로 맞춘다.
+- 핫픽스 배포(Deploy Backend)는 백엔드 컨테이너도 다시 만들어 수십 초 끊긴다. 공격이 잦아든 틈에 한다.
 
 ### 1-6. (최후) 고정 IP 교체
 
@@ -162,6 +171,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 1. Lightsail → **네트워킹** → 고정 IP 를 새로 만든다.
 2. 인스턴스에는 고정 IP 를 하나만 붙일 수 있다. 기존 고정 IP 를 분리하고 새 고정 IP 를 연결한다.
+   분리하는 순간 옛 IP 로 연 SSH 가 끊기므로 Lightsail 콘솔에서 한다.
 3. Cloudflare `api` 레코드 값을 새 IP 로 바꾼다(프록시 켠 채로).
 4. 옛 고정 IP 는 바로 해제한다. 인스턴스에 붙어 있지 않은 고정 IP 는 1시간이 지나면 과금된다.
 5. 저장소 시크릿 `LIGHTSAIL_HOST` 가 IP 면 새 IP 로 바꾼다. 배포 CD 와 운영 SSH 가 쓴다.
@@ -191,7 +201,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    - 1-4 의 WAF 규칙은 프록시를 끄면 효력이 없으니 지운다.
    - `api` 레코드 프록시를 끄고(DNS 전용) TTL 을 2분으로 둔다.
 4. **바꾸기 전 TTL(자동 = 300초)이 지나 DNS 가 바뀐 뒤 확인한다.** 끈 뒤 **5분 이상** 기다린다.
-   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` → 둘 다 서버 IP
+   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` · `dig @168.126.63.1 +short api.duings.com`(KT) → 모두 서버 IP
    - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 빈 출력
 5. **서버 Caddy 에서 신뢰 블록 제거**(과도기에는 하지 않는다)
 
@@ -202,10 +212,12 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    docker run --rm -i caddy:2-alpine caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.direct
    cp /tmp/Caddyfile.direct Caddyfile
    docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
-   docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers"' || echo "신뢰 블록 없음 — 정상"
+   servers_json=$(docker compose exec -T caddy curl -sf localhost:2019/config/apps/http/servers) || echo "조회 실패"
+   echo "$servers_json" | grep -c '"client_ip_headers"'    # 0 이어야 한다
    ```
 
-   - 마지막 줄에 `"client_ip_headers"` 가 그대로 나오면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+   - `0` 이 아니면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+   - "조회 실패" 가 찍히면 관리 API 를 못 읽은 것이다(`0` 이 함께 나와도 믿지 않는다). `docker compose ps caddy` 부터 본다.
 6. **저장소**(과도기에는 해당 없음)
    - 1-5 핫픽스를 했다면 그 revert 를 다시 되돌리는 PR(신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
    - 핫픽스를 하지 않았다면 5번 결과가 이미 저장소 파일과 같다.
@@ -215,12 +227,12 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 | 확인 | 명령 | 기대 |
 |---|---|---|
-| 지금 DNS | `dig @1.1.1.1 +short api.duings.com`, `dig @8.8.8.8 +short api.duings.com` | 직결: 서버 IP / 비상 모드: Cloudflare IP |
+| 지금 DNS | `dig @1.1.1.1 +short api.duings.com`, `dig @8.8.8.8 …`, `dig @168.126.63.1 …`(KT) | 직결: 서버 IP / 비상 모드: Cloudflare IP |
 | Cloudflare 경유 여부 | `curl -s -D - -o /dev/null https://api.duings.com/actuator/health \| grep -i cf-ray` | 비상 모드면 값 있음, 직결이면 없음 |
 | Caddy 구동 설정 | (서버) `docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers` | 신뢰 블록 유무, 시간 상한(`read_header_timeout: 10000000000` 등) |
 | 원본 직접 접속 | `curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 --resolve api.duings.com:443:<서버 IP> https://api.duings.com/actuator/health` | 잠금 중 `000`, 평시 `200` |
-| 443 연결 상대 | (서버) `sudo ss -tn state established '( sport = :443 )'` | 비상 모드면 Peer 가 부록 A 대역 |
-| 서버 부하 | (서버) `docker stats --no-stream`, `ss -s` | — |
+| 443 연결 상대 | (서버) `docker compose exec -T caddy netstat -tn \| awk '$4 ~ /:443$/ && $6 == "ESTABLISHED" {print $5}'` | 비상 모드면 거의 다 부록 A 대역 |
+| 서버 부하 | (서버) `docker stats --no-stream`, `docker compose exec -T caddy netstat -tn \| grep -c ESTABLISHED` | — |
 
 - 컨테이너 안에서 `wget localhost:2019` 는 `::1` 로 풀려 거부된다. `curl` 을 쓰거나 `127.0.0.1` 로 적는다.
 - 수동 `caddy reload` 에는 `--config /etc/caddy/Caddyfile --adapter caddyfile` 이 꼭 필요하다. 이미지 작업 디렉터리가 `/srv` 라 없으면 설정 파일을 찾지 못한다.
