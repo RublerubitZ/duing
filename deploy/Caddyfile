@@ -1,39 +1,32 @@
 # 두잉 API 리버스 프록시 — Let's Encrypt 로 api.duings.com TLS 자동 발급/갱신.
-# 전제: api.duings.com 이 Cloudflare(프록시 ON)를 거쳐 이 서버 고정 IP 로 오고, 방화벽에서 80/443 이 열려 있어야 한다.
-
-# 전역 옵션 — Cloudflare 를 유일한 신뢰 프록시로 선언한다.
+# 전제: api.duings.com 은 Cloudflare DNS only(프록시 OFF)로 이 서버 고정 IP 를 직접 가리키고, 방화벽에서 80/443 이 열려 있어야 한다.
 #
-# 왜 필요한가: Caddy 는 신뢰 프록시로 선언되지 않은 피어가 보낸 X-Forwarded-For 를 폐기하고
-# 피어 IP 로 갈아끼운다(위조 방지 기본값). api.duings.com 은 Cloudflare 뒤에 있으므로 피어는 늘
-# Cloudflare 엣지이고, 이 선언이 없으면 백엔드로 나가는 XFF 가 통째로 Cloudflare 엣지 IP 가 된다.
-# 그러면 톰캣 RemoteIpValve(server.forward-headers-strategy=native)가 그 값을 getRemoteAddr() 로 삼아
-# 전 사용자가 CF PoP 단위로 레이트리밋 버킷을 공유한다 — PhoneVerificationRateLimiter·
-# LoginAttemptRateLimiter·ClubViewRateLimiter·JoinCodeRateLimiter 가 전부 사실상 전역 제한이 된다.
-# (2026-08-30 로컬 컨테이너 재현으로 확인. 이 설정이 지워지는 것은 문법 검증으로는 안 잡히므로
-#  .github/workflows/deploy-config-ci.yml 이 어댑트된 JSON 을 직접 단언한다.)
+# 접속자 IP = TCP 연결 상대 주소. 신뢰 프록시(trusted_proxies)를 두지 않으므로 Caddy 는 클라이언트가 보낸
+# Cf-Connecting-Ip·X-Forwarded-* 를 접속자 판정에 쓰지 않는다. TCP 연결은 왕복 핸드셰이크가 있어야 성립하므로 이 주소는
+# 위조할 수 없다. 이 값이 아래 X-Forwarded-For 로 백엔드에 가고, 톰캣 RemoteIpValve(forward-headers-strategy=native)가
+# getRemoteAddr() 로 삼아 IP 축 레이트리밋의 키가 된다.
 #
-# 신뢰 경계: 아래 대역은 Cloudflare 공식 목록(https://www.cloudflare.com/ips-v4 · ips-v6, 2026-08-30
-# 기준)이다. 이 대역에서 온 연결에 한해서만 Cf-Connecting-Ip 를 클라이언트 IP 로 인정한다. 그 밖에서
-# 오리진에 직접 붙은 요청은 Cf-Connecting-Ip·X-Forwarded-For 를 아무리 위조해도 무시되고 자기 IP 로
-# 집계된다 — 헤더를 무조건 신뢰하지 않는다는 뜻이다.
+# Cloudflare 대역을 믿지 않는 이유(#1329): 프록시를 쓰던 때는 Cloudflare 공식 대역에서 온 연결의 Cf-Connecting-Ip 를
+# 클라이언트 IP 로 믿었는데, 그 대역은 "우리 존" 이 아니라 Cloudflare 고객 전체다. 자기 존을 이 오리진 IP 로 겨누면
+# 그 헤더를 마음대로 정할 수 있었다(2026-08-30 실측) — IP 축 한도가 통째로 우회된다. 직결에서는 그 대역에서 온 연결이라도
+# 우리 존 앞의 Cloudflare 가 붙인 헤더가 아니므로 믿을 이유가 없다. 다만 대역 자체를 막지는 말 것 — Cloudflare 망을
+# 거쳐 나가는 정상 사용자(WARP 등)도 있을 수 있다. 그 연결은 그 IP 로 집계될 뿐이다.
 #
-# 다만 이 경계가 "우리 존" 은 아니다. 목록은 Cloudflare 프록시 전체라, 자기 존을 이 오리진 IP 로
-# 겨눠 요청을 이 대역에서 출발시킬 수 있으면 그 요청도 신뢰 피어가 된다 — 그때는 Cf-Connecting-Ip 를
-# 임의로 지정할 수 있어 IP 축 레이트리밋이 무력해진다. 오리진 443 이 전체 개방인 한 이 창은 열려 있고,
-# 닫는 수단은 이 파일이 아니라 방화벽(인바운드 443 을 위 대역으로 제한) 또는 Authenticated Origin
-# Pulls 다. 그 조치 전까지는 "비-CF 직접 접속은 막힌다" 까지만 참이라고 읽을 것.
-#
-# Cf-Connecting-Ip 를 쓰는 이유: Cloudflare 는 이 헤더를 항상 실제 접속자 IP 로 덮어쓴다. 반면
-# X-Forwarded-For 는 클라이언트가 보낸 값을 보존한 채 뒤에 덧붙이므로, XFF 기반 판정은 CF 를 통과해도
-# 앞쪽 위조값이 클라이언트 IP 로 뽑힐 수 있다(로컬 재현에서 `9.9.9.9, 203.0.113.7` → 9.9.9.9 확인).
-#
-# 대역이 갱신되면 이 목록도 갱신해야 한다(변경은 드물다). 목록이 낡아 실제 CF IP 가 빠지면 그 경로의
-# 요청은 위조가 뚫리는 게 아니라 CF 엣지 IP 로 집계되어 지금과 같은 상태로 되돌아갈 뿐이다.
+# ⚠ 비상 모드(Cloudflare 프록시 다시 켜기)로 돌아갈 때는 프록시를 켜기 "전에" 신뢰 블록부터 복원·배포한다.
+#   복원할 내용 = `git show 1d960e0d4:deploy/Caddyfile`(#1112) 의 전역 옵션 블록 그대로 — servers 안의
+#   trusted_proxies static <CF 대역> 줄과 client_ip_headers Cf-Connecting-Ip 줄
+#   (대역은 https://www.cloudflare.com/ips 최신본). 복원 없이 프록시를 켜면 모든 연결의 피어가 CF 엣지라 전 사용자가
+#   CF PoP 단위로 레이트리밋 버킷을 공유한다(#1112 이전 상태). 복원할 때 .github/workflows/deploy-config-ci.yml 의 부재
+#   단언도 #1112 의 존재 단언으로 함께 되돌린다. 그 상태에서 남는 다른 CF 존 경유 위조(#1329)는 존 전용
+#   Authenticated Origin Pulls 로 닫는다.
+#   배포 경로 제약: deploy-backend.yml 은 main push(또는 수동 실행) 때만 이 파일을 서버로 올린다. 급할 때는 서버에서
+#   고친 사본을 cp 로 이 파일에 덮어써(단일 파일 bind mount 라 inode 를 유지해야 컨테이너가 본다 — 편집기 저장·mv 금지)
+#   `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 할 수 있지만(이미지 작업
+#   디렉터리가 /srv 라 --config 없이는 설정을 못 찾는다), 다음 main 배포가 저장소 파일로 덮어쓰므로 같은 변경을 저장소에도
+#   반영해야 한다. 반영 확인은 reload 로그가 아니라 admin API 되읽기로 한다 —
+#   `docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers`(wget 이면 localhost 대신 127.0.0.1).
 {
 	servers {
-		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
-		client_ip_headers Cf-Connecting-Ip
-
 		# 연결 시간 상한 — 헤더나 본문을 일부러 느리게 보내 연결을 붙잡는 공격(slowloris 류)에 상한을 둔다.
 		# Caddy 기본값은 헤더 1분·요청 수신 무제한이다. 2026-10-07 로컬 실측(caddy 2.11.4)에서 헤더를 덜 보낸
 		# 연결은 60초 뒤에야 닫혔고, 2KB/s 로 흘린 300KB 본문은 150초 동안 끝까지 받았다. Caddy 는 본문을 받는
@@ -41,6 +34,7 @@
 		# Cloudflare 를 거치지 않고도 닿으므로(DNS only 면 모든 접속이 직결) Caddy 가 느린 클라이언트를 직접 상대한다.
 		#  - read_header 10s: 요청 헤더를 다 받는 데 쓸 수 있는 시간. TLS 핸드셰이크도 이 값으로 묶인다(Go 는 0 이 아닌
 		#    read_header·read_body·write 중 가장 짧은 값을 쓴다 — ClientHello 를 보내지 않는 연결이 10초에 닫힘, 실측).
+		#    HTTP/1.1 기준이다 — HTTP/2 연결은 Go 가 요청 헤더에 read_header 를 쓰지 않고, 연결 첫 프리페이스 10초와 idle 로 묶는다.
 		#  - read_body 2m: 요청 하나(헤더+본문)를 다 받는 데 쓸 수 있는 시간. 프런트 최장 타임아웃인 업로드 60초
 		#    (frontend/packages/api/src/http.ts 의 REQUEST_TIMEOUT_MS.upload)의 두 배라 정상 업로드(이미지 정책 상한 5MB)는 닿지
 		#    않는다. 응답을 기다리는 시간은 세지 않는다 — 백엔드 응답이 늦어도 끊기지 않는다(h1·h2 실측).
@@ -75,23 +69,21 @@ api.duings.com {
 	# 두지 않는다. Caddy 가 Host 헤더를 보존하고 X-Forwarded-* 를 주입하면, 백엔드는
 	# forward-headers-strategy=native 로 원 클라이언트 IP/프로토콜을 인식한다.
 	reverse_proxy backend:8080 {
-		# XFF 를 위에서 판정한 클라이언트 IP 한 값으로 덮어쓴다. 이 줄이 없으면 Caddy 는 신뢰한
-		# XFF 뒤에 피어(CF 엣지)를 덧붙여 보내는데(실측: `9.9.9.9, <CF엣지>` — 왼쪽은 실사용자가 아니라
-		# 클라이언트가 위조한 값이다. 운영에서는 CF 가 실 IP 를 덧붙여 `위조, 실사용자, CF엣지`), RemoteIpValve 는 오른쪽 끝부터
-		# 사설 대역이 아닌 첫 값을 고르므로 결국 CF 엣지 IP 가 클라이언트 IP 가 된다.
-		# 즉 trusted_proxies 만으로는 고쳐지지 않는다 — 두 설정이 한 쌍이다.
+		# 아래 세 줄은 X-Forwarded-* 를 Caddy 판정값으로 덮어쓴다. 신뢰 프록시가 없는 지금은 Caddy 기본 동작(신뢰하지
+		# 않는 피어가 보낸 X-Forwarded-* 는 버리고 자기 값으로 채운다)과 같다 — 이 파일 그대로의 2026-10-07 로컬 실측에서도
+		# 위조 XFF·XFP·XFH 가 모두 무시됐다. 그래도 지우지 않는다 — 비상 모드에서 신뢰 블록을 복원하는 순간 셋 다 다시 필요해진다.
+		#
+		# XFF: 신뢰 상태에서 이 줄이 없으면 Caddy 는 신뢰한 XFF 뒤에 피어(CF 엣지)를 덧붙여 보내고(실측: `9.9.9.9, <CF엣지>`
+		# — 왼쪽은 클라이언트가 위조한 값), RemoteIpValve 는 오른쪽 끝부터 사설 대역이 아닌 첫 값을 고르므로 결국 CF 엣지
+		# IP 가 클라이언트 IP 가 된다. trusted_proxies 와 이 줄이 한 쌍이다.
 		header_up X-Forwarded-For {client_ip}
 
-		# 나머지 X-Forwarded-* 도 Caddy 판정값으로 고정한다. 신뢰 프록시를 선언하면 Caddy 는 들어온
-		# X-Forwarded-Proto·Host 를 덮어쓰지 않고 통과시키므로, 선언 전에는 Caddy 가 채우던 두 값이
-		# 이제 클라이언트가 보낸 값이 될 수 있다(재현: XFP=gopher, XFH=evil.example 통과).
-		# Cloudflare 는 XFP 를 덮어써서 실제 도달 경로는 없지만, 신뢰 전환으로 새로 열린 통로라
-		# 선언 전 동작으로 되돌려 닫아 둔다. 톰캣은 native 전략에서 두 헤더를 각각 요청 스킴과
-		# getServerName() 에 반영한다.
+		# XFP·XFH: 신뢰 상태에서 Caddy 는 들어온 X-Forwarded-Proto·Host 를 덮어쓰지 않고 통과시키므로(재현: XFP=gopher,
+		# XFH=evil.example 통과) 클라이언트가 보낸 값이 톰캣의 요청 스킴과 getServerName() 이 된다. 톰캣은 native 전략에서
+		# 두 헤더를 그렇게 반영한다.
 		#
-		# 주의: `caddy adapt` 가 이 두 줄에 "Unnecessary header_up — 기본 동작이 헤더를 그대로 넘긴다"
-		# 라고 경고하는데, 신뢰 프록시를 선언한 뒤에는 그 "그대로 넘긴다" 가 바로 위조 통과를 뜻하므로
-		# 경고가 틀렸다. 지우지 말 것 — deploy-config-ci.yml 이 세 헤더 모두 단언한다.
+		# 주의: `caddy adapt` 가 이 두 줄에 "Unnecessary header_up" 이라고 경고한다. 직결인 지금은 맞는 말이지만, 신뢰를
+		# 복원하면 그 "기본 동작" 이 바로 위조 통과가 된다. 지우지 말 것 — deploy-config-ci.yml 이 세 헤더 모두 단언한다.
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}
