@@ -5,6 +5,7 @@ const mockPathname = vi.fn<() => string>();
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname(),
+  useSelectedLayoutSegment: () => null,
   useParams: () => ({ clubId: '38', noticeId: '7' }),
   useRouter: () => ({ replace: vi.fn(), back: vi.fn(), push: vi.fn() }),
 }));
