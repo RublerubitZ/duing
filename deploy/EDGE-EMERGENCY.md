@@ -106,6 +106,9 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
   - **비상 모드 중 백엔드 롤백은 지난 실행 re-run 으로 하지 않는다.** re-run 은 그 실행 당시 커밋의 Caddyfile 을 다시 올리므로, 1-5 핫픽스
     이전 실행이면 신뢰 블록이 없는 파일이 내려가 #1112 회귀가 난다. 대신 서버 `.env` 의 `BACKEND_IMAGE` 만 직전 태그로 되돌리고
     `docker compose up -d backend` 한다(Caddyfile 은 건드리지 않는다 — `deploy/README.md` 의 롤백 절차).
+    - 직전 태그(커밋 SHA)는 서버에 남아 있는 이미지에서 찾는다 — 배포 때 정리는 태그 없는 이미지만 지운다.
+      `docker images ghcr.io/rublerubitz/duing-backend --format '{{.Tag}}\t{{.CreatedAt}}'` 에서 지금 `.env` 값 바로 다음(두 번째로 새것)이 직전 태그다.
+    - 롤백 뒤 `docker compose ps backend` 가 healthy 인지 보고, 위 관리 API 되읽기 줄로 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 그대로인지 확인한다.
 
 ### 1-2. Cloudflare 프록시 켜기
 
