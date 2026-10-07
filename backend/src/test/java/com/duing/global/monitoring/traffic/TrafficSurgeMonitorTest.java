@@ -282,7 +282,7 @@ class TrafficSurgeMonitorTest {
                 LocalDateTime.of(2026, 10, 7, 14, 57), LocalDateTime.of(2026, 10, 8, 9, 0), true,
                 541_000, 2_164, 500, LocalDateTime.of(2026, 10, 8, 8, 59), 2, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
         verify(slackNotifier).send(DAILY_MESSAGE);
-        assertThat(output).contains("트래픽 일간 요약 — 기간 시작 2026-10-07T14:57, 총 요청 541000, 최대 분당 요청 500");
+        assertThat(output).contains("트래픽 일간 요약 — 기간 시작 2026-10-07 14:57, 총 요청 541000, 최대 분당 요청 500");
     }
 
     @Test
@@ -308,10 +308,12 @@ class TrafficSurgeMonitorTest {
         run(Duration.ofHours(17).plusMinutes(54), 0, 0);
         minute(5_000, 0);
         minute(5_000, 0);
+        run(Duration.ofHours(24), 0, 0);
 
+        // 10-08 요약은 14:59 감지 1회, 10-09 요약은 10-08 09:00 경계에서 난 감지 1회 — 새 기간마다 0 부터 센다.
         ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
-        verify(formatter).trafficDailySummary(summaryCaptor.capture());
-        assertThat(summaryCaptor.getValue().surgeAlerts()).isEqualTo(1);
+        verify(formatter, times(2)).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getAllValues()).extracting(TrafficDailySummary::surgeAlerts).containsExactly(1, 1);
     }
 
     @Test
@@ -323,8 +325,13 @@ class TrafficSurgeMonitorTest {
         run(Duration.ofMinutes(-2), 100, 0);
         minute(100, 0);
         minute(100, 0);
+        run(Duration.ofHours(24), 0, 0);
 
-        verify(formatter, times(1)).trafficDailySummary(any());
+        // 역행·복귀 동안의 300건은 10-08 기간에 남고, 다음 요약은 실제 경계(10-09 09:00)에서 한 번뿐이다.
+        verify(formatter, times(2)).trafficDailySummary(any());
+        verify(formatter).trafficDailySummary(new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
+                600, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
     }
 
     @Test

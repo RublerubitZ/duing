@@ -239,17 +239,17 @@ class OpsSlackMessageFormatterTest {
     void trafficDailySummaryMessageCarriesAggregates() {
         TrafficDailySummary summary = new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
-                12_345, 17, 345, LocalDateTime.of(2026, 10, 6, 21, 14), 3, 0, 3_000, 300);
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300);
 
         assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
                 "📊 api 트래픽 일간 요약",
                 "서비스: Duing",
                 "이벤트: TRAFFIC_DAILY_SUMMARY",
                 "기간: 2026-10-06 09:00 ~ 2026-10-07 09:00 KST",
-                "총 요청: 12,345 (429 17)",
-                "최대 분당 요청: 345 (2026-10-06 21:14)",
-                "최대 분당 429: 3",
-                "이상 감지: 0회",
+                "총 요청: 12,345 (429 1,234)",
+                "최대 분당 요청: 2,345 (2026-10-06 21:14)",
+                "최대 분당 429: 1,010",
+                "이상 감지: 2회",
                 "기준: 분당 요청 3,000 · 분당 429 300",
                 "환경: production",
                 "시간: 2026-08-22 23:41 KST"));

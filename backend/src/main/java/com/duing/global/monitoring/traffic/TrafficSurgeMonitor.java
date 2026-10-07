@@ -46,6 +46,7 @@ public class TrafficSurgeMonitor {
     static final int CALM_RUNS_TO_RECOVER = 5;
     private static final long RUN_INTERVAL_MILLIS = 60_000;
     private static final DateTimeFormatter SUMMARY_HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd HH'시'");
+    private static final DateTimeFormatter SUMMARY_MINUTE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final int DAILY_SUMMARY_HOUR = 9;
 
     private final TrafficCountingFilter trafficCountingFilter;
@@ -183,7 +184,7 @@ public class TrafficSurgeMonitor {
         if (dailyPeriodDate == null) {
             dailyPeriodDate = periodDate;
         } else if (periodDate.isAfter(dailyPeriodDate)) {
-            notifyDailySummary(dailyPeriodDate.plusDays(1).atTime(DAILY_SUMMARY_HOUR, 0));
+            notifyDailySummary();
             dailyPeriodDate = periodDate;
             dailyPeriodStartedAt = periodDate.atTime(DAILY_SUMMARY_HOUR, 0);
             dailyTotalRequests = 0;
@@ -202,13 +203,15 @@ public class TrafficSurgeMonitor {
         dailyPeakRejectionsPerMinute = Math.max(dailyPeakRejectionsPerMinute, rejectionsPerMinute);
     }
 
-    private void notifyDailySummary(LocalDateTime periodEnd) {
-        boolean startedAfterRestart = !dailyPeriodStartedAt.equals(dailyPeriodDate.atTime(DAILY_SUMMARY_HOUR, 0));
+    private void notifyDailySummary() {
+        LocalDateTime periodNominalStart = dailyPeriodDate.atTime(DAILY_SUMMARY_HOUR, 0);
+        LocalDateTime periodEnd = periodNominalStart.plusDays(1);
+        boolean startedAfterRestart = !dailyPeriodStartedAt.equals(periodNominalStart);
         TrafficDailySummary summary = new TrafficDailySummary(dailyPeriodStartedAt, periodEnd, startedAfterRestart,
                 dailyTotalRequests, dailyTotalRejections, dailyPeakRequestsPerMinute, dailyPeakRequestsAt,
                 dailyPeakRejectionsPerMinute, dailySurgeAlerts, requestsPerMinuteThreshold, rejectionsPerMinuteThreshold);
         log.info("트래픽 일간 요약 — 기간 시작 {}, 총 요청 {}, 최대 분당 요청 {}",
-                dailyPeriodStartedAt, dailyTotalRequests, dailyPeakRequestsPerMinute);
+                SUMMARY_MINUTE.format(dailyPeriodStartedAt), dailyTotalRequests, dailyPeakRequestsPerMinute);
         // 동기 HTTP(재시도 포함 최대 십여 초)라 이번 판정이 그만큼 늦어지지만, 창과 lastEvaluatedAt 은 이미 잡혀 무해하다.
         notifySafely("TRAFFIC_DAILY_SUMMARY", () -> opsSlackMessageFormatter.trafficDailySummary(summary));
     }
