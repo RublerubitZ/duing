@@ -789,7 +789,18 @@ describe('이동 예약(navigationPending)', () => {
     window.history.pushState({ __NA: true, tree: ['fake'] }, '', '/test-page-next');
     expect(isNavigationPending()).toBe(false);
 
-    await pressBack();
+    const observed: boolean[] = [];
+    // 모듈 리스너보다 나중에 등록되므로 모듈이 판정을 마친 뒤에 실행된다.
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
+    try {
+      await pressBack();
+    } finally {
+      window.removeEventListener('popstate', probe);
+    }
+    // hop 1 은 다른 페이지(/test-page-next)에서 죽은 엔트리로 내려온 착지라 거짓이어야 한다 — 참이면 뒤로 가기 마커가
+    // 곧바로 내려가 돌아온 화면에 등장 연출이 재생된다. hop 2 는 우리 자기 스킵이라 참이다.
+    expect(observed).toEqual([false, true]);
     expect(window.history.state).toEqual({ marker: 'page' });
     expect(window.location.pathname).toBe('/test-page');
   });

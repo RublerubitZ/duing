@@ -321,7 +321,13 @@ export function installBackDismiss() {
   nativePushState = window.history.pushState.bind(window.history);
   window.history.pushState = (data: unknown, unused: string, url?: string | URL | null) => {
     nativePushState?.(data, unused, url);
-    if (isNextNavigationCommit(data)) clearNavigationPending();
+    if (isNextNavigationCommit(data)) {
+      clearNavigationPending();
+      // Next 이동 커밋 직후는 마커 없는 새 페이지 엔트리다 — 떠날 때 비교할 기준 주소도 옮긴다. 옮기지 않으면 오버레이 안에서
+      // 이동한 뒤(죽은 엔트리 잔존) 첫 뒤로가기 hop 이 "같은 페이지 착지"로 보여 오버레이 전용으로 오분류되고, 그러면
+      // 뒤로 가기 마커가 곧바로 내려가 돌아온 화면에 등장 연출이 재생된다.
+      currentHref = window.location.href;
+    }
   };
 
   // Next 의 HistoryUpdater 는 navigate/refresh/서버액션/server-patch 경로에서 커스텀 history state 를
