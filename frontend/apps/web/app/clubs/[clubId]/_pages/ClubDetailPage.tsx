@@ -12,8 +12,9 @@ import {
 
 import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { captureEvent } from '@/app/_lib/analytics';
+import { cn } from '@/app/_lib/cn';
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
-import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { getVisitorKey } from '@/app/_lib/visitorKey';
 
@@ -51,8 +52,9 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
 
   // 공개 동아리는 서버 메타데이터가 제목을 붙인다 — 서버가 데이터를 못 받은 렌더(셸)에서도 같은 형식이 되도록 데이터 도착 후 맞춘다.
   useDocumentTitle(detail.data?.name ?? null);
-  // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
-  const enteredFromSkeleton = useEnteredFromSkeleton(detail.isLoading);
+  // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 마운트면 본문이 떠오른다(뒤로·앞으로 가기는 그대로) —
+  // early return 보다 위에서 잡는다. 서버 HTML 에도 실려 첫 화면에서 CSS 로 재생된다.
+  const playsEntrance = useEntranceMotion(detail.isLoading);
 
   // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다 — 경로 로딩 경계(loading.tsx)와 같은 스켈레톤이다.
   if (detail.isLoading) {
@@ -83,49 +85,48 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
 
   return (
     <>
-      <div className={enteredFromSkeleton ? 'enter-content' : undefined}>
-        <ClubDetailHero
-          club={club}
-          recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
-        />
+      {/* 히어로는 연출 밖 — 로고 모핑(club-logo-<id>)의 조상에 transform 이 걸리면 모핑이 8px 아래를 목표로 끝나 튄다. */}
+      <ClubDetailHero
+        club={club}
+        recruitmentDisplayStatus={club.activeRecruitment?.displayStatus}
+      />
 
-        <section className="bg-cream pb-16">
-          <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 px-4 sm:px-6 md:px-10 lg:grid-cols-[1fr_380px] lg:gap-12">
-            <div>
-              <div className="mb-6 md:mb-8">
-                <ClubDetailStats club={club} />
-              </div>
-              {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
-              <div className="mb-4 md:hidden">
-                <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
-              </div>
-              <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
+      <section className={cn('bg-cream pb-16', playsEntrance && 'enter-content')}>
+        <div className="max-w-layout mx-auto grid grid-cols-1 gap-10 px-4 sm:px-6 md:px-10 lg:grid-cols-[1fr_380px] lg:gap-12">
+          <div>
+            <div className="mb-6 md:mb-8">
+              <ClubDetailStats club={club} />
             </div>
+            {/* 모바일 전용 모집 요약 — 탭 위. 데스크탑은 우측 사이드바 풀 카드를 쓴다. */}
+            <div className="mb-4 md:hidden">
+              <ClubRecruitmentSummary recruitment={club.activeRecruitment ?? undefined} />
+            </div>
+            <ClubDetailTabs club={club} photos={photos.data ?? []} membership={membership.data ?? null} />
+          </div>
 
-            {/* lg:self-start 는 필수 — grid 기본 stretch 가 sticky 를 무력화한다(self-start 로 컬럼을 콘텐츠 높이로). */}
-            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-              {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
-              <div className="hidden md:block">
-                <ClubRecruitmentCard
-                  recruitment={club.activeRecruitment ?? undefined}
-                  clubId={clubId}
-                  membership={membership.data}
-                />
-              </div>
-              <ClubContactCard
-                clubName={club.name}
-                snsLinks={club.snsLinks}
-                location={club.location}
-                contactPhone={club.contactPhone}
-                contactVisibility={club.contactVisibility}
+          {/* lg:self-start 는 필수 — grid 기본 stretch 가 sticky 를 무력화한다(self-start 로 컬럼을 콘텐츠 높이로). */}
+          <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            {/* 풀 모집 카드는 데스크탑/태블릿 전용. 모바일은 위 요약 + 하단 지원 바로 대체. */}
+            <div className="hidden md:block">
+              <ClubRecruitmentCard
+                recruitment={club.activeRecruitment ?? undefined}
+                clubId={clubId}
+                membership={membership.data}
               />
             </div>
+            <ClubContactCard
+              clubName={club.name}
+              snsLinks={club.snsLinks}
+              location={club.location}
+              contactPhone={club.contactPhone}
+              contactVisibility={club.contactVisibility}
+            />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* 모바일 전용 하단 고정 지원 바 (md:hidden). 데스크탑은 우측 모집 카드를 그대로 쓴다.
-          등장 래퍼 밖에 둔다 — 재생 중인 transform 은 fixed 자손의 기준을 뷰포트에서 래퍼로 바꾼다. */}
+          등장 섹션 밖에 둔다 — 재생 중인 transform 은 fixed 자손의 기준을 뷰포트에서 그 섹션으로 바꾼다. */}
       <ClubDetailApplyBar
         recruitment={club.activeRecruitment ?? undefined}
         membership={membership.data}

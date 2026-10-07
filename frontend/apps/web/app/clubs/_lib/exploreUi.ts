@@ -1,10 +1,12 @@
+import type { CSSProperties } from 'react';
 import { cn } from '@/app/_lib/cn';
 
 import type { Scope, SortKey } from './exploreParams';
 
 // 탐색 화면의 컨트롤·행 클래스와 선택지 — 실제 화면(ClubExplorePage)과 서버 기본 목록(ClubExploreFallback)이 같은
 // 값을 쓰게 한곳에 둔다. 서버 기본 목록이 교체 순간 카드·컨트롤을 움직이지 않으려면 실제 화면과 바이트까지 같아야
-// 해서다. 서버 컴포넌트가 import 하므로 React·DOM 에 의존하지 않는다.
+// 해서다. 서버 컴포넌트가 import 하므로 React·DOM 에 의존하지 않는다(React 는 타입만, document 는 typeof 로 가드한
+// 클라이언트 전용 함수에서만 읽는다).
 
 /** 데스크탑 스코프 세그먼트 — 화면 순서와 선택 시 힌트. 라벨은 SCOPE_CLUB_LABEL('전체' 는 그대로). */
 export const SCOPE_SEGMENTS: ReadonlyArray<{ key: Scope; hint: string }> = [
@@ -53,3 +55,26 @@ export const LIST_TOOLBAR_CLASS = {
 
 /** 데스크탑 카드 그리드 — 카드 최소 210px 를 지키며 컨테이너 폭에 따라 열 수만 줄인다(auto-fill+minmax). */
 export const CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(min(210px,100%),1fr))] gap-[18px]';
+
+/**
+ * 서버 목록(Suspense fallback) 표시 속성 — ClubExploreFallback 최상위에 단다. 실제 화면은 마운트 순간 이것이 문서에
+ * 있으면, 첫 화면에서 이미 떠오른 서버 카드를 바꿔 끼우는 교체로 보고 스태거를 다시 재생하지 않는다.
+ */
+export const SERVER_LIST_ATTRIBUTE = 'data-explore-server-list';
+
+/** 마운트 순간 서버 목록이 문서에 있는지 — 클라이언트에서만 부른다(서버에는 문서가 없어 거짓). */
+export function isServerExploreListOnScreen(): boolean {
+  return typeof document !== 'undefined' && document.querySelector(`[${SERVER_LIST_ATTRIBUTE}]`) !== null;
+}
+
+/**
+ * 스태거 재생 시간(ms) — 마지막 카드 지연(8번째부터 280ms) + 재생 200ms = 480ms 에 여유를 둔 값.
+ * globals.css 의 .enter-stagger 지연·길이를 바꾸면 함께 바꾼다.
+ */
+export const STAGGER_WINDOW_MS = 600;
+
+/** 카드 순번을 CSS 쪽 지연 계산(`--i`)으로 넘긴다. 커스텀 프로퍼티는 CSSProperties 에 없어 별도 타입이 필요하다. */
+export function staggerStyle(index: number): CSSProperties {
+  const style: CSSProperties & { '--i': number } = { '--i': index };
+  return style;
+}

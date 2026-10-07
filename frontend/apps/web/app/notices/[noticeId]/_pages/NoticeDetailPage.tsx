@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { ResourceNotFound } from '@/app/_components/ResourceNotFound';
 import { cn } from '@/app/_lib/cn';
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
-import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { parseKstInstant, useNoticeDetailQuery } from '@duing/hooks';
 import { NoticeDetailTopBar } from '../../_components/NoticeDetailTopBar';
@@ -38,8 +38,9 @@ export function NoticeDetailPage() {
   // 공개 소식은 서버 metadata 가 제목을 붙인다. 동아리 공지(익명 404 → noindex 셸)는 서버가 제목을 모르므로
   // 회원 데이터가 도착한 뒤 탭 제목을 여기서 맞춘다.
   useDocumentTitle(notice?.title ?? null);
-  // 스켈레톤을 거쳐 도착한 첫 방문만 본문이 떠오른다(캐시 재방문은 그대로) — early return 보다 위에서 잡는다.
-  const enteredFromSkeleton = useEnteredFromSkeleton(detailQuery.isLoading);
+  // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 마운트면 본문이 떠오른다(뒤로·앞으로 가기는 그대로) —
+  // early return 보다 위에서 잡는다. 서버 HTML 에도 실려 첫 화면에서 CSS 로 재생된다.
+  const playsEntrance = useEntranceMotion(detailQuery.isLoading);
   // 만료 배너는 하이드레이션 뒤에만 — 서버가 판정한 만료 여부는 ISR HTML 이 묵는 동안 달라진다(#418).
   const hydrated = useHydrated();
 
@@ -90,7 +91,9 @@ export function NoticeDetailPage() {
   return (
     <div>
       <NoticeDetailTopBar />
-      <div className={cn('max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24', enteredFromSkeleton && 'enter-content')}>
+      {/* 제목 머리·표지(포스터)는 연출 밖 — 첫 화면 LCP 요소(제목 텍스트·표지 이미지)가 투명도 0 에서 시작하면 LCP 가 늦게
+          잡힌다(QA 실측: 제목이 연출 안일 때 중앙값 +212ms). 동아리 상세 히어로와 같은 원칙으로 그 아래 본문·옆 카드만 떠오른다. */}
+      <div className="max-w-[1120px] mx-auto px-4 sm:px-6 md:px-10 pb-24">
         <NoticeArticleHeader
           category={notice.category}
           title={notice.title}
@@ -114,14 +117,16 @@ export function NoticeDetailPage() {
               title={notice.title}
               summary={notice.summary}
             />
-            {/* 모바일: 한눈에 보기(이벤트)를 본문 위로 끌어올림. 데스크탑은 우측 카드를 쓴다. */}
-            {notice.eventInfo && (
-              <NoticeEventSummary eventInfo={notice.eventInfo} className="mb-8 md:hidden" />
-            )}
-            <NoticeContent content={notice.content} format={notice.contentFormat} />
+            <div className={playsEntrance ? 'enter-content' : undefined}>
+              {/* 모바일: 한눈에 보기(이벤트)를 본문 위로 끌어올림. 데스크탑은 우측 카드를 쓴다. */}
+              {notice.eventInfo && (
+                <NoticeEventSummary eventInfo={notice.eventInfo} className="mb-8 md:hidden" />
+              )}
+              <NoticeContent content={notice.content} format={notice.contentFormat} />
+            </div>
           </article>
 
-          <aside className="lg:sticky lg:top-24 flex flex-col gap-4 min-w-0">
+          <aside className={cn('lg:sticky lg:top-24 flex flex-col gap-4 min-w-0', playsEntrance && 'enter-content')}>
             {notice.eventInfo ? (
               <div className="hidden md:block">
                 <NoticeEventCard eventInfo={notice.eventInfo} linkUrl={notice.linkUrl} />

@@ -241,18 +241,46 @@ describe('NoticeDetailPage (재설계)', () => {
     })));
     rerender(<NoticeDetailPage />);
 
-    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).not.toBeNull();
+    // 제목 머리(LCP 요소)는 연출 밖, 본문은 안 — 첫 화면 LCP 가 투명도 0 에 붙잡히지 않게.
+    expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).toBeNull();
+    expect(screen.getByTestId('notice-content').closest('.enter-content')).not.toBeNull();
     expect(screen.getByRole('button', { name: '뒤로' }).closest('.enter-content')).toBeNull();
     const linkBar = container.querySelector('[data-bottom-bar]');
     expect(linkBar).not.toBeNull();
     expect(linkBar?.closest('.enter-content')).toBeNull();
   });
 
-  it('처음부터 성공이면(캐시 재방문) enter-content 를 걸지 않는다', () => {
+  it('처음부터 성공이어도(시드·캐시) 앞으로 들어온 마운트면 본문에 enter-content 를 건다', () => {
     mockUseNoticeListQuery.mockReturnValue(listSuccess());
     mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지' })));
     render(<NoticeDetailPage />);
 
+    expect(screen.getByTestId('notice-content').closest('.enter-content')).not.toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: /봄 축제 공지/ }).closest('.enter-content')).toBeNull();
+    expect(screen.getByRole('button', { name: '뒤로' }).closest('.enter-content')).toBeNull();
+  });
+
+  it('뒤로·앞으로 가기로 그려지는 마운트(마커)는 enter-content 를 걸지 않는다', () => {
+    document.documentElement.setAttribute('data-back-navigation', '');
+    try {
+      mockUseNoticeListQuery.mockReturnValue(listSuccess());
+      mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지' })));
+      render(<NoticeDetailPage />);
+
+      expect(screen.getByTestId('notice-content').closest('.enter-content')).toBeNull();
+    } finally {
+      document.documentElement.removeAttribute('data-back-navigation');
+    }
+  });
+
+  it('표지(포스터)도 연출 밖이고, 옆 카드(aside)는 본문과 함께 떠오른다', () => {
+    mockUseNoticeListQuery.mockReturnValue(listSuccess());
+    mockUseNoticeDetailQuery.mockReturnValue(detailSuccess(makeDetail({ title: '봄 축제 공지', coverImageUrl: 'https://example.com/cover.jpg' })));
+    const { container } = render(<NoticeDetailPage />);
+
+    const poster = container.querySelector('img[src*="cover.jpg"]');
+    expect(poster).not.toBeNull();
+    expect(poster?.closest('.enter-content')).toBeNull();
+    expect(container.querySelector('aside')?.classList.contains('enter-content')).toBe(true);
   });
 });

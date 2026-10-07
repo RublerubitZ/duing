@@ -41,6 +41,8 @@ function renderAsServer(): string {
 describe('소식 목록 트리 — 하이드레이션(ISR HTML 회귀)', () => {
   it('시드된 첫 페이지를 불일치 없이 하이드레이션하고, NEW 배지는 그 뒤에 붙는다', async () => {
     const serverHtml = renderAsServer();
+    // 앞으로 들어온 렌더라 서버 HTML 에 목록 등장 클래스가 실린다(하이드레이션도 같은 값).
+    expect(serverHtml).toContain('enter-content');
     expect(serverHtml).not.toContain('>NEW<');
 
     const container = document.createElement('div');
