@@ -3,7 +3,8 @@
 두잉 백엔드를 Lightsail VM 한 대에서 Docker 로 운영한다. Caddy 가 `api.duings.com` 의 TLS 종단과
 리버스 프록시를 맡고, 백엔드 컨테이너는 내부 네트워크에서만 8080 을 노출한다.
 프론트(Vercel)·DB(Supabase prod)·스토리지(R2)·메일(Resend 주 발송 + Brevo SMTP 폴백)은 외부 매니지드 서비스다.
-외부 가용성 감시·장애 알림·대응 런북은 [`UPTIME.md`](./UPTIME.md), DB 백업·복원(RTO/RPO 포함)은 [`DB-RESTORE.md`](./DB-RESTORE.md) 참조.
+외부 가용성 감시·장애 알림·대응 런북은 [`UPTIME.md`](./UPTIME.md), DB 백업·복원(RTO/RPO 포함)은 [`DB-RESTORE.md`](./DB-RESTORE.md),
+공격·트래픽 폭증 때 Cloudflare 프록시를 다시 켜는 비상 모드와 되돌리기는 [`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 참조.
 
 ## 사전 준비 (1회)
 
