@@ -41,6 +41,8 @@ async function loadAndInstallGuard() {
 }
 
 afterEach(() => {
+  // 서버 흉내(document 지움)를 먼저 되돌린다 — 아래 정리 줄이 document 를 쓴다.
+  vi.unstubAllGlobals();
   if (registeredPopstateListener) {
     window.removeEventListener('popstate', registeredPopstateListener);
     registeredPopstateListener = null;
@@ -48,6 +50,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-back-navigation');
   Reflect.deleteProperty(document, 'startViewTransition');
   vi.useRealTimers();
+  vi.doUnmock('@/app/_lib/backDismiss');
 });
 
 describe('installBackNavigationViewTransitionGuard', () => {
@@ -158,5 +161,55 @@ describe('installBackNavigationViewTransitionGuard', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('오버레이만 닫는 뒤로가기(URL 동일)는 마커를 바로 내린다 — 2초 안의 앞으로 전환이 마커를 인수해 애니메이션을 끄지 않는다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = true;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const forwardTransition = createViewTransitionMock();
+    const nativeStart = vi.fn(() => forwardTransition);
+    document.startViewTransition = nativeStart;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    // next-view-transitions 가 popstate 마다 부르는 호출 — 오버레이 분기라 실제 전환은 시작하지 않는다.
+    document.startViewTransition(() => undefined);
+
+    expect(nativeStart).not.toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    // 시트를 닫자마자 카드를 눌러 앞으로 이동 — 마커가 없으니 전환이 그대로(애니메이션 유지) 시작된다.
+    overlayOnly = false;
+    const result = document.startViewTransition(() => undefined);
+    expect(result).toBe(forwardTransition);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    // 안전장치 타이머도 함께 취소됐다 — 시간이 지나도 아무 일이 없다.
+    vi.advanceTimersByTime(2000);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+});
+
+describe('isBackNavigationPending', () => {
+  it('마커 속성이 있을 때만 참이다', async () => {
+    vi.resetModules();
+    const { isBackNavigationPending } = await import('@/app/_lib/backNavigationViewTransition');
+
+    expect(isBackNavigationPending()).toBe(false);
+    document.documentElement.setAttribute('data-back-navigation', '');
+    expect(isBackNavigationPending()).toBe(true);
+  });
+
+  it('문서가 없는 서버 렌더에서는 거짓이다', async () => {
+    vi.resetModules();
+    const { isBackNavigationPending } = await import('@/app/_lib/backNavigationViewTransition');
+
+    vi.stubGlobal('document', undefined);
+    try {
+      expect(isBackNavigationPending()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -11,6 +11,15 @@ const FAILSAFE_CLEAR_MS = 2000;
 
 let installed = false;
 
+/**
+ * 뒤로·앞으로 가기(popstate)로 화면이 그려지는 중인지 — 마커가 서 있는 동안 참이다.
+ * 화면 본문 등장 연출(useEntranceMotion)이 마운트 때 읽어, 돌아온 화면에는 연출을 붙이지 않는다.
+ * 서버 렌더(문서 없음)에서는 거짓이다.
+ */
+export function isBackNavigationPending(): boolean {
+  return typeof document !== 'undefined' && document.documentElement.hasAttribute(BACK_NAVIGATION_ATTRIBUTE);
+}
+
 export function installBackNavigationViewTransitionGuard() {
   if (installed) return;
   if (typeof window === 'undefined') return;
@@ -62,6 +71,10 @@ export function installBackNavigationViewTransitionGuard() {
       // 프라미스(라이브러리가 pathname 변경 때 resolve)는 기다리지 않는다 — 그게 멈춤의 원인이다.
       const update = typeof callback === 'function' ? callback : callback?.update;
       void Promise.resolve(update?.()).catch(() => undefined);
+      // 전환을 시작하지 않으니 마커가 필요 없다 — 바로 내린다(안전장치 타이머도 함께 취소). 남겨 두면 2초 안에
+      // 이어지는 앞으로 전환(카드 → 상세)이 마커를 "뒤로 가기"로 인수해 애니메이션(로고 모핑 포함)이 꺼지고,
+      // 그 화면의 등장 연출도 빠진다. 필터 시트·라이트박스·모달을 뒤로 가기로 닫고 바로 카드를 누르는 흔한 경로다.
+      clearMarker(markerGeneration);
       const settled = Promise.resolve();
       return {
         ready: settled,
