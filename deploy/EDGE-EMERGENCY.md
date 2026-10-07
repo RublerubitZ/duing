@@ -1,31 +1,36 @@
 # api 비상 모드 런북 — Cloudflare 프록시 재가동·원본 잠금·되돌리기
 
 > 평상시 `api.duings.com` 은 Cloudflare **DNS 전용(프록시 OFF)** 으로 서버에 직결된다. Cloudflare 무료 플랜이
-> 한국 사용자를 미국 콜로(LAX·PDX)로 돌려 생기던 지연·타임아웃을 없애기 위해서다(2026-10, 직결 0.08초 vs 경유 0.7~1.4초).
+> 한국 사용자를 미국 콜로(LAX·PDX 등)로 돌려 생기던 지연·타임아웃을 없애기 위해서다(2026-10 실측 직결 0.08초 vs 경유 0.7~1.4초).
 > 대신 평소에는 Cloudflare 의 대량 트래픽 흡수(DDoS)·WAF 가 없다. 이 문서는 공격·트래픽 폭증 때 그 보호를
 > 몇 분 안에 다시 켜고(**비상 모드**), 끝나면 직결로 되돌리는 절차다. 장애 일반 대응은 [`UPTIME.md`](./UPTIME.md) 의
-> "장애 대응 런북" 을 먼저 본다.
+> "장애 대응 런북" 을 먼저 본다. 모든 단계는 무료 플랜·무료 한도 안에서 한다 — 유료 플랜·유료 WAF·고급 속도 제한은 쓰지 않는다(추가 비용 0원).
 >
-> ⚠️ 작성 시점(2026-10-07)에는 아직 DNS 전환과 Caddy 신뢰 블록 제거(#1395)가 운영에 나가기 전이다. 그동안은
-> 1-1 의 확인에서 신뢰 블록이 이미 있다고 나오므로 복원 단계를 건너뛴다.
+> ⚠️ **과도기(작성 시점 2026-10-07)**: DNS 전환, Caddy 신뢰 블록 제거(#1395), 연결 시간 상한(#1394)이 아직 운영에 나가기 전이다.
+> 저장소·서버 Caddyfile 에 신뢰 블록이 남아 있는 동안에는 1-1 은 확인만 하고 넘어가며, 1-5·2-5·2-6 은 해당 없다.
+> **저장소에 신뢰 블록이 있는 동안 서버에서 지우지 않는다.**
 
 ## 한눈에 보기
 
 | 순서 | 비상 모드로 | 평상시(직결)로 되돌리기 |
 |---|---|---|
-| 1 | 서버 Caddy 에 신뢰 블록 복원 — **프록시 켜기 전에** | Lightsail 방화벽 80·443 다시 전체 개방 |
-| 2 | Cloudflare `api` 레코드 프록시 켜기 | Cloudflare `api` 레코드 프록시 끄기(DNS 전용), TTL 2분 |
-| 3 | DNS 가 다 바뀐 뒤 Lightsail 방화벽 80·443 을 Cloudflare 대역만 | DNS 가 다 바뀐 뒤 서버 Caddy 신뢰 블록 제거 |
-| 4 | (필요 시) Cloudflare WAF 차단 규칙 | WAF 규칙 정리 |
+| 1 | 서버 Caddy 에 신뢰 블록 복원 — **프록시 켜기 전에** | (AOP 를 켰다면) Caddy 클라이언트 인증서 요구 해제 |
+| 2 | SSL/TLS 모드가 전체(Full) 이상인지 확인 → `api` 레코드 프록시 켜기 | Lightsail 방화벽 80·443 다시 전체 개방 |
+| 3 | **2분 이상** 지나 DNS 가 바뀐 뒤 Lightsail 방화벽 80·443 을 Cloudflare 대역만 | WAF 규칙 정리 → `api` 레코드 프록시 끄기(DNS 전용), TTL 2분 |
+| 4 | (필요 시) Cloudflare WAF 차단 규칙 | **5분 이상** 지나 DNS 가 바뀐 뒤 서버 Caddy 신뢰 블록 제거 |
 | 5 | (하루 이상 가면) 저장소 핫픽스 | 핫픽스 되돌리기 |
 | 6 | (최후) 고정 IP 교체 | — |
+| 7 | (며칠 이상) 원본 인증(AOP) — **아직 준비 안 됨** | — |
 
 **순서를 바꾸면 안 되는 이유**
 
 - **신뢰 블록 없이 프록시를 켜면**: 모든 요청의 연결 상대가 Cloudflare 엣지가 되어, 같은 거점(PoP)을 쓰는 사용자 전원이
   IP 레이트리밋 버킷을 나눠 쓴다. 로그인 실패·휴대폰 인증 발송 등이 무더기로 막힌다(#1112 이전 상태).
-- **프록시가 다 퍼지기 전에 방화벽을 잠그면**: 아직 직결로 들어오는 사용자가 막힌다(장애).
+- **SSL/TLS 모드가 유연(Flexible)인 채로 프록시를 켜면**: Cloudflare 가 원본에 HTTP 로 붙고 Caddy 가 HTTPS 로 되돌려 보내
+  리다이렉트가 끝없이 돈다(api 전체 장애).
+- **DNS 가 다 바뀌기 전에 방화벽을 잠그면**: 아직 직결로 들어오는 사용자가 막힌다(장애).
 - **되돌릴 때 방화벽을 열기 전에 프록시를 끄면**: 직결 사용자가 막힌다. **프록시가 켜진 채로 신뢰 블록을 지우면** #1112 회귀다.
+- **AOP 를 켠 채로 프록시를 끄면**: 클라이언트 인증서가 없는 브라우저가 전부 거절된다.
 
 ## 언제 비상 모드로 가나
 
@@ -38,13 +43,14 @@
   - Lightsail 콘솔 지표 — CPU·NetworkIn 급증
 - 백엔드 로그에 여러 IP 의 429 가 쏟아지거나 Sentry 5xx 가 급증한다.
 
-정상 사용자가 몰린 것(가두모집 등)이라면 비상 모드가 해법이 아니다. 느린 연결은 Caddy 연결 시간 상한(#1394)이 이미 끊는다.
+정상 사용자가 몰린 것(가두모집 등)이라면 비상 모드가 해법이 아니다. 느린 연결은 Caddy 연결 시간 상한(#1394, 다음 릴리스부터 운영 반영)이 끊는다.
 
 ## 0. 평시에 해 둘 것
 
 - Cloudflare·Lightsail 콘솔에 바로 로그인할 수 있는 사람이 최소 1명(2단계 인증 포함).
 - 서버 SSH: `ssh ubuntu@<서버 IP>` → 배포 디렉터리 `/home/ubuntu/duing`(저장소 시크릿 `DEPLOY_DIR` 이 있으면 그 값).
 - `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다.
+- Cloudflare SSL/TLS 암호화 모드가 **전체(Full)** 이상인지 가끔 확인한다(2026-10 기준 전체).
 - 분기마다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 가 최신인지 https://www.cloudflare.com/ips-v4 · ips-v6 와 대조한다.
 
 ## 1. 비상 모드로 전환
@@ -55,10 +61,11 @@
 
 ```bash
 cd /home/ubuntu/duing
-docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]' || echo "신뢰 블록 없음"
+docker compose ps caddy    # caddy 가 Up 인지 먼저 본다
+docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]' || echo "신뢰 블록 없음(또는 조회 실패)"
 ```
 
-`"client_ip_headers":["Cf-Connecting-Ip"]` 가 나오면 이미 있다. 1-2 로 넘어간다. 없으면 아래를 그대로 실행한다.
+`"client_ip_headers":["Cf-Connecting-Ip"]` 가 나오면 이미 있다. 1-2 로 넘어간다(과도기에는 여기서 넘어간다). 없으면 아래를 그대로 실행한다.
 
 ```bash
 cd /home/ubuntu/duing
@@ -73,59 +80,90 @@ docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapte
 docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]'
 ```
 
-- 마지막 줄에 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나와야 반영된 것이다.
-  - reload 성공 메시지만으로는 반영의 증거가 아니다(2026-08-30 inode 고착 사례).
+- 마지막 줄에 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나와야 반영된 것이다. reload 성공 메시지만으로는 반영의 증거가 아니다.
+  - 안 나오면 컨테이너가 옛 파일(inode)을 보고 있는 것이다(2026-08-30 사례). `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+    인증서는 `caddy_data` 볼륨에 있어 재발급되지 않고, 끊김은 수 초다.
 - **`cp` 로 덮어쓴다.** Caddyfile 은 단일 파일 bind mount 라 inode 가 바뀌면 컨테이너가 옛 파일을 계속 본다. `mv` 나 편집기로 직접 저장하지 않는다.
-- `wc -w` 가 20 미만이면(Cloudflare 목록을 못 받음) [부록 A](#부록-a-cloudflare-대역-2026-10-07) 를 `CF_RANGES` 에 직접 넣는다.
-- `grep -c` 가 1 이 아니면 전역 `servers {` 블록을 못 찾은 것이다. 편집기로 사본(`/tmp/Caddyfile.emergency`)을 고친 뒤 다시 검증한다.
-- 이제 서버 파일만 바뀌었다. **다음 main 배포가 저장소 파일로 덮어쓴다** — 1-5 핫픽스 전까지 main 배포(Deploy Backend)를 돌리지 않는다.
+- `wc -w` 가 20 미만이면(Cloudflare 목록을 못 받음) [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4·IPv6 22개를 공백으로 이어 `CF_RANGES` 에 직접 넣는다.
+- `grep -c` 가 1 이 아니면 자동 삽입이 안 된 것이다. `cp Caddyfile /tmp/Caddyfile.emergency` 로 사본을 다시 만들어 편집기로 고친 뒤, 위 명령의 `docker run … validate` 줄부터 이어서 실행한다.
+  - 전역 블록의 `servers {` 바로 아래에 두 줄을 넣는다.
+  - 전역 블록 자체가 없으면 머리 주석 다음, `api.duings.com {` 앞에 아래 블록을 새로 만든다.
+
+    ```
+    {
+    	servers {
+    		trusted_proxies static <부록 A 의 22개 대역을 공백으로 이어서>
+    		client_ip_headers Cf-Connecting-Ip
+    	}
+    }
+    ```
+
+  - 이미 신뢰 줄이 있는데 또 넣으면 `caddy validate` 가 "specified more than once" 로 막는다.
+- 이제 서버 파일만 바뀌었다. 저장소 파일로 서버를 덮어쓰는 **Deploy Backend 실행을 1-5 핫픽스 전까지 하지 않는다.**
+  - main push, 지난 실행의 re-run, 수동 실행 모두 해당한다.
+  - `UPTIME.md` 의 롤백(직전 성공 실행 re-run)도 마찬가지다. 롤백이 필요하면 1-5 핫픽스를 먼저 한다.
 
 ### 1-2. Cloudflare 프록시 켜기
 
-- 대시보드 → `duings.com` → **DNS** → 레코드 → `api` 편집 → 프록시 상태를 켠다(주황 구름) → 저장. TTL 은 "자동" 으로 바뀐다.
-- 다른 레코드(`duings.com`·`files`)는 건드리지 않는다.
-- 확인(TTL 2분 뒤, 로컬):
-  - `dig +short api.duings.com` → Cloudflare IP(104.21.x·172.67.x 등)
-  - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 값이 있다
+1. 대시보드 → `duings.com` → **SSL/TLS** → 개요: 암호화 모드가 **전체(Full)** 또는 **전체(엄격)** 인지 확인한다.
+   - 유연(Flexible)·끔이면 먼저 전체로 올린다. 그대로 프록시를 켜면 리다이렉트 루프로 api 가 전부 멈춘다.
+   - 원본 인증서(Let's Encrypt, Caddy 자동 갱신)가 정상이라 전체(엄격)도 된다. 다만 존 전체 설정이라 `duings.com`·`files` 에도 함께 적용된다.
+2. **DNS** → 레코드 → `api` 편집 → 프록시 상태를 켠다(주황 구름) → 저장. TTL 은 "자동(300초)" 으로 바뀐다.
+   - 다른 레코드(`duings.com`·`files`)는 건드리지 않는다.
+3. 확인 — 바꾸기 전 TTL(2분)이 지난 뒤, 로컬에서:
+   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` → 둘 다 Cloudflare IP(104.21.x·172.67.x 등)
+   - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 값이 있다
 
 ### 1-3. 원본 잠금 — Lightsail 방화벽을 Cloudflare 대역만
 
-- 1-2 의 `dig` 가 Cloudflare IP 를 돌려준 뒤에 한다. 먼저 잠그면 아직 직결로 오는 사용자가 막힌다.
-- Lightsail 콘솔 → 인스턴스 → **네트워킹** → **IPv4 방화벽**
-  - HTTPS(443): "IP 주소로 제한" → [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4 15개 대역.
-  - HTTP(80): 같은 방식으로 제한한다. 인증서 갱신 확인 요청도 Cloudflare 를 거쳐 들어온다.
-  - SSH(22)는 그대로 둔다. 배포 CD 가 GitHub 러너에서 접속한다.
-  - 한 규칙에 여러 대역을 넣을 수 없으면 대역마다 같은 포트 규칙을 추가한다.
-- **IPv6 방화벽**: 80·443 규칙을 지운다. api 는 AAAA 레코드가 없어 Cloudflare 도 IPv4 로 접속한다.
-- 서버 안의 ufw 가 아니라 **Lightsail 방화벽**에서 한다. Docker 가 ufw 를 우회해 게시 포트를 열기 때문이다.
-- 확인(로컬, Cloudflare 가 아닌 회선에서):
-  - `curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 --resolve api.duings.com:443:<서버 IP> https://api.duings.com/actuator/health` → `000`(막힘)
-  - `curl -s -o /dev/null -w '%{http_code}\n' https://api.duings.com/actuator/health` → `200`(Cloudflare 경유 정상)
+1. 먼저 직결 손님이 빠졌는지 본다.
+   - 1-2 의 `dig` 두 개가 모두 Cloudflare IP 를 돌려줘야 한다.
+   - 서버에서 `sudo ss -tn state established '( sport = :443 )'` 를 실행해 Peer Address 가 거의 다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 대역인지 본다.
+   - 아니면 1~2분 더 기다린다. 먼저 잠그면 아직 직결로 오는 사용자가 막힌다.
+2. Lightsail 콘솔 → 인스턴스 → **네트워킹** → **IPv4 방화벽**
+   - HTTPS(443): "IP 주소로 제한" → [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4 15개 대역.
+   - HTTP(80): 같은 방식으로 제한한다. 인증서 갱신 확인 요청도 Cloudflare 를 거쳐 들어온다.
+   - 한 규칙에 출발지를 30개까지 넣을 수 있고, IPv4 규칙 한도는 출발지 기준 60개다(15개 × 2포트 = 30).
+   - SSH(22)는 그대로 둔다. 배포 CD 가 GitHub 러너에서 접속한다.
+3. **저장 뒤 포트마다 15개 대역이 모두 보이는지 센다.** 빠진 대역은 그 엣지를 타는 사용자에게만 간헐적인 522 오류로 나타나 알아채기 어렵다.
+   - 저장되지 않는 대역이 있으면(`104.24.0.0/14` 가 안 들어간 사례 보고) `/15` 둘로 쪼개 넣는다. 예: `104.24.0.0/15`·`104.26.0.0/15`.
+4. **IPv6 방화벽**: 80 규칙(현재 유일한 IPv6 규칙)을 지운다. 443 은 원래 IPv4 만 열려 있다. api 는 AAAA 레코드가 없어 Cloudflare 도 IPv4 로 접속한다.
+5. 서버 안의 ufw 가 아니라 **Lightsail 방화벽**에서 한다. Docker 가 ufw 를 우회해 게시 포트를 열기 때문이다.
+6. 확인(로컬, Cloudflare 가 아닌 회선에서):
+   - `curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 --resolve api.duings.com:443:<서버 IP> https://api.duings.com/actuator/health` → `000`(막힘)
+   - `curl -s -o /dev/null -w '%{http_code}\n' https://api.duings.com/actuator/health` → `200`(Cloudflare 경유 정상)
 
 ### 1-4. (필요 시) Cloudflare WAF 로 막기
 
 - **api 에는 챌린지를 쓰지 않는다.** "I'm Under Attack"·관리형 챌린지·JS 챌린지는 브라우저가 페이지로 열 때만 풀린다. 프론트의 API 호출(fetch)은 전부 실패한다. api 에는 **차단(Block)** 만 쓴다.
+- **Bot Fight Mode 는 켜지 않는다.** WAF 규칙으로 예외를 둘 수 없고, Vercel 서버 렌더·Better Stack 같은 API 호출까지 챌린지한다.
 - 보안 → WAF → **사용자 지정 규칙**(무료 5개, 1개는 files 이미지 차단이 쓰는 중 — 건드리지 않는다)
   - 공격 IP·ASN·User-Agent 를 차단한다. 조건에 `http.host eq "api.duings.com"` 을 함께 건다.
-- **속도 제한 규칙**(무료 1개): `api.duings.com` 대상, IP 기준. 무료 플랜의 기간·차단 시간 선택지는 대시보드에서 확인한다.
+  - 며칠 이상 둘 규칙에는 `and not starts_with(http.request.uri.path, "/.well-known/acme-challenge/")` 를 붙인다.
+    프록시 중에는 인증서 갱신 확인(HTTP-01)이 Cloudflare 를 거쳐 여러 지점에서 들어와, 국가·ASN 차단에 걸릴 수 있다.
+- **속도 제한 규칙**(무료 1개)
+  - 무료 플랜은 조건에 경로(Path)만 쓸 수 있고 호스트로는 못 거른다. IP 기준이고, 집계·차단 시간은 10초로 고정이다.
+  - 경로로 건다(예: 로그인·인증 발송 경로). 존의 다른 프록시 호스트에 같은 경로가 있으면 함께 걸린다는 점을 감안한다.
 - 국가 차단은 신중히 한다. Vercel 서버 렌더와 Better Stack 모니터가 해외에서 올 수 있다.
 - WAF 규칙은 프록시가 켜져 있을 때만 적용된다.
 
 ### 1-5. (하루 이상 가면) 저장소 핫픽스
 
-- 1-1 은 서버 파일만 바꿨다. 다음 main 배포가 저장소 파일로 덮어쓰면 신뢰 블록이 사라져 #1112 회귀가 난다.
-- develop 에 신뢰 블록을 되살리는 PR 을 낸다. 신뢰 블록을 지운 커밋(#1395 의 squash 커밋)을 `git revert` 하면 Caddyfile 신뢰 블록과 `deploy-config-ci.yml` 의 존재 단언이 함께 돌아온다. 머지 뒤 main 으로 승격한다.
-  - Cloudflare 대역이 #1112 때와 달라졌으면 revert 뒤 최신 대역으로 맞춘다.
-- 그 전까지 main 배포를 돌리지 않는다.
+1-1 은 서버 파일만 바꿨다. Deploy Backend 가 한 번이라도 돌면 저장소 파일로 덮어써 신뢰 블록이 사라지고 #1112 회귀가 난다. 저장소에도 같은 상태를 넣는다.
+
+- **develop 에 아직 릴리스하지 않은 변경이 없으면**: develop 에 신뢰 블록을 지운 커밋(#1395 의 squash 커밋)을 `git revert` 하는 PR 을 낸다.
+  Caddyfile 신뢰 블록과 `deploy-config-ci.yml` 의 존재 단언이 함께 돌아온다. 머지한 뒤 main 으로 승격한다.
+- **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 revert 만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
+- Cloudflare 대역이 #1112 때와 달라졌으면 revert 뒤 최신 대역으로 맞춘다.
 
 ### 1-6. (최후) 고정 IP 교체
 
 공격자가 서버 IP 를 직접 때려 대역폭이 찰 때 쓴다. 방화벽은 연결은 막아도, IP 로 쏟아지는 대량 패킷 자체는 막지 못한다.
 
 1. Lightsail → **네트워킹** → 고정 IP 를 새로 만든다.
-2. 기존 고정 IP 를 인스턴스에서 분리하고, 새 고정 IP 를 인스턴스에 연결한다.
+2. 인스턴스에는 고정 IP 를 하나만 붙일 수 있다. 기존 고정 IP 를 분리하고 새 고정 IP 를 연결한다.
 3. Cloudflare `api` 레코드 값을 새 IP 로 바꾼다(프록시 켠 채로).
-4. 옛 고정 IP 는 바로 해제한다. 인스턴스에 붙어 있지 않은 고정 IP 는 과금될 수 있다.
+4. 옛 고정 IP 는 바로 해제한다. 인스턴스에 붙어 있지 않은 고정 IP 는 1시간이 지나면 과금된다.
 5. 저장소 시크릿 `LIGHTSAIL_HOST` 가 IP 면 새 IP 로 바꾼다. 배포 CD 와 운영 SSH 가 쓴다.
 6. 방화벽 규칙(1-3)은 인스턴스에 붙어 있으니 교체 뒤에도 그대로인지 확인한다.
 
@@ -138,18 +176,24 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
   - Caddy 쪽은 Caddyfile `tls { client_auth { … } }` 설정과 인증서 파일 마운트가 필요하다.
   - Cloudflare 공용 인증서는 모든 고객이 같이 쓰므로 소용없다.
 - **현재 준비돼 있지 않다.** 인증서 생성·Cloudflare 등록·Caddy 설정·compose 마운트를 미리 만들어 리허설해 두는 게 후속 과제다. 비상 모드가 며칠 이상 가면 이것부터 한다.
-- SSL/TLS 암호화 모드는 **전체(엄격)** 로 올릴 수 있다. 원본 인증서(Let's Encrypt, Caddy 자동 갱신)가 정상이기 때문이다. 다만 존 전체 설정이라 `duings.com`·`files` 에도 함께 적용된다.
+- 켰다면 되돌릴 때 **프록시를 끄기 전에** Caddy 의 클라이언트 인증서 요구부터 해제한다(2-1).
 
 ## 2. 평상시(직결)로 되돌리기
 
 공격이 끝나고 충분히 안정되면(예: 24시간 이상 정상) 아래 순서로 되돌린다.
 
-1. **Lightsail 방화벽 다시 열기**
+1. **(AOP 를 켰다면)** Caddy 의 클라이언트 인증서 요구를 빼고 reload → 관리 API 로 확인한다.
+2. **Lightsail 방화벽 다시 열기**
    - IPv4 80·443 의 "IP 주소로 제한" 을 풀어 전체 허용으로 한다.
    - IPv6 80 규칙을 되살린다.
    - 확인: 1-3 의 `--resolve` 직결 curl 이 `200`.
-2. **Cloudflare `api` 레코드 프록시 끄기**(DNS 전용) → TTL 2분. 1-4 의 WAF 규칙은 프록시를 끄면 효력이 없으니 지운다.
-3. **TTL 이 지나 `dig` 가 서버 IP 를 돌려준 뒤** 서버 Caddy 에서 신뢰 블록을 지운다.
+3. **WAF 규칙 정리, 프록시 끄기**
+   - 1-4 의 WAF 규칙은 프록시를 끄면 효력이 없으니 지운다.
+   - `api` 레코드 프록시를 끄고(DNS 전용) TTL 을 2분으로 둔다.
+4. **바꾸기 전 TTL(자동 = 300초)이 지나 DNS 가 바뀐 뒤 확인한다.** 끈 뒤 **5분 이상** 기다린다.
+   - `dig @1.1.1.1 +short api.duings.com` · `dig @8.8.8.8 +short api.duings.com` → 둘 다 서버 IP
+   - `curl -s -D - -o /dev/null https://api.duings.com/actuator/health | grep -i cf-ray` → 빈 출력
+5. **서버 Caddy 에서 신뢰 블록 제거**(과도기에는 하지 않는다)
 
    ```bash
    cd /home/ubuntu/duing
@@ -161,17 +205,21 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers"' || echo "신뢰 블록 없음 — 정상"
    ```
 
-4. **저장소**: 1-5 핫픽스를 했다면 그 revert 를 다시 되돌리는 PR(신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다. 핫픽스를 하지 않았다면 3번 결과가 이미 저장소 파일과 같다.
-5. **사후 기록**: 타임라인(감지 → 전환 → 복구), 공격 형태, 다음에 바꿀 점을 남긴다. `UPTIME.md` 런북 5번과 같은 방식이다.
+   - 마지막 줄에 `"client_ip_headers"` 가 그대로 나오면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+6. **저장소**(과도기에는 해당 없음)
+   - 1-5 핫픽스를 했다면 그 revert 를 다시 되돌리는 PR(신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
+   - 핫픽스를 하지 않았다면 5번 결과가 이미 저장소 파일과 같다.
+7. **사후 기록**: 타임라인(감지 → 전환 → 복구), 공격 형태, 다음에 바꿀 점을 남긴다. `UPTIME.md` 런북 5번과 같은 방식이다.
 
 ## 3. 확인 명령 모음
 
 | 확인 | 명령 | 기대 |
 |---|---|---|
-| 지금 DNS | `dig +short api.duings.com` | 직결: 서버 IP / 비상 모드: Cloudflare IP |
+| 지금 DNS | `dig @1.1.1.1 +short api.duings.com`, `dig @8.8.8.8 +short api.duings.com` | 직결: 서버 IP / 비상 모드: Cloudflare IP |
 | Cloudflare 경유 여부 | `curl -s -D - -o /dev/null https://api.duings.com/actuator/health \| grep -i cf-ray` | 비상 모드면 값 있음, 직결이면 없음 |
 | Caddy 구동 설정 | (서버) `docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers` | 신뢰 블록 유무, 시간 상한(`read_header_timeout: 10000000000` 등) |
 | 원본 직접 접속 | `curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 --resolve api.duings.com:443:<서버 IP> https://api.duings.com/actuator/health` | 잠금 중 `000`, 평시 `200` |
+| 443 연결 상대 | (서버) `sudo ss -tn state established '( sport = :443 )'` | 비상 모드면 Peer 가 부록 A 대역 |
 | 서버 부하 | (서버) `docker stats --no-stream`, `ss -s` | — |
 
 - 컨테이너 안에서 `wget localhost:2019` 는 `::1` 로 풀려 거부된다. `curl` 을 쓰거나 `127.0.0.1` 로 적는다.
