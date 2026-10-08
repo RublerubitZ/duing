@@ -36,7 +36,7 @@ export type PublicContent<T> =
 
 // 공개 API 는 볼 수 없는 자원(승인 대기·비활성·삭제)도 열거 방지로 404 를 준다. 그 밖의 4xx 는 장애로 본다 —
 // 형식이 틀린 id 는 페이지가 호출 전에 거르고(parsePositiveIdParam), 403 은 Cloudflare WAF·봇 챌린지일 수 있다.
-// 장애를 notFound 로 받으면 noindex 셸이 24시간 캐시돼 직전 정상본까지 잃는다.
+// 장애를 notFound 로 받으면 noindex 셸이 재생성 주기만큼(동아리 상세 7일·소식 24시간) 캐시돼 직전 정상본까지 잃는다.
 const NOT_FOUND_STATUSES: ReadonlySet<number> = new Set([404, 410]);
 
 async function loadPublicContent<T>(load: () => Promise<T>): Promise<PublicContent<T>> {

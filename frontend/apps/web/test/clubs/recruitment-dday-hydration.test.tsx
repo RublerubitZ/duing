@@ -11,7 +11,7 @@ import { ClubRecruitmentSummary } from '@/app/clubs/[clubId]/_components/ClubRec
 // RTL 을 거치지 않고 hydrateRoot 를 직접 쓰므로 act 환경 플래그를 직접 켠다(없으면 act 경고가 stderr 로 샌다).
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// 공개 상세는 24시간 ISR 이라 HTML 이 하루 넘게 묵을 수 있다 — 렌더 날의 D-day 를 서버 HTML 에 박으면
+// 공개 동아리 상세는 7일 ISR 이라 HTML 이 하루 넘게 묵을 수 있다 — 렌더 날의 D-day 를 서버 HTML 에 박으면
 // 보는 날의 하이드레이션과 글자가 달라진다(#418). 서버·첫 프레임은 "모집중", 하이드레이션 뒤에 D-day.
 const openRecruitment: StudentRecruitmentProjection = {
   id: 1,

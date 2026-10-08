@@ -43,9 +43,9 @@ beforeEach(() => {
   fetchPublicClubDetailMock.mockReset();
 });
 
-describe('동아리 상세 라우트 — 24시간 ISR', () => {
-  it('재생성 주기는 24시간', () => {
-    expect(revalidate).toBe(86400);
+describe('동아리 상세 라우트 — 7일 ISR', () => {
+  it('재생성 주기는 7일', () => {
+    expect(revalidate).toBe(604800);
   });
 
   it('공개 동아리는 상세를 dataUpdatedAt 0 으로 시드한다 — 마운트 때 항상 재요청', async () => {
@@ -55,7 +55,7 @@ describe('동아리 상세 라우트 — 24시간 ISR', () => {
     expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
   });
 
-  it('연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML 에 번호가 24시간 굳지 않게', async () => {
+  it('연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML 에 번호가 재생성 주기 동안 굳지 않게', async () => {
     fetchPublicClubDetailMock.mockResolvedValue({
       status: 'found',
       data: club({ contactPhone: '010-1234-5678', contactVisibility: 'PUBLIC' }),
