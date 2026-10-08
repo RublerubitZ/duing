@@ -35,6 +35,9 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     /** 사용자가 (활성) 동아리 회장인지 — 탈퇴 차단 등에 사용. @SQLRestriction 으로 soft-delete 행은 제외된다. */
     boolean existsByUserIdAndRole(Long userId, ClubMemberRole role);
 
+    /** 회원이 해당 역할로 속한 멤버십 — 회장 본인 이름 변경 때 그 회원이 이끄는 동아리 상세를 다시 만들려고 쓴다. */
+    List<ClubMember> findAllByUserIdAndRole(Long userId, ClubMemberRole role);
+
     /**
      * 동아리 멤버 전체 조회. LEADER → OFFICER → MEMBER 순, 그룹 내 createdAt(joinedAt) 오름차순.
      * User 를 JOIN FETCH 해 N+1 을 회피한다.

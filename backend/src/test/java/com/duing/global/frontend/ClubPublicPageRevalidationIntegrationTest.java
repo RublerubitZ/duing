@@ -50,6 +50,8 @@ import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand
 import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
@@ -109,6 +111,7 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     @Autowired RecruitmentService recruitmentService;
     @Autowired AdminRecruitmentCommandService adminRecruitmentCommandService;
     @Autowired Clock clock;
+    @Autowired UserService userService;
 
     @BeforeEach
     void setUp() throws InterruptedException {
@@ -358,6 +361,32 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
                 new AssignLeaderByAdminCommand(club.getId(), member.getId(), admin.getId(), "직권 지정"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(3)).revalidateWithoutAlert(detailPathOf(club));
         // 실행기를 비운 뒤 "정확히 3회, 그 밖의 호출 없음" 을 고정한다 — 중복 발행·목록 동반 요청을 잡는다.
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("회장 본인이 이름을 바꾸면 이끄는 동아리마다 상세 재생성을 요청하고, 같은 이름 저장·회장 아닌 회원의 이름 변경은 요청하지 않는다")
+    void leaderRenameRequestsDetailRevalidationForEachLedClub() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.withName("옛회장이름"));
+        User member = userRepository.save(UserFixture.withName("부원이름"));
+        // 동아리 id 를 회원·멤버십 id 와 떼어 놓는다 — 동아리 대신 멤버십·회원 id 로 발행하는 변이가 같은 경로로 가려지지 않게.
+        for (int decoy = 1; decoy <= 4; decoy++) {
+            clubRepository.save(ClubFixture.academic("상세재생성이름미끼동아리" + decoy));
+        }
+        Club firstLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리1");
+        Club secondLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리2");
+        clubMemberRepository.save(ClubMember.asMember(firstLedClub, member));
+
+        // 이름 그대로(전공만 변경) — 상세에 보이는 값이 아니다.
+        userService.updateProfile(new UpdateProfileCommand(leader.getId(), "옛회장이름", null, null, "바꾼 전공"));
+        // 회장이 아닌 회원의 이름 변경 — 상세의 "동아리 회장" 줄과 무관하다.
+        userService.updateProfile(new UpdateProfileCommand(member.getId(), "바뀐부원이름", null, null, null));
+        verify(frontendRevalidator, after(QUIET_WAIT_MS).never()).revalidateWithoutAlert(anyString());
+
+        userService.updateProfile(new UpdateProfileCommand(leader.getId(), "새회장이름", null, null, null));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(firstLedClub));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(secondLedClub));
         drainRevalidationExecutor();
         verifyNoMoreInteractions(frontendRevalidator);
     }
