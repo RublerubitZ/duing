@@ -110,11 +110,16 @@ duing:
   club:
     metric:
       enabled: ${DUING_CLUB_METRIC_ENABLED:true}
-  # 프론트 재생성 트리거(정각 /clubs·상세 /clubs/<id>) — 다른 운영 잡과 달리 켜는 조건이 비밀값 존재다(하드코딩 활성 관례의 의도적 예외).
-  # 비밀값이 비면 비활성으로 부팅하고 시작 로그에 WARN 한 줄. 값은 서버 .env 에만 둔다.
+  # 프론트 재생성 트리거(정각 /clubs·상세 /clubs/<id>) — 요청이 나가는 조건은 비밀값 존재다(하드코딩 활성 관례의 의도적 예외).
+  # 비밀값이 비면 요청 없이 부팅하고 시작 로그에 WARN 한 줄. 값은 서버 .env 에만 둔다. 상세 매일 재생성 잡의 등록은
+  # 아래 플래그로 다른 운영 잡처럼 기본 활성이다(비밀값이 없으면 잡이 돌아도 요청은 나가지 않는다).
   frontend:
     base-url: ${DUING_FRONTEND_BASE_URL:https://duings.com}
     revalidate-secret: ${DUING_FRONTEND_REVALIDATE_SECRET:}
+    # 동아리 상세 매일 재생성 — 운영 기본 활성(하드코딩 관례). 요청은 위 비밀값이 있어야 나간다.
+    # 끄고 싶으면 DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED=false.
+    club-detail-daily:
+      enabled: ${DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED:true}
   # 시설 크롤 스케줄러 — 운영에서는 항상 켠다. 별도 env 셋업 누락으로 조용히 꺼지는 사고를 막는다.
   # 끄고 싶으면 DUING_FACILITY_CRAWLER_ENABLED=false 로 오버라이드한다.
   facility:

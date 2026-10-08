@@ -21,9 +21,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * 프론트(Next.js) 페이지 재생성 요청기 — 백엔드 데이터가 바뀐 공개 페이지를 그 직후 다시 만들게 한다. 호출부는 둘이다:
- * 추천순 정각 셔플에 맞춘 동아리 탐색({@code /clubs} — {@code ClubMetricRefreshJob} 이 {@link #revalidate})과,
- * 상세가 바뀐 커밋 뒤의 동아리 상세({@code /clubs/{id}} — 전용 실행기에서 {@link #revalidateWithoutAlert}, #1356).
+ * 프론트(Next.js) 페이지 재생성 요청기 — 백엔드 데이터가 바뀐 공개 페이지를 그 직후 다시 만들게 한다. 호출부는 셋이다:
+ * 추천순 정각 셔플에 맞춘 동아리 탐색({@code /clubs} — {@code ClubMetricRefreshJob} 이 {@link #revalidate}),
+ * 상세가 바뀐 커밋 뒤의 동아리 상세({@code /clubs/{id}} — 전용 실행기에서 {@link #revalidateWithoutAlert}, #1356),
+ * 매일 00:05 진행 중이거나 최근(어제·그제) 마감한 모집이 있는 동아리 상세({@code ClubDetailDailyRevalidationJob} 이
+ * {@link #revalidateWithoutAlert}).
  *
  * <p>흐름: {@code POST /api/internal/revalidate}(Bearer 비밀값) → 2xx 면 1초 뒤 그 페이지를 GET(warm-up).
  * 무효화 뒤 첫 요청이 재생성을 일으키므로 그 요청을 백엔드가 먼저 보내 실제 사용자 요청보다 앞서 재생성을 시작시킨다.
@@ -32,7 +34,7 @@ import org.springframework.web.client.RestClientException;
  * 남겨 운영에서 확인한다. 옛 엔트리를 그대로 받은 HIT 이 반복되면 대기를 늘린다.
  *
  * <p>격리가 계약이다: 두 메서드 모두 어떤 경우에도 예외를 던지지 않고 재시도하지 않는다 — 정각 경로는 다음 정각에
- * 다시 돌고, 프론트는 자체 재생성 주기(상세 24시간)를 안전망으로 둔다. 성공 판정은 2xx 만이다 — RestClient 기본 오류 판정은
+ * 다시 돌고, 프론트는 자체 재생성 주기(revalidate)를 안전망으로 둔다. 성공 판정은 2xx 만이다 — RestClient 기본 오류 판정은
  * 4xx/5xx 만 예외로 만들어 3xx 가 성공처럼 통과하므로({@code SimpleClientHttpRequestFactory} 는 POST 리다이렉트를
  * 따라가지 않는다), 상태 핸들러를 거치지 않는 {@code exchange} 로 상태를 직접 판정한다.
  *
