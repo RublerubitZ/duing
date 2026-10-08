@@ -9,7 +9,8 @@ import { fetchPublicClubDetail, fetchPublicClubList } from '@/app/_lib/public-co
 import { DEFAULT_CLUB_LIST_PARAMS } from '@/app/clubs/_lib/exploreParams';
 
 // 백엔드가 부르는 내부 재검증 경로. /clubs 는 정각 잡(ClubMetricRefreshJob)이 추천순 셔플 직후 부른다.
-// /clubs/<id> 는 동아리 상세의 공개 상태·정보 변경을 서버 HTML 에 바로 반영하는 용도다(#1356).
+// /clubs/<id> 는 동아리 상세 서버 HTML 의 변경을 바로 반영하는 용도다 — 공개 상태·정보·사진·회장 변경(#1356)과
+// 모집 게시·수정·마감·삭제·회장 본인 이름 변경 직후, 그리고 매일 00:05 진행 중·최근 마감 모집 동아리마다 부른다.
 // 공개 주소라 서버 전용 비밀값(REVALIDATE_SECRET — NEXT_PUBLIC_ 금지)이 유일한 보호막이다.
 // 허용 목록 밖 경로는 받지 않는다 — 비밀값이 새도 피해를 이 목록의 재생성으로 묶는다.
 // 지우기 전에 경로마다 페이지가 다시 그릴 수 있는지 확인하고, 하나라도 그릴 수 없으면 아무것도 지우지 않는다.
