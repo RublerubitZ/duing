@@ -5,9 +5,11 @@ import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class GeneralAdminRecruitmentCommandService implements AdminRecruitmentCo
     private final RecruitmentRepository recruitmentRepository;
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 운영진 수동 마감과 같은 {@code Recruitment.close} 를 탄다 — 상태 머신을 우회해 직접 UPDATE 하면
@@ -37,6 +40,8 @@ public class GeneralAdminRecruitmentCommandService implements AdminRecruitmentCo
         recruitment.close(LocalDateTime.now(clock));
         clubAuditEventRepository.save(ClubAuditEvent.adminForceClose(
                 recruitment.getClub().getId(), recruitmentId, adminUserId, normalizeReason(reason)));
+        // 운영진 마감과 같은 상세 변화 — 커밋 뒤 그 동아리 상세 재생성을 요청한다(#1356 리스너).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(recruitment.getClub().getId()));
     }
 
     /** 공백뿐인 사유는 "미입력"과 같으므로 NULL 로 수렴시킨다(Club 의 blankToNull 은 private 이라 재사용 불가). */

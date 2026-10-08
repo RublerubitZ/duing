@@ -31,6 +31,7 @@ import com.duing.domain.user.service.dto.query.UserQuery;
 import com.duing.domain.user.service.dto.query.UserSearchResultQuery;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
 import com.duing.global.persistence.LikeEscapes;
@@ -40,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -276,8 +278,16 @@ public class GeneralUserService implements UserService {
         // (감사 로그와 실제 상태 일치)는 잠금이 보장한다.
         User user = userRepository.findByIdForUpdate(updateProfileCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+        String previousName = user.getName();
         user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),
                 updateProfileCommand.college(), updateProfileCommand.major());
+        // 회장 이름은 동아리 상세 정보 탭("동아리 회장")의 서버 HTML 에 실린다 — 이름이 실제로 바뀌었을 때만, 이 회원이
+        // 이끄는 동아리마다 커밋 뒤 상세 재생성을 요청한다(#1388). 학년·전공만 바꾼 저장은 상세에 보이지 않는다.
+        if (!Objects.equals(previousName, user.getName())) {
+            clubMemberRepository.findAllByUserIdAndRole(user.getId(), ClubMemberRole.LEADER)
+                    .forEach(leaderMembership -> eventPublisher.publishEvent(
+                            new ClubPublicPageChangedEvent(leaderMembership.getClub().getId())));
+        }
     }
 
     @Override

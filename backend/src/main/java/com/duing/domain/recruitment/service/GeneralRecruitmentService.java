@@ -29,6 +29,7 @@ import com.duing.domain.recruitment.service.dto.query.RecruitmentDetailQuery;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryQuery;
 import com.duing.global.config.PublicApiCacheConfig;
 import com.duing.global.exception.PostgresConstraintViolations;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -103,7 +104,12 @@ public class GeneralRecruitmentService implements RecruitmentService {
             recruitmentRepository.flush();
         });
 
-        return buildAndPersist(club, createRecruitmentCommand);
+        Long recruitmentId = buildAndPersist(club, createRecruitmentCommand);
+        // 상세 서버 HTML 의 대표 모집(활성 모집 카드·지원 바)이 바뀐다 — 커밋 뒤 그 상세 재생성을 요청한다(#1356 리스너).
+        // 대표 모집인지는 가리지 않는다: 대표 선정 규칙(representativeOrder)을 여기 한 벌 더 두지 않고, 대표가 아닌 모집의
+        // 쓰기는 같은 셸을 한 번 더 그릴 뿐이다. 수정·접수 중단·마감·삭제·총동연 강제 마감도 같다.
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
+        return recruitmentId;
     }
 
     /**
@@ -244,6 +250,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         }
 
         recruitment.update(updateRecruitmentCommand, resolvedQuestions);
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     /**
@@ -334,6 +341,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.close(LocalDateTime.now(clock));
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     @Override
@@ -348,6 +356,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
         clubAuthService.requireManagerOrHidden(currentUserId, clubId, RecruitmentException.RecruitmentNotFoundException::new);
 
         recruitment.stopIntake(LocalDate.now(clock));
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     @Override
@@ -393,6 +402,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
         // @SQLDelete 로 soft-delete 된다. RecruitmentForm 은 cascade 로 함께 정리된다.
         recruitmentRepository.delete(recruitment);
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     @Override
