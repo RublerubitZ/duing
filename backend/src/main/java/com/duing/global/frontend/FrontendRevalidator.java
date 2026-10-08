@@ -98,7 +98,8 @@ public class FrontendRevalidator {
         if (enabled) {
             log.info("[프론트 재생성 트리거] 활성 — 정각 잡(DUING_CLUB_METRIC_ENABLED, 운영 기본 활성)이 켜져 있으면 "
                     + "매시 정각 /clubs 재생성을 요청한다. 동아리 상세가 바뀐 커밋 뒤에는 정각 잡과 무관하게 "
-                    + "/clubs/<id> 재생성을 요청한다.");
+                    + "/clubs/<id> 재생성을 요청한다. 매일 00:05 에는 진행 중이거나 최근 마감한 모집이 있는 "
+                    + "동아리 상세 재생성을 요청한다(DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED, 운영 기본 활성).");
         } else {
             log.warn("[프론트 재생성 트리거] 비활성 — DUING_FRONTEND_REVALIDATE_SECRET 미설정·32바이트 미만이거나 "
                     + "DUING_FRONTEND_BASE_URL 이 비었거나 절대 http(s) 주소가 아니다. "
@@ -120,7 +121,8 @@ public class FrontendRevalidator {
 
     /**
      * {@link #revalidate} 와 같은 요청·warm-up 을 하되 연속 실패를 세지도 알리지도 않는다 — 실패는 WARN 만 남는다.
-     * 변경 이벤트로 드물게 불리는 동아리 상세용이다(#1356). 비활성이면 즉시 반환. 절대 예외를 던지지 않는다.
+     * 변경 이벤트로 드물게 불리는 동아리 상세용이다(#1356). 매일 00:05 잡({@code ClubDetailDailyRevalidationJob})도
+     * 대상 동아리마다 한 번씩 부른다. 비활성이면 즉시 반환. 절대 예외를 던지지 않는다.
      */
     public void revalidateWithoutAlert(String path) {
         if (isRequestable(path)) {

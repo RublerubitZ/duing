@@ -376,7 +376,9 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         }
         Club firstLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리1");
         Club secondLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리2");
-        clubMemberRepository.save(ClubMember.asMember(firstLedClub, member));
+        ClubMember memberMembership = clubMemberRepository.save(ClubMember.asMember(firstLedClub, member));
+        assertThat(List.of(firstLedClub.getId(), secondLedClub.getId()))
+                .doesNotContain(leader.getId(), member.getId(), memberMembership.getId());
 
         // 이름 그대로(전공만 변경) — 상세에 보이는 값이 아니다.
         userService.updateProfile(new UpdateProfileCommand(leader.getId(), "옛회장이름", null, null, "바꾼 전공"));

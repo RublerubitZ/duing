@@ -154,7 +154,9 @@ EOF
   `ClubDetailDailyRevalidationJob` 이고, 플래그 `DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED` 는 운영 기본 활성이다.
   정상이면 `ClubDetailDailyRevalidationJob start: targets=N` → 동아리마다 `프론트 재생성 warm-up 응답 — path=/clubs/<id>`
   → `ClubDetailDailyRevalidationJob done: targets=N` 순이다. 요청 실패는 위 상세 WARN 과 같고, 대상 조회 실패는 ERROR
-  한 줄이며 다음 날 다시 돈다. 종료 중이면 WARN `종료 중 — 남은 N곳 건너뜀`.
+  한 줄이며 다음 날 다시 돈다. 종료 중이면 WARN `종료 중 — 남은 N곳 건너뜀`. `start: targets=N`(N ≥ 1) 바로 뒤에
+  `done` 이 오고 그 사이에 `warm-up 응답`·요청 실패 WARN 이 한 줄도 없으면 비밀값 미설정 등으로 트리거가 비활성이다 —
+  요청기는 DEBUG 만 남기고 건너뛰므로 부팅 WARN `[프론트 재생성 트리거] 비활성` 을 확인한다.
 - **배포 순서**: 백엔드가 프론트(상세 경로 허용 — #1356 프론트)보다 먼저 배포되면 상세 요청은 `HTTP_400`(허용 목록 밖)이다.
   같은 릴리스로 함께 나가면 프론트 배포가 끝날 때까지 400 WARN 이 잠시 날 수 있고 저절로 풀린다. 프론트 없이 백엔드만
   나가면 모든 상세 요청이 400 이므로 프론트를 먼저(또는 같은 릴리스로) 배포한다.

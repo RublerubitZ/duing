@@ -16,8 +16,8 @@ import org.springframework.scheduling.config.ScheduledTask;
 import org.springframework.scheduling.config.ScheduledTaskHolder;
 
 /**
- * 플래그를 켜면 매일 크론이 실제 스케줄러에 등록되는지 검증 — 빈이 떠 있어도 @Scheduled 등록이 조용히 빠지면 상세가 7일
- * 주기까지 묵는 무음 고장이 된다(ClubMetricScheduleRegistrationTest 관례).
+ * 플래그를 켜면 매일 크론이 실제 스케줄러에 등록되는지 검증 — 빈이 떠 있어도 @Scheduled 등록이 조용히 빠지면 상세가
+ * 프론트 자체 재생성 주기까지 묵는 무음 고장이 된다(ClubMetricScheduleRegistrationTest 관례).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "duing.frontend.club-detail-daily.enabled=true")
