@@ -52,8 +52,11 @@ const FALLBACK_TOAST: HeroToast = {
   timeAgo: '방금 전',
 };
 
-function toHeroToast(activity: HeroActivity, now: Date): HeroToast {
+function toHeroToast(activity: HeroActivity, now: Date): HeroToast | null {
+  // 백엔드가 먼저 배포한 새 활동 타입은 문구를 모르므로 건너뛴다 — 서버 렌더(ISR)를 깨지 않게, 그리고
+  // 무슨 일인지 모르는 활동을 그럴듯한 문구로 꾸미지 않게(폴백 토스트와 같은 원칙).
   const preset = ACTIVITY_PRESETS[activity.type];
+  if (!preset) return null;
   return {
     variant: preset.variant,
     clubName: activity.clubName,
@@ -63,10 +66,12 @@ function toHeroToast(activity: HeroActivity, now: Date): HeroToast {
 }
 
 /**
- * 실활동을 최대 {@link MAX_HERO_TOASTS} 개까지 토스트로 매핑한다.
- * 활동이 하나도 없으면 폴백 한 장만 돌려준다 — 항상 1개 이상이라 호출부가 빈 배열을 다룰 필요가 없다.
+ * 실활동을 최대 {@link MAX_HERO_TOASTS} 개까지 토스트로 매핑한다. 문구를 모르는 활동은 건너뛴다.
+ * 남는 활동이 하나도 없으면 폴백 한 장만 돌려준다 — 항상 1개 이상이라 호출부가 빈 배열을 다룰 필요가 없다.
  */
 export function resolveHeroToasts(activities: HeroActivity[], now: Date): HeroToast[] {
-  if (activities.length === 0) return [FALLBACK_TOAST];
-  return activities.slice(0, MAX_HERO_TOASTS).map((activity) => toHeroToast(activity, now));
+  const toasts = activities
+    .flatMap((activity) => toHeroToast(activity, now) ?? [])
+    .slice(0, MAX_HERO_TOASTS);
+  return toasts.length > 0 ? toasts : [FALLBACK_TOAST];
 }
