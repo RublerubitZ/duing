@@ -3,6 +3,7 @@ package com.duing.global.exception;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
+import com.duing.global.web.RequestBodyTooLargeException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -85,6 +86,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException exception) {
+        // chunked 본문이 읽는 도중 상한을 넘으면 Spring 이 IOException 을 이 예외로 감싸 올린다 — 필터와 같은 413(#1322 F-4).
+        if (hasCause(exception, RequestBodyTooLargeException.class)) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(ApiResponse.error(RequestBodyTooLargeException.MESSAGE));
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("요청 본문을 해석할 수 없습니다."));
     }

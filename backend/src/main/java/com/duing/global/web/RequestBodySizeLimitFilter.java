@@ -30,13 +30,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>방어는 두 겹이다 — 운영은 Caddy(request_body max_size)가 엣지에서 모든 요청을 먼저 캡하고,
  * 이 필터는 프록시가 없는 로컬/직접 접근 경로와 심층 방어를 위해 앱 레이어에서 다시 확인한다.
  *
- * <p>멀티파트(파일 업로드)는 제외한다 — 그 경로는 서블릿 multipart 한도(10MB)와 업로드 정책(5MB,
- * {@code FileController})이 별도로 강제하므로, 여기서 JSON 한도(기본 2MB)를 적용하면 정상 이미지
- * 업로드가 깨진다.
+ * <p>멀티파트는 업로드 경로({@code /api/v1/files})만 제외한다 — 그 경로는 서블릿 multipart 한도(10MB)와
+ * 업로드 정책(5MB, {@code FileController})이 별도로 강제하므로, 여기서 JSON 한도(기본 2MB)를 적용하면 정상
+ * 이미지 업로드가 깨진다. 다른 경로의 멀티파트는 길이를 알면 상한과 비교하고, 길이를 모르면 거부한다.
  *
- * <p>Content-Length 를 알 수 없는 chunked 전송은 앱 레이어에서 통과시킨다(값 -1). 운영에서는 Caddy 가
- * chunked 를 포함한 모든 바디를 상한으로 강제하므로 실질 노출이 없고, 앱 레이어를 스트림 카운팅까지
- * 확장하는 대신 엣지 캡에 의존한다.
+ * <p>Content-Length 를 모르는 chunked 전송은 읽는 만큼 세어 상한을 넘는 순간 413 으로 끊는다
+ * ({@link BodySizeLimitingRequest}). 운영에서는 엣지 Caddy(request_body max_size 11MB)와 함께 이중 방어가 된다.
  *
  * <p>보안 필터 체인보다 먼저 실행되도록({@link Ordered#HIGHEST_PRECEDENCE}) 인증 처리 이전에 과대
  * 바디를 거른다.
@@ -47,11 +46,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
 
     private static final String MULTIPART_PREFIX = "multipart/";
+    private static final String UPLOAD_PATH = "/api/v1/files";
 
     private final ObjectMapper objectMapper;
     private final CorsConfigurationSource corsConfigurationSource;
 
-    // JSON 등 비멀티파트 바디의 상한. 정상 요청(공지 본문·지원서 답변 등)은 수백 KB 를 넘지 않으므로
+    // 업로드 경로 멀티파트를 뺀 모든 바디의 상한. 정상 요청(공지 본문·지원서 답변 등)은 수백 KB 를 넘지 않으므로
     // 2MB 는 넉넉하다. 운영에서 조정이 필요하면 DUING_REQUEST_MAX_BODY_BYTES 로 오버라이드한다.
     @Value("${duing.request.max-body-bytes:2097152}")
     private long maxBodyBytes;
@@ -60,11 +60,29 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (!isMultipart(request) && request.getContentLengthLong() > maxBodyBytes) {
+        // 업로드 엔드포인트만 멀티파트 면제 — 서블릿 multipart 한도(10MB)·업로드 정책(5MB)이 따로 강제한다. 정확 일치만
+        // 면제하고 인코딩 변형은 면제하지 않는다(fail-closed). 다른 경로의 멀티파트는 디스패처가 핸들러를 찾기 전에
+        // 컨테이너가 getParts() 로 끝까지 파싱해 래퍼 계수를 우회하므로 여기서 먼저 거른다(#1322 F-4).
+        if (isMultipart(request) && UPLOAD_PATH.equals(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        long contentLength = request.getContentLengthLong();
+        if (contentLength > maxBodyBytes || (contentLength < 0 && isMultipart(request))) {
             writePayloadTooLarge(request, response);
             return;
         }
-        filterChain.doFilter(request, response);
+        try {
+            // 길이를 모르면(chunked) 읽는 만큼 센다. 본문이 없는 GET 도 길이가 -1 이지만 아무도 읽지 않아 감싸도 무해하다.
+            filterChain.doFilter(contentLength < 0 ? new BodySizeLimitingRequest(request, maxBodyBytes) : request,
+                    response);
+        } catch (RequestBodyTooLargeException tooLarge) {
+            // 디스패처 밖(FormContentFilter 등)에서 읽다 넘친 경우 — 디스패처 안은 GlobalExceptionHandler 가 413 으로 돌린다.
+            if (!response.isCommitted()) {
+                response.reset(); // 하위가 이미 getOutputStream() 을 잡았으면 getWriter() 가 실패한다 — CORS 헤더는 아래에서 다시 붙인다
+                writePayloadTooLarge(request, response);
+            }
+        }
     }
 
     private boolean isMultipart(HttpServletRequest request) {
@@ -83,8 +101,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
         response.setStatus(HttpStatus.PAYLOAD_TOO_LARGE.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(),
-                ApiResponse.error("요청 본문이 허용된 최대 크기를 초과했습니다."));
+        objectMapper.writeValue(response.getWriter(), ApiResponse.error(RequestBodyTooLargeException.MESSAGE));
     }
 
     private void applyCorsHeaders(HttpServletRequest request, HttpServletResponse response) {
