@@ -193,6 +193,17 @@ describe('동아리 상세 — 확인한 지 오래된 상세로는 외부 폼�
       await waitFor(() => {
         for (const button of applyButtons('외부 폼으로 이동')) expect(button).toBeEnabled();
       });
+      // 이미 받은 상세의 재확인 실패는 스냅샷 확인 실패가 아니다 — 새로고침 안내 없이 버튼만 다시 누를 수 있다.
+      expect(screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).not.toBeInTheDocument();
+      expect(screen.queryByText('모집 정보 확인 실패')).not.toBeInTheDocument();
+
+      // 실패 뒤 다시 눌러도 낡은 상세로 열지 않고 또 확인한다(확인 시각은 실패해도 그대로다).
+      fireEvent.click(applyButtons('외부 폼으로 이동')[0]);
+      await waitFor(() => expect(detailRequestCount).toBe(2));
+      await waitFor(() => {
+        for (const button of applyButtons('외부 폼으로 이동')) expect(button).toBeEnabled();
+      });
+      expect(openSpy).not.toHaveBeenCalled();
     } finally {
       openSpy.mockRestore();
     }
