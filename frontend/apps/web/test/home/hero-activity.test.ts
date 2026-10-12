@@ -13,6 +13,9 @@ function isoAgo(ms: number): string {
   return new Date(NOW.getTime() - ms).toISOString();
 }
 
+// 백엔드가 먼저 배포한 새 활동 타입 — 문구를 모르므로 토스트로 만들지 않는다.
+const UNKNOWN_TYPE = 'NEW_TYPE' as unknown as HeroActivity['type'];
+
 describe('resolveHeroToasts', () => {
   it('실활동 2개 → 실제 토스트 2개(매핑된 문구·variant·시간)', () => {
     const activities: HeroActivity[] = [
@@ -71,5 +74,38 @@ describe('resolveHeroToasts', () => {
       { type: 'EVENT_CREATED', clubName: 'C', occurredAt: isoAgo(60_000) },
     ];
     expect(resolveHeroToasts(activities, NOW).map((toast) => toast.clubName)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('모르는 활동 타입만 있으면 폴백 한 장만 반환한다', () => {
+    const activities: HeroActivity[] = [
+      { type: UNKNOWN_TYPE, clubName: '새타입동아리', occurredAt: isoAgo(60_000) },
+    ];
+    expect(resolveHeroToasts(activities, NOW)).toEqual([
+      { variant: 'light', clubName: '캠퍼스 동아리', message: '신규 모집 오픈', timeAgo: '방금 전' },
+    ]);
+  });
+
+  it('모르는 활동 타입이 섞이면 알려진 것만 순서대로 토스트가 된다', () => {
+    const activities: HeroActivity[] = [
+      { type: 'RECRUIT_OPEN', clubName: 'A', occurredAt: isoAgo(60_000) },
+      { type: UNKNOWN_TYPE, clubName: 'X', occurredAt: isoAgo(60_000) },
+      { type: 'FEE_OPEN', clubName: 'B', occurredAt: isoAgo(60_000) },
+    ];
+    expect(resolveHeroToasts(activities, NOW).map((toast) => toast.clubName)).toEqual(['A', 'B']);
+  });
+
+  it('앞쪽에 모르는 활동 타입이 있어도 알려진 활동으로 상한까지 채운다', () => {
+    const unknownActivities: HeroActivity[] = [
+      { type: UNKNOWN_TYPE, clubName: 'X0', occurredAt: isoAgo(60_000) },
+      { type: UNKNOWN_TYPE, clubName: 'X1', occurredAt: isoAgo(60_000) },
+    ];
+    const knownActivities: HeroActivity[] = Array.from({ length: MAX_HERO_TOASTS + 1 }, (_, index) => ({
+      type: 'RECRUIT_OPEN' as const,
+      clubName: `동아리${index}`,
+      occurredAt: isoAgo(60_000),
+    }));
+    const toasts = resolveHeroToasts([...unknownActivities, ...knownActivities], NOW);
+    expect(toasts).toHaveLength(MAX_HERO_TOASTS);
+    expect(toasts[0]?.clubName).toBe('동아리0');
   });
 });
