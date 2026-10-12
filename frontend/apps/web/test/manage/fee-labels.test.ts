@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Bank, FeeStatus } from '@duing/types';
+import type { Bank, CashbookCategory, FeeStatus } from '@duing/types';
 
 import {
   bankLabel,
   billingTypeLabel,
+  cashbookCategoryLabel,
   feeStatusChip,
   feeStatusLabel,
   formatWon,
@@ -51,6 +52,20 @@ describe('feeLabels', () => {
       expect(formatWon(10000)).toBe('10,000원');
       expect(formatWon(0)).toBe('0원');
       expect(formatWon(1234567)).toBe('1,234,567원');
+    });
+  });
+
+  describe('cashbookCategoryLabel', () => {
+    it('모르는 분류 코드는 기타', () => {
+      expect(cashbookCategoryLabel('NEW_CODE' as unknown as CashbookCategory)).toBe('기타');
+    });
+
+    it('알려진 코드는 한국어 라벨을 반환한다', () => {
+      expect(cashbookCategoryLabel('FEE')).toBe('회비');
+    });
+
+    it('OTHER 에 직접입력 값이 있으면 직접입력 값을 우선한다', () => {
+      expect(cashbookCategoryLabel('OTHER', '동아리방 청소')).toBe('동아리방 청소');
     });
   });
 

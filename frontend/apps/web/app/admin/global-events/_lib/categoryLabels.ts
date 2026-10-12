@@ -19,6 +19,11 @@ export const GLOBAL_EVENT_CATEGORY_ORDER: GlobalEventCategory[] = [
   'OTHER',
 ];
 
+/** 백엔드가 먼저 배포한 새 분류 값이면 빈칸 대신 '기타'(OTHER 라벨은 입력 폼 안내 문구라 쓰지 않는다). */
+export function globalEventCategoryLabelOf(category: GlobalEventCategory): string {
+  return GLOBAL_EVENT_CATEGORY_LABEL[category] ?? '기타';
+}
+
 export function isGlobalEventCategory(value: string): value is GlobalEventCategory {
   return (GLOBAL_EVENT_CATEGORY_ORDER as readonly string[]).includes(value);
 }
