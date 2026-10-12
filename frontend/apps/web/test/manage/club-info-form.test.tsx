@@ -156,6 +156,31 @@ describe('ClubInfoForm', () => {
     expect(payload).not.toHaveProperty('clearCollege');
   });
 
+  it('모르는 아이콘 활동이 있어도 다른 필드를 저장할 수 있고, 활동 목록은 다시 보내지 않는다 (#1419)', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+    render(
+      <ClubInfoForm
+        detail={makeDetail({
+          projects: [{
+            // 백엔드가 먼저 배포한 새 아이콘 값 — 프론트 목록에 아직 없다.
+            icon: 'NEW_ICON' as unknown as ClubDetail['projects'][number]['icon'],
+            title: '새 활동',
+            subtitle: null,
+          }],
+        })}
+        mode="leader"
+        mutation={{ mutateAsync, isPending: false }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('한줄 소개'), { target: { value: '새 소개' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    const payload: AdminUpdateClubPayload = mutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(payload).toHaveProperty('tagline', '새 소개');
+    expect(payload).not.toHaveProperty('projects');
+  });
+
   it('기존 회비 미입력(NONE)이면 재입력 안내가 보이고, 주기를 저장 상태로 바꾸면 사라진다', () => {
     render(
       <ClubInfoForm
