@@ -1,6 +1,6 @@
 import type { ClubProject } from '@duing/types';
 
-import { PROJECT_ICON_COMPONENTS, projectCardTone } from '../../../_lib/projectIcons';
+import { projectCardTone, projectIconComponentOf } from '../../../_lib/projectIcons';
 
 type Props = {
   projects: ClubProject[];
@@ -15,7 +15,7 @@ export function ClubDetailActivityIntro({ projects }: Props) {
       <h2 className="mb-4 text-[20px] font-bold text-ink-deep">이런 활동을 해요</h2>
       <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {projects.map((project, index) => {
-          const IconComponent = PROJECT_ICON_COMPONENTS[project.icon];
+          const IconComponent = projectIconComponentOf(project.icon);
           return (
             <li
               key={`${project.title}-${index}`}
