@@ -27,7 +27,8 @@ const deriveScope = (centralClub: boolean): ClubScope =>
   centralClub ? '중앙' : '학과';
 
 export function summaryToClub(summary: ClubSummary): Club {
-  const cat = CATEGORY_TO_CAT[summary.category];
+  // 백엔드가 먼저 배포한 새 분류 값이 서버 렌더(ISR)를 깨지 않게 모르는 값은 OTHER 와 같은 '친목'으로 본다.
+  const cat = CATEGORY_TO_CAT[summary.category] ?? '친목';
   const scope = deriveScope(summary.centralClub);
   const division = summary.division ?? null;
   const tagline = summary.tagline?.trim() ? summary.tagline : null;

@@ -97,7 +97,10 @@ export function ClubCard({
 }: Props) {
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
-  const statusKey: StatusKey = club.activeRecruitment?.displayStatus ?? 'NONE';
+  // 백엔드가 먼저 배포한 새 모집 상태가 서버 렌더(ISR)를 깨지 않게 모르는 값은 '모집 없음'으로 본다 —
+  // 스타일만 바꾸면 칩·흐림·점 그림자가 엇갈리므로 키 자체를 바꾼다.
+  const displayStatus = club.activeRecruitment?.displayStatus;
+  const statusKey: StatusKey = displayStatus && STATUS_STYLES[displayStatus] ? displayStatus : 'NONE';
   const statusStyle = STATUS_STYLES[statusKey];
   const isDimmed = statusKey === 'CLOSED' || statusKey === 'NONE';
   const logoSize = size === 'lg' ? 96 : 64;

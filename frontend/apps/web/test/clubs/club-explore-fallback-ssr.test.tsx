@@ -3,6 +3,7 @@
  */
 import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ClubCategory } from '@duing/types';
 
 import { ClubExploreFallback } from '@/app/clubs/_components/ClubExploreFallback';
 
@@ -28,6 +29,24 @@ describe('ClubExploreFallback — 서버 렌더', () => {
     expect(html).toContain('data-explore-server-list');
     expect(html).toContain('enter-stagger');
     expect(html).toContain('--i:0');
+  });
+
+  it('백엔드가 먼저 배포한 모르는 분류 값이 와도 그 동아리 카드를 경고 없이 그린다', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const pageWithUnknownCategory = {
+      ...clubListPage,
+      content: clubListPage.content.map((club, index) =>
+        index === 0 ? { ...club, category: 'NEW_CATEGORY' as unknown as ClubCategory } : club,
+      ),
+    };
+
+    const html = renderToString(<ClubExploreFallback page={pageWithUnknownCategory} />);
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    // Suspense 경계가 오류를 삼키면 이 표식만 남는다.
+    expect(html).not.toContain('<!--$!-->');
+    expect(html).toContain('모션케어');
+    expect(html).toContain('href="/clubs/1"');
   });
 
   it('데이터가 없으면 지금 스켈레톤을 그린다', () => {
