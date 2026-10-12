@@ -68,7 +68,9 @@ jobs:
           # application-prod.yml 이 여기 끼는 이유: deploy-config-ci 의 "클라이언트 IP 복원 설정" 단언이
           # 그 파일의 forward-headers-strategy 를 검사한다. 백엔드 영역으로만 판정하면 그 줄을 지우는 PR 에서
           # 단언이 아예 돌지 않아, 운영만 조용히 CF 엣지 IP 로 되돌아간다(그 가드가 막으려던 실패 그 자체).
-          if grep -qE '^deploy/|^\.github/workflows/deploy-config-ci\.yml$|^backend/src/main/resources/application-prod\.yml$' changed.txt; then
+          # backup·restore-rehearsal 은 deploy-config-ci 의 권한·해시 단언 대상이라 deploy 영역으로 판정한다 —
+          # 빠지면 CLI 버전만 올리는 PR 에서 단언이 돌지 않는다(#1302).
+          if grep -qE '^deploy/|^\.github/workflows/deploy-config-ci\.yml$|^backend/src/main/resources/application-prod\.yml$|^\.github/workflows/(backup|restore-rehearsal)\.yml$' changed.txt; then
             deploy=true
           fi
 

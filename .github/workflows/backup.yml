@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '15 19 * * *' # 04:15 KST
 
+# GITHUB_TOKEN 을 쓰는 스텝이 없다 — 운영 DB·R2 자격을 쥔 잡이라 토큰 권한을 모두 끈다(#1302).
+permissions: {}
+
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -13,17 +16,20 @@ jobs:
     steps:
       - name: Install Supabase CLI
         # 서드파티 액션 없이 공식 릴리스를 직접 받는다 — 운영 DB 자격을 쥔 잡에 들어오는 외부 코드를 CLI 하나로 줄이고,
-        # 액션 런타임(Node) 폐기와 무관하게 둔다. 같은 릴리스의 checksums.txt 로 sha256 을 대조한 뒤 푼다.
+        # 액션 런타임(Node) 폐기와 무관하게 둔다. 워크플로에 고정한 sha256 으로 대조한 뒤 푼다 — 같은 릴리스의
+        # checksums.txt 와 비교하면 자산과 체크섬이 함께 바뀐 경우를 못 잡는다(#1302). 릴리스 자산이 바뀌면 여기서 실패한다.
+        # 버전을 올릴 때 해시도 함께 바꾼다: gh api repos/supabase/cli/releases/tags/vX.Y.Z --jq
+        #   '.assets[]|select(.name=="supabase_X.Y.Z_linux_amd64.tar.gz")|.digest' (앞의 "sha256:" 는 뗀다) 와
+        #   checksums.txt 의 같은 줄을 교차 확인한다.
         env:
           SUPABASE_CLI_VERSION: 2.117.0   # 메이저 변경 시 덤프 옵션이 조용히 깨지지 않게 핀(2026-09-24 latest). 올릴 때 workflow_dispatch 로 수동 실행해 확인
+          SUPABASE_CLI_SHA256: 69c05f85b9e47ee706d30f1a6ca8a526b4e337bfd12c7ef1ef522d24e7280d24   # 버전과 한 쌍 — 함께 바꾼다
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
           asset="supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
-          base="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}"
-          curl -fsSL --retry 3 -o "$asset" "$base/$asset"
-          curl -fsSL --retry 3 "$base/checksums.txt" | awk -v a="$asset" '$2 == a' > supabase.sha256
-          sha256sum -c supabase.sha256   # 해당 줄이 없어 빈 파일이면 여기서 실패한다
+          curl -fsSL --retry 3 -o "$asset" "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/$asset"
+          echo "${SUPABASE_CLI_SHA256}  $asset" | sha256sum -c -
           mkdir -p supabase-cli && tar -xzf "$asset" -C supabase-cli   # supabase·supabase-go 둘 다 필요 — 통째로 푼다
           echo "$RUNNER_TEMP/supabase-cli" >> "$GITHUB_PATH"
           supabase-cli/supabase --version
