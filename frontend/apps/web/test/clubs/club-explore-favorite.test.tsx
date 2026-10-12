@@ -365,3 +365,17 @@ describe('ClubExplorePage — 찜 해제 직후 빈 상태 플래시', () => {
     unmount();
   });
 });
+
+describe('ClubExplorePage — 검색어 100자 제한', () => {
+  // 서버는 100자를 넘는 검색어를 400 으로 거절한다(#1322).
+  it('데스크탑·모바일 검색 input 은 둘 다 100자까지만 입력받는다', async () => {
+    server.use(clubListHandler);
+    renderExplore();
+
+    const searchInputs = screen.getAllByRole('textbox', { name: '동아리 검색' });
+    expect(searchInputs).toHaveLength(2);
+    for (const searchInput of searchInputs) expect(searchInput).toHaveAttribute('maxLength', '100');
+    // 목록 응답까지 기다린다 — 진행 중인 요청이 정리 단계의 핸들러 리셋 뒤에 도착하면 MSW unhandled 로 잡힌다.
+    await waitFor(() => expect(hearts('찜 추가')).toHaveLength(2));
+  });
+});

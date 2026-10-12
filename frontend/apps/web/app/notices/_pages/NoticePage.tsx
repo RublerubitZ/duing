@@ -7,6 +7,7 @@ import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
@@ -264,7 +265,7 @@ export function NoticePage() {
   const isClubSource = activeSource === 'CLUB';
 
   const handleSearch = () => {
-    setKeyword(keywordInput);
+    setKeyword(keywordInput.slice(0, SEARCH_KEYWORD_MAX_LENGTH));
     setPage(0);
   };
 
@@ -406,6 +407,7 @@ export function NoticePage() {
                     FAQ·탐색 검색 input 의 min-w-0 와 같은 처치. */}
                 <input
                   value={keywordInput}
+                  maxLength={SEARCH_KEYWORD_MAX_LENGTH}
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="제목 또는 내용을 검색하세요"

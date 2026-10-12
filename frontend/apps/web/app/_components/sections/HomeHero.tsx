@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Search } from '@/components/duing/Icon';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { RECRUITING_CLUBS_HREF } from '@/app/_lib/exploreLinks';
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { resolveHeroToasts, type HeroToast } from './hero-activity';
 import { HeroActivityToasts } from './HeroActivityToasts';
 import { fetchPublicActivities } from '@/app/_lib/public-activities';
@@ -113,6 +114,7 @@ export async function HomeHero() {
             <input
               type="search"
               name="q"
+              maxLength={SEARCH_KEYWORD_MAX_LENGTH}
               placeholder="찾으시는 동아리를 검색해주세요."
               aria-label="동아리 검색"
               className="min-w-0 flex-1 border-none bg-transparent text-[18px] tracking-tightest text-charcoal outline-none placeholder:text-charcoal-3"

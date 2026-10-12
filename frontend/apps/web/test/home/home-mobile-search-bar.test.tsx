@@ -14,6 +14,12 @@ describe('HomeMobileSearchBar', () => {
     expect(screen.getByRole('button', { name: /검색/ })).toHaveAttribute('type', 'submit');
   });
 
+  it('검색어는 100자까지만 입력받는다 — 서버가 100자를 넘는 검색어를 400 으로 거절한다', () => {
+    render(<HomeMobileSearchBar />);
+
+    expect(screen.getByRole('searchbox', { name: '동아리 검색' })).toHaveAttribute('maxLength', '100');
+  });
+
   it('시안 위치에 놓이되 스크롤하면 상단에 붙도록 sticky 를 유지한다', () => {
     const { container } = render(<HomeMobileSearchBar />);
 

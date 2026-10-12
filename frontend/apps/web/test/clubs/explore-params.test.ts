@@ -202,3 +202,11 @@ describe('exploreParams — 빈 쿼리 해석 = 서버 시드 기본값', () => 
     expect(parseExploreParams(new URLSearchParams(''))).toEqual(DEFAULT_EXPLORE_PARAMS);
   });
 });
+
+describe('exploreParams — 검색어 길이', () => {
+  // 서버는 100자를 넘는 검색어를 400 으로 거절한다(#1322) — 공유된 긴 링크도 오류 없이 열리게 해석에서 자른다.
+  it('URL 의 검색어(q)가 100자를 넘으면 앞 100자만 쓴다', () => {
+    const parsed = parseExploreParams(new URLSearchParams({ q: '가'.repeat(101) }));
+    expect(parsed.keyword).toBe('가'.repeat(100));
+  });
+});
