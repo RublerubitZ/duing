@@ -28,7 +28,8 @@ export function NoticeListSkeleton() {
           <div>
             {/* 출처 세그먼트(학교 공지 / 내 동아리) 자리 — 로그인 여부와 관계없이 늘 그려진다(높이 약 47px + 아래 18px). */}
             <Skeleton className="mb-[18px] h-[47px] w-[104px] rounded-xl" />
-            <div className="mb-[22px] flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+            {/* 상단 제목·검색 가로 배치 경계는 NoticePage Hero 와 같은 lg(#1381) — 바꿀 때 함께 바꾼다. */}
+            <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
               <div className="flex-1">
                 <Skeleton className="h-3.5 w-14" />
                 <Skeleton className="mt-2.5 h-10 w-44" />
@@ -36,7 +37,7 @@ export function NoticeListSkeleton() {
                 {/* 모바일 전용 "총동연 자주 묻는 질문" 링크 자리 — 데스크탑은 사이드바에 같은 진입점이 있다. */}
                 <Skeleton className="mt-2.5 h-[18px] w-36 md:hidden" />
               </div>
-              <Skeleton className="h-10 w-full rounded-[10px] md:mt-1 md:w-[280px] md:shrink-0" />
+              <Skeleton className="h-10 w-full rounded-[10px] lg:mt-1 lg:w-[280px] lg:shrink-0" />
             </div>
             <div className="mb-6 flex flex-wrap gap-2">
               {Array.from({ length: CATEGORY_PILL_COUNT }).map((_, index) => (
