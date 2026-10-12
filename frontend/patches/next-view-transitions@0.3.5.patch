@@ -1,0 +1,14 @@
+diff --git a/dist/index.js b/dist/index.js
+index 41ba06885ed234bc14ef6790ae9f023e3ee4886e..91e38cb086b3dcdbd4f8f7a5cae4857ca84e1d8b 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -90,7 +90,8 @@ function ViewTransitions({ children }) {
+     }, [
+         finishViewTransition
+     ]);
+-    useBrowserNativeTransitions();
++    // [duing 패치] popstate 전환 제거 — 새 경로 렌더를 스크린샷 뒤로 미뤄 브라우저 스크롤 복원이 떠나는 화면에
++    // 적용됐다(목록 위치 상실·화면 튐). 앞으로 이동(Link·useTransitionRouter) 전환은 그대로다.
+     return /*#__PURE__*/ jsx(ViewTransitionsContext.Provider, {
+         value: setFinishViewTransition,
+         children: children
