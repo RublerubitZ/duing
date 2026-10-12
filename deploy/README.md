@@ -10,7 +10,7 @@
 
 1. **Lightsail 인스턴스** 생성 + **고정 IP** 할당, Docker / docker-compose 설치.
 2. **방화벽**: 22(SSH), 80, 443 인바운드만 개방(8080 은 호스트로 열지 않는다 — Caddy 경유).
-3. **DNS**: `api.duings.com` A 레코드를 인스턴스 고정 IP 로 지정.
+3. **DNS**: `api.duings.com` A 레코드를 인스턴스 고정 IP 로 지정. Vercel Firewall 규칙 `내부 재검증 — 백엔드 서버 외 차단 (#1364)` 의 IP 조건도 이 IP 로 맞춘다(아래 Vercel 문단 참고).
 4. **Resend**: `duings.com` 발신 도메인 검증(SPF/DKIM).
    **Brevo(폴백)**: 동일 발신 도메인을 Brevo 에서도 발신자 인증(SPF/DKIM)하고, SMTP 키를 발급해
    `.env` 의 `BREVO_SMTP_LOGIN`/`BREVO_SMTP_KEY` 로 주입한다(미주입 시 폴백만 비활성, 발송은 Resend 단독).
@@ -53,9 +53,11 @@ cp .env.example .env   # backend 에서 가져온 .env.example 복사 → DB/JWT
 
 Vercel에는 동아리 탐색(정각)·상세(변경 시·매일 00:05) 재생성 트리거용 `REVALIDATE_SECRET` 도 Production 환경변수로
 등록한다. 백엔드 `.env` 의 `DUING_FRONTEND_REVALIDATE_SECRET` 과 같은 값이다(생성: `openssl rand -base64 48`). Vercel
-환경변수는 다음 배포부터 반영되므로 등록 뒤 재배포한다. 인증 없이
+환경변수는 다음 배포부터 반영되므로 등록 뒤 재배포한다. 이 경로는 Vercel Firewall 사용자 규칙
+`내부 재검증 — 백엔드 서버 외 차단 (#1364)` 이 백엔드 서버 고정 IP 밖에서 오는 요청을 403 으로 막는다(서버 IP 를 바꾸면
+이 규칙도 고친다 — EDGE-EMERGENCY.md 1-6). 그래서 확인은 **서버에서** 한다. 인증 없이
 `curl -s -o /dev/null -w '%{http_code}' -X POST https://duings.com/api/internal/revalidate` 를 보내면 미설정이거나
-32바이트 미만이면 503, 설정됐으면 401 이다. 유출이 의심되면 두 곳을 같은 새 값으로 함께 바꾸고, Vercel 재배포와 백엔드 재기동(`docker compose up -d`)으로 반영한다.
+32바이트 미만이면 503, 설정됐으면 401 이다. 다른 곳에서 보내면 403 이다. 유출이 의심되면 두 곳을 같은 새 값으로 함께 바꾸고, Vercel 재배포와 백엔드 재기동(`docker compose up -d`)으로 반영한다.
 
 ## 웹 인증 지원 환경
 
