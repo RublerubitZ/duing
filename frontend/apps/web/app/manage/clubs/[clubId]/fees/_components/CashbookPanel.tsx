@@ -173,12 +173,13 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
             <li
               key={entry.id}
               className={cn(
-                'flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3',
+                // 모바일과 md(사이드바가 붙어 본문이 좁다)에서 한 줄이면 설명·분류가 잘린다 — lg 미만은 설명·분류 줄과 금액·버튼 줄로 나눈다(#1429).
+                'flex flex-col gap-2 rounded-xl border border-line px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4',
                 entry.excluded && 'opacity-60',
               )}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink">
+                <p className="text-sm font-semibold text-ink max-lg:break-keep max-lg:break-words lg:truncate">
                   {entry.description}
                   <span className="ml-1.5 text-xs font-normal text-charcoal-3">
                     {cashbookCategoryLabel(entry.categoryCode, entry.customCategory)}
@@ -192,7 +193,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                 </p>
                 <p className="mt-0.5 text-xs text-charcoal-3">{entry.transactionDate}{entry.memo ? ` · ${entry.memo}` : ''}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center gap-3 max-lg:justify-end">
                 <span
                   className={cn(
                     'text-sm font-bold',

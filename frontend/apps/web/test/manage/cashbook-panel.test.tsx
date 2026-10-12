@@ -63,6 +63,19 @@ describe('금전출납부 패널', () => {
     );
   });
 
+  // 분류 필터 <option> 과 글자가 겹치므로 항목 행 안에서만 찾는다(#1429 — 모바일 행 배치 회귀 가드).
+  it('항목 행 안에 분류 라벨(직접입력 포함)이 표시된다', () => {
+    mockUseEntries.mockReturnValue({
+      data: buildPage([buildEntry(), buildEntry({ id: 2, customCategory: '동아리방 청소' })]),
+      isLoading: false,
+    });
+    mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 60000, bookBalance: -60000 } });
+    render(<CashbookPanel clubId={1} />);
+    const rows = screen.getAllByRole('listitem');
+    expect(within(rows[0]!).getByText('기타')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('동아리방 청소')).toBeInTheDocument();
+  });
+
   it('제외된 항목은 "제외됨" 배지로 표시된다', () => {
     mockUseEntries.mockReturnValue({ data: buildPage([buildEntry({ excluded: true })]), isLoading: false });
     mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 0, bookBalance: 0 } });
