@@ -43,12 +43,14 @@ describe('ApplyRow — 반응형 카드 reflow 구조', () => {
     expect(screen.queryByText(/서류/)).not.toBeInTheDocument();
   });
 
-  it('화살표는 모바일에서 숨긴다(hidden, md:grid)', () => {
+  it('화살표는 표 레이아웃이 켜지는 lg 부터만 보인다(hidden, lg:grid)', () => {
     const { container } = render(<ApplyRow app={app} isActive={false} onOpen={vi.fn()} />);
     const arrow = container.querySelector('.ar-arrow');
     expect(arrow).not.toBeNull();
     expect(arrow?.className).toContain('hidden');
-    expect(arrow?.className).toContain('md:grid');
+    expect(arrow?.className).toContain('lg:grid');
+    // md 에서 켜지면 768~1023 의 2행 카드 템플릿에 화살표 영역이 없어 행이 깨진다(#1416).
+    expect(arrow?.className).not.toContain('md:grid');
   });
 
   it('클릭 시 onOpen 을 해당 id 로 호출한다', () => {

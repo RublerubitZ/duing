@@ -1,5 +1,6 @@
 import type { ClubCategory, ClubDayOfWeek, ClubSearchParams, College } from '@duing/types';
 
+import { SEARCH_KEYWORD_MAX_LENGTH } from '../../_lib/searchKeyword';
 import { type Division, isDivision } from './clubs';
 
 export type Scope = '전체' | '중앙' | '학과';
@@ -97,7 +98,7 @@ export function parseExploreParams(search: URLSearchParams): ExploreParams {
   const rawDivision = search.get('division');
   const division: DivisionFilter = isDivision(rawDivision) ? rawDivision : '전체';
 
-  const keyword = search.get('q')?.trim() ?? '';
+  const keyword = search.get('q')?.trim().slice(0, SEARCH_KEYWORD_MAX_LENGTH) ?? '';
 
   const rawRecruitment = search.get('recruitment');
   const recruitment: RecruitmentFilter =

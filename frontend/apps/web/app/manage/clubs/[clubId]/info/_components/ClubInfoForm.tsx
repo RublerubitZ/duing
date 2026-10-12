@@ -21,6 +21,7 @@ import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
+import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 import { NoticeRichEditorLazy } from '@/app/_components/NoticeRichEditorLazy';
 import { sanitizeNoticeHtml } from '@/app/notices/_lib/sanitizeHtml';
 import { PROSE_CLASS } from '@/app/notices/_components/NoticeContent';
@@ -42,17 +43,6 @@ type ClubInfoFormProps = {
 };
 
 const CATEGORIES = ['ACADEMIC', 'CREATION', 'ART', 'SPORTS', 'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER'] as const;
-
-const CATEGORY_LABELS: Record<ClubCategory, string> = {
-  ACADEMIC: '학술',
-  CREATION: '창작',
-  ART: '예술',
-  SPORTS: '운동',
-  VOLUNTEER: '봉사',
-  RELIGION: '종교',
-  HOBBY: '취미',
-  OTHER: '기타',
-};
 
 const LOCKED_NOTICE =
   '동아리명 · 카테고리 · 분과(또는 단과대학)는 총동연에서 관리하며 운영진은 수정할 수 없습니다. 학과는 운영진이 직접 수정할 수 있습니다.';
@@ -437,7 +427,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                       style={chevronStyle}
                     >
                       {CATEGORIES.map((code) => (
-                        <option key={code} value={code}>{CATEGORY_LABELS[code]}</option>
+                        <option key={code} value={code}>{clubCategoryLabel(code)}</option>
                       ))}
                     </select>
                   </Field>
@@ -480,7 +470,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
               ) : (
                 <>
                   <Field label="동아리명"><LockedInput value={detail.name} /></Field>
-                  <Field label="카테고리"><LockedInput value={CATEGORY_LABELS[detail.category]} /></Field>
+                  <Field label="카테고리"><LockedInput value={clubCategoryLabel(detail.category)} /></Field>
                   {detail.centralClub ? (
                     <Field label="분과"><LockedInput value={detail.division ?? '미지정'} /></Field>
                   ) : (

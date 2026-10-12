@@ -1,7 +1,8 @@
 name: DB Restore Rehearsal
 
 # R2 에 올라간 논리 백업(roles/schema/data)이 실제로 복원되는지를 잡 안의 바닐라 Postgres 로 검증한다(#1258).
-# 수동 실행 전용 — 외부 DB 는 절대 건드리지 않는다(시크릿은 R2 읽기 4종뿐, SUPABASE_DB_URL 미사용).
+# 수동 실행 전용 — 외부 DB 는 절대 건드리지 않는다(SUPABASE_DB_URL 미사용. R2 시크릿 4종은 백업 업로드와 같은 키라
+# 쓰기 권한이 있다 — 이 워크플로는 읽기만 한다).
 # 검증 범위와 한계는 deploy/DB-RESTORE.md "복원 리허설" 절 참고(Supabase Pooler 경유·3파일 단일 트랜잭션 원형은 미검증).
 #
 # ⚠️ 공개 레포라 이 로그도 공개다. psql 출력은 파일로 받고 `ERROR:` 줄만 내보낸다 — COPY 실패 시 psql 이
@@ -14,6 +15,9 @@ on:
         description: 'R2 스냅샷 폴더 (KST, YYYY/MM/DD). 비우면 가장 최근 폴더'
         required: false
         type: string
+
+# GITHUB_TOKEN 을 쓰는 스텝이 없다 — 운영 백업 R2 자격을 쥔 잡이라 토큰 권한을 모두 끈다(#1302).
+permissions: {}
 
 jobs:
   rehearsal:

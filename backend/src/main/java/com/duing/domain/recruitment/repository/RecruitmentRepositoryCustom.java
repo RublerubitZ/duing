@@ -47,6 +47,15 @@ public interface RecruitmentRepositoryCustom {
     Map<Long, ClubActiveRecruitmentRow> findRepresentativeByClubIds(List<Long> clubIds, LocalDate today);
 
     /**
+     * 진행 중이거나 최근(어제·그제) 마감한 모집이 있는 동아리 id(오름차순·중복 없음) — 동아리 상세 매일 재생성
+     * ({@code ClubDetailDailyRevalidationJob}) 대상이다. 대상 모집은 OPEN·미삭제·시작일 ≤ today·(종료일 없음 ∨ 종료일 ≥ today−2).
+     * 쓰기 없이 날짜만으로 상세가 바뀌는 경우 — 시작일 도래(모집예정 → 모집중), 마감 다음 날(표기 마감) — 와, 커밋 이벤트를
+     * 내지 않는 지원서 제출·철회로 바뀌는 진행 중 지원자 수를 덮는다. 마감 전이는 이틀 대상이라 하루 재시도가 된다. 시작 전
+     * 모집은 시작일까지 표기가 같아 빼고, 저장 상태 CLOSED 는 마감한 그 쓰기가 재생성을 요청한다.
+     */
+    List<Long> findClubIdsWithOngoingOrJustEndedRecruitment(LocalDate today);
+
+    /**
      * 동아리 1곳의 대표 모집 — 스칼라 projection. 선택 규칙은 {@link #findRepresentativeByClubIds} 와
      * 동일하며 실제로 같은 우선순위 식·정렬을 공유한다 — 목록 카드와 상세 화면이 같은 모집을 가리켜야
      * 하기 때문이다. 규칙이 갈리면 목록엔 "모집마감", 상세엔 "현재 모집 없음"이 동시에 뜬다(#895).

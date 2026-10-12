@@ -130,6 +130,33 @@ describe('HomeHero (server component)', () => {
 
     expect(screen.getByRole('link', { name: '동아리 둘러보기' })).toHaveAttribute('href', '/clubs');
   });
+
+  it('데스크탑 검색 폼의 검색어는 100자까지만 입력받는다 — 서버가 100자를 넘는 검색어를 400 으로 거절한다', async () => {
+    mockFetchClubStats.mockResolvedValueOnce(null);
+    mockFetchPublicActivities.mockResolvedValueOnce([]);
+
+    render(<>{await HomeHero()}</>);
+
+    expect(screen.getByRole('searchbox', { name: '동아리 검색' })).toHaveAttribute('maxLength', '100');
+  });
+
+  it('모르는 활동 타입이 섞여도 서버 렌더가 깨지지 않고 알려진 활동 토스트를 그린다', async () => {
+    mockFetchClubStats.mockResolvedValueOnce({ totalCount: 40, recruitingCount: 16 });
+    mockFetchPublicActivities.mockResolvedValueOnce([
+      {
+        type: 'NEW_TYPE' as unknown as HeroActivity['type'],
+        clubName: '새타입동아리',
+        occurredAt: '2026-06-28T11:50:00.000Z',
+      },
+      { type: 'NOTICE_CREATED', clubName: '알려진공지동아리', occurredAt: '2026-06-28T11:30:00.000Z' },
+    ]);
+
+    render(<>{await HomeHero()}</>);
+
+    expect(screen.getByText('알려진공지동아리')).toBeInTheDocument();
+    expect(screen.getByText('새 공지 등록')).toBeInTheDocument();
+    expect(screen.queryByText('새타입동아리')).not.toBeInTheDocument();
+  });
 });
 
 describe('HeroActivityToast', () => {

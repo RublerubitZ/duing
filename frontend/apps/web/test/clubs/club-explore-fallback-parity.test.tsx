@@ -40,8 +40,13 @@ const FIRST_CARD_HREF = `/clubs/${clubListPage.content[0]?.id}`;
 
 const indent = (depth: number, text: string) => `${'  '.repeat(depth)}${text}`;
 
+// 등장 연출 클래스는 재생이 끝나면 아무 값도 남기지 않아(fill-mode backwards) 자리에 영향이 없다 — 비교에서 뺀다.
+// 서버 목록에는 늘 붙고, 실제 화면은 교체 순간 서버 목록이 문서에 있으면 붙이지 않아 일부러 다르다.
+const LAYOUT_NEUTRAL_CLASSES = new Set(['enter-stagger']);
 const describeElement = (element: Element) =>
-  `${element.tagName.toLowerCase()} "${element.getAttribute('class') ?? ''}"`;
+  `${element.tagName.toLowerCase()} "${Array.from(element.classList)
+    .filter((className) => !LAYOUT_NEUTRAL_CLASSES.has(className))
+    .join(' ')}"`;
 
 // 회색 자리 — 실제 화면의 검색 폼·필터 사이드바를 fallback 은 빈 회색 상자로 그린다. 일부러 다른 자리라 하위는 접고
 // 자리의 위치만 비교한다.
@@ -113,16 +118,15 @@ async function outlineSeededPage() {
 const outlineFallback = () => outlineLayouts(render(<ClubExploreFallback page={clubListPage} />).container);
 
 describe('ClubExploreFallback ↔ 실제 화면(시드 마운트) — 첫 카드 자리', () => {
-  it('데스크탑 — 카드까지의 조상과 그 위 행이 같다(시드 마운트라 카드 래퍼에 스태거가 붙지 않는다)', async () => {
+  it('데스크탑 — 카드까지의 조상과 그 위 행이 같다', async () => {
     const seededPage = await outlineSeededPage();
 
     expect(seededPage.desktop).toEqual(outlineFallback().desktop);
   });
 
-  it('모바일 — 같고, 실제 화면만 행마다 클래스 없는 스태거 래퍼를 하나 더 둔다', async () => {
+  it('모바일 — 카드까지의 조상과 그 위 행이 같다(행 래퍼가 양쪽에 있다)', async () => {
     const seededPage = await outlineSeededPage();
 
-    // 시드 마운트라 래퍼에 연출(enter-stagger)이 없어야 한다. 클래스 없는 블록 래퍼라 세로 플렉스 목록에서 상자가 같다.
-    expect(seededPage.mobile).toEqual([...outlineFallback().mobile, indent(3, '▸ div ""')]);
+    expect(seededPage.mobile).toEqual(outlineFallback().mobile);
   });
 });

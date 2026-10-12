@@ -84,6 +84,8 @@ export function unwrapNullable<T>(response: ApiResponse<T | null>): T | null {
 
 // 본문 소비 타임아웃(ms). ky 의 timeout 은 응답 헤더 도착까지만 계측하므로,
 // 헤더 후 본문이 중단(stall)되면 json()/blob() 이 무한 대기한다 — 별도 상한으로 막는다.
+// 백엔드 재검증 read timeout(25초, FrontendRevalidationClientConfig)이 REQUEST_TIMEOUT_MS.default 와
+// JSON_BODY_READ_TIMEOUT_MS 의 합(20초)에 기댄다 — 올리면 그쪽도 함께 본다(#1375).
 export const JSON_BODY_READ_TIMEOUT_MS = 10_000;
 export const BLOB_BODY_READ_TIMEOUT_MS = 60_000;
 
@@ -107,7 +109,9 @@ export async function readBodyWithTimeout<T>(bodyPromise: Promise<T>, timeoutMs:
 // 분류가 다른 엔드포인트만 개별 오버라이드한다.
 // (스펙: docs/superpowers/specs/2026-07-12-network-resilience-design.md §3.1)
 export const REQUEST_TIMEOUT_MS = {
-  /** 전역 기본 — 일반 조회·변경 */
+  /** 전역 기본 — 일반 조회·변경.
+   *  JSON_BODY_READ_TIMEOUT_MS 와 짝 — 둘의 합(20초)에 백엔드 재검증 read timeout(25초)이 기대니
+   *  올리면 함께 본다(#1375). */
   default: 10_000,
   /** 로그인 — 대기 체감이 가장 민감한 경로 */
   login: 5_000,

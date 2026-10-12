@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { useClubListQuery } from '@duing/hooks';
 
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { SearchCombobox, ComboboxSelectedValue } from '@/components/SearchCombobox';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
 
@@ -18,7 +19,8 @@ const RESULT_PAGE_SIZE = 8;
 
 export function ClubSelector({ selectedClubId, selectedClubName, onSelect, onClear }: Props) {
   const [query, setQuery] = useState('');
-  const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  // 공개 동아리 목록과 같은 엔드포인트라 검색어 100자 상한(넘으면 서버 400)을 따른다 — 잘라 보낸다.
+  const debouncedQuery = useDebouncedValue(query.trim().slice(0, SEARCH_KEYWORD_MAX_LENGTH), 250);
 
   const searchQuery = useClubListQuery({ keyword: debouncedQuery, page: 0, size: RESULT_PAGE_SIZE });
 

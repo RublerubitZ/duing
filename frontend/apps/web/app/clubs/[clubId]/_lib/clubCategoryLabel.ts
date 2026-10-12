@@ -11,6 +11,7 @@ const LABELS: Record<ClubCategory, string> = {
   OTHER: '기타',
 };
 
+/** 백엔드가 먼저 배포한 새 분류 값이면 빈칸 대신 '기타'(#1410 스타일 폴백과 같은 값). */
 export function clubCategoryLabel(category: ClubCategory): string {
-  return LABELS[category];
+  return LABELS[category] ?? LABELS.OTHER;
 }

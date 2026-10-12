@@ -181,7 +181,7 @@ describe('NoticesPage', () => {
 
     render(<NoticesPage />);
 
-    const searchInput = screen.getByPlaceholderText('제목 또는 내용을 검색하세요');
+    const searchInput = screen.getByPlaceholderText('제목 또는 요약을 검색하세요');
     expect(searchInput.style.minWidth).toBe('0px');
   });
 
@@ -211,6 +211,33 @@ describe('NoticesPage', () => {
     // 목록 컨테이너 = aria-busy 를 가진 isSuccess div(필터 전환 중에도 언마운트되지 않는다).
     const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
     expect(listContainer).toHaveClass('enter-content');
+  });
+
+  it('처음부터 목록이 있어도(시드·캐시) 앞으로 들어온 마운트면 목록 컨테이너에 enter-content 를 건다', () => {
+    mockUseNoticeListQuery.mockReturnValue({
+      ...makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]),
+      isPlaceholderData: false,
+    });
+    render(<NoticesPage />);
+
+    const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
+    expect(listContainer).toHaveClass('enter-content');
+  });
+
+  it('뒤로·앞으로 가기로 그려지는 마운트(마커)는 목록 컨테이너에 enter-content 를 걸지 않는다', () => {
+    document.documentElement.setAttribute('data-back-navigation', '');
+    try {
+      mockUseNoticeListQuery.mockReturnValue({
+        ...makeListResponse([makeNoticeItem({ id: 1, title: '첫 번째 공지' })]),
+        isPlaceholderData: false,
+      });
+      render(<NoticesPage />);
+
+      const listContainer = screen.getAllByText('첫 번째 공지')[0]?.closest('[aria-busy]');
+      expect(listContainer).not.toHaveClass('enter-content');
+    } finally {
+      document.documentElement.removeAttribute('data-back-navigation');
+    }
   });
 });
 
@@ -386,5 +413,30 @@ describe('NoticesPage — 불러오기 실패', () => {
     expect(loadError).toHaveTextContent('공지를 불러오지 못했습니다.');
     fireEvent.click(within(loadError).getByRole('button', { name: '다시 시도' }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// 서버는 100자를 넘는 검색어를 400 으로 거절한다(#1322). 한글 IME 조합 중에는 maxLength 를 넘긴 채
+// 제출될 수 있어, 입력 제한과 함께 검색 확정 때도 앞 100자만 보낸다.
+describe('NoticesPage — 검색어 100자 제한', () => {
+  it('검색 input 은 100자까지만 입력받는다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+
+    expect(screen.getByRole('textbox', { name: '소식 검색' })).toHaveAttribute('maxLength', '100');
+  });
+
+  it('100자를 넘긴 채 검색해도 목록 조회에는 앞 100자만 보낸다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+    const searchInput = screen.getByRole('textbox', { name: '소식 검색' });
+    fireEvent.change(searchInput, { target: { value: '가'.repeat(101) } });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+
+    expect(mockUseNoticeListQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: '가'.repeat(100) }),
+    );
   });
 });

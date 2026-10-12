@@ -11,6 +11,7 @@
  * 따라서 본인 수정은 기존 무효화 경로로 즉시 반영되고, 지연되는 것은 "타인 수정의 노출" 뿐이다.
  * 지원 가능 여부는 지원 클릭 시점의 eligibility 재확인(staleTime 0)이 최종 게이트라 모집
  * 표시가 잠시 낡아도 잘못된 지원으로 이어지지 않는다.
+ * 외부 폼 모집은 그 확인이 없어, 동아리 상세의 지원 버튼(useClubApply)이 확인한 지 2분이 넘은 상세면 열기 전에 다시 받는다.
  *
  * <p>적용 금지 영역 — 회비(fee)·은행(bank)·시설 가용성(facilities)·적격성(applications
  * eligibility)·권한 게이트(managed)·admin 콘솔(15s 관례)은 이 상수를 쓰지 않는다.
@@ -31,5 +32,7 @@ export const PUBLIC_CONTENT_STALE_TIME_MS = 5 * 60_000;
  * <p>의도된 예외: manage 대시보드(dashboard.ts, 60s)는 운영진 콘솔의 자체 신선도 계약이라 이
  * 상수를 쓰지 않는다 — 일부 키(클럽 모집·일정 목록)가 겹치지만 데이터 shape 이 같아 정합성 문제는
  * 없고, 짧은 쪽이 자기 마운트 시점에 한 번 더 요청할 뿐이다.
+ *
+ * <p>동아리 상세의 외부 폼 지원 재확인 기준으로도 쓴다(useClubApply) — 이 값을 바꾸면 그 기준도 함께 바뀐다.
  */
 export const CALENDAR_STALE_TIME_MS = 2 * 60_000;

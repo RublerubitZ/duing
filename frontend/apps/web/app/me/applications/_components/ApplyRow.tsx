@@ -102,8 +102,8 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
         )}
       </div>
 
-      {/* 5. 화살표 (데스크탑 전용 — 모바일은 카드 전체가 탭 영역) */}
-      <div className="ar-arrow hidden place-items-center md:grid" style={{ color: 'var(--charcoal-3)' }}>
+      {/* 5. 화살표 (lg+ 전용 — 그 아래는 카드 전체가 탭 영역) */}
+      <div className="ar-arrow hidden place-items-center lg:grid" style={{ color: 'var(--charcoal-3)' }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m9 6 6 6-6 6" />
         </svg>

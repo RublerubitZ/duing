@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { RecruitmentDisplayStatus } from '@duing/types';
 import type { Club } from '../../app/clubs/_lib/clubs';
 import { ClubCard } from '../../app/clubs/_components/ClubCard';
 
@@ -84,5 +85,19 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
     render(<ClubCard club={{ ...baseClub, activeRecruitment: null }} />);
     expect(screen.getByText('모집 없음')).toBeInTheDocument();
     expect(screen.queryByText(/모집 종료|상시모집|부터 모집|\d{1,2}\.\d{1,2} - /)).toBeNull();
+  });
+
+  it('백엔드가 먼저 배포한 모르는 상태: "모집 없음" 뱃지 + 모집 없음과 같은 흐림', () => {
+    render(<ClubCard club={{
+      ...baseClub,
+      activeRecruitment: {
+        recruitmentId: 14,
+        displayStatus: 'PAUSED' as unknown as RecruitmentDisplayStatus,
+        startDate: '2026-03-01',
+        endDate: '2026-03-31',
+      },
+    }} />);
+    expect(screen.getByText('모집 없음')).toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveClass('opacity-[0.85]');
   });
 });

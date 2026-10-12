@@ -4,7 +4,7 @@ import type { ClubSummary } from '@duing/types';
 import { ChevronRight } from 'lucide-react';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { fetchInterestingClubs } from '@/app/_lib/home-data';
-import { HOME_CATEGORY_BY_VALUE } from '@/app/_lib/homeCategories';
+import { homeCategoryOf } from '@/app/_lib/homeCategories';
 import { displayStatusLabel } from '@/app/_lib/recruitmentDisplay';
 import { normalizeTag } from '@/app/_lib/tags';
 import { cn } from '@/app/_lib/cn';
@@ -92,7 +92,7 @@ function statusBadge(club: ClubSummary): { label: string; className: string } | 
  * 컨테이너가 relative·overflow-hidden·크기·배경을 책임진다는 게 그 컴포넌트의 계약이다.
  */
 function ClubCardLogo({ club, className }: { club: ClubSummary; className?: string }) {
-  const color = HOME_CATEGORY_BY_VALUE[club.category].labelColor;
+  const color = homeCategoryOf(club.category).labelColor;
   return (
     <span
       aria-hidden
@@ -107,6 +107,7 @@ function ClubCardLogo({ club, className }: { club: ClubSummary; className?: stri
 function InterestCard({ club }: { club: ClubSummary }) {
   const badge = statusBadge(club);
   const interestCount = visibleInterestCount(club);
+  const category = homeCategoryOf(club.category);
 
   return (
     // 카드 안 치수는 전부 em — 기준 글자 16px(=1280 의 카드 폭 285 × 5.614%)에서 로고 82·제목 30·배지 14·
@@ -135,9 +136,9 @@ function InterestCard({ club }: { club: ClubSummary }) {
         <h3 className="type-card-title min-w-0 truncate text-[1.875em]">{club.name}</h3>
         <span
           className="shrink-0 text-[1em] font-semibold tracking-tightest"
-          style={{ color: HOME_CATEGORY_BY_VALUE[club.category].labelColor }}
+          style={{ color: category.labelColor }}
         >
-          {HOME_CATEGORY_BY_VALUE[club.category].label}
+          {category.label}
         </span>
       </div>
       <p className="mt-[0.25em] line-clamp-2 text-[1em] font-normal leading-[1.5] tracking-tightest text-charcoal-2">
@@ -158,6 +159,7 @@ function InterestCard({ club }: { club: ClubSummary }) {
 
 function InterestRow({ club }: { club: ClubSummary }) {
   const badge = statusBadge(club);
+  const category = homeCategoryOf(club.category);
 
   return (
     <Link
@@ -173,9 +175,9 @@ function InterestRow({ club }: { club: ClubSummary }) {
             </span>
             <span
               className="shrink-0 text-[12px] font-semibold tracking-tightest"
-              style={{ color: HOME_CATEGORY_BY_VALUE[club.category].labelColor }}
+              style={{ color: category.labelColor }}
             >
-              {HOME_CATEGORY_BY_VALUE[club.category].label}
+              {category.label}
             </span>
           </div>
           {badge && (

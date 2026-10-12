@@ -14,20 +14,28 @@ import { ArrowRight } from '@/components/duing/Icon';
 import { Spinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
-import { useClubApply } from '../_lib/useClubApply';
+import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
   recruitment: StudentRecruitmentProjection | undefined;
   /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
   membership?: MyClubMembership | null;
+  /** 상세 확인 상태 — 스냅샷이면 잠그고, 확인 실패면 새로고침을 안내한다(useClubApply). */
+  detailCheck: ClubDetailCheck;
 };
 
 // 바 좌측 2줄 라벨 — 상단은 상태/카운트다운, 하단은 강조 문구.
-function barLabels(recruitment: StudentRecruitmentProjection | undefined, daysLeft: number | null): {
+function barLabels(
+  recruitment: StudentRecruitmentProjection | undefined,
+  daysLeft: number | null,
+  showsCheckFailure: boolean,
+): {
   top: string;
   main: string;
 } {
+  // 확인 실패면 스냅샷 문구 대신 새로고침을 안내한다 — 버튼이 잠긴 이유를 라벨 자리에서 알린다.
+  if (showsCheckFailure) return { top: '모집 정보 확인 실패', main: '새로고침해 주세요' };
   if (!recruitment) return { top: '모집 정보', main: '현재 모집이 없어요' };
   switch (recruitment.displayStatus) {
     case 'OPEN': {
@@ -46,13 +54,16 @@ function barLabels(recruitment: StudentRecruitmentProjection | undefined, daysLe
   }
 }
 
-export function ClubDetailApplyBar({ recruitment, membership }: Props) {
-  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
-    useClubApply(recruitment);
+export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Props) {
+  const { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId } =
+    useClubApply(recruitment, detailCheck);
   const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
-  const { top, main } = barLabels(recruitment, daysLeft);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
+  // 확인 실패 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  const showsCheckFailure =
+    detailCheck.checkFailed && existingApplicationId === null && !isAlreadyMember;
+  const { top, main } = barLabels(recruitment, daysLeft, showsCheckFailure);
 
   return (
     <>
@@ -77,14 +88,14 @@ export function ClubDetailApplyBar({ recruitment, membership }: Props) {
           <button
             type="button"
             onClick={handleApply}
-            disabled={!canApply || isCheckingEligibility || isAlreadyMember}
+            disabled={!canApply || pendingLabel !== null || isAlreadyMember}
             className={cn(
               'btn btn-primary flex-1 rounded-[14px] py-3.5 text-[15px]',
               'disabled:cursor-not-allowed disabled:opacity-40',
             )}
           >
-            {isCheckingEligibility ? (
-              <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+            {pendingLabel !== null ? (
+              <span role="status" aria-label={pendingLabel} className="inline-flex items-center">
                 <Spinner size={14} />
               </span>
             ) : isAlreadyMember ? (
@@ -92,7 +103,7 @@ export function ClubDetailApplyBar({ recruitment, membership }: Props) {
             ) : (
               applyButtonLabel
             )}
-            {canApply && !isCheckingEligibility && !isAlreadyMember && <ArrowRight size={16} />}
+            {canApply && pendingLabel === null && !isAlreadyMember && <ArrowRight size={16} />}
           </button>
         )}
       </div>

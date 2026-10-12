@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { ClubRecruitmentCard } from '../../app/clubs/[clubId]/_components/ClubRecruitmentCard';
+import type { ClubDetailCheck } from '../../app/clubs/[clubId]/_lib/useClubApply';
 
 const mockAuthStatus = { value: 'unauthenticated' };
 // 지원 흐름은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
@@ -106,10 +107,18 @@ function mockMyApplications(applications: ApplicationSummary[]) {
   );
 }
 
+// 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
+const checkedNow = (): ClubDetailCheck => ({
+  checkedAt: Date.now(),
+  checkFailed: false,
+  recheck: async () => true,
+});
+
 function renderCard(
   recruitment: StudentRecruitmentProjection | undefined,
   clubId = 7,
   membership?: MyClubMembership | null,
+  detailCheck: ClubDetailCheck = checkedNow(),
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -130,7 +139,12 @@ function renderCard(
 
   return render(
     <Wrapper>
-      <ClubRecruitmentCard recruitment={recruitment} clubId={clubId} membership={membership} />
+      <ClubRecruitmentCard
+        recruitment={recruitment}
+        clubId={clubId}
+        membership={membership}
+        detailCheck={detailCheck}
+      />
     </Wrapper>,
   );
 }
@@ -201,6 +215,66 @@ describe('ClubRecruitmentCard', () => {
       'noopener,noreferrer',
     );
     openSpy.mockRestore();
+  });
+
+  it('스냅샷 확인이 실패하면 버튼 아래에 새로고침 안내가 보이고 버튼은 잠긴다', () => {
+    renderCard(
+      { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null },
+      7,
+      undefined,
+      { checkedAt: 0, checkFailed: true, recheck: async () => true },
+    );
+    expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+  });
+
+  // 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  it('확인 실패여도 이미 지원한 모집이면 안내 없이 지원서 보기 링크만 보인다', async () => {
+    mockAuthStatus.value = 'authenticated';
+    server.use(mockMyApplications([myApplication]));
+    renderCard(base, 7, undefined, { checkedAt: 0, checkFailed: true, recheck: async () => true });
+
+    expect(await screen.findByRole('link', { name: '지원 완료 · 지원서 보기' })).toBeInTheDocument();
+    expect(
+      screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('확인 실패여도 소속 잠금이면 안내 없이 잠금 이유만 보인다', () => {
+    renderCard({ ...base, targetRole: 'MEMBER' }, 7, memberMembership, {
+      checkedAt: 0,
+      checkFailed: true,
+      recheck: async () => true,
+    });
+
+    expect(screen.getByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
+    expect(
+      screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('ISR 스냅샷이면 열린 외부 폼 모집도 버튼이 잠기고 눌러도 열리지 않는다', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      renderCard(
+        {
+          ...base,
+          displayStatus: 'ALWAYS_OPEN',
+          endDate: null,
+          applicationMode: 'EXTERNAL',
+          externalFormUrl: 'https://example.com/form',
+        },
+        7,
+        undefined,
+        { checkedAt: 0, checkFailed: false, recheck: async () => true },
+      );
+      const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(openSpy).not.toHaveBeenCalled();
+    } finally {
+      openSpy.mockRestore();
+    }
   });
 
   it('지원 가능하면 사전 확인 후 지원서 페이지로 이동한다', async () => {

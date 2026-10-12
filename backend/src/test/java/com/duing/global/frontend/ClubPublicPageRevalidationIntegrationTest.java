@@ -40,11 +40,23 @@ import com.duing.domain.clubmember.service.dto.command.AssignLeaderByAdminComman
 import com.duing.domain.clubmember.service.dto.command.CreateSuccessionCommand;
 import com.duing.domain.clubmember.service.dto.command.ProcessSuccessionCommand;
 import com.duing.domain.clubmember.service.dto.command.TransferLeaderCommand;
+import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.exception.RecruitmentException;
+import com.duing.domain.recruitment.service.AdminRecruitmentCommandService;
+import com.duing.domain.recruitment.service.RecruitmentService;
+import com.duing.domain.recruitment.service.dto.command.CreateRecruitmentCommand;
+import com.duing.domain.recruitment.service.dto.command.UpdateRecruitmentCommand;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
+import com.duing.domain.user.service.dto.command.UpdateProfileCommand;
 import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -96,6 +108,10 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     @Autowired AdminLeaderAssignmentService adminLeaderAssignmentService;
     @Autowired @Qualifier(FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME)
     ThreadPoolTaskExecutor frontendRevalidationTaskExecutor;
+    @Autowired RecruitmentService recruitmentService;
+    @Autowired AdminRecruitmentCommandService adminRecruitmentCommandService;
+    @Autowired Clock clock;
+    @Autowired UserService userService;
 
     @BeforeEach
     void setUp() throws InterruptedException {
@@ -135,6 +151,20 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
                 null, null, null, null, null, null, null, null,
                 tagline, null, null, null, null, null, null, null,
                 null, null, null, null, null);
+    }
+
+    /** 자체 폼 상시모집(종료일 없음) — 접수 중단은 상시모집만 할 수 있다. */
+    private static CreateRecruitmentCommand alwaysOpenRecruitment(Long clubId, Long leaderId, LocalDate startDate) {
+        return new CreateRecruitmentCommand(
+                clubId, leaderId, "상시 모집", "내용", startDate, null, 10,
+                ApplicationMode.SELF, null, false, TargetRole.MEMBER,
+                List.of(RecruitmentQuestion.createText("자기소개")), null, null, false);
+    }
+
+    /** 제목만 바꾸는 수정 커맨드 — 나머지 필드는 null(변경 없음)이다. */
+    private static UpdateRecruitmentCommand recruitmentTitleUpdate(Long recruitmentId, Long leaderId, String title) {
+        return new UpdateRecruitmentCommand(
+                recruitmentId, leaderId, title, null, null, null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -331,6 +361,92 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
                 new AssignLeaderByAdminCommand(club.getId(), member.getId(), admin.getId(), "직권 지정"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(3)).revalidateWithoutAlert(detailPathOf(club));
         // 실행기를 비운 뒤 "정확히 3회, 그 밖의 호출 없음" 을 고정한다 — 중복 발행·목록 동반 요청을 잡는다.
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("회장 본인이 이름을 바꾸면 이끄는 동아리마다 상세 재생성을 요청하고, 같은 이름 저장·회장 아닌 회원의 이름 변경은 요청하지 않는다")
+    void leaderRenameRequestsDetailRevalidationForEachLedClub() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.withName("옛회장이름"));
+        User member = userRepository.save(UserFixture.withName("부원이름"));
+        // 동아리 id 를 회원·멤버십 id 와 떼어 놓는다 — 동아리 대신 멤버십·회원 id 로 발행하는 변이가 같은 경로로 가려지지 않게.
+        for (int decoy = 1; decoy <= 4; decoy++) {
+            clubRepository.save(ClubFixture.academic("상세재생성이름미끼동아리" + decoy));
+        }
+        Club firstLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리1");
+        Club secondLedClub = saveActiveClubLedBy(leader, "상세재생성이름동아리2");
+        ClubMember memberMembership = clubMemberRepository.save(ClubMember.asMember(firstLedClub, member));
+        assertThat(List.of(firstLedClub.getId(), secondLedClub.getId()))
+                .doesNotContain(leader.getId(), member.getId(), memberMembership.getId());
+
+        // 이름 그대로(전공만 변경) — 상세에 보이는 값이 아니다.
+        userService.updateProfile(new UpdateProfileCommand(leader.getId(), "옛회장이름", null, null, "바꾼 전공"));
+        // 회장이 아닌 회원의 이름 변경 — 상세의 "동아리 회장" 줄과 무관하다.
+        userService.updateProfile(new UpdateProfileCommand(member.getId(), "바뀐부원이름", null, null, null));
+        verify(frontendRevalidator, after(QUIET_WAIT_MS).never()).revalidateWithoutAlert(anyString());
+
+        userService.updateProfile(new UpdateProfileCommand(leader.getId(), "새회장이름", null, null, null));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(firstLedClub));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(secondLedClub));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("모집 게시·수정·접수 중단·마감·삭제와 총동연 강제 마감은 각각 그 동아리 상세 재생성을 요청한다")
+    void recruitmentWritesRequestDetailRevalidation() throws InterruptedException {
+        User admin = userRepository.save(UserFixture.admin());
+        User leader = userRepository.save(UserFixture.unique());
+        // 동아리 id 를 모집·회원 id 와 떼어 놓는다 — 테스트마다 id 가 1 부터라, 동아리 대신 모집 id 로 발행하는 변이가
+        // 같은 경로로 가려진다.
+        for (int decoy = 1; decoy <= 3; decoy++) {
+            clubRepository.save(ClubFixture.academic("상세재생성모집미끼동아리" + decoy));
+        }
+        Club club = saveActiveClubLedBy(leader, "상세재생성모집동아리");
+        LocalDate today = LocalDate.now(clock);
+
+        Long alwaysOpenId = recruitmentService.create(
+                alwaysOpenRecruitment(club.getId(), leader.getId(), today.minusDays(3)));
+        assertThat(alwaysOpenId).isNotEqualTo(club.getId());
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+
+        recruitmentService.update(recruitmentTitleUpdate(alwaysOpenId, leader.getId(), "고친 모집 제목"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
+
+        recruitmentService.stopIntake(alwaysOpenId, leader.getId());
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(3)).revalidateWithoutAlert(detailPathOf(club));
+
+        recruitmentService.close(alwaysOpenId, leader.getId());
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(4)).revalidateWithoutAlert(detailPathOf(club));
+
+        recruitmentService.delete(alwaysOpenId, leader.getId());
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
+
+        Long forceClosedId = recruitmentService.create(alwaysOpenRecruitment(club.getId(), leader.getId(), today));
+        assertThat(forceClosedId).isNotEqualTo(club.getId());
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(6)).revalidateWithoutAlert(detailPathOf(club));
+
+        adminRecruitmentCommandService.forceClose(forceClosedId, admin.getId(), "총동연 점검");
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(7)).revalidateWithoutAlert(detailPathOf(club));
+        // 실행기를 비운 뒤 "정확히 7회, 그 밖의 호출 없음" 을 고정한다 — 중복 발행·목록 동반 요청을 잡는다.
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("거절된 모집 쓰기(진행 중 모집 삭제)는 상세 재생성을 요청하지 않는다")
+    void rejectedRecruitmentWriteDoesNotRequest() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClubLedBy(leader, "상세재생성거절동아리");
+        Long openRecruitmentId = recruitmentService.create(
+                alwaysOpenRecruitment(club.getId(), leader.getId(), LocalDate.now(clock)));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+
+        assertThatThrownBy(() -> recruitmentService.delete(openRecruitmentId, leader.getId()))
+                .isInstanceOf(RecruitmentException.OpenRecruitmentNotDeletableException.class);
+
+        verify(frontendRevalidator, after(QUIET_WAIT_MS).times(1)).revalidateWithoutAlert(detailPathOf(club));
         drainRevalidationExecutor();
         verifyNoMoreInteractions(frontendRevalidator);
     }

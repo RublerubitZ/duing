@@ -22,6 +22,20 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
+// 브라우저 규칙 하나만 흉내 내는 startViewTransition — 업데이트 콜백을 비동기로 부르고, finished 는 콜백이 돌려준 프라미스가
+// 끝나야 정산된다(브라우저는 앞 전환을 건너뛰어도 finished 를 이 규칙대로 둔다). 건너뛰기 상태 자체는 흉내 내지 않는다.
+function startViewTransitionLikeBrowser(callbackOptions?: ViewTransitionUpdateCallback | StartViewTransitionOptions): ViewTransition {
+  const update = typeof callbackOptions === 'function' ? callbackOptions : callbackOptions?.update;
+  const updateCallbackDone = Promise.resolve().then(() => update?.()).then(() => undefined);
+  return {
+    finished: updateCallbackDone,
+    ready: updateCallbackDone,
+    updateCallbackDone,
+    types: new Set<string>(),
+    skipTransition: () => undefined,
+  };
+}
+
 let registeredPopstateListener: EventListenerOrEventListenerObject | null = null;
 
 // jsdom 의 window/document 는 테스트 파일 전체에서 공유된다 — 모듈을 새로 로드해 설치할 때마다
@@ -41,6 +55,8 @@ async function loadAndInstallGuard() {
 }
 
 afterEach(() => {
+  // 서버 흉내(document 지움)를 먼저 되돌린다 — 아래 정리 줄이 document 를 쓴다.
+  vi.unstubAllGlobals();
   if (registeredPopstateListener) {
     window.removeEventListener('popstate', registeredPopstateListener);
     registeredPopstateListener = null;
@@ -48,6 +64,7 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-back-navigation');
   Reflect.deleteProperty(document, 'startViewTransition');
   vi.useRealTimers();
+  vi.doUnmock('@/app/_lib/backDismiss');
 });
 
 describe('installBackNavigationViewTransitionGuard', () => {
@@ -158,5 +175,221 @@ describe('installBackNavigationViewTransitionGuard', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('오버레이만 닫는 뒤로가기(URL 동일)는 마커를 바로 내린다 — 2초 안의 앞으로 전환이 마커를 인수해 애니메이션을 끄지 않는다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = true;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const forwardTransition = createViewTransitionMock();
+    const nativeStart = vi.fn(() => forwardTransition);
+    document.startViewTransition = nativeStart;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    // next-view-transitions 가 popstate 마다 부르는 호출 — 오버레이 분기라 실제 전환은 시작하지 않는다.
+    document.startViewTransition(() => undefined);
+
+    expect(nativeStart).not.toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    // popstate 가 건 안전장치 타이머도 마커와 함께 취소됐다(목 backDismiss 는 타이머를 걸지 않는다).
+    expect(vi.getTimerCount()).toBe(0);
+
+    // 시트를 닫자마자 카드를 눌러 앞으로 이동 — 마커가 없으니 전환이 그대로(애니메이션 유지) 시작된다.
+    overlayOnly = false;
+    const result = document.startViewTransition(() => undefined);
+    expect(result).toBe(forwardTransition);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    // 안전장치 타이머도 함께 취소됐다 — 시간이 지나도 아무 일이 없다.
+    vi.advanceTimersByTime(2000);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+  });
+
+  it('앞선 뒤로가기 전환이 마커를 들고 있는 동안의 오버레이 hop 은 마커를 내리지 않고, 그 전환이 끝나면 바로 내린다 — 죽은 엔트리 스킵의 두 번째 hop', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const deferred = createDeferred<void>();
+    document.startViewTransition = () => createViewTransitionMock(deferred.promise);
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 1: 실제 전환이 마커 인수
+    document.startViewTransition(() => undefined);
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 2: 같은 URL 스킵 착지
+    document.startViewTransition(() => undefined);
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true);
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    // 마지막 보유 전환(hop 1)이 끝나면 hop 2 가 올린 현 세대까지 내린다 — 2초 안전장치를 기다리면 그 사이
+    // 카드를 눌러 들어간 화면이 뒤로 가기로 읽혀 전환 애니메이션(로고 모핑)과 등장 연출이 빠진다.
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0); // hop 2 안전장치도 함께 취소됐다
+  });
+
+  it('죽은 엔트리 스킵의 첫 hop 전환은 두 번째 hop 의 커밋에서 끝난다 — 라이브러리가 갈아 끼운 업데이트 프라미스를 기다리며 멈추지 않는다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    document.startViewTransition = startViewTransitionLikeBrowser;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 1: 실제 페이지 전환
+    // 라이브러리의 hop 1 업데이트 프라미스 — 두 번째 popstate 가 상태를 갈아 끼워 영영 resolve 되지 않는다.
+    const hopOne = document.startViewTransition(() => new Promise<void>(() => undefined));
+    let hopOneSettled = false;
+    void hopOne.finished.then(() => {
+      hopOneSettled = true;
+    });
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 2: 같은 URL 스킵 착지
+    const commit = createDeferred<void>(); // 라이브러리가 pathname 변경 커밋 때 resolve 하는 hop 2 프라미스
+    document.startViewTransition(() => commit.promise);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(true); // 커밋 전 — 돌아온 화면은 뒤로 가기로 그려진다
+
+    commit.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(hopOneSettled).toBe(true);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('죽은 엔트리가 둘이면(3-hop) 마지막 hop 의 커밋에서 첫 전환이 끝난다 — 라이브러리는 마지막 hop 프라미스만 resolve 한다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    document.startViewTransition = startViewTransitionLikeBrowser;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 1: 실제 페이지 전환
+    const hopOne = document.startViewTransition(() => new Promise<void>(() => undefined));
+    let hopOneSettled = false;
+    void hopOne.finished.then(() => {
+      hopOneSettled = true;
+    });
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 2: 첫 죽은 엔트리 — 이 프라미스도 다음 popstate 에 버려진다
+    document.startViewTransition(() => new Promise<void>(() => undefined));
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 3: 실제 착지
+    const commit = createDeferred<void>();
+    document.startViewTransition(() => commit.promise);
+
+    commit.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(hopOneSettled).toBe(true);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('오버레이 hop 뒤에 실제 뒤로가기가 이어져도 첫 전환이 정산된다 — 보유 수가 남지 않는다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    document.startViewTransition = startViewTransitionLikeBrowser;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 1: 실제 페이지 전환
+    const hopOne = document.startViewTransition(() => new Promise<void>(() => undefined));
+    let hopOneSettled = false;
+    void hopOne.finished.then(() => {
+      hopOneSettled = true;
+    });
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // hop 2: 같은 URL 스킵 착지(프라미스는 다음 popstate 에 버려진다)
+    document.startViewTransition(() => new Promise<void>(() => undefined));
+    overlayOnly = false;
+    window.dispatchEvent(new PopStateEvent('popstate')); // 커밋 전에 한 번 더 실제 뒤로가기
+    const commit = createDeferred<void>();
+    document.startViewTransition(() => commit.promise);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(hopOneSettled).toBe(true); // 새 실제 전환이 앞 전환을 바로 끝냈다
+
+    commit.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // 이어서 시트를 뒤로가기로 닫음(단일 hop)
+    document.startViewTransition(() => undefined);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('연속 실제 뒤로가기에서 새 전환이 앞 전환의 업데이트를 끝낸다 — 보유 수가 남지 않아 뒤이은 오버레이 닫기는 바로 내린다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    document.startViewTransition = startViewTransitionLikeBrowser;
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const first = document.startViewTransition(() => new Promise<void>(() => undefined)); // 갈아 끼워져 버려지는 프라미스
+    let firstSettled = false;
+    void first.finished.then(() => {
+      firstSettled = true;
+    });
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const commit = createDeferred<void>();
+    document.startViewTransition(() => commit.promise);
+    commit.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(firstSettled).toBe(true);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // 이어서 시트를 뒤로가기로 닫음(단일 hop)
+    document.startViewTransition(() => undefined);
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('실제 뒤로가기 전환이 끝난 뒤의 오버레이 hop 은 마커를 바로 내린다 — 끝난 전환은 보유 수에서 빠져야 한다', async () => {
+    vi.useFakeTimers();
+    let overlayOnly = false;
+    vi.doMock('@/app/_lib/backDismiss', () => ({ isOverlayOnlyTraversal: () => overlayOnly }));
+    const deferred = createDeferred<void>();
+    document.startViewTransition = () => createViewTransitionMock(deferred.promise);
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate')); // 실제 뒤로가기 — 전환이 마커 인수
+    document.startViewTransition(() => undefined);
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0); // finished → 보유 수 감소·마커 해제
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+
+    overlayOnly = true;
+    window.dispatchEvent(new PopStateEvent('popstate')); // 이어서 시트를 뒤로가기로 닫음(단일 hop)
+    document.startViewTransition(() => undefined);
+
+    expect(document.documentElement.hasAttribute('data-back-navigation')).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('isBackNavigationPending', () => {
+  it('마커 속성이 있을 때만 참이다', async () => {
+    vi.resetModules();
+    const { isBackNavigationPending } = await import('@/app/_lib/backNavigationViewTransition');
+
+    expect(isBackNavigationPending()).toBe(false);
+    document.documentElement.setAttribute('data-back-navigation', '');
+    expect(isBackNavigationPending()).toBe(true);
+  });
+
+  it('문서가 없는 서버 렌더에서는 거짓이다', async () => {
+    vi.resetModules();
+    const { isBackNavigationPending } = await import('@/app/_lib/backNavigationViewTransition');
+
+    document.documentElement.setAttribute('data-back-navigation', '');
+    vi.stubGlobal('document', undefined);
+    try {
+      expect(isBackNavigationPending()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

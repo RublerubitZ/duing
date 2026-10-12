@@ -105,6 +105,7 @@ describe('소식 상세 트리 — 하이드레이션(ISR HTML 회귀)', () => {
     const result = await hydrateSeededTree(noticeDetail);
 
     expect(result.serverHtml).toContain('중앙광장');
+    expect(result.serverHtml).toContain('enter-content');
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);

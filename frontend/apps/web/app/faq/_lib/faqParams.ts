@@ -1,6 +1,8 @@
 // /faq 필터 상태의 URL 동기화 — clubs/_lib/exploreParams.ts 의 parse/serialize 패턴을 따른다.
 // URL 이 상태의 소스: 새로고침·공유·뒤로가기에서 필터가 유지된다. 기본값은 query 에서 생략한다.
 
+import { SEARCH_KEYWORD_MAX_LENGTH } from '../../_lib/searchKeyword';
+
 export type FaqParams = {
   categoryId: number | 'ALL';
   keyword: string;
@@ -26,7 +28,7 @@ function parsePositiveInt(raw: string | null): number | null {
 
 export function parseFaqParams(search: URLSearchParams): FaqParams {
   const categoryId = parsePositiveInt(search.get('category')) ?? 'ALL';
-  const keyword = search.get('keyword')?.trim() ?? '';
+  const keyword = search.get('keyword')?.trim().slice(0, SEARCH_KEYWORD_MAX_LENGTH) ?? '';
   const page = parsePositiveInt(search.get('page')) ?? 1;
   const item = parsePositiveInt(search.get('item'));
   return { categoryId, keyword, page, item };

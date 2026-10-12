@@ -12,7 +12,7 @@ import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { Spinner } from '@/components/loading/Spinner';
-import { useClubApply } from '../_lib/useClubApply';
+import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
 
 type Props = {
   /** 진행 중인 모집(없으면 undefined). 모집중·예정·상시·마감 모두 받아 처리한다. */
@@ -20,13 +20,18 @@ type Props = {
   clubId: number;
   /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
   membership?: MyClubMembership | null;
+  /** 상세 확인 상태 — 스냅샷이면 잠그고, 확인 실패면 새로고침을 안내한다(useClubApply). */
+  detailCheck: ClubDetailCheck;
 };
 
-export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) {
-  const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
-    useClubApply(recruitment);
+export function ClubRecruitmentCard({ recruitment, clubId, membership, detailCheck }: Props) {
+  const { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId } =
+    useClubApply(recruitment, detailCheck);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
+  // 확인 실패 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  const showsCheckFailure =
+    detailCheck.checkFailed && existingApplicationId === null && !isAlreadyMember;
 
   const status = recruitment?.displayStatus;
   const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
@@ -110,11 +115,11 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) 
           <button
             type="button"
             onClick={handleApply}
-            disabled={!canApply || isCheckingEligibility || isAlreadyMember}
+            disabled={!canApply || pendingLabel !== null || isAlreadyMember}
             className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isCheckingEligibility ? (
-              <span role="status" aria-label="지원 자격 확인 중" className="inline-flex items-center">
+            {pendingLabel !== null ? (
+              <span role="status" aria-label={pendingLabel} className="inline-flex items-center">
                 <Spinner size={14} />
               </span>
             ) : isAlreadyMember ? (
@@ -123,6 +128,11 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) 
               applyButtonLabel
             )}
           </button>
+        )}
+        {showsCheckFailure && (
+          <p role="status" className="mt-3 text-center text-xs text-coral">
+            모집 정보를 확인하지 못했어요. 새로고침해 주세요.
+          </p>
         )}
       </div>
     </aside>

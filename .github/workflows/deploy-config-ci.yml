@@ -12,6 +12,9 @@ on:
       - '.github/workflows/deploy-config-ci.yml'
       # 클라이언트 IP 복원 단언이 이 파일의 forward-headers-strategy 를 검사한다(ci-gate.yml 의 판정과 한 쌍).
       - 'backend/src/main/resources/application-prod.yml'
+      # 권한·해시 단언이 이 두 파일을 검사한다(ci-gate.yml 의 판정과 한 쌍).
+      - '.github/workflows/backup.yml'
+      - '.github/workflows/restore-rehearsal.yml'
   # PR 에서는 ci-gate.yml 이 변경 영역을 판정해 이 워크플로를 호출한다(workflow_call).
   # 여기에 pull_request 트리거를 되살리면 게이트 호출분과 이중 실행되므로 두지 않는다.
   # 스택 PR(앞 PR 을 base 로 삼는 후속 PR)도 게이트가 base 브랜치를 가리지 않아 그대로 검사된다.
@@ -93,3 +96,22 @@ jobs:
           grep -qE '^\s*forward-headers-strategy:\s*native\s*$' backend/src/main/resources/application-prod.yml \
             || { echo "::error::application-prod.yml 에 forward-headers-strategy: native 가 없습니다 — 톰캣이 X-Forwarded-For 를 무시합니다"; exit 1; }
           echo "클라이언트 IP 복원 설정 확인 완료"
+
+      - name: Assert DB workflows grant no token permissions and pin the CLI hash
+        # backup 은 운영 DB·백업 R2 자격을, restore-rehearsal 은 백업 R2 자격을 쥐고 GITHUB_TOKEN 을 쓰지 않는다 — 최상위 permissions: {} 가
+        # 정확히 있고 잡 단위로 다시 주지 않는지, CLI 해시가 워크플로에 인라인 고정돼 있는지 본다(#1302).
+        run: |
+          for workflow in .github/workflows/backup.yml .github/workflows/restore-rehearsal.yml; do
+            grep -qE '^permissions:[[:space:]]*\{\}[[:space:]]*(#.*)?$' "$workflow" \
+              || { echo "::error::${workflow} 최상위에 permissions: {} 가 없습니다(#1302)"; exit 1; }
+            ! grep -qE '^[[:space:]]+permissions:' "$workflow" \
+              || { echo "::error::${workflow} 에 잡 단위 permissions 가 있습니다 — 최상위 {} 를 덮어씁니다"; exit 1; }
+          done
+          grep -qE '^[[:space:]]+SUPABASE_CLI_SHA256:[[:space:]]+[0-9a-f]{64}([[:space:]]|$)' .github/workflows/backup.yml \
+            || { echo "::error::backup.yml 의 Supabase CLI sha256 인라인 고정(SUPABASE_CLI_SHA256)이 없습니다(#1302)"; exit 1; }
+          # env 줄만 남기고 설치 run 블록이 checksums.txt 대조로 되돌아가는 것도 막는다 — 고정 해시를 sha256sum -c 에 실제로 쓰는지 본다.
+          grep -qE 'SUPABASE_CLI_SHA256\}?"?[^|#]*\|[[:space:]]*sha256sum[[:space:]]+-c' .github/workflows/backup.yml \
+            || { echo "::error::backup.yml 이 고정 해시(SUPABASE_CLI_SHA256)로 sha256sum -c 하지 않습니다(#1302)"; exit 1; }
+          ! grep -qE '^[^#]*checksums\.txt' .github/workflows/backup.yml \
+            || { echo "::error::backup.yml 이 checksums.txt 대조로 되돌아갔습니다(#1302)"; exit 1; }
+          echo "DB 워크플로 권한·CLI 해시 고정 확인 완료"

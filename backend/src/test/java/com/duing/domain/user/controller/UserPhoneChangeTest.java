@@ -264,6 +264,29 @@ class UserPhoneChangeTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("비밀번호 변경과 번호 변경의 실패는 같은 한도로 합산된다")
+    void passwordChangeAndPhoneChangeShareStepUpLimit() {
+        AuthenticatedUser requester = signupAndLogin(uniquePhone(), uniqueStudentId());
+        String token = issueAndVerifyPhoneChangeSession(requester.accessToken(), uniquePhone());
+
+        // 비밀번호 변경에서 분당 한도(StepUpAttemptRateLimiter.PER_MINUTE_LIMIT = 5)만큼 틀린다.
+        for (int attempt = 0; attempt < 5; attempt++) {
+            given().contentType(ContentType.JSON)
+                    .header("Authorization", "Bearer " + requester.accessToken())
+                    .body(Map.of("currentPassword", "Wrong9999!", "newPassword", "New5678!"))
+                    .when().patch("/api/v1/users/me/password")
+                    .then().statusCode(HttpStatus.BAD_REQUEST.value());
+        }
+
+        given().contentType(ContentType.JSON)
+                .header("Authorization", "Bearer " + requester.accessToken())
+                .body(Map.of("verificationToken", token, "currentPassword", "Wrong9999!"))
+                .when().patch("/api/v1/users/me/phone")
+                .then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                .body("message", equalTo("비밀번호 확인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요."));
+    }
+
+    @Test
     @DisplayName("번호 변경에 성공하면 기존 액세스 토큰이 무효화된다")
     void changePhoneInvalidatesExistingAccessToken() {
         AuthenticatedUser requester = signupAndLogin(uniquePhone(), uniqueStudentId());

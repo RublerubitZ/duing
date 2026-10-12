@@ -107,7 +107,7 @@ pnpm dev                    # http://localhost:3000
 
 - `backend/**` 변경 → `backend-ci.yml`
 - `frontend/**` 변경 → `frontend-ci.yml`: lint · typecheck · build · test 등
-- `deploy/**` 변경 → `deploy-config-ci.yml`
+- `deploy/**`·`application-prod.yml`·`backup.yml`·`restore-rehearsal.yml` 변경 → `deploy-config-ci.yml`
 
 `develop` 브랜치 보호의 필수 체크는 **`Gate` 하나뿐**이다. 개별 CI 를 필수로 지정하면 해당 경로를 건드리지 않은 PR 에서 체크가 생성되지 않아 머지가 영구히 막힌다.
 
@@ -152,8 +152,9 @@ API 인증이나 권한 판정에는 사용하지 않는다. Access JWT 수명�
 
 동아리 탐색(`/clubs`)·상세(`/clubs/<id>`) 재생성 트리거는 Vercel `REVALIDATE_SECRET` 과 백엔드
 `DUING_FRONTEND_REVALIDATE_SECRET` 에 같은 값(32바이트 이상)을 넣어 켠다. 매시 정각 백엔드 잡이 이 값으로
-`POST /api/internal/revalidate` 를 불러 `/clubs` 를 다시 만들게 하고, 동아리 상세가 바뀐 커밋 뒤에는 그 상세를 다시
-만들게 한다. 둘 중 하나라도 비면 기능이 꺼지고 두 페이지는 배포 때나 자체 재생성 주기로만 갱신된다.
+`POST /api/internal/revalidate` 를 불러 `/clubs` 를 다시 만들게 하고, 동아리 상세가 바뀐 커밋 뒤와
+매일 00:05(진행 중이거나 최근 마감한 모집이 있는 동아리)에는 그 상세를 다시 만들게 한다. 둘 중 하나라도 비면
+기능이 꺼지고 두 페이지는 배포 때나 자체 재생성 주기로만 갱신된다.
 
 ---
 

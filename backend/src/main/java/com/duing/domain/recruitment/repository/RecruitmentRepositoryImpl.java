@@ -168,6 +168,22 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     }
 
     @Override
+    public List<Long> findClubIdsWithOngoingOrJustEndedRecruitment(LocalDate today) {
+        // effectivelyOpen(그제) = OPEN·미삭제·(종료일 없음 ∨ 종료일 ≥ 그제) — 어제·그제 마감까지 포함한다(마감 전이 하루 재시도).
+        // 동아리당 OPEN 은 uk_recruitment_club_active(V38)로 하나뿐이지만 distinct 로 방어한다.
+        return queryFactory
+                .select(recruitment.club.id)
+                .distinct()
+                .from(recruitment)
+                .where(
+                        RecruitmentPredicates.effectivelyOpen(today.minusDays(2)),
+                        recruitment.startDate.loe(today)
+                )
+                .orderBy(recruitment.club.id.asc())
+                .fetch();
+    }
+
+    @Override
     public Optional<RepresentativeRecruitmentRow> findRepresentativeByClubId(Long clubId, LocalDate today) {
         // 스칼라 projection — 엔티티 로드의 form eager +1 쿼리·content TEXT 전송을 피한다.
         // clubName 은 상세 응답이 Club 에서 이미 가지므로 club join 자체가 없다.

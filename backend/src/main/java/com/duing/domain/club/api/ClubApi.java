@@ -10,6 +10,7 @@ import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.user.entity.College;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.constant.SearchKeywordRules;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.time.DayOfWeek;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
@@ -39,7 +41,8 @@ public interface ClubApi {
     ResponseEntity<ApiResponse<PageResponse<ClubSummaryResponse>>> getClubs(
             @Parameter(description = "카테고리 필터") @RequestParam(required = false) ClubCategory category,
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
-            @Parameter(description = "이름/소개/태그/학과 키워드") @RequestParam(required = false) String keyword,
+            @Parameter(description = "이름/소개/태그/학과 키워드") @RequestParam(required = false)
+            @Size(max = SearchKeywordRules.MAX_LENGTH, message = SearchKeywordRules.MESSAGE) String keyword,
             @Parameter(description = "태그 다중 (OR 매칭)") @RequestParam(required = false) List<String> tags,
             @Parameter(description = "deprecated — recruitmentStatus 로 대체. true → AVAILABLE 매핑. false 는 매핑되지 않음(=전체).") @RequestParam(required = false) Boolean recruiting,
             @Parameter(description = "모집 상태 필터 (AVAILABLE / UPCOMING / CLOSED). 미지정 시 전체. recruiting 보다 우선 적용.")

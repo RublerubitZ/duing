@@ -18,7 +18,7 @@ import {
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
-import { NOTICE_CATEGORY_LABEL } from '@/app/notices/_lib/categoryLabels';
+import { noticeCategoryLabelOf } from '@/app/notices/_lib/categoryLabels';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 const PREVIEW_COUNT = 4;
@@ -78,7 +78,7 @@ function RecentNotices({ clubId }: Props) {
               <Link href={toRoute(`/clubs/${clubId}/member/notices/${notice.id}`)} className={CARD_CLASS}>
                 <div className="flex items-center gap-2">
                   <span className="shrink-0 rounded-full bg-graysoft px-2 py-0.5 text-[11px] font-semibold text-charcoal-2">
-                    {NOTICE_CATEGORY_LABEL[notice.category]}
+                    {noticeCategoryLabelOf(notice.category)}
                   </span>
                   {notice.pinned && (
                     <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-[11px] font-semibold text-warm">

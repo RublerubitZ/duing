@@ -7,7 +7,8 @@ import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
-import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
+import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { ArrowRight } from '@/components/duing/Icon';
@@ -16,8 +17,8 @@ import { InfoTabs } from '../../_components/InfoTabs';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
-import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
-import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
+import { NOTICE_CATEGORY_OPTIONS, noticeCategoryLabelOf } from '../_lib/categoryLabels';
+import { categoryTagStyleOf } from '../_lib/categoryTagStyles';
 import { NOTICE_LIST_PAGE_SIZE } from '../_lib/noticeListDefaults';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
@@ -59,7 +60,7 @@ const Icon = {
 
 /* ---------- 미니 컴포넌트 ---------- */
 function NTagPill({ category }: { category: NoticeCategory }) {
-  const s = CATEGORY_TAG_STYLES[category];
+  const s = categoryTagStyleOf(category);
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -67,7 +68,7 @@ function NTagPill({ category }: { category: NoticeCategory }) {
       background: s.bg, color: s.fg,
       fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
       minWidth: 36,
-    }}>{NOTICE_CATEGORY_LABEL[category]}</span>
+    }}>{noticeCategoryLabelOf(category)}</span>
   );
 }
 
@@ -236,8 +237,8 @@ export function NoticePage() {
     size: NOTICE_LIST_PAGE_SIZE,
   });
 
-  // 스켈레톤을 거쳐 도착한 첫 목록만 떠오른다(캐시로 곧바로 보이는 재방문은 그대로).
-  const enteredFromSkeleton = useEnteredFromSkeleton(listQuery.isLoading);
+  // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 첫 목록이 떠오른다(뒤로·앞으로 가기는 그대로).
+  const playsEntrance = useEntranceMotion(listQuery.isLoading);
   // NEW 배지(작성 7일 이내)는 하이드레이션 뒤에만 — 목록은 24시간 ISR 이라 서버가 계산한 값이 보는 시각과 달라
   // 하이드레이션 불일치(#418)가 난다. 서버·첫 프레임에는 그리지 않는다.
   const hydrated = useHydrated();
@@ -264,7 +265,7 @@ export function NoticePage() {
   const isClubSource = activeSource === 'CLUB';
 
   const handleSearch = () => {
-    setKeyword(keywordInput);
+    setKeyword(keywordInput.slice(0, SEARCH_KEYWORD_MAX_LENGTH));
     setPage(0);
   };
 
@@ -361,8 +362,8 @@ export function NoticePage() {
             })}
           </div>
 
-          {/* Hero */}
-          <div className="mb-[22px] flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+          {/* Hero — 가로 배치는 lg 부터. md 사이드바가 붙는 768~1023px 은 본문이 좁아 제목이 꺾인다(#1381). 고정 카드 2열·표도 같은 경계. */}
+          <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
             <div>
               <div style={{
                 fontSize: 11.5, fontWeight: 700, color: 'var(--ink)',
@@ -391,8 +392,8 @@ export function NoticePage() {
             </div>
 
             {/* Search */}
-            <div className="flex w-full items-center gap-2 md:mt-1 md:w-auto md:shrink-0">
-              <div className="w-full md:w-[280px]" style={{
+            <div className="flex w-full items-center gap-2 lg:mt-1 lg:w-auto lg:shrink-0">
+              <div className="w-full lg:w-[280px]" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 background: 'var(--paper)',
                 border: '1px solid var(--gray-line)',
@@ -406,9 +407,10 @@ export function NoticePage() {
                     FAQ·탐색 검색 input 의 min-w-0 와 같은 처치. */}
                 <input
                   value={keywordInput}
+                  maxLength={SEARCH_KEYWORD_MAX_LENGTH}
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                  placeholder="제목 또는 내용을 검색하세요"
+                  placeholder="제목 또는 요약을 검색하세요"
                   aria-label="소식 검색"
                   style={{
                     flex: 1, minWidth: 0, border: 'none', outline: 'none',
@@ -504,12 +506,12 @@ export function NoticePage() {
           {listQuery.data && (
             // keepPreviousData 전환 중(탭·필터 변경)에는 이전 목록을 딤 처리해
             // "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. opacity 만 전이라 비용 없음.
-            // 스켈레톤 뒤 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
+            // 앞으로 들어오거나 스켈레톤을 거친 첫 목록은 1회 떠오른다 — 이 div 는 전환 중에도 언마운트되지 않아 재생은 마운트 1회뿐이다.
             <div
               aria-busy={listQuery.isPlaceholderData}
               className={
                 cn(
-                  enteredFromSkeleton && 'enter-content',
+                  playsEntrance && 'enter-content',
                   listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                 ) || undefined
               }
@@ -517,7 +519,7 @@ export function NoticePage() {
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
-                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
+                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:gap-3.5 lg:grid-cols-2">
                     {highlightedPinnedItems.map((n, i) => {
                       const isDark = i === 0;
                       return (
@@ -545,7 +547,7 @@ export function NoticePage() {
                                 background: 'rgba(157,182,160,0.18)',
                                 color: 'var(--sage)',
                                 fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
-                              }}>{NOTICE_CATEGORY_LABEL[n.category]}</span>
+                              }}>{noticeCategoryLabelOf(n.category)}</span>
                             ) : (
                               <NTagPill category={n.category} />
                             )}
@@ -640,8 +642,8 @@ export function NoticePage() {
               {/* 고정 카드만 있는 페이지(일반·넘친 고정 0건)는 표를 그리지 않는다 — 데스크탑에 머리글만 남은 빈 시트가 된다. */}
               {(listRowItems.length > 0 || items.length === 0) && (
               <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
-                {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
-                <div className="hidden md:grid" style={{
+                {/* Header row (lg+ 전용 — 그 아래는 카드형 행) */}
+                <div className="hidden lg:grid" style={{
                   gridTemplateColumns: '56px 56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   background: '#FAF8F2',

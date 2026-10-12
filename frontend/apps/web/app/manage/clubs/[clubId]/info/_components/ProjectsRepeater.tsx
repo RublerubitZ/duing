@@ -12,7 +12,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { ClubProject } from '@duing/types';
-import { PROJECT_ICON_COMPONENTS, projectCardTone } from '@/app/_lib/projectIcons';
+import { projectCardTone, projectIconComponentOf } from '@/app/_lib/projectIcons';
 import { ProjectIconPicker } from './ProjectIconPicker';
 
 const MAX_PROJECTS = 6;
@@ -32,7 +32,7 @@ function SortableProjectRow({
   onPatch: (patch: Partial<ClubProject>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id, disabled: readOnly });
-  const IconComponent = PROJECT_ICON_COMPONENTS[project.icon];
+  const IconComponent = projectIconComponentOf(project.icon);
   return (
     <li
       ref={setNodeRef}

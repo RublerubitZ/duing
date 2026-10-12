@@ -1,5 +1,6 @@
 package com.duing.domain.club.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -23,14 +24,18 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(OutputCaptureExtension.class)
 class ClubSearchControllerTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
@@ -132,6 +137,36 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 // 집계 배치 전이라 지표 행이 없다 — 이 경로에서 null 이 아니라 0 으로 내려가는 것이 계약이다.
                 .body("data.content[0].weeklyInterestCount", equalTo(0))
                 .body("data.content[0].activeRecruitment", nullValue());
+    }
+
+    @Test
+    @DisplayName("검색어가 100자면 200 이다")
+    void keywordAtMaxLengthIsAccepted() {
+        RestAssured.given()
+                .queryParam("keyword", "가".repeat(100))
+                .when().get("/api/v1/clubs")
+                .then().statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("검색어가 101자면 400 이고 안내 문구가 실린다")
+    void keywordOverMaxLengthIsRejected() {
+        RestAssured.given()
+                .queryParam("keyword", "가".repeat(101))
+                .when().get("/api/v1/clubs")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("검색어는 100자 이하로 입력해주세요."));
+    }
+
+    @Test
+    @DisplayName("검색어 상한 위반은 서버 오류로 기록되지 않는다")
+    void keywordOverMaxLengthIsNotLoggedAsServerError(CapturedOutput output) {
+        RestAssured.given()
+                .queryParam("keyword", "가".repeat(101))
+                .when().get("/api/v1/clubs")
+                .then().statusCode(HttpStatus.BAD_REQUEST.value());
+
+        assertThat(output.getAll()).doesNotContain("Unhandled exception");
     }
 
     /**

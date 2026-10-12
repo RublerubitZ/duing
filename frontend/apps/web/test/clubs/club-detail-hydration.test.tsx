@@ -89,6 +89,8 @@ describe('동아리 상세 트리 — 하이드레이션(ISR HTML 회귀)', () =
     const result = await hydrateSeededTree();
 
     expect(result.serverHtml).toContain('함께 운동해요');
+    // 앞으로 들어온 렌더라 서버 HTML 에 본문 등장 클래스가 실린다 — 첫 화면에서 CSS 로 재생되고, 하이드레이션도 같은 값이라 경고가 없다.
+    expect(result.serverHtml).toContain('enter-content');
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);

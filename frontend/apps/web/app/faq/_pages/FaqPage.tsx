@@ -15,6 +15,7 @@ import type { FederationFaqItem } from '@duing/types';
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { cn } from '@/app/_lib/cn';
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { InfoTabs } from '../../_components/InfoTabs';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
@@ -132,7 +133,11 @@ export function FaqPage() {
 
   // 검색 확정·칩·페이지 변경은 전부 딥링크 item 을 함께 제거한다(맥락이 바뀐 카드 잔존 방지).
   const handleSearch = () => {
-    updateParams({ keyword: keywordDraft.trim(), page: 1, item: null });
+    updateParams({
+      keyword: keywordDraft.trim().slice(0, SEARCH_KEYWORD_MAX_LENGTH),
+      page: 1,
+      item: null,
+    });
   };
 
   const handleCategoryChange = (next: number | 'ALL') => {
@@ -165,6 +170,7 @@ export function FaqPage() {
         <div className="mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 focus-within:border-ink md:max-w-[420px]">
           <input
             value={keywordDraft}
+            maxLength={SEARCH_KEYWORD_MAX_LENGTH}
             onChange={(event) => setKeywordDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') handleSearch();

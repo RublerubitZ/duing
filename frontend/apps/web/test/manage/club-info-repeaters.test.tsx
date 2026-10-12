@@ -81,6 +81,18 @@ describe('ProjectsRepeater', () => {
 
     expect(screen.getByRole('button', { name: /프로젝트 추가/ })).toBeDisabled();
   });
+
+  it('백엔드가 먼저 배포한 모르는 아이콘 값의 프로젝트도 행과 아이콘을 그린다', () => {
+    const projects: ClubProject[] = [
+      { icon: 'NEW_ICON' as unknown as ClubProject['icon'], title: '새 활동', subtitle: null },
+    ];
+    render(<ProjectsRepeater value={projects} onChange={vi.fn()} readOnly={false} />);
+
+    const row = screen.getByText('새 활동').closest('li');
+    expect(row).not.toBeNull();
+    // 순서 변경 손잡이 svg 는 버튼 안이라, span 바로 아래 svg 는 아이콘 자리뿐이다.
+    expect(row?.querySelector('span > svg')).not.toBeNull();
+  });
 });
 
 describe('SnsLinksRepeater (기타 라벨 입력)', () => {

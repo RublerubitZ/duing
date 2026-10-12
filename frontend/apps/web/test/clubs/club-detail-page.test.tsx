@@ -230,10 +230,24 @@ describe('동아리 상세 실패 분기', () => {
   });
 });
 
-// 스켈레톤을 거쳐 도착한 콘텐츠만 1회 떠오른다(globals.css .enter-content). 재생 중인 transform 은
-// fixed 자손의 기준이 되므로 하단 고정 지원 바는 애니메이션 래퍼 밖에 있어야 한다.
-describe('동아리 상세 스켈레톤 → 콘텐츠 등장', () => {
-  it('첫 방문은 스켈레톤 래퍼를 지연 표시하고, 도착한 히어로만 enter-content 안에 두며 지원 바는 밖에 둔다', async () => {
+// 화면 본문 등장(globals.css .enter-content) — 앞으로 들어오거나 스켈레톤을 거친 마운트에서 1회 떠오른다(useEntranceMotion).
+// 히어로(로고 모핑 대상)는 연출 요소 밖이어야 한다 — 조상에 transform 이 걸리면 모핑이 8px 아래를 목표로 끝나 튄다.
+// 재생 중인 transform 은 fixed 자손의 기준이 되므로 하단 고정 지원 바도 밖이어야 한다.
+describe('동아리 상세 본문 등장', () => {
+  afterEach(() => document.documentElement.removeAttribute('data-back-navigation'));
+
+  function expectBodyAnimatedWithoutHero(container: HTMLElement) {
+    expect(screen.getByRole('tablist').closest('.enter-content')).not.toBeNull();
+    // jsdom 은 md:hidden 을 무시해 데스크탑·모바일 히어로 제목이 둘 다 렌더된다.
+    for (const heroTitle of screen.getAllByRole('heading', { level: 1 })) {
+      expect(heroTitle.closest('.enter-content')).toBeNull();
+    }
+    const applyBar = container.querySelector('.fixed.bottom-0');
+    expect(applyBar).toHaveAttribute('data-bottom-bar');
+    expect(applyBar?.closest('.enter-content')).toBeNull();
+  }
+
+  it('스켈레톤을 지연 표시하고, 도착한 본문에 enter-content 를 걸되 히어로·지원 바는 밖에 둔다', async () => {
     seed();
     const { container } = renderPage();
 
@@ -242,25 +256,30 @@ describe('동아리 상세 스켈레톤 → 콘텐츠 등장', () => {
     // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다.
     expect(skeleton).not.toHaveClass('delayed-show');
 
-    // jsdom 은 md:hidden 을 무시해 데스크탑·모바일 히어로 제목이 둘 다 렌더된다.
-    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
-    for (const heroTitle of heroTitles) {
-      expect(heroTitle.closest('.enter-content')).not.toBeNull();
-    }
-    const applyBar = container.querySelector('.fixed.bottom-0');
-    expect(applyBar).toHaveAttribute('data-bottom-bar');
-    expect(applyBar?.closest('.enter-content')).toBeNull();
+    await screen.findAllByRole('heading', { level: 1 });
+    expectBodyAnimatedWithoutHero(container);
   });
 
-  it('상세가 캐시에 있어 첫 렌더부터 콘텐츠면 히어로에 enter-content 를 걸지 않는다', async () => {
+  it('시드·캐시로 첫 렌더부터 콘텐츠여도 앞으로 들어온 마운트면 본문이 떠오른다', async () => {
     seed();
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(clubQueryKeys.detail(CLUB_ID), clubDetail);
+    const { container } = renderPage(queryClient);
+
+    await screen.findAllByRole('heading', { level: 1 });
+    expectBodyAnimatedWithoutHero(container);
+  });
+
+  // 마커가 선 마운트는 시드·캐시여도 본문에 클래스를 걸지 않는다 — useEntranceMotion 의 뒤로·앞으로 가기 분기 가드.
+  it('뒤로·앞으로 가기로 그려지는 마운트(마커)는 본문에 enter-content 를 걸지 않는다', async () => {
+    seed();
+    document.documentElement.setAttribute('data-back-navigation', '');
     const queryClient = createQueryClient();
     queryClient.setQueryData(clubQueryKeys.detail(CLUB_ID), clubDetail);
     renderPage(queryClient);
 
-    const heroTitles = await screen.findAllByRole('heading', { level: 1 });
-    for (const heroTitle of heroTitles) {
-      expect(heroTitle.closest('.enter-content')).toBeNull();
-    }
+    await screen.findAllByRole('heading', { level: 1 });
+    // 대표 활동 같은 하위 영역은 따로 받아와 스켈레톤을 거치면 떠오른다(useEnteredFromSkeleton) — 본문 섹션만 본다.
+    expect(screen.getByRole('tablist').closest('.enter-content')).toBeNull();
   });
 });

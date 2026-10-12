@@ -3,6 +3,8 @@ package com.duing.global.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.FilterChain;
+import java.io.Writer;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -117,7 +119,7 @@ class RequestBodySizeLimitFilterTest {
     }
 
     @Test
-    @DisplayName("멀티파트(파일 업로드)는 JSON 한도를 넘겨도 통과한다 — 업로드 한도는 별도로 강제된다")
+    @DisplayName("업로드 경로의 멀티파트는 JSON 한도를 넘겨도 통과한다")
     void skipsMultipartEvenWhenOverJsonLimit() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/files");
         request.setContentType(MediaType.MULTIPART_FORM_DATA_VALUE + "; boundary=abc123");
@@ -131,16 +133,104 @@ class RequestBodySizeLimitFilterTest {
     }
 
     @Test
-    @DisplayName("Content-Length 를 알 수 없는(chunked) 요청은 앱 레이어에서 통과한다 — 엣지(Caddy)가 상한을 강제한다")
-    void passesWhenContentLengthUnknown() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/applications");
-        request.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        // setContent 를 호출하지 않으면 Content-Length 는 -1(미상)로 남는다.
+    @DisplayName("업로드 외 경로에 멀티파트로 한도를 넘기면 413 으로 거부된다")
+    void rejectsOversizedMultipartToNonUploadPath() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        request.setContentType(MediaType.MULTIPART_FORM_DATA_VALUE + "; boundary=abc123");
+        request.setContent(new byte[3 * 1024 * 1024]);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
         filter.doFilter(request, response, chain);
 
-        assertThat(chain.getRequest()).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    @DisplayName("길이를 모르는 멀티파트는 업로드 경로가 아니면 413 으로 거부된다")
+    void rejectsMultipartOfUnknownLengthToNonUploadPath() throws Exception {
+        MockHttpServletRequest request = chunkedRequest(
+                "/api/v1/auth/login", MediaType.MULTIPART_FORM_DATA_VALUE + "; boundary=abc123", 1024);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    @DisplayName("chunked 도 한도 이하는 통과한다")
+    void passesChunkedBodyUnderLimit() throws Exception {
+        MockHttpServletRequest request =
+                chunkedRequest("/api/v1/applications", MediaType.APPLICATION_JSON_VALUE, 1024);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainReadingWholeBody());
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("chunked 로 정확히 한도만큼은 통과한다")
+    void passesChunkedBodyExactlyAtLimit() throws Exception {
+        MockHttpServletRequest request =
+                chunkedRequest("/api/v1/applications", MediaType.APPLICATION_JSON_VALUE, (int) MAX_BYTES);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainReadingWholeBody());
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("chunked 로 한도를 넘기면 읽는 도중 413 과 오류 바디로 끊는다")
+    void rejectsChunkedBodyOverLimitWhileReading() throws Exception {
+        MockHttpServletRequest request =
+                chunkedRequest("/api/v1/applications", MediaType.APPLICATION_JSON_VALUE, (int) MAX_BYTES + 1);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chainReadingWholeBody());
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(response.getContentAsString()).contains("최대 크기를 초과");
+    }
+
+    @Test
+    @DisplayName("chunked 본문을 문자 스트림(getReader)으로 읽어도 한도를 넘기면 413 으로 끊는다")
+    void rejectsChunkedBodyOverLimitReadThroughReader() throws Exception {
+        MockHttpServletRequest request =
+                chunkedRequest("/api/v1/applications", MediaType.APPLICATION_JSON_VALUE, (int) MAX_BYTES + 1);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response,
+                (chainRequest, chainResponse) -> chainRequest.getReader().transferTo(Writer.nullWriter()));
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+    }
+
+    // MockHttpServletRequest 는 본문을 주면 Content-Length 를 그 길이로 돌려준다 — chunked(길이 미상)는 -1 로 덮어 흉내 낸다.
+    private static MockHttpServletRequest chunkedRequest(String uri, String contentType, int bodyBytes) {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", uri) {
+            @Override
+            public long getContentLengthLong() {
+                return -1;
+            }
+
+            @Override
+            public int getContentLength() {
+                return -1;
+            }
+        };
+        request.setContentType(contentType);
+        request.setContent(new byte[bodyBytes]);
+        return request;
+    }
+
+    // 컨트롤러처럼 본문을 끝까지 읽는 체인.
+    private static FilterChain chainReadingWholeBody() {
+        return (request, response) -> request.getInputStream().readAllBytes();
     }
 }

@@ -7,10 +7,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record ReorderHeroActivitiesRequest(
         @NotEmpty(message = "정렬할 대표 활동이 비어 있습니다.")
+        @Size(max = 6, message = "대표 활동은 6개 이하여야 합니다.")
         @Valid
         List<HeroOrderItem> items
 ) {

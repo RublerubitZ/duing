@@ -5,11 +5,13 @@ import com.duing.domain.notice.controller.dto.response.NoticeDetailResponse;
 import com.duing.domain.notice.entity.NoticeCategory;
 import com.duing.domain.notice.service.dto.query.NoticeSource;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.constant.SearchKeywordRules;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +29,8 @@ public interface NoticeApi {
     ResponseEntity<ApiResponse<PageResponse<NoticeCardResponse>>> getNotices(
             @RequestParam(required = false) NoticeCategory category,
             @RequestParam(required = false) List<String> tags,
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @Size(max = SearchKeywordRules.MAX_LENGTH, message = SearchKeywordRules.MESSAGE) String keyword,
             @RequestParam(required = false) NoticeSource source,
             @Parameter(hidden = true) Pageable pageable,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser

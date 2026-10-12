@@ -168,6 +168,29 @@ class NoticePublicAcceptanceTest extends IntegrationTestBase {
                 .body("data.content.findAll { it.title == 'MT 안내' }.size()", equalTo(0));
     }
 
+    @Test
+    @DisplayName("검색어가 100자면 200 이다")
+    void keywordAtMaxLengthIsAccepted() {
+        RestAssured.given()
+                .queryParam("keyword", "가".repeat(100))
+            .when()
+                .get("/api/v1/notices")
+            .then()
+                .statusCode(HttpStatus.OK.value());
+    }
+
+    @Test
+    @DisplayName("검색어가 101자면 400 이고 안내 문구가 실린다")
+    void keywordOverMaxLengthIsRejected() {
+        RestAssured.given()
+                .queryParam("keyword", "가".repeat(101))
+            .when()
+                .get("/api/v1/notices")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("검색어는 100자 이하로 입력해주세요."));
+    }
+
     // ---- seeders via admin POST ----
 
     private void seedPublicNotice(String title) {

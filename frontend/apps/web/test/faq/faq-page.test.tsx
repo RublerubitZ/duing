@@ -139,6 +139,12 @@ describe('FaqPage', () => {
     expect(mockRouterReplace).toHaveBeenCalledWith(`/faq?${expectedQuery}`, { scroll: false });
   });
 
+  it('검색 input 은 100자까지만 입력받는다 — 서버가 100자를 넘는 검색어를 400 으로 거절한다', () => {
+    render(<FaqPage />);
+
+    expect(screen.getByRole('textbox', { name: '질문 검색' })).toHaveAttribute('maxLength', '100');
+  });
+
   it('검색어·카테고리 없이 목록이 비면 등록된 질문이 없다는 안내와 1:1 문의 CTA 가 노출된다', () => {
     mockUseFederationFaqListQuery.mockReturnValue(makeListResponse([]));
 

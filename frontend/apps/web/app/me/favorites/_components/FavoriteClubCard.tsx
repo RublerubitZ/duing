@@ -2,19 +2,9 @@
 
 import Link from 'next/link';
 import type { FavoriteClub } from '@duing/types';
+import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
 import { ClubLogo } from '../../../_components/ClubLogo';
-
-const CATEGORY_LABEL: Record<FavoriteClub['category'], string> = {
-  ACADEMIC: '학술',
-  CREATION: '창작',
-  ART: '예술',
-  SPORTS: '운동',
-  VOLUNTEER: '봉사',
-  RELIGION: '종교',
-  HOBBY: '취미',
-  OTHER: '기타',
-};
 
 type Props = { favorite: FavoriteClub };
 
@@ -32,7 +22,7 @@ export function FavoriteClubCard({ favorite }: Props) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{favorite.name}</p>
           <p className="text-xs text-slate-500">
-            {CATEGORY_LABEL[favorite.category]}
+            {clubCategoryLabel(favorite.category)}
             {favorite.division ? ` · ${favorite.division}` : ''}
           </p>
           {/* 0건도 표기한다 — 배지가 아예 없으면 "모집 없음"과 "아직 안 불러옴"이 구분되지 않는다.

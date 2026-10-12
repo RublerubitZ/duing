@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ClubCategory } from '@duing/types';
 import { clubCategoryLabel } from '../../app/clubs/[clubId]/_lib/clubCategoryLabel';
 
 describe('clubCategoryLabel', () => {
@@ -13,5 +14,9 @@ describe('clubCategoryLabel', () => {
     ['OTHER', '기타'],
   ] as const)('%s → %s', (category, expected) => {
     expect(clubCategoryLabel(category)).toBe(expected);
+  });
+
+  it('모르는 분류는 기타', () => {
+    expect(clubCategoryLabel('NEW_CATEGORY' as unknown as ClubCategory)).toBe('기타');
   });
 });
