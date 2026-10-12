@@ -352,8 +352,9 @@ body {
     }
   }
 
-  /* /notices 목록 NoticeRow — 데스크탑 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일).
-     모바일은 통짜 paper 시트 없이 크림 위 행 리스트(NoticePage Table 주석 참조)라 좌우 패딩 0. */
+  /* /notices 목록 NoticeRow — 데스크탑(lg+) 5칸 테이블 행, 모바일 2행 카드(이미지 + 제목/분류·등록일).
+     모바일(≤767px)은 통짜 paper 시트 없이 크림 위 행 리스트(NoticePage Table 주석 참조)라 좌우 패딩 0,
+     md(768~1023px)는 같은 2행 카드를 시트 안에서 그려 좌우 패딩 22px. */
   .notice-row {
     display: grid;
     align-items: center;
@@ -385,9 +386,15 @@ body {
   }
   @media (min-width: 768px) {
     .notice-row {
+      padding: 13px 22px;
+    }
+  }
+  /* 표 레이아웃은 lg(1024px)부터 — md 사이드바(220px)가 붙는 768~1023px 은 본문이 428~684px 라 5칸 표의
+     제목 칸이 0~288px 로 눌린다(#1381). 그 구간은 모바일 2줄 행을 흰 시트 안에서 쓴다. */
+  @media (min-width: 1024px) {
+    .notice-row {
       column-gap: 14px;
       row-gap: 0;
-      padding: 13px 22px;
       grid-template-columns: 56px 56px 72px 1fr 110px;
       grid-template-areas: 'no img cat title date';
     }
