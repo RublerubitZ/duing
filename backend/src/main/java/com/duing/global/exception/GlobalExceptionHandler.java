@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * @RequestParam 등 메서드 파라미터 제약 위반(Spring 6.1+ 내장 메서드 검증) — 클라이언트 입력 오류라 400.
+     * {@code @RequestParam} 등 메서드 파라미터 제약 위반(Spring 6.1+ 내장 메서드 검증) — 클라이언트 입력 오류라 400.
      * 핸들러가 없으면 catch-all 로 500 + ERROR + Sentry 가 된다. 문구는 제약의 정적 메시지만 이어 붙인다(입력 미반사).
      * 반환값 검증 실패는 서버 결함이라 catch-all 로 넘긴다.
      */
@@ -73,7 +73,8 @@ public class GlobalExceptionHandler {
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.joining(", "));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message.isBlank() ? "요청 값이 올바르지 않습니다." : message));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

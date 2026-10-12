@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
@@ -63,6 +64,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
         // 업로드 엔드포인트만 멀티파트 면제 — 서블릿 multipart 한도(10MB)·업로드 정책(5MB)이 따로 강제한다. 정확 일치만
         // 면제하고 인코딩 변형은 면제하지 않는다(fail-closed). 다른 경로의 멀티파트는 디스패처가 핸들러를 찾기 전에
         // 컨테이너가 getParts() 로 끝까지 파싱해 래퍼 계수를 우회하므로 여기서 먼저 거른다(#1322 F-4).
+        // 원시 URI 비교라 server.servlet.context-path 를 두면(지금 미설정) 접두가 붙어 업로드가 413 이 된다 — 그때 함께 바꾼다.
         if (isMultipart(request) && UPLOAD_PATH.equals(request.getRequestURI())) {
             filterChain.doFilter(request, response);
             return;
@@ -77,7 +79,8 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
             filterChain.doFilter(contentLength < 0 ? new BodySizeLimitingRequest(request, maxBodyBytes) : request,
                     response);
         } catch (RequestBodyTooLargeException tooLarge) {
-            // 디스패처 밖(FormContentFilter 등)에서 읽다 넘친 경우 — 디스패처 안은 GlobalExceptionHandler 가 413 으로 돌린다.
+            // 디스패처 밖(FormContentFilter 등)에서 읽다 넘친 경우 — 디스패처 안에서 메시지 컨버터로 읽다 넘치면
+            // GlobalExceptionHandler 가 413 으로 돌린다(원시 본문을 직접 읽는 핸들러는 지금 없다).
             if (!response.isCommitted()) {
                 response.reset(); // 하위가 이미 getOutputStream() 을 잡았으면 getWriter() 가 실패한다 — CORS 헤더는 아래에서 다시 붙인다
                 writePayloadTooLarge(request, response);
@@ -88,7 +91,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
     private boolean isMultipart(HttpServletRequest request) {
         String contentType = request.getContentType();
         return contentType != null
-                && contentType.toLowerCase().startsWith(MULTIPART_PREFIX);
+                && contentType.toLowerCase(Locale.ROOT).startsWith(MULTIPART_PREFIX);
     }
 
     private void writePayloadTooLarge(HttpServletRequest request, HttpServletResponse response)

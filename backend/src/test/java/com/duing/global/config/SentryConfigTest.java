@@ -55,6 +55,9 @@ class SentryConfigTest {
                 "Cf-Connecting-Ip", "198.51.100.7",
                 "True-Client-Ip", "198.51.100.7",
                 "X-Client-Ip", "198.51.100.7",
+                // 이름 중간 일치까지 — 끝 일치("-ip" 로 끝남)로 바꾸면 이 두 헤더가 남아 실패한다.
+                "Cf-Connecting-Ipv6", "2001:db8::7",
+                "Cf-Ipcountry", "KR",
                 "User-Agent", "Mozilla/5.0")));
         event.setRequest(request);
 

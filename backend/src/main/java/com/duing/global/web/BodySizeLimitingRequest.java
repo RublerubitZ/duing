@@ -7,8 +7,6 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 
 /**
  * 길이를 모르는(chunked) 요청 본문을 읽는 만큼 세어 상한을 넘는 순간 {@link RequestBodyTooLargeException} 을 던진다.
@@ -39,8 +37,9 @@ final class BodySizeLimitingRequest extends HttpServletRequestWrapper {
     public BufferedReader getReader() throws IOException {
         if (limitedReader == null) {
             String encoding = getCharacterEncoding();
-            Charset charset = encoding == null ? StandardCharsets.ISO_8859_1 : Charset.forName(encoding);
-            limitedReader = new BufferedReader(new InputStreamReader(getInputStream(), charset));
+            // 이름으로 넘겨 모르는 인코딩이 UnsupportedEncodingException(IOException)이 되게 한다 — 컨테이너 getReader 와 같다.
+            limitedReader = new BufferedReader(
+                    new InputStreamReader(getInputStream(), encoding == null ? "ISO-8859-1" : encoding));
         }
         return limitedReader;
     }
@@ -90,6 +89,16 @@ final class BodySizeLimitingRequest extends HttpServletRequestWrapper {
         @Override
         public boolean isReady() {
             return delegate.isReady();
+        }
+
+        @Override
+        public int available() throws IOException {
+            return delegate.available();
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
         }
 
         @Override

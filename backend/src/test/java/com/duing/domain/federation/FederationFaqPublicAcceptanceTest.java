@@ -174,8 +174,6 @@ class FederationFaqPublicAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.UNAUTHORIZED.value());
     }
 
-    // ---- helpers ----
-
     @Test
     @DisplayName("검색어가 100자면 200 이다")
     void keywordAtMaxLengthIsAccepted() {
@@ -198,6 +196,8 @@ class FederationFaqPublicAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("message", equalTo("검색어는 100자 이하로 입력해주세요."));
     }
+
+    // ---- helpers ----
 
     private Long seedFaq(Long categoryId, String question, boolean published, int sortOrder, boolean pinned) {
         return faqRepository.save(FederationFaq.create(
