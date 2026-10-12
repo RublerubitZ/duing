@@ -3,6 +3,7 @@
  */
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import type { NoticeCategory } from '@duing/types';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -25,6 +26,7 @@ vi.mock('next/navigation', () => ({
 import {
   eventNoticeDetail,
   expiredNoticeDetail,
+  noticeDetail,
   seededNoticeDetailTree,
 } from './notice-detail-tree-fixture';
 
@@ -67,5 +69,19 @@ describe('소식 상세 트리 — 서버 렌더(ISR 정적 생성 회귀)', () 
     expect(html).not.toContain('<!--$!-->');
     // 2026-09-25 는 금요일 — 같은 날 행사는 "M.d(요일) HH:mm–HH:mm"(en dash).
     expect(html).toContain('9.25(금) 10:00–12:00');
+  });
+
+  it('백엔드가 먼저 배포한 모르는 분류 값이 와도 상세를 경고 없이 그린다', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const html = renderToString(
+      seededNoticeDetailTree({ ...noticeDetail, category: 'NEW_CATEGORY' as unknown as NoticeCategory }),
+    );
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+    // Suspense 경계가 오류를 삼키면 이 표식만 남는다.
+    expect(html).not.toContain('<!--$!-->');
+    expect(html).toContain('2026 가을 동아리 박람회 안내');
   });
 });

@@ -3,6 +3,7 @@
  */
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import type { NoticeCategory } from '@duing/types';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -16,7 +17,7 @@ vi.mock('next/navigation', () => ({
   useSelectedLayoutSegment: () => null,
 }));
 
-import { seededNoticeListTree } from './notice-list-tree-fixture';
+import { noticeListPage, seededNoticeListTree } from './notice-list-tree-fixture';
 
 describe('소식 목록 트리 — 서버 렌더(ISR 정적 생성 회귀)', () => {
   it('시드된 첫 페이지를 throw 없이 그리고, 제목·상세 링크는 담고 NEW 배지는 뺀다', () => {
@@ -34,5 +35,24 @@ describe('소식 목록 트리 — 서버 렌더(ISR 정적 생성 회귀)', () 
     expect(html).toContain('지원사업 신청 안내');
     expect(html).toContain('href="/notices/17"');
     expect(html).not.toContain('>NEW<');
+  });
+
+  it('백엔드가 먼저 배포한 모르는 분류 값이 와도 그 소식을 경고 없이 그린다', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const pageWithUnknownCategory = {
+      ...noticeListPage,
+      content: noticeListPage.content.map((notice) =>
+        notice.id === 17 ? { ...notice, category: 'NEW_CATEGORY' as unknown as NoticeCategory } : notice,
+      ),
+    };
+
+    const html = renderToString(seededNoticeListTree(pageWithUnknownCategory));
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+    // Suspense 경계가 오류를 삼키면 이 표식만 남는다.
+    expect(html).not.toContain('<!--$!-->');
+    expect(html).toContain('가을 동아리 박람회 안내');
+    expect(html).toContain('href="/notices/17"');
   });
 });

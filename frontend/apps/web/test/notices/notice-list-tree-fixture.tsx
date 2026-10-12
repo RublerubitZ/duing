@@ -45,9 +45,9 @@ export const noticeListPage: PageResponse<NoticeCardItem> = {
 };
 
 /** page.tsx 처럼 목록 첫 진입 키를 updatedAt 0 으로 시드한 목록 트리 — 부를 때마다 새 캐시라 서버·브라우저 렌더를 따로 흉내 낸다. */
-export function seededNoticeListTree() {
+export function seededNoticeListTree(page: PageResponse<NoticeCardItem> = noticeListPage) {
   const queryClient = new QueryClient();
-  queryClient.setQueryData(noticeQueryKeys.list(DEFAULT_NOTICE_LIST_PARAMS), noticeListPage, { updatedAt: 0 });
+  queryClient.setQueryData(noticeQueryKeys.list(DEFAULT_NOTICE_LIST_PARAMS), page, { updatedAt: 0 });
   return (
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={createApiClient({ baseUrl: 'http://localhost:8080/api/v1' })}>
