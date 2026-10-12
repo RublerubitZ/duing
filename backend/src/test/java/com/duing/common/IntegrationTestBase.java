@@ -1,5 +1,7 @@
 package com.duing.common;
 
+import com.duing.domain.user.service.StepUpAttemptRateLimiter;
+import com.duing.domain.user.service.UnknownStudentLoginLock;
 import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.util.List;
 import java.util.Set;
@@ -51,6 +53,12 @@ public abstract class IntegrationTestBase {
     @Autowired
     private PhoneRevealRateLimiter phoneRevealRateLimiter;
 
+    @Autowired
+    private UnknownStudentLoginLock unknownStudentLoginLock;
+
+    @Autowired
+    private StepUpAttemptRateLimiter stepUpAttemptRateLimiter;
+
     @BeforeEach
     void cleanDatabase() {
         if (truncateStatement == null) {
@@ -60,6 +68,11 @@ public abstract class IntegrationTestBase {
         // RESTART IDENTITY 로 userId 가 매 테스트 1·2… 로 되돌아오는데 번호 열람 리미터는 in-memory 라 창이
         // 클래스를 넘어 누적된다 — 앞 테스트의 열람이 뒤 테스트를 429 로 떨어뜨리지 않도록 함께 비운다.
         phoneRevealRateLimiter.reset();
+        // 미가입 학번 가상 잠금도 in-memory 라 앞 테스트의 실패가 뒤 테스트를 429 로 떨어뜨리지 않게 비운다.
+        unknownStudentLoginLock.reset();
+        // 비밀번호 확인 실패 창도 userId 키 in-memory 라, RESTART IDENTITY 로 userId 가 매 테스트 1부터 돌아올 때
+        // 앞 테스트의 실패가 클래스를 넘어 누적되지 않게 비운다.
+        stepUpAttemptRateLimiter.reset();
     }
 
     private String buildTruncateStatement() {

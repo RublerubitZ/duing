@@ -84,6 +84,14 @@ public class UserException extends ApplicationException {
         }
     }
 
+    public static class TooManyStepUpAttemptsException extends UserException {
+        private static final String MESSAGE = "비밀번호 확인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.";
+
+        public TooManyStepUpAttemptsException() {
+            super(MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
+
     public static class InvalidCurrentPasswordException extends UserException {
         private static final String MESSAGE = "현재 비밀번호가 일치하지 않습니다.";
 

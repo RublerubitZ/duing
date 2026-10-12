@@ -47,6 +47,8 @@ class SignupPhoneChangeRaceGuardTest {
             passwordEncoder,
             mock(JwtTokenProvider.class),
             mock(LoginAttemptRateLimiter.class),
+            mock(UnknownStudentLoginLock.class),
+            mock(StepUpAttemptRateLimiter.class),
             mock(AuthSessionService.class),
             mock(ClubMemberRepository.class),
             mock(AdminUserActionLogRepository.class),

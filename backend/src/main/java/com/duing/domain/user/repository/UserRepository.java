@@ -36,6 +36,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * 미가입 학번 로그인 시도를 학번 단위로 직렬화한다 — 실계정의 {@link #findByStudentIdForUpdate} 행 잠금과 같은
+     * 역할(#1321 L-4). 트랜잭션 잠금이라 커밋·롤백 때 풀린다. pg_advisory_xact_lock 은 void 라 SELECT 1 FROM 으로 감싼다.
+     */
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :studentKey)", nativeQuery = true)
+    Integer acquireUnknownStudentLoginLock(@Param("namespace") int namespace, @Param("studentKey") int studentKey);
+
     boolean existsByStudentId(String studentId);
 
     boolean existsByPhone(String phone);

@@ -71,6 +71,8 @@ public class GeneralUserService implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
+    private final UnknownStudentLoginLock unknownStudentLoginLock;
+    private final StepUpAttemptRateLimiter stepUpAttemptRateLimiter;
     private final AuthSessionService authSessionService;
     private final ClubMemberRepository clubMemberRepository;
     private final AdminUserActionLogRepository adminUserActionLogRepository;
@@ -84,6 +86,8 @@ public class GeneralUserService implements UserService {
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
     private static final Duration LOGIN_LOCK_DURATION = Duration.ofMinutes(15);
+    // 미가입 학번 로그인 직렬화용 pg_advisory_xact_lock 첫 키 — 레포의 다른 advisory 잠금과 겹치지 않게 이름 붙인 값.
+    private static final int UNKNOWN_STUDENT_LOGIN_LOCK_NAMESPACE = 1321;
     // BCrypt 는 앞 72바이트(UTF-8)만 해시에 반영하고, Spring Security 6.4.4+ 는 이를 넘는 값의 encode 를
     // IllegalArgumentException(→ 500)으로 거부한다(CVE-2025-22228). encodePassword 가 그 전에 400 으로 거른다.
     private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
@@ -166,8 +170,20 @@ public class GeneralUserService implements UserService {
         // 같은 계정에 대한 동시 실패가 실패 카운터 증가를 덮어쓰지 않도록 행을 잠그고 조회한다.
         User user = userRepository.findByStudentIdForUpdate(loginCommand.studentId()).orElse(null);
         if (user == null) {
+            // 실계정은 위 행 잠금(FOR UPDATE)으로 같은 학번 시도가 줄을 선다 — 미가입 학번도 학번 단위 advisory 잠금으로
+            // 같은 줄을 세운다. 없으면 동시 실패가 모두 잠금 판정을 통과해 401 만 나와(실계정은 401×5 뒤 429) 가입 여부가
+            // 드러난다. 키는 학번의 String 해시 — 충돌하면 다른 학번 둘이 가끔 같은 줄에 설 뿐 판정은 바뀌지 않는다.
+            userRepository.acquireUnknownStudentLoginLock(
+                    UNKNOWN_STUDENT_LOGIN_LOCK_NAMESPACE, loginCommand.studentId().hashCode());
+            // 실계정 잠금 분기와 같은 순서·같은 예외 — 잠겼으면 BCrypt 도 하지 않는다(#1321 L-4).
+            if (unknownStudentLoginLock.isLocked(loginCommand.studentId(), now)) {
+                loginAttemptRateLimiter.recordFailureOrThrow(loginContext.clientIp(), now);
+                throw new UserException.AccountLockedException();
+            }
             // 존재하지 않는 학번도 BCrypt 비교 비용을 동일하게 소비해 타이밍 기반 학번 열거를 막는다.
             burnPasswordComparison(loginCommand.rawPassword());
+            unknownStudentLoginLock.recordFailure(
+                    loginCommand.studentId(), MAX_FAILED_LOGIN_ATTEMPTS, LOGIN_LOCK_DURATION, now);
             loginAttemptRateLimiter.recordFailureOrThrow(loginContext.clientIp(), now);
             throw new UserException.InvalidCredentialsException();
         }
@@ -296,7 +312,11 @@ public class GeneralUserService implements UserService {
         // token_version lost update 를 막기 위해 행을 잠그고 조회한다(logout/withdraw 와 동일).
         User user = userRepository.findByIdForUpdate(changePasswordCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
+        // 현재 비밀번호 추측 제한(#1321 L-5) — 이미 한도면 BCrypt 전에 429. 번호 변경과 같은 창을 쓴다.
+        stepUpAttemptRateLimiter.assertWithinLimit(user.getId(), now);
         if (!passwordEncoder.matches(changePasswordCommand.currentPassword(), user.getPasswordHash())) {
+            stepUpAttemptRateLimiter.recordFailureOrThrow(user.getId(), now);
             throw new UserException.InvalidCurrentPasswordException();
         }
         if (passwordEncoder.matches(changePasswordCommand.newPassword(), user.getPasswordHash())) {
@@ -331,7 +351,10 @@ public class GeneralUserService implements UserService {
                 .orElseThrow(UserException.UserNotFoundException::new);
         // 복구 수단(전화번호) 교체는 비밀번호 변경과 동급 — 현재 비밀번호로 step-up 인증한다.
         // 세션 소비 전에 실패시키므로 비밀번호 오입력 시 인증 세션은 살아있어 재시도만 하면 된다.
+        // 그 재시도는 비밀번호 변경과 같은 실패 창으로 제한한다(#1321 L-5) — 이미 한도면 BCrypt 전에 429.
+        stepUpAttemptRateLimiter.assertWithinLimit(user.getId(), now);
         if (!passwordEncoder.matches(changePhoneCommand.currentPassword(), user.getPasswordHash())) {
+            stepUpAttemptRateLimiter.recordFailureOrThrow(user.getId(), now);
             throw new UserException.InvalidCurrentPasswordException();
         }
         user.changePhone(verifiedPhone, now);
