@@ -228,6 +228,31 @@ describe('ClubRecruitmentCard', () => {
     expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
   });
 
+  // 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  it('확인 실패여도 이미 지원한 모집이면 안내 없이 지원서 보기 링크만 보인다', async () => {
+    mockAuthStatus.value = 'authenticated';
+    server.use(mockMyApplications([myApplication]));
+    renderCard(base, 7, undefined, { checkedAt: 0, checkFailed: true, recheck: async () => true });
+
+    expect(await screen.findByRole('link', { name: '지원 완료 · 지원서 보기' })).toBeInTheDocument();
+    expect(
+      screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('확인 실패여도 소속 잠금이면 안내 없이 잠금 이유만 보인다', () => {
+    renderCard({ ...base, targetRole: 'MEMBER' }, 7, memberMembership, {
+      checkedAt: 0,
+      checkFailed: true,
+      recheck: async () => true,
+    });
+
+    expect(screen.getByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
+    expect(
+      screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.'),
+    ).not.toBeInTheDocument();
+  });
+
   it('ISR 스냅샷이면 열린 외부 폼 모집도 버튼이 잠기고 눌러도 열리지 않는다', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {

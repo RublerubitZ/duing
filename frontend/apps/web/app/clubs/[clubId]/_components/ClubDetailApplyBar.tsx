@@ -29,13 +29,13 @@ type Props = {
 function barLabels(
   recruitment: StudentRecruitmentProjection | undefined,
   daysLeft: number | null,
-  checkFailed: boolean,
+  showsCheckFailure: boolean,
 ): {
   top: string;
   main: string;
 } {
   // 확인 실패면 스냅샷 문구 대신 새로고침을 안내한다 — 버튼이 잠긴 이유를 라벨 자리에서 알린다.
-  if (checkFailed) return { top: '모집 정보 확인 실패', main: '새로고침해 주세요' };
+  if (showsCheckFailure) return { top: '모집 정보 확인 실패', main: '새로고침해 주세요' };
   if (!recruitment) return { top: '모집 정보', main: '현재 모집이 없어요' };
   switch (recruitment.displayStatus) {
     case 'OPEN': {
@@ -58,9 +58,12 @@ export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Pro
   const { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId } =
     useClubApply(recruitment, detailCheck);
   const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
-  const { top, main } = barLabels(recruitment, daysLeft, detailCheck.checkFailed);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
+  // 확인 실패 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  const showsCheckFailure =
+    detailCheck.checkFailed && existingApplicationId === null && !isAlreadyMember;
+  const { top, main } = barLabels(recruitment, daysLeft, showsCheckFailure);
 
   return (
     <>

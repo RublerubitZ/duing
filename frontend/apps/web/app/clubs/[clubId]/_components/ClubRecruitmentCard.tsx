@@ -29,6 +29,9 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
     useClubApply(recruitment, detailCheck);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
+  // 확인 실패 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
+  const showsCheckFailure =
+    detailCheck.checkFailed && existingApplicationId === null && !isAlreadyMember;
 
   const status = recruitment?.displayStatus;
   const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
@@ -126,7 +129,7 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
             )}
           </button>
         )}
-        {detailCheck.checkFailed && (
+        {showsCheckFailure && (
           <p role="status" className="mt-3 text-center text-xs text-coral">
             모집 정보를 확인하지 못했어요. 새로고침해 주세요.
           </p>
