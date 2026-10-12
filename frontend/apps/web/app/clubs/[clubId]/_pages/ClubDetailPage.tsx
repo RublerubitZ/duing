@@ -84,7 +84,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const club = detail.data;
   // ISR 시드(SeededQuery 의 updatedAt 0)를 보는 중이면 지원 버튼을 잠근다 — 모집 상태가 재생성 주기만큼 낡았을 수 있다.
   // 마운트 재요청이 성공하면 dataUpdatedAt 이 바뀌어 풀리고, 실패하면 잠긴 채 남는다(확인 못 하면 닫는다).
-  // isFetching 은 쓰지 않는다 — 클라이언트 첫 렌더만 fetching 으로 바뀌어 서버 HTML 과 어긋난다(하이드레이션 불일치).
+  // isFetching 으로 판정하지 않는다 — 재요청이 실패해 fetching 이 끝나면 낡은 스냅샷으로 버튼이 다시 열린다.
   const isSnapshot = detail.dataUpdatedAt === 0;
 
   return (
