@@ -15,16 +15,21 @@ import { safeExternalHref, toRoute } from '../../../_lib/route';
  * - 외부 폼 모집: 안전 검증된 URL 을 새 탭으로 연다.
  * - 내부 모집: 비로그인 시 next 파라미터를 붙여 로그인으로, 로그인 시 지원 가능 여부를
  *   먼저 확인한 뒤 지원 페이지로 이동한다(부적격이면 토스트로 사유를 알리고 머무른다).
+ * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(isSnapshot=false). ISR 스냅샷의 모집 상태는 재생성 주기만큼
+ *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다.
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
  */
-export function useClubApply(recruitment: StudentRecruitmentProjection | undefined) {
+export function useClubApply(
+  recruitment: StudentRecruitmentProjection | undefined,
+  isSnapshot: boolean,
+) {
   const authStatus = useSeededAuthStatus();
   const router = useGuardedRouter();
   const { addToast } = useToast();
   const eligibilityCheck = useCheckEligibilityMutation();
 
   const status = recruitment?.displayStatus;
-  const canApply = status === 'OPEN' || status === 'ALWAYS_OPEN';
+  const canApply = !isSnapshot && (status === 'OPEN' || status === 'ALWAYS_OPEN');
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
 

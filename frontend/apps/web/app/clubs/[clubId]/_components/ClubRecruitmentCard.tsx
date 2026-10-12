@@ -20,11 +20,13 @@ type Props = {
   clubId: number;
   /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
   membership?: MyClubMembership | null;
+  /** ISR 시드(서버 HTML 스냅샷)를 보는 중 — 이 브라우저가 최신 상세를 받기 전이라 지원 버튼을 잠근다. */
+  isSnapshot: boolean;
 };
 
-export function ClubRecruitmentCard({ recruitment, clubId, membership }: Props) {
+export function ClubRecruitmentCard({ recruitment, clubId, membership, isSnapshot }: Props) {
   const { canApply, handleApply, applyButtonLabel, isCheckingEligibility, existingApplicationId } =
-    useClubApply(recruitment);
+    useClubApply(recruitment, isSnapshot);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
 
