@@ -197,7 +197,13 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {
       renderBar(
-        { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null, applicationMode: 'EXTERNAL', externalFormUrl: 'https://example.com/form' },
+        {
+          ...base,
+          displayStatus: 'ALWAYS_OPEN',
+          endDate: null,
+          applicationMode: 'EXTERNAL',
+          externalFormUrl: 'https://example.com/form',
+        },
         undefined,
         true,
       );

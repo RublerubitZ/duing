@@ -213,7 +213,13 @@ describe('ClubRecruitmentCard', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {
       renderCard(
-        { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null, applicationMode: 'EXTERNAL', externalFormUrl: 'https://example.com/form' },
+        {
+          ...base,
+          displayStatus: 'ALWAYS_OPEN',
+          endDate: null,
+          applicationMode: 'EXTERNAL',
+          externalFormUrl: 'https://example.com/form',
+        },
         7,
         undefined,
         true,

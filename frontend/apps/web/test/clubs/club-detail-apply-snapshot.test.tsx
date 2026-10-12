@@ -61,6 +61,9 @@ const externalClosed = withRecruitment({
 
 // 상세 재요청을 붙잡아 두는 핸들러 — 응답 전(시드만 보이는 구간)과 응답 후를 나눠 본다.
 let releaseDetail: () => void = () => {};
+// 단언이 풀어 주기 전에 실패해도 붙잡힌 요청을 남기지 않는다.
+afterEach(() => releaseDetail());
+
 function holdDetail(latestDetail: ClubDetail) {
   const released = new Promise<void>((resolve) => {
     releaseDetail = resolve;
