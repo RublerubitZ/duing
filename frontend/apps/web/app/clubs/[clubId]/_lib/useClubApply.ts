@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { StudentRecruitmentProjection } from '@duing/types';
@@ -10,25 +11,42 @@ import { useAuthStore } from '@duing/stores';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { safeExternalHref, toRoute } from '../../../_lib/route';
 
+/** 지원 버튼이 기대는 상세 확인 상태 — ClubDetailPage 가 상세 쿼리로 만든다. */
+export type ClubDetailCheck = {
+  /** 이 브라우저가 상세를 마지막으로 받은 시각(ms). 0 = ISR 스냅샷(아직 못 받음). */
+  checkedAt: number;
+  /** 스냅샷인데 다시 받기가 끝내 실패했다 — 버튼은 잠긴 채 새로고침을 안내한다. */
+  checkFailed: boolean;
+  /** 상세를 다시 받는다. 성공하면 true. */
+  recheck: () => Promise<boolean>;
+};
+
+// 외부 폼을 열기 전 다시 확인하는 기준 — 모집 축 신선도(@duing/hooks freshness.ts 의 2분, 마감 노출 지연 상한)와 같다.
+const EXTERNAL_RECHECK_AFTER_MS = 2 * 60_000;
+
 /**
  * 동아리 모집 지원 동작을 한곳에서 관리한다.
  * - 외부 폼 모집: 안전 검증된 URL 을 새 탭으로 연다.
  * - 내부 모집: 비로그인 시 next 파라미터를 붙여 로그인으로, 로그인 시 지원 가능 여부를
  *   먼저 확인한 뒤 지원 페이지로 이동한다(부적격이면 토스트로 사유를 알리고 머무른다).
- * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(isSnapshot=false). ISR 스냅샷의 모집 상태는 재생성 주기만큼
+ * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(detailCheck.checkedAt > 0). ISR 스냅샷의 모집 상태는 재생성 주기만큼
  *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다.
+ * - 외부 폼은 확인한 지 2분이 넘은 상세로 열지 않는다 — 누르면 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다.
+ *   일반 폼은 클릭 때 서버 자격 확인이 마감을 막지만, 외부 폼은 그 확인이 없다.
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
  */
 export function useClubApply(
   recruitment: StudentRecruitmentProjection | undefined,
-  isSnapshot: boolean,
+  detailCheck: ClubDetailCheck,
 ) {
   const authStatus = useSeededAuthStatus();
   const router = useGuardedRouter();
   const { addToast } = useToast();
   const eligibilityCheck = useCheckEligibilityMutation();
+  const [isRecheckingDetail, setIsRecheckingDetail] = useState(false);
 
   const status = recruitment?.displayStatus;
+  const isSnapshot = detailCheck.checkedAt === 0;
   const canApply = !isSnapshot && (status === 'OPEN' || status === 'ALWAYS_OPEN');
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
@@ -41,8 +59,18 @@ export function useClubApply(
     null;
 
   async function handleApply() {
-    if (!recruitment || !canApply || eligibilityCheck.isPending) return;
+    if (!recruitment || !canApply || eligibilityCheck.isPending || isRecheckingDetail) return;
     if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
+      // 확인한 지 오래된 상세면 열기 전에 다시 받는다. 받은 뒤 바로 열지 않는다 — 기다린 뒤의 window.open 은
+      // 팝업 차단에 걸릴 수 있고(noopener 라 알 수도 없다), 바뀐 상태(마감 등)를 사용자가 먼저 보게 한다.
+      if (Date.now() - detailCheck.checkedAt > EXTERNAL_RECHECK_AFTER_MS) {
+        setIsRecheckingDetail(true);
+        const rechecked = await detailCheck.recheck();
+        setIsRecheckingDetail(false);
+        if (rechecked) addToast('모집 정보를 새로 불러왔어요. 확인 후 다시 눌러 주세요.');
+        else addToast('모집 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요.', { variant: 'error' });
+        return;
+      }
       const externalUrl = safeExternalHref(recruitment.externalFormUrl);
       if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer');
       return;
@@ -72,11 +100,12 @@ export function useClubApply(
     }
   }
 
-  return {
-    canApply,
-    handleApply,
-    applyButtonLabel,
-    isCheckingEligibility: eligibilityCheck.isPending,
-    existingApplicationId,
-  };
+  // 버튼 자리 스피너의 접근 이름 — 진행 중인 확인이 없으면 null.
+  const pendingLabel = isRecheckingDetail
+    ? '모집 정보 확인 중'
+    : eligibilityCheck.isPending
+      ? '지원 자격 확인 중'
+      : null;
+
+  return { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId };
 }

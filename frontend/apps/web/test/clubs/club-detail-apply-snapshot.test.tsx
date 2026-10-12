@@ -111,6 +111,7 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
         fireEvent.click(button);
       }
       expect(openSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).not.toBeInTheDocument();
 
       releaseDetail();
       expect((await screen.findAllByText('이번 모집은 종료됐어요')).length).toBeGreaterThan(0);
@@ -129,6 +130,7 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
     renderSeededDetail(clubDetail);
 
     for (const button of applyButtons('지원하기')) expect(button).toBeDisabled();
+    expect(screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).not.toBeInTheDocument();
 
     releaseDetail();
     await waitFor(() => {
@@ -136,7 +138,7 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
     });
   });
 
-  it('최신 상세를 받지 못하면(재요청 실패) 시드 본문은 남고 지원 버튼은 잠긴 채 남는다', async () => {
+  it('최신 상세를 받지 못하면(재요청 실패) 시드 본문은 남고, 버튼은 잠긴 채 새로고침을 안내한다', async () => {
     server.use(
       http.get('*/clubs/1', () =>
         HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
@@ -149,5 +151,9 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
     );
     expect(screen.getAllByText('모션케어').length).toBeGreaterThan(0);
     for (const button of applyButtons('지원하기')) expect(button).toBeDisabled();
+    // 데스크탑 카드는 버튼 아래 한 줄, 모바일 하단 바는 좌측 라벨 자리에 안내한다.
+    expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+    expect(screen.getByText('모집 정보 확인 실패')).toBeInTheDocument();
+    expect(screen.getByText('새로고침해 주세요')).toBeInTheDocument();
   });
 });

@@ -10,7 +10,7 @@ import { ApiClientProvider } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
-import { useClubApply } from '@/app/clubs/[clubId]/_lib/useClubApply';
+import { useClubApply, type ClubDetailCheck } from '@/app/clubs/[clubId]/_lib/useClubApply';
 import ApplyPage from '@/app/apply/[recruitmentId]/page';
 
 /**
@@ -162,10 +162,17 @@ function renderApplyPage(queryClient: QueryClient) {
   );
 }
 
+// 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
+const checkedNow = (): ClubDetailCheck => ({
+  checkedAt: Date.now(),
+  checkFailed: false,
+  recheck: async () => true,
+});
+
 /** 지원하기 클릭 — 실제 화면과 같이 인증 상태에서 훅을 통해 누른다. */
 function renderApplyButton(queryClient: QueryClient) {
   act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
-  return renderHook(() => useClubApply(recruitmentProjection, false), {
+  return renderHook(() => useClubApply(recruitmentProjection, checkedNow()), {
     wrapper: wrapperFor(queryClient),
   });
 }
