@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { formatDateTimeKst } from '@duing/hooks';
 import type { AdminGlobalEventSummary } from '@duing/types';
 import { toRoute } from '../../../_lib/route';
-import { GLOBAL_EVENT_CATEGORY_LABEL } from '../_lib/categoryLabels';
+import { globalEventCategoryLabelOf } from '../_lib/categoryLabels';
 
 type Props = {
   items: AdminGlobalEventSummary[];
@@ -36,7 +36,7 @@ export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
           {items.map((item) => (
             <tr key={item.id} className="border-t border-line">
               <td className="px-4 py-3 text-charcoal-2">
-                {GLOBAL_EVENT_CATEGORY_LABEL[item.category]}
+                {globalEventCategoryLabelOf(item.category)}
               </td>
               <td className="px-4 py-3 text-ink font-semibold">{item.title}</td>
               <td className="px-4 py-3 text-charcoal-2 tabular-nums text-[12.5px]">

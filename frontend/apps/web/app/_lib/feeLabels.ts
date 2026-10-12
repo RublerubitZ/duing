@@ -97,7 +97,8 @@ export function cashbookCategoryLabel(categoryCode: CashbookCategory, customCate
   if (categoryCode === 'OTHER' && customCategory) {
     return customCategory;
   }
-  return CASHBOOK_CATEGORY_LABEL[categoryCode];
+  // 백엔드가 먼저 배포한 새 분류 코드면 빈칸 대신 '기타'.
+  return CASHBOOK_CATEGORY_LABEL[categoryCode] ?? CASHBOOK_CATEGORY_LABEL.OTHER;
 }
 
 export function cashbookEntryTypeLabel(entryType: CashbookEntryType): string {
