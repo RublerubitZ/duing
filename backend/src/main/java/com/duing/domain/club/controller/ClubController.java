@@ -17,10 +17,12 @@ import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.constant.SearchKeywordRules;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.util.List;
@@ -49,7 +51,8 @@ public class ClubController implements ClubApi {
     public ResponseEntity<ApiResponse<PageResponse<ClubSummaryResponse>>> getClubs(
             @RequestParam(required = false) ClubCategory category,
             @RequestParam(required = false) String division,
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @Size(max = SearchKeywordRules.MAX_LENGTH, message = SearchKeywordRules.MESSAGE) String keyword,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) Boolean recruiting,
             @RequestParam(required = false) RecruitmentStatusFilter recruitmentStatus,

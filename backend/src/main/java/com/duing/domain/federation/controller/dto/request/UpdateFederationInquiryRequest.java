@@ -14,7 +14,7 @@ public record UpdateFederationInquiryRequest(
         String content,
         // clear-intent 규약: null=기존 첨부 유지, []=전체 삭제, 배열=전체 교체.
         @Size(max = 5, message = "첨부는 최대 5개까지 등록할 수 있습니다.")
-        List<String> attachmentUrls
+        List<@Size(max = 500, message = "첨부 주소는 500자 이하여야 합니다.") String> attachmentUrls
 ) {
     public UpdateFederationInquiryCommand toCommand(Long inquiryId, Long authorId) {
         return new UpdateFederationInquiryCommand(inquiryId, authorId, title, content, attachmentUrls);

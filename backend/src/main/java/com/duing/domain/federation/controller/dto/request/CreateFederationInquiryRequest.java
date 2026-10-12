@@ -13,7 +13,7 @@ public record CreateFederationInquiryRequest(
         @Size(max = 2000, message = "내용은 2000자 이하여야 합니다.")
         String content,
         @Size(max = 5, message = "첨부는 최대 5개까지 등록할 수 있습니다.")
-        List<String> attachmentUrls
+        List<@Size(max = 500, message = "첨부 주소는 500자 이하여야 합니다.") String> attachmentUrls
 ) {
     public CreateFederationInquiryCommand toCommand(Long authorId) {
         return new CreateFederationInquiryCommand(authorId, title, content, attachmentUrls);

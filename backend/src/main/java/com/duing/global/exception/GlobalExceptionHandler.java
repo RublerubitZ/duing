@@ -3,6 +3,7 @@ package com.duing.global.exception;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.response.ApiResponse;
+import com.duing.global.web.RequestBodyTooLargeException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -10,6 +11,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
 import org.hibernate.query.sqm.PathElementException;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
@@ -53,6 +56,25 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(message));
+    }
+
+    /**
+     * {@code @RequestParam} 등 메서드 파라미터 제약 위반(Spring 6.1+ 내장 메서드 검증) — 클라이언트 입력 오류라 400.
+     * 핸들러가 없으면 catch-all 로 500 + ERROR + Sentry 가 된다. 문구는 제약의 정적 메시지만 이어 붙인다(입력 미반사).
+     * 반환값 검증 실패는 서버 결함이라 catch-all 로 넘긴다.
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidation(HandlerMethodValidationException exception) {
+        if (exception.isForReturnValue()) {
+            return handleUnexpected(exception);
+        }
+        String message = exception.getAllErrors().stream()
+                .map(MessageSourceResolvable::getDefaultMessage)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.joining(", "));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message.isBlank() ? "요청 값이 올바르지 않습니다." : message));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -85,6 +107,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException exception) {
+        // chunked 본문이 읽는 도중 상한을 넘으면 Spring 이 IOException 을 이 예외로 감싸 올린다 — 필터와 같은 413(#1322 F-4).
+        if (hasCause(exception, RequestBodyTooLargeException.class)) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(ApiResponse.error(RequestBodyTooLargeException.MESSAGE));
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("요청 본문을 해석할 수 없습니다."));
     }
@@ -198,7 +225,9 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ApiResponse<Void>> invalidSortOrServerError(
             Throwable exception, HttpServletRequest request) {
         if (request.getParameter("sort") != null) {
-            log.warn("잘못된 정렬 속성 (400 변환): {}", rootCauseMessage(exception));
+            // 원인 메시지에는 클라이언트가 보낸 속성명이 실린다 — 로그 위조·노이즈를 막으려 예외 종류만 남긴다(#1322 F-7).
+            log.warn("잘못된 정렬 속성 (400 변환): {}",
+                    NestedExceptionUtils.getMostSpecificCause(exception).getClass().getSimpleName());
             return invalidSortResponse();
         }
         log.error("정렬 파라미터 없이 발생한 쿼리 경로 오류 — 서버측 회귀로 간주(500)", exception);

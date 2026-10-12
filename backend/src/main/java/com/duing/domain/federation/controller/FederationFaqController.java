@@ -10,10 +10,12 @@ import com.duing.domain.federation.service.FederationFaqSearchMissRecorder;
 import com.duing.domain.federation.service.FederationFaqService;
 import com.duing.domain.federation.service.dto.query.FederationFaqSearchCondition;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.constant.SearchKeywordRules;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,7 +41,8 @@ public class FederationFaqController implements FederationFaqApi {
     @Override
     public ResponseEntity<ApiResponse<PageResponse<FederationFaqResponse>>> getFaqs(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @Size(max = SearchKeywordRules.MAX_LENGTH, message = SearchKeywordRules.MESSAGE) String keyword,
             Pageable pageable,
             HttpServletRequest httpServletRequest
     ) {

@@ -180,8 +180,9 @@ duing:
         # 운영은 application-prod.yml 에서 기본 활성(만료 데이터 삭제만이라 안전).
         enabled: ${DUING_AUTH_SESSION_CLEANUP_ENABLED:false}
   request:
-    # 비멀티파트(JSON 등) 요청 바디 상한(바이트, 기본 2MB). RequestBodySizeLimitFilter 가 Content-Length 로
-    # 확인해 초과 시 413 을 반환한다. 멀티파트 업로드는 제외(서블릿 multipart 한도·업로드 정책이 별도 강제).
+    # 요청 바디 상한(바이트, 기본 2MB). RequestBodySizeLimitFilter 가 Content-Length 로 확인하고, 길이를 모르는
+    # chunked 는 읽는 만큼 세어 초과 시 413 을 반환한다. 멀티파트는 업로드 경로(/api/v1/files)만 제외하고
+    # (서블릿 multipart 한도·업로드 정책이 별도 강제) 다른 경로의 멀티파트에는 이 상한을 그대로 건다.
     # 운영 엣지(Caddy request_body max_size 11MB)가 1차 방어이며, 이 값은 앱 레이어 심층 방어다.
     max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
   notice:

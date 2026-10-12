@@ -7,6 +7,7 @@ import java.util.List;
 
 public record RespondInterviewAvailabilityRequest(
         // 슬롯 선택 경로. noAvailableSlot 과 XOR — 위반은 서비스가 400 으로 거부한다.
+        @Size(max = 500, message = "선택할 수 있는 면접 시간은 500개 이하입니다.")
         List<@NotNull(message = "슬롯 ID 는 null 이 될 수 없습니다.") Long> slotIds,
         Boolean noAvailableSlot,
         @Size(max = 500, message = "대체 가능시간은 500자 이하여야 합니다.")
