@@ -16,7 +16,7 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { AdminRoleGuard } from '@/app/admin/_components/AdminRoleGuard';
 import { FavoriteToggleButton } from '@/app/_components/FavoriteToggleButton';
 import { HomeNavAuthSlot } from '@/app/_components/HomeNavAuthSlot';
-import { useClubApply } from '@/app/clubs/[clubId]/_lib/useClubApply';
+import { useClubApply, type ClubDetailCheck } from '@/app/clubs/[clubId]/_lib/useClubApply';
 
 /**
  * status 는 "모른다"를 표현하지 않는다 — 부팅 시드든 서버 확정이든 언제나 현재 최선의 판단이고,
@@ -356,6 +356,13 @@ describe('FavoriteToggleButton — 방향을 모르는 동안에는 누를 수 �
 });
 
 describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 튕기지 않는다', () => {
+  // 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
+  const checkedNow = (): ClubDetailCheck => ({
+    checkedAt: Date.now(),
+    checkFailed: false,
+    recheck: async () => true,
+  });
+
   const recruitment: StudentRecruitmentProjection = {
     id: 3,
     title: '모집',
@@ -382,7 +389,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
       ),
     );
 
-    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, checkedNow()), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
@@ -398,7 +405,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
       useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
     });
 
-    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, checkedNow()), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
@@ -408,7 +415,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
 
   it('미인증이 확정되면 자격 확인 없이 즉시 로그인으로 보낸다', async () => {
     setAuthStatus('unauthenticated');
-    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, checkedNow()), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fapply%2F3');

@@ -10,6 +10,7 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { ClubRecruitmentCard } from '../../app/clubs/[clubId]/_components/ClubRecruitmentCard';
+import type { ClubDetailCheck } from '../../app/clubs/[clubId]/_lib/useClubApply';
 
 const mockAuthStatus = { value: 'unauthenticated' };
 // 지원 흐름은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
@@ -106,11 +107,18 @@ function mockMyApplications(applications: ApplicationSummary[]) {
   );
 }
 
+// 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
+const checkedNow = (): ClubDetailCheck => ({
+  checkedAt: Date.now(),
+  checkFailed: false,
+  recheck: async () => true,
+});
+
 function renderCard(
   recruitment: StudentRecruitmentProjection | undefined,
   clubId = 7,
   membership?: MyClubMembership | null,
-  isSnapshot = false,
+  detailCheck: ClubDetailCheck = checkedNow(),
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -135,7 +143,7 @@ function renderCard(
         recruitment={recruitment}
         clubId={clubId}
         membership={membership}
-        isSnapshot={isSnapshot}
+        detailCheck={detailCheck}
       />
     </Wrapper>,
   );
@@ -209,6 +217,17 @@ describe('ClubRecruitmentCard', () => {
     openSpy.mockRestore();
   });
 
+  it('스냅샷 확인이 실패하면 버튼 아래에 새로고침 안내가 보이고 버튼은 잠긴다', () => {
+    renderCard(
+      { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null },
+      7,
+      undefined,
+      { checkedAt: 0, checkFailed: true, recheck: async () => true },
+    );
+    expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+  });
+
   it('ISR 스냅샷이면 열린 외부 폼 모집도 버튼이 잠기고 눌러도 열리지 않는다', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {
@@ -222,7 +241,7 @@ describe('ClubRecruitmentCard', () => {
         },
         7,
         undefined,
-        true,
+        { checkedAt: 0, checkFailed: false, recheck: async () => true },
       );
       const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
       expect(button).toBeDisabled();
