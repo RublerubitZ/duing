@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { formatDateKst } from '@duing/hooks/datetime';
 import type { NoticeCardItem } from '@duing/types';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
-import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
+import { noticeCategoryLabelOf } from '../_lib/categoryLabels';
 
 type Props = {
   notice: NoticeCardItem;
@@ -37,7 +37,7 @@ export function NoticeCard({ notice }: Props) {
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded-full bg-graysoft text-charcoal-2 text-[11px] font-semibold">
-              {NOTICE_CATEGORY_LABEL[notice.category]}
+              {noticeCategoryLabelOf(notice.category)}
             </span>
           )}
           {notice.linkUrl && (

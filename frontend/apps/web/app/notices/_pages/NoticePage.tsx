@@ -16,7 +16,7 @@ import { InfoTabs } from '../../_components/InfoTabs';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
-import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
+import { NOTICE_CATEGORY_OPTIONS, noticeCategoryLabelOf } from '../_lib/categoryLabels';
 import { categoryTagStyleOf } from '../_lib/categoryTagStyles';
 import { NOTICE_LIST_PAGE_SIZE } from '../_lib/noticeListDefaults';
 
@@ -67,7 +67,7 @@ function NTagPill({ category }: { category: NoticeCategory }) {
       background: s.bg, color: s.fg,
       fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
       minWidth: 36,
-    }}>{NOTICE_CATEGORY_LABEL[category]}</span>
+    }}>{noticeCategoryLabelOf(category)}</span>
   );
 }
 
@@ -545,7 +545,7 @@ export function NoticePage() {
                                 background: 'rgba(157,182,160,0.18)',
                                 color: 'var(--sage)',
                                 fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
-                              }}>{NOTICE_CATEGORY_LABEL[n.category]}</span>
+                              }}>{noticeCategoryLabelOf(n.category)}</span>
                             ) : (
                               <NTagPill category={n.category} />
                             )}
