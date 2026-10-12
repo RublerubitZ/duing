@@ -2,6 +2,8 @@ import { act, render, screen } from '@testing-library/react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { toRoute } from '@/app/_lib/route';
+
 // test/setup.ts 가 next-view-transitions 를 전역 mock 한다 — 패치가 실제로 적용됐는지는 실제 모듈로만 확인된다.
 type ViewTransitionsModule = typeof import('next-view-transitions');
 
@@ -67,7 +69,7 @@ describe('next-view-transitions 패치(frontend/patches)', () => {
         }}
       >
         <actual.ViewTransitions>
-          <actual.Link href="/clubs/1">상세로</actual.Link>
+          <actual.Link href={toRoute('/clubs/1')}>상세로</actual.Link>
         </actual.ViewTransitions>
       </AppRouterContext.Provider>,
     );
