@@ -31,9 +31,19 @@ describe('updateClubSchema (리더)', () => {
     const project = { icon: 'CODE', title: '프로젝트', subtitle: null };
     expect(updateClubSchema.safeParse({ ...base, projects: Array(7).fill(project) }).success).toBe(false);
   });
-  it('허용 목록 밖 아이콘은 거부한다', () => {
-    const project = { icon: 'EMOJI', title: '프로젝트', subtitle: null };
-    expect(updateClubSchema.safeParse({ ...base, projects: [project] }).success).toBe(false);
+  it('모르는 아이콘 값도 통과시킨다 — 값 판정은 백엔드 enum 이 한다', () => {
+    const project = { icon: 'NEW_ICON', title: '프로젝트', subtitle: null };
+    expect(updateClubSchema.safeParse({ ...base, projects: [project] }).success).toBe(true);
+  });
+  it('빈 아이콘은 한국어 메시지로 거부한다', () => {
+    const project = { icon: '', title: '프로젝트', subtitle: null };
+    const result = updateClubSchema.safeParse({ ...base, projects: [project] });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe('프로젝트 아이콘은 필수입니다.');
+  });
+  it('알려진 아이콘은 통과한다', () => {
+    const project = { icon: 'CODE', title: '프로젝트', subtitle: null };
+    expect(updateClubSchema.safeParse({ ...base, projects: [project] }).success).toBe(true);
   });
   it('강조 항목 10개까지는 백스톱으로 허용한다 (FE 추가 제한과 별개, §4.4)', () => {
     expect(updateClubSchema.safeParse({ ...base, highlights: Array(10).fill('항목') }).success).toBe(true);
