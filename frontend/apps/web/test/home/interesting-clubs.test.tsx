@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { ClubSummary, RecruitmentDisplayStatus } from '@duing/types';
+import type { ClubCategory, ClubSummary, RecruitmentDisplayStatus } from '@duing/types';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -126,6 +126,18 @@ describe('InterestingClubs', () => {
     expect(screen.getAllByText('모집중').length).toBeGreaterThan(0);
     expect(screen.getAllByText('모집예정').length).toBeGreaterThan(0);
     expect(screen.getAllByText('모집마감').length).toBeGreaterThan(0);
+  });
+
+  it('백엔드가 먼저 배포한 모르는 분류 값은 "기타" 라벨로 그린다', async () => {
+    fetchInterestingClubsMock.mockResolvedValue([
+      club({ id: 1, name: '새분류동아리', category: 'NEW_CATEGORY' as unknown as ClubCategory }),
+    ]);
+
+    render(await InterestingClubs());
+
+    // 데스크탑 카드 + 모바일 행 이중 렌더 — 같은 동아리가 두 번 그려진다.
+    expect(screen.getAllByText('새분류동아리').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('기타').length).toBeGreaterThan(0);
   });
 
   it('보여줄 동아리가 없으면 섹션 자체를 렌더하지 않는다', async () => {

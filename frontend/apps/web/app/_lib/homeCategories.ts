@@ -36,3 +36,8 @@ export const HOME_CATEGORY_BY_VALUE: Readonly<Record<ClubCategory, HomeCategoryM
     ClubCategory,
     HomeCategoryMeta
   >;
+
+/** 값으로 찾되, 백엔드가 먼저 배포한 새 분류 값이 서버 렌더(ISR)를 깨지 않게 모르는 값은 '기타'로 본다. */
+export function homeCategoryOf(category: ClubCategory): HomeCategoryMeta {
+  return HOME_CATEGORY_BY_VALUE[category] ?? HOME_CATEGORY_BY_VALUE.OTHER;
+}

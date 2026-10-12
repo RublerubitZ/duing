@@ -17,7 +17,7 @@ import { ImageWithFallback } from '../../_components/ImageWithFallback';
 import { SparkleFull } from '../../_components/Sparkle';
 import { toRoute } from '../../_lib/route';
 import { NOTICE_CATEGORY_LABEL, NOTICE_CATEGORY_OPTIONS } from '../_lib/categoryLabels';
-import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
+import { categoryTagStyleOf } from '../_lib/categoryTagStyles';
 import { NOTICE_LIST_PAGE_SIZE } from '../_lib/noticeListDefaults';
 
 /* ---------- Local icon set (inline-style 페이지 전용) ---------- */
@@ -59,7 +59,7 @@ const Icon = {
 
 /* ---------- 미니 컴포넌트 ---------- */
 function NTagPill({ category }: { category: NoticeCategory }) {
-  const s = CATEGORY_TAG_STYLES[category];
+  const s = categoryTagStyleOf(category);
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

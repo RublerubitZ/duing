@@ -6,7 +6,7 @@ import { parseKstInstant } from '@duing/hooks';
 import type { NoticeCategory } from '@duing/types';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
-import { CATEGORY_TAG_STYLES } from '../_lib/categoryTagStyles';
+import { categoryTagStyleOf } from '../_lib/categoryTagStyles';
 import { formatPublishedDate, formatDdayLabel } from '../_lib/eventFormat';
 import { Sparkle } from '../../_components/Sparkle';
 
@@ -25,7 +25,7 @@ export function NoticeArticleHeader({
   category, title, pinned, expiresAt, createdAt, owningClubId, clubName,
 }: Props) {
   const isClubNotice = owningClubId != null;
-  const tag = CATEGORY_TAG_STYLES[category];
+  const tag = categoryTagStyleOf(category);
   // 마감 D-day·만료 여부는 하이드레이션 뒤에만 계산한다 — 공개 상세는 24시간 ISR 이라 서버가 계산한 값이
   // 보는 시각과 달라 하이드레이션 불일치(#418)가 난다. 서버·첫 프레임에는 배지를 그리지 않는다.
   const hydrated = useHydrated();
