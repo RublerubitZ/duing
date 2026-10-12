@@ -382,7 +382,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
       ),
     );
 
-    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
@@ -398,7 +398,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
       useAuthStore.setState({ status: 'unauthenticated', isVerified: true, user: null });
     });
 
-    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(requestedPaths).toContain('/api/v1/recruitments/3/applications/eligibility');
@@ -408,7 +408,7 @@ describe('useClubApply — 시드된 인증의 지원 클릭은 로그인으로 
 
   it('미인증이 확정되면 자격 확인 없이 즉시 로그인으로 보낸다', async () => {
     setAuthStatus('unauthenticated');
-    const { result } = renderHook(() => useClubApply(recruitment), { wrapper: Wrapper });
+    const { result } = renderHook(() => useClubApply(recruitment, false), { wrapper: Wrapper });
     await act(() => result.current.handleApply());
 
     expect(mockRouterPush).toHaveBeenCalledWith('/login?next=%2Fapply%2F3');

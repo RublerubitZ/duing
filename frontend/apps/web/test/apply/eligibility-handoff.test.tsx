@@ -165,7 +165,7 @@ function renderApplyPage(queryClient: QueryClient) {
 /** 지원하기 클릭 — 실제 화면과 같이 인증 상태에서 훅을 통해 누른다. */
 function renderApplyButton(queryClient: QueryClient) {
   act(() => useAuthStore.setState({ status: 'authenticated', user: null }));
-  return renderHook(() => useClubApply(recruitmentProjection), {
+  return renderHook(() => useClubApply(recruitmentProjection, false), {
     wrapper: wrapperFor(queryClient),
   });
 }

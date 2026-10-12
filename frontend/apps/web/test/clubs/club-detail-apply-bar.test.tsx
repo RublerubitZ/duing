@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { todayKstDateString } from '@duing/hooks/datetime';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
@@ -104,6 +104,7 @@ function mockMyApplications(applications: ApplicationSummary[]) {
 function renderBar(
   recruitment: StudentRecruitmentProjection | undefined,
   membership?: MyClubMembership | null,
+  isSnapshot = false,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -124,7 +125,7 @@ function renderBar(
 
   return render(
     <Wrapper>
-      <ClubDetailApplyBar recruitment={recruitment} membership={membership} />
+      <ClubDetailApplyBar recruitment={recruitment} membership={membership} isSnapshot={isSnapshot} />
     </Wrapper>,
   );
 }
@@ -190,6 +191,23 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
       'noopener,noreferrer',
     );
     openSpy.mockRestore();
+  });
+
+  it('ISR 스냅샷이면 열린 외부 폼 모집도 버튼이 잠기고 눌러도 열리지 않는다', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      renderBar(
+        { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null, applicationMode: 'EXTERNAL', externalFormUrl: 'https://example.com/form' },
+        undefined,
+        true,
+      );
+      const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(openSpy).not.toHaveBeenCalled();
+    } finally {
+      openSpy.mockRestore();
+    }
   });
 
   it('지원 가능하면 사전 확인 후 지원서 페이지로 이동한다', async () => {
