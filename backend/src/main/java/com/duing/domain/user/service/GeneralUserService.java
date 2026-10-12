@@ -72,6 +72,7 @@ public class GeneralUserService implements UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptRateLimiter loginAttemptRateLimiter;
     private final UnknownStudentLoginLock unknownStudentLoginLock;
+    private final StepUpAttemptRateLimiter stepUpAttemptRateLimiter;
     private final AuthSessionService authSessionService;
     private final ClubMemberRepository clubMemberRepository;
     private final AdminUserActionLogRepository adminUserActionLogRepository;
@@ -311,7 +312,11 @@ public class GeneralUserService implements UserService {
         // token_version lost update 를 막기 위해 행을 잠그고 조회한다(logout/withdraw 와 동일).
         User user = userRepository.findByIdForUpdate(changePasswordCommand.userId())
                 .orElseThrow(UserException.UserNotFoundException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
+        // 현재 비밀번호 추측 제한(#1321 L-5) — 이미 한도면 BCrypt 전에 429. 번호 변경과 같은 창을 쓴다.
+        stepUpAttemptRateLimiter.assertWithinLimit(user.getId(), now);
         if (!passwordEncoder.matches(changePasswordCommand.currentPassword(), user.getPasswordHash())) {
+            stepUpAttemptRateLimiter.recordFailureOrThrow(user.getId(), now);
             throw new UserException.InvalidCurrentPasswordException();
         }
         if (passwordEncoder.matches(changePasswordCommand.newPassword(), user.getPasswordHash())) {
@@ -346,7 +351,10 @@ public class GeneralUserService implements UserService {
                 .orElseThrow(UserException.UserNotFoundException::new);
         // 복구 수단(전화번호) 교체는 비밀번호 변경과 동급 — 현재 비밀번호로 step-up 인증한다.
         // 세션 소비 전에 실패시키므로 비밀번호 오입력 시 인증 세션은 살아있어 재시도만 하면 된다.
+        // 그 재시도는 비밀번호 변경과 같은 실패 창으로 제한한다(#1321 L-5) — 이미 한도면 BCrypt 전에 429.
+        stepUpAttemptRateLimiter.assertWithinLimit(user.getId(), now);
         if (!passwordEncoder.matches(changePhoneCommand.currentPassword(), user.getPasswordHash())) {
+            stepUpAttemptRateLimiter.recordFailureOrThrow(user.getId(), now);
             throw new UserException.InvalidCurrentPasswordException();
         }
         user.changePhone(verifiedPhone, now);

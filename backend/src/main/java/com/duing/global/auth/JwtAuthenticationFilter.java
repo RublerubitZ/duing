@@ -41,6 +41,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // (b) token_version 이 불일치(로그아웃·자격 변경·탈퇴·관리자 조치로 증가)면 거부한다. 권한은 토큰의 role
                 // 클레임이 아니라 DB 의 현재 role 로 구성해 역할 변경(예: 관리자 강등)도 즉시 반영한다.
                 // (c) 이용 정지(SUSPENDED) 계정은 유효한 토큰이라도 거부한다.
+                // (d) sid 세션의 폐기 여부는 보지 않는다 — 개별 기기 로그아웃·세션 폐기 뒤 그 기기의 access 토큰은
+                // 만료(최대 30분)까지 유효하다. 매 요청 세션 조회 대신 이 창을 수용했다(#1321 L-2). 즉시 끊어야 하면
+                // 모든 기기 로그아웃·비밀번호 변경이 token_version 을 올린다.
                 userRepository.findById(claims.userId())
                         .filter(user -> user.getTokenVersion() == claims.tokenVersion() && user.isActive())
                         .ifPresentOrElse(
