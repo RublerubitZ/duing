@@ -316,7 +316,7 @@ body {
     transform: translateY(-2px);
   }
 
-  /* /me/applications ApplyRow — 데스크탑 1행 5칸, 모바일 2행 카드(헤더[로고·정보·배지] + 타임라인 풀폭) */
+  /* /me/applications ApplyRow — 데스크탑(lg+) 1행 5칸, 그 아래(≤1023px) 2행 카드(헤더[로고·정보·배지] + 타임라인 풀폭) */
   .apply-row {
     display: grid;
     align-items: center;
@@ -343,7 +343,8 @@ body {
   .apply-row > .ar-arrow {
     grid-area: arrow;
   }
-  @media (min-width: 768px) {
+  /* #1416: 768~1023px 은 보조 칸 200px 이 붙어 본문이 좁다(768px 에서 정보 칸 28px) — 2행 카드로 두고 표는 lg 부터(#1414 와 같은 경계). */
+  @media (min-width: 1024px) {
     .apply-row {
       column-gap: 10px;
       row-gap: 0;
