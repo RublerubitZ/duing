@@ -25,6 +25,7 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.auth.WebAuthCookieService;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicLong;
@@ -310,6 +311,33 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
 
         // 429 는 열람이 일어나지 않은 것이므로 감사 행도 한도 이상으로 늘지 않는다.
         assertThat(clubAuditEventRepository.count()).isEqualTo(perMinuteRevealLimit);
+    }
+
+    @Test
+    @DisplayName("쿠키 인증으로 Origin 없이 번호를 열람하면 403 이고 열람 감사 행이 남지 않는다")
+    void cookieRevealWithoutOriginIsRejectedWithoutAudit() {
+        long auditCountBefore = clubAuditEventRepository.count();
+
+        RestAssured
+                .given()
+                    .cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, leaderToken)
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.FORBIDDEN.value());
+        assertThat(clubAuditEventRepository.count()).isEqualTo(auditCountBefore);
+
+        RestAssured
+                .given()
+                    .cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, leaderToken)
+                    .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                .when()
+                    .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
+                            club.getId(), memberMembership.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.phone", equalTo(memberUser.getPhone()));
     }
 
     private User saveUser(String name) {
