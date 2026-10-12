@@ -79,6 +79,24 @@ class StorageBeanActivationTest {
     }
 
     @Test
+    @DisplayName("file.storage.provider=s3 인데 S3 환경변수가 주입되지 않아 자리표시자가 남으면 컨텍스트 부팅이 실패한다")
+    void s3FailFastOnUnresolvedPlaceholder() {
+        runner.withPropertyValues(
+                        "file.storage.provider=s3",
+                        "s3.endpoint=http://example.com",
+                        "s3.region=auto",
+                        // 어떤 환경에도 없을 이름 — Binder 는 못 푼 자리표시자를 문자열 그대로 남긴다.
+                        "s3.access-key=${DUING_TEST_UNRESOLVED_S3_ACCESS_KEY}",
+                        "s3.secret-key=sk",
+                        "s3.bucket=duing",
+                        "s3.public-base-url=http://example.com")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context).getFailure().rootCause().hasMessageContaining("s3.access-key");
+                });
+    }
+
+    @Test
     @DisplayName("file.storage.provider=s3 인데 s3.public-base-url 이 비어 있으면 컨텍스트 부팅이 실패한다")
     void s3FailFastOnMissingPublicBaseUrl() {
         runner.withPropertyValues(

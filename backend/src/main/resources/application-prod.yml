@@ -164,7 +164,8 @@ file:
 
 # 환경변수는 vendor(R2) 가 아니라 provider-neutral 한 S3_* 로 통일한다 — 내부 프로퍼티가
 # s3.*, 구현체가 S3FileStorageService 이고 로컬 개발도 같은 S3_* 를 쓰므로 환경 불문 동일
-# 변수명, 값(버킷/엔드포인트)만 환경별로 다르게 주입. default 없음 = credential 누락 시 fail-fast.
+# 변수명, 값(버킷/엔드포인트)만 환경별로 다르게 주입. default 없음 — 누락 시 S3StorageProperties 가 기동을 막는다
+# (Binder 는 미해석 자리표시자를 문자열로 남기므로 레코드가 거부한다).
 s3:
   endpoint: ${S3_ENDPOINT}
   region: auto
