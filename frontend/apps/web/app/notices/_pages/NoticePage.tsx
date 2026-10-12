@@ -361,8 +361,8 @@ export function NoticePage() {
             })}
           </div>
 
-          {/* Hero */}
-          <div className="mb-[22px] flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+          {/* Hero — 가로 배치는 lg 부터. md 사이드바가 붙는 768~1023px 은 본문이 좁아 제목이 꺾인다(#1381). 고정 카드 2열·표도 같은 경계. */}
+          <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
             <div>
               <div style={{
                 fontSize: 11.5, fontWeight: 700, color: 'var(--ink)',
@@ -391,8 +391,8 @@ export function NoticePage() {
             </div>
 
             {/* Search */}
-            <div className="flex w-full items-center gap-2 md:mt-1 md:w-auto md:shrink-0">
-              <div className="w-full md:w-[280px]" style={{
+            <div className="flex w-full items-center gap-2 lg:mt-1 lg:w-auto lg:shrink-0">
+              <div className="w-full lg:w-[280px]" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 background: 'var(--paper)',
                 border: '1px solid var(--gray-line)',
@@ -517,7 +517,7 @@ export function NoticePage() {
               {/* Pinned cards */}
               {pinnedItems.length > 0 && (
                 <>
-                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
+                  <div className="mb-6 md:mb-2.5 grid grid-cols-1 gap-3 md:gap-3.5 lg:grid-cols-2">
                     {highlightedPinnedItems.map((n, i) => {
                       const isDark = i === 0;
                       return (
@@ -640,8 +640,8 @@ export function NoticePage() {
               {/* 고정 카드만 있는 페이지(일반·넘친 고정 0건)는 표를 그리지 않는다 — 데스크탑에 머리글만 남은 빈 시트가 된다. */}
               {(listRowItems.length > 0 || items.length === 0) && (
               <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
-                {/* Header row (데스크탑 전용 — 모바일은 카드형 행) */}
-                <div className="hidden md:grid" style={{
+                {/* Header row (lg+ 전용 — 그 아래는 카드형 행) */}
+                <div className="hidden lg:grid" style={{
                   gridTemplateColumns: '56px 56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   background: '#FAF8F2',
