@@ -4,6 +4,7 @@ import com.duing.domain.federation.controller.dto.request.SubmitFederationFaqFee
 import com.duing.domain.federation.controller.dto.response.FederationFaqCategoryResponse;
 import com.duing.domain.federation.controller.dto.response.FederationFaqResponse;
 import com.duing.global.auth.UserPrincipal;
+import com.duing.global.constant.SearchKeywordRules;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +32,8 @@ public interface FederationFaqApi {
     @GetMapping("/federation/faqs")
     ResponseEntity<ApiResponse<PageResponse<FederationFaqResponse>>> getFaqs(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @Size(max = SearchKeywordRules.MAX_LENGTH, message = SearchKeywordRules.MESSAGE) String keyword,
             @Parameter(hidden = true) Pageable pageable,
             HttpServletRequest httpServletRequest
     );

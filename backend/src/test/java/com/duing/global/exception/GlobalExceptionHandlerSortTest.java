@@ -1,5 +1,6 @@
 package com.duing.global.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +10,9 @@ import org.hibernate.query.sqm.PathElementException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mapping.PropertyReferenceException;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Hibernate PathElementException 으로, 다시 디코딩되지 않는 sort 값(리터럴 %)은 정렬 리졸버의
  * IllegalArgumentException 으로 올라온다.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerSortTest {
 
     private MockMvc mockMvc;
@@ -95,6 +100,20 @@ class GlobalExceptionHandlerSortTest {
         mockMvc.perform(get("/sort-stub/illegal-argument").param("sort", "createdAt%2Cdesc"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
+    }
+
+    @Test
+    @DisplayName("정렬 백스톱 로그에는 예외 종류만 남고 요청한 속성명은 남지 않는다")
+    void sortBackstopLogCarriesExceptionTypeOnly(CapturedOutput output) throws Exception {
+        mockMvc.perform(get("/sort-stub/property-reference").param("sort", "bogus"))
+                .andExpect(status().isBadRequest());
+
+        // 그 WARN 줄만 본다 — 단독 실행 땐 logback 기본 설정(root DEBUG)이라 예외 리졸버가 DEBUG 로 원인 메시지를 따로 찍는다.
+        List<String> warnLines = output.getAll().lines()
+                .filter(line -> line.contains("잘못된 정렬 속성 (400 변환)"))
+                .toList();
+        assertThat(warnLines).hasSize(1);
+        assertThat(warnLines.get(0)).contains("PropertyReferenceException").doesNotContain("bogus");
     }
 
     @RestController
