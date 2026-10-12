@@ -9,7 +9,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * 동아리 상세 재생성(#1356) 전용 비동기 실행기 — {@code ClubPublicPageRevalidationListener} 의 {@code @Async} 메서드만
  * 이 풀에서 돈다. {@code @EnableAsync} 는 {@code MonitoringAsyncConfig} 가 켠다.
  *
- * <p>{@code monitoringTaskExecutor} 를 쓰지 않는다 — Slack 알림 전용 작은 풀이라 1초 대기·10초 타임아웃 작업이 알림을
+ * <p>{@code monitoringTaskExecutor} 를 쓰지 않는다 — Slack 알림 전용 작은 풀이라 1초 대기·25초 타임아웃 작업이 알림을
  * 밀어낸다. 단일 스레드라 이 실행기의 요청끼리는 하나씩 나가 프론트 재검증·warm-up 렌더가 겹치지 않는다. 다만 매일
  * 00:05 잡({@code ClubDetailDailyRevalidationJob})은 스케줄러 스레드에서 보내므로 그 시각에는 최대 2건이 겹칠 수
  * 있다(무해하다). 같은 동아리 요청은 리스너가 최소 간격으로 합치고, 간격 끝의 예약 실행도 이 실행기로 돌아와 같은
