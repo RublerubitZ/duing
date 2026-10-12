@@ -19,6 +19,7 @@ public record CreateInterviewRoundRequest(
         String location,
 
         @NotEmpty(message = "면접 대상자 목록은 필수 입력값입니다.")
+        @Size(max = 500, message = "한 번에 지정할 수 있는 지원 수는 500건 이하입니다.")
         List<Long> applicationIds
 ) {
     public CreateInterviewRoundCommand toCommand(Long recruitmentId, Long currentUserId) {

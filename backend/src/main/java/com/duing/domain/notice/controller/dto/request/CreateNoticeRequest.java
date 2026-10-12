@@ -27,6 +27,7 @@ public record CreateNoticeRequest(
                 @Pattern(regexp = TagRules.NO_COMMA_PATTERN, message = TagRules.NO_COMMA_MESSAGE) String> tags,
         @NotNull NoticeVisibility visibility,
         NoticeClubScopeRole clubScopeRole,
+        @Size(max = 500, message = "대상 동아리는 500개 이하여야 합니다.")
         List<Long> targetClubIds,
         boolean pinned,
         LocalDateTime expiresAt,

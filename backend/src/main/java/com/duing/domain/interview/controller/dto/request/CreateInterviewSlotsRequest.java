@@ -5,11 +5,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public record CreateInterviewSlotsRequest(
         @NotEmpty(message = "슬롯 목록은 필수 입력값입니다.")
+        @Size(max = 500, message = "한 번에 만들 수 있는 면접 슬롯은 500개 이하입니다.")
         List<@Valid SlotItem> slots
 ) {
     public record SlotItem(
