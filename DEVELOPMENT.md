@@ -107,7 +107,7 @@ pnpm dev                    # http://localhost:3000
 
 - `backend/**` 변경 → `backend-ci.yml`
 - `frontend/**` 변경 → `frontend-ci.yml`: lint · typecheck · build · test 등
-- `deploy/**` 변경 → `deploy-config-ci.yml`
+- `deploy/**`·`application-prod.yml`·`backup.yml`·`restore-rehearsal.yml` 변경 → `deploy-config-ci.yml`
 
 `develop` 브랜치 보호의 필수 체크는 **`Gate` 하나뿐**이다. 개별 CI 를 필수로 지정하면 해당 경로를 건드리지 않은 PR 에서 체크가 생성되지 않아 머지가 영구히 막힌다.
 

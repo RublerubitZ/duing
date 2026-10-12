@@ -51,7 +51,7 @@ duing/
 - `.github/workflows/ci-gate.yml` — **모든 PR 에서 실행**. 변경 영역을 판정해 아래 세 워크플로를 필요한 만큼만 호출하고, 그 결과를 모아 `Gate` 체크 하나로 낸다.
 - `.github/workflows/backend-ci.yml` — `backend/**` 변경 시 (PR 은 게이트가 호출, develop·main push 는 직접 실행)
 - `.github/workflows/frontend-ci.yml` — `frontend/**` 변경 시 (동일)
-- `.github/workflows/deploy-config-ci.yml` — `deploy/**` 변경 시 (동일)
+- `.github/workflows/deploy-config-ci.yml` — `deploy/**`·`backend/src/main/resources/application-prod.yml`·백업 워크플로(`backup.yml`·`restore-rehearsal.yml`) 변경 시 (동일)
 - PR 템플릿: [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md)
 
 `develop` 브랜치 보호의 필수 체크는 **`Gate` 하나뿐**이다. 개별 CI 를 직접 필수로 지정하면, 해당 경로를

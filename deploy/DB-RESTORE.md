@@ -27,12 +27,13 @@
 | 항목 | 값 |
 |---|---|
 | 주기 | cron `15 19 * * *` (UTC) = **매일 04:15 KST** |
-| 도구 | Supabase CLI(공식 릴리스 tarball 직접 설치 — 같은 릴리스 `checksums.txt` 로 sha256 대조, `SUPABASE_CLI_VERSION` `2.117.0` 핀 — 올릴 때 수동 실행으로 확인) |
+| 도구 | Supabase CLI(공식 릴리스 tarball 직접 설치 — 워크플로에 고정한 sha256(`SUPABASE_CLI_SHA256`)으로 대조, `SUPABASE_CLI_VERSION` `2.117.0` 핀 — 올릴 때 해시도 함께 바꾸고 수동 실행으로 확인) |
 | 산출물 | `roles.sql`(`--role-only`) · `schema.sql`(기본) · `data.sql`(`--data-only --use-copy`, storage 벡터 테이블 2개 제외) — 전부 gzip |
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
 | 시크릿 | `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT` |
 | 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
+| 권한 | `permissions: {}`(GITHUB_TOKEN 미사용) |
 
 - `SUPABASE_DB_URL` 은 **Session Pooler** 주소를 쓴다. Supabase Direct 연결은 IPv6 이고 GitHub 러너는
   IPv4 전용이라 접속 자체가 되지 않는다.
@@ -52,7 +53,7 @@ gh run watch                          # 성공 확인 후 릴리스 진행
 
 "백업이 있다" 와 "백업이 복원된다" 는 다른 문장이다. `.github/workflows/restore-rehearsal.yml` 은 R2 의 스냅샷을
 잡 안의 **바닐라 `postgres:17` 컨테이너**에 실제로 되먹여 아래를 판정한다. 수동 실행 전용이고 외부 DB 는 건드리지
-않는다(시크릿은 R2 읽기 4종뿐).
+않는다(SUPABASE_DB_URL 미사용, R2 시크릿 4종은 백업과 같은 키 — 쓰기 권한 포함. 읽기 전용 토큰 분리는 운영자 작업으로 남음).
 
 ```bash
 gh workflow run restore-rehearsal.yml                          # 가장 최근 스냅샷
