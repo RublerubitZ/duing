@@ -13,6 +13,7 @@ import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { ClubDayOfWeek } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Sparkle, SparkleFull } from '../../_components/Sparkle';
 import { COLLEGE_OPTIONS, collegeDisplayName } from '../../_lib/college';
@@ -254,7 +255,7 @@ export function ClubExplorePage() {
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    updateParams({ keyword: keywordDraft.trim(), page: 1 });
+    updateParams({ keyword: keywordDraft.trim().slice(0, SEARCH_KEYWORD_MAX_LENGTH), page: 1 });
   };
 
   const handleScopeChange = (scope: Scope) => {
@@ -326,6 +327,7 @@ export function ClubExplorePage() {
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
                 <input
                   value={keywordDraft}
+                  maxLength={SEARCH_KEYWORD_MAX_LENGTH}
                   onChange={(event) => setKeywordDraft(event.target.value)}
                   placeholder={CLUB_SEARCH_PLACEHOLDER}
                   aria-label="동아리 검색"
@@ -673,6 +675,7 @@ export function ClubExplorePage() {
             <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
             <input
               value={keywordDraft}
+              maxLength={SEARCH_KEYWORD_MAX_LENGTH}
               onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder={CLUB_SEARCH_PLACEHOLDER}
               aria-label="동아리 검색"

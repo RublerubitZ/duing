@@ -1,3 +1,4 @@
+import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { Search } from '@/components/duing/Icon';
 
 /**
@@ -30,6 +31,7 @@ export function HomeMobileSearchBar() {
         <input
           type="search"
           name="q"
+          maxLength={SEARCH_KEYWORD_MAX_LENGTH}
           placeholder="찾으시는 동아리를 검색해주세요."
           aria-label="동아리 검색"
           className="min-w-0 flex-1 border-none bg-transparent py-1.5 tracking-tightest text-charcoal outline-none placeholder:text-[13px] placeholder:text-charcoal-3"

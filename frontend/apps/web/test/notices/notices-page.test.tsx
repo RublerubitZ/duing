@@ -415,3 +415,28 @@ describe('NoticesPage — 불러오기 실패', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
+
+// 서버는 100자를 넘는 검색어를 400 으로 거절한다(#1322). 한글 IME 조합 중에는 maxLength 를 넘긴 채
+// 제출될 수 있어, 입력 제한과 함께 검색 확정 때도 앞 100자만 보낸다.
+describe('NoticesPage — 검색어 100자 제한', () => {
+  it('검색 input 은 100자까지만 입력받는다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+
+    expect(screen.getByRole('textbox', { name: '소식 검색' })).toHaveAttribute('maxLength', '100');
+  });
+
+  it('100자를 넘긴 채 검색해도 목록 조회에는 앞 100자만 보낸다', () => {
+    mockUseNoticeListQuery.mockReturnValue(makeListResponse([]));
+
+    render(<NoticesPage />);
+    const searchInput = screen.getByRole('textbox', { name: '소식 검색' });
+    fireEvent.change(searchInput, { target: { value: '가'.repeat(101) } });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+
+    expect(mockUseNoticeListQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: '가'.repeat(100) }),
+    );
+  });
+});
