@@ -59,6 +59,17 @@ class S3StoragePropertiesTest {
         assertThatThrownBy(() -> new S3StorageProperties(
                 "https://example.com", "auto", "${S3_ACCESS_KEY}", "sk", "duing", "https://files.duing.app"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("s3.access-key");
+                .hasMessageContaining("s3.access-key")
+                .hasMessageNotContaining("${S3_ACCESS_KEY}");
+    }
+
+    @Test
+    @DisplayName("값 중간에 해석되지 않은 자리표시자가 박혀 있어도 record 생성이 거부된다")
+    void rejectsEmbeddedUnresolvedPlaceholder() {
+        assertThatThrownBy(() -> new S3StorageProperties(
+                "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com", "auto", "ak", "sk", "duing",
+                "https://files.duing.app"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("s3.endpoint");
     }
 }

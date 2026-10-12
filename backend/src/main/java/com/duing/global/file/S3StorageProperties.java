@@ -36,9 +36,10 @@ public record S3StorageProperties(
     }
 
     // Binder 는 풀리지 않은 ${…} 를 문자열로 남겨 @NotBlank 를 통과시킨다 — 운영 yml 이 기본값 없이 받는 S3_* 가
-    // 빠졌을 때 첫 업로드가 아니라 기동에서 실패하게 한다(#1324). 메시지에는 값이 아니라 키 이름만 싣는다.
+    // 빠졌을 때 첫 업로드가 아니라 기동에서 실패하게 한다(#1324). 값 중간에 박힌 경우(https://${…}.r2…)도 같다.
+    // 메시지에는 값이 아니라 키 이름만 싣는다.
     private static void rejectUnresolvedPlaceholder(String propertyKey, String value) {
-        if (value != null && value.startsWith("${")) {
+        if (value != null && value.contains("${")) {
             throw new IllegalArgumentException(propertyKey + " 값이 해석되지 않았습니다 — 해당 S3_* 환경변수를 주입하세요.");
         }
     }
