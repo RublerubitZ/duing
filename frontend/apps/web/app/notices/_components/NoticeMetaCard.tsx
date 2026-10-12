@@ -3,7 +3,7 @@
 import { ExternalLink } from 'lucide-react';
 import type { NoticeCategory } from '@duing/types';
 import { useHydrated } from '@/app/_lib/useHydrated';
-import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
+import { noticeCategoryLabelOf } from '../_lib/categoryLabels';
 import { formatPublishedDate, formatDdayLabel } from '../_lib/eventFormat';
 import { safeExternalHref } from '../../_lib/route';
 import { tagLabel } from '../../_lib/tags';
@@ -20,7 +20,7 @@ export function NoticeMetaCard({ category, createdAt, expiresAt, tags, linkUrl }
   // 마감 D-day 는 하이드레이션 뒤에만 붙인다(NoticeArticleHeader 와 같은 이유) — 서버·첫 프레임은 날짜만.
   const hydrated = useHydrated();
   const rows: { label: string; value: string }[] = [
-    { label: '분류', value: NOTICE_CATEGORY_LABEL[category] },
+    { label: '분류', value: noticeCategoryLabelOf(category) },
     { label: '게시일', value: formatPublishedDate(createdAt) },
   ];
   if (expiresAt) {

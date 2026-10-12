@@ -83,5 +83,8 @@ describe('소식 상세 트리 — 서버 렌더(ISR 정적 생성 회귀)', () 
     // Suspense 경계가 오류를 삼키면 이 표식만 남는다.
     expect(html).not.toContain('<!--$!-->');
     expect(html).toContain('2026 가을 동아리 박람회 안내');
+    // 라벨은 빈칸 대신 스타일 폴백과 같은 '일반' — 브레드크럼·분류 배지(span)와 공지 정보 카드 분류 행(dd).
+    expect(html).toMatch(/>일반<\/span>/);
+    expect(html).toMatch(/>일반<\/dd>/);
   });
 });

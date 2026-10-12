@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { parseKstInstant } from '@duing/hooks';
 import type { NoticeCategory } from '@duing/types';
 import { useHydrated } from '@/app/_lib/useHydrated';
-import { NOTICE_CATEGORY_LABEL } from '../_lib/categoryLabels';
+import { noticeCategoryLabelOf } from '../_lib/categoryLabels';
 import { categoryTagStyleOf } from '../_lib/categoryTagStyles';
 import { formatPublishedDate, formatDdayLabel } from '../_lib/eventFormat';
 import { Sparkle } from '../../_components/Sparkle';
@@ -39,7 +39,7 @@ export function NoticeArticleHeader({
         <nav className="flex items-center gap-1.5 text-[13px] text-charcoal-3 whitespace-nowrap" aria-label="위치">
           <span>공지 · 소식</span>
           <ChevronRight size={14} aria-hidden />
-          <span className="text-ink font-semibold">{NOTICE_CATEGORY_LABEL[category]}</span>
+          <span className="text-ink font-semibold">{noticeCategoryLabelOf(category)}</span>
         </nav>
         <Link href="/notices" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-charcoal-2 hover:text-ink">
           <ArrowLeft size={15} aria-hidden /> 목록으로
@@ -51,7 +51,7 @@ export function NoticeArticleHeader({
           className="px-2.5 py-1 rounded-md text-[12px] font-bold"
           style={{ background: tag.bg, color: tag.fg }}
         >
-          {NOTICE_CATEGORY_LABEL[category]}
+          {noticeCategoryLabelOf(category)}
         </span>
         {pinned && (
           <span className="px-2.5 py-1 rounded-md bg-ink text-paper text-[11.5px] font-bold">상단 고정</span>
@@ -82,7 +82,7 @@ export function NoticeArticleHeader({
             <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 tabular-nums tracking-[0.08em]">DU</span>
             <div className="flex flex-col">
               <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
-              <span className="text-[12px] text-charcoal-3">{NOTICE_CATEGORY_LABEL[category]} 채널</span>
+              <span className="text-[12px] text-charcoal-3">{noticeCategoryLabelOf(category)} 채널</span>
             </div>
           </>
         )}

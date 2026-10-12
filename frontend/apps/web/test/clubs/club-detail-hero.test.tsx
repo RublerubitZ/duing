@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ClubDetail, ClubPhoto } from '@duing/types';
+import type { ClubCategory, ClubDetail, ClubPhoto } from '@duing/types';
 import {
   ClubDetailHero,
   resolveHeroImageUrl,
@@ -168,6 +168,15 @@ describe('ClubDetailHero — 이름 아래 해시태그', () => {
       />,
     );
     expect(screen.queryByText(/글로벌경영대학/)).toBeNull();
+  });
+});
+
+describe('ClubDetailHero — 분류 라벨', () => {
+  it('백엔드가 먼저 배포한 모르는 분류는 빈칸 대신 기타로 그린다', () => {
+    render(<ClubDetailHero club={{ ...baseClub, category: 'NEW_CATEGORY' as unknown as ClubCategory }} />);
+
+    // 브레드크럼과 분류 pill 두 자리에 그린다.
+    expect(screen.getAllByText('기타')).toHaveLength(2);
   });
 });
 function makePhoto(id: number, storageKey: string, displayOrder: number): ClubPhoto {

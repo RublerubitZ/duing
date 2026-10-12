@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { formatDateKst } from '@duing/hooks';
 import type { AdminNoticeSummary } from '@duing/types';
 import { toRoute } from '../../../_lib/route';
-import { NOTICE_CATEGORY_LABEL } from '../../../notices/_lib/categoryLabels';
+import { noticeCategoryLabelOf } from '../../../notices/_lib/categoryLabels';
 import { VISIBILITY_LABEL } from '../_lib/visibilityLabels';
 
 type Props = {
@@ -32,7 +32,7 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
                   {notice.title}
                 </Link>
               </Td>
-              <Td>{NOTICE_CATEGORY_LABEL[notice.category]}</Td>
+              <Td>{noticeCategoryLabelOf(notice.category)}</Td>
               <Td>{VISIBILITY_LABEL[notice.visibility]}</Td>
               <Td>{formatDateKst(notice.createdAt)}</Td>
               <Td>{notice.expiresAt ? formatDateKst(notice.expiresAt) : '—'}</Td>
