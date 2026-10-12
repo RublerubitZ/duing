@@ -383,3 +383,4 @@ export {
   useCancelSubmissionBatchMutation,
 } from './facilitySubmissionAdmin';
 export { shouldRetryQuery, isNonRetryableError } from './retry';
+export { CALENDAR_STALE_TIME_MS } from './freshness';
