@@ -1,6 +1,7 @@
 package com.duing.global.file;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,5 +51,25 @@ class S3StoragePropertiesTest {
         );
 
         assertThat(properties.publicBaseUrl()).isEqualTo("https://files.duing.app");
+    }
+
+    @Test
+    @DisplayName("값이 해석되지 않은 자리표시자(${...})면 record 생성이 거부되고 메시지에는 키 이름만 실린다")
+    void rejectsUnresolvedPlaceholder() {
+        assertThatThrownBy(() -> new S3StorageProperties(
+                "https://example.com", "auto", "${S3_ACCESS_KEY}", "sk", "duing", "https://files.duing.app"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("s3.access-key")
+                .hasMessageNotContaining("${S3_ACCESS_KEY}");
+    }
+
+    @Test
+    @DisplayName("값 중간에 해석되지 않은 자리표시자가 박혀 있어도 record 생성이 거부된다")
+    void rejectsEmbeddedUnresolvedPlaceholder() {
+        assertThatThrownBy(() -> new S3StorageProperties(
+                "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com", "auto", "ak", "sk", "duing",
+                "https://files.duing.app"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("s3.endpoint");
     }
 }
