@@ -325,7 +325,8 @@ class ClubMemberPhoneControllerTest extends IntegrationTestBase {
                     .get("/api/v1/clubs/{clubId}/members/{memberId}/phone",
                             club.getId(), memberMembership.getId())
                 .then()
-                    .statusCode(HttpStatus.FORBIDDEN.value());
+                    .statusCode(HttpStatus.FORBIDDEN.value())
+                    .body("message", equalTo("허용되지 않은 요청 출처입니다."));
         assertThat(clubAuditEventRepository.count()).isEqualTo(auditCountBefore);
 
         RestAssured

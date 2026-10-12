@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
  * 실계정 실패 카운터는 기한 없이 남으므로 "4회 실패 → 24시간 대기 → 2회" 프로브와 재시작 직후 15분(실계정 잠금은
  * DB 에 남고 가상 잠금은 사라진다)은 여전히 구분된다. IP 실패 창(분 10·시 100)이 처리량을 묶어 실익이 작다고 보고
  * 수용한다. 키 상한 2만을 넘기면 덜 쓰인 키가 초기화된다. 넓히려면 DB 테이블로 옮긴다.
+ * 잠김 분기는 미가입 쪽이 advisory 잠금 왕복 1회(수 ms)만큼 느리다 — 네트워크 지연 편차 아래이고 IP 창이 표본을 묶어 수용한다.
  */
 @Component
 public class UnknownStudentLoginLock {

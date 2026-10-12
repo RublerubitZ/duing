@@ -32,8 +32,8 @@ public class CookieCsrfOriginFilter extends OncePerRequestFilter {
     private static final Set<String> AUDITED_READ_METHODS = Set.of("GET", "HEAD");
 
     // 열람만으로 감사 행을 쓰는 GET(번호 열람·명단·총동연 열람) — SameSite=Lax 쿠키는 교차 사이트 톱레벨 이동에 실리므로,
-    // 쿠키 인증일 때는 상태 변경 요청처럼 허용 Origin 을 요구한다(#1321 L-1). 경로를 바꾸면 이 목록도 함께 바꾼다
-    // (CookieCsrfOriginFilterMappingTest 가 실제 핸들러와 대조한다). {batchId}·{clubId} 는 candidates·dashboard 에도
+    // 쿠키 인증일 때는 상태 변경 요청처럼 허용 Origin 을 요구한다(#1321 L-1). 열람만으로 감사 행을 쓰는 GET 을 새로
+    // 만들거나 경로를 바꾸면 이 목록도 함께 바꾼다(CookieCsrfOriginFilterMappingTest 는 경로 이름 변경만 잡는다). {batchId}·{clubId} 는 candidates·dashboard 에도
     // 맞지만 더 막는 쪽이라 그대로 둔다(둘 다 프론트 fetch 라 Origin 이 실린다).
     static final List<String> AUDITED_READ_PATHS = List.of(
             "/api/v1/clubs/{clubId}/members/export",
@@ -85,8 +85,9 @@ public class CookieCsrfOriginFilter extends OncePerRequestFilter {
         return hasCookie(request, WebAuthCookieService.ACCESS_COOKIE_NAME);
     }
 
-    // 경로 변수가 있어 문자열 비교로는 못 가린다. PathContainer 는 세그먼트를 디코딩하고 ;매개변수를 떼어 MVC 라우팅과
-    // 같은 쪽으로 판정한다(ph%6Fne·phone;x=y 일치, 끝 슬래시는 MVC 도 404 라 불일치여도 컨트롤러에 닿지 않는다).
+    // 경로 변수가 있어 문자열 비교로는 못 가린다. PathContainer 는 세그먼트를 디코딩해 MVC 라우팅과 같은 쪽으로 판정한다
+    // (ph%6Fne 일치, 끝 슬래시는 MVC 도 404 라 불일치여도 컨트롤러에 닿지 않는다). ;매개변수·// 는 이 필터 앞의
+    // StrictHttpFirewall 이 400 으로 먼저 거른다.
     private boolean isAuditedRead(HttpServletRequest request) {
         PathContainer requestPath = PathContainer.parsePath(request.getRequestURI());
         return AUDITED_READ_PATTERNS.stream().anyMatch(pattern -> pattern.matches(requestPath));
