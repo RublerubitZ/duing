@@ -689,9 +689,8 @@ describe('useBackDismiss', () => {
     expect(closeSpy).toHaveBeenCalledWith('late');
   });
 
-  // next-view-transitions 는 popstate 마다 전환을 시작하고 pathname/hash 변경 effect 에서만 끝낸다.
-  // URL 이 그대로인 오버레이 닫기에서 전환이 시작되면 끝나지 않아 화면이 스냅샷에 묶이고 4초 뒤
-  // TimeoutError 로 중단된다(실브라우저 실측). 그래서 이 경우에만 전환을 억제한다.
+  // 오버레이만 닫는 뒤로가기는 페이지가 그대로라 뒤로가기 마커(backNavigationViewTransition)가 이 신호를 보고
+  // 마커를 세우지 않는다 — 세우면 내릴 커밋이 없어 바로 이어지는 앞으로 이동이 뒤로 가기로 읽힌다.
   it('오버레이만 닫는 뒤로가기는 페이지 전환 억제 신호를 켠다', async () => {
     render(<Overlay name="a" />);
     const observed: boolean[] = [];

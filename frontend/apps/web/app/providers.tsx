@@ -11,7 +11,10 @@ import { webStorage } from '@duing/storage/web';
 import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
 import { seedAuthFromLocalHistory, startBootSessionRestore } from './_lib/authBoot';
 import { installBackDismiss } from './_lib/backDismiss';
-import { installBackNavigationViewTransitionGuard } from './_lib/backNavigationViewTransition';
+import {
+  BackNavigationMarkerReset,
+  installBackNavigationViewTransitionGuard,
+} from './_lib/backNavigationViewTransition';
 import { clearLegacyWebAuthArtifacts } from './_lib/legacy-auth-cleanup';
 import { ToastProvider } from './_components/toast/ToastProvider';
 import { OfflineBanner } from './_components/OfflineBanner';
@@ -30,7 +33,7 @@ if (typeof navigator !== 'undefined' && 'locks' in navigator) {
       await navigator.locks.request('duing-auth:refresh', task),
   );
 }
-// 뒤로가기(popstate) View Transition 이중 재생 방지 — 함수 내부에서 window 가드하므로 SSR 안전.
+// 뒤로가기 마커 — 돌아온 화면에 등장 연출을 붙이지 않게 popstate 를 표시한다(backDismiss 를 먼저 설치한다). SSR 안전.
 installBackNavigationViewTransitionGuard();
 // 오버레이 뒤로가기 닫기 — 리스너 설치와 이전 문서 잔존 마커 제거를 로드 시점에 끝낸다.
 // 오버레이를 여는 순간까지 미루면, 새 문서에서 잔존 엔트리를 만났을 때 스킵하지 못한다. SSR 안전.
@@ -82,6 +85,8 @@ export function Providers({ children }: { children: ReactNode }) {
             <SessionExpiryHandler />
             <OfflineBanner />
             <OfflineNavigationGuard />
+            {/* 경로가 바뀐 커밋 뒤 뒤로가기 마커를 내린다 — 새 화면이 렌더 중에 마커를 읽은 뒤다. */}
+            <BackNavigationMarkerReset />
             {children}
           </ToastProvider>
         </ApiClientProvider>

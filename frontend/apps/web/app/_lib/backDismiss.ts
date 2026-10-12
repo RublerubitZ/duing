@@ -53,7 +53,7 @@ let currentHref: string | null = null;
 // 새고 다음 사용자 traversal 이 예산 회복만 건너뛴다. 감지 수단이 없어(history.length 불신) 허용한다.
 const deadEntriesAbove = new Set<string>();
 let nativeReplaceState: History['replaceState'] | null = null;
-// 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. View Transition 억제에 쓴다.
+// 지금 처리 중인 popstate 가 "URL 은 그대로고 오버레이만 닫는" 이동인지. 뒤로가기 마커가 오버레이 전용 이동을 거르는 데 쓴다.
 let overlayOnlyTraversal = false;
 // 닫힘과 동시에 앞으로 내비게이션(Link 클릭·router.push)이 일어나는 닫힘이면, 최상단 엔트리 회수 back()
 // 을 1회 건너뛴다. 내비게이션은 우리 엔트리 위에 새 엔트리를 쌓는데, 그 커밋이 Next 트랜지션이라
@@ -77,11 +77,8 @@ let nativePushState: History['pushState'] | null = null;
 /**
  * 지금 처리 중인 popstate 가 오버레이만 닫는(=페이지가 바뀌지 않는) 이동인지 알려준다.
  *
- * <p>next-view-transitions 는 popstate 마다 전환을 시작하는데, 그 DOM 업데이트 프라미스를
- * `useEffect(..., [hash, pathname])` 에서만 resolve 한다. 우리 오버레이 엔트리는 URL 이 같아서
- * 그 effect 가 재실행되지 않고, 전환이 끝나지 않아 화면이 옛 스냅샷에 묶였다가 브라우저가
- * "Transition was aborted because of timeout in DOM update" 로 중단시킨다.
- * 같은 페이지 안의 레이어 닫기에는 페이지 전환이 필요 없으므로 아예 시작하지 않게 한다.
+ * <p>뒤로가기 마커(backNavigationViewTransition)가 읽는다 — 오버레이만 닫는 이동은 페이지가 그대로라 마커를
+ * 세우지 않는다(세우면 내릴 커밋이 없어, 바로 이어지는 앞으로 이동이 뒤로 가기로 읽힌다).
  */
 export function isOverlayOnlyTraversal(): boolean {
   return overlayOnlyTraversal;
@@ -225,10 +222,10 @@ function handlePopState() {
       ? []
       : stack.splice(0);
 
-  // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면, 뒤이어 실행될
-  // next-view-transitions 의 popstate 핸들러가 전환을 시작하지 못하게 막는다(끝나지 않는 전환 방지).
-  // 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가 제때 보인다. 같은 태스크가 끝나면 해제한다.
-  // forward 로 죽은 마커에 앉는 착지도 아래 페이지와 URL 이 같아 전환이 끝나지 않으므로 포함한다.
+  // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면 "오버레이 전용 이동" 신호를 켠다 — 뒤이어 실행될
+  // 뒤로가기 마커 리스너가 읽고 마커를 세우지 않는다. 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가
+  // 제때 보인다. 같은 태스크가 끝나면 해제한다.
+  // forward 로 죽은 마커에 앉는 착지도 아래 페이지와 URL 이 같으므로 포함한다.
   // 아래 leftHref 복원도 함께 켜지는데, back 방향 착지와 대칭이라 의도된 동작이다.
   const overlayTraversal =
     dismissed.length > 0 || isSelfTraversal || canSkip || satOnForwardDeadEntry;
@@ -325,7 +322,7 @@ export function installBackDismiss() {
       clearNavigationPending();
       // Next 이동 커밋 직후는 마커 없는 새 페이지 엔트리다 — 떠날 때 비교할 기준 주소도 옮긴다. 옮기지 않으면 오버레이 안에서
       // 이동한 뒤(죽은 엔트리 잔존) 첫 뒤로가기 hop 이 "같은 페이지 착지"로 보여 오버레이 전용으로 오분류되고, 그러면
-      // 뒤로 가기 마커가 곧바로 내려가 돌아온 화면에 등장 연출이 재생된다.
+      // 뒤로 가기 마커를 세우지 않아 돌아온 화면에 등장 연출이 재생된다.
       currentHref = window.location.href;
     }
   };
