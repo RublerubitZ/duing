@@ -32,5 +32,7 @@ export const PUBLIC_CONTENT_STALE_TIME_MS = 5 * 60_000;
  * <p>의도된 예외: manage 대시보드(dashboard.ts, 60s)는 운영진 콘솔의 자체 신선도 계약이라 이
  * 상수를 쓰지 않는다 — 일부 키(클럽 모집·일정 목록)가 겹치지만 데이터 shape 이 같아 정합성 문제는
  * 없고, 짧은 쪽이 자기 마운트 시점에 한 번 더 요청할 뿐이다.
+ *
+ * <p>동아리 상세의 외부 폼 지원 재확인 기준으로도 쓴다(useClubApply) — 이 값을 바꾸면 그 기준도 함께 바뀐다.
  */
 export const CALENDAR_STALE_TIME_MS = 2 * 60_000;

@@ -5,7 +5,11 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import type { StudentRecruitmentProjection } from '@duing/types';
 import { ApiError } from '@duing/api';
-import { useCheckEligibilityMutation, useMyApplicationsQuery } from '@duing/hooks';
+import {
+  CALENDAR_STALE_TIME_MS,
+  useCheckEligibilityMutation,
+  useMyApplicationsQuery,
+} from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -21,9 +25,6 @@ export type ClubDetailCheck = {
   recheck: () => Promise<boolean>;
 };
 
-// 외부 폼을 열기 전 다시 확인하는 기준 — 모집 축 신선도(@duing/hooks freshness.ts 의 2분, 마감 노출 지연 상한)와 같다.
-const EXTERNAL_RECHECK_AFTER_MS = 2 * 60_000;
-
 /**
  * 동아리 모집 지원 동작을 한곳에서 관리한다.
  * - 외부 폼 모집: 안전 검증된 URL 을 새 탭으로 연다.
@@ -31,7 +32,7 @@ const EXTERNAL_RECHECK_AFTER_MS = 2 * 60_000;
  *   먼저 확인한 뒤 지원 페이지로 이동한다(부적격이면 토스트로 사유를 알리고 머무른다).
  * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(detailCheck.checkedAt > 0). ISR 스냅샷의 모집 상태는 재생성 주기만큼
  *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다.
- * - 외부 폼은 확인한 지 2분이 넘은 상세로 열지 않는다 — 누르면 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다.
+ * - 외부 폼은 확인한 지 모집 축 신선도(CALENDAR_STALE_TIME_MS)보다 오래된 상세로 열지 않는다 — 누르면 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다.
  *   일반 폼은 클릭 때 서버 자격 확인이 마감을 막지만, 외부 폼은 그 확인이 없다.
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
  */
@@ -61,9 +62,10 @@ export function useClubApply(
   async function handleApply() {
     if (!recruitment || !canApply || eligibilityCheck.isPending || isRecheckingDetail) return;
     if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
+      // 기준은 모집 축 신선도(마감 노출 지연 상한)다 — 정책이 바뀌면 이 기준도 함께 바뀐다.
       // 확인한 지 오래된 상세면 열기 전에 다시 받는다. 받은 뒤 바로 열지 않는다 — 기다린 뒤의 window.open 은
       // 팝업 차단에 걸릴 수 있고(noopener 라 알 수도 없다), 바뀐 상태(마감 등)를 사용자가 먼저 보게 한다.
-      if (Date.now() - detailCheck.checkedAt > EXTERNAL_RECHECK_AFTER_MS) {
+      if (Date.now() - detailCheck.checkedAt > CALENDAR_STALE_TIME_MS) {
         setIsRecheckingDetail(true);
         const rechecked = await detailCheck.recheck();
         setIsRecheckingDetail(false);
