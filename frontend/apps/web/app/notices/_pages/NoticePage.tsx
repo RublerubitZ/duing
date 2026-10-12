@@ -408,7 +408,7 @@ export function NoticePage() {
                   value={keywordInput}
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-                  placeholder="제목 또는 내용을 검색하세요"
+                  placeholder="제목 또는 요약을 검색하세요"
                   aria-label="소식 검색"
                   style={{
                     flex: 1, minWidth: 0, border: 'none', outline: 'none',

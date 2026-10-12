@@ -181,7 +181,7 @@ describe('NoticesPage', () => {
 
     render(<NoticesPage />);
 
-    const searchInput = screen.getByPlaceholderText('제목 또는 내용을 검색하세요');
+    const searchInput = screen.getByPlaceholderText('제목 또는 요약을 검색하세요');
     expect(searchInput.style.minWidth).toBe('0px');
   });
 
