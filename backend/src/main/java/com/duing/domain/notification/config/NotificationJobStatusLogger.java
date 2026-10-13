@@ -26,9 +26,10 @@ public class NotificationJobStatusLogger {
     public void logStatus() {
         boolean enabled = environment.getProperty(PROPERTY_KEY, Boolean.class, Boolean.FALSE);
         if (enabled) {
-            log.info("[알림 스케줄러] 활성. DeadlineNotificationJob(매일 06:00 KST) + InterviewReminderJob(매시 정각) 등록됨.");
+            log.info("[알림 스케줄러] 활성. DeadlineNotificationJob(매일 06:00 KST) + InterviewReminderJob(매시 정각) "
+                    + "+ ApplicationPendingReminderJob·ExternalRecruitmentCheckJob(매일 09:30 KST) 등록됨.");
         } else {
-            log.info("[알림 스케줄러] 비활성. 마감 임박 / 면접 하루 전 알림이 발송되지 않습니다. "
+            log.info("[알림 스케줄러] 비활성. 마감 임박 / 면접 하루 전 / 미처리 지원서 / 외부 폼 유지 확인 알림이 발송되지 않습니다. "
                     + "운영 환경이라면 prod 프로파일 활성화(spring.profiles.active=prod) 또는 "
                     + "DUING_NOTIFICATION_JOBS_ENABLED=true 환경변수 주입 필요.");
         }

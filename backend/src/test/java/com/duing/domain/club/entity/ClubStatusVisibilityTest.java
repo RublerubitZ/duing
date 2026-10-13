@@ -22,7 +22,8 @@ class ClubStatusVisibilityTest {
     }
 
     @Test
-    @DisplayName("네이티브 SQL 의 'ACTIVE' 리터럴(ClubMetricRepository 2곳·RecruitmentRepository 1곳)은 enum 이름과 동기화되어 있다")
+    @DisplayName("네이티브 SQL 의 'ACTIVE' 리터럴(ClubMetricRepository·ClubViewEventRepository·RecruitmentRepository·ApplicationRepository)은 "
+            + "enum 이름과 동기화되어 있다")
     void nativeSqlLiteralStaysInSyncWithEnumName() {
         assertThat(ClubStatus.ACTIVE.name()).isEqualTo("ACTIVE");
     }
