@@ -86,7 +86,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1")
 
     // Sentry — 에러 모니터링 (SENTRY_DSN 없으면 자동 비활성). logback ERROR 레벨을 이벤트로 전송.
-    implementation(platform("io.sentry:sentry-bom:8.58.0"))
+    implementation(platform("io.sentry:sentry-bom:8.59.0"))
     implementation("io.sentry:sentry-spring-boot-starter-jakarta")
     implementation("io.sentry:sentry-logback")
 
@@ -115,7 +115,7 @@ dependencies {
 // AWS SDK BOM. Testcontainers 는 Boot 3.5.16 BOM 이 1.21.4 를 관리한다(1.21.4 미만은 Docker 29 에서 컨테이너 기동 실패).
 dependencyManagement {
     imports {
-        mavenBom("software.amazon.awssdk:bom:2.55.4")
+        mavenBom("software.amazon.awssdk:bom:2.55.11")
     }
 }
 
