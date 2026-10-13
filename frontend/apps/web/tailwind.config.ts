@@ -39,8 +39,10 @@ const config: Config = {
         },
         // paper.warm — 크림 캔버스 위에 얹히는 옅은 웜 화이트 표면(관리자 콘솔 사이드바).
         paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
-        warm: '#E8B968',
-        coral: '#D97757',
+        // deep — 같은 색상의 진한 변형. 토큰/10 배경 위 배지 글자·아이콘용(흰·크림·크림2 바탕에서 WCAG AA 4.5:1 이상).
+        warm: { DEFAULT: '#E8B968', deep: '#865D14' },
+        // deep 은 danger(파괴적 액션 버튼)와 용도가 다르다 — 코랄 10% 배경 위 글자에서 기준을 넘는 가장 밝은 값.
+        coral: { DEFAULT: '#D97757', deep: '#A54525' },
         // 파괴적 액션(정지·삭제·강제 로그아웃) 전용 토큰. coral 은 브랜드 액센트라 장식·틴트로도 쓰여
         // 값을 내리면 화면 전체가 탁해진다 — 흰 글자를 얹는 자리만 따로 뗀다.
         // 대비(흰 글자 기준): DEFAULT 5.45:1, hover 6.75:1 로 둘 다 WCAG AA(4.5:1) 통과.
@@ -50,6 +52,8 @@ const config: Config = {
         berry: '#B65672',
         sky: {
           DEFAULT: '#6A95B8',
+          // deep — 같은 색상의 진한 변형. 토큰/10 배경 위 배지 글자·아이콘용(흰·크림·크림2 바탕에서 WCAG AA 4.5:1 이상).
+          deep: '#406786',
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
@@ -62,15 +66,16 @@ const config: Config = {
           900: '#0c4a6e',
           950: '#082f49',
         },
-        // 주간 그리드 확정 예약 블록용 파스텔 팔레트(§8.3) — cream(#F6F3EC) 위 저채도 6색.
+        // 주간 그리드 확정 예약 블록·알림 배지용 파스텔 팔레트(§8.3) — cream(#F6F3EC) 위 저채도 6색.
         // 각 색: DEFAULT(bg 파스텔)·border(한 단계 진함)·accent(좌측 보더용 진한 톤). 라벨 첫 등장 순 순환.
+        // deep — 같은 색상의 진한 변형. 토큰/10 배경 위 배지 글자·아이콘용(흰·크림·크림2 바탕에서 WCAG AA 4.5:1 이상).
         // sky(운영 고정색)·warm(대기)·sage(가능)와 충돌 없게 고름. lemon 은 warm 과 구분되도록 올리브톤.
         pastel: {
-          mint: { DEFAULT: '#D9EAE0', border: '#B0D2C0', accent: '#3E8F6E' },
+          mint: { DEFAULT: '#D9EAE0', border: '#B0D2C0', accent: '#3E8F6E', deep: '#2F6D54' },
           lemon: { DEFAULT: '#ECE6C0', border: '#D6C98C', accent: '#8A7524' },
           coral: { DEFAULT: '#F4DBD1', border: '#E6B4A2', accent: '#C15B39' },
-          lavender: { DEFAULT: '#E3DCF0', border: '#C4B6E0', accent: '#7059A6' },
-          beige: { DEFAULT: '#E9DEC9', border: '#D2BF9E', accent: '#927A50' },
+          lavender: { DEFAULT: '#E3DCF0', border: '#C4B6E0', accent: '#7059A6', deep: '#69549C' },
+          beige: { DEFAULT: '#E9DEC9', border: '#D2BF9E', accent: '#927A50', deep: '#715E3E' },
           rose: { DEFAULT: '#F3D8E2', border: '#E1AEC1', accent: '#B15277' },
         },
         // shadcn/ui 시맨틱 토큰 — 두잉 토큰(globals.css :root)에 매핑. 기존 팔레트/borderRadius 는 유지.
