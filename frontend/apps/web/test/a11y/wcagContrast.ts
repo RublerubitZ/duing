@@ -2,7 +2,7 @@
 
 import tailwindConfig from '../../tailwind.config';
 
-export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function parseHexColor(hex: string): [number, number, number] {
   if (!HEX_COLOR_PATTERN.test(hex)) throw new Error(`#rrggbb 형식이 아니다: ${hex}`);
