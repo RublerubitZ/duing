@@ -15,7 +15,10 @@ import {
   recruitmentConsoleChip,
 } from '../_lib/recruitmentLabels';
 
-/** 미처리 지원서가 이 일수 이상 묵으면 강조한다 — 운영진 리마인더·사이드바 뱃지와 같은 7일 기준. */
+/**
+ * 미처리 지원서가 이 일수 이상 묵으면 강조한다. KST 달력 일수라, 제출 시각 기준(지금 − 168시간)으로 세는
+ * 사이드바 뱃지·운영진 리마인더와는 경계에서 하루 미만 어긋날 수 있다(스펙이 허용).
+ */
 const PENDING_ATTENTION_DAYS = 7;
 /** 운영진 마지막 접속이 이 일수를 넘으면 강조한다. */
 const OPERATOR_INACTIVE_DAYS = 30;
@@ -43,17 +46,18 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1104px] text-[13px]">
+      {/* 열 폭은 13px 가장 긴 내용 + 좌우 패딩 24 에 맞춘다 — 1366 폭 노트북에서도 가로 스크롤이 생기지 않게. */}
+      <table className="w-full min-w-[992px] text-[13px]">
         <colgroup>
-          <col className="w-[140px]" />
-          <col />
-          <col className="w-[110px]" />
-          <col className="w-[124px]" />
-          <col className="w-[88px]" />
-          <col className="w-[120px]" />
-          <col className="w-[104px]" />
-          <col className="w-[188px]" />
           <col className="w-[128px]" />
+          <col />
+          <col className="w-[80px]" />
+          <col className="w-[92px]" />
+          <col className="w-[72px]" />
+          <col className="w-[112px]" />
+          <col className="w-[88px]" />
+          <col className="w-[180px]" />
+          <col className="w-[124px]" />
         </colgroup>
         <thead className="bg-graysoft text-charcoal-2">
           <tr>
@@ -108,7 +112,11 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
                 {recruitment.applicantCount === null ? '—' : `${recruitment.applicantCount}명`}
               </Td>
               <Td>
-                <PendingApplicationsCell recruitment={recruitment} now={now} />
+                <PendingApplicationsCell
+                  pendingApplicationCount={recruitment.pendingApplicationCount}
+                  oldestPendingSubmittedAt={recruitment.oldestPendingSubmittedAt}
+                  now={now}
+                />
               </Td>
               <Td>
                 <OperatorsLastActiveCell lastActiveAt={recruitment.operatorsLastActiveAt} now={now} />
@@ -131,17 +139,23 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
   );
 }
 
+/*
+ * 아래 두 셀의 값이 선택 필드인 건 배포 전환기 구 응답(세 필드 없음)을 null 처럼 그리는 fail-open 이다.
+ * 백엔드가 배포된 뒤에는 도달할 수 없는 분기이므로 다음 정리 때 지워도 된다.
+ */
+
 /** `N건 · X일째` — 외부 폼은 지원자 수처럼 해당 없음(—), 처리할 것이 없으면 `0건`. */
 const PendingApplicationsCell = ({
-  recruitment,
+  pendingApplicationCount,
+  oldestPendingSubmittedAt,
   now,
 }: {
-  recruitment: AdminRecruitmentListItem;
+  pendingApplicationCount?: number | null;
+  oldestPendingSubmittedAt?: string | null;
   now: Date;
 }) => {
-  const { pendingApplicationCount, oldestPendingSubmittedAt } = recruitment;
-  if (pendingApplicationCount === null) return <>—</>;
-  if (pendingApplicationCount === 0 || oldestPendingSubmittedAt === null) {
+  if (pendingApplicationCount === undefined || pendingApplicationCount === null) return <>—</>;
+  if (pendingApplicationCount === 0 || !oldestPendingSubmittedAt) {
     return <span className="whitespace-nowrap">{pendingApplicationCount}건</span>;
   }
   const waitingDays = -daysUntilKst(oldestPendingSubmittedAt, now);
@@ -157,10 +171,10 @@ const OperatorsLastActiveCell = ({
   lastActiveAt,
   now,
 }: {
-  lastActiveAt: string | null;
+  lastActiveAt?: string | null;
   now: Date;
 }) => {
-  if (lastActiveAt === null) {
+  if (!lastActiveAt) {
     return <span className={cn('whitespace-nowrap', ATTENTION_TEXT_CLASS)}>기록 없음</span>;
   }
   const inactiveDays = -daysUntilKst(lastActiveAt, now);
