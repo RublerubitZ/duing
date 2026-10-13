@@ -18,8 +18,9 @@ const BARE_CORAL_TEXT = /(?<![-:\w])text-coral(?![-\w/])/g;
 const PREFIXED_CORAL_TEXT = /:text-coral(?![-\w/])/g;
 // 흰 글자를 얹은 솔리드 코랄(3.12:1) — 위험 버튼은 .btn-danger(.btn 이 아니면 bg-danger)를 쓰고, 접두사 없는 bg-coral 은
 // 글자 없는 점·막대와 범위 밖 배지만 남긴다. 접두사(hover: 등)로 칠하는 솔리드 코랄은 허용 목록 없이 0건이다.
-const BARE_SOLID_CORAL = /(?<![-:\w])bg-coral(?![-\w/])/g;
-const PREFIXED_SOLID_CORAL = /:bg-coral(?![-\w/])/g;
+// 투명도 50 이상(bg-coral/90 등)은 흰 글자를 얹으면 솔리드와 같아 함께 센다 — 옅은 틴트(/5·/10·/15)는 세지 않는다.
+const BARE_SOLID_CORAL = /(?<![-:\w])bg-coral(?:\/(?:[5-9]\d|100))?(?![-\w/])/g;
+const PREFIXED_SOLID_CORAL = /:bg-coral(?:\/(?:[5-9]\d|100))?(?![-\w/])/g;
 // bg-danger 옆에 옛 코랄 hover(#c2603f 4.17:1·coral/90)가 남지 않게 한다 — hover 는 hover:bg-danger-hover.
 const OLD_CORAL_HOVER = /c2603f|hover:bg-coral\/90/gi;
 
@@ -52,6 +53,7 @@ const ALLOWED_SOLID_CORAL: ReadonlyArray<AllowedMatch> = [
   { file: 'app/admin/facility-bookings/_components/CrawlFreshnessChip.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_pages/AdminFacilityBookingsPage.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/inquiries/_pages/AdminInquiriesListPage.tsx', count: 1, reason: BADGE },
+  { file: 'app/admin/promotions/_components/AdminPromotionForm.tsx', count: 1, reason: BADGE },
   { file: 'app/facilities/_components/booking/BookingCalendar.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/facilities/_lib/bookingCalendar.ts', count: 1, reason: DOT_OR_BAR },
   { file: 'app/manage/clubs/[clubId]/members/_components/MemberDetailPanel.tsx', count: 1, reason: DOT_OR_BAR },
