@@ -167,9 +167,27 @@ class ApplicationSubmittedNotificationIntegrationTest extends IntegrationTestBas
         Recruitment recruitment = saveOpenRecruitment(staff.club());
 
         // 이미 부원인 학생은 일반 부원 모집에 지원할 수 없다(AlreadyClubMember) — 이벤트 발행 전 단계의 실패다.
-        // submit 에는 발행 뒤 실패 지점이 없다. 롤백된 제출에서 알림이 안 나가는 보증은 AFTER_COMMIT 단계 지정 자체가 맡는다.
+        // 발행 뒤 롤백되는 경우는 아래 테스트가 따로 고정한다.
         assertThatThrownBy(() -> submit(recruitment, staff.member()))
                 .isInstanceOf(ApplicationDomainException.AlreadyClubMemberException.class);
+
+        assertThat(receivedOf(staff.leader())).isEmpty();
+        assertThat(receivedOf(staff.officer())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("접수 이벤트가 발행된 뒤 트랜잭션이 롤백되면 운영진에게 알림이 남지 않는다")
+    void rolledBackAfterPublishLeavesNoNotification() {
+        // submit 에는 발행 뒤 실패 지점이 없어 서비스로는 재현할 수 없다 — 발행 후 롤백을 직접 만들어 AFTER_COMMIT 보증을 고정한다.
+        Staff staff = saveClubWithStaff();
+        Recruitment recruitment = saveOpenRecruitment(staff.club());
+        User applicant = saveUser();
+
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            eventPublisher.publishEvent(new ApplicationSubmittedEvent(1L, recruitment.getId(), staff.club().getId(),
+                    applicant.getId(), recruitment.getTitle()));
+            transactionStatus.setRollbackOnly();
+        });
 
         assertThat(receivedOf(staff.leader())).isEmpty();
         assertThat(receivedOf(staff.officer())).isEmpty();
