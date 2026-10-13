@@ -7,6 +7,7 @@ import java.time.temporal.ChronoUnit;
 /**
  * 추천순(RECOMMENDED) 정렬 정책 상수·산식의 단일 관리 지점.
  * <p>설계: docs/superpowers/specs/2026-08-11-club-explore-recommended-sort-design.md
+ * (그룹 1·2 경계의 기간 상한 {@link #OPEN_GROUP_MAX_PERIOD_DAYS} 는 이 문서 이후에 추가됐다.)
  *
  * <pre>
  * ORDER BY statusPriority ASC, finalScore DESC, club.id ASC
