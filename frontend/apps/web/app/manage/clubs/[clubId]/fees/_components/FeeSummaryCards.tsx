@@ -90,7 +90,7 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
         <StatusBadge
           label={feeStatusLabel('PAID')}
           count={summary.paidCount}
-          className="bg-sage/20 text-sage"
+          className="bg-sage/20 text-sage-deep"
         />
       </div>
     </div>

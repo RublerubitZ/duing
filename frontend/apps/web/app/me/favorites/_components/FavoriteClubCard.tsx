@@ -31,7 +31,7 @@ export function FavoriteClubCard({ favorite }: Props) {
             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
               favorite.openRecruitmentCount > 0
                 ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-slate-100 text-slate-500'
+                : 'bg-slate-100 text-slate-600'
             }`}
           >
             {favorite.openRecruitmentCount > 0

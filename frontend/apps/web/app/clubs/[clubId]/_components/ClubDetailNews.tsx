@@ -81,7 +81,7 @@ function RecentNotices({ clubId }: Props) {
                     {noticeCategoryLabelOf(notice.category)}
                   </span>
                   {notice.pinned && (
-                    <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-[11px] font-semibold text-warm">
+                    <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-[11px] font-semibold text-warm-deep">
                       고정
                     </span>
                   )}

@@ -32,7 +32,7 @@ const STATUS_BADGE_CLASS: Record<InterviewRoundStatus, string> = {
   COLLECTING: 'bg-blue-100 text-blue-700',
   ASSIGNING: 'bg-amber-100 text-amber-700',
   SCHEDULED: 'bg-emerald-100 text-emerald-700',
-  CANCELLED: 'bg-rose-100 text-rose-600',
+  CANCELLED: 'bg-rose-100 text-rose-700',
 };
 
 type RoundCardProps = {
@@ -182,7 +182,7 @@ export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
       roundsQuery.error instanceof ApiError
         ? roundsQuery.error.message
         : '면접 라운드 목록을 불러오지 못했습니다.';
-    return <p className="p-6 text-sm text-rose-600">{message}</p>;
+    return <p className="p-6 text-sm text-rose-700">{message}</p>;
   }
 
   const rounds = roundsQuery.data ?? [];

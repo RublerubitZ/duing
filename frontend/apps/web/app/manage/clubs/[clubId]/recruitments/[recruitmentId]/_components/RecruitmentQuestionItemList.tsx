@@ -22,14 +22,14 @@ export function RecruitmentQuestionItemList({ items }: Props) {
         <li key={question.id} className="text-sm text-slate-600">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-slate-700">{question.text}</span>
-            <span className={`${BADGE_CLASS} bg-slate-100 text-slate-500`}>
+            <span className={`${BADGE_CLASS} bg-slate-100 text-slate-600`}>
               {QUESTION_TYPE_LABEL[question.type]}
             </span>
             <span
               className={
                 question.required
-                  ? `${BADGE_CLASS} bg-rose-50 text-rose-600`
-                  : `${BADGE_CLASS} bg-slate-100 text-slate-500`
+                  ? `${BADGE_CLASS} bg-rose-50 text-rose-700`
+                  : `${BADGE_CLASS} bg-slate-100 text-slate-600`
               }
             >
               {question.required ? '필수' : '선택'}

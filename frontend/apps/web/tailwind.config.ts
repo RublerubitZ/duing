@@ -22,6 +22,8 @@ const config: Config = {
         },
         sage: {
           DEFAULT: '#9DB6A0',
+          // deep — 같은 색상의 진한 변형. 밝은 바탕 위 글자·sage/10·sage/20 칩 글자용(흰·paper.warm·크림·크림2 위 합성까지 WCAG AA 4.5:1 이상, 최악 4.61).
+          deep: '#4D6850',
           soft: '#C9D8CC',
           mist: '#E8EEE8',
           tint: '#F1F5F1',
@@ -40,6 +42,7 @@ const config: Config = {
         // paper.warm — 크림 캔버스 위에 얹히는 옅은 웜 화이트 표면(관리자 콘솔 사이드바).
         paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
         // deep — 같은 색상의 진한 변형. 토큰/10 배경 위 배지 글자·아이콘용(흰·크림·크림2 바탕에서 WCAG AA 4.5:1 이상).
+        // warm.deep 은 warm/20 위 "고정" 칩에도 쓴다 — 최악(크림2) 4.52 라 여유가 거의 없으니 값을 밝히지 말 것.
         warm: { DEFAULT: '#E8B968', deep: '#865D14' },
         // deep 은 danger(파괴적 액션 버튼)와 용도가 다르다 — 코랄 10% 배경 위 글자에서 기준을 넘는 가장 밝은 값.
         coral: { DEFAULT: '#D97757', deep: '#A54525' },

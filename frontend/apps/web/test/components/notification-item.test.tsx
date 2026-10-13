@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Notification, NotificationType } from '@duing/types';
 
 import { NotificationItem } from '../../app/_components/NotificationItem';
-import tailwindConfig from '../../tailwind.config';
-import { HEX_COLOR_PATTERN, blendOver, contrastRatio } from '../a11y/wcagContrast';
+import { blendOver, contrastRatio, parseColorClass, resolveTokenHex } from '../a11y/wcagContrast';
 
 type ExpectedVisual = { label: string; backgroundClass: string; textClass: string };
 
@@ -145,37 +144,8 @@ describe('NotificationItem — 종류별 라벨·색조(스펙 매핑 표)', () 
 // 알림 항목 바탕: 안읽음 흰색, 읽음은 시트·페이지의 크림, 마우스를 올리면 크림2 쪽으로 어두워진다.
 const BADGE_SURFACES = { 흰색: '#FFFFFF', 크림: '#F6F3EC', 크림2: '#EFEBE0' } as const;
 const SMALL_TEXT_AA = 4.5;
-const COLOR_CLASS_PATTERN = /^(?:bg|text)-([a-z0-9-]+)(?:\/(\d+))?$/;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/**
- * `bg-pastel-mint-accent/10` → 토큰 경로 `pastel-mint-accent`, 투명도 0.1. 접미사가 없으면 불투명.
- * 브라우저는 /10 을 8비트(26/255≈0.102)로 내보내 대비가 최대 0.03 낮아질 수 있다 — 지금 최솟값(4.61)과 기준(4.5) 사이 여유 안이다.
- */
-function parseColorClass(colorClass: string): { tokenPath: string; alpha: number } {
-  const match = COLOR_CLASS_PATTERN.exec(colorClass);
-  const tokenPath = match?.[1];
-  if (!tokenPath) throw new Error(`색 클래스로 해석할 수 없다: ${colorClass}`);
-  const opacityPercent = match?.[2];
-  return { tokenPath, alpha: opacityPercent === undefined ? 1 : Number(opacityPercent) / 100 };
-}
-
-/** 토큰 경로를 `-` 로 나눠 theme.extend.colors 를 내려간다. 끝에서 객체면 DEFAULT(`sky` → sky.DEFAULT). */
-function resolveTokenHex(tokenPath: string): string {
-  let colorNode: unknown = tailwindConfig.theme?.extend?.colors;
-  for (const segment of tokenPath.split('-')) {
-    colorNode = isRecord(colorNode) ? colorNode[segment] : undefined;
-  }
-  if (isRecord(colorNode)) colorNode = colorNode.DEFAULT;
-  if (typeof colorNode !== 'string' || !HEX_COLOR_PATTERN.test(colorNode)) {
-    throw new Error(`색 토큰 ${tokenPath} 을 #rrggbb 로 해석할 수 없다: ${String(colorNode)}`);
-  }
-  return colorNode;
-}
-
+// 브라우저의 /10 8비트 반올림 오차(최대 0.03)는 지금 최솟값(4.61)과 기준(4.5) 사이 여유 안이다.
 function worstBadgeContrast({ backgroundClass, textClass }: ExpectedVisual): number {
   const background = parseColorClass(backgroundClass);
   const text = parseColorClass(textClass);

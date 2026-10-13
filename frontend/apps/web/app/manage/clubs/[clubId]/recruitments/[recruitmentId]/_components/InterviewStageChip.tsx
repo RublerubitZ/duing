@@ -21,7 +21,7 @@ type StageLabel =
   | '면접 확정';
 
 const STAGE_CHIP_CLASS: Record<string, string> = {
-  '면접 대상 선정 전': 'bg-slate-100 text-slate-500',
+  '면접 대상 선정 전': 'bg-slate-100 text-slate-600',
   '라운드 작성 중': 'bg-slate-100 text-slate-700',
   '배정 검토 중': 'bg-amber-100 text-amber-700',
   '면접 확정': 'bg-emerald-100 text-emerald-700',
@@ -78,7 +78,7 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
   const isCollecting = stageLabel.startsWith('응답 대기');
   const chipClass = isCollecting
     ? 'bg-blue-100 text-blue-700'
-    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-slate-100 text-slate-500');
+    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-slate-100 text-slate-600');
 
   return (
     <div className="flex items-center gap-2">
