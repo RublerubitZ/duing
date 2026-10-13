@@ -22,6 +22,8 @@ const config: Config = {
         },
         sage: {
           DEFAULT: '#9DB6A0',
+          // deep — 같은 색상의 진한 변형. 밝은 바탕 위 글자·sage/10·sage/20 칩 글자용(흰·paper.warm·크림·크림2 위 합성까지 WCAG AA 4.5:1 이상, 최악 4.61).
+          deep: '#4D6850',
           soft: '#C9D8CC',
           mist: '#E8EEE8',
           tint: '#F1F5F1',

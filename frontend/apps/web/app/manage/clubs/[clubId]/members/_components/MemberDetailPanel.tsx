@@ -333,7 +333,7 @@ function OperationInfoSection({ member, clubId }: { member: ClubMember; clubId: 
       </dl>
       <Link
         href={toRoute(`/manage/clubs/${clubId}/fees`)}
-        className="mt-2 inline-block text-xs font-medium text-sage hover:underline"
+        className="mt-2 inline-block text-xs font-medium text-sage-deep hover:underline"
       >
         회비 관리에서 보기
       </Link>

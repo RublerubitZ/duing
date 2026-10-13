@@ -23,7 +23,7 @@ export function MyFeeSummary({ fees, today }: Props) {
   if (unpaidFees.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-sage/10 px-5 py-4">
-        <p className="text-sm font-semibold text-sage">미납 회비가 없어요 · 모두 납부 완료</p>
+        <p className="text-sm font-semibold text-sage-deep">미납 회비가 없어요 · 모두 납부 완료</p>
       </div>
     );
   }

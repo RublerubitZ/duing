@@ -77,14 +77,14 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-rose-800">
-            신규 회장 <span className="text-rose-600">*</span>
+            신규 회장 <span className="text-rose-700">*</span>
           </label>
           <LeaderSearchCombobox selectedLeader={selectedUser} onSelect={setSelectedUser} />
         </div>
 
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-rose-800">
-            지정 사유 <span className="text-rose-600">*</span>
+            지정 사유 <span className="text-rose-700">*</span>
           </label>
           <textarea
             value={reason}

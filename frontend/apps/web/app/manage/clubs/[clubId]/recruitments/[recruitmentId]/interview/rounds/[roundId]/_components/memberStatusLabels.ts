@@ -14,5 +14,5 @@ export const MEMBER_STATUS_CLASS: Record<string, string> = {
   RESPONDED: 'bg-emerald-100 text-emerald-700',
   NO_AVAILABLE_SLOT: 'bg-orange-100 text-orange-700',
   ASSIGNED: 'bg-blue-100 text-blue-700',
-  EXCLUDED: 'bg-rose-100 text-rose-600',
+  EXCLUDED: 'bg-rose-100 text-rose-700',
 };

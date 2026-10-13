@@ -128,7 +128,7 @@ function PolicyRow({ clubId, policy, onEdit, onDelete }: PolicyRowProps) {
           <span
             className={cn(
               'text-xs font-medium tabular-nums',
-              policy.active ? 'text-sage' : 'text-charcoal-3',
+              policy.active ? 'text-sage-deep' : 'text-charcoal-3',
             )}
           >
             {policy.active ? '활성' : '비활성'}
