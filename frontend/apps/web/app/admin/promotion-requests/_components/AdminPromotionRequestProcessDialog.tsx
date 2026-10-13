@@ -114,7 +114,7 @@ export function AdminPromotionRequestProcessDialog({
             className={
               selectedStatus === 'ACCEPTED'
                 ? 'btn btn-primary btn-sm disabled:opacity-50'
-                : 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+                : 'btn btn-sm bg-danger text-paper transition-colors hover:bg-danger-hover disabled:opacity-50'
             }
           >
             {isPending && <ButtonSpinner />}

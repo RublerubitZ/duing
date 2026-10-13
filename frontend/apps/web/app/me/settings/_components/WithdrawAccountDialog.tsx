@@ -75,7 +75,7 @@ export function WithdrawAccountDialog({ open, onClose }: Props) {
             type="button"
             onClick={handleWithdraw}
             disabled={withdrawMutation.isPending}
-            className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
+            className="btn btn-sm rounded-[10px] bg-danger text-white disabled:opacity-50"
           >
             {withdrawMutation.isPending && <ButtonSpinner />}탈퇴하기
           </button>

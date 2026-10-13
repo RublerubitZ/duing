@@ -127,7 +127,7 @@ export function ManualMatchDialog({
                   type="button"
                   aria-label="부원 선택 해제"
                   onClick={clearMember}
-                  className="text-charcoal-3 transition-colors hover:text-coral"
+                  className="text-charcoal-3 transition-colors hover:text-danger"
                 >
                   ×
                 </button>

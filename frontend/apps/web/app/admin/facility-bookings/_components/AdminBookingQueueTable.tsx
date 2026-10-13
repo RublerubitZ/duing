@@ -84,7 +84,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                   <button
                     type="button"
                     className={`btn btn-primary btn-sm ${
-                      row.status === 'CONFLICT' ? 'bg-coral hover:bg-coral/90' : 'bg-ink-deep hover:bg-ink'
+                      row.status === 'CONFLICT' ? 'bg-danger hover:bg-danger-hover' : 'bg-ink-deep hover:bg-ink'
                     }`}
                     aria-label={`#${row.bookingId} 검토`}
                     onClick={(event) => {

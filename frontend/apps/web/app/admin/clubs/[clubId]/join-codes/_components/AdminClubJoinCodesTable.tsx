@@ -194,7 +194,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
                           setRevokeTarget(joinCode);
                           setReason('');
                         }}
-                        className="btn btn-sm text-coral hover:bg-coral/5"
+                        className="btn btn-sm text-danger hover:bg-danger/5"
                       >
                         강제 폐기
                       </button>

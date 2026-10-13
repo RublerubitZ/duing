@@ -165,7 +165,7 @@ export function FaqCategoryManager() {
                   }}
                   disabled={updateMutation.isPending || deleteMutation.isPending}
                   aria-label={`'${category.name}' 카테고리 삭제`}
-                  className="grid h-7 w-7 place-items-center rounded text-coral hover:bg-coral/10 disabled:opacity-30"
+                  className="grid h-7 w-7 place-items-center rounded text-danger hover:bg-danger/5 disabled:opacity-30"
                 >×</button>
               </div>
 

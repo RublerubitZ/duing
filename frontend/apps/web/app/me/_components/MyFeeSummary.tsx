@@ -43,7 +43,7 @@ export function MyFeeSummary({ fees, today }: Props) {
       )}
     >
       <p className="text-xs font-semibold text-charcoal-3">미납 회비</p>
-      <p className={cn('mt-0.5 text-2xl font-bold', hasOverdue ? 'text-coral' : 'text-ink')}>
+      <p className={cn('mt-0.5 text-2xl font-bold', hasOverdue ? 'text-coral-deep' : 'text-ink')}>
         {formatWon(totalOutstanding)}
       </p>
       {hasOverdue ? (

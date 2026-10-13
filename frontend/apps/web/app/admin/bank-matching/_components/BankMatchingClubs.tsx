@@ -171,7 +171,7 @@ function BankMatchingClubRow({ club }: BankMatchingClubRowProps) {
           type="button"
           onClick={() => setActive(false)}
           disabled={setBankMatching.isPending}
-          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
         >
           해제
         </button>

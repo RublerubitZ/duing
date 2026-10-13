@@ -50,7 +50,7 @@ export function ClubNoticeCard({ clubId, notice, canEdit, canDelete, onEdit, onD
               <button
                 type="button"
                 onClick={onDelete}
-                className="rounded-md px-2 py-1 text-xs text-coral hover:bg-rose-50"
+                className="rounded-md px-2 py-1 text-xs text-danger hover:bg-rose-50"
               >
                 삭제
               </button>

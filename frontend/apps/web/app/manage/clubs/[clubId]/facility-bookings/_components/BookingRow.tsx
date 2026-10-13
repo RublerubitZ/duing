@@ -59,7 +59,7 @@ export function BookingRow({ booking, onSelect }: Props) {
             </p>
             <Link
               href={toRoute(`/facilities?facilityId=${booking.facilityId}`)}
-              className="btn btn-sm shrink-0 rounded-[10px] bg-coral text-white"
+              className="btn btn-sm shrink-0 rounded-[10px] bg-danger text-white"
               onClick={(event) => event.stopPropagation()}
             >
               다시 신청

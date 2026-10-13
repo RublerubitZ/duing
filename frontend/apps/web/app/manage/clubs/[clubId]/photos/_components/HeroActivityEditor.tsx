@@ -222,7 +222,7 @@ export function HeroActivityEditor({
                   setDeleteError(null);
                   setConfirmOpen(true);
                 }}
-                className="ml-auto text-[12.5px] text-charcoal-2 hover:text-coral"
+                className="ml-auto text-[12.5px] text-charcoal-2 hover:text-danger"
               >
                 비우기
               </button>

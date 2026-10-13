@@ -28,7 +28,7 @@ export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabe
           </button>
           <button
             type="button"
-            className="btn rounded-[10px] bg-coral text-white disabled:opacity-50"
+            className="btn rounded-[10px] bg-danger text-white disabled:opacity-50"
             disabled={isPending}
             onClick={onConfirm}
           >

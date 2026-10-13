@@ -200,7 +200,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
                 {status === 'REVIEWING' && (
                   <button
                     type="button"
-                    className="btn btn-ghost btn-sm text-coral"
+                    className="btn btn-ghost btn-sm text-danger"
                     onClick={() => setCancelOpen(true)}
                   >
                     제출 목록 취소

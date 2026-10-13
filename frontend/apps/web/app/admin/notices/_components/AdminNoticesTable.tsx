@@ -47,7 +47,7 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
                   <button
                     type="button"
                     onClick={() => onDeleteClick(notice.id, notice.title)}
-                    className="text-[12px] text-coral hover:underline"
+                    className="text-[12px] text-danger hover:underline"
                   >삭제</button>
                 </div>
               </Td>

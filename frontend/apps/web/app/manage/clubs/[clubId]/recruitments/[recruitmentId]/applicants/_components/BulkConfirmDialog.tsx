@@ -43,7 +43,7 @@ const DESCRIPTION: Record<GenericTargetStatus, string> = {
 const CONFIRM_BUTTON_CLASS: Record<GenericTargetStatus, string> = {
   ON_HOLD: 'btn btn-primary btn-sm disabled:opacity-50',
   ACCEPTED: 'btn btn-primary btn-sm disabled:opacity-50',
-  REJECTED: 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50',
+  REJECTED: 'btn btn-sm bg-danger text-paper transition-colors hover:bg-danger-hover disabled:opacity-50',
 };
 
 export function BulkConfirmDialog({

@@ -264,7 +264,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setWithdrawOpen(true)}
-                className="btn btn-ghost btn-big rounded-[14px] text-coral"
+                className="btn btn-ghost btn-big rounded-[14px] text-danger"
                 style={{ border: '1px solid rgba(217,119,87,0.3)' }}
               >
                 회원 탈퇴

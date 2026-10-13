@@ -47,14 +47,16 @@ export function BookingSummaryCards({ counts, activeTab, onSelectTab }: Props) {
               }`}
             >
               <p className={`text-xs font-semibold ${isActive ? 'text-sage' : 'text-charcoal-3'}`}>{card.label}</p>
+              {/* 경고 수치·보조 문구는 바탕별로 — ink-deep 위는 옅은 coral(4.55), paper 위는 coral-deep(옅은 coral 은 3.12 미달). */}
               <p
                 className={`mt-1.5 text-[26px] font-bold leading-none tabular-nums ${
-                  card.warn ? 'text-coral' : isActive ? 'text-paper' : 'text-ink-deep'
+                  card.warn
+                    ? isActive ? 'text-coral' : 'text-coral-deep'
+                    : isActive ? 'text-paper' : 'text-ink-deep'
                 }`}
               >
                 {card.value}
               </p>
-              {/* 경고 보조 문구는 바탕별로 — ink-deep 위는 옅은 coral(4.55), paper 위는 coral-deep(옅은 coral 은 3.12 미달). */}
               <p
                 className={`mt-1.5 text-[11.5px] ${
                   card.warn

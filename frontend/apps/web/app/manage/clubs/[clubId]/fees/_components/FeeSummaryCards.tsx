@@ -57,7 +57,7 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
           <p
             className={cn(
               'mt-1 text-2xl font-bold',
-              hasOutstanding ? 'text-coral' : 'text-ink',
+              hasOutstanding ? 'text-coral-deep' : 'text-ink',
             )}
           >
             {formatWon(summary.outstanding)}

@@ -194,7 +194,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               <button
                 type="button"
                 onClick={() => handleRemoveQuestion(question.key)}
-                className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
+                className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                 aria-label="삭제"
               >
                 ✕
@@ -236,7 +236,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                     <button
                       type="button"
                       onClick={() => handleRemoveChoice(question.key, choice.key)}
-                      className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
+                      className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                       aria-label="선택지 삭제"
                     >
                       ✕

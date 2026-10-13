@@ -423,7 +423,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     {availableActions.includes('reject') && (
                       <button
                         type="button"
-                        className="btn btn-sm mt-3 rounded-[10px] bg-coral text-white hover:bg-coral/90"
+                        className="btn btn-sm mt-3 rounded-[10px] bg-danger text-white hover:bg-danger-hover"
                         disabled={isActionPending}
                         onClick={() => {
                           setRejectPrefill(conflictRejectReason(conflictPayload));
@@ -488,7 +488,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 <button
                   key={kind}
                   type="button"
-                  className="btn btn-ghost btn-sm text-coral"
+                  className="btn btn-ghost btn-sm text-danger"
                   disabled={isActionPending}
                   onClick={() => {
                     setActionError(null);
@@ -508,7 +508,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     type="button"
                     className={`btn btn-sm ${
                       ACTION_META[kind].destructive
-                        ? 'btn-secondary border-[#E8B9A8] text-coral hover:border-coral'
+                        ? 'btn-secondary border-[#E8B9A8] text-danger hover:border-danger'
                         : 'btn-primary bg-ink-deep hover:bg-ink'
                     }`}
                     disabled={isActionPending}
