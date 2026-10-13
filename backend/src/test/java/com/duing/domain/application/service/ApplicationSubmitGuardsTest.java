@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class ApplicationSubmitGuardsTest {
 
@@ -70,7 +71,8 @@ class ApplicationSubmitGuardsTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     @Test
     @DisplayName("외부 폼 모집에는 두잉 내에서 직접 지원할 수 없다")

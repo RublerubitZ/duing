@@ -36,6 +36,7 @@ import com.duing.domain.interview.service.dto.query.ApplicantInterviewProgress;
 import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewRoundBrief;
 import com.duing.domain.interview.service.dto.query.ManagerInterviewSnapshot;
+import com.duing.domain.notification.event.ApplicationSubmittedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -65,6 +66,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -99,6 +101,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final Clock clock;
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final PhoneRevealRateLimiter phoneRevealRateLimiter;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -145,6 +148,10 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        // 운영진 접수 알림 — 리스너가 AFTER_COMMIT 에 돌아 롤백된 제출은 알리지 않는다.
+        eventPublisher.publishEvent(new ApplicationSubmittedEvent(
+                savedApplicationId, recruitment.getId(), recruitment.getClub().getId(),
+                submitApplicationCommand.userId(), recruitment.getTitle()));
         return savedApplicationId;
     }
 

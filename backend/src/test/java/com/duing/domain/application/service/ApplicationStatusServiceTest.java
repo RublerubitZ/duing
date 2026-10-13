@@ -39,6 +39,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -71,7 +72,8 @@ class ApplicationStatusServiceTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
