@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 추천순(RECOMMENDED) 정렬 검증.
- * <p>bucket 이 시간마다 바뀌므로 그룹 간 절대 규칙(모집중 > 상시 > 기타)은 해시와 무관하게 단언하고,
+ * <p>bucket 이 시간마다 바뀌므로 그룹 간 절대 규칙(기간 30일 이하 모집중 > 상시·30일 초과 기간 모집 > 기타)은 해시와 무관하게 단언하고,
  * 그룹 내부 순서는 {@link RecommendedScoreTestSupport} 의 Java 복제 산식으로 기대 순서를 재계산해
  * 비교한다. 정각 경계를 통과하면 재시도한다({@link #withStableBucket}).
  */
