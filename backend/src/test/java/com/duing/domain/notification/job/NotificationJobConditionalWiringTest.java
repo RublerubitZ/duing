@@ -34,6 +34,7 @@ class NotificationJobConditionalWiringTest extends IntegrationTestBase {
         assertThat(applicationContext.getBeanNamesForType(DeadlineNotificationJob.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(InterviewReminderJob.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(ApplicationPendingReminderJob.class)).isEmpty();
+        assertThat(applicationContext.getBeanNamesForType(ExternalRecruitmentCheckJob.class)).isEmpty();
         // 대조: 자기 플래그가 켜진 잡 빈은 등록되어 전역 스케줄링이 실제로 활성임을 확인한다.
         assertThat(applicationContext.getBeanNamesForType(OverdueBillJob.class)).isNotEmpty();
     }

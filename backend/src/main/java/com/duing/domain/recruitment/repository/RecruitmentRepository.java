@@ -83,6 +83,20 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
     List<DeadlineRow> findDeadlineNotificationCandidates(@Param("today") LocalDate today);
 
     /**
+     * 외부 폼 상시모집 유지 확인 후보 — 외부 폼(EXTERNAL)·종료일 없음(상시)·raw OPEN 모집 중 시작 후 :intervalDays 일 이상 지난 것.
+     * 접수 마감(stopIntake)을 누르면 종료일이 생겨 자연히 빠진다. 동아리는 ACTIVE 만 — 마감 알림 후보와 같은 동아리 규칙.
+     */
+    @Query(value = """
+            SELECT r.id AS recruitmentId, r.club_id AS clubId, r.title AS title, (:today - r.start_date) AS daysOpen
+              FROM recruitment r JOIN club c ON c.id = r.club_id
+             WHERE r.application_mode = 'EXTERNAL' AND r.status = 'OPEN' AND r.end_date IS NULL
+               AND r.deleted_at IS NULL AND (:today - r.start_date) >= :intervalDays
+               AND c.status = 'ACTIVE' AND c.deleted_at IS NULL
+            """, nativeQuery = true)
+    List<ExternalStillOpenRow> findExternalStillOpenCandidates(
+            @Param("today") LocalDate today, @Param("intervalDays") int intervalDays);
+
+    /**
      * 동아리 폐쇄 cascade 의 마지막 단계에서 모집을 일괄 soft-delete 한다.
      * 엔티티 remove(@SQLDelete) 대신 벌크 UPDATE 를 쓰는 이유: 직전에 거절된 Application 이
      * 영속성 컨텍스트에서 이 모집을 @ManyToOne 으로 참조하는데, 모집 엔티티를 remove 하면
