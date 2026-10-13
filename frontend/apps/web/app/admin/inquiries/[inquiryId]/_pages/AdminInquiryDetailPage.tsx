@@ -469,7 +469,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             type="button"
             onClick={() => setIsCloseDialogOpen(true)}
             disabled={changeStatusMutation.isPending}
-            className="btn btn-sm bg-danger text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             종료
           </button>

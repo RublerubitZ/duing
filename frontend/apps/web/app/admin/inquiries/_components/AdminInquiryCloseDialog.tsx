@@ -70,7 +70,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
             type="button"
             onClick={handleSubmit}
             disabled={isPending}
-            className="btn btn-sm bg-danger text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}종료
           </button>

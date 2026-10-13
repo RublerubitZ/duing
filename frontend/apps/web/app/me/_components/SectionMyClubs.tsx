@@ -146,7 +146,7 @@ export function SectionMyClubs({ myClubs }: Props) {
                       <button
                         type="button"
                         onClick={() => setLeaveTarget(club)}
-                        className="btn btn-ghost btn-sm text-danger"
+                        className="btn btn-sm btn-danger-quiet"
                         aria-label={`${club.clubName} 탈퇴`}
                       >
                         탈퇴

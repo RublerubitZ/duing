@@ -100,7 +100,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             type="button"
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className="btn btn-sm bg-danger text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}삭제
           </button>

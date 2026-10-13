@@ -148,7 +148,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                 {detail.status === 'PENDING' && (
                   <button
                     type="button"
-                    className="btn rounded-[10px] bg-danger text-white disabled:opacity-50"
+                    className="btn rounded-[10px] btn-danger disabled:opacity-50"
                     onClick={() => { setCancelErrorMessage(null); setCancelConfirmOpen(true); }}
                   >
                     신청 취소

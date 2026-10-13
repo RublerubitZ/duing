@@ -16,8 +16,10 @@ const SCANNED_DIRS = ['app', 'components'];
 const BARE_CORAL_TEXT = /(?<![-:\w])text-coral(?![-\w/])/g;
 // 상태·반응형·임의 변형 등 모든 접두사 — hover 순간의 글자도 같은 대비 기준이라 허용 목록 없이 0건이다.
 const PREFIXED_CORAL_TEXT = /:text-coral(?![-\w/])/g;
-// 흰 글자를 얹은 솔리드 코랄(3.12:1) — 클릭 요소는 bg-danger 를 쓰고, 글자 없는 점·막대와 범위 밖 배지만 남긴다.
+// 흰 글자를 얹은 솔리드 코랄(3.12:1) — 위험 버튼은 .btn-danger(.btn 이 아니면 bg-danger)를 쓰고, 접두사 없는 bg-coral 은
+// 글자 없는 점·막대와 범위 밖 배지만 남긴다. 접두사(hover: 등)로 칠하는 솔리드 코랄은 허용 목록 없이 0건이다.
 const BARE_SOLID_CORAL = /(?<![-:\w])bg-coral(?![-\w/])/g;
+const PREFIXED_SOLID_CORAL = /:bg-coral(?![-\w/])/g;
 // bg-danger 옆에 옛 코랄 hover(#c2603f 4.17:1·coral/90)가 남지 않게 한다 — hover 는 hover:bg-danger-hover.
 const OLD_CORAL_HOVER = /c2603f|hover:bg-coral\/90/gi;
 
@@ -32,7 +34,7 @@ const CLOSING_SOON_TICKER = '마감 임박 티커(범위 밖)';
 
 // 같은 파일에 사유가 둘이면 항목을 나눈다 — 건수는 파일별로 합산해 비교한다.
 const ALLOWED_CORAL_TEXT: ReadonlyArray<AllowedMatch> = [
-  { file: 'app/admin/facility-bookings/_components/BookingSummaryCards.tsx', count: 2, reason: DARK_SURFACE },
+  { file: 'app/admin/facility-bookings/_components/BookingSummaryCards.tsx', count: 1, reason: DARK_SURFACE },
   { file: 'app/admin/facility-bookings/submission/_components/BatchBulkCreateResultDialog.tsx', count: 1, reason: ICON_ONLY },
   { file: 'app/clubs/_components/ClubCard.tsx', count: 1, reason: ICON_ONLY },
   { file: 'app/clubs/_components/ClubListItem.tsx', count: 1, reason: ICON_ONLY },
@@ -133,6 +135,10 @@ describe('옅은 코랄 글자(text-coral) 회귀 가드', () => {
 describe('솔리드 코랄(bg-coral) 위험 버튼 회귀 가드', () => {
   it('허용 목록 밖에서 접두사 없는 bg-coral 을 쓰지 않고, 목록 파일의 건수가 그대로다', () => {
     expect(countMismatches(BARE_SOLID_CORAL, allowedCountByFile(ALLOWED_SOLID_CORAL))).toEqual([]);
+  });
+
+  it('접두사를 붙인 bg-coral(hover:bg-coral 등)을 쓰지 않는다', () => {
+    expect(countMismatches(PREFIXED_SOLID_CORAL, new Map())).toEqual([]);
   });
 
   it('옛 코랄 hover(#c2603f·hover:bg-coral/90)를 쓰지 않는다', () => {
