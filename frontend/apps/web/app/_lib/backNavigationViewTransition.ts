@@ -15,8 +15,9 @@ import { installBackDismiss, isOverlayOnlyTraversal } from './backDismiss';
 const BACK_NAVIGATION_ATTRIBUTE = 'data-back-navigation';
 // 경로가 바뀌지 않는 popstate(쿼리·해시만 다른 엔트리)는 마커를 내릴 커밋이 없다 — 그때 마커가 남지 않게 하는 안전장치.
 // 그런 이동은 화면 컴포넌트가 다시 마운트되지 않아 등장 판정에 쓰이지 않는다.
-// ponytail: 커밋이 2초를 넘는 복원(라우터 캐시 미스)은 돌아온 화면이 연출을 재생하고, 쿼리·해시 전용 뒤로가기 뒤 2초 안의
-// 앞으로 이동은 연출이 빠진다(스펙 수용 한계). 실측되면 backDismiss 의 navigationPending 신호와 묶는다.
+// ponytail: 라우터 캐시에 없는 화면으로 돌아가면 로딩 경계가 먼저 커밋돼(경로 변경) 마커가 그때 내려가고, 나중에 마운트되는
+// 실제 화면은 연출을 재생한다(로딩 경계 없이 2초를 넘기면 이 failsafe 가 먼저 내려 같은 결과). 쿼리·해시 전용 뒤로가기 뒤
+// 2초 안의 앞으로 이동은 연출이 빠진다(스펙 수용 한계). 실측되면 backDismiss 의 navigationPending 신호와 묶는다.
 const FAILSAFE_CLEAR_MS = 2000;
 
 let installed = false;
