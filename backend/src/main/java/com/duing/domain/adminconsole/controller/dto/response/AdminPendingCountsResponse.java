@@ -23,7 +23,11 @@ public record AdminPendingCountsResponse(
         @Schema(description = "대기 중인 회장 승계 요청 수", example = "1")
         long leaderSuccession,
 
-        @Schema(description = "위 항목의 총합", example = "30")
+        @Schema(description = "7일 넘게 처리되지 않은(SUBMITTED) 지원서가 있는 진행 중 모집 수"
+                + "(운영 중 동아리만 — 운영진 미처리 리마인더 대상과 같은 집합)", example = "4")
+        long stalePendingRecruitment,
+
+        @Schema(description = "위 항목의 총합", example = "34")
         long totalPendingCount
 ) {
 
@@ -35,6 +39,7 @@ public record AdminPendingCountsResponse(
                 query.promotionRequest(),
                 query.reportUnresolved(),
                 query.leaderSuccession(),
+                query.stalePendingRecruitment(),
                 query.totalPendingCount()
         );
     }

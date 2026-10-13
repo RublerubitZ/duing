@@ -8,6 +8,7 @@ public record AdminPendingCountsQuery(
         long promotionRequest,
         long reportUnresolved,
         long leaderSuccession,
+        long stalePendingRecruitment,
         long totalPendingCount
 ) {
 
@@ -17,11 +18,12 @@ public record AdminPendingCountsQuery(
             long inquiryUnanswered,
             long promotionRequest,
             long reportUnresolved,
-            long leaderSuccession
+            long leaderSuccession,
+            long stalePendingRecruitment
     ) {
         long totalPendingCount = clubApproval + facilityBooking + inquiryUnanswered
-                + promotionRequest + reportUnresolved + leaderSuccession;
+                + promotionRequest + reportUnresolved + leaderSuccession + stalePendingRecruitment;
         return new AdminPendingCountsQuery(clubApproval, facilityBooking, inquiryUnanswered,
-                promotionRequest, reportUnresolved, leaderSuccession, totalPendingCount);
+                promotionRequest, reportUnresolved, leaderSuccession, stalePendingRecruitment, totalPendingCount);
     }
 }
