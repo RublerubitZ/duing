@@ -20,7 +20,7 @@
     "@duing/api": "workspace:*",
     "@duing/stores": "workspace:*",
     "@duing/types": "workspace:*",
-    "@tanstack/react-query": "^5.103.2"
+    "@tanstack/react-query": "^5.104.1"
   },
   "peerDependencies": {
     "react": ">=19"
