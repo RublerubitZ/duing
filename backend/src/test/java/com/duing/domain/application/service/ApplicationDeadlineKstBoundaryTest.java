@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * 모집 마감 경계의 KST 판정 회귀 테스트.
@@ -119,6 +120,7 @@ class ApplicationDeadlineKstBoundaryTest {
                 mock(InterviewAssignmentQueryService.class),
                 fixedClock,
                 mock(ClubAuditEventRepository.class),
-                new PhoneRevealRateLimiter());
+                new PhoneRevealRateLimiter(),
+                mock(ApplicationEventPublisher.class));
     }
 }

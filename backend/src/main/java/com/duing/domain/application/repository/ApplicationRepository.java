@@ -98,6 +98,23 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
+     * 미처리 지원서 리마인더 후보 — 제출 뒤 기준 시각이 지나도록 SUBMITTED 로 남은 지원서를 모집별로 센다.
+     * 모집은 raw status OPEN(마감일이 지난 심사 기간 포함), 동아리는 ACTIVE 만 — DeadlineNotificationJob 후보와 같은 동아리 규칙.
+     * created_at 은 system regime 이라 {@code submittedBefore} 도 TimeMapper.systemNow 기준으로 넘긴다.
+     */
+    @Query(value = """
+            SELECT r.id AS recruitmentId, r.club_id AS clubId, r.title AS title, COUNT(a.id) AS pendingCount
+              FROM application a
+              JOIN recruitment r ON r.id = a.recruitment_id
+              JOIN club c ON c.id = r.club_id
+             WHERE a.status = 'SUBMITTED' AND a.deleted_at IS NULL AND a.created_at <= :submittedBefore
+               AND r.status = 'OPEN' AND r.deleted_at IS NULL
+               AND c.status = 'ACTIVE' AND c.deleted_at IS NULL
+             GROUP BY r.id, r.club_id, r.title
+            """, nativeQuery = true)
+    List<PendingApplicationRow> findPendingReminderCandidates(@Param("submittedBefore") LocalDateTime submittedBefore);
+
+    /**
      * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).
      * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery 를 쓴다.
      */

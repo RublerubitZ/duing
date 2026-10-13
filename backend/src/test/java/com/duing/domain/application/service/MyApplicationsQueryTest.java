@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class MyApplicationsQueryTest {
 
@@ -62,7 +63,8 @@ class MyApplicationsQueryTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")

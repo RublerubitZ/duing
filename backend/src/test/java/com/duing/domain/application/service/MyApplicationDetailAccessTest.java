@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class MyApplicationDetailAccessTest {
 
@@ -64,7 +65,8 @@ class MyApplicationDetailAccessTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

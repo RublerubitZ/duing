@@ -49,6 +49,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -92,7 +93,8 @@ class ApplicationAnswerValidationTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     // ── payload 분기 ─────────────────────────────────────────────────────────
 
