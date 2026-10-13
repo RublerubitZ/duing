@@ -46,7 +46,8 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      {/* 열 폭은 13px 가장 긴 내용 + 좌우 패딩 24 에 맞춘다 — 1366 폭 노트북에서도 가로 스크롤이 생기지 않게. */}
+      {/* 열 폭은 13px 가장 긴 내용 + 좌우 패딩 24 에 맞춘다. 셀은 줄바꿈하지 않는다 — 제목 열이 줄지 않아
+          자리가 모자라면 짧은 칸('자체 지원'·'5명')이 글자마다 꺾이므로, 그때는 표가 가로로 스크롤된다. */}
       <table className="w-full min-w-[992px] text-[13px]">
         <colgroup>
           <col className="w-[128px]" />
@@ -203,10 +204,16 @@ const StatusChip = ({ recruitment }: { recruitment: AdminRecruitmentSummary }) =
 };
 
 const Th = ({ children, align }: { children: React.ReactNode; align?: 'right' }) => (
-  <th className={`px-3 py-2 font-semibold ${align === 'right' ? 'text-right' : 'text-left'}`}>
+  <th
+    className={`whitespace-nowrap px-3 py-2 font-semibold ${align === 'right' ? 'text-right' : 'text-left'}`}
+  >
     {children}
   </th>
 );
 const Td = ({ children, align }: { children: React.ReactNode; align?: 'right' }) => (
-  <td className={`px-3 py-2 align-middle ${align === 'right' ? 'text-right' : ''}`}>{children}</td>
+  <td
+    className={`whitespace-nowrap px-3 py-2 align-middle ${align === 'right' ? 'text-right' : ''}`}
+  >
+    {children}
+  </td>
 );
