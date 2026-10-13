@@ -25,5 +25,8 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.{ts,tsx}'],
     css: false,
+    // next-view-transitions 의 ESM 이 next/link 를 확장자 없이 불러 Node 해석이 실패한다 — 실제 모듈을
+    // vi.importActual 로 렌더하는 패치 회귀 테스트(test/lib/view-transitions-popstate-patch.test.tsx)가 쓰도록 인라인한다.
+    server: { deps: { inline: ['next-view-transitions'] } },
   },
 });

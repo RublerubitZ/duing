@@ -7,6 +7,11 @@ settings:
 overrides:
   next>postcss: ^8.5.28
 
+patchedDependencies:
+  next-view-transitions@0.3.5:
+    hash: ptyammdcrwrm6nsf7zwicvwbty
+    path: patches/next-view-transitions@0.3.5.patch
+
 importers:
 
   .:
@@ -118,7 +123,7 @@ importers:
         version: 16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-view-transitions:
         specifier: ^0.3.5
-        version: 0.3.5(next@16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 0.3.5(patch_hash=ptyammdcrwrm6nsf7zwicvwbty)(next@16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       posthog-js:
         specifier: ^1.434.12
         version: 1.434.12(@types/react@19.3.0)(react@19.3.0)
@@ -9304,7 +9309,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next-view-transitions@0.3.5(next@16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+  next-view-transitions@0.3.5(patch_hash=ptyammdcrwrm6nsf7zwicvwbty)(next@16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
       next: 16.3.6(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react: 19.3.0

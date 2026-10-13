@@ -797,7 +797,7 @@ body {
 
 /* ===================================================================
  * View Transitions — 페이지 전환 (전역 최소 크로스페이드 + 공유요소 모핑)
- * next-view-transitions 가 App Router 네비게이션을 startViewTransition 으로 감싼다.
+ * next-view-transitions 가 앞으로 이동(Link·useTransitionRouter)만 startViewTransition 으로 감싼다 — 뒤로/앞으로 가기는 전환 없이 그린다(패치, 스크롤 복원 보존).
  * 여기선 지속시간/이징만 차분하게 잡는다(기본 동작=루트 페이드 유지).
  * 공유요소(동아리 로고)는 view-transition-name: club-logo-<id> 로 자동 모핑된다.
  * =================================================================== */
@@ -820,14 +820,4 @@ body {
   .enter-content {
     animation: none;
   }
-}
-
-/* 뒤로/앞으로(popstate) 내비게이션의 전환은 애니메이션 없이 즉시 완료시킨다.
- * iOS 스와이프 백의 네이티브 슬라이드와 웹 크로스페이드가 겹치는 이중 전환 방지
- * (마커는 backNavigationViewTransition.ts 가 popstate 에 세팅, 전환 종료 시 해제).
- * 전진 Link 내비게이션(크로스페이드·club-logo 모핑)은 영향 없음. */
-:root[data-back-navigation]::view-transition-group(*),
-:root[data-back-navigation]::view-transition-old(*),
-:root[data-back-navigation]::view-transition-new(*) {
-  animation: none !important;
 }
