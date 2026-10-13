@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { todayKstDateString } from '@duing/hooks/datetime';
-import type { AdminRecruitmentSummary } from '@duing/types';
+import type { AdminRecruitmentListItem } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 const mockRecruitmentsQuery = vi.fn();
@@ -46,9 +46,14 @@ const DAY_MS = 86_400_000;
 const YESTERDAY = todayKstDateString(new Date(Date.now() - DAY_MS));
 const TOMORROW = todayKstDateString(new Date(Date.now() + DAY_MS));
 
+/** n일 전 같은 시각의 절대시각 — KST 날짜 차이가 정확히 n일이 된다. */
+function daysAgoIso(days: number): string {
+  return new Date(Date.now() - days * DAY_MS).toISOString();
+}
+
 function makeRecruitment(
-  overrides: Partial<AdminRecruitmentSummary> = {},
-): AdminRecruitmentSummary {
+  overrides: Partial<AdminRecruitmentListItem> = {},
+): AdminRecruitmentListItem {
   return {
     recruitmentId: 1,
     clubId: 10,
@@ -62,11 +67,14 @@ function makeRecruitment(
     endDate: TOMORROW,
     closedAt: null,
     updatedAt: '2026-08-01T02:30:00Z',
+    pendingApplicationCount: 0,
+    oldestPendingSubmittedAt: null,
+    operatorsLastActiveAt: daysAgoIso(0),
     ...overrides,
   };
 }
 
-function listSuccess(rows: AdminRecruitmentSummary[]) {
+function listSuccess(rows: AdminRecruitmentListItem[]) {
   return { data: rows, isLoading: false, isSuccess: true, isError: false, refetch: vi.fn() };
 }
 
@@ -158,6 +166,75 @@ describe('관리자 모집 목록', () => {
     expect(within(rowByTitle('기간 지난 마감 모집')).queryByText('운영 개입 필요')).toBeNull();
     expect(within(rowByTitle('진행 중 모집')).queryByText('운영 개입 필요')).toBeNull();
     expect(within(rowByTitle('상시 열린 모집')).queryByText('운영 개입 필요')).toBeNull();
+  });
+
+  it('미처리 열은 건수와 가장 오래된 지원서가 며칠째인지 적고 7일째부터 주의 색으로 강조한다', () => {
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ recruitmentId: 1, title: '일주일 방치 모집', pendingApplicationCount: 3,
+          oldestPendingSubmittedAt: daysAgoIso(7) }),
+        makeRecruitment({ recruitmentId: 2, title: '엿새째 모집', pendingApplicationCount: 2,
+          oldestPendingSubmittedAt: daysAgoIso(6) }),
+        makeRecruitment({ recruitmentId: 3, title: '오늘 접수 모집', pendingApplicationCount: 1,
+          oldestPendingSubmittedAt: daysAgoIso(0) }),
+        makeRecruitment({ recruitmentId: 4, title: '처리 끝난 모집', pendingApplicationCount: 0,
+          oldestPendingSubmittedAt: null }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    expect(screen.getByRole('columnheader', { name: '미처리' })).toBeInTheDocument();
+    expect(within(rowByTitle('일주일 방치 모집')).getByText('3건 · 7일째')).toHaveClass('text-coral-deep');
+    expect(within(rowByTitle('엿새째 모집')).getByText('2건 · 6일째')).not.toHaveClass('text-coral-deep');
+    // 오늘 들어온 지원서는 "0일째" 가 아니라 오늘로 읽힌다.
+    expect(within(rowByTitle('오늘 접수 모집')).getByText('1건 · 오늘')).not.toHaveClass('text-coral-deep');
+    expect(within(rowByTitle('처리 끝난 모집')).getByText('0건')).not.toHaveClass('text-coral-deep');
+  });
+
+  it('외부 폼 모집은 미처리도 지원자 수처럼 해당 없음(—)으로 적는다', () => {
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ title: '외부 폼 모집', applicationMode: 'EXTERNAL', applicantCount: null,
+          pendingApplicationCount: null, oldestPendingSubmittedAt: null }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    // 지원자 칸과 미처리 칸 두 곳 — 0건으로 적으면 "다 처리했다"로 읽힌다.
+    expect(within(rowByTitle('외부 폼 모집')).getAllByText('—')).toHaveLength(2);
+  });
+
+  it('운영진 접속은 며칠 전인지 적고 30일을 넘기거나 기록이 없으면 주의 색으로 강조한다', () => {
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ recruitmentId: 1, title: '오늘 접속 모집', operatorsLastActiveAt: daysAgoIso(0) }),
+        makeRecruitment({ recruitmentId: 2, title: '한 달째 모집', operatorsLastActiveAt: daysAgoIso(30) }),
+        makeRecruitment({ recruitmentId: 3, title: '한 달 넘은 모집', operatorsLastActiveAt: daysAgoIso(31) }),
+        makeRecruitment({ recruitmentId: 4, title: '기록 없는 모집', operatorsLastActiveAt: null }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    expect(screen.getByRole('columnheader', { name: '운영진 접속' })).toBeInTheDocument();
+    expect(within(rowByTitle('오늘 접속 모집')).getByText('오늘')).not.toHaveClass('text-coral-deep');
+    expect(within(rowByTitle('한 달째 모집')).getByText('30일 전')).not.toHaveClass('text-coral-deep');
+    expect(within(rowByTitle('한 달 넘은 모집')).getByText('31일 전')).toHaveClass('text-coral-deep');
+    // 세션·로그인 기록이 모두 없으면 가장 오래 방치된 경우다 — 정보 없음이 아니라 주의 대상이다.
+    expect(within(rowByTitle('기록 없는 모집')).getByText('기록 없음')).toHaveClass('text-coral-deep');
+  });
+
+  it('정렬에서 오래 방치된 순을 고르면 STALE 로 조회한다', async () => {
+    const user = userEvent.setup();
+    render(<AdminRecruitmentsPage />);
+
+    await user.selectOptions(screen.getByLabelText('정렬'), '오래 방치된 순');
+
+    expect(mockRecruitmentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: 'STALE' }),
+    );
   });
 
   it('지원 방식은 자체 지원과 외부 폼으로 구분해 읽힌다', () => {

@@ -503,5 +503,7 @@ export type AdminPendingCounts = {
   promotionRequest: number;
   reportUnresolved: number;
   leaderSuccession: number;
+  /** 제출 후 7일 넘게 처리되지 않은 지원서가 있는 진행 중 모집 수 — 운영진 미처리 리마인더 대상과 같은 집합. */
+  stalePendingRecruitment: number;
   totalPendingCount: number;
 };

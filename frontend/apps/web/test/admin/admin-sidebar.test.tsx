@@ -35,7 +35,8 @@ const COUNTS: AdminPendingCounts = {
   promotionRequest: 2,
   reportUnresolved: 5,
   leaderSuccession: 0,
-  totalPendingCount: 21,
+  stalePendingRecruitment: 6,
+  totalPendingCount: 27,
 };
 
 const server = setupServer(
@@ -89,6 +90,14 @@ describe('AdminSidebar', () => {
     // 회장 승계는 0건이라 숫자가 붙지 않아야 한다.
     const successionLink = screen.getByRole('link', { name: /회장 승계/ });
     expect(successionLink).not.toHaveTextContent('0');
+  });
+
+  it('모집 관리 메뉴에 오래 처리되지 않은 지원서가 있는 모집 수를 뱃지로 단다', async () => {
+    renderSidebar();
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /모집 관리/ })).toHaveTextContent('6'),
+    );
   });
 
   it('접힌 부모는 자식들의 미처리 합계를 대신 표시한다', async () => {

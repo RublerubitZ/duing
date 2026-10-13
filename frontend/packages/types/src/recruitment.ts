@@ -106,8 +106,11 @@ export type CreateRecruitmentPayload = {
   showApplicantCount?: boolean;
 };
 
-/** 총동연 모집 콘솔 정렬. 서버가 정렬 규칙을 정하며 클라이언트는 키만 고른다. */
-export type AdminRecruitmentSort = 'LATEST' | 'APPLICANTS' | 'DEADLINE';
+/**
+ * 총동연 모집 콘솔 정렬. 서버가 정렬 규칙을 정하며 클라이언트는 키만 고른다.
+ * STALE = 오래 방치된 순(진행 중 먼저, 가장 오래된 미처리 지원서 순).
+ */
+export type AdminRecruitmentSort = 'LATEST' | 'APPLICANTS' | 'DEADLINE' | 'STALE';
 
 export type AdminRecruitmentSearchParams = {
   q?: string;
@@ -135,6 +138,18 @@ export type AdminRecruitmentSummary = {
   /** 마감이 실제로 일어난 시각. 마감 전이거나 종료 시각이 없는 레거시 마감 건은 null. */
   closedAt: string | null;
   updatedAt: string;
+};
+
+/**
+ * GET /admin/recruitments 목록 행. 상세 타입이 Summary 를 확장하므로 목록에만 오는 세 값은 여기에 둔다.
+ * 미처리 = 처리되지 않은(SUBMITTED) 지원서 — 외부 폼 모집은 지원자 수처럼 둘 다 null(해당 없음)이다.
+ */
+export type AdminRecruitmentListItem = AdminRecruitmentSummary & {
+  pendingApplicationCount: number | null;
+  /** 가장 오래된 미처리 지원서의 제출 시각. 미처리가 없거나 외부 폼이면 null. */
+  oldestPendingSubmittedAt: string | null;
+  /** 회장·임원의 세션 사용·로그인 중 가장 늦은 시각. 운영진이 없거나 기록이 남지 않았으면 null. */
+  operatorsLastActiveAt: string | null;
 };
 
 /** 외부 폼 모집의 가입 코드·요청 현황. 전부 서버 계산값이라 화면은 표시만 한다. */
