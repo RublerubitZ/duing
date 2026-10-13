@@ -58,6 +58,10 @@ export function ClubDetailPhotos({ photos }: Props) {
           );
         })}
       </div>
+      {/* 누른 +N 타일은 이름만 바뀌어 펼쳐진 것이 들리지 않는다 — 늘어난 장수를 스크린리더에 알린다. */}
+      <span role="status" className="sr-only">
+        {visibleCount > PAGE_SIZE ? `활동 사진 전체 ${photos.length}장 중 ${visible.length}장 표시` : null}
+      </span>
 
       <PhotoLightbox
         slides={photos.map((photo) => ({

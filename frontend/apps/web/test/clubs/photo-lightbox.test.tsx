@@ -140,8 +140,9 @@ describe('ClubDetailPhotos', () => {
     render(<ClubDetailPhotos photos={makePhotos(20, false)} />);
     const tiles = () => screen.getAllByRole('button', { name: /^활동 사진/ });
 
-    // 처음엔 8장, 마지막 타일에 +12.
+    // 처음엔 8장, 마지막 타일에 +12. 펼치기 전엔 알릴 것이 없다.
     expect(tiles()).toHaveLength(8);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
     const moreTile = screen.getByRole('button', { name: '활동 사진 12장 더 보기' });
     await user.click(moreTile);
     expect(screen.queryByTestId('lightbox-counter')).not.toBeInTheDocument();
@@ -150,11 +151,14 @@ describe('ClubDetailPhotos', () => {
     expect(tiles()).toHaveLength(16);
     expect(moreTile).toHaveFocus();
     expect(moreTile).toHaveAccessibleName('활동 사진 8 크게 보기');
+    // 이름만 바뀐 타일 대신 늘어난 장수를 스크린리더에 알린다.
+    expect(screen.getByRole('status')).toHaveTextContent('활동 사진 전체 20장 중 16장 표시');
     await user.click(screen.getByRole('button', { name: '활동 사진 4장 더 보기' }));
 
     // 20장 전부, 더 보기 타일 없음.
     expect(tiles()).toHaveLength(20);
     expect(screen.queryByRole('button', { name: /더 보기$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('활동 사진 전체 20장 중 20장 표시');
 
     // 펼친 사진도 누르면 해당 사진으로 라이트박스가 열린다.
     await user.click(screen.getByRole('button', { name: '활동 사진 18 크게 보기' }));
