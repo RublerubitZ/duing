@@ -35,6 +35,8 @@ public class ExternalRecruitmentCheckJob {
      * 유지 확인 주기(시작 후 경과일). 주기 번호 = 경과일 / 이 값.
      * 알림 보존일({@link com.duing.domain.notification.NotificationRetention#RETENTION_DAYS}, 30일) ≥ 이 주기여야 한다 — 보존 기간이 지나 주기 키가 지워진 뒤에는
      * 주기 번호가 이미 다음 값이라 재발송되지 않는데, 보존일이 주기보다 짧으면 같은 주기 안에서 키가 지워져 다시 보낸다.
+     * 잡이 오래 멈췄다가 주기 경계 직전에 복구되면(예: 59일째) 그 주기와 다음 주기가 이틀 연달아 나갈 수 있다 — 놓친 주기를
+     * 한 번은 보내는 설계의 귀결이라 의도된 동작이다.
      */
     static final int CHECK_INTERVAL_DAYS = 30;
 
