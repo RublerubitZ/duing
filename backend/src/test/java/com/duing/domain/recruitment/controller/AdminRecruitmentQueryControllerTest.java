@@ -329,6 +329,14 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
                 ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", loginLaterStaff.club().getId());
 
+        // 만료 세션이 가장 늦은 동아리 — 세션은 이미 만료됐어도 마지막으로 쓴 시각이 로그인보다 늦으면 그 값이다.
+        Staff expiredSessionStaff = ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
+        LocalDateTime expiredSessionUsedAt = seoulNow.minusDays(3);
+        authSessionRepository.save(newSession(expiredSessionStaff.leader(), expiredSessionUsedAt, Duration.ofDays(1)));
+        recordLogin(expiredSessionStaff.officer(), systemNow.minusDays(10));
+        Recruitment expiredSessionRecruitment = saveRecruitment(expiredSessionStaff.club(), "만료 세션이 늦은 모집",
+                ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+
         // 운영진이 없는 동아리 — 일반 부원만 방금 접속했다.
         Club memberOnlyClub = clubRepository.save(ClubStaffFixture.activeClub());
         User memberOnly = userRepository.save(UserFixture.unique());
@@ -346,6 +354,9 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
         assertThat(Instant.parse((String) findRow(listed, loginLaterRecruitment.getId()).get("operatorsLastActiveAt")))
                 .as("로그인 시각은 system regime 으로 변환한다")
                 .isEqualTo(TimeMapper.systemWallClockToInstant(loggedInAt));
+        assertThat(Instant.parse((String) findRow(listed, expiredSessionRecruitment.getId()).get("operatorsLastActiveAt")))
+                .as("만료된 세션의 사용 시각도 접속으로 센다")
+                .isEqualTo(TimeMapper.seoulWallClockToInstant(expiredSessionUsedAt));
         assertThat(findRow(listed, memberOnlyRecruitment.getId()).get("operatorsLastActiveAt"))
                 .as("일반 부원의 접속은 운영진 접속이 아니다").isNull();
         assertThat(findRow(listed, selfRecruitment.getId()).get("operatorsLastActiveAt"))

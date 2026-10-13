@@ -202,6 +202,7 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     /**
      * {@link #findOperatorActivityByClubIds(Collection)} 전용 바인딩 대상 — 직접 호출하지 말 것.
      * 네이티브 쿼리라 역할은 저장값(EnumType.STRING)인 이름으로 바인딩한다.
+     * auth_session 은 소프트 삭제를 쓰지 않는다(폐기 = revoked_at, 정리 = 물리 삭제) — 폐기·만료 세션도 사용 시각이라 그대로 센다.
      */
     @Query(value = """
             SELECT cm.club_id AS clubId,
@@ -209,7 +210,7 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
                    MAX(u.last_login_at) AS lastLoginAt
               FROM club_member cm
               JOIN users u ON u.id = cm.user_id AND u.deleted_at IS NULL
-              LEFT JOIN auth_session s ON s.user_id = cm.user_id AND s.deleted_at IS NULL
+              LEFT JOIN auth_session s ON s.user_id = cm.user_id
              WHERE cm.club_id IN (:clubIds) AND cm.role IN (:managerRoles) AND cm.deleted_at IS NULL
              GROUP BY cm.club_id
             """, nativeQuery = true)

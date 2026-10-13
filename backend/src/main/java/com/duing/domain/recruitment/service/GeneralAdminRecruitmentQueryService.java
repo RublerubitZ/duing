@@ -26,10 +26,8 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -122,7 +120,10 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
 
     /** 둘 중 늦은 시각 — 한쪽만 있으면 그 값, 둘 다 없으면 null. */
     private static Instant laterOf(Instant first, Instant second) {
-        return Stream.of(first, second).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
+        if (first == null || second == null) {
+            return first == null ? second : first;
+        }
+        return first.isAfter(second) ? first : second;
     }
 
     @Override
