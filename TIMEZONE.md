@@ -76,6 +76,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminClubJoinCodeResponse.createdAt | club_join_code.created_at | system | BaseEntity 감사 — 같은 응답의 나머지 세 시각(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 closedAt·joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.closedAt | recruitment.closed_at | **seoul** | 위 RecruitmentSummaryResponse.closedAt 과 같은 컬럼·같은 변환(총동연 콘솔이 강제 마감 판단 근거로 쓴다) |
+| AdminRecruitmentSummaryResponse.oldestPendingSubmittedAt | MIN(applications.created_at) (SUBMITTED·미삭제) | system | BaseEntity @CreatedDate — 위 ApplicantDetailResponse.submittedAt 과 같은 컬럼·같은 변환(GeneralAdminRecruitmentQueryService#search 가 변환) |
+| AdminRecruitmentSummaryResponse.operatorsLastActiveAt | MAX(auth_sessions.last_used_at) + MAX(users.last_login_at) (회장·임원) | **seoul** + system | 아래 MySessionResponse.lastUsedAt(seoul)·AdminUserDetailResponse.lastLoginAt(system) 과 같은 컬럼 — GeneralAdminRecruitmentQueryService#search 가 각각 seoulWallClockToInstant·systemWallClockToInstant 로 바꾼 뒤 늦은 값. 벽시계 그대로 비교하면 prod 에서 9시간 어긋난다 |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
 | JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService#applyDecision(#decide·#bulkApprove 공용) 과 #createRequest(자동 승인 경로) 가 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |

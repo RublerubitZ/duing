@@ -5,7 +5,11 @@ import static org.hamcrest.Matchers.equalTo;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
+import com.duing.common.fixture.ClubStaffFixture;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
@@ -21,6 +25,10 @@ import com.duing.domain.federation.entity.FederationInquiry;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
 import com.duing.domain.promotion.entity.PromotionRequest;
 import com.duing.domain.promotion.repository.PromotionRequestRepository;
+import com.duing.domain.recruitment.entity.ApplicationMode;
+import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.TargetRole;
+import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.report.entity.Report;
 import com.duing.domain.report.entity.ReportReasonCode;
 import com.duing.domain.report.entity.ReportStatus;
@@ -29,10 +37,15 @@ import com.duing.domain.report.repository.ReportRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +55,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -57,6 +71,10 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
     @Autowired PromotionRequestRepository promotionRequestRepository;
     @Autowired LeaderSuccessionRequestRepository leaderSuccessionRequestRepository;
     @Autowired FacilityRepository facilityRepository;
+    @Autowired RecruitmentRepository recruitmentRepository;
+    @Autowired ApplicationRepository applicationRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired Clock clock;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
     private final java.util.concurrent.atomic.AtomicLong sequence =
@@ -93,6 +111,7 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
                     .body("data.promotionRequest", equalTo(0))
                     .body("data.reportUnresolved", equalTo(0))
                     .body("data.leaderSuccession", equalTo(0))
+                    .body("data.stalePendingRecruitment", equalTo(0))
                     .body("data.totalPendingCount", equalTo(0));
     }
 
@@ -204,6 +223,56 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
                     .body("data.totalPendingCount", equalTo(2));
     }
 
+    /**
+     * 미처리 지원서 리마인더 잡과 같은 집합 — 7일 넘게 SUBMITTED 로 남은 지원서가 있는 진행 중(OPEN) 모집 수.
+     * 지원서 건수가 아니라 모집 수를 센다. 7일 경계는 실행 중 시계가 흐르므로 ±1시간 여유로 양쪽을 확인한다.
+     */
+    @Test
+    @DisplayName("7일 넘게 처리되지 않은 지원서가 있는 진행 중 모집만 세고, 보류·마감·비활성 동아리·외부 폼 모집은 제외한다")
+    void countsOpenRecruitmentsWithSubmittedApplicationsOlderThanSevenDays() {
+        // 집계: 10일 전 제출 2건(모집 1개로 센다), 7일 경계 바로 바깥(7일 + 1시간 전).
+        Recruitment twoOldApplications = saveOpenRecruitment(saveActiveClub());
+        submittedAgo(saveApplication(twoOldApplications, ApplicationStatus.SUBMITTED), Duration.ofDays(10));
+        submittedAgo(saveApplication(twoOldApplications, ApplicationStatus.SUBMITTED), Duration.ofDays(10));
+        Recruitment justPastBoundary = saveOpenRecruitment(saveActiveClub());
+        submittedAgo(saveApplication(justPastBoundary, ApplicationStatus.SUBMITTED),
+                Duration.ofDays(7).plusHours(1));
+
+        // 제외: 7일 경계 바로 안쪽(7일 − 1시간 전).
+        Recruitment withinBoundary = saveOpenRecruitment(saveActiveClub());
+        submittedAgo(saveApplication(withinBoundary, ApplicationStatus.SUBMITTED),
+                Duration.ofDays(7).minusHours(1));
+        // 제외: 오래됐어도 운영진이 보류로 손댄 지원서.
+        Recruitment onHoldOnly = saveOpenRecruitment(saveActiveClub());
+        submittedAgo(saveApplication(onHoldOnly, ApplicationStatus.ON_HOLD), Duration.ofDays(10));
+        // 제외: 수동 마감(CLOSED)된 모집.
+        LocalDate today = LocalDate.now(clock);
+        Recruitment closedRecruitment = Recruitment.create(saveActiveClub(), "마감모집", null,
+                today.minusDays(30), today.plusDays(7), 10);
+        closedRecruitment.close(LocalDateTime.now(clock));
+        recruitmentRepository.save(closedRecruitment);
+        submittedAgo(saveApplication(closedRecruitment, ApplicationStatus.SUBMITTED), Duration.ofDays(10));
+        // 제외: 운영 중단(비 ACTIVE) 동아리의 모집 — 벌크 마감을 우회해 동아리 상태만 바꾼다.
+        Club inactiveClub = saveActiveClub();
+        Recruitment inactiveClubRecruitment = saveOpenRecruitment(inactiveClub);
+        submittedAgo(saveApplication(inactiveClubRecruitment, ApplicationStatus.SUBMITTED), Duration.ofDays(10));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", inactiveClub.getId());
+        // 제외: 외부 폼 모집 — 지원서가 두잉에 없어 자명하게 빠진다(쿼리에 별도 조건은 없다). 스펙 체크리스트용 케이스.
+        recruitmentRepository.save(Recruitment.createWithOptions(saveActiveClub(), "외부폼모집", null,
+                today.minusDays(30), today.plusDays(7), 10, ApplicationMode.EXTERNAL,
+                "https://forms.example.com/duing", false, TargetRole.MEMBER, null, null, false));
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get("/api/v1/admin/pending-counts")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.stalePendingRecruitment", equalTo(2))
+                    .body("data.totalPendingCount", equalTo(2));
+    }
+
     @Test
     @DisplayName("ADMIN 이 아닌 사용자는 미처리 건수를 조회할 수 없다")
     void rejectsNonAdminUser() {
@@ -214,6 +283,35 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
                     .get("/api/v1/admin/pending-counts")
                 .then()
                     .statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    private Club saveActiveClub() {
+        return clubRepository.save(ClubStaffFixture.activeClub());
+    }
+
+    private Recruitment saveOpenRecruitment(Club club) {
+        LocalDate today = LocalDate.now(clock);
+        return recruitmentRepository.save(Recruitment.create(club, "모집" + sequence.incrementAndGet(), null,
+                today.minusDays(30), today.plusDays(7), 10));
+    }
+
+    /** 지정 상태의 지원서를 저장한다 — 상태 전이는 도메인 메서드로(면접 미사용 모집). */
+    private Application saveApplication(Recruitment recruitment, ApplicationStatus status) {
+        Application application = Application.submit(recruitment, userRepository.save(UserFixture.unique()),
+                List.of());
+        if (status != ApplicationStatus.SUBMITTED) {
+            application.transitionTo(status, false);
+        }
+        return applicationRepository.saveAndFlush(application);
+    }
+
+    /**
+     * 제출 시각을 과거로 옮긴다. created_at 은 @CreatedDate 가 INSERT 때 덮어써 저장 뒤 JDBC 로 바꾼다.
+     * 감사 필드는 system regime 이라 집계와 같은 TimeMapper.systemNow(clock) 를 기준으로 삼는다.
+     */
+    private void submittedAgo(Application application, Duration age) {
+        jdbcTemplate.update("UPDATE application SET created_at = ? WHERE id = ?",
+                Timestamp.valueOf(TimeMapper.systemNow(clock).minus(age)), application.getId());
     }
 
     private void saveBooking(BookingStatus status) {

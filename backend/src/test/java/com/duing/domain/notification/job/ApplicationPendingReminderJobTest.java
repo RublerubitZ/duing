@@ -10,6 +10,7 @@ import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.service.PendingApplicationPolicy;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -187,7 +188,7 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", inactiveClubStaff.club().getId());
 
         assertThat(applicationRepository.findPendingReminderCandidates(
-                TimeMapper.systemNow(clock).minusDays(ApplicationPendingReminderJob.PENDING_DAYS))).isEmpty();
+                PendingApplicationPolicy.submittedBefore(clock))).isEmpty();
         job.run();
 
         assertThat(allReminders()).isEmpty();
