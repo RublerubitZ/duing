@@ -165,6 +165,39 @@ class ClubRecommendedSortTest {
     }
 
     @Test
+    @DisplayName("기간이 30일을 넘는 모집중 동아리는 상시모집과 같은 그룹이다 — 30일 이하 모집중보다 뒤, 기타보다 앞")
+    void longPeriodRecruitmentJoinsAlwaysOpenGroup() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        Club shortPeriod = saveActiveClub("recLongShort");
+        Club longPeriod = saveActiveClub("recLongLong");
+        Club alwaysOpen = saveActiveClub("recLongAlways");
+        Club noRecruitment = saveActiveClub("recLongNone");
+        saveOpenRecruitment(shortPeriod, today.minusDays(2), today.plusDays(7));
+        saveOpenRecruitment(longPeriod, today.minusDays(60), today.plusDays(30));
+        saveOpenRecruitment(alwaysOpen, today.minusDays(2), null);
+
+        List<String> names = fetchNames("recLong");
+
+        assertThat(names).hasSize(4);
+        assertThat(names.get(0)).isEqualTo(shortPeriod.getName());
+        assertThat(names.subList(1, 3)).containsExactlyInAnyOrder(longPeriod.getName(), alwaysOpen.getName());
+        assertThat(names.get(3)).isEqualTo(noRecruitment.getName());
+    }
+
+    @Test
+    @DisplayName("기간이 정확히 30일인 모집은 모집중 그룹이고, 31일이면 상시모집 그룹으로 내려간다")
+    void periodLimitIsInclusive() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        int maxPeriodDays = ClubRecommendationPolicy.OPEN_GROUP_MAX_PERIOD_DAYS;
+        Club atLimit = saveActiveClub("recEdge");
+        Club overLimit = saveActiveClub("recEdge");
+        saveOpenRecruitment(atLimit, today.minusDays(10), today.minusDays(10).plusDays(maxPeriodDays));
+        saveOpenRecruitment(overLimit, today.minusDays(10), today.minusDays(10).plusDays(maxPeriodDays + 1));
+
+        assertThat(fetchNames("recEdge")).containsExactly(atLimit.getName(), overLimit.getName());
+    }
+
+    @Test
     @DisplayName("카테고리 필터가 걸리면 다른 카테고리 동아리는 결과에 섞이지 않는다")
     void categoryFilterExcludesOtherCategories() throws Exception {
         Club sports = saveActiveClub("recCat", ClubCategory.SPORTS);
