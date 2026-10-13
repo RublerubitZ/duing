@@ -36,7 +36,7 @@ public interface AdminRecruitmentApi {
                     + "pendingApplicationCount·oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·합격·불합격은 처리, 철회는 제외) 지원서의 수와 가장 오래된 제출 시각이다. "
                     + "외부 폼 모집이면 둘 다 비어 있고, 자체 폼 모집에 미처리가 없으면 0 과 빈 시각이다. "
                     + "operatorsLastActiveAt 은 그 동아리 회장·임원의 세션 사용(로그아웃·만료 세션 포함)과 로그인 중 가장 늦은 시각이며, "
-                    + "운영진이 없거나 기록이 없으면 비어 있다 — 세션은 미사용 약 60일 뒤 정리되므로 오래 오지 않은 운영진도 비어 있을 수 있다. "
+                    + "운영진이 없거나 기록이 없으면 비어 있다 — 세션은 미사용 약 60일 뒤 정리되지만 비밀번호 로그인 시각은 남으므로, 비어 있는 경우는 운영진이 없거나 세션도 비밀번호 로그인 이력도 없는 경우다. "
                     + "페이지네이션은 제공하지 않는다.")
     @GetMapping("/admin/recruitments")
     ResponseEntity<ApiResponse<List<AdminRecruitmentSummaryResponse>>> searchRecruitments(
