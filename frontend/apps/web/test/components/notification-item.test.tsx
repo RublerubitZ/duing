@@ -151,7 +151,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-/** `bg-pastel-mint-accent/10` → 토큰 경로 `pastel-mint-accent`, 투명도 0.1. 접미사가 없으면 불투명. */
+/**
+ * `bg-pastel-mint-accent/10` → 토큰 경로 `pastel-mint-accent`, 투명도 0.1. 접미사가 없으면 불투명.
+ * 브라우저는 /10 을 8비트(26/255≈0.102)로 내보내 대비가 최대 0.03 낮아질 수 있다 — 지금 최솟값(4.61)과 기준(4.5) 사이 여유 안이다.
+ */
 function parseColorClass(colorClass: string): { tokenPath: string; alpha: number } {
   const match = COLOR_CLASS_PATTERN.exec(colorClass);
   const tokenPath = match?.[1];
