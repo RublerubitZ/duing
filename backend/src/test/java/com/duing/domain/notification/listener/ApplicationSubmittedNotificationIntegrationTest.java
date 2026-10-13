@@ -116,7 +116,8 @@ class ApplicationSubmittedNotificationIntegrationTest extends IntegrationTestBas
         assertThat(leaderNotifications).hasSize(1);
         Notification notification = leaderNotifications.get(0);
         assertThat(notification.getTitle()).isEqualTo("새 지원서가 접수됐어요");
-        assertThat(notification.getBody()).startsWith(recruitment.getTitle() + " · ");
+        assertThat(notification.getBody())
+                .isEqualTo(recruitment.getTitle() + " · 오늘 들어온 지원서는 지원 현황에서 확인할 수 있어요");
         assertThat(notification.getLinkUrl()).isEqualTo("/manage/clubs/" + staff.club().getId()
                 + "/recruitments/" + recruitment.getId() + "/applicants?status=SUBMITTED");
         assertThat(notification.getDedupKey())
@@ -182,7 +183,8 @@ class ApplicationSubmittedNotificationIntegrationTest extends IntegrationTestBas
         Staff staff = saveClubWithStaff();
         Recruitment recruitment = saveOpenRecruitment(staff.club());
 
-        // 이미 부원인 학생은 일반 부원 모집에 지원할 수 없다(AlreadyClubMember).
+        // 이미 부원인 학생은 일반 부원 모집에 지원할 수 없다(AlreadyClubMember) — 이벤트 발행 전 단계의 실패다.
+        // submit 에는 발행 뒤 실패 지점이 없다. 롤백된 제출에서 알림이 안 나가는 보증은 AFTER_COMMIT 단계 지정 자체가 맡는다.
         assertThatThrownBy(() -> submit(recruitment, staff.member()))
                 .isInstanceOf(ApplicationDomainException.AlreadyClubMemberException.class);
 
