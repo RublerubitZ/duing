@@ -106,7 +106,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
                       {question.text || (
                         <span className="font-medium text-charcoal-3">질문 {index + 1} (미입력)</span>
                       )}{' '}
-                      {question.required && <span className="text-coral">*</span>}
+                      {question.required && <span className="text-coral-deep">*</span>}
                     </div>
                     {question.type === 'TEXT' ? (
                       <div className="rounded-[10px] border border-line bg-cream px-3 py-2.5 text-xs text-charcoal-3">

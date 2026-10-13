@@ -123,7 +123,7 @@ function SignupForm() {
           <SignupStepIndicator step={step} />
 
           {error && (
-            <div role="alert" aria-live="polite" className="mb-5 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">
+            <div role="alert" aria-live="polite" className="mb-5 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral-deep">
               {error}
             </div>
           )}

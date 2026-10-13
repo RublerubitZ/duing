@@ -72,7 +72,7 @@ type BlockVisual = {
 /** 상태 색 맵의 단일 출처(스펙 §7) — 시간표 블록·목록 상태 배지가 공유한다. */
 export function submissionBlockVisual(booking: SubmissionCandidateBooking): BlockVisual {
   if (booking.status === 'CANCELLED') {
-    return { container: 'border-coral/40 bg-coral/10 opacity-70', nameClass: 'text-coral line-through', badge: null };
+    return { container: 'border-coral/40 bg-coral/10 opacity-70', nameClass: 'text-coral-deep line-through', badge: null };
   }
   if (booking.status === 'CONFLICT') {
     return { container: 'border-warm/60 bg-warm/20', nameClass: 'text-[#8E6620]', badge: '충돌' };

@@ -47,7 +47,7 @@ export function BulkApproveResultDialog({
               <p className="text-sm font-medium text-charcoal">
                 {names.get(failure.joinRequestId) ?? `요청 ${failure.joinRequestId}`}
               </p>
-              <p className="text-xs text-coral">{failure.reason}</p>
+              <p className="text-xs text-coral-deep">{failure.reason}</p>
             </li>
           ))}
         </ul>

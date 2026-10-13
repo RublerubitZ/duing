@@ -315,10 +315,10 @@ it('슬롯 리스트는 흰 바탕 행으로 SCHOOL 단체명·INTERNAL "예약�
   expect(screen.getByText('비호응원단')).toBeInTheDocument();
   expect(screen.getByText('예약됨')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /17:00~18:00.*비호응원단/ })).toHaveClass('bg-graysoft/60');
-  // PENDING_HOLD 라벨은 "승인 대기"(coral 텍스트 강조), 구 "승인 대기중"·"신청 가능" 라벨은 사라진다
+  // PENDING_HOLD 라벨은 "승인 대기"(coral-deep 텍스트 강조), 구 "승인 대기중"·"신청 가능" 라벨은 사라진다
   const pendingLabel = screen.getByText('승인 대기');
   expect(pendingLabel).toBeInTheDocument();
-  expect(pendingLabel).toHaveClass('text-coral');
+  expect(pendingLabel).toHaveClass('text-coral-deep');
   expect(screen.queryByText('승인 대기중')).not.toBeInTheDocument();
   expect(screen.queryByText('신청 가능')).not.toBeInTheDocument();
 });
@@ -351,11 +351,11 @@ it('승인 대기 슬롯은 여전히 클릭 가능하고, 선택 행은 ink 배
   expect(selectedRow).toHaveTextContent('✓');
 });
 
-it('승인 대기 행은 흰 바탕 + coral 라벨이고, 선택되면 라벨이 cream 으로 반전된다', () => {
+it('승인 대기 행은 흰 바탕 + coral-deep 라벨이고, 선택되면 라벨이 cream 으로 반전된다', () => {
   const { rerender } = render(<DaySlotList day={makeDay()} selection={null} onToggleSlot={vi.fn()} />);
   const pendingRow = () => screen.getByRole('button', { name: /20:00~21:00.*승인 대기/ });
   expect(pendingRow()).toHaveClass('bg-paper');
-  expect(within(pendingRow()).getByText('승인 대기')).toHaveClass('text-coral');
+  expect(within(pendingRow()).getByText('승인 대기')).toHaveClass('text-coral-deep');
 
   rerender(<DaySlotList day={makeDay()} selection={{ start: '20:00', end: '21:00' }} onToggleSlot={vi.fn()} />);
   expect(pendingRow()).toHaveClass('bg-ink');

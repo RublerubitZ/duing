@@ -52,7 +52,7 @@ export function DraftResumeDialog({ draftRound, isPending, onResume, onDiscard, 
         </DialogHeader>
 
         {discardError && (
-          <p role="alert" className="text-sm text-coral">
+          <p role="alert" className="text-sm text-coral-deep">
             {discardError}
           </p>
         )}

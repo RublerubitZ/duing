@@ -32,7 +32,7 @@ export function AdminGlobalEventEditPage() {
   if (detailQuery.isError || !detailQuery.data) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">이벤트를 불러오지 못했습니다.</p>
+        <p className="text-coral-deep text-[13px]">이벤트를 불러오지 못했습니다.</p>
       </main>
     );
   }

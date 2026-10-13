@@ -36,7 +36,7 @@ export function FaqDeepLinkCard({ faqId, onClose }: Props) {
 
       {isLoading && <TextLinesSkeleton lines={2} label="공유된 질문 불러오는 중" className="py-2" />}
       {isError && (
-        <p className="py-6 text-center text-[13px] text-coral">해당 FAQ를 찾을 수 없어요</p>
+        <p className="py-6 text-center text-[13px] text-coral-deep">해당 FAQ를 찾을 수 없어요</p>
       )}
       {faq && (
         <div>

@@ -75,7 +75,7 @@ export function MemberAccessGuard({ clubId, children }: Props) {
   if (denialMessage) return null;
   // 거부가 아닌 실패(네트워크·5xx). 빈 화면으로 두면 거부와 구분되지 않으므로 상태를 알린다.
   if (!membership) {
-    return <p className="p-6 text-sm text-coral">권한 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>;
+    return <p className="p-6 text-sm text-coral-deep">권한 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>;
   }
 
   return <MembershipProvider membership={membership}>{children}</MembershipProvider>;

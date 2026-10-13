@@ -38,7 +38,7 @@ export function CloseRecruitmentConfirmDescription({
         <>
           {' '}
           아직 결과가 정해지지 않은 지원서{' '}
-          <strong className="font-semibold text-coral">{undecidedCount}건</strong>은 마감 후에도
+          <strong className="font-semibold text-coral-deep">{undecidedCount}건</strong>은 마감 후에도
           합격·불합격 확정만 할 수 있습니다.
         </>
       )}

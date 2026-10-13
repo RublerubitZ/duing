@@ -68,7 +68,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                     {row.approvedWaitingDays !== undefined ? (
                       <>
                         {' · '}
-                        <span className={row.approvedWaitingDays >= 7 ? 'font-bold text-coral' : ''}>
+                        <span className={row.approvedWaitingDays >= 7 ? 'font-bold text-coral-deep' : ''}>
                           학교 반영 대기 D+{row.approvedWaitingDays}
                         </span>
                       </>

@@ -153,10 +153,10 @@ describe('AdminFaqListPage', () => {
     const feedbackCell = screen.getByLabelText('도움됐어요 12건 · 아쉬워요 3건');
     expect(feedbackCell).toHaveTextContent('12 / 3');
     expect(feedbackCell).toHaveAttribute('title', '도움됐어요 12 · 아쉬워요 3');
-    expect(feedbackCell).not.toHaveClass('text-coral');
+    expect(feedbackCell).not.toHaveClass('text-coral-deep');
   });
 
-  it('아쉬워요가 도움됐어요보다 많으면 피드백 카운트가 text-coral 로 강조된다', () => {
+  it('아쉬워요가 도움됐어요보다 많으면 피드백 카운트가 text-coral-deep 로 강조된다', () => {
     const items = [
       makeAdminFaqItem({ id: 1, question: '갭 질문', helpfulCount: 2, notHelpfulCount: 5 }),
     ];
@@ -165,7 +165,7 @@ describe('AdminFaqListPage', () => {
     render(<AdminFaqListPage />);
 
     const feedbackCell = screen.getByLabelText('도움됐어요 2건 · 아쉬워요 5건');
-    expect(feedbackCell).toHaveClass('text-coral');
+    expect(feedbackCell).toHaveClass('text-coral-deep');
   });
 
   it('키워드 검색을 확정하면(필터 활성) 순서 이동 버튼이 비활성화되고 안내 tooltip 이 노출된다', () => {

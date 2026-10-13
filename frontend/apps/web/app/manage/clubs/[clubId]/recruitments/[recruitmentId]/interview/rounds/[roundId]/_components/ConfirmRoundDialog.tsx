@@ -93,7 +93,7 @@ export function ConfirmRoundDialog({
         )}
 
         {errorMessage && (
-          <div role="alert" className="rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral">
+          <div role="alert" className="rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">
             {errorMessage}
           </div>
         )}

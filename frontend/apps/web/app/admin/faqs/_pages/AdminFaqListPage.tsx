@@ -190,10 +190,10 @@ export function AdminFaqListPage() {
         <FaqSearchMissPanel />
       </div>
 
-      {actionError && <p className="mb-4 text-[13px] text-coral">{actionError}</p>}
+      {actionError && <p className="mb-4 text-[13px] text-coral-deep">{actionError}</p>}
 
       {listQuery.isLoading && <LoadingGate className="min-h-0 py-12" label="FAQ 목록 불러오는 중" />}
-      {listQuery.isError && <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>}
+      {listQuery.isError && <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>}
       {listQuery.isSuccess && (
         items.length === 0 ? (
           <p className="py-12 text-center text-charcoal-3 text-[13px]">조건에 맞는 FAQ가 없습니다.</p>
@@ -237,7 +237,7 @@ export function AdminFaqListPage() {
                         <span
                           className={cn(
                             'font-medium tabular-nums',
-                            faq.notHelpfulCount > faq.helpfulCount ? 'text-coral' : 'text-charcoal-2',
+                            faq.notHelpfulCount > faq.helpfulCount ? 'text-coral-deep' : 'text-charcoal-2',
                           )}
                           title={`도움됐어요 ${faq.helpfulCount} · 아쉬워요 ${faq.notHelpfulCount}`}
                           aria-label={`도움됐어요 ${faq.helpfulCount}건 · 아쉬워요 ${faq.notHelpfulCount}건`}

@@ -60,7 +60,7 @@ export function BookingActionDialog({
           />
         )}
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-xs text-coral">
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-xs text-coral-deep">
             {errorMessage}
           </p>
         )}

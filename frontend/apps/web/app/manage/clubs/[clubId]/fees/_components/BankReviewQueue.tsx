@@ -352,7 +352,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
           입금시각 {formatDateTimeKst(transaction.transactionAt)}
         </p>
         {isMismatch && (
-          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral">
+          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral-deep">
             입금자명 불일치 — 확인 필요
           </span>
         )}

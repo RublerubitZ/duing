@@ -209,7 +209,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
               </select>
             )}
             {errors.billingType && (
-              <p id="policy-billing-type-error" className="mt-1 text-xs text-coral">
+              <p id="policy-billing-type-error" className="mt-1 text-xs text-coral-deep">
                 {errors.billingType.message}
               </p>
             )}
@@ -264,7 +264,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
             <p className="mt-1 text-xs text-charcoal-3">
               특정 부원은 발행할 때마다 대상 부원을 선택합니다(MT·행사 참가비 등).
             </p>
-            {errors.targetType && <p className="mt-1 text-xs text-coral">{errors.targetType.message}</p>}
+            {errors.targetType && <p className="mt-1 text-xs text-coral-deep">{errors.targetType.message}</p>}
           </div>
 
           {showAutoIssue && (
@@ -319,7 +319,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
                 </div>
               )}
               {errors.autoIssue && (
-                <p id="policy-auto-issue-error" className="mt-1 text-xs text-coral">
+                <p id="policy-auto-issue-error" className="mt-1 text-xs text-coral-deep">
                   {errors.autoIssue.message}
                 </p>
               )}
@@ -327,7 +327,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
           )}
 
           {submitErrorMessage && (
-            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+            <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral-deep">{submitErrorMessage}</p>
           )}
 
           <div className="flex gap-2 pt-1">

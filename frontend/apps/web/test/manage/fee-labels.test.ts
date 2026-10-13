@@ -42,7 +42,7 @@ describe('feeLabels', () => {
     });
 
     it('연체와 납부완료는 서로 다른 배지 색을 쓴다', () => {
-      expect(feeStatusChip('OVERDUE').badgeClass).toBe('bg-coral/10 text-coral');
+      expect(feeStatusChip('OVERDUE').badgeClass).toBe('bg-coral/10 text-coral-deep');
       expect(feeStatusChip('PAID').badgeClass).toBe('bg-sage/20 text-sage-deep');
     });
   });

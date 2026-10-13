@@ -85,7 +85,7 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
         <StatusBadge
           label={feeStatusLabel('OVERDUE')}
           count={summary.overdueCount}
-          className={hasOverdue ? 'bg-coral/10 text-coral' : 'bg-graysoft text-charcoal-3'}
+          className={hasOverdue ? 'bg-coral/10 text-coral-deep' : 'bg-graysoft text-charcoal-3'}
         />
         <StatusBadge
           label={feeStatusLabel('PAID')}

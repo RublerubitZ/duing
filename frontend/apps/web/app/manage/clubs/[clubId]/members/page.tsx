@@ -271,7 +271,7 @@ export default function ClubMembersPage({
         />
       )}
 
-      {transferError && <p className="text-sm text-coral">{transferError}</p>}
+      {transferError && <p className="text-sm text-coral-deep">{transferError}</p>}
 
       {transferTarget && (
         <TransferLeaderDialog

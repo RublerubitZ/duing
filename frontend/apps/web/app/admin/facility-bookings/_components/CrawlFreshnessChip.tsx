@@ -17,7 +17,7 @@ export function CrawlFreshnessChip({ crawledAt }: { crawledAt?: string }) {
     <span
       title="학교 예약 데이터는 10분마다 자동 수집되고, 예약 상세를 열면 그 시점에 다시 수집합니다."
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
-        stale ? 'border-coral/40 bg-coral/10 text-coral' : 'border-line bg-paper text-charcoal-3'
+        stale ? 'border-coral/40 bg-coral/10 text-coral-deep' : 'border-line bg-paper text-charcoal-3'
       }`}
     >
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-coral' : 'bg-ink'}`} />

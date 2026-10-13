@@ -81,7 +81,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
           {/* 사유 */}
           <div>
             <label htmlFor="succession-reason" className="mb-1.5 block text-sm font-semibold text-ink">
-              요청 사유 <span className="text-coral">*</span>
+              요청 사유 <span className="text-coral-deep">*</span>
               <span className="ml-1 text-xs font-normal text-charcoal-3">(최대 1000자)</span>
             </label>
             <textarea
@@ -98,7 +98,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
             />
             <div className="mt-1 flex justify-between">
               {errors.reason ? (
-                <p className="text-xs text-coral">{errors.reason.message}</p>
+                <p className="text-xs text-coral-deep">{errors.reason.message}</p>
               ) : (
                 <span />
               )}
@@ -108,7 +108,7 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
 
           {/* 제출 에러 */}
           {submitSuccession.isError && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {submitSuccession.error instanceof Error
                 ? submitSuccession.error.message
                 : '요청 중 오류가 발생했습니다. 다시 시도해주세요.'}

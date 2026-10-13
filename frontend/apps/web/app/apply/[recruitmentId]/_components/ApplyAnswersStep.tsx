@@ -110,7 +110,7 @@ export function ApplyAnswersStep({
               <span className="mr-1.5 tabular-nums font-semibold text-ink">{index + 1}.</span>
               {question.text}
               {question.required ? (
-                <span aria-hidden="true" className="ml-1 text-coral">
+                <span aria-hidden="true" className="ml-1 text-coral-deep">
                   *
                 </span>
               ) : (
@@ -198,7 +198,7 @@ export function ApplyAnswersStep({
             )}
 
             {hasError && (
-              <p id={questionErrorId(question.id)} role="alert" className="text-sm text-coral">
+              <p id={questionErrorId(question.id)} role="alert" className="text-sm text-coral-deep">
                 {errorMessage}
               </p>
             )}

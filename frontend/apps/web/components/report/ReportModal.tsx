@@ -116,7 +116,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
           {/* 신고 사유 */}
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-ink">
-              신고 사유 <span className="text-coral">*</span>
+              신고 사유 <span className="text-coral-deep">*</span>
             </legend>
             <div className="space-y-2">
               {REASON_OPTIONS.map(({ value, label }) => (
@@ -138,7 +138,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
               ))}
             </div>
             {errors.reasonCode && (
-              <p className="mt-1.5 text-xs text-coral">{errors.reasonCode.message}</p>
+              <p className="mt-1.5 text-xs text-coral-deep">{errors.reasonCode.message}</p>
             )}
           </fieldset>
 
@@ -165,7 +165,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
             />
             <div className="mt-1 flex justify-between">
               {errors.detail ? (
-                <p className="text-xs text-coral">{errors.detail.message}</p>
+                <p className="text-xs text-coral-deep">{errors.detail.message}</p>
               ) : (
                 <span />
               )}
@@ -177,7 +177,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
 
           {/* 제출 에러 */}
           {submitReport.isError && (
-            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral">
+            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-coral-deep">
               신고 접수 중 오류가 발생했습니다. 다시 시도해주세요.
             </p>
           )}

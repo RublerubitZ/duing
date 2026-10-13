@@ -32,7 +32,7 @@ export function AdminFaqEditPage() {
   if (listQuery.isError) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">FAQ를 불러오지 못했습니다.</p>
+        <p className="text-coral-deep text-[13px]">FAQ를 불러오지 못했습니다.</p>
       </main>
     );
   }
@@ -42,7 +42,7 @@ export function AdminFaqEditPage() {
   if (!faq) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">FAQ를 찾을 수 없습니다.</p>
+        <p className="text-coral-deep text-[13px]">FAQ를 찾을 수 없습니다.</p>
       </main>
     );
   }

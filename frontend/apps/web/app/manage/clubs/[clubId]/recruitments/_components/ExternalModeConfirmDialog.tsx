@@ -65,7 +65,7 @@ export function ExternalModeConfirmDialog({ open, onCancel, onConfirm }: Props) 
           <MemberEnrollmentStepsCard />
         </div>
 
-        <p className="rounded-[10px] bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral">
+        <p className="rounded-[10px] bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
           지금까지 작성한 안내문·지원서 질문과 면접 진행·지원자 수 공개 설정은 전환하면 초기화돼요.
         </p>
 

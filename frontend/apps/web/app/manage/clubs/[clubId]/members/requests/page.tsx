@@ -173,7 +173,7 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
             선택 해제
           </button>
           {bulkError && (
-            <p role="alert" className="text-sm text-coral">
+            <p role="alert" className="text-sm text-coral-deep">
               {bulkError}
             </p>
           )}
@@ -182,7 +182,7 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
 
       {requestsQuery.isLoading && <LoadingGate label="가입 요청 목록 불러오는 중" />}
       {requestsQuery.isError && (
-        <p role="alert" className="py-12 text-center text-sm text-coral">
+        <p role="alert" className="py-12 text-center text-sm text-coral-deep">
           {extractErrorMessage(requestsQuery.error) ?? '가입 요청을 불러오지 못했어요.'}
         </p>
       )}
