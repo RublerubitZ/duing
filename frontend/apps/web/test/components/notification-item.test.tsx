@@ -4,7 +4,7 @@ import type { Notification, NotificationType } from '@duing/types';
 
 import { NotificationItem } from '../../app/_components/NotificationItem';
 import tailwindConfig from '../../tailwind.config';
-import { blendOver, contrastRatio } from '../a11y/wcagContrast';
+import { HEX_COLOR_PATTERN, blendOver, contrastRatio } from '../a11y/wcagContrast';
 
 type ExpectedVisual = { label: string; backgroundClass: string; textClass: string };
 
@@ -146,7 +146,6 @@ describe('NotificationItem — 종류별 라벨·색조(스펙 매핑 표)', () 
 const BADGE_SURFACES = { 흰색: '#FFFFFF', 크림: '#F6F3EC', 크림2: '#EFEBE0' } as const;
 const SMALL_TEXT_AA = 4.5;
 const COLOR_CLASS_PATTERN = /^(?:bg|text)-([a-z0-9-]+)(?:\/(\d+))?$/;
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

@@ -1,6 +1,6 @@
 /** WCAG 2.x 상대 휘도·대비 계산 — 색 대비 회귀 테스트 공용. 색은 모두 `#rrggbb`. */
 
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function parseHexColor(hex: string): [number, number, number] {
   if (!HEX_COLOR_PATTERN.test(hex)) throw new Error(`#rrggbb 형식이 아니다: ${hex}`);
