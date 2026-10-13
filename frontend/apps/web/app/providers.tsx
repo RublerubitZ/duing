@@ -35,7 +35,7 @@ if (typeof navigator !== 'undefined' && 'locks' in navigator) {
 }
 // 뒤로가기 마커 — 돌아온 화면에 등장 연출을 붙이지 않게 popstate 를 표시한다(backDismiss 를 먼저 설치한다). SSR 안전.
 installBackNavigationViewTransitionGuard();
-// 오버레이 뒤로가기 닫기 — 리스너 설치와 이전 문서 잔존 마커 제거를 로드 시점에 끝낸다.
+// 오버레이 뒤로가기 닫기 — 리스너 설치와 이전 문서 잔존 마커 제거를 로드 시점에 끝낸다(위 가드가 먼저 설치해 여기선 멱등).
 // 오버레이를 여는 순간까지 미루면, 새 문서에서 잔존 엔트리를 만났을 때 스킵하지 못한다. SSR 안전.
 installBackDismiss();
 
@@ -85,9 +85,9 @@ export function Providers({ children }: { children: ReactNode }) {
             <SessionExpiryHandler />
             <OfflineBanner />
             <OfflineNavigationGuard />
-            {/* 경로가 바뀐 커밋 뒤 뒤로가기 마커를 내린다 — 새 화면이 렌더 중에 마커를 읽은 뒤다. */}
-            <BackNavigationMarkerReset />
             {children}
+            {/* 경로가 바뀐 커밋 뒤 뒤로가기 마커를 내린다 — children 뒤 형제라 새 화면의 렌더·effect 가 모두 끝난 다음에 돈다. */}
+            <BackNavigationMarkerReset />
           </ToastProvider>
         </ApiClientProvider>
         <ReactQueryDevtools initialIsOpen={false} />

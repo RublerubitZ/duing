@@ -79,7 +79,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // ViewTransitions: 앞으로 이동(next-view-transitions Link)을 document.startViewTransition 으로 감싸
+    // ViewTransitions: 앞으로 이동(next-view-transitions Link·useTransitionRouter)을 document.startViewTransition 으로 감싸
     // 전역 크로스페이드 + 공유요소(동아리 로고) 모핑을 활성화한다. 뒤로/앞으로 가기는 전환 없이 그린다(패치 —
     // 스크롤 복원 보존, frontend/patches). 미지원 브라우저는 즉시 이동.
     <ViewTransitions>

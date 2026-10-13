@@ -11,6 +11,7 @@ let registeredPopstateListener: EventListenerOrEventListenerObject | null = null
 // 모듈 상단 상태(installed·타이머)를 테스트마다 새로 잡는다. 오버레이 판정은 mock 으로 통제하고(실제 backDismiss 와의
 // 통합은 back-navigation-marker-overlay.test.tsx), 가드가 단 popstate 리스너는 afterEach 에서 떼어 다음 테스트에 새지 않게 한다.
 async function loadAndInstallGuard(options: { overlayOnly?: () => boolean } = {}) {
+  vi.useFakeTimers();
   vi.resetModules();
   const installBackDismiss = vi.fn();
   vi.doMock('@/app/_lib/backDismiss', () => ({
@@ -53,7 +54,6 @@ describe('installBackNavigationViewTransitionGuard', () => {
   });
 
   it('오버레이만 닫는 popstate 에는 마커를 세우지 않는다 — 이어지는 앞으로 이동이 뒤로 가기로 읽히지 않게', async () => {
-    vi.useFakeTimers();
     await loadAndInstallGuard({ overlayOnly: () => true });
 
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -63,7 +63,6 @@ describe('installBackNavigationViewTransitionGuard', () => {
   });
 
   it('오버레이 전용 popstate 는 앞서 세운 마커와 failsafe 를 건드리지 않는다 — 죽은 엔트리 2-hop 의 두 번째 hop', async () => {
-    vi.useFakeTimers();
     let overlayOnly = false;
     await loadAndInstallGuard({ overlayOnly: () => overlayOnly });
 
@@ -85,7 +84,6 @@ describe('installBackNavigationViewTransitionGuard', () => {
   });
 
   it('경로 커밋이 없으면 2000ms 뒤 failsafe 로 내린다', async () => {
-    vi.useFakeTimers();
     await loadAndInstallGuard();
 
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -96,7 +94,6 @@ describe('installBackNavigationViewTransitionGuard', () => {
   });
 
   it('연속 popstate 는 failsafe 를 마지막 popstate 기준으로 다시 잡는다', async () => {
-    vi.useFakeTimers();
     await loadAndInstallGuard();
 
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -140,7 +137,6 @@ describe('installBackNavigationViewTransitionGuard', () => {
 
 describe('BackNavigationMarkerReset', () => {
   it('경로가 바뀐 커밋에서 마커와 failsafe 를 함께 내린다', async () => {
-    vi.useFakeTimers();
     const { guard } = await loadAndInstallGuard();
     const { rerender } = render(<guard.BackNavigationMarkerReset />);
 

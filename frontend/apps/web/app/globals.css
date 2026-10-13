@@ -797,7 +797,7 @@ body {
 
 /* ===================================================================
  * View Transitions — 페이지 전환 (전역 최소 크로스페이드 + 공유요소 모핑)
- * next-view-transitions 가 앞으로 이동(Link)만 startViewTransition 으로 감싼다 — 뒤로/앞으로 가기는 전환 없이 그린다(패치, 스크롤 복원 보존).
+ * next-view-transitions 가 앞으로 이동(Link·useTransitionRouter)만 startViewTransition 으로 감싼다 — 뒤로/앞으로 가기는 전환 없이 그린다(패치, 스크롤 복원 보존).
  * 여기선 지속시간/이징만 차분하게 잡는다(기본 동작=루트 페이드 유지).
  * 공유요소(동아리 로고)는 view-transition-name: club-logo-<id> 로 자동 모핑된다.
  * =================================================================== */

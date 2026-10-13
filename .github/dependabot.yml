@@ -40,6 +40,10 @@ updates:
       # Radix 는 터치 드롭다운 클릭 관통 회귀로 보류 중이다(#1331). 해결하면 이 항목을 지운다.
       - dependency-name: "@radix-ui/*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+      # next-view-transitions 는 frontend/patches 로 패치해 쓴다(뒤로가기 popstate 전환 제거). 버전이 바뀌면 패치가
+      # 적용되지 않아 pnpm 설치가 실패하므로, 올릴 때는 pnpm patch 를 새 버전에 다시 만든 뒤 직접 올린다.
+      - dependency-name: "next-view-transitions"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
     commit-message:
       prefix: chore
       include: scope

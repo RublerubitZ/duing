@@ -79,6 +79,7 @@ describe('next-view-transitions 패치(frontend/patches)', () => {
     });
 
     expect(startViewTransition).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith('/clubs/1', { scroll: true });
   });
 });
