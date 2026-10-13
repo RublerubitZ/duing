@@ -39,11 +39,11 @@ const DESCRIPTION: Record<GenericTargetStatus, string> = {
   REJECTED: '되돌릴 수 없습니다. 잘못 누른 항목이 있으면 취소하고 선택을 다시 확인하세요.',
 };
 
-// 불합격만 위험(coral), 그 외는 기본(ink) — 두잉은 상태별 솔리드 버튼색을 두지 않는다.
+// 불합격만 위험(btn-danger), 그 외는 기본(ink) — 두잉은 상태별 솔리드 버튼색을 두지 않는다.
 const CONFIRM_BUTTON_CLASS: Record<GenericTargetStatus, string> = {
   ON_HOLD: 'btn btn-primary btn-sm disabled:opacity-50',
   ACCEPTED: 'btn btn-primary btn-sm disabled:opacity-50',
-  REJECTED: 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50',
+  REJECTED: 'btn btn-sm btn-danger disabled:opacity-50',
 };
 
 export function BulkConfirmDialog({

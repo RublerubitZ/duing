@@ -65,7 +65,7 @@ export function NavDropdown({ name, department, onLogout }: Props) {
       <button
         type="button"
         onClick={onLogout}
-        className="w-full flex items-center gap-3 px-4 py-3 text-[13.5px] font-bold text-coral transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3 text-[13.5px] font-bold text-danger transition-colors"
         style={{ background: 'rgba(217,119,87,0.05)' }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

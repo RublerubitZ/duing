@@ -144,7 +144,7 @@ export function JoinRequestDetailPanel({
                 type="button"
                 onClick={() => decide('REJECTED')}
                 disabled={decideJoinRequest.isPending}
-                className="btn btn-sm flex-1 text-coral hover:bg-coral/5"
+                className="btn btn-sm flex-1 btn-danger-quiet"
               >
                 거절
               </button>

@@ -171,7 +171,7 @@ export function ActivityPhotoCard({
             setConfirmOpen(true);
           }}
           aria-label="사진 삭제"
-          className="grid h-7 w-7 place-items-center rounded-md text-white hover:bg-coral"
+          className="grid h-7 w-7 place-items-center rounded-md text-white hover:bg-danger"
         >
           <Trash2 size={13} aria-hidden />
         </button>

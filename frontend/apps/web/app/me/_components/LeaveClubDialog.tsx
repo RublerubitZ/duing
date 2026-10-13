@@ -82,7 +82,7 @@ export function LeaveClubDialog({ club, onClose }: Props) {
             type="button"
             onClick={handleLeave}
             disabled={!nameMatches || isPending}
-            className="btn btn-sm rounded-[10px] bg-coral text-white disabled:opacity-50"
+            className="btn btn-sm rounded-[10px] btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}동아리 탈퇴
           </button>

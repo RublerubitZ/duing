@@ -285,7 +285,7 @@ export function AdminFaqListPage() {
                           <button
                             type="button"
                             onClick={() => setDeleteTarget({ id: faq.id, question: faq.question })}
-                            className="text-[12px] text-coral hover:underline"
+                            className="text-[12px] text-danger hover:underline"
                           >삭제</button>
                         </div>
                       </Td>

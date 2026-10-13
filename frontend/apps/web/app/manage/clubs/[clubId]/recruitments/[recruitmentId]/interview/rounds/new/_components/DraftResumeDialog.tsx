@@ -62,7 +62,7 @@ export function DraftResumeDialog({ draftRound, isPending, onResume, onDiscard, 
             type="button"
             onClick={onDiscard}
             disabled={isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-sm px-3.5 py-2 text-[13px] font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-sm px-3.5 py-2 text-[13px] font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}폐기하고 새로 만들기
           </button>

@@ -156,7 +156,7 @@ export function SessionListCard() {
                 type="button"
                 onClick={() => setConfirmTarget('all')}
                 disabled={logoutAllMutation.isPending}
-                className="btn btn-ghost btn-sm text-coral"
+                className="btn btn-sm btn-danger-quiet"
               >
                 모든 기기에서 로그아웃
               </button>

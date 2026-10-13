@@ -166,7 +166,7 @@ function PolicyRow({ clubId, policy, onEdit, onDelete }: PolicyRowProps) {
         <button
           type="button"
           onClick={onDelete}
-          className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5"
+          className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/5"
         >
           삭제
         </button>
@@ -234,7 +234,7 @@ function DeletePolicyConfirm({ clubId, policy, onClose }: DeletePolicyConfirmPro
             type="button"
             onClick={confirmDelete}
             disabled={deletePolicy.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {deletePolicy.isPending && <ButtonSpinner />}삭제
           </button>

@@ -159,7 +159,7 @@ export function BillList({ clubId }: BillListProps) {
                 type="button"
                 aria-label="부원 필터 해제"
                 onClick={clearMember}
-                className="text-charcoal-3 transition-colors hover:text-coral"
+                className="text-charcoal-3 transition-colors hover:text-danger"
               >
                 ×
               </button>
@@ -381,7 +381,7 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
             'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
             cancelDisabled
               ? 'cursor-not-allowed border-line text-charcoal-3 opacity-50'
-              : 'border-line text-coral hover:bg-coral/5',
+              : 'border-line text-danger hover:bg-danger/5',
           )}
         >
           {isCancelled ? '취소됨' : '취소'}
@@ -448,7 +448,7 @@ function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConf
             type="button"
             onClick={confirmCancel}
             disabled={cancelBill.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {cancelBill.isPending && <ButtonSpinner />}청구 취소
           </button>

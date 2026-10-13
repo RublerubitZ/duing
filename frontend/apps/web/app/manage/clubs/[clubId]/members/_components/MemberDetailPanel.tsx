@@ -428,7 +428,7 @@ function ManagementSection({
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(true)}
-              className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+              className="rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/5"
             >
               탈퇴
             </button>
@@ -520,7 +520,7 @@ function ManagementSection({
               <button
                 type="button"
                 onClick={() => setShowRemoveDialog(true)}
-                className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+                className="rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/5"
               >
                 탈퇴
               </button>

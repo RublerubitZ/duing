@@ -105,7 +105,7 @@ export function FaqCategoryDeleteDialog({
             type="button"
             onClick={() => onConfirm(selectedTargetId)}
             disabled={isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}삭제
           </button>

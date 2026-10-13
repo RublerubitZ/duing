@@ -462,7 +462,7 @@ function ActiveCodeCard({
         <button
           type="button"
           onClick={() => setConfirming('revoke')}
-          className="btn btn-sm flex-1 text-coral hover:bg-coral/5"
+          className="btn btn-sm flex-1 btn-danger-quiet"
         >
           링크 폐기
         </button>

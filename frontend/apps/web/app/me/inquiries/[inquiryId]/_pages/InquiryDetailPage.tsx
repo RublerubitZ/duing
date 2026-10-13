@@ -348,7 +348,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
               <button
                 type="button"
                 onClick={() => setIsConfirmOpen(true)}
-                className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f]"
+                className="btn btn-sm btn-danger"
               >
                 삭제
               </button>

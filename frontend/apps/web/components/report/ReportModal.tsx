@@ -196,7 +196,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
               disabled={isSubmitting || submitReport.isPending}
               className={cn(
                 'inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold text-white transition-colors',
-                'bg-coral hover:bg-coral/90',
+                'bg-danger hover:bg-danger-hover',
                 (isSubmitting || submitReport.isPending) && 'cursor-not-allowed opacity-60',
               )}
             >

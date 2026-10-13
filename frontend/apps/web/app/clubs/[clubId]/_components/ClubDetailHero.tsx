@@ -150,7 +150,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <button
                     type="button"
                     onClick={() => setReportOpen(true)}
-                    className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                    className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-danger hover:underline"
                   >
                     <FlagIcon />
                     신고하기
@@ -260,7 +260,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 <button
                   type="button"
                   onClick={() => setReportOpen(true)}
-                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-danger hover:underline"
                 >
                   <FlagIcon />
                   신고하기

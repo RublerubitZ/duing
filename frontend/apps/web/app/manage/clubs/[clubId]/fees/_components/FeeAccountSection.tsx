@@ -188,7 +188,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
               type="button"
               onClick={() => setDeleteOpen(true)}
               disabled={isSubmitting || upsertAccount.isPending}
-              className="rounded-md border border-line px-4 py-3 text-sm font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+              className="rounded-md border border-line px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
             >
               삭제
             </button>
@@ -289,7 +289,7 @@ function DeleteFeeAccountConfirm({
             type="button"
             onClick={confirmDelete}
             disabled={deleteAccount.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {deleteAccount.isPending && <ButtonSpinner />}삭제
           </button>

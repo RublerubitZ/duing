@@ -106,7 +106,7 @@ export function ConfirmRoundDialog({
             type="button"
             onClick={onForceConfirm}
             disabled={isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}강제 확정 (미처리 {totalCount}명 제외)
           </button>
