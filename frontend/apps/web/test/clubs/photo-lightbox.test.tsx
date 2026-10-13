@@ -129,6 +129,12 @@ describe('ClubDetailPhotos', () => {
     expect(counter()).toHaveTextContent('3 / 5');
   });
 
+  it('정확히 8장이면 더 보기 타일 없이 8장 모두 사진 타일로 보여준다', () => {
+    render(<ClubDetailPhotos photos={makePhotos(8, false)} />);
+    expect(screen.getAllByRole('button', { name: /크게 보기$/ })).toHaveLength(8);
+    expect(screen.queryByRole('button', { name: /더 보기$/ })).not.toBeInTheDocument();
+  });
+
   it('+N 타일을 누르면 라이트박스 대신 8장씩 더 펼치고, 다 펼치면 오버레이가 사라진다', async () => {
     const user = userEvent.setup();
     render(<ClubDetailPhotos photos={makePhotos(20, false)} />);
