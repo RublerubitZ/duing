@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>여러 도메인을 가로지르는 읽기 전용 집계라 특정 도메인 패키지에 두지 않고 콘솔 전용 패키지에 둔다.
  * 각 도메인의 소프트 삭제(@SQLRestriction)는 파생 count 쿼리에도 그대로 적용되므로 별도 조건이 필요 없다.
+ * 단 오래된 미처리 모집 수는 리마인더 후보 네이티브 쿼리를 재사용하며, 그 쿼리는 {@code deleted_at IS NULL} 을 직접 건다.
  */
 @Service
 @RequiredArgsConstructor

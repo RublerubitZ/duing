@@ -257,7 +257,7 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
         Recruitment inactiveClubRecruitment = saveOpenRecruitment(inactiveClub);
         submittedAgo(saveApplication(inactiveClubRecruitment, ApplicationStatus.SUBMITTED), Duration.ofDays(10));
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", inactiveClub.getId());
-        // 제외: 외부 폼 모집 — 지원서가 두잉에 없다.
+        // 제외: 외부 폼 모집 — 지원서가 두잉에 없어 자명하게 빠진다(쿼리에 별도 조건은 없다). 스펙 체크리스트용 케이스.
         recruitmentRepository.save(Recruitment.createWithOptions(saveActiveClub(), "외부폼모집", null,
                 today.minusDays(30), today.plusDays(7), 10, ApplicationMode.EXTERNAL,
                 "https://forms.example.com/duing", false, TargetRole.MEMBER, null, null, false));
