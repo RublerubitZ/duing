@@ -25,7 +25,7 @@ import type {
   AdminReportDetail,
   ProcessReportPayload,
   AdminRecruitmentSearchParams,
-  AdminRecruitmentSummary,
+  AdminRecruitmentListItem,
   AdminRecruitmentDetail,
   ForceCloseRecruitmentPayload,
   AdminApplicantSearchParams,
@@ -197,7 +197,7 @@ export type AdminApi = {
   };
   recruitments: {
     /** 전 동아리 모집. 페이지네이션 없이 조건에 맞는 목록을 한 번에 준다. */
-    list(params: AdminRecruitmentSearchParams): Promise<AdminRecruitmentSummary[]>;
+    list(params: AdminRecruitmentSearchParams): Promise<AdminRecruitmentListItem[]>;
     detail(recruitmentId: number): Promise<AdminRecruitmentDetail>;
     /** 이미 마감된 모집이면 409. */
     forceClose(recruitmentId: number, payload: ForceCloseRecruitmentPayload): Promise<void>;
@@ -479,7 +479,7 @@ export function createAdminApi(deps: {
     },
     recruitments: {
       list: (params) =>
-        jsonOk<AdminRecruitmentSummary[]>(
+        jsonOk<AdminRecruitmentListItem[]>(
           http.get('admin/recruitments', {
             searchParams: cleanParams(params),
             timeout: REQUEST_TIMEOUT_MS.search,
