@@ -33,6 +33,10 @@ public interface AdminRecruitmentApi {
                     + "status·mode 를 생략하면 각각 상태·방식을 가리지 않는다. "
                     + "status 는 기간 경과 여부가 아니라 저장 상태(OPEN/CLOSED)다. 화면 표기는 서버가 함께 내려주는 displayStatus(UPCOMING/OPEN/ALWAYS_OPEN/CLOSED)를 쓴다 — 기간이 끝났지만 아직 마감 처리 전인 모집은 status=OPEN 이면서 displayStatus=CLOSED 다. closedAt 은 실제 마감 시각이며 마감 전이면 null. "
                     + "지원자 수는 외부 폼 모집이면 비어 있다 — 두잉에 지원 데이터가 없으므로 0 이 아니라 해당 없음이다. "
+                    + "pendingApplicationCount·oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·합격·불합격은 처리, 철회는 제외) 지원서의 수와 가장 오래된 제출 시각이다. "
+                    + "외부 폼 모집이면 둘 다 비어 있고, 자체 폼 모집에 미처리가 없으면 0 과 빈 시각이다. "
+                    + "operatorsLastActiveAt 은 그 동아리 회장·임원의 세션 사용(로그아웃·만료 세션 포함)과 로그인 중 가장 늦은 시각이며, "
+                    + "운영진이 없거나 기록이 없으면 비어 있다 — 세션은 미사용 약 60일 뒤 정리되므로 오래 오지 않은 운영진도 비어 있을 수 있다. "
                     + "페이지네이션은 제공하지 않는다.")
     @GetMapping("/admin/recruitments")
     ResponseEntity<ApiResponse<List<AdminRecruitmentSummaryResponse>>> searchRecruitments(
@@ -43,7 +47,8 @@ public interface AdminRecruitmentApi {
             @Parameter(description = "모집 방식 필터. 생략하면 전체", example = "EXTERNAL")
             @RequestParam(required = false) ApplicationMode mode,
             @Parameter(description = "정렬 기준. LATEST=최신순(기본), APPLICANTS=지원자 많은 순, "
-                    + "DEADLINE=마감 임박순(상시모집은 맨 뒤)", example = "LATEST")
+                    + "DEADLINE=마감 임박순(상시모집은 맨 뒤), "
+                    + "STALE=오래 방치된 순(진행 중 먼저, 가장 오래된 미처리 지원서 순, 미처리 없으면 뒤)", example = "LATEST")
             @RequestParam(defaultValue = "LATEST") AdminRecruitmentSort sort
     );
 

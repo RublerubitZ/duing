@@ -115,6 +115,20 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     List<PendingApplicationRow> findPendingReminderCandidates(@Param("submittedBefore") LocalDateTime submittedBefore);
 
     /**
+     * 총동연 모집 목록의 미처리 열 — 모집별 SUBMITTED 지원서 수와 가장 오래된 제출 시각(created_at, system regime).
+     * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외).
+     * 미처리가 없는 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
+     */
+    @Query(value = """
+            SELECT a.recruitment_id AS recruitmentId, COUNT(a.id) AS pendingCount, MIN(a.created_at) AS oldestSubmittedAt
+              FROM application a
+             WHERE a.recruitment_id IN (:recruitmentIds) AND a.status = 'SUBMITTED' AND a.deleted_at IS NULL
+             GROUP BY a.recruitment_id
+            """, nativeQuery = true)
+    List<PendingApplicationStatsRow> findPendingStatsByRecruitmentIds(
+            @Param("recruitmentIds") Collection<Long> recruitmentIds);
+
+    /**
      * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).
      * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery 를 쓴다.
      */

@@ -185,6 +185,38 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long>, C
     List<Long> findAllOfficerUserIds(@Param("managerRoles") Collection<ClubMemberRole> managerRoles);
 
     /**
+     * 총동연 모집 목록의 운영진 접속 열 — 동아리별 운영진(회장·임원)의 마지막 세션 사용·마지막 로그인 최대값.
+     * {@code last_used_at} 은 seoul regime, {@code last_login_at} 은 system regime 이라 여기서 비교하지 않는다 —
+     * 호출 측이 각각 Instant 로 변환해 늦은 값을 쓴다(TIMEZONE.md).
+     *
+     * <p>알림 수신자 스코프와 달리 동아리 상태를 거르지 않는다 — 목록은 전 상태의 모집을 보여 주므로
+     * ACTIVE 만 보면 운영 중단 동아리의 운영진이 "기록 없음"으로 오독된다. 폐기·만료 세션도 센다 —
+     * {@code last_used_at} 은 그 세션을 실제로 쓴 시각이다(물리 정리 전까지). 탈퇴(소프트 삭제) 회원의 잔존 멤버십은
+     * 운영진으로 보지 않는다. 운영진이 없는 동아리는 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
+     */
+    default List<OperatorActivityRow> findOperatorActivityByClubIds(Collection<Long> clubIds) {
+        return findOperatorActivityByClubIds(clubIds,
+                ClubMemberRole.MANAGER_ROLES.stream().map(Enum::name).toList());
+    }
+
+    /**
+     * {@link #findOperatorActivityByClubIds(Collection)} 전용 바인딩 대상 — 직접 호출하지 말 것.
+     * 네이티브 쿼리라 역할은 저장값(EnumType.STRING)인 이름으로 바인딩한다.
+     */
+    @Query(value = """
+            SELECT cm.club_id AS clubId,
+                   MAX(s.last_used_at) AS lastSessionUsedAt,
+                   MAX(u.last_login_at) AS lastLoginAt
+              FROM club_member cm
+              JOIN users u ON u.id = cm.user_id AND u.deleted_at IS NULL
+              LEFT JOIN auth_session s ON s.user_id = cm.user_id AND s.deleted_at IS NULL
+             WHERE cm.club_id IN (:clubIds) AND cm.role IN (:managerRoles) AND cm.deleted_at IS NULL
+             GROUP BY cm.club_id
+            """, nativeQuery = true)
+    List<OperatorActivityRow> findOperatorActivityByClubIds(@Param("clubIds") Collection<Long> clubIds,
+                                                            @Param("managerRoles") Collection<String> managerRoles);
+
+    /**
      * 활성 회원 수. @SQLRestriction("deleted_at IS NULL") 가 자동 적용돼 회비 발행의 skipped 계산에 쓰는 카운트만 센다.
      * 계정 탈퇴도 멤버십 soft-delete 를 동반하므로(leaveAllOnWithdrawal) 탈퇴 회원은 여기서 빠진다 —
      * 잔존 행은 그 전환 이전 탈퇴자(1회성 운영 정리 대상)뿐.
