@@ -88,11 +88,13 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
               <Td>
                 <div className="flex min-w-0 items-center gap-2">
                   {/* 행 전체가 클릭 대상이지만 키보드·새 탭으로도 들어갈 수 있어야 해서 제목은 링크로 둔다.
-                      링크 자체가 이동을 처리하므로 행 핸들러까지 타지 않게 전파를 끊는다. */}
+                      링크 자체가 이동을 처리하므로 행 핸들러까지 타지 않게 전파를 끊는다.
+                      auto 표에서는 truncate 만으로 열이 줄지 않아, 폭 상한을 줘야 긴 제목이 말줄임된다. */}
                   <Link
                     href={toRoute(`/admin/recruitments/${recruitment.recruitmentId}`)}
                     onClick={(event) => event.stopPropagation()}
-                    className="truncate text-charcoal hover:underline"
+                    title={recruitment.title}
+                    className="max-w-[240px] truncate text-charcoal hover:underline"
                   >
                     {recruitment.title}
                   </Link>
