@@ -70,9 +70,9 @@ export function LeaveClubDialog({ club, onClose }: Props) {
           className="w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-[14px] text-ink outline-none focus:border-ink disabled:opacity-50"
         />
         {serverError ? (
-          <p className="text-[12.5px] text-coral">{serverError}</p>
+          <p className="text-[12.5px] text-coral-deep">{serverError}</p>
         ) : showNameMismatch ? (
-          <p className="text-[12.5px] text-coral">동아리명이 일치하지 않습니다.</p>
+          <p className="text-[12.5px] text-coral-deep">동아리명이 일치하지 않습니다.</p>
         ) : null}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} disabled={isPending} className="btn btn-ghost btn-sm">

@@ -106,7 +106,7 @@ export function InquiryCreatePage() {
           </div>
 
           {error && (
-            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {error}
             </p>
           )}

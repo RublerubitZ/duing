@@ -11,7 +11,7 @@ type Props = {
 };
 
 // 상태 → 행 클래스(스펙 §4⁗.2 흰 바탕 복원) — 선택 가능 행은 흰 바탕, 선택 불가 행은 muted.
-// 선택 행은 호출부에서 이 표를 덮어쓴다. PENDING_HOLD 강조는 배경이 아닌 라벨 색(text-coral)으로.
+// 선택 행은 호출부에서 이 표를 덮어쓴다. PENDING_HOLD 강조는 배경이 아닌 라벨 색(text-coral-deep)으로.
 const SLOT_ROW_CLASS: Record<BookingAvailabilitySlot['status'], string> = {
   AVAILABLE: 'border-line bg-paper hover:border-sage hover:bg-sage-mist/60',
   PENDING_HOLD: 'border-line bg-paper hover:border-sage hover:bg-sage-mist/60',
@@ -79,7 +79,7 @@ export function DaySlotList({ day, selection, onToggleSlot }: Props) {
           const labelClass = selected
             ? 'text-xs text-cream/85'
             : slot.status === 'PENDING_HOLD'
-              ? 'text-xs text-coral'
+              ? 'text-xs text-coral-deep'
               : 'text-xs';
           return (
             <li key={slot.start}>

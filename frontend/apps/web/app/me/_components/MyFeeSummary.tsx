@@ -47,7 +47,7 @@ export function MyFeeSummary({ fees, today }: Props) {
         {formatWon(totalOutstanding)}
       </p>
       {hasOverdue ? (
-        <p className="mt-1 text-xs font-semibold text-coral">연체 {overdueCount}건</p>
+        <p className="mt-1 text-xs font-semibold text-coral-deep">연체 {overdueCount}건</p>
       ) : (
         <p className="mt-1 text-xs text-charcoal-3">
           미납 {unpaidFees.length}건 · 다음 마감 {nearestDueDate} (

@@ -27,7 +27,7 @@ const FEE_STATUS_BADGE_CLS: Record<FeeStatus, string> = {
   PENDING: 'bg-warm/15 text-charcoal',
   PAID: 'bg-sage/20 text-sage-deep',
   PARTIAL_PAID: 'bg-warm/15 text-charcoal',
-  OVERDUE: 'bg-coral/10 text-coral',
+  OVERDUE: 'bg-coral/10 text-coral-deep',
   CANCELLED: 'bg-graysoft text-charcoal-3',
 };
 

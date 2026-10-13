@@ -57,7 +57,7 @@ export function AdminClubSecuredTargetToggleDialog({
         </DialogHeader>
 
         {errorMessage && (
-          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>
         )}
 
         <DialogFooter>

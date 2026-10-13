@@ -83,7 +83,7 @@ export function AdminPromotionRequestsListPage() {
 
       {listQuery.isLoading && <LoadingGate label="홍보 요청 목록 불러오는 중" />}
       {listQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>
       )}
       {listQuery.isSuccess && <AdminPromotionRequestsTable items={items} />}
 

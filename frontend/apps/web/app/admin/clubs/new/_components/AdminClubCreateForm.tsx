@@ -250,7 +250,7 @@ function Field({ label, required, children }: FieldProps) {
     <label className="block">
       <span className="text-charcoal-2 mb-1.5 block text-[13px] font-semibold">
         {label}
-        {required && <span className="text-coral ml-1">*</span>}
+        {required && <span className="text-coral-deep ml-1">*</span>}
       </span>
       {children}
     </label>

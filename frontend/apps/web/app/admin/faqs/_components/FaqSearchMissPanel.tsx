@@ -55,7 +55,7 @@ export function FaqSearchMissPanel() {
             <LoadingGate className="min-h-0 py-4" label="무결과 검색어 불러오는 중" />
           )}
           {searchMissesQuery.isError && (
-            <p className="text-[13px] text-coral">무결과 검색어를 불러오지 못했습니다.</p>
+            <p className="text-[13px] text-coral-deep">무결과 검색어를 불러오지 못했습니다.</p>
           )}
           {searchMissesQuery.isSuccess && (
             items.length === 0 ? (

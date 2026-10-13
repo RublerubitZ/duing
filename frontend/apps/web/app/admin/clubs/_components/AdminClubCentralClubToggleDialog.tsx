@@ -49,7 +49,7 @@ export function AdminClubCentralClubToggleDialog({
         </DialogHeader>
 
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>
         )}
 
         <DialogFooter>

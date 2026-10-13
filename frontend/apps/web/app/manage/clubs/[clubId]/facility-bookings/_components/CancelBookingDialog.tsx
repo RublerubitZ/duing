@@ -20,7 +20,7 @@ export function CancelBookingDialog({ open, isPending, errorMessage, summaryLabe
         <p className="text-sm text-charcoal-2">{summaryLabel}</p>
         <p className="text-xs text-charcoal-3">취소하면 되돌릴 수 없어요. 같은 시간이 필요하면 다시 신청해야 해요.</p>
         {errorMessage && (
-          <p role="alert" className="text-xs text-coral">{errorMessage}</p>
+          <p role="alert" className="text-xs text-coral-deep">{errorMessage}</p>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className="btn btn-ghost" disabled={isPending} onClick={onClose}>

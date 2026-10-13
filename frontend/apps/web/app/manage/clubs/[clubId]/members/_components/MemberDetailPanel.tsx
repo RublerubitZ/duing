@@ -312,7 +312,7 @@ function ContactValue({ member, clubId }: { member: ClubMember; clubId: number }
           </button>
         )}
       </span>
-      {error && <span className="text-xs text-coral">{error}</span>}
+      {error && <span className="text-xs text-coral-deep">{error}</span>}
     </span>
   );
 }
@@ -626,7 +626,7 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
           기수 지우기
         </button>
       </div>
-      {error && <p role="alert" className="mt-1.5 text-xs text-coral">{error}</p>}
+      {error && <p role="alert" className="mt-1.5 text-xs text-coral-deep">{error}</p>}
     </div>
   );
 }

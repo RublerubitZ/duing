@@ -67,7 +67,7 @@ export function AdminPromotionsListPage() {
 
       {listQuery.isLoading && <LoadingGate className="min-h-0 py-12" label="배너 목록 불러오는 중" />}
       {listQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>
       )}
       {listQuery.isSuccess && (
         <AdminPromotionsTable

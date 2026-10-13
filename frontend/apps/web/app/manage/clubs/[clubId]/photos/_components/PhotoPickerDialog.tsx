@@ -92,7 +92,7 @@ export function PhotoPickerDialog({
           </label>
           <p className="text-[11.5px] text-charcoal-3">업로드한 사진은 전체 활동 사진에도 추가돼요.</p>
           {(uploadError ?? serverError) && (
-            <p className="text-[12px] text-coral">{uploadError ?? serverError}</p>
+            <p className="text-[12px] text-coral-deep">{uploadError ?? serverError}</p>
           )}
         </div>
 

@@ -231,7 +231,7 @@ export function HeroActivityEditor({
         </>
       )}
 
-      {displayError && <p className="text-[12px] text-coral">{displayError}</p>}
+      {displayError && <p className="text-[12px] text-coral-deep">{displayError}</p>}
 
       {hero !== null && (
         <ConfirmDialog

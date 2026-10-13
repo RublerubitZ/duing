@@ -86,7 +86,7 @@ function ApplicantPhoneValue({
           </button>
         )}
       </span>
-      {error && <span className="text-xs text-coral">{error}</span>}
+      {error && <span className="text-xs text-coral-deep">{error}</span>}
     </span>
   );
 }

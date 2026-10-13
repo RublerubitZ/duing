@@ -124,7 +124,7 @@ export function ClubNoticeFormModal(props: Props) {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink">
-                제목 <span className="text-coral">*</span>
+                제목 <span className="text-coral-deep">*</span>
               </label>
               <input
                 type="text"
@@ -137,7 +137,7 @@ export function ClubNoticeFormModal(props: Props) {
               />
               <div className="mt-1 flex justify-between">
                 {errors.title ? (
-                  <p className="text-xs text-coral">{errors.title.message}</p>
+                  <p className="text-xs text-coral-deep">{errors.title.message}</p>
                 ) : <span />}
                 <span className="text-xs text-charcoal-3">{titleValue.length} / 120</span>
               </div>
@@ -156,14 +156,14 @@ export function ClubNoticeFormModal(props: Props) {
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink">
-                본문 <span className="text-coral">*</span>
+                본문 <span className="text-coral-deep">*</span>
               </label>
               <NoticeRichEditorLazy
                 value={contentValue}
                 format={seedFormat}
                 onChange={(html) => setValue('content', html, { shouldDirty: true, shouldValidate: true })}
               />
-              {errors.content && <p className="mt-1 text-xs text-coral">{errors.content.message}</p>}
+              {errors.content && <p className="mt-1 text-xs text-coral-deep">{errors.content.message}</p>}
             </div>
 
             <div>

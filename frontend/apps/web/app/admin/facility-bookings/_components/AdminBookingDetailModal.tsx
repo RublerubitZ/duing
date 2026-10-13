@@ -438,7 +438,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 )}
 
                 {actionError && (
-                  <p role="alert" className="rounded-[12px] bg-coral/5 px-3.5 py-2.5 text-xs text-coral">
+                  <p role="alert" className="rounded-[12px] bg-coral/5 px-3.5 py-2.5 text-xs text-coral-deep">
                     {actionError}
                   </p>
                 )}

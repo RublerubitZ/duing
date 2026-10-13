@@ -216,7 +216,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
           {/* 자동저장 상태 */}
           {isClosed ? (
-            <span className="tabular-nums text-[12.5px] tracking-wide text-coral">
+            <span className="tabular-nums text-[12.5px] tracking-wide text-coral-deep">
               {isNotStarted ? '모집 시작 전' : '모집 마감'} — 임시저장 및 제출 불가
             </span>
           ) : (
@@ -233,7 +233,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
                 </span>
               )}
               {autosaveStatus.kind === 'error' && (
-                <span className="text-coral">{autosaveStatus.message}</span>
+                <span className="text-coral-deep">{autosaveStatus.message}</span>
               )}
             </span>
           )}
@@ -243,7 +243,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         {isClosed && (
           // 제출 실패로 동적 삽입되는 경로가 있어 role="alert" 로 스크린리더에 알린다.
           <div role="alert" className="mb-6 rounded-[12px] border border-coral/20 bg-coral/5 px-4 py-3">
-            <p className="text-sm text-coral">
+            <p className="text-sm text-coral-deep">
               {isNotStarted
                 ? '아직 모집이 시작되지 않았어요. 제출할 수 없습니다.'
                 : '모집이 마감되어 더 이상 임시저장되지 않습니다. 제출도 불가합니다.'}
@@ -292,7 +292,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           {error && !confirmOpen && (
             <p
               role="alert"
-              className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral"
+              className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep"
             >
               {error}
             </p>

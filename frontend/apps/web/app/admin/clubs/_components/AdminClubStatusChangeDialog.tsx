@@ -79,7 +79,7 @@ export function AdminClubStatusChangeDialog({
         {isRejection && (
           <label className="block space-y-1">
             <span className="text-xs font-medium text-charcoal-2">
-              거절 사유 <span className="text-coral">*</span>
+              거절 사유 <span className="text-coral-deep">*</span>
             </span>
             <textarea
               aria-label="거절 사유"
@@ -98,7 +98,7 @@ export function AdminClubStatusChangeDialog({
         )}
 
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>
         )}
 
         <DialogFooter>

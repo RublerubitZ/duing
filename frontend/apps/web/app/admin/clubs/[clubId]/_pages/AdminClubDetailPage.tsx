@@ -154,7 +154,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
 
       {detailQuery.isLoading && <LoadingGate label="동아리 정보 불러오는 중" />}
       {detailQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">동아리 정보를 불러오지 못했습니다.</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">동아리 정보를 불러오지 못했습니다.</p>
       )}
 
       {club &&
@@ -254,7 +254,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
               {membersQuery.isLoading ? (
                 <LoadingGate className="min-h-0 py-10" label="회원 목록 불러오는 중" />
               ) : membersQuery.isError ? (
-                <p className="text-[13px] text-coral">회원 목록을 불러오지 못했습니다.</p>
+                <p className="text-[13px] text-coral-deep">회원 목록을 불러오지 못했습니다.</p>
               ) : members.length === 0 ? (
                 <p className="text-[13px] text-slate-400 italic">등록된 회원이 없습니다.</p>
               ) : filteredMembers.length === 0 ? (

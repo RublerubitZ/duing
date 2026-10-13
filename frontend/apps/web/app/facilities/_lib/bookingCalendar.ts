@@ -217,7 +217,7 @@ export function dayLevelOf(availableSlotCount: number): DayLevel {
 export const DAY_LEVEL_META: Record<DayLevel, { label: string; barClass: string; textClass: string }> = {
   HIGH: { label: '여유', barClass: 'bg-sage', textClass: 'text-ink' },
   MID: { label: '보통', barClass: 'bg-warm', textClass: 'text-[#8E6620]' },
-  LOW: { label: '혼잡', barClass: 'bg-coral', textClass: 'text-coral' },
+  LOW: { label: '혼잡', barClass: 'bg-coral', textClass: 'text-coral-deep' },
   FULL: { label: '마감', barClass: 'bg-line', textClass: 'text-charcoal-3' },
 };
 

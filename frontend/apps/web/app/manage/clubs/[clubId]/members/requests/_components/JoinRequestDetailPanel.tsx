@@ -91,7 +91,7 @@ export function JoinRequestDetailPanel({
 
       {detailQuery.isLoading && <LoadingGate label="가입 요청 불러오는 중" className="min-h-0 py-10" />}
       {detailQuery.isError && (
-        <p role="alert" className="px-5 py-6 text-sm text-coral">
+        <p role="alert" className="px-5 py-6 text-sm text-coral-deep">
           {extractErrorMessage(detailQuery.error) ?? '가입 요청을 불러오지 못했어요.'}
         </p>
       )}
@@ -125,7 +125,7 @@ export function JoinRequestDetailPanel({
           </dl>
 
           {error && (
-            <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+            <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
               {error}
             </p>
           )}
@@ -239,7 +239,7 @@ function JoinRequestPhoneValue({
           </button>
         )}
       </span>
-      {revealError && <span className="text-xs text-coral">{revealError}</span>}
+      {revealError && <span className="text-xs text-coral-deep">{revealError}</span>}
     </span>
   );
 }

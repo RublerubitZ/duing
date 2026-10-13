@@ -130,7 +130,7 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
           </button>
         )}
         {showsCheckFailure && (
-          <p role="status" className="mt-3 text-center text-xs text-coral">
+          <p role="status" className="mt-3 text-center text-xs text-coral-deep">
             모집 정보를 확인하지 못했어요. 새로고침해 주세요.
           </p>
         )}

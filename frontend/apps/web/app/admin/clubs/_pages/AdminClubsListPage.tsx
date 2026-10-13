@@ -234,7 +234,7 @@ export function AdminClubsListPage() {
 
       {clubsQuery.isLoading && <LoadingGate className="min-h-0 py-10" label="동아리 목록 불러오는 중" />}
       {clubsQuery.isError && (
-        <p className="text-coral py-10 text-center text-sm">목록을 불러오지 못했습니다.</p>
+        <p className="text-coral-deep py-10 text-center text-sm">목록을 불러오지 못했습니다.</p>
       )}
       {clubsQuery.data && (
         <>

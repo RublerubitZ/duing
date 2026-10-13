@@ -88,7 +88,7 @@ export function ForgotPasswordPanel() {
             <div
               role="alert"
               aria-live="polite"
-              className="mb-5 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral"
+              className="mb-5 rounded-md border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral-deep"
             >
               {error}
             </div>
@@ -126,7 +126,7 @@ export function ForgotPasswordPanel() {
                 등록된 번호로만 인증할 수 있어요 · 번호가 기억나지 않으면 총동아리연합회에 문의해주세요
               </p>
               {verification.errorMessage && (
-                <p className="mt-2 text-xs text-coral" aria-live="polite">
+                <p className="mt-2 text-xs text-coral-deep" aria-live="polite">
                   {verification.errorMessage}
                 </p>
               )}

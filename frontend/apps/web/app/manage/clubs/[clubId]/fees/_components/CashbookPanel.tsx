@@ -188,7 +188,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                     <span className="ml-1.5 rounded bg-graysoft px-1.5 py-0.5 text-[10px] text-charcoal-3">자동</span>
                   )}
                   {entry.excluded && (
-                    <span className="ml-1.5 rounded bg-coral/10 px-1.5 py-0.5 text-[10px] text-coral">제외됨</span>
+                    <span className="ml-1.5 rounded bg-coral/10 px-1.5 py-0.5 text-[10px] text-coral-deep">제외됨</span>
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-charcoal-3">{entry.transactionDate}{entry.memo ? ` · ${entry.memo}` : ''}</p>

@@ -34,7 +34,7 @@ export function BookingSuccess({
         <p className="font-medium text-ink-deep">{facilityName} · {date} · {rangeLabel(range)}</p>
         <p className="mt-1 text-charcoal-2">예약 신청이 접수됐어요.</p>
         {overlappingPendingCount > 0 && (
-          <p className="mt-1 text-xs text-coral">
+          <p className="mt-1 text-xs text-coral-deep">
             같은 시간에 다른 신청 {overlappingPendingCount}건이 함께 대기 중이에요 — 승인은 한 건에만 돼요.
           </p>
         )}

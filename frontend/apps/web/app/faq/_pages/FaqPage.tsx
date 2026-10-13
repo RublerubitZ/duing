@@ -225,7 +225,7 @@ export function FaqPage() {
           <ListRowsSkeleton rows={6} rowClassName="h-[64px] rounded-[20px]" label="FAQ 목록 불러오는 중" />
         )}
         {listQuery.isError && (
-          <p className="py-12 text-center text-[13px] text-coral">FAQ를 불러오지 못했습니다</p>
+          <p className="py-12 text-center text-[13px] text-coral-deep">FAQ를 불러오지 못했습니다</p>
         )}
 
         {listQuery.isSuccess && (

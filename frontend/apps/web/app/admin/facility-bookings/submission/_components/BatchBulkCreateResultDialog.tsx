@@ -106,7 +106,7 @@ export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
                   </button>
                 </>
               ) : (
-                <span className="text-xs text-coral">{outcome.errorMessage}</span>
+                <span className="text-xs text-coral-deep">{outcome.errorMessage}</span>
               )}
             </li>
           ))}

@@ -185,7 +185,7 @@ export function FaqCategoryManager() {
             </div>
           ))}
 
-          {errorMessage && <p className="text-[12.5px] text-coral">{errorMessage}</p>}
+          {errorMessage && <p className="text-[12.5px] text-coral-deep">{errorMessage}</p>}
 
           <div className="flex gap-2 pt-3">
             <input

@@ -225,12 +225,12 @@ export function BookingForm({
       </div>
 
       {ownOverlap && (
-        <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral">
+        <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral-deep">
           이 시간에 이미 접수·승인된 우리 동아리 신청이 있어 중복 신청은 거부돼요. 기존 신청을 취소한 뒤 다시 신청해주세요.
         </p>
       )}
       {!ownOverlap && hasPendingHold && (
-        <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral">
+        <p role="alert" className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-xs text-coral-deep">
           이미 예약 신청이 접수된 시간이 포함돼 있어요. 계속 신청할 수 있지만, 승인은 한 신청에만 됩니다.
         </p>
       )}
@@ -327,7 +327,7 @@ export function BookingForm({
         <p className="mt-1 text-[11px] text-charcoal-3">
           관리자나 시설 담당자가 예약 관련 연락이 필요할 때 사용해요.
         </p>
-        {contactError && <p role="alert" className="mt-1 text-[11px] text-coral">{contactError}</p>}
+        {contactError && <p role="alert" className="mt-1 text-[11px] text-coral-deep">{contactError}</p>}
       </div>
 
       <div className="flex gap-2 pt-1">

@@ -37,7 +37,7 @@ export function AdminPromotionEditPage() {
   if (detailQuery.isError) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">배너를 불러오지 못했습니다.</p>
+        <p className="text-coral-deep text-[13px]">배너를 불러오지 못했습니다.</p>
       </main>
     );
   }
@@ -45,7 +45,7 @@ export function AdminPromotionEditPage() {
   if (!promotion) {
     return (
       <main className="max-w-[760px] mx-auto px-6 py-10">
-        <p className="text-coral text-[13px]">배너를 찾을 수 없습니다.</p>
+        <p className="text-coral-deep text-[13px]">배너를 찾을 수 없습니다.</p>
         <a href="/admin/promotions" className="mt-3 inline-block text-[13px] text-charcoal-2 underline">
           배너 목록으로
         </a>
