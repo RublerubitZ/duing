@@ -5,13 +5,10 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
-import com.duing.common.fixture.UserFixture;
+import com.duing.common.fixture.ClubStaffFixture;
+import com.duing.common.fixture.ClubStaffFixture.Staff;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
-import com.duing.domain.clubmember.entity.ClubMember;
-import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
@@ -36,7 +33,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 외부 폼 상시모집 유지 확인 잡 — 시작 후 30일 주기마다 운영진에게 "아직 받고 있는지" 확인 알림을 1건 보낸다.
@@ -63,28 +59,8 @@ class ExternalRecruitmentCheckJobTest extends IntegrationTestBase {
 
     // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
-    private User saveUser() {
-        return userRepository.save(UserFixture.unique());
-    }
-
-    private Club saveActiveClub() {
-        Club club = Club.create("외부폼확인동아리" + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, "공학계열", "설명", null);
-        ReflectionTestUtils.setField(club, "status", ClubStatus.ACTIVE);
-        return clubRepository.save(club);
-    }
-
-    private record Staff(Club club, User leader, User officer, User member) {}
-
     private Staff saveClubWithStaff() {
-        Club club = saveActiveClub();
-        User leader = saveUser();
-        User officer = saveUser();
-        User member = saveUser();
-        clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
-        clubMemberRepository.save(ClubMember.asMember(club, member));
-        return new Staff(club, leader, officer, member);
+        return ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
     }
 
     /** 외부 폼 모집(저장 전) — 종료일이 null 이면 상시모집. V10 CHECK(chk_recruitment_external_url) 때문에 URL 필수. */

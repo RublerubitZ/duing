@@ -4,16 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubStaffFixture;
+import com.duing.common.fixture.ClubStaffFixture.Staff;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
-import com.duing.domain.clubmember.entity.ClubMember;
-import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
@@ -36,7 +34,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 미처리 지원서 리마인더 잡 — 7일 넘게 SUBMITTED 로 남은 지원서를 모집별로 세어 운영진에게 하루 1건.
@@ -64,24 +61,8 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         return userRepository.save(UserFixture.unique());
     }
 
-    private Club saveActiveClub() {
-        Club club = Club.create("리마인더동아리" + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, "공학계열", "설명", null);
-        ReflectionTestUtils.setField(club, "status", ClubStatus.ACTIVE);
-        return clubRepository.save(club);
-    }
-
-    private record Staff(Club club, User leader, User officer, User member) {}
-
     private Staff saveClubWithStaff() {
-        Club club = saveActiveClub();
-        User leader = saveUser();
-        User officer = saveUser();
-        User member = saveUser();
-        clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
-        clubMemberRepository.save(ClubMember.asMember(club, member));
-        return new Staff(club, leader, officer, member);
+        return ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
     }
 
     private Recruitment saveOpenRecruitment(Club club, LocalDate startDate, LocalDate endDate) {

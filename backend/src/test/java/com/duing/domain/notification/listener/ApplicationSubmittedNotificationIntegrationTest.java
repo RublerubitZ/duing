@@ -5,13 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubStaffFixture;
+import com.duing.common.fixture.ClubStaffFixture.Staff;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.exception.ApplicationDomainException;
 import com.duing.domain.application.service.ApplicationService;
 import com.duing.domain.application.service.dto.command.SubmitApplicationCommand;
 import com.duing.domain.club.entity.Club;
-import com.duing.domain.club.entity.ClubCategory;
-import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
@@ -34,7 +34,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -63,30 +62,14 @@ class ApplicationSubmittedNotificationIntegrationTest extends IntegrationTestBas
         return userRepository.save(UserFixture.unique());
     }
 
-    private Club saveActiveClub() {
-        Club club = Club.create("지원알림동아리" + sequence.incrementAndGet(),
-                ClubCategory.ACADEMIC, "공학계열", "설명", null);
-        ReflectionTestUtils.setField(club, "status", ClubStatus.ACTIVE);
-        return clubRepository.save(club);
-    }
-
     private Recruitment saveOpenRecruitment(Club club) {
         LocalDate today = LocalDate.now(clock);
         return recruitmentRepository.save(Recruitment.create(club, "모집" + sequence.incrementAndGet(),
                 null, today.minusDays(1), today.plusDays(7), 10));
     }
 
-    private record Staff(Club club, User leader, User officer, User member) {}
-
     private Staff saveClubWithStaff() {
-        Club club = saveActiveClub();
-        User leader = saveUser();
-        User officer = saveUser();
-        User member = saveUser();
-        clubMemberRepository.save(ClubMember.asLeader(club, leader));
-        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
-        clubMemberRepository.save(ClubMember.asMember(club, member));
-        return new Staff(club, leader, officer, member);
+        return ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
     }
 
     private void submit(Recruitment recruitment, User applicant) {
@@ -144,7 +127,7 @@ class ApplicationSubmittedNotificationIntegrationTest extends IntegrationTestBas
     void submissionToAnotherRecruitmentNotifiesSeparately() {
         // 동아리당 진행 중 모집은 1건(V38)이라 두 번째 모집은 다른 동아리에 두고, 같은 유저를 양쪽 운영진으로 넣는다.
         Staff staff = saveClubWithStaff();
-        Club otherClub = saveActiveClub();
+        Club otherClub = clubRepository.save(ClubStaffFixture.activeClub());
         clubMemberRepository.save(ClubMember.asLeader(otherClub, saveUser()));
         clubMemberRepository.save(ClubMember.of(otherClub, staff.leader(), ClubMemberRole.OFFICER));
         Recruitment firstRecruitment = saveOpenRecruitment(staff.club());
