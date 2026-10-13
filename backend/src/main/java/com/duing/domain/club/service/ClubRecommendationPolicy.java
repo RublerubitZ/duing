@@ -7,10 +7,12 @@ import java.time.temporal.ChronoUnit;
 /**
  * 추천순(RECOMMENDED) 정렬 정책 상수·산식의 단일 관리 지점.
  * <p>설계: docs/superpowers/specs/2026-08-11-club-explore-recommended-sort-design.md
+ * (그룹 1·2 경계의 기간 상한 {@link #OPEN_GROUP_MAX_PERIOD_DAYS} 는 이 문서 이후에 추가됐다.)
  *
  * <pre>
  * ORDER BY statusPriority ASC, finalScore DESC, club.id ASC
  * finalScore = (clubShuffle*0.75 + categoryShuffle*0.25) * 0.7 + activityScore * 0.3
+ * statusPriority: 1=기간 30일 이하 모집중, 2=상시모집·30일 초과 기간 모집, 3=예정·만료·마감·없음
  * </pre>
  *
  * shuffle 은 KST 1시간 bucket 기반 deterministic random — 같은 시간대에는 페이지네이션이
@@ -23,12 +25,18 @@ public final class ClubRecommendationPolicy {
     private ClubRecommendationPolicy() {
     }
 
-    /** 모집중(OPEN) — 최상위 그룹. */
+    /** 기간이 {@link #OPEN_GROUP_MAX_PERIOD_DAYS}일 이하인 모집중 — 최상위 그룹. */
     public static final int PRIORITY_OPEN = 1;
-    /** 상시모집(ALWAYS_OPEN). */
+    /** 상시모집(ALWAYS_OPEN) + 기간이 {@link #OPEN_GROUP_MAX_PERIOD_DAYS}일을 넘는 모집중. */
     public static final int PRIORITY_ALWAYS_OPEN = 2;
     /** 모집예정·모집마감·모집공고 없음 — 셋을 하나의 그룹으로 취급하며 내부 상태 우선순위를 두지 않는다. */
     public static final int PRIORITY_OTHERS = 3;
+
+    /**
+     * 모집중 그룹(1)으로 인정하는 기간 모집의 최대 길이(일, 종료일 − 시작일). 넘으면 상시모집과 같은 그룹(2).
+     * 기간 상한이 없어 기간을 길게 잡은 모집이 그룹 1을 계속 차지하던 것을 막는다 — 연장으로 기간이 넘는 순간 내려간다.
+     */
+    public static final int OPEN_GROUP_MAX_PERIOD_DAYS = 30;
 
     // ── 그룹 내부 점수 결합 가중치 ──
     public static final double RANDOM_WEIGHT = 0.7;

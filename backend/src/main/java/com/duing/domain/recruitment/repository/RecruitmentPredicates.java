@@ -28,7 +28,8 @@ import java.time.LocalDate;
  * 중복이지만, 명시 조인 ON 절처럼 적용 여부가 문맥 의존적인 자리에서도 술어만으로 안전하게 한다.
  *
  * <p>구조상 재사용이 불가능한 두 곳은 동치 주석·테스트로만 결속된다: 추천 정렬의 표기 그룹
- * CASE(ClubRepositoryImpl — RecruitmentDisplayStatus.resolve 동치 계약)와 마감 임박 알림의
+ * CASE(ClubRepositoryImpl — 그룹 1·2 합집합이 RecruitmentDisplayStatus.resolve 의 OPEN·ALWAYS_OPEN 과
+ * 동치, 1·2 경계는 표시 상태가 아니라 기간 길이로 가른다)와 마감 임박 알림의
  * 네이티브 쿼리(RecruitmentRepository.findDeadlineNotificationCandidates).
  */
 public final class RecruitmentPredicates {

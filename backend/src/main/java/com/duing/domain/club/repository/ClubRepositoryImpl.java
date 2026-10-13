@@ -426,19 +426,26 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 LocalDate today = LocalDate.now(clock);
                 String hourBucket = ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
 
-                // 그룹 판정은 RecruitmentDisplayStatus.resolve() 와 동치: OPEN=1, ALWAYS_OPEN=2,
+                // 그룹 1·2 합집합은 RecruitmentDisplayStatus.resolve() 의 OPEN·ALWAYS_OPEN 과 동치지만,
+                // 1·2 경계는 표시 상태가 아니라 기간 길이로 가른다: 기간 30일 이하 모집중=1, 상시·30일 초과=2,
                 // 예정·마감·없음=3 (그룹 3 내부에 상태 하위 우선순위를 두지 않는다 — 스펙 §3).
+                // 기간을 길게 잡은 모집이 그룹 1을 계속 차지하지 않게 한다(ClubRecommendationPolicy 참고).
                 // when 조건들이 상호 배타라 평가 순서 무관, 다중 모집은 MIN 으로 가장 좋은 상태를 취한다.
+                BooleanExpression openAndStarted = recruitment.status.eq(RecruitmentStatus.OPEN)
+                        .and(recruitment.startDate.loe(today));
+                // 템플릿 전체를 괄호로 감싼다 — QueryDSL 은 TemplateExpression 에 괄호를 치지 않아 .not() 이
+                // "not a <= b + 30 day" 로 직렬화된다. 지금 HQL 우선순위로도 의미는 맞지만 해석 의존을 없앤다.
+                BooleanExpression withinOpenGroupPeriod = Expressions.booleanTemplate(
+                        "({0} <= {1} + " + ClubRecommendationPolicy.OPEN_GROUP_MAX_PERIOD_DAYS + " day)",
+                        recruitment.endDate, recruitment.startDate);
                 NumberExpression<Integer> statusPriority = Expressions.asNumber(
                         JPAExpressions
                                 .select(new CaseBuilder()
-                                        .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                                                .and(recruitment.startDate.loe(today))
-                                                .and(recruitment.endDate.goe(today)))
+                                        .when(openAndStarted.and(recruitment.endDate.goe(today))
+                                                .and(withinOpenGroupPeriod))
                                         .then(ClubRecommendationPolicy.PRIORITY_OPEN)
-                                        .when(recruitment.status.eq(RecruitmentStatus.OPEN)
-                                                .and(recruitment.startDate.loe(today))
-                                                .and(recruitment.endDate.isNull()))
+                                        .when(openAndStarted.and(recruitment.endDate.isNull()
+                                                .or(recruitment.endDate.goe(today).and(withinOpenGroupPeriod.not()))))
                                         .then(ClubRecommendationPolicy.PRIORITY_ALWAYS_OPEN)
                                         .otherwise(ClubRecommendationPolicy.PRIORITY_OTHERS)
                                         .min())

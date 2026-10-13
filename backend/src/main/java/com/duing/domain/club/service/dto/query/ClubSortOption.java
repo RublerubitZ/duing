@@ -8,7 +8,7 @@ public enum ClubSortOption {
     /**
      * 추천순. 기본값. 정책·산식은 {@code ClubRecommendationPolicy} 참고.
      * <ol>
-     *   <li>모집 상태 그룹: 모집중(1) → 상시모집(2) → 예정·마감·없음(3, 내부 상태 우선순위 없음)</li>
+     *   <li>모집 상태 그룹: 모집중(기간 30일 이하, 1) → 상시모집·30일 초과 기간 모집(2) → 예정·마감·없음(3, 내부 상태 우선순위 없음)</li>
      *   <li>그룹 내부: KST 1시간 bucket deterministic random 70% + 활동점수(club_metric) 30% DESC</li>
      *   <li>{@code club.id} ASC (tie-break — 동점 시 페이지네이션 안정화)</li>
      * </ol>
