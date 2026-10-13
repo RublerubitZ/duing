@@ -139,13 +139,13 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         Recruitment recruitment = saveOngoingRecruitment(staff.club());
         LocalDate today = LocalDate.now(clock);
 
-        // 집계 대상 2건: 10일 전, 그리고 7일 경계 바로 바깥(7일 + 1분 전 — 실행 중 시계가 흐르므로 정확히 7일은 결정적으로 못 만든다).
+        // 집계 대상 2건: 10일 전, 그리고 7일 경계 바로 바깥(7일 + 1시간 전 — 실행 중 시계가 흐르므로 정확히 7일은 결정적으로 못 만든다).
         saveSubmittedApplicationDaysAgo(recruitment, 10);
         submittedAgo(saveApplication(recruitment, ApplicationStatus.SUBMITTED),
-                Duration.ofDays(7).plusMinutes(1));
-        // 제외: 7일 경계 바로 안쪽(7일 − 1분 전)·6일 전 SUBMITTED.
+                Duration.ofDays(7).plusHours(1));
+        // 제외: 7일 경계 바로 안쪽(7일 − 1시간 전 — 픽스처와 실행 사이 시간이 흘러도 경계를 넘지 않을 여유)·6일 전 SUBMITTED.
         submittedAgo(saveApplication(recruitment, ApplicationStatus.SUBMITTED),
-                Duration.ofDays(7).minusMinutes(1));
+                Duration.ofDays(7).minusHours(1));
         saveSubmittedApplicationDaysAgo(recruitment, 6);
         // 제외: 오래됐어도 운영진이 손댄 지원서(보류·합격·불합격).
         for (ApplicationStatus handledStatus
@@ -201,9 +201,12 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         Staff inactiveClubStaff = saveClubWithStaff();
         Recruitment inactiveClubRecruitment = saveOngoingRecruitment(inactiveClubStaff.club());
         saveSubmittedApplicationDaysAgo(inactiveClubRecruitment, 10);
-        // 운영 중단 전환의 벌크 마감을 우회해 동아리만 INACTIVE 로 — 후보 쿼리의 c.status 조건이 독립적으로 거르는지 본다.
+        // 운영 중단 전환의 벌크 마감을 우회해 동아리만 INACTIVE 로 만든다. 수신자 조회도 ACTIVE 를 걸어 알림 0건만으로는
+        // 후보 쿼리의 c.status 조건을 입증하지 못하므로, 후보 목록이 비는지 직접 본다.
         jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", inactiveClubStaff.club().getId());
 
+        assertThat(applicationRepository.findPendingReminderCandidates(
+                TimeMapper.systemNow(clock).minusDays(ApplicationPendingReminderJob.PENDING_DAYS))).isEmpty();
         job.run();
 
         assertThat(allReminders()).isEmpty();
