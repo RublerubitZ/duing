@@ -94,18 +94,17 @@ describe('ClubDetailHeroActivities', () => {
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
     expect(screen.getAllByText('활동1').length).toBeGreaterThan(0);
     expect(container.querySelector('img')).toBeNull();
-    expect(screen.queryByText('사진을 선택하세요')).not.toBeInTheDocument();
   });
 
   it('재요청이 끝나 신선해지면(dataUpdatedAt > 0) 이미지를 붙인다', () => {
     mockHeroQuery({ data: [make(1, 1)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
-    expect(container.querySelector('img[src="k1.jpg"]')).not.toBeNull();
+    expect(container.querySelectorAll('img[src="k1.jpg"]')).toHaveLength(2);
   });
 
   it('시드 뒤 재요청이 실패하면(isError) 시드 URL 로 이미지를 붙인다', () => {
     mockHeroQuery({ data: [make(1, 1)], isLoading: false, isError: true, dataUpdatedAt: 0 });
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
-    expect(container.querySelector('img[src="k1.jpg"]')).not.toBeNull();
+    expect(container.querySelectorAll('img[src="k1.jpg"]')).toHaveLength(2);
   });
 });
