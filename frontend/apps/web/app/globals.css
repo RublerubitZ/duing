@@ -699,6 +699,8 @@ body {
   to   { opacity: 1; }
 }
 .delayed-show { animation: delayed-show 0.2s ease 0.15s both; }
+/* 느린 회선에서만 보이는 표시 — 빠른 회선(0.5초 안팎)에선 그 전에 사라져 깜박이지 않는다(지원 버튼 확인 중 스피너, #1456). */
+.delayed-show-late { animation: delayed-show 0.2s ease 0.8s both; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }

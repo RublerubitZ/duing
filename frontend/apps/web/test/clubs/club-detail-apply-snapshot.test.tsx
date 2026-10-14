@@ -91,7 +91,8 @@ function renderSeededDetail(seedDetail: ClubDetail) {
 }
 
 // jsdom 은 반응형 숨김(md:hidden·hidden md:block)을 적용하지 않아 데스크탑 카드와 모바일 하단 바 버튼이 함께 잡힌다.
-function applyButtons(name: string) {
+// 스냅샷 동안은 버튼 안 확인 중 스피너의 이름이 라벨 앞에 붙는다 — jsdom 은 inline 자식 사이 공백을 넣지 않아 정규식으로 찾는다.
+function applyButtons(name: string | RegExp) {
   const buttons = screen.getAllByRole('button', { name });
   expect(buttons).toHaveLength(2);
   return buttons;
@@ -106,7 +107,7 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
 
       // 시드(상시모집)가 화면에 있는 구간 — 그래도 버튼은 잠겨 있고 눌러도 외부 폼이 열리지 않는다.
       expect(screen.getAllByText('상시모집').length).toBeGreaterThan(0);
-      for (const button of applyButtons('외부 폼으로 이동')) {
+      for (const button of applyButtons(/^모집 정보 확인 중\s?외부 폼으로 이동$/)) {
         expect(button).toBeDisabled();
         fireEvent.click(button);
       }
@@ -129,7 +130,7 @@ describe('동아리 상세 — ISR 스냅샷으로는 지원 버튼을 열지 �
     server.use(holdDetail(clubDetail));
     renderSeededDetail(clubDetail);
 
-    for (const button of applyButtons('지원하기')) expect(button).toBeDisabled();
+    for (const button of applyButtons(/^모집 정보 확인 중\s?지원하기$/)) expect(button).toBeDisabled();
     expect(screen.queryByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).not.toBeInTheDocument();
 
     releaseDetail();
