@@ -44,7 +44,11 @@ describe('ClubDetailHeroActivities', () => {
   it('로딩 중에는 섹션 자리에 스켈레톤만 보인다(delayed-show)', () => {
     mockHeroQuery({ data: undefined, isLoading: true, isError: false, dataUpdatedAt: 0 });
     render(<ClubDetailHeroActivities clubId={1} />);
-    expect(screen.getByRole('status', { name: '대표 활동 불러오는 중' })).toBeInTheDocument();
+    const skeleton = screen.getByRole('status', { name: '대표 활동 불러오는 중' });
+    expect(skeleton.parentElement).toHaveClass('delayed-show');
+    // 둘 다 animation 축약이라 같은 요소면 delayed-show 가 펄스를 지운다(#1463).
+    expect(skeleton).toHaveClass('animate-pulse');
+    expect(skeleton).not.toHaveClass('delayed-show');
     expect(screen.queryByText('대표 활동')).not.toBeInTheDocument();
   });
 

@@ -22,19 +22,22 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (heroQuery.isLoading) {
+    // 지연은 래퍼, 펄스는 안쪽 — 같은 요소면 animation 축약끼리 덮어써 펄스가 꺼진다(ClubDetailSkeleton 과 같은 규약, #1463).
     return (
-      <div
-        role="status"
-        aria-label="대표 활동 불러오는 중"
-        className="delayed-show mb-10 animate-pulse motion-reduce:animate-none"
-      >
-        <Skeleton className="mb-4 h-6 w-40" />
-        <div className="hidden gap-3.5 md:grid md:grid-cols-3">
-          <Skeleton className="aspect-[4/5]" />
-          <Skeleton className="aspect-[4/5]" />
-          <Skeleton className="aspect-[4/5]" />
+      <div className="delayed-show mb-10">
+        <div
+          role="status"
+          aria-label="대표 활동 불러오는 중"
+          className="animate-pulse motion-reduce:animate-none"
+        >
+          <Skeleton className="mb-4 h-6 w-40" />
+          <div className="hidden gap-3.5 md:grid md:grid-cols-3">
+            <Skeleton className="aspect-[4/5]" />
+            <Skeleton className="aspect-[4/5]" />
+            <Skeleton className="aspect-[4/5]" />
+          </div>
+          <Skeleton className="aspect-[4/5] md:hidden" />
         </div>
-        <Skeleton className="aspect-[4/5] md:hidden" />
       </div>
     );
   }
