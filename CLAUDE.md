@@ -73,14 +73,15 @@ duing/
 
     ```sh
     git fetch -q origin main && curl -fsS https://spring.io/page-data/security/page-data.json |
-      LC_ALL=C jq -r --arg since "$(git log -1 --format=%cs origin/main)" '
+      LC_ALL=C jq -r --arg since "$(git log -1 --format=%cs origin/main)" '[
         .result.data.cves.nodes[].fields
         | select(.projectSlug | IN("spring-boot","spring-framework","spring-security","spring-data-jpa","spring-data-commons","spring-retry","micrometer"))
         | select(.slug == "cve-2026-47834" or ((.publishedAt | strptime("%B %d, %Y") | mktime) >= (($since | strptime("%Y-%m-%d") | mktime) - 7*86400)))
-        | "\(.publishedAt)\t\(.severity)\t\(.project)\t\(.slug)\t\(.affected | fromjson | .versions | map("\(.introduced // "?")~\(."last-affected")") | join(" "))"'
+        | "\(.publishedAt)\t\(.severity)\t\(.project)\t\(.slug)\t\(.affected | fromjson | .versions | map("\(.introduced // "?")~\(."last-affected")") | join(" "))"
+      ] | .[]'
     ```
 
-  - `cve-2026-47834` 줄은 기준 행이다 — 없으면 받기 실패이거나 피드 형식이 바뀐 것이라 결과를 믿지 않는다. 그 줄을 뺀 나머지가 대조 대상이다
+  - `cve-2026-47834` 줄은 기준 행이다 — 결과를 다 모은 뒤에 출력하므로 받기 실패·피드 형식 변경·처리 오류가 하나라도 있으면 이 줄도 나오지 않는다. 없으면 결과를 믿지 않고, 있으면 그 줄을 뺀 나머지가 대조 대상이다
   - 7일을 겹쳐 보는 이유: `publishedAt` 은 시각 없는 미국 날짜이고, 게이트 실행과 배포 사이에도 틈이 있다
   - 판정: 우리 버전이 영향 범위인가 → 권고의 전제 조건이 코드에 있는가 → 도달할 수 있으면 이슈를 연다. 권고 원문은 `https://spring.io/security/<slug>`
   - 프로젝트 목록은 운영 의존성의 Spring 계열이다 — 새 Spring 프로젝트를 들이면 목록과 위 버전 줄에 넣는다

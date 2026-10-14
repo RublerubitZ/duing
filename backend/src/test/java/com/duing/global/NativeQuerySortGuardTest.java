@@ -78,7 +78,9 @@ class NativeQuerySortGuardTest {
     /**
      * {@code com.duing} 아래 Spring Data 리포지토리 인터페이스 — {@link Repository} 상속과 {@link RepositoryDefinition}
      * 정의(그 정의를 상속한 하위 인터페이스 포함)를 모두 본다. 기본 스캐너는 인터페이스를 후보에서 거르므로 허용으로
-     * 바꾼다(Spring Data 의 자체 스캐너는 공개 API 가 아니다).
+     * 바꾼다(Spring Data 의 자체 스캐너는 공개 API 가 아니다). 한계: 스캐너는 조건을 기본 환경으로 평가하므로
+     * {@code @Profile}·{@code @Conditional} 이 붙은 리포지토리는 빠진다 — 지금은 0건이고, 생기면 이 가드가 그 인터페이스를
+     * 보지 못한다.
      */
     private static List<Class<?>> repositoryInterfaces() {
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false) {
