@@ -254,7 +254,7 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
           externalFormUrl: 'https://example.com/form',
         },
         undefined,
-        { checkedAt: 0, checkFailed: false, recheck: async () => true },
+        snapshotCheck(),
       );
       // 스냅샷 동안은 확인 중 스피너의 이름이 라벨 앞에 붙는다 — jsdom 은 inline 자식 사이 공백을 넣지 않는다.
       const button = screen.getByRole('button', { name: /^모집 정보 확인 중\s?외부 폼으로 이동$/ });
@@ -378,7 +378,9 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
         renderBar(recruitment, undefined, snapshotCheck());
 
         const button = screen.getByRole('button', { name: buttonName });
-        expect(within(button).getByRole('status', { name: '모집 정보 확인 중' })).toBeInTheDocument();
+        const spinnerStatus = within(button).getByRole('status', { name: '모집 정보 확인 중' });
+        expect(spinnerStatus).toHaveClass('delayed-show-late', 'absolute', 'right-full');
+        expect(spinnerStatus.querySelector('svg')).not.toHaveClass('delayed-show-late');
         expect(button).toHaveTextContent(label);
         expect(button).toBeDisabled();
       },
