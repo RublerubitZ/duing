@@ -365,8 +365,8 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("권한 없는 사용자의 대표 활동 쓰기(거절)는 상세 재생성을 요청하지 않는다")
-    void rejectedHeroActivityWriteRequestsNothing() throws InterruptedException {
+    @DisplayName("권한 없는 사용자의 대표 활동 추가(거절)는 상세 재생성을 요청하지 않는다")
+    void rejectedHeroActivityCreateDoesNotRequest() throws InterruptedException {
         User leader = userRepository.save(UserFixture.unique());
         User outsider = userRepository.save(UserFixture.unique());
         Club club = saveActiveClubLedBy(leader, "상세재생성대표활동거절동아리");

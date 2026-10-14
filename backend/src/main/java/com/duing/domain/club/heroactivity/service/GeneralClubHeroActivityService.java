@@ -39,6 +39,7 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
+    // 공개 상세 재생성 이벤트(#1457) — 대표 활동은 상세 서버 HTML(시드)에 실려 추가·수정·순서·삭제 모두 발행한다.
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -73,7 +74,6 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
         ClubHeroActivity activity = ClubHeroActivity.create(
                 club, photo, command.title(), command.description(), command.displayOrder());
         ClubHeroActivity savedActivity = clubHeroActivityRepository.save(activity);
-        // 대표 활동은 공개 상세 서버 HTML(시드)에 실린다 — 커밋 뒤 그 상세 재생성을 요청한다(#1457).
         eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
         return HeroActivityQuery.from(savedActivity);
     }
