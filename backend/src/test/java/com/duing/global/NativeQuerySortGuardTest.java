@@ -97,7 +97,9 @@ class NativeQuerySortGuardTest {
     @DisplayName("리포지토리 스캔은 @RepositoryDefinition 정의·그 하위 인터페이스·프로파일이 붙은 리포지토리까지 찾는다")
     void scanFindsDefinitionsSubInterfacesAndProfiledRepositories() {
         assertThat(repositoryInterfaces()).contains(
-                DefinedRepositoryScanFixture.class, InheritedDefinitionScanFixture.class, ProfiledRepositoryScanFixture.class);
+                DefinedRepositoryScanFixture.class,
+                InheritedDefinitionScanFixture.class,
+                ProfiledRepositoryScanFixture.class);
     }
 
     /**
@@ -142,7 +144,10 @@ class NativeQuerySortGuardTest {
         return nativeQueryMethods;
     }
 
-    /** Sort·Pageable 을 받는 메서드를 {@code 리포지토리#메서드(파라미터 타입)} 로 — 정렬해 실패 메시지를 결정적으로. */
+    /**
+     * Sort·Pageable 을 받는 메서드를 {@code 리포지토리#메서드(파라미터 타입)} 로(상속받은 선언이면 끝에
+     * {@code — <선언 인터페이스> 에 선언}) — 정렬해 실패 메시지를 결정적으로.
+     */
     private static List<String> describeSortable(Collection<RepositoryMethod> nativeQueryMethods) {
         return nativeQueryMethods.stream()
                 .filter(RepositoryMethod::acceptsSorting)
