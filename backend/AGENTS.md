@@ -113,6 +113,7 @@ domain/{도메인}/
 ### 페이지네이션
 
 - 목록 조회는 Spring `Pageable` 사용 (`?page=0&size=20&sort=createdAt,desc`)
+- 네이티브 쿼리(`@NativeQuery`·`@Query(nativeQuery = true)`)에는 `Pageable`·`Sort` 를 넘기지 않는다 — 정렬은 JPQL·QueryDSL 로 하고(클라이언트 정렬값은 `SortWhitelist`), 네이티브는 ORDER BY 를 고정하고 LIMIT·OFFSET 을 바인딩한다. `NativeQuerySortGuardTest` 가 막는다(CVE-2026-47834, #1318)
 - 응답은 `PageResponse<T>` 래퍼로 통일 (`content`, `page`, `size`, `totalElements`, `totalPages`)
 
 ### BaseEntity 표준
