@@ -173,12 +173,16 @@ describe('동아리 상세 트리 — 대표 활동 시드(#1457)', () => {
         // 하이드레이션 직후 한 시점만 보면, 다른 비동기 사건(상세 재요청 성공 등)에 묶인 게이트로 회귀해도 타이밍에 따라 통과한다.
         // 대표 활동 요청이 도착하고 상세 재요청이 반영돼 하단 지원 버튼 잠금이 풀린 뒤까지 이미지가 없는지 본다.
         // 버튼은 이름 대신 하단 바 위치와 잠금 속성으로 찾는다 — 스냅샷 동안의 버튼 이름은 바뀔 수 있다.
-        await waitFor(() => {
-          expect(heroActivitiesRequested).toBe(true);
-          expect(container.querySelector('[data-bottom-bar] button:not([disabled])')).not.toBeNull();
-        });
-        imageShownBeforeResponse = container.querySelector('img[src$="hero-1.jpg"]') !== null;
-        releaseHeroActivities();
+        try {
+          await waitFor(() => {
+            expect(heroActivitiesRequested).toBe(true);
+            expect(container.querySelector('[data-bottom-bar] button:not([disabled])')).not.toBeNull();
+          });
+          imageShownBeforeResponse = container.querySelector('img[src$="hero-1.jpg"]') !== null;
+        } finally {
+          // 대기가 실패해도 붙잡은 응답을 푼다 — 안 풀면 요청이 케이스가 끝난 뒤에도 API 클라이언트 타임아웃(10초)까지 남는다.
+          releaseHeroActivities();
+        }
         await waitFor(() => expect(container.querySelector('img[src$="hero-1.jpg"]')).not.toBeNull());
       },
     });
