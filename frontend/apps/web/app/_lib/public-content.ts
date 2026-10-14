@@ -60,7 +60,7 @@ export const fetchPublicClubDetail = cache(
 
 /**
  * 공개 대표 활동 — 상세 시드의 보조(#1457). 어떤 실패든 null 이다(던지지 않는다) — 페이지는 대표 활동만 시드하지 않고
- * 지금처럼 브라우저 조회(스켈레톤)로 물러난다.
+ * 지금처럼 브라우저 조회(스켈레톤)로 물러난다. 404·410(숨김·없는 동아리)은 상세의 notFound 처럼 경고 없이 강등한다.
  * fail-soft 의 런타임 rethrow 와 다른 정책이다: 재검증 라우트는 revalidatePath 뒤 렌더 없이 응답하고, 첫 렌더는 백엔드
  * warm-up·다음 방문 때 직전본 없이 블로킹으로 돈다 — 여기서 던지면 대표 활동 API 가 복구될 때까지 방문자가 오류 화면을 받는다.
  * 실패한 재생성의 HTML 은 다음 재생성(최대 7일)까지 강등된 채 남는다.
@@ -70,6 +70,7 @@ export const fetchPublicClubHeroActivities = cache(
     try {
       return await client().clubs.heroActivities(clubId);
     } catch (error) {
+      if (error instanceof ApiError && NOT_FOUND_STATUSES.has(error.status)) return null;
       console.warn(`[public-content] 대표 활동 조회 실패 — 시드 없이 강등 (clubId=${clubId})`, error);
       return null;
     }

@@ -16,10 +16,10 @@ type Props = {
 };
 
 // 7일 ISR — 공개 동아리 상세를 초기 HTML 에 담아 크롤러(검색·애드센스)가 본문을 읽게 한다.
-// 서버 HTML 을 바꾸는 변경은 백엔드가 커밋 직후 이 상세의 재생성을 요청한다(/api/internal/revalidate) — 정보·사진·
-// 대표 활동 추가·수정·순서 변경·삭제·회장 변경, 상태 전이·폐쇄, 모집 게시·수정·접수 중단·마감·삭제·총동연 강제 마감,
-// 회장 본인 이름 변경. 쓰기 없이 날짜만으로 바뀌는 모집 표기(시작일·마감 다음 날)와 지원자 수는 매일 00:05(KST) 진행
-// 중이거나 최근 마감한 모집이 있는 동아리만 다시 만든다.
+// 서버 HTML 을 바꾸는 변경은 백엔드가 커밋 직후 이 상세의 재생성을 요청한다(/api/internal/revalidate) — 정보·사진·회장
+// 변경, 대표 활동 추가/수정/순서/삭제, 상태 전이·폐쇄, 모집 게시·수정·접수 중단·마감·삭제·총동연 강제 마감, 회장 본인
+// 이름 변경. 쓰기 없이 날짜만으로 바뀌는 모집 표기(시작일·마감 다음 날)와 지원자 수는 매일 00:05(KST) 진행 중이거나
+// 최근 마감한 모집이 있는 동아리만 다시 만든다.
 // 7일은 그 요청이 빠졌을 때의 상한이다(Hobby Active CPU: 하루 동아리 수 ÷ 7 + 진행 중·최근 마감 모집 동아리 수).
 // 브라우저는 시드(updatedAt 0) 덕에 마운트 때 지금처럼 최신 데이터를 다시 받는다(SeededQuery). 대표 활동도 함께
 // 시드하고(실패하면 그 시드만 빠진다), 이미지는 마운트 재요청이 끝난 뒤 받는다(ClubDetailHeroActivities).
@@ -70,8 +70,6 @@ export default async function Page({ params }: Props) {
   ]);
   const page = <ClubDetailPage clubId={Number(rawClubId)} />;
   if (content.status !== 'found' || clubId === null) return page;
-  // 연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML·RSC 페이로드에 박히면 회장이 공개 범위를 줄여도 재생성 주기(최대 7일)
-  // 동안 캐시에 남고 원문 HTML 을 읽는 수집기가 번호를 가져간다. 마운트 때 재요청(updatedAt 0)이 뷰어 권한대로 채운다.
   const seededPage =
     heroActivities === null ? (
       page
@@ -80,6 +78,8 @@ export default async function Page({ params }: Props) {
         {page}
       </SeededQuery>
     );
+  // 연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML·RSC 페이로드에 박히면 회장이 공개 범위를 줄여도 재생성 주기(최대 7일)
+  // 동안 캐시에 남고 원문 HTML 을 읽는 수집기가 번호를 가져간다. 마운트 때 재요청(updatedAt 0)이 뷰어 권한대로 채운다.
   return (
     <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
       {seededPage}

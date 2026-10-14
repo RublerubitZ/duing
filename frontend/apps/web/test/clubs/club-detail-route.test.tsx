@@ -124,6 +124,16 @@ describe('동아리 상세 라우트 — 대표 활동 시드(#1457)', () => {
     expect(heroState?.dataUpdatedAt).toBe(0);
   });
 
+  it('대표 활동이 0개([])여도 시드한다 — 빈 목록을 실패처럼 건너뛰면 스켈레톤 붕괴(CLS)가 그대로 남는다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue([]);
+    const queryClient = new QueryClient();
+    await renderRoute('4', queryClient);
+    const heroState = queryClient.getQueryState(['clubs', 4, 'hero-activities']);
+    expect(heroState?.data).toEqual([]);
+    expect(heroState?.dataUpdatedAt).toBe(0);
+  });
+
   it('대표 활동이 null(조회 실패)이면 대표 활동만 시드하지 않고 상세는 시드한다', async () => {
     fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
     fetchPublicClubHeroActivitiesMock.mockResolvedValue(null);
@@ -155,18 +165,25 @@ describe('동아리 상세 라우트 — 대표 활동 시드(#1457)', () => {
     expect(queryClient.getQueryData(['clubs', 4, 'hero-activities'])).toEqual(newerActivities);
   });
 
-  it('상세와 대표 활동을 병렬로 조회한다 — 대표 활동 조회가 상세 응답을 기다리지 않는다', async () => {
+  it('상세와 대표 활동을 병렬로 조회한다 — 어느 쪽도 다른 쪽 응답을 기다리지 않는다', async () => {
     let resolveDetail: (value: unknown) => void = () => {};
+    let resolveHero: (value: unknown) => void = () => {};
     fetchPublicClubDetailMock.mockReturnValue(
       new Promise((resolve) => {
         resolveDetail = resolve;
       }),
     );
-    fetchPublicClubHeroActivitiesMock.mockResolvedValue(heroActivities);
+    fetchPublicClubHeroActivitiesMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveHero = resolve;
+      }),
+    );
     const pending = ClubDetailRoute(params('4'));
     await Promise.resolve();
+    expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
     expect(fetchPublicClubHeroActivitiesMock).toHaveBeenCalledWith(4);
     resolveDetail({ status: 'found', data: club() });
+    resolveHero(heroActivities);
     await pending;
   });
 });
