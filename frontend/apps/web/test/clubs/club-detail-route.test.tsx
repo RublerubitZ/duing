@@ -179,9 +179,10 @@ describe('동아리 상세 라우트 — 대표 활동 시드(#1457)', () => {
       }),
     );
     const pending = ClubDetailRoute(params('4'));
-    await Promise.resolve();
-    expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
-    expect(fetchPublicClubHeroActivitiesMock).toHaveBeenCalledWith(4);
+    await vi.waitFor(() => {
+      expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
+      expect(fetchPublicClubHeroActivitiesMock).toHaveBeenCalledWith(4);
+    });
     resolveDetail({ status: 'found', data: club() });
     resolveHero(heroActivities);
     await pending;

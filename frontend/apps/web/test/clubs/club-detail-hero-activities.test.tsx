@@ -99,6 +99,7 @@ describe('ClubDetailHeroActivities', () => {
   it('재요청이 끝나 신선해지면(dataUpdatedAt > 0) 이미지를 붙인다', () => {
     mockHeroQuery({ data: [make(1, 1)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
+    // 2장 = 카드 1개 × 두 레이아웃: 벤토(PC)와 스와이프(모바일)는 CSS(md:)로만 갈려 둘 다 DOM 에 있다.
     expect(container.querySelectorAll('img[src="k1.jpg"]')).toHaveLength(2);
   });
 

@@ -155,6 +155,7 @@ describe('fetchPublicClubHeroActivities', () => {
   // 상세(fail-soft)와 다른 정책 — 보조 섹션이라 런타임에서도 던지지 않는다. 던지면 블로킹 첫 렌더가 오류 화면이 된다.
   it.each([
     ['5xx', new ApiError(503, '점검')],
+    ['타임아웃', new ApiError(0, '시간 초과', undefined, 'TIMEOUT')],
     ['ApiError 가 아닌 예외', new TypeError('fetch failed')],
   ])('실패(%s)는 런타임·빌드 국면 모두 null 로 강등하고 국면마다 경고를 1줄 남긴다', async (_label, error) => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

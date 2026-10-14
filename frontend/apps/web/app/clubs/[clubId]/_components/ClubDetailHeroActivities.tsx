@@ -13,7 +13,7 @@ type Props = { clubId: number };
 
 /**
  * 대표 활동 랜딩 섹션 — 페이지 게이트에 넣지 않는 독립 로딩.
- * 로딩=스켈레톤, 데이터 없음(0개·에러로 데이터 없음)=조용히 미렌더, 시드 뒤 재요청 실패면 시드를 그린다(상세 본문은 정상 유지). 이미지는 쿼리가 신선해진 뒤에만 받는다.
+ * 로딩=스켈레톤, 데이터 없음(0개·에러로 데이터 없음)=조용히 미렌더, 시드 뒤 재요청 실패면 시드를 그린다(상세 본문은 정상 유지). 이미지는 쿼리가 신선해진 뒤에만 받는다(재요청이 끝내 실패하면 시드 URL 로 받는다).
  */
 export function ClubDetailHeroActivities({ clubId }: Props) {
   const heroQuery = useClubHeroActivitiesQuery(clubId);
