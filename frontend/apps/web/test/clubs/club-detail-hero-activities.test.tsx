@@ -17,6 +17,7 @@ type HeroQueryState = {
   data: ClubHeroActivity[] | undefined;
   isLoading: boolean;
   isError: boolean;
+  dataUpdatedAt: number;
 };
 
 function mockHeroQuery(state: HeroQueryState) {
@@ -41,26 +42,26 @@ describe('ClubDetailHeroActivities', () => {
   });
 
   it('로딩 중에는 섹션 자리에 스켈레톤만 보인다(delayed-show)', () => {
-    mockHeroQuery({ data: undefined, isLoading: true, isError: false });
+    mockHeroQuery({ data: undefined, isLoading: true, isError: false, dataUpdatedAt: 0 });
     render(<ClubDetailHeroActivities clubId={1} />);
     expect(screen.getByRole('status', { name: '대표 활동 불러오는 중' })).toBeInTheDocument();
     expect(screen.queryByText('대표 활동')).not.toBeInTheDocument();
   });
 
   it('0개면 섹션을 렌더하지 않는다', () => {
-    mockHeroQuery({ data: [], isLoading: false, isError: false });
+    mockHeroQuery({ data: [], isLoading: false, isError: false, dataUpdatedAt: 0 });
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it('에러면 조용히 미렌더(랜딩 강등)', () => {
-    mockHeroQuery({ data: undefined, isLoading: false, isError: true });
+    mockHeroQuery({ data: undefined, isLoading: false, isError: true, dataUpdatedAt: 0 });
     const { container } = render(<ClubDetailHeroActivities clubId={1} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it('데이터가 있으면 헤더 고정 문구 + 벤토·스와이프 래퍼를 렌더하고, 카드 클릭 시 라이트박스에 제목·설명이 뜬다', () => {
-    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false });
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
     render(<ClubDetailHeroActivities clubId={1} />);
     expect(screen.getByText('대표 활동')).toBeInTheDocument();
     expect(screen.getByText('동아리의 다양한 활동과 분위기를 만나보세요.')).toBeInTheDocument();
@@ -72,19 +73,39 @@ describe('ClubDetailHeroActivities', () => {
   });
 
   it('로딩을 거쳐 데이터가 오면 섹션에 enter-content 를 건다', () => {
-    mockHeroQuery({ data: undefined, isLoading: true, isError: false });
+    mockHeroQuery({ data: undefined, isLoading: true, isError: false, dataUpdatedAt: 0 });
     const { rerender } = render(<ClubDetailHeroActivities clubId={1} />);
 
-    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false });
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
     rerender(<ClubDetailHeroActivities clubId={1} />);
 
     expect(screen.getByRole('heading', { name: '대표 활동' }).closest('section')).toHaveClass('enter-content');
   });
 
   it('처음부터 데이터가 있으면(캐시 재방문) enter-content 를 걸지 않는다', () => {
-    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false });
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
     render(<ClubDetailHeroActivities clubId={1} />);
 
     expect(screen.getByRole('heading', { name: '대표 활동' }).closest('section')).not.toHaveClass('enter-content');
+  });
+
+  it('시드(dataUpdatedAt 0)로 그리는 동안은 카드 틀·제목만 있고 이미지는 받지 않는다', () => {
+    mockHeroQuery({ data: [make(1, 1), make(2, 2)], isLoading: false, isError: false, dataUpdatedAt: 0 });
+    const { container } = render(<ClubDetailHeroActivities clubId={1} />);
+    expect(screen.getAllByText('활동1').length).toBeGreaterThan(0);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.queryByText('사진을 선택하세요')).not.toBeInTheDocument();
+  });
+
+  it('재요청이 끝나 신선해지면(dataUpdatedAt > 0) 이미지를 붙인다', () => {
+    mockHeroQuery({ data: [make(1, 1)], isLoading: false, isError: false, dataUpdatedAt: 1_000 });
+    const { container } = render(<ClubDetailHeroActivities clubId={1} />);
+    expect(container.querySelector('img[src="k1.jpg"]')).not.toBeNull();
+  });
+
+  it('시드 뒤 재요청이 실패하면(isError) 시드 URL 로 이미지를 붙인다', () => {
+    mockHeroQuery({ data: [make(1, 1)], isLoading: false, isError: true, dataUpdatedAt: 0 });
+    const { container } = render(<ClubDetailHeroActivities clubId={1} />);
+    expect(container.querySelector('img[src="k1.jpg"]')).not.toBeNull();
   });
 });

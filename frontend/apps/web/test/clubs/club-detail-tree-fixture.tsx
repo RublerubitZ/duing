@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, clubQueryKeys, todayKstDateString } from '@duing/hooks';
-import type { ClubDetail } from '@duing/types';
+import type { ClubDetail, ClubHeroActivity } from '@duing/types';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 import { ClubDetailPage } from '@/app/clubs/[clubId]/_pages/ClubDetailPage';
 
-// 동아리 상세 트리 서버 렌더·하이드레이션 회귀가 함께 쓰는 운영형 픽스처(HTML 소개·모집 중).
+// 동아리 상세 트리 서버 렌더·하이드레이션 회귀가 함께 쓰는 운영형 픽스처(HTML 소개·모집 중, 대표 활동 시드는 옵션).
 // 쓰는 테스트는 next/navigation 을 vi.mock 해야 한다 — 상세 트리가 라우터 훅을 부른다.
 export const clubDetail: ClubDetail = {
   id: 1,
@@ -77,10 +77,18 @@ export const clubDetail: ClubDetail = {
   },
 };
 
+export type SeededTreeOptions = {
+  /** 있으면 page.tsx 처럼 대표 활동도 updatedAt 0 으로 시드한다(#1457). 없으면 대표 활동 시드가 빠진(강등) 트리다. */
+  heroActivities?: ClubHeroActivity[];
+};
+
 /** page.tsx 처럼 상세를 updatedAt 0 으로 시드한 상세 트리 전체 — 부를 때마다 새 캐시라 서버·브라우저 렌더를 따로 흉내 낸다. */
-export function seededClubDetailTree() {
+export function seededClubDetailTree(options: SeededTreeOptions = {}) {
   const queryClient = new QueryClient();
   queryClient.setQueryData(clubQueryKeys.detail(1), clubDetail, { updatedAt: 0 });
+  if (options.heroActivities !== undefined) {
+    queryClient.setQueryData(clubQueryKeys.heroActivities(1), options.heroActivities, { updatedAt: 0 });
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={createApiClient({ baseUrl: 'http://localhost:8080/api/v1' })}>

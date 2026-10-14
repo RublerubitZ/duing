@@ -13,7 +13,7 @@ type Props = { clubId: number };
 
 /**
  * 대표 활동 랜딩 섹션 — 페이지 게이트에 넣지 않는 독립 로딩.
- * 로딩=스켈레톤, 0개/에러=조용히 미렌더(상세 본문은 정상 유지).
+ * 로딩=스켈레톤, 데이터 없음(0개·에러로 데이터 없음)=조용히 미렌더, 시드 뒤 재요청 실패면 시드를 그린다(상세 본문은 정상 유지). 이미지는 쿼리가 신선해진 뒤에만 받는다.
  */
 export function ClubDetailHeroActivities({ clubId }: Props) {
   const heroQuery = useClubHeroActivitiesQuery(clubId);
@@ -40,6 +40,9 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
 
   const heroActivities = heroQuery.data ?? [];
   if (heroActivities.length === 0) return null; // 0개·에러 공통 — 랜딩은 조용히 강등.
+  // 이미지는 이 쿼리가 신선해진 뒤에만 받는다 — ISR 시드(dataUpdatedAt 0)로 그리는 동안(서버 HTML·하이드레이션 첫 프레임)
+  // 받으면 지원 버튼 잠금을 푸는 상세 재요청과 대역폭을 나눠 쓴다. 재요청이 끝내 실패하면 시드 URL 로 붙인다(#1457).
+  const showImages = heroQuery.dataUpdatedAt > 0 || heroQuery.isError;
 
   const slides: LightboxSlide[] = heroActivities.map((activity) => ({
     id: activity.id,
@@ -55,10 +58,10 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
         <span className="text-[13px] text-charcoal-3">동아리의 다양한 활동과 분위기를 만나보세요.</span>
       </div>
       <div className="hidden md:block">
-        <ClubHeroBento heroActivities={heroActivities} onOpen={setLightboxIndex} />
+        <ClubHeroBento heroActivities={heroActivities} showImages={showImages} onOpen={setLightboxIndex} />
       </div>
       <div className="md:hidden">
-        <ClubHeroSwipe heroActivities={heroActivities} onOpen={setLightboxIndex} />
+        <ClubHeroSwipe heroActivities={heroActivities} showImages={showImages} onOpen={setLightboxIndex} />
       </div>
       <PhotoLightbox
         slides={slides}
