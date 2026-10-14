@@ -49,11 +49,11 @@ export function useClubApply(
 
   const status = recruitment?.displayStatus;
   const isSnapshot = detailCheck.checkedAt === 0;
-  const canApply = !isSnapshot && (status === 'OPEN' || status === 'ALWAYS_OPEN');
+  const isOpenStatus = status === 'OPEN' || status === 'ALWAYS_OPEN';
+  const canApply = !isSnapshot && isOpenStatus;
   // 스냅샷이라 잠근 것뿐인 지원 가능 모집 — 확인되면 열릴 수 있다. 확인이 실패하지 않은 동안 버튼에 확인 중 스피너를 둔다(#1456).
-  // 마감·예정·모집 없음은 제목이 이미 잠긴 이유를 말하므로 제외한다. 서버 HTML·하이드레이션 첫 프레임 모두 시드(updatedAt 0)라 같다.
-  const awaitingCheck =
-    isSnapshot && !detailCheck.checkFailed && (status === 'OPEN' || status === 'ALWAYS_OPEN');
+  // 마감·예정·모집 없음은 카드 제목·하단 바 좌측 라벨이 이미 잠긴 이유를 말하므로 제외한다. 서버 HTML·하이드레이션 첫 프레임 모두 시드(updatedAt 0)라 같다.
+  const awaitingCheck = isSnapshot && !detailCheck.checkFailed && isOpenStatus;
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
 

@@ -107,7 +107,7 @@ export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Pro
             ) : isAlreadyMember ? (
               '이미 소속된 동아리예요'
             ) : awaitingCheck ? (
-              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다.
+              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다(확인 성공 뒤 화살표가 붙으며 생기는 이동은 별개).
               // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late).
               <span className="relative inline-flex items-center">
                 <span

@@ -380,6 +380,7 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
         const button = screen.getByRole('button', { name: buttonName });
         const spinnerStatus = within(button).getByRole('status', { name: '모집 정보 확인 중' });
         expect(spinnerStatus).toHaveClass('delayed-show-late', 'absolute', 'right-full');
+        expect(spinnerStatus.parentElement).toHaveClass('relative');
         expect(spinnerStatus.querySelector('svg')).not.toHaveClass('delayed-show-late');
         expect(button).toHaveTextContent(label);
         expect(button).toBeDisabled();
