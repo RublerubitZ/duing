@@ -78,6 +78,7 @@
 - 버그 수정/기능 추가 시 반드시 테스트 추가
 - TestContainers 사용 — Docker 실행 상태 필요
 - 테스트 데이터는 Fixture Monkey 또는 `common/fixture/`의 static 메서드로 생성한다
+- 잡(`@Scheduled`) 테스트는 크론 발화에 기대지 않고 잡 메서드를 직접 호출한다 — 공유 DB 테스트 컨텍스트(`TestcontainersConfiguration`)의 스케줄러는 크론을 등록만 하고 실행하지 않는다(#1442)
 - `@DisplayName`은 메서드명 금지, 요구사항을 파악할 수 있는 문장으로 작성한다
   - 좋은 예: `"모집 중인 동아리만 필터링되어 반환된다"`, `"이미 지원한 동아리에 재지원하면 예외가 발생한다"`
   - 나쁜 예: `"findClubs - 모집 중 필터 동작"`, `"applyClub은 중복 지원 방지"`

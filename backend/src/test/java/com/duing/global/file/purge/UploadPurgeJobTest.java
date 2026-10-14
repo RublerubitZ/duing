@@ -46,8 +46,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  * <p>이슈 #791 테스트 케이스 4 "이미 삭제된 객체 처리 멱등성" 은 별도 케이스가 아니다 — S3/Local 구현 계약상
  * 미존재 키 delete 도 true(삭제 확정)이므로 정상 경로(mock delete→true)와 동형이다.
  *
- * <p>컨텍스트는 enabled=true 라 @EnableScheduling 이 켜져 매시 :20 에 실제 크론이 돌 수 있다 — delete-enabled=false
- * (dry-run)라 로그만 남기므로 테스트 결과에 영향이 없다.
+ * <p>컨텍스트는 enabled=true 라 @EnableScheduling 이 켜지지만, 테스트 스케줄러({@link TestcontainersConfiguration})는
+ * 크론을 등록만 하고 실행하지 않는다(#1442) — 잡은 테스트가 직접 호출할 때만 돈다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = {
