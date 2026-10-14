@@ -3,9 +3,15 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClubDetail } from '@duing/types';
 
-const { fetchPublicClubDetailMock } = vi.hoisted(() => ({ fetchPublicClubDetailMock: vi.fn() }));
+const { fetchPublicClubDetailMock, fetchPublicClubHeroActivitiesMock } = vi.hoisted(() => ({
+  fetchPublicClubDetailMock: vi.fn(),
+  fetchPublicClubHeroActivitiesMock: vi.fn(),
+}));
 
-vi.mock('@/app/_lib/public-content', () => ({ fetchPublicClubDetail: fetchPublicClubDetailMock }));
+vi.mock('@/app/_lib/public-content', () => ({
+  fetchPublicClubDetail: fetchPublicClubDetailMock,
+  fetchPublicClubHeroActivities: fetchPublicClubHeroActivitiesMock,
+}));
 
 // 클라이언트 트리 대신 캐시에 심긴 상세(이름·dataUpdatedAt)를 그대로 보여 주는 탐침.
 vi.mock('@/app/clubs/[clubId]/_pages/ClubDetailPage', async () => {
@@ -41,6 +47,8 @@ async function renderRoute(clubId: string, queryClient = new QueryClient()) {
 
 beforeEach(() => {
   fetchPublicClubDetailMock.mockReset();
+  fetchPublicClubHeroActivitiesMock.mockReset();
+  fetchPublicClubHeroActivitiesMock.mockResolvedValue(null);
 });
 
 describe('동아리 상세 라우트 — 7일 ISR', () => {
@@ -88,6 +96,96 @@ describe('동아리 상세 라우트 — 7일 ISR', () => {
   it('형식이 틀린 id 는 조회하지 않는다', async () => {
     await expect(renderRoute('042')).resolves.toBe('no-seed');
     expect(fetchPublicClubDetailMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('동아리 상세 라우트 — 대표 활동 시드(#1457)', () => {
+  const heroActivities = [
+    {
+      id: 1,
+      clubPhotoId: 1,
+      storageKey: 'k1.jpg',
+      caption: null,
+      width: null,
+      height: null,
+      title: '정기 공연',
+      description: '매 학기 무대',
+      displayOrder: 1,
+    },
+  ];
+
+  it('대표 활동을 dataUpdatedAt 0 으로 함께 시드한다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue(heroActivities);
+    const queryClient = new QueryClient();
+    await renderRoute('4', queryClient);
+    const heroState = queryClient.getQueryState(['clubs', 4, 'hero-activities']);
+    expect(heroState?.data).toEqual(heroActivities);
+    expect(heroState?.dataUpdatedAt).toBe(0);
+  });
+
+  it('대표 활동이 0개([])여도 시드한다 — 빈 목록을 실패처럼 건너뛰면 스켈레톤 붕괴(CLS)가 그대로 남는다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue([]);
+    const queryClient = new QueryClient();
+    await renderRoute('4', queryClient);
+    const heroState = queryClient.getQueryState(['clubs', 4, 'hero-activities']);
+    expect(heroState?.data).toEqual([]);
+    expect(heroState?.dataUpdatedAt).toBe(0);
+  });
+
+  it('대표 활동이 null(조회 실패)이면 대표 활동만 시드하지 않고 상세는 시드한다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue(null);
+    const queryClient = new QueryClient();
+    await expect(renderRoute('4', queryClient)).resolves.toBe('비호상록회|0');
+    expect(queryClient.getQueryState(['clubs', 4, 'hero-activities'])).toBeUndefined();
+  });
+
+  it.each(['notFound', 'unavailable'] as const)('상세가 %s 면 대표 활동이 와도 시드하지 않는다', async (status) => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue(heroActivities);
+    const queryClient = new QueryClient();
+    await renderRoute('4', queryClient);
+    expect(queryClient.getQueryState(['clubs', 4, 'hero-activities'])).toBeUndefined();
+  });
+
+  it('형식이 틀린 id 면 대표 활동도 조회하지 않는다', async () => {
+    await renderRoute('042');
+    expect(fetchPublicClubHeroActivitiesMock).not.toHaveBeenCalled();
+  });
+
+  it('캐시에 이미 있는 대표 활동은 덮어쓰지 않는다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club() });
+    fetchPublicClubHeroActivitiesMock.mockResolvedValue(heroActivities);
+    const queryClient = new QueryClient();
+    const newerActivities = [{ ...heroActivities[0]!, title: '최신 제목' }];
+    queryClient.setQueryData(['clubs', 4, 'hero-activities'], newerActivities, { updatedAt: Date.now() - 60_000 });
+    await renderRoute('4', queryClient);
+    expect(queryClient.getQueryData(['clubs', 4, 'hero-activities'])).toEqual(newerActivities);
+  });
+
+  it('상세와 대표 활동을 병렬로 조회한다 — 어느 쪽도 다른 쪽 응답을 기다리지 않는다', async () => {
+    let resolveDetail: (value: unknown) => void = () => {};
+    let resolveHero: (value: unknown) => void = () => {};
+    fetchPublicClubDetailMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDetail = resolve;
+      }),
+    );
+    fetchPublicClubHeroActivitiesMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveHero = resolve;
+      }),
+    );
+    const pending = ClubDetailRoute(params('4'));
+    await vi.waitFor(() => {
+      expect(fetchPublicClubDetailMock).toHaveBeenCalledWith(4);
+      expect(fetchPublicClubHeroActivitiesMock).toHaveBeenCalledWith(4);
+    });
+    resolveDetail({ status: 'found', data: club() });
+    resolveHero(heroActivities);
+    await pending;
   });
 });
 

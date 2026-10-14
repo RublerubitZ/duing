@@ -2,15 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClubSummary, NoticeCardItem, PageResponse } from '@duing/types';
 
 // createApiClient 만 모킹하고 ApiError 는 실제 클래스를 쓴다 — 실패 정책이 instanceof 로 상태를 가른다.
-const { createApiClientMock, clubsDetailMock, clubsListMock, noticesDetailMock, noticesListMock } = vi.hoisted(
-  () => ({
-    createApiClientMock: vi.fn(),
-    clubsDetailMock: vi.fn(),
-    clubsListMock: vi.fn(),
-    noticesDetailMock: vi.fn(),
-    noticesListMock: vi.fn(),
-  }),
-);
+const {
+  createApiClientMock,
+  clubsDetailMock,
+  clubsListMock,
+  clubsHeroActivitiesMock,
+  noticesDetailMock,
+  noticesListMock,
+} = vi.hoisted(() => ({
+  createApiClientMock: vi.fn(),
+  clubsDetailMock: vi.fn(),
+  clubsListMock: vi.fn(),
+  clubsHeroActivitiesMock: vi.fn(),
+  noticesDetailMock: vi.fn(),
+  noticesListMock: vi.fn(),
+}));
 
 vi.mock('@duing/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@duing/api')>();
@@ -22,6 +28,7 @@ import { ApiError } from '@duing/api';
 import {
   fetchActiveClubIds,
   fetchPublicClubDetail,
+  fetchPublicClubHeroActivities,
   fetchPublicClubList,
   fetchPublicNoticeDetail,
   fetchPublicNoticeIds,
@@ -60,10 +67,11 @@ beforeEach(() => {
   createApiClientMock.mockReset();
   clubsDetailMock.mockReset();
   clubsListMock.mockReset();
+  clubsHeroActivitiesMock.mockReset();
   noticesDetailMock.mockReset();
   noticesListMock.mockReset();
   createApiClientMock.mockReturnValue({
-    clubs: { detail: clubsDetailMock, list: clubsListMock },
+    clubs: { detail: clubsDetailMock, list: clubsListMock, heroActivities: clubsHeroActivitiesMock },
     notices: { detail: noticesDetailMock, list: noticesListMock },
   });
 });
@@ -126,6 +134,53 @@ describe('fetchPublicClubDetail', () => {
 
     stubPhase('production', 'phase-production-build');
     await expect(fetchPublicClubDetail(4)).resolves.toEqual({ status: 'unavailable' });
+  });
+});
+
+describe('fetchPublicClubHeroActivities', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('대표 활동 목록을 그대로 돌려준다', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const heroActivities = [{ id: 1, title: '정기 공연' }];
+    clubsHeroActivitiesMock.mockResolvedValue(heroActivities);
+
+    await expect(fetchPublicClubHeroActivities(4)).resolves.toEqual(heroActivities);
+    expect(clubsHeroActivitiesMock).toHaveBeenCalledWith(4);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  // 상세(fail-soft)와 다른 정책 — 보조 섹션이라 런타임에서도 던지지 않는다. 던지면 블로킹 첫 렌더가 오류 화면이 된다.
+  it.each([
+    ['5xx', new ApiError(503, '점검')],
+    ['타임아웃', new ApiError(0, '시간 초과', undefined, 'TIMEOUT')],
+    ['ApiError 가 아닌 예외', new TypeError('fetch failed')],
+  ])('실패(%s)는 런타임·빌드 국면 모두 null 로 강등하고 국면마다 경고를 1줄 남긴다', async (_label, error) => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    clubsHeroActivitiesMock.mockRejectedValue(error);
+
+    stubPhase('production');
+    await expect(fetchPublicClubHeroActivities(4)).resolves.toBeNull();
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubHeroActivities(4)).resolves.toBeNull();
+
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+    expect(String(warnSpy.mock.calls[0]?.[0])).toMatch(/^\[public-content\] 대표 활동 조회 실패 — 시드 없이 강등/);
+  });
+
+  // 404·410 은 숨김·없는 동아리의 정상 결과다(상세의 notFound 와 같은 판정) — 경고하면 진짜 장애 신호가 묻힌다.
+  it.each([404, 410])('%i 는 런타임·빌드 국면 모두 경고 없이 null 로 강등한다', async (status) => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    clubsHeroActivitiesMock.mockRejectedValue(new ApiError(status, '없음'));
+
+    stubPhase('production');
+    await expect(fetchPublicClubHeroActivities(4)).resolves.toBeNull();
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicClubHeroActivities(4)).resolves.toBeNull();
+
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 

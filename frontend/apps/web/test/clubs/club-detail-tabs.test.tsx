@@ -221,6 +221,7 @@ describe('ClubDetailTabs', () => {
       data: [makeHero(1, 1)],
       isLoading: false,
       isError: false,
+      dataUpdatedAt: 1_000,
     });
     render(
       <ClubDetailTabs

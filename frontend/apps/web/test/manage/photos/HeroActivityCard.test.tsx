@@ -66,6 +66,25 @@ describe('HeroActivityCard', () => {
     render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" size="big" />);
     expect(screen.getByText('데모데이').className).toContain('text-[22px]');
   });
+
+  it('showImage=false 면 이미지를 그리지 않고 제목·설명은 그린다(상세의 ISR 시드 동안)', () => {
+    const { container } = render(
+      <HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" showImage={false} />,
+    );
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('데모데이')).toBeInTheDocument();
+    expect(screen.getByText('설명')).toBeInTheDocument();
+  });
+
+  it('showImage=false 면 사진이 없어도 "사진을 선택하세요" 를 그리지 않는다', () => {
+    render(<HeroActivityCard imageUrl={null} title="데모데이" description="설명" showImage={false} />);
+    expect(screen.queryByText('사진을 선택하세요')).not.toBeInTheDocument();
+  });
+
+  it('showImage 를 넘기지 않으면 지금처럼 이미지를 그린다(콘솔 화면 호환)', () => {
+    const { container } = render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" />);
+    expect(container.querySelector('img[src="a.jpg"]')).not.toBeNull();
+  });
 });
 
 describe('HeroActivityEditor (신규 슬롯)', () => {
