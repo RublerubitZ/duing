@@ -67,6 +67,24 @@ duing/
   - QueryDSL 보안 PR 이 7.x 를 제안하면 머지하지 않고 닫는다 — 7.x 는 Hibernate 7(Boot 4) 전용이다. 알림은 dismiss 하지 않고 노출 경로를 평가해, 필요하면 Boot 4 전환을 앞당긴다
   - 프론트 Radix(`@radix-ui/*`)는 버전 업데이트를 받지 않는다(ignore) — 터치 드롭다운 클릭 관통 회귀(#1331)가 해결되면 ignore 를 지운다. Radix 보안 PR 은 #1331 의 터치 QA(390 폭, 메뉴 4곳)를 거친 뒤 머지한다
   - 프론트 `next-view-transitions` 는 `frontend/patches` 로 패치해 쓰므로 버전 업데이트를 받지 않는다(ignore) — 올릴 때는 새 버전에 `pnpm patch` 를 다시 만들고 `test/lib/view-transitions-popstate-patch.test.tsx` 로 확인한다. 보안 PR 은 패치 미적용으로 설치가 실패하므로 같은 절차로 직접 올린다
+- **릴리스 게이트에서 직전 릴리스 뒤의 spring.io 권고를 직접 대조한다**(#1318) — 프론트 단독 릴리스도 돌린다(기준점이 직전 릴리스라 건너뛰면 그 사이 권고가 빈다)
+  - 왜: spring.io 권고는 GitHub 에 대개 패키지 범위 없이(unreviewed) 올라 Dependabot·OSV 로 잡히지 않고, 리뷰돼 알림이 와도 몇 주 늦다(8/20 권고 → 10/7·10/12 알림 #5·#11). Spring 3.5 줄(Boot 3.5·Framework 6.2·Security 6.5·Data JPA/Commons 3.5·Micrometer 1.15·Retry 2.0)은 OSS 지원도 끝나(2026-06-30) 수정판이 Enterprise 전용이다
+  - 목록(직전 릴리스 7일 전부터, 마지막 열 = 영향 버전 범위 `도입~마지막 영향`):
+
+    ```sh
+    git fetch -q origin main && curl -fsS https://spring.io/page-data/security/page-data.json |
+      LC_ALL=C jq -r --arg since "$(git log -1 --format=%cs origin/main)" '
+        .result.data.cves.nodes[].fields
+        | select(.projectSlug | IN("spring-boot","spring-framework","spring-security","spring-data-jpa","spring-data-commons","spring-retry","micrometer"))
+        | select(.slug == "cve-2026-47834" or ((.publishedAt | strptime("%B %d, %Y") | mktime) >= (($since | strptime("%Y-%m-%d") | mktime) - 7*86400)))
+        | "\(.publishedAt)\t\(.severity)\t\(.project)\t\(.slug)\t\(.affected | fromjson | .versions | map("\(.introduced // "?")~\(."last-affected")") | join(" "))"'
+    ```
+
+  - `cve-2026-47834` 줄은 기준 행이다 — 없으면 받기 실패이거나 피드 형식이 바뀐 것이라 결과를 믿지 않는다. 그 줄을 뺀 나머지가 대조 대상이다
+  - 7일을 겹쳐 보는 이유: `publishedAt` 은 시각 없는 미국 날짜이고, 게이트 실행과 배포 사이에도 틈이 있다
+  - 판정: 우리 버전이 영향 범위인가 → 권고의 전제 조건이 코드에 있는가 → 도달할 수 있으면 이슈를 연다. 권고 원문은 `https://spring.io/security/<slug>`
+  - 프로젝트 목록은 운영 의존성의 Spring 계열이다 — 새 Spring 프로젝트를 들이면 목록과 위 버전 줄에 넣는다
+  - 네이티브 쿼리 메서드가 `Sort`·`Pageable` 을 받는 조합(CVE-2026-47834)은 `NativeQuerySortGuardTest` 가 막는다
 - 백엔드 의존성은 `dependency-submission.yml` 이 develop 의 빌드 파일 변경 때 dependency graph 에 제출한다(운영 runtimeClasspath 만)
 - **squash 머지 때 제목을 한국어 Conventional Commits 로 고친다** — 예: `chore(backend): 의존성 월간 업데이트 — jsoup 1.23.3 외 2건 (#N)`. 봇 PR 본문은 그대로 둔다
 - **Dependabot PR 은 90일 안에 머지하거나 닫는다** — 무반응이 90일을 넘으면 Dependabot 이 버전·보안 업데이트를 모두 멈춘다
