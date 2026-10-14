@@ -6,15 +6,17 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 // delayed-show(·-late)와 animate-* 는 둘 다 animation 축약이라 한 요소에 함께 걸면 CSS 에서 뒤에 오는 쪽만 남는다.
-// 빌드 CSS 는 .delayed-show 가 뒤라 펄스가 꺼진 채 정지한 상자로 남는다(대표 활동 스켈레톤, #1463).
+// 빌드 CSS 는 접두사 없는 animate-* 보다 .delayed-show 가 뒤라 펄스가 꺼진 채 정지한 상자로 남는다(대표 활동 스켈레톤, #1463).
 // className 속성 하나의 값 하위 트리(문자열·템플릿·cn(...) 인자)에 있는 문자열 조각을 모두 모아 함께 걸렸는지 본다.
-// className prop 으로 컴포넌트 경계를 넘어 합쳐지는 조합은 보지 않는다.
+// 변수로 건넨 클래스(className={cls})·*ClassName prop·다른 animation 축약 클래스(enter-content·enter-stagger)·컴포넌트 경계를
+// 넘는 조합은 보지 않는다. 특히 className 을 자기 애니메이션 요소에 붙이는 컴포넌트(TextLinesSkeleton·ListRowsSkeleton·
+// Spinner)에 className="delayed-show" 를 건네는 것이 가장 그럴듯한 재발 경로다 — 그때도 지연은 래퍼에 둔다.
 const WEB_ROOT = resolve(__dirname, '../..');
 const SCANNED_DIRS = ['app', 'components'];
-// 접두사 변형(motion-safe:·md:·[&>*]: 등)·important(!) 포함 — animate-none 은 끄는 쪽이라 충돌이 아니다.
+// 같은 요소에 걸리는 접두사 변형(md:·group-hover:·data-[state=open]: 등)·important(!) 포함 — animate-none 은 끄는 쪽이라 충돌이 아니다.
 const ANIMATION_UTILITY = /(?:^|:)!?animate-(?!none$)/;
 const FIX_HINT =
-  'delayed-show(·-late)와 animate-* 를 한 요소에 걸면 animation 축약끼리 덮어써 애니메이션이 꺼진다 — ' +
+  'delayed-show(·-late)와 animate-* 를 한 요소에 걸면 animation 축약끼리 덮어써 한쪽이 꺼진다(CSS 에서 뒤에 오는 쪽만 남는다) — ' +
   '지연은 래퍼에, 애니메이션은 안쪽 요소에 둔다(ClubDetailSkeleton 과 같은 규약, #1463)';
 
 type ClassNameScan = { classNameAttributeCount: number; conflictLines: number[] };
@@ -76,7 +78,10 @@ describe('animation 축약 충돌(delayed-show × animate-*) 회귀 가드', () 
     // 파일을 하나도 못 읽거나 className 을 못 찾고 통과하는 일이 없게 한다.
     expect(fileScans.length).toBeGreaterThan(0);
     expect(fileScans.some((fileScan) => fileScan.classNameAttributeCount > 0)).toBe(true);
-    const conflicts = fileScans.flatMap(({ file, conflictLines }) => conflictLines.map((line) => `${file}:${line}`));
+    // 파일 순서는 파일시스템마다 달라 여러 건일 때 실패 메시지가 흔들리지 않게 정렬한다.
+    const conflicts = fileScans
+      .flatMap(({ file, conflictLines }) => conflictLines.map((line) => `${file}:${line}`))
+      .sort();
     expect(conflicts, FIX_HINT).toEqual([]);
   });
 });
