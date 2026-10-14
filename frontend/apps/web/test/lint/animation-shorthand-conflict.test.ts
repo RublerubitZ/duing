@@ -6,17 +6,21 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 // delayed-show(·-late)와 animate-* 는 둘 다 animation 축약이라 한 요소에 함께 걸면 CSS 에서 뒤에 오는 쪽만 남는다.
-// 빌드 CSS 는 접두사 없는 animate-* 보다 .delayed-show 가 뒤라 펄스가 꺼진 채 정지한 상자로 남는다(대표 활동 스켈레톤, #1463).
+// Tailwind 가 만든 접두사 없는 animate-*(utilities 레이어)는 빌드 CSS 에서 .delayed-show 보다 앞이라 펄스가 꺼진 채 정지한
+// 상자로 남는다(대표 활동 스켈레톤, #1463). globals.css 에서 .delayed-show 뒤에 둔 .animate-spin-slow·.animate-heart-pop 은
+// 반대로 지연이 사라진다.
 // className 속성 하나의 값 하위 트리(문자열·템플릿·cn(...) 인자)에 있는 문자열 조각을 모두 모아 함께 걸렸는지 본다.
 // 변수로 건넨 클래스(className={cls})·*ClassName prop·다른 animation 축약 클래스(enter-content·enter-stagger)·컴포넌트 경계를
 // 넘는 조합은 보지 않는다. 특히 className 을 자기 애니메이션 요소에 붙이는 컴포넌트(TextLinesSkeleton·ListRowsSkeleton·
 // Spinner)에 className="delayed-show" 를 건네는 것이 가장 그럴듯한 재발 경로다 — 그때도 지연은 래퍼에 둔다.
 const WEB_ROOT = resolve(__dirname, '../..');
 const SCANNED_DIRS = ['app', 'components'];
-// 같은 요소에 걸리는 접두사 변형(md:·group-hover:·data-[state=open]: 등)·important(!) 포함 — animate-none 은 끄는 쪽이라 충돌이 아니다.
-const ANIMATION_UTILITY = /(?:^|:)!?animate-(?!none$)/;
+// 같은 요소에 걸리는 접두사 변형(md:·group-hover:·data-[state=open]: 등)·important(!) 포함. animate-none 도 예외가 아니다 —
+// 변형은 빌드 CSS 끝(.delayed-show 뒤)에 붙어, 같은 요소의 motion-reduce:animate-none 은 동작 줄이기 설정에서 지연까지 지운다
+// (접두사 없는 animate-none 은 .delayed-show 보다 앞이라 효과가 없다).
+const ANIMATION_UTILITY = /(?:^|:)!?animate-/;
 const FIX_HINT =
-  'delayed-show(·-late)와 animate-* 를 한 요소에 걸면 animation 축약끼리 덮어써 한쪽이 꺼진다(CSS 에서 뒤에 오는 쪽만 남는다) — ' +
+  'delayed-show(·-late)와 animate-*(animate-none 포함)를 한 요소에 걸면 animation 축약끼리 덮어써 한쪽이 꺼진다(CSS 에서 뒤에 오는 쪽만 남는다) — ' +
   '지연은 래퍼에, 애니메이션은 안쪽 요소에 둔다(ClubDetailSkeleton 과 같은 규약, #1463)';
 
 type ClassNameScan = { classNameAttributeCount: number; conflictLines: number[] };
@@ -56,7 +60,7 @@ const SCANNED_FILES = SCANNED_DIRS.flatMap((scannedDir) =>
 );
 
 describe('animation 축약 충돌(delayed-show × animate-*) 회귀 가드', () => {
-  it('className 하나의 문자열·cn(...) 인자·템플릿에서 접두사 변형까지 찾고, animate-none·래퍼 분리는 넘긴다', () => {
+  it('className 하나의 문자열·cn(...) 인자·템플릿에서 접두사 변형·animate-none 까지 찾고, 래퍼 분리는 넘긴다', () => {
     const source = [
       'export const views = [',
       '  <div className="delayed-show mb-10 animate-pulse" />,',
@@ -67,7 +71,7 @@ describe('animation 축약 충돌(delayed-show × animate-*) 회귀 가드', () 
       '];',
       '',
     ].join('\n');
-    expect(scanClassNames(source, 'sample.tsx')).toEqual({ classNameAttributeCount: 6, conflictLines: [2, 3, 4] });
+    expect(scanClassNames(source, 'sample.tsx')).toEqual({ classNameAttributeCount: 6, conflictLines: [2, 3, 4, 5] });
   });
 
   it('app·components 의 className 에 delayed-show 와 animate-* 를 함께 걸지 않는다', () => {
