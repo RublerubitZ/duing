@@ -32,6 +32,7 @@ export type ClubDetailCheck = {
  *   먼저 확인한 뒤 지원 페이지로 이동한다(부적격이면 토스트로 사유를 알리고 머무른다).
  * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(detailCheck.checkedAt > 0). ISR 스냅샷의 모집 상태는 재생성 주기만큼
  *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다.
+ * - ISR 스냅샷으로 잠근 지원 가능 모집은 awaitingCheck 로 알려 버튼이 확인 중 스피너를 두게 한다.
  * - 외부 폼은 확인한 지 모집 축 신선도(CALENDAR_STALE_TIME_MS)보다 오래된 상세로 열지 않는다 — 누르면 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다.
  *   일반 폼은 클릭 때 서버 자격 확인이 마감을 막지만, 외부 폼은 그 확인이 없다.
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
@@ -49,6 +50,10 @@ export function useClubApply(
   const status = recruitment?.displayStatus;
   const isSnapshot = detailCheck.checkedAt === 0;
   const canApply = !isSnapshot && (status === 'OPEN' || status === 'ALWAYS_OPEN');
+  // 스냅샷이라 잠근 것뿐인 지원 가능 모집 — 확인되면 열릴 수 있다. 확인이 실패하지 않은 동안 버튼에 확인 중 스피너를 둔다(#1456).
+  // 마감·예정·모집 없음은 제목이 이미 잠긴 이유를 말하므로 제외한다. 서버 HTML·하이드레이션 첫 프레임 모두 시드(updatedAt 0)라 같다.
+  const awaitingCheck =
+    isSnapshot && !detailCheck.checkFailed && (status === 'OPEN' || status === 'ALWAYS_OPEN');
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
 
@@ -109,5 +114,12 @@ export function useClubApply(
       ? '지원 자격 확인 중'
       : null;
 
-  return { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId };
+  return {
+    canApply,
+    awaitingCheck,
+    handleApply,
+    applyButtonLabel,
+    pendingLabel,
+    existingApplicationId,
+  };
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { todayKstDateString } from '@duing/hooks/datetime';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
@@ -105,6 +105,13 @@ function mockMyApplications(applications: ApplicationSummary[]) {
 // 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
 const checkedNow = (): ClubDetailCheck => ({
   checkedAt: Date.now(),
+  checkFailed: false,
+  recheck: async () => true,
+});
+
+// ISR 스냅샷 — 이 브라우저가 아직 상세를 받지 못했다(버튼은 잠긴다).
+const snapshotCheck = (): ClubDetailCheck => ({
+  checkedAt: 0,
   checkFailed: false,
   recheck: async () => true,
 });
@@ -249,7 +256,8 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
         undefined,
         { checkedAt: 0, checkFailed: false, recheck: async () => true },
       );
-      const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
+      // 스냅샷 동안은 확인 중 스피너의 이름이 라벨 앞에 붙는다 — jsdom 은 inline 자식 사이 공백을 넣지 않는다.
+      const button = screen.getByRole('button', { name: /^모집 정보 확인 중\s?외부 폼으로 이동$/ });
       expect(button).toBeDisabled();
       fireEvent.click(button);
       expect(openSpy).not.toHaveBeenCalled();
@@ -342,5 +350,87 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
 
     expect(await screen.findByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
     await waitFor(() => expect(screen.queryByRole('link', { name: '지원 완료 · 지원서 보기' })).not.toBeInTheDocument());
+  });
+
+  // 스냅샷이라 잠근 것뿐인 지원 가능 모집은 버튼 안에 확인 중 스피너를 둔다 — 느린 회선에서 이유 없는 잠금으로 보이지 않게(#1456).
+  // jsdom 은 inline 자식 사이 공백을 넣지 않아, 스냅샷 버튼은 스피너 이름과 라벨이 이어진 이름을 정규식으로 찾는다.
+  describe('ISR 스냅샷 확인 중 스피너', () => {
+    const awaitingCases: ReadonlyArray<
+      readonly [string, StudentRecruitmentProjection, string, RegExp]
+    > = [
+      ['모집중', base, '지원하기', /^모집 정보 확인 중\s?지원하기$/],
+      [
+        '상시모집 외부 폼',
+        {
+          ...base,
+          displayStatus: 'ALWAYS_OPEN',
+          endDate: null,
+          applicationMode: 'EXTERNAL',
+          externalFormUrl: 'https://example.com/form',
+        },
+        '외부 폼으로 이동',
+        /^모집 정보 확인 중\s?외부 폼으로 이동$/,
+      ],
+    ];
+    it.each(awaitingCases)(
+      '%s 스냅샷이면 라벨은 그대로 두고 잠긴 버튼 안에 확인 중 상태를 둔다',
+      (_caseName, recruitment, label, buttonName) => {
+        renderBar(recruitment, undefined, snapshotCheck());
+
+        const button = screen.getByRole('button', { name: buttonName });
+        expect(within(button).getByRole('status', { name: '모집 정보 확인 중' })).toBeInTheDocument();
+        expect(button).toHaveTextContent(label);
+        expect(button).toBeDisabled();
+      },
+    );
+
+    // 마감·예정·모집 없음은 좌측 라벨이 이미 잠긴 이유를 말한다.
+    const explainedLockCases: ReadonlyArray<
+      readonly [string, StudentRecruitmentProjection | undefined]
+    > = [
+      ['마감', { ...base, displayStatus: 'CLOSED' }],
+      ['모집예정', { ...base, displayStatus: 'UPCOMING' }],
+      ['모집 없음', undefined],
+    ];
+    it.each(explainedLockCases)(
+      '%s 스냅샷이면 확인 중 상태 없이 라벨만 둔다',
+      (_caseName, recruitment) => {
+        renderBar(recruitment, undefined, snapshotCheck());
+
+        expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+      },
+    );
+
+    it('확인이 실패하면 확인 중 상태 대신 새로고침 안내를 둔다', () => {
+      renderBar(base, undefined, { checkedAt: 0, checkFailed: true, recheck: async () => true });
+
+      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+      expect(screen.getByText('모집 정보 확인 실패')).toBeInTheDocument();
+      expect(screen.getByText('새로고침해 주세요')).toBeInTheDocument();
+    });
+
+    it('최신 상세를 받은 뒤에는 확인 중 상태 없이 버튼이 열린다', () => {
+      renderBar(base, undefined, checkedNow());
+
+      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
+    });
+
+    it('소속 잠금이면 확인 중 상태 없이 잠금 이유를 둔다', () => {
+      renderBar({ ...base, targetRole: 'MEMBER' }, memberMembership, snapshotCheck());
+
+      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
+    });
+
+    it('이미 지원한 모집이면 확인 중 상태 없이 지원서 보기 링크를 둔다', async () => {
+      mockAuthStatus.value = 'authenticated';
+      server.use(mockMyApplications([myApplication]));
+      renderBar(base, undefined, snapshotCheck());
+
+      expect(await screen.findByRole('link', { name: '지원 완료 · 지원서 보기' })).toBeInTheDocument();
+      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+    });
   });
 });

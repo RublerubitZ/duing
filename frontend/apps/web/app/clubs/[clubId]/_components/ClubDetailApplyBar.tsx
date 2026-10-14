@@ -11,7 +11,7 @@ import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/type
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
-import { Spinner } from '@/components/loading/Spinner';
+import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
@@ -55,8 +55,14 @@ function barLabels(
 }
 
 export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Props) {
-  const { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId } =
-    useClubApply(recruitment, detailCheck);
+  const {
+    canApply,
+    awaitingCheck,
+    handleApply,
+    applyButtonLabel,
+    pendingLabel,
+    existingApplicationId,
+  } = useClubApply(recruitment, detailCheck);
   const daysLeft = useRecruitmentDaysLeft(recruitment?.endDate);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
@@ -100,6 +106,19 @@ export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Pro
               </span>
             ) : isAlreadyMember ? (
               '이미 소속된 동아리예요'
+            ) : awaitingCheck ? (
+              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다.
+              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late).
+              <span className="relative inline-flex items-center">
+                <span
+                  role="status"
+                  aria-label="모집 정보 확인 중"
+                  className="delayed-show-late absolute right-full mr-2 inline-flex"
+                >
+                  <ButtonSpinner />
+                </span>
+                {applyButtonLabel}
+              </span>
             ) : (
               applyButtonLabel
             )}

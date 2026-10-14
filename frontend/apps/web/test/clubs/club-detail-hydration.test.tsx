@@ -91,6 +91,8 @@ describe('동아리 상세 트리 — 하이드레이션(ISR HTML 회귀)', () =
     expect(result.serverHtml).toContain('함께 운동해요');
     // 앞으로 들어온 렌더라 서버 HTML 에 본문 등장 클래스가 실린다 — 첫 화면에서 CSS 로 재생되고, 하이드레이션도 같은 값이라 경고가 없다.
     expect(result.serverHtml).toContain('enter-content');
+    // 시드(updatedAt 0)라 서버 HTML 의 지원 버튼에 확인 중 스피너가 실린다 — 하이드레이션 첫 프레임도 시드라 같은 값이다(#1456).
+    expect(result.serverHtml).toContain('aria-label="모집 정보 확인 중"');
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);
