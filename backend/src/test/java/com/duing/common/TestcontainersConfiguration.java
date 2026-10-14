@@ -37,7 +37,9 @@ import org.testcontainers.utility.DockerImageName;
  * 테스트는 그대로 돌고, 잡 테스트는 잡 메서드를 직접 호출한다(가드: {@code ClubMetricScheduleRegistrationTest}).
  * 공유 DB 를 쓰는 컨텍스트 전부에 예외 없이 걸려야 해서 여기에 둔다 — {@link FixedClockConfig} 를 여기에 두지 않은
  * 이유와 반대로, 이 빈은 전체에 거는 것이 목적이다. 스케줄링이 꺼진 컨텍스트에서는 쓰이지 않고, 같은 설정 클래스라
- * 컨텍스트 캐시 키도 바뀌지 않는다.
+ * 컨텍스트 캐시 키도 바뀌지 않는다. {@code TaskScheduler} 를 직접 주입받는 코드가 생기면 그 코드도 테스트에서는 이
+ * 스케줄러를 받아 지연 작업이 돌지 않고, 운영에서 Boot 가 이 빈을 만들지 않는 경우(스케줄링이 꺼진 설정)의 기동
+ * 실패도 테스트가 가린다 — 그런 코드는 작업을 직접 실행해 검증하고 운영 설정에서 빈이 있는지 따로 확인한다.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
