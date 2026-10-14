@@ -22,11 +22,12 @@ vi.mock('next/navigation', () => ({
 
 // framer-motion(motion-dom) 은 isBrowser 를 모듈 로드 때 굳히고 initPrefersReducedMotion 에서 window.matchMedia 를
 // 재검사 없이 읽는다 — window 를 지운 서버 흉내 렌더에서 대표 활동 섹션(시드가 있으면 서버에서 그린다)의 ClubHeroSwipe·
-// PhotoLightbox 가 부르는 useReducedMotion 이 TypeError 로 죽는다. 스와이프는 클릭 때만, 닫힌 라이트박스는 그리지 않는
-// motion.* 에서만 이 값을 쓰므로 값만 고정한다. 운영 서버는 모듈 로드 때부터 window 가 없어(isBrowser=false) 이 경로를 타지 않는다.
+// PhotoLightbox 가 부르는 useReducedMotion 이 TypeError 로 죽는다. 운영 서버는 모듈 로드 때부터 window 가 없어(isBrowser=false)
+// 이 경로를 타지 않고 null 을 받는다. 그래서 값을 바꿔 끼우되, 서버 흉내에는 null, 하이드레이션에는 true(동작 줄이기를 켠
+// 브라우저)를 줘 운영의 갈림을 재현한다 — 이 값을 렌더 출력에 쓰기 시작하면 불일치로 잡힌다.
 vi.mock('framer-motion', async (importOriginal) => ({
   ...(await importOriginal<typeof import('framer-motion')>()),
-  useReducedMotion: () => null,
+  useReducedMotion: () => (typeof window === 'undefined' ? null : true),
 }));
 
 import { clubDetail, seededClubDetailTree, type SeededTreeOptions } from './club-detail-tree-fixture';
@@ -156,8 +157,10 @@ describe('동아리 상세 트리 — 대표 활동 시드(#1457)', () => {
     const heroActivitiesReleased = new Promise<void>((resolve) => {
       releaseHeroActivities = resolve;
     });
+    let heroActivitiesRequested = false;
     server.use(
       http.get('*/clubs/1/hero-activities', async () => {
+        heroActivitiesRequested = true;
         await heroActivitiesReleased;
         return envelope(heroActivities);
       }),
@@ -167,6 +170,13 @@ describe('동아리 상세 트리 — 대표 활동 시드(#1457)', () => {
     const result = await hydrateSeededTree(undefined, {
       treeOptions: { heroActivities },
       whileMounted: async (container) => {
+        // 하이드레이션 직후 한 시점만 보면, 다른 비동기 사건(상세 재요청 성공 등)에 묶인 게이트로 회귀해도 타이밍에 따라 통과한다.
+        // 대표 활동 요청이 도착하고 상세 재요청이 반영돼 하단 지원 버튼 잠금이 풀린 뒤까지 이미지가 없는지 본다.
+        // 버튼은 이름 대신 하단 바 위치와 잠금 속성으로 찾는다 — 스냅샷 동안의 버튼 이름은 바뀔 수 있다.
+        await waitFor(() => {
+          expect(heroActivitiesRequested).toBe(true);
+          expect(container.querySelector('[data-bottom-bar] button:not([disabled])')).not.toBeNull();
+        });
         imageShownBeforeResponse = container.querySelector('img[src$="hero-1.jpg"]') !== null;
         releaseHeroActivities();
         await waitFor(() => expect(container.querySelector('img[src$="hero-1.jpg"]')).not.toBeNull());
