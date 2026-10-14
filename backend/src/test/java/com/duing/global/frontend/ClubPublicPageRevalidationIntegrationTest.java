@@ -17,6 +17,11 @@ import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.heroactivity.service.ClubHeroActivityService;
+import com.duing.domain.club.heroactivity.service.dto.command.CreateHeroActivityCommand;
+import com.duing.domain.club.heroactivity.service.dto.command.ReorderHeroActivitiesCommand;
+import com.duing.domain.club.heroactivity.service.dto.command.ReorderHeroActivitiesCommand.HeroOrder;
+import com.duing.domain.club.heroactivity.service.dto.command.UpdateHeroActivityCommand;
 import com.duing.domain.club.photo.service.ClubPhotoService;
 import com.duing.domain.club.photo.service.dto.command.CreateClubPhotoCommand;
 import com.duing.domain.club.photo.service.dto.command.ReorderClubPhotosCommand;
@@ -32,6 +37,7 @@ import com.duing.domain.club.service.dto.command.UpdateClubStatusCommand;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
+import com.duing.domain.clubmember.exception.ClubMemberException;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.AdminLeaderAssignmentService;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
@@ -102,6 +108,7 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
     @Autowired ClubService clubService;
     @Autowired ClubClosureService clubClosureService;
     @Autowired ClubPhotoService clubPhotoService;
+    @Autowired ClubHeroActivityService clubHeroActivityService;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired ClubMemberCommandService clubMemberCommandService;
     @Autowired LeaderSuccessionService leaderSuccessionService;
@@ -314,6 +321,64 @@ class ClubPublicPageRevalidationIntegrationTest extends IntegrationTestBase {
         clubPhotoService.updateCaption(new UpdateClubPhotoCommand(
                 club.getId(), leader.getId(), secondPhotoId, "고친 캡션"));
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("대표 활동 추가·수정·순서 변경·삭제는 같은 동아리라도 하나씩 상세 재생성을 요청한다")
+    void heroActivityChangesRequestEach() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.unique());
+        // 동아리 id 를 회장·사진·대표 활동 id 와 떼어 놓는다 — 동아리 대신 요청자·사진·활동 id 로 발행하는 변이가
+        // 같은 경로(/clubs/1)로 가려지지 않게.
+        clubRepository.save(ClubFixture.academic("대표활동미끼동아리1"));
+        clubRepository.save(ClubFixture.academic("대표활동미끼동아리2"));
+        clubRepository.save(ClubFixture.academic("대표활동미끼동아리3"));
+        Club club = saveActiveClubLedBy(leader, "상세재생성대표활동동아리");
+
+        // 사진 등록도 같은 이벤트를 낸다 — 아래 횟수는 사진 2건을 포함해 센다.
+        Long firstPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "hero-first.jpg", "첫 사진", 100, 100)).id();
+        Long secondPhotoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "hero-second.jpg", "둘째 사진", 100, 100)).id();
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(2)).revalidateWithoutAlert(detailPathOf(club));
+
+        Long firstActivityId = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), firstPhotoId, "정기 공연", "매 학기 무대", 1)).id();
+        Long secondActivityId = clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), leader.getId(), secondPhotoId, "봉사 활동", "지역 아동센터", 2)).id();
+        assertThat(club.getId()).isNotIn(leader.getId(), firstPhotoId, secondPhotoId, firstActivityId, secondActivityId);
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(4)).revalidateWithoutAlert(detailPathOf(club));
+
+        clubHeroActivityService.update(new UpdateHeroActivityCommand(
+                club.getId(), leader.getId(), firstActivityId, null, "정기 공연(가을)", "매 학기 무대"));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(5)).revalidateWithoutAlert(detailPathOf(club));
+
+        clubHeroActivityService.reorder(new ReorderHeroActivitiesCommand(club.getId(), leader.getId(), List.of(
+                new HeroOrder(firstActivityId, 2), new HeroOrder(secondActivityId, 1))));
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(6)).revalidateWithoutAlert(detailPathOf(club));
+
+        clubHeroActivityService.delete(club.getId(), leader.getId(), firstActivityId);
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS).times(7)).revalidateWithoutAlert(detailPathOf(club));
+        drainRevalidationExecutor();
+        verifyNoMoreInteractions(frontendRevalidator);
+    }
+
+    @Test
+    @DisplayName("권한 없는 사용자의 대표 활동 쓰기(거절)는 상세 재생성을 요청하지 않는다")
+    void rejectedHeroActivityWriteRequestsNothing() throws InterruptedException {
+        User leader = userRepository.save(UserFixture.unique());
+        User outsider = userRepository.save(UserFixture.unique());
+        Club club = saveActiveClubLedBy(leader, "상세재생성대표활동거절동아리");
+        Long photoId = clubPhotoService.create(new CreateClubPhotoCommand(
+                club.getId(), leader.getId(), "hero-reject.jpg", "사진", 100, 100)).id();
+        verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert(detailPathOf(club));
+
+        assertThatThrownBy(() -> clubHeroActivityService.create(new CreateHeroActivityCommand(
+                club.getId(), outsider.getId(), photoId, "정기 공연", "매 학기 무대", 1)))
+                .isInstanceOf(ClubMemberException.NotAMember.class);
+
+        verify(frontendRevalidator, after(QUIET_WAIT_MS).times(1)).revalidateWithoutAlert(detailPathOf(club));
         drainRevalidationExecutor();
         verifyNoMoreInteractions(frontendRevalidator);
     }

@@ -15,12 +15,14 @@ import com.duing.domain.club.photo.repository.ClubPhotoRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,7 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
     private final ClubRepository clubRepository;
     private final ClubAuthService clubAuthService;
     private final ClubVisibilityPolicy clubVisibilityPolicy;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<HeroActivityQuery> getByClubId(Long clubId) {
@@ -69,7 +72,10 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
 
         ClubHeroActivity activity = ClubHeroActivity.create(
                 club, photo, command.title(), command.description(), command.displayOrder());
-        return HeroActivityQuery.from(clubHeroActivityRepository.save(activity));
+        ClubHeroActivity savedActivity = clubHeroActivityRepository.save(activity);
+        // 대표 활동은 공개 상세 서버 HTML(시드)에 실린다 — 커밋 뒤 그 상세 재생성을 요청한다(#1457).
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
+        return HeroActivityQuery.from(savedActivity);
     }
 
     @Override
@@ -89,6 +95,7 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
             activity.changePhoto(photo);
         }
         activity.updateContent(command.title(), command.description());
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
     }
 
     @Override
@@ -127,6 +134,7 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
         command.orders().forEach(order ->
                 byId.get(order.heroActivityId()).changeDisplayOrder(order.displayOrder()));
         clubHeroActivityRepository.flush();
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(command.clubId()));
 
         return clubHeroActivityRepository.findByClubIdOrderByDisplayOrderAsc(command.clubId()).stream()
                 .map(HeroActivityQuery::from)
@@ -140,6 +148,7 @@ public class GeneralClubHeroActivityService implements ClubHeroActivityService {
         ClubHeroActivity activity = findActivityInClub(heroActivityId, clubId);
         // 슬롯을 당기지 않고 빈 슬롯으로 유지한다(스펙: display_order 재배치 없음).
         clubHeroActivityRepository.delete(activity);
+        eventPublisher.publishEvent(new ClubPublicPageChangedEvent(clubId));
     }
 
     private boolean isSlotOutOfRange(int displayOrder) {
