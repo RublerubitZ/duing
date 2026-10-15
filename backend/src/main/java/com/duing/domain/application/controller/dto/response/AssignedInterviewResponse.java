@@ -23,7 +23,8 @@ public record AssignedInterviewResponse(
 ) {
 
     /**
-     * ASSIGNED schedule 이 없어 {@code null} 로 전달된 query 는 그대로 {@code null} 응답으로 통과시킨다.
+     * 보여 줄 배정이 없어 {@code null} 로 전달된 query(미배정·CANCELLED, 지원자 응답에서는 확정 전 초안 포함)는
+     * 그대로 {@code null} 응답으로 통과시킨다.
      */
     public static AssignedInterviewResponse from(AssignedInterviewQuery interviewQuery) {
         return interviewQuery == null ? null
