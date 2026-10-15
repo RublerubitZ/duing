@@ -31,6 +31,15 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /** 모집 날짜가 허용 범위(Recruitment.MIN_RECRUITMENT_DATE ~ MAX_RECRUITMENT_DATE) 밖이다. 문구는 그 상수와 함께 고친다. */
+    public static class RecruitmentDateOutOfRangeException extends RecruitmentException {
+        private static final String MESSAGE = "모집 기간은 2000-01-01부터 2100-12-31 사이여야 합니다.";
+
+        public RecruitmentDateOutOfRangeException() {
+            super(MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     /**
      * 종료일이 이미 지난 공고는 생성(또는 변경) 즉시 만료-OPEN — 한 번도 학생에게
      * 열리지 않은 "마감 공고"가 되므로 차단한다. 수정은 종료일을 과거로 바꾸는 경우만
