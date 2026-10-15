@@ -69,6 +69,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         // soft-delete 뒤 해제한다(#1153). findByClubId 는 @SQLRestriction 으로 살아 있는 사진만 돌려준다.
         List<String> imageUrlsToRelease = new ArrayList<>();
         imageUrlsToRelease.add(club.getLogoUrl());
+        // 로고 썸네일(V133)도 같이 해제한다 — 원본 URL 과 같은(작은 원본) 경우는 release 가 키 집합으로 묶어 한 번만 다룬다.
+        imageUrlsToRelease.add(club.getLogoThumbnailUrl());
         imageUrlsToRelease.add(club.getCoverUrl());
         clubPhotoRepository.findByClubId(clubId).forEach(photo -> imageUrlsToRelease.add(photo.getStorageKey()));
 
