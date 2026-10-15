@@ -93,7 +93,7 @@ public class InterviewAssignmentQueryService {
         Map<Long, InterviewRound> roundById = interviewRoundRepository.findAllById(roundIds).stream()
                 .collect(Collectors.toMap(InterviewRound::getId, Function.identity()));
 
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId = new HashMap<>();
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId = new HashMap<>();
         for (InterviewSchedule schedule : assignedSchedules) {
             InterviewSlot slot = slotById.get(schedule.getSlotId());
             if (slot == null) {
@@ -103,10 +103,10 @@ public class InterviewAssignmentQueryService {
             if (round == null || round.getStatus() != RoundStatus.SCHEDULED) {
                 continue;
             }
-            assignedByApplicationId.put(schedule.getApplicationId(), new AssignedInterviewSlot(
+            confirmedByApplicationId.put(schedule.getApplicationId(), new AssignedInterviewSlot(
                     slot.getId(), slot.getStartTime(), slot.getEndTime(), round.getLocation()));
         }
-        return assignedByApplicationId;
+        return confirmedByApplicationId;
     }
 
     /**

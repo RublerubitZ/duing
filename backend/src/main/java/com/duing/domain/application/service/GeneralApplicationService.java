@@ -217,13 +217,13 @@ public class GeneralApplicationService implements ApplicationService {
         // 응답 카드의 nested interview 채움용 batch lookup — application 별 개별 쿼리(N+1) 회피.
         // 확정(SCHEDULED) 라운드의 ASSIGNED schedule 만 interview 로 채워지고 (location 은 nullable — round.location 이
         // 비어 있어도 노출, Codex review BE-3), 확정 전 초안·CANCELLED·미배정은 null 로 응답한다.
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId = interviewAssignmentQueryService
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId = interviewAssignmentQueryService
                 .findConfirmedByApplicationIds(applications.stream().map(Application::getId).toList());
 
         return applications.stream()
                 .map(application -> ApplicationSummaryQuery.from(
                         application,
-                        toAssignedInterviewQuery(assignedByApplicationId.get(application.getId()))))
+                        toAssignedInterviewQuery(confirmedByApplicationId.get(application.getId()))))
                 .toList();
     }
 
