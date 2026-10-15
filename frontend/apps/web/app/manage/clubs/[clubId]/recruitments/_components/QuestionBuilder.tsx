@@ -170,9 +170,9 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="min-w-0 grow basis-40 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
             />
-            <div className="ml-auto flex gap-1">
+            <div className="flex basis-full justify-end gap-1 md:basis-auto">
               <button
                 type="button"
                 onClick={() => handleMoveUp(index)}
