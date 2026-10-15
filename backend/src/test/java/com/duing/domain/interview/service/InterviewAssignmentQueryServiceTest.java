@@ -225,8 +225,6 @@ class InterviewAssignmentQueryServiceTest {
 
         InterviewSlot slot = mock(InterviewSlot.class);
         when(slot.getId()).thenReturn(201L);
-        when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 0));
-        when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 30));
 
         when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
                 .thenReturn(List.of(assignedSchedule));
@@ -261,8 +259,6 @@ class InterviewAssignmentQueryServiceTest {
         when(confirmedSlot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 22, 10, 30));
         InterviewSlot draftSlot = mock(InterviewSlot.class);
         when(draftSlot.getId()).thenReturn(302L);
-        when(draftSlot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 23, 10, 0));
-        when(draftSlot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 23, 10, 30));
 
         InterviewRound scheduledRound = mock(InterviewRound.class);
         when(scheduledRound.getId()).thenReturn(50L);
@@ -271,7 +267,6 @@ class InterviewAssignmentQueryServiceTest {
         InterviewRound assigningRound = mock(InterviewRound.class);
         when(assigningRound.getId()).thenReturn(60L);
         when(assigningRound.getStatus()).thenReturn(RoundStatus.ASSIGNING);
-        when(assigningRound.getLocation()).thenReturn("3호관 202호");
 
         when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
                 .thenReturn(List.of(confirmedSchedule, draftSchedule));
