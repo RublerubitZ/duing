@@ -172,8 +172,8 @@ class AuthPasswordResetTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("같은 학번의 재설정 시작은 시간당 3회로 제한된다")
-    void startPasswordResetIsRateLimitedPerStudentId() {
+    @DisplayName("같은 IP 에서 같은 학번의 재설정 시작은 시간당 3회로 제한된다")
+    void startPasswordResetIsRateLimitedPerIpAndStudentId() {
         String studentId = uniqueStudentId();
         String registeredPhone = uniquePhone();
         signupUser(registeredPhone, studentId);

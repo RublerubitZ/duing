@@ -3,6 +3,7 @@ package com.duing.domain.user.service;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -21,12 +22,12 @@ import org.junit.jupiter.api.Test;
 /**
  * 재설정 시작의 <b>리미터 호출 순서 불변식</b>만 잠그는 목 기반 테스트.
  *
- * <p>IP 창 선검사가 학번 창 기록보다 앞에 있어야 한다. 뒤로 가거나 사라지면, IP 한도로 거절될 요청도
- * 학번 창에 엔트리를 설치하고 나가, 비인증 요청만으로 8자리 학번 공간(1e8)의 새 키를 계속 만들어 맵의 키 상한을
- * 채우고 다른 학번의 카운터를 밀어낼 수 있다.
+ * <p>IP 창 선검사가 (IP, 학번) 창 기록보다 앞에 있어야 한다. 뒤로 가거나 사라지면, IP 한도로 거절될 요청도
+ * (IP, 학번) 창에 엔트리를 설치하고 나가, 비인증 요청만으로 8자리 학번 공간(1e8)의 새 키를 계속 만들어 맵의 키 상한을
+ * 채우고 다른 키의 카운터를 밀어낼 수 있다.
  *
  * <p>이 불변식은 통합 테스트로 잠기지 않는다 — 선검사를 지워도 issue() 내부의 기록 호출이 같은 임계에서
- * 같은 예외를 내주므로 응답(429)이 완전히 동일하기 때문이다. 관측 가능한 차이는 "거절된 요청이 학번 창을
+ * 같은 예외를 내주므로 응답(429)이 완전히 동일하기 때문이다. 관측 가능한 차이는 "거절된 요청이 (IP, 학번) 창을
  * 소모했는가" 뿐이라 호출 순서를 직접 단언한다.
  */
 class PasswordResetLimiterOrderTest {
@@ -48,14 +49,28 @@ class PasswordResetLimiterOrderTest {
             "01000000000");
 
     @Test
-    @DisplayName("IP 발급 한도로 거절된 재설정 시작은 학번 창을 소모하지 않는다 — 선검사가 학번 기록보다 앞이라는 불변식")
-    void ipLimitRejectionDoesNotConsumeStudentIdWindow() {
+    @DisplayName("IP 발급 한도로 거절된 재설정 시작은 (IP, 학번) 창을 소모하지 않는다 — 선검사가 재설정 창 기록보다 앞이라는 불변식")
+    void ipLimitRejectionDoesNotConsumeResetStartWindow() {
         doThrow(new PhoneVerificationException.VerificationRateLimitedException())
                 .when(rateLimiter).assertIssueIpWithinLimit(anyString(), any(LocalDateTime.class));
 
         assertThatThrownBy(() -> phoneVerificationService.startPasswordReset(STUDENT_ID, false, CLIENT_IP))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
 
-        verify(rateLimiter, never()).assertAndRecordPasswordResetStart(anyString(), any(LocalDateTime.class));
+        verify(rateLimiter, never())
+                .assertAndRecordPasswordResetStart(anyString(), anyString(), any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("재설정 시작은 요청자 IP 를 (IP, 학번) 창에 그대로 넘긴다")
+    void passesClientIpToResetStartWindow() {
+        // 흐름을 재설정 창에서 멈춘다 — mock 세션 매니저로 issue() 까지 가면 upsert 가 null 이라 NPE 가 난다.
+        doThrow(new PhoneVerificationException.VerificationRateLimitedException())
+                .when(rateLimiter).assertAndRecordPasswordResetStart(anyString(), anyString(), any(LocalDateTime.class));
+
+        assertThatThrownBy(() -> phoneVerificationService.startPasswordReset(STUDENT_ID, false, CLIENT_IP))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+
+        verify(rateLimiter).assertAndRecordPasswordResetStart(eq(STUDENT_ID), eq(CLIENT_IP), any(LocalDateTime.class));
     }
 }

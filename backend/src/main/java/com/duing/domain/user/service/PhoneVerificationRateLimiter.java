@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 /**
- * MO 인증 레이트리밋 — 발급은 IP 축, 상태조회는 세션(token) 축, 재설정 시작은 학번 축.
+ * MO 인증 레이트리밋 — 발급은 IP 축, 상태조회는 세션(token) 축, 재설정 시작은 (IP, 학번) 축.
  * in-memory, 단일 인스턴스 전제 (spec §11).
  *
  * <p><b>발급(분 60/시 600)도 남용 백스톱이지 1인 상한이 아니다.</b> 예전 값(분 10/시 60)의 근거는
@@ -37,8 +37,9 @@ import org.springframework.stereotype.Component;
  * IP 창(분 500/시 10,000)은 남용 백스톱으로만 남긴다 — 실재하지 않는 토큰의 스팸은 토큰 창이
  * 설치되기 전이라 이 창만이 셀 수 있고(그래서 조회보다 <b>먼저</b> 기록한다), 동시에 토큰 창은 실재하는
  * 토큰에만 설치되어 랜덤 토큰으로 맵을 증식시키는 경로를 남기지 않는다.
- * 재설정 시작(학번당 시 3회)은 IP 가 아닌 학번을 키로 잡아 계정 열거·문자 폭탄을
- * 완화한다 (spec §11 "학번 — 재설정 시작"). 번호+IP당 발급(시간당 5회)은 쿨다운(60초)과 별개의 <b>총량</b>
+ * 재설정 시작((IP, 학번)당 시 3회)은 한 요청자가 같은 학번으로 반복하는 것을 묶는다. 학번 단독 키는 다른
+ * 요청자가 같은 학번의 예산을 소모할 수 있어 IP 를 섞는다 — 아래 번호+IP 창과 같은 이유다.
+ * 번호+IP당 발급(시간당 5회)은 쿨다운(60초)과 별개의 <b>총량</b>
  * 상한 — 재발급 반복의 QR 벤더 콜·세션 덮어쓰기 남용을 봉인하며, 성공한 발급만 계수한다(검사
  * {@link #assertIssuePhoneWithinLimit} 와 기록 {@link #recordIssuePhoneRequest} 분리 — 쿨다운 429
  * 재시도가 한도를 소진해 정상 사용자가 잠기지 않도록). 키에 IP 를 섞는 이유: 번호 단독 키는 타 IP
@@ -89,7 +90,7 @@ public class PhoneVerificationRateLimiter {
             RateLimitMaps.expiringMap(LONGEST_WINDOW);
     private final ConcurrentMap<String, Deque<LocalDateTime>> statusTimesByToken =
             RateLimitMaps.expiringMap(LONGEST_WINDOW);
-    private final ConcurrentMap<String, Deque<LocalDateTime>> resetStartTimesByStudentId =
+    private final ConcurrentMap<String, Deque<LocalDateTime>> resetStartTimesByIpAndStudentId =
             RateLimitMaps.expiringMap(LONGEST_WINDOW);
     private final ConcurrentMap<String, Deque<LocalDateTime>> issueTimesByPhoneAndIp =
             RateLimitMaps.expiringMap(LONGEST_WINDOW);
@@ -112,31 +113,34 @@ public class PhoneVerificationRateLimiter {
     /**
      * 상태조회 토큰 윈도우(분 30/시 200) — 폴링의 실제 상한. 호출부는 <b>토큰 실재를 확인한 뒤</b>
      * 부른다: 랜덤 토큰마다 창이 설치되면 키 상한을 채워 정상 토큰의 카운터를 밀어낸다
-     * ({@link #assertIssueIpWithinLimit} 가 학번 창에 대해 문서화한 것과 같은 경로). 초과 시 429.
+     * ({@link #assertIssueIpWithinLimit} 가 재설정 시작 창에 대해 문서화한 것과 같은 경로). 초과 시 429.
      */
     public void assertAndRecordStatusTokenRequest(String verificationToken, LocalDateTime now) {
         assertAndRecordWithin(statusTimesByToken, verificationToken, now,
                 STATUS_TOKEN_PER_MINUTE_LIMIT, STATUS_TOKEN_PER_HOUR_LIMIT);
     }
 
-    /** 재설정 시작 학번 윈도우(시간당 3회) — 계정 열거·문자 폭탄 완화 (spec §10.2·§11). 초과 시 429. */
-    public void assertAndRecordPasswordResetStart(String studentId, LocalDateTime now) {
-        assertAndRecordWithin(resetStartTimesByStudentId, studentId, now,
+    /**
+     * 재설정 시작 (IP, 학번) 윈도우(시간당 3회) — 한 요청자의 같은 학번 반복을 묶는다. 키에 IP 를 섞어
+     * 다른 요청자가 같은 학번의 예산을 소모하지 못하게 한다. 초과 시 429.
+     */
+    public void assertAndRecordPasswordResetStart(String studentId, String clientIp, LocalDateTime now) {
+        assertAndRecordWithin(resetStartTimesByIpAndStudentId, ipStudentIdKey(studentId, clientIp), now,
                 RESET_START_PER_HOUR_LIMIT, RESET_START_PER_HOUR_LIMIT);
     }
 
     /**
      * 발급 IP 윈도우(분 60/시 600) 검사만 한다 — 기록은 {@link #assertAndRecordIssueIpRequest} 가 단독으로 한다.
      *
-     * <p>재설정 시작의 <b>선검사</b> 전용이다. 그 경로는 학번 키 창({@link #assertAndRecordPasswordResetStart})을
-     * 먼저 설치한 뒤 issue() 안에서야 IP 창을 만나는데, 학번 창은 새 키마다 항상 통과(시간당 3회)라
-     * 선검사가 없으면 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치된다 — 8자리 학번 공간(1e8)이라
-     * 단일 IP 로 키 상한을 채워 다른 학번의 카운터를 밀어낼 수 있다.
+     * <p>재설정 시작의 <b>선검사</b> 전용이다. 그 경로는 (IP, 학번) 창({@link #assertAndRecordPasswordResetStart})을
+     * 먼저 설치한 뒤 issue() 안에서야 IP 창을 만나는데, 그 창은 새 학번마다 항상 통과(시간당 3회)라
+     * 선검사가 없으면 비인증 요청 하나당 엔트리 하나가 무조건 설치된다 — 8자리 학번 공간(1e8)이라
+     * 단일 IP 로 키 상한을 채워 다른 키의 카운터를 밀어낼 수 있다.
      *
      * <p>여기서 <b>기록하지 않는</b> 것은 "요청당 IP 예산 1 소모" 계약을 지키기 위해서다. 재설정 시작은
      * 모든 분기(미가입·탈퇴·placeholder·정상)가 예외 없이 issue() 를 타므로 양쪽에서 기록해도 소모량은
      * 균일하게 2가 되어 계정 열거 오라클이 생기지는 않지만, 재설정에 걸리는 실효 IP 예산이
-     * 시간당 600에서 300으로 반감된다. 이 메서드가 지탱하는 방어는 계정 열거가 아니라 <b>학번 창 설치 전 게이트</b>
+     * 시간당 600에서 300으로 반감된다. 이 메서드가 지탱하는 방어는 계정 열거가 아니라 <b>(IP, 학번) 창 설치 전 게이트</b>
      * 하나뿐이라는 점을 혼동하지 말 것 — 지우면 열거가 아니라 키 상한 밀어내기가 열린다.
      */
     public void assertIssueIpWithinLimit(String clientIp, LocalDateTime now) {
@@ -198,6 +202,10 @@ public class PhoneVerificationRateLimiter {
         return ClientIpKeys.normalize(clientIp) + "|" + phone;
     }
 
+    private static String ipStudentIdKey(String studentId, String clientIp) {
+        return ClientIpKeys.normalize(clientIp) + "|" + studentId;
+    }
+
     /**
      * 슬라이딩 윈도우 공통 로직 — 경계 exclusive(정각은 창 밖), 거절된 요청은 미기록.
      * compute 콜백이라 검사+기록이 키 단위로 원자적이다. 예외 시 키→Deque 매핑 참조는 유지되지만
@@ -229,7 +237,7 @@ public class PhoneVerificationRateLimiter {
         issueTimesByIp.clear();
         statusTimesByIp.clear();
         statusTimesByToken.clear();
-        resetStartTimesByStudentId.clear();
+        resetStartTimesByIpAndStudentId.clear();
         issueTimesByPhoneAndIp.clear();
     }
 }
