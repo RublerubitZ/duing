@@ -104,6 +104,22 @@ class LogoThumbnailGeneratorTest {
     }
 
     @Test
+    @DisplayName("픽셀 수가 상한 안이어도 긴 변이 16,384px 를 넘으면(가로·세로 모두) 디코딩하지 않고 건너뛴다")
+    void tooLongSideIsSkippedBeforeDecoding() {
+        // 헤더만 있는 PNG — 디코딩을 시도했다면 UNREADABLE 이었을 것이다. 24,000,000×1 은 픽셀 상한(2,500만) 안이라 긴 변 검사가 끊어야 한다.
+        assertThat(skipReason(ImageFixture.pngHeaderOnly(24_000_000, 1))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        assertThat(skipReason(ImageFixture.pngHeaderOnly(1, 16_385))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    @Test
+    @DisplayName("긴 변이 정확히 16,384px 이면 상한 안이라 디코딩으로 넘어간다")
+    void longSideExactlyAtLimitProceedsToDecoding() {
+        // 헤더만 있어 디코딩은 실패한다 — 치수 선검사를 통과했다는 신호가 UNREADABLE 이다.
+        assertThat(skipReason(ImageFixture.pngHeaderOnly(16_384, 1))).isEqualTo(SkipReason.UNREADABLE);
+        assertThat(skipReason(ImageFixture.pngHeaderOnly(1, 16_384))).isEqualTo(SkipReason.UNREADABLE);
+    }
+
+    @Test
     @DisplayName("프로그레시브 JPEG 은 SOF2 로 감지되고, 800만 픽셀을 넘으면 디코딩하지 않고 건너뛴다(베이스라인 상한 2,500만과 별개)")
     void largeProgressiveJpegIsSkipped() {
         assertThat(LogoThumbnailGenerator.scanJpegHeader(ImageFixture.progressiveJpeg(800, 600)).progressive()).isTrue();

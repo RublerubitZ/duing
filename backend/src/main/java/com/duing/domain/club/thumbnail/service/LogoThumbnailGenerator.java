@@ -28,14 +28,17 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 /**
  * 동아리 로고 썸네일 생성기(스펙 §4.2) — JDK ImageIO 만 쓴다. 긴 변 {@value #MAX_LONG_SIDE}px·비율 유지, 알파가 있으면 PNG·없으면
  * JPEG(품질 {@value #JPEG_QUALITY}). 디코딩 전에 치수를 읽어 {@value #MAX_SOURCE_PIXELS} 픽셀 초과(프로그레시브 JPEG 은
- * {@value #MAX_PROGRESSIVE_JPEG_PIXELS})는 건너뛰고, 그 이하도 목표 크기에 맞춘 서브샘플링으로 읽어 래스터 메모리를 묶는다(운영 JVM
- * 기본 힙, #1465 전례). 축소는 절반씩 줄이다 마지막에 바이큐빅으로 맞춘다. 입출력은 모두 메모리 스트림이라 임시 파일을 쓰지 않는다.
+ * {@value #MAX_PROGRESSIVE_JPEG_PIXELS})나 긴 변 {@value #MAX_SOURCE_LONG_SIDE}px 초과는 건너뛰고, 그 이하도 목표 크기에 맞춘
+ * 서브샘플링으로 읽어 래스터 메모리를 묶는다(운영 JVM 기본 힙, #1465 전례). 축소는 절반씩 줄이다 마지막에 바이큐빅으로 맞춘다. 입출력은
+ * 모두 메모리 스트림이라 임시 파일을 쓰지 않는다.
  * 상태가 없어 어느 스레드에서 불러도 되고, 어떤 입력에도 예외를 던지지 않는다.
  */
 public final class LogoThumbnailGenerator {
 
     public static final int MAX_LONG_SIDE = 384;
     public static final long MAX_SOURCE_PIXELS = 25_000_000L;
+    /** 원본 긴 변 상한 — PNG 리더는 서브샘플링과 무관하게 원본 폭만큼 행 버퍼를 잡아, 픽셀 수 상한과 따로 묶는다. */
+    public static final int MAX_SOURCE_LONG_SIDE = 16_384;
     /**
      * 프로그레시브 JPEG 의 픽셀 상한. libjpeg 는 프로그레시브 디코딩에 원본 전체 크기의 계수 버퍼(픽셀당 최대 약 6B — 4:4:4 3성분 × 2B)를
      * 네이티브 메모리로 잡아 서브샘플링이 줄여 주지 않고, 힙 밖이라 ExitOnOutOfMemoryError 도 막지 못한다. 운영 컨테이너 1400m 에서 힙
@@ -69,10 +72,10 @@ public final class LogoThumbnailGenerator {
                 boolean jpeg = isJpeg(source);
                 JpegHeader jpegHeader = jpeg ? scanJpegHeader(source) : PLAIN_JPEG_HEADER;
                 long pixelLimit = jpegHeader.progressive() ? MAX_PROGRESSIVE_JPEG_PIXELS : MAX_SOURCE_PIXELS;
-                if ((long) width * height > pixelLimit) {
+                int longSide = Math.max(width, height);
+                if ((long) width * height > pixelLimit || longSide > MAX_SOURCE_LONG_SIDE) {
                     return new Skipped(SkipReason.TOO_MANY_PIXELS);
                 }
-                int longSide = Math.max(width, height);
                 if (longSide <= MAX_LONG_SIDE) {
                     return LogoThumbnailResult.USE_ORIGINAL;
                 }

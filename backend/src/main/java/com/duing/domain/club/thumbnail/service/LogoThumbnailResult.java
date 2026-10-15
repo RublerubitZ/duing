@@ -22,7 +22,7 @@ public sealed interface LogoThumbnailResult {
         UNSUPPORTED_FORMAT,
         /** 디코딩 실패(CMYK JPEG·손상 파일 등). */
         UNREADABLE,
-        /** 치수가 픽셀 상한(베이스라인 2,500만·프로그레시브 JPEG 800만)을 넘는다 — 디코딩 전에 끊는다. */
+        /** 치수가 상한(픽셀 수 베이스라인 2,500만·프로그레시브 JPEG 800만, 긴 변 16,384px)을 넘는다 — 디코딩 전에 끊는다. */
         TOO_MANY_PIXELS,
         /** EXIF 방향이 정방향(1)이 아닌 JPEG — ImageIO 는 방향을 적용하지 않아 썸네일이 돌아간다. */
         EXIF_ORIENTATION
