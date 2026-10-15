@@ -161,35 +161,35 @@ class PhoneVerificationRateLimiterTest {
     }
 
     @Test
-    @DisplayName("IP 창이 막아낸 재설정 시작은 학번 창을 소모하지 않는다 — 선검사를 학번 기록보다 앞에 두는 이유")
-    void blockedByIpWindowDoesNotConsumeStudentIdWindow() {
+    @DisplayName("IP 창이 막아낸 재설정 시작은 (IP, 학번) 창을 소모하지 않는다 — 선검사를 재설정 창 기록보다 앞에 두는 이유")
+    void blockedByIpWindowDoesNotConsumeResetStartWindow() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.ISSUE_PER_MINUTE_LIMIT; attempt++) {
             rateLimiter.assertAndRecordIssueIpRequest(CLIENT_IP, NOW.plusSeconds(attempt));
         }
-        // IP 창이 찬 상태에서 재설정 시작을 반복 — 서비스와 같은 순서(선검사 → 학번 기록)를 재현한다.
+        // IP 창이 찬 상태에서 재설정 시작을 반복 — 서비스와 같은 순서(선검사 → (IP, 학번) 기록)를 재현한다.
         for (int attempt = 0; attempt < 20; attempt++) {
             LocalDateTime blockedAt = NOW.plusSeconds(30 + attempt);
             assertThatThrownBy(() -> rateLimiter.assertIssueIpWithinLimit(CLIENT_IP, blockedAt))
                     .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
         }
 
-        // 학번 창이 온전해야 한다 — 선검사가 뒤에 있었다면 위 20회가 학번 엔트리를 설치하고 한도를 태웠을 것이다.
+        // (IP, 학번) 창이 온전해야 한다 — 선검사가 뒤에 있었다면 위 20회가 엔트리를 설치하고 한도를 태웠을 것이다.
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
-            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(2).plusSeconds(attempt));
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(2).plusSeconds(attempt));
         }
-        assertThatThrownBy(() -> rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(3)))
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(3)))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
     }
 
     @Test
-    @DisplayName("같은 학번의 재설정 시작은 시간당 3회까지 허용하고 4번째는 429 를 던진다")
+    @DisplayName("같은 IP 에서 같은 학번의 재설정 시작은 시간당 3회까지 허용하고 4번째는 429 를 던진다")
     void resetStartWindowLimitsPerHour() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
             // 분당·시간당 한도가 같은(3) 축이라 분당 창에 걸리지 않게 20분 간격으로 분산한다.
-            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(attempt * 20L));
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(attempt * 20L));
         }
         assertThatThrownBy(() ->
-                rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusMinutes(50)))
+                rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(50)))
                 .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
     }
 
@@ -197,9 +197,38 @@ class PhoneVerificationRateLimiterTest {
     @DisplayName("다른 학번은 재설정 시작 제한에 서로 영향을 주지 않는다")
     void resetStartLimitsAreIsolatedPerStudentId() {
         for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
-            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, NOW.plusSeconds(attempt));
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusSeconds(attempt));
         }
-        assertThatCode(() -> rateLimiter.assertAndRecordPasswordResetStart("20259999", NOW.plusSeconds(1)))
+        assertThatCode(() -> rateLimiter.assertAndRecordPasswordResetStart("20259999", CLIENT_IP, NOW.plusSeconds(1)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("한 IP 가 같은 학번의 재설정 시작 한도를 다 써도 다른 IP 의 같은 학번 요청은 통과하고, 그 IP 의 4번째만 429 다")
+    void resetStartBudgetIsNotSharedAcrossIps() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(attempt * 20L));
+        }
+
+        assertThatCode(() -> rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, "10.0.0.2", NOW.plusMinutes(50)))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordPasswordResetStart(STUDENT_ID, CLIENT_IP, NOW.plusMinutes(50)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+    }
+
+    @Test
+    @DisplayName("IPv6 는 같은 /64 안의 다른 주소도 같은 재설정 시작 창을 쓰고, 다른 /64 는 따로 센다")
+    void resetStartWindowGroupsIpv6ByPrefix() {
+        for (int attempt = 0; attempt < PhoneVerificationRateLimiter.RESET_START_PER_HOUR_LIMIT; attempt++) {
+            rateLimiter.assertAndRecordPasswordResetStart(
+                    STUDENT_ID, "2001:db8:abcd:12::1", NOW.plusMinutes(attempt * 20L));
+        }
+
+        assertThatThrownBy(() -> rateLimiter.assertAndRecordPasswordResetStart(
+                STUDENT_ID, "2001:db8:abcd:12::ffff", NOW.plusMinutes(50)))
+                .isInstanceOf(PhoneVerificationException.VerificationRateLimitedException.class);
+        assertThatCode(() -> rateLimiter.assertAndRecordPasswordResetStart(
+                STUDENT_ID, "2001:db8:abcd:13::1", NOW.plusMinutes(50)))
                 .doesNotThrowAnyException();
     }
 

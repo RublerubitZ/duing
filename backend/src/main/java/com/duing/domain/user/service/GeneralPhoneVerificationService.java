@@ -119,16 +119,15 @@ public class GeneralPhoneVerificationService implements PhoneVerificationService
     @Override
     public PasswordResetStartResult startPasswordReset(String studentId, boolean includeQr, String clientIp) {
         LocalDateTime now = LocalDateTime.now(clock);
-        // 학번 리밋은 세션 발급(외부 QR 콜 포함)보다 먼저 — 계정 존재 여부와 무관하게 소모한다
-        // (spec §11 "학번 — 재설정 시작"). IP 발급 창은 아래 issue() 가 단독으로 계수한다: 여기서 한 번 더
-        // 기록하면 미존재 학번은 1회, 존재 학번은 2회를 소모해 "429 가 몇 번째 요청에서 뜨는지"로 실계정을
-        // 셀 수 있는 계수 오라클이 남는다(상태코드를 균일하게 만들어도 카운터가 샌다).
-        // IP 창 '선검사' — 기록은 하지 않는다. 아래 학번 창은 새 학번마다 항상 통과하므로, 이 검사가 없으면
-        // 비인증 요청 하나당 학번 엔트리 하나가 무조건 설치돼(8자리 공간 1e8) 단일 IP 로 키 상한을 채워
-        // 다른 학번의 카운터를 밀어낼 수 있다. 기록은 아래 issue() 가 단독으로 해 "요청당 IP 예산 1" 을 유지한다
-        // (여기서도 기록하면 열거 오라클이 생기지는 않지만 재설정 실효 예산이 시 600→300 으로 반감된다).
+        // (IP, 학번) 재설정 창은 세션 발급(외부 QR 콜 포함)보다 먼저 — 계정 존재 여부와 무관하게 소모한다.
+        // 키에 IP 를 섞어 다른 요청자가 같은 학번의 예산을 소모하지 못하게 한다(번호+IP 창과 같은 이유).
+        // IP 창 '선검사' — 기록은 하지 않는다. 아래 (IP, 학번) 창은 새 학번마다 항상 통과하므로, 이 검사가 없으면
+        // 비인증 요청 하나당 엔트리 하나가 무조건 설치돼(8자리 공간 1e8) 단일 IP 로 키 상한을 채워
+        // 다른 키의 카운터를 밀어낼 수 있다. IP 발급 창 기록은 아래 issue() 가 단독으로 해 "요청당 IP 예산 1" 을
+        // 유지한다 — 모든 분기(미가입·탈퇴·placeholder·정상)가 issue() 를 타므로 여기서도 기록해도 소모량이 균일해
+        // 열거 오라클은 생기지 않지만, 재설정 실효 예산이 시 600→300 으로 반감된다.
         rateLimiter.assertIssueIpWithinLimit(clientIp, now);
-        rateLimiter.assertAndRecordPasswordResetStart(studentId, now);
+        rateLimiter.assertAndRecordPasswordResetStart(studentId, clientIp, now);
 
         // 미가입·탈퇴(@SQLRestriction) 학번도 400 이 아니라 학번에서 파생한 decoy 번호로 실제 세션을 발급해
         // 균일한 202 를 돌려준다 (spec §7.6). 가짜 토큰만 만들어 응답을 흉내 내면 후속 폴링이 404, 재시도가
