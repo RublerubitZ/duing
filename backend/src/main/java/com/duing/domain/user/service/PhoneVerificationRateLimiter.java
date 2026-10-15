@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
  * 설치되기 전이라 이 창만이 셀 수 있고(그래서 조회보다 <b>먼저</b> 기록한다), 동시에 토큰 창은 실재하는
  * 토큰에만 설치되어 랜덤 토큰으로 맵을 증식시키는 경로를 남기지 않는다.
  * 재설정 시작((IP, 학번)당 시 3회)은 한 요청자가 같은 학번으로 반복하는 것을 묶는다. 학번 단독 키는 다른
- * 요청자가 같은 학번의 예산을 소모할 수 있어 IP 를 섞는다 — 아래 번호+IP 창과 같은 이유다.
+ * 요청자가 같은 학번의 예산을 소모할 수 있어 IP 를 섞는다 — 이어지는 번호+IP 창과 같은 이유다.
  * 번호+IP당 발급(시간당 5회)은 쿨다운(60초)과 별개의 <b>총량</b>
  * 상한 — 재발급 반복의 QR 벤더 콜·세션 덮어쓰기 남용을 봉인하며, 성공한 발급만 계수한다(검사
  * {@link #assertIssuePhoneWithinLimit} 와 기록 {@link #recordIssuePhoneRequest} 분리 — 쿨다운 429
@@ -125,7 +125,7 @@ public class PhoneVerificationRateLimiter {
      * 다른 요청자가 같은 학번의 예산을 소모하지 못하게 한다. 초과 시 429.
      */
     public void assertAndRecordPasswordResetStart(String studentId, String clientIp, LocalDateTime now) {
-        assertAndRecordWithin(resetStartTimesByIpAndStudentId, ipStudentIdKey(studentId, clientIp), now,
+        assertAndRecordWithin(resetStartTimesByIpAndStudentId, ipScopedKey(clientIp, studentId), now,
                 RESET_START_PER_HOUR_LIMIT, RESET_START_PER_HOUR_LIMIT);
     }
 
@@ -173,7 +173,7 @@ public class PhoneVerificationRateLimiter {
      */
     public void assertIssuePhoneWithinLimit(String phone, String clientIp, LocalDateTime now) {
         boolean[] limitExceeded = {false};
-        issueTimesByPhoneAndIp.compute(phoneIpKey(phone, clientIp), (key, issueTimes) -> {
+        issueTimesByPhoneAndIp.compute(ipScopedKey(clientIp, phone), (key, issueTimes) -> {
             if (issueTimes == null) {
                 return null;
             }
@@ -191,19 +191,16 @@ public class PhoneVerificationRateLimiter {
 
     /** 성공한 발급(upsert 커밋)만 번호+IP 창에 기록한다 — 쿨다운·중복 409 로 끝난 시도는 계수하지 않는다. */
     public void recordIssuePhoneRequest(String phone, String clientIp, LocalDateTime now) {
-        issueTimesByPhoneAndIp.compute(phoneIpKey(phone, clientIp), (key, issueTimes) -> {
+        issueTimesByPhoneAndIp.compute(ipScopedKey(clientIp, phone), (key, issueTimes) -> {
             Deque<LocalDateTime> windowTimes = issueTimes == null ? new ArrayDeque<>() : issueTimes;
             windowTimes.addLast(now);
             return windowTimes;
         });
     }
 
-    private static String phoneIpKey(String phone, String clientIp) {
-        return ClientIpKeys.normalize(clientIp) + "|" + phone;
-    }
-
-    private static String ipStudentIdKey(String studentId, String clientIp) {
-        return ClientIpKeys.normalize(clientIp) + "|" + studentId;
+    /** IP 축을 섞은 창의 키 — 번호+IP 창과 (IP, 학번) 재설정 창이 같은 형식을 쓴다. */
+    private static String ipScopedKey(String clientIp, String subject) {
+        return ClientIpKeys.normalize(clientIp) + "|" + subject;
     }
 
     /**
