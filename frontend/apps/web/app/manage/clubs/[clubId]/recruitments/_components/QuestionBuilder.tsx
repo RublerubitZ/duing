@@ -163,16 +163,16 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
     <div className="space-y-3">
       {questions.map((question, index) => (
         <div key={question.key} className="rounded-[13px] border border-line bg-paper p-3.5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
             <span className="w-5 shrink-0 text-right text-sm text-charcoal-3">{index + 1}.</span>
             <input
               type="text"
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              className="min-w-0 grow basis-40 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
             />
-            <div className="flex gap-1">
+            <div className="ml-auto flex gap-1">
               <button
                 type="button"
                 onClick={() => handleMoveUp(index)}
@@ -231,7 +231,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                         handleChangeChoiceLabel(question.key, choice.key, event.target.value)
                       }
                       placeholder={`선택지 ${choiceIndex + 1}`}
-                      className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+                      className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
                     />
                     <button
                       type="button"
