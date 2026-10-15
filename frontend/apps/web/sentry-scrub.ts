@@ -48,10 +48,33 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
   return event;
 }
 
-// fetch/xhr/navigation 브레드크럼의 URL 쿼리스트링을 제거한다(에러 이벤트에 함께 실리는 PII 차단).
-// 서버 http 브레드크럼(외부 호출)은 URL 의 쿼리를 이미 떼지만 http.query 에 키 필터만 거친 쿼리를 따로 남긴다
-// (서버 SDK — node:http·fetch 공통) — SDK 는 민감 키 이름만 가려 값이 그대로 남으므로 그 키와 프래그먼트도 지운다.
+// 클릭·입력 브레드크럼(ui.click·ui.input)의 문구는 SDK 가 만든 요소 셀렉터다 — 대상과 조상(최대 4단계, 80자 안)을
+// ' > ' 로 잇고, 요소마다 태그·id·클래스 뒤에 aria-label·type·name·title·alt 값을 `[이름="값"]` 으로 붙인다
+// (@sentry/browser-utils 의 htmlTreeAsString, 값 안의 따옴표는 이스케이프하지 않는다). 목록의 체크박스·버튼은 접근성을
+// 위해 `aria-label="홍길동 선택"`, `title="… 님을 …"` 처럼 사람 이름을 속성에 담으므로, 속성 이름을 고르지 않고 값을
+// 전부 가린다 — PostHog 의 mask_all_element_attributes 와 같은 원칙(개별 속성을 열거하면 새 화면에서 뚫린다).
+const SELECTOR_ATTRIBUTE_VALUE = /\[([\w-]+)="[^"]*"\]/g;
+// SDK 가 값을 붙이는 속성 꼴. 가린 뒤에도 이 꼴이 남으면 형식이 바뀌어(작은따옴표·따옴표 없음) 위 패턴이 빗나간 것이다.
+// Sentry SDK 를 올릴 때 htmlTreeAsString 의 형식과 속성 목록이 그대로인지 다시 확인한다.
+const SDK_SERIALIZED_ATTRIBUTE = /\[(?:aria-label|type|name|title|alt)=/;
+
+function maskSelectorAttributeValues(selector: string): string {
+  const masked = selector.replace(SELECTOR_ATTRIBUTE_VALUE, '[$1="[Filtered]"]');
+  // 가린 블록을 뺀 나머지에 큰따옴표(값 경계가 깨짐)나 SDK 속성 꼴(형식 변경)이 남으면 문구 전체를 가린다.
+  // 한계: 짝이 맞는 `"]…[x="` 를 일부러 넣은 값은 그 일부가 남을 수 있다 — 그 값을 쓴 본인의 문자열뿐이다.
+  const unmaskedRest = masked.replaceAll('="[Filtered]"]', '');
+  return unmaskedRest.includes('"') || SDK_SERIALIZED_ATTRIBUTE.test(unmaskedRest) ? '[Filtered]' : masked;
+}
+
+// fetch/xhr/navigation 브레드크럼의 URL 쿼리스트링을 제거하고, 클릭·입력 브레드크럼의 요소 속성 값을 가린다
+// (에러 이벤트에 함께 실리는 PII 차단). 서버 http 브레드크럼(외부 호출)은 URL 의 쿼리를 이미 떼지만 http.query 에
+// 키 필터만 거친 쿼리를 따로 남긴다(서버 SDK — node:http·fetch 공통) — SDK 는 민감 키 이름만 가려 값이 그대로
+// 남으므로 그 키와 프래그먼트도 지운다.
 export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
+  // 클릭 브레드크럼은 보통 data 가 없다 — 아래 data 조기 반환보다 먼저 처리한다.
+  if (breadcrumb.category?.startsWith('ui.') && typeof breadcrumb.message === 'string') {
+    breadcrumb.message = maskSelectorAttributeValues(breadcrumb.message);
+  }
   const data = breadcrumb.data;
   if (!data) {
     return breadcrumb;

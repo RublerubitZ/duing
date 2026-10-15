@@ -8,6 +8,8 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? 'local',
   // 에러 모니터링만 — 성능 추적 비활성.
+  // 추적을 켜면 INP·LCP·CLS 스팬 이름·속성에 클릭 브레드크럼과 같은 요소 셀렉터(접근성 이름에 담긴 사람 이름)가
+  // 실린다 — beforeBreadcrumb 가 덮지 못하므로 beforeSendSpan·beforeSendTransaction 정제를 함께 넣어야 한다.
   // 세션 리플레이는 학생 PII(이름·학번·이메일)가 담긴 화면을 그대로 캡처하므로 절대 추가하지 않는다.
   tracesSampleRate: 0,
   // 요청/사용자 PII 자동 첨부 차단(개인정보 보호).
@@ -23,7 +25,7 @@ Sentry.init({
     'Transition was aborted because of invalid state',
     'Transition was aborted because of timeout in DOM update',
   ],
-  // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거.
+  // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거, 클릭·입력 브레드크럼의 요소 속성 값(접근성 이름에 담긴 사람 이름) 가림.
   beforeSend: scrubEvent,
   beforeBreadcrumb: scrubBreadcrumb,
 });
