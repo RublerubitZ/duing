@@ -59,7 +59,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
 
   // 150ms 안에 오는 응답은 스켈레톤 없이 곧바로 등장한다 — 경로 로딩 경계(loading.tsx)와 같은 스켈레톤이다.
   if (detail.isLoading) {
-    return <ClubDetailSkeleton />;
+    return <ClubDetailSkeleton clubId={clubId} />;
   }
   // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만
   // "볼 수 없음" 화면으로 보낸다. 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
