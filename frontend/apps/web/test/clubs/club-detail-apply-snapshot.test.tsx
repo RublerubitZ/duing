@@ -215,4 +215,77 @@ describe('동아리 상세 — ISR 스냅샷에서도 지원 버튼은 열려 �
     expect(screen.getByText('모집 정보 확인 실패')).toBeInTheDocument();
     expect(screen.getByText('새로고침해 주세요')).toBeInTheDocument();
   });
+
+  it('스냅샷 외부 폼은 다시 받은 뒤에도 상시모집이면 버튼이 그대로인 채 한 번 더 누를 때 외부 폼이 열린다 — 확인 직후 자동으로 열지 않는다', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      server.use(holdDetail(externalAlwaysOpen));
+      const queryClient = renderSeededDetail(externalAlwaysOpen);
+      await waitFor(() => expect(detailRequestCount).toBe(1));
+      const [cardButton, barButton] = applyButtons('외부 폼으로 이동');
+      expect(barButton.querySelector('svg')).not.toBeNull();
+
+      fireEvent.click(cardButton);
+      releaseDetail();
+
+      expect(
+        await screen.findByText('모집 정보를 새로 불러왔어요. 확인 후 다시 눌러 주세요.'),
+      ).toBeInTheDocument();
+      expect(openSpy).not.toHaveBeenCalled();
+      await waitFor(() => expect(detailUpdatedAt(queryClient)).toBeGreaterThan(0));
+
+      // 확인 전후 불변 — 같은 노드·같은 이름·활성·하단 바 화살표 그대로, 진행 표시는 사라진다.
+      await waitFor(() => {
+        const [settledCardButton, settledBarButton] = applyButtons('외부 폼으로 이동');
+        expect(settledCardButton).toBe(cardButton);
+        expect(settledBarButton).toBe(barButton);
+        for (const button of [settledCardButton, settledBarButton]) {
+          expect(button).toBeEnabled();
+          expect(button).not.toHaveAttribute('aria-disabled');
+        }
+        expect(settledBarButton.querySelector('svg')).not.toBeNull();
+      });
+      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
+
+      // 방금 받은 상세라 두 번째 누름은 다시 받지 않고 바로 연다.
+      fireEvent.click(cardButton);
+      expect(openSpy).toHaveBeenCalledWith(EXTERNAL_FORM_URL, '_blank', 'noopener,noreferrer');
+      expect(detailRequestCount).toBe(1);
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
+
+  it('스냅샷 외부 폼의 다시 받기가 실패하면 열지 않고 오류를 알리며, 다시 누르면 또 확인한다(새로고침 안내는 유지)', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      server.use(
+        http.get('*/clubs/1', () => {
+          detailRequestCount += 1;
+          return HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 });
+        }),
+      );
+      const queryClient = renderSeededDetail(externalAlwaysOpen);
+      await waitFor(() =>
+        expect(queryClient.getQueryState(clubQueryKeys.detail(1))?.status).toBe('error'),
+      );
+      expect(screen.getByText('모집 정보 확인 실패')).toBeInTheDocument();
+
+      fireEvent.click(applyButtons('외부 폼으로 이동')[0]);
+      expect(
+        await screen.findByText('모집 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요.'),
+      ).toBeInTheDocument();
+      expect(openSpy).not.toHaveBeenCalled();
+      await waitFor(() => expect(detailRequestCount).toBe(2));
+
+      // 실패해도 checkedAt 은 0 그대로 — 다시 누르면 또 확인하고 여전히 열지 않는다.
+      await waitFor(() => expect(applyButtons('외부 폼으로 이동')[0]).not.toHaveAttribute('aria-disabled'));
+      fireEvent.click(applyButtons('외부 폼으로 이동')[0]);
+      await waitFor(() => expect(detailRequestCount).toBe(3));
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(screen.getByText('모집 정보 확인 실패')).toBeInTheDocument();
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
 });
