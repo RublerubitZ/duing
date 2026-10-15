@@ -39,6 +39,7 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -181,6 +182,64 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
                 .body("data.interview", notNullValue())
                 .body("data.interview.startAt", equalTo("2026-06-20T14:00:00"))
                 .body("data.interview.endAt", equalTo("2026-06-20T14:30:00"))
+                .body("data.interview.location", equalTo("3호관 201호"));
+    }
+
+    @Test
+    @DisplayName("확정 전(ASSIGNING) 라운드의 초안 배정은 목록·상세 모두 interview 가 null 이고, 라운드를 확정하면 둘 다 노출된다")
+    void draftAssignmentIsHiddenUntilRoundIsConfirmed() {
+        User applicant = saveUser("초안지원자");
+        String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
+
+        Club club = saveActiveClub("초안동아리");
+        Recruitment recruitment = saveInterviewRecruitment(club, "초안모집");
+        InterviewRound round = interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+                recruitment.getId(), LocalDateTime.of(2026, 6, 15, 18, 0), "3호관 201호",
+                RoundStatus.ASSIGNING));
+
+        InterviewSlot slot = interviewSlotRepository.save(InterviewSlot.create(
+                round.getId(),
+                LocalDateTime.of(2026, 6, 20, 14, 0),
+                LocalDateTime.of(2026, 6, 20, 14, 30),
+                3));
+
+        Application application = saveInterviewPendingApplication(recruitment, applicant);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+        interviewAvailabilityRepository.save(InterviewAvailability.create(
+                application.getId(), slot.getId(), round.getId()));
+        interviewScheduleRepository.save(InterviewSchedule.create(
+                application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
+
+        // 운영진이 아직 검토 중인 초안 — 목록·상세 어디에도 시각·장소가 나가면 안 된다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications")
+                .then().statusCode(HttpStatus.OK.value())
+                // 항목이 목록에 있는지 먼저 고정한다 — 없으면 아래 interview 단언이 공허하게 통과한다.
+                .body("data.find { it.id == %d }".formatted(application.getId()), notNullValue())
+                .body("data.find { it.id == %d }.interview".formatted(application.getId()), nullValue());
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interview", nullValue());
+
+        // 라운드를 확정하면(ASSIGNING → SCHEDULED) 같은 배정이 지원자에게 보인다 — 확정 알림이 나가는 시점과 같다.
+        InterviewRound savedRound = interviewRoundRepository.findById(round.getId()).orElseThrow();
+        savedRound.confirm(Instant.now());
+        interviewRoundRepository.save(savedRound);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }.interview.startAt".formatted(application.getId()),
+                        equalTo("2026-06-20T14:00:00"));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications/{id}", application.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.interview.startAt", equalTo("2026-06-20T14:00:00"))
                 .body("data.interview.location", equalTo("3호관 201호"));
     }
 

@@ -88,7 +88,7 @@ class MyApplicationsQueryTest {
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
-        when(interviewAssignmentQueryService.findAssignedByApplicationIds(anyList()))
+        when(interviewAssignmentQueryService.findConfirmedByApplicationIds(anyList()))
                 .thenReturn(Map.of());
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
@@ -127,7 +127,7 @@ class MyApplicationsQueryTest {
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
-        when(interviewAssignmentQueryService.findAssignedByApplicationIds(anyList()))
+        when(interviewAssignmentQueryService.findConfirmedByApplicationIds(anyList()))
                 .thenReturn(Map.of(10L, assignedWithoutLocation));
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());
@@ -161,7 +161,7 @@ class MyApplicationsQueryTest {
 
         when(applicationRepository.findByUserIdAndStatusInOrderByCreatedAtDesc(99L, ApplicationScope.ALL.toStatuses()))
                 .thenReturn(List.of(application));
-        when(interviewAssignmentQueryService.findAssignedByApplicationIds(anyList()))
+        when(interviewAssignmentQueryService.findConfirmedByApplicationIds(anyList()))
                 .thenReturn(Map.of());
 
         List<ApplicationSummaryQuery> summaries = applicationService.getMyApplications(99L, ApplicationScope.ALL.toStatuses());

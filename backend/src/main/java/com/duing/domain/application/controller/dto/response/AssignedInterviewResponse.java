@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 /**
  * 지원 응답들(운영진 상세 카드·내 지원 목록 카드·내 지원 상세)이 공통으로 노출하는 현재 배정 면접 일정/장소.
  * ASSIGNED schedule 이 있으면 채워지고, 미배정/CANCELLED 만 있으면 응답에서 {@code null}.
+ * 지원자 응답(내 지원 목록·상세)은 확정(SCHEDULED) 라운드의 배정만 채우고, 운영진 상세는 확정 전 초안도 채운다.
  * <p>
  * {@code location} 은 nullable — {@link com.duing.domain.interview.entity.InterviewRound} 의 location
  * 이 비어 있는 라운드는 interview 객체는 노출하되 location 만 {@code null} 로 채운다 (Codex review BE-3).
