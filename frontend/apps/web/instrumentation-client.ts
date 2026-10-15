@@ -25,7 +25,7 @@ Sentry.init({
     'Transition was aborted because of invalid state',
     'Transition was aborted because of timeout in DOM update',
   ],
-  // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거, 클릭·입력 브레드크럼의 요소 속성 값(접근성 이름에 담긴 사람 이름) 가림.
+  // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거, 클릭·입력 브레드크럼과 이벤트 extra 에 실린 요소 셀렉터의 속성 값(접근성 이름에 담긴 사람 이름) 가림.
   beforeSend: scrubEvent,
   beforeBreadcrumb: scrubBreadcrumb,
 });

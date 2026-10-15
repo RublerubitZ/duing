@@ -109,6 +109,66 @@ describe('scrubEvent', () => {
       message: 'client error',
     });
   });
+
+  // 감싼 이벤트 리스너에서 예외가 나면 SDK 가 그 이벤트를 extra.arguments 에 싣고, 정규화가 DOM 요소를
+  // `[HTMLElement: <셀렉터>]` 로 바꾼다 — 아래는 beforeSend 가 받는 그 모양이다(값은 테스트용 더미).
+  it('extra 에 실린 DOM 요소 셀렉터의 속성 값을 가린다 — 감싼 이벤트 리스너의 이벤트 인자', () => {
+    const scrubbed = scrubEvent({
+      type: undefined,
+      extra: {
+        arguments: [
+          {
+            type: 'click',
+            target: '[HTMLElement: input.peer[aria-label="홍길동 선택"][type="checkbox"]]',
+            currentTarget: '[HTMLElement: ]',
+            detail: 1,
+            isTrusted: true,
+          },
+        ],
+      },
+    });
+
+    expect(scrubbed.extra).toEqual({
+      arguments: [
+        {
+          type: 'click',
+          target: '[HTMLElement: input.peer[aria-label="[Filtered]"][type="[Filtered]"]]',
+          currentTarget: '[HTMLElement: ]',
+          detail: 1,
+          isTrusted: true,
+        },
+      ],
+    });
+  });
+
+  it('객체로 거부된 프로미스의 직렬화 값(extra.__serialized__) 안 요소도 가리고, 경계가 깨진 요소는 값 전체를 가린다', () => {
+    const scrubbed = scrubEvent({
+      type: undefined,
+      extra: {
+        __serialized__: {
+          type: 'pointerdown',
+          target: '[HTMLElement: div.row > button.btn[title="김철수 님 상세"]]',
+          currentTarget: '[HTMLElement: button.btn[aria-label="홍"길동 상세"]]',
+        },
+      },
+    });
+
+    expect(scrubbed.extra).toEqual({
+      __serialized__: {
+        type: 'pointerdown',
+        target: '[HTMLElement: div.row > button.btn[title="[Filtered]"]]',
+        currentTarget: '[Filtered]',
+      },
+    });
+  });
+
+  it('요소가 아닌 extra 값은 따옴표가 있어도 그대로 둔다 — 요소 문자열만 가림 대상이다', () => {
+    const extraWithoutElements = { note: 'say "hi"', count: 2, flags: [true, null], nested: { label: 'plain' } };
+
+    expect(scrubEvent({ type: undefined, extra: structuredClone(extraWithoutElements) }).extra).toEqual(
+      extraWithoutElements,
+    );
+  });
 });
 
 describe('scrubBreadcrumb', () => {
