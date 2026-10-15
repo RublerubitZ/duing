@@ -344,4 +344,42 @@ class UploadedObjectServiceTest extends IntegrationTestBase {
         assertThat(statusOf(storageKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
         assertThat(releasedAtOf(storageKey)).isNull();
     }
+
+    @Test
+    @DisplayName("서버 생성 객체 기록은 참조가 확정됐으면 PENDING 없이 바로 ACTIVE 행을 업로더와 함께 남긴다")
+    void recordsServerGeneratedObjectAsActive() {
+        String storageKey = uniqueKey(FilePurpose.LOGO);
+
+        uploadedObjectService.recordServerGenerated(STUB_PREFIX + storageKey, FilePurpose.LOGO, 42L, true);
+
+        UploadedObject saved = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(saved.getPurpose()).isEqualTo(FilePurpose.LOGO);
+        assertThat(saved.getUploaderId()).isEqualTo(42L);
+        assertThat(saved.getActivatedAt()).isNotNull();
+        assertThat(saved.getReleasedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("서버 생성 객체 기록은 참조가 확정되지 않았으면(경합) 바로 RELEASED 행으로 남겨 파기 후보가 되게 한다")
+    void recordsUnattachedServerGeneratedObjectAsReleased() {
+        String storageKey = uniqueKey(FilePurpose.LOGO);
+
+        uploadedObjectService.recordServerGenerated(STUB_PREFIX + storageKey, FilePurpose.LOGO, 0L, false);
+
+        UploadedObject saved = uploadedObjectRepository.findByStorageKey(storageKey).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(saved.getReleasedAt()).isNotNull();
+        assertThat(saved.isPurgeCandidate()).isTrue();
+    }
+
+    @Test
+    @DisplayName("서버 생성 객체 기록은 자기 스토리지 URL 이 아니면 행을 남기지 않는다")
+    void skipsServerGeneratedRecordForExternalUrl() {
+        long before = uploadedObjectRepository.count();
+
+        uploadedObjectService.recordServerGenerated("https://cdn.example.test/x-thumb.png", FilePurpose.LOGO, 0L, true);
+
+        assertThat(uploadedObjectRepository.count()).isEqualTo(before);
+    }
 }

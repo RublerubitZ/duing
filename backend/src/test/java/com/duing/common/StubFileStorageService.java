@@ -5,7 +5,9 @@ import com.duing.global.file.FileUploadPolicy;
 import com.duing.global.file.StoredFile;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,12 +26,24 @@ public class StubFileStorageService implements FileStorageService {
 
     private static final String PREFIX = "/files/stub/";
 
+    // uploadBytes 로 저장한 바이트 — download 가 그대로 돌려줘 이미지 처리 테스트가 실제 바이트로 돈다(그 밖의 키는 더미 텍스트).
+    private final Map<String, byte[]> storedObjects = new ConcurrentHashMap<>();
+
+    // 스토리지 장애를 흉내내는 테스트 전용 sentinel — 이 문자열이 든 키의 download 는 IllegalStateException 을 던진다.
+    private static final String FAILING_MARKER = "__fail__";
+
     @Override
     public String upload(MultipartFile file, String directory, String contentType) {
         // 실구현(Local/S3)과 동형으로 UUID + 서버 부여 확장자를 쓴다. 클라이언트 파일명을 그대로
         // 돌려주면 "저장 파일명은 서버가 정한다"는 계약을 검증하는 테스트가 항진명제가 된다.
         String extension = FileUploadPolicy.EXTENSION_BY_MIME.getOrDefault(contentType, "bin");
         return PREFIX + directory + "/" + UUID.randomUUID() + "." + extension;
+    }
+
+    @Override
+    public String uploadBytes(String storageKey, byte[] content, String contentType) {
+        storedObjects.put(storageKey, content.clone());
+        return PREFIX + storageKey;
     }
 
     @Override
@@ -67,13 +81,17 @@ public class StubFileStorageService implements FileStorageService {
         return 1024L;
     }
 
-    // 실제 I/O 없는 stub — 다운로드 인수 테스트가 소비할 더미 바이트만 흘려보낸다.
+    // 실제 I/O 없는 stub — uploadBytes 로 넣은 바이트가 있으면 그것을, 없으면 다운로드 인수 테스트가 소비할 더미 바이트를 흘려보낸다.
     @Override
     public StoredFile download(String storageKey) {
         if (storageKey == null || storageKey.isBlank() || storageKey.contains(MISSING_MARKER)) {
             return null;
         }
-        byte[] content = ("stub-file-content:" + storageKey).getBytes(StandardCharsets.UTF_8);
+        if (storageKey.contains(FAILING_MARKER)) {
+            throw new IllegalStateException("stub storage failure");
+        }
+        byte[] content = storedObjects.getOrDefault(storageKey,
+                ("stub-file-content:" + storageKey).getBytes(StandardCharsets.UTF_8));
         return new StoredFile(new ByteArrayInputStream(content), resolveContentType(storageKey), content.length);
     }
 

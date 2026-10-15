@@ -13,6 +13,15 @@ public interface FileStorageService {
     String upload(MultipartFile file, String directory, String contentType);
 
     /**
+     * 서버가 만든 바이트(동아리 로고 썸네일)를 주어진 키에 저장하고 공개 URL 을 반환한다. 키는 호출자가 정하되
+     * {@code {FilePurpose.directory()}/{새 UUID}{접미}.{ext}} 형식이어야 하고 사용자 입력을 넣지 않는다 — 참조 스캔의 접미 LIKE
+     * 전제({@code _}·{@code %} 없음)와 유니크 키가 그 전제다. 저장 메타데이터(Content-Type·inline·영구 Cache-Control)는
+     * {@link #upload} 와 같다. 실패는 {@link IllegalStateException} 으로 전파하고, 로그에는 키를 남기지 않는다(백필이 저장소 장애
+     * 때 동아리 수만큼 부른다).
+     */
+    String uploadBytes(String storageKey, byte[] content, String contentType);
+
+    /**
      * 파일을 삭제하고 삭제 확정 여부를 반환한다.
      *
      * <p>구현(S3/Local)은 스토리지 예외를 던지지 않고 warn 로그로 삼키는 best-effort 의미론이므로,
