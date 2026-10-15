@@ -11,7 +11,7 @@ import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/type
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
-import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
@@ -21,7 +21,7 @@ type Props = {
   recruitment: StudentRecruitmentProjection | undefined;
   /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
   membership?: MyClubMembership | null;
-  /** 상세 확인 상태 — 스냅샷이면 잠그고, 확인 실패면 새로고침을 안내한다(useClubApply). */
+  /** 상세 확인 상태 — 외부 폼은 누를 때 최신 상세로만 열고, 확인 실패면 새로고침을 안내한다(useClubApply). */
   detailCheck: ClubDetailCheck;
 };
 
@@ -34,7 +34,7 @@ function barLabels(
   top: string;
   main: string;
 } {
-  // 확인 실패면 스냅샷 문구 대신 새로고침을 안내한다 — 버튼이 잠긴 이유를 라벨 자리에서 알린다.
+  // 확인 실패면 상태 문구 대신 새로고침을 안내한다 — 버튼은 열려 있지만(누르면 다시 확인) 정보가 낡았을 수 있음을 라벨 자리에서 알린다.
   if (showsCheckFailure) return { top: '모집 정보 확인 실패', main: '새로고침해 주세요' };
   if (!recruitment) return { top: '모집 정보', main: '현재 모집이 없어요' };
   switch (recruitment.displayStatus) {
@@ -57,7 +57,6 @@ function barLabels(
 export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Props) {
   const {
     canApply,
-    awaitingCheck,
     handleApply,
     applyButtonLabel,
     pendingLabel,
@@ -94,35 +93,34 @@ export function ClubDetailApplyBar({ recruitment, membership, detailCheck }: Pro
           <button
             type="button"
             onClick={handleApply}
-            disabled={!canApply || pendingLabel !== null || isAlreadyMember}
+            disabled={!canApply || isAlreadyMember}
+            // 누른 뒤 확인 중엔 disabled(딤)로 잠그지 않는다 — 색이 바뀌며 깜빡인다. aria-disabled 로 알리고 중복 클릭은 handleApply 가 무시한다.
+            aria-disabled={pendingLabel !== null || undefined}
             className={cn(
               'btn btn-primary flex-1 rounded-[14px] py-3.5 text-[15px]',
               'disabled:cursor-not-allowed disabled:opacity-40',
             )}
           >
-            {pendingLabel !== null ? (
-              <span role="status" aria-label={pendingLabel} className="inline-flex items-center">
-                <Spinner size={14} />
-              </span>
-            ) : isAlreadyMember ? (
+            {isAlreadyMember ? (
               '이미 소속된 동아리예요'
-            ) : awaitingCheck ? (
-              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다(확인 성공 뒤 화살표가 붙으며 생기는 이동은 별개).
-              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late).
+            ) : (
+              // 라벨은 누른 뒤에도 그대로다. 확인 중 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않고,
+              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late) — 짧은 확인에 스피너가 깜빡이지 않게.
               <span className="relative inline-flex items-center">
-                <span
-                  role="status"
-                  aria-label="모집 정보 확인 중"
-                  className="delayed-show-late absolute right-full mr-2 inline-flex"
-                >
-                  <ButtonSpinner />
-                </span>
+                {pendingLabel !== null && (
+                  <span
+                    role="status"
+                    aria-label={pendingLabel}
+                    className="delayed-show-late absolute right-full mr-2 inline-flex"
+                  >
+                    <ButtonSpinner />
+                  </span>
+                )}
                 {applyButtonLabel}
               </span>
-            ) : (
-              applyButtonLabel
             )}
-            {canApply && pendingLabel === null && !isAlreadyMember && <ArrowRight size={16} />}
+            {/* 화살표는 열린 모집에서 누르기 전·확인 중 모두 그대로다(스냅샷 포함) — 잠금 상태에서만 빠진다. */}
+            {canApply && !isAlreadyMember && <ArrowRight size={16} />}
           </button>
         )}
       </div>

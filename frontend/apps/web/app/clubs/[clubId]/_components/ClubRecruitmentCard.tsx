@@ -11,7 +11,7 @@ import { ddayLabel } from '../../../_lib/dday';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
-import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
+import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
 
 type Props = {
@@ -20,14 +20,13 @@ type Props = {
   clubId: number;
   /** 뷰어의 이 동아리 소속. undefined = 비로그인·로딩(모름), null = 비소속, 객체 = 소속. */
   membership?: MyClubMembership | null;
-  /** 상세 확인 상태 — 스냅샷이면 잠그고, 확인 실패면 새로고침을 안내한다(useClubApply). */
+  /** 상세 확인 상태 — 외부 폼은 누를 때 최신 상세로만 열고, 확인 실패면 새로고침을 안내한다(useClubApply). */
   detailCheck: ClubDetailCheck;
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId, membership, detailCheck }: Props) {
   const {
     canApply,
-    awaitingCheck,
     handleApply,
     applyButtonLabel,
     pendingLabel,
@@ -121,30 +120,28 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
           <button
             type="button"
             onClick={handleApply}
-            disabled={!canApply || pendingLabel !== null || isAlreadyMember}
+            disabled={!canApply || isAlreadyMember}
+            // 누른 뒤 확인 중엔 disabled(딤)로 잠그지 않는다 — 색이 바뀌며 깜빡인다. aria-disabled 로 알리고 중복 클릭은 handleApply 가 무시한다.
+            aria-disabled={pendingLabel !== null || undefined}
             className="btn btn-primary btn-big w-full disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pendingLabel !== null ? (
-              <span role="status" aria-label={pendingLabel} className="inline-flex items-center">
-                <Spinner size={14} />
-              </span>
-            ) : isAlreadyMember ? (
+            {isAlreadyMember ? (
               '이미 소속된 동아리예요'
-            ) : awaitingCheck ? (
-              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다.
-              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late).
+            ) : (
+              // 라벨은 누른 뒤에도 그대로다. 확인 중 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않고,
+              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late) — 짧은 확인에 스피너가 깜빡이지 않게.
               <span className="relative inline-flex items-center">
-                <span
-                  role="status"
-                  aria-label="모집 정보 확인 중"
-                  className="delayed-show-late absolute right-full mr-2 inline-flex"
-                >
-                  <ButtonSpinner />
-                </span>
+                {pendingLabel !== null && (
+                  <span
+                    role="status"
+                    aria-label={pendingLabel}
+                    className="delayed-show-late absolute right-full mr-2 inline-flex"
+                  >
+                    <ButtonSpinner />
+                  </span>
+                )}
                 {applyButtonLabel}
               </span>
-            ) : (
-              applyButtonLabel
             )}
           </button>
         )}

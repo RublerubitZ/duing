@@ -66,6 +66,15 @@ const base: StudentRecruitmentProjection = {
   applicantCount: null,
 };
 
+// 열린 외부 폼 모집 — 스냅샷·재확인 테스트가 함께 쓴다.
+const externalAlwaysOpen: StudentRecruitmentProjection = {
+  ...base,
+  displayStatus: 'ALWAYS_OPEN',
+  endDate: null,
+  applicationMode: 'EXTERNAL',
+  externalFormUrl: 'https://example.com/form',
+};
+
 function mockEligibility(
   status: number,
   body: { ok: boolean; data: null; message: string | null },
@@ -114,7 +123,7 @@ const checkedNow = (): ClubDetailCheck => ({
   recheck: async () => true,
 });
 
-// ISR 스냅샷 — 이 브라우저가 아직 상세를 받지 못했다(버튼은 잠긴다).
+// ISR 스냅샷 — 이 브라우저가 아직 상세를 받지 못했다(버튼은 열려 있고, 외부 폼은 누를 때 먼저 다시 받는다).
 const snapshotCheck = (): ClubDetailCheck => ({
   checkedAt: 0,
   checkFailed: false,
@@ -224,7 +233,7 @@ describe('ClubRecruitmentCard', () => {
     openSpy.mockRestore();
   });
 
-  it('스냅샷 확인이 실패하면 버튼 아래에 새로고침 안내가 보이고 버튼은 잠긴다', () => {
+  it('스냅샷 확인이 실패하면 버튼 아래에 새로고침 안내가 보이고, 버튼은 잠기지 않는다', () => {
     renderCard(
       { ...base, displayStatus: 'ALWAYS_OPEN', endDate: null },
       7,
@@ -232,7 +241,7 @@ describe('ClubRecruitmentCard', () => {
       { checkedAt: 0, checkFailed: true, recheck: async () => true },
     );
     expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
   });
 
   // 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
@@ -260,25 +269,20 @@ describe('ClubRecruitmentCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('ISR 스냅샷이면 열린 외부 폼 모집도 버튼이 잠기고 눌러도 열리지 않는다', () => {
+  it('ISR 스냅샷이면 열린 외부 폼 모집의 버튼은 열려 있고, 누르면 열지 않고 상세를 먼저 다시 받은 뒤 다시 누르라고 알린다', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const recheck = vi.fn(async () => true);
     try {
-      renderCard(
-        {
-          ...base,
-          displayStatus: 'ALWAYS_OPEN',
-          endDate: null,
-          applicationMode: 'EXTERNAL',
-          externalFormUrl: 'https://example.com/form',
-        },
-        7,
-        undefined,
-        snapshotCheck(),
-      );
-      // 스냅샷 동안은 확인 중 스피너의 이름이 라벨 앞에 붙는다 — jsdom 은 inline 자식 사이 공백을 넣지 않는다.
-      const button = screen.getByRole('button', { name: /^모집 정보 확인 중\s?외부 폼으로 이동$/ });
-      expect(button).toBeDisabled();
+      renderCard(externalAlwaysOpen, 7, undefined, { checkedAt: 0, checkFailed: false, recheck });
+      const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
+      expect(button).toBeEnabled();
+
       fireEvent.click(button);
+
+      expect(
+        await screen.findByText('모집 정보를 새로 불러왔어요. 확인 후 다시 눌러 주세요.'),
+      ).toBeInTheDocument();
+      expect(recheck).toHaveBeenCalledTimes(1);
       expect(openSpy).not.toHaveBeenCalled();
     } finally {
       openSpy.mockRestore();
@@ -333,7 +337,8 @@ describe('ClubRecruitmentCard', () => {
     expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
   });
 
-  it('사전 확인 중에는 지원하기 버튼이 비활성화되고 확인 중 스피너가 표시된다', async () => {
+  // 누른 뒤 확인 중에도 버튼은 disabled(딤)가 아니다 — 라벨을 그대로 두고 aria-disabled 와 라벨 왼쪽 지연 스피너로만 알린다.
+  it('사전 확인 중에는 라벨을 그대로 두고 "지원 자격 확인 중" 지연 스피너와 aria-disabled 로만 알린다', async () => {
     mockAuthStatus.value = 'authenticated';
     server.use(
       http.get(`*/recruitments/${base.id}/applications/eligibility`, async () => {
@@ -346,9 +351,16 @@ describe('ClubRecruitmentCard', () => {
 
     await user.click(screen.getByRole('button', { name: '지원하기' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: '지원 자격 확인 중' })).toBeDisabled();
-    });
+    // 접근 이름은 스피너 이름 + 라벨이다 — jsdom 은 inline 자식 사이 공백을 넣지 않는다.
+    const pendingButton = await screen.findByRole('button', { name: /^지원 자격 확인 중\s?지원하기$/ });
+    expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+    expect(pendingButton).toBeEnabled();
+    expect(pendingButton).toHaveTextContent('지원하기');
+    expect(within(pendingButton).getByRole('status', { name: '지원 자격 확인 중' })).toHaveClass(
+      'delayed-show-late',
+      'absolute',
+      'right-full',
+    );
   });
 
   // 서버는 중복 지원을 상태와 무관하게 409 로 막는다(REJECTED 포함) — 버튼 대신 제출한 지원서로 보낸다.
@@ -371,42 +383,26 @@ describe('ClubRecruitmentCard', () => {
     await waitFor(() => expect(screen.queryByRole('link', { name: '지원 완료 · 지원서 보기' })).not.toBeInTheDocument());
   });
 
-  // 스냅샷이라 잠근 것뿐인 지원 가능 모집은 버튼 안에 확인 중 스피너를 둔다 — 느린 회선에서 이유 없는 잠금으로 보이지 않게(#1456).
-  // jsdom 은 inline 자식 사이 공백을 넣지 않아, 스냅샷 버튼은 스피너 이름과 라벨이 이어진 이름을 정규식으로 찾는다.
-  describe('ISR 스냅샷 확인 중 스피너', () => {
-    const awaitingCases: ReadonlyArray<
-      readonly [string, StudentRecruitmentProjection, string, RegExp]
-    > = [
-      ['모집중', base, '지원하기', /^모집 정보 확인 중\s?지원하기$/],
-      [
-        '상시모집 외부 폼',
-        {
-          ...base,
-          displayStatus: 'ALWAYS_OPEN',
-          endDate: null,
-          applicationMode: 'EXTERNAL',
-          externalFormUrl: 'https://example.com/form',
-        },
-        '외부 폼으로 이동',
-        /^모집 정보 확인 중\s?외부 폼으로 이동$/,
-      ],
+  // 스냅샷이어도 열린 모집의 버튼은 활성 색 그대로다 — 확인 전후로 버튼이 바뀌며 깜빡이지 않게(iOS 깜빡임 P0).
+  // 누르지 않은 동안의 확인 중 스피너(#1456)는 없다. 외부 폼의 안전은 누를 때의 재확인이 지킨다.
+  describe('ISR 스냅샷 — 확인 중 스피너 없이 열린 버튼', () => {
+    const openCases: ReadonlyArray<readonly [string, StudentRecruitmentProjection, string]> = [
+      ['모집중', base, '지원하기'],
+      ['상시모집 외부 폼', externalAlwaysOpen, '외부 폼으로 이동'],
     ];
-    it.each(awaitingCases)(
-      '%s 스냅샷이면 라벨은 그대로 두고 잠긴 버튼 안에 확인 중 상태를 둔다',
-      (_caseName, recruitment, label, buttonName) => {
+    it.each(openCases)(
+      '%s 스냅샷이면 버튼은 열려 있고 접근 이름이 라벨 그대로며 스피너는 없다',
+      (_caseName, recruitment, label) => {
         renderCard(recruitment, 7, undefined, snapshotCheck());
 
-        const button = screen.getByRole('button', { name: buttonName });
-        const spinnerStatus = within(button).getByRole('status', { name: '모집 정보 확인 중' });
-        expect(spinnerStatus).toHaveClass('delayed-show-late', 'absolute', 'right-full');
-        expect(spinnerStatus.parentElement).toHaveClass('relative');
-        expect(spinnerStatus.querySelector('svg')).not.toHaveClass('delayed-show-late');
-        expect(button).toHaveTextContent(label);
-        expect(button).toBeDisabled();
+        const button = screen.getByRole('button', { name: label });
+        expect(button).toBeEnabled();
+        expect(button).not.toHaveAttribute('aria-disabled');
+        expect(within(button).queryByRole('status')).not.toBeInTheDocument();
       },
     );
 
-    // 마감·예정·모집 없음은 제목이 이미 잠긴 이유를 말한다.
+    // 마감·예정·모집 없음은 지금처럼 잠긴다 — 제목이 이미 잠긴 이유를 말한다.
     const explainedLockCases: ReadonlyArray<
       readonly [string, StudentRecruitmentProjection | undefined]
     > = [
@@ -415,43 +411,124 @@ describe('ClubRecruitmentCard', () => {
       ['모집 없음', undefined],
     ];
     it.each(explainedLockCases)(
-      '%s 스냅샷이면 확인 중 상태 없이 라벨만 둔다',
+      '%s 스냅샷이면 버튼은 잠기고 스피너가 없다',
       (_caseName, recruitment) => {
         renderCard(recruitment, 7, undefined, snapshotCheck());
 
-        expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+        const button = screen.getByRole('button', { name: '지원하기' });
+        expect(button).toBeDisabled();
+        expect(within(button).queryByRole('status')).not.toBeInTheDocument();
       },
     );
 
-    it('확인이 실패하면 확인 중 상태 대신 새로고침 안내를 둔다', () => {
-      renderCard(base, 7, undefined, { checkedAt: 0, checkFailed: true, recheck: async () => true });
+    it('스냅샷에서 일반 폼을 누르면 상세를 다시 받지 않고 기존 흐름(비로그인 → 로그인)으로 간다', async () => {
+      const recheck = vi.fn(async () => true);
+      const user = userEvent.setup();
+      renderCard(base, 7, undefined, { checkedAt: 0, checkFailed: false, recheck });
 
-      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
-      expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: '지원하기' }));
+
+      expect(mockRouterPush).toHaveBeenCalledWith(
+        `/login?next=${encodeURIComponent(`/apply/${base.id}`)}`,
+      );
+      expect(recheck).not.toHaveBeenCalled();
     });
 
-    it('최신 상세를 받은 뒤에는 확인 중 상태 없이 버튼이 열린다', () => {
-      renderCard(base, 7, undefined, checkedNow());
+    // 인증 분기 — 로그인 뷰어도 스냅샷에서 상세를 다시 받지 않고 서버 자격 확인(마감을 막는 쪽)만 거쳐 이동한다.
+    it('스냅샷에서 로그인한 뷰어가 일반 폼을 누르면 상세를 다시 받지 않고 자격 확인을 거쳐 지원 페이지로 이동한다', async () => {
+      mockAuthStatus.value = 'authenticated';
+      let eligibilityChecked = false;
+      server.use(
+        http.get(`*/recruitments/${base.id}/applications/eligibility`, () => {
+          eligibilityChecked = true;
+          return HttpResponse.json({ ok: true, data: null, message: null });
+        }),
+      );
+      const recheck = vi.fn(async () => true);
+      const user = userEvent.setup();
+      renderCard(base, 7, undefined, { checkedAt: 0, checkFailed: false, recheck });
 
-      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: '지원하기' })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: '지원하기' }));
+
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith(`/apply/${base.id}`));
+      expect(eligibilityChecked).toBe(true);
+      expect(recheck).not.toHaveBeenCalled();
     });
 
-    it('소속 잠금이면 확인 중 상태 없이 잠금 이유를 둔다', () => {
+    it('스냅샷 외부 폼을 누르면 다시 받는 동안 라벨을 그대로 두고, 지연 스피너와 aria-disabled 로 알리며 중복 클릭은 무시한다', async () => {
+      let finishRecheck: (succeeded: boolean) => void = () => {};
+      const recheck = vi.fn(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishRecheck = resolve;
+          }),
+      );
+      renderCard(externalAlwaysOpen, 7, undefined, { checkedAt: 0, checkFailed: false, recheck });
+      const button = screen.getByRole('button', { name: '외부 폼으로 이동' });
+
+      fireEvent.click(button);
+
+      // 같은 DOM 노드가 그대로다 — 접근 이름은 스피너 이름 + 라벨, 시각적 disabled(딤) 대신 aria-disabled.
+      const pendingButton = await screen.findByRole('button', { name: /^모집 정보 확인 중\s?외부 폼으로 이동$/ });
+      expect(pendingButton).toBe(button);
+      expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+      expect(pendingButton).toBeEnabled();
+      expect(pendingButton).toHaveTextContent('외부 폼으로 이동');
+      // 스피너는 라벨 왼쪽 절대 배치 + 0.8초 지연(.delayed-show-late) — 짧은 확인엔 보이지 않고 라벨이 밀리지 않는다.
+      // 지연은 래퍼에, 회전은 안쪽 svg 에(animation 축약 충돌 규약, #1463).
+      const spinnerStatus = within(pendingButton).getByRole('status', { name: '모집 정보 확인 중' });
+      expect(spinnerStatus).toHaveClass('delayed-show-late', 'absolute', 'right-full');
+      expect(spinnerStatus.parentElement).toHaveClass('relative');
+      expect(spinnerStatus.querySelector('svg')).not.toHaveClass('delayed-show-late');
+      // 진행 중 중복 클릭은 handleApply 가 무시한다 — 재확인은 한 번뿐이다.
+      fireEvent.click(pendingButton);
+      expect(recheck).toHaveBeenCalledTimes(1);
+
+      finishRecheck(true);
+
+      expect(
+        await screen.findByText('모집 정보를 새로 불러왔어요. 확인 후 다시 눌러 주세요.'),
+      ).toBeInTheDocument();
+      const settledButton = screen.getByRole('button', { name: '외부 폼으로 이동' });
+      expect(settledButton).toBe(button);
+      expect(settledButton).not.toHaveAttribute('aria-disabled');
+      expect(within(settledButton).queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('스냅샷 외부 폼의 재확인이 실패하면 열지 않고 오류를 알리며, 새로고침 안내는 그대로고 버튼은 다시 누를 수 있다', async () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      const recheck = vi.fn(async () => false);
+      try {
+        renderCard(externalAlwaysOpen, 7, undefined, { checkedAt: 0, checkFailed: true, recheck });
+        expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: '외부 폼으로 이동' }));
+
+        expect(
+          await screen.findByText('모집 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요.'),
+        ).toBeInTheDocument();
+        expect(openSpy).not.toHaveBeenCalled();
+        expect(recheck).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole('button', { name: '외부 폼으로 이동' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: '외부 폼으로 이동' })).not.toHaveAttribute('aria-disabled');
+        expect(screen.getByText('모집 정보를 확인하지 못했어요. 새로고침해 주세요.')).toBeInTheDocument();
+      } finally {
+        openSpy.mockRestore();
+      }
+    });
+
+    it('소속 잠금이면 스냅샷이어도 잠금 이유가 우선이다', () => {
       renderCard({ ...base, targetRole: 'MEMBER' }, 7, memberMembership, snapshotCheck());
 
-      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: '이미 소속된 동아리예요' })).toBeDisabled();
     });
 
-    it('이미 지원한 모집이면 확인 중 상태 없이 지원서 보기 링크를 둔다', async () => {
+    it('이미 지원한 모집이면 스냅샷이어도 지원서 보기 링크를 둔다', async () => {
       mockAuthStatus.value = 'authenticated';
       server.use(mockMyApplications([myApplication]));
       renderCard(base, 7, undefined, snapshotCheck());
 
       expect(await screen.findByRole('link', { name: '지원 완료 · 지원서 보기' })).toBeInTheDocument();
-      expect(screen.queryByRole('status', { name: '모집 정보 확인 중' })).not.toBeInTheDocument();
     });
   });
 });
