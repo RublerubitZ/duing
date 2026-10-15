@@ -72,8 +72,9 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 ? recruitment.getEndDate()
                 : alwaysOpenEndDate(recruitment);
 
-        // 기간이 MAX_DAILY_POINTS 일을 넘으면 최근 구간만 그린다 — 진행 중이면 오늘까지, 지난 기간은 마지막 날까지,
-        // 시작 직후면 시작일부터. 그 이하 기간은 창이 그대로 [startDate, effectiveEndDate] 다.
+        // 기간이 MAX_DAILY_POINTS 일을 넘으면 그중 MAX_DAILY_POINTS 일만 그린다 — 지난 기간은 마지막 날까지,
+        // 시작한 지 1년이 지난 진행 중 기간은 오늘까지, 시작 전이거나 1년이 안 됐으면 시작일부터.
+        // 그 이하 기간은 창이 그대로 [startDate, effectiveEndDate] 다.
         // 창 끝이 시작보다 앞서면(시작 전 상시모집) 지금처럼 빈 리스트가 된다.
         LocalDate today = LocalDate.now(clock);
         LocalDate windowEnd = earlierOf(effectiveEndDate, laterOf(today, startDate.plusDays(MAX_DAILY_POINTS - 1)));

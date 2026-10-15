@@ -1,6 +1,5 @@
 package com.duing.domain.recruitment.controller;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.duing.common.IntegrationTestBase;
@@ -45,6 +44,8 @@ class RecruitmentDateRangeIntegrationTest extends IntegrationTestBase {
     private static final String SELF_FORM_QUESTIONS =
             "[{\"text\": \"지원 동기를 알려주세요\", \"type\": \"TEXT\", \"required\": true}]";
 
+    private static final String OUT_OF_RANGE_MESSAGE = "모집 기간은 2000-01-01부터 2100-12-31 사이여야 합니다.";
+
     @LocalServerPort
     private int port;
 
@@ -88,7 +89,7 @@ class RecruitmentDateRangeIntegrationTest extends IntegrationTestBase {
                 """.formatted(SELF_FORM_QUESTIONS))
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("ok", equalTo(false))
-                .body("message", containsString("2000-01-01"));
+                .body("message", equalTo(OUT_OF_RANGE_MESSAGE));
     }
 
     @Test
@@ -107,7 +108,7 @@ class RecruitmentDateRangeIntegrationTest extends IntegrationTestBase {
                 """.formatted(SELF_FORM_QUESTIONS))
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("ok", equalTo(false))
-                .body("message", containsString("2000-01-01"));
+                .body("message", equalTo(OUT_OF_RANGE_MESSAGE));
     }
 
     @Test
@@ -136,7 +137,7 @@ class RecruitmentDateRangeIntegrationTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("ok", equalTo(false))
-                    .body("message", containsString("2000-01-01"));
+                    .body("message", equalTo(OUT_OF_RANGE_MESSAGE));
     }
 
     private ValidatableResponse postRecruitment(Club club, String requestBody) {

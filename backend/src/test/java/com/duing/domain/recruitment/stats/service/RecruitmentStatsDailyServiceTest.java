@@ -100,7 +100,7 @@ class RecruitmentStatsDailyServiceTest {
     }
 
     @Test
-    @DisplayName("레포지터리가 빈 결과를 반환하면 모집 기간 전체 길이의 0으로 채워진 리스트가 반환된다")
+    @DisplayName("레포지터리가 빈 결과를 반환하면 366일 이하 모집 기간 전체 길이의 0으로 채워진 리스트가 반환된다")
     void emptyRepositoryResultReturnsFullyZeroPaddedList() {
         Long recruitmentId = 2L;
         Long clubId = 10L;
@@ -305,6 +305,20 @@ class RecruitmentStatsDailyServiceTest {
         assertThat(result).hasSize(366);
         assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 1, 1));
         assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2024, 12, 31));
+    }
+
+    @Test
+    @DisplayName("기간이 366일을 하루 넘으면 첫날이 잘리고 종료일까지의 366일을 반환한다")
+    void periodOneDayOver366TrimsFirstDay() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 1, 2));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2025, 1, 1));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2024, 1, 2), LocalDate.of(2025, 1, 1));
     }
 
     @Test

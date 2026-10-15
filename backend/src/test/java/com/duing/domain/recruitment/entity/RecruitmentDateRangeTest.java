@@ -59,6 +59,13 @@ class RecruitmentDateRangeTest {
     }
 
     @Test
+    @DisplayName("범위 위반 안내 문구는 허용 범위 상수의 두 날짜를 그대로 보여 준다")
+    void outOfRangeMessageShowsAllowedRangeConstants() {
+        assertThat(new RecruitmentException.RecruitmentDateOutOfRangeException().getMessage())
+                .contains(Recruitment.MIN_RECRUITMENT_DATE.toString(), Recruitment.MAX_RECRUITMENT_DATE.toString());
+    }
+
+    @Test
     @DisplayName("상시모집은 시작일만 범위를 검사한다")
     void alwaysOpenChecksOnlyStartDate() {
         assertThatThrownBy(() -> Recruitment.create(club, "상시", null, LocalDate.of(1999, 12, 31), null, 10))
