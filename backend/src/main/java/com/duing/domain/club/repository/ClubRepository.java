@@ -50,6 +50,7 @@ public interface ClubRepository extends JpaRepository<Club, Long>, ClubRepositor
      * 바뀌었거나(교체·비우기) 다른 생성(백필과 변경 이벤트가 겹침)이 먼저 반영됐거나 폐쇄(soft-delete)됐으면 0 을 돌려주고,
      * 호출자가 만든 객체를 해제한다. 파생 데이터라 updated_at 은 건드리지 않는다(롤백 런북이 수정 시각으로 대상을 고른다).
      * 메서드에 트랜잭션을 두어 트랜잭션 밖(테스트)에서도 쓰기 tx 로 돌고, 호출자 tx 가 있으면 합류한다.
+     * 호출자 트랜잭션에 합류하므로 쓰기 트랜잭션에서만 부른다(읽기 전용 트랜잭션 안에서는 UPDATE 가 거부된다).
      */
     @Transactional
     @Modifying
@@ -59,7 +60,11 @@ public interface ClubRepository extends JpaRepository<Club, Long>, ClubRepositor
     int setLogoThumbnailUrlIfLogoUnchanged(@Param("clubId") Long clubId, @Param("logoUrl") String logoUrl,
                                            @Param("thumbnailUrl") String thumbnailUrl);
 
-    /** 로고가 바뀐 쓰기 경로가 같은 tx 에서 부른다(스펙 §4.3 1) — 엔티티 저장은 이 컬럼을 쓰지 않으므로(updatable=false) SQL 로 비운다. */
+    /**
+     * 로고가 바뀐 쓰기 경로가 같은 tx 에서 부른다(스펙 §4.3 1) — 엔티티 저장은 이 컬럼을 쓰지 않으므로(updatable=false) SQL 로 비운다.
+     * 호출자 트랜잭션에 합류하므로 쓰기 트랜잭션에서만 부른다(읽기 전용 트랜잭션 안에서는 UPDATE 가 거부된다).
+     * 1차 캐시는 비우지 않는다 — 같은 트랜잭션에 로드된 Club.logoThumbnailUrl 은 옛 값이므로 현재 값은 findLogoThumbnailUrlById 로 읽는다.
+     */
     @Transactional
     @Modifying
     @Query(value = "UPDATE club SET logo_thumbnail_url = NULL WHERE id = :clubId", nativeQuery = true)
