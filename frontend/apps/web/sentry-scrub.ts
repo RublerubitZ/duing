@@ -79,8 +79,10 @@ function maskSelectorAttributeValues(selector: string): string {
 // (extra.arguments 의 target·currentTarget)와, 객체(이벤트 포함)가 예외로 보고될 때의 직렬화 값(extra.__serialized__ —
 // 객체로 거부된 프로미스·객체 throw).
 // 이 접두로 시작하는 문자열에만 적용한다 — 일반 문자열에 걸면 따옴표가 든 값이 통째로 가려진다.
-// SVG 등 HTML 이 아닌 요소는 접두 없이 객체로 풀리지만, 기본 normalizeDepth(3)에서는 이벤트 처리의 2차 정규화가
-// 한 단계를 깎아 그 속성 값(React 프롭)까지 닿지 않는다 — normalizeDepth 를 올리면 이 전제를 다시 확인한다.
+// SVG 등 HTML 이 아닌 요소는 접두 없이 객체로 풀리지만, 기본 normalizeDepth(3)에서는 그 속성 값(React 프롭)까지 닿지
+// 않는다 — extra.arguments 는 target 이 정규화 깊이 끝에 놓여 `[SVGSVGElement]` 같은 이름만 남고, extra.__serialized__ 는
+// 1차 정규화가 남긴 프롭 값을 이벤트 처리의 2차 정규화가 한 단계 깎아 `[Object]` 로 자른다. normalizeDepth 를 올리면
+// (4 부터 __serialized__, 5 부터 arguments 에 프롭 값이 남는다) 이 전제를 다시 확인한다.
 const NORMALIZED_ELEMENT_PREFIX = '[HTMLElement: ';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
