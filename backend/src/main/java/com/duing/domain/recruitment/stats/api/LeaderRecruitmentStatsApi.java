@@ -32,7 +32,9 @@ public interface LeaderRecruitmentStatsApi {
 
     @Operation(
             summary = "모집 일자별 지원 추이 조회",
-            description = "모집 기간(startDate ~ endDate) 전 일자에 대해 KST 기준 일별 지원 제출 건수를 반환합니다. "
+            description = "모집 기간(startDate ~ endDate)에 대해 KST 기준 일별 지원 제출 건수를 반환합니다. "
+                    + "기간이 366일을 넘으면 최대 366일만 반환합니다 — 진행 중이면 오늘까지의 최근 366일, "
+                    + "지난 기간은 마지막 날까지의 최근 366일, 시작 직후면 시작일부터 366일입니다. "
                     + "지원이 없는 날짜는 submittedCount=0 으로 padding 되어 프론트 차트에서 빈 날도 점으로 렌더됩니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/daily")
