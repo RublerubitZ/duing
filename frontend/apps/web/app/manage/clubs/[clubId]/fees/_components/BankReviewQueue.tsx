@@ -301,7 +301,7 @@ function IgnoreTransactionConfirm({
             type="button"
             onClick={confirmIgnore}
             disabled={mutation.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {mutation.isPending && <ButtonSpinner />}무시
           </button>
@@ -352,7 +352,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
           입금시각 {formatDateTimeKst(transaction.transactionAt)}
         </p>
         {isMismatch && (
-          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral">
+          <span className="mt-1.5 inline-flex items-center rounded-full bg-coral/10 px-2 py-0.5 text-[11px] font-semibold text-coral-deep">
             입금자명 불일치 — 확인 필요
           </span>
         )}
@@ -361,7 +361,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
         type="button"
         onClick={() => setUnmatchOpen(true)}
         disabled={unmatchTransaction.isPending}
-        className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+        className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
       >
         매칭취소
       </button>
@@ -408,7 +408,7 @@ function MatchedTransactionRow({ clubId, transaction }: MatchedTransactionRowPro
                   })
                 }
                 disabled={unmatchTransaction.isPending}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
               >
                 {unmatchTransaction.isPending && <ButtonSpinner />}매칭 취소
               </button>

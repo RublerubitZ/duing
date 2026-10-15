@@ -101,7 +101,7 @@ export function AdminPromotionRequestProcessDialog({
           </p>
         </label>
 
-        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
@@ -114,7 +114,7 @@ export function AdminPromotionRequestProcessDialog({
             className={
               selectedStatus === 'ACCEPTED'
                 ? 'btn btn-primary btn-sm disabled:opacity-50'
-                : 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+                : 'btn btn-sm btn-danger disabled:opacity-50'
             }
           >
             {isPending && <ButtonSpinner />}

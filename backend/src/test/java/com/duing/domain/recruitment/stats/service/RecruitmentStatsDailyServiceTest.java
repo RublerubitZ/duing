@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.club.entity.Club;
@@ -99,7 +100,7 @@ class RecruitmentStatsDailyServiceTest {
     }
 
     @Test
-    @DisplayName("레포지터리가 빈 결과를 반환하면 모집 기간 전체 길이의 0으로 채워진 리스트가 반환된다")
+    @DisplayName("레포지터리가 빈 결과를 반환하면 366일 이하 모집 기간 전체 길이의 0으로 채워진 리스트가 반환된다")
     void emptyRepositoryResultReturnsFullyZeroPaddedList() {
         Long recruitmentId = 2L;
         Long clubId = 10L;
@@ -214,5 +215,119 @@ class RecruitmentStatsDailyServiceTest {
 
         assertThatThrownBy(() -> recruitmentStatsService.getDaily(recruitmentId, outsiderUserId))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("마감된 1년 초과 기간 모집의 일별 통계는 종료일까지의 최근 366일만 반환된다")
+    void closedLongPeriodIsLimitedToLast366DaysEndingAtEndDate() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2001, 1, 1), LocalDate.of(2020, 12, 31));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2020, 1, 1));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2020, 12, 31));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2020, 1, 1), LocalDate.of(2020, 12, 31));
+    }
+
+    @Test
+    @DisplayName("진행 중인 1년 초과 기간 모집의 일별 통계는 오늘까지의 최근 366일만 반환된다")
+    void ongoingLongPeriodIsLimitedToLast366DaysEndingToday() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2001, 1, 1), LocalDate.of(2099, 12, 31));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 3, 10));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2025, 3, 10));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2024, 3, 10), LocalDate.of(2025, 3, 10));
+    }
+
+    @Test
+    @DisplayName("시작한 지 1년이 안 된 1년 초과 기간 모집은 시작일부터 366일을 반환한다")
+    void recentlyStartedLongPeriodShowsFirst366DaysFromStart() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2025, 1, 1), LocalDate.of(2027, 12, 31));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2025, 1, 1));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2026, 1, 1));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2025, 1, 1), LocalDate.of(2026, 1, 1));
+    }
+
+    @Test
+    @DisplayName("1년 넘게 열린 상시모집의 일별 통계는 오늘까지의 최근 366일만 반환된다")
+    void longRunningAlwaysOpenIsLimitedToLast366DaysEndingToday() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2001, 1, 1), null);
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 3, 10));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2025, 3, 10));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2024, 3, 10), LocalDate.of(2025, 3, 10));
+    }
+
+    @Test
+    @DisplayName("범위 검증 이전에 저장된 아주 먼 연도의 기간도 일별 통계는 오늘까지의 366일로 묶인다")
+    void legacyFarOutOfRangePeriodIsStillLimitedTo366Days() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(1, 1, 1), LocalDate.of(5874897, 12, 31));
+
+        List<StatsDailyPointQuery> periodResult = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(periodResult).hasSize(366);
+        assertThat(periodResult.get(365).date()).isEqualTo(LocalDate.of(2025, 3, 10));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2024, 3, 10), LocalDate.of(2025, 3, 10));
+
+        mockRecruitmentWithPeriod(2L, 10L, LocalDate.of(1, 1, 1), null);
+
+        List<StatsDailyPointQuery> alwaysOpenResult = recruitmentStatsService.getDaily(2L, 100L);
+
+        assertThat(alwaysOpenResult).hasSize(366);
+        assertThat(alwaysOpenResult.get(365).date()).isEqualTo(LocalDate.of(2025, 3, 10));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(2L, LocalDate.of(2024, 3, 10), LocalDate.of(2025, 3, 10));
+    }
+
+    @Test
+    @DisplayName("정확히 366일인 기간은 잘리지 않고 시작일부터 종료일까지 반환된다")
+    void exactly366DayPeriodIsNotTrimmed() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 1, 1));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2024, 12, 31));
+    }
+
+    @Test
+    @DisplayName("기간이 366일을 하루 넘으면 첫날이 잘리고 종료일까지의 366일을 반환한다")
+    void periodOneDayOver366TrimsFirstDay() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1));
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).hasSize(366);
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2024, 1, 2));
+        assertThat(result.get(365).date()).isEqualTo(LocalDate.of(2025, 1, 1));
+        verify(recruitmentStatsRepository)
+                .findDailySubmissionCounts(1L, LocalDate.of(2024, 1, 2), LocalDate.of(2025, 1, 1));
+    }
+
+    @Test
+    @DisplayName("아직 시작하지 않은 상시모집의 일별 통계는 빈 리스트다")
+    void upcomingAlwaysOpenRecruitmentReturnsEmptyList() {
+        mockRecruitmentWithPeriod(1L, 10L, LocalDate.of(2025, 3, 11), null);
+
+        List<StatsDailyPointQuery> result = recruitmentStatsService.getDaily(1L, 100L);
+
+        assertThat(result).isEmpty();
     }
 }

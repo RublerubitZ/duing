@@ -137,7 +137,7 @@ export function MemberEnrollmentPanel({
         <LoadingGate label="가입 링크 불러오는 중" className="min-h-0 py-10" />
       )}
       {activeCodeQuery.isError && (
-        <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+        <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           {extractErrorMessage(activeCodeQuery.error) ?? '가입 링크를 불러오지 못했어요.'}
         </p>
       )}
@@ -308,7 +308,7 @@ function CreateCodeForm({
       )}
 
       {error && (
-        <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+        <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           {error}
         </p>
       )}
@@ -413,7 +413,7 @@ function ActiveCodeCard({
         </div>
 
         {/* 유출 경고는 복사 버튼 바로 아래에 둔다 (스펙 §9) — 공유 직전에 읽히는 자리다. */}
-        <p className="mt-3 rounded-md bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral">
+        <p className="mt-3 rounded-md bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
           {LEAK_WARNING}
         </p>
 
@@ -462,7 +462,7 @@ function ActiveCodeCard({
         <button
           type="button"
           onClick={() => setConfirming('revoke')}
-          className="btn btn-sm flex-1 text-coral hover:bg-coral/5"
+          className="btn btn-sm flex-1 btn-danger-quiet"
         >
           링크 폐기
         </button>

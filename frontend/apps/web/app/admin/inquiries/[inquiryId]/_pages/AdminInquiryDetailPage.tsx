@@ -261,7 +261,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
 
     return (
       <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
-        <p className="py-12 text-center text-coral text-[13px]">{message}</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">{message}</p>
         <p className="text-center">
           <Link
             href={toRoute('/admin/inquiries')}
@@ -371,7 +371,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             />
           </label>
           {editAnswerError && (
-            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {editAnswerError}
             </p>
           )}
@@ -399,7 +399,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
       {inquiry.status === 'RECEIVED' && !isAnswerFormOpen && (
         <div className="mt-5 space-y-3">
           {ctaError && (
-            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {ctaError}
             </p>
           )}
@@ -429,12 +429,12 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             />
           </label>
           {answerError && (
-            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {answerError}
             </p>
           )}
           {inquiry.status === 'IN_PROGRESS' && revertError && (
-            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {revertError}
             </p>
           )}
@@ -469,7 +469,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
             type="button"
             onClick={() => setIsCloseDialogOpen(true)}
             disabled={changeStatusMutation.isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             종료
           </button>

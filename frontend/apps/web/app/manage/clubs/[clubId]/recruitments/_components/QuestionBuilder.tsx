@@ -163,16 +163,16 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
     <div className="space-y-3">
       {questions.map((question, index) => (
         <div key={question.key} className="rounded-[13px] border border-line bg-paper p-3.5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
             <span className="w-5 shrink-0 text-right text-sm text-charcoal-3">{index + 1}.</span>
             <input
               type="text"
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
             />
-            <div className="flex gap-1">
+            <div className="flex basis-full justify-end gap-1 md:basis-auto">
               <button
                 type="button"
                 onClick={() => handleMoveUp(index)}
@@ -194,7 +194,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               <button
                 type="button"
                 onClick={() => handleRemoveQuestion(question.key)}
-                className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
+                className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                 aria-label="삭제"
               >
                 ✕
@@ -231,12 +231,12 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                         handleChangeChoiceLabel(question.key, choice.key, event.target.value)
                       }
                       placeholder={`선택지 ${choiceIndex + 1}`}
-                      className="flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+                      className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveChoice(question.key, choice.key)}
-                      className="grid h-9 w-9 place-items-center rounded text-coral hover:bg-coral/10"
+                      className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                       aria-label="선택지 삭제"
                     >
                       ✕

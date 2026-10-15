@@ -43,7 +43,7 @@ export function SubmissionDetailSheet({
                   {shown.clubName ?? '동아리'} 예약 상세
                 </span>
                 {shown.status === 'CANCELLED' && (
-                  <span className="ml-2 rounded-full bg-coral/10 px-2 py-0.5 align-middle text-[11px] font-medium text-coral">
+                  <span className="ml-2 rounded-full bg-coral/10 px-2 py-0.5 align-middle text-[11px] font-medium text-coral-deep">
                     취소됨
                   </span>
                 )}

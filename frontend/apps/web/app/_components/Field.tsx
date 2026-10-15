@@ -36,7 +36,7 @@ export function Field({
         {required && (
           <>
             {' '}
-            <span className="text-coral">*</span>
+            <span className="text-coral-deep">*</span>
           </>
         )}
       </label>
@@ -46,7 +46,7 @@ export function Field({
       })}
       {hint}
       {error && (
-        <p id={errorId} className="mt-1 text-xs text-coral">
+        <p id={errorId} className="mt-1 text-xs text-coral-deep">
           {error}
         </p>
       )}

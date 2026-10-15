@@ -25,7 +25,7 @@ export function FacilityHomeCard({ facility, onSelect }: Props) {
       <div className="relative grid h-24 place-items-center bg-gradient-to-br from-sage-soft to-sage-mist">
         <span aria-hidden className="text-4xl">{facilityIcon(facility.roomName)}</span>
         {facility.isUsingNow && (
-          <span className="absolute right-3 top-3 rounded-full bg-paper/90 px-2 py-0.5 text-[11px] font-bold text-coral">
+          <span className="absolute right-3 top-3 rounded-full bg-paper/90 px-2 py-0.5 text-[11px] font-bold text-coral-deep">
             지금 사용중
           </span>
         )}

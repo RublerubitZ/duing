@@ -423,7 +423,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     {availableActions.includes('reject') && (
                       <button
                         type="button"
-                        className="btn btn-sm mt-3 rounded-[10px] bg-coral text-white hover:bg-coral/90"
+                        className="btn btn-sm mt-3 rounded-[10px] btn-danger"
                         disabled={isActionPending}
                         onClick={() => {
                           setRejectPrefill(conflictRejectReason(conflictPayload));
@@ -438,7 +438,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 )}
 
                 {actionError && (
-                  <p role="alert" className="rounded-[12px] bg-coral/5 px-3.5 py-2.5 text-xs text-coral">
+                  <p role="alert" className="rounded-[12px] bg-coral/5 px-3.5 py-2.5 text-xs text-coral-deep">
                     {actionError}
                   </p>
                 )}
@@ -480,7 +480,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
             )}
           </div>
 
-          {/* 푸터 액션(목업 FC2) — 파괴적 보조 액션은 좌측 ghost coral, 주 액션은 우측.
+          {/* 푸터 액션(목업 FC2) — 파괴적 보조 액션은 좌측 btn-danger-quiet, 주 액션은 우측.
               단독 액션(CONFIRMED 취소)은 그 상태의 주 액션이므로 우측에 남긴다. */}
           {detail && (
             <div className="flex flex-wrap items-center gap-2 border-t border-line px-6 py-4">
@@ -488,7 +488,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 <button
                   key={kind}
                   type="button"
-                  className="btn btn-ghost btn-sm text-coral"
+                  className="btn btn-sm btn-danger-quiet"
                   disabled={isActionPending}
                   onClick={() => {
                     setActionError(null);
@@ -508,7 +508,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     type="button"
                     className={`btn btn-sm ${
                       ACTION_META[kind].destructive
-                        ? 'btn-secondary border-[#E8B9A8] text-coral hover:border-coral'
+                        ? 'btn-secondary border-[#E8B9A8] text-danger hover:border-danger'
                         : 'btn-primary bg-ink-deep hover:bg-ink'
                     }`}
                     disabled={isActionPending}

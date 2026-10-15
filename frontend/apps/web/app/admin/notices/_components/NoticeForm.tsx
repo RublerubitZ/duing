@@ -205,7 +205,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
       </div>
 
       {errorMessage && (
-        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[13px] text-coral">
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[13px] text-coral-deep">
           {errorMessage}
         </p>
       )}

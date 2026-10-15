@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * <p>
  * {@code availabilityCount} 는 본인이 제출한 면접 가능 시간 개수,
  * {@code availabilityDeadline} 은 지원자에게 보이는 라운드(isVisibleToApplicant §5.4)의 마감 시각으로
- * 보이는 라운드가 없으면 null, {@code assigned} 는 ASSIGNED schedule 이 없으면 null 이다.
+ * 보이는 라운드가 없으면 null, {@code assigned} 는 확정(SCHEDULED) 라운드의 ASSIGNED schedule 이 없으면 null 이다.
  * <p>
  * interview 도메인이 자체 표현으로 돌려주고, 호출자는 결과를 자신의 표현으로 매핑한다
  * ({@link InterviewSlotTimeWindow} 와 동일한 관례).

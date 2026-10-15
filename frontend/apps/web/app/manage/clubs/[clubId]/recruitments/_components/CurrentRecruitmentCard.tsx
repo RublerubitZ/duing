@@ -141,7 +141,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
               disabled={!stopIntakeAction.enabled}
               aria-describedby={stopIntakeAction.enabled ? undefined : 'stop-intake-too-early'}
               onClick={() => setShowStopIntakeConfirm(true)}
-              className="text-charcoal-3 hover:text-coral hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-charcoal-3 disabled:hover:no-underline"
+              className="text-charcoal-3 hover:text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-charcoal-3 disabled:hover:no-underline"
             >
               접수 마감
             </button>
@@ -149,7 +149,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
           <button
             type="button"
             onClick={() => setShowCloseConfirm(true)}
-            className="text-charcoal-3 hover:text-coral hover:underline"
+            className="text-charcoal-3 hover:text-danger hover:underline"
           >
             모집 종료
           </button>

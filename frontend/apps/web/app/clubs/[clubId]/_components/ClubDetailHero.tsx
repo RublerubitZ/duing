@@ -150,7 +150,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   <button
                     type="button"
                     onClick={() => setReportOpen(true)}
-                    className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                    className="mt-4 flex items-center gap-1.5 text-xs text-charcoal-3 underline-offset-2 hover:text-danger hover:underline"
                   >
                     <FlagIcon />
                     신고하기
@@ -260,7 +260,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 <button
                   type="button"
                   onClick={() => setReportOpen(true)}
-                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-coral hover:underline"
+                  className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-charcoal-3 underline-offset-2 hover:text-danger hover:underline"
                 >
                   <FlagIcon />
                   신고하기
@@ -297,8 +297,8 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 /**
  * 히어로 배너 이미지 — 운영진 커버가 우선, 없으면 활동 사진 첫 장(displayOrder 최소). 둘 다 없으면 null.
  *
- * 대표 활동(heroActivities)은 쓰지 않는다 — 별도 쿼리라 서버 렌더에 실리지 않고 히어로가 두 번 그려져(스켈레톤→사진)
- * 레이아웃만 흔들린다. photos 는 상세 응답에 이미 실려 와 추가 요청이 0 이다.
+ * 대표 활동(heroActivities)은 쓰지 않는다 — 별도 쿼리라 상세와 함께 실린다는 보장이 없다(조회가 실패하면 그 시드만 빠진다, #1457).
+ * 그때 히어로가 두 번 그려져(스켈레톤→사진) 레이아웃만 흔들린다. photos 는 상세 응답에 이미 실려 와 추가 요청이 0 이다.
  * 서버가 displayOrder 오름차순으로 주지만 방어적으로 정렬한다(표시 8장 이내, 비용 무시 가능).
  * 공백뿐인 storageKey 는 건너뛴다. 형식 검증은 하지 않는다 — 잘못된 URL 은 <img onError> 가 흡수한다.
  */

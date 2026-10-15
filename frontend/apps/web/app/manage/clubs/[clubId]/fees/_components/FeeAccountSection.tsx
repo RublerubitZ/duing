@@ -87,7 +87,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
   if (loadErrorMessage) {
     return (
       <div className="rounded-xl border border-coral/30 bg-coral/5 px-6 py-12 text-center">
-        <p className="text-sm text-coral">{loadErrorMessage}</p>
+        <p className="text-sm text-coral-deep">{loadErrorMessage}</p>
       </div>
     );
   }
@@ -122,7 +122,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div>
           <label htmlFor="account-bank" className="mb-1.5 block text-sm font-semibold text-ink">
-            은행 <span className="text-coral">*</span>
+            은행 <span className="text-coral-deep">*</span>
           </label>
           <select
             id="account-bank"
@@ -136,7 +136,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
               </option>
             ))}
           </select>
-          {errors.bank && <p className="mt-1 text-xs text-coral">{errors.bank.message}</p>}
+          {errors.bank && <p className="mt-1 text-xs text-coral-deep">{errors.bank.message}</p>}
         </div>
 
         <div>
@@ -144,7 +144,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
             htmlFor="account-number"
             className="mb-1.5 block text-sm font-semibold text-ink"
           >
-            계좌번호 <span className="text-coral">*</span>
+            계좌번호 <span className="text-coral-deep">*</span>
           </label>
           <input
             id="account-number"
@@ -155,7 +155,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
             className={cn(inputCls, errors.accountNumber && errorInputCls)}
           />
           {errors.accountNumber && (
-            <p className="mt-1 text-xs text-coral">{errors.accountNumber.message}</p>
+            <p className="mt-1 text-xs text-coral-deep">{errors.accountNumber.message}</p>
           )}
         </div>
 
@@ -164,7 +164,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
             htmlFor="account-holder"
             className="mb-1.5 block text-sm font-semibold text-ink"
           >
-            예금주 <span className="text-coral">*</span>
+            예금주 <span className="text-coral-deep">*</span>
           </label>
           <input
             id="account-holder"
@@ -174,12 +174,12 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
             className={cn(inputCls, errors.accountHolder && errorInputCls)}
           />
           {errors.accountHolder && (
-            <p className="mt-1 text-xs text-coral">{errors.accountHolder.message}</p>
+            <p className="mt-1 text-xs text-coral-deep">{errors.accountHolder.message}</p>
           )}
         </div>
 
         {submitErrorMessage && (
-          <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+          <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral-deep">{submitErrorMessage}</p>
         )}
 
         <div className="flex gap-2 pt-1">
@@ -188,7 +188,7 @@ export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {
               type="button"
               onClick={() => setDeleteOpen(true)}
               disabled={isSubmitting || upsertAccount.isPending}
-              className="rounded-md border border-line px-4 py-3 text-sm font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50"
+              className="rounded-md border border-line px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
             >
               삭제
             </button>
@@ -266,7 +266,7 @@ function DeleteFeeAccountConfirm({
         {bankMatchingActive ? (
           <p
             id="delete-account-desc"
-            className="mt-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm text-coral"
+            className="mt-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm text-coral-deep"
           >
             현재 자동매칭이 활성화된 계좌입니다. 삭제하면 자동매칭 계좌 및 동아리 연동이 끊기고 이후 입금 내역
             자동 조회가 중단됩니다. 재등록을 원하실 경우 총동연(관리자) 문의가 필요합니다. 정말 삭제하시겠습니까?
@@ -289,7 +289,7 @@ function DeleteFeeAccountConfirm({
             type="button"
             onClick={confirmDelete}
             disabled={deleteAccount.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {deleteAccount.isPending && <ButtonSpinner />}삭제
           </button>

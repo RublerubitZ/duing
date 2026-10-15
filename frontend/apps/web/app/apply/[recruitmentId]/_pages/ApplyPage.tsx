@@ -79,7 +79,7 @@ export function ApplyPage() {
         className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
         style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
       >
-        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral">
+        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {detailErrorMessage}
         </p>
         <Link href={toRoute('/clubs')} className="btn btn-secondary">
@@ -126,7 +126,7 @@ export function ApplyPage() {
         className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
         style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
       >
-        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral">
+        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {blockedMessage}
         </p>
         <Link href={toRoute(`/clubs/${recruitment.clubId}`)} className="btn btn-secondary">

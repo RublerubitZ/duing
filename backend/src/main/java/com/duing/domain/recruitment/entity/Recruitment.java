@@ -32,6 +32,10 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted_at IS NULL")
 public class Recruitment extends BaseEntity {
 
+    /** 모집 날짜의 허용 범위(양 끝 포함). 바꿀 때는 RecruitmentDateOutOfRangeException 문구도 함께 고친다. */
+    public static final LocalDate MIN_RECRUITMENT_DATE = LocalDate.of(2000, 1, 1);
+    public static final LocalDate MAX_RECRUITMENT_DATE = LocalDate.of(2100, 12, 31);
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
@@ -126,6 +130,8 @@ public class Recruitment extends BaseEntity {
                                                 LocalDate interviewStartDate,
                                                 LocalDate interviewEndDate,
                                                 boolean showApplicantCount) {
+        requireDateInRange(startDate);
+        requireDateInRange(endDate);
         if (endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("모집 종료일은 시작일보다 빠를 수 없습니다.");
         }
@@ -176,6 +182,15 @@ public class Recruitment extends BaseEntity {
     public void update(UpdateRecruitmentCommand command, List<RecruitmentQuestion> resolvedQuestions) {
         if (this.status == RecruitmentStatus.CLOSED) {
             throw new RecruitmentException.RecruitmentAlreadyClosedException();
+        }
+        // 실려 왔고 저장값과 다른 날짜만 검사한다 — 수정 폼은 기간을 늘 다시 보내므로, 같은 값 재전송까지 막으면
+        // 범위 밖 레거시 행은 다른 필드도 고칠 수 없다(서비스의 과거 종료일 검사와 같은 '재전송 허용' 관례).
+        // 첫 필드 변경보다 앞에 둬 엔티티를 일부만 바꾼 채 던지지 않는다.
+        if (command.startDate() != null && !command.startDate().equals(this.startDate)) {
+            requireDateInRange(command.startDate());
+        }
+        if (command.endDate() != null && !command.endDate().equals(this.endDate)) {
+            requireDateInRange(command.endDate());
         }
         if (command.title() != null) {
             if (command.title().isBlank()) {
@@ -268,5 +283,11 @@ public class Recruitment extends BaseEntity {
             throw new RecruitmentException.StopIntakeTooEarlyException();
         }
         this.endDate = today.minusDays(1);
+    }
+
+    private static void requireDateInRange(LocalDate date) {
+        if (date != null && (date.isBefore(MIN_RECRUITMENT_DATE) || date.isAfter(MAX_RECRUITMENT_DATE))) {
+            throw new RecruitmentException.RecruitmentDateOutOfRangeException();
+        }
     }
 }

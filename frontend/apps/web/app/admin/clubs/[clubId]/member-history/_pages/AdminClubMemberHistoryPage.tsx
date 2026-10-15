@@ -33,7 +33,7 @@ export function AdminClubMemberHistoryPage({ clubId }: Props) {
 
       {historyQuery.isLoading && <LoadingGate label="이력 불러오는 중" />}
       {historyQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">이력을 불러오지 못했습니다.</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">이력을 불러오지 못했습니다.</p>
       )}
       {historyQuery.isSuccess && <AdminClubMemberHistoryTable items={items} />}
 

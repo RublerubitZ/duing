@@ -36,6 +36,7 @@ import com.duing.domain.interview.service.dto.query.ApplicantInterviewProgress;
 import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewRoundBrief;
 import com.duing.domain.interview.service.dto.query.ManagerInterviewSnapshot;
+import com.duing.domain.notification.event.ApplicationSubmittedEvent;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -65,6 +66,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -99,6 +101,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final Clock clock;
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final PhoneRevealRateLimiter phoneRevealRateLimiter;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -145,6 +148,10 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         applicationDraftService.discard(submitApplicationCommand.userId(), submitApplicationCommand.recruitmentId());
+        // 운영진 접수 알림 — 리스너가 AFTER_COMMIT 에 돌아 롤백된 제출은 알리지 않는다.
+        eventPublisher.publishEvent(new ApplicationSubmittedEvent(
+                savedApplicationId, recruitment.getId(), recruitment.getClub().getId(),
+                submitApplicationCommand.userId(), recruitment.getTitle()));
         return savedApplicationId;
     }
 
@@ -208,15 +215,15 @@ public class GeneralApplicationService implements ApplicationService {
         }
 
         // 응답 카드의 nested interview 채움용 batch lookup — application 별 개별 쿼리(N+1) 회피.
-        // ASSIGNED schedule 이 있으면 interview 가 채워지고 (location 은 nullable),
-        // CANCELLED 만 / 미배정인 경우만 null 로 응답한다 (Codex review BE-3 — round.location null 도 interview 노출 유지).
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId = interviewAssignmentQueryService
-                .findAssignedByApplicationIds(applications.stream().map(Application::getId).toList());
+        // 확정(SCHEDULED) 라운드의 ASSIGNED schedule 만 interview 로 채워지고 (location 은 nullable — round.location 이
+        // 비어 있어도 노출, Codex review BE-3), 확정 전 초안·CANCELLED·미배정은 null 로 응답한다.
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId = interviewAssignmentQueryService
+                .findConfirmedByApplicationIds(applications.stream().map(Application::getId).toList());
 
         return applications.stream()
                 .map(application -> ApplicationSummaryQuery.from(
                         application,
-                        toAssignedInterviewQuery(assignedByApplicationId.get(application.getId()))))
+                        toAssignedInterviewQuery(confirmedByApplicationId.get(application.getId()))))
                 .toList();
     }
 
@@ -230,7 +237,7 @@ public class GeneralApplicationService implements ApplicationService {
 
         // 지원자 stepper 의 Step 3 sub-state 분기를 위해 면접 진행 상황을 derived 필드로 노출한다.
         // - interviewAvailabilityCount: 본인이 제출한 면접 가능 시간 개수
-        // - interview: 현재 배정된 면접 (ASSIGNED schedule 이 있으면 location 이 null 이어도 객체로 노출, 그 외엔 null)
+        // - interview: 확정(SCHEDULED) 라운드의 배정 면접 (location 이 null 이어도 객체로 노출, 확정 전 초안·미배정은 null)
         // - availabilityDeadline: 지원자에게 보이는 라운드의 마감 시각.
         //   isVisibleToApplicant 술어(DRAFT 제외)를 사용해 발송 전 라운드 정보가 새지 않는다 (스펙 §5.4·§9.3).
         // useInterview=false 모집은 면접 관련 레포지토리 호출 자체를 생략한다.
@@ -525,7 +532,8 @@ public class GeneralApplicationService implements ApplicationService {
 
     /**
      * interview 도메인 표현 → 응답 DTO 의 nested {@code interview} 표현 매핑.
-     * 배정이 없으면(미배정 / CANCELLED 만 존재) {@code null} 을 그대로 흘려보내 "면접 미배정" 을 표현한다.
+     * 보여 줄 배정이 없으면 {@code null} 을 그대로 흘려보낸다 — 미배정·CANCELLED 만 있는 경우와,
+     * 지원자 경로(내 지원 목록·상세)에서 확정(SCHEDULED) 라운드가 아닌 초안 배정이 여기에 든다.
      * location 이 null 이어도 배정 자체는 노출한다 (Codex review BE-3).
      */
     private static AssignedInterviewQuery toAssignedInterviewQuery(AssignedInterviewSlot assignedInterviewSlot) {

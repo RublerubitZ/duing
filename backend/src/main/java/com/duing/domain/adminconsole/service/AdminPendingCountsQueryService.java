@@ -1,6 +1,8 @@
 package com.duing.domain.adminconsole.service;
 
 import com.duing.domain.adminconsole.service.dto.query.AdminPendingCountsQuery;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.service.PendingApplicationPolicy;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.SuccessionStatus;
@@ -13,6 +15,7 @@ import com.duing.domain.promotion.entity.PromotionRequestStatus;
 import com.duing.domain.promotion.repository.PromotionRequestRepository;
 import com.duing.domain.report.entity.ReportStatus;
 import com.duing.domain.report.repository.ReportRepository;
+import java.time.Clock;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>여러 도메인을 가로지르는 읽기 전용 집계라 특정 도메인 패키지에 두지 않고 콘솔 전용 패키지에 둔다.
  * 각 도메인의 소프트 삭제(@SQLRestriction)는 파생 count 쿼리에도 그대로 적용되므로 별도 조건이 필요 없다.
+ * 단 오래된 미처리 모집 수는 리마인더 후보 네이티브 쿼리를 재사용하며, 그 쿼리는 {@code deleted_at IS NULL} 을 직접 건다.
  */
 @Service
 @RequiredArgsConstructor
@@ -54,7 +58,12 @@ public class AdminPendingCountsQueryService {
     private final PromotionRequestRepository promotionRequestRepository;
     private final ReportRepository reportRepository;
     private final LeaderSuccessionRequestRepository leaderSuccessionRequestRepository;
+    private final ApplicationRepository applicationRepository;
+    private final Clock clock;
 
+    /**
+     * 오래 방치된 모집은 미처리 지원서 리마인더 잡의 후보와 같은 집합이다 — 리마인더가 나가는 모집과 배지가 같아야 한다.
+     */
     public AdminPendingCountsQuery getPendingCounts() {
         return AdminPendingCountsQuery.of(
                 clubRepository.countByStatus(ClubStatus.PENDING_APPROVAL),
@@ -62,7 +71,9 @@ public class AdminPendingCountsQueryService {
                 federationInquiryRepository.countByStatusIn(UNANSWERED_INQUIRY_STATUSES),
                 promotionRequestRepository.countByStatus(PromotionRequestStatus.PENDING),
                 reportRepository.countByStatus(ReportStatus.PENDING),
-                leaderSuccessionRequestRepository.countByStatus(SuccessionStatus.PENDING)
+                leaderSuccessionRequestRepository.countByStatus(SuccessionStatus.PENDING),
+                applicationRepository.findPendingReminderCandidates(
+                        PendingApplicationPolicy.submittedBefore(clock)).size()
         );
     }
 }

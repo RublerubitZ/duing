@@ -8,13 +8,15 @@ type Props = {
   slotNumber?: number;
   /** 벤토 첫 카드(2×2) 스케일 업 — 부모 셀이 col/row-span 과 높이를 소유한다. */
   size?: 'default' | 'big';
+  /** false 면 이미지와 "사진을 선택하세요" 를 그리지 않는다(틀·제목·설명은 그대로) — 상세가 ISR 시드로 그리는 동안 이미지 받기를 미룰 때. 기본 true. */
+  showImage?: boolean;
 };
 
 /**
  * 대표 활동 카드 — 순수 표현 코어. 콘솔(슬롯 에디터·Preview)과 학생 화면(벤토·스와이프)이
  * 래퍼를 통해 공유하는 단일 양식. 4:5 비율(big 은 부모가 높이 소유) + 그라데이션 + 제목/설명 오버레이.
  */
-export function HeroActivityCard({ imageUrl, title, description, slotNumber, size = 'default' }: Props) {
+export function HeroActivityCard({ imageUrl, title, description, slotNumber, size = 'default', showImage = true }: Props) {
   const big = size === 'big';
   const hasBadge = slotNumber !== undefined;
   return (
@@ -24,12 +26,12 @@ export function HeroActivityCard({ imageUrl, title, description, slotNumber, siz
         big ? 'h-full' : 'aspect-[4/5]',
       )}
     >
-      {imageUrl && (
+      {showImage && imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. 대표 활동 카드 이미지.
         <img src={imageUrl} alt={title || '대표 활동'} draggable={false} className="absolute inset-0 h-full w-full object-cover" />
       )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/70" />
-      {!imageUrl && (
+      {showImage && !imageUrl && (
         <span className="absolute inset-0 grid place-items-center text-[13px] font-medium text-charcoal-2">사진을 선택하세요</span>
       )}
       {hasBadge && (

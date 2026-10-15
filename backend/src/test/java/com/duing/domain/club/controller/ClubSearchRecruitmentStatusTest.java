@@ -172,7 +172,7 @@ class ClubSearchRecruitmentStatusTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("기본 정렬(추천순)은 모집중 > 상시모집 > 기타(예정·마감·없음, 내부 상태 무순) 그룹 순으로 노출한다")
+    @DisplayName("기본 정렬(추천순)은 모집중(기간 30일 이하) > 상시모집 > 기타(예정·마감·없음, 내부 상태 무순) 그룹 순으로 노출한다")
     void defaultSortGroupsByRecruitmentStatus() throws Exception {
         Club bareClub = saveActiveClub("sortGroupBare");
         Club closedClub = saveActiveClub("sortGroupClosed");

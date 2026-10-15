@@ -222,7 +222,7 @@ export function HeroActivityEditor({
                   setDeleteError(null);
                   setConfirmOpen(true);
                 }}
-                className="ml-auto text-[12.5px] text-charcoal-2 hover:text-coral"
+                className="ml-auto text-[12.5px] text-charcoal-2 hover:text-danger"
               >
                 비우기
               </button>
@@ -231,7 +231,7 @@ export function HeroActivityEditor({
         </>
       )}
 
-      {displayError && <p className="text-[12px] text-coral">{displayError}</p>}
+      {displayError && <p className="text-[12px] text-coral-deep">{displayError}</p>}
 
       {hero !== null && (
         <ConfirmDialog

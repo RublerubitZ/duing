@@ -54,12 +54,12 @@ export function BookingRow({ booking, onSelect }: Props) {
         </button>
         {isConflict && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-coral/10 px-3 py-2">
-            <p className="flex-1 text-xs leading-relaxed text-coral">
+            <p className="flex-1 text-xs leading-relaxed text-coral-deep">
               승인 후 학교 예약과 겹쳐 확정되지 못했어요. 다른 시간으로 다시 신청해주세요.
             </p>
             <Link
               href={toRoute(`/facilities?facilityId=${booking.facilityId}`)}
-              className="btn btn-sm shrink-0 rounded-[10px] bg-coral text-white"
+              className="btn btn-sm shrink-0 rounded-[10px] btn-danger"
               onClick={(event) => event.stopPropagation()}
             >
               다시 신청

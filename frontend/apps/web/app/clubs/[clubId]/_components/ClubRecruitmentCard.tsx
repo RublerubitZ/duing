@@ -11,7 +11,7 @@ import { ddayLabel } from '../../../_lib/dday';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { toRoute } from '../../../_lib/route';
 import { FavoriteToggleButton } from '../../../_components/FavoriteToggleButton';
-import { Spinner } from '@/components/loading/Spinner';
+import { ButtonSpinner, Spinner } from '@/components/loading/Spinner';
 import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
 
 type Props = {
@@ -25,8 +25,14 @@ type Props = {
 };
 
 export function ClubRecruitmentCard({ recruitment, clubId, membership, detailCheck }: Props) {
-  const { canApply, handleApply, applyButtonLabel, pendingLabel, existingApplicationId } =
-    useClubApply(recruitment, detailCheck);
+  const {
+    canApply,
+    awaitingCheck,
+    handleApply,
+    applyButtonLabel,
+    pendingLabel,
+    existingApplicationId,
+  } = useClubApply(recruitment, detailCheck);
   // 부원 모집에 이미 소속된 뷰어는 서버가 409 로 거절한다 — 누르기 전에 잠근다. 운영진 모집은 반대로 소속이어야 한다.
   const isAlreadyMember = membership != null && recruitment?.targetRole === 'MEMBER';
   // 확인 실패 안내는 잠긴 이유가 확인 실패일 때만 — 지원서 보기 링크는 그대로 열리고, 소속 잠금은 새로고침해도 그대로다.
@@ -124,13 +130,26 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
               </span>
             ) : isAlreadyMember ? (
               '이미 소속된 동아리예요'
+            ) : awaitingCheck ? (
+              // 스냅샷 확인 중 — 스피너는 흐름 밖(라벨 왼쪽 절대 배치)이라 나타날 때도 사라질 때도 라벨이 움직이지 않는다.
+              // 0.8초 늦게 드러나 빠른 회선(0.5초 안팎)에선 보이지 않는다(.delayed-show-late).
+              <span className="relative inline-flex items-center">
+                <span
+                  role="status"
+                  aria-label="모집 정보 확인 중"
+                  className="delayed-show-late absolute right-full mr-2 inline-flex"
+                >
+                  <ButtonSpinner />
+                </span>
+                {applyButtonLabel}
+              </span>
             ) : (
               applyButtonLabel
             )}
           </button>
         )}
         {showsCheckFailure && (
-          <p role="status" className="mt-3 text-center text-xs text-coral">
+          <p role="status" className="mt-3 text-center text-xs text-coral-deep">
             모집 정보를 확인하지 못했어요. 새로고침해 주세요.
           </p>
         )}

@@ -23,7 +23,7 @@ export function MyFeeSummary({ fees, today }: Props) {
   if (unpaidFees.length === 0) {
     return (
       <div className="rounded-xl border border-line bg-sage/10 px-5 py-4">
-        <p className="text-sm font-semibold text-sage">미납 회비가 없어요 · 모두 납부 완료</p>
+        <p className="text-sm font-semibold text-sage-deep">미납 회비가 없어요 · 모두 납부 완료</p>
       </div>
     );
   }
@@ -43,11 +43,11 @@ export function MyFeeSummary({ fees, today }: Props) {
       )}
     >
       <p className="text-xs font-semibold text-charcoal-3">미납 회비</p>
-      <p className={cn('mt-0.5 text-2xl font-bold', hasOverdue ? 'text-coral' : 'text-ink')}>
+      <p className={cn('mt-0.5 text-2xl font-bold', hasOverdue ? 'text-coral-deep' : 'text-ink')}>
         {formatWon(totalOutstanding)}
       </p>
       {hasOverdue ? (
-        <p className="mt-1 text-xs font-semibold text-coral">연체 {overdueCount}건</p>
+        <p className="mt-1 text-xs font-semibold text-coral-deep">연체 {overdueCount}건</p>
       ) : (
         <p className="mt-1 text-xs text-charcoal-3">
           미납 {unpaidFees.length}건 · 다음 마감 {nearestDueDate} (

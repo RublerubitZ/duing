@@ -68,7 +68,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                     {row.approvedWaitingDays !== undefined ? (
                       <>
                         {' · '}
-                        <span className={row.approvedWaitingDays >= 7 ? 'font-bold text-coral' : ''}>
+                        <span className={row.approvedWaitingDays >= 7 ? 'font-bold text-coral-deep' : ''}>
                           학교 반영 대기 D+{row.approvedWaitingDays}
                         </span>
                       </>
@@ -83,8 +83,8 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                 <td className="py-[13px] pr-[18px] text-right">
                   <button
                     type="button"
-                    className={`btn btn-primary btn-sm ${
-                      row.status === 'CONFLICT' ? 'bg-coral hover:bg-coral/90' : 'bg-ink-deep hover:bg-ink'
+                    className={`btn btn-sm ${
+                      row.status === 'CONFLICT' ? 'btn-danger' : 'btn-primary bg-ink-deep hover:bg-ink'
                     }`}
                     aria-label={`#${row.bookingId} 검토`}
                     onClick={(event) => {

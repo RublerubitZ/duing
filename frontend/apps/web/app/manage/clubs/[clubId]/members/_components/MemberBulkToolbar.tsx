@@ -178,7 +178,7 @@ export function MemberBulkToolbar({
               <p className="font-medium text-charcoal">
                 {summary.label} — {summary.succeeded}명 처리
                 {summary.failed.length > 0 && (
-                  <span className="text-rose-600">, {summary.failed.length}명 실패</span>
+                  <span className="text-rose-700">, {summary.failed.length}명 실패</span>
                 )}
               </p>
               <button
@@ -201,7 +201,7 @@ export function MemberBulkToolbar({
               </p>
             )}
             {summary.failed.length > 0 && (
-              <ul className="list-disc pl-4 text-xs text-rose-600">
+              <ul className="list-disc pl-4 text-xs text-rose-700">
                 {summary.failed.map((failure) => (
                   <li key={failure.id}>
                     {nameFor(failure.id)}: {failure.message}

@@ -103,7 +103,7 @@ export function UserMenu({
         )}
         <DropdownMenuItem
           onSelect={handleLogout}
-          className="rounded-none px-4 py-3 text-[13.5px] font-bold text-coral"
+          className="rounded-none px-4 py-3 text-[13.5px] font-bold text-danger"
         >
           로그아웃
         </DropdownMenuItem>

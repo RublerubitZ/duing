@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 매 정시(Asia/Seoul)에 실행되는 면접 리마인더 잡.
- * 현재 시각 기준 23h ~ 25h 이내에 시작하는 ASSIGNED 상태 {@code InterviewSchedule} 의 지원자에게 알림을 전송한다.
+ * 현재 시각 기준 23h ~ 25h 이내에 시작하는, 확정(SCHEDULED) 라운드의 ASSIGNED 상태 {@code InterviewSchedule} 의 지원자에게 알림을 전송한다.
  * 알림 출처는 {@code InterviewSchedule → InterviewSlot.startTime} 이며,
  * {@code duing.notification.jobs.enabled=true} 가 설정된 환경에서만 동작한다.
  */

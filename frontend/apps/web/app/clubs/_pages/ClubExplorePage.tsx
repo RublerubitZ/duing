@@ -590,7 +590,7 @@ export function ClubExplorePage() {
                   </div>
                 )}
                 {clubListQuery.error && (
-                  <p className="text-sm text-coral">
+                  <p className="text-sm text-coral-deep">
                     {clubListQuery.error instanceof Error
                       ? clubListQuery.error.message
                       : '오류가 발생했습니다.'}
@@ -760,7 +760,7 @@ export function ClubExplorePage() {
                   <ClubListSkeletonItems variant="list" />
                 </div>
               )}
-              {clubListQuery.error && <p className="text-sm text-coral">오류가 발생했습니다.</p>}
+              {clubListQuery.error && <p className="text-sm text-coral-deep">오류가 발생했습니다.</p>}
               {/* 데스크탑과 같은 규칙 — 갱신 중에는 빈 상태를 아예 띄우지 않는다(#801). */}
               {clubListQuery.data && visibleClubs.length === 0 && (
                 params.favorite && !hasNonFavoriteFilters(params) ? (

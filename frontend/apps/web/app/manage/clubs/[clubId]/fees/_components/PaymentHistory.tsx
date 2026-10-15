@@ -122,7 +122,7 @@ function PaymentRow({ payment, onVoid }: PaymentRowProps) {
           <button
             type="button"
             onClick={onVoid}
-            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-coral transition-colors hover:bg-coral/5"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/5"
           >
             취소
           </button>
@@ -226,7 +226,7 @@ function VoidPaymentConfirm({
             type="button"
             onClick={confirmVoid}
             disabled={voidPayment.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-coral py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-danger py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-danger-hover disabled:opacity-50"
           >
             {voidPayment.isPending && <ButtonSpinner />}기록 취소
           </button>

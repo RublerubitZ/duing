@@ -113,6 +113,7 @@ domain/{도메인}/
 ### 페이지네이션
 
 - 목록 조회는 Spring `Pageable` 사용 (`?page=0&size=20&sort=createdAt,desc`)
+- 네이티브 쿼리(`@NativeQuery`·`@Query(nativeQuery = true)`)에는 `Pageable`·`Sort` 를 넘기지 않는다 — 정렬은 JPQL·QueryDSL 로 하고(클라이언트 정렬값은 `SortWhitelist`), 네이티브는 ORDER BY 를 고정하고 LIMIT·OFFSET 을 바인딩한다. `NativeQuerySortGuardTest` 가 막는다(CVE-2026-47834, #1318)
 - 응답은 `PageResponse<T>` 래퍼로 통일 (`content`, `page`, `size`, `totalElements`, `totalPages`)
 
 ### BaseEntity 표준
@@ -385,7 +386,7 @@ SUPABASE_STORAGE_BUCKET=duing
 # Phase 3 — 알림 스케줄러
 # prod 프로파일을 활성화하면 application-prod.yml 에서 자동으로 true 가 주입되므로 별도 셋업 불필요.
 # 로컬에서 잡 동작을 확인하려면 .env 에 아래를 추가하거나 IntelliJ Run config 에 등록.
-DUING_NOTIFICATION_JOBS_ENABLED=false  # 로컬 default. true 로 두면 매일 06:00 KST DeadlineNotificationJob + 매시 정각 InterviewReminderJob 활성
+DUING_NOTIFICATION_JOBS_ENABLED=false  # 로컬 default. true 로 두면 매일 06:00 KST DeadlineNotificationJob + 매시 정각 InterviewReminderJob + 매일 09:30 KST ApplicationPendingReminderJob·ExternalRecruitmentCheckJob 활성
 
 # 배포 시 추가 예정 (현재 미사용)
 # AWS_S3_BUCKET=
@@ -398,16 +399,18 @@ DUING_NOTIFICATION_JOBS_ENABLED=false  # 로컬 default. true 로 두면 매일 
 
 ### 알림 스케줄러 운영 활성화 (Phase 3)
 
-운영(prod 프로파일) 에서는 `application-prod.yml` 이 `duing.notification.jobs.enabled: true` 를 자동 주입하므로 별도 env var 셋업이 필요 없다. `NotificationJobConfig` 의 `@ConditionalOnProperty` 가 통과하면서 두 잡이 등록된다.
+운영(prod 프로파일) 에서는 `application-prod.yml` 이 `duing.notification.jobs.enabled: true` 를 자동 주입하므로 별도 env var 셋업이 필요 없다. `NotificationJobConfig` 의 `@ConditionalOnProperty` 가 통과하면서 아래 잡이 등록된다(모두 같은 토글 `duing.notification.jobs.enabled`).
 
 - `DeadlineNotificationJob` — 매일 06:00 KST. 찜한 동아리의 진행 중 모집을 스캔해 D-3 / D-1 / D-0 + 오늘 시작(`RECRUITMENT_OPENED`) 알림을 멱등 INSERT.
 - `InterviewReminderJob` — 매시 정각. `interview_at` 이 지금부터 23~25시간 사이인 `INTERVIEW_PENDING` 지원에 D-1 리마인더를 멱등 INSERT.
+- `ApplicationPendingReminderJob` — 매일 09:30 KST. 제출 뒤 7일 넘게 `SUBMITTED` 로 남은 지원서가 있는 모집마다 운영진(회장·임원)에게 `APPLICATION_PENDING_REMINDER` 를 하루 1건 멱등 INSERT.
+- `ExternalRecruitmentCheckJob` — 매일 09:30 KST. 시작 후 30일이 지난 외부 폼 상시모집(종료일 없음·OPEN)마다 운영진에게 `EXTERNAL_RECRUITMENT_STILL_OPEN` 을 30일 주기당 1건 멱등 INSERT.
 
 부팅 직후 `NotificationJobStatusLogger` 가 항상 다음 두 라인 중 하나를 INFO 로그로 남기므로, 시작 로그에서 잡 활성 여부를 즉시 확인할 수 있다:
 
 ```
-[알림 스케줄러] 활성. DeadlineNotificationJob(매일 06:00 KST) + InterviewReminderJob(매시 정각) 등록됨.
-[알림 스케줄러] 비활성. 마감 임박 / 면접 하루 전 알림이 발송되지 않습니다. 운영 환경이라면 prod 프로파일 활성화(spring.profiles.active=prod) 또는 DUING_NOTIFICATION_JOBS_ENABLED=true 환경변수 주입 필요.
+[알림 스케줄러] 활성. DeadlineNotificationJob(매일 06:00 KST) + InterviewReminderJob(매시 정각) + ApplicationPendingReminderJob·ExternalRecruitmentCheckJob(매일 09:30 KST) 등록됨.
+[알림 스케줄러] 비활성. 마감 임박 / 면접 하루 전 / 미처리 지원서 / 외부 폼 유지 확인 알림이 발송되지 않습니다. 운영 환경이라면 prod 프로파일 활성화(spring.profiles.active=prod) 또는 DUING_NOTIFICATION_JOBS_ENABLED=true 환경변수 주입 필요.
 ```
 
 활성화 직후 첫 06:00 KST 실행에서 다음 로그가 찍히는지 확인한다:

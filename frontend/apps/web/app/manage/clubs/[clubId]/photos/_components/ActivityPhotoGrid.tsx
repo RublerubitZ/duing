@@ -121,7 +121,7 @@ export function ActivityPhotoGrid({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      {reorderError && <p className="mb-2 text-[11.5px] text-coral">{reorderError}</p>}
+      {reorderError && <p className="mb-2 text-[11.5px] text-coral-deep">{reorderError}</p>}
       <SortableContext items={order.map((photo) => photo.id)} strategy={rectSortingStrategy}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {order.map((photo) => (
@@ -200,7 +200,7 @@ function AddPhotoCard({ clubId }: { clubId: number }) {
         className="hidden"
       />
       {errors.length > 0 && (
-        <ul className="text-[11.5px] text-coral">
+        <ul className="text-[11.5px] text-coral-deep">
           {errors.map((message, index) => (
             <li key={index}>{message}</li>
           ))}

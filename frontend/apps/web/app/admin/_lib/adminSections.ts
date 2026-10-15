@@ -34,7 +34,7 @@ export type AdminSection = {
   icon: LucideIcon;
   /** 소속 부모 항목. 지정하면 사이드바에서 해당 부모 아래로 접힌다(부모 자체는 링크가 아니다). */
   parent?: AdminNavParentKey;
-  /** 사이드바 뱃지에 표시할 미처리 건수 필드. 없으면 뱃지를 달지 않는다. */
+  /** 사이드바 뱃지·홈 카드에 표시할 미처리 건수 필드. 없으면 뱃지를 달지 않는다. */
   pendingCountKey?: AdminPendingCountKey;
   /** 방치되면 사용자 피해로 이어지는 항목 — 뱃지를 주의 색으로 표시한다. */
   danger?: boolean;
@@ -89,6 +89,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: '전 동아리 모집 현황·강제 마감·지원자 열람',
     group: '동아리',
     icon: ClipboardList,
+    pendingCountKey: 'stalePendingRecruitment',
   },
   {
     href: '/admin/fees',

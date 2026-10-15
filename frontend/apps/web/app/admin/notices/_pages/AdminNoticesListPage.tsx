@@ -64,7 +64,7 @@ export function AdminNoticesListPage() {
       </div>
 
       {listQuery.isLoading && <LoadingGate label="공지 목록 불러오는 중" />}
-      {listQuery.isError && <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>}
+      {listQuery.isError && <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>}
       {listQuery.isSuccess && (
         <AdminNoticesTable
           items={items}

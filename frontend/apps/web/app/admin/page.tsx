@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { toRoute } from '../_lib/route';
+import { AdminSectionPendingBadge } from './_components/AdminSectionPendingBadge';
 import { ADMIN_SECTIONS } from './_lib/adminSections';
 
 export default function AdminIndexPage() {
@@ -18,7 +19,12 @@ export default function AdminIndexPage() {
               href={toRoute(section.href)}
               className="block rounded-2xl border border-charcoal-1 bg-white p-5 transition hover:border-coral hover:shadow-sm"
             >
-              <h2 className="text-base font-semibold text-ink">{section.title}</h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-base font-semibold text-ink">{section.title}</h2>
+                {section.pendingCountKey && (
+                  <AdminSectionPendingBadge pendingCountKey={section.pendingCountKey} />
+                )}
+              </div>
               <p className="mt-2 text-sm text-charcoal-3">{section.description}</p>
             </Link>
           </li>

@@ -9,8 +9,11 @@ import static org.hamcrest.Matchers.nullValue;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
+import com.duing.common.fixture.ClubStaffFixture;
+import com.duing.common.fixture.ClubStaffFixture.Staff;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
@@ -24,14 +27,23 @@ import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.user.entity.AuthSession;
+import com.duing.domain.user.entity.SessionPlatform;
+import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.AuthSessionRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,6 +56,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * 총동연(ADMIN) 모집 콘솔의 목록·상세 조회 검증.
@@ -68,6 +81,8 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
     @Autowired ApplicationRepository applicationRepository;
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
+    @Autowired AuthSessionRepository authSessionRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** 마감 시각은 프로덕션과 같은 seoulClock 으로 찍는다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 어긋난다. */
     @Autowired Clock clock;
@@ -249,6 +264,124 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("관리자 목록은 처리되지 않은 지원서 수와 가장 오래된 제출 시각을 주되 보류·합격·철회는 빼고 외부 폼 모집은 비운다")
+    void listCarriesPendingApplicationCountAndOldestSubmittedAt() {
+        Club deltaClub = clubRepository.save(ClubFixture.academic("델타동아리-" + sequence.incrementAndGet()));
+        Recruitment pendingRecruitment = saveRecruitment(deltaClub, "미처리 모집", ApplicationMode.SELF,
+                LocalDate.now(clock).minusDays(30), LocalDate.now(clock).plusDays(7));
+        LocalDateTime oldestSubmittedAt = submittedAgo(saveApplication(pendingRecruitment), Duration.ofDays(10));
+        submittedAgo(saveApplication(pendingRecruitment), Duration.ofDays(3));
+        // 제외: 더 오래됐어도 운영진이 손댄(보류·합격) 지원서는 처리된 것으로 본다.
+        submittedAgo(saveApplication(pendingRecruitment, ApplicationStatus.ON_HOLD), Duration.ofDays(20));
+        submittedAgo(saveApplication(pendingRecruitment, ApplicationStatus.ACCEPTED), Duration.ofDays(30));
+        // 제외: 지원자가 철회(소프트 삭제)한 지원서.
+        Application withdrawnApplication = saveApplication(pendingRecruitment);
+        applicationRepository.delete(withdrawnApplication);
+        submittedAgo(withdrawnApplication, Duration.ofDays(40));
+
+        Response listed = getList(adminToken, Map.of());
+
+        Map<String, Object> pendingRow = findRow(listed, pendingRecruitment.getId());
+        assertThat(pendingRow.get("pendingApplicationCount")).isEqualTo(2);
+        assertThat(Instant.parse((String) pendingRow.get("oldestPendingSubmittedAt")))
+                .as("제출 시각은 감사 필드(system regime)를 절대시각으로 바꾼 값이다")
+                .isEqualTo(TimeMapper.systemWallClockToInstant(oldestSubmittedAt));
+
+        Map<String, Object> externalRow = findRow(listed, externalRecruitment.getId());
+        assertThat(externalRow.get("pendingApplicationCount"))
+                .as("외부 폼 모집은 지원 데이터가 없으므로 0 이 아니라 비어 있다").isNull();
+        assertThat(externalRow.get("oldestPendingSubmittedAt")).isNull();
+
+        Map<String, Object> closedRow = findRow(listed, closedRecruitment.getId());
+        assertThat(closedRow.get("pendingApplicationCount")).as("자체 폼 모집은 미처리가 없으면 0 이다").isEqualTo(0);
+        assertThat(closedRow.get("oldestPendingSubmittedAt")).isNull();
+    }
+
+    /**
+     * 세션 사용 시각(seoul regime)과 로그인 시각(system regime)을 각각 절대시각으로 바꾼 뒤 늦은 쪽을 고른다.
+     * 로컬(JVM=KST)에서는 두 변환이 같아 잘못된 변환도 통과하므로, 두 시각을 9시간보다 크게 벌려 어느 쪽이
+     * 늦은지가 regime 과 무관하게 갈리게 하고, 기대값은 TimeMapper 로 계산해 정확히 비교한다(UTC CI 에서 변환 검증).
+     */
+    @Test
+    @DisplayName("운영진 접속은 회장·임원의 세션 사용과 로그인 중 늦은 시각이며 폐기·만료 세션도 세고 일반 부원은 무시한다")
+    void listCarriesOperatorsLastActiveAtFromSessionsAndLogins() {
+        LocalDateTime seoulNow = LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime systemNow = TimeMapper.systemNow(clock).truncatedTo(ChronoUnit.SECONDS);
+
+        // 세션이 늦은 동아리 — 회장이 마지막으로 쓴 세션은 로그아웃으로 폐기됐어도 실제 사용 시각이다.
+        Staff sessionLaterStaff = ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
+        LocalDateTime sessionUsedAt = seoulNow.minusDays(2);
+        AuthSession revokedSession = newSession(sessionLaterStaff.leader(), sessionUsedAt, Duration.ofDays(30));
+        revokedSession.revoke(sessionUsedAt, SessionRevokeReason.LOGOUT);
+        authSessionRepository.save(revokedSession);
+        recordLogin(sessionLaterStaff.officer(), systemNow.minusDays(10));
+        authSessionRepository.save(newSession(sessionLaterStaff.member(), seoulNow.minusHours(1), Duration.ofDays(30)));
+        Recruitment sessionLaterRecruitment = saveRecruitment(sessionLaterStaff.club(), "세션이 늦은 모집",
+                ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+
+        // 로그인이 늦은 동아리 — 회장 세션은 오래전에 만료됐고, 운영 중단돼도 목록은 전 상태라 값을 보여 준다.
+        Staff loginLaterStaff = ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
+        authSessionRepository.save(newSession(loginLaterStaff.leader(), seoulNow.minusDays(10), Duration.ofDays(1)));
+        LocalDateTime loggedInAt = systemNow.minusDays(2);
+        recordLogin(loginLaterStaff.officer(), loggedInAt);
+        recordLogin(loginLaterStaff.member(), systemNow.minusHours(1));
+        Recruitment loginLaterRecruitment = saveRecruitment(loginLaterStaff.club(), "로그인이 늦은 모집",
+                ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", loginLaterStaff.club().getId());
+
+        // 만료 세션이 가장 늦은 동아리 — 세션은 이미 만료됐어도 마지막으로 쓴 시각이 로그인보다 늦으면 그 값이다.
+        Staff expiredSessionStaff = ClubStaffFixture.saveWithStaff(clubRepository, userRepository, clubMemberRepository);
+        LocalDateTime expiredSessionUsedAt = seoulNow.minusDays(3);
+        authSessionRepository.save(newSession(expiredSessionStaff.leader(), expiredSessionUsedAt, Duration.ofDays(1)));
+        recordLogin(expiredSessionStaff.officer(), systemNow.minusDays(10));
+        Recruitment expiredSessionRecruitment = saveRecruitment(expiredSessionStaff.club(), "만료 세션이 늦은 모집",
+                ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+
+        // 운영진이 없는 동아리 — 일반 부원만 방금 접속했다.
+        Club memberOnlyClub = clubRepository.save(ClubStaffFixture.activeClub());
+        User memberOnly = userRepository.save(UserFixture.unique());
+        clubMemberRepository.save(ClubMember.asMember(memberOnlyClub, memberOnly));
+        authSessionRepository.save(newSession(memberOnly, seoulNow.minusHours(1), Duration.ofDays(30)));
+        recordLogin(memberOnly, systemNow.minusHours(1));
+        Recruitment memberOnlyRecruitment = saveRecruitment(memberOnlyClub, "운영진 없는 모집",
+                ApplicationMode.SELF, LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+
+        Response listed = getList(adminToken, Map.of());
+
+        assertThat(Instant.parse((String) findRow(listed, sessionLaterRecruitment.getId()).get("operatorsLastActiveAt")))
+                .as("세션 사용 시각은 seoul regime 으로 변환한다")
+                .isEqualTo(TimeMapper.seoulWallClockToInstant(sessionUsedAt));
+        assertThat(Instant.parse((String) findRow(listed, loginLaterRecruitment.getId()).get("operatorsLastActiveAt")))
+                .as("로그인 시각은 system regime 으로 변환한다")
+                .isEqualTo(TimeMapper.systemWallClockToInstant(loggedInAt));
+        assertThat(Instant.parse((String) findRow(listed, expiredSessionRecruitment.getId()).get("operatorsLastActiveAt")))
+                .as("만료된 세션의 사용 시각도 접속으로 센다")
+                .isEqualTo(TimeMapper.seoulWallClockToInstant(expiredSessionUsedAt));
+        assertThat(findRow(listed, memberOnlyRecruitment.getId()).get("operatorsLastActiveAt"))
+                .as("일반 부원의 접속은 운영진 접속이 아니다").isNull();
+        assertThat(findRow(listed, selfRecruitment.getId()).get("operatorsLastActiveAt"))
+                .as("회장이 있어도 세션·로그인 기록이 없으면 비어 있다").isNull();
+    }
+
+    @Test
+    @DisplayName("오래 방치된 순은 진행 중 모집을 먼저, 그 안에서 가장 오래된 미처리 지원서 순이며 미처리가 없으면 뒤로 가고 동률은 최신순이다")
+    void staleSortPutsOpenRecruitmentsWithOldestPendingApplicationsFirst() {
+        // 등록은 self → external → alwaysOpen 순이지만 미처리는 self 가 더 오래됐다.
+        submittedAgo(saveApplication(selfRecruitment), Duration.ofDays(12));
+        submittedAgo(saveApplication(alwaysOpenRecruitment), Duration.ofDays(5));
+        // 마감된 모집은 미처리가 가장 오래돼도 진행 중 모집 뒤로 간다.
+        submittedAgo(saveApplication(closedRecruitment), Duration.ofDays(30));
+        // 미처리가 없는 진행 중 모집 — 가장 최근 등록이라 미처리 없는 모집(외부 폼 포함) 중 맨 앞이다.
+        Club deltaClub = clubRepository.save(ClubFixture.academic("델타동아리-" + sequence.incrementAndGet()));
+        Recruitment noPendingRecruitment = saveRecruitment(deltaClub, "미처리 없는 모집", ApplicationMode.SELF,
+                LocalDate.now(clock).minusDays(3), LocalDate.now(clock).plusDays(7));
+
+        assertThat(getList(adminToken, Map.of("sort", "STALE")).jsonPath().getList("data.recruitmentId", Long.class))
+                .containsExactly(selfRecruitment.getId(), alwaysOpenRecruitment.getId(),
+                        noPendingRecruitment.getId(), externalRecruitment.getId(), closedRecruitment.getId());
+    }
+
+    @Test
     @DisplayName("자체 폼 모집 상세에는 외부 폼 주소도 가입 링크 현황도 실리지 않는다")
     void selfRecruitmentDetailHasNoExternalFields() {
         getDetail(adminToken, selfRecruitment.getId()).then()
@@ -427,6 +560,36 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
     private Application saveApplication(Recruitment recruitment) {
         return applicationRepository.save(
                 Application.submit(recruitment, userRepository.save(UserFixture.unique()), List.of()));
+    }
+
+    /** 지정 상태의 지원서를 저장한다 — 상태 전이는 도메인 메서드로(면접 미사용 모집). */
+    private Application saveApplication(Recruitment recruitment, ApplicationStatus status) {
+        Application application = Application.submit(recruitment, userRepository.save(UserFixture.unique()),
+                List.of());
+        application.transitionTo(status, false);
+        return applicationRepository.save(application);
+    }
+
+    /**
+     * 제출 시각을 과거로 옮기고 그 벽시계를 돌려준다. created_at 은 @CreatedDate 가 INSERT 때 덮어써 저장 뒤
+     * JDBC 로 바꾼다. 감사 필드는 system regime 이라 TimeMapper.systemNow(clock) 를 기준으로 삼는다.
+     */
+    private LocalDateTime submittedAgo(Application application, Duration age) {
+        LocalDateTime submittedAt = TimeMapper.systemNow(clock).minus(age).truncatedTo(ChronoUnit.SECONDS);
+        jdbcTemplate.update("UPDATE application SET created_at = ? WHERE id = ?",
+                Timestamp.valueOf(submittedAt), application.getId());
+        return submittedAt;
+    }
+
+    /** 세션 사용 시각은 seoulClock 벽시계다 — 운영 코드도 now(clock) 으로 찍는다(TIMEZONE.md — seoul regime). */
+    private AuthSession newSession(User user, LocalDateTime lastUsedAt, Duration ttl) {
+        return AuthSession.create(user.getId(), SessionPlatform.WEB, null, null, null, false, lastUsedAt, ttl);
+    }
+
+    /** 로그인 시각은 무클럭 now() 로 찍히는 system regime 벽시계다 — 테스트는 같은 존의 값을 직접 넣는다. */
+    private void recordLogin(User user, LocalDateTime loggedInAt) {
+        jdbcTemplate.update("UPDATE users SET last_login_at = ? WHERE id = ?",
+                Timestamp.valueOf(loggedInAt), user.getId());
     }
 
     private ClubJoinCode saveJoinCode(Club targetClub, Recruitment targetRecruitment, Integer generation,

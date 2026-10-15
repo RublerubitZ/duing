@@ -25,9 +25,9 @@ const FEE_STATUS_LABEL: Record<FeeStatus, string> = {
 // 상태별 뱃지 색. CANCELLED 는 회색, 미납/부분납부는 warm, 연체는 coral, 납부완료는 sage.
 const FEE_STATUS_BADGE_CLS: Record<FeeStatus, string> = {
   PENDING: 'bg-warm/15 text-charcoal',
-  PAID: 'bg-sage/20 text-sage',
+  PAID: 'bg-sage/20 text-sage-deep',
   PARTIAL_PAID: 'bg-warm/15 text-charcoal',
-  OVERDUE: 'bg-coral/10 text-coral',
+  OVERDUE: 'bg-coral/10 text-coral-deep',
   CANCELLED: 'bg-graysoft text-charcoal-3',
 };
 

@@ -240,7 +240,7 @@ export function AdminFacilityBookingsPage() {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={`h-4 w-4 ${stepIndex < activeStepIndex ? 'text-sage' : 'text-line'}`}
+                    className={`h-4 w-4 ${stepIndex < activeStepIndex ? 'text-sage-deep' : 'text-line'}`}
                   >
                     <path d="m9 18 6-6-6-6" />
                   </svg>

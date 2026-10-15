@@ -60,7 +60,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
           </p>
         </label>
 
-        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>}
 
         <DialogFooter>
           <button type="button" onClick={onCancel} disabled={isPending} className="btn btn-ghost btn-sm">
@@ -70,7 +70,7 @@ export function AdminInquiryCloseDialog({ isPending, errorMessage, onConfirm, on
             type="button"
             onClick={handleSubmit}
             disabled={isPending}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}종료
           </button>

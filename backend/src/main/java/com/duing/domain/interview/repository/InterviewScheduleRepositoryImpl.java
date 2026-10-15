@@ -4,6 +4,7 @@ import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.QInterviewRound;
 import com.duing.domain.interview.entity.QInterviewSchedule;
 import com.duing.domain.interview.entity.QInterviewSlot;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -34,6 +35,28 @@ public class InterviewScheduleRepositoryImpl implements InterviewScheduleReposit
                 .leftJoin(round).on(round.id.eq(schedule.roundId).and(round.deletedAt.isNull()))
                 .where(schedule.applicationId.eq(applicationId)
                         .and(schedule.status.eq(InterviewScheduleStatus.ASSIGNED)))
+                .fetchOne();
+        return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Optional<AssignedInterviewSlot> findConfirmedSlotByApplicationId(Long applicationId) {
+        QInterviewSchedule schedule = QInterviewSchedule.interviewSchedule;
+        QInterviewSlot slot = QInterviewSlot.interviewSlot;
+        QInterviewRound round = QInterviewRound.interviewRound;
+
+        AssignedInterviewSlot result = queryFactory
+                .select(Projections.constructor(AssignedInterviewSlot.class,
+                        slot.id,
+                        slot.startTime,
+                        slot.endTime,
+                        round.location))
+                .from(schedule)
+                .join(slot).on(slot.id.eq(schedule.slotId).and(slot.deletedAt.isNull()))
+                .join(round).on(round.id.eq(schedule.roundId).and(round.deletedAt.isNull()))
+                .where(schedule.applicationId.eq(applicationId)
+                        .and(schedule.status.eq(InterviewScheduleStatus.ASSIGNED))
+                        .and(round.status.eq(RoundStatus.SCHEDULED)))
                 .fetchOne();
         return Optional.ofNullable(result);
     }

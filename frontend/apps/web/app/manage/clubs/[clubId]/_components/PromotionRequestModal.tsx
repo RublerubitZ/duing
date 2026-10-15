@@ -100,7 +100,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           <div>
             <label htmlFor="promo-title" className="mb-1.5 block text-sm font-semibold text-ink">
-              제목 <span className="text-coral">*</span>
+              제목 <span className="text-coral-deep">*</span>
               <span className="ml-1 text-xs font-normal text-charcoal-3">(최대 80자)</span>
             </label>
             <input
@@ -111,14 +111,14 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               className={cn(inputCls, errors.title && 'border-coral focus-visible:border-coral focus-visible:ring-coral')}
             />
             <div className="mt-1 flex justify-between">
-              {errors.title ? <p className="text-xs text-coral">{errors.title.message}</p> : <span />}
+              {errors.title ? <p className="text-xs text-coral-deep">{errors.title.message}</p> : <span />}
               <span className="text-xs text-charcoal-3">{titleValue.length} / 80</span>
             </div>
           </div>
 
           <div>
             <label htmlFor="promo-description" className="mb-1.5 block text-sm font-semibold text-ink">
-              설명 <span className="text-coral">*</span>
+              설명 <span className="text-coral-deep">*</span>
               <span className="ml-1 text-xs font-normal text-charcoal-3">(최대 2000자)</span>
             </label>
             <textarea
@@ -134,7 +134,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
             />
             <div className="mt-1 flex justify-between">
               {errors.description ? (
-                <p className="text-xs text-coral">{errors.description.message}</p>
+                <p className="text-xs text-coral-deep">{errors.description.message}</p>
               ) : (
                 <span />
               )}
@@ -156,7 +156,7 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               altText="희망 배너"
             />
             {errors.suggestedBannerImageUrl && (
-              <p className="mt-1 text-xs text-coral">{errors.suggestedBannerImageUrl.message}</p>
+              <p className="mt-1 text-xs text-coral-deep">{errors.suggestedBannerImageUrl.message}</p>
             )}
           </div>
 
@@ -173,12 +173,12 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
               className={cn(inputCls, errors.suggestedLinkUrl && 'border-coral focus-visible:border-coral focus-visible:ring-coral')}
             />
             {errors.suggestedLinkUrl && (
-              <p className="mt-1 text-xs text-coral">{errors.suggestedLinkUrl.message}</p>
+              <p className="mt-1 text-xs text-coral-deep">{errors.suggestedLinkUrl.message}</p>
             )}
           </div>
 
           {submitPromotion.isError && (
-            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">
+            <p className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {submitPromotion.error instanceof Error
                 ? submitPromotion.error.message
                 : '요청 중 오류가 발생했습니다. 다시 시도해주세요.'}

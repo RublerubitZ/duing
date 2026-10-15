@@ -171,7 +171,7 @@ export function ActivityPhotoCard({
             setConfirmOpen(true);
           }}
           aria-label="사진 삭제"
-          className="grid h-7 w-7 place-items-center rounded-md text-white hover:bg-coral"
+          className="grid h-7 w-7 place-items-center rounded-md text-white hover:bg-danger"
         >
           <Trash2 size={13} aria-hidden />
         </button>
@@ -199,7 +199,7 @@ export function ActivityPhotoCard({
           <p className="text-right text-[11px] text-charcoal-3">
             {captionDraft.length}/{CAPTION_MAX}
           </p>
-          {captionError && <p role="alert" className="text-[12px] text-coral">{captionError}</p>}
+          {captionError && <p role="alert" className="text-[12px] text-coral-deep">{captionError}</p>}
           <DialogFooter>
             <button
               type="button"

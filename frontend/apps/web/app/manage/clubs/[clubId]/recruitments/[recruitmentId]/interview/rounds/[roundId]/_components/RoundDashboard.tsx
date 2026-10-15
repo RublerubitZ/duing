@@ -125,7 +125,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       detailQuery.error instanceof ApiError
         ? detailQuery.error.message
         : '라운드 정보를 불러오지 못했습니다.';
-    return <p className="p-6 text-sm text-rose-600">{message}</p>;
+    return <p className="p-6 text-sm text-rose-700">{message}</p>;
   }
 
   const detail = detailQuery.data;

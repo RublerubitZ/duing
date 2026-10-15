@@ -188,7 +188,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                     <span className="ml-1.5 rounded bg-graysoft px-1.5 py-0.5 text-[10px] text-charcoal-3">자동</span>
                   )}
                   {entry.excluded && (
-                    <span className="ml-1.5 rounded bg-coral/10 px-1.5 py-0.5 text-[10px] text-coral">제외됨</span>
+                    <span className="ml-1.5 rounded bg-coral/10 px-1.5 py-0.5 text-[10px] text-coral-deep">제외됨</span>
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-charcoal-3">{entry.transactionDate}{entry.memo ? ` · ${entry.memo}` : ''}</p>
@@ -197,7 +197,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                 <span
                   className={cn(
                     'text-sm font-bold',
-                    entry.entryType === 'INCOME' ? 'text-sage' : 'text-coral',
+                    entry.entryType === 'INCOME' ? 'text-sage-deep' : 'text-coral-deep',
                     entry.excluded && 'line-through',
                   )}
                 >
@@ -213,7 +213,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
                 </button>
                 <button type="button" onClick={() => setEditTarget(entry)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal-2 transition-colors hover:bg-graysoft">수정</button>
                 {entry.source === 'MANUAL' && (
-                  <button type="button" onClick={() => setDeleteTarget(entry)} disabled={deleteEntry.isPending} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-coral transition-colors hover:bg-coral/5 disabled:opacity-50">삭제</button>
+                  <button type="button" onClick={() => setDeleteTarget(entry)} disabled={deleteEntry.isPending} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50">삭제</button>
                 )}
               </div>
             </li>
@@ -262,7 +262,7 @@ function SummaryCard({ label, value, tone }: SummaryCardProps) {
   return (
     <div className="rounded-xl border border-line px-4 py-3">
       <p className="text-xs text-charcoal-3">{label}</p>
-      <p className={cn('mt-1 text-sm font-bold', tone === 'income' ? 'text-sage' : tone === 'expense' ? 'text-coral' : 'text-ink')}>
+      <p className={cn('mt-1 text-sm font-bold', tone === 'income' ? 'text-sage-deep' : tone === 'expense' ? 'text-coral-deep' : 'text-ink')}>
         {formatWon(value)}
       </p>
     </div>

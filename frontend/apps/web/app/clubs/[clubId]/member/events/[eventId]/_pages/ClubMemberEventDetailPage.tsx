@@ -30,7 +30,7 @@ function ClubMemberEventDetail({ clubId, eventId }: Props) {
   if (isError || !data) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <p className="text-sm text-coral">일정을 불러오지 못했습니다.</p>
+        <p className="text-sm text-coral-deep">일정을 불러오지 못했습니다.</p>
         <Link
           href={toRoute(`/clubs/${clubId}/member/events`)}
           className="mt-4 inline-block text-sm text-ink"

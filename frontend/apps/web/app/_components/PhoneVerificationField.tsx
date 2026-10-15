@@ -78,7 +78,7 @@ export function PhoneVerificationField({
   const waitingNotice =
     status === 'waiting' ? (
       stalled ? (
-        <p className="mt-3 text-xs text-coral" aria-live="polite">
+        <p className="mt-3 text-xs text-coral-deep" aria-live="polite">
           아직 확인되지 않았어요. 문자에 인증 코드만 포함되어 있는지 확인해주세요. 문자를 보냈다면 [지금
           확인]을, 계속 안 되면 [재발급]을 눌러주세요.
         </p>
@@ -141,7 +141,7 @@ export function PhoneVerificationField({
   return (
     <div>
       {errorMessage && (
-        <p role="alert" className="mb-3 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+        <p role="alert" className="mb-3 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           {errorMessage}
         </p>
       )}

@@ -285,6 +285,9 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                     application.count().desc(), recruitment.createdAt.desc()};
             case DEADLINE -> new OrderSpecifier<?>[]{
                     recruitment.endDate.asc().nullsLast(), recruitment.createdAt.desc()};
+            // 방치 기준(가장 오래된 미처리 지원서)은 이 쿼리에 없는 별도 집계라 서비스가 다시 정렬한다 —
+            // 여기서는 그 안정 정렬의 동률 순서가 될 최신순만 준다.
+            case STALE -> new OrderSpecifier<?>[]{recruitment.createdAt.desc()};
         };
     }
 

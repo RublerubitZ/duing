@@ -60,7 +60,7 @@ export function BookingActionDialog({
           />
         )}
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-xs text-coral">
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-xs text-coral-deep">
             {errorMessage}
           </p>
         )}
@@ -70,7 +70,7 @@ export function BookingActionDialog({
           </button>
           <button
             type="button"
-            className={`btn btn-sm ${destructive ? 'rounded-[10px] bg-coral text-white disabled:opacity-50' : 'btn-primary'}`}
+            className={`btn btn-sm ${destructive ? 'rounded-[10px] btn-danger disabled:opacity-50' : 'btn-primary'}`}
             disabled={isPending || reasonInvalid}
             onClick={() => onConfirm(reason.trim())}
           >

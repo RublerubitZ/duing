@@ -16,5 +16,5 @@ export const ROUND_STATUS_BADGE_CLASS: Record<InterviewRoundStatus, string> = {
   COLLECTING: 'bg-blue-100 text-blue-700',
   ASSIGNING: 'bg-amber-100 text-amber-700',
   SCHEDULED: 'bg-emerald-100 text-emerald-700',
-  CANCELLED: 'bg-rose-100 text-rose-600',
+  CANCELLED: 'bg-rose-100 text-rose-700',
 };

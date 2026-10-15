@@ -164,6 +164,20 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         assertThat(afterCount - beforeCount).isZero();
     }
 
+    @Test
+    @DisplayName("확정 전(ASSIGNING) 라운드의 초안 배정에는 윈도 안이어도 INTERVIEW_REMINDER 가 생성되지 않는다")
+    void interviewReminder_skipsDraftAssignmentsOfUnconfirmedRounds() throws Exception {
+        LocalDateTime now = LocalDateTime.now(clock);
+        InterviewSchedule draftSchedule = fixtureAssignedSchedule(now.plusHours(24), "초안배정");
+        markRoundAsAssigning(draftSchedule);
+
+        long beforeCount = notificationRepository.count();
+        job.run();
+        long afterCount = notificationRepository.count();
+
+        assertThat(afterCount - beforeCount).isZero();
+    }
+
     /**
      * 해당 schedule 이 속한 모집을 마감한다 — 리마인더 제외 기준이 모집 상태임을 고정하기 위한 준비.
      * 이 테스트는 트랜잭션 밖에서 돌아 lazy 연관을 탈 수 없으므로 라운드 → 모집을 id 로 되짚는다.
@@ -174,6 +188,15 @@ class InterviewReminderJobTest extends IntegrationTestBase {
         Recruitment recruitment = recruitmentRepository.findById(recruitmentId).orElseThrow();
         recruitment.close(LocalDateTime.now(clock));
         recruitmentRepository.saveAndFlush(recruitment);
+    }
+
+    /** 해당 schedule 의 라운드를 확정 전(ASSIGNING)으로 되돌린다 — 픽스처 라운드는 SCHEDULED 로 만들어진다. */
+    private void markRoundAsAssigning(InterviewSchedule schedule) throws Exception {
+        InterviewRound round = interviewRoundRepository.findById(schedule.getRoundId()).orElseThrow();
+        Field roundStatusField = InterviewRound.class.getDeclaredField("status");
+        roundStatusField.setAccessible(true);
+        roundStatusField.set(round, RoundStatus.ASSIGNING);
+        interviewRoundRepository.saveAndFlush(round);
     }
 
     // ── Fixture 헬퍼 ─────────────────────────────────────────────────────────────

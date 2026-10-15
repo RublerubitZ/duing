@@ -57,7 +57,7 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
           <p
             className={cn(
               'mt-1 text-2xl font-bold',
-              hasOutstanding ? 'text-coral' : 'text-ink',
+              hasOutstanding ? 'text-coral-deep' : 'text-ink',
             )}
           >
             {formatWon(summary.outstanding)}
@@ -85,12 +85,12 @@ export function FeeSummaryCards({ clubId, billingPeriod }: FeeSummaryCardsProps)
         <StatusBadge
           label={feeStatusLabel('OVERDUE')}
           count={summary.overdueCount}
-          className={hasOverdue ? 'bg-coral/10 text-coral' : 'bg-graysoft text-charcoal-3'}
+          className={hasOverdue ? 'bg-coral/10 text-coral-deep' : 'bg-graysoft text-charcoal-3'}
         />
         <StatusBadge
           label={feeStatusLabel('PAID')}
           count={summary.paidCount}
-          className="bg-sage/20 text-sage"
+          className="bg-sage/20 text-sage-deep"
         />
       </div>
     </div>

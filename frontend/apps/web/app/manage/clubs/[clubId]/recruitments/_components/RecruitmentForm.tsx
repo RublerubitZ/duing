@@ -630,7 +630,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         <SectionCard number={1} title="기본 정보">
           <label className="block">
             <span className={fieldLabelClass}>
-              제목 <span className="text-coral">*</span>
+              제목 <span className="text-coral-deep">*</span>
             </span>
             <input
               id={FIELD_IDS.title}
@@ -658,7 +658,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             <div>
               <label className="block">
                 <span className={fieldLabelClass}>
-                  시작일 <span className="text-coral">*</span>
+                  시작일 <span className="text-coral-deep">*</span>
                 </span>
                 <input
                   id={FIELD_IDS.startDate}
@@ -683,7 +683,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             <div>
               <label className="block">
                 <span className={fieldLabelClass}>
-                  종료일 {!isAlwaysOpen && <span className="text-coral">*</span>}
+                  종료일 {!isAlwaysOpen && <span className="text-coral-deep">*</span>}
                 </span>
                 <input
                   id={FIELD_IDS.endDate}
@@ -743,7 +743,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
           <label className="mt-4 block">
             <span className={fieldLabelClass}>
-              모집 인원 <span className="text-coral">*</span>
+              모집 인원 <span className="text-coral-deep">*</span>
             </span>
             <input
               id={FIELD_IDS.capacity}
@@ -811,7 +811,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             <div className="mb-2.5 rounded-[13px] bg-sage-tint p-4">
               <label className="block">
                 <span className={fieldLabelClass}>
-                  외부 폼 URL <span className="text-coral">*</span>
+                  외부 폼 URL <span className="text-coral-deep">*</span>
                 </span>
                 <input
                   id={FIELD_IDS.externalFormUrl}
@@ -999,7 +999,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                 aria-describedby={fieldErrors.questionItems ? 'rf-questions-error' : undefined}
               >
                 <p className={cn(fieldLabelClass, 'mb-1')}>
-                  지원 질문 <span className="text-coral">*</span>
+                  지원 질문 <span className="text-coral-deep">*</span>
                   <span className="ml-1 font-normal text-charcoal-3">(최소 1개)</span>
                 </p>
                 {/* 수집 최소화 안내 — 학번·연락처는 지원자 프로필로 운영진에게 이미 보인다. 입력을 막는 장치가 아니라 보관기간 파기와 짝을 이루는 예방책이다. */}

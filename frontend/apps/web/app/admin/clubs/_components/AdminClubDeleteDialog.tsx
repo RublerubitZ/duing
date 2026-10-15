@@ -57,7 +57,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">
+        <div className="space-y-2 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           <p className="font-semibold">되돌릴 수 없습니다.</p>
           <p className="text-xs">멤버십·진행 중인 모집·지원·면접·인증 요청·홍보가 모두 종료되고, 동아리가 모든 화면에서 사라집니다.</p>
         </div>
@@ -89,7 +89,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
         </label>
 
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>
         )}
 
         <DialogFooter>
@@ -100,7 +100,7 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
             type="button"
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50"
+            className="btn btn-sm btn-danger disabled:opacity-50"
           >
             {isPending && <ButtonSpinner />}삭제
           </button>

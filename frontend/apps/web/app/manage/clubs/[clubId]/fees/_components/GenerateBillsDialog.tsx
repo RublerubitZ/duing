@@ -59,7 +59,7 @@ export function GenerateBillsDialog({ clubId, onClose }: GenerateBillsDialogProp
         <div className="space-y-4">
           <div>
             <label htmlFor="generate-policy" className="mb-1.5 block text-sm font-semibold text-ink">
-              회비 정책 <span className="text-coral">*</span>
+              회비 정책 <span className="text-coral-deep">*</span>
             </label>
             {isLoading ? (
               <div role="status" aria-label="정책 불러오는 중" className="delayed-show">
@@ -203,7 +203,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
       {isSelected && (
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-ink">
-            청구 대상 부원 <span className="text-coral">*</span>
+            청구 대상 부원 <span className="text-coral-deep">*</span>
           </span>
           {membersLoading ? (
             <div role="status" aria-label="부원 목록 불러오는 중" className="delayed-show">
@@ -235,7 +235,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
           {selectedUserIds.length > 0 && (
             <p className="mt-1 text-xs text-charcoal-3">{selectedUserIds.length}명 선택됨</p>
           )}
-          {memberError && <p role="alert" className="mt-1 text-xs text-coral">{memberError}</p>}
+          {memberError && <p role="alert" className="mt-1 text-xs text-coral-deep">{memberError}</p>}
         </div>
       )}
 
@@ -386,7 +386,7 @@ function GenerateBillsForm({ clubId, policy, onClose, onSubmittingChange }: Gene
       )}
 
       {submitErrorMessage && (
-        <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral">{submitErrorMessage}</p>
+        <p role="alert" className="rounded-md bg-coral/5 px-4 py-3 text-sm text-coral-deep">{submitErrorMessage}</p>
       )}
 
       <div className="flex gap-2 pt-1">

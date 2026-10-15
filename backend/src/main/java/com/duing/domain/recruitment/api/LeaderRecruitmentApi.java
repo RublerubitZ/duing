@@ -22,7 +22,8 @@ public interface LeaderRecruitmentApi {
 
     @Operation(summary = "모집 공고 생성", description = "본인이 운영진(LEADER/OFFICER)인 동아리에만 등록 가능. "
             + "단 targetRole=OFFICER(운영진 대상) 모집은 동아리장만 생성할 수 있다. "
-            + "질문 목록을 함께 전송하면 RecruitmentForm 도 함께 생성된다.")
+            + "질문 목록을 함께 전송하면 RecruitmentForm 도 함께 생성된다. "
+            + "모집 시작일·종료일은 2000-01-01 ~ 2100-12-31 사이여야 하며, 벗어나면 400 반환.")
     @PostMapping("/leader/clubs/{clubId}/recruitments")
     ResponseEntity<ApiResponse<Long>> createRecruitment(
             @PathVariable Long clubId,
@@ -30,7 +31,8 @@ public interface LeaderRecruitmentApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "모집 공고 수정", description = "null 이 아닌 필드만 부분 갱신된다. applicationMode·externalFormUrl·targetRole 은 변경 불가. 이미 마감된 공고 수정 시 409 반환.")
+    @Operation(summary = "모집 공고 수정", description = "null 이 아닌 필드만 부분 갱신된다. applicationMode·externalFormUrl·targetRole 은 변경 불가. 이미 마감된 공고 수정 시 409 반환. "
+            + "바꾸는 시작일·종료일이 2000-01-01 ~ 2100-12-31 밖이면 400 반환(저장된 값과 같은 날짜를 다시 보내는 것은 허용).")
     @PatchMapping("/leader/recruitments/{recruitmentId}")
     ResponseEntity<Void> updateRecruitment(
             @PathVariable Long recruitmentId,

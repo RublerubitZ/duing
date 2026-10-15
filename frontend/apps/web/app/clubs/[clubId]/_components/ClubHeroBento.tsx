@@ -2,7 +2,7 @@ import type { ClubHeroActivity } from '@duing/types';
 import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 import { cn } from '@/app/_lib/cn';
 
-type Props = { heroActivities: ClubHeroActivity[]; onOpen: (index: number) => void };
+type Props = { heroActivities: ClubHeroActivity[]; showImages: boolean; onOpen: (index: number) => void };
 
 // 개수별 배치 — 5·6개는 첫 카드 2×2 큰 대표(스펙·목업 Concept A 규칙).
 const GRID_BY_COUNT: Record<number, string> = {
@@ -13,7 +13,7 @@ const GRID_BY_COUNT: Record<number, string> = {
 };
 
 /** 학생 화면 PC 벤토 래퍼 — 배지 없음, 컴팩트 정렬. displayOrder 오름차순 입력 가정. */
-export function ClubHeroBento({ heroActivities, onOpen }: Props) {
+export function ClubHeroBento({ heroActivities, showImages, onOpen }: Props) {
   const count = heroActivities.length;
   if (count === 0) return null;
   const featured = count >= 5;
@@ -37,6 +37,7 @@ export function ClubHeroBento({ heroActivities, onOpen }: Props) {
               title={activity.title}
               description={activity.description}
               size={big ? 'big' : 'default'}
+              showImage={showImages}
             />
           </button>
         );

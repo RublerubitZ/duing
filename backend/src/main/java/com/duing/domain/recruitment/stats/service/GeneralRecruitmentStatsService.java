@@ -24,6 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
 
+    /**
+     * 일별 통계가 한 번에 그리는 최대 일수. 모집 기간에는 길이 상한이 없으므로(상시모집은 해를 넘겨 이어진다)
+     * 응답 크기와 집계 범위를 이 상수로 묶는다.
+     */
+    private static final int MAX_DAILY_POINTS = 366;
+
     private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuthService clubAuthService;
@@ -66,11 +72,19 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 ? recruitment.getEndDate()
                 : alwaysOpenEndDate(recruitment);
 
+        // 기간이 MAX_DAILY_POINTS 일을 넘으면 그중 MAX_DAILY_POINTS 일만 그린다 — 지난 기간은 마지막 날까지,
+        // 시작한 지 1년이 지난 진행 중 기간은 오늘까지, 시작 전이거나 1년이 안 됐으면 시작일부터.
+        // 그 이하 기간은 창이 그대로 [startDate, effectiveEndDate] 다.
+        // 창 끝이 시작보다 앞서면(시작 전 상시모집) 지금처럼 빈 리스트가 된다.
+        LocalDate today = LocalDate.now(clock);
+        LocalDate windowEnd = earlierOf(effectiveEndDate, laterOf(today, startDate.plusDays(MAX_DAILY_POINTS - 1)));
+        LocalDate windowStart = laterOf(startDate, windowEnd.minusDays(MAX_DAILY_POINTS - 1));
+
         Map<LocalDate, Long> dailySubmissionCounts =
-                recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, startDate, effectiveEndDate);
+                recruitmentStatsRepository.findDailySubmissionCounts(recruitmentId, windowStart, windowEnd);
 
         List<StatsDailyPointQuery> paddedDays = new ArrayList<>();
-        for (LocalDate paddingDate = startDate; !paddingDate.isAfter(effectiveEndDate); paddingDate = paddingDate.plusDays(1)) {
+        for (LocalDate paddingDate = windowStart; !paddingDate.isAfter(windowEnd); paddingDate = paddingDate.plusDays(1)) {
             long submittedCount = dailySubmissionCounts.getOrDefault(paddingDate, 0L);
             paddedDays.add(new StatsDailyPointQuery(paddingDate, submittedCount));
         }
@@ -81,6 +95,14 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
     private LocalDate alwaysOpenEndDate(Recruitment recruitment) {
         LocalDateTime closedAt = recruitment.getClosedAt();
         return closedAt != null ? closedAt.toLocalDate() : LocalDate.now(clock);
+    }
+
+    private static LocalDate earlierOf(LocalDate first, LocalDate second) {
+        return first.isBefore(second) ? first : second;
+    }
+
+    private static LocalDate laterOf(LocalDate first, LocalDate second) {
+        return first.isAfter(second) ? first : second;
     }
 
     @Override

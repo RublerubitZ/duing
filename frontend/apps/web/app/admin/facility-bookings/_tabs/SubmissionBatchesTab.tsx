@@ -340,7 +340,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                             <span aria-hidden className="mx-0.5 h-4 w-px bg-line" />
                             <button
                               type="button"
-                              className="btn btn-ghost btn-sm text-coral"
+                              className="btn btn-sm btn-danger-quiet"
                               onClick={() => setCancelTarget(batch)}
                             >
                               취소

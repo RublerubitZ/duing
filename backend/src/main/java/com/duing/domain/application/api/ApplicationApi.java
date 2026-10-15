@@ -52,7 +52,7 @@ public interface ApplicationApi {
             @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "내 지원 상세 조회", description = "본인 지원만 조회 가능. 답변·면접 일시·장소 포함.")
+    @Operation(summary = "내 지원 상세 조회", description = "본인 지원만 조회 가능. 답변·면접 일시·장소(확정된 경우) 포함.")
     @GetMapping("/users/me/applications/{applicationId}")
     ResponseEntity<ApiResponse<MyApplicationDetailResponse>> getMyApplicationDetail(
             @PathVariable Long applicationId,

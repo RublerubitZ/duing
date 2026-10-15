@@ -110,7 +110,7 @@ export function AdminGlobalEventForm({
           ))}
         </select>
         {state.category === 'OTHER' && (
-          <p className="mt-1 text-xs text-coral">
+          <p className="mt-1 text-xs text-coral-deep">
             ⚠️ 5개 카테고리 중 적합한 것이 없는 경우에만 사용해주세요.
           </p>
         )}
@@ -180,7 +180,7 @@ export function AdminGlobalEventForm({
       </Field>
 
       {errorMessage && (
-        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[13px] text-coral">
+        <p className="rounded-md bg-coral/10 border border-coral/40 px-3 py-2 text-[13px] text-coral-deep">
           {errorMessage}
         </p>
       )}
@@ -211,7 +211,7 @@ function Field({
     <label className="block">
       <span className="block mb-1.5 text-[12.5px] font-semibold text-charcoal-2">{label}</span>
       {children}
-      {error && <p className="mt-1 text-xs text-coral">{error}</p>}
+      {error && <p className="mt-1 text-xs text-coral-deep">{error}</p>}
     </label>
   );
 }

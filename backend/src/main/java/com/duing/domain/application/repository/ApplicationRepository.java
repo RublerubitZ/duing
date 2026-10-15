@@ -98,6 +98,37 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
+     * 미처리 지원서 리마인더 후보 — 제출 뒤 기준 시각이 지나도록 SUBMITTED 로 남은 지원서를 모집별로 센다.
+     * 모집은 raw status OPEN(마감일이 지난 심사 기간 포함), 동아리는 ACTIVE 만 — DeadlineNotificationJob 후보와 같은 동아리 규칙.
+     * created_at 은 system regime 이라 {@code submittedBefore} 도 TimeMapper.systemNow 기준으로 넘긴다.
+     */
+    @Query(value = """
+            SELECT r.id AS recruitmentId, r.club_id AS clubId, r.title AS title, COUNT(a.id) AS pendingCount
+              FROM application a
+              JOIN recruitment r ON r.id = a.recruitment_id
+              JOIN club c ON c.id = r.club_id
+             WHERE a.status = 'SUBMITTED' AND a.deleted_at IS NULL AND a.created_at <= :submittedBefore
+               AND r.status = 'OPEN' AND r.deleted_at IS NULL
+               AND c.status = 'ACTIVE' AND c.deleted_at IS NULL
+             GROUP BY r.id, r.club_id, r.title
+            """, nativeQuery = true)
+    List<PendingApplicationRow> findPendingReminderCandidates(@Param("submittedBefore") LocalDateTime submittedBefore);
+
+    /**
+     * 총동연 모집 목록의 미처리 열 — 모집별 SUBMITTED 지원서 수와 가장 오래된 제출 시각(created_at, system regime).
+     * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외).
+     * 미처리가 없는 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
+     */
+    @Query(value = """
+            SELECT a.recruitment_id AS recruitmentId, COUNT(a.id) AS pendingCount, MIN(a.created_at) AS oldestSubmittedAt
+              FROM application a
+             WHERE a.recruitment_id IN (:recruitmentIds) AND a.status = 'SUBMITTED' AND a.deleted_at IS NULL
+             GROUP BY a.recruitment_id
+            """, nativeQuery = true)
+    List<PendingApplicationStatsRow> findPendingStatsByRecruitmentIds(
+            @Param("recruitmentIds") Collection<Long> recruitmentIds);
+
+    /**
      * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).
      * 대상이 soft-delete 행이라 @SQLRestriction 을 우회하려 nativeQuery 를 쓴다.
      */

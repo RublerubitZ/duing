@@ -79,7 +79,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   }
   // 그 밖의 실패(5xx·네트워크·타임아웃)는 중립 오류 — data 없이 아래로 내려가면 본문이 깨진다.
   if (!detail.data) {
-    return <p className="p-6 text-sm text-coral">동아리 정보를 불러오지 못했습니다.</p>;
+    return <p className="p-6 text-sm text-coral-deep">동아리 정보를 불러오지 못했습니다.</p>;
   }
 
   const club = detail.data;

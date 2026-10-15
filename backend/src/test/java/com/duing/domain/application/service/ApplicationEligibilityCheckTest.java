@@ -37,6 +37,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class ApplicationEligibilityCheckTest {
 
@@ -71,7 +72,8 @@ class ApplicationEligibilityCheckTest {
             interviewAssignmentQueryService,
             clock,
             mock(ClubAuditEventRepository.class),
-            new PhoneRevealRateLimiter());
+            new PhoneRevealRateLimiter(),
+            mock(ApplicationEventPublisher.class));
 
     @Test
     @DisplayName("존재하지 않는 모집의 지원 가능 여부 확인은 404 로 실패한다")

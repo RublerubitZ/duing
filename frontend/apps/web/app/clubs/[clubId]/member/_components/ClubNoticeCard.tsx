@@ -24,7 +24,7 @@ export function ClubNoticeCard({ clubId, notice, canEdit, canDelete, onEdit, onD
         >
           <div className="flex items-center gap-2">
             {notice.pinned && (
-              <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm">고정</span>
+              <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">고정</span>
             )}
             <h3 className="text-base font-semibold text-ink">{notice.title}</h3>
           </div>
@@ -50,7 +50,7 @@ export function ClubNoticeCard({ clubId, notice, canEdit, canDelete, onEdit, onD
               <button
                 type="button"
                 onClick={onDelete}
-                className="rounded-md px-2 py-1 text-xs text-coral hover:bg-rose-50"
+                className="rounded-md px-2 py-1 text-xs text-danger hover:bg-rose-50"
               >
                 삭제
               </button>

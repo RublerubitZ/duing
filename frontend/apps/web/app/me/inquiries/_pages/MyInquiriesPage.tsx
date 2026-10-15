@@ -87,7 +87,7 @@ export function MyInquiriesPage() {
           />
         )}
         {listQuery.isError && (
-          <p className="py-12 text-center text-[13px] text-coral">문의 목록을 불러오지 못했습니다.</p>
+          <p className="py-12 text-center text-[13px] text-coral-deep">문의 목록을 불러오지 못했습니다.</p>
         )}
 
         {listQuery.isSuccess && inquiries.length === 0 && (

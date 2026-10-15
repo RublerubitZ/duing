@@ -6,10 +6,10 @@ import type { ClubHeroActivity } from '@duing/types';
 import { HeroActivityCard } from '@/app/_components/HeroActivityCard';
 import { cn } from '@/app/_lib/cn';
 
-type Props = { heroActivities: ClubHeroActivity[]; onOpen: (index: number) => void };
+type Props = { heroActivities: ClubHeroActivity[]; showImages: boolean; onOpen: (index: number) => void };
 
 /** 학생 화면 모바일 스와이프 래퍼 — scroll-snap 한 장씩, 도트 인디케이터. 배지 없음. */
-export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
+export function ClubHeroSwipe({ heroActivities, showImages, onOpen }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const reduceMotion = useReducedMotion();
@@ -51,6 +51,7 @@ export function ClubHeroSwipe({ heroActivities, onOpen }: Props) {
               imageUrl={activity.storageKey}
               title={activity.title}
               description={activity.description}
+              showImage={showImages}
             />
           </button>
         ))}

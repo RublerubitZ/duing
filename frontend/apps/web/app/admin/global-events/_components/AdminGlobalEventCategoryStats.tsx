@@ -24,7 +24,7 @@ export function AdminGlobalEventCategoryStats() {
   }
   if (statsQuery.isError || !statsQuery.data) {
     return (
-      <div className="border border-line rounded-lg bg-paper p-5 text-[13px] text-coral flex items-center justify-between">
+      <div className="border border-line rounded-lg bg-paper p-5 text-[13px] text-coral-deep flex items-center justify-between">
         <span>분포를 불러오지 못했습니다.</span>
         <button
           type="button"
@@ -76,7 +76,7 @@ export function AdminGlobalEventCategoryStats() {
         })}
       </ul>
       {otherIsAbove && (
-        <p className="mt-3 text-[12px] text-coral">
+        <p className="mt-3 text-[12px] text-coral-deep">
           ⚠️ OTHER 비율이 {Math.round(otherRatio * 100)}% 입니다 — 적합한 카테고리 추가 검토가 필요합니다.
         </p>
       )}

@@ -150,7 +150,7 @@ export function SignupStepProfile({
           className={inputCls}
         />
         {studentIdMismatch && (
-          <p className="mt-1.5 text-xs text-coral" aria-live="polite">
+          <p className="mt-1.5 text-xs text-coral-deep" aria-live="polite">
             학번이 일치하지 않아요
           </p>
         )}
@@ -189,7 +189,7 @@ export function SignupStepProfile({
             className={inputCls}
           />
           {passwordMismatch && (
-            <p className="mt-1.5 text-xs text-coral" aria-live="polite">
+            <p className="mt-1.5 text-xs text-coral-deep" aria-live="polite">
               비밀번호가 일치하지 않아요
             </p>
           )}

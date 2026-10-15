@@ -53,7 +53,7 @@ export function AdminClubStatusChangeDialog({
 
   const confirmClass =
     action.tone === 'danger'
-      ? 'btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f] disabled:opacity-50'
+      ? 'btn btn-sm btn-danger disabled:opacity-50'
       : 'btn btn-primary btn-sm disabled:opacity-50';
 
   return (
@@ -79,7 +79,7 @@ export function AdminClubStatusChangeDialog({
         {isRejection && (
           <label className="block space-y-1">
             <span className="text-xs font-medium text-charcoal-2">
-              거절 사유 <span className="text-coral">*</span>
+              거절 사유 <span className="text-coral-deep">*</span>
             </span>
             <textarea
               aria-label="거절 사유"
@@ -98,7 +98,7 @@ export function AdminClubStatusChangeDialog({
         )}
 
         {errorMessage && (
-          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral">{errorMessage}</p>
+          <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>
         )}
 
         <DialogFooter>

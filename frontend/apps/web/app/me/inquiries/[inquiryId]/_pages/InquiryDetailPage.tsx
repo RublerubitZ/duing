@@ -223,7 +223,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                         첨부를 변경하면 기존 첨부는 모두 교체됩니다
                       </p>
                       {editAttachmentUrls.length === 0 && inquiry.attachments.length > 0 && (
-                        <p className="text-[12px] font-semibold text-coral">
+                        <p className="text-[12px] font-semibold text-coral-deep">
                           새 첨부가 없어 저장하면 기존 첨부가 모두 삭제됩니다
                         </p>
                       )}
@@ -250,7 +250,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                 </div>
 
                 {editError && (
-                  <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral">
+                  <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-sm text-coral-deep">
                     {editError}
                   </p>
                 )}
@@ -348,7 +348,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
               <button
                 type="button"
                 onClick={() => setIsConfirmOpen(true)}
-                className="btn btn-sm bg-coral text-paper transition-colors hover:bg-[#c2603f]"
+                className="btn btn-sm btn-danger"
               >
                 삭제
               </button>

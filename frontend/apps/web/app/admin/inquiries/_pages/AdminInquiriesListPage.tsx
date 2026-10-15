@@ -113,7 +113,7 @@ export function AdminInquiriesListPage() {
 
       {listQuery.isLoading && <LoadingGate label="문의 목록 불러오는 중" />}
       {listQuery.isError && (
-        <p className="py-12 text-center text-coral text-[13px]">목록을 불러오지 못했습니다.</p>
+        <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>
       )}
       {listQuery.isSuccess && items.length === 0 && (
         <p className="py-12 text-center text-charcoal-3 text-[13px]">조건에 맞는 문의가 없습니다.</p>

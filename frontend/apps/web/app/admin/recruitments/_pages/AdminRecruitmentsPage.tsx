@@ -29,6 +29,7 @@ const SORT_OPTIONS: { label: string; value: AdminRecruitmentSort }[] = [
   { label: '최신순', value: 'LATEST' },
   { label: '지원자 많은순', value: 'APPLICANTS' },
   { label: '마감 임박순', value: 'DEADLINE' },
+  { label: '오래 방치된 순', value: 'STALE' },
 ];
 
 const inputCls =

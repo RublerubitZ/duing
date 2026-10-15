@@ -25,7 +25,7 @@ const STATUS_BANNER_TONE: Record<BookingStatus, string> = {
   APPROVED: 'bg-ink/10 text-ink',
   CONFIRMED: 'bg-ink text-cream',
   REJECTED: 'bg-graysoft text-charcoal-3',
-  CONFLICT: 'bg-coral/15 text-coral',
+  CONFLICT: 'bg-coral/15 text-coral-deep',
   CANCELLED: 'bg-graysoft text-charcoal-3',
 };
 
@@ -148,7 +148,7 @@ export function BookingDetailModal({ clubId, bookingId, onClose }: Props) {
                 {detail.status === 'PENDING' && (
                   <button
                     type="button"
-                    className="btn rounded-[10px] bg-coral text-white disabled:opacity-50"
+                    className="btn rounded-[10px] btn-danger disabled:opacity-50"
                     onClick={() => { setCancelErrorMessage(null); setCancelConfirmOpen(true); }}
                   >
                     신청 취소

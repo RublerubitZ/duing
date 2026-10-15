@@ -106,7 +106,7 @@ export function ClubEventFormModal(props: Props) {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink">
-                제목 <span className="text-coral">*</span>
+                제목 <span className="text-coral-deep">*</span>
               </label>
               <input
                 type="text"
@@ -117,31 +117,31 @@ export function ClubEventFormModal(props: Props) {
                   errors.title && 'border-coral focus:border-coral focus:ring-coral',
                 )}
               />
-              {errors.title && <p className="mt-1 text-xs text-coral">{errors.title.message}</p>}
+              {errors.title && <p className="mt-1 text-xs text-coral-deep">{errors.title.message}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-ink">
-                  시작 <span className="text-coral">*</span>
+                  시작 <span className="text-coral-deep">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   {...register('startAt')}
                   className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
                 />
-                {errors.startAt && <p className="mt-1 text-xs text-coral">{errors.startAt.message}</p>}
+                {errors.startAt && <p className="mt-1 text-xs text-coral-deep">{errors.startAt.message}</p>}
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-ink">
-                  종료 <span className="text-coral">*</span>
+                  종료 <span className="text-coral-deep">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   {...register('endAt')}
                   className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
                 />
-                {errors.endAt && <p className="mt-1 text-xs text-coral">{errors.endAt.message}</p>}
+                {errors.endAt && <p className="mt-1 text-xs text-coral-deep">{errors.endAt.message}</p>}
               </div>
             </div>
 

@@ -54,7 +54,7 @@ export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
                   <button
                     type="button"
                     onClick={() => onDeleteClick(item.id, item.title)}
-                    className="px-3 py-1 rounded-md border border-coral text-[12.5px] text-coral"
+                    className="px-3 py-1 rounded-md border border-danger text-[12.5px] text-danger"
                   >
                     삭제
                   </button>

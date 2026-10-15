@@ -129,16 +129,39 @@ describe('ClubDetailPhotos', () => {
     expect(counter()).toHaveTextContent('3 / 5');
   });
 
-  it('8장 초과 시 +N 타일을 눌러 열면 보이지 않던 사진까지 넘겨 볼 수 있다', async () => {
+  it('정확히 8장이면 더 보기 타일 없이 8장 모두 사진 타일로 보여준다', () => {
+    render(<ClubDetailPhotos photos={makePhotos(8, false)} />);
+    expect(screen.getAllByRole('button', { name: /크게 보기$/ })).toHaveLength(8);
+    expect(screen.queryByRole('button', { name: /더 보기$/ })).not.toBeInTheDocument();
+  });
+
+  it('+N 타일을 누르면 라이트박스 대신 8장씩 더 펼치고, 다 펼치면 오버레이가 사라진다', async () => {
     const user = userEvent.setup();
-    render(<ClubDetailPhotos photos={makePhotos(10, false)} />);
+    render(<ClubDetailPhotos photos={makePhotos(20, false)} />);
+    const tiles = () => screen.getAllByRole('button', { name: /^활동 사진/ });
 
-    // 그리드는 8장만 노출하고 마지막 타일에 +2 오버레이를 둔다.
-    await user.click(screen.getByRole('button', { name: '활동 사진 8 외 2장 더 보기' }));
-    expect(counter()).toHaveTextContent('8 / 10');
+    // 처음엔 8장, 마지막 타일에 +12. 펼치기 전엔 알릴 것이 없다.
+    expect(tiles()).toHaveLength(8);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    const moreTile = screen.getByRole('button', { name: '활동 사진 12장 더 보기' });
+    await user.click(moreTile);
+    expect(screen.queryByTestId('lightbox-counter')).not.toBeInTheDocument();
 
-    // 라이트박스 안에서는 그리드에 없던 9·10번째 사진도 순회할 수 있다.
-    await user.click(screen.getByRole('button', { name: '다음' }));
-    expect(counter()).toHaveTextContent('9 / 10');
+    // 16장, 마지막 타일에 +4. 누른 8번째 타일은 같은 자리(포커스 유지)에서 일반 사진 타일로 돌아온다.
+    expect(tiles()).toHaveLength(16);
+    expect(moreTile).toHaveFocus();
+    expect(moreTile).toHaveAccessibleName('활동 사진 8 크게 보기');
+    // 이름만 바뀐 타일 대신 늘어난 장수를 스크린리더에 알린다.
+    expect(screen.getByRole('status')).toHaveTextContent('활동 사진 전체 20장 중 16장 표시');
+    await user.click(screen.getByRole('button', { name: '활동 사진 4장 더 보기' }));
+
+    // 20장 전부, 더 보기 타일 없음.
+    expect(tiles()).toHaveLength(20);
+    expect(screen.queryByRole('button', { name: /더 보기$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('활동 사진 전체 20장 중 20장 표시');
+
+    // 펼친 사진도 누르면 해당 사진으로 라이트박스가 열린다.
+    await user.click(screen.getByRole('button', { name: '활동 사진 18 크게 보기' }));
+    expect(counter()).toHaveTextContent('18 / 20');
   });
 });

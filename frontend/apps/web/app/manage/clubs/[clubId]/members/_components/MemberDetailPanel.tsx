@@ -312,7 +312,7 @@ function ContactValue({ member, clubId }: { member: ClubMember; clubId: number }
           </button>
         )}
       </span>
-      {error && <span className="text-xs text-coral">{error}</span>}
+      {error && <span className="text-xs text-coral-deep">{error}</span>}
     </span>
   );
 }
@@ -333,7 +333,7 @@ function OperationInfoSection({ member, clubId }: { member: ClubMember; clubId: 
       </dl>
       <Link
         href={toRoute(`/manage/clubs/${clubId}/fees`)}
-        className="mt-2 inline-block text-xs font-medium text-sage hover:underline"
+        className="mt-2 inline-block text-xs font-medium text-sage-deep hover:underline"
       >
         회비 관리에서 보기
       </Link>
@@ -428,7 +428,7 @@ function ManagementSection({
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(true)}
-              className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+              className="rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/5"
             >
               탈퇴
             </button>
@@ -520,7 +520,7 @@ function ManagementSection({
               <button
                 type="button"
                 onClick={() => setShowRemoveDialog(true)}
-                className="rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/5"
+                className="rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/5"
               >
                 탈퇴
               </button>
@@ -626,7 +626,7 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
           기수 지우기
         </button>
       </div>
-      {error && <p role="alert" className="mt-1.5 text-xs text-coral">{error}</p>}
+      {error && <p role="alert" className="mt-1.5 text-xs text-coral-deep">{error}</p>}
     </div>
   );
 }

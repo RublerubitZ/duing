@@ -293,14 +293,14 @@ export function CalendarPage() {
 
       {/* ===== 비로그인 배너 ===== */}
       {hydrated && !isAuthenticated && !isMeLoading && (
-        <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
+        <div className="bg-coral/10 text-[13px] text-coral-deep px-6 py-2 text-center">
           내 동아리 일정을 보려면 로그인해주세요.
         </div>
       )}
 
       {/* ===== 부분 도메인 에러 배너 ===== */}
       {(calendar.isError || upcomingCalendar.isError) && (
-        <div className="bg-coral/10 text-[13px] text-coral px-6 py-2 text-center">
+        <div className="bg-coral/10 text-[13px] text-coral-deep px-6 py-2 text-center">
           일부 일정을 불러오지 못했습니다.
         </div>
       )}

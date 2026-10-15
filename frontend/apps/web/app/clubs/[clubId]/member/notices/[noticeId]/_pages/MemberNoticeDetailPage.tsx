@@ -32,7 +32,7 @@ function MemberNoticeDetail({ clubId, noticeId }: Props) {
   if (isError || !notice) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <p className="text-sm text-coral">공지를 불러오지 못했습니다.</p>
+        <p className="text-sm text-coral-deep">공지를 불러오지 못했습니다.</p>
         <Link
           href={toRoute(`/clubs/${clubId}/member/notices`)}
           className="mt-4 inline-block text-sm text-ink"

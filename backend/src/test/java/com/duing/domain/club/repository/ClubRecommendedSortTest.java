@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 추천순(RECOMMENDED) 정렬 검증.
- * <p>bucket 이 시간마다 바뀌므로 그룹 간 절대 규칙(모집중 > 상시 > 기타)은 해시와 무관하게 단언하고,
+ * <p>bucket 이 시간마다 바뀌므로 그룹 간 절대 규칙(기간 30일 이하 모집중 > 상시·30일 초과 기간 모집 > 기타)은 해시와 무관하게 단언하고,
  * 그룹 내부 순서는 {@link RecommendedScoreTestSupport} 의 Java 복제 산식으로 기대 순서를 재계산해
  * 비교한다. 정각 경계를 통과하면 재시도한다({@link #withStableBucket}).
  */
@@ -165,6 +166,41 @@ class ClubRecommendedSortTest {
     }
 
     @Test
+    @DisplayName("기간이 30일을 넘는 모집중 동아리는 상시모집과 같은 그룹이다 — 30일 이하 모집중보다 뒤, 기타보다 앞")
+    void longPeriodRecruitmentJoinsAlwaysOpenGroup() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        List<Club> byScore = orderedByCurrentScore(saveActiveClub("recLongA"), saveActiveClub("recLongB"));
+        Club longPeriod = byScore.get(0);
+        Club shortPeriod = byScore.get(1);
+        Club alwaysOpen = saveActiveClub("recLongAlways");
+        Club noRecruitment = saveActiveClub("recLongNone");
+        saveOpenRecruitment(shortPeriod, today.minusDays(2), today.plusDays(7));
+        saveOpenRecruitment(longPeriod, today.minusDays(60), today.plusDays(30));
+        saveOpenRecruitment(alwaysOpen, today.minusDays(2), null);
+
+        List<String> names = fetchNames("recLong");
+
+        assertThat(names).hasSize(4);
+        assertThat(names.get(0)).isEqualTo(shortPeriod.getName());
+        assertThat(names.subList(1, 3)).containsExactlyInAnyOrder(longPeriod.getName(), alwaysOpen.getName());
+        assertThat(names.get(3)).isEqualTo(noRecruitment.getName());
+    }
+
+    @Test
+    @DisplayName("기간이 정확히 30일인 모집은 모집중 그룹이고, 31일이면 상시모집 그룹으로 내려간다")
+    void periodLimitIsInclusive() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        int maxPeriodDays = ClubRecommendationPolicy.OPEN_GROUP_MAX_PERIOD_DAYS;
+        List<Club> byScore = orderedByCurrentScore(saveActiveClub("recEdge"), saveActiveClub("recEdge"));
+        Club overLimit = byScore.get(0);
+        Club atLimit = byScore.get(1);
+        saveOpenRecruitment(atLimit, today.minusDays(10), today.minusDays(10).plusDays(maxPeriodDays));
+        saveOpenRecruitment(overLimit, today.minusDays(10), today.minusDays(10).plusDays(maxPeriodDays + 1));
+
+        assertThat(fetchNames("recEdge")).containsExactly(atLimit.getName(), overLimit.getName());
+    }
+
+    @Test
     @DisplayName("카테고리 필터가 걸리면 다른 카테고리 동아리는 결과에 섞이지 않는다")
     void categoryFilterExcludesOtherCategories() throws Exception {
         Club sports = saveActiveClub("recCat", ClubCategory.SPORTS);
@@ -257,6 +293,22 @@ class ClubRecommendedSortTest {
 
     private String currentBucket() {
         return ClubRecommendationPolicy.hourBucket(LocalDateTime.now(clock));
+    }
+
+    /**
+     * 같은 그룹이었다면 SQL 이 놓을 순서(현재 bucket 점수 DESC, id ASC)로 두 동아리를 정렬한다.
+     * 장기 모집을 앞쪽에 붙이면, 기간 상한이 없던 코드에서는 그 동아리가 반드시 먼저 나와 테스트가 결정적으로 실패한다.
+     * 실행 도중 정각을 넘기면 이 보장만 약해질 뿐 새 코드의 단언(그룹 간 순서)은 그대로 결정적이다.
+     */
+    private List<Club> orderedByCurrentScore(Club first, Club second) {
+        String bucket = currentBucket();
+        return Stream.of(first, second)
+                .sorted(Comparator
+                        .comparingDouble((Club club) -> RecommendedScoreTestSupport.finalScore(
+                                club.getId(), ClubCategory.ACADEMIC, bucket, 0.0))
+                        .reversed()
+                        .thenComparing(Club::getId))
+                .toList();
     }
 
     private void saveMetric(Club club, double activityScore) {

@@ -123,7 +123,7 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
     return <TextLinesSkeleton lines={3} label="상세 정보 불러오는 중" className="pt-4" />;
   }
   if (detailQuery.isError || !detailQuery.data) {
-    return <p className="text-[13px] text-coral">상세 정보를 불러오지 못했습니다.</p>;
+    return <p className="text-[13px] text-coral-deep">상세 정보를 불러오지 못했습니다.</p>;
   }
   const detail = detailQuery.data;
   const safeLink = safeExternalHref(detail.linkUrl);

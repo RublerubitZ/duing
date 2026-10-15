@@ -395,7 +395,7 @@ export const ActivityHeroSection = forwardRef<ActivityHeroSectionHandle, Props>(
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[12.5px] font-semibold text-charcoal-2">등록 {heroActivities.length}/6</span>
         </div>
-        {actionError && <p className="mb-2 text-[12px] text-coral">{actionError}</p>}
+        {actionError && <p className="mb-2 text-[12px] text-coral-deep">{actionError}</p>}
 
         <DndContext
           sensors={sensors}
