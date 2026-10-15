@@ -16,6 +16,8 @@ public record ClubSummaryResponse(
         College college,
         String department,
         String logoUrl,
+        /** 로고의 384px 변형 URL(원본이 작으면 원본 URL). 아직 없거나 만들 수 없는 형식이면 null — 클라이언트는 logoUrl 로 폴백한다. */
+        String logoThumbnailUrl,
         ClubStatus status,
         List<String> tags,
         String tagline,
@@ -52,6 +54,7 @@ public record ClubSummaryResponse(
                 summaryQuery.college(),
                 summaryQuery.department(),
                 summaryQuery.logoUrl(),
+                summaryQuery.logoThumbnailUrl(),
                 summaryQuery.status(),
                 summaryQuery.tags(),
                 summaryQuery.tagline(),

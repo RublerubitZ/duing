@@ -56,6 +56,15 @@ public class Club extends BaseEntity {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    /**
+     * 현재 {@code logoUrl} 에서 만든 384px 변형의 공개 URL(원본이 이미 작으면 원본 URL), 없으면 null(V133).
+     * {@code updatable = false} — 엔티티 저장(UPDATE)이 이 컬럼을 쓰지 않는다. 서버가 커밋 뒤 비동기로 채우는 값이라, 잠금 없이
+     * 읽은 동아리를 저장할 때 그사이 반영된 썸네일을 옛 스냅숏(null)으로 덮지 않게 한다. 쓰기는 전부 {@code ClubRepository} 의
+     * SQL(조건부 반영·비우기)로만 한다 — 로고가 바뀌는 쓰기 경로(GeneralClubService)가 같은 트랜잭션에서 비운다.
+     */
+    @Column(name = "logo_thumbnail_url", length = 500, updatable = false)
+    private String logoThumbnailUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ClubStatus status;

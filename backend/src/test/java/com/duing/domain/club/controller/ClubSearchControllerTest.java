@@ -121,7 +121,7 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 // 응답 키 집합 자체를 고정 — 필드가 늘거나 빠지면 실패한다.
                 .body("data.content[0].keySet()", containsInAnyOrder(
                         "id", "name", "category", "division", "college", "department",
-                        "logoUrl", "status", "tags", "tagline", "centralClub",
+                        "logoUrl", "logoThumbnailUrl", "status", "tags", "tagline", "centralClub",
                         "weeklyInterestCount", "activeRecruitment"))
                 .body("data.content[0].id", equalTo(saved.getId().intValue()))
                 .body("data.content[0].name", equalTo(saved.getName()))
@@ -130,6 +130,8 @@ class ClubSearchControllerTest extends IntegrationTestBase {
                 .body("data.content[0].college", equalTo("DESIGN_ART"))
                 .body("data.content[0].department", equalTo("학과값"))
                 .body("data.content[0].logoUrl", equalTo("https://cdn.example.test/logo.png"))
+                // 서버가 아직 만들지 않은 썸네일은 null — 카드는 logoUrl 로 폴백한다.
+                .body("data.content[0].logoThumbnailUrl", nullValue())
                 .body("data.content[0].status", equalTo("ACTIVE"))
                 .body("data.content[0].tags", contains("태그하나", "태그둘"))
                 .body("data.content[0].tagline", equalTo("한줄소개값"))
