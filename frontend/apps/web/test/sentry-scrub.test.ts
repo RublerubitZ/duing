@@ -109,6 +109,66 @@ describe('scrubEvent', () => {
       message: 'client error',
     });
   });
+
+  // 감싼 이벤트 리스너에서 예외가 나면 SDK 가 그 이벤트를 extra.arguments 에 싣고, 정규화가 DOM 요소를
+  // `[HTMLElement: <셀렉터>]` 로 바꾼다 — 아래는 beforeSend 가 받는 그 모양이다(값은 테스트용 더미).
+  it('extra 에 실린 DOM 요소 셀렉터의 속성 값을 가린다 — 감싼 이벤트 리스너의 이벤트 인자', () => {
+    const scrubbed = scrubEvent({
+      type: undefined,
+      extra: {
+        arguments: [
+          {
+            type: 'click',
+            target: '[HTMLElement: input.peer[aria-label="홍길동 선택"][type="checkbox"]]',
+            currentTarget: '[HTMLElement: ]',
+            detail: 1,
+            isTrusted: true,
+          },
+        ],
+      },
+    });
+
+    expect(scrubbed.extra).toEqual({
+      arguments: [
+        {
+          type: 'click',
+          target: '[HTMLElement: input.peer[aria-label="[Filtered]"][type="[Filtered]"]]',
+          currentTarget: '[HTMLElement: ]',
+          detail: 1,
+          isTrusted: true,
+        },
+      ],
+    });
+  });
+
+  it('객체로 거부된 프로미스의 직렬화 값(extra.__serialized__) 안 요소도 가리고, 경계가 깨진 요소는 값 전체를 가린다', () => {
+    const scrubbed = scrubEvent({
+      type: undefined,
+      extra: {
+        __serialized__: {
+          type: 'pointerdown',
+          target: '[HTMLElement: div.row > button.btn[title="김철수 님 상세"]]',
+          currentTarget: '[HTMLElement: button.btn[aria-label="홍"길동 상세"]]',
+        },
+      },
+    });
+
+    expect(scrubbed.extra).toEqual({
+      __serialized__: {
+        type: 'pointerdown',
+        target: '[HTMLElement: div.row > button.btn[title="[Filtered]"]]',
+        currentTarget: '[Filtered]',
+      },
+    });
+  });
+
+  it('요소가 아닌 extra 값은 따옴표가 있어도 그대로 둔다 — 요소 문자열만 가림 대상이다', () => {
+    const extraWithoutElements = { note: 'say "hi"', count: 2, flags: [true, null], nested: { label: 'plain' } };
+
+    expect(scrubEvent({ type: undefined, extra: structuredClone(extraWithoutElements) }).extra).toEqual(
+      extraWithoutElements,
+    );
+  });
 });
 
 describe('scrubBreadcrumb', () => {
@@ -153,6 +213,91 @@ describe('scrubBreadcrumb', () => {
 
   it('데이터 없는 http 브레드크럼도 예외 없이 지나간다', () => {
     expect(scrubBreadcrumb({ category: 'http' })).toEqual({ category: 'http' });
+  });
+
+  // 클릭·입력 브레드크럼의 문구는 SDK(@sentry/browser-utils 의 htmlTreeAsString)가 만든 요소 셀렉터다 —
+  // 태그·id·클래스 뒤에 aria-label·type·name·title·alt 값을 `[이름="값"]` 으로 붙이고(따옴표 이스케이프 없음)
+  // 조상은 ' > ' 로 잇는다. 아래 문구는 그 형식을 그대로 따른 테스트용 더미다.
+  it('클릭 브레드크럼 셀렉터의 속성 값을 전부 가린다 — 접근성 이름에 담긴 사람 이름이 실리지 않게', () => {
+    // SDK 기본 모양은 data 가 없다 — data 조기 반환보다 먼저 처리돼야 한다.
+    const scrubbed = scrubBreadcrumb({
+      category: 'ui.click',
+      message: 'div.flex > label.inline-flex > input.peer[aria-label="홍길동 선택"][type="checkbox"]',
+    });
+
+    expect(scrubbed).toEqual({
+      category: 'ui.click',
+      message: 'div.flex > label.inline-flex > input.peer[aria-label="[Filtered]"][type="[Filtered]"]',
+    });
+  });
+
+  it('입력·클릭 브레드크럼은 조상과 대상의 name·title·alt 값까지 모두 가린다', () => {
+    const inputBreadcrumb = scrubBreadcrumb({
+      category: 'ui.input',
+      message: 'section[aria-label="이영희 지원서"] > div.row > input.w-full[name="memo"][title="박민수 님 메모"]',
+    });
+    const imageBreadcrumb = scrubBreadcrumb({
+      category: 'ui.click',
+      message: 'button.avatar[title="김철수 님 상세"] > img.rounded-full[alt="김철수 프로필"]',
+    });
+
+    expect(inputBreadcrumb.message).toBe(
+      'section[aria-label="[Filtered]"] > div.row > input.w-full[name="[Filtered]"][title="[Filtered]"]',
+    );
+    expect(imageBreadcrumb.message).toBe('button.avatar[title="[Filtered]"] > img.rounded-full[alt="[Filtered]"]');
+  });
+
+  it('값 안의 꺾쇠·닫는 대괄호·줄바꿈은 그 블록만 가린다 — 문구 전체를 버리지 않는다', () => {
+    const scrubbed = scrubBreadcrumb({
+      category: 'ui.click',
+      message: 'button.btn[aria-label="다음 > 홍길동]"][title="첫 줄\n둘째 줄"]',
+    });
+
+    expect(scrubbed.message).toBe('button.btn[aria-label="[Filtered]"][title="[Filtered]"]');
+  });
+
+  it.each([
+    ['값 안의 큰따옴표', 'button.btn[aria-label="홍"길동 상세"]'],
+    ['값 안의 따옴표와 닫는 대괄호', 'button.btn[aria-label="홍"]길동 상세"][type="button"]'],
+    ['작은따옴표로 바뀐 형식', "button.btn[aria-label='홍길동 상세']"],
+    ['따옴표가 없어진 형식', 'button.btn[aria-label=홍길동]'],
+  ])(
+    '값 경계를 못 찾는 문구(%s)는 전체를 가린다 — SDK 가 따옴표를 이스케이프하지 않고, 형식이 바뀌어도 새지 않게',
+    (_unmatchedShape, message) => {
+      expect(scrubBreadcrumb({ category: 'ui.click', message }).message).toBe('[Filtered]');
+    },
+  );
+
+  it('속성이 없는 셀렉터는 그대로 둔다', () => {
+    expect(scrubBreadcrumb({ category: 'ui.click', message: 'div.card > button.btn-primary' }).message).toBe(
+      'div.card > button.btn-primary',
+    );
+  });
+
+  it('따옴표 없는 대괄호 클래스(Tailwind 임의값)는 속성으로 보지 않는다 — 과잉 가림 없이 속성 값만 가린다', () => {
+    const scrubbed = scrubBreadcrumb({
+      category: 'ui.click',
+      message: "div.data-[state=open]:bg-cream > span.before:content-[''] > button.w-[120px][type=\"button\"]",
+    });
+
+    expect(scrubbed.message).toBe(
+      "div.data-[state=open]:bg-cream > span.before:content-[''] > button.w-[120px][type=\"[Filtered]\"]",
+    );
+  });
+
+  it('클릭 브레드크럼의 data 는 그대로 두고, 문구 없는 ui 브레드크럼도 예외 없이 지나간다', () => {
+    const scrubbed = scrubBreadcrumb({
+      category: 'ui.click',
+      message: 'button.btn[aria-label="홍길동 상세"]',
+      data: { 'ui.component_name': 'MemberTable' },
+    });
+
+    expect(scrubbed).toEqual({
+      category: 'ui.click',
+      message: 'button.btn[aria-label="[Filtered]"]',
+      data: { 'ui.component_name': 'MemberTable' },
+    });
+    expect(scrubBreadcrumb({ category: 'ui.click' })).toEqual({ category: 'ui.click' });
   });
 });
 
