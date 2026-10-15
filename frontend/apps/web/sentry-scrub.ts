@@ -19,7 +19,8 @@ const SENSITIVE_HEADER_NAME =
 // sendDefaultPii:false 여도 SDK(10.x)는 서버 오류 이벤트(onRequestError)에 요청 헤더와 파싱한 쿠키를 그대로
 // 싣는다(IP 헤더만 제거) — 로그인 쿠키(JWT)·내부 재검증 경로의 Bearer 비밀값이 Sentry 로 나가지 않게 한다.
 // SDK 의 dataCollection 옵션으로 고치지 않는다: 키를 하나라도 주면 나머지 기본값이 전부 허용으로 바뀐다.
-// 클라이언트 이벤트의 extra 에 실린 DOM 요소 셀렉터의 속성 값(접근성 이름에 담긴 사람 이름)도 가린다(NORMALIZED_ELEMENT_PREFIX).
+// 클라이언트 이벤트의 extra 에 실린 DOM 요소 셀렉터의 속성 값(접근성 이름에 담긴 사람 이름)도 가린다 — SDK 가 요소를
+// 싣는 자리는 extra.arguments(감싼 이벤트 리스너의 이벤트 인자)와 extra.__serialized__(객체 예외)다(NORMALIZED_ELEMENT_PREFIX).
 export function scrubEvent(event: ErrorEvent): ErrorEvent {
   if (event.request) {
     if (typeof event.request.url === 'string') {
@@ -72,12 +73,14 @@ function maskSelectorAttributeValues(selector: string): string {
   return unmaskedRest.includes('"') || SDK_SERIALIZED_ATTRIBUTE.test(unmaskedRest) ? '[Filtered]' : masked;
 }
 
-// 이벤트의 extra 에 실린 DOM 요소는 SDK 정규화가 `[HTMLElement: <셀렉터>]` 문자열로 바꾼다(@sentry/browser 의
+// 이벤트의 extra 에 실린 HTML 요소는 SDK 정규화가 `[HTMLElement: <셀렉터>]` 문자열로 바꾼다(@sentry/browser 의
 // normalizeStringifyValue — beforeSend 보다 먼저 돈다). 셀렉터는 위 브레드크럼과 같은 htmlTreeAsString 출력이라 같은
 // 가림을 적용한다. SDK 가 스스로 요소를 싣는 자리는 둘이다 — 감싼 이벤트 리스너에서 난 예외의 이벤트 인자
 // (extra.arguments 의 target·currentTarget)와, 객체(이벤트 포함)가 예외로 보고될 때의 직렬화 값(extra.__serialized__ —
 // 객체로 거부된 프로미스·객체 throw).
 // 이 접두로 시작하는 문자열에만 적용한다 — 일반 문자열에 걸면 따옴표가 든 값이 통째로 가려진다.
+// SVG 등 HTML 이 아닌 요소는 접두 없이 객체로 풀리지만, 기본 normalizeDepth(3)에서는 이벤트 처리의 2차 정규화가
+// 한 단계를 깎아 그 속성 값(React 프롭)까지 닿지 않는다 — normalizeDepth 를 올리면 이 전제를 다시 확인한다.
 const NORMALIZED_ELEMENT_PREFIX = '[HTMLElement: ';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
