@@ -1,6 +1,9 @@
 package com.duing.common.fixture;
 
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.WritableRaster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -10,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
@@ -59,6 +63,26 @@ public final class ImageFixture {
     /** IFD0 위치만 바꾼 Exif(항목은 정방향 1) — 범위 밖 오프셋을 파서가 정방향으로 다루는지 보는 용도. */
     public static byte[] jpegWithExifIfdOffset(int width, int height, int ifdOffset) {
         return withExifApp1(jpeg(width, height), exifTiff(true, ifdOffset, 1));
+    }
+
+    /**
+     * 회색+알파 PNG(색 타입 4) — 가운데(가로·세로 1/4~3/4)는 불투명한 회색 {@code gray}(0~255), 나머지는 완전 투명.
+     * sixteenBit=true 면 16비트 샘플(값을 ×257 로 늘린다).
+     */
+    public static byte[] grayAlphaPng(int width, int height, int gray, boolean sixteenBit) {
+        int scale = sixteenBit ? 257 : 1;
+        BufferedImage image = ImageTypeSpecifier.createInterleaved(ColorSpace.getInstance(ColorSpace.CS_GRAY),
+                new int[]{0, 1}, sixteenBit ? DataBuffer.TYPE_USHORT : DataBuffer.TYPE_BYTE, true, false)
+                .createBufferedImage(width, height);
+        WritableRaster raster = image.getRaster();
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                boolean opaque = x >= width / 4 && x < width * 3 / 4 && y >= height / 4 && y < height * 3 / 4;
+                raster.setSample(x, y, 0, opaque ? gray * scale : 0);
+                raster.setSample(x, y, 1, opaque ? 255 * scale : 0);
+            }
+        }
+        return write(image, "png");
     }
 
     /** 시그니처와 IHDR 까지만 있는 PNG — 치수는 읽히지만 픽셀 데이터가 없어 디코딩은 실패한다. */

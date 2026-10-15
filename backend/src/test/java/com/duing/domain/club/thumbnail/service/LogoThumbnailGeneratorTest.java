@@ -1,12 +1,14 @@
 package com.duing.domain.club.thumbnail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import com.duing.common.fixture.ImageFixture;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Generated;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.SkipReason;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Skipped;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.UseOriginal;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -46,6 +48,28 @@ class LogoThumbnailGeneratorTest {
         assertThat(thumbnail.getWidth()).isEqualTo(384);
         assertThat(thumbnail.getHeight()).isEqualTo(288);
         assertThat(thumbnail.getColorModel().hasAlpha()).isTrue();
+        assertThat(thumbnail.getRGB(0, thumbnail.getHeight() / 2) >>> 24).isLessThan(16); // 왼쪽 끝은 원본처럼 거의 투명
+    }
+
+    @ParameterizedTest(name = "sixteenBit={0}")
+    @ValueSource(booleans = {false, true})
+    @DisplayName("회색+알파 PNG 는 밝기가 그대로인 PNG 썸네일이 되고(회색 128 → 128) 투명한 곳은 투명하게 남는다(8·16비트)")
+    void grayAlphaPngKeepsBrightness(boolean sixteenBit) throws IOException {
+        byte[] source = ImageFixture.grayAlphaPng(800, 600, 128, sixteenBit);
+        // 픽스처가 실제로 회색 색 공간+알파로 읽히는지 — 아니면 이 테스트는 고친 경로를 지나지 않는다
+        assertThat(ImageIO.read(new ByteArrayInputStream(source)).getColorModel().getColorSpace().getType())
+                .isEqualTo(ColorSpace.TYPE_GRAY);
+
+        Generated generated = generated(source);
+
+        assertThat(generated.contentType()).isEqualTo("image/png");
+        BufferedImage thumbnail = decode(generated);
+        int center = thumbnail.getRGB(thumbnail.getWidth() / 2, thumbnail.getHeight() / 2);
+        assertThat(center >>> 24).isEqualTo(255);
+        assertThat((center >> 16) & 0xFF).isCloseTo(128, within(2));
+        assertThat((center >> 8) & 0xFF).isCloseTo(128, within(2));
+        assertThat(center & 0xFF).isCloseTo(128, within(2));
+        assertThat(thumbnail.getRGB(0, 0) >>> 24).isZero();
     }
 
     @Test

@@ -6,7 +6,9 @@ import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Skipped;
 import com.duing.global.file.FileUploadPolicy;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.Raster;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -86,6 +88,10 @@ public final class LogoThumbnailGenerator {
                 int subsampling = subsamplingFor(longSide);
                 readParam.setSourceSubsampling(subsampling, subsampling, 0, 0);
                 BufferedImage decoded = reader.read(0, readParam);
+                if (decoded.getColorModel().getColorSpace().getType() == ColorSpace.TYPE_GRAY
+                        && decoded.getColorModel().hasAlpha()) {
+                    decoded = copyGrayAlphaToArgb(decoded);
+                }
                 boolean alpha = decoded.getColorModel().hasAlpha();
                 double scale = MAX_LONG_SIDE / (double) longSide;
                 BufferedImage scaled = scaleDown(decoded,
@@ -184,6 +190,24 @@ public final class LogoThumbnailGenerator {
             return tiff.getShort(entry + 8) & 0xFFFF; // 개수 1 의 SHORT 는 값 필드 앞 2바이트(바이트 순서 적용)
         }
         return UPRIGHT_ORIENTATION;
+    }
+
+    /**
+     * 회색+알파(PNG 색 타입 4·회색+tRNS)는 JDK 가 선형 회색 공간(CS_GRAY)으로 내줘, drawImage 의 색 변환이 감마를 씌워 밝아진다.
+     * 샘플을 그대로 ARGB 로 옮겨 그 변환을 건너뛴다 — 브라우저는 PNG 회색 값을 sRGB 로 보이므로 R·G·B 에 같은 값을 넣는 것이 원본과 같다.
+     */
+    private static BufferedImage copyGrayAlphaToArgb(BufferedImage grayAlpha) {
+        Raster samples = grayAlpha.getRaster();
+        int shift = samples.getSampleModel().getSampleSize(0) - 8; // 리더가 내주는 샘플은 8·16비트뿐(1·2·4비트 회색+tRNS 도 8비트로 늘린다)
+        BufferedImage argb = new BufferedImage(grayAlpha.getWidth(), grayAlpha.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < grayAlpha.getHeight(); y++) {
+            for (int x = 0; x < grayAlpha.getWidth(); x++) {
+                int gray = samples.getSample(x, y, 0) >>> shift;
+                int alpha = samples.getSample(x, y, 1) >>> shift;
+                argb.setRGB(x, y, (alpha << 24) | (gray << 16) | (gray << 8) | gray);
+            }
+        }
+        return argb;
     }
 
     /** 절반씩 줄이다(이중선형) 마지막 한 번을 바이큐빅으로 목표에 맞춘다 — 한 번에 1/2 넘게 줄이면 보간이 픽셀을 건너뛰어 계단이 생긴다. */
