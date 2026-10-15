@@ -69,7 +69,7 @@ class InterviewAssignmentQueryServiceTest {
         when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
                 .thenReturn(Optional.of(collectingRound));
         // ASSIGNED schedule 이 없으면 배정은 null
-        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+        when(interviewScheduleRepository.findConfirmedSlotByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
 
         ApplicantInterviewProgress progress =
@@ -88,7 +88,7 @@ class InterviewAssignmentQueryServiceTest {
         when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(0L);
         when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
-        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+        when(interviewScheduleRepository.findConfirmedSlotByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
 
         ApplicantInterviewProgress progress =
@@ -100,7 +100,7 @@ class InterviewAssignmentQueryServiceTest {
     }
 
     @Test
-    @DisplayName("ASSIGNED InterviewSchedule 이 있으면 슬롯 시간창과 라운드 장소를 한 번의 조회로 함께 반환한다")
+    @DisplayName("확정 라운드의 ASSIGNED InterviewSchedule 이 있으면 슬롯 시간창과 라운드 장소를 한 번의 조회로 함께 반환한다")
     void applicantProgressCarriesAssignedSlot() {
         long applicationId = 4L;
         LocalDateTime startTime = LocalDateTime.of(2026, 6, 20, 18, 0);
@@ -110,7 +110,7 @@ class InterviewAssignmentQueryServiceTest {
         when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
         // 슬롯 시간창과 라운드 장소는 조인 프로젝션 한 번으로 함께 내려온다.
-        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+        when(interviewScheduleRepository.findConfirmedSlotByApplicationId(applicationId))
                 .thenReturn(Optional.of(new AssignedInterviewSlot(100L, startTime, endTime, "3호관 201호")));
 
         ApplicantInterviewProgress progress =
@@ -130,7 +130,7 @@ class InterviewAssignmentQueryServiceTest {
         when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
         // CANCELLED 는 조인 쿼리의 status=ASSIGNED 술어에서 걸러져 배정 자체가 없는 것으로 나온다.
-        when(interviewScheduleRepository.findAssignedSlotByApplicationId(applicationId))
+        when(interviewScheduleRepository.findConfirmedSlotByApplicationId(applicationId))
                 .thenReturn(Optional.empty());
 
         ApplicantInterviewProgress progress =
@@ -167,8 +167,24 @@ class InterviewAssignmentQueryServiceTest {
     }
 
     @Test
-    @DisplayName("배정 batch 조회는 ASSIGNED schedule 만 슬롯·라운드와 조립하고 라운드 장소가 비어 있어도 배정을 노출한다")
-    void assignedBatchExposesAssignmentEvenWhenRoundLocationIsNull() {
+    @DisplayName("지원자 진행 상황의 배정은 확정 라운드 전용 조회로 가져오고 운영진용 조회는 쓰지 않는다")
+    void applicantProgressUsesConfirmedSlotQueryOnly() {
+        long applicationId = 6L;
+        when(interviewAvailabilityRepository.countByApplicationId(applicationId)).thenReturn(1L);
+        when(interviewRoundRepository.findVisibleToApplicantRoundByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
+        when(interviewScheduleRepository.findConfirmedSlotByApplicationId(applicationId))
+                .thenReturn(Optional.empty());
+
+        interviewAssignmentQueryService.findApplicantProgress(applicationId);
+
+        verify(interviewScheduleRepository).findConfirmedSlotByApplicationId(applicationId);
+        verify(interviewScheduleRepository, never()).findAssignedSlotByApplicationId(any());
+    }
+
+    @Test
+    @DisplayName("확정 배정 batch 조회는 확정 라운드의 ASSIGNED schedule 을 슬롯·라운드와 조립하고 라운드 장소가 비어 있어도 배정을 노출한다")
+    void confirmedBatchExposesAssignmentEvenWhenRoundLocationIsNull() {
         InterviewSchedule assignedSchedule = mock(InterviewSchedule.class);
         when(assignedSchedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(assignedSchedule.getApplicationId()).thenReturn(10L);
@@ -182,6 +198,7 @@ class InterviewAssignmentQueryServiceTest {
 
         InterviewRound roundWithoutLocation = mock(InterviewRound.class);
         when(roundWithoutLocation.getId()).thenReturn(30L);
+        when(roundWithoutLocation.getStatus()).thenReturn(RoundStatus.SCHEDULED);
         when(roundWithoutLocation.getLocation()).thenReturn(null);
 
         when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
@@ -189,17 +206,17 @@ class InterviewAssignmentQueryServiceTest {
         when(interviewSlotRepository.findAllById(any())).thenReturn(List.of(slot));
         when(interviewRoundRepository.findAllById(any())).thenReturn(List.of(roundWithoutLocation));
 
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId =
-                interviewAssignmentQueryService.findAssignedByApplicationIds(List.of(10L));
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId =
+                interviewAssignmentQueryService.findConfirmedByApplicationIds(List.of(10L));
 
-        assertThat(assignedByApplicationId).containsOnlyKeys(10L);
-        assertThat(assignedByApplicationId.get(10L)).isEqualTo(new AssignedInterviewSlot(
+        assertThat(confirmedByApplicationId).containsOnlyKeys(10L);
+        assertThat(confirmedByApplicationId.get(10L)).isEqualTo(new AssignedInterviewSlot(
                 101L, LocalDateTime.of(2026, 6, 20, 14, 0), LocalDateTime.of(2026, 6, 20, 14, 30), null));
     }
 
     @Test
-    @DisplayName("배정된 라운드가 조회되지 않아도 배정 자체는 노출되고 장소만 null 로 채워진다")
-    void assignedBatchExposesAssignmentEvenWhenRoundIsAbsent() {
+    @DisplayName("배정된 라운드가 조회되지 않으면 확정 여부를 알 수 없으므로 그 배정은 노출하지 않는다")
+    void confirmedBatchSkipsAssignmentWhenRoundIsAbsent() {
         InterviewSchedule assignedSchedule = mock(InterviewSchedule.class);
         when(assignedSchedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
         when(assignedSchedule.getApplicationId()).thenReturn(16L);
@@ -208,35 +225,75 @@ class InterviewAssignmentQueryServiceTest {
 
         InterviewSlot slot = mock(InterviewSlot.class);
         when(slot.getId()).thenReturn(201L);
-        when(slot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 0));
-        when(slot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 21, 10, 30));
 
         when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
                 .thenReturn(List.of(assignedSchedule));
         when(interviewSlotRepository.findAllById(any())).thenReturn(List.of(slot));
-        // 라운드 자체가 없는(또는 삭제된) 배정 — 장소만 비고 배정은 그대로 남는다.
+        // 라운드 자체가 없는(또는 삭제된) 배정 — 확정 라운드인지 알 수 없어 건너뛴다.
         when(interviewRoundRepository.findAllById(any())).thenReturn(List.of());
 
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId =
-                interviewAssignmentQueryService.findAssignedByApplicationIds(List.of(16L));
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId =
+                interviewAssignmentQueryService.findConfirmedByApplicationIds(List.of(16L));
 
-        assertThat(assignedByApplicationId.get(16L)).isEqualTo(new AssignedInterviewSlot(
-                201L, LocalDateTime.of(2026, 6, 21, 10, 0), LocalDateTime.of(2026, 6, 21, 10, 30), null));
+        assertThat(confirmedByApplicationId).isEmpty();
+    }
+
+    @Test
+    @DisplayName("확정 전(ASSIGNING) 라운드의 초안 배정은 건너뛰고 확정(SCHEDULED) 라운드의 배정만 담는다")
+    void confirmedBatchSkipsDraftAssignmentsOfUnconfirmedRounds() {
+        InterviewSchedule confirmedSchedule = mock(InterviewSchedule.class);
+        when(confirmedSchedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(confirmedSchedule.getApplicationId()).thenReturn(21L);
+        when(confirmedSchedule.getSlotId()).thenReturn(301L);
+        when(confirmedSchedule.getRoundId()).thenReturn(50L);
+
+        InterviewSchedule draftSchedule = mock(InterviewSchedule.class);
+        when(draftSchedule.getStatus()).thenReturn(InterviewScheduleStatus.ASSIGNED);
+        when(draftSchedule.getApplicationId()).thenReturn(22L);
+        when(draftSchedule.getSlotId()).thenReturn(302L);
+        when(draftSchedule.getRoundId()).thenReturn(60L);
+
+        InterviewSlot confirmedSlot = mock(InterviewSlot.class);
+        when(confirmedSlot.getId()).thenReturn(301L);
+        when(confirmedSlot.getStartTime()).thenReturn(LocalDateTime.of(2026, 6, 22, 10, 0));
+        when(confirmedSlot.getEndTime()).thenReturn(LocalDateTime.of(2026, 6, 22, 10, 30));
+        InterviewSlot draftSlot = mock(InterviewSlot.class);
+        when(draftSlot.getId()).thenReturn(302L);
+
+        InterviewRound scheduledRound = mock(InterviewRound.class);
+        when(scheduledRound.getId()).thenReturn(50L);
+        when(scheduledRound.getStatus()).thenReturn(RoundStatus.SCHEDULED);
+        when(scheduledRound.getLocation()).thenReturn("3호관 201호");
+        InterviewRound assigningRound = mock(InterviewRound.class);
+        when(assigningRound.getId()).thenReturn(60L);
+        when(assigningRound.getStatus()).thenReturn(RoundStatus.ASSIGNING);
+
+        when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
+                .thenReturn(List.of(confirmedSchedule, draftSchedule));
+        when(interviewSlotRepository.findAllById(any())).thenReturn(List.of(confirmedSlot, draftSlot));
+        when(interviewRoundRepository.findAllById(any())).thenReturn(List.of(scheduledRound, assigningRound));
+
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId =
+                interviewAssignmentQueryService.findConfirmedByApplicationIds(List.of(21L, 22L));
+
+        assertThat(confirmedByApplicationId).containsOnlyKeys(21L);
+        assertThat(confirmedByApplicationId.get(21L)).isEqualTo(new AssignedInterviewSlot(
+                301L, LocalDateTime.of(2026, 6, 22, 10, 0), LocalDateTime.of(2026, 6, 22, 10, 30), "3호관 201호"));
     }
 
     @Test
     @DisplayName("ASSIGNED 가 아닌 schedule 만 있으면 슬롯·라운드 조회 없이 빈 결과를 반환한다")
-    void assignedBatchSkipsSlotLookupWhenNoAssignedSchedule() {
+    void confirmedBatchSkipsSlotLookupWhenNoAssignedSchedule() {
         InterviewSchedule cancelledSchedule = mock(InterviewSchedule.class);
         when(cancelledSchedule.getStatus()).thenReturn(InterviewScheduleStatus.CANCELLED);
 
         when(interviewScheduleRepository.findByApplicationIdIn(anyCollection()))
                 .thenReturn(List.of(cancelledSchedule));
 
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId =
-                interviewAssignmentQueryService.findAssignedByApplicationIds(List.of(10L));
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId =
+                interviewAssignmentQueryService.findConfirmedByApplicationIds(List.of(10L));
 
-        assertThat(assignedByApplicationId).isEmpty();
+        assertThat(confirmedByApplicationId).isEmpty();
         verify(interviewSlotRepository, never()).findAllById(any());
         verify(interviewRoundRepository, never()).findAllById(any());
     }

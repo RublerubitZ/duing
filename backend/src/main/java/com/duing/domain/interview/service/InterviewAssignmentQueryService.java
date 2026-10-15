@@ -5,6 +5,7 @@ import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewScheduleStatus;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewAvailabilityRepository;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepositoryCustom;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
@@ -56,16 +57,18 @@ public class InterviewAssignmentQueryService {
     private final Clock clock;
 
     /**
-     * 응답 리스트 DTO 의 nested {@code interview} 채움용 batch 조회.
+     * 지원자 목록 응답 DTO 의 nested {@code interview} 채움용 batch 조회 — 확정(SCHEDULED) 라운드의 배정만 담는다.
      * 지원 ID 다건을 한 번에 끌어와 N+1 을 회피한다 — InterviewReminderJob 패턴과 동일.
      * <ol>
      *   <li>application_id IN (...) AND status=ASSIGNED InterviewSchedule 일괄 조회</li>
      *   <li>대상 schedule 들의 slot_id / round_id 를 batch 로 join</li>
-     *   <li>{@code InterviewRound.location} 이 비어 있어도 배정 자체는 그대로 노출 (location 만 null)</li>
+     *   <li>확정 전(ASSIGNING) 초안 배정과 라운드를 찾을 수 없는 배정은 건너뛴다 — 지원자 노출 기준은
+     *       {@code ApplicantInterviewPhase} 의 SCHEDULED 판정과 같다</li>
+     *   <li>확정 라운드의 {@code location} 이 비어 있어도 배정 자체는 그대로 노출 (location 만 null)</li>
      * </ol>
-     * 결과 Map 에 키가 없는 application 은 호출 측에서 {@code null} 로 표현되어 "면접 미배정" 을 의미한다.
+     * 결과 Map 에 키가 없는 application 은 호출 측에서 {@code null} 로 표현되어 "확정된 면접 없음" 을 의미한다.
      */
-    public Map<Long, AssignedInterviewSlot> findAssignedByApplicationIds(Collection<Long> applicationIds) {
+    public Map<Long, AssignedInterviewSlot> findConfirmedByApplicationIds(Collection<Long> applicationIds) {
         if (applicationIds.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -90,22 +93,25 @@ public class InterviewAssignmentQueryService {
         Map<Long, InterviewRound> roundById = interviewRoundRepository.findAllById(roundIds).stream()
                 .collect(Collectors.toMap(InterviewRound::getId, Function.identity()));
 
-        Map<Long, AssignedInterviewSlot> assignedByApplicationId = new HashMap<>();
+        Map<Long, AssignedInterviewSlot> confirmedByApplicationId = new HashMap<>();
         for (InterviewSchedule schedule : assignedSchedules) {
             InterviewSlot slot = slotById.get(schedule.getSlotId());
             if (slot == null) {
                 continue;
             }
             InterviewRound round = roundById.get(schedule.getRoundId());
-            String location = round == null ? null : round.getLocation();
-            assignedByApplicationId.put(schedule.getApplicationId(), new AssignedInterviewSlot(
-                    slot.getId(), slot.getStartTime(), slot.getEndTime(), location));
+            if (round == null || round.getStatus() != RoundStatus.SCHEDULED) {
+                continue;
+            }
+            confirmedByApplicationId.put(schedule.getApplicationId(), new AssignedInterviewSlot(
+                    slot.getId(), slot.getStartTime(), slot.getEndTime(), round.getLocation()));
         }
-        return assignedByApplicationId;
+        return confirmedByApplicationId;
     }
 
     /**
-     * 지원자 본인 상세의 면접 진행 상황 — 제출한 가능시간 수 + 마감 시각 + 현재 배정.
+     * 지원자 본인 상세의 면접 진행 상황 — 제출한 가능시간 수 + 마감 시각 + 확정(SCHEDULED) 라운드의 배정.
+     * 확정 전 초안 배정은 담지 않는다 — 운영진이 아직 바꿀 수 있는 일정이 지원자에게 확정처럼 보이면 안 된다.
      * 마감 시각은 isVisibleToApplicant 술어(DRAFT 제외)를 사용해 발송 전 라운드 정보가 새지 않는다
      * (스펙 §5.4·§9.3).
      */
@@ -116,7 +122,7 @@ public class InterviewAssignmentQueryService {
                 .map(InterviewRound::getAvailabilityDeadline)
                 .orElse(null);
         AssignedInterviewSlot assigned = interviewScheduleRepository
-                .findAssignedSlotByApplicationId(applicationId)
+                .findConfirmedSlotByApplicationId(applicationId)
                 .orElse(null);
 
         return new ApplicantInterviewProgress(

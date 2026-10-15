@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 
 /**
  * 지원 응답들(운영진 상세 카드·내 지원 목록 카드·내 지원 상세)이 공통으로 노출하는 현재 배정 면접 일정/장소.
- * ASSIGNED schedule 이 있으면 채워지고, 미배정/CANCELLED 만 있으면 응답에서 {@code null}.
+ * 운영진 상세는 ASSIGNED schedule 이 있으면 채우고(확정 전 초안 포함), 지원자 응답(내 지원 목록·상세)은 그중
+ * 확정(SCHEDULED) 라운드의 것만 채운다. 그 외(미배정·CANCELLED)는 응답에서 {@code null}.
  * <p>
  * {@code location} 은 nullable — {@link com.duing.domain.interview.entity.InterviewRound} 의 location
  * 이 비어 있는 라운드는 interview 객체는 노출하되 location 만 {@code null} 로 채운다 (Codex review BE-3).
@@ -22,7 +23,8 @@ public record AssignedInterviewResponse(
 ) {
 
     /**
-     * ASSIGNED schedule 이 없어 {@code null} 로 전달된 query 는 그대로 {@code null} 응답으로 통과시킨다.
+     * 보여 줄 배정이 없어 {@code null} 로 전달된 query(미배정·CANCELLED, 지원자 응답에서는 확정 전 초안 포함)는
+     * 그대로 {@code null} 응답으로 통과시킨다.
      */
     public static AssignedInterviewResponse from(AssignedInterviewQuery interviewQuery) {
         return interviewQuery == null ? null
