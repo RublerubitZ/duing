@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 import tailwindcssAnimate from 'tailwindcss-animate';
 
@@ -8,6 +9,10 @@ const config: Config = {
     './components/**/*.{ts,tsx}',
     '../../packages/hooks/src/**/*.{ts,tsx}',
   ],
+  // hover: 를 hover 가 있는 입력 장치(@media (hover: hover) and (pointer: fine))에서만 켠다 — 터치 기기는 탭 뒤 hover 상태가
+  // 다음 탭까지 남아(sticky hover) 카드 들림·배경색이 잔류했다. globals.css 의 .btn-*(@apply hover:)도 함께 바뀌고, 순수 CSS
+  // :hover 규칙(.btn-*:disabled:hover 등)은 영향이 없다. hover 로만 드러나는 조작의 "숨김" 은 아래 can-hover: 로 건다.
+  future: { hoverOnlyWhenSupported: true },
   theme: {
     extend: {
       spacing: {
@@ -210,7 +215,12 @@ const config: Config = {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // can-hover: — hover: 와 같은 매체 조건. "hover 가 있을 때만 숨기고 hover 로 드러내는" 조작의 기본값(숨김)에 쓴다 —
+    // 숨김을 폭(sm:·md:)으로만 걸면 터치 태블릿에서 hover: 가 꺼진 뒤 드러낼 길이 없다(ActivityPhotoCard·ImageUploader).
+    plugin(({ addVariant }) => addVariant('can-hover', '@media (hover: hover) and (pointer: fine)')),
+  ],
 };
 
 export default config;

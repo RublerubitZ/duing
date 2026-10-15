@@ -131,4 +131,24 @@ describe('ImageUploader (floating variant)', () => {
     expect(screen.getByRole('button', { name: '이미지 교체' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '이미지 제거' })).toBeNull();
   });
+
+  // ActivityPhotoCard 와 같은 이유 — 숨김은 can-hover: 로, 드러냄(group-hover·group-focus-within)은 그대로.
+  it('떠 있는 교체·제거 버튼 묶음은 hover 기기의 md↑ 에서만 숨기고(can-hover:) 그 밖에선 항상 보인다', () => {
+    render(
+      <ImageUploader variant="floating" value="https://cdn.example.com/x.jpg" onChange={vi.fn()} purpose="COVER" />,
+    );
+    const buttonGroup = screen.getByRole('button', { name: '이미지 교체' }).parentElement;
+
+    expect(buttonGroup).toHaveClass(
+      'translate-y-0',
+      'opacity-100',
+      'md:can-hover:-translate-y-1',
+      'md:can-hover:opacity-0',
+      'md:group-hover:translate-y-0',
+      'md:group-hover:opacity-100',
+      'md:group-focus-within:opacity-100',
+    );
+    expect(buttonGroup).not.toHaveClass('md:opacity-0');
+    expect(buttonGroup).not.toHaveClass('md:-translate-y-1');
+  });
 });

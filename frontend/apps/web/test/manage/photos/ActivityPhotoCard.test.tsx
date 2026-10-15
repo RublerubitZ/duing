@@ -65,6 +65,25 @@ describe('ActivityPhotoCard', () => {
     expect(screen.getByRole('button', { name: '드래그하여 순서 변경' })).toBeInTheDocument();
   });
 
+  // 숨김은 폭이 아니라 hover 유무로 건다 — hover: 는 hover 기기에서만 켜지므로(tailwind future.hoverOnlyWhenSupported) 폭(sm:)만으로
+  // 숨기면 터치 태블릿에서 group-hover 가 영원히 켜지지 않아 조작이 숨은 채 남는다. hover 기기(PC)의 동작은 그대로다.
+  it('오버레이 액션은 hover 기기의 sm↑ 에서만 숨기고(can-hover:) 그 밖에선 상시 노출한다', () => {
+    renderCard({});
+    const dragHandle = screen.getByRole('button', { name: '드래그하여 순서 변경' });
+    const actionBar = screen.getByRole('button', { name: '대표로 지정' }).closest('div');
+    expect(actionBar).not.toBeNull();
+
+    for (const overlay of [dragHandle, actionBar]) {
+      expect(overlay).toHaveClass(
+        'opacity-100',
+        'sm:can-hover:opacity-0',
+        'sm:group-hover:opacity-100',
+        'sm:group-focus-within:opacity-100',
+      );
+      expect(overlay).not.toHaveClass('sm:opacity-0');
+    }
+  });
+
   it('빈 슬롯이 없으면 대표로 지정이 비활성·안내 title 을 갖고 onPromote 를 부르지 않는다', () => {
     const onPromote = vi.fn();
     renderCard({ onPromote, promoteDisabled: true });

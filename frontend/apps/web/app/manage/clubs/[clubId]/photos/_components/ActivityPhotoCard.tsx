@@ -20,9 +20,10 @@ import { cn } from '@/app/_lib/cn';
 
 const CAPTION_MAX = 200;
 
-// 모바일(hover 불가)은 상시 노출, 데스크탑(sm↑)은 hover/focus 시 노출.
+// hover 없는 기기(휴대폰·터치 태블릿)는 상시 노출, hover 기기의 sm↑ 는 hover/focus 시 노출.
+// 숨김은 can-hover: 로 건다 — hover: 는 hover 기기에서만 켜져(tailwind future.hoverOnlyWhenSupported) 폭만으로 숨기면 터치 태블릿에서 드러낼 길이 없다.
 const OVERLAY_VISIBILITY =
-  'opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100';
+  'opacity-100 transition-opacity sm:can-hover:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100';
 
 type Props = {
   clubId: number;
