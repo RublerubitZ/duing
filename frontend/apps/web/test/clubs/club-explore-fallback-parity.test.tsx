@@ -42,7 +42,9 @@ const indent = (depth: number, text: string) => `${'  '.repeat(depth)}${text}`;
 
 // 등장 연출 클래스는 재생이 끝나면 아무 값도 남기지 않아(fill-mode backwards) 자리에 영향이 없다 — 비교에서 뺀다.
 // 서버 목록에는 늘 붙고, 실제 화면은 교체 순간 서버 목록이 문서에 있으면 붙이지 않아 일부러 다르다.
-const LAYOUT_NEUTRAL_CLASSES = new Set(['enter-stagger']);
+// 전이 클래스(transition-opacity)도 자리에 영향이 없다 — 갱신 중 딤의 복귀 대칭용으로 실제 화면에만 상시 붙고, 서버 목록은
+// 전환이 없어 붙이지 않는다.
+const LAYOUT_NEUTRAL_CLASSES = new Set(['enter-stagger', 'transition-opacity']);
 const describeElement = (element: Element) =>
   `${element.tagName.toLowerCase()} "${Array.from(element.classList)
     .filter((className) => !LAYOUT_NEUTRAL_CLASSES.has(className))
