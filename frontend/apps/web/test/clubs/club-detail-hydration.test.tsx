@@ -118,6 +118,7 @@ describe('동아리 상세 트리 — 하이드레이션(ISR HTML 회귀)', () =
     expect(result.serverHtml).toContain('enter-content');
     // 시드(updatedAt 0)여도 열린 모집의 지원 버튼은 확인 중 스피너 없이 열린 채 그린다(안전은 누를 때의 재확인이 지킨다) —
     // 하이드레이션 첫 프레임도 시드라 같은 값이다. 누르기 전 스피너가 돌아오면 서버 HTML 에 이 이름이 다시 실린다.
+    expect(result.serverHtml).toContain('지원하기');
     expect(result.serverHtml).not.toContain('aria-label="모집 정보 확인 중"');
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
