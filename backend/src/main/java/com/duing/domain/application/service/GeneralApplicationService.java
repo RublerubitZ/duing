@@ -532,7 +532,8 @@ public class GeneralApplicationService implements ApplicationService {
 
     /**
      * interview 도메인 표현 → 응답 DTO 의 nested {@code interview} 표현 매핑.
-     * 배정이 없으면(미배정 / CANCELLED 만 존재) {@code null} 을 그대로 흘려보내 "면접 미배정" 을 표현한다.
+     * 보여 줄 배정이 없으면 {@code null} 을 그대로 흘려보낸다 — 미배정·CANCELLED 만 있는 경우와,
+     * 지원자 경로(내 지원 목록·상세)에서 확정(SCHEDULED) 라운드가 아닌 초안 배정이 여기에 든다.
      * location 이 null 이어도 배정 자체는 노출한다 (Codex review BE-3).
      */
     private static AssignedInterviewQuery toAssignedInterviewQuery(AssignedInterviewSlot assignedInterviewSlot) {
