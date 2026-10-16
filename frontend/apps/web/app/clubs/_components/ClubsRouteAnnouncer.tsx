@@ -48,7 +48,10 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
   // 마지막 경로 커밋 때의 location.pathname — popstate 가 주소를 바꾸는지 가른다.
   const committedLocationPathnameRef = useRef<string | null>(null);
   const wasInterceptedRef = useRef(false);
-  // 인터셉트에 들어오기 직전 경로 커밋의 제목 — 상세 정리가 되돌릴 값이다(목록이면 목록 제목).
+  // 레이아웃 단계에서 맞추는 인터셉트 여부 — 나가는 커밋의 관찰 콜백(마이크로태스크)은 passive 정리(관찰 끊기)보다 먼저 돌 수 있다
+  // (전환 커밋의 passive 는 스케줄러 작업으로 미뤄진다). 그때 콜백이 아무것도 하지 않게 한다.
+  const interceptedRef = useRef(false);
+  // 인터셉트에 들어오는 커밋의 head 제목 — 상세 정리가 되돌릴 값이다(회원 화면에서 돌아온 엔트리도 그 커밋 head 는 숨은 목록 것).
   const titleBeforeInterceptRef = useRef<string | null>(null);
   // 인터셉트 동안의 head <title> 요소 — 바뀌면 head 가 다시 그려진 것이다.
   const titleElementRef = useRef<Element | null>(null);
@@ -68,7 +71,6 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
     }
     const title = document.title;
     setAnnouncement(leavesIntercept && title === nextTitleRef.current ? title : '');
-    if (intercepted && !wasInterceptedRef.current) titleBeforeInterceptRef.current = nextTitleRef.current;
     nextTitleRef.current = title;
     committedLocationPathnameRef.current = window.location.pathname;
     wasInterceptedRef.current = intercepted;
@@ -77,13 +79,24 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
   // head 재렌더는 커밋 안에서 되돌린다 — refresh 커밋은 passive effect 를 관찰 콜백(마이크로태스크)보다 먼저 비워(실측) Next 공지기가
   // 지워진 제목을 읽는다. 이 프레임은 refresh 때 clubs 레이아웃과 함께 다시 그려져 이 effect 가 그 커밋에서 돈다.
   useLayoutEffect(() => {
+    // 들어오는 커밋 — 상세 제목 effect(passive) 전이라 지금 제목이 head 의 것이다.
+    if (intercepted && !interceptedRef.current) titleBeforeInterceptRef.current = document.title;
+    interceptedRef.current = intercepted;
     if (intercepted) restoreTitleReplacedByHead(titleElementRef);
   });
+
+  useLayoutEffect(
+    () => () => {
+      interceptedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!intercepted) return;
     titleElementRef.current = document.querySelector('head > title');
     const observer = new MutationObserver(() => {
+      if (!interceptedRef.current) return;
       // head 재렌더는 데이터 도착이 아니다 — 위 effect 가 못 본 재렌더(프레임이 다시 그려지지 않은 커밋)면 여기서 되돌린다.
       if (restoreTitleReplacedByHead(titleElementRef)) return;
       const title = document.title;

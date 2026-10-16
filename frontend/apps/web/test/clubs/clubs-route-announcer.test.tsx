@@ -22,6 +22,7 @@ import { ROUTER_REFRESH_EVENT } from '@/app/_lib/useGuardedRouter';
 import { ClubsRouteAnnouncer } from '@/app/clubs/_components/ClubsRouteAnnouncer';
 
 const LIST_TITLE = '동아리 탐색 | 두잉';
+const SITE_TITLE = '두잉 | 대구대학교 동아리 플랫폼';
 const CLUB_TITLE = '밴드부 | 두잉';
 const UNAVAILABLE_TITLE = '이 동아리는 지금 볼 수 없어요';
 
@@ -222,6 +223,37 @@ describe('ClubsRouteAnnouncer — Next 공지기가 놓치는 인터셉트 전�
     await waitFor(() => expect(document.title).toBe(CLUB_TITLE));
     await settle();
     expect(announced(texts)).toEqual([]);
+  });
+
+  it('회원 화면에서 돌아온 인터셉트 엔트리(상세 데이터가 늦게 옴)에서 뒤로 — 탭 제목은 목록 제목, 영역은 동아리 제목·목록 제목을 한 번씩', async () => {
+    document.title = LIST_TITLE;
+    const view = renderAt('/clubs', { intercepted: false });
+    const texts = recordRegion();
+    pushPath('/clubs/7');
+    view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    await settle();
+    // 회원 화면 — head 가 사이트 기본 제목으로 다시 그려지고 상세가 빠진다.
+    pushPath('/clubs/7/member/notices/3');
+    act(() => {
+      rerenderHeadTitle(SITE_TITLE);
+      view.rerender({ intercepted: false });
+    });
+    await settle();
+    // 뒤로 — 돌아온 인터셉트 엔트리의 head 는 숨은 목록 것이고, 상세 데이터는 사라져(쿼리 gc) 늦게 온다.
+    popToPath('/clubs/7');
+    act(() => {
+      rerenderHeadTitle(LIST_TITLE);
+      view.rerender({ intercepted: true, detailTitle: null });
+    });
+    await settle();
+    view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    await waitFor(() => expect(announced(texts)).toEqual([CLUB_TITLE]));
+
+    popToPath('/clubs');
+    view.rerender({ intercepted: false });
+    await settle();
+    expect(document.title).toBe(LIST_TITLE);
+    expect(announced(texts)).toEqual([CLUB_TITLE, LIST_TITLE]);
   });
 
   it('같은 문구가 이어지면(삭제된 동아리 → 다른 삭제된 동아리, 상세→상세) 영역을 비웠다가 다시 채워 두 번 다 읽힌다', async () => {
