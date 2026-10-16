@@ -35,6 +35,7 @@ import {
  * .rsc 를 주지만(x-matched-path /clubs/[clubId].rsc, 약 20KB — 상세가 통째로 프리페치된다), 로컬 next start 는 경로 트리만 준다
  * (0.5~0.8KB). 그대로 재면 로컬은 클릭 때 RSC·청크를 다시 받아 경로 로딩 경계가 커밋된다(develop 상세 스켈레톤: 로컬 18프레임,
  * 운영 0 — 2026-10-16 실측). 그래서 로컬 빌드를 잴 때는 트리 요청을 세그먼트 헤더를 뺀 전체 RSC 응답으로 바꿔 Vercel 과 맞춘다.
+ * 이 흉내는 앱 오리진 호스트가 localhost·127.0.0.1 일 때만 건다 — 프리뷰·운영(Vercel)은 트리 요청도 실제 응답 그대로 받는다.
  */
 
 const P1_URL = process.env.E2E_MEASURE_P1_URL;
@@ -144,10 +145,11 @@ function withoutTransferHeaders(headers: Record<string, string>): Record<string,
 
 async function routeApi(context: BrowserContext, appOrigin: string): Promise<void> {
   const relaysToProduction = appOrigin !== PRODUCTION_ORIGIN;
+  const simulatesVercelPrefetch = ['localhost', '127.0.0.1'].includes(new URL(appOrigin).hostname);
   const cors = { 'access-control-allow-origin': appOrigin, 'access-control-allow-credentials': 'true' };
   await context.route(/^https:\/\/([^/]+\.)?(googlesyndication\.com|sentry\.io|posthog\.com)\//, (route) => route.abort());
   await context.route(`${appOrigin}/ingest/**`, (route) => route.abort());
-  if (relaysToProduction) {
+  if (simulatesVercelPrefetch) {
     // 머리말 '프리페치' — 트리 요청을 Vercel 처럼 전체 RSC 로 준다. 헤더가 바뀌면 _rsc 해시가 안 맞아 로컬 서버가 307 로 고쳐
     // 보내고 route.fetch 가 따라간다. 늦게 등록한 경로가 먼저 돌므로 나머지 요청은 fallback 으로 위 처리(ingest 차단 등)에 넘긴다.
     await context.route(`${appOrigin}/**`, async (route) => {
