@@ -310,6 +310,9 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
       }
     });
     await page.goto(`/clubs?q=${encodeURIComponent(run.target.keyword)}`);
+    // 서버가 먼저 그린 목록(data-explore-server-list)이 하이드레이션 뒤 실제 목록으로 바뀐다 — 바뀌기 전에 카드를 잡으면 누르기 전에
+    // 노드가 떨어진다(스모크에서 scrollIntoViewIfNeeded 'not attached').
+    await expect(page.locator('[data-explore-server-list]')).toHaveCount(0, { timeout: 30_000 });
     const card = page.locator(`a[href="/clubs/${run.target.clubId}"]:visible`).first();
     await expect(card).toBeVisible({ timeout: 30_000 });
     // 누르기 전에 화면 안으로 — 마우스 경로는 스스로 스크롤하지 않고, 스크롤이 부르는 뷰포트 프리페치도 아래 정착 대기 안에 끝난다.
@@ -390,6 +393,8 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
       ...transitionSummary,
     };
   } finally {
+    // 진행 중인 중계 요청이 닫힌 컨텍스트에서 끝나며 내는 'Request context disposed' 를 막는다.
+    await context.unrouteAll({ behavior: 'ignoreErrors' });
     await context.close();
   }
 }
