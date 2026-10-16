@@ -116,7 +116,7 @@ function mockMyApplications(applications: ApplicationSummary[]) {
   );
 }
 
-// 이 브라우저가 방금 받은 상세 — 잠금·재확인 없이 지금처럼 동작한다.
+// 이 브라우저가 방금 받은 상세 — 외부 폼도 다시 받지 않고 곧바로 연다.
 const checkedNow = (): ClubDetailCheck => ({
   checkedAt: Date.now(),
   checkFailed: false,
@@ -338,7 +338,7 @@ describe('ClubRecruitmentCard', () => {
   });
 
   // 누른 뒤 확인 중에도 버튼은 disabled(딤)가 아니다 — 라벨을 그대로 두고 aria-disabled 와 라벨 왼쪽 지연 스피너로만 알린다.
-  it('사전 확인 중에는 라벨을 그대로 두고 "지원 자격 확인 중" 지연 스피너와 aria-disabled 로만 알린다', async () => {
+  it('사전 확인 중에는 라벨을 그대로 두고 "지원 자격 확인 중" 지연 스피너와 aria-disabled 로만 알리며, 연타해도 지원서 이동은 한 번이다', async () => {
     mockAuthStatus.value = 'authenticated';
     let eligibilityRequestCount = 0;
     let releaseEligibility!: () => void;
