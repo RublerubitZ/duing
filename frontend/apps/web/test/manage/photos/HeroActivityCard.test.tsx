@@ -85,6 +85,23 @@ describe('HeroActivityCard', () => {
     const { container } = render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" />);
     expect(container.querySelector('img[src="a.jpg"]')).not.toBeNull();
   });
+
+  it('이미지는 클라이언트 마운트 때 로드 전 투명이고 load 뒤 전이로 드러난다 — 상세 대표 활동 사진이 튀어나오지 않게(§6.2)', () => {
+    const completeGetter = vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+    try {
+      const { container } = render(<HeroActivityCard imageUrl="a.jpg" title="데모데이" description="설명" />);
+      const image = container.querySelector('img[src="a.jpg"]');
+      expect(image).not.toBeNull();
+      expect(image).toHaveClass('opacity-0');
+      expect(image).toHaveClass('absolute', 'inset-0', 'object-cover');
+
+      if (image) fireEvent.load(image);
+      expect(image).not.toHaveClass('opacity-0');
+      expect(image).toHaveClass('opacity-100', 'transition-opacity', 'duration-200', 'ease-duing');
+    } finally {
+      completeGetter.mockRestore();
+    }
+  });
 });
 
 describe('HeroActivityEditor (신규 슬롯)', () => {

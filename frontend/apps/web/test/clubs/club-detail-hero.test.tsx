@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import type { Ref } from 'react';
+import { renderToString } from 'react-dom/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ClubCategory, ClubDetail, ClubPhoto } from '@duing/types';
 import {
   ClubDetailHero,
@@ -7,10 +9,20 @@ import {
 } from '../../app/clubs/[clubId]/_components/ClubDetailHero';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }));
-// 커버 배너는 next/image 라 jsdom 에서 로더가 돌지 않는다 — src/alt 만 넘기는 <img> 로 대체한다
-// (전례: test/home/home-hero.test.tsx).
+// 커버 배너는 next/image 라 jsdom 에서 로더가 돌지 않는다 — src/alt 와 페이드 배선(className·onLoad·onError·ref)만 넘기는
+// <img> 로 대체한다(전례: test/home/home-hero.test.tsx). React 19 는 ref 를 일반 prop 으로 넘긴다.
+type ImageMockProps = {
+  src: string;
+  alt: string;
+  className?: string;
+  onLoad?: () => void;
+  onError?: () => void;
+  ref?: Ref<HTMLImageElement>;
+};
 vi.mock('next/image', () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+  default: ({ src, alt, className, onLoad, onError, ref }: ImageMockProps) => (
+    <img src={src} alt={alt} className={className} onLoad={onLoad} onError={onError} ref={ref} />
+  ),
 }));
 // 찜 버튼은 useSeededAuthStatus 로 스토어를 직접 구독한다(useSyncExternalStore) — 셀렉터 호출만
 // 흉내 내면 subscribe/getState 가 없어 렌더가 터진다.
@@ -288,5 +300,55 @@ describe('resolveHeroImageUrl', () => {
         ],
       }),
     ).toBe('https://files.duings.com/first.jpg');
+  });
+});
+
+function requireElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLElement)) throw new Error(`요소가 없다: ${selector}`);
+  return element;
+}
+
+describe('ClubDetailHero — 커버 로드 페이드(iOS 깜빡임 P0 §6.2)', () => {
+  const COVER = 'https://files.duings.com/cover.jpg';
+  afterEach(() => vi.restoreAllMocks());
+
+  it('클라이언트 마운트한 커버는 로드 전 투명이고 load 뒤 200ms 전이로 보인다 — 데스크탑은 감싼 요소에(opacity-50 보존), 모바일은 이미지 자신에', () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
+    const { container } = render(<ClubDetailHero club={{ ...baseClub, coverUrl: COVER }} />);
+
+    const desktopCover = requireElement(container, `div.md\\:block img[src="${COVER}"]`);
+    const desktopFadeTarget = desktopCover.parentElement;
+    expect(desktopCover).toHaveClass('opacity-50');
+    expect(desktopCover).not.toHaveClass('opacity-0');
+    expect(desktopFadeTarget?.classList.contains('opacity-0')).toBe(true);
+
+    const mobileCover = requireElement(container, `div.md\\:hidden img[src="${COVER}"]`);
+    expect(mobileCover).toHaveClass('opacity-0');
+
+    fireEvent.load(desktopCover);
+    fireEvent.load(mobileCover);
+    expect(desktopFadeTarget?.classList.contains('opacity-0')).toBe(false);
+    for (const fadeClass of ['opacity-100', 'transition-opacity', 'duration-200', 'ease-duing', 'motion-reduce:transition-none']) {
+      expect(desktopFadeTarget?.classList.contains(fadeClass)).toBe(true);
+      expect(mobileCover).toHaveClass(fadeClass);
+    }
+    expect(desktopCover).toHaveClass('opacity-50');
+  });
+
+  // 실제 next/image 커버는 srcset+lazy 라 ref 시점 complete 가 대개 false 여서 앞으로 이동으로 다시 들어와도 짧게 페이드한다(훅 문서) — 여기선 판정 입력만 고정한다.
+  it('마운트 때 이미 complete(캐시 적중)인 커버는 숨기지 않는다', () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+    const { container } = render(<ClubDetailHero club={{ ...baseClub, coverUrl: COVER }} />);
+
+    expect(requireElement(container, `div.md\\:block img[src="${COVER}"]`).parentElement?.className).toBe('absolute inset-0');
+    expect(requireElement(container, `div.md\\:hidden img[src="${COVER}"]`)).not.toHaveClass('opacity-0');
+  });
+
+  it('서버 렌더 HTML 의 커버는 보이는 상태다(투명도 0 없음) — 첫 화면 LCP', () => {
+    const html = renderToString(<ClubDetailHero club={{ ...baseClub, coverUrl: COVER }} />);
+
+    expect(html).toContain(COVER);
+    expect(html).not.toContain('opacity-0');
   });
 });

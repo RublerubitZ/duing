@@ -6,6 +6,7 @@ import type { ClubDetail, RecruitmentDisplayStatus } from '@duing/types';
 import { ReportModal } from '@/components/report/ReportModal';
 import { cn } from '@/app/_lib/cn';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
+import { useImageLoadFade } from '@/app/_lib/useImageLoadFade';
 import { tagLabel } from '@/app/_lib/tags';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { displayStatusLabel } from '../../../_lib/recruitmentDisplay';
@@ -48,6 +49,11 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   const resolvedHeroImageUrl = resolveHeroImageUrl(club);
   const heroImageUrl = resolvedHeroImageUrl === failedHeroImageUrl ? null : resolvedHeroImageUrl;
 
+  // 커버 로드 페이드 — 클라이언트 이동으로 들어온 상세의 커버가 로드 완료 때 한 번에 튀어나오지 않고 200ms 로 드러난다(§6.2).
+  // 서버 HTML·하이드레이션 첫 렌더는 보이는 상태다(첫 화면 LCP). 데스크탑·모바일 커버는 DOM 에 둘 다 있어 각자 판정한다.
+  const desktopCoverFade = useImageLoadFade();
+  const mobileCoverFade = useImageLoadFade();
+
   // 모바일 이름 뒤 중앙동아리 아이콘용 — 마지막 글자와 아이콘을 한 덩어리로 묶어야
   // 이름이 여러 줄로 접힐 때 아이콘만 다음 줄에 남는 것을 막을 수 있다.
   const nameChars = Array.from(club.name);
@@ -76,16 +82,20 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                      있어서, 한쪽에 priority 를 주면 그 폭에서 안 보이는 쪽까지 대형 변형을 강제로 받는다.
                   ③ 기본 lazy 면 display:none 인 쪽은 교차 자체가 없어 아예 받지 않는다 — 지금 raw <img>
                      가 두 장을 모두 받던 낭비까지 사라진다. 보이는 쪽은 마운트 즉시 교차라 체감 차이 없다. */}
-              <Image
-                src={club.coverUrl}
-                alt=""
-                aria-hidden
-                fill
-                // 히어로 배경은 뷰포트 전체 폭을 채운다(풀블리드).
-                sizes="100vw"
-                decoding="async"
-                className="absolute inset-0 h-full w-full object-cover opacity-50"
-              />
+              {/* 페이드는 감싸는 요소에 — 커버 자체의 opacity-50 과 opacity 유틸리티가 서로 덮어쓴다(useImageLoadFade 문서). */}
+              <div className={cn('absolute inset-0', desktopCoverFade.className)} aria-hidden>
+                <Image
+                  src={club.coverUrl}
+                  alt=""
+                  aria-hidden
+                  fill
+                  // 히어로 배경은 뷰포트 전체 폭을 채운다(풀블리드).
+                  sizes="100vw"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover opacity-50"
+                  {...desktopCoverFade.imageProps}
+                />
+              </div>
               {/* cream 오버레이 — 텍스트 가독성 보존. 좌하단에서 우상단으로 갈수록 cover 살짝 더 비침. */}
               <div
                 className="absolute inset-0 bg-gradient-to-tr from-cream/85 via-cream/65 to-cream/45"
@@ -177,7 +187,8 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                   fill
                   sizes="100vw"
                   decoding="async"
-                  className="h-full w-full object-cover"
+                  className={cn('h-full w-full object-cover', mobileCoverFade.className)}
+                  {...mobileCoverFade.imageProps}
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element -- 활동 사진 storageKey 는 도메인 화이트리스트 밖 호스트·상대 경로가 섞여 있어 next/image 면 런타임 throw 로 상세 페이지 전체가 죽는다. raw <img> 는 깨진 그림 한 장으로 끝난다(활동 사진 탭과 동일 관례).
