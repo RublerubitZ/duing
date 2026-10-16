@@ -46,6 +46,9 @@ const PRESS_HOLD_MS = 80;
 const PREFETCH_SETTLE_MS = 2000;
 // 전환 끝 대기 상한 — 전환(180ms)은 히어로 직후엔 대개 아직 돈다. 끝나지 않는 전환이 시행을 붙잡지 않게 넘기면 끝을 못 본 채(null) 적는다.
 const TRANSITION_SETTLE_TIMEOUT_MS = 1500;
+// 앱 전환 애니메이션은 180ms(globals.css ::view-transition-*). 애니메이션 도중 이름 붙은 요소가 사라지면 ready 거부·콘솔 문구 없이
+// 전환만 일찍 끝난다(합성 페이지 교정: 크로미엄·웹킷 모두). 그래서 ready→finished 가 이보다 짧으면 도중 중단으로 센다(추정).
+const MID_ANIMATION_ABORT_MS = 170;
 // 시행 결과에 싣는 중단 문구 수 상한(문구는 모을 때 이미 160자로 자른다).
 const ABORT_MESSAGE_LIMIT = 5;
 // 스펙 §2 기준 — 포인터 진입의 상세 스켈레톤: 중앙값 0프레임·p90 ≤ 150ms(데스크탑은 대표 활동 스켈레톤도).
@@ -55,7 +58,13 @@ type MeasureTarget = { clubId: number; keyword: string };
 type BuildName = 'develop' | 'p1';
 type EntryMode = 'pointer' | 'keyboard';
 type EntryFrame = { t: number; detailSkeleton: boolean; activitySkeleton: boolean; hero: boolean };
-type EntryTransition = { start: number; finishedAt: number | null; readyRejected: boolean; reason: string | null };
+type EntryTransition = {
+  start: number;
+  readyAt: number | null;
+  finishedAt: number | null;
+  readyRejected: boolean;
+  reason: string | null;
+};
 type EntryPressMark = { type: 'pointerdown' | 'click'; t: number };
 type FrameSummary = {
   detailSkeletonFrames: number;
@@ -67,6 +76,9 @@ type TransitionSummary = {
   transitionCount: number;
   transitionAborts: number;
   transitionMs: number | null;
+  // 애니메이션 구간(ready → finished). 업데이트 콜백(라우터 커밋) 시간을 빼야 도중 중단을 가를 수 있다.
+  animationMs: number | null;
+  midAnimationAbort: boolean;
   transitionSettleTimedOut: boolean;
   // 진단 — 갱신 시한(TimeoutError)·새 전환에 밀림(AbortError)·무관한 오류를 가른다. 이유는 전환 순서대로(없으면 null).
   transitionReasons: Array<string | null>;
@@ -171,13 +183,24 @@ async function recordEntryFrames(context: BrowserContext): Promise<void> {
       const originalStartViewTransition = document.startViewTransition?.bind(document);
       if (originalStartViewTransition) {
         document.startViewTransition = (callbackOptions?: Parameters<typeof originalStartViewTransition>[0]) => {
-          const record: EntryTransition = { start: performance.now(), finishedAt: null, readyRejected: false, reason: null };
+          const record: EntryTransition = {
+            start: performance.now(),
+            readyAt: null,
+            finishedAt: null,
+            readyRejected: false,
+            reason: null,
+          };
           transitions.push(record);
           const transition = originalStartViewTransition(callbackOptions);
-          transition.ready.catch((readyError: unknown) => {
-            record.readyRejected = true;
-            record.reason = readyError instanceof Error ? readyError.name : String(readyError);
-          });
+          transition.ready.then(
+            () => {
+              record.readyAt = performance.now();
+            },
+            (readyError: unknown) => {
+              record.readyRejected = true;
+              record.reason = readyError instanceof Error ? readyError.name : String(readyError);
+            },
+          );
           transition.finished.then(
             () => {
               record.finishedAt = performance.now();
@@ -336,6 +359,10 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
     const firstPointerdown = pressMarks.find((mark) => mark.type === 'pointerdown');
     const firstClick = pressMarks.find((mark) => mark.type === 'click');
     const firstTransition = transitions[0];
+    const firstAnimationMs =
+      firstTransition && firstTransition.readyAt !== null && firstTransition.finishedAt !== null
+        ? firstTransition.finishedAt - firstTransition.readyAt
+        : null;
     const transitionSummary: TransitionSummary = {
       transitionCount: transitions.length,
       transitionAborts:
@@ -343,6 +370,11 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
         (transitionAbortMessages.length - abortMessagesBeforePress),
       transitionMs:
         firstTransition && firstTransition.finishedAt !== null ? firstTransition.finishedAt - firstTransition.start : null,
+      animationMs: firstAnimationMs,
+      midAnimationAbort: transitions.some((transition) => {
+        if (transition.readyAt === null || transition.finishedAt === null) return false;
+        return transition.finishedAt - transition.readyAt < MID_ANIMATION_ABORT_MS;
+      }),
       transitionSettleTimedOut,
       transitionReasons: transitions.map((transition) => transition.reason),
       abortMessages: transitionAbortMessages.slice(abortMessagesBeforePress, abortMessagesBeforePress + ABORT_MESSAGE_LIMIT),
@@ -413,6 +445,7 @@ test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번�
         // View Transition — 수·중단은 시행 합계, ms 는 끝을 본 전환의 중앙값(끝을 본 전환이 없으면 '-').
         '전환 수': group.reduce((total, result) => total + result.transitionCount, 0),
         중단: group.reduce((total, result) => total + result.transitionAborts, 0),
+        '도중 중단': group.filter((result) => result.midAnimationAbort).length,
         '전환 ms': finishedTransitionMs.length > 0 ? median(finishedTransitionMs) : '-',
       };
     }),
@@ -427,6 +460,12 @@ test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번�
       (result) => result.build === build && result.mode === mode && result.transitionSettleTimedOut,
     ).length;
     console.log(`[진입 측정] ${project} ${build} ${mode} — 전환 중단 1건 이상인 시행 ${abortedTrials}/${trials}`);
+    const midAbortTrials = results.filter(
+      (result) => result.build === build && result.mode === mode && result.midAnimationAbort,
+    ).length;
+    console.log(
+      `[진입 측정] ${project} ${build} ${mode} — 애니메이션 도중 중단(추정, ready→finished < ${MID_ANIMATION_ABORT_MS}ms) 시행 ${midAbortTrials}/${trials}`,
+    );
     console.log(
       `[진입 측정] ${project} ${build} ${mode} — 전환 끝 대기 시한(${TRANSITION_SETTLE_TIMEOUT_MS}ms) 초과 시행 ${settleTimedOutTrials}/${trials}`,
     );
