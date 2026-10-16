@@ -30,6 +30,11 @@ import {
  * route.fetch 는 가로챈 요청의 헤더를 그대로 쓰므로 로컬 origin 을 빼고 보낸다(실리면 운영 CORS 필터가 403). 쓰기는 운영에 보내지
  * 않는다: auth/web/refresh 는 401(204 면 익명 부팅이 '갱신 성공' 경로를 탄다), 나머지(상세 조회 기록 POST 등)는 204. 운영 주소
  * (https://duings.com)를 잴 때는 CORS 가 열려 있어 조회는 그대로 보내고 쓰기만 막는다. 분석·광고·오류 수집 요청은 늘 막는다.
+ *
+ * 프리페치: 목록 카드의 뷰포트 프리페치는 세그먼트 트리 요청(next-router-segment-prefetch: /_tree)이다. Vercel 은 이 요청에 전체
+ * .rsc 를 주지만(x-matched-path /clubs/[clubId].rsc, 약 20KB — 상세가 통째로 프리페치된다), 로컬 next start 는 경로 트리만 준다
+ * (0.5~0.8KB). 그대로 재면 로컬은 클릭 때 RSC·청크를 다시 받아 경로 로딩 경계가 커밋된다(develop 상세 스켈레톤: 로컬 18프레임,
+ * 운영 0 — 2026-10-16 실측). 그래서 로컬 빌드를 잴 때는 트리 요청을 세그먼트 헤더를 뺀 전체 RSC 응답으로 바꿔 Vercel 과 맞춘다.
  */
 
 const P1_URL = process.env.E2E_MEASURE_P1_URL;
@@ -129,11 +134,29 @@ const CONTEXT_OPTIONS: Record<string, BrowserContextOptions> = {
   'iphone-touch': { ...devices['iPhone 13'] },
 };
 
+// route.fetch 는 본문을 풀어서 준다 — 크로미엄 fulfill 은 헤더를 거르지 않고 싣는다(playwright-core 1.63, BiDi 경로만
+// content-encoding 을 뺀다). 그래서 압축·길이·청크 헤더는 빼고 넘긴다.
+function withoutTransferHeaders(headers: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(name)),
+  );
+}
+
 async function routeApi(context: BrowserContext, appOrigin: string): Promise<void> {
   const relaysToProduction = appOrigin !== PRODUCTION_ORIGIN;
   const cors = { 'access-control-allow-origin': appOrigin, 'access-control-allow-credentials': 'true' };
   await context.route(/^https:\/\/([^/]+\.)?(googlesyndication\.com|sentry\.io|posthog\.com)\//, (route) => route.abort());
   await context.route(`${appOrigin}/ingest/**`, (route) => route.abort());
+  if (relaysToProduction) {
+    // 머리말 '프리페치' — 트리 요청을 Vercel 처럼 전체 RSC 로 준다. 헤더가 바뀌면 _rsc 해시가 안 맞아 로컬 서버가 307 로 고쳐
+    // 보내고 route.fetch 가 따라간다. 늦게 등록한 경로가 먼저 돌므로 나머지 요청은 fallback 으로 위 처리(ingest 차단 등)에 넘긴다.
+    await context.route(`${appOrigin}/**`, async (route) => {
+      const { 'next-router-segment-prefetch': segmentPrefetch, ...fullRequestHeaders } = route.request().headers();
+      if (segmentPrefetch !== '/_tree') return route.fallback();
+      const response = await route.fetch({ headers: fullRequestHeaders });
+      return route.fulfill({ response, headers: withoutTransferHeaders(response.headers()) });
+    });
+  }
   await context.route(`${API_ORIGIN}/**`, async (route) => {
     const request = route.request();
     const method = request.method();
@@ -163,14 +186,7 @@ async function routeApi(context: BrowserContext, appOrigin: string): Promise<voi
       Object.entries(request.headers()).filter(([name]) => name !== 'origin' && name !== 'accept-encoding'),
     );
     const response = await route.fetch({ headers });
-    // route.fetch 는 본문을 풀어서 준다 — 크로미엄 fulfill 은 헤더를 거르지 않고 싣는다(playwright-core 1.63, BiDi 경로만
-    // content-encoding 을 뺀다). 그래서 압축·길이·청크 헤더는 빼고 넘긴다.
-    const relayedHeaders = Object.fromEntries(
-      Object.entries(response.headers()).filter(
-        ([name]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(name),
-      ),
-    );
-    return route.fulfill({ response, headers: { ...relayedHeaders, ...cors } });
+    return route.fulfill({ response, headers: { ...withoutTransferHeaders(response.headers()), ...cors } });
   });
 }
 
