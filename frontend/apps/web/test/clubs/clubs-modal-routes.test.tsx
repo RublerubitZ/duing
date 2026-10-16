@@ -135,7 +135,9 @@ describe('동아리 modal 슬롯 라우트(스펙 P1 §3.1)', () => {
 
     expect(
       mirrorPageDirs,
-      'app/clubs 의 children 페이지와 modal 미러가 어긋납니다 — 새 /clubs 하위 페이지는 @modal/(passthrough)/<같은 경로>/page.tsx 에 빈 미러를 더하세요',
+      'app/clubs 의 children 페이지와 modal 미러가 어긋납니다 — 새 /clubs 하위 페이지는 @modal/(passthrough)/<같은 경로>/page.tsx 에 빈 미러(generateStaticParams 빈 배열 포함)를 더하세요',
     ).toEqual(childrenPageDirs);
+    // 새 미러도 위 PASSTHROUGH_MIRROR_ROUTES 에 넣어야 통과한다 — 그래야 비어 있음·generateStaticParams(정적 ●) 검사를 받는다.
+    expect(Object.keys(PASSTHROUGH_MIRROR_ROUTES).sort()).toEqual(mirrorPageDirs.filter((dir) => dir !== ''));
   });
 });
