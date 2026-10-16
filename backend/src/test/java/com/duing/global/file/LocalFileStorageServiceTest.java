@@ -122,4 +122,24 @@ class LocalFileStorageServiceTest {
             file.toFile().setReadable(true, false);
         }
     }
+
+    @Test
+    @DisplayName("uploadBytes 는 키 경로에 디렉터리를 만들며 바이트를 쓰고 /files/ 로 시작하는 URL 을 돌려준다")
+    void uploadBytesWritesFileUnderKeyAndReturnsUrl() throws IOException {
+        byte[] content = {1, 2, 3};
+
+        String url = service.uploadBytes("club/logo/abc-thumb.png", content, "image/png");
+
+        assertThat(url).isEqualTo("/files/club/logo/abc-thumb.png");
+        assertThat(Files.readAllBytes(rootDir.resolve("club/logo/abc-thumb.png"))).isEqualTo(content);
+        assertThat(service.download("club/logo/abc-thumb.png").contentType()).isEqualTo("image/png");
+    }
+
+    @Test
+    @DisplayName("uploadBytes 는 업로드 디렉터리 밖을 가리키는 키를 거부한다")
+    void uploadBytesRejectsKeyOutsideRootDir() {
+        assertThatThrownBy(() -> service.uploadBytes("../outside.png", new byte[]{1}, "image/png"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(Files.exists(rootDir.resolveSibling("outside.png"))).isFalse();
+    }
 }

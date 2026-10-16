@@ -67,18 +67,7 @@ public class S3FileStorageService implements FileStorageService {
         }
 
         try {
-            s3Client.putObject(
-                    PutObjectRequest.builder()
-                            .bucket(properties.bucket())
-                            .key(key)
-                            .contentType(contentType)
-                            // inline 유지(로고/커버/아바타가 <img> 로 렌더되어야 함). Content-Type 이
-                            // 이미지로 고정돼 있어 직접 탐색 시 HTML 로 실행되지 않는다.
-                            .contentDisposition("inline")
-                            // UUID 키는 덮어쓰지 않으므로 영구 캐시 가능.
-                            .cacheControl("public, max-age=31536000, immutable")
-                            .build(),
-                    RequestBody.fromBytes(body));
+            putObject(key, body, contentType);
         } catch (SdkException exception) {
             log.error("S3 Storage 업로드 실패: bucket={}, key={}",
                     properties.bucket(), key, exception);
@@ -86,6 +75,34 @@ public class S3FileStorageService implements FileStorageService {
         }
 
         return properties.publicBaseUrl() + "/" + key;
+    }
+
+    @Override
+    public String uploadBytes(String storageKey, byte[] content, String contentType) {
+        try {
+            putObject(storageKey, content, contentType);
+        } catch (SdkException exception) {
+            // 서버 생성 객체(썸네일)는 WARN·예외 클래스명만 — 저장소 장애 때 백필이 동아리 수만큼 ERROR(=Sentry) 를 내지 않게.
+            log.warn("S3 Storage 서버 생성 객체 업로드 실패 — reason={}", exception.getClass().getSimpleName());
+            throw new IllegalStateException("S3 Storage 업로드에 실패했습니다.", exception);
+        }
+        return properties.publicBaseUrl() + "/" + storageKey;
+    }
+
+    // 업로드 API·서버 생성 두 경로가 같은 메타데이터로 저장한다 — 로깅은 각 경로가 맡는다.
+    private void putObject(String key, byte[] body, String contentType) {
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(properties.bucket())
+                        .key(key)
+                        .contentType(contentType)
+                        // inline 유지(로고/커버/아바타가 <img> 로 렌더되어야 함). Content-Type 이
+                        // 이미지로 고정돼 있어 직접 탐색 시 HTML 로 실행되지 않는다.
+                        .contentDisposition("inline")
+                        // UUID 키는 덮어쓰지 않으므로 영구 캐시 가능.
+                        .cacheControl("public, max-age=31536000, immutable")
+                        .build(),
+                RequestBody.fromBytes(body));
     }
 
     @Override

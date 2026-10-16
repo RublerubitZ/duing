@@ -234,6 +234,12 @@ duing:
       # 8일 초과분 삭제)도 겸한다 — 비활성 환경에서는 관심도가 0 으로 고정되고 조회 이벤트가 쌓이기만
       # 한다. 운영에서 이 플래그를 끄면 보존 기간 약속이 지켜지지 않으므로 끄지 말 것.
       enabled: ${DUING_CLUB_METRIC_ENABLED:false}
+    logo-thumbnail:
+      backfill:
+        # 동아리 로고 썸네일 백필(iOS 깜빡임 P0) — 기동 뒤 백그라운드 1회, 로고는 있는데 썸네일이 없는 동아리를 순차 처리한다.
+        # 멱등이라 재기동마다 돌아도 이미 만든 건 건너뛴다. 기본 비활성 — 운영에서 DUING_CLUB_LOGO_THUMBNAIL_BACKFILL_ENABLED=true
+        # (application-prod.yml). 로고 변경 시 썸네일 생성은 이 토글과 무관하게 항상 돈다.
+        enabled: ${DUING_CLUB_LOGO_THUMBNAIL_BACKFILL_ENABLED:false}
   # 프론트 재생성 트리거(FrontendRevalidator) — 매시 정각 ClubMetricRefreshJob 이 /clubs 재생성을, 동아리 상세가 바뀐
   # 커밋 뒤에는 ClubPublicPageRevalidationListener 가, 매일 00:05 에는 ClubDetailDailyRevalidationJob 이 /clubs/<id> 재생성을 요청한다.
   # 비밀값이 비면 비활성(로컬·CI 기본). 운영 값은 서버 .env 의 DUING_FRONTEND_REVALIDATE_SECRET

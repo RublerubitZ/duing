@@ -36,7 +36,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface ClubApi {
 
     @Operation(summary = "동아리 목록 조회",
-            description = "카테고리·분류·키워드·태그·모집중 필터와 페이지네이션 지원.")
+            description = "카테고리·분류·키워드·태그·모집중 필터와 페이지네이션 지원. "
+                    + "logoThumbnailUrl 은 로고의 384px 변형 URL(원본이 작으면 원본 URL)이며, 아직 만들지 않았거나 "
+                    + "만들 수 없는 형식이면 null — 클라이언트는 logoUrl 로 폴백한다.")
     @GetMapping("/clubs")
     ResponseEntity<ApiResponse<PageResponse<ClubSummaryResponse>>> getClubs(
             @Parameter(description = "카테고리 필터") @RequestParam(required = false) ClubCategory category,
@@ -76,7 +78,8 @@ public interface ClubApi {
 
     @Operation(summary = "동아리 상세 조회",
             description = "운영 중(ACTIVE) 동아리만 조회할 수 있다. 승인 대기·거절·운영 중단·폐쇄 상태는 404 를 반환한다. "
-                    + "대표 연락처(contactPhone)는 공개 범위(contactVisibility)에 따라 노출되며, 비로그인 요청도 허용한다.")
+                    + "대표 연락처(contactPhone)는 공개 범위(contactVisibility)에 따라 노출되며, 비로그인 요청도 허용한다. "
+                    + "logoThumbnailUrl 은 목록과 같은 로고 384px 변형 URL(없으면 null → logoUrl 폴백).")
     @GetMapping("/clubs/{clubId}")
     ResponseEntity<ApiResponse<ClubDetailResponse>> getClub(
             @PathVariable Long clubId,

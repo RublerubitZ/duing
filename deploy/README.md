@@ -114,3 +114,36 @@ DB 마이그레이션(Flyway)은 백엔드 부팅 시 자동 적용된다. 롤�
 되돌린 뒤 `docker compose up -d` 한다. #1347 이전 이미지로 되돌릴 때는 먼저 `.env` 에 `JWT_EXPIRY_MS` 줄이
 없는지, #1350 이전 이미지로 되돌릴 때는 `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 줄이 그대로 있는지 확인한다
 (위 `.env` 핵심값 참고).
+
+### 로고 썸네일 롤백 뒤 정리 (V133 이후 이미지에서 이전 이미지로 되돌렸다가 다시 올릴 때)
+
+이전 이미지는 `club.logo_thumbnail_url` 을 모르므로, 롤백 기간에 로고를 바꾼 동아리는 옛 로고의 썸네일이 새 로고 옆에 그대로
+남는다. 백필은 썸네일이 비어 있는 동아리만 집고 **기동 때 한 번만** 돌므로, 새 이미지를 다시 기동하기 **전에** 아래 SQL 을
+실행한다(이미 기동했으면 실행한 뒤 백엔드를 한 번 더 재기동한다). `<롤백 시각>` 은 이전 이미지 컨테이너의 기동 시각(UTC,
+`docker compose logs backend` 의 `Started DuingApplication` 줄)이다 — `club.updated_at` 은 naive `TIMESTAMP` 에 JVM `TZ=UTC`
+벽시계로 기록되므로 로그 시각(`2026-10-20T13:05:00.123Z` 꼴)을 그대로 넣는다(naive 열과 비교하는 문자열의 `Z` 는 무시돼 세션
+TimeZone 과 상관없이 UTC 벽시계로 비교된다). 끝 시각은 두지 않는다 — 재배포 뒤에 다시 수정된 동아리도 대상에 들지만 썸네일을 한 번
+더 만들 뿐이다. 1) 을 먼저 — 비우기만 하면 썸네일의 추적 행이 ACTIVE 고아로 남아 파기 잡이 지우지 않는다. 1)·2) 의 대상 조건(살아
+있고 썸네일이 있고 롤백 시각 뒤에 수정된 동아리)은 같다. 3) 은 시각 조건이 없다 — 이전 이미지의 폐쇄는 썸네일을 해제하지 않고 새
+이미지의 폐쇄는 늘 해제하므로, 폐쇄된 동아리의 썸네일 추적 행이 ACTIVE 로 남아 있으면 롤백 기간의 폐쇄다.
+
+```sql
+-- 1) 비울 썸네일의 추적 행을 RELEASED 로 내린다. 원본 URL 을 그대로 쓴 썸네일(따로 추적 행이 없다)만 뺀다 —
+--    IS DISTINCT FROM 이라 옛 코드로 로고를 비운(logo_url IS NULL) 동아리도 빠지지 않는다(<> 는 NULL 로 평가돼 건너뛴다).
+UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
+ WHERE status = 'ACTIVE' AND purpose = 'LOGO'
+   AND storage_key IN (SELECT substring(logo_thumbnail_url from '[^/]+/[^/]+/[^/]+$') FROM club
+                        WHERE deleted_at IS NULL AND logo_thumbnail_url IS NOT NULL
+                          AND updated_at >= '<롤백 시각>'
+                          AND logo_thumbnail_url IS DISTINCT FROM logo_url);
+-- 2) 같은 동아리의 썸네일을 비운다 — 재기동 뒤 백필이 다시 만든다(시작 로그 `[로고 썸네일 백필] 시작 — 대상 N` 에서 N 이 비운 건수 이상인지 본다).
+UPDATE club SET logo_thumbnail_url = NULL
+ WHERE deleted_at IS NULL AND logo_thumbnail_url IS NOT NULL
+   AND updated_at >= '<롤백 시각>';
+-- 3) 롤백 기간에 폐쇄된 동아리의 썸네일 추적 행을 RELEASED 로 내린다(원본 URL 을 그대로 쓴 썸네일은 폐쇄의 로고 해제가 다뤘다).
+UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
+ WHERE status = 'ACTIVE' AND purpose = 'LOGO'
+   AND storage_key IN (SELECT substring(logo_thumbnail_url from '[^/]+/[^/]+/[^/]+$') FROM club
+                        WHERE deleted_at IS NOT NULL AND logo_thumbnail_url IS NOT NULL
+                          AND logo_thumbnail_url IS DISTINCT FROM logo_url);
+```

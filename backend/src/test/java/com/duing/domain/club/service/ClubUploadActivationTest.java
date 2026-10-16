@@ -44,6 +44,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** 동아리 도메인의 업로드 활성화 지점(스펙 §3.4: LOGO·COVER·PHOTO) + 만료 업로드 400 HTTP 계약(§6). */
 @Import(TestcontainersConfiguration.class)
@@ -64,6 +67,8 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     @Autowired UploadedObjectRepository uploadedObjectRepository;
     @Autowired Clock clock;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired TransactionTemplate transactionTemplate;
+    @Autowired PlatformTransactionManager platformTransactionManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -129,6 +134,28 @@ class ClubUploadActivationTest extends IntegrationTestBase {
                 null, null, null, null, null, null, null,
                 null, null, null, null,
                 null, null, null, clearCoverImage, null, null, null);
+    }
+
+    // UpdateClubCommand 29개 컴포넌트 — 25번째 clearLogoImage 만 true.
+    private UpdateClubCommand clearLogo(Long clubId, Long requesterId) {
+        return new UpdateClubCommand(
+                clubId, requesterId,
+                null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, true, null, null, null, null);
+    }
+
+    private String thumbnailUrlOf(Long clubId) {
+        return clubRepository.findById(clubId).orElseThrow().getLogoThumbnailUrl();
+    }
+
+    /** 로고와 그 썸네일이 걸린 운영 중 동아리 — 썸네일 반영은 서버 경로(조건부 갱신 SQL)를 그대로 쓴다. */
+    private Club saveActiveClubWithLogoAndThumbnail(String logoKey, String thumbnailKey) throws Exception {
+        Club club = saveClubWithStatus(ClubStatus.ACTIVE, STUB_PREFIX + logoKey);
+        clubRepository.setLogoThumbnailUrlIfLogoUnchanged(club.getId(), STUB_PREFIX + logoKey, STUB_PREFIX + thumbnailKey);
+        return club;
     }
 
     @Test
@@ -278,5 +305,109 @@ class ClubUploadActivationTest extends IntegrationTestBase {
 
         assertThat(clubPhotoRepository.findByClubId(club.getId())).isEmpty();
         assertThat(statusOf(purgedKey)).isEqualTo(UploadedObjectStatus.PURGED);
+    }
+
+    @Test
+    @DisplayName("운영진이 로고를 바꾸면 같은 수정에서 썸네일이 비워지고 옛 로고·옛 썸네일 업로드는 RELEASED, 새 로고는 ACTIVE 가 된다")
+    void leaderLogoChangeClearsThumbnailAndReleasesOldThumbnail() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        String oldLogoKey = seedActive(FilePurpose.LOGO);
+        String oldThumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveActiveClubWithLogoAndThumbnail(oldLogoKey, oldThumbnailKey);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String newLogoKey = seedPending(FilePurpose.LOGO);
+
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + newLogoKey, null));
+
+        assertThat(thumbnailUrlOf(club.getId())).isNull();
+        assertThat(statusOf(oldLogoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(oldThumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(newLogoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("수정이 동아리를 읽은 뒤 다른 트랜잭션이 커밋한 썸네일도 같은 수정의 로고 변경이 비우고 그 업로드를 RELEASED 로 내린다")
+    void logoChangeReleasesThumbnailCommittedAfterClubWasRead() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        String oldLogoKey = seedActive(FilePurpose.LOGO);
+        String thumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveClubWithStatus(ClubStatus.ACTIVE, STUB_PREFIX + oldLogoKey);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String newLogoKey = seedPending(FilePurpose.LOGO);
+        TransactionTemplate generationTransaction = new TransactionTemplate(platformTransactionManager);
+        generationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            clubRepository.findById(club.getId()).orElseThrow(); // 썸네일 NULL 스냅숏 — 수정이 같은 트랜잭션에서 이 엔티티를 받는다
+            // 그사이 생성기가 별도 트랜잭션으로 썸네일을 반영하고 커밋한다.
+            generationTransaction.executeWithoutResult(generationStatus -> clubRepository.setLogoThumbnailUrlIfLogoUnchanged(
+                    club.getId(), STUB_PREFIX + oldLogoKey, STUB_PREFIX + thumbnailKey));
+            clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + newLogoKey, null));
+        });
+
+        assertThat(thumbnailUrlOf(club.getId())).isNull();
+        assertThat(statusOf(thumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
+    @DisplayName("총동연이 로고를 비우면 썸네일도 비워지고 로고·썸네일 업로드가 모두 RELEASED 가 된다")
+    void adminClearLogoReleasesThumbnailToo() throws Exception {
+        String logoKey = seedActive(FilePurpose.LOGO);
+        String thumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveActiveClubWithLogoAndThumbnail(logoKey, thumbnailKey);
+
+        clubService.updateAsAdmin(clearLogo(club.getId(), null));
+
+        assertThat(clubRepository.findById(club.getId()).orElseThrow().getLogoUrl()).isNull();
+        assertThat(thumbnailUrlOf(club.getId())).isNull();
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(thumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+    }
+
+    @Test
+    @DisplayName("썸네일이 원본 URL 과 같은(작은 원본) 로고를 바꾸면 로고 해제 경로가 그 키를 RELEASED 로 내리고, 썸네일 쪽은 같은 키를 다시 다루지 않아 예외 없이 끝난다")
+    void replacingSmallLogoReleasesSharedKeyWithoutError() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        String logoKey = seedActive(FilePurpose.LOGO);
+        Club club = saveActiveClubWithLogoAndThumbnail(logoKey, logoKey);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String newLogoKey = seedPending(FilePurpose.LOGO);
+
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + newLogoKey, null));
+
+        assertThat(thumbnailUrlOf(club.getId())).isNull();
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(newLogoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("같은 로고 URL 로 다시 수정하면 썸네일과 그 업로드 추적은 그대로다")
+    void resendingSameLogoKeepsThumbnail() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        String logoKey = seedActive(FilePurpose.LOGO);
+        String thumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveActiveClubWithLogoAndThumbnail(logoKey, thumbnailKey);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+
+        clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + logoKey, null));
+
+        assertThat(thumbnailUrlOf(club.getId())).isEqualTo(STUB_PREFIX + thumbnailKey);
+        assertThat(statusOf(thumbnailKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("총동연이 동아리를 폐쇄하면 로고 썸네일 업로드도 RELEASED 가 된다")
+    void closureReleasesLogoThumbnail() throws Exception {
+        User admin = userRepository.save(UserFixture.admin());
+        String logoKey = seedActive(FilePurpose.LOGO);
+        String thumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveClubWithStatus(ClubStatus.INACTIVE, STUB_PREFIX + logoKey);
+        clubRepository.setLogoThumbnailUrlIfLogoUnchanged(club.getId(), STUB_PREFIX + logoKey, STUB_PREFIX + thumbnailKey);
+
+        clubClosureService.close(new CloseClubCommand(club.getId(), admin.getId(), "운영 종료"));
+
+        assertThat(statusOf(logoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
+        assertThat(statusOf(thumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 }

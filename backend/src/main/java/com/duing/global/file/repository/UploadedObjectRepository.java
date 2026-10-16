@@ -71,6 +71,9 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
      * club_photo.storage_key 는 실제로 URL 이 저장되지만(프론트가 응답 url 을 그대로 보냄) 키만 저장된
      * 과거 행도 있을 수 있어 둘 다 본다.
      *
+     * <p>club.logo_thumbnail_url(V133)은 서버가 만든 로고 썸네일 — 업로드 API 를 거치지 않지만 같은 LOGO 추적 행으로 기록되므로
+     * 여기서도 참조로 센다(원본 URL 을 재사용한 경우는 logo_url 절이 이미 잡는다).
+     *
      * <p>soft-delete 행: 이 스캔이 삭제 시 해제(#1153)를 다루는 다섯 곳(club·club_photo(+소속 club)·notice·promotion·
      * global_event)은 {@code deleted_at IS NULL} 만 참조로 센다 — 복구(undelete) 경로가 없는 테이블만이며, 복구 기능을
      * 붙이는 쪽이 이 조건을 되돌려야 한다. promotion_request(삭제 경로 없음)·federation_inquiry_attachment(보관기간까지
@@ -79,7 +82,8 @@ public interface UploadedObjectRepository extends JpaRepository<UploadedObject, 
      */
     @Query(value = """
             SELECT EXISTS (SELECT 1 FROM club WHERE deleted_at IS NULL
-                           AND (logo_url LIKE '%/' || :key OR cover_url LIKE '%/' || :key))
+                           AND (logo_url LIKE '%/' || :key OR cover_url LIKE '%/' || :key
+                                OR logo_thumbnail_url LIKE '%/' || :key))
                 OR EXISTS (SELECT 1 FROM club_photo photo JOIN club owner ON owner.id = photo.club_id
                            WHERE photo.deleted_at IS NULL AND owner.deleted_at IS NULL
                            AND (photo.storage_key = :key OR photo.storage_key LIKE '%/' || :key))
