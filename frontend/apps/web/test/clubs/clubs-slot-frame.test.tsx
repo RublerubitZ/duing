@@ -235,6 +235,19 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     expect(mountCounts.list).toBe(1);
   });
 
+  // 판별은 경로의 마지막 원소를 본다 — 앞에 모르는 내부 세그먼트가 하나 더 껴도 인터셉트를 놓치지 않는다(스펙 P1 §3.2 fail-open).
+  it('앞에 모르는 내부 세그먼트가 낀 인터셉트 경로도 인터셉트다 — 목록을 숨기고 상세를 그린다', () => {
+    navigationStore.set(LIST);
+    renderFrame();
+    const listNode = screen.getByTestId('list-probe');
+
+    navigateTo({ ...intercepted('5', null), modalSegments: ['(__UNKNOWN__)', '(__SLOT__)', '5'] });
+    expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
+    expect(screen.getByTestId('list-probe')).toBe(listNode);
+    expect(listNode).not.toBeVisible();
+    expect(screen.getByTestId('modal-probe')).toBeVisible();
+  });
+
   it.each([
     ['하드 로드 상세', hardDetail('5')],
     ['회원 화면', hardMember('5')],
