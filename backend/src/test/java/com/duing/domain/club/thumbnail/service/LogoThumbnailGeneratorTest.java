@@ -155,6 +155,23 @@ class LogoThumbnailGeneratorTest {
     }
 
     @Test
+    @DisplayName("첫 스캔이 프레임의 일부 성분만 담는 다중 스캔 JPEG 도 800만 픽셀을 넘으면 디코딩하지 않고 건너뛰고, 같은 크기의 인터리브 JPEG 은 디코딩으로 넘어간다")
+    void largeMultiScanJpegIsSkipped() {
+        // 헤더만 있는 3000×3000(900만 픽셀) 3성분 JPEG — 디코딩하면 UNREADABLE 이다. 첫 스캔이 1성분이면 다중 스캔, 3성분이면 인터리브.
+        byte[] multiScan = ImageFixture.jpegHeaderOnly(3000, 3000, 1);
+        byte[] interleaved = ImageFixture.jpegHeaderOnly(3000, 3000, 3);
+
+        assertThat(LogoThumbnailGenerator.scanJpegHeader(multiScan))
+                .isEqualTo(new LogoThumbnailGenerator.JpegHeader(1, false, true));
+        assertThat(LogoThumbnailGenerator.scanJpegHeader(interleaved).multiScan()).isFalse();
+        assertThat(LogoThumbnailGenerator.scanJpegHeader(ImageFixture.jpeg(800, 600)).multiScan()).isFalse(); // 인코더가 쓴 베이스라인
+        assertThat(skipReason(multiScan)).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        assertThat(skipReason(interleaved)).isEqualTo(SkipReason.UNREADABLE);
+        // 인터리브 헤더도 치수는 읽힌다 — 2,500만 픽셀을 넘기면 같은 픽스처가 선검사에서 끊긴다.
+        assertThat(skipReason(ImageFixture.jpegHeaderOnly(6000, 5000, 3))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    @Test
     @DisplayName("ImageIO 가 읽지 못하는 형식(WebP·텍스트)은 건너뛴다")
     void unsupportedFormatIsSkipped() {
         assertThat(skipReason(ImageFixture.webpHeaderOnly())).isEqualTo(SkipReason.UNSUPPORTED_FORMAT);

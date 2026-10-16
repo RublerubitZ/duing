@@ -39,6 +39,8 @@ public class ClubLogoThumbnailService {
     public static final long SYSTEM_UPLOADER_ID = 0L;
     /** 파일명으로 썸네일임을 구분한다 — 키에 `_`·`%` 를 넣지 않는다(참조 스캔의 접미 LIKE 전제). */
     private static final String THUMBNAIL_FILE_SUFFIX = "-thumb";
+    /** 로고 업로드(purpose=LOGO)와 썸네일이 객체를 두는 디렉터리 — 원본은 이 바로 아래 객체만 쓴다. */
+    private static final String LOGO_DIRECTORY_PREFIX = FilePurpose.LOGO.directory() + "/";
 
     private final ClubRepository clubRepository;
     private final FileStorageService fileStorageService;
@@ -77,6 +79,10 @@ public class ClubLogoThumbnailService {
         String storageKey = fileStorageService.toStorageKey(logoUrl);
         if (storageKey == null) {
             return skipped(clubId, "EXTERNAL_URL");
+        }
+        // 로고 업로드 객체(club/logo/<파일 하나>, 하위 경로 없음)만 원본으로 쓴다 — 로고 URL 검증은 링크 형식만 본다.
+        if (!storageKey.startsWith(LOGO_DIRECTORY_PREFIX) || storageKey.indexOf('/', LOGO_DIRECTORY_PREFIX.length()) >= 0) {
+            return skipped(clubId, "NOT_LOGO_OBJECT");
         }
         byte[] source = download(storageKey);
         if (source == null) {

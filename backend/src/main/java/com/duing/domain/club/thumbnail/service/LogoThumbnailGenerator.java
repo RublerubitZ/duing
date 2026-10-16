@@ -29,7 +29,7 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
 
 /**
  * 동아리 로고 썸네일 생성기(스펙 §4.2) — JDK ImageIO 만 쓴다. 긴 변 {@value #MAX_LONG_SIDE}px·비율 유지, 알파가 있으면 PNG·없으면
- * JPEG(품질 {@value #JPEG_QUALITY}). 디코딩 전에 치수를 읽어 {@value #MAX_SOURCE_PIXELS} 픽셀 초과(프로그레시브 JPEG 은
+ * JPEG(품질 {@value #JPEG_QUALITY}). 디코딩 전에 치수를 읽어 {@value #MAX_SOURCE_PIXELS} 픽셀 초과(프로그레시브·다중 스캔 JPEG 은
  * {@value #MAX_PROGRESSIVE_JPEG_PIXELS})나 긴 변 {@value #MAX_SOURCE_LONG_SIDE}px 초과는 건너뛰고, 그 이하도 목표 크기에 맞춘
  * 서브샘플링으로 읽어 래스터 메모리를 묶는다(운영 JVM 기본 힙, #1465 전례). 축소는 절반씩 줄이다 마지막에 바이큐빅으로 맞춘다. 입출력은
  * 모두 메모리 스트림이라 임시 파일을 쓰지 않는다.
@@ -42,20 +42,19 @@ public final class LogoThumbnailGenerator {
     /** 원본 긴 변 상한 — PNG 리더는 서브샘플링과 무관하게 원본 폭만큼 행 버퍼를 잡아, 픽셀 수 상한과 따로 묶는다. */
     public static final int MAX_SOURCE_LONG_SIDE = 16_384;
     /**
-     * 프로그레시브 JPEG 의 픽셀 상한. libjpeg 는 프로그레시브 디코딩에 원본 전체 크기의 계수 버퍼(픽셀당 최대 약 6B — 4:4:4 3성분 × 2B)를
-     * 네이티브 메모리로 잡아 서브샘플링이 줄여 주지 않고, 힙 밖이라 ExitOnOutOfMemoryError 도 막지 못한다. 운영 컨테이너 1400m 에서 힙
-     * 75%(≈1050m)를 빼면 메타스페이스·스레드·소켓 버퍼와 나눠 쓰는 약 350m 가 남는다 — 그중 약 50MB 를 상한으로 두면 8,000,000 픽셀
-     * (×6B = 48MB)이다. 운영 로고(긴 변 800~1150px, 약 100만 픽셀)는 전부 상한 안이다.
+     * 프로그레시브·다중 스캔(첫 스캔이 프레임의 일부 성분만 담는 순차) JPEG 의 픽셀 상한. libjpeg 는 이런 JPEG 를 원본 전체 크기의 계수
+     * 버퍼(픽셀당 최대 약 6B — 4:4:4 3성분 × 2B)에 모아 디코딩하고, 이 버퍼는 힙 밖에 잡혀 서브샘플링이 줄여 주지 않는다. 8,000,000 픽셀
+     * (×6B = 48MB)로 묶는다. 운영 로고(긴 변 800~1150px, 약 100만 픽셀)는 전부 상한 안이다.
      */
     public static final long MAX_PROGRESSIVE_JPEG_PIXELS = 8_000_000L;
     static final float JPEG_QUALITY = 0.85f;
     static final int UPRIGHT_ORIENTATION = 1;
 
-    /** JPEG 헤더에서 읽은 것 — Exif Orientation(없으면 1)과 프로그레시브 여부. */
-    record JpegHeader(int orientation, boolean progressive) {
+    /** JPEG 헤더에서 읽은 것 — Exif Orientation(없으면 1)·프로그레시브 여부·다중 스캔 여부(첫 스캔이 프레임의 일부 성분만 담는다). */
+    record JpegHeader(int orientation, boolean progressive, boolean multiScan) {
     }
 
-    private static final JpegHeader PLAIN_JPEG_HEADER = new JpegHeader(UPRIGHT_ORIENTATION, false);
+    private static final JpegHeader PLAIN_JPEG_HEADER = new JpegHeader(UPRIGHT_ORIENTATION, false, false);
 
     private LogoThumbnailGenerator() {
     }
@@ -73,7 +72,8 @@ public final class LogoThumbnailGenerator {
                 int height = reader.getHeight(0);
                 boolean jpeg = isJpeg(source);
                 JpegHeader jpegHeader = jpeg ? scanJpegHeader(source) : PLAIN_JPEG_HEADER;
-                long pixelLimit = jpegHeader.progressive() ? MAX_PROGRESSIVE_JPEG_PIXELS : MAX_SOURCE_PIXELS;
+                long pixelLimit = jpegHeader.progressive() || jpegHeader.multiScan()
+                        ? MAX_PROGRESSIVE_JPEG_PIXELS : MAX_SOURCE_PIXELS;
                 int longSide = Math.max(width, height);
                 if ((long) width * height > pixelLimit || longSide > MAX_SOURCE_LONG_SIDE) {
                     return new Skipped(SkipReason.TOO_MANY_PIXELS);
@@ -124,22 +124,29 @@ public final class LogoThumbnailGenerator {
     }
 
     /**
-     * 스캔 데이터(SOS) 앞의 세그먼트를 한 번 훑어 두 가지를 읽는다 — SOF2·SOF6·SOF10·SOF14 가 있으면 프로그레시브, APP1(Exif) 의 TIFF IFD0
-     * 에서 Orientation(0x0112). 바이트 순서 II(리틀)·MM(빅)을 모두 다루고, APP1 이 없거나 구조가 깨졌으면 정방향(1)으로 본다 — 대부분의
-     * 로고는 EXIF 가 없다. 세그먼트 길이가 남은 바이트를 넘으면 그 자리에서 멈춘다(매 회 1바이트 이상 전진해 무한 루프가 없다).
+     * 스캔 데이터(SOS) 앞의 세그먼트를 한 번 훑어 세 가지를 읽는다 — SOF2·SOF6·SOF10·SOF14 가 있으면 프로그레시브, 첫 SOS 의 성분 수(Ns)가
+     * SOF0·SOF1·SOF2 의 성분 수(Nf)보다 적으면 다중 스캔, APP1(Exif) 의 TIFF IFD0 에서 Orientation(0x0112). 바이트 순서 II(리틀)·MM(빅)을
+     * 모두 다루고, APP1 이 없거나 구조가 깨졌으면 정방향(1)으로 본다 — 대부분의 로고는 EXIF 가 없다. 세그먼트 길이가 남은 바이트를 넘으면
+     * 그 자리에서 멈춘다(매 회 1바이트 이상 전진해 무한 루프가 없다).
      */
     static JpegHeader scanJpegHeader(byte[] jpeg) {
         int orientation = UPRIGHT_ORIENTATION;
         boolean progressive = false;
+        boolean multiScan = false;
+        int frameComponents = 0;
         ByteBuffer buffer = ByteBuffer.wrap(jpeg);
         if (buffer.remaining() < 4 || (buffer.getShort() & 0xFFFF) != 0xFFD8) {
-            return new JpegHeader(orientation, progressive);
+            return new JpegHeader(orientation, progressive, multiScan);
         }
         while (buffer.remaining() >= 4) {
             int marker = buffer.getShort() & 0xFFFF;
             if (marker == 0xFFFF) {
                 buffer.position(buffer.position() - 1); // 마커 앞 채움 바이트(0xFF) 건너뜀
                 continue;
+            }
+            if (marker == 0xFFDA) {
+                // SOS 는 마커 뒤 Ls(2)·Ns(1) — 첫 스캔이 프레임의 성분을 다 담지 않으면 순차 JPEG 도 여러 스캔으로 나뉜다.
+                multiScan = buffer.remaining() >= 3 && (buffer.get(buffer.position() + 2) & 0xFF) < frameComponents;
             }
             if ((marker & 0xFF00) != 0xFF00 || marker == 0xFFDA || marker == 0xFFD9) {
                 break; // 손상 또는 스캔 데이터 시작·끝 — 헤더 세그먼트는 여기까지다
@@ -149,6 +156,9 @@ public final class LogoThumbnailGenerator {
                 break;
             }
             int segmentStart = buffer.position();
+            if (marker >= 0xFFC0 && marker <= 0xFFC2 && segmentLength >= 2 + 6) {
+                frameComponents = buffer.get(segmentStart + 5) & 0xFF; // SOF0·SOF1·SOF2 — 길이 뒤 P(1)·Y(2)·X(2) 다음 Nf(1)
+            }
             if (marker == 0xFFC2 || marker == 0xFFC6 || marker == 0xFFCA || marker == 0xFFCE) {
                 progressive = true; // SOF2·SOF6·SOF10·SOF14 — 프로그레시브(허프만·산술, 비차분·차분)
             } else if (marker == 0xFFE1 && segmentLength >= 2 + 6 + 8
@@ -157,7 +167,7 @@ public final class LogoThumbnailGenerator {
             }
             buffer.position(segmentStart + segmentLength - 2);
         }
-        return new JpegHeader(orientation, progressive);
+        return new JpegHeader(orientation, progressive, multiScan);
     }
 
     private static int orientationFromTiff(ByteBuffer tiff) {

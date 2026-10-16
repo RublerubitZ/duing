@@ -39,6 +39,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import javax.imageio.ImageIO;
@@ -46,9 +47,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -66,6 +70,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@ExtendWith(OutputCaptureExtension.class)
 class ClubLogoThumbnailServiceTest extends IntegrationTestBase {
 
     private static final long ASYNC_WAIT_MS = 5_000;
@@ -271,6 +276,35 @@ class ClubLogoThumbnailServiceTest extends IntegrationTestBase {
         assertThat(thumbnailUrlOf(blankLogoClub.getId())).isNull();
         assertThat(thumbnailTrackingRowCount()).isZero();
         verify(frontendRevalidator, after(QUIET_WAIT_MS).never()).revalidateWithoutAlert(anyString());
+    }
+
+    @Test
+    @DisplayName("로고 업로드 디렉터리(club/logo) 바로 아래가 아닌 자기 스토리지 객체는 내려받지 않고 별도 사유로 건너뛰어 업로드·추적 행 없이 썸네일이 NULL 로 남는다")
+    void nonLogoObjectsAreSkippedWithoutDownload(CapturedOutput output) throws Exception {
+        FileStorageService observedStorage = spy(fileStorageService);
+        ClubLogoThumbnailService observedService = new ClubLogoThumbnailService(
+                clubRepository, observedStorage, uploadedObjectService, eventPublisher, platformTransactionManager);
+        // club/logo 바로 아래였다면 썸네일이 만들어지는 원본 — 다른 디렉터리와 club/logo 의 하위 경로에 둔다.
+        byte[] image = ImageFixture.png(800, 600, true);
+        List<String> otherObjectUrls = List.of(
+                fileStorageService.uploadBytes(FilePurpose.PHOTO.directory() + "/" + sequence.incrementAndGet() + ".png",
+                        image, "image/png"),
+                fileStorageService.uploadBytes(FilePurpose.NOTICE_COVER.directory() + "/" + sequence.incrementAndGet() + ".png",
+                        image, "image/png"),
+                fileStorageService.uploadBytes(FilePurpose.LOGO.directory() + "/nested/" + sequence.incrementAndGet() + ".png",
+                        image, "image/png"));
+
+        for (String otherObjectUrl : otherObjectUrls) {
+            Club club = saveClub(ClubStatus.ACTIVE, otherObjectUrl);
+
+            assertThat(observedService.generateAfterLogoChange(club.getId(), otherObjectUrl, 42L))
+                    .isEqualTo(LogoThumbnailOutcome.SKIPPED);
+            assertThat(thumbnailUrlOf(club.getId())).isNull();
+            assertThat(output).contains("[로고 썸네일] 건너뜀 — clubId=" + club.getId() + ", reason=NOT_LOGO_OBJECT");
+        }
+        verify(observedStorage, never()).download(any());
+        verify(observedStorage, never()).uploadBytes(any(), any(), any());
+        assertThat(thumbnailTrackingRowCount()).isZero();
     }
 
     @Test

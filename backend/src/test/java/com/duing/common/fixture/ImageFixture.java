@@ -101,6 +101,27 @@ public final class ImageFixture {
         return output.toByteArray();
     }
 
+    /**
+     * SOI·SOF0(3성분)·첫 SOS 까지만 있는 JPEG — 치수는 읽히지만 표·스캔 데이터가 없어 디코딩은 실패한다.
+     * firstScanComponents 가 3 이면 세 성분을 한 스캔에 담고(인터리브), 1 이면 첫 스캔에 첫 성분만 담는다(다중 스캔).
+     */
+    public static byte[] jpegHeaderOnly(int width, int height, int firstScanComponents) {
+        ByteBuffer jpeg = ByteBuffer.allocate(2 + 2 + 17 + 2 + 6 + 2 * firstScanComponents);
+        jpeg.putShort((short) 0xFFD8);                                                      // SOI
+        jpeg.putShort((short) 0xFFC0).putShort((short) 17);                                 // SOF0, Lf = 8 + 3성분 × 3
+        jpeg.put((byte) 8).putShort((short) height).putShort((short) width).put((byte) 3);  // P·Y·X·Nf
+        for (int component = 1; component <= 3; component++) {
+            jpeg.put((byte) component).put((byte) 0x11).put((byte) 0);                      // Ci·Hi/Vi(1×1)·Tqi
+        }
+        jpeg.putShort((short) 0xFFDA).putShort((short) (6 + 2 * firstScanComponents));     // SOS, Ls
+        jpeg.put((byte) firstScanComponents);                                               // Ns
+        for (int component = 1; component <= firstScanComponents; component++) {
+            jpeg.put((byte) component).put((byte) 0);                                       // Csj·Tdj/Taj
+        }
+        jpeg.put((byte) 0).put((byte) 63).put((byte) 0);                                    // Ss·Se·Ah/Al
+        return jpeg.array();
+    }
+
     /** RIFF/WEBP 컨테이너 헤더만 있는 바이트 — ImageIO 가 읽지 못하는 형식의 대표. */
     public static byte[] webpHeaderOnly() {
         byte[] header = new byte[20];
