@@ -228,6 +228,32 @@ describe('동아리 상세 실패 분기', () => {
       screen.queryByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' }),
     ).not.toBeInTheDocument();
   });
+
+  it('404 면 탭 제목도 화면 문구("이 동아리는 지금 볼 수 없어요")가 된다 — 늦은 진입이 실패로 끝나도 라우트 공지가 읽게(스펙 P1 §3.6)', async () => {
+    document.title = '동아리 탐색 | 두잉';
+    seedDetailStatus(404);
+    renderPage();
+
+    await screen.findByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' });
+    await waitFor(() => expect(document.title).toBe('이 동아리는 지금 볼 수 없어요 | 두잉'));
+  });
+
+  it('그 밖의 실패(500)면 탭 제목이 "동아리 정보를 불러오지 못했습니다" 다', async () => {
+    document.title = '동아리 탐색 | 두잉';
+    seedDetailStatus(500);
+    renderPage();
+
+    await screen.findByText('동아리 정보를 불러오지 못했습니다.');
+    await waitFor(() => expect(document.title).toBe('동아리 정보를 불러오지 못했습니다 | 두잉'));
+  });
+
+  it('정상 도착이면 지금처럼 동아리 이름이 탭 제목이다', async () => {
+    document.title = '동아리 탐색 | 두잉';
+    seed();
+    renderPage();
+
+    await waitFor(() => expect(document.title).toBe('두잉 | 두잉'));
+  });
 });
 
 // 화면 본문 등장(globals.css .enter-content) — 앞으로 들어오거나 스켈레톤을 거친 마운트에서 1회 떠오른다(useEntranceMotion).
