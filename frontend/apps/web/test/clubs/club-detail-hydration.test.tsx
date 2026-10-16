@@ -116,8 +116,10 @@ describe('동아리 상세 트리 — 하이드레이션(ISR HTML 회귀)', () =
     expect(result.serverHtml).toContain('함께 운동해요');
     // 앞으로 들어온 렌더라 서버 HTML 에 본문 등장 클래스가 실린다 — 첫 화면에서 CSS 로 재생되고, 하이드레이션도 같은 값이라 경고가 없다.
     expect(result.serverHtml).toContain('enter-content');
-    // 시드(updatedAt 0)라 서버 HTML 의 지원 버튼에 확인 중 스피너가 실린다 — 하이드레이션 첫 프레임도 시드라 같은 값이다(#1456).
-    expect(result.serverHtml).toContain('aria-label="모집 정보 확인 중"');
+    // 시드(updatedAt 0)여도 열린 모집의 지원 버튼은 확인 중 스피너 없이 열린 채 그린다(안전은 누를 때의 재확인이 지킨다) —
+    // 하이드레이션 첫 프레임도 시드라 같은 값이다. 누르기 전 스피너가 돌아오면 서버 HTML 에 이 이름이 다시 실린다.
+    expect(result.serverHtml).toContain('지원하기');
+    expect(result.serverHtml).not.toContain('aria-label="모집 정보 확인 중"');
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.unhandledRequests).toEqual([]);
@@ -160,7 +162,11 @@ describe('동아리 상세 트리 — 대표 활동 시드(#1457)', () => {
       releaseHeroActivities = resolve;
     });
     let heroActivitiesRequested = false;
+    // 상세 재요청은 이름이 다른 상세로 답한다 — 그 이름이 화면에 보이면 상세가 반영된 것이다. 지원 버튼은 스냅샷에서도
+    // 열려 있어(색 유지) 더는 상세 반영의 표지가 아니다.
+    const latestDetailName = '모션케어·최신';
     server.use(
+      http.get('*/clubs/1', () => envelope({ ...clubDetail, name: latestDetailName })),
       http.get('*/clubs/1/hero-activities', async () => {
         heroActivitiesRequested = true;
         await heroActivitiesReleased;
@@ -173,12 +179,11 @@ describe('동아리 상세 트리 — 대표 활동 시드(#1457)', () => {
       treeOptions: { heroActivities },
       whileMounted: async (container) => {
         // 하이드레이션 직후 한 시점만 보면, 다른 비동기 사건(상세 재요청 성공 등)에 묶인 게이트로 회귀해도 타이밍에 따라 통과한다.
-        // 대표 활동 요청이 도착하고 상세 재요청이 반영돼 하단 지원 버튼 잠금이 풀린 뒤까지 이미지가 없는지 본다.
-        // 버튼은 이름 대신 하단 바 위치와 잠금 속성으로 찾는다 — 스냅샷 동안의 버튼 이름은 바뀔 수 있다.
+        // 대표 활동 요청이 도착하고 상세 재요청이 화면에 반영된(바뀐 이름이 보인) 뒤까지 이미지가 없는지 본다.
         try {
           await waitFor(() => {
             expect(heroActivitiesRequested).toBe(true);
-            expect(container.querySelector('[data-bottom-bar] button:not([disabled])')).not.toBeNull();
+            expect(container.textContent).toContain(latestDetailName);
           });
           imageShownBeforeResponse = container.querySelector('img[src$="hero-1.jpg"]') !== null;
         } finally {

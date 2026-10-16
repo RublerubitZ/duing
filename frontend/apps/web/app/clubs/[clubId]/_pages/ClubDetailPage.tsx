@@ -83,9 +83,9 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   }
 
   const club = detail.data;
-  // 지원 버튼이 기대는 상세 확인 상태. dataUpdatedAt 0 = ISR 시드(SeededQuery) — 모집 상태가 재생성 주기만큼 낡았을 수 있어 잠근다.
-  // 마운트 재요청이 성공하면 풀리고, 끝내 실패하면 잠긴 채 새로고침을 안내한다(확인 못 하면 닫는다).
-  // isFetching 으로 판정하지 않는다 — 재요청이 실패해 fetching 이 끝나면 낡은 스냅샷으로 버튼이 다시 열린다.
+  // 지원 버튼이 기대는 상세 확인 상태. dataUpdatedAt 0 = ISR 시드(SeededQuery) — 모집 상태가 재생성 주기만큼 낡았을 수 있어
+  // 외부 폼은 누를 때 먼저 다시 받는다(버튼 자체는 잠그지 않는다 — 확인 전후 색·화살표 플립 방지). 마운트 재요청이 끝내 실패하면 새로고침을 안내한다.
+  // isFetching 으로 판정하지 않는다 — 재요청이 실패해 fetching 이 끝나도 checkedAt 은 0 으로 남아 외부 폼은 계속 재확인을 거친다.
   const detailCheck: ClubDetailCheck = {
     checkedAt: detail.dataUpdatedAt,
     checkFailed: detail.dataUpdatedAt === 0 && detail.isError,

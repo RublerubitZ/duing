@@ -17,9 +17,9 @@ import { safeExternalHref, toRoute } from '../../../_lib/route';
 
 /** 지원 버튼이 기대는 상세 확인 상태 — ClubDetailPage 가 상세 쿼리로 만든다. */
 export type ClubDetailCheck = {
-  /** 이 브라우저가 상세를 마지막으로 받은 시각(ms). 0 = ISR 스냅샷(아직 못 받음). */
+  /** 이 브라우저가 상세를 마지막으로 받은 시각(ms). 0 = ISR 스냅샷(아직 못 받음) — 외부 폼은 누를 때 먼저 다시 받는다. */
   checkedAt: number;
-  /** 스냅샷인데 다시 받기가 끝내 실패했다 — 버튼은 잠긴 채 새로고침을 안내한다. */
+  /** 스냅샷인데 다시 받기가 끝내 실패했다 — 새로고침을 안내한다(버튼은 잠그지 않는다, 누르면 다시 확인한다). */
   checkFailed: boolean;
   /** 상세를 다시 받는다. 성공하면 true. */
   recheck: () => Promise<boolean>;
@@ -30,11 +30,13 @@ export type ClubDetailCheck = {
  * - 외부 폼 모집: 안전 검증된 URL 을 새 탭으로 연다.
  * - 내부 모집: 비로그인 시 next 파라미터를 붙여 로그인으로, 로그인 시 지원 가능 여부를
  *   먼저 확인한 뒤 지원 페이지로 이동한다(부적격이면 토스트로 사유를 알리고 머무른다).
- * - 지원 버튼은 이 브라우저가 받은 최신 상세로만 연다(detailCheck.checkedAt > 0). ISR 스냅샷의 모집 상태는 재생성 주기만큼
- *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다.
- * - ISR 스냅샷으로 잠근 지원 가능 모집은 awaitingCheck 로 알려 버튼이 확인 중 스피너를 두게 한다.
- * - 외부 폼은 확인한 지 모집 축 신선도(CALENDAR_STALE_TIME_MS)보다 오래된 상세로 열지 않는다 — 누르면 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다.
- *   일반 폼은 클릭 때 서버 자격 확인이 마감을 막지만, 외부 폼은 그 확인이 없다.
+ * - 열린 모집(OPEN·ALWAYS_OPEN)의 버튼은 ISR 스냅샷이어도 활성으로 그린다 — 상세를 다시 받는 순간 색·화살표가 바뀌며
+ *   깜빡이지 않게(iOS 깜빡임 P0). 안전은 누를 때 지킨다: 일반 폼은 클릭 때 서버 자격 확인이 마감을 막지만, 외부 폼은 그 확인이 없다.
+ * - 외부 폼은 이 브라우저가 받은 최신 상세로만 연다 — 스냅샷(checkedAt 0)이거나 확인한 지 모집 축 신선도(CALENDAR_STALE_TIME_MS)보다
+ *   오래됐으면 누를 때 먼저 다시 받고 바뀐 상태를 보여 준 뒤 한 번 더 누르게 한다. ISR 스냅샷의 모집 상태는 재생성 주기만큼
+ *   낡아 마감한 모집도 열려 보이고, 외부 폼은 서버 확인 없이 열리므로 스냅샷으로 열면 마감 뒤 지원이 샌다(#1421·#1424).
+ * - 누른 뒤 확인 중에도 버튼을 disabled(딤)로 잠그지 않는다 — 라벨·화살표를 그대로 두고 aria-disabled 와 라벨 왼쪽 지연 스피너
+ *   (pendingLabel 이 접근 이름)로 알리며, 중복 클릭은 handleApply 의 가드가 무시한다.
  * 데스크탑 모집 카드(ClubRecruitmentCard)와 모바일 하단 지원 바(ClubDetailApplyBar)가 공유한다.
  */
 export function useClubApply(
@@ -48,12 +50,8 @@ export function useClubApply(
   const [isRecheckingDetail, setIsRecheckingDetail] = useState(false);
 
   const status = recruitment?.displayStatus;
-  const isSnapshot = detailCheck.checkedAt === 0;
-  const isOpenStatus = status === 'OPEN' || status === 'ALWAYS_OPEN';
-  const canApply = !isSnapshot && isOpenStatus;
-  // 스냅샷이라 잠근 것뿐인 지원 가능 모집 — 확인되면 열릴 수 있다. 확인이 실패하지 않은 동안 버튼에 확인 중 스피너를 둔다(#1456).
-  // 마감·예정·모집 없음은 카드 제목·하단 바 좌측 라벨이 이미 잠긴 이유를 말하므로 제외한다. 서버 HTML·하이드레이션 첫 프레임 모두 시드(updatedAt 0)라 같다.
-  const awaitingCheck = isSnapshot && !detailCheck.checkFailed && isOpenStatus;
+  // 스냅샷 여부는 보지 않는다 — 마감·예정·모집 없음만 잠근다. 서버 HTML·하이드레이션 첫 프레임 모두 시드(updatedAt 0)라 같다.
+  const canApply = status === 'OPEN' || status === 'ALWAYS_OPEN';
   const applyButtonLabel =
     recruitment?.applicationMode === 'EXTERNAL' ? '외부 폼으로 이동' : '지원하기';
 
@@ -67,7 +65,7 @@ export function useClubApply(
   async function handleApply() {
     if (!recruitment || !canApply || eligibilityCheck.isPending || isRecheckingDetail) return;
     if (recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl) {
-      // 기준은 모집 축 신선도(마감 노출 지연 상한)다 — 정책이 바뀌면 이 기준도 함께 바뀐다.
+      // 기준은 모집 축 신선도(마감 노출 지연 상한)다 — 정책이 바뀌면 이 기준도 함께 바뀐다. 스냅샷(checkedAt 0)은 항상 여기에 든다.
       // 확인한 지 오래된 상세면 열기 전에 다시 받는다. 받은 뒤 바로 열지 않는다 — 기다린 뒤의 window.open 은
       // 팝업 차단에 걸릴 수 있고(noopener 라 알 수도 없다), 바뀐 상태(마감 등)를 사용자가 먼저 보게 한다.
       if (Date.now() - detailCheck.checkedAt > CALENDAR_STALE_TIME_MS) {
@@ -107,7 +105,7 @@ export function useClubApply(
     }
   }
 
-  // 버튼 자리 스피너의 접근 이름 — 진행 중인 확인이 없으면 null.
+  // 라벨 왼쪽 지연 스피너의 접근 이름(버튼은 aria-disabled 로 함께 알린다) — 진행 중인 확인이 없으면 null.
   const pendingLabel = isRecheckingDetail
     ? '모집 정보 확인 중'
     : eligibilityCheck.isPending
@@ -116,7 +114,6 @@ export function useClubApply(
 
   return {
     canApply,
-    awaitingCheck,
     handleApply,
     applyButtonLabel,
     pendingLabel,
