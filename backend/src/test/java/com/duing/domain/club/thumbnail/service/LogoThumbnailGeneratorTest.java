@@ -188,6 +188,25 @@ class LogoThumbnailGeneratorTest {
                 .isEqualTo(SkipReason.TOO_MANY_PIXELS);
     }
 
+    @ParameterizedTest(name = "FF {0}")
+    @ValueSource(ints = {0x00, 0x01, 0xD0, 0xD7})
+    @DisplayName("길이 없는 마커(TEM·RSTn)와 FF00 뒤 두 바이트는 세그먼트 길이로 읽지 않는다 — 디코더가 읽는 첫 스캔(1성분) 기준으로 800만 픽셀 상한을 쓴다")
+    void lengthlessMarkerIsNotReadAsSegmentLength(int markerCode) {
+        // SOI · FF xx · 00 1F · SOF0+SOS(Ns=1) · SOF0+SOS(Ns=3). 디코더는 FF xx 와 두 바이트를 건너뛰고 Ns=1 스캔을 읽는다.
+        // 두 바이트를 길이(31)로 읽으면 앞의 SOF0·SOS(Ns=1)를 건너뛰고 뒤의 Ns=3 에 닿아 인터리브로 잘못 본다.
+        byte[] multiScan = ImageFixture.jpegHeaderOnly(3000, 3000, 1);
+        byte[] interleaved = ImageFixture.jpegHeaderOnly(3000, 3000, 3);
+        int skipped = multiScan.length - 2;
+        byte[] header = ByteBuffer.allocate(multiScan.length + 4 + interleaved.length - 2)
+                .put(multiScan, 0, 2)
+                .put((byte) 0xFF).put((byte) markerCode).putShort((short) (2 + skipped))
+                .put(multiScan, 2, skipped)
+                .put(interleaved, 2, interleaved.length - 2)
+                .array();
+
+        assertThat(skipReason(header)).isEqualTo(SkipReason.TOO_MANY_PIXELS); // 길이로 읽으면 디코딩으로 넘어가 UNREADABLE
+    }
+
     /** offset 자리에 바이트를 끼운다 — 0 은 맨 앞, 2 는 SOI 바로 뒤. */
     private static byte[] insertAt(byte[] jpeg, int offset, byte... inserted) {
         return ByteBuffer.allocate(jpeg.length + inserted.length)
