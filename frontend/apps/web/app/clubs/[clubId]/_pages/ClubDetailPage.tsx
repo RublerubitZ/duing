@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { ApiError } from '@duing/api';
 import {
@@ -61,7 +61,13 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   // 공개 동아리는 서버 메타데이터가 제목을 붙인다 — 서버가 데이터를 못 받은 렌더(셸·인터셉트 상세)에서도 같은 형식이 되도록 데이터
   // 도착 후 맞춘다. 실패로 끝나면 그 화면 문구가 제목이다 — 제목이 그대로면 Next·라우트 공지 영역 모두 침묵한다(스펙 P1 §3.6).
   const screenTitle = detail.isLoading ? null : isUnavailable ? UNAVAILABLE_TITLE : (detail.data?.name ?? LOAD_FAILED_TITLE);
-  useDocumentTitle(screenTitle);
+  // 제목을 비우는 건 첫 로드뿐이다 — 로그아웃·세션 만료의 queryClient.clear() 뒤 다시 받는 동안 비우면 정리가 직전 제목(목록·기본 제목)으로
+  // 되돌려 탭 제목이 틀리고 refresh 커밋의 공지도 그 제목을 읽는다. 렌더에서 읽고 커밋 뒤에 갱신한다(다른 동아리는 다시 마운트돼 새로 시작).
+  const settledTitleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (screenTitle !== null) settledTitleRef.current = screenTitle;
+  }, [screenTitle]);
+  useDocumentTitle(screenTitle ?? settledTitleRef.current);
   // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 마운트면 본문이 떠오른다(뒤로·앞으로 가기는 그대로) —
   // early return 보다 위에서 잡는다. 서버 HTML 에도 실려 첫 화면에서 CSS 로 재생된다.
   const playsEntrance = useEntranceMotion(detail.isLoading);

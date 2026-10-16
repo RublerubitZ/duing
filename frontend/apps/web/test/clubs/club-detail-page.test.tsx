@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -128,17 +128,22 @@ function createQueryClient() {
   });
 }
 
-// 캐시 재방문은 상세를 미리 채운 QueryClient 를 넘겨 흉내 낸다.
-function renderPage(queryClient: QueryClient = createQueryClient()) {
-  return render(
+// rerender 도 같은 트리를 넘겨야 상세가 다시 마운트되지 않고 다시 그려진다.
+function pageTree(queryClient: QueryClient) {
+  return (
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <ClubDetailPage clubId={CLUB_ID} />
         </ToastProvider>
       </QueryClientProvider>
-    </ApiClientProvider>,
+    </ApiClientProvider>
   );
+}
+
+// 캐시 재방문은 상세를 미리 채운 QueryClient 를 넘겨 흉내 낸다.
+function renderPage(queryClient: QueryClient = createQueryClient()) {
+  return render(pageTree(queryClient));
 }
 
 // a 가 b 앞에 오면 true (DOCUMENT_POSITION_FOLLOWING = 4).
@@ -253,6 +258,56 @@ describe('동아리 상세 실패 분기', () => {
     renderPage();
 
     await waitFor(() => expect(document.title).toBe('두잉 | 두잉'));
+  });
+
+  it('이름이 정해진 뒤 캐시를 비우고 다시 받는 동안(로그아웃·세션 만료) 탭 제목이 동아리 이름 그대로다', async () => {
+    document.title = '동아리 탐색 | 두잉';
+    seed();
+    let releaseRefetch: () => void = () => {};
+    const refetchReleased = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let detailRequestCount = 0;
+    // 첫 요청은 바로 답하고, 캐시를 비운 뒤의 재요청만 붙잡는다.
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}`, async () => {
+        detailRequestCount += 1;
+        if (detailRequestCount > 1) await refetchReleased;
+        return envelope(clubDetail);
+      }),
+    );
+    const queryClient = createQueryClient();
+    const { rerender } = renderPage(queryClient);
+    await waitFor(() => expect(document.title).toBe('두잉 | 두잉'));
+
+    // 로그아웃(useLogout)·세션 만료(SessionExpiryHandler)는 queryClient.clear() 뒤 router.refresh()·인증 상태 변경으로 다시 그린다.
+    // clear 는 마운트된 observer 에 알리지 않으므로 다시 그리기는 rerender 로 흉내 낸다.
+    act(() => queryClient.clear());
+    rerender(pageTree(queryClient));
+    // 대기가 실패해도 붙잡은 응답을 푼다 — 안 풀면 요청이 케이스가 끝난 뒤에도 남는다.
+    try {
+      await waitFor(() => expect(detailRequestCount).toBe(2));
+      expect(screen.getByRole('status', { name: '동아리 정보 불러오는 중' })).toBeInTheDocument();
+      expect(document.title).toBe('두잉 | 두잉');
+    } finally {
+      releaseRefetch();
+    }
+    await screen.findByRole('tablist');
+    expect(document.title).toBe('두잉 | 두잉');
+  });
+
+  it('이름이 정해진 뒤 다시 받은 응답이 404 면 탭 제목이 "이 동아리는 지금 볼 수 없어요" 로 바뀐다', async () => {
+    document.title = '동아리 탐색 | 두잉';
+    seed();
+    const queryClient = createQueryClient();
+    renderPage(queryClient);
+    await waitFor(() => expect(document.title).toBe('두잉 | 두잉'));
+
+    server.use(http.get(`*/clubs/${CLUB_ID}`, () => new HttpResponse(null, { status: 404 })));
+    await act(() => queryClient.refetchQueries({ queryKey: clubQueryKeys.detail(CLUB_ID) }));
+
+    expect(await screen.findByRole('heading', { name: '이 동아리는 지금 볼 수 없어요' })).toBeInTheDocument();
+    expect(document.title).toBe('이 동아리는 지금 볼 수 없어요 | 두잉');
   });
 });
 
