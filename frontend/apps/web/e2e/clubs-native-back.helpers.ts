@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
 
 /**
  * 동아리 목록 유지(스펙 P1) E2E 공용 — dev 서버(:3000)·로컬 BE 기준. 크로미엄(clubs-native-back.spec.ts)·웹킷 iPhone
@@ -268,15 +268,15 @@ export async function announcementsBetween(page: Page, from: number, to: number)
 
 export const announcedText = (entry: string) => entry.slice(entry.indexOf(':') + 1);
 
-/** 상세 API 를 늦춰 인터셉트 커밋이 데이터보다 먼저 오게 한다(늦은 진입). */
-export async function delayClubDetailApi(page: Page, clubId: number, delayMs: number): Promise<void> {
-  await page.route(
-    (url) => url.pathname === `/api/v1/clubs/${clubId}`,
-    async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      await route.continue();
-    },
-  );
+/** 상세 API 를 늦춰 인터셉트 커밋이 데이터보다 먼저 오게 한다(늦은 진입). 돌려준 함수가 지연을 푼다. */
+export async function delayClubDetailApi(page: Page, clubId: number, delayMs: number): Promise<() => Promise<void>> {
+  const matchesDetail = (url: URL) => url.pathname === `/api/v1/clubs/${clubId}`;
+  const delayDetail = async (route: Route) => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await route.continue();
+  };
+  await page.route(matchesDetail, delayDetail);
+  return () => page.unroute(matchesDetail, delayDetail);
 }
 
 /** dev 서버가 인터셉트 경로를 처음 컴파일하는 시간을 측정 밖으로 뺀다 — 공지 경우를 보기 전에 한 번 열어 둔다. */

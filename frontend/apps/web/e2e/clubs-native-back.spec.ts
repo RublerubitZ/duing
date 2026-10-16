@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
   LIST_TITLE,
@@ -35,6 +35,7 @@ import {
  * 에서도 같은 라우터 코드다. 진입 스켈레톤·프리페치 판정은 프로덕션 빌드 몫이다(club-entry-measure.spec.ts).
  * 실행: (apps/web) npx playwright test e2e/clubs-native-back.spec.ts
  * 회원 체인은 그 동아리 회원 계정이 있어야 한다 — E2E_MEMBER_STUDENT_ID·E2E_MEMBER_PASSWORD·E2E_MEMBER_CLUB_ID(없으면 건너뛴다).
+ * 로그아웃 케이스는 계정 둘(E2E_MEMBER_STUDENT_ID·E2E_MEMBER_PASSWORD)만 본다.
  */
 
 const API_BASE_URL = process.env.E2E_API_BASE_URL ?? 'http://localhost:8080/api/v1';
@@ -51,6 +52,14 @@ test.describe.configure({ timeout: 180_000 });
 test.beforeEach(async ({ page }) => {
   await blockViewBeacons(page);
 });
+
+async function loginAsMember(page: Page): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('학번').fill(MEMBER_STUDENT_ID ?? '');
+  await page.getByLabel('비밀번호', { exact: true }).fill(MEMBER_PASSWORD ?? '');
+  await page.getByRole('button', { name: '로그인' }).click();
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+}
 
 test.describe('목록 → 인터셉트 상세 → 뒤로', () => {
   test('카드 노드가 그대로 남고(숨김 → 다시 보임), 탭 제목이 목록 제목으로 돌아온다', async ({ page }) => {
@@ -167,12 +176,7 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
   );
 
   test('돌아온 인터셉트 엔트리에서는 목록을 숨긴 채 새로 마운트하지 않고, 마지막 뒤로에서 목록이 원래 쿼리로 다시 그려진다', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('학번').fill(MEMBER_STUDENT_ID ?? '');
-    await page.getByLabel('비밀번호', { exact: true }).fill(MEMBER_PASSWORD ?? '');
-    await page.getByRole('button', { name: '로그인' }).click();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
-
+    await loginAsMember(page);
     await gotoList(page, '?sort=ALPHABETICAL');
     await softNavigate(page, `/clubs/${MEMBER_CLUB_ID}`);
     await waitForInterceptedDetail(page);
@@ -321,6 +325,65 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     // 라이브 영역은 침묵하고, Next 재공지는 동아리 제목 최대 한 번이다.
     expect(lightbox.filter((entry) => entry !== `next:${clubTitle}`)).toEqual([]);
     expect(lightbox.length).toBeLessThanOrEqual(1);
+    expect(back.map(announcedText)).toEqual([LIST_TITLE]);
+  });
+});
+
+test.describe('인터셉트 상세에서 로그아웃(router.refresh)', () => {
+  test.skip(!MEMBER_STUDENT_ID || !MEMBER_PASSWORD, 'E2E_MEMBER_STUDENT_ID·E2E_MEMBER_PASSWORD(회원 계정)가 없으면 건너뛴다.');
+
+  test('늦은 진입 뒤 로그아웃 — 탭 제목 유지·라이브 영역 침묵·Next 최대 1회·숨은 목록 노드 유지·전체 새로고침 없음, 뒤로는 목록 제목 한 번', async ({ page }) => {
+    await recordRouteAnnouncements(page);
+    await loginAsMember(page);
+    await warmUpInterceptRoute(page);
+    await gotoList(page);
+    const card = visibleCards(page).first();
+    const clubId = await readCardClubId(card);
+    const clubTitle = `${await readCardClubName(card)} | 두잉`;
+    await markCard(card);
+    const releaseDetailDelay = await delayClubDetailApi(page, clubId, LATE_DETAIL_DELAY_MS);
+
+    await card.click();
+    await expect(page).toHaveTitle(clubTitle, { timeout: ROUTE_TIMEOUT_MS });
+    await waitForInterceptedDetail(page);
+    // 로그아웃이 상세를 다시 받는다 — 지연을 풀어 다시 받은 응답이 늦지 않게 한다.
+    await releaseDetailDelay();
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    // refresh 는 지금 주소의 RSC 를 다시 받는다 — 그 응답이 끝나면 곧 커밋돼 head 가 다시 그려진다(목록 제목).
+    const refreshFinished = page.waitForEvent('requestfinished', {
+      predicate: (finishedRequest) =>
+        finishedRequest.headers()['rsc'] === '1' &&
+        finishedRequest.headers()['next-router-prefetch'] === undefined &&
+        new URL(finishedRequest.url()).pathname === `/clubs/${clubId}`,
+      timeout: ROUTE_TIMEOUT_MS,
+    });
+
+    const logoutAt = await markTime(page);
+    await page.locator('header').getByRole('button', { name: /님$/ }).click();
+    await page.getByRole('menuitem', { name: '로그아웃' }).click();
+    await refreshFinished;
+    await expect(page.locator('header').getByRole('link', { name: '로그인' })).toBeVisible();
+    await waitForInterceptedDetail(page);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const backAt = await markTime(page);
+    const logout = await announcementsBetween(page, logoutAt, backAt);
+
+    await expect(page).toHaveURL(new RegExp(`/clubs/${clubId}$`));
+    await expect(page).toHaveTitle(clubTitle);
+    // 창에 붙잡아 둔 카드 노드가 숨은 목록에 그대로 있다 — 전체 새로고침이면 창 값부터 사라진다.
+    expect(await markedCardState(page, clubId)).toEqual({ connected: true, shownAsSameNode: false, insideHiddenList: true });
+
+    await page.goBack();
+    await waitForList(page);
+    await expect(page).toHaveTitle(LIST_TITLE);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const endAt = await markTime(page);
+    const back = await announcementsBetween(page, backAt, endAt);
+    console.log(`[공지] 로그아웃 늦은 진입 로그아웃=${JSON.stringify(logout)} 뒤로=${JSON.stringify(back)}`);
+    expect(await markedCardState(page, clubId)).toEqual({ connected: true, shownAsSameNode: true, insideHiddenList: false });
+    // refresh 커밋에서 Next 가 처음 동아리 제목을 읽어 한 번 더 알릴 수 있다(수용, 스펙 §3.6) — 라이브 영역은 침묵한다.
+    expect(logout.filter((entry) => entry !== `next:${clubTitle}`)).toEqual([]);
+    expect(logout.length).toBeLessThanOrEqual(1);
     expect(back.map(announcedText)).toEqual([LIST_TITLE]);
   });
 });

@@ -1,5 +1,5 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
-import { StrictMode, type ReactNode } from 'react';
+import { StrictMode, useEffect, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -38,13 +38,33 @@ type HarnessProps = {
   detailKey?: string;
 };
 
+// Next 공지기가 커밋마다 읽은 제목 — 콘텐츠 뒤 형제라 같은 커밋에서 공지 영역 effect 뒤에 읽는다(app-router.js).
+const nextAnnouncerReads: string[] = [];
+
+function NextAnnouncerProbe() {
+  useEffect(() => {
+    nextAnnouncerReads.push(document.title);
+  });
+  return null;
+}
+
 function Harness({ intercepted, detailTitle, detailKey }: HarnessProps) {
   return (
     <>
       {detailTitle !== undefined && <DetailTitleProbe key={detailKey} title={detailTitle} />}
       <ClubsRouteAnnouncer intercepted={intercepted} />
+      <NextAnnouncerProbe />
     </>
   );
+}
+
+// head 재렌더 — React 가 <title> 을 새 요소로 바꿔 끼운다(refresh 커밋, Next 16.3.8 실측). 인터셉트 트리의 제목은 children(목록) 것이다.
+function rerenderHeadTitle(title: string) {
+  const currentTitleElement = document.head.querySelector('title');
+  if (!currentTitleElement) throw new Error('head 에 <title> 이 없다');
+  const titleElement = document.createElement('title');
+  titleElement.textContent = title;
+  currentTitleElement.replaceWith(titleElement);
 }
 
 const regionObservers: MutationObserver[] = [];
@@ -95,6 +115,7 @@ const NEXT_REREADS: Array<[string, () => void]> = [
 afterEach(() => {
   cleanup();
   regionObservers.splice(0).forEach((observer) => observer.disconnect());
+  nextAnnouncerReads.length = 0;
   window.history.replaceState(null, '', '/');
   navigation.pathname = '/clubs';
 });
@@ -159,6 +180,48 @@ describe('ClubsRouteAnnouncer — Next 공지기가 놓치는 인터셉트 전�
 
     expect(document.title).toBe(LIST_TITLE);
     expect(announced(texts)).toEqual([CLUB_TITLE]);
+  });
+
+  it('늦은 진입 뒤 로그아웃 — refresh 커밋이 head 를 다시 그려 목록 제목을 넣어도 그 커밋에서 되돌려 Next 가 동아리 제목을 읽고, 뒤로(옛 상세가 남은 커밋)는 Next 가 목록 제목을 읽는다 — 영역은 내내 침묵', async () => {
+    document.title = LIST_TITLE;
+    const view = renderAt('/clubs', { intercepted: false });
+    const texts = recordRegion();
+    pushPath('/clubs/7');
+    view.rerender({ intercepted: true, detailTitle: null });
+    view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    await waitFor(() => expect(announced(texts)).toEqual([CLUB_TITLE]));
+
+    act(() => window.dispatchEvent(new Event(ROUTER_REFRESH_EVENT)));
+    // refresh 커밋 — head 재렌더와 프레임 재렌더가 한 커밋이다. Next 공지기는 관찰 콜백(마이크로태스크)보다 먼저 읽는다.
+    act(() => {
+      rerenderHeadTitle(LIST_TITLE);
+      view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    });
+    expect(nextAnnouncerReads.at(-1)).toBe(CLUB_TITLE);
+    await settle();
+    expect(document.title).toBe(CLUB_TITLE);
+
+    // refresh 뒤 뒤로 — 비워진 캐시를 다시 받는 동안 경로 커밋에 옛 상세가 남고, 상세는 다음 커밋에 빠진다(Next 16.3.8 실측).
+    popToPath('/clubs');
+    view.rerender({ intercepted: false, detailTitle: '밴드부' });
+    expect(nextAnnouncerReads.at(-1)).toBe(LIST_TITLE);
+    view.rerender({ intercepted: false });
+    await settle();
+    expect(document.title).toBe(LIST_TITLE);
+    expect(announced(texts)).toEqual([CLUB_TITLE]);
+  });
+
+  it('인터셉트 동안 프레임 재렌더 없이 head 만 다시 그려져도(관찰 콜백) 동아리 제목으로 되돌리고 알리지 않는다', async () => {
+    document.title = LIST_TITLE;
+    const view = renderAt('/clubs', { intercepted: false });
+    const texts = recordRegion();
+    pushPath('/clubs/7');
+    view.rerender({ intercepted: true, detailTitle: '밴드부' });
+
+    rerenderHeadTitle(LIST_TITLE);
+    await waitFor(() => expect(document.title).toBe(CLUB_TITLE));
+    await settle();
+    expect(announced(texts)).toEqual([]);
   });
 
   it('같은 문구가 이어지면(삭제된 동아리 → 다른 삭제된 동아리, 상세→상세) 영역을 비웠다가 다시 채워 두 번 다 읽힌다', async () => {
