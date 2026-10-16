@@ -44,6 +44,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** 동아리 도메인의 업로드 활성화 지점(스펙 §3.4: LOGO·COVER·PHOTO) + 만료 업로드 400 HTTP 계약(§6). */
 @Import(TestcontainersConfiguration.class)
@@ -64,6 +67,8 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     @Autowired UploadedObjectRepository uploadedObjectRepository;
     @Autowired Clock clock;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired TransactionTemplate transactionTemplate;
+    @Autowired PlatformTransactionManager platformTransactionManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -318,6 +323,30 @@ class ClubUploadActivationTest extends IntegrationTestBase {
         assertThat(statusOf(oldLogoKey)).isEqualTo(UploadedObjectStatus.RELEASED);
         assertThat(statusOf(oldThumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
         assertThat(statusOf(newLogoKey)).isEqualTo(UploadedObjectStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("수정이 동아리를 읽은 뒤 다른 트랜잭션이 커밋한 썸네일도 같은 수정의 로고 변경이 비우고 그 업로드를 RELEASED 로 내린다")
+    void logoChangeReleasesThumbnailCommittedAfterClubWasRead() throws Exception {
+        User leader = userRepository.save(UserFixture.unique());
+        String oldLogoKey = seedActive(FilePurpose.LOGO);
+        String thumbnailKey = seedActive(FilePurpose.LOGO);
+        Club club = saveClubWithStatus(ClubStatus.ACTIVE, STUB_PREFIX + oldLogoKey);
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        String newLogoKey = seedPending(FilePurpose.LOGO);
+        TransactionTemplate generationTransaction = new TransactionTemplate(platformTransactionManager);
+        generationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            clubRepository.findById(club.getId()).orElseThrow(); // 썸네일 NULL 스냅숏 — 수정이 같은 트랜잭션에서 이 엔티티를 받는다
+            // 그사이 생성기가 별도 트랜잭션으로 썸네일을 반영하고 커밋한다.
+            generationTransaction.executeWithoutResult(generationStatus -> clubRepository.setLogoThumbnailUrlIfLogoUnchanged(
+                    club.getId(), STUB_PREFIX + oldLogoKey, STUB_PREFIX + thumbnailKey));
+            clubService.update(updateImages(club.getId(), leader.getId(), STUB_PREFIX + newLogoKey, null));
+        });
+
+        assertThat(thumbnailUrlOf(club.getId())).isNull();
+        assertThat(statusOf(thumbnailKey)).isEqualTo(UploadedObjectStatus.RELEASED);
     }
 
     @Test
