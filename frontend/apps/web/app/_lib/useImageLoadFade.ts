@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type RefCallback } from 'react';
 
+import { isBackNavigationPending } from './backNavigationViewTransition';
 import { useHydrated } from './useHydrated';
 
 type FadePhase = 'visible' | 'pending' | 'loaded';
@@ -22,6 +23,8 @@ const FADE_IN_CLASS = 'opacity-100 transition-opacity duration-200 ease-duing mo
  * - 하이드레이션 뒤 마운트(useHydrated 가 첫 렌더부터 true)이고 마운트 시점에 로드 전(complete=false)인 이미지만 투명도 0 에서 시작한다.
  * - 서버 HTML·하이드레이션 첫 렌더는 보이는 상태로 그린다 — 첫 화면의 큰 이미지를 투명도 0 으로 시작하면 LCP 가 늦다(실측 +212ms).
  *   판정은 마운트 시점 값으로 고정된다 — 하이드레이션 뒤 useHydrated 가 true 로 다시 그려도 바뀌지 않는다.
+ * - 뒤로·앞으로 가기(data-back-navigation 마커)로 다시 마운트되면 즉시 보인다 — 돌아온 화면에 연출을 붙이지 않는 관례
+ *   (useEntranceMotion)와 같고, iOS 스와이프 백 스냅숏이 실제 화면으로 바뀐 직후 배너가 비는 시간을 늘리지 않는다.
  * - 마운트 때 이미 complete(캐시 적중)·로드 실패는 즉시 보인다 — 아직 그린 프레임이 없어 전이도 없다. raw <img>(대표 활동)는 캐시면
  *   이렇게 즉시지만, next/image(커버)는 srcset+lazy 라 ref 시점엔 캐시돼도 complete 가 false 인 경우가 많아 재진입에도 짧게
  *   페이드한다(팝은 아니다 — 허용).
@@ -31,10 +34,10 @@ const FADE_IN_CLASS = 'opacity-100 transition-opacity duration-200 ease-duing mo
  */
 export function useImageLoadFade(): ImageLoadFade {
   const hydrated = useHydrated();
-  const [phase, setPhase] = useState<FadePhase>(() => (hydrated ? 'pending' : 'visible'));
+  const [phase, setPhase] = useState<FadePhase>(() => (hydrated && !isBackNavigationPending() ? 'pending' : 'visible'));
   const ref = useCallback<RefCallback<HTMLImageElement>>((image) => {
     // 캐시 적중 — 마운트 때 이미 complete 면 숨기지 않는다(ref 는 그리기 전 커밋 단계에 불린다).
-    if (image?.complete) setPhase('visible');
+    if (image?.complete) setPhase((current) => (current === 'pending' ? 'visible' : current));
   }, []);
 
   return {

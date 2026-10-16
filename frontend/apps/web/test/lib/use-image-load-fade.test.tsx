@@ -42,6 +42,21 @@ describe('useImageLoadFade — 클라이언트 이동으로 마운트한 미완�
     expect(image).toHaveClass(...FADE_IN_CLASSES);
   });
 
+  it('뒤로·앞으로 가기 마커(data-back-navigation)가 선 채 마운트하면 로드 전이어도 즉시 보인다 — 돌아온 화면에 연출을 붙이지 않는다', () => {
+    stubImageComplete(false);
+    document.documentElement.setAttribute('data-back-navigation', '');
+    try {
+      const { container } = render(<FadeProbe />);
+      const image = probeImage(container);
+      expect(image.className).toBe('');
+
+      fireEvent.load(image);
+      expect(image.className).toBe('');
+    } finally {
+      document.documentElement.removeAttribute('data-back-navigation');
+    }
+  });
+
   it('마운트 때 이미 complete(캐시 적중)면 숨기지 않고 즉시 보인다 — 전이 클래스도 없다', () => {
     stubImageComplete(true);
     const { container } = render(<FadeProbe />);
