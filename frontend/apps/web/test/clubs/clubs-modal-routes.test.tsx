@@ -42,9 +42,9 @@ vi.mock('@/app/_components/RouteErrorView', async () => {
   };
 });
 
-import * as interceptRoute from '@/app/clubs/@modal/(.)[clubId]/page';
-import InterceptError from '@/app/clubs/@modal/(.)[clubId]/error';
-import InterceptLoading from '@/app/clubs/@modal/(.)[clubId]/loading';
+import * as interceptRoute from '@/app/clubs/@modal/(...)clubs/[clubId]/page';
+import InterceptError from '@/app/clubs/@modal/(...)clubs/[clubId]/error';
+import InterceptLoading from '@/app/clubs/@modal/(...)clubs/[clubId]/loading';
 import * as passthroughClubDetailRoute from '@/app/clubs/@modal/(passthrough)/[clubId]/page';
 import * as passthroughMemberEventDetailRoute from '@/app/clubs/@modal/(passthrough)/[clubId]/member/events/[eventId]/page';
 import * as passthroughMemberEventsRoute from '@/app/clubs/@modal/(passthrough)/[clubId]/member/events/page';

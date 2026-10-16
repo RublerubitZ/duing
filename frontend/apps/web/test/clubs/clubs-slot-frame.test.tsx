@@ -14,9 +14,9 @@ import { clearNavigationPending } from '@/app/_lib/backDismiss';
 /**
  * ClubsSlotFrame 판별 매트릭스(스펙 P1 §3.2 표·§5) — modal 경로(useSelectedLayoutSegments('modal'))·children 세그먼트로 children 을
  * 보임/숨겨 유지/렌더 안 함 중 하나로 그리고, 루트 표식(data-clubs-slot)과 숨은 목록 표식(data-clubs-hidden-list)을 단다.
- * 훅 값은 Next 16.3.8 실측 그대로다 — modal 경로 앞에 Next 내부 세그먼트 '(__SLOT__)' 가 끼고, 인터셉트((.)[clubId])는 동아리 id
- * 하나로, 하드 로드 상세·회원 화면에는 미러 그룹 '(passthrough)' 가 들어 있다. 판별은 fail-open 이라 모르는 내부 세그먼트·기본값·
- * 숫자 아닌 id 는 인터셉트가 아니다(그 경우도 매트릭스에 있다).
+ * 훅 값은 Next 16.3.8 실측 그대로다 — modal 경로 앞에 Next 내부 세그먼트 '(__SLOT__)' 가 끼고, 인터셉트((...)clubs/[clubId])는
+ * '(...)clubs' 와 동아리 id 로, 하드 로드 상세·회원 화면에는 미러 그룹 '(passthrough)' 가 들어 있다. 판별은 fail-open 이라 모르는
+ * 내부 세그먼트·기본값·숫자 아닌 id 는 인터셉트가 아니다(그 경우도 매트릭스에 있다).
  * next/navigation 의 훅들은 테스트가 바꾸는 탐색 상태 하나를 읽는다 — 실제 라우터처럼 한 번의 변경이 한 번의 커밋이다.
  */
 
@@ -93,10 +93,11 @@ const hardMember = (clubId: string): SlotNavigation => ({
   childSegment: clubId,
   modalDetailClubId: null,
 });
-// 인터셉트 — modal 경로가 (.)[clubId] 의 동아리 id 하나다. 밑의 children 세그먼트는 그대로다(목록이면 null, 회원 화면이면 그 화면의 id).
+// 인터셉트 — modal 경로가 (...)clubs/[clubId] 의 '(...)clubs' 와 동아리 id 다. 밑의 children 세그먼트는 그대로다(목록이면 null, 회원
+// 화면이면 그 화면의 id).
 const intercepted = (clubId: string, childSegment: string | null): SlotNavigation => ({
   pathname: `/clubs/${clubId}`,
-  modalSegments: ['(__SLOT__)', clubId],
+  modalSegments: ['(__SLOT__)', '(...)clubs', clubId],
   childSegment,
   modalDetailClubId: clubId,
 });
@@ -114,7 +115,7 @@ const FAIL_OPEN_CASES: Array<[string, 'list' | 'page', SlotNavigation]> = [
   [
     '마지막 원소가 숫자 아닌 인터셉트 경로(/clubs/abc)',
     'list',
-    { pathname: '/clubs/abc', modalSegments: ['(__SLOT__)', 'abc'], childSegment: null, modalDetailClubId: 'abc' },
+    { pathname: '/clubs/abc', modalSegments: ['(__SLOT__)', '(...)clubs', 'abc'], childSegment: null, modalDetailClubId: 'abc' },
   ],
 ];
 
@@ -235,13 +236,17 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     expect(mountCounts.list).toBe(1);
   });
 
-  // 판별은 경로의 마지막 원소를 본다 — 앞에 모르는 내부 세그먼트가 하나 더 껴도 인터셉트를 놓치지 않는다(스펙 P1 §3.2 fail-open).
-  it('앞에 모르는 내부 세그먼트가 낀 인터셉트 경로도 인터셉트다 — 목록을 숨기고 상세를 그린다', () => {
+  // 판별은 경로의 마지막 원소를 본다 — 앞에 모르는 내부 세그먼트가 하나 더 끼거나, Next 가 경로 모양을 다시 바꿔 인터셉트 폴더
+  // 세그먼트가 빠져도(옛 (.)[clubId] 실측 모양) 인터셉트를 놓치지 않는다(스펙 P1 §3.2 fail-open).
+  it.each([
+    ['앞에 모르는 내부 세그먼트가 낀 인터셉트 경로', ['(__UNKNOWN__)', '(__SLOT__)', '(...)clubs', '5']],
+    ['인터셉트 폴더 세그먼트가 없는 옛 모양 경로', ['(__SLOT__)', '5']],
+  ])('%s — 인터셉트다, 목록을 숨기고 상세를 그린다', (_label, modalSegments) => {
     navigationStore.set(LIST);
     renderFrame();
     const listNode = screen.getByTestId('list-probe');
 
-    navigateTo({ ...intercepted('5', null), modalSegments: ['(__UNKNOWN__)', '(__SLOT__)', '5'] });
+    navigateTo({ ...intercepted('5', null), modalSegments });
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expect(listNode).not.toBeVisible();
