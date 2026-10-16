@@ -120,11 +120,12 @@ DB 마이그레이션(Flyway)은 백엔드 부팅 시 자동 적용된다. 롤�
 이전 이미지는 `club.logo_thumbnail_url` 을 모르므로, 롤백 기간에 로고를 바꾼 동아리는 옛 로고의 썸네일이 새 로고 옆에 그대로
 남는다. 백필은 썸네일이 비어 있는 동아리만 집고 **기동 때 한 번만** 돌므로, 새 이미지를 다시 기동하기 **전에** 아래 SQL 을
 실행한다(이미 기동했으면 실행한 뒤 백엔드를 한 번 더 재기동한다). `<롤백 시각>` 은 이전 이미지 컨테이너의 기동 시각(UTC,
-`docker compose logs backend` 의 `Started DuingApplication`), `<재배포 시각>` 은 새 이미지의 기동 시각이다 — 기동 **전에**
-실행할 때는 두 문장의 `'<재배포 시각>'` 을 **따옴표까지 지우고** `(NOW() AT TIME ZONE 'UTC')` 로 바꾼다(`club.updated_at` 은 naive
-`TIMESTAMP` 에 JVM `TZ=UTC` 벽시계로 기록되므로, 세션 TimeZone 이 UTC 가 아닌 클라이언트에서도 창이 어긋나지 않게). 1) 을 먼저 —
-비우기만 하면 썸네일의 추적 행이 ACTIVE 고아로 남아 파기 잡이 지우지 않는다. 두 문장의 대상 조건(살아 있고 썸네일이 있고 그 기간에
-수정된 동아리)은 같다.
+`docker compose logs backend` 의 `Started DuingApplication` 줄)이다 — `club.updated_at` 은 naive `TIMESTAMP` 에 JVM `TZ=UTC`
+벽시계로 기록되므로 로그 시각(`2026-10-20T13:05:00.123Z` 꼴)을 그대로 넣는다(naive 열과 비교하는 문자열의 `Z` 는 무시돼 세션
+TimeZone 과 상관없이 UTC 벽시계로 비교된다). 끝 시각은 두지 않는다 — 재배포 뒤에 다시 수정된 동아리도 대상에 들지만 썸네일을 한 번
+더 만들 뿐이다. 1) 을 먼저 — 비우기만 하면 썸네일의 추적 행이 ACTIVE 고아로 남아 파기 잡이 지우지 않는다. 1)·2) 의 대상 조건(살아
+있고 썸네일이 있고 롤백 시각 뒤에 수정된 동아리)은 같다. 3) 은 시각 조건이 없다 — 이전 이미지의 폐쇄는 썸네일을 해제하지 않고 새
+이미지의 폐쇄는 늘 해제하므로, 폐쇄된 동아리의 썸네일 추적 행이 ACTIVE 로 남아 있으면 롤백 기간의 폐쇄다.
 
 ```sql
 -- 1) 비울 썸네일의 추적 행을 RELEASED 로 내린다. 원본 URL 을 그대로 쓴 썸네일(따로 추적 행이 없다)만 뺀다 —
@@ -133,10 +134,16 @@ UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
  WHERE status = 'ACTIVE' AND purpose = 'LOGO'
    AND storage_key IN (SELECT substring(logo_thumbnail_url from '[^/]+/[^/]+/[^/]+$') FROM club
                         WHERE deleted_at IS NULL AND logo_thumbnail_url IS NOT NULL
-                          AND updated_at BETWEEN '<롤백 시각>' AND '<재배포 시각>'
+                          AND updated_at >= '<롤백 시각>'
                           AND logo_thumbnail_url IS DISTINCT FROM logo_url);
 -- 2) 같은 동아리의 썸네일을 비운다 — 재기동 뒤 백필이 다시 만든다(시작 로그 `[로고 썸네일 백필] 시작 — 대상 N` 에서 N 이 비운 건수 이상인지 본다).
 UPDATE club SET logo_thumbnail_url = NULL
  WHERE deleted_at IS NULL AND logo_thumbnail_url IS NOT NULL
-   AND updated_at BETWEEN '<롤백 시각>' AND '<재배포 시각>';
+   AND updated_at >= '<롤백 시각>';
+-- 3) 롤백 기간에 폐쇄된 동아리의 썸네일 추적 행을 RELEASED 로 내린다(원본 URL 을 그대로 쓴 썸네일은 폐쇄의 로고 해제가 다뤘다).
+UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
+ WHERE status = 'ACTIVE' AND purpose = 'LOGO'
+   AND storage_key IN (SELECT substring(logo_thumbnail_url from '[^/]+/[^/]+/[^/]+$') FROM club
+                        WHERE deleted_at IS NOT NULL AND logo_thumbnail_url IS NOT NULL
+                          AND logo_thumbnail_url IS DISTINCT FROM logo_url);
 ```
