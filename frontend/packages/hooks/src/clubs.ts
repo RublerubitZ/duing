@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DuingApiClient } from '@duing/api';
 import type {
   ClubMemberExportRow,
   ClubMemberPhone,
@@ -45,9 +46,12 @@ export function useClubListQuery(params: ClubSearchParams = {}, options?: { enab
   });
 }
 
-export function useClubDetailQuery(clubId: number | undefined) {
-  const client = useApiClient();
-  return useQuery({
+/**
+ * 동아리 상세 쿼리 옵션 — 훅(useClubDetailQuery)과 탐색 카드 누름 선조회(prefetchQuery)가 같은 키·조회·신선도를 쓴다(스펙 P1 §3.4).
+ * 신선도가 같아야 선조회한 결과를 훅이 다시 받지 않는다. clubId 가 없으면 지금처럼 꺼진 쿼리다.
+ */
+export function clubDetailQueryOptions(client: DuingApiClient, clubId: number | undefined) {
+  return queryOptions({
     queryKey: clubId !== undefined ? clubQueryKeys.detail(clubId) : ['clubs', undefined],
     queryFn: () => {
       if (clubId === undefined) {
@@ -59,6 +63,11 @@ export function useClubDetailQuery(clubId: number | undefined) {
     // 공개 콘텐츠 계층(freshness.ts) — 본인 수정은 mutation 무효화가 즉시 반영한다.
     staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
+}
+
+export function useClubDetailQuery(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery(clubDetailQueryOptions(client, clubId));
 }
 
 export function useClubPhotosQuery(clubId: number | undefined) {

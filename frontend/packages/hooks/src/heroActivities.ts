@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DuingApiClient } from '@duing/api';
 import type {
   CreateHeroActivityPayload,
   ReorderHeroActivitiesPayload,
@@ -8,9 +9,12 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 import { PUBLIC_CONTENT_STALE_TIME_MS } from './freshness';
 
-export function useClubHeroActivitiesQuery(clubId: number | undefined) {
-  const client = useApiClient();
-  return useQuery({
+/**
+ * 대표 활동 쿼리 옵션 — 훅(useClubHeroActivitiesQuery)과 탐색 카드 누름 선조회가 같은 키·조회·신선도를 쓴다(스펙 P1 §3.4).
+ * clubId 가 없으면 지금처럼 꺼진 쿼리다.
+ */
+export function clubHeroActivitiesQueryOptions(client: DuingApiClient, clubId: number | undefined) {
+  return queryOptions({
     queryKey:
       clubId !== undefined
         ? clubQueryKeys.heroActivities(clubId)
@@ -25,6 +29,11 @@ export function useClubHeroActivitiesQuery(clubId: number | undefined) {
     // 공개 콘텐츠 계층(freshness.ts) — 본인 수정은 mutation 무효화가 즉시 반영한다.
     staleTime: PUBLIC_CONTENT_STALE_TIME_MS,
   });
+}
+
+export function useClubHeroActivitiesQuery(clubId: number | undefined) {
+  const client = useApiClient();
+  return useQuery(clubHeroActivitiesQueryOptions(client, clubId));
 }
 
 export function useCreateHeroActivityMutation(clubId: number) {
