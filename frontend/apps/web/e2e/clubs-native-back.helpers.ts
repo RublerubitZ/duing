@@ -215,9 +215,12 @@ export function describeScrollRestoration(): void {
   });
 }
 
+// 라우트 공지 영역(ClubsRouteAnnouncer)은 ClubsSlotFrame 루트의 마지막 자식이다 — 자리까지 고정해 modal 안의 다른 role="status" 를 잡지 않는다.
+const OWN_ANNOUNCER_SELECTOR = '[data-clubs-slot] > [role="status"]:last-child';
+
 /** Next 공지기와 라이브 영역의 글자 변화를 rAF 마다 적는다(문서마다 새로 — addInitScript). */
 export async function recordRouteAnnouncements(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+  await page.addInitScript((ownAnnouncerSelector) => {
     const samples: AnnouncementSample[] = [];
     window.__clubsAnnouncements = samples;
     let lastNextText = '';
@@ -225,7 +228,7 @@ export async function recordRouteAnnouncements(page: Page): Promise<void> {
     const poll = () => {
       const nextText =
         document.querySelector('next-route-announcer')?.shadowRoot?.getElementById('__next-route-announcer__')?.textContent ?? '';
-      const ownText = document.querySelector('[data-clubs-slot] > [role="status"]')?.textContent ?? '';
+      const ownText = document.querySelector(ownAnnouncerSelector)?.textContent ?? '';
       if (nextText !== lastNextText) {
         samples.push({ t: performance.now(), source: 'next', text: nextText });
         lastNextText = nextText;
@@ -237,7 +240,7 @@ export async function recordRouteAnnouncements(page: Page): Promise<void> {
       requestAnimationFrame(poll);
     };
     requestAnimationFrame(poll);
-  });
+  }, OWN_ANNOUNCER_SELECTOR);
 }
 
 export async function markTime(page: Page): Promise<number> {
@@ -246,6 +249,17 @@ export async function markTime(page: Page): Promise<number> {
 
 /** [from, to) 사이 두 영역(Next 공지기·라이브 영역)에 나타난 비어 있지 않은 공지 — `출처:글자`. */
 export async function announcementsBetween(page: Page, from: number, to: number): Promise<string[]> {
+  // 기록기 자가 점검 — Next 공지기 노드(next-route-announcer 그림자 루트의 #__next-route-announcer__)나 라이브 영역 자리가 바뀌면(Next 업그레이드)
+  // 기록이 조용히 멈춰 '공지 없음' 만 남는다.
+  expect(
+    await page.evaluate(
+      (ownAnnouncerSelector) => [
+        document.querySelector('next-route-announcer')?.shadowRoot?.getElementById('__next-route-announcer__') instanceof HTMLElement,
+        document.querySelector(ownAnnouncerSelector) instanceof HTMLElement,
+      ],
+      OWN_ANNOUNCER_SELECTOR,
+    ),
+  ).toEqual([true, true]);
   const samples = await page.evaluate(() => window.__clubsAnnouncements ?? []);
   return samples
     .filter((sample) => sample.t >= from && sample.t < to && sample.text !== '')

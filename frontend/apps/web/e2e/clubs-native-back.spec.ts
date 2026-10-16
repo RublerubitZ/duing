@@ -151,6 +151,7 @@ test.describe('전체 페이지', () => {
     await page.goto(`/clubs/${clubId}/member/notices`);
     await expect(page).toHaveURL(new RegExp(`/clubs/${clubId}$`), { timeout: ROUTE_TIMEOUT_MS });
     await expect(page.locator('[data-clubs-slot="intercepted"] h1:visible')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+    // 같은 문구 토스트는 떠 있는 동안 겹쳐 뜨지 않아(ToastProvider dedupe) 0·1 만 관측된다 — 실제 반복 검출은 아래 replace 카운터다.
     await expect(page.getByRole('alert').filter({ hasText: '동아리 소개 페이지로 이동합니다.' })).toHaveCount(1);
 
     await page.waitForTimeout(2000);
@@ -184,6 +185,8 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
     await expect(page).toHaveURL(new RegExp(`/clubs/${MEMBER_CLUB_ID}$`));
     await expect(page.locator('[data-clubs-slot="intercepted"] h1:visible')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
     await expect(page.locator('[data-clubs-hidden-list]')).toHaveCount(0);
+    // 목록 UI(탐색 화면에만 있는 검색창)도 마운트되지 않았다 — 숨기지도, 보이게 그리지도 않는다(스펙 §3.2).
+    await expect(page.getByLabel('동아리 검색')).toHaveCount(0);
 
     await page.goBack();
     await waitForList(page);
@@ -219,7 +222,7 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     expect(back.map(announcedText)).toEqual([LIST_TITLE]);
   });
 
-  test('커밋 전 선조회 진입(누른 채 기다렸다 놓기) — 앞으로·뒤로 각각 한 번', async ({ page }) => {
+  test('커밋 전 진입 — 선조회 진입 → 소프트 뒤로 → 같은 카드 재진입(라우터 캐시 적중 = 커밋 전 진입): 재진입은 Next 공지기가 앞으로·뒤로 한 번씩 읽는다', async ({ page }) => {
     await recordRouteAnnouncements(page);
     await warmUpInterceptRoute(page);
     await gotoList(page);
@@ -230,8 +233,11 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     const box = await card.boundingBox();
     if (!box) throw new Error('카드 위치를 읽지 못했다');
 
+    // 첫 진입 — 누른 채 선조회 응답을 기다렸다 놓는다. dev 는 링크 프리페치가 없어 인터셉트 페이지 청크를 놓은 뒤에 받으므로 로딩 경계가 먼저
+    // 커밋돼 늦은 진입 갈래(라이브 영역)로 수렴한다 — 출처는 보지 않고 창마다 한 번만 본다.
     const detailArrived = page.waitForResponse(
       (response) => response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/v1/clubs/${clubId}`,
+      { timeout: ROUTE_TIMEOUT_MS },
     );
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     const forwardAt = await markTime(page);
@@ -245,13 +251,31 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     await waitForList(page);
     await expect(page).toHaveTitle(LIST_TITLE);
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+
+    // 재진입(라우터 캐시 적중) = 커밋 전 진입 — staleTimes.dynamic(180초) 안이라 RSC 를 다시 받지 않고, 청크·상세 쿼리(5분 신선)도 이미 있어 선조회가
+    // 요청을 내지 않는다. 커밋에 데이터가 실려 같은 커밋에서 제목이 바뀌므로 Next 공지기가 읽고 라이브 영역은 (a)·(b) 모두 침묵한다(스펙 §3.6).
+    const reentryAt = await markTime(page);
+    await card.click();
+    await expect(page).toHaveTitle(clubTitle, { timeout: ROUTE_TIMEOUT_MS });
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const reentryBackAt = await markTime(page);
+    await page.goBack();
+    await waitForList(page);
+    await expect(page).toHaveTitle(LIST_TITLE);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
     const endAt = await markTime(page);
 
     const forward = await announcementsBetween(page, forwardAt, backAt);
-    const back = await announcementsBetween(page, backAt, endAt);
-    console.log(`[공지] 선조회 진입 앞으로=${JSON.stringify(forward)} 뒤로=${JSON.stringify(back)}`);
+    const back = await announcementsBetween(page, backAt, reentryAt);
+    const reentryForward = await announcementsBetween(page, reentryAt, reentryBackAt);
+    const reentryBack = await announcementsBetween(page, reentryBackAt, endAt);
+    console.log(
+      `[공지] 선조회 진입 앞으로=${JSON.stringify(forward)} 뒤로=${JSON.stringify(back)} 재진입 앞으로=${JSON.stringify(reentryForward)} 뒤로=${JSON.stringify(reentryBack)}`,
+    );
     expect(forward.map(announcedText)).toEqual([clubTitle]);
     expect(back.map(announcedText)).toEqual([LIST_TITLE]);
+    expect(reentryForward).toEqual([`next:${clubTitle}`]);
+    expect(reentryBack).toEqual([`next:${LIST_TITLE}`]);
   });
 
   test('늦은 진입 뒤 라이트박스를 열고 닫은 다음 뒤로 — 뒤로는 목록 제목 한 번(라이트박스 닫기의 Next 재공지는 수용)', async ({ page, request }) => {
@@ -291,7 +315,9 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     console.log(`[공지] 라이트박스 앞으로=${JSON.stringify(forward)} 라이트박스=${JSON.stringify(lightbox)} 뒤로=${JSON.stringify(back)}`);
     expect(forward.map(announcedText)).toEqual([clubTitle]);
     // 라이트박스 닫기는 같은 주소 popstate — Next 가 트리를 복원하며 처음 동아리 제목을 읽어 한 번 더 알릴 수 있다(수용, 스펙 §3.6).
-    expect(lightbox.map(announcedText).filter((text) => text !== clubTitle)).toEqual([]);
+    // 라이브 영역은 침묵하고, Next 재공지는 동아리 제목 최대 한 번이다.
+    expect(lightbox.filter((entry) => entry !== `next:${clubTitle}`)).toEqual([]);
+    expect(lightbox.length).toBeLessThanOrEqual(1);
     expect(back.map(announcedText)).toEqual([LIST_TITLE]);
   });
 });
