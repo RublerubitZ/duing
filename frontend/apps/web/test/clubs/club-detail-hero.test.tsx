@@ -336,7 +336,7 @@ describe('ClubDetailHero — 커버 로드 페이드(iOS 깜빡임 P0 §6.2)', (
     expect(desktopCover).toHaveClass('opacity-50');
   });
 
-  // 실제 next/image 커버는 srcset+lazy 라 ref 시점 complete 가 대개 false 여서 재진입에도 짧게 페이드한다(훅 문서) — 여기선 판정 입력만 고정한다.
+  // 실제 next/image 커버는 srcset+lazy 라 ref 시점 complete 가 대개 false 여서 앞으로 이동으로 다시 들어와도 짧게 페이드한다(훅 문서) — 여기선 판정 입력만 고정한다.
   it('마운트 때 이미 complete(캐시 적중)인 커버는 숨기지 않는다', () => {
     vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
     const { container } = render(<ClubDetailHero club={{ ...baseClub, coverUrl: COVER }} />);
