@@ -190,6 +190,8 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
 
     await page.goBack();
     await waitForList(page);
+    // 대조 — 목록에서는 같은 라벨이 잡혀야 위의 0건 단언이 의미가 있다(라벨이 바뀌면 여기서 먼저 실패한다).
+    await expect(page.getByLabel('동아리 검색')).not.toHaveCount(0);
     await expect(page).toHaveURL(/\/clubs\?sort=ALPHABETICAL$/);
     await expect(page.locator('select:visible').first()).toHaveValue('ALPHABETICAL');
   });
@@ -254,6 +256,7 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
 
     // 재진입(라우터 캐시 적중) = 커밋 전 진입 — staleTimes.dynamic(180초) 안이라 RSC 를 다시 받지 않고, 청크·상세 쿼리(5분 신선)도 이미 있어 선조회가
     // 요청을 내지 않는다. 커밋에 데이터가 실려 같은 커밋에서 제목이 바뀌므로 Next 공지기가 읽고 라이브 영역은 (a)·(b) 모두 침묵한다(스펙 §3.6).
+    // 이 값이 줄어 재진입이 늦은 진입으로 바뀌면 출처가 own 으로 나와 실패한다 — 공지 회귀가 아니라 전제(next.config.mjs staleTimes·쿼리 신선도)가 깨진 것이다.
     const reentryAt = await markTime(page);
     await card.click();
     await expect(page).toHaveTitle(clubTitle, { timeout: ROUTE_TIMEOUT_MS });
